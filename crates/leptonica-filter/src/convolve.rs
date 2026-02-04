@@ -164,7 +164,7 @@ mod tests {
         // Create a pattern
         for y in 0..5 {
             for x in 0..5 {
-                let val = (x * 50 + y * 10) as u32;
+                let val = x * 50 + y * 10;
                 unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
             }
         }

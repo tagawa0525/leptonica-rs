@@ -594,11 +594,7 @@ mod tests {
     #[test]
     fn test_clear_border() {
         // Create an image with a region touching the border and one not
-        let mut pixels = Vec::new();
-
-        // Region touching left border
-        pixels.push((0, 2));
-        pixels.push((1, 2));
+        let mut pixels = vec![(0, 2), (1, 2)];
 
         // Region not touching border
         pixels.push((3, 3));

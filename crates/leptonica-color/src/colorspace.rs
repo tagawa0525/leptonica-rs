@@ -524,7 +524,7 @@ mod tests {
         assert_eq!(rgb_to_gray(0, 0, 0), 0);
         // Middle gray
         let gray = rgb_to_gray(128, 128, 128);
-        assert!(gray >= 127 && gray <= 129);
+        assert!((127..=129).contains(&gray));
     }
 
     #[test]

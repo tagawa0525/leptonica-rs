@@ -368,7 +368,7 @@ mod tests {
         // Set some pixels
         for y in 0..10 {
             for x in 0..10 {
-                pix_mut.set_pixel(x, y, ((x + y) * 10) as u32).unwrap();
+                pix_mut.set_pixel(x, y, (x + y) * 10).unwrap();
             }
         }
 

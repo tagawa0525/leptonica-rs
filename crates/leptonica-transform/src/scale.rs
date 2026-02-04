@@ -486,7 +486,7 @@ mod tests {
 
         for y in 0..4 {
             for x in 0..4 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (x + y * 4) as u32) };
+                unsafe { pix_mut.set_pixel_unchecked(x, y, x + y * 4) };
             }
         }
 
@@ -540,7 +540,7 @@ mod tests {
         for y in 0..4 {
             for x in 0..4 {
                 let val = (x + y * 4) * 16;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
             }
         }
 
@@ -583,7 +583,7 @@ mod tests {
         // Checkerboard pattern
         for y in 0..4 {
             for x in 0..4 {
-                let val = ((x + y) % 2) as u32;
+                let val = (x + y) % 2;
                 unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
             }
         }

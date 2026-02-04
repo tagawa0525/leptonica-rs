@@ -336,7 +336,7 @@ mod tests {
 
         for y in 0..10 {
             for x in 0..10 {
-                let val = (x * 25) as u32;
+                let val = x * 25;
                 unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
             }
         }

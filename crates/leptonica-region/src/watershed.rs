@@ -541,15 +541,15 @@ mod tests {
         let mut labels = std::collections::HashSet::new();
         for y in 0..5 {
             for x in 0..5 {
-                if let Some(label) = result.get_pixel(x, y) {
-                    if label > 0 {
-                        labels.insert(label);
-                    }
+                if let Some(label) = result.get_pixel(x, y)
+                    && label > 0
+                {
+                    labels.insert(label);
                 }
             }
         }
         // The corners should form basins
-        assert!(labels.len() >= 1);
+        assert!(!labels.is_empty());
     }
 
     #[test]
