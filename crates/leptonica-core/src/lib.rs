@@ -17,7 +17,7 @@ pub mod pta;
 pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::PixColormap;
 pub use error::{Error, Result};
-pub use pix::{ImageFormat, Pix, PixelDepth};
+pub use pix::{ImageFormat, Pix, PixMut, PixelDepth};
 pub use pta::{Pta, Ptaa};
 
 /// Color channel indices for 32-bit RGBA pixels
