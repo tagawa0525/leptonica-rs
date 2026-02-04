@@ -153,6 +153,7 @@ name = "leptonica-color"
 version = "0.1.0"
 dependencies = [
  "leptonica-core",
+ "thiserror",
 ]
 
 [[package]]
