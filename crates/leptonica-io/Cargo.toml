@@ -1,6 +1,6 @@
 [package]
 name = "leptonica-io"
-description = "Part of Leptonica image processing library"
+description = "Image I/O for Leptonica image processing library"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,3 +8,20 @@ repository.workspace = true
 
 [dependencies]
 leptonica-core.workspace = true
+thiserror.workspace = true
+
+# Optional image format support
+png = { workspace = true, optional = true }
+jpeg-decoder = { workspace = true, optional = true }
+gif = { workspace = true, optional = true }
+tiff = { workspace = true, optional = true }
+
+[features]
+default = ["bmp", "pnm", "png-format", "jpeg"]
+bmp = []
+pnm = []
+png-format = ["png"]
+jpeg = ["jpeg-decoder"]
+gif-format = ["gif"]
+tiff-format = ["tiff"]
+all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format", "tiff-format"]
