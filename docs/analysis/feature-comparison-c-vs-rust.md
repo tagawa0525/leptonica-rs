@@ -6,9 +6,9 @@
 
 | 項目 | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | ---- | ------------------------- | --------------------- |
-| ソースファイル数 | **182個** (.c) | **33個** (.rs) |
-| コード行数 | **約240,000行** | **約7,700行** |
-| 実装率（行数ベース） | 100% | **約3.2%** |
+| ソースファイル数 | **182個** (.c) | **49個** (.rs) |
+| コード行数 | **約240,000行** | **約15,400行** |
+| 実装率（行数ベース） | 100% | **約6.4%** |
 
 ## 機能カテゴリ別比較
 
@@ -90,43 +90,43 @@
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| 色空間変換 | ✅ colorspace.c | ❌ | スタブのみ |
-| 色量子化 | ✅ colorquant1-2.c | ❌ | スタブのみ |
-| 色セグメンテーション | ✅ colorseg.c | ❌ | スタブのみ |
-| 色内容抽出 | ✅ colorcontent.c | ❌ | スタブのみ |
-| 色塗りつぶし | ✅ colorfill.c | ❌ | スタブのみ |
-| 着色 | ✅ coloring.c | ❌ | スタブのみ |
+| 色空間変換 | ✅ colorspace.c | ✅ colorspace.rs | RGB↔HSV/LAB/XYZ/YUV |
+| 色量子化 | ✅ colorquant1-2.c | ✅ quantize.rs | Median cut, Octree |
+| 色セグメンテーション | ✅ colorseg.c | ❌ | 未実装 |
+| 色内容抽出 | ✅ colorcontent.c | ✅ analysis.rs | 色統計、色数カウント |
+| 色塗りつぶし | ✅ colorfill.c | ❌ | 未実装 |
+| 着色 | ✅ coloring.c | ❌ | 未実装 |
 
 ### 7. 二値化
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| 単純閾値処理 | ✅ binarize.c | ❌ | 未実装 |
-| Otsu二値化 | ✅ binarize.c | ❌ | 未実装 |
-| Sauvola二値化 | ✅ binarize.c | ❌ | 未実装 |
-| 適応二値化 | ✅ binarize.c | ❌ | 未実装 |
-| ディザリング | ✅ grayquant.c | ❌ | 未実装 |
+| 単純閾値処理 | ✅ binarize.c | ✅ threshold.rs | 完全実装 |
+| Otsu二値化 | ✅ binarize.c | ✅ threshold.rs | 完全実装 |
+| Sauvola二値化 | ✅ binarize.c | ✅ threshold.rs | 完全実装 |
+| 適応二値化 | ✅ binarize.c | ✅ threshold.rs | Mean/Gaussian |
+| ディザリング | ✅ grayquant.c | ✅ threshold.rs | Floyd-Steinberg, Bayer |
 
 ### 8. 領域処理
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| 連結成分 | ✅ conncomp.c | ❌ | スタブのみ |
-| 連結成分ラベリング | ✅ pixlabel.c | ❌ | スタブのみ |
-| 境界追跡 | ✅ ccbord.c | ❌ | スタブのみ |
-| シードフィル | ✅ seedfill.c | ❌ | スタブのみ |
-| 分水嶺変換 | ✅ watershed.c | ❌ | スタブのみ |
-| 四分木 | ✅ quadtree.c | ❌ | スタブのみ |
+| 連結成分 | ✅ conncomp.c | ✅ conncomp.rs | 4/8連結、Union-Find |
+| 連結成分ラベリング | ✅ pixlabel.c | ✅ label.rs | 完全実装 |
+| 境界追跡 | ✅ ccbord.c | ❌ | 未実装 |
+| シードフィル | ✅ seedfill.c | ✅ seedfill.rs | floodfill, 穴埋め |
+| 分水嶺変換 | ✅ watershed.c | ✅ watershed.rs | 完全実装 |
+| 四分木 | ✅ quadtree.c | ❌ | 未実装 |
 
 ### 9. 文書処理
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| ページセグメンテーション | ✅ pageseg.c | ❌ | 未実装 |
-| スキュー検出/補正 | ✅ skew.c | ❌ | 未実装 |
+| ページセグメンテーション | ✅ pageseg.c | ✅ pageseg.rs | ハーフトーン/テキスト検出 |
+| スキュー検出/補正 | ✅ skew.c | ✅ skew.rs | 微分二乗和スコアリング |
 | デワーピング | ✅ dewarp1-4.c | ❌ | 未実装 |
-| ベースライン検出 | ✅ baseline.c | ❌ | 未実装 |
-| 文字認識 | ✅ recogbasic.c, recogident.c | ❌ | スタブのみ |
+| ベースライン検出 | ✅ baseline.c | ✅ baseline.rs | 水平投影法 |
+| 文字認識 | ✅ recogbasic.c, recogident.c | ❌ | 型定義のみ |
 
 ### 10. その他
 
@@ -144,38 +144,38 @@
 
 ## Rust版クレート実装状況
 
-| クレート | 完成度 | 主要機能 |
-| -------- | ------ | -------- |
-| leptonica-core | ★★★★★ | Pix, Box, Pta, Colormap |
-| leptonica-io | ★★★★☆ | BMP/PNG/JPEG/PNM読み書き |
-| leptonica-transform | ★★★★★ | 回転（直交）、スケーリング |
-| leptonica-morph | ★★★★★ | 二値形態学操作 |
-| leptonica-filter | ★★★★★ | 畳み込み、エッジ検出 |
-| leptonica-color | ★☆☆☆☆ | スタブのみ |
-| leptonica-region | ★☆☆☆☆ | スタブのみ |
-| leptonica-recog | ★☆☆☆☆ | スタブのみ |
+| クレート | 行数 | 完成度 | 主要機能 |
+| -------- | ---- | ------ | -------- |
+| leptonica-core | 2,519 | ★★★★★ | Pix, Box, Pta, Colormap |
+| leptonica-io | 1,692 | ★★★★☆ | BMP/PNG/JPEG/PNM読み書き |
+| leptonica-transform | 1,509 | ★★★★★ | 回転（直交）、スケーリング |
+| leptonica-morph | 827 | ★★★★★ | 二値形態学操作 |
+| leptonica-filter | 917 | ★★★★★ | 畳み込み、エッジ検出 |
+| leptonica-color | 2,689 | ★★★★☆ | 色空間変換、二値化、量子化 |
+| leptonica-region | 2,385 | ★★★★☆ | 連結成分、シードフィル、分水嶺 |
+| leptonica-recog | 3,883 | ★★★☆☆ | スキュー補正、ベースライン、ページセグ |
 
 ## 実装優先度の推奨
 
 ### 高優先度（基本機能の補完）
 
-1. **二値化** - 画像処理の基本
+1. ~~**二値化** - 画像処理の基本~~ ✅ 完了
 2. **グレースケール形態学** - morph拡張
-3. **連結成分** - 領域処理の基礎
+3. ~~**連結成分** - 領域処理の基礎~~ ✅ 完了
 4. **TIFF I/O** - 重要なフォーマット
 
 ### 中優先度（よく使われる機能）
 
 1. **任意角度回転** - transform拡張
 2. **アフィン変換** - transform拡張
-3. **色空間変換** - color実装開始
+3. ~~**色空間変換** - color実装開始~~ ✅ 完了
 4. **画像比較** - テスト用にも有用
 5. **Pixa/Numa** - コレクション型
 
 ### 低優先度（専門的機能）
 
 1. **デワーピング** - 文書処理
-2. **文字認識** - OCR関連
+2. **文字認識** - OCR関連（型定義のみ完了）
 3. **バーコード** - 特殊用途
 4. **PDF/PS出力** - 特殊用途
 
