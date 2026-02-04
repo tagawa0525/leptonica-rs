@@ -1,0 +1,10 @@
+[package]
+name = "leptonica-morph"
+description = "Part of Leptonica image processing library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+leptonica-core.workspace = true
