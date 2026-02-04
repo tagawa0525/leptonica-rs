@@ -6,9 +6,9 @@
 
 | 項目 | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | ---- | ------------------------- | --------------------- |
-| ソースファイル数 | **182個** (.c) | **49個** (.rs) |
-| コード行数 | **約240,000行** | **約15,400行** |
-| 実装率（行数ベース） | 100% | **約6.4%** |
+| ソースファイル数 | **182個** (.c) | **56個** (.rs) |
+| コード行数 | **約240,000行** | **約20,200行** |
+| 実装率（行数ベース） | 100% | **約8.4%** |
 
 ## 機能カテゴリ別比較
 
@@ -33,7 +33,7 @@
 | PNG | ✅ pngio.c | ✅ png.rs | feature gate |
 | JPEG | ✅ jpegio.c | ✅ jpeg.rs | feature gate |
 | PNM (PBM/PGM/PPM) | ✅ pnmio.c | ✅ pnm.rs | feature gate |
-| TIFF | ✅ tiffio.c | ❌ | 未実装 |
+| TIFF | ✅ tiffio.c | ✅ tiff.rs | feature gate、マルチページ対応 |
 | GIF | ✅ gifio.c | ❌ | 未実装 |
 | WebP | ✅ webpio.c, webpanimio.c | ❌ | 未実装 |
 | JP2K (JPEG2000) | ✅ jp2kio.c | ❌ | 未実装 |
@@ -126,9 +126,15 @@
 | スキュー検出/補正 | ✅ skew.c | ✅ skew.rs | 微分二乗和スコアリング |
 | デワーピング | ✅ dewarp1-4.c | ❌ | 未実装 |
 | ベースライン検出 | ✅ baseline.c | ✅ baseline.rs | 水平投影法 |
-| 文字認識 | ✅ recogbasic.c, recogident.c | ❌ | 型定義のみ |
+| 文字認識 | ✅ recogbasic.c, recogident.c | ✅ recog/ | テンプレートマッチング、DID |
 
-### 10. その他
+### 10. JBIG2関連
+
+| 機能 | C版 | Rust版 | 備考 |
+| ---- | --- | ------ | ---- |
+| JBIG2分類 | ✅ jbclass.c | ✅ jbclass/ | RankHaus, 相関ベース分類 |
+
+### 11. その他
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
@@ -147,13 +153,13 @@
 | クレート | 行数 | 完成度 | 主要機能 |
 | -------- | ---- | ------ | -------- |
 | leptonica-core | 2,519 | ★★★★★ | Pix, Box, Pta, Colormap |
-| leptonica-io | 1,692 | ★★★★☆ | BMP/PNG/JPEG/PNM読み書き |
+| leptonica-io | 2,795 | ★★★★★ | BMP/PNG/JPEG/PNM/TIFF読み書き |
 | leptonica-transform | 1,509 | ★★★★★ | 回転（直交）、スケーリング |
 | leptonica-morph | 827 | ★★★★★ | 二値形態学操作 |
 | leptonica-filter | 917 | ★★★★★ | 畳み込み、エッジ検出 |
 | leptonica-color | 2,689 | ★★★★☆ | 色空間変換、二値化、量子化 |
 | leptonica-region | 2,385 | ★★★★☆ | 連結成分、シードフィル、分水嶺 |
-| leptonica-recog | 3,883 | ★★★☆☆ | スキュー補正、ベースライン、ページセグ |
+| leptonica-recog | 6,580 | ★★★★☆ | スキュー補正、ベースライン、ページセグ、文字認識、JBIG2分類 |
 
 ## 実装優先度の推奨
 
@@ -162,7 +168,7 @@
 1. ~~**二値化** - 画像処理の基本~~ ✅ 完了
 2. **グレースケール形態学** - morph拡張
 3. ~~**連結成分** - 領域処理の基礎~~ ✅ 完了
-4. **TIFF I/O** - 重要なフォーマット
+4. ~~**TIFF I/O** - 重要なフォーマット~~ ✅ 完了
 
 ### 中優先度（よく使われる機能）
 
@@ -175,9 +181,10 @@
 ### 低優先度（専門的機能）
 
 1. **デワーピング** - 文書処理
-2. **文字認識** - OCR関連（型定義のみ完了）
-3. **バーコード** - 特殊用途
-4. **PDF/PS出力** - 特殊用途
+2. ~~**文字認識** - OCR関連~~ ✅ 完了（テンプレートマッチング、DID）
+3. ~~**JBIG2分類** - 圧縮用クラスタリング~~ ✅ 完了
+4. **バーコード** - 特殊用途
+5. **PDF/PS出力** - 特殊用途
 
 ## C版機能カテゴリ（182ファイル）
 
@@ -197,6 +204,7 @@ I/O:          bmpio, pngio, jpegio, pnmio, tiffio, gifio, webpio, jp2kio,
 領域処理:     conncomp, ccbord, seedfill, watershed, pixlabel, quadtree
 文書処理:     pageseg, skew, dewarp1-4, baseline
 認識:         recogbasic, recogdid, recogident, recogtrain
+JBIG2:        jbclass
 その他:       compare, blend, pixarith, rop, bardecode, graphics, maze, warper
 ```
 
