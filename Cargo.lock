@@ -187,6 +187,7 @@ dependencies = [
  "jpeg-decoder",
  "leptonica-color",
  "leptonica-core",
+ "leptonica-test",
  "png",
  "thiserror",
  "tiff",
@@ -197,6 +198,8 @@ name = "leptonica-morph"
 version = "0.1.0"
 dependencies = [
  "leptonica-core",
+ "leptonica-io",
+ "leptonica-test",
  "thiserror",
 ]
 
@@ -217,6 +220,17 @@ name = "leptonica-region"
 version = "0.1.0"
 dependencies = [
  "leptonica-core",
+ "leptonica-io",
+ "leptonica-test",
+ "thiserror",
+]
+
+[[package]]
+name = "leptonica-test"
+version = "0.1.0"
+dependencies = [
+ "leptonica-core",
+ "leptonica-io",
  "thiserror",
 ]
 

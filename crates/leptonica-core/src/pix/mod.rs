@@ -111,6 +111,34 @@ pub enum ImageFormat {
     Spix = 19,
 }
 
+impl ImageFormat {
+    /// Get the file extension for this format
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Unknown => "dat",
+            Self::Bmp => "bmp",
+            Self::Jpeg => "jpg",
+            Self::Png => "png",
+            Self::Tiff
+            | Self::TiffPackbits
+            | Self::TiffRle
+            | Self::TiffG3
+            | Self::TiffG4
+            | Self::TiffLzw
+            | Self::TiffZip
+            | Self::TiffJpeg => "tif",
+            Self::Pnm => "pnm",
+            Self::Ps => "ps",
+            Self::Gif => "gif",
+            Self::Jp2 => "jp2",
+            Self::WebP => "webp",
+            Self::Lpdf => "pdf",
+            Self::Default => "png",
+            Self::Spix => "spix",
+        }
+    }
+}
+
 /// Internal PIX data
 #[derive(Debug)]
 struct PixData {

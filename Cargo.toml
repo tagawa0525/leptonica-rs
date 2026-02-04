@@ -10,6 +10,7 @@ members = [
     "crates/leptonica-region",
     "crates/leptonica-doc",
     "crates/leptonica-recog",
+    "crates/leptonica-test",
     "leptonica",
 ]
 
@@ -30,6 +31,7 @@ leptonica-color = { path = "crates/leptonica-color" }
 leptonica-region = { path = "crates/leptonica-region" }
 leptonica-doc = { path = "crates/leptonica-doc" }
 leptonica-recog = { path = "crates/leptonica-recog" }
+leptonica-test = { path = "crates/leptonica-test" }
 
 # External dependencies
 thiserror = "2.0.18"
