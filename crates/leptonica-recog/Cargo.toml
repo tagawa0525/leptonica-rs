@@ -11,4 +11,5 @@ leptonica-core.workspace = true
 leptonica-transform.workspace = true
 leptonica-morph.workspace = true
 leptonica-region.workspace = true
+leptonica-color.workspace = true
 thiserror.workspace = true
