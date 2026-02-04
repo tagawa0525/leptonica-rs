@@ -17,6 +17,9 @@ pub mod png;
 #[cfg(feature = "jpeg")]
 pub mod jpeg;
 
+#[cfg(feature = "tiff-format")]
+pub mod tiff;
+
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
@@ -71,6 +74,16 @@ pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
         #[cfg(feature = "jpeg")]
         ImageFormat::Jpeg => jpeg::read_jpeg(reader),
 
+        #[cfg(feature = "tiff-format")]
+        ImageFormat::Tiff
+        | ImageFormat::TiffG3
+        | ImageFormat::TiffG4
+        | ImageFormat::TiffRle
+        | ImageFormat::TiffPackbits
+        | ImageFormat::TiffLzw
+        | ImageFormat::TiffZip
+        | ImageFormat::TiffJpeg => tiff::read_tiff(reader),
+
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
 }
@@ -78,18 +91,37 @@ pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
 /// Write an image to a file path
 pub fn write_image<P: AsRef<Path>>(pix: &Pix, path: P, format: ImageFormat) -> IoResult<()> {
     let file = File::create(path).map_err(IoError::Io)?;
+
+    // TIFF requires Seek, so handle it specially
+    #[cfg(feature = "tiff-format")]
+    if let Some(compression) = tiff::TiffCompression::from_image_format(format) {
+        let writer = BufWriter::new(file);
+        return tiff::write_tiff(pix, writer, compression);
+    }
+
     let writer = BufWriter::new(file);
     write_image_format(pix, writer, format)
 }
 
 /// Write an image to bytes
 pub fn write_image_mem(pix: &Pix, format: ImageFormat) -> IoResult<Vec<u8>> {
+    // TIFF requires Seek, so handle it specially with Cursor
+    #[cfg(feature = "tiff-format")]
+    if let Some(compression) = tiff::TiffCompression::from_image_format(format) {
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        tiff::write_tiff(pix, &mut cursor, compression)?;
+        return Ok(cursor.into_inner());
+    }
+
     let mut buffer = Vec::new();
     write_image_format(pix, &mut buffer, format)?;
     Ok(buffer)
 }
 
 /// Write an image with a specific format
+///
+/// Note: TIFF format requires a seekable writer. Use `write_image` for file output
+/// or `write_image_mem` for in-memory output, or use `tiff::write_tiff` directly.
 pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -> IoResult<()> {
     match format {
         #[cfg(feature = "bmp")]
@@ -100,6 +132,21 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
 
         #[cfg(feature = "png-format")]
         ImageFormat::Png => png::write_png(pix, writer),
+
+        #[cfg(feature = "tiff-format")]
+        ImageFormat::Tiff
+        | ImageFormat::TiffG3
+        | ImageFormat::TiffG4
+        | ImageFormat::TiffRle
+        | ImageFormat::TiffPackbits
+        | ImageFormat::TiffLzw
+        | ImageFormat::TiffZip
+        | ImageFormat::TiffJpeg => {
+            // TIFF requires Seek trait. Use write_image or write_image_mem instead.
+            Err(IoError::UnsupportedFormat(
+                "TIFF requires seekable writer; use write_image or write_image_mem".to_string(),
+            ))
+        }
 
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }

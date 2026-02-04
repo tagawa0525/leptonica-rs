@@ -183,6 +183,7 @@ name = "leptonica-io"
 version = "0.1.0"
 dependencies = [
  "gif",
+ "half",
  "jpeg-decoder",
  "leptonica-core",
  "png",

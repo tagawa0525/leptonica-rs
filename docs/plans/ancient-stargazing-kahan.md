@@ -1,11 +1,12 @@
-# leptonica-recog 実装計画
+# leptonica-rs 実装計画
 
 ## 概要
 
-Phase 8: leptonica-recog クレートの実装。
+leptonica-rs の継続的な機能拡張計画。
 
 - **Phase 1** ✅完了: OCR前処理機能（スキュー検出・補正、ベースライン検出、ページセグメンテーション）
 - **Phase 2** ✅完了: 文字認識（Character Recognition）とJBIG2分類
+- **Phase 3** 🔄実装中: TIFF I/O（leptonica-io拡張）
 
 ---
 
@@ -762,3 +763,213 @@ thiserror.workspace = true
 ---
 
 ## Phase 1 詳細（完了済み）
+
+（省略 - Phase 1はスキュー検出、ベースライン検出、ページセグメンテーションを実装済み）
+
+---
+
+## Phase 3: TIFF I/O
+
+### TIFF機能概要
+
+leptonica-io クレートにTIFFフォーマットのサポートを追加する。
+
+**目標:**
+
+- 単一ページおよびマルチページTIFFの読み書き
+- 複数の圧縮形式サポート（G4, LZW, ZIP等）
+- 既存のI/Oパターンに準拠したAPI設計
+
+### モジュール構成
+
+```text
+crates/leptonica-io/src/
+├── lib.rs          # 編集（tiffモジュール追加）
+├── format.rs       # 既存（TIFFマジックナンバー検出済み）
+├── error.rs        # 既存
+├── bmp.rs          # 既存
+├── png.rs          # 既存（参考パターン）
+├── jpeg.rs         # 既存
+├── pnm.rs          # 既存
+└── tiff.rs         # 新規作成
+```
+
+### 実装スコープ
+
+#### 1. TiffCompression列挙型
+
+```rust
+/// TIFF圧縮形式
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TiffCompression {
+    #[default]
+    None,       // 非圧縮
+    G3,         // CCITT Group 3 (ファックス)
+    G4,         // CCITT Group 4 (最も効率的なバイナリ圧縮)
+    Rle,        // Run-Length Encoding
+    PackBits,   // PackBits
+    Lzw,        // LZW
+    Zip,        // Adobe DEFLATE (ZIP)
+}
+```
+
+#### 2. 主要関数
+
+```rust
+/// 単一ページTIFFを読み込み
+pub fn read_tiff<R: Read + Seek>(reader: R) -> IoResult<Pix>;
+
+/// 指定ページのTIFFを読み込み
+pub fn read_tiff_page<R: Read + Seek>(reader: R, page: usize) -> IoResult<Pix>;
+
+/// 単一ページTIFFを書き込み
+pub fn write_tiff<W: Write + Seek>(
+    pix: &Pix,
+    writer: W,
+    compression: TiffCompression,
+) -> IoResult<()>;
+
+/// マルチページTIFFの全ページを読み込み
+pub fn read_tiff_multipage<R: Read + Seek>(reader: R) -> IoResult<Vec<Pix>>;
+
+/// マルチページTIFFを書き込み
+pub fn write_tiff_multipage<W: Write + Seek>(
+    pages: &[&Pix],
+    writer: W,
+    compression: TiffCompression,
+) -> IoResult<()>;
+
+/// TIFFファイルのページ数を取得
+pub fn tiff_page_count<R: Read + Seek>(reader: R) -> IoResult<usize>;
+
+/// TIFFメタデータ（解像度）を取得
+pub fn tiff_resolution<R: Read + Seek>(reader: R) -> IoResult<Option<(f32, f32)>>;
+```
+
+#### 3. lib.rs への統合
+
+```rust
+#[cfg(feature = "tiff-format")]
+pub mod tiff;
+#[cfg(feature = "tiff-format")]
+pub use tiff::*;
+
+// read_image_format() 内
+#[cfg(feature = "tiff-format")]
+ImageFormat::Tiff | ImageFormat::TiffG3 | ImageFormat::TiffG4 |
+ImageFormat::TiffRle | ImageFormat::TiffPackbits |
+ImageFormat::TiffLzw | ImageFormat::TiffZip => {
+    tiff::read_tiff(reader)
+}
+```
+
+### ビット深度サポート
+
+| ビット深度      | 読み込み | 書き込み | 備考            |
+| --------------- | -------- | -------- | --------------- |
+| 1-bit           | ✅       | ✅       | G4圧縮推奨      |
+| 8-bit グレー    | ✅       | ✅       | LZW/ZIP推奨     |
+| 24-bit RGB      | ✅       | ✅       | LZW/ZIP推奨     |
+| 32-bit RGBA     | ✅       | ✅       | LZW/ZIP推奨     |
+
+### 圧縮形式マッピング
+
+| TiffCompression | ImageFormat    | 用途               |
+| --------------- | -------------- | ------------------ |
+| None            | Tiff           | 非圧縮             |
+| G3              | TiffG3         | ファックス互換     |
+| G4              | TiffG4         | 1-bitバイナリ最適  |
+| Rle             | TiffRle        | 単純なRLE          |
+| PackBits        | TiffPackbits   | Mac互換            |
+| Lzw             | TiffLzw        | 汎用圧縮           |
+| Zip             | TiffZip        | 最新の汎用圧縮     |
+
+### ファイル構成
+
+| ファイル                           | 操作                   |
+| ---------------------------------- | ---------------------- |
+| `crates/leptonica-io/src/tiff.rs`  | 新規作成               |
+| `crates/leptonica-io/src/lib.rs`   | 編集（モジュール追加） |
+| `crates/leptonica-io/Cargo.toml`   | 確認（tiff依存既存）   |
+
+### Tiff依存関係
+
+```toml
+# Cargo.toml（既存）
+[dependencies]
+tiff = { version = "0.11.2", optional = true }
+
+[features]
+tiff-format = ["tiff"]
+all-formats = ["png-format", "jpeg-format", "pnm-format", "tiff-format"]
+```
+
+### 実装フェーズ
+
+#### フェーズ1: 基本サポート（必須）
+
+- [x] `read_tiff()` - 単一ページ読み込み
+- [x] `write_tiff()` - 単一ページ書き込み（非圧縮、G4）
+- [x] 1/8/24/32-bitサポート
+- [x] lib.rs統合
+- [x] 基本テスト
+
+#### フェーズ2: 圧縮サポート
+
+- [x] 追加圧縮形式（LZW, ZIP, PackBits, G3, RLE）
+- [x] 読み込み時の圧縮自動検出
+- [x] 各圧縮形式のテスト
+
+#### フェーズ3: マルチページ
+
+- [x] `read_tiff_multipage()`
+- [x] `write_tiff_multipage()`
+- [x] `tiff_page_count()`
+- [x] `read_tiff_page()`
+
+#### フェーズ4: メタデータ（オプション）
+
+- [x] `tiff_resolution()` - DPI取得
+- [x] 解像度設定での書き込み
+
+### 参照実装
+
+- `/home/tagawa/github/leptonica-rs/reference/leptonica/src/tiffio.c` - C実装
+- `/home/tagawa/github/leptonica-rs/crates/leptonica-io/src/png.rs` - パターン参考
+- `/home/tagawa/github/leptonica-rs/crates/leptonica-core/src/pix/mod.rs` - ImageFormat
+
+### Tiff検証方法
+
+1. **ユニットテスト**
+   - ラウンドトリップテスト（書き込み→読み込み）
+   - 各ビット深度でのテスト
+   - 各圧縮形式でのテスト
+   - マルチページテスト
+
+2. **ビルド確認**
+
+   ```bash
+   cargo build -p leptonica-io --features tiff-format
+   cargo test -p leptonica-io --features tiff-format
+   ```
+
+3. **統合テスト**
+
+   ```bash
+   cargo build --workspace
+   cargo test --workspace --features all-formats
+   ```
+
+## 見積もりテスト数
+
+- 読み込みテスト: 4-6（ビット深度別）
+- 書き込みテスト: 4-6（ビット深度別）
+- 圧縮テスト: 6-8（形式別）
+- マルチページテスト: 3-4
+- **合計: 17-24テスト**
+
+## 見積もり行数
+
+- tiff.rs: 400-600行
+- lib.rs変更: 20-30行
+- **合計: 420-630行**
