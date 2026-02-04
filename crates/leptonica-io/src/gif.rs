@@ -312,7 +312,7 @@ mod tests {
         // Fill with pattern
         for y in 0..10 {
             for x in 0..10 {
-                let val = ((x + y) % 4) as u32;
+                let val = (x + y) % 4;
                 pix_mut.set_pixel(x, y, val).unwrap();
             }
         }
@@ -362,7 +362,7 @@ mod tests {
         // Checkerboard pattern
         for y in 0..16 {
             for x in 0..16 {
-                let val = ((x + y) % 2) as u32;
+                let val = (x + y) % 2;
                 pix_mut.set_pixel(x, y, val).unwrap();
             }
         }
@@ -399,7 +399,7 @@ mod tests {
 
         for y in 0..8 {
             for x in 0..8 {
-                let val = ((x + y) % 4) as u32;
+                let val = (x + y) % 4;
                 pix_mut.set_pixel(x, y, val).unwrap();
             }
         }
@@ -435,7 +435,7 @@ mod tests {
 
         for y in 0..8 {
             for x in 0..8 {
-                let val = ((x + y) % 16) as u32;
+                let val = (x + y) % 16;
                 pix_mut.set_pixel(x, y, val).unwrap();
             }
         }
@@ -465,7 +465,7 @@ mod tests {
 
         for y in 0..8 {
             for x in 0..8 {
-                let val = ((x + y) * 16) as u32;
+                let val = (x + y) * 16;
                 pix_mut.set_pixel(x, y, val).unwrap();
             }
         }
@@ -488,7 +488,7 @@ mod tests {
 
         for y in 0..4 {
             for x in 0..4 {
-                let val = ((x + y) * 16384) as u32; // 16-bit values
+                let val = (x + y) * 16384; // 16-bit values
                 pix_mut.set_pixel(x, y, val).unwrap();
             }
         }
