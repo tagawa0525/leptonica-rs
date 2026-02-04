@@ -606,12 +606,12 @@ fn detect_vertical_whitespace(pix: &Pix) -> RecogResult<Pix> {
                 }
             } else {
                 // Black pixel - check if we had a significant gap
-                if let Some(start) = gap_start {
-                    if y - start >= min_gap {
-                        // Mark this gap as vertical whitespace
-                        for gy in start..y {
-                            unsafe { vws_mut.set_pixel_unchecked(x, gy, 1) };
-                        }
+                if let Some(start) = gap_start
+                    && y - start >= min_gap
+                {
+                    // Mark this gap as vertical whitespace
+                    for gy in start..y {
+                        unsafe { vws_mut.set_pixel_unchecked(x, gy, 1) };
                     }
                 }
                 gap_start = None;
@@ -619,11 +619,11 @@ fn detect_vertical_whitespace(pix: &Pix) -> RecogResult<Pix> {
         }
 
         // Check final gap
-        if let Some(start) = gap_start {
-            if h - start >= min_gap {
-                for gy in start..h {
-                    unsafe { vws_mut.set_pixel_unchecked(x, gy, 1) };
-                }
+        if let Some(start) = gap_start
+            && h - start >= min_gap
+        {
+            for gy in start..h {
+                unsafe { vws_mut.set_pixel_unchecked(x, gy, 1) };
             }
         }
     }

@@ -43,6 +43,7 @@ pub fn threshold_to_binary(pix: &Pix, threshold: u8) -> ColorResult<Pix> {
 /// Compute Otsu's threshold for a grayscale image
 ///
 /// Returns the optimal threshold that minimizes intra-class variance.
+#[allow(clippy::needless_range_loop)]
 pub fn compute_otsu_threshold(pix: &Pix) -> ColorResult<u8> {
     let gray_pix = ensure_grayscale(pix)?;
 
@@ -151,7 +152,7 @@ impl Default for AdaptiveThresholdOptions {
 ///
 /// Computes a local threshold for each pixel based on its neighborhood.
 pub fn adaptive_threshold(pix: &Pix, options: &AdaptiveThresholdOptions) -> ColorResult<Pix> {
-    if options.window_size % 2 == 0 {
+    if options.window_size.is_multiple_of(2) {
         return Err(ColorError::InvalidParameters(
             "window_size must be odd".to_string(),
         ));
@@ -236,7 +237,7 @@ fn compute_mean_from_integral(
 /// Better for document images with varying illumination.
 /// Threshold = mean * (1 + k * (std / R - 1))
 pub fn sauvola_threshold(pix: &Pix, window_size: u32, k: f32, r: f32) -> ColorResult<Pix> {
-    if window_size % 2 == 0 {
+    if window_size.is_multiple_of(2) {
         return Err(ColorError::InvalidParameters(
             "window_size must be odd".to_string(),
         ));

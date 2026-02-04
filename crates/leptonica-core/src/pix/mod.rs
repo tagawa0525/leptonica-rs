@@ -231,13 +231,8 @@ impl Pix {
         let wpl = Self::compute_wpl(width, depth);
         let data_size = (wpl as usize) * (height as usize);
 
-        // Use with_capacity + set_len for uninitialized data
-        let mut data = Vec::with_capacity(data_size);
-        // Safety: We're treating this as uninitialized data
-        // The caller must fill all pixels before reading
-        unsafe {
-            data.set_len(data_size);
-        }
+        // Initialize data with zeros
+        let data = vec![0u32; data_size];
 
         let spp = match depth {
             PixelDepth::Bit32 => 3,
@@ -268,7 +263,7 @@ impl Pix {
     #[inline]
     fn compute_wpl(width: u32, depth: PixelDepth) -> u32 {
         let bits_per_line = width * depth.bits();
-        (bits_per_line + 31) / 32
+        bits_per_line.div_ceil(32)
     }
 
     /// Get the image width in pixels

@@ -7,19 +7,15 @@ use crate::{MorphError, MorphResult};
 /// Element type in a structuring element
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum SelElement {
     /// Don't care - this position is ignored
+    #[default]
     DontCare = 0,
     /// Hit - must match foreground (set pixels)
     Hit = 1,
     /// Miss - must match background (unset pixels)
     Miss = 2,
-}
-
-impl Default for SelElement {
-    fn default() -> Self {
-        SelElement::DontCare
-    }
 }
 
 /// Structuring Element (SEL)

@@ -489,11 +489,9 @@ impl Octree {
             return;
         }
 
-        for child_opt in &mut node.children {
-            if let Some(child) = child_opt {
-                let child_ptr = child.as_mut() as *mut OctreeNode;
-                self.build_palette_impl(child_ptr, palette);
-            }
+        for child in node.children.iter_mut().flatten() {
+            let child_ptr = child.as_mut() as *mut OctreeNode;
+            self.build_palette_impl(child_ptr, palette);
         }
     }
 
@@ -519,12 +517,11 @@ impl Octree {
             self.get_palette_index_impl(child, r, g, b, level + 1)
         } else {
             // Fallback: find first available child
-            for child_opt in &node.children {
-                if let Some(child) = child_opt {
-                    return self.get_palette_index_impl(child, r, g, b, level + 1);
-                }
+            if let Some(child) = node.children.iter().flatten().next() {
+                self.get_palette_index_impl(child, r, g, b, level + 1)
+            } else {
+                0
             }
-            0
         }
     }
 }

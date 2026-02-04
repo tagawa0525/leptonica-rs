@@ -165,7 +165,7 @@ pub fn get_local_skew_angles(
     num_slices: u32,
     sweep_range: f32,
 ) -> RecogResult<Vec<f32>> {
-    if num_slices < 2 || num_slices > 20 {
+    if !(2..=20).contains(&num_slices) {
         return Err(RecogError::InvalidParameter(
             "num_slices must be between 2 and 20".to_string(),
         ));
@@ -419,6 +419,7 @@ fn find_endpoints(
 }
 
 /// Filter baselines that don't have valid endpoints
+#[allow(clippy::type_complexity)]
 fn filter_baselines(
     baselines: Vec<i32>,
     endpoints: Vec<Option<(i32, i32, i32, i32)>>,

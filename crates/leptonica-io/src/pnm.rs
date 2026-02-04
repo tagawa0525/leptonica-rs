@@ -179,7 +179,7 @@ fn read_pbm_binary<R: Read>(
     width: u32,
     height: u32,
 ) -> IoResult<()> {
-    let row_bytes = (width + 7) / 8;
+    let row_bytes = width.div_ceil(8);
     let mut row_buffer = vec![0u8; row_bytes as usize];
 
     for y in 0..height {
@@ -353,7 +353,7 @@ pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     // Write header
     writer.write_all(pnm_type.magic()).map_err(IoError::Io)?;
     writer.write_all(b"\n").map_err(IoError::Io)?;
-    write!(writer, "{} {}\n", width, height).map_err(IoError::Io)?;
+    writeln!(writer, "{} {}", width, height).map_err(IoError::Io)?;
 
     match pnm_type {
         PnmType::PbmBinary => {
@@ -368,18 +368,18 @@ pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     // Write pixel data
     match pnm_type {
         PnmType::PbmBinary => {
-            let row_bytes = (width + 7) / 8;
+            let row_bytes = width.div_ceil(8);
             let mut row_buffer = vec![0u8; row_bytes as usize];
 
             for y in 0..height {
                 row_buffer.fill(0);
                 for x in 0..width {
-                    if let Some(val) = pix.get_pixel(x, y) {
-                        if val != 0 {
-                            let byte_idx = (x / 8) as usize;
-                            let bit_idx = 7 - (x % 8);
-                            row_buffer[byte_idx] |= 1 << bit_idx;
-                        }
+                    if let Some(val) = pix.get_pixel(x, y)
+                        && val != 0
+                    {
+                        let byte_idx = (x / 8) as usize;
+                        let bit_idx = 7 - (x % 8);
+                        row_buffer[byte_idx] |= 1 << bit_idx;
                     }
                 }
                 writer.write_all(&row_buffer).map_err(IoError::Io)?;

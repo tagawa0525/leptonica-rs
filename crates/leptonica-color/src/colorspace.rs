@@ -204,7 +204,7 @@ pub fn rgb_to_xyz(r: u8, g: u8, b: u8) -> Xyz {
     // sRGB to XYZ matrix (D65)
     let x = 0.4124564 * r + 0.3575761 * g + 0.1804375 * b;
     let y = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b;
-    let z = 0.0193339 * r + 0.1191920 * g + 0.9503041 * b;
+    let z = 0.0193339 * r + 0.119_192 * g + 0.9503041 * b;
 
     Xyz::new(x * 100.0, y * 100.0, z * 100.0)
 }
@@ -217,7 +217,7 @@ pub fn xyz_to_rgb(xyz: Xyz) -> (u8, u8, u8) {
 
     // XYZ to sRGB matrix (D65)
     let r = 3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
-    let g = -0.9692660 * x + 1.8760108 * y + 0.0415560 * z;
+    let g = -0.969_266 * x + 1.8760108 * y + 0.0415560 * z;
     let b = 0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
 
     // Apply sRGB gamma and convert to u8

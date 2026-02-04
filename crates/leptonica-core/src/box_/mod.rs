@@ -347,7 +347,7 @@ impl Boxa {
         if ascending {
             self.boxes.sort_by_key(|b| b.area());
         } else {
-            self.boxes.sort_by(|a, b| b.area().cmp(&a.area()));
+            self.boxes.sort_by_key(|b| std::cmp::Reverse(b.area()));
         }
     }
 

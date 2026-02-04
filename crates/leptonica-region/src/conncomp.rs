@@ -179,40 +179,38 @@ pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> 
             // For 8-way: check left, top-left, top, top-right
 
             // Left neighbor
-            if x > 0 {
-                if let Some(label) = output.get_pixel(x - 1, y) {
-                    if label > 0 {
-                        neighbors.push(label);
-                    }
-                }
+            if x > 0
+                && let Some(label) = output.get_pixel(x - 1, y)
+                && label > 0
+            {
+                neighbors.push(label);
             }
 
             // Top neighbor
-            if y > 0 {
-                if let Some(label) = output.get_pixel(x, y - 1) {
-                    if label > 0 {
-                        neighbors.push(label);
-                    }
-                }
+            if y > 0
+                && let Some(label) = output.get_pixel(x, y - 1)
+                && label > 0
+            {
+                neighbors.push(label);
             }
 
             if connectivity == ConnectivityType::EightWay {
                 // Top-left neighbor
-                if x > 0 && y > 0 {
-                    if let Some(label) = output.get_pixel(x - 1, y - 1) {
-                        if label > 0 {
-                            neighbors.push(label);
-                        }
-                    }
+                if x > 0
+                    && y > 0
+                    && let Some(label) = output.get_pixel(x - 1, y - 1)
+                    && label > 0
+                {
+                    neighbors.push(label);
                 }
 
                 // Top-right neighbor
-                if x + 1 < width && y > 0 {
-                    if let Some(label) = output.get_pixel(x + 1, y - 1) {
-                        if label > 0 {
-                            neighbors.push(label);
-                        }
-                    }
+                if x + 1 < width
+                    && y > 0
+                    && let Some(label) = output.get_pixel(x + 1, y - 1)
+                    && label > 0
+                {
+                    neighbors.push(label);
                 }
             }
 
@@ -240,16 +238,16 @@ pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> 
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = output.get_pixel(x, y) {
-                if label > 0 {
-                    let root = uf.find(label);
-                    let mapped = *label_map.entry(root).or_insert_with(|| {
-                        let l = final_label;
-                        final_label += 1;
-                        l
-                    });
-                    let _ = output.set_pixel(x, y, mapped);
-                }
+            if let Some(label) = output.get_pixel(x, y)
+                && label > 0
+            {
+                let root = uf.find(label);
+                let mapped = *label_map.entry(root).or_insert_with(|| {
+                    let l = final_label;
+                    final_label += 1;
+                    l
+                });
+                let _ = output.set_pixel(x, y, mapped);
             }
         }
     }
@@ -268,17 +266,17 @@ fn extract_components_from_labels(labeled: &Pix) -> RegionResult<Vec<ConnectedCo
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 {
-                    let entry = stats
-                        .entry(label)
-                        .or_insert((0, x as i32, y as i32, x as i32, y as i32));
-                    entry.0 += 1; // pixel count
-                    entry.1 = entry.1.min(x as i32); // min_x
-                    entry.2 = entry.2.min(y as i32); // min_y
-                    entry.3 = entry.3.max(x as i32); // max_x
-                    entry.4 = entry.4.max(y as i32); // max_y
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                let entry = stats
+                    .entry(label)
+                    .or_insert((0, x as i32, y as i32, x as i32, y as i32));
+                entry.0 += 1; // pixel count
+                entry.1 = entry.1.min(x as i32); // min_x
+                entry.2 = entry.2.min(y as i32); // min_y
+                entry.3 = entry.3.max(x as i32); // max_x
+                entry.4 = entry.4.max(y as i32); // max_y
             }
         }
     }
@@ -328,10 +326,10 @@ pub fn extract_component(labeled: &Pix, label: u32) -> RegionResult<Pix> {
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(pixel_label) = labeled.get_pixel(x, y) {
-                if pixel_label == label {
-                    let _ = output.set_pixel(x, y, 1);
-                }
+            if let Some(pixel_label) = labeled.get_pixel(x, y)
+                && pixel_label == label
+            {
+                let _ = output.set_pixel(x, y, 1);
             }
         }
     }
@@ -368,10 +366,10 @@ pub fn filter_components_by_size(labeled: &Pix, min_size: u32, max_size: u32) ->
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 {
-                    *label_counts.entry(label).or_insert(0) += 1;
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                *label_counts.entry(label).or_insert(0) += 1;
             }
         }
     }
@@ -395,15 +393,16 @@ pub fn filter_components_by_size(labeled: &Pix, min_size: u32, max_size: u32) ->
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 && valid_labels.contains(&label) {
-                    let new_label = *label_remap.entry(label).or_insert_with(|| {
-                        let l = next_label;
-                        next_label += 1;
-                        l
-                    });
-                    let _ = output.set_pixel(x, y, new_label);
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+                && valid_labels.contains(&label)
+            {
+                let new_label = *label_remap.entry(label).or_insert_with(|| {
+                    let l = next_label;
+                    next_label += 1;
+                    l
+                });
+                let _ = output.set_pixel(x, y, new_label);
             }
         }
     }
@@ -438,10 +437,10 @@ pub fn component_area_transform(labeled: &Pix) -> RegionResult<Pix> {
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 {
-                    *label_counts.entry(label).or_insert(0) += 1;
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                *label_counts.entry(label).or_insert(0) += 1;
             }
         }
     }
@@ -454,11 +453,11 @@ pub fn component_area_transform(labeled: &Pix) -> RegionResult<Pix> {
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 {
-                    let area = label_counts.get(&label).copied().unwrap_or(0);
-                    let _ = output.set_pixel(x, y, area);
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                let area = label_counts.get(&label).copied().unwrap_or(0);
+                let _ = output.set_pixel(x, y, area);
             }
         }
     }

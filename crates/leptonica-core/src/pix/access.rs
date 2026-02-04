@@ -53,6 +53,11 @@ impl PixMut {
     }
 
     /// Get a pixel value without bounds checking
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `x < self.width()` and `y < self.height()`.
+    /// Calling this method with out-of-bounds coordinates is undefined behavior.
     #[inline]
     pub unsafe fn get_pixel_unchecked(&self, x: u32, y: u32) -> u32 {
         let wpl = self.wpl();

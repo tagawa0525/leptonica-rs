@@ -148,7 +148,7 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
     }
 
     // Calculate row stride (BMP rows are 4-byte aligned)
-    let row_stride = ((width as usize * bits_per_pixel as usize + 31) / 32) * 4;
+    let row_stride = (width as usize * bits_per_pixel as usize).div_ceil(32) * 4;
     let mut row_buffer = vec![0u8; row_stride];
 
     // Read pixel data
@@ -221,8 +221,8 @@ pub fn write_bmp<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     let (bits_per_pixel, has_colormap): (u16, bool) = match depth {
         PixelDepth::Bit1 => (1, pix.has_colormap()),
         PixelDepth::Bit4 => (4, pix.has_colormap()),
-        PixelDepth::Bit8 => (8, pix.has_colormap() || true), // Always use colormap for 8-bit
-        PixelDepth::Bit32 => (24, false),                    // Write as 24-bit RGB
+        PixelDepth::Bit8 => (8, true), // Always use colormap for 8-bit
+        PixelDepth::Bit32 => (24, false), // Write as 24-bit RGB
         _ => {
             return Err(IoError::UnsupportedFormat(format!(
                 "cannot write {:?} as BMP",
@@ -232,7 +232,7 @@ pub fn write_bmp<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     };
 
     // Calculate sizes
-    let row_stride = ((width as usize * bits_per_pixel as usize + 31) / 32) * 4;
+    let row_stride = (width as usize * bits_per_pixel as usize).div_ceil(32) * 4;
     let pixel_data_size = row_stride * height as usize;
 
     let colormap_size = if has_colormap {
@@ -304,12 +304,12 @@ pub fn write_bmp<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
             PixelDepth::Bit1 => {
                 row_buffer.fill(0);
                 for x in 0..width {
-                    if let Some(val) = pix.get_pixel(x, y) {
-                        if val != 0 {
-                            let byte_idx = (x / 8) as usize;
-                            let bit_idx = 7 - (x % 8);
-                            row_buffer[byte_idx] |= 1 << bit_idx;
-                        }
+                    if let Some(val) = pix.get_pixel(x, y)
+                        && val != 0
+                    {
+                        let byte_idx = (x / 8) as usize;
+                        let bit_idx = 7 - (x % 8);
+                        row_buffer[byte_idx] |= 1 << bit_idx;
                     }
                 }
             }

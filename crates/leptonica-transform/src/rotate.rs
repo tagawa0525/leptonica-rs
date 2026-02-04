@@ -344,6 +344,7 @@ fn fill_image(pix: &mut PixMut, value: u32) {
 }
 
 /// Nearest neighbor rotation (for 1-bit images)
+#[allow(clippy::too_many_arguments)]
 fn rotate_nearest_neighbor(
     src: &Pix,
     dst: &mut PixMut,
@@ -382,6 +383,7 @@ fn rotate_nearest_neighbor(
 }
 
 /// Bilinear interpolation rotation (for 8-bit and 32-bit images)
+#[allow(clippy::too_many_arguments)]
 fn rotate_bilinear(
     src: &Pix,
     dst: &mut PixMut,
@@ -432,6 +434,7 @@ fn rotate_bilinear(
 }
 
 /// Bilinear interpolation of a single pixel
+#[allow(clippy::too_many_arguments)]
 fn interpolate_pixel(
     src: &Pix,
     depth: PixelDepth,
@@ -493,6 +496,7 @@ fn interpolate_channel(p00: u32, p10: u32, p01: u32, p11: u32, fx: f32, fy: f32)
 }
 
 /// Handle edge pixels with partial interpolation
+#[allow(clippy::too_many_arguments)]
 fn interpolate_edge_pixel(
     src: &Pix,
     depth: PixelDepth,

@@ -79,7 +79,7 @@ impl Kernel {
 
     /// Create a Gaussian kernel
     pub fn gaussian(size: u32, sigma: f32) -> FilterResult<Self> {
-        if size == 0 || size % 2 == 0 {
+        if size == 0 || size.is_multiple_of(2) {
             return Err(FilterError::InvalidKernel(
                 "size must be odd and > 0".to_string(),
             ));

@@ -108,16 +108,16 @@ pub fn get_component_bounds_from_labels(labeled: &Pix) -> RegionResult<Vec<Box>>
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 {
-                    let entry = bounds_map
-                        .entry(label)
-                        .or_insert((x as i32, y as i32, x as i32, y as i32));
-                    entry.0 = entry.0.min(x as i32); // min_x
-                    entry.1 = entry.1.min(y as i32); // min_y
-                    entry.2 = entry.2.max(x as i32); // max_x
-                    entry.3 = entry.3.max(y as i32); // max_y
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                let entry = bounds_map
+                    .entry(label)
+                    .or_insert((x as i32, y as i32, x as i32, y as i32));
+                entry.0 = entry.0.min(x as i32); // min_x
+                entry.1 = entry.1.min(y as i32); // min_y
+                entry.2 = entry.2.max(x as i32); // max_x
+                entry.3 = entry.3.max(y as i32); // max_y
             }
         }
     }
@@ -164,10 +164,10 @@ pub fn get_component_sizes(labeled: &Pix) -> RegionResult<Vec<u32>> {
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 {
-                    *counts.entry(label).or_insert(0) += 1;
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                *counts.entry(label).or_insert(0) += 1;
             }
         }
     }
@@ -230,26 +230,26 @@ pub fn get_component_stats(labeled: &Pix) -> RegionResult<Vec<ComponentStats>> {
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 {
-                    let acc = stats.entry(label).or_insert_with(|| Accum {
-                        count: 0,
-                        sum_x: 0,
-                        sum_y: 0,
-                        min_x: x as i32,
-                        min_y: y as i32,
-                        max_x: x as i32,
-                        max_y: y as i32,
-                    });
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                let acc = stats.entry(label).or_insert_with(|| Accum {
+                    count: 0,
+                    sum_x: 0,
+                    sum_y: 0,
+                    min_x: x as i32,
+                    min_y: y as i32,
+                    max_x: x as i32,
+                    max_y: y as i32,
+                });
 
-                    acc.count += 1;
-                    acc.sum_x += x as u64;
-                    acc.sum_y += y as u64;
-                    acc.min_x = acc.min_x.min(x as i32);
-                    acc.min_y = acc.min_y.min(y as i32);
-                    acc.max_x = acc.max_x.max(x as i32);
-                    acc.max_y = acc.max_y.max(y as i32);
-                }
+                acc.count += 1;
+                acc.sum_x += x as u64;
+                acc.sum_y += y as u64;
+                acc.min_x = acc.min_x.min(x as i32);
+                acc.min_y = acc.min_y.min(y as i32);
+                acc.max_x = acc.max_x.max(x as i32);
+                acc.max_y = acc.max_y.max(y as i32);
             }
         }
     }

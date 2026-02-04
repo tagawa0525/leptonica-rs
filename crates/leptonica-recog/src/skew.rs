@@ -295,7 +295,7 @@ fn rgb_to_grayscale(pix: &Pix) -> RecogResult<Pix> {
             let g = (pixel >> 16) & 0xFF;
             let b = (pixel >> 8) & 0xFF;
             // Standard luminance formula
-            let gray_val = ((r * 77 + g * 150 + b * 29) >> 8) as u32;
+            let gray_val = (r * 77 + g * 150 + b * 29) >> 8;
             unsafe { gray_mut.set_pixel_unchecked(x, y, gray_val) };
         }
     }
@@ -416,6 +416,7 @@ fn sweep_angles(
 }
 
 /// Binary search to refine angle
+#[allow(clippy::needless_range_loop)]
 fn binary_search_angle(
     pix: &Pix,
     center_angle: f32,

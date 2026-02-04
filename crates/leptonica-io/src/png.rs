@@ -54,19 +54,19 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
     pix_mut.set_spp(spp);
 
     // Handle palette if present
-    if color_type == ColorType::Indexed {
-        if let Some(palette) = reader.info().palette.as_ref() {
-            let mut cmap = PixColormap::new(bit_depth as u32).map_err(IoError::Core)?;
+    if color_type == ColorType::Indexed
+        && let Some(palette) = reader.info().palette.as_ref()
+    {
+        let mut cmap = PixColormap::new(bit_depth as u32).map_err(IoError::Core)?;
 
-            let palette_bytes: &[u8] = palette;
-            for chunk in palette_bytes.chunks(3) {
-                if chunk.len() == 3 {
-                    cmap.add_rgb(chunk[0], chunk[1], chunk[2])
-                        .map_err(IoError::Core)?;
-                }
+        let palette_bytes: &[u8] = palette;
+        for chunk in palette_bytes.chunks(3) {
+            if chunk.len() == 3 {
+                cmap.add_rgb(chunk[0], chunk[1], chunk[2])
+                    .map_err(IoError::Core)?;
             }
-            pix_mut.set_colormap(Some(cmap)).map_err(IoError::Core)?;
         }
+        pix_mut.set_colormap(Some(cmap)).map_err(IoError::Core)?;
     }
 
     // Convert to PIX format
@@ -233,18 +233,18 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
     encoder.set_depth(bit_depth);
 
     // Write palette if present
-    if color_type == ColorType::Indexed {
-        if let Some(cmap) = pix.colormap() {
-            let mut palette = Vec::with_capacity(cmap.len() * 3);
-            for i in 0..cmap.len() {
-                if let Some((r, g, b)) = cmap.get_rgb(i) {
-                    palette.push(r);
-                    palette.push(g);
-                    palette.push(b);
-                }
+    if color_type == ColorType::Indexed
+        && let Some(cmap) = pix.colormap()
+    {
+        let mut palette = Vec::with_capacity(cmap.len() * 3);
+        for i in 0..cmap.len() {
+            if let Some((r, g, b)) = cmap.get_rgb(i) {
+                palette.push(r);
+                palette.push(g);
+                palette.push(b);
             }
-            encoder.set_palette(palette);
         }
+        encoder.set_palette(palette);
     }
 
     let mut writer = encoder
@@ -254,13 +254,13 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
     // Prepare pixel data
     let bytes_per_row = match (color_type, bit_depth) {
         (ColorType::Grayscale, BitDepth::One) | (ColorType::Indexed, BitDepth::One) => {
-            (width + 7) / 8
+            width.div_ceil(8)
         }
         (ColorType::Grayscale, BitDepth::Two) | (ColorType::Indexed, BitDepth::Two) => {
-            (width + 3) / 4
+            width.div_ceil(4)
         }
         (ColorType::Grayscale, BitDepth::Four) | (ColorType::Indexed, BitDepth::Four) => {
-            (width + 1) / 2
+            width.div_ceil(2)
         }
         (ColorType::Grayscale, BitDepth::Eight) | (ColorType::Indexed, BitDepth::Eight) => width,
         (ColorType::Grayscale, BitDepth::Sixteen) => width * 2,
@@ -277,12 +277,12 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
         match (color_type, bit_depth) {
             (ColorType::Grayscale, BitDepth::One) | (ColorType::Indexed, BitDepth::One) => {
                 for x in 0..width {
-                    if let Some(val) = pix.get_pixel(x, y) {
-                        if val != 0 {
-                            let byte_idx = row_start + (x / 8) as usize;
-                            let bit_idx = 7 - (x % 8);
-                            data[byte_idx] |= 1 << bit_idx;
-                        }
+                    if let Some(val) = pix.get_pixel(x, y)
+                        && val != 0
+                    {
+                        let byte_idx = row_start + (x / 8) as usize;
+                        let bit_idx = 7 - (x % 8);
+                        data[byte_idx] |= 1 << bit_idx;
                     }
                 }
             }
