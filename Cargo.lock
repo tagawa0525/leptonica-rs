@@ -203,6 +203,10 @@ name = "leptonica-recog"
 version = "0.1.0"
 dependencies = [
  "leptonica-core",
+ "leptonica-morph",
+ "leptonica-region",
+ "leptonica-transform",
+ "thiserror",
 ]
 
 [[package]]

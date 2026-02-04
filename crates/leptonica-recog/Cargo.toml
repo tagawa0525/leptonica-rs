@@ -1,6 +1,6 @@
 [package]
 name = "leptonica-recog"
-description = "Part of Leptonica image processing library"
+description = "OCR preprocessing: skew detection, baseline detection, and page segmentation"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,3 +8,7 @@ repository.workspace = true
 
 [dependencies]
 leptonica-core.workspace = true
+leptonica-transform.workspace = true
+leptonica-morph.workspace = true
+leptonica-region.workspace = true
+thiserror.workspace = true

@@ -12,5 +12,8 @@ pub mod rotate;
 pub mod scale;
 
 pub use error::{TransformError, TransformResult};
-pub use rotate::{flip_lr, flip_tb, rotate_90, rotate_180, rotate_orth};
+pub use rotate::{
+    flip_lr, flip_tb, rotate_90, rotate_180, rotate_180_in_place, rotate_by_angle,
+    rotate_by_angle_with_options, rotate_by_radians, rotate_orth,
+};
 pub use scale::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
