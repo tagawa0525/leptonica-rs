@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 leptonica-core.workspace = true
+leptonica-color = { workspace = true, optional = true }
 thiserror.workspace = true
 
 # Optional image format support
@@ -23,6 +24,6 @@ bmp = []
 pnm = []
 png-format = ["png"]
 jpeg = ["jpeg-decoder"]
-gif-format = ["gif"]
+gif-format = ["gif", "leptonica-color"]
 tiff-format = ["tiff", "half"]
 all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format", "tiff-format"]

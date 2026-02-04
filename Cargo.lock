@@ -185,6 +185,7 @@ dependencies = [
  "gif",
  "half",
  "jpeg-decoder",
+ "leptonica-color",
  "leptonica-core",
  "png",
  "thiserror",

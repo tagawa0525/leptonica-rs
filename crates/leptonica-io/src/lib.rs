@@ -20,6 +20,9 @@ pub mod jpeg;
 #[cfg(feature = "tiff-format")]
 pub mod tiff;
 
+#[cfg(feature = "gif-format")]
+pub mod gif;
+
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
@@ -84,6 +87,9 @@ pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
         | ImageFormat::TiffZip
         | ImageFormat::TiffJpeg => tiff::read_tiff(reader),
 
+        #[cfg(feature = "gif-format")]
+        ImageFormat::Gif => gif::read_gif(reader),
+
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
 }
@@ -147,6 +153,9 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
                 "TIFF requires seekable writer; use write_image or write_image_mem".to_string(),
             ))
         }
+
+        #[cfg(feature = "gif-format")]
+        ImageFormat::Gif => gif::write_gif(pix, writer),
 
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
