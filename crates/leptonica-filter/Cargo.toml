@@ -1,6 +1,6 @@
 [package]
 name = "leptonica-filter"
-description = "Part of Leptonica image processing library"
+description = "Image filtering operations for Leptonica"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,3 +8,4 @@ repository.workspace = true
 
 [dependencies]
 leptonica-core.workspace = true
+thiserror.workspace = true
