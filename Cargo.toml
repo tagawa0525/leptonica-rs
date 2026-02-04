@@ -1,6 +1,43 @@
-[package]
-name = "leptonica-rs"
+[workspace]
+resolver = "2"
+members = [
+    "crates/leptonica-core",
+    "crates/leptonica-io",
+    "crates/leptonica-morph",
+    "crates/leptonica-transform",
+    "crates/leptonica-filter",
+    "crates/leptonica-color",
+    "crates/leptonica-region",
+    "crates/leptonica-doc",
+    "crates/leptonica-recog",
+    "crates/leptonica-test",
+    "leptonica",
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/tagawa/leptonica-rs"
 
-[dependencies]
+[workspace.dependencies]
+# Internal crates
+leptonica-core = { path = "crates/leptonica-core" }
+leptonica-io = { path = "crates/leptonica-io" }
+leptonica-morph = { path = "crates/leptonica-morph" }
+leptonica-transform = { path = "crates/leptonica-transform" }
+leptonica-filter = { path = "crates/leptonica-filter" }
+leptonica-color = { path = "crates/leptonica-color" }
+leptonica-region = { path = "crates/leptonica-region" }
+leptonica-doc = { path = "crates/leptonica-doc" }
+leptonica-recog = { path = "crates/leptonica-recog" }
+leptonica-test = { path = "crates/leptonica-test" }
+
+# External dependencies
+thiserror = "2.0.18"
+image = "0.25.9"
+png = "0.18.0"
+jpeg-decoder = "0.3.2"
+tiff = "0.11.2"
+gif = "0.14.1"
+half = "2.7.1"
