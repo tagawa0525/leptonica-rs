@@ -95,7 +95,7 @@
 | 色セグメンテーション | ✅ colorseg.c | ✅ segment.rs | 4段階アルゴリズム |
 | 色内容抽出 | ✅ colorcontent.c | ✅ analysis.rs | 色統計、色数カウント |
 | 色塗りつぶし | ✅ colorfill.c | ✅ colorfill.rs | シードベース領域検出 |
-| 着色 | ✅ coloring.c | ❌ | 未実装 |
+| 着色 | ✅ coloring.c | ✅ coloring.rs | グレー着色/色シフト |
 
 ### 7. 二値化
 
