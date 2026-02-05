@@ -60,6 +60,7 @@ pub mod ccbord;
 pub mod conncomp;
 pub mod error;
 pub mod label;
+pub mod maze;
 pub mod quadtree;
 pub mod seedfill;
 pub mod watershed;
@@ -105,4 +106,11 @@ pub use quadtree::{
     IntegralImage, QuadtreeResult, SquaredIntegralImage, mean_in_rectangle, quadtree_max_levels,
     quadtree_mean, quadtree_mean_with_integral, quadtree_regions, quadtree_variance,
     quadtree_variance_with_integral, variance_in_rectangle,
+};
+
+// Re-export maze types and functions
+pub use maze::{
+    DEFAULT_ANISOTROPY_RATIO, DEFAULT_WALL_PROBABILITY, MIN_MAZE_HEIGHT, MIN_MAZE_WIDTH,
+    MazeDirection, MazeGenerationOptions, MazePath, generate_binary_maze, render_maze_path,
+    search_binary_maze,
 };
