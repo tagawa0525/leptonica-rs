@@ -65,11 +65,11 @@
 | 形態学的勾配 | ✅ morph.c | ✅ binary.rs | 完全実装 |
 | Top-hat/Bottom-hat | ✅ morph.c | ✅ binary.rs | 完全実装 |
 | グレースケール形態学 | ✅ graymorph.c | ✅ grayscale.rs | 膨張/収縮/開/閉 |
-| カラー形態学 | ✅ colormorph.c | ❌ | 未実装 |
+| カラー形態学 | ✅ colormorph.c | ✅ color.rs | RGB各チャンネル独立処理 |
 | DWA（高速形態学） | ✅ morphdwa.c, dwacomb.2.c | ❌ | 未実装 |
 | 構造化要素（SEL） | ✅ sel1-2.c, selgen.c | ✅ sel.rs | 基本実装 |
 | シーケンス操作 | ✅ morphseq.c | ❌ | 未実装 |
-| 細線化 | ✅ ccthin.c | ❌ | 未実装 |
+| 細線化 | ✅ ccthin.c | ✅ thin.rs | 連結保持細線化 |
 
 ### 5. フィルタリング
 

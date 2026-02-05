@@ -116,8 +116,8 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 
 | # | 機能 | クレート | C版ソース | 状態 |
 | --- | ------ | --------- | ---------- | ------ |
-| 21 | カラー形態学 | leptonica-morph | colormorph.c | 待機中 |
-| 22 | 細線化 | leptonica-morph | ccthin.c | 待機中 |
+| 21 | カラー形態学 | leptonica-morph | colormorph.c | ✅ 完了 |
+| 22 | 細線化 | leptonica-morph | ccthin.c | ✅ 完了 |
 | 23 | シーケンス操作 | leptonica-morph | morphseq.c | 待機中 |
 | 24 | 色塗りつぶし | leptonica-color | colorfill.c | 待機中 |
 | 25 | 着色 | leptonica-color | coloring.c | 待機中 |
@@ -189,10 +189,10 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] 適応マッピング（feat/adaptmap）
 - [x] 境界追跡（feat/ccbord）
 
-### Phase 3（中優先度: 0/8）
+### Phase 3（中優先度: 2/8）
 
-- [ ] カラー形態学
-- [ ] 細線化
+- [x] カラー形態学（feat/colormorph）
+- [x] 細線化（feat/ccthin）
 - [ ] シーケンス操作
 - [ ] 色塗りつぶし
 - [ ] 着色
