@@ -116,7 +116,7 @@
 | 境界追跡 | ✅ ccbord.c | ✅ ccbord.rs | チェーンコード/穴追跡 |
 | シードフィル | ✅ seedfill.c | ✅ seedfill.rs | floodfill, 穴埋め |
 | 分水嶺変換 | ✅ watershed.c | ✅ watershed.rs | 完全実装 |
-| 四分木 | ✅ quadtree.c | ❌ | 未実装 |
+| 四分木 | ✅ quadtree.c | ✅ quadtree.rs | 積分画像/階層統計 |
 
 ### 9. 文書処理
 
