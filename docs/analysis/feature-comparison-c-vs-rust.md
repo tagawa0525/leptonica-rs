@@ -146,7 +146,7 @@
 | バーコード | ✅ bardecode.c, readbarcode.c | ❌ | 未実装 |
 | グラフィックス | ✅ graphics.c | ✅ graphics.rs | 線/矩形/円/等高線描画 |
 | 迷路生成/解法 | ✅ maze.c | ✅ maze.rs | 生成/BFS解法 |
-| ワーパー | ✅ warper.c | ❌ | 未実装 |
+| ワーパー | ✅ warper.c | ✅ warper.rs | 調和歪み/ステレオ |
 
 ## Rust版クレート実装状況
 
