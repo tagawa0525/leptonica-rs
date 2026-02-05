@@ -68,7 +68,7 @@
 | カラー形態学 | ✅ colormorph.c | ✅ color.rs | RGB各チャンネル独立処理 |
 | DWA（高速形態学） | ✅ morphdwa.c, dwacomb.2.c | ❌ | 未実装 |
 | 構造化要素（SEL） | ✅ sel1-2.c, selgen.c | ✅ sel.rs | 基本実装 |
-| シーケンス操作 | ✅ morphseq.c | ❌ | 未実装 |
+| シーケンス操作 | ✅ morphseq.c | ✅ sequence.rs | 文字列形式シーケンス |
 | 細線化 | ✅ ccthin.c | ✅ thin.rs | 連結保持細線化 |
 
 ### 5. フィルタリング
