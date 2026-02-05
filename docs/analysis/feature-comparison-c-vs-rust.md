@@ -49,7 +49,7 @@
 | 回転（任意角度） | ✅ rotate.c, rotateam.c | ✅ rotate.rs | 面積マッピング/サンプリング/シアー |
 | 回転（シアー） | ✅ rotateshear.c | ✅ rotate.rs | 2-shear/3-shear対応 |
 | スケーリング | ✅ scale1-2.c | ✅ scale.rs | 3アルゴリズム |
-| アフィン変換 | ✅ affine.c, affinecompose.c | ❌ | 未実装 |
+| アフィン変換 | ✅ affine.c, affinecompose.c | ✅ affine.rs | サンプリング/補間対応 |
 | 双線形変換 | ✅ bilinear.c | ❌ | 未実装 |
 | 射影変換 | ✅ projective.c | ❌ | 未実装 |
 | シアー変換 | ✅ shear.c | ❌ | 未実装 |
