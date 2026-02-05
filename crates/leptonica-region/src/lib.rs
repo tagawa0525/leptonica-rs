@@ -56,6 +56,7 @@
 //! let segmented = watershed_segmentation(&pix, &options).unwrap();
 //! ```
 
+pub mod ccbord;
 pub mod conncomp;
 pub mod error;
 pub mod label;
@@ -89,4 +90,11 @@ pub use seedfill::{
 pub use watershed::{
     WatershedOptions, compute_gradient, find_basins, find_local_maxima, find_local_minima,
     watershed_segmentation,
+};
+
+// Re-export ccbord types and functions
+pub use ccbord::{
+    Border, BorderPoint, BorderType, ComponentBorders, Direction, ImageBorders, from_chain_code,
+    get_all_borders, get_component_borders, get_outer_border, get_outer_borders, render_borders,
+    to_chain_code,
 };
