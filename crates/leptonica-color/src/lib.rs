@@ -7,6 +7,7 @@
 //! - **Color quantization** ([`quantize`]): Median cut, octree algorithms
 //! - **Color segmentation** ([`segment`]): Unsupervised color segmentation
 //! - **Color analysis** ([`analysis`]): Statistics, color counting, grayscale detection
+//! - **Color fill** ([`colorfill`]): Flood fill for RGB images based on color similarity
 //!
 //! # Example
 //!
@@ -19,6 +20,7 @@
 //! ```
 
 pub mod analysis;
+pub mod colorfill;
 pub mod colorspace;
 pub mod error;
 pub mod quantize;
@@ -107,4 +109,17 @@ pub use segment::{
     color_segment,
     color_segment_cluster,
     color_segment_simple,
+};
+
+// Re-export color fill functions
+pub use colorfill::{
+    // Types
+    ColorFillOptions,
+    ColorFillResult,
+    ColorRegions,
+    Connectivity,
+    // Functions
+    color_fill,
+    color_fill_from_seed,
+    pixel_is_on_color_boundary,
 };
