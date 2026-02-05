@@ -8,6 +8,7 @@
 //! - **Color segmentation** ([`segment`]): Unsupervised color segmentation
 //! - **Color analysis** ([`analysis`]): Statistics, color counting, grayscale detection
 //! - **Color fill** ([`colorfill`]): Flood fill for RGB images based on color similarity
+//! - **Coloring** ([`coloring`]): Colorize grayscale pixels, snap colors, fractional shifts
 //!
 //! # Example
 //!
@@ -21,6 +22,7 @@
 
 pub mod analysis;
 pub mod colorfill;
+pub mod coloring;
 pub mod colorspace;
 pub mod error;
 pub mod quantize;
@@ -122,4 +124,22 @@ pub use colorfill::{
     color_fill,
     color_fill_from_seed,
     pixel_is_on_color_boundary,
+};
+
+// Re-export coloring functions
+pub use coloring::{
+    // Types
+    ColorGrayOptions,
+    PaintType,
+    // Image-level functions
+    pix_color_gray,
+    pix_color_gray_masked,
+    pix_linear_map_to_target_color,
+    pix_map_with_invariant_hue,
+    pix_shift_by_component,
+    pix_snap_color,
+    // Pixel-level functions
+    pixel_fractional_shift,
+    pixel_linear_map_to_target_color,
+    pixel_shift_by_component,
 };
