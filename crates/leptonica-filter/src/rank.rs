@@ -558,7 +558,7 @@ mod tests {
         // Create a gradient with some noise
         for y in 0..10 {
             for x in 0..10 {
-                let val = (x * 25 + y * 5) as u32;
+                let val = x * 25 + y * 5;
                 unsafe { pix_mut.set_pixel_unchecked(x, y, val.min(255)) };
             }
         }
