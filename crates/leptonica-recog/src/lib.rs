@@ -65,8 +65,10 @@
 //! - [`pageseg`]: Page segmentation into regions
 //! - [`recog`]: Template-based character recognition
 //! - [`jbclass`]: JBIG2 connected component classification
+//! - [`dewarp`]: Page dewarping (curvature correction)
 
 pub mod baseline;
+pub mod dewarp;
 mod error;
 pub mod jbclass;
 pub mod pageseg;
@@ -85,6 +87,9 @@ pub use recog::{CharsetType, Rch, Rcha, Recog, TemplateUse};
 
 // Re-export commonly used types from Phase 2 - jbclass
 pub use jbclass::{JbClasser, JbComponent, JbData, JbMethod};
+
+// Re-export commonly used types from dewarp
+pub use dewarp::{Dewarp, DewarpOptions, DewarpResult, dewarp_single_page};
 
 // Re-export core for convenience
 pub use leptonica_core;

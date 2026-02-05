@@ -67,6 +67,10 @@ pub enum RecogError {
     /// Classification operation failed
     #[error("classification error: {0}")]
     ClassificationError(String),
+
+    /// Dewarping operation failed
+    #[error("dewarping error: {0}")]
+    DewarpError(String),
 }
 
 /// Result type for recognition operations
