@@ -91,7 +91,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 7. **アフィン変換** (leptonica-transform / affine.c) - ✅ 完了
 8. **シアー変換** (leptonica-transform / shear.c) - ✅ 完了
 9. **バイラテラルフィルタ** (leptonica-filter / bilateral.c) - ✅ 完了
-10. **ランクフィルタ** (leptonica-filter / rank.c) - 待機中
+10. **ランクフィルタ** (leptonica-filter / rank.c) - ✅ 完了
 11. **色セグメンテーション** (leptonica-color / colorseg.c) - 待機中
 12. **画像比較** (leptonica-* / compare.c) - 待機中
 13. **画像合成/ブレンド** (leptonica-* / blend.c) - 待機中
@@ -125,7 +125,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] アフィン変換（feat/transform-affine）
 - [x] シアー変換（feat/transform-shear）
 - [x] バイラテラルフィルタ（feat/filter-bilateral）
-- [ ] ランクフィルタ
+- [x] ランクフィルタ（feat/filter-rank）
 - [ ] 色セグメンテーション
 - [ ] 画像比較
 - [ ] 画像合成/ブレンド
