@@ -86,7 +86,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 2. **WebP I/O** (leptonica-io / webpio.c) - ✅ 完了
 3. **グレースケール形態学** (leptonica-morph / graymorph.c) - ✅ 完了
 4. **Pixa** (leptonica-core / pixabasic.c) - ✅ 完了
-5. **Numa** (leptonica-core / numabasic.c) - 待機中
+5. **Numa** (leptonica-core / numabasic.c) - ✅ 完了
 6. **任意角度回転** (leptonica-transform / rotate.c, rotateam.c) - 待機中
 7. **アフィン変換** (leptonica-transform / affine.c) - 待機中
 8. **シアー変換** (leptonica-transform / shear.c) - 待機中
@@ -120,7 +120,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] WebP I/O（feat/io-webp）
 - [x] グレースケール形態学（feat/morph-grayscale）
 - [x] Pixa（feat/core-pixa）
-- [ ] Numa
+- [x] Numa（feat/core-numa）
 - [ ] 任意角度回転
 - [ ] アフィン変換
 - [ ] シアー変換
