@@ -24,8 +24,8 @@ pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::PixColormap;
 pub use error::{Error, Result};
 pub use fpix::{FPix, NegativeHandling};
-pub use numa::{Numa, Numaa};
-pub use pix::{ImageFormat, Pix, PixMut, PixelDepth, RopOp};
+pub use numa::{HistogramStats, Numa, Numaa};
+pub use pix::{ColorHistogram, ImageFormat, Pix, PixMut, PixelDepth, RopOp};
 pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
 

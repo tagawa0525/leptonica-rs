@@ -8,12 +8,14 @@ pub mod arith;
 pub mod blend;
 pub mod compare;
 mod convert;
+mod histogram;
 mod ops;
 pub mod rop;
 
 pub use access::*;
 pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
 pub use compare::{CompareResult, CompareType, correlation_binary};
+pub use histogram::ColorHistogram;
 pub use rop::RopOp;
 
 use crate::colormap::PixColormap;

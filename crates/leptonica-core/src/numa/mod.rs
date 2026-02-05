@@ -3,6 +3,10 @@
 //! Arrays of floating-point numbers, commonly used for histograms,
 //! signal processing, and general numeric data storage.
 
+mod histogram;
+
+pub use histogram::HistogramStats;
+
 use crate::error::{Error, Result};
 
 /// Array of floating-point numbers
