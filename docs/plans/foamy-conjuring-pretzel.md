@@ -110,7 +110,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 | 17 | 双線形変換 | leptonica-transform | bilinear.c | ✅ 完了 |
 | 18 | 射影変換 | leptonica-transform | projective.c | ✅ 完了 |
 | 19 | 適応マッピング | leptonica-filter | adaptmap.c | ✅ 完了 |
-| 20 | 境界追跡 | leptonica-region | ccbord.c | 待機中 |
+| 20 | 境界追跡 | leptonica-region | ccbord.c | ✅ 完了 |
 
 ### Phase 3（中優先度 - よく使われる機能）
 
@@ -180,14 +180,14 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] 画像合成/ブレンド（feat/blend）
 - [x] 論理演算（feat/rop）
 
-### Phase 2（高優先度: 5/6）
+### Phase 2（高優先度: 6/6 ✅完了）
 
 - [x] 算術演算（feat/arith）
 - [x] FPix（feat/fpix）
 - [x] 双線形変換（feat/bilinear）
 - [x] 射影変換（feat/projective）
 - [x] 適応マッピング（feat/adaptmap）
-- [ ] 境界追跡
+- [x] 境界追跡（feat/ccbord）
 
 ### Phase 3（中優先度: 0/8）
 

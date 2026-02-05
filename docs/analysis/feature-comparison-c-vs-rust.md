@@ -113,7 +113,7 @@
 | ---- | --- | ------ | ---- |
 | 連結成分 | ✅ conncomp.c | ✅ conncomp.rs | 4/8連結、Union-Find |
 | 連結成分ラベリング | ✅ pixlabel.c | ✅ label.rs | 完全実装 |
-| 境界追跡 | ✅ ccbord.c | ❌ | 未実装 |
+| 境界追跡 | ✅ ccbord.c | ✅ ccbord.rs | チェーンコード/穴追跡 |
 | シードフィル | ✅ seedfill.c | ✅ seedfill.rs | floodfill, 穴埋め |
 | 分水嶺変換 | ✅ watershed.c | ✅ watershed.rs | 完全実装 |
 | 四分木 | ✅ quadtree.c | ❌ | 未実装 |
