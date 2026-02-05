@@ -52,7 +52,7 @@
 | アフィン変換 | ✅ affine.c, affinecompose.c | ✅ affine.rs | サンプリング/補間対応 |
 | 双線形変換 | ✅ bilinear.c | ❌ | 未実装 |
 | 射影変換 | ✅ projective.c | ❌ | 未実装 |
-| シアー変換 | ✅ shear.c | ❌ | 未実装 |
+| シアー変換 | ✅ shear.c | ✅ shear.rs | 水平/垂直/線形補間対応 |
 | 反転（左右/上下） | ✅ rotateorth.c | ✅ rotate.rs | 完全実装 |
 
 ### 4. モルフォロジー

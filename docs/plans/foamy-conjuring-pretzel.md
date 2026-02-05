@@ -89,7 +89,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 5. **Numa** (leptonica-core / numabasic.c) - ✅ 完了
 6. **任意角度回転** (leptonica-transform / rotate.c, rotateam.c) - ✅ 完了
 7. **アフィン変換** (leptonica-transform / affine.c) - ✅ 完了
-8. **シアー変換** (leptonica-transform / shear.c) - 待機中
+8. **シアー変換** (leptonica-transform / shear.c) - ✅ 完了
 9. **バイラテラルフィルタ** (leptonica-filter / bilateral.c) - 待機中
 10. **ランクフィルタ** (leptonica-filter / rank.c) - 待機中
 11. **色セグメンテーション** (leptonica-color / colorseg.c) - 待機中
@@ -123,7 +123,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] Numa（feat/core-numa）
 - [x] 任意角度回転（feat/transform-rotate）
 - [x] アフィン変換（feat/transform-affine）
-- [ ] シアー変換
+- [x] シアー変換（feat/transform-shear）
 - [ ] バイラテラルフィルタ
 - [ ] ランクフィルタ
 - [ ] 色セグメンテーション
