@@ -586,8 +586,8 @@ mod tests {
         for y in 0..100 {
             for x in 0..100 {
                 // Smooth horizontal gradient from red to blue
-                let r = (255 - (x as u32 * 255 / 100)) as u8;
-                let b = (x as u32 * 255 / 100) as u8;
+                let r = (255 - (x * 255 / 100)) as u8;
+                let b = (x * 255 / 100) as u8;
                 let pixel = color::compose_rgb(r, 100, b);
                 unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
             }
