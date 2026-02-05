@@ -93,7 +93,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 9. **バイラテラルフィルタ** (leptonica-filter / bilateral.c) - ✅ 完了
 10. **ランクフィルタ** (leptonica-filter / rank.c) - ✅ 完了
 11. **色セグメンテーション** (leptonica-color / colorseg.c) - ✅ 完了
-12. **画像比較** (leptonica-* / compare.c) - 待機中
+12. **画像比較** (leptonica-* / compare.c) - ✅ 完了
 13. **画像合成/ブレンド** (leptonica-* / blend.c) - 待機中
 14. **論理演算** (leptonica-* / rop.c) - 待機中
 
@@ -127,6 +127,6 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] バイラテラルフィルタ（feat/filter-bilateral）
 - [x] ランクフィルタ（feat/filter-rank）
 - [x] 色セグメンテーション（feat/color-segmentation）
-- [ ] 画像比較
+- [x] 画像比較（feat/compare）
 - [ ] 画像合成/ブレンド
 - [ ] 論理演算
