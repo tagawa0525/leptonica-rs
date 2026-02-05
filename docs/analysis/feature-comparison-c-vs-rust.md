@@ -140,7 +140,7 @@
 | ---- | --- | ------ | ---- |
 | 画像比較 | ✅ compare.c | ✅ compare.rs | 差分/RMS/相関 |
 | 画像合成/ブレンド | ✅ blend.c | ✅ blend.rs | アルファ/マスク/乗算等 |
-| 算術演算 | ✅ pixarith.c | ❌ | 未実装 |
+| 算術演算 | ✅ pixarith.c | ✅ arith.rs | 加減乗除/定数演算 |
 | 論理演算 | ✅ rop.c, roplow.c | ✅ rop.rs | AND/OR/XOR/NOT等 |
 | ヒストグラム | ✅ numafunc1.c | ❌ | 未実装 |
 | バーコード | ✅ bardecode.c, readbarcode.c | ❌ | 未実装 |

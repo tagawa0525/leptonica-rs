@@ -105,7 +105,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 
 | # | 機能 | クレート | C版ソース | 状態 |
 | --- | ------ | --------- | ---------- | ------ |
-| 15 | 算術演算 | leptonica-core | pixarith.c | 待機中 |
+| 15 | 算術演算 | leptonica-core | pixarith.c | ✅ 完了 |
 | 16 | FPix（浮動小数点画像） | leptonica-core | fpix1-2.c | 待機中 |
 | 17 | 双線形変換 | leptonica-transform | bilinear.c | 待機中 |
 | 18 | 射影変換 | leptonica-transform | projective.c | 待機中 |
@@ -180,9 +180,9 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] 画像合成/ブレンド（feat/blend）
 - [x] 論理演算（feat/rop）
 
-### Phase 2（高優先度: 0/6）
+### Phase 2（高優先度: 1/6）
 
-- [ ] 算術演算
+- [x] 算術演算（feat/arith）
 - [ ] FPix（浮動小数点画像）
 - [ ] 双線形変換
 - [ ] 射影変換
