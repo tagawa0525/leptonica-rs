@@ -909,7 +909,7 @@ mod tests {
         for y in 0..50 {
             for x in 0..50 {
                 // Background gradient (darker on left, brighter on right)
-                let bg = (100 + x * 2) as u32;
+                let bg = 100 + x * 2;
                 // Add some "text" (dark) in the center
                 let val = if x > 15 && x < 35 && y > 15 && y < 35 {
                     bg / 2
@@ -1092,7 +1092,7 @@ mod tests {
         for y in 0..20 {
             for x in 0..20 {
                 let val = unsafe { result.get_pixel_unchecked(x, y) };
-                assert!(val >= 127 && val <= 129, "Expected ~128, got {}", val);
+                assert!((127..=129).contains(&val), "Expected ~128, got {}", val);
             }
         }
     }
