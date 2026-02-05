@@ -6,9 +6,11 @@
 //! - Horizontal and vertical flips
 //! - Scaling (linear interpolation, sampling, area mapping)
 //! - Affine transformations (3-point correspondence, matrix-based)
+//! - Bilinear transformations (4-point correspondence, nonlinear)
 //! - Shear transformations (horizontal and vertical)
 
 pub mod affine;
+pub mod bilinear;
 mod error;
 pub mod rotate;
 pub mod scale;
@@ -17,6 +19,9 @@ pub mod shear;
 pub use affine::{
     AffineFill, AffineMatrix, Point, affine, affine_pta, affine_rotate, affine_sampled,
     affine_sampled_pta, affine_scale, translate,
+};
+pub use bilinear::{
+    BilinearCoeffs, bilinear, bilinear_pta, bilinear_sampled, bilinear_sampled_pta,
 };
 pub use error::{TransformError, TransformResult};
 pub use rotate::{
