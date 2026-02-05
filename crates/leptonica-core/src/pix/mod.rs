@@ -4,10 +4,12 @@
 //! It supports various pixel depths and optional colormaps.
 
 mod access;
+pub mod compare;
 mod convert;
 mod ops;
 
 pub use access::*;
+pub use compare::{CompareResult, CompareType, correlation_binary};
 
 use crate::colormap::PixColormap;
 use crate::error::{Error, Result};

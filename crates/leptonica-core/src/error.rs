@@ -31,6 +31,17 @@ pub enum Error {
     #[error("incompatible pixel depths: {0} bpp vs {1} bpp")]
     IncompatibleDepths(u32, u32),
 
+    /// Image dimension mismatch
+    #[error("dimension mismatch: expected {}x{}, got {}x{}", .expected.0, .expected.1, .actual.0, .actual.1)]
+    DimensionMismatch {
+        expected: (u32, u32),
+        actual: (u32, u32),
+    },
+
+    /// Unsupported pixel depth for this operation
+    #[error("unsupported pixel depth: {0} bpp")]
+    UnsupportedDepth(u32),
+
     /// Invalid parameter value
     #[error("invalid parameter: {0}")]
     InvalidParameter(String),
