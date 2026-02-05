@@ -4,6 +4,7 @@
 //!
 //! - Structuring elements (SEL) for defining operation neighborhoods
 //! - Binary morphology: erosion, dilation, opening, closing
+//! - DWA (Destination Word Accumulation): High-speed morphology using word-aligned operations
 //! - Grayscale morphology: erosion, dilation, opening, closing for 8-bpp images
 //! - Color morphology: erosion, dilation, opening, closing for 32-bpp images
 //! - Hit-miss transform for pattern detection
@@ -13,6 +14,7 @@
 
 pub mod binary;
 pub mod color;
+pub mod dwa;
 mod error;
 pub mod grayscale;
 pub mod sel;
@@ -48,3 +50,6 @@ pub use thin_sels::{ThinSelSet, make_thin_sels, sels_4and8cc_thin, sels_4cc_thin
 pub use sequence::{
     MorphOp, MorphSequence, gray_morph_sequence, morph_comp_sequence, morph_sequence,
 };
+
+// Re-export DWA (high-speed morphology) functions
+pub use dwa::{close_brick_dwa, dilate_brick_dwa, erode_brick_dwa, open_brick_dwa};
