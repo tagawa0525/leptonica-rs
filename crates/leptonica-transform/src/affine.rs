@@ -1055,7 +1055,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (x + y * 10) as u32) };
+                unsafe { pix_mut.set_pixel_unchecked(x, y, x + y * 10) };
             }
         }
         let pix: Pix = pix_mut.into();
