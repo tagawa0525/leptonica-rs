@@ -4,6 +4,7 @@
 //! It supports various pixel depths and optional colormaps.
 
 mod access;
+pub mod arith;
 pub mod blend;
 pub mod compare;
 mod convert;
