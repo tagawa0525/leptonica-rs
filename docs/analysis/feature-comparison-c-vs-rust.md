@@ -124,7 +124,7 @@
 | ---- | --- | ------ | ---- |
 | ページセグメンテーション | ✅ pageseg.c | ✅ pageseg.rs | ハーフトーン/テキスト検出 |
 | スキュー検出/補正 | ✅ skew.c | ✅ skew.rs | 微分二乗和スコアリング |
-| デワーピング | ✅ dewarp1-4.c | ❌ | 未実装 |
+| デワーピング | ✅ dewarp1-4.c | ✅ dewarp/ | テキストライン/視差補正 |
 | ベースライン検出 | ✅ baseline.c | ✅ baseline.rs | 水平投影法 |
 | 文字認識 | ✅ recogbasic.c, recogident.c | ✅ recog/ | テンプレートマッチング、DID |
 
