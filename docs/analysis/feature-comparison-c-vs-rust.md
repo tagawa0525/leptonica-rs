@@ -92,7 +92,7 @@
 | ---- | --- | ------ | ---- |
 | 色空間変換 | ✅ colorspace.c | ✅ colorspace.rs | RGB↔HSV/LAB/XYZ/YUV |
 | 色量子化 | ✅ colorquant1-2.c | ✅ quantize.rs | Median cut, Octree |
-| 色セグメンテーション | ✅ colorseg.c | ❌ | 未実装 |
+| 色セグメンテーション | ✅ colorseg.c | ✅ segment.rs | 4段階アルゴリズム |
 | 色内容抽出 | ✅ colorcontent.c | ✅ analysis.rs | 色統計、色数カウント |
 | 色塗りつぶし | ✅ colorfill.c | ❌ | 未実装 |
 | 着色 | ✅ coloring.c | ❌ | 未実装 |
