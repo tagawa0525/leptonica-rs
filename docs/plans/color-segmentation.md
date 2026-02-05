@@ -381,7 +381,7 @@ mod tests {
 - [x] Update `lib.rs` with exports
 - [x] Run `cargo fmt && cargo clippy`
 - [x] Run tests
-- [ ] Commit changes
+- [x] Commit changes (73bb37a)
 
 ## Questions
 
