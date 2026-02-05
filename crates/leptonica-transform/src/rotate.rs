@@ -2,11 +2,146 @@
 //!
 //! This module provides:
 //! - Orthogonal rotations (90/180/270 degrees)
-//! - Arbitrary angle rotations (with bilinear interpolation)
+//! - Arbitrary angle rotations (with multiple algorithms)
 //! - Horizontal and vertical flips
+//!
+//! # Rotation Methods
+//!
+//! - **Sampling**: Fastest, uses nearest-neighbor interpolation. Best for speed.
+//! - **AreaMap**: Highest quality, uses area-weighted averaging. Best for quality.
+//! - **Shear**: Good for 1bpp images, uses 2 or 3 shear operations.
+//! - **Bilinear**: Good balance of speed and quality.
 
 use crate::TransformResult;
-use leptonica_core::{Pix, PixMut, PixelDepth};
+use leptonica_core::{Pix, PixMut, PixelDepth, color};
+
+// ============================================================================
+// Constants from Leptonica
+// ============================================================================
+
+/// Minimum angle to actually rotate (below this, just clone)
+const MIN_ANGLE_TO_ROTATE: f32 = 0.001; // radians, ~0.06 degrees
+/// Maximum angle for 2-shear rotation
+const MAX_TWO_SHEAR_ANGLE: f32 = 0.06; // radians, ~3 degrees
+/// Maximum angle for 3-shear rotation (warning threshold)
+#[allow(dead_code)]
+const MAX_THREE_SHEAR_ANGLE: f32 = 0.35; // radians, ~20 degrees
+/// Maximum angle for shear rotation
+const MAX_SHEAR_ANGLE: f32 = 0.50; // radians, ~29 degrees
+/// Angle threshold for switching 1bpp from shear to sampling
+const MAX_1BPP_SHEAR_ANGLE: f32 = 0.06; // radians, ~3 degrees
+
+// ============================================================================
+// Rotation method enumeration
+// ============================================================================
+
+/// Rotation algorithm to use
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RotateMethod {
+    /// Sampling (nearest-neighbor) - fastest, lowest quality
+    Sampling,
+    /// Area mapping - highest quality, uses 16x16 sub-pixel grid
+    AreaMap,
+    /// Shear-based rotation - good for 1bpp images
+    Shear,
+    /// Bilinear interpolation - good balance of speed and quality
+    Bilinear,
+    /// Automatic selection based on depth and angle
+    #[default]
+    Auto,
+}
+
+/// Background fill color for rotation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RotateFill {
+    /// Fill with white pixels
+    #[default]
+    White,
+    /// Fill with black pixels
+    Black,
+    /// Fill with a specific color value (interpretation depends on depth)
+    Color(u32),
+}
+
+impl RotateFill {
+    /// Get the fill value for a specific pixel depth
+    pub fn to_value(self, depth: PixelDepth) -> u32 {
+        match self {
+            RotateFill::White => match depth {
+                PixelDepth::Bit1 => 0, // 0 = white for binary (foreground is black)
+                PixelDepth::Bit2 => 3,
+                PixelDepth::Bit4 => 15,
+                PixelDepth::Bit8 => 255,
+                PixelDepth::Bit16 => 65535,
+                PixelDepth::Bit32 => 0xFFFFFF00,
+            },
+            RotateFill::Black => match depth {
+                PixelDepth::Bit1 => 1, // 1 = black for binary
+                PixelDepth::Bit32 => 0x00000000,
+                _ => 0,
+            },
+            RotateFill::Color(val) => val,
+        }
+    }
+}
+
+/// Options for rotation operations
+#[derive(Debug, Clone)]
+pub struct RotateOptions {
+    /// Rotation algorithm to use
+    pub method: RotateMethod,
+    /// Background fill color
+    pub fill: RotateFill,
+    /// Custom rotation center X (None = image center)
+    pub center_x: Option<f32>,
+    /// Custom rotation center Y (None = image center)
+    pub center_y: Option<f32>,
+    /// Expand output to fit all rotated pixels
+    pub expand: bool,
+}
+
+impl Default for RotateOptions {
+    fn default() -> Self {
+        Self {
+            method: RotateMethod::Auto,
+            fill: RotateFill::White,
+            center_x: None,
+            center_y: None,
+            expand: true,
+        }
+    }
+}
+
+impl RotateOptions {
+    /// Create options with a specific method
+    pub fn with_method(method: RotateMethod) -> Self {
+        Self {
+            method,
+            ..Default::default()
+        }
+    }
+
+    /// Create options with a specific fill color
+    pub fn with_fill(fill: RotateFill) -> Self {
+        Self {
+            fill,
+            ..Default::default()
+        }
+    }
+
+    /// Set the rotation center
+    pub fn center(mut self, x: f32, y: f32) -> Self {
+        self.center_x = Some(x);
+        self.center_y = Some(y);
+        self
+    }
+
+    /// Set whether to expand output dimensions
+    pub fn expand(mut self, expand: bool) -> Self {
+        self.expand = expand;
+        self
+    }
+}
 
 /// Rotate an image by 90-degree increments
 ///
@@ -554,6 +689,581 @@ fn interpolate_edge_pixel(
     }
 }
 
+// ============================================================================
+// New rotation API with multiple algorithms
+// ============================================================================
+
+/// Rotate an image by an arbitrary angle using specified options
+///
+/// This is the most flexible rotation function, supporting multiple algorithms
+/// and custom rotation centers.
+///
+/// # Arguments
+/// * `pix` - Input image
+/// * `angle` - Rotation angle in radians (positive = clockwise, like Leptonica)
+/// * `options` - Rotation options including method, fill color, and center
+///
+/// # Example
+/// ```no_run
+/// use leptonica_transform::{rotate, RotateOptions, RotateMethod, RotateFill};
+/// use leptonica_core::{Pix, PixelDepth};
+///
+/// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+/// let options = RotateOptions::with_method(RotateMethod::AreaMap);
+/// let rotated = rotate(&pix, 0.5, &options).unwrap();
+/// ```
+pub fn rotate(pix: &Pix, angle: f32, options: &RotateOptions) -> TransformResult<Pix> {
+    // For very small angles, just clone
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let depth = pix.depth();
+    let fill_value = options.fill.to_value(depth);
+
+    // Select method (auto-select based on depth and angle if needed)
+    let method = select_rotate_method(options.method, depth, angle);
+
+    // Calculate dimensions and centers
+    let w = pix.width() as f32;
+    let h = pix.height() as f32;
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+
+    let (out_w, out_h) = if options.expand {
+        let (nw, nh) = calculate_rotated_bounds(w, h, cos_a, sin_a);
+        (nw as u32, nh as u32)
+    } else {
+        (pix.width(), pix.height())
+    };
+
+    let cx_src = options.center_x.unwrap_or(w / 2.0);
+    let cy_src = options.center_y.unwrap_or(h / 2.0);
+    let cx_dst = if options.expand {
+        out_w as f32 / 2.0
+    } else {
+        cx_src
+    };
+    let cy_dst = if options.expand {
+        out_h as f32 / 2.0
+    } else {
+        cy_src
+    };
+
+    // Create output image
+    let out_pix = Pix::new(out_w, out_h, depth)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    // Copy colormap if present
+    if let Some(cmap) = pix.colormap() {
+        let _ = out_mut.set_colormap(Some(cmap.clone()));
+    }
+
+    // Fill with background
+    fill_image(&mut out_mut, fill_value);
+
+    // Perform rotation with selected method
+    match method {
+        RotateMethod::Sampling => {
+            rotate_by_sampling_impl(
+                pix,
+                &mut out_mut,
+                cos_a,
+                sin_a,
+                cx_src,
+                cy_src,
+                cx_dst,
+                cy_dst,
+                fill_value,
+            );
+        }
+        RotateMethod::AreaMap => {
+            rotate_area_map_impl(
+                pix,
+                &mut out_mut,
+                cos_a,
+                sin_a,
+                cx_src,
+                cy_src,
+                cx_dst,
+                cy_dst,
+                fill_value,
+            );
+        }
+        RotateMethod::Shear => {
+            rotate_shear_impl(
+                pix,
+                &mut out_mut,
+                angle,
+                cx_src as i32,
+                cy_src as i32,
+                fill_value,
+            );
+        }
+        RotateMethod::Bilinear => {
+            rotate_bilinear(
+                pix,
+                &mut out_mut,
+                cos_a,
+                sin_a,
+                cx_src,
+                cy_src,
+                cx_dst,
+                cy_dst,
+            );
+        }
+        RotateMethod::Auto => unreachable!(),
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Rotate an image using a specific method (simple API)
+///
+/// # Arguments
+/// * `pix` - Input image
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `method` - Rotation algorithm to use
+pub fn rotate_with_method(pix: &Pix, angle: f32, method: RotateMethod) -> TransformResult<Pix> {
+    let options = RotateOptions {
+        method,
+        ..Default::default()
+    };
+    rotate(pix, angle, &options)
+}
+
+/// Rotate an image about a specified center point
+///
+/// # Arguments
+/// * `pix` - Input image
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `center_x` - X coordinate of rotation center
+/// * `center_y` - Y coordinate of rotation center
+/// * `fill` - Background fill color
+pub fn rotate_about_center(
+    pix: &Pix,
+    angle: f32,
+    center_x: f32,
+    center_y: f32,
+    fill: RotateFill,
+) -> TransformResult<Pix> {
+    let options = RotateOptions {
+        fill,
+        center_x: Some(center_x),
+        center_y: Some(center_y),
+        expand: false, // Don't expand when using custom center
+        ..Default::default()
+    };
+    rotate(pix, angle, &options)
+}
+
+/// Select the best rotation method based on depth and angle
+fn select_rotate_method(method: RotateMethod, depth: PixelDepth, angle: f32) -> RotateMethod {
+    match method {
+        RotateMethod::Auto => {
+            let abs_angle = angle.abs();
+
+            // For 1bpp, use shear for small angles, sampling for large
+            if depth == PixelDepth::Bit1 {
+                if abs_angle > MAX_1BPP_SHEAR_ANGLE {
+                    RotateMethod::Sampling
+                } else {
+                    RotateMethod::Shear
+                }
+            }
+            // For other depths, use area mapping for best quality
+            // unless angle is very large
+            else if abs_angle > MAX_SHEAR_ANGLE {
+                RotateMethod::Sampling
+            } else {
+                match depth {
+                    PixelDepth::Bit8 | PixelDepth::Bit32 => RotateMethod::AreaMap,
+                    _ => RotateMethod::Sampling,
+                }
+            }
+        }
+        // Validate requested method is appropriate
+        RotateMethod::AreaMap => {
+            if depth == PixelDepth::Bit1
+                || depth == PixelDepth::Bit2
+                || depth == PixelDepth::Bit4
+                || depth == PixelDepth::Bit16
+            {
+                // Fall back to sampling for unsupported depths
+                RotateMethod::Sampling
+            } else {
+                RotateMethod::AreaMap
+            }
+        }
+        RotateMethod::Shear => {
+            if angle.abs() > MAX_SHEAR_ANGLE {
+                // Angle too large for shear
+                RotateMethod::Sampling
+            } else {
+                RotateMethod::Shear
+            }
+        }
+        other => other,
+    }
+}
+
+// ============================================================================
+// Sampling rotation implementation (pixRotateBySampling equivalent)
+// ============================================================================
+
+/// Rotation by sampling (nearest neighbor) - like pixRotateBySampling
+#[allow(clippy::too_many_arguments)]
+fn rotate_by_sampling_impl(
+    src: &Pix,
+    dst: &mut PixMut,
+    cos_a: f32,
+    sin_a: f32,
+    cx_src: f32,
+    cy_src: f32,
+    cx_dst: f32,
+    cy_dst: f32,
+    _fill_value: u32,
+) {
+    let src_w = src.width() as i32;
+    let src_h = src.height() as i32;
+    let dst_w = dst.width();
+    let dst_h = dst.height();
+    let wm1 = src_w - 1;
+    let hm1 = src_h - 1;
+
+    for i in 0..dst_h {
+        let ydif = cy_dst - i as f32;
+        for j in 0..dst_w {
+            let xdif = cx_dst - j as f32;
+
+            // Inverse rotation (Leptonica convention: clockwise positive)
+            let x = (cx_src + (-xdif * cos_a - ydif * sin_a)).round() as i32;
+            let y = (cy_src + (-ydif * cos_a + xdif * sin_a)).round() as i32;
+
+            if x >= 0 && x <= wm1 && y >= 0 && y <= hm1 {
+                let val = unsafe { src.get_pixel_unchecked(x as u32, y as u32) };
+                unsafe { dst.set_pixel_unchecked(j, i, val) };
+            }
+            // Pixels outside bounds keep the fill value set earlier
+        }
+    }
+}
+
+// ============================================================================
+// Area mapping rotation implementation (pixRotateAM equivalent)
+// ============================================================================
+
+/// Rotation by area mapping - like pixRotateAMGray/pixRotateAMColor
+///
+/// Uses 16x16 sub-pixel grid for high-quality interpolation
+#[allow(clippy::too_many_arguments)]
+fn rotate_area_map_impl(
+    src: &Pix,
+    dst: &mut PixMut,
+    cos_a: f32,
+    sin_a: f32,
+    cx_src: f32,
+    cy_src: f32,
+    cx_dst: f32,
+    cy_dst: f32,
+    fill_value: u32,
+) {
+    let depth = src.depth();
+    match depth {
+        PixelDepth::Bit8 => {
+            rotate_area_map_gray(
+                src,
+                dst,
+                cos_a,
+                sin_a,
+                cx_src,
+                cy_src,
+                cx_dst,
+                cy_dst,
+                fill_value as u8,
+            );
+        }
+        PixelDepth::Bit32 => {
+            rotate_area_map_color(
+                src, dst, cos_a, sin_a, cx_src, cy_src, cx_dst, cy_dst, fill_value,
+            );
+        }
+        _ => {
+            // Fall back to sampling for other depths
+            rotate_by_sampling_impl(
+                src, dst, cos_a, sin_a, cx_src, cy_src, cx_dst, cy_dst, fill_value,
+            );
+        }
+    }
+}
+
+/// Area mapping rotation for 8bpp grayscale
+#[allow(clippy::too_many_arguments)]
+fn rotate_area_map_gray(
+    src: &Pix,
+    dst: &mut PixMut,
+    cos_a: f32,
+    sin_a: f32,
+    cx_src: f32,
+    cy_src: f32,
+    cx_dst: f32,
+    cy_dst: f32,
+    grayval: u8,
+) {
+    let src_w = src.width() as i32;
+    let src_h = src.height() as i32;
+    let dst_w = dst.width();
+    let dst_h = dst.height();
+    let wm2 = src_w - 2;
+    let hm2 = src_h - 2;
+
+    // Scale sin/cos by 16 for sub-pixel precision
+    let sina = 16.0 * sin_a;
+    let cosa = 16.0 * cos_a;
+
+    for i in 0..dst_h {
+        let ydif = cy_dst - i as f32;
+        for j in 0..dst_w {
+            let xdif = cx_dst - j as f32;
+
+            // Sub-pixel position (scaled by 16)
+            let xpm = (-xdif * cosa - ydif * sina) as i32;
+            let ypm = (-ydif * cosa + xdif * sina) as i32;
+
+            // Integer and fractional parts
+            let xp = (cx_src as i32) + (xpm >> 4);
+            let yp = (cy_src as i32) + (ypm >> 4);
+            let xf = xpm & 0x0f;
+            let yf = ypm & 0x0f;
+
+            // Check bounds
+            if xp < 0 || yp < 0 || xp > wm2 || yp > hm2 {
+                unsafe { dst.set_pixel_unchecked(j, i, grayval as u32) };
+                continue;
+            }
+
+            // Get four neighboring pixels
+            let v00 = unsafe { src.get_pixel_unchecked(xp as u32, yp as u32) };
+            let v10 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, yp as u32) };
+            let v01 = unsafe { src.get_pixel_unchecked(xp as u32, (yp + 1) as u32) };
+            let v11 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) };
+
+            // Area-weighted interpolation
+            let val = ((16 - xf) * (16 - yf) * v00 as i32
+                + xf * (16 - yf) * v10 as i32
+                + (16 - xf) * yf * v01 as i32
+                + xf * yf * v11 as i32
+                + 128)
+                / 256;
+
+            unsafe { dst.set_pixel_unchecked(j, i, val as u32) };
+        }
+    }
+}
+
+/// Area mapping rotation for 32bpp color
+#[allow(clippy::too_many_arguments)]
+fn rotate_area_map_color(
+    src: &Pix,
+    dst: &mut PixMut,
+    cos_a: f32,
+    sin_a: f32,
+    cx_src: f32,
+    cy_src: f32,
+    cx_dst: f32,
+    cy_dst: f32,
+    colorval: u32,
+) {
+    let src_w = src.width() as i32;
+    let src_h = src.height() as i32;
+    let dst_w = dst.width();
+    let dst_h = dst.height();
+    let wm2 = src_w - 2;
+    let hm2 = src_h - 2;
+
+    // Scale sin/cos by 16 for sub-pixel precision
+    let sina = 16.0 * sin_a;
+    let cosa = 16.0 * cos_a;
+
+    for i in 0..dst_h {
+        let ydif = cy_dst - i as f32;
+        for j in 0..dst_w {
+            let xdif = cx_dst - j as f32;
+
+            // Sub-pixel position (scaled by 16)
+            let xpm = (-xdif * cosa - ydif * sina) as i32;
+            let ypm = (-ydif * cosa + xdif * sina) as i32;
+
+            // Integer and fractional parts
+            let xp = (cx_src as i32) + (xpm >> 4);
+            let yp = (cy_src as i32) + (ypm >> 4);
+            let xf = xpm & 0x0f;
+            let yf = ypm & 0x0f;
+
+            // Check bounds
+            if xp < 0 || yp < 0 || xp > wm2 || yp > hm2 {
+                unsafe { dst.set_pixel_unchecked(j, i, colorval) };
+                continue;
+            }
+
+            // Get four neighboring pixels
+            let word00 = unsafe { src.get_pixel_unchecked(xp as u32, yp as u32) };
+            let word10 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, yp as u32) };
+            let word01 = unsafe { src.get_pixel_unchecked(xp as u32, (yp + 1) as u32) };
+            let word11 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) };
+
+            // Extract and interpolate each channel (RGBA format)
+            let (r00, g00, b00, a00) = color::extract_rgba(word00);
+            let (r10, g10, b10, a10) = color::extract_rgba(word10);
+            let (r01, g01, b01, a01) = color::extract_rgba(word01);
+            let (r11, g11, b11, a11) = color::extract_rgba(word11);
+
+            let rval = area_interp(r00, r10, r01, r11, xf, yf);
+            let gval = area_interp(g00, g10, g01, g11, xf, yf);
+            let bval = area_interp(b00, b10, b01, b11, xf, yf);
+            let aval = area_interp(a00, a10, a01, a11, xf, yf);
+
+            let pixel = color::compose_rgba(rval, gval, bval, aval);
+            unsafe { dst.set_pixel_unchecked(j, i, pixel) };
+        }
+    }
+}
+
+/// Area interpolation helper for a single channel
+#[inline]
+fn area_interp(v00: u8, v10: u8, v01: u8, v11: u8, xf: i32, yf: i32) -> u8 {
+    let val = ((16 - xf) * (16 - yf) * v00 as i32
+        + xf * (16 - yf) * v10 as i32
+        + (16 - xf) * yf * v01 as i32
+        + xf * yf * v11 as i32
+        + 128)
+        / 256;
+    val.clamp(0, 255) as u8
+}
+
+// ============================================================================
+// Shear-based rotation implementation (pixRotateShear equivalent)
+// ============================================================================
+
+/// Rotation by shear - like pixRotateShear
+///
+/// Uses 2-shear for small angles (< ~3 degrees) or 3-shear for larger angles
+#[allow(clippy::too_many_arguments)]
+fn rotate_shear_impl(
+    src: &Pix,
+    dst: &mut PixMut,
+    angle: f32,
+    xcen: i32,
+    ycen: i32,
+    fill_value: u32,
+) {
+    let abs_angle = angle.abs();
+
+    if abs_angle <= MAX_TWO_SHEAR_ANGLE {
+        rotate_2_shear(src, dst, angle, xcen, ycen, fill_value);
+    } else {
+        rotate_3_shear(src, dst, angle, xcen, ycen, fill_value);
+    }
+}
+
+/// 2-shear rotation (for small angles)
+///
+/// x' = x + tan(angle) * (y - ycen)
+/// y' = y + tan(angle) * (x - xcen)
+fn rotate_2_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32, fill_value: u32) {
+    let w = src.width() as i32;
+    let h = src.height() as i32;
+    let tan_a = angle.tan();
+
+    // First pass: horizontal shear into temporary
+    let temp_pix = Pix::new(src.width(), src.height(), src.depth()).unwrap();
+    let mut temp = temp_pix.try_into_mut().unwrap();
+    fill_image(&mut temp, fill_value);
+
+    for y in 0..h {
+        let shift = ((y - ycen) as f32 * tan_a).round() as i32;
+        for x in 0..w {
+            let new_x = x + shift;
+            if new_x >= 0 && new_x < w {
+                let val = unsafe { src.get_pixel_unchecked(x as u32, y as u32) };
+                unsafe { temp.set_pixel_unchecked(new_x as u32, y as u32, val) };
+            }
+        }
+    }
+
+    // Second pass: vertical shear from temp to dst
+    let temp_ref: Pix = temp.into();
+    for x in 0..w {
+        let shift = ((x - xcen) as f32 * tan_a).round() as i32;
+        for y in 0..h {
+            let new_y = y + shift;
+            if new_y >= 0 && new_y < h {
+                let val = unsafe { temp_ref.get_pixel_unchecked(x as u32, y as u32) };
+                unsafe { dst.set_pixel_unchecked(x as u32, new_y as u32, val) };
+            }
+        }
+    }
+}
+
+/// 3-shear rotation (Paeth's algorithm)
+///
+/// y' = y + tan(angle/2) * (x - xcen)  [first V-shear]
+/// x' = x + sin(angle) * (y - ycen)    [H-shear]
+/// y' = y + tan(angle/2) * (x - xcen)  [second V-shear]
+fn rotate_3_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32, fill_value: u32) {
+    let w = src.width() as i32;
+    let h = src.height() as i32;
+    let half_tan = (angle / 2.0).tan();
+    let hangle = (angle.sin()).atan(); // atan(sin(angle))
+
+    // Create two temporary images
+    let temp1_pix = Pix::new(src.width(), src.height(), src.depth()).unwrap();
+    let mut temp1 = temp1_pix.try_into_mut().unwrap();
+    fill_image(&mut temp1, fill_value);
+
+    let temp2_pix = Pix::new(src.width(), src.height(), src.depth()).unwrap();
+    let mut temp2 = temp2_pix.try_into_mut().unwrap();
+    fill_image(&mut temp2, fill_value);
+
+    // First V-shear
+    for x in 0..w {
+        let shift = ((x - xcen) as f32 * half_tan).round() as i32;
+        for y in 0..h {
+            let new_y = y + shift;
+            if new_y >= 0 && new_y < h {
+                let val = unsafe { src.get_pixel_unchecked(x as u32, y as u32) };
+                unsafe { temp1.set_pixel_unchecked(x as u32, new_y as u32, val) };
+            }
+        }
+    }
+
+    // H-shear
+    let temp1_ref: Pix = temp1.into();
+    for y in 0..h {
+        let shift = ((y - ycen) as f32 * hangle).round() as i32;
+        for x in 0..w {
+            let new_x = x + shift;
+            if new_x >= 0 && new_x < w {
+                let val = unsafe { temp1_ref.get_pixel_unchecked(x as u32, y as u32) };
+                unsafe { temp2.set_pixel_unchecked(new_x as u32, y as u32, val) };
+            }
+        }
+    }
+
+    // Second V-shear
+    let temp2_ref: Pix = temp2.into();
+    for x in 0..w {
+        let shift = ((x - xcen) as f32 * half_tan).round() as i32;
+        for y in 0..h {
+            let new_y = y + shift;
+            if new_y >= 0 && new_y < h {
+                let val = unsafe { temp2_ref.get_pixel_unchecked(x as u32, y as u32) };
+                unsafe { dst.set_pixel_unchecked(x as u32, new_y as u32, val) };
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -859,5 +1569,160 @@ mod tests {
         let expected = 100.0 * 2.0_f32.sqrt();
         assert!((w - expected).abs() < 2.0);
         assert!((h - expected).abs() < 2.0);
+    }
+
+    // ========================================================================
+    // New API tests
+    // ========================================================================
+
+    #[test]
+    fn test_rotate_with_options_sampling() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let options = RotateOptions::with_method(RotateMethod::Sampling);
+        let rotated = rotate(&pix, 0.5, &options).unwrap();
+        assert!(rotated.width() > 0);
+        assert!(rotated.height() > 0);
+    }
+
+    #[test]
+    fn test_rotate_with_options_area_map() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let options = RotateOptions::with_method(RotateMethod::AreaMap);
+        let rotated = rotate(&pix, 0.2, &options).unwrap();
+        assert!(rotated.width() > 0);
+        assert!(rotated.height() > 0);
+    }
+
+    #[test]
+    fn test_rotate_with_options_shear() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let options = RotateOptions::with_method(RotateMethod::Shear);
+        let rotated = rotate(&pix, 0.05, &options).unwrap();
+        assert!(rotated.width() > 0);
+        assert!(rotated.height() > 0);
+    }
+
+    #[test]
+    fn test_rotate_with_fill_black() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let options = RotateOptions::with_fill(RotateFill::Black);
+        let rotated = rotate(&pix, 0.3, &options).unwrap();
+        assert!(rotated.width() > 0);
+    }
+
+    #[test]
+    fn test_rotate_with_custom_center() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_about_center(&pix, 0.2, 25.0, 25.0, RotateFill::White).unwrap();
+        // Should have same dimensions when not expanding
+        assert_eq!(rotated.width(), 100);
+        assert_eq!(rotated.height(), 100);
+    }
+
+    #[test]
+    fn test_rotate_method_auto_selection() {
+        // 1bpp should use shear for small angles
+        let method_1bpp = select_rotate_method(RotateMethod::Auto, PixelDepth::Bit1, 0.02);
+        assert_eq!(method_1bpp, RotateMethod::Shear);
+
+        // 1bpp should use sampling for large angles
+        let method_1bpp_large = select_rotate_method(RotateMethod::Auto, PixelDepth::Bit1, 0.1);
+        assert_eq!(method_1bpp_large, RotateMethod::Sampling);
+
+        // 8bpp should use area mapping
+        let method_8bpp = select_rotate_method(RotateMethod::Auto, PixelDepth::Bit8, 0.2);
+        assert_eq!(method_8bpp, RotateMethod::AreaMap);
+
+        // 32bpp should use area mapping
+        let method_32bpp = select_rotate_method(RotateMethod::Auto, PixelDepth::Bit32, 0.2);
+        assert_eq!(method_32bpp, RotateMethod::AreaMap);
+    }
+
+    #[test]
+    fn test_rotate_32bpp_area_map() {
+        let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        // Create a simple gradient
+        for y in 0..30 {
+            for x in 0..30 {
+                let val = color::compose_rgb(x as u8 * 8, y as u8 * 8, 128);
+                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+            }
+        }
+
+        let pix: Pix = pix_mut.into();
+        let options = RotateOptions::with_method(RotateMethod::AreaMap);
+        let rotated = rotate(&pix, 0.3, &options).unwrap();
+
+        assert!(rotated.width() > 30);
+        assert!(rotated.height() > 30);
+    }
+
+    #[test]
+    fn test_rotate_very_small_angle() {
+        // Angles below MIN_ANGLE_TO_ROTATE should just clone
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let options = RotateOptions::default();
+        let rotated = rotate(&pix, 0.0001, &options).unwrap();
+
+        // Should be same dimensions (cloned)
+        assert_eq!(rotated.width(), 50);
+        assert_eq!(rotated.height(), 50);
+    }
+
+    #[test]
+    fn test_rotate_fill_to_value() {
+        // Test RotateFill::to_value for different depths
+        assert_eq!(RotateFill::White.to_value(PixelDepth::Bit1), 0);
+        assert_eq!(RotateFill::Black.to_value(PixelDepth::Bit1), 1);
+        assert_eq!(RotateFill::White.to_value(PixelDepth::Bit8), 255);
+        assert_eq!(RotateFill::Black.to_value(PixelDepth::Bit8), 0);
+        assert_eq!(RotateFill::Color(128).to_value(PixelDepth::Bit8), 128);
+    }
+
+    #[test]
+    fn test_rotate_options_builder() {
+        let options = RotateOptions::with_method(RotateMethod::Sampling)
+            .center(25.0, 30.0)
+            .expand(false);
+
+        assert_eq!(options.method, RotateMethod::Sampling);
+        assert_eq!(options.center_x, Some(25.0));
+        assert_eq!(options.center_y, Some(30.0));
+        assert!(!options.expand);
+    }
+
+    #[test]
+    fn test_rotate_with_method_convenience() {
+        let pix = Pix::new(40, 40, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_with_method(&pix, 0.25, RotateMethod::Bilinear).unwrap();
+        assert!(rotated.width() > 0);
+    }
+
+    #[test]
+    fn test_shear_rotation_2_shear() {
+        // Small angle should use 2-shear
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let options = RotateOptions {
+            method: RotateMethod::Shear,
+            expand: false, // Don't expand output
+            ..Default::default()
+        };
+        let rotated = rotate(&pix, 0.03, &options).unwrap(); // ~1.7 degrees
+        assert_eq!(rotated.width(), 50); // No expansion
+    }
+
+    #[test]
+    fn test_shear_rotation_3_shear() {
+        // Larger angle should use 3-shear
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let options = RotateOptions {
+            method: RotateMethod::Shear,
+            expand: false,
+            ..Default::default()
+        };
+        let rotated = rotate(&pix, 0.15, &options).unwrap(); // ~8.5 degrees
+        assert_eq!(rotated.width(), 50);
     }
 }
