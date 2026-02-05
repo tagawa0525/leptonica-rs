@@ -5,6 +5,7 @@
 //! - **Color space conversion** ([`colorspace`]): RGB ↔ HSV, LAB, XYZ, YUV
 //! - **Thresholding** ([`threshold`]): Binary conversion, Otsu's method, adaptive thresholding
 //! - **Color quantization** ([`quantize`]): Median cut, octree algorithms
+//! - **Color segmentation** ([`segment`]): Unsupervised color segmentation
 //! - **Color analysis** ([`analysis`]): Statistics, color counting, grayscale detection
 //!
 //! # Example
@@ -21,6 +22,7 @@ pub mod analysis;
 pub mod colorspace;
 pub mod error;
 pub mod quantize;
+pub mod segment;
 pub mod threshold;
 
 // Re-export core types
@@ -94,4 +96,15 @@ pub use analysis::{
     grayscale_histogram,
     is_grayscale,
     is_grayscale_tolerant,
+};
+
+// Re-export segmentation functions
+pub use segment::{
+    // Types
+    ColorSegmentOptions,
+    // Functions
+    assign_to_nearest_color,
+    color_segment,
+    color_segment_cluster,
+    color_segment_simple,
 };
