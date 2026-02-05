@@ -8,11 +8,13 @@
 //! - [`Box`] / [`Boxa`] - Rectangle regions
 //! - [`Pta`] / [`Ptaa`] - Point arrays
 //! - [`Numa`] / [`Numaa`] - Numeric arrays
+//! - [`FPix`] - Floating-point image
 //! - [`PixColormap`] - Color palette for indexed images
 
 pub mod box_;
 pub mod colormap;
 pub mod error;
+pub mod fpix;
 pub mod numa;
 pub mod pix;
 pub mod pixa;
@@ -21,6 +23,7 @@ pub mod pta;
 pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::PixColormap;
 pub use error::{Error, Result};
+pub use fpix::{FPix, NegativeHandling};
 pub use numa::{Numa, Numaa};
 pub use pix::{ImageFormat, Pix, PixMut, PixelDepth, RopOp};
 pub use pixa::{Pixa, Pixaa};
