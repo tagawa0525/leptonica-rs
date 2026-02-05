@@ -5,10 +5,12 @@
 //! - Structuring elements (SEL) for defining operation neighborhoods
 //! - Binary morphology: erosion, dilation, opening, closing
 //! - Grayscale morphology: erosion, dilation, opening, closing for 8-bpp images
+//! - Color morphology: erosion, dilation, opening, closing for 32-bpp images
 //! - Hit-miss transform for pattern detection
 //! - Morphological gradient, top-hat, and bottom-hat transforms
 
 pub mod binary;
+pub mod color;
 mod error;
 pub mod grayscale;
 pub mod sel;
@@ -25,4 +27,10 @@ pub use binary::{
 // Re-export commonly used grayscale morphology functions
 pub use grayscale::{
     bottom_hat_gray, close_gray, dilate_gray, erode_gray, gradient_gray, open_gray, top_hat_gray,
+};
+
+// Re-export commonly used color morphology functions
+pub use color::{
+    ColorChannel, bottom_hat_color, close_color, dilate_color, erode_color, gradient_color,
+    open_color, top_hat_color,
 };
