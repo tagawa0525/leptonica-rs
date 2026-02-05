@@ -46,8 +46,8 @@
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
 | 回転（直交） | ✅ rotateorth.c | ✅ rotate.rs | 90°/180°/270° |
-| 回転（任意角度） | ✅ rotate.c, rotateam.c | ❌ | 未実装 |
-| 回転（シアー） | ✅ rotateshear.c | ❌ | 未実装 |
+| 回転（任意角度） | ✅ rotate.c, rotateam.c | ✅ rotate.rs | 面積マッピング/サンプリング/シアー |
+| 回転（シアー） | ✅ rotateshear.c | ✅ rotate.rs | 2-shear/3-shear対応 |
 | スケーリング | ✅ scale1-2.c | ✅ scale.rs | 3アルゴリズム |
 | アフィン変換 | ✅ affine.c, affinecompose.c | ❌ | 未実装 |
 | 双線形変換 | ✅ bilinear.c | ❌ | 未実装 |
