@@ -22,7 +22,7 @@
 | Colormap | ✅ colormap.c | ✅ leptonica-core | 完全実装 |
 | Pixa（Pix配列） | ✅ pixabasic.c, pixafunc1-2.c | ✅ pixa/mod.rs | 基本操作実装 |
 | Numa（数値配列） | ✅ numabasic.c, numafunc1-2.c | ✅ numa/mod.rs | 基本操作実装 |
-| Sarray（文字列配列） | ✅ sarray1-2.c | ❌ | 未実装 |
+| Sarray（文字列配列） | ✅ sarray1-2.c | ✅ sarray/mod.rs | 文字列配列/集合演算 |
 | FPix（浮動小数点画像） | ✅ fpix1-2.c | ✅ fpix/mod.rs | Pix相互変換/演算 |
 
 ### 2. 画像I/O
