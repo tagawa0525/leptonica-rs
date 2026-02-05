@@ -51,7 +51,7 @@
 | スケーリング | ✅ scale1-2.c | ✅ scale.rs | 3アルゴリズム |
 | アフィン変換 | ✅ affine.c, affinecompose.c | ✅ affine.rs | サンプリング/補間対応 |
 | 双線形変換 | ✅ bilinear.c | ✅ bilinear.rs | 4点対応/補間 |
-| 射影変換 | ✅ projective.c | ❌ | 未実装 |
+| 射影変換 | ✅ projective.c | ✅ projective.rs | 4点ホモグラフィ |
 | シアー変換 | ✅ shear.c | ✅ shear.rs | 水平/垂直/線形補間対応 |
 | 反転（左右/上下） | ✅ rotateorth.c | ✅ rotate.rs | 完全実装 |
 
