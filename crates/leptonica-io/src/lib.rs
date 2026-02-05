@@ -23,6 +23,9 @@ pub mod tiff;
 #[cfg(feature = "gif-format")]
 pub mod gif;
 
+#[cfg(feature = "webp-format")]
+pub mod webp;
+
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
@@ -90,6 +93,9 @@ pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
         #[cfg(feature = "gif-format")]
         ImageFormat::Gif => gif::read_gif(reader),
 
+        #[cfg(feature = "webp-format")]
+        ImageFormat::WebP => webp::read_webp(reader),
+
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
 }
@@ -156,6 +162,9 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
 
         #[cfg(feature = "gif-format")]
         ImageFormat::Gif => gif::write_gif(pix, writer),
+
+        #[cfg(feature = "webp-format")]
+        ImageFormat::WebP => webp::write_webp(pix, writer),
 
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
