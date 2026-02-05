@@ -8,12 +8,15 @@
 //! - Color morphology: erosion, dilation, opening, closing for 32-bpp images
 //! - Hit-miss transform for pattern detection
 //! - Morphological gradient, top-hat, and bottom-hat transforms
+//! - Connectivity-preserving thinning (skeletonization)
 
 pub mod binary;
 pub mod color;
 mod error;
 pub mod grayscale;
 pub mod sel;
+pub mod thin;
+pub mod thin_sels;
 
 pub use error::{MorphError, MorphResult};
 pub use sel::{Sel, SelElement};
@@ -34,3 +37,7 @@ pub use color::{
     ColorChannel, bottom_hat_color, close_color, dilate_color, erode_color, gradient_color,
     open_color, top_hat_color,
 };
+
+// Re-export thinning functions
+pub use thin::{Connectivity, ThinType, thin_connected, thin_connected_by_set};
+pub use thin_sels::{ThinSelSet, make_thin_sels, sels_4and8cc_thin, sels_4cc_thin, sels_8cc_thin};

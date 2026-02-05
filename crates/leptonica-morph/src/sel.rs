@@ -322,6 +322,72 @@ impl Sel {
         reflected
     }
 
+    /// Rotate the SEL by 90 degrees orthogonally
+    ///
+    /// # Arguments
+    /// * `rotation` - Number of 90-degree rotations (0-3)
+    ///   - 0: no rotation
+    ///   - 1: 90 degrees clockwise
+    ///   - 2: 180 degrees
+    ///   - 3: 270 degrees clockwise (90 degrees counter-clockwise)
+    pub fn rotate_orth(&self, rotation: u32) -> Self {
+        let rotation = rotation % 4;
+
+        if rotation == 0 {
+            return self.clone();
+        }
+
+        if rotation == 2 {
+            return self.reflect();
+        }
+
+        // For 90 and 270 degree rotations, width and height swap
+        let (new_width, new_height) = (self.height, self.width);
+
+        let (new_cx, new_cy) = match rotation {
+            1 => {
+                // 90 degrees clockwise: (x, y) -> (height-1-y, x)
+                // Origin: (cx, cy) -> (height-1-cy, cx)
+                (self.height - 1 - self.cy, self.cx)
+            }
+            3 => {
+                // 270 degrees clockwise: (x, y) -> (y, width-1-x)
+                // Origin: (cx, cy) -> (cy, width-1-cx)
+                (self.cy, self.width - 1 - self.cx)
+            }
+            _ => unreachable!(),
+        };
+
+        let mut rotated = Sel {
+            width: new_width,
+            height: new_height,
+            cx: new_cx,
+            cy: new_cy,
+            data: vec![SelElement::DontCare; self.data.len()],
+            name: self.name.as_ref().map(|n| format!("{}_rot{}", n, rotation)),
+        };
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let src = self.data[(y * self.width + x) as usize];
+                let (dst_x, dst_y) = match rotation {
+                    1 => {
+                        // 90 degrees clockwise
+                        (self.height - 1 - y, x)
+                    }
+                    3 => {
+                        // 270 degrees clockwise
+                        (y, self.width - 1 - x)
+                    }
+                    _ => unreachable!(),
+                };
+                rotated.data[(dst_y * new_width + dst_x) as usize] = src;
+            }
+        }
+
+        rotated
+    }
+
     /// Iterate over hit positions relative to origin
     pub fn hit_offsets(&self) -> impl Iterator<Item = (i32, i32)> + '_ {
         let cx = self.cx as i32;
@@ -430,5 +496,75 @@ mod tests {
         assert!(offsets.contains(&(-1, -1)));
         assert!(offsets.contains(&(0, 0)));
         assert!(offsets.contains(&(1, 1)));
+    }
+
+    #[test]
+    fn test_rotate_orth_identity() {
+        let sel = Sel::from_string("xx.\n...", 0, 0).unwrap();
+        let rotated = sel.rotate_orth(0);
+
+        assert_eq!(rotated.width(), sel.width());
+        assert_eq!(rotated.height(), sel.height());
+        assert_eq!(rotated.origin_x(), sel.origin_x());
+        assert_eq!(rotated.origin_y(), sel.origin_y());
+    }
+
+    #[test]
+    fn test_rotate_orth_90() {
+        // Original (3x2):
+        // xx.   (y=0)
+        // ...   (y=1)
+        // Origin at (0, 0)
+        let sel = Sel::from_string("xx.\n...", 0, 0).unwrap();
+        let rotated = sel.rotate_orth(1);
+
+        // After 90 degree rotation (2x3):
+        // Width and height swap
+        assert_eq!(rotated.width(), 2);
+        assert_eq!(rotated.height(), 3);
+
+        // Check the pattern:
+        // 90 clockwise: (x, y) -> (height-1-y, x)
+        // (0,0) -> (1, 0) - hit
+        // (1,0) -> (1, 1) - hit
+        // (2,0) -> (1, 2) - don't care
+        // (0,1) -> (0, 0) - don't care
+        // (1,1) -> (0, 1) - don't care
+        // (2,1) -> (0, 2) - don't care
+        assert_eq!(rotated.get_element(1, 0), Some(SelElement::Hit));
+        assert_eq!(rotated.get_element(1, 1), Some(SelElement::Hit));
+        assert_eq!(rotated.get_element(1, 2), Some(SelElement::DontCare));
+        assert_eq!(rotated.get_element(0, 0), Some(SelElement::DontCare));
+    }
+
+    #[test]
+    fn test_rotate_orth_180() {
+        let sel = Sel::from_string("xx.\n...", 0, 0).unwrap();
+        let rotated = sel.rotate_orth(2);
+
+        // 180 degrees is same as reflect
+        let reflected = sel.reflect();
+        assert_eq!(rotated.width(), reflected.width());
+        assert_eq!(rotated.height(), reflected.height());
+        for y in 0..rotated.height() {
+            for x in 0..rotated.width() {
+                assert_eq!(rotated.get_element(x, y), reflected.get_element(x, y));
+            }
+        }
+    }
+
+    #[test]
+    fn test_rotate_orth_360() {
+        let sel = Sel::from_string("xx.\n...", 0, 0).unwrap();
+
+        // Four rotations should return to original
+        let rotated = sel.rotate_orth(4);
+        assert_eq!(rotated.width(), sel.width());
+        assert_eq!(rotated.height(), sel.height());
+        for y in 0..sel.height() {
+            for x in 0..sel.width() {
+                assert_eq!(rotated.get_element(x, y), sel.get_element(x, y));
+            }
+        }
     }
 }
