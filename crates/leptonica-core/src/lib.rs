@@ -8,6 +8,7 @@
 //! - [`Box`] / [`Boxa`] - Rectangle regions
 //! - [`Pta`] / [`Ptaa`] - Point arrays
 //! - [`Numa`] / [`Numaa`] - Numeric arrays
+//! - [`Sarray`] / [`Sarraya`] - String arrays
 //! - [`FPix`] - Floating-point image
 //! - [`PixColormap`] - Color palette for indexed images
 
@@ -19,6 +20,7 @@ pub mod numa;
 pub mod pix;
 pub mod pixa;
 pub mod pta;
+pub mod sarray;
 
 pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::PixColormap;
@@ -30,6 +32,7 @@ pub use pix::{
 };
 pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
+pub use sarray::{Sarray, Sarraya};
 
 /// Color channel indices for 32-bit RGBA pixels
 pub mod color {
