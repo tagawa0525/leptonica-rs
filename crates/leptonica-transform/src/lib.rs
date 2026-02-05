@@ -6,11 +6,13 @@
 //! - Horizontal and vertical flips
 //! - Scaling (linear interpolation, sampling, area mapping)
 //! - Affine transformations (3-point correspondence, matrix-based)
+//! - Shear transformations (horizontal and vertical)
 
 pub mod affine;
 mod error;
 pub mod rotate;
 pub mod scale;
+pub mod shear;
 
 pub use affine::{
     AffineFill, AffineMatrix, Point, affine, affine_pta, affine_rotate, affine_sampled,
@@ -23,3 +25,7 @@ pub use rotate::{
     rotate_by_radians, rotate_orth, rotate_with_method,
 };
 pub use scale::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
+pub use shear::{
+    ShearFill, h_shear, h_shear_center, h_shear_corner, h_shear_ip, h_shear_li, v_shear,
+    v_shear_center, v_shear_corner, v_shear_ip, v_shear_li,
+};
