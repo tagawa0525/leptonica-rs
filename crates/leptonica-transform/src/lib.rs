@@ -5,12 +5,17 @@
 //! - Orthogonal rotations (90, 180, 270 degrees)
 //! - Horizontal and vertical flips
 //! - Scaling (linear interpolation, sampling, area mapping)
-//! - Affine transformations
+//! - Affine transformations (3-point correspondence, matrix-based)
 
+pub mod affine;
 mod error;
 pub mod rotate;
 pub mod scale;
 
+pub use affine::{
+    AffineFill, AffineMatrix, Point, affine, affine_pta, affine_rotate, affine_sampled,
+    affine_sampled_pta, affine_scale, translate,
+};
 pub use error::{TransformError, TransformResult};
 pub use rotate::{
     RotateFill, RotateMethod, RotateOptions, flip_lr, flip_tb, rotate, rotate_90, rotate_180,
