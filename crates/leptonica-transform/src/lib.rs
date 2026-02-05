@@ -9,6 +9,7 @@
 //! - Bilinear transformations (4-point correspondence, nonlinear)
 //! - Projective transformations (4-point correspondence, homography)
 //! - Shear transformations (horizontal and vertical)
+//! - Warping (random harmonic, stereoscopic, horizontal stretch, quadratic shear)
 
 pub mod affine;
 pub mod bilinear;
@@ -17,6 +18,7 @@ pub mod projective;
 pub mod rotate;
 pub mod scale;
 pub mod shear;
+pub mod warper;
 
 pub use affine::{
     AffineFill, AffineMatrix, Point, affine, affine_pta, affine_rotate, affine_sampled,
@@ -38,4 +40,9 @@ pub use scale::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
 pub use shear::{
     ShearFill, h_shear, h_shear_center, h_shear_corner, h_shear_ip, h_shear_li, v_shear,
     v_shear_center, v_shear_corner, v_shear_ip, v_shear_li,
+};
+pub use warper::{
+    StereoscopicParams, WarpDirection, WarpFill, WarpOperation, WarpType, quadratic_v_shear,
+    quadratic_v_shear_li, quadratic_v_shear_sampled, random_harmonic_warp, stereo_from_pair,
+    stretch_horizontal, stretch_horizontal_li, stretch_horizontal_sampled, warp_stereoscopic,
 };
