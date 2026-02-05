@@ -4,11 +4,13 @@
 //! It supports various pixel depths and optional colormaps.
 
 mod access;
+pub mod blend;
 pub mod compare;
 mod convert;
 mod ops;
 
 pub use access::*;
+pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
 pub use compare::{CompareResult, CompareType, correlation_binary};
 
 use crate::colormap::PixColormap;
