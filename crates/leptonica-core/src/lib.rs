@@ -25,7 +25,9 @@ pub use colormap::PixColormap;
 pub use error::{Error, Result};
 pub use fpix::{FPix, NegativeHandling};
 pub use numa::{HistogramStats, Numa, Numaa};
-pub use pix::{ColorHistogram, ImageFormat, Pix, PixMut, PixelDepth, RopOp};
+pub use pix::{
+    Color, ColorHistogram, ContourOutput, ImageFormat, Pix, PixMut, PixelDepth, PixelOp, RopOp,
+};
 pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
 
