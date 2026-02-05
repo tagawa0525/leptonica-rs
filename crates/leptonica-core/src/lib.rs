@@ -22,7 +22,7 @@ pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::PixColormap;
 pub use error::{Error, Result};
 pub use numa::{Numa, Numaa};
-pub use pix::{ImageFormat, Pix, PixMut, PixelDepth};
+pub use pix::{ImageFormat, Pix, PixMut, PixelDepth, RopOp};
 pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
 

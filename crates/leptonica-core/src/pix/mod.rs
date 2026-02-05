@@ -8,10 +8,12 @@ pub mod blend;
 pub mod compare;
 mod convert;
 mod ops;
+pub mod rop;
 
 pub use access::*;
 pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
 pub use compare::{CompareResult, CompareType, correlation_binary};
+pub use rop::RopOp;
 
 use crate::colormap::PixColormap;
 use crate::error::{Error, Result};
