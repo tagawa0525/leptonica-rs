@@ -9,12 +9,14 @@
 //! - Hit-miss transform for pattern detection
 //! - Morphological gradient, top-hat, and bottom-hat transforms
 //! - Connectivity-preserving thinning (skeletonization)
+//! - Morphological sequence operations for chaining multiple operations
 
 pub mod binary;
 pub mod color;
 mod error;
 pub mod grayscale;
 pub mod sel;
+pub mod sequence;
 pub mod thin;
 pub mod thin_sels;
 
@@ -41,3 +43,8 @@ pub use color::{
 // Re-export thinning functions
 pub use thin::{Connectivity, ThinType, thin_connected, thin_connected_by_set};
 pub use thin_sels::{ThinSelSet, make_thin_sels, sels_4and8cc_thin, sels_4cc_thin, sels_8cc_thin};
+
+// Re-export sequence functions
+pub use sequence::{
+    MorphOp, MorphSequence, gray_morph_sequence, morph_comp_sequence, morph_sequence,
+};
