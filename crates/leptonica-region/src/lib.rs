@@ -60,6 +60,7 @@ pub mod ccbord;
 pub mod conncomp;
 pub mod error;
 pub mod label;
+pub mod quadtree;
 pub mod seedfill;
 pub mod watershed;
 
@@ -97,4 +98,11 @@ pub use ccbord::{
     Border, BorderPoint, BorderType, ComponentBorders, Direction, ImageBorders, from_chain_code,
     get_all_borders, get_component_borders, get_outer_border, get_outer_borders, render_borders,
     to_chain_code,
+};
+
+// Re-export quadtree types and functions
+pub use quadtree::{
+    IntegralImage, QuadtreeResult, SquaredIntegralImage, mean_in_rectangle, quadtree_max_levels,
+    quadtree_mean, quadtree_mean_with_integral, quadtree_regions, quadtree_variance,
+    quadtree_variance_with_integral, variance_in_rectangle,
 };
