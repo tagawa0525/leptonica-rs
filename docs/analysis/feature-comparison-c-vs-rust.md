@@ -144,7 +144,7 @@
 | 論理演算 | ✅ rop.c, roplow.c | ✅ rop.rs | AND/OR/XOR/NOT等 |
 | ヒストグラム | ✅ numafunc1.c | ✅ histogram.rs | グレー/カラー統計 |
 | バーコード | ✅ bardecode.c, readbarcode.c | ❌ | 未実装 |
-| グラフィックス | ✅ graphics.c | ❌ | 未実装 |
+| グラフィックス | ✅ graphics.c | ✅ graphics.rs | 線/矩形/円/等高線描画 |
 | 迷路生成/解法 | ✅ maze.c | ❌ | 未実装 |
 | ワーパー | ✅ warper.c | ❌ | 未実装 |
 
