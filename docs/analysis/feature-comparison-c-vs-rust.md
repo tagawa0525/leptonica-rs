@@ -20,7 +20,7 @@
 | Box（矩形領域） | ✅ boxbasic.c, boxfunc1-5.c | ✅ leptonica-core | 完全実装 |
 | Pta（点配列） | ✅ ptabasic.c, ptafunc1-2.c | ✅ leptonica-core | 完全実装 |
 | Colormap | ✅ colormap.c | ✅ leptonica-core | 完全実装 |
-| Pixa（Pix配列） | ✅ pixabasic.c, pixafunc1-2.c | ❌ | 未実装 |
+| Pixa（Pix配列） | ✅ pixabasic.c, pixafunc1-2.c | ✅ pixa/mod.rs | 基本操作実装 |
 | Numa（数値配列） | ✅ numabasic.c, numafunc1-2.c | ❌ | 未実装 |
 | Sarray（文字列配列） | ✅ sarray1-2.c | ❌ | 未実装 |
 | FPix（浮動小数点画像） | ✅ fpix1-2.c | ❌ | 未実装 |
@@ -34,8 +34,8 @@
 | JPEG | ✅ jpegio.c | ✅ jpeg.rs | feature gate |
 | PNM (PBM/PGM/PPM) | ✅ pnmio.c | ✅ pnm.rs | feature gate |
 | TIFF | ✅ tiffio.c | ✅ tiff.rs | feature gate、マルチページ対応 |
-| GIF | ✅ gifio.c | ❌ | 未実装 |
-| WebP | ✅ webpio.c, webpanimio.c | ❌ | 未実装 |
+| GIF | ✅ gifio.c | ✅ gif.rs | feature gate |
+| WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate |
 | JP2K (JPEG2000) | ✅ jp2kio.c | ❌ | 未実装 |
 | PDF | ✅ pdfio1-2.c, pdfapp.c | ❌ | 未実装 |
 | PostScript | ✅ psio1-2.c | ❌ | 未実装 |
@@ -64,7 +64,7 @@
 | Hit-Miss変換 | ✅ morph.c | ✅ binary.rs | 完全実装 |
 | 形態学的勾配 | ✅ morph.c | ✅ binary.rs | 完全実装 |
 | Top-hat/Bottom-hat | ✅ morph.c | ✅ binary.rs | 完全実装 |
-| グレースケール形態学 | ✅ graymorph.c | ❌ | 未実装 |
+| グレースケール形態学 | ✅ graymorph.c | ✅ grayscale.rs | 膨張/収縮/開/閉 |
 | カラー形態学 | ✅ colormorph.c | ❌ | 未実装 |
 | DWA（高速形態学） | ✅ morphdwa.c, dwacomb.2.c | ❌ | 未実装 |
 | 構造化要素（SEL） | ✅ sel1-2.c, selgen.c | ✅ sel.rs | 基本実装 |

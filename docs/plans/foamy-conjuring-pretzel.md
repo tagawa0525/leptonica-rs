@@ -83,9 +83,9 @@ feature-comparison-c-vs-rust.mdの未実装機能を、サブエージェント�
 feature-comparison-c-vs-rust.mdに基づく優先順位：
 
 1. **GIF I/O** (leptonica-io / gifio.c) - ✅ 完了
-2. **WebP I/O** (leptonica-io / webpio.c) - 待機中
-3. **グレースケール形態学** (leptonica-morph / graymorph.c) - 待機中
-4. **Pixa** (leptonica-core / pixabasic.c) - 待機中
+2. **WebP I/O** (leptonica-io / webpio.c) - ✅ 完了
+3. **グレースケール形態学** (leptonica-morph / graymorph.c) - ✅ 完了
+4. **Pixa** (leptonica-core / pixabasic.c) - ✅ 完了
 5. **Numa** (leptonica-core / numabasic.c) - 待機中
 6. **任意角度回転** (leptonica-transform / rotate.c, rotateam.c) - 待機中
 7. **アフィン変換** (leptonica-transform / affine.c) - 待機中
@@ -117,9 +117,9 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 ## 進捗チェックリスト
 
 - [x] GIF I/O（feat/io-giff）
-- [ ] WebP I/O
-- [ ] グレースケール形態学
-- [ ] Pixa
+- [x] WebP I/O（feat/io-webp）
+- [x] グレースケール形態学（feat/morph-grayscale）
+- [x] Pixa（feat/core-pixa）
 - [ ] Numa
 - [ ] 任意角度回転
 - [ ] アフィン変換
