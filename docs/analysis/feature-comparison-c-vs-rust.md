@@ -142,7 +142,7 @@
 | 画像合成/ブレンド | ✅ blend.c | ✅ blend.rs | アルファ/マスク/乗算等 |
 | 算術演算 | ✅ pixarith.c | ✅ arith.rs | 加減乗除/定数演算 |
 | 論理演算 | ✅ rop.c, roplow.c | ✅ rop.rs | AND/OR/XOR/NOT等 |
-| ヒストグラム | ✅ numafunc1.c | ❌ | 未実装 |
+| ヒストグラム | ✅ numafunc1.c | ✅ histogram.rs | グレー/カラー統計 |
 | バーコード | ✅ bardecode.c, readbarcode.c | ❌ | 未実装 |
 | グラフィックス | ✅ graphics.c | ❌ | 未実装 |
 | 迷路生成/解法 | ✅ maze.c | ❌ | 未実装 |

@@ -121,7 +121,7 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 | 23 | シーケンス操作 | leptonica-morph | morphseq.c | ✅ 完了 |
 | 24 | 色塗りつぶし | leptonica-color | colorfill.c | ✅ 完了 |
 | 25 | 着色 | leptonica-color | coloring.c | ✅ 完了 |
-| 26 | ヒストグラム | leptonica-core | numafunc1.c | 待機中 |
+| 26 | ヒストグラム | leptonica-core | numafunc1.c | ✅ 完了 |
 | 27 | グラフィックス | leptonica-core | graphics.c | 待機中 |
 | 28 | 四分木 | leptonica-region | quadtree.c | 待機中 |
 
@@ -189,14 +189,14 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 - [x] 適応マッピング（feat/adaptmap）
 - [x] 境界追跡（feat/ccbord）
 
-### Phase 3（中優先度: 5/8）
+### Phase 3（中優先度: 6/8）
 
 - [x] カラー形態学（feat/colormorph）
 - [x] 細線化（feat/ccthin）
 - [x] シーケンス操作（feat/morphseq）
 - [x] 色塗りつぶし（feat/colorfill）
 - [x] 着色（feat/coloring）
-- [ ] ヒストグラム
+- [x] ヒストグラム（feat/histogram）
 - [ ] グラフィックス
 - [ ] 四分木
 
