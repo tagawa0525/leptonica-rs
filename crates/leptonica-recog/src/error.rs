@@ -71,6 +71,18 @@ pub enum RecogError {
     /// Dewarping operation failed
     #[error("dewarping error: {0}")]
     DewarpError(String),
+
+    /// Barcode detection or decoding failed
+    #[error("barcode error: {0}")]
+    BarcodeError(String),
+
+    /// No barcode found in image
+    #[error("no barcode found")]
+    NoBarcodeFound,
+
+    /// Unsupported barcode format
+    #[error("unsupported barcode format: {0}")]
+    UnsupportedBarcodeFormat(String),
 }
 
 /// Result type for recognition operations

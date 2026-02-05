@@ -66,7 +66,9 @@
 //! - [`recog`]: Template-based character recognition
 //! - [`jbclass`]: JBIG2 connected component classification
 //! - [`dewarp`]: Page dewarping (curvature correction)
+//! - [`barcode`]: 1D barcode detection and decoding
 
+pub mod barcode;
 pub mod baseline;
 pub mod dewarp;
 mod error;
@@ -90,6 +92,11 @@ pub use jbclass::{JbClasser, JbComponent, JbData, JbMethod};
 
 // Re-export commonly used types from dewarp
 pub use dewarp::{Dewarp, DewarpOptions, DewarpResult, dewarp_single_page};
+
+// Re-export commonly used types from barcode
+pub use barcode::{
+    BarcodeFormat, BarcodeOptions, BarcodeResult, DecodeMethod, decode_barcode, process_barcodes,
+};
 
 // Re-export core for convenience
 pub use leptonica_core;
