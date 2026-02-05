@@ -83,7 +83,7 @@
 | シャープニング | ✅ enhance.c | ✅ edge.rs | 完全実装 |
 | アンシャープマスク | ✅ enhance.c | ✅ edge.rs | 完全実装 |
 | バイラテラルフィルタ | ✅ bilateral.c | ✅ bilateral.rs | エッジ保存平滑化 |
-| 適応マッピング | ✅ adaptmap.c | ❌ | 未実装 |
+| 適応マッピング | ✅ adaptmap.c | ✅ adaptmap.rs | 背景/コントラスト正規化 |
 | ランクフィルタ | ✅ rank.c | ✅ rank.rs | メディアン/最小/最大 |
 
 ### 6. 色処理
