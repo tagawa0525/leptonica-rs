@@ -38,7 +38,7 @@
 | WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate |
 | JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | 読み込み対応 |
 | PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | 書き込み対応 |
-| PostScript | ✅ psio1-2.c | ❌ | 未実装 |
+| PostScript | ✅ psio1-2.c | ✅ ps/ | EPS/PS出力 |
 | フォーマット検出 | ✅ readfile.c | ✅ format.rs | 完全実装 |
 
 ### 3. 幾何変換
