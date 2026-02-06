@@ -16,10 +16,10 @@
 //!
 //! ```no_run
 //! use leptonica_recog::barcode::{process_barcodes, BarcodeOptions, BarcodeFormat};
-//! use leptonica_core::Pix;
+//! use leptonica_io::read_image;
 //!
 //! // Load an image containing a barcode
-//! let pix = Pix::read("/path/to/barcode.png").unwrap();
+//! let pix = read_image("/path/to/barcode.png").unwrap();
 //!
 //! // Process with auto-detection
 //! let results = process_barcodes(&pix, &BarcodeOptions::default()).unwrap();
@@ -77,9 +77,9 @@ use leptonica_core::{Pix, PixelDepth};
 ///
 /// ```no_run
 /// use leptonica_recog::barcode::{process_barcodes, BarcodeOptions, BarcodeFormat};
-/// use leptonica_core::Pix;
+/// use leptonica_io::read_image;
 ///
-/// let pix = Pix::read("barcode.png").unwrap();
+/// let pix = read_image("barcode.png").unwrap();
 /// let results = process_barcodes(&pix, &BarcodeOptions::default()).unwrap();
 ///
 /// for result in results {
