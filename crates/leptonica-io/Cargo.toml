@@ -19,6 +19,8 @@ tiff = { workspace = true, optional = true }
 half = { workspace = true, optional = true }
 image-webp = { workspace = true, optional = true }
 hayro-jpeg2000 = { workspace = true, optional = true }
+pdf-writer = { workspace = true, optional = true }
+miniz_oxide = { workspace = true, optional = true }
 
 [features]
 default = ["bmp", "pnm", "png-format", "jpeg"]
@@ -30,7 +32,8 @@ gif-format = ["gif", "leptonica-color"]
 tiff-format = ["tiff", "half"]
 webp-format = ["image-webp"]
 jp2k-format = ["hayro-jpeg2000"]
-all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format", "tiff-format", "webp-format", "jp2k-format"]
+pdf-format = ["pdf-writer", "miniz_oxide"]
+all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format", "tiff-format", "webp-format", "jp2k-format", "pdf-format"]
 
 [dev-dependencies]
 leptonica-test.workspace = true
