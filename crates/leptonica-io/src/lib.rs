@@ -32,6 +32,9 @@ pub mod jp2k;
 #[cfg(feature = "pdf-format")]
 pub mod pdf;
 
+#[cfg(feature = "ps-format")]
+pub mod ps;
+
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};

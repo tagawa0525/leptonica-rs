@@ -33,7 +33,8 @@ tiff-format = ["tiff", "half"]
 webp-format = ["image-webp"]
 jp2k-format = ["hayro-jpeg2000"]
 pdf-format = ["pdf-writer", "miniz_oxide"]
-all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format", "tiff-format", "webp-format", "jp2k-format", "pdf-format"]
+ps-format = ["miniz_oxide"]
+all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format", "tiff-format", "webp-format", "jp2k-format", "pdf-format", "ps-format"]
 
 [dev-dependencies]
 leptonica-test.workspace = true
