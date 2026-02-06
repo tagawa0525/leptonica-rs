@@ -146,8 +146,6 @@ mod tests {
         // Let's construct properly: start pattern begins at 0, length 6 (including space)
         // Data begins at index 6
         let barstr = "212111111212111121112"; // start + digit 0 + stop
-        let verification = verify_code2of5(barstr);
-        // This test verifies the format checking works
-        assert!(verification.valid || !verification.valid); // Just ensure no panic
+        let _ = verify_code2of5(barstr); // Just ensure no panic
     }
 }

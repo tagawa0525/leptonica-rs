@@ -149,7 +149,6 @@ mod tests {
         // This is a minimal valid format check
         // Start (1111) + some data + Stop (211)
         let barstr = "11111122112112211"; // Start + pair (00) + Stop
-        let verification = verify_codei2of5(barstr);
-        assert!(verification.valid || !verification.valid); // Just ensure no panic
+        let _ = verify_codei2of5(barstr); // Just ensure no panic
     }
 }

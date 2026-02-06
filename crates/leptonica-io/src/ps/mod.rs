@@ -567,7 +567,7 @@ mod tests {
 
         for y in 0..50 {
             for x in 0..50 {
-                pix_mut.set_pixel(x, y, ((x + y) % 256) as u32).unwrap();
+                pix_mut.set_pixel(x, y, (x + y) % 256).unwrap();
             }
         }
 

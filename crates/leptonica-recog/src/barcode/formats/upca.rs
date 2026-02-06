@@ -172,8 +172,6 @@ mod tests {
         // This is a properly formatted 59-character bar string
         // Start(3) + 6 digits(24) + Mid(5) + 6 digits(24) + Stop(3) = 59
         let barstr = "11132112212211411113212311114131212131111111321111321122112212411132111";
-        let verification = verify_upca(barstr);
-        // This may or may not be valid depending on exact encoding
-        assert!(verification.valid || !verification.valid); // Just ensure no panic
+        let _ = verify_upca(barstr); // Just ensure no panic
     }
 }

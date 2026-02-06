@@ -926,7 +926,7 @@ mod tests {
         // alpha = 127/255 ~ 0.498
         // result = (1 - 0.498) * 100 + 0.498 * 200 ~ 150
         let val = result.get_pixel(5, 5).unwrap();
-        assert!(val >= 148 && val <= 152); // Allow rounding error
+        assert!((148..=152).contains(&val)); // Allow rounding error
     }
 
     #[test]
@@ -982,6 +982,6 @@ mod tests {
         // result = 255 - (255-128)*(255-100)/128 = 255 - 127*155/128 ≈ 101
         // This is close to base=100, which is the expected "no effect" behavior
         let val = result.get_pixel(0, 0).unwrap();
-        assert!(val >= 98 && val <= 102); // Close to original
+        assert!((98..=102).contains(&val)); // Close to original
     }
 }

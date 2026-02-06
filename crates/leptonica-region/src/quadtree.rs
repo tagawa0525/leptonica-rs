@@ -829,7 +829,7 @@ mod tests {
         for y in 0..height {
             for x in 0..width {
                 // Simple gradient based on position
-                let value = ((x + y) % 256) as u32;
+                let value = (x + y) % 256;
                 let _ = pix_mut.set_pixel(x, y, value);
             }
         }

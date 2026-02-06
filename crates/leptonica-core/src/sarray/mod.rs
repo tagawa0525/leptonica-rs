@@ -1306,7 +1306,7 @@ mod tests {
             "paragraph".into(),
         ]);
         let lines = words.words_to_lines(80);
-        assert!(lines.contains(&"".to_string()));
+        assert!(lines.contains(""));
     }
 
     // ========================================================================

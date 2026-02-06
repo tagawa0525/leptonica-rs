@@ -275,7 +275,7 @@ mod tests {
         let mut pix_mut = pix.to_mut();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (x + y * 10) as u32) };
+                unsafe { pix_mut.set_pixel_unchecked(x, y, x + y * 10) };
             }
         }
         let pix: Pix = pix_mut.into();
@@ -302,7 +302,7 @@ mod tests {
         let mut pix_mut = pix.to_mut();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (y * 25) as u32) };
+                unsafe { pix_mut.set_pixel_unchecked(x, y, y * 25) };
             }
         }
         let pix: Pix = pix_mut.into();
@@ -317,7 +317,7 @@ mod tests {
         // (shifted up means src_y = y - 1)
         for y in 1..10 {
             for x in 0..10 {
-                let expected = ((y - 1) * 25) as u32;
+                let expected = (y - 1) * 25;
                 let actual = unsafe { result.get_pixel_unchecked(x, y) };
                 assert_eq!(expected, actual, "Mismatch at ({}, {})", x, y);
             }
@@ -330,7 +330,7 @@ mod tests {
         let mut pix_mut = pix.to_mut();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (x * 25) as u32) };
+                unsafe { pix_mut.set_pixel_unchecked(x, y, x * 25) };
             }
         }
         let pix: Pix = pix_mut.into();

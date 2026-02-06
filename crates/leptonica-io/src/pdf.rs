@@ -399,7 +399,7 @@ mod tests {
         // Create a simple gradient
         for y in 0..100 {
             for x in 0..100 {
-                pix_mut.set_pixel(x, y, (x + y) as u32 % 256).unwrap();
+                pix_mut.set_pixel(x, y, (x + y) % 256).unwrap();
             }
         }
 
