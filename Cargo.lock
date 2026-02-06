@@ -230,6 +230,8 @@ name = "leptonica-color"
 version = "0.1.0"
 dependencies = [
  "leptonica-core",
+ "leptonica-io",
+ "leptonica-test",
  "thiserror",
 ]
 
@@ -237,6 +239,8 @@ dependencies = [
 name = "leptonica-core"
 version = "0.1.0"
 dependencies = [
+ "leptonica-io",
+ "leptonica-test",
  "thiserror",
 ]
 
@@ -252,6 +256,8 @@ name = "leptonica-filter"
 version = "0.1.0"
 dependencies = [
  "leptonica-core",
+ "leptonica-io",
+ "leptonica-test",
  "thiserror",
 ]
 
@@ -290,8 +296,10 @@ version = "0.1.0"
 dependencies = [
  "leptonica-color",
  "leptonica-core",
+ "leptonica-io",
  "leptonica-morph",
  "leptonica-region",
+ "leptonica-test",
  "leptonica-transform",
  "thiserror",
 ]
@@ -321,6 +329,8 @@ name = "leptonica-transform"
 version = "0.1.0"
 dependencies = [
  "leptonica-core",
+ "leptonica-io",
+ "leptonica-test",
  "thiserror",
 ]
 
