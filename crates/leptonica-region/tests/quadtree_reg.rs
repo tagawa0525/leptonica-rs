@@ -43,8 +43,8 @@ fn create_test_grayscale_image(width: u32, height: u32) -> Pix {
             let fx = x as f32 / width as f32;
             let fy = y as f32 / height as f32;
             let val = (128.0
-                + 60.0 * (fx * 6.28).sin()
-                + 40.0 * (fy * 12.56).cos()
+                + 60.0 * (fx * std::f32::consts::TAU).sin()
+                + 40.0 * (fy * 2.0 * std::f32::consts::TAU).cos()
                 + 20.0 * ((fx + fy) * 9.42).sin()) as u32;
             let _ = pix_mut.set_pixel(x, y, val.min(255));
         }

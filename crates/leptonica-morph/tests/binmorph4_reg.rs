@@ -27,6 +27,7 @@ fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
 
 /// C version: PixCompareDwa()
 /// Compare three pairs of results (horizontal, vertical, square)
+#[allow(clippy::too_many_arguments)]
 fn pix_compare_dwa(
     rp: &mut RegParams,
     size: u32,

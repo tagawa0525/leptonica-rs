@@ -105,6 +105,7 @@ fn create_synthetic_text_image(w: u32, h: u32) -> Pix {
 /// C版のpixColorGrayに対応:
 /// 32bpp画像の指定領域に色を付加する（C版はカラーマップ画像に対して行うが
 /// Rust版はpix_color_grayを使って32bpp画像に直接適用する）
+#[allow(clippy::too_many_arguments)]
 fn apply_color_to_region(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32, r: u8, g: u8, b: u8) -> Pix {
     let pw = pix.width();
     let ph = pix.height();

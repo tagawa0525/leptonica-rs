@@ -54,10 +54,10 @@ fn count_diff_pixels(pix: &Pix) -> u64 {
     let mut count = 0u64;
     for y in 0..h {
         for x in 0..w {
-            if let Some(v) = pix.get_pixel(x, y) {
-                if v != 0 {
-                    count += 1;
-                }
+            if let Some(v) = pix.get_pixel(x, y)
+                && v != 0
+            {
+                count += 1;
             }
         }
     }
@@ -293,7 +293,7 @@ fn affine_reg_pta_basic() {
     let mut pix_mut = pix.try_into_mut().unwrap();
     for y in 0..100u32 {
         for x in 0..100u32 {
-            let _ = pix_mut.set_pixel(x, y, ((x + y) % 256) as u32);
+            let _ = pix_mut.set_pixel(x, y, (x + y) % 256);
         }
     }
     let pix: Pix = pix_mut.into();

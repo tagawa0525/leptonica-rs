@@ -57,7 +57,7 @@ fn count_pixel_diffs(pix1: &Pix, pix2: &Pix) -> (u64, u64, u32) {
             if v1 == v2 {
                 matching += 1;
             }
-            let diff = if v1 > v2 { v1 - v2 } else { v2 - v1 };
+            let diff = v1.abs_diff(v2);
             max_diff = max_diff.max(diff);
         }
     }

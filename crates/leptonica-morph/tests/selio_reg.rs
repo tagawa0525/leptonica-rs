@@ -303,7 +303,8 @@ fn test_sel_create_brick() {
 
     // 各種サイズの brick SEL を作成
     for &(w, h) in &[(1, 1), (3, 3), (5, 5), (7, 7), (21, 15), (1, 10), (10, 1)] {
-        let sel = Sel::create_brick(w, h).expect(&format!("Failed to create brick {}x{}", w, h));
+        let sel = Sel::create_brick(w, h)
+            .unwrap_or_else(|_| panic!("Failed to create brick {}x{}", w, h));
 
         // 寸法チェック
         rp.compare_values(w as f64, sel.width() as f64, 0.0);
@@ -335,7 +336,8 @@ fn test_sel_create_square() {
     let mut rp = RegParams::new("selio_square");
 
     for &size in &[1, 3, 5, 7, 11] {
-        let sel = Sel::create_square(size).expect(&format!("Failed to create square {}", size));
+        let sel =
+            Sel::create_square(size).unwrap_or_else(|_| panic!("Failed to create square {}", size));
 
         rp.compare_values(size as f64, sel.width() as f64, 0.0);
         rp.compare_values(size as f64, sel.height() as f64, 0.0);
@@ -354,14 +356,15 @@ fn test_sel_create_horizontal_vertical() {
 
     for &len in &[1, 3, 5, 11, 21] {
         // Horizontal: width=len, height=1
-        let sel_h =
-            Sel::create_horizontal(len).expect(&format!("Failed to create horizontal {}", len));
+        let sel_h = Sel::create_horizontal(len)
+            .unwrap_or_else(|_| panic!("Failed to create horizontal {}", len));
         rp.compare_values(len as f64, sel_h.width() as f64, 0.0);
         rp.compare_values(1.0, sel_h.height() as f64, 0.0);
         rp.compare_values(len as f64, sel_h.hit_count() as f64, 0.0);
 
         // Vertical: width=1, height=len
-        let sel_v = Sel::create_vertical(len).expect(&format!("Failed to create vertical {}", len));
+        let sel_v = Sel::create_vertical(len)
+            .unwrap_or_else(|_| panic!("Failed to create vertical {}", len));
         rp.compare_values(1.0, sel_v.width() as f64, 0.0);
         rp.compare_values(len as f64, sel_v.height() as f64, 0.0);
         rp.compare_values(len as f64, sel_v.hit_count() as f64, 0.0);
@@ -378,7 +381,8 @@ fn test_sel_create_cross() {
     // Cross of size n: horizontal line + vertical line through center
     // Hit count = 2*n - 1 (center counted once)
     for &size in &[1, 3, 5, 7, 11] {
-        let sel = Sel::create_cross(size).expect(&format!("Failed to create cross {}", size));
+        let sel =
+            Sel::create_cross(size).unwrap_or_else(|_| panic!("Failed to create cross {}", size));
 
         rp.compare_values(size as f64, sel.width() as f64, 0.0);
         rp.compare_values(size as f64, sel.height() as f64, 0.0);
@@ -402,8 +406,8 @@ fn test_sel_create_diamond() {
     // r=2: size=5, hits=13
     // r=3: size=7, hits=25
     for &radius in &[1, 2, 3, 4, 5] {
-        let sel =
-            Sel::create_diamond(radius).expect(&format!("Failed to create diamond {}", radius));
+        let sel = Sel::create_diamond(radius)
+            .unwrap_or_else(|_| panic!("Failed to create diamond {}", radius));
 
         let size = 2 * radius + 1;
         rp.compare_values(size as f64, sel.width() as f64, 0.0);
@@ -425,7 +429,8 @@ fn test_sel_create_disk() {
     let mut rp = RegParams::new("selio_disk");
 
     for &radius in &[1, 2, 3, 4, 5] {
-        let sel = Sel::create_disk(radius).expect(&format!("Failed to create disk {}", radius));
+        let sel =
+            Sel::create_disk(radius).unwrap_or_else(|_| panic!("Failed to create disk {}", radius));
 
         let size = 2 * radius + 1;
         rp.compare_values(size as f64, sel.width() as f64, 0.0);

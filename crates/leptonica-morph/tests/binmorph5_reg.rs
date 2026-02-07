@@ -26,6 +26,7 @@ fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
 }
 
 /// C version: PixCompareDwa()
+#[allow(clippy::too_many_arguments)]
 fn pix_compare_dwa(
     rp: &mut RegParams,
     size: u32,
@@ -147,7 +148,7 @@ fn select_composable_sizes(size: u32) -> (u32, u32) {
     // Find the factor pair closest to sqrt(size)
     let sqrt = (size as f64).sqrt() as u32;
     for f1 in (2..=sqrt).rev() {
-        if size % f1 == 0 {
+        if size.is_multiple_of(f1) {
             return (f1, size / f1);
         }
     }

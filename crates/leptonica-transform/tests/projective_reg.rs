@@ -59,10 +59,10 @@ fn count_diff_pixels(pix: &Pix) -> u64 {
     let mut count = 0u64;
     for y in 0..h {
         for x in 0..w {
-            if let Some(v) = pix.get_pixel(x, y) {
-                if v != 0 {
-                    count += 1;
-                }
+            if let Some(v) = pix.get_pixel(x, y)
+                && v != 0
+            {
+                count += 1;
             }
         }
     }

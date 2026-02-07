@@ -781,10 +781,10 @@ fn has_foreground_pixels(pix: &leptonica_core::Pix) -> bool {
     if (w as u64) * (h as u64) < 100_000 {
         for y in 0..h {
             for x in 0..w {
-                if let Some(val) = pix.get_pixel(x, y) {
-                    if val != 0 {
-                        return true;
-                    }
+                if let Some(val) = pix.get_pixel(x, y)
+                    && val != 0
+                {
+                    return true;
                 }
             }
         }
@@ -799,10 +799,10 @@ fn has_foreground_pixels(pix: &leptonica_core::Pix) -> bool {
     while y < h {
         let mut x = 0;
         while x < w {
-            if let Some(val) = pix.get_pixel(x, y) {
-                if val != 0 {
-                    return true;
-                }
+            if let Some(val) = pix.get_pixel(x, y)
+                && val != 0
+            {
+                return true;
             }
             x += step_x;
         }

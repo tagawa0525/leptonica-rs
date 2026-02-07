@@ -125,10 +125,10 @@ fn do_watershed(rp: &mut RegParams, pixs: &Pix) {
             let mut labels = std::collections::HashSet::new();
             for y in 0..h {
                 for x in 0..w {
-                    if let Some(label) = segmented.get_pixel(x, y) {
-                        if label > 0 {
-                            labels.insert(label);
-                        }
+                    if let Some(label) = segmented.get_pixel(x, y)
+                        && label > 0
+                    {
+                        labels.insert(label);
                     }
                 }
             }
@@ -142,10 +142,10 @@ fn do_watershed(rp: &mut RegParams, pixs: &Pix) {
             let mut boundary_count = 0u64;
             for y in 0..h {
                 for x in 0..w {
-                    if let Some(label) = segmented.get_pixel(x, y) {
-                        if label == 0 {
-                            boundary_count += 1;
-                        }
+                    if let Some(label) = segmented.get_pixel(x, y)
+                        && label == 0
+                    {
+                        boundary_count += 1;
                     }
                 }
             }
