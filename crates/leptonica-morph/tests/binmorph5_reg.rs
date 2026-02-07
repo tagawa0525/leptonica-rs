@@ -156,7 +156,6 @@ fn select_composable_sizes(size: u32) -> (u32, u32) {
 }
 
 #[test]
-#[ignore = "DWA composite morph produces different results from standard morph — needs library fix in dwa.rs"]
 fn binmorph5_reg() {
     let mut rp = RegParams::new("binmorph5");
 

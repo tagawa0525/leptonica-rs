@@ -191,8 +191,10 @@ fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let h = pix.height();
     let wpl = pix.wpl();
 
-    // Half-size for symmetric structuring element
-    let half = (hsize / 2) as i32;
+    // Match Sel::create_brick origin convention: origin at hsize/2
+    let origin = (hsize / 2) as i32;
+    let left = -origin;
+    let right = hsize as i32 - 1 - origin;
 
     let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
@@ -217,7 +219,7 @@ fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
 
                 // Check if any pixel in the neighborhood is set
                 let mut dilated = false;
-                for dx in -half..=half {
+                for dx in left..=right {
                     let sx = x + dx;
                     if sx >= 0 && sx < w as i32 {
                         let src_word_idx = sx as usize / 32;
@@ -251,8 +253,10 @@ fn dilate_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
     let h = pix.height();
     let wpl = pix.wpl();
 
-    // Half-size for symmetric structuring element
-    let half = (vsize / 2) as i32;
+    // Match Sel::create_brick origin convention: origin at vsize/2
+    let origin = (vsize / 2) as i32;
+    let top = -origin;
+    let bottom = vsize as i32 - 1 - origin;
 
     let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
@@ -273,7 +277,7 @@ fn dilate_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
             for y in 0..h as i32 {
                 // Check if any pixel in the vertical neighborhood is set
                 let mut dilated = false;
-                for dy in -half..=half {
+                for dy in top..=bottom {
                     let sy = y + dy;
                     if sy >= 0 && sy < h as i32 {
                         let src_word = src_data[(sy as u32 * wpl) as usize + word_idx];
@@ -304,8 +308,10 @@ fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let h = pix.height();
     let wpl = pix.wpl();
 
-    // Half-size for symmetric structuring element
-    let half = (hsize / 2) as i32;
+    // Match Sel::create_brick origin convention: origin at hsize/2
+    let origin = (hsize / 2) as i32;
+    let left = -origin;
+    let right = hsize as i32 - 1 - origin;
 
     let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
@@ -330,7 +336,7 @@ fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
 
                 // Check if all pixels in the neighborhood are set
                 let mut eroded = true;
-                for dx in -half..=half {
+                for dx in left..=right {
                     let sx = x + dx;
                     if sx < 0 || sx >= w as i32 {
                         // Outside boundary - treat as background (0) for asymmetric b.c.
@@ -367,8 +373,10 @@ fn erode_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
     let h = pix.height();
     let wpl = pix.wpl();
 
-    // Half-size for symmetric structuring element
-    let half = (vsize / 2) as i32;
+    // Match Sel::create_brick origin convention: origin at vsize/2
+    let origin = (vsize / 2) as i32;
+    let top = -origin;
+    let bottom = vsize as i32 - 1 - origin;
 
     let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
@@ -389,7 +397,7 @@ fn erode_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
             for y in 0..h as i32 {
                 // Check if all pixels in the vertical neighborhood are set
                 let mut eroded = true;
-                for dy in -half..=half {
+                for dy in top..=bottom {
                     let sy = y + dy;
                     if sy < 0 || sy >= h as i32 {
                         // Outside boundary - treat as background (0) for asymmetric b.c.

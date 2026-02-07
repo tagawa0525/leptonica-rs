@@ -105,7 +105,6 @@ fn do_comparison_dwa_vs_brick(rp: &mut RegParams, pixs: &leptonica_core::Pix, si
 }
 
 #[test]
-#[ignore = "DWA brick morph produces different results from standard morph for sizes > 3 — needs library fix in dwa.rs"]
 fn binmorph4_reg() {
     let mut rp = RegParams::new("binmorph4");
 
