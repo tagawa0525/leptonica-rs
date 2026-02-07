@@ -92,8 +92,11 @@ pub struct PixMut { inner: PixData }         // 可変・直接所有
 
 `docs/rebuild/` に前回実装からの引き継ぎ資料を格納:
 
-- `prompt.md`: 移植作業の詳細プロンプト（フェーズ分割、ワークフロー、成功パターン等）
-- `feature-comparison.md`: C版 vs Rust版の機能カバレッジ比較
-- `test-comparison.md`: C版 vs Rust版のテストカバレッジ比較
-- `overall-plan.md`: 全体計画書
-- `plans/`: 各機能の実装計画書（前回作成分）
+- `prompt.md`: 移植プロンプト（フェーズ分割、ワークフロー、成功パターン）
+- `overall-plan.md`: crate構成、依存関係、設計方針の全体像
+- `feature-comparison.md`: C版182ファイル vs Rust版の機能カバレッジ
+- `test-comparison.md`: C版160回帰テスト vs Rust版のテストカバレッジ
+
+各機能の詳細計画書は含めていない。
+C版ソース（`reference/leptonica/`）を直接参照し、
+自分で`docs/plans/`に計画書を作成すること。
