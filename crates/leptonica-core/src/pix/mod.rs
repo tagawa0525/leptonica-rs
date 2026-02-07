@@ -8,10 +8,12 @@ pub mod arith;
 pub mod blend;
 pub mod compare;
 mod convert;
+mod extract;
 pub mod graphics;
 mod histogram;
 mod ops;
 pub mod rop;
+pub mod statistics;
 
 pub use access::*;
 pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};

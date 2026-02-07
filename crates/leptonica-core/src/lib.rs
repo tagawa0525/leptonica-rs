@@ -29,6 +29,7 @@ pub use fpix::{FPix, NegativeHandling};
 pub use numa::{HistogramResult, HistogramStats, Numa, Numaa, WindowedStats};
 pub use pix::{
     Color, ColorHistogram, ContourOutput, ImageFormat, Pix, PixMut, PixelDepth, PixelOp, RopOp,
+    statistics::PixelMaxType,
 };
 pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};

@@ -1,23 +1,19 @@
 //! Numa windowed statistics, pixel extraction on lines, variance calculations,
 //! and color component operations regression test.
 //!
-//! C版: reference/leptonica/prog/numa2_reg.c
+//! C version: reference/leptonica/prog/numa2_reg.c
 //!
 //! Tests:
 //!   * numa windowed stats
 //!   * numa extraction from pix on a line
 //!   * pixel averages and variances
 //!
-//! NOTE: C版の多くの高レベル関数はRust未実装のためスキップ:
+//! NOTE: C version functions not yet implemented in Rust:
 //!   - numaRead() / numaWrite()
 //!   - numaWindowedMedian()
 //!   - gplotSimple1() and all gplot rendering
-//!   - pixConvertTo8() / pixConvertTo32()
-//!   - pixExtractOnLine()
-//!   - pixAverageByColumn() / pixAverageByRow()
-//!   - pixAverageInRect() / pixAverageInRectRGB()
-//!   - pixVarianceInRect()
-//!   - pixVarianceByRow() / pixVarianceByColumn()
+//!   - pixConvertTo32()
+//!   - pixAverageInRectRGB()
 //!   - pixWindowedVarianceOnLine()
 //!   - pixConvertRGBToLuminance() / pixConvertTo1()
 //!   - pixClipRectangle()
@@ -26,392 +22,18 @@
 //!   - pixRenderPlotFromNuma() / pixRenderPlotFromNumaGen()
 //!   - pixMakeColorSquare()
 //!
-//! 実装済みAPIで可能なテストを忠実にポート。ローカルヘルパーで
-//! 基本的な数学演算(pixel extraction, averages/variances)を実装。
-//! Numa windowed stats と join/similar はライブラリAPIを使用。
+//! Promoted to library APIs:
+//!   - pixConvertTo8() -> Pix::convert_to_8()
+//!   - pixExtractOnLine() -> Pix::extract_on_line()
+//!   - pixAverageByColumn() / pixAverageByRow() -> Pix::average_by_column() / average_by_row()
+//!   - pixAverageInRect() -> Pix::average_in_rect()
+//!   - pixVarianceInRect() -> Pix::variance_in_rect()
+//!   - pixVarianceByRow() / pixVarianceByColumn() -> Pix::variance_by_row() / variance_by_column()
 
 use leptonica_core::color;
-use leptonica_core::{Numa, Pix, PixelDepth};
+use leptonica_core::pix::statistics::PixelMaxType;
+use leptonica_core::{Box, Numa, Pix, PixelDepth};
 use leptonica_test::RegParams;
-
-// ============================================================================
-// Helper: Convert 32bpp RGB Pix to 8bpp grayscale
-// C版: pixConvertTo8(pixs, 0)
-// Uses standard luminance weights: 0.299*R + 0.587*G + 0.114*B
-// ============================================================================
-
-fn pix_convert_to_8(pixs: &Pix) -> Pix {
-    let w = pixs.width();
-    let h = pixs.height();
-    let result = Pix::new(w, h, PixelDepth::Bit8).unwrap();
-    let mut result_mut = result.try_into_mut().unwrap();
-
-    match pixs.depth() {
-        PixelDepth::Bit32 => {
-            for y in 0..h {
-                for x in 0..w {
-                    let pixel = pixs.get_pixel(x, y).unwrap_or(0);
-                    let r = color::red(pixel) as u32;
-                    let g = color::green(pixel) as u32;
-                    let b = color::blue(pixel) as u32;
-                    // Standard luminance (same as C Leptonica)
-                    let gray = (r * 77 + g * 150 + b * 29 + 128) >> 8;
-                    result_mut.set_pixel(x, y, gray.min(255)).unwrap();
-                }
-            }
-        }
-        PixelDepth::Bit8 => {
-            // Already 8-bit, just copy
-            for y in 0..h {
-                for x in 0..w {
-                    let val = pixs.get_pixel(x, y).unwrap_or(0);
-                    result_mut.set_pixel(x, y, val).unwrap();
-                }
-            }
-        }
-        _ => {
-            // For other depths, try a simple conversion
-            let max_val = pixs.depth().max_value() as f32;
-            for y in 0..h {
-                for x in 0..w {
-                    let val = pixs.get_pixel(x, y).unwrap_or(0) as f32;
-                    let gray = ((val / max_val) * 255.0 + 0.5) as u32;
-                    result_mut.set_pixel(x, y, gray.min(255)).unwrap();
-                }
-            }
-        }
-    }
-
-    result_mut.into()
-}
-
-// ============================================================================
-// Helper: Extract pixel values on a line (Bresenham-like)
-// C版: pixExtractOnLine(pixg, x1, y1, x2, y2, factor)
-// ============================================================================
-
-/// Extract pixel values along a line from (x1,y1) to (x2,y2).
-///
-/// Uses Bresenham-like stepping with a given factor (subsampling).
-/// Only works for 8-bit grayscale images.
-fn pix_extract_on_line(pix: &Pix, x1: i32, y1: i32, x2: i32, y2: i32, factor: i32) -> Numa {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-
-    let dx = (x2 - x1).abs();
-    let dy = (y2 - y1).abs();
-
-    let mut na = Numa::new();
-
-    if dx == 0 && dy == 0 {
-        // Single point
-        if x1 >= 0 && x1 < w && y1 >= 0 && y1 < h {
-            let val = pix.get_pixel(x1 as u32, y1 as u32).unwrap_or(0);
-            na.push(val as f32);
-        }
-        return na;
-    }
-
-    let npts;
-    if dy == 0 {
-        // Horizontal line
-        npts = dx + 1;
-    } else if dx == 0 {
-        // Vertical line
-        npts = dy + 1;
-    } else {
-        // Diagonal: use larger dimension
-        npts = dx.max(dy) + 1;
-    }
-
-    let step_x = if npts > 1 {
-        (x2 - x1) as f64 / (npts - 1) as f64
-    } else {
-        0.0
-    };
-    let step_y = if npts > 1 {
-        (y2 - y1) as f64 / (npts - 1) as f64
-    } else {
-        0.0
-    };
-
-    let mut i = 0;
-    while i < npts {
-        let x = (x1 as f64 + i as f64 * step_x + 0.5) as i32;
-        let y = (y1 as f64 + i as f64 * step_y + 0.5) as i32;
-
-        if x >= 0 && x < w && y >= 0 && y < h {
-            let val = pix.get_pixel(x as u32, y as u32).unwrap_or(0);
-            na.push(val as f32);
-        }
-        i += factor;
-    }
-
-    na
-}
-
-// ============================================================================
-// Helper: pixAverageByColumn (8-bit grayscale)
-// C版: pixAverageByColumn(pixs, box, type)
-// type: L_BLACK_IS_MAX (invert: avg = 255 - avg) or L_WHITE_IS_MAX (normal)
-// ============================================================================
-
-const L_BLACK_IS_MAX: i32 = 1;
-const L_WHITE_IS_MAX: i32 = 2;
-
-/// Compute column averages of pixel values in a sub-region.
-///
-/// Returns a Numa of length = box width (or image width if box is None).
-/// Each value is the average of pixel values in that column within the box.
-fn pix_average_by_column(pix: &Pix, bx: i32, by: i32, bw: i32, bh: i32, avg_type: i32) -> Numa {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-
-    // Clamp box to image bounds
-    let x0 = bx.max(0);
-    let y0 = by.max(0);
-    let x1 = (bx + bw).min(w);
-    let y1 = (by + bh).min(h);
-
-    let cols = (x1 - x0) as usize;
-    let rows = (y1 - y0) as f32;
-
-    let mut na = Numa::with_capacity(cols);
-
-    if rows <= 0.0 {
-        return na;
-    }
-
-    for x in x0..x1 {
-        let mut sum = 0.0f32;
-        for y in y0..y1 {
-            let val = pix.get_pixel(x as u32, y as u32).unwrap_or(0) as f32;
-            sum += val;
-        }
-        let avg = sum / rows;
-        if avg_type == L_BLACK_IS_MAX {
-            na.push(255.0 - avg);
-        } else {
-            na.push(avg);
-        }
-    }
-
-    na
-}
-
-/// Compute column averages over entire image.
-fn pix_average_by_column_full(pix: &Pix, avg_type: i32) -> Numa {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-    pix_average_by_column(pix, 0, 0, w, h, avg_type)
-}
-
-// ============================================================================
-// Helper: pixAverageByRow (8-bit grayscale)
-// ============================================================================
-
-/// Compute row averages of pixel values in a sub-region.
-fn pix_average_by_row(pix: &Pix, bx: i32, by: i32, bw: i32, bh: i32, avg_type: i32) -> Numa {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-
-    let x0 = bx.max(0);
-    let y0 = by.max(0);
-    let x1 = (bx + bw).min(w);
-    let y1 = (by + bh).min(h);
-
-    let rows = (y1 - y0) as usize;
-    let cols = (x1 - x0) as f32;
-
-    let mut na = Numa::with_capacity(rows);
-
-    if cols <= 0.0 {
-        return na;
-    }
-
-    for y in y0..y1 {
-        let mut sum = 0.0f32;
-        for x in x0..x1 {
-            let val = pix.get_pixel(x as u32, y as u32).unwrap_or(0) as f32;
-            sum += val;
-        }
-        let avg = sum / cols;
-        if avg_type == L_WHITE_IS_MAX {
-            na.push(avg);
-        } else {
-            na.push(255.0 - avg);
-        }
-    }
-
-    na
-}
-
-/// Compute row averages over entire image.
-fn pix_average_by_row_full(pix: &Pix, avg_type: i32) -> Numa {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-    pix_average_by_row(pix, 0, 0, w, h, avg_type)
-}
-
-// ============================================================================
-// Helper: pixAverageInRect (8-bit grayscale)
-// C版: pixAverageInRect(pix, mask, box, minval, maxval, subsamp, &ave)
-// We simplify: no mask support (mask=None)
-// ============================================================================
-
-/// Compute the average pixel value in a rectangular region.
-///
-/// Only considers pixels in range [minval, maxval].
-/// Returns 0.0 if no pixels are in range.
-fn pix_average_in_rect(
-    pix: &Pix,
-    bx: i32,
-    by: i32,
-    bw: i32,
-    bh: i32,
-    minval: u32,
-    maxval: u32,
-    subsamp: u32,
-) -> f32 {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-
-    let x0 = bx.max(0);
-    let y0 = by.max(0);
-    let x1 = (bx + bw).min(w);
-    let y1 = (by + bh).min(h);
-    let step = subsamp.max(1) as i32;
-
-    let mut sum = 0.0f64;
-    let mut count = 0u64;
-
-    let mut y = y0;
-    while y < y1 {
-        let mut x = x0;
-        while x < x1 {
-            let val = pix.get_pixel(x as u32, y as u32).unwrap_or(0);
-            if val >= minval && val <= maxval {
-                sum += val as f64;
-                count += 1;
-            }
-            x += step;
-        }
-        y += step;
-    }
-
-    if count == 0 {
-        0.0
-    } else {
-        (sum / count as f64) as f32
-    }
-}
-
-// ============================================================================
-// Helper: pixVarianceInRect (8-bit grayscale)
-// C版: pixVarianceInRect(pix, box, &var)
-// ============================================================================
-
-/// Compute variance of pixel values in a rectangular region.
-fn pix_variance_in_rect(pix: &Pix, bx: i32, by: i32, bw: i32, bh: i32) -> f32 {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-
-    let x0 = bx.max(0);
-    let y0 = by.max(0);
-    let x1 = (bx + bw).min(w);
-    let y1 = (by + bh).min(h);
-
-    let mut sum = 0.0f64;
-    let mut sum2 = 0.0f64;
-    let mut count = 0u64;
-
-    for y in y0..y1 {
-        for x in x0..x1 {
-            let val = pix.get_pixel(x as u32, y as u32).unwrap_or(0) as f64;
-            sum += val;
-            sum2 += val * val;
-            count += 1;
-        }
-    }
-
-    if count == 0 {
-        return 0.0;
-    }
-
-    let mean = sum / count as f64;
-    let variance = sum2 / count as f64 - mean * mean;
-    variance.max(0.0).sqrt() as f32 // C returns rootvar (sqrt of variance)
-}
-
-// ============================================================================
-// Helper: pixVarianceByRow / pixVarianceByColumn
-// C版: pixVarianceByRow(pix, box) -- returns Numa of row variances
-// NOTE: C returns root-variance (standard deviation), not variance
-// ============================================================================
-
-/// Compute standard deviation for each row in a box region.
-fn pix_variance_by_row(pix: &Pix, bx: i32, by: i32, bw: i32, bh: i32) -> Numa {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-
-    let x0 = bx.max(0);
-    let y0 = by.max(0);
-    let x1 = (bx + bw).min(w);
-    let y1 = (by + bh).min(h);
-    let cols = (x1 - x0) as f64;
-
-    let mut na = Numa::new();
-    if cols <= 0.0 {
-        return na;
-    }
-
-    for y in y0..y1 {
-        let mut sum = 0.0f64;
-        let mut sum2 = 0.0f64;
-        for x in x0..x1 {
-            let val = pix.get_pixel(x as u32, y as u32).unwrap_or(0) as f64;
-            sum += val;
-            sum2 += val * val;
-        }
-        let mean = sum / cols;
-        let var = (sum2 / cols - mean * mean).max(0.0);
-        na.push(var.sqrt() as f32);
-    }
-
-    na
-}
-
-/// Compute standard deviation for each column in a box region.
-fn pix_variance_by_column(pix: &Pix, bx: i32, by: i32, bw: i32, bh: i32) -> Numa {
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-
-    let x0 = bx.max(0);
-    let y0 = by.max(0);
-    let x1 = (bx + bw).min(w);
-    let y1 = (by + bh).min(h);
-    let rows = (y1 - y0) as f64;
-
-    let mut na = Numa::new();
-    if rows <= 0.0 {
-        return na;
-    }
-
-    for x in x0..x1 {
-        let mut sum = 0.0f64;
-        let mut sum2 = 0.0f64;
-        for y in y0..y1 {
-            let val = pix.get_pixel(x as u32, y as u32).unwrap_or(0) as f64;
-            sum += val;
-            sum2 += val * val;
-        }
-        let mean = sum / rows;
-        let var = (sum2 / rows - mean * mean).max(0.0);
-        na.push(var.sqrt() as f32);
-    }
-
-    na
-}
 
 // ============================================================================
 // Test 1: Numa windowed stats (C tests 0-4)
@@ -425,7 +47,7 @@ fn pix_variance_by_column(pix: &Pix, bx: i32, by: i32, bw: i32, bh: i32) -> Numa
 fn numa2_reg_windowed_stats() {
     let mut rp = RegParams::new("numa2_windowed");
 
-    // C版: na = numaRead("lyra.5.na")
+    // C version: na = numaRead("lyra.5.na")
     // lyra.5.na not available in Rust test data, so we generate
     // a synthetic signal similar to a note frequency amplitude envelope.
     // The key test is that windowed stats are computed correctly.
@@ -440,7 +62,7 @@ fn numa2_reg_windowed_stats() {
         na.push(val);
     }
 
-    // C版: numaWindowedStats(na, 5, &na1, &na2, &na3, &na4)
+    // C version: numaWindowedStats(na, 5, &na1, &na2, &na3, &na4)
     let halfwin = 5;
     let stats = na.windowed_stats(halfwin);
     let na_mean = &stats.mean;
@@ -504,14 +126,13 @@ fn numa2_reg_windowed_stats() {
 //
 // C version creates a 200x200 32-bit image with a gradient pattern,
 // converts to 8-bit grayscale, then extracts pixel values along lines.
-// We replicate this using local helpers.
 // ============================================================================
 
 #[test]
 fn numa2_reg_extraction_on_line() {
     let mut rp = RegParams::new("numa2_extract");
 
-    // C版: Create a 200x200 32-bit image with gradient pattern
+    // C version: Create a 200x200 32-bit image with gradient pattern
     let w: u32 = 200;
     let h: u32 = 200;
     let pixs = Pix::new(w, h, PixelDepth::Bit32).unwrap();
@@ -537,31 +158,31 @@ fn numa2_reg_extraction_on_line() {
     }
     let pixs: Pix = pixs_mut.into();
 
-    // C版: pixg = pixConvertTo8(pixs, 0)
-    let pixg = pix_convert_to_8(&pixs);
+    // C version: pixg = pixConvertTo8(pixs, 0)
+    let pixg = pixs.convert_to_8().unwrap();
 
     // Verify grayscale image dimensions
     rp.compare_values(200.0, pixg.width() as f64, 0.0); // 1
     rp.compare_values(200.0, pixg.height() as f64, 0.0); // 2
     rp.compare_values(8.0, pixg.depth().bits() as f64, 0.0); // 3
 
-    // C版: na1 = pixExtractOnLine(pixg, 20, 20, 180, 20, 1) -- horizontal
-    let na1 = pix_extract_on_line(&pixg, 20, 20, 180, 20, 1);
+    // C version: na1 = pixExtractOnLine(pixg, 20, 20, 180, 20, 1) -- horizontal
+    let na1 = pixg.extract_on_line(20, 20, 180, 20, 1).unwrap();
     // Should have 161 points (from x=20 to x=180 inclusive)
     rp.compare_values(161.0, na1.len() as f64, 0.0); // 4
 
-    // C版: na2 = pixExtractOnLine(pixg, 40, 30, 40, 170, 1) -- vertical
-    let na2 = pix_extract_on_line(&pixg, 40, 30, 40, 170, 1);
+    // C version: na2 = pixExtractOnLine(pixg, 40, 30, 40, 170, 1) -- vertical
+    let na2 = pixg.extract_on_line(40, 30, 40, 170, 1).unwrap();
     // Should have 141 points (from y=30 to y=170 inclusive)
     rp.compare_values(141.0, na2.len() as f64, 0.0); // 5
 
-    // C版: na3 = pixExtractOnLine(pixg, 20, 170, 180, 30, 1) -- diagonal
-    let na3 = pix_extract_on_line(&pixg, 20, 170, 180, 30, 1);
+    // C version: na3 = pixExtractOnLine(pixg, 20, 170, 180, 30, 1) -- diagonal
+    let na3 = pixg.extract_on_line(20, 170, 180, 30, 1).unwrap();
     // Diagonal: max(|180-20|, |170-30|) + 1 = max(160, 140) + 1 = 161
     rp.compare_values(161.0, na3.len() as f64, 0.0); // 6
 
-    // C版: na4 = pixExtractOnLine(pixg, 20, 190, 180, 10, 1)
-    let na4 = pix_extract_on_line(&pixg, 20, 190, 180, 10, 1);
+    // C version: na4 = pixExtractOnLine(pixg, 20, 190, 180, 10, 1)
+    let na4 = pixg.extract_on_line(20, 190, 180, 10, 1).unwrap();
     // max(|180-20|, |190-10|) + 1 = max(160, 180) + 1 = 181
     rp.compare_values(181.0, na4.len() as f64, 0.0); // 7
 
@@ -611,36 +232,55 @@ fn numa2_reg_row_column_sums() {
     let h = pixs.height() as i32;
     eprintln!("  test8.jpg: {}x{}, depth={}", w, h, pixs.depth().bits());
 
-    // C版: Sum by columns in two halves (left and right)
+    // C version: Sum by columns in two halves (left and right)
     // box1 = boxCreate(0, 0, w/2, h)
-    // box2 = boxCreate(w/2, 0, w - 2/2, h)   <-- note the C code has w - 2/2 (integer division)
-    let na1_left = pix_average_by_column(&pixs, 0, 0, w / 2, h, L_BLACK_IS_MAX);
-    let na2_right = pix_average_by_column(&pixs, w / 2, 0, w - 2 / 2, h, L_BLACK_IS_MAX);
+    // box2 = boxCreate(w/2, 0, w - 2/2, h)   <-- note the C code has w - 2/2
+    let box_left = Box::new(0, 0, w / 2, h).unwrap();
+    let box_right = Box::new(w / 2, 0, w - 2 / 2, h).unwrap();
+    let na1_left = pixs
+        .average_by_column(Some(&box_left), PixelMaxType::BlackIsMax)
+        .unwrap();
+    let na2_right = pixs
+        .average_by_column(Some(&box_right), PixelMaxType::BlackIsMax)
+        .unwrap();
 
     let mut na_joined = na1_left.clone();
     na_joined.join(&na2_right);
 
-    let na3_full = pix_average_by_column_full(&pixs, L_BLACK_IS_MAX);
+    let na3_full = pixs
+        .average_by_column(None, PixelMaxType::BlackIsMax)
+        .unwrap();
 
-    // C版: numaSimilar(na1, na3, 0.0, &same) -> should be 1
+    // C version: numaSimilar(na1, na3, 0.0, &same) -> should be 1
     let same = na_joined.similar(&na3_full, 0.0);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0); // 1 (C test 10)
 
-    // C版: Sum by rows in two halves (top and bottom)
-    let na1_top = pix_average_by_row(&pixs, 0, 0, w, h / 2, L_WHITE_IS_MAX);
-    let na2_bot = pix_average_by_row(&pixs, 0, h / 2, w, h - h / 2, L_WHITE_IS_MAX);
+    // C version: Sum by rows in two halves (top and bottom)
+    let box_top = Box::new(0, 0, w, h / 2).unwrap();
+    let box_bot = Box::new(0, h / 2, w, h - h / 2).unwrap();
+    let na1_top = pixs
+        .average_by_row(Some(&box_top), PixelMaxType::WhiteIsMax)
+        .unwrap();
+    let na2_bot = pixs
+        .average_by_row(Some(&box_bot), PixelMaxType::WhiteIsMax)
+        .unwrap();
 
     let mut na_row_joined = na1_top.clone();
     na_row_joined.join(&na2_bot);
 
-    let na3_row_full = pix_average_by_row_full(&pixs, L_WHITE_IS_MAX);
+    let na3_row_full = pixs.average_by_row(None, PixelMaxType::WhiteIsMax).unwrap();
 
     let same_row = na_row_joined.similar(&na3_row_full, 0.0);
     rp.compare_values(1.0, if same_row { 1.0 } else { 0.0 }, 0.0); // 2 (C test 11)
 
-    // C版: Average left by rows; right by columns; compare totals
-    let na1_left_row = pix_average_by_row(&pixs, 0, 0, w / 2, h, L_WHITE_IS_MAX);
-    let na2_right_col = pix_average_by_column(&pixs, w / 2, 0, w - 2 / 2, h, L_WHITE_IS_MAX);
+    // C version: Average left by rows; right by columns; compare totals
+    let na1_left_row = pixs
+        .average_by_row(Some(&box_left), PixelMaxType::WhiteIsMax)
+        .unwrap();
+    let box_right_wm = Box::new(w / 2, 0, w - 2 / 2, h).unwrap();
+    let na2_right_col = pixs
+        .average_by_column(Some(&box_right_wm), PixelMaxType::WhiteIsMax)
+        .unwrap();
 
     let sum1 = na1_left_row.sum().unwrap();
     let sum2 = na2_right_col.sum().unwrap();
@@ -651,13 +291,16 @@ fn numa2_reg_row_column_sums() {
     eprintln!("  ave1 = {:.4} (expected ~189.59)", ave1);
     eprintln!("  ave2 = {:.4} (expected ~207.89)", ave2);
 
-    // C版: regTestCompareValues(rp, 189.59, ave1, 0.01)
+    // C version: regTestCompareValues(rp, 189.59, ave1, 0.01)
     rp.compare_values(189.59, ave1 as f64, 0.1); // 3 (C test 13)
-    // C版: regTestCompareValues(rp, 207.89, ave2, 0.01)
+    // C version: regTestCompareValues(rp, 207.89, ave2, 0.01)
     rp.compare_values(207.89, ave2 as f64, 0.1); // 4 (C test 14)
 
-    // C版: pixAverageInRect(pixs, NULL, NULL, 0, 255, 1, &ave4)
-    let ave4 = pix_average_in_rect(&pixs, 0, 0, w, h, 0, 255, 1);
+    // C version: pixAverageInRect(pixs, NULL, NULL, 0, 255, 1, &ave4)
+    let ave4 = pixs
+        .average_in_rect(None, 0, 255, 1)
+        .unwrap()
+        .unwrap_or(0.0);
     let diff1 = ave4 - ave3;
     let diff2 = (w as f32) * (h as f32) * ave4 - (0.5 * (w as f32) * sum1 + (h as f32) * sum2);
 
@@ -665,15 +308,17 @@ fn numa2_reg_row_column_sums() {
     eprintln!("  diff1 = {:.4} (expected ~0.0)", diff1);
     eprintln!("  diff2 = {:.4} (expected ~10.0)", diff2);
 
-    // C版: regTestCompareValues(rp, 0.0, diff1, 0.001)
+    // C version: regTestCompareValues(rp, 0.0, diff1, 0.001)
     rp.compare_values(0.0, diff1 as f64, 0.01); // 5 (C test 15)
-    // C版: regTestCompareValues(rp, 10.0, diff2, 10.0)
+    // C version: regTestCompareValues(rp, 10.0, diff2, 10.0)
     rp.compare_values(10.0, diff2 as f64, 100.0); // 6 (C test 16) -- wider tolerance
 
-    // C版: Variance left and right halves
-    let var1 = pix_variance_in_rect(&pixs, 0, 0, w / 2, h);
-    let var2 = pix_variance_in_rect(&pixs, w / 2, 0, w - w / 2, h);
-    let var3 = pix_variance_in_rect(&pixs, 0, 0, w, h);
+    // C version: Variance left and right halves
+    let box_var_left = Box::new(0, 0, w / 2, h).unwrap();
+    let box_var_right = Box::new(w / 2, 0, w - w / 2, h).unwrap();
+    let var1 = pixs.variance_in_rect(Some(&box_var_left)).unwrap();
+    let var2 = pixs.variance_in_rect(Some(&box_var_right)).unwrap();
+    let var3 = pixs.variance_in_rect(None).unwrap();
 
     eprintln!(
         "  var halves avg = {:.2} (expected ~82.06)",
@@ -681,11 +326,11 @@ fn numa2_reg_row_column_sums() {
     );
     eprintln!("  var full = {:.2} (expected ~82.66)", var3);
 
-    // C版: regTestCompareValues(rp, 82.06, 0.5 * (var1 + var2), 0.01)
+    // C version: regTestCompareValues(rp, 82.06, 0.5 * (var1 + var2), 0.01)
     // Note: C's pixVarianceInRect returns rootvar (sqrt of variance)
-    // Our helper also returns sqrt(variance), matching C behavior
+    // Our library also returns sqrt(variance), matching C behavior
     rp.compare_values(82.06, (0.5 * (var1 + var2)) as f64, 1.0); // 7 (C test 17)
-    // C版: regTestCompareValues(rp, 82.66, var3, 0.01)
+    // C version: regTestCompareValues(rp, 82.66, var3, 0.01)
     rp.compare_values(82.66, var3 as f64, 1.0); // 8 (C test 18)
 
     assert!(rp.cleanup(), "numa2_reg row/column sums tests failed");
@@ -707,17 +352,17 @@ fn numa2_reg_row_column_variances() {
     let pixs = leptonica_io::read_image(&leptonica_test::test_data_path("test8.jpg"))
         .expect("Failed to load test8.jpg");
 
-    // C版: box1 = boxCreate(415, 0, 130, 425)
-    let (bx, by, bw, bh) = (415, 0, 130, 425);
+    // C version: box1 = boxCreate(415, 0, 130, 425)
+    let box1 = Box::new(415, 0, 130, 425).unwrap();
 
-    // C版: na1 = pixVarianceByRow(pixs, box1)
-    let na1 = pix_variance_by_row(&pixs, bx, by, bw, bh);
-    // C版: na2 = pixVarianceByColumn(pixs, box1)
-    let na2 = pix_variance_by_column(&pixs, bx, by, bw, bh);
+    // C version: na1 = pixVarianceByRow(pixs, box1)
+    let na1 = pixs.variance_by_row(Some(&box1)).unwrap();
+    // C version: na2 = pixVarianceByColumn(pixs, box1)
+    let na2 = pixs.variance_by_column(Some(&box1)).unwrap();
 
     // Verify sizes
-    let expected_rows = bh.min(pixs.height() as i32 - by.max(0));
-    let expected_cols = bw.min(pixs.width() as i32 - bx.max(0));
+    let expected_rows = 425.min(pixs.height() as i32 - 0);
+    let expected_cols = 130.min(pixs.width() as i32 - 415);
     rp.compare_values(expected_rows as f64, na1.len() as f64, 0.0); // 1
     rp.compare_values(expected_cols as f64, na2.len() as f64, 0.0); // 2
 
@@ -741,15 +386,15 @@ fn numa2_reg_row_column_variances() {
     // Full-image row and column variance
     let w = pixs.width() as i32;
     let h = pixs.height() as i32;
-    let na_full_row = pix_variance_by_row(&pixs, 0, 0, w, h);
-    let na_full_col = pix_variance_by_column(&pixs, 0, 0, w, h);
+    let na_full_row = pixs.variance_by_row(None).unwrap();
+    let na_full_col = pixs.variance_by_column(None).unwrap();
 
     rp.compare_values(h as f64, na_full_row.len() as f64, 0.0); // 7
     rp.compare_values(w as f64, na_full_col.len() as f64, 0.0); // 8
 
     // Mean of row standard deviations should be close to overall std dev
     let mean_row_std = na_full_row.mean().unwrap_or(0.0);
-    let overall_std = pix_variance_in_rect(&pixs, 0, 0, w, h);
+    let overall_std = pixs.variance_in_rect(None).unwrap();
     // The mean of per-row std devs won't exactly equal the overall std dev
     // (Jensen's inequality), but they should be in the same ballpark
     let ratio = mean_row_std / overall_std;
@@ -781,10 +426,10 @@ fn numa2_reg_windowed_variance_on_line() {
     let w = pixs.width() as i32;
     let h = pixs.height() as i32;
 
-    // C版: pixWindowedVarianceOnLine(pix2, L_HORIZONTAL_LINE, h/2 - 30, 0, w, 5, &na1)
+    // C version: pixWindowedVarianceOnLine(pix2, L_HORIZONTAL_LINE, h/2 - 30, 0, w, 5, &na1)
     // Extract pixels along a horizontal line, then compute windowed variance
     let y_line = h / 2 - 30;
-    let na_horiz = pix_extract_on_line(&pixs, 0, y_line, w - 1, y_line, 1);
+    let na_horiz = pixs.extract_on_line(0, y_line, w - 1, y_line, 1).unwrap();
 
     // Compute windowed variance along the extracted line (using library API)
     let halfwin = 5;
@@ -798,9 +443,9 @@ fn numa2_reg_windowed_variance_on_line() {
     let all_nonneg = na_wvar_horiz.iter().all(|v| v >= 0.0);
     rp.compare_values(1.0, if all_nonneg { 1.0 } else { 0.0 }, 0.0); // 2
 
-    // C版: pixWindowedVarianceOnLine(pix2, L_VERTICAL_LINE, 0.78*w, 0, h, 5, &na2)
+    // C version: pixWindowedVarianceOnLine(pix2, L_VERTICAL_LINE, 0.78*w, 0, h, 5, &na2)
     let x_line = (0.78 * w as f32) as i32;
-    let na_vert = pix_extract_on_line(&pixs, x_line, 0, x_line, h - 1, 1);
+    let na_vert = pixs.extract_on_line(x_line, 0, x_line, h - 1, 1).unwrap();
     let vert_stats = na_vert.windowed_stats(halfwin);
     let na_wvar_vert = &vert_stats.variance;
 
@@ -820,7 +465,7 @@ fn numa2_reg_windowed_variance_on_line() {
     }
     let constant_pix: Pix = constant_mut.into();
 
-    let na_const_line = pix_extract_on_line(&constant_pix, 0, 50, 99, 50, 1);
+    let na_const_line = constant_pix.extract_on_line(0, 50, 99, 50, 1).unwrap();
     let const_stats = na_const_line.windowed_stats(5);
     let na_const_wvar = &const_stats.variance;
 
@@ -841,7 +486,7 @@ fn numa2_reg_windowed_variance_on_line() {
     }
     let step_pix: Pix = step_mut.into();
 
-    let na_step_line = pix_extract_on_line(&step_pix, 0, 5, 99, 5, 1);
+    let na_step_line = step_pix.extract_on_line(0, 5, 99, 5, 1).unwrap();
     let step_stats = na_step_line.windowed_stats(5);
     let na_step_wvar = &step_stats.variance;
 
@@ -879,10 +524,16 @@ fn numa2_reg_pixel_average_gray() {
     let w = pixs.width() as i32;
     let h = pixs.height() as i32;
 
-    // C版 tests 25-26: pixAverageInRect(pix, NULL, NULL, 0, 255, 1, &ave)
+    // C version tests 25-26: pixAverageInRect(pix, NULL, NULL, 0, 255, 1, &ave)
     // vs. pixAverageInRect(pix, NULL, NULL, 0, 255, 2, &ave)
-    let ave1 = pix_average_in_rect(&pixs, 0, 0, w, h, 0, 255, 1);
-    let ave2 = pix_average_in_rect(&pixs, 0, 0, w, h, 0, 255, 2);
+    let ave1 = pixs
+        .average_in_rect(None, 0, 255, 1)
+        .unwrap()
+        .unwrap_or(0.0);
+    let ave2 = pixs
+        .average_in_rect(None, 0, 255, 2)
+        .unwrap()
+        .unwrap_or(0.0);
 
     eprintln!("  Full image average (subsamp=1): {:.2}", ave1);
     eprintln!("  Full image average (subsamp=2): {:.2}", ave2);
@@ -890,13 +541,13 @@ fn numa2_reg_pixel_average_gray() {
     // Different subsampling should give similar results for smooth images
     rp.compare_values(ave1 as f64, ave2 as f64, 2.0); // 1
 
-    // C版 test 31: pixAverageInRect with a sub-box
+    // C version test 31: pixAverageInRect with a sub-box
     // Use a box at the center of the image
-    let box_x = w / 4;
-    let box_y = h / 4;
-    let box_w = w / 2;
-    let box_h = h / 2;
-    let ave_box = pix_average_in_rect(&pixs, box_x, box_y, box_w, box_h, 0, 255, 1);
+    let center_box = Box::new(w / 4, h / 4, w / 2, h / 2).unwrap();
+    let ave_box = pixs
+        .average_in_rect(Some(&center_box), 0, 255, 1)
+        .unwrap()
+        .unwrap_or(0.0);
 
     eprintln!("  Center box average: {:.2}", ave_box);
 
@@ -908,9 +559,12 @@ fn numa2_reg_pixel_average_gray() {
     };
     rp.compare_values(1.0, valid_avg, 0.0); // 2
 
-    // C版 tests 29: restricted range
+    // C version tests 29: restricted range
     // Only count pixels in range [100, 125]
-    let ave_range = pix_average_in_rect(&pixs, 0, 0, w, h, 100, 125, 1);
+    let ave_range = pixs
+        .average_in_rect(None, 100, 125, 1)
+        .unwrap()
+        .unwrap_or(0.0);
     eprintln!("  Range [100,125] average: {:.2}", ave_range);
 
     // Average should be within the range [100, 125] (or 0 if no pixels in range)
@@ -921,10 +575,10 @@ fn numa2_reg_pixel_average_gray() {
     };
     rp.compare_values(1.0, valid_range, 0.0); // 3
 
-    // C版 test 30: restricted range without samples
+    // C version test 30: restricted range without samples
     // Use range that may have no pixels
-    let ave_empty = pix_average_in_rect(&pixs, 0, 0, w, h, 256, 300, 1);
-    rp.compare_values(0.0, ave_empty as f64, 0.0); // 4 -- no pixels in range
+    let ave_empty = pixs.average_in_rect(None, 256, 300, 1).unwrap();
+    rp.compare_values(1.0, if ave_empty.is_none() { 1.0 } else { 0.0 }, 0.0); // 4 -- no pixels in range
 
     // Self-consistency: average of entire image should match
     // manual computation
@@ -940,10 +594,13 @@ fn numa2_reg_pixel_average_gray() {
     let manual_avg = manual_sum / manual_count as f64;
     rp.compare_values(manual_avg, ave1 as f64, 0.01); // 5
 
-    // C版 test 32: box average == cropped average
+    // C version test 32: box average == cropped average
     // Average in a box should equal the average of the cropped region
     // (when no mask is used)
-    let ave_crop = pix_average_in_rect(&pixs, box_x, box_y, box_w, box_h, 0, 255, 1);
+    let ave_crop = pixs
+        .average_in_rect(Some(&center_box), 0, 255, 1)
+        .unwrap()
+        .unwrap_or(0.0);
     rp.compare_values(ave_box as f64, ave_crop as f64, 0.001); // 6
 
     assert!(rp.cleanup(), "numa2_reg pixel average (gray) tests failed");
@@ -1058,7 +715,7 @@ fn numa2_reg_pixel_average_color() {
 // ============================================================================
 
 #[test]
-#[ignore = "C版: pixConvertRGBToLuminance(), pixClipRectangle(), pixThresholdToBinary(), pixInvert(), pixAverageInRect(mask付き) -- Rust未実装のためスキップ"]
+#[ignore = "C version: pixConvertRGBToLuminance(), pixClipRectangle(), pixThresholdToBinary(), pixInvert(), pixAverageInRect(with mask) -- not yet implemented in Rust"]
 fn numa2_reg_masked_pixel_average() {
     // C tests 25-36 with mask operations:
     // pixConvertRGBToLuminance(pix1)
@@ -1075,7 +732,7 @@ fn numa2_reg_masked_pixel_average() {
 // ============================================================================
 
 #[test]
-#[ignore = "C版: boxedpage.jpgがテストデータに無く、pixErodeGray(), pixConvertTo32(), pixRenderPlotFromNumaGen() -- Rust未実装のためスキップ"]
+#[ignore = "C version: boxedpage.jpg not in test data, pixErodeGray(), pixConvertTo32(), pixRenderPlotFromNumaGen() -- not yet implemented in Rust"]
 fn numa2_reg_boxedpage_variances() {
     // C tests 21-22:
     // pix1 = pixRead("boxedpage.jpg")
@@ -1093,7 +750,7 @@ fn numa2_reg_boxedpage_variances() {
 // ============================================================================
 
 #[test]
-#[ignore = "C版: gplotSimple1(), gplotGeneralPix1/2, gplotCreate, gplotAddPlot, gplotMakeOutputPix -- Rust未実装のためスキップ"]
+#[ignore = "C version: gplotSimple1(), gplotGeneralPix1/2, gplotCreate, gplotAddPlot, gplotMakeOutputPix -- not yet implemented in Rust"]
 fn numa2_reg_gplot_output() {
     // C tests 0-4 (gplot output), 6-9 (gplot of extractions):
     // All gplot rendering requires unimplemented Rust APIs.
@@ -1105,7 +762,7 @@ fn numa2_reg_gplot_output() {
 // ============================================================================
 
 #[test]
-#[ignore = "C版: pixAverageInRectRGB(), pixConvertTo1(), pixMakeColorSquare(), lyra.005.jpgがテストデータに無い -- Rust未実装のためスキップ"]
+#[ignore = "C version: pixAverageInRectRGB(), pixConvertTo1(), pixMakeColorSquare(), lyra.005.jpg not in test data -- not yet implemented in Rust"]
 fn numa2_reg_color_average_with_mask() {
     // C tests 37-42:
     // pixAverageInRectRGB(pix2, NULL, NULL, 1, &avergb)
@@ -1121,7 +778,7 @@ fn numa2_reg_color_average_with_mask() {
 // ============================================================================
 
 #[test]
-#[ignore = "C版: numaRead(), numaWrite() -- Rust未実装のためスキップ"]
+#[ignore = "C version: numaRead(), numaWrite() -- not yet implemented in Rust"]
 fn numa2_reg_numa_read_write() {
     // C version:
     // na = numaRead("lyra.5.na")
