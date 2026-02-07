@@ -24,11 +24,6 @@ use leptonica_test::{RegParams, load_test_image};
 const WSIZE: u32 = 7;
 const HSIZE: u32 = 7;
 
-/// Invert an 8-bpp grayscale image (255 - pixel)
-fn invert_gray(pix: &leptonica_core::Pix) -> leptonica_core::Pix {
-    pix.invert()
-}
-
 #[test]
 fn graymorph1_reg() {
     let mut rp = RegParams::new("graymorph1");
@@ -125,9 +120,9 @@ fn graymorph1_reg() {
     // ====================================================================
     eprintln!("  Testing erode/dilate duality");
     let pix1 = dilate_gray(&pixs, WSIZE, HSIZE).expect("dilate_gray");
-    let pix2 = invert_gray(&pixs);
+    let pix2 = pixs.invert();
     let pix3 = erode_gray(&pix2, WSIZE, HSIZE).expect("erode_gray on inverted");
-    let pix3_inv = invert_gray(&pix3);
+    let pix3_inv = pix3.invert();
     let same = pix1.equals(&pix3_inv);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
@@ -140,9 +135,9 @@ fn graymorph1_reg() {
     // ====================================================================
     eprintln!("  Testing open/close duality");
     let pix1 = open_gray(&pixs, WSIZE, HSIZE).expect("open_gray");
-    let pix2 = invert_gray(&pixs);
+    let pix2 = pixs.invert();
     let pix3 = close_gray(&pix2, WSIZE, HSIZE).expect("close_gray on inverted");
-    let pix3_inv = invert_gray(&pix3);
+    let pix3_inv = pix3.invert();
     let same = pix1.equals(&pix3_inv);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
@@ -155,7 +150,7 @@ fn graymorph1_reg() {
     // ====================================================================
     eprintln!("  Testing tophat duality");
     let pix1 = top_hat_gray(&pixs, WSIZE, HSIZE).expect("top_hat white");
-    let pix2 = invert_gray(&pixs);
+    let pix2 = pixs.invert();
     let pix3 = bottom_hat_gray(&pix2, WSIZE, HSIZE).expect("bottom_hat on inverted");
     let same = pix1.equals(&pix3);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
@@ -166,7 +161,7 @@ fn graymorph1_reg() {
     // C版: Test 18,19 -- Same duality via gray_morph_sequence
     eprintln!("  Testing tophat duality via sequence");
     let pix1 = gray_morph_sequence(&pixs, "Tw9.5").expect("Tw9.5");
-    let pix2 = invert_gray(&pixs);
+    let pix2 = pixs.invert();
     let pix3 = gray_morph_sequence(&pix2, "Tb9.5").expect("Tb9.5");
     let same = pix1.equals(&pix3);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
