@@ -33,7 +33,7 @@ fn rotate1_reg() {
 
     // --- Test 4: Rotate 360 should return to original ---
     let r360 = rotate_180(&r180).expect("rotate 180 twice = 360");
-    let same = compare_pix(&pixs, &r360);
+    let same = pixs.equals(&r360);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  rotate360 == identity: {}", same);
 
@@ -42,7 +42,7 @@ fn rotate1_reg() {
     let r2 = rotate_90(&r1, true).expect("r90 2");
     let r3 = rotate_90(&r2, true).expect("r90 3");
     let r4 = rotate_90(&r3, true).expect("r90 4");
-    let same = compare_pix(&pixs, &r4);
+    let same = pixs.equals(&r4);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  4x rotate_90 == identity: {}", same);
 
@@ -53,7 +53,7 @@ fn rotate1_reg() {
 
     // Double flip = identity
     let flr2 = flip_lr(&flr).expect("flip_lr twice");
-    let same = compare_pix(&pixs, &flr2);
+    let same = pixs.equals(&flr2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  2x flip_lr == identity: {}", same);
 
@@ -63,30 +63,16 @@ fn rotate1_reg() {
     rp.compare_values(h as f64, ftb.height() as f64, 0.0);
 
     let ftb2 = flip_tb(&ftb).expect("flip_tb twice");
-    let same = compare_pix(&pixs, &ftb2);
+    let same = pixs.equals(&ftb2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  2x flip_tb == identity: {}", same);
 
     // --- Test 8: Rotate 90cw + 90ccw = identity ---
     let rcw = rotate_90(&pixs, true).expect("90cw");
     let rback = rotate_90(&rcw, false).expect("90ccw");
-    let same = compare_pix(&pixs, &rback);
+    let same = pixs.equals(&rback);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  90cw + 90ccw == identity: {}", same);
 
     assert!(rp.cleanup(), "rotate1 regression test failed");
-}
-
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    for y in 0..pix1.height() {
-        for x in 0..pix1.width() {
-            if pix1.get_pixel(x, y) != pix2.get_pixel(x, y) {
-                return false;
-            }
-        }
-    }
-    true
 }

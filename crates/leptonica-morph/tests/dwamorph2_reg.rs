@@ -43,14 +43,6 @@ const NTIMES: u32 = 2;
 /// We use a slightly smaller range (2..32) to keep test runtime reasonable.
 const MAX_LINEAR_SIZE: u32 = 32;
 
-/// Compare two Pix for equality using data-level comparison
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    pix1.equals(pix2)
-}
-
 /// Count differing pixels between two images
 fn count_diff_pixels(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> u64 {
     if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
@@ -94,7 +86,7 @@ fn dwamorph2_reg_horizontal() {
     for size in 2..MAX_LINEAR_SIZE {
         let dil_brick = dilate_brick(&pixs, size, 1).expect("dilate_brick");
         let dil_dwa = dilate_brick_dwa(&pixs, size, 1).expect("dilate_brick_dwa");
-        let same = compare_pix(&dil_brick, &dil_dwa);
+        let same = dil_brick.equals(&dil_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&dil_brick, &dil_dwa);
@@ -107,7 +99,7 @@ fn dwamorph2_reg_horizontal() {
     for size in 2..MAX_LINEAR_SIZE {
         let ero_brick = erode_brick(&pixs, size, 1).expect("erode_brick");
         let ero_dwa = erode_brick_dwa(&pixs, size, 1).expect("erode_brick_dwa");
-        let same = compare_pix(&ero_brick, &ero_dwa);
+        let same = ero_brick.equals(&ero_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&ero_brick, &ero_dwa);
@@ -120,7 +112,7 @@ fn dwamorph2_reg_horizontal() {
     for size in 2..MAX_LINEAR_SIZE {
         let open_std = open_brick(&pixs, size, 1).expect("open_brick");
         let open_dwa = open_brick_dwa(&pixs, size, 1).expect("open_brick_dwa");
-        let same = compare_pix(&open_std, &open_dwa);
+        let same = open_std.equals(&open_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&open_std, &open_dwa);
@@ -133,7 +125,7 @@ fn dwamorph2_reg_horizontal() {
     for size in 2..MAX_LINEAR_SIZE {
         let close_std = close_brick(&pixs, size, 1).expect("close_brick");
         let close_dwa = close_brick_dwa(&pixs, size, 1).expect("close_brick_dwa");
-        let same = compare_pix(&close_std, &close_dwa);
+        let same = close_std.equals(&close_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&close_std, &close_dwa);
@@ -165,7 +157,7 @@ fn dwamorph2_reg_vertical() {
     for size in 2..MAX_LINEAR_SIZE {
         let dil_brick = dilate_brick(&pixs, 1, size).expect("dilate_brick");
         let dil_dwa = dilate_brick_dwa(&pixs, 1, size).expect("dilate_brick_dwa");
-        let same = compare_pix(&dil_brick, &dil_dwa);
+        let same = dil_brick.equals(&dil_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&dil_brick, &dil_dwa);
@@ -178,7 +170,7 @@ fn dwamorph2_reg_vertical() {
     for size in 2..MAX_LINEAR_SIZE {
         let ero_brick = erode_brick(&pixs, 1, size).expect("erode_brick");
         let ero_dwa = erode_brick_dwa(&pixs, 1, size).expect("erode_brick_dwa");
-        let same = compare_pix(&ero_brick, &ero_dwa);
+        let same = ero_brick.equals(&ero_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&ero_brick, &ero_dwa);
@@ -191,7 +183,7 @@ fn dwamorph2_reg_vertical() {
     for size in 2..MAX_LINEAR_SIZE {
         let open_std = open_brick(&pixs, 1, size).expect("open_brick");
         let open_dwa = open_brick_dwa(&pixs, 1, size).expect("open_brick_dwa");
-        let same = compare_pix(&open_std, &open_dwa);
+        let same = open_std.equals(&open_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&open_std, &open_dwa);
@@ -204,7 +196,7 @@ fn dwamorph2_reg_vertical() {
     for size in 2..MAX_LINEAR_SIZE {
         let close_std = close_brick(&pixs, 1, size).expect("close_brick");
         let close_dwa = close_brick_dwa(&pixs, 1, size).expect("close_brick_dwa");
-        let same = compare_pix(&close_std, &close_dwa);
+        let same = close_std.equals(&close_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         if !same {
             let diff = count_diff_pixels(&close_std, &close_dwa);
@@ -256,7 +248,7 @@ fn dwamorph2_reg_timing() {
         }
         let dwa_time = start.elapsed();
 
-        let same = compare_pix(dil_std.as_ref().unwrap(), dil_dwa.as_ref().unwrap());
+        let same = dil_std.as_ref().unwrap().equals(dil_dwa.as_ref().unwrap());
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "  dilate h: std={:?}, dwa={:?}, match={}",
@@ -278,7 +270,7 @@ fn dwamorph2_reg_timing() {
         }
         let dwa_time = start.elapsed();
 
-        let same = compare_pix(ero_std.as_ref().unwrap(), ero_dwa.as_ref().unwrap());
+        let same = ero_std.as_ref().unwrap().equals(ero_dwa.as_ref().unwrap());
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "  erode h:  std={:?}, dwa={:?}, match={}",
@@ -300,10 +292,10 @@ fn dwamorph2_reg_timing() {
         }
         let dwa_time = start.elapsed();
 
-        let same = compare_pix(
-            open_std_result.as_ref().unwrap(),
-            open_dwa_result.as_ref().unwrap(),
-        );
+        let same = open_std_result
+            .as_ref()
+            .unwrap()
+            .equals(open_dwa_result.as_ref().unwrap());
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "  open h:   std={:?}, dwa={:?}, match={}",
@@ -325,10 +317,10 @@ fn dwamorph2_reg_timing() {
         }
         let dwa_time = start.elapsed();
 
-        let same = compare_pix(
-            close_std_result.as_ref().unwrap(),
-            close_dwa_result.as_ref().unwrap(),
-        );
+        let same = close_std_result
+            .as_ref()
+            .unwrap()
+            .equals(close_dwa_result.as_ref().unwrap());
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "  close h:  std={:?}, dwa={:?}, match={}",
@@ -360,7 +352,7 @@ fn dwamorph2_reg_small_sizes() {
         // Horizontal
         let dil_std = dilate_brick(&pixs, size, 1).expect("dilate_brick h");
         let dil_dwa = dilate_brick_dwa(&pixs, size, 1).expect("dilate_brick_dwa h");
-        let same = compare_pix(&dil_std, &dil_dwa);
+        let same = dil_std.equals(&dil_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    dilate ({},1): {}",
@@ -370,7 +362,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let ero_std = erode_brick(&pixs, size, 1).expect("erode_brick h");
         let ero_dwa = erode_brick_dwa(&pixs, size, 1).expect("erode_brick_dwa h");
-        let same = compare_pix(&ero_std, &ero_dwa);
+        let same = ero_std.equals(&ero_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    erode  ({},1): {}",
@@ -380,7 +372,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let open_std = open_brick(&pixs, size, 1).expect("open_brick h");
         let open_dwa = open_brick_dwa(&pixs, size, 1).expect("open_brick_dwa h");
-        let same = compare_pix(&open_std, &open_dwa);
+        let same = open_std.equals(&open_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    open   ({},1): {}",
@@ -390,7 +382,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let close_std = close_brick(&pixs, size, 1).expect("close_brick h");
         let close_dwa = close_brick_dwa(&pixs, size, 1).expect("close_brick_dwa h");
-        let same = compare_pix(&close_std, &close_dwa);
+        let same = close_std.equals(&close_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    close  ({},1): {}",
@@ -401,7 +393,7 @@ fn dwamorph2_reg_small_sizes() {
         // Vertical
         let dil_std = dilate_brick(&pixs, 1, size).expect("dilate_brick v");
         let dil_dwa = dilate_brick_dwa(&pixs, 1, size).expect("dilate_brick_dwa v");
-        let same = compare_pix(&dil_std, &dil_dwa);
+        let same = dil_std.equals(&dil_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    dilate (1,{}): {}",
@@ -411,7 +403,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let ero_std = erode_brick(&pixs, 1, size).expect("erode_brick v");
         let ero_dwa = erode_brick_dwa(&pixs, 1, size).expect("erode_brick_dwa v");
-        let same = compare_pix(&ero_std, &ero_dwa);
+        let same = ero_std.equals(&ero_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    erode  (1,{}): {}",
@@ -421,7 +413,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let open_std = open_brick(&pixs, 1, size).expect("open_brick v");
         let open_dwa = open_brick_dwa(&pixs, 1, size).expect("open_brick_dwa v");
-        let same = compare_pix(&open_std, &open_dwa);
+        let same = open_std.equals(&open_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    open   (1,{}): {}",
@@ -431,7 +423,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let close_std = close_brick(&pixs, 1, size).expect("close_brick v");
         let close_dwa = close_brick_dwa(&pixs, 1, size).expect("close_brick_dwa v");
-        let same = compare_pix(&close_std, &close_dwa);
+        let same = close_std.equals(&close_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    close  (1,{}): {}",
@@ -442,7 +434,7 @@ fn dwamorph2_reg_small_sizes() {
         // Square (2D)
         let dil_std = dilate_brick(&pixs, size, size).expect("dilate_brick sq");
         let dil_dwa = dilate_brick_dwa(&pixs, size, size).expect("dilate_brick_dwa sq");
-        let same = compare_pix(&dil_std, &dil_dwa);
+        let same = dil_std.equals(&dil_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    dilate ({},{}): {}",
@@ -453,7 +445,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let ero_std = erode_brick(&pixs, size, size).expect("erode_brick sq");
         let ero_dwa = erode_brick_dwa(&pixs, size, size).expect("erode_brick_dwa sq");
-        let same = compare_pix(&ero_std, &ero_dwa);
+        let same = ero_std.equals(&ero_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    erode  ({},{}): {}",
@@ -464,7 +456,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let open_std = open_brick(&pixs, size, size).expect("open_brick sq");
         let open_dwa = open_brick_dwa(&pixs, size, size).expect("open_brick_dwa sq");
-        let same = compare_pix(&open_std, &open_dwa);
+        let same = open_std.equals(&open_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    open   ({},{}): {}",
@@ -475,7 +467,7 @@ fn dwamorph2_reg_small_sizes() {
 
         let close_std = close_brick(&pixs, size, size).expect("close_brick sq");
         let close_dwa = close_brick_dwa(&pixs, size, size).expect("close_brick_dwa sq");
-        let same = compare_pix(&close_std, &close_dwa);
+        let same = close_std.equals(&close_dwa);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
             "    close  ({},{}): {}",
@@ -542,7 +534,7 @@ fn dwamorph2_reg_full() {
             // Horizontal
             let std_result = std_fn(&pixs, size, 1).expect("std h");
             let dwa_result = dwa_fn(&pixs, size, 1).expect("dwa h");
-            let same = compare_pix(&std_result, &dwa_result);
+            let same = std_result.equals(&dwa_result);
             rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
             total_tests += 1;
             if same {
@@ -555,7 +547,7 @@ fn dwamorph2_reg_full() {
             // Vertical
             let std_result = std_fn(&pixs, 1, size).expect("std v");
             let dwa_result = dwa_fn(&pixs, 1, size).expect("dwa v");
-            let same = compare_pix(&std_result, &dwa_result);
+            let same = std_result.equals(&dwa_result);
             rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
             total_tests += 1;
             if same {

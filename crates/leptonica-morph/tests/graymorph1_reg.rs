@@ -24,14 +24,6 @@ use leptonica_test::{RegParams, load_test_image};
 const WSIZE: u32 = 7;
 const HSIZE: u32 = 7;
 
-/// Compare two Pix for equality
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    pix1.equals(pix2)
-}
-
 /// Invert an 8-bpp grayscale image (255 - pixel)
 fn invert_gray(pix: &leptonica_core::Pix) -> leptonica_core::Pix {
     pix.invert()
@@ -57,7 +49,7 @@ fn graymorph1_reg() {
     let pix1 = dilate_gray(&pixs, WSIZE, HSIZE).expect("dilate_gray");
     let seq = format!("D{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence D");
-    let same = compare_pix(&pix1, &pix2);
+    let same = pix1.equals(&pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!(
@@ -71,7 +63,7 @@ fn graymorph1_reg() {
     let pix1 = erode_gray(&pixs, WSIZE, HSIZE).expect("erode_gray");
     let seq = format!("E{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence E");
-    let same = compare_pix(&pix1, &pix2);
+    let same = pix1.equals(&pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: erode_gray vs gray_morph_sequence(\"{}\")", seq);
@@ -82,7 +74,7 @@ fn graymorph1_reg() {
     let pix1 = open_gray(&pixs, WSIZE, HSIZE).expect("open_gray");
     let seq = format!("O{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence O");
-    let same = compare_pix(&pix1, &pix2);
+    let same = pix1.equals(&pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: open_gray vs gray_morph_sequence(\"{}\")", seq);
@@ -93,7 +85,7 @@ fn graymorph1_reg() {
     let pix1 = close_gray(&pixs, WSIZE, HSIZE).expect("close_gray");
     let seq = format!("C{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence C");
-    let same = compare_pix(&pix1, &pix2);
+    let same = pix1.equals(&pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: close_gray vs gray_morph_sequence(\"{}\")", seq);
@@ -104,7 +96,7 @@ fn graymorph1_reg() {
     let pix1 = top_hat_gray(&pixs, WSIZE, HSIZE).expect("top_hat_gray");
     let seq = format!("Tw{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence Tw");
-    let same = compare_pix(&pix1, &pix2);
+    let same = pix1.equals(&pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!(
@@ -118,7 +110,7 @@ fn graymorph1_reg() {
     let pix1 = bottom_hat_gray(&pixs, WSIZE, HSIZE).expect("bottom_hat_gray");
     let seq = format!("Tb{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence Tb");
-    let same = compare_pix(&pix1, &pix2);
+    let same = pix1.equals(&pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!(
@@ -136,7 +128,7 @@ fn graymorph1_reg() {
     let pix2 = invert_gray(&pixs);
     let pix3 = erode_gray(&pix2, WSIZE, HSIZE).expect("erode_gray on inverted");
     let pix3_inv = invert_gray(&pix3);
-    let same = compare_pix(&pix1, &pix3_inv);
+    let same = pix1.equals(&pix3_inv);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: dilate != invert(erode(invert))");
@@ -151,7 +143,7 @@ fn graymorph1_reg() {
     let pix2 = invert_gray(&pixs);
     let pix3 = close_gray(&pix2, WSIZE, HSIZE).expect("close_gray on inverted");
     let pix3_inv = invert_gray(&pix3);
-    let same = compare_pix(&pix1, &pix3_inv);
+    let same = pix1.equals(&pix3_inv);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: open != invert(close(invert))");
@@ -165,7 +157,7 @@ fn graymorph1_reg() {
     let pix1 = top_hat_gray(&pixs, WSIZE, HSIZE).expect("top_hat white");
     let pix2 = invert_gray(&pixs);
     let pix3 = bottom_hat_gray(&pix2, WSIZE, HSIZE).expect("bottom_hat on inverted");
-    let same = compare_pix(&pix1, &pix3);
+    let same = pix1.equals(&pix3);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: white_tophat(pixs) != black_tophat(invert(pixs))");
@@ -176,7 +168,7 @@ fn graymorph1_reg() {
     let pix1 = gray_morph_sequence(&pixs, "Tw9.5").expect("Tw9.5");
     let pix2 = invert_gray(&pixs);
     let pix3 = gray_morph_sequence(&pix2, "Tb9.5").expect("Tb9.5");
-    let same = compare_pix(&pix1, &pix3);
+    let same = pix1.equals(&pix3);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: Tw9.5 != Tb9.5(inverted)");
@@ -206,7 +198,7 @@ fn graymorph1_reg() {
     let pix_closed = close_gray(&pixs, 9, 9).expect("close_gray 9x9");
     let pix_tophat = top_hat_gray(&pix_closed, 9, 9).expect("tophat on closed");
     let pix_seq = gray_morph_sequence(&pixs, "C9.9 + Tw9.9").expect("C9.9+Tw9.9");
-    let same = compare_pix(&pix_tophat, &pix_seq);
+    let same = pix_tophat.equals(&pix_seq);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: close+tophat vs sequence C9.9+Tw9.9");
@@ -216,7 +208,7 @@ fn graymorph1_reg() {
     let pix_closed = close_gray(&pixs, 29, 29).expect("close_gray 29x29");
     let pix_tophat = top_hat_gray(&pix_closed, 29, 29).expect("tophat on closed 29");
     let pix_seq = gray_morph_sequence(&pixs, "C29.29 + Tw29.29").expect("C29.29+Tw29.29");
-    let same = compare_pix(&pix_tophat, &pix_seq);
+    let same = pix_tophat.equals(&pix_seq);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: close+tophat vs sequence C29.29+Tw29.29");

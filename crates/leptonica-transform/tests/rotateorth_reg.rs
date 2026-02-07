@@ -33,7 +33,7 @@ fn test_orth_rotation(rp: &mut RegParams, pixs: &leptonica_core::Pix, label: &st
 
     // --- rotate_orth(0) = identity ---
     let r0 = rotate_orth(pixs, 0).expect("rotate_orth 0");
-    let same = compare_pix(pixs, &r0);
+    let same = pixs.equals(&r0);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  {}: orth(0) == identity: {}", label, same);
 
@@ -44,7 +44,7 @@ fn test_orth_rotation(rp: &mut RegParams, pixs: &leptonica_core::Pix, label: &st
 
     // Should match rotate_90(cw)
     let r90 = rotate_90(pixs, true).expect("rotate_90 cw");
-    let same = compare_pix(&r1, &r90);
+    let same = r1.equals(&r90);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  {}: orth(1) == rotate_90(cw): {}", label, same);
 
@@ -54,7 +54,7 @@ fn test_orth_rotation(rp: &mut RegParams, pixs: &leptonica_core::Pix, label: &st
     rp.compare_values(h as f64, r2.height() as f64, 0.0);
 
     let r180 = rotate_180(pixs).expect("rotate_180");
-    let same = compare_pix(&r2, &r180);
+    let same = r2.equals(&r180);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  {}: orth(2) == rotate_180: {}", label, same);
 
@@ -64,27 +64,13 @@ fn test_orth_rotation(rp: &mut RegParams, pixs: &leptonica_core::Pix, label: &st
     rp.compare_values(w as f64, r3.height() as f64, 0.0);
 
     let r90ccw = rotate_90(pixs, false).expect("rotate_90 ccw");
-    let same = compare_pix(&r3, &r90ccw);
+    let same = r3.equals(&r90ccw);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  {}: orth(3) == rotate_90(ccw): {}", label, same);
 
     // --- 4 orthogonal rotations = identity ---
     let r4 = rotate_orth(&r3, 1).expect("4th rotation");
-    let same = compare_pix(pixs, &r4);
+    let same = pixs.equals(&r4);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  {}: 4x orth(1) == identity: {}", label, same);
-}
-
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    for y in 0..pix1.height() {
-        for x in 0..pix1.width() {
-            if pix1.get_pixel(x, y) != pix2.get_pixel(x, y) {
-                return false;
-            }
-        }
-    }
-    true
 }

@@ -52,6 +52,89 @@ fn clip_box_to_rect(bx: Option<&Box>, w: i32, h: i32) -> Option<(i32, i32, i32, 
 }
 
 impl Pix {
+    /// Count the foreground (non-zero) pixels in the image.
+    ///
+    /// For 1-bit images, this counts ON pixels (value 1) using an optimized
+    /// word-level popcount algorithm matching C Leptonica's `pixCountPixels()`.
+    ///
+    /// For other depths (2, 4, 8, 16, 32 bpp), this counts all pixels whose
+    /// value is non-zero.
+    ///
+    /// # Returns
+    ///
+    /// The number of non-zero pixels.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use leptonica_core::{Pix, PixelDepth};
+    ///
+    /// let pix = Pix::new(64, 64, PixelDepth::Bit1).unwrap();
+    /// assert_eq!(pix.count_pixels(), 0);
+    ///
+    /// let mut pix_mut = pix.to_mut();
+    /// pix_mut.set_pixel(0, 0, 1).unwrap();
+    /// pix_mut.set_pixel(10, 10, 1).unwrap();
+    /// let pix2: Pix = pix_mut.into();
+    /// assert_eq!(pix2.count_pixels(), 2);
+    /// ```
+    pub fn count_pixels(&self) -> u64 {
+        match self.depth() {
+            PixelDepth::Bit1 => self.count_pixels_binary(),
+            _ => self.count_pixels_general(),
+        }
+    }
+
+    /// Optimized pixel count for 1-bit images using popcount.
+    ///
+    /// Matches C Leptonica's `pixCountPixels()` algorithm.
+    fn count_pixels_binary(&self) -> u64 {
+        let width = self.width();
+        let height = self.height();
+        let wpl = self.wpl();
+
+        let bits_used = width % 32;
+        let end_mask = if bits_used == 0 {
+            0xFFFFFFFF
+        } else {
+            !((1u32 << (32 - bits_used)) - 1)
+        };
+        let full_words = (width / 32) as usize;
+
+        let mut count: u64 = 0;
+
+        for y in 0..height {
+            let line = self.row_data(y);
+
+            for word in line.iter().take(full_words) {
+                count += word.count_ones() as u64;
+            }
+
+            if bits_used != 0 && (full_words as u32) < wpl {
+                count += (line[full_words] & end_mask).count_ones() as u64;
+            }
+        }
+
+        count
+    }
+
+    /// General pixel count for non-binary images.
+    fn count_pixels_general(&self) -> u64 {
+        let width = self.width();
+        let height = self.height();
+        let mut count: u64 = 0;
+
+        for y in 0..height {
+            for x in 0..width {
+                if self.get_pixel(x, y).unwrap_or(0) != 0 {
+                    count += 1;
+                }
+            }
+        }
+
+        count
+    }
+
     /// Compute the average pixel value for each row in a rectangular region.
     ///
     /// Returns a `Numa` of length equal to the number of rows in the region.

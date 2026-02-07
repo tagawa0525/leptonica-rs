@@ -48,22 +48,6 @@ fn make_pts(i: usize) -> ([Point; 3], [Point; 3]) {
     (src, dst)
 }
 
-fn count_diff_pixels(pix: &Pix) -> u64 {
-    let w = pix.width();
-    let h = pix.height();
-    let mut count = 0u64;
-    for y in 0..h {
-        for x in 0..w {
-            if let Some(v) = pix.get_pixel(x, y)
-                && v != 0
-            {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
 fn pix_xor(pix1: &Pix, pix2: &Pix) -> Pix {
     let w = pix1.width();
     let h = pix1.height();
@@ -169,7 +153,7 @@ fn affine_reg_sampling_invertability() {
         if pixd.width() == pixs.width() && pixd.height() == pixs.height() {
             // C version: pixXor(pixd, pixd, pixs);
             let xor_result = pix_xor(&pixd, &pixs);
-            let diff_count = count_diff_pixels(&xor_result);
+            let diff_count = xor_result.count_pixels();
             let total = pixs.width() as u64 * pixs.height() as u64;
             let diff_frac = diff_count as f64 / total as f64;
             eprintln!(
@@ -264,8 +248,8 @@ fn affine_reg_large_distortion() {
     rp.compare_values(pixg.height() as f64, pix_interp.height() as f64, 0.0);
 
     // Both should have some content (not blank)
-    let sampled_nonzero = count_diff_pixels(&pix_sampled);
-    let interp_nonzero = count_diff_pixels(&pix_interp);
+    let sampled_nonzero = pix_sampled.count_pixels();
+    let interp_nonzero = pix_interp.count_pixels();
     let total = pixg.width() as u64 * pixg.height() as u64;
     eprintln!(
         "  Large distortion: sampled nonzero={}/{}, interp nonzero={}/{}",
@@ -276,7 +260,7 @@ fn affine_reg_large_distortion() {
 
     // C version: pixXor(pix1, pix1, pix2) -- compare sampled vs interpolated
     let xor_result = pix_xor(&pix_sampled, &pix_interp);
-    let diff_count = count_diff_pixels(&xor_result);
+    let diff_count = xor_result.count_pixels();
     let diff_frac = diff_count as f64 / total as f64;
     eprintln!("  Sampled vs interp diff: {:.4}", diff_frac);
     rp.compare_values(0.0, diff_frac, 0.50);

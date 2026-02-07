@@ -53,22 +53,6 @@ fn make_pts(i: usize) -> ([Point; 4], [Point; 4]) {
     (src, dst)
 }
 
-fn count_diff_pixels(pix: &Pix) -> u64 {
-    let w = pix.width();
-    let h = pix.height();
-    let mut count = 0u64;
-    for y in 0..h {
-        for x in 0..w {
-            if let Some(v) = pix.get_pixel(x, y)
-                && v != 0
-            {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
 fn pix_xor(pix1: &Pix, pix2: &Pix) -> Pix {
     let w = pix1.width();
     let h = pix1.height();
@@ -174,7 +158,7 @@ fn projective_reg_sampling_invertability() {
         if pixd.width() == pixsc.width() && pixd.height() == pixsc.height() {
             // C version: pixXor(pixd, pixd, pixsc);
             let xor_result = pix_xor(&pixd, &pixsc);
-            let diff_count = count_diff_pixels(&xor_result);
+            let diff_count = xor_result.count_pixels();
             let total = pixsc.width() as u64 * pixsc.height() as u64;
             let diff_frac = diff_count as f64 / total as f64;
             eprintln!(
@@ -270,8 +254,8 @@ fn projective_reg_compare_sampling_interpolated() {
     rp.compare_values(pixg.width() as f64, pix_interp.width() as f64, 0.0);
 
     // Both should have some content
-    let sampled_nonzero = count_diff_pixels(&pix_sampled);
-    let interp_nonzero = count_diff_pixels(&pix_interp);
+    let sampled_nonzero = pix_sampled.count_pixels();
+    let interp_nonzero = pix_interp.count_pixels();
     let total = pixg.width() as u64 * pixg.height() as u64;
     eprintln!(
         "  Compare: sampled nonzero={}/{}, interp nonzero={}/{}",
@@ -282,7 +266,7 @@ fn projective_reg_compare_sampling_interpolated() {
 
     // C version: pixXor(pix2, pix2, pix1); pixInvert(pix2, pix2);
     let xor_result = pix_xor(&pix_sampled, &pix_interp);
-    let diff_count = count_diff_pixels(&xor_result);
+    let diff_count = xor_result.count_pixels();
     let diff_frac = diff_count as f64 / total as f64;
     eprintln!("  Sampled vs interp diff: {:.4}", diff_frac);
     rp.compare_values(0.0, diff_frac, 0.50);

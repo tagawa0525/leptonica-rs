@@ -52,7 +52,7 @@ fn edge_reg() {
     rp.compare_values(h as f64, emb.height() as f64, 0.0);
 
     // --- Test 6: Edge detection should produce non-zero output ---
-    let edge_fg = count_nonzero(&lap);
+    let edge_fg = lap.count_pixels();
     rp.compare_values(1.0, if edge_fg > 0 { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  laplacian nonzero pixels: {}", edge_fg);
 
@@ -62,17 +62,4 @@ fn edge_reg() {
     rp.compare_values(1.0, if result32.is_err() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "edge regression test failed");
-}
-
-fn count_nonzero(pix: &leptonica_core::Pix) -> u64 {
-    let mut count = 0u64;
-    let step = std::cmp::max(1, std::cmp::min(pix.width(), pix.height()) / 100);
-    for y in (0..pix.height()).step_by(step as usize) {
-        for x in (0..pix.width()).step_by(step as usize) {
-            if pix.get_pixel(x, y).unwrap_or(0) != 0 {
-                count += 1;
-            }
-        }
-    }
-    count
 }

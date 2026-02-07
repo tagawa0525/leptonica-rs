@@ -643,7 +643,10 @@ pub fn correlation_binary(pix1: &Pix, pix2: &Pix) -> Result<f64> {
     Ok(correlation)
 }
 
-/// Count foreground pixels (value = 1) in a binary image
+/// Count foreground pixels (value = 1) in a binary image.
+///
+/// This is a module-level helper retained for internal use by
+/// [`correlation_binary`]. Public callers should use [`Pix::count_pixels`].
 fn count_foreground_pixels(pix: &Pix) -> u64 {
     let width = pix.width();
     let height = pix.height();

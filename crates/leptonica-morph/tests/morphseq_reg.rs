@@ -24,14 +24,6 @@ const SEQUENCE4: &str = "O3.3 + C3.3";
 // C版: BAD_SEQUENCE = "O1.+D8 + E2.4 + e.4 + r25 + R + R.5 + X + x5 + y7.3"
 const BAD_SEQUENCE: &str = "O1.+D8 + E2.4 + e.4 + r25 + y7.3";
 
-/// Compare two Pix for equality
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    pix1.equals(pix2)
-}
-
 #[test]
 fn morphseq_reg() {
     let mut rp = RegParams::new("morphseq");
@@ -92,7 +84,7 @@ fn morphseq_reg() {
     let seq = "O3.3 + C5.5 + D2.2";
     let pix1 = morph_sequence(&pixs, seq).expect("morph_sequence");
     let pix2 = morph_comp_sequence(&pixs, seq).expect("morph_comp_sequence");
-    let same = compare_pix(&pix1, &pix2);
+    let same = pix1.equals(&pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: morph_sequence != morph_comp_sequence");
@@ -146,7 +138,7 @@ fn morphseq_reg() {
     let pix1 = leptonica_morph::open_gray(&pixg, 3, 3).expect("open_gray");
     let pix2 = leptonica_morph::close_gray(&pix1, 3, 3).expect("close_gray after open");
     let pix3 = gray_morph_sequence(&pixg, "O3.3 + C3.3").expect("gray sequence O3.3+C3.3");
-    let same = compare_pix(&pix2, &pix3);
+    let same = pix2.equals(&pix3);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: individual ops vs gray_morph_sequence");

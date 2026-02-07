@@ -21,13 +21,13 @@ fn binmorph2_reg() {
     let h = pixs.height();
     eprintln!("Image size: {}x{}", w, h);
 
-    let orig_fg = count_foreground(&pixs);
+    let orig_fg = pixs.count_pixels();
 
     // --- Test: Closing with various kernel sizes ---
     // Closing should be extensive (fg >= original)
     for &(kw, kh) in &[(3, 3), (5, 5), (11, 11), (21, 15), (1, 21)] {
         let closed = close_brick(&pixs, kw, kh).expect("close_brick");
-        let closed_fg = count_foreground(&closed);
+        let closed_fg = closed.count_pixels();
         let ok = closed_fg >= orig_fg;
         rp.compare_values(1.0, if ok { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
@@ -39,7 +39,7 @@ fn binmorph2_reg() {
     // --- Test: Opening should be anti-extensive (fg <= original) ---
     for &(kw, kh) in &[(3, 3), (5, 5), (11, 11)] {
         let opened = open_brick(&pixs, kw, kh).expect("open_brick");
-        let opened_fg = count_foreground(&opened);
+        let opened_fg = opened.count_pixels();
         let ok = opened_fg <= orig_fg;
         rp.compare_values(1.0, if ok { 1.0 } else { 0.0 }, 0.0);
         eprintln!(
@@ -51,8 +51,8 @@ fn binmorph2_reg() {
     // --- Test: Close then open should give intermediate result ---
     let closed = close_brick(&pixs, 15, 15).expect("close");
     let opened = open_brick(&closed, 15, 15).expect("open after close");
-    let closed_fg = count_foreground(&closed);
-    let opened_closed_fg = count_foreground(&opened);
+    let closed_fg = closed.count_pixels();
+    let opened_closed_fg = opened.count_pixels();
     // After close-then-open, result should have at least as many fg as original
     // but no more than the closed result
     let ok = opened_closed_fg >= orig_fg && opened_closed_fg <= closed_fg;
@@ -63,43 +63,17 @@ fn binmorph2_reg() {
     let dilated = dilate_brick(&pixs, 11, 11).expect("dilate");
     let dilated_eroded = erode_brick(&dilated, 11, 11).expect("erode after dilate");
     let closed_direct = close_brick(&pixs, 11, 11).expect("close direct");
-    let same = compare_pix(&dilated_eroded, &closed_direct);
+    let same = dilated_eroded.equals(&closed_direct);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
 
     // --- Test: Erosion then dilation vs opening ---
     let eroded = erode_brick(&pixs, 11, 11).expect("erode");
     let eroded_dilated = dilate_brick(&eroded, 11, 11).expect("dilate after erode");
     let opened_direct = open_brick(&pixs, 11, 11).expect("open direct");
-    let same = compare_pix(&eroded_dilated, &opened_direct);
+    let same = eroded_dilated.equals(&opened_direct);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
 
     // NOTE: C版のpixCloseSafe系関数はRust未実装
 
     assert!(rp.cleanup(), "binmorph2 regression test failed");
-}
-
-fn count_foreground(pix: &leptonica_core::Pix) -> u64 {
-    let mut count = 0u64;
-    for y in 0..pix.height() {
-        for x in 0..pix.width() {
-            if pix.get_pixel(x, y).unwrap_or(0) != 0 {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    for y in 0..pix1.height() {
-        for x in 0..pix1.width() {
-            if pix1.get_pixel(x, y) != pix2.get_pixel(x, y) {
-                return false;
-            }
-        }
-    }
-    true
 }

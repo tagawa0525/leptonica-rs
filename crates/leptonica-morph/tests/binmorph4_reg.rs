@@ -17,14 +17,6 @@ use leptonica_morph::{
 };
 use leptonica_test::{RegParams, load_test_image};
 
-/// Compare two Pix for equality
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    pix1.equals(pix2)
-}
-
 /// C version: PixCompareDwa()
 /// Compare three pairs of results (horizontal, vertical, square)
 #[allow(clippy::too_many_arguments)]
@@ -39,17 +31,17 @@ fn pix_compare_dwa(
     pix5: &leptonica_core::Pix,
     pix6: &leptonica_core::Pix,
 ) {
-    let same = compare_pix(pix1, pix2);
+    let same = pix1.equals(pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("{} ({}, 1) not same", op_type, size);
     }
-    let same = compare_pix(pix3, pix4);
+    let same = pix3.equals(pix4);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("{} (1, {}) not same", op_type, size);
     }
-    let same = compare_pix(pix5, pix6);
+    let same = pix5.equals(pix6);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("{} ({}, {}) not same", op_type, size, size);

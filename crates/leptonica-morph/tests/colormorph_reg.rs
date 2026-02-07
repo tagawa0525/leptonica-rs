@@ -15,14 +15,6 @@ use leptonica_test::{RegParams, load_test_image};
 
 const SIZE: u32 = 7;
 
-/// Compare two Pix for equality
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-    pix1.equals(pix2)
-}
-
 #[test]
 fn colormorph_reg() {
     let mut rp = RegParams::new("colormorph");
@@ -152,7 +144,7 @@ fn colormorph_reg() {
     // Additional: verify idempotence of opening
     eprintln!("  Testing opening idempotence");
     let pix3b = open_color(&pix3, SIZE, SIZE).expect("open_color twice");
-    let same = compare_pix(&pix3, &pix3b);
+    let same = pix3.equals(&pix3b);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: opening is not idempotent");
@@ -161,7 +153,7 @@ fn colormorph_reg() {
     // Additional: verify idempotence of closing
     eprintln!("  Testing closing idempotence");
     let pix4b = close_color(&pix4, SIZE, SIZE).expect("close_color twice");
-    let same = compare_pix(&pix4, &pix4b);
+    let same = pix4.equals(&pix4b);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     if !same {
         eprintln!("    DIFFER: closing is not idempotent");

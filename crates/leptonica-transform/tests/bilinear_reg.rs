@@ -54,22 +54,6 @@ fn make_pts(i: usize) -> ([Point; 4], [Point; 4]) {
     (src, dst)
 }
 
-fn count_diff_pixels(pix: &Pix) -> u64 {
-    let w = pix.width();
-    let h = pix.height();
-    let mut count = 0u64;
-    for y in 0..h {
-        for x in 0..w {
-            if let Some(v) = pix.get_pixel(x, y)
-                && v != 0
-            {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
 fn pix_xor(pix1: &Pix, pix2: &Pix) -> Pix {
     let w = pix1.width();
     let h = pix1.height();
@@ -177,7 +161,7 @@ fn bilinear_reg_sampling_invertability() {
         if pixd.width() == pixg.width() && pixd.height() == pixg.height() {
             // C version: pixInvert(pixd, pixd); pixXor(pixd, pixd, pixg);
             let xor_result = pix_xor(&pixd, &pixg);
-            let diff_count = count_diff_pixels(&xor_result);
+            let diff_count = xor_result.count_pixels();
             let total = pixg.width() as u64 * pixg.height() as u64;
             let diff_frac = diff_count as f64 / total as f64;
             eprintln!(
@@ -269,8 +253,8 @@ fn bilinear_reg_compare_sampling_interpolated() {
     rp.compare_values(pixg.width() as f64, pix_interp.width() as f64, 0.0);
 
     // Both should have some content
-    let sampled_nonzero = count_diff_pixels(&pix_sampled);
-    let interp_nonzero = count_diff_pixels(&pix_interp);
+    let sampled_nonzero = pix_sampled.count_pixels();
+    let interp_nonzero = pix_interp.count_pixels();
     let total = pixg.width() as u64 * pixg.height() as u64;
     eprintln!(
         "  Compare: sampled nonzero={}/{}, interp nonzero={}/{}",
@@ -281,7 +265,7 @@ fn bilinear_reg_compare_sampling_interpolated() {
 
     // C version: pixXor(pix2, pix2, pix1); pixInvert(pix2, pix2);
     let xor_result = pix_xor(&pix_sampled, &pix_interp);
-    let diff_count = count_diff_pixels(&xor_result);
+    let diff_count = xor_result.count_pixels();
     let diff_frac = diff_count as f64 / total as f64;
     eprintln!("  Sampled vs interp diff: {:.4}", diff_frac);
     rp.compare_values(0.0, diff_frac, 0.50);
@@ -348,42 +332,10 @@ fn bilinear_reg_large_distortion() {
     rp.compare_values(pixg.width() as f64, pix4.width() as f64, 0.0);
 
     // Results should be non-blank
-    rp.compare_values(
-        1.0,
-        if count_diff_pixels(&pix1) > 0 {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
-    rp.compare_values(
-        1.0,
-        if count_diff_pixels(&pix2) > 0 {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
-    rp.compare_values(
-        1.0,
-        if count_diff_pixels(&pix3) > 0 {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
-    rp.compare_values(
-        1.0,
-        if count_diff_pixels(&pix4) > 0 {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
+    rp.compare_values(1.0, if pix1.count_pixels() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if pix2.count_pixels() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if pix3.count_pixels() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if pix4.count_pixels() > 0 { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "bilinear large distortion test failed");
 }
