@@ -153,6 +153,52 @@ impl Pixa {
         self.boxa.clear();
     }
 
+    /// Extend the array to accommodate at least `size` elements
+    ///
+    /// Corresponds to C `pixaExtendArrayToSize()`.
+    /// In the Rust implementation, this reserves capacity but does not
+    /// change the number of stored elements. Use [`init_full`](Pixa::init_full)
+    /// after this to fill the allocated slots.
+    pub fn extend_to_size(&mut self, size: usize) {
+        if size > self.pix.capacity() {
+            self.pix.reserve(size - self.pix.len());
+        }
+    }
+
+    /// Initialize all slots with copies of the given Pix and optional Box
+    ///
+    /// Corresponds to C `pixaInitFull()`.
+    /// This fills the pixa so that it contains exactly `count` elements,
+    /// each being a clone of `pix`. If `pix` is `None`, a tiny 1x1x1
+    /// placeholder Pix is used. Any existing elements are replaced.
+    ///
+    /// If a Box is provided, the boxa is also filled with copies.
+    ///
+    /// # Arguments
+    ///
+    /// * `count` - Number of elements to fill
+    /// * `pix` - Optional Pix to clone into each slot; if None, uses 1x1 Bit1
+    /// * `b` - Optional Box to clone into each boxa slot
+    pub fn init_full(&mut self, count: usize, pix: Option<&Pix>, b: Option<&Box>) {
+        let template = match pix {
+            Some(p) => p.clone(),
+            None => Pix::new(1, 1, PixelDepth::Bit1).unwrap(),
+        };
+
+        self.pix.clear();
+        self.pix.reserve(count);
+        for _ in 0..count {
+            self.pix.push(template.clone());
+        }
+
+        if let Some(bx) = b {
+            self.boxa.clear();
+            for _ in 0..count {
+                self.boxa.push(*bx);
+            }
+        }
+    }
+
     /// Get all Pix as a slice
     pub fn pix_slice(&self) -> &[Pix] {
         &self.pix
