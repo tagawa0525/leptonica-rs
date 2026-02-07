@@ -493,8 +493,8 @@ fn affine_sampled_with_inverse(
             let (sx, sy) = inv_matrix.transform_point_sampled(i as i32, j as i32);
 
             if sx >= 0 && sx < wi && sy >= 0 && sy < hi {
-                let val = unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) };
-                unsafe { out_mut.set_pixel_unchecked(i, j, val) };
+                let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
+                out_mut.set_pixel_unchecked(i, j, val);
             }
             // Pixels outside source keep the fill value
         }
@@ -640,10 +640,10 @@ fn affine_gray(pix: &Pix, inv_matrix: &AffineMatrix, fill: AffineFill) -> Transf
             }
 
             // Get four neighboring pixels
-            let v00 = unsafe { pix.get_pixel_unchecked(xp as u32, yp as u32) } as i32;
-            let v10 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, yp as u32) } as i32;
-            let v01 = unsafe { pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32) } as i32;
-            let v11 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) } as i32;
+            let v00 = pix.get_pixel_unchecked(xp as u32, yp as u32) as i32;
+            let v10 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32) as i32;
+            let v01 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32) as i32;
+            let v11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) as i32;
 
             // Area-weighted interpolation
             let val = ((16 - xf) * (16 - yf) * v00
@@ -653,7 +653,7 @@ fn affine_gray(pix: &Pix, inv_matrix: &AffineMatrix, fill: AffineFill) -> Transf
                 + 128)
                 / 256;
 
-            unsafe { out_mut.set_pixel_unchecked(i, j, val as u32) };
+            out_mut.set_pixel_unchecked(i, j, val as u32);
         }
     }
 
@@ -709,10 +709,10 @@ fn affine_color(pix: &Pix, inv_matrix: &AffineMatrix, fill: AffineFill) -> Trans
             }
 
             // Get four neighboring pixels
-            let p00 = unsafe { pix.get_pixel_unchecked(xp as u32, yp as u32) };
-            let p10 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, yp as u32) };
-            let p01 = unsafe { pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32) };
-            let p11 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) };
+            let p00 = pix.get_pixel_unchecked(xp as u32, yp as u32);
+            let p10 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32);
+            let p01 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32);
+            let p11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
 
             // Extract RGBA components
             let (r00, g00, b00, a00) = color::extract_rgba(p00);
@@ -727,7 +727,7 @@ fn affine_color(pix: &Pix, inv_matrix: &AffineMatrix, fill: AffineFill) -> Trans
             let av = area_interp(a00, a10, a01, a11, xf, yf);
 
             let pixel = color::compose_rgba(r, g, b, av);
-            unsafe { out_mut.set_pixel_unchecked(i, j, pixel) };
+            out_mut.set_pixel_unchecked(i, j, pixel);
         }
     }
 
@@ -752,7 +752,7 @@ fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
     let h = pix.height();
     for y in 0..h {
         for x in 0..w {
-            unsafe { pix.set_pixel_unchecked(x, y, value) };
+            pix.set_pixel_unchecked(x, y, value);
         }
     }
 }
@@ -1055,7 +1055,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, x + y * 10) };
+                pix_mut.set_pixel_unchecked(x, y, x + y * 10);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -1066,8 +1066,8 @@ mod tests {
         // Check that all pixels are preserved
         for y in 0..10 {
             for x in 0..10 {
-                let orig = unsafe { pix.get_pixel_unchecked(x, y) };
-                let trans = unsafe { result.get_pixel_unchecked(x, y) };
+                let orig = pix.get_pixel_unchecked(x, y);
+                let trans = result.get_pixel_unchecked(x, y);
                 assert_eq!(orig, trans);
             }
         }
@@ -1078,7 +1078,7 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
         // Set a marker pixel at (5, 5)
-        unsafe { pix_mut.set_pixel_unchecked(5, 5, 100) };
+        pix_mut.set_pixel_unchecked(5, 5, 100);
         let pix: Pix = pix_mut.into();
 
         // Translate by (3, 2)
@@ -1086,7 +1086,7 @@ mod tests {
         let result = affine_sampled(&pix, &m, AffineFill::White).unwrap();
 
         // Marker should now be at (8, 7)
-        assert_eq!(unsafe { result.get_pixel_unchecked(8, 7) }, 100);
+        assert_eq!(result.get_pixel_unchecked(8, 7), 100);
     }
 
     #[test]

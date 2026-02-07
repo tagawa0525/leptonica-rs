@@ -69,7 +69,7 @@ fn analyze_grayscale(pix: &Pix) -> ColorResult<ColorStats> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+            let pixel = pix.get_pixel_unchecked(x, y) as usize;
             histogram[pixel] += 1;
             sum_value += pixel as u64;
         }
@@ -123,7 +123,7 @@ fn analyze_color(pix: &Pix) -> ColorResult<ColorStats> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
 
             // Count unique colors (ignore alpha)
@@ -202,7 +202,7 @@ fn count_colors_8bpp(pix: &Pix) -> ColorResult<u32> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+            let pixel = pix.get_pixel_unchecked(x, y) as usize;
             seen[pixel] = true;
         }
     }
@@ -217,7 +217,7 @@ fn count_colors_32bpp(pix: &Pix) -> ColorResult<u32> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
             let rgb_key = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
             colors.insert(rgb_key);
@@ -248,7 +248,7 @@ fn check_grayscale_32bpp(pix: &Pix) -> ColorResult<bool> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
 
             if r != g || g != b {
@@ -281,7 +281,7 @@ fn check_grayscale_tolerant_32bpp(pix: &Pix, tolerance: u8) -> ColorResult<bool>
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
 
             let r = r as i32;
@@ -318,7 +318,7 @@ pub fn grayscale_histogram(pix: &Pix) -> ColorResult<[u32; 256]> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { gray_pix.get_pixel_unchecked(x, y) } as usize;
+            let pixel = gray_pix.get_pixel_unchecked(x, y) as usize;
             histogram[pixel] += 1;
         }
     }
@@ -337,7 +337,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let val = x * 25;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -354,7 +354,7 @@ mod tests {
                 let g = (y * 25) as u8;
                 let b = 128;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -369,7 +369,7 @@ mod tests {
             for x in 0..10 {
                 let gray = ((x + y) * 12) as u8;
                 let pixel = color::compose_rgb(gray, gray, gray);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -435,7 +435,7 @@ mod tests {
         for y in 0..5 {
             for x in 0..5 {
                 let pixel = color::compose_rgb(128, 130, 127);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -456,7 +456,7 @@ mod tests {
         // Fill with value 100
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 100) };
+                pix_mut.set_pixel_unchecked(x, y, 100);
             }
         }
 
@@ -486,7 +486,7 @@ mod tests {
                 } else {
                     color::compose_rgb(0, 0, 255)
                 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 

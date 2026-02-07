@@ -290,13 +290,13 @@ fn rgb_to_grayscale(pix: &Pix) -> RecogResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let r = (pixel >> 24) & 0xFF;
             let g = (pixel >> 16) & 0xFF;
             let b = (pixel >> 8) & 0xFF;
             // Standard luminance formula
             let gray_val = (r * 77 + g * 150 + b * 29) >> 8;
-            unsafe { gray_mut.set_pixel_unchecked(x, y, gray_val) };
+            gray_mut.set_pixel_unchecked(x, y, gray_val);
         }
     }
 
@@ -312,10 +312,10 @@ fn threshold_to_binary(pix: &Pix, threshold: u32) -> RecogResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             // 1 = black (foreground), 0 = white (background)
             let bit = if val < threshold { 1 } else { 0 };
-            unsafe { binary_mut.set_pixel_unchecked(x, y, bit) };
+            binary_mut.set_pixel_unchecked(x, y, bit);
         }
     }
 
@@ -329,7 +329,7 @@ fn is_image_empty(pix: &Pix) -> bool {
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val != 0 {
                 return false;
             }
@@ -370,7 +370,7 @@ fn reduce_image(pix: &Pix, factor: u32) -> RecogResult<Pix> {
                     let sx = nx * factor + dx;
                     let sy = ny * factor + dy;
                     if sx < w && sy < h {
-                        let val = unsafe { pix.get_pixel_unchecked(sx, sy) };
+                        let val = pix.get_pixel_unchecked(sx, sy);
                         if val != 0 {
                             has_black = true;
                             break;
@@ -382,7 +382,7 @@ fn reduce_image(pix: &Pix, factor: u32) -> RecogResult<Pix> {
                 }
             }
             let out_val = if has_black { 1 } else { 0 };
-            unsafe { reduced_mut.set_pixel_unchecked(nx, ny, out_val) };
+            reduced_mut.set_pixel_unchecked(nx, ny, out_val);
         }
     }
 
@@ -502,7 +502,7 @@ fn vertical_shear(pix: &Pix, angle_deg: f32) -> RecogResult<Pix> {
     // Fill with white (0 for binary)
     for y in 0..new_h {
         for x in 0..w {
-            unsafe { sheared_mut.set_pixel_unchecked(x, y, 0) };
+            sheared_mut.set_pixel_unchecked(x, y, 0);
         }
     }
 
@@ -511,12 +511,12 @@ fn vertical_shear(pix: &Pix, angle_deg: f32) -> RecogResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val != 0 {
                 let shear_amount = (x as f32 * tan_a).round() as i32;
                 let new_y = y as i32 + shear_amount + y_offset as i32;
                 if new_y >= 0 && (new_y as u32) < new_h {
-                    unsafe { sheared_mut.set_pixel_unchecked(x, new_y as u32, val) };
+                    sheared_mut.set_pixel_unchecked(x, new_y as u32, val);
                 }
             }
         }
@@ -536,7 +536,7 @@ fn compute_differential_square_sum(pix: &Pix) -> f64 {
     for y in 0..h {
         let mut sum = 0u32;
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val != 0 {
                 sum += 1;
             }
@@ -607,7 +607,7 @@ mod tests {
         let mut y = line_spacing;
         while y < h {
             for x in (w / 10)..(w * 9 / 10) {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
             y += line_spacing;
         }

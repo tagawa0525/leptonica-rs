@@ -328,7 +328,7 @@ pub fn pix_color_gray(
     // Copy original and then modify region
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
 
             let new_pixel = if x >= x1 && x < x2 && y >= y1 && y < y2 {
                 colorize_pixel(pixel, options)
@@ -336,7 +336,7 @@ pub fn pix_color_gray(
                 pixel
             };
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_pixel) };
+            out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
 
@@ -412,10 +412,10 @@ pub fn pix_color_gray_masked(
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
 
             let new_pixel = if x < w_min && y < h_min {
-                let mask_val = unsafe { mask.get_pixel_unchecked(x, y) };
+                let mask_val = mask.get_pixel_unchecked(x, y);
                 if mask_val != 0 {
                     colorize_pixel(pixel, options)
                 } else {
@@ -425,7 +425,7 @@ pub fn pix_color_gray_masked(
                 pixel
             };
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_pixel) };
+            out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
 
@@ -506,13 +506,13 @@ fn pix_snap_color_8bpp(pix: &Pix, src_color: u32, dst_color: u32, diff: u8) -> C
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) } as u8;
+            let val = pix.get_pixel_unchecked(x, y) as u8;
             let new_val = if (val as i16 - src_val as i16).unsigned_abs() as u8 <= diff {
                 dst_val
             } else {
                 val
             };
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_val as u32) };
+            out_mut.set_pixel_unchecked(x, y, new_val as u32);
         }
     }
 
@@ -530,7 +530,7 @@ fn pix_snap_color_32bpp(pix: &Pix, src_color: u32, dst_color: u32, diff: u8) -> 
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b, a) = color::extract_rgba(pixel);
 
             let new_pixel = if (r as i16 - sr as i16).unsigned_abs() as u8 <= diff
@@ -544,7 +544,7 @@ fn pix_snap_color_32bpp(pix: &Pix, src_color: u32, dst_color: u32, diff: u8) -> 
                 pixel
             };
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_pixel) };
+            out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
 
@@ -611,7 +611,7 @@ pub fn pix_linear_map_to_target_color(
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b, a) = color::extract_rgba(pixel);
 
             let nr = rtab[r as usize];
@@ -619,7 +619,7 @@ pub fn pix_linear_map_to_target_color(
             let nb = btab[b as usize];
 
             let new_pixel = color::compose_rgba(nr, ng, nb, a);
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_pixel) };
+            out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
 
@@ -680,7 +680,7 @@ pub fn pix_shift_by_component(pix: &Pix, src_color: u32, dst_color: u32) -> Colo
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b, a) = color::extract_rgba(pixel);
 
             let nr = rtab[r as usize];
@@ -688,7 +688,7 @@ pub fn pix_shift_by_component(pix: &Pix, src_color: u32, dst_color: u32) -> Colo
             let nb = btab[b as usize];
 
             let new_pixel = color::compose_rgba(nr, ng, nb, a);
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_pixel) };
+            out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
 
@@ -815,7 +815,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let pixel = color::compose_rgb(128, 128, 128);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -828,7 +828,7 @@ mod tests {
         let result = pix_color_gray(&pix_mut.into(), None, &options).unwrap();
 
         // Check that pixels are now reddish
-        let pixel = unsafe { result.get_pixel_unchecked(5, 5) };
+        let pixel = result.get_pixel_unchecked(5, 5);
         let (r, g, b, _) = color::extract_rgba(pixel);
 
         // Red should be dominant
@@ -847,7 +847,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let pixel = color::compose_rgb(64, 64, 64);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -860,7 +860,7 @@ mod tests {
         let result = pix_color_gray(&pix_mut.into(), None, &options).unwrap();
 
         // Check that pixels are now bluish
-        let pixel = unsafe { result.get_pixel_unchecked(5, 5) };
+        let pixel = result.get_pixel_unchecked(5, 5);
         let (r, g, b, _) = color::extract_rgba(pixel);
 
         // Blue should be dominant
@@ -877,14 +877,14 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let pixel = color::compose_rgb(250, 252, 248);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
         // Snap near-white to pure white
         let result = pix_snap_color(&pix_mut.into(), 0xFFFFFF00, 0xFFFFFF00, 10).unwrap();
 
-        let pixel = unsafe { result.get_pixel_unchecked(5, 5) };
+        let pixel = result.get_pixel_unchecked(5, 5);
         let (r, g, b, _) = color::extract_rgba(pixel);
 
         assert_eq!((r, g, b), (255, 255, 255));
@@ -898,14 +898,14 @@ mod tests {
         // Fill with value 250
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 250) };
+                pix_mut.set_pixel_unchecked(x, y, 250);
             }
         }
 
         // Snap 250 to 255 (within diff=10)
         let result = pix_snap_color(&pix_mut.into(), 0x000000FF, 0x000000FF, 10).unwrap();
 
-        let val = unsafe { result.get_pixel_unchecked(5, 5) } as u8;
+        let val = result.get_pixel_unchecked(5, 5) as u8;
         assert_eq!(val, 255);
     }
 
@@ -918,7 +918,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let pixel = color::compose_rgb(128, 128, 128);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -926,7 +926,7 @@ mod tests {
         let result =
             pix_linear_map_to_target_color(&pix_mut.into(), 0x80808000, 0x40404000).unwrap();
 
-        let pixel = unsafe { result.get_pixel_unchecked(5, 5) };
+        let pixel = result.get_pixel_unchecked(5, 5);
         let (r, g, b, _) = color::extract_rgba(pixel);
 
         // Should be around 64
@@ -944,14 +944,14 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let pixel = color::compose_rgb(255, 255, 255);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
         // Shift white toward a pink color
         let result = pix_shift_by_component(&pix_mut.into(), 0xFFFFFF00, 0xFF808000).unwrap();
 
-        let pixel = unsafe { result.get_pixel_unchecked(5, 5) };
+        let pixel = result.get_pixel_unchecked(5, 5);
         let (r, g, b, _) = color::extract_rgba(pixel);
 
         // Red should stay 255, green and blue should be shifted down
@@ -969,14 +969,14 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let pixel = color::compose_rgb(200, 100, 50);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
         // Map toward white (positive fract)
         let result = pix_map_with_invariant_hue(&pix_mut.into(), 0xC8643200, 0.5).unwrap();
 
-        let pixel = unsafe { result.get_pixel_unchecked(5, 5) };
+        let pixel = result.get_pixel_unchecked(5, 5);
         let (r, g, b, _) = color::extract_rgba(pixel);
 
         // All components should be higher (shifted toward white)

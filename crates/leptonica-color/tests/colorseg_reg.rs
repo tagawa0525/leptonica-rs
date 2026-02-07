@@ -38,7 +38,7 @@ fn create_test_image() -> Pix {
             } else {
                 color::compose_rgb(180, 180, 180)
             };
-            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+            pix_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
     pix_mut.into()
@@ -53,7 +53,7 @@ fn create_gradient_image() -> Pix {
         for x in 0..w {
             let r = ((x * 255) / w) as u8;
             let g = ((y * 255) / h) as u8;
-            unsafe { pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(r, g, 100)) };
+            pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(r, g, 100));
         }
     }
     pix_mut.into()

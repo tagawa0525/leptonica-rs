@@ -146,7 +146,7 @@ impl Pix {
                     }
                 };
 
-                unsafe { result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel) };
+                result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel);
             }
         }
 
@@ -251,7 +251,7 @@ impl Pix {
                     _ => base_pixel, // Other depths: no change
                 };
 
-                unsafe { result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel) };
+                result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel);
             }
         }
 
@@ -377,7 +377,7 @@ impl Pix {
                     _ => base_pixel,
                 };
 
-                unsafe { result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel) };
+                result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel);
             }
         }
 
@@ -523,7 +523,7 @@ impl Pix {
                         let base = (self.get_pixel(x, y).unwrap() & 0xFF) as u8;
                         let blend = (other.get_pixel(x, y).unwrap() & 0xFF) as u8;
                         let result_val = op(base, blend) as u32;
-                        unsafe { result_mut.set_pixel_unchecked(x, y, result_val) };
+                        result_mut.set_pixel_unchecked(x, y, result_val);
                     }
                 }
             }
@@ -541,7 +541,7 @@ impl Pix {
                         let rb = op(bb, ob);
 
                         let result_pixel = color::compose_rgb(rr, rg, rb);
-                        unsafe { result_mut.set_pixel_unchecked(x, y, result_pixel) };
+                        result_mut.set_pixel_unchecked(x, y, result_pixel);
                     }
                 }
             }
@@ -649,7 +649,7 @@ pub fn blend_with_gray_mask(base: &Pix, overlay: &Pix, mask: &Pix, x: i32, y: i3
                 _ => base_pixel,
             };
 
-            unsafe { result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel) };
+            result_mut.set_pixel_unchecked(dx as u32, dy as u32, result_pixel);
         }
     }
 

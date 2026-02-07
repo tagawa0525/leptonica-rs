@@ -267,7 +267,7 @@ pub fn random_harmonic_warp(
             );
 
             let val = linear_interpolate_gray(pix, w, h, x, y, gray_val);
-            unsafe { out_mut.set_pixel_unchecked(i as u32, j as u32, val as u32) };
+            out_mut.set_pixel_unchecked(i as u32, j as u32, val as u32);
         }
     }
 
@@ -359,10 +359,10 @@ fn linear_interpolate_gray(pix: &Pix, w: u32, h: u32, x: f32, y: f32, fill_val: 
     }
 
     // Get four neighboring pixels
-    let v00 = unsafe { pix.get_pixel_unchecked(xi as u32, yi as u32) } as f32;
-    let v10 = unsafe { pix.get_pixel_unchecked((xi + 1) as u32, yi as u32) } as f32;
-    let v01 = unsafe { pix.get_pixel_unchecked(xi as u32, (yi + 1) as u32) } as f32;
-    let v11 = unsafe { pix.get_pixel_unchecked((xi + 1) as u32, (yi + 1) as u32) } as f32;
+    let v00 = pix.get_pixel_unchecked(xi as u32, yi as u32) as f32;
+    let v10 = pix.get_pixel_unchecked((xi + 1) as u32, yi as u32) as f32;
+    let v01 = pix.get_pixel_unchecked(xi as u32, (yi + 1) as u32) as f32;
+    let v11 = pix.get_pixel_unchecked((xi + 1) as u32, (yi + 1) as u32) as f32;
 
     // Bilinear interpolation
     let val = (1.0 - xf) * (1.0 - yf) * v00
@@ -474,8 +474,8 @@ pub fn stretch_horizontal_sampled(
 
         // Copy column from source to destination
         for i in 0..hi {
-            let val = unsafe { pix.get_pixel_unchecked(j as u32, i as u32) };
-            unsafe { out_mut.set_pixel_unchecked(jd as u32, i as u32, val) };
+            let val = pix.get_pixel_unchecked(j as u32, i as u32);
+            out_mut.set_pixel_unchecked(jd as u32, i as u32, val);
         }
     }
 
@@ -538,24 +538,23 @@ pub fn stretch_horizontal_li(
             PixelDepth::Bit8 => {
                 if jp < wm {
                     for i in 0..hi {
-                        let v0 = unsafe { pix.get_pixel_unchecked(jp as u32, i as u32) } as i32;
-                        let v1 =
-                            unsafe { pix.get_pixel_unchecked((jp + 1) as u32, i as u32) } as i32;
+                        let v0 = pix.get_pixel_unchecked(jp as u32, i as u32) as i32;
+                        let v1 = pix.get_pixel_unchecked((jp + 1) as u32, i as u32) as i32;
                         let val = ((63 - jf) * v0 + jf * v1 + 31) / 63;
-                        unsafe { out_mut.set_pixel_unchecked(jd as u32, i as u32, val as u32) };
+                        out_mut.set_pixel_unchecked(jd as u32, i as u32, val as u32);
                     }
                 } else {
                     for i in 0..hi {
-                        let val = unsafe { pix.get_pixel_unchecked(jp as u32, i as u32) };
-                        unsafe { out_mut.set_pixel_unchecked(jd as u32, i as u32, val) };
+                        let val = pix.get_pixel_unchecked(jp as u32, i as u32);
+                        out_mut.set_pixel_unchecked(jd as u32, i as u32, val);
                     }
                 }
             }
             PixelDepth::Bit32 => {
                 if jp < wm {
                     for i in 0..hi {
-                        let word0 = unsafe { pix.get_pixel_unchecked(jp as u32, i as u32) };
-                        let word1 = unsafe { pix.get_pixel_unchecked((jp + 1) as u32, i as u32) };
+                        let word0 = pix.get_pixel_unchecked(jp as u32, i as u32);
+                        let word1 = pix.get_pixel_unchecked((jp + 1) as u32, i as u32);
 
                         let (r0, g0, b0, a0) = color::extract_rgba(word0);
                         let (r1, g1, b1, a1) = color::extract_rgba(word1);
@@ -566,12 +565,12 @@ pub fn stretch_horizontal_li(
                         let a = interp_channel(a0, a1, jf);
 
                         let pixel = color::compose_rgba(r, g, b, a);
-                        unsafe { out_mut.set_pixel_unchecked(jd as u32, i as u32, pixel) };
+                        out_mut.set_pixel_unchecked(jd as u32, i as u32, pixel);
                     }
                 } else {
                     for i in 0..hi {
-                        let val = unsafe { pix.get_pixel_unchecked(jp as u32, i as u32) };
-                        unsafe { out_mut.set_pixel_unchecked(jd as u32, i as u32, val) };
+                        let val = pix.get_pixel_unchecked(jp as u32, i as u32);
+                        out_mut.set_pixel_unchecked(jd as u32, i as u32, val);
                     }
                 }
             }
@@ -699,8 +698,8 @@ pub fn quadratic_v_shear_sampled(
                 continue;
             }
 
-            let val = unsafe { pix.get_pixel_unchecked(j as u32, i as u32) };
-            unsafe { out_mut.set_pixel_unchecked(j as u32, id as u32, val) };
+            let val = pix.get_pixel_unchecked(j as u32, i as u32);
+            out_mut.set_pixel_unchecked(j as u32, id as u32, val);
         }
     }
 
@@ -781,15 +780,14 @@ pub fn quadratic_v_shear_li(
                     }
 
                     let val = if yp < hm {
-                        let v0 = unsafe { src_pix.get_pixel_unchecked(j as u32, yp as u32) } as i32;
-                        let v1 = unsafe { src_pix.get_pixel_unchecked(j as u32, (yp + 1) as u32) }
-                            as i32;
+                        let v0 = src_pix.get_pixel_unchecked(j as u32, yp as u32) as i32;
+                        let v1 = src_pix.get_pixel_unchecked(j as u32, (yp + 1) as u32) as i32;
                         ((63 - yf) * v0 + yf * v1 + 31) / 63
                     } else {
-                        (unsafe { src_pix.get_pixel_unchecked(j as u32, yp as u32) }) as i32
+                        (src_pix.get_pixel_unchecked(j as u32, yp as u32)) as i32
                     };
 
-                    unsafe { out_mut.set_pixel_unchecked(j as u32, id as u32, val as u32) };
+                    out_mut.set_pixel_unchecked(j as u32, id as u32, val as u32);
                 }
             }
             PixelDepth::Bit32 => {
@@ -804,9 +802,8 @@ pub fn quadratic_v_shear_li(
                     }
 
                     let pixel = if yp < hm {
-                        let word0 = unsafe { src_pix.get_pixel_unchecked(j as u32, yp as u32) };
-                        let word1 =
-                            unsafe { src_pix.get_pixel_unchecked(j as u32, (yp + 1) as u32) };
+                        let word0 = src_pix.get_pixel_unchecked(j as u32, yp as u32);
+                        let word1 = src_pix.get_pixel_unchecked(j as u32, (yp + 1) as u32);
 
                         let (r0, g0, b0, a0) = color::extract_rgba(word0);
                         let (r1, g1, b1, a1) = color::extract_rgba(word1);
@@ -818,10 +815,10 @@ pub fn quadratic_v_shear_li(
 
                         color::compose_rgba(r, g, b, a)
                     } else {
-                        unsafe { src_pix.get_pixel_unchecked(j as u32, yp as u32) }
+                        src_pix.get_pixel_unchecked(j as u32, yp as u32)
                     };
 
-                    unsafe { out_mut.set_pixel_unchecked(j as u32, id as u32, pixel) };
+                    out_mut.set_pixel_unchecked(j as u32, id as u32, pixel);
                 }
             }
             _ => unreachable!(),
@@ -987,8 +984,8 @@ pub fn stereo_from_pair(
 
     for j in 0..h {
         for i in 0..w {
-            let word1 = unsafe { pix1.get_pixel_unchecked(i, j) };
-            let word2 = unsafe { pix2.get_pixel_unchecked(i, j) };
+            let word1 = pix1.get_pixel_unchecked(i, j);
+            let word2 = pix2.get_pixel_unchecked(i, j);
 
             let (r1, g1, b1, _) = color::extract_rgba(word1);
             let (_, g2, b2, _) = color::extract_rgba(word2);
@@ -997,7 +994,7 @@ pub fn stereo_from_pair(
             let rval = (rwt * r1 as f32 + gwt * g1 as f32 + bwt * b1 as f32 + 0.5) as u8;
 
             let pixel = color::compose_rgba(rval, g2, b2, 255);
-            unsafe { out_mut.set_pixel_unchecked(i, j, pixel) };
+            out_mut.set_pixel_unchecked(i, j, pixel);
         }
     }
 
@@ -1014,7 +1011,7 @@ fn fill_image(pix: &mut PixMut, value: u32) {
     let h = pix.height();
     for y in 0..h {
         for x in 0..w {
-            unsafe { pix.set_pixel_unchecked(x, y, value) };
+            pix.set_pixel_unchecked(x, y, value);
         }
     }
 }
@@ -1042,13 +1039,13 @@ fn remove_colormap(pix: &Pix, cmap: &leptonica_core::PixColormap) -> TransformRe
 
         for y in 0..h {
             for x in 0..w {
-                let idx = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+                let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let gray = if idx < cmap.len() {
                     cmap.colors()[idx].red
                 } else {
                     0
                 };
-                unsafe { out_mut.set_pixel_unchecked(x, y, gray as u32) };
+                out_mut.set_pixel_unchecked(x, y, gray as u32);
             }
         }
 
@@ -1059,14 +1056,14 @@ fn remove_colormap(pix: &Pix, cmap: &leptonica_core::PixColormap) -> TransformRe
 
         for y in 0..h {
             for x in 0..w {
-                let idx = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+                let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let pixel = if idx < cmap.len() {
                     let c = &cmap.colors()[idx];
                     color::compose_rgba(c.red, c.green, c.blue, 255)
                 } else {
                     0
                 };
-                unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+                out_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -1091,21 +1088,21 @@ fn convert_to_32bpp(pix: &Pix) -> TransformResult<Pix> {
         // Use colormap
         for y in 0..h {
             for x in 0..w {
-                let idx = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+                let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let pixel = if idx < cmap.len() {
                     let c = &cmap.colors()[idx];
                     color::compose_rgba(c.red, c.green, c.blue, 255)
                 } else {
                     0
                 };
-                unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+                out_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
     } else {
         // Grayscale to RGB
         for y in 0..h {
             for x in 0..w {
-                let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                let val = pix.get_pixel_unchecked(x, y);
                 let gray = match depth {
                     PixelDepth::Bit1 => {
                         if val == 0 {
@@ -1121,7 +1118,7 @@ fn convert_to_32bpp(pix: &Pix) -> TransformResult<Pix> {
                     PixelDepth::Bit32 => unreachable!(),
                 };
                 let pixel = color::compose_rgba(gray, gray, gray, 255);
-                unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+                out_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
     }
@@ -1144,13 +1141,11 @@ fn split_rgb(pix: &Pix) -> TransformResult<(Pix, Pix, Pix)> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b, _) = color::extract_rgba(pixel);
-            unsafe {
-                r_mut.set_pixel_unchecked(x, y, r as u32);
-                g_mut.set_pixel_unchecked(x, y, g as u32);
-                b_mut.set_pixel_unchecked(x, y, b as u32);
-            }
+            r_mut.set_pixel_unchecked(x, y, r as u32);
+            g_mut.set_pixel_unchecked(x, y, g as u32);
+            b_mut.set_pixel_unchecked(x, y, b as u32);
         }
     }
 
@@ -1167,11 +1162,11 @@ fn combine_rgb(pix_r: &Pix, pix_g: &Pix, pix_b: &Pix) -> TransformResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let r = unsafe { pix_r.get_pixel_unchecked(x, y) } as u8;
-            let g = unsafe { pix_g.get_pixel_unchecked(x, y) } as u8;
-            let b = unsafe { pix_b.get_pixel_unchecked(x, y) } as u8;
+            let r = pix_r.get_pixel_unchecked(x, y) as u8;
+            let g = pix_g.get_pixel_unchecked(x, y) as u8;
+            let b = pix_b.get_pixel_unchecked(x, y) as u8;
             let pixel = color::compose_rgba(r, g, b, 255);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
 
@@ -1185,8 +1180,8 @@ fn extract_region(pix: &Pix, x: u32, y: u32, w: u32, h: u32) -> TransformResult<
 
     for dy in 0..h {
         for dx in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x + dx, y + dy) };
-            unsafe { out_mut.set_pixel_unchecked(dx, dy, val) };
+            let val = pix.get_pixel_unchecked(x + dx, y + dy);
+            out_mut.set_pixel_unchecked(dx, dy, val);
         }
     }
 
@@ -1203,16 +1198,16 @@ fn combine_halves(left: &Pix, right: &Pix, w: u32, h: u32) -> TransformResult<Pi
     // Copy left half
     for y in 0..h {
         for x in 0..half_w {
-            let val = unsafe { left.get_pixel_unchecked(x, y) };
-            unsafe { out_mut.set_pixel_unchecked(x, y, val) };
+            let val = left.get_pixel_unchecked(x, y);
+            out_mut.set_pixel_unchecked(x, y, val);
         }
     }
 
     // Copy right half
     for y in 0..h {
         for x in 0..(w - half_w) {
-            let val = unsafe { right.get_pixel_unchecked(x, y) };
-            unsafe { out_mut.set_pixel_unchecked(half_w + x, y, val) };
+            let val = right.get_pixel_unchecked(x, y);
+            out_mut.set_pixel_unchecked(half_w + x, y, val);
         }
     }
 
@@ -1237,8 +1232,8 @@ fn translate_horizontal(pix: &Pix, dx: i32) -> TransformResult<Pix> {
         for x in 0..wi {
             let src_x = x - dx;
             if src_x >= 0 && src_x < wi {
-                let val = unsafe { pix.get_pixel_unchecked(src_x as u32, y) };
-                unsafe { out_mut.set_pixel_unchecked(x as u32, y, val) };
+                let val = pix.get_pixel_unchecked(src_x as u32, y);
+                out_mut.set_pixel_unchecked(x as u32, y, val);
             }
         }
     }
@@ -1365,9 +1360,10 @@ mod tests {
         // Same seed should produce same result
         for y in 0..20 {
             for x in 0..20 {
-                assert_eq!(unsafe { warped1.get_pixel_unchecked(x, y) }, unsafe {
+                assert_eq!(
+                    warped1.get_pixel_unchecked(x, y),
                     warped2.get_pixel_unchecked(x, y)
-                });
+                );
             }
         }
     }
@@ -1379,7 +1375,7 @@ mod tests {
         // Create some content
         for y in 0..20 {
             for x in 0..20 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (x + y) * 10 % 256) };
+                pix_mut.set_pixel_unchecked(x, y, (x + y) * 10 % 256);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -1391,9 +1387,7 @@ mod tests {
         let mut all_same = true;
         for y in 0..20 {
             for x in 0..20 {
-                if unsafe { warped1.get_pixel_unchecked(x, y) }
-                    != unsafe { warped2.get_pixel_unchecked(x, y) }
-                {
+                if warped1.get_pixel_unchecked(x, y) != warped2.get_pixel_unchecked(x, y) {
                     all_same = false;
                     break;
                 }
@@ -1417,7 +1411,7 @@ mod tests {
     fn test_stretch_horizontal_sampled_zero() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(10, 10, 100) };
+        pix_mut.set_pixel_unchecked(10, 10, 100);
         let pix: Pix = pix_mut.into();
 
         let result = stretch_horizontal_sampled(
@@ -1430,7 +1424,7 @@ mod tests {
         .unwrap();
 
         // Zero stretch should preserve pixels
-        assert_eq!(unsafe { result.get_pixel_unchecked(10, 10) }, 100);
+        assert_eq!(result.get_pixel_unchecked(10, 10), 100);
     }
 
     #[test]
@@ -1509,7 +1503,7 @@ mod tests {
     fn test_quadratic_v_shear_zero() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(10, 10, 100) };
+        pix_mut.set_pixel_unchecked(10, 10, 100);
         let pix: Pix = pix_mut.into();
 
         let result = quadratic_v_shear(
@@ -1523,7 +1517,7 @@ mod tests {
         .unwrap();
 
         // Zero shear should preserve pixels
-        assert_eq!(unsafe { result.get_pixel_unchecked(10, 10) }, 100);
+        assert_eq!(result.get_pixel_unchecked(10, 10), 100);
     }
 
     #[test]
@@ -1633,13 +1627,13 @@ mod tests {
     fn test_convert_to_32bpp_from_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(5, 5, 128) };
+        pix_mut.set_pixel_unchecked(5, 5, 128);
         let pix: Pix = pix_mut.into();
 
         let result = convert_to_32bpp(&pix).unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
 
-        let pixel = unsafe { result.get_pixel_unchecked(5, 5) };
+        let pixel = result.get_pixel_unchecked(5, 5);
         let (r, g, b, _) = color::extract_rgba(pixel);
         assert_eq!(r, 128);
         assert_eq!(g, 128);
@@ -1651,16 +1645,16 @@ mod tests {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
         let red_pixel = color::compose_rgba(255, 0, 0, 255);
-        unsafe { pix_mut.set_pixel_unchecked(5, 5, red_pixel) };
+        pix_mut.set_pixel_unchecked(5, 5, red_pixel);
         let pix: Pix = pix_mut.into();
 
         let (r, g, b) = split_rgb(&pix).unwrap();
-        assert_eq!(unsafe { r.get_pixel_unchecked(5, 5) }, 255);
-        assert_eq!(unsafe { g.get_pixel_unchecked(5, 5) }, 0);
-        assert_eq!(unsafe { b.get_pixel_unchecked(5, 5) }, 0);
+        assert_eq!(r.get_pixel_unchecked(5, 5), 255);
+        assert_eq!(g.get_pixel_unchecked(5, 5), 0);
+        assert_eq!(b.get_pixel_unchecked(5, 5), 0);
 
         let combined = combine_rgb(&r, &g, &b).unwrap();
-        let pixel = unsafe { combined.get_pixel_unchecked(5, 5) };
+        let pixel = combined.get_pixel_unchecked(5, 5);
         let (rc, gc, bc, _) = color::extract_rgba(pixel);
         assert_eq!(rc, 255);
         assert_eq!(gc, 0);
@@ -1671,14 +1665,14 @@ mod tests {
     fn test_translate_horizontal() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(5, 5, 100) };
+        pix_mut.set_pixel_unchecked(5, 5, 100);
         let pix: Pix = pix_mut.into();
 
         let translated = translate_horizontal(&pix, 3).unwrap();
         // Pixel should have moved from (5,5) to (8,5)
-        assert_eq!(unsafe { translated.get_pixel_unchecked(8, 5) }, 100);
+        assert_eq!(translated.get_pixel_unchecked(8, 5), 100);
         // Position (0,5) should be fill value since src_x = 0 - 3 = -3 is out of bounds
-        assert_eq!(unsafe { translated.get_pixel_unchecked(0, 5) }, 255); // White fill
+        assert_eq!(translated.get_pixel_unchecked(0, 5), 255); // White fill
     }
 
     // ========================================================================

@@ -31,8 +31,8 @@ fn scale_to_max_width(pix: &Pix, max_width: u32) -> Pix {
         for x in 0..new_w {
             let src_x = ((x as f64 / factor) as u32).min(w - 1);
             let src_y = ((y as f64 / factor) as u32).min(pix.height() - 1);
-            let pixel = unsafe { pix.get_pixel_unchecked(src_x, src_y) };
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            let pixel = pix.get_pixel_unchecked(src_x, src_y);
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
     out_mut.into()
@@ -49,7 +49,7 @@ fn create_color_gradient(w: u32, h: u32) -> Pix {
             let g = ((y * 255) / h.max(1)) as u8;
             let b = (128u32.wrapping_add((x + y) * 64 / (w + h).max(1))) as u8;
             let pixel = color::compose_rgb(r, g, b);
-            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+            pix_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
 
@@ -203,7 +203,7 @@ fn colorquant_reg() {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..50u32 {
             for x in 0..50u32 {
-                unsafe { pm.set_pixel_unchecked(x, y, color::compose_rgb(128, 64, 32)) };
+                pm.set_pixel_unchecked(x, y, color::compose_rgb(128, 64, 32));
             }
         }
         let uniform_pix: Pix = pm.into();

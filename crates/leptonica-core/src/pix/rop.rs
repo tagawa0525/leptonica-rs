@@ -238,7 +238,7 @@ impl Pix {
                 let d = self.get_pixel(x, y).unwrap_or(0);
                 let s = other.get_pixel(x, y).unwrap_or(0);
                 let val = apply_rop_value(d, s, op, 255);
-                unsafe { result_mut.set_pixel_unchecked(x, y, val) };
+                result_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -266,7 +266,7 @@ impl Pix {
                 let rb = apply_rop_value(db as u32, sb as u32, op, 255) as u8;
 
                 let result_pixel = color::compose_rgb(rr, rg, rb);
-                unsafe { result_mut.set_pixel_unchecked(x, y, result_pixel) };
+                result_mut.set_pixel_unchecked(x, y, result_pixel);
             }
         }
 
@@ -287,7 +287,7 @@ impl Pix {
                 let d = self.get_pixel(x, y).unwrap_or(0);
                 let s = other.get_pixel(x, y).unwrap_or(0);
                 let val = apply_rop_value(d, s, op, max_val);
-                unsafe { result_mut.set_pixel_unchecked(x, y, val) };
+                result_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -435,7 +435,7 @@ impl PixMut {
                 let d = self.get_pixel(x, y).unwrap_or(0);
                 let s = other.get_pixel(x, y).unwrap_or(0);
                 let val = apply_rop_value(d, s, op, 255);
-                unsafe { self.set_pixel_unchecked(x, y, val) };
+                self.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -458,7 +458,7 @@ impl PixMut {
                 let rb = apply_rop_value(db as u32, sb as u32, op, 255) as u8;
 
                 let result_pixel = color::compose_rgb(rr, rg, rb);
-                unsafe { self.set_pixel_unchecked(x, y, result_pixel) };
+                self.set_pixel_unchecked(x, y, result_pixel);
             }
         }
     }
@@ -474,7 +474,7 @@ impl PixMut {
                 let d = self.get_pixel(x, y).unwrap_or(0);
                 let s = other.get_pixel(x, y).unwrap_or(0);
                 let val = apply_rop_value(d, s, op, max_val);
-                unsafe { self.set_pixel_unchecked(x, y, val) };
+                self.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -515,7 +515,7 @@ impl PixMut {
 
         for py in y..y_end {
             for px in x..x_end {
-                unsafe { self.set_pixel_unchecked(px, py, value) };
+                self.set_pixel_unchecked(px, py, value);
             }
         }
     }

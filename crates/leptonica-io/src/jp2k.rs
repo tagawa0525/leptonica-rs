@@ -72,7 +72,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                         let g = pixels[idx];
                         let a = pixels[idx + 1];
                         let pixel = compose_rgba(g, g, g, a);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
                 Ok(pix_mut.into())
@@ -86,7 +86,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                     for x in 0..width {
                         let idx = (y * width + x) as usize;
                         let val = pixels[idx];
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                        pix_mut.set_pixel_unchecked(x, y, val as u32);
                     }
                 }
                 Ok(pix_mut.into())
@@ -106,7 +106,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                         let b = pixels[idx + 2];
                         let a = pixels[idx + 3];
                         let pixel = compose_rgba(r, g, b, a);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             } else {
@@ -118,7 +118,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                         let g = pixels[idx + 1];
                         let b = pixels[idx + 2];
                         let pixel = compose_rgba(r, g, b, 255);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             }
@@ -145,7 +145,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                     let b = (255.0 * (1.0 - y_val) * (1.0 - k)) as u8;
 
                     let pixel = compose_rgba(r, g, b, 255);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                    pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
 
@@ -169,7 +169,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                             let g = pixels[idx];
                             let a = pixels.get(idx + 1).copied().unwrap_or(255);
                             let pixel = compose_rgba(g, g, g, a);
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                            pix_mut.set_pixel_unchecked(x, y, pixel);
                         }
                     }
                     Ok(pix_mut.into())
@@ -182,7 +182,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                         for x in 0..width {
                             let idx = (y * width + x) as usize;
                             let val = pixels[idx];
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                            pix_mut.set_pixel_unchecked(x, y, val as u32);
                         }
                     }
                     Ok(pix_mut.into())
@@ -202,7 +202,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                             let b = pixels.get(idx + 2).copied().unwrap_or(0);
                             let a = pixels.get(idx + n).copied().unwrap_or(255);
                             let pixel = compose_rgba(r, g, b, a);
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                            pix_mut.set_pixel_unchecked(x, y, pixel);
                         }
                     }
                 } else {
@@ -214,7 +214,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                             let g = pixels.get(idx + 1).copied().unwrap_or(0);
                             let b = pixels.get(idx + 2).copied().unwrap_or(0);
                             let pixel = compose_rgba(r, g, b, 255);
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                            pix_mut.set_pixel_unchecked(x, y, pixel);
                         }
                     }
                 }
@@ -242,7 +242,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                             let g = pixels[idx];
                             let a = pixels.get(idx + 1).copied().unwrap_or(255);
                             let pixel = compose_rgba(g, g, g, a);
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                            pix_mut.set_pixel_unchecked(x, y, pixel);
                         }
                     }
                     Ok(pix_mut.into())
@@ -255,7 +255,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                         for x in 0..width {
                             let idx = (y * width + x) as usize;
                             let val = pixels[idx];
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                            pix_mut.set_pixel_unchecked(x, y, val as u32);
                         }
                     }
                     Ok(pix_mut.into())
@@ -275,7 +275,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                             let b = pixels.get(idx + 2).copied().unwrap_or(0);
                             let a = pixels.get(idx + n).copied().unwrap_or(255);
                             let pixel = compose_rgba(r, g, b, a);
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                            pix_mut.set_pixel_unchecked(x, y, pixel);
                         }
                     }
                 } else {
@@ -287,7 +287,7 @@ pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
                             let g = pixels.get(idx + 1).copied().unwrap_or(0);
                             let b = pixels.get(idx + 2).copied().unwrap_or(0);
                             let pixel = compose_rgba(r, g, b, 255);
-                            unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                            pix_mut.set_pixel_unchecked(x, y, pixel);
                         }
                     }
                 }

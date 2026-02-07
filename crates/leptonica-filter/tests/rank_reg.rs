@@ -31,8 +31,8 @@ fn clip_rectangle(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32) -> Pix {
         for x in 0..w {
             let sx = (x0 + x).min(pix.width() - 1);
             let sy = (y0 + y).min(pix.height() - 1);
-            let val = unsafe { pix.get_pixel_unchecked(sx, sy) };
-            unsafe { out_mut.set_pixel_unchecked(x, y, val) };
+            let val = pix.get_pixel_unchecked(sx, sy);
+            out_mut.set_pixel_unchecked(x, y, val);
         }
     }
     out_mut.into()
@@ -51,8 +51,8 @@ fn count_pixel_diffs(pix1: &Pix, pix2: &Pix) -> (u64, u64, u32) {
 
     for y in 0..h {
         for x in 0..w {
-            let v1 = unsafe { pix1.get_pixel_unchecked(x, y) };
-            let v2 = unsafe { pix2.get_pixel_unchecked(x, y) };
+            let v1 = pix1.get_pixel_unchecked(x, y);
+            let v2 = pix2.get_pixel_unchecked(x, y);
             total += 1;
             if v1 == v2 {
                 matching += 1;
@@ -315,8 +315,8 @@ fn count_color_pixel_diffs(pix1: &Pix, pix2: &Pix) -> (u64, u64, u32) {
 
     for y in 0..h {
         for x in 0..w {
-            let v1 = unsafe { pix1.get_pixel_unchecked(x, y) };
-            let v2 = unsafe { pix2.get_pixel_unchecked(x, y) };
+            let v1 = pix1.get_pixel_unchecked(x, y);
+            let v2 = pix2.get_pixel_unchecked(x, y);
             let (r1, g1, b1, _) = color::extract_rgba(v1);
             let (r2, g2, b2, _) = color::extract_rgba(v2);
             total += 1;
@@ -383,9 +383,9 @@ fn rank_reg_color_varying_ranks() {
     // Sample center pixel per-channel to check monotonicity
     let cx = w0 / 2;
     let cy = h0 / 2;
-    let v_min = unsafe { pix_min_result.get_pixel_unchecked(cx, cy) };
-    let v_med = unsafe { pix_med_result.get_pixel_unchecked(cx, cy) };
-    let v_max = unsafe { pix_max_result.get_pixel_unchecked(cx, cy) };
+    let v_min = pix_min_result.get_pixel_unchecked(cx, cy);
+    let v_med = pix_med_result.get_pixel_unchecked(cx, cy);
+    let v_max = pix_max_result.get_pixel_unchecked(cx, cy);
 
     let (rmin, gmin, bmin, _) = color::extract_rgba(v_min);
     let (rmed, gmed, bmed, _) = color::extract_rgba(v_med);
@@ -440,9 +440,9 @@ fn rank_reg_convenience_functions() {
     let mut order_ok = true;
     for y in 0..h {
         for x in 0..w {
-            let v_min = unsafe { min_result.get_pixel_unchecked(x, y) };
-            let v_med = unsafe { median.get_pixel_unchecked(x, y) };
-            let v_max = unsafe { max_result.get_pixel_unchecked(x, y) };
+            let v_min = min_result.get_pixel_unchecked(x, y);
+            let v_med = median.get_pixel_unchecked(x, y);
+            let v_max = max_result.get_pixel_unchecked(x, y);
             if !(v_min <= v_med && v_med <= v_max) {
                 order_ok = false;
                 eprintln!(

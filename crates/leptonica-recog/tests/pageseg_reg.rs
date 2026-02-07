@@ -761,7 +761,7 @@ fn create_test_document(w: u32, h: u32) -> leptonica_core::Pix {
             if y < h {
                 // Leave margins on left and right
                 for x in (w / 10)..(w * 9 / 10) {
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                    pix_mut.set_pixel_unchecked(x, y, 1);
                 }
             }
         }

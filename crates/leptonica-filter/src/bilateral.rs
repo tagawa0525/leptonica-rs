@@ -96,7 +96,7 @@ pub fn bilateral_gray_exact(
 
     for y in 0..h {
         for x in 0..w {
-            let center_val = unsafe { pix.get_pixel_unchecked(x, y) } as i32;
+            let center_val = pix.get_pixel_unchecked(x, y) as i32;
 
             let mut sum = 0.0f32;
             let mut weight_sum = 0.0f32;
@@ -110,7 +110,7 @@ pub fn bilateral_gray_exact(
                     let sx = sx.clamp(0, w as i32 - 1) as u32;
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
-                    let neighbor_val = unsafe { pix.get_pixel_unchecked(sx, sy) } as i32;
+                    let neighbor_val = pix.get_pixel_unchecked(sx, sy) as i32;
                     let spatial_weight = spatial_kernel.get(kx, ky).unwrap_or(0.0);
                     let intensity_diff = (center_val - neighbor_val).unsigned_abs() as usize;
                     let range_weight = range[intensity_diff.min(255)];
@@ -127,7 +127,7 @@ pub fn bilateral_gray_exact(
                 center_val as u32
             };
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, result.min(255)) };
+            out_mut.set_pixel_unchecked(x, y, result.min(255));
         }
     }
 
@@ -208,7 +208,7 @@ fn bilateral_color_exact(
 
     for y in 0..h {
         for x in 0..w {
-            let center_pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let center_pixel = pix.get_pixel_unchecked(x, y);
             let (center_r, center_g, center_b, center_a) = color::extract_rgba(center_pixel);
 
             let mut sum_r = 0.0f32;
@@ -228,7 +228,7 @@ fn bilateral_color_exact(
                     let sx = sx.clamp(0, w as i32 - 1) as u32;
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
-                    let neighbor_pixel = unsafe { pix.get_pixel_unchecked(sx, sy) };
+                    let neighbor_pixel = pix.get_pixel_unchecked(sx, sy);
                     let (nr, ng, nb, na) = color::extract_rgba(neighbor_pixel);
 
                     let spatial_weight = spatial_kernel.get(kx, ky).unwrap_or(0.0);
@@ -278,7 +278,7 @@ fn bilateral_color_exact(
             };
 
             let result = color::compose_rgba(result_r, result_g, result_b, result_a);
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -297,7 +297,7 @@ mod tests {
         for y in 0..20 {
             for x in 0..20 {
                 let val = if x < 10 { 50 } else { 200 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -314,7 +314,7 @@ mod tests {
                 let g = if y < 10 { 100 } else { 150 };
                 let b = 128;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -354,8 +354,8 @@ mod tests {
         assert_eq!(result.depth(), PixelDepth::Bit8);
 
         // Edge should be preserved (values at x=5 and x=15 should be distinct)
-        let val_left = unsafe { result.get_pixel_unchecked(5, 10) };
-        let val_right = unsafe { result.get_pixel_unchecked(15, 10) };
+        let val_left = result.get_pixel_unchecked(5, 10);
+        let val_right = result.get_pixel_unchecked(15, 10);
         assert!(val_right > val_left + 50); // Edge preserved
     }
 

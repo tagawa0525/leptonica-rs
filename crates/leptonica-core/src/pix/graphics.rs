@@ -371,14 +371,14 @@ impl PixMut {
 
             match op {
                 PixelOp::Set => {
-                    unsafe { self.set_pixel_unchecked(xu, yu, max_val) };
+                    self.set_pixel_unchecked(xu, yu, max_val);
                 }
                 PixelOp::Clear => {
-                    unsafe { self.set_pixel_unchecked(xu, yu, 0) };
+                    self.set_pixel_unchecked(xu, yu, 0);
                 }
                 PixelOp::Flip => {
-                    let current = unsafe { self.get_pixel_unchecked(xu, yu) };
-                    unsafe { self.set_pixel_unchecked(xu, yu, current ^ max_val) };
+                    let current = self.get_pixel_unchecked(xu, yu);
+                    self.set_pixel_unchecked(xu, yu, current ^ max_val);
                 }
             }
         }
@@ -415,7 +415,7 @@ impl PixMut {
                 continue;
             }
 
-            unsafe { self.set_pixel_unchecked(xi as u32, yi as u32, pixel_val) };
+            self.set_pixel_unchecked(xi as u32, yi as u32, pixel_val);
         }
 
         Ok(())
@@ -444,7 +444,7 @@ impl PixMut {
             let xu = xi as u32;
             let yu = yi as u32;
 
-            let current = unsafe { self.get_pixel_unchecked(xu, yu) };
+            let current = self.get_pixel_unchecked(xu, yu);
             let (r, g, b) = crate::color::extract_rgb(current);
 
             let new_r = ((1.0 - fract) * r as f32 + fract * color.r as f32) as u8;
@@ -452,7 +452,7 @@ impl PixMut {
             let new_b = ((1.0 - fract) * b as f32 + fract * color.b as f32) as u8;
 
             let new_pixel = crate::color::compose_rgb(new_r, new_g, new_b);
-            unsafe { self.set_pixel_unchecked(xu, yu, new_pixel) };
+            self.set_pixel_unchecked(xu, yu, new_pixel);
         }
 
         Ok(())

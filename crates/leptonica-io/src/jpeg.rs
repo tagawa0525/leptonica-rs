@@ -43,7 +43,7 @@ pub fn read_jpeg<R: Read>(reader: R) -> IoResult<Pix> {
                 for x in 0..width {
                     let idx = (y * width + x) as usize;
                     let val = pixels[idx];
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
         }
@@ -52,7 +52,7 @@ pub fn read_jpeg<R: Read>(reader: R) -> IoResult<Pix> {
                 for x in 0..width {
                     let idx = ((y * width + x) * 2) as usize;
                     let val = ((pixels[idx] as u32) << 8) | (pixels[idx + 1] as u32);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                    pix_mut.set_pixel_unchecked(x, y, val);
                 }
             }
         }
@@ -64,7 +64,7 @@ pub fn read_jpeg<R: Read>(reader: R) -> IoResult<Pix> {
                     let g = pixels[idx + 1];
                     let b = pixels[idx + 2];
                     let pixel = color::compose_rgb(r, g, b);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                    pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
         }

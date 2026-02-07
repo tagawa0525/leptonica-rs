@@ -571,7 +571,7 @@ mod tests {
                 } else {
                     color::compose_rgb(50, 50, 200) // Blue
                 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -589,7 +589,7 @@ mod tests {
                 let r = (255 - (x * 255 / 100)) as u8;
                 let b = (x * 255 / 100) as u8;
                 let pixel = color::compose_rgb(r, 100, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -662,7 +662,7 @@ mod tests {
         // Fill with dark pixels
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30)) };
+                pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30));
             }
         }
         let pix: Pix = pix_mut.into();
@@ -764,14 +764,14 @@ mod tests {
         // Small bright region
         for y in 0..5 {
             for x in 0..5 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(200, 100, 100)) };
+                pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(200, 100, 100));
             }
         }
         // Rest is dark
         for y in 0..10 {
             for x in 0..10 {
                 if x >= 5 || y >= 5 {
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30)) };
+                    pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30));
                 }
             }
         }

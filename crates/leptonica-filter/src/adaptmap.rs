@@ -314,7 +314,7 @@ fn get_background_gray_map(
             // Accumulate background pixels in this tile
             for y in tile_y..(tile_y + tile_height) {
                 for x in tile_x..(tile_x + tile_width) {
-                    let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                    let val = pix.get_pixel_unchecked(x, y);
                     // Only include pixels above the foreground threshold
                     if val >= fg_threshold {
                         sum += val;
@@ -326,7 +326,7 @@ fn get_background_gray_map(
             // Set map value if we have enough background pixels
             if count >= min_count {
                 let avg = sum / count;
-                unsafe { map_mut.set_pixel_unchecked(tx, ty, avg) };
+                map_mut.set_pixel_unchecked(tx, ty, avg);
             }
             // Otherwise leave as 0 (will be filled later)
         }
@@ -350,21 +350,21 @@ fn fill_map_holes(pix: &Pix, valid_x: u32, valid_y: u32) -> FilterResult<Pix> {
     // First pass: fill from left and top
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { out_mut.get_pixel_unchecked(x, y) };
+            let val = out_mut.get_pixel_unchecked(x, y);
             if val == 0 {
                 // Try to get value from left neighbor
                 if x > 0 {
-                    let left = unsafe { out_mut.get_pixel_unchecked(x - 1, y) };
+                    let left = out_mut.get_pixel_unchecked(x - 1, y);
                     if left > 0 {
-                        unsafe { out_mut.set_pixel_unchecked(x, y, left) };
+                        out_mut.set_pixel_unchecked(x, y, left);
                         continue;
                     }
                 }
                 // Try to get value from top neighbor
                 if y > 0 {
-                    let top = unsafe { out_mut.get_pixel_unchecked(x, y - 1) };
+                    let top = out_mut.get_pixel_unchecked(x, y - 1);
                     if top > 0 {
-                        unsafe { out_mut.set_pixel_unchecked(x, y, top) };
+                        out_mut.set_pixel_unchecked(x, y, top);
                     }
                 }
             }
@@ -374,21 +374,21 @@ fn fill_map_holes(pix: &Pix, valid_x: u32, valid_y: u32) -> FilterResult<Pix> {
     // Second pass: fill from right and bottom
     for y in (0..h).rev() {
         for x in (0..w).rev() {
-            let val = unsafe { out_mut.get_pixel_unchecked(x, y) };
+            let val = out_mut.get_pixel_unchecked(x, y);
             if val == 0 {
                 // Try to get value from right neighbor
                 if x + 1 < w {
-                    let right = unsafe { out_mut.get_pixel_unchecked(x + 1, y) };
+                    let right = out_mut.get_pixel_unchecked(x + 1, y);
                     if right > 0 {
-                        unsafe { out_mut.set_pixel_unchecked(x, y, right) };
+                        out_mut.set_pixel_unchecked(x, y, right);
                         continue;
                     }
                 }
                 // Try to get value from bottom neighbor
                 if y + 1 < h {
-                    let bottom = unsafe { out_mut.get_pixel_unchecked(x, y + 1) };
+                    let bottom = out_mut.get_pixel_unchecked(x, y + 1);
                     if bottom > 0 {
-                        unsafe { out_mut.set_pixel_unchecked(x, y, bottom) };
+                        out_mut.set_pixel_unchecked(x, y, bottom);
                     }
                 }
             }
@@ -400,14 +400,14 @@ fn fill_map_holes(pix: &Pix, valid_x: u32, valid_y: u32) -> FilterResult<Pix> {
     for y in 0..h {
         if valid_x < w {
             let last_valid = if valid_x > 0 {
-                unsafe { out_mut.get_pixel_unchecked(valid_x - 1, y) }
+                out_mut.get_pixel_unchecked(valid_x - 1, y)
             } else {
                 128 // fallback
             };
             for x in valid_x..w {
-                let val = unsafe { out_mut.get_pixel_unchecked(x, y) };
+                let val = out_mut.get_pixel_unchecked(x, y);
                 if val == 0 {
-                    unsafe { out_mut.set_pixel_unchecked(x, y, last_valid) };
+                    out_mut.set_pixel_unchecked(x, y, last_valid);
                 }
             }
         }
@@ -417,14 +417,14 @@ fn fill_map_holes(pix: &Pix, valid_x: u32, valid_y: u32) -> FilterResult<Pix> {
     for x in 0..w {
         if valid_y < h {
             let last_valid = if valid_y > 0 {
-                unsafe { out_mut.get_pixel_unchecked(x, valid_y - 1) }
+                out_mut.get_pixel_unchecked(x, valid_y - 1)
             } else {
                 128 // fallback
             };
             for y in valid_y..h {
-                let val = unsafe { out_mut.get_pixel_unchecked(x, y) };
+                let val = out_mut.get_pixel_unchecked(x, y);
                 if val == 0 {
-                    unsafe { out_mut.set_pixel_unchecked(x, y, last_valid) };
+                    out_mut.set_pixel_unchecked(x, y, last_valid);
                 }
             }
         }
@@ -471,14 +471,14 @@ fn get_inv_background_map(
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { smoothed.get_pixel_unchecked(x, y) };
+            let val = smoothed.get_pixel_unchecked(x, y);
             let factor = if val > 0 {
                 (256 * bg_val) / val
             } else {
                 bg_val / 2 // fallback for zero values
             };
             // Store as 32-bit value (will be used directly in application)
-            unsafe { out_mut.set_pixel_unchecked(x, y, factor.min(65535)) };
+            out_mut.set_pixel_unchecked(x, y, factor.min(65535));
         }
     }
 
@@ -507,12 +507,12 @@ fn block_convolve_gray(pix: &Pix, half_width_x: u32, half_width_y: u32) -> Filte
                         (x as i32 + kx as i32 - half_width_x as i32).clamp(0, w as i32 - 1) as u32;
                     let sy =
                         (y as i32 + ky as i32 - half_width_y as i32).clamp(0, h as i32 - 1) as u32;
-                    sum += unsafe { pix.get_pixel_unchecked(sx, sy) };
+                    sum += pix.get_pixel_unchecked(sx, sy);
                 }
             }
 
             let avg = sum / kernel_size;
-            unsafe { out_mut.set_pixel_unchecked(x, y, avg) };
+            out_mut.set_pixel_unchecked(x, y, avg);
         }
     }
 
@@ -541,7 +541,7 @@ fn apply_inv_background_gray_map(
     for ty in 0..map_h {
         for tx in 0..map_w {
             // Get the multiplication factor for this tile
-            let factor = unsafe { inv_map.get_pixel_unchecked(tx, ty) };
+            let factor = inv_map.get_pixel_unchecked(tx, ty);
 
             // Calculate tile boundaries
             let x_start = tx * tile_width;
@@ -552,9 +552,9 @@ fn apply_inv_background_gray_map(
             // Apply factor to each pixel in the tile
             for y in y_start..y_end {
                 for x in x_start..x_end {
-                    let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                    let val = pix.get_pixel_unchecked(x, y);
                     let normalized = (val * factor) / 256;
-                    unsafe { out_mut.set_pixel_unchecked(x, y, normalized.min(255)) };
+                    out_mut.set_pixel_unchecked(x, y, normalized.min(255));
                 }
             }
         }
@@ -582,13 +582,11 @@ fn extract_rgb_channels(pix: &Pix) -> FilterResult<(Pix, Pix, Pix)> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b, _) = color::extract_rgba(pixel);
-            unsafe {
-                r_mut.set_pixel_unchecked(x, y, r as u32);
-                g_mut.set_pixel_unchecked(x, y, g as u32);
-                b_mut.set_pixel_unchecked(x, y, b as u32);
-            }
+            r_mut.set_pixel_unchecked(x, y, r as u32);
+            g_mut.set_pixel_unchecked(x, y, g as u32);
+            b_mut.set_pixel_unchecked(x, y, b as u32);
         }
     }
 
@@ -606,11 +604,11 @@ fn combine_rgb_channels(pix_r: &Pix, pix_g: &Pix, pix_b: &Pix, spp: u32) -> Filt
 
     for y in 0..h {
         for x in 0..w {
-            let r = unsafe { pix_r.get_pixel_unchecked(x, y) } as u8;
-            let g = unsafe { pix_g.get_pixel_unchecked(x, y) } as u8;
-            let b = unsafe { pix_b.get_pixel_unchecked(x, y) } as u8;
+            let r = pix_r.get_pixel_unchecked(x, y) as u8;
+            let g = pix_g.get_pixel_unchecked(x, y) as u8;
+            let b = pix_b.get_pixel_unchecked(x, y) as u8;
             let pixel = color::compose_rgb(r, g, b);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
 
@@ -726,17 +724,15 @@ fn min_max_tiles(
 
             for y in tile_y..(tile_y + tile_height) {
                 for x in tile_x..(tile_x + tile_width) {
-                    let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                    let val = pix.get_pixel_unchecked(x, y);
                     min_val = min_val.min(val);
                     max_val = max_val.max(val);
                 }
             }
 
             // Add 1 to avoid zeros (which indicate holes)
-            unsafe {
-                min_mut.set_pixel_unchecked(tx, ty, min_val.saturating_add(1).min(255));
-                max_mut.set_pixel_unchecked(tx, ty, max_val.saturating_add(1).min(255));
-            }
+            min_mut.set_pixel_unchecked(tx, ty, min_val.saturating_add(1).min(255));
+            max_mut.set_pixel_unchecked(tx, ty, max_val.saturating_add(1).min(255));
         }
     }
 
@@ -744,23 +740,19 @@ fn min_max_tiles(
     for ty in 0..map_h {
         for tx in nx..map_w {
             let src_x = if nx > 0 { nx - 1 } else { 0 };
-            let min_val = unsafe { min_mut.get_pixel_unchecked(src_x, ty) };
-            let max_val = unsafe { max_mut.get_pixel_unchecked(src_x, ty) };
-            unsafe {
-                min_mut.set_pixel_unchecked(tx, ty, min_val);
-                max_mut.set_pixel_unchecked(tx, ty, max_val);
-            }
+            let min_val = min_mut.get_pixel_unchecked(src_x, ty);
+            let max_val = max_mut.get_pixel_unchecked(src_x, ty);
+            min_mut.set_pixel_unchecked(tx, ty, min_val);
+            max_mut.set_pixel_unchecked(tx, ty, max_val);
         }
     }
     for tx in 0..map_w {
         for ty in ny..map_h {
             let src_y = if ny > 0 { ny - 1 } else { 0 };
-            let min_val = unsafe { min_mut.get_pixel_unchecked(tx, src_y) };
-            let max_val = unsafe { max_mut.get_pixel_unchecked(tx, src_y) };
-            unsafe {
-                min_mut.set_pixel_unchecked(tx, ty, min_val);
-                max_mut.set_pixel_unchecked(tx, ty, max_val);
-            }
+            let min_val = min_mut.get_pixel_unchecked(tx, src_y);
+            let max_val = max_mut.get_pixel_unchecked(tx, src_y);
+            min_mut.set_pixel_unchecked(tx, ty, min_val);
+            max_mut.set_pixel_unchecked(tx, ty, max_val);
         }
     }
 
@@ -808,18 +800,16 @@ fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(
 
     for y in 0..h {
         for x in 0..w {
-            let min_val = unsafe { pix_min.get_pixel_unchecked(x, y) };
-            let max_val = unsafe { pix_max.get_pixel_unchecked(x, y) };
+            let min_val = pix_min.get_pixel_unchecked(x, y);
+            let max_val = pix_max.get_pixel_unchecked(x, y);
 
             // Values have been offset by 1, so subtract to get actual diff
             let actual_min = min_val.saturating_sub(1);
             let actual_max = max_val.saturating_sub(1);
 
             if actual_max.saturating_sub(actual_min) < min_diff {
-                unsafe {
-                    min_mut.set_pixel_unchecked(x, y, 0);
-                    max_mut.set_pixel_unchecked(x, y, 0);
-                }
+                min_mut.set_pixel_unchecked(x, y, 0);
+                max_mut.set_pixel_unchecked(x, y, 0);
             }
         }
     }
@@ -848,8 +838,8 @@ fn linear_trc_tiled(
 
     for ty in 0..map_h {
         for tx in 0..map_w {
-            let min_val = unsafe { pix_min.get_pixel_unchecked(tx, ty) }.saturating_sub(1);
-            let max_val = unsafe { pix_max.get_pixel_unchecked(tx, ty) }.saturating_sub(1);
+            let min_val = pix_min.get_pixel_unchecked(tx, ty).saturating_sub(1);
+            let max_val = pix_max.get_pixel_unchecked(tx, ty).saturating_sub(1);
 
             if max_val <= min_val {
                 continue; // Skip tiles with no contrast
@@ -881,10 +871,10 @@ fn linear_trc_tiled(
 
             for y in y_start..y_end {
                 for x in x_start..x_end {
-                    let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                    let val = pix.get_pixel_unchecked(x, y);
                     let shifted = val.saturating_sub(min_val) as usize;
                     let mapped = lut[shifted.min(255)];
-                    unsafe { out_mut.set_pixel_unchecked(x, y, mapped as u32) };
+                    out_mut.set_pixel_unchecked(x, y, mapped as u32);
                 }
             }
         }
@@ -916,7 +906,7 @@ mod tests {
                 } else {
                     bg
                 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val.min(255)) };
+                pix_mut.set_pixel_unchecked(x, y, val.min(255));
             }
         }
 
@@ -933,7 +923,7 @@ mod tests {
                 let g = (150 + y).min(255) as u8;
                 let b = 180u8;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -949,7 +939,7 @@ mod tests {
             for x in 0..40 {
                 // Values between 100 and 120
                 let val = 100 + ((x + y) % 20);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -1082,7 +1072,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..20 {
             for x in 0..20 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 128) };
+                pix_mut.set_pixel_unchecked(x, y, 128);
             }
         }
         let pix = pix_mut.into();
@@ -1091,7 +1081,7 @@ mod tests {
         // Uniform input should give uniform output
         for y in 0..20 {
             for x in 0..20 {
-                let val = unsafe { result.get_pixel_unchecked(x, y) };
+                let val = result.get_pixel_unchecked(x, y);
                 assert!((127..=129).contains(&val), "Expected ~128, got {}", val);
             }
         }
@@ -1103,10 +1093,9 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
 
         // Set some values, leave others as holes (0)
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 100);
-            pix_mut.set_pixel_unchecked(4, 4, 200);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 100);
+        pix_mut.set_pixel_unchecked(4, 4, 200);
+
         let pix = pix_mut.into();
 
         let filled = fill_map_holes(&pix, 5, 5).unwrap();
@@ -1114,7 +1103,7 @@ mod tests {
         // Check that holes are filled
         for y in 0..5 {
             for x in 0..5 {
-                let val = unsafe { filled.get_pixel_unchecked(x, y) };
+                let val = filled.get_pixel_unchecked(x, y);
                 assert!(val > 0, "Hole at ({}, {}) not filled", x, y);
             }
         }

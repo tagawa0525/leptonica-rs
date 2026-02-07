@@ -273,26 +273,24 @@ impl FPix {
 
     /// Get the pixel value at (x, y) without bounds checking
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// The caller must ensure that `x < width` and `y < height`.
+    /// Panics if `x >= width` or `y >= height`.
     #[inline]
-    pub unsafe fn get_pixel_unchecked(&self, x: u32, y: u32) -> f32 {
+    pub fn get_pixel_unchecked(&self, x: u32, y: u32) -> f32 {
         let idx = (y as usize) * (self.width as usize) + (x as usize);
-        // SAFETY: Caller guarantees x < width and y < height
-        unsafe { *self.data.get_unchecked(idx) }
+        self.data[idx]
     }
 
     /// Set the pixel value at (x, y) without bounds checking
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// The caller must ensure that `x < width` and `y < height`.
+    /// Panics if `x >= width` or `y >= height`.
     #[inline]
-    pub unsafe fn set_pixel_unchecked(&mut self, x: u32, y: u32, value: f32) {
+    pub fn set_pixel_unchecked(&mut self, x: u32, y: u32, value: f32) {
         let idx = (y as usize) * (self.width as usize) + (x as usize);
-        // SAFETY: Caller guarantees x < width and y < height
-        unsafe { *self.data.get_unchecked_mut(idx) = value };
+        self.data[idx] = value;
     }
 
     /// Get raw access to the pixel data

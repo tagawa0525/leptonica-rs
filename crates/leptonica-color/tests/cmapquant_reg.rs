@@ -74,7 +74,7 @@ fn convert_gray_to_rgb(pix: &Pix) -> Pix {
         for x in 0..w {
             let gray = pix.get_pixel(x, y).unwrap_or(0) as u8;
             let pixel = color::compose_rgb(gray, gray, gray);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
     out_mut.into()
@@ -96,7 +96,7 @@ fn create_synthetic_text_image(w: u32, h: u32) -> Pix {
                 (200 + ((x * 3 + y * 7) % 56)) as u8
             };
             let pixel = color::compose_rgb(gray, gray, gray);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
     out_mut.into()
@@ -114,7 +114,7 @@ fn apply_color_to_region(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32, r: u8, g: 
 
     for y in 0..ph {
         for x in 0..pw {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (pr, pg, pb) = color::extract_rgb(pixel);
 
             let new_pixel = if x >= x0 && x < x0 + w && y >= y0 && y < y0 + h {
@@ -135,7 +135,7 @@ fn apply_color_to_region(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32, r: u8, g: 
                 pixel
             };
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_pixel) };
+            out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
     out_mut.into()
@@ -341,10 +341,10 @@ fn expand_colormap_to_rgb(pix: &Pix) -> Pix {
 
     for y in 0..h {
         for x in 0..w {
-            let idx = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+            let idx = pix.get_pixel_unchecked(x, y) as usize;
             let (r, g, b) = cmap.get_rgb(idx).unwrap_or((0, 0, 0));
             let pixel = color::compose_rgb(r, g, b);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
     out_mut.into()
@@ -612,7 +612,7 @@ fn create_3color_image(w: u32, h: u32) -> Pix {
             } else {
                 color::compose_rgb(0, 0, 255)
             };
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
     out_mut.into()
@@ -627,7 +627,7 @@ fn create_gray_gradient(w: u32, h: u32) -> Pix {
         for x in 0..w {
             let gray = ((x * 255) / w.max(1)) as u8;
             let pixel = color::compose_rgb(gray, gray, gray);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
     out_mut.into()
