@@ -19,104 +19,13 @@
 //! ```
 
 use leptonica_core::{Pix, PixelDepth};
-use leptonica_region::{ConnectivityType, find_connected_components, label_connected_components};
+use leptonica_region::{
+    ConnectivityType, SizeSelectRelation, SizeSelectType, find_connected_components,
+    pix_select_by_size,
+};
 use leptonica_test::{RegParams, load_test_image};
 
 const CONNECTIVITY: ConnectivityType = ConnectivityType::EightWay;
-
-/// Selection type for component filtering by bounding box dimensions
-#[derive(Debug, Clone, Copy)]
-enum SelectType {
-    /// Select if BOTH width and height satisfy the relation
-    IfBoth,
-    /// Select if EITHER width or height satisfies the relation
-    IfEither,
-}
-
-/// Selection relation for component filtering
-#[derive(Debug, Clone, Copy)]
-enum SelectRelation {
-    /// Select if greater than or equal to threshold
-    Gte,
-    /// Select if less than or equal to threshold
-    Lte,
-}
-
-/// Implements pixSelectBySize logic from C Leptonica (pixafunc1.c).
-///
-/// Given a binary image, finds connected components and keeps only those
-/// whose bounding box dimensions satisfy the given size constraint.
-/// Returns a new binary image with only the selected components.
-///
-/// Uses labeled image to correctly identify which pixels belong to each
-/// component (avoids accidentally merging components with overlapping
-/// bounding boxes).
-fn pix_select_by_size(
-    pixs: &Pix,
-    width_thresh: i32,
-    height_thresh: i32,
-    connectivity: ConnectivityType,
-    select_type: SelectType,
-    relation: SelectRelation,
-) -> Pix {
-    assert_eq!(pixs.depth(), PixelDepth::Bit1);
-
-    let w = pixs.width();
-    let h = pixs.height();
-
-    // Find connected components with bounding boxes
-    let components =
-        find_connected_components(pixs, connectivity).expect("find_connected_components failed");
-
-    if components.is_empty() {
-        return pixs.clone();
-    }
-
-    // Also get the labeled image so we can identify which component each pixel belongs to
-    let labeled =
-        label_connected_components(pixs, connectivity).expect("label_connected_components failed");
-
-    // Build a set of labels to keep
-    let mut keep_labels = std::collections::HashSet::new();
-
-    for comp in &components {
-        let cw = comp.bounds.w; // bounding box width
-        let ch = comp.bounds.h; // bounding box height
-
-        let keep = match (select_type, relation) {
-            (SelectType::IfBoth, SelectRelation::Gte) => cw >= width_thresh && ch >= height_thresh,
-            (SelectType::IfBoth, SelectRelation::Lte) => cw <= width_thresh && ch <= height_thresh,
-            (SelectType::IfEither, SelectRelation::Gte) => {
-                cw >= width_thresh || ch >= height_thresh
-            }
-            (SelectType::IfEither, SelectRelation::Lte) => {
-                cw <= width_thresh || ch <= height_thresh
-            }
-        };
-
-        if keep {
-            keep_labels.insert(comp.label);
-        }
-    }
-
-    // Create output image using labeled image to selectively copy pixels
-    let mut output = Pix::new(w, h, PixelDepth::Bit1)
-        .unwrap()
-        .try_into_mut()
-        .unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 && keep_labels.contains(&label) {
-                    let _ = output.set_pixel(x, y, 1);
-                }
-            }
-        }
-    }
-
-    output.into()
-}
 
 /// Count connected components in a binary image
 fn count_components(pix: &Pix, connectivity: ConnectivityType) -> usize {
@@ -179,9 +88,10 @@ fn pixa1_reg() {
             size,
             size,
             CONNECTIVITY,
-            SelectType::IfBoth,
-            SelectRelation::Gte,
-        );
+            SizeSelectType::IfBoth,
+            SizeSelectRelation::Gte,
+        )
+        .expect("pix_select_by_size failed");
         let n = count_components(&pixd, CONNECTIVITY);
         nay1_gte_both.push(n);
         if i <= 5 || i % 10 == 0 {
@@ -202,9 +112,10 @@ fn pixa1_reg() {
             size,
             size,
             CONNECTIVITY,
-            SelectType::IfEither,
-            SelectRelation::Gte,
-        );
+            SizeSelectType::IfEither,
+            SizeSelectRelation::Gte,
+        )
+        .expect("pix_select_by_size failed");
         let n = count_components(&pixd, CONNECTIVITY);
         nay2_gte_either.push(n);
         if i <= 5 || i % 10 == 0 {
@@ -233,9 +144,10 @@ fn pixa1_reg() {
             size,
             size,
             CONNECTIVITY,
-            SelectType::IfBoth,
-            SelectRelation::Lte,
-        );
+            SizeSelectType::IfBoth,
+            SizeSelectRelation::Lte,
+        )
+        .expect("pix_select_by_size failed");
         let n = count_components(&pixd, CONNECTIVITY);
         nay1_lte_both.push(n);
         if i <= 5 || i % 10 == 0 {
@@ -256,9 +168,10 @@ fn pixa1_reg() {
             size,
             size,
             CONNECTIVITY,
-            SelectType::IfEither,
-            SelectRelation::Lte,
-        );
+            SizeSelectType::IfEither,
+            SizeSelectRelation::Lte,
+        )
+        .expect("pix_select_by_size failed");
         let n = count_components(&pixd, CONNECTIVITY);
         nay2_lte_either.push(n);
         if i <= 5 || i % 10 == 0 {
@@ -558,9 +471,10 @@ fn pixa1_select_by_size_validation() {
         10,
         10,
         CONNECTIVITY,
-        SelectType::IfBoth,
-        SelectRelation::Gte,
-    );
+        SizeSelectType::IfBoth,
+        SizeSelectRelation::Gte,
+    )
+    .expect("pix_select_by_size failed");
 
     // Output should be same dimensions as input
     assert_eq!(pixd.width(), pixs.width());
@@ -591,9 +505,10 @@ fn pixa1_select_by_size_validation() {
         5,
         5,
         CONNECTIVITY,
-        SelectType::IfBoth,
-        SelectRelation::Lte,
-    );
+        SizeSelectType::IfBoth,
+        SizeSelectRelation::Lte,
+    )
+    .expect("pix_select_by_size failed");
 
     let small_components = find_connected_components(&pixd_small, CONNECTIVITY)
         .expect("find_connected_components on small filtered result failed");

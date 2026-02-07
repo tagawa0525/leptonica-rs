@@ -63,6 +63,7 @@ pub mod label;
 pub mod maze;
 pub mod quadtree;
 pub mod seedfill;
+pub mod select;
 pub mod watershed;
 
 // Re-export core types
@@ -100,6 +101,9 @@ pub use ccbord::{
     get_all_borders, get_component_borders, get_outer_border, get_outer_borders, render_borders,
     to_chain_code,
 };
+
+// Re-export select types and functions
+pub use select::{SizeSelectRelation, SizeSelectType, pix_select_by_size};
 
 // Re-export quadtree types and functions
 pub use quadtree::{
