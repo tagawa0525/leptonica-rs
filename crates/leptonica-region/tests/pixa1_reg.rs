@@ -126,7 +126,6 @@ fn count_components(pix: &Pix, connectivity: ConnectivityType) -> usize {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa1_reg() {
     let mut rp = RegParams::new("pixa1");
 
@@ -425,7 +424,6 @@ fn pixa1_reg() {
 /// Test basic Pixa operations that the C test uses implicitly
 /// (pixaCreate, pixaAddPix, pixaGetCount, etc.)
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa1_basic_pixa_ops() {
     use leptonica_core::Pixa;
 
@@ -470,7 +468,6 @@ fn pixa1_basic_pixa_ops() {
 /// Test connected component finding with bounding box info,
 /// which is the foundation of pixSelectBySize
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa1_conncomp_with_boxes() {
     let mut rp = RegParams::new("pixa1_conncomp");
 
@@ -545,7 +542,6 @@ fn pixa1_conncomp_with_boxes() {
 /// Test that pix_select_by_size produces valid binary output
 /// and preserves only the correct components
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa1_select_by_size_validation() {
     let mut rp = RegParams::new("pixa1_selsize");
 

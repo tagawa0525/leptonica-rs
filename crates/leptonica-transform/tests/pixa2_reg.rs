@@ -73,7 +73,6 @@ fn collect_test_images() -> Vec<&'static str> {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg() {
     let mut rp = RegParams::new("pixa2");
 
@@ -281,7 +280,6 @@ fn pixa2_reg() {
 
 /// Test pixaExtendArrayToSize (Pixa::extend_to_size) in isolation
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_extend_array_to_size() {
     let mut rp = RegParams::new("pixa2_extend");
 
@@ -315,7 +313,6 @@ fn pixa2_extend_array_to_size() {
 
 /// Test pixaInitFull (Pixa::init_full) in isolation
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_init_full() {
     let mut rp = RegParams::new("pixa2_initfull");
 
@@ -386,7 +383,6 @@ fn pixa2_init_full() {
 
 /// Test pixaReplacePix (Pixa::replace) in isolation
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_replace_pix() {
     let mut rp = RegParams::new("pixa2_replace");
 
@@ -464,7 +460,6 @@ fn pixa2_replace_pix() {
 /// serialization (pixaRead/pixaWrite) is not implemented in Rust,
 /// we test individual image I/O round-trips through the Pixa.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_io_roundtrip() {
     let mut rp = RegParams::new("pixa2_io");
 
@@ -518,7 +513,6 @@ fn pixa2_io_roundtrip() {
 /// This tests the exact sequence from the C test:
 ///   pixaCreate(1) -> pixaExtendArrayToSize(n) -> pixaInitFull(pix) -> pixaReplacePix(...)
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_full_sequence() {
     let mut rp = RegParams::new("pixa2_sequence");
 
