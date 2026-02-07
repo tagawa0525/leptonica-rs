@@ -92,7 +92,7 @@ pub fn read_gif<R: Read>(reader: R) -> IoResult<Pix> {
             let idx = (y * width + x) as usize;
             if idx < buffer.len() {
                 let val = buffer[idx] as u32;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -208,7 +208,7 @@ fn clone_pix(pix: &Pix) -> IoResult<Pix> {
     for y in 0..pix.height() {
         for x in 0..pix.width() {
             if let Some(val) = pix.get_pixel(x, y) {
-                unsafe { new_mut.set_pixel_unchecked(x, y, val) };
+                new_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -250,7 +250,7 @@ fn create_grayscale_colormapped_pix(pix: &Pix) -> IoResult<(Pix, PixColormap)> {
     for y in 0..pix.height() {
         for x in 0..pix.width() {
             if let Some(val) = pix.get_pixel(x, y) {
-                unsafe { new_mut.set_pixel_unchecked(x, y, val) };
+                new_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -279,7 +279,7 @@ fn convert_16bpp_to_8bpp_grayscale(pix: &Pix) -> IoResult<(Pix, PixColormap)> {
             if let Some(val16) = pix.get_pixel(x, y) {
                 // Scale 16-bit to 8-bit
                 let val8 = val16 >> 8;
-                unsafe { new_mut.set_pixel_unchecked(x, y, val8) };
+                new_mut.set_pixel_unchecked(x, y, val8);
             }
         }
     }
@@ -518,7 +518,7 @@ mod tests {
                 let g = (y * 16) as u8;
                 let b = 128u8;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 

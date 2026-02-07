@@ -32,14 +32,14 @@ pub fn convolve_gray(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
                     let sx = sx.clamp(0, w as i32 - 1) as u32;
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
-                    let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) } as f32;
+                    let pixel = pix.get_pixel_unchecked(sx, sy) as f32;
                     let k = kernel.get(kx, ky).unwrap_or(0.0);
                     sum += pixel * k;
                 }
             }
 
             let result = sum.round().clamp(0.0, 255.0) as u32;
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -76,7 +76,7 @@ pub fn convolve_color(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
                     let sx = sx.clamp(0, w as i32 - 1) as u32;
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
-                    let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) };
+                    let pixel = pix.get_pixel_unchecked(sx, sy);
                     let (r, g, b, a) = color::extract_rgba(pixel);
                     let k = kernel.get(kx, ky).unwrap_or(0.0);
 
@@ -93,7 +93,7 @@ pub fn convolve_color(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
             let a = sum_a.round().clamp(0.0, 255.0) as u8;
 
             let result = color::compose_rgba(r, g, b, a);
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -165,7 +165,7 @@ mod tests {
         for y in 0..5 {
             for x in 0..5 {
                 let val = x * 50 + y * 10;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -182,7 +182,7 @@ mod tests {
                 let g = (y * 50) as u8;
                 let b = 128;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -200,8 +200,8 @@ mod tests {
         // Should be identical
         for y in 0..5 {
             for x in 0..5 {
-                let orig = unsafe { pix.get_pixel_unchecked(x, y) };
-                let conv = unsafe { result.get_pixel_unchecked(x, y) };
+                let orig = pix.get_pixel_unchecked(x, y);
+                let conv = result.get_pixel_unchecked(x, y);
                 assert_eq!(orig, conv);
             }
         }

@@ -27,9 +27,9 @@ pub fn threshold_to_binary(pix: &Pix, threshold: u8) -> ColorResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { gray_pix.get_pixel_unchecked(x, y) } as u8;
+            let pixel = gray_pix.get_pixel_unchecked(x, y) as u8;
             let binary = if pixel >= threshold { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, binary) };
+            out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
 
@@ -59,7 +59,7 @@ pub fn compute_otsu_threshold(pix: &Pix) -> ColorResult<u8> {
     let mut histogram = [0u32; 256];
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { gray_pix.get_pixel_unchecked(x, y) } as usize;
+            let pixel = gray_pix.get_pixel_unchecked(x, y) as usize;
             histogram[pixel] += 1;
         }
     }
@@ -181,9 +181,9 @@ pub fn adaptive_threshold(pix: &Pix, options: &AdaptiveThresholdOptions) -> Colo
             let local_mean = compute_mean_from_integral(&integral, w, x0, y0, x1, y1);
             let threshold = (local_mean - options.c).max(0.0);
 
-            let pixel = unsafe { gray_pix.get_pixel_unchecked(x, y) } as f32;
+            let pixel = gray_pix.get_pixel_unchecked(x, y) as f32;
             let binary = if pixel >= threshold { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, binary) };
+            out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
 
@@ -198,7 +198,7 @@ fn build_integral_image(pix: &Pix) -> Vec<u64> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x as u32, y as u32) } as u64;
+            let pixel = pix.get_pixel_unchecked(x as u32, y as u32) as u64;
             let idx = (y + 1) * (w + 1) + (x + 1);
             integral[idx] =
                 pixel + integral[y * (w + 1) + (x + 1)] + integral[(y + 1) * (w + 1) + x]
@@ -270,9 +270,9 @@ pub fn sauvola_threshold(pix: &Pix, window_size: u32, k: f32, r: f32) -> ColorRe
 
             let threshold = mean * (1.0 + k * (std_dev / r - 1.0));
 
-            let pixel = unsafe { gray_pix.get_pixel_unchecked(x, y) } as f32;
+            let pixel = gray_pix.get_pixel_unchecked(x, y) as f32;
             let binary = if pixel >= threshold { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, binary) };
+            out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
 
@@ -286,7 +286,7 @@ fn build_integral_image_squared(pix: &Pix) -> Vec<u64> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x as u32, y as u32) } as u64;
+            let pixel = pix.get_pixel_unchecked(x as u32, y as u32) as u64;
             let pixel_sq = pixel * pixel;
             let idx = (y + 1) * (w + 1) + (x + 1);
             integral[idx] =
@@ -344,7 +344,7 @@ pub fn dither_to_binary_with_threshold(pix: &Pix, threshold: u8) -> ColorResult<
     let mut buffer: Vec<f32> = Vec::with_capacity((w * h) as usize);
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { gray_pix.get_pixel_unchecked(x, y) } as f32;
+            let pixel = gray_pix.get_pixel_unchecked(x, y) as f32;
             buffer.push(pixel);
         }
     }
@@ -362,7 +362,7 @@ pub fn dither_to_binary_with_threshold(pix: &Pix, threshold: u8) -> ColorResult<
             // Quantize
             let new_pixel = if old_pixel >= threshold { 255.0 } else { 0.0 };
             let binary = if new_pixel > 0.0 { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, binary) };
+            out_mut.set_pixel_unchecked(x, y, binary);
 
             // Compute error
             let error = old_pixel - new_pixel;
@@ -422,14 +422,14 @@ pub fn ordered_dither(pix: &Pix, matrix_size: u32) -> ColorResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { gray_pix.get_pixel_unchecked(x, y) } as f32;
+            let pixel = gray_pix.get_pixel_unchecked(x, y) as f32;
 
             let mx = (x as usize) % n;
             let my = (y as usize) % n;
             let threshold = matrix[my * n + mx] as f32 * scale;
 
             let binary = if pixel >= threshold { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, binary) };
+            out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
 
@@ -472,7 +472,7 @@ mod tests {
         let pix = Pix::new(256, 1, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
         for x in 0..256u32 {
-            unsafe { pix_mut.set_pixel_unchecked(x, 0, x) };
+            pix_mut.set_pixel_unchecked(x, 0, x);
         }
         pix_mut.into()
     }
@@ -487,7 +487,7 @@ mod tests {
                 // Left half: dark (around 50)
                 // Right half: light (around 200)
                 let val = if x < 50 { 50 } else { 200 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
         pix_mut.into()
@@ -502,10 +502,10 @@ mod tests {
         assert_eq!(binary.width(), 256);
 
         // Pixels 0-127 should be 0 (black), 128-255 should be 1 (white)
-        assert_eq!(unsafe { binary.get_pixel_unchecked(0, 0) }, 0);
-        assert_eq!(unsafe { binary.get_pixel_unchecked(127, 0) }, 0);
-        assert_eq!(unsafe { binary.get_pixel_unchecked(128, 0) }, 1);
-        assert_eq!(unsafe { binary.get_pixel_unchecked(255, 0) }, 1);
+        assert_eq!(binary.get_pixel_unchecked(0, 0), 0);
+        assert_eq!(binary.get_pixel_unchecked(127, 0), 0);
+        assert_eq!(binary.get_pixel_unchecked(128, 0), 1);
+        assert_eq!(binary.get_pixel_unchecked(255, 0), 1);
     }
 
     #[test]
@@ -534,8 +534,8 @@ mod tests {
         // pixels with value 50 should be black (0)
         // Since right half has value 200 and threshold is < 200,
         // pixels with value 200 should be white (1)
-        let left_val = unsafe { binary.get_pixel_unchecked(25, 50) };
-        let right_val = unsafe { binary.get_pixel_unchecked(75, 50) };
+        let left_val = binary.get_pixel_unchecked(25, 50);
+        let right_val = binary.get_pixel_unchecked(75, 50);
 
         // Left (value 50) should be black if threshold > 50
         assert_eq!(
@@ -558,7 +558,7 @@ mod tests {
 
         for y in 0..50 {
             for x in 0..50 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 128) };
+                pix_mut.set_pixel_unchecked(x, y, 128);
             }
         }
 
@@ -601,7 +601,7 @@ mod tests {
 
         for y in 0..32 {
             for x in 0..32 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 128) };
+                pix_mut.set_pixel_unchecked(x, y, 128);
             }
         }
 
@@ -625,7 +625,7 @@ mod tests {
             for x in 0..10 {
                 let gray = (x * 25) as u8;
                 let pixel = color::compose_rgb(gray, gray, gray);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 

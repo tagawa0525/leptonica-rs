@@ -375,10 +375,10 @@ pub fn pix_convert_to_gray(pix: &Pix) -> ColorResult<Pix> {
 
             for y in 0..h {
                 for x in 0..w {
-                    let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+                    let pixel = pix.get_pixel_unchecked(x, y);
                     let (r, g, b) = color::extract_rgb(pixel);
                     let gray = rgb_to_gray(r, g, b);
-                    unsafe { out_mut.set_pixel_unchecked(x, y, gray as u32) };
+                    out_mut.set_pixel_unchecked(x, y, gray as u32);
                 }
             }
 
@@ -409,7 +409,7 @@ pub fn pix_extract_channel(pix: &Pix, channel: ColorChannel) -> ColorResult<Pix>
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b, a) = color::extract_rgba(pixel);
 
             let value = match channel {
@@ -431,7 +431,7 @@ pub fn pix_extract_channel(pix: &Pix, channel: ColorChannel) -> ColorResult<Pix>
                 }
             };
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, value as u32) };
+            out_mut.set_pixel_unchecked(x, y, value as u32);
         }
     }
 
@@ -458,7 +458,7 @@ pub fn pix_convert_rgb_to_hsv(pix: &Pix) -> ColorResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b, a) = color::extract_rgba(pixel);
             let hsv = rgb_to_hsv(r, g, b);
 
@@ -467,7 +467,7 @@ pub fn pix_convert_rgb_to_hsv(pix: &Pix) -> ColorResult<Pix> {
             let v_val = (hsv.v * 255.0).round() as u8;
 
             let result = color::compose_rgba(h_val, s_val, v_val, a);
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -494,7 +494,7 @@ pub fn pix_convert_hsv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (h_val, s_val, v_val, a) = color::extract_rgba(pixel);
 
             let hsv = Hsv::new(
@@ -505,7 +505,7 @@ pub fn pix_convert_hsv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
             let (r, g, b) = hsv_to_rgb(hsv);
 
             let result = color::compose_rgba(r, g, b, a);
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -710,7 +710,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let pixel = color::compose_rgb(100, 150, 200);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -718,7 +718,7 @@ mod tests {
         assert_eq!(gray_pix.depth(), PixelDepth::Bit8);
 
         let expected_gray = rgb_to_gray(100, 150, 200);
-        let actual = unsafe { gray_pix.get_pixel_unchecked(5, 5) } as u8;
+        let actual = gray_pix.get_pixel_unchecked(5, 5) as u8;
         assert_eq!(actual, expected_gray);
     }
 
@@ -730,23 +730,20 @@ mod tests {
         let pixel = color::compose_rgba(100, 150, 200, 255);
         for y in 0..5 {
             for x in 0..5 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
         let pix = pix_mut.into();
 
         let red_channel = pix_extract_channel(&pix, ColorChannel::Red).unwrap();
-        assert_eq!(unsafe { red_channel.get_pixel_unchecked(0, 0) } as u8, 100);
+        assert_eq!(red_channel.get_pixel_unchecked(0, 0) as u8, 100);
 
         let green_channel = pix_extract_channel(&pix, ColorChannel::Green).unwrap();
-        assert_eq!(
-            unsafe { green_channel.get_pixel_unchecked(0, 0) } as u8,
-            150
-        );
+        assert_eq!(green_channel.get_pixel_unchecked(0, 0) as u8, 150);
 
         let blue_channel = pix_extract_channel(&pix, ColorChannel::Blue).unwrap();
-        assert_eq!(unsafe { blue_channel.get_pixel_unchecked(0, 0) } as u8, 200);
+        assert_eq!(blue_channel.get_pixel_unchecked(0, 0) as u8, 200);
     }
 
     #[test]
@@ -757,7 +754,7 @@ mod tests {
         let pixel = color::compose_rgb(200, 100, 50);
         for y in 0..5 {
             for x in 0..5 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -765,8 +762,8 @@ mod tests {
         let hsv_pix = pix_convert_rgb_to_hsv(&pix).unwrap();
         let rgb_pix = pix_convert_hsv_to_rgb(&hsv_pix).unwrap();
 
-        let original = unsafe { pix.get_pixel_unchecked(0, 0) };
-        let converted = unsafe { rgb_pix.get_pixel_unchecked(0, 0) };
+        let original = pix.get_pixel_unchecked(0, 0);
+        let converted = rgb_pix.get_pixel_unchecked(0, 0);
 
         let (r1, g1, b1) = color::extract_rgb(original);
         let (r2, g2, b2) = color::extract_rgb(converted);

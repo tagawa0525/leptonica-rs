@@ -42,6 +42,14 @@ mod magic {
     pub const PBM_BINARY: &[u8] = b"P4";
     pub const PGM_BINARY: &[u8] = b"P5";
     pub const PPM_BINARY: &[u8] = b"P6";
+
+    /// JPEG 2000 Part 1 (JP2) signature box
+    /// Starts with: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
+    pub const JP2_SIGNATURE: &[u8] = &[0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20];
+
+    /// JPEG 2000 codestream (J2K) signature
+    /// Starts with: FF 4F FF 51
+    pub const J2K_SIGNATURE: &[u8] = &[0xFF, 0x4F, 0xFF, 0x51];
 }
 
 /// Detect image format from a file path
@@ -88,6 +96,14 @@ pub fn detect_format_from_bytes(data: &[u8]) -> IoResult<ImageFormat> {
     // Check WebP (RIFF....WEBP)
     if data.len() >= 12 && data.starts_with(magic::RIFF) && &data[8..12] == magic::WEBP {
         return Ok(ImageFormat::WebP);
+    }
+
+    // Check JPEG 2000 (JP2 container or J2K codestream)
+    if data.len() >= 8 && data.starts_with(magic::JP2_SIGNATURE) {
+        return Ok(ImageFormat::Jp2);
+    }
+    if data.len() >= 4 && data.starts_with(magic::J2K_SIGNATURE) {
+        return Ok(ImageFormat::Jp2);
     }
 
     // Check PNM formats
@@ -165,5 +181,21 @@ mod tests {
     fn test_detect_unknown() {
         let data = b"UNKNOWN_FORMAT";
         assert!(detect_format_from_bytes(data).is_err());
+    }
+
+    #[test]
+    fn test_detect_jp2() {
+        // JP2 signature box
+        let data = [
+            0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A,
+        ];
+        assert_eq!(detect_format_from_bytes(&data).unwrap(), ImageFormat::Jp2);
+    }
+
+    #[test]
+    fn test_detect_j2k() {
+        // J2K codestream signature
+        let data = [0xFF, 0x4F, 0xFF, 0x51, 0x00, 0x00, 0x00, 0x00];
+        assert_eq!(detect_format_from_bytes(&data).unwrap(), ImageFormat::Jp2);
     }
 }

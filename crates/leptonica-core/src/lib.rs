@@ -4,21 +4,36 @@
 //! the Leptonica image processing library:
 //!
 //! - [`Pix`] - The main image container
+//! - [`Pixa`] / [`Pixaa`] - Arrays of images
 //! - [`Box`] / [`Boxa`] - Rectangle regions
 //! - [`Pta`] / [`Ptaa`] - Point arrays
+//! - [`Numa`] / [`Numaa`] - Numeric arrays
+//! - [`Sarray`] / [`Sarraya`] - String arrays
+//! - [`FPix`] - Floating-point image
 //! - [`PixColormap`] - Color palette for indexed images
 
 pub mod box_;
 pub mod colormap;
 pub mod error;
+pub mod fpix;
+pub mod numa;
 pub mod pix;
+pub mod pixa;
 pub mod pta;
+pub mod sarray;
 
 pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::PixColormap;
 pub use error::{Error, Result};
-pub use pix::{ImageFormat, Pix, PixMut, PixelDepth};
+pub use fpix::{FPix, NegativeHandling};
+pub use numa::{HistogramResult, HistogramStats, Numa, Numaa, WindowedStats};
+pub use pix::{
+    Color, ColorHistogram, ContourOutput, ImageFormat, Pix, PixMut, PixelDepth, PixelOp, RopOp,
+    statistics::PixelMaxType,
+};
+pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
+pub use sarray::{Sarray, Sarraya};
 
 /// Color channel indices for 32-bit RGBA pixels
 pub mod color {

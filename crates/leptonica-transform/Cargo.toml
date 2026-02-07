@@ -9,3 +9,7 @@ repository.workspace = true
 [dependencies]
 leptonica-core.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+leptonica-io.workspace = true
+leptonica-test.workspace = true

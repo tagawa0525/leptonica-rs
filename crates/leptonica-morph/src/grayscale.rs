@@ -63,14 +63,14 @@ pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
                     let sy = y as i32 + dy;
 
                     if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                        let val = unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) } as u8;
+                        let val = pix.get_pixel_unchecked(sx as u32, sy as u32) as u8;
                         max_val = max_val.max(val);
                     }
                     // Out of bounds: treated as 0 (minimum), no contribution to max
                 }
             }
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, max_val as u32) };
+            out_mut.set_pixel_unchecked(x, y, max_val as u32);
         }
     }
 
@@ -123,14 +123,14 @@ pub fn erode_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
                     let sy = y as i32 + dy;
 
                     if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                        let val = unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) } as u8;
+                        let val = pix.get_pixel_unchecked(sx as u32, sy as u32) as u8;
                         min_val = min_val.min(val);
                     }
                     // Out of bounds: treated as 255 (maximum), no contribution to min
                 }
             }
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, min_val as u32) };
+            out_mut.set_pixel_unchecked(x, y, min_val as u32);
         }
     }
 
@@ -220,10 +220,10 @@ fn subtract_gray(a: &Pix, b: &Pix) -> MorphResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let va = unsafe { a.get_pixel_unchecked(x, y) } as i32;
-            let vb = unsafe { b.get_pixel_unchecked(x, y) } as i32;
+            let va = a.get_pixel_unchecked(x, y) as i32;
+            let vb = b.get_pixel_unchecked(x, y) as i32;
             let result = (va - vb).max(0) as u32;
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -275,14 +275,14 @@ mod tests {
         // Fill with dark background (50)
         for y in 0..9 {
             for x in 0..9 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 50) };
+                pix_mut.set_pixel_unchecked(x, y, 50);
             }
         }
 
         // Set bright center 3x3 (200)
         for y in 3..6 {
             for x in 3..6 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 200) };
+                pix_mut.set_pixel_unchecked(x, y, 200);
             }
         }
 
@@ -297,9 +297,10 @@ mod tests {
         // Should be identical
         for y in 0..9 {
             for x in 0..9 {
-                assert_eq!(unsafe { pix.get_pixel_unchecked(x, y) }, unsafe {
+                assert_eq!(
+                    pix.get_pixel_unchecked(x, y),
                     dilated.get_pixel_unchecked(x, y)
-                });
+                );
             }
         }
     }
@@ -312,9 +313,10 @@ mod tests {
         // Should be identical
         for y in 0..9 {
             for x in 0..9 {
-                assert_eq!(unsafe { pix.get_pixel_unchecked(x, y) }, unsafe {
+                assert_eq!(
+                    pix.get_pixel_unchecked(x, y),
                     eroded.get_pixel_unchecked(x, y)
-                });
+                );
             }
         }
     }
@@ -327,15 +329,15 @@ mod tests {
         // The bright center should expand
         // After 3x3 dilation, the 3x3 bright area should become 5x5
         // Pixels at (2,2) should now be bright (200)
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(2, 2) }, 200);
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(6, 6) }, 200);
+        assert_eq!(dilated.get_pixel_unchecked(2, 2), 200);
+        assert_eq!(dilated.get_pixel_unchecked(6, 6), 200);
 
         // Center should remain bright
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(4, 4) }, 200);
+        assert_eq!(dilated.get_pixel_unchecked(4, 4), 200);
 
         // Corners should remain dark
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(0, 0) }, 50);
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(8, 8) }, 50);
+        assert_eq!(dilated.get_pixel_unchecked(0, 0), 50);
+        assert_eq!(dilated.get_pixel_unchecked(8, 8), 50);
     }
 
     #[test]
@@ -344,11 +346,11 @@ mod tests {
         let eroded = erode_gray(&pix, 3, 3).unwrap();
 
         // The 3x3 bright center should shrink to 1x1 (just center pixel)
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(4, 4) }, 200);
+        assert_eq!(eroded.get_pixel_unchecked(4, 4), 200);
 
         // Adjacent pixels should now be dark (50)
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(3, 4) }, 50);
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(5, 4) }, 50);
+        assert_eq!(eroded.get_pixel_unchecked(3, 4), 50);
+        assert_eq!(eroded.get_pixel_unchecked(5, 4), 50);
     }
 
     #[test]
@@ -359,7 +361,7 @@ mod tests {
         // Opening should shrink then expand
         // The 3x3 bright region: erode makes it 1x1, dilate makes it 3x3
         // Center should remain bright
-        assert_eq!(unsafe { opened.get_pixel_unchecked(4, 4) }, 200);
+        assert_eq!(opened.get_pixel_unchecked(4, 4), 200);
     }
 
     #[test]
@@ -369,7 +371,7 @@ mod tests {
 
         // Closing should expand then shrink
         // The 3x3 bright region should be preserved
-        assert_eq!(unsafe { closed.get_pixel_unchecked(4, 4) }, 200);
+        assert_eq!(closed.get_pixel_unchecked(4, 4), 200);
     }
 
     #[test]
@@ -416,7 +418,7 @@ mod tests {
         // - dilated center: 200
         // - eroded center: 200 (only center survives)
         // So gradient at center should be 0
-        assert_eq!(unsafe { gradient.get_pixel_unchecked(4, 4) }, 0);
+        assert_eq!(gradient.get_pixel_unchecked(4, 4), 0);
     }
 
     #[test]
@@ -427,7 +429,7 @@ mod tests {
         // Top-hat extracts bright features smaller than SE
         // For our 3x3 SE and 3x3 bright region, the bright region
         // survives opening, so top-hat should be small
-        assert!(unsafe { tophat.get_pixel_unchecked(4, 4) } <= 200);
+        assert!(tophat.get_pixel_unchecked(4, 4) <= 200);
     }
 
     #[test]
@@ -439,7 +441,7 @@ mod tests {
         // Should be non-negative everywhere
         for y in 0..9 {
             for x in 0..9 {
-                assert!(unsafe { bottomhat.get_pixel_unchecked(x, y) } <= 255);
+                assert!(bottomhat.get_pixel_unchecked(x, y) <= 255);
             }
         }
     }
@@ -453,12 +455,12 @@ mod tests {
         // Fill with dark (0)
         for y in 0..7 {
             for x in 0..7 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 0) };
+                pix_mut.set_pixel_unchecked(x, y, 0);
             }
         }
 
         // Single bright pixel at center
-        unsafe { pix_mut.set_pixel_unchecked(3, 3, 255) };
+        pix_mut.set_pixel_unchecked(3, 3, 255);
         let pix: Pix = pix_mut.into();
 
         let dilated = dilate_gray(&pix, 3, 3).unwrap();
@@ -469,7 +471,7 @@ mod tests {
                 let x = (3 + dx) as u32;
                 let y = (3 + dy) as u32;
                 assert_eq!(
-                    unsafe { dilated.get_pixel_unchecked(x, y) },
+                    dilated.get_pixel_unchecked(x, y),
                     255,
                     "Expected 255 at ({}, {})",
                     x,
@@ -479,6 +481,6 @@ mod tests {
         }
 
         // Corners should remain dark
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(0, 0) }, 0);
+        assert_eq!(dilated.get_pixel_unchecked(0, 0), 0);
     }
 }

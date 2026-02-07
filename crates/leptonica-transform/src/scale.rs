@@ -126,8 +126,8 @@ fn scale_by_sampling_impl(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<
             let src_x = ((x as f32 + 0.5) * scale_x) as u32;
             let src_x = src_x.min(w - 1);
 
-            let val = unsafe { pix.get_pixel_unchecked(src_x, src_y) };
-            unsafe { out_mut.set_pixel_unchecked(x, y, val) };
+            let val = pix.get_pixel_unchecked(src_x, src_y);
+            out_mut.set_pixel_unchecked(x, y, val);
         }
     }
 
@@ -173,14 +173,14 @@ fn scale_linear_color(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix>
             let fx = src_x - x0 as f32;
 
             // Get 4 corner pixels
-            let p00 = unsafe { pix.get_pixel_unchecked(x0, y0) };
-            let p10 = unsafe { pix.get_pixel_unchecked(x1, y0) };
-            let p01 = unsafe { pix.get_pixel_unchecked(x0, y1) };
-            let p11 = unsafe { pix.get_pixel_unchecked(x1, y1) };
+            let p00 = pix.get_pixel_unchecked(x0, y0);
+            let p10 = pix.get_pixel_unchecked(x1, y0);
+            let p01 = pix.get_pixel_unchecked(x0, y1);
+            let p11 = pix.get_pixel_unchecked(x1, y1);
 
             // Interpolate each channel
             let result = interpolate_color(p00, p10, p01, p11, fx, fy);
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -216,17 +216,17 @@ fn scale_linear_gray(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> 
             let fx = src_x - x0 as f32;
 
             // Get 4 corner pixels
-            let p00 = unsafe { pix.get_pixel_unchecked(x0, y0) } as f32;
-            let p10 = unsafe { pix.get_pixel_unchecked(x1, y0) } as f32;
-            let p01 = unsafe { pix.get_pixel_unchecked(x0, y1) } as f32;
-            let p11 = unsafe { pix.get_pixel_unchecked(x1, y1) } as f32;
+            let p00 = pix.get_pixel_unchecked(x0, y0) as f32;
+            let p10 = pix.get_pixel_unchecked(x1, y0) as f32;
+            let p01 = pix.get_pixel_unchecked(x0, y1) as f32;
+            let p11 = pix.get_pixel_unchecked(x1, y1) as f32;
 
             // Bilinear interpolation
             let top = p00 * (1.0 - fx) + p10 * fx;
             let bottom = p01 * (1.0 - fx) + p11 * fx;
             let result = (top * (1.0 - fy) + bottom * fy).round() as u32;
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -311,7 +311,7 @@ fn scale_area_map_color(
             let src_x_end = ((x + 1) as f32 * inv_scale_x).min(w as f32);
 
             let pixel = area_average_color(pix, src_x_start, src_y_start, src_x_end, src_y_end);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
 
@@ -344,7 +344,7 @@ fn scale_area_map_gray(
             let src_x_end = ((x + 1) as f32 * inv_scale_x).min(w as f32);
 
             let val = area_average_gray(pix, src_x_start, src_y_start, src_x_end, src_y_end);
-            unsafe { out_mut.set_pixel_unchecked(x, y, val as u32) };
+            out_mut.set_pixel_unchecked(x, y, val as u32);
         }
     }
 
@@ -388,7 +388,7 @@ fn area_average_color(pix: &Pix, x0: f32, y0: f32, x1: f32, y1: f32) -> u32 {
             };
 
             let weight = x_weight * y_weight;
-            let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) };
+            let pixel = pix.get_pixel_unchecked(sx, sy);
             let (r, g, b, a) = color::extract_rgba(pixel);
 
             sum_r += r as f32 * weight;
@@ -442,7 +442,7 @@ fn area_average_gray(pix: &Pix, x0: f32, y0: f32, x1: f32, y1: f32) -> u8 {
             };
 
             let weight = x_weight * y_weight;
-            let val = unsafe { pix.get_pixel_unchecked(sx, sy) };
+            let val = pix.get_pixel_unchecked(sx, sy);
             sum += val as f32 * weight;
             total_weight += weight;
         }
@@ -466,12 +466,10 @@ mod tests {
 
         // [10, 20]
         // [30, 40]
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 10);
-            pix_mut.set_pixel_unchecked(1, 0, 20);
-            pix_mut.set_pixel_unchecked(0, 1, 30);
-            pix_mut.set_pixel_unchecked(1, 1, 40);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 10);
+        pix_mut.set_pixel_unchecked(1, 0, 20);
+        pix_mut.set_pixel_unchecked(0, 1, 30);
+        pix_mut.set_pixel_unchecked(1, 1, 40);
 
         let pix: Pix = pix_mut.into();
         let scaled = scale(&pix, 2.0, 2.0, ScaleMethod::Sampling).unwrap();
@@ -486,7 +484,7 @@ mod tests {
 
         for y in 0..4 {
             for x in 0..4 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, x + y * 4) };
+                pix_mut.set_pixel_unchecked(x, y, x + y * 4);
             }
         }
 
@@ -517,12 +515,10 @@ mod tests {
         let black = color::compose_rgb(0, 0, 0);
         let white = color::compose_rgb(255, 255, 255);
 
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, black);
-            pix_mut.set_pixel_unchecked(1, 0, white);
-            pix_mut.set_pixel_unchecked(0, 1, white);
-            pix_mut.set_pixel_unchecked(1, 1, black);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, black);
+        pix_mut.set_pixel_unchecked(1, 0, white);
+        pix_mut.set_pixel_unchecked(0, 1, white);
+        pix_mut.set_pixel_unchecked(1, 1, black);
 
         let pix: Pix = pix_mut.into();
         let scaled = scale(&pix, 2.0, 2.0, ScaleMethod::Linear).unwrap();
@@ -540,7 +536,7 @@ mod tests {
         for y in 0..4 {
             for x in 0..4 {
                 let val = (x + y * 4) * 16;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -584,7 +580,7 @@ mod tests {
         for y in 0..4 {
             for x in 0..4 {
                 let val = (x + y) % 2;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 

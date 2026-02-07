@@ -82,20 +82,67 @@ feature-comparison-c-vs-rust.mdの未実装機能を、サブエージェント�
 
 feature-comparison-c-vs-rust.mdに基づく優先順位：
 
-1. **GIF I/O** (leptonica-io / gifio.c) - ✅ 完了
-2. **WebP I/O** (leptonica-io / webpio.c) - 待機中
-3. **グレースケール形態学** (leptonica-morph / graymorph.c) - 待機中
-4. **Pixa** (leptonica-core / pixabasic.c) - 待機中
-5. **Numa** (leptonica-core / numabasic.c) - 待機中
-6. **任意角度回転** (leptonica-transform / rotate.c, rotateam.c) - 待機中
-7. **アフィン変換** (leptonica-transform / affine.c) - 待機中
-8. **シアー変換** (leptonica-transform / shear.c) - 待機中
-9. **バイラテラルフィルタ** (leptonica-filter / bilateral.c) - 待機中
-10. **ランクフィルタ** (leptonica-filter / rank.c) - 待機中
-11. **色セグメンテーション** (leptonica-color / colorseg.c) - 待機中
-12. **画像比較** (leptonica-* / compare.c) - 待機中
-13. **画像合成/ブレンド** (leptonica-* / blend.c) - 待機中
-14. **論理演算** (leptonica-* / rop.c) - 待機中
+### Phase 1（完了）
+
+| # | 機能 | クレート | C版ソース | 状態 |
+| --- | ------ | --------- | ---------- | ------ |
+| 1 | GIF I/O | leptonica-io | gifio.c | ✅ 完了 |
+| 2 | WebP I/O | leptonica-io | webpio.c | ✅ 完了 |
+| 3 | グレースケール形態学 | leptonica-morph | graymorph.c | ✅ 完了 |
+| 4 | Pixa | leptonica-core | pixabasic.c | ✅ 完了 |
+| 5 | Numa | leptonica-core | numabasic.c | ✅ 完了 |
+| 6 | 任意角度回転 | leptonica-transform | rotate.c, rotateam.c | ✅ 完了 |
+| 7 | アフィン変換 | leptonica-transform | affine.c | ✅ 完了 |
+| 8 | シアー変換 | leptonica-transform | shear.c | ✅ 完了 |
+| 9 | バイラテラルフィルタ | leptonica-filter | bilateral.c | ✅ 完了 |
+| 10 | ランクフィルタ | leptonica-filter | rank.c | ✅ 完了 |
+| 11 | 色セグメンテーション | leptonica-color | colorseg.c | ✅ 完了 |
+| 12 | 画像比較 | leptonica-core | compare.c | ✅ 完了 |
+| 13 | 画像合成/ブレンド | leptonica-core | blend.c | ✅ 完了 |
+| 14 | 論理演算 | leptonica-core | rop.c | ✅ 完了 |
+
+### Phase 2（高優先度 - 基本機能の補完）
+
+| # | 機能 | クレート | C版ソース | 状態 |
+| --- | ------ | --------- | ---------- | ------ |
+| 15 | 算術演算 | leptonica-core | pixarith.c | ✅ 完了 |
+| 16 | FPix（浮動小数点画像） | leptonica-core | fpix1-2.c | ✅ 完了 |
+| 17 | 双線形変換 | leptonica-transform | bilinear.c | ✅ 完了 |
+| 18 | 射影変換 | leptonica-transform | projective.c | ✅ 完了 |
+| 19 | 適応マッピング | leptonica-filter | adaptmap.c | ✅ 完了 |
+| 20 | 境界追跡 | leptonica-region | ccbord.c | ✅ 完了 |
+
+### Phase 3（中優先度 - よく使われる機能）
+
+| # | 機能 | クレート | C版ソース | 状態 |
+| --- | ------ | --------- | ---------- | ------ |
+| 21 | カラー形態学 | leptonica-morph | colormorph.c | ✅ 完了 |
+| 22 | 細線化 | leptonica-morph | ccthin.c | ✅ 完了 |
+| 23 | シーケンス操作 | leptonica-morph | morphseq.c | ✅ 完了 |
+| 24 | 色塗りつぶし | leptonica-color | colorfill.c | ✅ 完了 |
+| 25 | 着色 | leptonica-color | coloring.c | ✅ 完了 |
+| 26 | ヒストグラム | leptonica-core | numafunc1.c | ✅ 完了 |
+| 27 | グラフィックス | leptonica-core | graphics.c | ✅ 完了 |
+| 28 | 四分木 | leptonica-region | quadtree.c | 待機中 |
+
+### Phase 4（低優先度 - 専門的機能）
+
+| # | 機能 | クレート | C版ソース | 状態 |
+| --- | ------ | --------- | ---------- | ------ |
+| 29 | DWA（高速形態学） | leptonica-morph | morphdwa.c | 待機中 |
+| 30 | デワーピング | leptonica-recog | dewarp1-4.c | 待機中 |
+| 31 | Sarray（文字列配列） | leptonica-core | sarray1-2.c | 待機中 |
+| 32 | 迷路生成/解法 | leptonica-* | maze.c | 待機中 |
+| 33 | ワーパー | leptonica-transform | warper.c | 待機中 |
+| 34 | バーコード | leptonica-recog | bardecode.c | 待機中 |
+
+### Phase 5（特殊用途 - 外部依存が重い）
+
+| # | 機能 | クレート | C版ソース | 状態 |
+| --- | ------ | --------- | ---------- | ------ |
+| 35 | JP2K (JPEG2000) | leptonica-io | jp2kio.c | 待機中 |
+| 36 | PDF出力 | leptonica-io | pdfio1-2.c | 待機中 |
+| 37 | PostScript出力 | leptonica-io | psio1-2.c | 待機中 |
 
 ---
 
@@ -116,17 +163,54 @@ feature-comparison-c-vs-rust.mdに基づく優先順位：
 
 ## 進捗チェックリスト
 
+### Phase 1（完了: 14/14）
+
 - [x] GIF I/O（feat/io-giff）
-- [ ] WebP I/O
-- [ ] グレースケール形態学
-- [ ] Pixa
-- [ ] Numa
-- [ ] 任意角度回転
-- [ ] アフィン変換
-- [ ] シアー変換
-- [ ] バイラテラルフィルタ
-- [ ] ランクフィルタ
-- [ ] 色セグメンテーション
-- [ ] 画像比較
-- [ ] 画像合成/ブレンド
-- [ ] 論理演算
+- [x] WebP I/O（feat/io-webp）
+- [x] グレースケール形態学（feat/morph-grayscale）
+- [x] Pixa（feat/core-pixa）
+- [x] Numa（feat/core-numa）
+- [x] 任意角度回転（feat/transform-rotate）
+- [x] アフィン変換（feat/transform-affine）
+- [x] シアー変換（feat/transform-shear）
+- [x] バイラテラルフィルタ（feat/filter-bilateral）
+- [x] ランクフィルタ（feat/filter-rank）
+- [x] 色セグメンテーション（feat/color-segmentation）
+- [x] 画像比較（feat/compare）
+- [x] 画像合成/ブレンド（feat/blend）
+- [x] 論理演算（feat/rop）
+
+### Phase 2（高優先度: 6/6 ✅完了）
+
+- [x] 算術演算（feat/arith）
+- [x] FPix（feat/fpix）
+- [x] 双線形変換（feat/bilinear）
+- [x] 射影変換（feat/projective）
+- [x] 適応マッピング（feat/adaptmap）
+- [x] 境界追跡（feat/ccbord）
+
+### Phase 3（中優先度: 7/8）
+
+- [x] カラー形態学（feat/colormorph）
+- [x] 細線化（feat/ccthin）
+- [x] シーケンス操作（feat/morphseq）
+- [x] 色塗りつぶし（feat/colorfill）
+- [x] 着色（feat/coloring）
+- [x] ヒストグラム（feat/histogram）
+- [x] グラフィックス（feat/graphics）
+- [ ] 四分木
+
+### Phase 4（低優先度: 0/6）
+
+- [ ] DWA（高速形態学）
+- [ ] デワーピング
+- [ ] Sarray（文字列配列）
+- [ ] 迷路生成/解法
+- [ ] ワーパー
+- [ ] バーコード
+
+### Phase 5（特殊用途: 0/3）
+
+- [ ] JP2K (JPEG2000)
+- [ ] PDF出力
+- [ ] PostScript出力

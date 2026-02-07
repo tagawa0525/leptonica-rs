@@ -71,7 +71,7 @@ pub fn read_webp<R: Read + BufRead + Seek>(reader: R) -> IoResult<Pix> {
                 let a = buffer[idx + 3];
                 // Pix stores RGBA in 32-bit word (R is MSB, A is LSB on big-endian)
                 let pixel = compose_rgba(r, g, b, a);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
     } else {
@@ -84,7 +84,7 @@ pub fn read_webp<R: Read + BufRead + Seek>(reader: R) -> IoResult<Pix> {
                 let b = buffer[idx + 2];
                 // Set alpha to fully opaque
                 let pixel = compose_rgba(r, g, b, 255);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
     }
@@ -233,7 +233,7 @@ fn convert_colormapped_to_32bpp(pix: &Pix) -> IoResult<Pix> {
                 && let Some((r, g, b)) = cmap.get_rgb(idx as usize)
             {
                 let pixel = compose_rgba(r, g, b, 255);
-                unsafe { new_mut.set_pixel_unchecked(x, y, pixel) };
+                new_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
     }
@@ -261,7 +261,7 @@ fn convert_grayscale_to_32bpp(pix: &Pix) -> IoResult<Pix> {
                 // Scale to 0-255
                 let gray = ((val * 255) / max_val) as u8;
                 let pixel = compose_rgba(gray, gray, gray, 255);
-                unsafe { new_mut.set_pixel_unchecked(x, y, pixel) };
+                new_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
     }
@@ -281,7 +281,7 @@ fn convert_16bpp_to_32bpp(pix: &Pix) -> IoResult<Pix> {
                 // Scale 16-bit to 8-bit
                 let gray = (val16 >> 8) as u8;
                 let pixel = compose_rgba(gray, gray, gray, 255);
-                unsafe { new_mut.set_pixel_unchecked(x, y, pixel) };
+                new_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
     }
@@ -298,7 +298,7 @@ fn clone_pix_32bpp(pix: &Pix) -> IoResult<Pix> {
     for y in 0..pix.height() {
         for x in 0..pix.width() {
             if let Some(val) = pix.get_pixel(x, y) {
-                unsafe { new_mut.set_pixel_unchecked(x, y, val) };
+                new_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -343,7 +343,7 @@ mod tests {
                 let g = (y * 25) as u8;
                 let b = 128u8;
                 let pixel = compose_rgba(r, g, b, 255);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -363,7 +363,7 @@ mod tests {
                 let b = 100u8;
                 let a = if (x + y) % 2 == 0 { 255 } else { 128 };
                 let pixel = compose_rgba(r, g, b, a);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 

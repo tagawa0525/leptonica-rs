@@ -163,7 +163,7 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
                     let byte_idx = (x / 8) as usize;
                     let bit_idx = 7 - (x % 8);
                     let val = (row_buffer[byte_idx] >> bit_idx) & 1;
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
             4 => {
@@ -174,13 +174,13 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
                     } else {
                         row_buffer[byte_idx] & 0xF
                     };
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
             8 => {
                 for x in 0..width {
                     let val = row_buffer[x as usize];
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
             24 => {
@@ -190,7 +190,7 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
                     let g = row_buffer[idx + 1];
                     let r = row_buffer[idx + 2];
                     let pixel = color::compose_rgb(r, g, b);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                    pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
             32 => {
@@ -201,7 +201,7 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
                     let r = row_buffer[idx + 2];
                     let a = row_buffer[idx + 3];
                     let pixel = color::compose_rgba(r, g, b, a);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                    pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
             _ => unreachable!(),

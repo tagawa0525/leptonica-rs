@@ -20,6 +20,14 @@ pub enum MorphError {
     /// Invalid parameters
     #[error("invalid parameters: {0}")]
     InvalidParameters(String),
+
+    /// Invalid sequence format
+    #[error("invalid sequence: {0}")]
+    InvalidSequence(String),
+
+    /// Unsupported operation in sequence
+    #[error("unsupported operation: {0}")]
+    UnsupportedOperation(String),
 }
 
 /// Result type for morphological operations

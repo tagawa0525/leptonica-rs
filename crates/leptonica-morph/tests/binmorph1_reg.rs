@@ -39,13 +39,13 @@ fn binmorph1_reg() {
     eprintln!("Image size: {}x{}", w, h);
 
     // Count foreground pixels in original
-    let orig_count = count_foreground(&pixs);
+    let orig_count = pixs.count_pixels();
     eprintln!("Original foreground pixels: {}", orig_count);
 
     // Test dilation
     eprintln!("  Testing dilation");
     let dilated = dilate_brick(&pixs, WIDTH, HEIGHT).expect("Dilation failed");
-    let dilated_count = count_foreground(&dilated);
+    let dilated_count = dilated.count_pixels();
     eprintln!("  Dilated foreground pixels: {}", dilated_count);
 
     // Dilation should increase foreground pixels
@@ -66,7 +66,7 @@ fn binmorph1_reg() {
     // Test erosion
     eprintln!("  Testing erosion");
     let eroded = erode_brick(&pixs, WIDTH, HEIGHT).expect("Erosion failed");
-    let eroded_count = count_foreground(&eroded);
+    let eroded_count = eroded.count_pixels();
     eprintln!("  Eroded foreground pixels: {}", eroded_count);
 
     // Erosion should decrease foreground pixels
@@ -79,7 +79,7 @@ fn binmorph1_reg() {
     // Test opening (erosion then dilation)
     eprintln!("  Testing opening");
     let opened = open_brick(&pixs, WIDTH, HEIGHT).expect("Opening failed");
-    let opened_count = count_foreground(&opened);
+    let opened_count = opened.count_pixels();
     eprintln!("  Opened foreground pixels: {}", opened_count);
 
     // Opening should not increase foreground pixels (anti-extensive)
@@ -92,7 +92,7 @@ fn binmorph1_reg() {
     // Test closing (dilation then erosion)
     eprintln!("  Testing closing");
     let closed = close_brick(&pixs, WIDTH, HEIGHT).expect("Closing failed");
-    let closed_count = count_foreground(&closed);
+    let closed_count = closed.count_pixels();
     eprintln!("  Closed foreground pixels: {}", closed_count);
 
     // Closing should not decrease foreground pixels (extensive)
@@ -102,13 +102,13 @@ fn binmorph1_reg() {
     // Test idempotence: opening twice should equal opening once
     eprintln!("  Testing opening idempotence");
     let opened2 = open_brick(&opened, WIDTH, HEIGHT).expect("Second opening failed");
-    let is_idempotent = compare_pix(&opened, &opened2);
+    let is_idempotent = opened.equals(&opened2);
     rp.compare_values(1.0, if is_idempotent { 1.0 } else { 0.0 }, 0.0);
 
     // Test idempotence: closing twice should equal closing once
     eprintln!("  Testing closing idempotence");
     let closed2 = close_brick(&closed, WIDTH, HEIGHT).expect("Second closing failed");
-    let is_idempotent = compare_pix(&closed, &closed2);
+    let is_idempotent = closed.equals(&closed2);
     rp.compare_values(1.0, if is_idempotent { 1.0 } else { 0.0 }, 0.0);
 
     // Test with SEL
@@ -119,49 +119,12 @@ fn binmorph1_reg() {
 
     // Verify SEL-based operations match brick operations
     let dilated_sel = leptonica_morph::dilate(&pixs, &sel).expect("SEL dilation failed");
-    let match_dilate = compare_pix(&dilated, &dilated_sel);
+    let match_dilate = dilated.equals(&dilated_sel);
     rp.compare_values(1.0, if match_dilate { 1.0 } else { 0.0 }, 0.0);
 
     let eroded_sel = leptonica_morph::erode(&pixs, &sel).expect("SEL erosion failed");
-    let match_erode = compare_pix(&eroded, &eroded_sel);
+    let match_erode = eroded.equals(&eroded_sel);
     rp.compare_values(1.0, if match_erode { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "binmorph1 regression test failed");
-}
-
-/// Count foreground pixels in a binary image
-fn count_foreground(pix: &leptonica_core::Pix) -> u64 {
-    let w = pix.width();
-    let h = pix.height();
-    let mut count = 0u64;
-
-    for y in 0..h {
-        for x in 0..w {
-            if pix.get_pixel(x, y).unwrap_or(0) != 0 {
-                count += 1;
-            }
-        }
-    }
-
-    count
-}
-
-/// Compare two Pix for equality
-fn compare_pix(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
-    if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
-        return false;
-    }
-
-    let w = pix1.width();
-    let h = pix1.height();
-
-    for y in 0..h {
-        for x in 0..w {
-            if pix1.get_pixel(x, y) != pix2.get_pixel(x, y) {
-                return false;
-            }
-        }
-    }
-
-    true
 }

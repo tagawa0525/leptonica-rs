@@ -26,6 +26,15 @@ pub mod gif;
 #[cfg(feature = "webp-format")]
 pub mod webp;
 
+#[cfg(feature = "jp2k-format")]
+pub mod jp2k;
+
+#[cfg(feature = "pdf-format")]
+pub mod pdf;
+
+#[cfg(feature = "ps-format")]
+pub mod ps;
+
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
@@ -96,6 +105,9 @@ pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
         #[cfg(feature = "webp-format")]
         ImageFormat::WebP => webp::read_webp(reader),
 
+        #[cfg(feature = "jp2k-format")]
+        ImageFormat::Jp2 => jp2k::read_jp2k(reader),
+
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
 }
@@ -165,6 +177,14 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
 
         #[cfg(feature = "webp-format")]
         ImageFormat::WebP => webp::write_webp(pix, writer),
+
+        #[cfg(feature = "jp2k-format")]
+        ImageFormat::Jp2 => Err(IoError::UnsupportedFormat(
+            "JP2K writing not yet supported".to_string(),
+        )),
+
+        #[cfg(feature = "pdf-format")]
+        ImageFormat::Lpdf => pdf::write_pdf(pix, writer, &pdf::PdfOptions::default()),
 
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
