@@ -81,7 +81,6 @@ leptonica-recog → leptonica-region → leptonica-filter → leptonica-color �
 - PRではGitHub Copilotの自動レビューを待ち、指摘事項を修正してからマージする
 - マージ後のブランチは速やかに削除する
 - マージコミットにはLinus Torvalds方式で変更の要約・理由・影響範囲を記載する
-- Co-Authored-By: Claude <model_name> <noreply@anthropic.com> を全コミットに付与する
 
 ### TDD
 
@@ -136,7 +135,7 @@ git checkout -b feat/<crate>-<機能>
 git add docs/plans/
 git commit -m "docs: add <機能> implementation plan
 
-Co-Authored-By: ..."
+"
 
 # 3. テスト(RED)コミット
 # - テストファイルを作成（C版の prog/<xxx>_reg.c を参考）
@@ -147,7 +146,7 @@ git commit -m "test(<crate>): add <機能> regression test (RED)
 
 All tests marked with #[ignore = \"not yet implemented\"].
 
-Co-Authored-By: ..."
+"
 
 # 4. 実装(GREEN)コミット
 # - C版ソースを参照してRust実装を作成
@@ -159,13 +158,13 @@ git commit -m "feat(<crate>): implement <機能>
 
 <実装内容の説明>
 
-Co-Authored-By: ..."
+"
 
 # 5. 進捗更新コミット
 git add docs/plans/
 git commit -m "docs: update progress for <機能>
 
-Co-Authored-By: ..."
+"
 
 # 6. push & PR作成
 git push -u origin feat/<crate>-<機能>
