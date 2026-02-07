@@ -24,6 +24,35 @@ pub enum CompareType {
     AbsDiff,
 }
 
+/// Result of counting pixel-by-pixel differences between two images.
+///
+/// For grayscale images, the comparison is done on raw pixel values.
+/// For color (32-bit) images, the comparison is done per-channel (R, G, B),
+/// and a pixel is considered matching only when all three channels are equal.
+/// The `max_diff` field reports the maximum single-channel difference found.
+///
+/// # Examples
+///
+/// ```
+/// use leptonica_core::{Pix, PixelDepth};
+///
+/// let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+/// let pix2 = pix1.deep_clone();
+/// let result = pix1.count_pixel_diffs(&pix2).unwrap();
+/// assert_eq!(result.total_pixels, 100);
+/// assert_eq!(result.matching_pixels, 100);
+/// assert_eq!(result.max_diff, 0);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PixelDiffResult {
+    /// Total number of pixels compared
+    pub total_pixels: u64,
+    /// Number of pixels that are identical
+    pub matching_pixels: u64,
+    /// Maximum single-value (grayscale) or single-channel (color) difference
+    pub max_diff: u32,
+}
+
 /// Result of comparing two images
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompareResult {
@@ -52,6 +81,130 @@ impl Default for CompareResult {
 }
 
 impl Pix {
+    /// Count pixel-by-pixel differences between two images.
+    ///
+    /// Compares this image with `other` and returns statistics about how
+    /// many pixels match and the magnitude of the maximum difference.
+    ///
+    /// For 8-bit grayscale images, pixel values are compared directly.
+    /// For 32-bit color images, R, G, and B channels are compared
+    /// separately: a pixel is "matching" only if all three channels
+    /// are equal, and `max_diff` is the largest single-channel difference.
+    ///
+    /// C equivalent: related to `pixCountPixelDiffs()` in `compare.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The image to compare against
+    ///
+    /// # Returns
+    ///
+    /// A [`PixelDiffResult`] with total pixels, matching count, and max diff.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Images have different dimensions
+    /// - Images have different depths
+    /// - The pixel depth is not 8 or 32 bpp
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use leptonica_core::{Pix, PixelDepth};
+    ///
+    /// let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+    /// let mut pix2_mut = pix1.to_mut();
+    /// pix2_mut.set_pixel(5, 5, 100).unwrap();
+    /// let pix2: Pix = pix2_mut.into();
+    ///
+    /// let result = pix1.count_pixel_diffs(&pix2).unwrap();
+    /// assert_eq!(result.total_pixels, 100);
+    /// assert_eq!(result.matching_pixels, 99);
+    /// assert_eq!(result.max_diff, 100);
+    /// ```
+    pub fn count_pixel_diffs(&self, other: &Pix) -> Result<PixelDiffResult> {
+        if self.width() != other.width() || self.height() != other.height() {
+            return Err(Error::DimensionMismatch {
+                expected: (self.width(), self.height()),
+                actual: (other.width(), other.height()),
+            });
+        }
+
+        if self.depth() != other.depth() {
+            return Err(Error::IncompatibleDepths(
+                self.depth().bits(),
+                other.depth().bits(),
+            ));
+        }
+
+        match self.depth() {
+            PixelDepth::Bit8 => self.count_pixel_diffs_gray(other),
+            PixelDepth::Bit32 => self.count_pixel_diffs_color(other),
+            _ => Err(Error::UnsupportedDepth(self.depth().bits())),
+        }
+    }
+
+    /// Count pixel differences for 8-bit grayscale images
+    fn count_pixel_diffs_gray(&self, other: &Pix) -> Result<PixelDiffResult> {
+        let w = self.width();
+        let h = self.height();
+        let mut total = 0u64;
+        let mut matching = 0u64;
+        let mut max_diff = 0u32;
+
+        for y in 0..h {
+            for x in 0..w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                total += 1;
+                if v1 == v2 {
+                    matching += 1;
+                }
+                let diff = v1.abs_diff(v2);
+                max_diff = max_diff.max(diff);
+            }
+        }
+
+        Ok(PixelDiffResult {
+            total_pixels: total,
+            matching_pixels: matching,
+            max_diff,
+        })
+    }
+
+    /// Count pixel differences for 32-bit color images (per-channel)
+    fn count_pixel_diffs_color(&self, other: &Pix) -> Result<PixelDiffResult> {
+        let w = self.width();
+        let h = self.height();
+        let mut total = 0u64;
+        let mut matching = 0u64;
+        let mut max_diff = 0u32;
+
+        for y in 0..h {
+            for x in 0..w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                let (r1, g1, b1, _) = color::extract_rgba(v1);
+                let (r2, g2, b2, _) = color::extract_rgba(v2);
+                total += 1;
+                if r1 == r2 && g1 == g2 && b1 == b2 {
+                    matching += 1;
+                }
+                let dr = (r1 as i32 - r2 as i32).unsigned_abs();
+                let dg = (g1 as i32 - g2 as i32).unsigned_abs();
+                let db = (b1 as i32 - b2 as i32).unsigned_abs();
+                max_diff = max_diff.max(dr).max(dg).max(db);
+            }
+        }
+
+        Ok(PixelDiffResult {
+            total_pixels: total,
+            matching_pixels: matching,
+            max_diff,
+        })
+    }
+
     /// Check if two images have identical pixel values.
     ///
     /// For 32-bit images, this ignores the alpha channel.
@@ -984,5 +1137,105 @@ mod tests {
         assert!(pix1.equals(&pix2));
         // With alpha comparison, should be different
         assert!(!pix1.equals_with_alpha(&pix2, true));
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_identical_gray() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+
+        let result = pix1.count_pixel_diffs(&pix2).unwrap();
+        assert_eq!(result.total_pixels, 100);
+        assert_eq!(result.matching_pixels, 100);
+        assert_eq!(result.max_diff, 0);
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_one_different_gray() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pix2_mut = pix1.to_mut();
+        pix2_mut.set_pixel(5, 5, 100).unwrap();
+        let pix2: Pix = pix2_mut.into();
+
+        let result = pix1.count_pixel_diffs(&pix2).unwrap();
+        assert_eq!(result.total_pixels, 100);
+        assert_eq!(result.matching_pixels, 99);
+        assert_eq!(result.max_diff, 100);
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_all_different_gray() {
+        let pix1 = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let mut pix2_mut = Pix::new(5, 5, PixelDepth::Bit8).unwrap().to_mut();
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                pix2_mut.set_pixel(x, y, 10).unwrap();
+            }
+        }
+        let pix2: Pix = pix2_mut.into();
+
+        let result = pix1.count_pixel_diffs(&pix2).unwrap();
+        assert_eq!(result.total_pixels, 25);
+        assert_eq!(result.matching_pixels, 0);
+        assert_eq!(result.max_diff, 10);
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_identical_color() {
+        use crate::color::compose_rgb;
+
+        let pix1 = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let mut pix1_mut = pix1.to_mut();
+        pix1_mut
+            .set_pixel(0, 0, compose_rgb(100, 150, 200))
+            .unwrap();
+        let pix1: Pix = pix1_mut.into();
+        let pix2 = pix1.deep_clone();
+
+        let result = pix1.count_pixel_diffs(&pix2).unwrap();
+        assert_eq!(result.total_pixels, 25);
+        assert_eq!(result.matching_pixels, 25);
+        assert_eq!(result.max_diff, 0);
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_color_one_channel() {
+        use crate::color::compose_rgb;
+
+        let pix1 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pix1_mut = pix1.to_mut();
+        pix1_mut.set_pixel(0, 0, compose_rgb(100, 50, 200)).unwrap();
+        let pix1: Pix = pix1_mut.into();
+
+        let pix2 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pix2_mut = pix2.to_mut();
+        pix2_mut.set_pixel(0, 0, compose_rgb(100, 50, 150)).unwrap();
+        let pix2: Pix = pix2_mut.into();
+
+        let result = pix1.count_pixel_diffs(&pix2).unwrap();
+        assert_eq!(result.total_pixels, 1);
+        assert_eq!(result.matching_pixels, 0); // blue differs
+        assert_eq!(result.max_diff, 50); // |200 - 150|
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_dimension_mismatch() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = Pix::new(10, 20, PixelDepth::Bit8).unwrap();
+        assert!(pix1.count_pixel_diffs(&pix2).is_err());
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_depth_mismatch() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(pix1.count_pixel_diffs(&pix2).is_err());
+    }
+
+    #[test]
+    fn test_count_pixel_diffs_unsupported_depth() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let pix2 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix1.count_pixel_diffs(&pix2).is_err());
     }
 }

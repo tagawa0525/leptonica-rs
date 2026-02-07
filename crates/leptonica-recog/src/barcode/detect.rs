@@ -112,50 +112,10 @@ pub fn deskew_barcode(pix_gray: &Pix, bbox: &PixBox, margin: i32) -> RecogResult
         });
     }
 
-    // Clip the region
-    let clip_box = PixBox::new(x, y, w, h)?;
-    let result = clip_rectangle(pix_gray, &clip_box)?;
+    // Clip the region using the library API
+    let result = pix_gray.clip_rectangle(x as u32, y as u32, w as u32, h as u32)?;
 
     Ok((result, 0.0, 10.0))
-}
-
-/// Clips a rectangular region from an image
-fn clip_rectangle(pix: &Pix, bbox: &PixBox) -> RecogResult<Pix> {
-    let src_w = pix.width();
-    let src_h = pix.height();
-
-    // Validate bounds
-    if bbox.x < 0 || bbox.y < 0 {
-        return Err(RecogError::InvalidParameter(
-            "negative coordinates in clip box".to_string(),
-        ));
-    }
-
-    let x = bbox.x as u32;
-    let y = bbox.y as u32;
-    let w = bbox.w as u32;
-    let h = bbox.h as u32;
-
-    if x + w > src_w || y + h > src_h {
-        return Err(RecogError::InvalidParameter(
-            "clip box extends beyond image bounds".to_string(),
-        ));
-    }
-
-    // Create new mutable image
-    let new_pix = Pix::new(w, h, pix.depth())?;
-    let mut result = new_pix.to_mut();
-
-    // Copy pixels
-    for dy in 0..h {
-        for dx in 0..w {
-            if let Some(pixel) = pix.get_pixel(x + dx, y + dy) {
-                let _ = result.set_pixel(dx, dy, pixel);
-            }
-        }
-    }
-
-    Ok(result.into())
 }
 
 #[cfg(test)]
@@ -171,19 +131,17 @@ mod tests {
     #[test]
     fn test_clip_rectangle() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
-        let bbox = PixBox::new(10, 10, 50, 50).unwrap();
-        let result = clip_rectangle(&pix, &bbox);
-        assert!(result.is_ok());
-        let clipped = result.unwrap();
+        let clipped = pix.clip_rectangle(10, 10, 50, 50).unwrap();
         assert_eq!(clipped.width(), 50);
         assert_eq!(clipped.height(), 50);
     }
 
     #[test]
-    fn test_clip_out_of_bounds() {
+    fn test_clip_clips_to_bounds() {
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
-        let bbox = PixBox::new(10, 10, 50, 50).unwrap();
-        let result = clip_rectangle(&pix, &bbox);
-        assert!(result.is_err());
+        // The library API clips to bounds rather than erroring
+        let clipped = pix.clip_rectangle(10, 10, 50, 50).unwrap();
+        assert_eq!(clipped.width(), 40); // 50 - 10
+        assert_eq!(clipped.height(), 40); // 50 - 10
     }
 }

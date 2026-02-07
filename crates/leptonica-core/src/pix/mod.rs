@@ -7,6 +7,7 @@ mod access;
 pub mod arith;
 pub mod blend;
 mod border;
+mod clip;
 pub mod compare;
 mod convert;
 mod extract;
@@ -18,7 +19,7 @@ pub mod statistics;
 
 pub use access::*;
 pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
-pub use compare::{CompareResult, CompareType, correlation_binary};
+pub use compare::{CompareResult, CompareType, PixelDiffResult, correlation_binary};
 pub use graphics::{Color, ContourOutput, PixelOp};
 pub use histogram::ColorHistogram;
 pub use rop::RopOp;

@@ -18,52 +18,6 @@ use leptonica_filter::{max_filter, median_filter, min_filter, rank_filter, rank_
 use leptonica_morph::{dilate_color, dilate_gray, erode_color, erode_gray};
 use leptonica_test::{RegParams, load_test_image};
 
-/// Helper: extract a rectangular region from a Pix manually
-/// (pixClipRectangle is not implemented in Rust)
-fn clip_rectangle(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32) -> Pix {
-    let depth = pix.depth();
-    let out = Pix::new(w, h, depth).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    if depth == PixelDepth::Bit32 {
-        out_mut.set_spp(pix.spp());
-    }
-    for y in 0..h {
-        for x in 0..w {
-            let sx = (x0 + x).min(pix.width() - 1);
-            let sy = (y0 + y).min(pix.height() - 1);
-            let val = pix.get_pixel_unchecked(sx, sy);
-            out_mut.set_pixel_unchecked(x, y, val);
-        }
-    }
-    out_mut.into()
-}
-
-/// Helper: count pixel differences between two images of equal dimensions.
-/// Returns (total_pixels, matching_pixels, max_diff).
-fn count_pixel_diffs(pix1: &Pix, pix2: &Pix) -> (u64, u64, u32) {
-    assert_eq!(pix1.width(), pix2.width());
-    assert_eq!(pix1.height(), pix2.height());
-    let w = pix1.width();
-    let h = pix1.height();
-    let mut total = 0u64;
-    let mut matching = 0u64;
-    let mut max_diff = 0u32;
-
-    for y in 0..h {
-        for x in 0..w {
-            let v1 = pix1.get_pixel_unchecked(x, y);
-            let v2 = pix2.get_pixel_unchecked(x, y);
-            total += 1;
-            if v1 == v2 {
-                matching += 1;
-            }
-            let diff = v1.abs_diff(v2);
-            max_diff = max_diff.max(diff);
-        }
-    }
-    (total, matching, max_diff)
-}
-
 /// Test 0: Basic grayscale rank filter with rank=0.4
 ///
 /// C版 test 0: pixRankFilterGray(pixs, 15, 15, 0.4) on lucasta.150.jpg
@@ -136,12 +90,14 @@ fn rank_reg_gray_morph_comparison() {
     // (out-of-bounds = 0 for dilation, 255 for erosion) and rank filter
     // (out-of-bounds = clamped edge pixels), there may be small differences
     // at the image boundaries. We check that interior pixels match well.
-    let (total, matching, max_diff) = count_pixel_diffs(&pix_dilation, &pix_rank_max);
-    let match_ratio = matching as f64 / total as f64;
+    let diff_result = pix_dilation
+        .count_pixel_diffs(&pix_rank_max)
+        .expect("count_pixel_diffs");
+    let match_ratio = diff_result.matching_pixels as f64 / diff_result.total_pixels as f64;
     eprintln!(
         "  dilation vs rank(0.9999): match={:.4}% max_diff={}",
         match_ratio * 100.0,
-        max_diff
+        diff_result.max_diff
     );
     // The C version expects exact match. Due to boundary handling differences
     // in the Rust implementations, we allow small differences at boundaries.
@@ -149,12 +105,14 @@ fn rank_reg_gray_morph_comparison() {
     rp.compare_values(1.0, if match_ratio > 0.95 { 1.0 } else { 0.0 }, 0.0);
 
     // C版: regTestComparePix(rp, pix2, pix3)  -- erosion == rank~0.0
-    let (total2, matching2, max_diff2) = count_pixel_diffs(&pix_erosion, &pix_rank_min);
-    let match_ratio2 = matching2 as f64 / total2 as f64;
+    let diff_result2 = pix_erosion
+        .count_pixel_diffs(&pix_rank_min)
+        .expect("count_pixel_diffs");
+    let match_ratio2 = diff_result2.matching_pixels as f64 / diff_result2.total_pixels as f64;
     eprintln!(
         "  erosion vs rank(0.0001): match={:.4}% max_diff={}",
         match_ratio2 * 100.0,
-        max_diff2
+        diff_result2.max_diff
     );
     rp.compare_values(1.0, if match_ratio2 > 0.95 { 1.0 } else { 0.0 }, 0.0);
 
@@ -180,7 +138,9 @@ fn rank_reg_gray_varying_sizes() {
     let clip_h = if max_h > 200 { max_h - 200 } else { max_h };
     let clip_w = clip_w.min(500);
     let clip_h = clip_h.min(125);
-    let pix0 = clip_rectangle(&pixs, 20, 200.min(pixs.height() - 1), clip_w, clip_h);
+    let pix0 = pixs
+        .clip_rectangle(20, 200.min(pixs.height() - 1), clip_w, clip_h)
+        .expect("clip_rectangle for gray varying sizes");
     let w0 = pix0.width();
     let h0 = pix0.height();
     eprintln!("Clipped region: {}x{}", w0, h0);
@@ -258,7 +218,9 @@ fn rank_reg_color_morph_comparison() {
     let y0 = 220.min(h.saturating_sub(1));
     let cw = 300.min(w.saturating_sub(x0));
     let ch = 250.min(h.saturating_sub(y0));
-    let pix0 = clip_rectangle(&pixs, x0, y0, cw, ch);
+    let pix0 = pixs
+        .clip_rectangle(x0, y0, cw, ch)
+        .expect("clip_rectangle for color morph");
     let w0 = pix0.width();
     let h0 = pix0.height();
     eprintln!("Clipped region: {}x{} d={}", w0, h0, pix0.depth().bits());
@@ -281,56 +243,30 @@ fn rank_reg_color_morph_comparison() {
 
     // C版: regTestComparePix(rp, pix1, pix4)  -- dilation == rank~1.0
     // Compare using per-channel differences for color images
-    let (total, matching, max_diff) = count_color_pixel_diffs(&pix_dilation, &pix_rank_max);
-    let match_ratio = matching as f64 / total as f64;
+    let diff_result = pix_dilation
+        .count_pixel_diffs(&pix_rank_max)
+        .expect("count_pixel_diffs color");
+    let match_ratio = diff_result.matching_pixels as f64 / diff_result.total_pixels as f64;
     eprintln!(
         "  color dilation vs rank(0.9999): match={:.4}% max_diff={}",
         match_ratio * 100.0,
-        max_diff
+        diff_result.max_diff
     );
     rp.compare_values(1.0, if match_ratio > 0.90 { 1.0 } else { 0.0 }, 0.0);
 
     // C版: regTestComparePix(rp, pix2, pix3)  -- erosion == rank~0.0
-    let (total2, matching2, max_diff2) = count_color_pixel_diffs(&pix_erosion, &pix_rank_min);
-    let match_ratio2 = matching2 as f64 / total2 as f64;
+    let diff_result2 = pix_erosion
+        .count_pixel_diffs(&pix_rank_min)
+        .expect("count_pixel_diffs color");
+    let match_ratio2 = diff_result2.matching_pixels as f64 / diff_result2.total_pixels as f64;
     eprintln!(
         "  color erosion vs rank(0.0001): match={:.4}% max_diff={}",
         match_ratio2 * 100.0,
-        max_diff2
+        diff_result2.max_diff
     );
     rp.compare_values(1.0, if match_ratio2 > 0.90 { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "rank_color_morph regression test failed");
-}
-
-/// Helper: count pixel differences for color (32bpp) images, per-channel
-fn count_color_pixel_diffs(pix1: &Pix, pix2: &Pix) -> (u64, u64, u32) {
-    assert_eq!(pix1.width(), pix2.width());
-    assert_eq!(pix1.height(), pix2.height());
-    let w = pix1.width();
-    let h = pix1.height();
-    let mut total = 0u64;
-    let mut matching = 0u64;
-    let mut max_diff = 0u32;
-
-    for y in 0..h {
-        for x in 0..w {
-            let v1 = pix1.get_pixel_unchecked(x, y);
-            let v2 = pix2.get_pixel_unchecked(x, y);
-            let (r1, g1, b1, _) = color::extract_rgba(v1);
-            let (r2, g2, b2, _) = color::extract_rgba(v2);
-            total += 1;
-            // Match if all channels are equal
-            if r1 == r2 && g1 == g2 && b1 == b2 {
-                matching += 1;
-            }
-            let dr = (r1 as i32 - r2 as i32).unsigned_abs();
-            let dg = (g1 as i32 - g2 as i32).unsigned_abs();
-            let db = (b1 as i32 - b2 as i32).unsigned_abs();
-            max_diff = max_diff.max(dr).max(dg).max(db);
-        }
-    }
-    (total, matching, max_diff)
 }
 
 /// Test: Color rank filter with varying rank values
@@ -348,7 +284,9 @@ fn rank_reg_color_varying_ranks() {
     let y0 = 220.min(pixs.height().saturating_sub(1));
     let cw = 300.min(pixs.width().saturating_sub(x0));
     let ch = 250.min(pixs.height().saturating_sub(y0));
-    let pix0 = clip_rectangle(&pixs, x0, y0, cw, ch);
+    let pix0 = pixs
+        .clip_rectangle(x0, y0, cw, ch)
+        .expect("clip_rectangle for color varying ranks");
     let w0 = pix0.width();
     let h0 = pix0.height();
     eprintln!("Clipped region: {}x{}", w0, h0);
