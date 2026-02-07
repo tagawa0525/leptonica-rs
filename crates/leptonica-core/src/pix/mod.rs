@@ -6,6 +6,7 @@
 mod access;
 pub mod arith;
 pub mod blend;
+mod border;
 pub mod compare;
 mod convert;
 mod extract;

@@ -54,77 +54,6 @@ fn make_pts(i: usize) -> ([Point; 4], [Point; 4]) {
     (src, dst)
 }
 
-fn pix_xor(pix1: &Pix, pix2: &Pix) -> Pix {
-    let w = pix1.width();
-    let h = pix1.height();
-    let depth = pix1.depth();
-    let out = Pix::new(w, h, depth).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..h {
-        for x in 0..w {
-            let v1 = pix1.get_pixel(x, y).unwrap_or(0);
-            let v2 = pix2.get_pixel(x, y).unwrap_or(0);
-            let _ = out_mut.set_pixel(x, y, v1 ^ v2);
-        }
-    }
-    out_mut.into()
-}
-
-fn remove_border(pix: &Pix, border: u32) -> Pix {
-    let w = pix.width();
-    let h = pix.height();
-    if w <= 2 * border || h <= 2 * border {
-        return Pix::new(1, 1, pix.depth()).unwrap();
-    }
-    let new_w = w - 2 * border;
-    let new_h = h - 2 * border;
-    let out = Pix::new(new_w, new_h, pix.depth()).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..new_h {
-        for x in 0..new_w {
-            let val = pix.get_pixel(x + border, y + border).unwrap_or(0);
-            let _ = out_mut.set_pixel(x, y, val);
-        }
-    }
-    out_mut.into()
-}
-
-fn add_border(pix: &Pix, border: u32, fill_val: u32) -> Pix {
-    let w = pix.width();
-    let h = pix.height();
-    let new_w = w + 2 * border;
-    let new_h = h + 2 * border;
-    let out = Pix::new(new_w, new_h, pix.depth()).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..new_h {
-        for x in 0..new_w {
-            let _ = out_mut.set_pixel(x, y, fill_val);
-        }
-    }
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel(x, y).unwrap_or(0);
-            let _ = out_mut.set_pixel(x + border, y + border, val);
-        }
-    }
-    out_mut.into()
-}
-
-fn convert_1bpp_to_8bpp(pix: &Pix) -> Pix {
-    let w = pix.width();
-    let h = pix.height();
-    let out = Pix::new(w, h, PixelDepth::Bit8).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel(x, y).unwrap_or(0);
-            let gray = if val == 0 { 255u32 } else { 0u32 };
-            let _ = out_mut.set_pixel(x, y, gray);
-        }
-    }
-    out_mut.into()
-}
-
 // C version: Test invertability of sampling (pixBilinearSampledPta) -- i=1,2
 #[test]
 fn bilinear_reg_sampling_invertability() {
@@ -134,7 +63,7 @@ fn bilinear_reg_sampling_invertability() {
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = scale(&pix, 0.2, 0.2, ScaleMethod::Linear).expect("scale 0.2");
     // C version: pixScaleToGray produces 8bpp -- Rust未実装, convert manually
-    let pixg = convert_1bpp_to_8bpp(&pixs);
+    let pixg = pixs.convert_to_8().expect("convert_to_8");
     let added_border = 250u32;
 
     // C version: for (i = 1; i < 3; i++)
@@ -142,7 +71,7 @@ fn bilinear_reg_sampling_invertability() {
         let (ptas, ptad) = make_pts(i);
 
         // C version: pixb = pixAddBorder(pixg, ADDED_BORDER_PIXELS, 255);
-        let pixb = add_border(&pixg, added_border, 255);
+        let pixb = pixg.add_border(added_border, 255).expect("add_border");
 
         // C version: pix1 = pixBilinearSampledPta(pixb, ptad, ptas, L_BRING_IN_WHITE);
         let pix1 = bilinear_sampled_pta(&pixb, ptad, ptas, AffineFill::White)
@@ -154,13 +83,13 @@ fn bilinear_reg_sampling_invertability() {
             .expect("bilinear_sampled_pta inverse");
 
         // C version: pixd = pixRemoveBorder(pix2, ADDED_BORDER_PIXELS);
-        let pixd = remove_border(&pix2, added_border);
+        let pixd = pix2.remove_border(added_border).expect("remove_border");
         rp.compare_values(pixg.width() as f64, pixd.width() as f64, 0.0);
         rp.compare_values(pixg.height() as f64, pixd.height() as f64, 0.0);
 
         if pixd.width() == pixg.width() && pixd.height() == pixg.height() {
             // C version: pixInvert(pixd, pixd); pixXor(pixd, pixd, pixg);
-            let xor_result = pix_xor(&pixd, &pixg);
+            let xor_result = pixd.xor(&pixg).expect("xor");
             let diff_count = xor_result.count_pixels();
             let total = pixg.width() as u64 * pixg.height() as u64;
             let diff_frac = diff_count as f64 / total as f64;
@@ -181,7 +110,7 @@ fn bilinear_reg_grayscale_interpolation_invertability() {
 
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = scale(&pix, 0.2, 0.2, ScaleMethod::Linear).expect("scale");
-    let pixg = convert_1bpp_to_8bpp(&pixs);
+    let pixg = pixs.convert_to_8().expect("convert_to_8");
     let added_border = 250u32;
 
     // C version: for (i = 1; i < 3; i++)
@@ -189,7 +118,7 @@ fn bilinear_reg_grayscale_interpolation_invertability() {
         let (ptas, ptad) = make_pts(i);
 
         // C version: pixb = pixAddBorder(pixg, ADDED_BORDER_PIXELS, 255);
-        let pixb = add_border(&pixg, added_border, 255);
+        let pixb = pixg.add_border(added_border, 255).expect("add_border");
 
         // C version: pix1 = pixBilinearPta(pixb, ptad, ptas, L_BRING_IN_WHITE);
         let pix1 =
@@ -201,7 +130,7 @@ fn bilinear_reg_grayscale_interpolation_invertability() {
             bilinear_pta(&pix1, ptas, ptad, AffineFill::White).expect("bilinear_pta inverse");
 
         // C version: pixd = pixRemoveBorder(pix2, ADDED_BORDER_PIXELS);
-        let pixd = remove_border(&pix2, added_border);
+        let pixd = pix2.remove_border(added_border).expect("remove_border");
         rp.compare_values(pixg.width() as f64, pixd.width() as f64, 0.0);
         rp.compare_values(pixg.height() as f64, pixd.height() as f64, 0.0);
 
@@ -237,7 +166,7 @@ fn bilinear_reg_compare_sampling_interpolated() {
 
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = scale(&pix, 0.2, 0.2, ScaleMethod::Linear).expect("scale");
-    let pixg = convert_1bpp_to_8bpp(&pixs);
+    let pixg = pixs.convert_to_8().expect("convert_to_8");
 
     // C version: MakePtas(2, &ptas, &ptad);
     let (ptas, ptad) = make_pts(2);
@@ -264,7 +193,7 @@ fn bilinear_reg_compare_sampling_interpolated() {
     rp.compare_values(1.0, if interp_nonzero > 0 { 1.0 } else { 0.0 }, 0.0);
 
     // C version: pixXor(pix2, pix2, pix1); pixInvert(pix2, pix2);
-    let xor_result = pix_xor(&pix_sampled, &pix_interp);
+    let xor_result = pix_sampled.xor(&pix_interp).expect("xor");
     let diff_count = xor_result.count_pixels();
     let diff_frac = diff_count as f64 / total as f64;
     eprintln!("  Sampled vs interp diff: {:.4}", diff_frac);
@@ -284,28 +213,11 @@ fn bilinear_reg_large_distortion() {
     // C version: pixs = pixRead("marge.jpg"); pixg = pixConvertTo8(pixs, 0);
     let pixs = load_test_image("marge.jpg").expect("load marge.jpg");
 
-    // Convert to 8bpp grayscale if needed
+    // C version: pixg = pixConvertTo8(pixs, 0);
     let pixg = if pixs.depth() == PixelDepth::Bit8 {
         pixs
-    } else if pixs.depth() == PixelDepth::Bit32 {
-        // Convert 32bpp to 8bpp grayscale
-        let w = pixs.width();
-        let h = pixs.height();
-        let out = Pix::new(w, h, PixelDepth::Bit8).unwrap();
-        let mut out_mut = out.try_into_mut().unwrap();
-        for y in 0..h {
-            for x in 0..w {
-                let rgba = pixs.get_pixel(x, y).unwrap_or(0);
-                let r = ((rgba >> 24) & 0xFF) as u32;
-                let g = ((rgba >> 16) & 0xFF) as u32;
-                let b = ((rgba >> 8) & 0xFF) as u32;
-                let gray = (r * 77 + g * 150 + b * 29) >> 8;
-                let _ = out_mut.set_pixel(x, y, gray);
-            }
-        }
-        out_mut.into()
     } else {
-        convert_1bpp_to_8bpp(&pixs)
+        pixs.convert_to_8().expect("convert_to_8")
     };
 
     // C version: MakePtas(0, &ptas, &ptad);

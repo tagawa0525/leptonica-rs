@@ -53,77 +53,6 @@ fn make_pts(i: usize) -> ([Point; 4], [Point; 4]) {
     (src, dst)
 }
 
-fn pix_xor(pix1: &Pix, pix2: &Pix) -> Pix {
-    let w = pix1.width();
-    let h = pix1.height();
-    let depth = pix1.depth();
-    let out = Pix::new(w, h, depth).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..h {
-        for x in 0..w {
-            let v1 = pix1.get_pixel(x, y).unwrap_or(0);
-            let v2 = pix2.get_pixel(x, y).unwrap_or(0);
-            let _ = out_mut.set_pixel(x, y, v1 ^ v2);
-        }
-    }
-    out_mut.into()
-}
-
-fn remove_border(pix: &Pix, border: u32) -> Pix {
-    let w = pix.width();
-    let h = pix.height();
-    if w <= 2 * border || h <= 2 * border {
-        return Pix::new(1, 1, pix.depth()).unwrap();
-    }
-    let new_w = w - 2 * border;
-    let new_h = h - 2 * border;
-    let out = Pix::new(new_w, new_h, pix.depth()).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..new_h {
-        for x in 0..new_w {
-            let val = pix.get_pixel(x + border, y + border).unwrap_or(0);
-            let _ = out_mut.set_pixel(x, y, val);
-        }
-    }
-    out_mut.into()
-}
-
-fn add_border(pix: &Pix, border: u32, fill_val: u32) -> Pix {
-    let w = pix.width();
-    let h = pix.height();
-    let new_w = w + 2 * border;
-    let new_h = h + 2 * border;
-    let out = Pix::new(new_w, new_h, pix.depth()).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..new_h {
-        for x in 0..new_w {
-            let _ = out_mut.set_pixel(x, y, fill_val);
-        }
-    }
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel(x, y).unwrap_or(0);
-            let _ = out_mut.set_pixel(x + border, y + border, val);
-        }
-    }
-    out_mut.into()
-}
-
-fn convert_1bpp_to_8bpp(pix: &Pix) -> Pix {
-    let w = pix.width();
-    let h = pix.height();
-    let out = Pix::new(w, h, PixelDepth::Bit8).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel(x, y).unwrap_or(0);
-            let gray = if val == 0 { 255u32 } else { 0u32 };
-            let _ = out_mut.set_pixel(x, y, gray);
-        }
-    }
-    out_mut.into()
-}
-
 // C version: Test invertability of sampling (pixProjectiveSampledPta) -- i=0..2
 #[test]
 fn projective_reg_sampling_invertability() {
@@ -139,7 +68,7 @@ fn projective_reg_sampling_invertability() {
         let (ptas, ptad) = make_pts(i);
 
         // C version: pixb = pixAddBorder(pixsc, ADDED_BORDER_PIXELS, 0);
-        let pixb = add_border(&pixsc, added_border, 0);
+        let pixb = pixsc.add_border(added_border, 0).expect("add_border");
 
         // C version: pix1 = pixProjectiveSampledPta(pixb, ptad, ptas, L_BRING_IN_WHITE);
         let pix1 = projective_sampled_pta(&pixb, ptad, ptas, AffineFill::White)
@@ -151,13 +80,13 @@ fn projective_reg_sampling_invertability() {
             .expect("projective_sampled_pta inverse");
 
         // C version: pixd = pixRemoveBorder(pix2, ADDED_BORDER_PIXELS);
-        let pixd = remove_border(&pix2, added_border);
+        let pixd = pix2.remove_border(added_border).expect("remove_border");
         rp.compare_values(pixsc.width() as f64, pixd.width() as f64, 0.0);
         rp.compare_values(pixsc.height() as f64, pixd.height() as f64, 0.0);
 
         if pixd.width() == pixsc.width() && pixd.height() == pixsc.height() {
             // C version: pixXor(pixd, pixd, pixsc);
-            let xor_result = pix_xor(&pixd, &pixsc);
+            let xor_result = pixd.xor(&pixsc).expect("xor");
             let diff_count = xor_result.count_pixels();
             let total = pixsc.width() as u64 * pixsc.height() as u64;
             let diff_frac = diff_count as f64 / total as f64;
@@ -182,7 +111,7 @@ fn projective_reg_grayscale_interpolation_invertability() {
     // C version: pixg = pixScaleToGray(pixs, 0.2) -- Rust未実装, manual conversion
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = scale(&pix, 0.2, 0.2, ScaleMethod::Linear).expect("scale");
-    let pixg = convert_1bpp_to_8bpp(&pixs);
+    let pixg = pixs.convert_to_8().expect("convert_to_8");
     let added_border = 125u32; // C version: ADDED_BORDER_PIXELS / 2
 
     // C version: for (i = 0; i < 2; i++)
@@ -190,7 +119,7 @@ fn projective_reg_grayscale_interpolation_invertability() {
         let (ptas, ptad) = make_pts(i);
 
         // C version: pixb = pixAddBorder(pixg, ADDED_BORDER_PIXELS / 2, 255);
-        let pixb = add_border(&pixg, added_border, 255);
+        let pixb = pixg.add_border(added_border, 255).expect("add_border");
 
         // C version: pix1 = pixProjectivePta(pixb, ptad, ptas, L_BRING_IN_WHITE);
         let pix1 =
@@ -202,7 +131,7 @@ fn projective_reg_grayscale_interpolation_invertability() {
             projective_pta(&pix1, ptas, ptad, AffineFill::White).expect("projective_pta inverse");
 
         // C version: pixd = pixRemoveBorder(pix2, ADDED_BORDER_PIXELS / 2);
-        let pixd = remove_border(&pix2, added_border);
+        let pixd = pix2.remove_border(added_border).expect("remove_border");
         rp.compare_values(pixg.width() as f64, pixd.width() as f64, 0.0);
         rp.compare_values(pixg.height() as f64, pixd.height() as f64, 0.0);
 
@@ -238,7 +167,7 @@ fn projective_reg_compare_sampling_interpolated() {
 
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = scale(&pix, 0.2, 0.2, ScaleMethod::Linear).expect("scale");
-    let pixg = convert_1bpp_to_8bpp(&pixs);
+    let pixg = pixs.convert_to_8().expect("convert_to_8");
 
     // C version: MakePtas(3, &ptas, &ptad);
     let (ptas, ptad) = make_pts(3);
@@ -265,7 +194,7 @@ fn projective_reg_compare_sampling_interpolated() {
     rp.compare_values(1.0, if interp_nonzero > 0 { 1.0 } else { 0.0 }, 0.0);
 
     // C version: pixXor(pix2, pix2, pix1); pixInvert(pix2, pix2);
-    let xor_result = pix_xor(&pix_sampled, &pix_interp);
+    let xor_result = pix_sampled.xor(&pix_interp).expect("xor");
     let diff_count = xor_result.count_pixels();
     let diff_frac = diff_count as f64 / total as f64;
     eprintln!("  Sampled vs interp diff: {:.4}", diff_frac);
