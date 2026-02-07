@@ -257,6 +257,7 @@ version = "0.1.0"
 dependencies = [
  "leptonica-core",
  "leptonica-io",
+ "leptonica-morph",
  "leptonica-test",
  "thiserror",
 ]
