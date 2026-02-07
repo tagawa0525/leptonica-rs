@@ -188,13 +188,13 @@ pub fn rotate_90(pix: &Pix, clockwise: bool) -> TransformResult<Pix> {
 fn rotate_90_impl(src: &Pix, dst: &mut PixMut, clockwise: bool, w: u32, h: u32) {
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { src.get_pixel_unchecked(x, y) };
+            let val = src.get_pixel_unchecked(x, y);
             let (nx, ny) = if clockwise {
                 (h - 1 - y, x)
             } else {
                 (y, w - 1 - x)
             };
-            unsafe { dst.set_pixel_unchecked(nx, ny, val) };
+            dst.set_pixel_unchecked(nx, ny, val);
         }
     }
 }
@@ -221,9 +221,9 @@ pub fn flip_lr(pix: &Pix) -> TransformResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             let nx = w - 1 - x;
-            unsafe { out_mut.set_pixel_unchecked(nx, y, val) };
+            out_mut.set_pixel_unchecked(nx, y, val);
         }
     }
 
@@ -245,9 +245,9 @@ pub fn flip_tb(pix: &Pix) -> TransformResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             let ny = h - 1 - y;
-            unsafe { out_mut.set_pixel_unchecked(x, ny, val) };
+            out_mut.set_pixel_unchecked(x, ny, val);
         }
     }
 
@@ -269,13 +269,11 @@ pub fn rotate_180_in_place(pix: &mut PixMut) -> TransformResult<()> {
         let x2 = w - 1 - x1;
         let y2 = h - 1 - y1;
 
-        let val1 = unsafe { pix.get_pixel_unchecked(x1, y1) };
-        let val2 = unsafe { pix.get_pixel_unchecked(x2, y2) };
+        let val1 = pix.get_pixel_unchecked(x1, y1);
+        let val2 = pix.get_pixel_unchecked(x2, y2);
 
-        unsafe {
-            pix.set_pixel_unchecked(x1, y1, val2);
-            pix.set_pixel_unchecked(x2, y2, val1);
-        }
+        pix.set_pixel_unchecked(x1, y1, val2);
+        pix.set_pixel_unchecked(x2, y2, val1);
     }
 
     Ok(())
@@ -473,7 +471,7 @@ fn fill_image(pix: &mut PixMut, value: u32) {
     let h = pix.height();
     for y in 0..h {
         for x in 0..w {
-            unsafe { pix.set_pixel_unchecked(x, y, value) };
+            pix.set_pixel_unchecked(x, y, value);
         }
     }
 }
@@ -510,8 +508,8 @@ fn rotate_nearest_neighbor(
             let sy_i = sy.round() as i32;
 
             if sx_i >= 0 && sx_i < src_w && sy_i >= 0 && sy_i < src_h {
-                let val = unsafe { src.get_pixel_unchecked(sx_i as u32, sy_i as u32) };
-                unsafe { dst.set_pixel_unchecked(dx, dy, val) };
+                let val = src.get_pixel_unchecked(sx_i as u32, sy_i as u32);
+                dst.set_pixel_unchecked(dx, dy, val);
             }
         }
     }
@@ -558,11 +556,11 @@ fn rotate_bilinear(
                 let val = interpolate_pixel(
                     src, depth, x0 as u32, y0 as u32, x1 as u32, y1 as u32, fx, fy,
                 );
-                unsafe { dst.set_pixel_unchecked(dx, dy, val) };
+                dst.set_pixel_unchecked(dx, dy, val);
             } else if x0 >= -1 && x1 <= src_w && y0 >= -1 && y1 <= src_h {
                 // Edge case: partially outside, use available pixels
                 let val = interpolate_edge_pixel(src, depth, x0, y0, x1, y1, sx, sy, src_w, src_h);
-                unsafe { dst.set_pixel_unchecked(dx, dy, val) };
+                dst.set_pixel_unchecked(dx, dy, val);
             }
         }
     }
@@ -580,10 +578,10 @@ fn interpolate_pixel(
     fx: f32,
     fy: f32,
 ) -> u32 {
-    let p00 = unsafe { src.get_pixel_unchecked(x0, y0) };
-    let p10 = unsafe { src.get_pixel_unchecked(x1, y0) };
-    let p01 = unsafe { src.get_pixel_unchecked(x0, y1) };
-    let p11 = unsafe { src.get_pixel_unchecked(x1, y1) };
+    let p00 = src.get_pixel_unchecked(x0, y0);
+    let p10 = src.get_pixel_unchecked(x1, y0);
+    let p01 = src.get_pixel_unchecked(x0, y1);
+    let p11 = src.get_pixel_unchecked(x1, y1);
 
     match depth {
         PixelDepth::Bit32 => {
@@ -648,10 +646,10 @@ fn interpolate_edge_pixel(
     let clamp_x = |x: i32| x.clamp(0, src_w - 1) as u32;
     let clamp_y = |y: i32| y.clamp(0, src_h - 1) as u32;
 
-    let p00 = unsafe { src.get_pixel_unchecked(clamp_x(x0), clamp_y(y0)) };
-    let p10 = unsafe { src.get_pixel_unchecked(clamp_x(x1), clamp_y(y0)) };
-    let p01 = unsafe { src.get_pixel_unchecked(clamp_x(x0), clamp_y(y1)) };
-    let p11 = unsafe { src.get_pixel_unchecked(clamp_x(x1), clamp_y(y1)) };
+    let p00 = src.get_pixel_unchecked(clamp_x(x0), clamp_y(y0));
+    let p10 = src.get_pixel_unchecked(clamp_x(x1), clamp_y(y0));
+    let p01 = src.get_pixel_unchecked(clamp_x(x0), clamp_y(y1));
+    let p11 = src.get_pixel_unchecked(clamp_x(x1), clamp_y(y1));
 
     let fx = sx - x0 as f32;
     let fy = sy - y0 as f32;
@@ -941,8 +939,8 @@ fn rotate_by_sampling_impl(
             let y = (cy_src + (-ydif * cos_a + xdif * sin_a)).round() as i32;
 
             if x >= 0 && x <= wm1 && y >= 0 && y <= hm1 {
-                let val = unsafe { src.get_pixel_unchecked(x as u32, y as u32) };
-                unsafe { dst.set_pixel_unchecked(j, i, val) };
+                let val = src.get_pixel_unchecked(x as u32, y as u32);
+                dst.set_pixel_unchecked(j, i, val);
             }
             // Pixels outside bounds keep the fill value set earlier
         }
@@ -1038,15 +1036,15 @@ fn rotate_area_map_gray(
 
             // Check bounds
             if xp < 0 || yp < 0 || xp > wm2 || yp > hm2 {
-                unsafe { dst.set_pixel_unchecked(j, i, grayval as u32) };
+                dst.set_pixel_unchecked(j, i, grayval as u32);
                 continue;
             }
 
             // Get four neighboring pixels
-            let v00 = unsafe { src.get_pixel_unchecked(xp as u32, yp as u32) };
-            let v10 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, yp as u32) };
-            let v01 = unsafe { src.get_pixel_unchecked(xp as u32, (yp + 1) as u32) };
-            let v11 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) };
+            let v00 = src.get_pixel_unchecked(xp as u32, yp as u32);
+            let v10 = src.get_pixel_unchecked((xp + 1) as u32, yp as u32);
+            let v01 = src.get_pixel_unchecked(xp as u32, (yp + 1) as u32);
+            let v11 = src.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
 
             // Area-weighted interpolation
             let val = ((16 - xf) * (16 - yf) * v00 as i32
@@ -1056,7 +1054,7 @@ fn rotate_area_map_gray(
                 + 128)
                 / 256;
 
-            unsafe { dst.set_pixel_unchecked(j, i, val as u32) };
+            dst.set_pixel_unchecked(j, i, val as u32);
         }
     }
 }
@@ -1102,15 +1100,15 @@ fn rotate_area_map_color(
 
             // Check bounds
             if xp < 0 || yp < 0 || xp > wm2 || yp > hm2 {
-                unsafe { dst.set_pixel_unchecked(j, i, colorval) };
+                dst.set_pixel_unchecked(j, i, colorval);
                 continue;
             }
 
             // Get four neighboring pixels
-            let word00 = unsafe { src.get_pixel_unchecked(xp as u32, yp as u32) };
-            let word10 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, yp as u32) };
-            let word01 = unsafe { src.get_pixel_unchecked(xp as u32, (yp + 1) as u32) };
-            let word11 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) };
+            let word00 = src.get_pixel_unchecked(xp as u32, yp as u32);
+            let word10 = src.get_pixel_unchecked((xp + 1) as u32, yp as u32);
+            let word01 = src.get_pixel_unchecked(xp as u32, (yp + 1) as u32);
+            let word11 = src.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
 
             // Extract and interpolate each channel (RGBA format)
             let (r00, g00, b00, a00) = color::extract_rgba(word00);
@@ -1124,7 +1122,7 @@ fn rotate_area_map_color(
             let aval = area_interp(a00, a10, a01, a11, xf, yf);
 
             let pixel = color::compose_rgba(rval, gval, bval, aval);
-            unsafe { dst.set_pixel_unchecked(j, i, pixel) };
+            dst.set_pixel_unchecked(j, i, pixel);
         }
     }
 }
@@ -1185,8 +1183,8 @@ fn rotate_2_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
         for x in 0..w {
             let new_x = x + shift;
             if new_x >= 0 && new_x < w {
-                let val = unsafe { src.get_pixel_unchecked(x as u32, y as u32) };
-                unsafe { temp.set_pixel_unchecked(new_x as u32, y as u32, val) };
+                let val = src.get_pixel_unchecked(x as u32, y as u32);
+                temp.set_pixel_unchecked(new_x as u32, y as u32, val);
             }
         }
     }
@@ -1198,8 +1196,8 @@ fn rotate_2_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
         for y in 0..h {
             let new_y = y + shift;
             if new_y >= 0 && new_y < h {
-                let val = unsafe { temp_ref.get_pixel_unchecked(x as u32, y as u32) };
-                unsafe { dst.set_pixel_unchecked(x as u32, new_y as u32, val) };
+                let val = temp_ref.get_pixel_unchecked(x as u32, y as u32);
+                dst.set_pixel_unchecked(x as u32, new_y as u32, val);
             }
         }
     }
@@ -1231,8 +1229,8 @@ fn rotate_3_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
         for y in 0..h {
             let new_y = y + shift;
             if new_y >= 0 && new_y < h {
-                let val = unsafe { src.get_pixel_unchecked(x as u32, y as u32) };
-                unsafe { temp1.set_pixel_unchecked(x as u32, new_y as u32, val) };
+                let val = src.get_pixel_unchecked(x as u32, y as u32);
+                temp1.set_pixel_unchecked(x as u32, new_y as u32, val);
             }
         }
     }
@@ -1244,8 +1242,8 @@ fn rotate_3_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
         for x in 0..w {
             let new_x = x + shift;
             if new_x >= 0 && new_x < w {
-                let val = unsafe { temp1_ref.get_pixel_unchecked(x as u32, y as u32) };
-                unsafe { temp2.set_pixel_unchecked(new_x as u32, y as u32, val) };
+                let val = temp1_ref.get_pixel_unchecked(x as u32, y as u32);
+                temp2.set_pixel_unchecked(new_x as u32, y as u32, val);
             }
         }
     }
@@ -1257,8 +1255,8 @@ fn rotate_3_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
         for y in 0..h {
             let new_y = y + shift;
             if new_y >= 0 && new_y < h {
-                let val = unsafe { temp2_ref.get_pixel_unchecked(x as u32, y as u32) };
-                unsafe { dst.set_pixel_unchecked(x as u32, new_y as u32, val) };
+                let val = temp2_ref.get_pixel_unchecked(x as u32, y as u32);
+                dst.set_pixel_unchecked(x as u32, new_y as u32, val);
             }
         }
     }
@@ -1279,14 +1277,12 @@ mod tests {
         // [1, 2]
         // [3, 4]
         // [5, 6]
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 1);
-            pix_mut.set_pixel_unchecked(1, 0, 2);
-            pix_mut.set_pixel_unchecked(0, 1, 3);
-            pix_mut.set_pixel_unchecked(1, 1, 4);
-            pix_mut.set_pixel_unchecked(0, 2, 5);
-            pix_mut.set_pixel_unchecked(1, 2, 6);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 1);
+        pix_mut.set_pixel_unchecked(1, 0, 2);
+        pix_mut.set_pixel_unchecked(0, 1, 3);
+        pix_mut.set_pixel_unchecked(1, 1, 4);
+        pix_mut.set_pixel_unchecked(0, 2, 5);
+        pix_mut.set_pixel_unchecked(1, 2, 6);
 
         let pix: Pix = pix_mut.into();
         let rotated = rotate_90(&pix, true).unwrap();
@@ -1295,12 +1291,12 @@ mod tests {
         // [5, 3, 1]
         // [6, 4, 2]
         assert_eq!((rotated.width(), rotated.height()), (3, 2));
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 0) }, 5);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 0) }, 3);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(2, 0) }, 1);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 1) }, 6);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 1) }, 4);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(2, 1) }, 2);
+        assert_eq!(rotated.get_pixel_unchecked(0, 0), 5);
+        assert_eq!(rotated.get_pixel_unchecked(1, 0), 3);
+        assert_eq!(rotated.get_pixel_unchecked(2, 0), 1);
+        assert_eq!(rotated.get_pixel_unchecked(0, 1), 6);
+        assert_eq!(rotated.get_pixel_unchecked(1, 1), 4);
+        assert_eq!(rotated.get_pixel_unchecked(2, 1), 2);
     }
 
     #[test]
@@ -1309,14 +1305,12 @@ mod tests {
         let pix = Pix::new(2, 3, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 1);
-            pix_mut.set_pixel_unchecked(1, 0, 2);
-            pix_mut.set_pixel_unchecked(0, 1, 3);
-            pix_mut.set_pixel_unchecked(1, 1, 4);
-            pix_mut.set_pixel_unchecked(0, 2, 5);
-            pix_mut.set_pixel_unchecked(1, 2, 6);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 1);
+        pix_mut.set_pixel_unchecked(1, 0, 2);
+        pix_mut.set_pixel_unchecked(0, 1, 3);
+        pix_mut.set_pixel_unchecked(1, 1, 4);
+        pix_mut.set_pixel_unchecked(0, 2, 5);
+        pix_mut.set_pixel_unchecked(1, 2, 6);
 
         let pix: Pix = pix_mut.into();
         let rotated = rotate_90(&pix, false).unwrap();
@@ -1325,12 +1319,12 @@ mod tests {
         // [2, 4, 6]
         // [1, 3, 5]
         assert_eq!((rotated.width(), rotated.height()), (3, 2));
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 0) }, 2);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 0) }, 4);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(2, 0) }, 6);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 1) }, 1);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 1) }, 3);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(2, 1) }, 5);
+        assert_eq!(rotated.get_pixel_unchecked(0, 0), 2);
+        assert_eq!(rotated.get_pixel_unchecked(1, 0), 4);
+        assert_eq!(rotated.get_pixel_unchecked(2, 0), 6);
+        assert_eq!(rotated.get_pixel_unchecked(0, 1), 1);
+        assert_eq!(rotated.get_pixel_unchecked(1, 1), 3);
+        assert_eq!(rotated.get_pixel_unchecked(2, 1), 5);
     }
 
     #[test]
@@ -1340,12 +1334,10 @@ mod tests {
 
         // [1, 2]
         // [3, 4]
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 1);
-            pix_mut.set_pixel_unchecked(1, 0, 2);
-            pix_mut.set_pixel_unchecked(0, 1, 3);
-            pix_mut.set_pixel_unchecked(1, 1, 4);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 1);
+        pix_mut.set_pixel_unchecked(1, 0, 2);
+        pix_mut.set_pixel_unchecked(0, 1, 3);
+        pix_mut.set_pixel_unchecked(1, 1, 4);
 
         let pix: Pix = pix_mut.into();
         let rotated = rotate_180(&pix).unwrap();
@@ -1353,10 +1345,10 @@ mod tests {
         // After 180 rotation:
         // [4, 3]
         // [2, 1]
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 0) }, 4);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 0) }, 3);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 1) }, 2);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 1) }, 1);
+        assert_eq!(rotated.get_pixel_unchecked(0, 0), 4);
+        assert_eq!(rotated.get_pixel_unchecked(1, 0), 3);
+        assert_eq!(rotated.get_pixel_unchecked(0, 1), 2);
+        assert_eq!(rotated.get_pixel_unchecked(1, 1), 1);
     }
 
     #[test]
@@ -1366,14 +1358,12 @@ mod tests {
 
         // [1, 2, 3]
         // [4, 5, 6]
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 1);
-            pix_mut.set_pixel_unchecked(1, 0, 2);
-            pix_mut.set_pixel_unchecked(2, 0, 3);
-            pix_mut.set_pixel_unchecked(0, 1, 4);
-            pix_mut.set_pixel_unchecked(1, 1, 5);
-            pix_mut.set_pixel_unchecked(2, 1, 6);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 1);
+        pix_mut.set_pixel_unchecked(1, 0, 2);
+        pix_mut.set_pixel_unchecked(2, 0, 3);
+        pix_mut.set_pixel_unchecked(0, 1, 4);
+        pix_mut.set_pixel_unchecked(1, 1, 5);
+        pix_mut.set_pixel_unchecked(2, 1, 6);
 
         let pix: Pix = pix_mut.into();
         let flipped = flip_lr(&pix).unwrap();
@@ -1381,12 +1371,12 @@ mod tests {
         // After LR flip:
         // [3, 2, 1]
         // [6, 5, 4]
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(0, 0) }, 3);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(1, 0) }, 2);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(2, 0) }, 1);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(0, 1) }, 6);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(1, 1) }, 5);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(2, 1) }, 4);
+        assert_eq!(flipped.get_pixel_unchecked(0, 0), 3);
+        assert_eq!(flipped.get_pixel_unchecked(1, 0), 2);
+        assert_eq!(flipped.get_pixel_unchecked(2, 0), 1);
+        assert_eq!(flipped.get_pixel_unchecked(0, 1), 6);
+        assert_eq!(flipped.get_pixel_unchecked(1, 1), 5);
+        assert_eq!(flipped.get_pixel_unchecked(2, 1), 4);
     }
 
     #[test]
@@ -1397,14 +1387,12 @@ mod tests {
         // [1, 2]
         // [3, 4]
         // [5, 6]
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 1);
-            pix_mut.set_pixel_unchecked(1, 0, 2);
-            pix_mut.set_pixel_unchecked(0, 1, 3);
-            pix_mut.set_pixel_unchecked(1, 1, 4);
-            pix_mut.set_pixel_unchecked(0, 2, 5);
-            pix_mut.set_pixel_unchecked(1, 2, 6);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 1);
+        pix_mut.set_pixel_unchecked(1, 0, 2);
+        pix_mut.set_pixel_unchecked(0, 1, 3);
+        pix_mut.set_pixel_unchecked(1, 1, 4);
+        pix_mut.set_pixel_unchecked(0, 2, 5);
+        pix_mut.set_pixel_unchecked(1, 2, 6);
 
         let pix: Pix = pix_mut.into();
         let flipped = flip_tb(&pix).unwrap();
@@ -1413,12 +1401,12 @@ mod tests {
         // [5, 6]
         // [3, 4]
         // [1, 2]
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(0, 0) }, 5);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(1, 0) }, 6);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(0, 1) }, 3);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(1, 1) }, 4);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(0, 2) }, 1);
-        assert_eq!(unsafe { flipped.get_pixel_unchecked(1, 2) }, 2);
+        assert_eq!(flipped.get_pixel_unchecked(0, 0), 5);
+        assert_eq!(flipped.get_pixel_unchecked(1, 0), 6);
+        assert_eq!(flipped.get_pixel_unchecked(0, 1), 3);
+        assert_eq!(flipped.get_pixel_unchecked(1, 1), 4);
+        assert_eq!(flipped.get_pixel_unchecked(0, 2), 1);
+        assert_eq!(flipped.get_pixel_unchecked(1, 2), 2);
     }
 
     #[test]
@@ -1426,22 +1414,20 @@ mod tests {
         let pix = Pix::new(2, 2, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 1);
-            pix_mut.set_pixel_unchecked(1, 0, 2);
-            pix_mut.set_pixel_unchecked(0, 1, 3);
-            pix_mut.set_pixel_unchecked(1, 1, 4);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 1);
+        pix_mut.set_pixel_unchecked(1, 0, 2);
+        pix_mut.set_pixel_unchecked(0, 1, 3);
+        pix_mut.set_pixel_unchecked(1, 1, 4);
 
         let pix: Pix = pix_mut.into();
 
         // 0 quads = no rotation
         let r0 = rotate_orth(&pix, 0).unwrap();
-        assert_eq!(unsafe { r0.get_pixel_unchecked(0, 0) }, 1);
+        assert_eq!(r0.get_pixel_unchecked(0, 0), 1);
 
         // 4 quads = back to original (mod 4)
         let r4 = rotate_orth(&pix, 4).unwrap();
-        assert_eq!(unsafe { r4.get_pixel_unchecked(0, 0) }, 1);
+        assert_eq!(r4.get_pixel_unchecked(0, 0), 1);
     }
 
     #[test]
@@ -1456,12 +1442,10 @@ mod tests {
 
         // [R, G]
         // [B, W]
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, red);
-            pix_mut.set_pixel_unchecked(1, 0, green);
-            pix_mut.set_pixel_unchecked(0, 1, blue);
-            pix_mut.set_pixel_unchecked(1, 1, white);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, red);
+        pix_mut.set_pixel_unchecked(1, 0, green);
+        pix_mut.set_pixel_unchecked(0, 1, blue);
+        pix_mut.set_pixel_unchecked(1, 1, white);
 
         let pix: Pix = pix_mut.into();
         let rotated = rotate_90(&pix, true).unwrap();
@@ -1469,10 +1453,10 @@ mod tests {
         // After 90 CW:
         // [B, R]
         // [W, G]
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 0) }, blue);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 0) }, red);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(0, 1) }, white);
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(1, 1) }, green);
+        assert_eq!(rotated.get_pixel_unchecked(0, 0), blue);
+        assert_eq!(rotated.get_pixel_unchecked(1, 0), red);
+        assert_eq!(rotated.get_pixel_unchecked(0, 1), white);
+        assert_eq!(rotated.get_pixel_unchecked(1, 1), green);
     }
 
     // ========================================================================
@@ -1500,14 +1484,14 @@ mod tests {
     fn test_rotate_by_angle_180() {
         let pix = Pix::new(20, 10, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(0, 0, 100) };
+        pix_mut.set_pixel_unchecked(0, 0, 100);
         let pix: Pix = pix_mut.into();
 
         let rotated = rotate_by_angle(&pix, 180.0).unwrap();
         assert_eq!(rotated.width(), 20);
         assert_eq!(rotated.height(), 10);
         // Top-left becomes bottom-right
-        assert_eq!(unsafe { rotated.get_pixel_unchecked(19, 9) }, 100);
+        assert_eq!(rotated.get_pixel_unchecked(19, 9), 100);
     }
 
     #[test]
@@ -1549,7 +1533,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         // Set some pixels (1 = black in 1bpp)
         for i in 10..40 {
-            unsafe { pix_mut.set_pixel_unchecked(i, 25, 1) };
+            pix_mut.set_pixel_unchecked(i, 25, 1);
         }
         let pix: Pix = pix_mut.into();
 
@@ -1647,7 +1631,7 @@ mod tests {
         for y in 0..30 {
             for x in 0..30 {
                 let val = color::compose_rgb(x as u8 * 8, y as u8 * 8, 128);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 

@@ -53,7 +53,7 @@ pub fn median_cut_quant(pix: &Pix, options: &MedianCutOptions) -> ColorResult<Pi
     let mut pixels: Vec<[u8; 3]> = Vec::with_capacity((w * h) as usize);
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
             pixels.push([r, g, b]);
         }
@@ -118,7 +118,7 @@ pub fn median_cut_quant(pix: &Pix, options: &MedianCutOptions) -> ColorResult<Pi
         for x in 0..w {
             let pixel_idx = (y * w + x) as usize;
             let color_idx = color_indices[pixel_idx];
-            unsafe { out_mut.set_pixel_unchecked(x, y, color_idx as u32) };
+            out_mut.set_pixel_unchecked(x, y, color_idx as u32);
         }
     }
 
@@ -311,7 +311,7 @@ pub fn octree_quant(pix: &Pix, options: &OctreeOptions) -> ColorResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
             octree.add_color(r, g, b);
         }
@@ -339,10 +339,10 @@ pub fn octree_quant(pix: &Pix, options: &OctreeOptions) -> ColorResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
             let idx = octree.get_palette_index(r, g, b);
-            unsafe { out_mut.set_pixel_unchecked(x, y, idx as u32) };
+            out_mut.set_pixel_unchecked(x, y, idx as u32);
         }
     }
 
@@ -540,7 +540,7 @@ mod tests {
                 let g = (y * 4) as u8;
                 let b = 128;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -561,7 +561,7 @@ mod tests {
                 } else {
                     color::compose_rgb(0, 0, 255) // Blue
                 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 

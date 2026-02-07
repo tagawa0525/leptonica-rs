@@ -296,7 +296,7 @@ fn convert_u8_to_pix(
                         if invert {
                             val = 1 - val;
                         }
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                        pix_mut.set_pixel_unchecked(x, y, val as u32);
                     }
                 }
             }
@@ -310,7 +310,7 @@ fn convert_u8_to_pix(
                     let shift = 6 - ((x % 4) * 2);
                     if byte_idx < data.len() {
                         let val = (data[byte_idx] >> shift) & 3;
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                        pix_mut.set_pixel_unchecked(x, y, val as u32);
                     }
                 }
             }
@@ -327,7 +327,7 @@ fn convert_u8_to_pix(
                         } else {
                             data[byte_idx] & 0xF
                         };
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                        pix_mut.set_pixel_unchecked(x, y, val as u32);
                     }
                 }
             }
@@ -338,7 +338,7 @@ fn convert_u8_to_pix(
                 for x in 0..width {
                     let idx = (y * width + x) as usize;
                     if idx < data.len() {
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, data[idx] as u32) };
+                        pix_mut.set_pixel_unchecked(x, y, data[idx] as u32);
                     }
                 }
             }
@@ -353,7 +353,7 @@ fn convert_u8_to_pix(
                         let g = data[idx + 1];
                         let b = data[idx + 2];
                         let pixel = color::compose_rgb(r, g, b);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             }
@@ -369,7 +369,7 @@ fn convert_u8_to_pix(
                         let b = data[idx + 2];
                         let a = data[idx + 3];
                         let pixel = color::compose_rgba(r, g, b, a);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             }
@@ -383,7 +383,7 @@ fn convert_u8_to_pix(
                         let g = data[idx];
                         let a = data[idx + 1];
                         let pixel = color::compose_rgba(g, g, g, a);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             }
@@ -408,7 +408,7 @@ fn convert_u8_to_pix(
                         }
                     };
                     if idx < data.len() {
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, data[idx] as u32) };
+                        pix_mut.set_pixel_unchecked(x, y, data[idx] as u32);
                     }
                 }
             }
@@ -438,7 +438,7 @@ fn convert_u16_to_pix(
                 for x in 0..width {
                     let idx = (y * width + x) as usize;
                     if idx < data.len() {
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, data[idx] as u32) };
+                        pix_mut.set_pixel_unchecked(x, y, data[idx] as u32);
                     }
                 }
             }
@@ -453,7 +453,7 @@ fn convert_u16_to_pix(
                         let g = (data[idx + 1] >> 8) as u8;
                         let b = (data[idx + 2] >> 8) as u8;
                         let pixel = color::compose_rgb(r, g, b);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             }
@@ -469,7 +469,7 @@ fn convert_u16_to_pix(
                         let b = (data[idx + 2] >> 8) as u8;
                         let a = (data[idx + 3] >> 8) as u8;
                         let pixel = color::compose_rgba(r, g, b, a);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             }
@@ -482,7 +482,7 @@ fn convert_u16_to_pix(
                         let g = (data[idx] >> 8) as u8;
                         let a = (data[idx + 1] >> 8) as u8;
                         let pixel = color::compose_rgba(g, g, g, a);
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                        pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
             }
@@ -506,7 +506,7 @@ fn convert_u32_to_pix(data: &[u32], pix_mut: &mut leptonica_core::PixMut) -> IoR
         for x in 0..width {
             let idx = (y * width + x) as usize;
             if idx < data.len() {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, data[idx]) };
+                pix_mut.set_pixel_unchecked(x, y, data[idx]);
             }
         }
     }
@@ -522,7 +522,7 @@ fn convert_u64_to_pix(data: &[u64], pix_mut: &mut leptonica_core::PixMut) -> IoR
         for x in 0..width {
             let idx = (y * width + x) as usize;
             if idx < data.len() {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (data[idx] >> 32) as u32) };
+                pix_mut.set_pixel_unchecked(x, y, (data[idx] >> 32) as u32);
             }
         }
     }
@@ -554,7 +554,7 @@ fn convert_f16_to_pix(data: &[half::f16], pix_mut: &mut leptonica_core::PixMut) 
             let idx = (y * width + x) as usize;
             if idx < data.len() {
                 let normalized = ((data[idx].to_f32() - min) / range * 255.0) as u32;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, normalized.min(255)) };
+                pix_mut.set_pixel_unchecked(x, y, normalized.min(255));
             }
         }
     }
@@ -580,7 +580,7 @@ fn convert_f32_to_pix(data: &[f32], pix_mut: &mut leptonica_core::PixMut) -> IoR
             let idx = (y * width + x) as usize;
             if idx < data.len() {
                 let normalized = ((data[idx] - min) / range * 255.0) as u32;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, normalized.min(255)) };
+                pix_mut.set_pixel_unchecked(x, y, normalized.min(255));
             }
         }
     }
@@ -605,7 +605,7 @@ fn convert_f64_to_pix(data: &[f64], pix_mut: &mut leptonica_core::PixMut) -> IoR
             let idx = (y * width + x) as usize;
             if idx < data.len() {
                 let normalized = ((data[idx] - min) / range * 255.0) as u32;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, normalized.min(255)) };
+                pix_mut.set_pixel_unchecked(x, y, normalized.min(255));
             }
         }
     }
@@ -623,7 +623,7 @@ fn convert_i8_to_pix(data: &[i8], pix_mut: &mut leptonica_core::PixMut) -> IoRes
             if idx < data.len() {
                 // Map -128..127 to 0..255
                 let val = ((data[idx] as i32) + 128) as u32;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -641,7 +641,7 @@ fn convert_i16_to_pix(data: &[i16], pix_mut: &mut leptonica_core::PixMut) -> IoR
             if idx < data.len() {
                 // Map to 0..65535
                 let val = ((data[idx] as i32) + 32768) as u32;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -659,7 +659,7 @@ fn convert_i32_to_pix(data: &[i32], pix_mut: &mut leptonica_core::PixMut) -> IoR
             if idx < data.len() {
                 // Just take lower 32 bits, shifted to unsigned range
                 let val = (data[idx] as u32).wrapping_add(0x80000000);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -676,7 +676,7 @@ fn convert_i64_to_pix(data: &[i64], pix_mut: &mut leptonica_core::PixMut) -> IoR
             let idx = (y * width + x) as usize;
             if idx < data.len() {
                 let val = ((data[idx] >> 32) as u32).wrapping_add(0x80000000);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }

@@ -298,18 +298,18 @@ pub fn assign_to_nearest_color(
         for x in 0..w {
             // Check mask if present
             if let Some(m) = mask {
-                let mask_val = unsafe { m.get_pixel_unchecked(x, y) };
+                let mask_val = m.get_pixel_unchecked(x, y);
                 if mask_val == 0 {
                     continue;
                 }
             }
 
-            let pixel = unsafe { src.get_pixel_unchecked(x, y) };
+            let pixel = src.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
 
             // Find nearest color in colormap
             let idx = colormap.find_nearest(r, g, b).unwrap_or(0);
-            unsafe { dest.set_pixel_unchecked(x, y, idx as u32) };
+            dest.set_pixel_unchecked(x, y, idx as u32);
             counts[idx] += 1;
         }
     }
@@ -350,7 +350,7 @@ fn cluster_try(pix: &Pix, max_dist: u32, max_colors: u32) -> Result<Pix, Cluster
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = color::extract_rgb(pixel);
 
             // Try to find an existing cluster within max_dist
@@ -365,7 +365,7 @@ fn cluster_try(pix: &Pix, max_dist: u32, max_colors: u32) -> Result<Pix, Cluster
 
                 if dist_sq <= max_dist_sq {
                     // Assign to this cluster
-                    unsafe { out_mut.set_pixel_unchecked(x, y, k as u32) };
+                    out_mut.set_pixel_unchecked(x, y, k as u32);
                     rsum[k] += r as u64;
                     gsum[k] += g as u64;
                     bsum[k] += b as u64;
@@ -389,7 +389,7 @@ fn cluster_try(pix: &Pix, max_dist: u32, max_colors: u32) -> Result<Pix, Cluster
                 gsum.push(g as u64);
                 bsum.push(b as u64);
                 counts.push(1);
-                unsafe { out_mut.set_pixel_unchecked(x, y, idx as u32) };
+                out_mut.set_pixel_unchecked(x, y, idx as u32);
             }
         }
     }
@@ -481,13 +481,13 @@ fn color_segment_remove_colors(
 
     for y in 0..pix_dest.height() {
         for x in 0..pix_dest.width() {
-            let old_idx = unsafe { pix_dest.get_pixel_unchecked(x, y) } as usize;
+            let old_idx = pix_dest.get_pixel_unchecked(x, y) as usize;
             let new_idx = if old_idx < index_map.len() {
                 index_map[old_idx]
             } else {
                 0
             };
-            unsafe { out_mut.set_pixel_unchecked(x, y, new_idx as u32) };
+            out_mut.set_pixel_unchecked(x, y, new_idx as u32);
         }
     }
 
@@ -516,7 +516,7 @@ mod tests {
                 } else {
                     color::compose_rgb(0, 0, 255) // Blue
                 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -534,7 +534,7 @@ mod tests {
                 let g = (y * 4) as u8;
                 let b = 128;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 

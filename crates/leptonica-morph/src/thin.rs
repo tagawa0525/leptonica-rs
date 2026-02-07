@@ -213,9 +213,9 @@ fn invert(pix: &Pix) -> MorphResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             let inverted = if val == 0 { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, inverted) };
+            out_mut.set_pixel_unchecked(x, y, inverted);
         }
     }
 
@@ -232,10 +232,10 @@ fn or_images(a: &Pix, b: &Pix) -> MorphResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let va = unsafe { a.get_pixel_unchecked(x, y) };
-            let vb = unsafe { b.get_pixel_unchecked(x, y) };
+            let va = a.get_pixel_unchecked(x, y);
+            let vb = b.get_pixel_unchecked(x, y);
             let result = if va != 0 || vb != 0 { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -252,10 +252,10 @@ fn subtract_images(a: &Pix, b: &Pix) -> MorphResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let va = unsafe { a.get_pixel_unchecked(x, y) };
-            let vb = unsafe { b.get_pixel_unchecked(x, y) };
+            let va = a.get_pixel_unchecked(x, y);
+            let vb = b.get_pixel_unchecked(x, y);
             let result = if va != 0 && vb == 0 { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -270,8 +270,8 @@ fn images_equal(a: &Pix, b: &Pix) -> bool {
 
     for y in 0..a.height() {
         for x in 0..a.width() {
-            let va = unsafe { a.get_pixel_unchecked(x, y) };
-            let vb = unsafe { b.get_pixel_unchecked(x, y) };
+            let va = a.get_pixel_unchecked(x, y);
+            let vb = b.get_pixel_unchecked(x, y);
             if va != vb {
                 return false;
             }
@@ -299,20 +299,20 @@ fn extract_border_connected_components(pix: &Pix) -> MorphResult<Pix> {
 
     // Top and bottom borders
     for x in 0..w {
-        if unsafe { pix.get_pixel_unchecked(x, 0) } != 0 {
+        if pix.get_pixel_unchecked(x, 0) != 0 {
             seeds.push((x, 0));
         }
-        if h > 1 && unsafe { pix.get_pixel_unchecked(x, h - 1) } != 0 {
+        if h > 1 && pix.get_pixel_unchecked(x, h - 1) != 0 {
             seeds.push((x, h - 1));
         }
     }
 
     // Left and right borders (excluding corners already added)
     for y in 1..h.saturating_sub(1) {
-        if unsafe { pix.get_pixel_unchecked(0, y) } != 0 {
+        if pix.get_pixel_unchecked(0, y) != 0 {
             seeds.push((0, y));
         }
-        if w > 1 && unsafe { pix.get_pixel_unchecked(w - 1, y) } != 0 {
+        if w > 1 && pix.get_pixel_unchecked(w - 1, y) != 0 {
             seeds.push((w - 1, y));
         }
     }
@@ -323,12 +323,12 @@ fn extract_border_connected_components(pix: &Pix) -> MorphResult<Pix> {
         if visited[idx] {
             continue;
         }
-        if unsafe { pix.get_pixel_unchecked(x, y) } == 0 {
+        if pix.get_pixel_unchecked(x, y) == 0 {
             continue;
         }
 
         visited[idx] = true;
-        unsafe { out_mut.set_pixel_unchecked(x, y, 1) };
+        out_mut.set_pixel_unchecked(x, y, 1);
 
         // Add 4-connected neighbors
         if x > 0 {
@@ -369,7 +369,7 @@ mod tests {
 
         let center_x = width / 2;
         for y in 0..height {
-            unsafe { pix_mut.set_pixel_unchecked(center_x, y, 1) };
+            pix_mut.set_pixel_unchecked(center_x, y, 1);
         }
 
         pix_mut.into()
@@ -381,7 +381,7 @@ mod tests {
 
         let center_y = height / 2;
         for x in 0..width {
-            unsafe { pix_mut.set_pixel_unchecked(x, center_y, 1) };
+            pix_mut.set_pixel_unchecked(x, center_y, 1);
         }
 
         pix_mut.into()
@@ -396,7 +396,7 @@ mod tests {
 
         for y in center_y.saturating_sub(half_thick)..=(center_y + half_thick).min(height - 1) {
             for x in 0..width {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
 
@@ -407,7 +407,7 @@ mod tests {
         let mut count = 0;
         for y in 0..pix.height() {
             for x in 0..pix.width() {
-                if unsafe { pix.get_pixel_unchecked(x, y) } != 0 {
+                if pix.get_pixel_unchecked(x, y) != 0 {
                     count += 1;
                 }
             }
@@ -492,63 +492,58 @@ mod tests {
     fn test_invert() {
         let pix = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe {
-            pix_mut.set_pixel_unchecked(1, 1, 1);
-        }
+        pix_mut.set_pixel_unchecked(1, 1, 1);
+
         let pix: Pix = pix_mut.into();
 
         let inverted = invert(&pix).unwrap();
 
         // Center should be 0, others should be 1
-        assert_eq!(unsafe { inverted.get_pixel_unchecked(1, 1) }, 0);
-        assert_eq!(unsafe { inverted.get_pixel_unchecked(0, 0) }, 1);
-        assert_eq!(unsafe { inverted.get_pixel_unchecked(2, 2) }, 1);
+        assert_eq!(inverted.get_pixel_unchecked(1, 1), 0);
+        assert_eq!(inverted.get_pixel_unchecked(0, 0), 1);
+        assert_eq!(inverted.get_pixel_unchecked(2, 2), 1);
     }
 
     #[test]
     fn test_or_images() {
         let pix1 = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
         let mut pix1_mut = pix1.try_into_mut().unwrap();
-        unsafe {
-            pix1_mut.set_pixel_unchecked(0, 0, 1);
-        }
+        pix1_mut.set_pixel_unchecked(0, 0, 1);
+
         let pix1: Pix = pix1_mut.into();
 
         let pix2 = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
         let mut pix2_mut = pix2.try_into_mut().unwrap();
-        unsafe {
-            pix2_mut.set_pixel_unchecked(2, 2, 1);
-        }
+        pix2_mut.set_pixel_unchecked(2, 2, 1);
+
         let pix2: Pix = pix2_mut.into();
 
         let result = or_images(&pix1, &pix2).unwrap();
 
-        assert_eq!(unsafe { result.get_pixel_unchecked(0, 0) }, 1);
-        assert_eq!(unsafe { result.get_pixel_unchecked(2, 2) }, 1);
-        assert_eq!(unsafe { result.get_pixel_unchecked(1, 1) }, 0);
+        assert_eq!(result.get_pixel_unchecked(0, 0), 1);
+        assert_eq!(result.get_pixel_unchecked(2, 2), 1);
+        assert_eq!(result.get_pixel_unchecked(1, 1), 0);
     }
 
     #[test]
     fn test_subtract_images() {
         let pix1 = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
         let mut pix1_mut = pix1.try_into_mut().unwrap();
-        unsafe {
-            pix1_mut.set_pixel_unchecked(0, 0, 1);
-            pix1_mut.set_pixel_unchecked(1, 1, 1);
-        }
+        pix1_mut.set_pixel_unchecked(0, 0, 1);
+        pix1_mut.set_pixel_unchecked(1, 1, 1);
+
         let pix1: Pix = pix1_mut.into();
 
         let pix2 = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
         let mut pix2_mut = pix2.try_into_mut().unwrap();
-        unsafe {
-            pix2_mut.set_pixel_unchecked(1, 1, 1);
-        }
+        pix2_mut.set_pixel_unchecked(1, 1, 1);
+
         let pix2: Pix = pix2_mut.into();
 
         let result = subtract_images(&pix1, &pix2).unwrap();
 
-        assert_eq!(unsafe { result.get_pixel_unchecked(0, 0) }, 1); // In a, not in b
-        assert_eq!(unsafe { result.get_pixel_unchecked(1, 1) }, 0); // In both
+        assert_eq!(result.get_pixel_unchecked(0, 0), 1); // In a, not in b
+        assert_eq!(result.get_pixel_unchecked(1, 1), 0); // In both
     }
 
     #[test]
@@ -582,27 +577,23 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
 
         // Border-touching component (top-left)
-        unsafe {
-            pix_mut.set_pixel_unchecked(0, 0, 1);
-            pix_mut.set_pixel_unchecked(1, 0, 1);
-            pix_mut.set_pixel_unchecked(0, 1, 1);
-        }
+        pix_mut.set_pixel_unchecked(0, 0, 1);
+        pix_mut.set_pixel_unchecked(1, 0, 1);
+        pix_mut.set_pixel_unchecked(0, 1, 1);
 
         // Non-border-touching component (center)
-        unsafe {
-            pix_mut.set_pixel_unchecked(2, 2, 1);
-        }
+        pix_mut.set_pixel_unchecked(2, 2, 1);
 
         let pix: Pix = pix_mut.into();
 
         let border_cc = extract_border_connected_components(&pix).unwrap();
 
         // Border component should be extracted
-        assert_eq!(unsafe { border_cc.get_pixel_unchecked(0, 0) }, 1);
-        assert_eq!(unsafe { border_cc.get_pixel_unchecked(1, 0) }, 1);
-        assert_eq!(unsafe { border_cc.get_pixel_unchecked(0, 1) }, 1);
+        assert_eq!(border_cc.get_pixel_unchecked(0, 0), 1);
+        assert_eq!(border_cc.get_pixel_unchecked(1, 0), 1);
+        assert_eq!(border_cc.get_pixel_unchecked(0, 1), 1);
 
         // Center pixel should NOT be in result
-        assert_eq!(unsafe { border_cc.get_pixel_unchecked(2, 2) }, 0);
+        assert_eq!(border_cc.get_pixel_unchecked(2, 2), 0);
     }
 }

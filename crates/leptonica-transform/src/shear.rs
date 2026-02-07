@@ -188,8 +188,8 @@ pub fn h_shear(pix: &Pix, yloc: i32, radang: f32, fill: ShearFill) -> TransformR
         for x in 0..wi {
             let src_x = x - shift;
             if src_x >= 0 && src_x < wi {
-                let val = unsafe { pix.get_pixel_unchecked(src_x as u32, y as u32) };
-                unsafe { out_mut.set_pixel_unchecked(x as u32, y as u32, val) };
+                let val = pix.get_pixel_unchecked(src_x as u32, y as u32);
+                out_mut.set_pixel_unchecked(x as u32, y as u32, val);
             }
             // Pixels outside source keep the fill value
         }
@@ -281,8 +281,8 @@ pub fn v_shear(pix: &Pix, xloc: i32, radang: f32, fill: ShearFill) -> TransformR
         for y in 0..hi {
             let src_y = y - shift;
             if src_y >= 0 && src_y < hi {
-                let val = unsafe { pix.get_pixel_unchecked(x as u32, src_y as u32) };
-                unsafe { out_mut.set_pixel_unchecked(x as u32, y as u32, val) };
+                let val = pix.get_pixel_unchecked(x as u32, src_y as u32);
+                out_mut.set_pixel_unchecked(x as u32, y as u32, val);
             }
             // Pixels outside source keep the fill value
         }
@@ -373,7 +373,7 @@ pub fn h_shear_ip(
 
         // Read original row into buffer
         for x in 0..wi {
-            row_buffer[x as usize] = unsafe { pix.get_pixel_unchecked(x as u32, y as u32) };
+            row_buffer[x as usize] = pix.get_pixel_unchecked(x as u32, y as u32);
         }
 
         // Write shifted row
@@ -384,7 +384,7 @@ pub fn h_shear_ip(
             } else {
                 fill_value
             };
-            unsafe { pix.set_pixel_unchecked(x as u32, y as u32, val) };
+            pix.set_pixel_unchecked(x as u32, y as u32, val);
         }
     }
 
@@ -439,7 +439,7 @@ pub fn v_shear_ip(
 
         // Read original column into buffer
         for y in 0..hi {
-            col_buffer[y as usize] = unsafe { pix.get_pixel_unchecked(x as u32, y as u32) };
+            col_buffer[y as usize] = pix.get_pixel_unchecked(x as u32, y as u32);
         }
 
         // Write shifted column
@@ -450,7 +450,7 @@ pub fn v_shear_ip(
             } else {
                 fill_value
             };
-            unsafe { pix.set_pixel_unchecked(x as u32, y as u32, val) };
+            pix.set_pixel_unchecked(x as u32, y as u32, val);
         }
     }
 
@@ -694,15 +694,15 @@ fn h_shear_li_gray(
             }
 
             let val = if xp < wm {
-                let v0 = unsafe { src.get_pixel_unchecked(xp as u32, y as u32) } as i32;
-                let v1 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, y as u32) } as i32;
+                let v0 = src.get_pixel_unchecked(xp as u32, y as u32) as i32;
+                let v1 = src.get_pixel_unchecked((xp + 1) as u32, y as u32) as i32;
                 ((63 - xf) * v0 + xf * v1 + 31) / 63
             } else {
                 // xp == wm, no interpolation needed
-                unsafe { src.get_pixel_unchecked(xp as u32, y as u32) as i32 }
+                src.get_pixel_unchecked(xp as u32, y as u32) as i32
             };
 
-            unsafe { dst.set_pixel_unchecked(jd as u32, y as u32, val as u32) };
+            dst.set_pixel_unchecked(jd as u32, y as u32, val as u32);
         }
     }
 }
@@ -732,8 +732,8 @@ fn h_shear_li_color(
             }
 
             let pixel = if xp < wm {
-                let word0 = unsafe { src.get_pixel_unchecked(xp as u32, y as u32) };
-                let word1 = unsafe { src.get_pixel_unchecked((xp + 1) as u32, y as u32) };
+                let word0 = src.get_pixel_unchecked(xp as u32, y as u32);
+                let word1 = src.get_pixel_unchecked((xp + 1) as u32, y as u32);
 
                 let (r0, g0, b0, a0) = color::extract_rgba(word0);
                 let (r1, g1, b1, a1) = color::extract_rgba(word1);
@@ -745,10 +745,10 @@ fn h_shear_li_color(
 
                 color::compose_rgba(r, g, b, a)
             } else {
-                unsafe { src.get_pixel_unchecked(xp as u32, y as u32) }
+                src.get_pixel_unchecked(xp as u32, y as u32)
             };
 
-            unsafe { dst.set_pixel_unchecked(jd as u32, y as u32, pixel) };
+            dst.set_pixel_unchecked(jd as u32, y as u32, pixel);
         }
     }
 }
@@ -778,14 +778,14 @@ fn v_shear_li_gray(
             }
 
             let val = if yp < hm {
-                let v0 = unsafe { src.get_pixel_unchecked(x as u32, yp as u32) } as i32;
-                let v1 = unsafe { src.get_pixel_unchecked(x as u32, (yp + 1) as u32) } as i32;
+                let v0 = src.get_pixel_unchecked(x as u32, yp as u32) as i32;
+                let v1 = src.get_pixel_unchecked(x as u32, (yp + 1) as u32) as i32;
                 ((63 - yf) * v0 + yf * v1 + 31) / 63
             } else {
-                unsafe { src.get_pixel_unchecked(x as u32, yp as u32) as i32 }
+                src.get_pixel_unchecked(x as u32, yp as u32) as i32
             };
 
-            unsafe { dst.set_pixel_unchecked(x as u32, id as u32, val as u32) };
+            dst.set_pixel_unchecked(x as u32, id as u32, val as u32);
         }
     }
 }
@@ -815,8 +815,8 @@ fn v_shear_li_color(
             }
 
             let pixel = if yp < hm {
-                let word0 = unsafe { src.get_pixel_unchecked(x as u32, yp as u32) };
-                let word1 = unsafe { src.get_pixel_unchecked(x as u32, (yp + 1) as u32) };
+                let word0 = src.get_pixel_unchecked(x as u32, yp as u32);
+                let word1 = src.get_pixel_unchecked(x as u32, (yp + 1) as u32);
 
                 let (r0, g0, b0, a0) = color::extract_rgba(word0);
                 let (r1, g1, b1, a1) = color::extract_rgba(word1);
@@ -828,10 +828,10 @@ fn v_shear_li_color(
 
                 color::compose_rgba(r, g, b, a)
             } else {
-                unsafe { src.get_pixel_unchecked(x as u32, yp as u32) }
+                src.get_pixel_unchecked(x as u32, yp as u32)
             };
 
-            unsafe { dst.set_pixel_unchecked(x as u32, id as u32, pixel) };
+            dst.set_pixel_unchecked(x as u32, id as u32, pixel);
         }
     }
 }
@@ -852,7 +852,7 @@ fn fill_image(pix: &mut PixMut, value: u32) {
     let h = pix.height();
     for y in 0..h {
         for x in 0..w {
-            unsafe { pix.set_pixel_unchecked(x, y, value) };
+            pix.set_pixel_unchecked(x, y, value);
         }
     }
 }
@@ -880,13 +880,13 @@ fn remove_colormap(pix: &Pix) -> TransformResult<Pix> {
 
         for y in 0..h {
             for x in 0..w {
-                let idx = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+                let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let gray = if idx < cmap.len() {
                     cmap.colors()[idx].red
                 } else {
                     0
                 };
-                unsafe { out_mut.set_pixel_unchecked(x, y, gray as u32) };
+                out_mut.set_pixel_unchecked(x, y, gray as u32);
             }
         }
 
@@ -898,14 +898,14 @@ fn remove_colormap(pix: &Pix) -> TransformResult<Pix> {
 
         for y in 0..h {
             for x in 0..w {
-                let idx = unsafe { pix.get_pixel_unchecked(x, y) } as usize;
+                let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let pixel = if idx < cmap.len() {
                     let c = &cmap.colors()[idx];
                     color::compose_rgba(c.red, c.green, c.blue, 255)
                 } else {
                     0
                 };
-                unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+                out_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -969,12 +969,12 @@ mod tests {
     fn test_h_shear_zero_angle() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(5, 5, 100) };
+        pix_mut.set_pixel_unchecked(5, 5, 100);
         let pix: Pix = pix_mut.into();
 
         let result = h_shear(&pix, 5, 0.0, ShearFill::White).unwrap();
         // Zero angle should return copy
-        assert_eq!(unsafe { result.get_pixel_unchecked(5, 5) }, 100);
+        assert_eq!(result.get_pixel_unchecked(5, 5), 100);
     }
 
     #[test]
@@ -982,7 +982,7 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
         // Set a marker at (10, 5) - above center
-        unsafe { pix_mut.set_pixel_unchecked(10, 5, 100) };
+        pix_mut.set_pixel_unchecked(10, 5, 100);
         let pix: Pix = pix_mut.into();
 
         let result = h_shear(&pix, 10, 0.1, ShearFill::White).unwrap();
@@ -990,7 +990,7 @@ mod tests {
         // The marker should have moved to the right
         let mut found_marker = false;
         for x in 10..20 {
-            if unsafe { result.get_pixel_unchecked(x, 5) } == 100 {
+            if result.get_pixel_unchecked(x, 5) == 100 {
                 found_marker = true;
                 break;
             }
@@ -1021,11 +1021,11 @@ mod tests {
     fn test_v_shear_zero_angle() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(5, 5, 100) };
+        pix_mut.set_pixel_unchecked(5, 5, 100);
         let pix: Pix = pix_mut.into();
 
         let result = v_shear(&pix, 5, 0.0, ShearFill::White).unwrap();
-        assert_eq!(unsafe { result.get_pixel_unchecked(5, 5) }, 100);
+        assert_eq!(result.get_pixel_unchecked(5, 5), 100);
     }
 
     #[test]
@@ -1033,14 +1033,14 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
         // Set a marker at (15, 10) - right of center
-        unsafe { pix_mut.set_pixel_unchecked(15, 10, 100) };
+        pix_mut.set_pixel_unchecked(15, 10, 100);
         let pix: Pix = pix_mut.into();
 
         let result = v_shear(&pix, 10, 0.1, ShearFill::White).unwrap();
         // With positive angle and xloc=10, pixels right (x=15) should shift down
         let mut found_marker = false;
         for y in 10..20 {
-            if unsafe { result.get_pixel_unchecked(15, y) } == 100 {
+            if result.get_pixel_unchecked(15, y) == 100 {
                 found_marker = true;
                 break;
             }
@@ -1070,18 +1070,18 @@ mod tests {
     fn test_h_shear_ip_zero_angle() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(5, 5, 100) };
+        pix_mut.set_pixel_unchecked(5, 5, 100);
 
         let result = h_shear_ip(&mut pix_mut, 5, 0.0, ShearFill::White);
         assert!(result.is_ok());
-        assert_eq!(unsafe { pix_mut.get_pixel_unchecked(5, 5) }, 100);
+        assert_eq!(pix_mut.get_pixel_unchecked(5, 5), 100);
     }
 
     #[test]
     fn test_h_shear_ip_basic() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(10, 5, 100) };
+        pix_mut.set_pixel_unchecked(10, 5, 100);
 
         let result = h_shear_ip(&mut pix_mut, 10, 0.1, ShearFill::White);
         assert!(result.is_ok());
@@ -1091,7 +1091,7 @@ mod tests {
     fn test_v_shear_ip_basic() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(15, 10, 100) };
+        pix_mut.set_pixel_unchecked(15, 10, 100);
 
         let result = v_shear_ip(&mut pix_mut, 10, 0.1, ShearFill::White);
         assert!(result.is_ok());
@@ -1102,7 +1102,7 @@ mod tests {
         // Test that in-place shear works on images without colormap
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(10, 5, 100) };
+        pix_mut.set_pixel_unchecked(10, 5, 100);
 
         let result = h_shear_ip(&mut pix_mut, 10, 0.1, ShearFill::White);
         assert!(result.is_ok());
@@ -1184,7 +1184,7 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
         let red = color::compose_rgb(255, 0, 0);
-        unsafe { pix_mut.set_pixel_unchecked(10, 5, red) };
+        pix_mut.set_pixel_unchecked(10, 5, red);
         let pix: Pix = pix_mut.into();
 
         let result = h_shear(&pix, 10, 0.1, ShearFill::White);
@@ -1200,7 +1200,7 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let result = h_shear(&pix, 0, 0.3, ShearFill::Black).unwrap();
         // Corner should be filled with black (0 for 8bpp)
-        assert_eq!(unsafe { result.get_pixel_unchecked(0, 19) }, 0);
+        assert_eq!(result.get_pixel_unchecked(0, 19), 0);
     }
 
     #[test]
@@ -1208,7 +1208,7 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let result = v_shear(&pix, 0, 0.3, ShearFill::Black).unwrap();
         // Corner should be filled with black
-        assert_eq!(unsafe { result.get_pixel_unchecked(19, 0) }, 0);
+        assert_eq!(result.get_pixel_unchecked(19, 0), 0);
     }
 
     // ========================================================================

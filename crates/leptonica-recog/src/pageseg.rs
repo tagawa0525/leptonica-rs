@@ -259,7 +259,7 @@ pub fn is_text_region(pix: &Pix) -> RecogResult<bool> {
     let mut col_counts = vec![0u32; w as usize];
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { binary.get_pixel_unchecked(x, y) };
+            let val = binary.get_pixel_unchecked(x, y);
             if val != 0 {
                 black_count += 1;
                 row_counts[y as usize] += 1;
@@ -340,9 +340,9 @@ fn ensure_binary(pix: &Pix) -> RecogResult<Pix> {
 
             for y in 0..h {
                 for x in 0..w {
-                    let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                    let val = pix.get_pixel_unchecked(x, y);
                     let bit = if val < 128 { 1 } else { 0 };
-                    unsafe { binary_mut.set_pixel_unchecked(x, y, bit) };
+                    binary_mut.set_pixel_unchecked(x, y, bit);
                 }
             }
             Ok(binary_mut.into())
@@ -381,7 +381,7 @@ fn reduce_by_2(pix: &Pix) -> RecogResult<Pix> {
                     let sx = nx * 2 + dx;
                     let sy = ny * 2 + dy;
                     if sx < w && sy < h {
-                        let val = unsafe { pix.get_pixel_unchecked(sx, sy) };
+                        let val = pix.get_pixel_unchecked(sx, sy);
                         if val != 0 {
                             has_black = true;
                             break;
@@ -393,7 +393,7 @@ fn reduce_by_2(pix: &Pix) -> RecogResult<Pix> {
                 }
             }
             let out_val = if has_black { 1 } else { 0 };
-            unsafe { reduced_mut.set_pixel_unchecked(nx, ny, out_val) };
+            reduced_mut.set_pixel_unchecked(nx, ny, out_val);
         }
     }
 
@@ -412,8 +412,8 @@ fn expand_by_2(pix: &Pix, target_w: u32, target_h: u32) -> RecogResult<Pix> {
         for x in 0..target_w {
             let sx = (x / 2).min(src_w - 1);
             let sy = (y / 2).min(src_h - 1);
-            let val = unsafe { pix.get_pixel_unchecked(sx, sy) };
-            unsafe { expanded_mut.set_pixel_unchecked(x, y, val) };
+            let val = pix.get_pixel_unchecked(sx, sy);
+            expanded_mut.set_pixel_unchecked(x, y, val);
         }
     }
 
@@ -507,7 +507,7 @@ fn morphological_erode(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
                         all_black = false;
                         break 'outer;
                     }
-                    let val = unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) };
+                    let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
                     if val == 0 {
                         all_black = false;
                         break 'outer;
@@ -515,7 +515,7 @@ fn morphological_erode(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
                 }
             }
             let out_val = if all_black { 1 } else { 0 };
-            unsafe { eroded_mut.set_pixel_unchecked(x, y, out_val) };
+            eroded_mut.set_pixel_unchecked(x, y, out_val);
         }
     }
 
@@ -540,7 +540,7 @@ fn morphological_dilate(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
                     let sx = x as i32 + dx as i32 - hw as i32;
                     let sy = y as i32 + dy as i32 - hh as i32;
                     if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                        let val = unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) };
+                        let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
                         if val != 0 {
                             any_black = true;
                             break 'outer;
@@ -549,7 +549,7 @@ fn morphological_dilate(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
                 }
             }
             let out_val = if any_black { 1 } else { 0 };
-            unsafe { dilated_mut.set_pixel_unchecked(x, y, out_val) };
+            dilated_mut.set_pixel_unchecked(x, y, out_val);
         }
     }
 
@@ -582,11 +582,11 @@ fn seed_fill(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
 
         for y in 0..h {
             for x in 0..w {
-                let d_val = unsafe { dilated.get_pixel_unchecked(x, y) };
-                let m_val = unsafe { mask.get_pixel_unchecked(x, y) };
-                let c_val = unsafe { current.get_pixel_unchecked(x, y) };
+                let d_val = dilated.get_pixel_unchecked(x, y);
+                let m_val = mask.get_pixel_unchecked(x, y);
+                let c_val = current.get_pixel_unchecked(x, y);
                 let new_val = if d_val != 0 && m_val != 0 { 1 } else { 0 };
-                unsafe { next_mut.set_pixel_unchecked(x, y, new_val) };
+                next_mut.set_pixel_unchecked(x, y, new_val);
 
                 if new_val != c_val {
                     changed = true;
@@ -610,12 +610,12 @@ fn subtract_images(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let v1 = unsafe { pix1.get_pixel_unchecked(x, y) };
+            let v1 = pix1.get_pixel_unchecked(x, y);
             let sx = x.min(pix2.width() - 1);
             let sy = y.min(pix2.height() - 1);
-            let v2 = unsafe { pix2.get_pixel_unchecked(sx, sy) };
+            let v2 = pix2.get_pixel_unchecked(sx, sy);
             let out = if v1 != 0 && v2 == 0 { 1 } else { 0 };
-            unsafe { result_mut.set_pixel_unchecked(x, y, out) };
+            result_mut.set_pixel_unchecked(x, y, out);
         }
     }
 
@@ -637,7 +637,7 @@ fn detect_vertical_whitespace(pix: &Pix) -> RecogResult<Pix> {
         let mut gap_start: Option<u32> = None;
 
         for y in 0..h {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val == 0 {
                 // White pixel
                 if gap_start.is_none() {
@@ -650,7 +650,7 @@ fn detect_vertical_whitespace(pix: &Pix) -> RecogResult<Pix> {
                 {
                     // Mark this gap as vertical whitespace
                     for gy in start..y {
-                        unsafe { vws_mut.set_pixel_unchecked(x, gy, 1) };
+                        vws_mut.set_pixel_unchecked(x, gy, 1);
                     }
                 }
                 gap_start = None;
@@ -662,7 +662,7 @@ fn detect_vertical_whitespace(pix: &Pix) -> RecogResult<Pix> {
             && h - start >= min_gap
         {
             for gy in start..h {
-                unsafe { vws_mut.set_pixel_unchecked(x, gy, 1) };
+                vws_mut.set_pixel_unchecked(x, gy, 1);
             }
         }
     }
@@ -684,7 +684,7 @@ fn find_connected_components(pix: &Pix) -> RecogResult<Vec<(u32, u32, u32, u32)>
         for x in 0..w {
             let idx = (y * w + x) as usize;
             if labels[idx] == 0 {
-                let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                let val = pix.get_pixel_unchecked(x, y);
                 if val != 0 {
                     // New component found
                     current_label += 1;
@@ -721,7 +721,7 @@ fn flood_fill_label(
             continue;
         }
 
-        let val = unsafe { pix.get_pixel_unchecked(x, y) };
+        let val = pix.get_pixel_unchecked(x, y);
         if val == 0 {
             continue;
         }
@@ -766,8 +766,8 @@ fn extract_region(pix: &Pix, x: u32, y: u32, w: u32, h: u32) -> RecogResult<Pix>
 
     for dy in 0..h {
         for dx in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x + dx, y + dy) };
-            unsafe { region_mut.set_pixel_unchecked(dx, dy, val) };
+            let val = pix.get_pixel_unchecked(x + dx, y + dy);
+            region_mut.set_pixel_unchecked(dx, dy, val);
         }
     }
 
@@ -783,7 +783,7 @@ fn compute_horizontal_variance(pix: &Pix) -> f64 {
     let mut col_counts = vec![0u32; w as usize];
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val != 0 {
                 col_counts[x as usize] += 1;
             }
@@ -802,7 +802,7 @@ fn compute_vertical_variance(pix: &Pix) -> f64 {
     let mut row_counts = vec![0u32; h as usize];
     for y in 0..h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val != 0 {
                 row_counts[y as usize] += 1;
             }
@@ -851,7 +851,7 @@ mod tests {
                 let y = y_base + dy;
                 if y < h {
                     for x in (w / 10)..(w * 9 / 10) {
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                        pix_mut.set_pixel_unchecked(x, y, 1);
                     }
                 }
             }
@@ -901,14 +901,14 @@ mod tests {
         // Create a 10x10 filled square
         for y in 20..30 {
             for x in 20..30 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
         let pix: Pix = pix_mut.into();
 
         let eroded = morphological_erode(&pix, 3, 3).unwrap();
         // Center should still be black
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(25, 25) }, 1);
+        assert_eq!(eroded.get_pixel_unchecked(25, 25), 1);
     }
 
     #[test]
@@ -917,13 +917,13 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
 
         // Single pixel
-        unsafe { pix_mut.set_pixel_unchecked(25, 25, 1) };
+        pix_mut.set_pixel_unchecked(25, 25, 1);
         let pix: Pix = pix_mut.into();
 
         let dilated = morphological_dilate(&pix, 3, 3).unwrap();
         // Neighbors should now be black
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(24, 25) }, 1);
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(26, 25) }, 1);
+        assert_eq!(dilated.get_pixel_unchecked(24, 25), 1);
+        assert_eq!(dilated.get_pixel_unchecked(26, 25), 1);
     }
 
     #[test]
@@ -952,12 +952,12 @@ mod tests {
         // Create two separate blobs
         for y in 5..15 {
             for x in 5..15 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
         for y in 30..40 {
             for x in 30..40 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
 
@@ -971,13 +971,13 @@ mod tests {
     fn test_extract_region() {
         let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(50, 50, 1) };
+        pix_mut.set_pixel_unchecked(50, 50, 1);
         let pix: Pix = pix_mut.into();
 
         let region = extract_region(&pix, 40, 40, 20, 20).unwrap();
         assert_eq!(region.width(), 20);
         assert_eq!(region.height(), 20);
         // Pixel at (50,50) is now at (10,10) in the region
-        assert_eq!(unsafe { region.get_pixel_unchecked(10, 10) }, 1);
+        assert_eq!(region.get_pixel_unchecked(10, 10), 1);
     }
 }

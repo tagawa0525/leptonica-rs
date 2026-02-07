@@ -28,16 +28,16 @@ impl Pix {
         if x >= self.width() || y >= self.height() {
             return None;
         }
-        Some(unsafe { self.get_pixel_unchecked(x, y) })
+        Some(self.get_pixel_unchecked(x, y))
     }
 
     /// Get a pixel value without bounds checking
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// The caller must ensure that x < width and y < height.
+    /// Panics if `x` or `y` is out of bounds.
     #[inline]
-    pub unsafe fn get_pixel_unchecked(&self, x: u32, y: u32) -> u32 {
+    pub fn get_pixel_unchecked(&self, x: u32, y: u32) -> u32 {
         let line = self.row_data(y);
         get_pixel_from_line(line, x, self.depth())
     }
@@ -49,17 +49,16 @@ impl PixMut {
         if x >= self.width() || y >= self.height() {
             return None;
         }
-        Some(unsafe { self.get_pixel_unchecked(x, y) })
+        Some(self.get_pixel_unchecked(x, y))
     }
 
     /// Get a pixel value without bounds checking
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// The caller must ensure that `x < self.width()` and `y < self.height()`.
-    /// Calling this method with out-of-bounds coordinates is undefined behavior.
+    /// Panics if `x` or `y` is out of bounds.
     #[inline]
-    pub unsafe fn get_pixel_unchecked(&self, x: u32, y: u32) -> u32 {
+    pub fn get_pixel_unchecked(&self, x: u32, y: u32) -> u32 {
         let wpl = self.wpl();
         let start = (y * wpl) as usize;
         let line = &self.data()[start..start + wpl as usize];
@@ -84,17 +83,17 @@ impl PixMut {
                 len: self.width().max(self.height()) as usize,
             });
         }
-        unsafe { self.set_pixel_unchecked(x, y, val) };
+        self.set_pixel_unchecked(x, y, val);
         Ok(())
     }
 
     /// Set a pixel value without bounds checking
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// The caller must ensure that x < width and y < height.
+    /// Panics if `x` or `y` is out of bounds.
     #[inline]
-    pub unsafe fn set_pixel_unchecked(&mut self, x: u32, y: u32, val: u32) {
+    pub fn set_pixel_unchecked(&mut self, x: u32, y: u32, val: u32) {
         let wpl = self.wpl();
         let depth = self.depth();
         let start = (y * wpl) as usize;

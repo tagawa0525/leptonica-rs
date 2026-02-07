@@ -310,13 +310,13 @@ fn extract_channel(pix: &Pix, channel: ColorChannel) -> MorphResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             let value = match channel {
                 ColorChannel::Red => color::red(pixel),
                 ColorChannel::Green => color::green(pixel),
                 ColorChannel::Blue => color::blue(pixel),
             };
-            unsafe { out_mut.set_pixel_unchecked(x, y, value as u32) };
+            out_mut.set_pixel_unchecked(x, y, value as u32);
         }
     }
 
@@ -333,11 +333,11 @@ fn combine_rgb(r: &Pix, g: &Pix, b: &Pix) -> MorphResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let rv = unsafe { r.get_pixel_unchecked(x, y) } as u8;
-            let gv = unsafe { g.get_pixel_unchecked(x, y) } as u8;
-            let bv = unsafe { b.get_pixel_unchecked(x, y) } as u8;
+            let rv = r.get_pixel_unchecked(x, y) as u8;
+            let gv = g.get_pixel_unchecked(x, y) as u8;
+            let bv = b.get_pixel_unchecked(x, y) as u8;
             let pixel = color::compose_rgb(rv, gv, bv);
-            unsafe { out_mut.set_pixel_unchecked(x, y, pixel) };
+            out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
 
@@ -357,7 +357,7 @@ mod tests {
         for y in 0..9 {
             for x in 0..9 {
                 let pixel = color::compose_rgb(50, 50, 50);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -365,7 +365,7 @@ mod tests {
         for y in 3..6 {
             for x in 3..6 {
                 let pixel = color::compose_rgb(200, 150, 100);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -381,7 +381,7 @@ mod tests {
         for y in 0..9 {
             for x in 0..9 {
                 let pixel = color::compose_rgb(0, 0, 0);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -389,7 +389,7 @@ mod tests {
         for y in 0..3 {
             for x in 0..3 {
                 let pixel = color::compose_rgb(255, 0, 0);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -397,7 +397,7 @@ mod tests {
         for y in 0..3 {
             for x in 6..9 {
                 let pixel = color::compose_rgb(0, 255, 0);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -405,7 +405,7 @@ mod tests {
         for y in 6..9 {
             for x in 3..6 {
                 let pixel = color::compose_rgb(0, 0, 255);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -419,21 +419,21 @@ mod tests {
         // Extract red channel
         let r = extract_channel(&pix, ColorChannel::Red).unwrap();
         // Red region should be 255, elsewhere 0
-        assert_eq!(unsafe { r.get_pixel_unchecked(1, 1) }, 255); // Red region
-        assert_eq!(unsafe { r.get_pixel_unchecked(7, 1) }, 0); // Green region
-        assert_eq!(unsafe { r.get_pixel_unchecked(4, 7) }, 0); // Blue region
+        assert_eq!(r.get_pixel_unchecked(1, 1), 255); // Red region
+        assert_eq!(r.get_pixel_unchecked(7, 1), 0); // Green region
+        assert_eq!(r.get_pixel_unchecked(4, 7), 0); // Blue region
 
         // Extract green channel
         let g = extract_channel(&pix, ColorChannel::Green).unwrap();
-        assert_eq!(unsafe { g.get_pixel_unchecked(1, 1) }, 0); // Red region
-        assert_eq!(unsafe { g.get_pixel_unchecked(7, 1) }, 255); // Green region
-        assert_eq!(unsafe { g.get_pixel_unchecked(4, 7) }, 0); // Blue region
+        assert_eq!(g.get_pixel_unchecked(1, 1), 0); // Red region
+        assert_eq!(g.get_pixel_unchecked(7, 1), 255); // Green region
+        assert_eq!(g.get_pixel_unchecked(4, 7), 0); // Blue region
 
         // Extract blue channel
         let b = extract_channel(&pix, ColorChannel::Blue).unwrap();
-        assert_eq!(unsafe { b.get_pixel_unchecked(1, 1) }, 0); // Red region
-        assert_eq!(unsafe { b.get_pixel_unchecked(7, 1) }, 0); // Green region
-        assert_eq!(unsafe { b.get_pixel_unchecked(4, 7) }, 255); // Blue region
+        assert_eq!(b.get_pixel_unchecked(1, 1), 0); // Red region
+        assert_eq!(b.get_pixel_unchecked(7, 1), 0); // Green region
+        assert_eq!(b.get_pixel_unchecked(4, 7), 255); // Blue region
     }
 
     #[test]
@@ -450,8 +450,8 @@ mod tests {
         // Check that recombined image matches original (except alpha)
         for y in 0..9 {
             for x in 0..9 {
-                let orig_pixel = unsafe { pix.get_pixel_unchecked(x, y) };
-                let comb_pixel = unsafe { combined.get_pixel_unchecked(x, y) };
+                let orig_pixel = pix.get_pixel_unchecked(x, y);
+                let comb_pixel = combined.get_pixel_unchecked(x, y);
 
                 let (or, og, ob) = color::extract_rgb(orig_pixel);
                 let (cr, cg, cb) = color::extract_rgb(comb_pixel);
@@ -469,8 +469,8 @@ mod tests {
         // Should be identical
         for y in 0..9 {
             for x in 0..9 {
-                let orig_pixel = unsafe { pix.get_pixel_unchecked(x, y) };
-                let dil_pixel = unsafe { dilated.get_pixel_unchecked(x, y) };
+                let orig_pixel = pix.get_pixel_unchecked(x, y);
+                let dil_pixel = dilated.get_pixel_unchecked(x, y);
 
                 let (or, og, ob) = color::extract_rgb(orig_pixel);
                 let (dr, dg, db) = color::extract_rgb(dil_pixel);
@@ -488,8 +488,8 @@ mod tests {
         // Should be identical
         for y in 0..9 {
             for x in 0..9 {
-                let orig_pixel = unsafe { pix.get_pixel_unchecked(x, y) };
-                let ero_pixel = unsafe { eroded.get_pixel_unchecked(x, y) };
+                let orig_pixel = pix.get_pixel_unchecked(x, y);
+                let ero_pixel = eroded.get_pixel_unchecked(x, y);
 
                 let (or, og, ob) = color::extract_rgb(orig_pixel);
                 let (er, eg, eb) = color::extract_rgb(ero_pixel);
@@ -506,18 +506,18 @@ mod tests {
 
         // The bright center should expand
         // Pixels at (2,2) should now be bright (200, 150, 100)
-        let (r, g, b) = color::extract_rgb(unsafe { dilated.get_pixel_unchecked(2, 2) });
+        let (r, g, b) = color::extract_rgb(dilated.get_pixel_unchecked(2, 2));
         assert_eq!((r, g, b), (200, 150, 100));
 
-        let (r, g, b) = color::extract_rgb(unsafe { dilated.get_pixel_unchecked(6, 6) });
+        let (r, g, b) = color::extract_rgb(dilated.get_pixel_unchecked(6, 6));
         assert_eq!((r, g, b), (200, 150, 100));
 
         // Center should remain bright
-        let (r, g, b) = color::extract_rgb(unsafe { dilated.get_pixel_unchecked(4, 4) });
+        let (r, g, b) = color::extract_rgb(dilated.get_pixel_unchecked(4, 4));
         assert_eq!((r, g, b), (200, 150, 100));
 
         // Corners should remain dark
-        let (r, g, b) = color::extract_rgb(unsafe { dilated.get_pixel_unchecked(0, 0) });
+        let (r, g, b) = color::extract_rgb(dilated.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (50, 50, 50));
     }
 
@@ -527,11 +527,11 @@ mod tests {
         let eroded = erode_color(&pix, 3, 3).unwrap();
 
         // The 3x3 bright center should shrink to 1x1 (just center pixel)
-        let (r, g, b) = color::extract_rgb(unsafe { eroded.get_pixel_unchecked(4, 4) });
+        let (r, g, b) = color::extract_rgb(eroded.get_pixel_unchecked(4, 4));
         assert_eq!((r, g, b), (200, 150, 100));
 
         // Adjacent pixels should now be dark (50, 50, 50)
-        let (r, g, b) = color::extract_rgb(unsafe { eroded.get_pixel_unchecked(3, 4) });
+        let (r, g, b) = color::extract_rgb(eroded.get_pixel_unchecked(3, 4));
         assert_eq!((r, g, b), (50, 50, 50));
     }
 
@@ -541,7 +541,7 @@ mod tests {
         let opened = open_color(&pix, 3, 3).unwrap();
 
         // Center should remain bright after open (erode then dilate)
-        let (r, g, b) = color::extract_rgb(unsafe { opened.get_pixel_unchecked(4, 4) });
+        let (r, g, b) = color::extract_rgb(opened.get_pixel_unchecked(4, 4));
         assert_eq!((r, g, b), (200, 150, 100));
     }
 
@@ -551,7 +551,7 @@ mod tests {
         let closed = close_color(&pix, 3, 3).unwrap();
 
         // Center should remain bright after close (dilate then erode)
-        let (r, g, b) = color::extract_rgb(unsafe { closed.get_pixel_unchecked(4, 4) });
+        let (r, g, b) = color::extract_rgb(closed.get_pixel_unchecked(4, 4));
         assert_eq!((r, g, b), (200, 150, 100));
     }
 
@@ -593,7 +593,7 @@ mod tests {
 
         // Gradient should be highest at edges of color transitions
         // Center of bright region should have low gradient
-        let (r, g, b) = color::extract_rgb(unsafe { gradient.get_pixel_unchecked(4, 4) });
+        let (r, g, b) = color::extract_rgb(gradient.get_pixel_unchecked(4, 4));
         assert_eq!((r, g, b), (0, 0, 0));
     }
 
@@ -605,7 +605,7 @@ mod tests {
         // Top-hat extracts bright features smaller than SE
         // For our test image, the 3x3 bright region survives opening,
         // so top-hat (original - opened) should be close to 0 at the center
-        let (r, g, b) = color::extract_rgb(unsafe { tophat.get_pixel_unchecked(4, 4) });
+        let (r, g, b) = color::extract_rgb(tophat.get_pixel_unchecked(4, 4));
         // The center pixel difference should be small
         assert!(r <= 200 && g <= 150 && b <= 100);
     }
@@ -632,13 +632,13 @@ mod tests {
         for y in 0..7 {
             for x in 0..7 {
                 let pixel = color::compose_rgb(0, 0, 0);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
         // Single bright pixel at center (255, 128, 64)
         let center_pixel = color::compose_rgb(255, 128, 64);
-        unsafe { pix_mut.set_pixel_unchecked(3, 3, center_pixel) };
+        pix_mut.set_pixel_unchecked(3, 3, center_pixel);
         let pix: Pix = pix_mut.into();
 
         let dilated = dilate_color(&pix, 3, 3).unwrap();
@@ -648,7 +648,7 @@ mod tests {
             for dx in -1i32..=1 {
                 let x = (3 + dx) as u32;
                 let y = (3 + dy) as u32;
-                let (r, g, b) = color::extract_rgb(unsafe { dilated.get_pixel_unchecked(x, y) });
+                let (r, g, b) = color::extract_rgb(dilated.get_pixel_unchecked(x, y));
                 assert_eq!(
                     (r, g, b),
                     (255, 128, 64),
@@ -660,7 +660,7 @@ mod tests {
         }
 
         // Corners should remain dark
-        let (r, g, b) = color::extract_rgb(unsafe { dilated.get_pixel_unchecked(0, 0) });
+        let (r, g, b) = color::extract_rgb(dilated.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (0, 0, 0));
     }
 
@@ -674,13 +674,13 @@ mod tests {
         for y in 0..5 {
             for x in 0..5 {
                 let pixel = color::compose_rgb(100, 100, 100);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
         // Center pixel: high red, low green, medium blue
         let center_pixel = color::compose_rgb(255, 50, 150);
-        unsafe { pix_mut.set_pixel_unchecked(2, 2, center_pixel) };
+        pix_mut.set_pixel_unchecked(2, 2, center_pixel);
         let pix: Pix = pix_mut.into();
 
         let dilated = dilate_color(&pix, 3, 3).unwrap();
@@ -689,7 +689,7 @@ mod tests {
         // - Red: max(100, 255) = 255
         // - Green: max(100, 50) = 100
         // - Blue: max(100, 150) = 150
-        let (r, g, b) = color::extract_rgb(unsafe { dilated.get_pixel_unchecked(1, 1) });
+        let (r, g, b) = color::extract_rgb(dilated.get_pixel_unchecked(1, 1));
         assert_eq!((r, g, b), (255, 100, 150));
 
         let eroded = erode_color(&pix, 3, 3).unwrap();
@@ -698,7 +698,7 @@ mod tests {
         // - Red: min(100, 255) = 100
         // - Green: min(100, 50) = 50
         // - Blue: min(100, 150) = 100
-        let (r, g, b) = color::extract_rgb(unsafe { eroded.get_pixel_unchecked(2, 2) });
+        let (r, g, b) = color::extract_rgb(eroded.get_pixel_unchecked(2, 2));
         assert_eq!((r, g, b), (100, 50, 100));
     }
 }

@@ -287,9 +287,9 @@ fn ensure_binary(pix: &Pix) -> RecogResult<Pix> {
 
             for y in 0..h {
                 for x in 0..w {
-                    let val = unsafe { pix.get_pixel_unchecked(x, y) };
+                    let val = pix.get_pixel_unchecked(x, y);
                     let bit = if val < 128 { 1 } else { 0 };
-                    unsafe { binary_mut.set_pixel_unchecked(x, y, bit) };
+                    binary_mut.set_pixel_unchecked(x, y, bit);
                 }
             }
             Ok(binary_mut.into())
@@ -310,7 +310,7 @@ fn compute_row_sums(pix: &Pix) -> Vec<u32> {
     for y in 0..h {
         let mut sum = 0u32;
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val != 0 {
                 sum += 1;
             }
@@ -422,7 +422,7 @@ fn find_endpoints(
                 }
 
                 for x in 0..w {
-                    let val = unsafe { pix.get_pixel_unchecked(x as u32, sy as u32) };
+                    let val = pix.get_pixel_unchecked(x as u32, sy as u32);
                     if val != 0 {
                         left_x = left_x.min(x);
                         right_x = right_x.max(x);
@@ -475,8 +475,8 @@ fn extract_horizontal_slice(pix: &Pix, y_start: u32, y_end: u32) -> RecogResult<
 
     for y in 0..new_h {
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y_start + y) };
-            unsafe { slice_mut.set_pixel_unchecked(x, y, val) };
+            let val = pix.get_pixel_unchecked(x, y_start + y);
+            slice_mut.set_pixel_unchecked(x, y, val);
         }
     }
 
@@ -501,7 +501,7 @@ fn apply_local_deskew(pix: &Pix, angles: &[f32]) -> RecogResult<Pix> {
     // Fill with background
     for y in 0..h {
         for x in 0..w {
-            unsafe { result_mut.set_pixel_unchecked(x, y, 0) };
+            result_mut.set_pixel_unchecked(x, y, 0);
         }
     }
 
@@ -518,14 +518,14 @@ fn apply_local_deskew(pix: &Pix, angles: &[f32]) -> RecogResult<Pix> {
         let tan_a = angle.to_radians().tan();
 
         for x in 0..w {
-            let val = unsafe { pix.get_pixel_unchecked(x, y) };
+            let val = pix.get_pixel_unchecked(x, y);
             if val != 0 {
                 // Apply horizontal shear
                 let shear = (x as f32 - w as f32 / 2.0) * tan_a;
                 let new_x = (x as f32 + shear).round() as i32;
 
                 if new_x >= 0 && new_x < w as i32 {
-                    unsafe { result_mut.set_pixel_unchecked(new_x as u32, y, val) };
+                    result_mut.set_pixel_unchecked(new_x as u32, y, val);
                 }
             }
         }
@@ -551,7 +551,7 @@ mod tests {
                 let y = y_base + dy;
                 if y < h {
                     for x in (w / 10)..(w * 9 / 10) {
-                        unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                        pix_mut.set_pixel_unchecked(x, y, 1);
                     }
                 }
             }
@@ -587,7 +587,7 @@ mod tests {
 
         // Fill row 2 with black pixels
         for x in 0..10 {
-            unsafe { pix_mut.set_pixel_unchecked(x, 2, 1) };
+            pix_mut.set_pixel_unchecked(x, 2, 1);
         }
 
         let pix: Pix = pix_mut.into();

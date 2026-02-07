@@ -280,7 +280,7 @@ impl Pix {
                     CompareType::AbsDiff => (v1 - v2).unsigned_abs(),
                 };
 
-                unsafe { result_mut.set_pixel_unchecked(x, y, diff_val.min(255)) };
+                result_mut.set_pixel_unchecked(x, y, diff_val.min(255));
             }
         }
 
@@ -317,7 +317,7 @@ impl Pix {
                 };
 
                 let result_pixel = color::compose_rgb(r_diff, g_diff, b_diff);
-                unsafe { result_mut.set_pixel_unchecked(x, y, result_pixel) };
+                result_mut.set_pixel_unchecked(x, y, result_pixel);
             }
         }
 

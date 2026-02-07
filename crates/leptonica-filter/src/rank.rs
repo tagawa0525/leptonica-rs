@@ -234,7 +234,7 @@ pub fn rank_filter_gray(pix: &Pix, width: u32, height: u32, rank: f32) -> Filter
                             let sx =
                                 (x as i32 + kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
                             let sy = (ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
-                            let val = unsafe { pix.get_pixel_unchecked(sx, sy) } as u8;
+                            let val = pix.get_pixel_unchecked(sx, sy) as u8;
                             histogram.add(val);
                         }
                     }
@@ -247,16 +247,16 @@ pub fn rank_filter_gray(pix: &Pix, width: u32, height: u32, rank: f32) -> Filter
                     for kx in 0..wf {
                         let sx = (x as i32 + kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
 
-                        let old_val = unsafe { pix.get_pixel_unchecked(sx, old_y) } as u8;
+                        let old_val = pix.get_pixel_unchecked(sx, old_y) as u8;
                         histogram.remove(old_val);
 
-                        let new_val = unsafe { pix.get_pixel_unchecked(sx, new_y) } as u8;
+                        let new_val = pix.get_pixel_unchecked(sx, new_y) as u8;
                         histogram.add(new_val);
                     }
                 }
 
                 let result = histogram.get_rank_value(rank_position);
-                unsafe { out_mut.set_pixel_unchecked(x, y, result as u32) };
+                out_mut.set_pixel_unchecked(x, y, result as u32);
             }
         }
     } else {
@@ -272,7 +272,7 @@ pub fn rank_filter_gray(pix: &Pix, width: u32, height: u32, rank: f32) -> Filter
                             let sx = (kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
                             let sy =
                                 (y as i32 + ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
-                            let val = unsafe { pix.get_pixel_unchecked(sx, sy) } as u8;
+                            let val = pix.get_pixel_unchecked(sx, sy) as u8;
                             histogram.add(val);
                         }
                     }
@@ -285,16 +285,16 @@ pub fn rank_filter_gray(pix: &Pix, width: u32, height: u32, rank: f32) -> Filter
                     for ky in 0..hf {
                         let sy = (y as i32 + ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
 
-                        let old_val = unsafe { pix.get_pixel_unchecked(old_x, sy) } as u8;
+                        let old_val = pix.get_pixel_unchecked(old_x, sy) as u8;
                         histogram.remove(old_val);
 
-                        let new_val = unsafe { pix.get_pixel_unchecked(new_x, sy) } as u8;
+                        let new_val = pix.get_pixel_unchecked(new_x, sy) as u8;
                         histogram.add(new_val);
                     }
                 }
 
                 let result = histogram.get_rank_value(rank_position);
-                unsafe { out_mut.set_pixel_unchecked(x, y, result as u32) };
+                out_mut.set_pixel_unchecked(x, y, result as u32);
             }
         }
     }
@@ -379,7 +379,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                             let sx =
                                 (x as i32 + kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
                             let sy = (ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
-                            let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) };
+                            let pixel = pix.get_pixel_unchecked(sx, sy);
                             let (r, g, b, a) = color::extract_rgba(pixel);
                             hist_r.add(r);
                             hist_g.add(g);
@@ -396,14 +396,14 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                     for kx in 0..wf {
                         let sx = (x as i32 + kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
 
-                        let old_pixel = unsafe { pix.get_pixel_unchecked(sx, old_y) };
+                        let old_pixel = pix.get_pixel_unchecked(sx, old_y);
                         let (or, og, ob, oa) = color::extract_rgba(old_pixel);
                         hist_r.remove(or);
                         hist_g.remove(og);
                         hist_b.remove(ob);
                         hist_a.remove(oa);
 
-                        let new_pixel = unsafe { pix.get_pixel_unchecked(sx, new_y) };
+                        let new_pixel = pix.get_pixel_unchecked(sx, new_y);
                         let (nr, ng, nb, na) = color::extract_rgba(new_pixel);
                         hist_r.add(nr);
                         hist_g.add(ng);
@@ -418,7 +418,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                 let result_a = hist_a.get_rank_value(rank_position);
 
                 let result = color::compose_rgba(result_r, result_g, result_b, result_a);
-                unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+                out_mut.set_pixel_unchecked(x, y, result);
             }
         }
     } else {
@@ -437,7 +437,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                             let sx = (kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
                             let sy =
                                 (y as i32 + ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
-                            let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) };
+                            let pixel = pix.get_pixel_unchecked(sx, sy);
                             let (r, g, b, a) = color::extract_rgba(pixel);
                             hist_r.add(r);
                             hist_g.add(g);
@@ -454,14 +454,14 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                     for ky in 0..hf {
                         let sy = (y as i32 + ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
 
-                        let old_pixel = unsafe { pix.get_pixel_unchecked(old_x, sy) };
+                        let old_pixel = pix.get_pixel_unchecked(old_x, sy);
                         let (or, og, ob, oa) = color::extract_rgba(old_pixel);
                         hist_r.remove(or);
                         hist_g.remove(og);
                         hist_b.remove(ob);
                         hist_a.remove(oa);
 
-                        let new_pixel = unsafe { pix.get_pixel_unchecked(new_x, sy) };
+                        let new_pixel = pix.get_pixel_unchecked(new_x, sy);
                         let (nr, ng, nb, na) = color::extract_rgba(new_pixel);
                         hist_r.add(nr);
                         hist_g.add(ng);
@@ -476,7 +476,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                 let result_a = hist_a.get_rank_value(rank_position);
 
                 let result = color::compose_rgba(result_r, result_g, result_b, result_a);
-                unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+                out_mut.set_pixel_unchecked(x, y, result);
             }
         }
     }
@@ -559,7 +559,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let val = x * 25 + y * 5;
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val.min(255)) };
+                pix_mut.set_pixel_unchecked(x, y, val.min(255));
             }
         }
 
@@ -576,7 +576,7 @@ mod tests {
                 let g = (y * 25) as u8;
                 let b = 128;
                 let pixel = color::compose_rgb(r, g, b);
-                unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
 
@@ -591,21 +591,17 @@ mod tests {
         // Fill with mid-gray
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 128) };
+                pix_mut.set_pixel_unchecked(x, y, 128);
             }
         }
 
         // Add salt (white) noise
-        unsafe {
-            pix_mut.set_pixel_unchecked(2, 3, 255);
-            pix_mut.set_pixel_unchecked(7, 5, 255);
-        }
+        pix_mut.set_pixel_unchecked(2, 3, 255);
+        pix_mut.set_pixel_unchecked(7, 5, 255);
 
         // Add pepper (black) noise
-        unsafe {
-            pix_mut.set_pixel_unchecked(4, 6, 0);
-            pix_mut.set_pixel_unchecked(8, 2, 0);
-        }
+        pix_mut.set_pixel_unchecked(4, 6, 0);
+        pix_mut.set_pixel_unchecked(8, 2, 0);
 
         pix_mut.into()
     }
@@ -637,8 +633,8 @@ mod tests {
         // Values should be identical
         for y in 0..pix.height() {
             for x in 0..pix.width() {
-                let orig = unsafe { pix.get_pixel_unchecked(x, y) };
-                let res = unsafe { result.get_pixel_unchecked(x, y) };
+                let orig = pix.get_pixel_unchecked(x, y);
+                let res = result.get_pixel_unchecked(x, y);
                 assert_eq!(orig, res);
             }
         }
@@ -670,8 +666,8 @@ mod tests {
         let result = median_filter(&pix, 3, 3).unwrap();
 
         // Check that noise at (2, 3) is reduced
-        let orig = unsafe { pix.get_pixel_unchecked(2, 3) };
-        let filtered = unsafe { result.get_pixel_unchecked(2, 3) };
+        let orig = pix.get_pixel_unchecked(2, 3);
+        let filtered = result.get_pixel_unchecked(2, 3);
         assert_eq!(orig, 255); // Was white noise
         assert!(filtered < 200); // Should be smoothed toward 128
     }
@@ -682,8 +678,8 @@ mod tests {
         let result = min_filter(&pix, 3, 3).unwrap();
 
         // Minimum filter should generally reduce values
-        let center_orig = unsafe { pix.get_pixel_unchecked(5, 5) };
-        let center_filtered = unsafe { result.get_pixel_unchecked(5, 5) };
+        let center_orig = pix.get_pixel_unchecked(5, 5);
+        let center_filtered = result.get_pixel_unchecked(5, 5);
         assert!(center_filtered <= center_orig);
     }
 
@@ -693,8 +689,8 @@ mod tests {
         let result = max_filter(&pix, 3, 3).unwrap();
 
         // Maximum filter should generally increase values
-        let center_orig = unsafe { pix.get_pixel_unchecked(5, 5) };
-        let center_filtered = unsafe { result.get_pixel_unchecked(5, 5) };
+        let center_orig = pix.get_pixel_unchecked(5, 5);
+        let center_filtered = result.get_pixel_unchecked(5, 5);
         assert!(center_filtered >= center_orig);
     }
 

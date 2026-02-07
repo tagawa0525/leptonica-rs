@@ -50,7 +50,7 @@ pub fn apply_vertical_disparity(pix: &Pix, v_disparity: &FPix, gray_in: u8) -> R
                 // Set all to 1 (black)
                 for y in 0..h {
                     for x in 0..w {
-                        unsafe { result_mut.set_pixel_unchecked(x, y, 1) };
+                        result_mut.set_pixel_unchecked(x, y, 1);
                     }
                 }
             }
@@ -59,7 +59,7 @@ pub fn apply_vertical_disparity(pix: &Pix, v_disparity: &FPix, gray_in: u8) -> R
             // Set all pixels to gray_in
             for y in 0..h {
                 for x in 0..w {
-                    unsafe { result_mut.set_pixel_unchecked(x, y, gray_in as u32) };
+                    result_mut.set_pixel_unchecked(x, y, gray_in as u32);
                 }
             }
         }
@@ -69,7 +69,7 @@ pub fn apply_vertical_disparity(pix: &Pix, v_disparity: &FPix, gray_in: u8) -> R
                 ((gray_in as u32) << 24) | ((gray_in as u32) << 16) | ((gray_in as u32) << 8) | 255;
             for y in 0..h {
                 for x in 0..w {
-                    unsafe { result_mut.set_pixel_unchecked(x, y, gray_val) };
+                    result_mut.set_pixel_unchecked(x, y, gray_val);
                 }
             }
         }
@@ -94,8 +94,8 @@ pub fn apply_vertical_disparity(pix: &Pix, v_disparity: &FPix, gray_in: u8) -> R
             // Check bounds
             if src_y >= 0 && src_y < h as i32 {
                 let src_y = src_y as u32;
-                let val = unsafe { pix.get_pixel_unchecked(x, src_y) };
-                unsafe { result_mut.set_pixel_unchecked(x, y, val) };
+                let val = pix.get_pixel_unchecked(x, src_y);
+                result_mut.set_pixel_unchecked(x, y, val);
             }
             // If out of bounds, pixel stays at gray_in
         }
@@ -142,7 +142,7 @@ pub fn apply_horizontal_disparity(pix: &Pix, h_disparity: &FPix, gray_in: u8) ->
             if gray_in <= 127 {
                 for y in 0..h {
                     for x in 0..w {
-                        unsafe { result_mut.set_pixel_unchecked(x, y, 1) };
+                        result_mut.set_pixel_unchecked(x, y, 1);
                     }
                 }
             }
@@ -150,7 +150,7 @@ pub fn apply_horizontal_disparity(pix: &Pix, h_disparity: &FPix, gray_in: u8) ->
         PixelDepth::Bit8 => {
             for y in 0..h {
                 for x in 0..w {
-                    unsafe { result_mut.set_pixel_unchecked(x, y, gray_in as u32) };
+                    result_mut.set_pixel_unchecked(x, y, gray_in as u32);
                 }
             }
         }
@@ -159,7 +159,7 @@ pub fn apply_horizontal_disparity(pix: &Pix, h_disparity: &FPix, gray_in: u8) ->
                 ((gray_in as u32) << 24) | ((gray_in as u32) << 16) | ((gray_in as u32) << 8) | 255;
             for y in 0..h {
                 for x in 0..w {
-                    unsafe { result_mut.set_pixel_unchecked(x, y, gray_val) };
+                    result_mut.set_pixel_unchecked(x, y, gray_val);
                 }
             }
         }
@@ -184,8 +184,8 @@ pub fn apply_horizontal_disparity(pix: &Pix, h_disparity: &FPix, gray_in: u8) ->
             // Check bounds
             if src_x >= 0 && src_x < w as i32 {
                 let src_x = src_x as u32;
-                let val = unsafe { pix.get_pixel_unchecked(src_x, y) };
-                unsafe { result_mut.set_pixel_unchecked(x, y, val) };
+                let val = pix.get_pixel_unchecked(src_x, y);
+                result_mut.set_pixel_unchecked(x, y, val);
             }
             // If out of bounds, pixel stays at gray_in
         }
@@ -275,7 +275,7 @@ mod tests {
         let mut pix_mut = pix.to_mut();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, x + y * 10) };
+                pix_mut.set_pixel_unchecked(x, y, x + y * 10);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -288,8 +288,8 @@ mod tests {
         // Should be identical to input
         for y in 0..10 {
             for x in 0..10 {
-                let orig = unsafe { pix.get_pixel_unchecked(x, y) };
-                let dewarped = unsafe { result.get_pixel_unchecked(x, y) };
+                let orig = pix.get_pixel_unchecked(x, y);
+                let dewarped = result.get_pixel_unchecked(x, y);
                 assert_eq!(orig, dewarped);
             }
         }
@@ -302,7 +302,7 @@ mod tests {
         let mut pix_mut = pix.to_mut();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, y * 25) };
+                pix_mut.set_pixel_unchecked(x, y, y * 25);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -318,7 +318,7 @@ mod tests {
         for y in 1..10 {
             for x in 0..10 {
                 let expected = (y - 1) * 25;
-                let actual = unsafe { result.get_pixel_unchecked(x, y) };
+                let actual = result.get_pixel_unchecked(x, y);
                 assert_eq!(expected, actual, "Mismatch at ({}, {})", x, y);
             }
         }
@@ -330,7 +330,7 @@ mod tests {
         let mut pix_mut = pix.to_mut();
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, x * 25) };
+                pix_mut.set_pixel_unchecked(x, y, x * 25);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -340,8 +340,8 @@ mod tests {
 
         for y in 0..10 {
             for x in 0..10 {
-                let orig = unsafe { pix.get_pixel_unchecked(x, y) };
-                let dewarped = unsafe { result.get_pixel_unchecked(x, y) };
+                let orig = pix.get_pixel_unchecked(x, y);
+                let dewarped = result.get_pixel_unchecked(x, y);
                 assert_eq!(orig, dewarped);
             }
         }

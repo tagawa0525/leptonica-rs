@@ -548,7 +548,7 @@ mod tests {
         // Set the 4x4 square (pixels 3-6 in each dimension)
         for y in 3..7 {
             for x in 3..7 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
 
@@ -559,7 +559,7 @@ mod tests {
         let mut count = 0;
         for y in 0..pix.height() {
             for x in 0..pix.width() {
-                if unsafe { pix.get_pixel_unchecked(x, y) } != 0 {
+                if pix.get_pixel_unchecked(x, y) != 0 {
                     count += 1;
                 }
             }
@@ -624,11 +624,11 @@ mod tests {
         // Large object
         for y in 2..8 {
             for x in 2..8 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
         // Small isolated pixel
-        unsafe { pix_mut.set_pixel_unchecked(0, 0, 1) };
+        pix_mut.set_pixel_unchecked(0, 0, 1);
 
         let pix: Pix = pix_mut.into();
         let original_count = count_foreground_pixels(&pix);
@@ -639,7 +639,7 @@ mod tests {
 
         // The isolated pixel should be removed
         assert!(opened_count < original_count);
-        assert_eq!(unsafe { opened.get_pixel_unchecked(0, 0) }, 0);
+        assert_eq!(opened.get_pixel_unchecked(0, 0), 0);
     }
 
     #[test]
@@ -651,13 +651,13 @@ mod tests {
         // Create a ring (square with hole)
         for y in 2..8 {
             for x in 2..8 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
         // Create hole
         for y in 4..6 {
             for x in 4..6 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 0) };
+                pix_mut.set_pixel_unchecked(x, y, 0);
             }
         }
 
@@ -685,7 +685,7 @@ mod tests {
         for x in 1..9 {
             // Center rows should be dilated
             assert_eq!(
-                unsafe { dilated.get_pixel_unchecked(x, 5) },
+                dilated.get_pixel_unchecked(x, 5),
                 1,
                 "Expected pixel at ({}, 5) to be set",
                 x
@@ -703,7 +703,7 @@ mod tests {
         // Check that the center column expanded vertically
         for y in 1..9 {
             assert_eq!(
-                unsafe { dilated.get_pixel_unchecked(5, y) },
+                dilated.get_pixel_unchecked(5, y),
                 1,
                 "Expected pixel at (5, {}) to be set",
                 y
@@ -743,8 +743,8 @@ mod tests {
         // Results should be identical
         for y in 0..pix.height() {
             for x in 0..pix.width() {
-                let dwa_val = unsafe { dwa_dilated.get_pixel_unchecked(x, y) };
-                let regular_val = unsafe { regular_dilated.get_pixel_unchecked(x, y) };
+                let dwa_val = dwa_dilated.get_pixel_unchecked(x, y);
+                let regular_val = regular_dilated.get_pixel_unchecked(x, y);
                 assert_eq!(dwa_val, regular_val, "Dilation mismatch at ({}, {})", x, y);
             }
         }
@@ -755,8 +755,8 @@ mod tests {
         // Results should be identical
         for y in 0..pix.height() {
             for x in 0..pix.width() {
-                let dwa_val = unsafe { dwa_eroded.get_pixel_unchecked(x, y) };
-                let regular_val = unsafe { regular_eroded.get_pixel_unchecked(x, y) };
+                let dwa_val = dwa_eroded.get_pixel_unchecked(x, y);
+                let regular_val = regular_eroded.get_pixel_unchecked(x, y);
                 assert_eq!(dwa_val, regular_val, "Erosion mismatch at ({}, {})", x, y);
             }
         }
@@ -789,8 +789,8 @@ mod tests {
         // Results should be identical
         for y in 0..pix.height() {
             for x in 0..pix.width() {
-                let dwa_val = unsafe { dwa_result.get_pixel_unchecked(x, y) };
-                let shift_val = unsafe { shift_result.get_pixel_unchecked(x, y) };
+                let dwa_val = dwa_result.get_pixel_unchecked(x, y);
+                let shift_val = shift_result.get_pixel_unchecked(x, y);
                 assert_eq!(
                     dwa_val, shift_val,
                     "Shift optimization mismatch at ({}, {})",
@@ -811,8 +811,8 @@ mod tests {
         // Results should be identical
         for y in 0..pix.height() {
             for x in 0..pix.width() {
-                let dwa_val = unsafe { dwa_result.get_pixel_unchecked(x, y) };
-                let shift_val = unsafe { shift_result.get_pixel_unchecked(x, y) };
+                let dwa_val = dwa_result.get_pixel_unchecked(x, y);
+                let shift_val = shift_result.get_pixel_unchecked(x, y);
                 assert_eq!(
                     dwa_val, shift_val,
                     "Shift optimization mismatch at ({}, {})",

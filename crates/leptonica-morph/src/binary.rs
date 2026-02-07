@@ -27,14 +27,14 @@ pub fn dilate(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
                 let sx = x as i32 + dx;
                 let sy = y as i32 + dy;
                 if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) != 0 }
+                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
                 } else {
                     false // Pixels outside are treated as background
                 }
             });
 
             if dilated {
-                unsafe { out_mut.set_pixel_unchecked(x, y, 1) };
+                out_mut.set_pixel_unchecked(x, y, 1);
             }
         }
     }
@@ -64,14 +64,14 @@ pub fn erode(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
                 let sx = x as i32 + dx;
                 let sy = y as i32 + dy;
                 if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) != 0 }
+                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
                 } else {
                     false // Pixels outside are treated as background
                 }
             });
 
             if eroded {
-                unsafe { out_mut.set_pixel_unchecked(x, y, 1) };
+                out_mut.set_pixel_unchecked(x, y, 1);
             }
         }
     }
@@ -120,7 +120,7 @@ pub fn hit_miss_transform(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
                 let sx = x as i32 + dx;
                 let sy = y as i32 + dy;
                 if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) != 0 }
+                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
                 } else {
                     false
                 }
@@ -131,14 +131,14 @@ pub fn hit_miss_transform(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
                 let sx = x as i32 + dx;
                 let sy = y as i32 + dy;
                 if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) == 0 }
+                    pix.get_pixel_unchecked(sx as u32, sy as u32) == 0
                 } else {
                     true // Outside is background
                 }
             });
 
             if hits_match && misses_match {
-                unsafe { out_mut.set_pixel_unchecked(x, y, 1) };
+                out_mut.set_pixel_unchecked(x, y, 1);
             }
         }
     }
@@ -181,10 +181,10 @@ fn subtract(a: &Pix, b: &Pix) -> MorphResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let va = unsafe { a.get_pixel_unchecked(x, y) };
-            let vb = unsafe { b.get_pixel_unchecked(x, y) };
+            let va = a.get_pixel_unchecked(x, y);
+            let vb = b.get_pixel_unchecked(x, y);
             let result = if va != 0 && vb == 0 { 1 } else { 0 };
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -240,7 +240,7 @@ mod tests {
         // Set the 3x3 square
         for y in 1..4 {
             for x in 1..4 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 1) };
+                pix_mut.set_pixel_unchecked(x, y, 1);
             }
         }
 
@@ -255,8 +255,8 @@ mod tests {
         let dilated = dilate(&pix, &sel).unwrap();
 
         // The 3x3 square should expand to 5x5
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(0, 0) }, 1);
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(4, 4) }, 1);
+        assert_eq!(dilated.get_pixel_unchecked(0, 0), 1);
+        assert_eq!(dilated.get_pixel_unchecked(4, 4), 1);
     }
 
     #[test]
@@ -267,9 +267,9 @@ mod tests {
         let eroded = erode(&pix, &sel).unwrap();
 
         // The 3x3 square should shrink to 1x1 (just the center)
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(2, 2) }, 1);
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(1, 1) }, 0);
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(3, 3) }, 0);
+        assert_eq!(eroded.get_pixel_unchecked(2, 2), 1);
+        assert_eq!(eroded.get_pixel_unchecked(1, 1), 0);
+        assert_eq!(eroded.get_pixel_unchecked(3, 3), 0);
     }
 
     #[test]
@@ -282,10 +282,10 @@ mod tests {
         let closed = close(&pix, &sel).unwrap();
 
         // The opened image should have the center pixel
-        assert_eq!(unsafe { opened.get_pixel_unchecked(2, 2) }, 1);
+        assert_eq!(opened.get_pixel_unchecked(2, 2), 1);
 
         // The closed image should have the original square plus some
-        assert_eq!(unsafe { closed.get_pixel_unchecked(2, 2) }, 1);
+        assert_eq!(closed.get_pixel_unchecked(2, 2), 1);
     }
 
     #[test]
@@ -293,7 +293,7 @@ mod tests {
         // Create an image with a single pixel
         let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        unsafe { pix_mut.set_pixel_unchecked(2, 2, 1) };
+        pix_mut.set_pixel_unchecked(2, 2, 1);
         let pix: Pix = pix_mut.into();
 
         // Create a SEL that matches isolated pixels
@@ -309,7 +309,7 @@ mod tests {
         let hmt = hit_miss_transform(&pix, &sel).unwrap();
 
         // The isolated pixel should be detected
-        assert_eq!(unsafe { hmt.get_pixel_unchecked(2, 2) }, 1);
+        assert_eq!(hmt.get_pixel_unchecked(2, 2), 1);
     }
 
     #[test]
@@ -331,8 +331,8 @@ mod tests {
         let dilated = dilate_brick(&pix, 3, 3).unwrap();
         let eroded = erode_brick(&pix, 3, 3).unwrap();
 
-        assert_eq!(unsafe { dilated.get_pixel_unchecked(0, 0) }, 1);
-        assert_eq!(unsafe { eroded.get_pixel_unchecked(2, 2) }, 1);
+        assert_eq!(dilated.get_pixel_unchecked(0, 0), 1);
+        assert_eq!(eroded.get_pixel_unchecked(2, 2), 1);
     }
 
     #[test]

@@ -29,7 +29,7 @@ fn create_known_color_image() -> Pix {
             } else {
                 color::compose_rgb(0, 0, 255)
             };
-            unsafe { pm.set_pixel_unchecked(x, y, pixel) };
+            pm.set_pixel_unchecked(x, y, pixel);
         }
     }
     pm.into()
@@ -42,7 +42,7 @@ fn create_grayscale_rgb() -> Pix {
     for y in 0..h {
         for x in 0..w {
             let gray = ((x + y) * 5 % 256) as u8;
-            unsafe { pm.set_pixel_unchecked(x, y, color::compose_rgb(gray, gray, gray)) };
+            pm.set_pixel_unchecked(x, y, color::compose_rgb(gray, gray, gray));
         }
     }
     pm.into()
@@ -54,7 +54,7 @@ fn create_grayscale_8bpp() -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
-            unsafe { pm.set_pixel_unchecked(x, y, (x * 5 + y * 3) % 256) };
+            pm.set_pixel_unchecked(x, y, (x * 5 + y * 3) % 256);
         }
     }
     pm.into()
@@ -164,13 +164,11 @@ fn colorcontent_reg() {
         for y in 0..30u32 {
             for x in 0..30u32 {
                 let base = ((x + y) * 4 % 256) as u8;
-                unsafe {
-                    pm.set_pixel_unchecked(
-                        x,
-                        y,
-                        color::compose_rgb(base, base.wrapping_add(1), base.wrapping_add(2)),
-                    )
-                };
+                pm.set_pixel_unchecked(
+                    x,
+                    y,
+                    color::compose_rgb(base, base.wrapping_add(1), base.wrapping_add(2)),
+                );
             }
         }
         let r: Pix = pm.into();
@@ -202,7 +200,7 @@ fn colorcontent_reg() {
         let mut pm = p.try_into_mut().unwrap();
         for y in 0..20u32 {
             for x in 0..20u32 {
-                unsafe { pm.set_pixel_unchecked(x, y, 100) };
+                pm.set_pixel_unchecked(x, y, 100);
             }
         }
         let r: Pix = pm.into();

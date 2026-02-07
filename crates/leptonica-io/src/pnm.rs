@@ -167,7 +167,7 @@ fn read_pbm_ascii<R: BufRead>(
             skip_whitespace_and_comments(reader)?;
             let val = read_number(reader)?;
             // PBM: 1 = black, 0 = white (inverted from our convention)
-            unsafe { pix.set_pixel_unchecked(x, y, if val != 0 { 1 } else { 0 }) };
+            pix.set_pixel_unchecked(x, y, if val != 0 { 1 } else { 0 });
         }
     }
     Ok(())
@@ -189,7 +189,7 @@ fn read_pbm_binary<R: Read>(
             let byte_idx = (x / 8) as usize;
             let bit_idx = 7 - (x % 8);
             let val = (row_buffer[byte_idx] >> bit_idx) & 1;
-            unsafe { pix.set_pixel_unchecked(x, y, val as u32) };
+            pix.set_pixel_unchecked(x, y, val as u32);
         }
     }
     Ok(())
@@ -211,7 +211,7 @@ fn read_pgm_ascii<R: BufRead>(
             } else {
                 val
             };
-            unsafe { pix.set_pixel_unchecked(x, y, scaled) };
+            pix.set_pixel_unchecked(x, y, scaled);
         }
     }
     Ok(())
@@ -235,7 +235,7 @@ fn read_pgm_binary<R: Read>(
                 } else {
                     val
                 };
-                unsafe { pix.set_pixel_unchecked(x, y, scaled) };
+                pix.set_pixel_unchecked(x, y, scaled);
             }
         }
     } else {
@@ -247,7 +247,7 @@ fn read_pgm_binary<R: Read>(
                 let idx = (x * 2) as usize;
                 let val = ((row_buffer[idx] as u32) << 8) | (row_buffer[idx + 1] as u32);
                 let scaled = val * 255 / maxval;
-                unsafe { pix.set_pixel_unchecked(x, y, scaled) };
+                pix.set_pixel_unchecked(x, y, scaled);
             }
         }
     }
@@ -281,7 +281,7 @@ fn read_ppm_ascii<R: BufRead>(
             };
 
             let pixel = color::compose_rgb(r, g, b);
-            unsafe { pix.set_pixel_unchecked(x, y, pixel) };
+            pix.set_pixel_unchecked(x, y, pixel);
         }
     }
     Ok(())
@@ -326,7 +326,7 @@ fn read_ppm_binary<R: Read>(
             };
 
             let pixel = color::compose_rgb(r, g, b);
-            unsafe { pix.set_pixel_unchecked(x, y, pixel) };
+            pix.set_pixel_unchecked(x, y, pixel);
         }
     }
     Ok(())

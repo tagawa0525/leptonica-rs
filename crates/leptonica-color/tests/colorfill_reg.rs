@@ -21,21 +21,21 @@ fn make_small_test_pix(c1: u32, c2: u32) -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..17u32 {
         for x in 0..17u32 {
-            unsafe { pm.set_pixel_unchecked(x, y, c1) };
+            pm.set_pixel_unchecked(x, y, c1);
         }
     }
     for i in 0..15u32 {
         for j in 0..i {
-            unsafe { pm.set_pixel_unchecked(j, i, c2) };
+            pm.set_pixel_unchecked(j, i, c2);
         }
     }
     for i in 0..15u32 {
         for j in (17 - i)..17 {
-            unsafe { pm.set_pixel_unchecked(j, i, c2) };
+            pm.set_pixel_unchecked(j, i, c2);
         }
     }
     for i in 9..17u32 {
-        unsafe { pm.set_pixel_unchecked(8, i, c1) };
+        pm.set_pixel_unchecked(8, i, c1);
     }
     pm.into()
 }
@@ -58,7 +58,7 @@ fn create_color_regions() -> Pix {
             } else {
                 color::compose_rgb(200, 200, 80)
             };
-            unsafe { pm.set_pixel_unchecked(x, y, pixel) };
+            pm.set_pixel_unchecked(x, y, pixel);
         }
     }
     pm.into()
@@ -78,17 +78,15 @@ fn create_random_color_image(w: u32, h: u32) -> Pix {
             for dy in 0..block_size.min(h - by) {
                 for dx in 0..block_size.min(w - bx) {
                     let v = ((dx + dy) % 10) as u8;
-                    unsafe {
-                        pm.set_pixel_unchecked(
-                            bx + dx,
-                            by + dy,
-                            color::compose_rgb(
-                                r.saturating_add(v),
-                                g.saturating_add(v),
-                                b.saturating_add(v),
-                            ),
-                        )
-                    };
+                    pm.set_pixel_unchecked(
+                        bx + dx,
+                        by + dy,
+                        color::compose_rgb(
+                            r.saturating_add(v),
+                            g.saturating_add(v),
+                            b.saturating_add(v),
+                        ),
+                    );
                 }
             }
         }
@@ -280,7 +278,7 @@ fn colorfill_reg() {
         let mut pm = p.try_into_mut().unwrap();
         for y in 0..20u32 {
             for x in 0..20u32 {
-                unsafe { pm.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30)) };
+                pm.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30));
             }
         }
         let r: Pix = pm.into();

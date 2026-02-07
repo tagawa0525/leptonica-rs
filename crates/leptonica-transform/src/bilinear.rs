@@ -328,8 +328,8 @@ pub fn bilinear_sampled(
             let (sx, sy) = coeffs.transform_point_sampled(i as i32, j as i32);
 
             if sx >= 0 && sx < wi && sy >= 0 && sy < hi {
-                let val = unsafe { pix.get_pixel_unchecked(sx as u32, sy as u32) };
-                unsafe { out_mut.set_pixel_unchecked(i, j, val) };
+                let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
+                out_mut.set_pixel_unchecked(i, j, val);
             }
             // Pixels outside source keep the fill value
         }
@@ -466,10 +466,10 @@ fn bilinear_gray(pix: &Pix, coeffs: &BilinearCoeffs, fill: AffineFill) -> Transf
             }
 
             // Get four neighboring pixels
-            let v00 = unsafe { pix.get_pixel_unchecked(xp as u32, yp as u32) } as i32;
-            let v10 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, yp as u32) } as i32;
-            let v01 = unsafe { pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32) } as i32;
-            let v11 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) } as i32;
+            let v00 = pix.get_pixel_unchecked(xp as u32, yp as u32) as i32;
+            let v10 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32) as i32;
+            let v01 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32) as i32;
+            let v11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) as i32;
 
             // Area-weighted interpolation
             let val = ((16 - xf) * (16 - yf) * v00
@@ -479,7 +479,7 @@ fn bilinear_gray(pix: &Pix, coeffs: &BilinearCoeffs, fill: AffineFill) -> Transf
                 + 128)
                 / 256;
 
-            unsafe { out_mut.set_pixel_unchecked(i, j, val as u32) };
+            out_mut.set_pixel_unchecked(i, j, val as u32);
         }
     }
 
@@ -529,10 +529,10 @@ fn bilinear_color(pix: &Pix, coeffs: &BilinearCoeffs, fill: AffineFill) -> Trans
             }
 
             // Get four neighboring pixels
-            let p00 = unsafe { pix.get_pixel_unchecked(xp as u32, yp as u32) };
-            let p10 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, yp as u32) };
-            let p01 = unsafe { pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32) };
-            let p11 = unsafe { pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) };
+            let p00 = pix.get_pixel_unchecked(xp as u32, yp as u32);
+            let p10 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32);
+            let p01 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32);
+            let p11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
 
             // Extract RGBA components
             let (r00, g00, b00, a00) = color::extract_rgba(p00);
@@ -547,7 +547,7 @@ fn bilinear_color(pix: &Pix, coeffs: &BilinearCoeffs, fill: AffineFill) -> Trans
             let av = area_interp(a00, a10, a01, a11, xf, yf);
 
             let pixel = color::compose_rgba(r, gv, bv, av);
-            unsafe { out_mut.set_pixel_unchecked(i, j, pixel) };
+            out_mut.set_pixel_unchecked(i, j, pixel);
         }
     }
 
@@ -572,7 +572,7 @@ fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
     let h = pix.height();
     for y in 0..h {
         for x in 0..w {
-            unsafe { pix.set_pixel_unchecked(x, y, value) };
+            pix.set_pixel_unchecked(x, y, value);
         }
     }
 }
@@ -744,7 +744,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..20 {
             for x in 0..20 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, (x + y * 20) % 256) };
+                pix_mut.set_pixel_unchecked(x, y, (x + y * 20) % 256);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -755,8 +755,8 @@ mod tests {
         // Check that all pixels are preserved
         for y in 0..20 {
             for x in 0..20 {
-                let orig = unsafe { pix.get_pixel_unchecked(x, y) };
-                let trans = unsafe { result.get_pixel_unchecked(x, y) };
+                let orig = pix.get_pixel_unchecked(x, y);
+                let trans = result.get_pixel_unchecked(x, y);
                 assert_eq!(orig, trans, "Mismatch at ({}, {})", x, y);
             }
         }
@@ -767,7 +767,7 @@ mod tests {
         let pix = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
         // Set a marker pixel at (10, 10)
-        unsafe { pix_mut.set_pixel_unchecked(10, 10, 200) };
+        pix_mut.set_pixel_unchecked(10, 10, 200);
         let pix: Pix = pix_mut.into();
 
         // Translation by (5, 3) - coeffs for inverse transform
@@ -779,7 +779,7 @@ mod tests {
         let result = bilinear_sampled(&pix, &inv_coeffs, AffineFill::Black).unwrap();
 
         // Marker should now be at (15, 13)
-        assert_eq!(unsafe { result.get_pixel_unchecked(15, 13) }, 200);
+        assert_eq!(result.get_pixel_unchecked(15, 13), 200);
     }
 
     #[test]
@@ -884,7 +884,7 @@ mod tests {
         // Fill with value 100
         for y in 0..10 {
             for x in 0..10 {
-                unsafe { pix_mut.set_pixel_unchecked(x, y, 100) };
+                pix_mut.set_pixel_unchecked(x, y, 100);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -897,7 +897,7 @@ mod tests {
         // All pixels should be black (fill value)
         for y in 0..10 {
             for x in 0..10 {
-                let val = unsafe { result.get_pixel_unchecked(x, y) };
+                let val = result.get_pixel_unchecked(x, y);
                 assert_eq!(val, 0, "Expected black fill at ({}, {})", x, y);
             }
         }

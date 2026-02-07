@@ -81,7 +81,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                     let byte_idx = row_start + (x / 8) as usize;
                     let bit_idx = 7 - (x % 8);
                     let val = (data[byte_idx] >> bit_idx) & 1;
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
         }
@@ -92,7 +92,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                     let byte_idx = row_start + (x / 4) as usize;
                     let shift = 6 - ((x % 4) * 2);
                     let val = (data[byte_idx] >> shift) & 3;
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
         }
@@ -106,7 +106,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                     } else {
                         data[byte_idx] & 0xF
                     };
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
         }
@@ -115,7 +115,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                 let row_start = y as usize * bytes_per_row;
                 for x in 0..width {
                     let val = data[row_start + x as usize];
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val as u32) };
+                    pix_mut.set_pixel_unchecked(x, y, val as u32);
                 }
             }
         }
@@ -125,7 +125,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                 for x in 0..width {
                     let idx = row_start + (x as usize * 2);
                     let val = ((data[idx] as u32) << 8) | (data[idx + 1] as u32);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                    pix_mut.set_pixel_unchecked(x, y, val);
                 }
             }
         }
@@ -141,7 +141,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                         (data[idx], data[idx + 1])
                     };
                     let pixel = color::compose_rgba(g, g, g, a);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                    pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
         }
@@ -157,7 +157,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                         (data[idx], data[idx + 1], data[idx + 2])
                     };
                     let pixel = color::compose_rgb(r, g, b);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                    pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
         }
@@ -173,7 +173,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                         (data[idx], data[idx + 1], data[idx + 2], data[idx + 3])
                     };
                     let pixel = color::compose_rgba(r, g, b, a);
-                    unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
+                    pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
         }

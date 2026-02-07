@@ -113,7 +113,7 @@ fn get_mean_verticals_from_box(pix: &Pix, bx: i32, by: i32, bw: u32, bh: u32) ->
             }
 
             // Check if this pixel is foreground
-            let pixel = unsafe { pix.get_pixel_unchecked(x, y) };
+            let pixel = pix.get_pixel_unchecked(x, y);
             if pixel != 0 {
                 sum_y += y;
                 count += 1;
@@ -154,7 +154,7 @@ fn seed_fill_binary(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
         // Dilate and AND with mask
         for y in 0..h {
             for x in 0..w {
-                if unsafe { result_mut.get_pixel_unchecked(x, y) } == 0 {
+                if result_mut.get_pixel_unchecked(x, y) == 0 {
                     // Check if any 8-connected neighbor is set
                     let mut has_neighbor = false;
                     for dy in -1i32..=1 {
@@ -168,8 +168,7 @@ fn seed_fill_binary(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
                                 && nx < w as i32
                                 && ny >= 0
                                 && ny < h as i32
-                                && unsafe { result_mut.get_pixel_unchecked(nx as u32, ny as u32) }
-                                    != 0
+                                && result_mut.get_pixel_unchecked(nx as u32, ny as u32) != 0
                             {
                                 has_neighbor = true;
                                 break;
@@ -181,8 +180,8 @@ fn seed_fill_binary(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
                     }
 
                     // If has neighbor and mask is set, fill
-                    if has_neighbor && unsafe { mask.get_pixel_unchecked(x, y) } != 0 {
-                        unsafe { result_mut.set_pixel_unchecked(x, y, 1) };
+                    if has_neighbor && mask.get_pixel_unchecked(x, y) != 0 {
+                        result_mut.set_pixel_unchecked(x, y, 1);
                         changed = true;
                     }
                 }
@@ -213,9 +212,9 @@ fn xor_pix(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let v1 = unsafe { pix1.get_pixel_unchecked(x, y) };
-            let v2 = unsafe { pix2.get_pixel_unchecked(x, y) };
-            unsafe { result_mut.set_pixel_unchecked(x, y, v1 ^ v2) };
+            let v1 = pix1.get_pixel_unchecked(x, y);
+            let v2 = pix2.get_pixel_unchecked(x, y);
+            result_mut.set_pixel_unchecked(x, y, v1 ^ v2);
         }
     }
 

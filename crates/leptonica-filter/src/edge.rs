@@ -70,14 +70,14 @@ fn convolve_and_abs(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
                     let sx = sx.clamp(0, w as i32 - 1) as u32;
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
-                    let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) } as f32;
+                    let pixel = pix.get_pixel_unchecked(sx, sy) as f32;
                     let k = kernel.get(kx, ky).unwrap_or(0.0);
                     sum += pixel * k;
                 }
             }
 
             let result = sum.abs().clamp(0.0, 255.0) as u32;
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -109,7 +109,7 @@ fn sobel_combined(pix: &Pix, h_kernel: &Kernel, v_kernel: &Kernel) -> FilterResu
                     let sx = sx.clamp(0, w as i32 - 1) as u32;
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
-                    let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) } as f32;
+                    let pixel = pix.get_pixel_unchecked(sx, sy) as f32;
                     sum_h += pixel * h_kernel.get(kx, ky).unwrap_or(0.0);
                     sum_v += pixel * v_kernel.get(kx, ky).unwrap_or(0.0);
                 }
@@ -118,7 +118,7 @@ fn sobel_combined(pix: &Pix, h_kernel: &Kernel, v_kernel: &Kernel) -> FilterResu
             // Magnitude (sum of absolute values for speed, or use sqrt(h*h+v*v))
             let magnitude = sum_h.abs() + sum_v.abs();
             let result = magnitude.clamp(0.0, 255.0) as u32;
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -155,14 +155,14 @@ pub fn unsharp_mask(pix: &Pix, radius: u32, amount: f32) -> FilterResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let orig = unsafe { pix.get_pixel_unchecked(x, y) } as f32;
-            let blur = unsafe { blurred.get_pixel_unchecked(x, y) } as f32;
+            let orig = pix.get_pixel_unchecked(x, y) as f32;
+            let blur = blurred.get_pixel_unchecked(x, y) as f32;
 
             let diff = orig - blur;
             let result = orig + amount * diff;
             let result = result.round().clamp(0.0, 255.0) as u32;
 
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -196,7 +196,7 @@ pub fn emboss(pix: &Pix) -> FilterResult<Pix> {
                     let sx = sx.clamp(0, w as i32 - 1) as u32;
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
-                    let pixel = unsafe { pix.get_pixel_unchecked(sx, sy) } as f32;
+                    let pixel = pix.get_pixel_unchecked(sx, sy) as f32;
                     let k = kernel.get(kx, ky).unwrap_or(0.0);
                     sum += pixel * k;
                 }
@@ -204,7 +204,7 @@ pub fn emboss(pix: &Pix) -> FilterResult<Pix> {
 
             // Add 128 to center the emboss effect
             let result = (sum + 128.0).round().clamp(0.0, 255.0) as u32;
-            unsafe { out_mut.set_pixel_unchecked(x, y, result) };
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -233,7 +233,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let val = if x < 5 { 50 } else { 200 };
-                unsafe { pix_mut.set_pixel_unchecked(x, y, val) };
+                pix_mut.set_pixel_unchecked(x, y, val);
             }
         }
 
@@ -246,8 +246,8 @@ mod tests {
         let edges = sobel_edge(&pix, EdgeOrientation::Vertical).unwrap();
 
         // Vertical edge at x=4-5 should be detected
-        let edge_val = unsafe { edges.get_pixel_unchecked(4, 5) };
-        let non_edge_val = unsafe { edges.get_pixel_unchecked(1, 5) };
+        let edge_val = edges.get_pixel_unchecked(4, 5);
+        let non_edge_val = edges.get_pixel_unchecked(1, 5);
 
         assert!(edge_val > non_edge_val);
     }
