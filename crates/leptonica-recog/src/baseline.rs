@@ -16,6 +16,7 @@
 use crate::skew::SkewDetectOptions;
 use crate::{RecogError, RecogResult};
 use leptonica_core::{Pix, PixelDepth};
+use leptonica_morph::sequence::morph_sequence;
 
 /// Options for baseline detection
 #[derive(Debug, Clone)]
@@ -25,7 +26,9 @@ pub struct BaselineOptions {
     pub min_block_width: u32,
 
     /// Peak threshold ratio (default: 80)
-    /// Peaks must be at least this percentage of max peak
+    /// Note: Currently the peak detection uses hardcoded thresholds matching
+    /// the C version (maxval / 80 for peak, maxval / 100 for zero).
+    /// This field is reserved for future use.
     pub peak_threshold: u32,
 
     /// Number of slices for local skew detection (default: 10)
@@ -98,9 +101,13 @@ pub struct BaselineResult {
     pub endpoints: Option<Vec<(i32, i32, i32, i32)>>,
 }
 
-// Constants for peak detection
+// Constants for peak detection (matching C version's baseline.c)
+// Note: These are used as divisors (maxval / ratio), NOT multipliers.
+// C version: peakthresh = (l_int32)maxval / PeakThresholdRatio
+// C version: zerothresh = (l_int32)maxval / ZeroThresholdRatio
 const MIN_DIST_FROM_PEAK: i32 = 30;
-const ZERO_THRESHOLD_RATIO: u32 = 100;
+const PEAK_THRESHOLD_RATIO: i32 = 80;
+const ZERO_THRESHOLD_RATIO: i32 = 100;
 
 /// Find baselines in a binary image
 ///
@@ -130,16 +137,24 @@ pub fn find_baselines(pix: &Pix, options: &BaselineOptions) -> RecogResult<Basel
 
     let h = binary.height();
 
-    // Step 1: Compute horizontal projection (row sums)
-    let row_sums = compute_row_sums(&binary);
+    // Step 1: Morphological preprocessing to consolidate text characters
+    // C版: pix1 = pixMorphSequence(pixs, "c25.1 + e15.1", 0)
+    // Close horizontally to connect characters, then erode to clean noise
+    let preprocessed = match morph_sequence(&binary, "c25.1 + e15.1") {
+        Ok(p) => p,
+        Err(_) => binary.deep_clone(), // Fall back to original if morph fails
+    };
 
-    // Step 2: Compute differential (row-to-row differences)
+    // Step 2: Compute horizontal projection (row sums) on preprocessed image
+    let row_sums = compute_row_sums(&preprocessed);
+
+    // Step 3: Compute differential (row-to-row differences)
     let diff = compute_differential(&row_sums);
 
-    // Step 3: Find peaks in differential signal
+    // Step 4: Find peaks in differential signal
     let baselines = find_peaks(&diff, options.peak_threshold);
 
-    // Step 4: Find endpoints for each baseline
+    // Step 5: Find endpoints for each baseline using the original binary image
     let endpoints = find_endpoints(&binary, &baselines, options.min_block_width);
 
     // Filter baselines without valid endpoints
@@ -320,7 +335,11 @@ fn compute_differential(row_sums: &[u32]) -> Vec<i32> {
 }
 
 /// Find peaks in differential signal
-fn find_peaks(diff: &[i32], threshold_ratio: u32) -> Vec<i32> {
+///
+/// Uses the same threshold calculation as C version's pixFindBaselinesGen:
+///   peakthresh = maxval / PeakThresholdRatio  (divisor, not multiplier)
+///   zerothresh = maxval / ZeroThresholdRatio   (divisor, not multiplier)
+fn find_peaks(diff: &[i32], _threshold_ratio: u32) -> Vec<i32> {
     if diff.is_empty() {
         return Vec::new();
     }
@@ -331,8 +350,10 @@ fn find_peaks(diff: &[i32], threshold_ratio: u32) -> Vec<i32> {
         return Vec::new();
     }
 
-    let peak_thresh = (max_val as u32 * threshold_ratio / 100) as i32;
-    let zero_thresh = (max_val as u32 * ZERO_THRESHOLD_RATIO / 100) as i32;
+    // C版: peakthresh = (l_int32)maxval / PeakThresholdRatio;  (division!)
+    // C版: zerothresh = (l_int32)maxval / ZeroThresholdRatio;   (division!)
+    let peak_thresh = max_val / PEAK_THRESHOLD_RATIO;
+    let zero_thresh = max_val / ZERO_THRESHOLD_RATIO;
 
     let mut baselines = Vec::new();
     let mut in_peak = false;
