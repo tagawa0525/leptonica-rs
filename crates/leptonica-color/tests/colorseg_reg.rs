@@ -33,12 +33,10 @@ fn create_test_image() -> Pix {
                 } else {
                     color::compose_rgb(200, 50, 200)
                 }
+            } else if x < w / 2 {
+                color::compose_rgb(50, 200, 200)
             } else {
-                if x < w / 2 {
-                    color::compose_rgb(50, 200, 200)
-                } else {
-                    color::compose_rgb(180, 180, 180)
-                }
+                color::compose_rgb(180, 180, 180)
             };
             unsafe { pix_mut.set_pixel_unchecked(x, y, pixel) };
         }

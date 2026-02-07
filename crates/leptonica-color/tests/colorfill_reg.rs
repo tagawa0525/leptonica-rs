@@ -53,12 +53,10 @@ fn create_color_regions() -> Pix {
                 } else {
                     color::compose_rgb(80, 200, 80)
                 }
+            } else if x < w / 2 {
+                color::compose_rgb(80, 80, 200)
             } else {
-                if x < w / 2 {
-                    color::compose_rgb(80, 80, 200)
-                } else {
-                    color::compose_rgb(200, 200, 80)
-                }
+                color::compose_rgb(200, 200, 80)
             };
             unsafe { pm.set_pixel_unchecked(x, y, pixel) };
         }

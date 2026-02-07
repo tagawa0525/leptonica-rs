@@ -54,7 +54,7 @@ fn create_grayscale_8bpp() -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
-            unsafe { pm.set_pixel_unchecked(x, y, ((x * 5 + y * 3) % 256) as u32) };
+            unsafe { pm.set_pixel_unchecked(x, y, (x * 5 + y * 3) % 256) };
         }
     }
     pm.into()
