@@ -310,7 +310,7 @@ fn cmapquant_requantize_workflow() {
 
     // Step 4: カラーマップから32bpp画像を再構築してから再量子化
     // C版のpixConvertTo32 + pixMedianCutQuantに対応
-    let pix_rgb = expand_colormap_to_rgb(&pix_quant1);
+    let pix_rgb = pix_quant1.convert_to_32().unwrap();
     rp.compare_values(32.0, pix_rgb.depth().bits() as f64, 0.0);
     rp.compare_values(pix_quant1.width() as f64, pix_rgb.width() as f64, 0.0);
 
@@ -327,27 +327,6 @@ fn cmapquant_requantize_workflow() {
     rp.compare_values(1.0, if cmap3.len() <= 128 { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "cmapquant_requant regression test failed");
-}
-
-/// カラーマップ付き8bpp画像を32bpp RGBに展開する
-/// C版: pixConvertTo32() の簡易版
-fn expand_colormap_to_rgb(pix: &Pix) -> Pix {
-    let w = pix.width();
-    let h = pix.height();
-    let cmap = pix.colormap().expect("must have colormap");
-
-    let out = Pix::new(w, h, PixelDepth::Bit32).unwrap();
-    let mut out_mut = out.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let idx = pix.get_pixel_unchecked(x, y) as usize;
-            let (r, g, b) = cmap.get_rgb(idx).unwrap_or((0, 0, 0));
-            let pixel = color::compose_rgb(r, g, b);
-            out_mut.set_pixel_unchecked(x, y, pixel);
-        }
-    }
-    out_mut.into()
 }
 
 /// カラーマップの色数検査テスト
