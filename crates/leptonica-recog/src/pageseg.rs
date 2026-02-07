@@ -253,13 +253,17 @@ pub fn is_text_region(pix: &Pix) -> RecogResult<bool> {
     let w = binary.width();
     let h = binary.height();
 
-    // Count pixels
+    // Count pixels and compute row/column counts simultaneously
     let mut black_count = 0u64;
+    let mut row_counts = vec![0u32; h as usize];
+    let mut col_counts = vec![0u32; w as usize];
     for y in 0..h {
         for x in 0..w {
             let val = unsafe { binary.get_pixel_unchecked(x, y) };
             if val != 0 {
                 black_count += 1;
+                row_counts[y as usize] += 1;
+                col_counts[x as usize] += 1;
             }
         }
     }
@@ -267,22 +271,57 @@ pub fn is_text_region(pix: &Pix) -> RecogResult<bool> {
     let total = (w as u64) * (h as u64);
     let density = black_count as f64 / total as f64;
 
-    // Text typically has 5-40% black pixel density
-    // Images/halftones tend to have higher or more uniform density
+    // Text typically has 5-40% black pixel density.
+    // Photos binarized at 128 threshold often have higher density.
     let is_text_density = density > 0.02 && density < 0.40;
 
-    // Additional check: text has high variance in one direction
-    // (horizontal text has high row variance, vertical text has high column variance)
-    let h_variance = compute_horizontal_variance(&binary);
-    let v_variance = compute_vertical_variance(&binary);
+    // Compute variance of row counts and column counts.
+    // Text has highly structured row patterns: alternating text lines
+    // and whitespace create large row-count variance.
+    let h_variance = compute_variance(&col_counts);
+    let v_variance = compute_variance(&row_counts);
 
-    // Text should have significant variance in at least one direction
-    // compared to uniform images. Either high row variance (horizontal lines)
-    // or high column variance (vertical text)
+    // Use coefficient of variation (CV = stddev / mean) to normalize for image size.
+    // Text has high CV in at least one direction because of the alternating
+    // line/gap pattern. Photos tend to have more uniform distribution.
+    let mean_row = if h > 0 {
+        black_count as f64 / h as f64
+    } else {
+        0.0
+    };
+    let mean_col = if w > 0 {
+        black_count as f64 / w as f64
+    } else {
+        0.0
+    };
+
+    let cv_row = if mean_row > 0.0 {
+        v_variance.sqrt() / mean_row
+    } else {
+        0.0
+    };
+    let cv_col = if mean_col > 0.0 {
+        h_variance.sqrt() / mean_col
+    } else {
+        0.0
+    };
+
+    // Text documents have high CV in the row direction (vertical variance)
+    // because text lines create strong horizontal banding.
+    // A CV > 0.3 indicates significant structured variation.
+    // Photos typically have CV < 0.3 because pixel density is more uniform.
+    let max_cv = cv_row.max(cv_col);
+    let has_text_pattern = max_cv > 0.3;
+
+    // Additional check: the variance ratio between directions.
+    // Text is strongly directional (one direction has much higher variance).
+    // Photos tend to have similar variance in both directions.
+    let min_variance = h_variance.min(v_variance).max(1.0);
     let max_variance = h_variance.max(v_variance);
-    let has_text_pattern = max_variance > 100.0; // Threshold for meaningful variance
+    let variance_ratio = max_variance / min_variance;
+    let has_directional_pattern = variance_ratio > 1.5;
 
-    Ok(is_text_density && has_text_pattern)
+    Ok(is_text_density && has_text_pattern && has_directional_pattern)
 }
 
 // ============================================================================
@@ -736,6 +775,7 @@ fn extract_region(pix: &Pix, x: u32, y: u32, w: u32, h: u32) -> RecogResult<Pix>
 }
 
 /// Compute horizontal variance (spread of black pixels horizontally)
+#[allow(dead_code)]
 fn compute_horizontal_variance(pix: &Pix) -> f64 {
     let w = pix.width();
     let h = pix.height();
@@ -754,6 +794,7 @@ fn compute_horizontal_variance(pix: &Pix) -> f64 {
 }
 
 /// Compute vertical variance (spread of black pixels vertically)
+#[allow(dead_code)]
 fn compute_vertical_variance(pix: &Pix) -> f64 {
     let w = pix.width();
     let h = pix.height();

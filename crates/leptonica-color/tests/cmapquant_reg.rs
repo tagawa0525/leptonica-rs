@@ -54,10 +54,10 @@ fn load_source_image() -> Pix {
         }
     }
     // test24.jpg をフォールバックとして使用
-    if let Ok(pix) = load_test_image("test24.jpg") {
-        if pix.depth() == PixelDepth::Bit32 {
-            return pix;
-        }
+    if let Ok(pix) = load_test_image("test24.jpg")
+        && pix.depth() == PixelDepth::Bit32
+    {
+        return pix;
     }
     // 合成画像を生成: グレースケール風の文字画像シミュレーション
     create_synthetic_text_image(300, 200)
