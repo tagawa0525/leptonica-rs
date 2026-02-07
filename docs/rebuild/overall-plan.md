@@ -9,13 +9,13 @@ Leptonica画像処理ライブラリ（C言語、約240,000行）をRustに移�
 
 - **プロジェクト構成**: Workspace（複数crate）
 - **image crate相互運用**: 必要（DynamicImage ↔ Pix変換）
-- **認識・分類機能（フェーズ7）**: 実装範囲に含める
+- **認識・分類機能（フェーズ6）**: 実装範囲に含める
 
 ---
 
 ## 1. プロジェクト構成
 
-### Workspace構成（推奨）
+### Workspace構成
 
 ```text
 leptonica-rs/
@@ -28,8 +28,8 @@ leptonica-rs/
 │   ├── leptonica-filter/         # フィルタリング
 │   ├── leptonica-color/          # カラー処理
 │   ├── leptonica-region/         # 領域処理
-│   ├── leptonica-doc/            # ドキュメント処理
-│   └── leptonica-recog/          # 認識・分類（オプション）
+│   ├── leptonica-recog/          # 認識・分類（スキュー、デワープ、バーコード、ページセグ、JBIG2）
+│   └── leptonica-test/           # テストインフラ
 ├── leptonica/                    # 統合crate（re-export）
 └── examples/
 ```
@@ -37,11 +37,8 @@ leptonica-rs/
 ### 依存関係
 
 ```text
-leptonica-recog → leptonica-doc → leptonica-region → leptonica-filter
-                                                   ↘
-leptonica-filter → leptonica-color → leptonica-transform → leptonica-morph
-                                                         ↘
-                                   leptonica-io → leptonica-core (基盤)
+leptonica-recog → leptonica-region → leptonica-filter → leptonica-color
+    → leptonica-transform → leptonica-morph → leptonica-io → leptonica-core
 ```
 
 ---
@@ -57,8 +54,7 @@ leptonica-filter → leptonica-color → leptonica-transform → leptonica-morph
 | 4 | leptonica-filter | 畳み込み、エッジ検出、画像強調 | 10-12 |
 | 4 | leptonica-color | 色空間変換、量子化、セグメンテーション | 10-13 |
 | 5 | leptonica-region | 連結成分、シードフィル、分水嶺 | 12-15 |
-| 6 | leptonica-doc | スキュー補正、デワープ、二値化 | 18-22 |
-| 7 | leptonica-recog | JBIG2分類、文字認識 | 15-18 |
+| 6 | leptonica-recog | スキュー補正、デワープ、ページセグ、文字認識、JBIG2分類 | 30-40 |
 
 ---
 
@@ -182,15 +178,3 @@ impl TryFrom<&image::DynamicImage> for Pix { ... }
 1. **単体テスト**: 各関数のテスト（カバレッジ80%目標）
 2. **リグレッションテスト**: Leptonica元実装との出力比較
 3. **ベンチマーク**: `criterion`による性能測定
-
----
-
-## 7. 次のアクション
-
-フェーズ1（leptonica-core）の実装を開始:
-
-1. プロジェクト構造のセットアップ（Cargo workspace）
-2. `PixelDepth` enum と `Pix` 構造体の実装
-3. ピクセルアクセス関数の実装
-4. `Box` / `Boxa` の実装
-5. 単体テストの作成
