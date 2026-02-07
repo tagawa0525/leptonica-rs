@@ -10,7 +10,7 @@
 //!
 //! NOTE: C版の多くの高レベル関数はRust未実装のためスキップ:
 //!   - numaRead() / numaWrite()
-//!   - numaWindowedStats() / numaWindowedMean() / numaWindowedMedian()
+//!   - numaWindowedMedian()
 //!   - gplotSimple1() and all gplot rendering
 //!   - pixConvertTo8() / pixConvertTo32()
 //!   - pixExtractOnLine()
@@ -23,98 +23,16 @@
 //!   - pixClipRectangle()
 //!   - pixThresholdToBinary() / pixInvert()
 //!   - pixErodeGray()
-//!   - numaJoin() / numaSimilar()
 //!   - pixRenderPlotFromNuma() / pixRenderPlotFromNumaGen()
 //!   - pixMakeColorSquare()
 //!
 //! 実装済みAPIで可能なテストを忠実にポート。ローカルヘルパーで
-//! 基本的な数学演算(windowed stats, pixel extraction, averages/variances)を実装。
+//! 基本的な数学演算(pixel extraction, averages/variances)を実装。
+//! Numa windowed stats と join/similar はライブラリAPIを使用。
 
 use leptonica_core::color;
 use leptonica_core::{Numa, Pix, PixelDepth};
 use leptonica_test::RegParams;
-
-// ============================================================================
-// Helper: Numa windowed mean
-// C版: numaWindowedMean(na, halfwin)
-// ============================================================================
-
-/// Compute windowed mean of a Numa.
-///
-/// For each index i, computes the mean of values in [i-halfwin, i+halfwin],
-/// clamped to the array bounds.
-fn numa_windowed_mean(na: &Numa, halfwin: usize) -> Numa {
-    let n = na.len();
-    let mut result = Numa::with_capacity(n);
-    for i in 0..n {
-        let lo = i.saturating_sub(halfwin);
-        let hi = (i + halfwin).min(n - 1);
-        let mut sum = 0.0f32;
-        let count = (hi - lo + 1) as f32;
-        for j in lo..=hi {
-            sum += na.get(j).unwrap_or(0.0);
-        }
-        result.push(sum / count);
-    }
-    result
-}
-
-// ============================================================================
-// Helper: Numa windowed mean-square
-// ============================================================================
-
-/// Compute windowed mean of squares.
-///
-/// For each index i, computes the mean of x^2 in [i-halfwin, i+halfwin].
-fn numa_windowed_mean_square(na: &Numa, halfwin: usize) -> Numa {
-    let n = na.len();
-    let mut result = Numa::with_capacity(n);
-    for i in 0..n {
-        let lo = i.saturating_sub(halfwin);
-        let hi = (i + halfwin).min(n - 1);
-        let mut sum = 0.0f32;
-        let count = (hi - lo + 1) as f32;
-        for j in lo..=hi {
-            let v = na.get(j).unwrap_or(0.0);
-            sum += v * v;
-        }
-        result.push(sum / count);
-    }
-    result
-}
-
-// ============================================================================
-// Helper: Numa windowed variance
-// C版: numaWindowedStats(na, halfwin, &mean, &meansq, &var, &rmsdev)
-// variance[i] = meansq[i] - mean[i]^2
-// rmsdev[i] = sqrt(variance[i])
-// ============================================================================
-
-/// Compute windowed variance: var[i] = E[x^2] - E[x]^2 in window around i.
-fn numa_windowed_variance(na: &Numa, halfwin: usize) -> Numa {
-    let mean = numa_windowed_mean(na, halfwin);
-    let meansq = numa_windowed_mean_square(na, halfwin);
-    let n = na.len();
-    let mut result = Numa::with_capacity(n);
-    for i in 0..n {
-        let m = mean.get(i).unwrap_or(0.0);
-        let ms = meansq.get(i).unwrap_or(0.0);
-        let var = (ms - m * m).max(0.0);
-        result.push(var);
-    }
-    result
-}
-
-/// Compute windowed RMS deviation: rmsdev[i] = sqrt(variance[i]).
-fn numa_windowed_rms(na: &Numa, halfwin: usize) -> Numa {
-    let var = numa_windowed_variance(na, halfwin);
-    let n = var.len();
-    let mut result = Numa::with_capacity(n);
-    for i in 0..n {
-        result.push(var.get(i).unwrap_or(0.0).sqrt());
-    }
-    result
-}
 
 // ============================================================================
 // Helper: Convert 32bpp RGB Pix to 8bpp grayscale
@@ -336,39 +254,6 @@ fn pix_average_by_row_full(pix: &Pix, avg_type: i32) -> Numa {
 }
 
 // ============================================================================
-// Helper: numaJoin
-// C版: numaJoin(na1, na2, istart, iend)
-// Appends values from na2[istart..iend] to na1. If istart=0, iend=-1, appends all.
-// ============================================================================
-
-/// Join all values from na2 onto na1 (modifies na1 in place).
-fn numa_join(na1: &mut Numa, na2: &Numa) {
-    for val in na2.iter() {
-        na1.push(val);
-    }
-}
-
-// ============================================================================
-// Helper: numaSimilar
-// C版: numaSimilar(na1, na2, maxdiff, &similar)
-// Returns true if all corresponding values differ by at most maxdiff.
-// ============================================================================
-
-fn numa_similar(na1: &Numa, na2: &Numa, maxdiff: f32) -> bool {
-    if na1.len() != na2.len() {
-        return false;
-    }
-    for i in 0..na1.len() {
-        let v1 = na1.get(i).unwrap_or(0.0);
-        let v2 = na2.get(i).unwrap_or(0.0);
-        if (v1 - v2).abs() > maxdiff {
-            return false;
-        }
-    }
-    true
-}
-
-// ============================================================================
 // Helper: pixAverageInRect (8-bit grayscale)
 // C版: pixAverageInRect(pix, mask, box, minval, maxval, subsamp, &ave)
 // We simplify: no mask support (mask=None)
@@ -557,10 +442,11 @@ fn numa2_reg_windowed_stats() {
 
     // C版: numaWindowedStats(na, 5, &na1, &na2, &na3, &na4)
     let halfwin = 5;
-    let na_mean = numa_windowed_mean(&na, halfwin);
-    let na_meansq = numa_windowed_mean_square(&na, halfwin);
-    let na_var = numa_windowed_variance(&na, halfwin);
-    let na_rms = numa_windowed_rms(&na, halfwin);
+    let stats = na.windowed_stats(halfwin);
+    let na_mean = &stats.mean;
+    let na_meansq = &stats.mean_square;
+    let na_var = &stats.variance;
+    let na_rms = &stats.rms;
 
     // Verify sizes match input
     rp.compare_values(n as f64, na_mean.len() as f64, 0.0); // 1
@@ -573,7 +459,7 @@ fn numa2_reg_windowed_stats() {
         let m = na_mean.get(idx).unwrap();
         let ms = na_meansq.get(idx).unwrap();
         let v = na_var.get(idx).unwrap();
-        let expected_var = (ms - m * m).max(0.0);
+        let expected_var = ms - m * m;
         rp.compare_values(expected_var as f64, v as f64, 0.01); // 5-10
     }
 
@@ -581,7 +467,8 @@ fn numa2_reg_windowed_stats() {
     for idx in [0, 100, 250, n - 1] {
         let v = na_var.get(idx).unwrap();
         let r = na_rms.get(idx).unwrap();
-        rp.compare_values(v.sqrt() as f64, r as f64, 0.001); // 11-14
+        let expected_rms = if v > 0.0 { v.sqrt() } else { 0.0 };
+        rp.compare_values(expected_rms as f64, r as f64, 0.001); // 11-14
     }
 
     // Windowed mean should be smoother than original
@@ -602,12 +489,12 @@ fn numa2_reg_windowed_stats() {
 
     // At center of array (far from edges), windowed mean of a constant = constant
     let constant_na = Numa::from_vec(vec![42.0; 100]);
-    let constant_mean = numa_windowed_mean(&constant_na, 5);
+    let constant_mean = constant_na.windowed_mean(5);
     rp.compare_values(42.0, constant_mean.get(50).unwrap() as f64, 0.001); // 16
 
     // Variance of a constant should be 0
-    let constant_var = numa_windowed_variance(&constant_na, 5);
-    rp.compare_values(0.0, constant_var.get(50).unwrap() as f64, 0.001); // 17
+    let constant_stats = constant_na.windowed_stats(5);
+    rp.compare_values(0.0, constant_stats.variance.get(50).unwrap() as f64, 0.001); // 17
 
     assert!(rp.cleanup(), "numa2_reg windowed stats tests failed");
 }
@@ -731,12 +618,12 @@ fn numa2_reg_row_column_sums() {
     let na2_right = pix_average_by_column(&pixs, w / 2, 0, w - 2 / 2, h, L_BLACK_IS_MAX);
 
     let mut na_joined = na1_left.clone();
-    numa_join(&mut na_joined, &na2_right);
+    na_joined.join(&na2_right);
 
     let na3_full = pix_average_by_column_full(&pixs, L_BLACK_IS_MAX);
 
     // C版: numaSimilar(na1, na3, 0.0, &same) -> should be 1
-    let same = numa_similar(&na_joined, &na3_full, 0.0);
+    let same = na_joined.similar(&na3_full, 0.0);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0); // 1 (C test 10)
 
     // C版: Sum by rows in two halves (top and bottom)
@@ -744,11 +631,11 @@ fn numa2_reg_row_column_sums() {
     let na2_bot = pix_average_by_row(&pixs, 0, h / 2, w, h - h / 2, L_WHITE_IS_MAX);
 
     let mut na_row_joined = na1_top.clone();
-    numa_join(&mut na_row_joined, &na2_bot);
+    na_row_joined.join(&na2_bot);
 
     let na3_row_full = pix_average_by_row_full(&pixs, L_WHITE_IS_MAX);
 
-    let same_row = numa_similar(&na_row_joined, &na3_row_full, 0.0);
+    let same_row = na_row_joined.similar(&na3_row_full, 0.0);
     rp.compare_values(1.0, if same_row { 1.0 } else { 0.0 }, 0.0); // 2 (C test 11)
 
     // C版: Average left by rows; right by columns; compare totals
@@ -899,9 +786,10 @@ fn numa2_reg_windowed_variance_on_line() {
     let y_line = h / 2 - 30;
     let na_horiz = pix_extract_on_line(&pixs, 0, y_line, w - 1, y_line, 1);
 
-    // Compute windowed variance along the extracted line
+    // Compute windowed variance along the extracted line (using library API)
     let halfwin = 5;
-    let na_wvar_horiz = numa_windowed_variance(&na_horiz, halfwin);
+    let horiz_stats = na_horiz.windowed_stats(halfwin);
+    let na_wvar_horiz = &horiz_stats.variance;
 
     // Verify size matches
     rp.compare_values(na_horiz.len() as f64, na_wvar_horiz.len() as f64, 0.0); // 1
@@ -913,7 +801,8 @@ fn numa2_reg_windowed_variance_on_line() {
     // C版: pixWindowedVarianceOnLine(pix2, L_VERTICAL_LINE, 0.78*w, 0, h, 5, &na2)
     let x_line = (0.78 * w as f32) as i32;
     let na_vert = pix_extract_on_line(&pixs, x_line, 0, x_line, h - 1, 1);
-    let na_wvar_vert = numa_windowed_variance(&na_vert, halfwin);
+    let vert_stats = na_vert.windowed_stats(halfwin);
+    let na_wvar_vert = &vert_stats.variance;
 
     rp.compare_values(na_vert.len() as f64, na_wvar_vert.len() as f64, 0.0); // 3
 
@@ -932,7 +821,8 @@ fn numa2_reg_windowed_variance_on_line() {
     let constant_pix: Pix = constant_mut.into();
 
     let na_const_line = pix_extract_on_line(&constant_pix, 0, 50, 99, 50, 1);
-    let na_const_wvar = numa_windowed_variance(&na_const_line, 5);
+    let const_stats = na_const_line.windowed_stats(5);
+    let na_const_wvar = &const_stats.variance;
 
     // All values should be 0 for a constant line
     let max_const_var = na_const_wvar.max_value().unwrap_or(0.0);
@@ -952,7 +842,8 @@ fn numa2_reg_windowed_variance_on_line() {
     let step_pix: Pix = step_mut.into();
 
     let na_step_line = pix_extract_on_line(&step_pix, 0, 5, 99, 5, 1);
-    let na_step_wvar = numa_windowed_variance(&na_step_line, 5);
+    let step_stats = na_step_line.windowed_stats(5);
+    let na_step_wvar = &step_stats.variance;
 
     // At the step edge (~index 50), windowed variance should be high
     let var_at_edge = na_step_wvar.get(50).unwrap_or(0.0);

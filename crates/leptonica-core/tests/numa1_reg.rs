@@ -4,12 +4,7 @@
 //! Tests histograms, interpolation, integration/differentiation on Numa.
 //!
 //! NOTE: C版の多くの高レベル関数はRust未実装のためスキップ:
-//!   - numaMakeHistogramClipped()
-//!   - numaMakeHistogram()
 //!   - numaMakeHistogramAuto()
-//!   - numaGetStatsUsingHistogram()
-//!   - numaMakeSequence()
-//!   - numaGetPartialSums()
 //!   - numaInterpolateEqxInterval()
 //!   - numaInterpolateArbxInterval()
 //!   - numaInterpolateArbxVal()
@@ -24,113 +19,6 @@
 
 use leptonica_core::Numa;
 use leptonica_test::RegParams;
-
-/// Helper: Create a sequence of values (equivalent to C numaMakeSequence)
-fn make_sequence(startval: f32, increment: f32, size: usize) -> Numa {
-    let mut na = Numa::with_capacity(size);
-    for i in 0..size {
-        na.push(startval + (i as f32) * increment);
-    }
-    na
-}
-
-/// Helper: Create histogram with clipped bins (simplified version of
-/// C numaMakeHistogramClipped).
-///
-/// Takes a Numa of raw values, quantizes to bins of width `binsize`,
-/// clips values to range [0, maxval], and returns a histogram.
-fn make_histogram_clipped(na: &Numa, binsize: i32, maxval: i32) -> Numa {
-    let nbins = (maxval / binsize + 1) as usize;
-    let mut histo = Numa::from_vec(vec![0.0; nbins]);
-    for val in na.iter() {
-        let ival = val.round() as i32;
-        if ival < 0 {
-            continue;
-        }
-        let bin_idx = (ival / binsize) as usize;
-        if bin_idx < nbins {
-            let old = histo.get(bin_idx).unwrap_or(0.0);
-            histo.set(bin_idx, old + 1.0).ok();
-        }
-    }
-    histo
-}
-
-/// Helper: Create histogram with automatic binning (simplified version of
-/// C numaMakeHistogram).
-///
-/// Distributes values into `maxbins` bins. Returns (histogram, binsize, binstart).
-fn make_histogram(na: &Numa, maxbins: i32) -> (Numa, i32, i32) {
-    let min_val = na.min_value().unwrap_or(0.0);
-    let max_val = na.max_value().unwrap_or(0.0);
-
-    let range = (max_val - min_val).ceil() as i32 + 1;
-    let binsize = 1i32.max((range + maxbins - 1) / maxbins);
-
-    // C version rounds binsize to a nice number
-    let binstart = (min_val / binsize as f32).floor() as i32 * binsize;
-    let binend = ((max_val / binsize as f32).ceil() as i32 + 1) * binsize;
-    let nbins = ((binend - binstart) / binsize) as usize;
-
-    let mut histo = Numa::from_vec(vec![0.0; nbins]);
-    for val in na.iter() {
-        let bin_idx = ((val - binstart as f32) / binsize as f32).floor() as i32;
-        if bin_idx >= 0 && (bin_idx as usize) < nbins {
-            let old = histo.get(bin_idx as usize).unwrap_or(0.0);
-            histo.set(bin_idx as usize, old + 1.0).ok();
-        }
-    }
-
-    (histo, binsize, binstart)
-}
-
-/// Helper: Compute partial sums (equivalent to C numaGetPartialSums)
-fn get_partial_sums(na: &Numa) -> Numa {
-    let n = na.len();
-    let mut result = Numa::with_capacity(n);
-    let mut cumsum = 0.0f32;
-    for val in na.iter() {
-        cumsum += val;
-        result.push(cumsum);
-    }
-    result
-}
-
-/// Helper: Compute stats using histogram (simplified version of
-/// C numaGetStatsUsingHistogram).
-///
-/// Returns (minval, maxval, meanval, variance, median, rankval).
-fn get_stats_using_histogram(
-    na: &Numa,
-    maxbins: i32,
-    rank_target: f32,
-) -> (f32, f32, f32, f32, f32, f32) {
-    let min_val = na.min_value().unwrap_or(0.0);
-    let max_val = na.max_value().unwrap_or(0.0);
-
-    // Build histogram
-    let (histo, binsize, binstart) = make_histogram(na, maxbins);
-    let _nbins = histo.len();
-
-    // Set parameters on histogram for rank operations
-    let mut histo_with_params = histo.clone();
-    histo_with_params.set_parameters(binstart as f32, binsize as f32);
-
-    // Compute stats from histogram
-    let stats = histo_with_params
-        .histogram_stats(binstart as f32, binsize as f32)
-        .unwrap();
-    let mean_val = stats.mean;
-    let variance = stats.variance;
-    let median = stats.median;
-
-    // Get rank value
-    let rank_val = histo_with_params
-        .histogram_val_from_rank(rank_target)
-        .unwrap_or(0.0);
-
-    (min_val, max_val, mean_val, variance, median, rank_val)
-}
 
 // ========================================================================
 // Test: Histograms (C tests 0-10)
@@ -155,31 +43,31 @@ fn numa1_reg_histograms() {
     let n = na.len();
     rp.compare_values(500000.0, n as f64, 0.0); // test index 1
 
-    // --- Test: numaMakeHistogramClipped (Rust local helper) ---
+    // --- Test: numaMakeHistogramClipped (library API) ---
     // C版: numaMakeHistogramClipped(na, 6, 2000)
-    let nahisto_clipped = make_histogram_clipped(&na, 6, 2000);
+    let nahisto_clipped = na.make_histogram_clipped(6.0, 2000.0).unwrap();
     let nbins_clipped = nahisto_clipped.len();
     eprintln!("  Clipped histogram bins: {}", nbins_clipped);
     // Clipped histogram should have some positive bins in the range [0, 333]
     assert!(nbins_clipped > 0, "Clipped histogram should have bins");
     rp.compare_values(1.0, if nbins_clipped > 0 { 1.0 } else { 0.0 }, 0.0); // 2
 
-    // --- Test: numaMakeHistogram (Rust local helper) ---
+    // --- Test: numaMakeHistogram (library API) ---
     // C版: numaMakeHistogram(na, 1000, &binsize, &binstart)
-    let (nahisto, binsize, binstart) = make_histogram(&na, 1000);
-    let nbins = nahisto.len();
+    let hist_result = na.make_histogram(1000).unwrap();
+    let nbins = hist_result.histogram.len();
     eprintln!(
         "  Histogram: binsize = {}, binstart = {}, nbins = {}",
-        binsize, binstart, nbins
+        hist_result.binsize, hist_result.binstart, nbins
     );
     assert!(nbins > 0, "Histogram should have bins");
     rp.compare_values(1.0, if nbins > 0 { 1.0 } else { 0.0 }, 0.0); // 3
 
-    // --- Test: numaGetStatsUsingHistogram (Rust local helper) ---
+    // --- Test: numaGetStatsUsingHistogram (library API) ---
     // C: numaGetStatsUsingHistogram(na, 2000, &minval, &maxval, &meanval,
     //     &variance, &median, 0.80, &rankval, &nahisto)
     let (minval, maxval, meanval, variance, median, rankval) =
-        get_stats_using_histogram(&na, 2000, 0.80);
+        na.stats_using_histogram(2000, 0.80).unwrap();
     let rmsdev = (variance as f64).sqrt();
 
     eprintln!("Sin histogram stats:");
@@ -206,9 +94,8 @@ fn numa1_reg_histograms() {
 
     // --- Test: histogram_rank_from_val (direct Rust API) ---
     // Build a histogram with proper parameters and test rank lookup
-    let (histo_for_rank, bs, bstart) = make_histogram(&na, 2000);
-    let mut histo_with_params = histo_for_rank;
-    histo_with_params.set_parameters(bstart as f32, bs as f32);
+    let hr = na.make_histogram(2000).unwrap();
+    let histo_with_params = hr.histogram;
     let rank = histo_with_params
         .histogram_rank_from_val(rankval)
         .unwrap_or(0.0);
@@ -306,7 +193,7 @@ fn numa1_reg_basic_operations() {
 fn numa1_reg_histogram_stats() {
     let mut rp = RegParams::new("numa1_histstat");
 
-    // --- Build a histogram from sin-wave data using local helper ---
+    // --- Build a histogram from sin-wave data using library API ---
     let pi: f32 = std::f32::consts::PI;
     let mut na = Numa::with_capacity(500000);
     for i in 0..500000u32 {
@@ -315,7 +202,10 @@ fn numa1_reg_histogram_stats() {
         na.push(val);
     }
 
-    let (histo, binsize, binstart) = make_histogram(&na, 2000);
+    let hr = na.make_histogram(2000).unwrap();
+    let histo = hr.histogram;
+    let binsize = hr.binsize;
+    let binstart = hr.binstart;
     let nbins = histo.len();
 
     // Compute histogram_stats using Rust API
@@ -415,9 +305,8 @@ fn numa1_reg_rank_operations() {
         na.push(val);
     }
 
-    let (histo, binsize, binstart) = make_histogram(&na, 2000);
-    let mut histo_params = histo;
-    histo_params.set_parameters(binstart as f32, binsize as f32);
+    let hr = na.make_histogram(2000).unwrap();
+    let histo_params = hr.histogram;
 
     // C test: rank 0.80 should give val ~ 808.15
     let rankval = histo_params.histogram_val_from_rank(0.80).unwrap();
@@ -473,7 +362,7 @@ fn numa1_reg_normalize_cdf() {
 }
 
 // ========================================================================
-// Test: Partial sums helper (used by C interpolation section)
+// Test: Partial sums (used by C interpolation section)
 // ========================================================================
 
 #[test]
@@ -481,7 +370,7 @@ fn numa1_reg_partial_sums() {
     let mut rp = RegParams::new("numa1_psums");
 
     let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-    let psums = get_partial_sums(&na);
+    let psums = na.partial_sums();
 
     rp.compare_values(5.0, psums.len() as f64, 0.0); // 1
     rp.compare_values(1.0, psums.get(0).unwrap() as f64, 0.001); // 2
@@ -499,7 +388,7 @@ fn numa1_reg_partial_sums() {
 }
 
 // ========================================================================
-// Test: Make sequence helper (used by C interpolation section)
+// Test: Make sequence (used by C interpolation section)
 // ========================================================================
 
 #[test]
@@ -507,20 +396,20 @@ fn numa1_reg_make_sequence() {
     let mut rp = RegParams::new("numa1_seq");
 
     // C版: numaMakeSequence(0, 1, nbins) -> [0, 1, 2, ..., nbins-1]
-    let seq1 = make_sequence(0.0, 1.0, 5);
+    let seq1 = Numa::make_sequence(0.0, 1.0, 5);
     rp.compare_values(5.0, seq1.len() as f64, 0.0); // 1
     rp.compare_values(0.0, seq1.get(0).unwrap() as f64, 0.001); // 2
     rp.compare_values(4.0, seq1.get(4).unwrap() as f64, 0.001); // 3
 
     // C版: numaMakeSequence(binstart, binsize, nbins) with fractional args
-    let seq2 = make_sequence(10.0, 0.5, 6);
+    let seq2 = Numa::make_sequence(10.0, 0.5, 6);
     rp.compare_values(6.0, seq2.len() as f64, 0.0); // 4
     rp.compare_values(10.0, seq2.get(0).unwrap() as f64, 0.001); // 5
     rp.compare_values(10.5, seq2.get(1).unwrap() as f64, 0.001); // 6
     rp.compare_values(12.5, seq2.get(5).unwrap() as f64, 0.001); // 7
 
     // Negative start
-    let seq3 = make_sequence(-2.0, 0.04, 51);
+    let seq3 = Numa::make_sequence(-2.0, 0.04, 51);
     rp.compare_values(51.0, seq3.len() as f64, 0.0); // 8
     rp.compare_values(-2.0, seq3.get(0).unwrap() as f64, 0.001); // 9
     rp.compare_values(0.0, seq3.get(50).unwrap() as f64, 0.001); // 10

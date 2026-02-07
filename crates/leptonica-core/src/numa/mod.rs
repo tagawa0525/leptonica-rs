@@ -4,8 +4,10 @@
 //! signal processing, and general numeric data storage.
 
 mod histogram;
+mod operations;
 
 pub use histogram::HistogramStats;
+pub use operations::{HistogramResult, WindowedStats};
 
 use crate::error::{Error, Result};
 
