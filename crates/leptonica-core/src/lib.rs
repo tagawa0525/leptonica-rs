@@ -4,6 +4,7 @@
 //! the Leptonica image processing library:
 //!
 //! - [`Pix`] - The main image container
+//! - [`Pixa`] / [`Pixaa`] - Arrays of images
 //! - [`Box`] / [`Boxa`] - Rectangle regions
 //! - [`Pta`] / [`Ptaa`] - Point arrays
 //! - [`PixColormap`] - Color palette for indexed images
@@ -12,12 +13,14 @@ pub mod box_;
 pub mod colormap;
 pub mod error;
 pub mod pix;
+pub mod pixa;
 pub mod pta;
 
 pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::PixColormap;
 pub use error::{Error, Result};
 pub use pix::{ImageFormat, Pix, PixMut, PixelDepth};
+pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
 
 /// Color channel indices for 32-bit RGBA pixels
