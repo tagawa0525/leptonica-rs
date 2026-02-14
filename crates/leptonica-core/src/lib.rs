@@ -50,6 +50,15 @@ pub struct Pix {
 }
 
 impl Pix {
+    /// Create a new Pix with the given dimensions and depth (stub).
+    pub fn new(width: u32, height: u32, depth: PixelDepth) -> Self {
+        Self {
+            width,
+            height,
+            depth,
+        }
+    }
+
     pub fn width(&self) -> u32 {
         self.width
     }
