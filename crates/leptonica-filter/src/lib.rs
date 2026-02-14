@@ -2,16 +2,13 @@
 //!
 //! This crate provides image filtering operations including:
 //!
-//! - Convolution with arbitrary kernels (`convolve`)
-//! - Blur operations: box blur, Gaussian blur (`convolve`)
-//! - Edge detection: Sobel, Laplacian (`edge`)
-//! - Image enhancement: sharpening, unsharp masking, emboss (`edge`)
-//! - Bilateral filtering: edge-preserving smoothing (`bilateral`)
-//! - Rank filtering: median, min, max filters (`rank`)
-//! - Adaptive mapping: background normalization, contrast normalization (`adaptmap`)
-//!
-//! Corresponds to C Leptonica source files:
-//! - `bilateral.c`, `convolve.c`, `rank.c`, `adaptmap.c`, `edge.c`, `kernel.c`
+//! - Convolution with arbitrary kernels
+//! - Blur operations (box blur, Gaussian blur)
+//! - Edge detection (Sobel, Laplacian)
+//! - Image enhancement (sharpening, unsharp masking, emboss)
+//! - Bilateral filtering (edge-preserving smoothing)
+//! - Rank filtering (median, min, max filters)
+//! - Adaptive mapping (background normalization, contrast normalization)
 
 pub mod adaptmap;
 pub mod bilateral;

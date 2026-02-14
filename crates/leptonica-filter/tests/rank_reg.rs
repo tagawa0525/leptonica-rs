@@ -21,7 +21,6 @@ use leptonica_test::{RegParams, load_test_image};
 ///
 /// C test 0: pixRankFilterGray(pixs, 15, 15, 0.4) on lucasta.150.jpg
 #[test]
-#[ignore = "not yet implemented"]
 fn rank_reg_gray_basic() {
     let mut rp = RegParams::new("rank_gray_basic");
 
@@ -46,7 +45,6 @@ fn rank_reg_gray_basic() {
 /// Note: C version compares with morphological erosion/dilation. Since leptonica-morph
 /// is not yet implemented, we compare rank(0.0001) with min_filter and rank(0.9999) with max_filter.
 #[test]
-#[ignore = "not yet implemented"]
 fn rank_reg_gray_extremes() {
     let mut rp = RegParams::new("rank_gray_extremes");
 
@@ -77,7 +75,6 @@ fn rank_reg_gray_morph_comparison() {}
 ///
 /// C test (timing loop): Varying filter width from 1 to 20.
 #[test]
-#[ignore = "not yet implemented"]
 fn rank_reg_gray_varying_sizes() {
     let mut rp = RegParams::new("rank_gray_sizes");
 
@@ -138,7 +135,6 @@ fn rank_reg_color_morph_comparison() {}
 ///
 /// C (display section): rank filter with rank = 0.0 to 1.0 in 0.1 increments.
 #[test]
-#[ignore = "not yet implemented"]
 fn rank_reg_color_varying_ranks() {
     let mut rp = RegParams::new("rank_color_ranks");
 
@@ -218,7 +214,6 @@ fn rank_reg_color_varying_ranks() {
 ///
 /// Verify that convenience functions match rank_filter with appropriate rank values.
 #[test]
-#[ignore = "not yet implemented"]
 fn rank_reg_convenience_functions() {
     let mut rp = RegParams::new("rank_convenience");
 
@@ -264,7 +259,6 @@ fn rank_reg_convenience_functions() {
 
 /// Test: rank_filter parameter validation.
 #[test]
-#[ignore = "not yet implemented"]
 fn rank_reg_param_validation() {
     let mut rp = RegParams::new("rank_params");
 

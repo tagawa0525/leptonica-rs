@@ -1,7 +1,4 @@
 //! Error types for leptonica-filter
-//!
-//! Corresponds to error handling in C Leptonica's filter functions.
-//! C version returns NULL or error codes; Rust uses typed errors.
 
 use thiserror::Error;
 
@@ -18,12 +15,7 @@ pub enum FilterError {
 
     /// Unsupported pixel depth for this operation
     #[error("unsupported depth: expected {expected}, got {actual}")]
-    UnsupportedDepth {
-        /// Expected depth description
-        expected: &'static str,
-        /// Actual depth in bits
-        actual: u32,
-    },
+    UnsupportedDepth { expected: &'static str, actual: u32 },
 
     /// Invalid parameters
     #[error("invalid parameters: {0}")]

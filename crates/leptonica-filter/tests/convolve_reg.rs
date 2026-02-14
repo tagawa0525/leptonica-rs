@@ -20,7 +20,6 @@ use leptonica_test::{RegParams, load_test_image};
 ///
 /// Rust: Tests box_blur, gaussian_blur, and convolve with custom kernel.
 #[test]
-#[ignore = "not yet implemented"]
 fn convolve_reg() {
     let mut rp = RegParams::new("convolve");
 

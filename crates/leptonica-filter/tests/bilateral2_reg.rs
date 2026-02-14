@@ -23,7 +23,6 @@ use leptonica_test::{RegParams, load_test_image};
 ///
 /// Rust: dreyfus8.png (8bpp) for tractable runtime with exact version.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilateral2_reg_param_variations_gray() {
     let mut rp = RegParams::new("bilateral2_gray");
 
@@ -70,7 +69,6 @@ fn bilateral2_reg_param_variations_gray() {
 /// C: pixBilateral(pixs, 5.0/10.0, 10.0-60.0, 10, 4) on test24.jpg
 /// Rust: bilateral_exact with smaller spatial_stdev for tractable runtime.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilateral2_reg_color() {
     let mut rp = RegParams::new("bilateral2_color");
 
@@ -103,7 +101,6 @@ fn bilateral2_reg_color() {
 ///
 /// Key property: small range_stdev preserves edges, large range_stdev approaches Gaussian.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilateral2_reg_range_effect() {
     let mut rp = RegParams::new("bilateral2_range");
 

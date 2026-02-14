@@ -23,7 +23,6 @@ use leptonica_test::{RegParams, load_test_image};
 /// C: edge_reg.c tests Sobel horizontal/vertical edges, combined edges,
 /// both 1bpp (thresholded) and 8bpp output.
 #[test]
-#[ignore = "not yet implemented"]
 fn edge_reg() {
     let mut rp = RegParams::new("edge");
 

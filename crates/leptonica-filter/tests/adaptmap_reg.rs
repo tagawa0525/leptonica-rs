@@ -25,7 +25,6 @@ use leptonica_test::{RegParams, load_test_image};
 /// C test 0-3: Grayscale low-level background map
 /// C test 12-13: pixBackgroundNorm (high-level API)
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptmap_reg_background_norm_gray() {
     let mut rp = RegParams::new("adaptmap_bg_gray");
 
@@ -82,7 +81,6 @@ fn adaptmap_reg_background_norm_gray() {
 /// C test 4-11: Color background map generation (RGB separate processing)
 /// C test 12: pixBackgroundNorm on color
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptmap_reg_background_norm_color() {
     let mut rp = RegParams::new("adaptmap_bg_color");
 
@@ -135,7 +133,6 @@ fn adaptmap_reg_background_norm_color() {
 
 /// Test contrast normalization.
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptmap_reg_contrast_norm() {
     let mut rp = RegParams::new("adaptmap_contrast");
 
@@ -234,7 +231,6 @@ fn adaptmap_reg_contrast_norm() {
 
 /// Test parameter validation for background normalization.
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptmap_reg_param_validation() {
     let mut rp = RegParams::new("adaptmap_params");
 

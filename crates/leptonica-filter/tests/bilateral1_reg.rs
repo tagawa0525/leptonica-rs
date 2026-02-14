@@ -64,7 +64,6 @@ fn do_exact_tests_on_image(pixs: &leptonica_core::Pix, rp: &mut RegParams, label
 ///
 /// C: bilateral1_reg.c DoTestsOnImage for rock.png, church.png, color-wheel-hue.jpg
 #[test]
-#[ignore = "not yet implemented"]
 fn bilateral1_reg_exact() {
     let mut rp = RegParams::new("bilateral1");
 
@@ -84,7 +83,6 @@ fn bilateral1_reg_exact() {
 ///
 /// C: pixBilateralExact(pixs, spatial_kel, range_kel) -- called via pixBlockBilateralExact
 #[test]
-#[ignore = "not yet implemented"]
 fn bilateral1_reg_gray_exact() {
     let mut rp = RegParams::new("bilateral1_gray");
 

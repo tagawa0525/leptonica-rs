@@ -93,7 +93,6 @@ fn sample_stddev(pix: &Pix) -> f64 {
 ///
 /// C test 0-1: pixContrastNorm(NULL, pixs, 10, 10, 40, 2, 2) on lighttext.jpg
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptnorm_reg_contrast_norm_lighttext() {
     let mut rp = RegParams::new("adaptnorm_contrast");
 
@@ -132,7 +131,6 @@ fn adaptnorm_reg_contrast_norm_lighttext() {
 
 /// Test: Contrast normalization with varied parameters on lighttext.
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptnorm_reg_contrast_norm_params() {
     let mut rp = RegParams::new("adaptnorm_contrast_params");
 
@@ -193,7 +191,6 @@ fn adaptnorm_reg_contrast_norm_params() {
 ///
 /// C test 8-9: pixBackgroundNormFlex(pixs, 7, 7, 1, 1, 10) on w91frag.jpg
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptnorm_reg_background_norm_w91frag() {
     let mut rp = RegParams::new("adaptnorm_bg");
 
@@ -225,7 +222,6 @@ fn adaptnorm_reg_background_norm_w91frag() {
 
 /// Test: Background normalization with different tile sizes on w91frag.
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptnorm_reg_background_norm_tile_sizes() {
     let mut rp = RegParams::new("adaptnorm_bg_tiles");
 
@@ -285,7 +281,6 @@ fn adaptnorm_reg_background_norm_tile_sizes() {
 
 /// Test: contrast_norm followed by background_norm (pipeline).
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptnorm_reg_pipeline() {
     let mut rp = RegParams::new("adaptnorm_pipeline");
 
@@ -335,7 +330,6 @@ fn adaptnorm_reg_pipeline() {
 
 /// Test: background_norm_simple on w91frag.
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptnorm_reg_background_norm_simple_w91frag() {
     let mut rp = RegParams::new("adaptnorm_bg_simple");
 
@@ -372,7 +366,6 @@ fn adaptnorm_reg_background_norm_simple_w91frag() {
 
 /// Test: contrast_norm_simple on lighttext.
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptnorm_reg_contrast_norm_simple_lighttext() {
     let mut rp = RegParams::new("adaptnorm_cn_simple");
 
