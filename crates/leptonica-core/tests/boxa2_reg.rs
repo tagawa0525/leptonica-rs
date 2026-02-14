@@ -12,7 +12,6 @@ use leptonica_core::{Box, Boxa};
 use leptonica_test::RegParams;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn boxa2_reg() {
     let mut rp = RegParams::new("boxa2");
 

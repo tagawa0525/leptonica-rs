@@ -205,6 +205,17 @@ struct PixData {
 /// `Pix` is the fundamental image type in Leptonica. It uses reference
 /// counting via `Arc` for efficient cloning.
 ///
+/// # Examples
+///
+/// ```
+/// use leptonica_core::{Pix, PixelDepth};
+///
+/// // Create a new 8-bit grayscale image
+/// let pix = Pix::new(640, 480, PixelDepth::Bit8).unwrap();
+/// assert_eq!(pix.width(), 640);
+/// assert_eq!(pix.height(), 480);
+/// ```
+///
 /// # See also
 ///
 /// C Leptonica: `struct Pix` in `pix.h`, creation via `pixCreate()` in `pix1.c`
@@ -232,7 +243,36 @@ impl Pix {
     ///
     /// C Leptonica: `pixCreate()` in `pix1.c`
     pub fn new(width: u32, height: u32, depth: PixelDepth) -> Result<Self> {
-        todo!("Pix::new")
+        if width == 0 || height == 0 {
+            return Err(Error::InvalidDimension { width, height });
+        }
+
+        let wpl = Self::compute_wpl(width, depth);
+        let data_size = (wpl as usize) * (height as usize);
+        let data = vec![0u32; data_size];
+
+        let spp = match depth {
+            PixelDepth::Bit32 => 3, // Default to RGB
+            _ => 1,
+        };
+
+        let inner = PixData {
+            width,
+            height,
+            depth,
+            spp,
+            wpl,
+            xres: 0,
+            yres: 0,
+            informat: ImageFormat::Unknown,
+            special: 0,
+            text: None,
+            data,
+        };
+
+        Ok(Pix {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Compute words per line for given width and depth.
@@ -331,7 +371,23 @@ impl Pix {
     /// Unlike `clone()` which shares data via Arc, this creates
     /// a completely independent copy.
     pub fn deep_clone(&self) -> Self {
-        todo!("Pix::deep_clone")
+        let inner = PixData {
+            width: self.inner.width,
+            height: self.inner.height,
+            depth: self.inner.depth,
+            spp: self.inner.spp,
+            wpl: self.inner.wpl,
+            xres: self.inner.xres,
+            yres: self.inner.yres,
+            informat: self.inner.informat,
+            special: self.inner.special,
+            text: self.inner.text.clone(),
+            data: self.inner.data.clone(),
+        };
+
+        Pix {
+            inner: Arc::new(inner),
+        }
     }
 
     /// Try to get mutable access to the image data.
@@ -339,14 +395,31 @@ impl Pix {
     /// Succeeds only if there is exactly one reference to the data.
     /// If successful, returns a [`PixMut`] that allows modification.
     pub fn try_into_mut(self) -> std::result::Result<PixMut, Self> {
-        todo!("Pix::try_into_mut")
+        match Arc::try_unwrap(self.inner) {
+            Ok(data) => Ok(PixMut { inner: data }),
+            Err(arc) => Err(Pix { inner: arc }),
+        }
     }
 
     /// Create a mutable copy of this PIX.
     ///
     /// Always creates a new copy that can be modified.
     pub fn to_mut(&self) -> PixMut {
-        todo!("Pix::to_mut")
+        let inner = PixData {
+            width: self.inner.width,
+            height: self.inner.height,
+            depth: self.inner.depth,
+            spp: self.inner.spp,
+            wpl: self.inner.wpl,
+            xres: self.inner.xres,
+            yres: self.inner.yres,
+            informat: self.inner.informat,
+            special: self.inner.special,
+            text: self.inner.text.clone(),
+            data: self.inner.data.clone(),
+        };
+
+        PixMut { inner }
     }
 }
 
@@ -468,5 +541,90 @@ impl From<PixMut> for Pix {
         Pix {
             inner: Arc::new(pix_mut.inner),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pixel_depth() {
+        assert_eq!(PixelDepth::from_bits(1).unwrap(), PixelDepth::Bit1);
+        assert_eq!(PixelDepth::from_bits(8).unwrap(), PixelDepth::Bit8);
+        assert_eq!(PixelDepth::from_bits(32).unwrap(), PixelDepth::Bit32);
+        assert!(PixelDepth::from_bits(3).is_err());
+
+        assert_eq!(PixelDepth::Bit8.bits(), 8);
+        assert_eq!(PixelDepth::Bit8.max_value(), 255);
+        assert!(PixelDepth::Bit8.colormap_allowed());
+        assert!(!PixelDepth::Bit32.colormap_allowed());
+    }
+
+    #[test]
+    fn test_pix_creation() {
+        let pix = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
+        assert_eq!(pix.width(), 100);
+        assert_eq!(pix.height(), 200);
+        assert_eq!(pix.depth(), PixelDepth::Bit8);
+        assert_eq!(pix.spp(), 1);
+
+        // Check wpl calculation: 100 * 8 = 800 bits = 25 words
+        assert_eq!(pix.wpl(), 25);
+    }
+
+    #[test]
+    fn test_pix_creation_invalid() {
+        assert!(Pix::new(0, 100, PixelDepth::Bit8).is_err());
+        assert!(Pix::new(100, 0, PixelDepth::Bit8).is_err());
+    }
+
+    #[test]
+    fn test_pix_clone_shares_data() {
+        let pix1 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.clone();
+
+        assert_eq!(pix1.ref_count(), 2);
+        assert_eq!(pix2.ref_count(), 2);
+        assert_eq!(pix1.data().as_ptr(), pix2.data().as_ptr());
+    }
+
+    #[test]
+    fn test_pix_deep_clone() {
+        let pix1 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+
+        assert_eq!(pix1.ref_count(), 1);
+        assert_eq!(pix2.ref_count(), 1);
+        assert_ne!(pix1.data().as_ptr(), pix2.data().as_ptr());
+    }
+
+    #[test]
+    fn test_pix_mut() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        pix_mut.set_xres(300);
+        pix_mut.set_yres(300);
+        pix_mut.set_text(Some("test".to_string()));
+
+        let pix: Pix = pix_mut.into();
+        assert_eq!(pix.xres(), 300);
+        assert_eq!(pix.yres(), 300);
+        assert_eq!(pix.text(), Some("test"));
+    }
+
+    #[test]
+    fn test_wpl_calculation() {
+        // 1-bit: 32 pixels fit in 1 word
+        let pix = Pix::new(32, 1, PixelDepth::Bit1).unwrap();
+        assert_eq!(pix.wpl(), 1);
+
+        let pix = Pix::new(33, 1, PixelDepth::Bit1).unwrap();
+        assert_eq!(pix.wpl(), 2);
+
+        // 32-bit: 1 pixel per word
+        let pix = Pix::new(10, 1, PixelDepth::Bit32).unwrap();
+        assert_eq!(pix.wpl(), 10);
     }
 }

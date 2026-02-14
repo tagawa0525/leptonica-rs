@@ -12,7 +12,6 @@ use leptonica_core::{Pta, Ptaa};
 use leptonica_test::RegParams;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pta_reg() {
     let mut rp = RegParams::new("pta");
 

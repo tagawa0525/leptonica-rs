@@ -1,8 +1,6 @@
 //! Error types for leptonica-core
 //!
 //! Provides a unified error type for all operations in the core crate.
-//! Each variant captures enough context for diagnostics without exposing
-//! internal implementation details.
 //!
 //! # See also
 //!
