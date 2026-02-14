@@ -25,7 +25,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
         (ColorType::Grayscale, BitDepth::Four) => (PixelDepth::Bit4, 1),
         (ColorType::Grayscale, BitDepth::Eight) => (PixelDepth::Bit8, 1),
         (ColorType::Grayscale, BitDepth::Sixteen) => (PixelDepth::Bit16, 1),
-        (ColorType::GrayscaleAlpha, _) => (PixelDepth::Bit32, 2),
+        (ColorType::GrayscaleAlpha, _) => (PixelDepth::Bit32, 4),
         (ColorType::Rgb, _) => (PixelDepth::Bit32, 3),
         (ColorType::Rgba, _) => (PixelDepth::Bit32, 4),
         (ColorType::Indexed, BitDepth::One) => (PixelDepth::Bit1, 1),

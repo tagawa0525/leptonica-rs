@@ -186,6 +186,9 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
         #[cfg(feature = "pdf-format")]
         ImageFormat::Lpdf => pdf::write_pdf(pix, writer, &pdf::PdfOptions::default()),
 
+        #[cfg(feature = "ps-format")]
+        ImageFormat::Ps => ps::write_ps(pix, writer, &ps::PsOptions::default()),
+
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
 }

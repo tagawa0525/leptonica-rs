@@ -198,13 +198,28 @@ fn quantize_32bpp_to_8bpp(pix: &Pix) -> IoResult<(Pix, PixColormap)> {
     let h = pix.height();
     let max_colors: usize = 256;
 
-    // Collect all unique RGB pixels
-    let mut pixels: Vec<[u8; 3]> = Vec::with_capacity((w * h) as usize);
+    // Collect a bounded sample of RGB pixels for median-cut.
+    // Limit the number of samples to avoid excessive memory usage on large images.
+    // This still provides a representative distribution for palette generation.
+    let total_pixels = (w as usize) * (h as usize);
+    let max_samples: usize = 100_000;
+    let sample_count = total_pixels.min(max_samples);
+    let sample_stride = if sample_count == 0 {
+        1
+    } else {
+        (total_pixels + sample_count - 1) / sample_count
+    };
+
+    let mut pixels: Vec<[u8; 3]> = Vec::with_capacity(sample_count);
+    let mut idx: usize = 0;
     for y in 0..h {
         for x in 0..w {
-            let val = pix.get_pixel(x, y).unwrap_or(0);
-            let (r, g, b) = color::extract_rgb(val);
-            pixels.push([r, g, b]);
+            if idx % sample_stride == 0 {
+                let val = pix.get_pixel(x, y).unwrap_or(0);
+                let (r, g, b) = color::extract_rgb(val);
+                pixels.push([r, g, b]);
+            }
+            idx += 1;
         }
     }
 

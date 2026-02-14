@@ -284,14 +284,14 @@ fn prepare_image_data(pix: &Pix) -> IoResult<(Vec<u8>, PdfColorSpace, i32)> {
 
     match pix.depth() {
         PixelDepth::Bit1 => {
-            // 1bpp: Convert to 8bpp grayscale for simplicity
-            // In PDF, 0 = black, 1 = white (opposite of typical 1bpp convention)
+            // 1bpp: Convert to 8bpp grayscale for PDF.
+            // Leptonica uses 0 = white, 1 = black; PDF grayscale uses 0 = black, 255 = white.
             let mut data = Vec::with_capacity((width * height) as usize);
             for y in 0..height {
                 for x in 0..width {
                     let val = pix.get_pixel(x, y).unwrap_or(0);
-                    // 0 -> 0 (black), 1 -> 255 (white)
-                    data.push(if val == 0 { 0 } else { 255 });
+                    // Map Leptonica 0 (white) -> 255 (white), 1 (black) -> 0 (black)
+                    data.push(if val == 0 { 255 } else { 0 });
                 }
             }
             Ok((data, PdfColorSpace::DeviceGray, 8))

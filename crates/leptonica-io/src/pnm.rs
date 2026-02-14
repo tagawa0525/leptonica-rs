@@ -338,16 +338,22 @@ pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     let width = pix.width();
     let height = pix.height();
 
-    // Determine PNM type based on depth
-    let pnm_type = match pix.depth() {
-        PixelDepth::Bit1 => PnmType::PbmBinary,
-        PixelDepth::Bit8 | PixelDepth::Bit2 | PixelDepth::Bit4 => PnmType::PgmBinary,
-        PixelDepth::Bit32 => PnmType::PpmBinary,
-        _ => {
-            return Err(IoError::UnsupportedFormat(format!(
-                "cannot write {:?} as PNM",
-                pix.depth()
-            )));
+    // Determine PNM type based on depth.
+    // Colormapped images are expanded to PPM (P6) to preserve color information,
+    // since PGM would serialize palette indices as grayscale values.
+    let pnm_type = if pix.has_colormap() {
+        PnmType::PpmBinary
+    } else {
+        match pix.depth() {
+            PixelDepth::Bit1 => PnmType::PbmBinary,
+            PixelDepth::Bit8 | PixelDepth::Bit2 | PixelDepth::Bit4 => PnmType::PgmBinary,
+            PixelDepth::Bit32 => PnmType::PpmBinary,
+            _ => {
+                return Err(IoError::UnsupportedFormat(format!(
+                    "cannot write {:?} as PNM",
+                    pix.depth()
+                )));
+            }
         }
     };
 
@@ -398,11 +404,17 @@ pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
         }
         PnmType::PpmBinary => {
             let mut row_buffer = vec![0u8; (width * 3) as usize];
+            let cmap = pix.colormap();
 
             for y in 0..height {
                 for x in 0..width {
                     let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                    let (r, g, b) = color::extract_rgb(pixel);
+                    let (r, g, b) = if let Some(ref cm) = cmap {
+                        // Expand colormapped pixel through the colormap
+                        cm.get_rgb(pixel as usize).unwrap_or((0, 0, 0))
+                    } else {
+                        color::extract_rgb(pixel)
+                    };
                     let idx = (x * 3) as usize;
                     row_buffer[idx] = r;
                     row_buffer[idx + 1] = g;
