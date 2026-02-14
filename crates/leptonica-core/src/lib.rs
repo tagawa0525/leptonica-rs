@@ -31,7 +31,12 @@ pub use colormap::{PixColormap, RgbaQuad};
 pub use error::{Error, Result};
 pub use fpix::{FPix, NegativeHandling};
 pub use numa::{HistogramResult, HistogramStats, Numa, Numaa, WindowedStats};
-pub use pix::{ImageFormat, Pix, PixMut, PixelDepth};
+pub use pix::statistics::PixelMaxType;
+pub use pix::{
+    BlendMode, Color, ColorHistogram, CompareResult, CompareType, ContourOutput, GrayBlendType,
+    ImageFormat, MaskBlendType, Pix, PixMut, PixelDepth, PixelDiffResult, PixelOp, RopOp,
+    blend_with_gray_mask, correlation_binary,
+};
 pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
 pub use sarray::{Sarray, Sarraya};
