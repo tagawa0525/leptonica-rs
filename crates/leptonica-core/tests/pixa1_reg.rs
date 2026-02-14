@@ -19,7 +19,7 @@ fn make_test_pix(width: u32, height: u32) -> Pix {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa1_reg_basic() {
     let mut rp = RegParams::new("pixa1_basic");
 
@@ -51,7 +51,7 @@ fn pixa1_reg_basic() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa1_reg_boxes() {
     let mut rp = RegParams::new("pixa1_boxes");
 
@@ -76,7 +76,7 @@ fn pixa1_reg_boxes() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa1_reg_modify() {
     let mut rp = RegParams::new("pixa1_modify");
 
@@ -119,7 +119,7 @@ fn pixa1_reg_modify() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa1_reg_verify() {
     let mut rp = RegParams::new("pixa1_verify");
 
@@ -157,7 +157,7 @@ fn pixa1_reg_verify() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa1_reg_iterator() {
     let mut rp = RegParams::new("pixa1_iter");
 
@@ -184,7 +184,7 @@ fn pixa1_reg_iterator() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa1_reg_clone() {
     let mut rp = RegParams::new("pixa1_clone");
 
@@ -209,7 +209,7 @@ fn pixa1_reg_clone() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa1_reg_pixaa() {
     let mut rp = RegParams::new("pixa1_pixaa");
 

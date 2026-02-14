@@ -14,7 +14,7 @@ use leptonica_test::RegParams;
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_histograms() {
     let mut rp = RegParams::new("numa1_histo");
 
@@ -72,7 +72,7 @@ fn numa1_reg_histograms() {
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_basic_operations() {
     let mut rp = RegParams::new("numa1_basic");
 
@@ -148,7 +148,7 @@ fn numa1_reg_basic_operations() {
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_histogram_stats() {
     let mut rp = RegParams::new("numa1_histstat");
 
@@ -206,7 +206,7 @@ fn numa1_reg_histogram_stats() {
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_rank_operations() {
     let mut rp = RegParams::new("numa1_rank");
 
@@ -263,7 +263,7 @@ fn numa1_reg_rank_operations() {
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_normalize_cdf() {
     let mut rp = RegParams::new("numa1_cdf");
 
@@ -300,7 +300,7 @@ fn numa1_reg_normalize_cdf() {
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_partial_sums() {
     let mut rp = RegParams::new("numa1_psums");
 
@@ -326,7 +326,7 @@ fn numa1_reg_partial_sums() {
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_make_sequence() {
     let mut rp = RegParams::new("numa1_seq");
 
@@ -354,7 +354,7 @@ fn numa1_reg_make_sequence() {
 // ========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa1_reg_numaa() {
     let mut rp = RegParams::new("numa1_numaa");
 

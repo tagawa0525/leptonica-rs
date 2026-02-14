@@ -15,7 +15,7 @@ use leptonica_test::RegParams;
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpix1_reg_creation() {
     let mut rp = RegParams::new("fpix1_creation");
 
@@ -50,7 +50,7 @@ fn fpix1_reg_creation() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpix1_reg_pixel_access() {
     let mut rp = RegParams::new("fpix1_access");
 
@@ -92,7 +92,7 @@ fn fpix1_reg_pixel_access() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpix1_reg_arithmetic() {
     let mut rp = RegParams::new("fpix1_arith");
 
@@ -148,7 +148,7 @@ fn fpix1_reg_arithmetic() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpix1_reg_statistics() {
     let mut rp = RegParams::new("fpix1_stats");
 
@@ -189,7 +189,7 @@ fn fpix1_reg_statistics() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpix1_reg_pix_conversion() {
     let mut rp = RegParams::new("fpix1_pix");
 
@@ -246,7 +246,7 @@ fn fpix1_reg_pix_conversion() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpix1_reg_set_clear() {
     let mut rp = RegParams::new("fpix1_setclear");
 
@@ -268,7 +268,7 @@ fn fpix1_reg_set_clear() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpix1_reg_clone() {
     let mut rp = RegParams::new("fpix1_clone");
 

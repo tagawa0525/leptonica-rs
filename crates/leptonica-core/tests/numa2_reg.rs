@@ -18,7 +18,7 @@ use leptonica_test::RegParams;
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa2_reg_windowed_stats() {
     let mut rp = RegParams::new("numa2_windowed");
 
@@ -94,7 +94,7 @@ fn numa2_reg_windowed_stats() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa2_reg_join_similar() {
     let mut rp = RegParams::new("numa2_join");
 
@@ -142,7 +142,7 @@ fn numa2_reg_join_similar() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa2_reg_windowed_edge_behavior() {
     let mut rp = RegParams::new("numa2_edge");
 
