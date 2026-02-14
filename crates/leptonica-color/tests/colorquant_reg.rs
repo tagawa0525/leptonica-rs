@@ -130,7 +130,6 @@ fn test_image(pix: &Pix, name: &str, rp: &mut RegParams) {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn colorquant_reg() {
     let mut rp = RegParams::new("colorquant");
 

@@ -10,7 +10,6 @@ use leptonica_color::{
 use leptonica_test::{RegParams, load_test_image};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn colorspace_reg() {
     let mut rp = RegParams::new("colorspace");
 

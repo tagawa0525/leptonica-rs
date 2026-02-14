@@ -86,7 +86,6 @@ fn create_random_color_image(w: u32, h: u32) -> Pix {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn colorfill_reg() {
     let mut rp = RegParams::new("colorfill");
 

@@ -2,13 +2,23 @@
 //!
 //! This crate provides color manipulation and analysis functions:
 //!
-//! - **Color space conversion** ([`colorspace`]): RGB <-> HSV, LAB, XYZ, YUV
+//! - **Color space conversion** ([`colorspace`]): RGB ↔ HSV, LAB, XYZ, YUV
 //! - **Thresholding** ([`threshold`]): Binary conversion, Otsu's method, adaptive thresholding
 //! - **Color quantization** ([`quantize`]): Median cut, octree algorithms
 //! - **Color segmentation** ([`segment`]): Unsupervised color segmentation
 //! - **Color analysis** ([`analysis`]): Statistics, color counting, grayscale detection
 //! - **Color fill** ([`colorfill`]): Flood fill for RGB images based on color similarity
 //! - **Coloring** ([`coloring`]): Colorize grayscale pixels, snap colors, fractional shifts
+//!
+//! # Example
+//!
+//! ```no_run
+//! use leptonica_color::{pix_convert_to_gray, threshold_otsu, rgb_to_hsv};
+//!
+//! // Convert RGB to HSV
+//! let hsv = rgb_to_hsv(255, 128, 64);
+//! println!("H: {:.2}, S: {:.2}, V: {:.2}", hsv.h, hsv.s, hsv.v);
+//! ```
 
 pub mod analysis;
 pub mod colorfill;

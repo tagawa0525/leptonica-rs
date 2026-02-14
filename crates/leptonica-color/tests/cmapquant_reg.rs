@@ -89,7 +89,6 @@ fn apply_color_to_region(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32, r: u8, g: 
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmapquant_reg() {
     let mut rp = RegParams::new("cmapquant");
 
@@ -151,7 +150,6 @@ fn cmapquant_reg() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmapquant_requantize_workflow() {
     let mut rp = RegParams::new("cmapquant_requant");
 
@@ -188,7 +186,6 @@ fn cmapquant_requantize_workflow() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmapquant_colormap_size_limits() {
     let mut rp = RegParams::new("cmapquant_cmap_size");
 
@@ -228,7 +225,6 @@ fn cmapquant_colormap_size_limits() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmapquant_colormap_quality() {
     let mut rp = RegParams::new("cmapquant_cmap_quality");
 
@@ -270,7 +266,6 @@ fn cmapquant_colormap_quality() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmapquant_algorithm_comparison() {
     let mut rp = RegParams::new("cmapquant_algo_cmp");
 

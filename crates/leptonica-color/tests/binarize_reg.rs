@@ -10,7 +10,6 @@ use leptonica_color::{
 use leptonica_test::{RegParams, load_test_image};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn binarize_reg() {
     let mut rp = RegParams::new("binarize");
 

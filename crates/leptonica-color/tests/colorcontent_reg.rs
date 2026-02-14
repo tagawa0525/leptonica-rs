@@ -54,7 +54,6 @@ fn create_grayscale_8bpp() -> Pix {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn colorcontent_reg() {
     let mut rp = RegParams::new("colorcontent");
 

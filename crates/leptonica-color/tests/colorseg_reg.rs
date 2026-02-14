@@ -57,7 +57,6 @@ fn create_gradient_image() -> Pix {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn colorseg_reg() {
     let mut rp = RegParams::new("colorseg");
 
