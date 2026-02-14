@@ -1,77 +1,102 @@
-// Stub: minimal type definitions for workspace compilation.
-// These will be replaced with full implementations in later phases.
+//! Leptonica Core - Basic data structures for image processing
+//!
+//! This crate provides the fundamental data structures used throughout
+//! the Leptonica image processing library:
+//!
+//! - [`Pix`] / [`PixMut`] - The main image container (immutable / mutable)
+//! - [`Box`] / [`Boxa`] / [`Boxaa`] - Rectangle regions
+//! - [`Pta`] / [`Ptaa`] - Point arrays
+//!
+//! # See also
+//!
+//! C Leptonica: `pix.h`, `box.h`, `pts.h` (struct definitions)
 
-/// Pixel depth (bits per pixel)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PixelDepth {
-    Bit1 = 1,
-    Bit2 = 2,
-    Bit4 = 4,
-    Bit8 = 8,
-    Bit16 = 16,
-    Bit32 = 32,
-}
+pub mod box_;
+pub mod error;
+pub mod pix;
+pub mod pta;
 
-/// Image file format
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ImageFormat {
-    #[default]
-    Unknown,
-    Bmp,
-    Jpeg,
-    Png,
-    Tiff,
-    Pnm,
-    Gif,
-    WebP,
-}
+pub use box_::{Box, Boxa, Boxaa};
+pub use error::{Error, Result};
+pub use pix::{ImageFormat, Pix, PixMut, PixelDepth};
+pub use pta::{Pta, Ptaa};
 
-impl ImageFormat {
-    pub fn extension(self) -> &'static str {
-        match self {
-            Self::Bmp => "bmp",
-            Self::Jpeg => "jpg",
-            Self::Png => "png",
-            Self::Tiff => "tif",
-            Self::Pnm => "pnm",
-            Self::Gif => "gif",
-            Self::WebP => "webp",
-            Self::Unknown => "dat",
-        }
-    }
-}
+/// Color channel indices and helper functions for 32-bit RGBA pixels.
+///
+/// # Pixel format
+///
+/// 32-bit pixels are stored as `0xRRGGBBAA` (red in MSB, alpha in LSB).
+///
+/// # See also
+///
+/// C Leptonica: color component macros in `pix.h`
+pub mod color {
+    /// Red channel (MSB, byte 0)
+    pub const RED: usize = 0;
+    /// Green channel (byte 1)
+    pub const GREEN: usize = 1;
+    /// Blue channel (byte 2)
+    pub const BLUE: usize = 2;
+    /// Alpha channel (LSB, byte 3)
+    pub const ALPHA: usize = 3;
 
-/// The main image container (stub).
-#[derive(Debug, Clone)]
-pub struct Pix {
-    width: u32,
-    height: u32,
-    depth: PixelDepth,
-}
+    /// Shift amounts for extracting color channels
+    pub const RED_SHIFT: u32 = 24;
+    pub const GREEN_SHIFT: u32 = 16;
+    pub const BLUE_SHIFT: u32 = 8;
+    pub const ALPHA_SHIFT: u32 = 0;
 
-impl Pix {
-    /// Create a new Pix with the given dimensions and depth (stub).
-    pub fn new(width: u32, height: u32, depth: PixelDepth) -> Self {
-        Self {
-            width,
-            height,
-            depth,
-        }
+    /// Extract red component from a 32-bit pixel.
+    #[inline]
+    pub fn red(pixel: u32) -> u8 {
+        ((pixel >> RED_SHIFT) & 0xff) as u8
     }
 
-    pub fn width(&self) -> u32 {
-        self.width
+    /// Extract green component from a 32-bit pixel.
+    #[inline]
+    pub fn green(pixel: u32) -> u8 {
+        ((pixel >> GREEN_SHIFT) & 0xff) as u8
     }
 
-    pub fn height(&self) -> u32 {
-        self.height
+    /// Extract blue component from a 32-bit pixel.
+    #[inline]
+    pub fn blue(pixel: u32) -> u8 {
+        ((pixel >> BLUE_SHIFT) & 0xff) as u8
     }
 
-    pub fn depth(&self) -> u32 {
-        self.depth as u32
+    /// Extract alpha component from a 32-bit pixel.
+    #[inline]
+    pub fn alpha(pixel: u32) -> u8 {
+        ((pixel >> ALPHA_SHIFT) & 0xff) as u8
     }
 
-    pub fn get_pixel(&self, _x: u32, _y: u32) -> u32 {
-        0
+    /// Compose a 32-bit RGB pixel (alpha = 255).
+    #[inline]
+    pub fn compose_rgb(r: u8, g: u8, b: u8) -> u32 {
+        ((r as u32) << RED_SHIFT)
+            | ((g as u32) << GREEN_SHIFT)
+            | ((b as u32) << BLUE_SHIFT)
+            | (255 << ALPHA_SHIFT)
+    }
+
+    /// Compose a 32-bit RGBA pixel.
+    #[inline]
+    pub fn compose_rgba(r: u8, g: u8, b: u8, a: u8) -> u32 {
+        ((r as u32) << RED_SHIFT)
+            | ((g as u32) << GREEN_SHIFT)
+            | ((b as u32) << BLUE_SHIFT)
+            | ((a as u32) << ALPHA_SHIFT)
+    }
+
+    /// Extract RGB values from a 32-bit pixel.
+    #[inline]
+    pub fn extract_rgb(pixel: u32) -> (u8, u8, u8) {
+        (red(pixel), green(pixel), blue(pixel))
+    }
+
+    /// Extract RGBA values from a 32-bit pixel.
+    #[inline]
+    pub fn extract_rgba(pixel: u32) -> (u8, u8, u8, u8) {
+        (red(pixel), green(pixel), blue(pixel), alpha(pixel))
     }
 }
