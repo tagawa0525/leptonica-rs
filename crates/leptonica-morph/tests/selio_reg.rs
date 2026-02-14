@@ -140,7 +140,6 @@ fn test_06_07_invalid_string_origin() {
 /// selCreateFromString のRust版テスト
 /// C版 textsel1-4 をパースし、hit/miss/don't-care の要素数を検証
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_from_string_textsel1() {
     let mut rp = RegParams::new("selio_from_string");
 
@@ -193,7 +192,6 @@ fn test_sel_create_from_string_textsel1() {
 
 /// textsel2 は textsel1 の左右反転
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_from_string_textsel2() {
     // textsel2: 5 rows x 6 cols (textsel1 の左右反転)
     // " oo  x"  -> hits: x(1), misses: oo(2), dc: 3
@@ -215,7 +213,6 @@ fn test_sel_create_from_string_textsel2() {
 
 /// textsel3 は textsel1 の上下反転
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_from_string_textsel3() {
     // textsel3: 5 rows x 6 cols (textsel1 の上下反転)
     // C版のorigin: 'O' at row=3, col=3
@@ -231,7 +228,6 @@ fn test_sel_create_from_string_textsel3() {
 
 /// textsel4 は textsel1 の180度回転
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_from_string_textsel4() {
     // textsel4: 5 rows x 6 cols (textsel1 の180度回転)
     // C版のorigin: 'O' at row=3, col=2
@@ -248,7 +244,6 @@ fn test_sel_create_from_string_textsel4() {
 /// textsel5: originなし -- Rust版ではoriginは別引数なので、文字列自体は有効にパースできる
 /// C版では NULL を返す（origin検証に失敗）
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_from_string_textsel5_no_origin() {
     // C版: selCreateFromString(textsel5, 5, 6, "textsel5") returns NULL
     // Rust版: from_string は origin を別引数で受け取るため、パース自体は成功する
@@ -278,7 +273,6 @@ fn test_sel_create_from_string_textsel5_no_origin() {
 /// textsel6: 2つのorigin -- Rust版ではoriginは別引数なので文字列自体は有効
 /// C版では NULL を返す（origin が2つ検出される）
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_from_string_textsel6_two_origins() {
     // C版: selCreateFromString(textsel6, 5, 6, "textsel6") returns NULL
     // Rust版: from_string は origin を別引数で受け取るため、パース自体は成功する
@@ -304,7 +298,6 @@ fn test_sel_create_from_string_textsel6_two_origins() {
 
 /// selCreate (brick) のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_brick() {
     let mut rp = RegParams::new("selio_brick");
 
@@ -339,7 +332,6 @@ fn test_sel_create_brick() {
 
 /// selCreate (square) のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_square() {
     let mut rp = RegParams::new("selio_square");
 
@@ -359,7 +351,6 @@ fn test_sel_create_square() {
 
 /// selCreate (horizontal / vertical) のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_horizontal_vertical() {
     let mut rp = RegParams::new("selio_hv");
 
@@ -384,7 +375,6 @@ fn test_sel_create_horizontal_vertical() {
 
 /// selCreate (cross) のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_cross() {
     let mut rp = RegParams::new("selio_cross");
 
@@ -408,7 +398,6 @@ fn test_sel_create_cross() {
 
 /// selCreate (diamond) のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_diamond() {
     let mut rp = RegParams::new("selio_diamond");
 
@@ -436,7 +425,6 @@ fn test_sel_create_diamond() {
 
 /// selCreate (disk) のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_create_disk() {
     let mut rp = RegParams::new("selio_disk");
 
@@ -481,7 +469,6 @@ fn test_sel_create_disk() {
 /// selReflect (180度回転) のテスト
 /// C版: textsel1 を reflect すると textsel4 と同じパターンになるべき
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_reflect() {
     let mut rp = RegParams::new("selio_reflect");
 
@@ -545,7 +532,6 @@ fn test_sel_reflect() {
 
 /// selReflect: symmetric SEL (brick) は reflect しても同じ
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_reflect_symmetric() {
     let sel = Sel::create_brick(3, 3).expect("brick 3x3");
     let reflected = sel.reflect();
@@ -570,7 +556,6 @@ fn test_sel_reflect_symmetric() {
 
 /// selRotateOrth のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_rotate_orth() {
     let mut rp = RegParams::new("selio_rotate");
 
@@ -649,7 +634,6 @@ fn test_sel_rotate_orth() {
 
 /// selRotateOrth: 対称 SEL (square) の回転テスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_rotate_orth_symmetric() {
     let sel = Sel::create_square(5).expect("square 5");
 
@@ -667,7 +651,6 @@ fn test_sel_rotate_orth_symmetric() {
 
 /// selGetHitMissOffsets のテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_hit_miss_offsets() {
     let mut rp = RegParams::new("selio_offsets");
 
@@ -718,7 +701,6 @@ fn test_sel_hit_miss_offsets() {
 
 /// brick SEL の hit offsets テスト: 全要素が Hit なので offset 数 = w*h
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_hit_offsets_brick() {
     let sel = Sel::create_brick(3, 3).expect("brick 3x3");
     let offsets: Vec<(i32, i32)> = sel.hit_offsets().collect();
@@ -740,7 +722,6 @@ fn test_sel_hit_offsets_brick() {
 
 /// miss のない SEL の miss_offsets は空
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_miss_offsets_empty_for_brick() {
     let sel = Sel::create_brick(5, 5).expect("brick 5x5");
     let miss_offsets: Vec<(i32, i32)> = sel.miss_offsets().collect();
@@ -753,7 +734,6 @@ fn test_sel_miss_offsets_empty_for_brick() {
 
 /// 空の SEL を作成し、要素を個別に設定するテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_new_and_element_access() {
     let mut sel = Sel::new(4, 3).expect("new 4x3");
 
@@ -786,7 +766,6 @@ fn test_sel_new_and_element_access() {
 
 /// SEL のゼロサイズは error を返す
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_new_zero_size() {
     assert!(Sel::new(0, 1).is_err());
     assert!(Sel::new(1, 0).is_err());
@@ -799,7 +778,6 @@ fn test_sel_new_zero_size() {
 
 /// SEL の name 管理テスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_name() {
     let mut sel = Sel::new(3, 3).expect("new 3x3");
     assert!(sel.name().is_none());
@@ -815,7 +793,6 @@ fn test_sel_name() {
 
 /// SEL の origin 管理テスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_set_origin() {
     let mut sel = Sel::new(5, 5).expect("new 5x5");
 
@@ -843,7 +820,6 @@ fn test_sel_set_origin() {
 
 /// data() メソッドのテスト
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_data() {
     let sel = Sel::create_brick(2, 2).expect("brick 2x2");
     let data = sel.data();
@@ -862,7 +838,6 @@ fn test_sel_data() {
 
 /// Sel の clone テスト（Clone derive）
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_clone() {
     let sel = Sel::from_string("xo.\n.ox", 1, 0).expect("test sel");
     let cloned = sel.clone();
@@ -887,14 +862,12 @@ fn test_sel_clone() {
 
 /// 空文字列は error を返す
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_from_string_empty() {
     assert!(Sel::from_string("", 0, 0).is_err());
 }
 
 /// 1x1 の SEL
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_from_string_single() {
     let sel = Sel::from_string("x", 0, 0).expect("single hit");
     assert_eq!(sel.width(), 1);
@@ -906,7 +879,6 @@ fn test_sel_from_string_single() {
 
 /// 大きめの SEL
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sel_from_string_large() {
     // 7x7 cross pattern
     let pattern = "\

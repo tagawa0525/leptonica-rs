@@ -17,7 +17,6 @@ const WIDTH: u32 = 21;
 const HEIGHT: u32 = 15;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn binmorph1_reg() {
     let mut rp = RegParams::new("binmorph1");
 

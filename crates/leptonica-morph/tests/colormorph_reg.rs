@@ -16,7 +16,6 @@ use leptonica_test::{RegParams, load_test_image};
 const SIZE: u32 = 7;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn colormorph_reg() {
     let mut rp = RegParams::new("colormorph");
 

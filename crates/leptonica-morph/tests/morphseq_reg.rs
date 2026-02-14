@@ -25,7 +25,6 @@ const SEQUENCE4: &str = "O3.3 + C3.3";
 const BAD_SEQUENCE: &str = "O1.+D8 + E2.4 + e.4 + r25 + y7.3";
 
 #[test]
-#[ignore = "not yet implemented"]
 fn morphseq_reg() {
     let mut rp = RegParams::new("morphseq");
 

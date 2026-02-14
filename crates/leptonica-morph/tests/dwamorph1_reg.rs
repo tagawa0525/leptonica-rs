@@ -12,7 +12,6 @@ use leptonica_morph::{
 use leptonica_test::{RegParams, load_test_image};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn dwamorph1_reg() {
     let mut rp = RegParams::new("dwamorph1");
 

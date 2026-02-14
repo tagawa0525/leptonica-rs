@@ -25,7 +25,6 @@ const WSIZE: u32 = 7;
 const HSIZE: u32 = 7;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn graymorph1_reg() {
     let mut rp = RegParams::new("graymorph1");
 

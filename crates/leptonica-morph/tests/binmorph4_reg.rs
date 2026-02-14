@@ -97,7 +97,6 @@ fn do_comparison_dwa_vs_brick(rp: &mut RegParams, pixs: &leptonica_core::Pix, si
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn binmorph4_reg() {
     let mut rp = RegParams::new("binmorph4");
 

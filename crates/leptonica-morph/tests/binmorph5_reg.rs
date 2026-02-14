@@ -148,7 +148,6 @@ fn select_composable_sizes(size: u32) -> (u32, u32) {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn binmorph5_reg() {
     let mut rp = RegParams::new("binmorph5");
 

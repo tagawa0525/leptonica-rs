@@ -70,7 +70,6 @@ fn count_diff_pixels(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> 
 /// We faithfully port this by comparing DWA brick vs standard brick
 /// for horizontal selections (size, 1).
 #[test]
-#[ignore = "not yet implemented"]
 fn dwamorph2_reg_horizontal() {
     let mut rp = RegParams::new("dwamorph2_h");
 
@@ -142,7 +141,6 @@ fn dwamorph2_reg_horizontal() {
 /// The C version iterates over the second half of the linear DWA sel array,
 /// which corresponds to vertical linear selections of sizes 2..63.
 #[test]
-#[ignore = "not yet implemented"]
 fn dwamorph2_reg_vertical() {
     let mut rp = RegParams::new("dwamorph2_v");
 
@@ -217,7 +215,6 @@ fn dwamorph2_reg_vertical() {
 /// Instead of graphing, we print timing results for manual inspection.
 /// Tests sizes 2 and 3 with horizontal orientation for timing comparison.
 #[test]
-#[ignore = "not yet implemented"]
 fn dwamorph2_reg_timing() {
     let mut rp = RegParams::new("dwamorph2_timing");
 
@@ -341,7 +338,6 @@ fn dwamorph2_reg_timing() {
 /// Tests sizes 2 and 3 with horizontal, vertical, and square
 /// orientations for all four operations (dilate, erode, open, close).
 #[test]
-#[ignore = "not yet implemented"]
 fn dwamorph2_reg_small_sizes() {
     let mut rp = RegParams::new("dwamorph2_small");
 

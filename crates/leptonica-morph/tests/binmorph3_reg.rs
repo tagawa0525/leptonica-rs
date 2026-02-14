@@ -9,7 +9,6 @@ use leptonica_morph::{Sel, close_brick, dilate_brick, erode_brick, open_brick};
 use leptonica_test::{RegParams, load_test_image};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn binmorph3_reg() {
     let mut rp = RegParams::new("binmorph3");
 
