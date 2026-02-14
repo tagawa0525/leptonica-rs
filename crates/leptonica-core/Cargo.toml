@@ -1,0 +1,14 @@
+[package]
+name = "leptonica-core"
+description = "Core data structures for Leptonica image processing library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[dev-dependencies]
+leptonica-io.workspace = true
+leptonica-test.workspace = true
