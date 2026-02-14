@@ -6,20 +6,35 @@
 //! - [`Pix`] / [`PixMut`] - The main image container (immutable / mutable)
 //! - [`Box`] / [`Boxa`] / [`Boxaa`] - Rectangle regions
 //! - [`Pta`] / [`Ptaa`] - Point arrays
+//! - [`Numa`] / [`Numaa`] - Numeric arrays
+//! - [`FPix`] - Floating-point image
+//! - [`Pixa`] / [`Pixaa`] - Arrays of images
+//! - [`Sarray`] / [`Sarraya`] - String arrays
+//! - [`PixColormap`] - Color palette for indexed images
 //!
 //! # See also
 //!
-//! C Leptonica: `pix.h`, `box.h`, `pts.h` (struct definitions)
+//! C Leptonica: `pix.h`, `box.h`, `pts.h`, `environ.h` (struct definitions)
 
 pub mod box_;
+pub mod colormap;
 pub mod error;
+pub mod fpix;
+pub mod numa;
 pub mod pix;
+pub mod pixa;
 pub mod pta;
+pub mod sarray;
 
 pub use box_::{Box, Boxa, Boxaa};
+pub use colormap::{PixColormap, RgbaQuad};
 pub use error::{Error, Result};
+pub use fpix::{FPix, NegativeHandling};
+pub use numa::{HistogramResult, HistogramStats, Numa, Numaa, WindowedStats};
 pub use pix::{ImageFormat, Pix, PixMut, PixelDepth};
+pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
+pub use sarray::{Sarray, Sarraya};
 
 /// Color channel indices and helper functions for 32-bit RGBA pixels.
 ///
