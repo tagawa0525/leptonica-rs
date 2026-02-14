@@ -26,7 +26,6 @@ const FILE_8BPP_C: &str = "weasel8.240c.png";
 const FILE_32BPP: &str = "weasel32.png";
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pngio_reg() {
     let mut rp = RegParams::new("pngio");
 

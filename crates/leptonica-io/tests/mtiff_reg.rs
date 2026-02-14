@@ -24,7 +24,6 @@ use std::fs;
 use std::io::Cursor;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn mtiff_reg() {
     let mut rp = RegParams::new("mtiff");
 

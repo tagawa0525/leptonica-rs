@@ -18,7 +18,6 @@ use std::fs;
 // Test 0-2: 16-bit PNG read
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_16bit_png() {
     let mut rp = RegParams::new("iomisc_16bit");
 
@@ -81,7 +80,6 @@ fn iomisc_reg_jpeg_chroma() {
 // Tests 6-10: PNG alpha channel read/write
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_png_alpha() {
     let mut rp = RegParams::new("iomisc_alpha");
 
@@ -134,7 +132,6 @@ fn iomisc_reg_alpha_blend_operations() {
 // Tests 11-16: Colormap operations
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_colormap() {
     let mut rp = RegParams::new("iomisc_cmap");
 
@@ -192,7 +189,6 @@ fn iomisc_reg_remove_regen_gray_colormap() {
 // Test 17: Input format field
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_input_format() {
     let mut rp = RegParams::new("iomisc_format");
 
@@ -227,7 +223,6 @@ fn iomisc_reg_input_format() {
 // Tests 18-29: TIFF compression
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_tiff_compression() {
     let mut rp = RegParams::new("iomisc_tiff");
 
@@ -301,7 +296,6 @@ fn iomisc_reg_tiff_compression() {
 // Tests 30-31: PNM alpha roundtrip
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_pnm_alpha() {
     let mut rp = RegParams::new("iomisc_pnm_alpha");
 
@@ -360,7 +354,6 @@ fn iomisc_reg_pnm_alpha() {
 // Format detection tests
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_format_detection() {
     let mut rp = RegParams::new("iomisc_detect");
 
@@ -404,7 +397,6 @@ fn iomisc_reg_format_detection() {
 // Memory-based I/O tests
 // ============================================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn iomisc_reg_memory_io() {
     let mut rp = RegParams::new("iomisc_memio");
 

@@ -16,7 +16,6 @@ use leptonica_io::{ImageFormat, read_image_mem, write_image_mem};
 use leptonica_test::{RegParams, load_test_image, test_data_path};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn jpegio_reg() {
     let mut rp = RegParams::new("jpegio");
 

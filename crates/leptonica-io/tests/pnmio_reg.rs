@@ -20,7 +20,6 @@ use leptonica_test::{RegParams, load_test_image, regout_dir};
 use std::fs;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pnmio_reg() {
     let mut rp = RegParams::new("pnmio");
 

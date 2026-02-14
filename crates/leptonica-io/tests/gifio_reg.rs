@@ -25,7 +25,6 @@ const FILE_16BPP: &str = "test16.tif";
 const FILE_32BPP: &str = "marge.jpg";
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gifio_reg() {
     let mut rp = RegParams::new("gifio");
 

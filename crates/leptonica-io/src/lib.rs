@@ -1,33 +1,6 @@
-//! Image I/O for Leptonica
+//! leptonica-io - Image I/O for Leptonica
 //!
-//! This crate provides reading and writing support for various image
-//! formats, with automatic format detection from file headers.
-//!
-//! # Supported formats
-//!
-//! | Format | Read | Write | Feature flag     |
-//! |--------|------|-------|------------------|
-//! | BMP    | Yes  | Yes   | `bmp`            |
-//! | PNM    | Yes  | Yes   | `pnm`            |
-//! | PNG    | Yes  | Yes   | `png-format`     |
-//! | JPEG   | Yes  | No    | `jpeg`           |
-//! | TIFF   | Yes  | Yes   | `tiff-format`    |
-//! | GIF    | Yes  | Yes   | `gif-format`     |
-//! | WebP   | Yes  | Yes   | `webp-format`    |
-//! | JP2K   | Yes  | No    | `jp2k-format`    |
-//! | PDF    | No   | Yes   | `pdf-format`     |
-//! | PS     | No   | Yes   | `ps-format`      |
-//!
-//! Enable `all-formats` to turn on every format at once.
-//!
-//! # Example
-//!
-//! ```no_run
-//! use leptonica_io::{read_image, write_image, ImageFormat};
-//!
-//! let pix = read_image("photo.png").unwrap();
-//! write_image(&pix, "output.bmp", ImageFormat::Bmp).unwrap();
-//! ```
+//! This crate provides reading and writing support for various image formats.
 
 mod error;
 mod format;
@@ -70,19 +43,9 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use std::path::Path;
 
-/// Read an image from a file path.
+/// Read an image from a file path
 ///
 /// The format is automatically detected from the file contents.
-///
-/// # Arguments
-/// * `path` - Path to the image file
-///
-/// # Returns
-/// A `Pix` on success, or an `IoError` if the file cannot be read
-/// or the format is unsupported.
-///
-/// # See also
-/// C version: `pixRead()` in `readfile.c`
 pub fn read_image<P: AsRef<Path>>(path: P) -> IoResult<Pix> {
     let path = path.as_ref();
     let file = File::open(path).map_err(IoError::Io)?;
@@ -102,23 +65,13 @@ pub fn read_image<P: AsRef<Path>>(path: P) -> IoResult<Pix> {
     read_image_format(reader, format)
 }
 
-/// Read an image from an in-memory byte slice.
-///
-/// # Arguments
-/// * `data` - Raw image file contents
-///
-/// # See also
-/// C version: `pixReadMem()` in `readfile.c`
+/// Read an image from bytes
 pub fn read_image_mem(data: &[u8]) -> IoResult<Pix> {
     let format = detect_format_from_bytes(data)?;
     read_image_format(std::io::Cursor::new(data), format)
 }
 
-/// Read an image from a reader, given a known format.
-///
-/// # Arguments
-/// * `reader` - A reader that is `Read + Seek + BufRead`
-/// * `format` - The image format to decode
+/// Read an image with a specific format
 pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
     reader: R,
     format: ImageFormat,
@@ -159,15 +112,7 @@ pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
     }
 }
 
-/// Write an image to a file path.
-///
-/// # Arguments
-/// * `pix`    - The image to write
-/// * `path`   - Destination file path
-/// * `format` - Output format
-///
-/// # See also
-/// C version: `pixWrite()` in `writefile.c`
+/// Write an image to a file path
 pub fn write_image<P: AsRef<Path>>(pix: &Pix, path: P, format: ImageFormat) -> IoResult<()> {
     let file = File::create(path).map_err(IoError::Io)?;
 
@@ -182,14 +127,7 @@ pub fn write_image<P: AsRef<Path>>(pix: &Pix, path: P, format: ImageFormat) -> I
     write_image_format(pix, writer, format)
 }
 
-/// Write an image to an in-memory byte vector.
-///
-/// # Arguments
-/// * `pix`    - The image to write
-/// * `format` - Output format
-///
-/// # See also
-/// C version: `pixWriteMem()` in `writefile.c`
+/// Write an image to bytes
 pub fn write_image_mem(pix: &Pix, format: ImageFormat) -> IoResult<Vec<u8>> {
     // TIFF requires Seek, so handle it specially with Cursor
     #[cfg(feature = "tiff-format")]
@@ -204,11 +142,10 @@ pub fn write_image_mem(pix: &Pix, format: ImageFormat) -> IoResult<Vec<u8>> {
     Ok(buffer)
 }
 
-/// Write an image to a writer, given a known format.
+/// Write an image with a specific format
 ///
-/// **Note:** TIFF format requires a seekable writer.  Use `write_image`
-/// for file output or `write_image_mem` for in-memory output, or call
-/// `tiff::write_tiff` directly with a seekable writer.
+/// Note: TIFF format requires a seekable writer. Use `write_image` for file output
+/// or `write_image_mem` for in-memory output, or use `tiff::write_tiff` directly.
 pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -> IoResult<()> {
     match format {
         #[cfg(feature = "bmp")]

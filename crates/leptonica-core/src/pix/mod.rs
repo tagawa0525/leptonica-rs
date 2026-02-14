@@ -213,6 +213,8 @@ struct PixData {
     special: i32,
     /// Text string associated with pix
     text: Option<String>,
+    /// Optional colormap for indexed images (1, 2, 4, 8 bpp)
+    colormap: Option<crate::PixColormap>,
     /// The image data (packed 32-bit words)
     data: Vec<u32>,
 }
@@ -284,6 +286,7 @@ impl Pix {
             informat: ImageFormat::Unknown,
             special: 0,
             text: None,
+            colormap: None,
             data,
         };
 
@@ -372,23 +375,15 @@ impl Pix {
     }
 
     /// Check whether this image has a colormap attached.
-    ///
-    /// Currently always returns `false` because `Pix` does not yet carry
-    /// an embedded colormap.  This stub exists so that functions can
-    /// guard against colormapped input and will be updated when colormap
-    /// attachment is implemented.
     #[inline]
     pub fn has_colormap(&self) -> bool {
-        false
+        self.inner.colormap.is_some()
     }
 
     /// Get a reference to the image's colormap, if present.
-    ///
-    /// Currently always returns `None` because `Pix` does not yet carry
-    /// an embedded colormap.
     #[inline]
     pub fn colormap(&self) -> Option<&crate::PixColormap> {
-        None
+        self.inner.colormap.as_ref()
     }
 
     /// Get raw access to the image data.
@@ -431,6 +426,7 @@ impl Pix {
             informat: self.inner.informat,
             special: self.inner.special,
             text: self.inner.text.clone(),
+            colormap: self.inner.colormap.clone(),
             data: self.inner.data.clone(),
         };
 
@@ -465,6 +461,7 @@ impl Pix {
             informat: self.inner.informat,
             special: self.inner.special,
             text: self.inner.text.clone(),
+            colormap: self.inner.colormap.clone(),
             data: self.inner.data.clone(),
         };
 
@@ -576,6 +573,38 @@ impl PixMut {
         let start = (y * self.inner.wpl) as usize;
         let end = start + self.inner.wpl as usize;
         &mut self.inner.data[start..end]
+    }
+
+    /// Check whether this image has a colormap attached.
+    #[inline]
+    pub fn has_colormap(&self) -> bool {
+        self.inner.colormap.is_some()
+    }
+
+    /// Get a reference to the image's colormap, if present.
+    #[inline]
+    pub fn colormap(&self) -> Option<&crate::PixColormap> {
+        self.inner.colormap.as_ref()
+    }
+
+    /// Set or remove the colormap.
+    ///
+    /// Colormaps are only valid for 1, 2, 4, and 8 bpp images.
+    pub fn set_colormap(&mut self, cmap: Option<crate::PixColormap>) -> Result<()> {
+        if let Some(ref cm) = cmap {
+            if !self.inner.depth.colormap_allowed() {
+                return Err(Error::ColormapNotAllowed(self.inner.depth.bits()));
+            }
+            if cm.depth() != self.inner.depth.bits() {
+                return Err(Error::InvalidParameter(format!(
+                    "colormap depth {} does not match image depth {}",
+                    cm.depth(),
+                    self.inner.depth.bits()
+                )));
+            }
+        }
+        self.inner.colormap = cmap;
+        Ok(())
     }
 
     /// Clear all pixels to zero.

@@ -14,7 +14,6 @@ use leptonica_io::{
 use leptonica_test::{RegParams, load_test_image, test_data_path};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn ioformats_reg() {
     let mut rp = RegParams::new("ioformats");
 

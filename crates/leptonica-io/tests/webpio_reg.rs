@@ -73,7 +73,6 @@ fn do_webp_test1(rp: &mut RegParams, fname: &str, outdir: &str) {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn webpio_reg() {
     let mut rp = RegParams::new("webpio");
 
