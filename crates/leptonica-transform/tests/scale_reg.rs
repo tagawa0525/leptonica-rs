@@ -23,7 +23,6 @@ use leptonica_transform::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
 /// C version: tests `pixScale` at factors [2.3, 1.5, 1.1, 0.6, 0.3] on each
 /// of 10 image types (1bpp, 2bpp, 4bpp, 8bpp, 16bpp, 32bpp with/without cmap).
 #[test]
-#[ignore = "not yet implemented"]
 fn scale_reg() {
     let mut rp = RegParams::new("scale");
 

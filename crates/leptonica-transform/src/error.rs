@@ -1,7 +1,4 @@
 //! Error types for leptonica-transform
-//!
-//! Corresponds to error handling in C Leptonica's rotation, scaling, and
-//! geometric transformation functions.
 
 use thiserror::Error;
 

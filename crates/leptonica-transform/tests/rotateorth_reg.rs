@@ -21,7 +21,6 @@ use leptonica_transform::{rotate_90, rotate_180, rotate_orth};
 /// For each depth, verifies `rotate_orth(0..3)` matches `rotate_90` / `rotate_180`,
 /// and that 4x rotation returns identity. Directly mirrors `RotateOrthTest` in C version.
 #[test]
-#[ignore = "not yet implemented"]
 fn rotateorth_reg() {
     let mut rp = RegParams::new("rotateorth");
 

@@ -20,7 +20,6 @@ use leptonica_transform::{flip_lr, flip_tb, rotate_90, rotate_180};
 /// C version: `rotate1_reg.c` — tests `pixRotate90`, `pixRotate180`,
 /// `pixFlipLR`, `pixFlipTB` identity properties.
 #[test]
-#[ignore = "not yet implemented"]
 fn rotate1_reg() {
     let mut rp = RegParams::new("rotate1");
 

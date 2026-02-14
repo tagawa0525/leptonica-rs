@@ -53,7 +53,6 @@ fn make_pts(i: usize) -> ([Point; 3], [Point; 3]) {
 /// C version: forward transform then inverse on 1bpp scaled feyn.tif,
 /// with 1000px border, XOR comparison to check recovery.
 #[test]
-#[ignore = "not yet implemented"]
 fn affine_reg_sampling_invertability() {
     let mut rp = RegParams::new("affine_sampling");
 
@@ -101,7 +100,6 @@ fn affine_reg_sampling_invertability() {
 ///
 /// C version: forward+inverse on 8bpp image with pixel-level diff comparison.
 #[test]
-#[ignore = "not yet implemented"]
 fn affine_reg_grayscale_interpolation_invertability() {
     let mut rp = RegParams::new("affine_gray_interp");
 
@@ -159,7 +157,6 @@ fn affine_reg_grayscale_interpolation_invertability() {
 /// C version: tests `pixAffineSampledPta` and `pixAffinePta` with extreme point
 /// displacements, comparing sampled vs interpolated results.
 #[test]
-#[ignore = "not yet implemented"]
 fn affine_reg_large_distortion() {
     let mut rp = RegParams::new("affine_large_distort");
 
@@ -206,7 +203,6 @@ fn affine_reg_large_distortion() {
 
 /// Basic API test: `affine_pta` and `affine_sampled_pta` on synthetic 8bpp
 #[test]
-#[ignore = "not yet implemented"]
 fn affine_reg_pta_basic() {
     let mut rp = RegParams::new("affine_pta_basic");
 
@@ -244,7 +240,6 @@ fn affine_reg_pta_basic() {
 
 /// Test `affine_sampled_pta` on 1bpp
 #[test]
-#[ignore = "not yet implemented"]
 fn affine_reg_sampled_1bpp() {
     let mut rp = RegParams::new("affine_sampled_1bpp");
 
@@ -275,7 +270,6 @@ fn affine_reg_sampled_1bpp() {
 ///
 /// C version: test24.jpg not available, using weasel32.png.
 #[test]
-#[ignore = "not yet implemented"]
 fn affine_reg_color_interpolation() {
     let mut rp = RegParams::new("affine_color");
 

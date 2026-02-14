@@ -21,7 +21,6 @@ use leptonica_transform::{rotate_by_angle, rotate_by_radians};
 /// output at various angles. C version compares shear/sampling/area-map methods across
 /// 8 image types (1/2/4/8/8cmap/32bpp).
 #[test]
-#[ignore = "not yet implemented"]
 fn rotate2_reg() {
     let mut rp = RegParams::new("rotate2");
 

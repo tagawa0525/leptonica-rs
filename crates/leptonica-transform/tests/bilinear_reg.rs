@@ -58,7 +58,6 @@ fn make_pts(i: usize) -> ([Point; 4], [Point; 4]) {
 ///
 /// C version: forward+inverse bilinear sampling on 8bpp image with 250px border.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilinear_reg_sampling_invertability() {
     let mut rp = RegParams::new("bilinear_sampling");
 
@@ -106,7 +105,6 @@ fn bilinear_reg_sampling_invertability() {
 ///
 /// C version: forward+inverse bilinear interpolation on 8bpp with pixel diff.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilinear_reg_grayscale_interpolation_invertability() {
     let mut rp = RegParams::new("bilinear_gray_interp");
 
@@ -162,7 +160,6 @@ fn bilinear_reg_grayscale_interpolation_invertability() {
 ///
 /// C version: `MakePtas(2, ...)` then compare sampled vs interpolated results.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilinear_reg_compare_sampling_interpolated() {
     let mut rp = RegParams::new("bilinear_compare");
 
@@ -205,7 +202,6 @@ fn bilinear_reg_compare_sampling_interpolated() {
 ///
 /// C version: forward then inverse on `marge.jpg` with point set 0.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilinear_reg_large_distortion() {
     let mut rp = RegParams::new("bilinear_large_distort");
 
@@ -248,7 +244,6 @@ fn bilinear_reg_large_distortion() {
 
 /// Basic API test: `bilinear_pta` and `bilinear_sampled_pta` on synthetic 8bpp
 #[test]
-#[ignore = "not yet implemented"]
 fn bilinear_reg_pta_basic() {
     let mut rp = RegParams::new("bilinear_pta_basic");
 
@@ -291,7 +286,6 @@ fn bilinear_reg_pta_basic() {
 ///
 /// C version: test24.jpg not available, using weasel32.png.
 #[test]
-#[ignore = "not yet implemented"]
 fn bilinear_reg_color_interpolation() {
     let mut rp = RegParams::new("bilinear_color");
 

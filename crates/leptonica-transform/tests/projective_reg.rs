@@ -58,7 +58,6 @@ fn make_pts(i: usize) -> ([Point; 4], [Point; 4]) {
 ///
 /// C version: forward+inverse projective sampling on 1bpp scaled feyn.tif with 250px border.
 #[test]
-#[ignore = "not yet implemented"]
 fn projective_reg_sampling_invertability() {
     let mut rp = RegParams::new("projective_sampling");
 
@@ -108,7 +107,6 @@ fn projective_reg_sampling_invertability() {
 ///
 /// C version: forward+inverse projective interpolation on 8bpp image.
 #[test]
-#[ignore = "not yet implemented"]
 fn projective_reg_grayscale_interpolation_invertability() {
     let mut rp = RegParams::new("projective_gray_interp");
 
@@ -164,7 +162,6 @@ fn projective_reg_grayscale_interpolation_invertability() {
 ///
 /// C version: `MakePtas(3, ...)` then compare sampled vs interpolated.
 #[test]
-#[ignore = "not yet implemented"]
 fn projective_reg_compare_sampling_interpolated() {
     let mut rp = RegParams::new("projective_compare");
 
@@ -205,7 +202,6 @@ fn projective_reg_compare_sampling_interpolated() {
 
 /// Basic API test: `projective_pta` and `projective_sampled_pta` on synthetic 8bpp
 #[test]
-#[ignore = "not yet implemented"]
 fn projective_reg_pta_basic() {
     let mut rp = RegParams::new("projective_pta_basic");
 
@@ -248,7 +244,6 @@ fn projective_reg_pta_basic() {
 ///
 /// C version: test24.jpg not available, using weasel32.png.
 #[test]
-#[ignore = "not yet implemented"]
 fn projective_reg_color_interpolation() {
     let mut rp = RegParams::new("projective_color");
 
