@@ -377,6 +377,25 @@ impl Pix {
         &self.inner.data
     }
 
+    /// Check whether this image has an associated colormap.
+    ///
+    /// Currently always returns `false` because colormap storage on `Pix`
+    /// is not yet implemented. This stub allows operations that guard
+    /// against colormapped input to compile and behave correctly.
+    #[inline]
+    pub fn has_colormap(&self) -> bool {
+        false
+    }
+
+    /// Get a reference to the colormap, if any.
+    ///
+    /// Currently always returns `None` because colormap storage on `Pix`
+    /// is not yet implemented.
+    #[inline]
+    pub fn colormap(&self) -> Option<&crate::PixColormap> {
+        None
+    }
+
     /// Get the number of strong references to this PIX.
     #[inline]
     pub fn ref_count(&self) -> usize {
