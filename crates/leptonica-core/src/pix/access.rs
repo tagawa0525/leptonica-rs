@@ -31,11 +31,18 @@ impl Pix {
         Some(self.get_pixel_unchecked(x, y))
     }
 
-    /// Get a pixel value without bounds checking
+    /// Get a pixel value without bounds checking.
+    ///
+    /// # Safety contract
+    ///
+    /// The caller must ensure `x < width()` and `y < height()`. For packed
+    /// pixel depths (1/2/4/8/16 bpp), an `x` within the row padding may
+    /// not cause a panic but will return undefined padding bits.
     ///
     /// # Panics
     ///
-    /// Panics if `x` or `y` is out of bounds.
+    /// Panics if `y >= height()` (row indexing). May panic if `x` exceeds
+    /// the word boundary for 32-bit images.
     #[inline]
     pub fn get_pixel_unchecked(&self, x: u32, y: u32) -> u32 {
         let line = self.row_data(y);
@@ -52,11 +59,15 @@ impl PixMut {
         Some(self.get_pixel_unchecked(x, y))
     }
 
-    /// Get a pixel value without bounds checking
+    /// Get a pixel value without bounds checking.
+    ///
+    /// # Safety contract
+    ///
+    /// The caller must ensure `x < width()` and `y < height()`.
     ///
     /// # Panics
     ///
-    /// Panics if `x` or `y` is out of bounds.
+    /// Panics if `y >= height()` (row indexing).
     #[inline]
     pub fn get_pixel_unchecked(&self, x: u32, y: u32) -> u32 {
         let wpl = self.wpl();
@@ -77,10 +88,20 @@ impl PixMut {
     ///
     /// Ok(()) if successful, Err if coordinates are out of bounds.
     pub fn set_pixel(&mut self, x: u32, y: u32, val: u32) -> Result<()> {
-        if x >= self.width() || y >= self.height() {
+        let width = self.width();
+        let height = self.height();
+
+        if x >= width {
             return Err(Error::IndexOutOfBounds {
-                index: x.max(y) as usize,
-                len: self.width().max(self.height()) as usize,
+                index: x as usize,
+                len: width as usize,
+            });
+        }
+
+        if y >= height {
+            return Err(Error::IndexOutOfBounds {
+                index: y as usize,
+                len: height as usize,
             });
         }
         self.set_pixel_unchecked(x, y, val);
@@ -272,9 +293,10 @@ impl PixMut {
         self.set_pixel(x, y, pixel)
     }
 
-    /// Set an RGBA pixel at (x, y)
+    /// Set an RGBA pixel at (x, y).
     ///
-    /// Only valid for 32-bit images with spp=4.
+    /// Only valid for 32-bit images. Does not modify the `spp` metadata;
+    /// if writing alpha data, set `spp` to 4 separately via [`PixMut::set_spp`].
     pub fn set_rgba(&mut self, x: u32, y: u32, r: u8, g: u8, b: u8, a: u8) -> Result<()> {
         if self.depth() != PixelDepth::Bit32 {
             return Err(Error::IncompatibleDepths(self.depth().bits(), 32));

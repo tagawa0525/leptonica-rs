@@ -143,11 +143,6 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvertTo32()` in `pixconv.c`
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::NotSupported`] if the image has a colormap (colormap
-    /// expansion is not yet implemented in this phase).
     pub fn convert_to_32(&self) -> Result<Pix> {
         let w = self.width();
         let h = self.height();

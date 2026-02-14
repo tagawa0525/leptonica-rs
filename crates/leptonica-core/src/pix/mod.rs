@@ -90,7 +90,10 @@ impl PixelDepth {
 
     /// Get the maximum pixel value representable at this depth.
     pub fn max_value(self) -> u32 {
-        (1u32 << self.bits()) - 1
+        match self {
+            PixelDepth::Bit32 => u32::MAX,
+            _ => (1u32 << self.bits()) - 1,
+        }
     }
 }
 
@@ -276,10 +279,22 @@ impl Pix {
     }
 
     /// Compute words per line for given width and depth.
+    ///
+    /// Uses u64 arithmetic to prevent overflow for large widths.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result would exceed `u32::MAX`.
     #[inline]
     fn compute_wpl(width: u32, depth: PixelDepth) -> u32 {
-        let bits_per_line = width * depth.bits();
-        bits_per_line.div_ceil(32)
+        let bits_per_line = u64::from(width) * u64::from(depth.bits());
+        let wpl = bits_per_line.div_ceil(32);
+        u32::try_from(wpl).unwrap_or_else(|_| {
+            panic!(
+                "image row too large: width={} depth={:?} requires {} words",
+                width, depth, wpl
+            )
+        })
     }
 
     /// Get the image width in pixels.
@@ -518,6 +533,10 @@ impl PixMut {
     }
 
     /// Get mutable access to a specific row.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `y >= height`.
     #[inline]
     pub fn row_data_mut(&mut self, y: u32) -> &mut [u32] {
         let start = (y * self.inner.wpl) as usize;
