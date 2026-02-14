@@ -115,7 +115,9 @@ fn sobel_combined(pix: &Pix, h_kernel: &Kernel, v_kernel: &Kernel) -> FilterResu
                 }
             }
 
-            // Magnitude (sum of absolute values for speed, or use sqrt(h*h+v*v))
+            // Magnitude using fast L1 (Manhattan) norm |h| + |v|.
+            // For a more standard Sobel magnitude, use Euclidean sqrt(h*h + v*v)
+            // instead, at the cost of an extra sqrt per pixel.
             let magnitude = sum_h.abs() + sum_v.abs();
             let result = magnitude.clamp(0.0, 255.0) as u32;
             out_mut.set_pixel_unchecked(x, y, result);
@@ -170,6 +172,10 @@ pub fn unsharp_mask(pix: &Pix, radius: u32, amount: f32) -> FilterResult<Pix> {
 }
 
 /// Apply emboss effect
+///
+/// Output values are centered around 128 (flat regions produce ~128,
+/// edges produce values above or below 128 depending on gradient direction).
+/// This differs from edge detection functions which output absolute magnitudes.
 pub fn emboss(pix: &Pix) -> FilterResult<Pix> {
     check_grayscale(pix)?;
 

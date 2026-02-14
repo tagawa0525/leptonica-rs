@@ -402,7 +402,7 @@ fn fill_map_holes(pix: &Pix, valid_x: u32, valid_y: u32) -> FilterResult<Pix> {
             let last_valid = if valid_x > 0 {
                 out_mut.get_pixel_unchecked(valid_x - 1, y)
             } else {
-                128 // fallback
+                128 // mid-gray fallback when no valid neighbor exists
             };
             for x in valid_x..w {
                 let val = out_mut.get_pixel_unchecked(x, y);
@@ -419,7 +419,7 @@ fn fill_map_holes(pix: &Pix, valid_x: u32, valid_y: u32) -> FilterResult<Pix> {
             let last_valid = if valid_y > 0 {
                 out_mut.get_pixel_unchecked(x, valid_y - 1)
             } else {
-                128 // fallback
+                128 // mid-gray fallback when no valid neighbor exists
             };
             for y in valid_y..h {
                 let val = out_mut.get_pixel_unchecked(x, y);
@@ -477,7 +477,7 @@ fn get_inv_background_map(
             } else {
                 bg_val / 2 // fallback for zero values
             };
-            // Store as 32-bit value (will be used directly in application)
+            // Store as 32-bit value (16-bit factor in 32bpp Pix for convenience)
             out_mut.set_pixel_unchecked(x, y, factor.min(65535));
         }
     }
@@ -730,7 +730,8 @@ fn min_max_tiles(
                 }
             }
 
-            // Add 1 to avoid zeros (which indicate holes)
+            // Add 1 so that 0 remains a sentinel for unfilled/hole tiles
+            // (subtracted back when applying the normalization transform)
             min_mut.set_pixel_unchecked(tx, ty, min_val.saturating_add(1).min(255));
             max_mut.set_pixel_unchecked(tx, ty, max_val.saturating_add(1).min(255));
         }

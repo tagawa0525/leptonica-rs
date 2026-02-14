@@ -81,7 +81,8 @@ impl Kernel {
     pub fn gaussian(size: u32, sigma: f32) -> FilterResult<Self> {
         if size == 0 || size % 2 == 0 {
             return Err(FilterError::InvalidKernel(
-                "size must be odd and > 0".to_string(),
+                "Gaussian kernel size must be odd and > 0 to have a well-defined center"
+                    .to_string(),
             ));
         }
         if sigma <= 0.0 {

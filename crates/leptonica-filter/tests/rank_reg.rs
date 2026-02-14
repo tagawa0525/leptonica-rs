@@ -33,8 +33,9 @@ fn rank_reg_gray_basic() {
     rp.compare_values(h as f64, pix1.height() as f64, 0.0);
     rp.compare_values(8.0, pix1.depth().bits() as f64, 0.0);
 
+    // Verify filtered pixel is non-zero (rank=0.4 on a real image should produce non-zero)
     let center_val = pix1.get_pixel(w / 2, h / 2).unwrap_or(0);
-    rp.compare_values(1.0, if center_val <= 255 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if center_val > 0 { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "rank_gray_basic regression test failed");
 }

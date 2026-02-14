@@ -6,6 +6,9 @@ use crate::{FilterError, FilterResult, Kernel};
 use leptonica_core::{Pix, PixelDepth, color};
 
 /// Convolve an 8-bit grayscale image with a kernel
+///
+/// Uses replicate (clamp) border handling: pixels outside the image boundary
+/// are treated as having the same value as the nearest edge pixel.
 pub fn convolve_gray(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
     check_grayscale(pix)?;
 
@@ -47,6 +50,9 @@ pub fn convolve_gray(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
 }
 
 /// Convolve a 32-bit color image with a kernel
+///
+/// Uses replicate (clamp) border handling: pixels outside the image boundary
+/// are treated as having the same value as the nearest edge pixel.
 pub fn convolve_color(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
     check_color(pix)?;
 
@@ -128,7 +134,7 @@ pub fn gaussian_blur(pix: &Pix, radius: u32, sigma: f32) -> FilterResult<Pix> {
 
 /// Apply Gaussian blur with automatic sigma calculation
 pub fn gaussian_blur_auto(pix: &Pix, radius: u32) -> FilterResult<Pix> {
-    // Rule of thumb: sigma = radius / 2
+    // Use sigma = radius (minimum 0.5) for a reasonable default
     let sigma = (radius as f32).max(0.5);
     gaussian_blur(pix, radius, sigma)
 }
