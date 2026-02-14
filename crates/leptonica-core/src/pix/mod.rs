@@ -371,6 +371,26 @@ impl Pix {
         self.inner.text.as_deref()
     }
 
+    /// Check whether this image has a colormap attached.
+    ///
+    /// Currently always returns `false` because `Pix` does not yet carry
+    /// an embedded colormap.  This stub exists so that functions can
+    /// guard against colormapped input and will be updated when colormap
+    /// attachment is implemented.
+    #[inline]
+    pub fn has_colormap(&self) -> bool {
+        false
+    }
+
+    /// Get a reference to the image's colormap, if present.
+    ///
+    /// Currently always returns `None` because `Pix` does not yet carry
+    /// an embedded colormap.
+    #[inline]
+    pub fn colormap(&self) -> Option<&crate::PixColormap> {
+        None
+    }
+
     /// Get raw access to the image data.
     #[inline]
     pub fn data(&self) -> &[u32] {

@@ -11,10 +11,7 @@
 //! C Leptonica: `reference/leptonica/prog/pixa2_reg.c`
 
 use leptonica_core::pix::statistics::PixelMaxType;
-use leptonica_core::{
-    BlendMode, Box, Color, CompareType, GrayBlendType, Numa, Pix, PixMut, PixelDepth, PixelOp, Pta,
-    RopOp,
-};
+use leptonica_core::{BlendMode, Box, Color, Pix, PixelDepth, PixelOp};
 use leptonica_test::RegParams;
 
 /// Helper: get pixel value, panicking on out-of-bounds.
@@ -28,7 +25,7 @@ fn make_gray_ramp(width: u32, height: u32) -> Pix {
     for y in 0..height {
         for x in 0..width {
             let val = ((x * 255) / width.max(1)) as u32;
-            pm.set_pixel(x, y, val);
+            pm.set_pixel_unchecked(x, y, val);
         }
     }
     pm.into()
@@ -39,7 +36,7 @@ fn make_uniform_gray(width: u32, height: u32, val: u32) -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..height {
         for x in 0..width {
-            pm.set_pixel(x, y, val);
+            pm.set_pixel_unchecked(x, y, val);
         }
     }
     pm.into()
@@ -51,7 +48,7 @@ fn make_binary_checkerboard(width: u32, height: u32) -> Pix {
     for y in 0..height {
         for x in 0..width {
             if (x + y) % 2 == 0 {
-                pm.set_pixel(x, y, 1);
+                pm.set_pixel_unchecked(x, y, 1);
             }
         }
     }
@@ -67,7 +64,7 @@ fn make_32bit_color(width: u32, height: u32) -> Pix {
             let g = ((y * 255) / height.max(1)) as u32;
             let b = 128u32;
             let pixel = (r << 24) | (g << 16) | (b << 8) | 0xff;
-            pm.set_pixel(x, y, pixel);
+            pm.set_pixel_unchecked(x, y, pixel);
         }
     }
     pm.into()
@@ -78,7 +75,6 @@ fn make_32bit_color(width: u32, height: u32) -> Pix {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_arith_constants() {
     let mut rp = RegParams::new("pixa2_arith_const");
 
@@ -120,7 +116,6 @@ fn pixa2_reg_arith_constants() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_arith_binary_ops() {
     let mut rp = RegParams::new("pixa2_arith_binops");
 
@@ -155,7 +150,6 @@ fn pixa2_reg_arith_binary_ops() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_arith_inplace() {
     let mut rp = RegParams::new("pixa2_arith_inplace");
 
@@ -195,7 +189,6 @@ fn pixa2_reg_arith_inplace() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_rop_ops() {
     let mut rp = RegParams::new("pixa2_rop");
 
@@ -235,7 +228,6 @@ fn pixa2_reg_rop_ops() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_rop_inplace() {
     let mut rp = RegParams::new("pixa2_rop_inplace");
 
@@ -273,7 +265,6 @@ fn pixa2_reg_rop_inplace() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_blend() {
     let mut rp = RegParams::new("pixa2_blend");
 
@@ -304,7 +295,6 @@ fn pixa2_reg_blend() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_border() {
     let mut rp = RegParams::new("pixa2_border");
 
@@ -345,7 +335,6 @@ fn pixa2_reg_border() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_compare() {
     let mut rp = RegParams::new("pixa2_compare");
 
@@ -389,7 +378,6 @@ fn pixa2_reg_compare() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_correlation() {
     let mut rp = RegParams::new("pixa2_correlation");
 
@@ -412,7 +400,6 @@ fn pixa2_reg_correlation() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_graphics_lines() {
     let mut rp = RegParams::new("pixa2_graphics_lines");
 
@@ -443,7 +430,6 @@ fn pixa2_reg_graphics_lines() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_graphics_boxes() {
     let mut rp = RegParams::new("pixa2_graphics_boxes");
 
@@ -467,7 +453,6 @@ fn pixa2_reg_graphics_boxes() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_graphics_circles() {
     let mut rp = RegParams::new("pixa2_graphics_circles");
 
@@ -491,7 +476,6 @@ fn pixa2_reg_graphics_circles() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_histogram() {
     let mut rp = RegParams::new("pixa2_histogram");
 
@@ -522,7 +506,6 @@ fn pixa2_reg_histogram() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_statistics() {
     let mut rp = RegParams::new("pixa2_statistics");
 
@@ -566,7 +549,6 @@ fn pixa2_reg_statistics() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_extract() {
     let mut rp = RegParams::new("pixa2_extract");
 
@@ -589,7 +571,6 @@ fn pixa2_reg_extract() {
 // ==========================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa2_reg_pta_generation() {
     let mut rp = RegParams::new("pixa2_pta_gen");
 
