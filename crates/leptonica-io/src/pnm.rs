@@ -79,10 +79,11 @@ pub fn read_pnm<R: Read>(reader: R) -> IoResult<Pix> {
         }
     };
 
-    // Skip single whitespace character before binary data
+    // Skip whitespace before binary data.
+    // The PNM spec says a single whitespace character separates the header
+    // from binary data, but files may use CRLF or have trailing comments.
     if pnm_type.is_binary() {
-        let mut ws = [0u8; 1];
-        reader.read_exact(&mut ws).map_err(IoError::Io)?;
+        skip_whitespace_and_comments(&mut reader)?;
     }
 
     // Determine pixel depth
@@ -166,7 +167,7 @@ fn read_pbm_ascii<R: BufRead>(
         for x in 0..width {
             skip_whitespace_and_comments(reader)?;
             let val = read_number(reader)?;
-            // PBM: 1 = black, 0 = white (inverted from our convention)
+            // PBM: 1 = black, 0 = white (same convention as leptonica_core 1bpp)
             pix.set_pixel_unchecked(x, y, if val != 0 { 1 } else { 0 });
         }
     }
