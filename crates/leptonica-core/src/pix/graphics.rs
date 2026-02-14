@@ -655,13 +655,7 @@ impl PixMut {
         self.render_pta_color(&pta, color)
     }
 
-    /// Check if this PixMut has a colormap
-    fn has_colormap(&self) -> bool {
-        // PixMut doesn't expose colormap directly, so we assume no colormap
-        // This is a simplification - in practice, colormapped images should be
-        // converted before rendering
-        false
-    }
+    // has_colormap() is now provided by the main PixMut impl in mod.rs
 }
 
 // =============================================================================
