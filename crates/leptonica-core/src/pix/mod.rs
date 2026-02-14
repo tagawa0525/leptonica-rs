@@ -22,11 +22,25 @@
 //! - Pixel access: `GET_DATA_*` / `SET_DATA_*` macros in `arrayaccess.h`
 
 mod access;
+pub mod arith;
+pub mod blend;
+mod border;
 mod clip;
+pub mod compare;
 mod convert;
+mod extract;
+pub mod graphics;
+mod histogram;
 mod ops;
+pub mod rop;
+pub mod statistics;
 
 pub use access::*;
+pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
+pub use compare::{CompareResult, CompareType, PixelDiffResult, correlation_binary};
+pub use graphics::{Color, ContourOutput, PixelOp};
+pub use histogram::ColorHistogram;
+pub use rop::RopOp;
 
 use crate::error::{Error, Result};
 use std::sync::Arc;
