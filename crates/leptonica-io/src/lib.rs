@@ -1,33 +1,254 @@
-// Stub: minimal I/O definitions for workspace compilation.
-// These will be replaced with full implementations in later phases.
+//! Image I/O for Leptonica
+//!
+//! This crate provides reading and writing support for various image
+//! formats, with automatic format detection from file headers.
+//!
+//! # Supported formats
+//!
+//! | Format | Read | Write | Feature flag     |
+//! |--------|------|-------|------------------|
+//! | BMP    | Yes  | Yes   | `bmp`            |
+//! | PNM    | Yes  | Yes   | `pnm`            |
+//! | PNG    | Yes  | Yes   | `png-format`     |
+//! | JPEG   | Yes  | No    | `jpeg`           |
+//! | TIFF   | Yes  | Yes   | `tiff-format`    |
+//! | GIF    | Yes  | Yes   | `gif-format`     |
+//! | WebP   | Yes  | Yes   | `webp-format`    |
+//! | JP2K   | Yes  | No    | `jp2k-format`    |
+//! | PDF    | No   | Yes   | `pdf-format`     |
+//! | PS     | No   | Yes   | `ps-format`      |
+//!
+//! Enable `all-formats` to turn on every format at once.
+//!
+//! # Example
+//!
+//! ```no_run
+//! use leptonica_io::{read_image, write_image, ImageFormat};
+//!
+//! let pix = read_image("photo.png").unwrap();
+//! write_image(&pix, "output.bmp", ImageFormat::Bmp).unwrap();
+//! ```
 
-pub use leptonica_core::ImageFormat;
+mod error;
+mod format;
 
-use leptonica_core::Pix;
+#[cfg(feature = "bmp")]
+pub mod bmp;
+
+#[cfg(feature = "pnm")]
+pub mod pnm;
+
+#[cfg(feature = "png-format")]
+pub mod png;
+
+#[cfg(feature = "jpeg")]
+pub mod jpeg;
+
+#[cfg(feature = "tiff-format")]
+pub mod tiff;
+
+#[cfg(feature = "gif-format")]
+pub mod gif;
+
+#[cfg(feature = "webp-format")]
+pub mod webp;
+
+#[cfg(feature = "jp2k-format")]
+pub mod jp2k;
+
+#[cfg(feature = "pdf-format")]
+pub mod pdf;
+
+#[cfg(feature = "ps-format")]
+pub mod ps;
+
+pub use error::{IoError, IoResult};
+pub use format::{detect_format, detect_format_from_bytes};
+pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
+
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use std::path::Path;
 
-/// I/O error type (stub).
-#[derive(Debug)]
-pub struct IoError(String);
+/// Read an image from a file path.
+///
+/// The format is automatically detected from the file contents.
+///
+/// # Arguments
+/// * `path` - Path to the image file
+///
+/// # Returns
+/// A `Pix` on success, or an `IoError` if the file cannot be read
+/// or the format is unsupported.
+///
+/// # See also
+/// C version: `pixRead()` in `readfile.c`
+pub fn read_image<P: AsRef<Path>>(path: P) -> IoResult<Pix> {
+    let path = path.as_ref();
+    let file = File::open(path).map_err(IoError::Io)?;
+    let mut reader = BufReader::new(file);
 
-impl std::fmt::Display for IoError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+    // Read enough bytes to detect format
+    let mut header = [0u8; 12];
+    let bytes_read = reader.read(&mut header).map_err(IoError::Io)?;
+
+    let format = detect_format_from_bytes(&header[..bytes_read])?;
+
+    // Seek back to beginning
+    reader
+        .seek(std::io::SeekFrom::Start(0))
+        .map_err(IoError::Io)?;
+
+    read_image_format(reader, format)
+}
+
+/// Read an image from an in-memory byte slice.
+///
+/// # Arguments
+/// * `data` - Raw image file contents
+///
+/// # See also
+/// C version: `pixReadMem()` in `readfile.c`
+pub fn read_image_mem(data: &[u8]) -> IoResult<Pix> {
+    let format = detect_format_from_bytes(data)?;
+    read_image_format(std::io::Cursor::new(data), format)
+}
+
+/// Read an image from a reader, given a known format.
+///
+/// # Arguments
+/// * `reader` - A reader that is `Read + Seek + BufRead`
+/// * `format` - The image format to decode
+pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
+    reader: R,
+    format: ImageFormat,
+) -> IoResult<Pix> {
+    match format {
+        #[cfg(feature = "bmp")]
+        ImageFormat::Bmp => bmp::read_bmp(reader),
+
+        #[cfg(feature = "pnm")]
+        ImageFormat::Pnm => pnm::read_pnm(reader),
+
+        #[cfg(feature = "png-format")]
+        ImageFormat::Png => png::read_png(reader),
+
+        #[cfg(feature = "jpeg")]
+        ImageFormat::Jpeg => jpeg::read_jpeg(reader),
+
+        #[cfg(feature = "tiff-format")]
+        ImageFormat::Tiff
+        | ImageFormat::TiffG3
+        | ImageFormat::TiffG4
+        | ImageFormat::TiffRle
+        | ImageFormat::TiffPackbits
+        | ImageFormat::TiffLzw
+        | ImageFormat::TiffZip
+        | ImageFormat::TiffJpeg => tiff::read_tiff(reader),
+
+        #[cfg(feature = "gif-format")]
+        ImageFormat::Gif => gif::read_gif(reader),
+
+        #[cfg(feature = "webp-format")]
+        ImageFormat::WebP => webp::read_webp(reader),
+
+        #[cfg(feature = "jp2k-format")]
+        ImageFormat::Jp2 => jp2k::read_jp2k(reader),
+
+        _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
 }
 
-impl std::error::Error for IoError {}
+/// Write an image to a file path.
+///
+/// # Arguments
+/// * `pix`    - The image to write
+/// * `path`   - Destination file path
+/// * `format` - Output format
+///
+/// # See also
+/// C version: `pixWrite()` in `writefile.c`
+pub fn write_image<P: AsRef<Path>>(pix: &Pix, path: P, format: ImageFormat) -> IoResult<()> {
+    let file = File::create(path).map_err(IoError::Io)?;
 
-/// Read an image from a file path (stub).
-pub fn read_image<P: AsRef<Path>>(_path: P) -> Result<Pix, IoError> {
-    Err(IoError("not implemented".to_string()))
+    // TIFF requires Seek, so handle it specially
+    #[cfg(feature = "tiff-format")]
+    if let Some(compression) = tiff::TiffCompression::from_image_format(format) {
+        let writer = BufWriter::new(file);
+        return tiff::write_tiff(pix, writer, compression);
+    }
+
+    let writer = BufWriter::new(file);
+    write_image_format(pix, writer, format)
 }
 
-/// Write an image to a file path (stub).
-pub fn write_image<P: AsRef<Path>>(
-    _pix: &Pix,
-    _path: P,
-    _format: ImageFormat,
-) -> Result<(), IoError> {
-    Err(IoError("not implemented".to_string()))
+/// Write an image to an in-memory byte vector.
+///
+/// # Arguments
+/// * `pix`    - The image to write
+/// * `format` - Output format
+///
+/// # See also
+/// C version: `pixWriteMem()` in `writefile.c`
+pub fn write_image_mem(pix: &Pix, format: ImageFormat) -> IoResult<Vec<u8>> {
+    // TIFF requires Seek, so handle it specially with Cursor
+    #[cfg(feature = "tiff-format")]
+    if let Some(compression) = tiff::TiffCompression::from_image_format(format) {
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        tiff::write_tiff(pix, &mut cursor, compression)?;
+        return Ok(cursor.into_inner());
+    }
+
+    let mut buffer = Vec::new();
+    write_image_format(pix, &mut buffer, format)?;
+    Ok(buffer)
+}
+
+/// Write an image to a writer, given a known format.
+///
+/// **Note:** TIFF format requires a seekable writer.  Use `write_image`
+/// for file output or `write_image_mem` for in-memory output, or call
+/// `tiff::write_tiff` directly with a seekable writer.
+pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -> IoResult<()> {
+    match format {
+        #[cfg(feature = "bmp")]
+        ImageFormat::Bmp => bmp::write_bmp(pix, writer),
+
+        #[cfg(feature = "pnm")]
+        ImageFormat::Pnm => pnm::write_pnm(pix, writer),
+
+        #[cfg(feature = "png-format")]
+        ImageFormat::Png => png::write_png(pix, writer),
+
+        #[cfg(feature = "tiff-format")]
+        ImageFormat::Tiff
+        | ImageFormat::TiffG3
+        | ImageFormat::TiffG4
+        | ImageFormat::TiffRle
+        | ImageFormat::TiffPackbits
+        | ImageFormat::TiffLzw
+        | ImageFormat::TiffZip
+        | ImageFormat::TiffJpeg => {
+            // TIFF requires Seek trait. Use write_image or write_image_mem instead.
+            Err(IoError::UnsupportedFormat(
+                "TIFF requires seekable writer; use write_image or write_image_mem".to_string(),
+            ))
+        }
+
+        #[cfg(feature = "gif-format")]
+        ImageFormat::Gif => gif::write_gif(pix, writer),
+
+        #[cfg(feature = "webp-format")]
+        ImageFormat::WebP => webp::write_webp(pix, writer),
+
+        #[cfg(feature = "jp2k-format")]
+        ImageFormat::Jp2 => Err(IoError::UnsupportedFormat(
+            "JP2K writing not yet supported".to_string(),
+        )),
+
+        #[cfg(feature = "pdf-format")]
+        ImageFormat::Lpdf => pdf::write_pdf(pix, writer, &pdf::PdfOptions::default()),
+
+        _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
+    }
 }
