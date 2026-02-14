@@ -66,8 +66,12 @@ impl RegParams {
         let mode = RegTestMode::from_env();
 
         // Ensure directories exist
-        let _ = fs::create_dir_all(golden_dir());
-        let _ = fs::create_dir_all(regout_dir());
+        if let Err(e) = fs::create_dir_all(golden_dir()) {
+            eprintln!("Warning: failed to create golden directory: {e}");
+        }
+        if let Err(e) = fs::create_dir_all(regout_dir()) {
+            eprintln!("Warning: failed to create regout directory: {e}");
+        }
 
         eprintln!();
         eprintln!("////////////////////////////////////////////////");
