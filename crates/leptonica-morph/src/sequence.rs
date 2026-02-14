@@ -276,20 +276,15 @@ impl MorphSequence {
 
     /// Check if this sequence is valid for grayscale operations
     ///
-    /// Returns an error if any operation has non-odd dimensions,
-    /// as required by grayscale morphology.
+    /// The underlying grayscale morphology functions accept even-sized
+    /// structuring elements and internally coerce them to the next odd
+    /// size (via `ensure_odd`). This verification step is kept for API
+    /// symmetry with `verify_binary` and may be extended with additional
+    /// grayscale-specific checks in the future.
     pub fn verify_grayscale(&self) -> MorphResult<()> {
-        for (i, op) in self.ops.iter().enumerate() {
-            let (w, h) = op.dimensions();
-            if w % 2 == 0 || h % 2 == 0 {
-                return Err(MorphError::InvalidSequence(format!(
-                    "operation {} has dimensions {}x{}, but grayscale operations require odd dimensions",
-                    i + 1,
-                    w,
-                    h
-                )));
-            }
-        }
+        // Currently there are no additional structural constraints specific
+        // to grayscale sequences beyond those enforced by the underlying ops.
+        // Even dimensions are silently coerced to odd by the direct APIs.
         Ok(())
     }
 
@@ -599,9 +594,11 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_grayscale_even_dimensions_error() {
+    fn test_verify_grayscale_even_dimensions_accepted() {
+        // Even dimensions are accepted because the underlying grayscale ops
+        // silently coerce them to the next odd size.
         let seq = MorphSequence::parse("d4.4").unwrap();
-        assert!(seq.verify_grayscale().is_err());
+        assert!(seq.verify_grayscale().is_ok());
     }
 
     #[test]
@@ -633,10 +630,11 @@ mod tests {
     }
 
     #[test]
-    fn test_gray_morph_sequence_even_dimensions_error() {
+    fn test_gray_morph_sequence_even_dimensions_accepted() {
+        // Even dimensions are accepted and coerced to odd by the underlying ops.
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let result = gray_morph_sequence(&pix, "d4.4");
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 
     #[test]

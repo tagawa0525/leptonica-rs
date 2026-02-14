@@ -84,14 +84,14 @@ pub fn dilate_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 
     // Identity case
     if hsize == 1 && vsize == 1 {
-        return Ok(pix.deep_clone());
+        return Ok(pix.clone());
     }
 
     // Separable: horizontal then vertical
     let mut result = if hsize > 1 {
         dilate_horizontal_dwa(pix, hsize)?
     } else {
-        pix.deep_clone()
+        pix.clone()
     };
 
     if vsize > 1 {
@@ -126,14 +126,14 @@ pub fn erode_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 
     // Identity case
     if hsize == 1 && vsize == 1 {
-        return Ok(pix.deep_clone());
+        return Ok(pix.clone());
     }
 
     // Separable: horizontal then vertical
     let mut result = if hsize > 1 {
         erode_horizontal_dwa(pix, hsize)?
     } else {
-        pix.deep_clone()
+        pix.clone()
     };
 
     if vsize > 1 {
@@ -185,6 +185,11 @@ pub fn close_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 ///
 /// For each pixel, if ANY pixel in the horizontal neighborhood is set,
 /// the output pixel is set.
+///
+/// NOTE: The current implementation uses per-bit neighborhood scanning
+/// rather than word/shift-based operations, making it O(width*height*hsize).
+/// A future optimization could use word-aligned bit shifts to accumulate
+/// OR-ed shifted rows, reducing the complexity to O(width*height*wpl).
 #[allow(clippy::needless_range_loop)]
 fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
@@ -302,6 +307,9 @@ fn dilate_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
 ///
 /// For each pixel, if ALL pixels in the horizontal neighborhood are set,
 /// the output pixel is set.
+///
+/// NOTE: Same per-bit scanning limitation as `dilate_horizontal_dwa`.
+/// See that function's doc comment for optimization notes.
 #[allow(clippy::needless_range_loop)]
 fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let w = pix.width();

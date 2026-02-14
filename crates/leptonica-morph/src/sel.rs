@@ -200,6 +200,15 @@ impl Sel {
         }
 
         let mut sel = Self::new(width, height)?;
+
+        // Validate that the origin lies within the SEL bounds
+        if origin_x >= width || origin_y >= height {
+            return Err(MorphError::InvalidSel(format!(
+                "origin ({}, {}) out of bounds for {}x{} SEL",
+                origin_x, origin_y, width, height
+            )));
+        }
+
         sel.cx = origin_x;
         sel.cy = origin_y;
 

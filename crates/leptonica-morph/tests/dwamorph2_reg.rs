@@ -77,8 +77,8 @@ fn dwamorph2_reg_horizontal() {
     assert_eq!(pixs.depth(), PixelDepth::Bit1);
 
     eprintln!(
-        "Testing horizontal DWA vs brick morph for sizes 2..{}",
-        MAX_LINEAR_SIZE
+        "Testing horizontal DWA vs brick morph for sizes 2..={}",
+        MAX_LINEAR_SIZE - 1
     );
 
     // --- Dilation ---
@@ -148,8 +148,8 @@ fn dwamorph2_reg_vertical() {
     assert_eq!(pixs.depth(), PixelDepth::Bit1);
 
     eprintln!(
-        "Testing vertical DWA vs brick morph for sizes 2..{}",
-        MAX_LINEAR_SIZE
+        "Testing vertical DWA vs brick morph for sizes 2..={}",
+        MAX_LINEAR_SIZE - 1
     );
 
     // --- Dilation ---
@@ -500,8 +500,8 @@ fn dwamorph2_reg_full() {
     assert_eq!(pixs.depth(), PixelDepth::Bit1);
 
     eprintln!(
-        "Full DWA vs brick morph comparison, sizes 2..{}",
-        MAX_LINEAR_SIZE
+        "Full DWA vs brick morph comparison, sizes 2..={}",
+        MAX_LINEAR_SIZE - 1
     );
     eprintln!("Image size: {}x{}", pixs.width(), pixs.height());
 

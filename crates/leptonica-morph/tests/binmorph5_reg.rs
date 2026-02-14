@@ -164,8 +164,9 @@ fn binmorph5_reg() {
     let faster_test_sizes: Vec<u32> = (65..100)
         .filter(|&i| {
             let (f1, f2) = select_composable_sizes(i);
-            let size = f1 * f2;
-            size == i // Only use sizes that are exactly composable
+            // Exclude the (1, size) fallback for primes, which are not
+            // truly composable and would inflate runtime unnecessarily
+            f1 > 1 && f1 * f2 == i
         })
         .collect();
 
