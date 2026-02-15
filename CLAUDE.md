@@ -23,7 +23,7 @@ cargo test convolve_reg --package leptonica-filter
 # テスト出力を表示
 cargo test convolve_reg --package leptonica-filter -- --nocapture
 
-# nextest（.config/nextest.toml設定済み、slow-timeout=10s）
+# nextest
 cargo nextest run --workspace
 ```
 
@@ -40,8 +40,10 @@ REGTEST_MODE=display  cargo test convolve_reg --package leptonica-filter  # 比�
 ## Crate構成と依存関係
 
 ```text
-leptonica-recog → leptonica-region → leptonica-filter → leptonica-color
-    → leptonica-transform → leptonica-morph → leptonica-io → leptonica-core
+leptonica-recog → leptonica-morph, leptonica-transform, leptonica-region, leptonica-color, leptonica-core
+leptonica-morph, leptonica-transform, leptonica-filter, leptonica-color → leptonica-io, leptonica-core
+leptonica-region → leptonica-core
+leptonica-io → leptonica-core
 ```
 
 - **leptonica-core**: Pix, Box, Numa, FPix等の基本データ構造
