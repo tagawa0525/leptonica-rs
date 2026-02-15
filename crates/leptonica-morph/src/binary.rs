@@ -5,76 +5,113 @@
 use crate::{MorphError, MorphResult, Sel};
 use leptonica_core::{Pix, PixelDepth};
 
-/// Dilate a binary image
+/// Dilate a binary image using rasterop (word-level shift-and-OR)
 ///
-/// Dilation expands foreground regions. For each pixel, if ANY hit position
-/// in the SEL corresponds to a foreground pixel, the output is foreground.
+/// Dilation expands foreground regions. For each hit position in the SEL,
+/// the source image is shifted by that offset and OR-accumulated into the
+/// output. All operations are performed at 32-bit word granularity.
+///
+/// Algorithm (C version: morph.c:213-238):
+///   1. Clear output
+///   2. For each hit (dx, dy): dest[y] |= shift(src[y - dy], dx)
 pub fn dilate(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
     check_binary(pix)?;
 
     let w = pix.width();
     let h = pix.height();
+    let wpl = pix.wpl() as usize;
 
     let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
+    let src_data = pix.data();
+    let dst_data = out_mut.data_mut();
+
     let hit_offsets: Vec<_> = sel.hit_offsets().collect();
 
-    for y in 0..h {
-        for x in 0..w {
-            // Check if any hit position has a foreground pixel
-            let dilated = hit_offsets.iter().any(|&(dx, dy)| {
-                let sx = x as i32 + dx;
-                let sy = y as i32 + dy;
-                if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
-                } else {
-                    false // Pixels outside are treated as background
-                }
-            });
-
-            if dilated {
-                out_mut.set_pixel_unchecked(x, y, 1);
+    for &(dx, dy) in &hit_offsets {
+        for y in 0..h as i32 {
+            let src_y = y + dy;
+            if src_y < 0 || src_y >= h as i32 {
+                continue; // Outside = background (0), OR with 0 is no-op
             }
+
+            let src_start = src_y as usize * wpl;
+            let dst_start = y as usize * wpl;
+
+            shift_or_row(
+                &mut dst_data[dst_start..dst_start + wpl],
+                &src_data[src_start..src_start + wpl],
+                -dx,
+            );
         }
     }
+
+    // Clear unused bits in the last word of each row to prevent
+    // contamination in subsequent operations (e.g., erosion after dilation
+    // in closing). Word-level shifts can set bits beyond the image width.
+    clear_unused_bits(dst_data, w, wpl);
 
     Ok(out_mut.into())
 }
 
-/// Erode a binary image
+/// Erode a binary image using rasterop (word-level shift-and-AND)
 ///
-/// Erosion shrinks foreground regions. For each pixel, if ALL hit positions
-/// in the SEL correspond to foreground pixels, the output is foreground.
+/// Erosion shrinks foreground regions. For each hit position in the SEL,
+/// the source image is shifted by the inverted offset and AND-accumulated
+/// into the output. All operations are performed at 32-bit word granularity.
+///
+/// Algorithm (C version: morph.c:265-309):
+///   1. Set all output bits to 1
+///   2. For each hit (dx, dy): dest[y] &= shift(src[y + dy], -dx)
+///   3. Outside boundaries: AND with 0 = clear (asymmetric BC)
 pub fn erode(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
     check_binary(pix)?;
 
-    let w = pix.width();
     let h = pix.height();
+    let wpl = pix.wpl() as usize;
 
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
+    let out_pix = Pix::new(pix.width(), h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    let src_data = pix.data();
+    let dst_data = out_mut.data_mut();
+
+    // Initialize output to all 1s (for AND accumulation)
+    for word in dst_data.iter_mut() {
+        *word = 0xFFFF_FFFF;
+    }
 
     let hit_offsets: Vec<_> = sel.hit_offsets().collect();
 
-    for y in 0..h {
-        for x in 0..w {
-            // Check if all hit positions have foreground pixels
-            let eroded = hit_offsets.iter().all(|&(dx, dy)| {
-                let sx = x as i32 + dx;
-                let sy = y as i32 + dy;
-                if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
-                } else {
-                    false // Pixels outside are treated as background
-                }
-            });
+    for &(dx, dy) in &hit_offsets {
+        for y in 0..h as i32 {
+            // Erosion uses inverted offsets: src[y + dy] shifted by -dx
+            let src_y = y + dy;
+            let dst_start = y as usize * wpl;
 
-            if eroded {
-                out_mut.set_pixel_unchecked(x, y, 1);
+            if src_y < 0 || src_y >= h as i32 {
+                // Outside = background (0), AND with 0 clears the row
+                for w in 0..wpl {
+                    dst_data[dst_start + w] = 0;
+                }
+                continue;
             }
+
+            let src_start = src_y as usize * wpl;
+
+            shift_and_row(
+                &mut dst_data[dst_start..dst_start + wpl],
+                &src_data[src_start..src_start + wpl],
+                -dx,
+            );
         }
     }
+
+    // Clear unused bits in the last word of each row.
+    // The initial all-1s fill sets unused bits, and AND operations
+    // may not clear them if source data also has unused bits set.
+    clear_unused_bits(dst_data, pix.width(), wpl);
 
     Ok(out_mut.into())
 }
@@ -301,6 +338,149 @@ pub fn close_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
     // Erode: horizontal then vertical
     let step3 = erode(&step2, &sel_h)?;
     erode(&step3, &sel_v)
+}
+
+/// Shift src row by `shift` pixels and OR into dst (word-level).
+///
+/// MSB-first bit ordering: pixel 0 = bit 31, pixel 31 = bit 0.
+/// Positive shift = image content moves right (src >> shift in bit terms).
+/// Negative shift = image content moves left (src << |shift| in bit terms).
+fn shift_or_row(dst: &mut [u32], src: &[u32], shift: i32) {
+    let wpl = dst.len();
+
+    if shift == 0 {
+        for i in 0..wpl {
+            dst[i] |= src[i];
+        }
+        return;
+    }
+
+    let abs_shift = shift.unsigned_abs() as usize;
+    let word_shift = abs_shift / 32;
+    let bit_shift = (abs_shift % 32) as u32;
+
+    if shift > 0 {
+        // Shift right: dest pixel X gets src pixel (X - shift)
+        // In MSB-first words: src[i] >> bit_shift, carry from src[i-1]
+        for i in 0..wpl {
+            let si = i as isize - word_shift as isize;
+            let mut val = 0u32;
+            if bit_shift == 0 {
+                if si >= 0 && (si as usize) < wpl {
+                    val = src[si as usize];
+                }
+            } else {
+                if si >= 0 && (si as usize) < wpl {
+                    val = src[si as usize] >> bit_shift;
+                }
+                let prev = si - 1;
+                if prev >= 0 && (prev as usize) < wpl {
+                    val |= src[prev as usize] << (32 - bit_shift);
+                }
+            }
+            dst[i] |= val;
+        }
+    } else {
+        // Shift left: dest pixel X gets src pixel (X + |shift|)
+        // In MSB-first words: src[i] << bit_shift, carry from src[i+1]
+        for i in 0..wpl {
+            let si = i + word_shift;
+            let mut val = 0u32;
+            if bit_shift == 0 {
+                if si < wpl {
+                    val = src[si];
+                }
+            } else {
+                if si < wpl {
+                    val = src[si] << bit_shift;
+                }
+                let next = si + 1;
+                if next < wpl {
+                    val |= src[next] >> (32 - bit_shift);
+                }
+            }
+            dst[i] |= val;
+        }
+    }
+}
+
+/// Shift src row by `shift` pixels and AND into dst (word-level).
+///
+/// Same shift semantics as `shift_or_row`, but uses AND accumulation.
+/// Out-of-bounds positions are 0, so AND with them clears dst bits.
+fn shift_and_row(dst: &mut [u32], src: &[u32], shift: i32) {
+    let wpl = dst.len();
+
+    if shift == 0 {
+        for i in 0..wpl {
+            dst[i] &= src[i];
+        }
+        return;
+    }
+
+    let abs_shift = shift.unsigned_abs() as usize;
+    let word_shift = abs_shift / 32;
+    let bit_shift = (abs_shift % 32) as u32;
+
+    if shift > 0 {
+        for i in 0..wpl {
+            let si = i as isize - word_shift as isize;
+            let mut val = 0u32;
+            if bit_shift == 0 {
+                if si >= 0 && (si as usize) < wpl {
+                    val = src[si as usize];
+                }
+            } else {
+                if si >= 0 && (si as usize) < wpl {
+                    val = src[si as usize] >> bit_shift;
+                }
+                let prev = si - 1;
+                if prev >= 0 && (prev as usize) < wpl {
+                    val |= src[prev as usize] << (32 - bit_shift);
+                }
+            }
+            dst[i] &= val;
+        }
+    } else {
+        for i in 0..wpl {
+            let si = i + word_shift;
+            let mut val = 0u32;
+            if bit_shift == 0 {
+                if si < wpl {
+                    val = src[si];
+                }
+            } else {
+                if si < wpl {
+                    val = src[si] << bit_shift;
+                }
+                let next = si + 1;
+                if next < wpl {
+                    val |= src[next] >> (32 - bit_shift);
+                }
+            }
+            dst[i] &= val;
+        }
+    }
+}
+
+/// Clear unused bits in the last word of each row.
+///
+/// When image width is not a multiple of 32, the last word of each row
+/// has unused bit positions (lower bits in MSB-first ordering). Word-level
+/// shift operations can set these bits, which would contaminate subsequent
+/// operations (e.g., erosion reading garbage bits from a dilated result).
+fn clear_unused_bits(data: &mut [u32], width: u32, wpl: usize) {
+    let extra = width % 32;
+    if extra == 0 {
+        return;
+    }
+    // MSB-first: valid bits are the top `extra` bits; mask off the rest
+    let mask = !0u32 << (32 - extra);
+    let h = data.len() / wpl;
+    for y in 0..h {
+        let idx = y * wpl + wpl - 1;
+        data[idx] &= mask;
+    }
 }
 
 /// Check that the image is binary (1-bpp)
@@ -627,7 +807,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "rasterop not yet implemented"]
     fn test_dilate_rasterop_brick_equivalence() {
         let pix = create_rasterop_test_image();
         // C version: binmorph1_reg.c uses WIDTH=21, HEIGHT=15
@@ -645,7 +824,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "rasterop not yet implemented"]
     fn test_erode_rasterop_brick_equivalence() {
         let pix = create_rasterop_test_image();
         for &(w, h) in &[(3u32, 3u32), (5, 7), (21, 15), (1, 5), (5, 1)] {
@@ -662,7 +840,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "rasterop not yet implemented"]
     fn test_dilate_rasterop_cross_equivalence() {
         let pix = create_rasterop_test_image();
         for size in [3, 5] {
@@ -678,7 +855,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "rasterop not yet implemented"]
     fn test_erode_rasterop_cross_equivalence() {
         let pix = create_rasterop_test_image();
         for size in [3, 5] {
@@ -694,7 +870,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "rasterop not yet implemented"]
     fn test_dilate_rasterop_diamond_equivalence() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_diamond(2).unwrap();
@@ -707,7 +882,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "rasterop not yet implemented"]
     fn test_erode_rasterop_diamond_equivalence() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_diamond(2).unwrap();
