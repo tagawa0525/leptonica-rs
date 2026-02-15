@@ -575,6 +575,7 @@ pub fn modify_saturation(pix: &Pix, fract: f32) -> FilterResult<Pix> {
             } else {
                 hsv.s = (hsv.s as f32 + fract * (255.0 - hsv.s as f32)) as i32;
             }
+            hsv.s = hsv.s.clamp(0, 255);
             let (nr, ng, nb) = color::hsv_to_rgb(hsv);
             pm.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
         }
