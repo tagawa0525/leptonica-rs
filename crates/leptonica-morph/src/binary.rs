@@ -898,4 +898,136 @@ mod tests {
             "erode rasterop != reference for diamond 2"
         );
     }
+
+    // --- Composite decomposition equivalence tests ---
+    //
+    // Verify that brick(f1) then comb(f1, f2) == brick(f1*f2)
+    // for both dilation and erosion.
+
+    /// Composite sizes to test: (f1, f2) pairs where f1*f2 = size
+    const COMPOSITE_SIZES: &[(u32, u32)] = &[
+        (2, 2),   // size 4
+        (3, 3),   // size 9
+        (3, 4),   // size 12
+        (10, 12), // size 120
+    ];
+
+    #[test]
+    #[ignore = "composite decomposition not yet implemented"]
+    fn test_dilate_composite_horizontal_equivalence() {
+        let pix = create_rasterop_test_image();
+        for &(f1, f2) in COMPOSITE_SIZES {
+            let size = f1 * f2;
+            // Composite: brick(f1) then comb(f1, f2)
+            let sel_brick = Sel::create_horizontal(f1).unwrap();
+            let sel_comb = Sel::create_comb_horizontal(f1, f2).unwrap();
+            let tmp = dilate(&pix, &sel_brick).unwrap();
+            let composite_result = dilate(&tmp, &sel_comb).unwrap();
+            // Direct: brick(size)
+            let sel_full = Sel::create_horizontal(size).unwrap();
+            let direct_result = dilate(&pix, &sel_full).unwrap();
+            assert!(
+                composite_result.equals(&direct_result),
+                "dilate composite h ({}x{}) != direct h ({})",
+                f1,
+                f2,
+                size,
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "composite decomposition not yet implemented"]
+    fn test_dilate_composite_vertical_equivalence() {
+        let pix = create_rasterop_test_image();
+        for &(f1, f2) in COMPOSITE_SIZES {
+            let size = f1 * f2;
+            let sel_brick = Sel::create_vertical(f1).unwrap();
+            let sel_comb = Sel::create_comb_vertical(f1, f2).unwrap();
+            let tmp = dilate(&pix, &sel_brick).unwrap();
+            let composite_result = dilate(&tmp, &sel_comb).unwrap();
+            let sel_full = Sel::create_vertical(size).unwrap();
+            let direct_result = dilate(&pix, &sel_full).unwrap();
+            assert!(
+                composite_result.equals(&direct_result),
+                "dilate composite v ({}x{}) != direct v ({})",
+                f1,
+                f2,
+                size,
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "composite decomposition not yet implemented"]
+    fn test_erode_composite_horizontal_equivalence() {
+        let pix = create_rasterop_test_image();
+        for &(f1, f2) in COMPOSITE_SIZES {
+            let size = f1 * f2;
+            let sel_brick = Sel::create_horizontal(f1).unwrap();
+            let sel_comb = Sel::create_comb_horizontal(f1, f2).unwrap();
+            let tmp = erode(&pix, &sel_brick).unwrap();
+            let composite_result = erode(&tmp, &sel_comb).unwrap();
+            let sel_full = Sel::create_horizontal(size).unwrap();
+            let direct_result = erode(&pix, &sel_full).unwrap();
+            assert!(
+                composite_result.equals(&direct_result),
+                "erode composite h ({}x{}) != direct h ({})",
+                f1,
+                f2,
+                size,
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "composite decomposition not yet implemented"]
+    fn test_erode_composite_vertical_equivalence() {
+        let pix = create_rasterop_test_image();
+        for &(f1, f2) in COMPOSITE_SIZES {
+            let size = f1 * f2;
+            let sel_brick = Sel::create_vertical(f1).unwrap();
+            let sel_comb = Sel::create_comb_vertical(f1, f2).unwrap();
+            let tmp = erode(&pix, &sel_brick).unwrap();
+            let composite_result = erode(&tmp, &sel_comb).unwrap();
+            let sel_full = Sel::create_vertical(size).unwrap();
+            let direct_result = erode(&pix, &sel_full).unwrap();
+            assert!(
+                composite_result.equals(&direct_result),
+                "erode composite v ({}x{}) != direct v ({})",
+                f1,
+                f2,
+                size,
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "composite decomposition not yet implemented"]
+    fn test_dilate_brick_composite_equivalence() {
+        let pix = create_rasterop_test_image();
+        // dilate_brick should use composite internally and match direct result
+        for &(f1, f2) in COMPOSITE_SIZES {
+            let size = f1 * f2;
+            let brick_result = dilate_brick(&pix, size, 1).unwrap();
+            let sel = Sel::create_horizontal(size).unwrap();
+            let direct_result = dilate(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "dilate_brick({}, 1) != direct dilate",
+                size,
+            );
+        }
+        // Prime sizes should still work (no composite decomposition)
+        for &size in &[7u32, 13] {
+            let brick_result = dilate_brick(&pix, size, 1).unwrap();
+            let sel = Sel::create_horizontal(size).unwrap();
+            let direct_result = dilate(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "dilate_brick({}, 1) != direct dilate (prime)",
+                size,
+            );
+        }
+    }
 }

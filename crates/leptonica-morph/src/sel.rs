@@ -96,6 +96,24 @@ impl Sel {
         Self::create_brick(1, length)
     }
 
+    /// Create a horizontal comb structuring element
+    ///
+    /// A comb SEL has `factor2` hits spaced `factor1` apart in a row
+    /// of width `factor1 * factor2`. Used for composite decomposition:
+    /// `dilate(brick(f1)) then dilate(comb(f1, f2))` == `dilate(brick(f1*f2))`.
+    ///
+    /// C version: `sel1.c:452-487` `selCreateComb`
+    pub fn create_comb_horizontal(_factor1: u32, _factor2: u32) -> MorphResult<Self> {
+        todo!("create_comb_horizontal not yet implemented")
+    }
+
+    /// Create a vertical comb structuring element
+    ///
+    /// Same as horizontal comb but oriented vertically.
+    pub fn create_comb_vertical(_factor1: u32, _factor2: u32) -> MorphResult<Self> {
+        todo!("create_comb_vertical not yet implemented")
+    }
+
     /// Create a cross (+) structuring element
     pub fn create_cross(size: u32) -> MorphResult<Self> {
         if size == 0 {
@@ -575,5 +593,53 @@ mod tests {
                 assert_eq!(rotated.get_element(x, y), sel.get_element(x, y));
             }
         }
+    }
+
+    #[test]
+    #[ignore = "create_comb not yet implemented"]
+    fn test_create_comb_horizontal_3x3() {
+        // comb(f1=3, f2=3): size=9, hits at columns 1, 4, 7
+        let sel = Sel::create_comb_horizontal(3, 3).unwrap();
+        assert_eq!(sel.width(), 9);
+        assert_eq!(sel.height(), 1);
+        assert_eq!(sel.origin_x(), 4); // 9 / 2
+        assert_eq!(sel.origin_y(), 0);
+        assert_eq!(sel.hit_count(), 3);
+        // Verify hit positions: f1/2 + i*f1 for i in 0..f2
+        assert_eq!(sel.get_element(1, 0), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(4, 0), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(7, 0), Some(SelElement::Hit));
+        // Non-hit positions should be DontCare
+        assert_eq!(sel.get_element(0, 0), Some(SelElement::DontCare));
+        assert_eq!(sel.get_element(2, 0), Some(SelElement::DontCare));
+        assert_eq!(sel.get_element(3, 0), Some(SelElement::DontCare));
+    }
+
+    #[test]
+    #[ignore = "create_comb not yet implemented"]
+    fn test_create_comb_horizontal_2x2() {
+        // comb(f1=2, f2=2): size=4, hits at columns 1, 3
+        let sel = Sel::create_comb_horizontal(2, 2).unwrap();
+        assert_eq!(sel.width(), 4);
+        assert_eq!(sel.height(), 1);
+        assert_eq!(sel.hit_count(), 2);
+        assert_eq!(sel.get_element(1, 0), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(3, 0), Some(SelElement::Hit));
+    }
+
+    #[test]
+    #[ignore = "create_comb not yet implemented"]
+    fn test_create_comb_vertical_3x4() {
+        // comb(f1=3, f2=4): size=12, hits at rows 1, 4, 7, 10
+        let sel = Sel::create_comb_vertical(3, 4).unwrap();
+        assert_eq!(sel.width(), 1);
+        assert_eq!(sel.height(), 12);
+        assert_eq!(sel.origin_x(), 0);
+        assert_eq!(sel.origin_y(), 6); // 12 / 2
+        assert_eq!(sel.hit_count(), 4);
+        assert_eq!(sel.get_element(0, 1), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(0, 4), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(0, 7), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(0, 10), Some(SelElement::Hit));
     }
 }
