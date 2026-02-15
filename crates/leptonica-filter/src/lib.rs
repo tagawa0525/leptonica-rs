@@ -31,7 +31,10 @@ pub use adaptmap::{
 };
 pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
 pub use block_conv::{blockconv, blockconv_accum, blockconv_gray, blockconv_gray_unnormalized};
-pub use convolve::{box_blur, convolve, convolve_color, convolve_gray, gaussian_blur};
+pub use convolve::{
+    add_gaussian_noise, blockrank, blocksum, box_blur, census_transform, convolve, convolve_color,
+    convolve_gray, gaussian_blur,
+};
 pub use edge::{
     EdgeOrientation, emboss, laplacian_edge, sharpen, sobel_edge, unsharp_mask,
     unsharp_masking_fast, unsharp_masking_gray_fast,
