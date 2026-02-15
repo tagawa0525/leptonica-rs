@@ -122,7 +122,7 @@ pub mod color {
 
     /// HSV color values.
     ///
-    /// Ranges: h [0..239], s [0..255], v [0..255].
+    /// Ranges: h [0..239] (h=240 wraps to 0), s [0..255], v [0..255].
     /// Hue wraps: h=0 and h=240 are equivalent.
     ///
     /// Hue correspondence (same as C Leptonica `convertRGBToHSV()`):
