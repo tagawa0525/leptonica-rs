@@ -12,6 +12,18 @@
 //!   - `numaMakeHistogramClipped()` - histogram with clipped range
 
 use super::Numa;
+use crate::error::{Error, Result};
+
+/// Sort order for Numa sorting operations.
+///
+/// C equivalent: `L_SORT_INCREASING` / `L_SORT_DECREASING`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortOrder {
+    /// Sort in ascending order (smallest first).
+    Increasing,
+    /// Sort in descending order (largest first).
+    Decreasing,
+}
 
 /// Windowed statistics result.
 ///
@@ -641,6 +653,161 @@ impl Numa {
 
         Some((min_val, max_val, mean_val, variance, median, rank_val))
     }
+
+    // ====================================================================
+    // Constant array construction
+    // ====================================================================
+
+    /// Create a Numa filled with a constant value.
+    ///
+    /// C equivalent: `numaMakeConstant(val, size)`
+    pub fn make_constant(val: f32, count: usize) -> Numa {
+        Self::make_sequence(val, 0.0, count)
+    }
+
+    // ====================================================================
+    // Reverse
+    // ====================================================================
+
+    /// Return a new Numa with elements in reversed order.
+    ///
+    /// Metadata is also reversed: `startx = startx + (n-1) * delx`, `delx = -delx`.
+    ///
+    /// C equivalent: `numaReverse(NULL, nas)`
+    pub fn reversed(&self) -> Numa {
+        let n = self.len();
+        let mut result = Numa::with_capacity(n);
+        for i in (0..n).rev() {
+            result.push(self[i]);
+        }
+        let (startx, delx) = self.parameters();
+        // Always copy parameters first, then apply reversal formula if non-empty
+        if n > 0 {
+            result.set_parameters(startx + (n - 1) as f32 * delx, -delx);
+        } else {
+            result.set_parameters(startx, delx);
+        }
+        result
+    }
+
+    /// Reverse the elements in place.
+    ///
+    /// Metadata is also reversed: `startx = startx + (n-1) * delx`, `delx = -delx`.
+    ///
+    /// C equivalent: `numaReverse(nas, nas)`
+    pub fn reverse(&mut self) {
+        let n = self.len();
+        let slice = self.as_slice_mut();
+        slice.reverse();
+        let (startx, delx) = self.parameters();
+        if n > 0 {
+            self.set_parameters(startx + (n - 1) as f32 * delx, -delx);
+        }
+    }
+
+    // ====================================================================
+    // Sort
+    // ====================================================================
+
+    /// Return a new Numa with elements sorted.
+    ///
+    /// Uses `f32::total_cmp` for NaN-safe ordering.
+    ///
+    /// C equivalent: `numaSort(NULL, nain, sortorder)`
+    pub fn sorted(&self, order: SortOrder) -> Numa {
+        let mut result = self.clone();
+        result.sort(order);
+        result
+    }
+
+    /// Sort the elements in place.
+    ///
+    /// Uses `f32::total_cmp` for NaN-safe ordering.
+    ///
+    /// C equivalent: `numaSort(naout, naout, sortorder)`
+    pub fn sort(&mut self, order: SortOrder) {
+        let slice = self.as_slice_mut();
+        match order {
+            SortOrder::Increasing => slice.sort_by(f32::total_cmp),
+            SortOrder::Decreasing => slice.sort_by(|a, b| f32::total_cmp(b, a)),
+        }
+    }
+
+    // ====================================================================
+    // Rank value / Median / Mode
+    // ====================================================================
+
+    /// Get the value at a given rank (fractional position) in the sorted array.
+    ///
+    /// `fract` ranges from 0.0 (minimum) to 1.0 (maximum).
+    /// The index is computed as `(fract * (n-1) + 0.5) as usize`.
+    ///
+    /// C equivalent: `numaGetRankValue(na, fract, NULL, 0, &pval)`
+    pub fn rank_value(&self, fract: f32) -> Result<f32> {
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        if !(0.0..=1.0).contains(&fract) {
+            return Err(Error::InvalidParameter(format!(
+                "fract {fract} not in [0.0, 1.0]"
+            )));
+        }
+        let sorted = self.sorted(SortOrder::Increasing);
+        let index = (fract * (n - 1) as f32 + 0.5) as usize;
+        let index = index.min(n - 1);
+        Ok(sorted[index])
+    }
+
+    /// Get the median value.
+    ///
+    /// Equivalent to `self.rank_value(0.5)`.
+    ///
+    /// C equivalent: `numaGetMedian(na, &pval)`
+    pub fn median(&self) -> Result<f32> {
+        self.rank_value(0.5)
+    }
+
+    /// Get the mode (most frequent value) and its count.
+    ///
+    /// Sorts the array in decreasing order and scans for the longest
+    /// run of equal values.
+    ///
+    /// C equivalent: `numaGetMode(na, &pval, &pcount)`
+    pub fn mode(&self) -> Result<(f32, usize)> {
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        let sorted = self.sorted(SortOrder::Decreasing);
+        let array = sorted.as_slice();
+
+        let mut prev_val = array[0];
+        let mut prev_count: usize = 1;
+        let mut max_val = prev_val;
+        let mut max_count: usize = 1;
+
+        for &val in &array[1..] {
+            if val == prev_val || (val.is_nan() && prev_val.is_nan()) {
+                // Same run: identical values, including NaN treated as equal.
+                prev_count += 1;
+            } else {
+                // New run: update max if the previous run was longer.
+                if prev_count > max_count {
+                    max_count = prev_count;
+                    max_val = prev_val;
+                }
+                prev_val = val;
+                prev_count = 1;
+            }
+        }
+        if prev_count > max_count {
+            max_count = prev_count;
+            max_val = prev_val;
+        }
+
+        Ok((max_val, max_count))
+    }
 }
 
 #[cfg(test)]
@@ -852,5 +1019,244 @@ mod tests {
         assert!((min - 1.0).abs() < 0.5);
         assert!((max - 5.0).abs() < 0.5);
         assert!((mean - 3.0).abs() < 0.5);
+    }
+
+    // ================================================================
+    // Tests for make_constant
+    // ================================================================
+
+    #[test]
+    fn test_make_constant_basic() {
+        let na = Numa::make_constant(42.0, 5);
+        assert_eq!(na.len(), 5);
+        for i in 0..5 {
+            assert_eq!(na.get(i), Some(42.0));
+        }
+    }
+
+    #[test]
+    fn test_make_constant_zero_count() {
+        let na = Numa::make_constant(1.0, 0);
+        assert!(na.is_empty());
+    }
+
+    #[test]
+    fn test_make_constant_negative_val() {
+        let na = Numa::make_constant(-3.5, 3);
+        assert_eq!(na.as_slice(), &[-3.5, -3.5, -3.5]);
+    }
+
+    // ================================================================
+    // Tests for reverse / reversed
+    // ================================================================
+
+    #[test]
+    fn test_reversed_basic() {
+        let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let rev = na.reversed();
+        assert_eq!(rev.as_slice(), &[5.0, 4.0, 3.0, 2.0, 1.0]);
+    }
+
+    #[test]
+    fn test_reversed_metadata() {
+        // C behavior: startx = startx + (n-1) * delx, delx = -delx
+        let mut na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
+        na.set_parameters(0.0, 2.0);
+        let rev = na.reversed();
+        let (startx, delx) = rev.parameters();
+        // startx = 0.0 + (3-1) * 2.0 = 4.0
+        assert!((startx - 4.0).abs() < 1e-6);
+        // delx = -2.0
+        assert!((delx - (-2.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_reverse_in_place() {
+        let mut na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        na.set_parameters(1.0, 0.5);
+        na.reverse();
+        assert_eq!(na.as_slice(), &[5.0, 4.0, 3.0, 2.0, 1.0]);
+        let (startx, delx) = na.parameters();
+        // startx = 1.0 + (5-1) * 0.5 = 3.0
+        assert!((startx - 3.0).abs() < 1e-6);
+        assert!((delx - (-0.5)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_reversed_single_element() {
+        let na = Numa::from_vec(vec![42.0]);
+        let rev = na.reversed();
+        assert_eq!(rev.as_slice(), &[42.0]);
+    }
+
+    #[test]
+    fn test_reversed_empty() {
+        let na = Numa::new();
+        let rev = na.reversed();
+        assert!(rev.is_empty());
+    }
+
+    #[test]
+    fn test_reversed_empty_preserves_metadata() {
+        // Empty Numa should preserve startx/delx metadata
+        let mut na = Numa::new();
+        na.set_parameters(5.0, 2.5);
+        let rev = na.reversed();
+        assert!(rev.is_empty());
+        let (startx, delx) = rev.parameters();
+        assert_eq!(startx, 5.0);
+        assert_eq!(delx, 2.5);
+    }
+
+    // ================================================================
+    // Tests for sort / sorted
+    // ================================================================
+
+    #[test]
+    fn test_sorted_increasing() {
+        let na = Numa::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0]);
+        let sorted = na.sorted(SortOrder::Increasing);
+        assert_eq!(sorted.as_slice(), &[1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 9.0]);
+    }
+
+    #[test]
+    fn test_sorted_decreasing() {
+        let na = Numa::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0]);
+        let sorted = na.sorted(SortOrder::Decreasing);
+        assert_eq!(sorted.as_slice(), &[9.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn test_sort_in_place() {
+        let mut na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
+        na.sort(SortOrder::Increasing);
+        assert_eq!(na.as_slice(), &[1.0, 2.0, 3.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn test_sorted_empty() {
+        let na = Numa::new();
+        let sorted = na.sorted(SortOrder::Increasing);
+        assert!(sorted.is_empty());
+    }
+
+    #[test]
+    fn test_sorted_single() {
+        let na = Numa::from_vec(vec![42.0]);
+        let sorted = na.sorted(SortOrder::Decreasing);
+        assert_eq!(sorted.as_slice(), &[42.0]);
+    }
+
+    #[test]
+    fn test_sorted_with_nan() {
+        // NaN should be handled safely by f32::total_cmp
+        let na = Numa::from_vec(vec![3.0, f32::NAN, 1.0, 2.0]);
+        let sorted = na.sorted(SortOrder::Increasing);
+        assert_eq!(sorted.len(), 4);
+        // NaN sorts after all other values with total_cmp
+        assert_eq!(sorted.get(0), Some(1.0));
+        assert_eq!(sorted.get(1), Some(2.0));
+        assert_eq!(sorted.get(2), Some(3.0));
+        assert!(sorted.get(3).unwrap().is_nan());
+    }
+
+    // ================================================================
+    // Tests for rank_value, median, mode
+    // ================================================================
+
+    #[test]
+    fn test_rank_value_min() {
+        let na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
+        let val = na.rank_value(0.0).unwrap();
+        assert!((val - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_rank_value_max() {
+        let na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
+        let val = na.rank_value(1.0).unwrap();
+        assert!((val - 5.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_rank_value_mid() {
+        let na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
+        let val = na.rank_value(0.5).unwrap();
+        // sorted: [1,2,3,4,5], index = (0.5 * 4 + 0.5) as usize = 2
+        assert!((val - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_rank_value_empty() {
+        let na = Numa::new();
+        assert!(na.rank_value(0.5).is_err());
+    }
+
+    #[test]
+    fn test_rank_value_out_of_range() {
+        let na = Numa::from_vec(vec![1.0, 2.0]);
+        assert!(na.rank_value(-0.1).is_err());
+        assert!(na.rank_value(1.1).is_err());
+    }
+
+    #[test]
+    fn test_median_odd() {
+        let na = Numa::from_vec(vec![5.0, 1.0, 3.0]);
+        let med = na.median().unwrap();
+        // sorted: [1,3,5], rank 0.5 => index = (0.5 * 2 + 0.5) = 1
+        assert!((med - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_median_even() {
+        let na = Numa::from_vec(vec![4.0, 1.0, 3.0, 2.0]);
+        let med = na.median().unwrap();
+        // sorted: [1,2,3,4], index = (0.5 * 3 + 0.5) as usize = 2
+        assert!((med - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_median_empty() {
+        let na = Numa::new();
+        assert!(na.median().is_err());
+    }
+
+    #[test]
+    fn test_mode_basic() {
+        let na = Numa::from_vec(vec![1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0]);
+        let (val, count) = na.mode().unwrap();
+        assert!((val - 3.0).abs() < 1e-6);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_mode_single() {
+        let na = Numa::from_vec(vec![42.0]);
+        let (val, count) = na.mode().unwrap();
+        assert!((val - 42.0).abs() < 1e-6);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_mode_all_same() {
+        let na = Numa::from_vec(vec![7.0, 7.0, 7.0]);
+        let (val, count) = na.mode().unwrap();
+        assert!((val - 7.0).abs() < 1e-6);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_mode_empty() {
+        let na = Numa::new();
+        assert!(na.mode().is_err());
+    }
+
+    #[test]
+    fn test_mode_with_nan() {
+        // Multiple NaNs should be counted as a single run
+        let na = Numa::from_vec(vec![1.0, f32::NAN, 2.0, f32::NAN, f32::NAN]);
+        let (val, count) = na.mode().unwrap();
+        assert!(val.is_nan());
+        assert_eq!(count, 3);
     }
 }
