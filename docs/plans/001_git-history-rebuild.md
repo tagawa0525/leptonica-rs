@@ -198,7 +198,7 @@ TDD不要（テスト対象のコードを含まないため）。
 1. RED: `test(recog): add recognition regression tests`
 2. GREEN: `feat(recog): implement barcode, dewarp, JB classification, character recognition`
 
-### Phase 12: `docs/project-setup` — Facade・ドキュメント
+### Phase 12: `docs/project-setup` — facade・ドキュメント
 
 TDD不要（ライブラリコードを含まないため）。
 
