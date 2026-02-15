@@ -12,6 +12,7 @@
 
 pub mod adaptmap;
 pub mod bilateral;
+pub mod block_conv;
 pub mod convolve;
 pub mod edge;
 pub mod enhance;
@@ -28,6 +29,7 @@ pub use adaptmap::{
     contrast_norm, contrast_norm_simple,
 };
 pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
+pub use block_conv::{blockconv, blockconv_accum, blockconv_gray, blockconv_gray_unnormalized};
 pub use convolve::{box_blur, convolve, convolve_color, convolve_gray, gaussian_blur};
 pub use edge::{EdgeOrientation, emboss, laplacian_edge, sharpen, sobel_edge, unsharp_mask};
 pub use enhance::{
