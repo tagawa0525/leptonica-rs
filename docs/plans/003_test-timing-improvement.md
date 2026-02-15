@@ -6,9 +6,11 @@ Status: IN_PROGRESS
 
 回帰テスト (`graymorph1_reg`, `colormorph_reg`) が遅く、nextest の slow-timeout に引っかかる。
 原因はグレースケール形態学演算の O(hsize×vsize) なナイーブ実装。
-C版 leptonica は van Herk/Gil-Werman (vHGW) アルゴリズムで O(3)/pixel を実現している。
+C版 leptonica は van Herk/Gil-Werman (vHGW) アルゴリズムで O(1)/pixel（1ピクセルあたり最大3回の比較）を実現している。
 
 ## 対応C版ファイル
+
+※ `reference/leptonica` は git submodule のため、`git submodule update --init` 済みの環境を前提とする。
 
 - `reference/leptonica/src/graymorph.c` — vHGW アルゴリズム、3x3 fast path
 - `reference/leptonica/src/pageseg.c` — 形態学演算を使うページセグメンテーション
