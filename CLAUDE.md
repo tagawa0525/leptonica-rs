@@ -1,18 +1,62 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # leptonica-rs
 
-C版leptonicaのRust移植プロジェクト。Workspace構成で機能別crateに分割。
+C版leptonicaのRust移植プロジェクト。Workspace構成で機能別crateに分割。Rust edition 2024。
 
-## Crate構成
+## ビルド・テスト・リント
+
+```bash
+cargo check --workspace          # コンパイルチェック
+cargo test --workspace           # 全テスト実行
+cargo clippy --workspace         # リント
+cargo fmt --all -- --check       # フォーマットチェック
+
+# 特定crateのテスト
+cargo test --package leptonica-filter
+
+# 特定テスト（名前の部分一致）
+cargo test convolve_reg --package leptonica-filter
+
+# テスト出力を表示
+cargo test convolve_reg --package leptonica-filter -- --nocapture
+
+# nextest
+cargo nextest run --workspace
+```
+
+### 回帰テストモード
+
+`REGTEST_MODE`環境変数で制御（デフォルト: compare）:
+
+```bash
+REGTEST_MODE=generate cargo test convolve_reg --package leptonica-filter  # goldenファイル生成
+REGTEST_MODE=compare  cargo test convolve_reg --package leptonica-filter  # goldenと比較（デフォルト）
+REGTEST_MODE=display  cargo test convolve_reg --package leptonica-filter  # 比較なし実行
+```
+
+## Crate構成と依存関係
+
+```text
+leptonica-recog → leptonica-morph, leptonica-transform, leptonica-region, leptonica-color, leptonica-core
+leptonica-morph, leptonica-transform, leptonica-filter, leptonica-color → leptonica-io, leptonica-core
+leptonica-region → leptonica-core
+leptonica-io → leptonica-core
+```
 
 - **leptonica-core**: Pix, Box, Numa, FPix等の基本データ構造
-- **leptonica-transform**: 幾何変換（回転、アフィン、射影等）
-- **leptonica-filter**: フィルタリング（bilateral, rank等）
-- **leptonica-color**: 色処理（セグメンテーション等）
+- **leptonica-io**: 画像I/O（PNG, JPEG, TIFF, WebP, PDF等。feature flagで各フォーマットを有効化）
 - **leptonica-morph**: 形態学演算（binary, grayscale, DWA等）
+- **leptonica-transform**: 幾何変換（回転、アフィン、射影等）
+- **leptonica-filter**: フィルタリング（bilateral, rank, convolve, edge等）
+- **leptonica-color**: 色処理（セグメンテーション、量子化、閾値処理等）
 - **leptonica-region**: 領域解析（ccbord, quadtree, maze等）
 - **leptonica-recog**: 文字認識・バーコード・デワープ
-- **leptonica-io**: 画像I/O（PNG, JPEG, TIFF, WebP, PDF等）
-- **leptonica**: ファサードcrate
+- **leptonica-test**: 回帰テストインフラ（RegParams, Generate/Compare/Displayモード）
+- **leptonica-doc**: ドキュメント用crate
+- **leptonica**: ファサードcrate（全crateをre-export）
 
 ## Git規約
 
@@ -21,6 +65,7 @@ C版leptonicaのRust移植プロジェクト。Workspace構成で機能別crate�
 - マージ後のブランチは速やかに削除する
 - マージコミットには変更の要約・理由・影響範囲を記載する（Linus Torvalds方式）
 - 1コミットには1つの論理的変更のみ含める。無関係な変更を混在させない
+- 計画書 (`docs/plans/`) を実装着手前にコミットすること。計画書未コミットで実装PRを作成しない
 - ブランチ命名: `feat/<crate>-<機能>`, `test/<スコープ>`, `refactor/<スコープ>`, `docs/<スコープ>`
 - コミットメッセージ: Conventional Commits形式、scopeにはcrate名を使用
 
@@ -35,9 +80,10 @@ C版leptonicaのRust移植プロジェクト。Workspace構成で機能別crate�
 ## テスト
 
 - 回帰テストはC版の `reference/leptonica/prog/*_reg.c` に対応する形で作成
-- テストデータは `tests/data/images/` に配置
-- `tests/regout/` は `.gitignore` 対象（テスト出力）
-- テストインフラはleptonica-test crateに集約（3モード: Generate/Compare/Display）
+- テストデータ: `tests/data/images/`
+- テスト出力: `tests/regout/`（`.gitignore`対象）
+- goldenファイル: `tests/golden/`（コミット対象、`REGTEST_MODE=generate`で生成）
+- テストインフラはleptonica-test crateに集約。`RegParams`を使い、`compare_values()`, `compare_pix()`, `write_pix_and_check()`等でgoldenファイルと比較
 
 ## 計画書
 
@@ -57,8 +103,11 @@ pub struct Pix { inner: Arc<PixData> }      // 不変・安価なclone
 pub struct PixMut { inner: PixData }         // 可変・直接所有
 ```
 
-- `try_into_mut()` でrefcount=1なら zero-copy変換、それ以外はコピー
+- `try_into_mut()` でrefcount=1ならzero-copy変換、それ以外はコピー。`to_mut()`は常にコピー
+- `pixmut.into()` で `Pix` に戻す
 - `RefCell`や`Mutex`を使わない
+- ピクセルフォーマット: 32bit `0xRRGGBBAA`（RED_SHIFT=24, GREEN_SHIFT=16, BLUE_SHIFT=8, ALPHA_SHIFT=0）
+- implブロックは機能別に複数ファイルに分散（`crates/leptonica-core/src/pix/`配下: access.rs, arith.rs, convert.rs, rop.rs等）
 
 ### エラー処理
 
@@ -73,7 +122,7 @@ pub struct PixMut { inner: PixData }         // 可変・直接所有
 
 ### モジュール分割
 
-- 1ファイル100-200行を目安
+- 1関数100-200行を目安
 - implブロックを複数ファイルに分散し各ファイルの責務を明確にする
 
 ### unsafe
@@ -81,11 +130,20 @@ pub struct PixMut { inner: PixData }         // 可変・直接所有
 - unsafeの使用は原則禁止
 - やむを得ない場合はコミットメッセージに理由を明記し、最小限に留める
 
+## PRマージ前チェックリスト
+
+1. CI (GitHub Actions) が全て成功していること
+2. Copilotレビューが到着していること (`/gh-actions-check` で確認)
+3. Copilotの指摘事項を全て確認し、対応コミットを積んでいること
+4. 上記対応後、再度CIが通っていること
+
 ## 禁止事項
 
 - 作業効率を理由にプロセス手順（TDD、PRワークフロー、レビュー確認）を省略しない
 - 「リファレンスがあるから簡単」「変更が少ないから」で手順を飛ばさない
 - 省略したくなったらユーザーに相談する
+- Copilotレビュー到着前にPRをマージしない（到着まで待つ。来ない場合は `/gh-actions-check` で原因調査）
+- レビュー指摘を未対応のままマージしない
 - mainに直接コミットしない（最重要）
 
 ## 引き継ぎ資料
@@ -98,5 +156,7 @@ pub struct PixMut { inner: PixData }         // 可変・直接所有
 - `test-comparison.md`: C版160回帰テスト vs Rust版のテストカバレッジ
 
 各機能の詳細計画書は含めていない。
-C版ソース（`reference/leptonica/`）を直接参照し、
+C版ソース（`reference/leptonica/`、git submodule）を直接参照し、
 自分で`docs/plans/`に計画書を作成すること。
+
+サブモジュール初期化: `git submodule update --init`
