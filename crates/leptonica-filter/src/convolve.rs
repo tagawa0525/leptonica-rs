@@ -3,7 +3,7 @@
 //! Implements image convolution with arbitrary kernels.
 
 use crate::{FilterError, FilterResult, Kernel};
-use leptonica_core::{Pix, PixelDepth, color};
+use leptonica_core::{Pix, PixelDepth, color, pix::RgbComponent};
 
 /// Convolve an 8-bit grayscale image with a kernel
 ///
@@ -139,6 +139,78 @@ pub fn gaussian_blur_auto(pix: &Pix, radius: u32) -> FilterResult<Pix> {
     gaussian_blur(pix, radius, sigma)
 }
 
+/// Separable convolution (sequential application of two kernels)
+///
+/// Applies two convolution passes sequentially: first with `kernel_x`, then
+/// with `kernel_y` on the intermediate result. For true separable convolution,
+/// `kernel_x` should be a horizontal 1D kernel (height=1) and `kernel_y` should
+/// be a vertical 1D kernel (width=1). However, arbitrary 2D kernels are accepted
+/// and will be applied sequentially (this matches C Leptonica behavior).
+///
+/// # Supported depths
+///
+/// - 8 bpp grayscale
+/// - 32 bpp color
+///
+/// # See also
+///
+/// C Leptonica: `pixConvolveSep()` in `convolve.c`
+pub fn convolve_sep(pix: &Pix, kernel_x: &Kernel, kernel_y: &Kernel) -> FilterResult<Pix> {
+    // Validate input depth
+    match pix.depth() {
+        PixelDepth::Bit8 | PixelDepth::Bit32 => {}
+        _ => {
+            return Err(FilterError::UnsupportedDepth {
+                expected: "8 or 32 bpp",
+                actual: pix.depth().bits(),
+            });
+        }
+    }
+
+    // Apply horizontal convolution first
+    let temp = convolve(pix, kernel_x)?;
+
+    // Apply vertical convolution to the intermediate result
+    let result = convolve(&temp, kernel_y)?;
+
+    Ok(result)
+}
+
+/// Separable convolution for RGB images
+///
+/// Applies separable convolution to each color channel independently.
+/// Only R, G, B channels are processed; alpha is not preserved.
+/// The output always has `spp=3`. If you need alpha handling,
+/// process channels individually with [`convolve_sep`].
+///
+/// # Algorithm
+///
+/// 1. Extract R, G, B channels into separate 8-bit images
+/// 2. Apply separable convolution to each channel
+/// 3. Recombine channels into 32-bit RGB image (spp=3)
+///
+/// # See also
+///
+/// C Leptonica: `pixConvolveRGBSep()` in `convolve.c`
+pub fn convolve_rgb_sep(pix: &Pix, kernel_x: &Kernel, kernel_y: &Kernel) -> FilterResult<Pix> {
+    check_color(pix)?;
+
+    // Extract RGB channels using core API
+    let pix_r = pix.get_rgb_component(RgbComponent::Red)?;
+    let pix_g = pix.get_rgb_component(RgbComponent::Green)?;
+    let pix_b = pix.get_rgb_component(RgbComponent::Blue)?;
+
+    // Apply separable convolution to each channel
+    let result_r = convolve_sep(&pix_r, kernel_x, kernel_y)?;
+    let result_g = convolve_sep(&pix_g, kernel_x, kernel_y)?;
+    let result_b = convolve_sep(&pix_b, kernel_x, kernel_y)?;
+
+    // Recombine channels using core API
+    let result = Pix::create_rgb_image(&result_r, &result_g, &result_b)?;
+
+    Ok(result)
+}
+
 fn check_grayscale(pix: &Pix) -> FilterResult<()> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
@@ -252,5 +324,169 @@ mod tests {
 
         assert_eq!(result_gray.depth(), PixelDepth::Bit8);
         assert_eq!(result_color.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    fn test_convolve_sep_identity() {
+        // Separable 1D identity kernels should produce same output as input
+        let pix = create_test_gray_image();
+        let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
+
+        let result = convolve_sep(&pix, &kernel_1d, &kernel_1d).unwrap();
+
+        for y in 0..5 {
+            for x in 0..5 {
+                let orig = pix.get_pixel_unchecked(x, y);
+                let conv = result.get_pixel_unchecked(x, y);
+                assert_eq!(orig, conv);
+            }
+        }
+    }
+
+    #[test]
+    fn test_convolve_sep_horizontal_vertical() {
+        // Separable convolution should decompose correctly
+        let pix = create_test_gray_image();
+
+        // Horizontal 3x1 box kernel
+        let kernel_h = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        // Vertical 1x3 box kernel
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+
+        let result_sep = convolve_sep(&pix, &kernel_h, &kernel_v).unwrap();
+
+        // Should be equivalent to full 3x3 box blur
+        let kernel_full = Kernel::box_kernel(3).unwrap();
+        let result_full = convolve(&pix, &kernel_full).unwrap();
+
+        // Results should be very close (allowing for small rounding differences)
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                let sep_val = result_sep.get_pixel_unchecked(x, y);
+                let full_val = result_full.get_pixel_unchecked(x, y);
+                let diff = (sep_val as i32 - full_val as i32).abs();
+                assert!(
+                    diff <= 1,
+                    "Difference too large at ({}, {}): {} vs {}",
+                    x,
+                    y,
+                    sep_val,
+                    full_val
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_convolve_sep_sobel_x() {
+        // Sobel-X can be decomposed into separable kernels
+        let pix = create_test_gray_image();
+
+        // Sobel-X = [-1, 0, 1] (horizontal) * [1, 2, 1] (vertical)
+        let kernel_h = Kernel::from_slice(3, 1, &[-1.0, 0.0, 1.0]).unwrap();
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0, 2.0, 1.0]).unwrap();
+
+        let result = convolve_sep(&pix, &kernel_h, &kernel_v).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_convolve_sep_color() {
+        // Test convolve_sep directly on 32 bpp color image
+        let pix = create_test_color_image();
+
+        // 3x1 horizontal and 1x3 vertical box kernels
+        let kernel_h = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+
+        let result = convolve_sep(&pix, &kernel_h, &kernel_v).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+
+        // Verify it matches the full 2D color convolution
+        let kernel_full = Kernel::box_kernel(3).unwrap();
+        let result_full = convolve_color(&pix, &kernel_full).unwrap();
+
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                let sep_px = result.get_pixel_unchecked(x, y);
+                let full_px = result_full.get_pixel_unchecked(x, y);
+                let (sr, sg, sb, sa) = color::extract_rgba(sep_px);
+                let (fr, fg, fb, fa) = color::extract_rgba(full_px);
+                assert!(
+                    (sr as i32 - fr as i32).abs() <= 1
+                        && (sg as i32 - fg as i32).abs() <= 1
+                        && (sb as i32 - fb as i32).abs() <= 1
+                        && (sa as i32 - fa as i32).abs() <= 1,
+                    "Mismatch at ({}, {})",
+                    x,
+                    y
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_convolve_rgb_sep_identity() {
+        let pix = create_test_color_image();
+        let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
+
+        let result = convolve_rgb_sep(&pix, &kernel_1d, &kernel_1d).unwrap();
+
+        for y in 0..5 {
+            for x in 0..5 {
+                let orig = pix.get_pixel_unchecked(x, y);
+                let conv = result.get_pixel_unchecked(x, y);
+                assert_eq!(orig, conv);
+            }
+        }
+    }
+
+    #[test]
+    fn test_convolve_rgb_sep_box_blur() {
+        let pix = create_test_color_image();
+
+        // Separable 3x3 box blur
+        let kernel_h = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        let result_sep = convolve_rgb_sep(&pix, &kernel_h, &kernel_v).unwrap();
+
+        // Full 2D box blur for reference
+        let kernel_full = Kernel::box_kernel(3).unwrap();
+        let result_full = convolve_color(&pix, &kernel_full).unwrap();
+
+        assert_eq!(result_sep.width(), pix.width());
+        assert_eq!(result_sep.height(), pix.height());
+        assert_eq!(result_sep.depth(), PixelDepth::Bit32);
+
+        // Pixel-wise comparison between separable and full 2D convolution
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                let sep_px = result_sep.get_pixel_unchecked(x, y);
+                let full_px = result_full.get_pixel_unchecked(x, y);
+                let (sr, sg, sb, _) = color::extract_rgba(sep_px);
+                let (fr, fg, fb, _) = color::extract_rgba(full_px);
+                // Allow ±1 rounding tolerance per channel
+                assert!(
+                    (sr as i32 - fr as i32).abs() <= 1
+                        && (sg as i32 - fg as i32).abs() <= 1
+                        && (sb as i32 - fb as i32).abs() <= 1,
+                    "Mismatch at ({}, {}): sep=({},{},{}) vs full=({},{},{})",
+                    x,
+                    y,
+                    sr,
+                    sg,
+                    sb,
+                    fr,
+                    fg,
+                    fb
+                );
+            }
+        }
     }
 }
