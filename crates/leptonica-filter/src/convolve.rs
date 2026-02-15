@@ -413,13 +413,42 @@ mod tests {
     fn test_convolve_rgb_sep_box_blur() {
         let pix = create_test_color_image();
 
-        // 3x3 box blur as separable 1D kernels
-        let kernel_1d = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        // Separable 3x3 box blur
+        let kernel_h = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        let result_sep = convolve_rgb_sep(&pix, &kernel_h, &kernel_v).unwrap();
 
-        let result = convolve_rgb_sep(&pix, &kernel_1d, &kernel_1d).unwrap();
+        // Full 2D box blur for reference
+        let kernel_full = Kernel::box_kernel(3).unwrap();
+        let result_full = convolve_color(&pix, &kernel_full).unwrap();
 
-        assert_eq!(result.width(), pix.width());
-        assert_eq!(result.height(), pix.height());
-        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert_eq!(result_sep.width(), pix.width());
+        assert_eq!(result_sep.height(), pix.height());
+        assert_eq!(result_sep.depth(), PixelDepth::Bit32);
+
+        // Pixel-wise comparison between separable and full 2D convolution
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                let sep_px = result_sep.get_pixel_unchecked(x, y);
+                let full_px = result_full.get_pixel_unchecked(x, y);
+                let (sr, sg, sb, _) = color::extract_rgba(sep_px);
+                let (fr, fg, fb, _) = color::extract_rgba(full_px);
+                // Allow ±1 rounding tolerance per channel
+                assert!(
+                    (sr as i32 - fr as i32).abs() <= 1
+                        && (sg as i32 - fg as i32).abs() <= 1
+                        && (sb as i32 - fb as i32).abs() <= 1,
+                    "Mismatch at ({}, {}): sep=({},{},{}) vs full=({},{},{})",
+                    x,
+                    y,
+                    sr,
+                    sg,
+                    sb,
+                    fr,
+                    fg,
+                    fb
+                );
+            }
+        }
     }
 }
