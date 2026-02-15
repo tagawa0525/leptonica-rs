@@ -707,16 +707,26 @@ impl Numa {
 
     /// Return a new Numa with elements sorted.
     ///
+    /// Uses `f32::total_cmp` for NaN-safe ordering.
+    ///
     /// C equivalent: `numaSort(NULL, nain, sortorder)`
-    pub fn sorted(&self, _order: SortOrder) -> Numa {
-        todo!("sorted not yet implemented")
+    pub fn sorted(&self, order: SortOrder) -> Numa {
+        let mut result = self.clone();
+        result.sort(order);
+        result
     }
 
     /// Sort the elements in place.
     ///
+    /// Uses `f32::total_cmp` for NaN-safe ordering.
+    ///
     /// C equivalent: `numaSort(naout, naout, sortorder)`
-    pub fn sort(&mut self, _order: SortOrder) {
-        todo!("sort not yet implemented")
+    pub fn sort(&mut self, order: SortOrder) {
+        let slice = self.as_slice_mut();
+        match order {
+            SortOrder::Increasing => slice.sort_by(f32::total_cmp),
+            SortOrder::Decreasing => slice.sort_by(|a, b| f32::total_cmp(b, a)),
+        }
     }
 }
 
@@ -1011,7 +1021,6 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sorted_increasing() {
         let na = Numa::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0]);
         let sorted = na.sorted(SortOrder::Increasing);
@@ -1019,7 +1028,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sorted_decreasing() {
         let na = Numa::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0]);
         let sorted = na.sorted(SortOrder::Decreasing);
@@ -1027,7 +1035,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sort_in_place() {
         let mut na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
         na.sort(SortOrder::Increasing);
@@ -1035,7 +1042,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sorted_empty() {
         let na = Numa::new();
         let sorted = na.sorted(SortOrder::Increasing);
@@ -1043,7 +1049,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sorted_single() {
         let na = Numa::from_vec(vec![42.0]);
         let sorted = na.sorted(SortOrder::Decreasing);
@@ -1051,7 +1056,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sorted_with_nan() {
         // NaN should be handled safely by f32::total_cmp
         let na = Numa::from_vec(vec![3.0, f32::NAN, 1.0, 2.0]);
