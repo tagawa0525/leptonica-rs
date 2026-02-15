@@ -45,6 +45,10 @@ cargo clippy --workspace
 git submodule update --init
 ```
 
+> **注意**: `.gitmodules` では SSH URL（`git@github.com:...`）を使用しています。
+> 実行するにはGitHubでSSHキーを設定しておく必要があります。
+> SSHが使えない環境では、`.gitmodules` 内のURLをHTTPS形式（`https://github.com/...`）に変更してください。
+
 回帰テストはC版の `prog/*_reg.c`（160ファイル）に対応する形で作成する。
 
 ## ドキュメント
@@ -56,4 +60,5 @@ git submodule update --init
 
 ## ライセンス
 
-Apache-2.0
+本プロジェクトは [BSD 2-Clause License](LICENSE) の下で配布されています。
+本家 [Leptonica](http://www.leptonica.org/) と同じライセンスです。
