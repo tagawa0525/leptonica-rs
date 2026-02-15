@@ -30,7 +30,10 @@ pub use adaptmap::{
 pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
 pub use convolve::{box_blur, convolve, convolve_color, convolve_gray, gaussian_blur};
 pub use edge::{EdgeOrientation, emboss, laplacian_edge, sharpen, sobel_edge, unsharp_mask};
-pub use enhance::{TrcLut, contrast_trc, equalize_trc, gamma_trc, trc_map, trc_map_general};
+pub use enhance::{
+    TrcLut, contrast_trc, contrast_trc_masked, contrast_trc_pix, equalize_trc, equalize_trc_pix,
+    gamma_trc, gamma_trc_masked, gamma_trc_pix, gamma_trc_with_alpha, trc_map, trc_map_general,
+};
 pub use rank::{
     max_filter, median_filter, min_filter, rank_filter, rank_filter_color, rank_filter_gray,
 };
