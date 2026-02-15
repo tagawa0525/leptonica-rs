@@ -36,6 +36,7 @@ use leptonica_core::{Pix, PixelDepth};
 ///
 /// - If hsize and vsize are both 1, returns a copy of the input
 /// - Out-of-bounds pixels are treated as 0 (no contribution to max)
+/// - Uses vHGW (van Herk/Gil-Werman) algorithm for O(3) comparisons per pixel
 pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_grayscale(pix)?;
     let (hsize, vsize) = ensure_odd(hsize, vsize)?;
@@ -45,6 +46,12 @@ pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
         return Ok(pix.clone());
     }
 
+    // Placeholder: will be replaced with vHGW implementation
+    dilate_gray_naive(pix, hsize, vsize)
+}
+
+/// Naive dilate implementation (for testing)
+fn dilate_gray_naive(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
     let half_h = (hsize / 2) as i32;
@@ -66,7 +73,6 @@ pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
                         let val = pix.get_pixel_unchecked(sx as u32, sy as u32) as u8;
                         max_val = max_val.max(val);
                     }
-                    // Out of bounds: treated as 0 (minimum), no contribution to max
                 }
             }
 
@@ -96,6 +102,7 @@ pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 ///
 /// - If hsize and vsize are both 1, returns a copy of the input
 /// - Out-of-bounds pixels are treated as 255 (no contribution to min)
+/// - Uses vHGW (van Herk/Gil-Werman) algorithm for O(3) comparisons per pixel
 pub fn erode_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_grayscale(pix)?;
     let (hsize, vsize) = ensure_odd(hsize, vsize)?;
@@ -105,6 +112,12 @@ pub fn erode_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
         return Ok(pix.clone());
     }
 
+    // Placeholder: will be replaced with vHGW implementation
+    erode_gray_naive(pix, hsize, vsize)
+}
+
+/// Naive erode implementation (for testing)
+fn erode_gray_naive(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
     let half_h = (hsize / 2) as i32;
@@ -126,7 +139,6 @@ pub fn erode_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
                         let val = pix.get_pixel_unchecked(sx as u32, sy as u32) as u8;
                         min_val = min_val.min(val);
                     }
-                    // Out of bounds: treated as 255 (maximum), no contribution to min
                 }
             }
 
@@ -482,5 +494,95 @@ mod tests {
 
         // Corners should remain dark
         assert_eq!(dilated.get_pixel_unchecked(0, 0), 0);
+    }
+
+    // vHGW equivalence tests
+    fn create_random_grayscale_image(w: u32, h: u32, seed: u64) -> Pix {
+        let pix = Pix::new(w, h, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        // Simple LCG random number generator
+        let mut state = seed;
+        for y in 0..h {
+            for x in 0..w {
+                state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+                let val = (state % 256) as u32;
+                pix_mut.set_pixel_unchecked(x, y, val);
+            }
+        }
+
+        pix_mut.into()
+    }
+
+    fn assert_pix_equal(pix1: &Pix, pix2: &Pix, name: &str) {
+        assert_eq!(pix1.width(), pix2.width());
+        assert_eq!(pix1.height(), pix2.height());
+
+        for y in 0..pix1.height() {
+            for x in 0..pix1.width() {
+                let v1 = pix1.get_pixel_unchecked(x, y);
+                let v2 = pix2.get_pixel_unchecked(x, y);
+                if v1 != v2 {
+                    panic!(
+                        "{}: Pixels differ at ({}, {}): naive={}, vhgw={}",
+                        name, x, y, v1, v2
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_dilate_vhgw_equivalence_3x3() {
+        let pix = create_random_grayscale_image(100, 80, 12345);
+        let naive = dilate_gray_naive(&pix, 3, 3).unwrap();
+        let vhgw = dilate_gray(&pix, 3, 3).unwrap();
+        assert_pix_equal(&naive, &vhgw, "dilate 3x3");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_dilate_vhgw_equivalence_7x5() {
+        let pix = create_random_grayscale_image(100, 80, 54321);
+        let naive = dilate_gray_naive(&pix, 7, 5).unwrap();
+        let vhgw = dilate_gray(&pix, 7, 5).unwrap();
+        assert_pix_equal(&naive, &vhgw, "dilate 7x5");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_dilate_vhgw_equivalence_horizontal() {
+        let pix = create_random_grayscale_image(100, 80, 99999);
+        let naive = dilate_gray_naive(&pix, 11, 1).unwrap();
+        let vhgw = dilate_gray(&pix, 11, 1).unwrap();
+        assert_pix_equal(&naive, &vhgw, "dilate 11x1");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_dilate_vhgw_equivalence_vertical() {
+        let pix = create_random_grayscale_image(100, 80, 11111);
+        let naive = dilate_gray_naive(&pix, 1, 9).unwrap();
+        let vhgw = dilate_gray(&pix, 1, 9).unwrap();
+        assert_pix_equal(&naive, &vhgw, "dilate 1x9");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_erode_vhgw_equivalence_3x3() {
+        let pix = create_random_grayscale_image(100, 80, 67890);
+        let naive = erode_gray_naive(&pix, 3, 3).unwrap();
+        let vhgw = erode_gray(&pix, 3, 3).unwrap();
+        assert_pix_equal(&naive, &vhgw, "erode 3x3");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_erode_vhgw_equivalence_7x5() {
+        let pix = create_random_grayscale_image(100, 80, 24680);
+        let naive = erode_gray_naive(&pix, 7, 5).unwrap();
+        let vhgw = erode_gray(&pix, 7, 5).unwrap();
+        assert_pix_equal(&naive, &vhgw, "erode 7x5");
     }
 }
