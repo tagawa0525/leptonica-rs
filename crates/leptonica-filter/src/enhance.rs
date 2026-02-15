@@ -9,6 +9,7 @@
 //! C Leptonica: `enhance.c`
 
 use crate::{FilterError, FilterResult};
+use leptonica_core::pix::RgbComponent;
 use leptonica_core::{Pix, PixMut, PixelDepth, color};
 
 /// Scale factor for contrast enhancement, matching C Leptonica.
@@ -320,6 +321,158 @@ pub fn trc_map_general(
     Ok(())
 }
 
+// =========================================================================
+//  High-level gamma / contrast / equalization wrappers
+// =========================================================================
+
+/// Apply gamma TRC to an 8 or 32 bpp image.
+///
+/// Returns a new image with gamma correction applied.
+///
+/// # See also
+///
+/// C Leptonica: `pixGammaTRC()` in `enhance.c`
+pub fn gamma_trc_pix(pix: &Pix, gamma: f32, minval: i32, maxval: i32) -> FilterResult<Pix> {
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    let lut = gamma_trc(gamma, minval, maxval)?;
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    trc_map(&mut pm, None, &lut)?;
+    Ok(pm.into())
+}
+
+/// Apply gamma TRC with an optional 1 bpp mask.
+///
+/// Only pixels under the foreground of `mask` are modified.
+/// If `mask` is `None`, the entire image is modified.
+///
+/// # See also
+///
+/// C Leptonica: `pixGammaTRCMasked()` in `enhance.c`
+pub fn gamma_trc_masked(
+    pix: &Pix,
+    mask: Option<&Pix>,
+    gamma: f32,
+    minval: i32,
+    maxval: i32,
+) -> FilterResult<Pix> {
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    let lut = gamma_trc(gamma, minval, maxval)?;
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    trc_map(&mut pm, mask, &lut)?;
+    Ok(pm.into())
+}
+
+/// Apply gamma TRC to a 32 bpp image, preserving the alpha channel.
+///
+/// # See also
+///
+/// C Leptonica: `pixGammaTRCWithAlpha()` in `enhance.c`
+pub fn gamma_trc_with_alpha(pix: &Pix, gamma: f32, minval: i32, maxval: i32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let alpha = pix.get_rgb_component(RgbComponent::Alpha)?;
+    let lut = gamma_trc(gamma, minval, maxval)?;
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    trc_map(&mut pm, None, &lut)?;
+    pm.set_rgb_component(&alpha, RgbComponent::Alpha)?;
+    Ok(pm.into())
+}
+
+/// Apply contrast enhancement TRC to an 8 or 32 bpp image.
+///
+/// # See also
+///
+/// C Leptonica: `pixContrastTRC()` in `enhance.c`
+pub fn contrast_trc_pix(pix: &Pix, factor: f32) -> FilterResult<Pix> {
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    let lut = contrast_trc(factor)?;
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    trc_map(&mut pm, None, &lut)?;
+    Ok(pm.into())
+}
+
+/// Apply contrast enhancement TRC with an optional 1 bpp mask.
+///
+/// # See also
+///
+/// C Leptonica: `pixContrastTRCMasked()` in `enhance.c`
+pub fn contrast_trc_masked(pix: &Pix, mask: Option<&Pix>, factor: f32) -> FilterResult<Pix> {
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    let lut = contrast_trc(factor)?;
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    trc_map(&mut pm, mask, &lut)?;
+    Ok(pm.into())
+}
+
+/// Apply histogram equalization to an 8 or 32 bpp image.
+///
+/// For 32 bpp images, each R/G/B channel is equalized independently.
+///
+/// # See also
+///
+/// C Leptonica: `pixEqualizeTRC()` in `enhance.c`
+pub fn equalize_trc_pix(pix: &Pix, fract: f32, factor: u32) -> FilterResult<Pix> {
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+
+    if d == PixelDepth::Bit8 {
+        let lut = equalize_trc(pix, fract, factor)?;
+        trc_map(&mut pm, None, &lut)?;
+    } else {
+        // 32bpp: equalize each channel separately
+        let pix_r = pix.get_rgb_component(RgbComponent::Red)?;
+        let pix_g = pix.get_rgb_component(RgbComponent::Green)?;
+        let pix_b = pix.get_rgb_component(RgbComponent::Blue)?;
+        let lut_r = equalize_trc(&pix_r, fract, factor)?;
+        let lut_g = equalize_trc(&pix_g, fract, factor)?;
+        let lut_b = equalize_trc(&pix_b, fract, factor)?;
+        trc_map_general(&mut pm, None, &lut_r, &lut_g, &lut_b)?;
+    }
+
+    Ok(pm.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -552,5 +705,179 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         let lut: TrcLut = core::array::from_fn(|i| i as u8);
         assert!(trc_map_general(&mut pm, None, &lut, &lut, &lut).is_err());
+    }
+
+    // ========== gamma_trc_pix tests ==========
+
+    #[test]
+    fn test_gamma_trc_pix_8bpp() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 128);
+        pm.set_pixel_unchecked(2, 0, 255);
+        let pix: Pix = pm.into();
+
+        let result = gamma_trc_pix(&pix, 2.0, 0, 255).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel_unchecked(0, 0), 0);
+        assert_eq!(result.get_pixel_unchecked(2, 0), 255);
+        assert!(result.get_pixel_unchecked(1, 0) > 128);
+    }
+
+    #[test]
+    fn test_gamma_trc_pix_32bpp() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 100, 100));
+        let pix: Pix = pm.into();
+
+        let result = gamma_trc_pix(&pix, 2.0, 0, 255).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert!(r > 100);
+        assert_eq!(r, g);
+        assert_eq!(g, b);
+    }
+
+    #[test]
+    fn test_gamma_trc_pix_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(gamma_trc_pix(&pix, 1.0, 0, 255).is_err());
+    }
+
+    // ========== gamma_trc_masked tests ==========
+
+    #[test]
+    fn test_gamma_trc_masked_partial() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 128);
+        pm.set_pixel_unchecked(1, 0, 128);
+        let pix: Pix = pm.into();
+
+        let mask = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(0, 0, 1);
+        mm.set_pixel_unchecked(1, 0, 0);
+        let mask: Pix = mm.into();
+
+        let result = gamma_trc_masked(&pix, Some(&mask), 2.0, 0, 255).unwrap();
+        assert!(result.get_pixel_unchecked(0, 0) > 128);
+        assert_eq!(result.get_pixel_unchecked(1, 0), 128);
+    }
+
+    #[test]
+    fn test_gamma_trc_masked_no_mask() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 128);
+        let pix: Pix = pm.into();
+
+        let result = gamma_trc_masked(&pix, None, 2.0, 0, 255).unwrap();
+        assert!(result.get_pixel_unchecked(0, 0) > 128);
+    }
+
+    // ========== gamma_trc_with_alpha tests ==========
+
+    #[test]
+    fn test_gamma_trc_with_alpha_preserves_alpha() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_spp(4);
+        pm.set_pixel_unchecked(0, 0, color::compose_rgba(100, 100, 100, 128));
+        let pix: Pix = pm.into();
+
+        let result = gamma_trc_with_alpha(&pix, 2.0, 0, 255).unwrap();
+        let (r, _, _, a) = color::extract_rgba(result.get_pixel_unchecked(0, 0));
+        assert!(r > 100);
+        assert_eq!(a, 128);
+    }
+
+    #[test]
+    fn test_gamma_trc_with_alpha_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(gamma_trc_with_alpha(&pix, 1.0, 0, 255).is_err());
+    }
+
+    // ========== contrast_trc_pix tests ==========
+
+    #[test]
+    fn test_contrast_trc_pix_enhancement() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 64);
+        pm.set_pixel_unchecked(1, 0, 128);
+        pm.set_pixel_unchecked(2, 0, 192);
+        let pix: Pix = pm.into();
+
+        let result = contrast_trc_pix(&pix, 0.5).unwrap();
+        assert!(result.get_pixel_unchecked(0, 0) < 64);
+        assert!(result.get_pixel_unchecked(2, 0) > 192);
+    }
+
+    #[test]
+    fn test_contrast_trc_pix_zero_factor() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 100);
+        let pix: Pix = pm.into();
+
+        let result = contrast_trc_pix(&pix, 0.0).unwrap();
+        assert_eq!(result.get_pixel_unchecked(0, 0), 100);
+    }
+
+    // ========== contrast_trc_masked tests ==========
+
+    #[test]
+    fn test_contrast_trc_masked() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 64);
+        pm.set_pixel_unchecked(1, 0, 64);
+        let pix: Pix = pm.into();
+
+        let mask = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(0, 0, 1);
+        mm.set_pixel_unchecked(1, 0, 0);
+        let mask: Pix = mm.into();
+
+        let result = contrast_trc_masked(&pix, Some(&mask), 0.5).unwrap();
+        assert!(result.get_pixel_unchecked(0, 0) < 64);
+        assert_eq!(result.get_pixel_unchecked(1, 0), 64);
+    }
+
+    // ========== equalize_trc_pix tests ==========
+
+    #[test]
+    fn test_equalize_trc_pix_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..10 {
+            for x in 0..5 {
+                pm.set_pixel_unchecked(x, y, 50);
+            }
+            for x in 5..10 {
+                pm.set_pixel_unchecked(x, y, 200);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let result = equalize_trc_pix(&pix, 0.5, 1).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        let v0 = result.get_pixel_unchecked(0, 0);
+        let v1 = result.get_pixel_unchecked(5, 0);
+        assert!(v1 > v0);
+    }
+
+    #[test]
+    fn test_equalize_trc_pix_zero_fract() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 100);
+        let pix: Pix = pm.into();
+
+        let result = equalize_trc_pix(&pix, 0.0, 1).unwrap();
+        assert_eq!(result.get_pixel_unchecked(0, 0), 100);
     }
 }
