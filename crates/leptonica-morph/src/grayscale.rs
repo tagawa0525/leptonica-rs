@@ -655,14 +655,30 @@ fn remove_border(
 
 // 3×3 fast path implementations
 
+// Border sizes for 8-pixel unrolled 3×3 morphology.
+// The unrolled loop reads up to 9 consecutive values (j-1..j+8) per iteration,
+// requiring at least 1 pixel left padding and 8 pixels right padding.
+// Vertical pass reads rows i-1..i+8, requiring 1 top and 8 bottom.
+// Rounded to even values for word alignment.
+const FAST3_BORDER_LEFT: usize = 4;
+const FAST3_BORDER_RIGHT: usize = 8;
+const FAST3_BORDER_TOP: usize = 2;
+const FAST3_BORDER_BOTTOM: usize = 8;
+
 /// 3×3 dilate fast path with 8-pixel unrolling
 fn dilate_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
 
-    // Add border: left=4, right=8, top=2, bottom=8 (for 8-pixel unroll)
-    let pixb = add_border(pix, 4, 8, 2, 8, 0)?;
+    let pixb = add_border(
+        pix,
+        FAST3_BORDER_LEFT,
+        FAST3_BORDER_RIGHT,
+        FAST3_BORDER_TOP,
+        FAST3_BORDER_BOTTOM,
+        0,
+    )?;
 
     let pixbd = if vsize == 1 {
         // Horizontal only
@@ -676,7 +692,13 @@ fn dilate_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pi
         dilate_gray_3v(&pixt)?
     };
 
-    remove_border(&pixbd, 4, 8, 2, 8)
+    remove_border(
+        &pixbd,
+        FAST3_BORDER_LEFT,
+        FAST3_BORDER_RIGHT,
+        FAST3_BORDER_TOP,
+        FAST3_BORDER_BOTTOM,
+    )
 }
 
 /// 3×3 erode fast path with 8-pixel unrolling
@@ -685,8 +707,14 @@ fn erode_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix
         return Ok(pix.clone());
     }
 
-    // Add border: left=4, right=8, top=2, bottom=8 (for 8-pixel unroll)
-    let pixb = add_border(pix, 4, 8, 2, 8, 255)?;
+    let pixb = add_border(
+        pix,
+        FAST3_BORDER_LEFT,
+        FAST3_BORDER_RIGHT,
+        FAST3_BORDER_TOP,
+        FAST3_BORDER_BOTTOM,
+        255,
+    )?;
 
     let pixbd = if vsize == 1 {
         erode_gray_3h(&pixb)?
@@ -697,7 +725,13 @@ fn erode_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix
         erode_gray_3v(&pixt)?
     };
 
-    remove_border(&pixbd, 4, 8, 2, 8)
+    remove_border(
+        &pixbd,
+        FAST3_BORDER_LEFT,
+        FAST3_BORDER_RIGHT,
+        FAST3_BORDER_TOP,
+        FAST3_BORDER_BOTTOM,
+    )
 }
 
 /// Horizontal 3×1 dilation (8-pixel unroll)
@@ -1321,5 +1355,35 @@ mod tests {
         let naive = erode_gray_naive(&pix, 1, 9).unwrap();
         let vhgw = erode_gray(&pix, 1, 9).unwrap();
         assert_pix_equal(&naive, &vhgw, "erode 1x9");
+    }
+
+    // Edge-case tests for small images where the unrolled loop never runs
+    #[test]
+    fn test_3x3_fastpath_small_images() {
+        // 1x1 image
+        let pix1x1 = create_random_grayscale_image(1, 1, 42);
+        let d = dilate_gray(&pix1x1, 3, 3).unwrap();
+        assert_eq!(d.width(), 1);
+        assert_eq!(d.height(), 1);
+        let e = erode_gray(&pix1x1, 3, 3).unwrap();
+        assert_eq!(e.width(), 1);
+
+        // 3x1 (narrow horizontal)
+        let pix3x1 = create_random_grayscale_image(3, 1, 43);
+        let d = dilate_gray(&pix3x1, 3, 1).unwrap();
+        let naive = dilate_gray_naive(&pix3x1, 3, 1).unwrap();
+        assert_pix_equal(&naive, &d, "dilate 3x1 on 3x1 image");
+
+        // 1x3 (narrow vertical)
+        let pix1x3 = create_random_grayscale_image(1, 3, 44);
+        let e = erode_gray(&pix1x3, 1, 3).unwrap();
+        let naive = erode_gray_naive(&pix1x3, 1, 3).unwrap();
+        assert_pix_equal(&naive, &e, "erode 1x3 on 1x3 image");
+
+        // 5x5 (smaller than unroll factor of 8)
+        let pix5x5 = create_random_grayscale_image(5, 5, 45);
+        let d = dilate_gray(&pix5x5, 3, 3).unwrap();
+        let naive = dilate_gray_naive(&pix5x5, 3, 3).unwrap();
+        assert_pix_equal(&naive, &d, "dilate 3x3 on 5x5 image");
     }
 }
