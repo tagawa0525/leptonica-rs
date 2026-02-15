@@ -507,6 +507,18 @@ fn seed_fill(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
         ));
     }
 
+    if seed.depth() != mask.depth() {
+        return Err(RecogError::InvalidParameter(
+            "seed and mask depths must match".to_string(),
+        ));
+    }
+
+    if seed.wpl() != mask.wpl() {
+        return Err(RecogError::InvalidParameter(
+            "seed and mask words-per-line must match".to_string(),
+        ));
+    }
+
     let mask_data = mask.data();
     let mut current = seed.deep_clone();
 
@@ -546,6 +558,12 @@ fn subtract_images(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
     if pix2.width() != w || pix2.height() != h {
         return Err(RecogError::InvalidParameter(
             "image dimensions must match".to_string(),
+        ));
+    }
+
+    if pix1.depth() != pix2.depth() {
+        return Err(RecogError::InvalidParameter(
+            "image depths must match".to_string(),
         ));
     }
 
@@ -1096,7 +1114,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_erode_equivalence() {
         let pix = create_test_document(200, 100);
 
@@ -1107,7 +1124,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dilate_equivalence() {
         let pix = create_test_document(200, 100);
 
@@ -1118,7 +1134,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_open_equivalence() {
         let pix = create_test_document(200, 100);
 
@@ -1129,7 +1144,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_close_equivalence() {
         let pix = create_test_document(200, 100);
 
@@ -1140,7 +1154,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_seed_fill_equivalence() {
         let seed = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
         let mut seed_mut = seed.try_into_mut().unwrap();
@@ -1167,7 +1180,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_subtract_equivalence() {
         let pix1 = create_test_document(200, 100);
         let pix2 = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
