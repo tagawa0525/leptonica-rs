@@ -32,6 +32,7 @@ mod extract;
 pub mod graphics;
 mod histogram;
 mod ops;
+mod rgb;
 pub mod rop;
 pub mod statistics;
 
@@ -41,6 +42,7 @@ pub use compare::{CompareResult, CompareType, PixelDiffResult, correlation_binar
 pub use convert::{Convert16To8Type, GrayConversionType, MinMaxType, RemoveColormapTarget};
 pub use graphics::{Color, ContourOutput, PixelOp};
 pub use histogram::ColorHistogram;
+pub use rgb::RgbComponent;
 pub use rop::RopOp;
 
 use crate::error::{Error, Result};
