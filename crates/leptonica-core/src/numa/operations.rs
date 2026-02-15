@@ -649,8 +649,8 @@ impl Numa {
     /// Create a Numa filled with a constant value.
     ///
     /// C equivalent: `numaMakeConstant(val, size)`
-    pub fn make_constant(_val: f32, _count: usize) -> Numa {
-        todo!("make_constant not yet implemented")
+    pub fn make_constant(val: f32, count: usize) -> Numa {
+        Self::make_sequence(val, 0.0, count)
     }
 
     // ====================================================================
@@ -663,7 +663,16 @@ impl Numa {
     ///
     /// C equivalent: `numaReverse(NULL, nas)`
     pub fn reversed(&self) -> Numa {
-        todo!("reversed not yet implemented")
+        let n = self.len();
+        let mut result = Numa::with_capacity(n);
+        for i in (0..n).rev() {
+            result.push(self[i]);
+        }
+        let (startx, delx) = self.parameters();
+        if n > 0 {
+            result.set_parameters(startx + (n - 1) as f32 * delx, -delx);
+        }
+        result
     }
 
     /// Reverse the elements in place.
@@ -672,7 +681,13 @@ impl Numa {
     ///
     /// C equivalent: `numaReverse(nas, nas)`
     pub fn reverse(&mut self) {
-        todo!("reverse not yet implemented")
+        let n = self.len();
+        let slice = self.as_slice_mut();
+        slice.reverse();
+        let (startx, delx) = self.parameters();
+        if n > 0 {
+            self.set_parameters(startx + (n - 1) as f32 * delx, -delx);
+        }
     }
 }
 
@@ -892,7 +907,6 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_constant_basic() {
         let na = Numa::make_constant(42.0, 5);
         assert_eq!(na.len(), 5);
@@ -902,14 +916,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_constant_zero_count() {
         let na = Numa::make_constant(1.0, 0);
         assert!(na.is_empty());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_constant_negative_val() {
         let na = Numa::make_constant(-3.5, 3);
         assert_eq!(na.as_slice(), &[-3.5, -3.5, -3.5]);
@@ -920,7 +932,6 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reversed_basic() {
         let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
         let rev = na.reversed();
@@ -928,7 +939,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reversed_metadata() {
         // C behavior: startx = startx + (n-1) * delx, delx = -delx
         let mut na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
@@ -942,7 +952,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reverse_in_place() {
         let mut na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
         na.set_parameters(1.0, 0.5);
@@ -955,7 +964,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reversed_single_element() {
         let na = Numa::from_vec(vec![42.0]);
         let rev = na.reversed();
@@ -963,7 +971,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reversed_empty() {
         let na = Numa::new();
         let rev = na.reversed();
