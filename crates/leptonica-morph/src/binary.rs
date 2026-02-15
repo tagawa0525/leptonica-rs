@@ -529,4 +529,193 @@ mod tests {
             );
         }
     }
+
+    // --- Rasterop equivalence tests ---
+    //
+    // Reference pixel-by-pixel implementations (C version: morph.c:213-309)
+    // These serve as the ground truth for verifying rasterop optimization.
+
+    /// Pixel-by-pixel dilation reference implementation
+    fn dilate_reference(pix: &Pix, sel: &Sel) -> Pix {
+        let w = pix.width();
+        let h = pix.height();
+        let out = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut out_mut = out.try_into_mut().unwrap();
+        let hit_offsets: Vec<_> = sel.hit_offsets().collect();
+
+        for y in 0..h {
+            for x in 0..w {
+                let dilated = hit_offsets.iter().any(|&(dx, dy)| {
+                    let sx = x as i32 + dx;
+                    let sy = y as i32 + dy;
+                    sx >= 0
+                        && sx < w as i32
+                        && sy >= 0
+                        && sy < h as i32
+                        && pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
+                });
+                if dilated {
+                    out_mut.set_pixel_unchecked(x, y, 1);
+                }
+            }
+        }
+        out_mut.into()
+    }
+
+    /// Pixel-by-pixel erosion reference implementation
+    fn erode_reference(pix: &Pix, sel: &Sel) -> Pix {
+        let w = pix.width();
+        let h = pix.height();
+        let out = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut out_mut = out.try_into_mut().unwrap();
+        let hit_offsets: Vec<_> = sel.hit_offsets().collect();
+
+        for y in 0..h {
+            for x in 0..w {
+                let eroded = hit_offsets.iter().all(|&(dx, dy)| {
+                    let sx = x as i32 + dx;
+                    let sy = y as i32 + dy;
+                    sx >= 0
+                        && sx < w as i32
+                        && sy >= 0
+                        && sy < h as i32
+                        && pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
+                });
+                if eroded {
+                    out_mut.set_pixel_unchecked(x, y, 1);
+                }
+            }
+        }
+        out_mut.into()
+    }
+
+    /// Create a 50x37 test image with word-boundary-crossing patterns.
+    /// Width of 50 is deliberately not a multiple of 32 to exercise partial
+    /// word handling. C version (binmorph1_reg.c) uses feyn-fract.tif;
+    /// here we create a synthetic image for unit tests.
+    fn create_rasterop_test_image() -> Pix {
+        let pix = Pix::new(50, 37, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle crossing word boundary (pixels 28-36 span words 0 and 1)
+        for y in 3..15 {
+            for x in 28..37 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Diagonal crossing word boundary
+        for i in 0..30 {
+            let x = i + 10;
+            let y = i + 5;
+            if x < 50 && y < 37 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Pixels at word boundaries
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(31, 0, 1);
+        pm.set_pixel_unchecked(32, 0, 1);
+        pm.set_pixel_unchecked(49, 0, 1);
+        // Bottom-right cluster
+        for y in 30..37 {
+            for x in 40..50 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+
+        pm.into()
+    }
+
+    #[test]
+    #[ignore = "rasterop not yet implemented"]
+    fn test_dilate_rasterop_brick_equivalence() {
+        let pix = create_rasterop_test_image();
+        // C version: binmorph1_reg.c uses WIDTH=21, HEIGHT=15
+        for &(w, h) in &[(3u32, 3u32), (5, 7), (21, 15), (1, 5), (5, 1)] {
+            let sel = Sel::create_brick(w, h).unwrap();
+            let result = dilate(&pix, &sel).unwrap();
+            let reference = dilate_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "dilate rasterop != reference for brick {}x{}",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "rasterop not yet implemented"]
+    fn test_erode_rasterop_brick_equivalence() {
+        let pix = create_rasterop_test_image();
+        for &(w, h) in &[(3u32, 3u32), (5, 7), (21, 15), (1, 5), (5, 1)] {
+            let sel = Sel::create_brick(w, h).unwrap();
+            let result = erode(&pix, &sel).unwrap();
+            let reference = erode_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "erode rasterop != reference for brick {}x{}",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "rasterop not yet implemented"]
+    fn test_dilate_rasterop_cross_equivalence() {
+        let pix = create_rasterop_test_image();
+        for size in [3, 5] {
+            let sel = Sel::create_cross(size).unwrap();
+            let result = dilate(&pix, &sel).unwrap();
+            let reference = dilate_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "dilate rasterop != reference for cross {}",
+                size
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "rasterop not yet implemented"]
+    fn test_erode_rasterop_cross_equivalence() {
+        let pix = create_rasterop_test_image();
+        for size in [3, 5] {
+            let sel = Sel::create_cross(size).unwrap();
+            let result = erode(&pix, &sel).unwrap();
+            let reference = erode_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "erode rasterop != reference for cross {}",
+                size
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "rasterop not yet implemented"]
+    fn test_dilate_rasterop_diamond_equivalence() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_diamond(2).unwrap();
+        let result = dilate(&pix, &sel).unwrap();
+        let reference = dilate_reference(&pix, &sel);
+        assert!(
+            result.equals(&reference),
+            "dilate rasterop != reference for diamond 2"
+        );
+    }
+
+    #[test]
+    #[ignore = "rasterop not yet implemented"]
+    fn test_erode_rasterop_diamond_equivalence() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_diamond(2).unwrap();
+        let result = erode(&pix, &sel).unwrap();
+        let reference = erode_reference(&pix, &sel);
+        assert!(
+            result.equals(&reference),
+            "erode rasterop != reference for diamond 2"
+        );
+    }
 }
