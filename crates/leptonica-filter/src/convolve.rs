@@ -139,6 +139,21 @@ pub fn gaussian_blur_auto(pix: &Pix, radius: u32) -> FilterResult<Pix> {
     gaussian_blur(pix, radius, sigma)
 }
 
+/// Separable convolution (2D decomposed into 1D x and y)
+///
+/// Performs 2D convolution as a sequence of 1D convolutions in x and y directions.
+/// This is faster than full 2D convolution when the kernel is separable.
+pub fn convolve_sep(pix: &Pix, kernel_x: &Kernel, kernel_y: &Kernel) -> FilterResult<Pix> {
+    todo!("convolve_sep not yet implemented")
+}
+
+/// Separable convolution for RGB images
+///
+/// Applies separable convolution to each color channel independently.
+pub fn convolve_rgb_sep(pix: &Pix, kernel_x: &Kernel, kernel_y: &Kernel) -> FilterResult<Pix> {
+    todo!("convolve_rgb_sep not yet implemented")
+}
+
 fn check_grayscale(pix: &Pix) -> FilterResult<()> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
@@ -252,5 +267,107 @@ mod tests {
 
         assert_eq!(result_gray.depth(), PixelDepth::Bit8);
         assert_eq!(result_color.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convolve_sep_identity() {
+        // Separable 1D identity kernels should produce same output as input
+        let pix = create_test_gray_image();
+        let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
+
+        let result = convolve_sep(&pix, &kernel_1d, &kernel_1d).unwrap();
+
+        for y in 0..5 {
+            for x in 0..5 {
+                let orig = pix.get_pixel_unchecked(x, y);
+                let conv = result.get_pixel_unchecked(x, y);
+                assert_eq!(orig, conv);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convolve_sep_horizontal_vertical() {
+        // Separable convolution should decompose correctly
+        let pix = create_test_gray_image();
+
+        // Horizontal 3x1 box kernel
+        let kernel_h = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        // Vertical 1x3 box kernel
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+
+        let result_sep = convolve_sep(&pix, &kernel_h, &kernel_v).unwrap();
+
+        // Should be equivalent to full 3x3 box blur
+        let kernel_full = Kernel::box_kernel(3).unwrap();
+        let result_full = convolve(&pix, &kernel_full).unwrap();
+
+        // Results should be very close (allowing for small rounding differences)
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                let sep_val = result_sep.get_pixel_unchecked(x, y);
+                let full_val = result_full.get_pixel_unchecked(x, y);
+                let diff = (sep_val as i32 - full_val as i32).abs();
+                assert!(
+                    diff <= 1,
+                    "Difference too large at ({}, {}): {} vs {}",
+                    x,
+                    y,
+                    sep_val,
+                    full_val
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convolve_sep_sobel_x() {
+        // Sobel-X can be decomposed into separable kernels
+        let pix = create_test_gray_image();
+
+        // Sobel-X = [-1, 0, 1] (horizontal) * [1, 2, 1] (vertical)
+        let kernel_h = Kernel::from_slice(3, 1, &[-1.0, 0.0, 1.0]).unwrap();
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0, 2.0, 1.0]).unwrap();
+
+        let result = convolve_sep(&pix, &kernel_h, &kernel_v).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convolve_rgb_sep_identity() {
+        let pix = create_test_color_image();
+        let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
+
+        let result = convolve_rgb_sep(&pix, &kernel_1d, &kernel_1d).unwrap();
+
+        for y in 0..5 {
+            for x in 0..5 {
+                let orig = pix.get_pixel_unchecked(x, y);
+                let conv = result.get_pixel_unchecked(x, y);
+                assert_eq!(orig, conv);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convolve_rgb_sep_box_blur() {
+        let pix = create_test_color_image();
+
+        // 3x3 box blur as separable 1D kernels
+        let kernel_1d = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+
+        let result = convolve_rgb_sep(&pix, &kernel_1d, &kernel_1d).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
     }
 }
