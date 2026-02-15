@@ -473,6 +473,200 @@ pub fn equalize_trc_pix(pix: &Pix, fract: f32, factor: u32) -> FilterResult<Pix>
     Ok(pm.into())
 }
 
+// =========================================================================
+//  HSV modification
+// =========================================================================
+
+/// Modify the hue of a 32 bpp RGB image.
+///
+/// `fract` is in [-1.0, 1.0] and represents a fractional rotation of the
+/// hue wheel. 1.0 (or -1.0) is a full 360-degree rotation (no visible
+/// change). 0.0 also produces no change.
+///
+/// # See also
+///
+/// C Leptonica: `pixModifyHue()` in `enhance.c`
+pub fn modify_hue(pix: &Pix, fract: f32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if fract.abs() > 1.0 {
+        return Err(FilterError::InvalidParameters(
+            "fract must be in [-1.0, 1.0]".into(),
+        ));
+    }
+
+    let delhue = (240.0 * fract) as i32;
+    if delhue == 0 || delhue == 240 || delhue == -240 {
+        return Ok(pix.deep_clone());
+    }
+    let delhue = if delhue < 0 { delhue + 240 } else { delhue };
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    let w = pm.width();
+    let h = pm.height();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pm.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let mut hsv = color::rgb_to_hsv(r, g, b);
+            hsv.h = (hsv.h + delhue) % 240;
+            let (nr, ng, nb) = color::hsv_to_rgb(hsv);
+            pm.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(pm.into())
+}
+
+/// Modify the saturation of a 32 bpp RGB image.
+///
+/// `fract` is in [-1.0, 1.0]:
+/// - Positive: moves saturation toward 255 (fully saturated)
+/// - Negative: moves saturation toward 0 (desaturated/gray)
+/// - 0.0: no change
+///
+/// # See also
+///
+/// C Leptonica: `pixModifySaturation()` in `enhance.c`
+pub fn modify_saturation(pix: &Pix, fract: f32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if fract.abs() > 1.0 {
+        return Err(FilterError::InvalidParameters(
+            "fract must be in [-1.0, 1.0]".into(),
+        ));
+    }
+    if fract == 0.0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    let w = pm.width();
+    let h = pm.height();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pm.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let mut hsv = color::rgb_to_hsv(r, g, b);
+            if fract < 0.0 {
+                hsv.s = (hsv.s as f32 * (1.0 + fract)) as i32;
+            } else {
+                hsv.s = (hsv.s as f32 + fract * (255.0 - hsv.s as f32)) as i32;
+            }
+            let (nr, ng, nb) = color::hsv_to_rgb(hsv);
+            pm.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(pm.into())
+}
+
+/// Modify the brightness (V in HSV) of a 32 bpp RGB image.
+///
+/// `fract` is in [-1.0, 1.0]:
+/// - Positive: moves brightness toward 255
+/// - Negative: moves brightness toward 0
+/// - 0.0: no change
+///
+/// # See also
+///
+/// C Leptonica: `pixModifyBrightness()` in `enhance.c`
+pub fn modify_brightness(pix: &Pix, fract: f32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if fract.abs() > 1.0 {
+        return Err(FilterError::InvalidParameters(
+            "fract must be in [-1.0, 1.0]".into(),
+        ));
+    }
+    if fract == 0.0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    let w = pm.width();
+    let h = pm.height();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pm.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let mut hsv = color::rgb_to_hsv(r, g, b);
+            if fract > 0.0 {
+                hsv.v = (hsv.v as f32 + fract * (255.0 - hsv.v as f32)) as i32;
+            } else {
+                hsv.v = (hsv.v as f32 * (1.0 + fract)) as i32;
+            }
+            let (nr, ng, nb) = color::hsv_to_rgb(hsv);
+            pm.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(pm.into())
+}
+
+/// Measure the average saturation of a 32 bpp RGB image.
+///
+/// Returns the mean saturation value (in [0..255]) computed over a
+/// subsampled grid of pixels.
+///
+/// # See also
+///
+/// C Leptonica: `pixMeasureSaturation()` in `enhance.c`
+pub fn measure_saturation(pix: &Pix, factor: u32) -> FilterResult<f32> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if factor < 1 {
+        return Err(FilterError::InvalidParameters("factor must be >= 1".into()));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let mut sum: i64 = 0;
+    let mut count: i64 = 0;
+
+    let mut y = 0;
+    while y < h {
+        let mut x = 0;
+        while x < w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let hsv = color::rgb_to_hsv(r, g, b);
+            sum += hsv.s as i64;
+            count += 1;
+            x += factor;
+        }
+        y += factor;
+    }
+
+    if count > 0 {
+        Ok(sum as f32 / count as f32)
+    } else {
+        Ok(0.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -879,5 +1073,173 @@ mod tests {
 
         let result = equalize_trc_pix(&pix, 0.0, 1).unwrap();
         assert_eq!(result.get_pixel_unchecked(0, 0), 100);
+    }
+
+    // ========== modify_hue tests ==========
+
+    #[test]
+    fn test_modify_hue_shift() {
+        // Pure red pixel: shift hue by 1/3 → should move toward green
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(255, 0, 0));
+        let pix: Pix = pm.into();
+
+        let result = modify_hue(&pix, 1.0 / 3.0).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        // After hue shift, red should decrease, green should increase
+        assert!(g > r, "expected green > red, got r={r} g={g} b={b}");
+    }
+
+    #[test]
+    fn test_modify_hue_zero() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 150, 200));
+        let pix: Pix = pm.into();
+
+        // fract=0: no change
+        let result = modify_hue(&pix, 0.0).unwrap();
+        assert_eq!(
+            result.get_pixel_unchecked(0, 0),
+            pix.get_pixel_unchecked(0, 0)
+        );
+    }
+
+    #[test]
+    fn test_modify_hue_invalid() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        assert!(modify_hue(&pix, 1.5).is_err());
+
+        let pix8 = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        assert!(modify_hue(&pix8, 0.5).is_err());
+    }
+
+    // ========== modify_saturation tests ==========
+
+    #[test]
+    fn test_modify_saturation_increase() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(200, 100, 100));
+        let pix: Pix = pm.into();
+
+        let result = modify_saturation(&pix, 0.5).unwrap();
+        let (r, _, _) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        // Increasing saturation should push the dominant channel higher
+        assert!(r >= 200, "expected r >= 200, got {r}");
+    }
+
+    #[test]
+    fn test_modify_saturation_zero() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 150, 200));
+        let pix: Pix = pm.into();
+
+        let result = modify_saturation(&pix, 0.0).unwrap();
+        assert_eq!(
+            result.get_pixel_unchecked(0, 0),
+            pix.get_pixel_unchecked(0, 0)
+        );
+    }
+
+    #[test]
+    fn test_modify_saturation_desaturate() {
+        // fract=-1.0 should fully desaturate (s=0, so r=g=b=v)
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(200, 100, 50));
+        let pix: Pix = pm.into();
+
+        let result = modify_saturation(&pix, -1.0).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        // Fully desaturated: all channels equal to V (=max=200)
+        assert_eq!(r, g);
+        assert_eq!(g, b);
+        assert_eq!(r, 200);
+    }
+
+    // ========== modify_brightness tests ==========
+
+    #[test]
+    fn test_modify_brightness_increase() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 50, 25));
+        let pix: Pix = pm.into();
+
+        let result = modify_brightness(&pix, 0.5).unwrap();
+        let (r, _, _) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert!(r > 100, "expected brighter, got r={r}");
+    }
+
+    #[test]
+    fn test_modify_brightness_decrease() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(200, 150, 100));
+        let pix: Pix = pm.into();
+
+        let result = modify_brightness(&pix, -0.5).unwrap();
+        let (r, _, _) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert!(r < 200, "expected darker, got r={r}");
+    }
+
+    #[test]
+    fn test_modify_brightness_zero() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 150, 200));
+        let pix: Pix = pm.into();
+
+        let result = modify_brightness(&pix, 0.0).unwrap();
+        assert_eq!(
+            result.get_pixel_unchecked(0, 0),
+            pix.get_pixel_unchecked(0, 0)
+        );
+    }
+
+    // ========== measure_saturation tests ==========
+
+    #[test]
+    fn test_measure_saturation_gray() {
+        // Gray image: saturation should be 0
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..10 {
+            for x in 0..10 {
+                pm.set_pixel_unchecked(x, y, color::compose_rgb(128, 128, 128));
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let sat = measure_saturation(&pix, 1).unwrap();
+        assert_eq!(sat, 0.0);
+    }
+
+    #[test]
+    fn test_measure_saturation_colored() {
+        // Fully saturated red: saturation = 255
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..10 {
+            for x in 0..10 {
+                pm.set_pixel_unchecked(x, y, color::compose_rgb(255, 0, 0));
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let sat = measure_saturation(&pix, 1).unwrap();
+        assert_eq!(sat, 255.0);
+    }
+
+    #[test]
+    fn test_measure_saturation_invalid() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(measure_saturation(&pix, 1).is_err());
+
+        let pix32 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(measure_saturation(&pix32, 0).is_err());
     }
 }
