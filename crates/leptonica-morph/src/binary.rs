@@ -193,28 +193,114 @@ fn subtract(a: &Pix, b: &Pix) -> MorphResult<Pix> {
 
 /// Dilate with a brick (rectangular) structuring element
 ///
-/// Optimized for rectangular SEs.
+/// Optimized for rectangular SEs using separable decomposition.
+/// Complexity: O(W × H × (width + height)) instead of O(W × H × width × height)
 pub fn dilate_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    dilate(pix, &sel)
+    // Identity case
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+
+    // 1D cases
+    if width == 1 {
+        let sel = Sel::create_vertical(height)?;
+        return dilate(pix, &sel);
+    }
+    if height == 1 {
+        let sel = Sel::create_horizontal(width)?;
+        return dilate(pix, &sel);
+    }
+
+    // Separable decomposition: dilate(pix, horz) then dilate(tmp, vert)
+    let sel_h = Sel::create_horizontal(width)?;
+    let tmp = dilate(pix, &sel_h)?;
+    let sel_v = Sel::create_vertical(height)?;
+    dilate(&tmp, &sel_v)
 }
 
 /// Erode with a brick (rectangular) structuring element
+///
+/// Optimized for rectangular SEs using separable decomposition.
+/// Complexity: O(W × H × (width + height)) instead of O(W × H × width × height)
 pub fn erode_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    erode(pix, &sel)
+    // Identity case
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+
+    // 1D cases
+    if width == 1 {
+        let sel = Sel::create_vertical(height)?;
+        return erode(pix, &sel);
+    }
+    if height == 1 {
+        let sel = Sel::create_horizontal(width)?;
+        return erode(pix, &sel);
+    }
+
+    // Separable decomposition: erode(pix, horz) then erode(tmp, vert)
+    let sel_h = Sel::create_horizontal(width)?;
+    let tmp = erode(pix, &sel_h)?;
+    let sel_v = Sel::create_vertical(height)?;
+    erode(&tmp, &sel_v)
 }
 
 /// Open with a brick structuring element
+///
+/// Optimized for rectangular SEs using separable decomposition.
+/// Opening = erosion followed by dilation.
+/// Separable: erode(horz) → erode(vert) → dilate(horz) → dilate(vert)
 pub fn open_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    open(pix, &sel)
+    // Identity case
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+
+    // 1D cases - use non-separable generic version (still fast)
+    if width == 1 || height == 1 {
+        let sel = Sel::create_brick(width, height)?;
+        return open(pix, &sel);
+    }
+
+    // Separable decomposition: 4 passes
+    // Erode: horizontal then vertical
+    let sel_h = Sel::create_horizontal(width)?;
+    let step1 = erode(pix, &sel_h)?;
+    let sel_v = Sel::create_vertical(height)?;
+    let step2 = erode(&step1, &sel_v)?;
+
+    // Dilate: horizontal then vertical
+    let step3 = dilate(&step2, &sel_h)?;
+    dilate(&step3, &sel_v)
 }
 
 /// Close with a brick structuring element
+///
+/// Optimized for rectangular SEs using separable decomposition.
+/// Closing = dilation followed by erosion.
+/// Separable: dilate(horz) → dilate(vert) → erode(horz) → erode(vert)
 pub fn close_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    close(pix, &sel)
+    // Identity case
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+
+    // 1D cases - use non-separable generic version (still fast)
+    if width == 1 || height == 1 {
+        let sel = Sel::create_brick(width, height)?;
+        return close(pix, &sel);
+    }
+
+    // Separable decomposition: 4 passes
+    // Dilate: horizontal then vertical
+    let sel_h = Sel::create_horizontal(width)?;
+    let step1 = dilate(pix, &sel_h)?;
+    let sel_v = Sel::create_vertical(height)?;
+    let step2 = dilate(&step1, &sel_v)?;
+
+    // Erode: horizontal then vertical
+    let step3 = erode(&step2, &sel_h)?;
+    erode(&step3, &sel_v)
 }
 
 /// Check that the image is binary (1-bpp)
@@ -381,7 +467,6 @@ mod tests {
         &[(3, 3), (5, 7), (7, 5), (1, 5), (5, 1), (1, 1), (9, 9)];
 
     #[test]
-    #[ignore = "separable decomposition not yet implemented"]
     fn test_dilate_brick_separable_equivalence() {
         let pix = create_pattern_image();
         for &(w, h) in SEPARABLE_SIZES {
@@ -398,7 +483,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "separable decomposition not yet implemented"]
     fn test_erode_brick_separable_equivalence() {
         let pix = create_pattern_image();
         for &(w, h) in SEPARABLE_SIZES {
@@ -415,7 +499,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "separable decomposition not yet implemented"]
     fn test_open_brick_separable_equivalence() {
         let pix = create_pattern_image();
         for &(w, h) in SEPARABLE_SIZES {
@@ -432,7 +515,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "separable decomposition not yet implemented"]
     fn test_close_brick_separable_equivalence() {
         let pix = create_pattern_image();
         for &(w, h) in SEPARABLE_SIZES {
