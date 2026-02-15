@@ -110,8 +110,10 @@ impl PixMut {
     /// Set a single color component from an 8 bpp source image.
     ///
     /// The source image values replace the specified component channel
-    /// in this 32 bpp image. If setting the alpha component, spp is
-    /// automatically set to 4.
+    /// in this 32 bpp image. If the source image is smaller than this
+    /// image, only the overlapping region is modified; pixels outside
+    /// the source bounds are left unchanged. If setting the alpha
+    /// component, spp is automatically set to 4.
     ///
     /// # See also
     ///
@@ -276,6 +278,36 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         let src = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pm.set_rgb_component(&src, RgbComponent::Red).is_err());
+    }
+
+    #[test]
+    fn test_set_rgb_component_dimension_mismatch() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..2 {
+            for x in 0..2 {
+                pm.set_rgb(x, y, 10, 20, 30).unwrap();
+            }
+        }
+
+        // Smaller source: only overlapping region should be modified
+        let src = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        let mut src_m = src.try_into_mut().unwrap();
+        src_m.set_pixel_unchecked(0, 0, 255);
+        let src: Pix = src_m.into();
+
+        pm.set_rgb_component(&src, RgbComponent::Red).unwrap();
+        let pix: Pix = pm.into();
+
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 0));
+        assert_eq!((r, g, b), (255, 20, 30));
+        // Other pixels unchanged
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 0));
+        assert_eq!((r, g, b), (10, 20, 30));
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 1));
+        assert_eq!((r, g, b), (10, 20, 30));
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 1));
+        assert_eq!((r, g, b), (10, 20, 30));
     }
 
     #[test]
