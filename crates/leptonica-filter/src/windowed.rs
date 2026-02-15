@@ -111,7 +111,8 @@ fn mean_square_accum_f64(pix: &Pix) -> FilterResult<MeanSquareAccumF64> {
 ///
 /// Each pixel in the output FPix contains the sum of all squared source
 /// pixel values in the rectangle from (0,0) to (x,y) inclusive.
-/// Uses `f64` precision internally to avoid overflow.
+/// Uses `f64` precision internally to reduce rounding error from large sums
+/// before storing the result in `f32`.
 ///
 /// The recursion is: `a(i,j) = v(i,j)^2 + a(i-1,j) + a(i,j-1) - a(i-1,j-1)`
 ///
