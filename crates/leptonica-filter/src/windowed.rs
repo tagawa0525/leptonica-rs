@@ -195,7 +195,7 @@ pub fn windowed_mean(pix: &Pix, wc: u32, hc: u32, normalize: bool) -> FilterResu
                 + acc.get_pixel_unchecked(x, y) as i64;
 
             if normalize {
-                let result = (norm * val as f64) as u32;
+                let result = (norm * val as f64 + 0.5) as u32;
                 let result = result.min(255);
                 out_mut.set_pixel_unchecked(x, y, result);
             } else {
