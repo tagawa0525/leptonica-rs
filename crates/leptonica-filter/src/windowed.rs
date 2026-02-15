@@ -381,21 +381,11 @@ mod tests {
         assert_eq!(acc.width(), 3);
         assert_eq!(acc.height(), 3);
 
-        // Expected squared values: 1, 4, 9, 16, 25, 36, 49, 64, 81
-        // Integral image of squares:
-        // Row 0: 1, 1+4=5, 5+9=14
-        // Row 1: 1+16=17, 17+4+25-1=45, 45+9+36-5=85 = 1+4+9+16+25+36=91
-        //   Actually: a(0,1) = 1+16=17, a(1,1) = 4+17+5-1=25, wait...
-        // Let me recompute:
-        //   a(0,0) = 1^2 = 1
-        //   a(1,0) = 1 + 2^2 = 5
-        //   a(2,0) = 5 + 3^2 = 14
-        //   a(0,1) = 1 + 4^2 = 17
-        //   a(1,1) = 5^2 + a(0,1) + a(1,0) - a(0,0) = 25 + 17 + 5 - 1 = 46
-        //   a(2,1) = 6^2 + a(1,1) + a(2,0) - a(1,0) = 36 + 46 + 14 - 5 = 91
-        //   a(0,2) = 7^2 + a(0,1) = 49 + 17 = 66
-        //   a(1,2) = 8^2 + a(0,2) + a(1,1) - a(0,1) = 64 + 66 + 46 - 17 = 159
-        //   a(2,2) = 9^2 + a(1,2) + a(2,1) - a(1,1) = 81 + 159 + 91 - 46 = 285
+        // Expected squared integral image a(x, y) = sum_{i<=x, j<=y} I(i, j)^2
+        // for the 3×3 image with values 1..9 (row-major):
+        //   row 0: [  1,   5,  14]
+        //   row 1: [ 17,  46,  91]
+        //   row 2: [ 66, 159, 285]
         assert_eq!(acc.get_pixel_unchecked(0, 0), 1.0);
         assert_eq!(acc.get_pixel_unchecked(1, 0), 5.0);
         assert_eq!(acc.get_pixel_unchecked(2, 0), 14.0);
