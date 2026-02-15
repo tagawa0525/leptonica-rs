@@ -298,4 +298,92 @@ mod tests {
 
         assert_eq!(embossed.width(), pix.width());
     }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_gray_fast_basic() {
+        let pix = create_test_image();
+
+        // Test with halfwidth=1, amount=0.5
+        let result = unsharp_masking_gray_fast(&pix, 1, 0.5).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_gray_fast_halfwidth2() {
+        let pix = create_test_image();
+
+        // Test with halfwidth=2, amount=0.7
+        let result = unsharp_masking_gray_fast(&pix, 2, 0.7).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_gray_fast_no_op() {
+        let pix = create_test_image();
+
+        // Test with amount=0.0 (should return clone)
+        let result = unsharp_masking_gray_fast(&pix, 1, 0.0).unwrap();
+
+        // Should be a clone of original
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_gray_fast_rejects_non_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+
+        let result = unsharp_masking_gray_fast(&pix, 1, 0.5);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_fast_8bpp() {
+        let pix = create_test_image();
+
+        // Test with 8bpp image
+        let result = unsharp_masking_fast(&pix, 1, 0.5).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_fast_32bpp_rgb() {
+        // Create a 32bpp RGB test image
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        for y in 0..10 {
+            for x in 0..10 {
+                // Create RGB pattern
+                let r = if x < 5 { 50 } else { 200 };
+                let g = if y < 5 { 60 } else { 180 };
+                let b = 128;
+                let pixel = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                pix_mut.set_pixel_unchecked(x, y, pixel);
+            }
+        }
+        let pix = pix_mut.into();
+
+        // Test with 32bpp image
+        let result = unsharp_masking_fast(&pix, 1, 0.5).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
 }
