@@ -7,8 +7,9 @@
 //!
 //! C Leptonica: `pix2.c` (`pixGetRGBComponent`, `pixSetRGBComponent`, etc.)
 
-use super::{Pix, PixMut};
-use crate::error::Result;
+use super::{Pix, PixMut, PixelDepth};
+use crate::color;
+use crate::error::{Error, Result};
 
 /// Color component selector for RGB channel operations.
 ///
@@ -33,8 +34,31 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixGetRGBComponent()` in `pix2.c`
-    pub fn get_rgb_component(&self, _comp: RgbComponent) -> Result<Pix> {
-        todo!()
+    pub fn get_rgb_component(&self, comp: RgbComponent) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let val = match comp {
+                    RgbComponent::Red => color::red(pixel),
+                    RgbComponent::Green => color::green(pixel),
+                    RgbComponent::Blue => color::blue(pixel),
+                    RgbComponent::Alpha => color::alpha(pixel),
+                };
+                result_mut.set_pixel_unchecked(x, y, val as u32);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Create a 32 bpp RGB image from three 8 bpp component images.
@@ -44,8 +68,41 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixCreateRGBImage()` in `pix2.c`
-    pub fn create_rgb_image(_pix_r: &Pix, _pix_g: &Pix, _pix_b: &Pix) -> Result<Pix> {
-        todo!()
+    pub fn create_rgb_image(pix_r: &Pix, pix_g: &Pix, pix_b: &Pix) -> Result<Pix> {
+        // Validate depths
+        if pix_r.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(pix_r.depth().bits()));
+        }
+        if pix_g.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(pix_g.depth().bits()));
+        }
+        if pix_b.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(pix_b.depth().bits()));
+        }
+
+        // Validate dimensions match
+        let w = pix_r.width();
+        let h = pix_r.height();
+        if pix_g.width() != w || pix_g.height() != h || pix_b.width() != w || pix_b.height() != h {
+            return Err(Error::InvalidParameter(
+                "all component images must have the same dimensions".into(),
+            ));
+        }
+
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(pix_r.xres(), pix_r.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let r = pix_r.get_pixel_unchecked(x, y) as u8;
+                let g = pix_g.get_pixel_unchecked(x, y) as u8;
+                let b = pix_b.get_pixel_unchecked(x, y) as u8;
+                result_mut.set_pixel_unchecked(x, y, color::compose_rgb(r, g, b));
+            }
+        }
+
+        Ok(result_mut.into())
     }
 }
 
@@ -53,13 +110,45 @@ impl PixMut {
     /// Set a single color component from an 8 bpp source image.
     ///
     /// The source image values replace the specified component channel
-    /// in this 32 bpp image.
+    /// in this 32 bpp image. If setting the alpha component, spp is
+    /// automatically set to 4.
     ///
     /// # See also
     ///
     /// C Leptonica: `pixSetRGBComponent()` in `pix2.c`
-    pub fn set_rgb_component(&mut self, _src: &Pix, _comp: RgbComponent) -> Result<()> {
-        todo!()
+    pub fn set_rgb_component(&mut self, src: &Pix, comp: RgbComponent) -> Result<()> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if src.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(src.depth().bits()));
+        }
+
+        if comp == RgbComponent::Alpha {
+            self.set_spp(4);
+        }
+
+        let w = self.width().min(src.width());
+        let h = self.height().min(src.height());
+
+        for y in 0..h {
+            for x in 0..w {
+                let src_val = src.get_pixel_unchecked(x, y) as u8;
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (mut r, mut g, mut b, mut a) = color::extract_rgba(pixel);
+
+                match comp {
+                    RgbComponent::Red => r = src_val,
+                    RgbComponent::Green => g = src_val,
+                    RgbComponent::Blue => b = src_val,
+                    RgbComponent::Alpha => a = src_val,
+                }
+
+                self.set_pixel_unchecked(x, y, color::compose_rgba(r, g, b, a));
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -70,7 +159,6 @@ mod tests {
     use crate::pix::PixelDepth;
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_rgb_component_red() {
         let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -87,7 +175,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_rgb_component_green() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -101,7 +188,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_rgb_component_blue() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -113,7 +199,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_rgb_component_alpha() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -126,14 +211,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_rgb_component_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.get_rgb_component(RgbComponent::Red).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_rgb_component_preserves_resolution() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -146,7 +229,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_rgb_component() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -170,7 +252,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_rgb_component_alpha() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -190,7 +271,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_rgb_component_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -199,7 +279,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_rgb_image() {
         let r = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
         let mut rm = r.try_into_mut().unwrap();
@@ -228,7 +307,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_rgb_image_dimension_mismatch() {
         let r = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let g = Pix::new(10, 20, PixelDepth::Bit8).unwrap();
@@ -237,7 +315,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_rgb_image_invalid_depth() {
         let r = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let g = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
@@ -246,7 +323,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_roundtrip_extract_compose() {
         // Extract R/G/B, then compose back, should match original
         let pix = Pix::new(3, 2, PixelDepth::Bit32).unwrap();
