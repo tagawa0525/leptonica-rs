@@ -143,15 +143,71 @@ pub fn gaussian_blur_auto(pix: &Pix, radius: u32) -> FilterResult<Pix> {
 ///
 /// Performs 2D convolution as a sequence of 1D convolutions in x and y directions.
 /// This is faster than full 2D convolution when the kernel is separable.
+///
+/// # Algorithm
+///
+/// 1. Apply kernel_x horizontally first
+/// 2. Apply kernel_y vertically to the result
+///
+/// # Supported depths
+///
+/// - 8 bpp grayscale
+/// - 32 bpp color
+///
+/// # See also
+///
+/// C Leptonica: `pixConvolveSep()` in `convolve.c`
 pub fn convolve_sep(pix: &Pix, kernel_x: &Kernel, kernel_y: &Kernel) -> FilterResult<Pix> {
-    todo!("convolve_sep not yet implemented")
+    // Validate input depth
+    match pix.depth() {
+        PixelDepth::Bit8 | PixelDepth::Bit32 => {}
+        _ => {
+            return Err(FilterError::UnsupportedDepth {
+                expected: "8 or 32 bpp",
+                actual: pix.depth().bits(),
+            });
+        }
+    }
+
+    // Apply horizontal convolution first
+    let temp = convolve(pix, kernel_x)?;
+
+    // Apply vertical convolution to the intermediate result
+    let result = convolve(&temp, kernel_y)?;
+
+    Ok(result)
 }
 
 /// Separable convolution for RGB images
 ///
 /// Applies separable convolution to each color channel independently.
+///
+/// # Algorithm
+///
+/// 1. Extract R, G, B channels into separate 8-bit images
+/// 2. Apply separable convolution to each channel
+/// 3. Recombine channels into 32-bit RGB image
+///
+/// # See also
+///
+/// C Leptonica: `pixConvolveRGBSep()` in `convolve.c`
 pub fn convolve_rgb_sep(pix: &Pix, kernel_x: &Kernel, kernel_y: &Kernel) -> FilterResult<Pix> {
-    todo!("convolve_rgb_sep not yet implemented")
+    check_color(pix)?;
+
+    // Extract RGB channels
+    let pix_r = extract_rgb_channel(pix, color::RED)?;
+    let pix_g = extract_rgb_channel(pix, color::GREEN)?;
+    let pix_b = extract_rgb_channel(pix, color::BLUE)?;
+
+    // Apply separable convolution to each channel
+    let result_r = convolve_sep(&pix_r, kernel_x, kernel_y)?;
+    let result_g = convolve_sep(&pix_g, kernel_x, kernel_y)?;
+    let result_b = convolve_sep(&pix_b, kernel_x, kernel_y)?;
+
+    // Recombine channels
+    let result = create_rgb_image(&result_r, &result_g, &result_b)?;
+
+    Ok(result)
 }
 
 fn check_grayscale(pix: &Pix) -> FilterResult<()> {
@@ -172,6 +228,99 @@ fn check_color(pix: &Pix) -> FilterResult<()> {
         });
     }
     Ok(())
+}
+
+/// Extract a single RGB channel from a 32-bit color image
+///
+/// Returns an 8-bit grayscale image containing the specified channel.
+///
+/// # Arguments
+///
+/// * `pix` - Input 32-bit color image
+/// * `channel` - Channel index (color::RED, color::GREEN, color::BLUE, or color::ALPHA)
+///
+/// # See also
+///
+/// C Leptonica: `pixGetRGBComponent()` in `pix2.c`
+fn extract_rgb_channel(pix: &Pix, channel: usize) -> FilterResult<Pix> {
+    check_color(pix)?;
+
+    let w = pix.width();
+    let h = pix.height();
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    // Determine shift amount based on channel
+    let shift = match channel {
+        color::RED => color::RED_SHIFT,
+        color::GREEN => color::GREEN_SHIFT,
+        color::BLUE => color::BLUE_SHIFT,
+        color::ALPHA => color::ALPHA_SHIFT,
+        _ => {
+            return Err(FilterError::InvalidParameters(
+                "Invalid channel index".to_string(),
+            ));
+        }
+    };
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let value = ((pixel >> shift) & 0xff) as u32;
+            out_mut.set_pixel_unchecked(x, y, value);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Create a 32-bit RGB image from separate R, G, B channel images
+///
+/// # Arguments
+///
+/// * `pix_r` - 8-bit red channel
+/// * `pix_g` - 8-bit green channel
+/// * `pix_b` - 8-bit blue channel
+///
+/// # See also
+///
+/// C Leptonica: `pixCreateRGBImage()` in `pix2.c`
+fn create_rgb_image(pix_r: &Pix, pix_g: &Pix, pix_b: &Pix) -> FilterResult<Pix> {
+    check_grayscale(pix_r)?;
+    check_grayscale(pix_g)?;
+    check_grayscale(pix_b)?;
+
+    let w = pix_r.width();
+    let h = pix_r.height();
+
+    // Validate dimensions match
+    if w != pix_g.width() || w != pix_b.width() {
+        return Err(FilterError::InvalidParameters(
+            "Channel widths do not match".to_string(),
+        ));
+    }
+    if h != pix_g.height() || h != pix_b.height() {
+        return Err(FilterError::InvalidParameters(
+            "Channel heights do not match".to_string(),
+        ));
+    }
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    out_mut.set_spp(3);
+
+    for y in 0..h {
+        for x in 0..w {
+            let r = pix_r.get_pixel_unchecked(x, y) as u8;
+            let g = pix_g.get_pixel_unchecked(x, y) as u8;
+            let b = pix_b.get_pixel_unchecked(x, y) as u8;
+            let pixel = color::compose_rgb(r, g, b);
+            out_mut.set_pixel_unchecked(x, y, pixel);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 #[cfg(test)]
@@ -270,7 +419,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_sep_identity() {
         // Separable 1D identity kernels should produce same output as input
         let pix = create_test_gray_image();
@@ -288,7 +436,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_sep_horizontal_vertical() {
         // Separable convolution should decompose correctly
         let pix = create_test_gray_image();
@@ -323,7 +470,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_sep_sobel_x() {
         // Sobel-X can be decomposed into separable kernels
         let pix = create_test_gray_image();
@@ -340,7 +486,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_rgb_sep_identity() {
         let pix = create_test_color_image();
         let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
@@ -357,7 +502,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_rgb_sep_box_blur() {
         let pix = create_test_color_image();
 
