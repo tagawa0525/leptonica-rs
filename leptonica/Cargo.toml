@@ -8,6 +8,13 @@ repository.workspace = true
 
 [dependencies]
 leptonica-core.workspace = true
+leptonica-io.workspace = true
+leptonica-morph.workspace = true
+leptonica-transform.workspace = true
+leptonica-filter.workspace = true
+leptonica-color.workspace = true
+leptonica-region.workspace = true
+leptonica-recog.workspace = true
 
 [features]
 default = []

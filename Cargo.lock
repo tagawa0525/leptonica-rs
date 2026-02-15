@@ -222,7 +222,14 @@ dependencies = [
 name = "leptonica"
 version = "0.1.0"
 dependencies = [
+ "leptonica-color",
  "leptonica-core",
+ "leptonica-filter",
+ "leptonica-io",
+ "leptonica-morph",
+ "leptonica-recog",
+ "leptonica-region",
+ "leptonica-transform",
 ]
 
 [[package]]
