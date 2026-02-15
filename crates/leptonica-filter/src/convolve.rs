@@ -249,8 +249,35 @@ fn check_color(pix: &Pix) -> FilterResult<()> {
 /// # See also
 ///
 /// C Leptonica: `pixCensusTransform()` in `convolve.c`
-pub fn census_transform(_pix: &Pix, _halfsize: u32) -> FilterResult<Pix> {
-    todo!("census_transform not yet implemented")
+pub fn census_transform(pix: &Pix, halfsize: u32) -> FilterResult<Pix> {
+    check_grayscale(pix)?;
+
+    if halfsize < 1 {
+        return Err(FilterError::InvalidParameters(
+            "halfsize must be >= 1".into(),
+        ));
+    }
+
+    // Get neighborhood average using blockconv_gray
+    let pixav = crate::block_conv::blockconv_gray(pix, None, halfsize, halfsize)?;
+
+    // Compare each pixel with its neighborhood average
+    let w = pix.width();
+    let h = pix.height();
+    let pixd = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let val_src = pix.get_pixel_unchecked(x, y);
+            let val_avg = pixav.get_pixel_unchecked(x, y);
+            if val_src > val_avg {
+                pixd_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(pixd_mut.into())
 }
 
 /// Add Gaussian noise to an image
@@ -270,8 +297,106 @@ pub fn census_transform(_pix: &Pix, _halfsize: u32) -> FilterResult<Pix> {
 /// # See also
 ///
 /// C Leptonica: `pixAddGaussianNoise()` in `convolve.c`
-pub fn add_gaussian_noise(_pix: &Pix, _stdev: f32) -> FilterResult<Pix> {
-    todo!("add_gaussian_noise not yet implemented")
+pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
+    match pix.depth() {
+        PixelDepth::Bit8 | PixelDepth::Bit32 => {}
+        _ => {
+            return Err(FilterError::UnsupportedDepth {
+                expected: "8 or 32 bpp",
+                actual: pix.depth().bits(),
+            });
+        }
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let pixd = Pix::new(w, h, pix.depth())?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+    if pix.depth() == PixelDepth::Bit32 {
+        pixd_mut.set_spp(pix.spp());
+    }
+
+    // Gaussian distribution sampler using Box-Muller transform
+    struct GaussianSampler {
+        select: bool,
+        saved: f32,
+        state: u64,
+    }
+
+    impl GaussianSampler {
+        fn new() -> Self {
+            // Use a simple LCG with constants from Numerical Recipes
+            Self {
+                select: false,
+                saved: 0.0,
+                state: 1234567890u64,
+            }
+        }
+
+        fn rand_f32(&mut self) -> f32 {
+            // LCG: state = (a * state + c) % m
+            const A: u64 = 1664525;
+            const C: u64 = 1013904223;
+            self.state = self.state.wrapping_mul(A).wrapping_add(C);
+            (self.state as f32) / (u64::MAX as f32)
+        }
+
+        fn sample(&mut self) -> f32 {
+            if self.select {
+                self.select = false;
+                self.saved
+            } else {
+                // Box-Muller transform: generate two uniform random variables,
+                // transform to two Gaussian random variables
+                let (xval, yval, rsq) = loop {
+                    let xval = 2.0 * self.rand_f32() - 1.0;
+                    let yval = 2.0 * self.rand_f32() - 1.0;
+                    let rsq = xval * xval + yval * yval;
+                    if rsq > 0.0 && rsq < 1.0 {
+                        break (xval, yval, rsq);
+                    }
+                };
+                let factor = (-2.0 * rsq.ln() / rsq).sqrt();
+                self.saved = xval * factor;
+                self.select = true;
+                yval * factor
+            }
+        }
+    }
+
+    let mut sampler = GaussianSampler::new();
+
+    if pix.depth() == PixelDepth::Bit8 {
+        for y in 0..h {
+            for x in 0..w {
+                let val = pix.get_pixel_unchecked(x, y) as i32;
+                let noise = (stdev * sampler.sample() + 0.5) as i32;
+                let result = (val + noise).clamp(0, 255) as u32;
+                pixd_mut.set_pixel_unchecked(x, y, result);
+            }
+        }
+    } else {
+        // 32 bpp color
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = pix.get_pixel_unchecked(x, y);
+                let (r, g, b, a) = color::extract_rgba(pixel);
+
+                let r_noise = (stdev * sampler.sample() + 0.5) as i32;
+                let g_noise = (stdev * sampler.sample() + 0.5) as i32;
+                let b_noise = (stdev * sampler.sample() + 0.5) as i32;
+
+                let r_out = ((r as i32) + r_noise).clamp(0, 255) as u8;
+                let g_out = ((g as i32) + g_noise).clamp(0, 255) as u8;
+                let b_out = ((b as i32) + b_noise).clamp(0, 255) as u8;
+
+                let result = color::compose_rgba(r_out, g_out, b_out, a);
+                pixd_mut.set_pixel_unchecked(x, y, result);
+            }
+        }
+    }
+
+    Ok(pixd_mut.into())
 }
 
 /// Block sum for binary images
@@ -293,8 +418,83 @@ pub fn add_gaussian_noise(_pix: &Pix, _stdev: f32) -> FilterResult<Pix> {
 /// # See also
 ///
 /// C Leptonica: `pixBlocksum()` in `convolve.c`
-pub fn blocksum(_pix: &Pix, _wc: u32, _hc: u32) -> FilterResult<Pix> {
-    todo!("blocksum not yet implemented")
+pub fn blocksum(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "1 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    if wc == 0 || hc == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    // Reduce kernel if necessary
+    let wc = wc.min((w - 1) / 2);
+    let hc = hc.min((h - 1) / 2);
+
+    if wc == 0 || hc == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    // Convert 1bpp to 8bpp (0→0, 1→255) for integral image computation
+    let pix8 = pix.convert_1_to_8(0, 255)?;
+
+    // Compute integral image using blockconv_accum
+    let acc = crate::block_conv::blockconv_accum(&pix8)?;
+
+    // Compute block sums using integral image
+    let pixd = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+
+    let fwc = (2 * wc + 1) as f64;
+    let fhc = (2 * hc + 1) as f64;
+    let norm = 1.0 / (fwc * fhc);
+
+    for y in 0..h {
+        let ymin = if y > hc { y - hc - 1 } else { 0 };
+        let ymax = (y + hc).min(h - 1);
+        let hn = if y > hc {
+            (ymax - ymin) as f64
+        } else {
+            (ymax + 1) as f64
+        };
+
+        for x in 0..w {
+            let xmin = if x > wc { x - wc - 1 } else { 0 };
+            let xmax = (x + wc).min(w - 1);
+            let wn = if x > wc {
+                (xmax - xmin) as f64
+            } else {
+                (xmax + 1) as f64
+            };
+
+            // Four-corner lookup on integral image
+            let mut val = acc.get_pixel_unchecked(xmax, ymax) as i64;
+            if y > hc {
+                val -= acc.get_pixel_unchecked(xmax, ymin) as i64;
+            }
+            if x > wc {
+                val -= acc.get_pixel_unchecked(xmin, ymax) as i64;
+            }
+            if y > hc && x > wc {
+                val += acc.get_pixel_unchecked(xmin, ymin) as i64;
+            }
+
+            // Normalize: output = val / (actual_area) = val * norm * fwc/wn * fhc/hn
+            // Since input was scaled 0→0, 1→255, the sum is already in terms of 255*count
+            // We need to normalize by the actual area, not the full kernel area
+            let result = (norm * val as f64 * fwc / wn * fhc / hn + 0.5) as u32;
+            let result = result.min(255);
+            pixd_mut.set_pixel_unchecked(x, y, result);
+        }
+    }
+
+    Ok(pixd_mut.into())
 }
 
 /// Block rank for binary images
@@ -317,8 +517,70 @@ pub fn blocksum(_pix: &Pix, _wc: u32, _hc: u32) -> FilterResult<Pix> {
 /// # See also
 ///
 /// C Leptonica: `pixBlockrank()` in `convolve.c`
-pub fn blockrank(_pix: &Pix, _wc: u32, _hc: u32, _rank: f32) -> FilterResult<Pix> {
-    todo!("blockrank not yet implemented")
+pub fn blockrank(pix: &Pix, wc: u32, hc: u32, rank: f32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "1 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    if !(0.0..=1.0).contains(&rank) {
+        return Err(FilterError::InvalidParameters(
+            "rank must be in [0.0, 1.0]".into(),
+        ));
+    }
+
+    // Special case: rank == 0.0 means return all-ones image
+    if rank == 0.0 {
+        let w = pix.width();
+        let h = pix.height();
+        let pixd = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut pixd_mut = pixd.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                pixd_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        return Ok(pixd_mut.into());
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    if wc == 0 || hc == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    // Reduce kernel if necessary
+    let wc = wc.min((w - 1) / 2);
+    let hc = hc.min((h - 1) / 2);
+
+    if wc == 0 || hc == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    // Get normalized block sums
+    let pixt = blocksum(pix, wc, hc)?;
+
+    // Threshold at rank * 255
+    // Note: C Leptonica uses pixThresholdToBinary which returns 1 for values < thresh,
+    // then inverts. We directly threshold with >= to avoid the inversion.
+    let thresh = (255.0 * rank) as u32;
+
+    let pixd = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let val = pixt.get_pixel_unchecked(x, y);
+            if val >= thresh {
+                pixd_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(pixd_mut.into())
 }
 
 #[cfg(test)]
@@ -585,7 +847,6 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_census_transform_basic() {
         // Create a simple 8bpp test image
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -609,7 +870,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_census_transform_uniform() {
         // Uniform image: all pixels equal
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -624,17 +884,16 @@ mod tests {
 
         let result = census_transform(&pix, 1).unwrap();
 
-        // All pixels should be >= average (which is 128), so all should be 1
+        // All pixels == average (128), so pixel > average is false, all should be 0
         assert_eq!(result.depth(), PixelDepth::Bit1);
         for y in 0..10 {
             for x in 0..10 {
-                assert_eq!(result.get_pixel_unchecked(x, y), 1);
+                assert_eq!(result.get_pixel_unchecked(x, y), 0);
             }
         }
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_census_transform_invalid_depth() {
         // Census transform requires 8bpp input
         let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
@@ -648,7 +907,6 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_gaussian_noise_8bpp() {
         let pix = create_test_gray_image();
         let result = add_gaussian_noise(&pix, 10.0).unwrap();
@@ -660,7 +918,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_gaussian_noise_32bpp() {
         let pix = create_test_color_image();
         let result = add_gaussian_noise(&pix, 10.0).unwrap();
@@ -672,7 +929,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_gaussian_noise_statistical_properties() {
         // Create a uniform 8bpp image
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -710,7 +966,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_gaussian_noise_invalid_depth() {
         // Should reject 1bpp input
         let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
@@ -724,7 +979,6 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blocksum_basic() {
         // Create a simple 1bpp image
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -755,7 +1009,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blocksum_all_zero() {
         // All-zero image should produce all-zero output
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -771,7 +1024,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blocksum_all_one() {
         // All-one image should produce all-255 output
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -795,7 +1047,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blocksum_invalid_depth() {
         // Should reject non-1bpp input
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -809,7 +1060,6 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blockrank_basic() {
         // Create a simple 1bpp image
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -835,7 +1085,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blockrank_threshold_zero() {
         // rank=0.0 means any ON pixel in block sets output to 1 (dilation-like)
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -854,7 +1103,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blockrank_threshold_one() {
         // rank=1.0 means all pixels in block must be ON (erosion-like)
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -875,7 +1123,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blockrank_invalid_depth() {
         // Should reject non-1bpp input
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -885,7 +1132,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blockrank_invalid_rank() {
         let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
 
