@@ -103,15 +103,35 @@ impl Sel {
     /// `dilate(brick(f1)) then dilate(comb(f1, f2))` == `dilate(brick(f1*f2))`.
     ///
     /// C version: `sel1.c:452-487` `selCreateComb`
-    pub fn create_comb_horizontal(_factor1: u32, _factor2: u32) -> MorphResult<Self> {
-        todo!("create_comb_horizontal not yet implemented")
+    pub fn create_comb_horizontal(factor1: u32, factor2: u32) -> MorphResult<Self> {
+        if factor1 == 0 || factor2 == 0 {
+            return Err(MorphError::InvalidSel("factors must be > 0".to_string()));
+        }
+        let size = factor1 * factor2;
+        let mut sel = Self::new(size, 1)?;
+        for i in 0..factor2 {
+            let z = factor1 / 2 + i * factor1;
+            sel.set_element(z, 0, SelElement::Hit);
+        }
+        sel.name = Some(format!("comb_{}h", size));
+        Ok(sel)
     }
 
     /// Create a vertical comb structuring element
     ///
     /// Same as horizontal comb but oriented vertically.
-    pub fn create_comb_vertical(_factor1: u32, _factor2: u32) -> MorphResult<Self> {
-        todo!("create_comb_vertical not yet implemented")
+    pub fn create_comb_vertical(factor1: u32, factor2: u32) -> MorphResult<Self> {
+        if factor1 == 0 || factor2 == 0 {
+            return Err(MorphError::InvalidSel("factors must be > 0".to_string()));
+        }
+        let size = factor1 * factor2;
+        let mut sel = Self::new(1, size)?;
+        for i in 0..factor2 {
+            let z = factor1 / 2 + i * factor1;
+            sel.set_element(0, z, SelElement::Hit);
+        }
+        sel.name = Some(format!("comb_{}v", size));
+        Ok(sel)
     }
 
     /// Create a cross (+) structuring element
@@ -596,7 +616,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "create_comb not yet implemented"]
     fn test_create_comb_horizontal_3x3() {
         // comb(f1=3, f2=3): size=9, hits at columns 1, 4, 7
         let sel = Sel::create_comb_horizontal(3, 3).unwrap();
@@ -616,7 +635,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "create_comb not yet implemented"]
     fn test_create_comb_horizontal_2x2() {
         // comb(f1=2, f2=2): size=4, hits at columns 1, 3
         let sel = Sel::create_comb_horizontal(2, 2).unwrap();
@@ -628,7 +646,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "create_comb not yet implemented"]
     fn test_create_comb_vertical_3x4() {
         // comb(f1=3, f2=4): size=12, hits at rows 1, 4, 7, 10
         let sel = Sel::create_comb_vertical(3, 4).unwrap();
