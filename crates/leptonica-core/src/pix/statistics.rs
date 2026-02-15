@@ -135,6 +135,82 @@ impl Pix {
         count
     }
 
+    /// Count ON pixels in a rectangular region of a 1 bpp image.
+    ///
+    /// C equivalent: `pixCountPixelsInRect()` in `pix3.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional clipping box. If `None`, uses the entire image.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1 bpp.
+    pub fn count_pixels_in_rect(&self, _region: Option<&Box>) -> Result<u64> {
+        todo!()
+    }
+
+    /// Count ON pixels per row in a 1 bpp image.
+    ///
+    /// C equivalent: `pixCountByRow()` in `pix3.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional clipping box. If `None`, uses the entire image.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1 bpp.
+    pub fn count_by_row(&self, _region: Option<&Box>) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Count ON pixels per column in a 1 bpp image.
+    ///
+    /// C equivalent: `pixCountByColumn()` in `pix3.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional clipping box. If `None`, uses the entire image.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1 bpp.
+    pub fn count_by_column(&self, _region: Option<&Box>) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Check if all pixels in the image are zero.
+    ///
+    /// C equivalent: `pixZero()` in `pix3.c`
+    pub fn is_zero(&self) -> bool {
+        todo!()
+    }
+
+    /// Compute the fraction of ON pixels in a 1 bpp image.
+    ///
+    /// C equivalent: `pixForegroundFraction()` in `pix3.c`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1 bpp.
+    pub fn foreground_fraction(&self) -> Result<f32> {
+        todo!()
+    }
+
+    /// Check if the ON pixel count exceeds a threshold.
+    ///
+    /// May exit early once the threshold is exceeded.
+    ///
+    /// C equivalent: `pixThresholdPixelSum()` in `pix3.c`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1 bpp.
+    pub fn threshold_pixel_sum(&self, _thresh: u64) -> Result<bool> {
+        todo!()
+    }
+
     /// Compute the average pixel value for each row in a rectangular region.
     ///
     /// Returns a `Numa` of length equal to the number of rows in the region.
@@ -693,6 +769,142 @@ mod tests {
         for i in 0..10 {
             assert!(na.get(i).unwrap() < 0.001);
         }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_count_pixels_in_rect() {
+        let pix = Pix::new(20, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Set some pixels
+        pm.set_pixel_unchecked(5, 5, 1);
+        pm.set_pixel_unchecked(6, 5, 1);
+        pm.set_pixel_unchecked(15, 8, 1);
+        let pix: Pix = pm.into();
+
+        // Full image count
+        assert_eq!(pix.count_pixels_in_rect(None).unwrap(), 3);
+
+        // Region containing first two pixels
+        let region = Box::new(0, 0, 10, 10).unwrap();
+        assert_eq!(pix.count_pixels_in_rect(Some(&region)).unwrap(), 2);
+
+        // Region containing only third pixel
+        let region2 = Box::new(10, 0, 10, 10).unwrap();
+        assert_eq!(pix.count_pixels_in_rect(Some(&region2)).unwrap(), 1);
+
+        // Empty region
+        let region3 = Box::new(0, 0, 1, 1).unwrap();
+        assert_eq!(pix.count_pixels_in_rect(Some(&region3)).unwrap(), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_count_pixels_in_rect_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.count_pixels_in_rect(None).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_count_by_row() {
+        let pix = Pix::new(10, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Row 0: 3 pixels ON
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(5, 0, 1);
+        pm.set_pixel_unchecked(9, 0, 1);
+        // Row 1: 0 pixels
+        // Row 2: 1 pixel
+        pm.set_pixel_unchecked(4, 2, 1);
+        // Row 3: all 10 pixels
+        for x in 0..10 {
+            pm.set_pixel_unchecked(x, 3, 1);
+        }
+        let pix: Pix = pm.into();
+
+        let counts = pix.count_by_row(None).unwrap();
+        assert_eq!(counts.len(), 4);
+        assert_eq!(counts.get(0).unwrap(), 3.0);
+        assert_eq!(counts.get(1).unwrap(), 0.0);
+        assert_eq!(counts.get(2).unwrap(), 1.0);
+        assert_eq!(counts.get(3).unwrap(), 10.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_count_by_column() {
+        let pix = Pix::new(5, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Col 0: 2 pixels
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(0, 5, 1);
+        // Col 1: 0 pixels
+        // Col 4: all 10 pixels
+        for y in 0..10 {
+            pm.set_pixel_unchecked(4, y, 1);
+        }
+        let pix: Pix = pm.into();
+
+        let counts = pix.count_by_column(None).unwrap();
+        assert_eq!(counts.len(), 5);
+        assert_eq!(counts.get(0).unwrap(), 2.0);
+        assert_eq!(counts.get(1).unwrap(), 0.0);
+        assert_eq!(counts.get(4).unwrap(), 10.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_is_zero() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        assert!(pix.is_zero());
+
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(50, 50, 1);
+        let pix: Pix = pm.into();
+        assert!(!pix.is_zero());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_foreground_fraction() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Set 25 out of 100 pixels
+        for y in 0..5 {
+            for x in 0..5 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let frac = pix.foreground_fraction().unwrap();
+        assert!((frac - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_foreground_fraction_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.foreground_fraction().is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_threshold_pixel_sum() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..5 {
+            for x in 0..5 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let pix: Pix = pm.into();
+        // 25 ON pixels
+        assert!(pix.threshold_pixel_sum(20).unwrap()); // 25 > 20
+        assert!(pix.threshold_pixel_sum(24).unwrap()); // 25 > 24
+        assert!(!pix.threshold_pixel_sum(25).unwrap()); // 25 not > 25
+        assert!(!pix.threshold_pixel_sum(100).unwrap());
     }
 
     #[test]
