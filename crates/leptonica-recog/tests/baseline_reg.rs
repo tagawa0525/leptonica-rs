@@ -22,7 +22,6 @@ use leptonica_test::{RegParams, load_test_image};
 /// C版: pixDeskewLocal(pixs, 10, 0, 0, 0.0, 0.0, 0.0)
 /// Rust: deskew_local(pix, options, skew_options)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_0_deskew_local() {
     let mut rp = RegParams::new("baseline_0_deskew_local");
 
@@ -70,7 +69,6 @@ fn test_0_deskew_local() {
 /// C版: pixGetLocalSkewAngles(pixs, 10, 0, 0, 0.0, 0.0, 0.0, NULL, NULL, 1)
 /// Rust: get_local_skew_angles(pix, num_slices, sweep_range)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_1_2_local_skew_angles() {
     let mut rp = RegParams::new("baseline_1_2_skew_angles");
 
@@ -124,7 +122,6 @@ fn test_1_2_local_skew_angles() {
 /// 2段階目のr11 + c20.1 + o{minw/6}.1（ランク縮小+連結成分フィルタ）
 /// が未実装。これにより検出数が22本と若干異なる。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_3_find_baselines_keystone() {
     let mut rp = RegParams::new("baseline_3_keystone");
 
@@ -233,7 +230,6 @@ fn test_8_10_baselines_dark_image() {
 ///       pixaDisplayTiledInRows()
 ///       regTestWritePixAndCheck(rp, pix2, IFF_PNG)  /* 12 */
 #[test]
-#[ignore = "not yet implemented"]
 fn test_11_baselines_short_textblock() {
     let mut rp = RegParams::new("baseline_11_short_textblock");
 
@@ -281,7 +277,6 @@ fn test_11_baselines_short_textblock() {
 ///       pixaDisplayTiledInRows()
 ///       regTestWritePixAndCheck(rp, pix2, IFF_PNG)  /* 14 */
 #[test]
-#[ignore = "not yet implemented"]
 fn test_13_baselines_short_lines() {
     let mut rp = RegParams::new("baseline_13_short_lines");
 
@@ -332,7 +327,6 @@ fn test_13_baselines_short_lines() {
 ///       pixaDisplayTiledInRows()
 ///       regTestWritePixAndCheck(rp, pix2, IFF_PNG)  /* 16 */
 #[test]
-#[ignore = "not yet implemented"]
 fn test_15_baselines_more_short_lines() {
     let mut rp = RegParams::new("baseline_15_more_short_lines");
 

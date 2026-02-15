@@ -43,7 +43,6 @@ use leptonica_test::{RegParams, load_test_image};
 /// 大画像（2560x3300）では極めて低速なため、テキストライン/ブロック検出に集中する。
 /// ハーフトーン検出は test_0b で小さい合成画像を用いてテスト。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_0_segment_regions_pageseg1() {
     let mut rp = RegParams::new("pageseg_0_segment_regions");
 
@@ -107,7 +106,6 @@ fn test_0_segment_regions_pageseg1() {
 /// Rust版のハーフトーン検出（seed_fill）は大画像では低速なため、
 /// 小さい合成画像でハーフトーン検出のパス全体が動作することを検証。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_0b_segment_regions_halftone_small() {
     let mut rp = RegParams::new("pageseg_0b_halftone_small");
 
@@ -154,7 +152,6 @@ fn test_0b_segment_regions_halftone_small() {
 /// feyn.tif は 2528x3300 の 1bpp 文書画像。
 /// pageseg1.tif と異なるレイアウトの文書でもセグメンテーションが動作することを確認。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_1_segment_regions_feyn() {
     let mut rp = RegParams::new("pageseg_1_segment_regions_feyn");
 
@@ -199,7 +196,6 @@ fn test_1_segment_regions_feyn() {
 /// C版のpixGetRegionsBinaryでは常にハーフトーン検出するが、
 /// Rust版はオプションで無効化可能。無効化時の動作を検証。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_2_segment_regions_no_halftone() {
     let mut rp = RegParams::new("pageseg_2_no_halftone");
 
@@ -244,7 +240,6 @@ fn test_2_segment_regions_no_halftone() {
 /// textline_close_h を変更してテキストライン検出の粒度を調整。
 /// 大きい値ではより多くの文字が結合され、ラインが太くなる。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_3_segment_regions_custom_closing() {
     let mut rp = RegParams::new("pageseg_3_custom_closing");
 
@@ -281,7 +276,6 @@ fn test_3_segment_regions_custom_closing() {
 /// C版: pixGetRegionsBinary は pageseg1.tif のみ使用するが、
 /// pageseg2-4.tif も同様に処理可能であることを検証。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_4_segment_regions_multiple_images() {
     let mut rp = RegParams::new("pageseg_4_multiple_images");
 
@@ -344,7 +338,6 @@ fn test_4_segment_regions_multiple_images() {
 ///
 /// テキストラインマスクが文書画像から適切に生成されることを検証。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_5_generate_textline_mask() {
     let mut rp = RegParams::new("pageseg_5_textline_mask");
 
@@ -399,7 +392,6 @@ fn test_5_generate_textline_mask() {
 ///
 /// テキストラインマスクとVWSからテキストブロックマスクを生成。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_6_generate_textblock_mask() {
     let mut rp = RegParams::new("pageseg_6_textblock_mask");
 
@@ -456,7 +448,6 @@ fn test_6_generate_textblock_mask() {
 /// feyn.tif から個々のテキストラインを抽出。
 /// 文書には複数行のテキストがあるため、少なくとも数本のラインが抽出されるはず。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_7_extract_textlines() {
     let mut rp = RegParams::new("pageseg_7_extract_textlines");
 
@@ -510,7 +501,6 @@ fn test_7_extract_textlines() {
 ///
 /// feyn.tif はテキスト文書なので、is_text_region は true を返すべき。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_8_is_text_region() {
     let mut rp = RegParams::new("pageseg_8_is_text_region");
 
@@ -543,7 +533,6 @@ fn test_8_is_text_region() {
 /// テキストはピクセル密度2-40%で行方向の分散比が高い（方向性あり）。
 /// 写真は2方向の分散比が近い（方向性なし）。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_9_is_text_region_nontext() {
     let mut rp = RegParams::new("pageseg_9_nontext");
 
@@ -590,7 +579,6 @@ fn test_9_is_text_region_nontext() {
 ///
 /// オプションの妥当性検証。不正なパラメータではエラーが返ることを確認。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_10_options_validation() {
     let mut rp = RegParams::new("pageseg_10_options_validation");
 
@@ -622,7 +610,6 @@ fn test_10_options_validation() {
 /// C版: pixGetRegionsBinary は MinWidth=100, MinHeight=100 未満を拒否。
 /// Rust版も同様のチェックを行う。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_11_image_too_small() {
     let mut rp = RegParams::new("pageseg_11_too_small");
 
@@ -655,7 +642,6 @@ fn test_11_image_too_small() {
 /// generate_textline_mask（全解像度で処理）とはピクセル単位では異なる。
 /// ここでは次元と前景の存在のみを検証する。
 #[test]
-#[ignore = "not yet implemented"]
 fn test_12_consistency_segment_vs_individual() {
     let mut rp = RegParams::new("pageseg_12_consistency");
 

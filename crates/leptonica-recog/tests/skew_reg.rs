@@ -9,7 +9,6 @@ use leptonica_recog::skew::{find_skew, find_skew_and_deskew};
 use leptonica_test::{RegParams, load_test_image};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn skew_reg() {
     let mut rp = RegParams::new("skew");
 

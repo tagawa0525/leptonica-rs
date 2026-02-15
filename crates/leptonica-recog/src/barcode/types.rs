@@ -1,32 +1,36 @@
 //! Type definitions for barcode recognition
+//!
+//! This module contains the core data structures for barcode detection and decoding.
 
 use leptonica_core::Box as PixBox;
 
 /// Barcode format types
+///
+/// These identify both the barcode format and the decoding method to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum BarcodeFormat {
     /// Unknown format
     #[default]
     Unknown = 0,
-    /// Try all known formats (auto-detect)
+    /// Try decoding with all known formats (auto-detect)
     Any = 1,
-    /// Code 128
+    /// Code 128 format
     Code128 = 2,
-    /// EAN-8
+    /// EAN-8 format
     Ean8 = 3,
-    /// EAN-13
+    /// EAN-13 format
     Ean13 = 4,
-    /// Code 2 of 5
+    /// Code 2 of 5 format
     Code2of5 = 5,
-    /// Interleaved 2 of 5
+    /// Interleaved 2 of 5 format
     CodeI2of5 = 6,
-    /// Code 39
+    /// Code 39 format
     Code39 = 7,
-    /// Code 93
+    /// Code 93 format
     Code93 = 8,
-    /// Codabar
+    /// Codabar format
     Codabar = 9,
-    /// UPC-A
+    /// UPC-A format
     UpcA = 10,
 }
 
@@ -139,9 +143,9 @@ pub struct BarcodeOptions {
     pub method: DecodeMethod,
     /// Enable debug output
     pub debug: bool,
-    /// Edge detection threshold
+    /// Edge detection threshold (typically ~20)
     pub edge_threshold: i32,
-    /// Binarization threshold for crossing detection
+    /// Binarization threshold for crossing detection (typically ~120)
     pub crossing_threshold: f32,
 }
 
@@ -203,5 +207,53 @@ impl FormatVerification {
             valid: false,
             reversed: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_barcode_format_name() {
+        assert_eq!(BarcodeFormat::UpcA.name(), "UPC-A");
+        assert_eq!(BarcodeFormat::Ean13.name(), "EAN-13");
+        assert_eq!(BarcodeFormat::Code39.name(), "Code39");
+    }
+
+    #[test]
+    fn test_barcode_format_supported() {
+        assert!(BarcodeFormat::UpcA.is_supported());
+        assert!(BarcodeFormat::Ean13.is_supported());
+        assert!(BarcodeFormat::Code39.is_supported());
+        assert!(!BarcodeFormat::Unknown.is_supported());
+        assert!(!BarcodeFormat::Code128.is_supported()); // Not yet implemented
+    }
+
+    #[test]
+    fn test_barcode_result() {
+        let result = BarcodeResult::new("123456789012".to_string(), BarcodeFormat::UpcA)
+            .with_confidence(0.95);
+        assert_eq!(result.data, "123456789012");
+        assert_eq!(result.format, BarcodeFormat::UpcA);
+        assert_eq!(result.confidence, 0.95);
+    }
+
+    #[test]
+    fn test_barcode_options_default() {
+        let opts = BarcodeOptions::default();
+        assert_eq!(opts.format, BarcodeFormat::Any);
+        assert_eq!(opts.method, DecodeMethod::UseWidths);
+        assert!(!opts.debug);
+    }
+
+    #[test]
+    fn test_format_verification() {
+        let valid = FormatVerification::valid(false);
+        assert!(valid.valid);
+        assert!(!valid.reversed);
+
+        let invalid = FormatVerification::invalid();
+        assert!(!invalid.valid);
     }
 }
