@@ -12,7 +12,7 @@
 //!   - `numaMakeHistogramClipped()` - histogram with clipped range
 
 use super::Numa;
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 /// Sort order for Numa sorting operations.
 ///
@@ -737,24 +737,71 @@ impl Numa {
     /// Get the value at a given rank (fractional position) in the sorted array.
     ///
     /// `fract` ranges from 0.0 (minimum) to 1.0 (maximum).
+    /// The index is computed as `(fract * (n-1) + 0.5) as usize`.
     ///
     /// C equivalent: `numaGetRankValue(na, fract, NULL, 0, &pval)`
-    pub fn rank_value(&self, _fract: f32) -> Result<f32> {
-        todo!("rank_value not yet implemented")
+    pub fn rank_value(&self, fract: f32) -> Result<f32> {
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        if !(0.0..=1.0).contains(&fract) {
+            return Err(Error::InvalidParameter(format!(
+                "fract {fract} not in [0.0, 1.0]"
+            )));
+        }
+        let sorted = self.sorted(SortOrder::Increasing);
+        let index = (fract * (n - 1) as f32 + 0.5) as usize;
+        let index = index.min(n - 1);
+        Ok(sorted[index])
     }
 
     /// Get the median value.
     ///
+    /// Equivalent to `self.rank_value(0.5)`.
+    ///
     /// C equivalent: `numaGetMedian(na, &pval)`
     pub fn median(&self) -> Result<f32> {
-        todo!("median not yet implemented")
+        self.rank_value(0.5)
     }
 
     /// Get the mode (most frequent value) and its count.
     ///
+    /// Sorts the array in decreasing order and scans for the longest
+    /// run of equal values.
+    ///
     /// C equivalent: `numaGetMode(na, &pval, &pcount)`
     pub fn mode(&self) -> Result<(f32, usize)> {
-        todo!("mode not yet implemented")
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        let sorted = self.sorted(SortOrder::Decreasing);
+        let array = sorted.as_slice();
+
+        let mut prev_val = array[0];
+        let mut prev_count: usize = 1;
+        let mut max_val = prev_val;
+        let mut max_count: usize = 1;
+
+        for &val in &array[1..] {
+            if val == prev_val {
+                prev_count += 1;
+            } else {
+                if prev_count > max_count {
+                    max_count = prev_count;
+                    max_val = prev_val;
+                }
+                prev_val = val;
+                prev_count = 1;
+            }
+        }
+        if prev_count > max_count {
+            max_count = prev_count;
+            max_val = prev_val;
+        }
+
+        Ok((max_val, max_count))
     }
 }
 
@@ -1101,7 +1148,6 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_value_min() {
         let na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
         let val = na.rank_value(0.0).unwrap();
@@ -1109,7 +1155,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_value_max() {
         let na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
         let val = na.rank_value(1.0).unwrap();
@@ -1117,7 +1162,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_value_mid() {
         let na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
         let val = na.rank_value(0.5).unwrap();
@@ -1126,14 +1170,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_value_empty() {
         let na = Numa::new();
         assert!(na.rank_value(0.5).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_value_out_of_range() {
         let na = Numa::from_vec(vec![1.0, 2.0]);
         assert!(na.rank_value(-0.1).is_err());
@@ -1141,7 +1183,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_median_odd() {
         let na = Numa::from_vec(vec![5.0, 1.0, 3.0]);
         let med = na.median().unwrap();
@@ -1150,7 +1191,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_median_even() {
         let na = Numa::from_vec(vec![4.0, 1.0, 3.0, 2.0]);
         let med = na.median().unwrap();
@@ -1159,14 +1199,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_median_empty() {
         let na = Numa::new();
         assert!(na.median().is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mode_basic() {
         let na = Numa::from_vec(vec![1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0]);
         let (val, count) = na.mode().unwrap();
@@ -1175,7 +1213,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mode_single() {
         let na = Numa::from_vec(vec![42.0]);
         let (val, count) = na.mode().unwrap();
@@ -1184,7 +1221,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mode_all_same() {
         let na = Numa::from_vec(vec![7.0, 7.0, 7.0]);
         let (val, count) = na.mode().unwrap();
@@ -1193,7 +1229,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mode_empty() {
         let na = Numa::new();
         assert!(na.mode().is_err());
