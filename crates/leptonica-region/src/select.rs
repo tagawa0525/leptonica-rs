@@ -169,10 +169,11 @@ pub fn pix_select_by_size(
 
     for y in 0..h {
         for x in 0..w {
-            if let Some(label) = labeled.get_pixel(x, y) {
-                if label > 0 && keep_labels.contains(&label) {
-                    let _ = output.set_pixel(x, y, 1);
-                }
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+                && keep_labels.contains(&label)
+            {
+                let _ = output.set_pixel(x, y, 1);
             }
         }
     }

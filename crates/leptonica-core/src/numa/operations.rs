@@ -806,7 +806,7 @@ mod tests {
     fn test_make_histogram_simple() {
         let na = Numa::from_vec(vec![0.0, 1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 2.0]);
         let result = na.make_histogram(10).unwrap();
-        assert!(result.histogram.len() > 0);
+        assert!(!result.histogram.is_empty());
         assert_eq!(result.binsize, 1);
         // Bin 2 should have count 3
         let bin2 = result

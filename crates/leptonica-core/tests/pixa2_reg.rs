@@ -24,7 +24,7 @@ fn make_gray_ramp(width: u32, height: u32) -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..height {
         for x in 0..width {
-            let val = ((x * 255) / width.max(1)) as u32;
+            let val = (x * 255) / width.max(1);
             pm.set_pixel_unchecked(x, y, val);
         }
     }
@@ -60,8 +60,8 @@ fn make_32bit_color(width: u32, height: u32) -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..height {
         for x in 0..width {
-            let r = ((x * 255) / width.max(1)) as u32;
-            let g = ((y * 255) / height.max(1)) as u32;
+            let r = (x * 255) / width.max(1);
+            let g = (y * 255) / height.max(1);
             let b = 128u32;
             let pixel = (r << 24) | (g << 16) | (b << 8) | 0xff;
             pm.set_pixel_unchecked(x, y, pixel);
@@ -576,11 +576,11 @@ fn pixa2_reg_pta_generation() {
 
     // Generate a line Pta
     let pta = leptonica_core::pix::graphics::generate_line_pta(0, 0, 100, 0);
-    rp.compare_values(1.0, if pta.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !pta.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // Generate a filled circle Pta
     let circle_pta = leptonica_core::pix::graphics::generate_filled_circle_pta(10);
-    rp.compare_values(1.0, if circle_pta.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !circle_pta.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "pixa2_reg pta generation tests failed");
 }

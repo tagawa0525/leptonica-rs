@@ -409,7 +409,7 @@ pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
             for y in 0..height {
                 for x in 0..width {
                     let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                    let (r, g, b) = if let Some(ref cm) = cmap {
+                    let (r, g, b) = if let Some(cm) = &cmap {
                         // Expand colormapped pixel through the colormap
                         cm.get_rgb(pixel as usize).unwrap_or((0, 0, 0))
                     } else {

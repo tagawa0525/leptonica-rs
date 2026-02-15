@@ -113,8 +113,10 @@ impl Pix {
                 let npts = (xmax - xmin) + 1;
                 let sign = if xmin == x1 {
                     if x2 > x1 { 1 } else { -1 }
+                } else if x1 > x2 {
+                    1
                 } else {
-                    if x1 > x2 { 1 } else { -1 }
+                    -1
                 };
                 // slope for the sorted direction
                 let sorted_slope = (if xmin == x1 { y2 - y1 } else { y1 - y2 }) as f32

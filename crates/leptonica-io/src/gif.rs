@@ -207,14 +207,14 @@ fn quantize_32bpp_to_8bpp(pix: &Pix) -> IoResult<(Pix, PixColormap)> {
     let sample_stride = if sample_count == 0 {
         1
     } else {
-        (total_pixels + sample_count - 1) / sample_count
+        total_pixels.div_ceil(sample_count)
     };
 
     let mut pixels: Vec<[u8; 3]> = Vec::with_capacity(sample_count);
     let mut idx: usize = 0;
     for y in 0..h {
         for x in 0..w {
-            if idx % sample_stride == 0 {
+            if idx.is_multiple_of(sample_stride) {
                 let val = pix.get_pixel(x, y).unwrap_or(0);
                 let (r, g, b) = color::extract_rgb(val);
                 pixels.push([r, g, b]);
