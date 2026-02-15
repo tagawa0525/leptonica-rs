@@ -5,78 +5,127 @@
 use crate::{MorphError, MorphResult, Sel};
 use leptonica_core::{Pix, PixelDepth};
 
-/// Dilate a binary image
+/// Dilate a binary image using rasterop (word-level shift-and-OR)
 ///
-/// Dilation expands foreground regions. For each pixel, if ANY hit position
-/// in the SEL corresponds to a foreground pixel, the output is foreground.
+/// Dilation expands foreground regions. For each hit position in the SEL,
+/// the source image is shifted by that offset and OR-accumulated into the
+/// output. All operations are performed at 32-bit word granularity.
+///
+/// Algorithm (C version: morph.c:213-238):
+///   1. Clear output
+///   2. For each hit (dx, dy): dest[y] |= shift(src[y - dy], dx)
 pub fn dilate(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
-    check_binary(pix)?;
-
+    let mut out_mut = dilate_rasterop(pix, sel)?;
+    // Clear unused bits to prevent contamination in subsequent operations
+    // (e.g., erosion after dilation in closing).
     let w = pix.width();
-    let h = pix.height();
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    let hit_offsets: Vec<_> = sel.hit_offsets().collect();
-
-    for y in 0..h {
-        for x in 0..w {
-            // Check if any hit position has a foreground pixel
-            let dilated = hit_offsets.iter().any(|&(dx, dy)| {
-                let sx = x as i32 + dx;
-                let sy = y as i32 + dy;
-                if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
-                } else {
-                    false // Pixels outside are treated as background
-                }
-            });
-
-            if dilated {
-                out_mut.set_pixel_unchecked(x, y, 1);
-            }
-        }
-    }
-
+    let wpl = pix.wpl() as usize;
+    clear_unused_bits(out_mut.data_mut(), w, wpl);
     Ok(out_mut.into())
 }
 
-/// Erode a binary image
+/// Rasterop dilation without clearing unused bits.
 ///
-/// Erosion shrinks foreground regions. For each pixel, if ALL hit positions
-/// in the SEL correspond to foreground pixels, the output is foreground.
-pub fn erode(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
+/// Used internally by composite decomposition where intermediate
+/// results need to preserve bits beyond the image width for the
+/// next decomposition step to read.
+fn dilate_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<leptonica_core::PixMut> {
     check_binary(pix)?;
 
     let w = pix.width();
     let h = pix.height();
+    let wpl = pix.wpl() as usize;
 
     let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
+    let src_data = pix.data();
+    let dst_data = out_mut.data_mut();
+
     let hit_offsets: Vec<_> = sel.hit_offsets().collect();
 
-    for y in 0..h {
-        for x in 0..w {
-            // Check if all hit positions have foreground pixels
-            let eroded = hit_offsets.iter().all(|&(dx, dy)| {
-                let sx = x as i32 + dx;
-                let sy = y as i32 + dy;
-                if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
-                } else {
-                    false // Pixels outside are treated as background
-                }
-            });
-
-            if eroded {
-                out_mut.set_pixel_unchecked(x, y, 1);
+    for &(dx, dy) in &hit_offsets {
+        for y in 0..h as i32 {
+            let src_y = y + dy;
+            if src_y < 0 || src_y >= h as i32 {
+                continue;
             }
+
+            let src_start = src_y as usize * wpl;
+            let dst_start = y as usize * wpl;
+
+            shift_or_row(
+                &mut dst_data[dst_start..dst_start + wpl],
+                &src_data[src_start..src_start + wpl],
+                -dx,
+            );
         }
     }
 
+    Ok(out_mut)
+}
+
+/// Erode a binary image using rasterop (word-level shift-and-AND)
+///
+/// Erosion shrinks foreground regions. For each hit position in the SEL,
+/// the source image is shifted by the inverted offset and AND-accumulated
+/// into the output. All operations are performed at 32-bit word granularity.
+///
+/// Algorithm (C version: morph.c:265-309):
+///   1. Set all output bits to 1
+///   2. For each hit (dx, dy): dest[y] &= shift(src[y + dy], -dx)
+///   3. Outside boundaries: AND with 0 = clear (asymmetric BC)
+pub fn erode(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
+    let mut out_mut = erode_rasterop(pix, sel)?;
+    let w = pix.width();
+    let wpl = pix.wpl() as usize;
+    clear_unused_bits(out_mut.data_mut(), w, wpl);
     Ok(out_mut.into())
+}
+
+/// Rasterop erosion without clearing unused bits.
+fn erode_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<leptonica_core::PixMut> {
+    check_binary(pix)?;
+
+    let h = pix.height();
+    let wpl = pix.wpl() as usize;
+
+    let out_pix = Pix::new(pix.width(), h, PixelDepth::Bit1)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    let src_data = pix.data();
+    let dst_data = out_mut.data_mut();
+
+    // Initialize output to all 1s (for AND accumulation)
+    for word in dst_data.iter_mut() {
+        *word = 0xFFFF_FFFF;
+    }
+
+    let hit_offsets: Vec<_> = sel.hit_offsets().collect();
+
+    for &(dx, dy) in &hit_offsets {
+        for y in 0..h as i32 {
+            let src_y = y + dy;
+            let dst_start = y as usize * wpl;
+
+            if src_y < 0 || src_y >= h as i32 {
+                for w in 0..wpl {
+                    dst_data[dst_start + w] = 0;
+                }
+                continue;
+            }
+
+            let src_start = src_y as usize * wpl;
+
+            shift_and_row(
+                &mut dst_data[dst_start..dst_start + wpl],
+                &src_data[src_start..src_start + wpl],
+                -dx,
+            );
+        }
+    }
+
+    Ok(out_mut)
 }
 
 /// Open a binary image
@@ -193,28 +242,374 @@ fn subtract(a: &Pix, b: &Pix) -> MorphResult<Pix> {
 
 /// Dilate with a brick (rectangular) structuring element
 ///
-/// Optimized for rectangular SEs.
+/// Uses separable + composite decomposition for optimal performance.
+/// For composite sizes N = f1 × f2: brick(f1) then comb(f1, f2) reduces
+/// shift operations from N to f1 + f2.
 pub fn dilate_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    dilate(pix, &sel)
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+    // Separable: horizontal then vertical, each using composite decomposition.
+    // dilate_rasterop preserves unused bits for composite intermediate steps.
+    let tmp: Pix = dilate_1d_composite(pix, width, true)?.into();
+    let mut result = dilate_1d_composite(&tmp, height, false)?;
+    clear_unused_bits(result.data_mut(), pix.width(), pix.wpl() as usize);
+    Ok(result.into())
 }
 
 /// Erode with a brick (rectangular) structuring element
+///
+/// Uses separable + composite decomposition for optimal performance.
 pub fn erode_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    erode(pix, &sel)
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+    let tmp: Pix = erode_1d_composite(pix, width, true)?.into();
+    let mut result = erode_1d_composite(&tmp, height, false)?;
+    clear_unused_bits(result.data_mut(), pix.width(), pix.wpl() as usize);
+    Ok(result.into())
 }
 
 /// Open with a brick structuring element
+///
+/// Opening = erosion followed by dilation.
 pub fn open_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    open(pix, &sel)
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+    let eroded = erode_brick(pix, width, height)?;
+    dilate_brick(&eroded, width, height)
 }
 
 /// Close with a brick structuring element
+///
+/// Closing = dilation followed by erosion.
+/// Must clear unused bits between dilation and erosion to prevent
+/// contamination from dilated unused bits propagating into erosion.
 pub fn close_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    let sel = Sel::create_brick(width, height)?;
-    close(pix, &sel)
+    if width == 1 && height == 1 {
+        return Ok(pix.clone());
+    }
+    let dilated = dilate_brick(pix, width, height)?;
+    erode_brick(&dilated, width, height)
+}
+
+/// Composite 1D dilation: brick(f1) then comb(f1, f2) when beneficial.
+///
+/// `horizontal`: true for horizontal, false for vertical.
+/// Returns PixMut without clearing unused bits (caller's responsibility).
+fn dilate_1d_composite(
+    pix: &Pix,
+    size: u32,
+    horizontal: bool,
+) -> MorphResult<leptonica_core::PixMut> {
+    if size <= 1 {
+        // Identity: 1x1 SEL at origin just copies the image
+        let sel = Sel::create_horizontal(1)?;
+        return dilate_rasterop(pix, &sel);
+    }
+    let (f1, f2) = select_composable_sizes(size);
+    if f2 <= 1 {
+        // Not composable (prime or small): single SEL
+        let sel = if horizontal {
+            Sel::create_horizontal(size)?
+        } else {
+            Sel::create_vertical(size)?
+        };
+        return dilate_rasterop(pix, &sel);
+    }
+    // Composite: brick(f1) then comb(f1, f2).
+    // Add border to prevent boundary clipping in the brick step.
+    // The comb step needs intermediate results that extend beyond the
+    // original image boundary (C version: pixAddBorder in morphcomp.c).
+    let (sel_brick, sel_comb) = if horizontal {
+        (
+            Sel::create_horizontal(f1)?,
+            Sel::create_comb_horizontal(f1, f2)?,
+        )
+    } else {
+        (
+            Sel::create_vertical(f1)?,
+            Sel::create_comb_vertical(f1, f2)?,
+        )
+    };
+    let max_comb_offset = ((f2 - 1) * f1).div_ceil(2);
+    let (left, right, top, bottom) = if horizontal {
+        let border = max_comb_offset.div_ceil(32) * 32;
+        (border, border, 0u32, 0u32)
+    } else {
+        (0u32, 0u32, max_comb_offset, max_comb_offset)
+    };
+    let bordered = add_border(pix, left, right, top, bottom)?;
+    let tmp: Pix = dilate_rasterop(&bordered, &sel_brick)?.into();
+    let result: Pix = dilate_rasterop(&tmp, &sel_comb)?.into();
+    remove_border(&result, left, top, pix.width(), pix.height())
+}
+
+/// Composite 1D erosion: brick(f1) then comb(f1, f2) when beneficial.
+fn erode_1d_composite(
+    pix: &Pix,
+    size: u32,
+    horizontal: bool,
+) -> MorphResult<leptonica_core::PixMut> {
+    if size <= 1 {
+        let sel = Sel::create_horizontal(1)?;
+        return erode_rasterop(pix, &sel);
+    }
+    let (f1, f2) = select_composable_sizes(size);
+    if f2 <= 1 {
+        let sel = if horizontal {
+            Sel::create_horizontal(size)?
+        } else {
+            Sel::create_vertical(size)?
+        };
+        return erode_rasterop(pix, &sel);
+    }
+    let (sel_brick, sel_comb) = if horizontal {
+        (
+            Sel::create_horizontal(f1)?,
+            Sel::create_comb_horizontal(f1, f2)?,
+        )
+    } else {
+        (
+            Sel::create_vertical(f1)?,
+            Sel::create_comb_vertical(f1, f2)?,
+        )
+    };
+    let tmp: Pix = erode_rasterop(pix, &sel_brick)?.into();
+    erode_rasterop(&tmp, &sel_comb)
+}
+
+/// Find the factor pair (f1, f2) where f1 * f2 = size and f1 + f2 is minimized.
+///
+/// Returns (1, size) for primes (no composite decomposition possible).
+fn select_composable_sizes(size: u32) -> (u32, u32) {
+    if size <= 1 {
+        return (1, size);
+    }
+    let sqrt = (size as f64).sqrt() as u32;
+    for f1 in (2..=sqrt).rev() {
+        if size.is_multiple_of(f1) {
+            return (f1, size / f1);
+        }
+    }
+    (1, size)
+}
+
+/// Shift src row by `shift` pixels and OR into dst (word-level).
+///
+/// MSB-first bit ordering: pixel 0 = bit 31, pixel 31 = bit 0.
+/// Positive shift = image content moves right (src >> shift in bit terms).
+/// Negative shift = image content moves left (src << |shift| in bit terms).
+///
+/// Inner loops have no bounds checks to enable auto-vectorization.
+#[allow(clippy::needless_range_loop)]
+fn shift_or_row(dst: &mut [u32], src: &[u32], shift: i32) {
+    let wpl = dst.len();
+
+    if shift == 0 {
+        for i in 0..wpl {
+            dst[i] |= src[i];
+        }
+        return;
+    }
+
+    let abs_shift = shift.unsigned_abs() as usize;
+    let word_shift = abs_shift / 32;
+    let bit_shift = (abs_shift % 32) as u32;
+
+    if word_shift >= wpl {
+        return; // Entire row shifts out of bounds; OR with 0 is no-op
+    }
+
+    if shift > 0 {
+        // Shift right: dst[word_shift..wpl] gets src[0..wpl-word_shift]
+        if bit_shift == 0 {
+            for i in word_shift..wpl {
+                dst[i] |= src[i - word_shift];
+            }
+        } else {
+            // First valid word: no carry from previous
+            dst[word_shift] |= src[0] >> bit_shift;
+            // Remaining words: carry from src[si-1]
+            for i in (word_shift + 1)..wpl {
+                let si = i - word_shift;
+                dst[i] |= (src[si] >> bit_shift) | (src[si - 1] << (32 - bit_shift));
+            }
+        }
+    } else {
+        // Shift left: dst[0..wpl-word_shift] gets src[word_shift..wpl]
+        let end = wpl - word_shift;
+        if bit_shift == 0 {
+            for i in 0..end {
+                dst[i] |= src[i + word_shift];
+            }
+        } else {
+            // All words except last: carry from src[si+1]
+            for i in 0..end.saturating_sub(1) {
+                let si = i + word_shift;
+                dst[i] |= (src[si] << bit_shift) | (src[si + 1] >> (32 - bit_shift));
+            }
+            // Last valid word: no carry from next
+            if end > 0 {
+                dst[end - 1] |= src[wpl - 1] << bit_shift;
+            }
+        }
+    }
+}
+
+/// Shift src row by `shift` pixels and AND into dst (word-level).
+///
+/// Same shift semantics as `shift_or_row`, but uses AND accumulation.
+/// Out-of-bounds positions are 0, so AND with them clears dst bits.
+///
+/// Inner loops have no bounds checks to enable auto-vectorization.
+#[allow(clippy::needless_range_loop)]
+fn shift_and_row(dst: &mut [u32], src: &[u32], shift: i32) {
+    let wpl = dst.len();
+
+    if shift == 0 {
+        for i in 0..wpl {
+            dst[i] &= src[i];
+        }
+        return;
+    }
+
+    let abs_shift = shift.unsigned_abs() as usize;
+    let word_shift = abs_shift / 32;
+    let bit_shift = (abs_shift % 32) as u32;
+
+    if word_shift >= wpl {
+        // Entire row shifts out of bounds; AND with 0 clears all
+        for i in 0..wpl {
+            dst[i] = 0;
+        }
+        return;
+    }
+
+    if shift > 0 {
+        // Clear words before the valid range (AND with 0)
+        for i in 0..word_shift {
+            dst[i] = 0;
+        }
+        if bit_shift == 0 {
+            for i in word_shift..wpl {
+                dst[i] &= src[i - word_shift];
+            }
+        } else {
+            // First valid word: no carry from previous, also AND-clear high bits
+            dst[word_shift] &= src[0] >> bit_shift;
+            for i in (word_shift + 1)..wpl {
+                let si = i - word_shift;
+                dst[i] &= (src[si] >> bit_shift) | (src[si - 1] << (32 - bit_shift));
+            }
+        }
+    } else {
+        let end = wpl - word_shift;
+        if bit_shift == 0 {
+            for i in 0..end {
+                dst[i] &= src[i + word_shift];
+            }
+        } else {
+            for i in 0..end.saturating_sub(1) {
+                let si = i + word_shift;
+                dst[i] &= (src[si] << bit_shift) | (src[si + 1] >> (32 - bit_shift));
+            }
+            // Last valid word: no carry from next
+            if end > 0 {
+                dst[end - 1] &= src[wpl - 1] << bit_shift;
+            }
+        }
+        // Clear words after the valid range (AND with 0)
+        for i in end..wpl {
+            dst[i] = 0;
+        }
+    }
+}
+
+/// Clear unused bits in the last word of each row.
+///
+/// When image width is not a multiple of 32, the last word of each row
+/// has unused bit positions (lower bits in MSB-first ordering). Word-level
+/// shift operations can set these bits, which would contaminate subsequent
+/// operations (e.g., erosion reading garbage bits from a dilated result).
+fn clear_unused_bits(data: &mut [u32], width: u32, wpl: usize) {
+    let extra = width % 32;
+    if extra == 0 {
+        return;
+    }
+    // MSB-first: valid bits are the top `extra` bits; mask off the rest
+    let mask = !0u32 << (32 - extra);
+    let h = data.len() / wpl;
+    for y in 0..h {
+        let idx = y * wpl + wpl - 1;
+        data[idx] &= mask;
+    }
+}
+
+/// Add zero-padding border around a binary image.
+///
+/// Used by composite decomposition to prevent boundary clipping.
+/// `left` and `right` must be multiples of 32 for word-aligned copy.
+fn add_border(pix: &Pix, left: u32, right: u32, top: u32, bottom: u32) -> MorphResult<Pix> {
+    debug_assert!(
+        left.is_multiple_of(32) && right.is_multiple_of(32),
+        "horizontal borders must be word-aligned"
+    );
+
+    let new_w = pix.width() + left + right;
+    let new_h = pix.height() + top + bottom;
+    let new_pix = Pix::new(new_w, new_h, PixelDepth::Bit1)?;
+    let mut new_mut = new_pix.try_into_mut().unwrap();
+
+    let left_words = (left / 32) as usize;
+    let src_wpl = pix.wpl() as usize;
+    let dst_wpl = new_mut.wpl() as usize;
+    let src_data = pix.data();
+    let dst_data = new_mut.data_mut();
+
+    for y in 0..pix.height() as usize {
+        let src_start = y * src_wpl;
+        let dst_start = (y + top as usize) * dst_wpl + left_words;
+        dst_data[dst_start..dst_start + src_wpl]
+            .copy_from_slice(&src_data[src_start..src_start + src_wpl]);
+    }
+
+    Ok(new_mut.into())
+}
+
+/// Remove border from a binary image, extracting the central region.
+///
+/// `left` must be a multiple of 32 for word-aligned copy.
+fn remove_border(
+    pix: &Pix,
+    left: u32,
+    top: u32,
+    orig_w: u32,
+    orig_h: u32,
+) -> MorphResult<leptonica_core::PixMut> {
+    debug_assert!(
+        left.is_multiple_of(32),
+        "horizontal border must be word-aligned"
+    );
+
+    let new_pix = Pix::new(orig_w, orig_h, PixelDepth::Bit1)?;
+    let mut new_mut = new_pix.try_into_mut().unwrap();
+
+    let left_words = (left / 32) as usize;
+    let src_wpl = pix.wpl() as usize;
+    let dst_wpl = new_mut.wpl() as usize;
+    let src_data = pix.data();
+    let dst_data = new_mut.data_mut();
+
+    for y in 0..orig_h as usize {
+        let src_start = (y + top as usize) * src_wpl + left_words;
+        let dst_start = y * dst_wpl;
+        dst_data[dst_start..dst_start + dst_wpl]
+            .copy_from_slice(&src_data[src_start..src_start + dst_wpl]);
+    }
+
+    Ok(new_mut)
 }
 
 /// Check that the image is binary (1-bpp)
@@ -342,5 +737,383 @@ mod tests {
 
         let result = dilate(&pix, &sel);
         assert!(result.is_err());
+    }
+
+    /// Create a 32x32 test image with varied patterns for separable decomposition tests
+    fn create_pattern_image() -> Pix {
+        let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        // Large rectangle
+        for y in 2..12 {
+            for x in 2..15 {
+                pix_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Diagonal line
+        for i in 0..20 {
+            let x = i + 5;
+            let y = i + 8;
+            if x < 32 && y < 32 {
+                pix_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Scattered pixels
+        pix_mut.set_pixel_unchecked(20, 5, 1);
+        pix_mut.set_pixel_unchecked(25, 15, 1);
+        pix_mut.set_pixel_unchecked(28, 28, 1);
+        // Small cluster
+        for y in 20..25 {
+            for x in 3..8 {
+                pix_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+
+        pix_mut.into()
+    }
+
+    const SEPARABLE_SIZES: &[(u32, u32)] =
+        &[(3, 3), (5, 7), (7, 5), (1, 5), (5, 1), (1, 1), (9, 9)];
+
+    #[test]
+    fn test_dilate_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = dilate_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = dilate(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "dilate_brick({}, {}) != dilate with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    fn test_erode_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = erode_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = erode(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "erode_brick({}, {}) != erode with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    fn test_open_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = open_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = open(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "open_brick({}, {}) != open with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    fn test_close_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = close_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = close(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "close_brick({}, {}) != close with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
+
+    // --- Rasterop equivalence tests ---
+    //
+    // Reference pixel-by-pixel implementations (C version: morph.c:213-309)
+    // These serve as the ground truth for verifying rasterop optimization.
+
+    /// Pixel-by-pixel dilation reference implementation
+    fn dilate_reference(pix: &Pix, sel: &Sel) -> Pix {
+        let w = pix.width();
+        let h = pix.height();
+        let out = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut out_mut = out.try_into_mut().unwrap();
+        let hit_offsets: Vec<_> = sel.hit_offsets().collect();
+
+        for y in 0..h {
+            for x in 0..w {
+                let dilated = hit_offsets.iter().any(|&(dx, dy)| {
+                    let sx = x as i32 + dx;
+                    let sy = y as i32 + dy;
+                    sx >= 0
+                        && sx < w as i32
+                        && sy >= 0
+                        && sy < h as i32
+                        && pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
+                });
+                if dilated {
+                    out_mut.set_pixel_unchecked(x, y, 1);
+                }
+            }
+        }
+        out_mut.into()
+    }
+
+    /// Pixel-by-pixel erosion reference implementation
+    fn erode_reference(pix: &Pix, sel: &Sel) -> Pix {
+        let w = pix.width();
+        let h = pix.height();
+        let out = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut out_mut = out.try_into_mut().unwrap();
+        let hit_offsets: Vec<_> = sel.hit_offsets().collect();
+
+        for y in 0..h {
+            for x in 0..w {
+                let eroded = hit_offsets.iter().all(|&(dx, dy)| {
+                    let sx = x as i32 + dx;
+                    let sy = y as i32 + dy;
+                    sx >= 0
+                        && sx < w as i32
+                        && sy >= 0
+                        && sy < h as i32
+                        && pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
+                });
+                if eroded {
+                    out_mut.set_pixel_unchecked(x, y, 1);
+                }
+            }
+        }
+        out_mut.into()
+    }
+
+    /// Create a 50x37 test image with word-boundary-crossing patterns.
+    /// Width of 50 is deliberately not a multiple of 32 to exercise partial
+    /// word handling. C version (binmorph1_reg.c) uses feyn-fract.tif;
+    /// here we create a synthetic image for unit tests.
+    fn create_rasterop_test_image() -> Pix {
+        let pix = Pix::new(50, 37, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle crossing word boundary (pixels 28-36 span words 0 and 1)
+        for y in 3..15 {
+            for x in 28..37 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Diagonal crossing word boundary
+        for i in 0..30 {
+            let x = i + 10;
+            let y = i + 5;
+            if x < 50 && y < 37 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Pixels at word boundaries
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(31, 0, 1);
+        pm.set_pixel_unchecked(32, 0, 1);
+        pm.set_pixel_unchecked(49, 0, 1);
+        // Bottom-right cluster
+        for y in 30..37 {
+            for x in 40..50 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+
+        pm.into()
+    }
+
+    #[test]
+    fn test_dilate_rasterop_brick_equivalence() {
+        let pix = create_rasterop_test_image();
+        // C version: binmorph1_reg.c uses WIDTH=21, HEIGHT=15
+        for &(w, h) in &[(3u32, 3u32), (5, 7), (21, 15), (1, 5), (5, 1)] {
+            let sel = Sel::create_brick(w, h).unwrap();
+            let result = dilate(&pix, &sel).unwrap();
+            let reference = dilate_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "dilate rasterop != reference for brick {}x{}",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    fn test_erode_rasterop_brick_equivalence() {
+        let pix = create_rasterop_test_image();
+        for &(w, h) in &[(3u32, 3u32), (5, 7), (21, 15), (1, 5), (5, 1)] {
+            let sel = Sel::create_brick(w, h).unwrap();
+            let result = erode(&pix, &sel).unwrap();
+            let reference = erode_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "erode rasterop != reference for brick {}x{}",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    fn test_dilate_rasterop_cross_equivalence() {
+        let pix = create_rasterop_test_image();
+        for size in [3, 5] {
+            let sel = Sel::create_cross(size).unwrap();
+            let result = dilate(&pix, &sel).unwrap();
+            let reference = dilate_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "dilate rasterop != reference for cross {}",
+                size
+            );
+        }
+    }
+
+    #[test]
+    fn test_erode_rasterop_cross_equivalence() {
+        let pix = create_rasterop_test_image();
+        for size in [3, 5] {
+            let sel = Sel::create_cross(size).unwrap();
+            let result = erode(&pix, &sel).unwrap();
+            let reference = erode_reference(&pix, &sel);
+            assert!(
+                result.equals(&reference),
+                "erode rasterop != reference for cross {}",
+                size
+            );
+        }
+    }
+
+    #[test]
+    fn test_dilate_rasterop_diamond_equivalence() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_diamond(2).unwrap();
+        let result = dilate(&pix, &sel).unwrap();
+        let reference = dilate_reference(&pix, &sel);
+        assert!(
+            result.equals(&reference),
+            "dilate rasterop != reference for diamond 2"
+        );
+    }
+
+    #[test]
+    fn test_erode_rasterop_diamond_equivalence() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_diamond(2).unwrap();
+        let result = erode(&pix, &sel).unwrap();
+        let reference = erode_reference(&pix, &sel);
+        assert!(
+            result.equals(&reference),
+            "erode rasterop != reference for diamond 2"
+        );
+    }
+
+    // --- Composite decomposition equivalence tests ---
+    //
+    // Verify that dilate_brick/erode_brick (which use composite decomposition
+    // internally) produce the same results as direct single-SEL operations.
+    //
+    // Note: We test through the brick API rather than manually calling
+    // dilate(brick) then dilate(comb), because the public dilate() clears
+    // unused bits after each call, destroying intermediate information
+    // that the comb step needs when image width is not a multiple of 32.
+    // The brick functions use dilate_rasterop internally to preserve these bits.
+
+    /// Composite sizes to test: total sizes that factor into (f1, f2)
+    const COMPOSITE_SIZES: &[u32] = &[
+        4,   // 2×2
+        9,   // 3×3
+        12,  // 3×4
+        120, // 10×12
+    ];
+
+    #[test]
+    fn test_dilate_brick_composite_equivalence() {
+        let pix = create_rasterop_test_image();
+        // Horizontal
+        for &size in COMPOSITE_SIZES {
+            let brick_result = dilate_brick(&pix, size, 1).unwrap();
+            let sel = Sel::create_horizontal(size).unwrap();
+            let direct_result = dilate(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "dilate_brick({}, 1) != direct dilate",
+                size,
+            );
+        }
+        // Vertical
+        for &size in COMPOSITE_SIZES {
+            let brick_result = dilate_brick(&pix, 1, size).unwrap();
+            let sel = Sel::create_vertical(size).unwrap();
+            let direct_result = dilate(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "dilate_brick(1, {}) != direct dilate",
+                size,
+            );
+        }
+        // Prime sizes should still work (no composite decomposition)
+        for &size in &[7u32, 13] {
+            let brick_result = dilate_brick(&pix, size, 1).unwrap();
+            let sel = Sel::create_horizontal(size).unwrap();
+            let direct_result = dilate(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "dilate_brick({}, 1) != direct dilate (prime)",
+                size,
+            );
+        }
+    }
+
+    #[test]
+    fn test_erode_brick_composite_equivalence() {
+        let pix = create_rasterop_test_image();
+        // Horizontal
+        for &size in COMPOSITE_SIZES {
+            let brick_result = erode_brick(&pix, size, 1).unwrap();
+            let sel = Sel::create_horizontal(size).unwrap();
+            let direct_result = erode(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "erode_brick({}, 1) != direct erode",
+                size,
+            );
+        }
+        // Vertical
+        for &size in COMPOSITE_SIZES {
+            let brick_result = erode_brick(&pix, 1, size).unwrap();
+            let sel = Sel::create_vertical(size).unwrap();
+            let direct_result = erode(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "erode_brick(1, {}) != direct erode",
+                size,
+            );
+        }
+        // Prime sizes
+        for &size in &[7u32, 13] {
+            let brick_result = erode_brick(&pix, size, 1).unwrap();
+            let sel = Sel::create_horizontal(size).unwrap();
+            let direct_result = erode(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&direct_result),
+                "erode_brick({}, 1) != direct erode (prime)",
+                size,
+            );
+        }
     }
 }
