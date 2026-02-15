@@ -439,7 +439,8 @@ pub fn blocksum(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
     let hc = hc.min((h - 1) / 2);
 
     if wc == 0 || hc == 0 {
-        return Ok(pix.deep_clone());
+        // Return 8bpp version even for degenerate kernel (documented output is 8bpp)
+        return Ok(pix.convert_1_to_8(0, 255)?);
     }
 
     // Convert 1bpp to 8bpp (0→0, 1→255) for integral image computation
