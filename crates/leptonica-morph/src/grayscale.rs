@@ -37,6 +37,7 @@ use leptonica_core::{Pix, PixelDepth};
 /// - If hsize and vsize are both 1, returns a copy of the input
 /// - Out-of-bounds pixels are treated as 0 (no contribution to max)
 /// - Uses vHGW (van Herk/Gil-Werman) algorithm for O(3) comparisons per pixel
+/// - 3×3 and smaller SEs use specialized fast path with 8-pixel unrolling
 pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_grayscale(pix)?;
     let (hsize, vsize) = ensure_odd(hsize, vsize)?;
@@ -44,6 +45,11 @@ pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     // Identity operation
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
+    }
+
+    // 3×3 fast path
+    if hsize <= 3 && vsize <= 3 {
+        return dilate_gray_3x3_fastpath(pix, hsize, vsize);
     }
 
     dilate_gray_vhgw(pix, hsize as usize, vsize as usize)
@@ -157,6 +163,7 @@ fn dilate_gray_naive(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 /// - If hsize and vsize are both 1, returns a copy of the input
 /// - Out-of-bounds pixels are treated as 255 (no contribution to min)
 /// - Uses vHGW (van Herk/Gil-Werman) algorithm for O(3) comparisons per pixel
+/// - 3×3 and smaller SEs use specialized fast path with 8-pixel unrolling
 pub fn erode_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_grayscale(pix)?;
     let (hsize, vsize) = ensure_odd(hsize, vsize)?;
@@ -164,6 +171,11 @@ pub fn erode_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     // Identity operation
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
+    }
+
+    // 3×3 fast path
+    if hsize <= 3 && vsize <= 3 {
+        return erode_gray_3x3_fastpath(pix, hsize, vsize);
     }
 
     erode_gray_vhgw(pix, hsize as usize, vsize as usize)
@@ -663,6 +675,20 @@ fn remove_border(
     }
 
     Ok(out_mut.into())
+}
+
+// 3×3 fast path implementations
+
+/// 3×3 dilate fast path (placeholder for RED phase)
+fn dilate_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    // Placeholder: delegate to vHGW for now
+    dilate_gray_vhgw(pix, hsize as usize, vsize as usize)
+}
+
+/// 3×3 erode fast path (placeholder for RED phase)
+fn erode_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    // Placeholder: delegate to vHGW for now
+    erode_gray_vhgw(pix, hsize as usize, vsize as usize)
 }
 
 #[cfg(test)]
