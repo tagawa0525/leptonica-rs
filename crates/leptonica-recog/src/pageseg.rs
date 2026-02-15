@@ -476,90 +476,30 @@ fn generate_textblock_mask_internal(textline_mask: &Pix, vws: &Pix) -> RecogResu
 
 /// Simple morphological opening (erode then dilate)
 fn morphological_open(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    let eroded = morphological_erode(pix, se_w, se_h)?;
-    morphological_dilate(&eroded, se_w, se_h)
+    leptonica_morph::open_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
 /// Simple morphological closing (dilate then erode)
 fn morphological_close(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    let dilated = morphological_dilate(pix, se_w, se_h)?;
-    morphological_erode(&dilated, se_w, se_h)
+    leptonica_morph::close_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
 /// Morphological erosion with rectangular structuring element
 fn morphological_erode(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
-    let hw = se_w / 2;
-    let hh = se_h / 2;
-
-    let eroded = Pix::new(w, h, pix.depth())?;
-    let mut eroded_mut = eroded.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let mut all_black = true;
-            'outer: for dy in 0..se_h {
-                for dx in 0..se_w {
-                    let sx = x as i32 + dx as i32 - hw as i32;
-                    let sy = y as i32 + dy as i32 - hh as i32;
-                    if sx < 0 || sx >= w as i32 || sy < 0 || sy >= h as i32 {
-                        all_black = false;
-                        break 'outer;
-                    }
-                    let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
-                    if val == 0 {
-                        all_black = false;
-                        break 'outer;
-                    }
-                }
-            }
-            let out_val = if all_black { 1 } else { 0 };
-            eroded_mut.set_pixel_unchecked(x, y, out_val);
-        }
-    }
-
-    Ok(eroded_mut.into())
+    leptonica_morph::erode_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
 /// Morphological dilation with rectangular structuring element
 fn morphological_dilate(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
-    let hw = se_w / 2;
-    let hh = se_h / 2;
-
-    let dilated = Pix::new(w, h, pix.depth())?;
-    let mut dilated_mut = dilated.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let mut any_black = false;
-            'outer: for dy in 0..se_h {
-                for dx in 0..se_w {
-                    let sx = x as i32 + dx as i32 - hw as i32;
-                    let sy = y as i32 + dy as i32 - hh as i32;
-                    if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                        let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
-                        if val != 0 {
-                            any_black = true;
-                            break 'outer;
-                        }
-                    }
-                }
-            }
-            let out_val = if any_black { 1 } else { 0 };
-            dilated_mut.set_pixel_unchecked(x, y, out_val);
-        }
-    }
-
-    Ok(dilated_mut.into())
+    leptonica_morph::dilate_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
-/// Seed fill operation
+/// Seed fill operation using word-level operations
 fn seed_fill(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
     let w = seed.width();
     let h = seed.height();
+    let wpl = seed.wpl() as usize;
+    let total_words = h as usize * wpl;
 
     if mask.width() != w || mask.height() != h {
         return Err(RecogError::InvalidParameter(
@@ -567,59 +507,264 @@ fn seed_fill(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
         ));
     }
 
-    // Start with seed
+    if seed.depth() != mask.depth() {
+        return Err(RecogError::InvalidParameter(
+            "seed and mask depths must match".to_string(),
+        ));
+    }
+
+    if seed.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::InvalidParameter(
+            "seed and mask must be 1 bpp for seed fill".to_string(),
+        ));
+    }
+
+    if seed.wpl() != mask.wpl() {
+        return Err(RecogError::InvalidParameter(
+            "seed and mask words-per-line must match".to_string(),
+        ));
+    }
+
+    let mask_data = mask.data();
     let mut current = seed.deep_clone();
-    let mut changed = true;
 
-    // Iterate until convergence
-    while changed {
-        changed = false;
-        let dilated = morphological_dilate(&current, 3, 3)?;
+    loop {
+        let dilated = leptonica_morph::dilate_brick(&current, 3, 3)?;
+        let dilated_data = dilated.data();
+        let current_data = current.data();
 
-        // Intersect with mask
-        let next = Pix::new(w, h, seed.depth())?;
-        let mut next_mut = next.try_into_mut().unwrap();
+        let out = Pix::new(w, h, seed.depth())?;
+        let mut out_mut = out.try_into_mut().unwrap();
+        let out_data = out_mut.data_mut();
 
-        for y in 0..h {
-            for x in 0..w {
-                let d_val = dilated.get_pixel_unchecked(x, y);
-                let m_val = mask.get_pixel_unchecked(x, y);
-                let c_val = current.get_pixel_unchecked(x, y);
-                let new_val = if d_val != 0 && m_val != 0 { 1 } else { 0 };
-                next_mut.set_pixel_unchecked(x, y, new_val);
-
-                if new_val != c_val {
-                    changed = true;
-                }
+        let mut changed = false;
+        for i in 0..total_words {
+            out_data[i] = dilated_data[i] & mask_data[i];
+            if out_data[i] != current_data[i] {
+                changed = true;
             }
         }
 
-        current = next_mut.into();
+        // Clear unused padding bits in the last word of each scanline
+        let bit_remainder = w % 32;
+        if bit_remainder != 0 {
+            let last_mask: u32 = u32::MAX << (32 - bit_remainder);
+            for y in 0..(h as usize) {
+                let idx = y * wpl + (wpl - 1);
+                out_data[idx] &= last_mask;
+            }
+        }
+
+        current = out_mut.into();
+        if !changed {
+            break;
+        }
     }
 
     Ok(current)
 }
 
-/// Subtract second image from first
+/// Subtract second image from first using word-level operations
 fn subtract_images(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
     let w = pix1.width();
     let h = pix1.height();
+    let wpl = pix1.wpl() as usize;
+    let total_words = h as usize * wpl;
+
+    if pix2.width() != w || pix2.height() != h {
+        return Err(RecogError::InvalidParameter(
+            "image dimensions must match".to_string(),
+        ));
+    }
+
+    if pix1.depth() != pix2.depth() {
+        return Err(RecogError::InvalidParameter(
+            "image depths must match".to_string(),
+        ));
+    }
+
+    if pix1.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::InvalidParameter(
+            "subtract_images requires 1 bpp images".to_string(),
+        ));
+    }
+
+    let data1 = pix1.data();
+    let data2 = pix2.data();
 
     let result = Pix::new(w, h, pix1.depth())?;
     let mut result_mut = result.try_into_mut().unwrap();
+    let out_data = result_mut.data_mut();
 
-    for y in 0..h {
-        for x in 0..w {
-            let v1 = pix1.get_pixel_unchecked(x, y);
-            let sx = x.min(pix2.width() - 1);
-            let sy = y.min(pix2.height() - 1);
-            let v2 = pix2.get_pixel_unchecked(sx, sy);
-            let out = if v1 != 0 && v2 == 0 { 1 } else { 0 };
-            result_mut.set_pixel_unchecked(x, y, out);
+    for i in 0..total_words {
+        out_data[i] = data1[i] & !data2[i];
+    }
+
+    // Clear unused padding bits in the last word of each scanline
+    let bit_remainder = w % 32;
+    if bit_remainder != 0 {
+        let last_mask: u32 = u32::MAX << (32 - bit_remainder);
+        for y in 0..(h as usize) {
+            let idx = y * wpl + (wpl - 1);
+            out_data[idx] &= last_mask;
         }
     }
 
     Ok(result_mut.into())
+}
+
+// Old pixel-by-pixel implementations preserved for testing
+#[cfg(test)]
+mod old_impl {
+    use super::*;
+
+    /// Simple morphological opening (erode then dilate) - old implementation
+    pub fn morphological_open_old(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
+        let eroded = morphological_erode_old(pix, se_w, se_h)?;
+        morphological_dilate_old(&eroded, se_w, se_h)
+    }
+
+    /// Simple morphological closing (dilate then erode) - old implementation
+    pub fn morphological_close_old(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
+        let dilated = morphological_dilate_old(pix, se_w, se_h)?;
+        morphological_erode_old(&dilated, se_w, se_h)
+    }
+
+    /// Morphological erosion with rectangular structuring element - old implementation
+    pub fn morphological_erode_old(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
+        let w = pix.width();
+        let h = pix.height();
+        let hw = se_w / 2;
+        let hh = se_h / 2;
+
+        let eroded = Pix::new(w, h, pix.depth())?;
+        let mut eroded_mut = eroded.try_into_mut().unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                let mut all_black = true;
+                'outer: for dy in 0..se_h {
+                    for dx in 0..se_w {
+                        let sx = x as i32 + dx as i32 - hw as i32;
+                        let sy = y as i32 + dy as i32 - hh as i32;
+                        if sx < 0 || sx >= w as i32 || sy < 0 || sy >= h as i32 {
+                            all_black = false;
+                            break 'outer;
+                        }
+                        let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
+                        if val == 0 {
+                            all_black = false;
+                            break 'outer;
+                        }
+                    }
+                }
+                let out_val = if all_black { 1 } else { 0 };
+                eroded_mut.set_pixel_unchecked(x, y, out_val);
+            }
+        }
+
+        Ok(eroded_mut.into())
+    }
+
+    /// Morphological dilation with rectangular structuring element - old implementation
+    pub fn morphological_dilate_old(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
+        let w = pix.width();
+        let h = pix.height();
+        let hw = se_w / 2;
+        let hh = se_h / 2;
+
+        let dilated = Pix::new(w, h, pix.depth())?;
+        let mut dilated_mut = dilated.try_into_mut().unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                let mut any_black = false;
+                'outer: for dy in 0..se_h {
+                    for dx in 0..se_w {
+                        let sx = x as i32 + dx as i32 - hw as i32;
+                        let sy = y as i32 + dy as i32 - hh as i32;
+                        if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
+                            let val = pix.get_pixel_unchecked(sx as u32, sy as u32);
+                            if val != 0 {
+                                any_black = true;
+                                break 'outer;
+                            }
+                        }
+                    }
+                }
+                let out_val = if any_black { 1 } else { 0 };
+                dilated_mut.set_pixel_unchecked(x, y, out_val);
+            }
+        }
+
+        Ok(dilated_mut.into())
+    }
+
+    /// Seed fill operation - old implementation
+    pub fn seed_fill_old(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
+        let w = seed.width();
+        let h = seed.height();
+
+        if mask.width() != w || mask.height() != h {
+            return Err(RecogError::InvalidParameter(
+                "seed and mask dimensions must match".to_string(),
+            ));
+        }
+
+        // Start with seed
+        let mut current = seed.deep_clone();
+        let mut changed = true;
+
+        // Iterate until convergence
+        while changed {
+            changed = false;
+            let dilated = morphological_dilate_old(&current, 3, 3)?;
+
+            // Intersect with mask
+            let next = Pix::new(w, h, seed.depth())?;
+            let mut next_mut = next.try_into_mut().unwrap();
+
+            for y in 0..h {
+                for x in 0..w {
+                    let d_val = dilated.get_pixel_unchecked(x, y);
+                    let m_val = mask.get_pixel_unchecked(x, y);
+                    let c_val = current.get_pixel_unchecked(x, y);
+                    let new_val = if d_val != 0 && m_val != 0 { 1 } else { 0 };
+                    next_mut.set_pixel_unchecked(x, y, new_val);
+
+                    if new_val != c_val {
+                        changed = true;
+                    }
+                }
+            }
+
+            current = next_mut.into();
+        }
+
+        Ok(current)
+    }
+
+    /// Subtract second image from first - old implementation
+    pub fn subtract_images_old(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
+        let w = pix1.width();
+        let h = pix1.height();
+
+        let result = Pix::new(w, h, pix1.depth())?;
+        let mut result_mut = result.try_into_mut().unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                let v1 = pix1.get_pixel_unchecked(x, y);
+                let sx = x.min(pix2.width() - 1);
+                let sy = y.min(pix2.height() - 1);
+                let v2 = pix2.get_pixel_unchecked(sx, sy);
+                let out = if v1 != 0 && v2 == 0 { 1 } else { 0 };
+                result_mut.set_pixel_unchecked(x, y, out);
+            }
+        }
+
+        Ok(result_mut.into())
+    }
 }
 
 /// Detect vertical whitespace between text blocks
@@ -979,5 +1124,108 @@ mod tests {
         assert_eq!(region.height(), 20);
         // Pixel at (50,50) is now at (10,10) in the region
         assert_eq!(region.get_pixel_unchecked(10, 10), 1);
+    }
+
+    // Equivalence tests for morphology delegation
+    use old_impl::*;
+
+    fn assert_pix_equal(pix1: &Pix, pix2: &Pix) {
+        assert_eq!(pix1.width(), pix2.width());
+        assert_eq!(pix1.height(), pix2.height());
+        assert_eq!(pix1.depth(), pix2.depth());
+
+        for y in 0..pix1.height() {
+            for x in 0..pix1.width() {
+                let v1 = pix1.get_pixel_unchecked(x, y);
+                let v2 = pix2.get_pixel_unchecked(x, y);
+                if v1 != v2 {
+                    panic!("Pixels differ at ({}, {}): old={}, new={}", x, y, v1, v2);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_erode_equivalence() {
+        let pix = create_test_document(200, 100);
+
+        let old_result = morphological_erode_old(&pix, 3, 3).unwrap();
+        let new_result = morphological_erode(&pix, 3, 3).unwrap();
+
+        assert_pix_equal(&old_result, &new_result);
+    }
+
+    #[test]
+    fn test_dilate_equivalence() {
+        let pix = create_test_document(200, 100);
+
+        let old_result = morphological_dilate_old(&pix, 3, 3).unwrap();
+        let new_result = morphological_dilate(&pix, 3, 3).unwrap();
+
+        assert_pix_equal(&old_result, &new_result);
+    }
+
+    #[test]
+    fn test_open_equivalence() {
+        let pix = create_test_document(200, 100);
+
+        let old_result = morphological_open_old(&pix, 5, 5).unwrap();
+        let new_result = morphological_open(&pix, 5, 5).unwrap();
+
+        assert_pix_equal(&old_result, &new_result);
+    }
+
+    #[test]
+    fn test_close_equivalence() {
+        let pix = create_test_document(200, 100);
+
+        let old_result = morphological_close_old(&pix, 4, 4).unwrap();
+        let new_result = morphological_close(&pix, 4, 4).unwrap();
+
+        assert_pix_equal(&old_result, &new_result);
+    }
+
+    #[test]
+    fn test_seed_fill_equivalence() {
+        let seed = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
+        let mut seed_mut = seed.try_into_mut().unwrap();
+        for y in 45..55 {
+            for x in 45..55 {
+                seed_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let seed: Pix = seed_mut.into();
+
+        let mask = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
+        let mut mask_mut = mask.try_into_mut().unwrap();
+        for y in 40..60 {
+            for x in 40..60 {
+                mask_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let mask: Pix = mask_mut.into();
+
+        let old_result = seed_fill_old(&seed, &mask).unwrap();
+        let new_result = seed_fill(&seed, &mask).unwrap();
+
+        assert_pix_equal(&old_result, &new_result);
+    }
+
+    #[test]
+    fn test_subtract_equivalence() {
+        let pix1 = create_test_document(200, 100);
+        let pix2 = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let mut pix2_mut = pix2.try_into_mut().unwrap();
+        for y in 20..40 {
+            for x in 40..120 {
+                pix2_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let pix2: Pix = pix2_mut.into();
+
+        let old_result = subtract_images_old(&pix1, &pix2).unwrap();
+        let new_result = subtract_images(&pix1, &pix2).unwrap();
+
+        assert_pix_equal(&old_result, &new_result);
     }
 }
