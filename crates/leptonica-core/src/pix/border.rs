@@ -233,11 +233,21 @@ impl Pix {
     /// Add a mirrored border by reflecting pixels at the edges.
     ///
     /// Useful for convolution kernels that need valid edge data.
-    /// Border size must not exceed the corresponding image dimension.
+    /// The edge pixel is the axis of symmetry.
     ///
-    /// # See also
+    /// C equivalent: `pixAddMirroredBorder()` in `pix2.c`
     ///
-    /// C Leptonica: `pixAddMirroredBorder()` in `pix2.c`
+    /// # Arguments
+    ///
+    /// * `left` - Width of the border to add on the left side
+    /// * `right` - Width of the border to add on the right side
+    /// * `top` - Height of the border to add on the top side
+    /// * `bot` - Height of the border to add on the bottom side
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any border size exceeds the corresponding
+    /// image dimension.
     pub fn add_mirrored_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
         let w = self.width();
         let h = self.height();
@@ -292,11 +302,19 @@ impl Pix {
 
     /// Add a repeated (tiled) border by wrapping pixels from opposite edges.
     ///
-    /// Border size must not exceed the corresponding image dimension.
+    /// C equivalent: `pixAddRepeatedBorder()` in `pix2.c`
     ///
-    /// # See also
+    /// # Arguments
     ///
-    /// C Leptonica: `pixAddRepeatedBorder()` in `pix2.c`
+    /// * `left` - Width of the border to add on the left side
+    /// * `right` - Width of the border to add on the right side
+    /// * `top` - Height of the border to add on the top side
+    /// * `bot` - Height of the border to add on the bottom side
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any border size exceeds the corresponding
+    /// image dimension.
     pub fn add_repeated_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
         let w = self.width();
         let h = self.height();
@@ -355,9 +373,19 @@ impl PixMut {
     ///
     /// Only supports 8, 16, and 32 bpp images.
     ///
-    /// # See also
+    /// C equivalent: `pixSetBorderVal()` in `pix2.c`
     ///
-    /// C Leptonica: `pixSetBorderVal()` in `pix2.c`
+    /// # Arguments
+    ///
+    /// * `left` - Width of border on the left side
+    /// * `right` - Width of border on the right side
+    /// * `top` - Height of border on the top side
+    /// * `bot` - Height of border on the bottom side
+    /// * `val` - Fill value for border pixels (masked to depth)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 8, 16, or 32 bpp.
     pub fn set_border_val(
         &mut self,
         left: u32,
@@ -550,7 +578,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_border_val_8bpp() {
         let pix = Pix::new(10, 8, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -574,7 +601,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_border_val_32bpp() {
         let pix = Pix::new(6, 4, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -587,7 +613,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_border_val_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -595,7 +620,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_add_mirrored_border() {
         // 4x3 image with known pixels
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
@@ -647,7 +671,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_add_mirrored_border_too_large() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.add_mirrored_border(11, 0, 0, 0).is_err());
@@ -655,7 +678,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_add_repeated_border() {
         // 4x3 image
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
@@ -695,7 +717,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_add_repeated_border_too_large() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.add_repeated_border(11, 0, 0, 0).is_err());
