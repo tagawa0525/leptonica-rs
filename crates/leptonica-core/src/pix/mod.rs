@@ -31,6 +31,7 @@ pub mod convert;
 mod extract;
 pub mod graphics;
 mod histogram;
+mod mask;
 mod ops;
 mod rgb;
 pub mod rop;
