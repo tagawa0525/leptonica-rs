@@ -298,6 +298,7 @@ pub fn census_transform(pix: &Pix, halfsize: u32) -> FilterResult<Pix> {
 ///
 /// C Leptonica: `pixAddGaussianNoise()` in `convolve.c`
 pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
+    let stdev = stdev.max(0.0);
     match pix.depth() {
         PixelDepth::Bit8 | PixelDepth::Bit32 => {}
         _ => {
