@@ -679,16 +679,255 @@ fn remove_border(
 
 // 3×3 fast path implementations
 
-/// 3×3 dilate fast path (placeholder for RED phase)
+/// 3×3 dilate fast path with 8-pixel unrolling
 fn dilate_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    // Placeholder: delegate to vHGW for now
-    dilate_gray_vhgw(pix, hsize as usize, vsize as usize)
+    if hsize == 1 && vsize == 1 {
+        return Ok(pix.clone());
+    }
+
+    // Add border: left=4, right=8, top=2, bottom=8 (for 8-pixel unroll)
+    let pixb = add_border(pix, 4, 8, 2, 8, 0)?;
+
+    let pixbd = if vsize == 1 {
+        // Horizontal only
+        dilate_gray_3h(&pixb)?
+    } else if hsize == 1 {
+        // Vertical only
+        dilate_gray_3v(&pixb)?
+    } else {
+        // 3×3: H then V
+        let pixt = dilate_gray_3h(&pixb)?;
+        dilate_gray_3v(&pixt)?
+    };
+
+    remove_border(&pixbd, 4, 8, 2, 8)
 }
 
-/// 3×3 erode fast path (placeholder for RED phase)
+/// 3×3 erode fast path with 8-pixel unrolling
 fn erode_gray_3x3_fastpath(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    // Placeholder: delegate to vHGW for now
-    erode_gray_vhgw(pix, hsize as usize, vsize as usize)
+    if hsize == 1 && vsize == 1 {
+        return Ok(pix.clone());
+    }
+
+    // Add border: left=4, right=8, top=2, bottom=8 (for 8-pixel unroll)
+    let pixb = add_border(pix, 4, 8, 2, 8, 255)?;
+
+    let pixbd = if vsize == 1 {
+        erode_gray_3h(&pixb)?
+    } else if hsize == 1 {
+        erode_gray_3v(&pixb)?
+    } else {
+        let pixt = erode_gray_3h(&pixb)?;
+        erode_gray_3v(&pixt)?
+    };
+
+    remove_border(&pixbd, 4, 8, 2, 8)
+}
+
+/// Horizontal 3×1 dilation (8-pixel unroll)
+fn dilate_gray_3h(pix: &Pix) -> MorphResult<Pix> {
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    let wpl = pix.wpl() as usize;
+
+    let out = Pix::new(w as u32, h as u32, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let datas = pix.data();
+    let datad = out_mut.data_mut();
+
+    for i in 0..h {
+        let lines = &datas[i * wpl..];
+        let lined = &mut datad[i * wpl..];
+
+        let mut j = 1;
+        while j < w - 8 {
+            let val0 = get_data_byte(lines, j - 1);
+            let val1 = get_data_byte(lines, j);
+            let val2 = get_data_byte(lines, j + 1);
+            let val3 = get_data_byte(lines, j + 2);
+            let val4 = get_data_byte(lines, j + 3);
+            let val5 = get_data_byte(lines, j + 4);
+            let val6 = get_data_byte(lines, j + 5);
+            let val7 = get_data_byte(lines, j + 6);
+            let val8 = get_data_byte(lines, j + 7);
+            let val9 = get_data_byte(lines, j + 8);
+
+            let mut maxval = val1.max(val2);
+            set_data_byte(lined, j, val0.max(maxval));
+            set_data_byte(lined, j + 1, maxval.max(val3));
+
+            maxval = val3.max(val4);
+            set_data_byte(lined, j + 2, val2.max(maxval));
+            set_data_byte(lined, j + 3, maxval.max(val5));
+
+            maxval = val5.max(val6);
+            set_data_byte(lined, j + 4, val4.max(maxval));
+            set_data_byte(lined, j + 5, maxval.max(val7));
+
+            maxval = val7.max(val8);
+            set_data_byte(lined, j + 6, val6.max(maxval));
+            set_data_byte(lined, j + 7, maxval.max(val9));
+
+            j += 8;
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Vertical 1×3 dilation (8-pixel unroll)
+fn dilate_gray_3v(pix: &Pix) -> MorphResult<Pix> {
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    let wpl = pix.wpl() as usize;
+
+    let out = Pix::new(w as u32, h as u32, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let datas = pix.data();
+    let datad = out_mut.data_mut();
+
+    for j in 0..w {
+        let mut i = 1;
+        while i < h - 8 {
+            let linesi = i * wpl;
+
+            let val0 = get_data_byte(&datas[linesi - wpl..], j);
+            let val1 = get_data_byte(&datas[linesi..], j);
+            let val2 = get_data_byte(&datas[linesi + wpl..], j);
+            let val3 = get_data_byte(&datas[linesi + 2 * wpl..], j);
+            let val4 = get_data_byte(&datas[linesi + 3 * wpl..], j);
+            let val5 = get_data_byte(&datas[linesi + 4 * wpl..], j);
+            let val6 = get_data_byte(&datas[linesi + 5 * wpl..], j);
+            let val7 = get_data_byte(&datas[linesi + 6 * wpl..], j);
+            let val8 = get_data_byte(&datas[linesi + 7 * wpl..], j);
+            let val9 = get_data_byte(&datas[linesi + 8 * wpl..], j);
+
+            let mut maxval = val1.max(val2);
+            set_data_byte(&mut datad[linesi..], j, val0.max(maxval));
+            set_data_byte(&mut datad[linesi + wpl..], j, maxval.max(val3));
+
+            maxval = val3.max(val4);
+            set_data_byte(&mut datad[linesi + 2 * wpl..], j, val2.max(maxval));
+            set_data_byte(&mut datad[linesi + 3 * wpl..], j, maxval.max(val5));
+
+            maxval = val5.max(val6);
+            set_data_byte(&mut datad[linesi + 4 * wpl..], j, val4.max(maxval));
+            set_data_byte(&mut datad[linesi + 5 * wpl..], j, maxval.max(val7));
+
+            maxval = val7.max(val8);
+            set_data_byte(&mut datad[linesi + 6 * wpl..], j, val6.max(maxval));
+            set_data_byte(&mut datad[linesi + 7 * wpl..], j, maxval.max(val9));
+
+            i += 8;
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Horizontal 3×1 erosion (8-pixel unroll)
+fn erode_gray_3h(pix: &Pix) -> MorphResult<Pix> {
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    let wpl = pix.wpl() as usize;
+
+    let out = Pix::new(w as u32, h as u32, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let datas = pix.data();
+    let datad = out_mut.data_mut();
+
+    for i in 0..h {
+        let lines = &datas[i * wpl..];
+        let lined = &mut datad[i * wpl..];
+
+        let mut j = 1;
+        while j < w - 8 {
+            let val0 = get_data_byte(lines, j - 1);
+            let val1 = get_data_byte(lines, j);
+            let val2 = get_data_byte(lines, j + 1);
+            let val3 = get_data_byte(lines, j + 2);
+            let val4 = get_data_byte(lines, j + 3);
+            let val5 = get_data_byte(lines, j + 4);
+            let val6 = get_data_byte(lines, j + 5);
+            let val7 = get_data_byte(lines, j + 6);
+            let val8 = get_data_byte(lines, j + 7);
+            let val9 = get_data_byte(lines, j + 8);
+
+            let mut minval = val1.min(val2);
+            set_data_byte(lined, j, val0.min(minval));
+            set_data_byte(lined, j + 1, minval.min(val3));
+
+            minval = val3.min(val4);
+            set_data_byte(lined, j + 2, val2.min(minval));
+            set_data_byte(lined, j + 3, minval.min(val5));
+
+            minval = val5.min(val6);
+            set_data_byte(lined, j + 4, val4.min(minval));
+            set_data_byte(lined, j + 5, minval.min(val7));
+
+            minval = val7.min(val8);
+            set_data_byte(lined, j + 6, val6.min(minval));
+            set_data_byte(lined, j + 7, minval.min(val9));
+
+            j += 8;
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Vertical 1×3 erosion (8-pixel unroll)
+fn erode_gray_3v(pix: &Pix) -> MorphResult<Pix> {
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    let wpl = pix.wpl() as usize;
+
+    let out = Pix::new(w as u32, h as u32, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let datas = pix.data();
+    let datad = out_mut.data_mut();
+
+    for j in 0..w {
+        let mut i = 1;
+        while i < h - 8 {
+            let linesi = i * wpl;
+
+            let val0 = get_data_byte(&datas[linesi - wpl..], j);
+            let val1 = get_data_byte(&datas[linesi..], j);
+            let val2 = get_data_byte(&datas[linesi + wpl..], j);
+            let val3 = get_data_byte(&datas[linesi + 2 * wpl..], j);
+            let val4 = get_data_byte(&datas[linesi + 3 * wpl..], j);
+            let val5 = get_data_byte(&datas[linesi + 4 * wpl..], j);
+            let val6 = get_data_byte(&datas[linesi + 5 * wpl..], j);
+            let val7 = get_data_byte(&datas[linesi + 6 * wpl..], j);
+            let val8 = get_data_byte(&datas[linesi + 7 * wpl..], j);
+            let val9 = get_data_byte(&datas[linesi + 8 * wpl..], j);
+
+            let mut minval = val1.min(val2);
+            set_data_byte(&mut datad[linesi..], j, val0.min(minval));
+            set_data_byte(&mut datad[linesi + wpl..], j, minval.min(val3));
+
+            minval = val3.min(val4);
+            set_data_byte(&mut datad[linesi + 2 * wpl..], j, val2.min(minval));
+            set_data_byte(&mut datad[linesi + 3 * wpl..], j, minval.min(val5));
+
+            minval = val5.min(val6);
+            set_data_byte(&mut datad[linesi + 4 * wpl..], j, val4.min(minval));
+            set_data_byte(&mut datad[linesi + 5 * wpl..], j, minval.min(val7));
+
+            minval = val7.min(val8);
+            set_data_byte(&mut datad[linesi + 6 * wpl..], j, val6.min(minval));
+            set_data_byte(&mut datad[linesi + 7 * wpl..], j, minval.min(val9));
+
+            i += 8;
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 #[cfg(test)]
