@@ -57,8 +57,12 @@ fn fpix1_reg_pixel_access() {
     let mut fpix = FPix::new(100, 100).unwrap();
 
     // Set and get
-    fpix.set_pixel(50, 50, 3.14).unwrap();
-    rp.compare_values(3.14, fpix.get_pixel(50, 50).unwrap() as f64, 0.001);
+    fpix.set_pixel(50, 50, std::f32::consts::PI).unwrap();
+    rp.compare_values(
+        std::f64::consts::PI,
+        fpix.get_pixel(50, 50).unwrap() as f64,
+        0.001,
+    );
 
     // Negative values
     fpix.set_pixel(0, 0, -1.5).unwrap();

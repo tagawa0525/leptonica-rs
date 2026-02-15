@@ -774,10 +774,10 @@ impl Sarray {
     /// ```
     pub fn lookup_csv_kv(&self, key: &str) -> Option<String> {
         for s in &self.data {
-            if let Some((k, v)) = s.split_once(',') {
-                if k == key {
-                    return Some(v.to_string());
-                }
+            if let Some((k, v)) = s.split_once(',')
+                && k == key
+            {
+                return Some(v.to_string());
             }
         }
         None
