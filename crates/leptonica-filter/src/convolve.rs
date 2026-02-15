@@ -235,7 +235,7 @@ fn check_color(pix: &Pix) -> FilterResult<()> {
 ///
 /// For each pixel in an 8-bit grayscale image, computes the average of pixels
 /// in a (2*halfsize+1) × (2*halfsize+1) neighborhood and outputs 1 if the
-/// center pixel is >= average, 0 otherwise.
+/// center pixel is strictly greater than the average, 0 otherwise.
 ///
 /// # Arguments
 ///
