@@ -96,7 +96,9 @@ fn dilate_gray_vhgw(pix: &Pix, hsize: usize, vsize: usize) -> MorphResult<Pix> {
         let datab2 = pixb2.data();
         let datat2 = pixt2_mut.data_mut();
 
-        dilate_gray_1d_vhgw(datat2, wplt, datab2, wplb, h, w, vsize, false);
+        let wplb2 = pixb2.wpl() as usize;
+
+        dilate_gray_1d_vhgw(datat2, wplt, datab2, wplb2, h, w, vsize, false);
         pixt_mut = pixt2_mut;
     }
 
@@ -211,7 +213,9 @@ fn erode_gray_vhgw(pix: &Pix, hsize: usize, vsize: usize) -> MorphResult<Pix> {
         let datab2 = pixb2.data();
         let datat2 = pixt2_mut.data_mut();
 
-        erode_gray_1d_vhgw(datat2, wplt, datab2, wplb, h, w, vsize, false);
+        let wplb2 = pixb2.wpl() as usize;
+
+        erode_gray_1d_vhgw(datat2, wplt, datab2, wplb2, h, w, vsize, false);
         pixt_mut = pixt2_mut;
     }
 
@@ -903,7 +907,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_dilate_vhgw_equivalence_7x5() {
         let pix = create_random_grayscale_image(100, 80, 54321);
         let naive = dilate_gray_naive(&pix, 7, 5).unwrap();
@@ -912,7 +915,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_dilate_vhgw_equivalence_horizontal() {
         let pix = create_random_grayscale_image(100, 80, 99999);
         let naive = dilate_gray_naive(&pix, 11, 1).unwrap();
@@ -921,7 +923,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_dilate_vhgw_equivalence_vertical() {
         let pix = create_random_grayscale_image(100, 80, 11111);
         let naive = dilate_gray_naive(&pix, 1, 9).unwrap();
@@ -930,7 +931,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_erode_vhgw_equivalence_3x3() {
         let pix = create_random_grayscale_image(100, 80, 67890);
         let naive = erode_gray_naive(&pix, 3, 3).unwrap();
@@ -939,7 +939,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_erode_vhgw_equivalence_7x5() {
         let pix = create_random_grayscale_image(100, 80, 24680);
         let naive = erode_gray_naive(&pix, 7, 5).unwrap();
