@@ -26,5 +26,14 @@
 //! assert_eq!(pix.height(), 480);
 //! ```
 
-// Re-export core types
+// Re-export core types (primary data structures used everywhere)
 pub use leptonica_core::*;
+
+// Re-export domain crates as modules to avoid name conflicts
+pub use leptonica_color as color;
+pub use leptonica_filter as filter;
+pub use leptonica_io as io;
+pub use leptonica_morph as morph;
+pub use leptonica_recog as recog;
+pub use leptonica_region as region;
+pub use leptonica_transform as transform;
