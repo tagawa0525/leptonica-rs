@@ -1,6 +1,6 @@
 # 標準Brick Morphの高速化（separable decomposition + rasterop）
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
@@ -13,7 +13,7 @@ Status: IN_PROGRESS
 C版（`morph.c:213-309`）は全てのbinary morphでrasterop（word単位shift-and-combine）を使い、
 brick関数（`morph.c:672-918`）でseparable decompositionを組み合わせている。
 
-両方の最適化を適用することで、C版と同等の性能を実現する。
+両方の最適化を適用することで、大幅な高速化を実現した。
 
 ## C版のアルゴリズム（`morph.c:213-309`）
 
@@ -65,64 +65,36 @@ shift left by k bits (0 < k < 32):
 
 **成果**: 323秒 → 33秒（10倍高速化）
 
-### Phase 2: Rasterop最適化
+### Phase 2: Rasterop最適化（✅ 実装済み）
 
 #### 変更ファイル
 
 `crates/leptonica-morph/src/binary.rs` のみ
 
-#### 変更する関数
+#### 変更した関数
 
 汎用 `dilate(pix, sel)` と `erode(pix, sel)` の内部実装をrasteropに置換。
 API・シグネチャは変更なし。全ての呼び出し元（brick関数含む）が自動的に恩恵を受ける。
 
-#### 追加するヘルパー関数
+#### 追加したヘルパー関数
 
 | 関数 | 役割 |
 |------|------|
 | `shift_or_row(dst, src, shift)` | srcをshiftビットずらしてdstにOR |
 | `shift_and_row(dst, src, shift)` | srcをshiftビットずらしてdstにAND |
+| `clear_unused_bits(data, width, wpl)` | 各行の最終wordの未使用ビットをクリア |
 
-#### アルゴリズム
+#### 実装上の注意点
 
-**dilate（rasterop版）**:
-```rust
-let dst_data = all_zeros();
-for (dx, dy) in sel.hit_offsets() {
-    for y in 0..h {
-        let src_y = y - dy;  // dyだけずらした行を読む
-        if src_y is valid:
-            shift_or_row(&mut dst[y], &src[src_y], dx);
-    }
-}
-```
+1. **hit_offsets規約**: `hit_offsets()` は `(j - cx, i - cy)` を返す。pixel-by-pixel版では
+   `src[X + dx]` （非反転）で読むのに対し、rasterop版ではshift方向を反転（`-dx`）する必要がある。
+   Dilationでは `shift_or_row(dst, src, -dx)` と `src_y = y + dy`。
 
-**erode（rasterop版）**:
-```rust
-let dst_data = all_ones();
-for (dx, dy) in sel.hit_offsets() {
-    for y in 0..h {
-        let src_y = y + dy;  // 反転offset
-        if src_y is valid:
-            shift_and_row(&mut dst[y], &src[src_y], -dx);
-        else:
-            clear_row(&mut dst[y]);  // 境界外=0 (asymmetric BC)
-    }
-}
-```
+2. **未使用ビット汚染**: 画像幅が32の倍数でない場合、各行の最終wordの下位ビットが未使用。
+   word-level shiftがこれらのビットを設定すると、後続操作（closing時のdilate→erode）で
+   ゴミビットが有効ピクセル領域に伝播する。`clear_unused_bits` で各操作後にマスクする。
 
-#### ビット順序
-
-MSB-first（C版と同一）:
-- Pixel 0 = bit 31 (MSB) of word 0
-- Pixel 31 = bit 0 (LSB) of word 0
-- Pixel 32 = bit 31 (MSB) of word 1
-
-#### 境界処理
-
-Erosion時のasymmetric BC（外側=0）は、shift関数の境界で自然に処理される:
-- 範囲外wordからのcarryは0
-- 範囲外行はANDの代わりにクリア
+**成果**: 33秒 → 14秒（さらに2.4倍高速化）
 
 ## TDDコミット構成
 
@@ -134,21 +106,22 @@ Erosion時のasymmetric BC（外側=0）は、shift関数の境界で自然に�
 
 `a36e342` separable decomposition実装、#[ignore]除去
 
-### コミット3: RED — rasteropテスト
+### コミット3: RED（✅ 完了）
 
-rasterop版 `dilate`/`erode` の正当性テストを追加。
-pixel-by-pixel版を `dilate_reference`/`erode_reference` として残し、
-rasterop版との結果一致を任意SEL形状で検証。
+`2c4c953` rasterop equivalenceテスト追加（6テスト、#[ignore]付き）
 
 テストケース（C版 `binmorph1_reg.c` に準拠）:
-- brick SEL: 3×3, 5×7, 1×5
+- brick SEL: 3×3, 5×7, 21×15, 1×5, 5×1
 - cross SEL: 3, 5
 - diamond SEL: 2
 
-### コミット4: GREEN — rasterop実装
+### コミット4: GREEN（✅ 完了）
 
-`dilate`/`erode` をrasteropに置換。テストの `#[ignore]` を除去。
-全テスト（binmorph1-5, separable equivalence含む）をパスさせる。
+`d130dab` rasterop実装、#[ignore]除去、全テストパス
+
+### コミット5: REFACTOR（✅ 完了）
+
+`65706ac` shift関数の内部ループから境界チェック除去
 
 ## 正当性の根拠
 
@@ -178,10 +151,21 @@ cargo test --release -p leptonica-morph -- rasterop
 time cargo test --release -p leptonica-morph --test binmorph5_reg
 ```
 
-## 期待性能
+## 実績性能
 
 | 段階 | binmorph5_reg | 全体テスト |
 |------|-------------|-----------|
 | 変更前 | 323秒 | 338秒 |
 | Phase 1 (separable) | 33秒 | 44秒 |
-| Phase 2 (rasterop) | 1-3秒 | 5-10秒 |
+| Phase 2 (rasterop) | 14秒 | 20秒 |
+
+## 今後の最適化余地
+
+binmorph5_regの14秒は、大きなSELサイズ（65-120）での反復回数に起因する。
+サイズNの1D SELは画像全体に対してN回のshift-and-combine操作を必要とする。
+さらなる高速化には以下のアプローチが考えられる:
+
+1. **Composite decomposition**: サイズ120 = 10×12 に分解し、120回→22回に削減
+   （C版: `pixDilateCompBrick`, `selectComposableSizes`）
+2. **Van Herk/Gil-Werman**: 1Dモルフォロジをサイズ非依存のO(W)に
+   （SELサイズによらず3パスで完了）
