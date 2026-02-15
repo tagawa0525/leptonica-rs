@@ -152,10 +152,10 @@ impl Pix {
         }
         let w = self.width() as i32;
         let h = self.height() as i32;
-        let (xstart, ystart, xend, yend, _, _) =
-            clip_box_to_rect(region, w, h).ok_or_else(|| {
-                Error::InvalidParameter("region has zero intersection with image".into())
-            })?;
+        let (xstart, ystart, xend, yend, _, _) = match clip_box_to_rect(region, w, h) {
+            Some(vals) => vals,
+            None => return Ok(0),
+        };
 
         let mut count = 0u64;
         for y in ystart..yend {
@@ -185,10 +185,10 @@ impl Pix {
         }
         let w = self.width() as i32;
         let h = self.height() as i32;
-        let (xstart, ystart, xend, yend, _, bh) =
-            clip_box_to_rect(region, w, h).ok_or_else(|| {
-                Error::InvalidParameter("region has zero intersection with image".into())
-            })?;
+        let (xstart, ystart, xend, yend, _, bh) = match clip_box_to_rect(region, w, h) {
+            Some(vals) => vals,
+            None => return Ok(Numa::new()),
+        };
 
         let mut na = Numa::with_capacity(bh as usize);
         for y in ystart..yend {
@@ -220,10 +220,10 @@ impl Pix {
         }
         let w = self.width() as i32;
         let h = self.height() as i32;
-        let (xstart, ystart, xend, yend, bw, _) =
-            clip_box_to_rect(region, w, h).ok_or_else(|| {
-                Error::InvalidParameter("region has zero intersection with image".into())
-            })?;
+        let (xstart, ystart, xend, yend, bw, _) = match clip_box_to_rect(region, w, h) {
+            Some(vals) => vals,
+            None => return Ok(Numa::new()),
+        };
 
         let mut counts = vec![0.0f32; bw as usize];
         for y in ystart..yend {
@@ -233,11 +233,7 @@ impl Pix {
                 }
             }
         }
-        let mut na = Numa::with_capacity(bw as usize);
-        for &c in &counts {
-            na.push(c);
-        }
-        Ok(na)
+        Ok(Numa::from_vec(counts))
     }
 
     /// Check if all pixels in the image are zero.
@@ -990,6 +986,55 @@ mod tests {
         assert!(pix.threshold_pixel_sum(24).unwrap()); // 25 > 24
         assert!(!pix.threshold_pixel_sum(25).unwrap()); // 25 not > 25
         assert!(!pix.threshold_pixel_sum(100).unwrap());
+    }
+
+    #[test]
+    fn test_count_by_row_with_region() {
+        let pix = Pix::new(10, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(5, 0, 1);
+        pm.set_pixel_unchecked(4, 2, 1);
+        let pix: Pix = pm.into();
+
+        let region = Box::new(0, 0, 5, 3).unwrap();
+        let counts = pix.count_by_row(Some(&region)).unwrap();
+        assert_eq!(counts.len(), 3);
+        assert_eq!(counts.get(0).unwrap(), 1.0); // only x=0 in [0..5)
+        assert_eq!(counts.get(2).unwrap(), 1.0); // x=4 in [0..5)
+    }
+
+    #[test]
+    fn test_count_by_column_with_region() {
+        let pix = Pix::new(5, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(0, 5, 1);
+        pm.set_pixel_unchecked(4, 3, 1);
+        let pix: Pix = pm.into();
+
+        let region = Box::new(0, 0, 3, 10).unwrap();
+        let counts = pix.count_by_column(Some(&region)).unwrap();
+        assert_eq!(counts.len(), 3);
+        assert_eq!(counts.get(0).unwrap(), 2.0); // col 0 has 2 pixels in region
+    }
+
+    #[test]
+    fn test_count_by_row_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.count_by_row(None).is_err());
+    }
+
+    #[test]
+    fn test_count_by_column_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.count_by_column(None).is_err());
+    }
+
+    #[test]
+    fn test_threshold_pixel_sum_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.threshold_pixel_sum(0).is_err());
     }
 
     #[test]
