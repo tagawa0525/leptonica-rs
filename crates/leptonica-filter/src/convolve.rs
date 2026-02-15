@@ -139,15 +139,13 @@ pub fn gaussian_blur_auto(pix: &Pix, radius: u32) -> FilterResult<Pix> {
     gaussian_blur(pix, radius, sigma)
 }
 
-/// Separable convolution (2D decomposed into 1D x and y)
+/// Separable convolution (sequential application of two kernels)
 ///
-/// Performs 2D convolution as a sequence of 1D convolutions in x and y directions.
-/// This is faster than full 2D convolution when the kernel is separable.
-///
-/// # Algorithm
-///
-/// 1. Apply kernel_x horizontally first
-/// 2. Apply kernel_y vertically to the result
+/// Applies two convolution passes sequentially: first with `kernel_x`, then
+/// with `kernel_y` on the intermediate result. For true separable convolution,
+/// `kernel_x` should be a horizontal 1D kernel (height=1) and `kernel_y` should
+/// be a vertical 1D kernel (width=1). However, arbitrary 2D kernels are accepted
+/// and will be applied sequentially (this matches C Leptonica behavior).
 ///
 /// # Supported depths
 ///
