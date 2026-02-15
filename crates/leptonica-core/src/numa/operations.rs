@@ -641,6 +641,39 @@ impl Numa {
 
         Some((min_val, max_val, mean_val, variance, median, rank_val))
     }
+
+    // ====================================================================
+    // Constant array construction
+    // ====================================================================
+
+    /// Create a Numa filled with a constant value.
+    ///
+    /// C equivalent: `numaMakeConstant(val, size)`
+    pub fn make_constant(_val: f32, _count: usize) -> Numa {
+        todo!("make_constant not yet implemented")
+    }
+
+    // ====================================================================
+    // Reverse
+    // ====================================================================
+
+    /// Return a new Numa with elements in reversed order.
+    ///
+    /// Metadata is also reversed: `startx = startx + (n-1) * delx`, `delx = -delx`.
+    ///
+    /// C equivalent: `numaReverse(NULL, nas)`
+    pub fn reversed(&self) -> Numa {
+        todo!("reversed not yet implemented")
+    }
+
+    /// Reverse the elements in place.
+    ///
+    /// Metadata is also reversed: `startx = startx + (n-1) * delx`, `delx = -delx`.
+    ///
+    /// C equivalent: `numaReverse(nas, nas)`
+    pub fn reverse(&mut self) {
+        todo!("reverse not yet implemented")
+    }
 }
 
 #[cfg(test)]
@@ -852,5 +885,88 @@ mod tests {
         assert!((min - 1.0).abs() < 0.5);
         assert!((max - 5.0).abs() < 0.5);
         assert!((mean - 3.0).abs() < 0.5);
+    }
+
+    // ================================================================
+    // Tests for make_constant
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_constant_basic() {
+        let na = Numa::make_constant(42.0, 5);
+        assert_eq!(na.len(), 5);
+        for i in 0..5 {
+            assert_eq!(na.get(i), Some(42.0));
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_constant_zero_count() {
+        let na = Numa::make_constant(1.0, 0);
+        assert!(na.is_empty());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_constant_negative_val() {
+        let na = Numa::make_constant(-3.5, 3);
+        assert_eq!(na.as_slice(), &[-3.5, -3.5, -3.5]);
+    }
+
+    // ================================================================
+    // Tests for reverse / reversed
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_reversed_basic() {
+        let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let rev = na.reversed();
+        assert_eq!(rev.as_slice(), &[5.0, 4.0, 3.0, 2.0, 1.0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_reversed_metadata() {
+        // C behavior: startx = startx + (n-1) * delx, delx = -delx
+        let mut na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
+        na.set_parameters(0.0, 2.0);
+        let rev = na.reversed();
+        let (startx, delx) = rev.parameters();
+        // startx = 0.0 + (3-1) * 2.0 = 4.0
+        assert!((startx - 4.0).abs() < 1e-6);
+        // delx = -2.0
+        assert!((delx - (-2.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_reverse_in_place() {
+        let mut na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        na.set_parameters(1.0, 0.5);
+        na.reverse();
+        assert_eq!(na.as_slice(), &[5.0, 4.0, 3.0, 2.0, 1.0]);
+        let (startx, delx) = na.parameters();
+        // startx = 1.0 + (5-1) * 0.5 = 3.0
+        assert!((startx - 3.0).abs() < 1e-6);
+        assert!((delx - (-0.5)).abs() < 1e-6);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_reversed_single_element() {
+        let na = Numa::from_vec(vec![42.0]);
+        let rev = na.reversed();
+        assert_eq!(rev.as_slice(), &[42.0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_reversed_empty() {
+        let na = Numa::new();
+        let rev = na.reversed();
+        assert!(rev.is_empty());
     }
 }
