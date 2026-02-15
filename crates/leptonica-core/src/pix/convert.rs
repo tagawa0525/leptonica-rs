@@ -808,10 +808,10 @@ impl Pix {
         let mut result_mut = result.try_into_mut().unwrap();
         result_mut.set_resolution(self.xres(), self.yres());
 
-        // Build LUT: gray -> RGB (no alpha)
+        // Build LUT: gray -> RGBA with alpha = 255 (fully opaque)
         let mut tab = [0u32; 256];
         for (i, entry) in tab.iter_mut().enumerate() {
-            *entry = (i as u32) << 24 | (i as u32) << 16 | (i as u32) << 8;
+            *entry = (i as u32) << 24 | (i as u32) << 16 | (i as u32) << 8 | 255;
         }
 
         for y in 0..h {
