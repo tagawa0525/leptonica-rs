@@ -371,7 +371,7 @@ pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
         for y in 0..h {
             for x in 0..w {
                 let val = pix.get_pixel_unchecked(x, y) as i32;
-                let noise = (stdev * sampler.sample() + 0.5) as i32;
+                let noise = (stdev * sampler.sample()).round() as i32;
                 let result = (val + noise).clamp(0, 255) as u32;
                 pixd_mut.set_pixel_unchecked(x, y, result);
             }
@@ -383,9 +383,9 @@ pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
                 let pixel = pix.get_pixel_unchecked(x, y);
                 let (r, g, b, a) = color::extract_rgba(pixel);
 
-                let r_noise = (stdev * sampler.sample() + 0.5) as i32;
-                let g_noise = (stdev * sampler.sample() + 0.5) as i32;
-                let b_noise = (stdev * sampler.sample() + 0.5) as i32;
+                let r_noise = (stdev * sampler.sample()).round() as i32;
+                let g_noise = (stdev * sampler.sample()).round() as i32;
+                let b_noise = (stdev * sampler.sample()).round() as i32;
 
                 let r_out = ((r as i32) + r_noise).clamp(0, 255) as u8;
                 let g_out = ((g as i32) + g_noise).clamp(0, 255) as u8;
