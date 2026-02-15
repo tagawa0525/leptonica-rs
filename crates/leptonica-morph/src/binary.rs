@@ -333,9 +333,9 @@ fn dilate_1d_composite(
             Sel::create_comb_vertical(f1, f2)?,
         )
     };
-    let max_comb_offset = ((f2 - 1) * f1 + 1) / 2;
+    let max_comb_offset = ((f2 - 1) * f1).div_ceil(2);
     let (left, right, top, bottom) = if horizontal {
-        let border = ((max_comb_offset + 31) / 32) * 32;
+        let border = max_comb_offset.div_ceil(32) * 32;
         (border, border, 0u32, 0u32)
     } else {
         (0u32, 0u32, max_comb_offset, max_comb_offset)
@@ -389,7 +389,7 @@ fn select_composable_sizes(size: u32) -> (u32, u32) {
     }
     let sqrt = (size as f64).sqrt() as u32;
     for f1 in (2..=sqrt).rev() {
-        if size % f1 == 0 {
+        if size.is_multiple_of(f1) {
             return (f1, size / f1);
         }
     }
@@ -403,6 +403,7 @@ fn select_composable_sizes(size: u32) -> (u32, u32) {
 /// Negative shift = image content moves left (src << |shift| in bit terms).
 ///
 /// Inner loops have no bounds checks to enable auto-vectorization.
+#[allow(clippy::needless_range_loop)]
 fn shift_or_row(dst: &mut [u32], src: &[u32], shift: i32) {
     let wpl = dst.len();
 
@@ -463,6 +464,7 @@ fn shift_or_row(dst: &mut [u32], src: &[u32], shift: i32) {
 /// Out-of-bounds positions are 0, so AND with them clears dst bits.
 ///
 /// Inner loops have no bounds checks to enable auto-vectorization.
+#[allow(clippy::needless_range_loop)]
 fn shift_and_row(dst: &mut [u32], src: &[u32], shift: i32) {
     let wpl = dst.len();
 
@@ -551,7 +553,7 @@ fn clear_unused_bits(data: &mut [u32], width: u32, wpl: usize) {
 /// `left` and `right` must be multiples of 32 for word-aligned copy.
 fn add_border(pix: &Pix, left: u32, right: u32, top: u32, bottom: u32) -> MorphResult<Pix> {
     debug_assert!(
-        left % 32 == 0 && right % 32 == 0,
+        left.is_multiple_of(32) && right.is_multiple_of(32),
         "horizontal borders must be word-aligned"
     );
 
@@ -569,9 +571,8 @@ fn add_border(pix: &Pix, left: u32, right: u32, top: u32, bottom: u32) -> MorphR
     for y in 0..pix.height() as usize {
         let src_start = y * src_wpl;
         let dst_start = (y + top as usize) * dst_wpl + left_words;
-        for w in 0..src_wpl {
-            dst_data[dst_start + w] = src_data[src_start + w];
-        }
+        dst_data[dst_start..dst_start + src_wpl]
+            .copy_from_slice(&src_data[src_start..src_start + src_wpl]);
     }
 
     Ok(new_mut.into())
@@ -587,7 +588,10 @@ fn remove_border(
     orig_w: u32,
     orig_h: u32,
 ) -> MorphResult<leptonica_core::PixMut> {
-    debug_assert!(left % 32 == 0, "horizontal border must be word-aligned");
+    debug_assert!(
+        left.is_multiple_of(32),
+        "horizontal border must be word-aligned"
+    );
 
     let new_pix = Pix::new(orig_w, orig_h, PixelDepth::Bit1)?;
     let mut new_mut = new_pix.try_into_mut().unwrap();
@@ -601,9 +605,8 @@ fn remove_border(
     for y in 0..orig_h as usize {
         let src_start = (y + top as usize) * src_wpl + left_words;
         let dst_start = y * dst_wpl;
-        for w in 0..dst_wpl {
-            dst_data[dst_start + w] = src_data[src_start + w];
-        }
+        dst_data[dst_start..dst_start + dst_wpl]
+            .copy_from_slice(&src_data[src_start..src_start + dst_wpl]);
     }
 
     Ok(new_mut)
