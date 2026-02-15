@@ -41,7 +41,6 @@ fn create_test_grayscale_image(width: u32, height: u32) -> Pix {
 }
 
 #[test]
-
 fn quadtree_regions_generation() {
     let mut rp = RegParams::new("quadtree_regions");
 
@@ -92,7 +91,6 @@ fn quadtree_regions_generation() {
 }
 
 #[test]
-
 fn quadtree_mean_variance() {
     let mut rp = RegParams::new("quadtree_stats");
 
@@ -151,7 +149,6 @@ fn quadtree_mean_variance() {
 }
 
 #[test]
-
 fn quadtree_parent_child_access() {
     let mut rp = RegParams::new("quadtree_hierarchy");
 
@@ -233,7 +230,6 @@ fn quadtree_parent_child_access() {
 }
 
 #[test]
-
 fn quadtree_integral_image() {
     let mut rp = RegParams::new("quadtree_integral");
 
@@ -325,7 +321,6 @@ fn quadtree_integral_image() {
 }
 
 #[test]
-
 fn quadtree_with_integral_precomputed() {
     let mut rp = RegParams::new("quadtree_precomputed");
 
@@ -378,7 +373,6 @@ fn quadtree_with_integral_precomputed() {
 }
 
 #[test]
-
 fn quadtree_max_levels_various() {
     let mut rp = RegParams::new("quadtree_maxlevels");
 
@@ -406,7 +400,6 @@ fn quadtree_max_levels_various() {
 }
 
 #[test]
-
 fn quadtree_error_cases() {
     let mut rp = RegParams::new("quadtree_errors");
 
