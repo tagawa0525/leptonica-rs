@@ -125,13 +125,13 @@ pub mod color {
     /// Ranges: h [0..239], s [0..255], v [0..255].
     /// Hue wraps: h=0 and h=240 are equivalent.
     ///
-    /// Hue correspondence:
-    /// - 0: magenta
-    /// - 40: red
-    /// - 80: yellow
-    /// - 120: green
-    /// - 160: cyan
-    /// - 200: blue
+    /// Hue correspondence (same as C Leptonica `convertRGBToHSV()`):
+    /// - 0: red
+    /// - 40: yellow
+    /// - 80: green
+    /// - 120: cyan
+    /// - 160: blue
+    /// - 200: magenta
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct Hsv {
         pub h: i32,
