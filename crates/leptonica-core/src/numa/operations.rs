@@ -681,8 +681,11 @@ impl Numa {
             result.push(self[i]);
         }
         let (startx, delx) = self.parameters();
+        // Always copy parameters first, then apply reversal formula if non-empty
         if n > 0 {
             result.set_parameters(startx + (n - 1) as f32 * delx, -delx);
+        } else {
+            result.set_parameters(startx, delx);
         }
         result
     }
@@ -1089,6 +1092,18 @@ mod tests {
         let na = Numa::new();
         let rev = na.reversed();
         assert!(rev.is_empty());
+    }
+
+    #[test]
+    fn test_reversed_empty_preserves_metadata() {
+        // Empty Numa should preserve startx/delx metadata
+        let mut na = Numa::new();
+        na.set_parameters(5.0, 2.5);
+        let rev = na.reversed();
+        assert!(rev.is_empty());
+        let (startx, delx) = rev.parameters();
+        assert_eq!(startx, 5.0);
+        assert_eq!(delx, 2.5);
     }
 
     // ================================================================
