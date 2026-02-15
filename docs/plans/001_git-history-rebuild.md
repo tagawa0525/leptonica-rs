@@ -38,14 +38,15 @@ Agent Teams（実験的機能）は並列・独立作業向けであり、
 git tag backup/pre-rebuild HEAD
 git push origin backup/pre-rebuild
 
-# 不要ブランチの削除
-git branch -D docs/rebuild-cleanup 2>/dev/null
-git push origin --delete docs/rebuild-cleanup 2>/dev/null
+# 不要ブランチの削除（存在する場合のみ）
+git branch --list docs/rebuild-cleanup | grep -q . && git branch -D docs/rebuild-cleanup
+git ls-remote --heads origin docs/rebuild-cleanup | grep -q . && git push origin --delete docs/rebuild-cleanup
 
 # mainをae0ee8bにリセット
+# --force-with-leaseでリモート先行更新を検知する
 git checkout main
 git reset --hard ae0ee8bc5bfe944b6af674c031adb88afac431db
-git push --force origin main
+git push --force-with-lease origin main
 ```
 
 ## 5. リファレンスへのアクセス方法
@@ -224,7 +225,11 @@ git checkout main && git pull origin main
 git checkout -b <branch> main
 ```
 
-### B. TDD REDコミット
+### B. テストスキャフォールディングコミット
+
+> 注: 本計画ではテストに`#[ignore]`を付与し`cargo check`のみで検証するため、
+> 厳密なTDD RED（テスト失敗を確認する）とは異なる。コンパイル可能なテスト・
+> スタブを先行コミットする「テストスキャフォールディング」として位置づける。
 
 **テスト作成**:
 - C版リファレンステスト（`reference/leptonica/prog/*_reg.c`）を**仕様として参照**する
