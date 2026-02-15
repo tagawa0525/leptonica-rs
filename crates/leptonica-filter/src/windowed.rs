@@ -302,8 +302,10 @@ pub fn windowed_variance(pixm: &Pix, pixms: &Pix) -> FilterResult<(FPix, FPix)> 
             let valm = pixm.get_pixel_unchecked(x, y) as f32;
             let valms = pixms.get_pixel_unchecked(x, y) as f32;
             let var = valms - valm * valm;
-            fpixv.set_pixel_unchecked(x, y, var);
-            fpixrv.set_pixel_unchecked(x, y, var.sqrt());
+            // Clamp small negative variances due to floating-point rounding to 0.0
+            let var_clamped = if var < 0.0 { 0.0 } else { var };
+            fpixv.set_pixel_unchecked(x, y, var_clamped);
+            fpixrv.set_pixel_unchecked(x, y, var_clamped.sqrt());
         }
     }
 
