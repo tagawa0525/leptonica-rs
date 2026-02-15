@@ -343,4 +343,108 @@ mod tests {
         let result = dilate(&pix, &sel);
         assert!(result.is_err());
     }
+
+    /// Create a 32x32 test image with varied patterns for separable decomposition tests
+    fn create_pattern_image() -> Pix {
+        let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        // Large rectangle
+        for y in 2..12 {
+            for x in 2..15 {
+                pix_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Diagonal line
+        for i in 0..20 {
+            let x = i + 5;
+            let y = i + 8;
+            if x < 32 && y < 32 {
+                pix_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        // Scattered pixels
+        pix_mut.set_pixel_unchecked(20, 5, 1);
+        pix_mut.set_pixel_unchecked(25, 15, 1);
+        pix_mut.set_pixel_unchecked(28, 28, 1);
+        // Small cluster
+        for y in 20..25 {
+            for x in 3..8 {
+                pix_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+
+        pix_mut.into()
+    }
+
+    const SEPARABLE_SIZES: &[(u32, u32)] =
+        &[(3, 3), (5, 7), (7, 5), (1, 5), (5, 1), (1, 1), (9, 9)];
+
+    #[test]
+    #[ignore = "separable decomposition not yet implemented"]
+    fn test_dilate_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = dilate_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = dilate(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "dilate_brick({}, {}) != dilate with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "separable decomposition not yet implemented"]
+    fn test_erode_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = erode_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = erode(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "erode_brick({}, {}) != erode with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "separable decomposition not yet implemented"]
+    fn test_open_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = open_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = open(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "open_brick({}, {}) != open with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "separable decomposition not yet implemented"]
+    fn test_close_brick_separable_equivalence() {
+        let pix = create_pattern_image();
+        for &(w, h) in SEPARABLE_SIZES {
+            let brick_result = close_brick(&pix, w, h).unwrap();
+            let sel = Sel::create_brick(w, h).unwrap();
+            let generic_result = close(&pix, &sel).unwrap();
+            assert!(
+                brick_result.equals(&generic_result),
+                "close_brick({}, {}) != close with 2D SEL",
+                w,
+                h
+            );
+        }
+    }
 }
