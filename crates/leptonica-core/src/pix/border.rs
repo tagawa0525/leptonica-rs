@@ -3,7 +3,7 @@
 //! Functions for adding, removing, and manipulating borders around images.
 //! Corresponds to border functions in C Leptonica's `pix2.c`.
 
-use super::{Pix, PixMut};
+use super::{Pix, PixMut, PixelDepth};
 use crate::error::{Error, Result};
 
 impl Pix {
@@ -238,14 +238,56 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixAddMirroredBorder()` in `pix2.c`
-    pub fn add_mirrored_border(
-        &self,
-        _left: u32,
-        _right: u32,
-        _top: u32,
-        _bot: u32,
-    ) -> Result<Pix> {
-        todo!()
+    pub fn add_mirrored_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
+        let w = self.width();
+        let h = self.height();
+        if left > w || right > w || top > h || bot > h {
+            return Err(Error::InvalidParameter(
+                "mirror border size exceeds image dimension".into(),
+            ));
+        }
+
+        let bordered = self.add_border_general(left, right, top, bot, 0)?;
+        let mut bm = bordered.try_into_mut().unwrap();
+        let wd = w + left + right;
+
+        // Mirror left border columns (within interior rows)
+        for j in 0..left {
+            for y in top..(top + h) {
+                let src_x = left + j; // edge pixel is axis of symmetry
+                let dst_x = left - 1 - j;
+                bm.set_pixel_unchecked(dst_x, y, bm.get_pixel_unchecked(src_x, y));
+            }
+        }
+
+        // Mirror right border columns (within interior rows)
+        for j in 0..right {
+            for y in top..(top + h) {
+                let src_x = left + w - 1 - j;
+                let dst_x = left + w + j;
+                bm.set_pixel_unchecked(dst_x, y, bm.get_pixel_unchecked(src_x, y));
+            }
+        }
+
+        // Mirror top border rows (full width including side borders)
+        for j in 0..top {
+            for x in 0..wd {
+                let src_y = top + j;
+                let dst_y = top - 1 - j;
+                bm.set_pixel_unchecked(x, dst_y, bm.get_pixel_unchecked(x, src_y));
+            }
+        }
+
+        // Mirror bottom border rows (full width including side borders)
+        for j in 0..bot {
+            for x in 0..wd {
+                let src_y = top + h - 1 - j;
+                let dst_y = top + h + j;
+                bm.set_pixel_unchecked(x, dst_y, bm.get_pixel_unchecked(x, src_y));
+            }
+        }
+
+        Ok(bm.into())
     }
 
     /// Add a repeated (tiled) border by wrapping pixels from opposite edges.
@@ -255,14 +297,56 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixAddRepeatedBorder()` in `pix2.c`
-    pub fn add_repeated_border(
-        &self,
-        _left: u32,
-        _right: u32,
-        _top: u32,
-        _bot: u32,
-    ) -> Result<Pix> {
-        todo!()
+    pub fn add_repeated_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
+        let w = self.width();
+        let h = self.height();
+        if left > w || right > w || top > h || bot > h {
+            return Err(Error::InvalidParameter(
+                "repeated border size exceeds image dimension".into(),
+            ));
+        }
+
+        let bordered = self.add_border_general(left, right, top, bot, 0)?;
+        let mut bm = bordered.try_into_mut().unwrap();
+        let wd = w + left + right;
+
+        // Left border: copy from right edge of original image
+        for j in 0..left {
+            for y in top..(top + h) {
+                let src_x = left + w - left + j; // wrap from right
+                let dst_x = j;
+                bm.set_pixel_unchecked(dst_x, y, bm.get_pixel_unchecked(src_x, y));
+            }
+        }
+
+        // Right border: copy from left edge of original image
+        for j in 0..right {
+            for y in top..(top + h) {
+                let src_x = left + j; // wrap from left
+                let dst_x = left + w + j;
+                bm.set_pixel_unchecked(dst_x, y, bm.get_pixel_unchecked(src_x, y));
+            }
+        }
+
+        // Top border: copy from bottom of image (full width after side borders)
+        for j in 0..top {
+            for x in 0..wd {
+                let src_y = top + h - top + j; // wrap from bottom
+                let dst_y = j;
+                bm.set_pixel_unchecked(x, dst_y, bm.get_pixel_unchecked(x, src_y));
+            }
+        }
+
+        // Bottom border: copy from top of image (full width after side borders)
+        for j in 0..bot {
+            for x in 0..wd {
+                let src_y = top + j; // wrap from top
+                let dst_y = top + h + j;
+                bm.set_pixel_unchecked(x, dst_y, bm.get_pixel_unchecked(x, src_y));
+            }
+        }
+
+        Ok(bm.into())
     }
 }
 
@@ -276,13 +360,56 @@ impl PixMut {
     /// C Leptonica: `pixSetBorderVal()` in `pix2.c`
     pub fn set_border_val(
         &mut self,
-        _left: u32,
-        _right: u32,
-        _top: u32,
-        _bot: u32,
-        _val: u32,
+        left: u32,
+        right: u32,
+        top: u32,
+        bot: u32,
+        val: u32,
     ) -> Result<()> {
-        todo!()
+        let d = self.depth();
+        if d != PixelDepth::Bit8 && d != PixelDepth::Bit16 && d != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        // Mask value to valid range for depth
+        let val = match d {
+            PixelDepth::Bit8 => val & 0xff,
+            PixelDepth::Bit16 => val & 0xffff,
+            _ => val,
+        };
+
+        // Top border rows (full width)
+        for y in 0..top.min(h) {
+            for x in 0..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+
+        // Bottom border rows (full width)
+        let bot_start = h.saturating_sub(bot);
+        for y in bot_start..h {
+            for x in 0..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+
+        // Left and right borders (middle rows only)
+        let y_start = top.min(h);
+        let y_end = bot_start.max(y_start);
+        for y in y_start..y_end {
+            for x in 0..left.min(w) {
+                self.set_pixel_unchecked(x, y, val);
+            }
+            let right_start = w.saturating_sub(right);
+            for x in right_start..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -423,7 +550,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_set_border_val_8bpp() {
         let pix = Pix::new(10, 8, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -447,7 +574,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_set_border_val_32bpp() {
         let pix = Pix::new(6, 4, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -460,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_set_border_val_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -468,7 +595,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_mirrored_border() {
         // 4x3 image with known pixels
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
@@ -498,25 +625,21 @@ mod tests {
         assert_eq!(bordered.get_pixel(6, 1), bordered.get_pixel(5, 1));
         assert_eq!(bordered.get_pixel(7, 1), bordered.get_pixel(4, 1));
 
-        // Top mirror: row at y=0 mirrors y=1 (original y=0)
-        // but after top=1: y=0 mirrors y=2 (which is original y=1)
-        // C Leptonica mirrors: top row j (0..top) copies from (top + j) mirrored
-        // Actually for top=1: y=0 copies from y=2 (top + top - 1 - 0 = 1+1-1-0=1 → src row 1)
-        // Let me just check symmetry
+        // Top mirror: y=0 copies from y=1 (first interior row)
         for x in 0..8 {
             assert_eq!(
                 bordered.get_pixel(x, 0),
-                bordered.get_pixel(x, 2),
+                bordered.get_pixel(x, 1),
                 "top mirror mismatch at x={}",
                 x
             );
         }
 
-        // Bottom mirror: y=4 mirrors y=2 (last interior row)
+        // Bottom mirror: y=4 copies from y=3 (last interior row)
         for x in 0..8 {
             assert_eq!(
                 bordered.get_pixel(x, 4),
-                bordered.get_pixel(x, 2),
+                bordered.get_pixel(x, 3),
                 "bottom mirror mismatch at x={}",
                 x
             );
@@ -524,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_mirrored_border_too_large() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.add_mirrored_border(11, 0, 0, 0).is_err());
@@ -532,7 +655,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_repeated_border() {
         // 4x3 image
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
@@ -572,7 +695,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_repeated_border_too_large() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.add_repeated_border(11, 0, 0, 0).is_err());
