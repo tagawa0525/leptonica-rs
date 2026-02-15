@@ -203,6 +203,33 @@ impl PixColormap {
             .all(|c| c.red == c.green && c.green == c.blue)
     }
 
+    /// Check if all colors in the colormap are fully opaque (alpha = 255)
+    pub fn is_opaque(&self) -> bool {
+        self.colors.iter().all(|c| c.alpha == 255)
+    }
+
+    /// Check if the colormap contains any color (non-grayscale entries)
+    pub fn has_color(&self) -> bool {
+        self.colors
+            .iter()
+            .any(|c| c.red != c.green || c.red != c.blue)
+    }
+
+    /// Check if the colormap is black and white only (for 1 bpp images)
+    ///
+    /// Returns true if the colormap has exactly 2 entries and they are
+    /// black (0,0,0) and white (255,255,255) in any order.
+    pub fn is_black_and_white(&self) -> bool {
+        if self.colors.len() != 2 {
+            return false;
+        }
+        let c0 = &self.colors[0];
+        let c1 = &self.colors[1];
+        let is_black = |c: &RgbaQuad| c.red == 0 && c.green == 0 && c.blue == 0;
+        let is_white = |c: &RgbaQuad| c.red == 255 && c.green == 255 && c.blue == 255;
+        (is_black(c0) && is_white(c1)) || (is_white(c0) && is_black(c1))
+    }
+
     /// Get all colors as a slice
     pub fn colors(&self) -> &[RgbaQuad] {
         &self.colors

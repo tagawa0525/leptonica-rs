@@ -525,8 +525,139 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixRemoveColormap()` in `pixconv.c`
-    pub fn remove_colormap(&self, _target: RemoveColormapTarget) -> Result<Pix> {
-        todo!()
+    pub fn remove_colormap(&self, target: RemoveColormapTarget) -> Result<Pix> {
+        // If no colormap, return deep clone
+        let Some(cmap) = self.colormap() else {
+            return Ok(self.deep_clone());
+        };
+
+        let w = self.width();
+        let h = self.height();
+        let d = self.depth();
+
+        // Validate depth
+        if !matches!(
+            d,
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+        ) {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+
+        // Determine actual target type
+        let target = match target {
+            RemoveColormapTarget::ToBinary if d != PixelDepth::Bit1 => {
+                // Can't convert to binary if not 1 bpp
+                RemoveColormapTarget::BasedOnSrc
+            }
+            RemoveColormapTarget::BasedOnSrc => {
+                // Auto-detect based on colormap content
+                if !cmap.is_opaque() {
+                    RemoveColormapTarget::WithAlpha
+                } else if cmap.has_color() {
+                    RemoveColormapTarget::ToFullColor
+                } else if d == PixelDepth::Bit1 && cmap.is_black_and_white() {
+                    RemoveColormapTarget::ToBinary
+                } else {
+                    RemoveColormapTarget::ToGrayscale
+                }
+            }
+            other => other,
+        };
+
+        match target {
+            RemoveColormapTarget::ToBinary => {
+                // Copy data and remove colormap, inverting if needed
+                let result = self.deep_clone();
+                let result_mut = result.try_into_mut().unwrap();
+
+                // Check if we need to invert (if color 0 is darker than color 1)
+                let (r0, g0, b0) = cmap.get_rgb(0).unwrap_or((0, 0, 0));
+                let (r1, g1, b1) = cmap.get_rgb(1).unwrap_or((255, 255, 255));
+                let val0 = r0 as u32 + g0 as u32 + b0 as u32;
+                let val1 = r1 as u32 + g1 as u32 + b1 as u32;
+
+                let mut result_mut = if val0 < val1 {
+                    // Inverted: flip all bits
+                    let pix: Pix = result_mut.into();
+                    pix.invert().try_into_mut().unwrap()
+                } else {
+                    result_mut
+                };
+
+                result_mut.set_colormap(None)?;
+                Ok(result_mut.into())
+            }
+            RemoveColormapTarget::ToGrayscale => {
+                // Convert to 8 bpp grayscale using luminance
+                let result = Pix::new(w, h, PixelDepth::Bit8)?;
+                let mut result_mut = result.try_into_mut().unwrap();
+                result_mut.set_resolution(self.xres(), self.yres());
+
+                // Build grayscale LUT
+                let max_entries = 1 << d.bits();
+                let mut graymap = vec![0u8; max_entries];
+                for (i, gray_val) in graymap.iter_mut().enumerate().take(cmap.len()) {
+                    if let Some((r, g, b)) = cmap.get_rgb(i) {
+                        *gray_val = (L_RED_WEIGHT * r as f32
+                            + L_GREEN_WEIGHT * g as f32
+                            + L_BLUE_WEIGHT * b as f32
+                            + 0.5) as u8;
+                    }
+                }
+
+                // Apply LUT
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y) as usize;
+                        let gray = graymap[val];
+                        result_mut.set_pixel_unchecked(x, y, gray as u32);
+                    }
+                }
+
+                Ok(result_mut.into())
+            }
+            RemoveColormapTarget::ToFullColor | RemoveColormapTarget::WithAlpha => {
+                // Convert to 32 bpp RGB or RGBA
+                let result = Pix::new(w, h, PixelDepth::Bit32)?;
+                let mut result_mut = result.try_into_mut().unwrap();
+                result_mut.set_resolution(self.xres(), self.yres());
+
+                if target == RemoveColormapTarget::WithAlpha {
+                    result_mut.set_spp(4);
+                }
+
+                // Build color LUT
+                let max_entries = 1 << d.bits();
+                let mut lut = vec![0u32; max_entries];
+                for (i, pixel_val) in lut.iter_mut().enumerate().take(cmap.len()) {
+                    *pixel_val = if target == RemoveColormapTarget::ToFullColor {
+                        if let Some((r, g, b)) = cmap.get_rgb(i) {
+                            color::compose_rgb(r, g, b)
+                        } else {
+                            0
+                        }
+                    } else if let Some((r, g, b, a)) = cmap.get_rgba(i) {
+                        color::compose_rgba(r, g, b, a)
+                    } else {
+                        0
+                    };
+                }
+
+                // Apply LUT
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y) as usize;
+                        let pixel = lut[val];
+                        result_mut.set_pixel_unchecked(x, y, pixel);
+                    }
+                }
+
+                Ok(result_mut.into())
+            }
+            RemoveColormapTarget::BasedOnSrc => {
+                unreachable!("BasedOnSrc should have been resolved earlier")
+            }
+        }
     }
 
     /// Add a full 256-entry grayscale colormap to an 8 bpp image.
@@ -535,7 +666,23 @@ impl Pix {
     ///
     /// C Leptonica: `pixAddGrayColormap8()` in `pixconv.c`
     pub fn add_gray_colormap_8(&self) -> Result<Pix> {
-        todo!()
+        use crate::PixColormap;
+
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        // If already has colormap, return deep clone
+        if self.has_colormap() {
+            return Ok(self.deep_clone());
+        }
+
+        // Create a copy with a linear grayscale colormap
+        let result = self.deep_clone();
+        let mut result_mut = result.try_into_mut().unwrap();
+        let cmap = PixColormap::create_linear(8, true)?;
+        result_mut.set_colormap(Some(cmap))?;
+        Ok(result_mut.into())
     }
 
     /// Add a minimal grayscale colormap containing only used gray values.
@@ -544,7 +691,49 @@ impl Pix {
     ///
     /// C Leptonica: `pixAddMinimalGrayColormap8()` in `pixconv.c`
     pub fn add_minimal_gray_colormap_8(&self) -> Result<Pix> {
-        todo!()
+        use crate::PixColormap;
+
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        // Find all unique gray levels
+        let mut used = [false; 256];
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y) as usize;
+                used[val] = true;
+            }
+        }
+
+        // Build colormap with only used values
+        let mut cmap = PixColormap::new(8)?;
+        let mut revmap = [0u8; 256];
+        for (i, &is_used) in used.iter().enumerate() {
+            if is_used {
+                let idx = cmap.add_rgb(i as u8, i as u8, i as u8)?;
+                revmap[i] = idx as u8;
+            }
+        }
+
+        // Create new image with remapped pixel values
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+        result_mut.set_colormap(Some(cmap))?;
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y) as usize;
+                let new_val = revmap[val];
+                result_mut.set_pixel_unchecked(x, y, new_val as u32);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 }
 
@@ -816,7 +1005,6 @@ mod tests {
     // ---- Colormap removal tests (Phase 1.3) ----
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_no_colormap() {
         use super::RemoveColormapTarget;
         // Image without colormap should return deep clone
@@ -831,7 +1019,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_to_binary() {
         use super::RemoveColormapTarget;
         use crate::PixColormap;
@@ -850,7 +1037,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_to_binary_inverted() {
         use super::RemoveColormapTarget;
         use crate::PixColormap;
@@ -869,7 +1055,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_to_grayscale() {
         use super::RemoveColormapTarget;
         use crate::PixColormap;
@@ -888,7 +1073,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_to_full_color() {
         use super::RemoveColormapTarget;
         use crate::PixColormap;
@@ -911,7 +1095,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_with_alpha() {
         use super::RemoveColormapTarget;
         use crate::PixColormap;
@@ -933,7 +1116,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_based_on_src_grayscale() {
         use super::RemoveColormapTarget;
         use crate::PixColormap;
@@ -952,7 +1134,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_colormap_based_on_src_color() {
         use super::RemoveColormapTarget;
         use crate::PixColormap;
@@ -973,7 +1154,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_gray_colormap_8() {
         // Add linear grayscale colormap to 8 bpp image
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -987,7 +1167,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_gray_colormap_8_already_has_colormap() {
         use crate::PixColormap;
         // If already has colormap, return deep clone
@@ -1003,7 +1182,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_gray_colormap_8_invalid_depth() {
         // Only works for 8 bpp
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -1011,7 +1189,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_minimal_gray_colormap_8() {
         // Create 8 bpp image with only a few gray levels
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
