@@ -8,7 +8,7 @@
 //!
 //! C Leptonica: `enhance.c`
 
-use crate::{FilterError, FilterResult};
+use crate::{FilterError, FilterResult, Kernel};
 use leptonica_core::pix::RgbComponent;
 use leptonica_core::{Pix, PixMut, PixelDepth, color};
 
@@ -667,6 +667,61 @@ pub fn measure_saturation(pix: &Pix, factor: u32) -> FilterResult<f32> {
     }
 }
 
+// =========================================================================
+//  Color shift and matrix operations
+// =========================================================================
+
+/// Shift each RGB channel of a 32 bpp image by a fractional amount.
+///
+/// For each channel, `fract` in [-1.0, 1.0]:
+/// - Positive: pushes values toward 255 (`out = val + (255 - val) * fract`)
+/// - Negative: pushes values toward 0 (`out = val * (1.0 + fract)`)
+/// - 0.0: no change
+///
+/// # See also
+///
+/// C Leptonica: `pixColorShiftRGB()` in `enhance.c`
+pub fn color_shift_rgb(_pix: &Pix, _rfract: f32, _gfract: f32, _bfract: f32) -> FilterResult<Pix> {
+    todo!("color_shift_rgb not yet implemented")
+}
+
+/// Darken low-saturation (gray) pixels in a 32 bpp RGB image.
+///
+/// Pixels where `max(r,g,b) < thresh` AND `max - min < satlimit` are
+/// darkened by multiplying each channel by `(max - min) / satlimit`.
+///
+/// # See also
+///
+/// C Leptonica: `pixDarkenGray()` in `enhance.c`
+pub fn darken_gray(_pix: &Pix, _thresh: u32, _satlimit: u32) -> FilterResult<Pix> {
+    todo!("darken_gray not yet implemented")
+}
+
+/// Multiply each channel by a constant factor (clipped to [0, 255]).
+///
+/// Factors must be >= 0.0 (can be > 1.0 for amplification).
+/// Supports 32 bpp RGB images.
+///
+/// # See also
+///
+/// C Leptonica: `pixMultConstantColor()` in `enhance.c`
+pub fn mult_constant_color(_pix: &Pix, _rfact: f32, _gfact: f32, _bfact: f32) -> FilterResult<Pix> {
+    todo!("mult_constant_color not yet implemented")
+}
+
+/// Apply a 3×3 color matrix transformation to each pixel.
+///
+/// The kernel must be exactly 3×3. Each output channel is the dot product
+/// of the corresponding kernel row with the input (R, G, B) vector,
+/// clipped to [0, 255].
+///
+/// # See also
+///
+/// C Leptonica: `pixMultMatrixColor()` in `enhance.c`
+pub fn mult_matrix_color(_pix: &Pix, _kel: &Kernel) -> FilterResult<Pix> {
+    todo!("mult_matrix_color not yet implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1241,5 +1296,234 @@ mod tests {
 
         let pix32 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(measure_saturation(&pix32, 0).is_err());
+    }
+
+    // ========== color_shift_rgb tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_shift_rgb_positive() {
+        // Shift red channel up: (100,100,100) with rfract=0.5
+        // new_r = 100 + (255-100)*0.5 = 100 + 77.5 = 177
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 100, 100));
+        let pix: Pix = pm.into();
+
+        let result = color_shift_rgb(&pix, 0.5, 0.0, 0.0).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert!(r > 150, "expected r > 150, got r={r}");
+        assert_eq!(g, 100);
+        assert_eq!(b, 100);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_shift_rgb_negative() {
+        // Shift blue channel down: (200,200,200) with bfract=-0.5
+        // new_b = 200 * (1.0 + (-0.5)) = 200 * 0.5 = 100
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(200, 200, 200));
+        let pix: Pix = pm.into();
+
+        let result = color_shift_rgb(&pix, 0.0, 0.0, -0.5).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 200);
+        assert_eq!(g, 200);
+        assert_eq!(b, 100);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_shift_rgb_zero() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 150, 200));
+        let pix: Pix = pm.into();
+
+        let result = color_shift_rgb(&pix, 0.0, 0.0, 0.0).unwrap();
+        assert_eq!(
+            result.get_pixel_unchecked(0, 0),
+            pix.get_pixel_unchecked(0, 0)
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_shift_rgb_invalid() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        assert!(color_shift_rgb(&pix, 1.5, 0.0, 0.0).is_err());
+
+        let pix8 = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        assert!(color_shift_rgb(&pix8, 0.5, 0.0, 0.0).is_err());
+    }
+
+    // ========== darken_gray tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_darken_gray_low_saturation() {
+        // Gray pixel (128,128,128): sat=0 < satlimit, max=128 < thresh=200
+        // ratio = sat/satlimit = 0/10 = 0 → darkened to (0,0,0)
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(128, 128, 128));
+        let pix: Pix = pm.into();
+
+        let result = darken_gray(&pix, 200, 10).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 0);
+        assert_eq!(g, 0);
+        assert_eq!(b, 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_darken_gray_saturated_unchanged() {
+        // Saturated pixel: sat=200 >= satlimit=10 → unchanged
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(255, 55, 55));
+        let pix: Pix = pm.into();
+
+        let result = darken_gray(&pix, 200, 10).unwrap();
+        assert_eq!(
+            result.get_pixel_unchecked(0, 0),
+            pix.get_pixel_unchecked(0, 0)
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_darken_gray_bright_unchanged() {
+        // Bright pixel: max=250 >= thresh=200 → unchanged
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(250, 248, 248));
+        let pix: Pix = pm.into();
+
+        let result = darken_gray(&pix, 200, 10).unwrap();
+        assert_eq!(
+            result.get_pixel_unchecked(0, 0),
+            pix.get_pixel_unchecked(0, 0)
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_darken_gray_invalid() {
+        let pix8 = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        assert!(darken_gray(&pix8, 200, 10).is_err());
+    }
+
+    // ========== mult_constant_color tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_mult_constant_color_basic() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 200, 50));
+        let pix: Pix = pm.into();
+
+        let result = mult_constant_color(&pix, 0.5, 1.0, 2.0).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 50);
+        assert_eq!(g, 200);
+        assert_eq!(b, 100);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_mult_constant_color_clipping() {
+        // 200 * 2.0 = 400 → clipped to 255
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(200, 200, 200));
+        let pix: Pix = pm.into();
+
+        let result = mult_constant_color(&pix, 2.0, 2.0, 2.0).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 255);
+        assert_eq!(g, 255);
+        assert_eq!(b, 255);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_mult_constant_color_invalid() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        assert!(mult_constant_color(&pix, -0.5, 1.0, 1.0).is_err());
+    }
+
+    // ========== mult_matrix_color tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_mult_matrix_color_identity() {
+        use crate::Kernel;
+
+        // Identity matrix → no change
+        let kel = Kernel::from_slice(3, 3, &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]).unwrap();
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 150, 200));
+        let pix: Pix = pm.into();
+
+        let result = mult_matrix_color(&pix, &kel).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 100);
+        assert_eq!(g, 150);
+        assert_eq!(b, 200);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_mult_matrix_color_swap_rg() {
+        use crate::Kernel;
+
+        // Swap R and G channels
+        let kel = Kernel::from_slice(3, 3, &[0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]).unwrap();
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 200, 50));
+        let pix: Pix = pm.into();
+
+        let result = mult_matrix_color(&pix, &kel).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 200);
+        assert_eq!(g, 100);
+        assert_eq!(b, 50);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_mult_matrix_color_clipping() {
+        use crate::Kernel;
+
+        // All channels sum: each output = r + g + b, clipped
+        let kel = Kernel::from_slice(3, 3, &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 100, 100));
+        let pix: Pix = pm.into();
+
+        let result = mult_matrix_color(&pix, &kel).unwrap();
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 255); // 100+100+100=300 → 255
+        assert_eq!(g, 255);
+        assert_eq!(b, 255);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_mult_matrix_color_invalid_size() {
+        use crate::Kernel;
+
+        // 2x2 kernel should fail
+        let kel = Kernel::from_slice(2, 2, &[1.0, 0.0, 0.0, 1.0]).unwrap();
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        assert!(mult_matrix_color(&pix, &kel).is_err());
     }
 }
