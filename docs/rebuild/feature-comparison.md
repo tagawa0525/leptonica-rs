@@ -17,16 +17,16 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 
 | クレート | ✅ 同等 | 🔄 異なる | ❌ 未実装 | 合計 | カバレッジ |
 |---------|--------|----------|---------|------|-----------|
-| [leptonica-core](comparison/core.md) | 82 | 24 | 742 | 848 | 12.5% |
+| [leptonica-core](comparison/core.md) | 134 | 24 | 690 | 848 | 18.6% |
 | [leptonica-io](comparison/io.md) | 32 | 15 | 99 | 146 | 32.2% |
 | [leptonica-transform](comparison/transform.md) | 39 | 12 | 101 | 152 | 33.6% |
 | [leptonica-morph](comparison/morph.md) | 34 | 8 | 78 | 120 | 35.0% |
-| [leptonica-filter](comparison/filter.md) | 11 | 0 | 83 | 94 | 11.7% |
+| [leptonica-filter](comparison/filter.md) | 30 | 0 | 64 | 94 | 31.9% |
 | [leptonica-color](comparison/color.md) | 18 | 12 | 109 | 139 | 21.6% |
 | [leptonica-region](comparison/region.md) | 28 | 8 | 68 | 104 | 34.6% |
 | [leptonica-recog](comparison/recog.md) | 42 | 9 | 93 | 144 | 35.4% |
 | [その他](comparison/misc.md) | 13 | 0 | 103 | 116 | 11.2% |
-| **合計** | **299** | **88** | **1,476** | **1,863** | **20.8%** |
+| **合計** | **370** | **88** | **1,405** | **1,863** | **24.6%** |
 
 ### 分類基準
 

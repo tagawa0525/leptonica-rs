@@ -57,32 +57,32 @@
 
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixGammaTRC | ❌ 未実装 | - | ガンマTRCマッピング |
-| pixGammaTRCMasked | ❌ 未実装 | - | マスク付きガンマTRC |
-| pixGammaTRCWithAlpha | ❌ 未実装 | - | アルファチャンネル付きガンマTRC |
-| numaGammaTRC | ❌ 未実装 | - | ガンマTRC NUMA生成 (returns NUMA*) |
-| pixContrastTRC | ❌ 未実装 | - | コントラストTRC |
-| pixContrastTRCMasked | ❌ 未実装 | - | マスク付きコントラストTRC |
-| numaContrastTRC | ❌ 未実装 | - | コントラストTRC NUMA生成 (returns NUMA*) |
-| pixEqualizeTRC | ❌ 未実装 | - | ヒストグラム均等化TRC |
-| numaEqualizeTRC | ❌ 未実装 | - | 均等化TRC NUMA生成 (returns NUMA*) |
-| pixTRCMap | ❌ 未実装 | - | 汎用TRCマッパー (returns l_int32, in-place) |
-| pixTRCMapGeneral | ❌ 未実装 | - | 汎用TRCマッパー(一般) (returns l_int32, in-place) |
+| pixGammaTRC | ✅ 同等 | gamma_trc_pix() | ガンマTRCマッピング |
+| pixGammaTRCMasked | ✅ 同等 | gamma_trc_masked() | マスク付きガンマTRC |
+| pixGammaTRCWithAlpha | ✅ 同等 | gamma_trc_with_alpha() | アルファチャンネル付きガンマTRC |
+| numaGammaTRC | ✅ 同等 | gamma_trc() | TrcLut([u8;256])を返す |
+| pixContrastTRC | ✅ 同等 | contrast_trc_pix() | コントラストTRC |
+| pixContrastTRCMasked | ✅ 同等 | contrast_trc_masked() | マスク付きコントラストTRC |
+| numaContrastTRC | ✅ 同等 | contrast_trc() | TrcLut([u8;256])を返す |
+| pixEqualizeTRC | ✅ 同等 | equalize_trc_pix() | ヒストグラム均等化TRC |
+| numaEqualizeTRC | ✅ 同等 | equalize_trc() | TrcLut([u8;256])を返す |
+| pixTRCMap | ✅ 同等 | trc_map() | 汎用TRCマッパー |
+| pixTRCMapGeneral | ✅ 同等 | trc_map_general() | R,G,B個別LUT適用 |
 | pixUnsharpMasking | ❌ 未実装 | - | アンシャープマスキング(カラー対応) |
 | pixUnsharpMaskingGray | ✅ 同等 | unsharp_mask() | グレースケールアンシャープマスキング |
 | pixUnsharpMaskingFast | ❌ 未実装 | - | 高速アンシャープマスキング(カラー対応) |
 | pixUnsharpMaskingGrayFast | ❌ 未実装 | - | 高速グレースケールアンシャープマスキング |
 | pixUnsharpMaskingGray1D | ❌ 未実装 | - | 1Dグレースケールアンシャープマスキング |
 | pixUnsharpMaskingGray2D | ❌ 未実装 | - | 2Dグレースケールアンシャープマスキング |
-| pixModifyHue | ❌ 未実装 | - | 色相変更 |
-| pixModifySaturation | ❌ 未実装 | - | 彩度変更 |
-| pixMeasureSaturation | ❌ 未実装 | - | 彩度測定 (returns l_int32) |
-| pixModifyBrightness | ❌ 未実装 | - | 明度変更 |
+| pixModifyHue | ✅ 同等 | modify_hue() | 色相変更 |
+| pixModifySaturation | ✅ 同等 | modify_saturation() | 彩度変更 |
+| pixMeasureSaturation | ✅ 同等 | measure_saturation() | 彩度測定 |
+| pixModifyBrightness | ✅ 同等 | modify_brightness() | 明度変更 |
 | pixMosaicColorShiftRGB | ❌ 未実装 | - | モザイク色シフト |
-| pixColorShiftRGB | ❌ 未実装 | - | 色シフト |
-| pixDarkenGray | ❌ 未実装 | - | グレーピクセル暗色化 |
-| pixMultConstantColor | ❌ 未実装 | - | 定数乗算カラー変換 |
-| pixMultMatrixColor | ❌ 未実装 | - | 行列乗算カラー変換 |
+| pixColorShiftRGB | ✅ 同等 | color_shift_rgb() | 色シフト |
+| pixDarkenGray | ✅ 同等 | darken_gray() | グレーピクセル暗色化 |
+| pixMultConstantColor | ✅ 同等 | mult_constant_color() | 定数乗算カラー変換 |
+| pixMultMatrixColor | ✅ 同等 | mult_matrix_color() | 行列乗算カラー変換 |
 | pixHalfEdgeByBandpass | ❌ 未実装 | - | バンドパスによるハーフエッジ |
 
 ### bilateral.c

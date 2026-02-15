@@ -92,8 +92,8 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 |-------|------|----------|------|
 | pixGetPixel | ✅ | Pix::get_pixel() | |
 | pixSetPixel | ✅ | PixMut::set_pixel() | |
-| pixGetRGBPixel | ❌ | - | RGBコンポーネント分離は未実装 |
-| pixSetRGBPixel | ❌ | - | |
+| pixGetRGBPixel | ✅ | rgb.rs get_rgb_pixel() | |
+| pixSetRGBPixel | ✅ | rgb.rs set_rgb_pixel() | |
 | pixSetCmapPixel | ❌ | - | |
 | pixGetRandomPixel | ❌ | - | |
 | pixClearPixel | ❌ | - | set_pixel(x, y, 0)で可 |
@@ -112,26 +112,26 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 | pixSetPadBits | ❌ | - | |
 | pixSetPadBitsBand | ❌ | - | |
 | pixSetOrClearBorder | ❌ | - | |
-| pixSetBorderVal | ❌ | - | |
+| pixSetBorderVal | ✅ | border.rs set_border_val() | |
 | pixSetBorderRingVal | ❌ | - | |
 | pixSetMirroredBorder | ❌ | - | |
 | pixCopyBorder | ❌ | - | |
-| pixAddBorder | ❌ | - | border.rsに部分実装あり |
-| pixAddBlackOrWhiteBorder | ❌ | - | |
-| pixAddBorderGeneral | ❌ | - | |
+| pixAddBorder | ✅ | border.rs add_border() | |
+| pixAddBlackOrWhiteBorder | ✅ | border.rs add_black_or_white_border() | |
+| pixAddBorderGeneral | ✅ | border.rs add_border_general() | |
 | pixAddMultipleBlackWhiteBorders | ❌ | - | |
-| pixRemoveBorder | ❌ | - | |
-| pixRemoveBorderGeneral | ❌ | - | |
+| pixRemoveBorder | ✅ | border.rs remove_border() | |
+| pixRemoveBorderGeneral | ✅ | border.rs remove_border_general() | |
 | pixRemoveBorderToSize | ❌ | - | |
-| pixAddMirroredBorder | ❌ | - | |
-| pixAddRepeatedBorder | ❌ | - | |
+| pixAddMirroredBorder | ✅ | border.rs add_mirrored_border() | |
+| pixAddRepeatedBorder | ✅ | border.rs add_repeated_border() | |
 | pixAddMixedBorder | ❌ | - | |
 | pixAddContinuedBorder | ❌ | - | |
 | pixShiftAndTransferAlpha | ❌ | - | |
 | pixDisplayLayersRGBA | ❌ | - | |
-| pixCreateRGBImage | ❌ | - | |
-| pixGetRGBComponent | ❌ | - | |
-| pixSetRGBComponent | ❌ | - | |
+| pixCreateRGBImage | ✅ | rgb.rs create_rgb_image() | |
+| pixGetRGBComponent | ✅ | rgb.rs get_rgb_component() | |
+| pixSetRGBComponent | ✅ | rgb.rs set_rgb_component() | |
 | pixGetRGBComponentCmap | ❌ | - | |
 | pixCopyRGBComponent | ❌ | - | |
 | composeRGBPixel | ❌ | - | |
@@ -151,15 +151,15 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixSetMasked | ❌ | - | |
+| pixSetMasked | ✅ | mask.rs set_masked() | |
 | pixSetMaskedGeneral | ❌ | - | |
-| pixCombineMasked | ❌ | - | |
+| pixCombineMasked | ✅ | mask.rs combine_masked() | |
 | pixCombineMaskedGeneral | ❌ | - | |
-| pixPaintThroughMask | ❌ | - | |
+| pixPaintThroughMask | ✅ | mask.rs paint_through_mask() | |
 | pixCopyWithBoxa | ❌ | - | |
 | pixPaintSelfThroughMask | ❌ | - | |
-| pixMakeMaskFromVal | ❌ | - | |
-| pixMakeMaskFromLUT | ❌ | - | |
+| pixMakeMaskFromVal | ✅ | mask.rs make_mask_from_val() | |
+| pixMakeMaskFromLUT | ✅ | mask.rs make_mask_from_lut() | |
 | pixMakeArbMaskFromRGB | ❌ | - | |
 | pixSetUnderTransparency | ❌ | - | |
 | pixMakeAlphaFromMask | ❌ | - | |
@@ -170,18 +170,18 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 | pixAnd | ✅ | ops.rsに実装 | |
 | pixXor | ✅ | ops.rsに実装 | |
 | pixSubtract | ✅ | ops.rsに実装 | |
-| pixZero | ❌ | - | |
-| pixForegroundFraction | ❌ | - | |
+| pixZero | ✅ | statistics.rs is_zero() | |
+| pixForegroundFraction | ✅ | statistics.rs foreground_fraction() | |
 | pixaCountPixels | ❌ | - | |
 | pixCountPixels | ❌ | - | statistics.rsに関連実装あり |
-| pixCountPixelsInRect | ❌ | - | |
-| pixCountByRow | ❌ | - | |
-| pixCountByColumn | ❌ | - | |
+| pixCountPixelsInRect | ✅ | statistics.rs count_pixels_in_rect() | |
+| pixCountByRow | ✅ | statistics.rs count_by_row() | |
+| pixCountByColumn | ✅ | statistics.rs count_by_column() | |
 | pixCountPixelsByRow | ❌ | - | |
 | pixCountPixelsByColumn | ❌ | - | |
 | pixCountPixelsInRow | ❌ | - | |
 | pixGetMomentByColumn | ❌ | - | |
-| pixThresholdPixelSum | ❌ | - | |
+| pixThresholdPixelSum | ✅ | statistics.rs threshold_pixel_sum() | |
 | pixAverageByRow | ❌ | - | |
 | pixAverageByColumn | ❌ | - | |
 | pixAverageInRect | ❌ | - | |
@@ -816,16 +816,16 @@ convert.rsに一部実装あり。多くの関数は未実装。
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixThreshold8 | ❌ | - | |
-| pixRemoveColormapGeneral | ❌ | - | |
-| pixRemoveColormap | ❌ | - | |
-| pixAddGrayColormap8 | ❌ | - | |
-| pixAddMinimalGrayColormap8 | ❌ | - | |
-| pixConvertRGBToLuminance | ❌ | - | |
-| pixConvertRGBToGrayGeneral | ❌ | - | |
-| pixConvertRGBToGray | ❌ | - | |
-| pixConvertRGBToGrayFast | ❌ | - | |
-| pixConvertRGBToGrayMinMax | ❌ | - | |
-| pixConvertRGBToGraySatBoost | ❌ | - | |
+| pixRemoveColormapGeneral | ✅ | convert.rs remove_colormap_general() | |
+| pixRemoveColormap | ✅ | convert.rs remove_colormap() | |
+| pixAddGrayColormap8 | ✅ | convert.rs add_gray_colormap8() | |
+| pixAddMinimalGrayColormap8 | ✅ | convert.rs add_minimal_gray_colormap8() | |
+| pixConvertRGBToLuminance | ✅ | convert.rs convert_rgb_to_luminance() | |
+| pixConvertRGBToGrayGeneral | ✅ | convert.rs convert_rgb_to_gray_general() | |
+| pixConvertRGBToGray | ✅ | convert.rs convert_rgb_to_gray() | |
+| pixConvertRGBToGrayFast | ✅ | convert.rs convert_rgb_to_gray_fast() | |
+| pixConvertRGBToGrayMinMax | ✅ | convert.rs convert_rgb_to_gray_min_max() | |
+| pixConvertRGBToGraySatBoost | ✅ | convert.rs convert_rgb_to_gray_sat_boost() | |
 | pixConvertRGBToGrayArb | ❌ | - | |
 | pixConvertRGBToBinaryArb | ❌ | - | |
 | pixConvertGrayToColormap | ❌ | - | |
@@ -834,42 +834,42 @@ convert.rsに一部実装あり。多くの関数は未実装。
 | pixConvertRGBToColormap | ❌ | - | |
 | pixConvertCmapTo1 | ❌ | - | |
 | pixQuantizeIfFewColors | ❌ | - | |
-| pixConvert16To8 | ❌ | - | |
+| pixConvert16To8 | ✅ | convert.rs convert_16_to_8() | |
 | pixConvertGrayToFalseColor | ❌ | - | |
-| pixUnpackBinary | ❌ | - | |
-| pixConvert1To16 | ❌ | - | |
-| pixConvert1To32 | ❌ | - | |
-| pixConvert1To2Cmap | ❌ | - | |
-| pixConvert1To2 | ❌ | - | |
-| pixConvert1To4Cmap | ❌ | - | |
-| pixConvert1To4 | ❌ | - | |
-| pixConvert1To8Cmap | ❌ | - | |
-| pixConvert1To8 | ❌ | - | |
+| pixUnpackBinary | ✅ | convert.rs unpack_binary() | |
+| pixConvert1To16 | ✅ | convert.rs convert_1_to_16() | |
+| pixConvert1To32 | ✅ | convert.rs convert_1_to_32() | |
+| pixConvert1To2Cmap | ✅ | convert.rs convert_1_to_2_cmap() | |
+| pixConvert1To2 | ✅ | convert.rs convert_1_to_2() | |
+| pixConvert1To4Cmap | ✅ | convert.rs convert_1_to_4_cmap() | |
+| pixConvert1To4 | ✅ | convert.rs convert_1_to_4() | |
+| pixConvert1To8Cmap | ✅ | convert.rs convert_1_to_8_cmap() | |
+| pixConvert1To8 | ✅ | convert.rs convert_1_to_8() | |
 | pixConvert2To8 | ❌ | - | |
 | pixConvert4To8 | ❌ | - | |
-| pixConvert8To16 | ❌ | - | |
+| pixConvert8To16 | ✅ | convert.rs convert_8_to_16() | |
 | pixConvertTo2 | ❌ | - | |
 | pixConvert8To2 | ❌ | - | |
 | pixConvertTo4 | ❌ | - | |
 | pixConvert8To4 | ❌ | - | |
 | pixConvertTo1Adaptive | ❌ | - | |
-| pixConvertTo1 | ❌ | - | |
+| pixConvertTo1 | ✅ | convert.rs convert_to_1() | |
 | pixConvertTo1BySampling | ❌ | - | |
 | pixConvertTo8 | ❌ | - | |
 | pixConvertTo8BySampling | ❌ | - | |
 | pixConvertTo8Colormap | ❌ | - | |
-| pixConvertTo16 | ❌ | - | |
+| pixConvertTo16 | ✅ | convert.rs convert_to_16() | |
 | pixConvertTo32 | ❌ | - | |
 | pixConvertTo32BySampling | ❌ | - | |
-| pixConvert8To32 | ❌ | - | |
-| pixConvertTo8Or32 | ❌ | - | |
+| pixConvert8To32 | ✅ | convert.rs convert_8_to_32() | |
+| pixConvertTo8Or32 | ✅ | convert.rs convert_to_8_or_32() | |
 | pixConvert24To32 | ❌ | - | |
 | pixConvert32To24 | ❌ | - | |
 | pixConvert32To16 | ❌ | - | |
-| pixConvert32To8 | ❌ | - | |
-| pixRemoveAlpha | ❌ | - | |
+| pixConvert32To8 | ✅ | convert.rs convert_32_to_8() | |
+| pixRemoveAlpha | ✅ | convert.rs remove_alpha() | |
 | pixAddAlphaTo1bpp | ❌ | - | |
-| pixConvertLossless | ❌ | - | |
+| pixConvertLossless | ✅ | convert.rs convert_lossless() | |
 | pixConvertForPSWrap | ❌ | - | |
 | pixConvertToSubpixelRGB | ❌ | - | |
 | pixConvertGrayToSubpixelRGB | ❌ | - | |
