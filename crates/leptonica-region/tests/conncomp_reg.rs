@@ -14,7 +14,6 @@ use leptonica_region::{ConnectivityType, find_connected_components};
 use leptonica_test::{RegParams, load_test_image};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn conncomp_reg() {
     let mut rp = RegParams::new("conncomp");
 

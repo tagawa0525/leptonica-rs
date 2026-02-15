@@ -14,7 +14,6 @@ use leptonica_region::{ConnectivityType, find_connected_components, label_connec
 use leptonica_test::{RegParams, load_test_image};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn label_reg() {
     let mut rp = RegParams::new("label");
 

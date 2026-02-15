@@ -127,7 +127,7 @@ fn do_watershed(rp: &mut RegParams, pixs: &Pix) {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn watershed_segmentation_synthetic() {
     let mut rp = RegParams::new("watershed");
 
@@ -143,7 +143,7 @@ fn watershed_segmentation_synthetic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn watershed_local_extrema_basic() {
     let mut rp = RegParams::new("watershed_extrema");
 
@@ -179,7 +179,7 @@ fn watershed_local_extrema_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn watershed_gradient() {
     let mut rp = RegParams::new("watershed_gradient");
 
@@ -209,7 +209,7 @@ fn watershed_gradient() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn watershed_error_handling() {
     let mut rp = RegParams::new("watershed_errors");
 
