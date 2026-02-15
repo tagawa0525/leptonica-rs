@@ -1,6 +1,6 @@
 # C版 vs Rust版 機能比較
 
-調査日: 2026-02-05
+調査日: 2026-02-15（関数レベル比較を追加更新）
 
 ## 概要
 
@@ -10,20 +10,61 @@
 | コード行数 | **約240,000行** | **約20,200行** |
 | 実装率（行数ベース） | 100% | **約8.4%** |
 
+## 関数レベル比較サマリー
+
+C版の全public関数を抽出し、Rust版での実装状況を3段階で分類した。
+詳細は `docs/rebuild/comparison/` 配下の各ファイルを参照。
+
+| クレート | ✅ 同等 | 🔄 異なる | ❌ 未実装 | 合計 | カバレッジ |
+|---------|--------|----------|---------|------|-----------|
+| [leptonica-core](comparison/core.md) | 82 | 24 | 742 | 848 | 12.5% |
+| [leptonica-io](comparison/io.md) | 32 | 15 | 99 | 146 | 32.2% |
+| [leptonica-transform](comparison/transform.md) | 39 | 12 | 101 | 152 | 33.6% |
+| [leptonica-morph](comparison/morph.md) | 34 | 8 | 78 | 120 | 35.0% |
+| [leptonica-filter](comparison/filter.md) | 11 | 0 | 83 | 94 | 11.7% |
+| [leptonica-color](comparison/color.md) | 18 | 12 | 109 | 139 | 21.6% |
+| [leptonica-region](comparison/region.md) | 28 | 8 | 68 | 104 | 34.6% |
+| [leptonica-recog](comparison/recog.md) | 42 | 9 | 93 | 144 | 35.4% |
+| [その他](comparison/misc.md) | 13 | 0 | 103 | 116 | 11.2% |
+| **合計** | **299** | **88** | **1,476** | **1,863** | **20.8%** |
+
+### 分類基準
+
+- **✅ 同等**: C版と同じアルゴリズム・機能がRust版に存在
+- **🔄 異なる**: 同等の機能はあるが、API設計やアルゴリズムが異なる
+- **❌ 未実装**: Rust版に対応する機能が存在しない
+
+### 設計上の主要な差異
+
+| 観点 | C版 | Rust版 |
+|------|-----|--------|
+| メモリ管理 | 参照カウント（手動） | `Arc<PixData>` / 所有権（Pix/PixMut二層モデル） |
+| エラー処理 | NULL返却 / エラーコード | `Result<T, Error>` / `thiserror` |
+| API統一 | Gray/Color別関数 | 深度自動判定で統一API |
+| コレクション型 | Boxa/Pixa/Numa/Sarray | `Vec<T>` + 専用型 |
+| I/Oストリーム | `FILE*` ポインタ | `Read`/`Write` トレイト |
+| データ構造 | heap/list/stack/queue | 標準ライブラリ（`BinaryHeap`/`Vec`/`VecDeque`） |
+| unsafe | 全体的に使用 | 原則禁止、最小限に限定 |
+
 ## 機能カテゴリ別比較
 
 ### 1. 基本データ構造
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| Pix（画像コンテナ） | ✅ pix1-5.c | ✅ leptonica-core | 完全実装 |
-| Box（矩形領域） | ✅ boxbasic.c, boxfunc1-5.c | ✅ leptonica-core | 完全実装 |
-| Pta（点配列） | ✅ ptabasic.c, ptafunc1-2.c | ✅ leptonica-core | 完全実装 |
-| Colormap | ✅ colormap.c | ✅ leptonica-core | 完全実装 |
+| Pix（画像コンテナ） | ✅ pix1-5.c | ✅ leptonica-core | 基本操作実装、深度変換等の一部は未実装 |
+| Box（矩形領域） | ✅ boxbasic.c, boxfunc1-5.c | ✅ leptonica-core | 基本操作・幾何演算実装 |
+| Pta（点配列） | ✅ ptabasic.c, ptafunc1-2.c | ✅ leptonica-core | 基本操作実装 |
+| Colormap | ✅ colormap.c | ✅ leptonica-core | 基本操作実装 |
 | Pixa（Pix配列） | ✅ pixabasic.c, pixafunc1-2.c | ✅ pixa/mod.rs | 基本操作実装 |
 | Numa（数値配列） | ✅ numabasic.c, numafunc1-2.c | ✅ numa/mod.rs | 基本操作実装 |
 | Sarray（文字列配列） | ✅ sarray1-2.c | ✅ sarray/mod.rs | 文字列配列/集合演算 |
 | FPix（浮動小数点画像） | ✅ fpix1-2.c | ✅ fpix/mod.rs | Pix相互変換/演算 |
+| ピクセル演算 | ✅ pixarith.c | ✅ arith.rs | 加減乗除/定数演算 |
+| 論理演算 | ✅ rop.c, roplow.c | ✅ rop.rs | AND/OR/XOR/NOT等 |
+| 比較 | ✅ compare.c | ✅ compare.rs | 差分/RMS/相関 |
+| ブレンド | ✅ blend.c | ✅ blend.rs | アルファ/マスク/乗算等 |
+| グラフィックス | ✅ graphics.c | ✅ graphics.rs | 線/矩形/円/等高線描画 |
 
 ### 2. 画像I/O
 
@@ -48,7 +89,7 @@
 | 回転（直交） | ✅ rotateorth.c | ✅ rotate.rs | 90°/180°/270° |
 | 回転（任意角度） | ✅ rotate.c, rotateam.c | ✅ rotate.rs | 面積マッピング/サンプリング/シアー |
 | 回転（シアー） | ✅ rotateshear.c | ✅ rotate.rs | 2-shear/3-shear対応 |
-| スケーリング | ✅ scale1-2.c | ✅ scale.rs | 3アルゴリズム |
+| スケーリング | ✅ scale1-2.c | ✅ scale.rs | 3アルゴリズム（1bpp特化は未実装） |
 | アフィン変換 | ✅ affine.c, affinecompose.c | ✅ affine.rs | サンプリング/補間対応 |
 | 双線形変換 | ✅ bilinear.c | ✅ bilinear.rs | 4点対応/補間 |
 | 射影変換 | ✅ projective.c | ✅ projective.rs | 4点ホモグラフィ |
@@ -67,7 +108,7 @@
 | グレースケール形態学 | ✅ graymorph.c | ✅ grayscale.rs | 膨張/収縮/開/閉 |
 | カラー形態学 | ✅ colormorph.c | ✅ color.rs | RGB各チャンネル独立処理 |
 | DWA（高速形態学） | ✅ morphdwa.c, dwacomb.2.c | ✅ dwa.rs | ブリック高速演算 |
-| 構造化要素（SEL） | ✅ sel1-2.c, selgen.c | ✅ sel.rs | 基本実装 |
+| 構造化要素（SEL） | ✅ sel1-2.c, selgen.c | ✅ sel.rs | 基本実装（自動生成は未実装） |
 | シーケンス操作 | ✅ morphseq.c | ✅ sequence.rs | 文字列形式シーケンス |
 | 細線化 | ✅ ccthin.c | ✅ thin.rs | 連結保持細線化 |
 
@@ -75,14 +116,14 @@
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| 畳み込み | ✅ convolve.c | ✅ convolve.rs | 完全実装 |
-| ボックスフィルタ | ✅ convolve.c | ✅ convolve.rs | 完全実装 |
-| ガウシアンフィルタ | ✅ convolve.c | ✅ convolve.rs | 完全実装 |
+| 畳み込み | ✅ convolve.c | ✅ convolve.rs | 基本実装（ブロック畳み込み最適化は未実装） |
+| ボックスフィルタ | ✅ convolve.c | ✅ convolve.rs | 基本実装 |
+| ガウシアンフィルタ | ✅ convolve.c | ✅ convolve.rs | 基本実装 |
 | Sobelエッジ検出 | ✅ edge.c | ✅ edge.rs | 完全実装 |
 | ラプラシアン | ✅ edge.c | ✅ edge.rs | 完全実装 |
-| シャープニング | ✅ enhance.c | ✅ edge.rs | 完全実装 |
-| アンシャープマスク | ✅ enhance.c | ✅ edge.rs | 完全実装 |
-| バイラテラルフィルタ | ✅ bilateral.c | ✅ bilateral.rs | エッジ保存平滑化 |
+| シャープニング | ✅ enhance.c | ✅ edge.rs | 基本実装 |
+| アンシャープマスク | ✅ enhance.c | ✅ edge.rs | 基本実装 |
+| バイラテラルフィルタ | ✅ bilateral.c | ✅ bilateral.rs | エッジ保存平滑化（高速近似は未実装） |
 | 適応マッピング | ✅ adaptmap.c | ✅ adaptmap.rs | 背景/コントラスト正規化 |
 | ランクフィルタ | ✅ rank.c | ✅ rank.rs | メディアン/最小/最大 |
 
@@ -90,8 +131,8 @@
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| 色空間変換 | ✅ colorspace.c | ✅ colorspace.rs | RGB↔HSV/LAB/XYZ/YUV |
-| 色量子化 | ✅ colorquant1-2.c | ✅ quantize.rs | Median cut, Octree |
+| 色空間変換 | ✅ colorspace.c | ✅ colorspace.rs | RGB↔HSV/LAB/XYZ/YUV（ピクセル単位） |
+| 色量子化 | ✅ colorquant1-2.c | ✅ quantize.rs | Median cut, Octree（簡略化） |
 | 色セグメンテーション | ✅ colorseg.c | ✅ segment.rs | 4段階アルゴリズム |
 | 色内容抽出 | ✅ colorcontent.c | ✅ analysis.rs | 色統計、色数カウント |
 | 色塗りつぶし | ✅ colorfill.c | ✅ colorfill.rs | シードベース領域検出 |
@@ -111,80 +152,68 @@
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| 連結成分 | ✅ conncomp.c | ✅ conncomp.rs | 4/8連結、Union-Find |
-| 連結成分ラベリング | ✅ pixlabel.c | ✅ label.rs | 完全実装 |
-| 境界追跡 | ✅ ccbord.c | ✅ ccbord.rs | チェーンコード/穴追跡 |
-| シードフィル | ✅ seedfill.c | ✅ seedfill.rs | floodfill, 穴埋め |
-| 分水嶺変換 | ✅ watershed.c | ✅ watershed.rs | 完全実装 |
-| 四分木 | ✅ quadtree.c | ✅ quadtree.rs | 積分画像/階層統計 |
+| 連結成分 | ✅ conncomp.c | 🔄 conncomp.rs | Union-Find方式（C版はBOXA/PIXA返却） |
+| 連結成分ラベリング | ✅ pixlabel.c | ✅ label.rs | 基本実装 |
+| 境界追跡 | ✅ ccbord.c | 🔄 ccbord.rs | 簡略化Border構造体（C版はCCBORDA） |
+| シードフィル | ✅ seedfill.c | 🔄 seedfill.rs | キューベースBFS（C版はスタックベース） |
+| 分水嶺変換 | ✅ watershed.c | 🔄 watershed.rs | 優先度キュー方式 |
+| 四分木 | ✅ quadtree.c | ✅ quadtree.rs | 積分画像/階層統計（カバレッジ高） |
+| 迷路 | ✅ maze.c | ✅ maze.rs | 生成/BFS解法 |
 
-### 9. 文書処理
+### 9. 文書処理・認識
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
 | ページセグメンテーション | ✅ pageseg.c | ✅ pageseg.rs | ハーフトーン/テキスト検出 |
 | スキュー検出/補正 | ✅ skew.c | ✅ skew.rs | 微分二乗和スコアリング |
-| デワーピング | ✅ dewarp1-4.c | ✅ dewarp/ | テキストライン/視差補正 |
+| デワーピング | ✅ dewarp1-4.c | ✅ dewarp/ | 単一ページ（Dewarpa多ページ管理は未実装） |
 | ベースライン検出 | ✅ baseline.c | ✅ baseline.rs | 水平投影法 |
 | 文字認識 | ✅ recogbasic.c, recogident.c | ✅ recog/ | テンプレートマッチング、DID |
-
-### 10. JBIG2関連
-
-| 機能 | C版 | Rust版 | 備考 |
-| ---- | --- | ------ | ---- |
 | JBIG2分類 | ✅ jbclass.c | ✅ jbclass/ | RankHaus, 相関ベース分類 |
-
-### 11. その他
-
-| 機能 | C版 | Rust版 | 備考 |
-| ---- | --- | ------ | ---- |
-| 画像比較 | ✅ compare.c | ✅ compare.rs | 差分/RMS/相関 |
-| 画像合成/ブレンド | ✅ blend.c | ✅ blend.rs | アルファ/マスク/乗算等 |
-| 算術演算 | ✅ pixarith.c | ✅ arith.rs | 加減乗除/定数演算 |
-| 論理演算 | ✅ rop.c, roplow.c | ✅ rop.rs | AND/OR/XOR/NOT等 |
-| ヒストグラム | ✅ numafunc1.c | ✅ histogram.rs | グレー/カラー統計 |
 | バーコード | ✅ bardecode.c, readbarcode.c | ✅ barcode/ | EAN/UPC/Code39等 |
-| グラフィックス | ✅ graphics.c | ✅ graphics.rs | 線/矩形/円/等高線描画 |
-| 迷路生成/解法 | ✅ maze.c | ✅ maze.rs | 生成/BFS解法 |
-| ワーパー | ✅ warper.c | ✅ warper.rs | 調和歪み/ステレオ |
+| ワーパー | ✅ warper.c | ✅ warper.rs | 調和歪み/ステレオ（91%実装） |
 
 ## Rust版クレート実装状況
 
-| クレート | 行数 | 完成度 | 主要機能 |
-| -------- | ---- | ------ | -------- |
-| leptonica-core | 2,519 | ★★★★★ | Pix, Box, Pta, Colormap |
-| leptonica-io | 2,795 | ★★★★★ | BMP/PNG/JPEG/PNM/TIFF読み書き |
-| leptonica-transform | 1,509 | ★★★★★ | 回転（直交）、スケーリング |
-| leptonica-morph | 827 | ★★★★★ | 二値形態学操作 |
-| leptonica-filter | 917 | ★★★★★ | 畳み込み、エッジ検出 |
-| leptonica-color | 2,689 | ★★★★☆ | 色空間変換、二値化、量子化 |
-| leptonica-region | 2,385 | ★★★★☆ | 連結成分、シードフィル、分水嶺 |
-| leptonica-recog | 6,580 | ★★★★☆ | スキュー補正、ベースライン、ページセグ、文字認識、JBIG2分類 |
+| クレート | 行数 | 関数カバレッジ | 主要機能 |
+| -------- | ---- | ------------- | -------- |
+| leptonica-core | 2,519 | 106/848 (12.5%) | Pix, Box, Pta, Colormap, 演算, 比較, ブレンド |
+| leptonica-io | 2,795 | 47/146 (32.2%) | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS |
+| leptonica-transform | 1,509 | 51/152 (33.6%) | 回転, スケーリング, アフィン, 射影, シアー |
+| leptonica-morph | 827 | 42/120 (35.0%) | 二値/グレースケール/カラー形態学, DWA, 細線化 |
+| leptonica-filter | 917 | 11/94 (11.7%) | 畳み込み, エッジ検出, バイラテラル, ランク |
+| leptonica-color | 2,689 | 30/139 (21.6%) | 色空間変換, 量子化, セグメンテーション, 二値化 |
+| leptonica-region | 2,385 | 36/104 (34.6%) | 連結成分, シードフィル, 分水嶺, 四分木, 迷路 |
+| leptonica-recog | 6,580 | 51/144 (35.4%) | スキュー補正, デワーピング, 文字認識, バーコード |
+| その他 | - | 13/116 (11.2%) | ワーパー, エンコーディング |
+| **合計** | **~20,200** | **387/1,863 (20.8%)** | |
 
-## 実装優先度の推奨
+## 未実装の主要領域
 
-### 高優先度（基本機能の補完）
+### leptonica-core（最大の未実装数: 742関数）
 
-1. ~~**二値化** - 画像処理の基本~~ ✅ 完了
-2. **グレースケール形態学** - morph拡張
-3. ~~**連結成分** - 領域処理の基礎~~ ✅ 完了
-4. ~~**TIFF I/O** - 重要なフォーマット~~ ✅ 完了
+coreは対象Cファイル数が多く、以下が主な未実装領域:
 
-### 中優先度（よく使われる機能）
+- **深度変換** (pixconv.c): RGB↔Gray、深度変換の多数のバリエーション
+- **I/O補助関数**: Pix/Boxa/Pixa/Numa等のRead/Write/Serialize
+- **高度な配列操作**: ソート、選択、変換、統合
+- **マスク・ボーダー処理**: 詳細なマスク操作
+- **RGB成分操作**: チャンネル分離・結合の各種バリエーション
 
-1. **任意角度回転** - transform拡張
-2. **アフィン変換** - transform拡張
-3. ~~**色空間変換** - color実装開始~~ ✅ 完了
-4. **画像比較** - テスト用にも有用
-5. **Pixa/Numa** - コレクション型
+### leptonica-filter（カバレッジ最低: 11.7%）
 
-### 低優先度（専門的機能）
+- **ブロック畳み込み最適化** (pixBlockconv系)
+- **分離畳み込み** (pixConvolveSep系)
+- **窓関数統計** (pixWindowedMean/Variance)
+- **高速バイラテラル近似** (pixBilateral)
+- **enhance.c全体**: TRCマッピング、色調整、アンシャープマスク変種
 
-1. **デワーピング** - 文書処理
-2. ~~**文字認識** - OCR関連~~ ✅ 完了（テンプレートマッチング、DID）
-3. ~~**JBIG2分類** - 圧縮用クラスタリング~~ ✅ 完了
-4. **バーコード** - 特殊用途
-5. **PDF/PS出力** - 特殊用途
+### その他（カバレッジ: 11.2%）
+
+- **圧縮画像コンテナ** (pixcomp.c): Pixcomp/Pixacomp
+- **タイリング** (pixtiling.c): 大画像分割処理
+- **高度なラベリング** (pixlabel.c): 距離関数、局所極値
+- **データ構造**: Rustの標準ライブラリで代替可能（heap→BinaryHeap等）
 
 ## C版機能カテゴリ（182ファイル）
 
@@ -207,6 +236,20 @@ I/O:          bmpio, pngio, jpegio, pnmio, tiffio, gifio, webpio, jp2kio,
 JBIG2:        jbclass
 その他:       compare, blend, pixarith, rop, bardecode, graphics, maze, warper
 ```
+
+## 詳細比較文書
+
+各クレートの関数レベル比較（全public関数の一覧と実装状況）:
+
+- [leptonica-core](comparison/core.md) — 848関数
+- [leptonica-io](comparison/io.md) — 146関数
+- [leptonica-transform](comparison/transform.md) — 152関数
+- [leptonica-morph](comparison/morph.md) — 120関数
+- [leptonica-filter](comparison/filter.md) — 94関数
+- [leptonica-color](comparison/color.md) — 139関数
+- [leptonica-region](comparison/region.md) — 104関数
+- [leptonica-recog](comparison/recog.md) — 144関数
+- [その他](comparison/misc.md) — 116関数
 
 ## 参考
 
