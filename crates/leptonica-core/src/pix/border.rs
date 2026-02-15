@@ -1,11 +1,9 @@
 //! Border operations for images
 //!
-//! Functions for adding and removing uniform borders around images.
-//! Corresponds to `pixAddBorder()`, `pixAddBorderGeneral()`,
-//! `pixRemoveBorder()`, and `pixRemoveBorderGeneral()` in C Leptonica's
-//! `pix2.c`.
+//! Functions for adding, removing, and manipulating borders around images.
+//! Corresponds to border functions in C Leptonica's `pix2.c`.
 
-use super::Pix;
+use super::{Pix, PixMut};
 use crate::error::{Error, Result};
 
 impl Pix {
@@ -231,6 +229,61 @@ impl Pix {
 
         Ok(pixd_mut.into())
     }
+
+    /// Add a mirrored border by reflecting pixels at the edges.
+    ///
+    /// Useful for convolution kernels that need valid edge data.
+    /// Border size must not exceed the corresponding image dimension.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddMirroredBorder()` in `pix2.c`
+    pub fn add_mirrored_border(
+        &self,
+        _left: u32,
+        _right: u32,
+        _top: u32,
+        _bot: u32,
+    ) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Add a repeated (tiled) border by wrapping pixels from opposite edges.
+    ///
+    /// Border size must not exceed the corresponding image dimension.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddRepeatedBorder()` in `pix2.c`
+    pub fn add_repeated_border(
+        &self,
+        _left: u32,
+        _right: u32,
+        _top: u32,
+        _bot: u32,
+    ) -> Result<Pix> {
+        todo!()
+    }
+}
+
+impl PixMut {
+    /// Set border pixels to a specified value in-place.
+    ///
+    /// Only supports 8, 16, and 32 bpp images.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetBorderVal()` in `pix2.c`
+    pub fn set_border_val(
+        &mut self,
+        _left: u32,
+        _right: u32,
+        _top: u32,
+        _bot: u32,
+        _val: u32,
+    ) -> Result<()> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -367,6 +420,162 @@ mod tests {
         assert_eq!(inner.width(), 32);
         assert_eq!(inner.height(), 32);
         assert_eq!(inner.get_pixel(16, 16), Some(1));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_border_val_8bpp() {
+        let pix = Pix::new(10, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Fill interior with 100
+        for y in 0..8 {
+            for x in 0..10 {
+                pm.set_pixel_unchecked(x, y, 100);
+            }
+        }
+        pm.set_border_val(2, 2, 2, 2, 255).unwrap();
+        let pix: Pix = pm.into();
+        // Border pixels should be 255
+        assert_eq!(pix.get_pixel(0, 0), Some(255));
+        assert_eq!(pix.get_pixel(9, 7), Some(255));
+        assert_eq!(pix.get_pixel(1, 0), Some(255)); // top row
+        assert_eq!(pix.get_pixel(0, 3), Some(255)); // left col
+        // Interior should remain 100
+        assert_eq!(pix.get_pixel(5, 4), Some(100));
+        assert_eq!(pix.get_pixel(2, 2), Some(100));
+        assert_eq!(pix.get_pixel(7, 5), Some(100));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_border_val_32bpp() {
+        let pix = Pix::new(6, 4, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_border_val(1, 1, 1, 1, 0xff000000).unwrap();
+        let pix: Pix = pm.into();
+        // Corner should be set
+        assert_eq!(pix.get_pixel(0, 0), Some(0xff000000));
+        // Interior should be 0
+        assert_eq!(pix.get_pixel(2, 2), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_border_val_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_border_val(1, 1, 1, 1, 1).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_mirrored_border() {
+        // 4x3 image with known pixels
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..3u32 {
+            for x in 0..4u32 {
+                pm.set_pixel_unchecked(x, y, x * 10 + y);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let bordered = pix.add_mirrored_border(2, 2, 1, 1).unwrap();
+        assert_eq!(bordered.width(), 8); // 4 + 2 + 2
+        assert_eq!(bordered.height(), 5); // 3 + 1 + 1
+
+        // Interior preserved: original (0,0) is at (2,1) in bordered
+        assert_eq!(bordered.get_pixel(2, 1), Some(0)); // x=0, y=0
+        assert_eq!(bordered.get_pixel(3, 1), Some(10)); // x=1, y=0
+
+        // Left mirror: col at x=1 mirrors original x=0 (which is at bordered x=2)
+        // x=1 in bordered = mirror of x=2 in bordered = original x=0
+        assert_eq!(bordered.get_pixel(1, 1), bordered.get_pixel(2, 1));
+        // x=0 in bordered = mirror of x=3 in bordered = original x=1
+        assert_eq!(bordered.get_pixel(0, 1), bordered.get_pixel(3, 1));
+
+        // Right mirror: x=6 mirrors x=5 (original x=3)
+        assert_eq!(bordered.get_pixel(6, 1), bordered.get_pixel(5, 1));
+        assert_eq!(bordered.get_pixel(7, 1), bordered.get_pixel(4, 1));
+
+        // Top mirror: row at y=0 mirrors y=1 (original y=0)
+        // but after top=1: y=0 mirrors y=2 (which is original y=1)
+        // C Leptonica mirrors: top row j (0..top) copies from (top + j) mirrored
+        // Actually for top=1: y=0 copies from y=2 (top + top - 1 - 0 = 1+1-1-0=1 → src row 1)
+        // Let me just check symmetry
+        for x in 0..8 {
+            assert_eq!(
+                bordered.get_pixel(x, 0),
+                bordered.get_pixel(x, 2),
+                "top mirror mismatch at x={}",
+                x
+            );
+        }
+
+        // Bottom mirror: y=4 mirrors y=2 (last interior row)
+        for x in 0..8 {
+            assert_eq!(
+                bordered.get_pixel(x, 4),
+                bordered.get_pixel(x, 2),
+                "bottom mirror mismatch at x={}",
+                x
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_mirrored_border_too_large() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.add_mirrored_border(11, 0, 0, 0).is_err());
+        assert!(pix.add_mirrored_border(0, 0, 11, 0).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_repeated_border() {
+        // 4x3 image
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..3u32 {
+            for x in 0..4u32 {
+                pm.set_pixel_unchecked(x, y, x * 10 + y + 1);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let bordered = pix.add_repeated_border(2, 2, 1, 1).unwrap();
+        assert_eq!(bordered.width(), 8);
+        assert_eq!(bordered.height(), 5);
+
+        // Interior preserved
+        assert_eq!(bordered.get_pixel(2, 1), Some(1)); // original (0,0)
+        assert_eq!(bordered.get_pixel(5, 3), Some(33)); // original (3,2)
+
+        // Left border: wraps from right edge of image
+        // x=0 in bordered gets original x=(w-2)=2, x=1 gets original x=3
+        assert_eq!(bordered.get_pixel(0, 1), pix.get_pixel(2, 0));
+        assert_eq!(bordered.get_pixel(1, 1), pix.get_pixel(3, 0));
+
+        // Right border: wraps from left edge of image
+        // x=6 gets original x=0, x=7 gets original x=1
+        assert_eq!(bordered.get_pixel(6, 1), pix.get_pixel(0, 0));
+        assert_eq!(bordered.get_pixel(7, 1), pix.get_pixel(1, 0));
+
+        // Top border: wraps from bottom edge
+        // y=0 gets original y=(h-1)=2
+        assert_eq!(bordered.get_pixel(2, 0), pix.get_pixel(0, 2));
+
+        // Bottom border: wraps from top edge
+        // y=4 gets original y=0
+        assert_eq!(bordered.get_pixel(2, 4), pix.get_pixel(0, 0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_repeated_border_too_large() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.add_repeated_border(11, 0, 0, 0).is_err());
     }
 
     #[test]
