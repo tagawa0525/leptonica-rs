@@ -1706,10 +1706,13 @@ mod tests {
         assert_eq!(result.depth(), PixelDepth::Bit32);
         let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (0, 0, 0));
+        assert_eq!(color::alpha(result.get_pixel_unchecked(0, 0)), 255);
         let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(1, 0));
         assert_eq!((r, g, b), (128, 128, 128));
+        assert_eq!(color::alpha(result.get_pixel_unchecked(1, 0)), 255);
         let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(2, 0));
         assert_eq!((r, g, b), (255, 255, 255));
+        assert_eq!(color::alpha(result.get_pixel_unchecked(2, 0)), 255);
     }
 
     #[test]
