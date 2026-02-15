@@ -179,12 +179,15 @@ pub fn convolve_sep(pix: &Pix, kernel_x: &Kernel, kernel_y: &Kernel) -> FilterRe
 /// Separable convolution for RGB images
 ///
 /// Applies separable convolution to each color channel independently.
+/// Only R, G, B channels are processed; alpha is not preserved.
+/// The output always has `spp=3`. If you need alpha handling,
+/// process channels individually with [`convolve_sep`].
 ///
 /// # Algorithm
 ///
 /// 1. Extract R, G, B channels into separate 8-bit images
 /// 2. Apply separable convolution to each channel
-/// 3. Recombine channels into 32-bit RGB image
+/// 3. Recombine channels into 32-bit RGB image (spp=3)
 ///
 /// # See also
 ///
