@@ -345,6 +345,8 @@ pub fn close_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
 /// MSB-first bit ordering: pixel 0 = bit 31, pixel 31 = bit 0.
 /// Positive shift = image content moves right (src >> shift in bit terms).
 /// Negative shift = image content moves left (src << |shift| in bit terms).
+///
+/// Inner loops have no bounds checks to enable auto-vectorization.
 fn shift_or_row(dst: &mut [u32], src: &[u32], shift: i32) {
     let wpl = dst.len();
 
@@ -359,47 +361,42 @@ fn shift_or_row(dst: &mut [u32], src: &[u32], shift: i32) {
     let word_shift = abs_shift / 32;
     let bit_shift = (abs_shift % 32) as u32;
 
+    if word_shift >= wpl {
+        return; // Entire row shifts out of bounds; OR with 0 is no-op
+    }
+
     if shift > 0 {
-        // Shift right: dest pixel X gets src pixel (X - shift)
-        // In MSB-first words: src[i] >> bit_shift, carry from src[i-1]
-        for i in 0..wpl {
-            let si = i as isize - word_shift as isize;
-            let mut val = 0u32;
-            if bit_shift == 0 {
-                if si >= 0 && (si as usize) < wpl {
-                    val = src[si as usize];
-                }
-            } else {
-                if si >= 0 && (si as usize) < wpl {
-                    val = src[si as usize] >> bit_shift;
-                }
-                let prev = si - 1;
-                if prev >= 0 && (prev as usize) < wpl {
-                    val |= src[prev as usize] << (32 - bit_shift);
-                }
+        // Shift right: dst[word_shift..wpl] gets src[0..wpl-word_shift]
+        if bit_shift == 0 {
+            for i in word_shift..wpl {
+                dst[i] |= src[i - word_shift];
             }
-            dst[i] |= val;
+        } else {
+            // First valid word: no carry from previous
+            dst[word_shift] |= src[0] >> bit_shift;
+            // Remaining words: carry from src[si-1]
+            for i in (word_shift + 1)..wpl {
+                let si = i - word_shift;
+                dst[i] |= (src[si] >> bit_shift) | (src[si - 1] << (32 - bit_shift));
+            }
         }
     } else {
-        // Shift left: dest pixel X gets src pixel (X + |shift|)
-        // In MSB-first words: src[i] << bit_shift, carry from src[i+1]
-        for i in 0..wpl {
-            let si = i + word_shift;
-            let mut val = 0u32;
-            if bit_shift == 0 {
-                if si < wpl {
-                    val = src[si];
-                }
-            } else {
-                if si < wpl {
-                    val = src[si] << bit_shift;
-                }
-                let next = si + 1;
-                if next < wpl {
-                    val |= src[next] >> (32 - bit_shift);
-                }
+        // Shift left: dst[0..wpl-word_shift] gets src[word_shift..wpl]
+        let end = wpl - word_shift;
+        if bit_shift == 0 {
+            for i in 0..end {
+                dst[i] |= src[i + word_shift];
             }
-            dst[i] |= val;
+        } else {
+            // All words except last: carry from src[si+1]
+            for i in 0..end.saturating_sub(1) {
+                let si = i + word_shift;
+                dst[i] |= (src[si] << bit_shift) | (src[si + 1] >> (32 - bit_shift));
+            }
+            // Last valid word: no carry from next
+            if end > 0 {
+                dst[end - 1] |= src[wpl - 1] << bit_shift;
+            }
         }
     }
 }
@@ -408,6 +405,8 @@ fn shift_or_row(dst: &mut [u32], src: &[u32], shift: i32) {
 ///
 /// Same shift semantics as `shift_or_row`, but uses AND accumulation.
 /// Out-of-bounds positions are 0, so AND with them clears dst bits.
+///
+/// Inner loops have no bounds checks to enable auto-vectorization.
 fn shift_and_row(dst: &mut [u32], src: &[u32], shift: i32) {
     let wpl = dst.len();
 
@@ -422,43 +421,50 @@ fn shift_and_row(dst: &mut [u32], src: &[u32], shift: i32) {
     let word_shift = abs_shift / 32;
     let bit_shift = (abs_shift % 32) as u32;
 
-    if shift > 0 {
+    if word_shift >= wpl {
+        // Entire row shifts out of bounds; AND with 0 clears all
         for i in 0..wpl {
-            let si = i as isize - word_shift as isize;
-            let mut val = 0u32;
-            if bit_shift == 0 {
-                if si >= 0 && (si as usize) < wpl {
-                    val = src[si as usize];
-                }
-            } else {
-                if si >= 0 && (si as usize) < wpl {
-                    val = src[si as usize] >> bit_shift;
-                }
-                let prev = si - 1;
-                if prev >= 0 && (prev as usize) < wpl {
-                    val |= src[prev as usize] << (32 - bit_shift);
-                }
+            dst[i] = 0;
+        }
+        return;
+    }
+
+    if shift > 0 {
+        // Clear words before the valid range (AND with 0)
+        for i in 0..word_shift {
+            dst[i] = 0;
+        }
+        if bit_shift == 0 {
+            for i in word_shift..wpl {
+                dst[i] &= src[i - word_shift];
             }
-            dst[i] &= val;
+        } else {
+            // First valid word: no carry from previous, also AND-clear high bits
+            dst[word_shift] &= src[0] >> bit_shift;
+            for i in (word_shift + 1)..wpl {
+                let si = i - word_shift;
+                dst[i] &= (src[si] >> bit_shift) | (src[si - 1] << (32 - bit_shift));
+            }
         }
     } else {
-        for i in 0..wpl {
-            let si = i + word_shift;
-            let mut val = 0u32;
-            if bit_shift == 0 {
-                if si < wpl {
-                    val = src[si];
-                }
-            } else {
-                if si < wpl {
-                    val = src[si] << bit_shift;
-                }
-                let next = si + 1;
-                if next < wpl {
-                    val |= src[next] >> (32 - bit_shift);
-                }
+        let end = wpl - word_shift;
+        if bit_shift == 0 {
+            for i in 0..end {
+                dst[i] &= src[i + word_shift];
             }
-            dst[i] &= val;
+        } else {
+            for i in 0..end.saturating_sub(1) {
+                let si = i + word_shift;
+                dst[i] &= (src[si] << bit_shift) | (src[si + 1] >> (32 - bit_shift));
+            }
+            // Last valid word: no carry from next
+            if end > 0 {
+                dst[end - 1] &= src[wpl - 1] << bit_shift;
+            }
+        }
+        // Clear words after the valid range (AND with 0)
+        for i in end..wpl {
+            dst[i] = 0;
         }
     }
 }
