@@ -394,6 +394,44 @@ mod tests {
     }
 
     #[test]
+    fn test_convolve_sep_color() {
+        // Test convolve_sep directly on 32 bpp color image
+        let pix = create_test_color_image();
+
+        // 3x1 horizontal and 1x3 vertical box kernels
+        let kernel_h = Kernel::from_slice(3, 1, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+        let kernel_v = Kernel::from_slice(1, 3, &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]).unwrap();
+
+        let result = convolve_sep(&pix, &kernel_h, &kernel_v).unwrap();
+
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+
+        // Verify it matches the full 2D color convolution
+        let kernel_full = Kernel::box_kernel(3).unwrap();
+        let result_full = convolve_color(&pix, &kernel_full).unwrap();
+
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                let sep_px = result.get_pixel_unchecked(x, y);
+                let full_px = result_full.get_pixel_unchecked(x, y);
+                let (sr, sg, sb, sa) = color::extract_rgba(sep_px);
+                let (fr, fg, fb, fa) = color::extract_rgba(full_px);
+                assert!(
+                    (sr as i32 - fr as i32).abs() <= 1
+                        && (sg as i32 - fg as i32).abs() <= 1
+                        && (sb as i32 - fb as i32).abs() <= 1
+                        && (sa as i32 - fa as i32).abs() <= 1,
+                    "Mismatch at ({}, {})",
+                    x,
+                    y
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_convolve_rgb_sep_identity() {
         let pix = create_test_color_image();
         let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
