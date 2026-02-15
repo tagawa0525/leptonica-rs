@@ -221,7 +221,6 @@ mod tests {
     use crate::pix::PixelDepth;
 
     #[test]
-
     fn test_set_masked_8bpp() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -249,7 +248,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_masked_32bpp() {
         let pix = Pix::new(3, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -267,7 +265,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_masked_invalid_mask_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -276,7 +273,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_combine_masked_8bpp() {
         let dst = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let mut dm = dst.try_into_mut().unwrap();
@@ -310,7 +306,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_combine_masked_depth_mismatch() {
         let dst = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut dm = dst.try_into_mut().unwrap();
@@ -320,7 +315,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_paint_through_mask() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -340,7 +334,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_paint_through_mask_negative_offset() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -359,7 +352,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_make_mask_from_val() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -381,14 +373,12 @@ mod tests {
     }
 
     #[test]
-
     fn test_make_mask_from_val_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(pix.make_mask_from_val(0).is_err());
     }
 
     #[test]
-
     fn test_make_mask_from_lut() {
         let pix = Pix::new(4, 2, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -413,7 +403,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_make_mask_from_lut_short_lut() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let lut = [0u8; 100]; // too short
