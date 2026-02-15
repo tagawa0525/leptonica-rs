@@ -62,6 +62,25 @@ pub enum GrayConversionType {
     Weighted,
 }
 
+/// Target type for colormap removal.
+///
+/// # See also
+///
+/// C Leptonica: `REMOVE_CMAP_TO_BINARY`, `REMOVE_CMAP_TO_GRAYSCALE`, etc. in `pix.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoveColormapTarget {
+    /// Convert to 1 bpp binary (only for 1 bpp images)
+    ToBinary,
+    /// Convert to 8 bpp grayscale
+    ToGrayscale,
+    /// Convert to 32 bpp RGB (spp=3)
+    ToFullColor,
+    /// Convert to 32 bpp RGBA (spp=4)
+    WithAlpha,
+    /// Auto-detect best target based on colormap content
+    BasedOnSrc,
+}
+
 impl Pix {
     /// Convert any-depth image to 8-bit grayscale.
     ///
@@ -500,6 +519,33 @@ impl Pix {
             GrayConversionType::Weighted => self.convert_rgb_to_gray(rwt, gwt, bwt),
         }
     }
+
+    /// Remove colormap and convert to specified target format.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRemoveColormap()` in `pixconv.c`
+    pub fn remove_colormap(&self, _target: RemoveColormapTarget) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Add a full 256-entry grayscale colormap to an 8 bpp image.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddGrayColormap8()` in `pixconv.c`
+    pub fn add_gray_colormap_8(&self) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Add a minimal grayscale colormap containing only used gray values.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddMinimalGrayColormap8()` in `pixconv.c`
+    pub fn add_minimal_gray_colormap_8(&self) -> Result<Pix> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -765,5 +811,223 @@ mod tests {
         let gray = pix.convert_rgb_to_luminance().unwrap();
         assert_eq!(gray.xres(), 300);
         assert_eq!(gray.yres(), 300);
+    }
+
+    // ---- Colormap removal tests (Phase 1.3) ----
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_no_colormap() {
+        use super::RemoveColormapTarget;
+        // Image without colormap should return deep clone
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = pix
+            .remove_colormap(RemoveColormapTarget::BasedOnSrc)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.width(), 10);
+        assert_eq!(result.height(), 10);
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_to_binary() {
+        use super::RemoveColormapTarget;
+        use crate::PixColormap;
+        // 1 bpp with black/white colormap
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(1).unwrap();
+        cmap.add_rgb(0, 0, 0).unwrap(); // 0 -> black
+        cmap.add_rgb(255, 255, 255).unwrap(); // 1 -> white
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.remove_colormap(RemoveColormapTarget::ToBinary).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit1);
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_to_binary_inverted() {
+        use super::RemoveColormapTarget;
+        use crate::PixColormap;
+        // 1 bpp with inverted colormap (0 -> white, 1 -> black)
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(1).unwrap();
+        cmap.add_rgb(255, 255, 255).unwrap(); // 0 -> white
+        cmap.add_rgb(0, 0, 0).unwrap(); // 1 -> black
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.remove_colormap(RemoveColormapTarget::ToBinary).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit1);
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_to_grayscale() {
+        use super::RemoveColormapTarget;
+        use crate::PixColormap;
+        // 4 bpp with grayscale colormap
+        let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let cmap = PixColormap::create_linear(4, true).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .remove_colormap(RemoveColormapTarget::ToGrayscale)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_to_full_color() {
+        use super::RemoveColormapTarget;
+        use crate::PixColormap;
+        // 8 bpp with color colormap
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_rgb(255, 0, 0).unwrap(); // Red
+        cmap.add_rgb(0, 255, 0).unwrap(); // Green
+        cmap.add_rgb(0, 0, 255).unwrap(); // Blue
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .remove_colormap(RemoveColormapTarget::ToFullColor)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert_eq!(result.spp(), 3); // RGB, no alpha
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_with_alpha() {
+        use super::RemoveColormapTarget;
+        use crate::PixColormap;
+        // 8 bpp with colormap that has alpha
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_rgba(255, 0, 0, 128).unwrap(); // Semi-transparent red
+        cmap.add_rgba(0, 255, 0, 255).unwrap(); // Opaque green
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .remove_colormap(RemoveColormapTarget::WithAlpha)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert_eq!(result.spp(), 4); // RGBA
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_based_on_src_grayscale() {
+        use super::RemoveColormapTarget;
+        use crate::PixColormap;
+        // 8 bpp with grayscale colormap -> should convert to 8 bpp gray
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let cmap = PixColormap::create_linear(8, true).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .remove_colormap(RemoveColormapTarget::BasedOnSrc)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_remove_colormap_based_on_src_color() {
+        use super::RemoveColormapTarget;
+        use crate::PixColormap;
+        // 8 bpp with color colormap -> should convert to 32 bpp
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_rgb(255, 0, 0).unwrap();
+        cmap.add_rgb(0, 255, 0).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .remove_colormap(RemoveColormapTarget::BasedOnSrc)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_gray_colormap_8() {
+        // Add linear grayscale colormap to 8 bpp image
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = pix.add_gray_colormap_8().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(result.has_colormap());
+        let cmap = result.colormap().unwrap();
+        assert_eq!(cmap.len(), 256);
+        assert_eq!(cmap.get_rgb(0), Some((0, 0, 0)));
+        assert_eq!(cmap.get_rgb(255), Some((255, 255, 255)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_gray_colormap_8_already_has_colormap() {
+        use crate::PixColormap;
+        // If already has colormap, return deep clone
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let cmap = PixColormap::create_linear(8, true).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.add_gray_colormap_8().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_gray_colormap_8_invalid_depth() {
+        // Only works for 8 bpp
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.add_gray_colormap_8().is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_minimal_gray_colormap_8() {
+        // Create 8 bpp image with only a few gray levels
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Set some pixels to specific gray values
+        pm.set_pixel_unchecked(0, 0, 50);
+        pm.set_pixel_unchecked(1, 0, 100);
+        pm.set_pixel_unchecked(2, 0, 150);
+        pm.set_pixel_unchecked(3, 0, 50); // Duplicate
+        let pix: Pix = pm.into();
+
+        let result = pix.add_minimal_gray_colormap_8().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(result.has_colormap());
+        let cmap = result.colormap().unwrap();
+        // Should have 4 entries: 0 (background), 50, 100, 150
+        assert_eq!(cmap.len(), 4);
     }
 }
