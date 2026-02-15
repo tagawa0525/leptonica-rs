@@ -328,7 +328,6 @@ mod tests {
     // ========== gamma_trc tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_identity() {
         // gamma=1.0, minval=0, maxval=255 should be identity
         let lut = gamma_trc(1.0, 0, 255).unwrap();
@@ -338,7 +337,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_lighten() {
         // gamma > 1.0 lightens: midtones should increase
         let lut = gamma_trc(2.0, 0, 255).unwrap();
@@ -349,7 +347,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_darken() {
         // gamma < 1.0 darkens: midtones should decrease
         let lut = gamma_trc(0.5, 0, 255).unwrap();
@@ -359,7 +356,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_custom_range() {
         // minval=50, maxval=200: values below 50 map to 0, above 200 to 255
         let lut = gamma_trc(1.0, 50, 200).unwrap();
@@ -372,7 +368,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_invalid_params() {
         assert!(gamma_trc(1.0, 200, 100).is_err()); // minval >= maxval
         assert!(gamma_trc(0.0, 0, 255).is_err()); // gamma <= 0
@@ -382,7 +377,6 @@ mod tests {
     // ========== contrast_trc tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contrast_trc_zero_factor() {
         // factor=0 should be identity
         let lut = contrast_trc(0.0).unwrap();
@@ -392,7 +386,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contrast_trc_enhancement() {
         // Positive factor: dark pixels get darker, light pixels get lighter
         let lut = contrast_trc(0.5).unwrap();
@@ -407,7 +400,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contrast_trc_monotonic() {
         let lut = contrast_trc(0.8).unwrap();
         for i in 1..256 {
@@ -416,7 +408,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contrast_trc_invalid_factor() {
         assert!(contrast_trc(-0.5).is_err());
     }
@@ -424,17 +415,15 @@ mod tests {
     // ========== equalize_trc tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_equalize_trc_uniform() {
-        // Uniform image: equalization should not change much
+        // Uniform image (all pixels = 0): full equalization maps the sole
+        // populated bin to 255 via the cumulative distribution.
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let lut = equalize_trc(&pix, 1.0, 1).unwrap();
-        // All pixels are 0, so all should map to 0
-        assert_eq!(lut[0], 0);
+        assert_eq!(lut[0], 255);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_equalize_trc_fract_zero() {
         // fract=0: identity mapping
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -445,7 +434,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_equalize_trc_invalid_params() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(equalize_trc(&pix, -0.1, 1).is_err());
@@ -459,7 +447,6 @@ mod tests {
     // ========== trc_map tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_trc_map_8bpp_identity() {
         let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -476,7 +463,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_trc_map_8bpp_invert() {
         let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -493,7 +479,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_trc_map_32bpp() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -510,7 +495,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_trc_map_with_mask() {
         let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -534,7 +518,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_trc_map_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -545,7 +528,6 @@ mod tests {
     // ========== trc_map_general tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_trc_map_general_separate_channels() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -565,7 +547,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_trc_map_general_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
