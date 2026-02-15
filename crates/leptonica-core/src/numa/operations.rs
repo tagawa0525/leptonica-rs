@@ -13,6 +13,17 @@
 
 use super::Numa;
 
+/// Sort order for Numa sorting operations.
+///
+/// C equivalent: `L_SORT_INCREASING` / `L_SORT_DECREASING`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortOrder {
+    /// Sort in ascending order (smallest first).
+    Increasing,
+    /// Sort in descending order (largest first).
+    Decreasing,
+}
+
 /// Windowed statistics result.
 ///
 /// Returned by [`Numa::windowed_stats`]. Contains the windowed mean,
@@ -689,6 +700,24 @@ impl Numa {
             self.set_parameters(startx + (n - 1) as f32 * delx, -delx);
         }
     }
+
+    // ====================================================================
+    // Sort
+    // ====================================================================
+
+    /// Return a new Numa with elements sorted.
+    ///
+    /// C equivalent: `numaSort(NULL, nain, sortorder)`
+    pub fn sorted(&self, _order: SortOrder) -> Numa {
+        todo!("sorted not yet implemented")
+    }
+
+    /// Sort the elements in place.
+    ///
+    /// C equivalent: `numaSort(naout, naout, sortorder)`
+    pub fn sort(&mut self, _order: SortOrder) {
+        todo!("sort not yet implemented")
+    }
 }
 
 #[cfg(test)]
@@ -975,5 +1004,63 @@ mod tests {
         let na = Numa::new();
         let rev = na.reversed();
         assert!(rev.is_empty());
+    }
+
+    // ================================================================
+    // Tests for sort / sorted
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sorted_increasing() {
+        let na = Numa::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0]);
+        let sorted = na.sorted(SortOrder::Increasing);
+        assert_eq!(sorted.as_slice(), &[1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 9.0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sorted_decreasing() {
+        let na = Numa::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0]);
+        let sorted = na.sorted(SortOrder::Decreasing);
+        assert_eq!(sorted.as_slice(), &[9.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sort_in_place() {
+        let mut na = Numa::from_vec(vec![5.0, 3.0, 1.0, 4.0, 2.0]);
+        na.sort(SortOrder::Increasing);
+        assert_eq!(na.as_slice(), &[1.0, 2.0, 3.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sorted_empty() {
+        let na = Numa::new();
+        let sorted = na.sorted(SortOrder::Increasing);
+        assert!(sorted.is_empty());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sorted_single() {
+        let na = Numa::from_vec(vec![42.0]);
+        let sorted = na.sorted(SortOrder::Decreasing);
+        assert_eq!(sorted.as_slice(), &[42.0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sorted_with_nan() {
+        // NaN should be handled safely by f32::total_cmp
+        let na = Numa::from_vec(vec![3.0, f32::NAN, 1.0, 2.0]);
+        let sorted = na.sorted(SortOrder::Increasing);
+        assert_eq!(sorted.len(), 4);
+        // NaN sorts after all other values with total_cmp
+        assert_eq!(sorted.get(0), Some(1.0));
+        assert_eq!(sorted.get(1), Some(2.0));
+        assert_eq!(sorted.get(2), Some(3.0));
+        assert!(sorted.get(3).unwrap().is_nan());
     }
 }
