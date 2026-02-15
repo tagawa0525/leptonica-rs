@@ -1,6 +1,6 @@
 # 標準Brick Morphの高速化（separable decomposition + rasterop + composite）
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
@@ -160,29 +160,20 @@ fn select_composable_sizes(size: u32) -> (u32, u32) {
 
 | # | ハッシュ | 種別 | 内容 |
 |---|---------|------|------|
-| 1 | `521c970` | RED | separable equivalenceテスト |
-| 2 | `a36e342` | GREEN | separable decomposition実装 |
-| 3 | `2c4c953` | RED | rasterop equivalenceテスト |
-| 4 | `d130dab` | GREEN | rasterop実装 |
-| 5 | `65706ac` | REFACTOR | shift関数の境界チェック除去 |
-| 6 | `e6ebb9e` | docs | 計画書リネーム・更新 |
+| 1 | `a4176fb` | RED | separable equivalenceテスト |
+| 2 | `a7f5c81` | GREEN | separable decomposition実装 |
+| 3 | `3c409da` | RED | rasterop equivalenceテスト |
+| 4 | `75161f4` | GREEN | rasterop実装 |
+| 5 | `cd2eaab` | REFACTOR | shift関数の境界チェック除去 |
+| 6 | `ecdf536` | docs | 計画書リネーム・更新 |
 
-### Phase 3 コミット
+### Phase 3 コミット（✅ 完了）
 
-#### コミット7: RED — composite テスト
-
-- `Sel::create_comb_horizontal` / `create_comb_vertical` のユニットテスト
-  - hit数、hit位置、origin位置の検証
-- composite equivalenceテスト（`#[ignore]`付き）
-  - `dilate(brick_f1) → dilate(comb_f1_f2)` == `dilate(brick_f1*f2)`
-  - 検証サイズ: 4(2×2), 9(3×3), 12(3×4), 120(10×12), 素数(7, 13)
-
-#### コミット8: GREEN — composite 実装
-
-- `Sel::create_comb_horizontal` / `create_comb_vertical` 実装
-- `select_composable_sizes` 実装
-- `dilate_brick` / `erode_brick` をcomposite化
-- `#[ignore]` 除去、全テストパス
+| # | ハッシュ | 種別 | 内容 |
+|---|---------|------|------|
+| 7 | `ef8b5a2` | docs | Phase 3計画追加 |
+| 8 | `4674456` | RED | comb SEL・composite equivalenceテスト |
+| 9 | `d3c678f` | GREEN | composite decomposition実装 |
 
 ## 正当性の根拠
 
@@ -202,6 +193,17 @@ shift-and-OR/AND は pixel-by-pixel の any/all と数学的に等価。
 brick(f1) ⊕ comb(f1, f2) = brick(f1×f2)（Minkowski sum）:
 - brick拡張後、comb操作がf1間隔でコピーを配置
 - f1幅のセグメントがf1間隔で隙間なく並び、f1×f2幅の完全な拡張と等価
+
+#### 境界処理
+
+有限画像では brick ステップが境界でクリップされ、comb ステップが情報を復元できない。
+C版と同様に `add_border` でゼロパディングを追加し、composite 操作後に `remove_border` で除去する。
+- 水平: ワード境界（32の倍数）にアラインされた左右ボーダー
+- 垂直: 行ベースの上下ボーダー
+- ボーダーサイズ: comb の最大オフセット（≈ f1*(f2-1)/2）
+
+Erosion は外側=0 の境界条件により自然に正しい結果が得られるため、ボーダー不要。
+Dilation のみボーダーを追加する。
 
 ## 検証
 
@@ -223,4 +225,12 @@ time cargo test --release -p leptonica-morph --test binmorph5_reg
 | 変更前 | 323秒 | 338秒 |
 | Phase 1 (separable) | 33秒 | 44秒 |
 | Phase 2 (rasterop) | 14秒 | 20秒 |
-| Phase 3 (composite) | 予測: 2-4秒 | 予測: 5-8秒 |
+| Phase 3 (composite) | 14秒 | 20秒 |
+
+Phase 3の効果が限定的な理由:
+- binmorph5_regテストはDWA vs brickの比較で、DWA側のコストが支配的
+- ボーダー管理のオーバーヘッド（画像コピー2回+拡大画像上の演算）
+- 1080×485画像ではwpl=34で、ボーダー追加による行幅増加の影響は小さいが
+  メモリ確保・コピーのオーバーヘッドが軽減効果を相殺
+- compositeの主な効果は非常に大きなSEL（size > 100）での演算回数削減だが、
+  テスト内のbrick操作の割合がDWA操作に対して小さい
