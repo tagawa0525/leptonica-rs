@@ -5,7 +5,8 @@
 
 use crate::{IoError, IoResult};
 use gif::{ColorOutput, DecodeOptions, Encoder, Frame, Repeat};
-use leptonica_core::{Pix, PixColormap, PixelDepth, color};
+use leptonica_color::{OctreeOptions, octree_quant};
+use leptonica_core::{Pix, PixColormap, PixelDepth};
 use std::io::{Read, Write};
 
 /// Read a GIF image
@@ -185,204 +186,16 @@ fn prepare_pix_for_gif(pix: &Pix) -> IoResult<(Pix, PixColormap)> {
             Ok((new_pix, cmap))
         }
         PixelDepth::Bit32 => {
-            // Quantize 32bpp to 8bpp with colormap using median-cut
-            let (quantized, cmap) = quantize_32bpp_to_8bpp(pix)?;
+            // Quantize 32bpp to 8bpp with colormap using octree
+            let quantized = octree_quant(pix, &OctreeOptions { max_colors: 256 })
+                .map_err(|e| IoError::EncodeError(format!("quantization error: {}", e)))?;
+            let cmap = quantized
+                .colormap()
+                .ok_or_else(|| IoError::EncodeError("quantized image has no colormap".to_string()))?
+                .clone();
             Ok((quantized, cmap))
         }
     }
-}
-
-/// Quantize a 32bpp RGB image to 8bpp with colormap using median-cut algorithm
-fn quantize_32bpp_to_8bpp(pix: &Pix) -> IoResult<(Pix, PixColormap)> {
-    let w = pix.width();
-    let h = pix.height();
-    let max_colors: usize = 256;
-
-    // Collect a bounded sample of RGB pixels for median-cut.
-    // Limit the number of samples to avoid excessive memory usage on large images.
-    // This still provides a representative distribution for palette generation.
-    let total_pixels = (w as usize) * (h as usize);
-    let max_samples: usize = 100_000;
-    let sample_count = total_pixels.min(max_samples);
-    let sample_stride = if sample_count == 0 {
-        1
-    } else {
-        total_pixels.div_ceil(sample_count)
-    };
-
-    let mut pixels: Vec<[u8; 3]> = Vec::with_capacity(sample_count);
-    let mut idx: usize = 0;
-    for y in 0..h {
-        for x in 0..w {
-            if idx.is_multiple_of(sample_stride) {
-                let val = pix.get_pixel(x, y).unwrap_or(0);
-                let (r, g, b) = color::extract_rgb(val);
-                pixels.push([r, g, b]);
-            }
-            idx += 1;
-        }
-    }
-
-    // Median-cut quantization
-    let palette = median_cut(&pixels, max_colors);
-
-    // Build colormap
-    let mut cmap = PixColormap::new(8).map_err(IoError::Core)?;
-    for &[r, g, b] in &palette {
-        cmap.add_rgb(r, g, b).map_err(IoError::Core)?;
-    }
-
-    // Create 8bpp image and map each pixel to nearest palette entry
-    let new_pix = Pix::new(w, h, PixelDepth::Bit8)?;
-    let mut new_mut = new_pix.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel(x, y).unwrap_or(0);
-            let (r, g, b) = color::extract_rgb(val);
-            let idx = find_nearest_color(&palette, r, g, b);
-            new_mut.set_pixel_unchecked(x, y, idx as u32);
-        }
-    }
-
-    new_mut
-        .set_colormap(Some(cmap.clone()))
-        .map_err(IoError::Core)?;
-
-    Ok((new_mut.into(), cmap))
-}
-
-/// Find nearest color index in palette
-fn find_nearest_color(palette: &[[u8; 3]], r: u8, g: u8, b: u8) -> usize {
-    let mut best = 0;
-    let mut best_dist = u32::MAX;
-    for (i, &[pr, pg, pb]) in palette.iter().enumerate() {
-        let dr = (r as i32 - pr as i32).unsigned_abs();
-        let dg = (g as i32 - pg as i32).unsigned_abs();
-        let db = (b as i32 - pb as i32).unsigned_abs();
-        let dist = dr * dr + dg * dg + db * db;
-        if dist < best_dist {
-            best_dist = dist;
-            best = i;
-            if dist == 0 {
-                break;
-            }
-        }
-    }
-    best
-}
-
-/// Simple median-cut color quantization
-fn median_cut(pixels: &[[u8; 3]], max_colors: usize) -> Vec<[u8; 3]> {
-    if pixels.is_empty() {
-        return vec![[0, 0, 0]];
-    }
-
-    let mut boxes: Vec<Vec<[u8; 3]>> = vec![pixels.to_vec()];
-
-    while boxes.len() < max_colors {
-        // Find the box with the largest range to split
-        let mut best_box_idx = 0;
-        let mut best_range = 0u32;
-
-        for (i, b) in boxes.iter().enumerate() {
-            if b.len() < 2 {
-                continue;
-            }
-            let range = box_color_range(b);
-            if range > best_range {
-                best_range = range;
-                best_box_idx = i;
-            }
-        }
-
-        if best_range == 0 {
-            break;
-        }
-
-        let box_to_split = boxes.remove(best_box_idx);
-        let (left, right) = split_box(box_to_split);
-
-        if !left.is_empty() {
-            boxes.push(left);
-        }
-        if !right.is_empty() {
-            boxes.push(right);
-        }
-    }
-
-    // Compute average color for each box
-    boxes.iter().map(|b| box_average(b)).collect()
-}
-
-/// Compute the color range of a box (max range across R, G, B channels)
-fn box_color_range(pixels: &[[u8; 3]]) -> u32 {
-    let (mut min_r, mut min_g, mut min_b) = (255u8, 255u8, 255u8);
-    let (mut max_r, mut max_g, mut max_b) = (0u8, 0u8, 0u8);
-
-    for &[r, g, b] in pixels {
-        min_r = min_r.min(r);
-        min_g = min_g.min(g);
-        min_b = min_b.min(b);
-        max_r = max_r.max(r);
-        max_g = max_g.max(g);
-        max_b = max_b.max(b);
-    }
-
-    let range_r = (max_r - min_r) as u32;
-    let range_g = (max_g - min_g) as u32;
-    let range_b = (max_b - min_b) as u32;
-
-    range_r.max(range_g).max(range_b)
-}
-
-/// Split a box along its widest color axis
-fn split_box(mut pixels: Vec<[u8; 3]>) -> (Vec<[u8; 3]>, Vec<[u8; 3]>) {
-    let (mut min_r, mut min_g, mut min_b) = (255u8, 255u8, 255u8);
-    let (mut max_r, mut max_g, mut max_b) = (0u8, 0u8, 0u8);
-
-    for &[r, g, b] in &pixels {
-        min_r = min_r.min(r);
-        min_g = min_g.min(g);
-        min_b = min_b.min(b);
-        max_r = max_r.max(r);
-        max_g = max_g.max(g);
-        max_b = max_b.max(b);
-    }
-
-    let range_r = (max_r - min_r) as u32;
-    let range_g = (max_g - min_g) as u32;
-    let range_b = (max_b - min_b) as u32;
-
-    // Sort along the widest axis
-    if range_r >= range_g && range_r >= range_b {
-        pixels.sort_unstable_by_key(|p| p[0]);
-    } else if range_g >= range_b {
-        pixels.sort_unstable_by_key(|p| p[1]);
-    } else {
-        pixels.sort_unstable_by_key(|p| p[2]);
-    }
-
-    let mid = pixels.len() / 2;
-    let right = pixels.split_off(mid);
-    (pixels, right)
-}
-
-/// Compute the average color of a box
-fn box_average(pixels: &[[u8; 3]]) -> [u8; 3] {
-    if pixels.is_empty() {
-        return [0, 0, 0];
-    }
-
-    let (mut sum_r, mut sum_g, mut sum_b) = (0u64, 0u64, 0u64);
-    for &[r, g, b] in pixels {
-        sum_r += r as u64;
-        sum_g += g as u64;
-        sum_b += b as u64;
-    }
-
-    let n = pixels.len() as u64;
-    [(sum_r / n) as u8, (sum_g / n) as u8, (sum_b / n) as u8]
 }
 
 /// Clone a pix
