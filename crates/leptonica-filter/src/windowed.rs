@@ -163,9 +163,10 @@ pub fn windowed_mean(pix: &Pix, wc: u32, hc: u32, normalize: bool) -> FilterResu
     let hd = hb - 2 * (hc + 1);
 
     if wd < 2 || hd < 2 {
-        return Err(FilterError::InvalidParameters(
-            "image too small for the given kernel".into(),
-        ));
+        return Err(FilterError::InvalidParameters(format!(
+            "output dimensions ({}x{}) too small; kernel requires at least 2x2 after border removal",
+            wd, hd
+        )));
     }
 
     let wincr = 2 * wc + 1;
@@ -232,9 +233,10 @@ pub fn windowed_mean_square(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
     let hd = hb - 2 * (hc + 1);
 
     if wd < 2 || hd < 2 {
-        return Err(FilterError::InvalidParameters(
-            "image too small for the given kernel".into(),
-        ));
+        return Err(FilterError::InvalidParameters(format!(
+            "output dimensions ({}x{}) too small; kernel requires at least 2x2 after border removal",
+            wd, hd
+        )));
     }
 
     let wincr = 2 * wc + 1;
