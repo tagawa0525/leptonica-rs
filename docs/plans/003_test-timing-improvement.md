@@ -15,7 +15,11 @@ C版 leptonica は van Herk/Gil-Werman (vHGW) アルゴリズムで O(1)/pixel�
 - `reference/leptonica/src/graymorph.c` — vHGW アルゴリズム、3x3 fast path
 - `reference/leptonica/src/pageseg.c` — 形態学演算を使うページセグメンテーション
 
-## PR構成（直列実行、各PRマージ後に次へ）
+## PR構成（計画と本PRの位置づけ）
+
+このセクションは、本来は複数の PR を直列に実行するための全体計画を示したものです。
+ただし、**本PRでは計画上の PR 2（pageseg 委譲）、PR 3（vHGW アルゴリズム）、PR 4（3×3 fast path）を 1 つの PR に統合して実装**しており、
+以下の PR 番号は「計画上の論理的な区分」を表すメモとして扱います。
 
 ### PR 1: nextest slow-timeout 設定
 
