@@ -257,7 +257,7 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..h {
             for x in 0..w {
-                let val = ((x + y * w) % 256) as u32;
+                let val = (x + y * w) % 256;
                 pm.set_pixel_unchecked(x, y, val);
             }
         }

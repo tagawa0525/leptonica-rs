@@ -19,6 +19,7 @@ pub mod enhance;
 mod error;
 pub mod kernel;
 pub mod rank;
+pub mod windowed;
 
 pub use error::{FilterError, FilterResult};
 pub use kernel::Kernel;
@@ -40,4 +41,8 @@ pub use enhance::{
 };
 pub use rank::{
     max_filter, median_filter, min_filter, rank_filter, rank_filter_color, rank_filter_gray,
+};
+pub use windowed::{
+    WindowedStatsResult, mean_square_accum, windowed_mean, windowed_mean_square, windowed_stats,
+    windowed_variance,
 };
