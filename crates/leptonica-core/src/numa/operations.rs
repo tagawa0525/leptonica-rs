@@ -788,9 +788,11 @@ impl Numa {
         let mut max_count: usize = 1;
 
         for &val in &array[1..] {
-            if val == prev_val {
+            if val == prev_val || (val.is_nan() && prev_val.is_nan()) {
+                // Same run: identical values, including NaN treated as equal.
                 prev_count += 1;
             } else {
+                // New run: update max if the previous run was longer.
                 if prev_count > max_count {
                     max_count = prev_count;
                     max_val = prev_val;
@@ -1247,5 +1249,14 @@ mod tests {
     fn test_mode_empty() {
         let na = Numa::new();
         assert!(na.mode().is_err());
+    }
+
+    #[test]
+    fn test_mode_with_nan() {
+        // Multiple NaNs should be counted as a single run
+        let na = Numa::from_vec(vec![1.0, f32::NAN, 2.0, f32::NAN, f32::NAN]);
+        let (val, count) = na.mode().unwrap();
+        assert!(val.is_nan());
+        assert_eq!(count, 3);
     }
 }
