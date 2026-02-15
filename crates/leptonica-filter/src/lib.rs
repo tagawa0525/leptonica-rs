@@ -14,6 +14,7 @@ pub mod adaptmap;
 pub mod bilateral;
 pub mod convolve;
 pub mod edge;
+pub mod enhance;
 mod error;
 pub mod kernel;
 pub mod rank;
@@ -29,6 +30,7 @@ pub use adaptmap::{
 pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
 pub use convolve::{box_blur, convolve, convolve_color, convolve_gray, gaussian_blur};
 pub use edge::{EdgeOrientation, emboss, laplacian_edge, sharpen, sobel_edge, unsharp_mask};
+pub use enhance::{TrcLut, contrast_trc, equalize_trc, gamma_trc, trc_map, trc_map_general};
 pub use rank::{
     max_filter, median_filter, min_filter, rank_filter, rank_filter_color, rank_filter_gray,
 };

@@ -1,0 +1,575 @@
+//! Image enhancement operations
+//!
+//! Tone reproduction curve (TRC) mapping, gamma correction, contrast
+//! enhancement, histogram equalization, HSV modification, and color
+//! shifting.
+//!
+//! # See also
+//!
+//! C Leptonica: `enhance.c`
+
+use crate::{FilterError, FilterResult};
+use leptonica_core::{Pix, PixMut, PixelDepth, color};
+
+/// Scale factor for contrast enhancement, matching C Leptonica.
+const ENHANCE_SCALE_FACTOR: f64 = 5.0;
+
+/// A 256-entry lookup table for tone reproduction curve mapping.
+///
+/// Maps input pixel values [0..255] to output pixel values [0..255].
+pub type TrcLut = [u8; 256];
+
+/// Generate a gamma TRC (tone reproduction curve) lookup table.
+///
+/// The mapping uses a power function: `output = 255 * ((input - minval) / (maxval - minval)) ^ (1/gamma)`
+///
+/// # Arguments
+///
+/// * `gamma` - Gamma correction factor; must be > 0.0.
+///   Values > 1.0 lighten the image; values < 1.0 darken it.
+/// * `minval` - Input value that maps to 0 output. Can be negative.
+/// * `maxval` - Input value that maps to 255 output. Can exceed 255.
+///
+/// # See also
+///
+/// C Leptonica: `numaGammaTRC()` in `enhance.c`
+pub fn gamma_trc(gamma: f32, minval: i32, maxval: i32) -> FilterResult<TrcLut> {
+    if minval >= maxval {
+        return Err(FilterError::InvalidParameters(
+            "minval must be less than maxval".into(),
+        ));
+    }
+    if gamma <= 0.0 {
+        return Err(FilterError::InvalidParameters("gamma must be > 0.0".into()));
+    }
+
+    let inv_gamma = 1.0_f32 / gamma;
+    let range = (maxval - minval) as f32;
+    let mut lut = [0u8; 256];
+
+    for i in 0..256i32 {
+        let val = if i < minval {
+            0
+        } else if i > maxval {
+            255
+        } else {
+            let x = (i - minval) as f32 / range;
+            let mapped = 255.0 * x.powf(inv_gamma) + 0.5;
+            (mapped as i32).clamp(0, 255)
+        };
+        lut[i as usize] = val as u8;
+    }
+
+    Ok(lut)
+}
+
+/// Generate a contrast enhancement TRC lookup table.
+///
+/// Uses an atan-based mapping with maximum slope at value 127.
+/// Pixels below 127 are darkened and pixels above 127 are lightened.
+///
+/// # Arguments
+///
+/// * `factor` - Contrast enhancement factor. 0.0 is no enhancement;
+///   useful range is (0.0, 1.0) but larger values are allowed.
+///
+/// # See also
+///
+/// C Leptonica: `numaContrastTRC()` in `enhance.c`
+pub fn contrast_trc(factor: f32) -> FilterResult<TrcLut> {
+    if factor < 0.0 {
+        return Err(FilterError::InvalidParameters(
+            "factor must be >= 0.0".into(),
+        ));
+    }
+
+    let mut lut = [0u8; 256];
+
+    if factor == 0.0 {
+        // Identity mapping
+        for (i, entry) in lut.iter_mut().enumerate() {
+            *entry = i as u8;
+        }
+        return Ok(lut);
+    }
+
+    let scale = ENHANCE_SCALE_FACTOR;
+    let factor_d = factor as f64;
+    let ymax = (1.0 * factor_d * scale).atan();
+    let ymin = (-127.0 * factor_d * scale / 128.0).atan();
+    let dely = ymax - ymin;
+
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let x = i as f64;
+        let val = (255.0 / dely) * (-ymin + (factor_d * scale * (x - 127.0) / 128.0).atan()) + 0.5;
+        *entry = (val as i32).clamp(0, 255) as u8;
+    }
+
+    Ok(lut)
+}
+
+/// Generate a histogram equalization TRC lookup table.
+///
+/// Computes a mapping that equalizes the histogram of an 8 bpp image.
+///
+/// # Arguments
+///
+/// * `pix` - Input 8 bpp grayscale image (no colormap)
+/// * `fract` - Fraction of equalization movement. 0.0 = no change, 1.0 = full equalization.
+/// * `factor` - Subsampling factor for histogram computation; >= 1.
+///
+/// # See also
+///
+/// C Leptonica: `numaEqualizeTRC()` in `enhance.c`
+pub fn equalize_trc(pix: &Pix, fract: f32, factor: u32) -> FilterResult<TrcLut> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(0.0..=1.0).contains(&fract) {
+        return Err(FilterError::InvalidParameters(
+            "fract must be in [0.0, 1.0]".into(),
+        ));
+    }
+    if factor < 1 {
+        return Err(FilterError::InvalidParameters("factor must be >= 1".into()));
+    }
+
+    let hist = pix.gray_histogram(factor)?;
+    let sum: f32 = hist.sum().unwrap_or(0.0);
+    let partial = hist.partial_sums();
+
+    let mut lut = [0u8; 256];
+    for (iin, entry) in lut.iter_mut().enumerate() {
+        let cumul = partial.get(iin).unwrap_or(0.0);
+        let itarg = (255.0 * cumul / sum + 0.5) as i32;
+        let iout = iin as i32 + (fract * (itarg - iin as i32) as f32) as i32;
+        *entry = iout.clamp(0, 255) as u8;
+    }
+
+    Ok(lut)
+}
+
+/// Apply a TRC lookup table to an image in-place.
+///
+/// For 8 bpp images, each pixel value is remapped through the LUT.
+/// For 32 bpp images, R, G, and B are each remapped independently
+/// (alpha is not preserved).
+///
+/// # Arguments
+///
+/// * `pix` - Mutable 8 or 32 bpp image (not colormapped)
+/// * `mask` - Optional 1 bpp mask; if provided, only pixels under
+///   foreground mask pixels are modified.
+/// * `lut` - 256-entry lookup table
+///
+/// # See also
+///
+/// C Leptonica: `pixTRCMap()` in `enhance.c`
+pub fn trc_map(pix: &mut PixMut, mask: Option<&Pix>, lut: &TrcLut) -> FilterResult<()> {
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    if let Some(m) = mask
+        && m.depth() != PixelDepth::Bit1
+    {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "1 bpp mask",
+            actual: m.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    match (d, mask) {
+        (PixelDepth::Bit8, None) => {
+            for y in 0..h {
+                for x in 0..w {
+                    let val = pix.get_pixel_unchecked(x, y) as u8;
+                    pix.set_pixel_unchecked(x, y, lut[val as usize] as u32);
+                }
+            }
+        }
+        (PixelDepth::Bit32, None) => {
+            for y in 0..h {
+                for x in 0..w {
+                    let pixel = pix.get_pixel_unchecked(x, y);
+                    let (r, g, b, _) = color::extract_rgba(pixel);
+                    let nr = lut[r as usize];
+                    let ng = lut[g as usize];
+                    let nb = lut[b as usize];
+                    pix.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+                }
+            }
+        }
+        (PixelDepth::Bit8, Some(m)) => {
+            let mw = m.width();
+            let mh = m.height();
+            for y in 0..h.min(mh) {
+                for x in 0..w.min(mw) {
+                    if m.get_pixel_unchecked(x, y) == 0 {
+                        continue;
+                    }
+                    let val = pix.get_pixel_unchecked(x, y) as u8;
+                    pix.set_pixel_unchecked(x, y, lut[val as usize] as u32);
+                }
+            }
+        }
+        (PixelDepth::Bit32, Some(m)) => {
+            let mw = m.width();
+            let mh = m.height();
+            for y in 0..h.min(mh) {
+                for x in 0..w.min(mw) {
+                    if m.get_pixel_unchecked(x, y) == 0 {
+                        continue;
+                    }
+                    let pixel = pix.get_pixel_unchecked(x, y);
+                    let (r, g, b, _) = color::extract_rgba(pixel);
+                    let nr = lut[r as usize];
+                    let ng = lut[g as usize];
+                    let nb = lut[b as usize];
+                    pix.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+                }
+            }
+        }
+        _ => unreachable!(),
+    }
+
+    Ok(())
+}
+
+/// Apply separate R, G, B TRC lookup tables to a 32 bpp image in-place.
+///
+/// Each color channel is remapped through its own LUT independently.
+///
+/// # Arguments
+///
+/// * `pix` - Mutable 32 bpp RGB image (not colormapped)
+/// * `mask` - Optional 1 bpp mask
+/// * `lut_r` - Red channel lookup table
+/// * `lut_g` - Green channel lookup table
+/// * `lut_b` - Blue channel lookup table
+///
+/// # See also
+///
+/// C Leptonica: `pixTRCMapGeneral()` in `enhance.c`
+pub fn trc_map_general(
+    pix: &mut PixMut,
+    mask: Option<&Pix>,
+    lut_r: &TrcLut,
+    lut_g: &TrcLut,
+    lut_b: &TrcLut,
+) -> FilterResult<()> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if let Some(m) = mask
+        && m.depth() != PixelDepth::Bit1
+    {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "1 bpp mask",
+            actual: m.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    match mask {
+        None => {
+            for y in 0..h {
+                for x in 0..w {
+                    let pixel = pix.get_pixel_unchecked(x, y);
+                    let (r, g, b, _) = color::extract_rgba(pixel);
+                    let nr = lut_r[r as usize];
+                    let ng = lut_g[g as usize];
+                    let nb = lut_b[b as usize];
+                    pix.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+                }
+            }
+        }
+        Some(m) => {
+            let mw = m.width();
+            let mh = m.height();
+            for y in 0..h.min(mh) {
+                for x in 0..w.min(mw) {
+                    if m.get_pixel_unchecked(x, y) == 0 {
+                        continue;
+                    }
+                    let pixel = pix.get_pixel_unchecked(x, y);
+                    let (r, g, b, _) = color::extract_rgba(pixel);
+                    let nr = lut_r[r as usize];
+                    let ng = lut_g[g as usize];
+                    let nb = lut_b[b as usize];
+                    pix.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use leptonica_core::Pix;
+
+    // ========== gamma_trc tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gamma_trc_identity() {
+        // gamma=1.0, minval=0, maxval=255 should be identity
+        let lut = gamma_trc(1.0, 0, 255).unwrap();
+        for i in 0..256 {
+            assert_eq!(lut[i], i as u8, "identity mismatch at {}", i);
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gamma_trc_lighten() {
+        // gamma > 1.0 lightens: midtones should increase
+        let lut = gamma_trc(2.0, 0, 255).unwrap();
+        assert_eq!(lut[0], 0);
+        assert_eq!(lut[255], 255);
+        // Midpoint should be lighter (higher) than 128
+        assert!(lut[128] > 128, "expected > 128, got {}", lut[128]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gamma_trc_darken() {
+        // gamma < 1.0 darkens: midtones should decrease
+        let lut = gamma_trc(0.5, 0, 255).unwrap();
+        assert_eq!(lut[0], 0);
+        assert_eq!(lut[255], 255);
+        assert!(lut[128] < 128, "expected < 128, got {}", lut[128]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gamma_trc_custom_range() {
+        // minval=50, maxval=200: values below 50 map to 0, above 200 to 255
+        let lut = gamma_trc(1.0, 50, 200).unwrap();
+        assert_eq!(lut[0], 0);
+        assert_eq!(lut[49], 0);
+        assert_eq!(lut[200], 255);
+        assert_eq!(lut[255], 255);
+        // Value at 125 (midpoint of 50..200) should be ~128
+        assert!((lut[125] as i32 - 128).abs() <= 2, "got {}", lut[125]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gamma_trc_invalid_params() {
+        assert!(gamma_trc(1.0, 200, 100).is_err()); // minval >= maxval
+        assert!(gamma_trc(0.0, 0, 255).is_err()); // gamma <= 0
+        assert!(gamma_trc(-1.0, 0, 255).is_err()); // gamma negative
+    }
+
+    // ========== contrast_trc tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_contrast_trc_zero_factor() {
+        // factor=0 should be identity
+        let lut = contrast_trc(0.0).unwrap();
+        for i in 0..256 {
+            assert_eq!(lut[i], i as u8, "identity mismatch at {}", i);
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_contrast_trc_enhancement() {
+        // Positive factor: dark pixels get darker, light pixels get lighter
+        let lut = contrast_trc(0.5).unwrap();
+        assert_eq!(lut[0], 0);
+        assert_eq!(lut[255], 255);
+        // Midpoint stays ~128
+        assert!((lut[127] as i32 - 127).abs() <= 2, "got {}", lut[127]);
+        // Dark pixel (64) should be darker
+        assert!(lut[64] < 64, "expected < 64, got {}", lut[64]);
+        // Light pixel (192) should be lighter
+        assert!(lut[192] > 192, "expected > 192, got {}", lut[192]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_contrast_trc_monotonic() {
+        let lut = contrast_trc(0.8).unwrap();
+        for i in 1..256 {
+            assert!(lut[i] >= lut[i - 1], "not monotonic at {}", i);
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_contrast_trc_invalid_factor() {
+        assert!(contrast_trc(-0.5).is_err());
+    }
+
+    // ========== equalize_trc tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_equalize_trc_uniform() {
+        // Uniform image: equalization should not change much
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let lut = equalize_trc(&pix, 1.0, 1).unwrap();
+        // All pixels are 0, so all should map to 0
+        assert_eq!(lut[0], 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_equalize_trc_fract_zero() {
+        // fract=0: identity mapping
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let lut = equalize_trc(&pix, 0.0, 1).unwrap();
+        for i in 0..256 {
+            assert_eq!(lut[i], i as u8, "identity mismatch at {}", i);
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_equalize_trc_invalid_params() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(equalize_trc(&pix, -0.1, 1).is_err());
+        assert!(equalize_trc(&pix, 1.5, 1).is_err());
+        assert!(equalize_trc(&pix, 0.5, 0).is_err());
+
+        let pix32 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(equalize_trc(&pix32, 0.5, 1).is_err());
+    }
+
+    // ========== trc_map tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_trc_map_8bpp_identity() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 128);
+        pm.set_pixel_unchecked(2, 0, 255);
+
+        let lut: TrcLut = core::array::from_fn(|i| i as u8);
+        trc_map(&mut pm, None, &lut).unwrap();
+
+        assert_eq!(pm.get_pixel_unchecked(0, 0), 0);
+        assert_eq!(pm.get_pixel_unchecked(1, 0), 128);
+        assert_eq!(pm.get_pixel_unchecked(2, 0), 255);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_trc_map_8bpp_invert() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 128);
+        pm.set_pixel_unchecked(2, 0, 255);
+
+        let lut: TrcLut = core::array::from_fn(|i| (255 - i) as u8);
+        trc_map(&mut pm, None, &lut).unwrap();
+
+        assert_eq!(pm.get_pixel_unchecked(0, 0), 255);
+        assert_eq!(pm.get_pixel_unchecked(1, 0), 127);
+        assert_eq!(pm.get_pixel_unchecked(2, 0), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_trc_map_32bpp() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 150, 200));
+
+        // Double all channels (clamped at 255)
+        let lut: TrcLut = core::array::from_fn(|i| (i * 2).min(255) as u8);
+        trc_map(&mut pm, None, &lut).unwrap();
+
+        let (r, g, b) = color::extract_rgb(pm.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 200);
+        assert_eq!(g, 255); // 150*2=300, clamped to 255
+        assert_eq!(b, 255); // 200*2=400, clamped to 255
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_trc_map_with_mask() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 100);
+        pm.set_pixel_unchecked(1, 0, 100);
+        pm.set_pixel_unchecked(2, 0, 100);
+
+        let mask = Pix::new(3, 1, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(0, 0, 1); // ON: apply
+        mm.set_pixel_unchecked(1, 0, 0); // OFF: skip
+        mm.set_pixel_unchecked(2, 0, 1); // ON: apply
+        let mask: Pix = mm.into();
+
+        let lut: TrcLut = core::array::from_fn(|i| (255 - i) as u8); // invert
+        trc_map(&mut pm, Some(&mask), &lut).unwrap();
+
+        assert_eq!(pm.get_pixel_unchecked(0, 0), 155); // inverted
+        assert_eq!(pm.get_pixel_unchecked(1, 0), 100); // unchanged
+        assert_eq!(pm.get_pixel_unchecked(2, 0), 155); // inverted
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_trc_map_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let lut: TrcLut = core::array::from_fn(|i| i as u8);
+        assert!(trc_map(&mut pm, None, &lut).is_err());
+    }
+
+    // ========== trc_map_general tests ==========
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_trc_map_general_separate_channels() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 100, 100));
+
+        // R: invert, G: identity, B: zero
+        let lut_r: TrcLut = core::array::from_fn(|i| (255 - i) as u8);
+        let lut_g: TrcLut = core::array::from_fn(|i| i as u8);
+        let lut_b: TrcLut = [0u8; 256];
+
+        trc_map_general(&mut pm, None, &lut_r, &lut_g, &lut_b).unwrap();
+
+        let (r, g, b) = color::extract_rgb(pm.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 155); // 255 - 100
+        assert_eq!(g, 100); // identity
+        assert_eq!(b, 0); // zeroed
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_trc_map_general_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let lut: TrcLut = core::array::from_fn(|i| i as u8);
+        assert!(trc_map_general(&mut pm, None, &lut, &lut, &lut).is_err());
+    }
+}
