@@ -46,8 +46,62 @@ pub fn dilate_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
         return Ok(pix.clone());
     }
 
-    // Placeholder: will be replaced with vHGW implementation
-    dilate_gray_naive(pix, hsize, vsize)
+    dilate_gray_vhgw(pix, hsize as usize, vsize as usize)
+}
+
+/// vHGW dilate implementation
+fn dilate_gray_vhgw(pix: &Pix, hsize: usize, vsize: usize) -> MorphResult<Pix> {
+    // Calculate border sizes
+    let (leftpix, rightpix, toppix, bottompix) = if vsize == 1 {
+        ((hsize + 1) / 2, (3 * hsize + 1) / 2, 0, 0)
+    } else if hsize == 1 {
+        (0, 0, (vsize + 1) / 2, (3 * vsize + 1) / 2)
+    } else {
+        (
+            (hsize + 1) / 2,
+            (3 * hsize + 1) / 2,
+            (vsize + 1) / 2,
+            (3 * vsize + 1) / 2,
+        )
+    };
+
+    // Add border (identity value for dilation is 0)
+    let pixb = add_border(pix, leftpix, rightpix, toppix, bottompix, 0)?;
+    let w = pixb.width() as usize;
+    let h = pixb.height() as usize;
+    let wplb = pixb.wpl() as usize;
+
+    // Create temporary output
+    let pixt = Pix::new(w as u32, h as u32, PixelDepth::Bit8)?;
+    let mut pixt_mut = pixt.try_into_mut().unwrap();
+    let wplt = pixt_mut.wpl() as usize;
+
+    let datab = pixb.data();
+    let datat = pixt_mut.data_mut();
+
+    if vsize == 1 {
+        // Horizontal only
+        dilate_gray_1d_vhgw(datat, wplt, datab, wplb, w, h, hsize, true);
+    } else if hsize == 1 {
+        // Vertical only
+        dilate_gray_1d_vhgw(datat, wplt, datab, wplb, h, w, vsize, false);
+    } else {
+        // Both: H pass then V pass
+        dilate_gray_1d_vhgw(datat, wplt, datab, wplb, w, h, hsize, true);
+
+        // Reset border for vertical pass
+        let pixt: Pix = pixt_mut.into();
+        let pixb2 = set_border(&pixt, leftpix, rightpix, toppix, bottompix, 0)?;
+        let mut pixt2_mut = pixt.try_into_mut().unwrap();
+        let datab2 = pixb2.data();
+        let datat2 = pixt2_mut.data_mut();
+
+        dilate_gray_1d_vhgw(datat2, wplt, datab2, wplb, h, w, vsize, false);
+        pixt_mut = pixt2_mut;
+    }
+
+    let pixt: Pix = pixt_mut.into();
+    remove_border(&pixt, leftpix, rightpix, toppix, bottompix)
 }
 
 /// Naive dilate implementation (for testing)
@@ -112,8 +166,56 @@ pub fn erode_gray(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
         return Ok(pix.clone());
     }
 
-    // Placeholder: will be replaced with vHGW implementation
-    erode_gray_naive(pix, hsize, vsize)
+    erode_gray_vhgw(pix, hsize as usize, vsize as usize)
+}
+
+/// vHGW erode implementation
+fn erode_gray_vhgw(pix: &Pix, hsize: usize, vsize: usize) -> MorphResult<Pix> {
+    let (leftpix, rightpix, toppix, bottompix) = if vsize == 1 {
+        ((hsize + 1) / 2, (3 * hsize + 1) / 2, 0, 0)
+    } else if hsize == 1 {
+        (0, 0, (vsize + 1) / 2, (3 * vsize + 1) / 2)
+    } else {
+        (
+            (hsize + 1) / 2,
+            (3 * hsize + 1) / 2,
+            (vsize + 1) / 2,
+            (3 * vsize + 1) / 2,
+        )
+    };
+
+    // Add border (identity value for erosion is 255)
+    let pixb = add_border(pix, leftpix, rightpix, toppix, bottompix, 255)?;
+    let w = pixb.width() as usize;
+    let h = pixb.height() as usize;
+    let wplb = pixb.wpl() as usize;
+
+    let pixt = Pix::new(w as u32, h as u32, PixelDepth::Bit8)?;
+    let mut pixt_mut = pixt.try_into_mut().unwrap();
+    let wplt = pixt_mut.wpl() as usize;
+
+    let datab = pixb.data();
+    let datat = pixt_mut.data_mut();
+
+    if vsize == 1 {
+        erode_gray_1d_vhgw(datat, wplt, datab, wplb, w, h, hsize, true);
+    } else if hsize == 1 {
+        erode_gray_1d_vhgw(datat, wplt, datab, wplb, h, w, vsize, false);
+    } else {
+        erode_gray_1d_vhgw(datat, wplt, datab, wplb, w, h, hsize, true);
+
+        let pixt: Pix = pixt_mut.into();
+        let pixb2 = set_border(&pixt, leftpix, rightpix, toppix, bottompix, 255)?;
+        let mut pixt2_mut = pixt.try_into_mut().unwrap();
+        let datab2 = pixb2.data();
+        let datat2 = pixt2_mut.data_mut();
+
+        erode_gray_1d_vhgw(datat2, wplt, datab2, wplb, h, w, vsize, false);
+        pixt_mut = pixt2_mut;
+    }
+
+    let pixt: Pix = pixt_mut.into();
+    remove_border(&pixt, leftpix, rightpix, toppix, bottompix)
 }
 
 /// Naive erode implementation (for testing)
@@ -253,6 +355,188 @@ fn check_grayscale(pix: &Pix) -> MorphResult<()> {
     Ok(())
 }
 
+// vHGW (van Herk/Gil-Werman) algorithm helpers
+
+/// Get byte value from packed pixel data (8bpp: 4 pixels per word)
+#[inline]
+fn get_data_byte(line: &[u32], j: usize) -> u8 {
+    ((line[j / 4] >> (24 - 8 * (j & 3))) & 0xff) as u8
+}
+
+/// Set byte value in packed pixel data (8bpp: 4 pixels per word)
+#[inline]
+fn set_data_byte(line: &mut [u32], j: usize, val: u8) {
+    let idx = j / 4;
+    let shift = 24 - 8 * (j & 3);
+    line[idx] = (line[idx] & !(0xff << shift)) | ((val as u32) << shift);
+}
+
+/// 1D van Herk/Gil-Werman dilation (O(3) comparisons per pixel)
+///
+/// Processes a single line (horizontal or vertical) using vHGW algorithm.
+/// The line is divided into blocks of `size` pixels, and for each block,
+/// forward and backward max scans are combined.
+fn dilate_gray_1d_vhgw(
+    datad: &mut [u32],
+    wpld: usize,
+    datas: &[u32],
+    wpls: usize,
+    dim1: usize, // width for horiz, height for vert
+    dim2: usize, // height for horiz, width for vert
+    size: usize,
+    is_horizontal: bool,
+) {
+    let hsize = size / 2;
+    let nsteps = (dim1 - 2 * hsize) / size;
+    let mut buffer = vec![0u8; dim1];
+    let mut maxarray = vec![0u8; 2 * size];
+
+    if is_horizontal {
+        // Horizontal: process rows
+        for i in 0..dim2 {
+            let lines = &datas[i * wpls..];
+            let lined = &mut datad[i * wpld..];
+
+            // Fill buffer
+            for j in 0..dim1 {
+                buffer[j] = get_data_byte(lines, j);
+            }
+
+            // Process blocks
+            for j in 0..nsteps {
+                let startmax = (j + 1) * size - 1;
+                maxarray[size - 1] = buffer[startmax];
+
+                // Backward and forward fill
+                for k in 1..size {
+                    maxarray[size - 1 - k] = maxarray[size - k].max(buffer[startmax - k]);
+                    maxarray[size - 1 + k] = maxarray[size + k - 2].max(buffer[startmax + k]);
+                }
+
+                // Write output
+                let startx = hsize + j * size;
+                set_data_byte(lined, startx, maxarray[0]);
+                set_data_byte(lined, startx + size - 1, maxarray[2 * size - 2]);
+                for k in 1..size - 1 {
+                    let maxval = maxarray[k].max(maxarray[k + size - 1]);
+                    set_data_byte(lined, startx + k, maxval);
+                }
+            }
+        }
+    } else {
+        // Vertical: process columns
+        for j in 0..dim2 {
+            // Fill buffer (column)
+            for i in 0..dim1 {
+                let lines = &datas[i * wpls..];
+                buffer[i] = get_data_byte(lines, j);
+            }
+
+            // Process blocks
+            for i in 0..nsteps {
+                let startmax = (i + 1) * size - 1;
+                maxarray[size - 1] = buffer[startmax];
+
+                // Backward and forward fill
+                for k in 1..size {
+                    maxarray[size - 1 - k] = maxarray[size - k].max(buffer[startmax - k]);
+                    maxarray[size - 1 + k] = maxarray[size + k - 2].max(buffer[startmax + k]);
+                }
+
+                // Write output (vertical)
+                let starty = hsize + i * size;
+                let lined = &mut datad[starty * wpld..];
+                set_data_byte(lined, j, maxarray[0]);
+
+                let lined_end = &mut datad[(starty + size - 1) * wpld..];
+                set_data_byte(lined_end, j, maxarray[2 * size - 2]);
+
+                for k in 1..size - 1 {
+                    let maxval = maxarray[k].max(maxarray[k + size - 1]);
+                    let lined_k = &mut datad[(starty + k) * wpld..];
+                    set_data_byte(lined_k, j, maxval);
+                }
+            }
+        }
+    }
+}
+
+/// 1D van Herk/Gil-Werman erosion (O(3) comparisons per pixel)
+fn erode_gray_1d_vhgw(
+    datad: &mut [u32],
+    wpld: usize,
+    datas: &[u32],
+    wpls: usize,
+    dim1: usize,
+    dim2: usize,
+    size: usize,
+    is_horizontal: bool,
+) {
+    let hsize = size / 2;
+    let nsteps = (dim1 - 2 * hsize) / size;
+    let mut buffer = vec![0u8; dim1];
+    let mut minarray = vec![0u8; 2 * size];
+
+    if is_horizontal {
+        for i in 0..dim2 {
+            let lines = &datas[i * wpls..];
+            let lined = &mut datad[i * wpld..];
+
+            for j in 0..dim1 {
+                buffer[j] = get_data_byte(lines, j);
+            }
+
+            for j in 0..nsteps {
+                let startmin = (j + 1) * size - 1;
+                minarray[size - 1] = buffer[startmin];
+
+                for k in 1..size {
+                    minarray[size - 1 - k] = minarray[size - k].min(buffer[startmin - k]);
+                    minarray[size - 1 + k] = minarray[size + k - 2].min(buffer[startmin + k]);
+                }
+
+                let startx = hsize + j * size;
+                set_data_byte(lined, startx, minarray[0]);
+                set_data_byte(lined, startx + size - 1, minarray[2 * size - 2]);
+                for k in 1..size - 1 {
+                    let minval = minarray[k].min(minarray[k + size - 1]);
+                    set_data_byte(lined, startx + k, minval);
+                }
+            }
+        }
+    } else {
+        for j in 0..dim2 {
+            for i in 0..dim1 {
+                let lines = &datas[i * wpls..];
+                buffer[i] = get_data_byte(lines, j);
+            }
+
+            for i in 0..nsteps {
+                let startmin = (i + 1) * size - 1;
+                minarray[size - 1] = buffer[startmin];
+
+                for k in 1..size {
+                    minarray[size - 1 - k] = minarray[size - k].min(buffer[startmin - k]);
+                    minarray[size - 1 + k] = minarray[size + k - 2].min(buffer[startmin + k]);
+                }
+
+                let starty = hsize + i * size;
+                let lined = &mut datad[starty * wpld..];
+                set_data_byte(lined, j, minarray[0]);
+
+                let lined_end = &mut datad[(starty + size - 1) * wpld..];
+                set_data_byte(lined_end, j, minarray[2 * size - 2]);
+
+                for k in 1..size - 1 {
+                    let minval = minarray[k].min(minarray[k + size - 1]);
+                    let lined_k = &mut datad[(starty + k) * wpld..];
+                    set_data_byte(lined_k, j, minval);
+                }
+            }
+        }
+    }
+}
+
 /// Ensure sizes are odd (as required by Leptonica's convention)
 fn ensure_odd(hsize: u32, vsize: u32) -> MorphResult<(u32, u32)> {
     if hsize == 0 || vsize == 0 {
@@ -273,6 +557,112 @@ fn ensure_odd(hsize: u32, vsize: u32) -> MorphResult<(u32, u32)> {
     };
 
     Ok((hsize, vsize))
+}
+
+/// Add border with constant value
+fn add_border(
+    pix: &Pix,
+    left: usize,
+    right: usize,
+    top: usize,
+    bottom: usize,
+    val: u8,
+) -> MorphResult<Pix> {
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    let new_w = (w + left + right) as u32;
+    let new_h = (h + top + bottom) as u32;
+
+    let out = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    // Fill with border value
+    for y in 0..new_h {
+        for x in 0..new_w {
+            out_mut.set_pixel_unchecked(x, y, val as u32);
+        }
+    }
+
+    // Copy source region
+    for y in 0..h {
+        for x in 0..w {
+            let src_val = pix.get_pixel_unchecked(x as u32, y as u32);
+            out_mut.set_pixel_unchecked((x + left) as u32, (y + top) as u32, src_val);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Set border to constant value
+fn set_border(
+    pix: &Pix,
+    left: usize,
+    right: usize,
+    top: usize,
+    bottom: usize,
+    val: u8,
+) -> MorphResult<Pix> {
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    let out = pix.deep_clone();
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    // Top border
+    for y in 0..top {
+        for x in 0..w {
+            out_mut.set_pixel_unchecked(x as u32, y as u32, val as u32);
+        }
+    }
+
+    // Bottom border
+    for y in (h - bottom)..h {
+        for x in 0..w {
+            out_mut.set_pixel_unchecked(x as u32, y as u32, val as u32);
+        }
+    }
+
+    // Left border
+    for y in 0..h {
+        for x in 0..left {
+            out_mut.set_pixel_unchecked(x as u32, y as u32, val as u32);
+        }
+    }
+
+    // Right border
+    for y in 0..h {
+        for x in (w - right)..w {
+            out_mut.set_pixel_unchecked(x as u32, y as u32, val as u32);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Remove border
+fn remove_border(
+    pix: &Pix,
+    left: usize,
+    right: usize,
+    top: usize,
+    bottom: usize,
+) -> MorphResult<Pix> {
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    let new_w = (w - left - right) as u32;
+    let new_h = (h - top - bottom) as u32;
+
+    let out = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..new_h as usize {
+        for x in 0..new_w as usize {
+            let src_val = pix.get_pixel_unchecked((x + left) as u32, (y + top) as u32);
+            out_mut.set_pixel_unchecked(x as u32, y as u32, src_val);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 #[cfg(test)]
@@ -533,7 +923,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dilate_vhgw_equivalence_3x3() {
         let pix = create_random_grayscale_image(100, 80, 12345);
         let naive = dilate_gray_naive(&pix, 3, 3).unwrap();
@@ -542,7 +931,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_dilate_vhgw_equivalence_7x5() {
         let pix = create_random_grayscale_image(100, 80, 54321);
         let naive = dilate_gray_naive(&pix, 7, 5).unwrap();
@@ -551,7 +940,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_dilate_vhgw_equivalence_horizontal() {
         let pix = create_random_grayscale_image(100, 80, 99999);
         let naive = dilate_gray_naive(&pix, 11, 1).unwrap();
@@ -560,7 +949,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_dilate_vhgw_equivalence_vertical() {
         let pix = create_random_grayscale_image(100, 80, 11111);
         let naive = dilate_gray_naive(&pix, 1, 9).unwrap();
@@ -569,7 +958,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_erode_vhgw_equivalence_3x3() {
         let pix = create_random_grayscale_image(100, 80, 67890);
         let naive = erode_gray_naive(&pix, 3, 3).unwrap();
@@ -578,7 +967,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_erode_vhgw_equivalence_7x5() {
         let pix = create_random_grayscale_image(100, 80, 24680);
         let naive = erode_gray_naive(&pix, 7, 5).unwrap();
