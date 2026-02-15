@@ -8,7 +8,7 @@
 
 use super::{Pix, PixelDepth};
 use crate::color;
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 /// Default perceptual weights for RGB-to-gray conversion.
 ///
@@ -18,7 +18,6 @@ const L_GREEN_WEIGHT: f32 = 0.5;
 const L_BLUE_WEIGHT: f32 = 0.2;
 
 /// Default neutral boost reference value for min/max boost conversions.
-#[allow(dead_code)]
 const DEFAULT_NEUTRAL_BOOST_VAL: i32 = 180;
 
 /// Selection type for min/max gray conversion.
@@ -300,8 +299,43 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvertRGBToGray()` in `pixconv.c`
-    pub fn convert_rgb_to_gray(&self, _rwt: f32, _gwt: f32, _bwt: f32) -> Result<Pix> {
-        todo!("convert_rgb_to_gray not yet implemented")
+    pub fn convert_rgb_to_gray(&self, rwt: f32, gwt: f32, bwt: f32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if rwt < 0.0 || gwt < 0.0 || bwt < 0.0 {
+            return Err(Error::InvalidParameter("weights must all be >= 0.0".into()));
+        }
+
+        let (rwt, gwt, bwt) = if rwt == 0.0 && gwt == 0.0 && bwt == 0.0 {
+            (L_RED_WEIGHT, L_GREEN_WEIGHT, L_BLUE_WEIGHT)
+        } else {
+            let sum = rwt + gwt + bwt;
+            if (sum - 1.0).abs() > 0.0001 {
+                (rwt / sum, gwt / sum, bwt / sum)
+            } else {
+                (rwt, gwt, bwt)
+            }
+        };
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let r = color::red(pixel) as f32;
+                let g = color::green(pixel) as f32;
+                let b = color::blue(pixel) as f32;
+                let gray = (rwt * r + gwt * g + bwt * b + 0.5) as u32;
+                result_mut.set_pixel_unchecked(x, y, gray.min(255));
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert 32 bpp RGB to 8 bpp grayscale using the green channel.
@@ -313,7 +347,25 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvertRGBToGrayFast()` in `pixconv.c`
     pub fn convert_rgb_to_gray_fast(&self) -> Result<Pix> {
-        todo!("convert_rgb_to_gray_fast not yet implemented")
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let g = color::green(pixel) as u32;
+                result_mut.set_pixel_unchecked(x, y, g);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert 32 bpp RGB to 8 bpp grayscale using min/max channel selection.
@@ -321,8 +373,42 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvertRGBToGrayMinMax()` in `pixconv.c`
-    pub fn convert_rgb_to_gray_min_max(&self, _mm_type: MinMaxType) -> Result<Pix> {
-        todo!("convert_rgb_to_gray_min_max not yet implemented")
+    pub fn convert_rgb_to_gray_min_max(&self, mm_type: MinMaxType) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = (r as i32, g as i32, b as i32);
+                let min_val = r.min(g).min(b);
+                let max_val = r.max(g).max(b);
+
+                let val = match mm_type {
+                    MinMaxType::Min => min_val,
+                    MinMaxType::Max => max_val,
+                    MinMaxType::MaxDiff => max_val - min_val,
+                    MinMaxType::MinBoost => {
+                        (min_val * min_val / DEFAULT_NEUTRAL_BOOST_VAL).min(255)
+                    }
+                    MinMaxType::MaxBoost => {
+                        (max_val * max_val / DEFAULT_NEUTRAL_BOOST_VAL).min(255)
+                    }
+                };
+
+                result_mut.set_pixel_unchecked(x, y, val as u32);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert 32 bpp RGB to 8 bpp grayscale with saturation boost.
@@ -337,8 +423,51 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvertRGBToGraySatBoost()` in `pixconv.c`
-    pub fn convert_rgb_to_gray_sat_boost(&self, _refval: i32) -> Result<Pix> {
-        todo!("convert_rgb_to_gray_sat_boost not yet implemented")
+    pub fn convert_rgb_to_gray_sat_boost(&self, refval: i32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if !(1..=255).contains(&refval) {
+            return Err(Error::InvalidParameter("refval must be in [1, 255]".into()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        // Pre-compute lookup tables
+        let mut invmax = [0.0f32; 256];
+        let mut ratio = [0.0f32; 256];
+        for i in 1..256 {
+            invmax[i] = 1.0 / i as f32;
+            ratio[i] = i as f32 / refval as f32;
+        }
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = (r as i32, g as i32, b as i32);
+                let min_val = r.min(g).min(b);
+                let max_val = r.max(g).max(b);
+                let delta = max_val - min_val;
+
+                let sval = if delta == 0 {
+                    0
+                } else {
+                    (255.0 * delta as f32 * invmax[max_val as usize] + 0.5) as i32
+                };
+
+                let fullsat = (255.0 * ratio[max_val as usize]).min(255.0) as i32;
+                let newval = (sval * fullsat + (255 - sval) * max_val) / 255;
+
+                result_mut.set_pixel_unchecked(x, y, newval as u32);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert 32 bpp RGB to 8 bpp grayscale with selectable method.
@@ -352,12 +481,24 @@ impl Pix {
     /// C Leptonica: `pixConvertRGBToGrayGeneral()` in `pixconv.c`
     pub fn convert_rgb_to_gray_general(
         &self,
-        _conv_type: GrayConversionType,
-        _rwt: f32,
-        _gwt: f32,
-        _bwt: f32,
+        conv_type: GrayConversionType,
+        rwt: f32,
+        gwt: f32,
+        bwt: f32,
     ) -> Result<Pix> {
-        todo!("convert_rgb_to_gray_general not yet implemented")
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        match conv_type {
+            GrayConversionType::Red => self.convert_rgb_to_gray(1.0, 0.0, 0.0),
+            GrayConversionType::Green => self.convert_rgb_to_gray(0.0, 1.0, 0.0),
+            GrayConversionType::Blue => self.convert_rgb_to_gray(0.0, 0.0, 1.0),
+            GrayConversionType::Min => self.convert_rgb_to_gray_min_max(MinMaxType::Min),
+            GrayConversionType::Max => self.convert_rgb_to_gray_min_max(MinMaxType::Max),
+            GrayConversionType::Average => self.convert_rgb_to_gray(0.34, 0.33, 0.33),
+            GrayConversionType::Weighted => self.convert_rgb_to_gray(rwt, gwt, bwt),
+        }
     }
 }
 
@@ -471,7 +612,6 @@ mod tests {
     // ---- RGB→Gray conversion tests (Phase 1.1) ----
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_luminance() {
         let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -492,7 +632,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_custom_weights() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -507,7 +646,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_default_weights() {
         // When all weights are 0.0, use default L_RED/GREEN/BLUE_WEIGHT
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -520,14 +658,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_rejects_non_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.convert_rgb_to_gray(0.0, 0.0, 0.0).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_fast() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -543,7 +679,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_min_max() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -575,7 +710,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_sat_boost() {
         // Gray pixel: saturation=0, returns intensity
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -588,7 +722,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_sat_boost_invalid_refval() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         assert!(pix.convert_rgb_to_gray_sat_boost(0).is_err());
@@ -596,7 +729,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_general_red() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -610,7 +742,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_general_average() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -625,7 +756,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_rgb_to_gray_preserves_resolution() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
