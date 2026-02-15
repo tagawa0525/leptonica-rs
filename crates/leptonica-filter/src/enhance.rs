@@ -140,6 +140,16 @@ pub fn equalize_trc(pix: &Pix, fract: f32, factor: u32) -> FilterResult<TrcLut> 
 
     let hist = pix.gray_histogram(factor)?;
     let sum: f32 = hist.sum().unwrap_or(0.0);
+
+    // Handle empty histogram case (sum == 0.0) by returning identity mapping
+    if sum == 0.0 || !sum.is_normal() {
+        let mut lut = [0u8; 256];
+        for (i, entry) in lut.iter_mut().enumerate() {
+            *entry = i as u8;
+        }
+        return Ok(lut);
+    }
+
     let partial = hist.partial_sums();
 
     let mut lut = [0u8; 256];
