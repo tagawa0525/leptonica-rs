@@ -545,6 +545,16 @@ fn seed_fill(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
             }
         }
 
+        // Clear unused padding bits in the last word of each scanline
+        let bit_remainder = w % 32;
+        if bit_remainder != 0 {
+            let last_mask: u32 = u32::MAX << (32 - bit_remainder);
+            for y in 0..(h as usize) {
+                let idx = y * wpl + (wpl - 1);
+                out_data[idx] &= last_mask;
+            }
+        }
+
         current = out_mut.into();
         if !changed {
             break;
@@ -573,6 +583,12 @@ fn subtract_images(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
         ));
     }
 
+    if pix1.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::InvalidParameter(
+            "subtract_images requires 1 bpp images".to_string(),
+        ));
+    }
+
     let data1 = pix1.data();
     let data2 = pix2.data();
 
@@ -582,6 +598,16 @@ fn subtract_images(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
 
     for i in 0..total_words {
         out_data[i] = data1[i] & !data2[i];
+    }
+
+    // Clear unused padding bits in the last word of each scanline
+    let bit_remainder = w % 32;
+    if bit_remainder != 0 {
+        let last_mask: u32 = u32::MAX << (32 - bit_remainder);
+        for y in 0..(h as usize) {
+            let idx = y * wpl + (wpl - 1);
+            out_data[idx] &= last_mask;
+        }
     }
 
     Ok(result_mut.into())
