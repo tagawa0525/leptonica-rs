@@ -62,6 +62,23 @@ pub enum GrayConversionType {
     Weighted,
 }
 
+/// Conversion type for 16 bpp to 8 bpp conversion.
+///
+/// # See also
+///
+/// C Leptonica: `L_LS_BYTE`, `L_MS_BYTE`, etc. in `pix.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Convert16To8Type {
+    /// Use least significant byte
+    LsByte,
+    /// Use most significant byte
+    MsByte,
+    /// Use LSB if max(val) < 256; else MSB
+    AutoByte,
+    /// Saturate to 255: min(val, 0xFF)
+    ClipToFf,
+}
+
 /// Target type for colormap removal.
 ///
 /// # See also
@@ -735,6 +752,306 @@ impl Pix {
 
         Ok(result_mut.into())
     }
+
+    /// Convert any 1 or 8 bpp image to 16 bpp.
+    ///
+    /// - **1 bpp**: 0 -> 0xffff (white), 1 -> 0 (black)
+    /// - **8 bpp**: replicate value in both MSB and LSB (val | val << 8)
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo16()` in `pixconv.c`
+    pub fn convert_to_16(&self) -> Result<Pix> {
+        match self.depth() {
+            PixelDepth::Bit1 => {
+                let w = self.width();
+                let h = self.height();
+                let result = Pix::new(w, h, PixelDepth::Bit16)?;
+                let mut result_mut = result.try_into_mut().unwrap();
+                result_mut.set_resolution(self.xres(), self.yres());
+
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y);
+                        let val16 = if val == 0 { 0xffff } else { 0 };
+                        result_mut.set_pixel_unchecked(x, y, val16);
+                    }
+                }
+                Ok(result_mut.into())
+            }
+            PixelDepth::Bit8 => self.convert_8_to_16(8),
+            _ => Err(Error::UnsupportedDepth(self.depth().bits())),
+        }
+    }
+
+    /// Convert 8 bpp grayscale to 32 bpp RGB.
+    ///
+    /// Replicates gray into R=G=B channels. If colormap is present,
+    /// removes it first via [`remove_colormap`].
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert8To32()` in `pixconv.c`
+    pub fn convert_8_to_32(&self) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        // Handle colormap case
+        if self.has_colormap() {
+            return self.remove_colormap(RemoveColormapTarget::ToFullColor);
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        // Build LUT: gray -> RGB (no alpha)
+        let mut tab = [0u32; 256];
+        for (i, entry) in tab.iter_mut().enumerate() {
+            *entry = (i as u32) << 24 | (i as u32) << 16 | (i as u32) << 8;
+        }
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y) as usize;
+                result_mut.set_pixel_unchecked(x, y, tab[val]);
+            }
+        }
+
+        Ok(result_mut.into())
+    }
+
+    /// Convert 8 bpp grayscale to 16 bpp with configurable shift.
+    ///
+    /// - `left_shift == 8`: proportional mapping (val | val << 8)
+    /// - `left_shift < 8`: simple left shift (val << left_shift)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidParameter`] if `left_shift` is not in `[0, 8]`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert8To16()` in `pixconv.c`
+    pub fn convert_8_to_16(&self, left_shift: u32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if left_shift > 8 {
+            return Err(Error::InvalidParameter(
+                "left_shift must be in [0, 8]".into(),
+            ));
+        }
+
+        // Remove colormap if present
+        let src = if self.has_colormap() {
+            self.remove_colormap(RemoveColormapTarget::ToGrayscale)?
+        } else {
+            self.deep_clone()
+        };
+
+        let w = src.width();
+        let h = src.height();
+        let result = Pix::new(w, h, PixelDepth::Bit16)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = src.get_pixel_unchecked(x, y);
+                let val16 = if left_shift == 8 {
+                    val | (val << 8)
+                } else {
+                    val << left_shift
+                };
+                result_mut.set_pixel_unchecked(x, y, val16);
+            }
+        }
+
+        Ok(result_mut.into())
+    }
+
+    /// Convert 16 bpp to 8 bpp using the specified extraction strategy.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert16To8()` in `pixconv.c`
+    pub fn convert_16_to_8(&self, conversion_type: Convert16To8Type) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit16 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        // For AutoByte, determine which byte to use based on max value
+        let effective_type = match conversion_type {
+            Convert16To8Type::AutoByte => {
+                let w = self.width();
+                let h = self.height();
+                let mut max_val: u32 = 0;
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y);
+                        if val > max_val {
+                            max_val = val;
+                        }
+                    }
+                }
+                if max_val <= 255 {
+                    Convert16To8Type::LsByte
+                } else {
+                    Convert16To8Type::MsByte
+                }
+            }
+            other => other,
+        };
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y);
+                let val8 = match effective_type {
+                    Convert16To8Type::LsByte => val & 0xff,
+                    Convert16To8Type::MsByte => (val >> 8) & 0xff,
+                    Convert16To8Type::ClipToFf => val.min(255),
+                    Convert16To8Type::AutoByte => {
+                        unreachable!("AutoByte resolved above")
+                    }
+                };
+                result_mut.set_pixel_unchecked(x, y, val8);
+            }
+        }
+
+        Ok(result_mut.into())
+    }
+
+    /// Convert any depth to 8 or 32 bpp, removing colormap if present.
+    ///
+    /// Returns 8 bpp for grayscale content, 32 bpp for color content.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo8Or32()` in `pixconv.c`
+    pub fn convert_to_8_or_32(&self) -> Result<Pix> {
+        // Handle colormap: remove it based on source content
+        if self.has_colormap() {
+            return self.remove_colormap(RemoveColormapTarget::BasedOnSrc);
+        }
+
+        // Already 8 or 32 bpp: deep copy
+        if self.depth() == PixelDepth::Bit8 || self.depth() == PixelDepth::Bit32 {
+            return Ok(self.deep_clone());
+        }
+
+        // All other depths: convert to 8 bpp
+        self.convert_to_8()
+    }
+
+    /// Lossless depth expansion from lower to higher depth.
+    ///
+    /// Only expands 1/2/4 bpp to a higher depth (2/4/8 bpp).
+    /// No colormap is allowed on the source.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if target depth is less than source depth,
+    /// or if source has a colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertLossless()` in `pixconv.c`
+    pub fn convert_lossless(&self, target_depth: u32) -> Result<Pix> {
+        let src_d = self.depth().bits();
+
+        // Validate target depth
+        let target = PixelDepth::from_bits(target_depth)?;
+        if !matches!(
+            target,
+            PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+        ) {
+            return Err(Error::InvalidParameter(format!(
+                "target depth must be 2, 4, or 8; got {}",
+                target_depth
+            )));
+        }
+
+        if target_depth < src_d {
+            return Err(Error::InvalidParameter(format!(
+                "target depth {} < source depth {}: lossy conversion not allowed",
+                target_depth, src_d
+            )));
+        }
+
+        if self.has_colormap() {
+            return Err(Error::InvalidParameter(
+                "source must not have a colormap".into(),
+            ));
+        }
+
+        // Same depth: return copy
+        if target_depth == src_d {
+            return Ok(self.deep_clone());
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, target)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y);
+                result_mut.set_pixel_unchecked(x, y, val);
+            }
+        }
+
+        Ok(result_mut.into())
+    }
+
+    /// Remove alpha channel by blending over white background.
+    ///
+    /// If the image is 32 bpp RGBA (spp=4), blends each pixel over white.
+    /// Otherwise returns a deep clone unchanged.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRemoveAlpha()` in `pixconv.c`
+    pub fn remove_alpha(&self) -> Result<Pix> {
+        // Only 32 bpp RGBA needs processing
+        if self.depth() != PixelDepth::Bit32 || self.spp() != 4 {
+            return Ok(self.deep_clone());
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (r, g, b, a) = color::extract_rgba(pixel);
+                let a32 = a as u32;
+                let inv_a = 255 - a32;
+
+                let nr = ((a32 * r as u32 + inv_a * 255) / 255).min(255) as u8;
+                let ng = ((a32 * g as u32 + inv_a * 255) / 255).min(255) as u8;
+                let nb = ((a32 * b as u32 + inv_a * 255) / 255).min(255) as u8;
+
+                result_mut.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+            }
+        }
+
+        Ok(result_mut.into())
+    }
 }
 
 #[cfg(test)]
@@ -1206,5 +1523,289 @@ mod tests {
         let cmap = result.colormap().unwrap();
         // Should have 4 entries: 0 (background), 50, 100, 150
         assert_eq!(cmap.len(), 4);
+    }
+
+    // ---- Depth conversion tests (Phase 1.4) ----
+
+    #[test]
+    fn test_convert_to_16_from_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let result = pix.convert_to_16().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        // 1bpp 0 (white) -> 0xffff
+        assert_eq!(result.get_pixel(0, 0), Some(0xffff));
+    }
+
+    #[test]
+    fn test_convert_to_16_from_8bpp() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 128);
+        pm.set_pixel_unchecked(2, 0, 255);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_to_16().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        // 8bpp value replicated: val | (val << 8)
+        assert_eq!(result.get_pixel(0, 0), Some(0x0000));
+        assert_eq!(result.get_pixel(1, 0), Some(0x8080));
+        assert_eq!(result.get_pixel(2, 0), Some(0xffff));
+    }
+
+    #[test]
+    fn test_convert_to_16_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(pix.convert_to_16().is_err());
+    }
+
+    #[test]
+    fn test_convert_8_to_32() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 128);
+        pm.set_pixel_unchecked(2, 0, 255);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_8_to_32().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!((r, g, b), (0, 0, 0));
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(1, 0));
+        assert_eq!((r, g, b), (128, 128, 128));
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(2, 0));
+        assert_eq!((r, g, b), (255, 255, 255));
+    }
+
+    #[test]
+    fn test_convert_8_to_32_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(pix.convert_8_to_32().is_err());
+    }
+
+    #[test]
+    fn test_convert_8_to_16_shift_8() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0x80);
+        pm.set_pixel_unchecked(1, 0, 0xff);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_8_to_16(8).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        assert_eq!(result.get_pixel(0, 0), Some(0x8080));
+        assert_eq!(result.get_pixel(1, 0), Some(0xffff));
+    }
+
+    #[test]
+    fn test_convert_8_to_16_shift_0() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0x80);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_8_to_16(0).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        assert_eq!(result.get_pixel(0, 0), Some(0x80));
+    }
+
+    #[test]
+    fn test_convert_8_to_16_invalid_shift() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_8_to_16(9).is_err());
+    }
+
+    #[test]
+    fn test_convert_16_to_8_ls_byte() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0xABCD);
+        pm.set_pixel_unchecked(1, 0, 0x00FF);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_16_to_8(Convert16To8Type::LsByte).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel(0, 0), Some(0xCD));
+        assert_eq!(result.get_pixel(1, 0), Some(0xFF));
+    }
+
+    #[test]
+    fn test_convert_16_to_8_ms_byte() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0xABCD);
+        pm.set_pixel_unchecked(1, 0, 0x00FF);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_16_to_8(Convert16To8Type::MsByte).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel(0, 0), Some(0xAB));
+        assert_eq!(result.get_pixel(1, 0), Some(0x00));
+    }
+
+    #[test]
+    fn test_convert_16_to_8_auto_byte_low_values() {
+        // All values <= 255: use LSB
+        let pix = Pix::new(2, 1, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 100);
+        pm.set_pixel_unchecked(1, 0, 200);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_16_to_8(Convert16To8Type::AutoByte).unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(100));
+        assert_eq!(result.get_pixel(1, 0), Some(200));
+    }
+
+    #[test]
+    fn test_convert_16_to_8_auto_byte_high_values() {
+        // Some values > 255: use MSB
+        let pix = Pix::new(2, 1, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0x8000);
+        pm.set_pixel_unchecked(1, 0, 0xFF00);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_16_to_8(Convert16To8Type::AutoByte).unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(0x80));
+        assert_eq!(result.get_pixel(1, 0), Some(0xFF));
+    }
+
+    #[test]
+    fn test_convert_16_to_8_clip_to_ff() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 100);
+        pm.set_pixel_unchecked(1, 0, 0x0300); // > 255
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_16_to_8(Convert16To8Type::ClipToFf).unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(100));
+        assert_eq!(result.get_pixel(1, 0), Some(255)); // Clipped
+    }
+
+    #[test]
+    fn test_convert_16_to_8_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_16_to_8(Convert16To8Type::MsByte).is_err());
+    }
+
+    #[test]
+    fn test_convert_to_8_or_32_from_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let result = pix.convert_to_8_or_32().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_convert_to_8_or_32_from_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = pix.convert_to_8_or_32().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_convert_to_8_or_32_from_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let result = pix.convert_to_8_or_32().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    fn test_convert_lossless_1_to_8() {
+        let pix = Pix::new(8, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(1, 0, 0);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_lossless(8).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel(0, 0), Some(1));
+        assert_eq!(result.get_pixel(1, 0), Some(0));
+    }
+
+    #[test]
+    fn test_convert_lossless_2_to_4() {
+        let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 3);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_lossless(4).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit4);
+        assert_eq!(result.get_pixel(0, 0), Some(3));
+        assert_eq!(result.get_pixel(1, 0), Some(1));
+    }
+
+    #[test]
+    fn test_convert_lossless_same_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
+        let result = pix.convert_lossless(4).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit4);
+    }
+
+    #[test]
+    fn test_convert_lossless_invalid_reduction() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_lossless(4).is_err());
+    }
+
+    #[test]
+    fn test_convert_lossless_rejects_colormap() {
+        use crate::PixColormap;
+        let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let cmap = PixColormap::create_linear(4, true).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix: Pix = pm.into();
+        assert!(pix.convert_lossless(8).is_err());
+    }
+
+    #[test]
+    fn test_remove_alpha_rgba() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_spp(4);
+        // Semi-transparent red pixel (R=255, G=0, B=0, A=128)
+        pm.set_pixel_unchecked(0, 0, color::compose_rgba(255, 0, 0, 128));
+        // Fully opaque blue pixel
+        pm.set_pixel_unchecked(1, 0, color::compose_rgba(0, 0, 255, 255));
+        let pix: Pix = pm.into();
+
+        let result = pix.remove_alpha().unwrap();
+        assert_eq!(result.spp(), 3);
+        // Semi-transparent red over white: r = (128*255 + 127*255)/255 = 255
+        // g = (128*0 + 127*255)/255 = 127, b = (128*0 + 127*255)/255 = 127
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        assert_eq!(r, 255);
+        assert!((g as i32 - 127).abs() <= 1);
+        assert!((b as i32 - 127).abs() <= 1);
+
+        // Fully opaque blue stays blue
+        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(1, 0));
+        assert_eq!((r, g, b), (0, 0, 255));
+    }
+
+    #[test]
+    fn test_remove_alpha_no_alpha() {
+        // Non-RGBA image: returns deep clone
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = pix.remove_alpha().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_convert_to_16_preserves_resolution() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_resolution(300, 300);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_to_16().unwrap();
+        assert_eq!(result.xres(), 300);
+        assert_eq!(result.yres(), 300);
     }
 }
