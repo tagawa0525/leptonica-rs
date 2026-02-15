@@ -681,8 +681,60 @@ pub fn measure_saturation(pix: &Pix, factor: u32) -> FilterResult<f32> {
 /// # See also
 ///
 /// C Leptonica: `pixColorShiftRGB()` in `enhance.c`
-pub fn color_shift_rgb(_pix: &Pix, _rfract: f32, _gfract: f32, _bfract: f32) -> FilterResult<Pix> {
-    todo!("color_shift_rgb not yet implemented")
+pub fn color_shift_rgb(pix: &Pix, rfract: f32, gfract: f32, bfract: f32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    for (name, fract) in [("rfract", rfract), ("gfract", gfract), ("bfract", bfract)] {
+        if !(-1.0..=1.0).contains(&fract) {
+            return Err(FilterError::InvalidParameters(format!(
+                "{name} must be in [-1.0, 1.0]"
+            )));
+        }
+    }
+    if rfract == 0.0 && gfract == 0.0 && bfract == 0.0 {
+        return Ok(pix.deep_clone());
+    }
+
+    // Build LUTs for each channel
+    let build_lut = |fract: f32| -> [u8; 256] {
+        let mut lut = [0u8; 256];
+        for (i, entry) in lut.iter_mut().enumerate() {
+            let val = i as f32;
+            let out = if fract >= 0.0 {
+                val + (255.0 - val) * fract
+            } else {
+                val * (1.0 + fract)
+            };
+            *entry = out.round().clamp(0.0, 255.0) as u8;
+        }
+        lut
+    };
+    let rlut = build_lut(rfract);
+    let glut = build_lut(gfract);
+    let blut = build_lut(bfract);
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    let w = pm.width();
+    let h = pm.height();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pm.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            pm.set_pixel_unchecked(
+                x,
+                y,
+                color::compose_rgb(rlut[r as usize], glut[g as usize], blut[b as usize]),
+            );
+        }
+    }
+
+    Ok(pm.into())
 }
 
 /// Darken low-saturation (gray) pixels in a 32 bpp RGB image.
@@ -693,8 +745,53 @@ pub fn color_shift_rgb(_pix: &Pix, _rfract: f32, _gfract: f32, _bfract: f32) -> 
 /// # See also
 ///
 /// C Leptonica: `pixDarkenGray()` in `enhance.c`
-pub fn darken_gray(_pix: &Pix, _thresh: u32, _satlimit: u32) -> FilterResult<Pix> {
-    todo!("darken_gray not yet implemented")
+pub fn darken_gray(pix: &Pix, thresh: u32, satlimit: u32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if thresh > 255 {
+        return Err(FilterError::InvalidParameters(
+            "thresh must be in [0, 255]".into(),
+        ));
+    }
+    if satlimit < 1 {
+        return Err(FilterError::InvalidParameters(
+            "satlimit must be >= 1".into(),
+        ));
+    }
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    let w = pm.width();
+    let h = pm.height();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pm.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let ri = r as i32;
+            let gi = g as i32;
+            let bi = b as i32;
+            let min = ri.min(gi).min(bi);
+            let max = ri.max(gi).max(bi);
+            let sat = max - min;
+
+            if max >= thresh as i32 || sat >= satlimit as i32 {
+                continue;
+            }
+
+            let ratio = sat as f32 / satlimit as f32;
+            let nr = (ri as f32 * ratio) as u8;
+            let ng = (gi as f32 * ratio) as u8;
+            let nb = (bi as f32 * ratio) as u8;
+            pm.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(pm.into())
 }
 
 /// Multiply each channel by a constant factor (clipped to [0, 255]).
@@ -705,8 +802,38 @@ pub fn darken_gray(_pix: &Pix, _thresh: u32, _satlimit: u32) -> FilterResult<Pix
 /// # See also
 ///
 /// C Leptonica: `pixMultConstantColor()` in `enhance.c`
-pub fn mult_constant_color(_pix: &Pix, _rfact: f32, _gfact: f32, _bfact: f32) -> FilterResult<Pix> {
-    todo!("mult_constant_color not yet implemented")
+pub fn mult_constant_color(pix: &Pix, rfact: f32, gfact: f32, bfact: f32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    for (name, fact) in [("rfact", rfact), ("gfact", gfact), ("bfact", bfact)] {
+        if fact < 0.0 {
+            return Err(FilterError::InvalidParameters(format!(
+                "{name} must be >= 0.0"
+            )));
+        }
+    }
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    let w = pm.width();
+    let h = pm.height();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pm.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let nr = (r as f32 * rfact).round().min(255.0) as u8;
+            let ng = (g as f32 * gfact).round().min(255.0) as u8;
+            let nb = (b as f32 * bfact).round().min(255.0) as u8;
+            pm.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(pm.into())
 }
 
 /// Apply a 3×3 color matrix transformation to each pixel.
@@ -718,8 +845,52 @@ pub fn mult_constant_color(_pix: &Pix, _rfact: f32, _gfact: f32, _bfact: f32) ->
 /// # See also
 ///
 /// C Leptonica: `pixMultMatrixColor()` in `enhance.c`
-pub fn mult_matrix_color(_pix: &Pix, _kel: &Kernel) -> FilterResult<Pix> {
-    todo!("mult_matrix_color not yet implemented")
+pub fn mult_matrix_color(pix: &Pix, kel: &Kernel) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if kel.width() != 3 || kel.height() != 3 {
+        return Err(FilterError::InvalidParameters("kernel must be 3x3".into()));
+    }
+
+    // Extract 9 kernel elements (row-major: v[row][col])
+    let mut v = [0.0f32; 9];
+    for row in 0..3u32 {
+        for col in 0..3u32 {
+            v[(row * 3 + col) as usize] = kel.get(col, row).unwrap_or(0.0);
+        }
+    }
+
+    let cloned = pix.deep_clone();
+    let mut pm = cloned.try_into_mut().unwrap();
+    let w = pm.width();
+    let h = pm.height();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pm.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let rf = r as f32;
+            let gf = g as f32;
+            let bf = b as f32;
+
+            let nr = (v[0] * rf + v[1] * gf + v[2] * bf)
+                .round()
+                .clamp(0.0, 255.0) as u8;
+            let ng = (v[3] * rf + v[4] * gf + v[5] * bf)
+                .round()
+                .clamp(0.0, 255.0) as u8;
+            let nb = (v[6] * rf + v[7] * gf + v[8] * bf)
+                .round()
+                .clamp(0.0, 255.0) as u8;
+            pm.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(pm.into())
 }
 
 #[cfg(test)]
@@ -1301,7 +1472,6 @@ mod tests {
     // ========== color_shift_rgb tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_shift_rgb_positive() {
         // Shift red channel up: (100,100,100) with rfract=0.5
         // new_r = 100 + (255-100)*0.5 = 100 + 77.5 = 177
@@ -1318,7 +1488,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_shift_rgb_negative() {
         // Shift blue channel down: (200,200,200) with bfract=-0.5
         // new_b = 200 * (1.0 + (-0.5)) = 200 * 0.5 = 100
@@ -1335,7 +1504,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_shift_rgb_zero() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1350,7 +1518,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_shift_rgb_invalid() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         assert!(color_shift_rgb(&pix, 1.5, 0.0, 0.0).is_err());
@@ -1362,7 +1529,6 @@ mod tests {
     // ========== darken_gray tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_darken_gray_low_saturation() {
         // Gray pixel (128,128,128): sat=0 < satlimit, max=128 < thresh=200
         // ratio = sat/satlimit = 0/10 = 0 → darkened to (0,0,0)
@@ -1379,7 +1545,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_darken_gray_saturated_unchanged() {
         // Saturated pixel: sat=200 >= satlimit=10 → unchanged
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -1395,7 +1560,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_darken_gray_bright_unchanged() {
         // Bright pixel: max=250 >= thresh=200 → unchanged
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -1411,7 +1575,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_darken_gray_invalid() {
         let pix8 = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
         assert!(darken_gray(&pix8, 200, 10).is_err());
@@ -1420,7 +1583,6 @@ mod tests {
     // ========== mult_constant_color tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mult_constant_color_basic() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1435,7 +1597,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mult_constant_color_clipping() {
         // 200 * 2.0 = 400 → clipped to 255
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -1451,7 +1612,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mult_constant_color_invalid() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         assert!(mult_constant_color(&pix, -0.5, 1.0, 1.0).is_err());
@@ -1460,7 +1620,6 @@ mod tests {
     // ========== mult_matrix_color tests ==========
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mult_matrix_color_identity() {
         use crate::Kernel;
 
@@ -1479,7 +1638,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mult_matrix_color_swap_rg() {
         use crate::Kernel;
 
@@ -1498,7 +1656,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mult_matrix_color_clipping() {
         use crate::Kernel;
 
@@ -1517,7 +1674,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mult_matrix_color_invalid_size() {
         use crate::Kernel;
 
