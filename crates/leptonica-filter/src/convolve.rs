@@ -1088,7 +1088,7 @@ mod tests {
 
     #[test]
     fn test_blockrank_threshold_zero() {
-        // rank=0.0 means any ON pixel in block sets output to 1 (dilation-like)
+        // rank=0.0: always satisfied, returns all-ones image regardless of input
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
