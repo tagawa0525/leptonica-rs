@@ -42,9 +42,9 @@ C版leptonicaのRust移植プロジェクト。Workspace構成で機能別crate�
 ## 計画書
 
 - `docs/plans/` に配置
-- ファイル名: `NNNN_<機能名>.md`
-  （NNNNはPhase番号×100 + 連番、ゼロパディング4桁。
-  例: `0002_core-pix.md`, `0101_io-png.md`）
+- ファイル名: `NNN_<機能名>.md`
+  （NNNはPhase番号×100 + 連番、ゼロパディング3桁。
+  例: `000_overall-plan.md`, `002_core-pix.md`, `101_io-png.md`）
 - Status: PLANNED → IN_PROGRESS → IMPLEMENTED を含める
 - C版の対応ファイル・関数を明記
 
