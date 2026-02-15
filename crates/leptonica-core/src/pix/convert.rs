@@ -1052,6 +1052,140 @@ impl Pix {
 
         Ok(result_mut.into())
     }
+
+    /// Unpack 1 bpp binary image to a higher depth.
+    ///
+    /// Maps 0-bits and 1-bits to the appropriate max values for the
+    /// target depth. If `invert` is true, the mapping is reversed.
+    ///
+    /// # Arguments
+    ///
+    /// * `depth` - Target depth (2, 4, 8, 16, or 32)
+    /// * `invert` - If true, swap the val0/val1 mapping
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixUnpackBinary()` in `pixconv.c`
+    pub fn unpack_binary(&self, depth: u32, invert: bool) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        match depth {
+            2 => {
+                let (v0, v1) = if invert { (3, 0) } else { (0, 3) };
+                self.convert_1_to_2(v0, v1)
+            }
+            4 => {
+                let (v0, v1) = if invert { (15, 0) } else { (0, 15) };
+                self.convert_1_to_4(v0, v1)
+            }
+            8 => {
+                let (v0, v1) = if invert { (255, 0) } else { (0, 255) };
+                self.convert_1_to_8(v0, v1)
+            }
+            16 => {
+                let (v0, v1) = if invert { (0xffff, 0) } else { (0, 0xffff) };
+                self.convert_1_to_16(v0, v1)
+            }
+            32 => {
+                let (v0, v1) = if invert {
+                    (0xffffffff, 0)
+                } else {
+                    (0, 0xffffffff)
+                };
+                self.convert_1_to_32(v0, v1)
+            }
+            _ => Err(Error::InvalidParameter(format!(
+                "target depth must be 2, 4, 8, 16, or 32; got {}",
+                depth
+            ))),
+        }
+    }
+
+    /// Convert 1 bpp to the specified depth with value mapping.
+    ///
+    /// Each 0-bit in the source becomes `val0` in the output,
+    /// and each 1-bit becomes `val1`.
+    fn convert_1_to(&self, target_depth: PixelDepth, val0: u32, val1: u32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, target_depth)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let bit = self.get_pixel_unchecked(x, y);
+                let val = if bit == 0 { val0 } else { val1 };
+                result_mut.set_pixel_unchecked(x, y, val);
+            }
+        }
+
+        Ok(result_mut.into())
+    }
+
+    /// Convert 1 bpp to 2 bpp with value mapping.
+    ///
+    /// Each 0-bit in the source becomes `val0` (0-3) in the output,
+    /// and each 1-bit becomes `val1` (0-3).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To2()` in `pixconv.c`
+    pub fn convert_1_to_2(&self, val0: u32, val1: u32) -> Result<Pix> {
+        self.convert_1_to(PixelDepth::Bit2, val0, val1)
+    }
+
+    /// Convert 1 bpp to 4 bpp with value mapping.
+    ///
+    /// Each 0-bit in the source becomes `val0` (0-15) in the output,
+    /// and each 1-bit becomes `val1` (0-15).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To4()` in `pixconv.c`
+    pub fn convert_1_to_4(&self, val0: u32, val1: u32) -> Result<Pix> {
+        self.convert_1_to(PixelDepth::Bit4, val0, val1)
+    }
+
+    /// Convert 1 bpp to 8 bpp with value mapping.
+    ///
+    /// Each 0-bit in the source becomes `val0` (0-255) in the output,
+    /// and each 1-bit becomes `val1` (0-255).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To8()` in `pixconv.c`
+    pub fn convert_1_to_8(&self, val0: u32, val1: u32) -> Result<Pix> {
+        self.convert_1_to(PixelDepth::Bit8, val0, val1)
+    }
+
+    /// Convert 1 bpp to 16 bpp with value mapping.
+    ///
+    /// Each 0-bit becomes `val0` and each 1-bit becomes `val1`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To16()` in `pixconv.c`
+    pub fn convert_1_to_16(&self, val0: u32, val1: u32) -> Result<Pix> {
+        self.convert_1_to(PixelDepth::Bit16, val0, val1)
+    }
+
+    /// Convert 1 bpp to 32 bpp with value mapping.
+    ///
+    /// Each 0-bit becomes `val0` and each 1-bit becomes `val1`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To32()` in `pixconv.c`
+    pub fn convert_1_to_32(&self, val0: u32, val1: u32) -> Result<Pix> {
+        self.convert_1_to(PixelDepth::Bit32, val0, val1)
+    }
 }
 
 #[cfg(test)]
@@ -1807,5 +1941,185 @@ mod tests {
         let result = pix.convert_to_16().unwrap();
         assert_eq!(result.xres(), 300);
         assert_eq!(result.yres(), 300);
+    }
+
+    // ---- Binary unpack tests (Phase 1.5) ----
+
+    #[test]
+    fn test_unpack_binary_to_2() {
+        let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 1); // black
+        pm.set_pixel_unchecked(1, 0, 0); // white
+        let pix: Pix = pm.into();
+
+        let result = pix.unpack_binary(2, false).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit2);
+        assert_eq!(result.get_pixel(0, 0), Some(3)); // max value for 2bpp
+        assert_eq!(result.get_pixel(1, 0), Some(0));
+    }
+
+    #[test]
+    fn test_unpack_binary_to_8_inverted() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 1); // black
+        pm.set_pixel_unchecked(1, 0, 0); // white
+        let pix: Pix = pm.into();
+
+        let result = pix.unpack_binary(8, true).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        // Inverted: 1-bit -> 0, 0-bit -> 255
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(255));
+    }
+
+    #[test]
+    fn test_unpack_binary_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.unpack_binary(1, false).is_err());
+    }
+
+    #[test]
+    fn test_unpack_binary_not_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.unpack_binary(32, false).is_err());
+    }
+
+    #[test]
+    fn test_convert_1_to_2() {
+        let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        pm.set_pixel_unchecked(2, 0, 0);
+        pm.set_pixel_unchecked(3, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_2(0, 3).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit2);
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(3));
+        assert_eq!(result.get_pixel(2, 0), Some(0));
+        assert_eq!(result.get_pixel(3, 0), Some(3));
+    }
+
+    #[test]
+    fn test_convert_1_to_4() {
+        let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_4(0, 15).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit4);
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(15));
+    }
+
+    #[test]
+    fn test_convert_1_to_8() {
+        let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        pm.set_pixel_unchecked(2, 0, 1);
+        pm.set_pixel_unchecked(3, 0, 0);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_8(0, 255).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(255));
+        assert_eq!(result.get_pixel(2, 0), Some(255));
+        assert_eq!(result.get_pixel(3, 0), Some(0));
+    }
+
+    #[test]
+    fn test_convert_1_to_8_custom_values() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_8(100, 200).unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(100));
+        assert_eq!(result.get_pixel(1, 0), Some(200));
+    }
+
+    #[test]
+    fn test_convert_1_to_16() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_16(0, 0xffff).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(0xffff));
+    }
+
+    #[test]
+    fn test_convert_1_to_32() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_32(0, 0xffffffff).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert_eq!(result.get_pixel_unchecked(0, 0), 0);
+        assert_eq!(result.get_pixel_unchecked(1, 0), 0xffffffff);
+    }
+
+    #[test]
+    fn test_convert_1_to_2_not_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_1_to_2(0, 3).is_err());
+    }
+
+    #[test]
+    fn test_unpack_binary_to_16() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.unpack_binary(16, false).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(0xffff));
+    }
+
+    #[test]
+    fn test_unpack_binary_to_32() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix.unpack_binary(32, false).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert_eq!(result.get_pixel_unchecked(0, 0), 0);
+        assert_eq!(result.get_pixel_unchecked(1, 0), 0xffffffff);
+    }
+
+    #[test]
+    fn test_convert_1_to_preserves_resolution() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_resolution(600, 600);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_8(0, 255).unwrap();
+        assert_eq!(result.xres(), 600);
+        assert_eq!(result.yres(), 600);
     }
 }
