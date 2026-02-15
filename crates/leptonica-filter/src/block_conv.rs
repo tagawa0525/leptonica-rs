@@ -23,20 +23,6 @@ fn check_8bpp(pix: &Pix) -> FilterResult<()> {
     Ok(())
 }
 
-/// Create a copy of an 8 bpp image by duplicating all pixel data.
-fn copy_pix(pix: &Pix) -> FilterResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
-    let out = Pix::new(w, h, pix.depth())?;
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..h {
-        for x in 0..w {
-            out_mut.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(x, y));
-        }
-    }
-    Ok(out_mut.into())
-}
-
 /// Build an integral image (summed area table) from an 8 bpp grayscale image.
 ///
 /// Each pixel in the output 32 bpp image contains the sum of all source
@@ -70,7 +56,7 @@ pub fn blockconv_accum(pix: &Pix) -> FilterResult<Pix> {
         out_mut.set_pixel_unchecked(0, y, val);
     }
 
-    // Interior: a(i,j) = v(i,j) + a(i-1,j) + a(i,j-1) - a(i-1,j-1)
+    // Interior: a(y,x) = v(y,x) + a(y-1,x) + a(y,x-1) - a(y-1,x-1)
     for y in 1..h {
         for x in 1..w {
             let val = pix.get_pixel_unchecked(x, y)
@@ -89,11 +75,15 @@ pub fn blockconv_accum(pix: &Pix) -> FilterResult<Pix> {
 /// `wc` and `hc` are the half-width and half-height of the convolution kernel.
 /// The full kernel size is `(2*wc + 1) x (2*hc + 1)`.
 ///
-/// If either `wc` or `hc` is 0, returns a copy of the input.
+/// If either `wc` or `hc` is 0, returns a copy of the input (no-op).
+/// This matches C Leptonica behavior: a 1×N or N×1 kernel is treated as
+/// a no-op rather than performing one-dimensional averaging.
+///
 /// If the kernel is larger than the image, it is automatically reduced.
 ///
 /// An optional pre-computed accumulator (`pixacc`) can be provided to avoid
 /// redundant computation when the same image is convolved multiple times.
+/// The accumulator must have the same dimensions as `pix` and be 32 bpp.
 ///
 /// # See also
 ///
@@ -105,17 +95,24 @@ pub fn blockconv_gray(pix: &Pix, pixacc: Option<&Pix>, wc: u32, hc: u32) -> Filt
     let h = pix.height();
 
     if wc == 0 || hc == 0 {
-        return copy_pix(pix);
+        return Ok(pix.deep_clone());
     }
 
     // Reduce kernel if it exceeds image dimensions
     let wc = wc.min((w - 1) / 2);
     let hc = hc.min((h - 1) / 2);
 
-    // Use provided accumulator or compute one
+    // Validate and use provided accumulator, or compute one
     let owned_acc;
     let acc = match pixacc {
-        Some(a) => a,
+        Some(a) => {
+            if a.depth() != PixelDepth::Bit32 || a.width() != w || a.height() != h {
+                return Err(FilterError::InvalidParameters(
+                    "accumulator must be 32 bpp with same dimensions as input".into(),
+                ));
+            }
+            a
+        }
         None => {
             owned_acc = blockconv_accum(pix)?;
             &owned_acc
@@ -129,42 +126,40 @@ pub fn blockconv_gray(pix: &Pix, pixacc: Option<&Pix>, wc: u32, hc: u32) -> Filt
     let out = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut out_mut = out.try_into_mut().unwrap();
 
-    for i in 0..h {
-        let imin = if i > hc { i - hc - 1 } else { 0 };
-        let imax = (i + hc).min(h - 1);
-        // Actual window height at this row
-        let hn = if i > hc {
-            (imax - imin) as f64
+    for y in 0..h {
+        let ymin = if y > hc { y - hc - 1 } else { 0 };
+        let ymax = (y + hc).min(h - 1);
+        let hn = if y > hc {
+            (ymax - ymin) as f64
         } else {
-            (imax + 1) as f64
+            (ymax + 1) as f64
         };
 
-        for j in 0..w {
-            let jmin = if j > wc { j - wc - 1 } else { 0 };
-            let jmax = (j + wc).min(w - 1);
-            // Actual window width at this column
-            let wn = if j > wc {
-                (jmax - jmin) as f64
+        for x in 0..w {
+            let xmin = if x > wc { x - wc - 1 } else { 0 };
+            let xmax = (x + wc).min(w - 1);
+            let wn = if x > wc {
+                (xmax - xmin) as f64
             } else {
-                (jmax + 1) as f64
+                (xmax + 1) as f64
             };
 
             // Four-corner lookup on integral image
-            let mut val = acc.get_pixel_unchecked(jmax, imax) as i64;
-            if i > hc {
-                val -= acc.get_pixel_unchecked(jmax, imin) as i64;
+            let mut val = acc.get_pixel_unchecked(xmax, ymax) as i64;
+            if y > hc {
+                val -= acc.get_pixel_unchecked(xmax, ymin) as i64;
             }
-            if j > wc {
-                val -= acc.get_pixel_unchecked(jmin, imax) as i64;
+            if x > wc {
+                val -= acc.get_pixel_unchecked(xmin, ymax) as i64;
             }
-            if i > hc && j > wc {
-                val += acc.get_pixel_unchecked(jmin, imin) as i64;
+            if y > hc && x > wc {
+                val += acc.get_pixel_unchecked(xmin, ymin) as i64;
             }
 
             // Normalize with boundary correction
             let result = (norm * val as f64 * fwc / wn * fhc / hn + 0.5) as u32;
             let result = result.min(255);
-            out_mut.set_pixel_unchecked(j, i, result);
+            out_mut.set_pixel_unchecked(x, y, result);
         }
     }
 
@@ -207,6 +202,10 @@ pub fn blockconv(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
 /// Returns a 32 bpp image where each pixel contains the raw sum of source
 /// pixel values in the window, without dividing by the window area.
 ///
+/// If either `wc` or `hc` is 0, returns a copy of the input as-is (8 bpp,
+/// no-op). This matches C Leptonica behavior: a 1×N or N×1 kernel is
+/// treated as a no-op rather than performing one-dimensional summing.
+///
 /// Uses mirrored border padding to avoid special boundary handling.
 /// To get normalized results, divide each pixel value by `(2*wc+1)*(2*hc+1)`.
 ///
@@ -217,11 +216,15 @@ pub fn blockconv_gray_unnormalized(pix: &Pix, wc: u32, hc: u32) -> FilterResult<
     check_8bpp(pix)?;
 
     if wc == 0 || hc == 0 {
-        return copy_pix(pix);
+        return Ok(pix.deep_clone());
     }
 
     let w = pix.width();
     let h = pix.height();
+
+    // Reduce kernel if it exceeds image dimensions
+    let wc = wc.min((w - 1) / 2);
+    let hc = hc.min((h - 1) / 2);
 
     // Add mirrored border to avoid boundary handling
     let bordered = pix.add_mirrored_border(wc + 1, wc, hc + 1, hc)?;
@@ -230,14 +233,14 @@ pub fn blockconv_gray_unnormalized(pix: &Pix, wc: u32, hc: u32) -> FilterResult<
     let out = Pix::new(w, h, PixelDepth::Bit32)?;
     let mut out_mut = out.try_into_mut().unwrap();
 
-    for i in 0..h {
-        for j in 0..w {
-            let jmax = j + 2 * wc + 1;
-            let val = acc.get_pixel_unchecked(jmax, i + 2 * hc + 1) as i64
-                - acc.get_pixel_unchecked(jmax, i) as i64
-                - acc.get_pixel_unchecked(j, i + 2 * hc + 1) as i64
-                + acc.get_pixel_unchecked(j, i) as i64;
-            out_mut.set_pixel_unchecked(j, i, val as u32);
+    for y in 0..h {
+        for x in 0..w {
+            let xmax = x + 2 * wc + 1;
+            let val = acc.get_pixel_unchecked(xmax, y + 2 * hc + 1) as i64
+                - acc.get_pixel_unchecked(xmax, y) as i64
+                - acc.get_pixel_unchecked(x, y + 2 * hc + 1) as i64
+                + acc.get_pixel_unchecked(x, y) as i64;
+            out_mut.set_pixel_unchecked(x, y, val as u32);
         }
     }
 
@@ -289,20 +292,15 @@ mod tests {
     // ---- blockconv_accum tests ----
 
     #[test]
-
     fn test_blockconv_accum_basic() {
-        // 3x3 image with known values
         let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        // Row 0: 1, 2, 3
         pm.set_pixel_unchecked(0, 0, 1);
         pm.set_pixel_unchecked(1, 0, 2);
         pm.set_pixel_unchecked(2, 0, 3);
-        // Row 1: 4, 5, 6
         pm.set_pixel_unchecked(0, 1, 4);
         pm.set_pixel_unchecked(1, 1, 5);
         pm.set_pixel_unchecked(2, 1, 6);
-        // Row 2: 7, 8, 9
         pm.set_pixel_unchecked(0, 2, 7);
         pm.set_pixel_unchecked(1, 2, 8);
         pm.set_pixel_unchecked(2, 2, 9);
@@ -329,7 +327,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_accum_rejects_non_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(blockconv_accum(&pix).is_err());
@@ -338,16 +335,13 @@ mod tests {
     // ---- blockconv_gray tests ----
 
     #[test]
-
     fn test_blockconv_gray_uniform_image() {
-        // A uniform image convolved with any kernel should remain uniform
         let pix = create_uniform_gray_image(20, 20, 100);
         let result = blockconv_gray(&pix, None, 3, 3).unwrap();
         assert_eq!(result.width(), 20);
         assert_eq!(result.height(), 20);
         assert_eq!(result.depth(), PixelDepth::Bit8);
 
-        // All pixels should be close to 100
         for y in 0..20 {
             for x in 0..20 {
                 let val = result.get_pixel_unchecked(x, y);
@@ -363,7 +357,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_gray_preserves_dimensions() {
         let pix = create_test_gray_image(30, 25);
         let result = blockconv_gray(&pix, None, 2, 3).unwrap();
@@ -373,7 +366,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_gray_zero_kernel_returns_copy() {
         let pix = create_test_gray_image(10, 10);
         let result = blockconv_gray(&pix, None, 0, 3).unwrap();
@@ -388,7 +380,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_gray_with_precomputed_accum() {
         let pix = create_test_gray_image(20, 20);
         let acc = blockconv_accum(&pix).unwrap();
@@ -408,9 +399,7 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_gray_kernel_reduction() {
-        // Image is 5x5, kernel half-width 10 would be too large
         let pix = create_uniform_gray_image(5, 5, 50);
         let result = blockconv_gray(&pix, None, 10, 10).unwrap();
         assert_eq!(result.width(), 5);
@@ -418,16 +407,25 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_gray_rejects_non_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(blockconv_gray(&pix, None, 2, 2).is_err());
     }
 
+    #[test]
+    fn test_blockconv_gray_rejects_mismatched_accum() {
+        let pix = create_test_gray_image(20, 20);
+        // Wrong dimensions
+        let bad_acc = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(blockconv_gray(&pix, Some(&bad_acc), 2, 2).is_err());
+        // Wrong depth
+        let bad_acc = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        assert!(blockconv_gray(&pix, Some(&bad_acc), 2, 2).is_err());
+    }
+
     // ---- blockconv tests (auto-dispatch) ----
 
     #[test]
-
     fn test_blockconv_gray_dispatch() {
         let pix = create_test_gray_image(20, 20);
         let result = blockconv(&pix, 2, 2).unwrap();
@@ -435,7 +433,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_color_dispatch() {
         let pix = create_test_color_image(20, 20);
         let result = blockconv(&pix, 2, 2).unwrap();
@@ -445,9 +442,7 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_color_uniform() {
-        // Uniform color image should stay uniform after block conv
         let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..20 {
@@ -484,7 +479,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_rejects_unsupported_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(blockconv(&pix, 2, 2).is_err());
@@ -493,9 +487,7 @@ mod tests {
     // ---- blockconv_gray_unnormalized tests ----
 
     #[test]
-
     fn test_blockconv_gray_unnormalized_basic() {
-        // Uniform image: every window sum should be val * window_area
         let pix = create_uniform_gray_image(20, 20, 10);
         let result = blockconv_gray_unnormalized(&pix, 2, 2).unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -513,10 +505,10 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_gray_unnormalized_zero_kernel_returns_copy() {
         let pix = create_test_gray_image(10, 10);
         let result = blockconv_gray_unnormalized(&pix, 0, 3).unwrap();
+        // Zero kernel returns an 8 bpp copy (no-op, matching C Leptonica)
         assert_eq!(result.depth(), PixelDepth::Bit8);
         for y in 0..10 {
             for x in 0..10 {
@@ -529,7 +521,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_blockconv_gray_unnormalized_rejects_non_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(blockconv_gray_unnormalized(&pix, 2, 2).is_err());
