@@ -6,10 +6,10 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 11 |
+| ✅ 同等 | 50 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 83 |
-| 合計 | 94 |
+| ❌ 未実装 | 49 |
+| 合計 | 99 |
 
 ## 詳細
 
@@ -17,29 +17,29 @@
 
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixBlockconv | ❌ 未実装 | - | ブロック畳み込み(自動でgray/color判定) |
-| pixBlockconvGray | ❌ 未実装 | - | グレースケールブロック畳み込み |
-| pixBlockconvAccum | ❌ 未実装 | - | 畳み込み用アキュムレータ |
-| pixBlockconvGrayUnnormalized | ❌ 未実装 | - | 正規化なしブロック畳み込み |
+| pixBlockconv | ✅ 同等 | block_conv.rs blockconv() | ブロック畳み込み(自動でgray/color判定) |
+| pixBlockconvGray | ✅ 同等 | block_conv.rs blockconv_gray() | グレースケールブロック畳み込み |
+| pixBlockconvAccum | ✅ 同等 | block_conv.rs blockconv_accum() | 畳み込み用アキュムレータ |
+| pixBlockconvGrayUnnormalized | ✅ 同等 | block_conv.rs blockconv_gray_unnormalized() | 正規化なしブロック畳み込み |
 | pixBlockconvTiled | ❌ 未実装 | - | タイル化ブロック畳み込み |
 | pixBlockconvGrayTile | ❌ 未実装 | - | グレースケールタイル化ブロック畳み込み |
-| pixWindowedStats | ❌ 未実装 | - | ウィンドウ統計量(mean, mean-square, variance, RMS) |
-| pixWindowedMean | ❌ 未実装 | - | ウィンドウ平均 |
-| pixWindowedMeanSquare | ❌ 未実装 | - | ウィンドウ平均二乗 |
-| pixWindowedVariance | ❌ 未実装 | - | ウィンドウ分散 |
-| pixMeanSquareAccum | ❌ 未実装 | - | 平均二乗アキュムレータ (returns DPIX*) |
-| pixBlockrank | ❌ 未実装 | - | バイナリブロックランクフィルタ |
-| pixBlocksum | ❌ 未実装 | - | バイナリブロック和 |
-| pixCensusTransform | ❌ 未実装 | - | センサス変換 |
+| pixWindowedStats | ✅ 同等 | windowed.rs windowed_stats() | ウィンドウ統計量(mean, mean-square, variance, RMS) |
+| pixWindowedMean | ✅ 同等 | windowed.rs windowed_mean() | ウィンドウ平均 |
+| pixWindowedMeanSquare | ✅ 同等 | windowed.rs windowed_mean_square() | ウィンドウ平均二乗 |
+| pixWindowedVariance | ✅ 同等 | windowed.rs windowed_variance() | ウィンドウ分散 |
+| pixMeanSquareAccum | ✅ 同等 | windowed.rs mean_square_accum() | 平均二乗アキュムレータ (returns DPIX*) |
+| pixBlockrank | ✅ 同等 | convolve.rs blockrank() | バイナリブロックランクフィルタ |
+| pixBlocksum | ✅ 同等 | convolve.rs blocksum() | バイナリブロック和 |
+| pixCensusTransform | ✅ 同等 | convolve.rs census_transform() | センサス変換 |
 | pixConvolve | ✅ 同等 | convolve() | 汎用畳み込み |
-| pixConvolveSep | ❌ 未実装 | - | 分離可能畳み込み |
+| pixConvolveSep | ✅ 同等 | convolve.rs convolve_sep() | 分離可能畳み込み |
 | pixConvolveRGB | ✅ 同等 | convolve_color() | RGB畳み込み |
-| pixConvolveRGBSep | ❌ 未実装 | - | RGB分離可能畳み込み |
+| pixConvolveRGBSep | ✅ 同等 | convolve.rs convolve_rgb_sep() | RGB分離可能畳み込み |
 | fpixConvolve | ❌ 未実装 | - | 浮動小数点畳み込み (operates on FPIX) |
 | fpixConvolveSep | ❌ 未実装 | - | 浮動小数点分離可能畳み込み (operates on FPIX) |
 | pixConvolveWithBias | ❌ 未実装 | - | バイアス付き畳み込み |
 | l_setConvolveSampling | ❌ 未実装 | - | 畳み込みサブサンプリングパラメータ設定 (void) |
-| pixAddGaussianNoise | ❌ 未実装 | - | ガウシアンノイズ追加 |
+| pixAddGaussianNoise | ✅ 同等 | convolve.rs add_gaussian_noise() | ガウシアンノイズ追加 |
 | gaussDistribSampling | ❌ 未実装 | - | ガウス分布サンプリング (returns l_float32) |
 
 ### edge.c
@@ -70,8 +70,8 @@
 | pixTRCMapGeneral | ✅ 同等 | trc_map_general() | R,G,B個別LUT適用 |
 | pixUnsharpMasking | ❌ 未実装 | - | アンシャープマスキング(カラー対応) |
 | pixUnsharpMaskingGray | ✅ 同等 | unsharp_mask() | グレースケールアンシャープマスキング |
-| pixUnsharpMaskingFast | ❌ 未実装 | - | 高速アンシャープマスキング(カラー対応) |
-| pixUnsharpMaskingGrayFast | ❌ 未実装 | - | 高速グレースケールアンシャープマスキング |
+| pixUnsharpMaskingFast | ✅ 同等 | edge.rs unsharp_masking_fast() | 高速アンシャープマスキング(カラー対応) |
+| pixUnsharpMaskingGrayFast | ✅ 同等 | edge.rs unsharp_masking_gray_fast() | 高速グレースケールアンシャープマスキング |
 | pixUnsharpMaskingGray1D | ❌ 未実装 | - | 1Dグレースケールアンシャープマスキング |
 | pixUnsharpMaskingGray2D | ❌ 未実装 | - | 2Dグレースケールアンシャープマスキング |
 | pixModifyHue | ✅ 同等 | modify_hue() | 色相変更 |
@@ -147,31 +147,30 @@
 ### 実装済み機能
 
 1. **基本畳み込み**: convolve(), convolve_color(), box_blur(), gaussian_blur()
-2. **エッジ検出**: sobel_edge(), laplacian_edge(), sharpen(), emboss()
-3. **アンシャープマスク**: unsharp_mask() (基本実装のみ)
-4. **バイラテラルフィルタ**: bilateral_exact(), bilateral_gray_exact(), make_range_kernel()
-5. **ランクフィルタ**: rank_filter(), rank_filter_gray(), rank_filter_color(), median_filter(), min_filter(), max_filter()
-6. **適応マッピング**: background_norm(), background_norm_simple(), contrast_norm(), contrast_norm_simple()
+2. **ブロック畳み込み**: blockconv(), blockconv_gray(), blockconv_accum(), blockconv_gray_unnormalized()
+3. **分離可能畳み込み**: convolve_sep(), convolve_rgb_sep()
+4. **ウィンドウ統計**: windowed_stats(), windowed_mean(), windowed_mean_square(), windowed_variance(), mean_square_accum()
+5. **エッジ検出**: sobel_edge(), laplacian_edge(), sharpen(), emboss()
+6. **アンシャープマスク**: unsharp_mask(), unsharp_masking_fast(), unsharp_masking_gray_fast()
+7. **バイラテラルフィルタ**: bilateral_exact(), bilateral_gray_exact(), make_range_kernel()
+8. **ランクフィルタ**: rank_filter(), rank_filter_gray(), rank_filter_color(), median_filter(), min_filter(), max_filter()
+9. **適応マッピング**: background_norm(), background_norm_simple(), contrast_norm(), contrast_norm_simple()
+10. **その他**: blockrank(), blocksum(), census_transform(), add_gaussian_noise()
 
 ### 主要な未実装機能
 
 #### 高優先度
-1. **ブロック畳み込み最適化**: pixBlockconv系の高速実装群
-2. **分離可能畳み込み**: pixConvolveSep, pixConvolveRGBSep
-3. **ウィンドウ統計**: pixWindowedMean, pixWindowedVariance等
-4. **高速バイラテラル**: pixBilateral, pixBilateralGray (分離可能近似版)
-5. **enhance.c全般**: TRCマッピング、色調整、アンシャープマスキングバリエーション
+1. **高速バイラテラル**: pixBilateral, pixBilateralGray (分離可能近似版)
+2. **adaptmap.c詳細機能**: モルフォロジーベース正規化、マップ操作群
 
 #### 中優先度
-6. **センサス変換**: pixCensusTransform
-7. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile
-8. **adaptmap.c詳細機能**: モルフォロジーベース正規化、マップ操作群
-9. **カラー変換**: pixModifyHue, pixModifySaturation, pixColorShiftRGB等
+3. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile
+4. **タイル化畳み込み**: pixBlockconvTiled, pixBlockconvGrayTile
+5. **アンシャープマスクバリエーション**: pixUnsharpMasking (カラー), pixUnsharpMaskingGray1D/2D
 
 #### 低優先度
-10. **ノイズ追加**: pixAddGaussianNoise
-11. **バイナリ操作**: pixBlockrank, pixBlocksum
-12. **補助関数**: l_setConvolveSampling等
+6. **FPix畳み込み**: fpixConvolve, fpixConvolveSep
+7. **補助関数**: l_setConvolveSampling, gaussDistribSampling等
 
 ## 設計ノート
 
@@ -188,8 +187,8 @@
 - 分離可能畳み込みによる計算量削減
 
 ### 今後の実装推奨順序
-1. 分離可能畳み込み(性能向上に直結)
-2. ブロック畳み込み系(pixBlockconv, pixWindowedMean等)
-3. enhance.c の主要TRC関数(ガンマ、コントラスト、均等化)
-4. 高速バイラテラルフィルタ(pixBilateral, pixBilateralGray)
-5. adaptmap.c の詳細機能(モルフォロジーベース等)
+1. adaptmap.c の詳細機能（モルフォロジーベース背景正規化、マップユーティリティ）
+2. 高速バイラテラルフィルタ（pixBilateral, pixBilateralGray）
+3. タイル化畳み込み（pixBlockconvTiled, pixBlockconvGrayTile）
+4. 残りのアンシャープマスクバリエーション
+5. エッジ測定関数
