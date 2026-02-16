@@ -27,6 +27,42 @@ pub enum PixelMaxType {
     BlackIsMax,
 }
 
+/// Type of extreme value to find.
+///
+/// C equivalent: `L_SELECT_MIN` / `L_SELECT_MAX`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtremeType {
+    /// Find the minimum value.
+    Min,
+    /// Find the maximum value.
+    Max,
+}
+
+/// Result of an extreme value query.
+///
+/// For 8bpp grayscale, returns `Gray(u32)`.
+/// For 32bpp RGB, returns per-channel values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtremeResult {
+    /// Grayscale extreme value.
+    Gray(u32),
+    /// Per-channel RGB extreme values.
+    Rgb { r: u32, g: u32, b: u32 },
+}
+
+/// Result of a maximum value search in a rectangular region.
+///
+/// C equivalent: output of `pixGetMaxValueInRect()`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MaxValueResult {
+    /// Maximum pixel value found.
+    pub max_val: u32,
+    /// X coordinate of the maximum value pixel.
+    pub x: u32,
+    /// Y coordinate of the maximum value pixel.
+    pub y: u32,
+}
+
 /// Clip a `Box` to the image rectangle `(0, 0, w, h)`.
 ///
 /// Returns `(xstart, ystart, xend, yend, bw, bh)` of the clipped region.
@@ -754,6 +790,40 @@ impl Pix {
 
         Ok(na)
     }
+
+    /// Get extreme (min or max) pixel value across the image.
+    ///
+    /// For 8bpp grayscale images, returns a single gray value.
+    /// For 32bpp RGB images, returns per-channel values.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    /// * `extreme_type` - Whether to find the minimum or maximum.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetExtremeValue()` in `pix4.c`
+    pub fn extreme_value(&self, _factor: u32, _extreme_type: ExtremeType) -> Result<ExtremeResult> {
+        todo!()
+    }
+
+    /// Find the maximum pixel value and its location within a rectangular region.
+    ///
+    /// Works with 8, 16, and 32bpp grayscale images (pixel values are treated
+    /// as numbers, not RGB components). If the max value is 0, returns the
+    /// center of the rectangle.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular region. If `None`, uses entire image.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetMaxValueInRect()` in `pix4.c`
+    pub fn max_value_in_rect(&self, _region: Option<&Box>) -> Result<MaxValueResult> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -1039,6 +1109,166 @@ mod tests {
     fn test_threshold_pixel_sum_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.threshold_pixel_sum(0).is_err());
+    }
+
+    // --- extreme_value tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extreme_value_8bpp_min() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        // Set some pixels to non-zero values
+        pm.set_pixel(5, 5, 100).unwrap();
+        pm.set_pixel(3, 3, 50).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Min).unwrap();
+        assert_eq!(result, ExtremeResult::Gray(0)); // Most pixels are 0
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extreme_value_8bpp_max() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(5, 5, 200).unwrap();
+        pm.set_pixel(3, 3, 50).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Max).unwrap();
+        assert_eq!(result, ExtremeResult::Gray(200));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extreme_value_32bpp_min() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        // All pixels start as (0,0,0,255). Set one to non-zero RGB.
+        pm.set_rgb(5, 5, 100, 50, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Min).unwrap();
+        assert_eq!(result, ExtremeResult::Rgb { r: 0, g: 0, b: 0 });
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extreme_value_32bpp_max() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(5, 5, 100, 50, 200).unwrap();
+        pm.set_rgb(7, 7, 255, 128, 64).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Max).unwrap();
+        assert_eq!(
+            result,
+            ExtremeResult::Rgb {
+                r: 255,
+                g: 128,
+                b: 200
+            }
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extreme_value_with_factor() {
+        // 100x100 all zeros, set (99,99) to 255
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(99, 99, 255).unwrap();
+        let pix: Pix = pm.into();
+
+        // Factor 2 samples every other pixel; (99,99) is odd coordinate
+        // and should still be hit since 99 = 0 + 49*2 + 1, wait:
+        // iteration: 0, 2, 4, ..., 98. x=99 would not be sampled.
+        let result = pix.extreme_value(2, ExtremeType::Max).unwrap();
+        // (99,99) is NOT sampled (98 is last), so max should be 0
+        assert_eq!(result, ExtremeResult::Gray(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extreme_value_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.extreme_value(1, ExtremeType::Max).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extreme_value_invalid_factor() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.extreme_value(0, ExtremeType::Max).is_err());
+    }
+
+    // --- max_value_in_rect tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_value_in_rect_8bpp() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(10, 10, 200).unwrap();
+        pm.set_pixel(5, 5, 100).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.max_value_in_rect(None).unwrap();
+        assert_eq!(result.max_val, 200);
+        assert_eq!(result.x, 10);
+        assert_eq!(result.y, 10);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_value_in_rect_with_region() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(15, 15, 200).unwrap(); // Outside region
+        pm.set_pixel(3, 3, 100).unwrap(); // Inside region
+        let pix: Pix = pm.into();
+
+        let region = crate::Box::new(0, 0, 10, 10).unwrap();
+        let result = pix.max_value_in_rect(Some(&region)).unwrap();
+        assert_eq!(result.max_val, 100);
+        assert_eq!(result.x, 3);
+        assert_eq!(result.y, 3);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_value_in_rect_all_zero() {
+        // When all zero, should return center of rectangle
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let result = pix.max_value_in_rect(None).unwrap();
+        assert_eq!(result.max_val, 0);
+        // Center of (0..19, 0..19) = (9, 9) per C: (xstart+xend)/2
+        assert_eq!(result.x, 9);
+        assert_eq!(result.y, 9);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_value_in_rect_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        // Set pixel as a raw 32-bit value (treated as number, not RGB)
+        pm.set_pixel(3, 3, 0x00FF0000).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.max_value_in_rect(None).unwrap();
+        assert_eq!(result.max_val, 0x00FF0000);
+        assert_eq!(result.x, 3);
+        assert_eq!(result.y, 3);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_value_in_rect_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.max_value_in_rect(None).is_err());
     }
 
     #[test]
