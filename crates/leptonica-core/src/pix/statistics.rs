@@ -1197,6 +1197,7 @@ pub struct RowColumnStats {
 }
 
 /// Bitmask specifying which statistics to compute in row/column stats.
+#[derive(Debug, Clone, Copy, Default)]
 pub struct StatsRequest {
     pub mean: bool,
     pub median: bool,
@@ -1226,7 +1227,21 @@ impl Pix {
     /// Returns a Numa with one entry per row, each being the average
     /// of `|pixel[x+1] - pixel[x]|` for that row.
     ///
-    /// C版: `pixAbsDiffByRow()` in `pix3.c`
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used. The box is clipped to the image bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    /// * the region width is less than 2
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAbsDiffByRow()` in `pix3.c`
     pub fn abs_diff_by_row(&self, region: Option<&Box>) -> Result<Numa> {
         if self.depth() != PixelDepth::Bit8 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -1258,7 +1273,21 @@ impl Pix {
     /// Returns a Numa with one entry per column, each being the average
     /// of `|pixel[y+1] - pixel[y]|` for that column.
     ///
-    /// C版: `pixAbsDiffByColumn()` in `pix3.c`
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used. The box is clipped to the image bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    /// * the region height is less than 2
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAbsDiffByColumn()` in `pix3.c`
     pub fn abs_diff_by_column(&self, region: Option<&Box>) -> Result<Numa> {
         if self.depth() != PixelDepth::Bit8 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -1290,7 +1319,24 @@ impl Pix {
     /// Returns a single float value representing the average absolute
     /// difference in the specified direction.
     ///
-    /// C版: `pixAbsDiffInRect()` in `pix3.c`
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used.
+    /// * `direction` - Direction of differencing:
+    ///   - `Horizontal`: `|pixel[x+1] - pixel[x]|` within each row
+    ///   - `Vertical`: `|pixel[y+1] - pixel[y]|` within each column
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    /// * the region is too small in the specified direction (< 2 pixels)
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAbsDiffInRect()` in `pix3.c`
     pub fn abs_diff_in_rect(&self, region: Option<&Box>, direction: DiffDirection) -> Result<f32> {
         if self.depth() != PixelDepth::Bit8 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -1340,7 +1386,22 @@ impl Pix {
     /// (mean, median, mode, mode_count, variance, rootvar) using
     /// per-row histograms.
     ///
-    /// C版: `pixRowStats()` in `pix4.c`
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used.
+    /// * `request` - Specifies which statistics to compute. Use
+    ///   `StatsRequest::all()` for all, or set individual fields to `true`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRowStats()` in `pix4.c`
     pub fn row_stats(
         &self,
         region: Option<&Box>,
@@ -1471,7 +1532,22 @@ impl Pix {
     ///
     /// For each column in the region, computes the requested statistics.
     ///
-    /// C版: `pixColumnStats()` in `pix4.c`
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used.
+    /// * `request` - Specifies which statistics to compute. Use
+    ///   `StatsRequest::all()` for all, or set individual fields to `true`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixColumnStats()` in `pix4.c`
     pub fn column_stats(
         &self,
         region: Option<&Box>,
@@ -1601,7 +1677,23 @@ impl Pix {
     /// For 8bpp, returns a grayscale average. For 32bpp RGB, returns
     /// the average of each channel recomposed into an RGB pixel value.
     ///
-    /// C版: `pixGetPixelAverage()` in `pix4.c`
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask. Only pixels where mask is non-zero
+    ///   are included. If `None`, all pixels are sampled.
+    /// * `mask_x`, `mask_y` - Offset of the mask relative to the image.
+    /// * `factor` - Subsampling factor (1 = every pixel, 2 = every other, etc.).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 or 32 bpp
+    /// * `factor` is 0
+    /// * no pixels are sampled (e.g. mask excludes all pixels)
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetPixelAverage()` in `pix4.c`
     pub fn get_pixel_average(
         &self,
         mask: Option<&Pix>,
@@ -1693,7 +1785,24 @@ impl Pix {
 
     /// Compute a pixel statistic over the entire image.
     ///
-    /// C版: `pixGetPixelStats()` in `pix4.c`
+    /// For 8bpp images, computes the statistic directly. For 32bpp RGB,
+    /// computes per-channel and recomposes as an RGB pixel value.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel). Must be >= 1.
+    /// * `stat_type` - The statistic to compute ([`PixelStatType`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 or 32 bpp
+    /// * `factor` is 0
+    /// * no pixels are sampled
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetPixelStats()` in `pix4.c`
     pub fn get_pixel_stats(&self, factor: u32, stat_type: PixelStatType) -> Result<u32> {
         let depth = self.depth();
         if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit32 {

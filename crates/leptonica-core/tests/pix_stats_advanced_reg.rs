@@ -1,6 +1,8 @@
 //! Test advanced pixel statistics functions
 //!
-//! C版: reference/leptonica/src/pix3.c, pix4.c
+//! # See also
+//!
+//! C Leptonica: `pix3.c`, `pix4.c`
 //! - pixAbsDiffByRow, pixAbsDiffByColumn, pixAbsDiffInRect
 //! - pixRowStats, pixColumnStats
 //! - pixGetPixelAverage, pixGetPixelStats
@@ -143,7 +145,7 @@ fn test_row_stats_mean() {
     let pix = make_uniform_image(100);
     let request = StatsRequest {
         mean: true,
-        ..StatsRequest::all()
+        ..Default::default()
     };
     let stats = pix.row_stats(None, &request).unwrap();
 
@@ -181,7 +183,7 @@ fn test_column_stats_mean() {
     let pix = make_uniform_image(80);
     let request = StatsRequest {
         mean: true,
-        ..StatsRequest::all()
+        ..Default::default()
     };
     let stats = pix.column_stats(None, &request).unwrap();
 
