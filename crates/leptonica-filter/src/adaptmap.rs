@@ -885,6 +885,22 @@ fn linear_trc_tiled(
 }
 
 // ============================================================================
+// Edge replication
+// ============================================================================
+
+/// Extend an image by replicating edge pixels.
+///
+/// C版: `pixExtendByReplication()` in `adaptmap.c`
+///
+/// Creates a new image with dimensions `(w + 2*extend_x, h + 2*extend_y)`.
+/// The source image is placed at offset `(extend_x, extend_y)` and the borders
+/// are filled by replicating edge pixels. Works for any pixel depth and
+/// preserves colormaps.
+pub fn extend_by_replication(_pix: &Pix, _extend_x: u32, _extend_y: u32) -> FilterResult<Pix> {
+    todo!("not yet implemented")
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
