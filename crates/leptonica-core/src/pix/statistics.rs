@@ -31,7 +31,11 @@ pub enum PixelMaxType {
 ///
 /// Returns `(xstart, ystart, xend, yend, bw, bh)` of the clipped region.
 /// Returns `None` if the clipped box has zero area.
-fn clip_box_to_rect(bx: Option<&Box>, w: i32, h: i32) -> Option<(i32, i32, i32, i32, i32, i32)> {
+pub(crate) fn clip_box_to_rect(
+    bx: Option<&Box>,
+    w: i32,
+    h: i32,
+) -> Option<(i32, i32, i32, i32, i32, i32)> {
     let (xstart, ystart, xend, yend) = match bx {
         Some(b) => {
             let xstart = b.x.max(0);
