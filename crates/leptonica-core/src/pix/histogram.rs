@@ -2,6 +2,7 @@
 //!
 //! Functions to compute pixel value distributions from images.
 
+use super::statistics::clip_box_to_rect;
 use super::{Pix, PixelDepth};
 use crate::Box;
 use crate::error::{Error, Result};
@@ -149,27 +150,24 @@ impl Pix {
 
         let w = self.width() as i32;
         let h = self.height() as i32;
-        let bx = region.unwrap();
+
+        let (xstart, ystart, xend, yend, _, _) =
+            clip_box_to_rect(region, w, h).ok_or_else(|| {
+                Error::InvalidParameter("region has no overlap with image".to_string())
+            })?;
 
         let mut histogram = vec![0.0f32; 256];
 
-        // Iterate over box region with boundary clipping
-        let mut i = 0i32;
-        while i < bx.h {
-            let sy = bx.y + i;
-            if sy >= 0 && sy < h {
-                let line = self.row_data(sy as u32);
-                let mut j = 0i32;
-                while j < bx.w {
-                    let sx = bx.x + j;
-                    if sx >= 0 && sx < w {
-                        let val = get_pixel_from_line(line, sx as u32, depth) as usize;
-                        histogram[val] += 1.0;
-                    }
-                    j += factor as i32;
-                }
+        let mut y = ystart;
+        while y < yend {
+            let line = self.row_data(y as u32);
+            let mut x = xstart;
+            while x < xend {
+                let val = get_pixel_from_line(line, x as u32, depth) as usize;
+                histogram[val] += 1.0;
+                x += factor as i32;
             }
-            i += factor as i32;
+            y += factor as i32;
         }
 
         let mut result = Numa::from_vec(histogram);
@@ -188,28 +186,26 @@ impl Pix {
         let h = self.height() as i32;
         let depth = self.depth();
 
+        let (xstart, ystart, xend, yend, _, _) =
+            clip_box_to_rect(Some(region), w, h).ok_or_else(|| {
+                Error::InvalidParameter("region has no overlap with image".to_string())
+            })?;
+
         let mut histogram = vec![0.0f32; 256];
 
-        let mut i = 0i32;
-        while i < region.h {
-            let sy = region.y + i;
-            if sy >= 0 && sy < h {
-                let line = self.row_data(sy as u32);
-                let mut j = 0i32;
-                while j < region.w {
-                    let sx = region.x + j;
-                    if sx >= 0 && sx < w {
-                        let index = get_pixel_from_line(line, sx as u32, depth) as usize;
-                        if let Some((r, g, b, _)) = cmap.get_rgba(index) {
-                            let gray =
-                                ((r as u32 * 77 + g as u32 * 150 + b as u32 * 29) >> 8) as usize;
-                            histogram[gray.min(255)] += 1.0;
-                        }
-                    }
-                    j += factor as i32;
+        let mut y = ystart;
+        while y < yend {
+            let line = self.row_data(y as u32);
+            let mut x = xstart;
+            while x < xend {
+                let index = get_pixel_from_line(line, x as u32, depth) as usize;
+                if let Some((r, g, b, _)) = cmap.get_rgba(index) {
+                    let gray = ((r as u32 * 77 + g as u32 * 150 + b as u32 * 29) >> 8) as usize;
+                    histogram[gray.min(255)] += 1.0;
                 }
+                x += factor as i32;
             }
-            i += factor as i32;
+            y += factor as i32;
         }
 
         let mut result = Numa::from_vec(histogram);
