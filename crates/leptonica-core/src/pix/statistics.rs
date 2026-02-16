@@ -978,6 +978,45 @@ impl Pix {
             y: y_max as u32,
         })
     }
+
+    /// Get the min and max values of a specific color component.
+    ///
+    /// For 8bpp grayscale, the `color` argument is ignored.
+    /// For 32bpp RGB, only the specified channel's range is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    /// * `color` - Which RGB component to query (ignored for 8bpp).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRangeValues()` in `pix4.c`
+    pub fn range_values(
+        &self,
+        _factor: u32,
+        _color: super::rgb::RgbComponent,
+    ) -> Result<(u32, u32)> {
+        todo!()
+    }
+
+    /// Get the rank value from the image's histogram.
+    ///
+    /// For 8bpp: computes gray histogram, then finds the pixel value at
+    /// the given rank fraction. For 32bpp: computes per-channel histograms,
+    /// finds each channel's rank value, and composes back to an RGB pixel.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    /// * `rank` - Fraction between 0.0 (darkest) and 1.0 (brightest).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRankValue()` in `pix4.c`
+    pub fn pixel_rank_value(&self, _factor: u32, _rank: f32) -> Result<u32> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -1423,6 +1462,140 @@ mod tests {
     fn test_max_value_in_rect_unsupported_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(pix.max_value_in_rect(None).is_err());
+    }
+
+    // --- range_values tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_range_values_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(0, 0, 10).unwrap();
+        pm.set_pixel(5, 5, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        // For 8bpp, color argument is ignored
+        let (min, max) = pix
+            .range_values(1, super::super::rgb::RgbComponent::Red)
+            .unwrap();
+        assert_eq!(min, 0); // Most pixels are 0
+        assert_eq!(max, 200);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_range_values_32bpp_red() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(3, 3, 100, 50, 200).unwrap();
+        pm.set_rgb(7, 7, 255, 128, 64).unwrap();
+        let pix: Pix = pm.into();
+
+        let (min, max) = pix
+            .range_values(1, super::super::rgb::RgbComponent::Red)
+            .unwrap();
+        assert_eq!(min, 0);
+        assert_eq!(max, 255);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_range_values_32bpp_blue() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(3, 3, 100, 50, 200).unwrap();
+        pm.set_rgb(7, 7, 255, 128, 64).unwrap();
+        let pix: Pix = pm.into();
+
+        let (min, max) = pix
+            .range_values(1, super::super::rgb::RgbComponent::Blue)
+            .unwrap();
+        assert_eq!(min, 0);
+        assert_eq!(max, 200);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_range_values_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(
+            pix.range_values(1, super::super::rgb::RgbComponent::Red)
+                .is_err()
+        );
+    }
+
+    // --- pixel_rank_value tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixel_rank_value_8bpp() {
+        // Create 10x10, all value 0 except one pixel at value 200
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(5, 5, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        // Rank 0.0 -> smallest value = 0
+        let val = pix.pixel_rank_value(1, 0.0).unwrap();
+        assert_eq!(val, 0);
+
+        // Rank 1.0 -> largest value = 200
+        let val = pix.pixel_rank_value(1, 1.0).unwrap();
+        assert_eq!(val, 200);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixel_rank_value_8bpp_uniform() {
+        // All pixels are value 128
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        for y in 0..10 {
+            for x in 0..10 {
+                pm.set_pixel(x, y, 128).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // All ranks should return 128
+        let val = pix.pixel_rank_value(1, 0.5).unwrap();
+        assert_eq!(val, 128);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixel_rank_value_32bpp() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(0, 0, 100, 50, 200).unwrap();
+        pm.set_rgb(1, 0, 100, 50, 200).unwrap();
+        pm.set_rgb(0, 1, 100, 50, 200).unwrap();
+        pm.set_rgb(1, 1, 100, 50, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        // All pixels same color, so rank value should compose to same pixel
+        let val = pix.pixel_rank_value(1, 0.5).unwrap();
+        let r = crate::color::red(val);
+        let g = crate::color::green(val);
+        let b = crate::color::blue(val);
+        assert_eq!(r, 100);
+        assert_eq!(g, 50);
+        assert_eq!(b, 200);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixel_rank_value_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.pixel_rank_value(1, 0.5).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixel_rank_value_invalid_factor() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.pixel_rank_value(0, 0.5).is_err());
     }
 
     #[test]
