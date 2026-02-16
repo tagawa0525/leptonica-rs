@@ -885,6 +885,81 @@ fn linear_trc_tiled(
 }
 
 // ============================================================================
+// Edge replication
+// ============================================================================
+
+/// Extend an image by replicating edge pixels.
+///
+/// C版: `pixExtendByReplication()` in `adaptmap.c`
+///
+/// Creates a new image with dimensions `(w + 2*extend_x, h + 2*extend_y)`.
+/// The source image is placed at offset `(extend_x, extend_y)` and the borders
+/// are filled by replicating edge pixels. Works for any pixel depth and
+/// preserves colormaps.
+pub fn extend_by_replication(pix: &Pix, extend_x: u32, extend_y: u32) -> FilterResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let depth = pix.depth();
+
+    if extend_x == 0 && extend_y == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    // Use checked arithmetic to prevent overflow
+    let double_x = extend_x
+        .checked_mul(2)
+        .ok_or_else(|| FilterError::InvalidParameters("extend_x overflow".into()))?;
+    let double_y = extend_y
+        .checked_mul(2)
+        .ok_or_else(|| FilterError::InvalidParameters("extend_y overflow".into()))?;
+    let new_w = w
+        .checked_add(double_x)
+        .ok_or_else(|| FilterError::InvalidParameters("resulting width overflow".into()))?;
+    let new_h = h
+        .checked_add(double_y)
+        .ok_or_else(|| FilterError::InvalidParameters("resulting height overflow".into()))?;
+
+    let out_pix = Pix::new(new_w, new_h, depth)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    out_mut.set_spp(pix.spp());
+
+    // Preserve colormap if present
+    if let Some(cmap) = pix.colormap() {
+        let _ = out_mut.set_colormap(Some(cmap.clone()));
+    }
+
+    // Copy source image to center region
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            out_mut.set_pixel_unchecked(x + extend_x, y + extend_y, val);
+        }
+    }
+
+    // Replicate left and right edges
+    for y in 0..h {
+        let left_val = pix.get_pixel_unchecked(0, y);
+        let right_val = pix.get_pixel_unchecked(w - 1, y);
+        for ex in 0..extend_x {
+            out_mut.set_pixel_unchecked(ex, y + extend_y, left_val);
+            out_mut.set_pixel_unchecked(extend_x + w + ex, y + extend_y, right_val);
+        }
+    }
+
+    // Replicate top and bottom edges (including corners)
+    for x in 0..new_w {
+        let top_val = out_mut.get_pixel_unchecked(x, extend_y);
+        let bottom_val = out_mut.get_pixel_unchecked(x, extend_y + h - 1);
+        for ey in 0..extend_y {
+            out_mut.set_pixel_unchecked(x, ey, top_val);
+            out_mut.set_pixel_unchecked(x, extend_y + h + ey, bottom_val);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

@@ -27,7 +27,7 @@ pub use kernel::Kernel;
 // Re-export commonly used functions
 pub use adaptmap::{
     BackgroundNormOptions, ContrastNormOptions, background_norm, background_norm_simple,
-    contrast_norm, contrast_norm_simple,
+    contrast_norm, contrast_norm_simple, extend_by_replication,
 };
 pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
 pub use block_conv::{blockconv, blockconv_accum, blockconv_gray, blockconv_gray_unnormalized};
