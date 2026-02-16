@@ -95,6 +95,13 @@ fn test_apply_variable_gray_map_size_mismatch() {
     assert!(adaptmap::apply_variable_gray_map(&pix, &map, 128).is_err());
 }
 
+#[test]
+fn test_apply_variable_gray_map_invalid_map_depth() {
+    let pix = make_gray_test_image();
+    let map = Pix::new(60, 60, PixelDepth::Bit32).unwrap();
+    assert!(adaptmap::apply_variable_gray_map(&pix, &map, 128).is_err());
+}
+
 // ============================================================================
 // pixGlobalNormRGB
 // ============================================================================

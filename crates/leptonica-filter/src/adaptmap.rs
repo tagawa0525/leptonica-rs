@@ -1523,6 +1523,12 @@ pub fn apply_variable_gray_map(pix: &Pix, pixg: &Pix, target: u32) -> FilterResu
             actual: pix.depth().bits(),
         });
     }
+    if pixg.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8bpp",
+            actual: pixg.depth().bits(),
+        });
+    }
     let w = pix.width();
     let h = pix.height();
     if pixg.width() != w || pixg.height() != h {
