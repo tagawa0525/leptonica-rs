@@ -40,7 +40,6 @@ fn make_color_edge_image() -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_gray_basic() {
     let pix = make_gray_edge_image();
     let result = bilateral::bilateral_gray(&pix, 5.0, 50.0, 6, 2).unwrap();
@@ -51,7 +50,6 @@ fn test_bilateral_gray_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_gray_preserves_edges() {
     let pix = make_gray_edge_image();
     let result = bilateral::bilateral_gray(&pix, 5.0, 30.0, 6, 1).unwrap();
@@ -66,7 +64,6 @@ fn test_bilateral_gray_preserves_edges() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_gray_reduction_2() {
     let pix = make_gray_edge_image();
     let result = bilateral::bilateral_gray(&pix, 5.0, 50.0, 6, 2).unwrap();
@@ -76,7 +73,6 @@ fn test_bilateral_gray_reduction_2() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_gray_reduction_4() {
     let pix = make_gray_edge_image();
     let result = bilateral::bilateral_gray(&pix, 10.0, 50.0, 6, 4).unwrap();
@@ -86,7 +82,6 @@ fn test_bilateral_gray_reduction_4() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_gray_invalid_params() {
     let pix = make_gray_edge_image();
 
@@ -105,7 +100,6 @@ fn test_bilateral_gray_invalid_params() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_gray_small_image_returns_copy() {
     // Image too small for filter — should return a copy
     let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -119,7 +113,6 @@ fn test_bilateral_gray_small_image_returns_copy() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_fast_gray() {
     let pix = make_gray_edge_image();
     let result = bilateral::bilateral(&pix, 5.0, 50.0, 6, 2).unwrap();
@@ -130,7 +123,6 @@ fn test_bilateral_fast_gray() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_fast_color() {
     let pix = make_color_edge_image();
     let result = bilateral::bilateral(&pix, 5.0, 50.0, 6, 2).unwrap();
@@ -141,7 +133,6 @@ fn test_bilateral_fast_color() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_fast_color_preserves_edges() {
     let pix = make_color_edge_image();
     let result = bilateral::bilateral(&pix, 5.0, 30.0, 6, 1).unwrap();
@@ -158,7 +149,6 @@ fn test_bilateral_fast_color_preserves_edges() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_bilateral_fast_invalid_depth() {
     let pix = Pix::new(60, 60, PixelDepth::Bit1).unwrap();
     assert!(bilateral::bilateral(&pix, 5.0, 50.0, 6, 1).is_err());
