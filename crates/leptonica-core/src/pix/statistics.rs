@@ -804,8 +804,101 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixGetExtremeValue()` in `pix4.c`
-    pub fn extreme_value(&self, _factor: u32, _extreme_type: ExtremeType) -> Result<ExtremeResult> {
-        todo!()
+    pub fn extreme_value(&self, factor: u32, extreme_type: ExtremeType) -> Result<ExtremeResult> {
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        if depth == PixelDepth::Bit8 {
+            let mut ext: u32 = match extreme_type {
+                ExtremeType::Min => u32::MAX,
+                ExtremeType::Max => 0,
+            };
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    // Extract byte from packed u32 word
+                    let word_idx = (x >> 2) as usize;
+                    let byte_idx = 3 - (x & 3);
+                    let val = (line[word_idx] >> (byte_idx * 8)) & 0xFF;
+                    match extreme_type {
+                        ExtremeType::Min => {
+                            if val < ext {
+                                ext = val;
+                            }
+                        }
+                        ExtremeType::Max => {
+                            if val > ext {
+                                ext = val;
+                            }
+                        }
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+            Ok(ExtremeResult::Gray(ext))
+        } else {
+            // 32bpp RGB
+            let (mut ext_r, mut ext_g, mut ext_b): (u32, u32, u32) = match extreme_type {
+                ExtremeType::Min => (u32::MAX, u32::MAX, u32::MAX),
+                ExtremeType::Max => (0, 0, 0),
+            };
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    let pixel = line[x as usize];
+                    let r = crate::color::red(pixel) as u32;
+                    let g = crate::color::green(pixel) as u32;
+                    let b = crate::color::blue(pixel) as u32;
+                    match extreme_type {
+                        ExtremeType::Min => {
+                            if r < ext_r {
+                                ext_r = r;
+                            }
+                            if g < ext_g {
+                                ext_g = g;
+                            }
+                            if b < ext_b {
+                                ext_b = b;
+                            }
+                        }
+                        ExtremeType::Max => {
+                            if r > ext_r {
+                                ext_r = r;
+                            }
+                            if g > ext_g {
+                                ext_g = g;
+                            }
+                            if b > ext_b {
+                                ext_b = b;
+                            }
+                        }
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+            Ok(ExtremeResult::Rgb {
+                r: ext_r,
+                g: ext_g,
+                b: ext_b,
+            })
+        }
     }
 
     /// Find the maximum pixel value and its location within a rectangular region.
@@ -821,8 +914,69 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixGetMaxValueInRect()` in `pix4.c`
-    pub fn max_value_in_rect(&self, _region: Option<&Box>) -> Result<MaxValueResult> {
-        todo!()
+    pub fn max_value_in_rect(&self, region: Option<&Box>) -> Result<MaxValueResult> {
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit16 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if self.colormap().is_some() {
+            return Err(Error::InvalidParameter(
+                "colormapped images not supported".to_string(),
+            ));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+
+        let (xstart, ystart, xend, yend) = match region {
+            Some(b) => {
+                let xe = (b.x + b.w - 1).min(w - 1);
+                let ye = (b.y + b.h - 1).min(h - 1);
+                (b.x.max(0), b.y.max(0), xe, ye)
+            }
+            None => (0, 0, w - 1, h - 1),
+        };
+
+        let mut max_val: u32 = 0;
+        let mut x_max: i32 = 0;
+        let mut y_max: i32 = 0;
+
+        for iy in ystart..=yend {
+            let line = self.row_data(iy as u32);
+            for ix in xstart..=xend {
+                let val = match depth {
+                    PixelDepth::Bit8 => {
+                        let word_idx = (ix as u32 >> 2) as usize;
+                        let byte_idx = 3 - (ix as u32 & 3);
+                        (line[word_idx] >> (byte_idx * 8)) & 0xFF
+                    }
+                    PixelDepth::Bit16 => {
+                        let word_idx = (ix as u32 >> 1) as usize;
+                        let half_idx = 1 - (ix as u32 & 1);
+                        (line[word_idx] >> (half_idx * 16)) & 0xFFFF
+                    }
+                    PixelDepth::Bit32 => line[ix as usize],
+                    _ => unreachable!(),
+                };
+                if val > max_val {
+                    max_val = val;
+                    x_max = ix;
+                    y_max = iy;
+                }
+            }
+        }
+
+        // If all zero, return center of rectangle (C behavior)
+        if max_val == 0 {
+            x_max = (xstart + xend) / 2;
+            y_max = (ystart + yend) / 2;
+        }
+
+        Ok(MaxValueResult {
+            max_val,
+            x: x_max as u32,
+            y: y_max as u32,
+        })
     }
 }
 
@@ -1114,7 +1268,7 @@ mod tests {
     // --- extreme_value tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_extreme_value_8bpp_min() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();
@@ -1128,7 +1282,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_extreme_value_8bpp_max() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();
@@ -1141,7 +1295,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_extreme_value_32bpp_min() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -1154,7 +1308,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_extreme_value_32bpp_max() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -1174,7 +1328,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_extreme_value_with_factor() {
         // 100x100 all zeros, set (99,99) to 255
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -1191,14 +1345,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_extreme_value_unsupported_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(pix.extreme_value(1, ExtremeType::Max).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_extreme_value_invalid_factor() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.extreme_value(0, ExtremeType::Max).is_err());
@@ -1207,7 +1361,7 @@ mod tests {
     // --- max_value_in_rect tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_max_value_in_rect_8bpp() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();
@@ -1222,7 +1376,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_max_value_in_rect_with_region() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();
@@ -1238,7 +1392,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_max_value_in_rect_all_zero() {
         // When all zero, should return center of rectangle
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -1250,7 +1404,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_max_value_in_rect_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -1265,7 +1419,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_max_value_in_rect_unsupported_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(pix.max_value_in_rect(None).is_err());
