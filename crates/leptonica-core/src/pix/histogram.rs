@@ -2,11 +2,11 @@
 //!
 //! Functions to compute pixel value distributions from images.
 
-use super::statistics::clip_box_to_rect;
+use super::statistics::{PixelStatType, clip_box_to_rect};
 use super::{Pix, PixelDepth};
 use crate::Box;
 use crate::error::{Error, Result};
-use crate::numa::Numa;
+use crate::numa::{Numa, Numaa};
 use crate::{PixColormap, color};
 
 /// RGB channel histograms
@@ -684,6 +684,234 @@ impl Pix {
         }
 
         count
+    }
+}
+
+// ============================================================================
+// Advanced histogram and tile-based statistics (Phase 6.2)
+// ============================================================================
+
+impl Pix {
+    /// Compute grayscale histograms for a tiled grid of the image.
+    ///
+    /// Divides the image into `nx * ny` tiles and returns a histogram
+    /// for each tile.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    /// * `nx` - Number of horizontal tiles.
+    /// * `ny` - Number of vertical tiles.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 8 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetGrayHistogramTiled()` in `pix4.c`
+    pub fn gray_histogram_tiled(&self, _factor: u32, _nx: u32, _ny: u32) -> Result<Numaa> {
+        todo!()
+    }
+
+    /// Histogram of colormap indices.
+    ///
+    /// Returns a Numa counting occurrences of each colormap index.
+    /// The image must have a colormap.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image has no colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetCmapHistogram()` in `pix4.c`
+    pub fn cmap_histogram(&self, _factor: u32) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Count unique RGB colors in a 32bpp image.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCountRGBColors()` in `pix4.c`
+    pub fn count_rgb_colors(&self, _factor: u32) -> Result<u32> {
+        todo!()
+    }
+
+    /// Compute a pixel statistic over a masked region (8bpp).
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask. If `None`, all pixels are sampled.
+    /// * `x`, `y` - Offset of the mask relative to the image.
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    /// * `stat_type` - The statistic to compute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * `factor` is 0
+    /// * no pixels are sampled
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageMasked()` in `pix4.c`
+    pub fn average_masked(
+        &self,
+        _mask: Option<&Pix>,
+        _x: i32,
+        _y: i32,
+        _factor: u32,
+        _stat_type: PixelStatType,
+    ) -> Result<f32> {
+        todo!()
+    }
+
+    /// Compute per-channel statistics over a masked region (32bpp RGB).
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask. If `None`, all pixels are sampled.
+    /// * `x`, `y` - Offset of the mask relative to the image.
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    /// * `stat_type` - The statistic to compute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageMaskedRGB()` in `pix4.c`
+    pub fn average_masked_rgb(
+        &self,
+        _mask: Option<&Pix>,
+        _x: i32,
+        _y: i32,
+        _factor: u32,
+        _stat_type: PixelStatType,
+    ) -> Result<(f32, f32, f32)> {
+        todo!()
+    }
+
+    /// Compute tile-based statistics for an 8bpp image.
+    ///
+    /// Returns an image where each pixel represents the statistic
+    /// of the corresponding tile in the input.
+    ///
+    /// # Arguments
+    ///
+    /// * `sx`, `sy` - Tile dimensions in pixels.
+    /// * `stat_type` - The statistic to compute (mean, RMS, or stdev).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 8 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageTiled()` in `pix4.c`
+    pub fn average_tiled(&self, _sx: u32, _sy: u32, _stat_type: PixelStatType) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Compute tile-based per-channel statistics for a 32bpp RGB image.
+    ///
+    /// Returns three 8bpp images (R, G, B) where each pixel
+    /// represents the channel statistic of the corresponding tile.
+    ///
+    /// # Arguments
+    ///
+    /// * `sx`, `sy` - Tile dimensions in pixels.
+    /// * `stat_type` - The statistic to compute (mean, RMS, or stdev).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageTiledRGB()` in `pix4.c`
+    pub fn average_tiled_rgb(
+        &self,
+        _sx: u32,
+        _sy: u32,
+        _stat_type: PixelStatType,
+    ) -> Result<(Pix, Pix, Pix)> {
+        todo!()
+    }
+
+    /// Compute the rank value from a masked 8bpp image histogram.
+    ///
+    /// Returns the pixel value at the given rank position (0.0 = min,
+    /// 0.5 = median, 1.0 = max) and optionally the histogram used.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask.
+    /// * `x`, `y` - Mask offset.
+    /// * `factor` - Subsampling factor.
+    /// * `rank` - Rank value in [0.0, 1.0].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * `rank` is outside [0.0, 1.0]
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRankValueMasked()` in `pix4.c`
+    pub fn rank_value_masked(
+        &self,
+        _mask: Option<&Pix>,
+        _x: i32,
+        _y: i32,
+        _factor: u32,
+        _rank: f32,
+    ) -> Result<(f32, Option<Numa>)> {
+        todo!()
+    }
+
+    /// Compute per-channel rank values from a masked 32bpp RGB image.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask.
+    /// * `x`, `y` - Mask offset.
+    /// * `factor` - Subsampling factor.
+    /// * `rank` - Rank value in [0.0, 1.0].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRankValueMaskedRGB()` in `pix4.c`
+    pub fn rank_value_masked_rgb(
+        &self,
+        _mask: Option<&Pix>,
+        _x: i32,
+        _y: i32,
+        _factor: u32,
+        _rank: f32,
+    ) -> Result<(f32, f32, f32)> {
+        todo!()
     }
 }
 
