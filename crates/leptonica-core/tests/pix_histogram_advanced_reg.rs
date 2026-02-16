@@ -109,7 +109,6 @@ fn make_cmap_image() -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_gray_histogram_tiled_basic() {
     let pix = make_uniform_gray(100, 40, 40);
     let result: Numaa = pix.gray_histogram_tiled(1, 2, 2).unwrap();
@@ -118,7 +117,6 @@ fn test_gray_histogram_tiled_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_gray_histogram_tiled_values() {
     let pix = make_uniform_gray(100, 40, 40);
     let result = pix.gray_histogram_tiled(1, 2, 2).unwrap();
@@ -130,7 +128,6 @@ fn test_gray_histogram_tiled_values() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_gray_histogram_tiled_invalid_depth() {
     let pix = Pix::new(40, 40, PixelDepth::Bit32).unwrap();
     assert!(pix.gray_histogram_tiled(1, 2, 2).is_err());
@@ -141,7 +138,6 @@ fn test_gray_histogram_tiled_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_cmap_histogram_basic() {
     let pix = make_cmap_image();
     let hist = pix.cmap_histogram(1).unwrap();
@@ -156,7 +152,6 @@ fn test_cmap_histogram_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_cmap_histogram_no_colormap() {
     let pix = make_uniform_gray(100, 20, 20);
     assert!(pix.cmap_histogram(1).is_err());
@@ -167,7 +162,6 @@ fn test_cmap_histogram_no_colormap() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_count_rgb_colors_uniform() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let count = pix.count_rgb_colors(1).unwrap();
@@ -175,7 +169,6 @@ fn test_count_rgb_colors_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_count_rgb_colors_gradient() {
     // Create image with distinct colors
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
@@ -191,7 +184,6 @@ fn test_count_rgb_colors_gradient() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_count_rgb_colors_invalid_depth() {
     let pix = make_uniform_gray(100, 20, 20);
     assert!(pix.count_rgb_colors(1).is_err());
@@ -202,7 +194,6 @@ fn test_count_rgb_colors_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_masked_no_mask() {
     let pix = make_uniform_gray(120, 20, 20);
     let val = pix
@@ -212,7 +203,6 @@ fn test_average_masked_no_mask() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_masked_with_mask() {
     // Left half = 50, right half = 200
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -234,7 +224,6 @@ fn test_average_masked_with_mask() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_masked_variance() {
     let pix = make_uniform_gray(100, 20, 20);
     let val = pix
@@ -251,7 +240,6 @@ fn test_average_masked_variance() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_masked_rgb_no_mask() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let (r, g, b) = pix
@@ -263,7 +251,6 @@ fn test_average_masked_rgb_no_mask() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_masked_rgb_invalid_depth() {
     let pix = make_uniform_gray(100, 20, 20);
     assert!(
@@ -277,7 +264,6 @@ fn test_average_masked_rgb_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_tiled_uniform() {
     let pix = make_uniform_gray(150, 40, 40);
     let result = pix
@@ -291,7 +277,6 @@ fn test_average_tiled_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_tiled_invalid_depth() {
     let pix = Pix::new(40, 40, PixelDepth::Bit32).unwrap();
     assert!(
@@ -305,7 +290,6 @@ fn test_average_tiled_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_tiled_rgb_uniform() {
     let pix = make_uniform_rgb(100, 150, 200, 40, 40);
     let (pr, pg, pb) = pix
@@ -319,7 +303,6 @@ fn test_average_tiled_rgb_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_average_tiled_rgb_invalid_depth() {
     let pix = make_uniform_gray(100, 40, 40);
     assert!(
@@ -333,7 +316,6 @@ fn test_average_tiled_rgb_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rank_value_masked_median() {
     let pix = make_uniform_gray(128, 20, 20);
     let (val, _hist) = pix.rank_value_masked(None, 0, 0, 1, 0.5).unwrap();
@@ -341,7 +323,6 @@ fn test_rank_value_masked_median() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rank_value_masked_min_max() {
     let pix = make_gradient_gray(100, 10);
     let (min_val, _) = pix.rank_value_masked(None, 0, 0, 1, 0.0).unwrap();
@@ -351,7 +332,6 @@ fn test_rank_value_masked_min_max() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rank_value_masked_invalid_rank() {
     let pix = make_uniform_gray(100, 20, 20);
     assert!(pix.rank_value_masked(None, 0, 0, 1, -0.1).is_err());
@@ -363,7 +343,6 @@ fn test_rank_value_masked_invalid_rank() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rank_value_masked_rgb_uniform() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let (r, g, b) = pix.rank_value_masked_rgb(None, 0, 0, 1, 0.5).unwrap();
@@ -373,7 +352,6 @@ fn test_rank_value_masked_rgb_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rank_value_masked_rgb_invalid_depth() {
     let pix = make_uniform_gray(100, 20, 20);
     assert!(pix.rank_value_masked_rgb(None, 0, 0, 1, 0.5).is_err());
