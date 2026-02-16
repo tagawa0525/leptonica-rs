@@ -27,11 +27,51 @@ pub enum PixelMaxType {
     BlackIsMax,
 }
 
+/// Type of extreme value to find.
+///
+/// C equivalent: `L_SELECT_MIN` / `L_SELECT_MAX`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtremeType {
+    /// Find the minimum value.
+    Min,
+    /// Find the maximum value.
+    Max,
+}
+
+/// Result of an extreme value query.
+///
+/// For 8bpp grayscale, returns `Gray(u32)`.
+/// For 32bpp RGB, returns per-channel values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtremeResult {
+    /// Grayscale extreme value.
+    Gray(u32),
+    /// Per-channel RGB extreme values.
+    Rgb { r: u32, g: u32, b: u32 },
+}
+
+/// Result of a maximum value search in a rectangular region.
+///
+/// C equivalent: output of `pixGetMaxValueInRect()`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MaxValueResult {
+    /// Maximum pixel value found.
+    pub max_val: u32,
+    /// X coordinate of the maximum value pixel.
+    pub x: u32,
+    /// Y coordinate of the maximum value pixel.
+    pub y: u32,
+}
+
 /// Clip a `Box` to the image rectangle `(0, 0, w, h)`.
 ///
 /// Returns `(xstart, ystart, xend, yend, bw, bh)` of the clipped region.
 /// Returns `None` if the clipped box has zero area.
-fn clip_box_to_rect(bx: Option<&Box>, w: i32, h: i32) -> Option<(i32, i32, i32, i32, i32, i32)> {
+pub(crate) fn clip_box_to_rect(
+    bx: Option<&Box>,
+    w: i32,
+    h: i32,
+) -> Option<(i32, i32, i32, i32, i32, i32)> {
     let (xstart, ystart, xend, yend) = match bx {
         Some(b) => {
             let xstart = b.x.max(0);
@@ -750,6 +790,361 @@ impl Pix {
 
         Ok(na)
     }
+
+    /// Get extreme (min or max) pixel value across the image.
+    ///
+    /// For 8bpp grayscale images, returns a single gray value.
+    /// For 32bpp RGB images, returns per-channel values.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    /// * `extreme_type` - Whether to find the minimum or maximum.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetExtremeValue()` in `pix4.c`
+    pub fn extreme_value(&self, factor: u32, extreme_type: ExtremeType) -> Result<ExtremeResult> {
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        if depth == PixelDepth::Bit8 {
+            let mut ext: u32 = match extreme_type {
+                ExtremeType::Min => u32::MAX,
+                ExtremeType::Max => 0,
+            };
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    // Extract byte from packed u32 word
+                    let word_idx = (x >> 2) as usize;
+                    let byte_idx = 3 - (x & 3);
+                    let val = (line[word_idx] >> (byte_idx * 8)) & 0xFF;
+                    match extreme_type {
+                        ExtremeType::Min => {
+                            if val < ext {
+                                ext = val;
+                            }
+                        }
+                        ExtremeType::Max => {
+                            if val > ext {
+                                ext = val;
+                            }
+                        }
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+            Ok(ExtremeResult::Gray(ext))
+        } else {
+            // 32bpp RGB
+            let (mut ext_r, mut ext_g, mut ext_b): (u32, u32, u32) = match extreme_type {
+                ExtremeType::Min => (u32::MAX, u32::MAX, u32::MAX),
+                ExtremeType::Max => (0, 0, 0),
+            };
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    let pixel = line[x as usize];
+                    let r = crate::color::red(pixel) as u32;
+                    let g = crate::color::green(pixel) as u32;
+                    let b = crate::color::blue(pixel) as u32;
+                    match extreme_type {
+                        ExtremeType::Min => {
+                            if r < ext_r {
+                                ext_r = r;
+                            }
+                            if g < ext_g {
+                                ext_g = g;
+                            }
+                            if b < ext_b {
+                                ext_b = b;
+                            }
+                        }
+                        ExtremeType::Max => {
+                            if r > ext_r {
+                                ext_r = r;
+                            }
+                            if g > ext_g {
+                                ext_g = g;
+                            }
+                            if b > ext_b {
+                                ext_b = b;
+                            }
+                        }
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+            Ok(ExtremeResult::Rgb {
+                r: ext_r,
+                g: ext_g,
+                b: ext_b,
+            })
+        }
+    }
+
+    /// Find the maximum pixel value and its location within a rectangular region.
+    ///
+    /// Works with 8, 16, and 32bpp grayscale images (pixel values are treated
+    /// as numbers, not RGB components). If the max value is 0, returns the
+    /// center of the rectangle.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular region. If `None`, uses entire image.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetMaxValueInRect()` in `pix4.c`
+    pub fn max_value_in_rect(&self, region: Option<&Box>) -> Result<MaxValueResult> {
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit16 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if self.colormap().is_some() {
+            return Err(Error::InvalidParameter(
+                "colormapped images not supported".to_string(),
+            ));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+
+        let (xstart, ystart, xend, yend) = match region {
+            Some(b) => {
+                let xe = (b.x + b.w - 1).min(w - 1);
+                let ye = (b.y + b.h - 1).min(h - 1);
+                (b.x.max(0), b.y.max(0), xe, ye)
+            }
+            None => (0, 0, w - 1, h - 1),
+        };
+
+        let mut max_val: u32 = 0;
+        let mut x_max: i32 = 0;
+        let mut y_max: i32 = 0;
+
+        for iy in ystart..=yend {
+            let line = self.row_data(iy as u32);
+            for ix in xstart..=xend {
+                let val = match depth {
+                    PixelDepth::Bit8 => {
+                        let word_idx = (ix as u32 >> 2) as usize;
+                        let byte_idx = 3 - (ix as u32 & 3);
+                        (line[word_idx] >> (byte_idx * 8)) & 0xFF
+                    }
+                    PixelDepth::Bit16 => {
+                        let word_idx = (ix as u32 >> 1) as usize;
+                        let half_idx = 1 - (ix as u32 & 1);
+                        (line[word_idx] >> (half_idx * 16)) & 0xFFFF
+                    }
+                    PixelDepth::Bit32 => line[ix as usize],
+                    _ => unreachable!(),
+                };
+                if val > max_val {
+                    max_val = val;
+                    x_max = ix;
+                    y_max = iy;
+                }
+            }
+        }
+
+        // If all zero, return center of rectangle (C behavior)
+        if max_val == 0 {
+            x_max = (xstart + xend) / 2;
+            y_max = (ystart + yend) / 2;
+        }
+
+        Ok(MaxValueResult {
+            max_val,
+            x: x_max as u32,
+            y: y_max as u32,
+        })
+    }
+
+    /// Get the min and max values of a specific color component.
+    ///
+    /// For 8bpp grayscale, the `color` argument is ignored.
+    /// For 32bpp RGB, only the specified channel's range is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    /// * `color` - Which RGB component to query (ignored for 8bpp).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRangeValues()` in `pix4.c`
+    pub fn range_values(&self, factor: u32, color: super::rgb::RgbComponent) -> Result<(u32, u32)> {
+        use super::rgb::RgbComponent;
+
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if depth == PixelDepth::Bit32 && color == RgbComponent::Alpha {
+            return Err(Error::InvalidParameter(
+                "alpha channel not supported for range_values".to_string(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        if depth == PixelDepth::Bit8 {
+            // Single pass for both min and max
+            let mut min_val: u32 = u32::MAX;
+            let mut max_val: u32 = 0;
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    let word_idx = (x >> 2) as usize;
+                    let byte_idx = 3 - (x & 3);
+                    let val = (line[word_idx] >> (byte_idx * 8)) & 0xFF;
+                    if val < min_val {
+                        min_val = val;
+                    }
+                    if val > max_val {
+                        max_val = val;
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+            Ok((min_val, max_val))
+        } else {
+            // 32bpp: single pass, extract the requested channel
+            let mut min_val: u32 = u32::MAX;
+            let mut max_val: u32 = 0;
+
+            let shift = match color {
+                RgbComponent::Red => crate::color::RED_SHIFT,
+                RgbComponent::Green => crate::color::GREEN_SHIFT,
+                RgbComponent::Blue => crate::color::BLUE_SHIFT,
+                RgbComponent::Alpha => unreachable!(),
+            };
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    let val = (line[x as usize] >> shift) & 0xFF;
+                    if val < min_val {
+                        min_val = val;
+                    }
+                    if val > max_val {
+                        max_val = val;
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+            Ok((min_val, max_val))
+        }
+    }
+
+    /// Get the rank value from the image's histogram.
+    ///
+    /// For 8bpp: computes gray histogram, then finds the pixel value at
+    /// the given rank fraction. For 32bpp: computes per-channel histograms,
+    /// finds each channel's rank value, and composes back to an RGB pixel.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    /// * `rank` - Fraction between 0.0 (darkest) and 1.0 (brightest).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRankValue()` in `pix4.c`
+    pub fn pixel_rank_value(&self, factor: u32, rank: f32) -> Result<u32> {
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+        if !(0.0..=1.0).contains(&rank) {
+            return Err(Error::InvalidParameter(format!(
+                "rank {rank} not in [0.0, 1.0]"
+            )));
+        }
+
+        let depth = self.depth();
+
+        if depth == PixelDepth::Bit8 {
+            let hist = self.gray_histogram(factor)?;
+            let val = hist
+                .histogram_val_from_rank(rank)
+                .ok_or_else(|| Error::InvalidParameter("empty histogram".to_string()))?;
+            Ok(val.round() as u32)
+        } else if depth == PixelDepth::Bit32 {
+            // Build per-channel histograms in one pass
+            let w = self.width();
+            let h = self.height();
+            let mut r_hist = vec![0.0f32; 256];
+            let mut g_hist = vec![0.0f32; 256];
+            let mut b_hist = vec![0.0f32; 256];
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    let pixel = line[x as usize];
+                    let r = crate::color::red(pixel) as usize;
+                    let g = crate::color::green(pixel) as usize;
+                    let b = crate::color::blue(pixel) as usize;
+                    r_hist[r] += 1.0;
+                    g_hist[g] += 1.0;
+                    b_hist[b] += 1.0;
+                    x += factor;
+                }
+                y += factor;
+            }
+
+            let mut r_numa = Numa::from_vec(r_hist);
+            let mut g_numa = Numa::from_vec(g_hist);
+            let mut b_numa = Numa::from_vec(b_hist);
+            r_numa.set_parameters(0.0, 1.0);
+            g_numa.set_parameters(0.0, 1.0);
+            b_numa.set_parameters(0.0, 1.0);
+
+            let r_val = r_numa.histogram_val_from_rank(rank).unwrap_or(0.0);
+            let g_val = g_numa.histogram_val_from_rank(rank).unwrap_or(0.0);
+            let b_val = b_numa.histogram_val_from_rank(rank).unwrap_or(0.0);
+
+            Ok(crate::color::compose_rgb(
+                r_val.round() as u8,
+                g_val.round() as u8,
+                b_val.round() as u8,
+            ))
+        } else {
+            Err(Error::UnsupportedDepth(depth.bits()))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1035,6 +1430,300 @@ mod tests {
     fn test_threshold_pixel_sum_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.threshold_pixel_sum(0).is_err());
+    }
+
+    // --- extreme_value tests ---
+
+    #[test]
+
+    fn test_extreme_value_8bpp_min() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        // Set some pixels to non-zero values
+        pm.set_pixel(5, 5, 100).unwrap();
+        pm.set_pixel(3, 3, 50).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Min).unwrap();
+        assert_eq!(result, ExtremeResult::Gray(0)); // Most pixels are 0
+    }
+
+    #[test]
+
+    fn test_extreme_value_8bpp_max() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(5, 5, 200).unwrap();
+        pm.set_pixel(3, 3, 50).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Max).unwrap();
+        assert_eq!(result, ExtremeResult::Gray(200));
+    }
+
+    #[test]
+
+    fn test_extreme_value_32bpp_min() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        // All pixels start as (0,0,0,255). Set one to non-zero RGB.
+        pm.set_rgb(5, 5, 100, 50, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Min).unwrap();
+        assert_eq!(result, ExtremeResult::Rgb { r: 0, g: 0, b: 0 });
+    }
+
+    #[test]
+
+    fn test_extreme_value_32bpp_max() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(5, 5, 100, 50, 200).unwrap();
+        pm.set_rgb(7, 7, 255, 128, 64).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.extreme_value(1, ExtremeType::Max).unwrap();
+        assert_eq!(
+            result,
+            ExtremeResult::Rgb {
+                r: 255,
+                g: 128,
+                b: 200
+            }
+        );
+    }
+
+    #[test]
+
+    fn test_extreme_value_with_factor() {
+        // 100x100 all zeros, set (99,99) to 255
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(99, 99, 255).unwrap();
+        let pix: Pix = pm.into();
+
+        // Factor 2 samples every other pixel; (99,99) is odd coordinate
+        // and should still be hit since 99 = 0 + 49*2 + 1, wait:
+        // iteration: 0, 2, 4, ..., 98. x=99 would not be sampled.
+        let result = pix.extreme_value(2, ExtremeType::Max).unwrap();
+        // (99,99) is NOT sampled (98 is last), so max should be 0
+        assert_eq!(result, ExtremeResult::Gray(0));
+    }
+
+    #[test]
+
+    fn test_extreme_value_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.extreme_value(1, ExtremeType::Max).is_err());
+    }
+
+    #[test]
+
+    fn test_extreme_value_invalid_factor() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.extreme_value(0, ExtremeType::Max).is_err());
+    }
+
+    // --- max_value_in_rect tests ---
+
+    #[test]
+
+    fn test_max_value_in_rect_8bpp() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(10, 10, 200).unwrap();
+        pm.set_pixel(5, 5, 100).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.max_value_in_rect(None).unwrap();
+        assert_eq!(result.max_val, 200);
+        assert_eq!(result.x, 10);
+        assert_eq!(result.y, 10);
+    }
+
+    #[test]
+
+    fn test_max_value_in_rect_with_region() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(15, 15, 200).unwrap(); // Outside region
+        pm.set_pixel(3, 3, 100).unwrap(); // Inside region
+        let pix: Pix = pm.into();
+
+        let region = crate::Box::new(0, 0, 10, 10).unwrap();
+        let result = pix.max_value_in_rect(Some(&region)).unwrap();
+        assert_eq!(result.max_val, 100);
+        assert_eq!(result.x, 3);
+        assert_eq!(result.y, 3);
+    }
+
+    #[test]
+
+    fn test_max_value_in_rect_all_zero() {
+        // When all zero, should return center of rectangle
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let result = pix.max_value_in_rect(None).unwrap();
+        assert_eq!(result.max_val, 0);
+        // Center of (0..19, 0..19) = (9, 9) per C: (xstart+xend)/2
+        assert_eq!(result.x, 9);
+        assert_eq!(result.y, 9);
+    }
+
+    #[test]
+
+    fn test_max_value_in_rect_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        // Set pixel as a raw 32-bit value (treated as number, not RGB)
+        pm.set_pixel(3, 3, 0x00FF0000).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.max_value_in_rect(None).unwrap();
+        assert_eq!(result.max_val, 0x00FF0000);
+        assert_eq!(result.x, 3);
+        assert_eq!(result.y, 3);
+    }
+
+    #[test]
+
+    fn test_max_value_in_rect_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.max_value_in_rect(None).is_err());
+    }
+
+    // --- range_values tests ---
+
+    #[test]
+
+    fn test_range_values_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(0, 0, 10).unwrap();
+        pm.set_pixel(5, 5, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        // For 8bpp, color argument is ignored
+        let (min, max) = pix
+            .range_values(1, super::super::rgb::RgbComponent::Red)
+            .unwrap();
+        assert_eq!(min, 0); // Most pixels are 0
+        assert_eq!(max, 200);
+    }
+
+    #[test]
+
+    fn test_range_values_32bpp_red() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(3, 3, 100, 50, 200).unwrap();
+        pm.set_rgb(7, 7, 255, 128, 64).unwrap();
+        let pix: Pix = pm.into();
+
+        let (min, max) = pix
+            .range_values(1, super::super::rgb::RgbComponent::Red)
+            .unwrap();
+        assert_eq!(min, 0);
+        assert_eq!(max, 255);
+    }
+
+    #[test]
+
+    fn test_range_values_32bpp_blue() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(3, 3, 100, 50, 200).unwrap();
+        pm.set_rgb(7, 7, 255, 128, 64).unwrap();
+        let pix: Pix = pm.into();
+
+        let (min, max) = pix
+            .range_values(1, super::super::rgb::RgbComponent::Blue)
+            .unwrap();
+        assert_eq!(min, 0);
+        assert_eq!(max, 200);
+    }
+
+    #[test]
+
+    fn test_range_values_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(
+            pix.range_values(1, super::super::rgb::RgbComponent::Red)
+                .is_err()
+        );
+    }
+
+    // --- pixel_rank_value tests ---
+
+    #[test]
+
+    fn test_pixel_rank_value_8bpp() {
+        // Create 10x10, all value 0 except one pixel at value 200
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_pixel(5, 5, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        // Rank 0.0 -> smallest value = 0
+        let val = pix.pixel_rank_value(1, 0.0).unwrap();
+        assert_eq!(val, 0);
+
+        // Rank 1.0 -> largest value ~ 200 (histogram interpolation may add ±1)
+        let val = pix.pixel_rank_value(1, 1.0).unwrap();
+        assert!((val as i32 - 200).abs() <= 1, "expected ~200, got {val}");
+    }
+
+    #[test]
+
+    fn test_pixel_rank_value_8bpp_uniform() {
+        // All pixels are value 128
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        for y in 0..10 {
+            for x in 0..10 {
+                pm.set_pixel(x, y, 128).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // All ranks should return ~128 (histogram interpolation may add ±1)
+        let val = pix.pixel_rank_value(1, 0.5).unwrap();
+        assert!((val as i32 - 128).abs() <= 1, "expected ~128, got {val}");
+    }
+
+    #[test]
+
+    fn test_pixel_rank_value_32bpp() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_rgb(0, 0, 100, 50, 200).unwrap();
+        pm.set_rgb(1, 0, 100, 50, 200).unwrap();
+        pm.set_rgb(0, 1, 100, 50, 200).unwrap();
+        pm.set_rgb(1, 1, 100, 50, 200).unwrap();
+        let pix: Pix = pm.into();
+
+        // All pixels same color; histogram interpolation may cause ±1 per channel
+        let val = pix.pixel_rank_value(1, 0.5).unwrap();
+        let r = crate::color::red(val) as i32;
+        let g = crate::color::green(val) as i32;
+        let b = crate::color::blue(val) as i32;
+        assert!((r - 100).abs() <= 1, "expected r~100, got {r}");
+        assert!((g - 50).abs() <= 1, "expected g~50, got {g}");
+        assert!((b - 200).abs() <= 1, "expected b~200, got {b}");
+    }
+
+    #[test]
+
+    fn test_pixel_rank_value_unsupported_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.pixel_rank_value(1, 0.5).is_err());
+    }
+
+    #[test]
+
+    fn test_pixel_rank_value_invalid_factor() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.pixel_rank_value(0, 0.5).is_err());
     }
 
     #[test]
