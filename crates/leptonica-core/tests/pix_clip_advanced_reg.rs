@@ -41,7 +41,7 @@ fn make_gray(w: u32, h: u32, val: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_clip_rectangle_with_border() {
     let pix = make_gray(100, 100, 128);
     let region = Box::new(20, 20, 40, 40).unwrap();
@@ -52,7 +52,7 @@ fn test_clip_rectangle_with_border() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_clip_rectangle_with_border_clamped() {
     let pix = make_gray(100, 100, 128);
     // Region near edge: border should be clamped
@@ -68,7 +68,7 @@ fn test_clip_rectangle_with_border_clamped() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_crop_to_match_same_size() {
     let pix1 = make_gray(50, 50, 100);
     let pix2 = make_gray(50, 50, 200);
@@ -78,7 +78,7 @@ fn test_crop_to_match_same_size() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_crop_to_match_different_size() {
     let pix1 = make_gray(60, 40, 100);
     let pix2 = make_gray(40, 60, 200);
@@ -94,7 +94,7 @@ fn test_crop_to_match_different_size() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_clip_to_foreground_basic() {
     let pix = make_fg_image(100, 100, 20, 30, 40, 50);
     let result = pix.clip_to_foreground().unwrap();
@@ -109,7 +109,7 @@ fn test_clip_to_foreground_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_clip_to_foreground_empty() {
     let pix = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
     let result = pix.clip_to_foreground().unwrap();
@@ -117,7 +117,7 @@ fn test_clip_to_foreground_empty() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_clip_to_foreground_invalid_depth() {
     let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
     assert!(pix.clip_to_foreground().is_err());
@@ -128,7 +128,7 @@ fn test_clip_to_foreground_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_scan_for_foreground_from_left() {
     let pix = make_fg_image(100, 100, 30, 20, 40, 60);
     let region = Box::new(0, 0, 100, 100).unwrap();
@@ -139,7 +139,7 @@ fn test_scan_for_foreground_from_left() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_scan_for_foreground_from_top() {
     let pix = make_fg_image(100, 100, 30, 20, 40, 60);
     let region = Box::new(0, 0, 100, 100).unwrap();
@@ -154,7 +154,7 @@ fn test_scan_for_foreground_from_top() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_clip_box_to_foreground() {
     let pix = make_fg_image(100, 100, 20, 30, 40, 50);
     let result = pix.clip_box_to_foreground(None).unwrap();
@@ -171,15 +171,16 @@ fn test_clip_box_to_foreground() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_make_frame_mask_basic() {
     let mask = Pix::make_frame_mask(100, 100, 0.1, 0.4, 0.1, 0.4).unwrap();
     assert_eq!(mask.width(), 100);
     assert_eq!(mask.height(), 100);
     assert_eq!(mask.depth(), PixelDepth::Bit1);
-    // Center should be ON, corners should be OFF
-    assert_eq!(mask.get_pixel_unchecked(50, 50), 1);
-    assert_eq!(mask.get_pixel_unchecked(0, 0), 0);
+    // Ring pixel should be ON, corner and center (hole) should be OFF
+    assert_eq!(mask.get_pixel_unchecked(10, 10), 1); // in the ring
+    assert_eq!(mask.get_pixel_unchecked(0, 0), 0); // outside outer boundary
+    assert_eq!(mask.get_pixel_unchecked(50, 50), 0); // inside the hole
 }
 
 // ============================================================================
@@ -187,7 +188,7 @@ fn test_make_frame_mask_basic() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_fraction_fg_in_mask_full_overlap() {
     let pix1 = make_fg_image(50, 50, 10, 10, 30, 30);
     let pix2 = make_fg_image(50, 50, 0, 0, 50, 50);
@@ -196,7 +197,7 @@ fn test_fraction_fg_in_mask_full_overlap() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_fraction_fg_in_mask_partial() {
     let pix1 = make_fg_image(50, 50, 0, 0, 50, 50); // all foreground
     let pix2 = make_fg_image(50, 50, 0, 0, 25, 50); // left half
@@ -209,7 +210,7 @@ fn test_fraction_fg_in_mask_partial() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_average_on_line_horizontal() {
     let pix = make_gray(100, 100, 128);
     let avg = pix.average_on_line(0, 50, 99, 50, 1).unwrap();
@@ -217,7 +218,7 @@ fn test_average_on_line_horizontal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_average_on_line_vertical() {
     let pix = make_gray(100, 100, 200);
     let avg = pix.average_on_line(50, 0, 50, 99, 1).unwrap();

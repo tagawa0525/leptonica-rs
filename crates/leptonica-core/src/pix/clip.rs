@@ -151,8 +151,42 @@ impl Pix {
     /// # Errors
     ///
     /// Returns an error if the region is entirely outside the image.
-    pub fn clip_rectangle_with_border(&self, _region: &Box, _border: u32) -> Result<(Pix, Box)> {
-        todo!()
+    pub fn clip_rectangle_with_border(&self, region: &Box, max_border: u32) -> Result<(Pix, Box)> {
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (bx, by, bw, bh) = (region.x, region.y, region.w, region.h);
+
+        // Determine the maximum symmetric border that fits within the image
+        let left_margin = bx;
+        let top_margin = by;
+        let right_margin = w - bx - bw;
+        let bottom_margin = h - by - bh;
+        let border = (max_border as i32)
+            .min(left_margin)
+            .min(top_margin)
+            .min(right_margin)
+            .min(bottom_margin)
+            .max(0);
+
+        if border <= 0 {
+            // No room for border; do a standard clip
+            let clip_x = bx.max(0) as u32;
+            let clip_y = by.max(0) as u32;
+            let clip_w = bw.min(w - clip_x as i32) as u32;
+            let clip_h = bh.min(h - clip_y as i32) as u32;
+            let clipped = self.clip_rectangle(clip_x, clip_y, clip_w, clip_h)?;
+            let out_box = Box::new(clip_x as i32, clip_y as i32, clip_w as i32, clip_h as i32)?;
+            Ok((clipped, out_box))
+        } else {
+            // Expand the box by the border amount
+            let ex = bx - border;
+            let ey = by - border;
+            let ew = bw + 2 * border;
+            let eh = bh + 2 * border;
+            let clipped = self.clip_rectangle(ex as u32, ey as u32, ew as u32, eh as u32)?;
+            let out_box = Box::new(ex, ey, ew, eh)?;
+            Ok((clipped, out_box))
+        }
     }
 
     /// Crop two images to their overlapping region so they have the same size.
@@ -171,8 +205,23 @@ impl Pix {
     /// # Errors
     ///
     /// Returns an error if either image has zero dimensions after cropping.
-    pub fn crop_to_match(&self, _other: &Pix) -> Result<(Pix, Pix)> {
-        todo!()
+    pub fn crop_to_match(&self, other: &Pix) -> Result<(Pix, Pix)> {
+        let w = self.width().min(other.width());
+        let h = self.height().min(other.height());
+
+        let r1 = if self.width() == w && self.height() == h {
+            self.deep_clone()
+        } else {
+            self.clip_rectangle(0, 0, w, h)?
+        };
+
+        let r2 = if other.width() == w && other.height() == h {
+            other.deep_clone()
+        } else {
+            other.clip_rectangle(0, 0, w, h)?
+        };
+
+        Ok((r1, r2))
     }
 
     /// Clip the image to the bounding box of its foreground pixels.
@@ -188,7 +237,83 @@ impl Pix {
     ///
     /// Returns an error if the image is not 1bpp.
     pub fn clip_to_foreground(&self) -> Result<Option<(Pix, Box)>> {
-        todo!()
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let wpl = self.wpl();
+
+        // Find top edge (first row with any foreground)
+        let mut miny = None;
+        for y in 0..h {
+            let row = self.row_data(y);
+            if row.iter().any(|&word| word != 0) {
+                miny = Some(y);
+                break;
+            }
+        }
+
+        let miny = match miny {
+            Some(y) => y,
+            None => return Ok(None), // no foreground
+        };
+
+        // Find bottom edge (last row with any foreground)
+        let mut maxy = miny;
+        for y in (miny..h).rev() {
+            let row = self.row_data(y);
+            if row.iter().any(|&word| word != 0) {
+                maxy = y;
+                break;
+            }
+        }
+
+        // Find left edge (minimum x with foreground across rows miny..=maxy)
+        let mut minx = w;
+        let data = self.data();
+        for y in miny..=maxy {
+            let row_start = (y * wpl) as usize;
+            for x in 0..minx {
+                let word_idx = (x / 32) as usize;
+                let bit_pos = 31 - (x % 32);
+                if (data[row_start + word_idx] >> bit_pos) & 1 != 0 {
+                    minx = x;
+                    break;
+                }
+            }
+            if minx == 0 {
+                break;
+            }
+        }
+
+        // Find right edge (maximum x with foreground across rows miny..=maxy)
+        let mut maxx = minx;
+        for y in miny..=maxy {
+            let row_start = (y * wpl) as usize;
+            for x in (maxx..w).rev() {
+                let word_idx = (x / 32) as usize;
+                let bit_pos = 31 - (x % 32);
+                if (data[row_start + word_idx] >> bit_pos) & 1 != 0 {
+                    if x > maxx {
+                        maxx = x;
+                    }
+                    break;
+                }
+            }
+        }
+
+        let bbox = Box::new(
+            minx as i32,
+            miny as i32,
+            (maxx - minx + 1) as i32,
+            (maxy - miny + 1) as i32,
+        )?;
+
+        let clipped = self.clip_rectangle(minx, miny, maxx - minx + 1, maxy - miny + 1)?;
+
+        Ok(Some((clipped, bbox)))
     }
 
     /// Scan from the specified direction to find the first foreground pixel.
@@ -207,8 +332,81 @@ impl Pix {
     /// # Errors
     ///
     /// Returns an error if the image is not 1bpp or no foreground is found.
-    pub fn scan_for_foreground(&self, _region: &Box, _direction: ScanDirection) -> Result<u32> {
-        todo!()
+    pub fn scan_for_foreground(&self, region: &Box, direction: ScanDirection) -> Result<u32> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        // Clip box to image bounds
+        let clipped = region.clip(w as i32, h as i32).ok_or_else(|| {
+            Error::InvalidParameter("scan region does not intersect image".to_string())
+        })?;
+
+        let bx = clipped.x as u32;
+        let by = clipped.y as u32;
+        let bw = clipped.w as u32;
+        let bh = clipped.h as u32;
+
+        let data = self.data();
+        let wpl = self.wpl();
+
+        match direction {
+            ScanDirection::FromLeft => {
+                for x in bx..bx + bw {
+                    let word_idx = (x / 32) as usize;
+                    let bit_pos = 31 - (x % 32);
+                    for y in by..by + bh {
+                        let row_start = (y * wpl) as usize;
+                        if (data[row_start + word_idx] >> bit_pos) & 1 != 0 {
+                            return Ok(x);
+                        }
+                    }
+                }
+            }
+            ScanDirection::FromRight => {
+                for x in (bx..bx + bw).rev() {
+                    let word_idx = (x / 32) as usize;
+                    let bit_pos = 31 - (x % 32);
+                    for y in by..by + bh {
+                        let row_start = (y * wpl) as usize;
+                        if (data[row_start + word_idx] >> bit_pos) & 1 != 0 {
+                            return Ok(x);
+                        }
+                    }
+                }
+            }
+            ScanDirection::FromTop => {
+                for y in by..by + bh {
+                    let row_start = (y * wpl) as usize;
+                    for x in bx..bx + bw {
+                        let word_idx = (x / 32) as usize;
+                        let bit_pos = 31 - (x % 32);
+                        if (data[row_start + word_idx] >> bit_pos) & 1 != 0 {
+                            return Ok(y);
+                        }
+                    }
+                }
+            }
+            ScanDirection::FromBot => {
+                for y in (by..by + bh).rev() {
+                    let row_start = (y * wpl) as usize;
+                    for x in bx..bx + bw {
+                        let word_idx = (x / 32) as usize;
+                        let bit_pos = 31 - (x % 32);
+                        if (data[row_start + word_idx] >> bit_pos) & 1 != 0 {
+                            return Ok(y);
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(Error::InvalidParameter(
+            "no foreground pixel found in scan region".to_string(),
+        ))
     }
 
     /// Clip a box to the foreground region of a 1bpp image.
@@ -228,8 +426,35 @@ impl Pix {
     /// # Errors
     ///
     /// Returns an error if the image is not 1bpp.
-    pub fn clip_box_to_foreground(&self, _input_box: Option<&Box>) -> Result<Option<(Pix, Box)>> {
-        todo!()
+    pub fn clip_box_to_foreground(&self, input_box: Option<&Box>) -> Result<Option<(Pix, Box)>> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let search_box = match input_box {
+            Some(b) => *b,
+            None => Box::new(0, 0, self.width() as i32, self.height() as i32)?,
+        };
+
+        // Scan from all four directions
+        let minx = match self.scan_for_foreground(&search_box, ScanDirection::FromLeft) {
+            Ok(v) => v,
+            Err(_) => return Ok(None),
+        };
+        let maxx = self.scan_for_foreground(&search_box, ScanDirection::FromRight)?;
+        let miny = self.scan_for_foreground(&search_box, ScanDirection::FromTop)?;
+        let maxy = self.scan_for_foreground(&search_box, ScanDirection::FromBot)?;
+
+        let bbox = Box::new(
+            minx as i32,
+            miny as i32,
+            (maxx - minx + 1) as i32,
+            (maxy - miny + 1) as i32,
+        )?;
+
+        let clipped = self.clip_rectangle(minx, miny, maxx - minx + 1, maxy - miny + 1)?;
+
+        Ok(Some((clipped, bbox)))
     }
 
     /// Create a 1bpp frame mask with an annular ring of ON pixels.
@@ -246,24 +471,72 @@ impl Pix {
     ///
     /// * `w` - Width of the output mask
     /// * `h` - Height of the output mask
-    /// * `hf1` - Horizontal fraction for inner left/right boundary
-    /// * `hf2` - Horizontal fraction for outer left/right boundary
-    /// * `vf1` - Vertical fraction for inner top/bottom boundary
-    /// * `vf2` - Vertical fraction for outer top/bottom boundary
+    /// * `hf1` - Horizontal fraction for outer left/right boundary
+    /// * `hf2` - Horizontal fraction for inner left/right boundary
+    /// * `vf1` - Vertical fraction for outer top/bottom boundary
+    /// * `vf2` - Vertical fraction for inner top/bottom boundary
     ///
     /// # Errors
     ///
     /// Returns an error if any fraction is not in [0.0, 1.0] or
-    /// if inner fractions exceed outer fractions.
-    pub fn make_frame_mask(
-        _w: u32,
-        _h: u32,
-        _hf1: f32,
-        _hf2: f32,
-        _vf1: f32,
-        _vf2: f32,
-    ) -> Result<Pix> {
-        todo!()
+    /// if outer fractions exceed inner fractions.
+    pub fn make_frame_mask(w: u32, h: u32, hf1: f32, hf2: f32, vf1: f32, vf2: f32) -> Result<Pix> {
+        if !(0.0..=1.0).contains(&hf1)
+            || !(0.0..=1.0).contains(&hf2)
+            || !(0.0..=1.0).contains(&vf1)
+            || !(0.0..=1.0).contains(&vf2)
+        {
+            return Err(Error::InvalidParameter(
+                "fractions must be in [0.0, 1.0]".to_string(),
+            ));
+        }
+        if hf1 > hf2 || vf1 > vf2 {
+            return Err(Error::InvalidParameter(
+                "outer fractions must not exceed inner fractions".to_string(),
+            ));
+        }
+
+        let pix = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Outer boundary (in pixels from edge)
+        let h1 = (0.5 * hf1 * w as f32) as u32;
+        let v1 = (0.5 * vf1 * h as f32) as u32;
+        // Inner boundary (in pixels from edge)
+        let h2 = (0.5 * hf2 * w as f32) as u32;
+        let v2 = (0.5 * vf2 * h as f32) as u32;
+
+        // Fill the outer rectangle
+        let outer_x = h1;
+        let outer_y = v1;
+        let outer_w = w.saturating_sub(2 * h1);
+        let outer_h = h.saturating_sub(2 * v1);
+
+        for y in outer_y..outer_y + outer_h {
+            for x in outer_x..outer_x + outer_w {
+                if x < w && y < h {
+                    pm.set_pixel_unchecked(x, y, 1);
+                }
+            }
+        }
+
+        // Clear the inner rectangle (hole) if it exists
+        if hf2 < 1.0 && vf2 < 1.0 {
+            let inner_x = h2;
+            let inner_y = v2;
+            let inner_w = w.saturating_sub(2 * h2);
+            let inner_h = h.saturating_sub(2 * v2);
+
+            for y in inner_y..inner_y + inner_h {
+                for x in inner_x..inner_x + inner_w {
+                    if x < w && y < h {
+                        pm.set_pixel_unchecked(x, y, 0);
+                    }
+                }
+            }
+        }
+
+        Ok(pm.into())
     }
 
     /// Compute the fraction of foreground pixels in the source that
@@ -282,14 +555,49 @@ impl Pix {
     /// # Errors
     ///
     /// Returns an error if either image is not 1bpp or sizes differ.
-    pub fn fraction_fg_in_mask(&self, _mask: &Pix) -> Result<f32> {
-        todo!()
+    pub fn fraction_fg_in_mask(&self, mask: &Pix) -> Result<f32> {
+        if self.depth() != PixelDepth::Bit1 || mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(
+                if self.depth() != PixelDepth::Bit1 {
+                    self.depth().bits()
+                } else {
+                    mask.depth().bits()
+                },
+            ));
+        }
+        if self.width() != mask.width() || self.height() != mask.height() {
+            return Err(Error::InvalidParameter(format!(
+                "image sizes differ: {}x{} vs {}x{}",
+                self.width(),
+                self.height(),
+                mask.width(),
+                mask.height()
+            )));
+        }
+
+        let data1 = self.data();
+        let data2 = mask.data();
+
+        // Count foreground in self and in intersection (self AND mask)
+        let mut count_self: u64 = 0;
+        let mut count_and: u64 = 0;
+
+        for (w1, w2) in data1.iter().zip(data2.iter()) {
+            count_self += w1.count_ones() as u64;
+            count_and += (w1 & w2).count_ones() as u64;
+        }
+
+        if count_self == 0 {
+            return Ok(0.0);
+        }
+
+        Ok(count_and as f32 / count_self as f32)
     }
 
     /// Compute the average pixel value along a line.
     ///
-    /// Extracts pixel values along a line from `(x1, y1)` to `(x2, y2)`
-    /// and returns their average. Works on 8bpp grayscale images.
+    /// Works on 1bpp and 8bpp images. The line must be strictly
+    /// horizontal or vertical.
     ///
     /// # See also
     ///
@@ -303,16 +611,65 @@ impl Pix {
     ///
     /// # Errors
     ///
-    /// Returns an error if the image depth is not 8bpp.
-    pub fn average_on_line(
-        &self,
-        _x1: i32,
-        _y1: i32,
-        _x2: i32,
-        _y2: i32,
-        _factor: i32,
-    ) -> Result<f32> {
-        todo!()
+    /// Returns an error if the image depth is not 1 or 8bpp, the line
+    /// is neither horizontal nor vertical, or factor < 1.
+    pub fn average_on_line(&self, x1: i32, y1: i32, x2: i32, y2: i32, factor: i32) -> Result<f32> {
+        let d = self.depth();
+        if d != PixelDepth::Bit1 && d != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+        if self.has_colormap() {
+            return Err(Error::NotSupported(
+                "average_on_line does not support colormapped images".to_string(),
+            ));
+        }
+        if factor < 1 {
+            return Err(Error::InvalidParameter(format!(
+                "factor must be >= 1, got {}",
+                factor
+            )));
+        }
+        if x1 != x2 && y1 != y2 {
+            return Err(Error::InvalidParameter(
+                "line must be horizontal or vertical".to_string(),
+            ));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+
+        let mut sum: f64 = 0.0;
+        let mut count: u32 = 0;
+
+        if y1 == y2 {
+            // Horizontal line
+            let y = y1.clamp(0, h - 1) as u32;
+            let xmin = x1.min(x2).clamp(0, w - 1);
+            let xmax = x1.max(x2).clamp(0, w - 1);
+            let mut x = xmin;
+            while x <= xmax {
+                sum += self.get_pixel_unchecked(x as u32, y) as f64;
+                count += 1;
+                x += factor;
+            }
+        } else {
+            // Vertical line
+            let x = x1.clamp(0, w - 1) as u32;
+            let ymin = y1.min(y2).clamp(0, h - 1);
+            let ymax = y1.max(y2).clamp(0, h - 1);
+            let mut y = ymin;
+            while y <= ymax {
+                sum += self.get_pixel_unchecked(x, y as u32) as f64;
+                count += 1;
+                y += factor;
+            }
+        }
+
+        if count == 0 {
+            return Ok(0.0);
+        }
+
+        Ok((sum / count as f64) as f32)
     }
 }
 
