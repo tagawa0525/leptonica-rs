@@ -25,7 +25,7 @@ mod access;
 pub mod arith;
 pub mod blend;
 mod border;
-mod clip;
+pub mod clip;
 pub mod compare;
 pub mod convert;
 mod extract;
@@ -39,6 +39,7 @@ pub mod statistics;
 
 pub use access::*;
 pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
+pub use clip::ScanDirection;
 pub use compare::{CompareResult, CompareType, PixelDiffResult, correlation_binary};
 pub use convert::{Convert16To8Type, GrayConversionType, MinMaxType, RemoveColormapTarget};
 pub use graphics::{Color, ContourOutput, PixelOp};

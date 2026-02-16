@@ -1,10 +1,33 @@
 //! Rectangle clipping operations for images
 //!
-//! Functions for extracting rectangular sub-regions from images.
-//! Corresponds to `pixClipRectangle()` in C Leptonica's `pix2.c`.
+//! Functions for extracting rectangular sub-regions from images,
+//! foreground detection, mask generation, and line averaging.
+//!
+//! # See also
+//!
+//! C Leptonica: `pix2.c`, `pix5.c`
 
 use super::{Pix, PixelDepth};
+use crate::Box;
 use crate::error::{Error, Result};
+
+/// Direction for scanning an image to find the foreground edge.
+///
+/// # See also
+///
+/// C Leptonica: `L_FROM_LEFT`, `L_FROM_RIGHT`, `L_FROM_TOP`, `L_FROM_BOT`
+/// in `pix5.c`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScanDirection {
+    /// Scan from left edge toward right
+    FromLeft,
+    /// Scan from right edge toward left
+    FromRight,
+    /// Scan from top edge toward bottom
+    FromTop,
+    /// Scan from bottom edge toward top
+    FromBot,
+}
 
 impl Pix {
     /// Extract a rectangular sub-region from the image.
@@ -101,6 +124,195 @@ impl Pix {
         }
 
         Ok(pixd_mut.into())
+    }
+}
+
+// ============================================================================
+// Advanced clipping, foreground detection, and mask generation (pix5.c)
+// ============================================================================
+
+impl Pix {
+    /// Extract a rectangular sub-region with an additional border.
+    ///
+    /// Clips the region to the image bounds, then adds a border of the
+    /// specified width around the clipped area (filled with zeros).
+    /// The border is clamped so it does not exceed the distance from
+    /// the region to the image edge.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClipRectangleWithBorder()` in `pix5.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - The rectangle to extract
+    /// * `border` - Border width to add around the region
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the region is entirely outside the image.
+    pub fn clip_rectangle_with_border(&self, _region: &Box, _border: u32) -> Result<(Pix, Box)> {
+        todo!()
+    }
+
+    /// Crop two images to their overlapping region so they have the same size.
+    ///
+    /// Both images are cropped to the minimum of their widths and heights,
+    /// taken from the upper-left corner.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCropToMatch()` in `pix5.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The second image to match sizes with
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either image has zero dimensions after cropping.
+    pub fn crop_to_match(&self, _other: &Pix) -> Result<(Pix, Pix)> {
+        todo!()
+    }
+
+    /// Clip the image to the bounding box of its foreground pixels.
+    ///
+    /// Only works on 1bpp images. Foreground pixels have value 1.
+    /// Returns `None` if no foreground pixels are found.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClipToForeground()` in `pix5.c`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1bpp.
+    pub fn clip_to_foreground(&self) -> Result<Option<(Pix, Box)>> {
+        todo!()
+    }
+
+    /// Scan from the specified direction to find the first foreground pixel.
+    ///
+    /// Only works on 1bpp images. Scans within the given region.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixScanForForeground()` in `pix5.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - The region to scan within
+    /// * `direction` - The direction to scan from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1bpp or no foreground is found.
+    pub fn scan_for_foreground(&self, _region: &Box, _direction: ScanDirection) -> Result<u32> {
+        todo!()
+    }
+
+    /// Clip a box to the foreground region of a 1bpp image.
+    ///
+    /// If `input_box` is `None`, the entire image is used. Returns the
+    /// clipped image and its bounding box. Returns `None` if no foreground
+    /// is found in the region.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClipBoxToForeground()` in `pix5.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `input_box` - Optional region to search within; `None` for entire image
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is not 1bpp.
+    pub fn clip_box_to_foreground(&self, _input_box: Option<&Box>) -> Result<Option<(Pix, Box)>> {
+        todo!()
+    }
+
+    /// Create a 1bpp frame mask with an annular ring of ON pixels.
+    ///
+    /// The mask has a rectangular ring of foreground (ON) pixels,
+    /// with inner and outer boundaries specified as fractions of
+    /// the image dimensions.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixMakeFrameMask()` in `pix5.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `w` - Width of the output mask
+    /// * `h` - Height of the output mask
+    /// * `hf1` - Horizontal fraction for inner left/right boundary
+    /// * `hf2` - Horizontal fraction for outer left/right boundary
+    /// * `vf1` - Vertical fraction for inner top/bottom boundary
+    /// * `vf2` - Vertical fraction for outer top/bottom boundary
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any fraction is not in [0.0, 1.0] or
+    /// if inner fractions exceed outer fractions.
+    pub fn make_frame_mask(
+        _w: u32,
+        _h: u32,
+        _hf1: f32,
+        _hf2: f32,
+        _vf1: f32,
+        _vf2: f32,
+    ) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Compute the fraction of foreground pixels in the source that
+    /// are also foreground in the mask.
+    ///
+    /// Both images must be 1bpp and the same size.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixFractionFgInMask()` in `pix5.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - The mask image (1bpp)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either image is not 1bpp or sizes differ.
+    pub fn fraction_fg_in_mask(&self, _mask: &Pix) -> Result<f32> {
+        todo!()
+    }
+
+    /// Compute the average pixel value along a line.
+    ///
+    /// Extracts pixel values along a line from `(x1, y1)` to `(x2, y2)`
+    /// and returns their average. Works on 8bpp grayscale images.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAverageOnLine()` in `pix5.c`
+    ///
+    /// # Arguments
+    ///
+    /// * `x1`, `y1` - One endpoint of the line
+    /// * `x2`, `y2` - Other endpoint of the line
+    /// * `factor` - Sampling factor (>= 1)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 8bpp.
+    pub fn average_on_line(
+        &self,
+        _x1: i32,
+        _y1: i32,
+        _x2: i32,
+        _y2: i32,
+        _factor: i32,
+    ) -> Result<f32> {
+        todo!()
     }
 }
 

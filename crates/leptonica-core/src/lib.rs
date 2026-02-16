@@ -38,7 +38,7 @@ pub use pix::statistics::{
 pub use pix::{
     BlendMode, Color, ColorHistogram, CompareResult, CompareType, ContourOutput, GrayBlendType,
     ImageFormat, MaskBlendType, Pix, PixMut, PixelDepth, PixelDiffResult, PixelOp, RopOp,
-    blend_with_gray_mask, correlation_binary,
+    ScanDirection, blend_with_gray_mask, correlation_binary,
 };
 pub use pixa::{Pixa, Pixaa};
 pub use pta::{Pta, Ptaa};
