@@ -28,12 +28,12 @@ pub use kernel::Kernel;
 pub use adaptmap::{
     BackgroundNormOptions, ContrastNormOptions, apply_inv_background_gray_map,
     apply_inv_background_rgb_map, background_norm, background_norm_gray_array,
-    background_norm_rgb_arrays, background_norm_simple, clean_background_to_white, contrast_norm,
-    contrast_norm_simple, extend_by_replication, fill_map_holes, get_background_gray_map,
-    get_background_rgb_map, get_inv_background_map,
+    background_norm_gray_array_morph, background_norm_morph, background_norm_rgb_arrays,
+    background_norm_rgb_arrays_morph, background_norm_simple, clean_background_to_white,
+    contrast_norm, contrast_norm_simple, extend_by_replication, fill_map_holes,
+    get_background_gray_map, get_background_gray_map_morph, get_background_rgb_map,
+    get_background_rgb_map_morph, get_inv_background_map,
 };
-// Note: adaptmap module also provides get_background_*_map_morph and background_norm_morph
-// variants (to be added in a future PR)
 pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
 pub use block_conv::{blockconv, blockconv_accum, blockconv_gray, blockconv_gray_unnormalized};
 pub use convolve::{

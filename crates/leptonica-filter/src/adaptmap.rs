@@ -1246,6 +1246,119 @@ pub fn extend_by_replication(pix: &Pix, extend_x: u32, extend_y: u32) -> FilterR
 }
 
 // ============================================================================
+// Morph-based background map extraction
+// ============================================================================
+
+/// Extract a grayscale background map using morphological closing.
+///
+/// This is an alternative to [`get_background_gray_map`] that uses
+/// morphological closing (instead of tile-based averaging) to estimate the
+/// background. The closing removes foreground features, leaving only the
+/// background illumination pattern.
+///
+/// # Arguments
+///
+/// * `pix` - 8bpp grayscale image (no colormap)
+/// * `mask` - Optional 1bpp mask indicating image regions to ignore
+/// * `reduction` - Downscaling factor for closing (2..=16)
+/// * `size` - Size of square structuring element for closing (use odd number)
+pub fn get_background_gray_map_morph(
+    _pix: &Pix,
+    _mask: Option<&Pix>,
+    _reduction: u32,
+    _size: u32,
+) -> FilterResult<Pix> {
+    todo!("get_background_gray_map_morph not yet implemented")
+}
+
+/// Extract RGB background maps using morphological closing.
+///
+/// This is the RGB equivalent of [`get_background_gray_map_morph`]. Each
+/// color channel is processed independently: the channel is extracted,
+/// downscaled, closed, and then holes are filled.
+///
+/// # Arguments
+///
+/// * `pix` - 32bpp RGB image
+/// * `mask` - Optional 1bpp mask indicating image regions to ignore
+/// * `reduction` - Downscaling factor for closing (2..=16)
+/// * `size` - Size of square structuring element for closing (use odd number)
+pub fn get_background_rgb_map_morph(
+    _pix: &Pix,
+    _mask: Option<&Pix>,
+    _reduction: u32,
+    _size: u32,
+) -> FilterResult<(Pix, Pix, Pix)> {
+    todo!("get_background_rgb_map_morph not yet implemented")
+}
+
+/// Normalize image background using morphological closing.
+///
+/// Top-level interface that maps the image so that the background
+/// is near the target `bgval`. Uses morphological closing to
+/// estimate the background, unlike [`background_norm`] which uses
+/// tile-based averaging.
+///
+/// # Arguments
+///
+/// * `pix` - 8bpp grayscale or 32bpp RGB image
+/// * `mask` - Optional 1bpp mask indicating image regions to ignore
+/// * `reduction` - Downscaling factor for closing (2..=16)
+/// * `size` - Size of square structuring element for closing (use odd number)
+/// * `bgval` - Target background value (typically > 128)
+pub fn background_norm_morph(
+    _pix: &Pix,
+    _mask: Option<&Pix>,
+    _reduction: u32,
+    _size: u32,
+    _bgval: u32,
+) -> FilterResult<Pix> {
+    todo!("background_norm_morph not yet implemented")
+}
+
+/// Extract the inverted grayscale background map array using morphological closing.
+///
+/// Similar to [`background_norm_gray_array`] but uses morphological closing.
+///
+/// # Arguments
+///
+/// * `pix` - 8bpp grayscale image
+/// * `mask` - Optional 1bpp mask
+/// * `reduction` - Downscaling factor (2..=16)
+/// * `size` - Structuring element size (odd)
+/// * `bgval` - Target background value
+pub fn background_norm_gray_array_morph(
+    _pix: &Pix,
+    _mask: Option<&Pix>,
+    _reduction: u32,
+    _size: u32,
+    _bgval: u32,
+) -> FilterResult<Pix> {
+    todo!("background_norm_gray_array_morph not yet implemented")
+}
+
+/// Extract the inverted RGB background map arrays using morphological closing.
+///
+/// Similar to [`background_norm_rgb_arrays`] but uses morphological closing.
+///
+/// # Arguments
+///
+/// * `pix` - 32bpp RGB image
+/// * `mask` - Optional 1bpp mask
+/// * `reduction` - Downscaling factor (2..=16)
+/// * `size` - Structuring element size (odd)
+/// * `bgval` - Target background value
+pub fn background_norm_rgb_arrays_morph(
+    _pix: &Pix,
+    _mask: Option<&Pix>,
+    _reduction: u32,
+    _size: u32,
+    _bgval: u32,
+) -> FilterResult<(Pix, Pix, Pix)> {
+    todo!("background_norm_rgb_arrays_morph not yet implemented")
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
