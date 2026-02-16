@@ -22,7 +22,7 @@
 
 use crate::{FilterError, FilterResult, Kernel};
 use leptonica_core::pix::RgbComponent;
-use leptonica_core::{ExtremeResult, ExtremeType, Pix, PixelDepth, color};
+use leptonica_core::{Pix, PixelDepth, color};
 
 /// Create a range kernel for bilateral filtering
 ///
@@ -315,6 +315,13 @@ pub fn bilateral(
             actual: d.bits(),
         });
     }
+    // Reject colormapped 8bpp images: pixel values are palette indices, not
+    // intensities, so the bilateral filter would produce incorrect results.
+    if d == PixelDepth::Bit8 && pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "8bpp images with a colormap are not supported".into(),
+        ));
+    }
     validate_bilateral_params(pix, spatial_stdev, range_stdev, ncomps, reduction)?;
 
     // Check image size
@@ -329,7 +336,8 @@ pub fn bilateral(
         return bilateral_gray(pix, spatial_stdev, range_stdev, ncomps, reduction);
     }
 
-    // 32bpp: process each channel independently
+    // 32bpp: process each channel (R, G, B) independently.
+    // Alpha channel is not filtered (matches C version behavior).
     let pix_r = pix.get_rgb_component(RgbComponent::Red)?;
     let pix_g = pix.get_rgb_component(RgbComponent::Green)?;
     let pix_b = pix.get_rgb_component(RgbComponent::Blue)?;
@@ -455,17 +463,13 @@ impl BilateralData {
         // Add mirrored border
         let pixsc = pix_reduced.add_mirrored_border(border, border, border, border)?;
 
-        // Get min/max values
-        let min_result = pix_reduced.extreme_value(1, ExtremeType::Min)?;
-        let max_result = pix_reduced.extreme_value(1, ExtremeType::Max)?;
-        let minval = match min_result {
-            ExtremeResult::Gray(v) => v,
-            _ => 0,
-        };
-        let maxval = match max_result {
-            ExtremeResult::Gray(v) => v,
-            _ => 255,
-        };
+        // Use full 8-bit intensity range for LUT construction.
+        // When reduction > 1, the downscaled image may have a narrower
+        // intensity range than the original. Using the full [0..255] range
+        // ensures that bilateral_apply (which indexes by original pixel
+        // values) always finds valid LUT entries.
+        let minval: u32 = 0;
+        let maxval: u32 = 255;
 
         // Generate k values
         let nc: Vec<u32> = (0..ncomps as usize)
@@ -518,10 +522,10 @@ impl BilateralData {
             .collect();
 
         // Generate PBC images
-        let w = pix.width();
-        let h = pix.height();
-        let wd = w.div_ceil(reduction);
-        let hd = h.div_ceil(reduction);
+        // Use the actual reduced image dimensions (from scale() output),
+        // not div_ceil, to match the mirrored border layout.
+        let wd = pix_reduced.width();
+        let hd = pix_reduced.height();
         let halfwidth = (2.0 * sstdev) as i32;
 
         let mut pbc_images = Vec::with_capacity(ncomps as usize);
@@ -533,16 +537,20 @@ impl BilateralData {
             let pixt = pixsc.deep_clone();
             let mut pixt_mut = pixt.try_into_mut().unwrap();
 
-            // Horizontal separable convolution
+            // Horizontal separable convolution.
+            // Process all rows that the vertical pass will read:
+            // rows [border-halfwidth .. border+hd+halfwidth-1] in the bordered image.
             let border_i = border as i32;
-            for i in 0..hd {
+            let hw = halfwidth as u32;
+            let row_start = border.saturating_sub(hw);
+            let row_end = (border + hd + hw).min(pixsc.height());
+            for i in row_start..row_end {
                 for j in 0..wd {
                     let mut sum = 0.0f32;
                     let mut norm = 0.0f32;
                     for k in -halfwidth..=halfwidth {
                         let sx = (border_i + j as i32 + k) as u32;
-                        let sy = (border_i + i as i32) as u32;
-                        let nval = pixsc.get_pixel_unchecked(sx, sy) as i32;
+                        let nval = pixsc.get_pixel_unchecked(sx, i) as i32;
                         let kern = spatial[k.unsigned_abs() as usize]
                             * range[(kval - nval).unsigned_abs() as usize];
                         sum += kern * nval as f32;
@@ -550,7 +558,7 @@ impl BilateralData {
                     }
                     if norm > 0.0 {
                         let dval = (sum / norm + 0.5) as u32;
-                        pixt_mut.set_pixel_unchecked(border + j, border + i, dval.min(255));
+                        pixt_mut.set_pixel_unchecked(border + j, i, dval.min(255));
                     }
                 }
             }
@@ -600,14 +608,17 @@ fn bilateral_apply(bil: &BilateralData, pix: &Pix) -> FilterResult<Pix> {
     let w = pix.width();
     let h = pix.height();
     let reduction = bil.reduction;
+    // PBC image dimensions (from actual scale() output)
+    let pbc_w = bil.pbc_images[0].width();
+    let pbc_h = bil.pbc_images[0].height();
 
     let pixd = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut pixd_mut = pixd.try_into_mut().unwrap();
 
     for i in 0..h {
-        let ired = i / reduction;
+        let ired = (i / reduction).min(pbc_h - 1);
         for j in 0..w {
-            let jred = j / reduction;
+            let jred = (j / reduction).min(pbc_w - 1);
             let vals = pix.get_pixel_unchecked(j, i);
             let k = bil.kindex[vals as usize] as usize;
             let lowval = bil.pbc_images[k].get_pixel_unchecked(jred, ired) as f32;

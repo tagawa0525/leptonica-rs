@@ -108,6 +108,29 @@ fn test_bilateral_gray_small_image_returns_copy() {
     assert_eq!(result.height(), 5);
 }
 
+#[test]
+fn test_bilateral_gray_non_divisible_size() {
+    // Test with dimensions not evenly divisible by reduction factor
+    let pix = Pix::new(65, 65, PixelDepth::Bit8).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    for y in 0..65 {
+        for x in 0..65 {
+            let val = if x < 32 { 50u32 } else { 200 };
+            pm.set_pixel_unchecked(x, y, val);
+        }
+    }
+    let pix: Pix = pm.into();
+
+    // Should work without panicking for all reduction factors
+    let result = bilateral::bilateral_gray(&pix, 5.0, 50.0, 6, 2).unwrap();
+    assert_eq!(result.width(), 65);
+    assert_eq!(result.height(), 65);
+
+    let result = bilateral::bilateral_gray(&pix, 10.0, 50.0, 6, 4).unwrap();
+    assert_eq!(result.width(), 65);
+    assert_eq!(result.height(), 65);
+}
+
 // ============================================================================
 // pixBilateral
 // ============================================================================
