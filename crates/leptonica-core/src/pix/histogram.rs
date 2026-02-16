@@ -2,11 +2,11 @@
 //!
 //! Functions to compute pixel value distributions from images.
 
-use super::statistics::clip_box_to_rect;
+use super::statistics::{PixelStatType, clip_box_to_rect};
 use super::{Pix, PixelDepth};
 use crate::Box;
 use crate::error::{Error, Result};
-use crate::numa::Numa;
+use crate::numa::{Numa, Numaa};
 use crate::{PixColormap, color};
 
 /// RGB channel histograms
@@ -684,6 +684,474 @@ impl Pix {
         }
 
         count
+    }
+}
+
+// ============================================================================
+// Advanced histogram and tile-based statistics (Phase 6.2)
+// ============================================================================
+
+impl Pix {
+    /// Compute grayscale histograms for a tiled grid of the image.
+    ///
+    /// Divides the image into `nx * ny` tiles and returns a histogram
+    /// for each tile.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    /// * `nx` - Number of horizontal tiles.
+    /// * `ny` - Number of vertical tiles.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 8 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetGrayHistogramTiled()` in `pix4.c`
+    pub fn gray_histogram_tiled(&self, factor: u32, nx: u32, ny: u32) -> Result<Numaa> {
+        let depth = self.depth();
+        if depth == PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if factor == 0 || nx == 0 || ny == 0 {
+            return Err(Error::InvalidParameter(
+                "factor, nx, ny must be >= 1".into(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        if nx > w {
+            return Err(Error::InvalidParameter(format!(
+                "tile count nx ({nx}) must not exceed image width ({w})"
+            )));
+        }
+        if ny > h {
+            return Err(Error::InvalidParameter(format!(
+                "tile count ny ({ny}) must not exceed image height ({h})"
+            )));
+        }
+        let tw = w / nx;
+        let th = h / ny;
+
+        let mut result = Numaa::with_capacity((nx * ny) as usize);
+        for iy in 0..ny {
+            for ix in 0..nx {
+                let x0 = ix * tw;
+                let y0 = iy * th;
+                let region = Box::new(x0 as i32, y0 as i32, tw as i32, th as i32)?;
+                let hist = self.gray_histogram_in_rect(Some(&region), factor)?;
+                result.push(hist);
+            }
+        }
+        Ok(result)
+    }
+
+    /// Histogram of colormap indices.
+    ///
+    /// Returns a Numa counting occurrences of each colormap index.
+    /// The image must have a colormap.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image has no colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetCmapHistogram()` in `pix4.c`
+    pub fn cmap_histogram(&self, factor: u32) -> Result<Numa> {
+        if self.colormap().is_none() {
+            return Err(Error::InvalidParameter("image has no colormap".into()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let depth = self.depth();
+        let nbins = 1usize << depth.bits();
+        let mut histogram = vec![0.0f32; nbins];
+
+        let w = self.width();
+        let h = self.height();
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let idx = self.get_pixel_unchecked(x, y) as usize;
+                if idx < nbins {
+                    histogram[idx] += 1.0;
+                }
+                x += factor;
+            }
+            y += factor;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
+    }
+
+    /// Count unique RGB colors in a 32bpp image.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCountRGBColors()` in `pix4.c`
+    pub fn count_rgb_colors(&self, factor: u32) -> Result<u32> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let mut colors = std::collections::HashSet::new();
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                // Mask out alpha channel for RGB comparison
+                colors.insert(pixel & 0xFFFFFF00);
+                x += factor;
+            }
+            y += factor;
+        }
+        Ok(colors.len() as u32)
+    }
+
+    /// Compute a pixel statistic over a masked region (8bpp).
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask. If `None`, all pixels are sampled.
+    /// * `x`, `y` - Offset of the mask relative to the image.
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    /// * `stat_type` - The statistic to compute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * `factor` is 0
+    /// * no pixels are sampled
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageMasked()` in `pix4.c`
+    pub fn average_masked(
+        &self,
+        mask: Option<&Pix>,
+        x: i32,
+        y: i32,
+        factor: u32,
+        stat_type: PixelStatType,
+    ) -> Result<f32> {
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let mut sum1 = 0.0f64;
+        let mut sum2 = 0.0f64;
+        let mut count = 0u64;
+
+        if let Some(m) = mask {
+            let wm = m.width() as i32;
+            let hm = m.height() as i32;
+            let mut iy = 0i32;
+            while iy < hm {
+                let sy = y + iy;
+                if sy >= 0 && sy < h {
+                    let mut ix = 0i32;
+                    while ix < wm {
+                        let sx = x + ix;
+                        if sx >= 0 && sx < w && m.get_pixel_unchecked(ix as u32, iy as u32) != 0 {
+                            let val = self.get_pixel_unchecked(sx as u32, sy as u32) as f64;
+                            sum1 += val;
+                            sum2 += val * val;
+                            count += 1;
+                        }
+                        ix += factor as i32;
+                    }
+                }
+                iy += factor as i32;
+            }
+        } else {
+            let mut iy = 0u32;
+            while iy < h as u32 {
+                let mut ix = 0u32;
+                while ix < w as u32 {
+                    let val = self.get_pixel_unchecked(ix, iy) as f64;
+                    sum1 += val;
+                    sum2 += val * val;
+                    count += 1;
+                    ix += factor;
+                }
+                iy += factor;
+            }
+        }
+
+        if count == 0 {
+            return Err(Error::InvalidParameter("no pixels sampled".into()));
+        }
+
+        let mean = sum1 / count as f64;
+        let mean_sq = sum2 / count as f64;
+        let variance = (mean_sq - mean * mean).max(0.0);
+
+        let result = match stat_type {
+            PixelStatType::MeanAbsVal => mean,
+            PixelStatType::RootMeanSquare => mean_sq.sqrt(),
+            PixelStatType::StandardDeviation => variance.sqrt(),
+            PixelStatType::Variance => variance,
+        };
+        Ok(result as f32)
+    }
+
+    /// Compute per-channel statistics over a masked region (32bpp RGB).
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask. If `None`, all pixels are sampled.
+    /// * `x`, `y` - Offset of the mask relative to the image.
+    /// * `factor` - Subsampling factor (1 = every pixel).
+    /// * `stat_type` - The statistic to compute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageMaskedRGB()` in `pix4.c`
+    pub fn average_masked_rgb(
+        &self,
+        mask: Option<&Pix>,
+        x: i32,
+        y: i32,
+        factor: u32,
+        stat_type: PixelStatType,
+    ) -> Result<(f32, f32, f32)> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let r_pix = self.get_rgb_component(super::RgbComponent::Red)?;
+        let g_pix = self.get_rgb_component(super::RgbComponent::Green)?;
+        let b_pix = self.get_rgb_component(super::RgbComponent::Blue)?;
+        let r = r_pix.average_masked(mask, x, y, factor, stat_type)?;
+        let g = g_pix.average_masked(mask, x, y, factor, stat_type)?;
+        let b = b_pix.average_masked(mask, x, y, factor, stat_type)?;
+        Ok((r, g, b))
+    }
+
+    /// Compute tile-based statistics for an 8bpp image.
+    ///
+    /// Returns an image where each pixel represents the statistic
+    /// of the corresponding tile in the input.
+    ///
+    /// # Arguments
+    ///
+    /// * `sx`, `sy` - Tile dimensions in pixels.
+    /// * `stat_type` - The statistic to compute (mean, RMS, or stdev).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 8 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageTiled()` in `pix4.c`
+    pub fn average_tiled(&self, sx: u32, sy: u32, stat_type: PixelStatType) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if sx == 0 || sy == 0 {
+            return Err(Error::InvalidParameter("tile size must be >= 1".into()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let nx = w / sx;
+        let ny = h / sy;
+        if nx == 0 || ny == 0 {
+            return Err(Error::InvalidParameter(
+                "image too small for tile size".into(),
+            ));
+        }
+
+        let out = Pix::new(nx, ny, PixelDepth::Bit8)?;
+        let mut pm = out.try_into_mut().unwrap();
+
+        for iy in 0..ny {
+            for ix in 0..nx {
+                let x0 = ix * sx;
+                let y0 = iy * sy;
+                let mut sum1 = 0.0f64;
+                let mut sum2 = 0.0f64;
+                let count = (sx * sy) as f64;
+
+                for dy in 0..sy {
+                    for dx in 0..sx {
+                        let val = self.get_pixel_unchecked(x0 + dx, y0 + dy) as f64;
+                        sum1 += val;
+                        sum2 += val * val;
+                    }
+                }
+
+                let mean = sum1 / count;
+                let mean_sq = sum2 / count;
+                let variance = (mean_sq - mean * mean).max(0.0);
+
+                let result = match stat_type {
+                    PixelStatType::MeanAbsVal => mean,
+                    PixelStatType::RootMeanSquare => mean_sq.sqrt(),
+                    PixelStatType::StandardDeviation => variance.sqrt(),
+                    PixelStatType::Variance => variance,
+                };
+                pm.set_pixel_unchecked(ix, iy, (result + 0.5).min(255.0) as u32);
+            }
+        }
+        Ok(pm.into())
+    }
+
+    /// Compute tile-based per-channel statistics for a 32bpp RGB image.
+    ///
+    /// Returns three 8bpp images (R, G, B) where each pixel
+    /// represents the channel statistic of the corresponding tile.
+    ///
+    /// # Arguments
+    ///
+    /// * `sx`, `sy` - Tile dimensions in pixels.
+    /// * `stat_type` - The statistic to compute (mean, RMS, or stdev).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetAverageTiledRGB()` in `pix4.c`
+    pub fn average_tiled_rgb(
+        &self,
+        sx: u32,
+        sy: u32,
+        stat_type: PixelStatType,
+    ) -> Result<(Pix, Pix, Pix)> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let r_pix = self.get_rgb_component(super::RgbComponent::Red)?;
+        let g_pix = self.get_rgb_component(super::RgbComponent::Green)?;
+        let b_pix = self.get_rgb_component(super::RgbComponent::Blue)?;
+        let pr = r_pix.average_tiled(sx, sy, stat_type)?;
+        let pg = g_pix.average_tiled(sx, sy, stat_type)?;
+        let pb = b_pix.average_tiled(sx, sy, stat_type)?;
+        Ok((pr, pg, pb))
+    }
+
+    /// Compute the rank value from a masked 8bpp image histogram.
+    ///
+    /// Returns the pixel value at the given rank position (0.0 = min,
+    /// 0.5 = median, 1.0 = max) and optionally the histogram used.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask.
+    /// * `x`, `y` - Mask offset.
+    /// * `factor` - Subsampling factor.
+    /// * `rank` - Rank value in [0.0, 1.0].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * `rank` is outside [0.0, 1.0]
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRankValueMasked()` in `pix4.c`
+    pub fn rank_value_masked(
+        &self,
+        mask: Option<&Pix>,
+        x: i32,
+        y: i32,
+        factor: u32,
+        rank: f32,
+    ) -> Result<(f32, Option<Numa>)> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if !(0.0..=1.0).contains(&rank) {
+            return Err(Error::InvalidParameter("rank must be in [0.0, 1.0]".into()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let hist = self.gray_histogram_masked(mask, x, y, factor)?;
+        let val = hist
+            .histogram_val_from_rank(rank)
+            .ok_or(Error::InvalidParameter(
+                "could not compute rank value".into(),
+            ))?;
+        Ok((val, Some(hist)))
+    }
+
+    /// Compute per-channel rank values from a masked 32bpp RGB image.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask.
+    /// * `x`, `y` - Mask offset.
+    /// * `factor` - Subsampling factor.
+    /// * `rank` - Rank value in [0.0, 1.0].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image depth is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRankValueMaskedRGB()` in `pix4.c`
+    pub fn rank_value_masked_rgb(
+        &self,
+        mask: Option<&Pix>,
+        x: i32,
+        y: i32,
+        factor: u32,
+        rank: f32,
+    ) -> Result<(f32, f32, f32)> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let r_pix = self.get_rgb_component(super::RgbComponent::Red)?;
+        let g_pix = self.get_rgb_component(super::RgbComponent::Green)?;
+        let b_pix = self.get_rgb_component(super::RgbComponent::Blue)?;
+        let (r, _) = r_pix.rank_value_masked(mask, x, y, factor, rank)?;
+        let (g, _) = g_pix.rank_value_masked(mask, x, y, factor, rank)?;
+        let (b, _) = b_pix.rank_value_masked(mask, x, y, factor, rank)?;
+        Ok((r, g, b))
     }
 }
 
