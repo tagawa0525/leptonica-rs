@@ -42,7 +42,6 @@ fn make_color_cast_image() -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_apply_variable_gray_map_basic() {
     let pix = make_gray_test_image();
     // Create a uniform gray map at 128
@@ -63,7 +62,6 @@ fn test_apply_variable_gray_map_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_apply_variable_gray_map_identity() {
     // When map value equals target, output should equal input
     let pix = make_gray_test_image();
@@ -91,7 +89,6 @@ fn test_apply_variable_gray_map_identity() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_apply_variable_gray_map_size_mismatch() {
     let pix = make_gray_test_image();
     let map = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
@@ -103,7 +100,6 @@ fn test_apply_variable_gray_map_size_mismatch() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_global_norm_rgb_basic() {
     let pix = make_color_cast_image();
     let result = adaptmap::global_norm_rgb(&pix, 200, 170, 150, 255).unwrap();
@@ -114,7 +110,6 @@ fn test_global_norm_rgb_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_global_norm_rgb_white_mapping() {
     // If rval=gval=bval and mapval=255, the mapping should be identity-like
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
@@ -141,7 +136,6 @@ fn test_global_norm_rgb_white_mapping() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_8_min_max_from_8bpp() {
     let pix = make_gray_test_image();
     let result = adaptmap::convert_to_8_min_max(&pix).unwrap();
@@ -150,7 +144,6 @@ fn test_convert_to_8_min_max_from_8bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_8_min_max_from_32bpp() {
     let pix = make_color_cast_image();
     let result = adaptmap::convert_to_8_min_max(&pix).unwrap();
@@ -159,7 +152,6 @@ fn test_convert_to_8_min_max_from_32bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_8_min_max_from_1bpp() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let result = adaptmap::convert_to_8_min_max(&pix).unwrap();
