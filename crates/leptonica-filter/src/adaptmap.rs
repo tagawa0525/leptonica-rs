@@ -1500,6 +1500,156 @@ pub fn background_norm_rgb_arrays_morph(
 }
 
 // ============================================================================
+// Variable gray map and global normalization
+// ============================================================================
+
+/// Apply a variable gray map to an 8bpp image.
+///
+/// C版: `pixApplyVariableGrayMap()` in `adaptmap.c`
+///
+/// Maps each pixel linearly so that the threshold represented by `pixg`
+/// becomes constant at `target`. For a pixel value `s` and map value `g`,
+/// the output is `s * target / (g + 0.5)`, clamped to [0, 255].
+///
+/// # Arguments
+///
+/// * `pix` - 8bpp grayscale source image
+/// * `pixg` - 8bpp variable gray map (same dimensions as `pix`)
+/// * `target` - Target threshold value (typically 128)
+pub fn apply_variable_gray_map(pix: &Pix, pixg: &Pix, target: u32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pixg.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8bpp",
+            actual: pixg.depth().bits(),
+        });
+    }
+    let w = pix.width();
+    let h = pix.height();
+    if pixg.width() != w || pixg.height() != h {
+        return Err(FilterError::InvalidParameters(
+            "pix and pixg must have the same dimensions".into(),
+        ));
+    }
+
+    let target_f = target as f32;
+
+    // For large images, use a 64K LUT for speed (index = (src << 8) | map)
+    let use_lut = (w as u64) * (h as u64) > 100_000;
+    let lut = if use_lut {
+        let mut table = vec![0u8; 0x10000];
+        for s in 0..256u32 {
+            for g in 0..256u32 {
+                let fval = (s as f32) * target_f / (g as f32 + 0.5);
+                table[((s << 8) | g) as usize] = (fval + 0.5).min(255.0) as u8;
+            }
+        }
+        Some(table)
+    } else {
+        None
+    };
+
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let vals = pix.get_pixel_unchecked(x, y);
+            let valg = pixg.get_pixel_unchecked(x, y);
+            let vald = if let Some(ref lut) = lut {
+                lut[((vals << 8) | valg) as usize]
+            } else {
+                let fval = (vals as f32) * target_f / (valg as f32 + 0.5);
+                (fval + 0.5).min(255.0) as u8
+            };
+            out_mut.set_pixel_unchecked(x, y, vald as u32);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Global RGB normalization using per-channel TRC mapping.
+///
+/// C版: `pixGlobalNormRGB()` in `adaptmap.c`
+///
+/// Linearly maps the input color values `(rval, gval, bval)` to
+/// `(mapval, mapval, mapval)`, correcting for unbalanced color channels.
+/// Typically used to map an estimated white point to white (mapval=255).
+///
+/// # Arguments
+///
+/// * `pix` - 32bpp RGB image
+/// * `rval` - Red channel value to map to `mapval`
+/// * `gval` - Green channel value to map to `mapval`
+/// * `bval` - Blue channel value to map to `mapval`
+/// * `mapval` - Target output value (use 255 for white mapping)
+pub fn global_norm_rgb(
+    pix: &Pix,
+    rval: u32,
+    gval: u32,
+    bval: u32,
+    mapval: u32,
+) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let mapval = if mapval == 0 { 255 } else { mapval };
+
+    // Build per-channel TRC LUTs using gamma=1.0 (linear mapping)
+    let r_max = (255 * rval / mapval).max(1);
+    let g_max = (255 * gval / mapval).max(1);
+    let b_max = (255 * bval / mapval).max(1);
+
+    let r_lut = crate::gamma_trc(1.0, 0, r_max as i32)?;
+    let g_lut = crate::gamma_trc(1.0, 0, g_max as i32)?;
+    let b_lut = crate::gamma_trc(1.0, 0, b_max as i32)?;
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    out_mut.set_spp(pix.spp());
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b, _) = color::extract_rgba(pixel);
+            let nr = r_lut[r as usize];
+            let ng = g_lut[g as usize];
+            let nb = b_lut[b as usize];
+            out_mut.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Convert any-depth image to 8bpp using min-max rendering.
+///
+/// C版: `pixConvertTo8MinMax()` in `adaptmap.c`
+///
+/// For 32bpp RGB, uses min-of-RGB to strongly render color into black,
+/// which is useful for document binarization. For other depths, delegates
+/// to standard conversion.
+pub fn convert_to_8_min_max(pix: &Pix) -> FilterResult<Pix> {
+    use leptonica_core::pix::MinMaxType;
+
+    match pix.depth() {
+        PixelDepth::Bit32 => Ok(pix.convert_rgb_to_gray_min_max(MinMaxType::Min)?),
+        _ => Ok(pix.convert_to_8()?),
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
