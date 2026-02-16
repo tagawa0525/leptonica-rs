@@ -450,12 +450,138 @@ impl Pix {
     /// C Leptonica: `pixGetColorHistogramMasked()` in `pix4.c`
     pub fn color_histogram_masked(
         &self,
-        _mask: Option<&Pix>,
-        _x: i32,
-        _y: i32,
-        _factor: u32,
+        mask: Option<&Pix>,
+        x: i32,
+        y: i32,
+        factor: u32,
     ) -> Result<ColorHistogram> {
-        todo!()
+        if mask.is_none() {
+            return self.color_histogram(factor);
+        }
+        let mask = mask.unwrap();
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+
+        let depth = self.depth();
+
+        // Handle colormapped images
+        if let Some(cmap) = self.colormap() {
+            return self.color_histogram_masked_colormapped(cmap, mask, x, y, factor);
+        }
+
+        if depth != PixelDepth::Bit32 {
+            return Err(Error::IncompatibleDepths(depth.bits(), 32));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::InvalidParameter("mask must be 1 bpp".to_string()));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let wm = mask.width() as i32;
+        let hm = mask.height() as i32;
+
+        let mut r_hist = vec![0.0f32; 256];
+        let mut g_hist = vec![0.0f32; 256];
+        let mut b_hist = vec![0.0f32; 256];
+
+        let mut i = 0i32;
+        while i < hm {
+            let sy = y + i;
+            if sy >= 0 && sy < h {
+                let lines = self.row_data(sy as u32);
+                let linem = mask.row_data(i as u32);
+                let mut j = 0i32;
+                while j < wm {
+                    let sx = x + j;
+                    if sx >= 0 && sx < w {
+                        let word_idx = (j as u32 >> 5) as usize;
+                        let bit_idx = 31 - (j as u32 & 31);
+                        if (linem[word_idx] >> bit_idx) & 1 != 0 {
+                            let pixel = lines[sx as usize];
+                            let r = color::red(pixel) as usize;
+                            let g = color::green(pixel) as usize;
+                            let b = color::blue(pixel) as usize;
+                            r_hist[r] += 1.0;
+                            g_hist[g] += 1.0;
+                            b_hist[b] += 1.0;
+                        }
+                    }
+                    j += factor as i32;
+                }
+            }
+            i += factor as i32;
+        }
+
+        let mut red = Numa::from_vec(r_hist);
+        let mut green = Numa::from_vec(g_hist);
+        let mut blue = Numa::from_vec(b_hist);
+        red.set_parameters(0.0, 1.0);
+        green.set_parameters(0.0, 1.0);
+        blue.set_parameters(0.0, 1.0);
+
+        Ok(ColorHistogram { red, green, blue })
+    }
+
+    /// Internal: masked color histogram for colormapped images
+    fn color_histogram_masked_colormapped(
+        &self,
+        cmap: &PixColormap,
+        mask: &Pix,
+        x: i32,
+        y: i32,
+        factor: u32,
+    ) -> Result<ColorHistogram> {
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::InvalidParameter("mask must be 1 bpp".to_string()));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let wm = mask.width() as i32;
+        let hm = mask.height() as i32;
+        let depth = self.depth();
+
+        let mut r_hist = vec![0.0f32; 256];
+        let mut g_hist = vec![0.0f32; 256];
+        let mut b_hist = vec![0.0f32; 256];
+
+        let mut i = 0i32;
+        while i < hm {
+            let sy = y + i;
+            if sy >= 0 && sy < h {
+                let lines = self.row_data(sy as u32);
+                let linem = mask.row_data(i as u32);
+                let mut j = 0i32;
+                while j < wm {
+                    let sx = x + j;
+                    if sx >= 0 && sx < w {
+                        let word_idx = (j as u32 >> 5) as usize;
+                        let bit_idx = 31 - (j as u32 & 31);
+                        if (linem[word_idx] >> bit_idx) & 1 != 0 {
+                            let index = get_pixel_from_line(lines, sx as u32, depth) as usize;
+                            if let Some((r, g, b, _)) = cmap.get_rgba(index) {
+                                r_hist[r as usize] += 1.0;
+                                g_hist[g as usize] += 1.0;
+                                b_hist[b as usize] += 1.0;
+                            }
+                        }
+                    }
+                    j += factor as i32;
+                }
+            }
+            i += factor as i32;
+        }
+
+        let mut red = Numa::from_vec(r_hist);
+        let mut green = Numa::from_vec(g_hist);
+        let mut blue = Numa::from_vec(b_hist);
+        red.set_parameters(0.0, 1.0);
+        green.set_parameters(0.0, 1.0);
+        blue.set_parameters(0.0, 1.0);
+
+        Ok(ColorHistogram { red, green, blue })
     }
 
     /// Compute grayscale histogram for colormapped image
@@ -922,7 +1048,7 @@ mod tests {
     // --- color_histogram_masked tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_color_histogram_masked_no_mask() {
         // When mask is None, should behave like color_histogram
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
@@ -935,7 +1061,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_color_histogram_masked_with_mask() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -969,7 +1095,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_color_histogram_masked_with_offset() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -990,14 +1116,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_color_histogram_masked_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.color_histogram_masked(None, 0, 0, 1).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_color_histogram_masked_invalid_factor() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mask = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -1005,7 +1131,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_color_histogram_masked_non_1bpp_mask_error() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mask = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
