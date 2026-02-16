@@ -9,6 +9,14 @@ pub enum FilterError {
     #[error("core error: {0}")]
     Core(#[from] leptonica_core::Error),
 
+    /// Morphology operation error
+    #[error("morph error: {0}")]
+    Morph(#[from] leptonica_morph::MorphError),
+
+    /// Transform operation error
+    #[error("transform error: {0}")]
+    Transform(#[from] leptonica_transform::TransformError),
+
     /// Invalid kernel
     #[error("invalid kernel: {0}")]
     InvalidKernel(String),
