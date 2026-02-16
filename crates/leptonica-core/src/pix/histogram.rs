@@ -124,8 +124,97 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixGetGrayHistogramInRect()` in `pix4.c`
-    pub fn gray_histogram_in_rect(&self, _region: Option<&Box>, _factor: u32) -> Result<Numa> {
-        todo!()
+    pub fn gray_histogram_in_rect(&self, region: Option<&Box>, factor: u32) -> Result<Numa> {
+        if region.is_none() {
+            return self.gray_histogram(factor);
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+
+        let depth = self.depth();
+        if depth == PixelDepth::Bit32 {
+            return Err(Error::IncompatibleDepths(32, 8));
+        }
+
+        // Handle colormapped: convert to 8bpp gray equivalent
+        if let Some(cmap) = self.colormap() {
+            return self.gray_histogram_in_rect_colormapped(cmap, region.unwrap(), factor);
+        }
+
+        // Only 8bpp supported for rect histogram (matching C behavior)
+        if depth != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let bx = region.unwrap();
+
+        let mut histogram = vec![0.0f32; 256];
+
+        // Iterate over box region with boundary clipping
+        let mut i = 0i32;
+        while i < bx.h {
+            let sy = bx.y + i;
+            if sy >= 0 && sy < h {
+                let line = self.row_data(sy as u32);
+                let mut j = 0i32;
+                while j < bx.w {
+                    let sx = bx.x + j;
+                    if sx >= 0 && sx < w {
+                        let val = get_pixel_from_line(line, sx as u32, depth) as usize;
+                        histogram[val] += 1.0;
+                    }
+                    j += factor as i32;
+                }
+            }
+            i += factor as i32;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
+    }
+
+    /// Internal: rect histogram for colormapped images
+    fn gray_histogram_in_rect_colormapped(
+        &self,
+        cmap: &PixColormap,
+        region: &Box,
+        factor: u32,
+    ) -> Result<Numa> {
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let depth = self.depth();
+
+        let mut histogram = vec![0.0f32; 256];
+
+        let mut i = 0i32;
+        while i < region.h {
+            let sy = region.y + i;
+            if sy >= 0 && sy < h {
+                let line = self.row_data(sy as u32);
+                let mut j = 0i32;
+                while j < region.w {
+                    let sx = region.x + j;
+                    if sx >= 0 && sx < w {
+                        let index = get_pixel_from_line(line, sx as u32, depth) as usize;
+                        if let Some((r, g, b, _)) = cmap.get_rgba(index) {
+                            let gray =
+                                ((r as u32 * 77 + g as u32 * 150 + b as u32 * 29) >> 8) as usize;
+                            histogram[gray.min(255)] += 1.0;
+                        }
+                    }
+                    j += factor as i32;
+                }
+            }
+            i += factor as i32;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
     }
 
     /// Get the grayscale histogram of an image within a mask region.
@@ -146,12 +235,119 @@ impl Pix {
     /// C Leptonica: `pixGetGrayHistogramMasked()` in `pix4.c`
     pub fn gray_histogram_masked(
         &self,
-        _mask: Option<&Pix>,
-        _x: i32,
-        _y: i32,
-        _factor: u32,
+        mask: Option<&Pix>,
+        x: i32,
+        y: i32,
+        factor: u32,
     ) -> Result<Numa> {
-        todo!()
+        if mask.is_none() {
+            return self.gray_histogram(factor);
+        }
+        let mask = mask.unwrap();
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+
+        let depth = self.depth();
+        if depth == PixelDepth::Bit32 {
+            return Err(Error::IncompatibleDepths(32, 8));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::InvalidParameter("mask must be 1 bpp".to_string()));
+        }
+
+        // Handle colormapped
+        if let Some(cmap) = self.colormap() {
+            return self.gray_histogram_masked_colormapped(cmap, mask, x, y, factor);
+        }
+
+        if depth != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let wm = mask.width() as i32;
+        let hm = mask.height() as i32;
+
+        let mut histogram = vec![0.0f32; 256];
+
+        let mut i = 0i32;
+        while i < hm {
+            let sy = y + i;
+            if sy >= 0 && sy < h {
+                let lineg = self.row_data(sy as u32);
+                let linem = mask.row_data(i as u32);
+                let mut j = 0i32;
+                while j < wm {
+                    let sx = x + j;
+                    if sx >= 0 && sx < w {
+                        // Check if mask bit is set
+                        let word_idx = (j as u32 >> 5) as usize;
+                        let bit_idx = 31 - (j as u32 & 31);
+                        if (linem[word_idx] >> bit_idx) & 1 != 0 {
+                            let val = get_pixel_from_line(lineg, sx as u32, depth) as usize;
+                            histogram[val] += 1.0;
+                        }
+                    }
+                    j += factor as i32;
+                }
+            }
+            i += factor as i32;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
+    }
+
+    /// Internal: masked histogram for colormapped images
+    fn gray_histogram_masked_colormapped(
+        &self,
+        cmap: &PixColormap,
+        mask: &Pix,
+        x: i32,
+        y: i32,
+        factor: u32,
+    ) -> Result<Numa> {
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let wm = mask.width() as i32;
+        let hm = mask.height() as i32;
+        let depth = self.depth();
+
+        let mut histogram = vec![0.0f32; 256];
+
+        let mut i = 0i32;
+        while i < hm {
+            let sy = y + i;
+            if sy >= 0 && sy < h {
+                let lineg = self.row_data(sy as u32);
+                let linem = mask.row_data(i as u32);
+                let mut j = 0i32;
+                while j < wm {
+                    let sx = x + j;
+                    if sx >= 0 && sx < w {
+                        let word_idx = (j as u32 >> 5) as usize;
+                        let bit_idx = 31 - (j as u32 & 31);
+                        if (linem[word_idx] >> bit_idx) & 1 != 0 {
+                            let index = get_pixel_from_line(lineg, sx as u32, depth) as usize;
+                            if let Some((r, g, b, _)) = cmap.get_rgba(index) {
+                                let gray = ((r as u32 * 77 + g as u32 * 150 + b as u32 * 29) >> 8)
+                                    as usize;
+                                histogram[gray.min(255)] += 1.0;
+                            }
+                        }
+                    }
+                    j += factor as i32;
+                }
+            }
+            i += factor as i32;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
     }
 
     /// Get RGB color histograms
@@ -513,7 +709,7 @@ mod tests {
     // --- gray_histogram_in_rect tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_in_rect_full_image() {
         // When region is None, should behave like gray_histogram
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -523,7 +719,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_in_rect_subregion() {
         // Create 8bpp image with known pixel pattern
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -545,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_in_rect_clipped() {
         // Region extends beyond image boundary
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
@@ -557,7 +753,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_in_rect_with_factor() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let region = crate::Box::new(0, 0, 100, 100).unwrap();
@@ -566,14 +762,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_in_rect_invalid_factor() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.gray_histogram_in_rect(None, 0).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_in_rect_32bit_error() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(pix.gray_histogram_in_rect(None, 1).is_err());
@@ -582,7 +778,7 @@ mod tests {
     // --- gray_histogram_masked tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_masked_no_mask() {
         // When mask is None, should behave like gray_histogram
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -592,7 +788,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_masked_with_mask() {
         // Create 8bpp source with mixed values
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -627,7 +823,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_masked_with_offset() {
         // Source: 10x10, all value 50
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -655,7 +851,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_masked_boundary_clip() {
         // Mask extends beyond image boundary
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -676,21 +872,21 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_masked_invalid_factor() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.gray_histogram_masked(None, 0, 0, 0).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_masked_32bit_error() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(pix.gray_histogram_masked(None, 0, 0, 1).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_gray_histogram_masked_non_1bpp_mask_error() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mask = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
