@@ -1500,6 +1500,63 @@ pub fn background_norm_rgb_arrays_morph(
 }
 
 // ============================================================================
+// Variable gray map and global normalization
+// ============================================================================
+
+/// Apply a variable gray map to an 8bpp image.
+///
+/// C版: `pixApplyVariableGrayMap()` in `adaptmap.c`
+///
+/// Maps each pixel linearly so that the threshold represented by `pixg`
+/// becomes constant at `target`. For a pixel value `s` and map value `g`,
+/// the output is `s * target / (g + 0.5)`, clamped to [0, 255].
+///
+/// # Arguments
+///
+/// * `pix` - 8bpp grayscale source image
+/// * `pixg` - 8bpp variable gray map (same dimensions as `pix`)
+/// * `target` - Target threshold value (typically 128)
+pub fn apply_variable_gray_map(_pix: &Pix, _pixg: &Pix, _target: u32) -> FilterResult<Pix> {
+    todo!("apply_variable_gray_map not yet implemented")
+}
+
+/// Global RGB normalization using per-channel TRC mapping.
+///
+/// C版: `pixGlobalNormRGB()` in `adaptmap.c`
+///
+/// Linearly maps the input color values `(rval, gval, bval)` to
+/// `(mapval, mapval, mapval)`, correcting for unbalanced color channels.
+/// Typically used to map an estimated white point to white (mapval=255).
+///
+/// # Arguments
+///
+/// * `pix` - 32bpp RGB image
+/// * `rval` - Red channel value to map to `mapval`
+/// * `gval` - Green channel value to map to `mapval`
+/// * `bval` - Blue channel value to map to `mapval`
+/// * `mapval` - Target output value (use 255 for white mapping)
+pub fn global_norm_rgb(
+    _pix: &Pix,
+    _rval: u32,
+    _gval: u32,
+    _bval: u32,
+    _mapval: u32,
+) -> FilterResult<Pix> {
+    todo!("global_norm_rgb not yet implemented")
+}
+
+/// Convert any-depth image to 8bpp using min-max rendering.
+///
+/// C版: `pixConvertTo8MinMax()` in `adaptmap.c`
+///
+/// For 32bpp RGB, uses min-of-RGB to strongly render color into black,
+/// which is useful for document binarization. For other depths, delegates
+/// to standard conversion.
+pub fn convert_to_8_min_max(_pix: &Pix) -> FilterResult<Pix> {
+    todo!("convert_to_8_min_max not yet implemented")
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
