@@ -50,7 +50,6 @@ fn make_color_image() -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_abs_diff_by_row_gradient() {
     let pix = make_gradient_image();
     let result = pix.abs_diff_by_row(None).unwrap();
@@ -63,7 +62,6 @@ fn test_abs_diff_by_row_gradient() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_abs_diff_by_row_uniform() {
     let pix = make_uniform_image(128);
     let result = pix.abs_diff_by_row(None).unwrap();
@@ -76,7 +74,6 @@ fn test_abs_diff_by_row_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_abs_diff_by_row_invalid_depth() {
     let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     assert!(pix.abs_diff_by_row(None).is_err());
@@ -87,7 +84,6 @@ fn test_abs_diff_by_row_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_abs_diff_by_column_uniform() {
     let pix = make_uniform_image(128);
     let result = pix.abs_diff_by_column(None).unwrap();
@@ -99,7 +95,6 @@ fn test_abs_diff_by_column_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_abs_diff_by_column_vertical_gradient() {
     // Create image with vertical gradient
     let pix = Pix::new(20, 40, PixelDepth::Bit8).unwrap();
@@ -122,7 +117,6 @@ fn test_abs_diff_by_column_vertical_gradient() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_abs_diff_in_rect_horizontal() {
     let pix = make_gradient_image();
     let diff = pix
@@ -133,7 +127,6 @@ fn test_abs_diff_in_rect_horizontal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_abs_diff_in_rect_vertical_uniform() {
     let pix = make_gradient_image();
     let diff = pix.abs_diff_in_rect(None, DiffDirection::Vertical).unwrap();
@@ -146,7 +139,6 @@ fn test_abs_diff_in_rect_vertical_uniform() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_row_stats_mean() {
     let pix = make_uniform_image(100);
     let request = StatsRequest {
@@ -161,7 +153,6 @@ fn test_row_stats_mean() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_row_stats_median_mode() {
     let pix = make_uniform_image(42);
     let request = StatsRequest::all();
@@ -176,7 +167,6 @@ fn test_row_stats_median_mode() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_row_stats_invalid_depth() {
     let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     assert!(pix.row_stats(None, &StatsRequest::all()).is_err());
@@ -187,7 +177,6 @@ fn test_row_stats_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_column_stats_mean() {
     let pix = make_uniform_image(80);
     let request = StatsRequest {
@@ -206,7 +195,6 @@ fn test_column_stats_mean() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pixel_average_gray() {
     let pix = make_uniform_image(150);
     let avg = pix.get_pixel_average(None, 0, 0, 1).unwrap();
@@ -214,7 +202,6 @@ fn test_get_pixel_average_gray() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pixel_average_rgb() {
     let pix = make_color_image();
     let avg = pix.get_pixel_average(None, 0, 0, 1).unwrap();
@@ -225,7 +212,6 @@ fn test_get_pixel_average_rgb() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pixel_average_subsampled() {
     let pix = make_uniform_image(200);
     let avg = pix.get_pixel_average(None, 0, 0, 2).unwrap();
@@ -237,7 +223,6 @@ fn test_get_pixel_average_subsampled() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pixel_stats_mean() {
     let pix = make_uniform_image(100);
     let val = pix.get_pixel_stats(1, PixelStatType::MeanAbsVal).unwrap();
@@ -245,7 +230,6 @@ fn test_get_pixel_stats_mean() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pixel_stats_variance_uniform() {
     let pix = make_uniform_image(100);
     let val = pix.get_pixel_stats(1, PixelStatType::Variance).unwrap();
@@ -254,7 +238,6 @@ fn test_get_pixel_stats_variance_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pixel_stats_rms() {
     let pix = make_uniform_image(100);
     let val = pix
