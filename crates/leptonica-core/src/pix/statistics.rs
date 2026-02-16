@@ -993,46 +993,78 @@ impl Pix {
     ///
     /// C Leptonica: `pixGetRangeValues()` in `pix4.c`
     pub fn range_values(&self, factor: u32, color: super::rgb::RgbComponent) -> Result<(u32, u32)> {
+        use super::rgb::RgbComponent;
+
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".to_string()));
+        }
+
         let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if depth == PixelDepth::Bit32 && color == RgbComponent::Alpha {
+            return Err(Error::InvalidParameter(
+                "alpha channel not supported for range_values".to_string(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
 
         if depth == PixelDepth::Bit8 {
-            // For 8bpp, color is ignored - get gray min/max
-            let min_result = self.extreme_value(factor, ExtremeType::Min)?;
-            let max_result = self.extreme_value(factor, ExtremeType::Max)?;
-            match (min_result, max_result) {
-                (ExtremeResult::Gray(min), ExtremeResult::Gray(max)) => Ok((min, max)),
-                _ => unreachable!(),
-            }
-        } else if depth == PixelDepth::Bit32 {
-            let min_result = self.extreme_value(factor, ExtremeType::Min)?;
-            let max_result = self.extreme_value(factor, ExtremeType::Max)?;
-            match (min_result, max_result) {
-                (
-                    ExtremeResult::Rgb {
-                        r: min_r,
-                        g: min_g,
-                        b: min_b,
-                    },
-                    ExtremeResult::Rgb {
-                        r: max_r,
-                        g: max_g,
-                        b: max_b,
-                    },
-                ) => {
-                    use super::rgb::RgbComponent;
-                    match color {
-                        RgbComponent::Red => Ok((min_r, max_r)),
-                        RgbComponent::Green => Ok((min_g, max_g)),
-                        RgbComponent::Blue => Ok((min_b, max_b)),
-                        RgbComponent::Alpha => Err(Error::InvalidParameter(
-                            "alpha channel not supported for range_values".to_string(),
-                        )),
+            // Single pass for both min and max
+            let mut min_val: u32 = u32::MAX;
+            let mut max_val: u32 = 0;
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    let word_idx = (x >> 2) as usize;
+                    let byte_idx = 3 - (x & 3);
+                    let val = (line[word_idx] >> (byte_idx * 8)) & 0xFF;
+                    if val < min_val {
+                        min_val = val;
                     }
+                    if val > max_val {
+                        max_val = val;
+                    }
+                    x += factor;
                 }
-                _ => unreachable!(),
+                y += factor;
             }
+            Ok((min_val, max_val))
         } else {
-            Err(Error::UnsupportedDepth(depth.bits()))
+            // 32bpp: single pass, extract the requested channel
+            let mut min_val: u32 = u32::MAX;
+            let mut max_val: u32 = 0;
+
+            let shift = match color {
+                RgbComponent::Red => crate::color::RED_SHIFT,
+                RgbComponent::Green => crate::color::GREEN_SHIFT,
+                RgbComponent::Blue => crate::color::BLUE_SHIFT,
+                RgbComponent::Alpha => unreachable!(),
+            };
+
+            let mut y = 0u32;
+            while y < h {
+                let line = self.row_data(y);
+                let mut x = 0u32;
+                while x < w {
+                    let val = (line[x as usize] >> shift) & 0xFF;
+                    if val < min_val {
+                        min_val = val;
+                    }
+                    if val > max_val {
+                        max_val = val;
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+            Ok((min_val, max_val))
         }
     }
 
