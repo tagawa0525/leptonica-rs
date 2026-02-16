@@ -266,6 +266,7 @@ dependencies = [
  "leptonica-io",
  "leptonica-morph",
  "leptonica-test",
+ "leptonica-transform",
  "thiserror",
 ]
 

@@ -50,7 +50,6 @@ fn make_color_test_image() -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_background_gray_map_morph_basic() {
     let pix = make_gray_test_image();
     let map = adaptmap::get_background_gray_map_morph(&pix, None, 2, 7).unwrap();
@@ -62,7 +61,6 @@ fn test_get_background_gray_map_morph_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_background_gray_map_morph_values_nonzero() {
     let pix = make_gray_test_image();
     let map = adaptmap::get_background_gray_map_morph(&pix, None, 2, 7).unwrap();
@@ -78,7 +76,6 @@ fn test_get_background_gray_map_morph_values_nonzero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_background_gray_map_morph_invalid_params() {
     let pix = make_gray_test_image();
     // reduction must be between 2 and 16
@@ -91,7 +88,6 @@ fn test_get_background_gray_map_morph_invalid_params() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_background_rgb_map_morph_basic() {
     let pix = make_color_test_image();
     let (map_r, map_g, map_b) = adaptmap::get_background_rgb_map_morph(&pix, None, 2, 7).unwrap();
@@ -105,7 +101,6 @@ fn test_get_background_rgb_map_morph_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_background_rgb_map_morph_values_nonzero() {
     let pix = make_color_test_image();
     let (map_r, map_g, map_b) = adaptmap::get_background_rgb_map_morph(&pix, None, 2, 7).unwrap();
@@ -126,7 +121,6 @@ fn test_get_background_rgb_map_morph_values_nonzero() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_background_norm_morph_gray() {
     let pix = make_gray_test_image();
     let result = adaptmap::background_norm_morph(&pix, None, 2, 7, 200).unwrap();
@@ -137,7 +131,6 @@ fn test_background_norm_morph_gray() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_background_norm_morph_color() {
     let pix = make_color_test_image();
     let result = adaptmap::background_norm_morph(&pix, None, 2, 7, 200).unwrap();
@@ -148,7 +141,6 @@ fn test_background_norm_morph_color() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_background_norm_morph_background_brightened() {
     let pix = make_gray_test_image();
     let bgval = 200u32;
@@ -167,15 +159,14 @@ fn test_background_norm_morph_background_brightened() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_background_norm_gray_array_morph() {
     let pix = make_gray_test_image();
     let inv_map = adaptmap::background_norm_gray_array_morph(&pix, None, 2, 7, 200).unwrap();
 
-    // Returns the inverted background map (16bpp)
+    // Returns the inverted background map (32bpp, 16-bit precision values)
     assert!(inv_map.width() > 0);
     assert!(inv_map.height() > 0);
-    assert_eq!(inv_map.depth(), PixelDepth::Bit16);
+    assert_eq!(inv_map.depth(), PixelDepth::Bit32);
 }
 
 // ============================================================================
@@ -183,7 +174,6 @@ fn test_background_norm_gray_array_morph() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_background_norm_rgb_arrays_morph() {
     let pix = make_color_test_image();
     let (inv_r, inv_g, inv_b) =
@@ -191,5 +181,5 @@ fn test_background_norm_rgb_arrays_morph() {
 
     assert_eq!(inv_r.width(), inv_g.width());
     assert_eq!(inv_r.height(), inv_b.height());
-    assert_eq!(inv_r.depth(), PixelDepth::Bit16);
+    assert_eq!(inv_r.depth(), PixelDepth::Bit32);
 }

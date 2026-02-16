@@ -8,9 +8,10 @@ repository.workspace = true
 
 [dependencies]
 leptonica-core.workspace = true
+leptonica-morph.workspace = true
+leptonica-transform.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
 leptonica-io.workspace = true
-leptonica-morph.workspace = true
 leptonica-test.workspace = true

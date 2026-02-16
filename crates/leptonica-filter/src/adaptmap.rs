@@ -1259,16 +1259,45 @@ pub fn extend_by_replication(pix: &Pix, extend_x: u32, extend_y: u32) -> FilterR
 /// # Arguments
 ///
 /// * `pix` - 8bpp grayscale image (no colormap)
-/// * `mask` - Optional 1bpp mask indicating image regions to ignore
+/// * `_mask` - Reserved for future use (must be `None`)
 /// * `reduction` - Downscaling factor for closing (2..=16)
 /// * `size` - Size of square structuring element for closing (use odd number)
 pub fn get_background_gray_map_morph(
-    _pix: &Pix,
+    pix: &Pix,
     _mask: Option<&Pix>,
-    _reduction: u32,
-    _size: u32,
+    reduction: u32,
+    size: u32,
 ) -> FilterResult<Pix> {
-    todo!("get_background_gray_map_morph not yet implemented")
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix.has_colormap() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped images not supported".into(),
+        ));
+    }
+    if !(2..=16).contains(&reduction) {
+        return Err(FilterError::InvalidParameters(
+            "reduction must be between 2 and 16".into(),
+        ));
+    }
+
+    let scale = 1.0 / reduction as f32;
+
+    // Downscale and apply morphological closing to estimate background
+    let pix1 = leptonica_transform::scale_by_sampling(pix, scale, scale)?;
+    let pix2 = leptonica_morph::close_gray(&pix1, size, size)?;
+    let pix3 = extend_by_replication(&pix2, 1, 1)?;
+
+    // Fill holes in the map
+    let nx = pix.width() / reduction;
+    let ny = pix.height() / reduction;
+    let filled = fill_map_holes_inner(&pix3, nx, ny)?;
+
+    Ok(filled)
 }
 
 /// Extract RGB background maps using morphological closing.
@@ -1280,16 +1309,89 @@ pub fn get_background_gray_map_morph(
 /// # Arguments
 ///
 /// * `pix` - 32bpp RGB image
-/// * `mask` - Optional 1bpp mask indicating image regions to ignore
+/// * `_mask` - Reserved for future use (must be `None`)
 /// * `reduction` - Downscaling factor for closing (2..=16)
 /// * `size` - Size of square structuring element for closing (use odd number)
 pub fn get_background_rgb_map_morph(
-    _pix: &Pix,
+    pix: &Pix,
     _mask: Option<&Pix>,
-    _reduction: u32,
-    _size: u32,
+    reduction: u32,
+    size: u32,
 ) -> FilterResult<(Pix, Pix, Pix)> {
-    todo!("get_background_rgb_map_morph not yet implemented")
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(2..=16).contains(&reduction) {
+        return Err(FilterError::InvalidParameters(
+            "reduction must be between 2 and 16".into(),
+        ));
+    }
+
+    let nx = pix.width() / reduction;
+    let ny = pix.height() / reduction;
+
+    // Process each channel: extract, downscale, close, extend, fill holes
+    let map_r =
+        get_background_single_channel_morph(pix, reduction, size, nx, ny, color::RED_SHIFT)?;
+    let map_g =
+        get_background_single_channel_morph(pix, reduction, size, nx, ny, color::GREEN_SHIFT)?;
+    let map_b =
+        get_background_single_channel_morph(pix, reduction, size, nx, ny, color::BLUE_SHIFT)?;
+
+    Ok((map_r, map_g, map_b))
+}
+
+/// Process a single color channel for morph-based background extraction.
+///
+/// Extracts the channel from a 32bpp image by subsampling, applies
+/// morphological closing, extends by replication, and fills holes.
+fn get_background_single_channel_morph(
+    pix: &Pix,
+    reduction: u32,
+    size: u32,
+    nx: u32,
+    ny: u32,
+    shift: u32,
+) -> FilterResult<Pix> {
+    let pix1 = scale_rgb_to_gray_fast(pix, reduction, shift)?;
+    let pix2 = leptonica_morph::close_gray(&pix1, size, size)?;
+    let pix3 = extend_by_replication(&pix2, 1, 1)?;
+    fill_map_holes_inner(&pix3, nx, ny)
+}
+
+/// Fast downscaling of a single RGB channel to 8bpp grayscale.
+///
+/// Simultaneously subsamples by an integer factor and extracts
+/// a single color component. Equivalent to C `pixScaleRGBToGrayFast()`.
+fn scale_rgb_to_gray_fast(pix: &Pix, factor: u32, shift: u32) -> FilterResult<Pix> {
+    let ws = pix.width();
+    let hs = pix.height();
+    let wd = ws / factor;
+    let hd = hs / factor;
+
+    if wd == 0 || hd == 0 {
+        return Err(FilterError::InvalidParameters(
+            "reduction factor too large for image size".into(),
+        ));
+    }
+
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..hd {
+        let src_y = y * factor;
+        for x in 0..wd {
+            let src_x = x * factor;
+            let pixel = pix.get_pixel_unchecked(src_x, src_y);
+            let val = (pixel >> shift) & 0xff;
+            out_mut.set_pixel_unchecked(x, y, val);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 /// Normalize image background using morphological closing.
@@ -1302,18 +1404,42 @@ pub fn get_background_rgb_map_morph(
 /// # Arguments
 ///
 /// * `pix` - 8bpp grayscale or 32bpp RGB image
-/// * `mask` - Optional 1bpp mask indicating image regions to ignore
+/// * `mask` - Reserved for future use (must be `None`)
 /// * `reduction` - Downscaling factor for closing (2..=16)
 /// * `size` - Size of square structuring element for closing (use odd number)
 /// * `bgval` - Target background value (typically > 128)
 pub fn background_norm_morph(
-    _pix: &Pix,
-    _mask: Option<&Pix>,
-    _reduction: u32,
-    _size: u32,
-    _bgval: u32,
+    pix: &Pix,
+    mask: Option<&Pix>,
+    reduction: u32,
+    size: u32,
+    bgval: u32,
 ) -> FilterResult<Pix> {
-    todo!("background_norm_morph not yet implemented")
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    if !(2..=16).contains(&reduction) {
+        return Err(FilterError::InvalidParameters(
+            "reduction must be between 2 and 16".into(),
+        ));
+    }
+
+    if d == PixelDepth::Bit8 {
+        let bg_map = get_background_gray_map_morph(pix, mask, reduction, size)?;
+        let inv_map = get_inv_background_map_inner(&bg_map, bgval, 0, 0)?;
+        apply_inv_background_gray_map_inner(pix, &inv_map, reduction, reduction)
+    } else {
+        // 32bpp RGB
+        let (map_r, map_g, map_b) = get_background_rgb_map_morph(pix, mask, reduction, size)?;
+        let inv_r = get_inv_background_map_inner(&map_r, bgval, 0, 0)?;
+        let inv_g = get_inv_background_map_inner(&map_g, bgval, 0, 0)?;
+        let inv_b = get_inv_background_map_inner(&map_b, bgval, 0, 0)?;
+        apply_inv_background_rgb_map(pix, &inv_r, &inv_g, &inv_b, reduction, reduction)
+    }
 }
 
 /// Extract the inverted grayscale background map array using morphological closing.
@@ -1323,18 +1449,19 @@ pub fn background_norm_morph(
 /// # Arguments
 ///
 /// * `pix` - 8bpp grayscale image
-/// * `mask` - Optional 1bpp mask
+/// * `mask` - Reserved for future use (must be `None`)
 /// * `reduction` - Downscaling factor (2..=16)
 /// * `size` - Structuring element size (odd)
 /// * `bgval` - Target background value
 pub fn background_norm_gray_array_morph(
-    _pix: &Pix,
-    _mask: Option<&Pix>,
-    _reduction: u32,
-    _size: u32,
-    _bgval: u32,
+    pix: &Pix,
+    mask: Option<&Pix>,
+    reduction: u32,
+    size: u32,
+    bgval: u32,
 ) -> FilterResult<Pix> {
-    todo!("background_norm_gray_array_morph not yet implemented")
+    let bg_map = get_background_gray_map_morph(pix, mask, reduction, size)?;
+    get_inv_background_map_inner(&bg_map, bgval, 0, 0)
 }
 
 /// Extract the inverted RGB background map arrays using morphological closing.
@@ -1344,18 +1471,22 @@ pub fn background_norm_gray_array_morph(
 /// # Arguments
 ///
 /// * `pix` - 32bpp RGB image
-/// * `mask` - Optional 1bpp mask
+/// * `mask` - Reserved for future use (must be `None`)
 /// * `reduction` - Downscaling factor (2..=16)
 /// * `size` - Structuring element size (odd)
 /// * `bgval` - Target background value
 pub fn background_norm_rgb_arrays_morph(
-    _pix: &Pix,
-    _mask: Option<&Pix>,
-    _reduction: u32,
-    _size: u32,
-    _bgval: u32,
+    pix: &Pix,
+    mask: Option<&Pix>,
+    reduction: u32,
+    size: u32,
+    bgval: u32,
 ) -> FilterResult<(Pix, Pix, Pix)> {
-    todo!("background_norm_rgb_arrays_morph not yet implemented")
+    let (map_r, map_g, map_b) = get_background_rgb_map_morph(pix, mask, reduction, size)?;
+    let inv_r = get_inv_background_map_inner(&map_r, bgval, 0, 0)?;
+    let inv_g = get_inv_background_map_inner(&map_g, bgval, 0, 0)?;
+    let inv_b = get_inv_background_map_inner(&map_b, bgval, 0, 0)?;
+    Ok((inv_r, inv_g, inv_b))
 }
 
 // ============================================================================
