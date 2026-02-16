@@ -1251,6 +1251,8 @@ pub fn extend_by_replication(pix: &Pix, extend_x: u32, extend_y: u32) -> FilterR
 
 /// Extract a grayscale background map using morphological closing.
 ///
+/// C版: `pixGetBackgroundGrayMapMorph()` in `adaptmap.c`
+///
 /// This is an alternative to [`get_background_gray_map`] that uses
 /// morphological closing (instead of tile-based averaging) to estimate the
 /// background. The closing removes foreground features, leaving only the
@@ -1301,6 +1303,8 @@ pub fn get_background_gray_map_morph(
 }
 
 /// Extract RGB background maps using morphological closing.
+///
+/// C版: `pixGetBackgroundRGBMapMorph()` in `adaptmap.c`
 ///
 /// This is the RGB equivalent of [`get_background_gray_map_morph`]. Each
 /// color channel is processed independently: the channel is extracted,
@@ -1396,6 +1400,8 @@ fn scale_rgb_to_gray_fast(pix: &Pix, factor: u32, shift: u32) -> FilterResult<Pi
 
 /// Normalize image background using morphological closing.
 ///
+/// C版: `pixBackgroundNormMorph()` in `adaptmap.c`
+///
 /// Top-level interface that maps the image so that the background
 /// is near the target `bgval`. Uses morphological closing to
 /// estimate the background, unlike [`background_norm`] which uses
@@ -1444,6 +1450,8 @@ pub fn background_norm_morph(
 
 /// Extract the inverted grayscale background map array using morphological closing.
 ///
+/// C版: `pixBackgroundNormGrayArrayMorph()` in `adaptmap.c`
+///
 /// Similar to [`background_norm_gray_array`] but uses morphological closing.
 ///
 /// # Arguments
@@ -1465,6 +1473,8 @@ pub fn background_norm_gray_array_morph(
 }
 
 /// Extract the inverted RGB background map arrays using morphological closing.
+///
+/// C版: `pixBackgroundNormRGBArraysMorph()` in `adaptmap.c`
 ///
 /// Similar to [`background_norm_rgb_arrays`] but uses morphological closing.
 ///

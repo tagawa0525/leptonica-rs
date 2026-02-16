@@ -92,8 +92,10 @@ fn test_get_background_rgb_map_morph_basic() {
     let pix = make_color_test_image();
     let (map_r, map_g, map_b) = adaptmap::get_background_rgb_map_morph(&pix, None, 2, 7).unwrap();
 
-    // All three maps should have the same dimensions
+    // All three maps should have identical dimensions
     assert_eq!(map_r.width(), map_g.width());
+    assert_eq!(map_r.width(), map_b.width());
+    assert_eq!(map_r.height(), map_g.height());
     assert_eq!(map_r.height(), map_b.height());
     assert_eq!(map_r.depth(), PixelDepth::Bit8);
     assert_eq!(map_g.depth(), PixelDepth::Bit8);
@@ -180,6 +182,8 @@ fn test_background_norm_rgb_arrays_morph() {
         adaptmap::background_norm_rgb_arrays_morph(&pix, None, 2, 7, 200).unwrap();
 
     assert_eq!(inv_r.width(), inv_g.width());
+    assert_eq!(inv_r.width(), inv_b.width());
+    assert_eq!(inv_r.height(), inv_g.height());
     assert_eq!(inv_r.height(), inv_b.height());
     assert_eq!(inv_r.depth(), PixelDepth::Bit32);
 }
