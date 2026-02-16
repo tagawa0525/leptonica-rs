@@ -432,6 +432,32 @@ impl Pix {
         Ok(ColorHistogram { red, green, blue })
     }
 
+    /// Get RGB color histograms within a mask region.
+    ///
+    /// Computes separate 256-bin histograms for each color channel where
+    /// the mask has ON (1) pixels. The mask is placed at offset `(x, y)`
+    /// relative to the source image.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask image. If `None`, delegates to `color_histogram`.
+    /// * `x` - Horizontal offset of the mask origin on the source image.
+    /// * `y` - Vertical offset of the mask origin on the source image.
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetColorHistogramMasked()` in `pix4.c`
+    pub fn color_histogram_masked(
+        &self,
+        _mask: Option<&Pix>,
+        _x: i32,
+        _y: i32,
+        _factor: u32,
+    ) -> Result<ColorHistogram> {
+        todo!()
+    }
+
     /// Compute grayscale histogram for colormapped image
     fn gray_histogram_colormapped(&self, cmap: &PixColormap, factor: u32) -> Result<Numa> {
         let mut histogram = vec![0.0f32; 256];
@@ -891,6 +917,99 @@ mod tests {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mask = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.gray_histogram_masked(Some(&mask), 0, 0, 1).is_err());
+    }
+
+    // --- color_histogram_masked tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_histogram_masked_no_mask() {
+        // When mask is None, should behave like color_histogram
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let hist = pix.color_histogram_masked(None, 0, 0, 1).unwrap();
+        assert_eq!(hist.red.len(), 256);
+        assert_eq!(hist.green.len(), 256);
+        assert_eq!(hist.blue.len(), 256);
+        // All black pixels
+        assert_eq!(hist.red[0], 100.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_histogram_masked_with_mask() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        // Top half red, bottom half blue
+        for y in 0..5 {
+            for x in 0..10 {
+                pm.set_rgb(x, y, 255, 0, 0).unwrap();
+            }
+        }
+        for y in 5..10 {
+            for x in 0..10 {
+                pm.set_rgb(x, y, 0, 0, 255).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // Mask covering only top half (10x5, all ON)
+        let mask = Pix::new(10, 5, PixelDepth::Bit1).unwrap();
+        let mut mask_mut = mask.to_mut();
+        for y in 0..5 {
+            for x in 0..10 {
+                mask_mut.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        let mask: Pix = mask_mut.into();
+
+        let hist = pix.color_histogram_masked(Some(&mask), 0, 0, 1).unwrap();
+        assert_eq!(hist.red[255], 50.0); // 50 red pixels
+        assert_eq!(hist.blue[0], 50.0); // blue channel is 0 for red pixels
+        assert_eq!(hist.blue[255], 0.0); // no blue pixels in masked area
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_histogram_masked_with_offset() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        // Set pixel at (5,5) to green
+        pm.set_rgb(5, 5, 0, 200, 0).unwrap();
+        let pix: Pix = pm.into();
+
+        // 1x1 mask covering (5,5)
+        let mask = Pix::new(1, 1, PixelDepth::Bit1).unwrap();
+        let mut mask_mut = mask.to_mut();
+        mask_mut.set_pixel(0, 0, 1).unwrap();
+        let mask: Pix = mask_mut.into();
+
+        let hist = pix.color_histogram_masked(Some(&mask), 5, 5, 1).unwrap();
+        assert_eq!(hist.green[200], 1.0);
+        assert_eq!(hist.red[0], 1.0);
+        assert_eq!(hist.blue[0], 1.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_histogram_masked_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.color_histogram_masked(None, 0, 0, 1).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_histogram_masked_invalid_factor() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mask = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.color_histogram_masked(Some(&mask), 0, 0, 0).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_histogram_masked_non_1bpp_mask_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mask = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.color_histogram_masked(Some(&mask), 0, 0, 1).is_err());
     }
 
     #[test]
