@@ -723,6 +723,16 @@ impl Pix {
 
         let w = self.width();
         let h = self.height();
+        if nx > w {
+            return Err(Error::InvalidParameter(format!(
+                "tile count nx ({nx}) must not exceed image width ({w})"
+            )));
+        }
+        if ny > h {
+            return Err(Error::InvalidParameter(format!(
+                "tile count ny ({ny}) must not exceed image height ({h})"
+            )));
+        }
         let tw = w / nx;
         let th = h / ny;
 
