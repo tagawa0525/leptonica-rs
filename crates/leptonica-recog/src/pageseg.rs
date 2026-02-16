@@ -490,6 +490,7 @@ fn morphological_erode(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
 }
 
 /// Morphological dilation with rectangular structuring element
+#[allow(dead_code)]
 fn morphological_dilate(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
     leptonica_morph::dilate_brick(pix, se_w, se_h).map_err(Into::into)
 }

@@ -884,6 +884,77 @@ fn linear_trc_tiled(
     Ok(out_mut.into())
 }
 
+//============================================================================
+// Public API: Extend by replication
+// ============================================================================
+
+/// Extend image by replicating edge pixels
+///
+/// Creates a larger image by replicating the edge pixels of the input.
+/// This is useful for handling boundary conditions in convolution and
+/// morphological operations.
+///
+/// # Arguments
+/// * `pix` - Input image (any depth)
+/// * `extend_x` - Number of pixels to add on left and right
+/// * `extend_y` - Number of pixels to add on top and bottom
+///
+/// # Returns
+/// Extended image with dimensions (w + 2*extend_x, h + 2*extend_y)
+///
+/// # Example
+/// ```ignore
+/// // Extend image by 1 pixel on all sides
+/// let extended = extend_by_replication(&pix, 1, 1)?;
+/// ```
+pub fn extend_by_replication(pix: &Pix, extend_x: u32, extend_y: u32) -> FilterResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let depth = pix.depth();
+
+    // Handle zero extension
+    if extend_x == 0 && extend_y == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let new_w = w + 2 * extend_x;
+    let new_h = h + 2 * extend_y;
+
+    let out_pix = Pix::new(new_w, new_h, depth)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    out_mut.set_spp(pix.spp());
+
+    // Copy source image to center of destination
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            out_mut.set_pixel_unchecked(x + extend_x, y + extend_y, val);
+        }
+    }
+
+    // Replicate left and right edges
+    for y in 0..h {
+        let left_val = pix.get_pixel_unchecked(0, y);
+        let right_val = pix.get_pixel_unchecked(w - 1, y);
+        for dx in 0..extend_x {
+            out_mut.set_pixel_unchecked(dx, y + extend_y, left_val);
+            out_mut.set_pixel_unchecked(w + extend_x + dx, y + extend_y, right_val);
+        }
+    }
+
+    // Replicate top and bottom rows
+    for x in 0..new_w {
+        let top_val = out_mut.get_pixel_unchecked(x, extend_y);
+        let bottom_val = out_mut.get_pixel_unchecked(x, h + extend_y - 1);
+        for dy in 0..extend_y {
+            out_mut.set_pixel_unchecked(x, dy, top_val);
+            out_mut.set_pixel_unchecked(x, h + extend_y + dy, bottom_val);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
