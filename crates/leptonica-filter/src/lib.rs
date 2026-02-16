@@ -32,6 +32,8 @@ pub use adaptmap::{
     contrast_norm_simple, extend_by_replication, fill_map_holes, get_background_gray_map,
     get_background_rgb_map, get_inv_background_map,
 };
+// Note: adaptmap module also provides get_background_*_map_morph and background_norm_morph
+// variants (to be added in a future PR)
 pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
 pub use block_conv::{blockconv, blockconv_accum, blockconv_gray, blockconv_gray_unnormalized};
 pub use convolve::{

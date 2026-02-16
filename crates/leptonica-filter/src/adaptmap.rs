@@ -370,6 +370,7 @@ pub fn get_background_rgb_map(
 /// Propagates non-zero values into zero-valued tiles using two passes:
 /// 1. Forward pass (left-to-right, top-to-bottom)
 /// 2. Reverse pass (right-to-left, bottom-to-top)
+///
 /// Then extends edge values for partial tiles at boundaries.
 pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
     fill_map_holes_inner(pix, nx, ny)
@@ -443,25 +444,22 @@ pub fn apply_inv_background_rgb_map(
 ///
 /// Convenience function that computes the background gray map, inverts it,
 /// and returns the inverted map ready for application.
-pub fn background_norm_gray_array(
-    pix: &Pix,
-    _mask: Option<&Pix>,
-    tile_w: u32,
-    tile_h: u32,
-    fg_threshold: u32,
-    min_count: u32,
-    bg_val: u32,
-    smooth_x: u32,
-    smooth_y: u32,
-) -> FilterResult<Pix> {
+pub fn background_norm_gray_array(pix: &Pix, options: &BackgroundNormOptions) -> FilterResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
             expected: "8 bpp",
             actual: pix.depth().bits(),
         });
     }
-    let bg_map = get_background_gray_map_inner(pix, tile_w, tile_h, fg_threshold, min_count)?;
-    get_inv_background_map_inner(&bg_map, bg_val, smooth_x, smooth_y)
+    let o = options;
+    let bg_map = get_background_gray_map_inner(
+        pix,
+        o.tile_width,
+        o.tile_height,
+        o.fg_threshold,
+        o.min_count,
+    )?;
+    get_inv_background_map_inner(&bg_map, o.bg_val, o.smooth_x, o.smooth_y)
 }
 
 /// Extract inverted background map arrays for an RGB image.
@@ -471,15 +469,7 @@ pub fn background_norm_gray_array(
 /// Returns inverted maps for each channel.
 pub fn background_norm_rgb_arrays(
     pix: &Pix,
-    _mask: Option<&Pix>,
-    _pixg: Option<&Pix>,
-    tile_w: u32,
-    tile_h: u32,
-    fg_threshold: u32,
-    min_count: u32,
-    bg_val: u32,
-    smooth_x: u32,
-    smooth_y: u32,
+    options: &BackgroundNormOptions,
 ) -> FilterResult<(Pix, Pix, Pix)> {
     if pix.depth() != PixelDepth::Bit32 {
         return Err(FilterError::UnsupportedDepth {
@@ -488,17 +478,36 @@ pub fn background_norm_rgb_arrays(
         });
     }
     let (pixr, pixg_ch, pixb) = extract_rgb_channels(pix)?;
+    let o = options;
     let inv_r = {
-        let bg = get_background_gray_map_inner(&pixr, tile_w, tile_h, fg_threshold, min_count)?;
-        get_inv_background_map_inner(&bg, bg_val, smooth_x, smooth_y)?
+        let bg = get_background_gray_map_inner(
+            &pixr,
+            o.tile_width,
+            o.tile_height,
+            o.fg_threshold,
+            o.min_count,
+        )?;
+        get_inv_background_map_inner(&bg, o.bg_val, o.smooth_x, o.smooth_y)?
     };
     let inv_g = {
-        let bg = get_background_gray_map_inner(&pixg_ch, tile_w, tile_h, fg_threshold, min_count)?;
-        get_inv_background_map_inner(&bg, bg_val, smooth_x, smooth_y)?
+        let bg = get_background_gray_map_inner(
+            &pixg_ch,
+            o.tile_width,
+            o.tile_height,
+            o.fg_threshold,
+            o.min_count,
+        )?;
+        get_inv_background_map_inner(&bg, o.bg_val, o.smooth_x, o.smooth_y)?
     };
     let inv_b = {
-        let bg = get_background_gray_map_inner(&pixb, tile_w, tile_h, fg_threshold, min_count)?;
-        get_inv_background_map_inner(&bg, bg_val, smooth_x, smooth_y)?
+        let bg = get_background_gray_map_inner(
+            &pixb,
+            o.tile_width,
+            o.tile_height,
+            o.fg_threshold,
+            o.min_count,
+        )?;
+        get_inv_background_map_inner(&bg, o.bg_val, o.smooth_x, o.smooth_y)?
     };
     Ok((inv_r, inv_g, inv_b))
 }

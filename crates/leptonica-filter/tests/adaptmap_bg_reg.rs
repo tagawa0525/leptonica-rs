@@ -12,7 +12,7 @@
 //! - pixCleanBackgroundToWhite
 
 use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_filter::adaptmap;
+use leptonica_filter::adaptmap::{self, BackgroundNormOptions};
 
 /// Create a grayscale test image with uneven background
 fn make_gray_test_image() -> Pix {
@@ -54,7 +54,6 @@ fn make_color_test_image() -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_background_gray_map_basic() {
     let pix = make_gray_test_image();
     let map = adaptmap::get_background_gray_map(&pix, None, 10, 10, 60, 40).unwrap();
@@ -79,7 +78,6 @@ fn test_get_background_gray_map_basic() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_background_rgb_map_basic() {
     let pix = make_color_test_image();
     let (map_r, map_g, map_b) =
@@ -96,7 +94,6 @@ fn test_get_background_rgb_map_basic() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_inv_background_map() {
     let pix = make_gray_test_image();
     let bg_map = adaptmap::get_background_gray_map(&pix, None, 10, 10, 60, 40).unwrap();
@@ -111,7 +108,6 @@ fn test_get_inv_background_map() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_apply_inv_background_gray_map() {
     let pix = make_gray_test_image();
     let bg_map = adaptmap::get_background_gray_map(&pix, None, 10, 10, 60, 40).unwrap();
@@ -128,7 +124,6 @@ fn test_apply_inv_background_gray_map() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_apply_inv_background_rgb_map() {
     let pix = make_color_test_image();
     let (map_r, map_g, map_b) =
@@ -149,7 +144,6 @@ fn test_apply_inv_background_rgb_map() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fill_map_holes_public() {
     // Create small map with holes (zero values)
     let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -175,11 +169,10 @@ fn test_fill_map_holes_public() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_background_norm_gray_array() {
     let pix = make_gray_test_image();
     let inv_map =
-        adaptmap::background_norm_gray_array(&pix, None, 10, 15, 60, 40, 200, 2, 1).unwrap();
+        adaptmap::background_norm_gray_array(&pix, &BackgroundNormOptions::default()).unwrap();
 
     // Returns the inverted background map
     assert!(inv_map.width() > 0);
@@ -187,11 +180,10 @@ fn test_background_norm_gray_array() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_background_norm_rgb_arrays() {
     let pix = make_color_test_image();
     let (inv_r, inv_g, inv_b) =
-        adaptmap::background_norm_rgb_arrays(&pix, None, None, 10, 15, 60, 40, 200, 2, 1).unwrap();
+        adaptmap::background_norm_rgb_arrays(&pix, &BackgroundNormOptions::default()).unwrap();
 
     assert_eq!(inv_r.width(), inv_g.width());
     assert_eq!(inv_r.height(), inv_b.height());
@@ -202,7 +194,6 @@ fn test_background_norm_rgb_arrays() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clean_background_to_white_gray() {
     let pix = make_gray_test_image();
     let result = adaptmap::clean_background_to_white(&pix, None, None).unwrap();
@@ -213,7 +204,6 @@ fn test_clean_background_to_white_gray() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clean_background_to_white_color() {
     let pix = make_color_test_image();
     let result = adaptmap::clean_background_to_white(&pix, None, None).unwrap();
