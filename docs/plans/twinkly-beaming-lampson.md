@@ -114,7 +114,7 @@ Part 1 は1つのPRとして処理する。
 
 ## Part 2: Phase 5-9 実装計画
 
-Phase 1-4 で約111関数を追加。Phase 5-9 で約195関数を追加し、合計カバレッジを約37%に引き上げる。
+Phase 1-4 で約111関数を追加。Phase 5-9 で約195関数を追加し、合計カバレッジを約38%に引き上げる。
 
 ### PRワークフロー（厳守）
 
@@ -557,7 +557,7 @@ Phase 7,8と並行可能。インフラ完成による API カバレッジ向上
 | 7 (color expansion) | leptonica-color | 4 | 37 | 227 |
 | 8 (morph Sel + region seedfill) | leptonica-morph, leptonica-region | 4 | 35 | 262 |
 | 9 (core Box/Pixa/FPix) | leptonica-core | 4 | 44 | 306 |
-| **合計** | | **39** | **306** | **(387+306)/1863 ≈ 37%** |
+| **合計** | | **39** | **306** | **(522+195)/1868 ≈ 38.4%** |
 
 ## 検証方法
 
