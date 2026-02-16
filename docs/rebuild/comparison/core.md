@@ -6,12 +6,12 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 82 |
-| 🔄 異なる | 24 |
-| ❌ 未実装 | 742 |
+| ✅ 同等 | 175 |
+| 🔄 異なる | 23 |
+| ❌ 未実装 | 650 |
 | 合計 | 848 |
 
-**カバレッジ**: 12.5% (106/848 関数が何らかの形で実装済み)
+**カバレッジ**: 23.3% (198/848 関数が何らかの形で実装済み)
 
 ## 注記
 
@@ -202,18 +202,18 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixGetGrayHistogram | ✅ | histogram.rsに実装 | |
-| pixGetGrayHistogramMasked | ❌ | - | |
-| pixGetGrayHistogramInRect | ❌ | - | |
+| pixGetGrayHistogramMasked | ✅ | histogram.rs gray_histogram_masked() | |
+| pixGetGrayHistogramInRect | ✅ | histogram.rs gray_histogram_in_rect() | |
 | pixGetGrayHistogramTiled | ❌ | - | |
 | pixGetColorHistogram | ✅ | histogram.rsに実装 | |
-| pixGetColorHistogramMasked | ❌ | - | |
+| pixGetColorHistogramMasked | ✅ | histogram.rs color_histogram_masked() | |
 | pixGetCmapHistogram | ❌ | - | |
 | pixGetCmapHistogramMasked | ❌ | - | |
 | pixGetCmapHistogramInRect | ❌ | - | |
 | pixCountRGBColorsByHash | ❌ | - | |
 | pixCountRGBColors | ❌ | - | |
 | pixGetColorAmapHistogram | ❌ | - | |
-| pixGetRankValue | ❌ | - | |
+| pixGetRankValue | ✅ | histogram.rs pixel_rank_value() | |
 | pixGetRankValueMaskedRGB | ❌ | - | |
 | pixGetRankValueMasked | ❌ | - | |
 | pixGetPixelAverage | ❌ | - | |
@@ -224,9 +224,9 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 | pixGetAverageTiled | ❌ | - | |
 | pixRowStats | ❌ | - | |
 | pixColumnStats | ❌ | - | |
-| pixGetRangeValues | ❌ | - | |
-| pixGetExtremeValue | ❌ | - | |
-| pixGetMaxValueInRect | ❌ | - | |
+| pixGetRangeValues | ✅ | statistics.rs range_values() | |
+| pixGetExtremeValue | ✅ | statistics.rs extreme_value() | |
+| pixGetMaxValueInRect | ✅ | statistics.rs max_value_in_rect() | |
 | pixGetMaxColorIndex | ❌ | - | |
 | pixGetBinnedComponentRange | ❌ | - | |
 | pixGetRankColorArray | ❌ | - | |
@@ -609,7 +609,7 @@ numa/mod.rs, numa/operations.rs に基本統計関数は実装済み。
 | numaSubsample | ❌ | - | |
 | numaMakeDelta | ❌ | - | |
 | numaMakeSequence | ❌ | - | |
-| numaMakeConstant | ❌ | - | |
+| numaMakeConstant | ✅ | Numa::make_constant() | |
 | numaMakeAbsval | ❌ | - | |
 | numaAddBorder | ❌ | - | |
 | numaAddSpecifiedBorder | ❌ | - | |
@@ -620,7 +620,7 @@ numa/mod.rs, numa/operations.rs に基本統計関数は実装済み。
 | numaClipToInterval | ❌ | - | |
 | numaMakeThresholdIndicator | ❌ | - | |
 | numaUniformSampling | ❌ | - | |
-| numaReverse | ❌ | - | |
+| numaReverse | ✅ | Numa::reversed() / Numa::reverse() | |
 | numaLowPassIntervals | ❌ | - | |
 | numaThresholdEdges | ❌ | - | |
 | numaGetSpanValues | ❌ | - | |
@@ -636,7 +636,7 @@ numa/mod.rs, numa/operations.rs に基本統計関数は実装済み。
 | numaSortAutoSelect | ❌ | - | |
 | numaSortIndexAutoSelect | ❌ | - | |
 | numaChooseSortType | ❌ | - | |
-| numaSort | ❌ | - | |
+| numaSort | ✅ | Numa::sorted() / Numa::sort() | |
 | numaBinSort | ❌ | - | |
 | numaGetSortIndex | ❌ | - | |
 | numaGetBinSortIndex | ❌ | - | |
@@ -648,12 +648,12 @@ numa/mod.rs, numa/operations.rs に基本統計関数は実装済み。
 | numaFindSortedLoc | ❌ | - | |
 | numaPseudorandomSequence | ❌ | - | |
 | numaRandomPermutation | ❌ | - | |
-| numaGetRankValue | ❌ | - | |
-| numaGetMedian | ❌ | - | |
+| numaGetRankValue | ✅ | Numa::rank_value() | |
+| numaGetMedian | ✅ | Numa::median() | |
 | numaGetBinnedMedian | ❌ | - | |
 | numaGetMeanDevFromMedian | ❌ | - | |
 | numaGetMedianDevFromMedian | ❌ | - | |
-| numaGetMode | ❌ | - | |
+| numaGetMode | ✅ | Numa::mode() | |
 | numaJoin | ❌ | - | |
 | numaaJoin | ❌ | - | |
 | numaaFlattenToNuma | ✅ | Numaa::flatten() | |

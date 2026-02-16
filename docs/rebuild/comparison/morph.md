@@ -7,8 +7,8 @@
 | 項目 | 数 |
 |------|-----|
 | ✅ 同等 | 34 |
-| 🔄 異なる | 8 |
-| ❌ 未実装 | 78 |
+| 🔄 異なる | 12 |
+| ❌ 未実装 | 74 |
 | 合計 | 120 |
 
 ## 詳細
@@ -89,10 +89,10 @@
 | pixDilateGray | ✅ 同等 | grayscale::dilate_gray | |
 | pixOpenGray | ✅ 同等 | grayscale::open_gray | |
 | pixCloseGray | ✅ 同等 | grayscale::close_gray | |
-| pixErodeGray3 | ❌ 未実装 | - | 3x3専用最適化版 |
-| pixDilateGray3 | ❌ 未実装 | - | |
-| pixOpenGray3 | ❌ 未実装 | - | |
-| pixCloseGray3 | ❌ 未実装 | - | |
+| pixErodeGray3 | 🔄 異なる | grayscale::erode_gray | erode_gray() が 3x3 で fast path にディスパッチ |
+| pixDilateGray3 | 🔄 異なる | grayscale::dilate_gray | dilate_gray() が 3x3 で fast path にディスパッチ |
+| pixOpenGray3 | 🔄 異なる | grayscale::open_gray | open_gray() が 3x3 で fast path にディスパッチ |
+| pixCloseGray3 | 🔄 異なる | grayscale::close_gray | close_gray() が 3x3 で fast path にディスパッチ |
 | dilateGrayLow | ❌ 未実装 | - | 低レベル関数 |
 | erodeGrayLow | ❌ 未実装 | - | |
 | pixTophat | ✅ 同等 | grayscale::top_hat_gray | white/black両対応 |
@@ -222,7 +222,7 @@
 3. **Safe closing**: 境界条件を考慮したclosing
 4. **DWAコード生成機能**: 実行時ではなくコンパイル時に生成予定
 5. **応用演算**: gradient, boundary extraction, masked operations
-6. **最適化版**: 3x3専用のgrayscale morphology
+6. ~~**最適化版**: 3x3専用のgrayscale morphology~~ → erode_gray/dilate_gray等の3x3 fast pathで対応済み
 
 ### アーキテクチャの違い
 
@@ -248,8 +248,7 @@
 4. Masked sequence operations
 
 ### 中優先度
-1. 3x3専用grayscale最適化
-2. Sel自動生成機能
+1. Sel自動生成機能
 3. DWA拡張機能
 4. Color morphology sequence
 

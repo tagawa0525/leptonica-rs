@@ -17,16 +17,16 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 
 | クレート | ✅ 同等 | 🔄 異なる | ❌ 未実装 | 合計 | カバレッジ |
 |---------|--------|----------|---------|------|-----------|
-| [leptonica-core](comparison/core.md) | 134 | 24 | 690 | 848 | 18.6% |
+| [leptonica-core](comparison/core.md) | 175 | 23 | 650 | 848 | 23.3% |
 | [leptonica-io](comparison/io.md) | 32 | 15 | 99 | 146 | 32.2% |
 | [leptonica-transform](comparison/transform.md) | 39 | 12 | 101 | 152 | 33.6% |
-| [leptonica-morph](comparison/morph.md) | 34 | 8 | 78 | 120 | 35.0% |
-| [leptonica-filter](comparison/filter.md) | 30 | 0 | 64 | 94 | 31.9% |
+| [leptonica-morph](comparison/morph.md) | 34 | 12 | 74 | 120 | 38.3% |
+| [leptonica-filter](comparison/filter.md) | 50 | 0 | 49 | 99 | 50.5% |
 | [leptonica-color](comparison/color.md) | 18 | 12 | 109 | 139 | 21.6% |
 | [leptonica-region](comparison/region.md) | 28 | 8 | 68 | 104 | 34.6% |
 | [leptonica-recog](comparison/recog.md) | 42 | 9 | 93 | 144 | 35.4% |
 | [その他](comparison/misc.md) | 13 | 0 | 103 | 116 | 11.2% |
-| **合計** | **370** | **88** | **1,405** | **1,863** | **24.6%** |
+| **合計** | **431** | **91** | **1,346** | **1,868** | **27.9%** |
 
 ### 分類基準
 
@@ -116,13 +116,13 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 
 | 機能 | C版 | Rust版 | 備考 |
 | ---- | --- | ------ | ---- |
-| 畳み込み | ✅ convolve.c | ✅ convolve.rs | 基本実装（ブロック畳み込み最適化は未実装） |
-| ボックスフィルタ | ✅ convolve.c | ✅ convolve.rs | 基本実装 |
+| 畳み込み | ✅ convolve.c | ✅ convolve.rs | 基本・ブロック・分離可能・ウィンドウ統計 |
+| ボックスフィルタ | ✅ convolve.c | ✅ convolve.rs | ブロック畳み込み最適化含む |
 | ガウシアンフィルタ | ✅ convolve.c | ✅ convolve.rs | 基本実装 |
 | Sobelエッジ検出 | ✅ edge.c | ✅ edge.rs | 完全実装 |
 | ラプラシアン | ✅ edge.c | ✅ edge.rs | 完全実装 |
 | シャープニング | ✅ enhance.c | ✅ edge.rs | 基本実装 |
-| アンシャープマスク | ✅ enhance.c | ✅ edge.rs | 基本実装 |
+| アンシャープマスク | ✅ enhance.c | ✅ edge.rs | 基本・高速版実装 |
 | バイラテラルフィルタ | ✅ bilateral.c | ✅ bilateral.rs | エッジ保存平滑化（高速近似は未実装） |
 | 適応マッピング | ✅ adaptmap.c | ✅ adaptmap.rs | 背景/コントラスト正規化 |
 | ランクフィルタ | ✅ rank.c | ✅ rank.rs | メディアン/最小/最大 |
@@ -177,36 +177,33 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 
 | クレート | 行数 | 関数カバレッジ | 主要機能 |
 | -------- | ---- | ------------- | -------- |
-| leptonica-core | 2,519 | 106/848 (12.5%) | Pix, Box, Pta, Colormap, 演算, 比較, ブレンド |
+| leptonica-core | 2,519 | 198/848 (23.3%) | Pix, Box, Pta, Colormap, 演算, 比較, ブレンド |
 | leptonica-io | 2,795 | 47/146 (32.2%) | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS |
 | leptonica-transform | 1,509 | 51/152 (33.6%) | 回転, スケーリング, アフィン, 射影, シアー |
-| leptonica-morph | 827 | 42/120 (35.0%) | 二値/グレースケール/カラー形態学, DWA, 細線化 |
-| leptonica-filter | 917 | 11/94 (11.7%) | 畳み込み, エッジ検出, バイラテラル, ランク |
+| leptonica-morph | 827 | 46/120 (38.3%) | 二値/グレースケール/カラー形態学, DWA, 細線化 |
+| leptonica-filter | 917 | 50/99 (50.5%) | 畳み込み, エッジ検出, バイラテラル, ランク |
 | leptonica-color | 2,689 | 30/139 (21.6%) | 色空間変換, 量子化, セグメンテーション, 二値化 |
 | leptonica-region | 2,385 | 36/104 (34.6%) | 連結成分, シードフィル, 分水嶺, 四分木, 迷路 |
 | leptonica-recog | 6,580 | 51/144 (35.4%) | スキュー補正, デワーピング, 文字認識, バーコード |
 | その他 | - | 13/116 (11.2%) | ワーパー, エンコーディング |
-| **合計** | **~20,200** | **387/1,863 (20.8%)** | |
+| **合計** | **~20,200** | **522/1,868 (27.9%)** | |
 
 ## 未実装の主要領域
 
-### leptonica-core（最大の未実装数: 742関数）
+### leptonica-core（最大の未実装数: 650関数）
 
 coreは対象Cファイル数が多く、以下が主な未実装領域:
 
-- **深度変換** (pixconv.c): RGB↔Gray、深度変換の多数のバリエーション
 - **I/O補助関数**: Pix/Boxa/Pixa/Numa等のRead/Write/Serialize
 - **高度な配列操作**: ソート、選択、変換、統合
-- **マスク・ボーダー処理**: 詳細なマスク操作
-- **RGB成分操作**: チャンネル分離・結合の各種バリエーション
+- **統計・ヒストグラム拡張**: タイル別、マスク付きの高度な統計
+- **クリッピング・測定**: 矩形/マスクによるクリッピング、前景検出
 
-### leptonica-filter（カバレッジ最低: 11.7%）
+### leptonica-filter（カバレッジ: 50.5%）
 
-- **ブロック畳み込み最適化** (pixBlockconv系)
-- **分離畳み込み** (pixConvolveSep系)
-- **窓関数統計** (pixWindowedMean/Variance)
 - **高速バイラテラル近似** (pixBilateral)
-- **enhance.c全体**: TRCマッピング、色調整、アンシャープマスク変種
+- **adaptmap.c詳細機能**: モルフォロジーベース背景正規化、マップユーティリティ
+- **タイル化畳み込み**: pixBlockconvTiled等
 
 ### その他（カバレッジ: 11.2%）
 
