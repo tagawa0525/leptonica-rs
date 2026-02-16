@@ -31,7 +31,10 @@ pub use colormap::{PixColormap, RgbaQuad};
 pub use error::{Error, Result};
 pub use fpix::{FPix, NegativeHandling};
 pub use numa::{HistogramResult, HistogramStats, Numa, Numaa, SortOrder, WindowedStats};
-pub use pix::statistics::{ExtremeResult, ExtremeType, MaxValueResult, PixelMaxType};
+pub use pix::statistics::{
+    DiffDirection, ExtremeResult, ExtremeType, MaxValueResult, PixelMaxType, PixelStatType,
+    RowColumnStats, StatsRequest,
+};
 pub use pix::{
     BlendMode, Color, ColorHistogram, CompareResult, CompareType, ContourOutput, GrayBlendType,
     ImageFormat, MaskBlendType, Pix, PixMut, PixelDepth, PixelDiffResult, PixelOp, RopOp,

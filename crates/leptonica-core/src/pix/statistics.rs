@@ -1147,6 +1147,166 @@ impl Pix {
     }
 }
 
+/// Direction for computing adjacent pixel differences.
+///
+/// C equivalent: `L_HORIZONTAL_LINE` / `L_VERTICAL_LINE`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiffDirection {
+    /// Compute differences along rows (horizontal).
+    ///
+    /// C equivalent: `L_HORIZONTAL_LINE` (value 0)
+    Horizontal,
+    /// Compute differences along columns (vertical).
+    ///
+    /// C equivalent: `L_VERTICAL_LINE` (value 2)
+    Vertical,
+}
+
+/// Type of pixel statistic to compute.
+///
+/// C equivalent: `L_MEAN_ABSVAL`, `L_ROOT_MEAN_SQUARE`, etc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PixelStatType {
+    /// Mean of absolute values.
+    MeanAbsVal,
+    /// Root mean square.
+    RootMeanSquare,
+    /// Standard deviation from mean.
+    StandardDeviation,
+    /// Variance.
+    Variance,
+}
+
+/// Per-row or per-column statistics output.
+///
+/// Each field is optional; only requested statistics are computed.
+#[derive(Debug, Default)]
+pub struct RowColumnStats {
+    /// Mean value per row/column.
+    pub mean: Option<Numa>,
+    /// Median value per row/column.
+    pub median: Option<Numa>,
+    /// Mode (most frequent value) per row/column.
+    pub mode: Option<Numa>,
+    /// Count of mode occurrences per row/column.
+    pub mode_count: Option<Numa>,
+    /// Variance per row/column.
+    pub variance: Option<Numa>,
+    /// RMS deviation per row/column.
+    pub rootvar: Option<Numa>,
+}
+
+/// Bitmask specifying which statistics to compute in row/column stats.
+pub struct StatsRequest {
+    pub mean: bool,
+    pub median: bool,
+    pub mode: bool,
+    pub mode_count: bool,
+    pub variance: bool,
+    pub rootvar: bool,
+}
+
+impl StatsRequest {
+    /// Request all statistics.
+    pub fn all() -> Self {
+        Self {
+            mean: true,
+            median: true,
+            mode: true,
+            mode_count: true,
+            variance: true,
+            rootvar: true,
+        }
+    }
+}
+
+impl Pix {
+    /// Average absolute differences between adjacent pixels per row.
+    ///
+    /// Returns a Numa with one entry per row, each being the average
+    /// of `|pixel[x+1] - pixel[x]|` for that row.
+    ///
+    /// C版: `pixAbsDiffByRow()` in `pix3.c`
+    pub fn abs_diff_by_row(&self, _region: Option<&Box>) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Average absolute differences between adjacent pixels per column.
+    ///
+    /// Returns a Numa with one entry per column, each being the average
+    /// of `|pixel[y+1] - pixel[y]|` for that column.
+    ///
+    /// C版: `pixAbsDiffByColumn()` in `pix3.c`
+    pub fn abs_diff_by_column(&self, _region: Option<&Box>) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Average absolute difference between adjacent pixels in a region.
+    ///
+    /// Returns a single float value representing the average absolute
+    /// difference in the specified direction.
+    ///
+    /// C版: `pixAbsDiffInRect()` in `pix3.c`
+    pub fn abs_diff_in_rect(
+        &self,
+        _region: Option<&Box>,
+        _direction: DiffDirection,
+    ) -> Result<f32> {
+        todo!()
+    }
+
+    /// Compute multiple statistics per row.
+    ///
+    /// For each row in the region, computes the requested statistics
+    /// (mean, median, mode, mode_count, variance, rootvar) using
+    /// per-row histograms.
+    ///
+    /// C版: `pixRowStats()` in `pix4.c`
+    pub fn row_stats(
+        &self,
+        _region: Option<&Box>,
+        _request: &StatsRequest,
+    ) -> Result<RowColumnStats> {
+        todo!()
+    }
+
+    /// Compute multiple statistics per column.
+    ///
+    /// For each column in the region, computes the requested statistics.
+    ///
+    /// C版: `pixColumnStats()` in `pix4.c`
+    pub fn column_stats(
+        &self,
+        _region: Option<&Box>,
+        _request: &StatsRequest,
+    ) -> Result<RowColumnStats> {
+        todo!()
+    }
+
+    /// Average pixel value with optional mask.
+    ///
+    /// For 8bpp, returns a grayscale average. For 32bpp RGB, returns
+    /// the average of each channel recomposed into an RGB pixel value.
+    ///
+    /// C版: `pixGetPixelAverage()` in `pix4.c`
+    pub fn get_pixel_average(
+        &self,
+        _mask: Option<&Pix>,
+        _mask_x: u32,
+        _mask_y: u32,
+        _factor: u32,
+    ) -> Result<u32> {
+        todo!()
+    }
+
+    /// Compute a pixel statistic over the entire image.
+    ///
+    /// C版: `pixGetPixelStats()` in `pix4.c`
+    pub fn get_pixel_stats(&self, _factor: u32, _stat_type: PixelStatType) -> Result<u32> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
