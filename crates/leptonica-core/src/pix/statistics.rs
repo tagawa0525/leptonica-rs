@@ -1147,6 +1147,722 @@ impl Pix {
     }
 }
 
+/// Direction for computing adjacent pixel differences.
+///
+/// C equivalent: `L_HORIZONTAL_LINE` / `L_VERTICAL_LINE`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiffDirection {
+    /// Compute differences along rows (horizontal).
+    ///
+    /// C equivalent: `L_HORIZONTAL_LINE` (value 0)
+    Horizontal,
+    /// Compute differences along columns (vertical).
+    ///
+    /// C equivalent: `L_VERTICAL_LINE` (value 2)
+    Vertical,
+}
+
+/// Type of pixel statistic to compute.
+///
+/// C equivalent: `L_MEAN_ABSVAL`, `L_ROOT_MEAN_SQUARE`, etc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PixelStatType {
+    /// Mean of absolute values.
+    MeanAbsVal,
+    /// Root mean square.
+    RootMeanSquare,
+    /// Standard deviation from mean.
+    StandardDeviation,
+    /// Variance.
+    Variance,
+}
+
+/// Per-row or per-column statistics output.
+///
+/// Each field is optional; only requested statistics are computed.
+#[derive(Debug, Default)]
+pub struct RowColumnStats {
+    /// Mean value per row/column.
+    pub mean: Option<Numa>,
+    /// Median value per row/column.
+    pub median: Option<Numa>,
+    /// Mode (most frequent value) per row/column.
+    pub mode: Option<Numa>,
+    /// Count of mode occurrences per row/column.
+    pub mode_count: Option<Numa>,
+    /// Variance per row/column.
+    pub variance: Option<Numa>,
+    /// RMS deviation per row/column.
+    pub rootvar: Option<Numa>,
+}
+
+/// Bitmask specifying which statistics to compute in row/column stats.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct StatsRequest {
+    pub mean: bool,
+    pub median: bool,
+    pub mode: bool,
+    pub mode_count: bool,
+    pub variance: bool,
+    pub rootvar: bool,
+}
+
+impl StatsRequest {
+    /// Request all statistics.
+    pub fn all() -> Self {
+        Self {
+            mean: true,
+            median: true,
+            mode: true,
+            mode_count: true,
+            variance: true,
+            rootvar: true,
+        }
+    }
+}
+
+impl Pix {
+    /// Average absolute differences between adjacent pixels per row.
+    ///
+    /// Returns a Numa with one entry per row, each being the average
+    /// of `|pixel[x+1] - pixel[x]|` for that row.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used. The box is clipped to the image bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    /// * the region width is less than 2
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAbsDiffByRow()` in `pix3.c`
+    pub fn abs_diff_by_row(&self, region: Option<&Box>) -> Result<Numa> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (xstart, ystart, xend, yend, bw, _bh) = clip_box_to_rect(region, w, h)
+            .ok_or(Error::InvalidParameter("region has zero area".into()))?;
+        if bw < 2 {
+            return Err(Error::InvalidParameter("region width must be >= 2".into()));
+        }
+        let norm = 1.0 / (bw - 1) as f32;
+        let mut numa = Numa::new();
+        for y in ystart..yend {
+            let mut sum = 0u32;
+            let mut prev = self.get_pixel_unchecked(xstart as u32, y as u32);
+            for x in (xstart + 1)..xend {
+                let val = self.get_pixel_unchecked(x as u32, y as u32);
+                sum += (val as i32 - prev as i32).unsigned_abs();
+                prev = val;
+            }
+            numa.push(sum as f32 * norm);
+        }
+        Ok(numa)
+    }
+
+    /// Average absolute differences between adjacent pixels per column.
+    ///
+    /// Returns a Numa with one entry per column, each being the average
+    /// of `|pixel[y+1] - pixel[y]|` for that column.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used. The box is clipped to the image bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    /// * the region height is less than 2
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAbsDiffByColumn()` in `pix3.c`
+    pub fn abs_diff_by_column(&self, region: Option<&Box>) -> Result<Numa> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (xstart, ystart, xend, yend, _bw, bh) = clip_box_to_rect(region, w, h)
+            .ok_or(Error::InvalidParameter("region has zero area".into()))?;
+        if bh < 2 {
+            return Err(Error::InvalidParameter("region height must be >= 2".into()));
+        }
+        let norm = 1.0 / (bh - 1) as f32;
+        let mut numa = Numa::new();
+        for x in xstart..xend {
+            let mut sum = 0u32;
+            let mut prev = self.get_pixel_unchecked(x as u32, ystart as u32);
+            for y in (ystart + 1)..yend {
+                let val = self.get_pixel_unchecked(x as u32, y as u32);
+                sum += (val as i32 - prev as i32).unsigned_abs();
+                prev = val;
+            }
+            numa.push(sum as f32 * norm);
+        }
+        Ok(numa)
+    }
+
+    /// Average absolute difference between adjacent pixels in a region.
+    ///
+    /// Returns a single float value representing the average absolute
+    /// difference in the specified direction.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used.
+    /// * `direction` - Direction of differencing:
+    ///   - `Horizontal`: `|pixel[x+1] - pixel[x]|` within each row
+    ///   - `Vertical`: `|pixel[y+1] - pixel[y]|` within each column
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    /// * the region is too small in the specified direction (< 2 pixels)
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAbsDiffInRect()` in `pix3.c`
+    pub fn abs_diff_in_rect(&self, region: Option<&Box>, direction: DiffDirection) -> Result<f32> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (xstart, ystart, xend, yend, bw, bh) = clip_box_to_rect(region, w, h)
+            .ok_or(Error::InvalidParameter("region has zero area".into()))?;
+
+        match direction {
+            DiffDirection::Horizontal => {
+                if bw < 2 {
+                    return Err(Error::InvalidParameter("region width must be >= 2".into()));
+                }
+                let mut total_sum = 0u64;
+                for y in ystart..yend {
+                    let mut prev = self.get_pixel_unchecked(xstart as u32, y as u32);
+                    for x in (xstart + 1)..xend {
+                        let val = self.get_pixel_unchecked(x as u32, y as u32);
+                        total_sum += (val as i32 - prev as i32).unsigned_abs() as u64;
+                        prev = val;
+                    }
+                }
+                Ok(total_sum as f32 / (bh as f32 * (bw - 1) as f32))
+            }
+            DiffDirection::Vertical => {
+                if bh < 2 {
+                    return Err(Error::InvalidParameter("region height must be >= 2".into()));
+                }
+                let mut total_sum = 0u64;
+                for x in xstart..xend {
+                    let mut prev = self.get_pixel_unchecked(x as u32, ystart as u32);
+                    for y in (ystart + 1)..yend {
+                        let val = self.get_pixel_unchecked(x as u32, y as u32);
+                        total_sum += (val as i32 - prev as i32).unsigned_abs() as u64;
+                        prev = val;
+                    }
+                }
+                Ok(total_sum as f32 / (bw as f32 * (bh - 1) as f32))
+            }
+        }
+    }
+
+    /// Compute multiple statistics per row.
+    ///
+    /// For each row in the region, computes the requested statistics
+    /// (mean, median, mode, mode_count, variance, rootvar) using
+    /// per-row histograms.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used.
+    /// * `request` - Specifies which statistics to compute. Use
+    ///   `StatsRequest::all()` for all, or set individual fields to `true`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRowStats()` in `pix4.c`
+    pub fn row_stats(
+        &self,
+        region: Option<&Box>,
+        request: &StatsRequest,
+    ) -> Result<RowColumnStats> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (xstart, ystart, xend, yend, bw, _bh) = clip_box_to_rect(region, w, h)
+            .ok_or(Error::InvalidParameter("region has zero area".into()))?;
+
+        let n = (yend - ystart) as usize;
+        let need_mean_var = request.mean || request.variance || request.rootvar;
+        let need_hist = request.median || request.mode || request.mode_count;
+
+        let mut mean_arr = if request.mean {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut var_arr = if request.variance {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut rootvar_arr = if request.rootvar {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut median_arr = if request.median {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut mode_arr = if request.mode {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut modecount_arr = if request.mode_count {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+
+        let norm = 1.0 / bw as f64;
+
+        for y in ystart..yend {
+            // Pass 1: mean, variance, rootvar
+            if need_mean_var {
+                let mut sum1 = 0.0f64;
+                let mut sum2 = 0.0f64;
+                for x in xstart..xend {
+                    let val = self.get_pixel_unchecked(x as u32, y as u32) as f64;
+                    sum1 += val;
+                    sum2 += val * val;
+                }
+                let mean = sum1 * norm;
+                let variance = sum2 * norm - mean * mean;
+                if let Some(ref mut a) = mean_arr {
+                    a.push(mean as f32);
+                }
+                if let Some(ref mut a) = var_arr {
+                    a.push(variance as f32);
+                }
+                if let Some(ref mut a) = rootvar_arr {
+                    a.push((variance.max(0.0)).sqrt() as f32);
+                }
+            }
+
+            // Pass 2: median, mode, mode_count (via histogram)
+            if need_hist {
+                let mut hist = [0u32; 256];
+                for x in xstart..xend {
+                    let val = self.get_pixel_unchecked(x as u32, y as u32) as usize;
+                    hist[val] += 1;
+                }
+
+                if request.median {
+                    let target = (bw as u32).div_ceil(2);
+                    let mut cumsum = 0u32;
+                    let mut median_val = 0u32;
+                    for (i, &count) in hist.iter().enumerate() {
+                        cumsum += count;
+                        if cumsum >= target {
+                            median_val = i as u32;
+                            break;
+                        }
+                    }
+                    if let Some(ref mut a) = median_arr {
+                        a.push(median_val as f32);
+                    }
+                }
+
+                if request.mode || request.mode_count {
+                    let mut max_count = 0u32;
+                    let mut mode_val = 0u32;
+                    for (i, &count) in hist.iter().enumerate() {
+                        if count > max_count {
+                            max_count = count;
+                            mode_val = i as u32;
+                        }
+                    }
+                    if let Some(ref mut a) = mode_arr {
+                        a.push(mode_val as f32);
+                    }
+                    if let Some(ref mut a) = modecount_arr {
+                        a.push(max_count as f32);
+                    }
+                }
+            }
+        }
+
+        Ok(RowColumnStats {
+            mean: mean_arr,
+            median: median_arr,
+            mode: mode_arr,
+            mode_count: modecount_arr,
+            variance: var_arr,
+            rootvar: rootvar_arr,
+        })
+    }
+
+    /// Compute multiple statistics per column.
+    ///
+    /// For each column in the region, computes the requested statistics.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular sub-region. If `None`, the entire
+    ///   image is used.
+    /// * `request` - Specifies which statistics to compute. Use
+    ///   `StatsRequest::all()` for all, or set individual fields to `true`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 bpp
+    /// * the clipped region has zero area
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixColumnStats()` in `pix4.c`
+    pub fn column_stats(
+        &self,
+        region: Option<&Box>,
+        request: &StatsRequest,
+    ) -> Result<RowColumnStats> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (xstart, ystart, xend, yend, _bw, bh) = clip_box_to_rect(region, w, h)
+            .ok_or(Error::InvalidParameter("region has zero area".into()))?;
+
+        let n = (xend - xstart) as usize;
+        let need_mean_var = request.mean || request.variance || request.rootvar;
+        let need_hist = request.median || request.mode || request.mode_count;
+
+        let mut mean_arr = if request.mean {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut var_arr = if request.variance {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut rootvar_arr = if request.rootvar {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut median_arr = if request.median {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut mode_arr = if request.mode {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+        let mut modecount_arr = if request.mode_count {
+            Some(Numa::with_capacity(n))
+        } else {
+            None
+        };
+
+        let norm = 1.0 / bh as f64;
+
+        for x in xstart..xend {
+            if need_mean_var {
+                let mut sum1 = 0.0f64;
+                let mut sum2 = 0.0f64;
+                for y in ystart..yend {
+                    let val = self.get_pixel_unchecked(x as u32, y as u32) as f64;
+                    sum1 += val;
+                    sum2 += val * val;
+                }
+                let mean = sum1 * norm;
+                let variance = sum2 * norm - mean * mean;
+                if let Some(ref mut a) = mean_arr {
+                    a.push(mean as f32);
+                }
+                if let Some(ref mut a) = var_arr {
+                    a.push(variance as f32);
+                }
+                if let Some(ref mut a) = rootvar_arr {
+                    a.push((variance.max(0.0)).sqrt() as f32);
+                }
+            }
+
+            if need_hist {
+                let mut hist = [0u32; 256];
+                for y in ystart..yend {
+                    let val = self.get_pixel_unchecked(x as u32, y as u32) as usize;
+                    hist[val] += 1;
+                }
+
+                if request.median {
+                    let target = (bh as u32).div_ceil(2);
+                    let mut cumsum = 0u32;
+                    let mut median_val = 0u32;
+                    for (i, &count) in hist.iter().enumerate() {
+                        cumsum += count;
+                        if cumsum >= target {
+                            median_val = i as u32;
+                            break;
+                        }
+                    }
+                    if let Some(ref mut a) = median_arr {
+                        a.push(median_val as f32);
+                    }
+                }
+
+                if request.mode || request.mode_count {
+                    let mut max_count = 0u32;
+                    let mut mode_val = 0u32;
+                    for (i, &count) in hist.iter().enumerate() {
+                        if count > max_count {
+                            max_count = count;
+                            mode_val = i as u32;
+                        }
+                    }
+                    if let Some(ref mut a) = mode_arr {
+                        a.push(mode_val as f32);
+                    }
+                    if let Some(ref mut a) = modecount_arr {
+                        a.push(max_count as f32);
+                    }
+                }
+            }
+        }
+
+        Ok(RowColumnStats {
+            mean: mean_arr,
+            median: median_arr,
+            mode: mode_arr,
+            mode_count: modecount_arr,
+            variance: var_arr,
+            rootvar: rootvar_arr,
+        })
+    }
+
+    /// Average pixel value with optional mask.
+    ///
+    /// For 8bpp, returns a grayscale average. For 32bpp RGB, returns
+    /// the average of each channel recomposed into an RGB pixel value.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask. Only pixels where mask is non-zero
+    ///   are included. If `None`, all pixels are sampled.
+    /// * `mask_x`, `mask_y` - Offset of the mask relative to the image.
+    /// * `factor` - Subsampling factor (1 = every pixel, 2 = every other, etc.).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 or 32 bpp
+    /// * `factor` is 0
+    /// * no pixels are sampled (e.g. mask excludes all pixels)
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetPixelAverage()` in `pix4.c`
+    pub fn get_pixel_average(
+        &self,
+        mask: Option<&Pix>,
+        mask_x: u32,
+        mask_y: u32,
+        factor: u32,
+    ) -> Result<u32> {
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        if depth == PixelDepth::Bit8 {
+            let mut sum = 0u64;
+            let mut count = 0u64;
+            let mut y = 0u32;
+            while y < h {
+                let mut x = 0u32;
+                while x < w {
+                    if let Some(m) = mask {
+                        let mx = x as i32 - mask_x as i32;
+                        let my = y as i32 - mask_y as i32;
+                        if mx < 0 || my < 0 || mx >= m.width() as i32 || my >= m.height() as i32 {
+                            x += factor;
+                            continue;
+                        }
+                        if m.get_pixel_unchecked(mx as u32, my as u32) == 0 {
+                            x += factor;
+                            continue;
+                        }
+                    }
+                    sum += self.get_pixel_unchecked(x, y) as u64;
+                    count += 1;
+                    x += factor;
+                }
+                y += factor;
+            }
+            if count == 0 {
+                return Err(Error::InvalidParameter("no pixels sampled".into()));
+            }
+            Ok(((sum as f64 / count as f64) + 0.5) as u32)
+        } else {
+            // 32bpp: average each channel independently
+            let mut sum_r = 0u64;
+            let mut sum_g = 0u64;
+            let mut sum_b = 0u64;
+            let mut count = 0u64;
+            let mut y = 0u32;
+            while y < h {
+                let mut x = 0u32;
+                while x < w {
+                    if let Some(m) = mask {
+                        let mx = x as i32 - mask_x as i32;
+                        let my = y as i32 - mask_y as i32;
+                        if mx < 0 || my < 0 || mx >= m.width() as i32 || my >= m.height() as i32 {
+                            x += factor;
+                            continue;
+                        }
+                        if m.get_pixel_unchecked(mx as u32, my as u32) == 0 {
+                            x += factor;
+                            continue;
+                        }
+                    }
+                    let pixel = self.get_pixel_unchecked(x, y);
+                    let (r, g, b, _) = crate::color::extract_rgba(pixel);
+                    sum_r += r as u64;
+                    sum_g += g as u64;
+                    sum_b += b as u64;
+                    count += 1;
+                    x += factor;
+                }
+                y += factor;
+            }
+            if count == 0 {
+                return Err(Error::InvalidParameter("no pixels sampled".into()));
+            }
+            let avg_r = ((sum_r as f64 / count as f64) + 0.5) as u8;
+            let avg_g = ((sum_g as f64 / count as f64) + 0.5) as u8;
+            let avg_b = ((sum_b as f64 / count as f64) + 0.5) as u8;
+            Ok(crate::color::compose_rgb(avg_r, avg_g, avg_b))
+        }
+    }
+
+    /// Compute a pixel statistic over the entire image.
+    ///
+    /// For 8bpp images, computes the statistic directly. For 32bpp RGB,
+    /// computes per-channel and recomposes as an RGB pixel value.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (1 = every pixel). Must be >= 1.
+    /// * `stat_type` - The statistic to compute ([`PixelStatType`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * the image depth is not 8 or 32 bpp
+    /// * `factor` is 0
+    /// * no pixels are sampled
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetPixelStats()` in `pix4.c`
+    pub fn get_pixel_stats(&self, factor: u32, stat_type: PixelStatType) -> Result<u32> {
+        let depth = self.depth();
+        if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(depth.bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        if depth == PixelDepth::Bit8 {
+            self.get_pixel_stats_gray(factor, stat_type)
+        } else {
+            // 32bpp: compute per channel, recompose
+            let r_pix = self.get_rgb_component(super::RgbComponent::Red)?;
+            let g_pix = self.get_rgb_component(super::RgbComponent::Green)?;
+            let b_pix = self.get_rgb_component(super::RgbComponent::Blue)?;
+            let r = r_pix.get_pixel_stats_gray(factor, stat_type)?;
+            let g = g_pix.get_pixel_stats_gray(factor, stat_type)?;
+            let b = b_pix.get_pixel_stats_gray(factor, stat_type)?;
+            Ok(crate::color::compose_rgb(r as u8, g as u8, b as u8))
+        }
+    }
+
+    /// Internal: compute a single statistic for an 8bpp image.
+    fn get_pixel_stats_gray(&self, factor: u32, stat_type: PixelStatType) -> Result<u32> {
+        let w = self.width();
+        let h = self.height();
+        let mut sum1 = 0.0f64;
+        let mut sum2 = 0.0f64;
+        let mut count = 0u64;
+
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let val = self.get_pixel_unchecked(x, y) as f64;
+                sum1 += val;
+                sum2 += val * val;
+                count += 1;
+                x += factor;
+            }
+            y += factor;
+        }
+        if count == 0 {
+            return Err(Error::InvalidParameter("no pixels sampled".into()));
+        }
+        let mean = sum1 / count as f64;
+        let mean_sq = sum2 / count as f64;
+        let variance = (mean_sq - mean * mean).max(0.0);
+
+        let result = match stat_type {
+            PixelStatType::MeanAbsVal => mean,
+            PixelStatType::RootMeanSquare => mean_sq.sqrt(),
+            PixelStatType::StandardDeviation => variance.sqrt(),
+            PixelStatType::Variance => variance,
+        };
+        Ok((result + 0.5) as u32)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
