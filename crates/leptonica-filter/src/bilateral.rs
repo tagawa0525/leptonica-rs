@@ -285,6 +285,54 @@ fn bilateral_color_exact(
     Ok(out_mut.into())
 }
 
+/// Fast approximate separable bilateral filter
+///
+/// Uses the Principal Bilateral Components (PBC) algorithm from Yang, Tan
+/// and Ahuja for fast, separable bilateral filtering. Handles both 8bpp
+/// grayscale and 32bpp RGB images. For 32bpp, each channel is processed
+/// independently.
+///
+/// C版: `pixBilateral()` in `bilateral.c`
+///
+/// # Arguments
+/// * `pix` - 8bpp grayscale or 32bpp RGB image (no colormap)
+/// * `spatial_stdev` - Spatial Gaussian std dev in pixels (> 0.5)
+/// * `range_stdev` - Range Gaussian std dev (> 5.0; typical 50.0)
+/// * `ncomps` - Number of PBC images [4..30]
+/// * `reduction` - Downscaling factor: 1, 2, or 4
+pub fn bilateral(
+    _pix: &Pix,
+    _spatial_stdev: f32,
+    _range_stdev: f32,
+    _ncomps: u32,
+    _reduction: u32,
+) -> FilterResult<Pix> {
+    todo!()
+}
+
+/// Fast approximate separable bilateral filter for 8bpp grayscale
+///
+/// Uses the Principal Bilateral Components (PBC) algorithm for fast,
+/// separable bilateral filtering on grayscale images.
+///
+/// C版: `pixBilateralGray()` in `bilateral.c`
+///
+/// # Arguments
+/// * `pix` - 8bpp grayscale image (no colormap)
+/// * `spatial_stdev` - Spatial Gaussian std dev in pixels (> 0.5)
+/// * `range_stdev` - Range Gaussian std dev (> 5.0; typical 50.0)
+/// * `ncomps` - Number of PBC images [4..30]
+/// * `reduction` - Downscaling factor: 1, 2, or 4
+pub fn bilateral_gray(
+    _pix: &Pix,
+    _spatial_stdev: f32,
+    _range_stdev: f32,
+    _ncomps: u32,
+    _reduction: u32,
+) -> FilterResult<Pix> {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

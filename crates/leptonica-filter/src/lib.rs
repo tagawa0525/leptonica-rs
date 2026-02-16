@@ -34,7 +34,9 @@ pub use adaptmap::{
     extend_by_replication, fill_map_holes, get_background_gray_map, get_background_gray_map_morph,
     get_background_rgb_map, get_background_rgb_map_morph, get_inv_background_map, global_norm_rgb,
 };
-pub use bilateral::{bilateral_exact, bilateral_gray_exact, make_range_kernel};
+pub use bilateral::{
+    bilateral, bilateral_exact, bilateral_gray, bilateral_gray_exact, make_range_kernel,
+};
 pub use block_conv::{blockconv, blockconv_accum, blockconv_gray, blockconv_gray_unnormalized};
 pub use convolve::{
     add_gaussian_noise, blockrank, blocksum, box_blur, census_transform, convolve, convolve_color,
