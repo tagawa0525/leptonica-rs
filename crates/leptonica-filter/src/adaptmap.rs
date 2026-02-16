@@ -477,7 +477,7 @@ pub fn background_norm_rgb_arrays(
             actual: pix.depth().bits(),
         });
     }
-    let (pixr, pixg_ch, pixb) = extract_rgb_channels(pix)?;
+    let (pixr, pixg, pixb) = extract_rgb_channels(pix)?;
     let o = options;
     let inv_r = {
         let bg = get_background_gray_map_inner(
@@ -491,7 +491,7 @@ pub fn background_norm_rgb_arrays(
     };
     let inv_g = {
         let bg = get_background_gray_map_inner(
-            &pixg_ch,
+            &pixg,
             o.tile_width,
             o.tile_height,
             o.fg_threshold,
