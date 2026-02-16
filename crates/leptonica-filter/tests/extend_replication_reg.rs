@@ -6,7 +6,6 @@ use leptonica_core::{Pix, PixelDepth};
 use leptonica_filter::extend_by_replication;
 
 #[test]
-
 fn test_extend_by_replication_basic() {
     // Create a 3x3 test image
     let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
@@ -48,7 +47,6 @@ fn test_extend_by_replication_basic() {
 }
 
 #[test]
-
 fn test_extend_by_replication_32bpp() {
     use leptonica_core::color;
 
@@ -82,7 +80,6 @@ fn test_extend_by_replication_32bpp() {
 }
 
 #[test]
-
 fn test_extend_by_replication_zero_extend() {
     // Zero extension should return a clone
     let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
@@ -93,7 +90,6 @@ fn test_extend_by_replication_zero_extend() {
 }
 
 #[test]
-
 fn test_extend_by_replication_colormap_preserved() {
     use leptonica_core::colormap::{PixColormap, RgbaQuad};
 
@@ -125,7 +121,6 @@ fn test_extend_by_replication_colormap_preserved() {
 }
 
 #[test]
-
 fn test_extend_by_replication_overflow_protection() {
     let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
 

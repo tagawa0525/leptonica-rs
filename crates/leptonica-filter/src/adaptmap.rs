@@ -925,7 +925,7 @@ pub fn extend_by_replication(pix: &Pix, extend_x: u32, extend_y: u32) -> FilterR
 
     // Preserve colormap if present
     if let Some(cmap) = pix.colormap() {
-        out_mut.set_colormap(Some(cmap.clone())).ok();
+        let _ = out_mut.set_colormap(Some(cmap.clone()));
     }
 
     // Copy source image to center region
