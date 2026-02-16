@@ -3,6 +3,7 @@
 //! Functions to compute pixel value distributions from images.
 
 use super::{Pix, PixelDepth};
+use crate::Box;
 use crate::error::{Error, Result};
 use crate::numa::Numa;
 use crate::{PixColormap, color};
@@ -108,6 +109,49 @@ impl Pix {
         let mut result = Numa::from_vec(histogram);
         result.set_parameters(0.0, 1.0);
         Ok(result)
+    }
+
+    /// Get the grayscale histogram of an image within a rectangular region.
+    ///
+    /// Returns a 256-bin histogram counting pixel values within the specified
+    /// rectangular region. If no region is specified, delegates to `gray_histogram`.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Optional rectangular region. If `None`, uses the entire image.
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetGrayHistogramInRect()` in `pix4.c`
+    pub fn gray_histogram_in_rect(&self, _region: Option<&Box>, _factor: u32) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Get the grayscale histogram of an image within a mask region.
+    ///
+    /// Computes a 256-bin histogram counting pixel values where the mask
+    /// has ON (1) pixels. The mask is placed at offset `(x, y)` relative
+    /// to the source image.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - Optional 1bpp mask image. If `None`, delegates to `gray_histogram`.
+    /// * `x` - Horizontal offset of the mask origin on the source image.
+    /// * `y` - Vertical offset of the mask origin on the source image.
+    /// * `factor` - Subsampling factor (1 = all pixels).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetGrayHistogramMasked()` in `pix4.c`
+    pub fn gray_histogram_masked(
+        &self,
+        _mask: Option<&Pix>,
+        _x: i32,
+        _y: i32,
+        _factor: u32,
+    ) -> Result<Numa> {
+        todo!()
     }
 
     /// Get RGB color histograms
@@ -464,6 +508,193 @@ mod tests {
         let (startx, deltax) = hist.parameters();
         assert_eq!(startx, 0.0);
         assert_eq!(deltax, 1.0);
+    }
+
+    // --- gray_histogram_in_rect tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_in_rect_full_image() {
+        // When region is None, should behave like gray_histogram
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let hist = pix.gray_histogram_in_rect(None, 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        assert_eq!(hist[0], 10000.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_in_rect_subregion() {
+        // Create 8bpp image with known pixel pattern
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        // Fill top-left 50x50 with value 128
+        for y in 0..50 {
+            for x in 0..50 {
+                pm.set_pixel(x, y, 128).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // Histogram of top-left 50x50 region
+        let region = crate::Box::new(0, 0, 50, 50).unwrap();
+        let hist = pix.gray_histogram_in_rect(Some(&region), 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        assert_eq!(hist[128], 2500.0); // 50*50 = 2500 pixels of value 128
+        assert_eq!(hist[0], 0.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_in_rect_clipped() {
+        // Region extends beyond image boundary
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let region = crate::Box::new(25, 25, 100, 100).unwrap();
+        let hist = pix.gray_histogram_in_rect(Some(&region), 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        // Only 25x25 = 625 pixels should be counted
+        assert_eq!(hist[0], 625.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_in_rect_with_factor() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let region = crate::Box::new(0, 0, 100, 100).unwrap();
+        let hist = pix.gray_histogram_in_rect(Some(&region), 2).unwrap();
+        assert_eq!(hist[0], 2500.0); // 50*50 = 2500 pixels sampled
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_in_rect_invalid_factor() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.gray_histogram_in_rect(None, 0).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_in_rect_32bit_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(pix.gray_histogram_in_rect(None, 1).is_err());
+    }
+
+    // --- gray_histogram_masked tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_masked_no_mask() {
+        // When mask is None, should behave like gray_histogram
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let hist = pix.gray_histogram_masked(None, 0, 0, 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        assert_eq!(hist[0], 10000.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_masked_with_mask() {
+        // Create 8bpp source with mixed values
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        // Top half = 100, bottom half = 200
+        for y in 0..5 {
+            for x in 0..10 {
+                pm.set_pixel(x, y, 100).unwrap();
+            }
+        }
+        for y in 5..10 {
+            for x in 0..10 {
+                pm.set_pixel(x, y, 200).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // Create 1bpp mask covering only top half
+        let mask = Pix::new(10, 5, PixelDepth::Bit1).unwrap();
+        let mut mask_mut = mask.to_mut();
+        for y in 0..5 {
+            for x in 0..10 {
+                mask_mut.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        let mask: Pix = mask_mut.into();
+
+        // Mask placed at (0, 0) - covers top half of source
+        let hist = pix.gray_histogram_masked(Some(&mask), 0, 0, 1).unwrap();
+        assert_eq!(hist[100], 50.0); // 10*5 = 50 pixels
+        assert_eq!(hist[200], 0.0); // Bottom half not included
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_masked_with_offset() {
+        // Source: 10x10, all value 50
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        for y in 0..10 {
+            for x in 0..10 {
+                pm.set_pixel(x, y, 50).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // Small 3x3 mask, all ON
+        let mask = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
+        let mut mask_mut = mask.to_mut();
+        for y in 0..3 {
+            for x in 0..3 {
+                mask_mut.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        let mask: Pix = mask_mut.into();
+
+        // Place mask at offset (5, 5) -> covers source pixels (5..8, 5..8)
+        let hist = pix.gray_histogram_masked(Some(&mask), 5, 5, 1).unwrap();
+        assert_eq!(hist[50], 9.0); // 3*3 = 9 pixels
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_masked_boundary_clip() {
+        // Mask extends beyond image boundary
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+
+        // 5x5 mask, all ON
+        let mask = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let mut mask_mut = mask.to_mut();
+        for y in 0..5 {
+            for x in 0..5 {
+                mask_mut.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        let mask: Pix = mask_mut.into();
+
+        // Place at (8, 8) -> only 2x2 = 4 pixels within bounds
+        let hist = pix.gray_histogram_masked(Some(&mask), 8, 8, 1).unwrap();
+        assert_eq!(hist[0], 4.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_masked_invalid_factor() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.gray_histogram_masked(None, 0, 0, 0).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_masked_32bit_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(pix.gray_histogram_masked(None, 0, 0, 1).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_histogram_masked_non_1bpp_mask_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mask = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.gray_histogram_masked(Some(&mask), 0, 0, 1).is_err());
     }
 
     #[test]
