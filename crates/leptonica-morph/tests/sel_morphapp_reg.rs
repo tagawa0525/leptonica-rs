@@ -27,7 +27,6 @@ fn make_binary_rect(w: u32, h: u32, x0: u32, y0: u32, x1: u32, y1: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_max_translations_brick() {
     // 5x3 brick with origin at center (2, 1)
     let sel = Sel::create_brick(5, 3).unwrap();
@@ -41,7 +40,6 @@ fn test_find_max_translations_brick() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_max_translations_asymmetric_origin() {
     // 5x1 horizontal with origin at (0, 0) — all hits to the right
     let mut sel = Sel::new(5, 1).unwrap();
@@ -57,7 +55,6 @@ fn test_find_max_translations_asymmetric_origin() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_max_translations_no_hits() {
     // Sel with only DontCare elements
     let sel = Sel::new(3, 3).unwrap();
@@ -70,7 +67,6 @@ fn test_find_max_translations_no_hits() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_from_pix_basic() {
     // Create a 3x3 binary image with cross pattern
     let pix = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
@@ -99,7 +95,6 @@ fn test_from_pix_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_from_pix_single_pixel() {
     let pix = Pix::new(1, 1, PixelDepth::Bit1).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -113,7 +108,6 @@ fn test_from_pix_single_pixel() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_from_pix_invalid_depth() {
     let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
     assert!(Sel::from_pix(&pix, 1, 1).is_err());
@@ -124,7 +118,6 @@ fn test_from_pix_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_extract_boundary_inner() {
     // 20x20 image with filled 10x10 rectangle at (5,5)-(15,15)
     let pix = make_binary_rect(20, 20, 5, 5, 15, 15);
@@ -139,7 +132,6 @@ fn test_extract_boundary_inner() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_extract_boundary_outer() {
     // 20x20 image with filled 10x10 rectangle at (5,5)-(15,15)
     let pix = make_binary_rect(20, 20, 5, 5, 15, 15);
@@ -154,7 +146,6 @@ fn test_extract_boundary_outer() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_extract_boundary_empty_image() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let boundary = extract_boundary(&pix, BoundaryType::Inner).unwrap();
@@ -167,7 +158,6 @@ fn test_extract_boundary_empty_image() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_extract_boundary_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(extract_boundary(&pix, BoundaryType::Inner).is_err());

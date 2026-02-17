@@ -264,9 +264,38 @@ pub enum BoundaryType {
 /// # See also
 ///
 /// C Leptonica: `pixExtractBoundary()` in `morphapp.c`
-#[allow(unused_variables)]
 pub fn extract_boundary(pix: &Pix, boundary_type: BoundaryType) -> MorphResult<Pix> {
-    todo!()
+    check_binary(pix)?;
+
+    let morphed = match boundary_type {
+        BoundaryType::Outer => dilate_brick(pix, 3, 3)?,
+        BoundaryType::Inner => erode_brick(pix, 3, 3)?,
+    };
+
+    xor(pix, &morphed)
+}
+
+/// XOR two binary images
+fn xor(a: &Pix, b: &Pix) -> MorphResult<Pix> {
+    let w = a.width();
+    let h = a.height();
+    let wpl = a.wpl() as usize;
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    let a_data = a.data();
+    let b_data = b.data();
+    let out_data = out_mut.data_mut();
+
+    for y in 0..h as usize {
+        let offset = y * wpl;
+        for i in 0..wpl {
+            out_data[offset + i] = a_data[offset + i] ^ b_data[offset + i];
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 /// Dilate with a brick (rectangular) structuring element
