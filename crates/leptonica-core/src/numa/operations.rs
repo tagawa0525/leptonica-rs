@@ -25,6 +25,47 @@ pub enum SortOrder {
     Decreasing,
 }
 
+/// Interpolation method for Numa interpolation functions.
+///
+/// C equivalent: `L_LINEAR_INTERP` / `L_QUADRATIC_INTERP`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterpolationType {
+    /// Linear interpolation between adjacent sample points.
+    Linear,
+    /// Quadratic interpolation using three neighboring sample points.
+    Quadratic,
+}
+
+/// Comparison type for threshold indicator generation.
+///
+/// C equivalent: `L_SELECT_IF_LT` / `L_SELECT_IF_GT` /
+/// `L_SELECT_IF_LTE` / `L_SELECT_IF_GTE`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThresholdComparison {
+    /// Select values less than threshold.
+    LessThan,
+    /// Select values greater than threshold.
+    GreaterThan,
+    /// Select values less than or equal to threshold.
+    LessThanOrEqual,
+    /// Select values greater than or equal to threshold.
+    GreaterThanOrEqual,
+}
+
+/// Count classification relative to zero.
+///
+/// C equivalent: `L_LESS_THAN_ZERO` / `L_EQUAL_TO_ZERO` /
+/// `L_GREATER_THAN_ZERO`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CountRelativeToZero {
+    /// Count values less than zero.
+    LessThan,
+    /// Count values equal to zero.
+    EqualTo,
+    /// Count values greater than zero.
+    GreaterThan,
+}
+
 /// Windowed statistics result.
 ///
 /// Returned by [`Numa::windowed_stats`]. Contains the windowed mean,
@@ -807,6 +848,152 @@ impl Numa {
         }
 
         Ok((max_val, max_count))
+    }
+
+    // ====================================================================
+    // Sort index / Sort by index
+    // ====================================================================
+
+    /// Return a sorted copy using an automatically selected algorithm.
+    ///
+    /// For small arrays (n < 200) uses shell sort, for larger arrays
+    /// uses Rust's standard sort (TimSort). This matches C Leptonica's
+    /// auto-selection between shell sort and bin sort.
+    ///
+    /// C equivalent: `numaSortAutoSelect(nas, sortorder)`
+    #[allow(unused_variables)]
+    pub fn sort_auto_select(&self, order: SortOrder) -> Numa {
+        todo!()
+    }
+
+    /// Return the permutation indices that would sort the array.
+    ///
+    /// Automatically selects algorithm based on array size.
+    /// The returned Numa contains indices `[i0, i1, ...]` such that
+    /// `self[i0] <= self[i1] <= ...` for increasing order.
+    ///
+    /// C equivalent: `numaSortIndexAutoSelect(nas, sortorder)`
+    #[allow(unused_variables)]
+    pub fn sort_index_auto_select(&self, order: SortOrder) -> Numa {
+        todo!()
+    }
+
+    /// Return the permutation indices that would sort the array.
+    ///
+    /// Uses a stable sort. The returned Numa contains f32 index values.
+    ///
+    /// C equivalent: `numaGetSortIndex(nas, sortorder)`
+    #[allow(unused_variables)]
+    pub fn sort_index(&self, order: SortOrder) -> Numa {
+        todo!()
+    }
+
+    /// Reorder elements according to an index array.
+    ///
+    /// Given an index array `naindex`, produces a new Numa where
+    /// `result[i] = self[naindex[i]]`.
+    ///
+    /// C equivalent: `numaSortByIndex(nas, naindex)`
+    #[allow(unused_variables)]
+    pub fn sort_by_index(&self, naindex: &Numa) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Check if the array is sorted in the given order.
+    ///
+    /// Returns `true` if the array is sorted (non-strictly) in the
+    /// specified order. Empty and single-element arrays are always sorted.
+    ///
+    /// C equivalent: `numaIsSorted(nas, sortorder, &sorted)`
+    #[allow(unused_variables)]
+    pub fn is_sorted(&self, order: SortOrder) -> bool {
+        todo!()
+    }
+
+    // ====================================================================
+    // Interpolation
+    // ====================================================================
+
+    /// Interpolate a value from equally-spaced data.
+    ///
+    /// Uses the Numa's `startx` and `delx` parameters to map the
+    /// target `xval` to the array index, then interpolates.
+    ///
+    /// C equivalent: `numaInterpolateEqxVal(startx, deltax, nay, type, xval, &yval)`
+    #[allow(unused_variables)]
+    pub fn interpolate_eqx_val(&self, interp_type: InterpolationType, xval: f32) -> Result<f32> {
+        todo!()
+    }
+
+    /// Interpolate a value from arbitrarily-spaced (x, y) data.
+    ///
+    /// `self` contains the x-values (must be monotonically increasing),
+    /// `nay` contains the corresponding y-values.
+    ///
+    /// C equivalent: `numaInterpolateArbxVal(nax, nay, type, xval, &yval)`
+    #[allow(unused_variables)]
+    pub fn interpolate_arbx_val(
+        &self,
+        interp_type: InterpolationType,
+        nay: &Numa,
+        xval: f32,
+    ) -> Result<f32> {
+        todo!()
+    }
+
+    // ====================================================================
+    // Clipping / Indicator / Range / Subsample
+    // ====================================================================
+
+    /// Extract a sub-array for indices `[first..=last]`.
+    ///
+    /// If `last` exceeds the array length, it is clamped to `n-1`.
+    ///
+    /// C equivalent: `numaClipToInterval(nas, first, last)`
+    #[allow(unused_variables)]
+    pub fn clip_to_interval(&self, first: usize, last: usize) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Generate a binary indicator array based on a threshold.
+    ///
+    /// For each element, sets the output to 1.0 if the comparison
+    /// with `thresh` is satisfied, otherwise 0.0.
+    ///
+    /// C equivalent: `numaMakeThresholdIndicator(nas, thresh, type)`
+    #[allow(unused_variables)]
+    pub fn make_threshold_indicator(&self, thresh: f32, cmp: ThresholdComparison) -> Numa {
+        todo!()
+    }
+
+    /// Find the range of indices with non-zero values.
+    ///
+    /// Returns `Ok(Some((first, last)))` where `first` is the first index
+    /// and `last` is the last index with `|value| > eps`.
+    /// Returns `Ok(None)` if all values are within `eps` of zero.
+    ///
+    /// C equivalent: `numaGetNonzeroRange(na, eps, &first, &last)`
+    #[allow(unused_variables)]
+    pub fn get_nonzero_range(&self, eps: f32) -> Result<Option<(usize, usize)>> {
+        todo!()
+    }
+
+    /// Count elements by their sign relative to zero.
+    ///
+    /// C equivalent: `numaGetCountRelativeToZero(na, type, &count)`
+    #[allow(unused_variables)]
+    pub fn get_count_relative_to_zero(&self, rel: CountRelativeToZero) -> Result<usize> {
+        todo!()
+    }
+
+    /// Subsample the array, taking every `subfactor`-th element.
+    ///
+    /// Returns elements at indices `0, subfactor, 2*subfactor, ...`.
+    ///
+    /// C equivalent: `numaSubsample(nas, subfactor)`
+    #[allow(unused_variables)]
+    pub fn subsample(&self, subfactor: usize) -> Result<Numa> {
+        todo!()
     }
 }
 

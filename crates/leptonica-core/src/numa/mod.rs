@@ -7,7 +7,10 @@ mod histogram;
 mod operations;
 
 pub use histogram::HistogramStats;
-pub use operations::{HistogramResult, SortOrder, WindowedStats};
+pub use operations::{
+    CountRelativeToZero, HistogramResult, InterpolationType, SortOrder, ThresholdComparison,
+    WindowedStats,
+};
 
 use crate::error::{Error, Result};
 
