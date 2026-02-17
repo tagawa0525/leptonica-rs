@@ -556,7 +556,7 @@ pub fn conncomp_pixa(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<
 ///
 /// # Errors
 ///
-/// Returns an error if depth is less than 8 bpp.
+/// Returns an error if depth is less than 8 bpp, or if (x, y) is out of bounds.
 pub fn get_sorted_neighbor_values(
     pix: &Pix,
     x: u32,
@@ -573,6 +573,13 @@ pub fn get_sorted_neighbor_values(
 
     let w = pix.width();
     let h = pix.height();
+
+    if x >= w || y >= h {
+        return Err(RegionError::InvalidParameters(format!(
+            "coordinates ({x}, {y}) out of bounds for {}x{} image",
+            w, h
+        )));
+    }
 
     // Collect neighbor coordinates based on connectivity
     let mut neighbors: Vec<(u32, u32)> = Vec::with_capacity(8);
@@ -607,16 +614,19 @@ pub fn get_sorted_neighbor_values(
         }
     }
 
-    // Collect unique non-zero values using a BTreeSet for automatic sorting
-    let mut values = std::collections::BTreeSet::new();
+    // Collect unique non-zero values using Vec + sort/dedup for efficiency
+    // (at most 8 neighbors, so this is cheaper than BTreeSet)
+    let mut values: Vec<u32> = Vec::with_capacity(8);
     for (nx, ny) in neighbors {
         let val = pix.get_pixel(nx, ny).unwrap_or(0);
         if val > 0 {
-            values.insert(val);
+            values.push(val);
         }
     }
+    values.sort_unstable();
+    values.dedup();
 
-    Ok(values.into_iter().collect())
+    Ok(values)
 }
 
 #[cfg(test)]

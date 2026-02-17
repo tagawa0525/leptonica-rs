@@ -230,3 +230,12 @@ fn test_get_sorted_neighbor_values_invalid_depth() {
     let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
     assert!(get_sorted_neighbor_values(&pix, 2, 2, ConnectivityType::FourWay).is_err());
 }
+
+#[test]
+fn test_get_sorted_neighbor_values_out_of_bounds() {
+    let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+    // x out of bounds
+    assert!(get_sorted_neighbor_values(&pix, 5, 2, ConnectivityType::FourWay).is_err());
+    // y out of bounds
+    assert!(get_sorted_neighbor_values(&pix, 2, 5, ConnectivityType::FourWay).is_err());
+}
