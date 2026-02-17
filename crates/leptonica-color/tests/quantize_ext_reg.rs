@@ -74,7 +74,6 @@ fn make_mixed_gray_color(w: u32, h: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fixed_octcube_quant_256_basic() {
     let pix = make_color_gradient(64, 64);
     let quantized = fixed_octcube_quant_256(&pix).unwrap();
@@ -85,7 +84,6 @@ fn test_fixed_octcube_quant_256_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fixed_octcube_quant_256_tricolor() {
     let pix = make_tricolor(30, 10);
     let quantized = fixed_octcube_quant_256(&pix).unwrap();
@@ -100,7 +98,6 @@ fn test_fixed_octcube_quant_256_tricolor() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fixed_octcube_quant_256_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(fixed_octcube_quant_256(&pix).is_err());
@@ -111,7 +108,6 @@ fn test_fixed_octcube_quant_256_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octree_quant_by_population_basic() {
     let pix = make_color_gradient(64, 64);
     let quantized = octree_quant_by_population(&pix, 4).unwrap();
@@ -121,7 +117,6 @@ fn test_octree_quant_by_population_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octree_quant_by_population_few_colors() {
     let pix = make_tricolor(30, 10);
     let quantized = octree_quant_by_population(&pix, 4).unwrap();
@@ -132,7 +127,6 @@ fn test_octree_quant_by_population_few_colors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octree_quant_by_population_level3() {
     let pix = make_color_gradient(64, 64);
     let quantized = octree_quant_by_population(&pix, 3).unwrap();
@@ -144,7 +138,6 @@ fn test_octree_quant_by_population_level3() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octree_quant_num_colors_16() {
     let pix = make_color_gradient(64, 64);
     let quantized = octree_quant_num_colors(&pix, 16, 0).unwrap();
@@ -154,7 +147,6 @@ fn test_octree_quant_num_colors_16() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octree_quant_num_colors_64() {
     let pix = make_color_gradient(64, 64);
     let quantized = octree_quant_num_colors(&pix, 64, 0).unwrap();
@@ -164,7 +156,6 @@ fn test_octree_quant_num_colors_64() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octree_quant_num_colors_invalid() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(octree_quant_num_colors(&pix, 16, 0).is_err());
@@ -175,7 +166,6 @@ fn test_octree_quant_num_colors_invalid() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_median_cut_quant_mixed_basic() {
     let pix = make_mixed_gray_color(100, 50);
     let quantized = median_cut_quant_mixed(&pix, 128, 64, 20, 236, 15).unwrap();
@@ -184,7 +174,6 @@ fn test_median_cut_quant_mixed_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_median_cut_quant_mixed_all_gray() {
     // Pure grayscale image
     let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
@@ -205,7 +194,6 @@ fn test_median_cut_quant_mixed_all_gray() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_quant_from_cmap_rgb() {
     let pix = make_tricolor(30, 10);
     let mut cmap = PixColormap::new(8).unwrap();
@@ -224,7 +212,6 @@ fn test_quant_from_cmap_rgb() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_quant_from_cmap_gray() {
     // 8bpp grayscale → quantize to 4 gray levels
     let pix = Pix::new(100, 1, PixelDepth::Bit8).unwrap();
@@ -243,7 +230,6 @@ fn test_quant_from_cmap_gray() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_quant_from_cmap_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let cmap = PixColormap::new(8).unwrap();
@@ -255,7 +241,6 @@ fn test_quant_from_cmap_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_remove_unused_colors_basic() {
     // Create 8bpp image with colormap of 4 entries but only use 2
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -279,7 +264,6 @@ fn test_remove_unused_colors_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_remove_unused_colors_all_used() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -299,7 +283,6 @@ fn test_remove_unused_colors_all_used() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_remove_unused_colors_no_colormap() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     assert!(remove_unused_colors(&pix).is_err());
