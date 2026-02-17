@@ -8,9 +8,8 @@
 //! - pixGetRGBHistogram, pixGetMostPopulatedColors
 
 use leptonica_color::analysis::{
-    ColorMagnitudeType, color_fraction, colors_for_quantization, mask_over_color_pixels,
-    mask_over_color_range, mask_over_gray_pixels, most_populated_colors,
-    num_significant_gray_colors, rgb_histogram,
+    color_fraction, colors_for_quantization, mask_over_color_pixels, mask_over_color_range,
+    mask_over_gray_pixels, most_populated_colors, num_significant_gray_colors, rgb_histogram,
 };
 use leptonica_core::{Pix, PixelDepth, color};
 
@@ -53,6 +52,7 @@ fn make_gray_as_rgb(w: u32, h: u32, val: u8) -> Pix {
 }
 
 /// Create a gradient gray image stored as 32bpp RGB (values 0..255 across width)
+#[allow(dead_code)]
 fn make_gray_gradient_rgb(w: u32, h: u32) -> Pix {
     let pix = Pix::new(w, h, PixelDepth::Bit32).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -70,7 +70,6 @@ fn make_gray_gradient_rgb(w: u32, h: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_color_pixels_all_colored() {
     let pix = make_tricolor(30, 10);
     let mask = mask_over_color_pixels(&pix, 30, 0).unwrap();
@@ -85,7 +84,6 @@ fn test_mask_over_color_pixels_all_colored() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_color_pixels_gray_image() {
     let pix = make_gray_as_rgb(20, 20, 128);
     let mask = mask_over_color_pixels(&pix, 30, 0).unwrap();
@@ -98,7 +96,6 @@ fn test_mask_over_color_pixels_gray_image() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_color_pixels_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(mask_over_color_pixels(&pix, 30, 0).is_err());
@@ -109,11 +106,10 @@ fn test_mask_over_color_pixels_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_gray_pixels_gray_image() {
     let pix = make_gray_as_rgb(20, 20, 128);
-    let mask = mask_over_gray_pixels(&pix, 10, 20).unwrap();
-    // All gray → all ON
+    let mask = mask_over_gray_pixels(&pix, 200, 20).unwrap();
+    // All gray (val=128 <= maxlimit=200, sat=0 <= satlimit=20) → all ON
     let on_count: u32 = (0..20)
         .flat_map(|y| (0..20).map(move |x| (x, y)))
         .map(|(x, y)| mask.get_pixel_unchecked(x, y))
@@ -122,10 +118,9 @@ fn test_mask_over_gray_pixels_gray_image() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_gray_pixels_color_image() {
     let pix = make_tricolor(30, 10);
-    let mask = mask_over_gray_pixels(&pix, 10, 20).unwrap();
+    let mask = mask_over_gray_pixels(&pix, 200, 20).unwrap();
     // Saturated colors should not be masked
     let on_count: u32 = (0..10)
         .flat_map(|y| (0..30).map(move |x| (x, y)))
@@ -139,7 +134,6 @@ fn test_mask_over_gray_pixels_color_image() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_color_range_exact() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let mask = mask_over_color_range(&pix, 90, 110, 140, 160, 190, 210).unwrap();
@@ -152,7 +146,6 @@ fn test_mask_over_color_range_exact() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_color_range_none() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let mask = mask_over_color_range(&pix, 200, 255, 0, 50, 0, 50).unwrap();
@@ -165,7 +158,6 @@ fn test_mask_over_color_range_none() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_over_color_range_partial() {
     // Left half red, right half blue
     let pix = Pix::new(20, 10, PixelDepth::Bit32).unwrap();
@@ -195,7 +187,6 @@ fn test_mask_over_color_range_partial() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_fraction_all_colored() {
     let pix = make_tricolor(30, 10);
     let (pix_fract, color_fract) = color_fraction(&pix, 20, 235, 15, 1).unwrap();
@@ -205,7 +196,6 @@ fn test_color_fraction_all_colored() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_fraction_all_gray() {
     let pix = make_gray_as_rgb(20, 20, 128);
     let (pix_fract, color_fract) = color_fraction(&pix, 20, 235, 15, 1).unwrap();
@@ -215,7 +205,6 @@ fn test_color_fraction_all_gray() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_fraction_dark_image() {
     let pix = make_gray_as_rgb(20, 20, 10); // very dark
     let (_pix_fract, _color_fract) = color_fraction(&pix, 20, 235, 15, 1).unwrap();
@@ -227,7 +216,6 @@ fn test_color_fraction_dark_image() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_num_significant_gray_colors_uniform() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -242,7 +230,6 @@ fn test_num_significant_gray_colors_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_num_significant_gray_colors_gradient() {
     // Create 8bpp gradient with many distinct gray levels
     let pix = Pix::new(256, 10, PixelDepth::Bit8).unwrap();
@@ -259,7 +246,6 @@ fn test_num_significant_gray_colors_gradient() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_num_significant_gray_colors_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     assert!(num_significant_gray_colors(&pix, 20, 235, 0.01, 1).is_err());
@@ -270,7 +256,6 @@ fn test_num_significant_gray_colors_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_colors_for_quantization_few_colors() {
     let pix = make_tricolor(30, 10);
     let (ncolors, is_color) = colors_for_quantization(&pix, 15).unwrap();
@@ -279,7 +264,6 @@ fn test_colors_for_quantization_few_colors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_colors_for_quantization_grayscale() {
     let pix = make_gray_as_rgb(20, 20, 128);
     let (_ncolors, is_color) = colors_for_quantization(&pix, 15).unwrap();
@@ -291,7 +275,6 @@ fn test_colors_for_quantization_grayscale() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rgb_histogram_uniform() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let hist = rgb_histogram(&pix, 5, 1).unwrap();
@@ -304,7 +287,6 @@ fn test_rgb_histogram_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rgb_histogram_sigbits() {
     let pix = make_uniform_rgb(100, 150, 200, 10, 10);
     // sigbits=2: 2^6 = 64 bins
@@ -316,7 +298,6 @@ fn test_rgb_histogram_sigbits() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rgb_histogram_invalid_sigbits() {
     let pix = make_uniform_rgb(100, 150, 200, 10, 10);
     assert!(rgb_histogram(&pix, 1, 1).is_err()); // too low
@@ -324,7 +305,6 @@ fn test_rgb_histogram_invalid_sigbits() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rgb_histogram_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(rgb_histogram(&pix, 5, 1).is_err());
@@ -335,7 +315,6 @@ fn test_rgb_histogram_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_most_populated_colors_basic() {
     let pix = make_tricolor(30, 10);
     let colors = most_populated_colors(&pix, 5, 1, 5).unwrap();
@@ -344,7 +323,6 @@ fn test_most_populated_colors_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_most_populated_colors_uniform() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let colors = most_populated_colors(&pix, 5, 1, 5).unwrap();
