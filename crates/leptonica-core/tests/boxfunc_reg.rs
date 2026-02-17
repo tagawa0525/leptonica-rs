@@ -11,7 +11,6 @@ use leptonica_core::{Box, Boxa, SizeRelation};
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_overlap_area_partial() {
     let b1 = Box::new(0, 0, 100, 100).unwrap();
     let b2 = Box::new(50, 50, 100, 100).unwrap();
@@ -19,7 +18,6 @@ fn test_overlap_area_partial() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_overlap_area_none() {
     let b1 = Box::new(0, 0, 10, 10).unwrap();
     let b2 = Box::new(20, 20, 10, 10).unwrap();
@@ -27,7 +25,6 @@ fn test_overlap_area_none() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_overlap_fraction_half() {
     let b1 = Box::new(0, 0, 100, 100).unwrap();
     let b2 = Box::new(50, 0, 100, 100).unwrap();
@@ -36,7 +33,6 @@ fn test_overlap_fraction_half() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_overlap_fraction_zero_area() {
     let b1 = Box::new(0, 0, 0, 0).unwrap();
     let b2 = Box::new(0, 0, 10, 10).unwrap();
@@ -48,7 +44,6 @@ fn test_overlap_fraction_zero_area() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_contained_in_box() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(10, 10, 20, 20).unwrap()); // inside
@@ -65,7 +60,6 @@ fn test_contained_in_box() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_intersects_box() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 20, 20).unwrap()); // intersects
@@ -82,7 +76,6 @@ fn test_intersects_box() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_to_box() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 200, 200).unwrap()); // clipped to 100x100
@@ -102,7 +95,6 @@ fn test_clip_to_box() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_combine_overlaps() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 60, 60).unwrap());
@@ -120,7 +112,6 @@ fn test_combine_overlaps() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_combine_overlaps_chain() {
     // Three boxes in a chain: A overlaps B, B overlaps C, but A doesn't overlap C
     let mut boxa = Boxa::new();
@@ -140,7 +131,6 @@ fn test_combine_overlaps_chain() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_by_size() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 10, 10).unwrap());
@@ -152,7 +142,6 @@ fn test_select_by_size() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_by_area() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 10, 10).unwrap()); // area 100
@@ -164,7 +153,6 @@ fn test_select_by_area() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_by_wh_ratio() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 100, 50).unwrap()); // ratio 2.0
@@ -180,7 +168,6 @@ fn test_select_by_wh_ratio() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_extent() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(10, 20, 30, 40).unwrap());
@@ -194,14 +181,12 @@ fn test_get_extent() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_extent_empty() {
     let boxa = Boxa::new();
     assert!(boxa.get_extent().is_none());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_coverage_no_overlap() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 10, 10).unwrap()); // 100 pixels
@@ -212,7 +197,6 @@ fn test_get_coverage_no_overlap() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_size_range() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 10, 20).unwrap());
@@ -228,7 +212,6 @@ fn test_size_range() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_similar_exact() {
     let mut b1 = Boxa::new();
     b1.push(Box::new(0, 0, 10, 10).unwrap());
@@ -242,7 +225,6 @@ fn test_similar_exact() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_similar_with_tolerance() {
     let mut b1 = Boxa::new();
     b1.push(Box::new(0, 0, 10, 10).unwrap());
@@ -255,7 +237,6 @@ fn test_similar_with_tolerance() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_similar_different_count() {
     let mut b1 = Boxa::new();
     b1.push(Box::new(0, 0, 10, 10).unwrap());
@@ -265,7 +246,6 @@ fn test_similar_different_count() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_join_full() {
     let mut b1 = Boxa::new();
     b1.push(Box::new(0, 0, 10, 10).unwrap());
@@ -279,7 +259,6 @@ fn test_join_full() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_join_range() {
     let mut b1 = Boxa::new();
     b1.push(Box::new(0, 0, 10, 10).unwrap());
