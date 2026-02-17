@@ -5,7 +5,7 @@
 //! efficient labeling.
 
 use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Box, Pix, PixelDepth};
+use leptonica_core::{Box, Boxa, Pix, Pixa, PixelDepth};
 
 /// Connectivity type for component analysis
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -463,6 +463,63 @@ pub fn component_area_transform(labeled: &Pix) -> RegionResult<Pix> {
     }
 
     Ok(output.into())
+}
+
+/// Find connected components and return as Pixa with bounding boxes
+///
+/// Finds all foreground connected components in a binary image and returns
+/// them as a `Pixa` (array of component images clipped to their bounding boxes)
+/// along with a `Boxa` of the bounding boxes in the original image.
+///
+/// This is the Rust equivalent of C Leptonica's `pixConnCompPixa`.
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image (1-bit depth)
+/// * `connectivity` - Type of connectivity (4-way or 8-way)
+///
+/// # Returns
+///
+/// A tuple of `(Boxa, Pixa)` where each entry corresponds to one connected
+/// component. The Pixa images are clipped to the bounding box of each component.
+///
+/// # Errors
+///
+/// Returns an error if the image is not 1-bit depth.
+pub fn conncomp_pixa(_pix: &Pix, _connectivity: ConnectivityType) -> RegionResult<(Boxa, Pixa)> {
+    todo!("not yet implemented")
+}
+
+/// Get unique sorted neighbor label values at a pixel location
+///
+/// For a labeled image (8, 16, or 32 bpp), returns the unique non-zero
+/// label values of the neighbors of the pixel at (x, y), sorted in
+/// ascending order.
+///
+/// This is the Rust equivalent of C Leptonica's `pixGetSortedNeighborValues`.
+///
+/// # Arguments
+///
+/// * `pix` - Labeled image (8, 16, or 32 bpp)
+/// * `x` - X coordinate
+/// * `y` - Y coordinate
+/// * `connectivity` - 4-way or 8-way connectivity
+///
+/// # Returns
+///
+/// A sorted `Vec<u32>` of unique non-zero neighbor values. Empty if no
+/// non-zero neighbors exist.
+///
+/// # Errors
+///
+/// Returns an error if depth is less than 8 bpp.
+pub fn get_sorted_neighbor_values(
+    _pix: &Pix,
+    _x: u32,
+    _y: u32,
+    _connectivity: ConnectivityType,
+) -> RegionResult<Vec<u32>> {
+    todo!("not yet implemented")
 }
 
 #[cfg(test)]
