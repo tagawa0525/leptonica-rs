@@ -41,16 +41,27 @@ pub use colorspace::{
     ColorChannel,
     Hsv,
     Lab,
+    RegionFlag,
     Xyz,
     Yuv,
     // Pixel-level conversions
     hsv_to_rgb,
     lab_to_rgb,
     lab_to_xyz,
+    // HSV histograms
+    make_histo_hs,
+    make_histo_hv,
+    make_histo_sv,
+    // HSV range masks
+    make_range_mask_hs,
+    make_range_mask_hv,
+    make_range_mask_sv,
     // Image-level conversions
     pix_convert_hsv_to_rgb,
     pix_convert_rgb_to_hsv,
+    pix_convert_rgb_to_yuv,
     pix_convert_to_gray,
+    pix_convert_yuv_to_rgb,
     pix_extract_channel,
     rgb_to_gray,
     rgb_to_hsv,

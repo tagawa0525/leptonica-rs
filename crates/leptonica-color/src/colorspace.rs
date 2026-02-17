@@ -512,6 +512,469 @@ pub fn pix_convert_hsv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
     Ok(out_mut.into())
 }
 
+/// Region selection mode for HSV range masks.
+///
+/// # See also
+///
+/// C Leptonica: `L_INCLUDE_REGION`, `L_EXCLUDE_REGION`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegionFlag {
+    /// Include only pixels within the specified range
+    Include,
+    /// Exclude pixels within the specified range (select everything else)
+    Exclude,
+}
+
+// =============================================================================
+// HSV range masks
+// =============================================================================
+
+/// Create a 1bpp mask over pixels within a hue-saturation range.
+///
+/// Hue uses Leptonica convention: `[0..239]` (wrap-around at 240).
+/// Saturation range: `[0..255]`.
+/// Both ranges are specified as center ± half-width.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeRangeMaskHS()` in `colorspace.c`
+pub fn make_range_mask_hs(
+    pix: &Pix,
+    huecenter: i32,
+    huehw: i32,
+    satcenter: i32,
+    sathw: i32,
+    region_flag: RegionFlag,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let hlut = make_hue_lut(huecenter, huehw);
+    let slut = make_linear_lut(satcenter, sathw, 256);
+
+    let w = pix.width();
+    let h = pix.height();
+    let mask = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut mask_mut = mask.try_into_mut().unwrap();
+
+    // Pre-fill based on region flag
+    let include = region_flag == RegionFlag::Include;
+    if !include {
+        for y in 0..h {
+            for x in 0..w {
+                mask_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let hsv = color::rgb_to_hsv(r, g, b);
+            let hval = hsv.h as usize;
+            let sval = hsv.s as usize;
+
+            if hval < 240 && hlut[hval] && slut[sval] {
+                if include {
+                    mask_mut.set_pixel_unchecked(x, y, 1);
+                } else {
+                    mask_mut.set_pixel_unchecked(x, y, 0);
+                }
+            }
+        }
+    }
+
+    Ok(mask_mut.into())
+}
+
+/// Create a 1bpp mask over pixels within a hue-value range.
+///
+/// Hue uses Leptonica convention: `[0..239]` (wrap-around at 240).
+/// Value (max intensity) range: `[0..255]`.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeRangeMaskHV()` in `colorspace.c`
+pub fn make_range_mask_hv(
+    pix: &Pix,
+    huecenter: i32,
+    huehw: i32,
+    valcenter: i32,
+    valhw: i32,
+    region_flag: RegionFlag,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let hlut = make_hue_lut(huecenter, huehw);
+    let vlut = make_linear_lut(valcenter, valhw, 256);
+
+    let w = pix.width();
+    let h = pix.height();
+    let mask = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut mask_mut = mask.try_into_mut().unwrap();
+
+    let include = region_flag == RegionFlag::Include;
+    if !include {
+        for y in 0..h {
+            for x in 0..w {
+                mask_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let hsv = color::rgb_to_hsv(r, g, b);
+            let hval = hsv.h as usize;
+            let vval = hsv.v as usize;
+
+            if hval < 240 && hlut[hval] && vlut[vval] {
+                if include {
+                    mask_mut.set_pixel_unchecked(x, y, 1);
+                } else {
+                    mask_mut.set_pixel_unchecked(x, y, 0);
+                }
+            }
+        }
+    }
+
+    Ok(mask_mut.into())
+}
+
+/// Create a 1bpp mask over pixels within a saturation-value range.
+///
+/// Saturation range: `[0..255]`. Value (max intensity) range: `[0..255]`.
+/// Neither component has wrap-around.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeRangeMaskSV()` in `colorspace.c`
+pub fn make_range_mask_sv(
+    pix: &Pix,
+    satcenter: i32,
+    sathw: i32,
+    valcenter: i32,
+    valhw: i32,
+    region_flag: RegionFlag,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let slut = make_linear_lut(satcenter, sathw, 256);
+    let vlut = make_linear_lut(valcenter, valhw, 256);
+
+    let w = pix.width();
+    let h = pix.height();
+    let mask = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut mask_mut = mask.try_into_mut().unwrap();
+
+    let include = region_flag == RegionFlag::Include;
+    if !include {
+        for y in 0..h {
+            for x in 0..w {
+                mask_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let hsv = color::rgb_to_hsv(r, g, b);
+            let sval = hsv.s as usize;
+            let vval = hsv.v as usize;
+
+            if slut[sval] && vlut[vval] {
+                if include {
+                    mask_mut.set_pixel_unchecked(x, y, 1);
+                } else {
+                    mask_mut.set_pixel_unchecked(x, y, 0);
+                }
+            }
+        }
+    }
+
+    Ok(mask_mut.into())
+}
+
+/// Build a hue lookup table with wrap-around at 240.
+fn make_hue_lut(center: i32, hw: i32) -> Vec<bool> {
+    let mut lut = vec![false; 240];
+    let start = ((center - hw) % 240 + 240) % 240;
+    let end = ((center + hw) % 240 + 240) % 240;
+    if start <= end {
+        for i in start..=end {
+            lut[i as usize] = true;
+        }
+    } else {
+        // Wrap-around
+        for i in start..240 {
+            lut[i as usize] = true;
+        }
+        for i in 0..=end {
+            lut[i as usize] = true;
+        }
+    }
+    lut
+}
+
+/// Build a linear (non-wrapping) lookup table for saturation or value.
+fn make_linear_lut(center: i32, hw: i32, size: usize) -> Vec<bool> {
+    let mut lut = vec![false; size];
+    let start = 0.max(center - hw) as usize;
+    let end = ((size as i32 - 1).min(center + hw)) as usize;
+    for item in lut.iter_mut().take(end + 1).skip(start) {
+        *item = true;
+    }
+    lut
+}
+
+// =============================================================================
+// 2D HSV histograms
+// =============================================================================
+
+/// Create a 2D hue-saturation histogram from an RGB image.
+///
+/// Returns a 32bpp image of size 256 (sat) × 240 (hue).
+/// Each pixel value is the count of input pixels at that (hue, saturation).
+/// Hue is on the vertical axis, saturation on the horizontal.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeHistoHS()` in `colorspace.c`
+pub fn make_histo_hs(pix: &Pix, factor: i32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let factor = factor.max(1) as u32;
+    let w = pix.width();
+    let h = pix.height();
+
+    // 256 wide (saturation) × 240 tall (hue), 32bpp counts
+    let histo_pix = Pix::new(256, 240, PixelDepth::Bit32)?;
+    let mut histo_mut = histo_pix.try_into_mut().unwrap();
+
+    for y in (0..h).step_by(factor as usize) {
+        for x in (0..w).step_by(factor as usize) {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let hsv = color::rgb_to_hsv(r, g, b);
+            // rgb_to_hsv guarantees: h∈[0,239], s∈[0,255]
+            let count = histo_mut.get_pixel_unchecked(hsv.s as u32, hsv.h as u32);
+            histo_mut.set_pixel_unchecked(hsv.s as u32, hsv.h as u32, count.saturating_add(1));
+        }
+    }
+
+    Ok(histo_mut.into())
+}
+
+/// Create a 2D hue-value histogram from an RGB image.
+///
+/// Returns a 32bpp image of size 256 (val) × 240 (hue).
+/// Each pixel value is the count of input pixels at that (hue, value).
+/// Hue is on the vertical axis, value on the horizontal.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeHistoHV()` in `colorspace.c`
+pub fn make_histo_hv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let factor = factor.max(1) as u32;
+    let w = pix.width();
+    let h = pix.height();
+
+    let histo_pix = Pix::new(256, 240, PixelDepth::Bit32)?;
+    let mut histo_mut = histo_pix.try_into_mut().unwrap();
+
+    for y in (0..h).step_by(factor as usize) {
+        for x in (0..w).step_by(factor as usize) {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let hsv = color::rgb_to_hsv(r, g, b);
+            // rgb_to_hsv guarantees: h∈[0,239], v∈[0,255]
+            let count = histo_mut.get_pixel_unchecked(hsv.v as u32, hsv.h as u32);
+            histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.h as u32, count.saturating_add(1));
+        }
+    }
+
+    Ok(histo_mut.into())
+}
+
+/// Create a 2D saturation-value histogram from an RGB image.
+///
+/// Returns a 32bpp image of size 256 (val) × 256 (sat).
+/// Each pixel value is the count of input pixels at that (sat, value).
+/// Saturation is on the vertical axis, value on the horizontal.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeHistoSV()` in `colorspace.c`
+pub fn make_histo_sv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let factor = factor.max(1) as u32;
+    let w = pix.width();
+    let h = pix.height();
+
+    let histo_pix = Pix::new(256, 256, PixelDepth::Bit32)?;
+    let mut histo_mut = histo_pix.try_into_mut().unwrap();
+
+    for y in (0..h).step_by(factor as usize) {
+        for x in (0..w).step_by(factor as usize) {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let hsv = color::rgb_to_hsv(r, g, b);
+            // rgb_to_hsv guarantees: s∈[0,255], v∈[0,255]
+            let count = histo_mut.get_pixel_unchecked(hsv.v as u32, hsv.s as u32);
+            histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.s as u32, count.saturating_add(1));
+        }
+    }
+
+    Ok(histo_mut.into())
+}
+
+// =============================================================================
+// Image-level RGB ↔ YUV (Leptonica video-range encoding)
+// =============================================================================
+
+/// Convert RGB pixel to Leptonica video-range YUV.
+///
+/// Returns (Y, U, V) where Y∈[16,235], U∈[16,240], V∈[16,240].
+#[inline]
+fn convert_rgb_to_yuv_leptonica(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
+    let r = r as f32;
+    let g = g as f32;
+    let b = b as f32;
+    let norm = 1.0 / 256.0;
+    let y = (16.0 + norm * (65.738 * r + 129.057 * g + 25.064 * b) + 0.5) as i32;
+    let u = (128.0 + norm * (-37.945 * r - 74.494 * g + 112.439 * b) + 0.5) as i32;
+    let v = (128.0 + norm * (112.439 * r - 94.154 * g - 18.285 * b) + 0.5) as i32;
+    (y as u8, u as u8, v as u8)
+}
+
+/// Convert Leptonica video-range YUV pixel to RGB.
+///
+/// Expects Y∈[16,235], U∈[16,240], V∈[16,240].
+#[inline]
+fn convert_yuv_to_rgb_leptonica(y: u8, u: u8, v: u8) -> (u8, u8, u8) {
+    let norm = 1.0 / 256.0;
+    let ym = y as f32 - 16.0;
+    let um = u as f32 - 128.0;
+    let vm = v as f32 - 128.0;
+    let r = (norm * (298.082 * ym + 408.583 * vm) + 0.5) as i32;
+    let g = (norm * (298.082 * ym - 100.291 * um - 208.120 * vm) + 0.5) as i32;
+    let b = (norm * (298.082 * ym + 516.411 * um) + 0.5) as i32;
+    (
+        r.clamp(0, 255) as u8,
+        g.clamp(0, 255) as u8,
+        b.clamp(0, 255) as u8,
+    )
+}
+
+/// Convert a 32bpp RGB image to YUV color space.
+///
+/// Uses Leptonica video-range BT.601 encoding:
+/// Y `[16..235]`, U `[16..240]`, V `[16..240]`.
+/// Y, U, V are stored in the R, G, B bytes of the output pixel.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvertRGBToYUV()` in `colorspace.c`
+pub fn pix_convert_rgb_to_yuv(pix: &Pix) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let (yv, uv, vv) = convert_rgb_to_yuv_leptonica(r, g, b);
+            // Store as (Y << 24) | (U << 16) | (V << 8), matching C
+            let result = ((yv as u32) << 24) | ((uv as u32) << 16) | ((vv as u32) << 8);
+            out_mut.set_pixel_unchecked(x, y, result);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Convert a 32bpp YUV image back to RGB color space.
+///
+/// Expects Y, U, V stored in the R, G, B bytes using Leptonica
+/// video-range BT.601 encoding.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvertYUVToRGB()` in `colorspace.c`
+pub fn pix_convert_yuv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let yv = (pixel >> 24) & 0xff;
+            let uv = (pixel >> 16) & 0xff;
+            let vv = (pixel >> 8) & 0xff;
+            let (r, g, b) = convert_yuv_to_rgb_leptonica(yv as u8, uv as u8, vv as u8);
+            let result = color::compose_rgb(r, g, b);
+            out_mut.set_pixel_unchecked(x, y, result);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
