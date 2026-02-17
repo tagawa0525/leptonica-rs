@@ -14,14 +14,16 @@ use std::collections::HashSet;
 ///
 /// # See also
 ///
-/// C Leptonica: `colorcontent.c` — `L_MAX_DIFF_FROM_AVERAGE_2`, `L_MAX_MIN_DIFF_FROM_2`, `L_MAX_DIFF`
+/// C Leptonica: `colorcontent.c` — `L_INTERMED_DIFF`, `L_AVE_MAX_DIFF_2`, `L_MAX_DIFF`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ColorMagnitudeType {
-    /// max(|r-g|, |r-b|, |g-b|)
-    MaxDiffFromAverage2,
-    /// max(r,g,b) - min(r,g,b)
-    MaxMinDiffFrom2,
-    /// max(|r-g|, |r-b|, |g-b|) using absolute differences
+    /// Intermediate value of the three pairwise differences |r-g|, |r-b|, |g-b|
+    IntermedDiff,
+    /// Max over components of the difference between one component and
+    /// the average of the other two (equivalent to averaging the two closest
+    /// components and taking their distance to the third)
+    AveMaxDiff2,
+    /// Maximum of the three pairwise differences |r-g|, |r-b|, |g-b|
     MaxDiff,
 }
 
