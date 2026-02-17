@@ -134,10 +134,10 @@ impl Pix {
 impl Pix {
     /// Extract a rectangular sub-region with an additional border.
     ///
-    /// Clips the region to the image bounds, then adds a border of the
-    /// specified width around the clipped area (filled with zeros).
-    /// The border is clamped so it does not exceed the distance from
-    /// the region to the image edge.
+    /// First intersects the region with the image bounds. Then expands
+    /// the clipped region by the border amount (clamped symmetrically
+    /// so it does not exceed the distance from the region to the image
+    /// edge). The border area contains pixels copied from the source image.
     ///
     /// # See also
     ///
@@ -146,15 +146,20 @@ impl Pix {
     /// # Arguments
     ///
     /// * `region` - The rectangle to extract
-    /// * `border` - Border width to add around the region
+    /// * `max_border` - Maximum border width to add around the region
     ///
     /// # Errors
     ///
-    /// Returns an error if the region is entirely outside the image.
+    /// Returns an error if the region does not intersect the image.
     pub fn clip_rectangle_with_border(&self, region: &Box, max_border: u32) -> Result<(Pix, Box)> {
         let w = self.width() as i32;
         let h = self.height() as i32;
-        let (bx, by, bw, bh) = (region.x, region.y, region.w, region.h);
+
+        // Intersect region with image bounds first
+        let clipped_box = region.clip(w, h).ok_or_else(|| {
+            Error::InvalidParameter("region does not intersect image".to_string())
+        })?;
+        let (bx, by, bw, bh) = (clipped_box.x, clipped_box.y, clipped_box.w, clipped_box.h);
 
         // Determine the maximum symmetric border that fits within the image
         let left_margin = bx;
@@ -168,25 +173,14 @@ impl Pix {
             .min(bottom_margin)
             .max(0);
 
-        if border <= 0 {
-            // No room for border; do a standard clip
-            let clip_x = bx.max(0) as u32;
-            let clip_y = by.max(0) as u32;
-            let clip_w = bw.min(w - clip_x as i32) as u32;
-            let clip_h = bh.min(h - clip_y as i32) as u32;
-            let clipped = self.clip_rectangle(clip_x, clip_y, clip_w, clip_h)?;
-            let out_box = Box::new(clip_x as i32, clip_y as i32, clip_w as i32, clip_h as i32)?;
-            Ok((clipped, out_box))
-        } else {
-            // Expand the box by the border amount
-            let ex = bx - border;
-            let ey = by - border;
-            let ew = bw + 2 * border;
-            let eh = bh + 2 * border;
-            let clipped = self.clip_rectangle(ex as u32, ey as u32, ew as u32, eh as u32)?;
-            let out_box = Box::new(ex, ey, ew, eh)?;
-            Ok((clipped, out_box))
-        }
+        // Expand by border (which may be 0)
+        let ex = bx - border;
+        let ey = by - border;
+        let ew = bw + 2 * border;
+        let eh = bh + 2 * border;
+        let result = self.clip_rectangle(ex as u32, ey as u32, ew as u32, eh as u32)?;
+        let out_box = Box::new(ex, ey, ew, eh)?;
+        Ok((result, out_box))
     }
 
     /// Crop two images to their overlapping region so they have the same size.
@@ -245,11 +239,33 @@ impl Pix {
         let h = self.height();
         let wpl = self.wpl();
 
+        // Mask for the last word in each row to exclude padding bits
+        let leftover = w % 32;
+        let end_mask: u32 = if leftover == 0 {
+            0xFFFF_FFFF
+        } else {
+            !0u32 << (32 - leftover)
+        };
+
+        // Check if a row has any foreground pixels (excluding padding bits)
+        let row_has_fg = |row: &[u32]| -> bool {
+            if row.is_empty() {
+                return false;
+            }
+            let last = row.len() - 1;
+            for (i, &word) in row.iter().enumerate() {
+                let masked = if i == last { word & end_mask } else { word };
+                if masked != 0 {
+                    return true;
+                }
+            }
+            false
+        };
+
         // Find top edge (first row with any foreground)
         let mut miny = None;
         for y in 0..h {
-            let row = self.row_data(y);
-            if row.iter().any(|&word| word != 0) {
+            if row_has_fg(self.row_data(y)) {
                 miny = Some(y);
                 break;
             }
@@ -263,8 +279,7 @@ impl Pix {
         // Find bottom edge (last row with any foreground)
         let mut maxy = miny;
         for y in (miny..h).rev() {
-            let row = self.row_data(y);
-            if row.iter().any(|&word| word != 0) {
+            if row_has_fg(self.row_data(y)) {
                 maxy = y;
                 break;
             }
@@ -431,15 +446,27 @@ impl Pix {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
 
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+
         let search_box = match input_box {
-            Some(b) => *b,
-            None => Box::new(0, 0, self.width() as i32, self.height() as i32)?,
+            Some(b) => {
+                // Validate that the box intersects the image
+                b.clip(w, h).ok_or_else(|| {
+                    Error::InvalidParameter("input box does not intersect image".to_string())
+                })?
+            }
+            None => Box::new(0, 0, w, h)?,
         };
 
-        // Scan from all four directions
+        // Scan from all four directions.
+        // "No foreground found" maps to Ok(None); other errors propagate.
         let minx = match self.scan_for_foreground(&search_box, ScanDirection::FromLeft) {
             Ok(v) => v,
-            Err(_) => return Ok(None),
+            Err(Error::InvalidParameter(msg)) if msg.contains("no foreground") => {
+                return Ok(None);
+            }
+            Err(e) => return Err(e),
         };
         let maxx = self.scan_for_foreground(&search_box, ScanDirection::FromRight)?;
         let miny = self.scan_for_foreground(&search_box, ScanDirection::FromTop)?;
@@ -577,14 +604,40 @@ impl Pix {
 
         let data1 = self.data();
         let data2 = mask.data();
+        let width = self.width() as usize;
+        let height = self.height() as usize;
 
-        // Count foreground in self and in intersection (self AND mask)
+        if height == 0 {
+            return Ok(0.0);
+        }
+
+        let wpl = self.wpl() as usize;
+        let leftover_bits = width % 32;
+        // Mask to exclude padding bits in the last word of each row.
+        // In 1bpp images, the leftmost pixel is in the MSB.
+        let end_mask: u32 = if leftover_bits == 0 {
+            0xFFFF_FFFF
+        } else {
+            !0u32 << (32 - leftover_bits)
+        };
+
+        // Count foreground in self and in intersection (self AND mask),
+        // excluding per-row padding bits.
         let mut count_self: u64 = 0;
         let mut count_and: u64 = 0;
 
-        for (w1, w2) in data1.iter().zip(data2.iter()) {
-            count_self += w1.count_ones() as u64;
-            count_and += (w1 & w2).count_ones() as u64;
+        for y in 0..height {
+            let row_start = y * wpl;
+            for x in 0..wpl {
+                let mut w1 = data1[row_start + x];
+                let mut w2 = data2[row_start + x];
+                if leftover_bits != 0 && x == wpl - 1 {
+                    w1 &= end_mask;
+                    w2 &= end_mask;
+                }
+                count_self += w1.count_ones() as u64;
+                count_and += (w1 & w2).count_ones() as u64;
+            }
         }
 
         if count_self == 0 {

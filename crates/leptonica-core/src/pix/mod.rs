@@ -25,7 +25,7 @@ mod access;
 pub mod arith;
 pub mod blend;
 mod border;
-pub mod clip;
+mod clip;
 pub mod compare;
 pub mod convert;
 mod extract;
