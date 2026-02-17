@@ -512,6 +512,161 @@ pub fn pix_convert_hsv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
     Ok(out_mut.into())
 }
 
+/// Region selection mode for HSV range masks.
+///
+/// # See also
+///
+/// C Leptonica: `L_INCLUDE_REGION`, `L_EXCLUDE_REGION`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegionFlag {
+    /// Include only pixels within the specified range
+    Include,
+    /// Exclude pixels within the specified range (select everything else)
+    Exclude,
+}
+
+// =============================================================================
+// HSV range masks
+// =============================================================================
+
+/// Create a 1bpp mask over pixels within a hue-saturation range.
+///
+/// Hue uses Leptonica convention: `[0..239]` (wrap-around at 240).
+/// Saturation range: `[0..255]`.
+/// Both ranges are specified as center ± half-width.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeRangeMaskHS()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn make_range_mask_hs(
+    pix: &Pix,
+    huecenter: i32,
+    huehw: i32,
+    satcenter: i32,
+    sathw: i32,
+    region_flag: RegionFlag,
+) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Create a 1bpp mask over pixels within a hue-value range.
+///
+/// Hue uses Leptonica convention: `[0..239]` (wrap-around at 240).
+/// Value (max intensity) range: `[0..255]`.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeRangeMaskHV()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn make_range_mask_hv(
+    pix: &Pix,
+    huecenter: i32,
+    huehw: i32,
+    valcenter: i32,
+    valhw: i32,
+    region_flag: RegionFlag,
+) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Create a 1bpp mask over pixels within a saturation-value range.
+///
+/// Saturation range: `[0..255]`. Value (max intensity) range: `[0..255]`.
+/// Neither component has wrap-around.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeRangeMaskSV()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn make_range_mask_sv(
+    pix: &Pix,
+    satcenter: i32,
+    sathw: i32,
+    valcenter: i32,
+    valhw: i32,
+    region_flag: RegionFlag,
+) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// 2D HSV histograms
+// =============================================================================
+
+/// Create a 2D hue-saturation histogram from an RGB image.
+///
+/// Returns a 32bpp image of size 256 (sat) × 240 (hue).
+/// Each pixel value is the count of input pixels at that (hue, saturation).
+/// Hue is on the vertical axis, saturation on the horizontal.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeHistoHS()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn make_histo_hs(pix: &Pix, factor: i32) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Create a 2D hue-value histogram from an RGB image.
+///
+/// Returns a 32bpp image of size 256 (val) × 240 (hue).
+/// Each pixel value is the count of input pixels at that (hue, value).
+/// Hue is on the vertical axis, value on the horizontal.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeHistoHV()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn make_histo_hv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Create a 2D saturation-value histogram from an RGB image.
+///
+/// Returns a 32bpp image of size 256 (val) × 256 (sat).
+/// Each pixel value is the count of input pixels at that (sat, value).
+/// Saturation is on the vertical axis, value on the horizontal.
+///
+/// # See also
+///
+/// C Leptonica: `pixMakeHistoSV()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn make_histo_sv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Image-level RGB ↔ YUV (Leptonica video-range encoding)
+// =============================================================================
+
+/// Convert a 32bpp RGB image to YUV color space.
+///
+/// Uses Leptonica video-range BT.601 encoding:
+/// Y `[16..235]`, U `[16..240]`, V `[16..240]`.
+/// Y, U, V are stored in the R, G, B bytes of the output pixel.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvertRGBToYUV()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn pix_convert_rgb_to_yuv(pix: &Pix) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Convert a 32bpp YUV image back to RGB color space.
+///
+/// Expects Y, U, V stored in the R, G, B bytes using Leptonica
+/// video-range BT.601 encoding.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvertYUVToRGB()` in `colorspace.c`
+#[allow(unused_variables)]
+pub fn pix_convert_yuv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
