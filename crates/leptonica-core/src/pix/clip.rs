@@ -724,6 +724,115 @@ impl Pix {
 
         Ok((sum / count as f64) as f32)
     }
+
+    /// Scan for a sharp edge within a box region.
+    ///
+    /// Scans from the specified direction, looking for transitions from
+    /// low to high foreground pixel density to detect edges.
+    ///
+    /// # Arguments
+    ///
+    /// * `region` - Box defining the scan region
+    /// * `lowthresh` - Low threshold for edge detection
+    /// * `highthresh` - High threshold for edge detection
+    /// * `maxwidth` - Maximum width to scan for edge transition
+    /// * `factor` - Subsampling factor for scanning
+    /// * `direction` - Direction to scan from
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixScanForEdge()` in `pix5.c`
+    pub fn scan_for_edge(
+        &self,
+        _region: &Box,
+        _lowthresh: i32,
+        _highthresh: i32,
+        _maxwidth: i32,
+        _factor: i32,
+        _direction: ScanDirection,
+    ) -> Result<u32> {
+        todo!()
+    }
+
+    /// Clip a box to the edges of content in a grayscale image.
+    ///
+    /// Iteratively clips by scanning for sharp edges on all four sides.
+    ///
+    /// # Arguments
+    ///
+    /// * `input_box` - Initial bounding box
+    /// * `lowthresh` - Low threshold for edge detection
+    /// * `highthresh` - High threshold for edge detection
+    /// * `maxwidth` - Maximum width for edge transition
+    /// * `factor` - Subsampling factor
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClipBoxToEdges()` in `pix5.c`
+    pub fn clip_box_to_edges(
+        &self,
+        _input_box: &Box,
+        _lowthresh: i32,
+        _highthresh: i32,
+        _maxwidth: i32,
+        _factor: i32,
+    ) -> Result<(Pix, Box)> {
+        todo!()
+    }
+
+    /// Clip a source image using a 1bpp mask.
+    ///
+    /// Extracts the region under the mask and fills unmasked pixels
+    /// with the specified output value.
+    ///
+    /// # Arguments
+    ///
+    /// * `mask` - 1bpp mask image
+    /// * `x`, `y` - Position of mask on source image
+    /// * `outval` - Value for pixels outside the mask
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClipMasked()` in `pix5.c`
+    pub fn clip_masked(&self, _mask: &Pix, _x: i32, _y: i32, _outval: u32) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Create a 1bpp mask with horizontal and vertical symmetry.
+    ///
+    /// Generates either a filled inner rectangle or an outer frame mask.
+    ///
+    /// # Arguments
+    ///
+    /// * `w`, `h` - Dimensions of the mask
+    /// * `hf` - Horizontal fraction (0.0-1.0) defining the mask boundary
+    /// * `vf` - Vertical fraction (0.0-1.0) defining the mask boundary
+    /// * `inner` - If true, creates solid inner rectangle; if false, outer frame
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixMakeSymmetricMask()` in `pix5.c`
+    pub fn make_symmetric_mask(_w: u32, _h: u32, _hf: f32, _vf: f32, _inner: bool) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Compute average foreground and background values by thresholding.
+    ///
+    /// Applies a threshold to create a binary mask, then computes the
+    /// average value of pixels above (background) and below (foreground)
+    /// the threshold.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Subsampling factor (>= 1)
+    /// * `thresh` - Threshold value for fg/bg separation
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixThresholdForFgBg()` in `pix4.c`
+    pub fn threshold_for_fg_bg(&self, _factor: u32, _thresh: u32) -> Result<(u32, u32)> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
