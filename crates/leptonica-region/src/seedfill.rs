@@ -499,6 +499,146 @@ pub fn clear_border(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<P
     Ok(result.into())
 }
 
+/// Boundary condition for distance function computation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryCondition {
+    /// Treat boundary as background (distance clamps at edges).
+    Background,
+    /// Treat boundary as foreground (distance increases at edges).
+    Foreground,
+}
+
+/// Compute the distance from each foreground pixel to the nearest
+/// background pixel using a Chamfer distance transform.
+///
+/// Uses forward/backward raster scans for O(n) performance.
+///
+/// # Arguments
+///
+/// * `pix` - 1-bpp binary input image
+/// * `connectivity` - 4 or 8-way connectivity
+/// * `out_depth` - Output depth: [`PixelDepth::Bit8`] (max 254) or
+///   [`PixelDepth::Bit16`] (max 65534)
+/// * `boundary_cond` - How to handle pixels at image boundaries
+///
+/// # See also
+///
+/// C Leptonica: `pixDistanceFunction()` in `seedfill.c`
+#[allow(unused_variables)]
+pub fn distance_function(
+    pix: &Pix,
+    connectivity: ConnectivityType,
+    out_depth: PixelDepth,
+    boundary_cond: BoundaryCondition,
+) -> RegionResult<Pix> {
+    todo!()
+}
+
+/// Create a binary mask where two 8-bpp images have equal pixel values.
+///
+/// Returns a 1-bpp image with foreground pixels at locations where
+/// `pix1` and `pix2` have the same value.
+///
+/// # See also
+///
+/// C Leptonica: `pixFindEqualValues()` in `seedfill.c`
+#[allow(unused_variables)]
+pub fn find_equal_values(pix1: &Pix, pix2: &Pix) -> RegionResult<Pix> {
+    todo!()
+}
+
+/// Fill regions completely enclosed by foreground borders.
+///
+/// Identifies regions of background that are entirely surrounded by
+/// foreground and fills them. Unlike [`fill_holes`], this operates
+/// on the complement: it fills closed bordered regions.
+///
+/// Algorithm: seed from border → invert → OR with original.
+///
+/// # See also
+///
+/// C Leptonica: `pixFillClosedBorders()` in `seedfill.c`
+#[allow(unused_variables)]
+pub fn fill_closed_borders(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<Pix> {
+    todo!()
+}
+
+/// Remove connected components in a mask that contain seed pixels.
+///
+/// Performs seedfill from each seed pixel into the mask, then subtracts
+/// the filled result from the mask to remove seeded components.
+///
+/// # Arguments
+///
+/// * `seed` - 1-bpp seed image (pixels marking components to remove)
+/// * `mask` - 1-bpp mask image (components to filter)
+/// * `connectivity` - 4 or 8-way connectivity
+///
+/// # See also
+///
+/// C Leptonica: `pixRemoveSeededComponents()` in `seedfill.c`
+#[allow(unused_variables)]
+pub fn remove_seeded_components(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<Pix> {
+    todo!()
+}
+
+/// Inverse grayscale seedfill (basin filling).
+///
+/// Like [`seedfill_gray`], but the seed value is propagated *downward*
+/// (clipped from below by the mask) rather than upward. In each pass,
+/// the minimum of the current value and its neighbors is taken, clipped
+/// to be no less than the mask value.
+///
+/// # Arguments
+///
+/// * `seed` - 8-bpp seed image (values ≥ mask everywhere)
+/// * `mask` - 8-bpp mask image (lower bound)
+/// * `connectivity` - 4 or 8-way connectivity
+///
+/// # See also
+///
+/// C Leptonica: `pixSeedfillGrayInv()` in `seedfill.c`
+#[allow(unused_variables)]
+pub fn seedfill_gray_inv(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<Pix> {
+    todo!()
+}
+
+/// Binary seedfill restricted to a maximum distance from seed pixels.
+///
+/// Performs a full binary seedfill within the mask, then restricts the
+/// result to only include pixels within `xmax` and `ymax` distance
+/// from the nearest seed pixel.
+///
+/// # Arguments
+///
+/// * `seed` - 1-bpp seed image
+/// * `mask` - 1-bpp filling mask
+/// * `connectivity` - 4 or 8-way connectivity
+/// * `xmax` - Maximum horizontal fill distance (0 = no limit)
+/// * `ymax` - Maximum vertical fill distance (0 = no limit)
+///
+/// # See also
+///
+/// C Leptonica: `pixSeedfillBinaryRestricted()` in `seedfill.c`
+#[allow(unused_variables)]
+pub fn seedfill_binary_restricted(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+    xmax: u32,
+    ymax: u32,
+) -> RegionResult<Pix> {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
