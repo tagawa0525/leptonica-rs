@@ -30,7 +30,10 @@ pub use box_::{Box, Boxa, Boxaa};
 pub use colormap::{PixColormap, RgbaQuad};
 pub use error::{Error, Result};
 pub use fpix::{FPix, NegativeHandling};
-pub use numa::{HistogramResult, HistogramStats, Numa, Numaa, SortOrder, WindowedStats};
+pub use numa::{
+    CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
+    SortOrder, ThresholdComparison, WindowedStats,
+};
 pub use pix::statistics::{
     DiffDirection, ExtremeResult, ExtremeType, MaxValueResult, PixelMaxType, PixelStatType,
     RowColumnStats, StatsRequest,
