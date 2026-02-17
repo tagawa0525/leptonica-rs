@@ -458,7 +458,8 @@ const BAYER_8X8: [u8; 64] = [
 /// Create a binary image by applying a per-pixel threshold map.
 ///
 /// For each pixel: if `pixs[x,y] < pixg[x,y]`, output is 1 (foreground);
-/// otherwise 0 (background).
+/// otherwise 0 (background). This follows document binarization convention
+/// where dark pixels (below threshold) become foreground.
 ///
 /// # See also
 ///
@@ -570,8 +571,8 @@ pub fn generate_mask_by_band(pix: &Pix, lower: u32, upper: u32, in_band: bool) -
 
 /// Quantize an 8bpp grayscale image to 2bpp (2, 3, or 4 levels).
 ///
-/// Returns a 2bpp image. If `with_colormap` is true, a grayscale colormap
-/// is attached.
+/// Returns a 2bpp image. The `with_colormap` parameter is accepted for API
+/// compatibility but colormap attachment is not yet implemented.
 ///
 /// # See also
 ///
@@ -587,8 +588,8 @@ pub fn threshold_to_2bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorR
 
 /// Quantize an 8bpp grayscale image to 4bpp (2-16 levels).
 ///
-/// Returns a 4bpp image. If `with_colormap` is true, a grayscale colormap
-/// is attached.
+/// Returns a 4bpp image. The `with_colormap` parameter is accepted for API
+/// compatibility but colormap attachment is not yet implemented.
 ///
 /// # See also
 ///
@@ -643,6 +644,9 @@ fn threshold_to_nbpp(
 /// Divides the image into tiles of approximately `sx × sy` pixels,
 /// computes Otsu threshold per tile, optionally smooths the threshold map,
 /// and applies it to produce a binary image.
+///
+/// Uses document binarization convention: dark pixels (val < threshold)
+/// become foreground (1), bright pixels become background (0).
 ///
 /// Returns `(threshold_map, binary_image)` where `threshold_map` is an 8bpp
 /// image of per-tile thresholds (upscaled to input size).
@@ -872,36 +876,53 @@ pub fn sauvola_binarize_tiled(
     Ok((thresh_mut.into(), binary_mut.into()))
 }
 
-/// Generate an 8bpp threshold map using Sauvola's formula.
+/// Generate an 8bpp threshold map using Sauvola's formula with integral images.
+///
+/// Uses integral images for O(1) per-pixel mean/variance computation,
+/// consistent with `sauvola_threshold`.
 fn generate_sauvola_thresh_map(pix: &Pix, window_size: u32, k: f32, r: f32) -> ColorResult<Pix> {
     let w = pix.width();
     let h = pix.height();
     let half = (window_size / 2) as i64;
+
+    // Build integral images for sum and sum-of-squares
+    let ww = w as usize;
+    let hh = h as usize;
+    let mut int_sum = vec![0i64; (ww + 1) * (hh + 1)];
+    let mut int_sq = vec![0i64; (ww + 1) * (hh + 1)];
+    let stride = ww + 1;
+
+    for y in 0..hh {
+        for x in 0..ww {
+            let val = pix.get_pixel_unchecked(x as u32, y as u32) as i64;
+            int_sum[(y + 1) * stride + (x + 1)] =
+                val + int_sum[y * stride + (x + 1)] + int_sum[(y + 1) * stride + x]
+                    - int_sum[y * stride + x];
+            int_sq[(y + 1) * stride + (x + 1)] =
+                val * val + int_sq[y * stride + (x + 1)] + int_sq[(y + 1) * stride + x]
+                    - int_sq[y * stride + x];
+        }
+    }
 
     let out = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut out_mut = out.try_into_mut().unwrap();
 
     for y in 0..h {
         for x in 0..w {
-            let x0 = (x as i64 - half).max(0) as u32;
-            let y0 = (y as i64 - half).max(0) as u32;
-            let x1 = (x as i64 + half).min(w as i64 - 1) as u32;
-            let y1 = (y as i64 + half).min(h as i64 - 1) as u32;
+            let x0 = (x as i64 - half).max(0) as usize;
+            let y0 = (y as i64 - half).max(0) as usize;
+            let x1 = ((x as i64 + half).min(w as i64 - 1) + 1) as usize;
+            let y1 = ((y as i64 + half).min(h as i64 - 1) + 1) as usize;
 
-            let mut sum = 0u64;
-            let mut sum_sq = 0u64;
-            let mut count = 0u64;
-            for wy in y0..=y1 {
-                for wx in x0..=x1 {
-                    let val = pix.get_pixel_unchecked(wx, wy) as u64;
-                    sum += val;
-                    sum_sq += val * val;
-                    count += 1;
-                }
-            }
+            let sum =
+                int_sum[y1 * stride + x1] - int_sum[y0 * stride + x1] - int_sum[y1 * stride + x0]
+                    + int_sum[y0 * stride + x0];
+            let sq = int_sq[y1 * stride + x1] - int_sq[y0 * stride + x1] - int_sq[y1 * stride + x0]
+                + int_sq[y0 * stride + x0];
+            let count = ((x1 - x0) * (y1 - y0)) as f64;
 
-            let mean = sum as f64 / count as f64;
-            let variance = (sum_sq as f64 / count as f64) - mean * mean;
+            let mean = sum as f64 / count;
+            let variance = (sq as f64 / count) - mean * mean;
             let std_dev = variance.max(0.0).sqrt();
             let threshold = mean * (1.0 - k as f64 * (1.0 - std_dev / r as f64));
             let threshold = threshold.round().clamp(0.0, 255.0) as u32;
