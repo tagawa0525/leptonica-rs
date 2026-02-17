@@ -248,3 +248,30 @@ fn test_display_tiled_empty() {
     let pixa = Pixa::new();
     assert!(pixa.display_tiled(100, 0, 0).is_err());
 }
+
+#[test]
+fn test_display_tiled_single_image_exceeds_max_width() {
+    let mut pixa = Pixa::new();
+    pixa.push(make_pix(200, 20));
+
+    // Image wider than max_width goes on its own row
+    let result = pixa.display_tiled(100, 0, 5).unwrap();
+    assert_eq!(result.width(), 200);
+    assert_eq!(result.height(), 20);
+}
+
+#[test]
+fn test_sort_by_aspect_ratio() {
+    let mut pixa = Pixa::new();
+    pixa.push(make_pix(10, 20)); // ratio 0.5
+    pixa.push(make_pix(20, 10)); // ratio 2.0
+    pixa.push(make_pix(10, 10)); // ratio 1.0
+
+    let (sorted, _) = pixa.sort(PixaSortType::ByAspectRatio, SortOrder::Increasing);
+    assert_eq!(sorted.len(), 3);
+    // 0.5, 1.0, 2.0
+    assert_eq!(sorted[0].width(), 10);
+    assert_eq!(sorted[0].height(), 20);
+    assert_eq!(sorted[2].width(), 20);
+    assert_eq!(sorted[2].height(), 10);
+}

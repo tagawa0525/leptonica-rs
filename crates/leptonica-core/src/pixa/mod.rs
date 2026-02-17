@@ -470,7 +470,12 @@ impl Pixa {
     ///
     /// Each image is placed at its associated bounding box position.
     /// Images without boxes are placed at (0, 0). If `w` or `h` is 0,
-    /// the canvas size is computed from the extent of all boxes.
+    /// the canvas size is computed from the extent of all boxes and images.
+    /// Negative box coordinates are handled: portions outside the canvas
+    /// are clipped.
+    ///
+    /// The canvas depth is taken from the first image. All images should
+    /// have the same depth for correct rendering.
     ///
     /// # See also
     ///
@@ -483,8 +488,11 @@ impl Pixa {
         // Determine depth from first image
         let depth = self.pix[0].depth();
 
-        // Auto-compute canvas size if w or h is 0
+        // Auto-compute canvas size if w or h is 0.
+        // Track min offsets to handle negative box coordinates.
         let (canvas_w, canvas_h) = if w == 0 || h == 0 {
+            let mut min_x: i32 = 0;
+            let mut min_y: i32 = 0;
             let mut max_right: i32 = 0;
             let mut max_bottom: i32 = 0;
             for (i, pix) in self.pix.iter().enumerate() {
@@ -493,14 +501,18 @@ impl Pixa {
                 } else {
                     (0, 0)
                 };
+                min_x = min_x.min(bx);
+                min_y = min_y.min(by);
                 let right = bx + pix.width() as i32;
                 let bottom = by + pix.height() as i32;
                 max_right = max_right.max(right);
                 max_bottom = max_bottom.max(bottom);
             }
+            let computed_w = (max_right - min_x).max(1) as u32;
+            let computed_h = (max_bottom - min_y).max(1) as u32;
             (
-                if w == 0 { max_right as u32 } else { w },
-                if h == 0 { max_bottom as u32 } else { h },
+                if w == 0 { computed_w } else { w },
+                if h == 0 { computed_h } else { h },
             )
         } else {
             (w, h)
@@ -525,7 +537,11 @@ impl Pixa {
     /// Arrange all Pix images in a tiled layout.
     ///
     /// Images are placed left-to-right, wrapping to the next row when
-    /// `max_width` is exceeded. Returns the composited image.
+    /// `max_width` is exceeded. If a single image is wider than `max_width`,
+    /// it is placed on its own row. Returns the composited image.
+    ///
+    /// The canvas depth is taken from the first image. All images should
+    /// have the same depth for correct rendering.
     ///
     /// # Arguments
     ///
@@ -594,7 +610,8 @@ impl Pixa {
         let canvas = Pix::new(total_width, total_height, depth)?;
         let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
 
-        // Fill background
+        // Fill background (per-pixel; row-level fill could be more efficient
+        // for large canvases but this is sufficient for typical use)
         if background != 0 {
             for y in 0..total_height {
                 for x in 0..total_width {
@@ -653,27 +670,12 @@ impl Pixa {
 // Helper functions
 // ============================================================================
 
-/// Compare two i32 values using SizeRelation.
-fn compare_relation(value: i32, threshold: i32, relation: SizeRelation) -> bool {
-    match relation {
-        SizeRelation::LessThan => value < threshold,
-        SizeRelation::LessThanOrEqual => value <= threshold,
-        SizeRelation::GreaterThan => value > threshold,
-        SizeRelation::GreaterThanOrEqual => value >= threshold,
-    }
-}
-
-/// Compare two i64 values using SizeRelation.
-fn compare_relation_i64(value: i64, threshold: i64, relation: SizeRelation) -> bool {
-    match relation {
-        SizeRelation::LessThan => value < threshold,
-        SizeRelation::LessThanOrEqual => value <= threshold,
-        SizeRelation::GreaterThan => value > threshold,
-        SizeRelation::GreaterThanOrEqual => value >= threshold,
-    }
-}
+use crate::box_::{compare_relation, compare_relation_i64};
 
 /// Copy pixels from `src` onto `dst` at offset (ox, oy).
+///
+/// Uses per-pixel get/set; sufficient for small component images.
+/// For bulk image operations, row-level memcpy would be more efficient.
 ///
 /// Clips to destination bounds. Handles all pixel depths.
 fn blit_pix(dst: &mut PixMut, src: &Pix, ox: i32, oy: i32) {
