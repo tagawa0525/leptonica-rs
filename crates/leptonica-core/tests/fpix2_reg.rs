@@ -11,7 +11,6 @@ use leptonica_core::{DPix, FPix, NegativeHandling};
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fpix_create_template() {
     let mut fpix = FPix::new_with_value(100, 200, 42.0).unwrap();
     fpix.set_resolution(300, 300);
@@ -30,7 +29,6 @@ fn test_fpix_create_template() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fpix_linear_combination_two() {
     let f1 = FPix::new_with_value(10, 10, 3.0).unwrap();
     let f2 = FPix::new_with_value(10, 10, 5.0).unwrap();
@@ -43,7 +41,6 @@ fn test_fpix_linear_combination_two() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fpix_linear_combination_two_size_mismatch() {
     let f1 = FPix::new(10, 10).unwrap();
     let f2 = FPix::new(20, 20).unwrap();
@@ -55,7 +52,6 @@ fn test_fpix_linear_combination_two_size_mismatch() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dpix_new() {
     let dpix = DPix::new(50, 30).unwrap();
     assert_eq!(dpix.width(), 50);
@@ -67,7 +63,6 @@ fn test_dpix_new() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dpix_invalid_dimensions() {
     assert!(DPix::new(0, 10).is_err());
     assert!(DPix::new(10, 0).is_err());
@@ -78,7 +73,6 @@ fn test_dpix_invalid_dimensions() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dpix_pixel_access() {
     let mut dpix = DPix::new(10, 10).unwrap();
     dpix.set_pixel(5, 5, 3.14159).unwrap();
@@ -94,7 +88,6 @@ fn test_dpix_pixel_access() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dpix_to_pix() {
     let mut dpix = DPix::new(5, 5).unwrap();
     for y in 0..5 {
@@ -111,7 +104,6 @@ fn test_dpix_to_pix() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dpix_to_pix_negative_handling() {
     let mut dpix = DPix::new(3, 1).unwrap();
     dpix.set_pixel(0, 0, -10.0).unwrap();
@@ -135,7 +127,6 @@ fn test_dpix_to_pix_negative_handling() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dpix_to_fpix() {
     let mut dpix = DPix::new(5, 5).unwrap();
     dpix.set_pixel(2, 2, 123.456).unwrap();
@@ -147,7 +138,6 @@ fn test_dpix_to_fpix() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dpix_from_fpix() {
     let mut fpix = FPix::new(5, 5).unwrap();
     fpix.set_pixel(3, 3, 99.5).unwrap();

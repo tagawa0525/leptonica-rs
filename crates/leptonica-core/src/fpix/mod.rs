@@ -650,7 +650,13 @@ impl FPix {
     ///
     /// C Leptonica: `fpixCreateTemplate()` in `fpix1.c`
     pub fn create_template(&self) -> FPix {
-        todo!()
+        FPix {
+            width: self.width,
+            height: self.height,
+            data: vec![0.0; self.data.len()],
+            xres: self.xres,
+            yres: self.yres,
+        }
     }
 
     /// Linear combination of two FPix: `a * fpix1 + b * fpix2`.
@@ -660,8 +666,13 @@ impl FPix {
     /// # See also
     ///
     /// C Leptonica: `fpixLinearCombination()` in `fpix2.c`
-    pub fn linear_combination_two(_a: f32, _fpix1: &FPix, _b: f32, _fpix2: &FPix) -> Result<FPix> {
-        todo!()
+    pub fn linear_combination_two(a: f32, fpix1: &FPix, b: f32, fpix2: &FPix) -> Result<FPix> {
+        fpix1.check_same_size(fpix2)?;
+        let mut result = fpix1.create_template();
+        for (i, val) in result.data.iter_mut().enumerate() {
+            *val = a * fpix1.data[i] + b * fpix2.data[i];
+        }
+        Ok(result)
     }
 
     /// Check that two FPix have the same dimensions
@@ -839,8 +850,18 @@ impl DPix {
     /// # See also
     ///
     /// C Leptonica: `dpixCreate()` in `fpix1.c`
-    pub fn new(_width: u32, _height: u32) -> Result<Self> {
-        todo!()
+    pub fn new(width: u32, height: u32) -> Result<Self> {
+        if width == 0 || height == 0 {
+            return Err(Error::InvalidDimension { width, height });
+        }
+        let size = (width as usize) * (height as usize);
+        Ok(DPix {
+            width,
+            height,
+            data: vec![0.0f64; size],
+            xres: 0,
+            yres: 0,
+        })
     }
 
     /// Width in pixels.
@@ -854,13 +875,26 @@ impl DPix {
     }
 
     /// Get pixel value at (x, y).
-    pub fn get_pixel(&self, _x: u32, _y: u32) -> Result<f64> {
-        todo!()
+    pub fn get_pixel(&self, x: u32, y: u32) -> Result<f64> {
+        if x >= self.width || y >= self.height {
+            return Err(Error::IndexOutOfBounds {
+                index: (y as usize) * (self.width as usize) + (x as usize),
+                len: self.data.len(),
+            });
+        }
+        Ok(self.data[(y as usize) * (self.width as usize) + (x as usize)])
     }
 
     /// Set pixel value at (x, y).
-    pub fn set_pixel(&mut self, _x: u32, _y: u32, _value: f64) -> Result<()> {
-        todo!()
+    pub fn set_pixel(&mut self, x: u32, y: u32, value: f64) -> Result<()> {
+        if x >= self.width || y >= self.height {
+            return Err(Error::IndexOutOfBounds {
+                index: (y as usize) * (self.width as usize) + (x as usize),
+                len: self.data.len(),
+            });
+        }
+        self.data[(y as usize) * (self.width as usize) + (x as usize)] = value;
+        Ok(())
     }
 
     /// Raw read-only data access.
@@ -873,8 +907,57 @@ impl DPix {
     /// # See also
     ///
     /// C Leptonica: `dpixConvertToPix()` in `fpix2.c`
-    pub fn to_pix(&self, _out_depth: u32, _neg_handling: NegativeHandling) -> Result<Pix> {
-        todo!()
+    pub fn to_pix(&self, out_depth: u32, neg_handling: NegativeHandling) -> Result<Pix> {
+        // Determine output depth
+        let depth = if out_depth == 0 {
+            let max_val = self.data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            if max_val <= 255.5 {
+                8
+            } else if max_val <= 65535.5 {
+                16
+            } else {
+                32
+            }
+        } else {
+            out_depth
+        };
+
+        let pix_depth = match depth {
+            8 => PixelDepth::Bit8,
+            16 => PixelDepth::Bit16,
+            32 => PixelDepth::Bit32,
+            _ => return Err(Error::InvalidDepth(depth)),
+        };
+
+        let pix = Pix::new(self.width, self.height, pix_depth)?;
+        let mut pm = pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+
+        let max_val = match depth {
+            8 => 255u32,
+            16 => 65535u32,
+            _ => u32::MAX,
+        };
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let fval = self.data[(y as usize) * (self.width as usize) + (x as usize)];
+                let handled = match neg_handling {
+                    NegativeHandling::ClipToZero => {
+                        if fval < 0.0 {
+                            0.0
+                        } else {
+                            fval
+                        }
+                    }
+                    NegativeHandling::TakeAbsValue => fval.abs(),
+                };
+                let ival = (handled + 0.5) as u32;
+                let clamped = ival.min(max_val);
+                pm.set_pixel_unchecked(x, y, clamped);
+            }
+        }
+
+        Ok(pm.into())
     }
 
     /// Convert DPix to FPix (lossy: f64 → f32).
@@ -883,12 +966,26 @@ impl DPix {
     ///
     /// C Leptonica: `dpixConvertToFPix()` in `fpix2.c`
     pub fn to_fpix(&self) -> FPix {
-        todo!()
+        let data: Vec<f32> = self.data.iter().map(|&v| v as f32).collect();
+        FPix {
+            width: self.width,
+            height: self.height,
+            data,
+            xres: self.xres,
+            yres: self.yres,
+        }
     }
 
     /// Create DPix from FPix (lossless: f32 → f64).
-    pub fn from_fpix(_fpix: &FPix) -> Self {
-        todo!()
+    pub fn from_fpix(fpix: &FPix) -> Self {
+        let data: Vec<f64> = fpix.data.iter().map(|&v| v as f64).collect();
+        DPix {
+            width: fpix.width,
+            height: fpix.height,
+            data,
+            xres: fpix.xres,
+            yres: fpix.yres,
+        }
     }
 }
 
