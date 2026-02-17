@@ -15,7 +15,6 @@ fn make_pix(w: u32, h: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_by_size_greater() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 10));
@@ -27,7 +26,6 @@ fn test_select_by_size_greater() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_by_size_less() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 10));
@@ -39,7 +37,6 @@ fn test_select_by_size_less() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_by_size_empty() {
     let pixa = Pixa::new();
     let result = pixa.select_by_size(10, 10, SizeRelation::GreaterThan);
@@ -51,7 +48,6 @@ fn test_select_by_size_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_by_area() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 10)); // area 100
@@ -67,7 +63,6 @@ fn test_select_by_area() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_width_increasing() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(50, 10));
@@ -83,7 +78,6 @@ fn test_sort_by_width_increasing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_height_decreasing() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 20));
@@ -97,7 +91,6 @@ fn test_sort_by_height_decreasing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_area() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 10)); // area 100
@@ -111,7 +104,6 @@ fn test_sort_by_area() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_x_with_boxes() {
     let mut pixa = Pixa::new();
     pixa.push_with_box(make_pix(10, 10), Box::new(50, 0, 10, 10).unwrap());
@@ -126,7 +118,6 @@ fn test_sort_by_x_with_boxes() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_preserves_boxes() {
     let mut pixa = Pixa::new();
     pixa.push_with_box(make_pix(30, 30), Box::new(0, 0, 30, 30).unwrap());
@@ -143,7 +134,6 @@ fn test_sort_preserves_boxes() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_index() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 10));
@@ -157,7 +147,6 @@ fn test_sort_by_index() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_index_with_boxes() {
     let mut pixa = Pixa::new();
     pixa.push_with_box(make_pix(10, 10), Box::new(0, 0, 10, 10).unwrap());
@@ -171,7 +160,6 @@ fn test_sort_by_index_with_boxes() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_index_invalid() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 10));
@@ -184,7 +172,6 @@ fn test_sort_by_index_invalid() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_display_basic() {
     let mut pixa = Pixa::new();
     // Place a 10x10 white block at (5, 5)
@@ -207,7 +194,6 @@ fn test_display_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_display_auto_size() {
     let mut pixa = Pixa::new();
     pixa.push_with_box(make_pix(10, 10), Box::new(0, 0, 10, 10).unwrap());
@@ -220,7 +206,6 @@ fn test_display_auto_size() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_display_empty() {
     let pixa = Pixa::new();
     assert!(pixa.display(0, 0).is_err());
@@ -231,7 +216,6 @@ fn test_display_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_display_tiled_single_row() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(10, 10));
@@ -246,7 +230,6 @@ fn test_display_tiled_single_row() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_display_tiled_multi_row() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(20, 10));
@@ -261,7 +244,6 @@ fn test_display_tiled_multi_row() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_display_tiled_empty() {
     let pixa = Pixa::new();
     assert!(pixa.display_tiled(100, 0, 0).is_err());
