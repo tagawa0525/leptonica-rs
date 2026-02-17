@@ -10,6 +10,23 @@ use crate::{ColorError, ColorResult};
 use leptonica_core::{Pix, PixelDepth, color};
 use std::collections::HashSet;
 
+/// Method for computing the color magnitude of a pixel.
+///
+/// # See also
+///
+/// C Leptonica: `colorcontent.c` — `L_INTERMED_DIFF`, `L_AVE_MAX_DIFF_2`, `L_MAX_DIFF`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorMagnitudeType {
+    /// Intermediate value of the three pairwise differences |r-g|, |r-b|, |g-b|
+    IntermedDiff,
+    /// Max over components of the difference between one component and
+    /// the average of the other two (equivalent to averaging the two closest
+    /// components and taking their distance to the third)
+    AveMaxDiff2,
+    /// Maximum of the three pairwise differences |r-g|, |r-b|, |g-b|
+    MaxDiff,
+}
+
 /// Statistics about the color content of an image
 #[derive(Debug, Clone)]
 pub struct ColorStats {
@@ -324,6 +341,523 @@ pub fn grayscale_histogram(pix: &Pix) -> ColorResult<[u32; 256]> {
     }
 
     Ok(histogram)
+}
+
+// ============================================================================
+// Advanced color content analysis functions
+// ============================================================================
+
+/// Generate a 1bpp mask over pixels with significant color content.
+///
+/// A pixel is considered "color" if `max(r,g,b) - min(r,g,b) >= threshdiff`.
+/// If `mindist > 1`, the mask is eroded to remove transition artifacts
+/// near edges (requires morphological erosion, currently unimplemented).
+///
+/// # See also
+///
+/// C Leptonica: `pixMaskOverColorPixels()` in `colorcontent.c`
+pub fn mask_over_color_pixels(pix: &Pix, threshdiff: i32, mindist: i32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let mask = Pix::new(w, h, PixelDepth::Bit1).map_err(ColorError::Core)?;
+    let mut mask_mut = mask.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let ri = r as i32;
+            let gi = g as i32;
+            let bi = b as i32;
+            let minval = ri.min(gi).min(bi);
+            let maxval = ri.max(gi).max(bi);
+            if maxval - minval >= threshdiff {
+                mask_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    // Note: erosion for mindist > 1 requires morphological operations
+    // from leptonica-morph which is not a dependency of this crate.
+    let _ = mindist;
+
+    Ok(mask_mut.into())
+}
+
+/// Generate a 1bpp mask over gray pixels.
+///
+/// A pixel is considered "gray" if:
+/// - `max(r,g,b) <= maxlimit` (not too bright)
+/// - `max(r,g,b) - min(r,g,b) <= satlimit` (low saturation)
+///
+/// # See also
+///
+/// C Leptonica: `pixMaskOverGrayPixels()` in `colorcontent.c`
+pub fn mask_over_gray_pixels(pix: &Pix, maxlimit: i32, satlimit: i32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let mask = Pix::new(w, h, PixelDepth::Bit1).map_err(ColorError::Core)?;
+    let mut mask_mut = mask.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let ri = r as i32;
+            let gi = g as i32;
+            let bi = b as i32;
+            let maxval = ri.max(gi).max(bi);
+            let minval = ri.min(gi).min(bi);
+            let sat = maxval - minval;
+            if maxval <= maxlimit && sat <= satlimit {
+                mask_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(mask_mut.into())
+}
+
+/// Generate a 1bpp mask for pixels within a specified RGB color range.
+///
+/// A pixel is set in the mask if all three components fall within their
+/// respective `[min, max]` ranges simultaneously.
+///
+/// # See also
+///
+/// C Leptonica: `pixMaskOverColorRange()` in `colorcontent.c`
+pub fn mask_over_color_range(
+    pix: &Pix,
+    rmin: i32,
+    rmax: i32,
+    gmin: i32,
+    gmax: i32,
+    bmin: i32,
+    bmax: i32,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let mask = Pix::new(w, h, PixelDepth::Bit1).map_err(ColorError::Core)?;
+    let mut mask_mut = mask.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let rv = r as i32;
+            let gv = g as i32;
+            let bv = b as i32;
+            if rv < rmin || rv > rmax {
+                continue;
+            }
+            if gv < gmin || gv > gmax {
+                continue;
+            }
+            if bv < bmin || bv > bmax {
+                continue;
+            }
+            mask_mut.set_pixel_unchecked(x, y, 1);
+        }
+    }
+
+    Ok(mask_mut.into())
+}
+
+/// Determine the fraction of pixels that are colored vs gray.
+///
+/// Returns `(pix_fract, color_fract)` where:
+/// - `pix_fract`: fraction of sampled pixels that are neither too dark nor too light
+/// - `color_fract`: fraction of those valid pixels that have sufficient color
+///
+/// A pixel is excluded if `min(r,g,b) > lightthresh` (near white) or
+/// `max(r,g,b) < darkthresh` (near black). Of the remaining valid pixels,
+/// those with `max - min >= diffthresh` are counted as colored.
+///
+/// # See also
+///
+/// C Leptonica: `pixColorFraction()` in `colorcontent.c`
+pub fn color_fraction(
+    pix: &Pix,
+    darkthresh: i32,
+    lightthresh: i32,
+    diffthresh: i32,
+    factor: i32,
+) -> ColorResult<(f32, f32)> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let factor = factor.max(1) as u32;
+    let mut total = 0u32;
+    let mut npix = 0u32;
+    let mut ncolor = 0u32;
+
+    let mut y = 0;
+    while y < h {
+        let mut x = 0;
+        while x < w {
+            total += 1;
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let ri = r as i32;
+            let gi = g as i32;
+            let bi = b as i32;
+            let minval = ri.min(gi).min(bi);
+            let maxval = ri.max(gi).max(bi);
+            if minval > lightthresh {
+                x += factor;
+                continue;
+            }
+            if maxval < darkthresh {
+                x += factor;
+                continue;
+            }
+            npix += 1;
+            if maxval - minval >= diffthresh {
+                ncolor += 1;
+            }
+            x += factor;
+        }
+        y += factor;
+    }
+
+    if npix == 0 {
+        return Ok((0.0, 0.0));
+    }
+
+    let pix_fract = npix as f32 / total as f32;
+    let color_fract = ncolor as f32 / npix as f32;
+    Ok((pix_fract, color_fract))
+}
+
+/// Count the number of significant gray levels in an 8bpp image.
+///
+/// Gray levels in `[darkthresh, lightthresh]` are counted if their population
+/// fraction meets `minfract`. The `factor` parameter controls subsampling.
+///
+/// # See also
+///
+/// C Leptonica: `pixNumSignificantGrayColors()` in `colorcontent.c`
+pub fn num_significant_gray_colors(
+    pix: &Pix,
+    darkthresh: i32,
+    lightthresh: i32,
+    minfract: f64,
+    factor: i32,
+) -> ColorResult<u32> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let factor = factor.max(1) as u32;
+
+    // Build histogram with subsampling
+    let mut histogram = [0u32; 256];
+    let mut y = 0;
+    while y < h {
+        let mut x = 0;
+        while x < w {
+            let val = pix.get_pixel_unchecked(x, y) as usize;
+            histogram[val] += 1;
+            x += factor;
+        }
+        y += factor;
+    }
+
+    // Minimum count threshold (matches C: minfract * w * h * factor^2)
+    let mincount = (minfract * w as f64 * h as f64 * factor as f64 * factor as f64).max(0.0) as u32;
+
+    let dt = darkthresh.max(0) as usize;
+    let lt = lightthresh.min(255) as usize;
+    let ncolors = histogram[dt..=lt]
+        .iter()
+        .filter(|&&count| count >= mincount)
+        .count() as u32;
+
+    Ok(ncolors)
+}
+
+/// Estimate the number of colors for quantization.
+///
+/// Returns `(ncolors, is_color)` where:
+/// - `ncolors`: approximate number of significant colors in smooth regions
+/// - `is_color`: whether the image has significant color content
+///
+/// For 32bpp images, uses `color_fraction` to determine if the image is
+/// primarily grayscale or color, then counts colors accordingly.
+///
+/// Note: This is a simplified implementation that omits edge masking
+/// (which would require morphological operations from leptonica-morph).
+///
+/// # See also
+///
+/// C Leptonica: `pixColorsForQuantization()` in `colorcontent.c`
+pub fn colors_for_quantization(pix: &Pix, thresh: i32) -> ColorResult<(u32, bool)> {
+    let w = pix.width();
+    let h = pix.height();
+    let d = pix.depth();
+    let _thresh = if thresh <= 0 { 15 } else { thresh };
+
+    if d == PixelDepth::Bit8 {
+        let ncolors = num_significant_gray_colors(pix, 20, 236, 0.0001, 1)?;
+        return Ok((ncolors, false));
+    }
+
+    if d != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+
+    // Check if image has significant color
+    let minside = w.min(h);
+    let factor = (minside / 400).max(1) as i32;
+    let (pixfract, colorfract) = color_fraction(pix, 20, 248, 30, factor)?;
+
+    if pixfract * colorfract < 0.00025 {
+        // Treat as grayscale: count significant gray levels from red channel
+        let mut histogram = [0u32; 256];
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = pix.get_pixel_unchecked(x, y);
+                let r = color::red(pixel);
+                histogram[r as usize] += 1;
+            }
+        }
+        let mincount = (0.0001f64 * w as f64 * h as f64).max(1.0) as u32;
+        let mut ncolors = 0u32;
+        for count in histogram.iter().take(237).skip(20) {
+            if *count >= mincount {
+                ncolors += 1;
+            }
+        }
+        Ok((ncolors, false))
+    } else {
+        // Color image: count occupied level-4 octcubes (16 divisions per component)
+        let mut cubes = std::collections::HashMap::new();
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = pix.get_pixel_unchecked(x, y);
+                let (r, g, b) = color::extract_rgb(pixel);
+                let cube = ((r >> 4) as u32) << 8 | ((g >> 4) as u32) << 4 | (b >> 4) as u32;
+                *cubes.entry(cube).or_insert(0u32) += 1;
+            }
+        }
+        let min_octcube_count = 20u32;
+        let ncolors = cubes.values().filter(|&&c| c >= min_octcube_count).count() as u32;
+        Ok((ncolors, true))
+    }
+}
+
+/// Compute an RGB histogram with reduced bit resolution.
+///
+/// Each RGB component is quantized to `sigbits` significant bits, producing
+/// a histogram with `2^(3*sigbits)` bins. Valid range for `sigbits`: 2..=6.
+///
+/// # See also
+///
+/// C Leptonica: `pixGetRGBHistogram()` in `colorcontent.c`
+pub fn rgb_histogram(pix: &Pix, sigbits: i32, factor: i32) -> ColorResult<Vec<f32>> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(2..=6).contains(&sigbits) {
+        return Err(ColorError::InvalidParameters(
+            "sigbits must be in [2, 6]".into(),
+        ));
+    }
+    let factor = factor.max(1) as u32;
+    let w = pix.width();
+    let h = pix.height();
+
+    let size = 1usize << (3 * sigbits);
+    let mut hist = vec![0.0f32; size];
+
+    let (rtab, gtab, btab) = make_rgb_index_tables(sigbits);
+
+    let mut y = 0;
+    while y < h {
+        let mut x = 0;
+        while x < w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let rgbindex = rtab[r as usize] | gtab[g as usize] | btab[b as usize];
+            hist[rgbindex as usize] += 1.0;
+            x += factor;
+        }
+        y += factor;
+    }
+
+    Ok(hist)
+}
+
+/// Find the most populated colors in an RGB image.
+///
+/// Returns a Vec of `(r, g, b, count)` tuples sorted by count (descending),
+/// where the colors are quantized to `sigbits` significant bits.
+/// Only bins with count > 0 are returned.
+///
+/// # See also
+///
+/// C Leptonica: `pixGetMostPopulatedColors()` in `colorcontent.c`
+pub fn most_populated_colors(
+    pix: &Pix,
+    sigbits: i32,
+    factor: i32,
+    ncolors: i32,
+) -> ColorResult<Vec<(u8, u8, u8, u32)>> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(2..=6).contains(&sigbits) {
+        return Err(ColorError::InvalidParameters(
+            "sigbits must be in [2, 6]".into(),
+        ));
+    }
+    if factor < 1 || ncolors < 1 {
+        return Err(ColorError::InvalidParameters(
+            "factor and ncolors must be >= 1".into(),
+        ));
+    }
+
+    let hist = rgb_histogram(pix, sigbits, factor)?;
+
+    // Collect non-zero bins with their indices
+    let mut bins: Vec<(usize, f32)> = hist
+        .iter()
+        .enumerate()
+        .filter(|(_, count)| **count > 0.0)
+        .map(|(idx, &count)| (idx, count))
+        .collect();
+
+    // Sort by count descending
+    bins.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Take top ncolors entries
+    let n = (ncolors as usize).min(bins.len());
+    let result = bins[..n]
+        .iter()
+        .map(|&(idx, count)| {
+            let (r, g, b) = get_rgb_from_index(idx as u32, sigbits);
+            (r, g, b, count as u32)
+        })
+        .collect();
+
+    Ok(result)
+}
+
+// ============================================================================
+// Helper functions for RGB histogram indexing
+// ============================================================================
+
+/// Build RGB index lookup tables for histogram computation.
+///
+/// Returns `(rtab, gtab, btab)` where `rgbindex = rtab[r] | gtab[g] | btab[b]`.
+/// The index format is: `r_bits g_bits b_bits` (red most significant).
+fn make_rgb_index_tables(sigbits: i32) -> (Vec<u32>, Vec<u32>, Vec<u32>) {
+    let mut rtab = vec![0u32; 256];
+    let mut gtab = vec![0u32; 256];
+    let mut btab = vec![0u32; 256];
+
+    for i in 0..256u32 {
+        let idx = i as usize;
+        match sigbits {
+            2 => {
+                rtab[idx] = (i & 0xc0) >> 2;
+                gtab[idx] = (i & 0xc0) >> 4;
+                btab[idx] = (i & 0xc0) >> 6;
+            }
+            3 => {
+                rtab[idx] = (i & 0xe0) << 1;
+                gtab[idx] = (i & 0xe0) >> 2;
+                btab[idx] = (i & 0xe0) >> 5;
+            }
+            4 => {
+                rtab[idx] = (i & 0xf0) << 4;
+                gtab[idx] = i & 0xf0;
+                btab[idx] = (i & 0xf0) >> 4;
+            }
+            5 => {
+                rtab[idx] = (i & 0xf8) << 7;
+                gtab[idx] = (i & 0xf8) << 2;
+                btab[idx] = (i & 0xf8) >> 3;
+            }
+            6 => {
+                rtab[idx] = (i & 0xfc) << 10;
+                gtab[idx] = (i & 0xfc) << 4;
+                btab[idx] = (i & 0xfc) >> 2;
+            }
+            _ => unreachable!("sigbits must be 2..=6"),
+        }
+    }
+
+    (rtab, gtab, btab)
+}
+
+/// Convert an RGB index back to RGB values at the center of the quantized cube.
+fn get_rgb_from_index(index: u32, sigbits: i32) -> (u8, u8, u8) {
+    let (r, g, b) = match sigbits {
+        2 => (
+            ((index << 2) & 0xc0) | 0x20,
+            ((index << 4) & 0xc0) | 0x20,
+            ((index << 6) & 0xc0) | 0x20,
+        ),
+        3 => (
+            ((index >> 1) & 0xe0) | 0x10,
+            ((index << 2) & 0xe0) | 0x10,
+            ((index << 5) & 0xe0) | 0x10,
+        ),
+        4 => (
+            ((index >> 4) & 0xf0) | 0x08,
+            (index & 0xf0) | 0x08,
+            ((index << 4) & 0xf0) | 0x08,
+        ),
+        5 => (
+            ((index >> 7) & 0xf8) | 0x04,
+            ((index >> 2) & 0xf8) | 0x04,
+            ((index << 3) & 0xf8) | 0x04,
+        ),
+        6 => (
+            ((index >> 10) & 0xfc) | 0x02,
+            ((index >> 4) & 0xfc) | 0x02,
+            ((index << 2) & 0xfc) | 0x02,
+        ),
+        _ => unreachable!("sigbits must be 2..=6"),
+    };
+    (r as u8, g as u8, b as u8)
 }
 
 #[cfg(test)]

@@ -93,13 +93,22 @@ pub use quantize::{
 // Re-export analysis functions
 pub use analysis::{
     // Types
+    ColorMagnitudeType,
     ColorStats,
     // Functions
     color_content,
+    color_fraction,
+    colors_for_quantization,
     count_colors,
     grayscale_histogram,
     is_grayscale,
     is_grayscale_tolerant,
+    mask_over_color_pixels,
+    mask_over_color_range,
+    mask_over_gray_pixels,
+    most_populated_colors,
+    num_significant_gray_colors,
+    rgb_histogram,
 };
 
 // Re-export segmentation functions
