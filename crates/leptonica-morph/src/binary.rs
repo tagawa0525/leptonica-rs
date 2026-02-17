@@ -240,6 +240,35 @@ fn subtract(a: &Pix, b: &Pix) -> MorphResult<Pix> {
     Ok(out_mut.into())
 }
 
+/// Boundary type for [`extract_boundary`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryType {
+    /// Background boundary: pixels just outside the foreground objects.
+    /// Computed as (dilate 3×3) XOR original.
+    Outer,
+    /// Foreground boundary: pixels on the inner edge of foreground objects.
+    /// Computed as (erode 3×3) XOR original.
+    Inner,
+}
+
+/// Extract boundary pixels from a 1-bpp binary image.
+///
+/// Returns a 1-bpp image containing only the boundary pixels of
+/// foreground components.
+///
+/// - [`BoundaryType::Outer`]: background pixels adjacent to foreground
+///   (dilation XOR original)
+/// - [`BoundaryType::Inner`]: foreground pixels adjacent to background
+///   (erosion XOR original)
+///
+/// # See also
+///
+/// C Leptonica: `pixExtractBoundary()` in `morphapp.c`
+#[allow(unused_variables)]
+pub fn extract_boundary(pix: &Pix, boundary_type: BoundaryType) -> MorphResult<Pix> {
+    todo!()
+}
+
 /// Dilate with a brick (rectangular) structuring element
 ///
 /// Uses separable + composite decomposition for optimal performance.
