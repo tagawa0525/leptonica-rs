@@ -486,8 +486,52 @@ pub fn component_area_transform(labeled: &Pix) -> RegionResult<Pix> {
 /// # Errors
 ///
 /// Returns an error if the image is not 1-bit depth.
-pub fn conncomp_pixa(_pix: &Pix, _connectivity: ConnectivityType) -> RegionResult<(Boxa, Pixa)> {
-    todo!("not yet implemented")
+pub fn conncomp_pixa(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<(Boxa, Pixa)> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let width = pix.width();
+    let height = pix.height();
+
+    if width == 0 || height == 0 {
+        return Ok((Boxa::new(), Pixa::new()));
+    }
+
+    // Label the image and extract component metadata
+    let labeled = label_connected_components(pix, connectivity)?;
+    let components = extract_components_from_labels(&labeled)?;
+
+    let mut boxa = Boxa::with_capacity(components.len());
+    let mut pixa = Pixa::with_capacity(components.len());
+
+    for comp in &components {
+        let b = comp.bounds;
+        let bx = b.x as u32;
+        let by = b.y as u32;
+        let bw = b.w as u32;
+        let bh = b.h as u32;
+
+        // Create a clipped binary image for this component
+        let clip = Pix::new(bw, bh, PixelDepth::Bit1).map_err(RegionError::Core)?;
+        let mut clip_mut = clip.try_into_mut().unwrap_or_else(|p| p.to_mut());
+
+        for y in 0..bh {
+            for x in 0..bw {
+                if labeled.get_pixel(bx + x, by + y).unwrap_or(0) == comp.label {
+                    let _ = clip_mut.set_pixel(x, y, 1);
+                }
+            }
+        }
+
+        pixa.push_with_box(clip_mut.into(), b);
+        boxa.push(b);
+    }
+
+    Ok((boxa, pixa))
 }
 
 /// Get unique sorted neighbor label values at a pixel location
@@ -514,12 +558,65 @@ pub fn conncomp_pixa(_pix: &Pix, _connectivity: ConnectivityType) -> RegionResul
 ///
 /// Returns an error if depth is less than 8 bpp.
 pub fn get_sorted_neighbor_values(
-    _pix: &Pix,
-    _x: u32,
-    _y: u32,
-    _connectivity: ConnectivityType,
+    pix: &Pix,
+    x: u32,
+    y: u32,
+    connectivity: ConnectivityType,
 ) -> RegionResult<Vec<u32>> {
-    todo!("not yet implemented")
+    let depth = pix.depth().bits();
+    if depth < 8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8, 16, or 32 bpp",
+            actual: depth,
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Collect neighbor coordinates based on connectivity
+    let mut neighbors: Vec<(u32, u32)> = Vec::with_capacity(8);
+
+    // 4-way neighbors
+    if x > 0 {
+        neighbors.push((x - 1, y));
+    }
+    if x + 1 < w {
+        neighbors.push((x + 1, y));
+    }
+    if y > 0 {
+        neighbors.push((x, y - 1));
+    }
+    if y + 1 < h {
+        neighbors.push((x, y + 1));
+    }
+
+    // Additional diagonal neighbors for 8-way
+    if connectivity == ConnectivityType::EightWay {
+        if x > 0 && y > 0 {
+            neighbors.push((x - 1, y - 1));
+        }
+        if x + 1 < w && y > 0 {
+            neighbors.push((x + 1, y - 1));
+        }
+        if x > 0 && y + 1 < h {
+            neighbors.push((x - 1, y + 1));
+        }
+        if x + 1 < w && y + 1 < h {
+            neighbors.push((x + 1, y + 1));
+        }
+    }
+
+    // Collect unique non-zero values using a BTreeSet for automatic sorting
+    let mut values = std::collections::BTreeSet::new();
+    for (nx, ny) in neighbors {
+        let val = pix.get_pixel(nx, ny).unwrap_or(0);
+        if val > 0 {
+            values.insert(val);
+        }
+    }
+
+    Ok(values.into_iter().collect())
 }
 
 #[cfg(test)]

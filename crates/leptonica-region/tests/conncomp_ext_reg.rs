@@ -36,7 +36,6 @@ fn make_binary_rect(w: u32, h: u32, x0: u32, y0: u32, x1: u32, y1: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_conncomp_pixa_two_components() {
     // Two separate rectangles
     let pix = make_binary_image(
@@ -85,7 +84,6 @@ fn test_conncomp_pixa_two_components() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_conncomp_pixa_single_component() {
     let pix = make_binary_rect(10, 10, 2, 3, 7, 8);
     let (boxa, pixa) = conncomp_pixa(&pix, ConnectivityType::FourWay).unwrap();
@@ -106,7 +104,6 @@ fn test_conncomp_pixa_single_component() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_conncomp_pixa_empty_image() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let (boxa, pixa) = conncomp_pixa(&pix, ConnectivityType::FourWay).unwrap();
@@ -115,7 +112,6 @@ fn test_conncomp_pixa_empty_image() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_conncomp_pixa_diagonal_8way() {
     // Two diagonal pixels: 4-way = 2 components, 8-way = 1 component
     let pix = make_binary_image(5, 5, &[(1, 1), (2, 2)]);
@@ -128,7 +124,6 @@ fn test_conncomp_pixa_diagonal_8way() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_conncomp_pixa_invalid_depth() {
     let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
     assert!(conncomp_pixa(&pix, ConnectivityType::FourWay).is_err());
@@ -139,7 +134,6 @@ fn test_conncomp_pixa_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_sorted_neighbor_values_center() {
     // Create a 5x5 labeled image (32bpp) with different labels
     let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
@@ -159,7 +153,6 @@ fn test_get_sorted_neighbor_values_center() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_sorted_neighbor_values_8way() {
     let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -178,7 +171,6 @@ fn test_get_sorted_neighbor_values_8way() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_sorted_neighbor_values_corner() {
     // Test at corner (0,0) - only 2 neighbors in 4-way
     let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
@@ -194,7 +186,6 @@ fn test_get_sorted_neighbor_values_corner() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_sorted_neighbor_values_no_neighbors() {
     // Single labeled pixel, all neighbors are 0
     let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
@@ -207,7 +198,6 @@ fn test_get_sorted_neighbor_values_no_neighbors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_sorted_neighbor_values_excludes_zero() {
     // Some neighbors are 0 (background), should be excluded
     let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
@@ -222,7 +212,6 @@ fn test_get_sorted_neighbor_values_excludes_zero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_sorted_neighbor_values_8bpp() {
     // Should also work with 8bpp images
     let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
@@ -237,7 +226,6 @@ fn test_get_sorted_neighbor_values_8bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_sorted_neighbor_values_invalid_depth() {
     let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
     assert!(get_sorted_neighbor_values(&pix, 2, 2, ConnectivityType::FourWay).is_err());
