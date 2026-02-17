@@ -43,7 +43,6 @@ fn make_uniform_8bpp(w: u32, h: u32, val: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_var_threshold_all_below() {
     // Image val=100, threshold=200 → all foreground (1)
     let pix = make_uniform_8bpp(20, 20, 100);
@@ -58,7 +57,6 @@ fn test_var_threshold_all_below() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_var_threshold_all_above() {
     // Image val=200, threshold=100 → all background (0)
     let pix = make_uniform_8bpp(20, 20, 200);
@@ -72,7 +70,6 @@ fn test_var_threshold_all_above() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_var_threshold_gradient() {
     let pix = make_gradient_8bpp(256, 10);
     let thresh = make_uniform_8bpp(256, 10, 128);
@@ -89,7 +86,6 @@ fn test_var_threshold_gradient() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_by_value_match() {
     let pix = make_uniform_8bpp(20, 20, 128);
     let mask = generate_mask_by_value(&pix, 128).unwrap();
@@ -102,7 +98,6 @@ fn test_mask_by_value_match() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_by_value_no_match() {
     let pix = make_uniform_8bpp(20, 20, 128);
     let mask = generate_mask_by_value(&pix, 64).unwrap();
@@ -118,7 +113,6 @@ fn test_mask_by_value_no_match() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_by_band_in_range() {
     let pix = make_uniform_8bpp(20, 20, 128);
     let mask = generate_mask_by_band(&pix, 100, 200, true).unwrap();
@@ -130,7 +124,6 @@ fn test_mask_by_band_in_range() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_by_band_out_of_range() {
     let pix = make_uniform_8bpp(20, 20, 128);
     let mask = generate_mask_by_band(&pix, 100, 200, false).unwrap();
@@ -142,7 +135,6 @@ fn test_mask_by_band_out_of_range() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_mask_by_band_gradient() {
     let pix = make_gradient_8bpp(256, 1);
     let mask = generate_mask_by_band(&pix, 100, 200, true).unwrap();
@@ -156,7 +148,6 @@ fn test_mask_by_band_gradient() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_2bpp_2levels() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_2bpp(&pix, 2, false).unwrap();
@@ -167,7 +158,6 @@ fn test_threshold_to_2bpp_2levels() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_2bpp_4levels() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_2bpp(&pix, 4, false).unwrap();
@@ -181,7 +171,6 @@ fn test_threshold_to_2bpp_4levels() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_2bpp_invalid_levels() {
     let pix = make_gradient_8bpp(256, 1);
     assert!(threshold_to_2bpp(&pix, 1, false).is_err());
@@ -193,7 +182,6 @@ fn test_threshold_to_2bpp_invalid_levels() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_4bpp_4levels() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_4bpp(&pix, 4, false).unwrap();
@@ -206,7 +194,6 @@ fn test_threshold_to_4bpp_4levels() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_4bpp_16levels() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_4bpp(&pix, 16, false).unwrap();
@@ -219,7 +206,6 @@ fn test_threshold_to_4bpp_16levels() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_4bpp_invalid_levels() {
     let pix = make_gradient_8bpp(256, 1);
     assert!(threshold_to_4bpp(&pix, 1, false).is_err());
@@ -231,7 +217,6 @@ fn test_threshold_to_4bpp_invalid_levels() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_otsu_adaptive_basic() {
     // Image: left half dark (30), right half bright (220)
     let pix = Pix::new(200, 100, PixelDepth::Bit8).unwrap();
@@ -259,7 +244,6 @@ fn test_otsu_adaptive_basic() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sauvola_tiled_basic() {
     // Create a gradient image
     let pix = make_gradient_8bpp(200, 100);
@@ -271,7 +255,6 @@ fn test_sauvola_tiled_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sauvola_tiled_single_tile() {
     // nx=1, ny=1 should work like non-tiled version
     let pix = make_gradient_8bpp(100, 100);

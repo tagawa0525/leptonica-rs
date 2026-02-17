@@ -451,7 +451,6 @@ const BAYER_8X8: [u8; 64] = [
 // Helper Functions
 // =============================================================================
 
-/// Ensure the image is 8-bit grayscale, converting if necessary
 // =============================================================================
 // Variable Threshold Binarization
 // =============================================================================
@@ -464,9 +463,34 @@ const BAYER_8X8: [u8; 64] = [
 /// # See also
 ///
 /// C Leptonica: `pixVarThresholdToBinary()` in `grayquant.c`
-#[allow(unused_variables)]
 pub fn var_threshold_to_binary(pix: &Pix, thresh_map: &Pix) -> ColorResult<Pix> {
-    todo!()
+    let gray = ensure_grayscale(pix)?;
+    if thresh_map.depth() != PixelDepth::Bit8 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "8 bpp threshold map",
+            actual: thresh_map.depth().bits(),
+        });
+    }
+    let w = gray.width();
+    let h = gray.height();
+    if thresh_map.width() != w || thresh_map.height() != h {
+        return Err(ColorError::InvalidParameters(
+            "threshold map must have same dimensions as input".into(),
+        ));
+    }
+
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y);
+            let thresh = thresh_map.get_pixel_unchecked(x, y);
+            if val < thresh {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+    Ok(out_mut.into())
 }
 
 // =============================================================================
@@ -478,9 +502,30 @@ pub fn var_threshold_to_binary(pix: &Pix, thresh_map: &Pix) -> ColorResult<Pix> 
 /// # See also
 ///
 /// C Leptonica: `pixGenerateMaskByValue()` in `grayquant.c`
-#[allow(unused_variables)]
 pub fn generate_mask_by_value(pix: &Pix, val: u32) -> ColorResult<Pix> {
-    todo!()
+    let depth = pix.depth();
+    if !matches!(
+        depth,
+        PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+    ) {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "2, 4, or 8 bpp",
+            actual: depth.bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            if pix.get_pixel_unchecked(x, y) == val {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+    Ok(out_mut.into())
 }
 
 /// Create a 1bpp mask where pixels fall within (or outside) a value range.
@@ -491,9 +536,32 @@ pub fn generate_mask_by_value(pix: &Pix, val: u32) -> ColorResult<Pix> {
 /// # See also
 ///
 /// C Leptonica: `pixGenerateMaskByBand()` in `grayquant.c`
-#[allow(unused_variables)]
 pub fn generate_mask_by_band(pix: &Pix, lower: u32, upper: u32, in_band: bool) -> ColorResult<Pix> {
-    todo!()
+    let depth = pix.depth();
+    if !matches!(
+        depth,
+        PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+    ) {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "2, 4, or 8 bpp",
+            actual: depth.bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            let matches = val >= lower && val <= upper;
+            if matches == in_band {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+    Ok(out_mut.into())
 }
 
 // =============================================================================
@@ -508,9 +576,13 @@ pub fn generate_mask_by_band(pix: &Pix, lower: u32, upper: u32, in_band: bool) -
 /// # See also
 ///
 /// C Leptonica: `pixThresholdTo2bpp()` in `grayquant.c`
-#[allow(unused_variables)]
 pub fn threshold_to_2bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorResult<Pix> {
-    todo!()
+    if !(2..=4).contains(&nlevels) {
+        return Err(ColorError::InvalidParameters(
+            "nlevels must be 2, 3, or 4 for 2bpp".into(),
+        ));
+    }
+    threshold_to_nbpp(pix, nlevels, PixelDepth::Bit2, with_colormap)
 }
 
 /// Quantize an 8bpp grayscale image to 4bpp (2-16 levels).
@@ -521,9 +593,45 @@ pub fn threshold_to_2bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorR
 /// # See also
 ///
 /// C Leptonica: `pixThresholdTo4bpp()` in `grayquant.c`
-#[allow(unused_variables)]
 pub fn threshold_to_4bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorResult<Pix> {
-    todo!()
+    if !(2..=16).contains(&nlevels) {
+        return Err(ColorError::InvalidParameters(
+            "nlevels must be 2-16 for 4bpp".into(),
+        ));
+    }
+    threshold_to_nbpp(pix, nlevels, PixelDepth::Bit4, with_colormap)
+}
+
+/// Common implementation for threshold_to_2bpp and threshold_to_4bpp.
+fn threshold_to_nbpp(
+    pix: &Pix,
+    nlevels: u32,
+    out_depth: PixelDepth,
+    _with_colormap: bool,
+) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    // Build quantization lookup table: 256 entries mapping 8bpp → output level
+    let mut qtable = [0u32; 256];
+    let step = 256.0 / nlevels as f32;
+    for (i, entry) in qtable.iter_mut().enumerate() {
+        let level = (i as f32 / step) as u32;
+        *entry = level.min(nlevels - 1);
+    }
+
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            out_mut.set_pixel_unchecked(x, y, qtable[val.min(255)]);
+        }
+    }
+
+    // TODO: add colormap support when with_colormap is true
+    Ok(out_mut.into())
 }
 
 // =============================================================================
@@ -542,16 +650,132 @@ pub fn threshold_to_4bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorR
 /// # See also
 ///
 /// C Leptonica: `pixOtsuAdaptiveThreshold()` in `binarize.c`
-#[allow(unused_variables)]
 pub fn otsu_adaptive_threshold(
     pix: &Pix,
     sx: u32,
     sy: u32,
     smoothx: u32,
     smoothy: u32,
-    score_fract: f32,
+    _score_fract: f32,
 ) -> ColorResult<(Pix, Pix)> {
-    todo!()
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    let tile_sx = sx.max(16);
+    let tile_sy = sy.max(16);
+    let nx = w.div_ceil(tile_sx);
+    let ny = h.div_ceil(tile_sy);
+
+    // Compute Otsu threshold for each tile
+    let mut tile_thresholds = vec![128u8; (nx * ny) as usize];
+    for ty in 0..ny {
+        for tx in 0..nx {
+            let x0 = tx * tile_sx;
+            let y0 = ty * tile_sy;
+            let x1 = (x0 + tile_sx).min(w);
+            let y1 = (y0 + tile_sy).min(h);
+
+            // Build histogram for this tile
+            let mut histo = [0u32; 256];
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let val = gray.get_pixel_unchecked(x, y) as usize;
+                    histo[val] += 1;
+                }
+            }
+            let total = (x1 - x0) * (y1 - y0);
+            if total == 0 {
+                continue;
+            }
+
+            // Otsu: find threshold maximizing between-class variance
+            let mut best_thresh = 128u8;
+            let mut best_score = 0.0f64;
+            let mut w0 = 0u32;
+            let mut sum0 = 0u64;
+            let total_sum: u64 = histo
+                .iter()
+                .enumerate()
+                .map(|(i, &c)| i as u64 * c as u64)
+                .sum();
+
+            for (t, &count) in histo.iter().enumerate().take(255) {
+                w0 += count;
+                if w0 == 0 {
+                    continue;
+                }
+                let w1 = total - w0;
+                if w1 == 0 {
+                    break;
+                }
+                sum0 += t as u64 * count as u64;
+                let mean0 = sum0 as f64 / w0 as f64;
+                let mean1 = (total_sum - sum0) as f64 / w1 as f64;
+                let diff = mean0 - mean1;
+                let score = w0 as f64 * w1 as f64 * diff * diff;
+                if score > best_score {
+                    best_score = score;
+                    best_thresh = t as u8;
+                }
+            }
+            tile_thresholds[(ty * nx + tx) as usize] = best_thresh;
+        }
+    }
+
+    // Optional smoothing of threshold map
+    if smoothx > 0 || smoothy > 0 {
+        let kw = (2 * smoothx + 1) as usize;
+        let kh = (2 * smoothy + 1) as usize;
+        if kw > 1 || kh > 1 {
+            let mut smoothed = vec![0u8; (nx * ny) as usize];
+            for ty in 0..ny as usize {
+                for tx in 0..nx as usize {
+                    let mut sum = 0u32;
+                    let mut count = 0u32;
+                    let sy_start = ty.saturating_sub(kh / 2);
+                    let sy_end = (ty + kh / 2 + 1).min(ny as usize);
+                    let sx_start = tx.saturating_sub(kw / 2);
+                    let sx_end = (tx + kw / 2 + 1).min(nx as usize);
+                    for sy in sy_start..sy_end {
+                        for sx in sx_start..sx_end {
+                            sum += tile_thresholds[sy * nx as usize + sx] as u32;
+                            count += 1;
+                        }
+                    }
+                    smoothed[ty * nx as usize + tx] = (sum / count) as u8;
+                }
+            }
+            tile_thresholds = smoothed;
+        }
+    }
+
+    // Create threshold map (upscaled to input size)
+    let thresh_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut thresh_mut = thresh_pix.try_into_mut().unwrap();
+    for y in 0..h {
+        let ty = (y / tile_sy).min(ny - 1);
+        for x in 0..w {
+            let tx = (x / tile_sx).min(nx - 1);
+            let t = tile_thresholds[(ty * nx + tx) as usize];
+            thresh_mut.set_pixel_unchecked(x, y, t as u32);
+        }
+    }
+
+    // Apply threshold map to create binary image
+    let binary_pix = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut binary_mut = binary_pix.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y);
+            let thresh = thresh_mut.get_pixel_unchecked(x, y);
+            if val < thresh {
+                binary_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok((thresh_mut.into(), binary_mut.into()))
 }
 
 /// Perform tiled Sauvola binarization.
@@ -564,7 +788,6 @@ pub fn otsu_adaptive_threshold(
 /// # See also
 ///
 /// C Leptonica: `pixSauvolaBinarizeTiled()` in `binarize.c`
-#[allow(unused_variables)]
 pub fn sauvola_binarize_tiled(
     pix: &Pix,
     whsize: u32,
@@ -572,7 +795,121 @@ pub fn sauvola_binarize_tiled(
     nx: u32,
     ny: u32,
 ) -> ColorResult<(Pix, Pix)> {
-    todo!()
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+    let nx = nx.max(1);
+    let ny = ny.max(1);
+
+    // For single tile, use sauvola directly
+    if nx == 1 && ny == 1 {
+        let binary = sauvola_threshold(&gray, whsize | 1, factor, 128.0)?;
+        // Generate threshold map from Sauvola parameters
+        let thresh_map = generate_sauvola_thresh_map(&gray, whsize | 1, factor, 128.0)?;
+        return Ok((thresh_map, binary));
+    }
+
+    // Compute tile sizes with overlap
+    let tile_w = w.div_ceil(nx);
+    let tile_h = h.div_ceil(ny);
+    let overlap = whsize + 1;
+
+    let thresh_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut thresh_mut = thresh_pix.try_into_mut().unwrap();
+    let binary_pix = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut binary_mut = binary_pix.try_into_mut().unwrap();
+
+    for ty in 0..ny {
+        for tx in 0..nx {
+            // Compute tile region with overlap
+            let x0 = (tx * tile_w).saturating_sub(overlap);
+            let y0 = (ty * tile_h).saturating_sub(overlap);
+            let x1 = ((tx + 1) * tile_w + overlap).min(w);
+            let y1 = ((ty + 1) * tile_h + overlap).min(h);
+            let tw = x1 - x0;
+            let th = y1 - y0;
+
+            // Extract tile
+            let tile = Pix::new(tw, th, PixelDepth::Bit8)?;
+            let mut tile_mut = tile.try_into_mut().unwrap();
+            for y in 0..th {
+                for x in 0..tw {
+                    tile_mut.set_pixel_unchecked(x, y, gray.get_pixel_unchecked(x0 + x, y0 + y));
+                }
+            }
+            let tile_pix: Pix = tile_mut.into();
+
+            // Apply Sauvola to this tile
+            let ws = (whsize | 1).min(tw.min(th).saturating_sub(1) | 1).max(3);
+            let tile_binary = sauvola_threshold(&tile_pix, ws, factor, 128.0)?;
+            let tile_thresh = generate_sauvola_thresh_map(&tile_pix, ws, factor, 128.0)?;
+
+            // Paint non-overlap region back into output
+            let out_x0 = tx * tile_w;
+            let out_y0 = ty * tile_h;
+            let out_x1 = ((tx + 1) * tile_w).min(w);
+            let out_y1 = ((ty + 1) * tile_h).min(h);
+
+            for y in out_y0..out_y1 {
+                for x in out_x0..out_x1 {
+                    let local_x = x - x0;
+                    let local_y = y - y0;
+                    binary_mut.set_pixel_unchecked(
+                        x,
+                        y,
+                        tile_binary.get_pixel_unchecked(local_x, local_y),
+                    );
+                    thresh_mut.set_pixel_unchecked(
+                        x,
+                        y,
+                        tile_thresh.get_pixel_unchecked(local_x, local_y),
+                    );
+                }
+            }
+        }
+    }
+
+    Ok((thresh_mut.into(), binary_mut.into()))
+}
+
+/// Generate an 8bpp threshold map using Sauvola's formula.
+fn generate_sauvola_thresh_map(pix: &Pix, window_size: u32, k: f32, r: f32) -> ColorResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let half = (window_size / 2) as i64;
+
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let x0 = (x as i64 - half).max(0) as u32;
+            let y0 = (y as i64 - half).max(0) as u32;
+            let x1 = (x as i64 + half).min(w as i64 - 1) as u32;
+            let y1 = (y as i64 + half).min(h as i64 - 1) as u32;
+
+            let mut sum = 0u64;
+            let mut sum_sq = 0u64;
+            let mut count = 0u64;
+            for wy in y0..=y1 {
+                for wx in x0..=x1 {
+                    let val = pix.get_pixel_unchecked(wx, wy) as u64;
+                    sum += val;
+                    sum_sq += val * val;
+                    count += 1;
+                }
+            }
+
+            let mean = sum as f64 / count as f64;
+            let variance = (sum_sq as f64 / count as f64) - mean * mean;
+            let std_dev = variance.max(0.0).sqrt();
+            let threshold = mean * (1.0 - k as f64 * (1.0 - std_dev / r as f64));
+            let threshold = threshold.round().clamp(0.0, 255.0) as u32;
+            out_mut.set_pixel_unchecked(x, y, threshold);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 // =============================================================================
