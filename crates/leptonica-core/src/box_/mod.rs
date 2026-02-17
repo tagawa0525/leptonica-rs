@@ -4,6 +4,19 @@
 
 use crate::error::{Error, Result};
 
+/// Size comparison relation for selection functions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeRelation {
+    /// Select if value < threshold
+    LessThan,
+    /// Select if value <= threshold
+    LessThanOrEqual,
+    /// Select if value > threshold
+    GreaterThan,
+    /// Select if value >= threshold
+    GreaterThanOrEqual,
+}
+
 /// A rectangle region
 ///
 /// Unlike Leptonica's Box which uses reference counting, this is a simple
@@ -184,6 +197,25 @@ impl Box {
         }
     }
 
+    /// Compute the area of overlap between two boxes
+    ///
+    /// Returns the area of intersection, or 0 if boxes don't overlap.
+    ///
+    /// C Leptonica equivalent: `boxOverlapArea`
+    pub fn overlap_area(&self, _other: &Box) -> i64 {
+        todo!("not yet implemented")
+    }
+
+    /// Compute the fraction of this box that overlaps with another
+    ///
+    /// Returns the intersection area divided by this box's area.
+    /// Returns 0.0 if this box has zero area or there is no overlap.
+    ///
+    /// C Leptonica equivalent: `boxOverlapFraction`
+    pub fn overlap_fraction(&self, _other: &Box) -> f64 {
+        todo!("not yet implemented")
+    }
+
     /// Clip the box to fit within bounds
     pub fn clip(&self, width: i32, height: i32) -> Option<Box> {
         let x = self.x.max(0);
@@ -359,6 +391,120 @@ impl Boxa {
     /// Create a mutable iterator over boxes
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Box> {
         self.boxes.iter_mut()
+    }
+
+    /// Filter boxes contained within a given box
+    ///
+    /// Returns a new Boxa containing only boxes fully inside `container`.
+    ///
+    /// C Leptonica equivalent: `boxaContainedInBox`
+    pub fn contained_in_box(&self, _container: &Box) -> Boxa {
+        todo!("not yet implemented")
+    }
+
+    /// Filter boxes that intersect with a given box
+    ///
+    /// Returns a new Boxa containing only boxes that overlap with `target`.
+    ///
+    /// C Leptonica equivalent: `boxaIntersectsBox`
+    pub fn intersects_box(&self, _target: &Box) -> Boxa {
+        todo!("not yet implemented")
+    }
+
+    /// Clip all boxes to fit within a given box
+    ///
+    /// Returns a new Boxa where each box is clipped to the bounds of `clip_box`.
+    /// Boxes that don't intersect `clip_box` are omitted.
+    ///
+    /// C Leptonica equivalent: `boxaClipToBox`
+    pub fn clip_to_box(&self, _clip_box: &Box) -> Boxa {
+        todo!("not yet implemented")
+    }
+
+    /// Combine overlapping boxes into their unions
+    ///
+    /// Iteratively merges any pair of overlapping boxes until no overlaps remain.
+    ///
+    /// C Leptonica equivalent: `boxaCombineOverlaps`
+    pub fn combine_overlaps(&self) -> Boxa {
+        todo!("not yet implemented")
+    }
+
+    /// Select boxes by width and height
+    ///
+    /// Filters boxes based on a size threshold and comparison relation.
+    ///
+    /// C Leptonica equivalent: `boxaSelectBySize`
+    pub fn select_by_size(&self, _width: i32, _height: i32, _relation: SizeRelation) -> Boxa {
+        todo!("not yet implemented")
+    }
+
+    /// Select boxes by area
+    ///
+    /// Filters boxes based on an area threshold and comparison relation.
+    ///
+    /// C Leptonica equivalent: `boxaSelectByArea`
+    pub fn select_by_area(&self, _area: i64, _relation: SizeRelation) -> Boxa {
+        todo!("not yet implemented")
+    }
+
+    /// Select boxes by width/height ratio
+    ///
+    /// Filters boxes based on a w/h ratio threshold and comparison relation.
+    ///
+    /// C Leptonica equivalent: `boxaSelectByWHRatio`
+    pub fn select_by_wh_ratio(&self, _ratio: f64, _relation: SizeRelation) -> Boxa {
+        todo!("not yet implemented")
+    }
+
+    /// Get the extent (overall width and height) of all boxes
+    ///
+    /// Returns `(width, height, bounding_box)` where width and height
+    /// are the extent from the origin to the furthest right/bottom edge.
+    ///
+    /// C Leptonica equivalent: `boxaGetExtent`
+    pub fn get_extent(&self) -> Option<(i32, i32, Box)> {
+        todo!("not yet implemented")
+    }
+
+    /// Compute the fractional coverage of boxes within a canvas
+    ///
+    /// Returns the fraction of the canvas area covered by the union of all boxes.
+    /// Uses exact per-pixel counting when `exact` is true, or an approximation otherwise.
+    ///
+    /// C Leptonica equivalent: `boxaGetCoverage`
+    pub fn get_coverage(&self, _canvas_w: i32, _canvas_h: i32, _exact: bool) -> f64 {
+        todo!("not yet implemented")
+    }
+
+    /// Get the range of box dimensions
+    ///
+    /// Returns `(min_w, min_h, max_w, max_h)`.
+    ///
+    /// C Leptonica equivalent: `boxaSizeRange`
+    pub fn size_range(&self) -> Option<(i32, i32, i32, i32)> {
+        todo!("not yet implemented")
+    }
+
+    /// Check if two Boxa are similar within tolerances
+    ///
+    /// Two Boxa are similar if they have the same number of boxes and each
+    /// corresponding pair differs by no more than the given tolerance in
+    /// x, y, w, h respectively.
+    ///
+    /// C Leptonica equivalent: `boxaSimilar`
+    pub fn similar(&self, _other: &Boxa, _tolerance: i32) -> bool {
+        todo!("not yet implemented")
+    }
+
+    /// Append boxes from another Boxa
+    ///
+    /// Appends boxes from `other` in the range `[start, end)`.
+    /// If `end` is 0, appends all boxes from `start` onwards.
+    ///
+    /// C Leptonica equivalent: `boxaJoin`
+    pub fn join(&mut self, _other: &Boxa, _start: usize, _end: usize) {
+        todo!("not yet implemented")
     }
 }
 
