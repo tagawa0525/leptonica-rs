@@ -14,6 +14,19 @@ use super::{Pix, PixMut, PixelDepth};
 use crate::color;
 use crate::error::{Error, Result};
 
+/// Color to fill when shifting or translating image regions.
+///
+/// # See also
+///
+/// C Leptonica: `L_BRING_IN_WHITE`, `L_BRING_IN_BLACK` in `pix.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InColor {
+    /// Fill exposed areas with white (max pixel value)
+    White,
+    /// Fill exposed areas with black (zero pixel value)
+    Black,
+}
+
 /// Raster operation type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RopOp {
@@ -293,6 +306,24 @@ impl Pix {
 
         Ok(result_mut.into())
     }
+
+    /// Translate (shift) an image by the given horizontal and vertical amounts.
+    ///
+    /// Creates a new image of the same size, shifted by (hshift, vshift).
+    /// Exposed areas are filled with the specified color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hshift` - Horizontal shift (positive = right, negative = left)
+    /// * `vshift` - Vertical shift (positive = down, negative = up)
+    /// * `incolor` - Color to fill exposed areas
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixTranslate()` in `rop.c`
+    pub fn translate(&self, _hshift: i32, _vshift: i32, _incolor: InColor) -> Pix {
+        todo!()
+    }
 }
 
 impl PixMut {
@@ -507,6 +538,46 @@ impl PixMut {
     pub fn set_region(&mut self, x: u32, y: u32, w: u32, h: u32) {
         let max_val = self.depth().max_value();
         self.fill_region(x, y, w, h, max_val);
+    }
+
+    /// In-place vertical band shift.
+    ///
+    /// Shifts a vertical band of the image up or down. The band extends the
+    /// full height of the image. Exposed areas are filled with the specified
+    /// color.
+    ///
+    /// # Arguments
+    ///
+    /// * `bx` - Left edge of vertical band
+    /// * `bw` - Width of vertical band
+    /// * `vshift` - Vertical shift (positive = down, negative = up)
+    /// * `incolor` - Color to fill exposed areas
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRasteropVip()` in `rop.c`
+    pub fn rasterop_vip(&mut self, _bx: i32, _bw: i32, _vshift: i32, _incolor: InColor) {
+        todo!()
+    }
+
+    /// In-place horizontal band shift.
+    ///
+    /// Shifts a horizontal band of the image left or right. The band extends
+    /// the full width of the image. Exposed areas are filled with the specified
+    /// color.
+    ///
+    /// # Arguments
+    ///
+    /// * `by` - Top of horizontal band
+    /// * `bh` - Height of horizontal band
+    /// * `hshift` - Horizontal shift (positive = right, negative = left)
+    /// * `incolor` - Color to fill exposed areas
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRasteropHip()` in `rop.c`
+    pub fn rasterop_hip(&mut self, _by: i32, _bh: i32, _hshift: i32, _incolor: InColor) {
+        todo!()
     }
 
     /// Fill a rectangular region with a constant value.
