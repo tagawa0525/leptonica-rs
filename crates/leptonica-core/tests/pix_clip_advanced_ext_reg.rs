@@ -11,7 +11,6 @@ use leptonica_core::{Box, Pix, PixelDepth, ScanDirection};
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scan_for_edge_from_left() {
     // 8bpp 100x50, set a vertical edge at x=30
     let pix = Pix::new(100, 50, PixelDepth::Bit8).unwrap();
@@ -32,7 +31,6 @@ fn test_scan_for_edge_from_left() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scan_for_edge_from_right() {
     let pix = Pix::new(100, 50, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -52,7 +50,6 @@ fn test_scan_for_edge_from_right() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scan_for_edge_from_top() {
     let pix = Pix::new(50, 100, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -75,7 +72,6 @@ fn test_scan_for_edge_from_top() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_box_to_edges_basic() {
     // 8bpp 100x100, with content in center (30,30)-(70,70)
     let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -101,7 +97,6 @@ fn test_clip_box_to_edges_basic() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_masked_basic() {
     // 8bpp 20x20 with all pixels = 100
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -131,7 +126,6 @@ fn test_clip_masked_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_masked_outval() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -164,7 +158,6 @@ fn test_clip_masked_outval() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_make_symmetric_mask_inner() {
     let mask = Pix::make_symmetric_mask(100, 100, 0.5, 0.5, true).unwrap();
     assert_eq!(mask.width(), 100);
@@ -177,7 +170,6 @@ fn test_make_symmetric_mask_inner() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_make_symmetric_mask_outer() {
     let mask = Pix::make_symmetric_mask(100, 100, 0.5, 0.5, false).unwrap();
     assert_eq!(mask.width(), 100);
@@ -192,7 +184,6 @@ fn test_make_symmetric_mask_outer() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_for_fg_bg_basic() {
     // Bimodal image: top half dark (fg=40), bottom half light (bg=200)
     let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();

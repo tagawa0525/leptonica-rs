@@ -725,18 +725,24 @@ impl Pix {
         Ok((sum / count as f64) as f32)
     }
 
-    /// Scan for a sharp edge within a box region.
+    /// Scan for a sharp edge within a box region of an 8bpp image.
     ///
-    /// Scans from the specified direction, looking for transitions from
-    /// low to high foreground pixel density to detect edges.
+    /// Computes the sum of pixel values along each column or row
+    /// (depending on scan direction), then uses the C-style
+    /// `foundmin`/`loc` algorithm to detect edges:
+    ///
+    /// 1. Skip positions where the sum is below `lowthresh`
+    /// 2. When the sum first reaches `lowthresh`, record the position
+    /// 3. When it reaches `highthresh` within `maxwidth` of the start,
+    ///    return the start position
     ///
     /// # Arguments
     ///
     /// * `region` - Box defining the scan region
-    /// * `lowthresh` - Low threshold for edge detection
-    /// * `highthresh` - High threshold for edge detection
-    /// * `maxwidth` - Maximum width to scan for edge transition
-    /// * `factor` - Subsampling factor for scanning
+    /// * `lowthresh` - Low threshold for column/row pixel sum
+    /// * `highthresh` - High threshold for column/row pixel sum
+    /// * `maxwidth` - Maximum width of edge transition zone
+    /// * `factor` - Subsampling factor for averaging (>= 1)
     /// * `direction` - Direction to scan from
     ///
     /// # See also
@@ -744,19 +750,138 @@ impl Pix {
     /// C Leptonica: `pixScanForEdge()` in `pix5.c`
     pub fn scan_for_edge(
         &self,
-        _region: &Box,
-        _lowthresh: i32,
-        _highthresh: i32,
-        _maxwidth: i32,
-        _factor: i32,
-        _direction: ScanDirection,
+        region: &Box,
+        lowthresh: i32,
+        highthresh: i32,
+        maxwidth: i32,
+        factor: i32,
+        direction: ScanDirection,
     ) -> Result<u32> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if factor < 1 {
+            return Err(Error::InvalidParameter(format!(
+                "factor must be >= 1, got {factor}"
+            )));
+        }
+        if lowthresh >= highthresh {
+            return Err(Error::InvalidParameter(
+                "lowthresh must be < highthresh".to_string(),
+            ));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let clipped = region.clip(w, h).ok_or_else(|| {
+            Error::InvalidParameter("scan region does not intersect image".to_string())
+        })?;
+        let rx = clipped.x as u32;
+        let ry = clipped.y as u32;
+        let rw = clipped.w as u32;
+        let rh = clipped.h as u32;
+        let factor = factor as u32;
+
+        match direction {
+            ScanDirection::FromLeft => {
+                let mut foundmin = false;
+                let mut loc = 0u32;
+                for x in rx..rx + rw {
+                    let avg = self.column_sum_in_region(x, ry, rh, factor);
+                    if !foundmin && avg < lowthresh {
+                        continue;
+                    }
+                    if !foundmin {
+                        foundmin = true;
+                        loc = x;
+                    }
+                    if avg >= highthresh {
+                        if (x - loc) < maxwidth as u32 {
+                            return Ok(loc);
+                        }
+                        return Err(Error::InvalidParameter(
+                            "edge transition too wide".to_string(),
+                        ));
+                    }
+                }
+            }
+            ScanDirection::FromRight => {
+                let mut foundmin = false;
+                let mut loc = 0u32;
+                for x in (rx..rx + rw).rev() {
+                    let avg = self.column_sum_in_region(x, ry, rh, factor);
+                    if !foundmin && avg < lowthresh {
+                        continue;
+                    }
+                    if !foundmin {
+                        foundmin = true;
+                        loc = x;
+                    }
+                    if avg >= highthresh {
+                        if (loc - x) < maxwidth as u32 {
+                            return Ok(loc);
+                        }
+                        return Err(Error::InvalidParameter(
+                            "edge transition too wide".to_string(),
+                        ));
+                    }
+                }
+            }
+            ScanDirection::FromTop => {
+                let mut foundmin = false;
+                let mut loc = 0u32;
+                for y in ry..ry + rh {
+                    let avg = self.row_sum_in_region(y, rx, rw, factor);
+                    if !foundmin && avg < lowthresh {
+                        continue;
+                    }
+                    if !foundmin {
+                        foundmin = true;
+                        loc = y;
+                    }
+                    if avg >= highthresh {
+                        if (y - loc) < maxwidth as u32 {
+                            return Ok(loc);
+                        }
+                        return Err(Error::InvalidParameter(
+                            "edge transition too wide".to_string(),
+                        ));
+                    }
+                }
+            }
+            ScanDirection::FromBot => {
+                let mut foundmin = false;
+                let mut loc = 0u32;
+                for y in (ry..ry + rh).rev() {
+                    let avg = self.row_sum_in_region(y, rx, rw, factor);
+                    if !foundmin && avg < lowthresh {
+                        continue;
+                    }
+                    if !foundmin {
+                        foundmin = true;
+                        loc = y;
+                    }
+                    if avg >= highthresh {
+                        if (loc - y) < maxwidth as u32 {
+                            return Ok(loc);
+                        }
+                        return Err(Error::InvalidParameter(
+                            "edge transition too wide".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+
+        Err(Error::InvalidParameter(
+            "no edge found in scan region".to_string(),
+        ))
     }
 
-    /// Clip a box to the edges of content in a grayscale image.
+    /// Clip a box to the edges of content in an 8bpp image.
     ///
-    /// Iteratively clips by scanning for sharp edges on all four sides.
+    /// Iteratively scans from all four sides using [`scan_for_edge`]
+    /// to find sharp edges and narrows the box to the content area.
     ///
     /// # Arguments
     ///
@@ -771,13 +896,120 @@ impl Pix {
     /// C Leptonica: `pixClipBoxToEdges()` in `pix5.c`
     pub fn clip_box_to_edges(
         &self,
-        _input_box: &Box,
-        _lowthresh: i32,
-        _highthresh: i32,
-        _maxwidth: i32,
-        _factor: i32,
+        input_box: &Box,
+        lowthresh: i32,
+        highthresh: i32,
+        maxwidth: i32,
+        factor: i32,
     ) -> Result<(Pix, Box)> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let clipped = input_box.clip(w, h).ok_or_else(|| {
+            Error::InvalidParameter("input box does not intersect image".to_string())
+        })?;
+
+        let mut bx = clipped.x;
+        let mut by = clipped.y;
+        let mut bw = clipped.w;
+        let mut bh = clipped.h;
+
+        let mut lfound = false;
+        let mut rfound = false;
+        let mut tfound = false;
+        let mut bfound = false;
+        let mut left = bx;
+        let mut right = bx + bw - 1;
+        let mut top = by;
+        let mut bottom = by + bh - 1;
+
+        while !lfound || !rfound || !tfound || !bfound {
+            let mut change = false;
+
+            if !lfound
+                && let Ok(loc) = self.scan_for_edge(
+                    &Box::new(bx, by, bw, bh)?,
+                    lowthresh,
+                    highthresh,
+                    maxwidth,
+                    factor,
+                    ScanDirection::FromLeft,
+                )
+            {
+                lfound = true;
+                change = true;
+                left = loc as i32;
+                bw -= left - bx;
+                bx = left;
+            }
+            if !rfound
+                && let Ok(loc) = self.scan_for_edge(
+                    &Box::new(bx, by, bw, bh)?,
+                    lowthresh,
+                    highthresh,
+                    maxwidth,
+                    factor,
+                    ScanDirection::FromRight,
+                )
+            {
+                rfound = true;
+                change = true;
+                right = loc as i32;
+                bw = right - bx + 1;
+            }
+            if !tfound
+                && let Ok(loc) = self.scan_for_edge(
+                    &Box::new(bx, by, bw, bh)?,
+                    lowthresh,
+                    highthresh,
+                    maxwidth,
+                    factor,
+                    ScanDirection::FromTop,
+                )
+            {
+                tfound = true;
+                change = true;
+                top = loc as i32;
+                bh -= top - by;
+                by = top;
+            }
+            if !bfound
+                && let Ok(loc) = self.scan_for_edge(
+                    &Box::new(bx, by, bw, bh)?,
+                    lowthresh,
+                    highthresh,
+                    maxwidth,
+                    factor,
+                    ScanDirection::FromBot,
+                )
+            {
+                bfound = true;
+                change = true;
+                bottom = loc as i32;
+                bh = bottom - by + 1;
+            }
+
+            if !change {
+                break;
+            }
+        }
+
+        if !lfound || !rfound || !tfound || !bfound {
+            return Err(Error::InvalidParameter("not all edges found".to_string()));
+        }
+
+        let result_box = Box::new(left, top, right - left + 1, bottom - top + 1)?;
+        let clipped_pix = self.clip_rectangle(
+            left as u32,
+            top as u32,
+            (right - left + 1) as u32,
+            (bottom - top + 1) as u32,
+        )?;
+
+        Ok((clipped_pix, result_box))
     }
 
     /// Clip a source image using a 1bpp mask.
@@ -794,13 +1026,45 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixClipMasked()` in `pix5.c`
-    pub fn clip_masked(&self, _mask: &Pix, _x: i32, _y: i32, _outval: u32) -> Result<Pix> {
-        todo!()
+    pub fn clip_masked(&self, mask: &Pix, x: i32, y: i32, outval: u32) -> Result<Pix> {
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+
+        let wm = mask.width();
+        let hm = mask.height();
+
+        // Clip source at mask position
+        let sx = x.max(0) as u32;
+        let sy = y.max(0) as u32;
+        let pixd = self.clip_rectangle(sx, sy, wm, hm)?;
+        let mut pm = pixd.try_into_mut().unwrap();
+        let dw = pm.width();
+        let dh = pm.height();
+
+        // Paint outval through pixels NOT in the mask
+        for dy in 0..dh {
+            for dx in 0..dw {
+                if dx < wm && dy < hm {
+                    let bit = mask.get_pixel_unchecked(dx, dy);
+                    if bit == 0 {
+                        pm.set_pixel_unchecked(dx, dy, outval);
+                    }
+                }
+            }
+        }
+
+        Ok(pm.into())
     }
 
     /// Create a 1bpp mask with horizontal and vertical symmetry.
     ///
-    /// Generates either a filled inner rectangle or an outer frame mask.
+    /// Generates either a filled inner rectangle or an outer frame mask
+    /// by delegating to [`make_frame_mask`].
+    ///
+    /// - Inner (`inner = true`): solid rectangle in the center, size
+    ///   controlled by `hf` and `vf`
+    /// - Outer (`inner = false`): frame (annular ring) around the edges
     ///
     /// # Arguments
     ///
@@ -812,15 +1076,30 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixMakeSymmetricMask()` in `pix5.c`
-    pub fn make_symmetric_mask(_w: u32, _h: u32, _hf: f32, _vf: f32, _inner: bool) -> Result<Pix> {
-        todo!()
+    pub fn make_symmetric_mask(w: u32, h: u32, hf: f32, vf: f32, inner: bool) -> Result<Pix> {
+        if !(0.0..=1.0).contains(&hf) {
+            return Err(Error::InvalidParameter(
+                "hf must be in [0.0, 1.0]".to_string(),
+            ));
+        }
+        if !(0.0..=1.0).contains(&vf) {
+            return Err(Error::InvalidParameter(
+                "vf must be in [0.0, 1.0]".to_string(),
+            ));
+        }
+
+        if inner {
+            Self::make_frame_mask(w, h, hf, 1.0, vf, 1.0)
+        } else {
+            Self::make_frame_mask(w, h, 0.0, hf, 0.0, vf)
+        }
     }
 
     /// Compute average foreground and background values by thresholding.
     ///
-    /// Applies a threshold to create a binary mask, then computes the
-    /// average value of pixels above (background) and below (foreground)
-    /// the threshold.
+    /// Pixels with values below `thresh` are considered foreground;
+    /// pixels at or above `thresh` are background. Returns the average
+    /// value of each group.
     ///
     /// # Arguments
     ///
@@ -830,8 +1109,70 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixThresholdForFgBg()` in `pix4.c`
-    pub fn threshold_for_fg_bg(&self, _factor: u32, _thresh: u32) -> Result<(u32, u32)> {
-        todo!()
+    pub fn threshold_for_fg_bg(&self, factor: u32, thresh: u32) -> Result<(u32, u32)> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let factor = factor.max(1);
+
+        let w = self.width();
+        let h = self.height();
+        let mut fg_sum: u64 = 0;
+        let mut fg_count: u64 = 0;
+        let mut bg_sum: u64 = 0;
+        let mut bg_count: u64 = 0;
+
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let val = self.get_pixel_unchecked(x, y);
+                if val < thresh {
+                    fg_sum += val as u64;
+                    fg_count += 1;
+                } else {
+                    bg_sum += val as u64;
+                    bg_count += 1;
+                }
+                x += factor;
+            }
+            y += factor;
+        }
+
+        let fg_val = if fg_count > 0 {
+            ((fg_sum as f64 / fg_count as f64) + 0.5) as u32
+        } else {
+            0
+        };
+        let bg_val = if bg_count > 0 {
+            ((bg_sum as f64 / bg_count as f64) + 0.5) as u32
+        } else {
+            0
+        };
+
+        Ok((fg_val, bg_val))
+    }
+
+    /// Compute the sum of pixel values along a column within a region.
+    fn column_sum_in_region(&self, x: u32, y_start: u32, height: u32, factor: u32) -> i32 {
+        let mut sum = 0i64;
+        let mut y = y_start;
+        while y < y_start + height {
+            sum += self.get_pixel_unchecked(x, y) as i64;
+            y += factor;
+        }
+        sum as i32
+    }
+
+    /// Compute the sum of pixel values along a row within a region.
+    fn row_sum_in_region(&self, y: u32, x_start: u32, width: u32, factor: u32) -> i32 {
+        let mut sum = 0i64;
+        let mut x = x_start;
+        while x < x_start + width {
+            sum += self.get_pixel_unchecked(x, y) as i64;
+            x += factor;
+        }
+        sum as i32
     }
 }
 
