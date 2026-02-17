@@ -18,7 +18,6 @@ use leptonica_core::{
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_auto_select_increasing() {
     let na = Numa::from_vec(vec![5.0, 2.0, 8.0, 1.0, 9.0, 3.0]);
     let sorted = na.sort_auto_select(SortOrder::Increasing);
@@ -26,7 +25,6 @@ fn test_sort_auto_select_increasing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_auto_select_decreasing() {
     let na = Numa::from_vec(vec![5.0, 2.0, 8.0, 1.0, 9.0, 3.0]);
     let sorted = na.sort_auto_select(SortOrder::Decreasing);
@@ -34,7 +32,6 @@ fn test_sort_auto_select_decreasing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_auto_select_empty() {
     let na = Numa::new();
     let sorted = na.sort_auto_select(SortOrder::Increasing);
@@ -46,7 +43,6 @@ fn test_sort_auto_select_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_index_auto_select_basic() {
     let na = Numa::from_vec(vec![30.0, 10.0, 20.0]);
     let indices = na.sort_index_auto_select(SortOrder::Increasing);
@@ -55,7 +51,6 @@ fn test_sort_index_auto_select_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_index_auto_select_decreasing() {
     let na = Numa::from_vec(vec![30.0, 10.0, 20.0]);
     let indices = na.sort_index_auto_select(SortOrder::Decreasing);
@@ -68,7 +63,6 @@ fn test_sort_index_auto_select_decreasing() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_index_increasing() {
     let na = Numa::from_vec(vec![50.0, 10.0, 40.0, 20.0, 30.0]);
     let indices = na.sort_index(SortOrder::Increasing);
@@ -77,7 +71,6 @@ fn test_sort_index_increasing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_index_stable() {
     // Duplicate values: indices should preserve relative order (stable sort)
     let na = Numa::from_vec(vec![2.0, 1.0, 2.0, 1.0]);
@@ -91,7 +84,6 @@ fn test_sort_index_stable() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_index_basic() {
     let na = Numa::from_vec(vec![50.0, 10.0, 40.0, 20.0, 30.0]);
     let indices = Numa::from_vec(vec![1.0, 3.0, 4.0, 2.0, 0.0]);
@@ -100,7 +92,6 @@ fn test_sort_by_index_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_index_roundtrip() {
     let na = Numa::from_vec(vec![5.0, 2.0, 8.0, 1.0, 9.0]);
     let indices = na.sort_index(SortOrder::Increasing);
@@ -109,7 +100,6 @@ fn test_sort_by_index_roundtrip() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sort_by_index_empty() {
     let na = Numa::new();
     let indices = Numa::new();
@@ -122,7 +112,6 @@ fn test_sort_by_index_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_is_sorted_increasing() {
     let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     assert!(na.is_sorted(SortOrder::Increasing));
@@ -130,7 +119,6 @@ fn test_is_sorted_increasing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_is_sorted_decreasing() {
     let na = Numa::from_vec(vec![5.0, 4.0, 3.0, 2.0, 1.0]);
     assert!(na.is_sorted(SortOrder::Decreasing));
@@ -138,7 +126,6 @@ fn test_is_sorted_decreasing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_is_sorted_equal() {
     // All-equal should be sorted in both directions
     let na = Numa::from_vec(vec![3.0, 3.0, 3.0]);
@@ -147,7 +134,6 @@ fn test_is_sorted_equal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_is_sorted_single() {
     let na = Numa::from_vec(vec![42.0]);
     assert!(na.is_sorted(SortOrder::Increasing));
@@ -155,7 +141,6 @@ fn test_is_sorted_single() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_is_sorted_empty() {
     let na = Numa::new();
     assert!(na.is_sorted(SortOrder::Increasing));
@@ -166,7 +151,6 @@ fn test_is_sorted_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_eqx_val_linear() {
     // y = [0, 10, 20, 30] with startx=0, delx=1
     let mut na = Numa::from_vec(vec![0.0, 10.0, 20.0, 30.0]);
@@ -178,7 +162,6 @@ fn test_interpolate_eqx_val_linear() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_eqx_val_at_knot() {
     let mut na = Numa::from_vec(vec![0.0, 10.0, 20.0, 30.0]);
     na.set_parameters(0.0, 1.0);
@@ -189,7 +172,6 @@ fn test_interpolate_eqx_val_at_knot() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_eqx_val_quadratic() {
     // y = [0, 1, 4, 9, 16] (x^2) with startx=0, delx=1
     let mut na = Numa::from_vec(vec![0.0, 1.0, 4.0, 9.0, 16.0]);
@@ -202,7 +184,6 @@ fn test_interpolate_eqx_val_quadratic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_eqx_val_out_of_range() {
     let mut na = Numa::from_vec(vec![0.0, 10.0, 20.0]);
     na.set_parameters(0.0, 1.0);
@@ -221,7 +202,6 @@ fn test_interpolate_eqx_val_out_of_range() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_arbx_val_linear() {
     let nax = Numa::from_vec(vec![0.0, 2.0, 5.0, 10.0]);
     let nay = Numa::from_vec(vec![0.0, 20.0, 50.0, 100.0]);
@@ -233,7 +213,6 @@ fn test_interpolate_arbx_val_linear() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_arbx_val_at_knot() {
     let nax = Numa::from_vec(vec![0.0, 2.0, 5.0, 10.0]);
     let nay = Numa::from_vec(vec![0.0, 20.0, 50.0, 100.0]);
@@ -244,7 +223,6 @@ fn test_interpolate_arbx_val_at_knot() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_arbx_val_out_of_range() {
     let nax = Numa::from_vec(vec![1.0, 2.0, 3.0]);
     let nay = Numa::from_vec(vec![10.0, 20.0, 30.0]);
@@ -259,7 +237,6 @@ fn test_interpolate_arbx_val_out_of_range() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_interpolate_arbx_val_length_mismatch() {
     let nax = Numa::from_vec(vec![0.0, 1.0]);
     let nay = Numa::from_vec(vec![0.0, 10.0, 20.0]);
@@ -274,7 +251,6 @@ fn test_interpolate_arbx_val_length_mismatch() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_to_interval_basic() {
     let na = Numa::from_vec(vec![10.0, 20.0, 30.0, 40.0, 50.0]);
     let clipped = na.clip_to_interval(1, 3).unwrap();
@@ -282,7 +258,6 @@ fn test_clip_to_interval_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_to_interval_full() {
     let na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
     let clipped = na.clip_to_interval(0, 2).unwrap();
@@ -290,7 +265,6 @@ fn test_clip_to_interval_full() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_to_interval_clamped() {
     let na = Numa::from_vec(vec![10.0, 20.0, 30.0, 40.0, 50.0]);
     // last > len-1 should be clamped
@@ -299,7 +273,6 @@ fn test_clip_to_interval_clamped() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_clip_to_interval_empty() {
     let na = Numa::new();
     assert!(na.clip_to_interval(0, 5).is_err());
@@ -310,7 +283,6 @@ fn test_clip_to_interval_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_indicator_less_than() {
     let na = Numa::from_vec(vec![1.0, 5.0, 3.0, 7.0, 2.0]);
     let ind = na.make_threshold_indicator(4.0, ThresholdComparison::LessThan);
@@ -318,7 +290,6 @@ fn test_threshold_indicator_less_than() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_indicator_greater_than() {
     let na = Numa::from_vec(vec![1.0, 5.0, 3.0, 7.0, 2.0]);
     let ind = na.make_threshold_indicator(4.0, ThresholdComparison::GreaterThan);
@@ -326,7 +297,6 @@ fn test_threshold_indicator_greater_than() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_indicator_less_than_or_equal() {
     let na = Numa::from_vec(vec![1.0, 4.0, 3.0, 7.0, 4.0]);
     let ind = na.make_threshold_indicator(4.0, ThresholdComparison::LessThanOrEqual);
@@ -334,7 +304,6 @@ fn test_threshold_indicator_less_than_or_equal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_indicator_greater_than_or_equal() {
     let na = Numa::from_vec(vec![1.0, 4.0, 3.0, 7.0, 4.0]);
     let ind = na.make_threshold_indicator(4.0, ThresholdComparison::GreaterThanOrEqual);
@@ -342,7 +311,6 @@ fn test_threshold_indicator_greater_than_or_equal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_indicator_empty() {
     let na = Numa::new();
     let ind = na.make_threshold_indicator(5.0, ThresholdComparison::LessThan);
@@ -354,7 +322,6 @@ fn test_threshold_indicator_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_nonzero_range_basic() {
     let na = Numa::from_vec(vec![0.0, 0.0, 3.0, 5.0, 0.0, 7.0, 0.0, 0.0]);
     let (first, last) = na.get_nonzero_range(0.001).unwrap().unwrap();
@@ -363,7 +330,6 @@ fn test_nonzero_range_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_nonzero_range_all_zero() {
     let na = Numa::from_vec(vec![0.0, 0.0, 0.0]);
     let result = na.get_nonzero_range(0.001).unwrap();
@@ -371,7 +337,6 @@ fn test_nonzero_range_all_zero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_nonzero_range_all_nonzero() {
     let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
     let (first, last) = na.get_nonzero_range(0.001).unwrap().unwrap();
@@ -380,7 +345,6 @@ fn test_nonzero_range_all_nonzero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_nonzero_range_empty() {
     let na = Numa::new();
     assert!(na.get_nonzero_range(0.001).is_err());
@@ -391,7 +355,6 @@ fn test_nonzero_range_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_count_less_than_zero() {
     let na = Numa::from_vec(vec![-3.0, -1.0, 0.0, 2.0, 5.0]);
     let count = na
@@ -401,7 +364,6 @@ fn test_count_less_than_zero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_count_equal_to_zero() {
     let na = Numa::from_vec(vec![-3.0, 0.0, 0.0, 2.0, 0.0]);
     let count = na
@@ -411,7 +373,6 @@ fn test_count_equal_to_zero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_count_greater_than_zero() {
     let na = Numa::from_vec(vec![-3.0, -1.0, 0.0, 2.0, 5.0]);
     let count = na
@@ -421,7 +382,6 @@ fn test_count_greater_than_zero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_count_relative_to_zero_empty() {
     let na = Numa::new();
     assert!(
@@ -435,7 +395,6 @@ fn test_count_relative_to_zero_empty() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_subsample_every_other() {
     let na = Numa::from_vec(vec![10.0, 20.0, 30.0, 40.0, 50.0, 60.0]);
     let sub = na.subsample(2).unwrap();
@@ -443,7 +402,6 @@ fn test_subsample_every_other() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_subsample_every_third() {
     let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
     let sub = na.subsample(3).unwrap();
@@ -451,7 +409,6 @@ fn test_subsample_every_third() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_subsample_factor_one() {
     let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
     let sub = na.subsample(1).unwrap();
@@ -459,7 +416,6 @@ fn test_subsample_factor_one() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_subsample_factor_larger_than_len() {
     let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
     let sub = na.subsample(10).unwrap();
@@ -467,7 +423,6 @@ fn test_subsample_factor_larger_than_len() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_subsample_zero_factor() {
     let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
     assert!(na.subsample(0).is_err());

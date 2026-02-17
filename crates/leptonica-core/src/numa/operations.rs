@@ -861,9 +861,11 @@ impl Numa {
     /// auto-selection between shell sort and bin sort.
     ///
     /// C equivalent: `numaSortAutoSelect(nas, sortorder)`
-    #[allow(unused_variables)]
     pub fn sort_auto_select(&self, order: SortOrder) -> Numa {
-        todo!()
+        // C version selects shell sort vs bin sort based on size.
+        // Rust's standard sort (TimSort) is efficient for all sizes,
+        // so we delegate directly.
+        self.sorted(order)
     }
 
     /// Return the permutation indices that would sort the array.
@@ -873,9 +875,8 @@ impl Numa {
     /// `self[i0] <= self[i1] <= ...` for increasing order.
     ///
     /// C equivalent: `numaSortIndexAutoSelect(nas, sortorder)`
-    #[allow(unused_variables)]
     pub fn sort_index_auto_select(&self, order: SortOrder) -> Numa {
-        todo!()
+        self.sort_index(order)
     }
 
     /// Return the permutation indices that would sort the array.
@@ -883,9 +884,29 @@ impl Numa {
     /// Uses a stable sort. The returned Numa contains f32 index values.
     ///
     /// C equivalent: `numaGetSortIndex(nas, sortorder)`
-    #[allow(unused_variables)]
     pub fn sort_index(&self, order: SortOrder) -> Numa {
-        todo!()
+        let n = self.len();
+        let array = self.as_slice();
+
+        // Create index array [0, 1, 2, ..., n-1]
+        let mut indices: Vec<usize> = (0..n).collect();
+
+        // Stable sort indices by comparing values
+        match order {
+            SortOrder::Increasing => {
+                indices.sort_by(|&a, &b| f32::total_cmp(&array[a], &array[b]));
+            }
+            SortOrder::Decreasing => {
+                indices.sort_by(|&a, &b| f32::total_cmp(&array[b], &array[a]));
+            }
+        }
+
+        // Convert to Numa of f32
+        let mut result = Numa::with_capacity(n);
+        for idx in indices {
+            result.push(idx as f32);
+        }
+        result
     }
 
     /// Reorder elements according to an index array.
@@ -894,9 +915,23 @@ impl Numa {
     /// `result[i] = self[naindex[i]]`.
     ///
     /// C equivalent: `numaSortByIndex(nas, naindex)`
-    #[allow(unused_variables)]
     pub fn sort_by_index(&self, naindex: &Numa) -> Result<Numa> {
-        todo!()
+        let n = naindex.len();
+        let mut result = Numa::with_capacity(n);
+        let array = self.as_slice();
+        let self_len = self.len();
+
+        for i in 0..n {
+            let idx = naindex[i] as usize;
+            if idx >= self_len {
+                return Err(Error::IndexOutOfBounds {
+                    index: idx,
+                    len: self_len,
+                });
+            }
+            result.push(array[idx]);
+        }
+        Ok(result)
     }
 
     /// Check if the array is sorted in the given order.
@@ -905,9 +940,16 @@ impl Numa {
     /// specified order. Empty and single-element arrays are always sorted.
     ///
     /// C equivalent: `numaIsSorted(nas, sortorder, &sorted)`
-    #[allow(unused_variables)]
     pub fn is_sorted(&self, order: SortOrder) -> bool {
-        todo!()
+        let n = self.len();
+        if n <= 1 {
+            return true;
+        }
+        let array = self.as_slice();
+        match order {
+            SortOrder::Increasing => array.windows(2).all(|w| w[0] <= w[1]),
+            SortOrder::Decreasing => array.windows(2).all(|w| w[0] >= w[1]),
+        }
     }
 
     // ====================================================================
@@ -920,9 +962,74 @@ impl Numa {
     /// target `xval` to the array index, then interpolates.
     ///
     /// C equivalent: `numaInterpolateEqxVal(startx, deltax, nay, type, xval, &yval)`
-    #[allow(unused_variables)]
     pub fn interpolate_eqx_val(&self, interp_type: InterpolationType, xval: f32) -> Result<f32> {
-        todo!()
+        let n = self.len();
+        if n < 2 {
+            return Err(Error::InvalidParameter(
+                "interpolation requires at least 2 data points".to_string(),
+            ));
+        }
+        let (startx, deltax) = self.parameters();
+        if deltax <= 0.0 {
+            return Err(Error::InvalidParameter("deltax must be > 0".to_string()));
+        }
+
+        let array = self.as_slice();
+        let xmax = startx + (n - 1) as f32 * deltax;
+
+        if xval < startx || xval > xmax {
+            return Err(Error::InvalidParameter(format!(
+                "xval {xval} out of range [{startx}, {xmax}]"
+            )));
+        }
+
+        // Map xval to fractional index
+        let findex = (xval - startx) / deltax;
+        let i = findex as usize;
+        let del = findex - i as f32;
+
+        // Exact match at a knot
+        if del.abs() < 1e-7 {
+            return Ok(array[i.min(n - 1)]);
+        }
+
+        match interp_type {
+            InterpolationType::Linear => {
+                // Linear interpolation: y = y[i] + del * (y[i+1] - y[i])
+                let i1 = (i + 1).min(n - 1);
+                Ok(array[i] + del * (array[i1] - array[i]))
+            }
+            InterpolationType::Quadratic => {
+                if n == 2 {
+                    // Fall back to linear with only 2 points
+                    let i1 = (i + 1).min(n - 1);
+                    return Ok(array[i] + del * (array[i1] - array[i]));
+                }
+                // Select 3 points for quadratic interpolation
+                let (p0, p1, p2) = if i == 0 {
+                    (0, 1, 2)
+                } else if i >= n - 2 {
+                    (n - 3, n - 2, n - 1)
+                } else {
+                    (i - 1, i, i + 1)
+                };
+
+                // x-values for the 3 points
+                let x0 = startx + p0 as f32 * deltax;
+                let x1 = startx + p1 as f32 * deltax;
+                let x2 = startx + p2 as f32 * deltax;
+
+                // Lagrangian quadratic interpolation
+                let d0 = (x0 - x1) * (x0 - x2);
+                let d1 = (x1 - x0) * (x1 - x2);
+                let d2 = (x2 - x0) * (x2 - x1);
+
+                let val = array[p0] * (xval - x1) * (xval - x2) / d0
+                    + array[p1] * (xval - x0) * (xval - x2) / d1
+                    + array[p2] * (xval - x0) * (xval - x1) / d2;
+                Ok(val)
+            }
+        }
     }
 
     /// Interpolate a value from arbitrarily-spaced (x, y) data.
@@ -931,14 +1038,84 @@ impl Numa {
     /// `nay` contains the corresponding y-values.
     ///
     /// C equivalent: `numaInterpolateArbxVal(nax, nay, type, xval, &yval)`
-    #[allow(unused_variables)]
     pub fn interpolate_arbx_val(
         &self,
         interp_type: InterpolationType,
         nay: &Numa,
         xval: f32,
     ) -> Result<f32> {
-        todo!()
+        let n = self.len();
+        if n < 2 {
+            return Err(Error::InvalidParameter(
+                "interpolation requires at least 2 data points".to_string(),
+            ));
+        }
+        if n != nay.len() {
+            return Err(Error::InvalidParameter(format!(
+                "nax length {} != nay length {}",
+                n,
+                nay.len()
+            )));
+        }
+
+        let fax = self.as_slice();
+        let fay = nay.as_slice();
+
+        if xval < fax[0] || xval > fax[n - 1] {
+            return Err(Error::InvalidParameter(format!(
+                "xval {xval} out of range [{}, {}]",
+                fax[0],
+                fax[n - 1]
+            )));
+        }
+
+        // Find the interval containing xval via linear search
+        // (matching C Leptonica behavior)
+        let mut i = 1;
+        while i < n && fax[i] < xval {
+            i += 1;
+        }
+
+        // Exact match
+        if (fax[i] - xval).abs() < 1e-7 {
+            return Ok(fay[i]);
+        }
+        // Also check left endpoint
+        let im = i - 1;
+        if (fax[im] - xval).abs() < 1e-7 {
+            return Ok(fay[im]);
+        }
+
+        // Fractional position in interval [im, i]
+        let fract = (xval - fax[im]) / (fax[i] - fax[im]);
+
+        match interp_type {
+            InterpolationType::Linear => Ok(fay[im] + fract * (fay[i] - fay[im])),
+            InterpolationType::Quadratic => {
+                if n == 2 {
+                    return Ok(fay[im] + fract * (fay[i] - fay[im]));
+                }
+                // Select 3 points for quadratic
+                let (p0, p1, p2) = if im == 0 {
+                    (0, 1, 2)
+                } else {
+                    (im - 1, im, im + 1)
+                };
+
+                let x0 = fax[p0];
+                let x1 = fax[p1];
+                let x2 = fax[p2];
+
+                let d0 = (x0 - x1) * (x0 - x2);
+                let d1 = (x1 - x0) * (x1 - x2);
+                let d2 = (x2 - x0) * (x2 - x1);
+
+                let val = fay[p0] * (xval - x1) * (xval - x2) / d0
+                    + fay[p1] * (xval - x0) * (xval - x2) / d1
+                    + fay[p2] * (xval - x0) * (xval - x1) / d2;
+                Ok(val)
+            }
+        }
     }
 
     // ====================================================================
@@ -948,11 +1125,30 @@ impl Numa {
     /// Extract a sub-array for indices `[first..=last]`.
     ///
     /// If `last` exceeds the array length, it is clamped to `n-1`.
+    /// The result's `startx` is adjusted: `new_startx = startx + first * delx`.
     ///
     /// C equivalent: `numaClipToInterval(nas, first, last)`
-    #[allow(unused_variables)]
     pub fn clip_to_interval(&self, first: usize, last: usize) -> Result<Numa> {
-        todo!()
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        if first >= n {
+            return Err(Error::InvalidParameter(format!(
+                "first index {first} >= array length {n}"
+            )));
+        }
+
+        let last = last.min(n - 1);
+        let array = self.as_slice();
+        let mut result = Numa::with_capacity(last - first + 1);
+        for &val in &array[first..=last] {
+            result.push(val);
+        }
+
+        let (startx, delx) = self.parameters();
+        result.set_parameters(startx + first as f32 * delx, delx);
+        Ok(result)
     }
 
     /// Generate a binary indicator array based on a threshold.
@@ -961,9 +1157,21 @@ impl Numa {
     /// with `thresh` is satisfied, otherwise 0.0.
     ///
     /// C equivalent: `numaMakeThresholdIndicator(nas, thresh, type)`
-    #[allow(unused_variables)]
     pub fn make_threshold_indicator(&self, thresh: f32, cmp: ThresholdComparison) -> Numa {
-        todo!()
+        let n = self.len();
+        let mut result = Numa::with_capacity(n);
+        let array = self.as_slice();
+
+        for &val in array {
+            let indicator = match cmp {
+                ThresholdComparison::LessThan => val < thresh,
+                ThresholdComparison::GreaterThan => val > thresh,
+                ThresholdComparison::LessThanOrEqual => val <= thresh,
+                ThresholdComparison::GreaterThanOrEqual => val >= thresh,
+            };
+            result.push(if indicator { 1.0 } else { 0.0 });
+        }
+        result
     }
 
     /// Find the range of indices with non-zero values.
@@ -973,17 +1181,46 @@ impl Numa {
     /// Returns `Ok(None)` if all values are within `eps` of zero.
     ///
     /// C equivalent: `numaGetNonzeroRange(na, eps, &first, &last)`
-    #[allow(unused_variables)]
     pub fn get_nonzero_range(&self, eps: f32) -> Result<Option<(usize, usize)>> {
-        todo!()
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+
+        let array = self.as_slice();
+        let eps = eps.abs();
+
+        // Forward scan for first nonzero
+        let first = array.iter().position(|&v| v.abs() > eps);
+        let first = match first {
+            Some(f) => f,
+            None => return Ok(None),
+        };
+
+        // Backward scan for last nonzero
+        let last = array.iter().rposition(|&v| v.abs() > eps).unwrap();
+
+        Ok(Some((first, last)))
     }
 
     /// Count elements by their sign relative to zero.
     ///
     /// C equivalent: `numaGetCountRelativeToZero(na, type, &count)`
-    #[allow(unused_variables)]
     pub fn get_count_relative_to_zero(&self, rel: CountRelativeToZero) -> Result<usize> {
-        todo!()
+        if self.is_empty() {
+            return Err(Error::NullInput("empty Numa"));
+        }
+
+        let count = self
+            .as_slice()
+            .iter()
+            .filter(|&&v| match rel {
+                CountRelativeToZero::LessThan => v < 0.0,
+                CountRelativeToZero::EqualTo => v == 0.0,
+                CountRelativeToZero::GreaterThan => v > 0.0,
+            })
+            .count();
+        Ok(count)
     }
 
     /// Subsample the array, taking every `subfactor`-th element.
@@ -991,9 +1228,21 @@ impl Numa {
     /// Returns elements at indices `0, subfactor, 2*subfactor, ...`.
     ///
     /// C equivalent: `numaSubsample(nas, subfactor)`
-    #[allow(unused_variables)]
     pub fn subsample(&self, subfactor: usize) -> Result<Numa> {
-        todo!()
+        if subfactor == 0 {
+            return Err(Error::InvalidParameter(
+                "subfactor must be >= 1".to_string(),
+            ));
+        }
+
+        let array = self.as_slice();
+        let mut result = Numa::with_capacity(self.len().div_ceil(subfactor));
+        for (i, &val) in array.iter().enumerate() {
+            if i % subfactor == 0 {
+                result.push(val);
+            }
+        }
+        Ok(result)
     }
 }
 
