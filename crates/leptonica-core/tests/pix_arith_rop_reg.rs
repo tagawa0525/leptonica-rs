@@ -7,11 +7,10 @@
 use leptonica_core::{InColor, Pix, PixelDepth};
 
 // ============================================================================
-// Pix::mult_const_accumulate
+// PixMut::mult_const_accumulate
 // ============================================================================
 
 #[test]
-
 fn test_mult_const_accumulate_basic() {
     // 32bpp image with offset=0x40000000
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
@@ -33,7 +32,6 @@ fn test_mult_const_accumulate_basic() {
 }
 
 #[test]
-
 fn test_mult_const_accumulate_fractional() {
     let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
     let offset = 0x40000000u32;
@@ -53,7 +51,6 @@ fn test_mult_const_accumulate_fractional() {
 }
 
 #[test]
-
 fn test_mult_const_accumulate_not_32bpp() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -66,7 +63,6 @@ fn test_mult_const_accumulate_not_32bpp() {
 // ============================================================================
 
 #[test]
-
 fn test_rasterop_vip_shift_down() {
     // 8bpp 10x10 image with row 0 set to 200
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -85,7 +81,6 @@ fn test_rasterop_vip_shift_down() {
 }
 
 #[test]
-
 fn test_rasterop_vip_shift_up() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -104,7 +99,6 @@ fn test_rasterop_vip_shift_up() {
 }
 
 #[test]
-
 fn test_rasterop_vip_partial_band() {
     let pix = Pix::new(20, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -129,7 +123,6 @@ fn test_rasterop_vip_partial_band() {
 // ============================================================================
 
 #[test]
-
 fn test_rasterop_hip_shift_right() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -148,7 +141,6 @@ fn test_rasterop_hip_shift_right() {
 }
 
 #[test]
-
 fn test_rasterop_hip_shift_left() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -167,7 +159,6 @@ fn test_rasterop_hip_shift_left() {
 }
 
 #[test]
-
 fn test_rasterop_hip_partial_band() {
     let pix = Pix::new(10, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -192,7 +183,6 @@ fn test_rasterop_hip_partial_band() {
 // ============================================================================
 
 #[test]
-
 fn test_translate_right_down() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -208,7 +198,6 @@ fn test_translate_right_down() {
 }
 
 #[test]
-
 fn test_translate_left_up() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -224,7 +213,6 @@ fn test_translate_left_up() {
 }
 
 #[test]
-
 fn test_translate_zero_shift() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -237,7 +225,6 @@ fn test_translate_zero_shift() {
 }
 
 #[test]
-
 fn test_translate_binary() {
     let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
     let mut pm = pix.to_mut();
