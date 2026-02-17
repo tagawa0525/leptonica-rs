@@ -478,11 +478,16 @@ impl Sel {
 
     /// Find the maximum translations of hit elements relative to the origin.
     ///
-    /// Returns `(xp, yp, xn, yn)` where:
-    /// - `xp`: max distance left of origin (positive direction)
-    /// - `yp`: max distance above origin (positive direction)
-    /// - `xn`: max distance right of origin (negative direction)
-    /// - `yn`: max distance below origin (negative direction)
+    /// Returns `(xp, yp, xn, yn)` where each value is a non-negative
+    /// translation *magnitude*:
+    /// - `xp`: maximum positive x-translation (+x) required due to hits located
+    ///   to the left of the origin (`cx - x`)
+    /// - `yp`: maximum positive y-translation (+y) required due to hits located
+    ///   above the origin (`cy - y`)
+    /// - `xn`: maximum negative x-translation (−x) required due to hits located
+    ///   to the right of the origin (`x - cx`)
+    /// - `yn`: maximum negative y-translation (−y) required due to hits located
+    ///   below the origin (`y - cy`)
     ///
     /// Used to determine the safe erosion/HMT application region.
     ///

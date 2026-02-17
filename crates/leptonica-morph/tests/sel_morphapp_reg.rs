@@ -31,7 +31,7 @@ fn test_find_max_translations_brick() {
     // 5x3 brick with origin at center (2, 1)
     let sel = Sel::create_brick(5, 3).unwrap();
     let (xp, yp, xn, yn) = sel.find_max_translations();
-    // Hits at columns 0..5, origin at cx=2
+    // Hits at columns 0..=4 (range 0..5 in Rust's half-open notation), origin at cx = 2
     // xp = max(cx - x) for x < cx = 2-0 = 2
     // xn = max(x - cx) for x > cx = 4-2 = 2
     // yp = max(cy - y) for y < cy = 1-0 = 1
@@ -43,7 +43,7 @@ fn test_find_max_translations_brick() {
 fn test_find_max_translations_asymmetric_origin() {
     // 5x1 horizontal with origin at (0, 0) — all hits to the right
     let mut sel = Sel::new(5, 1).unwrap();
-    let _ = sel.set_origin(0, 0);
+    sel.set_origin(0, 0).unwrap();
     for x in 0..5 {
         sel.set_element(x, 0, SelElement::Hit);
     }

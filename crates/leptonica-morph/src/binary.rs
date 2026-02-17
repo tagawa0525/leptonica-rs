@@ -295,6 +295,10 @@ fn xor(a: &Pix, b: &Pix) -> MorphResult<Pix> {
         }
     }
 
+    // Clear unused padding bits beyond the image width to avoid
+    // propagating garbage into subsequent morphology.
+    clear_unused_bits(out_data, w, wpl);
+
     Ok(out_mut.into())
 }
 
