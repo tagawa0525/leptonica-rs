@@ -74,8 +74,9 @@ pub use error::{RegionError, RegionResult};
 
 // Re-export conncomp types and functions
 pub use conncomp::{
-    ConnectedComponent, ConnectivityType, component_area_transform, extract_component,
-    filter_components_by_size, find_connected_components, label_connected_components,
+    ConnectedComponent, ConnectivityType, component_area_transform, conncomp_pixa,
+    extract_component, filter_components_by_size, find_connected_components,
+    get_sorted_neighbor_values, label_connected_components,
 };
 
 // Re-export label types and functions

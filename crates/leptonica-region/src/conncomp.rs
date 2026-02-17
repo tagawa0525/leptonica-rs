@@ -5,7 +5,7 @@
 //! efficient labeling.
 
 use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Box, Pix, PixelDepth};
+use leptonica_core::{Box, Boxa, Pix, Pixa, PixelDepth};
 
 /// Connectivity type for component analysis
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -463,6 +463,170 @@ pub fn component_area_transform(labeled: &Pix) -> RegionResult<Pix> {
     }
 
     Ok(output.into())
+}
+
+/// Find connected components and return as Pixa with bounding boxes
+///
+/// Finds all foreground connected components in a binary image and returns
+/// them as a `Pixa` (array of component images clipped to their bounding boxes)
+/// along with a `Boxa` of the bounding boxes in the original image.
+///
+/// This is the Rust equivalent of C Leptonica's `pixConnCompPixa`.
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image (1-bit depth)
+/// * `connectivity` - Type of connectivity (4-way or 8-way)
+///
+/// # Returns
+///
+/// A tuple of `(Boxa, Pixa)` where each entry corresponds to one connected
+/// component. The Pixa images are clipped to the bounding box of each component.
+///
+/// # Errors
+///
+/// Returns an error if the image is not 1-bit depth.
+pub fn conncomp_pixa(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<(Boxa, Pixa)> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let width = pix.width();
+    let height = pix.height();
+
+    if width == 0 || height == 0 {
+        return Ok((Boxa::new(), Pixa::new()));
+    }
+
+    // Label the image and extract component metadata
+    let labeled = label_connected_components(pix, connectivity)?;
+    let components = extract_components_from_labels(&labeled)?;
+
+    let mut boxa = Boxa::with_capacity(components.len());
+    let mut pixa = Pixa::with_capacity(components.len());
+
+    for comp in &components {
+        let b = comp.bounds;
+        let bx = b.x as u32;
+        let by = b.y as u32;
+        let bw = b.w as u32;
+        let bh = b.h as u32;
+
+        // Create a clipped binary image for this component
+        let clip = Pix::new(bw, bh, PixelDepth::Bit1).map_err(RegionError::Core)?;
+        let mut clip_mut = clip.try_into_mut().unwrap_or_else(|p| p.to_mut());
+
+        for y in 0..bh {
+            for x in 0..bw {
+                if labeled.get_pixel(bx + x, by + y).unwrap_or(0) == comp.label {
+                    let _ = clip_mut.set_pixel(x, y, 1);
+                }
+            }
+        }
+
+        pixa.push_with_box(clip_mut.into(), b);
+        boxa.push(b);
+    }
+
+    Ok((boxa, pixa))
+}
+
+/// Get unique sorted neighbor label values at a pixel location
+///
+/// For a labeled image (8, 16, or 32 bpp), returns the unique non-zero
+/// label values of the neighbors of the pixel at (x, y), sorted in
+/// ascending order.
+///
+/// This is the Rust equivalent of C Leptonica's `pixGetSortedNeighborValues`.
+///
+/// # Arguments
+///
+/// * `pix` - Labeled image (8, 16, or 32 bpp)
+/// * `x` - X coordinate
+/// * `y` - Y coordinate
+/// * `connectivity` - 4-way or 8-way connectivity
+///
+/// # Returns
+///
+/// A sorted `Vec<u32>` of unique non-zero neighbor values. Empty if no
+/// non-zero neighbors exist.
+///
+/// # Errors
+///
+/// Returns an error if depth is less than 8 bpp, or if (x, y) is out of bounds.
+pub fn get_sorted_neighbor_values(
+    pix: &Pix,
+    x: u32,
+    y: u32,
+    connectivity: ConnectivityType,
+) -> RegionResult<Vec<u32>> {
+    let depth = pix.depth().bits();
+    if depth < 8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8, 16, or 32 bpp",
+            actual: depth,
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    if x >= w || y >= h {
+        return Err(RegionError::InvalidParameters(format!(
+            "coordinates ({x}, {y}) out of bounds for {}x{} image",
+            w, h
+        )));
+    }
+
+    // Collect neighbor coordinates based on connectivity
+    let mut neighbors: Vec<(u32, u32)> = Vec::with_capacity(8);
+
+    // 4-way neighbors
+    if x > 0 {
+        neighbors.push((x - 1, y));
+    }
+    if x + 1 < w {
+        neighbors.push((x + 1, y));
+    }
+    if y > 0 {
+        neighbors.push((x, y - 1));
+    }
+    if y + 1 < h {
+        neighbors.push((x, y + 1));
+    }
+
+    // Additional diagonal neighbors for 8-way
+    if connectivity == ConnectivityType::EightWay {
+        if x > 0 && y > 0 {
+            neighbors.push((x - 1, y - 1));
+        }
+        if x + 1 < w && y > 0 {
+            neighbors.push((x + 1, y - 1));
+        }
+        if x > 0 && y + 1 < h {
+            neighbors.push((x - 1, y + 1));
+        }
+        if x + 1 < w && y + 1 < h {
+            neighbors.push((x + 1, y + 1));
+        }
+    }
+
+    // Collect unique non-zero values using Vec + sort/dedup for efficiency
+    // (at most 8 neighbors, so this is cheaper than BTreeSet)
+    let mut values: Vec<u32> = Vec::with_capacity(8);
+    for (nx, ny) in neighbors {
+        let val = pix.get_pixel(nx, ny).unwrap_or(0);
+        if val > 0 {
+            values.push(val);
+        }
+    }
+    values.sort_unstable();
+    values.dedup();
+
+    Ok(values)
 }
 
 #[cfg(test)]
