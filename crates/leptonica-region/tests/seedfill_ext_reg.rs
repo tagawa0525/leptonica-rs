@@ -42,7 +42,6 @@ fn make_uniform_8bpp(w: u32, h: u32, val: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_distance_function_single_pixel() {
     // 5x5 image with single foreground pixel at center
     let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
@@ -65,7 +64,6 @@ fn test_distance_function_single_pixel() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_distance_function_filled_rect() {
     // 11x11 image completely filled with foreground
     let pix = make_binary_rect(11, 11, 0, 0, 11, 11);
@@ -87,7 +85,6 @@ fn test_distance_function_filled_rect() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_distance_function_16bit() {
     let pix = make_binary_rect(5, 5, 0, 0, 5, 5);
     let dist = distance_function(
@@ -101,7 +98,6 @@ fn test_distance_function_16bit() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_distance_function_invalid_depth() {
     let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
     assert!(
@@ -120,7 +116,6 @@ fn test_distance_function_invalid_depth() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_equal_values_all_equal() {
     let pix1 = make_uniform_8bpp(10, 10, 128);
     let pix2 = make_uniform_8bpp(10, 10, 128);
@@ -135,7 +130,6 @@ fn test_find_equal_values_all_equal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_equal_values_none_equal() {
     let pix1 = make_uniform_8bpp(10, 10, 100);
     let pix2 = make_uniform_8bpp(10, 10, 200);
@@ -148,23 +142,23 @@ fn test_find_equal_values_none_equal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_equal_values_gradient() {
-    // Create two gradient images that cross at the midpoint
-    let pix1 = Pix::new(10, 1, PixelDepth::Bit8).unwrap();
+    // Create two gradient images that cross at x=4 (value 120)
+    let pix1 = Pix::new(9, 1, PixelDepth::Bit8).unwrap();
     let mut pm1 = pix1.try_into_mut().unwrap();
-    let pix2 = Pix::new(10, 1, PixelDepth::Bit8).unwrap();
+    let pix2 = Pix::new(9, 1, PixelDepth::Bit8).unwrap();
     let mut pm2 = pix2.try_into_mut().unwrap();
-    for x in 0..10u32 {
-        pm1.set_pixel_unchecked(x, 0, x * 25);
-        pm2.set_pixel_unchecked(x, 0, (9 - x) * 25);
+    for x in 0..9u32 {
+        pm1.set_pixel_unchecked(x, 0, x * 30); // 0,30,60,90,120,150,180,210,240
+        pm2.set_pixel_unchecked(x, 0, (8 - x) * 30); // 240,210,180,150,120,90,60,30,0
     }
     let pix1: Pix = pm1.into();
     let pix2: Pix = pm2.into();
     let mask = find_equal_values(&pix1, &pix2).unwrap();
-    // Only the crossing point(s) should match
-    let on_count: u32 = (0..10).map(|x| mask.get_pixel_unchecked(x, 0)).sum();
-    assert!(on_count >= 1 && on_count <= 2, "on_count = {on_count}");
+    // Exactly one crossing point at x=4 (both=120)
+    let on_count: u32 = (0..9).map(|x| mask.get_pixel_unchecked(x, 0)).sum();
+    assert_eq!(on_count, 1);
+    assert_eq!(mask.get_pixel_unchecked(4, 0), 1);
 }
 
 // ============================================================================
@@ -172,7 +166,6 @@ fn test_find_equal_values_gradient() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fill_closed_borders_box() {
     // Create a hollow rectangle (border only)
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -196,7 +189,6 @@ fn test_fill_closed_borders_box() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fill_closed_borders_open() {
     // Create a U-shape (open at top) - should NOT fill interior
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -220,7 +212,6 @@ fn test_fill_closed_borders_open() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_remove_seeded_components_basic() {
     // Mask: two separate rectangles
     let mask = Pix::new(20, 10, PixelDepth::Bit1).unwrap();
@@ -253,7 +244,6 @@ fn test_remove_seeded_components_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_remove_seeded_components_no_seeds() {
     let mask = make_binary_rect(10, 10, 2, 2, 8, 8);
     let seed = Pix::new(10, 10, PixelDepth::Bit1).unwrap(); // empty
@@ -267,7 +257,6 @@ fn test_remove_seeded_components_no_seeds() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedfill_gray_inv_basic() {
     // Seed: all 200, Mask: has valley at center (100)
     let seed = make_uniform_8bpp(5, 5, 200);
@@ -292,7 +281,6 @@ fn test_seedfill_gray_inv_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedfill_gray_inv_equal() {
     // Seed == Mask → output should equal both
     let pix = make_uniform_8bpp(5, 5, 128);
@@ -305,7 +293,6 @@ fn test_seedfill_gray_inv_equal() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedfill_binary_restricted_basic() {
     // Mask: long horizontal stripe
     let mask = make_binary_rect(30, 5, 0, 2, 30, 3);
@@ -325,7 +312,6 @@ fn test_seedfill_binary_restricted_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedfill_binary_restricted_no_limit() {
     // xmax=0, ymax=0 → no restriction, same as full seedfill
     let mask = make_binary_rect(10, 10, 0, 0, 10, 10);
