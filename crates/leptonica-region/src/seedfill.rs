@@ -559,7 +559,7 @@ pub fn distance_function(
     let mut dist: Vec<u32> = vec![0; (w * h) as usize];
     for y in 0..h {
         for x in 0..w {
-            if pix.get_pixel_unchecked(x, y) != 0 {
+            if pix.get_pixel(x, y).unwrap_or(0) != 0 {
                 dist[(y * w + x) as usize] = max_val;
             }
         }
@@ -685,7 +685,9 @@ pub fn find_equal_values(pix1: &Pix, pix2: &Pix) -> RegionResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            if pix1.get_pixel_unchecked(x, y) == pix2.get_pixel_unchecked(x, y) {
+            let v1 = pix1.get_pixel(x, y).unwrap_or(0);
+            let v2 = pix2.get_pixel(x, y).unwrap_or(0);
+            if v1 == v2 {
                 out_mut.set_pixel_unchecked(x, y, 1);
             }
         }
@@ -763,7 +765,7 @@ pub fn remove_seeded_components(
     // Initialize queue with seed pixels that are also in the mask
     for y in 0..h {
         for x in 0..w {
-            if seed.get_pixel_unchecked(x, y) != 0 && mask.get_pixel_unchecked(x, y) != 0 {
+            if seed.get_pixel(x, y).unwrap_or(0) != 0 && mask.get_pixel(x, y).unwrap_or(0) != 0 {
                 let idx = (y * w + x) as usize;
                 if !filled[idx] {
                     filled[idx] = true;
@@ -778,7 +780,7 @@ pub fn remove_seeded_components(
         let neighbors = get_neighbors(x, y, w, h, connectivity);
         for (nx, ny) in neighbors {
             let nidx = (ny * w + nx) as usize;
-            if !filled[nidx] && mask.get_pixel_unchecked(nx, ny) != 0 {
+            if !filled[nidx] && mask.get_pixel(nx, ny).unwrap_or(0) != 0 {
                 filled[nidx] = true;
                 queue.push_back((nx, ny));
             }
@@ -790,7 +792,7 @@ pub fn remove_seeded_components(
     let mut out_mut = out_pix.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
-            let mask_val = mask.get_pixel_unchecked(x, y);
+            let mask_val = mask.get_pixel(x, y).unwrap_or(0);
             let fill_val = if filled[(y * w + x) as usize] { 1 } else { 0 };
             // XOR: keep mask pixels NOT in seeded components
             out_mut.set_pixel_unchecked(x, y, mask_val ^ fill_val);
@@ -889,9 +891,9 @@ pub fn seedfill_gray_inv(
 
     for y in 0..height {
         for x in 0..width {
-            let seed_val = seed.get_pixel_unchecked(x, y);
-            let mask_val = mask.get_pixel_unchecked(x, y);
-            output.set_pixel_unchecked(x, y, seed_val.max(mask_val));
+            let seed_val = seed.get_pixel(x, y).unwrap_or(0);
+            let mask_val = mask.get_pixel(x, y).unwrap_or(0);
+            let _ = output.set_pixel(x, y, seed_val.max(mask_val));
         }
     }
 
@@ -908,7 +910,7 @@ pub fn seedfill_gray_inv(
         for y in 0..height {
             for x in 0..width {
                 let current = output.get_pixel(x, y).unwrap_or(0);
-                let mask_val = mask.get_pixel_unchecked(x, y);
+                let mask_val = mask.get_pixel(x, y).unwrap_or(0);
                 let mut min_neighbor = current;
 
                 if x > 0 {
@@ -940,7 +942,7 @@ pub fn seedfill_gray_inv(
         for y in (0..height).rev() {
             for x in (0..width).rev() {
                 let current = output.get_pixel(x, y).unwrap_or(0);
-                let mask_val = mask.get_pixel_unchecked(x, y);
+                let mask_val = mask.get_pixel(x, y).unwrap_or(0);
                 let mut min_neighbor = current;
 
                 if x + 1 < width {
@@ -1020,7 +1022,7 @@ pub fn seedfill_binary_restricted(
     // Initialize with seed pixels that are in the mask
     for y in 0..h {
         for x in 0..w {
-            if seed.get_pixel_unchecked(x, y) != 0 && mask.get_pixel_unchecked(x, y) != 0 {
+            if seed.get_pixel(x, y).unwrap_or(0) != 0 && mask.get_pixel(x, y).unwrap_or(0) != 0 {
                 let idx = (y * w + x) as usize;
                 if !filled[idx] {
                     filled[idx] = true;
@@ -1035,7 +1037,7 @@ pub fn seedfill_binary_restricted(
         let neighbors = get_neighbors(x, y, w, h, connectivity);
         for (nx, ny) in neighbors {
             let nidx = (ny * w + nx) as usize;
-            if !filled[nidx] && mask.get_pixel_unchecked(nx, ny) != 0 {
+            if !filled[nidx] && mask.get_pixel(nx, ny).unwrap_or(0) != 0 {
                 // Check distance restriction
                 if !no_limit {
                     let dx = (nx as i64 - sx as i64).unsigned_abs() as u32;
