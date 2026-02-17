@@ -83,10 +83,17 @@ pub use threshold::{
     compute_otsu_threshold,
     dither_to_binary,
     dither_to_binary_with_threshold,
+    generate_mask_by_band,
+    generate_mask_by_value,
     ordered_dither,
+    otsu_adaptive_threshold,
+    sauvola_binarize_tiled,
     sauvola_threshold,
     threshold_otsu,
+    threshold_to_2bpp,
+    threshold_to_4bpp,
     threshold_to_binary,
+    var_threshold_to_binary,
 };
 
 // Re-export quantization functions

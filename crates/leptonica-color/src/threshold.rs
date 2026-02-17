@@ -452,6 +452,133 @@ const BAYER_8X8: [u8; 64] = [
 // =============================================================================
 
 /// Ensure the image is 8-bit grayscale, converting if necessary
+// =============================================================================
+// Variable Threshold Binarization
+// =============================================================================
+
+/// Create a binary image by applying a per-pixel threshold map.
+///
+/// For each pixel: if `pixs[x,y] < pixg[x,y]`, output is 1 (foreground);
+/// otherwise 0 (background).
+///
+/// # See also
+///
+/// C Leptonica: `pixVarThresholdToBinary()` in `grayquant.c`
+#[allow(unused_variables)]
+pub fn var_threshold_to_binary(pix: &Pix, thresh_map: &Pix) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Mask Generation
+// =============================================================================
+
+/// Create a 1bpp mask where pixels exactly equal a given value.
+///
+/// # See also
+///
+/// C Leptonica: `pixGenerateMaskByValue()` in `grayquant.c`
+#[allow(unused_variables)]
+pub fn generate_mask_by_value(pix: &Pix, val: u32) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Create a 1bpp mask where pixels fall within (or outside) a value range.
+///
+/// If `in_band` is true, pixels with `lower <= val <= upper` are set.
+/// If `in_band` is false, pixels outside `[lower, upper]` are set.
+///
+/// # See also
+///
+/// C Leptonica: `pixGenerateMaskByBand()` in `grayquant.c`
+#[allow(unused_variables)]
+pub fn generate_mask_by_band(pix: &Pix, lower: u32, upper: u32, in_band: bool) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Multi-level Quantization
+// =============================================================================
+
+/// Quantize an 8bpp grayscale image to 2bpp (2, 3, or 4 levels).
+///
+/// Returns a 2bpp image. If `with_colormap` is true, a grayscale colormap
+/// is attached.
+///
+/// # See also
+///
+/// C Leptonica: `pixThresholdTo2bpp()` in `grayquant.c`
+#[allow(unused_variables)]
+pub fn threshold_to_2bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Quantize an 8bpp grayscale image to 4bpp (2-16 levels).
+///
+/// Returns a 4bpp image. If `with_colormap` is true, a grayscale colormap
+/// is attached.
+///
+/// # See also
+///
+/// C Leptonica: `pixThresholdTo4bpp()` in `grayquant.c`
+#[allow(unused_variables)]
+pub fn threshold_to_4bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Tiled Adaptive Thresholding
+// =============================================================================
+
+/// Perform tiled adaptive Otsu thresholding.
+///
+/// Divides the image into tiles of approximately `sx × sy` pixels,
+/// computes Otsu threshold per tile, optionally smooths the threshold map,
+/// and applies it to produce a binary image.
+///
+/// Returns `(threshold_map, binary_image)` where `threshold_map` is an 8bpp
+/// image of per-tile thresholds (upscaled to input size).
+///
+/// # See also
+///
+/// C Leptonica: `pixOtsuAdaptiveThreshold()` in `binarize.c`
+#[allow(unused_variables)]
+pub fn otsu_adaptive_threshold(
+    pix: &Pix,
+    sx: u32,
+    sy: u32,
+    smoothx: u32,
+    smoothy: u32,
+    score_fract: f32,
+) -> ColorResult<(Pix, Pix)> {
+    todo!()
+}
+
+/// Perform tiled Sauvola binarization.
+///
+/// Divides the image into `nx × ny` tiles with overlap, applies Sauvola
+/// thresholding to each tile, and assembles the result.
+///
+/// Returns `(threshold_map, binary_image)`.
+///
+/// # See also
+///
+/// C Leptonica: `pixSauvolaBinarizeTiled()` in `binarize.c`
+#[allow(unused_variables)]
+pub fn sauvola_binarize_tiled(
+    pix: &Pix,
+    whsize: u32,
+    factor: f32,
+    nx: u32,
+    ny: u32,
+) -> ColorResult<(Pix, Pix)> {
+    todo!()
+}
+
+// =============================================================================
+// Internal helpers
+// =============================================================================
+
 fn ensure_grayscale(pix: &Pix) -> ColorResult<Pix> {
     match pix.depth() {
         PixelDepth::Bit8 => Ok(pix.clone()),
