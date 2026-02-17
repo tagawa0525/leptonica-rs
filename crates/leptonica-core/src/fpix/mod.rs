@@ -642,6 +642,28 @@ impl FPix {
         result
     }
 
+    /// Create a template FPix with the same dimensions, zeroed data.
+    ///
+    /// Preserves the resolution (xres, yres) of the source.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `fpixCreateTemplate()` in `fpix1.c`
+    pub fn create_template(&self) -> FPix {
+        todo!()
+    }
+
+    /// Linear combination of two FPix: `a * fpix1 + b * fpix2`.
+    ///
+    /// Both images must have the same dimensions.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `fpixLinearCombination()` in `fpix2.c`
+    pub fn linear_combination_two(_a: f32, _fpix1: &FPix, _b: f32, _fpix2: &FPix) -> Result<FPix> {
+        todo!()
+    }
+
     /// Check that two FPix have the same dimensions
     fn check_same_size(&self, other: &FPix) -> Result<()> {
         if self.width != other.width || self.height != other.height {
@@ -778,6 +800,95 @@ impl std::ops::Div for &FPix {
 
     fn div(self, rhs: Self) -> Self::Output {
         FPix::div(self, rhs)
+    }
+}
+
+// ============================================================================
+// DPix - Double-precision floating-point image
+// ============================================================================
+
+/// Double-precision floating-point image
+///
+/// Similar to [`FPix`] but stores `f64` values for higher precision.
+/// Used when f32 precision is insufficient.
+///
+/// # Memory Layout
+///
+/// Data is stored in row-major order with no padding.
+///
+/// # See also
+///
+/// C Leptonica: `DPIX` in `pix.h`
+#[derive(Debug, Clone)]
+pub struct DPix {
+    /// Width in pixels
+    width: u32,
+    /// Height in pixels
+    height: u32,
+    /// Pixel data (row-major, no padding)
+    data: Vec<f64>,
+    /// X resolution (ppi), 0 if unknown
+    xres: i32,
+    /// Y resolution (ppi), 0 if unknown
+    yres: i32,
+}
+
+impl DPix {
+    /// Create a new DPix with all pixels set to zero.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `dpixCreate()` in `fpix1.c`
+    pub fn new(_width: u32, _height: u32) -> Result<Self> {
+        todo!()
+    }
+
+    /// Width in pixels.
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// Height in pixels.
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    /// Get pixel value at (x, y).
+    pub fn get_pixel(&self, _x: u32, _y: u32) -> Result<f64> {
+        todo!()
+    }
+
+    /// Set pixel value at (x, y).
+    pub fn set_pixel(&mut self, _x: u32, _y: u32, _value: f64) -> Result<()> {
+        todo!()
+    }
+
+    /// Raw read-only data access.
+    pub fn data(&self) -> &[f64] {
+        &self.data
+    }
+
+    /// Convert DPix to Pix.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `dpixConvertToPix()` in `fpix2.c`
+    pub fn to_pix(&self, _out_depth: u32, _neg_handling: NegativeHandling) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Convert DPix to FPix (lossy: f64 → f32).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `dpixConvertToFPix()` in `fpix2.c`
+    pub fn to_fpix(&self) -> FPix {
+        todo!()
+    }
+
+    /// Create DPix from FPix (lossless: f32 → f64).
+    pub fn from_fpix(_fpix: &FPix) -> Self {
+        todo!()
     }
 }
 

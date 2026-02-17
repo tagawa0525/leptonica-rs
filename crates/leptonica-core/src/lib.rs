@@ -29,7 +29,7 @@ pub mod sarray;
 pub use box_::{Box, Boxa, Boxaa, SizeRelation};
 pub use colormap::{PixColormap, RgbaQuad};
 pub use error::{Error, Result};
-pub use fpix::{FPix, NegativeHandling};
+pub use fpix::{DPix, FPix, NegativeHandling};
 pub use numa::{
     CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
     SortOrder, ThresholdComparison, WindowedStats,
