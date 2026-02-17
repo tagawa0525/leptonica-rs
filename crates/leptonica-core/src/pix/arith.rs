@@ -587,6 +587,44 @@ impl PixMut {
         self.arith_binary_op_inplace(other, ArithBinaryOp::Subtract)
     }
 
+    /// Multiply each pixel by a constant factor with offset for accumulators.
+    ///
+    /// Each pixel is adjusted: `val = (val - offset) * factor + offset`.
+    /// This is designed for 32bpp accumulator images.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor` - Multiplication factor
+    /// * `offset` - Offset used during accumulator initialization
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the image is not 32 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixMultConstAccumulate()` in `pixarith.c`
+    pub fn mult_const_accumulate(&mut self, factor: f32, offset: u32) -> Result<()> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let width = self.width();
+        let height = self.height();
+        let offset_f = offset as f64;
+
+        for y in 0..height {
+            for x in 0..width {
+                let val = self.get_pixel_unchecked(x, y) as f64;
+                let adjusted = (val - offset_f) * (factor as f64) + offset_f;
+                let result = adjusted.round().max(0.0).min(u32::MAX as f64) as u32;
+                self.set_pixel_unchecked(x, y, result);
+            }
+        }
+
+        Ok(())
+    }
+
     /// Internal helper for in-place binary arithmetic operations
     fn arith_binary_op_inplace(&mut self, other: &Pix, op: ArithBinaryOp) -> Result<()> {
         if self.depth() != other.depth() {

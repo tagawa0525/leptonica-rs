@@ -45,7 +45,7 @@ pub use convert::{Convert16To8Type, GrayConversionType, MinMaxType, RemoveColorm
 pub use graphics::{Color, ContourOutput, PixelOp};
 pub use histogram::ColorHistogram;
 pub use rgb::RgbComponent;
-pub use rop::RopOp;
+pub use rop::{InColor, RopOp};
 
 use crate::error::{Error, Result};
 use std::sync::Arc;

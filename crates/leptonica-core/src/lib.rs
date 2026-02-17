@@ -40,7 +40,7 @@ pub use pix::statistics::{
 };
 pub use pix::{
     BlendMode, Color, ColorHistogram, CompareResult, CompareType, ContourOutput, GrayBlendType,
-    ImageFormat, MaskBlendType, Pix, PixMut, PixelDepth, PixelDiffResult, PixelOp, RopOp,
+    ImageFormat, InColor, MaskBlendType, Pix, PixMut, PixelDepth, PixelDiffResult, PixelOp, RopOp,
     ScanDirection, blend_with_gray_mask, correlation_binary,
 };
 pub use pixa::{Pixa, PixaSortType, Pixaa};
