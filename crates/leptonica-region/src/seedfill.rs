@@ -499,6 +499,573 @@ pub fn clear_border(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<P
     Ok(result.into())
 }
 
+/// Boundary condition for distance function computation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryCondition {
+    /// Treat boundary as background (distance clamps at edges).
+    Background,
+    /// Treat boundary as foreground (distance increases at edges).
+    Foreground,
+}
+
+/// Compute the distance from each foreground pixel to the nearest
+/// background pixel using a Chamfer distance transform.
+///
+/// Uses forward/backward raster scans for O(n) performance.
+///
+/// # Arguments
+///
+/// * `pix` - 1-bpp binary input image
+/// * `connectivity` - 4 or 8-way connectivity
+/// * `out_depth` - Output depth: [`PixelDepth::Bit8`] (max 254) or
+///   [`PixelDepth::Bit16`] (max 65534)
+/// * `boundary_cond` - How to handle pixels at image boundaries
+///
+/// # See also
+///
+/// C Leptonica: `pixDistanceFunction()` in `seedfill.c`
+pub fn distance_function(
+    pix: &Pix,
+    connectivity: ConnectivityType,
+    out_depth: PixelDepth,
+    boundary_cond: BoundaryCondition,
+) -> RegionResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+    if out_depth != PixelDepth::Bit8 && out_depth != PixelDepth::Bit16 {
+        return Err(RegionError::InvalidParameters(
+            "out_depth must be 8 or 16".to_string(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let max_val: u32 = if out_depth == PixelDepth::Bit8 {
+        254
+    } else {
+        0xfffe
+    };
+
+    // Initialize: foreground pixels get max_val, background gets 0
+    let init_val = match boundary_cond {
+        BoundaryCondition::Background => 0u32,
+        BoundaryCondition::Foreground => max_val,
+    };
+
+    let mut dist: Vec<u32> = vec![0; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            if pix.get_pixel(x, y).unwrap_or(0) != 0 {
+                dist[(y * w + x) as usize] = max_val;
+            }
+        }
+    }
+
+    let use_diag = connectivity == ConnectivityType::EightWay;
+
+    // Forward pass (top-left to bottom-right)
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) as usize;
+            if dist[idx] == 0 {
+                continue;
+            }
+            let mut min_neighbor = max_val;
+            // Left
+            if x > 0 {
+                min_neighbor = min_neighbor.min(dist[idx - 1]);
+            } else {
+                min_neighbor = min_neighbor.min(init_val);
+            }
+            // Above
+            if y > 0 {
+                min_neighbor = min_neighbor.min(dist[((y - 1) * w + x) as usize]);
+            } else {
+                min_neighbor = min_neighbor.min(init_val);
+            }
+            if use_diag {
+                // Above-left
+                if x > 0 && y > 0 {
+                    min_neighbor = min_neighbor.min(dist[((y - 1) * w + x - 1) as usize]);
+                } else {
+                    min_neighbor = min_neighbor.min(init_val);
+                }
+                // Above-right
+                if x + 1 < w && y > 0 {
+                    min_neighbor = min_neighbor.min(dist[((y - 1) * w + x + 1) as usize]);
+                } else {
+                    min_neighbor = min_neighbor.min(init_val);
+                }
+            }
+            dist[idx] = dist[idx].min(min_neighbor.saturating_add(1));
+        }
+    }
+
+    // Backward pass (bottom-right to top-left)
+    for y in (0..h).rev() {
+        for x in (0..w).rev() {
+            let idx = (y * w + x) as usize;
+            if dist[idx] == 0 {
+                continue;
+            }
+            let mut min_neighbor = max_val;
+            // Right
+            if x + 1 < w {
+                min_neighbor = min_neighbor.min(dist[idx + 1]);
+            } else {
+                min_neighbor = min_neighbor.min(init_val);
+            }
+            // Below
+            if y + 1 < h {
+                min_neighbor = min_neighbor.min(dist[((y + 1) * w + x) as usize]);
+            } else {
+                min_neighbor = min_neighbor.min(init_val);
+            }
+            if use_diag {
+                // Below-right
+                if x + 1 < w && y + 1 < h {
+                    min_neighbor = min_neighbor.min(dist[((y + 1) * w + x + 1) as usize]);
+                } else {
+                    min_neighbor = min_neighbor.min(init_val);
+                }
+                // Below-left
+                if x > 0 && y + 1 < h {
+                    min_neighbor = min_neighbor.min(dist[((y + 1) * w + x - 1) as usize]);
+                } else {
+                    min_neighbor = min_neighbor.min(init_val);
+                }
+            }
+            dist[idx] = dist[idx].min(min_neighbor.saturating_add(1));
+        }
+    }
+
+    // Write to output Pix
+    let out_pix = Pix::new(w, h, out_depth).map_err(RegionError::Core)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            out_mut.set_pixel_unchecked(x, y, dist[(y * w + x) as usize]);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Create a binary mask where two 8-bpp images have equal pixel values.
+///
+/// Returns a 1-bpp image with foreground pixels at locations where
+/// `pix1` and `pix2` have the same value.
+///
+/// # See also
+///
+/// C Leptonica: `pixFindEqualValues()` in `seedfill.c`
+pub fn find_equal_values(pix1: &Pix, pix2: &Pix) -> RegionResult<Pix> {
+    if pix1.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pix1.depth().bits(),
+        });
+    }
+    if pix2.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pix2.depth().bits(),
+        });
+    }
+
+    let w = pix1.width().min(pix2.width());
+    let h = pix1.height().min(pix2.height());
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let v1 = pix1.get_pixel(x, y).unwrap_or(0);
+            let v2 = pix2.get_pixel(x, y).unwrap_or(0);
+            if v1 == v2 {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Fill regions completely enclosed by foreground borders.
+///
+/// Identifies regions of background that are entirely surrounded by
+/// foreground and fills them. Unlike [`fill_holes`], this operates
+/// on the complement: it fills closed bordered regions.
+///
+/// Algorithm: seed from border → invert → OR with original.
+///
+/// # See also
+///
+/// C Leptonica: `pixFillClosedBorders()` in `seedfill.c`
+pub fn fill_closed_borders(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    // Algorithm: Create seed at border, use inverted image as mask,
+    // seedfill, then invert result.
+    // fill_holes already implements this exact logic (fill interior
+    // background regions surrounded by foreground), so delegate.
+    fill_holes(pix, connectivity)
+}
+
+/// Remove connected components in a mask that contain seed pixels.
+///
+/// Performs seedfill from each seed pixel into the mask, then subtracts
+/// the filled result from the mask to remove seeded components.
+///
+/// # Arguments
+///
+/// * `seed` - 1-bpp seed image (pixels marking components to remove)
+/// * `mask` - 1-bpp mask image (components to filter)
+/// * `connectivity` - 4 or 8-way connectivity
+///
+/// # See also
+///
+/// C Leptonica: `pixRemoveSeededComponents()` in `seedfill.c`
+pub fn remove_seeded_components(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<Pix> {
+    if seed.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: seed.depth().bits(),
+        });
+    }
+    if mask.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: mask.depth().bits(),
+        });
+    }
+
+    let w = mask.width();
+    let h = mask.height();
+
+    // Binary morphological reconstruction: expand seed within mask
+    // using BFS to find all mask pixels connected to any seed pixel.
+    let mut filled = vec![false; (w * h) as usize];
+    let mut queue = VecDeque::new();
+
+    // Initialize queue with seed pixels that are also in the mask
+    for y in 0..h {
+        for x in 0..w {
+            if seed.get_pixel(x, y).unwrap_or(0) != 0 && mask.get_pixel(x, y).unwrap_or(0) != 0 {
+                let idx = (y * w + x) as usize;
+                if !filled[idx] {
+                    filled[idx] = true;
+                    queue.push_back((x, y));
+                }
+            }
+        }
+    }
+
+    // BFS expansion within mask
+    while let Some((x, y)) = queue.pop_front() {
+        let neighbors = get_neighbors(x, y, w, h, connectivity);
+        for (nx, ny) in neighbors {
+            let nidx = (ny * w + nx) as usize;
+            if !filled[nidx] && mask.get_pixel(nx, ny).unwrap_or(0) != 0 {
+                filled[nidx] = true;
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+
+    // Result = mask XOR filled (removes seeded components)
+    let out_pix = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let mask_val = mask.get_pixel(x, y).unwrap_or(0);
+            let fill_val = if filled[(y * w + x) as usize] { 1 } else { 0 };
+            // XOR: keep mask pixels NOT in seeded components
+            out_mut.set_pixel_unchecked(x, y, mask_val ^ fill_val);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Get neighbors for a pixel based on connectivity.
+fn get_neighbors(
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+    connectivity: ConnectivityType,
+) -> Vec<(u32, u32)> {
+    let mut n = Vec::with_capacity(8);
+    if x > 0 {
+        n.push((x - 1, y));
+    }
+    if x + 1 < w {
+        n.push((x + 1, y));
+    }
+    if y > 0 {
+        n.push((x, y - 1));
+    }
+    if y + 1 < h {
+        n.push((x, y + 1));
+    }
+    if connectivity == ConnectivityType::EightWay {
+        if x > 0 && y > 0 {
+            n.push((x - 1, y - 1));
+        }
+        if x + 1 < w && y > 0 {
+            n.push((x + 1, y - 1));
+        }
+        if x > 0 && y + 1 < h {
+            n.push((x - 1, y + 1));
+        }
+        if x + 1 < w && y + 1 < h {
+            n.push((x + 1, y + 1));
+        }
+    }
+    n
+}
+
+/// Inverse grayscale seedfill (basin filling).
+///
+/// Like [`seedfill_gray`], but the seed value is propagated *downward*
+/// (clipped from below by the mask) rather than upward. In each pass,
+/// the minimum of the current value and its neighbors is taken, clipped
+/// to be no less than the mask value.
+///
+/// # Arguments
+///
+/// * `seed` - 8-bpp seed image (values ≥ mask everywhere)
+/// * `mask` - 8-bpp mask image (lower bound)
+/// * `connectivity` - 4 or 8-way connectivity
+///
+/// # See also
+///
+/// C Leptonica: `pixSeedfillGrayInv()` in `seedfill.c`
+pub fn seedfill_gray_inv(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<Pix> {
+    if seed.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: seed.depth().bits(),
+        });
+    }
+    if mask.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: mask.depth().bits(),
+        });
+    }
+
+    let width = seed.width();
+    let height = seed.height();
+
+    if mask.width() != width || mask.height() != height {
+        return Err(RegionError::InvalidParameters(
+            "seed and mask must have the same dimensions".to_string(),
+        ));
+    }
+
+    // Initialize output: seed clamped to be >= mask (since we propagate downward)
+    let mut output = Pix::new(width, height, PixelDepth::Bit8)
+        .map_err(RegionError::Core)?
+        .try_into_mut()
+        .unwrap_or_else(|p| p.to_mut());
+
+    for y in 0..height {
+        for x in 0..width {
+            let seed_val = seed.get_pixel(x, y).unwrap_or(0);
+            let mask_val = mask.get_pixel(x, y).unwrap_or(0);
+            let _ = output.set_pixel(x, y, seed_val.max(mask_val));
+        }
+    }
+
+    // Iterative reconstruction: propagate minimum values, clipped by mask from below
+    let mut changed = true;
+    let mut iterations = 0;
+    const MAX_ITERATIONS: u32 = 10000;
+
+    while changed && iterations < MAX_ITERATIONS {
+        changed = false;
+        iterations += 1;
+
+        // Forward pass
+        for y in 0..height {
+            for x in 0..width {
+                let current = output.get_pixel(x, y).unwrap_or(0);
+                let mask_val = mask.get_pixel(x, y).unwrap_or(0);
+                let mut min_neighbor = current;
+
+                if x > 0 {
+                    min_neighbor = min_neighbor.min(output.get_pixel(x - 1, y).unwrap_or(255));
+                }
+                if y > 0 {
+                    min_neighbor = min_neighbor.min(output.get_pixel(x, y - 1).unwrap_or(255));
+                }
+                if connectivity == ConnectivityType::EightWay {
+                    if x > 0 && y > 0 {
+                        min_neighbor =
+                            min_neighbor.min(output.get_pixel(x - 1, y - 1).unwrap_or(255));
+                    }
+                    if x + 1 < width && y > 0 {
+                        min_neighbor =
+                            min_neighbor.min(output.get_pixel(x + 1, y - 1).unwrap_or(255));
+                    }
+                }
+
+                let new_val = min_neighbor.max(mask_val);
+                if new_val < current {
+                    let _ = output.set_pixel(x, y, new_val);
+                    changed = true;
+                }
+            }
+        }
+
+        // Backward pass
+        for y in (0..height).rev() {
+            for x in (0..width).rev() {
+                let current = output.get_pixel(x, y).unwrap_or(0);
+                let mask_val = mask.get_pixel(x, y).unwrap_or(0);
+                let mut min_neighbor = current;
+
+                if x + 1 < width {
+                    min_neighbor = min_neighbor.min(output.get_pixel(x + 1, y).unwrap_or(255));
+                }
+                if y + 1 < height {
+                    min_neighbor = min_neighbor.min(output.get_pixel(x, y + 1).unwrap_or(255));
+                }
+                if connectivity == ConnectivityType::EightWay {
+                    if x + 1 < width && y + 1 < height {
+                        min_neighbor =
+                            min_neighbor.min(output.get_pixel(x + 1, y + 1).unwrap_or(255));
+                    }
+                    if x > 0 && y + 1 < height {
+                        min_neighbor =
+                            min_neighbor.min(output.get_pixel(x - 1, y + 1).unwrap_or(255));
+                    }
+                }
+
+                let new_val = min_neighbor.max(mask_val);
+                if new_val < current {
+                    let _ = output.set_pixel(x, y, new_val);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    Ok(output.into())
+}
+
+/// Binary seedfill restricted to a maximum distance from seed pixels.
+///
+/// Performs a full binary seedfill within the mask, then restricts the
+/// result to only include pixels within `xmax` and `ymax` distance
+/// from the nearest seed pixel.
+///
+/// # Arguments
+///
+/// * `seed` - 1-bpp seed image
+/// * `mask` - 1-bpp filling mask
+/// * `connectivity` - 4 or 8-way connectivity
+/// * `xmax` - Maximum horizontal fill distance (0 = no limit)
+/// * `ymax` - Maximum vertical fill distance (0 = no limit)
+///
+/// # See also
+///
+/// C Leptonica: `pixSeedfillBinaryRestricted()` in `seedfill.c`
+pub fn seedfill_binary_restricted(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+    xmax: u32,
+    ymax: u32,
+) -> RegionResult<Pix> {
+    if seed.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: seed.depth().bits(),
+        });
+    }
+    if mask.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: mask.depth().bits(),
+        });
+    }
+
+    let w = mask.width();
+    let h = mask.height();
+    let no_limit = xmax == 0 && ymax == 0;
+
+    // BFS seedfill within mask, tracking distance from nearest seed
+    let mut filled = vec![false; (w * h) as usize];
+    let mut queue = VecDeque::new();
+
+    // Initialize with seed pixels that are in the mask
+    for y in 0..h {
+        for x in 0..w {
+            if seed.get_pixel(x, y).unwrap_or(0) != 0 && mask.get_pixel(x, y).unwrap_or(0) != 0 {
+                let idx = (y * w + x) as usize;
+                if !filled[idx] {
+                    filled[idx] = true;
+                    queue.push_back((x, y, x, y)); // (current_x, current_y, seed_x, seed_y)
+                }
+            }
+        }
+    }
+
+    // BFS with distance tracking
+    while let Some((x, y, sx, sy)) = queue.pop_front() {
+        let neighbors = get_neighbors(x, y, w, h, connectivity);
+        for (nx, ny) in neighbors {
+            let nidx = (ny * w + nx) as usize;
+            if !filled[nidx] && mask.get_pixel(nx, ny).unwrap_or(0) != 0 {
+                // Check distance restriction
+                if !no_limit {
+                    let dx = (nx as i64 - sx as i64).unsigned_abs() as u32;
+                    let dy = (ny as i64 - sy as i64).unsigned_abs() as u32;
+                    if (xmax > 0 && dx > xmax) || (ymax > 0 && dy > ymax) {
+                        continue;
+                    }
+                }
+                filled[nidx] = true;
+                queue.push_back((nx, ny, sx, sy));
+            }
+        }
+    }
+
+    // Write result
+    let out_pix = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            if filled[(y * w + x) as usize] {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
