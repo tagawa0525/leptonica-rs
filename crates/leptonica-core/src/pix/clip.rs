@@ -796,7 +796,7 @@ impl Pix {
                         loc = x;
                     }
                     if avg >= highthresh {
-                        if (x - loc) < maxwidth as u32 {
+                        if (x - loc) <= maxwidth as u32 {
                             return Ok(loc);
                         }
                         return Err(Error::InvalidParameter(
@@ -818,7 +818,7 @@ impl Pix {
                         loc = x;
                     }
                     if avg >= highthresh {
-                        if (loc - x) < maxwidth as u32 {
+                        if (loc - x) <= maxwidth as u32 {
                             return Ok(loc);
                         }
                         return Err(Error::InvalidParameter(
@@ -840,7 +840,7 @@ impl Pix {
                         loc = y;
                     }
                     if avg >= highthresh {
-                        if (y - loc) < maxwidth as u32 {
+                        if (y - loc) <= maxwidth as u32 {
                             return Ok(loc);
                         }
                         return Err(Error::InvalidParameter(
@@ -862,7 +862,7 @@ impl Pix {
                         loc = y;
                     }
                     if avg >= highthresh {
-                        if (loc - y) < maxwidth as u32 {
+                        if (loc - y) <= maxwidth as u32 {
                             return Ok(loc);
                         }
                         return Err(Error::InvalidParameter(
@@ -1034,10 +1034,16 @@ impl Pix {
         let wm = mask.width();
         let hm = mask.height();
 
-        // Clip source at mask position
+        // Compute the offset into the mask when the position is negative
+        let mask_ox = (-x).max(0) as u32;
+        let mask_oy = (-y).max(0) as u32;
+
+        // Clip source at mask position (clamped to image bounds)
         let sx = x.max(0) as u32;
         let sy = y.max(0) as u32;
-        let pixd = self.clip_rectangle(sx, sy, wm, hm)?;
+        let clip_w = wm.saturating_sub(mask_ox);
+        let clip_h = hm.saturating_sub(mask_oy);
+        let pixd = self.clip_rectangle(sx, sy, clip_w, clip_h)?;
         let mut pm = pixd.try_into_mut().unwrap();
         let dw = pm.width();
         let dh = pm.height();
@@ -1045,11 +1051,9 @@ impl Pix {
         // Paint outval through pixels NOT in the mask
         for dy in 0..dh {
             for dx in 0..dw {
-                if dx < wm && dy < hm {
-                    let bit = mask.get_pixel_unchecked(dx, dy);
-                    if bit == 0 {
-                        pm.set_pixel_unchecked(dx, dy, outval);
-                    }
+                let bit = mask.get_pixel_unchecked(dx + mask_ox, dy + mask_oy);
+                if bit == 0 {
+                    pm.set_pixel_unchecked(dx, dy, outval);
                 }
             }
         }
@@ -1154,6 +1158,9 @@ impl Pix {
     }
 
     /// Compute the sum of pixel values along a column within a region.
+    ///
+    /// For 8bpp images, the maximum sum is 255 * height. With typical
+    /// image dimensions (height <= 8_000_000), this fits within i32.
     fn column_sum_in_region(&self, x: u32, y_start: u32, height: u32, factor: u32) -> i32 {
         let mut sum = 0i64;
         let mut y = y_start;
@@ -1165,6 +1172,9 @@ impl Pix {
     }
 
     /// Compute the sum of pixel values along a row within a region.
+    ///
+    /// For 8bpp images, the maximum sum is 255 * width. With typical
+    /// image dimensions (width <= 8_000_000), this fits within i32.
     fn row_sum_in_region(&self, y: u32, x_start: u32, width: u32, factor: u32) -> i32 {
         let mut sum = 0i64;
         let mut x = x_start;

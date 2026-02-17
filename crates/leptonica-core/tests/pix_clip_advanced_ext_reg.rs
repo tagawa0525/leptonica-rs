@@ -67,6 +67,24 @@ fn test_scan_for_edge_from_top() {
     assert!((loc as i32 - 25).abs() <= 2);
 }
 
+#[test]
+fn test_scan_for_edge_from_bottom() {
+    let pix = Pix::new(50, 100, PixelDepth::Bit8).unwrap();
+    let mut pm = pix.to_mut();
+    for y in 0..75u32 {
+        for x in 0..50 {
+            pm.set_pixel_unchecked(x, y, 200);
+        }
+    }
+    let pix: Pix = pm.into();
+
+    let region = Box::new(0, 0, 50, 100).unwrap();
+    let loc = pix
+        .scan_for_edge(&region, 50, 150, 5, 1, ScanDirection::FromBot)
+        .unwrap();
+    assert!((loc as i32 - 74).abs() <= 2);
+}
+
 // ============================================================================
 // Pix::clip_box_to_edges
 // ============================================================================
