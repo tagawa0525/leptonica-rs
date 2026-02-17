@@ -27,8 +27,8 @@ pub use sel::{Sel, SelElement};
 
 // Re-export commonly used binary morphology functions
 pub use binary::{
-    bottom_hat, close, close_brick, dilate, dilate_brick, erode, erode_brick, gradient,
-    hit_miss_transform, open, open_brick, top_hat,
+    BoundaryType, bottom_hat, close, close_brick, dilate, dilate_brick, erode, erode_brick,
+    extract_boundary, gradient, hit_miss_transform, open, open_brick, top_hat,
 };
 
 // Re-export commonly used grayscale morphology functions

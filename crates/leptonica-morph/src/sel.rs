@@ -3,6 +3,7 @@
 //! A structuring element defines the neighborhood used in morphological operations.
 
 use crate::{MorphError, MorphResult};
+use leptonica_core::Pix;
 
 /// Element type in a structuring element
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -473,6 +474,78 @@ impl Sel {
                     None
                 }
             })
+    }
+
+    /// Find the maximum translations of hit elements relative to the origin.
+    ///
+    /// Returns `(xp, yp, xn, yn)` where each value is a non-negative
+    /// translation *magnitude*:
+    /// - `xp`: maximum positive x-translation (+x) required due to hits located
+    ///   to the left of the origin (`cx - x`)
+    /// - `yp`: maximum positive y-translation (+y) required due to hits located
+    ///   above the origin (`cy - y`)
+    /// - `xn`: maximum negative x-translation (−x) required due to hits located
+    ///   to the right of the origin (`x - cx`)
+    /// - `yn`: maximum negative y-translation (−y) required due to hits located
+    ///   below the origin (`y - cy`)
+    ///
+    /// Used to determine the safe erosion/HMT application region.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `selFindMaxTranslations()` in `sel1.c`
+    pub fn find_max_translations(&self) -> (u32, u32, u32, u32) {
+        let cx = self.cx as i32;
+        let cy = self.cy as i32;
+        let mut xp: i32 = 0;
+        let mut yp: i32 = 0;
+        let mut xn: i32 = 0;
+        let mut yn: i32 = 0;
+
+        for (idx, &elem) in self.data.iter().enumerate() {
+            if elem == SelElement::Hit {
+                let x = (idx as u32 % self.width) as i32;
+                let y = (idx as u32 / self.width) as i32;
+                xp = xp.max(cx - x);
+                yp = yp.max(cy - y);
+                xn = xn.max(x - cx);
+                yn = yn.max(y - cy);
+            }
+        }
+
+        (xp as u32, yp as u32, xn as u32, yn as u32)
+    }
+
+    /// Create a structuring element from a 1-bpp image.
+    ///
+    /// Each foreground pixel in the image becomes a Hit element.
+    /// All other pixels become DontCare.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `selCreateFromPix()` in `sel1.c`
+    pub fn from_pix(pix: &Pix, cx: u32, cy: u32) -> MorphResult<Self> {
+        if pix.depth() != leptonica_core::PixelDepth::Bit1 {
+            return Err(MorphError::UnsupportedDepth {
+                expected: "1 bpp",
+                actual: pix.depth() as u32,
+            });
+        }
+
+        let w = pix.width();
+        let h = pix.height();
+        let mut sel = Sel::new(w, h)?;
+        sel.set_origin(cx, cy)?;
+
+        for y in 0..h {
+            for x in 0..w {
+                if pix.get_pixel_unchecked(x, y) != 0 {
+                    sel.set_element(x, y, SelElement::Hit);
+                }
+            }
+        }
+
+        Ok(sel)
     }
 }
 

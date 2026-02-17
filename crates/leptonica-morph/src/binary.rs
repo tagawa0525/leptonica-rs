@@ -240,6 +240,68 @@ fn subtract(a: &Pix, b: &Pix) -> MorphResult<Pix> {
     Ok(out_mut.into())
 }
 
+/// Boundary type for [`extract_boundary`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryType {
+    /// Background boundary: pixels just outside the foreground objects.
+    /// Computed as (dilate 3×3) XOR original.
+    Outer,
+    /// Foreground boundary: pixels on the inner edge of foreground objects.
+    /// Computed as (erode 3×3) XOR original.
+    Inner,
+}
+
+/// Extract boundary pixels from a 1-bpp binary image.
+///
+/// Returns a 1-bpp image containing only the boundary pixels of
+/// foreground components.
+///
+/// - [`BoundaryType::Outer`]: background pixels adjacent to foreground
+///   (dilation XOR original)
+/// - [`BoundaryType::Inner`]: foreground pixels adjacent to background
+///   (erosion XOR original)
+///
+/// # See also
+///
+/// C Leptonica: `pixExtractBoundary()` in `morphapp.c`
+pub fn extract_boundary(pix: &Pix, boundary_type: BoundaryType) -> MorphResult<Pix> {
+    check_binary(pix)?;
+
+    let morphed = match boundary_type {
+        BoundaryType::Outer => dilate_brick(pix, 3, 3)?,
+        BoundaryType::Inner => erode_brick(pix, 3, 3)?,
+    };
+
+    xor(pix, &morphed)
+}
+
+/// XOR two binary images
+fn xor(a: &Pix, b: &Pix) -> MorphResult<Pix> {
+    let w = a.width();
+    let h = a.height();
+    let wpl = a.wpl() as usize;
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    let a_data = a.data();
+    let b_data = b.data();
+    let out_data = out_mut.data_mut();
+
+    for y in 0..h as usize {
+        let offset = y * wpl;
+        for i in 0..wpl {
+            out_data[offset + i] = a_data[offset + i] ^ b_data[offset + i];
+        }
+    }
+
+    // Clear unused padding bits beyond the image width to avoid
+    // propagating garbage into subsequent morphology.
+    clear_unused_bits(out_data, w, wpl);
+
+    Ok(out_mut.into())
+}
+
 /// Dilate with a brick (rectangular) structuring element
 ///
 /// Uses separable + composite decomposition for optimal performance.
