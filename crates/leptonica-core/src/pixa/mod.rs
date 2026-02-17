@@ -3,9 +3,44 @@
 //! These structures manage collections of images, optionally with
 //! associated bounding boxes for each image.
 
-use crate::box_::{Box, Boxa};
+use crate::box_::{Box, Boxa, SizeRelation};
 use crate::error::{Error, Result};
+use crate::numa::SortOrder;
 use crate::pix::{Pix, PixelDepth};
+
+/// Sort key for Pixa sorting operations.
+///
+/// Determines which property of the bounding box or image is used
+/// as the sort key.
+///
+/// # See also
+///
+/// C Leptonica: `L_SORT_BY_*` constants in `pix.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PixaSortType {
+    /// Sort by left edge (box.x)
+    ByX,
+    /// Sort by top edge (box.y)
+    ByY,
+    /// Sort by right edge (box.x + box.w)
+    ByRight,
+    /// Sort by bottom edge (box.y + box.h)
+    ByBottom,
+    /// Sort by width
+    ByWidth,
+    /// Sort by height
+    ByHeight,
+    /// Sort by min(width, height)
+    ByMinDimension,
+    /// Sort by max(width, height)
+    ByMaxDimension,
+    /// Sort by perimeter (2*(w+h))
+    ByPerimeter,
+    /// Sort by area (w*h)
+    ByArea,
+    /// Sort by aspect ratio (w/h as f64)
+    ByAspectRatio,
+}
 
 /// Array of Pix images
 ///
@@ -281,6 +316,100 @@ impl Pixa {
         }
 
         Ok(true)
+    }
+
+    // ========================================================================
+    // Selection functions
+    // ========================================================================
+
+    /// Select Pix images by width and height threshold.
+    ///
+    /// Returns a new Pixa containing only images whose dimensions satisfy
+    /// the given relation against the threshold values. Both width AND height
+    /// must satisfy the relation.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSelectBySize()` in `pixafunc1.c`
+    pub fn select_by_size(&self, _width: i32, _height: i32, _relation: SizeRelation) -> Pixa {
+        todo!()
+    }
+
+    /// Select Pix images by area threshold.
+    ///
+    /// Returns a new Pixa containing only images whose area (width * height)
+    /// satisfies the given relation against the threshold.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSelectByArea()` (subset of `pixaSelectBySize`)
+    pub fn select_by_area(&self, _area: i64, _relation: SizeRelation) -> Pixa {
+        todo!()
+    }
+
+    // ========================================================================
+    // Sort functions
+    // ========================================================================
+
+    /// Sort Pixa by a specified key, returning a new sorted Pixa.
+    ///
+    /// Sorts by bounding box properties (x, y, width, height, area, etc.)
+    /// or by image dimensions when no boxes are present.
+    /// Returns the sorted Pixa and the permutation index array.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSort()` in `pixafunc1.c`
+    pub fn sort(&self, _sort_type: PixaSortType, _order: SortOrder) -> (Pixa, Vec<usize>) {
+        todo!()
+    }
+
+    /// Reorder Pixa by a permutation index array.
+    ///
+    /// Returns a new Pixa with elements reordered according to the index array.
+    /// `indices[i]` gives the index in `self` of the element that should appear
+    /// at position `i` in the result.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSortByIndex()` in `pixafunc1.c`
+    pub fn sort_by_index(&self, _indices: &[usize]) -> Result<Pixa> {
+        todo!()
+    }
+
+    // ========================================================================
+    // Display / composition functions
+    // ========================================================================
+
+    /// Compose all Pix images onto a single canvas.
+    ///
+    /// Each image is placed at its associated bounding box position.
+    /// Images without boxes are placed at (0, 0). If `w` or `h` is 0,
+    /// the canvas size is computed from the extent of all boxes.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaDisplay()` in `pixafunc1.c`
+    pub fn display(&self, _w: u32, _h: u32) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Arrange all Pix images in a tiled layout.
+    ///
+    /// Images are placed left-to-right, wrapping to the next row when
+    /// `max_width` is exceeded. Returns the composited image.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_width` - Maximum width before wrapping to next row
+    /// * `background` - Background pixel value (0 for black, 255 for white)
+    /// * `spacing` - Pixels of spacing between images
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaDisplayTiled()` in `pixafunc1.c`
+    pub fn display_tiled(&self, _max_width: u32, _background: u32, _spacing: u32) -> Result<Pix> {
+        todo!()
     }
 
     /// Create a deep copy of this Pixa
