@@ -1,17 +1,17 @@
 # leptonica-core: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-15
+調査日: 2026-02-17
 
 ## サマリー
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 175 |
-| 🔄 異なる | 23 |
-| ❌ 未実装 | 650 |
-| 合計 | 848 |
+| ✅ 同等 | 201 |
+| 🔄 異なる | 25 |
+| ❌ 未実装 | 619 |
+| 合計 | 845 |
 
-**カバレッジ**: 23.3% (198/848 関数が何らかの形で実装済み)
+**カバレッジ**: 26.7% (226/845 関数が何らかの形で実装済み)
 
 ## 注記
 
@@ -238,7 +238,7 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 | pixGetRowStats | ❌ | - | |
 | pixGetColumnStats | ❌ | - | |
 | pixSetPixelColumn | ❌ | - | |
-| pixThresholdForFgBg | ❌ | - | |
+| pixThresholdForFgBg | ✅ | clip.rs threshold_for_fg_bg() | |
 | pixSplitDistributionFgBg | ❌ | - | |
 
 ### pix5.c (選択・測定)
@@ -264,13 +264,13 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 | pixClipRectangles | ❌ | - | clip.rsに関連実装あり |
 | pixClipRectangle | ❌ | - | |
 | pixClipRectangleWithBorder | ❌ | - | |
-| pixClipMasked | ❌ | - | |
+| pixClipMasked | ✅ | clip.rs clip_masked() | |
 | pixCropToMatch | ❌ | - | |
 | pixCropToSize | ❌ | - | |
 | pixResizeToMatch | ❌ | - | |
 | pixSelectComponentBySize | ❌ | - | |
 | pixFilterComponentBySize | ❌ | - | |
-| pixMakeSymmetricMask | ❌ | - | |
+| pixMakeSymmetricMask | ✅ | clip.rs make_symmetric_mask() | |
 | pixMakeFrameMask | ❌ | - | |
 | pixMakeCoveringOfRectangles | ❌ | - | |
 | pixFractionFgInMask | ❌ | - | |
@@ -278,8 +278,8 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 | pixTestClipToForeground | ❌ | - | |
 | pixClipBoxToForeground | ❌ | - | |
 | pixScanForForeground | ❌ | - | |
-| pixClipBoxToEdges | ❌ | - | |
-| pixScanForEdge | ❌ | - | |
+| pixClipBoxToEdges | ✅ | clip.rs clip_box_to_edges() | |
+| pixScanForEdge | ✅ | clip.rs scan_for_edge() | 8bpp適応版 |
 | pixExtractOnLine | ❌ | - | extract.rsに関連実装あり |
 | pixAverageOnLine | ❌ | - | |
 | pixAverageIntensityProfile | ❌ | - | |
@@ -708,7 +708,7 @@ numafunc2.c (ヒストグラム・統計)の多くの関数も未実装。
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | fpixCreate | ✅ | FPix::new() | |
-| fpixCreateTemplate | ❌ | - | |
+| fpixCreateTemplate | ✅ | FPix::create_template() | |
 | fpixClone | ✅ | FPix::clone() | |
 | fpixCopy | ✅ | FPix::clone() | |
 | fpixDestroy | 🔄 | drop() | 自動 |
@@ -733,10 +733,10 @@ numafunc2.c (ヒストグラム・統計)の多くの関数も未実装。
 | fpixaGetData | ❌ | - | |
 | fpixaGetPixel | ❌ | - | |
 | fpixaSetPixel | ❌ | - | |
-| dpixCreate | ❌ | - | DPix未実装 |
-| dpixClone | ❌ | - | |
-| dpixCopy | ❌ | - | |
-| dpixDestroy | ❌ | - | |
+| dpixCreate | ✅ | DPix::new() | |
+| dpixClone | ✅ | DPix::clone() | |
+| dpixCopy | ✅ | DPix::clone() | |
+| dpixDestroy | 🔄 | drop() | 自動 |
 | fpixRead | ❌ | - | I/O未実装 |
 | fpixReadStream | ❌ | - | |
 | fpixReadMem | ❌ | - | |
@@ -746,8 +746,18 @@ numafunc2.c (ヒストグラム・統計)の多くの関数も未実装。
 | dpixRead | ❌ | - | |
 | dpixWrite | ❌ | - | |
 
-fpix2.c (FPix変換・演算)の関数も多くが未実装。
-一部変換関数はconvert.rsに実装あり。
+fpix2.c (FPix変換・演算):
+
+| C関数 | 状態 | Rust対応 | 備考 |
+|-------|------|----------|------|
+| fpixConvertToPix | ✅ | FPix::to_pix() | |
+| pixConvertToFPix | ✅ | FPix::from_pix() | |
+| fpixAddMultConstant | ✅ | FPix::add_mult_constant() | |
+| fpixLinearCombination | ✅ | FPix::linear_combination() | |
+| dpixConvertToPix | ✅ | DPix::to_pix() | |
+| dpixConvertToFPix | ✅ | DPix::to_fpix() | |
+
+その他のfpix2.c変換関数は一部convert.rsに実装あり。
 
 ### colormap.c (カラーマップ)
 
@@ -877,18 +887,26 @@ convert.rsに一部実装あり。多くの関数は未実装。
 
 ### pixarith.c (ピクセル算術演算)
 
-arith.rsに実装あり。
+| C関数 | 状態 | Rust対応 | 備考 |
+|-------|------|----------|------|
+| pixAddGray | ✅ | arith.rs add_gray() | |
+| pixSubtractGray | ✅ | arith.rs subtract_gray() | |
+| pixMultConstantGray | ✅ | arith.rs multiply_constant() | |
+| pixAddConstantGray | ✅ | arith.rs add_constant() | |
+| pixMultConstAccumulate | ✅ | arith.rs mult_const_accumulate() | 32bpp専用 |
+| pixAbsDifference | ✅ | arith.rs abs_difference() | |
+| pixMinOrMax | ✅ | arith.rs min_or_max() | |
 
-全関数 ❌ 未実装
+その他のpixarith.c関数は未実装。
 
 ### rop.c, roplow.c (ラスターオペレーション)
 
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixRasterop | ✅ | rop.rsに実装 | |
-| pixRasteropVip | ❌ | - | |
-| pixRasteropHip | ❌ | - | |
-| pixTranslate | ❌ | - | |
+| pixRasteropVip | ✅ | rop.rs rasterop_vip() | |
+| pixRasteropHip | ✅ | rop.rs rasterop_hip() | |
+| pixTranslate | ✅ | rop.rs translate() | |
 | pixRasteropIP | ❌ | - | |
 | pixRasteropFullImage | ❌ | - | |
 
