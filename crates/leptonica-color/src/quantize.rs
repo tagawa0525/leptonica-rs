@@ -526,6 +526,116 @@ impl Octree {
     }
 }
 
+// =============================================================================
+// Fixed Octcube 256-Color Quantization
+// =============================================================================
+
+/// Fast fixed-partition color quantization to exactly 256 colors.
+///
+/// Uses asymmetric octcube division: 3 MSBits for R and G, 2 MSBits for B.
+/// This exploits reduced human sensitivity to blue channel variations.
+///
+/// # See also
+///
+/// C Leptonica: `pixFixedOctcubeQuant256()` in `colorquant1.c`
+#[allow(unused_variables)]
+pub fn fixed_octcube_quant_256(pix: &Pix) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Population-Based Octree Quantization
+// =============================================================================
+
+/// Adaptive color quantization using octcubes sorted by population.
+///
+/// Quantizes a 32bpp image by selecting the most populated octcubes at the
+/// specified level (3 or 4 bits per component). Output depth is automatically
+/// determined: 2bpp for ≤4 colors, 4bpp for ≤16, 8bpp otherwise.
+///
+/// # See also
+///
+/// C Leptonica: `pixOctreeQuantByPopulation()` in `colorquant1.c`
+#[allow(unused_variables)]
+pub fn octree_quant_by_population(pix: &Pix, level: u32) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// N-Color Octree Quantization
+// =============================================================================
+
+/// Adaptive octree quantization to a specified number of colors.
+///
+/// Uses two-level octcube strategy: base octcubes + popular sub-octcubes
+/// to produce exactly `max_colors` or fewer colors.
+///
+/// # See also
+///
+/// C Leptonica: `pixOctreeQuantNumColors()` in `colorquant1.c`
+#[allow(unused_variables)]
+pub fn octree_quant_num_colors(pix: &Pix, max_colors: u32, subsample: u32) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Mixed Gray/Color Median Cut Quantization
+// =============================================================================
+
+/// Hybrid quantization separating gray and color pixels.
+///
+/// Separates pixels into gray and color regions, quantizes color pixels
+/// using median cut, and adds grayscale levels for gray pixels.
+///
+/// # See also
+///
+/// C Leptonica: `pixMedianCutQuantMixed()` in `colorquant2.c`
+#[allow(unused_variables)]
+pub fn median_cut_quant_mixed(
+    pix: &Pix,
+    ncolor: u32,
+    ngray: u32,
+    darkthresh: u32,
+    lightthresh: u32,
+    diffthresh: u32,
+) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Quantize to Existing Colormap
+// =============================================================================
+
+/// Quantize an image to a pre-existing colormap.
+///
+/// Maps each pixel to the nearest color in the provided colormap using
+/// Euclidean distance in RGB space.
+///
+/// # See also
+///
+/// C Leptonica: `pixQuantFromCmap()` in `colorquant1.c`
+#[allow(unused_variables)]
+pub fn quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
+    todo!()
+}
+
+// =============================================================================
+// Remove Unused Colormap Colors
+// =============================================================================
+
+/// Remove unused colors from a colormapped image.
+///
+/// Scans all pixels to find which colormap entries are actually used,
+/// then rebuilds the colormap with only those entries and remaps pixels.
+///
+/// # See also
+///
+/// C Leptonica: `pixRemoveUnusedColors()` in `colorquant1.c`
+#[allow(unused_variables)]
+pub fn remove_unused_colors(pix: &Pix) -> ColorResult<Pix> {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

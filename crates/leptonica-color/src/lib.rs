@@ -102,10 +102,16 @@ pub use quantize::{
     MedianCutOptions,
     OctreeOptions,
     // Functions
+    fixed_octcube_quant_256,
     median_cut_quant,
+    median_cut_quant_mixed,
     median_cut_quant_simple,
     octree_quant,
     octree_quant_256,
+    octree_quant_by_population,
+    octree_quant_num_colors,
+    quant_from_cmap,
+    remove_unused_colors,
 };
 
 // Re-export analysis functions
