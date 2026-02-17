@@ -10,6 +10,21 @@ use crate::{ColorError, ColorResult};
 use leptonica_core::{Pix, PixelDepth, color};
 use std::collections::HashSet;
 
+/// Method for computing the color magnitude of a pixel.
+///
+/// # See also
+///
+/// C Leptonica: `colorcontent.c` — `L_MAX_DIFF_FROM_AVERAGE_2`, `L_MAX_MIN_DIFF_FROM_2`, `L_MAX_DIFF`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorMagnitudeType {
+    /// max(|r-g|, |r-b|, |g-b|)
+    MaxDiffFromAverage2,
+    /// max(r,g,b) - min(r,g,b)
+    MaxMinDiffFrom2,
+    /// max(|r-g|, |r-b|, |g-b|) using absolute differences
+    MaxDiff,
+}
+
 /// Statistics about the color content of an image
 #[derive(Debug, Clone)]
 pub struct ColorStats {
@@ -324,6 +339,129 @@ pub fn grayscale_histogram(pix: &Pix) -> ColorResult<[u32; 256]> {
     }
 
     Ok(histogram)
+}
+
+// ============================================================================
+// Advanced color content analysis functions
+// ============================================================================
+
+/// Generate a 1bpp mask over pixels with significant color content.
+///
+/// # See also
+///
+/// C Leptonica: `pixMaskOverColorPixels()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn mask_over_color_pixels(pix: &Pix, threshdiff: i32, mindist: i32) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Generate a 1bpp mask over gray pixels.
+///
+/// # See also
+///
+/// C Leptonica: `pixMaskOverGrayPixels()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn mask_over_gray_pixels(pix: &Pix, maxlimit: i32, satlimit: i32) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Generate a 1bpp mask for pixels within a specified RGB color range.
+///
+/// # See also
+///
+/// C Leptonica: `pixMaskOverColorRange()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn mask_over_color_range(
+    pix: &Pix,
+    rmin: i32,
+    rmax: i32,
+    gmin: i32,
+    gmax: i32,
+    bmin: i32,
+    bmax: i32,
+) -> ColorResult<Pix> {
+    todo!()
+}
+
+/// Determine the fraction of pixels that are colored vs gray.
+///
+/// Returns `(pix_fract, color_fract)` where:
+/// - `pix_fract`: fraction of pixels that are neither too dark nor too light
+/// - `color_fract`: fraction of those pixels that are colored (not gray)
+///
+/// # See also
+///
+/// C Leptonica: `pixColorFraction()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn color_fraction(
+    pix: &Pix,
+    darkthresh: i32,
+    lightthresh: i32,
+    diffthresh: i32,
+    factor: i32,
+) -> ColorResult<(f32, f32)> {
+    todo!()
+}
+
+/// Count the number of significant gray levels in an 8bpp image.
+///
+/// # See also
+///
+/// C Leptonica: `pixNumSignificantGrayColors()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn num_significant_gray_colors(
+    pix: &Pix,
+    darkthresh: i32,
+    lightthresh: i32,
+    minfract: f64,
+    factor: i32,
+) -> ColorResult<u32> {
+    todo!()
+}
+
+/// Estimate the number of colors for quantization.
+///
+/// Returns `(ncolors, is_color)` where:
+/// - `ncolors`: approximate number of significant colors
+/// - `is_color`: whether the image has significant color content
+///
+/// # See also
+///
+/// C Leptonica: `pixColorsForQuantization()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn colors_for_quantization(pix: &Pix, thresh: i32) -> ColorResult<(u32, bool)> {
+    todo!()
+}
+
+/// Compute an RGB histogram with reduced bit resolution.
+///
+/// Each RGB component is quantized to `sigbits` significant bits, producing
+/// a histogram with `2^(3*sigbits)` bins. Valid range for `sigbits`: 2..=6.
+///
+/// # See also
+///
+/// C Leptonica: `pixGetRGBHistogram()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn rgb_histogram(pix: &Pix, sigbits: i32, factor: i32) -> ColorResult<Vec<f32>> {
+    todo!()
+}
+
+/// Find the most populated colors in an RGB image.
+///
+/// Returns a Vec of `(r, g, b, count)` tuples sorted by count (descending),
+/// where the colors are quantized to `sigbits` significant bits.
+///
+/// # See also
+///
+/// C Leptonica: `pixGetMostPopulatedColors()` in `colorcontent.c`
+#[allow(unused_variables)]
+pub fn most_populated_colors(
+    pix: &Pix,
+    sigbits: i32,
+    factor: i32,
+    ncolors: i32,
+) -> ColorResult<Vec<(u8, u8, u8, u32)>> {
+    todo!()
 }
 
 #[cfg(test)]
