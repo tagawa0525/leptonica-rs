@@ -604,8 +604,25 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixMultConstAccumulate()` in `pixarith.c`
-    pub fn mult_const_accumulate(&mut self, _factor: f32, _offset: u32) -> Result<()> {
-        todo!()
+    pub fn mult_const_accumulate(&mut self, factor: f32, offset: u32) -> Result<()> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let width = self.width();
+        let height = self.height();
+        let offset_f = offset as f64;
+
+        for y in 0..height {
+            for x in 0..width {
+                let val = self.get_pixel_unchecked(x, y) as f64;
+                let adjusted = (val - offset_f) * (factor as f64) + offset_f;
+                let result = adjusted.round().max(0.0).min(u32::MAX as f64) as u32;
+                self.set_pixel_unchecked(x, y, result);
+            }
+        }
+
+        Ok(())
     }
 
     /// Internal helper for in-place binary arithmetic operations

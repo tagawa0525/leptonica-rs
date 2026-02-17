@@ -11,7 +11,7 @@ use leptonica_core::{InColor, Pix, PixelDepth};
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_mult_const_accumulate_basic() {
     // 32bpp image with offset=0x40000000
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
@@ -33,7 +33,7 @@ fn test_mult_const_accumulate_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_mult_const_accumulate_fractional() {
     let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
     let offset = 0x40000000u32;
@@ -53,7 +53,7 @@ fn test_mult_const_accumulate_fractional() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_mult_const_accumulate_not_32bpp() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -66,7 +66,7 @@ fn test_mult_const_accumulate_not_32bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_rasterop_vip_shift_down() {
     // 8bpp 10x10 image with row 0 set to 200
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -85,7 +85,7 @@ fn test_rasterop_vip_shift_down() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_rasterop_vip_shift_up() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -104,7 +104,7 @@ fn test_rasterop_vip_shift_up() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_rasterop_vip_partial_band() {
     let pix = Pix::new(20, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -129,7 +129,7 @@ fn test_rasterop_vip_partial_band() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_rasterop_hip_shift_right() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -148,7 +148,7 @@ fn test_rasterop_hip_shift_right() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_rasterop_hip_shift_left() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -167,7 +167,7 @@ fn test_rasterop_hip_shift_left() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_rasterop_hip_partial_band() {
     let pix = Pix::new(10, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -192,7 +192,7 @@ fn test_rasterop_hip_partial_band() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_translate_right_down() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -208,7 +208,7 @@ fn test_translate_right_down() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_translate_left_up() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -224,7 +224,7 @@ fn test_translate_left_up() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_translate_zero_shift() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -237,7 +237,7 @@ fn test_translate_zero_shift() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_translate_binary() {
     let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
     let mut pm = pix.to_mut();
@@ -246,6 +246,10 @@ fn test_translate_binary() {
 
     let result = pix.translate(3, 2, InColor::White);
 
+    // Original (5,5) moved to (8,7)
     assert_eq!(result.get_pixel(8, 7).unwrap(), 1);
-    assert_eq!(result.get_pixel(5, 5).unwrap(), 1); // white = 1 for binary
+    // Top-left fill: first 2 rows are white (1 for binary), (0,0) is white
+    assert_eq!(result.get_pixel(0, 0).unwrap(), 1);
+    // Left fill: first 3 columns are white, (0,5) is white
+    assert_eq!(result.get_pixel(0, 5).unwrap(), 1);
 }

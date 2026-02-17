@@ -321,8 +321,21 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixTranslate()` in `rop.c`
-    pub fn translate(&self, _hshift: i32, _vshift: i32, _incolor: InColor) -> Pix {
-        todo!()
+    pub fn translate(&self, hshift: i32, vshift: i32, incolor: InColor) -> Pix {
+        let result = self.deep_clone();
+        let mut pm = result.try_into_mut().unwrap();
+
+        // Apply horizontal shift using rasterop_hip (full height band)
+        if hshift != 0 {
+            pm.rasterop_hip(0, pm.height() as i32, hshift, incolor);
+        }
+
+        // Apply vertical shift using rasterop_vip (full width band)
+        if vshift != 0 {
+            pm.rasterop_vip(0, pm.width() as i32, vshift, incolor);
+        }
+
+        pm.into()
     }
 }
 
@@ -556,8 +569,53 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixRasteropVip()` in `rop.c`
-    pub fn rasterop_vip(&mut self, _bx: i32, _bw: i32, _vshift: i32, _incolor: InColor) {
-        todo!()
+    pub fn rasterop_vip(&mut self, bx: i32, bw: i32, vshift: i32, incolor: InColor) {
+        if vshift == 0 || bw <= 0 {
+            return;
+        }
+
+        let img_w = self.width() as i32;
+        let img_h = self.height() as i32;
+
+        // Clip band to image bounds
+        let x0 = bx.max(0) as u32;
+        let x1 = (bx + bw).min(img_w) as u32;
+        if x0 >= x1 {
+            return;
+        }
+
+        let fill_val = match incolor {
+            InColor::White => self.depth().max_value(),
+            InColor::Black => 0,
+        };
+
+        if vshift > 0 {
+            // Shift down: copy from bottom to top to avoid overwriting
+            let shift = vshift.min(img_h) as u32;
+            for y in (0..self.height()).rev() {
+                for x in x0..x1 {
+                    if y >= shift {
+                        let val = self.get_pixel_unchecked(x, y - shift);
+                        self.set_pixel_unchecked(x, y, val);
+                    } else {
+                        self.set_pixel_unchecked(x, y, fill_val);
+                    }
+                }
+            }
+        } else {
+            // Shift up: copy from top to bottom
+            let shift = (-vshift).min(img_h) as u32;
+            for y in 0..self.height() {
+                for x in x0..x1 {
+                    if y + shift < self.height() {
+                        let val = self.get_pixel_unchecked(x, y + shift);
+                        self.set_pixel_unchecked(x, y, val);
+                    } else {
+                        self.set_pixel_unchecked(x, y, fill_val);
+                    }
+                }
+            }
+        }
     }
 
     /// In-place horizontal band shift.
@@ -576,8 +634,53 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixRasteropHip()` in `rop.c`
-    pub fn rasterop_hip(&mut self, _by: i32, _bh: i32, _hshift: i32, _incolor: InColor) {
-        todo!()
+    pub fn rasterop_hip(&mut self, by: i32, bh: i32, hshift: i32, incolor: InColor) {
+        if hshift == 0 || bh <= 0 {
+            return;
+        }
+
+        let img_w = self.width() as i32;
+        let img_h = self.height() as i32;
+
+        // Clip band to image bounds
+        let y0 = by.max(0) as u32;
+        let y1 = (by + bh).min(img_h) as u32;
+        if y0 >= y1 {
+            return;
+        }
+
+        let fill_val = match incolor {
+            InColor::White => self.depth().max_value(),
+            InColor::Black => 0,
+        };
+
+        if hshift > 0 {
+            // Shift right: copy from right to left to avoid overwriting
+            let shift = hshift.min(img_w) as u32;
+            for y in y0..y1 {
+                for x in (0..self.width()).rev() {
+                    if x >= shift {
+                        let val = self.get_pixel_unchecked(x - shift, y);
+                        self.set_pixel_unchecked(x, y, val);
+                    } else {
+                        self.set_pixel_unchecked(x, y, fill_val);
+                    }
+                }
+            }
+        } else {
+            // Shift left: copy from left to right
+            let shift = (-hshift).min(img_w) as u32;
+            for y in y0..y1 {
+                for x in 0..self.width() {
+                    if x + shift < self.width() {
+                        let val = self.get_pixel_unchecked(x + shift, y);
+                        self.set_pixel_unchecked(x, y, val);
+                    } else {
+                        self.set_pixel_unchecked(x, y, fill_val);
+                    }
+                }
+            }
+        }
     }
 
     /// Fill a rectangular region with a constant value.
