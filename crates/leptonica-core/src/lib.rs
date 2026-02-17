@@ -26,7 +26,7 @@ pub mod pixa;
 pub mod pta;
 pub mod sarray;
 
-pub use box_::{Box, Boxa, Boxaa};
+pub use box_::{Box, Boxa, Boxaa, SizeRelation};
 pub use colormap::{PixColormap, RgbaQuad};
 pub use error::{Error, Result};
 pub use fpix::{FPix, NegativeHandling};

@@ -4,6 +4,19 @@
 
 use crate::error::{Error, Result};
 
+/// Size comparison relation for selection functions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeRelation {
+    /// Select if value < threshold
+    LessThan,
+    /// Select if value <= threshold
+    LessThanOrEqual,
+    /// Select if value > threshold
+    GreaterThan,
+    /// Select if value >= threshold
+    GreaterThanOrEqual,
+}
+
 /// A rectangle region
 ///
 /// Unlike Leptonica's Box which uses reference counting, this is a simple
@@ -184,6 +197,32 @@ impl Box {
         }
     }
 
+    /// Compute the area of overlap between two boxes
+    ///
+    /// Returns the area of intersection, or 0 if boxes don't overlap.
+    ///
+    /// C Leptonica equivalent: `boxOverlapArea`
+    pub fn overlap_area(&self, other: &Box) -> i64 {
+        match self.intersect(other) {
+            Some(inter) => inter.area(),
+            None => 0,
+        }
+    }
+
+    /// Compute the fraction of this box that overlaps with another
+    ///
+    /// Returns the intersection area divided by this box's area.
+    /// Returns 0.0 if this box has zero area or there is no overlap.
+    ///
+    /// C Leptonica equivalent: `boxOverlapFraction`
+    pub fn overlap_fraction(&self, other: &Box) -> f64 {
+        let self_area = self.area();
+        if self_area == 0 {
+            return 0.0;
+        }
+        self.overlap_area(other) as f64 / self_area as f64
+    }
+
     /// Clip the box to fit within bounds
     pub fn clip(&self, width: i32, height: i32) -> Option<Box> {
         let x = self.x.max(0);
@@ -359,6 +398,284 @@ impl Boxa {
     /// Create a mutable iterator over boxes
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Box> {
         self.boxes.iter_mut()
+    }
+
+    /// Filter boxes contained within a given box
+    ///
+    /// Returns a new Boxa containing only boxes fully inside `container`.
+    ///
+    /// C Leptonica equivalent: `boxaContainedInBox`
+    pub fn contained_in_box(&self, container: &Box) -> Boxa {
+        self.boxes
+            .iter()
+            .filter(|b| container.contains_box(b))
+            .copied()
+            .collect()
+    }
+
+    /// Filter boxes that intersect with a given box
+    ///
+    /// Returns a new Boxa containing only boxes that overlap with `target`.
+    ///
+    /// C Leptonica equivalent: `boxaIntersectsBox`
+    pub fn intersects_box(&self, target: &Box) -> Boxa {
+        self.boxes
+            .iter()
+            .filter(|b| b.overlaps(target))
+            .copied()
+            .collect()
+    }
+
+    /// Clip all boxes to fit within a given box
+    ///
+    /// Returns a new Boxa where each box is clipped to the bounds of `clip_box`.
+    /// Boxes that don't intersect `clip_box` are omitted.
+    ///
+    /// C Leptonica equivalent: `boxaClipToBox`
+    pub fn clip_to_box(&self, clip_box: &Box) -> Boxa {
+        self.boxes
+            .iter()
+            .filter_map(|b| b.intersect(clip_box))
+            .collect()
+    }
+
+    /// Combine overlapping boxes into their unions
+    ///
+    /// Iteratively merges any pair of overlapping boxes until no overlaps remain.
+    ///
+    /// C Leptonica equivalent: `boxaCombineOverlaps`
+    pub fn combine_overlaps(&self) -> Boxa {
+        if self.boxes.is_empty() {
+            return Boxa::new();
+        }
+
+        let mut result: Vec<Box> = self.boxes.clone();
+        let mut changed = true;
+
+        while changed {
+            changed = false;
+            let mut i = 0;
+            while i < result.len() {
+                let mut j = i + 1;
+                while j < result.len() {
+                    if result[i].overlaps(&result[j]) {
+                        result[i] = result[i].union(&result[j]);
+                        result.remove(j);
+                        changed = true;
+                    } else {
+                        j += 1;
+                    }
+                }
+                i += 1;
+            }
+        }
+
+        Boxa { boxes: result }
+    }
+
+    /// Select boxes by width and height
+    ///
+    /// Filters boxes where both width and height satisfy the relation
+    /// against the given thresholds.
+    ///
+    /// C Leptonica equivalent: `boxaSelectBySize`
+    pub fn select_by_size(&self, width: i32, height: i32, relation: SizeRelation) -> Boxa {
+        self.boxes
+            .iter()
+            .filter(|b| {
+                compare_relation(b.w, width, relation) && compare_relation(b.h, height, relation)
+            })
+            .copied()
+            .collect()
+    }
+
+    /// Select boxes by area
+    ///
+    /// Filters boxes based on an area threshold and comparison relation.
+    ///
+    /// C Leptonica equivalent: `boxaSelectByArea`
+    pub fn select_by_area(&self, area: i64, relation: SizeRelation) -> Boxa {
+        self.boxes
+            .iter()
+            .filter(|b| compare_relation_i64(b.area(), area, relation))
+            .copied()
+            .collect()
+    }
+
+    /// Select boxes by width/height ratio
+    ///
+    /// Filters boxes based on a w/h ratio threshold and comparison relation.
+    /// Boxes with zero height are excluded.
+    ///
+    /// C Leptonica equivalent: `boxaSelectByWHRatio`
+    pub fn select_by_wh_ratio(&self, ratio: f64, relation: SizeRelation) -> Boxa {
+        self.boxes
+            .iter()
+            .filter(|b| {
+                if b.h == 0 {
+                    return false;
+                }
+                let r = b.w as f64 / b.h as f64;
+                compare_relation_f64(r, ratio, relation)
+            })
+            .copied()
+            .collect()
+    }
+
+    /// Get the extent (overall width and height) of all boxes
+    ///
+    /// Returns `(width, height, bounding_box)` where width and height
+    /// are the extent from the origin (0,0) to the furthest right/bottom edge.
+    ///
+    /// C Leptonica equivalent: `boxaGetExtent`
+    pub fn get_extent(&self) -> Option<(i32, i32, Box)> {
+        let bb = self.bounding_box()?;
+        let max_right = self.boxes.iter().map(|b| b.right()).max().unwrap_or(0);
+        let max_bottom = self.boxes.iter().map(|b| b.bottom()).max().unwrap_or(0);
+        Some((max_right, max_bottom, bb))
+    }
+
+    /// Compute the fractional coverage of boxes within a canvas
+    ///
+    /// Returns the fraction of the canvas area covered by the union of all boxes.
+    /// When `exact` is true, uses per-pixel row scanning for exact coverage.
+    /// When false, uses the sum of individual box areas (may overcount overlaps).
+    ///
+    /// C Leptonica equivalent: `boxaGetCoverage`
+    pub fn get_coverage(&self, canvas_w: i32, canvas_h: i32, exact: bool) -> f64 {
+        let canvas_area = canvas_w as i64 * canvas_h as i64;
+        if canvas_area == 0 || self.boxes.is_empty() {
+            return 0.0;
+        }
+
+        if !exact {
+            // Approximate: sum of individual areas (may overcount)
+            let total_area: i64 = self.boxes.iter().map(|b| b.area()).sum();
+            return (total_area as f64 / canvas_area as f64).min(1.0);
+        }
+
+        // Exact: count covered pixels per row using interval merging
+        let mut covered_pixels: i64 = 0;
+        for y in 0..canvas_h {
+            // Collect all horizontal intervals on this row
+            let mut intervals: Vec<(i32, i32)> = Vec::new();
+            for b in &self.boxes {
+                if y >= b.y && y < b.bottom() {
+                    let left = b.x.max(0);
+                    let right = b.right().min(canvas_w);
+                    if left < right {
+                        intervals.push((left, right));
+                    }
+                }
+            }
+            if intervals.is_empty() {
+                continue;
+            }
+            // Merge overlapping intervals
+            intervals.sort_unstable();
+            let mut merged_left = intervals[0].0;
+            let mut merged_right = intervals[0].1;
+            for &(l, r) in &intervals[1..] {
+                if l <= merged_right {
+                    merged_right = merged_right.max(r);
+                } else {
+                    covered_pixels += (merged_right - merged_left) as i64;
+                    merged_left = l;
+                    merged_right = r;
+                }
+            }
+            covered_pixels += (merged_right - merged_left) as i64;
+        }
+
+        covered_pixels as f64 / canvas_area as f64
+    }
+
+    /// Get the range of box dimensions
+    ///
+    /// Returns `(min_w, min_h, max_w, max_h)`.
+    ///
+    /// C Leptonica equivalent: `boxaSizeRange`
+    pub fn size_range(&self) -> Option<(i32, i32, i32, i32)> {
+        if self.boxes.is_empty() {
+            return None;
+        }
+        let mut min_w = i32::MAX;
+        let mut min_h = i32::MAX;
+        let mut max_w = i32::MIN;
+        let mut max_h = i32::MIN;
+        for b in &self.boxes {
+            min_w = min_w.min(b.w);
+            min_h = min_h.min(b.h);
+            max_w = max_w.max(b.w);
+            max_h = max_h.max(b.h);
+        }
+        Some((min_w, min_h, max_w, max_h))
+    }
+
+    /// Check if two Boxa are similar within tolerances
+    ///
+    /// Two Boxa are similar if they have the same number of boxes and each
+    /// corresponding pair differs by no more than the given tolerance in
+    /// x, y, w, h respectively.
+    ///
+    /// C Leptonica equivalent: `boxaSimilar`
+    pub fn similar(&self, other: &Boxa, tolerance: i32) -> bool {
+        if self.boxes.len() != other.boxes.len() {
+            return false;
+        }
+        self.boxes.iter().zip(other.boxes.iter()).all(|(a, b)| {
+            (a.x - b.x).abs() <= tolerance
+                && (a.y - b.y).abs() <= tolerance
+                && (a.w - b.w).abs() <= tolerance
+                && (a.h - b.h).abs() <= tolerance
+        })
+    }
+
+    /// Append boxes from another Boxa
+    ///
+    /// Appends boxes from `other` in the range `[start, end)`.
+    /// If `end` is 0, appends all boxes from `start` onwards.
+    ///
+    /// C Leptonica equivalent: `boxaJoin`
+    pub fn join(&mut self, other: &Boxa, start: usize, end: usize) {
+        let actual_end = if end == 0 {
+            other.boxes.len()
+        } else {
+            end.min(other.boxes.len())
+        };
+        let actual_start = start.min(actual_end);
+        self.boxes
+            .extend_from_slice(&other.boxes[actual_start..actual_end]);
+    }
+}
+
+/// Helper: compare two i32 values using SizeRelation
+fn compare_relation(value: i32, threshold: i32, relation: SizeRelation) -> bool {
+    match relation {
+        SizeRelation::LessThan => value < threshold,
+        SizeRelation::LessThanOrEqual => value <= threshold,
+        SizeRelation::GreaterThan => value > threshold,
+        SizeRelation::GreaterThanOrEqual => value >= threshold,
+    }
+}
+
+/// Helper: compare two i64 values using SizeRelation
+fn compare_relation_i64(value: i64, threshold: i64, relation: SizeRelation) -> bool {
+    match relation {
+        SizeRelation::LessThan => value < threshold,
+        SizeRelation::LessThanOrEqual => value <= threshold,
+        SizeRelation::GreaterThan => value > threshold,
+        SizeRelation::GreaterThanOrEqual => value >= threshold,
+    }
+}
+
+/// Helper: compare two f64 values using SizeRelation
+fn compare_relation_f64(value: f64, threshold: f64, relation: SizeRelation) -> bool {
+    match relation {
+        SizeRelation::LessThan => value < threshold,
+        SizeRelation::LessThanOrEqual => value <= threshold,
+        SizeRelation::GreaterThan => value > threshold,
+        SizeRelation::GreaterThanOrEqual => value >= threshold,
     }
 }
 
