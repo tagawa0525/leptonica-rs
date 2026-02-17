@@ -782,7 +782,7 @@ pub fn make_histo_hs(pix: &Pix, factor: i32) -> ColorResult<Pix> {
             let hsv = color::rgb_to_hsv(r, g, b);
             // rgb_to_hsv guarantees: h∈[0,239], s∈[0,255]
             let count = histo_mut.get_pixel_unchecked(hsv.s as u32, hsv.h as u32);
-            histo_mut.set_pixel_unchecked(hsv.s as u32, hsv.h as u32, count + 1);
+            histo_mut.set_pixel_unchecked(hsv.s as u32, hsv.h as u32, count.saturating_add(1));
         }
     }
 
@@ -820,7 +820,7 @@ pub fn make_histo_hv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
             let hsv = color::rgb_to_hsv(r, g, b);
             // rgb_to_hsv guarantees: h∈[0,239], v∈[0,255]
             let count = histo_mut.get_pixel_unchecked(hsv.v as u32, hsv.h as u32);
-            histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.h as u32, count + 1);
+            histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.h as u32, count.saturating_add(1));
         }
     }
 
@@ -858,7 +858,7 @@ pub fn make_histo_sv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
             let hsv = color::rgb_to_hsv(r, g, b);
             // rgb_to_hsv guarantees: s∈[0,255], v∈[0,255]
             let count = histo_mut.get_pixel_unchecked(hsv.v as u32, hsv.s as u32);
-            histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.s as u32, count + 1);
+            histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.s as u32, count.saturating_add(1));
         }
     }
 

@@ -63,7 +63,6 @@ pub use colorspace::{
     pix_convert_to_gray,
     pix_convert_yuv_to_rgb,
     pix_extract_channel,
-    // Pixel-level conversions
     rgb_to_gray,
     rgb_to_hsv,
     rgb_to_lab,

@@ -51,7 +51,6 @@ fn make_tricolor(w: u32, h: u32) -> Pix {
 // ============================================================================
 
 #[test]
-
 fn test_range_mask_hs_include_red() {
     // Pure red: H=0 in Leptonica HSV, S=255
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
@@ -67,7 +66,6 @@ fn test_range_mask_hs_include_red() {
 }
 
 #[test]
-
 fn test_range_mask_hs_exclude_red() {
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
     let mask = make_range_mask_hs(&pix, 0, 20, 200, 100, RegionFlag::Exclude).unwrap();
@@ -79,7 +77,6 @@ fn test_range_mask_hs_exclude_red() {
 }
 
 #[test]
-
 fn test_range_mask_hs_no_match() {
     // Pure red: H=0
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
@@ -93,7 +90,6 @@ fn test_range_mask_hs_no_match() {
 }
 
 #[test]
-
 fn test_range_mask_hs_gray_excluded() {
     // Gray: S=0, so saturation range [100..255] shouldn't match
     let pix = make_uniform_rgb(128, 128, 128, 20, 20);
@@ -106,7 +102,6 @@ fn test_range_mask_hs_gray_excluded() {
 }
 
 #[test]
-
 fn test_range_mask_hs_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(make_range_mask_hs(&pix, 0, 20, 128, 128, RegionFlag::Include).is_err());
@@ -117,7 +112,6 @@ fn test_range_mask_hs_invalid_depth() {
 // ============================================================================
 
 #[test]
-
 fn test_range_mask_hv_include_red() {
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
     // Red: H=0, V=255
@@ -130,7 +124,6 @@ fn test_range_mask_hv_include_red() {
 }
 
 #[test]
-
 fn test_range_mask_hv_exclude() {
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
     let mask = make_range_mask_hv(&pix, 0, 20, 200, 100, RegionFlag::Exclude).unwrap();
@@ -146,7 +139,6 @@ fn test_range_mask_hv_exclude() {
 // ============================================================================
 
 #[test]
-
 fn test_range_mask_sv_include() {
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
     // Red: S=255, V=255
@@ -159,7 +151,6 @@ fn test_range_mask_sv_include() {
 }
 
 #[test]
-
 fn test_range_mask_sv_gray_low_saturation() {
     let pix = make_uniform_rgb(128, 128, 128, 20, 20);
     // Gray: S=0, V=128. Select high saturation [200..255] → no match
@@ -176,7 +167,6 @@ fn test_range_mask_sv_gray_low_saturation() {
 // ============================================================================
 
 #[test]
-
 fn test_histo_hs_uniform() {
     // All pixels are red: H=0, S=255
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
@@ -190,7 +180,6 @@ fn test_histo_hs_uniform() {
 }
 
 #[test]
-
 fn test_histo_hs_tricolor() {
     let pix = make_tricolor(30, 10);
     let histo = make_histo_hs(&pix, 1).unwrap();
@@ -204,7 +193,6 @@ fn test_histo_hs_tricolor() {
 }
 
 #[test]
-
 fn test_histo_hs_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(make_histo_hs(&pix, 1).is_err());
@@ -215,7 +203,6 @@ fn test_histo_hs_invalid_depth() {
 // ============================================================================
 
 #[test]
-
 fn test_histo_hv_uniform() {
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
     let histo = make_histo_hv(&pix, 1).unwrap();
@@ -231,7 +218,6 @@ fn test_histo_hv_uniform() {
 // ============================================================================
 
 #[test]
-
 fn test_histo_sv_uniform() {
     let pix = make_uniform_rgb(255, 0, 0, 20, 20);
     let histo = make_histo_sv(&pix, 1).unwrap();
@@ -247,7 +233,6 @@ fn test_histo_sv_uniform() {
 // ============================================================================
 
 #[test]
-
 fn test_yuv_roundtrip() {
     let pix = make_tricolor(30, 10);
     let yuv = pix_convert_rgb_to_yuv(&pix).unwrap();
@@ -270,7 +255,6 @@ fn test_yuv_roundtrip() {
 }
 
 #[test]
-
 fn test_yuv_known_values() {
     // White (255,255,255) → Y≈235, U≈128, V≈128 in video range
     let pix = make_uniform_rgb(255, 255, 255, 10, 10);
@@ -287,7 +271,6 @@ fn test_yuv_known_values() {
 }
 
 #[test]
-
 fn test_yuv_black_known_values() {
     // Black (0,0,0) → Y≈16, U≈128, V≈128
     let pix = make_uniform_rgb(0, 0, 0, 10, 10);
@@ -302,7 +285,6 @@ fn test_yuv_black_known_values() {
 }
 
 #[test]
-
 fn test_yuv_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(pix_convert_rgb_to_yuv(&pix).is_err());
