@@ -596,7 +596,9 @@ pub fn octree_quant_by_population(pix: &Pix, level: u32) -> ColorResult<Pix> {
         });
     }
 
-    let level = level.clamp(3, 4);
+    if level != 3 && level != 4 {
+        return Err(ColorError::InvalidParameters("level must be 3 or 4".into()));
+    }
     let w = pix.width();
     let h = pix.height();
     let shift = 8 - level;
@@ -710,7 +712,11 @@ pub fn octree_quant_num_colors(pix: &Pix, max_colors: u32, subsample: u32) -> Co
         });
     }
 
-    let max_colors = max_colors.clamp(8, 256);
+    if !(8..=256).contains(&max_colors) {
+        return Err(ColorError::InvalidParameters(
+            "max_colors must be between 8 and 256".into(),
+        ));
+    }
     let w = pix.width();
     let h = pix.height();
     let sub = if subsample == 0 {
@@ -796,8 +802,16 @@ pub fn median_cut_quant_mixed(
         });
     }
 
-    let ncolor = ncolor.max(1);
-    let ngray = ngray.max(2);
+    if ncolor == 0 {
+        return Err(ColorError::InvalidParameters(
+            "ncolor must be at least 1".into(),
+        ));
+    }
+    if ngray < 2 {
+        return Err(ColorError::InvalidParameters(
+            "ngray must be at least 2".into(),
+        ));
+    }
     if ncolor + ngray > 255 {
         return Err(ColorError::InvalidParameters(
             "ncolor + ngray must be ≤ 255".into(),
@@ -878,13 +892,9 @@ pub fn median_cut_quant_mixed(
         }
 
         let box_vec: Vec<ColorBox> = boxes.into_vec();
-        let mut pixel_to_box = vec![0u8; color_pixels.len()];
-        for (bi, b) in box_vec.iter().enumerate() {
+        for b in &box_vec {
             let (r, g, b_val) = b.average_color(&color_pixels);
             color_palette.push((r, g, b_val));
-            for &pi in &b.indices {
-                pixel_to_box[pi] = bi as u8;
-            }
         }
 
         for &(r, g, b) in &color_palette {
@@ -936,12 +946,24 @@ pub fn median_cut_quant_mixed(
                 let cmap_idx = color_entries as u32 + gray_idx.min(ngray - 1);
                 out_mut.set_pixel_unchecked(x, y, cmap_idx);
             } else {
-                // Find nearest color entry
+                // Find nearest color entry (search only color portion of colormap)
                 let pixel = pix.get_pixel_unchecked(x, y);
                 let (r, g, b) = color::extract_rgb(pixel);
-                if let Some(nearest) = colormap.find_nearest(r, g, b) {
-                    out_mut.set_pixel_unchecked(x, y, nearest as u32);
+                let mut best_idx = 0u32;
+                let mut best_dist = u32::MAX;
+                for i in 0..color_entries {
+                    if let Some((cr, cg, cb)) = colormap.get_rgb(i) {
+                        let dr = r as i32 - cr as i32;
+                        let dg = g as i32 - cg as i32;
+                        let db = b as i32 - cb as i32;
+                        let dist = (dr * dr + dg * dg + db * db) as u32;
+                        if dist < best_dist {
+                            best_dist = dist;
+                            best_idx = i as u32;
+                        }
+                    }
                 }
+                out_mut.set_pixel_unchecked(x, y, best_idx);
             }
         }
     }
@@ -976,18 +998,26 @@ pub fn quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorRes
         ));
     }
 
+    if !matches!(mindepth, 1 | 2 | 4 | 8) {
+        return Err(ColorError::InvalidParameters(format!(
+            "mindepth must be 1, 2, 4, or 8; got {mindepth}"
+        )));
+    }
+
     let w = pix.width();
     let h = pix.height();
 
     // Determine output depth: enough for cmap size, at least mindepth
-    let needed_depth = if cmap.len() <= 4 {
+    let needed_depth = if cmap.len() <= 2 {
+        1
+    } else if cmap.len() <= 4 {
         2
     } else if cmap.len() <= 16 {
         4
     } else {
         8
     };
-    let out_depth_bits = needed_depth.max(mindepth).min(8);
+    let out_depth_bits = needed_depth.max(mindepth);
     let out_depth = match out_depth_bits {
         1 => PixelDepth::Bit1,
         2 => PixelDepth::Bit2,
@@ -1008,19 +1038,40 @@ pub fn quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorRes
     out_mut.set_colormap(Some(out_cmap))?;
 
     if depth == PixelDepth::Bit8 {
-        // Grayscale: build LUT for 256 gray values
-        let mut lut = [0u32; 256];
-        for val in 0u16..256 {
-            let v = val as u8;
-            if let Some(idx) = cmap.find_nearest(v, v, v) {
-                lut[val as usize] = idx as u32;
+        if let Some(src_cmap) = pix.colormap() {
+            // 8bpp colormapped: build LUT over source colormap indices
+            let src_len = src_cmap.len();
+            let mut lut = vec![0u32; src_len];
+            for (i, entry) in lut.iter_mut().enumerate() {
+                if let Some((r, g, b)) = src_cmap.get_rgb(i)
+                    && let Some(idx) = cmap.find_nearest(r, g, b)
+                {
+                    *entry = idx as u32;
+                }
             }
-        }
 
-        for y in 0..h {
-            for x in 0..w {
-                let val = pix.get_pixel_unchecked(x, y) as usize;
-                out_mut.set_pixel_unchecked(x, y, lut[val.min(255)]);
+            for y in 0..h {
+                for x in 0..w {
+                    let idx = pix.get_pixel_unchecked(x, y) as usize;
+                    let new_idx = if idx < lut.len() { lut[idx] } else { 0 };
+                    out_mut.set_pixel_unchecked(x, y, new_idx);
+                }
+            }
+        } else {
+            // Grayscale: build LUT for 256 gray values
+            let mut lut = [0u32; 256];
+            for val in 0u16..256 {
+                let v = val as u8;
+                if let Some(idx) = cmap.find_nearest(v, v, v) {
+                    lut[val as usize] = idx as u32;
+                }
+            }
+
+            for y in 0..h {
+                for x in 0..w {
+                    let val = pix.get_pixel_unchecked(x, y) as usize;
+                    out_mut.set_pixel_unchecked(x, y, lut[val.min(255)]);
+                }
             }
         }
     } else {

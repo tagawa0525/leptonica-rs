@@ -236,6 +236,48 @@ fn test_quant_from_cmap_invalid_depth() {
     assert!(quant_from_cmap(&pix, &cmap, 2).is_err());
 }
 
+#[test]
+fn test_quant_from_cmap_unsupported_mindepth() {
+    let pix = Pix::new(10, 1, PixelDepth::Bit8).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    for x in 0..10u32 {
+        pm.set_pixel_unchecked(x, 0, x * 25);
+    }
+    let pix: Pix = pm.into();
+    let mut cmap = PixColormap::new(8).unwrap();
+    cmap.add_rgb(0, 0, 0).unwrap();
+    cmap.add_rgb(128, 128, 128).unwrap();
+    cmap.add_rgb(255, 255, 255).unwrap();
+    assert!(quant_from_cmap(&pix, &cmap, 3).is_err());
+    assert!(quant_from_cmap(&pix, &cmap, 6).is_err());
+}
+
+#[test]
+fn test_quant_from_cmap_colormapped_input() {
+    // 8bpp colormapped input → should map via source colormap
+    let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    let mut src_cmap = PixColormap::new(8).unwrap();
+    src_cmap.add_rgb(255, 0, 0).unwrap(); // index 0: red
+    src_cmap.add_rgb(0, 255, 0).unwrap(); // index 1: green
+    pm.set_colormap(Some(src_cmap)).unwrap();
+    for y in 0..10u32 {
+        for x in 0..10u32 {
+            pm.set_pixel_unchecked(x, y, if x < 5 { 0 } else { 1 });
+        }
+    }
+    let pix: Pix = pm.into();
+
+    let mut target_cmap = PixColormap::new(8).unwrap();
+    target_cmap.add_rgb(200, 0, 0).unwrap(); // near red
+    target_cmap.add_rgb(0, 200, 0).unwrap(); // near green
+    let quantized = quant_from_cmap(&pix, &target_cmap, 2).unwrap();
+    assert!(quantized.colormap().is_some());
+    // Red pixel should map to index 0, green to index 1
+    assert_eq!(quantized.get_pixel_unchecked(0, 0), 0);
+    assert_eq!(quantized.get_pixel_unchecked(9, 0), 1);
+}
+
 // ============================================================================
 // remove_unused_colors
 // ============================================================================
