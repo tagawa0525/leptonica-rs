@@ -874,6 +874,43 @@ impl DPix {
         self.height
     }
 
+    /// Get the X resolution (ppi).
+    #[inline]
+    pub fn xres(&self) -> i32 {
+        self.xres
+    }
+
+    /// Get the Y resolution (ppi).
+    #[inline]
+    pub fn yres(&self) -> i32 {
+        self.yres
+    }
+
+    /// Get both resolutions as (xres, yres).
+    #[inline]
+    pub fn resolution(&self) -> (i32, i32) {
+        (self.xres, self.yres)
+    }
+
+    /// Set the X resolution (ppi).
+    #[inline]
+    pub fn set_xres(&mut self, xres: i32) {
+        self.xres = xres;
+    }
+
+    /// Set the Y resolution (ppi).
+    #[inline]
+    pub fn set_yres(&mut self, yres: i32) {
+        self.yres = yres;
+    }
+
+    /// Set both resolutions.
+    #[inline]
+    pub fn set_resolution(&mut self, xres: i32, yres: i32) {
+        self.xres = xres;
+        self.yres = yres;
+    }
+
     /// Get pixel value at (x, y).
     pub fn get_pixel(&self, x: u32, y: u32) -> Result<f64> {
         if x >= self.width || y >= self.height {
@@ -904,11 +941,27 @@ impl DPix {
 
     /// Convert DPix to Pix.
     ///
+    /// # Arguments
+    ///
+    /// * `out_depth` - Output depth: 8, 16, or 32. Use 0 for auto-detection.
+    /// * `neg_handling` - How to handle negative values
+    ///
+    /// # Auto-detection
+    ///
+    /// When `out_depth` is 0:
+    /// - If all values <= 255: use 8 bpp
+    /// - Else if all values <= 65535: use 16 bpp
+    /// - Else: use 32 bpp
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `out_depth` is not 0, 8, 16, or 32.
+    ///
     /// # See also
     ///
     /// C Leptonica: `dpixConvertToPix()` in `fpix2.c`
     pub fn to_pix(&self, out_depth: u32, neg_handling: NegativeHandling) -> Result<Pix> {
-        // Determine output depth
+        // Validate and determine output depth
         let depth = if out_depth == 0 {
             let max_val = self.data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             if max_val <= 255.5 {
@@ -918,42 +971,73 @@ impl DPix {
             } else {
                 32
             }
-        } else {
+        } else if out_depth == 8 || out_depth == 16 || out_depth == 32 {
             out_depth
+        } else {
+            return Err(Error::InvalidParameter(format!(
+                "out_depth must be 0, 8, 16, or 32, got {out_depth}"
+            )));
         };
 
-        let pix_depth = match depth {
-            8 => PixelDepth::Bit8,
-            16 => PixelDepth::Bit16,
-            32 => PixelDepth::Bit32,
-            _ => return Err(Error::InvalidDepth(depth)),
-        };
-
+        let pix_depth = PixelDepth::from_bits(depth)?;
         let pix = Pix::new(self.width, self.height, pix_depth)?;
-        let mut pm = pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+        let mut pm = pix.to_mut();
+
+        // Preserve resolution metadata
+        pm.set_xres(self.xres);
+        pm.set_yres(self.yres);
 
         let max_val = match depth {
             8 => 255u32,
             16 => 65535u32,
-            _ => u32::MAX,
+            32 => u32::MAX,
+            _ => unreachable!(),
         };
 
+        let wpl = pm.wpl() as usize;
+        let dst_data = pm.data_mut();
+
         for y in 0..self.height {
+            let row_start = (y as usize) * wpl;
+            let row_data = &mut dst_data[row_start..row_start + wpl];
+
             for x in 0..self.width {
-                let fval = self.data[(y as usize) * (self.width as usize) + (x as usize)];
-                let handled = match neg_handling {
-                    NegativeHandling::ClipToZero => {
-                        if fval < 0.0 {
-                            0.0
-                        } else {
-                            fval
-                        }
+                let idx = (y as usize) * (self.width as usize) + (x as usize);
+                let fval = self.data[idx];
+
+                // Handle negative values
+                let fval = if fval < 0.0 {
+                    match neg_handling {
+                        NegativeHandling::ClipToZero => 0.0,
+                        NegativeHandling::TakeAbsValue => fval.abs(),
                     }
-                    NegativeHandling::TakeAbsValue => fval.abs(),
+                } else {
+                    fval
                 };
-                let ival = (handled + 0.5) as u32;
-                let clamped = ival.min(max_val);
-                pm.set_pixel_unchecked(x, y, clamped);
+
+                // Round and clamp
+                let ival = (fval + 0.5) as u32;
+                let ival = ival.min(max_val);
+
+                // Direct word manipulation for performance
+                match depth {
+                    8 => {
+                        let word_idx = (x / 4) as usize;
+                        let shift = 24 - 8 * (x % 4);
+                        let mask = !(0xffu32 << shift);
+                        row_data[word_idx] = (row_data[word_idx] & mask) | (ival << shift);
+                    }
+                    16 => {
+                        let word_idx = (x / 2) as usize;
+                        let shift = 16 - 16 * (x % 2);
+                        let mask = !(0xffffu32 << shift);
+                        row_data[word_idx] = (row_data[word_idx] & mask) | (ival << shift);
+                    }
+                    32 => {
+                        row_data[x as usize] = ival;
+                    }
+                    _ => unreachable!(),
+                }
             }
         }
 

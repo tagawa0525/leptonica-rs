@@ -122,6 +122,25 @@ fn test_dpix_to_pix_negative_handling() {
     assert_eq!(pix.get_pixel(2, 0).unwrap(), 50);
 }
 
+#[test]
+fn test_dpix_to_pix_invalid_depth() {
+    let dpix = DPix::new(1, 1).unwrap();
+    assert!(dpix.to_pix(7, NegativeHandling::ClipToZero).is_err());
+    assert!(dpix.to_pix(15, NegativeHandling::ClipToZero).is_err());
+    assert!(dpix.to_pix(4, NegativeHandling::ClipToZero).is_err());
+}
+
+#[test]
+fn test_dpix_to_pix_preserves_resolution() {
+    let mut dpix = DPix::new(5, 5).unwrap();
+    dpix.set_resolution(300, 600);
+    dpix.set_pixel(0, 0, 100.0).unwrap();
+
+    let pix = dpix.to_pix(8, NegativeHandling::ClipToZero).unwrap();
+    assert_eq!(pix.xres(), 300);
+    assert_eq!(pix.yres(), 600);
+}
+
 // ============================================================================
 // DPix::to_fpix / from_fpix
 // ============================================================================
