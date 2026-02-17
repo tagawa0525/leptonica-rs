@@ -650,7 +650,7 @@ impl Boxa {
 }
 
 /// Helper: compare two i32 values using SizeRelation
-fn compare_relation(value: i32, threshold: i32, relation: SizeRelation) -> bool {
+pub(crate) fn compare_relation(value: i32, threshold: i32, relation: SizeRelation) -> bool {
     match relation {
         SizeRelation::LessThan => value < threshold,
         SizeRelation::LessThanOrEqual => value <= threshold,
@@ -660,7 +660,7 @@ fn compare_relation(value: i32, threshold: i32, relation: SizeRelation) -> bool 
 }
 
 /// Helper: compare two i64 values using SizeRelation
-fn compare_relation_i64(value: i64, threshold: i64, relation: SizeRelation) -> bool {
+pub(crate) fn compare_relation_i64(value: i64, threshold: i64, relation: SizeRelation) -> bool {
     match relation {
         SizeRelation::LessThan => value < threshold,
         SizeRelation::LessThanOrEqual => value <= threshold,

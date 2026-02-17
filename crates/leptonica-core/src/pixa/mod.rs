@@ -3,9 +3,44 @@
 //! These structures manage collections of images, optionally with
 //! associated bounding boxes for each image.
 
-use crate::box_::{Box, Boxa};
+use crate::box_::{Box, Boxa, SizeRelation};
 use crate::error::{Error, Result};
-use crate::pix::{Pix, PixelDepth};
+use crate::numa::SortOrder;
+use crate::pix::{Pix, PixMut, PixelDepth};
+
+/// Sort key for Pixa sorting operations.
+///
+/// Determines which property of the bounding box or image is used
+/// as the sort key.
+///
+/// # See also
+///
+/// C Leptonica: `L_SORT_BY_*` constants in `pix.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PixaSortType {
+    /// Sort by left edge (box.x)
+    ByX,
+    /// Sort by top edge (box.y)
+    ByY,
+    /// Sort by right edge (box.x + box.w)
+    ByRight,
+    /// Sort by bottom edge (box.y + box.h)
+    ByBottom,
+    /// Sort by width
+    ByWidth,
+    /// Sort by height
+    ByHeight,
+    /// Sort by min(width, height)
+    ByMinDimension,
+    /// Sort by max(width, height)
+    ByMaxDimension,
+    /// Sort by perimeter (2*(w+h))
+    ByPerimeter,
+    /// Sort by area (w*h)
+    ByArea,
+    /// Sort by aspect ratio (w/h as f64)
+    ByAspectRatio,
+}
 
 /// Array of Pix images
 ///
@@ -283,6 +318,328 @@ impl Pixa {
         Ok(true)
     }
 
+    // ========================================================================
+    // Selection functions
+    // ========================================================================
+
+    /// Select Pix images by width and height threshold.
+    ///
+    /// Returns a new Pixa containing only images whose dimensions satisfy
+    /// the given relation against the threshold values. Both width AND height
+    /// must satisfy the relation.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSelectBySize()` in `pixafunc1.c`
+    pub fn select_by_size(&self, width: i32, height: i32, relation: SizeRelation) -> Pixa {
+        let mut result = Pixa::new();
+        for (i, pix) in self.pix.iter().enumerate() {
+            let pw = pix.width() as i32;
+            let ph = pix.height() as i32;
+            if compare_relation(pw, width, relation) && compare_relation(ph, height, relation) {
+                result.pix.push(pix.clone());
+                if let Some(b) = self.boxa.get(i) {
+                    result.boxa.push(*b);
+                }
+            }
+        }
+        result
+    }
+
+    /// Select Pix images by area threshold.
+    ///
+    /// Returns a new Pixa containing only images whose area (width * height)
+    /// satisfies the given relation against the threshold.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSelectByArea()` (subset of `pixaSelectBySize`)
+    pub fn select_by_area(&self, area: i64, relation: SizeRelation) -> Pixa {
+        let mut result = Pixa::new();
+        for (i, pix) in self.pix.iter().enumerate() {
+            let pix_area = pix.width() as i64 * pix.height() as i64;
+            if compare_relation_i64(pix_area, area, relation) {
+                result.pix.push(pix.clone());
+                if let Some(b) = self.boxa.get(i) {
+                    result.boxa.push(*b);
+                }
+            }
+        }
+        result
+    }
+
+    // ========================================================================
+    // Sort functions
+    // ========================================================================
+
+    /// Sort Pixa by a specified key, returning a new sorted Pixa.
+    ///
+    /// Sorts by bounding box properties (x, y, width, height, area, etc.)
+    /// or by image dimensions when no boxes are present.
+    /// Returns the sorted Pixa and the permutation index array.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSort()` in `pixafunc1.c`
+    pub fn sort(&self, sort_type: PixaSortType, order: SortOrder) -> (Pixa, Vec<usize>) {
+        let n = self.pix.len();
+        if n == 0 {
+            return (Pixa::new(), Vec::new());
+        }
+
+        // Extract sort keys
+        let keys: Vec<f64> = (0..n)
+            .map(|i| {
+                let (w, h) = if let Some(b) = self.boxa.get(i) {
+                    (b.w as f64, b.h as f64)
+                } else {
+                    (self.pix[i].width() as f64, self.pix[i].height() as f64)
+                };
+                let x = self.boxa.get(i).map_or(0.0, |b| b.x as f64);
+                let y = self.boxa.get(i).map_or(0.0, |b| b.y as f64);
+                match sort_type {
+                    PixaSortType::ByX => x,
+                    PixaSortType::ByY => y,
+                    PixaSortType::ByRight => x + w,
+                    PixaSortType::ByBottom => y + h,
+                    PixaSortType::ByWidth => w,
+                    PixaSortType::ByHeight => h,
+                    PixaSortType::ByMinDimension => w.min(h),
+                    PixaSortType::ByMaxDimension => w.max(h),
+                    PixaSortType::ByPerimeter => 2.0 * (w + h),
+                    PixaSortType::ByArea => w * h,
+                    PixaSortType::ByAspectRatio => {
+                        if h == 0.0 {
+                            0.0
+                        } else {
+                            w / h
+                        }
+                    }
+                }
+            })
+            .collect();
+
+        // Create index array and sort it
+        let mut indices: Vec<usize> = (0..n).collect();
+        indices.sort_by(|&a, &b| {
+            let cmp = keys[a]
+                .partial_cmp(&keys[b])
+                .unwrap_or(std::cmp::Ordering::Equal);
+            match order {
+                SortOrder::Increasing => cmp,
+                SortOrder::Decreasing => cmp.reverse(),
+            }
+        });
+
+        // Build sorted Pixa
+        let sorted = self.sort_by_index(&indices).unwrap_or_default();
+        (sorted, indices)
+    }
+
+    /// Reorder Pixa by a permutation index array.
+    ///
+    /// Returns a new Pixa with elements reordered according to the index array.
+    /// `indices[i]` gives the index in `self` of the element that should appear
+    /// at position `i` in the result.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaSortByIndex()` in `pixafunc1.c`
+    pub fn sort_by_index(&self, indices: &[usize]) -> Result<Pixa> {
+        let n = self.pix.len();
+        for &idx in indices {
+            if idx >= n {
+                return Err(Error::IndexOutOfBounds { index: idx, len: n });
+            }
+        }
+        let mut result = Pixa::with_capacity(indices.len());
+        for &idx in indices {
+            result.pix.push(self.pix[idx].clone());
+            if let Some(b) = self.boxa.get(idx) {
+                result.boxa.push(*b);
+            }
+        }
+        Ok(result)
+    }
+
+    // ========================================================================
+    // Display / composition functions
+    // ========================================================================
+
+    /// Compose all Pix images onto a single canvas.
+    ///
+    /// Each image is placed at its associated bounding box position.
+    /// Images without boxes are placed at (0, 0). If `w` or `h` is 0,
+    /// the canvas size is computed from the extent of all boxes and images.
+    /// Negative box coordinates are handled: portions outside the canvas
+    /// are clipped.
+    ///
+    /// The canvas depth is taken from the first image. All images should
+    /// have the same depth for correct rendering.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaDisplay()` in `pixafunc1.c`
+    pub fn display(&self, w: u32, h: u32) -> Result<Pix> {
+        if self.pix.is_empty() {
+            return Err(Error::NullInput("pixa is empty"));
+        }
+
+        // Determine depth from first image
+        let depth = self.pix[0].depth();
+
+        // Auto-compute canvas size if w or h is 0.
+        // Track min offsets to handle negative box coordinates.
+        let (canvas_w, canvas_h) = if w == 0 || h == 0 {
+            let mut min_x: i32 = 0;
+            let mut min_y: i32 = 0;
+            let mut max_right: i32 = 0;
+            let mut max_bottom: i32 = 0;
+            for (i, pix) in self.pix.iter().enumerate() {
+                let (bx, by) = if let Some(b) = self.boxa.get(i) {
+                    (b.x, b.y)
+                } else {
+                    (0, 0)
+                };
+                min_x = min_x.min(bx);
+                min_y = min_y.min(by);
+                let right = bx + pix.width() as i32;
+                let bottom = by + pix.height() as i32;
+                max_right = max_right.max(right);
+                max_bottom = max_bottom.max(bottom);
+            }
+            let computed_w = (max_right - min_x).max(1) as u32;
+            let computed_h = (max_bottom - min_y).max(1) as u32;
+            (
+                if w == 0 { computed_w } else { w },
+                if h == 0 { computed_h } else { h },
+            )
+        } else {
+            (w, h)
+        };
+
+        let canvas = Pix::new(canvas_w, canvas_h, depth)?;
+        let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+
+        // Paint each image onto the canvas
+        for (i, src) in self.pix.iter().enumerate() {
+            let (ox, oy) = if let Some(b) = self.boxa.get(i) {
+                (b.x, b.y)
+            } else {
+                (0, 0)
+            };
+            blit_pix(&mut canvas_mut, src, ox, oy);
+        }
+
+        Ok(canvas_mut.into())
+    }
+
+    /// Arrange all Pix images in a tiled layout.
+    ///
+    /// Images are placed left-to-right, wrapping to the next row when
+    /// `max_width` is exceeded. If a single image is wider than `max_width`,
+    /// it is placed on its own row. Returns the composited image.
+    ///
+    /// The canvas depth is taken from the first image. All images should
+    /// have the same depth for correct rendering.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_width` - Maximum width before wrapping to next row
+    /// * `background` - Background pixel value (0 for black, 255 for white)
+    /// * `spacing` - Pixels of spacing between images
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaDisplayTiled()` in `pixafunc1.c`
+    pub fn display_tiled(&self, max_width: u32, background: u32, spacing: u32) -> Result<Pix> {
+        if self.pix.is_empty() {
+            return Err(Error::NullInput("pixa is empty"));
+        }
+
+        let depth = self.pix[0].depth();
+
+        // Compute layout: rows of images
+        let mut rows: Vec<Vec<usize>> = Vec::new();
+        let mut current_row: Vec<usize> = Vec::new();
+        let mut row_x: u32 = 0;
+
+        for i in 0..self.pix.len() {
+            let pw = self.pix[i].width();
+            let next_x = if current_row.is_empty() {
+                pw
+            } else {
+                row_x + spacing + pw
+            };
+            if !current_row.is_empty() && next_x > max_width {
+                rows.push(std::mem::take(&mut current_row));
+                row_x = pw;
+                current_row.push(i);
+            } else {
+                row_x = next_x;
+                current_row.push(i);
+            }
+        }
+        if !current_row.is_empty() {
+            rows.push(current_row);
+        }
+
+        // Compute total dimensions
+        let mut total_width: u32 = 0;
+        let mut total_height: u32 = 0;
+        let mut row_heights: Vec<u32> = Vec::with_capacity(rows.len());
+        for row in &rows {
+            let mut rw: u32 = 0;
+            let mut rh: u32 = 0;
+            for (j, &idx) in row.iter().enumerate() {
+                if j > 0 {
+                    rw += spacing;
+                }
+                rw += self.pix[idx].width();
+                rh = rh.max(self.pix[idx].height());
+            }
+            total_width = total_width.max(rw);
+            row_heights.push(rh);
+            total_height += rh;
+        }
+        // Add spacing between rows
+        if rows.len() > 1 {
+            total_height += spacing * (rows.len() as u32 - 1);
+        }
+
+        let canvas = Pix::new(total_width, total_height, depth)?;
+        let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+
+        // Fill background (per-pixel; row-level fill could be more efficient
+        // for large canvases but this is sufficient for typical use)
+        if background != 0 {
+            for y in 0..total_height {
+                for x in 0..total_width {
+                    canvas_mut.set_pixel_unchecked(x, y, background);
+                }
+            }
+        }
+
+        // Place images
+        let mut cy: u32 = 0;
+        for (row_idx, row) in rows.iter().enumerate() {
+            let mut cx: u32 = 0;
+            for (j, &idx) in row.iter().enumerate() {
+                if j > 0 {
+                    cx += spacing;
+                }
+                blit_pix(&mut canvas_mut, &self.pix[idx], cx as i32, cy as i32);
+                cx += self.pix[idx].width();
+            }
+            cy += row_heights[row_idx];
+            if row_idx < rows.len() - 1 {
+                cy += spacing;
+            }
+        }
+
+        Ok(canvas_mut.into())
+    }
+
     /// Create a deep copy of this Pixa
     ///
     /// Unlike `clone()` which shares Pix data via Arc, this creates
@@ -306,6 +663,44 @@ impl Pixa {
     /// Create a mutable iterator over Pix references
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Pix> {
         self.pix.iter_mut()
+    }
+}
+
+// ============================================================================
+// Helper functions
+// ============================================================================
+
+use crate::box_::{compare_relation, compare_relation_i64};
+
+/// Copy pixels from `src` onto `dst` at offset (ox, oy).
+///
+/// Uses per-pixel get/set; sufficient for small component images.
+/// For bulk image operations, row-level memcpy would be more efficient.
+///
+/// Clips to destination bounds. Handles all pixel depths.
+fn blit_pix(dst: &mut PixMut, src: &Pix, ox: i32, oy: i32) {
+    let dw = dst.width() as i32;
+    let dh = dst.height() as i32;
+    let sw = src.width() as i32;
+    let sh = src.height() as i32;
+
+    // Compute clipped source region
+    let src_x0 = if ox < 0 { -ox } else { 0 };
+    let src_y0 = if oy < 0 { -oy } else { 0 };
+    let src_x1 = sw.min(dw - ox);
+    let src_y1 = sh.min(dh - oy);
+
+    if src_x0 >= src_x1 || src_y0 >= src_y1 {
+        return;
+    }
+
+    for sy in src_y0..src_y1 {
+        let dy = oy + sy;
+        for sx in src_x0..src_x1 {
+            let dx = ox + sx;
+            let val = src.get_pixel(sx as u32, sy as u32).unwrap_or(0);
+            dst.set_pixel_unchecked(dx as u32, dy as u32, val);
+        }
     }
 }
 

@@ -43,7 +43,7 @@ pub use pix::{
     ImageFormat, MaskBlendType, Pix, PixMut, PixelDepth, PixelDiffResult, PixelOp, RopOp,
     ScanDirection, blend_with_gray_mask, correlation_binary,
 };
-pub use pixa::{Pixa, Pixaa};
+pub use pixa::{Pixa, PixaSortType, Pixaa};
 pub use pta::{Pta, Ptaa};
 pub use sarray::{Sarray, Sarraya};
 
