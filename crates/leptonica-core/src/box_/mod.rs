@@ -2,6 +2,8 @@
 //!
 //! These structures represent rectangular regions in an image.
 
+pub mod serial;
+
 use crate::error::{Error, Result};
 
 /// Size comparison relation for selection functions
