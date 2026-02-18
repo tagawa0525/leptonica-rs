@@ -89,7 +89,8 @@ pub use label::{
 pub use seedfill::{
     BoundaryCondition, SeedFillOptions, clear_border, distance_function, fill_closed_borders,
     fill_holes, find_equal_values, floodfill, remove_seeded_components, seedfill_binary,
-    seedfill_binary_restricted, seedfill_gray, seedfill_gray_inv,
+    seedfill_binary_restricted, seedfill_gray, seedfill_gray_inv, seedspread,
+    select_min_in_conncomp,
 };
 
 // Re-export watershed types and functions
