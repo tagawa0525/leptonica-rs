@@ -29,10 +29,20 @@
 //! C Leptonica: `boxbasic.c` (`boxaReadStream`, `boxaWriteStream`,
 //! `boxaaReadStream`, `boxaaWriteStream`)
 
-use crate::box_::{Boxa, Boxaa};
-use crate::error::Result;
-use std::io::{Read, Write};
+use crate::box_::{Box, Boxa, Boxaa};
+use crate::error::{Error, Result};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
+
+/// Boxa serialization format version (matches C Leptonica BOXA_VERSION_NUMBER)
+const BOXA_VERSION: i32 = 2;
+/// Boxaa serialization format version (matches C Leptonica BOXAA_VERSION_NUMBER)
+const BOXAA_VERSION: i32 = 3;
+
+/// Maximum number of boxes in a Boxa
+const MAX_BOXA_SIZE: usize = 10_000_000;
+/// Maximum number of Boxa in a Boxaa
+const MAX_BOXAA_SIZE: usize = 1_000_000;
 
 impl Boxa {
     /// Read a Boxa from a reader.
@@ -40,18 +50,33 @@ impl Boxa {
     /// # See also
     ///
     /// C Leptonica: `boxaReadStream()` in `boxbasic.c`
-    pub fn read_from_reader(_reader: &mut impl Read) -> Result<Self> {
-        todo!()
+    pub fn read_from_reader(reader: &mut impl Read) -> Result<Self> {
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf)?;
+        Self::read_from_bytes(buf.as_bytes())
     }
 
     /// Read a Boxa from a file.
-    pub fn read_from_file(_path: impl AsRef<Path>) -> Result<Self> {
-        todo!()
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaRead()` in `boxbasic.c`
+    pub fn read_from_file(path: impl AsRef<Path>) -> Result<Self> {
+        let file = std::fs::File::open(path.as_ref())?;
+        let mut reader = BufReader::new(file);
+        Self::read_from_reader(&mut reader)
     }
 
     /// Read a Boxa from bytes.
-    pub fn read_from_bytes(_data: &[u8]) -> Result<Self> {
-        todo!()
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaReadMem()` in `boxbasic.c`
+    pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
+        let text = std::str::from_utf8(data)
+            .map_err(|e| Error::DecodeError(format!("invalid UTF-8: {e}")))?;
+        let mut lines = text.lines().peekable();
+        parse_boxa(&mut lines)
     }
 
     /// Write a Boxa to a writer.
@@ -59,18 +84,30 @@ impl Boxa {
     /// # See also
     ///
     /// C Leptonica: `boxaWriteStream()` in `boxbasic.c`
-    pub fn write_to_writer(&self, _writer: &mut impl Write) -> Result<()> {
-        todo!()
+    pub fn write_to_writer(&self, writer: &mut impl Write) -> Result<()> {
+        write_boxa(writer, self)
     }
 
     /// Write a Boxa to a file.
-    pub fn write_to_file(&self, _path: impl AsRef<Path>) -> Result<()> {
-        todo!()
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaWrite()` in `boxbasic.c`
+    pub fn write_to_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        let file = std::fs::File::create(path.as_ref())?;
+        let mut writer = BufWriter::new(file);
+        self.write_to_writer(&mut writer)
     }
 
     /// Write a Boxa to bytes.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaWriteMem()` in `boxbasic.c`
     pub fn write_to_bytes(&self) -> Result<Vec<u8>> {
-        todo!()
+        let mut buf = Vec::new();
+        self.write_to_writer(&mut buf)?;
+        Ok(buf)
     }
 }
 
@@ -80,18 +117,33 @@ impl Boxaa {
     /// # See also
     ///
     /// C Leptonica: `boxaaReadStream()` in `boxbasic.c`
-    pub fn read_from_reader(_reader: &mut impl Read) -> Result<Self> {
-        todo!()
+    pub fn read_from_reader(reader: &mut impl Read) -> Result<Self> {
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf)?;
+        Self::read_from_bytes(buf.as_bytes())
     }
 
     /// Read a Boxaa from a file.
-    pub fn read_from_file(_path: impl AsRef<Path>) -> Result<Self> {
-        todo!()
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaaRead()` in `boxbasic.c`
+    pub fn read_from_file(path: impl AsRef<Path>) -> Result<Self> {
+        let file = std::fs::File::open(path.as_ref())?;
+        let mut reader = BufReader::new(file);
+        Self::read_from_reader(&mut reader)
     }
 
     /// Read a Boxaa from bytes.
-    pub fn read_from_bytes(_data: &[u8]) -> Result<Self> {
-        todo!()
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaaReadMem()` in `boxbasic.c`
+    pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
+        let text = std::str::from_utf8(data)
+            .map_err(|e| Error::DecodeError(format!("invalid UTF-8: {e}")))?;
+        let mut lines = text.lines().peekable();
+        parse_boxaa(&mut lines)
     }
 
     /// Write a Boxaa to a writer.
@@ -99,28 +151,201 @@ impl Boxaa {
     /// # See also
     ///
     /// C Leptonica: `boxaaWriteStream()` in `boxbasic.c`
-    pub fn write_to_writer(&self, _writer: &mut impl Write) -> Result<()> {
-        todo!()
+    pub fn write_to_writer(&self, writer: &mut impl Write) -> Result<()> {
+        let n = self.len();
+        writeln!(writer, "\nBoxaa Version {BOXAA_VERSION}")?;
+        writeln!(writer, "Number of boxa = {n}")?;
+
+        for (i, boxa) in self.boxas().iter().enumerate() {
+            let bb = boxa.bounding_box().unwrap_or_default();
+            write!(
+                writer,
+                "\nBoxa[{i}] extent: x = {}, y = {}, w = {}, h = {}",
+                bb.x, bb.y, bb.w, bb.h
+            )?;
+            write_boxa(writer, boxa)?;
+        }
+
+        Ok(())
     }
 
     /// Write a Boxaa to a file.
-    pub fn write_to_file(&self, _path: impl AsRef<Path>) -> Result<()> {
-        todo!()
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaaWrite()` in `boxbasic.c`
+    pub fn write_to_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        let file = std::fs::File::create(path.as_ref())?;
+        let mut writer = BufWriter::new(file);
+        self.write_to_writer(&mut writer)
     }
 
     /// Write a Boxaa to bytes.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaaWriteMem()` in `boxbasic.c`
     pub fn write_to_bytes(&self) -> Result<Vec<u8>> {
-        todo!()
+        let mut buf = Vec::new();
+        self.write_to_writer(&mut buf)?;
+        Ok(buf)
     }
+}
+
+// --- Internal parsing/writing helpers ---
+
+/// Write a Boxa in the C Leptonica text format.
+fn write_boxa(writer: &mut impl Write, boxa: &Boxa) -> Result<()> {
+    let n = boxa.len();
+    writeln!(writer, "\nBoxa Version {BOXA_VERSION}")?;
+    writeln!(writer, "Number of boxes = {n}")?;
+
+    for (i, b) in boxa.iter().enumerate() {
+        writeln!(
+            writer,
+            "  Box[{i}]: x = {}, y = {}, w = {}, h = {}",
+            b.x, b.y, b.w, b.h
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Parse a Boxa from a line iterator.
+///
+/// Expects the iterator to be positioned before the version header line.
+fn parse_boxa<'a>(lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>) -> Result<Boxa> {
+    // Find and parse version line
+    let version = find_and_parse_int(lines, "Boxa Version ")?;
+    if version != BOXA_VERSION {
+        return Err(Error::DecodeError(format!(
+            "invalid Boxa version: {version}"
+        )));
+    }
+
+    // Parse count
+    let n = find_and_parse_int(lines, "Number of boxes = ")? as usize;
+    if n > MAX_BOXA_SIZE {
+        return Err(Error::DecodeError(format!("too many boxes: {n}")));
+    }
+
+    let mut boxa = Boxa::with_capacity(n);
+    for _ in 0..n {
+        let b = parse_box_line(lines)?;
+        boxa.push(b);
+    }
+
+    Ok(boxa)
+}
+
+/// Parse a Boxaa from a line iterator.
+fn parse_boxaa<'a>(
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<Boxaa> {
+    // Find and parse version line
+    let version = find_and_parse_int(lines, "Boxaa Version ")?;
+    if version != BOXAA_VERSION {
+        return Err(Error::DecodeError(format!(
+            "invalid Boxaa version: {version}"
+        )));
+    }
+
+    // Parse count
+    let n = find_and_parse_int(lines, "Number of boxa = ")? as usize;
+    if n > MAX_BOXAA_SIZE {
+        return Err(Error::DecodeError(format!("too many boxa: {n}")));
+    }
+
+    let mut boxaa = Boxaa::with_capacity(n);
+    for _ in 0..n {
+        // Skip extent line (Boxa[i] extent: x = ...)
+        skip_until_contains(lines, "extent:");
+        // Parse the embedded Boxa
+        let boxa = parse_boxa(lines)?;
+        boxaa.push(boxa);
+    }
+
+    Ok(boxaa)
+}
+
+/// Find a line containing `prefix` and parse the integer after it.
+fn find_and_parse_int<'a>(
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    prefix: &str,
+) -> Result<i32> {
+    for line in lines.by_ref() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix(prefix) {
+            return rest.trim().parse::<i32>().map_err(|e| {
+                Error::DecodeError(format!("failed to parse integer after '{prefix}': {e}"))
+            });
+        }
+    }
+    Err(Error::DecodeError(format!(
+        "expected line with '{prefix}' not found"
+    )))
+}
+
+/// Skip lines until one containing `needle` is found.
+fn skip_until_contains<'a>(
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    needle: &str,
+) {
+    for line in lines.by_ref() {
+        if line.contains(needle) {
+            return;
+        }
+    }
+}
+
+/// Parse a Box line like "  Box[0]: x = 10, y = 20, w = 30, h = 40"
+fn parse_box_line<'a>(
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<Box> {
+    for line in lines.by_ref() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("Box[") {
+            continue;
+        }
+        // Parse "Box[N]: x = X, y = Y, w = W, h = H"
+        let after_colon = trimmed
+            .split_once(": ")
+            .ok_or_else(|| Error::DecodeError(format!("invalid box line: {trimmed}")))?
+            .1;
+
+        let vals = parse_key_value_pairs(after_colon)?;
+        if vals.len() < 4 {
+            return Err(Error::DecodeError(format!(
+                "expected 4 values in box line, got {}",
+                vals.len()
+            )));
+        }
+
+        return Ok(Box::new_unchecked(vals[0], vals[1], vals[2], vals[3]));
+    }
+    Err(Error::DecodeError("expected Box line not found".into()))
+}
+
+/// Parse "x = 10, y = 20, w = 30, h = 40" into [10, 20, 30, 40]
+fn parse_key_value_pairs(s: &str) -> Result<Vec<i32>> {
+    let mut values = Vec::new();
+    for part in s.split(',') {
+        let part = part.trim();
+        if let Some((_key, val)) = part.split_once(" = ") {
+            let v = val.trim().parse::<i32>().map_err(|e| {
+                Error::DecodeError(format!("failed to parse value in '{part}': {e}"))
+            })?;
+            values.push(v);
+        }
+    }
+    Ok(values)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Box;
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_roundtrip_empty() {
         let boxa = Boxa::new();
         let bytes = boxa.write_to_bytes().unwrap();
@@ -129,7 +354,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_roundtrip() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 30, 40).unwrap());
@@ -146,7 +370,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_write_format() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 30, 40).unwrap());
@@ -160,7 +383,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_file_roundtrip() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(1, 2, 3, 4).unwrap());
@@ -181,7 +403,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_reader_roundtrip() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(100, 200, 300, 400).unwrap());
@@ -198,14 +419,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_invalid_data() {
         assert!(Boxa::read_from_bytes(b"garbage data").is_err());
         assert!(Boxa::read_from_bytes(b"").is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_roundtrip_empty() {
         let boxaa = Boxaa::new();
         let bytes = boxaa.write_to_bytes().unwrap();
@@ -214,7 +433,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_roundtrip() {
         let mut boxaa = Boxaa::new();
 
@@ -245,7 +463,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_write_format() {
         let mut boxaa = Boxaa::new();
         let mut boxa = Boxa::new();
@@ -260,7 +477,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_file_roundtrip() {
         let mut boxaa = Boxaa::new();
         let mut boxa = Boxa::new();
@@ -281,7 +497,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_with_zero_dim_boxes() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 0, 0).unwrap());
