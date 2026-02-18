@@ -1032,3 +1032,80 @@ mod tests {
         assert_eq!(stats.dominant_colors[1], (0, 0, 255, 100));
     }
 }
+
+/// Compute the color magnitude of each pixel in a 32bpp RGB image.
+///
+/// For each pixel, computes a measure of how "colorful" it is (i.e., how
+/// far from gray). Returns an 8bpp grayscale image where 0 = pure gray
+/// and 255 = maximum color deviation.
+///
+/// Three computation methods are available:
+/// - [`ColorMagnitudeType::IntermedDiff`]: Median of the three pairwise
+///   component differences |r-g|, |r-b|, |g-b|
+/// - [`ColorMagnitudeType::AveMaxDiff2`]: Maximum distance each component
+///   has from the average of the other two
+/// - [`ColorMagnitudeType::MaxDiff`]: max(r,g,b) - min(r,g,b)
+///
+/// # Arguments
+///
+/// * `pix` - 32bpp RGB image
+/// * `mag_type` - Method for computing the color magnitude
+///
+/// # See also
+///
+/// C Leptonica: `pixColorMagnitude()` in `colorcontent.c`
+pub fn color_magnitude(pix: &Pix, mag_type: ColorMagnitudeType) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit8)
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to create output: {e}")))?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = color::extract_rgb(pixel);
+            let (ri, gi, bi) = (r as i32, g as i32, b as i32);
+
+            let colorval = match mag_type {
+                ColorMagnitudeType::IntermedDiff => {
+                    // Median of the three pairwise absolute differences
+                    let rgdist = (ri - gi).abs();
+                    let rbdist = (ri - bi).abs();
+                    let gbdist = (gi - bi).abs();
+                    let maxdist = rgdist.max(rbdist);
+                    if gbdist >= maxdist {
+                        maxdist
+                    } else {
+                        let mindist = rgdist.min(rbdist);
+                        mindist.max(gbdist)
+                    }
+                }
+                ColorMagnitudeType::AveMaxDiff2 => {
+                    // Max distance each component has from average of other two
+                    let rdist = ((gi + bi) / 2 - ri).abs();
+                    let gdist = ((ri + bi) / 2 - gi).abs();
+                    let bdist = ((ri + gi) / 2 - bi).abs();
+                    rdist.max(gdist).max(bdist)
+                }
+                ColorMagnitudeType::MaxDiff => {
+                    // max(r,g,b) - min(r,g,b)
+                    let minval = ri.min(gi).min(bi);
+                    let maxval = ri.max(gi).max(bi);
+                    maxval - minval
+                }
+            };
+
+            out_mut.set_pixel_unchecked(x, y, colorval as u32);
+        }
+    }
+
+    Ok(out_mut.into())
+}
