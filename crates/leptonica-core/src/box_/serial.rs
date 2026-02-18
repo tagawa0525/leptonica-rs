@@ -44,6 +44,10 @@ const MAX_BOXA_SIZE: usize = 10_000_000;
 /// Maximum number of Boxa in a Boxaa
 const MAX_BOXAA_SIZE: usize = 1_000_000;
 
+/// Maximum input size in bytes to prevent unbounded memory growth.
+/// Generous limit (~100 MB) that accommodates any realistic Boxa/Boxaa data.
+const MAX_INPUT_SIZE: usize = 100_000_000;
+
 impl Boxa {
     /// Read a Boxa from a reader.
     ///
@@ -52,7 +56,9 @@ impl Boxa {
     /// C Leptonica: `boxaReadStream()` in `boxbasic.c`
     pub fn read_from_reader(reader: &mut impl Read) -> Result<Self> {
         let mut buf = String::new();
-        reader.read_to_string(&mut buf)?;
+        reader
+            .take(MAX_INPUT_SIZE as u64)
+            .read_to_string(&mut buf)?;
         Self::read_from_bytes(buf.as_bytes())
     }
 
@@ -119,7 +125,9 @@ impl Boxaa {
     /// C Leptonica: `boxaaReadStream()` in `boxbasic.c`
     pub fn read_from_reader(reader: &mut impl Read) -> Result<Self> {
         let mut buf = String::new();
-        reader.read_to_string(&mut buf)?;
+        reader
+            .take(MAX_INPUT_SIZE as u64)
+            .read_to_string(&mut buf)?;
         Self::read_from_bytes(buf.as_bytes())
     }
 
@@ -259,7 +267,7 @@ fn parse_boxaa<'a>(
     let mut boxaa = Boxaa::with_capacity(n);
     for _ in 0..n {
         // Skip extent line (Boxa[i] extent: x = ...)
-        skip_until_contains(lines, "extent:");
+        skip_until_contains(lines, "extent:")?;
         // Parse the embedded Boxa
         let boxa = parse_boxa(lines)?;
         boxaa.push(boxa);
@@ -287,15 +295,20 @@ fn find_and_parse_int<'a>(
 }
 
 /// Skip lines until one containing `needle` is found.
+///
+/// Returns an error if EOF is reached without finding the needle.
 fn skip_until_contains<'a>(
     lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     needle: &str,
-) {
+) -> Result<()> {
     for line in lines.by_ref() {
         if line.contains(needle) {
-            return;
+            return Ok(());
         }
     }
+    Err(Error::DecodeError(format!(
+        "expected line containing '{needle}' not found"
+    )))
 }
 
 /// Parse a Box line like "  Box[0]: x = 10, y = 20, w = 30, h = 40"
@@ -313,32 +326,70 @@ fn parse_box_line<'a>(
             .ok_or_else(|| Error::DecodeError(format!("invalid box line: {trimmed}")))?
             .1;
 
-        let vals = parse_key_value_pairs(after_colon)?;
-        if vals.len() < 4 {
+        let (x, y, w, h) = parse_box_fields(after_colon)?;
+
+        if w < 0 || h < 0 {
             return Err(Error::DecodeError(format!(
-                "expected 4 values in box line, got {}",
-                vals.len()
+                "box has negative dimensions: w = {w}, h = {h}"
             )));
         }
 
-        return Ok(Box::new_unchecked(vals[0], vals[1], vals[2], vals[3]));
+        return Ok(Box::new_unchecked(x, y, w, h));
     }
     Err(Error::DecodeError("expected Box line not found".into()))
 }
 
-/// Parse "x = 10, y = 20, w = 30, h = 40" into [10, 20, 30, 40]
-fn parse_key_value_pairs(s: &str) -> Result<Vec<i32>> {
-    let mut values = Vec::new();
+/// Parse "x = 10, y = 20, w = 30, h = 40" into (x, y, w, h).
+///
+/// Parses by named keys, rejecting unknown/duplicate/missing fields.
+fn parse_box_fields(s: &str) -> Result<(i32, i32, i32, i32)> {
+    let mut x: Option<i32> = None;
+    let mut y: Option<i32> = None;
+    let mut w: Option<i32> = None;
+    let mut h: Option<i32> = None;
+
     for part in s.split(',') {
         let part = part.trim();
-        if let Some((_key, val)) = part.split_once(" = ") {
-            let v = val.trim().parse::<i32>().map_err(|e| {
-                Error::DecodeError(format!("failed to parse value in '{part}': {e}"))
-            })?;
-            values.push(v);
+        if part.is_empty() {
+            continue;
         }
+
+        let (key, val) = part
+            .split_once('=')
+            .ok_or_else(|| Error::DecodeError(format!("invalid key/value pair: '{part}'")))?;
+
+        let key = key.trim();
+        let val = val.trim();
+        let parsed = val
+            .parse::<i32>()
+            .map_err(|e| Error::DecodeError(format!("failed to parse value in '{part}': {e}")))?;
+
+        let slot = match key {
+            "x" => &mut x,
+            "y" => &mut y,
+            "w" => &mut w,
+            "h" => &mut h,
+            other => {
+                return Err(Error::DecodeError(format!(
+                    "unknown field '{other}' in box line"
+                )));
+            }
+        };
+
+        if slot.is_some() {
+            return Err(Error::DecodeError(format!(
+                "duplicate field '{key}' in box line"
+            )));
+        }
+        *slot = Some(parsed);
     }
-    Ok(values)
+
+    let x = x.ok_or_else(|| Error::DecodeError("missing field 'x' in box line".into()))?;
+    let y = y.ok_or_else(|| Error::DecodeError("missing field 'y' in box line".into()))?;
+    let w = w.ok_or_else(|| Error::DecodeError("missing field 'w' in box line".into()))?;
+    let h = h.ok_or_else(|| Error::DecodeError("missing field 'h' in box line".into()))?;
+
+    Ok((x, y, w, h))
 }
 
 #[cfg(test)]
@@ -422,6 +473,56 @@ mod tests {
     fn test_boxa_invalid_data() {
         assert!(Boxa::read_from_bytes(b"garbage data").is_err());
         assert!(Boxa::read_from_bytes(b"").is_err());
+    }
+
+    #[test]
+    fn test_boxa_negative_dimensions_rejected() {
+        // Negative w/h should be rejected during deserialization
+        let input =
+            b"\nBoxa Version 2\nNumber of boxes = 1\n  Box[0]: x = 10, y = 20, w = -5, h = 30\n";
+        let result = Boxa::read_from_bytes(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("negative dimensions"));
+    }
+
+    #[test]
+    fn test_boxa_unknown_field_rejected() {
+        let input =
+            b"\nBoxa Version 2\nNumber of boxes = 1\n  Box[0]: x = 10, y = 20, w = 30, z = 40\n";
+        let result = Boxa::read_from_bytes(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("unknown field"));
+    }
+
+    #[test]
+    fn test_boxa_duplicate_field_rejected() {
+        let input =
+            b"\nBoxa Version 2\nNumber of boxes = 1\n  Box[0]: x = 10, y = 20, w = 30, w = 40\n";
+        let result = Boxa::read_from_bytes(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("duplicate field"));
+    }
+
+    #[test]
+    fn test_boxa_missing_field_rejected() {
+        let input = b"\nBoxa Version 2\nNumber of boxes = 1\n  Box[0]: x = 10, y = 20, w = 30\n";
+        let result = Boxa::read_from_bytes(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("missing field"));
+    }
+
+    #[test]
+    fn test_boxaa_missing_extent_line() {
+        // Boxaa with count=1 but no extent line should produce a clear error
+        let input = b"\nBoxaa Version 3\nNumber of boxa = 1\n";
+        let result = Boxaa::read_from_bytes(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("extent"));
     }
 
     #[test]
