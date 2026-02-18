@@ -5,6 +5,7 @@
 
 mod histogram;
 mod operations;
+pub mod serial;
 
 pub use histogram::HistogramStats;
 pub use operations::{
