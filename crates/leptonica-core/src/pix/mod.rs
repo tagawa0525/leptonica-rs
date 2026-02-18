@@ -51,6 +51,19 @@ pub use rop::{InColor, RopOp};
 use crate::error::{Error, Result};
 use std::sync::Arc;
 
+/// Initial color for `Pix::new_with_colormap`.
+///
+/// # See also
+///
+/// C Leptonica: `L_SET_BLACK`, `L_SET_WHITE` in `pix.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InitColor {
+    /// Initialize to black (R=0, G=0, B=0)
+    Black,
+    /// Initialize to white (R=255, G=255, B=255)
+    White,
+}
+
 /// Pixel depth (bits per pixel)
 ///
 /// Represents the number of bits used to encode each pixel.
@@ -416,6 +429,75 @@ impl Pix {
         &self.inner.data[start..end]
     }
 
+    /// Create a new PIX with the same dimensions and metadata as the source.
+    ///
+    /// The image data is initialized to zero. Copies resolution, colormap,
+    /// text, input format, and spp from the source.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCreateTemplate()` in `pix1.c`
+    pub fn create_template(&self) -> Self {
+        todo!()
+    }
+
+    /// Create a new PIX with a colormap initialized to the given color.
+    ///
+    /// All pixels are initialized to 0 (the first colormap entry).
+    /// The colormap's first entry is set to `init_color`.
+    ///
+    /// # Arguments
+    ///
+    /// * `width` - Width in pixels
+    /// * `height` - Height in pixels
+    /// * `depth` - Pixel depth (must be 2, 4, or 8)
+    /// * `init_color` - Initial color for colormap index 0
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCreateWithCmap()` in `pix1.c`
+    pub fn new_with_colormap(
+        _width: u32,
+        _height: u32,
+        _depth: PixelDepth,
+        _init_color: InitColor,
+    ) -> Result<Self> {
+        todo!()
+    }
+
+    /// Check if two PIX have the same width, height, and depth.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSizesEqual()` in `pix1.c`
+    pub fn sizes_equal(&self, _other: &Pix) -> bool {
+        todo!()
+    }
+
+    /// Get the maximum aspect ratio (>= 1.0).
+    ///
+    /// Returns `max(w/h, h/w)`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixMaxAspectRatio()` in `pix1.c`
+    pub fn max_aspect_ratio(&self) -> f32 {
+        todo!()
+    }
+
+    /// Write image metadata to a writer (for debugging).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixPrintStreamInfo()` in `pix1.c`
+    pub fn print_info(
+        &self,
+        _writer: &mut impl std::io::Write,
+        _label: Option<&str>,
+    ) -> Result<()> {
+        todo!()
+    }
+
     /// Create a deep copy of this PIX.
     ///
     /// Unlike `clone()` which shares data via Arc, this creates
@@ -521,6 +603,30 @@ impl PixMut {
         self.inner.wpl
     }
 
+    /// Get the X resolution (ppi).
+    #[inline]
+    pub fn xres(&self) -> i32 {
+        self.inner.xres
+    }
+
+    /// Get the Y resolution (ppi).
+    #[inline]
+    pub fn yres(&self) -> i32 {
+        self.inner.yres
+    }
+
+    /// Get the input file format.
+    #[inline]
+    pub fn informat(&self) -> ImageFormat {
+        self.inner.informat
+    }
+
+    /// Get the associated text.
+    #[inline]
+    pub fn text(&self) -> Option<&str> {
+        self.inner.text.as_deref()
+    }
+
     /// Set the X resolution.
     pub fn set_xres(&mut self, xres: i32) {
         self.inner.xres = xres;
@@ -611,6 +717,65 @@ impl PixMut {
         }
         self.inner.colormap = cmap;
         Ok(())
+    }
+
+    /// Copy colormap from another PIX.
+    ///
+    /// If the source has no colormap, the destination's colormap is removed.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCopyColormap()` in `pix1.c`
+    pub fn copy_colormap_from(&mut self, _src: &Pix) {
+        todo!()
+    }
+
+    /// Copy resolution (xres, yres) from another PIX.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCopyResolution()` in `pix1.c`
+    pub fn copy_resolution_from(&mut self, _src: &Pix) {
+        todo!()
+    }
+
+    /// Scale the resolution by the given factors.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixScaleResolution()` in `pix1.c`
+    pub fn scale_resolution(&mut self, _xscale: f32, _yscale: f32) {
+        todo!()
+    }
+
+    /// Copy the input format from another PIX.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCopyInputFormat()` in `pix1.c`
+    pub fn copy_input_format_from(&mut self, _src: &Pix) {
+        todo!()
+    }
+
+    /// Append text to existing text.
+    ///
+    /// If no existing text, just sets the text.
+    /// If `text` is None, this is a no-op.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddText()` in `pix1.c`
+    pub fn add_text(&mut self, _text: Option<&str>) {
+        todo!()
+    }
+
+    /// Copy text from another PIX.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCopyText()` in `pix1.c`
+    pub fn copy_text_from(&mut self, _src: &Pix) {
+        todo!()
     }
 
     /// Clear all pixels to zero.
@@ -714,5 +879,253 @@ mod tests {
         // 32-bit: 1 pixel per word
         let pix = Pix::new(10, 1, PixelDepth::Bit32).unwrap();
         assert_eq!(pix.wpl(), 10);
+    }
+
+    // ================================================================
+    // Phase 11.1: Pix creation / template tests
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_create_template() {
+        let src = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
+        let mut src_mut = src.try_into_mut().unwrap();
+        src_mut.set_xres(300);
+        src_mut.set_yres(150);
+        src_mut.set_informat(ImageFormat::Png);
+        src_mut.set_text(Some("hello".to_string()));
+        // Set a pixel so we can verify template is zeroed
+        src_mut.set_pixel(50, 100, 42).unwrap();
+        let src: Pix = src_mut.into();
+
+        let tmpl = src.create_template();
+
+        // Same dimensions and metadata
+        assert_eq!(tmpl.width(), 100);
+        assert_eq!(tmpl.height(), 200);
+        assert_eq!(tmpl.depth(), PixelDepth::Bit8);
+        assert_eq!(tmpl.spp(), 1);
+        assert_eq!(tmpl.xres(), 300);
+        assert_eq!(tmpl.yres(), 150);
+        assert_eq!(tmpl.informat(), ImageFormat::Png);
+        assert_eq!(tmpl.text(), Some("hello"));
+        // Data should be zeroed
+        assert_eq!(tmpl.get_pixel(50, 100), Some(0));
+        assert!(tmpl.data().iter().all(|&w| w == 0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_create_template_with_colormap() {
+        let mut cmap = crate::PixColormap::new(8).unwrap();
+        cmap.add_rgba(255, 0, 0, 255).unwrap();
+        cmap.add_rgba(0, 255, 0, 255).unwrap();
+
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_colormap(Some(cmap)).unwrap();
+        let src: Pix = pix_mut.into();
+
+        let tmpl = src.create_template();
+
+        // Colormap should be copied
+        assert!(tmpl.has_colormap());
+        let cm = tmpl.colormap().unwrap();
+        assert_eq!(cm.len(), 2);
+        assert_eq!(cm.get_rgba(0), Some((255, 0, 0, 255)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_new_with_colormap_black() {
+        let pix = Pix::new_with_colormap(100, 100, PixelDepth::Bit8, InitColor::Black).unwrap();
+
+        assert_eq!(pix.width(), 100);
+        assert_eq!(pix.height(), 100);
+        assert_eq!(pix.depth(), PixelDepth::Bit8);
+        assert!(pix.has_colormap());
+
+        let cm = pix.colormap().unwrap();
+        assert_eq!(cm.len(), 1);
+        assert_eq!(cm.get_rgba(0), Some((0, 0, 0, 255)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_new_with_colormap_white() {
+        let pix = Pix::new_with_colormap(100, 100, PixelDepth::Bit4, InitColor::White).unwrap();
+
+        assert!(pix.has_colormap());
+        let cm = pix.colormap().unwrap();
+        assert_eq!(cm.get_rgba(0), Some((255, 255, 255, 255)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_new_with_colormap_invalid_depth() {
+        // Depth 1 is allowed in C but we follow C: only 2, 4, 8
+        assert!(Pix::new_with_colormap(100, 100, PixelDepth::Bit1, InitColor::Black,).is_err());
+        assert!(Pix::new_with_colormap(100, 100, PixelDepth::Bit32, InitColor::Black,).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sizes_equal() {
+        let pix1 = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
+        let pix2 = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
+        let pix3 = Pix::new(100, 200, PixelDepth::Bit32).unwrap();
+        let pix4 = Pix::new(50, 200, PixelDepth::Bit8).unwrap();
+
+        assert!(pix1.sizes_equal(&pix2));
+        assert!(!pix1.sizes_equal(&pix3)); // different depth
+        assert!(!pix1.sizes_equal(&pix4)); // different width
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_aspect_ratio() {
+        let pix1 = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
+        assert!((pix1.max_aspect_ratio() - 2.0).abs() < 0.001);
+
+        let pix2 = Pix::new(200, 100, PixelDepth::Bit8).unwrap();
+        assert!((pix2.max_aspect_ratio() - 2.0).abs() < 0.001);
+
+        let pix3 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        assert!((pix3.max_aspect_ratio() - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_copy_colormap_from() {
+        let mut cmap = crate::PixColormap::new(8).unwrap();
+        cmap.add_rgb(10, 20, 30).unwrap();
+
+        let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut src_mut = src.try_into_mut().unwrap();
+        src_mut.set_colormap(Some(cmap)).unwrap();
+        let src: Pix = src_mut.into();
+
+        let dst = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut dst_mut = dst.try_into_mut().unwrap();
+        assert!(!dst_mut.has_colormap());
+
+        dst_mut.copy_colormap_from(&src);
+        assert!(dst_mut.has_colormap());
+        let cm = dst_mut.colormap().unwrap();
+        assert_eq!(cm.get_rgb(0), Some((10, 20, 30)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_copy_colormap_from_none() {
+        // Copying from a pix with no colormap should remove existing colormap
+        let mut cmap = crate::PixColormap::new(8).unwrap();
+        cmap.add_rgb(10, 20, 30).unwrap();
+
+        let dst = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut dst_mut = dst.try_into_mut().unwrap();
+        dst_mut.set_colormap(Some(cmap)).unwrap();
+        assert!(dst_mut.has_colormap());
+
+        let src_no_cmap = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        dst_mut.copy_colormap_from(&src_no_cmap);
+        assert!(!dst_mut.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_copy_resolution_from() {
+        let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut src_mut = src.try_into_mut().unwrap();
+        src_mut.set_resolution(300, 600);
+        let src: Pix = src_mut.into();
+
+        let dst = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut dst_mut = dst.try_into_mut().unwrap();
+        dst_mut.copy_resolution_from(&src);
+
+        assert_eq!(dst_mut.xres(), 300);
+        assert_eq!(dst_mut.yres(), 600);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_resolution() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_resolution(300, 600);
+        pix_mut.scale_resolution(0.5, 2.0);
+
+        assert_eq!(pix_mut.xres(), 150);
+        assert_eq!(pix_mut.yres(), 1200);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_copy_input_format_from() {
+        let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut src_mut = src.try_into_mut().unwrap();
+        src_mut.set_informat(ImageFormat::Tiff);
+        let src: Pix = src_mut.into();
+
+        let dst = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut dst_mut = dst.try_into_mut().unwrap();
+        dst_mut.copy_input_format_from(&src);
+
+        assert_eq!(dst_mut.informat(), ImageFormat::Tiff);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_text() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        // Add to empty text
+        pix_mut.add_text(Some("hello"));
+        assert_eq!(pix_mut.text(), Some("hello"));
+
+        // Append to existing text
+        pix_mut.add_text(Some(" world"));
+        assert_eq!(pix_mut.text(), Some("hello world"));
+
+        // None is a no-op
+        pix_mut.add_text(None);
+        assert_eq!(pix_mut.text(), Some("hello world"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_copy_text_from() {
+        let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut src_mut = src.try_into_mut().unwrap();
+        src_mut.set_text(Some("source text".to_string()));
+        let src: Pix = src_mut.into();
+
+        let dst = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut dst_mut = dst.try_into_mut().unwrap();
+        dst_mut.copy_text_from(&src);
+
+        assert_eq!(dst_mut.text(), Some("source text"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_print_info() {
+        let pix = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_resolution(300, 300);
+        pix_mut.set_text(Some("test image".to_string()));
+        let pix: Pix = pix_mut.into();
+
+        let mut buf = Vec::new();
+        pix.print_info(&mut buf, Some("myimage")).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+
+        assert!(output.contains("myimage"));
+        assert!(output.contains("100"));
+        assert!(output.contains("200"));
+        assert!(output.contains("300"));
+        assert!(output.contains("test image"));
     }
 }
