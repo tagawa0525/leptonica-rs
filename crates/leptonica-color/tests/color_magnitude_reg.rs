@@ -8,7 +8,6 @@ use leptonica_color::{ColorMagnitudeType, analysis::color_magnitude};
 use leptonica_core::{Pix, PixelDepth, color};
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_magnitude_gray_pixel() {
     // A pure gray pixel (r=g=b) should have magnitude 0 for all types
     let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -28,7 +27,6 @@ fn test_color_magnitude_gray_pixel() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_magnitude_pure_red() {
     // Pure red (255, 0, 0)
     let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -50,7 +48,6 @@ fn test_color_magnitude_pure_red() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_magnitude_known_values() {
     // R=100, G=120, B=140 → known expected values
     let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
@@ -74,7 +71,6 @@ fn test_color_magnitude_known_values() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_magnitude_multiple_pixels() {
     // 3x1 image with different colors
     let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
@@ -93,7 +89,6 @@ fn test_color_magnitude_multiple_pixels() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_magnitude_rejects_non_32bpp() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(color_magnitude(&pix, ColorMagnitudeType::MaxDiff).is_err());
