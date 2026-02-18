@@ -853,6 +853,139 @@ impl PixMut {
         self.inner.text = src.inner.text.clone();
     }
 
+    /// Set all pixels to a gray value (0-255).
+    ///
+    /// For 32 bpp, sets R=G=B=grayval, alpha unchanged.
+    /// For colormapped images, finds/adds nearest gray.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetAllGray()` in `pix2.c`
+    pub fn set_all_gray(&mut self, _grayval: u8) -> Result<()> {
+        todo!()
+    }
+
+    /// Set all pixels to an arbitrary value.
+    ///
+    /// The value is depth-dependent:
+    /// - 1 bpp: 0 or 1
+    /// - 2 bpp: 0-3
+    /// - 4 bpp: 0-15
+    /// - 8 bpp: 0-255
+    /// - 16 bpp: 0-65535
+    /// - 32 bpp: full 32-bit value
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetAllArbitrary()` in `pix2.c`
+    pub fn set_all_arbitrary(&mut self, _val: u32) -> Result<()> {
+        todo!()
+    }
+
+    /// Set all pixels to black or white.
+    ///
+    /// Handles all depths including colormapped images.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetBlackOrWhite()` in `pix2.c`
+    pub fn set_black_or_white(&mut self, _color: InitColor) {
+        todo!()
+    }
+
+    /// Get the pixel value for black or white.
+    ///
+    /// For non-colormapped images, returns 0 for black and max for white
+    /// (with depth=1 reversed: 0=white, 1=black).
+    ///
+    /// For colormapped images, returns the colormap index.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetBlackOrWhiteVal()` in `pix2.c`
+    pub fn get_black_or_white_val(_pix: &Pix, _color: InitColor) -> u32 {
+        todo!()
+    }
+
+    /// Clear a single pixel (set to 0).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClearPixel()` in `pix2.c`
+    pub fn clear_pixel(&mut self, _x: u32, _y: u32) -> Result<()> {
+        todo!()
+    }
+
+    /// Flip a single pixel (toggle between 0 and max value).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixFlipPixel()` in `pix2.c`
+    pub fn flip_pixel(&mut self, _x: u32, _y: u32) -> Result<()> {
+        todo!()
+    }
+
+    /// Clear pixels in a rectangular region (set to 0).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClearInRect()` in `pix2.c`
+    pub fn clear_in_rect(&mut self, _rect: &crate::Box) -> Result<()> {
+        todo!()
+    }
+
+    /// Set pixels in a rectangular region to max value.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetInRect()` in `pix2.c`
+    pub fn set_in_rect(&mut self, _rect: &crate::Box) -> Result<()> {
+        todo!()
+    }
+
+    /// Set pixels in a rectangular region to an arbitrary value.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetInRectArbitrary()` in `pix2.c`
+    pub fn set_in_rect_arbitrary(&mut self, _rect: &crate::Box, _val: u32) -> Result<()> {
+        todo!()
+    }
+
+    /// Set padding bits at the end of each scanline.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetPadBits()` in `pix2.c`
+    pub fn set_pad_bits(&mut self, _val: u32) {
+        todo!()
+    }
+
+    /// Set padding bits in a horizontal band.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetPadBitsBand()` in `pix2.c`
+    pub fn set_pad_bits_band(&mut self, _by: u32, _bh: u32, _val: u32) {
+        todo!()
+    }
+
+    /// Set or clear border pixels using raster operations.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetOrClearBorder()` in `pix2.c`
+    pub fn set_or_clear_border(
+        &mut self,
+        _left: u32,
+        _right: u32,
+        _top: u32,
+        _bot: u32,
+        _color: InitColor,
+    ) {
+        todo!()
+    }
+
     /// Clear all pixels to zero.
     pub fn clear(&mut self) {
         self.inner.data.fill(0);
@@ -1187,5 +1320,217 @@ mod tests {
         assert!(output.contains("200"));
         assert!(output.contains("300"));
         assert!(output.contains("test image"));
+    }
+
+    // ================================================================
+    // Phase 11.2: Pixel setters / border / rect tests
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_all_gray_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_gray(128).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(128));
+        assert_eq!(pm.get_pixel(9, 9), Some(128));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_all_gray_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_gray(200).unwrap();
+        // 32 bpp: R=G=B=200, alpha=0 → 0xC8C8C800
+        let expected = (200u32 << 24) | (200u32 << 16) | (200u32 << 8);
+        assert_eq!(pm.get_pixel(5, 5), Some(expected));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_all_arbitrary_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_arbitrary(42).unwrap();
+        assert_eq!(pm.get_pixel(5, 5), Some(42));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_all_arbitrary_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_arbitrary(1).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(1));
+        assert_eq!(pm.get_pixel(9, 9), Some(1));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_black_or_white_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_black_or_white(InitColor::White);
+        assert_eq!(pm.get_pixel(5, 5), Some(255));
+
+        pm.set_black_or_white(InitColor::Black);
+        assert_eq!(pm.get_pixel(5, 5), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_black_or_white_1bpp() {
+        let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // 1 bpp: white=0, black=1
+        pm.set_black_or_white(InitColor::Black);
+        assert_eq!(pm.get_pixel(0, 0), Some(1));
+
+        pm.set_black_or_white(InitColor::White);
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_black_or_white_val() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert_eq!(PixMut::get_black_or_white_val(&pix, InitColor::Black), 0);
+        assert_eq!(PixMut::get_black_or_white_val(&pix, InitColor::White), 255);
+
+        // 1 bpp: inverted
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert_eq!(PixMut::get_black_or_white_val(&pix1, InitColor::Black), 1);
+        assert_eq!(PixMut::get_black_or_white_val(&pix1, InitColor::White), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_clear_pixel() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(5, 5, 200).unwrap();
+        assert_eq!(pm.get_pixel(5, 5), Some(200));
+
+        pm.clear_pixel(5, 5).unwrap();
+        assert_eq!(pm.get_pixel(5, 5), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_flip_pixel() {
+        // 1 bpp flip
+        let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+        pm.flip_pixel(0, 0).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(1));
+        pm.flip_pixel(0, 0).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+
+        // 8 bpp flip
+        let pix8 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm8 = pix8.try_into_mut().unwrap();
+        pm8.set_pixel(5, 5, 100).unwrap();
+        pm8.flip_pixel(5, 5).unwrap();
+        assert_eq!(pm8.get_pixel(5, 5), Some(100 ^ 255));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_clear_in_rect() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Fill all with 200
+        pm.set_all_arbitrary(200).unwrap();
+
+        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        pm.clear_in_rect(&rect).unwrap();
+
+        // Inside rect should be 0
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+        // Outside rect should still be 200
+        assert_eq!(pm.get_pixel(0, 0), Some(200));
+        assert_eq!(pm.get_pixel(19, 19), Some(200));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_in_rect() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // Inside rect should be 255 (max for 8bpp)
+        assert_eq!(pm.get_pixel(10, 10), Some(255));
+        // Outside rect should still be 0
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_in_rect_arbitrary() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        pm.set_in_rect_arbitrary(&rect, 42).unwrap();
+
+        // Inside rect should be 42
+        assert_eq!(pm.get_pixel(10, 10), Some(42));
+        // Outside rect should still be 0
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_pad_bits() {
+        // 1 bpp, width=10, wpl=1 (32 bits per row, 22 pad bits)
+        let pix = Pix::new(10, 2, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all(); // set all bits to 1
+        pm.set_pad_bits(0); // clear pad bits
+
+        // First 10 bits of each row should be 1, rest should be 0
+        let row0 = pm.data()[0];
+        // Top 10 bits set: 0b1111_1111_1100_0000_0000_0000_0000_0000 = 0xFFC00000
+        assert_eq!(row0, 0xFFC00000);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_pad_bits_band() {
+        let pix = Pix::new(10, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all();
+        pm.set_pad_bits_band(1, 2, 0); // clear pad bits for rows 1-2
+
+        // Row 0 should still have all bits set
+        assert_eq!(pm.data()[0], 0xFFFFFFFF);
+        // Rows 1-2 should have pad bits cleared
+        assert_eq!(pm.data()[1], 0xFFC00000);
+        assert_eq!(pm.data()[2], 0xFFC00000);
+        // Row 3 should still have all bits set
+        assert_eq!(pm.data()[3], 0xFFFFFFFF);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_or_clear_border() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::White);
+        // Border pixels should be 255
+        assert_eq!(pm.get_pixel(0, 0), Some(255));
+        assert_eq!(pm.get_pixel(1, 0), Some(255));
+        // Interior should remain 0
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::Black);
+        // Border pixels should be 0 again
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
     }
 }
