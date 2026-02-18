@@ -39,13 +39,26 @@ const BOXA_VERSION: i32 = 2;
 /// Boxaa serialization format version (matches C Leptonica BOXAA_VERSION_NUMBER)
 const BOXAA_VERSION: i32 = 3;
 
-/// Maximum number of boxes in a Boxa
+/// Maximum number of boxes in a Boxa.
+///
+/// Logical upper bound on the number of `Box` objects in memory. When reading
+/// from serialized text, the effective limit may be lower due to
+/// [`MAX_INPUT_SIZE`], which bounds total input bytes.
 const MAX_BOXA_SIZE: usize = 10_000_000;
-/// Maximum number of Boxa in a Boxaa
+
+/// Maximum number of Boxa in a Boxaa.
+///
+/// Logical upper bound on the in-memory collection size. When reading from
+/// text, the byte-based [`MAX_INPUT_SIZE`] limit may be reached before this
+/// count limit.
 const MAX_BOXAA_SIZE: usize = 1_000_000;
 
 /// Maximum input size in bytes to prevent unbounded memory growth.
-/// Generous limit (~100 MB) that accommodates any realistic Boxa/Boxaa data.
+///
+/// Safety limit on total bytes read from a serialized Boxa/Boxaa stream.
+/// Each box line is ~90 bytes, so a maximum-size `Boxa` would require
+/// significantly more than this limit. Input exceeding this limit is rejected
+/// with a clear error to cap memory usage for malformed or adversarial input.
 const MAX_INPUT_SIZE: usize = 100_000_000;
 
 impl Boxa {
@@ -55,11 +68,8 @@ impl Boxa {
     ///
     /// C Leptonica: `boxaReadStream()` in `boxbasic.c`
     pub fn read_from_reader(reader: &mut impl Read) -> Result<Self> {
-        let mut buf = String::new();
-        reader
-            .take(MAX_INPUT_SIZE as u64)
-            .read_to_string(&mut buf)?;
-        Self::read_from_bytes(buf.as_bytes())
+        let buf = read_limited(reader)?;
+        Self::read_from_bytes(&buf)
     }
 
     /// Read a Boxa from a file.
@@ -124,11 +134,8 @@ impl Boxaa {
     ///
     /// C Leptonica: `boxaaReadStream()` in `boxbasic.c`
     pub fn read_from_reader(reader: &mut impl Read) -> Result<Self> {
-        let mut buf = String::new();
-        reader
-            .take(MAX_INPUT_SIZE as u64)
-            .read_to_string(&mut buf)?;
-        Self::read_from_bytes(buf.as_bytes())
+        let buf = read_limited(reader)?;
+        Self::read_from_bytes(&buf)
     }
 
     /// Read a Boxaa from a file.
@@ -202,6 +209,20 @@ impl Boxaa {
 
 // --- Internal parsing/writing helpers ---
 
+/// Read from a reader with a size limit, returning a clear error if exceeded.
+fn read_limited(reader: &mut impl Read) -> Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    reader
+        .take((MAX_INPUT_SIZE + 1) as u64)
+        .read_to_end(&mut buf)?;
+    if buf.len() > MAX_INPUT_SIZE {
+        return Err(Error::DecodeError(format!(
+            "input too large: exceeds maximum allowed size of {MAX_INPUT_SIZE} bytes"
+        )));
+    }
+    Ok(buf)
+}
+
 /// Write a Boxa in the C Leptonica text format.
 fn write_boxa(writer: &mut impl Write, boxa: &Boxa) -> Result<()> {
     let n = boxa.len();
@@ -231,8 +252,12 @@ fn parse_boxa<'a>(lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>
         )));
     }
 
-    // Parse count
-    let n = find_and_parse_int(lines, "Number of boxes = ")? as usize;
+    // Parse count (validate non-negative before usize cast)
+    let n_i32 = find_and_parse_int(lines, "Number of boxes = ")?;
+    if n_i32 < 0 {
+        return Err(Error::DecodeError(format!("invalid box count: {n_i32}")));
+    }
+    let n = n_i32 as usize;
     if n > MAX_BOXA_SIZE {
         return Err(Error::DecodeError(format!("too many boxes: {n}")));
     }
@@ -258,8 +283,12 @@ fn parse_boxaa<'a>(
         )));
     }
 
-    // Parse count
-    let n = find_and_parse_int(lines, "Number of boxa = ")? as usize;
+    // Parse count (validate non-negative before usize cast)
+    let n_i32 = find_and_parse_int(lines, "Number of boxa = ")?;
+    if n_i32 < 0 {
+        return Err(Error::DecodeError(format!("invalid boxa count: {n_i32}")));
+    }
+    let n = n_i32 as usize;
     if n > MAX_BOXAA_SIZE {
         return Err(Error::DecodeError(format!("too many boxa: {n}")));
     }
