@@ -12,7 +12,6 @@ use leptonica_region::ConnectivityType;
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedspread_single_seed_4conn() {
     // 8bpp 20x20, single seed at (10, 10) with value 100
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -31,7 +30,6 @@ fn test_seedspread_single_seed_4conn() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedspread_single_seed_8conn() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mut pm = pix.to_mut();
@@ -45,7 +43,6 @@ fn test_seedspread_single_seed_8conn() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedspread_two_seeds_voronoi() {
     // Two seeds: left side (5, 10) = 50, right side (15, 10) = 150
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -66,7 +63,6 @@ fn test_seedspread_two_seeds_voronoi() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedspread_multiple_seeds() {
     // 4 seeds in corners
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -92,7 +88,6 @@ fn test_seedspread_multiple_seeds() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_seedspread_rejects_non_8bpp() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     assert!(leptonica_region::seedfill::seedspread(&pix, ConnectivityType::FourWay).is_err());
@@ -103,7 +98,6 @@ fn test_seedspread_rejects_non_8bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_min_in_conncomp_basic() {
     // 8bpp gradient image 20x20
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -148,7 +142,6 @@ fn test_select_min_in_conncomp_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_min_in_conncomp_single_pixel() {
     // Uniform 8bpp image
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();

@@ -1085,10 +1085,174 @@ pub fn seedfill_binary_restricted(
 ///
 /// C Leptonica: `pixSeedspread()` in `seedfill.c`
 pub fn seedspread(pixs: &Pix, connectivity: ConnectivityType) -> RegionResult<Pix> {
-    let _ = (pixs, connectivity);
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(),
-    ))
+    if pixs.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+
+    let orig_w = pixs.width();
+    let orig_h = pixs.height();
+
+    // Add a 4-pixel border to simplify boundary handling.
+    // The border pixels are 0 in the value image and get max distance.
+    let border = 4u32;
+    let w = orig_w + 2 * border;
+    let h = orig_h + 2 * border;
+
+    // Build the bordered value image (8bpp stored as u8)
+    let mut val = vec![0u8; (w * h) as usize];
+    for y in 0..orig_h {
+        for x in 0..orig_w {
+            val[((y + border) * w + (x + border)) as usize] =
+                pixs.get_pixel(x, y).unwrap_or(0) as u8;
+        }
+    }
+
+    // Build the 16-bit distance image:
+    //   0 at seed points (nonzero input), 1 at non-seed, 0xffff at borders
+    let max_dist: u16 = 0xffff;
+    let mut dist = vec![0u16; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) as usize;
+            if y < border || y >= h - border || x < border || x >= w - border {
+                // Border region: set to max
+                dist[idx] = max_dist;
+            } else if val[idx] == 0 {
+                // Non-seed: needs filling
+                dist[idx] = 1;
+            }
+            // Seed points (val != 0 and inside): dist stays 0
+        }
+    }
+    // Also set the 1-pixel boundary just inside the border to max
+    // (top row, bottom row, left col, right col of the padded image)
+    for x in 0..w {
+        dist[x as usize] = max_dist;
+        dist[((h - 1) * w + x) as usize] = max_dist;
+    }
+    for y in 0..h {
+        dist[(y * w) as usize] = max_dist;
+        dist[(y * w + w - 1) as usize] = max_dist;
+    }
+
+    // Two-pass seed spread: raster then anti-raster
+    let imax = h - 1;
+    let jmax = w - 1;
+
+    // Use u32 arithmetic to avoid u16 overflow (C version uses l_int32).
+    match connectivity {
+        ConnectivityType::FourWay => {
+            // UL → LR scan
+            for i in 1..h {
+                for j in 1..jmax {
+                    let idx = (i * w + j) as usize;
+                    let valt = dist[idx] as u32;
+                    if valt > 0 {
+                        let val2t = dist[((i - 1) * w + j) as usize] as u32; // top
+                        let val4t = dist[(i * w + j - 1) as usize] as u32; // left
+                        let minval = val2t.min(val4t).min(0xfffe);
+                        dist[idx] = (minval + 1) as u16;
+                        if val2t < val4t {
+                            val[idx] = val[((i - 1) * w + j) as usize];
+                        } else {
+                            val[idx] = val[(i * w + j - 1) as usize];
+                        }
+                    }
+                }
+            }
+            // LR → UL scan
+            for i in (1..imax).rev() {
+                for j in (1..jmax).rev() {
+                    let idx = (i * w + j) as usize;
+                    let valt = dist[idx] as u32;
+                    if valt > 0 {
+                        let val7t = dist[((i + 1) * w + j) as usize] as u32; // bottom
+                        let val5t = dist[(i * w + j + 1) as usize] as u32; // right
+                        let minval = val5t.min(val7t);
+                        let minval = (minval + 1).min(valt);
+                        if valt > minval {
+                            dist[idx] = minval as u16;
+                            if val5t < val7t {
+                                val[idx] = val[(i * w + j + 1) as usize];
+                            } else {
+                                val[idx] = val[((i + 1) * w + j) as usize];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ConnectivityType::EightWay => {
+            // UL → LR scan (check: UL, U, UR, L)
+            for i in 1..h {
+                for j in 1..jmax {
+                    let idx = (i * w + j) as usize;
+                    let valt = dist[idx] as u32;
+                    if valt > 0 {
+                        let val1t = dist[((i - 1) * w + j - 1) as usize] as u32; // UL
+                        let val2t = dist[((i - 1) * w + j) as usize] as u32; // U
+                        let val3t = dist[((i - 1) * w + j + 1) as usize] as u32; // UR
+                        let val4t = dist[(i * w + j - 1) as usize] as u32; // L
+                        let minval = val1t.min(val2t).min(val3t).min(val4t).min(0xfffe);
+                        dist[idx] = (minval + 1) as u16;
+                        if minval == val1t {
+                            val[idx] = val[((i - 1) * w + j - 1) as usize];
+                        } else if minval == val2t {
+                            val[idx] = val[((i - 1) * w + j) as usize];
+                        } else if minval == val3t {
+                            val[idx] = val[((i - 1) * w + j + 1) as usize];
+                        } else {
+                            val[idx] = val[(i * w + j - 1) as usize];
+                        }
+                    }
+                }
+            }
+            // LR → UL scan (check: LR, D, LL, R)
+            for i in (1..imax).rev() {
+                for j in (1..jmax).rev() {
+                    let idx = (i * w + j) as usize;
+                    let valt = dist[idx] as u32;
+                    if valt > 0 {
+                        let val8t = dist[((i + 1) * w + j + 1) as usize] as u32; // LR
+                        let val7t = dist[((i + 1) * w + j) as usize] as u32; // D
+                        let val6t = dist[((i + 1) * w + j - 1) as usize] as u32; // LL
+                        let val5t = dist[(i * w + j + 1) as usize] as u32; // R
+                        let minval = val8t.min(val7t).min(val6t).min(val5t);
+                        let minval = (minval + 1).min(valt);
+                        if valt > minval {
+                            dist[idx] = minval as u16;
+                            if minval == val5t + 1 {
+                                val[idx] = val[(i * w + j + 1) as usize];
+                            } else if minval == val6t + 1 {
+                                val[idx] = val[((i + 1) * w + j - 1) as usize];
+                            } else if minval == val7t + 1 {
+                                val[idx] = val[((i + 1) * w + j) as usize];
+                            } else {
+                                val[idx] = val[((i + 1) * w + j + 1) as usize];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Extract the result: remove the border
+    let out = Pix::new(orig_w, orig_h, PixelDepth::Bit8).map_err(RegionError::Core)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..orig_h {
+        for x in 0..orig_w {
+            out_mut.set_pixel_unchecked(
+                x,
+                y,
+                val[((y + border) * w + (x + border)) as usize] as u32,
+            );
+        }
+    }
+    Ok(out_mut.into())
 }
 
 /// Find the minimum pixel value in each connected component of a mask.
@@ -1115,10 +1279,63 @@ pub fn select_min_in_conncomp(
     pixs: &Pix,
     pixm: &Pix,
 ) -> RegionResult<(leptonica_core::Pta, leptonica_core::Numa)> {
-    let _ = (pixs, pixm);
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(),
-    ))
+    use crate::conncomp::conncomp_pixa;
+
+    if pixs.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    if pixm.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixm.depth().bits(),
+        });
+    }
+
+    // Find connected components in the mask (8-connectivity as in C version)
+    let (boxa, pixa) = conncomp_pixa(pixm, ConnectivityType::EightWay)?;
+
+    let n = boxa.len();
+    let mut pta = leptonica_core::Pta::with_capacity(n);
+    let mut numa = leptonica_core::Numa::with_capacity(n);
+
+    for i in 0..n {
+        let b = boxa.get(i).unwrap();
+        let bx = b.x as u32;
+        let by = b.y as u32;
+        let bw = b.w as u32;
+        let bh = b.h as u32;
+        let comp_pix = pixa.get(i).unwrap();
+
+        let mut min_val = u32::MAX;
+        let mut min_x = bx;
+        let mut min_y = by;
+
+        for dy in 0..bh {
+            for dx in 0..bw {
+                // Check if this pixel is part of the component (1bpp mask)
+                if comp_pix.get_pixel(dx, dy).unwrap_or(0) != 0 {
+                    let sx = bx + dx;
+                    let sy = by + dy;
+                    if sx < pixs.width() && sy < pixs.height() {
+                        let v = pixs.get_pixel(sx, sy).unwrap_or(u32::MAX);
+                        if v < min_val {
+                            min_val = v;
+                            min_x = sx;
+                            min_y = sy;
+                        }
+                    }
+                }
+            }
+        }
+
+        pta.push(min_x as f32, min_y as f32);
+        numa.push(min_val as f32);
+    }
+
+    Ok((pta, numa))
 }
 
 #[cfg(test)]
