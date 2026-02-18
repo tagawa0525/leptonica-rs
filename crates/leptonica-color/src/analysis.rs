@@ -1032,3 +1032,31 @@ mod tests {
         assert_eq!(stats.dominant_colors[1], (0, 0, 255, 100));
     }
 }
+
+/// Compute the color magnitude of each pixel in a 32bpp RGB image.
+///
+/// For each pixel, computes a measure of how "colorful" it is (i.e., how
+/// far from gray). Returns an 8bpp grayscale image where 0 = pure gray
+/// and 255 = maximum color deviation.
+///
+/// Three computation methods are available:
+/// - [`ColorMagnitudeType::IntermedDiff`]: Median of the three pairwise
+///   component differences |r-g|, |r-b|, |g-b|
+/// - [`ColorMagnitudeType::AveMaxDiff2`]: Maximum distance each component
+///   has from the average of the other two
+/// - [`ColorMagnitudeType::MaxDiff`]: max(r,g,b) - min(r,g,b)
+///
+/// # Arguments
+///
+/// * `pix` - 32bpp RGB image
+/// * `mag_type` - Method for computing the color magnitude
+///
+/// # See also
+///
+/// C Leptonica: `pixColorMagnitude()` in `colorcontent.c`
+pub fn color_magnitude(pix: &Pix, mag_type: ColorMagnitudeType) -> ColorResult<Pix> {
+    let _ = (pix, mag_type);
+    Err(ColorError::InvalidParameters(
+        "not yet implemented".to_string(),
+    ))
+}

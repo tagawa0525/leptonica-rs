@@ -122,6 +122,7 @@ pub use analysis::{
     // Functions
     color_content,
     color_fraction,
+    color_magnitude,
     colors_for_quantization,
     count_colors,
     grayscale_histogram,
