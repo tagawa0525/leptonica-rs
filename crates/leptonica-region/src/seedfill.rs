@@ -1294,6 +1294,17 @@ pub fn select_min_in_conncomp(
         });
     }
 
+    // Validate matching dimensions (C version uses pixCropToMatch)
+    if pixs.width() != pixm.width() || pixs.height() != pixm.height() {
+        return Err(RegionError::InvalidParameters(format!(
+            "pixs ({}x{}) and pixm ({}x{}) must have the same dimensions",
+            pixs.width(),
+            pixs.height(),
+            pixm.width(),
+            pixm.height()
+        )));
+    }
+
     // Find connected components in the mask (8-connectivity as in C version)
     let (boxa, pixa) = conncomp_pixa(pixm, ConnectivityType::EightWay)?;
 
@@ -1319,13 +1330,11 @@ pub fn select_min_in_conncomp(
                 if comp_pix.get_pixel(dx, dy).unwrap_or(0) != 0 {
                     let sx = bx + dx;
                     let sy = by + dy;
-                    if sx < pixs.width() && sy < pixs.height() {
-                        let v = pixs.get_pixel(sx, sy).unwrap_or(u32::MAX);
-                        if v < min_val {
-                            min_val = v;
-                            min_x = sx;
-                            min_y = sy;
-                        }
+                    let v = pixs.get_pixel(sx, sy).unwrap_or(u32::MAX);
+                    if v < min_val {
+                        min_val = v;
+                        min_x = sx;
+                        min_y = sy;
                     }
                 }
             }

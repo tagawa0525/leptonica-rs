@@ -166,3 +166,10 @@ fn test_select_min_in_conncomp_single_pixel() {
     assert_eq!(py as u32, 5);
     assert_eq!(values.get(0).unwrap() as u32, 200);
 }
+
+#[test]
+fn test_select_min_in_conncomp_dimension_mismatch() {
+    let pixs = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+    let pixm = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+    assert!(leptonica_region::seedfill::select_min_in_conncomp(&pixs, &pixm).is_err());
+}
