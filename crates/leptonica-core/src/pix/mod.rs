@@ -861,8 +861,17 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetAllGray()` in `pix2.c`
-    pub fn set_all_gray(&mut self, _grayval: u8) -> Result<()> {
-        todo!()
+    pub fn set_all_gray(&mut self, grayval: u8) -> Result<()> {
+        let d = self.inner.depth;
+        match d {
+            PixelDepth::Bit32 => {
+                let v = grayval as u32;
+                let packed = (v << 24) | (v << 16) | (v << 8);
+                self.set_all_arbitrary(packed)
+            }
+            PixelDepth::Bit8 => self.set_all_arbitrary(grayval as u32),
+            _ => self.set_all_arbitrary(grayval as u32),
+        }
     }
 
     /// Set all pixels to an arbitrary value.
@@ -878,8 +887,45 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetAllArbitrary()` in `pix2.c`
-    pub fn set_all_arbitrary(&mut self, _val: u32) -> Result<()> {
-        todo!()
+    pub fn set_all_arbitrary(&mut self, val: u32) -> Result<()> {
+        let d = self.inner.depth;
+        let max_val = d.max_value();
+        if val > max_val {
+            return Err(Error::InvalidParameter(format!(
+                "value {val} exceeds max {max_val} for depth {}",
+                d.bits()
+            )));
+        }
+
+        match d {
+            PixelDepth::Bit32 => {
+                self.inner.data.fill(val);
+            }
+            PixelDepth::Bit16 => {
+                let word = (val << 16) | val;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit8 => {
+                let word = (val << 24) | (val << 16) | (val << 8) | val;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit4 => {
+                let word = val * 0x11111111;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit2 => {
+                let word = val * 0x55555555;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit1 => {
+                if val == 0 {
+                    self.inner.data.fill(0);
+                } else {
+                    self.inner.data.fill(0xFFFFFFFF);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Set all pixels to black or white.
@@ -889,8 +935,26 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetBlackOrWhite()` in `pix2.c`
-    pub fn set_black_or_white(&mut self, _color: InitColor) {
-        todo!()
+    pub fn set_black_or_white(&mut self, color: InitColor) {
+        let d = self.inner.depth;
+        match color {
+            InitColor::Black => {
+                if d == PixelDepth::Bit1 {
+                    self.set_all();
+                } else {
+                    self.clear();
+                }
+            }
+            InitColor::White => {
+                if d == PixelDepth::Bit1 {
+                    self.clear();
+                } else if d == PixelDepth::Bit32 {
+                    self.inner.data.fill(0xFFFFFF00);
+                } else {
+                    self.set_all();
+                }
+            }
+        }
     }
 
     /// Get the pixel value for black or white.
@@ -903,8 +967,26 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixGetBlackOrWhiteVal()` in `pix2.c`
-    pub fn get_black_or_white_val(_pix: &Pix, _color: InitColor) -> u32 {
-        todo!()
+    pub fn get_black_or_white_val(pix: &Pix, color: InitColor) -> u32 {
+        let d = pix.depth();
+        match color {
+            InitColor::Black => {
+                if d == PixelDepth::Bit1 {
+                    1 // 1 bpp: black = 1
+                } else {
+                    0
+                }
+            }
+            InitColor::White => {
+                if d == PixelDepth::Bit1 {
+                    0 // 1 bpp: white = 0
+                } else if d == PixelDepth::Bit32 {
+                    0xFFFFFF00
+                } else {
+                    d.max_value()
+                }
+            }
+        }
     }
 
     /// Clear a single pixel (set to 0).
@@ -912,8 +994,8 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixClearPixel()` in `pix2.c`
-    pub fn clear_pixel(&mut self, _x: u32, _y: u32) -> Result<()> {
-        todo!()
+    pub fn clear_pixel(&mut self, x: u32, y: u32) -> Result<()> {
+        self.set_pixel(x, y, 0)
     }
 
     /// Flip a single pixel (toggle between 0 and max value).
@@ -921,8 +1003,13 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixFlipPixel()` in `pix2.c`
-    pub fn flip_pixel(&mut self, _x: u32, _y: u32) -> Result<()> {
-        todo!()
+    pub fn flip_pixel(&mut self, x: u32, y: u32) -> Result<()> {
+        let current = self.get_pixel(x, y).ok_or(Error::IndexOutOfBounds {
+            index: x as usize,
+            len: self.width() as usize,
+        })?;
+        let max_val = self.depth().max_value();
+        self.set_pixel(x, y, current ^ max_val)
     }
 
     /// Clear pixels in a rectangular region (set to 0).
@@ -930,8 +1017,8 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixClearInRect()` in `pix2.c`
-    pub fn clear_in_rect(&mut self, _rect: &crate::Box) -> Result<()> {
-        todo!()
+    pub fn clear_in_rect(&mut self, rect: &crate::Box) -> Result<()> {
+        self.set_in_rect_arbitrary(rect, 0)
     }
 
     /// Set pixels in a rectangular region to max value.
@@ -939,8 +1026,9 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetInRect()` in `pix2.c`
-    pub fn set_in_rect(&mut self, _rect: &crate::Box) -> Result<()> {
-        todo!()
+    pub fn set_in_rect(&mut self, rect: &crate::Box) -> Result<()> {
+        let max_val = self.inner.depth.max_value();
+        self.set_in_rect_arbitrary(rect, max_val)
     }
 
     /// Set pixels in a rectangular region to an arbitrary value.
@@ -948,8 +1036,26 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetInRectArbitrary()` in `pix2.c`
-    pub fn set_in_rect_arbitrary(&mut self, _rect: &crate::Box, _val: u32) -> Result<()> {
-        todo!()
+    pub fn set_in_rect_arbitrary(&mut self, rect: &crate::Box, val: u32) -> Result<()> {
+        let w = self.width();
+        let h = self.height();
+
+        // Clip rect to image bounds
+        let x0 = rect.x.max(0) as u32;
+        let y0 = rect.y.max(0) as u32;
+        let x1 = ((rect.x + rect.w) as u32).min(w);
+        let y1 = ((rect.y + rect.h) as u32).min(h);
+
+        if x0 >= x1 || y0 >= y1 {
+            return Ok(()); // Empty intersection
+        }
+
+        for y in y0..y1 {
+            for x in x0..x1 {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+        Ok(())
     }
 
     /// Set padding bits at the end of each scanline.
@@ -957,8 +1063,9 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetPadBits()` in `pix2.c`
-    pub fn set_pad_bits(&mut self, _val: u32) {
-        todo!()
+    pub fn set_pad_bits(&mut self, val: u32) {
+        let h = self.inner.height;
+        self.set_pad_bits_band(0, h, val);
     }
 
     /// Set padding bits in a horizontal band.
@@ -966,8 +1073,36 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetPadBitsBand()` in `pix2.c`
-    pub fn set_pad_bits_band(&mut self, _by: u32, _bh: u32, _val: u32) {
-        todo!()
+    pub fn set_pad_bits_band(&mut self, by: u32, bh: u32, val: u32) {
+        let d = self.inner.depth;
+        if d == PixelDepth::Bit32 {
+            return; // No padding for 32 bpp
+        }
+
+        let w = self.inner.width;
+        let h = self.inner.height;
+        let wpl = self.inner.wpl;
+
+        // Number of full bits per row
+        let full_bits = w * d.bits();
+        // Number of padding bits in the last word
+        let pad_bits = (wpl * 32) - full_bits;
+        if pad_bits == 0 {
+            return;
+        }
+
+        // Mask for the padding bits (low bits of last word)
+        let mask = (1u32 << pad_bits) - 1;
+
+        let y_end = (by + bh).min(h);
+        for y in by..y_end {
+            let idx = (y * wpl + wpl - 1) as usize;
+            if val == 0 {
+                self.inner.data[idx] &= !mask;
+            } else {
+                self.inner.data[idx] |= mask;
+            }
+        }
     }
 
     /// Set or clear border pixels using raster operations.
@@ -977,13 +1112,58 @@ impl PixMut {
     /// C Leptonica: `pixSetOrClearBorder()` in `pix2.c`
     pub fn set_or_clear_border(
         &mut self,
-        _left: u32,
-        _right: u32,
-        _top: u32,
-        _bot: u32,
-        _color: InitColor,
+        left: u32,
+        right: u32,
+        top: u32,
+        bot: u32,
+        color: InitColor,
     ) {
-        todo!()
+        let w = self.width();
+        let h = self.height();
+        let d = self.inner.depth;
+
+        let val = match color {
+            InitColor::Black => {
+                if d == PixelDepth::Bit1 {
+                    1 // 1 bpp: black = 1
+                } else {
+                    0
+                }
+            }
+            InitColor::White => {
+                if d == PixelDepth::Bit1 {
+                    0
+                } else {
+                    d.max_value()
+                }
+            }
+        };
+
+        // Top rows
+        for y in 0..top.min(h) {
+            for x in 0..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+        // Bottom rows
+        let bot_start = h.saturating_sub(bot);
+        for y in bot_start..h {
+            for x in 0..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+        // Left and right columns (middle rows)
+        let y_start = top.min(h);
+        let y_end = bot_start.max(y_start);
+        for y in y_start..y_end {
+            for x in 0..left.min(w) {
+                self.set_pixel_unchecked(x, y, val);
+            }
+            let right_start = w.saturating_sub(right);
+            for x in right_start..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
     }
 
     /// Clear all pixels to zero.
@@ -1327,7 +1507,6 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_all_gray_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1337,7 +1516,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_all_gray_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1348,7 +1526,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_all_arbitrary_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1357,7 +1534,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_all_arbitrary_1bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1367,7 +1543,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_black_or_white_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1379,7 +1554,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_black_or_white_1bpp() {
         let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1392,7 +1566,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_black_or_white_val() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert_eq!(PixMut::get_black_or_white_val(&pix, InitColor::Black), 0);
@@ -1405,7 +1578,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_clear_pixel() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1417,7 +1589,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_flip_pixel() {
         // 1 bpp flip
         let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
@@ -1437,7 +1608,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_clear_in_rect() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1455,7 +1625,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_in_rect() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1470,7 +1639,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_in_rect_arbitrary() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1485,7 +1653,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_pad_bits() {
         // 1 bpp, width=10, wpl=1 (32 bits per row, 22 pad bits)
         let pix = Pix::new(10, 2, PixelDepth::Bit1).unwrap();
@@ -1500,7 +1667,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_pad_bits_band() {
         let pix = Pix::new(10, 4, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1517,7 +1683,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_or_clear_border() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
