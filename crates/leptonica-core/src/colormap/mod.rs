@@ -3,6 +3,8 @@
 //! A colormap is used with 1, 2, 4, and 8 bpp images to map
 //! pixel values to RGBA colors.
 
+pub mod serial;
+
 use crate::error::{Error, Result};
 
 /// RGBA color entry

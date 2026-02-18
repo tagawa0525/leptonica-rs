@@ -3,6 +3,8 @@
 //! `FPix` is a 2D array of `f32` values, useful for intermediate computations
 //! in image processing where integer precision is insufficient.
 //!
+//! See [`serial`] for serialization support.
+//!
 //! # Examples
 //!
 //! ```
@@ -19,6 +21,8 @@
 //! let (min_val, min_x, min_y) = fpix.min().unwrap();
 //! let (max_val, max_x, max_y) = fpix.max().unwrap();
 //! ```
+
+pub mod serial;
 
 use crate::error::{Error, Result};
 use crate::pix::{Pix, PixelDepth};
