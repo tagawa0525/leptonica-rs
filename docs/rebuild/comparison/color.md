@@ -1,15 +1,15 @@
 # leptonica-color: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-15
+調査日: 2026-02-18（Phase 7.1-7.4 実装を反映）
 
 ## サマリー
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 18 |
-| 🔄 異なる | 12 |
-| ❌ 未実装 | 109 |
-| 合計 | 139 |
+| ✅ 同等 | 51 |
+| 🔄 異なる | 16 |
+| ❌ 未実装 | 59 |
+| 合計 | 126 |
 
 ## 詳細
 
@@ -25,16 +25,16 @@
 | pixConvertRGBToHue | 🔄 異なる | pix_extract_channel(ColorChannel::Hue) | チャネル抽出として実装 |
 | pixConvertRGBToSaturation | 🔄 異なる | pix_extract_channel(ColorChannel::Saturation) | チャネル抽出として実装 |
 | pixConvertRGBToValue | 🔄 異なる | pix_extract_channel(ColorChannel::Value) | チャネル抽出として実装 |
-| pixMakeRangeMaskHS | ❌ 未実装 | - | HSV範囲マスク未実装 |
-| pixMakeRangeMaskHV | ❌ 未実装 | - | HSV範囲マスク未実装 |
-| pixMakeRangeMaskSV | ❌ 未実装 | - | HSV範囲マスク未実装 |
-| pixMakeHistoHS | ❌ 未実装 | - | HSヒストグラム未実装 |
-| pixMakeHistoHV | ❌ 未実装 | - | HVヒストグラム未実装 |
-| pixMakeHistoSV | ❌ 未実装 | - | SVヒストグラム未実装 |
+| pixMakeRangeMaskHS | ✅ 同等 | make_range_mask_hs | - |
+| pixMakeRangeMaskHV | ✅ 同等 | make_range_mask_hv | - |
+| pixMakeRangeMaskSV | ✅ 同等 | make_range_mask_sv | - |
+| pixMakeHistoHS | ✅ 同等 | make_histo_hs | - |
+| pixMakeHistoHV | ✅ 同等 | make_histo_hv | - |
+| pixMakeHistoSV | ✅ 同等 | make_histo_sv | - |
 | pixFindHistoPeaksHSV | ❌ 未実装 | - | HSVヒストグラムピーク未実装 |
 | displayHSVColorRange | ❌ 未実装 | - | HSV範囲表示未実装 |
-| pixConvertRGBToYUV | ❌ 未実装 | - | 画像レベル変換未実装 |
-| pixConvertYUVToRGB | ❌ 未実装 | - | 画像レベル変換未実装 |
+| pixConvertRGBToYUV | ✅ 同等 | pix_convert_rgb_to_yuv | - |
+| pixConvertYUVToRGB | ✅ 同等 | pix_convert_yuv_to_rgb | - |
 | convertRGBToYUV | ✅ 同等 | rgb_to_yuv | |
 | convertYUVToRGB | ✅ 同等 | yuv_to_rgb | |
 | pixcmapConvertRGBToYUV | ❌ 未実装 | - | カラーマップ操作未実装 |
@@ -56,22 +56,22 @@
 ### colorquant1.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixOctreeQuantByPopulation | ❌ 未実装 | - | Octree量子化実装なし(別実装あり) |
-| pixOctreeQuantNumColors | ❌ 未実装 | - | Octree量子化実装なし(別実装あり) |
+| pixOctreeQuantByPopulation | ✅ 同等 | octree_quant_by_population | - |
+| pixOctreeQuantNumColors | ✅ 同等 | octree_quant_num_colors | - |
 | pixOctcubeQuantMixedWithGray | ❌ 未実装 | - | Mixed量子化未実装 |
-| pixFixedOctcubeQuant256 | ❌ 未実装 | - | 固定Octcube未実装 |
+| pixFixedOctcubeQuant256 | ✅ 同等 | fixed_octcube_quant_256 | - |
 | pixFewColorsOctcubeQuant1 | ❌ 未実装 | - | Few colors量子化未実装 |
 | pixFewColorsOctcubeQuant2 | ❌ 未実装 | - | Few colors量子化未実装 |
 | pixFewColorsOctcubeQuantMixed | ❌ 未実装 | - | Few colors mixed未実装 |
 | pixFixedOctcubeQuantGenRGB | ❌ 未実装 | - | 固定Octcube未実装 |
-| pixQuantFromCmap | ❌ 未実装 | - | カラーマップ量子化未実装 |
+| pixQuantFromCmap | ✅ 同等 | quant_from_cmap | - |
 | pixOctcubeQuantFromCmap | ❌ 未実装 | - | Octcube量子化未実装 |
 | pixOctcubeQuantFromCmapLUT | ❌ 未実装 | - | LUT使用量子化未実装 |
 | makeRGBToIndexTables | ❌ 未実装 | - | インデックステーブル未実装 |
 | getOctcubeIndexFromRGB | ❌ 未実装 | - | RGB→Index未実装 |
 | getRGBFromOctcubeIndex | ❌ 未実装 | - | Index→RGB未実装 |
 | pixOctcubeTree | ❌ 未実装 | - | Octcubeツリー未実装 |
-| pixRemoveUnusedColors | ❌ 未実装 | - | 未使用色削除未実装 |
+| pixRemoveUnusedColors | ✅ 同等 | remove_unused_colors | - |
 | pixNumberOccupiedOctcubes | ❌ 未実装 | - | 占有Octcube数未実装 |
 
 ### colorquant2.c
@@ -79,7 +79,7 @@
 |-------|------|----------|------|
 | pixMedianCutQuant | 🔄 異なる | median_cut_quant_simple | アルゴリズムの詳細が異なる |
 | pixMedianCutQuantGeneral | 🔄 異なる | median_cut_quant | パラメータ構造が異なる |
-| pixMedianCutQuantMixed | ❌ 未実装 | - | Mixed量子化未実装 |
+| pixMedianCutQuantMixed | ✅ 同等 | median_cut_quant_mixed | - |
 | pixFewColorsMedianCutQuantMixed | ❌ 未実装 | - | Few colors mixed未実装 |
 | pixMedianCutHisto | ❌ 未実装 | - | ヒストグラム生成は内部実装 |
 
@@ -95,21 +95,21 @@
 ### colorcontent.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixColorContent | ❌ 未実装 | - | ColorContent計算未実装 |
-| pixColorMagnitude | ❌ 未実装 | - | Color magnitude未実装 |
-| pixColorFraction | ❌ 未実装 | - | Color fraction未実装 |
+| pixColorContent | ✅ 同等 | color_content | - |
+| pixColorMagnitude | ✅ 同等 | color_magnitude | 3種の計算方式対応 |
+| pixColorFraction | ✅ 同等 | color_fraction | - |
 | pixColorShiftWhitePoint | ❌ 未実装 | - | White point shift未実装 |
-| pixMaskOverColorPixels | ❌ 未実装 | - | Color pixel mask未実装 |
-| pixMaskOverGrayPixels | ❌ 未実装 | - | Gray pixel mask未実装 |
-| pixMaskOverColorRange | ❌ 未実装 | - | Color range mask未実装 |
+| pixMaskOverColorPixels | ✅ 同等 | mask_over_color_pixels | - |
+| pixMaskOverGrayPixels | ✅ 同等 | mask_over_gray_pixels | - |
+| pixMaskOverColorRange | ✅ 同等 | mask_over_color_range | - |
 | pixFindColorRegions | ❌ 未実装 | - | Color region検出未実装 |
-| pixNumSignificantGrayColors | ❌ 未実装 | - | Gray color数未実装 |
-| pixColorsForQuantization | ❌ 未実装 | - | 量子化color数未実装 |
+| pixNumSignificantGrayColors | ✅ 同等 | num_significant_gray_colors | - |
+| pixColorsForQuantization | ✅ 同等 | colors_for_quantization | - |
 | pixNumColors | 🔄 異なる | count_colors | |
 | pixConvertRGBToCmapLossless | ❌ 未実装 | - | Lossless変換未実装 |
-| pixGetMostPopulatedColors | ❌ 未実装 | - | Popular color取得未実装 |
+| pixGetMostPopulatedColors | ✅ 同等 | most_populated_colors | - |
 | pixSimpleColorQuantize | ❌ 未実装 | - | Simple量子化未実装 |
-| pixGetRGBHistogram | ❌ 未実装 | - | RGB histogram未実装 |
+| pixGetRGBHistogram | ✅ 同等 | rgb_histogram | - |
 | makeRGBIndexTables | ❌ 未実装 | - | RGBインデックス未実装 |
 | getRGBFromIndex | ❌ 未実装 | - | Index→RGB未実装 |
 | pixHasHighlightRed | ❌ 未実装 | - | Highlight red検出未実装 |
@@ -141,10 +141,10 @@
 ### binarize.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixOtsuAdaptiveThreshold | ❌ 未実装 | - | Adaptive Otsu未実装 |
+| pixOtsuAdaptiveThreshold | ✅ 同等 | otsu_adaptive_threshold | - |
 | pixOtsuThreshOnBackgroundNorm | ❌ 未実装 | - | BG normalization未実装 |
 | pixMaskedThreshOnBackgroundNorm | ❌ 未実装 | - | Masked BG norm未実装 |
-| pixSauvolaBinarizeTiled | ❌ 未実装 | - | Tiled Sauvola未実装 |
+| pixSauvolaBinarizeTiled | ✅ 同等 | sauvola_binarize_tiled | - |
 | pixSauvolaBinarize | 🔄 異なる | sauvola_threshold | 実装が異なる |
 | pixSauvolaOnContrastNorm | ❌ 未実装 | - | Contrast norm未実装 |
 | pixThreshOnDoubleNorm | ❌ 未実装 | - | Double norm未実装 |
@@ -157,15 +157,15 @@
 | pixDitherToBinary | 🔄 異なる | dither_to_binary | |
 | pixDitherToBinarySpec | 🔄 異なる | dither_to_binary_with_threshold | |
 | pixThresholdToBinary | ✅ 同等 | threshold_to_binary | |
-| pixVarThresholdToBinary | ❌ 未実装 | - | Variable threshold未実装 |
+| pixVarThresholdToBinary | ✅ 同等 | var_threshold_to_binary | - |
 | pixAdaptThresholdToBinary | 🔄 異なる | adaptive_threshold | |
 | pixAdaptThresholdToBinaryGen | ❌ 未実装 | - | Generic adaptive未実装 |
-| pixGenerateMaskByValue | ❌ 未実装 | - | Value mask未実装 |
-| pixGenerateMaskByBand | ❌ 未実装 | - | Band mask未実装 |
+| pixGenerateMaskByValue | ✅ 同等 | generate_mask_by_value | - |
+| pixGenerateMaskByBand | ✅ 同等 | generate_mask_by_band | - |
 | pixDitherTo2bpp | ❌ 未実装 | - | 2bpp dither未実装 |
 | pixDitherTo2bppSpec | ❌ 未実装 | - | 2bpp dither spec未実装 |
-| pixThresholdTo2bpp | ❌ 未実装 | - | 2bpp threshold未実装 |
-| pixThresholdTo4bpp | ❌ 未実装 | - | 4bpp threshold未実装 |
+| pixThresholdTo2bpp | ✅ 同等 | threshold_to_2bpp | - |
+| pixThresholdTo4bpp | ✅ 同等 | threshold_to_4bpp | - |
 | pixThresholdOn8bpp | ❌ 未実装 | - | 8bpp threshold未実装 |
 | pixThresholdGrayArb | ❌ 未実装 | - | Arbitrary threshold未実装 |
 | makeGrayQuantIndexTable | ❌ 未実装 | - | Quant index table未実装 |
@@ -181,54 +181,53 @@
 
 Rust版で実装済みの機能は主に以下のカテゴリに集中している:
 
-1. **基本色空間変換** (RGB ↔ HSV, LAB, XYZ, YUV)
+1. **色空間変換** (RGB ↔ HSV, LAB, XYZ, YUV)
    - ピクセルレベル変換は完全実装
-   - 画像レベル変換は一部のみ(HSV, Grayscale)
+   - 画像レベル変換: HSV, Grayscale, YUV実装済み（XYZ/LABはFPIXA依存で未実装）
+   - HSV範囲マスク・2Dヒストグラム実装済み
 
-2. **色量子化の基礎** (Median Cut, Octree)
-   - 簡易版を独自実装
-   - C版の詳細機能(mixed, few colors等)は未実装
+2. **色量子化** (Median Cut, Octree)
+   - Median Cut: basic, simple, mixed実装済み
+   - Octree: basic, 256色, population-based, N色, fixed octcube実装済み
+   - カラーマップからの量子化、未使用色削除も実装済み
 
-3. **色セグメンテーション基礎** (Clustering, Nearest color assignment)
+3. **色セグメンテーション** (Clustering, Nearest color assignment)
    - Phase 1,2,4は実装済み
    - Phase 3(モーフォロジークリーンアップ)が未実装
 
-4. **基本的な2値化** (固定閾値, Otsu, Adaptive, Dithering)
-   - コア機能は実装済み
-   - 背景正規化等の高度な機能は未実装
+4. **二値化・閾値処理**
+   - 固定閾値, Otsu, Adaptive, Dithering実装済み
+   - タイル別Otsu/Sauvola, 可変閾値, マスク生成実装済み
+   - 背景正規化ベースの二値化は未実装
 
-5. **グレースケール→カラー変換** (Coloring)
+5. **色内容分析**
+   - color_content, color_magnitude, color_fraction実装済み
+   - 色/グレーマスク生成, RGBヒストグラム, 有意色数計算実装済み
+
+6. **グレースケール→カラー変換** (Coloring)
    - 基本的なColorize機能は実装
    - Region-basedやカラーマップ版は未実装
 
 ### 未実装機能の特徴
 
-以下の分野が大部分未実装:
+以下の分野が主な未実装領域:
 
 1. **カラーマップ(PIXCMAP)関連操作**
-   - C版のカラーマップ直接操作関数は未対応
-   - Rust版はPixColormap構造体があるが高度な操作は未実装
+   - C版のカラーマップ直接操作関数（pixcmapConvert系）は未対応
 
 2. **FPIXA(FPix Array)依存機能**
    - XYZ/LAB変換の画像レベル操作
    - Rust版にFPIXA相当の実装なし
 
-3. **高度な色解析**
-   - Color content分析
-   - Color fraction, Color magnitude
-   - Significant colors detection
-
-4. **OctcubeとMedianCutの詳細機能**
-   - Mixed quantization(gray + color)
-   - Few colors optimization
+3. **Few Colors系量子化**
+   - pixFewColorsOctcubeQuant1/2/Mixed等
    - LUT-based operations
 
-5. **高度な2値化**
-   - Background normalization
-   - Contrast normalization
+4. **高度な二値化**
+   - Background normalization, Contrast normalization
    - Connected component based thresholding
 
-6. **Color fill高度機能**
+5. **Color fill高度機能**
    - L_COLORFILL構造体とlocation-based処理
    - Rust版は基本的なfill機能のみ
 
@@ -248,44 +247,34 @@ Rust版で実装済みの機能は主に以下のカテゴリに集中してい�
 
 1. **カラーマップ操作の拡充**
    - `pixcmapConvertRGBToHSV/YUV` 等
-   - `pixRemoveUnusedColors`
-   - `pixQuantFromCmap`
 
-2. **Color Content分析**
-   - `pixColorFraction`
-   - `pixNumColors` (既存実装の拡張)
-   - `pixColorsForQuantization`
-
-3. **Median Cut/Octree詳細機能**
-   - Mixed quantization (gray + color分離)
-   - Few colors optimization
-
-4. **Color Segmentationの完成**
+2. **Color Segmentationの完成**
    - Phase 3モーフォロジークリーンアップ
+
+3. **FPIXA依存の画像レベル変換**
+   - XYZ/LAB画像レベル変換（FPIXA実装後に対応可能）
 
 ### 優先度中(機能拡張)
 
-5. **HSV範囲マスク・ヒストグラム**
-   - `pixMakeRangeMaskHS/HV/SV`
-   - `pixMakeHistoHS/HV/SV`
+4. **Few Colors系量子化**
+   - `pixFewColorsOctcubeQuant1/2/Mixed`
 
-6. **高度な2値化**
-   - Background normalization
-   - Sauvola tiled版
+5. **高度な二値化**
+   - Background normalization (`pixOtsuThreshOnBackgroundNorm`)
+   - `pixThresholdByConnComp`
 
-7. **RGB Histogram操作**
-   - `pixGetRGBHistogram`
-   - `makeRGBIndexTables`
+6. **HSVヒストグラムピーク検出**
+   - `pixFindHistoPeaksHSV`
 
 ### 優先度低(特殊用途)
 
-8. **Color fill高度機能**
+7. **Color fill高度機能**
    - L_COLORFILL構造体ベース処理
 
-9. **表示・可視化**
+8. **表示・可視化**
    - `displayHSVColorRange`
    - `pixMakeGamutRGB`
 
-10. **その他特殊機能**
-    - `pixThresholdByConnComp`
-    - `pixHasHighlightRed`
+9. **その他特殊機能**
+   - `pixHasHighlightRed`
+   - `pixColorShiftWhitePoint`
