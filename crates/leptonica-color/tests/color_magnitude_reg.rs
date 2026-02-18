@@ -4,7 +4,7 @@
 //!
 //! C Leptonica: `colorcontent.c` — `pixColorMagnitude`
 
-use leptonica_color::{ColorMagnitudeType, analysis::color_magnitude};
+use leptonica_color::{ColorMagnitudeType, color_magnitude};
 use leptonica_core::{Pix, PixelDepth, color};
 
 #[test]
