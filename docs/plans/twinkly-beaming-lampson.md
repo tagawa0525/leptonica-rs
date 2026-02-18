@@ -1,581 +1,544 @@
-# comparison文書更新 + Phase 5-9 実装計画
+# leptonica-core 全関数移植計画 (Phase 10-17)
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 ## Context
 
-`docs/plans/humming-tickling-journal.md` の Phase 1-4 実装が完了したが、`docs/rebuild/comparison/*.md` の状態ステータスが実装前のまま残っている。個別ファイルのサマリーとdetail、`feature-comparison.md` の数値がそれぞれ不整合。
-また、Phase 5以降の計画が未策定のため、C版リファレンスの調査結果に基づいて Phase 5-9 を計画する。
+leptonica-core クレートの実装率は 26.7%（226/845 関数）でワークスペース内最低。
+845関数のうち619が未実装だが、以下を除外して実質的な移植対象を絞る:
+
+- **roplow.c (~50関数)**: 低レベルビット操作。rop.rs の高レベルAPIでカバー済み → **スキップ**
+- **メモリ管理関数**: Create/Destroy/Clone/Copy → Rust の new/Drop/Clone で **実装済み扱い**
+- **N/A関数**: pixSetWidth等の不変型setters, ExtendArray等のVec自動拡張 → **スキップ**
+
+これらを除いた実質的な移植対象は **約450関数**。
+
+### 設計上の決定事項
+
+1. **シリアライゼーション**: leptonica-io ではなく leptonica-core に配置（データ構造と密結合のため）
+2. **Read/Write トレイト**: C版の `FILE*` / `Mem` / `Stream` の3パターンを `std::io::Read/Write` で統一
+3. **Ptaa/Pixaa/FPixa**: 必要に応じて新規データ構造を追加
 
 ---
 
-## Part 1: comparison文書の更新
+## 実行順序
 
-### 1.1 filter.md の更新
+Phase 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 の順に**直列で**実行する。
+1つのPRがマージされるまで次のPRの実装を開始しない。
 
-**対象ファイル**: `docs/rebuild/comparison/filter.md`
-
-#### convolve.c セクション（15関数: ❌ → ✅）
-
-| C関数 | 変更 | Rust対応 |
-|--------|------|----------|
-| pixBlockconv | ❌→✅ | block_conv.rs blockconv() |
-| pixBlockconvGray | ❌→✅ | block_conv.rs blockconv_gray() |
-| pixBlockconvAccum | ❌→✅ | block_conv.rs blockconv_accum() |
-| pixBlockconvGrayUnnormalized | ❌→✅ | block_conv.rs blockconv_gray_unnormalized() |
-| pixWindowedStats | ❌→✅ | windowed.rs windowed_stats() |
-| pixWindowedMean | ❌→✅ | windowed.rs windowed_mean() |
-| pixWindowedMeanSquare | ❌→✅ | windowed.rs windowed_mean_square() |
-| pixWindowedVariance | ❌→✅ | windowed.rs windowed_variance() |
-| pixMeanSquareAccum | ❌→✅ | windowed.rs mean_square_accum() |
-| pixBlockrank | ❌→✅ | convolve.rs blockrank() |
-| pixBlocksum | ❌→✅ | convolve.rs blocksum() |
-| pixCensusTransform | ❌→✅ | convolve.rs census_transform() |
-| pixConvolveSep | ❌→✅ | convolve.rs convolve_sep() |
-| pixConvolveRGBSep | ❌→✅ | convolve.rs convolve_rgb_sep() |
-| pixAddGaussianNoise | ❌→✅ | convolve.rs add_gaussian_noise() |
-
-#### enhance.c セクション（2関数: ❌ → ✅）
-
-| C関数 | 変更 | Rust対応 |
-|--------|------|----------|
-| pixUnsharpMaskingFast | ❌→✅ | edge.rs unsharp_masking_fast() |
-| pixUnsharpMaskingGrayFast | ❌→✅ | edge.rs unsharp_masking_gray_fast() |
-
-#### サマリー再計算
-
-detailテーブルの全行を数え直してサマリーを更新する。
-現在のdetail: ✅ 33, ❌ 66 → 更新後: ✅ 50, ❌ 49
-
-#### 実装状況分析セクションの更新
-
-- 「主要な未実装機能 > 高優先度」からブロック畳み込み・分離可能畳み込み・ウィンドウ統計を削除
-- 「今後の実装推奨順序」を更新（adaptmap.c拡張、高速bilateral、残りenhance関数）
-
-### 1.2 core.md の更新
-
-**対象ファイル**: `docs/rebuild/comparison/core.md`
-
-detailテーブルは Phase 1 実装時に更新済み。サマリーのみ未更新。
-
-- サマリー: `82, 24, 742` → detailを数え直して正確な値に更新
-- `feature-comparison.md` の値（134, 24, 690）と整合させる
-
-### 1.3 morph.md の更新
-
-**対象ファイル**: `docs/rebuild/comparison/morph.md`
-
-PR #51（3x3 grayscale fast path）の実装を反映。
-
-| C関数 | 変更 | Rust対応 |
-|--------|------|----------|
-| pixErodeGray3 | ❌→🔄 | erode_gray() が 3x3 で fast path にディスパッチ |
-| pixDilateGray3 | ❌→🔄 | dilate_gray() が 3x3 で fast path にディスパッチ |
-| pixOpenGray3 | ❌→🔄 | open_gray() が 3x3 で fast path にディスパッチ |
-| pixCloseGray3 | ❌→🔄 | close_gray() が 3x3 で fast path にディスパッチ |
-
-サマリー: `34, 8, 78` → `34, 12, 74`
-
-### 1.4 feature-comparison.md の更新
-
-**対象ファイル**: `docs/rebuild/feature-comparison.md`
-
-各個別ファイルの更新結果を反映:
-
-| クレート | 変更前 | 変更後 |
-|----------|--------|--------|
-| filter | ✅ 30, ❌ 64, 31.9% | ✅ 50, ❌ 49, 50.5%（※） |
-| morph | ✅ 34, 🔄 8, ❌ 78, 35.0% | ✅ 34, 🔄 12, ❌ 74, 38.3% |
-| 合計行 | 再計算 | 再計算 |
-
-※ 正確な値はdetailテーブルの全行カウントにより確定する
-
-### コミット・PRワークフロー（Part 1）
-
-Part 1 は1つのPRとして処理する。
-
-**ブランチ**: `docs/comparison-update`
-
-**コミット順序**（直列に実行、1コミット = 1つの論理的変更）:
-1. `docs(filter): update comparison for Phase 2-3 implemented functions`
-2. `docs(core): recalculate comparison summary to match detail tables`
-3. `docs(morph): update comparison for 3x3 grayscale fast paths`
-4. `docs: sync feature-comparison.md with updated individual files`
-
-**PRワークフロー**:
-1. 全コミット完了後、`/gh-pr-create` でPR作成
-2. GitHub Copilotの自動レビューを**必ず待つ**（`/gh-actions-check` で到着確認）
-3. `/gh-pr-review` でレビューコメントを確認し、指摘事項を全て修正
-4. 修正コミットを積んだ後、再度CIが通ることを確認
-5. `/gh-pr-merge` でマージ（`--merge`オプション）
-6. マージ後のブランチを削除
+```
+Phase 10 (Serialization)
+  → Phase 11 (Pix utilities)
+    → Phase 12 (Colormap)
+      → Phase 13 (Depth conversion)
+        → Phase 14 (Box operations)
+          → Phase 15 (Pix mask/stats/clip)
+            → Phase 16 (Numa/Pta/Pixa)
+              → Phase 17 (Graphics/Compare/Blend)
+```
 
 ---
 
-## Part 2: Phase 5-9 実装計画
+## 共通ワークフロー
 
-Phase 1-4 で約111関数を追加。Phase 5-9 で約195関数を追加し、合計カバレッジを約38%に引き上げる。
-
-### PRワークフロー（厳守）
-
-全Phaseに共通。`humming-tickling-journal.md` のワークフローを踏襲する。
-
-**直列実行の原則**:
-- 同一worktree内では1つのPRがマージされるまで次のPRの実装を開始しない
-- worktreeを分ければ並行着手可（マージ前にrebaseしてgit graphを整える）
-
-**各PRの手順**:
-1. PR作成前に全テスト・リントを通す
-   ```bash
-   cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check
-   ```
-2. `/gh-pr-create` でPR作成
-3. GitHub Copilotの自動レビューを**必ず待つ**（3〜10分かかる。`/gh-actions-check` で到着確認）
-4. `/gh-pr-review` でレビューコメントを確認し、指摘事項を修正
-5. 指摘対応完了後、再度CIが通ることを確認
-6. `/gh-pr-merge` でマージ（`--merge`オプション）
-7. マージ後のブランチは速やかに削除
-
-**禁止事項**: レビュー到着前のマージ。レビュー指摘未対応のままのマージ。
-
-### TDDワークフロー（各ファイルブランチ内）
+### TDD
 
 1. **RED**: テスト作成コミット（`#[ignore = "not yet implemented"]`付き）
 2. **GREEN**: 実装コミット（`#[ignore]`除去、テスト通過）
 3. **REFACTOR**: 必要に応じてリファクタリングコミット
 
+### PRワークフロー（厳守）
+
+1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+2. `/gh-pr-create` でPR作成
+3. **GitHub Copilotレビューを必ず待つ（3〜10分かかる）**
+   - `/gh-actions-check` でレビューの到着を確認する
+   - **レビュー到着前にマージしない**。これは最も頻発する違反であり、絶対に守ること
+4. `/gh-pr-review` でレビューコメントを確認し、各指摘に対して以下を判断:
+   - **妥当な指摘**: コード修正を行い、修正内容をPRコメントに返信
+   - **不要・誤検知**: 理由を添えてPRコメントに返信し、修正しない旨を明示
+   - いずれの場合も**PRコメントへの返信は必須**（無視しない）
+5. 修正コミット後、CIパスを確認
+6. **再レビューは来ない**。修正反映後、`/gh-actions-check` でレビューワークフローが走っていないことを確認したらマージしてよい
+7. `/gh-pr-merge --merge` でマージ
+8. ブランチ削除
+
+**禁止事項（再掲）**:
+- レビュー到着前のマージ（最重要）
+- レビュー指摘を確認せずにマージ
+- PRコメントに返信せずにマージ
+- 「変更が少ないから」「自明だから」でレビュー確認を省略
+
 ### ブランチ戦略
 
 ```
 main
-└── feat/<crate>-<feature>          ← クレートブランチ（PRターゲット）
-    ├── feat/<crate>-<feature>-<sub>   ← ファイルブランチ（作業単位）
-    ├── feat/<crate>-<feature>-<sub2>
-    └── feat/<crate>-<feature>-<sub3>
+└── feat/core-<feature>           ← PR対象ブランチ
+    ├── feat/core-<feature>-<sub>    ← 作業単位
+    └── feat/core-<feature>-<sub2>
 ```
-
-- ファイルブランチ → クレートブランチへマージ（ローカル `git merge --no-ff`）
-- クレートブランチ → main へPR（Copilotレビュー必須）
-
-### 依存関係グラフ
-
-```
-Phase 1-4 (完了)
-├──> Phase 5 (filter adaptmap + bilateral)
-├──> Phase 6 (core stats/clip/Numa)  ← Phase 5と並行可
-│         ├──> Phase 7 (color expansion)
-│         └──> Phase 8 (morph/region)  ← Phase 7と並行可
-└──> Phase 9 (core Box/Pixa/FPix)    ← Phase 7,8と並行可
-```
-
-### Phase 5: leptonica-filter adaptmap.c拡張 + 高速バイラテラル（27関数）
-
-Phase 1-3完了後に着手可能。文書処理パイプラインに必要な背景正規化の完成。
-
-#### 5.1 背景マップ関数 (`feat/filter-adaptmap-bg`)
-
-対象C関数（`adaptmap.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixCleanBackgroundToWhite | 背景白化ラッパー |
-| pixBackgroundNormMorph | モルフォロジーベース背景正規化 |
-| pixBackgroundNormGrayArray | グレー背景マップ配列抽出 |
-| pixBackgroundNormRGBArrays | RGB背景マップ配列抽出 |
-| pixBackgroundNormGrayArrayMorph | モルフベースグレー背景マップ |
-| pixBackgroundNormRGBArraysMorph | モルフベースRGB背景マップ |
-| pixGetBackgroundGrayMap | グレー背景マップ取得 |
-| pixGetBackgroundRGBMap | RGB背景マップ取得 |
-| pixGetBackgroundGrayMapMorph | モルフベースグレー背景マップ取得 |
-| pixGetBackgroundRGBMapMorph | モルフベースRGB背景マップ取得 |
-
-修正ファイル: `crates/leptonica-filter/src/adaptmap.rs`（既存拡張）
-
-#### 5.2 マップユーティリティ (`feat/filter-adaptmap-util`)
-
-| 関数 | 内容 |
-|------|------|
-| pixFillMapHoles | 背景/前景マップの穴埋め |
-| pixExtendByReplication | ボーダー複製による拡張 |
-| pixSmoothConnectedRegions | 連結領域の平滑化 |
-| pixGetForegroundGrayMap | 前景グレーマップ抽出 |
-| pixGetInvBackgroundMap | 逆背景マップ計算 |
-| pixApplyInvBackgroundGrayMap | グレー逆背景マップ適用 |
-| pixApplyInvBackgroundRGBMap | RGB逆背景マップ適用 |
-| pixApplyVariableGrayMap | 可変グレーマップ適用 |
-
-修正ファイル: `crates/leptonica-filter/src/adaptmap.rs`
-
-#### 5.3 高度正規化 (`feat/filter-adaptmap-advanced`)
-
-| 関数 | 内容 |
-|------|------|
-| pixGlobalNormRGB | グローバルRGB正規化 |
-| pixGlobalNormNoSatRGB | 彩度保持グローバルRGB正規化 |
-| pixThresholdSpreadNorm | 閾値スプレッド正規化 |
-| pixBackgroundNormFlex | フレキシブル背景正規化 |
-| pixBackgroundNormTo1MinMax | 背景正規化→1bpp MinMax |
-| pixConvertTo8MinMax | 8bpp MinMax変換 |
-
-修正ファイル: `crates/leptonica-filter/src/adaptmap.rs`
-
-#### 5.4 高速バイラテラルフィルタ (`feat/filter-bilateral-fast`)
-
-| 関数 | 内容 |
-|------|------|
-| pixBilateral | 高速分離可能バイラテラル（auto dispatch） |
-| pixBilateralGray | グレースケール高速バイラテラル |
-| pixBlockBilateralExact | ブロックベース厳密バイラテラル |
-
-修正ファイル: `crates/leptonica-filter/src/bilateral.rs`（既存拡張）
 
 ---
 
-### Phase 6: leptonica-core pix4/pix5 + Numa拡張（52関数）
+## Phase 10: シリアライゼーション基盤（~90関数, 5 PR）
 
-他クレートが依存する統計・クリッピング・ソート関数の充実。
+全データ構造の Read/Write を統一パターンで実装。
 
-#### 6.1 統計関数拡張 (`feat/core-stats-advanced`)
+### 共通パターン
 
-対象C関数（`pix3.c`, `pix4.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixAverageByRow | 行ごとの平均値 |
-| pixAverageByColumn | 列ごとの平均値 |
-| pixAverageInRect | 矩形内平均 |
-| pixVarianceByRow | 行ごとの分散 |
-| pixVarianceByColumn | 列ごとの分散 |
-| pixVarianceInRect | 矩形内分散 |
-| pixAbsDiffByRow | 行ごとの絶対差分 |
-| pixAbsDiffByColumn | 列ごとの絶対差分 |
-| pixAbsDiffInRect | 矩形内絶対差分 |
-| pixRowStats | 行ごとの包括統計量 |
-| pixColumnStats | 列ごとの包括統計量 |
-| pixGetPixelAverage | 平均ピクセル値 |
-| pixGetPixelStats | ピクセル統計量（mean/median/mode等） |
+```rust
+// C版の3パターンを統一
+// xxxRead(filename) + xxxReadStream(fp) + xxxReadMem(data, size)
+// → read_from_file(path) + read_from_reader(reader: impl Read)
+
+pub fn read_from_reader(reader: &mut impl Read) -> Result<Self> { ... }
+pub fn read_from_file(path: impl AsRef<Path>) -> Result<Self> {
+    let file = File::open(path)?;
+    Self::read_from_reader(&mut BufReader::new(file))
+}
+pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
+    Self::read_from_reader(&mut Cursor::new(data))
+}
+
+// 同様に write_to_writer / write_to_file / write_to_bytes
+```
+
+### 10.1 Pix シリアライゼーション (`feat/core-pix-serial`)
+
+対象: pixRead/pixReadStream/pixReadMem/pixWrite/pixWriteStream/pixWriteMem + デバッグ出力
+
+修正ファイル: `crates/leptonica-core/src/pix/serial.rs`（新規）
+
+**注**: 画像フォーマット(PNG/JPEG等)のI/Oは leptonica-io の責務。ここでは leptonica 独自バイナリフォーマットの読み書きのみ。
+
+### 10.2 Box/Boxa/Boxaa シリアライゼーション (`feat/core-box-serial`)
+
+対象: boxaRead/boxaReadStream/boxaReadMem/boxaWrite/boxaWriteStream/boxaWriteMem + boxaaRead/Write系 + boxPrintStreamInfo + boxaWriteDebug/boxaWriteStderr
+
+修正ファイル: `crates/leptonica-core/src/box_/serial.rs`（新規）
+
+### 10.3 Numa/Numaa シリアライゼーション (`feat/core-numa-serial`)
+
+対象: numaRead/numaReadStream/numaReadMem/numaWrite/numaWriteStream/numaWriteMem + numaaRead/Write系
+
+修正ファイル: `crates/leptonica-core/src/numa/serial.rs`（新規）
+
+### 10.4 Pta/Ptaa/Pixa/Pixaa シリアライゼーション (`feat/core-collection-serial`)
+
+対象: ptaRead/Write系 + ptaaRead/Write系 + pixaRead/Write系 + pixaaRead/Write系
+
+修正ファイル:
+- `crates/leptonica-core/src/pta/serial.rs`（新規）
+- `crates/leptonica-core/src/pixa/serial.rs`（新規）
+
+### 10.5 FPix/DPix/Sarray/Colormap シリアライゼーション (`feat/core-misc-serial`)
+
+対象: fpixRead/Write系 + dpixRead/Write系 + sarrayRead/Write系 + pixcmapRead/Write系 + pixcmapSerialize/Deserialize
+
+修正ファイル:
+- `crates/leptonica-core/src/fpix/serial.rs`（新規）
+- `crates/leptonica-core/src/sarray/serial.rs`（新規）
+- `crates/leptonica-core/src/colormap/serial.rs`（新規）
+
+---
+
+## Phase 11: Pix ユーティリティ（~45関数, 3 PR）
+
+### 11.1 Pix 生成・テンプレート (`feat/core-pix-create`)
+
+対象（pix1.c）:
+- pixCreateTemplate, pixCreateTemplateNoInit, pixCreateWithCmap
+- pixCopyColormap, pixSizesEqual, pixMaxAspectRatio
+- pixCopyResolution, pixScaleResolution, pixCopyInputFormat
+- pixAddText, pixCopyText, pixPrintStreamInfo
+
+修正ファイル: `crates/leptonica-core/src/pix/mod.rs`, `access.rs`
+
+### 11.2 ピクセル設定・ボーダー拡張 (`feat/core-pix-setters`)
+
+対象（pix2.c）:
+- pixSetAllGray, pixSetAllArbitrary, pixSetBlackOrWhite, pixSetComponentArbitrary
+- pixClearInRect, pixSetInRect, pixSetInRectArbitrary, pixBlendInRect
+- pixSetPadBits, pixSetPadBitsBand
+- pixSetOrClearBorder, pixSetBorderRingVal, pixSetMirroredBorder, pixCopyBorder
+- pixAddMultipleBlackWhiteBorders, pixRemoveBorderToSize
+- pixAddMixedBorder, pixAddContinuedBorder
+- pixGetBlackOrWhiteVal, pixClearPixel, pixFlipPixel, pixGetRandomPixel
+
+修正ファイル: `crates/leptonica-core/src/pix/access.rs`, `border.rs`
+
+### 11.3 RGB成分・アルファ操作 (`feat/core-pix-rgb`)
+
+対象（pix2.c）:
+- pixGetRGBComponentCmap, pixCopyRGBComponent, pixGetRGBLine
+- composeRGBPixel, composeRGBAPixel, extractRGBValues, extractRGBAValues
+- extractMinMaxComponent
+- pixShiftAndTransferAlpha, pixDisplayLayersRGBA
+- pixAlphaIsOpaque, pixInferResolution
+- pixEndianByteSwapNew, pixEndianByteSwap, pixEndianTwoByteSwap
+- pixGetRasterData, pixSetCmapPixel
+
+修正ファイル: `crates/leptonica-core/src/pix/rgb.rs`, `access.rs`
+
+---
+
+## Phase 12: カラーマップ操作（~35関数, 2 PR）
+
+### 12.1 カラーマップ検索・情報 (`feat/core-cmap-query`)
+
+対象（colormap.c）:
+- pixcmapCreateRandom, pixcmapIsValid
+- pixcmapAddRGBA, pixcmapAddNewColor, pixcmapAddNearestColor
+- pixcmapUsableColor, pixcmapAddBlackOrWhite, pixcmapSetBlackAndWhite
+- pixcmapGetFreeCount, pixcmapGetMinDepth
+- pixcmapGetColor32, pixcmapGetRGBA, pixcmapGetRGBA32
+- pixcmapResetColor, pixcmapSetAlpha, pixcmapGetIndex
+- pixcmapHasColor, pixcmapIsOpaque, pixcmapNonOpaqueColorsInfo
+- pixcmapIsBlackAndWhite, pixcmapCountGrayColors
+- pixcmapGetRankIntensity, pixcmapGetNearestIndex, pixcmapGetNearestGrayIndex
+- pixcmapGetDistanceToColor, pixcmapGetRangeValues
+
+修正ファイル: `crates/leptonica-core/src/colormap/query.rs`（新規）
+
+### 12.2 カラーマップ変換・効果 (`feat/core-cmap-convert`)
+
+対象（colormap.c）:
+- pixcmapGrayToFalseColor, pixcmapGrayToColor, pixcmapColorToGray
+- pixcmapConvertTo4, pixcmapConvertTo8
+- pixcmapToArrays, pixcmapToRGBTable, pixcmapConvertToHex
+- pixcmapGammaTRC, pixcmapContrastTRC
+- pixcmapShiftIntensity, pixcmapShiftByComponent
+
+修正ファイル: `crates/leptonica-core/src/colormap/convert.rs`（新規）
+
+---
+
+## Phase 13: 深度変換（~25関数, 2 PR）
+
+### 13.1 低ビット深度変換 (`feat/core-conv-low`)
+
+対象（pixconv.c）:
+- pixThreshold8
+- pixConvert2To8, pixConvert4To8
+- pixConvertTo2, pixConvert8To2
+- pixConvertTo4, pixConvert8To4
+- pixConvertTo8, pixConvertTo8BySampling, pixConvertTo8Colormap
+- pixConvertGrayToColormap, pixConvertGrayToColormap8
+- pixConvertTo1Adaptive, pixConvertTo1BySampling
+
+修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+
+### 13.2 高ビット・特殊変換 (`feat/core-conv-high`)
+
+対象（pixconv.c）:
+- pixConvertTo32, pixConvertTo32BySampling
+- pixConvert24To32, pixConvert32To24, pixConvert32To16
+- pixAddAlphaTo1bpp
+- pixColorizeGray, pixConvertGrayToFalseColor
+- pixConvertRGBToGrayArb, pixConvertRGBToBinaryArb
+- pixConvertRGBToColormap, pixConvertCmapTo1
+- pixQuantizeIfFewColors, pixConvertForPSWrap
+- pixConvertToSubpixelRGB, pixConvertGrayToSubpixelRGB, pixConvertColorToSubpixelRGB
+
+修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+
+---
+
+## Phase 14: Box 操作（~80関数, 4 PR）
+
+### 14.1 Box 幾何・関係演算 (`feat/core-box-geometry`)
+
+対象（boxfunc1.c）:
+- boxaContainedInBox, boxaContainedInBoxCount, boxaContainedInBoxa
+- boxaIntersectsBox, boxaIntersectsBoxCount
+- boxaClipToBox, boxaCombineOverlaps, boxaCombineOverlapsInPair
+- boxOverlapFraction, boxOverlapArea, boxaHandleOverlaps
+- boxOverlapDistance, boxSeparationDistance, boxCompareSize
+- boxaGetNearestToPt, boxaGetNearestToLine
+- boxaFindNearestBoxes, boxaGetNearestByDirection
+- boxGetCenter, boxIntersectByLine
+- boxClipToRectangle, boxClipToRectangleParams
+
+修正ファイル: `crates/leptonica-core/src/box_/geometry.rs`（新規）
+
+### 14.2 Box 調整・変換 (`feat/core-box-adjust`)
+
+対象（boxfunc1.c, boxfunc4.c）:
+- boxRelocateOneSide, boxaAdjustSides, boxaAdjustBoxSides, boxAdjustSides
+- boxaSetSide, boxSetSide, boxaAdjustWidthToTarget, boxaAdjustHeightToTarget
+- boxEqual, boxaEqual, boxSimilar, boxaSimilar
+- boxaJoin, boxaaJoin, boxaSplitEvenOdd, boxaMergeEvenOdd
+- boxaConvertToPta, ptaConvertToBoxa, boxConvertToPta, ptaConvertToBox
+
+修正ファイル: `crates/leptonica-core/src/box_/adjust.rs`（新規）
+
+### 14.3 Box 選択・統計 (`feat/core-box-select`)
+
+対象（boxfunc4.c, boxfunc5.c）:
+- boxaSelectRange, boxaaSelectRange
+- boxaSelectBySize, boxaMakeSizeIndicator
+- boxaSelectByArea, boxaMakeAreaIndicator
+- boxaSelectByWHRatio, boxaMakeWHRatioIndicator
+- boxaSelectWithIndicator
+- boxaPermutePseudorandom, boxaPermuteRandom, boxaSwapBoxes
+- boxaGetExtent, boxaGetCoverage
+- boxaaSizeRange, boxaSizeRange, boxaLocationRange
+- boxaGetSizes, boxaGetArea
+- boxfunc5.c スムージング関数群
+
+修正ファイル: `crates/leptonica-core/src/box_/select.rs`（新規）
+
+### 14.4 Box 描画・マスク (`feat/core-box-draw`)
+
+対象（boxfunc3.c）:
+- pixMaskConnComp, pixMaskBoxa, pixPaintBoxa, pixSetBlackOrWhiteBoxa
+- pixPaintBoxaRandom, pixBlendBoxaRandom
+- pixDrawBoxa, pixDrawBoxaRandom
+- boxaaDisplay, pixaDisplayBoxaa
+- pixSplitIntoBoxa, pixSplitComponentIntoBoxa, makeMosaicStrips
+- boxaCompareRegions, pixSelectLargeULComp, boxaSelectLargeULBox
+- boxaDisplayTiled
+
+修正ファイル: `crates/leptonica-core/src/box_/draw.rs`（新規）
+
+---
+
+## Phase 15: Pix マスク・統計・クリッピング（~75関数, 4 PR）
+
+### 15.1 マスク拡張 (`feat/core-pix-mask-ext`)
+
+対象（pix3.c）:
+- pixSetMaskedGeneral, pixCombineMaskedGeneral
+- pixCopyWithBoxa, pixPaintSelfThroughMask
+- pixMakeArbMaskFromRGB, pixSetUnderTransparency
+- pixMakeAlphaFromMask, pixGetColorNearMaskBoundary
+- pixDisplaySelectedPixels
+- pixaCountPixels, pixCountPixels
+- pixCountPixelsByRow, pixCountPixelsByColumn, pixCountPixelsInRow
+- pixGetMomentByColumn
+
+修正ファイル: `crates/leptonica-core/src/pix/mask.rs`
+
+### 15.2 行列統計・差分 (`feat/core-pix-rowcol-stats`)
+
+対象（pix3.c, pix4.c）:
+- pixAverageByRow, pixAverageByColumn, pixAverageInRect, pixAverageInRectRGB
+- pixVarianceByRow, pixVarianceByColumn, pixVarianceInRect
+- pixAbsDiffByRow, pixAbsDiffByColumn, pixAbsDiffInRect, pixAbsDiffOnLine
+- pixCountArbInRect
+- pixRowStats, pixColumnStats, pixGetRowStats, pixGetColumnStats
+- pixSetPixelColumn
+- pixMirroredTiling, pixFindRepCloseTile
 
 修正ファイル: `crates/leptonica-core/src/pix/statistics.rs`
 
-#### 6.2 ヒストグラム拡張 (`feat/core-histogram-advanced`)
+### 15.3 ヒストグラム拡張 (`feat/core-pix-hist-ext`)
 
-対象C関数（`pix4.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixGetGrayHistogramTiled | タイル別グレーヒストグラム |
-| pixGetCmapHistogram | カラーマップヒストグラム |
-| pixCountRGBColors | RGB色数カウント |
-| pixGetAverageMaskedRGB | マスク内RGB平均 |
-| pixGetAverageMasked | マスク内平均 |
-| pixGetAverageTiledRGB | タイル別RGB平均 |
-| pixGetAverageTiled | タイル別平均 |
-| pixGetRankValueMaskedRGB | マスク内RGBランク値 |
-| pixGetRankValueMasked | マスク内ランク値 |
-| pixGetBinnedComponentRange | ビン化コンポーネント範囲 |
-| pixGetRankColorArray | ランク順色配列 |
-| pixThresholdForFgBg | 前景/背景分離閾値 |
-| pixSplitDistributionFgBg | 前景/背景分布分割 |
+対象（pix4.c）:
+- pixGetGrayHistogramTiled
+- pixGetCmapHistogram, pixGetCmapHistogramMasked, pixGetCmapHistogramInRect
+- pixCountRGBColorsByHash, pixCountRGBColors, pixGetColorAmapHistogram
+- pixGetRankValueMaskedRGB, pixGetRankValueMasked
+- pixGetPixelAverage, pixGetPixelStats
+- pixGetAverageMaskedRGB, pixGetAverageMasked
+- pixGetAverageTiledRGB, pixGetAverageTiled
+- pixGetMaxColorIndex, pixGetBinnedComponentRange, pixGetRankColorArray
+- pixGetBinnedColor, pixDisplayColorArray, pixRankBinByStrip
+- pixaGetAlignedStats, pixaExtractColumnFromEachPix
+- pixSplitDistributionFgBg
 
 修正ファイル: `crates/leptonica-core/src/pix/histogram.rs`
 
-#### 6.3 クリッピング・測定 (`feat/core-pix-clip`)
+### 15.4 クリッピング・測定 (`feat/core-pix-clip-ext`)
 
-対象C関数（`pix5.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixClipRectangle | 矩形クリッピング |
-| pixClipRectangleWithBorder | ボーダー付きクリッピング |
-| pixClipMasked | マスクによるクリッピング |
-| pixCropToMatch | サイズ一致クロッピング |
-| pixClipToForeground | 前景バウンディングボックスへクリップ |
-| pixClipBoxToForeground | 前景へボックスクリップ |
-| pixScanForForeground | 前景エッジスキャン |
-| pixClipBoxToEdges | エッジへボックスクリップ |
-| pixScanForEdge | エッジスキャン |
-| pixMakeSymmetricMask | 対称マスク生成 |
-| pixMakeFrameMask | フレームマスク生成 |
-| pixFractionFgInMask | マスク内前景割合 |
-| pixExtractOnLine | 線上ピクセル値抽出 |
-| pixAverageOnLine | 線上平均値 |
+対象（pix5.c）:
+- pixClipRectangle, pixClipRectangleWithBorder, pixClipRectangles
+- pixCropToMatch, pixCropToSize, pixResizeToMatch
+- pixClipToForeground, pixTestClipToForeground, pixClipBoxToForeground
+- pixScanForForeground
+- pixMakeFrameMask, pixMakeCoveringOfRectangles, pixFractionFgInMask
+- pixExtractOnLine, pixAverageOnLine
+- pixAverageIntensityProfile, pixReversalProfile, pixWindowedVarianceOnLine
+- pixMinMaxNearLine, pixRankRowTransform, pixRankColumnTransform
+- pixSelectComponentBySize, pixFilterComponentBySize
+- pixaFindDimensions, pixFindAreaPerimRatio, etc. (pix5.c measurement群)
 
-修正ファイル: `crates/leptonica-core/src/pix/clip.rs`（新規）, `extract.rs`（既存拡張）
+修正ファイル: `crates/leptonica-core/src/pix/clip.rs`, `extract.rs`
 
-#### 6.4 Numaソート・補間 (`feat/core-numa-sort`)
+---
 
-対象C関数（`numafunc1.c`）:
-| 関数 | 内容 |
-|------|------|
-| numaSortAutoSelect | 自動ソートアルゴリズム選択 |
-| numaSortIndexAutoSelect | インデックスソート自動選択 |
-| numaGetSortIndex | ソート順列インデックス取得 |
-| numaSortByIndex | インデックス配列でソート |
-| numaIsSorted | ソート済み判定 |
-| numaInterpolateEqxVal | 等間隔補間 |
-| numaInterpolateArbxVal | 任意間隔補間 |
-| numaClipToInterval | 区間クリッピング |
-| numaMakeThresholdIndicator | 閾値インジケータ生成 |
-| numaGetNonzeroRange | 非ゼロ値範囲 |
-| numaGetCountRelativeToZero | ゼロ基準カウント |
-| numaSubsample | サブサンプリング |
+## Phase 16: Numa/Pta/Pixa 拡張（~100関数, 5 PR）
+
+### 16.1 Numa 算術・変換 (`feat/core-numa-arith`)
+
+対象（numafunc1.c）:
+- numaArithOp, numaLogicalOp, numaInvert, numaSimilar, numaAddToNumber
+- numaGetPartialSums, numaMakeDelta, numaMakeSequence, numaMakeAbsval
+- numaAddBorder, numaAddSpecifiedBorder, numaRemoveBorder
+- numaCountNonzeroRuns, numaSubsample
+- numaJoin, numaaJoin
 
 修正ファイル: `crates/leptonica-core/src/numa/operations.rs`
 
----
+### 16.2 Numa ソート・補間 (`feat/core-numa-sort`)
 
-### Phase 7: leptonica-color 拡張（37関数）
+対象（numafunc1.c）:
+- numaSortGeneral, numaSortAutoSelect, numaSortIndexAutoSelect
+- numaChooseSortType, numaBinSort, numaGetSortIndex, numaGetBinSortIndex
+- numaSortByIndex, numaIsSorted, numaSortPair
+- numaInvertMap, numaAddSorted, numaFindSortedLoc
+- numaPseudorandomSequence, numaRandomPermutation
+- numaGetBinnedMedian, numaGetMeanDevFromMedian, numaGetMedianDevFromMedian
+- numaInterpolateEqxVal, numaInterpolateArbxVal
+- numaInterpolateEqxInterval, numaInterpolateArbxInterval
+- numaFitMax, numaDifferentiateInterval, numaIntegrateInterval
+- numaGetNonzeroRange, numaGetCountRelativeToZero
+- numaClipToInterval, numaMakeThresholdIndicator
+- numaUniformSampling, numaLowPassIntervals, numaThresholdEdges
+- numaGetSpanValues, numaGetEdgeValues
 
-Phase 6（統計関数）に依存。文書処理・OCR前処理に必須の色分析と閾値処理。
+修正ファイル: `crates/leptonica-core/src/numa/sort.rs`（新規）, `interpolation.rs`（新規）
 
-#### 7.1 色内容分析 (`feat/color-content`)
+### 16.3 Pta/Ptaa 基本・変換 (`feat/core-pta-ext`)
 
-対象C関数（`colorcontent.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixColorContent | 色内容計算（R-G, R-B, G-B差分） |
-| pixColorMagnitude | 色マグニチュード計算 |
-| pixColorFraction | 色付き vs グレーの割合 |
-| pixMaskOverColorPixels | 色付きピクセルマスク生成 |
-| pixMaskOverGrayPixels | グレーピクセルマスク生成 |
-| pixMaskOverColorRange | 色範囲マスク生成 |
-| pixFindColorRegions | 文書内の色領域検出 |
-| pixNumSignificantGrayColors | 有意なグレー色数 |
-| pixColorsForQuantization | 量子化用色数決定 |
-| pixGetMostPopulatedColors | 最頻出色取得 |
-| pixSimpleColorQuantize | 簡易色量子化 |
-| pixGetRGBHistogram | RGBヒストグラム |
+対象（ptabasic.c, ptafunc1.c, ptafunc2.c）:
+- ptaCreateFromNuma, ptaCopyRange, ptaEmpty, ptaInsertPt, ptaRemovePt
+- ptaGetIPt, ptaGetArrays
+- Ptaa型の全実装（ptaaCreate, ptaaDestroy, ptaaAddPta, ptaaGetCount, ptaaGetPta, ptaaGetPt, ptaaInitFull, ptaaReplacePta, ptaaAddPt, ptaaTruncate）
+- ptafunc1: ポイント配列変換、回転、スケール、幾何演算
+- ptafunc2: 最小二乗法、ソート、統計
 
-修正ファイル: `crates/leptonica-color/src/analysis.rs`（既存拡張）
+修正ファイル:
+- `crates/leptonica-core/src/pta/mod.rs`（拡張）
+- `crates/leptonica-core/src/pta/transform.rs`（新規）
 
-#### 7.2 HSV範囲マスク・ヒストグラム (`feat/color-hsv-tools`)
+### 16.4 Pixa 基本拡張 (`feat/core-pixa-basic`)
 
-対象C関数（`colorspace.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixMakeRangeMaskHS | H-S範囲マスク |
-| pixMakeRangeMaskHV | H-V範囲マスク |
-| pixMakeRangeMaskSV | S-V範囲マスク |
-| pixMakeHistoHS | H-S 2Dヒストグラム |
-| pixMakeHistoHV | H-V 2Dヒストグラム |
-| pixMakeHistoSV | S-V 2Dヒストグラム |
-| pixFindHistoPeaksHSV | HSVヒストグラムピーク検出 |
-| pixConvertRGBToYUV (画像) | 画像レベルRGB→YUV変換 |
-| pixConvertYUVToRGB (画像) | 画像レベルYUV→RGB変換 |
+対象（pixabasic.c）:
+- pixaCreateFromPix, pixaCreateFromBoxa, pixaSplitPix
+- pixaGetBoxa, pixaGetBoxaCount, pixaGetBox, pixaGetBoxGeometry, pixaSetBoxa
+- pixaGetPixArray, pixaVerifyDepth, pixaVerifyDimensions, pixaIsFull
+- pixaCountText, pixaSetText, pixaGetLinePtrs, pixaWriteStreamInfo
+- pixaReplacePix, pixaInsertPix, pixaRemovePix, pixaRemovePixAndSave, pixaRemoveSelected
+- pixaInitFull, pixaJoin, pixaInterleave
+- Pixaa型の全実装
 
-修正ファイル: `crates/leptonica-color/src/colorspace.rs`（既存拡張）
+修正ファイル: `crates/leptonica-core/src/pixa/mod.rs`（拡張）
 
-#### 7.3 高度二値化 (`feat/color-binarize-adv`)
+### 16.5 Pixa/Sarray 高度操作 (`feat/core-pixa-advanced`)
 
-対象C関数（`binarize.c`, `grayquant.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixOtsuAdaptiveThreshold | タイル別適応的Otsu |
-| pixOtsuThreshOnBackgroundNorm | 背景正規化Otsu |
-| pixSauvolaBinarizeTiled | タイル別Sauvola |
-| pixSauvolaOnContrastNorm | コントラスト正規化Sauvola |
-| pixThresholdByConnComp | 連結成分ベース閾値 |
-| pixVarThresholdToBinary | 可変閾値二値化 |
-| pixGenerateMaskByValue | 値別マスク生成 |
-| pixGenerateMaskByBand | バンド別マスク生成 |
-| pixThresholdTo2bpp | 2bpp閾値処理 |
-| pixThresholdTo4bpp | 4bpp閾値処理 |
+対象（pixafunc1.c, pixafunc2.c, sarray2.c）:
+- pixaSelectBySize, pixaSelectByArea, pixaSort, pixaSortByIndex
+- pixaScaleToSize, pixaScaleToSizeRel
+- pixaDisplay, pixaDisplayTiled, pixaDisplayTiledAndScaled
+- Sarray 残り: sarrayRemoveString, sarrayReplaceString, sarrayGetArray
+- sarrayToStringRange, sarrayConcatUniformly, sarrayJoin, sarrayAppendRange
+- sarrayPadToSameSize, sarrayConvertWordsToLines, sarraySplitString
+- sarraySelectRange, sarrayParseRange, sarraySortByIndex, sarrayAppend
 
-修正ファイル: `crates/leptonica-color/src/threshold.rs`（既存拡張）
-
-#### 7.4 量子化拡張 (`feat/color-quant-ext`)
-
-対象C関数（`colorquant1.c`, `colorquant2.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixOctreeQuantByPopulation | ポピュレーション基準Octree量子化 |
-| pixOctreeQuantNumColors | N色Octree量子化 |
-| pixMedianCutQuantMixed | グレー+カラー混合MedianCut |
-| pixQuantFromCmap | 既存カラーマップからの量子化 |
-| pixRemoveUnusedColors | 未使用カラーマップ色の削除 |
-| pixFixedOctcubeQuant256 | 固定256色Octcube量子化 |
-
-修正ファイル: `crates/leptonica-color/src/quantize.rs`（既存拡張）
+修正ファイル:
+- `crates/leptonica-core/src/pixa/display.rs`（新規）
+- `crates/leptonica-core/src/sarray/operations.rs`（新規）
 
 ---
 
-### Phase 8: leptonica-morph Sel系 + leptonica-region seedfill拡張（35関数）
+## Phase 17: Graphics/Compare/Blend（~55関数, 3 PR）
 
-Phase 6に依存。Selデータ構造の完成と距離変換の実装。
+### 17.1 PTA生成関数 (`feat/core-graphics-pta`)
 
-#### 8.1 Sel/Selaデータ構造 (`feat/morph-sel-basic`)
+対象（graphics.c）:
+- generatePtaLine, generatePtaWideLine
+- generatePtaBox, generatePtaBoxa, generatePtaHashBox, generatePtaHashBoxa
+- generatePtaaBoxa, generatePtaaHashBoxa
+- generatePtaPolyline, generatePtaGrid
+- convertPtaLineTo4cc
+- generatePtaFilledCircle, generatePtaFilledSquare
+- pixGeneratePtaBoundary
 
-対象C関数（`sel1.c`）:
-| 関数 | 内容 |
-|------|------|
-| selCreate | 構造化要素生成 |
-| selCreateBrick | 矩形SE生成 |
-| selCreateComb | 複合SE対生成 |
-| selGetElement | 要素取得 |
-| selSetElement | 要素設定 |
-| selGetParameters | SEパラメータ取得 |
-| selSetOrigin | SE原点設定 |
-| selFindMaxTranslations | 最大平行移動量 |
-| selRotateOrth | 直交回転 |
-| selCreateFromString | テキスト表現から生成 |
-| selCreateFromPix | 画像からSE生成 |
-| selDisplayInPix | SEを画像表示 |
-| selGenerateSelBoundary | 境界からSE自動生成 |
+修正ファイル: `crates/leptonica-core/src/pix/graphics.rs`
 
-修正ファイル: `crates/leptonica-morph/src/sel.rs`（新規 or 既存拡張）
+### 17.2 レンダリング拡張 (`feat/core-graphics-render`)
 
-#### 8.2 モルフォロジー応用 (`feat/morph-app`)
+対象（graphics.c）:
+- pixRenderPtaArb, pixRenderPtaBlend
+- pixRenderLineArb, pixRenderLineBlend
+- pixRenderBoxArb, pixRenderBoxBlend
+- pixRenderBoxa, pixRenderBoxaArb, pixRenderBoxaBlend
+- pixRenderHashBox, pixRenderHashBoxArb, pixRenderHashBoxBlend
+- pixRenderHashMaskArb
+- pixRenderHashBoxa, pixRenderHashBoxaArb, pixRenderHashBoxaBlend
+- pixRenderPolyline, pixRenderPolylineArb, pixRenderPolylineBlend
+- pixRenderGridArb, pixRenderRandomCmapPtaa
+- pixRenderPolygon, pixFillPolygon
+- pixRenderContours, fpixAutoRenderContours, fpixRenderContours
+- pixRenderPlotFromNuma, pixRenderPlotFromNumaGen
 
-対象C関数（`morphapp.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixMorphGradient | モルフォロジー勾配（dilate-erode） |
-| pixExtractBoundary | 境界抽出（1px内側/外側） |
-| pixMorphSequenceMasked | マスク付きモルフォロジーシーケンス |
-| pixMorphSequenceByComponent | コンポーネント別シーケンス |
-| pixMorphSequenceByRegion | リージョン別シーケンス |
+修正ファイル: `crates/leptonica-core/src/pix/graphics.rs`
 
-修正ファイル: `crates/leptonica-morph/src/binary.rs`, `sequence.rs`
+### 17.3 Compare/Blend 拡張 (`feat/core-compare-blend`)
 
-#### 8.3 距離関数・局所極値 (`feat/region-seedfill-dist`)
+対象（compare.c, blend.c）:
+- pixEqualWithAlpha, pixEqualWithCmap
+- pixDisplayDiff, pixDisplayDiffBinary
+- pixCompareGrayOrRGB, pixCompareGray, pixCompareRGB
+- pixCompareTiled, pixCompareRankDifference
+- pixTestForSimilarity, pixGetDifferenceStats, pixGetDifferenceHistogram
+- pixGetPerceptualDiff, pixGetPSNR
+- pixBlendGrayInverse, pixBlendColorByChannel, pixBlendGrayAdapt
+- pixFadeWithGray, pixBlendHardLight, pixBlendCmap
+- pixBlendBackgroundToColor, pixMultiplyByColor
+- pixAlphaBlendUniform, pixAddAlphaToBlend, pixSetAlphaOverWhite
+- pixLinearEdgeFade
 
-対象C関数（`seedfill.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixDistanceFunction | Chamfer距離変換 |
-| pixSeedspread | シード拡散（Voronoi類似） |
-| pixLocalExtrema | 局所極値検出 |
-| pixSelectedLocalExtrema | 制約付き局所極値選択 |
-| pixFindEqualValues | 等値隣接ピクセル検出 |
-| pixSelectMinInConnComp | 連結成分内最小値選択 |
-| pixRemoveSeededComponents | シード付き成分除去 |
-| pixSeedfillGrayInv | 逆グレースケールシードフィル |
-| pixSeedfillBinaryRestricted | 制限付き二値シードフィル |
-| pixFillClosedBorders | 閉境界充填 |
-
-修正ファイル: `crates/leptonica-region/src/seedfill.rs`（既存拡張）
-
-#### 8.4 連結成分拡張 (`feat/region-conncomp-ext`)
-
-対象C関数（`conncomp.c`, `pixlabel.c`）:
-| 関数 | 内容 |
-|------|------|
-| pixConnCompPixa | 連結成分をPixaとして取得 |
-| pixSeedfillBB | シードフィルBB付き |
-| pixSeedfill4BB | 4連結シードフィルBB |
-| pixSeedfill8BB | 8連結シードフィルBB |
-| pixConnCompIncrInit | インクリメンタルCC初期化 |
-| pixConnCompIncrAdd | インクリメンタルCC追加 |
-| pixGetSortedNeighborValues | ソート済み隣接値取得 |
-
-修正ファイル: `crates/leptonica-region/src/conncomp.rs`, `label.rs`
+修正ファイル: `crates/leptonica-core/src/pix/compare.rs`, `blend.rs`
 
 ---
 
-### Phase 9: leptonica-core Box/Pixa/FPix + 演算拡張（44関数）
+## FPix/DPix 拡張（Phase 16 に含む）
 
-Phase 7,8と並行可能。インフラ完成による API カバレッジ向上。
+以下の関数は各Phaseの適切な場所で実装:
+- FPixa型: Phase 16.4 (Pixa基本拡張と同時)
+- fpixSetDimensions, fpixCopyResolution: Phase 11.1
+- fpixConvolveSep, fpixConvolve: leptonica-filter の責務（スコープ外）
 
-#### 9.1 Box配列操作 (`feat/core-boxfunc`)
-
-対象C関数（`boxfunc1.c`, `boxfunc4.c`）:
-| 関数 | 内容 |
-|------|------|
-| boxaContainedInBox | 包含ボックスフィルタ |
-| boxaIntersectsBox | 交差ボックスフィルタ |
-| boxaClipToBox | 全ボックスのクリッピング |
-| boxaCombineOverlaps | 重複ボックス結合 |
-| boxOverlapFraction | 重複割合計算 |
-| boxOverlapArea | 重複面積計算 |
-| boxaSelectBySize | サイズ基準選択 |
-| boxaSelectByArea | 面積基準選択 |
-| boxaSelectByWHRatio | 縦横比基準選択 |
-| boxaGetExtent | 全ボックスの外接矩形 |
-| boxaGetCoverage | 面積カバレッジ計算 |
-| boxaSizeRange | サイズ範囲取得 |
-| boxEqual | ボックス等値判定 |
-| boxaSimilar | Boxa類似判定 |
-| boxaJoin | 2つのBoxaを結合 |
-
-修正ファイル: `crates/leptonica-core/src/boxa/`（新規ファイル）
-
-#### 9.2 Pixa操作 (`feat/core-pixa-ops`)
-
-| 関数 | 内容 |
-|------|------|
-| pixaSelectBySize | サイズ基準Pix選択 |
-| pixaSelectByArea | 面積基準Pix選択 |
-| pixaSort | 基準別Pixaソート |
-| pixaSortByIndex | インデックス配列ソート |
-| pixaScaleToSize | 共通サイズスケーリング |
-| pixaScaleToSizeRel | 相対サイズスケーリング |
-| pixaDisplay | Pixa複合画像表示 |
-| pixaDisplayTiled | タイル表示 |
-| pixaDisplayTiledAndScaled | タイル+スケーリング表示 |
-
-修正ファイル: `crates/leptonica-core/src/pixa/`（既存拡張）
-
-#### 9.3 FPix/DPix操作 (`feat/core-fpix-ops`)
-
-| 関数 | 内容 |
-|------|------|
-| fpixCreateTemplate | テンプレートからFPix生成 |
-| fpixConvertToPix | FPix→Pix変換 |
-| pixConvertToFPix | Pix→FPix変換 |
-| fpixAddMultConstant | 定数加算/乗算 |
-| fpixLinearCombination | 2つのFPixの線形結合 |
-| fpixConvolveSep | FPix分離可能畳み込み |
-| fpixConvolve | FPix畳み込み |
-| dpixCreate | DPix生成 |
-| dpixConvertToPix | DPix→Pix変換 |
-| dpixConvertToFPix | DPix→FPix変換 |
-
-修正ファイル: `crates/leptonica-core/src/fpix/`（既存拡張）
-
-#### 9.4 ピクセル演算・ラスタオペ拡張 (`feat/core-pix-arith`)
-
-| 関数 | 内容 |
-|------|------|
-| pixAddGray | グレースケール画像加算 |
-| pixSubtractGray | グレースケール画像減算 |
-| pixMultConstantGray | 定数乗算 |
-| pixAddConstantGray | 定数加算 |
-| pixMultConstAccumulate | 乗算累積 |
-| pixAbsDifference | 絶対差分 |
-| pixMinOrMax | ピクセル単位min/max |
-| pixRasteropVip | 垂直インプレースラスタオペ |
-| pixRasteropHip | 水平インプレースラスタオペ |
-| pixTranslate | ラスタオペによる画像移動 |
-
-修正ファイル: `crates/leptonica-core/src/pix/arith.rs`, `rop.rs`
+修正ファイル: `crates/leptonica-core/src/fpix/mod.rs`
 
 ---
 
 ## サマリー
 
-| Phase | 対象 | ブランチ数 | 関数数 | 累計 |
-|-------|------|-----------|--------|------|
-| 1-4 (完了) | core基盤, filter enhance/convolve | 19 | 111 | 111 |
-| 5 (filter adaptmap+bilateral) | leptonica-filter | 4 | 27 | 138 |
-| 6 (core stats/clip/Numa) | leptonica-core | 4 | 52 | 190 |
-| 7 (color expansion) | leptonica-color | 4 | 37 | 227 |
-| 8 (morph Sel + region seedfill) | leptonica-morph, leptonica-region | 4 | 35 | 262 |
-| 9 (core Box/Pixa/FPix) | leptonica-core | 4 | 44 | 306 |
-| **合計** | | **39** | **306** | **(522+195)/1868 ≈ 38.4%** |
+| Phase | 対象 | PR数 | 関数数 |
+|-------|------|------|--------|
+| 10 | シリアライゼーション基盤 | 5 | ~90 |
+| 11 | Pix ユーティリティ | 3 | ~45 |
+| 12 | カラーマップ操作 | 2 | ~35 |
+| 13 | 深度変換 | 2 | ~25 |
+| 14 | Box 操作 | 4 | ~80 |
+| 15 | Pix マスク・統計・クリッピング | 4 | ~75 |
+| 16 | Numa/Pta/Pixa 拡張 | 5 | ~100 |
+| 17 | Graphics/Compare/Blend | 3 | ~55 |
+| **合計** | | **28** | **~505** |
+
+完了後の推定カバレッジ: (226+505) / 845 ≈ **86.5%**
+（残りはroplow.c スキップ分 + Rust設計上N/Aの関数）
 
 ## 検証方法
 
-### Part 1（comparison更新）
-
-ドキュメント更新のため自動テストは不要。以下を手動確認:
-
-1. 各comparison/*.mdのサマリー数値がdetailテーブルの行数と一致すること
-2. feature-comparison.mdの数値が各個別ファイルの合計と一致すること
-3. ❌→✅に変更した関数について、対応するRust実装が存在することを `cargo doc -p <crate>` で確認
-
-### Part 2（Phase 5-9）
-
-各Phaseの実装時に `humming-tickling-journal.md` と同じワークフローを適用:
+各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p <crate>
-cargo clippy -p <crate> -- -D warnings
-cargo test -p <crate>
-cargo test --workspace  # PR前
+cargo fmt --check -p leptonica-core
+cargo clippy -p leptonica-core -- -D warnings
+cargo test -p leptonica-core
+cargo test --workspace  # PR前に全ワークスペーステスト
+```
+
+シリアライゼーション（Phase 10）はラウンドトリップテストを重点的に:
+```rust
+// write → read → compare のパターン
+let original = Boxa::from(vec![Box::new(10, 20, 30, 40)]);
+let mut buf = Vec::new();
+original.write_to_writer(&mut buf)?;
+let restored = Boxa::read_from_bytes(&buf)?;
+assert_eq!(original, restored);
 ```

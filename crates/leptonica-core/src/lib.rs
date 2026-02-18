@@ -34,6 +34,7 @@ pub use numa::{
     CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
     SortOrder, ThresholdComparison, WindowedStats,
 };
+pub use pix::serial::SpixHeader;
 pub use pix::statistics::{
     DiffDirection, ExtremeResult, ExtremeType, MaxValueResult, PixelMaxType, PixelStatType,
     RowColumnStats, StatsRequest,
