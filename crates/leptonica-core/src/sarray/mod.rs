@@ -4,6 +4,8 @@
 //! This module provides Leptonica-style convenience methods
 //! wrapped around Rust's `Vec<String>`.
 
+pub mod serial;
+
 use crate::error::{Error, Result};
 use std::collections::HashSet;
 
