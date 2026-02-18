@@ -1066,6 +1066,61 @@ pub fn seedfill_binary_restricted(
     Ok(out_mut.into())
 }
 
+/// Spread seed pixel values to fill the entire image (Voronoi-like).
+///
+/// Takes an 8bpp image with sparse nonzero seed pixels and spreads their
+/// values to fill all zero pixels with the value of the nearest seed.
+/// This is similar to computing a Voronoi tessellation where each seed
+/// defines a region, and all pixels within that region take the seed's value.
+///
+/// The algorithm uses a two-pass raster/anti-raster distance propagation
+/// (Ray Smith's method) that runs in O(n) time.
+///
+/// # Arguments
+///
+/// * `pixs` - 8bpp grayscale image with sparse nonzero seed pixels
+/// * `connectivity` - 4-way or 8-way connectivity for distance computation
+///
+/// # See also
+///
+/// C Leptonica: `pixSeedspread()` in `seedfill.c`
+pub fn seedspread(pixs: &Pix, connectivity: ConnectivityType) -> RegionResult<Pix> {
+    let _ = (pixs, connectivity);
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(),
+    ))
+}
+
+/// Find the minimum pixel value in each connected component of a mask.
+///
+/// For each connected component in the 1bpp mask, finds the pixel in the
+/// 8bpp source image that has the minimum value within that component.
+/// Returns the coordinates and values of these minimum pixels.
+///
+/// # Arguments
+///
+/// * `pixs` - 8bpp grayscale image
+/// * `pixm` - 1bpp mask defining connected components
+///
+/// # Returns
+///
+/// A tuple of (`Pta`, `Numa`) where:
+/// - `Pta` contains the (x, y) coordinates of the minimum pixel in each component
+/// - `Numa` contains the corresponding minimum values
+///
+/// # See also
+///
+/// C Leptonica: `pixSelectMinInConnComp()` in `seedfill.c`
+pub fn select_min_in_conncomp(
+    pixs: &Pix,
+    pixm: &Pix,
+) -> RegionResult<(leptonica_core::Pta, leptonica_core::Numa)> {
+    let _ = (pixs, pixm);
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
