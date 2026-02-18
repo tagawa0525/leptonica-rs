@@ -35,6 +35,7 @@ mod mask;
 mod ops;
 mod rgb;
 pub mod rop;
+pub mod serial;
 pub mod statistics;
 
 pub use access::*;
