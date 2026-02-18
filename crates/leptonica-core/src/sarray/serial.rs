@@ -85,6 +85,15 @@ impl Sarray {
         writeln!(writer, "Number of strings = {n}")?;
 
         for (i, s) in self.iter().enumerate() {
+            // The text format is line-based and cannot safely represent strings
+            // containing newline characters. Reject such strings to avoid
+            // producing output that cannot be parsed by `read_from_bytes`.
+            if s.contains('\n') || s.contains('\r') {
+                return Err(Error::EncodeError(format!(
+                    "Sarray element at index {i} contains newline characters, \
+                     which cannot be serialized in the Sarray text format"
+                )));
+            }
             writeln!(writer, "  {i}[{}]:  {s}", s.len())?;
         }
 
@@ -147,30 +156,34 @@ fn find_and_parse_int<'a>(
 /// Parse a string entry line: "  i[len]:  string"
 ///
 /// The C format writes `"  %d[%d]:  %s\n"` where the string content
-/// follows the two spaces after the colon.
+/// follows the two spaces after the colon. This function preserves
+/// trailing whitespace in the string content by only stripping the
+/// leading indentation, not the full line.
 fn parse_string_line<'a>(
     lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
 ) -> Result<String> {
     for line in lines.by_ref() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
+        // Only skip leading indentation (2 spaces per C format)
+        let line_content = line.strip_prefix("  ").unwrap_or(line);
+        if line_content.trim().is_empty() {
             continue;
         }
-        // Match pattern: "i[len]:  string" (after trimming leading spaces)
-        if let Some(bracket_pos) = trimmed.find('[')
-            && let Some(colon_pos) = trimmed.find("]:")
+
+        // Match pattern: "i[len]:  string"
+        if let Some(bracket_pos) = line_content.find('[')
+            && let Some(colon_pos) = line_content.find("]:")
         {
             // Parse length for validation
-            let len_str = &trimmed[bracket_pos + 1..colon_pos];
+            let len_str = &line_content[bracket_pos + 1..colon_pos];
             let declared_len: usize = len_str
                 .parse()
                 .map_err(|e| Error::DecodeError(format!("failed to parse string length: {e}")))?;
 
             // The string content is after "]:  " (colon + 2 spaces)
             let content_start = colon_pos + 2; // skip "]:"
-            let content = if content_start < trimmed.len() {
-                // Skip the two spaces after ":"
-                let rest = &trimmed[content_start..];
+            let content = if content_start < line_content.len() {
+                // Skip the two spaces after ":" to get the string content
+                let rest = &line_content[content_start..];
                 rest.strip_prefix("  ").unwrap_or(rest)
             } else {
                 ""
@@ -187,7 +200,7 @@ fn parse_string_line<'a>(
             return Ok(content.to_string());
         }
         return Err(Error::DecodeError(format!(
-            "invalid string entry line: '{trimmed}'"
+            "invalid string entry line: '{line_content}'"
         )));
     }
     Err(Error::DecodeError(
@@ -277,6 +290,33 @@ mod tests {
     fn test_sarray_negative_count_rejected() {
         let input = b"\nSarray Version 1\nNumber of strings = -1\n";
         let result = Sarray::read_from_bytes(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sarray_trailing_spaces() {
+        let sa = Sarray::from_vec(vec!["hello  ".into(), "world ".into(), "  ".into()]);
+
+        let bytes = sa.write_to_bytes().unwrap();
+        let restored = Sarray::read_from_bytes(&bytes).unwrap();
+
+        assert_eq!(restored.len(), 3);
+        assert_eq!(restored.get(0).unwrap(), "hello  ");
+        assert_eq!(restored.get(1).unwrap(), "world ");
+        assert_eq!(restored.get(2).unwrap(), "  ");
+    }
+
+    #[test]
+    fn test_sarray_rejects_newlines() {
+        let sa = Sarray::from_vec(vec!["hello".into(), "world\ntest".into()]);
+        let result = sa.write_to_bytes();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sarray_rejects_carriage_returns() {
+        let sa = Sarray::from_vec(vec!["hello".into(), "world\rtest".into()]);
+        let result = sa.write_to_bytes();
         assert!(result.is_err());
     }
 }
