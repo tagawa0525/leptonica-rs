@@ -855,8 +855,7 @@ impl PixMut {
 
     /// Set all pixels to a gray value (0-255).
     ///
-    /// For 32 bpp, sets R=G=B=grayval, alpha unchanged.
-    /// For colormapped images, finds/adds nearest gray.
+    /// For 32 bpp, sets R=G=B=grayval, alpha set to 0.
     ///
     /// # See also
     ///
@@ -930,7 +929,9 @@ impl PixMut {
 
     /// Set all pixels to black or white.
     ///
-    /// Handles all depths including colormapped images.
+    /// Handles all pixel depths. Note: Colormapped images are currently treated
+    /// the same as non-colormapped images of the same depth; colormap entries
+    /// are not adjusted.
     ///
     /// # See also
     ///
@@ -961,8 +962,10 @@ impl PixMut {
     ///
     /// For non-colormapped images, returns 0 for black and max for white
     /// (with depth=1 reversed: 0=white, 1=black).
+    /// For 32 bpp, white is 0xFFFFFF00.
     ///
-    /// For colormapped images, returns the colormap index.
+    /// Colormapped images are treated the same as other images of the same depth;
+    /// this function does not inspect or return colormap indices.
     ///
     /// # See also
     ///
@@ -1004,10 +1007,21 @@ impl PixMut {
     ///
     /// C Leptonica: `pixFlipPixel()` in `pix2.c`
     pub fn flip_pixel(&mut self, x: u32, y: u32) -> Result<()> {
-        let current = self.get_pixel(x, y).ok_or(Error::IndexOutOfBounds {
-            index: x as usize,
-            len: self.width() as usize,
-        })?;
+        if x >= self.width() {
+            return Err(Error::IndexOutOfBounds {
+                index: x as usize,
+                len: self.width() as usize,
+            });
+        }
+        if y >= self.height() {
+            return Err(Error::IndexOutOfBounds {
+                index: y as usize,
+                len: self.height() as usize,
+            });
+        }
+        let current = self
+            .get_pixel(x, y)
+            .expect("coordinates should be in bounds after explicit checks");
         let max_val = self.depth().max_value();
         self.set_pixel(x, y, current ^ max_val)
     }
@@ -1043,8 +1057,8 @@ impl PixMut {
         // Clip rect to image bounds
         let x0 = rect.x.max(0) as u32;
         let y0 = rect.y.max(0) as u32;
-        let x1 = ((rect.x + rect.w) as u32).min(w);
-        let y1 = ((rect.y + rect.h) as u32).min(h);
+        let x1 = ((rect.x + rect.w).max(0) as u32).min(w);
+        let y1 = ((rect.y + rect.h).max(0) as u32).min(h);
 
         if x0 >= x1 || y0 >= y1 {
             return Ok(()); // Empty intersection
@@ -1133,6 +1147,8 @@ impl PixMut {
             InitColor::White => {
                 if d == PixelDepth::Bit1 {
                     0
+                } else if d == PixelDepth::Bit32 {
+                    0xFFFFFF00
                 } else {
                     d.max_value()
                 }
@@ -1697,5 +1713,93 @@ mod tests {
         pm.set_or_clear_border(2, 2, 2, 2, InitColor::Black);
         // Border pixels should be 0 again
         assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_get_black_or_white_val_32bpp() {
+        // 32 bpp: white should be 0xFFFFFF00
+        let pix32 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert_eq!(PixMut::get_black_or_white_val(&pix32, InitColor::Black), 0);
+        assert_eq!(
+            PixMut::get_black_or_white_val(&pix32, InitColor::White),
+            0xFFFFFF00
+        );
+    }
+
+    #[test]
+    fn test_set_in_rect_negative_outside() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle entirely outside the image with negative coordinates
+        let rect = crate::Box::new(-10, -5, 5, 5).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // No pixels should be modified
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+    }
+
+    #[test]
+    fn test_set_in_rect_negative_partial_overlap() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle partially overlapping the image, starting at negative coordinates
+        // Intersection with a 20x20 image is x=[0,5), y=[0,5)
+        let rect = crate::Box::new(-5, -5, 10, 10).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // Pixels inside the intersection should be set to 255
+        assert_eq!(pm.get_pixel(0, 0), Some(255));
+        assert_eq!(pm.get_pixel(4, 4), Some(255));
+        // Pixels just outside the intersection should remain 0
+        assert_eq!(pm.get_pixel(5, 5), Some(0));
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+    }
+
+    #[test]
+    fn test_set_in_rect_extend_beyond_edges() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle extending beyond the right and bottom edges
+        // Intersection with a 20x20 image is x=[15,20), y=[15,20)
+        let rect = crate::Box::new(15, 15, 10, 10).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // Pixels inside the intersection should be set to 255
+        assert_eq!(pm.get_pixel(15, 15), Some(255));
+        assert_eq!(pm.get_pixel(19, 19), Some(255));
+        // Pixels just outside the intersection should remain 0
+        assert_eq!(pm.get_pixel(14, 14), Some(0));
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_set_or_clear_border_32bpp() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::White);
+        // For 32 bpp, white should be 0xFFFFFF00 (RGBA with alpha in LSB)
+        assert_eq!(pm.get_pixel(0, 0), Some(0xFFFFFF00));
+        assert_eq!(pm.get_pixel(1, 0), Some(0xFFFFFF00));
+        // Interior should remain 0
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::Black);
+        // Border pixels should be 0 again
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+        assert_eq!(pm.get_pixel(1, 0), Some(0));
+    }
+
+    #[test]
+    fn test_set_black_or_white_32bpp_white_value() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_black_or_white(InitColor::White);
+        let val = pm.get_pixel(0, 0).unwrap();
+        assert_eq!(val, 0xFFFFFF00u32);
     }
 }
