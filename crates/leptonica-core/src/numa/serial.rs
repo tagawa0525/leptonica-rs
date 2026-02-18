@@ -261,7 +261,7 @@ fn parse_numa<'a>(lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>
     }
 
     // Try to parse optional startx/delx line
-    let (startx, delx) = parse_params(lines);
+    let (startx, delx) = parse_params(lines)?;
 
     let mut numa = Numa::from_vec(data);
     numa.set_parameters(startx, delx);
@@ -370,8 +370,11 @@ fn parse_value_line<'a>(
 ///
 /// Uses peek to avoid consuming lines that belong to the next section
 /// (important when embedded in a Numaa). Returns defaults (0.0, 1.0) if
-/// the next non-empty line doesn't start with "startx".
-fn parse_params<'a>(lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>) -> (f32, f32) {
+/// the next non-empty line doesn't start with "startx". Returns an error
+/// if the startx line exists but contains unparseable values.
+fn parse_params<'a>(
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<(f32, f32)> {
     // Skip blank lines, but don't consume non-matching content lines
     while let Some(&line) = lines.peek() {
         let trimmed = line.trim();
@@ -384,20 +387,27 @@ fn parse_params<'a>(lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str
             let rest = rest.trim_start_matches([' ', '=']);
             let parts: Vec<&str> = rest.split(',').collect();
             if parts.len() >= 2 {
-                let startx = parts[0].trim().parse::<f32>().unwrap_or(0.0);
+                let startx = parts[0].trim().parse::<f32>().map_err(|e| {
+                    Error::DecodeError(format!(
+                        "failed to parse startx value '{}': {e}",
+                        parts[0].trim()
+                    ))
+                })?;
                 let delx_part = parts[1].trim();
                 let delx_val = delx_part
                     .strip_prefix("delx")
                     .unwrap_or(delx_part)
                     .trim_start_matches([' ', '='])
                     .trim();
-                let delx = delx_val.parse::<f32>().unwrap_or(1.0);
-                return (startx, delx);
+                let delx = delx_val.parse::<f32>().map_err(|e| {
+                    Error::DecodeError(format!("failed to parse delx value '{delx_val}': {e}"))
+                })?;
+                return Ok((startx, delx));
             }
         }
         break; // Non-empty, non-startx line → stop without consuming
     }
-    (0.0, 1.0)
+    Ok((0.0, 1.0))
 }
 
 #[cfg(test)]
@@ -497,6 +507,16 @@ mod tests {
 
         let result = Numa::read_from_bytes(b"");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_numa_malformed_params_rejected() {
+        let input =
+            b"\nNuma Version 1\nNumber of numbers = 1\n  [0] = 1.0\n\nstartx = abc, delx = 0.5\n";
+        let result = Numa::read_from_bytes(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("startx"), "error should mention startx: {err}");
     }
 
     #[test]
