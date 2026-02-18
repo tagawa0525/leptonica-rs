@@ -1033,7 +1033,7 @@ mod tests {
 
     #[test]
     fn test_new_with_colormap_invalid_depth() {
-        // Depth 1 is allowed in C but we follow C: only 2, 4, 8
+        // Following C Leptonica, new_with_colormap only supports depths 2, 4, and 8.
         assert!(Pix::new_with_colormap(100, 100, PixelDepth::Bit1, InitColor::Black,).is_err());
         assert!(Pix::new_with_colormap(100, 100, PixelDepth::Bit32, InitColor::Black,).is_err());
     }
