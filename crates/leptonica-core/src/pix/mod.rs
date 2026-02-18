@@ -438,7 +438,25 @@ impl Pix {
     ///
     /// C Leptonica: `pixCreateTemplate()` in `pix1.c`
     pub fn create_template(&self) -> Self {
-        todo!()
+        let wpl = self.inner.wpl;
+        let data_size = (wpl as usize) * (self.inner.height as usize);
+        let inner = PixData {
+            width: self.inner.width,
+            height: self.inner.height,
+            depth: self.inner.depth,
+            spp: self.inner.spp,
+            wpl,
+            xres: self.inner.xres,
+            yres: self.inner.yres,
+            informat: self.inner.informat,
+            special: 0,
+            text: self.inner.text.clone(),
+            colormap: self.inner.colormap.clone(),
+            data: vec![0u32; data_size],
+        };
+        Pix {
+            inner: Arc::new(inner),
+        }
     }
 
     /// Create a new PIX with a colormap initialized to the given color.
@@ -457,12 +475,30 @@ impl Pix {
     ///
     /// C Leptonica: `pixCreateWithCmap()` in `pix1.c`
     pub fn new_with_colormap(
-        _width: u32,
-        _height: u32,
-        _depth: PixelDepth,
-        _init_color: InitColor,
+        width: u32,
+        height: u32,
+        depth: PixelDepth,
+        init_color: InitColor,
     ) -> Result<Self> {
-        todo!()
+        if !matches!(
+            depth,
+            PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+        ) {
+            return Err(Error::InvalidParameter(format!(
+                "new_with_colormap requires depth 2, 4, or 8; got {}",
+                depth.bits()
+            )));
+        }
+        let pix = Self::new(width, height, depth)?;
+        let mut cmap = crate::PixColormap::new(depth.bits())?;
+        match init_color {
+            InitColor::Black => cmap.add_rgb(0, 0, 0)?,
+            InitColor::White => cmap.add_rgb(255, 255, 255)?,
+        };
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        // set_colormap won't fail: depth is already validated
+        pix_mut.set_colormap(Some(cmap)).unwrap();
+        Ok(pix_mut.into())
     }
 
     /// Check if two PIX have the same width, height, and depth.
@@ -470,8 +506,10 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixSizesEqual()` in `pix1.c`
-    pub fn sizes_equal(&self, _other: &Pix) -> bool {
-        todo!()
+    pub fn sizes_equal(&self, other: &Pix) -> bool {
+        self.inner.width == other.inner.width
+            && self.inner.height == other.inner.height
+            && self.inner.depth == other.inner.depth
     }
 
     /// Get the maximum aspect ratio (>= 1.0).
@@ -482,7 +520,9 @@ impl Pix {
     ///
     /// C Leptonica: `pixMaxAspectRatio()` in `pix1.c`
     pub fn max_aspect_ratio(&self) -> f32 {
-        todo!()
+        let w = self.inner.width as f32;
+        let h = self.inner.height as f32;
+        f32::max(w / h, h / w)
     }
 
     /// Write image metadata to a writer (for debugging).
@@ -490,12 +530,39 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixPrintStreamInfo()` in `pix1.c`
-    pub fn print_info(
-        &self,
-        _writer: &mut impl std::io::Write,
-        _label: Option<&str>,
-    ) -> Result<()> {
-        todo!()
+    pub fn print_info(&self, writer: &mut impl std::io::Write, label: Option<&str>) -> Result<()> {
+        if let Some(text) = label {
+            writeln!(writer, "  Pix Info for {text}:")?;
+        }
+        writeln!(
+            writer,
+            "    width = {}, height = {}, depth = {}, spp = {}",
+            self.inner.width,
+            self.inner.height,
+            self.inner.depth.bits(),
+            self.inner.spp
+        )?;
+        writeln!(writer, "    wpl = {}", self.inner.wpl)?;
+        writeln!(
+            writer,
+            "    xres = {}, yres = {}",
+            self.inner.xres, self.inner.yres
+        )?;
+        if let Some(ref cmap) = self.inner.colormap {
+            writeln!(writer, "    colormap: {} colors", cmap.len())?;
+        } else {
+            writeln!(writer, "    no colormap")?;
+        }
+        writeln!(
+            writer,
+            "    input format: {} ({})",
+            self.inner.informat as i32,
+            self.inner.informat.extension()
+        )?;
+        if let Some(ref text) = self.inner.text {
+            writeln!(writer, "    text: {text}")?;
+        }
+        Ok(())
     }
 
     /// Create a deep copy of this PIX.
@@ -726,8 +793,8 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixCopyColormap()` in `pix1.c`
-    pub fn copy_colormap_from(&mut self, _src: &Pix) {
-        todo!()
+    pub fn copy_colormap_from(&mut self, src: &Pix) {
+        self.inner.colormap = src.inner.colormap.clone();
     }
 
     /// Copy resolution (xres, yres) from another PIX.
@@ -735,8 +802,9 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixCopyResolution()` in `pix1.c`
-    pub fn copy_resolution_from(&mut self, _src: &Pix) {
-        todo!()
+    pub fn copy_resolution_from(&mut self, src: &Pix) {
+        self.inner.xres = src.inner.xres;
+        self.inner.yres = src.inner.yres;
     }
 
     /// Scale the resolution by the given factors.
@@ -744,8 +812,9 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixScaleResolution()` in `pix1.c`
-    pub fn scale_resolution(&mut self, _xscale: f32, _yscale: f32) {
-        todo!()
+    pub fn scale_resolution(&mut self, xscale: f32, yscale: f32) {
+        self.inner.xres = (self.inner.xres as f32 * xscale) as i32;
+        self.inner.yres = (self.inner.yres as f32 * yscale) as i32;
     }
 
     /// Copy the input format from another PIX.
@@ -753,8 +822,8 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixCopyInputFormat()` in `pix1.c`
-    pub fn copy_input_format_from(&mut self, _src: &Pix) {
-        todo!()
+    pub fn copy_input_format_from(&mut self, src: &Pix) {
+        self.inner.informat = src.inner.informat;
     }
 
     /// Append text to existing text.
@@ -765,8 +834,14 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixAddText()` in `pix1.c`
-    pub fn add_text(&mut self, _text: Option<&str>) {
-        todo!()
+    pub fn add_text(&mut self, text: Option<&str>) {
+        let Some(new_text) = text else {
+            return;
+        };
+        match self.inner.text {
+            Some(ref mut existing) => existing.push_str(new_text),
+            None => self.inner.text = Some(new_text.to_string()),
+        }
     }
 
     /// Copy text from another PIX.
@@ -774,8 +849,8 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixCopyText()` in `pix1.c`
-    pub fn copy_text_from(&mut self, _src: &Pix) {
-        todo!()
+    pub fn copy_text_from(&mut self, src: &Pix) {
+        self.inner.text = src.inner.text.clone();
     }
 
     /// Clear all pixels to zero.
@@ -886,7 +961,6 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_template() {
         let src = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
         let mut src_mut = src.try_into_mut().unwrap();
@@ -915,7 +989,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_template_with_colormap() {
         let mut cmap = crate::PixColormap::new(8).unwrap();
         cmap.add_rgba(255, 0, 0, 255).unwrap();
@@ -936,7 +1009,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_new_with_colormap_black() {
         let pix = Pix::new_with_colormap(100, 100, PixelDepth::Bit8, InitColor::Black).unwrap();
 
@@ -951,7 +1023,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_new_with_colormap_white() {
         let pix = Pix::new_with_colormap(100, 100, PixelDepth::Bit4, InitColor::White).unwrap();
 
@@ -961,7 +1032,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_new_with_colormap_invalid_depth() {
         // Depth 1 is allowed in C but we follow C: only 2, 4, 8
         assert!(Pix::new_with_colormap(100, 100, PixelDepth::Bit1, InitColor::Black,).is_err());
@@ -969,7 +1039,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sizes_equal() {
         let pix1 = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
         let pix2 = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
@@ -982,7 +1051,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_max_aspect_ratio() {
         let pix1 = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
         assert!((pix1.max_aspect_ratio() - 2.0).abs() < 0.001);
@@ -995,7 +1063,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_colormap_from() {
         let mut cmap = crate::PixColormap::new(8).unwrap();
         cmap.add_rgb(10, 20, 30).unwrap();
@@ -1016,7 +1083,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_colormap_from_none() {
         // Copying from a pix with no colormap should remove existing colormap
         let mut cmap = crate::PixColormap::new(8).unwrap();
@@ -1033,7 +1099,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_resolution_from() {
         let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let mut src_mut = src.try_into_mut().unwrap();
@@ -1049,7 +1114,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_resolution() {
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1061,7 +1125,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_input_format_from() {
         let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let mut src_mut = src.try_into_mut().unwrap();
@@ -1076,7 +1139,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_text() {
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1095,7 +1157,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_text_from() {
         let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let mut src_mut = src.try_into_mut().unwrap();
@@ -1110,7 +1171,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_print_info() {
         let pix = Pix::new(100, 200, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
