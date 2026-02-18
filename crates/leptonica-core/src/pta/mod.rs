@@ -2,6 +2,8 @@
 //!
 //! Arrays of floating-point coordinate pairs.
 
+pub mod serial;
+
 use crate::error::{Error, Result};
 
 /// Array of points
