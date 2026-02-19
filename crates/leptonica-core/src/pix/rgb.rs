@@ -115,8 +115,34 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixGetRGBComponentCmap()` in `pix2.c`
-    pub fn get_rgb_component_cmap(&self, _comp: RgbComponent) -> Result<Pix> {
-        todo!()
+    pub fn get_rgb_component_cmap(&self, comp: RgbComponent) -> Result<Pix> {
+        let cmap = self
+            .colormap()
+            .ok_or_else(|| Error::InvalidParameter("image has no colormap".into()))?;
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let index = self.get_pixel_unchecked(x, y) as usize;
+                let val = match cmap.get(index) {
+                    Some(rgba) => match comp {
+                        RgbComponent::Red => rgba.red,
+                        RgbComponent::Green => rgba.green,
+                        RgbComponent::Blue => rgba.blue,
+                        RgbComponent::Alpha => rgba.alpha,
+                    },
+                    None => 0,
+                };
+                result_mut.set_pixel_unchecked(x, y, val as u32);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Extract R, G, B values from a single row of a 32 bpp image.
@@ -126,8 +152,31 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixGetRGBLine()` in `pix2.c`
-    pub fn get_rgb_line(&self, _row: u32) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
-        todo!()
+    pub fn get_rgb_line(&self, row: u32) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if row >= self.height() {
+            return Err(Error::IndexOutOfBounds {
+                index: row as usize,
+                len: self.height() as usize,
+            });
+        }
+
+        let w = self.width() as usize;
+        let mut buf_r = Vec::with_capacity(w);
+        let mut buf_g = Vec::with_capacity(w);
+        let mut buf_b = Vec::with_capacity(w);
+
+        for x in 0..self.width() {
+            let pixel = self.get_pixel_unchecked(x, row);
+            let (r, g, b) = color::extract_rgb(pixel);
+            buf_r.push(r);
+            buf_g.push(g);
+            buf_b.push(b);
+        }
+
+        Ok((buf_r, buf_g, buf_b))
     }
 
     /// Check if all alpha values are 255 (fully opaque).
@@ -139,7 +188,19 @@ impl Pix {
     ///
     /// C Leptonica: `pixAlphaIsOpaque()` in `pix2.c`
     pub fn alpha_is_opaque(&self) -> Result<bool> {
-        todo!()
+        if self.depth() != PixelDepth::Bit32 || self.spp() != 4 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        for y in 0..self.height() {
+            for x in 0..self.width() {
+                let pixel = self.get_pixel_unchecked(x, y);
+                if color::alpha(pixel) != 255 {
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
     }
 
     /// Infer image resolution from physical dimensions.
@@ -150,8 +211,18 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixInferResolution()` in `pix2.c`
-    pub fn infer_resolution(&self, _longside_inches: f32) -> Result<i32> {
-        todo!()
+    pub fn infer_resolution(&self, longside_inches: f32) -> Result<i32> {
+        if longside_inches <= 0.0 {
+            return Err(Error::InvalidParameter(
+                "longside_inches must be positive".into(),
+            ));
+        }
+
+        let w = self.width() as f32;
+        let h = self.height() as f32;
+        let longside_pixels = w.max(h);
+        let res = (longside_pixels / longside_inches + 0.5) as i32;
+        Ok(res)
     }
 
     /// Create a new image with endian byte-swapped data.
@@ -163,7 +234,12 @@ impl Pix {
     ///
     /// C Leptonica: `pixEndianByteSwapNew()` in `pix2.c`
     pub fn endian_byte_swap_new(&self) -> Pix {
-        todo!()
+        if cfg!(target_endian = "big") {
+            return self.clone();
+        }
+        let mut result_mut = self.to_mut();
+        result_mut.endian_byte_swap();
+        result_mut.into()
     }
 
     /// Create a new image with endian two-byte swapped data.
@@ -175,7 +251,12 @@ impl Pix {
     ///
     /// C Leptonica: `pixEndianTwoByteSwapNew()` in `pix2.c`
     pub fn endian_two_byte_swap_new(&self) -> Pix {
-        todo!()
+        if cfg!(target_endian = "big") {
+            return self.clone();
+        }
+        let mut result_mut = self.to_mut();
+        result_mut.endian_two_byte_swap();
+        result_mut.into()
     }
 
     /// Extract raster data as a flat byte vector.
@@ -188,7 +269,38 @@ impl Pix {
     ///
     /// C Leptonica: `pixGetRasterData()` in `pix2.c`
     pub fn get_raster_data(&self) -> Result<Vec<u8>> {
-        todo!()
+        let w = self.width();
+        let h = self.height();
+        let d = self.depth();
+        let wpl = self.wpl();
+
+        if d == PixelDepth::Bit32 {
+            // 32 bpp: extract RGB only (3 bytes per pixel)
+            let mut data = Vec::with_capacity((w * h * 3) as usize);
+            for y in 0..h {
+                for x in 0..w {
+                    let pixel = self.get_pixel_unchecked(x, y);
+                    let (r, g, b) = color::extract_rgb(pixel);
+                    data.push(r);
+                    data.push(g);
+                    data.push(b);
+                }
+            }
+            Ok(data)
+        } else {
+            // Other depths: return raw byte data, row by row
+            let bytes_per_row = wpl * 4;
+            let mut data = Vec::with_capacity((h * bytes_per_row) as usize);
+            let raw_data = self.data();
+            for y in 0..h {
+                let row_start = (y * wpl) as usize;
+                let row_end = row_start + wpl as usize;
+                for &word in &raw_data[row_start..row_end] {
+                    data.extend_from_slice(&word.to_be_bytes());
+                }
+            }
+            Ok(data)
+        }
     }
 }
 
@@ -201,8 +313,40 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixCopyRGBComponent()` in `pix2.c`
-    pub fn copy_rgb_component(&mut self, _src: &Pix, _comp: RgbComponent) -> Result<()> {
-        todo!()
+    pub fn copy_rgb_component(&mut self, src: &Pix, comp: RgbComponent) -> Result<()> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if src.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(src.depth().bits()));
+        }
+
+        if comp == RgbComponent::Alpha {
+            self.set_spp(4);
+        }
+
+        let w = self.width().min(src.width());
+        let h = self.height().min(src.height());
+
+        for y in 0..h {
+            for x in 0..w {
+                let src_pixel = src.get_pixel_unchecked(x, y);
+                let dst_pixel = self.get_pixel_unchecked(x, y);
+                let (mut r, mut g, mut b, mut a) = color::extract_rgba(dst_pixel);
+                let (sr, sg, sb, sa) = color::extract_rgba(src_pixel);
+
+                match comp {
+                    RgbComponent::Red => r = sr,
+                    RgbComponent::Green => g = sg,
+                    RgbComponent::Blue => b = sb,
+                    RgbComponent::Alpha => a = sa,
+                }
+
+                self.set_pixel_unchecked(x, y, color::compose_rgba(r, g, b, a));
+            }
+        }
+
+        Ok(())
     }
 
     /// Swap bytes within each 32-bit word in-place: ABCD -> DCBA.
@@ -213,7 +357,12 @@ impl PixMut {
     ///
     /// C Leptonica: `pixEndianByteSwap()` in `pix2.c`
     pub fn endian_byte_swap(&mut self) {
-        todo!()
+        if cfg!(target_endian = "big") {
+            return;
+        }
+        for word in self.inner.data.iter_mut() {
+            *word = word.swap_bytes();
+        }
     }
 
     /// Swap 16-bit half-words within each 32-bit word in-place: AABB -> BBAA.
@@ -224,19 +373,32 @@ impl PixMut {
     ///
     /// C Leptonica: `pixEndianTwoByteSwap()` in `pix2.c`
     pub fn endian_two_byte_swap(&mut self) {
-        todo!()
+        if cfg!(target_endian = "big") {
+            return;
+        }
+        for word in self.inner.data.iter_mut() {
+            *word = (*word).rotate_right(16);
+        }
     }
 
     /// Set a pixel in a colormapped image by RGB value.
     ///
-    /// Finds or adds the nearest color in the colormap and sets the
-    /// pixel index accordingly.
+    /// Finds the nearest color in the colormap and sets the pixel
+    /// index accordingly. If no colormap is present, returns an error.
     ///
     /// # See also
     ///
     /// C Leptonica: `pixSetCmapPixel()` in `pix2.c`
-    pub fn set_cmap_pixel(&mut self, _x: u32, _y: u32, _r: u8, _g: u8, _b: u8) -> Result<()> {
-        todo!()
+    pub fn set_cmap_pixel(&mut self, x: u32, y: u32, r: u8, g: u8, b: u8) -> Result<()> {
+        let index = self
+            .inner
+            .colormap
+            .as_ref()
+            .ok_or_else(|| Error::InvalidParameter("image has no colormap".into()))?
+            .find_nearest(r, g, b)
+            .ok_or_else(|| Error::InvalidParameter("colormap is empty".into()))?;
+
+        self.set_pixel(x, y, index as u32)
     }
 }
 
@@ -521,7 +683,7 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_get_rgb_component_cmap() {
         use crate::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
@@ -545,7 +707,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_get_rgb_line() {
         let pix = Pix::new(3, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -561,7 +723,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_copy_rgb_component() {
         let pix_d = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm_d = pix_d.try_into_mut().unwrap();
@@ -585,7 +747,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_alpha_is_opaque_true() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -600,7 +762,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_alpha_is_opaque_false() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -617,7 +779,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_infer_resolution() {
         // 3000x2000 image with 10 inch long side → 300 ppi
         let pix = Pix::new(3000, 2000, PixelDepth::Bit8).unwrap();
@@ -626,7 +788,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_endian_byte_swap() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -637,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_endian_byte_swap_new() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -651,7 +813,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_endian_two_byte_swap() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -662,7 +824,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_get_raster_data_8bpp() {
         let pix = Pix::new(3, 2, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -681,7 +843,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_get_raster_data_32bpp() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -696,7 +858,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_set_cmap_pixel() {
         use crate::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
