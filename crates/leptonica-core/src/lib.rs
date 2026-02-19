@@ -27,6 +27,7 @@ pub mod pta;
 pub mod sarray;
 
 pub use box_::{Box, Boxa, Boxaa, SizeRelation};
+pub use colormap::query::{NonOpaqueInfo, RangeComponent, RangeValues};
 pub use colormap::{PixColormap, RgbaQuad};
 pub use error::{Error, Result};
 pub use fpix::{DPix, FPix, NegativeHandling};
