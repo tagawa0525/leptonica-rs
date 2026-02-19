@@ -173,13 +173,11 @@ impl PixColormap {
     pub fn add_black_or_white(&mut self, black: bool) -> Result<usize> {
         let (r, g, b) = if black { (0, 0, 0) } else { (255, 255, 255) };
 
-        if self.free_count() > 0
-            && let Some(idx) = self.add_new_color(r, g, b)?
-        {
+        if let Some(idx) = self.add_new_color(r, g, b)? {
             return Ok(idx);
         }
 
-        // Colormap full → find by rank intensity
+        // Colormap full and no exact match → find by rank intensity
         let rank = if black { 0.0 } else { 1.0 };
         self.get_rank_intensity(rank)
     }
