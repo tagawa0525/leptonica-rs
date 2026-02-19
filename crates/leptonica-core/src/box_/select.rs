@@ -104,6 +104,8 @@ impl Boxa {
     /// Filter boxes using a boolean indicator array.
     ///
     /// Returns boxes where the indicator is `true`.
+    /// Only processes up to `min(self.len(), indicator.len())` elements;
+    /// extra boxes or extra indicator values are silently ignored.
     ///
     /// C Leptonica equivalent: `boxaSelectWithIndicator`
     pub fn select_with_indicator(&self, indicator: &[bool]) -> Boxa {
