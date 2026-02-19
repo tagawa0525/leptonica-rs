@@ -797,6 +797,40 @@ impl Pix {
         Ok(result)
     }
 
+    /// Compute a histogram of colormap pixel indices over a masked region.
+    ///
+    /// The mask is 1bpp and specifies which pixels to include (ON pixels).
+    /// `x`, `y` are the offset of the mask relative to the image UL corner.
+    /// Returns a `Numa` of size `2^d` (d = image depth).
+    ///
+    /// C equivalent: `pixGetCmapHistogramMasked()` in `pix4.c`
+    pub fn cmap_histogram_masked(&self, mask: &Pix, x: i32, y: i32, factor: u32) -> Result<Numa> {
+        todo!("not yet implemented")
+    }
+
+    /// Compute a histogram of colormap pixel indices within a rectangular region.
+    ///
+    /// If `region` is `None`, the full image is used (same as `cmap_histogram`).
+    /// Returns a `Numa` of size `2^d`.
+    ///
+    /// C equivalent: `pixGetCmapHistogramInRect()` in `pix4.c`
+    pub fn cmap_histogram_in_rect(
+        &self,
+        region: Option<&crate::box_::Box>,
+        factor: u32,
+    ) -> Result<Numa> {
+        todo!("not yet implemented")
+    }
+
+    /// Return the maximum colormap index value used in a colormapped image.
+    ///
+    /// Supported depths: 1, 2, 4, 8 bpp. The image must have a colormap.
+    ///
+    /// C equivalent: `pixGetMaxColorIndex()` in `pix4.c`
+    pub fn max_color_index(&self) -> Result<u32> {
+        todo!("not yet implemented")
+    }
+
     /// Count unique RGB colors in a 32bpp image.
     ///
     /// # Arguments
@@ -1612,5 +1646,135 @@ mod tests {
         assert!((stats.mean - 0.0).abs() < 0.001);
         assert!((stats.mode - 0.0).abs() < 0.001);
         assert!((stats.variance - 0.0).abs() < 0.001);
+    }
+
+    // -- Pix::cmap_histogram_masked --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_cmap_histogram_masked_basic() {
+        use crate::PixColormap;
+        // 8bpp image with colormap: fill all pixels with index 2
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 0, 0, 255).unwrap();
+            cmap.add_rgba(0, 255, 0, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            for y in 0..4 {
+                for x in 0..4 {
+                    pm.set_pixel_unchecked(x, y, 2);
+                }
+            }
+            Pix::from(pm)
+        };
+        // Mask that only includes top-left 2x2
+        let mask = {
+            let m = Pix::new(2, 2, PixelDepth::Bit1).unwrap();
+            let mut mm = m.try_into_mut().unwrap();
+            for y in 0..2 {
+                for x in 0..2 {
+                    mm.set_pixel_unchecked(x, y, 1);
+                }
+            }
+            Pix::from(mm)
+        };
+        let hist = pix.cmap_histogram_masked(&mask, 0, 0, 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        assert_eq!(hist[2], 4.0); // 4 masked ON pixels, all index 2
+        assert_eq!(hist[0], 0.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_cmap_histogram_masked_no_cmap() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mask = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        assert!(pix.cmap_histogram_masked(&mask, 0, 0, 1).is_err());
+    }
+
+    // -- Pix::cmap_histogram_in_rect --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_cmap_histogram_in_rect_full() {
+        use crate::PixColormap;
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 0, 0, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            for y in 0..4 {
+                for x in 0..4 {
+                    pm.set_pixel_unchecked(x, y, 1);
+                }
+            }
+            Pix::from(pm)
+        };
+        // No region → full image
+        let hist = pix.cmap_histogram_in_rect(None, 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        assert_eq!(hist[1], 16.0); // 4*4 pixels all index 1
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_cmap_histogram_in_rect_subregion() {
+        use crate::PixColormap;
+        use crate::box_::Box as LepBox;
+        // 4x4 image; top-left 2x2 = index 0, rest = index 1
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 0, 0, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            for y in 0..4 {
+                for x in 0..4 {
+                    let idx = if x < 2 && y < 2 { 0 } else { 1 };
+                    pm.set_pixel_unchecked(x, y, idx);
+                }
+            }
+            Pix::from(pm)
+        };
+        // Subregion: top-left 2x2
+        let region = LepBox::new(0, 0, 2, 2).unwrap();
+        let hist = pix.cmap_histogram_in_rect(Some(&region), 1).unwrap();
+        assert_eq!(hist[0], 4.0);
+        assert_eq!(hist[1], 0.0);
+    }
+
+    // -- Pix::max_color_index --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_color_index_8bpp() {
+        use crate::PixColormap;
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            for _ in 0..5 {
+                cmap.add_rgba(0, 0, 0, 255).unwrap();
+            }
+            pm.set_colormap(Some(cmap)).unwrap();
+            pm.set_pixel_unchecked(0, 0, 3);
+            pm.set_pixel_unchecked(1, 0, 4);
+            Pix::from(pm)
+        };
+        let max = pix.max_color_index().unwrap();
+        assert_eq!(max, 4);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_max_color_index_no_cmap() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        assert!(pix.max_color_index().is_err());
     }
 }
