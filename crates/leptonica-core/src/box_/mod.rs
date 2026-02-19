@@ -2,6 +2,7 @@
 //!
 //! These structures represent rectangular regions in an image.
 
+pub mod geometry;
 pub mod serial;
 
 use crate::error::{Error, Result};
