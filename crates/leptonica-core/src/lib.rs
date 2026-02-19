@@ -127,6 +127,30 @@ pub mod color {
         (red(pixel), green(pixel), blue(pixel), alpha(pixel))
     }
 
+    /// Extract the minimum RGB component from a 32-bit pixel.
+    ///
+    /// Alpha channel is not included in the comparison.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `extractMinMaxComponent()` in `pix2.c` with `L_CHOOSE_MIN`
+    #[inline]
+    pub fn extract_min_component(_pixel: u32) -> u8 {
+        todo!()
+    }
+
+    /// Extract the maximum RGB component from a 32-bit pixel.
+    ///
+    /// Alpha channel is not included in the comparison.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `extractMinMaxComponent()` in `pix2.c` with `L_CHOOSE_MAX`
+    #[inline]
+    pub fn extract_max_component(_pixel: u32) -> u8 {
+        todo!()
+    }
+
     /// HSV color values.
     ///
     /// Ranges: h [0..239] (h=240 wraps to 0), s [0..255], v [0..255].
@@ -308,6 +332,28 @@ pub mod color {
         fn test_hsv_to_rgb_gray() {
             let (r, g, b) = hsv_to_rgb(Hsv { h: 0, s: 0, v: 128 });
             assert_eq!((r, g, b), (128, 128, 128));
+        }
+
+        #[test]
+        #[ignore = "not yet implemented"]
+        fn test_extract_min_component() {
+            let pixel = compose_rgba(100, 50, 200, 255);
+            assert_eq!(extract_min_component(pixel), 50);
+        }
+
+        #[test]
+        #[ignore = "not yet implemented"]
+        fn test_extract_max_component() {
+            let pixel = compose_rgba(100, 50, 200, 255);
+            assert_eq!(extract_max_component(pixel), 200);
+        }
+
+        #[test]
+        #[ignore = "not yet implemented"]
+        fn test_extract_min_max_equal() {
+            let pixel = compose_rgba(128, 128, 128, 0);
+            assert_eq!(extract_min_component(pixel), 128);
+            assert_eq!(extract_max_component(pixel), 128);
         }
     }
 }
