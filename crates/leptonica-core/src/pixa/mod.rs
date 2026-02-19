@@ -468,11 +468,19 @@ impl Pixa {
 
     /// Count ON pixels in each 1 bpp Pix.
     ///
-    /// Returns a Numa with one entry per Pix.
+    /// Returns a Numa with one entry per Pix, where each entry is the
+    /// count of ON pixels in that image.
     ///
     /// C equivalent: `pixaCountPixels()` in `pix3.c`
     pub fn count_pixels(&self) -> Result<Numa> {
-        todo!()
+        let mut counts = Numa::with_capacity(self.pix.len());
+        for pix in &self.pix {
+            if pix.depth() != PixelDepth::Bit1 {
+                return Err(Error::UnsupportedDepth(pix.depth().bits()));
+            }
+            counts.push(pix.count_pixels() as f32);
+        }
+        Ok(counts)
     }
 
     // ========================================================================
@@ -1281,7 +1289,6 @@ mod tests {
     // -- Pixa::count_pixels --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pixa_count_pixels() {
         use crate::pix::PixelDepth;
 
@@ -1313,7 +1320,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pixa_count_pixels_empty() {
         let pixa = Pixa::new();
         let counts = pixa.count_pixels().unwrap();
@@ -1321,7 +1327,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pixa_count_pixels_not_1bpp() {
         use crate::pix::PixelDepth;
 

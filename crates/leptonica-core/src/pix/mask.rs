@@ -210,8 +210,36 @@ impl PixMut {
     /// destination, and only 8, 16, or 32 bpp destinations are supported.
     ///
     /// C equivalent: `pixSetMaskedGeneral()` in `pix3.c`
-    pub fn set_masked_general(&mut self, _mask: &Pix, _val: u32, _x: i32, _y: i32) -> Result<()> {
-        todo!()
+    pub fn set_masked_general(&mut self, mask: &Pix, val: u32, x: i32, y: i32) -> Result<()> {
+        let d = self.depth();
+        if d != PixelDepth::Bit8 && d != PixelDepth::Bit16 && d != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+        let val = mask_val(val, d);
+        let dw = self.width() as i32;
+        let dh = self.height() as i32;
+        let mw = mask.width() as i32;
+        let mh = mask.height() as i32;
+
+        for my in 0..mh {
+            let dy = y + my;
+            if dy < 0 || dy >= dh {
+                continue;
+            }
+            for mx in 0..mw {
+                let dx = x + mx;
+                if dx < 0 || dx >= dw {
+                    continue;
+                }
+                if mask.get_pixel_unchecked(mx as u32, my as u32) != 0 {
+                    self.set_pixel_unchecked(dx as u32, dy as u32, val);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Copy pixels from a source image where a 1 bpp mask is ON, with explicit alignment.
@@ -219,43 +247,120 @@ impl PixMut {
     /// Both source and mask are aligned to `(x, y)` relative to the destination.
     ///
     /// C equivalent: `pixCombineMaskedGeneral()` in `pix3.c`
-    pub fn combine_masked_general(
-        &mut self,
-        _src: &Pix,
-        _mask: &Pix,
-        _x: i32,
-        _y: i32,
-    ) -> Result<()> {
-        todo!()
+    pub fn combine_masked_general(&mut self, src: &Pix, mask: &Pix, x: i32, y: i32) -> Result<()> {
+        let d = self.depth();
+        if d != src.depth() {
+            return Err(Error::InvalidParameter(
+                "source and destination depths must match".into(),
+            ));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+        if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+        let dw = self.width() as i32;
+        let dh = self.height() as i32;
+        let sw = src.width() as i32;
+        let sh = src.height() as i32;
+        let mw = mask.width() as i32;
+        let mh = mask.height() as i32;
+        let h_min = sh.min(mh);
+        let w_min = sw.min(mw);
+
+        for my in 0..h_min {
+            let dy = y + my;
+            if dy < 0 || dy >= dh {
+                continue;
+            }
+            for mx in 0..w_min {
+                let dx = x + mx;
+                if dx < 0 || dx >= dw {
+                    continue;
+                }
+                if mask.get_pixel_unchecked(mx as u32, my as u32) != 0 {
+                    let val = src.get_pixel_unchecked(mx as u32, my as u32);
+                    self.set_pixel_unchecked(dx as u32, dy as u32, val);
+                }
+            }
+        }
+        Ok(())
     }
 }
 
 impl Pix {
     /// Copy pixels from box regions, filling the rest with a background color.
     ///
+    /// Creates a new image of the same size and depth, filled with the
+    /// background color, then copies pixels from `self` that fall within
+    /// any of the boxes in `boxa`.
+    ///
     /// C equivalent: `pixCopyWithBoxa()` in `pix3.c`
     pub fn copy_with_boxa(
         &self,
-        _boxa: &crate::box_::Boxa,
-        _background: super::InitColor,
+        boxa: &crate::box_::Boxa,
+        background: super::InitColor,
     ) -> Result<Pix> {
-        todo!()
+        let w = self.width();
+        let h = self.height();
+        let d = self.depth();
+        let bg_val = PixMut::get_black_or_white_val(self, background);
+
+        let dst = Pix::new(w, h, d)?;
+        let mut dm = dst.try_into_mut().unwrap();
+
+        // Fill with background
+        for y in 0..h {
+            for x in 0..w {
+                dm.set_pixel_unchecked(x, y, bg_val);
+            }
+        }
+
+        // Copy pixels inside each box
+        for b in boxa.iter() {
+            let x0 = b.x.max(0) as u32;
+            let y0 = b.y.max(0) as u32;
+            let x1 = ((b.x + b.w) as u32).min(w);
+            let y1 = ((b.y + b.h) as u32).min(h);
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    dm.set_pixel_unchecked(x, y, self.get_pixel_unchecked(x, y));
+                }
+            }
+        }
+
+        Ok(dm.into())
     }
 
     /// Create a 1 bpp mask from a 32 bpp RGB image using weighted coefficients.
     ///
     /// Computes `rc*R + gc*G + bc*B` for each pixel, then thresholds.
-    /// Pixels above `thresh` are ON in the mask.
+    /// Pixels where the weighted sum exceeds `thresh` are ON in the mask.
     ///
     /// C equivalent: `pixMakeArbMaskFromRGB()` in `pix3.c`
-    pub fn make_arb_mask_from_rgb(
-        &self,
-        _rc: f32,
-        _gc: f32,
-        _bc: f32,
-        _thresh: f32,
-    ) -> Result<Pix> {
-        todo!()
+    pub fn make_arb_mask_from_rgb(&self, rc: f32, gc: f32, bc: f32, thresh: f32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let mask = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut mm = mask.try_into_mut().unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (r, g, b, _) = crate::color::extract_rgba(pixel);
+                let val = rc * r as f32 + gc * g as f32 + bc * b as f32;
+                if val > thresh {
+                    mm.set_pixel_unchecked(x, y, 1);
+                }
+            }
+        }
+
+        Ok(mm.into())
     }
 
     /// Set RGB values under fully transparent (alpha == 0) pixels.
@@ -264,8 +369,34 @@ impl Pix {
     /// The alpha channel is preserved.
     ///
     /// C equivalent: `pixSetUnderTransparency()` in `pix3.c`
-    pub fn set_under_transparency(&self, _val: u32) -> Result<Pix> {
-        todo!()
+    pub fn set_under_transparency(&self, val: u32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = self.deep_clone();
+        let mut rm = result.try_into_mut().unwrap();
+
+        // Extract replacement RGB from val (ignore alpha byte of val)
+        let (new_r, new_g, new_b, _) = crate::color::extract_rgba(val);
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = rm.get_pixel_unchecked(x, y);
+                let (_, _, _, a) = crate::color::extract_rgba(pixel);
+                if a == 0 {
+                    rm.set_pixel_unchecked(
+                        x,
+                        y,
+                        crate::color::compose_rgba(new_r, new_g, new_b, 0),
+                    );
+                }
+            }
+        }
+
+        Ok(rm.into())
     }
 }
 
@@ -478,7 +609,6 @@ mod tests {
     // -- PixMut::set_masked_general --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_masked_general_8bpp() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -499,7 +629,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_masked_general_negative_offset() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -517,7 +646,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_masked_general_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -537,7 +665,6 @@ mod tests {
     // -- PixMut::combine_masked_general --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_combine_masked_general_8bpp() {
         // Destination: all 50
         let dst = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -574,7 +701,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_combine_masked_general_depth_mismatch() {
         let dst = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut dm = dst.try_into_mut().unwrap();
@@ -586,7 +712,6 @@ mod tests {
     // -- Pix::copy_with_boxa --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_with_boxa_white_bg() {
         use crate::box_::{Box, Boxa};
         use crate::pix::InitColor;
@@ -611,7 +736,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_with_boxa_black_bg() {
         use crate::box_::{Box, Boxa};
         use crate::pix::InitColor;
@@ -636,7 +760,6 @@ mod tests {
     // -- Pix::make_arb_mask_from_rgb --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_arb_mask_from_rgb() {
         // Create a 32bpp image with some red pixels
         let pix = Pix::new(4, 2, PixelDepth::Bit32).unwrap();
@@ -655,7 +778,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_arb_mask_from_rgb_not_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.make_arb_mask_from_rgb(1.0, 0.0, 0.0, 100.0).is_err());
@@ -664,7 +786,6 @@ mod tests {
     // -- Pix::set_under_transparency --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_under_transparency() {
         let pix = Pix::new(4, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -688,7 +809,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_under_transparency_not_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.set_under_transparency(0xFFFFFF00).is_err());

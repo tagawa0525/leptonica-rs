@@ -1865,8 +1865,24 @@ impl Pix {
     /// Count ON pixels in a specific row of a 1 bpp image.
     ///
     /// C equivalent: `pixCountPixelsInRow()` in `pix3.c`
-    pub fn count_pixels_in_row(&self, _row: u32) -> Result<u64> {
-        todo!()
+    pub fn count_pixels_in_row(&self, row: u32) -> Result<u64> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if row >= self.height() {
+            return Err(Error::IndexOutOfBounds {
+                index: row as usize,
+                len: self.height() as usize,
+            });
+        }
+        let w = self.width();
+        let mut count: u64 = 0;
+        for x in 0..w {
+            if self.get_pixel_unchecked(x, row) != 0 {
+                count += 1;
+            }
+        }
+        Ok(count)
     }
 
     /// Compute the moment of fg pixels by column.
@@ -1875,8 +1891,27 @@ impl Pix {
     /// Order must be 1 or 2.
     ///
     /// C equivalent: `pixGetMomentByColumn()` in `pix3.c`
-    pub fn get_moment_by_column(&self, _order: u32) -> Result<Numa> {
-        todo!()
+    pub fn get_moment_by_column(&self, order: u32) -> Result<Numa> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if order < 1 || order > 2 {
+            return Err(Error::InvalidParameter("order must be 1 or 2".into()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let mut moments = Numa::with_capacity(w as usize);
+        for x in 0..w {
+            let mut sum: f64 = 0.0;
+            for y in 0..h {
+                if self.get_pixel_unchecked(x, y) != 0 {
+                    let row = y as f64;
+                    sum += if order == 1 { row } else { row * row };
+                }
+            }
+            moments.push(sum as f32);
+        }
+        Ok(moments)
     }
 }
 
@@ -2476,7 +2511,6 @@ mod tests {
     // -- Pix::count_pixels_in_row --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_count_pixels_in_row() {
         let pix = Pix::new(10, 5, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2494,14 +2528,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_count_pixels_in_row_out_of_bounds() {
         let pix = Pix::new(10, 5, PixelDepth::Bit1).unwrap();
         assert!(pix.count_pixels_in_row(5).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_count_pixels_in_row_not_1bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.count_pixels_in_row(0).is_err());
@@ -2510,7 +2542,6 @@ mod tests {
     // -- Pix::get_moment_by_column --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_moment_by_column_first() {
         // 5 wide, 4 tall image
         let pix = Pix::new(5, 4, PixelDepth::Bit1).unwrap();
@@ -2533,7 +2564,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_moment_by_column_second() {
         let pix = Pix::new(3, 4, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2547,7 +2577,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_moment_by_column_invalid_order() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(pix.get_moment_by_column(0).is_err());
@@ -2555,7 +2584,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_moment_by_column_not_1bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.get_moment_by_column(1).is_err());
