@@ -239,9 +239,13 @@ impl Boxa {
     /// Adjust width of all boxes to a target value.
     ///
     /// Only adjusts if `|current_width - target| >= thresh`.
+    /// `target` must be positive; if not, boxes are returned unchanged.
     ///
     /// C Leptonica equivalent: `boxaAdjustWidthToTarget`
     pub fn adjust_width_to_target(&self, adjust: AdjustSide, target: i32, thresh: i32) -> Boxa {
+        if target < 1 {
+            return self.clone();
+        }
         self.iter()
             .map(|b| {
                 let diff = b.w - target;
@@ -275,9 +279,13 @@ impl Boxa {
     /// Adjust height of all boxes to a target value.
     ///
     /// Only adjusts if `|current_height - target| >= thresh`.
+    /// `target` must be positive; if not, boxes are returned unchanged.
     ///
     /// C Leptonica equivalent: `boxaAdjustHeightToTarget`
     pub fn adjust_height_to_target(&self, adjust: AdjustSide, target: i32, thresh: i32) -> Boxa {
+        if target < 1 {
+            return self.clone();
+        }
         self.iter()
             .map(|b| {
                 let diff = b.h - target;
