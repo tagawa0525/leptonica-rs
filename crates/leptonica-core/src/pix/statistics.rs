@@ -1940,11 +1940,56 @@ impl Pix {
     /// C equivalent: `pixAverageInRectRGB()` in `pix3.c`
     pub fn average_in_rect_rgb(
         &self,
-        _mask: Option<&Pix>,
-        _region: Option<&Box>,
-        _subsamp: u32,
+        mask: Option<&Pix>,
+        region: Option<&Box>,
+        subsamp: u32,
     ) -> Result<Option<u32>> {
-        todo!()
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if subsamp < 1 {
+            return Err(Error::InvalidParameter("subsamp must be >= 1".into()));
+        }
+        if let Some(m) = mask.filter(|m| m.depth() != PixelDepth::Bit1) {
+            return Err(Error::UnsupportedDepth(m.depth().bits()));
+        }
+
+        let sw = self.width() as i32;
+        let sh = self.height() as i32;
+        let (xstart, ystart, xend, yend, _, _) = clip_box_to_rect(region, sw, sh)
+            .ok_or(Error::InvalidParameter("region has zero area".into()))?;
+
+        let step = subsamp as i32;
+        let mut rsum = 0.0f64;
+        let mut gsum = 0.0f64;
+        let mut bsum = 0.0f64;
+        let mut count: u64 = 0;
+
+        for y in (ystart..yend).step_by(step as usize) {
+            for x in (xstart..xend).step_by(step as usize) {
+                if mask.is_some_and(|m| {
+                    x < m.width() as i32
+                        && y < m.height() as i32
+                        && m.get_pixel_unchecked(x as u32, y as u32) != 0
+                }) {
+                    continue;
+                }
+                let pixel = self.get_pixel_unchecked(x as u32, y as u32);
+                let (r, g, b, _) = crate::color::extract_rgba(pixel);
+                rsum += r as f64;
+                gsum += g as f64;
+                bsum += b as f64;
+                count += 1;
+            }
+        }
+
+        if count == 0 {
+            return Ok(None);
+        }
+        let r = (rsum / count as f64) as u8;
+        let g = (gsum / count as f64) as u8;
+        let b = (bsum / count as f64) as u8;
+        Ok(Some(crate::color::compose_rgb(r, g, b)))
     }
 
     /// Compute the average absolute difference between adjacent pixels on a line.
@@ -1953,8 +1998,50 @@ impl Pix {
     /// The image must be 8 bpp grayscale.
     ///
     /// C equivalent: `pixAbsDiffOnLine()` in `pix3.c`
-    pub fn abs_diff_on_line(&self, _x1: i32, _y1: i32, _x2: i32, _y2: i32) -> Result<f32> {
-        todo!()
+    pub fn abs_diff_on_line(&self, x1: i32, y1: i32, x2: i32, y2: i32) -> Result<f32> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+
+        if y1 == y2 {
+            // Horizontal
+            let xa = x1.max(0);
+            let xb = x2.min(w - 1);
+            if xa >= xb {
+                return Err(Error::InvalidParameter("x1 >= x2 after clipping".into()));
+            }
+            let size = (xb - xa) as f32;
+            let mut sum = 0i32;
+            let mut prev = self.get_pixel_unchecked(xa as u32, y1 as u32);
+            for x in (xa + 1)..=xb {
+                let val = self.get_pixel_unchecked(x as u32, y1 as u32);
+                sum += (val as i32 - prev as i32).abs();
+                prev = val;
+            }
+            Ok(sum as f32 / size)
+        } else if x1 == x2 {
+            // Vertical
+            let ya = y1.max(0);
+            let yb = y2.min(h - 1);
+            if ya >= yb {
+                return Err(Error::InvalidParameter("y1 >= y2 after clipping".into()));
+            }
+            let size = (yb - ya) as f32;
+            let mut sum = 0i32;
+            let mut prev = self.get_pixel_unchecked(x1 as u32, ya as u32);
+            for y in (ya + 1)..=yb {
+                let val = self.get_pixel_unchecked(x1 as u32, y as u32);
+                sum += (val as i32 - prev as i32).abs();
+                prev = val;
+            }
+            Ok(sum as f32 / size)
+        } else {
+            Err(Error::InvalidParameter(
+                "line must be horizontal or vertical".into(),
+            ))
+        }
     }
 
     /// Count pixels with a specific value in a region, with optional subsampling.
@@ -1963,8 +2050,39 @@ impl Pix {
     /// `factor²` to approximate full-image counts.
     ///
     /// C equivalent: `pixCountArbInRect()` in `pix3.c`
-    pub fn count_arb_in_rect(&self, _region: Option<&Box>, _val: u32, _factor: u32) -> Result<u64> {
-        todo!()
+    pub fn count_arb_in_rect(&self, region: Option<&Box>, val: u32, factor: u32) -> Result<u64> {
+        let d = self.depth();
+        match d {
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
+            _ => return Err(Error::UnsupportedDepth(d.bits())),
+        }
+        if factor < 1 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+        let max_val = d.max_value();
+        if val > max_val {
+            return Err(Error::InvalidParameter("val exceeds depth range".into()));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (xstart, ystart, xend, yend, _, _) = clip_box_to_rect(region, w, h)
+            .ok_or(Error::InvalidParameter("region has zero area".into()))?;
+
+        let step = factor as usize;
+        let mut count: u64 = 0;
+        for y in (ystart..yend).step_by(step) {
+            for x in (xstart..xend).step_by(step) {
+                if self.get_pixel_unchecked(x as u32, y as u32) == val {
+                    count += 1;
+                }
+            }
+        }
+
+        if factor > 1 {
+            count *= factor as u64 * factor as u64;
+        }
+        Ok(count)
     }
 
     /// Compute per-row statistics using a binned histogram.
@@ -1977,11 +2095,43 @@ impl Pix {
     /// C equivalent: `pixGetRowStats()` in `pix4.c`
     pub fn get_row_stats(
         &self,
-        _stat_type: RowColStatType,
-        _nbins: u32,
-        _thresh: u32,
+        stat_type: RowColStatType,
+        nbins: u32,
+        thresh: u32,
     ) -> Result<Numa> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let mut result = Numa::with_capacity(h as usize);
+
+        if stat_type == RowColStatType::MeanAbsVal {
+            for y in 0..h {
+                let mut sum = 0u64;
+                for x in 0..w {
+                    sum += self.get_pixel_unchecked(x, y) as u64;
+                }
+                result.push(sum as f32 / w as f32);
+            }
+            return Ok(result);
+        }
+
+        // Histogram-based stats
+        let nb = nbins.clamp(1, 256) as usize;
+        let gray2bin: Vec<usize> = (0..256).map(|i| (i * nb) / 256).collect();
+        let bin2gray: Vec<f32> = (0..nb).map(|i| ((i * 256 + 128) / nb) as f32).collect();
+
+        for y in 0..h {
+            let mut histo = vec![0u32; nb];
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y) as usize;
+                histo[gray2bin[val]] += 1;
+            }
+            let v = compute_histo_stat(&histo, &bin2gray, stat_type, w, thresh);
+            result.push(v);
+        }
+        Ok(result)
     }
 
     /// Compute per-column statistics using a binned histogram.
@@ -1991,11 +2141,80 @@ impl Pix {
     /// C equivalent: `pixGetColumnStats()` in `pix4.c`
     pub fn get_column_stats(
         &self,
-        _stat_type: RowColStatType,
-        _nbins: u32,
-        _thresh: u32,
+        stat_type: RowColStatType,
+        nbins: u32,
+        thresh: u32,
     ) -> Result<Numa> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let mut result = Numa::with_capacity(w as usize);
+
+        if stat_type == RowColStatType::MeanAbsVal {
+            for x in 0..w {
+                let mut sum = 0u64;
+                for y in 0..h {
+                    sum += self.get_pixel_unchecked(x, y) as u64;
+                }
+                result.push(sum as f32 / h as f32);
+            }
+            return Ok(result);
+        }
+
+        let nb = nbins.clamp(1, 256) as usize;
+        let gray2bin: Vec<usize> = (0..256).map(|i| (i * nb) / 256).collect();
+        let bin2gray: Vec<f32> = (0..nb).map(|i| ((i * 256 + 128) / nb) as f32).collect();
+
+        for x in 0..w {
+            let mut histo = vec![0u32; nb];
+            for y in 0..h {
+                let val = self.get_pixel_unchecked(x, y) as usize;
+                histo[gray2bin[val]] += 1;
+            }
+            let v = compute_histo_stat(&histo, &bin2gray, stat_type, h, thresh);
+            result.push(v);
+        }
+        Ok(result)
+    }
+}
+
+/// Compute a single statistic from a histogram.
+fn compute_histo_stat(
+    histo: &[u32],
+    bin2gray: &[f32],
+    stat_type: RowColStatType,
+    size: u32,
+    thresh: u32,
+) -> f32 {
+    match stat_type {
+        RowColStatType::MeanAbsVal => unreachable!(),
+        RowColStatType::MedianVal => {
+            let target = size.div_ceil(2);
+            let mut sum = 0u32;
+            for (k, &cnt) in histo.iter().enumerate() {
+                sum += cnt;
+                if sum >= target {
+                    return bin2gray[k];
+                }
+            }
+            bin2gray[histo.len() - 1]
+        }
+        RowColStatType::ModeVal => {
+            let (mode_idx, mode_cnt) = histo
+                .iter()
+                .enumerate()
+                .max_by_key(|&(_, &c)| c)
+                .map(|(i, &c)| (i, c))
+                .unwrap_or((0, 0));
+            if mode_cnt < thresh {
+                0.0
+            } else {
+                bin2gray[mode_idx]
+            }
+        }
+        RowColStatType::ModeCount => histo.iter().copied().max().unwrap_or(0) as f32,
     }
 }
 
@@ -2676,7 +2895,6 @@ mod tests {
     // -- Pix::average_in_rect_rgb --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_average_in_rect_rgb_full() {
         // 2x2 image: all red pixels
         let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
@@ -2697,14 +2915,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_average_in_rect_rgb_not_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.average_in_rect_rgb(None, None, 1).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_average_in_rect_rgb_masked_all_out() {
         // All pixels masked → returns None
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
@@ -2733,7 +2949,6 @@ mod tests {
     // -- Pix::abs_diff_on_line --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_abs_diff_on_line_horizontal() {
         // Row 0: [0, 10, 30, 60] → diffs: 10, 20, 30 → avg = 20
         let pix = Pix::new(4, 2, PixelDepth::Bit8).unwrap();
@@ -2748,7 +2963,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_abs_diff_on_line_vertical() {
         // Col 0: [100, 90, 70] → diffs: 10, 20 → avg = 15
         let pix = Pix::new(2, 3, PixelDepth::Bit8).unwrap();
@@ -2762,7 +2976,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_abs_diff_on_line_not_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(pix.abs_diff_on_line(0, 0, 5, 0).is_err());
@@ -2771,7 +2984,6 @@ mod tests {
     // -- Pix::count_arb_in_rect --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_count_arb_in_rect_8bpp() {
         let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2784,7 +2996,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_count_arb_in_rect_1bpp() {
         let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2798,7 +3009,6 @@ mod tests {
     // -- Pix::get_row_stats / get_column_stats --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_row_stats_mean() {
         // 3 wide, 2 tall, 8bpp
         // Row 0: [10, 20, 30] → mean = 20
@@ -2822,7 +3032,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_column_stats_mean() {
         // 2 wide, 3 tall, 8bpp
         // Col 0: [0, 100, 200] → mean = 100
@@ -2848,7 +3057,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_row_stats_not_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(pix.get_row_stats(RowColStatType::MeanAbsVal, 0, 0).is_err());

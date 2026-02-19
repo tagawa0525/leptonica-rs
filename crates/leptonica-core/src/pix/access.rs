@@ -335,8 +335,22 @@ impl PixMut {
     /// The image must be 8 bpp.
     ///
     /// C equivalent: `pixSetPixelColumn()` in `pix4.c`
-    pub fn set_pixel_column(&mut self, _col: u32, _values: &[f32]) -> Result<()> {
-        todo!()
+    pub fn set_pixel_column(&mut self, col: u32, values: &[f32]) -> Result<()> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if col >= self.width() {
+            return Err(Error::IndexOutOfBounds {
+                index: col as usize,
+                len: self.width() as usize,
+            });
+        }
+        let h = self.height() as usize;
+        for (row, &val) in values.iter().take(h).enumerate() {
+            let clamped = val.clamp(0.0, 255.0) as u32;
+            self.set_pixel_unchecked(col, row as u32, clamped);
+        }
+        Ok(())
     }
 }
 
@@ -444,7 +458,6 @@ mod tests {
     // -- PixMut::set_pixel_column --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_pixel_column() {
         let pix = Pix::new(3, 4, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -460,7 +473,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_pixel_column_not_8bpp() {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
