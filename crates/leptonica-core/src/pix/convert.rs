@@ -1842,8 +1842,9 @@ impl Pix {
             }
         }
 
-        // Convert to 8bpp for easy index lookup, then binarize
-        let pix8 = self.convert_to_8()?;
+        // Binarize: pixel values for colormapped images are colormap indices directly.
+        // Do not use convert_to_8() here — it maps indices to grayscale values,
+        // which would make lut[index] incorrect (and potentially out-of-bounds).
         let w = self.width();
         let h = self.height();
         let result = Pix::new(w, h, PixelDepth::Bit1)?;
@@ -1851,7 +1852,7 @@ impl Pix {
 
         for y in 0..h {
             for x in 0..w {
-                let index = pix8.get_pixel_unchecked(x, y) as usize;
+                let index = self.get_pixel_unchecked(x, y) as usize;
                 if lut[index] == 1 {
                     result_mut.set_pixel_unchecked(x, y, 1);
                 }
