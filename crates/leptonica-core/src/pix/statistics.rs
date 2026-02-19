@@ -2007,6 +2007,9 @@ impl Pix {
 
         if y1 == y2 {
             // Horizontal
+            if y1 < 0 || y1 >= h {
+                return Err(Error::InvalidParameter("y coordinate out of bounds".into()));
+            }
             let xa = x1.max(0);
             let xb = x2.min(w - 1);
             if xa >= xb {
@@ -2023,6 +2026,9 @@ impl Pix {
             Ok(sum as f32 / size)
         } else if x1 == x2 {
             // Vertical
+            if x1 < 0 || x1 >= w {
+                return Err(Error::InvalidParameter("x coordinate out of bounds".into()));
+            }
             let ya = y1.max(0);
             let yb = y2.min(h - 1);
             if ya >= yb {
