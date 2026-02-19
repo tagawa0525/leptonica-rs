@@ -1683,7 +1683,7 @@ impl Pix {
                 let pixel = self.get_pixel_unchecked(x, y);
                 let (r, g, b) = color::extract_rgb(pixel);
                 let val = rc * r as f32 + gc * g as f32 + bc * b as f32;
-                let val = val.clamp(0.0, 255.0) as u32;
+                let val = (val.clamp(0.0, 255.0) + 0.5) as u32;
                 result_mut.set_pixel_unchecked(x, y, val);
             }
         }
