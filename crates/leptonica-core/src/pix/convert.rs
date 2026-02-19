@@ -1849,6 +1849,8 @@ impl Pix {
         let h = self.height();
         let result = Pix::new(w, h, PixelDepth::Bit1)?;
         let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.copy_resolution_from(self);
+        result_mut.copy_input_format_from(self);
 
         for y in 0..h {
             for x in 0..w {
