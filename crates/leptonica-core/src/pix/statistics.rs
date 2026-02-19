@@ -1861,6 +1861,58 @@ impl Pix {
         };
         Ok((result + 0.5) as u32)
     }
+
+    /// Count ON pixels in a specific row of a 1 bpp image.
+    ///
+    /// C equivalent: `pixCountPixelsInRow()` in `pix3.c`
+    pub fn count_pixels_in_row(&self, row: u32) -> Result<u64> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if row >= self.height() {
+            return Err(Error::IndexOutOfBounds {
+                index: row as usize,
+                len: self.height() as usize,
+            });
+        }
+        let w = self.width();
+        let mut count: u64 = 0;
+        for x in 0..w {
+            if self.get_pixel_unchecked(x, row) != 0 {
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+
+    /// Compute the moment of fg pixels by column.
+    ///
+    /// For each column, sums `row_index^order` for every ON pixel.
+    /// Order must be 1 or 2.
+    ///
+    /// C equivalent: `pixGetMomentByColumn()` in `pix3.c`
+    pub fn get_moment_by_column(&self, order: u32) -> Result<Numa> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if !(1..=2).contains(&order) {
+            return Err(Error::InvalidParameter("order must be 1 or 2".into()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let mut moments = Numa::with_capacity(w as usize);
+        for x in 0..w {
+            let mut sum: f64 = 0.0;
+            for y in 0..h {
+                if self.get_pixel_unchecked(x, y) != 0 {
+                    let row = y as f64;
+                    sum += if order == 1 { row } else { row * row };
+                }
+            }
+            moments.push(sum as f32);
+        }
+        Ok(moments)
+    }
 }
 
 #[cfg(test)]
@@ -2454,5 +2506,86 @@ mod tests {
         assert!(pix.variance_in_rect(None).is_err());
         assert!(pix.variance_by_row(None).is_err());
         assert!(pix.variance_by_column(None).is_err());
+    }
+
+    // -- Pix::count_pixels_in_row --
+
+    #[test]
+    fn test_count_pixels_in_row() {
+        let pix = Pix::new(10, 5, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Row 2: set 3 pixels ON
+        pm.set_pixel_unchecked(1, 2, 1);
+        pm.set_pixel_unchecked(5, 2, 1);
+        pm.set_pixel_unchecked(9, 2, 1);
+        // Row 0: set 1 pixel ON
+        pm.set_pixel_unchecked(0, 0, 1);
+        let pix: Pix = pm.into();
+
+        assert_eq!(pix.count_pixels_in_row(0).unwrap(), 1);
+        assert_eq!(pix.count_pixels_in_row(2).unwrap(), 3);
+        assert_eq!(pix.count_pixels_in_row(4).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_count_pixels_in_row_out_of_bounds() {
+        let pix = Pix::new(10, 5, PixelDepth::Bit1).unwrap();
+        assert!(pix.count_pixels_in_row(5).is_err());
+    }
+
+    #[test]
+    fn test_count_pixels_in_row_not_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.count_pixels_in_row(0).is_err());
+    }
+
+    // -- Pix::get_moment_by_column --
+
+    #[test]
+    fn test_get_moment_by_column_first() {
+        // 5 wide, 4 tall image
+        let pix = Pix::new(5, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Column 0: pixel at row 1 and row 3
+        pm.set_pixel_unchecked(0, 1, 1);
+        pm.set_pixel_unchecked(0, 3, 1);
+        // Column 2: pixel at row 2
+        pm.set_pixel_unchecked(2, 2, 1);
+        let pix: Pix = pm.into();
+
+        let moments = pix.get_moment_by_column(1).unwrap();
+        assert_eq!(moments.len(), 5);
+        // Column 0: moment = 1 + 3 = 4
+        assert_eq!(moments.get_i32(0), Some(4));
+        // Column 1: no pixels → 0
+        assert_eq!(moments.get_i32(1), Some(0));
+        // Column 2: moment = 2
+        assert_eq!(moments.get_i32(2), Some(2));
+    }
+
+    #[test]
+    fn test_get_moment_by_column_second() {
+        let pix = Pix::new(3, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Column 0: pixel at row 2
+        pm.set_pixel_unchecked(0, 2, 1);
+        let pix: Pix = pm.into();
+
+        let moments = pix.get_moment_by_column(2).unwrap();
+        // Column 0: moment = 2*2 = 4
+        assert_eq!(moments.get_i32(0), Some(4));
+    }
+
+    #[test]
+    fn test_get_moment_by_column_invalid_order() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(pix.get_moment_by_column(0).is_err());
+        assert!(pix.get_moment_by_column(3).is_err());
+    }
+
+    #[test]
+    fn test_get_moment_by_column_not_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.get_moment_by_column(1).is_err());
     }
 }
