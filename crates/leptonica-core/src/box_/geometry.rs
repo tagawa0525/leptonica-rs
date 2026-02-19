@@ -106,7 +106,17 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxOverlapDistance`
     pub fn overlap_distance(&self, other: &Box) -> (i32, i32) {
-        todo!()
+        let h_ovl = if other.x >= self.x {
+            self.right() - other.x
+        } else {
+            other.right() - self.x
+        };
+        let v_ovl = if other.y >= self.y {
+            self.bottom() - other.y
+        } else {
+            other.bottom() - self.y
+        };
+        (h_ovl, v_ovl)
     }
 
     /// Compute horizontal and vertical separation distances between two boxes.
@@ -117,7 +127,10 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxSeparationDistance`
     pub fn separation_distance(&self, other: &Box) -> (i32, i32) {
-        todo!()
+        let (h_ovl, v_ovl) = self.overlap_distance(other);
+        let h_sep = if h_ovl > 0 { 0 } else { -h_ovl + 1 };
+        let v_sep = if v_ovl > 0 { 0 } else { -v_ovl + 1 };
+        (h_sep, v_sep)
     }
 
     /// Compare two boxes by a size metric.
@@ -127,7 +140,16 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxCompareSize`
     pub fn compare_size(&self, other: &Box, cmp_type: SizeComparisonType) -> std::cmp::Ordering {
-        todo!()
+        let (v1, v2): (i64, i64) = match cmp_type {
+            SizeComparisonType::Width => (self.w as i64, other.w as i64),
+            SizeComparisonType::Height => (self.h as i64, other.h as i64),
+            SizeComparisonType::MaxDimension => {
+                (self.w.max(self.h) as i64, other.w.max(other.h) as i64)
+            }
+            SizeComparisonType::Perimeter => ((self.w + self.h) as i64, (other.w + other.h) as i64),
+            SizeComparisonType::Area => (self.area(), other.area()),
+        };
+        v1.cmp(&v2)
     }
 
     /// Find intersection points of a line with this box's boundary.
@@ -137,7 +159,98 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxIntersectByLine`
     pub fn intersect_by_line(&self, x: i32, y: i32, slope: f32) -> Result<LineIntersection> {
-        todo!()
+        if self.w == 0 || self.h == 0 {
+            return Err(Error::InvalidParameter(
+                "box must have non-zero dimensions for line intersection".into(),
+            ));
+        }
+
+        let bx = self.x;
+        let by = self.y;
+        let bw = self.w;
+        let bh = self.h;
+
+        let mut points: Vec<(i32, i32)> = Vec::with_capacity(4);
+
+        if slope.abs() < f32::EPSILON {
+            // Horizontal line: y = y
+            if y >= by && y < by + bh {
+                return Ok(LineIntersection {
+                    p1: Some((bx, y)),
+                    p2: Some((bx + bw, y)),
+                    count: 2,
+                });
+            }
+            return Ok(LineIntersection {
+                p1: None,
+                p2: None,
+                count: 0,
+            });
+        }
+
+        if slope.abs() > 1_000_000.0 {
+            // Vertical line: x = x
+            if x >= bx && x < bx + bw {
+                return Ok(LineIntersection {
+                    p1: Some((x, by)),
+                    p2: Some((x, by + bh)),
+                    count: 2,
+                });
+            }
+            return Ok(LineIntersection {
+                p1: None,
+                p2: None,
+                count: 0,
+            });
+        }
+
+        // General case: check all 4 edges (using inclusive bounds like C version)
+        let inv_slope = 1.0 / slope as f64;
+        let slope_d = slope as f64;
+
+        // Top edge (y = by): x_intersect = x + (1/slope) * (by - y)
+        let xp = x as f64 + inv_slope * (by as f64 - y as f64);
+        if xp >= bx as f64 && xp <= (bx + bw) as f64 {
+            points.push(((xp + 0.5) as i32, by));
+        }
+
+        // Bottom edge (y = by + bh): x_intersect = x + (1/slope) * (by + bh - y)
+        let xp = x as f64 + inv_slope * ((by + bh) as f64 - y as f64);
+        if xp >= bx as f64 && xp <= (bx + bw) as f64 {
+            points.push(((xp + 0.5) as i32, by + bh));
+        }
+
+        // Left edge (x = bx): y_intersect = y + slope * (bx - x)
+        let yp = y as f64 + slope_d * (bx as f64 - x as f64);
+        if yp >= by as f64 && yp <= (by + bh) as f64 {
+            let pt = (bx, (yp + 0.5) as i32);
+            if !points.contains(&pt) {
+                points.push(pt);
+            }
+        }
+
+        // Right edge (x = bx + bw): y_intersect = y + slope * (bx + bw - x)
+        let yp = y as f64 + slope_d * ((bx + bw) as f64 - x as f64);
+        if yp >= by as f64 && yp <= (by + bh) as f64 {
+            let pt = (bx + bw, (yp + 0.5) as i32);
+            if !points.contains(&pt) {
+                points.push(pt);
+            }
+        }
+
+        // Deduplicate and limit to 2 points
+        points.dedup();
+        let count = points.len().min(2);
+
+        Ok(LineIntersection {
+            p1: points.first().copied(),
+            p2: if count >= 2 {
+                points.get(1).copied()
+            } else {
+                None
+            },
+            count,
+        })
     }
 
     /// Compute clipping parameters for this box within a rectangle `(0,0,w,h)`.
@@ -146,7 +259,17 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxClipToRectangleParams`
     pub fn clip_to_rectangle_params(&self, w: i32, h: i32) -> Result<ClipParams> {
-        todo!()
+        let clipped = self.clip(w, h).ok_or_else(|| {
+            Error::InvalidParameter("box is entirely outside the rectangle".into())
+        })?;
+        Ok(ClipParams {
+            x_start: clipped.x,
+            y_start: clipped.y,
+            x_end: clipped.x + clipped.w,
+            y_end: clipped.y + clipped.h,
+            width: clipped.w,
+            height: clipped.h,
+        })
     }
 }
 
@@ -157,21 +280,22 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaContainedInBoxCount`
     pub fn contained_in_box_count(&self, container: &Box) -> usize {
-        todo!()
+        self.iter().filter(|b| container.contains_box(b)).count()
     }
 
     /// Check if every box in `self` is contained in at least one box in `container`.
     ///
     /// C Leptonica equivalent: `boxaContainedInBoxa`
     pub fn all_contained_in(&self, container: &Boxa) -> bool {
-        todo!()
+        self.iter()
+            .all(|target| container.iter().any(|c| c.contains_box(target)))
     }
 
     /// Count boxes that intersect with a given box.
     ///
     /// C Leptonica equivalent: `boxaIntersectsBoxCount`
     pub fn intersects_box_count(&self, target: &Box) -> usize {
-        todo!()
+        self.iter().filter(|b| b.overlaps(target)).count()
     }
 
     /// Combine overlapping boxes between two Boxa arrays.
@@ -181,7 +305,42 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaCombineOverlapsInPair`
     pub fn combine_overlaps_in_pair(boxa1: &Boxa, boxa2: &Boxa) -> (Boxa, Boxa) {
-        todo!()
+        let mut boxes1: Vec<Box> = boxa1.iter().copied().collect();
+        let mut boxes2: Vec<Box> = boxa2.iter().copied().collect();
+
+        let mut changed = true;
+        while changed {
+            changed = false;
+
+            // Combine overlaps within each array
+            boxes1 = Boxa::from_iter(boxes1)
+                .combine_overlaps()
+                .into_iter()
+                .collect();
+            boxes2 = Boxa::from_iter(boxes2)
+                .combine_overlaps()
+                .into_iter()
+                .collect();
+
+            // Merge across arrays
+            'outer: for i in 0..boxes1.len() {
+                for j in 0..boxes2.len() {
+                    if i < boxes1.len() && j < boxes2.len() && boxes1[i].overlaps(&boxes2[j]) {
+                        if boxes1[i].area() >= boxes2[j].area() {
+                            boxes1[i] = boxes1[i].union(&boxes2[j]);
+                            boxes2.remove(j);
+                        } else {
+                            boxes2[j] = boxes1[i].union(&boxes2[j]);
+                            boxes1.remove(i);
+                        }
+                        changed = true;
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        (boxes1.into_iter().collect(), boxes2.into_iter().collect())
     }
 
     /// Handle overlapping boxes with configurable thresholds.
@@ -202,14 +361,86 @@ impl Boxa {
         min_overlap: f32,
         max_ratio: f32,
     ) -> Boxa {
-        todo!()
+        let n = self.len();
+        if n == 0 {
+            return Boxa::new();
+        }
+
+        let mut boxes: Vec<Box> = self.iter().copied().collect();
+        let mut eliminated = vec![false; n];
+
+        for i in 0..n {
+            if eliminated[i] {
+                continue;
+            }
+            let j_max = if range == 0 {
+                n
+            } else {
+                (i + 1 + range).min(n)
+            };
+            for j in (i + 1)..j_max {
+                if eliminated[j] {
+                    continue;
+                }
+                let overlap_area = boxes[i].overlap_area(&boxes[j]);
+                if overlap_area == 0 {
+                    continue;
+                }
+
+                let area_i = boxes[i].area();
+                let area_j = boxes[j].area();
+                let (smaller_area, larger_area, smaller_idx, larger_idx) = if area_i <= area_j {
+                    (area_i, area_j, i, j)
+                } else {
+                    (area_j, area_i, j, i)
+                };
+
+                if smaller_area == 0 {
+                    eliminated[smaller_idx] = true;
+                    continue;
+                }
+
+                let overlap_ratio = overlap_area as f32 / smaller_area as f32;
+                let area_ratio = smaller_area as f32 / larger_area as f32;
+
+                if overlap_ratio >= min_overlap && area_ratio <= max_ratio {
+                    match op {
+                        OverlapOp::Combine => {
+                            boxes[larger_idx] = boxes[larger_idx].union(&boxes[smaller_idx]);
+                            eliminated[smaller_idx] = true;
+                        }
+                        OverlapOp::RemoveSmall => {
+                            eliminated[smaller_idx] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        boxes
+            .into_iter()
+            .enumerate()
+            .filter(|(idx, _)| !eliminated[*idx])
+            .map(|(_, b)| b)
+            .collect()
     }
 
     /// Find the box whose centroid is nearest to a point.
     ///
     /// C Leptonica equivalent: `boxaGetNearestToPt`
     pub fn nearest_to_point(&self, x: i32, y: i32) -> Option<Box> {
-        todo!()
+        let mut min_dist = i64::MAX;
+        let mut nearest = None;
+        for b in self.iter() {
+            let dx = b.center_x() as i64 - x as i64;
+            let dy = b.center_y() as i64 - y as i64;
+            let dist = dx * dx + dy * dy;
+            if dist < min_dist {
+                min_dist = dist;
+                nearest = Some(*b);
+            }
+        }
+        nearest
     }
 
     /// Find the box whose centroid is nearest to a line.
@@ -219,7 +450,28 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaGetNearestToLine`
     pub fn nearest_to_line(&self, x: i32, y: i32) -> Result<Option<Box>> {
-        todo!()
+        let vertical = x >= 0 && y < 0;
+        let horizontal = y >= 0 && x < 0;
+        if !vertical && !horizontal {
+            return Err(Error::InvalidParameter(
+                "exactly one of x,y must be negative to specify line orientation".into(),
+            ));
+        }
+
+        let mut min_dist = i32::MAX;
+        let mut nearest = None;
+        for b in self.iter() {
+            let dist = if vertical {
+                (b.center_x() - x).abs()
+            } else {
+                (b.center_y() - y).abs()
+            };
+            if dist < min_dist {
+                min_dist = dist;
+                nearest = Some(*b);
+            }
+        }
+        Ok(nearest)
     }
 
     /// Find the nearest box in a specific direction from a given box.
@@ -237,7 +489,89 @@ impl Boxa {
         dist_select: DistSelect,
         range: usize,
     ) -> Result<NearestResult> {
-        todo!()
+        let n = self.len();
+        if box_index >= n {
+            return Err(Error::IndexOutOfBounds {
+                index: box_index,
+                len: n,
+            });
+        }
+
+        let ref_box = self.boxes()[box_index];
+        let j_min = if range == 0 {
+            0
+        } else {
+            box_index.saturating_sub(range)
+        };
+        let j_max = if range == 0 {
+            n
+        } else {
+            (box_index + 1 + range).min(n)
+        };
+
+        let mut best_dist = i32::MAX;
+        let mut best_index = None;
+
+        for j in j_min..j_max {
+            if j == box_index {
+                continue;
+            }
+            let candidate = self.boxes()[j];
+
+            let (has_overlap, dist) = match direction {
+                Direction::FromLeft | Direction::FromRight => {
+                    let overlap =
+                        has_overlap_in_range(ref_box.y, ref_box.h, candidate.y, candidate.h);
+                    let d = distance_in_range(ref_box.x, ref_box.w, candidate.x, candidate.w);
+                    (overlap, d)
+                }
+                Direction::FromTop | Direction::FromBottom => {
+                    let overlap =
+                        has_overlap_in_range(ref_box.x, ref_box.w, candidate.x, candidate.w);
+                    let d = distance_in_range(ref_box.y, ref_box.h, candidate.y, candidate.h);
+                    (overlap, d)
+                }
+            };
+
+            if !has_overlap {
+                continue;
+            }
+
+            // Check directional constraint
+            let valid_direction = match direction {
+                Direction::FromLeft => candidate.x < ref_box.x || candidate.right() <= ref_box.x,
+                Direction::FromRight => {
+                    candidate.x >= ref_box.x || candidate.right() > ref_box.right()
+                }
+                Direction::FromTop => candidate.y < ref_box.y || candidate.bottom() <= ref_box.y,
+                Direction::FromBottom => {
+                    candidate.y >= ref_box.y || candidate.bottom() > ref_box.bottom()
+                }
+            };
+
+            if !valid_direction {
+                continue;
+            }
+
+            if dist_select == DistSelect::NonNegative && dist < 0 {
+                continue;
+            }
+
+            let abs_dist = dist.abs();
+            if abs_dist < best_dist {
+                best_dist = abs_dist;
+                best_index = Some(j);
+            }
+        }
+
+        Ok(NearestResult {
+            index: best_index,
+            distance: if best_index.is_some() {
+                best_dist
+            } else {
+                i32::MAX
+            },
+        })
     }
 
     /// Find nearest boxes in all 4 directions for every box.
@@ -251,7 +585,49 @@ impl Boxa {
         dist_select: DistSelect,
         range: usize,
     ) -> Result<Vec<[NearestResult; 4]>> {
-        todo!()
+        let n = self.len();
+        let mut results = Vec::with_capacity(n);
+        let directions = [
+            Direction::FromLeft,
+            Direction::FromRight,
+            Direction::FromTop,
+            Direction::FromBottom,
+        ];
+
+        for i in 0..n {
+            let mut entry = [NearestResult {
+                index: None,
+                distance: i32::MAX,
+            }; 4];
+            for (d, dir) in directions.iter().enumerate() {
+                entry[d] = self.nearest_by_direction(i, *dir, dist_select, range)?;
+            }
+            results.push(entry);
+        }
+
+        Ok(results)
+    }
+}
+
+// ---- Helper functions ----
+
+/// Check if two 1D ranges [c1, c1+s1) and [c2, c2+s2) overlap.
+///
+/// C equivalent: `boxHasOverlapInXorY`
+fn has_overlap_in_range(c1: i32, s1: i32, c2: i32, s2: i32) -> bool {
+    c1 < c2 + s2 && c2 < c1 + s1
+}
+
+/// Compute signed distance between two 1D ranges [c1, c1+s1) and [c2, c2+s2).
+///
+/// Returns negative if overlapping, 0 if touching, positive if separated.
+///
+/// C equivalent: `boxGetDistanceInXorY`
+fn distance_in_range(c1: i32, s1: i32, c2: i32, s2: i32) -> i32 {
+    if c2 >= c1 {
+        c2 - (c1 + s1)
+    } else {
+        c1 - (c2 + s2)
     }
 }
 
@@ -264,7 +640,6 @@ mod tests {
     // -- Box::overlap_distance --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_overlap_distance_overlapping() {
         let b1 = Box::new(0, 0, 100, 100).unwrap();
         let b2 = Box::new(60, 40, 100, 100).unwrap();
@@ -274,7 +649,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_overlap_distance_separated() {
         let b1 = Box::new(0, 0, 50, 50).unwrap();
         let b2 = Box::new(80, 90, 50, 50).unwrap();
@@ -284,7 +658,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_overlap_distance_touching() {
         let b1 = Box::new(0, 0, 50, 50).unwrap();
         let b2 = Box::new(50, 50, 50, 50).unwrap();
@@ -294,7 +667,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_overlap_distance_reversed_order() {
         let b1 = Box::new(80, 90, 50, 50).unwrap();
         let b2 = Box::new(0, 0, 50, 50).unwrap();
@@ -306,7 +678,6 @@ mod tests {
     // -- Box::separation_distance --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_separation_distance_separated() {
         let b1 = Box::new(0, 0, 50, 50).unwrap();
         let b2 = Box::new(80, 90, 50, 50).unwrap();
@@ -316,7 +687,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_separation_distance_overlapping() {
         let b1 = Box::new(0, 0, 100, 100).unwrap();
         let b2 = Box::new(50, 50, 100, 100).unwrap();
@@ -328,7 +698,6 @@ mod tests {
     // -- Box::compare_size --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_size_by_width() {
         let b1 = Box::new(0, 0, 100, 50).unwrap();
         let b2 = Box::new(0, 0, 80, 50).unwrap();
@@ -339,7 +708,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_size_by_area() {
         let b1 = Box::new(0, 0, 10, 10).unwrap();
         let b2 = Box::new(0, 0, 10, 10).unwrap();
@@ -350,7 +718,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_size_by_max_dimension() {
         let b1 = Box::new(0, 0, 50, 200).unwrap();
         let b2 = Box::new(0, 0, 100, 100).unwrap();
@@ -363,7 +730,6 @@ mod tests {
     // -- Box::intersect_by_line --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersect_by_line_horizontal() {
         let b = Box::new(10, 10, 80, 60).unwrap();
         let result = b.intersect_by_line(0, 40, 0.0).unwrap();
@@ -373,7 +739,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersect_by_line_vertical() {
         let b = Box::new(10, 10, 80, 60).unwrap();
         let result = b.intersect_by_line(50, 0, 2_000_000.0).unwrap();
@@ -383,7 +748,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersect_by_line_no_intersection() {
         let b = Box::new(10, 10, 80, 60).unwrap();
         let result = b.intersect_by_line(0, 5, 0.0).unwrap();
@@ -392,7 +756,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersect_by_line_diagonal() {
         let b = Box::new(0, 0, 100, 100).unwrap();
         // Line through (0,0) with slope 1.0: y = x
@@ -403,7 +766,6 @@ mod tests {
     // -- Box::clip_to_rectangle_params --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_clip_to_rectangle_params_inside() {
         let b = Box::new(10, 20, 30, 40).unwrap();
         let params = b.clip_to_rectangle_params(100, 100).unwrap();
@@ -416,7 +778,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_clip_to_rectangle_params_clipped() {
         let b = Box::new(-5, -10, 30, 40).unwrap();
         let params = b.clip_to_rectangle_params(100, 100).unwrap();
@@ -427,7 +788,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_clip_to_rectangle_params_outside() {
         let b = Box::new(200, 200, 30, 40).unwrap();
         assert!(b.clip_to_rectangle_params(100, 100).is_err());
@@ -436,7 +796,6 @@ mod tests {
     // -- Boxa::contained_in_box_count --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contained_in_box_count() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 20, 20).unwrap()); // inside
@@ -449,7 +808,6 @@ mod tests {
     // -- Boxa::all_contained_in --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_all_contained_in_true() {
         let mut containers = Boxa::new();
         containers.push(Box::new(0, 0, 50, 50).unwrap());
@@ -463,7 +821,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_all_contained_in_false() {
         let mut containers = Boxa::new();
         containers.push(Box::new(0, 0, 50, 50).unwrap());
@@ -478,7 +835,6 @@ mod tests {
     // -- Boxa::intersects_box_count --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersects_box_count() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 20, 20).unwrap()); // overlaps
@@ -491,7 +847,6 @@ mod tests {
     // -- Boxa::combine_overlaps_in_pair --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_combine_overlaps_in_pair() {
         let mut boxa1 = Boxa::new();
         boxa1.push(Box::new(0, 0, 60, 60).unwrap());
@@ -507,7 +862,6 @@ mod tests {
     // -- Boxa::handle_overlaps --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_handle_overlaps_combine() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 100, 100).unwrap());
@@ -518,7 +872,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_handle_overlaps_remove_small() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 100, 100).unwrap());
@@ -530,7 +883,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_handle_overlaps_no_overlap() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 50, 50).unwrap());
@@ -543,7 +895,6 @@ mod tests {
     // -- Boxa::nearest_to_point --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_to_point() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 20, 20).unwrap()); // center (10, 10)
@@ -556,7 +907,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_to_point_empty() {
         let boxa = Boxa::new();
         assert!(boxa.nearest_to_point(0, 0).is_none());
@@ -565,7 +915,6 @@ mod tests {
     // -- Boxa::nearest_to_line --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_to_line_vertical() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 20, 20).unwrap()); // center_x = 10
@@ -578,7 +927,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_to_line_horizontal() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 20, 20).unwrap()); // center_y = 10
@@ -590,7 +938,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_to_line_invalid_params() {
         let boxa = Boxa::new();
         assert!(boxa.nearest_to_line(10, 10).is_err()); // both non-negative
@@ -600,7 +947,6 @@ mod tests {
     // -- Boxa::nearest_by_direction --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_by_direction_from_right() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 20, 40).unwrap());
@@ -615,7 +961,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_by_direction_from_left() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 20, 40).unwrap());
@@ -630,7 +975,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_by_direction_no_overlap_in_y() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 20, 20).unwrap());
@@ -643,7 +987,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_nearest_by_direction_invalid_index() {
         let boxa = Boxa::new();
         assert!(
@@ -655,7 +998,6 @@ mod tests {
     // -- Boxa::find_nearest_boxes --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_nearest_boxes() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 20, 40).unwrap());
