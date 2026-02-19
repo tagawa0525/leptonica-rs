@@ -2086,7 +2086,12 @@ impl Pix {
         }
 
         if factor > 1 {
-            count *= factor as u64 * factor as u64;
+            let factor_sq = (factor as u64)
+                .checked_mul(factor as u64)
+                .ok_or(Error::InvalidParameter("factor² overflows u64".into()))?;
+            count = count
+                .checked_mul(factor_sq)
+                .ok_or(Error::InvalidParameter("scaled count overflows u64".into()))?;
         }
         Ok(count)
     }
