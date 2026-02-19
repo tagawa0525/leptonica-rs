@@ -315,6 +315,16 @@ mod tests {
         assert_eq!(ind, vec![true, true, false, true]);
     }
 
+    #[test]
+    fn test_make_wh_ratio_indicator_zero_height() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(0, 0, 100, 0).unwrap());
+        boxa.push(Box::new(0, 0, 100, 50).unwrap());
+        let ind = boxa.make_wh_ratio_indicator(1.0, SizeRelation::GreaterThan);
+        // Zero-height box returns false, 100/50=2.0 > 1.0
+        assert_eq!(ind, vec![false, true]);
+    }
+
     // -- Boxa::select_with_indicator --
 
     #[test]
@@ -413,5 +423,11 @@ mod tests {
         assert_eq!(min_h, 5);
         assert_eq!(max_w, 30);
         assert_eq!(max_h, 20);
+    }
+
+    #[test]
+    fn test_boxaa_size_range_empty() {
+        let baa = Boxaa::new();
+        assert!(baa.size_range().is_none());
     }
 }
