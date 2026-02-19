@@ -188,8 +188,13 @@ impl Pix {
     ///
     /// C Leptonica: `pixAlphaIsOpaque()` in `pix2.c`
     pub fn alpha_is_opaque(&self) -> Result<bool> {
-        if self.depth() != PixelDepth::Bit32 || self.spp() != 4 {
+        if self.depth() != PixelDepth::Bit32 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.spp() != 4 {
+            return Err(Error::InvalidParameter(
+                "alpha_is_opaque requires 32 bpp with spp == 4".into(),
+            ));
         }
 
         for y in 0..self.height() {
@@ -288,15 +293,36 @@ impl Pix {
             }
             Ok(data)
         } else {
-            // Other depths: return raw byte data, row by row
+            // Other depths: return raw byte data, row by row, with pad bits cleared.
+            //
+            // For depths < 32 bpp, pixels are packed into 32-bit words with
+            // padding in the least significant bits of the last word per row.
             let bytes_per_row = wpl * 4;
             let mut data = Vec::with_capacity((h * bytes_per_row) as usize);
+
+            let bits_per_pixel = d.bits();
+            let valid_bits_per_row = w * bits_per_pixel;
+            let needed_words_per_row = valid_bits_per_row.div_ceil(32) as usize;
+            let remaining_bits = valid_bits_per_row % 32;
+
             let raw_data = self.data();
             for y in 0..h {
                 let row_start = (y * wpl) as usize;
                 let row_end = row_start + wpl as usize;
-                for &word in &raw_data[row_start..row_end] {
-                    data.extend_from_slice(&word.to_be_bytes());
+
+                for (i, &word) in raw_data[row_start..row_end].iter().enumerate() {
+                    let masked = if i >= needed_words_per_row {
+                        // Entire word is padding beyond the image width.
+                        0
+                    } else if remaining_bits > 0 && i == needed_words_per_row - 1 {
+                        // Last partially used word: clear pad bits.
+                        // Pixels occupy MSB; padding is in the LSB.
+                        let mask: u32 = u32::MAX << (32 - remaining_bits);
+                        word & mask
+                    } else {
+                        word
+                    };
+                    data.extend_from_slice(&masked.to_be_bytes());
                 }
             }
             Ok(data)
@@ -693,7 +719,7 @@ mod tests {
 
         let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        pm.set_colormap(Some(cmap));
+        pm.set_colormap(Some(cmap)).unwrap();
         pm.set_pixel(0, 0, 0).unwrap(); // red
         pm.set_pixel(1, 0, 1).unwrap(); // green
         pm.set_pixel(2, 0, 2).unwrap(); // blue
@@ -788,7 +814,7 @@ mod tests {
     }
 
     #[test]
-
+    #[cfg(target_endian = "little")]
     fn test_endian_byte_swap() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -799,7 +825,7 @@ mod tests {
     }
 
     #[test]
-
+    #[cfg(target_endian = "little")]
     fn test_endian_byte_swap_new() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -813,7 +839,7 @@ mod tests {
     }
 
     #[test]
-
+    #[cfg(target_endian = "little")]
     fn test_endian_two_byte_swap() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -867,7 +893,7 @@ mod tests {
 
         let pix = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        pm.set_colormap(Some(cmap));
+        pm.set_colormap(Some(cmap)).unwrap();
 
         pm.set_cmap_pixel(0, 0, 255, 0, 0).unwrap(); // should set index 0
         pm.set_cmap_pixel(1, 0, 0, 255, 0).unwrap(); // should set index 1
