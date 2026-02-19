@@ -3072,4 +3072,131 @@ mod tests {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(pix.get_row_stats(RowColStatType::MeanAbsVal, 0, 0).is_err());
     }
+
+    #[test]
+    fn test_get_row_stats_median() {
+        // 3 wide, 1 tall, 8bpp; pixels = [10, 100, 200]
+        // nbins=256: size=3, target=ceil(3/2)=2
+        // cumsum reaches 2 at bin 100 → median ≈ 100
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 10);
+        pm.set_pixel_unchecked(1, 0, 100);
+        pm.set_pixel_unchecked(2, 0, 200);
+        let pix: Pix = pm.into();
+        let stats = pix
+            .get_row_stats(RowColStatType::MedianVal, 256, 0)
+            .unwrap();
+        assert_eq!(stats.len(), 1);
+        let v = stats.get(0).unwrap();
+        assert!((v - 100.0).abs() < 2.0, "row median={v}");
+    }
+
+    #[test]
+    fn test_get_row_stats_mode_val() {
+        // 5 wide, 1 tall; pixels = [50, 50, 50, 100, 100]
+        // mode bin = 50 (count 3 >= thresh 0) → result ≈ 50
+        let pix = Pix::new(5, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in 0..3 {
+            pm.set_pixel_unchecked(x, 0, 50);
+        }
+        pm.set_pixel_unchecked(3, 0, 100);
+        pm.set_pixel_unchecked(4, 0, 100);
+        let pix: Pix = pm.into();
+        let stats = pix.get_row_stats(RowColStatType::ModeVal, 256, 0).unwrap();
+        assert_eq!(stats.len(), 1);
+        let v = stats.get(0).unwrap();
+        assert!((v - 50.0).abs() < 2.0, "row mode={v}");
+    }
+
+    #[test]
+    fn test_get_row_stats_mode_val_below_thresh() {
+        // thresh=5 but mode count is only 3 → returns 0.0
+        let pix = Pix::new(5, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in 0..3 {
+            pm.set_pixel_unchecked(x, 0, 50);
+        }
+        pm.set_pixel_unchecked(3, 0, 100);
+        pm.set_pixel_unchecked(4, 0, 100);
+        let pix: Pix = pm.into();
+        let stats = pix.get_row_stats(RowColStatType::ModeVal, 256, 5).unwrap();
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats.get(0).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn test_get_row_stats_mode_count() {
+        // Same layout: mode count = 3
+        let pix = Pix::new(5, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in 0..3 {
+            pm.set_pixel_unchecked(x, 0, 50);
+        }
+        pm.set_pixel_unchecked(3, 0, 100);
+        pm.set_pixel_unchecked(4, 0, 100);
+        let pix: Pix = pm.into();
+        let stats = pix
+            .get_row_stats(RowColStatType::ModeCount, 256, 0)
+            .unwrap();
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats.get(0).unwrap(), 3.0);
+    }
+
+    #[test]
+    fn test_get_column_stats_median() {
+        // 1 wide, 3 tall; pixels col0 = [10, 100, 200]
+        // nbins=256: median ≈ 100
+        let pix = Pix::new(1, 3, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 10);
+        pm.set_pixel_unchecked(0, 1, 100);
+        pm.set_pixel_unchecked(0, 2, 200);
+        let pix: Pix = pm.into();
+        let stats = pix
+            .get_column_stats(RowColStatType::MedianVal, 256, 0)
+            .unwrap();
+        assert_eq!(stats.len(), 1);
+        let v = stats.get(0).unwrap();
+        assert!((v - 100.0).abs() < 2.0, "col median={v}");
+    }
+
+    // -- Pix::average_in_rect_rgb subsampling --
+
+    #[test]
+    fn test_average_in_rect_rgb_subsampled() {
+        // 4x4 uniform red image; subsampling factor=2 should still average to red
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let red = crate::color::compose_rgba(180, 20, 10, 255);
+        for y in 0..4 {
+            for x in 0..4 {
+                pm.set_pixel_unchecked(x, y, red);
+            }
+        }
+        let pix: Pix = pm.into();
+        let avg = pix.average_in_rect_rgb(None, None, 2).unwrap().unwrap();
+        let (r, g, b, _) = crate::color::extract_rgba(avg);
+        assert_eq!(r, 180);
+        assert_eq!(g, 20);
+        assert_eq!(b, 10);
+    }
+
+    // -- Pix::count_arb_in_rect with factor > 1 --
+
+    #[test]
+    fn test_count_arb_in_rect_factor_scaling() {
+        // 4x4 8bpp; set pixels at even coords to value 42 (4 pixels)
+        // factor=2 samples every 2nd pixel → all 4 sampled → count * 4 = 16
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 42);
+        pm.set_pixel_unchecked(2, 0, 42);
+        pm.set_pixel_unchecked(0, 2, 42);
+        pm.set_pixel_unchecked(2, 2, 42);
+        let pix: Pix = pm.into();
+        let count = pix.count_arb_in_rect(None, 42, 2).unwrap();
+        assert_eq!(count, 16); // 4 sampled pixels * factor² (4)
+    }
 }
