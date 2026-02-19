@@ -79,6 +79,21 @@ pub enum Convert16To8Type {
     ClipToFf,
 }
 
+/// Conversion type for 32 bpp to 16 bpp conversion.
+///
+/// # See also
+///
+/// C Leptonica: `L_LS_TWO_BYTES`, `L_MS_TWO_BYTES`, `L_CLIP_TO_FFFF` in `pix.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Convert32To16Type {
+    /// Use lower 16 bits (least significant two bytes)
+    LsTwoBytes,
+    /// Use upper 16 bits (most significant two bytes)
+    MsTwoBytes,
+    /// If upper 16 bits nonzero, clamp to 0xFFFF; else use lower 16 bits
+    ClipToFfff,
+}
+
 /// Target type for colormap removal.
 ///
 /// # See also
@@ -1557,6 +1572,102 @@ impl Pix {
         }
 
         Ok(result_mut.into())
+    }
+}
+
+// -----------------------------------------------------------------------
+// Phase 13.2: 高ビット・特殊変換
+// -----------------------------------------------------------------------
+
+impl Pix {
+    /// Convert 32 bpp label image to 16 bpp.
+    ///
+    /// # Arguments
+    ///
+    /// * `conversion_type` - How to extract 16 bits from each 32-bit word
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert32To16()` in `pixconv.c`
+    pub fn convert_32_to_16(&self, conversion_type: Convert32To16Type) -> Result<Pix> {
+        todo!("Phase 13.2: convert_32_to_16 not yet implemented")
+    }
+
+    /// Add RGBA colormap to a 1 bpp image.
+    ///
+    /// Background (0) pixels become transparent white; foreground (1) become opaque black.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddAlphaTo1bpp()` in `pixconv.c`
+    pub fn add_alpha_to_1bpp(&self) -> Result<Pix> {
+        todo!("Phase 13.2: add_alpha_to_1bpp not yet implemented")
+    }
+
+    /// Convert 32 bpp RGB to 8 bpp gray using arbitrary linear weights.
+    ///
+    /// Unlike `convert_rgb_to_gray`, weights may be negative, but at least one
+    /// must be positive. Output values are clamped to [0, 255].
+    ///
+    /// # Arguments
+    ///
+    /// * `rc` - Red channel weight
+    /// * `gc` - Green channel weight
+    /// * `bc` - Blue channel weight
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertRGBToGrayArb()` in `pixconv.c`
+    pub fn convert_rgb_to_gray_arb(&self, rc: f32, gc: f32, bc: f32) -> Result<Pix> {
+        todo!("Phase 13.2: convert_rgb_to_gray_arb not yet implemented")
+    }
+
+    /// Colorize an 8 bpp gray (or colormapped) image with a given color.
+    ///
+    /// # Arguments
+    ///
+    /// * `color` - 32-bit RGBA pixel value for the tint color
+    /// * `cmapflag` - If `true`, return 8 bpp colormapped; if `false`, return 32 bpp RGB
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixColorizeGray()` in `pixconv.c`
+    pub fn colorize_gray(&self, color: u32, cmapflag: bool) -> Result<Pix> {
+        todo!("Phase 13.2: colorize_gray not yet implemented")
+    }
+
+    /// Convert 8 or 16 bpp gray image to 8 bpp with false color colormap.
+    ///
+    /// # Arguments
+    ///
+    /// * `gamma` - Gamma factor (0.0 or 1.0 = default; > 1.0 for brighter)
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertGrayToFalseColor()` in `pixconv.c`
+    pub fn convert_gray_to_false_color(&self, gamma: f32) -> Result<Pix> {
+        todo!("Phase 13.2: convert_gray_to_false_color not yet implemented")
+    }
+
+    /// Convert a colormapped image to 1 bpp binary using heuristic FG/BG classification.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertCmapTo1()` in `pixconv.c`
+    pub fn convert_cmap_to_1(&self) -> Result<Pix> {
+        todo!("Phase 13.2: convert_cmap_to_1 not yet implemented")
+    }
+
+    /// Convert image to 1, 8, or 32 bpp for PostScript wrapping.
+    ///
+    /// Colormaps are removed. 2/4 bpp without colormaps are converted to 8 bpp.
+    /// 16 bpp is converted to 8 bpp using the most significant byte.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertForPSWrap()` in `pixconv.c`
+    pub fn convert_for_ps_wrap(&self) -> Result<Pix> {
+        todo!("Phase 13.2: convert_for_ps_wrap not yet implemented")
     }
 }
 
@@ -3056,5 +3167,410 @@ mod tests {
                 );
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 13.2: 高ビット・特殊変換テスト
+    // -----------------------------------------------------------------------
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_32_to_16_ls_two_bytes() {
+        // 32bpp label image → 16bpp: lower 16 bits extracted
+        let pix = Pix::new(4, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0x0001_0002); // lower=0x0002
+        pm.set_pixel_unchecked(1, 0, 0x0000_FFFF); // lower=0xFFFF
+        pm.set_pixel_unchecked(2, 0, 0xFFFF_0000); // lower=0x0000
+        pm.set_pixel_unchecked(3, 0, 0x0001_ABCD); // lower=0xABCD
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_32_to_16(Convert32To16Type::LsTwoBytes).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        assert_eq!(result.width(), 4);
+        assert_eq!(result.height(), 1);
+        assert_eq!(result.get_pixel(0, 0), Some(0x0002));
+        assert_eq!(result.get_pixel(1, 0), Some(0xFFFF));
+        assert_eq!(result.get_pixel(2, 0), Some(0x0000));
+        assert_eq!(result.get_pixel(3, 0), Some(0xABCD));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_32_to_16_ms_two_bytes() {
+        // 32bpp → 16bpp: upper 16 bits extracted
+        let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0x1234_5678);
+        pm.set_pixel_unchecked(1, 0, 0x0000_ABCD);
+        pm.set_pixel_unchecked(2, 0, 0xFFFF_0000);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_32_to_16(Convert32To16Type::MsTwoBytes).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit16);
+        assert_eq!(result.get_pixel(0, 0), Some(0x1234));
+        assert_eq!(result.get_pixel(1, 0), Some(0x0000));
+        assert_eq!(result.get_pixel(2, 0), Some(0xFFFF));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_32_to_16_clip_to_ffff() {
+        // 32bpp → 16bpp: clip: if upper 16 bits nonzero → 0xFFFF, else keep lower
+        let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0x0001_ABCD); // upper nonzero → 0xFFFF
+        pm.set_pixel_unchecked(1, 0, 0x0000_1234); // upper zero → 0x1234
+        pm.set_pixel_unchecked(2, 0, 0x0000_0000); // → 0x0000
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_32_to_16(Convert32To16Type::ClipToFfff).unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(0xFFFF));
+        assert_eq!(result.get_pixel(1, 0), Some(0x1234));
+        assert_eq!(result.get_pixel(2, 0), Some(0x0000));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_32_to_16_invalid_depth() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_32_to_16(Convert32To16Type::LsTwoBytes).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_alpha_to_1bpp() {
+        // 1bpp image gets colormap: 0→transparent white, 1→opaque black
+        let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0); // BG
+        pm.set_pixel_unchecked(1, 0, 1); // FG
+        pm.set_pixel_unchecked(2, 0, 1); // FG
+        pm.set_pixel_unchecked(3, 0, 0); // BG
+        let pix: Pix = pm.into();
+
+        let result = pix.add_alpha_to_1bpp().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit1);
+        assert!(result.has_colormap());
+        let cmap = result.colormap().unwrap();
+        assert_eq!(cmap.len(), 2);
+        // index 0: white + transparent (alpha=0)
+        assert_eq!(cmap.get_rgba(0), Some((255, 255, 255, 0)));
+        // index 1: black + opaque (alpha=255)
+        assert_eq!(cmap.get_rgba(1), Some((0, 0, 0, 255)));
+        // Pixel values are preserved
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(1));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_alpha_to_1bpp_invalid_depth() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        assert!(pix.add_alpha_to_1bpp().is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_rgb_to_gray_arb_basic() {
+        // Simple test: all-red image → only rc contributes
+        let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // pure red pixel: R=200, G=0, B=0
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(200, 0, 0));
+        // pure green pixel: R=0, G=100, B=0
+        pm.set_pixel_unchecked(1, 0, color::compose_rgb(0, 100, 0));
+        // mixed: R=100, G=100, B=100 with weights 0.5, 0.3, 0.2 → 60.0 → 60
+        pm.set_pixel_unchecked(2, 0, color::compose_rgb(100, 100, 100));
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_rgb_to_gray_arb(0.5, 0.3, 0.2).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        // R=200, weight 0.5 → 100
+        assert_eq!(result.get_pixel(0, 0), Some(100));
+        // G=100, weight 0.3 → 30
+        assert_eq!(result.get_pixel(1, 0), Some(30));
+        // (100*0.5 + 100*0.3 + 100*0.2) = 100.0 → 100
+        assert_eq!(result.get_pixel(2, 0), Some(100));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_rgb_to_gray_arb_clipping() {
+        // Large weights cause overflow: clipped to 255
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(255, 255, 255));
+        pm.set_pixel_unchecked(1, 0, color::compose_rgb(0, 0, 0));
+        let pix: Pix = pm.into();
+
+        // weights 2.0 each → 255*2+255*2+255*2=1530 → clip to 255
+        let result = pix.convert_rgb_to_gray_arb(2.0, 2.0, 2.0).unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(255));
+        // 0 → 0
+        assert_eq!(result.get_pixel(1, 0), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_rgb_to_gray_arb_negative_weights_allowed() {
+        // At least one positive coefficient is required
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 50, 0));
+        pm.set_pixel_unchecked(1, 0, color::compose_rgb(50, 100, 0));
+        let pix: Pix = pm.into();
+
+        // rc positive, gc negative → R dominates, result clipped at 0
+        let result = pix.convert_rgb_to_gray_arb(1.0, -0.5, 0.0).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        // 100*1.0 + 50*(-0.5) = 75
+        assert_eq!(result.get_pixel(0, 0), Some(75));
+        // 50*1.0 + 100*(-0.5) = 0
+        assert_eq!(result.get_pixel(1, 0), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_rgb_to_gray_arb_all_nonpositive_fails() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        // All weights <= 0 → error
+        assert!(pix.convert_rgb_to_gray_arb(-1.0, -1.0, -1.0).is_err());
+        assert!(pix.convert_rgb_to_gray_arb(0.0, 0.0, 0.0).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_rgb_to_gray_arb_wrong_depth() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_rgb_to_gray_arb(0.3, 0.5, 0.2).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_colorize_gray_to_rgb() {
+        // 8bpp gray image colorized to 32bpp RGB
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0); // darkest
+        pm.set_pixel_unchecked(1, 0, 128); // mid
+        pm.set_pixel_unchecked(2, 0, 255); // brightest
+        let pix: Pix = pm.into();
+
+        // Use red tint: color = 0xFF000000 (red pixel in RGBA format)
+        let result = pix
+            .colorize_gray(color::compose_rgb(255, 0, 0), false)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        // pixel 0 (gray=0): darkest red → (0,0,0)
+        let p0 = result.get_pixel(0, 0).unwrap();
+        let (r0, g0, b0) = color::extract_rgb(p0);
+        assert_eq!((r0, g0, b0), (0, 0, 0));
+        // pixel 2 (gray=255): brightest red → (255,0,0)
+        let p2 = result.get_pixel(2, 0).unwrap();
+        let (r2, g2, b2) = color::extract_rgb(p2);
+        assert_eq!((r2, g2, b2), (255, 0, 0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_colorize_gray_to_colormap() {
+        // 8bpp gray colorized with cmapflag=true → 8bpp cmapped output
+        let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 128);
+        pm.set_pixel_unchecked(2, 0, 255);
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .colorize_gray(color::compose_rgb(0, 0, 255), true)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(result.has_colormap());
+        // Colormap should have 256 entries
+        let cmap = result.colormap().unwrap();
+        assert_eq!(cmap.len(), 256);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_colorize_gray_from_cmapped() {
+        // Colormapped input is first converted to gray, then colorized
+        use crate::colormap::PixColormap;
+        let pix = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_rgba(100, 100, 100, 255).unwrap();
+        cmap.add_rgba(200, 200, 200, 255).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .colorize_gray(color::compose_rgb(255, 128, 0), false)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_colorize_gray_invalid_depth() {
+        // 32bpp without colormap → error
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        assert!(
+            pix.colorize_gray(color::compose_rgb(255, 0, 0), false)
+                .is_err()
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_gray_to_false_color_8bpp() {
+        // 8bpp gray → 8bpp with false color colormap
+        let pix = Pix::new(256, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for i in 0..256u32 {
+            pm.set_pixel_unchecked(i, 0, i);
+        }
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_gray_to_false_color(1.0).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(result.has_colormap());
+        let cmap = result.colormap().unwrap();
+        assert_eq!(cmap.len(), 256);
+        // Pixel values are unchanged (only colormap is attached)
+        for i in 0..256u32 {
+            assert_eq!(result.get_pixel(i, 0), Some(i));
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_gray_to_false_color_16bpp() {
+        // 16bpp gray → 8bpp with false color colormap (MS byte used)
+        let pix = Pix::new(4, 1, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0x0000); // → gray 0
+        pm.set_pixel_unchecked(1, 0, 0x0100); // → gray 1 (MS byte)
+        pm.set_pixel_unchecked(2, 0, 0xFF00); // → gray 255
+        pm.set_pixel_unchecked(3, 0, 0x8000); // → gray 128
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_gray_to_false_color(1.0).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(result.has_colormap());
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(2, 0), Some(255));
+        assert_eq!(result.get_pixel(3, 0), Some(128));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_gray_to_false_color_invalid_depth() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        assert!(pix.convert_gray_to_false_color(1.0).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_cmap_to_1_basic() {
+        // Create a colormapped image with clear dark (FG) and light (BG) colors
+        use crate::colormap::PixColormap;
+        // 1bpp colormapped: dark color at index 0, light at index 1
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_rgba(10, 10, 10, 255).unwrap(); // index 0: very dark
+        cmap.add_rgba(240, 240, 240, 255).unwrap(); // index 1: very light
+
+        let pix = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel_unchecked(0, 0, 0); // dark
+        pm.set_pixel_unchecked(1, 0, 1); // light
+        pm.set_pixel_unchecked(2, 0, 0); // dark
+        pm.set_pixel_unchecked(3, 0, 1); // light
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_cmap_to_1().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit1);
+        assert!(!result.has_colormap());
+        // Dark colors (index 0) should be FG (1-bit set), light should be BG (0)
+        assert_eq!(result.get_pixel(0, 0), Some(1)); // dark → FG
+        assert_eq!(result.get_pixel(1, 0), Some(0)); // light → BG
+        assert_eq!(result.get_pixel(2, 0), Some(1)); // dark → FG
+        assert_eq!(result.get_pixel(3, 0), Some(0)); // light → BG
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_cmap_to_1_requires_colormap() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_cmap_to_1().is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_for_ps_wrap_1bpp_passthrough() {
+        // 1bpp → clone (no change)
+        let pix = Pix::new(8, 4, PixelDepth::Bit1).unwrap();
+        let result = pix.convert_for_ps_wrap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_for_ps_wrap_32bpp_passthrough() {
+        // 32bpp → clone (no change)
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let result = pix.convert_for_ps_wrap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_for_ps_wrap_2bpp_no_cmap() {
+        // 2bpp without cmap → convert to 8bpp gray
+        let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        pm.set_pixel_unchecked(2, 0, 2);
+        pm.set_pixel_unchecked(3, 0, 3);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_for_ps_wrap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(!result.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_for_ps_wrap_8bpp_no_cmap() {
+        // 8bpp without cmap → stays 8bpp gray (remove_colormap on BasedOnSrc with no cmap = identity)
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 128);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_for_ps_wrap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_for_ps_wrap_16bpp() {
+        // 16bpp → 8bpp using MS byte
+        let pix = Pix::new(4, 1, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0xAB00);
+        pm.set_pixel_unchecked(1, 0, 0x0000);
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_for_ps_wrap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel(0, 0), Some(0xAB));
+        assert_eq!(result.get_pixel(1, 0), Some(0x00));
     }
 }
