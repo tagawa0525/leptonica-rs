@@ -491,7 +491,35 @@ impl Pixa {
     ///
     /// C equivalent: `pixaExtractColumnFromEachPix()` in `pix4.c`
     pub fn extract_column_from_each(&self, col: u32, dst: &mut PixMut) -> Result<()> {
-        todo!("not yet implemented")
+        if dst.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(dst.depth().bits()));
+        }
+        let n = self.pix.len();
+        if dst.width() as usize != n {
+            return Err(Error::InvalidParameter(
+                "dst width must equal pixa length".into(),
+            ));
+        }
+        if n == 0 {
+            return Ok(());
+        }
+        let h = dst.height();
+        for (k, pix) in self.pix.iter().enumerate() {
+            if pix.depth() != PixelDepth::Bit8 {
+                return Err(Error::UnsupportedDepth(pix.depth().bits()));
+            }
+            if col >= pix.width() {
+                return Err(Error::IndexOutOfBounds {
+                    index: col as usize,
+                    len: pix.width() as usize,
+                });
+            }
+            for i in 0..h {
+                let val = pix.get_pixel_unchecked(col, i);
+                dst.set_pixel_unchecked(k as u32, i, val);
+            }
+        }
+        Ok(())
     }
 
     /// Compute pixel-wise statistics over identically-sized 8bpp images.
@@ -504,7 +532,36 @@ impl Pixa {
     ///
     /// C equivalent: `pixaGetAlignedStats()` in `pix4.c`
     pub fn aligned_stats(&self, stat_type: RowColStatType, nbins: u32, thresh: u32) -> Result<Pix> {
-        todo!("not yet implemented")
+        let n = self.pix.len();
+        if n == 0 {
+            return Err(Error::InvalidParameter("pixa is empty".into()));
+        }
+        let first = &self.pix[0];
+        if first.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(first.depth().bits()));
+        }
+        let w = first.width();
+        let h = first.height();
+
+        let pixd_base = Pix::new(w, h, PixelDepth::Bit8)
+            .map_err(|e| Error::InvalidParameter(format!("cannot create output pix: {e}")))?;
+        let mut pixd = pixd_base.try_into_mut().unwrap();
+
+        for j in 0..w {
+            // Build n×h intermediate image: column j from each pix → one row each
+            let pixt_base = Pix::new(n as u32, h, PixelDepth::Bit8)
+                .map_err(|e| Error::InvalidParameter(format!("cannot create pixt: {e}")))?;
+            let mut pixt_mut = pixt_base.try_into_mut().unwrap();
+            self.extract_column_from_each(j, &mut pixt_mut)?;
+
+            let pixt: Pix = pixt_mut.into();
+            let col_stats = pixt.get_row_stats(stat_type, nbins, thresh)?;
+
+            let values: Vec<f32> = (0..h as usize).filter_map(|i| col_stats.get(i)).collect();
+            pixd.set_pixel_column(j, &values)?;
+        }
+
+        Ok(pixd.into())
     }
 
     // ========================================================================
@@ -1362,7 +1419,6 @@ mod tests {
     // -- Pixa::extract_column_from_each --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_extract_column_from_each_basic() {
         use crate::pix::PixelDepth;
         // 3 images of size 2x3, each with a distinct value in column 0
@@ -1399,7 +1455,6 @@ mod tests {
     // -- Pixa::aligned_stats --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_aligned_stats_mean() {
         use crate::pix::PixelDepth;
         use crate::pix::statistics::RowColStatType;
@@ -1430,7 +1485,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_aligned_stats_empty_pixa() {
         use crate::pix::statistics::RowColStatType;
         let pixa = Pixa::new();
