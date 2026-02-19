@@ -4,6 +4,7 @@
 
 pub mod adjust;
 pub mod geometry;
+pub mod select;
 pub mod serial;
 
 use crate::error::{Error, Result};
