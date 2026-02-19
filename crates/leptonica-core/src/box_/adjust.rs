@@ -33,7 +33,35 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxRelocateOneSide`
     pub fn relocate_one_side(&self, side: Direction, loc: i32) -> Box {
-        todo!()
+        if self.w == 0 || self.h == 0 {
+            return *self;
+        }
+        match side {
+            Direction::FromLeft => Box {
+                x: loc,
+                y: self.y,
+                w: self.w + self.x - loc,
+                h: self.h,
+            },
+            Direction::FromRight => Box {
+                x: self.x,
+                y: self.y,
+                w: loc - self.x + 1,
+                h: self.h,
+            },
+            Direction::FromTop => Box {
+                x: self.x,
+                y: loc,
+                w: self.w,
+                h: self.h + self.y - loc,
+            },
+            Direction::FromBottom => Box {
+                x: self.x,
+                y: self.y,
+                w: self.w,
+                h: loc - self.y + 1,
+            },
+        }
     }
 
     /// Adjust all four sides by specified deltas.
@@ -49,7 +77,16 @@ impl Box {
         del_top: i32,
         del_bot: i32,
     ) -> Option<Box> {
-        todo!()
+        let xl = (self.x + del_left).max(0);
+        let yt = (self.y + del_top).max(0);
+        let xr = self.x + self.w + del_right;
+        let yb = self.y + self.h + del_bot;
+        let w = xr - xl;
+        let h = yb - yt;
+        if w < 1 || h < 1 {
+            return None;
+        }
+        Some(Box { x: xl, y: yt, w, h })
     }
 
     /// Set a specific side to an absolute coordinate.
@@ -59,7 +96,32 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxSetSide`
     pub fn set_side(&mut self, side: Direction, val: i32, thresh: i32) {
-        todo!()
+        match side {
+            Direction::FromLeft => {
+                if (self.x - val).abs() >= thresh {
+                    self.w += self.x - val;
+                    self.x = val;
+                }
+            }
+            Direction::FromRight => {
+                let right = self.x + self.w - 1;
+                if (right - val).abs() >= thresh {
+                    self.w = val - self.x + 1;
+                }
+            }
+            Direction::FromTop => {
+                if (self.y - val).abs() >= thresh {
+                    self.h += self.y - val;
+                    self.y = val;
+                }
+            }
+            Direction::FromBottom => {
+                let bottom = self.y + self.h - 1;
+                if (bottom - val).abs() >= thresh {
+                    self.h = val - self.y + 1;
+                }
+            }
+        }
     }
 
     /// Check if two boxes are similar with per-side tolerances.
@@ -75,7 +137,10 @@ impl Box {
         top_diff: i32,
         bot_diff: i32,
     ) -> bool {
-        todo!()
+        (self.x - other.x).abs() <= left_diff
+            && ((self.x + self.w - 1) - (other.x + other.w - 1)).abs() <= right_diff
+            && (self.y - other.y).abs() <= top_diff
+            && ((self.y + self.h - 1) - (other.y + other.h - 1)).abs() <= bot_diff
     }
 
     /// Convert this box to a Pta of corner points.
@@ -85,7 +150,28 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxConvertToPta`
     pub fn to_pta(&self, ncorners: usize) -> Result<Pta> {
-        todo!()
+        if ncorners != 2 && ncorners != 4 {
+            return Err(Error::InvalidParameter(format!(
+                "ncorners must be 2 or 4, got {}",
+                ncorners
+            )));
+        }
+        let mut pta = Pta::with_capacity(ncorners);
+        let x = self.x as f32;
+        let y = self.y as f32;
+        let xr = (self.x + self.w - 1) as f32;
+        let yb = (self.y + self.h - 1) as f32;
+
+        if ncorners == 2 {
+            pta.push(x, y); // UL
+            pta.push(xr, yb); // LR
+        } else {
+            pta.push(x, y); // UL
+            pta.push(xr, y); // UR
+            pta.push(x, yb); // LL
+            pta.push(xr, yb); // LR
+        }
+        Ok(pta)
     }
 }
 
@@ -104,7 +190,17 @@ impl Boxa {
         del_top: i32,
         del_bot: i32,
     ) -> Boxa {
-        todo!()
+        self.iter()
+            .map(|b| {
+                b.adjust_sides(del_left, del_right, del_top, del_bot)
+                    .unwrap_or(Box {
+                        x: b.x,
+                        y: b.y,
+                        w: 1,
+                        h: 1,
+                    })
+            })
+            .collect()
     }
 
     /// Adjust the four sides of a single box in-place.
@@ -118,14 +214,26 @@ impl Boxa {
         del_top: i32,
         del_bot: i32,
     ) -> Result<()> {
-        todo!()
+        let b = self.get(index).ok_or(Error::IndexOutOfBounds {
+            index,
+            len: self.len(),
+        })?;
+        let adjusted = b
+            .adjust_sides(del_left, del_right, del_top, del_bot)
+            .ok_or_else(|| {
+                Error::InvalidParameter("adjustment would produce non-positive dimensions".into())
+            })?;
+        self.replace(index, adjusted)?;
+        Ok(())
     }
 
     /// Set a specific side of all boxes to an absolute coordinate.
     ///
     /// C Leptonica equivalent: `boxaSetSide`
     pub fn set_all_sides(&mut self, side: Direction, val: i32, thresh: i32) {
-        todo!()
+        for b in self.iter_mut() {
+            b.set_side(side, val, thresh);
+        }
     }
 
     /// Adjust width of all boxes to a target value.
@@ -134,7 +242,34 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaAdjustWidthToTarget`
     pub fn adjust_width_to_target(&self, adjust: AdjustSide, target: i32, thresh: i32) -> Boxa {
-        todo!()
+        self.iter()
+            .map(|b| {
+                let diff = b.w - target;
+                if diff.abs() < thresh {
+                    return *b;
+                }
+                match adjust {
+                    AdjustSide::Start => Box {
+                        x: (b.x + diff).max(0),
+                        y: b.y,
+                        w: target,
+                        h: b.h,
+                    },
+                    AdjustSide::End => Box {
+                        x: b.x,
+                        y: b.y,
+                        w: target,
+                        h: b.h,
+                    },
+                    AdjustSide::Both => Box {
+                        x: (b.x + diff / 2).max(0),
+                        y: b.y,
+                        w: target,
+                        h: b.h,
+                    },
+                }
+            })
+            .collect()
     }
 
     /// Adjust height of all boxes to a target value.
@@ -143,7 +278,34 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaAdjustHeightToTarget`
     pub fn adjust_height_to_target(&self, adjust: AdjustSide, target: i32, thresh: i32) -> Boxa {
-        todo!()
+        self.iter()
+            .map(|b| {
+                let diff = b.h - target;
+                if diff.abs() < thresh {
+                    return *b;
+                }
+                match adjust {
+                    AdjustSide::Start => Box {
+                        x: b.x,
+                        y: (b.y + diff).max(0),
+                        w: b.w,
+                        h: target,
+                    },
+                    AdjustSide::End => Box {
+                        x: b.x,
+                        y: b.y,
+                        w: b.w,
+                        h: target,
+                    },
+                    AdjustSide::Both => Box {
+                        x: b.x,
+                        y: (b.y + diff / 2).max(0),
+                        w: b.w,
+                        h: target,
+                    },
+                }
+            })
+            .collect()
     }
 
     /// Check if two Boxas contain the same boxes.
@@ -153,7 +315,31 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaEqual`
     pub fn equal_ordered(&self, other: &Boxa, max_dist: usize) -> bool {
-        todo!()
+        if self.len() != other.len() {
+            return false;
+        }
+        if max_dist == 0 {
+            return self.iter().zip(other.iter()).all(|(a, b)| a == b);
+        }
+        // With max_dist > 0: each box in self must match some box in other within range
+        let n = self.len();
+        let mut matched = vec![false; n];
+        for (i, a) in self.iter().enumerate() {
+            let j_min = i.saturating_sub(max_dist);
+            let j_max = (i + max_dist + 1).min(n);
+            let mut found = false;
+            for (j, m) in matched[j_min..j_max].iter_mut().enumerate() {
+                if !*m && a == other.get(j_min + j).unwrap() {
+                    *m = true;
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                return false;
+            }
+        }
+        true
     }
 
     /// Split boxes into even-indexed and odd-indexed arrays.
@@ -163,7 +349,37 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaSplitEvenOdd`
     pub fn split_even_odd(&self, fill: bool) -> (Boxa, Boxa) {
-        todo!()
+        let n = self.len();
+        let placeholder = Box::new_unchecked(0, 0, 0, 0);
+
+        if !fill {
+            let even: Boxa = self
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| i % 2 == 0)
+                .map(|(_, b)| *b)
+                .collect();
+            let odd: Boxa = self
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| i % 2 == 1)
+                .map(|(_, b)| *b)
+                .collect();
+            (even, odd)
+        } else {
+            let mut even = Boxa::with_capacity(n);
+            let mut odd = Boxa::with_capacity(n);
+            for i in 0..n {
+                if i % 2 == 0 {
+                    even.push(*self.get(i).unwrap());
+                    odd.push(placeholder);
+                } else {
+                    even.push(placeholder);
+                    odd.push(*self.get(i).unwrap());
+                }
+            }
+            (even, odd)
+        }
     }
 
     /// Merge even and odd arrays back into a single Boxa.
@@ -172,7 +388,44 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaMergeEvenOdd`
     pub fn merge_even_odd(even: &Boxa, odd: &Boxa, fill: bool) -> Result<Boxa> {
-        todo!()
+        if !fill {
+            let ne = even.len();
+            let no = odd.len();
+            if !(ne >= no && ne <= no + 1) {
+                return Err(Error::InvalidParameter(format!(
+                    "even ({}) and odd ({}) lengths incompatible for merge",
+                    ne, no
+                )));
+            }
+            let total = ne + no;
+            let mut result = Boxa::with_capacity(total);
+            for i in 0..total {
+                if i % 2 == 0 {
+                    result.push(*even.get(i / 2).unwrap());
+                } else {
+                    result.push(*odd.get(i / 2).unwrap());
+                }
+            }
+            Ok(result)
+        } else {
+            if even.len() != odd.len() {
+                return Err(Error::InvalidParameter(format!(
+                    "even ({}) and odd ({}) lengths must match when fill=true",
+                    even.len(),
+                    odd.len()
+                )));
+            }
+            let n = even.len();
+            let mut result = Boxa::with_capacity(n);
+            for i in 0..n {
+                if i % 2 == 0 {
+                    result.push(*even.get(i).unwrap());
+                } else {
+                    result.push(*odd.get(i).unwrap());
+                }
+            }
+            Ok(result)
+        }
     }
 
     /// Convert all boxes to a Pta of corner points.
@@ -181,7 +434,20 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaConvertToPta`
     pub fn to_pta(&self, ncorners: usize) -> Result<Pta> {
-        todo!()
+        if ncorners != 2 && ncorners != 4 {
+            return Err(Error::InvalidParameter(format!(
+                "ncorners must be 2 or 4, got {}",
+                ncorners
+            )));
+        }
+        let mut pta = Pta::with_capacity(self.len() * ncorners);
+        for b in self.iter() {
+            let box_pta = b.to_pta(ncorners)?;
+            for (x, y) in box_pta.iter() {
+                pta.push(x, y);
+            }
+        }
+        Ok(pta)
     }
 }
 
@@ -194,7 +460,17 @@ impl Boxaa {
     ///
     /// C Leptonica equivalent: `boxaaJoin`
     pub fn join(&mut self, other: &Boxaa, start: usize, end: usize) {
-        todo!()
+        let actual_end = if end == 0 {
+            other.len()
+        } else {
+            end.min(other.len())
+        };
+        let actual_start = start.min(actual_end);
+        for i in actual_start..actual_end {
+            if let Some(boxa) = other.get(i) {
+                self.push(boxa.clone());
+            }
+        }
     }
 }
 
@@ -205,7 +481,17 @@ impl Pta {
     ///
     /// C Leptonica equivalent: `ptaConvertToBox`
     pub fn to_box(&self) -> Option<Box> {
-        todo!()
+        let (x_min, y_min, x_max, y_max) = self.bounding_box()?;
+        let x = x_min.round() as i32;
+        let y = y_min.round() as i32;
+        let xr = x_max.round() as i32;
+        let yb = y_max.round() as i32;
+        Some(Box {
+            x,
+            y,
+            w: xr - x + 1,
+            h: yb - y + 1,
+        })
     }
 
     /// Convert to a Boxa by grouping every `ncorners` points into a box.
@@ -214,7 +500,38 @@ impl Pta {
     ///
     /// C Leptonica equivalent: `ptaConvertToBoxa`
     pub fn to_boxa(&self, ncorners: usize) -> Result<Boxa> {
-        todo!()
+        if ncorners != 2 && ncorners != 4 {
+            return Err(Error::InvalidParameter(format!(
+                "ncorners must be 2 or 4, got {}",
+                ncorners
+            )));
+        }
+        if !self.len().is_multiple_of(ncorners) {
+            return Err(Error::InvalidParameter(format!(
+                "pta length {} is not a multiple of ncorners {}",
+                self.len(),
+                ncorners
+            )));
+        }
+
+        let n_boxes = self.len() / ncorners;
+        let mut boxa = Boxa::with_capacity(n_boxes);
+
+        for i in 0..n_boxes {
+            let base = i * ncorners;
+            // Create a temporary Pta for this group of points
+            let mut sub = Pta::with_capacity(ncorners);
+            for j in 0..ncorners {
+                let (x, y) = self.get(base + j).unwrap();
+                sub.push(x, y);
+            }
+            let b = sub
+                .to_box()
+                .ok_or_else(|| Error::InvalidParameter("empty point group in pta".into()))?;
+            boxa.push(b);
+        }
+
+        Ok(boxa)
     }
 }
 
@@ -227,7 +544,6 @@ mod tests {
     // -- Box::relocate_one_side --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_relocate_one_side_left() {
         let b = Box::new(20, 30, 100, 80).unwrap();
         let r = b.relocate_one_side(Direction::FromLeft, 10);
@@ -238,7 +554,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_relocate_one_side_right() {
         let b = Box::new(20, 30, 100, 80).unwrap();
         let r = b.relocate_one_side(Direction::FromRight, 150);
@@ -247,7 +562,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_relocate_one_side_top() {
         let b = Box::new(20, 30, 100, 80).unwrap();
         let r = b.relocate_one_side(Direction::FromTop, 10);
@@ -256,7 +570,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_relocate_one_side_bottom() {
         let b = Box::new(20, 30, 100, 80).unwrap();
         let r = b.relocate_one_side(Direction::FromBottom, 150);
@@ -267,7 +580,6 @@ mod tests {
     // -- Box::adjust_sides --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_sides_expand() {
         let b = Box::new(20, 30, 100, 80).unwrap();
         let r = b.adjust_sides(-10, 10, -5, 5).unwrap();
@@ -278,7 +590,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_sides_clamp_to_zero() {
         let b = Box::new(5, 5, 100, 80).unwrap();
         let r = b.adjust_sides(-20, 0, -20, 0).unwrap();
@@ -287,7 +598,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_sides_invalid() {
         let b = Box::new(20, 30, 10, 10).unwrap();
         assert!(b.adjust_sides(20, -20, 0, 0).is_none());
@@ -296,7 +606,6 @@ mod tests {
     // -- Box::set_side --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_side_left() {
         let mut b = Box::new(20, 30, 100, 80).unwrap();
         b.set_side(Direction::FromLeft, 10, 0);
@@ -305,7 +614,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_side_below_threshold() {
         let mut b = Box::new(20, 30, 100, 80).unwrap();
         b.set_side(Direction::FromLeft, 22, 5);
@@ -317,7 +625,6 @@ mod tests {
     // -- Box::similar_per_side --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_similar_per_side_true() {
         let b1 = Box::new(10, 20, 100, 80).unwrap();
         let b2 = Box::new(12, 18, 102, 78).unwrap();
@@ -325,7 +632,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_similar_per_side_false() {
         let b1 = Box::new(10, 20, 100, 80).unwrap();
         let b2 = Box::new(20, 20, 100, 80).unwrap();
@@ -335,7 +641,6 @@ mod tests {
     // -- Box::to_pta --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_box_to_pta_2_corners() {
         let b = Box::new(10, 20, 100, 80).unwrap();
         let pta = b.to_pta(2).unwrap();
@@ -345,7 +650,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_box_to_pta_4_corners() {
         let b = Box::new(10, 20, 100, 80).unwrap();
         let pta = b.to_pta(4).unwrap();
@@ -357,7 +661,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_box_to_pta_invalid() {
         let b = Box::new(10, 20, 100, 80).unwrap();
         assert!(b.to_pta(3).is_err());
@@ -366,7 +669,6 @@ mod tests {
     // -- Boxa::adjust_all_sides --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_all_sides() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 50, 50).unwrap());
@@ -381,7 +683,6 @@ mod tests {
     // -- Boxa::adjust_box_sides --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_box_sides() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 50, 50).unwrap());
@@ -397,7 +698,6 @@ mod tests {
     // -- Boxa::set_all_sides --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_all_sides() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 100, 80).unwrap());
@@ -413,7 +713,6 @@ mod tests {
     // -- Boxa::adjust_width_to_target --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_width_to_target_end() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 80, 50).unwrap());
@@ -427,7 +726,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_width_to_target_below_threshold() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 98, 50).unwrap());
@@ -440,7 +738,6 @@ mod tests {
     // -- Boxa::adjust_height_to_target --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_adjust_height_to_target_both() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 50, 80).unwrap());
@@ -455,7 +752,6 @@ mod tests {
     // -- Boxa::equal_ordered --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_equal_ordered_exact() {
         let mut boxa1 = Boxa::new();
         boxa1.push(Box::new(0, 0, 10, 10).unwrap());
@@ -466,7 +762,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_equal_ordered_different() {
         let mut boxa1 = Boxa::new();
         boxa1.push(Box::new(0, 0, 10, 10).unwrap());
@@ -480,7 +775,6 @@ mod tests {
     // -- Boxa::split_even_odd --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_split_even_odd_no_fill() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 10, 10).unwrap()); // even
@@ -498,7 +792,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_split_even_odd_with_fill() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 10, 10).unwrap());
@@ -517,7 +810,6 @@ mod tests {
     // -- Boxa::merge_even_odd --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_merge_even_odd_no_fill() {
         let mut even = Boxa::new();
         even.push(Box::new_unchecked(0, 0, 10, 10));
@@ -538,7 +830,6 @@ mod tests {
     // -- Boxa::to_pta --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_to_pta() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 100, 80).unwrap());
@@ -551,7 +842,6 @@ mod tests {
     // -- Boxaa::join --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_join() {
         let mut baa1 = Boxaa::new();
         baa1.push(Boxa::new());
@@ -568,7 +858,6 @@ mod tests {
     // -- Pta::to_box --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_to_box() {
         let mut pta = Pta::new();
         pta.push(10.0, 20.0);
@@ -582,7 +871,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_to_box_empty() {
         let pta = Pta::new();
         assert!(pta.to_box().is_none());
@@ -591,7 +879,6 @@ mod tests {
     // -- Pta::to_boxa --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_to_boxa() {
         let mut pta = Pta::new();
         // Box 1: UL(10,20) LR(109,99)
@@ -610,7 +897,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_to_boxa_invalid_count() {
         let mut pta = Pta::new();
         pta.push(10.0, 20.0);
