@@ -8,7 +8,9 @@
 use crate::error::{Error, Result};
 use crate::numa::Numa;
 
-use super::{Boxa, Boxaa, SizeRelation, compare_relation, compare_relation_i64};
+use super::{
+    Boxa, Boxaa, SizeRelation, compare_relation, compare_relation_f64, compare_relation_i64,
+};
 
 // ---- Types ----
 
@@ -94,12 +96,7 @@ impl Boxa {
                     return false;
                 }
                 let r = b.w as f64 / b.h as f64;
-                match relation {
-                    SizeRelation::LessThan => r < ratio,
-                    SizeRelation::LessThanOrEqual => r <= ratio,
-                    SizeRelation::GreaterThan => r > ratio,
-                    SizeRelation::GreaterThanOrEqual => r >= ratio,
-                }
+                compare_relation_f64(r, ratio, relation)
             })
             .collect()
     }
