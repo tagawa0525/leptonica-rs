@@ -1201,7 +1201,6 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvert2To8()` in `pixconv.c`
-    #[allow(unused_variables)]
     pub fn convert_2_to_8(
         &self,
         val0: u8,
@@ -1210,7 +1209,44 @@ impl Pix {
         val3: u8,
         add_colormap: bool,
     ) -> Result<Pix> {
-        todo!()
+        if self.depth() != PixelDepth::Bit2 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let vals = [val0, val1, val2, val3];
+
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        if add_colormap {
+            use crate::PixColormap;
+            let mut cmap = PixColormap::new(8)?;
+            for &v in &vals {
+                cmap.add_rgb(v, v, v)?;
+            }
+            result_mut.set_colormap(Some(cmap))?;
+
+            // Pixel values are colormap indices (0-3)
+            for y in 0..h {
+                for x in 0..w {
+                    let val = self.get_pixel_unchecked(x, y);
+                    result_mut.set_pixel_unchecked(x, y, val);
+                }
+            }
+        } else {
+            // Direct value mapping
+            for y in 0..h {
+                for x in 0..w {
+                    let val = self.get_pixel_unchecked(x, y) as usize;
+                    result_mut.set_pixel_unchecked(x, y, vals[val] as u32);
+                }
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert 4 bpp to 8 bpp.
@@ -1222,9 +1258,45 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvert4To8()` in `pixconv.c`
-    #[allow(unused_variables)]
     pub fn convert_4_to_8(&self, add_colormap: bool) -> Result<Pix> {
-        todo!()
+        if self.depth() != PixelDepth::Bit4 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        if add_colormap {
+            use crate::PixColormap;
+            let mut cmap = PixColormap::new(8)?;
+            for i in 0..16u32 {
+                let v = (i * 255 / 15) as u8;
+                cmap.add_rgb(v, v, v)?;
+            }
+            result_mut.set_colormap(Some(cmap))?;
+
+            // Pixel values are colormap indices (0-15)
+            for y in 0..h {
+                for x in 0..w {
+                    let val = self.get_pixel_unchecked(x, y);
+                    result_mut.set_pixel_unchecked(x, y, val);
+                }
+            }
+        } else {
+            // Replicate nibble: (val << 4) | val
+            for y in 0..h {
+                for x in 0..w {
+                    let val = self.get_pixel_unchecked(x, y);
+                    result_mut.set_pixel_unchecked(x, y, (val << 4) | val);
+                }
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert 8 bpp grayscale to 2 bpp by taking the top 2 bits.
@@ -1236,7 +1308,25 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvert8To2()` in `pixconv.c`
     pub fn convert_8_to_2(&self) -> Result<Pix> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        let result = Pix::new(w, h, PixelDepth::Bit2)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y);
+                result_mut.set_pixel_unchecked(x, y, val >> 6);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert 8 bpp grayscale to 4 bpp by taking the top 4 bits.
@@ -1248,7 +1338,25 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvert8To4()` in `pixconv.c`
     pub fn convert_8_to_4(&self) -> Result<Pix> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        let result = Pix::new(w, h, PixelDepth::Bit4)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y);
+                result_mut.set_pixel_unchecked(x, y, val >> 4);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 
     /// Convert any-depth image to 2 bpp grayscale.
@@ -1267,7 +1375,21 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvertTo2()` in `pixconv.c`
     pub fn convert_to_2(&self) -> Result<Pix> {
-        todo!()
+        // If colormap present, remove it first
+        if self.has_colormap() {
+            let gray = self.remove_colormap(RemoveColormapTarget::ToGrayscale)?;
+            return gray.convert_to_2();
+        }
+
+        match self.depth() {
+            PixelDepth::Bit1 => self.convert_1_to_2(0, 3),
+            PixelDepth::Bit2 => Ok(self.deep_clone()),
+            PixelDepth::Bit4 | PixelDepth::Bit16 | PixelDepth::Bit32 => {
+                let gray8 = self.convert_to_8()?;
+                gray8.convert_8_to_2()
+            }
+            PixelDepth::Bit8 => self.convert_8_to_2(),
+        }
     }
 
     /// Convert any-depth image to 4 bpp grayscale.
@@ -1286,7 +1408,26 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvertTo4()` in `pixconv.c`
     pub fn convert_to_4(&self) -> Result<Pix> {
-        todo!()
+        // If colormap present, remove it first
+        if self.has_colormap() {
+            let gray = self.remove_colormap(RemoveColormapTarget::ToGrayscale)?;
+            return gray.convert_to_4();
+        }
+
+        match self.depth() {
+            PixelDepth::Bit1 => self.convert_1_to_4(0, 15),
+            PixelDepth::Bit2 => {
+                // 2bpp → 8bpp (0→0, 1→0x55, 2→0xaa, 3→0xff) → 4bpp
+                let gray8 = self.convert_2_to_8(0, 0x55, 0xaa, 0xff, false)?;
+                gray8.convert_8_to_4()
+            }
+            PixelDepth::Bit4 => Ok(self.deep_clone()),
+            PixelDepth::Bit8 => self.convert_8_to_4(),
+            PixelDepth::Bit16 | PixelDepth::Bit32 => {
+                let gray8 = self.convert_to_8()?;
+                gray8.convert_8_to_4()
+            }
+        }
     }
 
     /// Add a colormap to a grayscale image without quantization loss.
@@ -1302,7 +1443,29 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvertGrayToColormap()` in `pixconv.c`
     pub fn convert_gray_to_colormap(&self) -> Result<Pix> {
-        todo!()
+        // Already has colormap: return deep clone
+        if self.has_colormap() {
+            return Ok(self.deep_clone());
+        }
+
+        match self.depth() {
+            PixelDepth::Bit2 | PixelDepth::Bit4 => {
+                use crate::PixColormap;
+                let d = self.depth().bits();
+                let n = 1u32 << d;
+                let mut cmap = PixColormap::new(d)?;
+                for i in 0..n {
+                    let v = (i * 255 / (n - 1)) as u8;
+                    cmap.add_rgb(v, v, v)?;
+                }
+
+                let mut result_mut = self.deep_clone().try_into_mut().unwrap();
+                result_mut.set_colormap(Some(cmap))?;
+                Ok(result_mut.into())
+            }
+            PixelDepth::Bit8 => self.convert_gray_to_colormap_8(2),
+            _ => Err(Error::UnsupportedDepth(self.depth().bits())),
+        }
     }
 
     /// Lossless conversion of 8 bpp grayscale to colormapped image.
@@ -1323,9 +1486,77 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvertGrayToColormap8()` in `pixconv.c`
-    #[allow(unused_variables)]
     pub fn convert_gray_to_colormap_8(&self, min_depth: u32) -> Result<Pix> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.has_colormap() {
+            return Ok(self.deep_clone());
+        }
+
+        use crate::PixColormap;
+
+        let w = self.width();
+        let h = self.height();
+
+        // Build histogram of gray values
+        let mut histogram = [0u32; 256];
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y) as usize;
+                histogram[val] += 1;
+            }
+        }
+
+        // Count unique values and build mapping table
+        let mut ncolors = 0usize;
+        let mut gray_to_index = [0u8; 256];
+        for (gray_val, &count) in histogram.iter().enumerate() {
+            if count > 0 {
+                gray_to_index[gray_val] = ncolors as u8;
+                ncolors += 1;
+            }
+        }
+
+        // Determine output depth
+        let out_depth = if ncolors <= 4 && min_depth <= 2 {
+            2
+        } else if ncolors <= 16 && min_depth <= 4 {
+            4
+        } else {
+            8
+        };
+
+        let out_pixel_depth = match out_depth {
+            2 => PixelDepth::Bit2,
+            4 => PixelDepth::Bit4,
+            _ => PixelDepth::Bit8,
+        };
+
+        // Build colormap with actual gray values
+        let mut cmap = PixColormap::new(out_depth)?;
+        for (gray_val, &count) in histogram.iter().enumerate() {
+            if count > 0 {
+                let v = gray_val as u8;
+                cmap.add_rgb(v, v, v)?;
+            }
+        }
+
+        // Create output image
+        let result = Pix::new(w, h, out_pixel_depth)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_resolution(self.xres(), self.yres());
+        result_mut.set_colormap(Some(cmap))?;
+
+        // Map pixels to colormap indices
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y) as usize;
+                result_mut.set_pixel_unchecked(x, y, gray_to_index[val] as u32);
+            }
+        }
+
+        Ok(result_mut.into())
     }
 }
 
@@ -2270,7 +2501,6 @@ mod tests {
     // ---- Phase 13.1: Low bit depth conversion tests ----
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_2_to_8_direct() {
         // 2bpp → 8bpp with custom values, no colormap
         let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
@@ -2291,7 +2521,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_2_to_8_with_colormap() {
         // 2bpp → 8bpp with colormap
         let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
@@ -2320,14 +2549,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_2_to_8_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
         assert!(pix.convert_2_to_8(0, 85, 170, 255, false).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_2_to_8_preserves_resolution() {
         let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2340,7 +2567,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_4_to_8_direct() {
         // 4bpp → 8bpp without colormap: (val << 4) | val
         let pix = Pix::new(4, 1, PixelDepth::Bit4).unwrap();
@@ -2362,7 +2588,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_4_to_8_with_colormap() {
         // 4bpp → 8bpp with linear colormap
         let pix = Pix::new(2, 1, PixelDepth::Bit4).unwrap();
@@ -2385,14 +2610,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_4_to_8_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.convert_4_to_8(false).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_8_to_2_basic() {
         // 8bpp → 2bpp: take top 2 bits
         let pix = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
@@ -2412,7 +2635,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_8_to_2_boundary_values() {
         // Test values near boundaries: 63→0, 64→1, 127→1, 128→2, 191→2, 192→3
         let pix = Pix::new(6, 1, PixelDepth::Bit8).unwrap();
@@ -2435,14 +2657,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_8_to_2_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
         assert!(pix.convert_8_to_2().is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_8_to_2_preserves_resolution() {
         let pix = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2455,7 +2675,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_8_to_4_basic() {
         // 8bpp → 4bpp: take top 4 bits (val >> 4)
         let pix = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
@@ -2475,14 +2694,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_8_to_4_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit2).unwrap();
         assert!(pix.convert_8_to_4().is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_2_from_1bpp() {
         let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2497,7 +2714,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_2_from_2bpp() {
         // Identity case
         let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
@@ -2518,7 +2734,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_2_from_4bpp() {
         // 4bpp → 8bpp → 2bpp
         let pix = Pix::new(4, 1, PixelDepth::Bit4).unwrap();
@@ -2540,7 +2755,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_2_from_8bpp() {
         let pix = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2559,7 +2773,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_2_from_32bpp() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2573,7 +2786,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_2_from_16bpp() {
         let pix = Pix::new(1, 1, PixelDepth::Bit16).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2587,7 +2799,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_2_with_colormap() {
         use crate::PixColormap;
         // 2bpp with colormap → strip colormap, convert to grayscale then 2bpp
@@ -2608,7 +2819,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_4_from_1bpp() {
         let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2623,7 +2833,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_4_from_2bpp() {
         // 2bpp → 8bpp (0→0, 1→0x55, 2→0xaa, 3→0xff) → 4bpp
         let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
@@ -2644,7 +2853,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_4_from_4bpp() {
         // Identity case
         let pix = Pix::new(4, 1, PixelDepth::Bit4).unwrap();
@@ -2663,7 +2871,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_4_from_8bpp() {
         let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2680,7 +2887,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_4_from_32bpp() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2694,7 +2900,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_2bpp() {
         let pix = Pix::new(4, 1, PixelDepth::Bit2).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2714,7 +2919,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_4bpp() {
         let pix = Pix::new(2, 1, PixelDepth::Bit4).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2731,7 +2935,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_8bpp() {
         // For 8bpp, delegates to convert_gray_to_colormap_8 with min_depth=2
         let pix = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
@@ -2745,7 +2948,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(pix.convert_gray_to_colormap().is_err());
@@ -2754,7 +2956,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_already_has_colormap() {
         use crate::PixColormap;
         let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
@@ -2769,7 +2970,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_8_few_colors() {
         // Only 3 unique values → should get 2bpp output
         let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
@@ -2794,7 +2994,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_8_many_colors() {
         // More than 16 unique values → 8bpp output
         let pix = Pix::new(20, 1, PixelDepth::Bit8).unwrap();
@@ -2810,7 +3009,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_8_min_depth_4() {
         // Only 3 unique values, but min_depth=4 → should get 4bpp
         let pix = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
@@ -2826,14 +3024,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_8_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
         assert!(pix.convert_gray_to_colormap_8(2).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_gray_to_colormap_8_roundtrip() {
         // Create image, convert to colormap, remove colormap, verify values match
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
