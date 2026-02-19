@@ -36,14 +36,24 @@ const CYCLING_COLORS: [Color; 10] = [
     Color::new(255, 0, 128), // Rose
 ];
 
+/// Clip a box to image bounds in signed coordinates, returning
+/// `(x, y, x_end, y_end)` as `u32` or `None` if no intersection.
+fn clip_box_to_image(b: &Box, img_w: u32, img_h: u32) -> Option<(u32, u32, u32, u32)> {
+    let x0 = b.x.max(0);
+    let y0 = b.y.max(0);
+    let x1 = (b.x + b.w).min(img_w as i32);
+    let y1 = (b.y + b.h).min(img_h as i32);
+    if x0 >= x1 || y0 >= y1 {
+        return None;
+    }
+    Some((x0 as u32, y0 as u32, x1 as u32, y1 as u32))
+}
+
 /// Fill a rectangular region defined by a Box with a constant pixel value.
 fn fill_box_val(pix: &mut PixMut, b: &Box, val: u32) {
-    let img_w = pix.width();
-    let img_h = pix.height();
-    let x = b.x.max(0) as u32;
-    let y = b.y.max(0) as u32;
-    let x_end = ((b.x + b.w) as u32).min(img_w);
-    let y_end = ((b.y + b.h) as u32).min(img_h);
+    let Some((x, y, x_end, y_end)) = clip_box_to_image(b, pix.width(), pix.height()) else {
+        return;
+    };
     for py in y..y_end {
         for px in x..x_end {
             pix.set_pixel_unchecked(px, py, val);
@@ -53,13 +63,10 @@ fn fill_box_val(pix: &mut PixMut, b: &Box, val: u32) {
 
 /// Flip all pixels in a rectangular region defined by a Box.
 fn flip_box(pix: &mut PixMut, b: &Box) {
-    let img_w = pix.width();
-    let img_h = pix.height();
+    let Some((x, y, x_end, y_end)) = clip_box_to_image(b, pix.width(), pix.height()) else {
+        return;
+    };
     let max_val = pix.depth().max_value();
-    let x = b.x.max(0) as u32;
-    let y = b.y.max(0) as u32;
-    let x_end = ((b.x + b.w) as u32).min(img_w);
-    let y_end = ((b.y + b.h) as u32).min(img_h);
     for py in y..y_end {
         for px in x..x_end {
             let v = pix.get_pixel_unchecked(px, py);
@@ -119,9 +126,7 @@ impl PixMut {
     /// C Leptonica equivalent: `pixPaintBoxaRandom`
     pub fn paint_boxa_random(&mut self, boxa: &Boxa) -> Result<()> {
         if self.depth().bits() != 32 {
-            return Err(Error::InvalidParameter(
-                "paint_boxa_random requires 32bpp image".to_string(),
-            ));
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
         for (i, b) in boxa.boxes().iter().enumerate() {
             let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
@@ -138,22 +143,19 @@ impl PixMut {
     /// C Leptonica equivalent: `pixBlendBoxaRandom`
     pub fn blend_boxa_random(&mut self, boxa: &Boxa, fract: f32) -> Result<()> {
         if self.depth().bits() != 32 {
-            return Err(Error::InvalidParameter(
-                "blend_boxa_random requires 32bpp image".to_string(),
-            ));
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
         let fract = fract.clamp(0.0, 1.0);
         let img_w = self.width();
         let img_h = self.height();
         for (i, b) in boxa.boxes().iter().enumerate() {
+            let Some((x, y, x_end, y_end)) = clip_box_to_image(b, img_w, img_h) else {
+                continue;
+            };
             let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
             let blend_r = color.r as f32;
             let blend_g = color.g as f32;
             let blend_b = color.b as f32;
-            let x = b.x.max(0) as u32;
-            let y = b.y.max(0) as u32;
-            let x_end = ((b.x + b.w) as u32).min(img_w);
-            let y_end = ((b.y + b.h) as u32).min(img_h);
             for py in y..y_end {
                 for px in x..x_end {
                     let pixel = self.get_pixel_unchecked(px, py);
@@ -227,7 +229,12 @@ impl Boxa {
         }
         let area1: i64 = a1.iter().map(|b| b.area()).sum();
         let area2: i64 = a2.iter().map(|b| b.area()).sum();
-        let diff_area = (area1 - area2).unsigned_abs() as f64 / (area1 + area2) as f64;
+        let total = area1 + area2;
+        let diff_area = if total == 0 {
+            0.0
+        } else {
+            (area1 - area2).unsigned_abs() as f64 / total as f64
+        };
         RegionCompareResult {
             same_count,
             diff_area,
