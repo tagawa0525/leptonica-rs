@@ -36,6 +36,38 @@ const CYCLING_COLORS: [Color; 10] = [
     Color::new(255, 0, 128), // Rose
 ];
 
+/// Fill a rectangular region defined by a Box with a constant pixel value.
+fn fill_box_val(pix: &mut PixMut, b: &Box, val: u32) {
+    let img_w = pix.width();
+    let img_h = pix.height();
+    let x = b.x.max(0) as u32;
+    let y = b.y.max(0) as u32;
+    let x_end = ((b.x + b.w) as u32).min(img_w);
+    let y_end = ((b.y + b.h) as u32).min(img_h);
+    for py in y..y_end {
+        for px in x..x_end {
+            pix.set_pixel_unchecked(px, py, val);
+        }
+    }
+}
+
+/// Flip all pixels in a rectangular region defined by a Box.
+fn flip_box(pix: &mut PixMut, b: &Box) {
+    let img_w = pix.width();
+    let img_h = pix.height();
+    let max_val = pix.depth().max_value();
+    let x = b.x.max(0) as u32;
+    let y = b.y.max(0) as u32;
+    let x_end = ((b.x + b.w) as u32).min(img_w);
+    let y_end = ((b.y + b.h) as u32).min(img_h);
+    for py in y..y_end {
+        for px in x..x_end {
+            let v = pix.get_pixel_unchecked(px, py);
+            pix.set_pixel_unchecked(px, py, max_val - v);
+        }
+    }
+}
+
 // ---- PixMut methods ----
 
 impl PixMut {
@@ -45,14 +77,23 @@ impl PixMut {
     ///
     /// C Leptonica equivalent: `pixMaskBoxa`
     pub fn mask_boxa(&mut self, boxa: &Boxa, op: PixelOp) {
-        todo!()
+        let max_val = self.depth().max_value();
+        for b in boxa.boxes() {
+            match op {
+                PixelOp::Set => fill_box_val(self, b, max_val),
+                PixelOp::Clear => fill_box_val(self, b, 0),
+                PixelOp::Flip => flip_box(self, b),
+            }
+        }
     }
 
     /// Fill all box regions in a Boxa with a constant pixel value.
     ///
     /// C Leptonica equivalent: `pixPaintBoxa` (single solid color variant)
     pub fn paint_boxa(&mut self, boxa: &Boxa, val: u32) {
-        todo!()
+        for b in boxa.boxes() {
+            fill_box_val(self, b, val);
+        }
     }
 
     /// Set all box regions to black or white.
@@ -61,7 +102,14 @@ impl PixMut {
     ///
     /// C Leptonica equivalent: `pixSetBlackOrWhiteBoxa`
     pub fn set_bw_boxa(&mut self, boxa: &Boxa, is_white: bool) {
-        todo!()
+        let val = if is_white {
+            self.depth().max_value()
+        } else {
+            0
+        };
+        for b in boxa.boxes() {
+            fill_box_val(self, b, val);
+        }
     }
 
     /// Paint each box in a Boxa with a cycling color (32bpp only).
@@ -70,7 +118,17 @@ impl PixMut {
     ///
     /// C Leptonica equivalent: `pixPaintBoxaRandom`
     pub fn paint_boxa_random(&mut self, boxa: &Boxa) -> Result<()> {
-        todo!()
+        if self.depth().bits() != 32 {
+            return Err(Error::InvalidParameter(
+                "paint_boxa_random requires 32bpp image".to_string(),
+            ));
+        }
+        for (i, b) in boxa.boxes().iter().enumerate() {
+            let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
+            let val = crate::color::compose_rgb(color.r, color.g, color.b);
+            fill_box_val(self, b, val);
+        }
+        Ok(())
     }
 
     /// Blend each box in a Boxa with a cycling color (32bpp only).
@@ -79,21 +137,56 @@ impl PixMut {
     ///
     /// C Leptonica equivalent: `pixBlendBoxaRandom`
     pub fn blend_boxa_random(&mut self, boxa: &Boxa, fract: f32) -> Result<()> {
-        todo!()
+        if self.depth().bits() != 32 {
+            return Err(Error::InvalidParameter(
+                "blend_boxa_random requires 32bpp image".to_string(),
+            ));
+        }
+        let fract = fract.clamp(0.0, 1.0);
+        let img_w = self.width();
+        let img_h = self.height();
+        for (i, b) in boxa.boxes().iter().enumerate() {
+            let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
+            let blend_r = color.r as f32;
+            let blend_g = color.g as f32;
+            let blend_b = color.b as f32;
+            let x = b.x.max(0) as u32;
+            let y = b.y.max(0) as u32;
+            let x_end = ((b.x + b.w) as u32).min(img_w);
+            let y_end = ((b.y + b.h) as u32).min(img_h);
+            for py in y..y_end {
+                for px in x..x_end {
+                    let pixel = self.get_pixel_unchecked(px, py);
+                    let (r, g, b_ch, a) = crate::color::extract_rgba(pixel);
+                    let nr = (r as f32 * (1.0 - fract) + blend_r * fract) as u8;
+                    let ng = (g as f32 * (1.0 - fract) + blend_g * fract) as u8;
+                    let nb = (b_ch as f32 * (1.0 - fract) + blend_b * fract) as u8;
+                    self.set_pixel_unchecked(px, py, crate::color::compose_rgba(nr, ng, nb, a));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Draw outlines of all boxes in a Boxa with a given color.
     ///
     /// C Leptonica equivalent: `pixDrawBoxa`
     pub fn draw_boxa(&mut self, boxa: &Boxa, width: u32, color: Color) -> Result<()> {
-        todo!()
+        for b in boxa.boxes() {
+            self.render_box_color(b, width, color)?;
+        }
+        Ok(())
     }
 
     /// Draw outlines of all boxes in a Boxa with cycling colors.
     ///
     /// C Leptonica equivalent: `pixDrawBoxaRandom`
     pub fn draw_boxa_random(&mut self, boxa: &Boxa, width: u32) -> Result<()> {
-        todo!()
+        for (i, b) in boxa.boxes().iter().enumerate() {
+            let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
+            self.render_box_color(b, width, color)?;
+        }
+        Ok(())
     }
 }
 
@@ -109,7 +202,36 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaCompareRegions` (area metric only)
     pub fn compare_regions(&self, other: &Boxa, area_thresh: i64) -> RegionCompareResult {
-        todo!()
+        let a1: Vec<&Box> = self
+            .boxes()
+            .iter()
+            .filter(|b| b.area() >= area_thresh)
+            .collect();
+        let a2: Vec<&Box> = other
+            .boxes()
+            .iter()
+            .filter(|b| b.area() >= area_thresh)
+            .collect();
+        let same_count = a1.len() == a2.len();
+        if a1.is_empty() && a2.is_empty() {
+            return RegionCompareResult {
+                same_count,
+                diff_area: 0.0,
+            };
+        }
+        if a1.is_empty() || a2.is_empty() {
+            return RegionCompareResult {
+                same_count,
+                diff_area: 1.0,
+            };
+        }
+        let area1: i64 = a1.iter().map(|b| b.area()).sum();
+        let area2: i64 = a2.iter().map(|b| b.area()).sum();
+        let diff_area = (area1 - area2).unsigned_abs() as f64 / (area1 + area2) as f64;
+        RegionCompareResult {
+            same_count,
+            diff_area,
+        }
     }
 
     /// Select the box nearest to the upper-left corner from large boxes.
@@ -119,7 +241,36 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaSelectLargeULBox`
     pub fn select_large_ul_box(&self, area_slop: f64, y_slop: i32) -> Option<Box> {
-        todo!()
+        if self.is_empty() {
+            return None;
+        }
+        let max_area = self.boxes().iter().map(|b| b.area()).max().unwrap_or(0);
+        if max_area == 0 {
+            return None;
+        }
+        let y_slop = y_slop.max(0);
+        // Collect boxes eligible by area, then sort top-down
+        let mut eligible: Vec<Box> = self
+            .boxes()
+            .iter()
+            .copied()
+            .filter(|b| b.area() as f64 / max_area as f64 >= area_slop)
+            .collect();
+        if eligible.is_empty() {
+            return None;
+        }
+        eligible.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)));
+        // Start with topmost box; prefer leftmost within y_slop
+        let base_y = eligible[0].y;
+        let mut best_x = eligible[0].x;
+        let mut select = 0;
+        for (i, b) in eligible.iter().enumerate().skip(1) {
+            if b.y - base_y < y_slop && b.x < best_x {
+                best_x = b.x;
+                select = i;
+            }
+        }
+        Some(eligible[select])
     }
 }
 
@@ -145,40 +296,43 @@ mod tests {
     // -- PixMut::mask_boxa --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mask_boxa_set() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit8);
         let boxa = sample_boxa();
         pix.mask_boxa(&boxa, PixelOp::Set);
+        // Pixels inside the first box should be max value
         assert_eq!(pix.get_pixel_unchecked(15, 15), 255);
+        // Pixels outside should remain 0
         assert_eq!(pix.get_pixel_unchecked(0, 0), 0);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mask_boxa_clear() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit8);
+        // Set all pixels first
         pix.set_region(0, 0, 100, 100);
         let boxa = sample_boxa();
         pix.mask_boxa(&boxa, PixelOp::Clear);
+        // Pixels inside box should be 0
         assert_eq!(pix.get_pixel_unchecked(15, 15), 0);
+        // Pixels outside should remain max
         assert_eq!(pix.get_pixel_unchecked(0, 0), 255);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_mask_boxa_flip() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit8);
         let boxa = sample_boxa();
         pix.mask_boxa(&boxa, PixelOp::Flip);
+        // Flip of 0 should give max value
         assert_eq!(pix.get_pixel_unchecked(15, 15), 255);
+        // Pixels outside should remain 0
         assert_eq!(pix.get_pixel_unchecked(0, 0), 0);
     }
 
     // -- PixMut::paint_boxa --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_paint_boxa() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit8);
         let boxa = sample_boxa();
@@ -190,7 +344,6 @@ mod tests {
     // -- PixMut::set_bw_boxa --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_bw_boxa_white() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit8);
         let boxa = sample_boxa();
@@ -200,9 +353,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_bw_boxa_black() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit8);
+        // Set all white first
         pix.set_region(0, 0, 100, 100);
         let boxa = sample_boxa();
         pix.set_bw_boxa(&boxa, false);
@@ -213,28 +366,28 @@ mod tests {
     // -- PixMut::paint_boxa_random --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_paint_boxa_random() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit32);
         let boxa = sample_boxa();
         pix.paint_boxa_random(&boxa).unwrap();
+        // First box gets first cycling color (non-zero for 32bpp)
         assert_ne!(pix.get_pixel_unchecked(15, 15), 0);
+        // Pixels outside remain 0
         assert_eq!(pix.get_pixel_unchecked(0, 0), 0);
     }
 
     // -- PixMut::blend_boxa_random --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blend_boxa_random() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit32);
         let boxa = sample_boxa();
         pix.blend_boxa_random(&boxa, 0.5).unwrap();
+        // Pixels inside blend region should be non-zero
         assert_ne!(pix.get_pixel_unchecked(15, 15), 0);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blend_boxa_random_bad_depth() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit8);
         let boxa = sample_boxa();
@@ -244,11 +397,11 @@ mod tests {
     // -- PixMut::draw_boxa --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_draw_boxa() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit32);
         let boxa = sample_boxa();
         pix.draw_boxa(&boxa, 1, Color::RED).unwrap();
+        // Top-left corner of first box outline should be RED
         let pixel = pix.get_pixel_unchecked(10, 10);
         assert_ne!(pixel, 0);
     }
@@ -256,18 +409,17 @@ mod tests {
     // -- PixMut::draw_boxa_random --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_draw_boxa_random() {
         let mut pix = make_pix(100, 100, PixelDepth::Bit32);
         let boxa = sample_boxa();
         pix.draw_boxa_random(&boxa, 1).unwrap();
+        // Outline pixels should be set
         assert_ne!(pix.get_pixel_unchecked(10, 10), 0);
     }
 
     // -- Boxa::compare_regions --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_regions_same() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(0, 0, 10, 10).unwrap());
@@ -279,7 +431,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_regions_diff() {
         let mut boxa1 = Boxa::new();
         boxa1.push(Box::new(0, 0, 10, 10).unwrap()); // area 100
@@ -294,7 +445,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_regions_thresh_filter() {
         let mut boxa1 = Boxa::new();
         boxa1.push(Box::new(0, 0, 2, 2).unwrap()); // area 4 - filtered
@@ -311,7 +461,6 @@ mod tests {
     // -- Boxa::select_large_ul_box --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_select_large_ul_box() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(50, 50, 100, 100).unwrap()); // big, at bottom-right
@@ -319,12 +468,12 @@ mod tests {
         boxa.push(Box::new(5, 5, 5, 5).unwrap()); // small, filtered
 
         let selected = boxa.select_large_ul_box(0.9, 20).unwrap();
+        // The big box near UL should be selected
         assert_eq!(selected.x, 10);
         assert_eq!(selected.y, 10);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_select_large_ul_box_empty() {
         let boxa = Boxa::new();
         assert!(boxa.select_large_ul_box(0.9, 20).is_none());
