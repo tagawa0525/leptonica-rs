@@ -3,6 +3,7 @@
 //! These structures represent rectangular regions in an image.
 
 pub mod adjust;
+pub mod draw;
 pub mod geometry;
 pub mod select;
 pub mod serial;
