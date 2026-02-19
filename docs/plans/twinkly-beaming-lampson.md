@@ -1,6 +1,6 @@
 # leptonica-core 全関数移植計画 (Phase 10-17)
 
-Status: IN_PROGRESS (Phase 13.1 完了)
+Status: IN_PROGRESS (Phase 13.2 完了)
 
 ## Context
 
@@ -236,17 +236,21 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 
 実装内容: 8関数 + 35テスト
 
-### 13.2 高ビット・特殊変換 (`feat/core-conv-high`)
+### 13.2 高ビット・特殊変換 (`feat/core-conv-high`) ✅ IMPLEMENTED
 
 対象（pixconv.c）:
-- pixConvertTo32, pixConvertTo32BySampling
-- pixConvert24To32, pixConvert32To24, pixConvert32To16
-- pixAddAlphaTo1bpp
-- pixColorizeGray, pixConvertGrayToFalseColor
-- pixConvertRGBToGrayArb, pixConvertRGBToBinaryArb
-- pixConvertRGBToColormap, pixConvertCmapTo1
-- pixQuantizeIfFewColors, pixConvertForPSWrap
-- pixConvertToSubpixelRGB, pixConvertGrayToSubpixelRGB, pixConvertColorToSubpixelRGB
+- pixConvertTo32（既実装）, pixConvertTo32BySampling（→transform延期）
+- pixConvert24To32（スキップ・24bpp非対応）, pixConvert32To24（スキップ）, pixConvert32To16 ✅
+- pixAddAlphaTo1bpp ✅
+- pixColorizeGray ✅, pixConvertGrayToFalseColor ✅
+- pixConvertRGBToGrayArb ✅, pixConvertRGBToBinaryArb（→color延期）
+- pixConvertRGBToColormap（→color延期）, pixConvertCmapTo1 ✅
+- pixQuantizeIfFewColors（→color延期）, pixConvertForPSWrap ✅
+- pixConvertToSubpixelRGB, pixConvertGrayToSubpixelRGB, pixConvertColorToSubpixelRGB（→transform延期）
+
+実装内容: 7関数（convert_32_to_16, add_alpha_to_1bpp, convert_rgb_to_gray_arb,
+colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wrap）
++ Convert32To16Type enum + 25テスト
 
 修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
 
