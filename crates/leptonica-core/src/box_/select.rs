@@ -204,26 +204,26 @@ impl Boxaa {
 
     /// Get the range of box dimensions across all Boxa.
     ///
-    /// Returns `(min_w, max_w, min_h, max_h)`.
+    /// Returns `(min_w, min_h, max_w, max_h)`.
     ///
     /// C Leptonica equivalent: `boxaaSizeRange`
     pub fn size_range(&self) -> Option<(i32, i32, i32, i32)> {
         let mut min_w = i32::MAX;
-        let mut max_w = i32::MIN;
         let mut min_h = i32::MAX;
+        let mut max_w = i32::MIN;
         let mut max_h = i32::MIN;
         let mut found = false;
         for boxa in self.boxas() {
             for b in boxa.boxes() {
                 found = true;
                 min_w = min_w.min(b.w);
-                max_w = max_w.max(b.w);
                 min_h = min_h.min(b.h);
+                max_w = max_w.max(b.w);
                 max_h = max_h.max(b.h);
             }
         }
         if found {
-            Some((min_w, max_w, min_h, max_h))
+            Some((min_w, min_h, max_w, max_h))
         } else {
             None
         }
@@ -406,10 +406,10 @@ mod tests {
         baa.push(b1);
         baa.push(b2);
 
-        let (min_w, max_w, min_h, max_h) = baa.size_range().unwrap();
+        let (min_w, min_h, max_w, max_h) = baa.size_range().unwrap();
         assert_eq!(min_w, 10);
-        assert_eq!(max_w, 30);
         assert_eq!(min_h, 5);
+        assert_eq!(max_w, 30);
         assert_eq!(max_h, 20);
     }
 }
