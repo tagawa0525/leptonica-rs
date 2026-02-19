@@ -328,6 +328,39 @@ impl Pix {
     }
 }
 
+impl PixMut {
+    /// Set all pixels in a column from a float slice.
+    ///
+    /// Values are clamped and rounded to the valid pixel range for the depth.
+    /// The image must be 8 bpp.
+    ///
+    /// C equivalent: `pixSetPixelColumn()` in `pix4.c`
+    pub fn set_pixel_column(&mut self, col: u32, values: &[f32]) -> Result<()> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if col >= self.width() {
+            return Err(Error::IndexOutOfBounds {
+                index: col as usize,
+                len: self.width() as usize,
+            });
+        }
+        let h = self.height() as usize;
+        if values.len() < h {
+            return Err(Error::InvalidParameter(format!(
+                "values slice length {} is less than image height {}",
+                values.len(),
+                h
+            )));
+        }
+        for (row, &val) in values.iter().take(h).enumerate() {
+            let clamped = val.clamp(0.0, 255.0) as u32;
+            self.set_pixel_unchecked(col, row as u32, clamped);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -427,5 +460,49 @@ mod tests {
 
         let pix: Pix = pix_mut.into();
         assert_eq!(pix.get_rgb(0, 0), Some((255, 128, 64)));
+    }
+
+    // -- PixMut::set_pixel_column --
+
+    #[test]
+    fn test_set_pixel_column() {
+        let pix = Pix::new(3, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let values = [10.0f32, 50.0, 100.0, 200.0];
+        pm.set_pixel_column(1, &values).unwrap();
+        let pix: Pix = pm.into();
+        // Column 1 should have new values; other columns unchanged (0)
+        assert_eq!(pix.get_pixel(1, 0), Some(10));
+        assert_eq!(pix.get_pixel(1, 1), Some(50));
+        assert_eq!(pix.get_pixel(1, 2), Some(100));
+        assert_eq!(pix.get_pixel(1, 3), Some(200));
+        assert_eq!(pix.get_pixel(0, 0), Some(0)); // unchanged
+    }
+
+    #[test]
+    fn test_set_pixel_column_not_8bpp() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_pixel_column(0, &[0.0; 5]).is_err());
+    }
+
+    #[test]
+    fn test_set_pixel_column_short_slice() {
+        // Slice shorter than image height should return an error
+        let pix = Pix::new(3, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_pixel_column(0, &[10.0f32, 20.0, 30.0]).is_err()); // length 3 < height 4
+    }
+
+    #[test]
+    fn test_set_pixel_column_clamping() {
+        // Values outside [0, 255] should be clamped
+        let pix = Pix::new(1, 3, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_column(0, &[-10.0f32, 128.0, 300.0]).unwrap();
+        let pix: Pix = pm.into();
+        assert_eq!(pix.get_pixel(0, 0), Some(0)); // clamped from -10
+        assert_eq!(pix.get_pixel(0, 1), Some(128));
+        assert_eq!(pix.get_pixel(0, 2), Some(255)); // clamped from 300
     }
 }
