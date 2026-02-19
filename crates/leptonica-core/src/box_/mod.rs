@@ -675,7 +675,7 @@ pub(crate) fn compare_relation_i64(value: i64, threshold: i64, relation: SizeRel
 }
 
 /// Helper: compare two f64 values using SizeRelation
-fn compare_relation_f64(value: f64, threshold: f64, relation: SizeRelation) -> bool {
+pub(crate) fn compare_relation_f64(value: f64, threshold: f64, relation: SizeRelation) -> bool {
     match relation {
         SizeRelation::LessThan => value < threshold,
         SizeRelation::LessThanOrEqual => value <= threshold,

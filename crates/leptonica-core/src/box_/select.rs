@@ -8,7 +8,7 @@
 use crate::error::{Error, Result};
 use crate::numa::Numa;
 
-use super::{Box, Boxa, Boxaa, SizeRelation};
+use super::{Boxa, Boxaa, SizeRelation, compare_relation, compare_relation_i64};
 
 // ---- Types ----
 
@@ -35,7 +35,15 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaSelectRange`
     pub fn select_range(&self, first: usize, last: usize) -> Boxa {
-        todo!()
+        let n = self.len();
+        if n == 0 || first >= n {
+            return Boxa::new();
+        }
+        let actual_last = if last == 0 { n - 1 } else { last.min(n - 1) };
+        if first > actual_last {
+            return Boxa::new();
+        }
+        self.boxes()[first..=actual_last].iter().copied().collect()
     }
 
     /// Generate a boolean indicator based on box dimensions.
@@ -50,21 +58,50 @@ impl Boxa {
         select_type: SizeSelectType,
         relation: SizeRelation,
     ) -> Vec<bool> {
-        todo!()
+        self.boxes()
+            .iter()
+            .map(|b| {
+                let w_match = compare_relation(b.w, width, relation);
+                let h_match = compare_relation(b.h, height, relation);
+                match select_type {
+                    SizeSelectType::Width => w_match,
+                    SizeSelectType::Height => h_match,
+                    SizeSelectType::Either => w_match || h_match,
+                    SizeSelectType::Both => w_match && h_match,
+                }
+            })
+            .collect()
     }
 
     /// Generate a boolean indicator based on box area.
     ///
     /// C Leptonica equivalent: `boxaMakeAreaIndicator`
     pub fn make_area_indicator(&self, area: i64, relation: SizeRelation) -> Vec<bool> {
-        todo!()
+        self.boxes()
+            .iter()
+            .map(|b| compare_relation_i64(b.area(), area, relation))
+            .collect()
     }
 
     /// Generate a boolean indicator based on width/height ratio.
     ///
     /// C Leptonica equivalent: `boxaMakeWHRatioIndicator`
     pub fn make_wh_ratio_indicator(&self, ratio: f64, relation: SizeRelation) -> Vec<bool> {
-        todo!()
+        self.boxes()
+            .iter()
+            .map(|b| {
+                if b.h == 0 {
+                    return false;
+                }
+                let r = b.w as f64 / b.h as f64;
+                match relation {
+                    SizeRelation::LessThan => r < ratio,
+                    SizeRelation::LessThanOrEqual => r <= ratio,
+                    SizeRelation::GreaterThan => r > ratio,
+                    SizeRelation::GreaterThanOrEqual => r >= ratio,
+                }
+            })
+            .collect()
     }
 
     /// Filter boxes using a boolean indicator array.
@@ -73,14 +110,27 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaSelectWithIndicator`
     pub fn select_with_indicator(&self, indicator: &[bool]) -> Boxa {
-        todo!()
+        self.boxes()
+            .iter()
+            .zip(indicator.iter())
+            .filter(|(_, ind)| **ind)
+            .map(|(b, _)| *b)
+            .collect()
     }
 
     /// Swap two boxes at the given indices.
     ///
     /// C Leptonica equivalent: `boxaSwapBoxes`
     pub fn swap_boxes(&mut self, i: usize, j: usize) -> Result<()> {
-        todo!()
+        let n = self.len();
+        if i >= n || j >= n {
+            return Err(Error::IndexOutOfBounds {
+                index: i.max(j),
+                len: n,
+            });
+        }
+        self.boxes_mut().swap(i, j);
+        Ok(())
     }
 
     /// Get the range of box positions (upper-left corners).
@@ -89,7 +139,20 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaLocationRange`
     pub fn location_range(&self) -> Option<(i32, i32, i32, i32)> {
-        todo!()
+        if self.is_empty() {
+            return None;
+        }
+        let mut min_x = i32::MAX;
+        let mut min_y = i32::MAX;
+        let mut max_x = i32::MIN;
+        let mut max_y = i32::MIN;
+        for b in self.boxes() {
+            min_x = min_x.min(b.x);
+            min_y = min_y.min(b.y);
+            max_x = max_x.max(b.x);
+            max_y = max_y.max(b.y);
+        }
+        Some((min_x, min_y, max_x, max_y))
     }
 
     /// Extract widths and heights as separate Numa arrays.
@@ -98,7 +161,13 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaGetSizes`
     pub fn get_sizes(&self) -> (Numa, Numa) {
-        todo!()
+        let mut widths = Numa::with_capacity(self.len());
+        let mut heights = Numa::with_capacity(self.len());
+        for b in self.boxes() {
+            widths.push(b.w as f32);
+            heights.push(b.h as f32);
+        }
+        (widths, heights)
     }
 
     /// Compute the total area of all boxes (sum of w*h).
@@ -107,7 +176,7 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaGetArea`
     pub fn get_total_area(&self) -> i64 {
-        todo!()
+        self.boxes().iter().map(|b| b.area()).sum()
     }
 }
 
@@ -121,7 +190,19 @@ impl Boxaa {
     ///
     /// C Leptonica equivalent: `boxaaSelectRange`
     pub fn select_range(&self, first: usize, last: usize) -> Boxaa {
-        todo!()
+        let n = self.len();
+        if n == 0 || first >= n {
+            return Boxaa::new();
+        }
+        let actual_last = if last == 0 { n - 1 } else { last.min(n - 1) };
+        if first > actual_last {
+            return Boxaa::new();
+        }
+        let mut result = Boxaa::with_capacity(actual_last - first + 1);
+        for boxa in &self.boxas()[first..=actual_last] {
+            result.push(boxa.clone());
+        }
+        result
     }
 
     /// Get the range of box dimensions across all Boxa.
@@ -130,7 +211,25 @@ impl Boxaa {
     ///
     /// C Leptonica equivalent: `boxaaSizeRange`
     pub fn size_range(&self) -> Option<(i32, i32, i32, i32)> {
-        todo!()
+        let mut min_w = i32::MAX;
+        let mut max_w = i32::MIN;
+        let mut min_h = i32::MAX;
+        let mut max_h = i32::MIN;
+        let mut found = false;
+        for boxa in self.boxas() {
+            for b in boxa.boxes() {
+                found = true;
+                min_w = min_w.min(b.w);
+                max_w = max_w.max(b.w);
+                min_h = min_h.min(b.h);
+                max_h = max_h.max(b.h);
+            }
+        }
+        if found {
+            Some((min_w, max_w, min_h, max_h))
+        } else {
+            None
+        }
     }
 }
 
@@ -139,6 +238,7 @@ impl Boxaa {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::box_::Box;
 
     fn sample_boxa() -> Boxa {
         let mut boxa = Boxa::new();
@@ -152,7 +252,6 @@ mod tests {
     // -- Boxa::select_range --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_select_range() {
         let boxa = sample_boxa();
         let result = boxa.select_range(1, 2);
@@ -162,7 +261,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_select_range_to_end() {
         let boxa = sample_boxa();
         let result = boxa.select_range(2, 0);
@@ -173,7 +271,6 @@ mod tests {
     // -- Boxa::make_size_indicator --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_size_indicator_width_gt() {
         let boxa = sample_boxa();
         let ind =
@@ -182,7 +279,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_size_indicator_both_gt() {
         let boxa = sample_boxa();
         let ind =
@@ -192,7 +288,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_size_indicator_either_gt() {
         let boxa = sample_boxa();
         let ind =
@@ -204,7 +299,6 @@ mod tests {
     // -- Boxa::make_area_indicator --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_area_indicator() {
         let boxa = sample_boxa();
         let ind = boxa.make_area_indicator(10000, SizeRelation::GreaterThan);
@@ -215,7 +309,6 @@ mod tests {
     // -- Boxa::make_wh_ratio_indicator --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_wh_ratio_indicator() {
         let boxa = sample_boxa();
         let ind = boxa.make_wh_ratio_indicator(1.0, SizeRelation::GreaterThan);
@@ -226,7 +319,6 @@ mod tests {
     // -- Boxa::select_with_indicator --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_select_with_indicator() {
         let boxa = sample_boxa();
         let ind = vec![true, false, true, false];
@@ -239,7 +331,6 @@ mod tests {
     // -- Boxa::swap_boxes --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_swap_boxes() {
         let mut boxa = sample_boxa();
         boxa.swap_boxes(0, 3).unwrap();
@@ -248,7 +339,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_swap_boxes_invalid() {
         let mut boxa = sample_boxa();
         assert!(boxa.swap_boxes(0, 10).is_err());
@@ -257,7 +347,6 @@ mod tests {
     // -- Boxa::location_range --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_location_range() {
         let boxa = sample_boxa();
         let (min_x, min_y, max_x, max_y) = boxa.location_range().unwrap();
@@ -268,7 +357,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_location_range_empty() {
         let boxa = Boxa::new();
         assert!(boxa.location_range().is_none());
@@ -277,7 +365,6 @@ mod tests {
     // -- Boxa::get_sizes --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_sizes() {
         let boxa = sample_boxa();
         let (widths, heights) = boxa.get_sizes();
@@ -291,7 +378,6 @@ mod tests {
     // -- Boxa::get_total_area --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_total_area() {
         let boxa = sample_boxa();
         // 5000 + 16000 + 7500 + 60000 = 88500
@@ -301,7 +387,6 @@ mod tests {
     // -- Boxaa::select_range --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_select_range() {
         let mut baa = Boxaa::new();
         baa.push(Boxa::new());
@@ -315,7 +400,6 @@ mod tests {
     // -- Boxaa::size_range --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_size_range() {
         let mut baa = Boxaa::new();
         let mut b1 = Boxa::new();
