@@ -1,6 +1,6 @@
 # leptonica-core 全関数移植計画 (Phase 10-17)
 
-Status: IN_PROGRESS
+Status: IN_PROGRESS (Phase 13.1 完了)
 
 ## Context
 
@@ -215,18 +215,26 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 
 ## Phase 13: 深度変換（~25関数, 2 PR）
 
-### 13.1 低ビット深度変換 (`feat/core-conv-low`)
+### 13.1 低ビット深度変換 (`feat/core-conv-low`) ✅ 完了 (PR #93)
 
 対象（pixconv.c）:
-- pixThreshold8
-- pixConvert2To8, pixConvert4To8
-- pixConvertTo2, pixConvert8To2
-- pixConvertTo4, pixConvert8To4
-- pixConvertTo8, pixConvertTo8BySampling, pixConvertTo8Colormap
-- pixConvertGrayToColormap, pixConvertGrayToColormap8
-- pixConvertTo1Adaptive, pixConvertTo1BySampling
+- ✅ pixConvert2To8 - 実装済み
+- ✅ pixConvert4To8 - 実装済み
+- ✅ pixConvertTo2 - 実装済み
+- ✅ pixConvert8To2 - 実装済み
+- ✅ pixConvertTo4 - 実装済み
+- ✅ pixConvert8To4 - 実装済み
+- ✅ pixConvertGrayToColormap - 実装済み
+- ✅ pixConvertGrayToColormap8 - 実装済み
+- ⏭️ pixThreshold8 - 後続（filter crateの`pixBackgroundNormSimple`依存）
+- ⏭️ pixConvertTo8BySampling - 後続（transform crateの`pixScaleBySampling`依存）
+- ⏭️ pixConvertTo8Colormap - 32bpp部分は後続
+- ⏭️ pixConvertTo1Adaptive - 後続（filter crateの`pixBackgroundNormSimple`依存）
+- ⏭️ pixConvertTo1BySampling - 後続（transform crateの`pixScaleBySampling`依存）
 
 修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+
+実装内容: 8関数 + 35テスト
 
 ### 13.2 高ビット・特殊変換 (`feat/core-conv-high`)
 
