@@ -346,6 +346,13 @@ impl PixMut {
             });
         }
         let h = self.height() as usize;
+        if values.len() < h {
+            return Err(Error::InvalidParameter(format!(
+                "values slice length {} is less than image height {}",
+                values.len(),
+                h
+            )));
+        }
         for (row, &val) in values.iter().take(h).enumerate() {
             let clamped = val.clamp(0.0, 255.0) as u32;
             self.set_pixel_unchecked(col, row as u32, clamped);
@@ -477,5 +484,25 @@ mod tests {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         assert!(pm.set_pixel_column(0, &[0.0; 5]).is_err());
+    }
+
+    #[test]
+    fn test_set_pixel_column_short_slice() {
+        // Slice shorter than image height should return an error
+        let pix = Pix::new(3, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_pixel_column(0, &[10.0f32, 20.0, 30.0]).is_err()); // length 3 < height 4
+    }
+
+    #[test]
+    fn test_set_pixel_column_clamping() {
+        // Values outside [0, 255] should be clamped
+        let pix = Pix::new(1, 3, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_column(0, &[-10.0f32, 128.0, 300.0]).unwrap();
+        let pix: Pix = pm.into();
+        assert_eq!(pix.get_pixel(0, 0), Some(0)); // clamped from -10
+        assert_eq!(pix.get_pixel(0, 1), Some(128));
+        assert_eq!(pix.get_pixel(0, 2), Some(255)); // clamped from 300
     }
 }
