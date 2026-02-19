@@ -328,6 +328,18 @@ impl Pix {
     }
 }
 
+impl PixMut {
+    /// Set all pixels in a column from a float slice.
+    ///
+    /// Values are clamped and rounded to the valid pixel range for the depth.
+    /// The image must be 8 bpp.
+    ///
+    /// C equivalent: `pixSetPixelColumn()` in `pix4.c`
+    pub fn set_pixel_column(&mut self, _col: u32, _values: &[f32]) -> Result<()> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -427,5 +439,31 @@ mod tests {
 
         let pix: Pix = pix_mut.into();
         assert_eq!(pix.get_rgb(0, 0), Some((255, 128, 64)));
+    }
+
+    // -- PixMut::set_pixel_column --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_pixel_column() {
+        let pix = Pix::new(3, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let values = [10.0f32, 50.0, 100.0, 200.0];
+        pm.set_pixel_column(1, &values).unwrap();
+        let pix: Pix = pm.into();
+        // Column 1 should have new values; other columns unchanged (0)
+        assert_eq!(pix.get_pixel(1, 0), Some(10));
+        assert_eq!(pix.get_pixel(1, 1), Some(50));
+        assert_eq!(pix.get_pixel(1, 2), Some(100));
+        assert_eq!(pix.get_pixel(1, 3), Some(200));
+        assert_eq!(pix.get_pixel(0, 0), Some(0)); // unchanged
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_pixel_column_not_8bpp() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_pixel_column(0, &[0.0; 5]).is_err());
     }
 }

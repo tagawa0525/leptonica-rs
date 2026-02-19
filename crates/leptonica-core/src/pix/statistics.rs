@@ -1162,6 +1162,21 @@ pub enum DiffDirection {
     Vertical,
 }
 
+/// Statistic type for row/column histogram-based statistics.
+///
+/// C equivalent: `L_MEAN_ABSVAL`, `L_MEDIAN_VAL`, `L_MODE_VAL`, `L_MODE_COUNT`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RowColStatType {
+    /// Mean of absolute values (simple average).
+    MeanAbsVal,
+    /// Median value (binned).
+    MedianVal,
+    /// Mode value (most frequent bin value).
+    ModeVal,
+    /// Count of the most frequent bin.
+    ModeCount,
+}
+
 /// Type of pixel statistic to compute.
 ///
 /// C equivalent: `L_MEAN_ABSVAL`, `L_ROOT_MEAN_SQUARE`, etc.
@@ -1913,6 +1928,75 @@ impl Pix {
         }
         Ok(moments)
     }
+
+    /// Compute the average RGB color of a 32 bpp image in a specified region.
+    ///
+    /// Pixels marked ON in `mask` (1 bpp) are excluded. Subsampling is
+    /// controlled by `subsamp` (1 = use every pixel, 2 = use every other, etc.).
+    /// Returns `None` if no pixels were sampled (e.g., all masked out).
+    ///
+    /// The result is packed as `0xRRGGBB00`.
+    ///
+    /// C equivalent: `pixAverageInRectRGB()` in `pix3.c`
+    pub fn average_in_rect_rgb(
+        &self,
+        _mask: Option<&Pix>,
+        _region: Option<&Box>,
+        _subsamp: u32,
+    ) -> Result<Option<u32>> {
+        todo!()
+    }
+
+    /// Compute the average absolute difference between adjacent pixels on a line.
+    ///
+    /// The line must be either horizontal (`y1 == y2`) or vertical (`x1 == x2`).
+    /// The image must be 8 bpp grayscale.
+    ///
+    /// C equivalent: `pixAbsDiffOnLine()` in `pix3.c`
+    pub fn abs_diff_on_line(&self, _x1: i32, _y1: i32, _x2: i32, _y2: i32) -> Result<f32> {
+        todo!()
+    }
+
+    /// Count pixels with a specific value in a region, with optional subsampling.
+    ///
+    /// Supported depths: 1, 2, 4, 8 bpp. Subsampled counts are scaled by
+    /// `factor²` to approximate full-image counts.
+    ///
+    /// C equivalent: `pixCountArbInRect()` in `pix3.c`
+    pub fn count_arb_in_rect(&self, _region: Option<&Box>, _val: u32, _factor: u32) -> Result<u64> {
+        todo!()
+    }
+
+    /// Compute per-row statistics using a binned histogram.
+    ///
+    /// Returns a `Numa` with one entry per row. For `MeanAbsVal`, uses direct
+    /// averaging. For `MedianVal`, `ModeVal`, `ModeCount`, uses `nbins`-bin
+    /// histograms. `thresh` is the minimum mode count for `ModeVal` (use 0
+    /// otherwise).
+    ///
+    /// C equivalent: `pixGetRowStats()` in `pix4.c`
+    pub fn get_row_stats(
+        &self,
+        _stat_type: RowColStatType,
+        _nbins: u32,
+        _thresh: u32,
+    ) -> Result<Numa> {
+        todo!()
+    }
+
+    /// Compute per-column statistics using a binned histogram.
+    ///
+    /// Returns a `Numa` with one entry per column. Mirror of `get_row_stats`.
+    ///
+    /// C equivalent: `pixGetColumnStats()` in `pix4.c`
+    pub fn get_column_stats(
+        &self,
+        _stat_type: RowColStatType,
+        _nbins: u32,
+        _thresh: u32,
+    ) -> Result<Numa> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -2587,5 +2671,186 @@ mod tests {
     fn test_get_moment_by_column_not_1bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.get_moment_by_column(1).is_err());
+    }
+
+    // -- Pix::average_in_rect_rgb --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_average_in_rect_rgb_full() {
+        // 2x2 image: all red pixels
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let red = crate::color::compose_rgba(200, 0, 0, 255);
+        for y in 0..2 {
+            for x in 0..2 {
+                pm.set_pixel_unchecked(x, y, red);
+            }
+        }
+        let pix: Pix = pm.into();
+        let avg = pix.average_in_rect_rgb(None, None, 1).unwrap();
+        let result = avg.unwrap();
+        let (r, g, b, _) = crate::color::extract_rgba(result);
+        assert_eq!(r, 200);
+        assert_eq!(g, 0);
+        assert_eq!(b, 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_average_in_rect_rgb_not_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.average_in_rect_rgb(None, None, 1).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_average_in_rect_rgb_masked_all_out() {
+        // All pixels masked → returns None
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let red = crate::color::compose_rgba(100, 50, 25, 255);
+        for y in 0..4 {
+            for x in 0..4 {
+                pm.set_pixel_unchecked(x, y, red);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // mask: all ON → all pixels excluded
+        let mask = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        for y in 0..4 {
+            for x in 0..4 {
+                mm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let mask: Pix = mm.into();
+        let avg = pix.average_in_rect_rgb(Some(&mask), None, 1).unwrap();
+        assert!(avg.is_none());
+    }
+
+    // -- Pix::abs_diff_on_line --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_abs_diff_on_line_horizontal() {
+        // Row 0: [0, 10, 30, 60] → diffs: 10, 20, 30 → avg = 20
+        let pix = Pix::new(4, 2, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 10);
+        pm.set_pixel_unchecked(2, 0, 30);
+        pm.set_pixel_unchecked(3, 0, 60);
+        let pix: Pix = pm.into();
+        let diff = pix.abs_diff_on_line(0, 0, 3, 0).unwrap();
+        assert!((diff - 20.0).abs() < 0.01);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_abs_diff_on_line_vertical() {
+        // Col 0: [100, 90, 70] → diffs: 10, 20 → avg = 15
+        let pix = Pix::new(2, 3, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 100);
+        pm.set_pixel_unchecked(0, 1, 90);
+        pm.set_pixel_unchecked(0, 2, 70);
+        let pix: Pix = pm.into();
+        let diff = pix.abs_diff_on_line(0, 0, 0, 2).unwrap();
+        assert!((diff - 15.0).abs() < 0.01);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_abs_diff_on_line_not_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(pix.abs_diff_on_line(0, 0, 5, 0).is_err());
+    }
+
+    // -- Pix::count_arb_in_rect --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_count_arb_in_rect_8bpp() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 42);
+        pm.set_pixel_unchecked(1, 1, 42);
+        pm.set_pixel_unchecked(3, 3, 42);
+        let pix: Pix = pm.into();
+        let count = pix.count_arb_in_rect(None, 42, 1).unwrap();
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_count_arb_in_rect_1bpp() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(2, 2, 1);
+        let pix: Pix = pm.into();
+        let count = pix.count_arb_in_rect(None, 1, 1).unwrap();
+        assert_eq!(count, 2);
+    }
+
+    // -- Pix::get_row_stats / get_column_stats --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_row_stats_mean() {
+        // 3 wide, 2 tall, 8bpp
+        // Row 0: [10, 20, 30] → mean = 20
+        // Row 1: [40, 60, 80] → mean = 60
+        let pix = Pix::new(3, 2, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 10);
+        pm.set_pixel_unchecked(1, 0, 20);
+        pm.set_pixel_unchecked(2, 0, 30);
+        pm.set_pixel_unchecked(0, 1, 40);
+        pm.set_pixel_unchecked(1, 1, 60);
+        pm.set_pixel_unchecked(2, 1, 80);
+        let pix: Pix = pm.into();
+
+        let stats = pix.get_row_stats(RowColStatType::MeanAbsVal, 0, 0).unwrap();
+        assert_eq!(stats.len(), 2);
+        let v0 = stats.get(0).unwrap();
+        assert!((v0 - 20.0).abs() < 0.5, "row0 mean={v0}");
+        let v1 = stats.get(1).unwrap();
+        assert!((v1 - 60.0).abs() < 0.5, "row1 mean={v1}");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_column_stats_mean() {
+        // 2 wide, 3 tall, 8bpp
+        // Col 0: [0, 100, 200] → mean = 100
+        // Col 1: [0, 50, 100] → mean = 50
+        let pix = Pix::new(2, 3, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(0, 1, 100);
+        pm.set_pixel_unchecked(0, 2, 200);
+        pm.set_pixel_unchecked(1, 0, 0);
+        pm.set_pixel_unchecked(1, 1, 50);
+        pm.set_pixel_unchecked(1, 2, 100);
+        let pix: Pix = pm.into();
+
+        let stats = pix
+            .get_column_stats(RowColStatType::MeanAbsVal, 0, 0)
+            .unwrap();
+        assert_eq!(stats.len(), 2);
+        let v0 = stats.get(0).unwrap();
+        assert!((v0 - 100.0).abs() < 0.5, "col0 mean={v0}");
+        let v1 = stats.get(1).unwrap();
+        assert!((v1 - 50.0).abs() < 0.5, "col1 mean={v1}");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_row_stats_not_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert!(pix.get_row_stats(RowColStatType::MeanAbsVal, 0, 0).is_err());
     }
 }
