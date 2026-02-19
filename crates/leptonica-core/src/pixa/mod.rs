@@ -5,7 +5,7 @@
 
 use crate::box_::{Box, Boxa, SizeRelation};
 use crate::error::{Error, Result};
-use crate::numa::SortOrder;
+use crate::numa::{Numa, SortOrder};
 use crate::pix::{Pix, PixMut, PixelDepth};
 
 /// Sort key for Pixa sorting operations.
@@ -460,6 +460,19 @@ impl Pixa {
             }
         }
         Ok(result)
+    }
+
+    // ========================================================================
+    // Pixel counting functions
+    // ========================================================================
+
+    /// Count ON pixels in each 1 bpp Pix.
+    ///
+    /// Returns a Numa with one entry per Pix.
+    ///
+    /// C equivalent: `pixaCountPixels()` in `pix3.c`
+    pub fn count_pixels(&self) -> Result<Numa> {
+        todo!()
     }
 
     // ========================================================================
@@ -1263,5 +1276,57 @@ mod tests {
         assert_eq!(pixaa[0].len(), 2);
 
         assert!(pixaa.replace(10, Pixa::new()).is_err());
+    }
+
+    // -- Pixa::count_pixels --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixa_count_pixels() {
+        use crate::pix::PixelDepth;
+
+        let mut pixa = Pixa::new();
+
+        // 1bpp image with 3 ON pixels
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm1 = pix1.to_mut();
+        pm1.set_pixel_unchecked(0, 0, 1);
+        pm1.set_pixel_unchecked(5, 5, 1);
+        pm1.set_pixel_unchecked(9, 9, 1);
+        pixa.push(pm1.into());
+
+        // 1bpp image with 0 ON pixels
+        pixa.push(Pix::new(10, 10, PixelDepth::Bit1).unwrap());
+
+        // 1bpp image with 2 ON pixels
+        let pix3 = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let mut pm3 = pix3.to_mut();
+        pm3.set_pixel_unchecked(0, 0, 1);
+        pm3.set_pixel_unchecked(4, 4, 1);
+        pixa.push(pm3.into());
+
+        let counts = pixa.count_pixels().unwrap();
+        assert_eq!(counts.len(), 3);
+        assert_eq!(counts.get_i32(0), Some(3));
+        assert_eq!(counts.get_i32(1), Some(0));
+        assert_eq!(counts.get_i32(2), Some(2));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixa_count_pixels_empty() {
+        let pixa = Pixa::new();
+        let counts = pixa.count_pixels().unwrap();
+        assert_eq!(counts.len(), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixa_count_pixels_not_1bpp() {
+        use crate::pix::PixelDepth;
+
+        let mut pixa = Pixa::new();
+        pixa.push(Pix::new(10, 10, PixelDepth::Bit8).unwrap());
+        assert!(pixa.count_pixels().is_err());
     }
 }

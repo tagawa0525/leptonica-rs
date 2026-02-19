@@ -203,6 +203,72 @@ impl Pix {
     }
 }
 
+impl PixMut {
+    /// Set pixels to a value where a 1 bpp mask is ON, with explicit alignment.
+    ///
+    /// Like `set_masked`, but the mask is placed at `(x, y)` relative to the
+    /// destination, and only 8, 16, or 32 bpp destinations are supported.
+    ///
+    /// C equivalent: `pixSetMaskedGeneral()` in `pix3.c`
+    pub fn set_masked_general(&mut self, _mask: &Pix, _val: u32, _x: i32, _y: i32) -> Result<()> {
+        todo!()
+    }
+
+    /// Copy pixels from a source image where a 1 bpp mask is ON, with explicit alignment.
+    ///
+    /// Both source and mask are aligned to `(x, y)` relative to the destination.
+    ///
+    /// C equivalent: `pixCombineMaskedGeneral()` in `pix3.c`
+    pub fn combine_masked_general(
+        &mut self,
+        _src: &Pix,
+        _mask: &Pix,
+        _x: i32,
+        _y: i32,
+    ) -> Result<()> {
+        todo!()
+    }
+}
+
+impl Pix {
+    /// Copy pixels from box regions, filling the rest with a background color.
+    ///
+    /// C equivalent: `pixCopyWithBoxa()` in `pix3.c`
+    pub fn copy_with_boxa(
+        &self,
+        _boxa: &crate::box_::Boxa,
+        _background: super::InitColor,
+    ) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Create a 1 bpp mask from a 32 bpp RGB image using weighted coefficients.
+    ///
+    /// Computes `rc*R + gc*G + bc*B` for each pixel, then thresholds.
+    /// Pixels above `thresh` are ON in the mask.
+    ///
+    /// C equivalent: `pixMakeArbMaskFromRGB()` in `pix3.c`
+    pub fn make_arb_mask_from_rgb(
+        &self,
+        _rc: f32,
+        _gc: f32,
+        _bc: f32,
+        _thresh: f32,
+    ) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Set RGB values under fully transparent (alpha == 0) pixels.
+    ///
+    /// Returns a new 32 bpp image with RGB replaced where alpha is 0.
+    /// The alpha channel is preserved.
+    ///
+    /// C equivalent: `pixSetUnderTransparency()` in `pix3.c`
+    pub fn set_under_transparency(&self, _val: u32) -> Result<Pix> {
+        todo!()
+    }
+}
+
 /// Mask a pixel value to the valid range for a given depth.
 fn mask_val(val: u32, depth: PixelDepth) -> u32 {
     match depth {
@@ -407,5 +473,224 @@ mod tests {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let lut = [0u8; 100]; // too short
         assert!(pix.make_mask_from_lut(&lut).is_err());
+    }
+
+    // -- PixMut::set_masked_general --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_masked_general_8bpp() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Small 3x3 mask with center ON
+        let mask = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(1, 1, 1);
+        let mask: Pix = mm.into();
+
+        // Place mask at (5, 5)
+        pm.set_masked_general(&mask, 200, 5, 5).unwrap();
+        let pix: Pix = pm.into();
+
+        // Mask center (1,1) at offset (5,5) → pixel (6,6) = 200
+        assert_eq!(pix.get_pixel(6, 6), Some(200));
+        assert_eq!(pix.get_pixel(5, 5), Some(0)); // not masked
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_masked_general_negative_offset() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        let mask = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(4, 4, 1); // bottom-right of mask
+        let mask: Pix = mm.into();
+
+        pm.set_masked_general(&mask, 128, -2, -2).unwrap();
+        let pix: Pix = pm.into();
+
+        // Mask (4,4) at offset (-2,-2) → pixel (2,2) = 128
+        assert_eq!(pix.get_pixel(2, 2), Some(128));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_masked_general_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        let mask = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(0, 0, 1);
+        let mask: Pix = mm.into();
+
+        pm.set_masked_general(&mask, 0xFF000000, 2, 3).unwrap();
+        let pix: Pix = pm.into();
+
+        assert_eq!(pix.get_pixel(2, 3), Some(0xFF000000));
+        assert_eq!(pix.get_pixel(3, 3), Some(0));
+    }
+
+    // -- PixMut::combine_masked_general --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_combine_masked_general_8bpp() {
+        // Destination: all 50
+        let dst = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut dm = dst.try_into_mut().unwrap();
+        for y in 0..20 {
+            for x in 0..20 {
+                dm.set_pixel_unchecked(x, y, 50);
+            }
+        }
+
+        // Source: all 200
+        let src = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let mut sm = src.try_into_mut().unwrap();
+        for y in 0..5 {
+            for x in 0..5 {
+                sm.set_pixel_unchecked(x, y, 200);
+            }
+        }
+        let src: Pix = sm.into();
+
+        // Mask: ON at (2,2)
+        let mask = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(2, 2, 1);
+        let mask: Pix = mm.into();
+
+        // Place src and mask at (10, 10)
+        dm.combine_masked_general(&src, &mask, 10, 10).unwrap();
+        let dst: Pix = dm.into();
+
+        // Mask (2,2) at offset (10,10) → dst(12,12) = src(2,2) = 200
+        assert_eq!(dst.get_pixel(12, 12), Some(200));
+        assert_eq!(dst.get_pixel(10, 10), Some(50)); // not masked
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_combine_masked_general_depth_mismatch() {
+        let dst = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut dm = dst.try_into_mut().unwrap();
+        let src = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let mask = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        assert!(dm.combine_masked_general(&src, &mask, 0, 0).is_err());
+    }
+
+    // -- Pix::copy_with_boxa --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_copy_with_boxa_white_bg() {
+        use crate::box_::{Box, Boxa};
+        use crate::pix::InitColor;
+
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..20 {
+            for x in 0..20 {
+                pm.set_pixel_unchecked(x, y, 100);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(5, 5, 3, 3).unwrap());
+
+        let result = pix.copy_with_boxa(&boxa, InitColor::White).unwrap();
+        // Inside box: copied from source (100)
+        assert_eq!(result.get_pixel(6, 6), Some(100));
+        // Outside box: white background (255 for 8bpp)
+        assert_eq!(result.get_pixel(0, 0), Some(255));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_copy_with_boxa_black_bg() {
+        use crate::box_::{Box, Boxa};
+        use crate::pix::InitColor;
+
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..10 {
+            for x in 0..10 {
+                pm.set_pixel_unchecked(x, y, 100);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(2, 2, 4, 4).unwrap());
+
+        let result = pix.copy_with_boxa(&boxa, InitColor::Black).unwrap();
+        assert_eq!(result.get_pixel(3, 3), Some(100));
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+    }
+
+    // -- Pix::make_arb_mask_from_rgb --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_arb_mask_from_rgb() {
+        // Create a 32bpp image with some red pixels
+        let pix = Pix::new(4, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Red pixel: R=200, G=0, B=0 → 200*1.0 + 0 + 0 = 200 > 100 → mask ON
+        pm.set_pixel_unchecked(0, 0, crate::color::compose_rgba(200, 0, 0, 255));
+        // Blue pixel: R=0, G=0, B=200 → 0*1.0 + 0 + 0 = 0 < 100 → mask OFF
+        pm.set_pixel_unchecked(1, 0, crate::color::compose_rgba(0, 0, 200, 255));
+        let pix: Pix = pm.into();
+
+        // rc=1.0, gc=0.0, bc=0.0, thresh=100 → mask ON where red > 100
+        let mask = pix.make_arb_mask_from_rgb(1.0, 0.0, 0.0, 100.0).unwrap();
+        assert_eq!(mask.depth(), PixelDepth::Bit1);
+        assert_eq!(mask.get_pixel(0, 0), Some(1)); // red pixel → ON
+        assert_eq!(mask.get_pixel(1, 0), Some(0)); // blue pixel → OFF
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_arb_mask_from_rgb_not_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.make_arb_mask_from_rgb(1.0, 0.0, 0.0, 100.0).is_err());
+    }
+
+    // -- Pix::set_under_transparency --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_under_transparency() {
+        let pix = Pix::new(4, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Pixel with alpha=0 (fully transparent): R=10, G=20, B=30
+        pm.set_pixel_unchecked(0, 0, crate::color::compose_rgba(10, 20, 30, 0));
+        // Pixel with alpha=255 (opaque): R=100, G=150, B=200
+        pm.set_pixel_unchecked(1, 0, crate::color::compose_rgba(100, 150, 200, 255));
+        let pix: Pix = pm.into();
+
+        // Set transparent pixels to white (0xFFFFFF00)
+        let result = pix.set_under_transparency(0xFFFFFF00).unwrap();
+
+        // Transparent pixel → replaced with white RGB, alpha preserved at 0
+        let (r, g, b, a) = crate::color::extract_rgba(result.get_pixel(0, 0).unwrap());
+        assert_eq!((r, g, b), (255, 255, 255));
+        assert_eq!(a, 0);
+
+        // Opaque pixel → unchanged
+        let (r, g, b, a) = crate::color::extract_rgba(result.get_pixel(1, 0).unwrap());
+        assert_eq!((r, g, b, a), (100, 150, 200, 255));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_under_transparency_not_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.set_under_transparency(0xFFFFFF00).is_err());
     }
 }
