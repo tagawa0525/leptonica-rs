@@ -1895,7 +1895,7 @@ impl Pix {
         if self.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
-        if order < 1 || order > 2 {
+        if !(1..=2).contains(&order) {
             return Err(Error::InvalidParameter("order must be 1 or 2".into()));
         }
         let w = self.width();
