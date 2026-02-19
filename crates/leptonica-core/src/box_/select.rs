@@ -8,7 +8,9 @@
 use crate::error::{Error, Result};
 use crate::numa::Numa;
 
-use super::{Boxa, Boxaa, SizeRelation, compare_relation, compare_relation_i64};
+use super::{
+    Boxa, Boxaa, SizeRelation, compare_relation, compare_relation_f64, compare_relation_i64,
+};
 
 // ---- Types ----
 
@@ -94,12 +96,7 @@ impl Boxa {
                     return false;
                 }
                 let r = b.w as f64 / b.h as f64;
-                match relation {
-                    SizeRelation::LessThan => r < ratio,
-                    SizeRelation::LessThanOrEqual => r <= ratio,
-                    SizeRelation::GreaterThan => r > ratio,
-                    SizeRelation::GreaterThanOrEqual => r >= ratio,
-                }
+                compare_relation_f64(r, ratio, relation)
             })
             .collect()
     }
@@ -107,6 +104,8 @@ impl Boxa {
     /// Filter boxes using a boolean indicator array.
     ///
     /// Returns boxes where the indicator is `true`.
+    /// Only processes up to `min(self.len(), indicator.len())` elements;
+    /// extra boxes or extra indicator values are silently ignored.
     ///
     /// C Leptonica equivalent: `boxaSelectWithIndicator`
     pub fn select_with_indicator(&self, indicator: &[bool]) -> Boxa {
@@ -207,26 +206,26 @@ impl Boxaa {
 
     /// Get the range of box dimensions across all Boxa.
     ///
-    /// Returns `(min_w, max_w, min_h, max_h)`.
+    /// Returns `(min_w, min_h, max_w, max_h)`.
     ///
     /// C Leptonica equivalent: `boxaaSizeRange`
     pub fn size_range(&self) -> Option<(i32, i32, i32, i32)> {
         let mut min_w = i32::MAX;
-        let mut max_w = i32::MIN;
         let mut min_h = i32::MAX;
+        let mut max_w = i32::MIN;
         let mut max_h = i32::MIN;
         let mut found = false;
         for boxa in self.boxas() {
             for b in boxa.boxes() {
                 found = true;
                 min_w = min_w.min(b.w);
-                max_w = max_w.max(b.w);
                 min_h = min_h.min(b.h);
+                max_w = max_w.max(b.w);
                 max_h = max_h.max(b.h);
             }
         }
         if found {
-            Some((min_w, max_w, min_h, max_h))
+            Some((min_w, min_h, max_w, max_h))
         } else {
             None
         }
@@ -314,6 +313,16 @@ mod tests {
         let ind = boxa.make_wh_ratio_indicator(1.0, SizeRelation::GreaterThan);
         // Ratios: 2.0, 2.5, 0.33, 1.5
         assert_eq!(ind, vec![true, true, false, true]);
+    }
+
+    #[test]
+    fn test_make_wh_ratio_indicator_zero_height() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(0, 0, 100, 0).unwrap());
+        boxa.push(Box::new(0, 0, 100, 50).unwrap());
+        let ind = boxa.make_wh_ratio_indicator(1.0, SizeRelation::GreaterThan);
+        // Zero-height box returns false, 100/50=2.0 > 1.0
+        assert_eq!(ind, vec![false, true]);
     }
 
     // -- Boxa::select_with_indicator --
@@ -409,10 +418,16 @@ mod tests {
         baa.push(b1);
         baa.push(b2);
 
-        let (min_w, max_w, min_h, max_h) = baa.size_range().unwrap();
+        let (min_w, min_h, max_w, max_h) = baa.size_range().unwrap();
         assert_eq!(min_w, 10);
-        assert_eq!(max_w, 30);
         assert_eq!(min_h, 5);
+        assert_eq!(max_w, 30);
         assert_eq!(max_h, 20);
+    }
+
+    #[test]
+    fn test_boxaa_size_range_empty() {
+        let baa = Boxaa::new();
+        assert!(baa.size_range().is_none());
     }
 }
