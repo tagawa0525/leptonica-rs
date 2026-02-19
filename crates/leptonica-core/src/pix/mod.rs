@@ -853,6 +853,335 @@ impl PixMut {
         self.inner.text = src.inner.text.clone();
     }
 
+    /// Set all pixels to a gray value (0-255).
+    ///
+    /// For 32 bpp, sets R=G=B=grayval, alpha set to 0.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetAllGray()` in `pix2.c`
+    pub fn set_all_gray(&mut self, grayval: u8) -> Result<()> {
+        let d = self.inner.depth;
+        match d {
+            PixelDepth::Bit32 => {
+                let v = grayval as u32;
+                let packed = (v << 24) | (v << 16) | (v << 8);
+                self.set_all_arbitrary(packed)
+            }
+            PixelDepth::Bit8 => self.set_all_arbitrary(grayval as u32),
+            _ => self.set_all_arbitrary(grayval as u32),
+        }
+    }
+
+    /// Set all pixels to an arbitrary value.
+    ///
+    /// The value is depth-dependent:
+    /// - 1 bpp: 0 or 1
+    /// - 2 bpp: 0-3
+    /// - 4 bpp: 0-15
+    /// - 8 bpp: 0-255
+    /// - 16 bpp: 0-65535
+    /// - 32 bpp: full 32-bit value
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetAllArbitrary()` in `pix2.c`
+    pub fn set_all_arbitrary(&mut self, val: u32) -> Result<()> {
+        let d = self.inner.depth;
+        let max_val = d.max_value();
+        if val > max_val {
+            return Err(Error::InvalidParameter(format!(
+                "value {val} exceeds max {max_val} for depth {}",
+                d.bits()
+            )));
+        }
+
+        match d {
+            PixelDepth::Bit32 => {
+                self.inner.data.fill(val);
+            }
+            PixelDepth::Bit16 => {
+                let word = (val << 16) | val;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit8 => {
+                let word = (val << 24) | (val << 16) | (val << 8) | val;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit4 => {
+                let word = val * 0x11111111;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit2 => {
+                let word = val * 0x55555555;
+                self.inner.data.fill(word);
+            }
+            PixelDepth::Bit1 => {
+                if val == 0 {
+                    self.inner.data.fill(0);
+                } else {
+                    self.inner.data.fill(0xFFFFFFFF);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Set all pixels to black or white.
+    ///
+    /// Handles all pixel depths. Note: Colormapped images are currently treated
+    /// the same as non-colormapped images of the same depth; colormap entries
+    /// are not adjusted.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetBlackOrWhite()` in `pix2.c`
+    pub fn set_black_or_white(&mut self, color: InitColor) {
+        let d = self.inner.depth;
+        match color {
+            InitColor::Black => {
+                if d == PixelDepth::Bit1 {
+                    self.set_all();
+                } else {
+                    self.clear();
+                }
+            }
+            InitColor::White => {
+                if d == PixelDepth::Bit1 {
+                    self.clear();
+                } else if d == PixelDepth::Bit32 {
+                    self.inner.data.fill(0xFFFFFF00);
+                } else {
+                    self.set_all();
+                }
+            }
+        }
+    }
+
+    /// Get the pixel value for black or white.
+    ///
+    /// For non-colormapped images, returns 0 for black and max for white
+    /// (with depth=1 reversed: 0=white, 1=black).
+    /// For 32 bpp, white is 0xFFFFFF00.
+    ///
+    /// Colormapped images are treated the same as other images of the same depth;
+    /// this function does not inspect or return colormap indices.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetBlackOrWhiteVal()` in `pix2.c`
+    pub fn get_black_or_white_val(pix: &Pix, color: InitColor) -> u32 {
+        let d = pix.depth();
+        match color {
+            InitColor::Black => {
+                if d == PixelDepth::Bit1 {
+                    1 // 1 bpp: black = 1
+                } else {
+                    0
+                }
+            }
+            InitColor::White => {
+                if d == PixelDepth::Bit1 {
+                    0 // 1 bpp: white = 0
+                } else if d == PixelDepth::Bit32 {
+                    0xFFFFFF00
+                } else {
+                    d.max_value()
+                }
+            }
+        }
+    }
+
+    /// Clear a single pixel (set to 0).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClearPixel()` in `pix2.c`
+    pub fn clear_pixel(&mut self, x: u32, y: u32) -> Result<()> {
+        self.set_pixel(x, y, 0)
+    }
+
+    /// Flip a single pixel (toggle between 0 and max value).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixFlipPixel()` in `pix2.c`
+    pub fn flip_pixel(&mut self, x: u32, y: u32) -> Result<()> {
+        if x >= self.width() {
+            return Err(Error::IndexOutOfBounds {
+                index: x as usize,
+                len: self.width() as usize,
+            });
+        }
+        if y >= self.height() {
+            return Err(Error::IndexOutOfBounds {
+                index: y as usize,
+                len: self.height() as usize,
+            });
+        }
+        let current = self
+            .get_pixel(x, y)
+            .expect("coordinates should be in bounds after explicit checks");
+        let max_val = self.depth().max_value();
+        self.set_pixel(x, y, current ^ max_val)
+    }
+
+    /// Clear pixels in a rectangular region (set to 0).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixClearInRect()` in `pix2.c`
+    pub fn clear_in_rect(&mut self, rect: &crate::Box) -> Result<()> {
+        self.set_in_rect_arbitrary(rect, 0)
+    }
+
+    /// Set pixels in a rectangular region to max value.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetInRect()` in `pix2.c`
+    pub fn set_in_rect(&mut self, rect: &crate::Box) -> Result<()> {
+        let max_val = self.inner.depth.max_value();
+        self.set_in_rect_arbitrary(rect, max_val)
+    }
+
+    /// Set pixels in a rectangular region to an arbitrary value.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetInRectArbitrary()` in `pix2.c`
+    pub fn set_in_rect_arbitrary(&mut self, rect: &crate::Box, val: u32) -> Result<()> {
+        let w = self.width();
+        let h = self.height();
+
+        // Clip rect to image bounds
+        let x0 = rect.x.max(0) as u32;
+        let y0 = rect.y.max(0) as u32;
+        let x1 = ((rect.x + rect.w).max(0) as u32).min(w);
+        let y1 = ((rect.y + rect.h).max(0) as u32).min(h);
+
+        if x0 >= x1 || y0 >= y1 {
+            return Ok(()); // Empty intersection
+        }
+
+        for y in y0..y1 {
+            for x in x0..x1 {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+        Ok(())
+    }
+
+    /// Set padding bits at the end of each scanline.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetPadBits()` in `pix2.c`
+    pub fn set_pad_bits(&mut self, val: u32) {
+        let h = self.inner.height;
+        self.set_pad_bits_band(0, h, val);
+    }
+
+    /// Set padding bits in a horizontal band.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetPadBitsBand()` in `pix2.c`
+    pub fn set_pad_bits_band(&mut self, by: u32, bh: u32, val: u32) {
+        let d = self.inner.depth;
+        if d == PixelDepth::Bit32 {
+            return; // No padding for 32 bpp
+        }
+
+        let w = self.inner.width;
+        let h = self.inner.height;
+        let wpl = self.inner.wpl;
+
+        // Number of full bits per row
+        let full_bits = w * d.bits();
+        // Number of padding bits in the last word
+        let pad_bits = (wpl * 32) - full_bits;
+        if pad_bits == 0 {
+            return;
+        }
+
+        // Mask for the padding bits (low bits of last word)
+        let mask = (1u32 << pad_bits) - 1;
+
+        let y_end = (by + bh).min(h);
+        for y in by..y_end {
+            let idx = (y * wpl + wpl - 1) as usize;
+            if val == 0 {
+                self.inner.data[idx] &= !mask;
+            } else {
+                self.inner.data[idx] |= mask;
+            }
+        }
+    }
+
+    /// Set or clear border pixels using raster operations.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetOrClearBorder()` in `pix2.c`
+    pub fn set_or_clear_border(
+        &mut self,
+        left: u32,
+        right: u32,
+        top: u32,
+        bot: u32,
+        color: InitColor,
+    ) {
+        let w = self.width();
+        let h = self.height();
+        let d = self.inner.depth;
+
+        let val = match color {
+            InitColor::Black => {
+                if d == PixelDepth::Bit1 {
+                    1 // 1 bpp: black = 1
+                } else {
+                    0
+                }
+            }
+            InitColor::White => {
+                if d == PixelDepth::Bit1 {
+                    0
+                } else if d == PixelDepth::Bit32 {
+                    0xFFFFFF00
+                } else {
+                    d.max_value()
+                }
+            }
+        };
+
+        // Top rows
+        for y in 0..top.min(h) {
+            for x in 0..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+        // Bottom rows
+        let bot_start = h.saturating_sub(bot);
+        for y in bot_start..h {
+            for x in 0..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+        // Left and right columns (middle rows)
+        let y_start = top.min(h);
+        let y_end = bot_start.max(y_start);
+        for y in y_start..y_end {
+            for x in 0..left.min(w) {
+                self.set_pixel_unchecked(x, y, val);
+            }
+            let right_start = w.saturating_sub(right);
+            for x in right_start..w {
+                self.set_pixel_unchecked(x, y, val);
+            }
+        }
+    }
+
     /// Clear all pixels to zero.
     pub fn clear(&mut self) {
         self.inner.data.fill(0);
@@ -1187,5 +1516,290 @@ mod tests {
         assert!(output.contains("200"));
         assert!(output.contains("300"));
         assert!(output.contains("test image"));
+    }
+
+    // ================================================================
+    // Phase 11.2: Pixel setters / border / rect tests
+    // ================================================================
+
+    #[test]
+    fn test_set_all_gray_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_gray(128).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(128));
+        assert_eq!(pm.get_pixel(9, 9), Some(128));
+    }
+
+    #[test]
+    fn test_set_all_gray_32bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_gray(200).unwrap();
+        // 32 bpp: R=G=B=200, alpha=0 → 0xC8C8C800
+        let expected = (200u32 << 24) | (200u32 << 16) | (200u32 << 8);
+        assert_eq!(pm.get_pixel(5, 5), Some(expected));
+    }
+
+    #[test]
+    fn test_set_all_arbitrary_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_arbitrary(42).unwrap();
+        assert_eq!(pm.get_pixel(5, 5), Some(42));
+    }
+
+    #[test]
+    fn test_set_all_arbitrary_1bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all_arbitrary(1).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(1));
+        assert_eq!(pm.get_pixel(9, 9), Some(1));
+    }
+
+    #[test]
+    fn test_set_black_or_white_8bpp() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_black_or_white(InitColor::White);
+        assert_eq!(pm.get_pixel(5, 5), Some(255));
+
+        pm.set_black_or_white(InitColor::Black);
+        assert_eq!(pm.get_pixel(5, 5), Some(0));
+    }
+
+    #[test]
+    fn test_set_black_or_white_1bpp() {
+        let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // 1 bpp: white=0, black=1
+        pm.set_black_or_white(InitColor::Black);
+        assert_eq!(pm.get_pixel(0, 0), Some(1));
+
+        pm.set_black_or_white(InitColor::White);
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_get_black_or_white_val() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert_eq!(PixMut::get_black_or_white_val(&pix, InitColor::Black), 0);
+        assert_eq!(PixMut::get_black_or_white_val(&pix, InitColor::White), 255);
+
+        // 1 bpp: inverted
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert_eq!(PixMut::get_black_or_white_val(&pix1, InitColor::Black), 1);
+        assert_eq!(PixMut::get_black_or_white_val(&pix1, InitColor::White), 0);
+    }
+
+    #[test]
+    fn test_clear_pixel() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(5, 5, 200).unwrap();
+        assert_eq!(pm.get_pixel(5, 5), Some(200));
+
+        pm.clear_pixel(5, 5).unwrap();
+        assert_eq!(pm.get_pixel(5, 5), Some(0));
+    }
+
+    #[test]
+    fn test_flip_pixel() {
+        // 1 bpp flip
+        let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+        pm.flip_pixel(0, 0).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(1));
+        pm.flip_pixel(0, 0).unwrap();
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+
+        // 8 bpp flip
+        let pix8 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm8 = pix8.try_into_mut().unwrap();
+        pm8.set_pixel(5, 5, 100).unwrap();
+        pm8.flip_pixel(5, 5).unwrap();
+        assert_eq!(pm8.get_pixel(5, 5), Some(100 ^ 255));
+    }
+
+    #[test]
+    fn test_clear_in_rect() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Fill all with 200
+        pm.set_all_arbitrary(200).unwrap();
+
+        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        pm.clear_in_rect(&rect).unwrap();
+
+        // Inside rect should be 0
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+        // Outside rect should still be 200
+        assert_eq!(pm.get_pixel(0, 0), Some(200));
+        assert_eq!(pm.get_pixel(19, 19), Some(200));
+    }
+
+    #[test]
+    fn test_set_in_rect() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // Inside rect should be 255 (max for 8bpp)
+        assert_eq!(pm.get_pixel(10, 10), Some(255));
+        // Outside rect should still be 0
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_set_in_rect_arbitrary() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        pm.set_in_rect_arbitrary(&rect, 42).unwrap();
+
+        // Inside rect should be 42
+        assert_eq!(pm.get_pixel(10, 10), Some(42));
+        // Outside rect should still be 0
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_set_pad_bits() {
+        // 1 bpp, width=10, wpl=1 (32 bits per row, 22 pad bits)
+        let pix = Pix::new(10, 2, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all(); // set all bits to 1
+        pm.set_pad_bits(0); // clear pad bits
+
+        // First 10 bits of each row should be 1, rest should be 0
+        let row0 = pm.data()[0];
+        // Top 10 bits set: 0b1111_1111_1100_0000_0000_0000_0000_0000 = 0xFFC00000
+        assert_eq!(row0, 0xFFC00000);
+    }
+
+    #[test]
+    fn test_set_pad_bits_band() {
+        let pix = Pix::new(10, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_all();
+        pm.set_pad_bits_band(1, 2, 0); // clear pad bits for rows 1-2
+
+        // Row 0 should still have all bits set
+        assert_eq!(pm.data()[0], 0xFFFFFFFF);
+        // Rows 1-2 should have pad bits cleared
+        assert_eq!(pm.data()[1], 0xFFC00000);
+        assert_eq!(pm.data()[2], 0xFFC00000);
+        // Row 3 should still have all bits set
+        assert_eq!(pm.data()[3], 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_set_or_clear_border() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::White);
+        // Border pixels should be 255
+        assert_eq!(pm.get_pixel(0, 0), Some(255));
+        assert_eq!(pm.get_pixel(1, 0), Some(255));
+        // Interior should remain 0
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::Black);
+        // Border pixels should be 0 again
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_get_black_or_white_val_32bpp() {
+        // 32 bpp: white should be 0xFFFFFF00
+        let pix32 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        assert_eq!(PixMut::get_black_or_white_val(&pix32, InitColor::Black), 0);
+        assert_eq!(
+            PixMut::get_black_or_white_val(&pix32, InitColor::White),
+            0xFFFFFF00
+        );
+    }
+
+    #[test]
+    fn test_set_in_rect_negative_outside() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle entirely outside the image with negative coordinates
+        let rect = crate::Box::new(-10, -5, 5, 5).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // No pixels should be modified
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+    }
+
+    #[test]
+    fn test_set_in_rect_negative_partial_overlap() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle partially overlapping the image, starting at negative coordinates
+        // Intersection with a 20x20 image is x=[0,5), y=[0,5)
+        let rect = crate::Box::new(-5, -5, 10, 10).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // Pixels inside the intersection should be set to 255
+        assert_eq!(pm.get_pixel(0, 0), Some(255));
+        assert_eq!(pm.get_pixel(4, 4), Some(255));
+        // Pixels just outside the intersection should remain 0
+        assert_eq!(pm.get_pixel(5, 5), Some(0));
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+    }
+
+    #[test]
+    fn test_set_in_rect_extend_beyond_edges() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        // Rectangle extending beyond the right and bottom edges
+        // Intersection with a 20x20 image is x=[15,20), y=[15,20)
+        let rect = crate::Box::new(15, 15, 10, 10).unwrap();
+        pm.set_in_rect(&rect).unwrap();
+
+        // Pixels inside the intersection should be set to 255
+        assert_eq!(pm.get_pixel(15, 15), Some(255));
+        assert_eq!(pm.get_pixel(19, 19), Some(255));
+        // Pixels just outside the intersection should remain 0
+        assert_eq!(pm.get_pixel(14, 14), Some(0));
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_set_or_clear_border_32bpp() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::White);
+        // For 32 bpp, white should be 0xFFFFFF00 (RGBA with alpha in LSB)
+        assert_eq!(pm.get_pixel(0, 0), Some(0xFFFFFF00));
+        assert_eq!(pm.get_pixel(1, 0), Some(0xFFFFFF00));
+        // Interior should remain 0
+        assert_eq!(pm.get_pixel(10, 10), Some(0));
+
+        pm.set_or_clear_border(2, 2, 2, 2, InitColor::Black);
+        // Border pixels should be 0 again
+        assert_eq!(pm.get_pixel(0, 0), Some(0));
+        assert_eq!(pm.get_pixel(1, 0), Some(0));
+    }
+
+    #[test]
+    fn test_set_black_or_white_32bpp_white_value() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_black_or_white(InitColor::White);
+        let val = pm.get_pixel(0, 0).unwrap();
+        assert_eq!(val, 0xFFFFFF00u32);
     }
 }
