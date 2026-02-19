@@ -13,8 +13,9 @@
 //! pixcmapGammaTRC, pixcmapContrastTRC,
 //! pixcmapShiftIntensity, pixcmapShiftByComponent)
 
-use super::PixColormap;
-use crate::error::Result;
+use super::{PixColormap, RgbaQuad};
+use crate::color;
+use crate::error::{Error, Result};
 
 /// Components per color for binary serialization.
 ///
@@ -27,6 +28,15 @@ pub enum ComponentsPerColor {
     Rgb,
     /// 4 bytes per color (RGBA)
     Rgba,
+}
+
+impl ComponentsPerColor {
+    fn bytes_per_color(self) -> usize {
+        match self {
+            ComponentsPerColor::Rgb => 3,
+            ComponentsPerColor::Rgba => 4,
+        }
+    }
 }
 
 /// Extracted color channel arrays from a colormap.
@@ -46,7 +56,6 @@ pub struct ColormapArrays {
     pub alpha: Option<Vec<u8>>,
 }
 
-#[allow(unused_variables)]
 impl PixColormap {
     // ---------------------------------------------------------------
     //  Creation / conversion to new colormaps
@@ -64,7 +73,33 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapGrayToFalseColor()` in `colormap.c`
     pub fn gray_to_false_color(gamma: f32) -> Self {
-        todo!()
+        let gamma = if gamma <= 0.0 { 1.0 } else { gamma };
+        let inv_gamma = 1.0 / gamma;
+
+        // Build a 64-entry transition curve
+        let mut curve = [0i32; 64];
+        for (i, entry) in curve.iter_mut().enumerate() {
+            let x = i as f32 / 64.0;
+            *entry = (255.0 * x.powf(inv_gamma) + 0.5) as i32;
+        }
+
+        let mut cmap = Self::new(8).unwrap();
+        for i in 0..256 {
+            let (rval, gval, bval) = if i < 32 {
+                (0, 0, curve[i + 32])
+            } else if i < 96 {
+                (0, curve[i - 32], 255)
+            } else if i < 160 {
+                (curve[i - 96], 255, curve[159 - i])
+            } else if i < 224 {
+                (255, curve[223 - i], 0)
+            } else {
+                (curve[287 - i], 0, 0)
+            };
+            cmap.add_color(RgbaQuad::rgb(rval as u8, gval as u8, bval as u8))
+                .unwrap();
+        }
+        cmap
     }
 
     /// Create a monochrome-tinted colormap (8 bpp, 256 entries).
@@ -78,7 +113,16 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapGrayToColor()` in `colormap.c`
     pub fn gray_to_color(color_pixel: u32) -> Self {
-        todo!()
+        let (rval, gval, bval) = color::extract_rgb(color_pixel);
+        let mut cmap = Self::new(8).unwrap();
+        for i in 0..256 {
+            let r = rval as i32 + (i * (255 - rval as i32)) / 255;
+            let g = gval as i32 + (i * (255 - gval as i32)) / 255;
+            let b = bval as i32 + (i * (255 - bval as i32)) / 255;
+            cmap.add_color(RgbaQuad::rgb(r as u8, g as u8, b as u8))
+                .unwrap();
+        }
+        cmap
     }
 
     /// Create a grayscale colormap from an existing colormap using weighted
@@ -94,8 +138,33 @@ impl PixColormap {
     /// # See also
     ///
     /// C Leptonica: `pixcmapColorToGray()` in `colormap.c`
-    pub fn color_to_gray(&self, rwt: f32, gwt: f32, bwt: f32) -> Result<Self> {
-        todo!()
+    pub fn color_to_gray(&self, mut rwt: f32, mut gwt: f32, mut bwt: f32) -> Result<Self> {
+        if rwt < 0.0 || gwt < 0.0 || bwt < 0.0 {
+            return Err(Error::InvalidParameter(
+                "weights must be non-negative".into(),
+            ));
+        }
+
+        let sum = rwt + gwt + bwt;
+        if sum == 0.0 {
+            rwt = 1.0 / 3.0;
+            gwt = 1.0 / 3.0;
+            bwt = 1.0 / 3.0;
+        } else if (sum - 1.0).abs() > 0.0001 {
+            rwt /= sum;
+            gwt /= sum;
+            bwt /= sum;
+        }
+
+        let mut cmapd = self.clone();
+        for i in 0..cmapd.len() {
+            let (r, g, b) = cmapd.get_rgb(i).unwrap();
+            let val = (rwt * r as f32 + gwt * g as f32 + bwt * b as f32 + 0.5) as u8;
+            cmapd
+                .set_color(i, RgbaQuad::new(val, val, val, cmapd.get(i).unwrap().alpha))
+                .unwrap();
+        }
+        Ok(cmapd)
     }
 
     /// Convert a 2 bpp colormap to 4 bpp.
@@ -110,7 +179,18 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapConvertTo4()` in `colormap.c`
     pub fn convert_to_4(&self) -> Result<Self> {
-        todo!()
+        if self.depth() != 2 {
+            return Err(Error::InvalidParameter(format!(
+                "source depth must be 2, got {}",
+                self.depth()
+            )));
+        }
+        let mut cmapd = Self::new(4)?;
+        for i in 0..self.len() {
+            let (r, g, b) = self.get_rgb(i).unwrap();
+            cmapd.add_rgb(r, g, b)?;
+        }
+        Ok(cmapd)
     }
 
     /// Convert a 2 bpp or 4 bpp colormap to 8 bpp.
@@ -126,7 +206,21 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapConvertTo8()` in `colormap.c`
     pub fn convert_to_8(&self) -> Result<Self> {
-        todo!()
+        if self.depth() == 8 {
+            return Ok(self.clone());
+        }
+        if self.depth() != 2 && self.depth() != 4 {
+            return Err(Error::InvalidParameter(format!(
+                "source depth must be 2, 4, or 8, got {}",
+                self.depth()
+            )));
+        }
+        let mut cmapd = Self::new(8)?;
+        for i in 0..self.len() {
+            let (r, g, b) = self.get_rgb(i).unwrap();
+            cmapd.add_rgb(r, g, b)?;
+        }
+        Ok(cmapd)
     }
 
     // ---------------------------------------------------------------
@@ -141,7 +235,31 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapToArrays()` in `colormap.c`
     pub fn to_arrays(&self, include_alpha: bool) -> ColormapArrays {
-        todo!()
+        let n = self.len();
+        let mut red = Vec::with_capacity(n);
+        let mut green = Vec::with_capacity(n);
+        let mut blue = Vec::with_capacity(n);
+        let mut alpha = if include_alpha {
+            Some(Vec::with_capacity(n))
+        } else {
+            None
+        };
+
+        for c in self.colors() {
+            red.push(c.red);
+            green.push(c.green);
+            blue.push(c.blue);
+            if let Some(ref mut a) = alpha {
+                a.push(c.alpha);
+            }
+        }
+
+        ColormapArrays {
+            red,
+            green,
+            blue,
+            alpha,
+        }
     }
 
     /// Extract an RGBA packed table (Vec of 0xRRGGBBAA values).
@@ -150,7 +268,10 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapToRGBTable()` in `colormap.c`
     pub fn to_rgb_table(&self) -> Vec<u32> {
-        todo!()
+        self.colors()
+            .iter()
+            .map(|c| color::compose_rgba(c.red, c.green, c.blue, c.alpha))
+            .collect()
     }
 
     /// Serialize colormap to a compact binary format.
@@ -162,7 +283,17 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapSerializeToMemory()` in `colormap.c`
     pub fn serialize_to_memory(&self, cpc: ComponentsPerColor) -> Vec<u8> {
-        todo!()
+        let bpc = cpc.bytes_per_color();
+        let mut data = Vec::with_capacity(self.len() * bpc);
+        for c in self.colors() {
+            data.push(c.red);
+            data.push(c.green);
+            data.push(c.blue);
+            if cpc == ComponentsPerColor::Rgba {
+                data.push(c.alpha);
+            }
+        }
+        data
     }
 
     /// Deserialize a colormap from a compact binary format.
@@ -181,7 +312,47 @@ impl PixColormap {
         cpc: ComponentsPerColor,
         ncolors: usize,
     ) -> Result<Self> {
-        todo!()
+        if ncolors == 0 {
+            return Err(Error::InvalidParameter("ncolors must be > 0".into()));
+        }
+        if ncolors > 256 {
+            return Err(Error::InvalidParameter(format!(
+                "ncolors {} exceeds 256",
+                ncolors
+            )));
+        }
+        let bpc = cpc.bytes_per_color();
+        if data.len() < ncolors * bpc {
+            return Err(Error::InvalidParameter(format!(
+                "data too short: expected {} bytes, got {}",
+                ncolors * bpc,
+                data.len()
+            )));
+        }
+
+        let depth = if ncolors > 16 {
+            8
+        } else if ncolors > 4 {
+            4
+        } else if ncolors > 2 {
+            2
+        } else {
+            1
+        };
+
+        let mut cmap = Self::new(depth)?;
+        for i in 0..ncolors {
+            let r = data[bpc * i];
+            let g = data[bpc * i + 1];
+            let b = data[bpc * i + 2];
+            let a = if cpc == ComponentsPerColor::Rgba {
+                data[bpc * i + 3]
+            } else {
+                255
+            };
+            cmap.add_color(RgbaQuad::new(r, g, b, a))?;
+        }
+        Ok(cmap)
     }
 
     /// Convert serialized RGB data to a hex string for PDF embedding.
@@ -198,7 +369,29 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapConvertToHex()` in `colormap.c`
     pub fn convert_to_hex(data: &[u8], ncolors: usize) -> Result<String> {
-        todo!()
+        if data.len() != 3 * ncolors {
+            return Err(Error::InvalidParameter(format!(
+                "data length {} != 3 * {}",
+                data.len(),
+                ncolors
+            )));
+        }
+
+        let mut hex = String::with_capacity(2 + (7 * ncolors) + 1);
+        hex.push_str("< ");
+        for i in 0..ncolors {
+            if i > 0 {
+                hex.push(' ');
+            }
+            hex.push_str(&format!(
+                "{:02x}{:02x}{:02x}",
+                data[3 * i],
+                data[3 * i + 1],
+                data[3 * i + 2]
+            ));
+        }
+        hex.push_str(" >");
+        Ok(hex)
     }
 
     // ---------------------------------------------------------------
@@ -219,7 +412,26 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapGammaTRC()` in `colormap.c`
     pub fn gamma_trc(&mut self, gamma: f32, minval: i32, maxval: i32) -> Result<()> {
-        todo!()
+        if gamma <= 0.0 {
+            return Err(Error::InvalidParameter("gamma must be > 0.0".into()));
+        }
+        if minval >= maxval {
+            return Err(Error::InvalidParameter("minval must be < maxval".into()));
+        }
+        if gamma == 1.0 && minval == 0 && maxval == 255 {
+            return Ok(()); // no-op
+        }
+
+        let lut = build_gamma_trc(gamma, minval, maxval);
+        for i in 0..self.len() {
+            let (r, g, b) = self.get_rgb(i).unwrap();
+            let alpha = self.get(i).unwrap().alpha;
+            self.set_color(
+                i,
+                RgbaQuad::new(lut[r as usize], lut[g as usize], lut[b as usize], alpha),
+            )?;
+        }
+        Ok(())
     }
 
     /// Apply contrast enhancement TRC to all colors in-place.
@@ -231,7 +443,17 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapContrastTRC()` in `colormap.c`
     pub fn contrast_trc(&mut self, factor: f32) {
-        todo!()
+        let factor = if factor < 0.0 { 0.0 } else { factor };
+        let lut = build_contrast_trc(factor);
+        for i in 0..self.len() {
+            let (r, g, b) = self.get_rgb(i).unwrap();
+            let alpha = self.get(i).unwrap().alpha;
+            self.set_color(
+                i,
+                RgbaQuad::new(lut[r as usize], lut[g as usize], lut[b as usize], alpha),
+            )
+            .unwrap();
+        }
     }
 
     /// Shift the intensity of all colors in-place.
@@ -248,7 +470,31 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapShiftIntensity()` in `colormap.c`
     pub fn shift_intensity(&mut self, fraction: f32) -> Result<()> {
-        todo!()
+        if !(-1.0..=1.0).contains(&fraction) {
+            return Err(Error::InvalidParameter(
+                "fraction must be in [-1.0, 1.0]".into(),
+            ));
+        }
+
+        for i in 0..self.len() {
+            let (r, g, b) = self.get_rgb(i).unwrap();
+            let alpha = self.get(i).unwrap().alpha;
+            let (nr, ng, nb) = if fraction < 0.0 {
+                (
+                    ((1.0 + fraction) * r as f32) as u8,
+                    ((1.0 + fraction) * g as f32) as u8,
+                    ((1.0 + fraction) * b as f32) as u8,
+                )
+            } else {
+                (
+                    (r as i32 + (fraction * (255 - r as i32) as f32) as i32) as u8,
+                    (g as i32 + (fraction * (255 - g as i32) as f32) as i32) as u8,
+                    (b as i32 + (fraction * (255 - b as i32) as f32) as i32) as u8,
+                )
+            };
+            self.set_color(i, RgbaQuad::new(nr, ng, nb, alpha))?;
+        }
+        Ok(())
     }
 
     /// Shift each color component independently toward a target.
@@ -261,7 +507,12 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapShiftByComponent()` in `colormap.c`
     pub fn shift_by_component(&mut self, src_pixel: u32, dst_pixel: u32) {
-        todo!()
+        for i in 0..self.len() {
+            let (r, g, b) = self.get_rgb(i).unwrap();
+            let alpha = self.get(i).unwrap().alpha;
+            let (nr, ng, nb) = pixel_shift_by_component(r, g, b, src_pixel, dst_pixel);
+            self.set_color(i, RgbaQuad::new(nr, ng, nb, alpha)).unwrap();
+        }
     }
 }
 
@@ -275,25 +526,77 @@ impl PixColormap {
 /// # See also
 ///
 /// C Leptonica: `pixelShiftByComponent()` in `coloring.c`
-#[allow(dead_code, unused_variables)]
 fn pixel_shift_by_component(r: u8, g: u8, b: u8, src_pixel: u32, dst_pixel: u32) -> (u8, u8, u8) {
-    todo!()
+    let (rs, gs, bs) = color::extract_rgb(src_pixel);
+    let (rd, gd, bd) = color::extract_rgb(dst_pixel);
+
+    let shift_component = |val: u8, src: u8, dst: u8| -> u8 {
+        if dst == src {
+            val
+        } else if dst < src {
+            ((val as i32 * dst as i32) / src as i32) as u8
+        } else {
+            (255 - (255 - dst as i32) * (255 - val as i32) / (255 - src as i32)) as u8
+        }
+    };
+
+    (
+        shift_component(r, rs, rd),
+        shift_component(g, gs, gd),
+        shift_component(b, bs, bd),
+    )
 }
 
 /// Build a 256-entry gamma TRC lookup table.
 ///
 /// Equivalent to C `numaGammaTRC()` in `enhance.c`.
-#[allow(dead_code, unused_variables)]
 fn build_gamma_trc(gamma: f32, minval: i32, maxval: i32) -> [u8; 256] {
-    todo!()
+    let mut lut = [0u8; 256];
+    let inv_gamma = 1.0 / gamma;
+
+    for i in 0..256i32 {
+        let val = if i < minval {
+            0
+        } else if i > maxval {
+            255
+        } else {
+            let x = (i - minval) as f32 / (maxval - minval) as f32;
+            let v = (255.0 * x.powf(inv_gamma) + 0.5) as i32;
+            v.clamp(0, 255)
+        };
+        lut[i as usize] = val as u8;
+    }
+    lut
 }
 
 /// Build a 256-entry contrast TRC lookup table.
 ///
 /// Equivalent to C `numaContrastTRC()` in `enhance.c`.
-#[allow(dead_code, unused_variables)]
 fn build_contrast_trc(factor: f32) -> [u8; 256] {
-    todo!()
+    let mut lut = [0u8; 256];
+
+    if factor == 0.0 {
+        // Linear map (identity)
+        for (i, entry) in lut.iter_mut().enumerate() {
+            *entry = i as u8;
+        }
+        return lut;
+    }
+
+    const ENHANCE_SCALE_FACTOR: f64 = 5.0;
+    let factor = factor as f64;
+    let scale = ENHANCE_SCALE_FACTOR;
+    let ymax = (1.0 * factor * scale).atan();
+    let ymin = (-127.0 * factor * scale / 128.0).atan();
+    let dely = ymax - ymin;
+
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let x = i as f64;
+        let val =
+            ((255.0 / dely) * (-ymin + (factor * scale * (x - 127.0) / 128.0).atan()) + 0.5) as i32;
+        *entry = val.clamp(0, 255) as u8;
+    }
+    lut
 }
 
 #[cfg(test)]
@@ -306,7 +609,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_to_false_color_default_gamma() {
         let cmap = PixColormap::gray_to_false_color(1.0);
         assert_eq!(cmap.depth(), 8);
@@ -324,7 +626,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_to_false_color_bright_gamma() {
         let cmap = PixColormap::gray_to_false_color(2.0);
         assert_eq!(cmap.len(), 256);
@@ -334,7 +635,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_to_false_color_zero_gamma_uses_default() {
         let cmap = PixColormap::gray_to_false_color(0.0);
         assert_eq!(cmap.len(), 256);
@@ -345,7 +645,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_to_color_red_tint() {
         let cmap = PixColormap::gray_to_color(color::compose_rgb(255, 0, 0));
         assert_eq!(cmap.depth(), 8);
@@ -357,7 +656,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_to_color_blue_tint_midpoint() {
         let cmap = PixColormap::gray_to_color(color::compose_rgb(0, 0, 200));
         // Midpoint (index 128) should be interpolated
@@ -375,7 +673,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_to_gray_equal_weights() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgb(90, 120, 150).unwrap();
@@ -387,7 +684,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_to_gray_standard_weights() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(255, 128, 64).unwrap();
@@ -400,7 +696,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_to_gray_normalizes_weights() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 100, 100).unwrap();
@@ -411,7 +706,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_to_gray_negative_weight_error() {
         let cmap = PixColormap::new(8).unwrap();
         assert!(cmap.color_to_gray(-0.1, 0.6, 0.5).is_err());
@@ -422,7 +716,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_4() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgb(10, 20, 30).unwrap();
@@ -435,14 +728,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_4_wrong_depth() {
         let cmap = PixColormap::new(8).unwrap();
         assert!(cmap.convert_to_4().is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_8_from_2() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgb(100, 200, 50).unwrap();
@@ -453,7 +744,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_8_from_4() {
         let mut cmap = PixColormap::new(4).unwrap();
         cmap.add_rgb(10, 20, 30).unwrap();
@@ -463,7 +753,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_8_already_8() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(10, 20, 30).unwrap();
@@ -473,7 +762,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_8_wrong_depth() {
         let cmap = PixColormap::new(1).unwrap();
         assert!(cmap.convert_to_8().is_err());
@@ -484,7 +772,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_to_arrays_rgb() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgb(10, 20, 30).unwrap();
@@ -497,7 +784,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_to_arrays_rgba() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgba(10, 20, 30, 128).unwrap();
@@ -510,7 +796,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_to_rgb_table() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgba(0xAA, 0xBB, 0xCC, 0xDD).unwrap();
@@ -524,7 +809,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_serialize_roundtrip_rgb() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgba(10, 20, 30, 200).unwrap();
@@ -539,7 +823,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_serialize_roundtrip_rgba() {
         let mut cmap = PixColormap::new(2).unwrap();
         cmap.add_rgba(10, 20, 30, 200).unwrap();
@@ -553,7 +836,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_deserialize_bad_size() {
         // ncolors > 256
         assert!(
@@ -568,7 +850,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_hex() {
         let data = [0xFF, 0x00, 0xAB, 0x01, 0x02, 0x03];
         let hex = PixColormap::convert_to_hex(&data, 2).unwrap();
@@ -576,7 +857,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_to_hex_bad_length() {
         let data = [0xFF, 0x00]; // not a multiple of 3
         assert!(PixColormap::convert_to_hex(&data, 1).is_err());
@@ -587,7 +867,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_identity() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 150, 200).unwrap();
@@ -596,7 +875,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_brightens() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 100, 100).unwrap();
@@ -606,7 +884,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gamma_trc_invalid() {
         let mut cmap = PixColormap::new(8).unwrap();
         assert!(cmap.gamma_trc(0.0, 0, 255).is_err()); // gamma <= 0
@@ -618,7 +895,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contrast_trc_zero_no_change() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(64, 128, 192).unwrap();
@@ -627,7 +903,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contrast_trc_increases_contrast() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(64, 128, 192).unwrap();
@@ -639,7 +914,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contrast_trc_endpoints() {
         // 0 → 0 and 255 → 255 for any factor
         let mut cmap = PixColormap::new(8).unwrap();
@@ -655,7 +929,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_shift_intensity_darken() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(200, 100, 50).unwrap();
@@ -667,7 +940,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_shift_intensity_fade() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 100, 100).unwrap();
@@ -678,7 +950,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_shift_intensity_out_of_range() {
         let mut cmap = PixColormap::new(8).unwrap();
         assert!(cmap.shift_intensity(-1.5).is_err());
@@ -690,7 +961,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_shift_by_component_identity() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 150, 200).unwrap();
@@ -700,7 +970,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_shift_by_component_darken() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(200, 200, 200).unwrap();
@@ -715,7 +984,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_shift_by_component_brighten() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 100, 100).unwrap();
@@ -732,7 +1000,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_build_gamma_trc_identity() {
         let lut = build_gamma_trc(1.0, 0, 255);
         for i in 0..256 {
@@ -741,7 +1008,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_build_gamma_trc_endpoints() {
         let lut = build_gamma_trc(2.0, 0, 255);
         assert_eq!(lut[0], 0);
@@ -749,7 +1015,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_build_gamma_trc_minmax_range() {
         let lut = build_gamma_trc(1.0, 50, 200);
         // Values below minval should be 0
@@ -765,7 +1030,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_build_contrast_trc_zero() {
         let lut = build_contrast_trc(0.0);
         for i in 0..256 {
@@ -774,7 +1038,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_build_contrast_trc_endpoints() {
         let lut = build_contrast_trc(1.0);
         assert_eq!(lut[0], 0);
@@ -782,7 +1045,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_build_contrast_trc_monotonic() {
         let lut = build_contrast_trc(0.5);
         for i in 1..256 {
@@ -795,7 +1057,6 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pixel_shift_by_component_identity() {
         let src = color::compose_rgb(128, 128, 128);
         let (r, g, b) = pixel_shift_by_component(100, 150, 200, src, src);
@@ -803,7 +1064,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pixel_shift_by_component_decrease() {
         let src = color::compose_rgb(200, 200, 200);
         let dst = color::compose_rgb(100, 100, 100);
@@ -812,7 +1072,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pixel_shift_by_component_increase() {
         let src = color::compose_rgb(100, 100, 100);
         let dst = color::compose_rgb(200, 200, 200);
