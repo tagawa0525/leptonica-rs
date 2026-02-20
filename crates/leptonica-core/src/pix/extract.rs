@@ -272,7 +272,7 @@ impl Pix {
         match dir {
             ProfileDirection::Horizontal => {
                 let start = (0.5 * (1.0 - fract) * w as f32) as i32;
-                let end = w as i32 - start;
+                let end = w as i32 - start - 1;
                 let last_clamped = last.min(h - 1);
                 let mut i = first;
                 while i <= last_clamped {
@@ -283,7 +283,7 @@ impl Pix {
             }
             ProfileDirection::Vertical => {
                 let start = (0.5 * (1.0 - fract) * h as f32) as i32;
-                let end = h as i32 - start;
+                let end = h as i32 - start - 1;
                 let last_clamped = last.min(w - 1);
                 let mut j = first;
                 while j <= last_clamped {
