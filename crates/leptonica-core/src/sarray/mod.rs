@@ -668,15 +668,24 @@ impl Sarray {
     /// Each value in `naindex` is an index into `self`; the output contains
     /// `self[naindex[0]]`, `self[naindex[1]]`, …
     ///
+    /// # Notes
+    /// - Negative indices in `naindex` are silently skipped (not inserted
+    ///   into the output), matching the C behaviour of an out-of-range
+    ///   access returning `NULL`.
+    /// - Out-of-bounds (but non-negative) indices are similarly skipped.
+    ///
     /// C equivalent: `sarraySortByIndex()` in `sarray2.c`
     pub fn sort_by_index(&self, naindex: &crate::numa::Numa) -> Sarray {
         let n = naindex.len();
         let mut out = Sarray::with_capacity(n);
         for i in 0..n {
             if let Some(idx) = naindex.get_i32(i) {
-                if let Some(s) = self.data.get(idx as usize) {
-                    out.data.push(s.clone());
+                if idx >= 0 {
+                    if let Some(s) = self.data.get(idx as usize) {
+                        out.data.push(s.clone());
+                    }
                 }
+                // Negative or out-of-bounds indices are silently skipped.
             }
         }
         out
