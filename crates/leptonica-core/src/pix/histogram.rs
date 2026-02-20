@@ -1887,4 +1887,33 @@ mod tests {
         let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
         assert!(pix.max_color_index().is_err());
     }
+
+    #[test]
+    fn test_max_color_index_1bpp() {
+        use crate::PixColormap;
+        // All OFF → max index is 0
+        let pix_all_off = {
+            let base = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(1).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 255, 255, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            Pix::from(pm)
+        };
+        assert_eq!(pix_all_off.max_color_index().unwrap(), 0);
+
+        // Any ON pixel → max index is 1
+        let pix_with_on = {
+            let base = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(1).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 255, 255, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            pm.set_pixel_unchecked(2, 2, 1);
+            Pix::from(pm)
+        };
+        assert_eq!(pix_with_on.max_color_index().unwrap(), 1);
+    }
 }
