@@ -35,7 +35,7 @@
 
 use crate::error::{RegionError, RegionResult};
 use leptonica_core::{Pix, PixMut, PixelDepth};
-use rand::Rng;
+use rand::RngExt;
 use std::collections::VecDeque;
 
 /// Direction from parent to child in maze traversal
@@ -309,7 +309,7 @@ pub fn generate_binary_maze(options: &MazeGenerationOptions) -> RegionResult<Pix
         .try_into_mut()
         .unwrap_or_else(|p| p.to_mut());
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut queue: VecDeque<MazeElement> = VecDeque::new();
 
     // Prime the queue with the first pixel
@@ -330,7 +330,7 @@ pub fn generate_binary_maze(options: &MazeGenerationOptions) -> RegionResult<Pix
             } else {
                 wall_ps
             };
-            if rng.r#gen::<f32>() <= test_p {
+            if rng.random::<f32>() <= test_p {
                 let _ = pixd.set_pixel(x - 1, y, 1); // Make wall
             } else {
                 queue.push_back(MazeElement::new(x - 1, y, MazeDirection::West));
@@ -345,7 +345,7 @@ pub fn generate_binary_maze(options: &MazeGenerationOptions) -> RegionResult<Pix
             } else {
                 wall_ps
             };
-            if rng.r#gen::<f32>() <= test_p {
+            if rng.random::<f32>() <= test_p {
                 let _ = pixd.set_pixel(x, y - 1, 1); // Make wall
             } else {
                 queue.push_back(MazeElement::new(x, y - 1, MazeDirection::North));
@@ -360,7 +360,7 @@ pub fn generate_binary_maze(options: &MazeGenerationOptions) -> RegionResult<Pix
             } else {
                 wall_ps
             };
-            if rng.r#gen::<f32>() <= test_p {
+            if rng.random::<f32>() <= test_p {
                 let _ = pixd.set_pixel(x + 1, y, 1); // Make wall
             } else {
                 queue.push_back(MazeElement::new(x + 1, y, MazeDirection::East));
@@ -375,7 +375,7 @@ pub fn generate_binary_maze(options: &MazeGenerationOptions) -> RegionResult<Pix
             } else {
                 wall_ps
             };
-            if rng.r#gen::<f32>() <= test_p {
+            if rng.random::<f32>() <= test_p {
                 let _ = pixd.set_pixel(x, y + 1, 1); // Make wall
             } else {
                 queue.push_back(MazeElement::new(x, y + 1, MazeDirection::South));
