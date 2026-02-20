@@ -149,6 +149,12 @@ impl Pta {
 
     /// Return the x/y range: `(minx, maxx, miny, maxy)`.
     ///
+    /// Note the ordering: min/max are **interleaved by axis** (x-pair first,
+    /// then y-pair), which differs from [`get_min_max`] and `bounding_box`,
+    /// both of which return `(xmin, ymin, xmax, ymax)`.
+    ///
+    /// See also: [`get_min_max`], `bounding_box`.
+    ///
     /// C equivalent: `ptaGetRange()` in `ptafunc1.c`
     pub fn get_range(&self) -> Result<(f32, f32, f32, f32)> {
         if self.is_empty() {
@@ -278,6 +284,11 @@ impl Pta {
     /// Return `(xmin, ymin, xmax, ymax)`.
     ///
     /// Returns `None` if empty.
+    ///
+    /// Returns `(xmin, ymin, xmax, ymax)` — ordered by coordinate type, unlike
+    /// [`get_range`] which returns `(minx, maxx, miny, maxy)`.
+    ///
+    /// See also: [`get_range`], `bounding_box` (same ordering as this function).
     ///
     /// C equivalent: `ptaGetMinMax()` in `ptafunc1.c`
     pub fn get_min_max(&self) -> Option<(f32, f32, f32, f32)> {
