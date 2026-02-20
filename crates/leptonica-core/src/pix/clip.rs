@@ -1228,6 +1228,13 @@ impl Pix {
         let pixd_base = Pix::new(tw, th, depth)
             .map_err(|e| Error::InvalidParameter(format!("cannot create pixd: {e}")))?;
         let mut pixd = pixd_base.try_into_mut().unwrap();
+        pixd.set_resolution(self.xres(), self.yres());
+        if depth == PixelDepth::Bit32 {
+            pixd.set_spp(self.spp());
+        }
+        if self.colormap().is_some() {
+            pixd.copy_colormap_from(self);
+        }
         // Copy source pixels (clipped to min dimensions)
         let copy_w = ws.min(tw);
         let copy_h = hs.min(th);
