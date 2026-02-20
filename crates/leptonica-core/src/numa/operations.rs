@@ -1416,15 +1416,13 @@ impl Numa {
     // ====================================================================
 
     /// Return a new Numa with `left` and `right` border elements prepended
-    /// and appended, each initialised to `val`.
+    /// and appended, each initialized to `val`.
     ///
     /// The x-parameters are adjusted so that the sequence continues
     /// smoothly outside the original range.
     ///
     /// C equivalent: `numaAddBorder()` in `numafunc1.c`
     pub fn add_border(&self, left: usize, right: usize, val: f32) -> Numa {
-        let left = left;
-        let right = right;
         if left == 0 && right == 0 {
             return self.clone();
         }
