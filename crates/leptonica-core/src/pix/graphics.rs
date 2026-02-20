@@ -717,16 +717,19 @@ fn make_plot_pta_from_numa_gen(
     let mut pta1 = Pta::with_capacity(n);
     let mut maxw: i32 = 0;
     let mut maxh: i32 = 0;
+    // The last plotted sample is at index n-1, so the extent ends at
+    // start + (n-1)*del, not start + n*del.
+    let end = start + n.saturating_sub(1) as f32 * del;
     for i in 0..n {
         let val = na.get(i).unwrap_or(0.0);
         if orient == HashOrientation::Horizontal {
             pta1.push(start + i as f32 * del, refpos as f32 + scale * val);
-            maxw = ((start + n as f32 * del).max(start) + linewidth as f32) as i32;
+            maxw = (end.max(start) + linewidth as f32) as i32;
             maxh = refpos + max as i32 + linewidth as i32;
         } else {
             pta1.push(refpos as f32 + scale * val, start + i as f32 * del);
             maxw = refpos + max as i32 + linewidth as i32;
-            maxh = ((start + n as f32 * del).max(start) + linewidth as f32) as i32;
+            maxh = (end.max(start) + linewidth as f32) as i32;
         }
     }
 
@@ -749,12 +752,7 @@ fn make_plot_pta_from_numa_gen(
     // Optionally draw reference lines
     if drawref {
         if orient == HashOrientation::Horizontal {
-            let ref_line = generate_line_pta(
-                start as i32,
-                refpos,
-                (start + n as f32 * del) as i32,
-                refpos,
-            );
+            let ref_line = generate_line_pta(start as i32, refpos, end as i32, refpos);
             ptad.join(&ref_line, 0, None).ok();
             let normal = generate_line_pta(
                 start as i32,
@@ -764,12 +762,7 @@ fn make_plot_pta_from_numa_gen(
             );
             ptad.join(&normal, 0, None).ok();
         } else {
-            let ref_line = generate_line_pta(
-                refpos,
-                start as i32,
-                refpos,
-                (start + n as f32 * del) as i32,
-            );
+            let ref_line = generate_line_pta(refpos, start as i32, refpos, end as i32);
             ptad.join(&ref_line, 0, None).ok();
             let normal = generate_line_pta(
                 refpos - max as i32,
