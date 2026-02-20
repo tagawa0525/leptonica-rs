@@ -119,7 +119,7 @@ cargo test -p <crate>
 | `pixConvert8To32` | ✅ `convert_8_to_32` (convert.rs:810) |
 | `pixConvert8To16` | ✅ `convert_8_to_16` (convert.rs:854) |
 | `pixConvert16To8` | ✅ `convert_16_to_8` (convert.rs:897) |
-| `pixConvert32To8` | ✅ `convert_32_to_8` (convert.rs:1253) |
+| `pixConvert32To8` | ✅ `convert_32_to_8` (convert.rs:1276) |
 | `pixConvertTo8Or32` | ✅ `convert_to_8_or_32` (convert.rs:956) |
 | `pixConvertLossless` | ✅ `convert_lossless` (convert.rs:984) |
 | `pixRemoveAlpha` | ✅ `remove_alpha` (convert.rs:1041) |
@@ -136,9 +136,9 @@ cargo test -p <crate>
 | `pixConvert1To8` | ✅ (convert.rs:1179) |
 | `pixConvert1To16` | ✅ (convert.rs:1190) |
 | `pixConvert1To32` | ✅ (convert.rs:1201) |
-| `pixConvert1To2Cmap` | ✅ `convert_1_to_2_cmap` (convert.rs:1213) |
+| `pixConvert1To2Cmap` | ✅ `convert_1_to_2_cmap` (convert.rs:1210) |
 | `pixConvert1To4Cmap` | ✅ `convert_1_to_4_cmap` (convert.rs:1231) |
-| `pixConvert1To8Cmap` | ✅ `convert_1_to_8_cmap` (convert.rs:1249) |
+| `pixConvert1To8Cmap` | ✅ `convert_1_to_8_cmap` (convert.rs:1252) |
 
 #### 1.6 ボーダー操作 — ✅ 8/8実装済み
 
