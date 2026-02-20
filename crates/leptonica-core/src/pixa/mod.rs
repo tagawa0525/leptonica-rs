@@ -1230,6 +1230,9 @@ impl Pixaa {
 
     /// Append all Pixa from `src` into `self`.
     ///
+    /// Returns `Result<()>` for consistency with `Pixa::join` and to allow
+    /// potential future validation (e.g., depth checks).
+    ///
     /// C equivalent: `pixaaJoin()` in `pixabasic.c`
     pub fn join(&mut self, src: &Pixaa) -> Result<()> {
         for pixa in &src.pixas {
