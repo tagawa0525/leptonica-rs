@@ -1635,4 +1635,37 @@ mod tests {
         saa.clear();
         assert!(saa.is_empty());
     }
+
+    // -- Phase 16.5 new functions --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sort_by_index() {
+        use crate::numa::Numa;
+        let sa = Sarray::from_str_slice(&["c", "a", "b"]);
+        // index [1, 2, 0] maps new pos → old pos: new[0]=old[1]="a", etc.
+        let na = Numa::from_slice(&[1.0, 2.0, 0.0]);
+        let sorted = sa.sort_by_index(&na);
+        assert_eq!(sorted.get(0), Some("a"));
+        assert_eq!(sorted.get(1), Some("b"));
+        assert_eq!(sorted.get(2), Some("c"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_range() {
+        // Lines: "ok1", "--skip", "ok2", "ok3"
+        // Range of non-'--' lines starting at 0: should be [0,0], next=1
+        let sa = Sarray::from_str_slice(&["ok1", "--skip", "ok2", "ok3"]);
+        let range = sa.parse_range(0, "--", None);
+        assert_eq!(range, Some((0, 0, 1)));
+
+        // Starting from 1, the '--' line is at 1, so actual start is 2
+        let range2 = sa.parse_range(1, "--", None);
+        assert_eq!(range2, Some((2, 3, 4)));
+
+        // No valid range when start is past end
+        let range3 = sa.parse_range(4, "--", None);
+        assert!(range3.is_none());
+    }
 }

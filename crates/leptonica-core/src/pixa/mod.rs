@@ -1944,4 +1944,40 @@ mod tests {
         pixaa1.join(&pixaa2).unwrap();
         assert_eq!(pixaa1.len(), 2);
     }
+
+    // -- Phase 16.5 new functions --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_size() {
+        let pix = make_test_pix(10, 20);
+        let pixa = Pixa::create_from_pix(&pix, 3);
+        let scaled = pixa.scale_to_size(5, 0);
+        assert_eq!(scaled.len(), 3);
+        assert_eq!(scaled.get(0).unwrap().width(), 5);
+        assert_eq!(scaled.get(0).unwrap().height(), 10); // proportional
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_size_rel() {
+        let pix = make_test_pix(10, 20);
+        let pixa = Pixa::create_from_pix(&pix, 2);
+        let scaled = pixa.scale_to_size_rel(5, 0);
+        assert_eq!(scaled.len(), 2);
+        assert_eq!(scaled.get(0).unwrap().width(), 15);
+        assert_eq!(scaled.get(0).unwrap().height(), 20);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_tiled_and_scaled() {
+        use crate::pix::PixelDepth;
+        let pix = make_test_pix(10, 10);
+        let pixa = Pixa::create_from_pix(&pix, 4);
+        let result = pixa.display_tiled_and_scaled(PixelDepth::Bit8, 20, 2, 0, 2, 0);
+        assert!(result.is_ok());
+        let out = result.unwrap();
+        assert!(out.width() > 0 && out.height() > 0);
+    }
 }
