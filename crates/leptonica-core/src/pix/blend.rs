@@ -599,8 +599,34 @@ impl Pix {
     /// Blend using the inverse of the blender pixel values.
     ///
     /// Corresponds to `pixBlendGrayInverse()` in Leptonica's `blend.c`.
-    pub fn blend_gray_inverse(&self, _other: &Pix, _x: i32, _y: i32, _fract: f32) -> Result<Pix> {
-        todo!("pixBlendGrayInverse not yet implemented")
+    pub fn blend_gray_inverse(&self, other: &Pix, x: i32, y: i32, fract: f32) -> Result<Pix> {
+        let fract = fract.clamp(0.0, 1.0);
+        let result = self.deep_clone();
+        let mut result_mut = result.try_into_mut().unwrap();
+        let base_w = self.width() as i32;
+        let base_h = self.height() as i32;
+        let blend_w = other.width() as i32;
+        let blend_h = other.height() as i32;
+        for by in 0..blend_h {
+            let dy = by + y;
+            if dy < 0 || dy >= base_h {
+                continue;
+            }
+            for bx in 0..blend_w {
+                let dx = bx + x;
+                if dx < 0 || dx >= base_w {
+                    continue;
+                }
+                let dval = (self.get_pixel_unchecked(dx as u32, dy as u32) & 0xFF) as f32;
+                let cval = (other.get_pixel_unchecked(bx as u32, by as u32) & 0xFF) as f32;
+                let a = (1.0 - fract) * dval + fract * (255.0 - dval);
+                let new_val = ((cval * dval + a * (255.0 - cval)) / 255.0)
+                    .round()
+                    .clamp(0.0, 255.0) as u32;
+                result_mut.set_pixel_unchecked(dx as u32, dy as u32, new_val);
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Blend with separate per-channel blending fractions.
@@ -608,16 +634,52 @@ impl Pix {
     /// Corresponds to `pixBlendColorByChannel()` in Leptonica's `blend.c`.
     pub fn blend_color_by_channel(
         &self,
-        _other: &Pix,
-        _x: i32,
-        _y: i32,
-        _rfract: f32,
-        _gfract: f32,
-        _bfract: f32,
-        _transparent: bool,
-        _transpix: Color,
+        other: &Pix,
+        x: i32,
+        y: i32,
+        rfract: f32,
+        gfract: f32,
+        bfract: f32,
+        transparent: bool,
+        transpix: Color,
     ) -> Result<Pix> {
-        todo!("pixBlendColorByChannel not yet implemented")
+        let result = self.deep_clone();
+        let mut result_mut = result.try_into_mut().unwrap();
+        let base_w = self.width() as i32;
+        let base_h = self.height() as i32;
+        let blend_w = other.width() as i32;
+        let blend_h = other.height() as i32;
+        for by in 0..blend_h {
+            let dy = by + y;
+            if dy < 0 || dy >= base_h {
+                continue;
+            }
+            for bx in 0..blend_w {
+                let dx = bx + x;
+                if dx < 0 || dx >= base_w {
+                    continue;
+                }
+                let blend_pixel = other.get_pixel_unchecked(bx as u32, by as u32);
+                if transparent {
+                    let (br, bg, bb) = color::extract_rgb(blend_pixel);
+                    if br == transpix.r && bg == transpix.g && bb == transpix.b {
+                        continue;
+                    }
+                }
+                let base_pixel = self.get_pixel_unchecked(dx as u32, dy as u32);
+                let (pr, pg, pb) = color::extract_rgb(base_pixel);
+                let (cr, cg, cb) = color::extract_rgb(blend_pixel);
+                let new_r = blend_component(pr, cr, rfract);
+                let new_g = blend_component(pg, cg, gfract);
+                let new_b = blend_component(pb, cb, bfract);
+                result_mut.set_pixel_unchecked(
+                    dx as u32,
+                    dy as u32,
+                    color::compose_rgb(new_r, new_g, new_b),
+                );
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Adaptive gray blend that adjusts based on local pixel values.
@@ -625,13 +687,61 @@ impl Pix {
     /// Corresponds to `pixBlendGrayAdapt()` in Leptonica's `blend.c`.
     pub fn blend_gray_adapt(
         &self,
-        _other: &Pix,
-        _x: i32,
-        _y: i32,
-        _fract: f32,
-        _shift: i32,
+        other: &Pix,
+        x: i32,
+        y: i32,
+        fract: f32,
+        shift: i32,
     ) -> Result<Pix> {
-        todo!("pixBlendGrayAdapt not yet implemented")
+        let fract = fract.clamp(0.0, 1.0);
+        let base_w = self.width() as i32;
+        let base_h = self.height() as i32;
+        let blend_w = other.width() as i32;
+        let blend_h = other.height() as i32;
+        // Determine overlap region in destination coordinates
+        let x0 = x.max(0) as u32;
+        let y0 = y.max(0) as u32;
+        let x1 = ((x + blend_w).min(base_w)) as u32;
+        let y1 = ((y + blend_h).min(base_h)) as u32;
+        // Collect destination pixel values in overlap
+        let mut vals: Vec<u32> = Vec::new();
+        for dy in y0..y1 {
+            for dx in x0..x1 {
+                vals.push(self.get_pixel_unchecked(dx, dy) & 0xFF);
+            }
+        }
+        if vals.is_empty() {
+            return Ok(self.deep_clone());
+        }
+        vals.sort_unstable();
+        let median = vals[vals.len() / 2] as i32;
+        let raw_pivot = if median < 128 {
+            median + shift
+        } else {
+            median - shift
+        };
+        let pivot = raw_pivot.clamp(85, 170) as f32;
+        let result = self.deep_clone();
+        let mut result_mut = result.try_into_mut().unwrap();
+        for by in 0..blend_h {
+            let dy = by + y;
+            if dy < 0 || dy >= base_h {
+                continue;
+            }
+            for bx in 0..blend_w {
+                let dx = bx + x;
+                if dx < 0 || dx >= base_w {
+                    continue;
+                }
+                let dval = (self.get_pixel_unchecked(dx as u32, dy as u32) & 0xFF) as f32;
+                let cval = (other.get_pixel_unchecked(bx as u32, by as u32) & 0xFF) as f32;
+                let new_val = (dval + fract * (pivot - dval) * (1.0 - cval / 256.0))
+                    .round()
+                    .clamp(0.0, 255.0) as u32;
+                result_mut.set_pixel_unchecked(dx as u32, dy as u32, new_val);
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Fade a color or grayscale image using a grayscale blender image.
@@ -639,32 +749,152 @@ impl Pix {
     /// Corresponds to `pixFadeWithGray()` in Leptonica's `blend.c`.
     pub fn fade_with_gray(
         &self,
-        _blender: &Pix,
-        _factor: f32,
-        _fade_type: FadeWithGrayType,
+        blender: &Pix,
+        factor: f32,
+        fade_type: FadeWithGrayType,
     ) -> Result<Pix> {
-        todo!("pixFadeWithGray not yet implemented")
+        let factor_norm = (factor / 255.0).clamp(0.0, 1.0);
+        let result = self.deep_clone();
+        let mut result_mut = result.try_into_mut().unwrap();
+        let w = self.width().min(blender.width());
+        let h = self.height().min(blender.height());
+        for y in 0..h {
+            for x in 0..w {
+                let valb = (blender.get_pixel_unchecked(x, y) & 0xFF) as f32;
+                let fract = (factor_norm * valb / 255.0).clamp(0.0, 1.0);
+                let src_pixel = self.get_pixel_unchecked(x, y);
+                let new_pixel = match self.depth() {
+                    PixelDepth::Bit8 => {
+                        let p = (src_pixel & 0xFF) as f32;
+                        match fade_type {
+                            FadeWithGrayType::ToWhite => {
+                                (p + fract * (255.0 - p)).round().clamp(0.0, 255.0) as u32
+                            }
+                            FadeWithGrayType::ToBlack => {
+                                (p * (1.0 - fract)).round().clamp(0.0, 255.0) as u32
+                            }
+                        }
+                    }
+                    PixelDepth::Bit32 => {
+                        let (r, g, b) = color::extract_rgb(src_pixel);
+                        let (nr, ng, nb) = match fade_type {
+                            FadeWithGrayType::ToWhite => (
+                                (r as f32 + fract * (255.0 - r as f32))
+                                    .round()
+                                    .clamp(0.0, 255.0) as u8,
+                                (g as f32 + fract * (255.0 - g as f32))
+                                    .round()
+                                    .clamp(0.0, 255.0) as u8,
+                                (b as f32 + fract * (255.0 - b as f32))
+                                    .round()
+                                    .clamp(0.0, 255.0) as u8,
+                            ),
+                            FadeWithGrayType::ToBlack => (
+                                (r as f32 * (1.0 - fract)).round().clamp(0.0, 255.0) as u8,
+                                (g as f32 * (1.0 - fract)).round().clamp(0.0, 255.0) as u8,
+                                (b as f32 * (1.0 - fract)).round().clamp(0.0, 255.0) as u8,
+                            ),
+                        };
+                        color::compose_rgb(nr, ng, nb)
+                    }
+                    _ => src_pixel,
+                };
+                result_mut.set_pixel_unchecked(x, y, new_pixel);
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Multiply each pixel by a color factor (component-wise).
     ///
     /// Corresponds to `pixMultiplyByColor()` in Leptonica's `blend.c`.
-    pub fn multiply_by_color(&self, _color: Color) -> Result<Pix> {
-        todo!("pixMultiplyByColor not yet implemented")
+    pub fn multiply_by_color(&self, color: Color) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        let fr = color.r as f32 / 255.0;
+        let fg = color.g as f32 / 255.0;
+        let fb = color.b as f32 / 255.0;
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (r, g, b) = crate::color::extract_rgb(pixel);
+                let nr = (r as f32 * fr).round().clamp(0.0, 255.0) as u8;
+                let ng = (g as f32 * fg).round().clamp(0.0, 255.0) as u8;
+                let nb = (b as f32 * fb).round().clamp(0.0, 255.0) as u8;
+                result_mut.set_pixel_unchecked(x, y, crate::color::compose_rgb(nr, ng, nb));
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Alpha-blend a 32bpp RGBA image against a uniform background color.
     ///
     /// Corresponds to `pixAlphaBlendUniform()` in Leptonica's `blend.c`.
-    pub fn alpha_blend_uniform(&self, _color: u32) -> Result<Pix> {
-        todo!("pixAlphaBlendUniform not yet implemented")
+    pub fn alpha_blend_uniform(&self, bg_color: u32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let (bg_r, bg_g, bg_b) = color::extract_rgb(bg_color);
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (r, g, b, a) = color::extract_rgba(pixel);
+                let alpha = a as f32 / 255.0;
+                let nr = (alpha * r as f32 + (1.0 - alpha) * bg_r as f32)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                let ng = (alpha * g as f32 + (1.0 - alpha) * bg_g as f32)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                let nb = (alpha * b as f32 + (1.0 - alpha) * bg_b as f32)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                result_mut.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Generate an alpha channel for the image based on gray values.
     ///
     /// Corresponds to `pixAddAlphaToBlend()` in Leptonica's `blend.c`.
-    pub fn add_alpha_to_blend(&self, _fract: f32, _invert: bool) -> Result<Pix> {
-        todo!("pixAddAlphaToBlend not yet implemented")
+    pub fn add_alpha_to_blend(&self, fract: f32, invert: bool) -> Result<Pix> {
+        let fract = fract.clamp(0.0, 1.0);
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = self.get_pixel_unchecked(x, y);
+                let (mut r, mut g, mut b) = match self.depth() {
+                    PixelDepth::Bit8 => {
+                        let v = (pixel & 0xFF) as u8;
+                        (v, v, v)
+                    }
+                    PixelDepth::Bit32 => color::extract_rgb(pixel),
+                    _ => return Err(Error::UnsupportedDepth(self.depth().bits())),
+                };
+                if invert {
+                    r = 255 - r;
+                    g = 255 - g;
+                    b = 255 - b;
+                }
+                let gray = (r as u32 + g as u32 + b as u32) / 3;
+                let alpha = ((255 - gray) as f32 * fract).round().clamp(0.0, 255.0) as u8;
+                result_mut.set_pixel_unchecked(x, y, color::compose_rgba(r, g, b, alpha));
+            }
+        }
+        Ok(result_mut.into())
     }
 }
 
@@ -674,8 +904,51 @@ impl PixMut {
     /// Only pixels in the source with index > `sindex` are blended.
     ///
     /// Corresponds to `pixBlendCmap()` in Leptonica's `blend.c`.
-    pub fn blend_cmap(&mut self, _other: &Pix, _x: i32, _y: i32, _sindex: usize) -> Result<()> {
-        todo!("pixBlendCmap not yet implemented")
+    pub fn blend_cmap(&mut self, other: &Pix, x: i32, y: i32, sindex: usize) -> Result<()> {
+        if !self.has_colormap() || !other.has_colormap() {
+            return Err(Error::InvalidParameter(
+                "blend_cmap: both images must have colormaps".to_string(),
+            ));
+        }
+        let w_dst = self.width() as i32;
+        let h_dst = self.height() as i32;
+        let w_src = other.width() as i32;
+        let h_src = other.height() as i32;
+        let src_len = other.colormap().map(|c| c.len()).unwrap_or(0);
+        // Build LUT: source colormap index -> destination colormap index
+        let mut new_dst_cmap = self.colormap().unwrap().clone();
+        let mut lut = vec![0u32; src_len.max(1)];
+        for i in 0..src_len {
+            if let Some(src_cmap) = other.colormap() {
+                if let Some((r, g, b)) = src_cmap.get_rgb(i) {
+                    let idx = if let Some(existing) = new_dst_cmap.get_index(r, g, b) {
+                        existing
+                    } else {
+                        new_dst_cmap.add_rgb(r, g, b).unwrap_or(0)
+                    };
+                    lut[i] = idx as u32;
+                }
+            }
+        }
+        self.set_colormap(Some(new_dst_cmap))?;
+        // Substitute pixels
+        for by in 0..h_src {
+            let dy = by + y;
+            if dy < 0 || dy >= h_dst {
+                continue;
+            }
+            for bx in 0..w_src {
+                let dx = bx + x;
+                if dx < 0 || dx >= w_dst {
+                    continue;
+                }
+                let src_idx = other.get_pixel_unchecked(bx as u32, by as u32) as usize;
+                if src_idx > sindex && src_idx < src_len {
+                    self.set_pixel_unchecked(dx as u32, dy as u32, lut[src_idx]);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Apply a linear fade from one edge of the image inward.
@@ -683,12 +956,81 @@ impl PixMut {
     /// Corresponds to `pixLinearEdgeFade()` in Leptonica's `blend.c`.
     pub fn linear_edge_fade(
         &mut self,
-        _dir: FadeDirection,
-        _fadeto: FadeTarget,
-        _distfract: f32,
-        _maxfade: f32,
+        dir: FadeDirection,
+        fadeto: FadeTarget,
+        distfract: f32,
+        maxfade: f32,
     ) -> Result<()> {
-        todo!("pixLinearEdgeFade not yet implemented")
+        let w = self.width();
+        let h = self.height();
+        let limit = match fadeto {
+            FadeTarget::ToWhite => 255.0f32,
+            FadeTarget::ToBlack => 0.0f32,
+        };
+        let dim = match dir {
+            FadeDirection::FromLeft | FadeDirection::FromRight => w,
+            FadeDirection::FromTop | FadeDirection::FromBottom => h,
+        };
+        let range = (distfract * dim as f32) as i32;
+        if range == 0 {
+            return Ok(());
+        }
+        let maxfade = maxfade.clamp(0.0, 1.0);
+        let slope = maxfade / range as f32;
+        for y in 0..h {
+            for x in 0..w {
+                let dist = match dir {
+                    FadeDirection::FromLeft => x as i32,
+                    FadeDirection::FromRight => w as i32 - 1 - x as i32,
+                    FadeDirection::FromTop => y as i32,
+                    FadeDirection::FromBottom => h as i32 - 1 - y as i32,
+                };
+                if dist >= range {
+                    continue;
+                }
+                let del = (maxfade - slope * dist as f32).clamp(0.0, 1.0);
+                let pixel = self.get_pixel_unchecked(x, y);
+                match self.depth() {
+                    PixelDepth::Bit8 => {
+                        let val = (pixel & 0xFF) as f32;
+                        let new_val = (val + (limit - val) * del).round().clamp(0.0, 255.0) as u32;
+                        self.set_pixel_unchecked(x, y, new_val);
+                    }
+                    PixelDepth::Bit32 => {
+                        let (r, g, b) = color::extract_rgb(pixel);
+                        let new_r = (r as f32 + (limit - r as f32) * del)
+                            .round()
+                            .clamp(0.0, 255.0) as u8;
+                        let new_g = (g as f32 + (limit - g as f32) * del)
+                            .round()
+                            .clamp(0.0, 255.0) as u8;
+                        let new_b = (b as f32 + (limit - b as f32) * del)
+                            .round()
+                            .clamp(0.0, 255.0) as u8;
+                        self.set_pixel_unchecked(x, y, color::compose_rgb(new_r, new_g, new_b));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Blend a single channel component by fract.
+///
+/// - `fract < 0.0`: return min(p, c)
+/// - `fract > 1.0`: return max(p, c)
+/// - `0.0 <= fract <= 1.0`: linear interpolation
+fn blend_component(p: u8, c: u8, fract: f32) -> u8 {
+    if fract < 0.0 {
+        p.min(c)
+    } else if fract > 1.0 {
+        p.max(c)
+    } else {
+        ((1.0 - fract) * p as f32 + fract * c as f32)
+            .round()
+            .clamp(0.0, 255.0) as u8
     }
 }
 

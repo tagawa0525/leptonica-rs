@@ -788,8 +788,35 @@ impl Pix {
     /// Check if two images (with or without colormaps) are equal.
     ///
     /// Corresponds to `pixEqualWithCmap()` in Leptonica's `compare.c`.
-    pub fn equals_with_cmap(&self, _other: &Pix) -> bool {
-        todo!("pixEqualWithCmap not yet implemented")
+    pub fn equals_with_cmap(&self, other: &Pix) -> bool {
+        if self.width() != other.width() || self.height() != other.height() {
+            return false;
+        }
+        if !self.has_colormap() && !other.has_colormap() {
+            return self.equals(other);
+        }
+        let w = self.width();
+        let h = self.height();
+        for y in 0..h {
+            for x in 0..w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                let (r1, g1, b1) = if let Some(cmap) = self.colormap() {
+                    cmap.get_rgb(v1 as usize).unwrap_or((0, 0, 0))
+                } else {
+                    color::extract_rgb(v1)
+                };
+                let (r2, g2, b2) = if let Some(cmap) = other.colormap() {
+                    cmap.get_rgb(v2 as usize).unwrap_or((0, 0, 0))
+                } else {
+                    color::extract_rgb(v2)
+                };
+                if r1 != r2 || g1 != g2 || b1 != b2 {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Create a 32bpp color-coded display showing differences between two 8bpp images.
@@ -797,29 +824,172 @@ impl Pix {
     /// Pixels differing by more than `mindiff` are tinted with `diffcolor`.
     ///
     /// Corresponds to `pixDisplayDiff()` in Leptonica's `compare.c`.
-    pub fn display_diff(&self, _other: &Pix, _mindiff: u32, _diffcolor: Color) -> Result<Pix> {
-        todo!("pixDisplayDiff not yet implemented")
+    pub fn display_diff(&self, other: &Pix, mindiff: u32, diffcolor: Color) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.width() != other.width() || self.height() != other.height() {
+            return Err(Error::DimensionMismatch {
+                expected: (self.width(), self.height()),
+                actual: (other.width(), other.height()),
+            });
+        }
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        let diff_val = color::compose_rgb(diffcolor.r, diffcolor.g, diffcolor.b);
+        for y in 0..h {
+            for x in 0..w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                let max_component_diff = if self.depth() == PixelDepth::Bit8 {
+                    v1.abs_diff(v2)
+                } else {
+                    let (r1, g1, b1) = color::extract_rgb(v1);
+                    let (r2, g2, b2) = color::extract_rgb(v2);
+                    let dr = (r1 as i32 - r2 as i32).unsigned_abs();
+                    let dg = (g1 as i32 - g2 as i32).unsigned_abs();
+                    let db = (b1 as i32 - b2 as i32).unsigned_abs();
+                    dr.max(dg).max(db)
+                };
+                let output_pixel = if max_component_diff >= mindiff {
+                    diff_val
+                } else if self.depth() == PixelDepth::Bit8 {
+                    let gray = (v1 & 0xFF) as u8;
+                    color::compose_rgb(gray, gray, gray)
+                } else {
+                    v1 | 0xFF // ensure alpha = 255
+                };
+                result_mut.set_pixel_unchecked(x, y, output_pixel);
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Create a 4bpp color-coded display showing differences between two binary images.
     ///
     /// Corresponds to `pixDisplayDiffBinary()` in Leptonica's `compare.c`.
-    pub fn display_diff_binary(&self, _other: &Pix) -> Result<Pix> {
-        todo!("pixDisplayDiffBinary not yet implemented")
+    pub fn display_diff_binary(&self, other: &Pix) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit1 || other.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.width() != other.width() || self.height() != other.height() {
+            return Err(Error::DimensionMismatch {
+                expected: (self.width(), self.height()),
+                actual: (other.width(), other.height()),
+            });
+        }
+        let w = self.width();
+        let h = self.height();
+        let mut cmap = crate::colormap::PixColormap::new(4)?;
+        cmap.add_rgb(255, 255, 255)?; // index 0 = white (both off)
+        cmap.add_rgb(0, 0, 0)?; // index 1 = black (both on)
+        cmap.add_rgb(255, 0, 0)?; // index 2 = red (pix1 on, pix2 off)
+        cmap.add_rgb(0, 255, 0)?; // index 3 = green (pix1 off, pix2 on)
+        let result = Pix::new(w, h, PixelDepth::Bit4)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+        result_mut.set_colormap(Some(cmap))?;
+        for y in 0..h {
+            for x in 0..w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                let idx = match (v1 != 0, v2 != 0) {
+                    (false, false) => 0u32,
+                    (true, true) => 1u32,
+                    (true, false) => 2u32,
+                    (false, true) => 3u32,
+                };
+                let _ = result_mut.set_pixel(x, y, idx);
+            }
+        }
+        Ok(result_mut.into())
     }
 
     /// Compare two grayscale images and return statistics.
     ///
     /// Corresponds to `pixCompareGray()` in Leptonica's `compare.c`.
-    pub fn compare_gray(&self, _other: &Pix, _comp: CompareType) -> Result<PixCompareResult> {
-        todo!("pixCompareGray not yet implemented")
+    pub fn compare_gray(&self, other: &Pix, comp: CompareType) -> Result<PixCompareResult> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.width() != other.width() || self.height() != other.height() {
+            return Err(Error::DimensionMismatch {
+                expected: (self.width(), self.height()),
+                actual: (other.width(), other.height()),
+            });
+        }
+        let diff = self.diff(other, comp)?;
+        let w = self.width();
+        let h = self.height();
+        let n = (w as f64) * (h as f64);
+        let mut is_same = true;
+        let mut sum_abs = 0f64;
+        let mut sum_sq = 0f64;
+        for y in 0..h {
+            for x in 0..w {
+                let d = diff.get_pixel_unchecked(x, y) as f64;
+                if d != 0.0 {
+                    is_same = false;
+                    sum_abs += d;
+                    sum_sq += d * d;
+                }
+            }
+        }
+        let mean_diff = (sum_abs / n) as f32;
+        let rms = ((sum_sq / n).sqrt()) as f32;
+        let pix_diff = if is_same { None } else { Some(diff) };
+        Ok(PixCompareResult {
+            same: is_same,
+            diff: mean_diff,
+            rms_diff: rms,
+            pix_diff,
+        })
     }
 
     /// Compare two RGB images and return statistics.
     ///
     /// Corresponds to `pixCompareRGB()` in Leptonica's `compare.c`.
-    pub fn compare_rgb(&self, _other: &Pix, _comp: CompareType) -> Result<PixCompareResult> {
-        todo!("pixCompareRGB not yet implemented")
+    pub fn compare_rgb(&self, other: &Pix, comp: CompareType) -> Result<PixCompareResult> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.width() != other.width() || self.height() != other.height() {
+            return Err(Error::DimensionMismatch {
+                expected: (self.width(), self.height()),
+                actual: (other.width(), other.height()),
+            });
+        }
+        let diff = self.diff(other, comp)?;
+        let w = self.width();
+        let h = self.height();
+        let n = (w as f64) * (h as f64);
+        let mut is_same = true;
+        let mut sum_abs = 0f64;
+        let mut sum_sq = 0f64;
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = diff.get_pixel_unchecked(x, y);
+                let (r, g, b) = color::extract_rgb(pixel);
+                let rf = r as f64;
+                let gf = g as f64;
+                let bf = b as f64;
+                if rf != 0.0 || gf != 0.0 || bf != 0.0 {
+                    is_same = false;
+                    sum_abs += (rf + gf + bf) / 3.0;
+                    sum_sq += (rf * rf + gf * gf + bf * bf) / 3.0;
+                }
+            }
+        }
+        let mean_diff = (sum_abs / n) as f32;
+        let rms = ((sum_sq / n).sqrt()) as f32;
+        let pix_diff = if is_same { None } else { Some(diff) };
+        Ok(PixCompareResult {
+            same: is_same,
+            diff: mean_diff,
+            rms_diff: rms,
+            pix_diff,
+        })
     }
 
     /// Compare two grayscale or RGB images and return statistics.
@@ -827,19 +997,57 @@ impl Pix {
     /// Dispatches to `compare_gray` or `compare_rgb` based on image depth.
     ///
     /// Corresponds to `pixCompareGrayOrRGB()` in Leptonica's `compare.c`.
-    pub fn compare_gray_or_rgb(
-        &self,
-        _other: &Pix,
-        _comp: CompareType,
-    ) -> Result<PixCompareResult> {
-        todo!("pixCompareGrayOrRGB not yet implemented")
+    pub fn compare_gray_or_rgb(&self, other: &Pix, comp: CompareType) -> Result<PixCompareResult> {
+        match self.depth() {
+            PixelDepth::Bit8 => self.compare_gray(other, comp),
+            PixelDepth::Bit32 => self.compare_rgb(other, comp),
+            _ => Err(Error::UnsupportedDepth(self.depth().bits())),
+        }
     }
 
     /// Build a 256-bin histogram of pixel absolute differences between two 8bpp images.
     ///
     /// Corresponds to `pixGetDifferenceHistogram()` in Leptonica's `compare.c`.
-    pub fn get_difference_histogram(&self, _other: &Pix, _factor: u32) -> Result<Numa> {
-        todo!("pixGetDifferenceHistogram not yet implemented")
+    pub fn get_difference_histogram(&self, other: &Pix, factor: u32) -> Result<Numa> {
+        if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.width() != other.width() || self.height() != other.height() {
+            return Err(Error::DimensionMismatch {
+                expected: (self.width(), self.height()),
+                actual: (other.width(), other.height()),
+            });
+        }
+        let factor = factor.max(1);
+        let w = self.width();
+        let h = self.height();
+        let mut hist = [0f32; 256];
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                let diff_idx = if self.depth() == PixelDepth::Bit8 {
+                    v1.abs_diff(v2)
+                } else {
+                    let (r1, g1, b1) = color::extract_rgb(v1);
+                    let (r2, g2, b2) = color::extract_rgb(v2);
+                    let dr = (r1 as i32 - r2 as i32).unsigned_abs();
+                    let dg = (g1 as i32 - g2 as i32).unsigned_abs();
+                    let db = (b1 as i32 - b2 as i32).unsigned_abs();
+                    dr.max(dg).max(db)
+                };
+                hist[diff_idx.min(255) as usize] += 1.0;
+                x += factor;
+            }
+            y += factor;
+        }
+        let mut na = Numa::new();
+        for &val in hist.iter() {
+            na.push(val);
+        }
+        Ok(na)
     }
 
     /// Get the fraction and average of differences exceeding `mindiff`.
@@ -847,18 +1055,62 @@ impl Pix {
     /// Corresponds to `pixGetDifferenceStats()` in Leptonica's `compare.c`.
     pub fn get_difference_stats(
         &self,
-        _other: &Pix,
-        _factor: u32,
-        _mindiff: u32,
+        other: &Pix,
+        factor: u32,
+        mindiff: u32,
     ) -> Result<DifferenceStats> {
-        todo!("pixGetDifferenceStats not yet implemented")
+        let na = self.get_difference_histogram(other, factor)?;
+        let hist = na.as_slice();
+        let total: f32 = hist.iter().sum();
+        if total == 0.0 {
+            return Ok(DifferenceStats {
+                fract_diff: 0.0,
+                ave_diff: 0.0,
+            });
+        }
+        let mindiff = mindiff.min(255) as usize;
+        let mut count_diff = 0f32;
+        let mut sum_diff = 0f32;
+        for i in mindiff..256 {
+            let count = hist[i];
+            count_diff += count;
+            sum_diff += count * (i as f32 - mindiff as f32);
+        }
+        let fract_diff = count_diff / total;
+        let ave_diff = if count_diff > 0.0 {
+            sum_diff / count_diff
+        } else {
+            0.0
+        };
+        Ok(DifferenceStats {
+            fract_diff,
+            ave_diff,
+        })
     }
 
     /// Build a rank-normalized cumulative difference histogram.
     ///
     /// Corresponds to `pixCompareRankDifference()` in Leptonica's `compare.c`.
-    pub fn compare_rank_difference(&self, _other: &Pix, _factor: u32) -> Result<Numa> {
-        todo!("pixCompareRankDifference not yet implemented")
+    pub fn compare_rank_difference(&self, other: &Pix, factor: u32) -> Result<Numa> {
+        let hist_na = self.get_difference_histogram(other, factor)?;
+        let hist = hist_na.as_slice();
+        let total: f32 = hist.iter().sum();
+        let mut rank = Numa::new();
+        if total == 0.0 {
+            for _ in 0..256 {
+                rank.push(1.0);
+            }
+            return Ok(rank);
+        }
+        let mut cumsum = 1.0f32;
+        for i in 0..256 {
+            rank.push(cumsum);
+            cumsum -= hist[i] / total;
+            if cumsum < 0.0 {
+                cumsum = 0.0;
+            }
+        }
+        Ok(rank)
     }
 
     /// Test if two images are sufficiently similar given fractional and average thresholds.
@@ -866,20 +1118,62 @@ impl Pix {
     /// Corresponds to `pixTestForSimilarity()` in Leptonica's `compare.c`.
     pub fn test_for_similarity(
         &self,
-        _other: &Pix,
-        _factor: u32,
-        _mindiff: u32,
-        _maxfract: f32,
-        _maxave: f32,
+        other: &Pix,
+        factor: u32,
+        mindiff: u32,
+        maxfract: f32,
+        maxave: f32,
     ) -> Result<bool> {
-        todo!("pixTestForSimilarity not yet implemented")
+        let stats = self.get_difference_stats(other, factor, mindiff)?;
+        Ok(stats.fract_diff <= maxfract && stats.ave_diff <= maxave)
     }
 
     /// Compute peak signal-to-noise ratio (PSNR) between two images.
     ///
     /// Corresponds to `pixGetPSNR()` in Leptonica's `compare.c`.
-    pub fn get_psnr(&self, _other: &Pix, _factor: u32) -> Result<f32> {
-        todo!("pixGetPSNR not yet implemented")
+    pub fn get_psnr(&self, other: &Pix, factor: u32) -> Result<f32> {
+        if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.width() != other.width() || self.height() != other.height() {
+            return Err(Error::DimensionMismatch {
+                expected: (self.width(), self.height()),
+                actual: (other.width(), other.height()),
+            });
+        }
+        let factor = factor.max(1);
+        let w = self.width();
+        let h = self.height();
+        let mut sum_sq = 0f64;
+        let mut n = 0u64;
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                if self.depth() == PixelDepth::Bit8 {
+                    let diff = v1 as i64 - v2 as i64;
+                    sum_sq += (diff * diff) as f64;
+                } else {
+                    let (r1, g1, b1) = color::extract_rgb(v1);
+                    let (r2, g2, b2) = color::extract_rgb(v2);
+                    let dr = r1 as i64 - r2 as i64;
+                    let dg = g1 as i64 - g2 as i64;
+                    let db = b1 as i64 - b2 as i64;
+                    sum_sq += (dr * dr + dg * dg + db * db) as f64 / 3.0;
+                }
+                n += 1;
+                x += factor;
+            }
+            y += factor;
+        }
+        if sum_sq == 0.0 || n == 0 {
+            return Ok(1000.0);
+        }
+        let mse = sum_sq / n as f64;
+        let psnr = -4.3429448f64 * (mse / (255.0 * 255.0)).ln();
+        Ok(psnr as f32)
     }
 }
 
