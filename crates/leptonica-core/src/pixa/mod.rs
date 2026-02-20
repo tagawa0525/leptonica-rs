@@ -580,6 +580,25 @@ impl Pixa {
         Ok(pixd.into())
     }
 
+    /// Return Numa arrays of widths and heights for all images in the Pixa.
+    ///
+    /// Returns `(na_widths, na_heights)`. Returns an error if the Pixa is empty.
+    ///
+    /// C equivalent: `pixaFindDimensions()` in `pix5.c`
+    pub fn find_dimensions(&self) -> Result<(crate::Numa, crate::Numa)> {
+        if self.pix.is_empty() {
+            return Err(Error::InvalidParameter("pixa is empty".into()));
+        }
+        let n = self.pix.len();
+        let mut na_w = crate::Numa::with_capacity(n);
+        let mut na_h = crate::Numa::with_capacity(n);
+        for pix in &self.pix {
+            na_w.push(pix.width() as f32);
+            na_h.push(pix.height() as f32);
+        }
+        Ok((na_w, na_h))
+    }
+
     // ========================================================================
     // Display / composition functions
     // ========================================================================
@@ -1508,5 +1527,31 @@ mod tests {
             pixa.aligned_stats(RowColStatType::MeanAbsVal, 0, 0)
                 .is_err()
         );
+    }
+
+    // -- Pixa::find_dimensions --
+
+    #[test]
+    fn test_find_dimensions_basic() {
+        use crate::pix::{Pix, PixelDepth};
+        let mut pixa = Pixa::new();
+        pixa.push(Pix::new(10, 20, PixelDepth::Bit8).unwrap());
+        pixa.push(Pix::new(30, 40, PixelDepth::Bit8).unwrap());
+        pixa.push(Pix::new(5, 15, PixelDepth::Bit8).unwrap());
+        let (na_w, na_h) = pixa.find_dimensions().unwrap();
+        assert_eq!(na_w.len(), 3);
+        assert_eq!(na_h.len(), 3);
+        assert_eq!(na_w.get(0).unwrap(), 10.0);
+        assert_eq!(na_h.get(0).unwrap(), 20.0);
+        assert_eq!(na_w.get(1).unwrap(), 30.0);
+        assert_eq!(na_h.get(1).unwrap(), 40.0);
+        assert_eq!(na_w.get(2).unwrap(), 5.0);
+        assert_eq!(na_h.get(2).unwrap(), 15.0);
+    }
+
+    #[test]
+    fn test_find_dimensions_empty() {
+        let pixa = Pixa::new();
+        assert!(pixa.find_dimensions().is_err());
     }
 }

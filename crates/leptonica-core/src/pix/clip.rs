@@ -1157,6 +1157,148 @@ impl Pix {
         Ok((fg_val, bg_val))
     }
 
+    /// Clip an image to each box in a `Boxa`, returning a `Pixa`.
+    ///
+    /// Each element of the returned `Pixa` is the sub-image clipped by the
+    /// corresponding box, and the associated box is the actual clipped region.
+    /// Boxes that do not intersect the image are skipped.
+    ///
+    /// C equivalent: `pixClipRectangles()` in `pix5.c`
+    pub fn clip_rectangles(&self, boxes: &crate::Boxa) -> Result<crate::pixa::Pixa> {
+        let mut pixa = crate::pixa::Pixa::new();
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        for i in 0..boxes.len() {
+            let b = boxes
+                .get(i)
+                .ok_or_else(|| Error::InvalidParameter("box index out of range".into()))?;
+            let x0 = b.x.max(0);
+            let y0 = b.y.max(0);
+            let x1 = (b.x + b.w).min(w);
+            let y1 = (b.y + b.h).min(h);
+            if x1 <= x0 || y1 <= y0 {
+                continue;
+            }
+            let clipped =
+                self.clip_rectangle(x0 as u32, y0 as u32, (x1 - x0) as u32, (y1 - y0) as u32)?;
+            let box_c = Box::new(x0, y0, x1 - x0, y1 - y0)
+                .map_err(|e| Error::InvalidParameter(format!("invalid clipped box: {e}")))?;
+            pixa.push_with_box(clipped, box_c);
+        }
+        Ok(pixa)
+    }
+
+    /// Crop to at most `w × h`, returning a clone if already within bounds.
+    ///
+    /// If either dimension is already ≤ the limit, that dimension is not cropped.
+    ///
+    /// C equivalent: `pixCropToSize()` in `pix5.c`
+    pub fn crop_to_size(&self, w: u32, h: u32) -> Result<Pix> {
+        let ws = self.width();
+        let hs = self.height();
+        if ws <= w && hs <= h {
+            return Ok(self.clone());
+        }
+        let wd = ws.min(w);
+        let hd = hs.min(h);
+        self.clip_rectangle(0, 0, wd, hd)
+    }
+
+    /// Resize to exactly `w × h` without scaling.
+    ///
+    /// Crops if larger; replicates the last row/column if smaller.
+    /// If `pixt` is provided its dimensions override `w` and `h`.
+    ///
+    /// C equivalent: `pixResizeToMatch()` in `pix5.c`
+    pub fn resize_to_match(&self, pixt: Option<&Pix>, w: u32, h: u32) -> Result<Pix> {
+        let (tw, th) = if let Some(t) = pixt {
+            (t.width(), t.height())
+        } else {
+            if w == 0 || h == 0 {
+                return Err(Error::InvalidParameter("w and h must be > 0".into()));
+            }
+            (w, h)
+        };
+        let ws = self.width();
+        let hs = self.height();
+        if ws == tw && hs == th {
+            return Ok(self.clone());
+        }
+        let depth = self.depth();
+        let pixd_base = Pix::new(tw, th, depth)
+            .map_err(|e| Error::InvalidParameter(format!("cannot create pixd: {e}")))?;
+        let mut pixd = pixd_base.try_into_mut().unwrap();
+        pixd.set_resolution(self.xres(), self.yres());
+        if depth == PixelDepth::Bit32 {
+            pixd.set_spp(self.spp());
+        }
+        if self.colormap().is_some() {
+            pixd.copy_colormap_from(self);
+        }
+        // Copy source pixels (clipped to min dimensions)
+        let copy_w = ws.min(tw);
+        let copy_h = hs.min(th);
+        for y in 0..copy_h {
+            for x in 0..copy_w {
+                let val = self.get_pixel_unchecked(x, y);
+                pixd.set_pixel_unchecked(x, y, val);
+            }
+        }
+        // Replicate last column if width needs expanding
+        if ws < tw {
+            for y in 0..copy_h {
+                let last_val = self.get_pixel_unchecked(ws - 1, y);
+                for x in ws..tw {
+                    pixd.set_pixel_unchecked(x, y, last_val);
+                }
+            }
+        }
+        // Replicate last row if height needs expanding
+        if hs < th {
+            for i in hs..th {
+                for x in 0..tw {
+                    let val = pixd.get_pixel_unchecked(x, hs - 1);
+                    pixd.set_pixel_unchecked(x, i, val);
+                }
+            }
+        }
+        Ok(pixd.into())
+    }
+
+    /// Test whether the image can be further clipped without losing foreground.
+    ///
+    /// Returns `true` if at least one edge has no foreground pixels (i.e. a
+    /// crop would not remove any ON pixels). Returns `false` if fg touches
+    /// all four edges.
+    ///
+    /// Only valid for 1bpp images.
+    ///
+    /// C equivalent: `pixTestClipToForeground()` in `pix5.c`
+    pub fn test_clip_to_foreground(&self) -> Result<bool> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        // top row
+        if !(0..w).any(|x| self.get_pixel_unchecked(x, 0) != 0) {
+            return Ok(true);
+        }
+        // bottom row
+        if !(0..w).any(|x| self.get_pixel_unchecked(x, h - 1) != 0) {
+            return Ok(true);
+        }
+        // left column
+        if !(0..h).any(|y| self.get_pixel_unchecked(0, y) != 0) {
+            return Ok(true);
+        }
+        // right column
+        if !(0..h).any(|y| self.get_pixel_unchecked(w - 1, y) != 0) {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     /// Compute the sum of pixel values along a column within a region.
     ///
     /// For 8bpp images, the maximum sum is 255 * height. With typical
@@ -1304,5 +1446,121 @@ mod tests {
                 assert_eq!(clipped.get_pixel(x, y), Some(expected));
             }
         }
+    }
+
+    // -- Pix::clip_rectangles --
+
+    #[test]
+    fn test_clip_rectangles_basic() {
+        use crate::Boxa;
+        use crate::box_::Box as LepBox;
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            for y in 0..10u32 {
+                for x in 0..10u32 {
+                    pm.set_pixel_unchecked(x, y, (x + y * 10) as u32);
+                }
+            }
+            Pix::from(pm)
+        };
+        let mut boxa = Boxa::new();
+        boxa.push(LepBox::new(0, 0, 4, 4).unwrap());
+        boxa.push(LepBox::new(5, 5, 5, 5).unwrap());
+        let pixa = pix.clip_rectangles(&boxa).unwrap();
+        assert_eq!(pixa.len(), 2);
+        assert_eq!(pixa.get(0).unwrap().width(), 4);
+        assert_eq!(pixa.get(0).unwrap().height(), 4);
+        assert_eq!(pixa.get(1).unwrap().width(), 5);
+        assert_eq!(pixa.get(1).unwrap().height(), 5);
+    }
+
+    // -- Pix::crop_to_size --
+
+    #[test]
+    fn test_crop_to_size_smaller() {
+        let pix = {
+            let base = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(5, 5, 200);
+            Pix::from(pm)
+        };
+        let cropped = pix.crop_to_size(10, 10).unwrap();
+        assert_eq!(cropped.width(), 10);
+        assert_eq!(cropped.height(), 10);
+        assert_eq!(cropped.get_pixel(5, 5), Some(200));
+    }
+
+    #[test]
+    fn test_crop_to_size_already_fits() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let result = pix.crop_to_size(10, 10).unwrap();
+        // no cropping needed - should return same size
+        assert_eq!(result.width(), 8);
+        assert_eq!(result.height(), 8);
+    }
+
+    // -- Pix::resize_to_match --
+
+    #[test]
+    fn test_resize_to_match_crop() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let resized = pix.resize_to_match(None, 10, 10).unwrap();
+        assert_eq!(resized.width(), 10);
+        assert_eq!(resized.height(), 10);
+    }
+
+    #[test]
+    fn test_resize_to_match_expand() {
+        // Expand by replicating last row/col
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            for y in 0..4u32 {
+                pm.set_pixel_unchecked(3, y, 99); // last column = 99
+            }
+            for x in 0..4u32 {
+                pm.set_pixel_unchecked(x, 3, 77); // last row = 77
+            }
+            Pix::from(pm)
+        };
+        let resized = pix.resize_to_match(None, 6, 6).unwrap();
+        assert_eq!(resized.width(), 6);
+        assert_eq!(resized.height(), 6);
+        // Expanded columns should replicate last column value
+        assert_eq!(resized.get_pixel(4, 0), Some(99));
+        assert_eq!(resized.get_pixel(5, 0), Some(99));
+        // Expanded rows should replicate last row value
+        assert_eq!(resized.get_pixel(0, 4), Some(77));
+        assert_eq!(resized.get_pixel(0, 5), Some(77));
+    }
+
+    // -- Pix::test_clip_to_foreground --
+
+    #[test]
+    fn test_test_clip_to_foreground_can_clip() {
+        // Image with fg only in center - can be clipped
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(5, 5, 1);
+            Pix::from(pm)
+        };
+        assert!(pix.test_clip_to_foreground().unwrap());
+    }
+
+    #[test]
+    fn test_test_clip_to_foreground_cannot_clip() {
+        // Image with fg touching all 4 edges - cannot be clipped
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(0, 5, 1); // left edge
+            pm.set_pixel_unchecked(9, 5, 1); // right edge
+            pm.set_pixel_unchecked(5, 0, 1); // top edge
+            pm.set_pixel_unchecked(5, 9, 1); // bottom edge
+            Pix::from(pm)
+        };
+        assert!(!pix.test_clip_to_foreground().unwrap());
     }
 }
