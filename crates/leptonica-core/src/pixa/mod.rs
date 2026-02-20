@@ -1244,11 +1244,19 @@ fn scale_pix_to_size(src: &Pix, wd: u32, hd: u32) -> Pix {
     dst.into()
 }
 
-/// Convert a Pix to a specific bit depth (1, 8, or 32).
+/// Convert a Pix to a specific bit depth.
 ///
-/// For unsupported depths, returns a deep clone unchanged.
+/// Only the targets Bit1, Bit8, and Bit32 produce well-defined output;
+/// other `outdepth` values are rejected and a deep clone is returned.
 fn convert_pix_depth(src: &Pix, outdepth: crate::pix::PixelDepth) -> Pix {
     use crate::pix::PixelDepth;
+    // Validate that outdepth is one of the supported targets
+    if !matches!(
+        outdepth,
+        PixelDepth::Bit1 | PixelDepth::Bit8 | PixelDepth::Bit32
+    ) {
+        return src.deep_clone();
+    }
     let d = src.depth();
     if d == outdepth {
         return src.deep_clone();
@@ -1261,26 +1269,28 @@ fn convert_pix_depth(src: &Pix, outdepth: crate::pix::PixelDepth) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let val = src.get_pixel_unchecked(x, y);
-            // Extract an 8-bit gray value
-            let gray = match d {
+            // Convert source pixel to an 8-bit gray value
+            // Bit1: 0 = white (255), 1 = black (0) — matches Leptonica convention
+            let gray: u32 = match d {
                 PixelDepth::Bit1 => {
                     if val & 1 != 0 {
-                        0u32
+                        0u32 // black
                     } else {
-                        255u32
+                        255u32 // white
                     }
                 }
-                PixelDepth::Bit2 => ((val & 3) * 85) as u32,
-                PixelDepth::Bit4 => ((val & 0xF) * 17) as u32,
+                PixelDepth::Bit2 => (val & 3) * 85,
+                PixelDepth::Bit4 => (val & 0xF) * 17,
                 PixelDepth::Bit8 => val & 0xFF,
                 PixelDepth::Bit16 => (val & 0xFFFF) >> 8,
-                PixelDepth::Bit32 => (val >> 24) & 0xFF, // red channel
+                PixelDepth::Bit32 => (val >> 24) & 0xFF, // red channel as gray
             };
             let out_val = match outdepth {
                 PixelDepth::Bit1 => u32::from(gray < 128),
                 PixelDepth::Bit8 => gray,
                 PixelDepth::Bit32 => (gray << 24) | (gray << 16) | (gray << 8) | 0xFF,
-                _ => gray,
+                // All unsupported targets were already rejected above.
+                _ => unreachable!(),
             };
             dst.set_pixel_unchecked(x, y, out_val);
         }
@@ -1289,12 +1299,17 @@ fn convert_pix_depth(src: &Pix, outdepth: crate::pix::PixelDepth) -> Pix {
 }
 
 /// Add a uniform border of `border` pixels around `src`.
+///
+/// The source is converted to `outdepth` before blitting so that the pixel
+/// values are interpreted consistently.
 fn add_border_pix(src: &Pix, border: u32, outdepth: crate::pix::PixelDepth) -> Pix {
     let w = src.width() + 2 * border;
     let h = src.height() + 2 * border;
     let dst_pix = Pix::new(w, h, outdepth).unwrap_or_else(|_| src.deep_clone());
     let mut dst = dst_pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
-    blit_pix(&mut dst, src, border as i32, border as i32);
+    // Convert src to the target depth so pixel values are consistent
+    let src_converted = convert_pix_depth(src, outdepth);
+    blit_pix(&mut dst, &src_converted, border as i32, border as i32);
     dst.into()
 }
 
