@@ -600,6 +600,9 @@ impl Pix {
     ///
     /// Corresponds to `pixBlendGrayInverse()` in Leptonica's `blend.c`.
     pub fn blend_gray_inverse(&self, other: &Pix, x: i32, y: i32, fract: f32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 || other.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
         let fract = fract.clamp(0.0, 1.0);
         let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
@@ -643,6 +646,9 @@ impl Pix {
         transparent: bool,
         transpix: Color,
     ) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 || other.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
         let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
         let base_w = self.width() as i32;
@@ -693,6 +699,9 @@ impl Pix {
         fract: f32,
         shift: i32,
     ) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 || other.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
         let fract = fract.clamp(0.0, 1.0);
         let base_w = self.width() as i32;
         let base_h = self.height() as i32;
@@ -753,6 +762,9 @@ impl Pix {
         factor: f32,
         fade_type: FadeWithGrayType,
     ) -> Result<Pix> {
+        if blender.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(blender.depth().bits()));
+        }
         let factor_norm = (factor / 255.0).clamp(0.0, 1.0);
         let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
