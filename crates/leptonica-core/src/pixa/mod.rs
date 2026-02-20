@@ -1824,6 +1824,8 @@ mod tests {
 
     #[test]
     fn test_is_full() {
+        // Empty Pixa is vacuously full
+        assert!(Pixa::new().is_full());
         let mut pixa = Pixa::new();
         pixa.init_full(3, Some(&make_test_pix(10, 10)), None);
         assert!(pixa.is_full());
