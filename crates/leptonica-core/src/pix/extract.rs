@@ -7,6 +7,15 @@ use super::{Pix, PixelDepth};
 use crate::Numa;
 use crate::error::{Error, Result};
 
+/// Direction for profile scanning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfileDirection {
+    /// Scan along horizontal lines (rows)
+    Horizontal,
+    /// Scan along vertical lines (columns)
+    Vertical,
+}
+
 impl Pix {
     /// Extract pixel values along a line from `(x1, y1)` to `(x2, y2)`.
     ///
@@ -153,6 +162,47 @@ impl Pix {
 
         Ok(na)
     }
+
+    /// Sort each row of an 8bpp image from minimum to maximum value.
+    ///
+    /// Uses a 256-bin histogram for each row (O(n) time).
+    /// The input must be 8bpp without a colormap.
+    ///
+    /// C equivalent: `pixRankRowTransform()` in `pix5.c`
+    pub fn rank_row_transform(&self) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Sort each column of an 8bpp image from minimum to maximum value.
+    ///
+    /// Uses a 256-bin histogram for each column (O(n) time).
+    /// The input must be 8bpp without a colormap.
+    ///
+    /// C equivalent: `pixRankColumnTransform()` in `pix5.c`
+    pub fn rank_column_transform(&self) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Compute the average pixel intensity profile along rows or columns.
+    ///
+    /// For `dir = Horizontal`: scans rows `first..=last` (step `factor2`),
+    /// averaging a fraction `fract` of each row (centred) with subsampling `factor1`.
+    /// For `dir = Vertical`: analogous along columns.
+    ///
+    /// The returned `Numa` has `delta = factor2`.
+    ///
+    /// C equivalent: `pixAverageIntensityProfile()` in `pix5.c`
+    pub fn average_intensity_profile(
+        &self,
+        fract: f32,
+        dir: ProfileDirection,
+        first: u32,
+        last: u32,
+        factor1: u32,
+        factor2: u32,
+    ) -> Result<Numa> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -213,5 +263,76 @@ mod tests {
     fn test_extract_wrong_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(pix.extract_on_line(0, 0, 9, 0, 1).is_err());
+    }
+
+    // -- Pix::rank_row_transform --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rank_row_transform_basic() {
+        // 1×4 image: pixels [3,1,4,2] → sorted [1,2,3,4]
+        let pix = {
+            let base = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(0, 0, 3);
+            pm.set_pixel_unchecked(1, 0, 1);
+            pm.set_pixel_unchecked(2, 0, 4);
+            pm.set_pixel_unchecked(3, 0, 2);
+            Pix::from(pm)
+        };
+        let result = pix.rank_row_transform().unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(1));
+        assert_eq!(result.get_pixel(1, 0), Some(2));
+        assert_eq!(result.get_pixel(2, 0), Some(3));
+        assert_eq!(result.get_pixel(3, 0), Some(4));
+    }
+
+    // -- Pix::rank_column_transform --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rank_column_transform_basic() {
+        // 4×1 image (single column of 4 rows): pixels [3,1,4,2] → sorted [1,2,3,4]
+        let pix = {
+            let base = Pix::new(1, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(0, 0, 3);
+            pm.set_pixel_unchecked(0, 1, 1);
+            pm.set_pixel_unchecked(0, 2, 4);
+            pm.set_pixel_unchecked(0, 3, 2);
+            Pix::from(pm)
+        };
+        let result = pix.rank_column_transform().unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(1));
+        assert_eq!(result.get_pixel(0, 1), Some(2));
+        assert_eq!(result.get_pixel(0, 2), Some(3));
+        assert_eq!(result.get_pixel(0, 3), Some(4));
+    }
+
+    // -- Pix::average_intensity_profile --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_average_intensity_profile_horizontal() {
+        use crate::pix::extract::ProfileDirection;
+        // Uniform 8bpp image - profile should be constant
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            for y in 0..10u32 {
+                for x in 0..10u32 {
+                    pm.set_pixel_unchecked(x, y, 100);
+                }
+            }
+            Pix::from(pm)
+        };
+        let profile = pix
+            .average_intensity_profile(1.0, ProfileDirection::Horizontal, 0, 9, 1, 1)
+            .unwrap();
+        assert_eq!(profile.len(), 10);
+        for i in 0..10 {
+            let v = profile.get(i).unwrap();
+            assert!((v - 100.0).abs() < 1.0, "row {i}: expected ~100, got {v}");
+        }
     }
 }

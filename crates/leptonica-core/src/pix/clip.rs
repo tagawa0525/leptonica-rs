@@ -1161,6 +1161,49 @@ impl Pix {
     ///
     /// For 8bpp images, the maximum sum is 255 * height. With typical
     /// image dimensions (height <= 8_000_000), this fits within i32.
+    /// Clip an image to each box in a `Boxa`, returning a `Pixa`.
+    ///
+    /// Each element of the returned `Pixa` is the sub-image clipped by the
+    /// corresponding box, and the associated box is the actual clipped region.
+    /// Boxes that do not intersect the image are skipped.
+    ///
+    /// C equivalent: `pixClipRectangles()` in `pix5.c`
+    pub fn clip_rectangles(&self, boxes: &crate::Boxa) -> Result<crate::pixa::Pixa> {
+        todo!()
+    }
+
+    /// Crop to at most `w × h`, returning a clone if already within bounds.
+    ///
+    /// If either dimension is already ≤ the limit, that dimension is not cropped.
+    ///
+    /// C equivalent: `pixCropToSize()` in `pix5.c`
+    pub fn crop_to_size(&self, w: u32, h: u32) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Resize to exactly `w × h` without scaling.
+    ///
+    /// Crops if larger; replicates the last row/column if smaller.
+    /// If `pixt` is provided its dimensions override `w` and `h`.
+    ///
+    /// C equivalent: `pixResizeToMatch()` in `pix5.c`
+    pub fn resize_to_match(&self, pixt: Option<&Pix>, w: u32, h: u32) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Test whether the image can be further clipped without losing foreground.
+    ///
+    /// Returns `true` if at least one edge has no foreground pixels (i.e. a
+    /// crop would not remove any ON pixels). Returns `false` if fg touches
+    /// all four edges.
+    ///
+    /// Only valid for 1bpp images.
+    ///
+    /// C equivalent: `pixTestClipToForeground()` in `pix5.c`
+    pub fn test_clip_to_foreground(&self) -> Result<bool> {
+        todo!()
+    }
+
     fn column_sum_in_region(&self, x: u32, y_start: u32, height: u32, factor: u32) -> i32 {
         let mut sum = 0i64;
         let mut y = y_start;
@@ -1304,5 +1347,128 @@ mod tests {
                 assert_eq!(clipped.get_pixel(x, y), Some(expected));
             }
         }
+    }
+
+    // -- Pix::clip_rectangles --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_clip_rectangles_basic() {
+        use crate::Boxa;
+        use crate::box_::Box as LepBox;
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            for y in 0..10u32 {
+                for x in 0..10u32 {
+                    pm.set_pixel_unchecked(x, y, (x + y * 10) as u32);
+                }
+            }
+            Pix::from(pm)
+        };
+        let mut boxa = Boxa::new();
+        boxa.push(LepBox::new(0, 0, 4, 4).unwrap());
+        boxa.push(LepBox::new(5, 5, 5, 5).unwrap());
+        let pixa = pix.clip_rectangles(&boxa).unwrap();
+        assert_eq!(pixa.len(), 2);
+        assert_eq!(pixa.get(0).unwrap().width(), 4);
+        assert_eq!(pixa.get(0).unwrap().height(), 4);
+        assert_eq!(pixa.get(1).unwrap().width(), 5);
+        assert_eq!(pixa.get(1).unwrap().height(), 5);
+    }
+
+    // -- Pix::crop_to_size --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_crop_to_size_smaller() {
+        let pix = {
+            let base = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(5, 5, 200);
+            Pix::from(pm)
+        };
+        let cropped = pix.crop_to_size(10, 10).unwrap();
+        assert_eq!(cropped.width(), 10);
+        assert_eq!(cropped.height(), 10);
+        assert_eq!(cropped.get_pixel(5, 5), Some(200));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_crop_to_size_already_fits() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let result = pix.crop_to_size(10, 10).unwrap();
+        // no cropping needed - should return same size
+        assert_eq!(result.width(), 8);
+        assert_eq!(result.height(), 8);
+    }
+
+    // -- Pix::resize_to_match --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_resize_to_match_crop() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let resized = pix.resize_to_match(None, 10, 10).unwrap();
+        assert_eq!(resized.width(), 10);
+        assert_eq!(resized.height(), 10);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_resize_to_match_expand() {
+        // Expand by replicating last row/col
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            for y in 0..4u32 {
+                pm.set_pixel_unchecked(3, y, 99); // last column = 99
+            }
+            for x in 0..4u32 {
+                pm.set_pixel_unchecked(x, 3, 77); // last row = 77
+            }
+            Pix::from(pm)
+        };
+        let resized = pix.resize_to_match(None, 6, 6).unwrap();
+        assert_eq!(resized.width(), 6);
+        assert_eq!(resized.height(), 6);
+        // Expanded columns should replicate last column value
+        assert_eq!(resized.get_pixel(4, 0), Some(99));
+        assert_eq!(resized.get_pixel(5, 0), Some(99));
+        // Expanded rows should replicate last row value
+        assert_eq!(resized.get_pixel(0, 4), Some(77));
+        assert_eq!(resized.get_pixel(0, 5), Some(77));
+    }
+
+    // -- Pix::test_clip_to_foreground --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_test_clip_to_foreground_can_clip() {
+        // Image with fg only in center - can be clipped
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(5, 5, 1);
+            Pix::from(pm)
+        };
+        assert!(pix.test_clip_to_foreground().unwrap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_test_clip_to_foreground_cannot_clip() {
+        // Image with fg touching all 4 edges - cannot be clipped
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            pm.set_pixel_unchecked(0, 5, 1); // left edge
+            pm.set_pixel_unchecked(9, 5, 1); // right edge
+            pm.set_pixel_unchecked(5, 0, 1); // top edge
+            pm.set_pixel_unchecked(5, 9, 1); // bottom edge
+            Pix::from(pm)
+        };
+        assert!(!pix.test_clip_to_foreground().unwrap());
     }
 }

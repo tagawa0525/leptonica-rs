@@ -580,6 +580,15 @@ impl Pixa {
         Ok(pixd.into())
     }
 
+    /// Return Numa arrays of widths and heights for all images in the Pixa.
+    ///
+    /// Returns `(na_widths, na_heights)`. Returns an error if the Pixa is empty.
+    ///
+    /// C equivalent: `pixaFindDimensions()` in `pix5.c`
+    pub fn find_dimensions(&self) -> Result<(crate::Numa, crate::Numa)> {
+        todo!()
+    }
+
     // ========================================================================
     // Display / composition functions
     // ========================================================================
@@ -1508,5 +1517,33 @@ mod tests {
             pixa.aligned_stats(RowColStatType::MeanAbsVal, 0, 0)
                 .is_err()
         );
+    }
+
+    // -- Pixa::find_dimensions --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_find_dimensions_basic() {
+        use crate::pix::{Pix, PixelDepth};
+        let mut pixa = Pixa::new();
+        pixa.push(Pix::new(10, 20, PixelDepth::Bit8).unwrap());
+        pixa.push(Pix::new(30, 40, PixelDepth::Bit8).unwrap());
+        pixa.push(Pix::new(5, 15, PixelDepth::Bit8).unwrap());
+        let (na_w, na_h) = pixa.find_dimensions().unwrap();
+        assert_eq!(na_w.len(), 3);
+        assert_eq!(na_h.len(), 3);
+        assert_eq!(na_w.get(0).unwrap(), 10.0);
+        assert_eq!(na_h.get(0).unwrap(), 20.0);
+        assert_eq!(na_w.get(1).unwrap(), 30.0);
+        assert_eq!(na_h.get(1).unwrap(), 40.0);
+        assert_eq!(na_w.get(2).unwrap(), 5.0);
+        assert_eq!(na_h.get(2).unwrap(), 15.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_find_dimensions_empty() {
+        let pixa = Pixa::new();
+        assert!(pixa.find_dimensions().is_err());
     }
 }
