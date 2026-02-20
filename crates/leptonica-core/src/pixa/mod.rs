@@ -234,6 +234,214 @@ impl Pixa {
         }
     }
 
+    /// Create a Pixa with `n` clones of `pix`.
+    ///
+    /// C equivalent: `pixaCreateFromPix()` in `pixabasic.c`
+    pub fn create_from_pix(pix: &Pix, n: usize) -> Self {
+        let mut pixa = Self::with_capacity(n);
+        for _ in 0..n {
+            pixa.push(pix.clone());
+        }
+        pixa
+    }
+
+    /// Create a Pixa by clipping `pix` at each box in `boxa`.
+    ///
+    /// Each resulting Pix is the sub-image defined by the corresponding
+    /// bounding box, clamped to the image boundary.
+    ///
+    /// Boxes that are entirely outside the image or result in zero area
+    /// after clamping are **skipped**. The returned Pixa may therefore
+    /// have fewer elements than `boxa`.
+    ///
+    /// C equivalent: `pixaCreateFromBoxa()` in `pixabasic.c`
+    pub fn create_from_boxa(pix: &Pix, boxa: &Boxa) -> Self {
+        let n = boxa.len();
+        let pw = pix.width() as i32;
+        let ph = pix.height() as i32;
+        let mut pixa = Self::with_capacity(n);
+        for i in 0..n {
+            if let Some(b) = boxa.get(i) {
+                let x = b.x.max(0).min(pw);
+                let y = b.y.max(0).min(ph);
+                let w = (b.w.min(pw - x)).max(0) as u32;
+                let h = (b.h.min(ph - y)).max(0) as u32;
+                if w > 0 && h > 0 {
+                    let clipped = pix
+                        .clip_rectangle(x as u32, y as u32, w, h)
+                        .unwrap_or_else(|_| pix.clone());
+                    let cb = Box::new(x, y, w as i32, h as i32).unwrap();
+                    pixa.push_with_box(clipped, cb);
+                }
+            }
+        }
+        pixa
+    }
+
+    /// Split `pix` into `nx * ny` tiles, each with optional `delta`-pixel overlap.
+    ///
+    /// `orig` is added to the origin of each tile box.
+    ///
+    /// C equivalent: `pixaSplitPix()` in `pixabasic.c`
+    pub fn split_pix(pix: &Pix, nx: usize, ny: usize, delta: i32, orig: i32) -> Result<Self> {
+        if nx == 0 || ny == 0 {
+            return Err(Error::InvalidParameter("nx and ny must be > 0".to_string()));
+        }
+        let pw = pix.width() as i32;
+        let ph = pix.height() as i32;
+        let tile_w = (pw + nx as i32 - 1) / nx as i32;
+        let tile_h = (ph + ny as i32 - 1) / ny as i32;
+        let mut pixa = Self::with_capacity(nx * ny);
+        for row in 0..ny {
+            for col in 0..nx {
+                let x = (col as i32 * tile_w - delta).max(0);
+                let y = (row as i32 * tile_h - delta).max(0);
+                let x2 = ((col as i32 + 1) * tile_w + delta).min(pw);
+                let y2 = ((row as i32 + 1) * tile_h + delta).min(ph);
+                let w = (x2 - x).max(0) as u32;
+                let h = (y2 - y).max(0) as u32;
+                let bx_x = x + orig;
+                let bx_y = y + orig;
+                if w > 0 && h > 0 {
+                    let tile = pix
+                        .clip_rectangle(x as u32, y as u32, w, h)
+                        .unwrap_or_else(|_| pix.clone());
+                    let cb = Box::new(bx_x, bx_y, w as i32, h as i32).unwrap();
+                    pixa.push_with_box(tile, cb);
+                } else {
+                    // Placeholder so that pixa[i] always has a corresponding box
+                    let placeholder = Pix::new(1, 1, pix.depth()).unwrap();
+                    let cb = Box::new(bx_x, bx_y, 1, 1).unwrap();
+                    pixa.push_with_box(placeholder, cb);
+                }
+            }
+        }
+        Ok(pixa)
+    }
+
+    /// Return `(x, y, w, h)` for the box at `index`, or `None` if out of bounds.
+    ///
+    /// C equivalent: `pixaGetBoxGeometry()` in `pixabasic.c`
+    pub fn get_box_geometry(&self, index: usize) -> Option<(i32, i32, i32, i32)> {
+        let b = self.boxa.get(index)?;
+        Some((b.x, b.y, b.w, b.h))
+    }
+
+    /// Return `true` if all slots contain a non-empty Pix.
+    ///
+    /// An empty Pixa is considered "full" (vacuously true).
+    ///
+    /// C equivalent: `pixaIsFull()` in `pixabasic.c`
+    pub fn is_full(&self) -> bool {
+        self.pix.iter().all(|p| p.width() > 0 && p.height() > 0)
+    }
+
+    /// Set the text on every Pix in this Pixa.
+    ///
+    /// C equivalent: `pixaSetText()` in `pixabasic.c`
+    pub fn set_text(&mut self, text: Option<String>) {
+        // Take ownership of the entire Vec to avoid Arc-count inflation:
+        // iterating &mut self.pix and calling clone() would increment the
+        // Arc count, guaranteeing try_into_mut() always fails.
+        let pix_vec = std::mem::take(&mut self.pix);
+        self.pix = pix_vec
+            .into_iter()
+            .map(|p| {
+                let mut pm = p.try_into_mut().unwrap_or_else(|p| p.to_mut());
+                pm.set_text(text.clone());
+                pm.into()
+            })
+            .collect();
+    }
+
+    /// Count the number of Pix that have a non-None text string.
+    ///
+    /// C equivalent: `pixaCountText()` in `pixabasic.c`
+    pub fn count_text(&self) -> usize {
+        self.pix.iter().filter(|p| p.text().is_some()).count()
+    }
+
+    /// Remove the Pix at the selected indices (given as f32 in the Numa).
+    ///
+    /// Indices are sorted in descending order internally before removal,
+    /// so they may be provided in any order.
+    ///
+    /// C equivalent: `pixaRemoveSelected()` in `pixabasic.c`
+    pub fn remove_selected(&mut self, na: &Numa) -> Result<()> {
+        let n = na.len();
+        let mut indices: Vec<usize> = (0..n)
+            .map(|i| {
+                na.get_i32(i)
+                    .ok_or_else(|| Error::InvalidParameter("invalid index in na".to_string()))
+                    .map(|v| v as usize)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        // Sort descending so earlier removals don't shift later indices
+        indices.sort_unstable_by(|a, b| b.cmp(a));
+        for idx in indices {
+            self.remove(idx)?;
+        }
+        Ok(())
+    }
+
+    /// Append all Pix (and boxes, if present) from `src[istart..=iend]` into `self`.
+    ///
+    /// `iend = None` means "to the end".
+    ///
+    /// C equivalent: `pixaJoin()` in `pixabasic.c`
+    pub fn join(&mut self, src: &Pixa, istart: usize, iend: Option<usize>) -> Result<()> {
+        let n = src.len();
+        if n == 0 {
+            return Ok(());
+        }
+        let iend = match iend {
+            Some(e) if e < n => e,
+            _ => n - 1,
+        };
+        if istart > iend {
+            return Err(Error::InvalidParameter("istart > iend".to_string()));
+        }
+        for i in istart..=iend {
+            let pix = src.get(i).unwrap().clone();
+            if let Some(b) = src.get_box(i) {
+                self.push_with_box(pix, *b);
+            } else {
+                self.push(pix);
+            }
+        }
+        Ok(())
+    }
+
+    /// Return a new Pixa whose elements alternate between `self` and `other`.
+    ///
+    /// Both Pixa must have the same length.
+    ///
+    /// C equivalent: `pixaInterleave()` in `pixabasic.c`
+    pub fn interleave(&self, other: &Pixa) -> Result<Pixa> {
+        if self.len() != other.len() {
+            return Err(Error::InvalidParameter(
+                "pixas must have same length".to_string(),
+            ));
+        }
+        let n = self.len();
+        let mut ptad = Pixa::with_capacity(2 * n);
+        for i in 0..n {
+            let p1 = self.get(i).unwrap().clone();
+            let p2 = other.get(i).unwrap().clone();
+            if let Some(b1) = self.get_box(i) {
+                ptad.push_with_box(p1, *b1);
+            } else {
+                ptad.push(p1);
+            }
+            if let Some(b2) = other.get_box(i) {
+                ptad.push_with_box(p2, *b2);
+            } else {
+                ptad.push(p2);
+            }
+        }
+        Ok(ptad)
+    }
+
     /// Get all Pix as a slice
     pub fn pix_slice(&self) -> &[Pix] {
         &self.pix
@@ -1016,6 +1224,38 @@ impl Pixaa {
         self.pixas.get(pixa_index)?.get(pix_index)
     }
 
+    /// Return `true` if every Pixa in the array is non-empty.
+    ///
+    /// An empty Pixaa is considered "full" (vacuously true),
+    /// consistent with `Pixa::is_full`.
+    ///
+    /// C equivalent: `pixaaIsFull()` in `pixabasic.c`
+    pub fn is_full(&self) -> bool {
+        self.pixas.iter().all(|p| !p.is_empty())
+    }
+
+    /// Overwrite every Pixa slot with a clone of `pixa`.
+    ///
+    /// C equivalent: `pixaaInitFull()` in `pixabasic.c`
+    pub fn init_full(&mut self, pixa: &Pixa) {
+        for slot in &mut self.pixas {
+            *slot = pixa.clone();
+        }
+    }
+
+    /// Append all Pixa from `src` into `self`.
+    ///
+    /// Returns `Result<()>` for consistency with `Pixa::join` and to allow
+    /// potential future validation (e.g., depth checks).
+    ///
+    /// C equivalent: `pixaaJoin()` in `pixabasic.c`
+    pub fn join(&mut self, src: &Pixaa) -> Result<()> {
+        for pixa in &src.pixas {
+            self.pixas.push(pixa.clone());
+        }
+        Ok(())
+    }
+
     /// Create an iterator over Pixa
     pub fn iter(&self) -> impl Iterator<Item = &Pixa> {
         self.pixas.iter()
@@ -1553,5 +1793,155 @@ mod tests {
     fn test_find_dimensions_empty() {
         let pixa = Pixa::new();
         assert!(pixa.find_dimensions().is_err());
+    }
+
+    // -- Phase 16.4 new functions --
+
+    #[test]
+    fn test_create_from_pix() {
+        let pix = make_test_pix(10, 20);
+        let pixa = Pixa::create_from_pix(&pix, 3);
+        assert_eq!(pixa.len(), 3);
+        assert_eq!(pixa.get(0).unwrap().width(), 10);
+        assert_eq!(pixa.get(2).unwrap().height(), 20);
+    }
+
+    #[test]
+    fn test_create_from_boxa() {
+        use crate::pix::PixelDepth;
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut boxa = Boxa::new();
+        boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
+        boxa.push(crate::box_::Box::new(20, 20, 15, 15).unwrap());
+        let pixa = Pixa::create_from_boxa(&pix, &boxa);
+        assert_eq!(pixa.len(), 2);
+    }
+
+    #[test]
+    fn test_split_pix() {
+        use crate::pix::PixelDepth;
+        let pix = Pix::new(100, 60, PixelDepth::Bit8).unwrap();
+        let pixa = Pixa::split_pix(&pix, 2, 3, 0, 0).unwrap();
+        assert_eq!(pixa.len(), 6); // 2*3
+    }
+
+    #[test]
+    fn test_get_box_geometry() {
+        let mut pixa = Pixa::new();
+        let pix = make_test_pix(10, 10);
+        pixa.push_with_box(pix, crate::box_::Box::new(5, 10, 20, 30).unwrap());
+        let (x, y, w, h) = pixa.get_box_geometry(0).unwrap();
+        assert_eq!(x, 5);
+        assert_eq!(y, 10);
+        assert_eq!(w, 20);
+        assert_eq!(h, 30);
+    }
+
+    #[test]
+    fn test_is_full() {
+        // Empty Pixa is vacuously full
+        assert!(Pixa::new().is_full());
+        let mut pixa = Pixa::new();
+        pixa.init_full(3, Some(&make_test_pix(10, 10)), None);
+        assert!(pixa.is_full());
+    }
+
+    #[test]
+    fn test_pixa_set_text_count_text() {
+        let mut pixa = Pixa::new();
+        pixa.push(make_test_pix(10, 10));
+        pixa.push(make_test_pix(10, 10));
+        pixa.push(make_test_pix(10, 10));
+        pixa.set_text(Some("hello".to_string()));
+        assert_eq!(pixa.count_text(), 3);
+        pixa.set_text(None);
+        assert_eq!(pixa.count_text(), 0);
+    }
+
+    #[test]
+    fn test_pixa_remove_selected() {
+        let mut pixa = Pixa::new();
+        pixa.push(make_test_pix(1, 1));
+        pixa.push(make_test_pix(2, 2));
+        pixa.push(make_test_pix(3, 3));
+        pixa.push(make_test_pix(4, 4));
+        // Remove indices 1 and 3 (descending order required)
+        let na = crate::numa::Numa::from_slice(&[3.0, 1.0]);
+        pixa.remove_selected(&na).unwrap();
+        assert_eq!(pixa.len(), 2);
+        assert_eq!(pixa.get(0).unwrap().width(), 1);
+        assert_eq!(pixa.get(1).unwrap().width(), 3);
+    }
+
+    #[test]
+    fn test_pixa_join() {
+        let mut pixa1 = Pixa::new();
+        pixa1.push(make_test_pix(1, 1));
+        pixa1.push(make_test_pix(2, 2));
+        let pixa2 = {
+            let mut p = Pixa::new();
+            p.push(make_test_pix(3, 3));
+            p
+        };
+        pixa1.join(&pixa2, 0, None).unwrap();
+        assert_eq!(pixa1.len(), 3);
+        assert_eq!(pixa1.get(2).unwrap().width(), 3);
+    }
+
+    #[test]
+    fn test_pixa_interleave() {
+        let mut pixa1 = Pixa::new();
+        pixa1.push(make_test_pix(1, 1));
+        pixa1.push(make_test_pix(3, 3));
+        let mut pixa2 = Pixa::new();
+        pixa2.push(make_test_pix(2, 2));
+        pixa2.push(make_test_pix(4, 4));
+        let merged = pixa1.interleave(&pixa2).unwrap();
+        assert_eq!(merged.len(), 4);
+        assert_eq!(merged.get(0).unwrap().width(), 1);
+        assert_eq!(merged.get(1).unwrap().width(), 2);
+        assert_eq!(merged.get(2).unwrap().width(), 3);
+        assert_eq!(merged.get(3).unwrap().width(), 4);
+    }
+
+    #[test]
+    fn test_pixaa_is_full() {
+        // Empty Pixaa is vacuously full (consistent with Pixa::is_full)
+        assert!(Pixaa::new().is_full());
+        let mut pixaa = Pixaa::new();
+        let mut p = Pixa::new();
+        p.push(make_test_pix(10, 10));
+        pixaa.push(p);
+        assert!(pixaa.is_full());
+        pixaa.push(Pixa::new()); // empty slot
+        assert!(!pixaa.is_full());
+    }
+
+    #[test]
+    fn test_pixaa_init_full() {
+        let mut pixaa = Pixaa::new();
+        let mut template = Pixa::new();
+        template.push(make_test_pix(5, 5));
+        for _ in 0..3 {
+            pixaa.push(Pixa::new());
+        }
+        pixaa.init_full(&template);
+        for i in 0..3 {
+            assert_eq!(pixaa.get(i).unwrap().len(), 1);
+        }
+    }
+
+    #[test]
+    fn test_pixaa_join() {
+        let mut pixaa1 = Pixaa::new();
+        let mut p = Pixa::new();
+        p.push(make_test_pix(1, 1));
+        pixaa1.push(p);
+        let mut pixaa2 = Pixaa::new();
+        let mut q = Pixa::new();
+        q.push(make_test_pix(2, 2));
+        pixaa2.push(q);
+        pixaa1.join(&pixaa2).unwrap();
+        assert_eq!(pixaa1.len(), 2);
     }
 }
