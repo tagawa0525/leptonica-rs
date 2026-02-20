@@ -816,7 +816,7 @@ impl Pix {
         }
         let depth = self.depth();
         match depth {
-            PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
             _ => return Err(Error::UnsupportedDepth(depth.bits())),
         }
 
@@ -858,11 +858,7 @@ impl Pix {
     /// Returns a `Numa` of size `2^d`.
     ///
     /// C equivalent: `pixGetCmapHistogramInRect()` in `pix4.c`
-    pub fn cmap_histogram_in_rect(
-        &self,
-        region: Option<&crate::box_::Box>,
-        factor: u32,
-    ) -> Result<Numa> {
+    pub fn cmap_histogram_in_rect(&self, region: Option<&Box>, factor: u32) -> Result<Numa> {
         if region.is_none() {
             return self.cmap_histogram(factor);
         }
@@ -874,7 +870,7 @@ impl Pix {
         }
         let depth = self.depth();
         match depth {
-            PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
             _ => return Err(Error::UnsupportedDepth(depth.bits())),
         }
 
@@ -883,24 +879,18 @@ impl Pix {
 
         let w = self.width() as i32;
         let h = self.height() as i32;
-        let r = region.unwrap();
-        let (bx, by, bw, bh) = (r.x, r.y, r.w, r.h);
+        let (xstart, ystart, xend, yend, _, _) = clip_box_to_rect(region, w, h)
+            .ok_or_else(|| Error::InvalidParameter("region does not intersect image".into()))?;
 
-        let mut j = 0i32;
-        while j < bh {
-            let sy = by + j;
-            if sy >= 0 && sy < h {
-                let mut i = 0i32;
-                while i < bw {
-                    let sx = bx + i;
-                    if sx >= 0 && sx < w {
-                        let idx = self.get_pixel_unchecked(sx as u32, sy as u32) as usize;
-                        if idx < nbins {
-                            histogram[idx] += 1.0;
-                        }
-                    }
-                    i += factor as i32;
+        let mut j = ystart;
+        while j < yend {
+            let mut i = xstart;
+            while i < xend {
+                let idx = self.get_pixel_unchecked(i as u32, j as u32) as usize;
+                if idx < nbins {
+                    histogram[idx] += 1.0;
                 }
+                i += factor as i32;
             }
             j += factor as i32;
         }
