@@ -328,6 +328,18 @@ impl Pix {
             Ok(data)
         }
     }
+
+    /// Get individual R, G, B values at a single pixel location.
+    ///
+    /// Returns the red, green, and blue component values for the pixel
+    /// at coordinates `(x, y)` in a 32 bpp image.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRGBPixel()` in `pix2.c`
+    pub fn get_rgb_pixel(&self, _x: u32, _y: u32) -> Result<(u8, u8, u8)> {
+        todo!()
+    }
 }
 
 impl PixMut {
@@ -429,6 +441,25 @@ impl PixMut {
 }
 
 impl PixMut {
+    /// Set individual R, G, B values at a single pixel location.
+    ///
+    /// Sets the red, green, and blue component values for the pixel
+    /// at coordinates `(x, y)` in a 32 bpp image. Alpha is left unchanged.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetRGBPixel()` in `pix2.c`
+    pub fn set_rgb_pixel(
+        &mut self,
+        _x: u32,
+        _y: u32,
+        _rval: u8,
+        _gval: u8,
+        _bval: u8,
+    ) -> Result<()> {
+        todo!()
+    }
+
     /// Set a single color component from an 8 bpp source image.
     ///
     /// The source image values replace the specified component channel
@@ -879,6 +910,78 @@ mod tests {
         assert_eq!(data.len(), 6);
         assert_eq!(data[0..3], [10, 20, 30]);
         assert_eq!(data[3..6], [40, 50, 60]);
+    }
+
+    // ================================================================
+    // Phase 1.2: pixGetRGBPixel / pixSetRGBPixel
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_rgb_pixel() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_rgb(0, 0, 200, 100, 50).unwrap();
+        pm.set_rgb(1, 0, 0, 255, 128).unwrap();
+        pm.set_rgb(2, 0, 10, 20, 30).unwrap();
+        let pix: Pix = pm.into();
+
+        let (r, g, b) = pix.get_rgb_pixel(0, 0).unwrap();
+        assert_eq!((r, g, b), (200, 100, 50));
+
+        let (r, g, b) = pix.get_rgb_pixel(1, 0).unwrap();
+        assert_eq!((r, g, b), (0, 255, 128));
+
+        let (r, g, b) = pix.get_rgb_pixel(2, 0).unwrap();
+        assert_eq!((r, g, b), (10, 20, 30));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_rgb_pixel_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.get_rgb_pixel(0, 0).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_rgb_pixel_out_of_bounds() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        assert!(pix.get_rgb_pixel(5, 0).is_err());
+        assert!(pix.get_rgb_pixel(0, 5).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_rgb_pixel() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        pm.set_rgb_pixel(0, 0, 255, 128, 64).unwrap();
+        pm.set_rgb_pixel(1, 0, 10, 20, 30).unwrap();
+
+        let pix: Pix = pm.into();
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 0));
+        assert_eq!((r, g, b), (255, 128, 64));
+
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 0));
+        assert_eq!((r, g, b), (10, 20, 30));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_rgb_pixel_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_rgb_pixel(0, 0, 100, 100, 100).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_set_rgb_pixel_out_of_bounds() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_rgb_pixel(5, 0, 100, 100, 100).is_err());
     }
 
     #[test]

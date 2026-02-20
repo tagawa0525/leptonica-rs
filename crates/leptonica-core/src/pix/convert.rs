@@ -1202,6 +1202,49 @@ impl Pix {
         self.convert_1_to(PixelDepth::Bit32, val0, val1)
     }
 
+    /// Convert 1 bpp to 2 bpp with a 2-color (white, black) colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To2Cmap()` in `pixconv.c`
+    pub fn convert_1_to_2_cmap(&self) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Convert 1 bpp to 4 bpp with a 2-color (white, black) colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To4Cmap()` in `pixconv.c`
+    pub fn convert_1_to_4_cmap(&self) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Convert 1 bpp to 8 bpp with a 2-color (white, black) colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert1To8Cmap()` in `pixconv.c`
+    pub fn convert_1_to_8_cmap(&self) -> Result<Pix> {
+        todo!()
+    }
+
+    /// Convert 32 bpp to 8 bpp via two-step conversion.
+    ///
+    /// First converts 32 bpp → 16 bpp using `type16`, then
+    /// 16 bpp → 8 bpp using `type8`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert32To8()` in `pixconv.c`
+    pub fn convert_32_to_8(
+        &self,
+        _type16: Convert32To16Type,
+        _type8: Convert16To8Type,
+    ) -> Result<Pix> {
+        todo!()
+    }
+
     /// Convert 2 bpp to 8 bpp with custom value mapping.
     ///
     /// Each 2-bit pixel value (0-3) is mapped to the corresponding 8-bit value:
@@ -3783,5 +3826,133 @@ mod tests {
         assert_eq!(result.depth(), PixelDepth::Bit8);
         assert_eq!(result.get_pixel(0, 0), Some(0xAB));
         assert_eq!(result.get_pixel(1, 0), Some(0x00));
+    }
+
+    // ================================================================
+    // Phase 1.4: pixConvert32To8
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_32_to_8_ms_bytes() {
+        // 32bpp → 16bpp (MS two bytes) → 8bpp (MS byte)
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // 0xAABBCCDD: MS two bytes = 0xAABB, MS byte of that = 0xAA
+        pm.set_pixel_unchecked(0, 0, 0xAABBCCDD);
+        pm.set_pixel_unchecked(1, 0, 0x11223344);
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .convert_32_to_8(Convert32To16Type::MsTwoBytes, Convert16To8Type::MsByte)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel(0, 0), Some(0xAA));
+        assert_eq!(result.get_pixel(1, 0), Some(0x11));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_32_to_8_ls_bytes() {
+        // 32bpp → 16bpp (LS two bytes) → 8bpp (LS byte)
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0xAABBCCDD);
+        let pix: Pix = pm.into();
+
+        let result = pix
+            .convert_32_to_8(Convert32To16Type::LsTwoBytes, Convert16To8Type::LsByte)
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert_eq!(result.get_pixel(0, 0), Some(0xDD));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_32_to_8_invalid_depth() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        assert!(
+            pix.convert_32_to_8(Convert32To16Type::MsTwoBytes, Convert16To8Type::MsByte)
+                .is_err()
+        );
+    }
+
+    // ================================================================
+    // Phase 1.5: pixConvert1To2Cmap, pixConvert1To4Cmap, pixConvert1To8Cmap
+    // ================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_1_to_2_cmap() {
+        let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(0, 0, 0).unwrap(); // background (white)
+        pm.set_pixel(1, 0, 1).unwrap(); // foreground (black)
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_2_cmap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit2);
+        assert!(result.has_colormap());
+
+        let cmap = result.colormap().unwrap();
+        // Index 0 should be white (255, 255, 255)
+        let (r, g, b) = cmap.get_rgb(0).unwrap();
+        assert_eq!((r, g, b), (255, 255, 255));
+        // Index 1 should be black (0, 0, 0)
+        let (r, g, b) = cmap.get_rgb(1).unwrap();
+        assert_eq!((r, g, b), (0, 0, 0));
+
+        // Pixel values: bg=0 → index 0, fg=1 → index 1
+        assert_eq!(result.get_pixel(0, 0), Some(0));
+        assert_eq!(result.get_pixel(1, 0), Some(1));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_1_to_4_cmap() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(0, 0, 0).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_4_cmap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit4);
+        assert!(result.has_colormap());
+
+        let cmap = result.colormap().unwrap();
+        let (r, g, b) = cmap.get_rgb(0).unwrap();
+        assert_eq!((r, g, b), (255, 255, 255));
+        let (r, g, b) = cmap.get_rgb(1).unwrap();
+        assert_eq!((r, g, b), (0, 0, 0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_1_to_8_cmap() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(0, 0, 0).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_1_to_8_cmap().unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        assert!(result.has_colormap());
+
+        let cmap = result.colormap().unwrap();
+        let (r, g, b) = cmap.get_rgb(0).unwrap();
+        assert_eq!((r, g, b), (255, 255, 255));
+        let (r, g, b) = cmap.get_rgb(1).unwrap();
+        assert_eq!((r, g, b), (0, 0, 0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_1_to_cmap_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.convert_1_to_2_cmap().is_err());
+        assert!(pix.convert_1_to_4_cmap().is_err());
+        assert!(pix.convert_1_to_8_cmap().is_err());
     }
 }
