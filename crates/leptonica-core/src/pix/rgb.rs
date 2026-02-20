@@ -328,6 +328,31 @@ impl Pix {
             Ok(data)
         }
     }
+
+    /// Get individual R, G, B values at a single pixel location.
+    ///
+    /// Returns the red, green, and blue component values for the pixel
+    /// at coordinates `(x, y)` in a 32 bpp image.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRGBPixel()` in `pix2.c`
+    pub fn get_rgb_pixel(&self, x: u32, y: u32) -> Result<(u8, u8, u8)> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if x >= self.width() || y >= self.height() {
+            return Err(Error::InvalidParameter(format!(
+                "get_rgb_pixel: ({}, {}) out of bounds for {}x{}",
+                x,
+                y,
+                self.width(),
+                self.height()
+            )));
+        }
+        let pixel = self.get_pixel_unchecked(x, y);
+        Ok(color::extract_rgb(pixel))
+    }
 }
 
 impl PixMut {
@@ -429,6 +454,32 @@ impl PixMut {
 }
 
 impl PixMut {
+    /// Set individual R, G, B values at a single pixel location.
+    ///
+    /// Sets the red, green, and blue component values for the pixel
+    /// at coordinates `(x, y)` in a 32 bpp image. Alpha is left unchanged.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetRGBPixel()` in `pix2.c`
+    pub fn set_rgb_pixel(&mut self, x: u32, y: u32, rval: u8, gval: u8, bval: u8) -> Result<()> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if x >= self.width() || y >= self.height() {
+            return Err(Error::InvalidParameter(format!(
+                "set_rgb_pixel: ({}, {}) out of bounds for {}x{}",
+                x,
+                y,
+                self.width(),
+                self.height()
+            )));
+        }
+        let pixel = color::compose_rgb(rval, gval, bval);
+        self.set_pixel_unchecked(x, y, pixel);
+        Ok(())
+    }
+
     /// Set a single color component from an 8 bpp source image.
     ///
     /// The source image values replace the specified component channel
@@ -709,7 +760,6 @@ mod tests {
     // ================================================================
 
     #[test]
-
     fn test_get_rgb_component_cmap() {
         use crate::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
@@ -733,7 +783,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_get_rgb_line() {
         let pix = Pix::new(3, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -749,7 +798,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_copy_rgb_component() {
         let pix_d = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm_d = pix_d.try_into_mut().unwrap();
@@ -773,7 +821,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_alpha_is_opaque_true() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -788,7 +835,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_alpha_is_opaque_false() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -805,7 +851,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_infer_resolution() {
         // 3000x2000 image with 10 inch long side → 300 ppi
         let pix = Pix::new(3000, 2000, PixelDepth::Bit8).unwrap();
@@ -879,6 +924,72 @@ mod tests {
         assert_eq!(data.len(), 6);
         assert_eq!(data[0..3], [10, 20, 30]);
         assert_eq!(data[3..6], [40, 50, 60]);
+    }
+
+    // ================================================================
+    // Phase 1.2: pixGetRGBPixel / pixSetRGBPixel
+    // ================================================================
+
+    #[test]
+    fn test_get_rgb_pixel() {
+        let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_rgb(0, 0, 200, 100, 50).unwrap();
+        pm.set_rgb(1, 0, 0, 255, 128).unwrap();
+        pm.set_rgb(2, 0, 10, 20, 30).unwrap();
+        let pix: Pix = pm.into();
+
+        let (r, g, b) = pix.get_rgb_pixel(0, 0).unwrap();
+        assert_eq!((r, g, b), (200, 100, 50));
+
+        let (r, g, b) = pix.get_rgb_pixel(1, 0).unwrap();
+        assert_eq!((r, g, b), (0, 255, 128));
+
+        let (r, g, b) = pix.get_rgb_pixel(2, 0).unwrap();
+        assert_eq!((r, g, b), (10, 20, 30));
+    }
+
+    #[test]
+    fn test_get_rgb_pixel_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(pix.get_rgb_pixel(0, 0).is_err());
+    }
+
+    #[test]
+    fn test_get_rgb_pixel_out_of_bounds() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        assert!(pix.get_rgb_pixel(5, 0).is_err());
+        assert!(pix.get_rgb_pixel(0, 5).is_err());
+    }
+
+    #[test]
+    fn test_set_rgb_pixel() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+
+        pm.set_rgb_pixel(0, 0, 255, 128, 64).unwrap();
+        pm.set_rgb_pixel(1, 0, 10, 20, 30).unwrap();
+
+        let pix: Pix = pm.into();
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 0));
+        assert_eq!((r, g, b), (255, 128, 64));
+
+        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 0));
+        assert_eq!((r, g, b), (10, 20, 30));
+    }
+
+    #[test]
+    fn test_set_rgb_pixel_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_rgb_pixel(0, 0, 100, 100, 100).is_err());
+    }
+
+    #[test]
+    fn test_set_rgb_pixel_out_of_bounds() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        assert!(pm.set_rgb_pixel(5, 0, 100, 100, 100).is_err());
     }
 
     #[test]

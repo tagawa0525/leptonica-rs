@@ -366,6 +366,26 @@ impl Pix {
 
         Ok(bm.into())
     }
+
+    /// Add a black or white border with specified widths on each side.
+    ///
+    /// The border color value is automatically determined based on the
+    /// image depth and the requested color.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddBlackOrWhiteBorder()` in `pix2.c`
+    pub fn add_black_or_white_border(
+        &self,
+        left: u32,
+        right: u32,
+        top: u32,
+        bot: u32,
+        color: super::InitColor,
+    ) -> Result<Pix> {
+        let val = super::PixMut::get_black_or_white_val(self, color);
+        self.add_border_general(left, right, top, bot, val)
+    }
 }
 
 impl PixMut {
@@ -732,5 +752,52 @@ mod tests {
         let bordered = pix.add_border(10, 0).unwrap();
         assert_eq!(bordered.xres(), 300);
         assert_eq!(bordered.yres(), 300);
+    }
+
+    // ================================================================
+    // Phase 1.6: pixAddBlackOrWhiteBorder
+    // ================================================================
+
+    #[test]
+    fn test_add_black_or_white_border_white_8bpp() {
+        use super::super::InitColor;
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let bordered = pix
+            .add_black_or_white_border(5, 5, 5, 5, InitColor::White)
+            .unwrap();
+        assert_eq!(bordered.width(), 20);
+        assert_eq!(bordered.height(), 20);
+        // Border should be white (255 for 8bpp)
+        assert_eq!(bordered.get_pixel(0, 0), Some(255));
+    }
+
+    #[test]
+    fn test_add_black_or_white_border_black_8bpp() {
+        use super::super::InitColor;
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let bordered = pix
+            .add_black_or_white_border(3, 3, 3, 3, InitColor::Black)
+            .unwrap();
+        assert_eq!(bordered.width(), 16);
+        assert_eq!(bordered.height(), 16);
+        // Border should be black (0 for 8bpp)
+        assert_eq!(bordered.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_add_black_or_white_border_1bpp() {
+        use super::super::InitColor;
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+
+        // 1bpp: black=1, white=0
+        let bordered = pix
+            .add_black_or_white_border(2, 2, 2, 2, InitColor::Black)
+            .unwrap();
+        assert_eq!(bordered.get_pixel(0, 0), Some(1));
+
+        let bordered = pix
+            .add_black_or_white_border(2, 2, 2, 2, InitColor::White)
+            .unwrap();
+        assert_eq!(bordered.get_pixel(0, 0), Some(0));
     }
 }
