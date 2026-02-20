@@ -4,7 +4,7 @@
 
 use crate::box_::Box as LBox;
 use crate::error::{Error, Result};
-use crate::numa::{Numa, SortOrder};
+use crate::numa::Numa;
 use crate::pta::{Pta, Ptaa};
 
 impl Pta {
@@ -12,39 +12,105 @@ impl Pta {
     ///
     /// C equivalent: `ptaSubsample()` in `ptafunc1.c`
     pub fn subsample(&self, subfactor: usize) -> Result<Pta> {
-        todo!("Phase 16.3 GREEN")
+        if subfactor < 1 {
+            return Err(Error::InvalidParameter(
+                "subfactor must be >= 1".to_string(),
+            ));
+        }
+        let mut ptad = Pta::new();
+        for (i, (x, y)) in self.iter().enumerate() {
+            if i % subfactor == 0 {
+                ptad.push(x, y);
+            }
+        }
+        Ok(ptad)
     }
 
     /// Append points from `ptas[istart..=iend]` into `self`.
     ///
-    /// `iend < 0` (represented as `None`) means "to the end".
+    /// `iend = None` means "to the end".
     ///
     /// C equivalent: `ptaJoin()` in `ptafunc1.c`
     pub fn join(&mut self, ptas: &Pta, istart: usize, iend: Option<usize>) -> Result<()> {
-        todo!("Phase 16.3 GREEN")
+        let n = ptas.len();
+        let iend = match iend {
+            Some(e) if e < n => e,
+            _ => {
+                if n == 0 {
+                    return Ok(());
+                }
+                n - 1
+            }
+        };
+        if istart > iend {
+            return Err(Error::InvalidParameter("istart > iend; no pts".to_string()));
+        }
+        for i in istart..=iend {
+            let (ix, iy) = ptas.get_i_pt(i).map(|(x, y)| (x as f32, y as f32)).unwrap();
+            self.push(ix, iy);
+        }
+        Ok(())
     }
 
     /// Return a new Pta with points in reversed order.
     ///
     /// C equivalent: `ptaReverse()` in `ptafunc1.c`
     pub fn reverse(&self) -> Pta {
-        todo!("Phase 16.3 GREEN")
+        let n = self.len();
+        let mut ptad = Pta::with_capacity(n);
+        for i in (0..n).rev() {
+            let (x, y) = self.get(i).unwrap();
+            ptad.push(x, y);
+        }
+        ptad
     }
 
     /// Return a new Pta with x and y coordinates swapped.
     ///
     /// C equivalent: `ptaTranspose()` in `ptafunc1.c`
     pub fn transpose(&self) -> Pta {
-        todo!("Phase 16.3 GREEN")
+        self.iter().map(|(x, y)| (y, x)).collect()
     }
 
     /// Return a cyclic permutation starting (and ending) at `(xs, ys)`.
     ///
-    /// Requires the Pta to be a closed path (first == last point).
+    /// Requires the Pta to be a closed path (first == last point as integers).
     ///
     /// C equivalent: `ptaCyclicPerm()` in `ptafunc1.c`
     pub fn cyclic_perm(&self, xs: i32, ys: i32) -> Result<Pta> {
-        todo!("Phase 16.3 GREEN")
+        let n = self.len();
+        if n < 2 {
+            return Err(Error::InvalidParameter(
+                "pta must have at least 2 points".to_string(),
+            ));
+        }
+        let (x1, y1) = self.get_i_pt(0).unwrap();
+        let (x2, y2) = self.get_i_pt(n - 1).unwrap();
+        if x1 != x2 || y1 != y2 {
+            return Err(Error::InvalidParameter(
+                "start and end pts not same".to_string(),
+            ));
+        }
+        // Find the start index
+        let start_idx = (0..n)
+            .find(|&i| {
+                let (ix, iy) = self.get_i_pt(i).unwrap();
+                ix == xs && iy == ys
+            })
+            .ok_or_else(|| Error::InvalidParameter("start pt not in ptas".to_string()))?;
+
+        let mut ptad = Pta::with_capacity(n);
+        for j in 0..n - 1 {
+            let index = if start_idx + j < n - 1 {
+                start_idx + j
+            } else {
+                (start_idx + j + 1) % n
+            };
+            let (ix, iy) = self.get_i_pt(index).unwrap();
+            ptad.push(ix as f32, iy as f32);
+        }
+        ptad.push(xs as f32, ys as f32);
+        Ok(ptad)
     }
 
     /// Return a new Pta containing points `[first, last]`.
@@ -53,42 +119,110 @@ impl Pta {
     ///
     /// C equivalent: `ptaSelectRange()` in `ptafunc1.c`
     pub fn select_range(&self, first: usize, last: Option<usize>) -> Result<Pta> {
-        todo!("Phase 16.3 GREEN")
+        let n = self.len();
+        if n == 0 {
+            return Ok(self.clone());
+        }
+        if first >= n {
+            return Err(Error::InvalidParameter("invalid first".to_string()));
+        }
+        let last = match last {
+            Some(l) if l < n => l,
+            _ => n - 1,
+        };
+        if first > last {
+            return Err(Error::InvalidParameter("first > last".to_string()));
+        }
+        let mut ptad = Pta::with_capacity(last - first + 1);
+        for i in first..=last {
+            let (x, y) = self.get(i).unwrap();
+            ptad.push(x, y);
+        }
+        Ok(ptad)
     }
 
     /// Return the x/y range: `(minx, maxx, miny, maxy)`.
     ///
     /// C equivalent: `ptaGetRange()` in `ptafunc1.c`
     pub fn get_range(&self) -> Result<(f32, f32, f32, f32)> {
-        todo!("Phase 16.3 GREEN")
+        if self.is_empty() {
+            return Err(Error::NullInput("no points in pta"));
+        }
+        let (x0, y0) = self.get(0).unwrap();
+        let mut minx = x0;
+        let mut maxx = x0;
+        let mut miny = y0;
+        let mut maxy = y0;
+        for (x, y) in self.iter().skip(1) {
+            if x < minx {
+                minx = x;
+            }
+            if x > maxx {
+                maxx = x;
+            }
+            if y < miny {
+                miny = y;
+            }
+            if y > maxy {
+                maxy = y;
+            }
+        }
+        Ok((minx, maxx, miny, maxy))
     }
 
     /// Return points that fall inside `box_`.
     ///
     /// C equivalent: `ptaGetInsideBox()` in `ptafunc1.c`
     pub fn get_inside_box(&self, box_: &LBox) -> Pta {
-        todo!("Phase 16.3 GREEN")
+        let (bx, by, bw, bh) = (box_.x, box_.y, box_.w, box_.h);
+        let bx = bx as f32;
+        let by = by as f32;
+        let bw = bw as f32;
+        let bh = bh as f32;
+        self.iter()
+            .filter(|&(x, y)| x >= bx && x < bx + bw && y >= by && y < by + bh)
+            .collect()
     }
 
     /// Return `true` if `(x, y)` (rounded to integer) is contained.
     ///
     /// C equivalent: `ptaContainsPt()` in `ptafunc1.c`
     pub fn contains_pt(&self, x: i32, y: i32) -> bool {
-        todo!("Phase 16.3 GREEN")
+        (0..self.len()).any(|i| {
+            let (ix, iy) = self.get_i_pt(i).unwrap();
+            ix == x && iy == y
+        })
     }
 
     /// Return `true` if `self` and `other` share at least one integer point.
     ///
     /// C equivalent: `ptaTestIntersection()` in `ptafunc1.c`
     pub fn test_intersection(&self, other: &Pta) -> bool {
-        todo!("Phase 16.3 GREEN")
+        let n1 = self.len();
+        let n2 = other.len();
+        for i in 0..n1 {
+            let (x1, y1) = self.get_i_pt(i).unwrap();
+            for j in 0..n2 {
+                let (x2, y2) = other.get_i_pt(j).unwrap();
+                if x1 == x2 && y1 == y2 {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
-    /// Shift then scale all points: `x = scalex * (x + shiftx)`.
+    /// Shift then scale all points: `x = round(scalex * (x + shiftx))`.
     ///
     /// C equivalent: `ptaTransform()` in `ptafunc1.c`
     pub fn transform_pts(&self, shiftx: i32, shifty: i32, scalex: f32, scaley: f32) -> Pta {
-        todo!("Phase 16.3 GREEN")
+        self.iter()
+            .map(|(x, y)| {
+                let nx = (scalex * (x + shiftx as f32) + 0.5) as i32 as f32;
+                let ny = (scaley * (y + shifty as f32) + 0.5) as i32 as f32;
+                (nx, ny)
+            })
+            .collect()
     }
 
     /// Return `true` if `(x, y)` is strictly inside the polygon defined by `self`.
@@ -97,14 +231,42 @@ impl Pta {
     ///
     /// C equivalent: `ptaPtInsidePolygon()` in `ptafunc1.c`
     pub fn pt_inside_polygon(&self, x: f32, y: f32) -> bool {
-        todo!("Phase 16.3 GREEN")
+        let n = self.len();
+        if n < 3 {
+            return false;
+        }
+        let sum: f64 = (0..n)
+            .map(|i| {
+                let (xp1, yp1) = self.get(i).unwrap();
+                let (xp2, yp2) = self.get((i + 1) % n).unwrap();
+                let x1 = (xp1 - x) as f64;
+                let y1 = (yp1 - y) as f64;
+                let x2 = (xp2 - x) as f64;
+                let y2 = (yp2 - y) as f64;
+                angle_between_vectors(x1, y1, x2, y2)
+            })
+            .sum();
+        sum.abs() > std::f64::consts::PI
     }
 
     /// Return `true` if the polygon defined by `self` is convex.
     ///
     /// C equivalent: `ptaPolygonIsConvex()` in `ptafunc1.c`
     pub fn polygon_is_convex(&self) -> Result<bool> {
-        todo!("Phase 16.3 GREEN")
+        let n = self.len();
+        if n < 3 {
+            return Err(Error::InvalidParameter("pta has < 3 pts".to_string()));
+        }
+        for i in 0..n {
+            let (x0, y0) = self.get(i).unwrap();
+            let (x1, y1) = self.get((i + 1) % n).unwrap();
+            let (x2, y2) = self.get((i + 2) % n).unwrap();
+            let cprod = (x1 - x0) as f64 * (y2 - y1) as f64 - (y1 - y0) as f64 * (x2 - x1) as f64;
+            if cprod < -0.0001 {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// Return `(xmin, ymin, xmax, ymax)`.
@@ -113,7 +275,28 @@ impl Pta {
     ///
     /// C equivalent: `ptaGetMinMax()` in `ptafunc1.c`
     pub fn get_min_max(&self) -> Option<(f32, f32, f32, f32)> {
-        todo!("Phase 16.3 GREEN")
+        if self.is_empty() {
+            return None;
+        }
+        let mut xmin = f32::MAX;
+        let mut ymin = f32::MAX;
+        let mut xmax = f32::MIN;
+        let mut ymax = f32::MIN;
+        for (x, y) in self.iter() {
+            if x < xmin {
+                xmin = x;
+            }
+            if y < ymin {
+                ymin = y;
+            }
+            if x > xmax {
+                xmax = x;
+            }
+            if y > ymax {
+                ymax = y;
+            }
+        }
+        Some((xmin, ymin, xmax, ymax))
     }
 
     /// Return points selected by value comparison on x, y, or both.
@@ -126,28 +309,55 @@ impl Pta {
         select: SelectCoord,
         relation: SelectRelation,
     ) -> Pta {
-        todo!("Phase 16.3 GREEN")
+        let matches = |v: f32, th: f32| match relation {
+            SelectRelation::Lt => v < th,
+            SelectRelation::Gt => v > th,
+            SelectRelation::Lte => v <= th,
+            SelectRelation::Gte => v >= th,
+        };
+        self.iter()
+            .filter(|&(x, y)| match select {
+                SelectCoord::X => matches(x, xth),
+                SelectCoord::Y => matches(y, yth),
+                SelectCoord::Either => matches(x, xth) || matches(y, yth),
+                SelectCoord::Both => matches(x, xth) && matches(y, yth),
+            })
+            .collect()
     }
 
     /// Create a Pta from a single Numa, using the Numa's x-parameters for x.
     ///
     /// C equivalent: `numaConvertToPta1()` in `ptafunc1.c`
     pub fn from_numa(na: &Numa) -> Pta {
-        todo!("Phase 16.3 GREEN")
+        let (startx, delx) = na.parameters();
+        na.as_slice()
+            .iter()
+            .enumerate()
+            .map(|(i, &val)| (startx + i as f32 * delx, val))
+            .collect()
     }
 
     /// Create a Pta from two Numa arrays (x, y).
     ///
     /// C equivalent: `numaConvertToPta2()` in `ptafunc1.c`
     pub fn from_numa2(nax: &Numa, nay: &Numa) -> Pta {
-        todo!("Phase 16.3 GREEN")
+        let n = nax.len().min(nay.len());
+        (0..n)
+            .map(|i| (nax.get(i).unwrap(), nay.get(i).unwrap()))
+            .collect()
     }
 
     /// Convert to (nax, nay) Numa arrays.
     ///
     /// C equivalent: `ptaConvertToNuma()` in `ptafunc1.c`
     pub fn to_numa(&self) -> (Numa, Numa) {
-        todo!("Phase 16.3 GREEN")
+        let mut nax = Numa::with_capacity(self.len());
+        let mut nay = Numa::with_capacity(self.len());
+        for (x, y) in self.iter() {
+            nax.push(x);
+            nay.push(y);
+        }
+        (nax, nay)
     }
 }
 
@@ -156,7 +366,33 @@ impl Ptaa {
     ///
     /// C equivalent: `ptaaJoin()` in `ptafunc1.c`
     pub fn join(&mut self, ptaas: &Ptaa, istart: usize, iend: Option<usize>) -> Result<()> {
-        todo!("Phase 16.3 GREEN")
+        let n = ptaas.len();
+        if n == 0 {
+            return Ok(());
+        }
+        let iend = match iend {
+            Some(e) if e < n => e,
+            _ => n - 1,
+        };
+        if istart > iend {
+            return Err(Error::InvalidParameter("istart > iend; no pts".to_string()));
+        }
+        for i in istart..=iend {
+            self.push(ptaas.get(i).unwrap().clone());
+        }
+        Ok(())
+    }
+}
+
+/// Angle from vector (x1,y1) to vector (x2,y2), folded into (-π, π].
+fn angle_between_vectors(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    let ang = y2.atan2(x2) - y1.atan2(x1);
+    if ang > std::f64::consts::PI {
+        ang - 2.0 * std::f64::consts::PI
+    } else if ang < -std::f64::consts::PI {
+        ang + 2.0 * std::f64::consts::PI
+    } else {
+        ang
     }
 }
 
@@ -200,7 +436,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_subsample_basic() {
         let p = make_square();
         let s = p.subsample(2).unwrap();
@@ -210,14 +445,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_subsample_invalid() {
         let p = make_square();
         assert!(p.subsample(0).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_join_basic() {
         let mut p1 = Pta::new();
         p1.push(1.0, 2.0);
@@ -227,7 +460,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reverse() {
         let p = make_square();
         let r = p.reverse();
@@ -237,7 +469,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_transpose() {
         let mut p = Pta::new();
         p.push(1.0, 2.0);
@@ -248,7 +479,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_cyclic_perm() {
         let mut p = Pta::new();
         p.push(0.0, 0.0);
@@ -263,7 +493,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_select_range() {
         let p = make_square();
         let s = p.select_range(1, Some(2)).unwrap();
@@ -273,7 +502,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_range() {
         let p = make_square();
         let (minx, maxx, miny, maxy) = p.get_range().unwrap();
@@ -284,7 +512,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_inside_box() {
         let p = make_square();
         let b = LBox::new(0, 0, 11, 11).unwrap();
@@ -296,7 +523,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_contains_pt() {
         let p = make_square();
         assert!(p.contains_pt(0, 0));
@@ -305,7 +531,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_test_intersection() {
         let p1 = make_square();
         let mut p2 = Pta::new();
@@ -318,7 +543,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_transform_pts() {
         let mut p = Pta::new();
         p.push(2.0, 3.0);
@@ -328,7 +552,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pt_inside_polygon() {
         // Square polygon
         let mut p = Pta::new();
@@ -341,7 +564,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_polygon_is_convex() {
         let p = make_square();
         assert!(p.polygon_is_convex().unwrap());
@@ -356,7 +578,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_min_max() {
         let p = make_square();
         let (xmin, ymin, xmax, ymax) = p.get_min_max().unwrap();
@@ -367,7 +588,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_select_by_value() {
         let p = make_square();
         let sel = p.select_by_value(5.0, 0.0, SelectCoord::X, SelectRelation::Gte);
@@ -375,7 +595,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_from_numa() {
         let na = Numa::from_slice(&[10.0, 20.0, 30.0]);
         let p = Pta::from_numa(&na);
@@ -386,7 +605,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_from_numa2() {
         let nax = Numa::from_slice(&[1.0, 2.0, 3.0]);
         let nay = Numa::from_slice(&[4.0, 5.0, 6.0]);
@@ -397,7 +615,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_to_numa() {
         let mut p = Pta::new();
         p.push(1.0, 4.0);
@@ -410,7 +627,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_ptaa_join() {
         let mut ptaa1 = Ptaa::new();
         ptaa1.push(make_square());

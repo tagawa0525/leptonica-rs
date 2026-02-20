@@ -233,30 +233,72 @@ impl Pta {
     ///
     /// C equivalent: `ptaCreateFromNuma()` in `ptabasic.c`
     pub fn create_from_numa(nax: Option<&Numa>, nay: &Numa) -> Self {
-        todo!("Phase 16.3 GREEN")
+        let n = nay.len();
+        let (startx, delx) = nay.parameters();
+        let mut pta = Self::with_capacity(n);
+        for i in 0..n {
+            let xval = if let Some(na) = nax {
+                na.get(i).unwrap_or(startx + i as f32 * delx)
+            } else {
+                startx + i as f32 * delx
+            };
+            let yval = nay.get(i).unwrap_or(0.0);
+            pta.push(xval, yval);
+        }
+        pta
     }
 
     /// Return a new Pta containing points `[istart, iend]` (integer coordinates).
     ///
-    /// `iend = 0` or negative means "to the end".
+    /// `iend = None` means "to the end".
     ///
     /// C equivalent: `ptaCopyRange()` in `ptabasic.c`
     pub fn copy_range(&self, istart: usize, iend: Option<usize>) -> Result<Pta> {
-        todo!("Phase 16.3 GREEN")
+        let n = self.len();
+        if istart >= n {
+            return Err(Error::IndexOutOfBounds {
+                index: istart,
+                len: n,
+            });
+        }
+        let iend = match iend {
+            Some(e) if e < n => e,
+            _ => n - 1,
+        };
+        if istart > iend {
+            return Err(Error::InvalidParameter("istart > iend; no pts".to_string()));
+        }
+        let mut ptad = Pta::with_capacity(iend - istart + 1);
+        for i in istart..=iend {
+            let (x, y) = self
+                .get_i_pt(i)
+                .map(|(ix, iy)| (ix as f32, iy as f32))
+                .unwrap();
+            ptad.push(x, y);
+        }
+        Ok(ptad)
     }
 
     /// Get a point as rounded integer coordinates `(x, y)`.
     ///
     /// C equivalent: `ptaGetIPt()` in `ptabasic.c`
     pub fn get_i_pt(&self, index: usize) -> Option<(i32, i32)> {
-        todo!("Phase 16.3 GREEN")
+        if index < self.x.len() {
+            Some(((self.x[index] + 0.5) as i32, (self.y[index] + 0.5) as i32))
+        } else {
+            None
+        }
     }
 
     /// Get cloned (x_vec, y_vec) arrays.
     ///
     /// C equivalent: `ptaGetArrays()` in `ptabasic.c`
     pub fn get_arrays(&self) -> Option<(Vec<f32>, Vec<f32>)> {
-        todo!("Phase 16.3 GREEN")
+        if self.x.is_empty() {
+            None
+        } else {
+            Some((self.x.clone(), self.y.clone()))
+        }
     }
 
     /// Create an iterator over points
@@ -406,32 +448,53 @@ impl Ptaa {
         self.ptas.iter_mut()
     }
 
-    /// Fill all `nalloc` slots with clones of `pta`, expanding to capacity.
+    /// Replace all entries with clones of `pta` up to the current length.
     ///
     /// C equivalent: `ptaaInitFull()` in `ptabasic.c`
     pub fn init_full(&mut self, pta: &Pta) {
-        todo!("Phase 16.3 GREEN")
+        for slot in &mut self.ptas {
+            *slot = pta.clone();
+        }
     }
 
     /// Replace the Pta at `index` with a new one.
     ///
     /// C equivalent: `ptaaReplacePta()` in `ptabasic.c`
     pub fn replace(&mut self, index: usize, pta: Pta) -> Result<()> {
-        todo!("Phase 16.3 GREEN")
+        let n = self.ptas.len();
+        if index >= n {
+            return Err(Error::IndexOutOfBounds { index, len: n });
+        }
+        self.ptas[index] = pta;
+        Ok(())
     }
 
     /// Add a point `(x, y)` to the Pta at `ipta`.
     ///
     /// C equivalent: `ptaaAddPt()` in `ptabasic.c`
     pub fn add_pt(&mut self, ipta: usize, x: f32, y: f32) -> Result<()> {
-        todo!("Phase 16.3 GREEN")
+        let n = self.ptas.len();
+        if ipta >= n {
+            return Err(Error::IndexOutOfBounds {
+                index: ipta,
+                len: n,
+            });
+        }
+        self.ptas[ipta].push(x, y);
+        Ok(())
     }
 
     /// Remove trailing empty Pta arrays, resetting the count.
     ///
     /// C equivalent: `ptaaTruncate()` in `ptabasic.c`
     pub fn truncate(&mut self) {
-        todo!("Phase 16.3 GREEN")
+        while let Some(last) = self.ptas.last() {
+            if last.is_empty() {
+                self.ptas.pop();
+            } else {
+                break;
+            }
+        }
     }
 }
 
