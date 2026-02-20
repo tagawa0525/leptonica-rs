@@ -663,6 +663,78 @@ impl Sarray {
         }
     }
 
+    /// Return a new Sarray sorted according to an index Numa.
+    ///
+    /// Each value in `naindex` is an index into `self`; the output contains
+    /// `self[naindex[0]]`, `self[naindex[1]]`, …
+    ///
+    /// # Notes
+    /// - Negative indices in `naindex` are silently skipped (not inserted
+    ///   into the output), matching the C behaviour of an out-of-range
+    ///   access returning `NULL`.
+    /// - Out-of-bounds (but non-negative) indices are similarly skipped.
+    ///
+    /// C equivalent: `sarraySortByIndex()` in `sarray2.c`
+    pub fn sort_by_index(&self, naindex: &crate::numa::Numa) -> Sarray {
+        let n = naindex.len();
+        let mut out = Sarray::with_capacity(n);
+        for i in 0..n {
+            if let Some(idx) = naindex.get_i32(i) {
+                if idx >= 0 {
+                    if let Some(s) = self.data.get(idx as usize) {
+                        out.data.push(s.clone());
+                    }
+                }
+                // Negative or out-of-bounds indices are silently skipped.
+            }
+        }
+        out
+    }
+
+    /// Find the next contiguous range of strings in `self` that do **not**
+    /// contain `substr` (at optional byte offset `loc`, or anywhere if `None`).
+    ///
+    /// Returns `Some((actual_start, end, new_start))` where:
+    /// - `actual_start`: index of first string in the range
+    /// - `end`: index of last string in the range (inclusive)
+    /// - `new_start`: index to use for the next call (first past the range)
+    ///
+    /// Returns `None` if no valid range is found starting at or after `start`.
+    ///
+    /// C equivalent: `sarrayParseRange()` in `sarray1.c`
+    pub fn parse_range(
+        &self,
+        start: usize,
+        substr: &str,
+        loc: Option<usize>,
+    ) -> Option<(usize, usize, usize)> {
+        let n = self.data.len();
+        if start >= n {
+            return None;
+        }
+
+        let matches = |s: &str| -> bool {
+            if let Some(offset) = loc {
+                // substr must appear at byte position `offset`
+                s.len() >= offset + substr.len() && &s[offset..offset + substr.len()] == substr
+            } else {
+                s.contains(substr)
+            }
+        };
+
+        // Skip leading strings that DO have the marker
+        let actual_start = (start..n).find(|&i| !matches(&self.data[i]))?;
+
+        // Find end: last consecutive string without the marker
+        let end = (actual_start + 1..n)
+            .take_while(|&i| !matches(&self.data[i]))
+            .last()
+            .unwrap_or(actual_start);
+
+        let new_start = end + 1;
+        Some((actual_start, end, new_start))
+    }
+
     // ========================================================================
     // Set Operations
     // ========================================================================
@@ -1634,5 +1706,36 @@ mod tests {
 
         saa.clear();
         assert!(saa.is_empty());
+    }
+
+    // -- Phase 16.5 new functions --
+
+    #[test]
+    fn test_sort_by_index() {
+        use crate::numa::Numa;
+        let sa = Sarray::from_str_slice(&["c", "a", "b"]);
+        // index [1, 2, 0] maps new pos → old pos: new[0]=old[1]="a", etc.
+        let na = Numa::from_slice(&[1.0, 2.0, 0.0]);
+        let sorted = sa.sort_by_index(&na);
+        assert_eq!(sorted.get(0), Some("a"));
+        assert_eq!(sorted.get(1), Some("b"));
+        assert_eq!(sorted.get(2), Some("c"));
+    }
+
+    #[test]
+    fn test_parse_range() {
+        // Lines: "ok1", "--skip", "ok2", "ok3"
+        // Range of non-'--' lines starting at 0: should be [0,0], next=1
+        let sa = Sarray::from_str_slice(&["ok1", "--skip", "ok2", "ok3"]);
+        let range = sa.parse_range(0, "--", None);
+        assert_eq!(range, Some((0, 0, 1)));
+
+        // Starting from 1, the '--' line is at 1, so actual start is 2
+        let range2 = sa.parse_range(1, "--", None);
+        assert_eq!(range2, Some((2, 3, 4)));
+
+        // No valid range when start is past end
+        let range3 = sa.parse_range(4, "--", None);
+        assert!(range3.is_none());
     }
 }

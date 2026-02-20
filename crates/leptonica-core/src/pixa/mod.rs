@@ -985,6 +985,154 @@ impl Pixa {
         Ok(canvas_mut.into())
     }
 
+    /// Scale each Pix to a target size preserving aspect ratio.
+    ///
+    /// If `wd` is 0, scale to height `hd` (preserving aspect ratio).
+    /// If `hd` is 0, scale to width `wd` (preserving aspect ratio).
+    /// If both are non-zero, scale to exactly `wd` × `hd`.
+    /// If both are 0, return a deep clone.
+    ///
+    /// C equivalent: `pixaScaleToSize()` in `pixafunc1.c`
+    pub fn scale_to_size(&self, wd: u32, hd: u32) -> Pixa {
+        let mut out = Pixa::with_capacity(self.len());
+        for pix in &self.pix {
+            let scaled = scale_pix_to_size(pix, wd, hd);
+            out.push(scaled);
+        }
+        out
+    }
+
+    /// Scale each Pix by adding `delw` pixels to its width and `delh` to its
+    /// height. If either resulting dimension is ≤ 0, return a copy of the
+    /// original image.
+    ///
+    /// C equivalent: `pixaScaleToSizeRel()` in `pixafunc1.c`
+    pub fn scale_to_size_rel(&self, delw: i32, delh: i32) -> Pixa {
+        let mut out = Pixa::with_capacity(self.len());
+        for pix in &self.pix {
+            let w = pix.width() as i32 + delw;
+            let h = pix.height() as i32 + delh;
+            if w <= 0 || h <= 0 {
+                out.push(pix.clone());
+            } else {
+                out.push(scale_pix_to_size(pix, w as u32, h as u32));
+            }
+        }
+        out
+    }
+
+    /// Scale each Pix to `tile_width` pixels wide (maintaining aspect ratio),
+    /// optionally add a border, convert to `outdepth`, then composite into a
+    /// tiled layout with `ncols` columns.
+    ///
+    /// * `outdepth` – output bit depth (1, 8, or 32 bpp)
+    /// * `tile_width` – width of each tile (including any border)
+    /// * `ncols` – number of tile columns
+    /// * `background` – background pixel value (0 = black, non-zero = white)
+    /// * `spacing` – gap between tiles in pixels
+    /// * `border` – extra border added to each tile (0 = none)
+    ///
+    /// C equivalent: `pixaDisplayTiledAndScaled()` in `pixafunc2.c`
+    pub fn display_tiled_and_scaled(
+        &self,
+        outdepth: crate::pix::PixelDepth,
+        tile_width: u32,
+        ncols: u32,
+        background: u32,
+        spacing: u32,
+        border: u32,
+    ) -> Result<Pix> {
+        if self.pix.is_empty() {
+            return Err(Error::NullInput("pixa is empty"));
+        }
+        if ncols == 0 {
+            return Err(Error::InvalidParameter("ncols must be > 0".to_string()));
+        }
+
+        // Scale and convert each image to the target depth
+        let inner_width = if tile_width > 2 * border {
+            tile_width - 2 * border
+        } else {
+            tile_width
+        };
+
+        let mut scaled_pix: Vec<Pix> = Vec::with_capacity(self.len());
+        for pix in &self.pix {
+            let w = pix.width();
+            if w == 0 {
+                continue;
+            }
+            // Scale to inner_width, preserving aspect ratio
+            let s = scale_pix_to_size(pix, inner_width, 0);
+            // Convert depth
+            let s = convert_pix_depth(&s, outdepth);
+            // Optionally add border (simple: expand canvas)
+            let s = if border > 0 {
+                add_border_pix(&s, border, outdepth)
+            } else {
+                s
+            };
+            scaled_pix.push(s);
+        }
+
+        if scaled_pix.is_empty() {
+            return Err(Error::NullInput("no valid images after scaling"));
+        }
+
+        // Tile into columns
+        let n = scaled_pix.len();
+        let ncols = ncols as usize;
+        let nrows = (n + ncols - 1) / ncols;
+
+        // Compute row heights
+        let mut row_heights: Vec<u32> = Vec::with_capacity(nrows);
+        for row in 0..nrows {
+            let max_h = (0..ncols)
+                .filter_map(|col| scaled_pix.get(row * ncols + col))
+                .map(|p| p.height())
+                .max()
+                .unwrap_or(1);
+            row_heights.push(max_h);
+        }
+
+        let canvas_w = tile_width * ncols as u32 + spacing * (ncols as u32 + 1);
+        let canvas_h: u32 = row_heights.iter().sum::<u32>() + spacing * (nrows as u32 + 1);
+
+        let canvas = Pix::new(canvas_w, canvas_h, outdepth)?;
+        let mut dst = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+
+        // Fill background with depth-appropriate white value
+        if background != 0 {
+            let white: u32 = match outdepth {
+                crate::pix::PixelDepth::Bit1 => 1,
+                crate::pix::PixelDepth::Bit8 => 255,
+                crate::pix::PixelDepth::Bit32 => 0xFFFF_FFFFu32,
+                _ => (1u32 << (outdepth as u32)) - 1,
+            };
+            for y in 0..canvas_h {
+                for x in 0..canvas_w {
+                    dst.set_pixel_unchecked(x, y, white);
+                }
+            }
+        }
+
+        // Blit tiles
+        let mut cy = spacing as i32;
+        for row in 0..nrows {
+            let mut cx = spacing as i32;
+            for col in 0..ncols {
+                let idx = row * ncols + col;
+                if idx < n {
+                    blit_pix(&mut dst, &scaled_pix[idx], cx, cy);
+                }
+                cx += tile_width as i32 + spacing as i32;
+            }
+            cy += row_heights[row] as i32 + spacing as i32;
+        }
+
+        Ok(dst.into())
+    }
+
     /// Create a deep copy of this Pixa
     ///
     /// Unlike `clone()` which shares Pix data via Arc, this creates
@@ -1047,6 +1195,122 @@ fn blit_pix(dst: &mut PixMut, src: &Pix, ox: i32, oy: i32) {
             dst.set_pixel_unchecked(dx as u32, dy as u32, val);
         }
     }
+}
+
+/// Scale a Pix to a target size using nearest-neighbor sampling.
+///
+/// * `wd` = 0: scale proportionally to height `hd`.
+/// * `hd` = 0: scale proportionally to width `wd`.
+/// * both 0: deep clone.
+fn scale_pix_to_size(src: &Pix, wd: u32, hd: u32) -> Pix {
+    let sw = src.width();
+    let sh = src.height();
+    if sw == 0 || sh == 0 {
+        return src.deep_clone();
+    }
+    let (tw, th) = match (wd, hd) {
+        (0, 0) => return src.deep_clone(),
+        (0, h) => {
+            let scale = h as f32 / sh as f32;
+            ((sw as f32 * scale).round() as u32, h)
+        }
+        (w, 0) => {
+            let scale = w as f32 / sw as f32;
+            (w, (sh as f32 * scale).round() as u32)
+        }
+        (w, h) => (w, h),
+    };
+    let tw = tw.max(1);
+    let th = th.max(1);
+
+    let depth = src.depth();
+    let dst_pix = Pix::new(tw, th, depth).unwrap_or_else(|_| src.deep_clone());
+    let mut dst = dst_pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+
+    if let Some(cmap) = src.colormap() {
+        let _ = dst.set_colormap(Some(cmap.clone()));
+    }
+
+    for dy in 0..th {
+        let sy = ((dy as f32 + 0.5) * sh as f32 / th as f32) as u32;
+        let sy = sy.min(sh - 1);
+        for dx in 0..tw {
+            let sx = ((dx as f32 + 0.5) * sw as f32 / tw as f32) as u32;
+            let sx = sx.min(sw - 1);
+            let val = src.get_pixel_unchecked(sx, sy);
+            dst.set_pixel_unchecked(dx, dy, val);
+        }
+    }
+    dst.into()
+}
+
+/// Convert a Pix to a specific bit depth.
+///
+/// Only the targets Bit1, Bit8, and Bit32 produce well-defined output;
+/// other `outdepth` values are rejected and a deep clone is returned.
+fn convert_pix_depth(src: &Pix, outdepth: crate::pix::PixelDepth) -> Pix {
+    use crate::pix::PixelDepth;
+    // Validate that outdepth is one of the supported targets
+    if !matches!(
+        outdepth,
+        PixelDepth::Bit1 | PixelDepth::Bit8 | PixelDepth::Bit32
+    ) {
+        return src.deep_clone();
+    }
+    let d = src.depth();
+    if d == outdepth {
+        return src.deep_clone();
+    }
+    let w = src.width();
+    let h = src.height();
+    let dst_pix = Pix::new(w, h, outdepth).unwrap_or_else(|_| src.deep_clone());
+    let mut dst = dst_pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+
+    for y in 0..h {
+        for x in 0..w {
+            let val = src.get_pixel_unchecked(x, y);
+            // Convert source pixel to an 8-bit gray value
+            // Bit1: 0 = white (255), 1 = black (0) — matches Leptonica convention
+            let gray: u32 = match d {
+                PixelDepth::Bit1 => {
+                    if val & 1 != 0 {
+                        0u32 // black
+                    } else {
+                        255u32 // white
+                    }
+                }
+                PixelDepth::Bit2 => (val & 3) * 85,
+                PixelDepth::Bit4 => (val & 0xF) * 17,
+                PixelDepth::Bit8 => val & 0xFF,
+                PixelDepth::Bit16 => (val & 0xFFFF) >> 8,
+                PixelDepth::Bit32 => (val >> 24) & 0xFF, // red channel as gray
+            };
+            let out_val = match outdepth {
+                PixelDepth::Bit1 => u32::from(gray < 128),
+                PixelDepth::Bit8 => gray,
+                PixelDepth::Bit32 => (gray << 24) | (gray << 16) | (gray << 8) | 0xFF,
+                // All unsupported targets were already rejected above.
+                _ => unreachable!(),
+            };
+            dst.set_pixel_unchecked(x, y, out_val);
+        }
+    }
+    dst.into()
+}
+
+/// Add a uniform border of `border` pixels around `src`.
+///
+/// The source is converted to `outdepth` before blitting so that the pixel
+/// values are interpreted consistently.
+fn add_border_pix(src: &Pix, border: u32, outdepth: crate::pix::PixelDepth) -> Pix {
+    let w = src.width() + 2 * border;
+    let h = src.height() + 2 * border;
+    let dst_pix = Pix::new(w, h, outdepth).unwrap_or_else(|_| src.deep_clone());
+    let mut dst = dst_pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+    // Convert src to the target depth so pixel values are consistent
+    let src_converted = convert_pix_depth(src, outdepth);
+    blit_pix(&mut dst, &src_converted, border as i32, border as i32);
+    dst.into()
 }
 
 /// Iterator over Pixa Pix references
@@ -1943,5 +2207,38 @@ mod tests {
         pixaa2.push(q);
         pixaa1.join(&pixaa2).unwrap();
         assert_eq!(pixaa1.len(), 2);
+    }
+
+    // -- Phase 16.5 new functions --
+
+    #[test]
+    fn test_scale_to_size() {
+        let pix = make_test_pix(10, 20);
+        let pixa = Pixa::create_from_pix(&pix, 3);
+        let scaled = pixa.scale_to_size(5, 0);
+        assert_eq!(scaled.len(), 3);
+        assert_eq!(scaled.get(0).unwrap().width(), 5);
+        assert_eq!(scaled.get(0).unwrap().height(), 10); // proportional
+    }
+
+    #[test]
+    fn test_scale_to_size_rel() {
+        let pix = make_test_pix(10, 20);
+        let pixa = Pixa::create_from_pix(&pix, 2);
+        let scaled = pixa.scale_to_size_rel(5, 0);
+        assert_eq!(scaled.len(), 2);
+        assert_eq!(scaled.get(0).unwrap().width(), 15);
+        assert_eq!(scaled.get(0).unwrap().height(), 20);
+    }
+
+    #[test]
+    fn test_display_tiled_and_scaled() {
+        use crate::pix::PixelDepth;
+        let pix = make_test_pix(10, 10);
+        let pixa = Pixa::create_from_pix(&pix, 4);
+        let result = pixa.display_tiled_and_scaled(PixelDepth::Bit8, 20, 2, 0, 2, 0);
+        assert!(result.is_ok());
+        let out = result.unwrap();
+        assert!(out.width() > 0 && out.height() > 0);
     }
 }
