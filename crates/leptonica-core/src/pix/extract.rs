@@ -183,6 +183,7 @@ impl Pix {
         let pixd_base = Pix::new(w, h, PixelDepth::Bit8)
             .map_err(|e| Error::InvalidParameter(format!("cannot create pixd: {e}")))?;
         let mut pixd = pixd_base.try_into_mut().unwrap();
+        pixd.set_resolution(self.xres(), self.yres());
         for i in 0..h {
             let mut histo = [0u32; 256];
             for j in 0..w {
@@ -219,6 +220,7 @@ impl Pix {
         let pixd_base = Pix::new(w, h, PixelDepth::Bit8)
             .map_err(|e| Error::InvalidParameter(format!("cannot create pixd: {e}")))?;
         let mut pixd = pixd_base.try_into_mut().unwrap();
+        pixd.set_resolution(self.xres(), self.yres());
         for j in 0..w {
             let mut histo = [0u32; 256];
             for i in 0..h {
