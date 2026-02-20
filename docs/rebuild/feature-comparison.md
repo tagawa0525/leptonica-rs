@@ -1,14 +1,14 @@
 # C版 vs Rust版 機能比較
 
-調査日: 2026-02-18（Phase 7.1-7.4, 8.3, 8.4 実装を反映）
+調査日: 2026-02-21（Phase 13-17.3 実装を反映）
 
 ## 概要
 
 | 項目 | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | ---- | ------------------------- | --------------------- |
 | ソースファイル数 | **182個** (.c) | **56個** (.rs) |
-| コード行数 | **約240,000行** | **約20,200行** |
-| 実装率（行数ベース） | 100% | **約8.4%** |
+| コード行数 | **約240,000行** | **約120,000行** |
+| 実装率（行数ベース） | 100% | **約50%** |
 
 ## 関数レベル比較サマリー
 
@@ -17,7 +17,7 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 
 | クレート | ✅ 同等 | 🔄 異なる | ❌ 未実装 | 合計 | カバレッジ |
 |---------|--------|----------|---------|------|-----------|
-| [leptonica-core](comparison/core.md) | 201 | 25 | 619 | 845 | 26.7% |
+| [leptonica-core](comparison/core.md) | 495 | 24 | 363 | 882 | 58.8% |
 | [leptonica-io](comparison/io.md) | 32 | 15 | 99 | 146 | 32.2% |
 | [leptonica-transform](comparison/transform.md) | 39 | 12 | 101 | 152 | 33.6% |
 | [leptonica-morph](comparison/morph.md) | 34 | 12 | 74 | 120 | 38.3% |
@@ -26,7 +26,7 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 | [leptonica-region](comparison/region.md) | 27 | 8 | 60 | 95 | 36.8% |
 | [leptonica-recog](comparison/recog.md) | 42 | 9 | 93 | 144 | 35.4% |
 | [その他](comparison/misc.md) | 13 | 0 | 103 | 116 | 11.2% |
-| **合計** | **489** | **97** | **1,257** | **1,843** | **31.8%** |
+| **合計** | **783** | **96** | **1,001** | **1,880** | **46.8%** |
 
 ### 分類基準
 
@@ -177,7 +177,7 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 
 | クレート | 行数 | 関数カバレッジ | 主要機能 |
 | -------- | ---- | ------------- | -------- |
-| leptonica-core | 2,519 | 198/848 (23.3%) | Pix, Box, Pta, Colormap, 演算, 比較, ブレンド |
+| leptonica-core | ~46,300 | 519/882 (58.8%) | Pix, Box, Pta, Colormap, 演算, 比較, ブレンド, 描画, 統計, ヒストグラム |
 | leptonica-io | 2,795 | 47/146 (32.2%) | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS |
 | leptonica-transform | 1,509 | 51/152 (33.6%) | 回転, スケーリング, アフィン, 射影, シアー |
 | leptonica-morph | 827 | 46/120 (38.3%) | 二値/グレースケール/カラー形態学, DWA, 細線化 |
@@ -186,18 +186,18 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 | leptonica-region | 2,385 | 35/95 (36.8%) | 連結成分, シードフィル, 分水嶺, 四分木, 迷路 |
 | leptonica-recog | 6,580 | 51/144 (35.4%) | スキュー補正, デワーピング, 文字認識, バーコード |
 | その他 | - | 13/116 (11.2%) | ワーパー, エンコーディング |
-| **合計** | **~20,200** | **586/1,843 (31.8%)** | |
+| **合計** | **~64,000** | **879/1,880 (46.8%)** | |
 
 ## 未実装の主要領域
 
-### leptonica-core（最大の未実装数: 650関数）
+### leptonica-core（残り未実装: ~363関数）
 
-coreは対象Cファイル数が多く、以下が主な未実装領域:
+Phase 13-17で大幅に改善（26.7% → 58.8%）。残りの主な未実装領域:
 
-- **I/O補助関数**: Pix/Boxa/Pixa/Numa等のRead/Write/Serialize
-- **高度な配列操作**: ソート、選択、変換、統合
-- **統計・ヒストグラム拡張**: タイル別、マスク付きの高度な統計
-- **クリッピング・測定**: 矩形/マスクによるクリッピング、前景検出
+- **I/O補助関数**: Pix/Boxa/Pixa/Numa等のRead/Write/Serialize（Phase 10で計画）
+- **カラーマップ高度操作**: 検索・変換・効果（Phase 12で計画）
+- **roplow.c**: 低レベルビット操作（Rust版rop.rsの高レベルAPIでカバー済み、スキップ対象）
+- **boxfunc2.c/5.c**: Box変換ユーティリティ、スムージング
 
 ### leptonica-filter（カバレッジ: 50.5%）
 
@@ -238,7 +238,7 @@ JBIG2:        jbclass
 
 各クレートの関数レベル比較（全public関数の一覧と実装状況）:
 
-- [leptonica-core](comparison/core.md) — 848関数
+- [leptonica-core](comparison/core.md) — 882関数
 - [leptonica-io](comparison/io.md) — 146関数
 - [leptonica-transform](comparison/transform.md) — 152関数
 - [leptonica-morph](comparison/morph.md) — 120関数

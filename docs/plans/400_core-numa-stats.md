@@ -1,6 +1,6 @@
 # Phase 4: 統計/Numa拡張 実装計画
 
-Status: PLANNED
+Status: IMPLEMENTED
 
 ## Context
 
