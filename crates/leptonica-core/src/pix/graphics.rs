@@ -1630,7 +1630,7 @@ pub fn fill_polygon(pixs: &Pix, pta: &Pta, xmin: i32, ymin: i32) -> Result<Pix> 
 
     // OR the polygon outline back in
     let result: Pix = pixd.into();
-    result.or(&pixs.clone())
+    result.or(pixs)
 }
 
 #[cfg(test)]
