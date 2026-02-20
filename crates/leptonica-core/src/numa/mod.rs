@@ -9,8 +9,8 @@ pub mod serial;
 
 pub use histogram::HistogramStats;
 pub use operations::{
-    CountRelativeToZero, HistogramResult, InterpolationType, SortOrder, ThresholdComparison,
-    WindowedStats,
+    ArithOp, BorderType, CountRelativeToZero, HistogramResult, InterpolationType, LogicalOp,
+    SortOrder, ThresholdComparison, WindowedStats,
 };
 
 use crate::error::{Error, Result};

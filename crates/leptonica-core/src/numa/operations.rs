@@ -11,8 +11,49 @@
 //!   - `numaMakeHistogram()` - histogram with automatic bin sizing
 //!   - `numaMakeHistogramClipped()` - histogram with clipped range
 
-use super::Numa;
+use super::{Numa, Numaa};
 use crate::error::{Error, Result};
+
+/// Arithmetic operation for element-wise Numa arithmetic.
+///
+/// C equivalent: `L_ARITH_ADD` / `L_ARITH_SUBTRACT` / `L_ARITH_MULTIPLY` / `L_ARITH_DIVIDE`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArithOp {
+    /// Add element-wise.
+    Add,
+    /// Subtract element-wise (`self - other`).
+    Subtract,
+    /// Multiply element-wise.
+    Multiply,
+    /// Divide element-wise (`self / other`).
+    Divide,
+}
+
+/// Logical operation for element-wise Numa logical operations.
+///
+/// C equivalent: `L_UNION` / `L_INTERSECTION` / `L_SUBTRACTION` / `L_EXCLUSIVE_OR`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogicalOp {
+    /// Logical OR (`val1 || val2`).
+    Union,
+    /// Logical AND (`val1 && val2`).
+    Intersection,
+    /// Logical AND-NOT (`val1 && !val2`).
+    Subtraction,
+    /// Logical XOR (`val1 != val2`).
+    ExclusiveOr,
+}
+
+/// Border fill type for `add_specified_border`.
+///
+/// C equivalent: `L_CONTINUED_BORDER` / `L_MIRRORED_BORDER`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BorderType {
+    /// Fill with the nearest edge value (continued).
+    Continued,
+    /// Fill by mirroring values from the edge inward.
+    Mirrored,
+}
 
 /// Sort order for Numa sorting operations.
 ///
@@ -1244,6 +1285,281 @@ impl Numa {
         }
         Ok(result)
     }
+
+    // ====================================================================
+    // Arithmetic and logical operations
+    // ====================================================================
+
+    /// Apply an element-wise arithmetic operation in-place.
+    ///
+    /// Requires both arrays to have the same length.
+    /// For `Divide`, all elements of `other` must be nonzero.
+    ///
+    /// C equivalent: `numaArithOp()` in `numafunc1.c`
+    pub fn arith_op(&mut self, op: ArithOp, other: &Numa) -> Result<()> {
+        let n = self.len();
+        if n != other.len() {
+            return Err(Error::InvalidParameter(format!(
+                "length mismatch: {} vs {}",
+                n,
+                other.len()
+            )));
+        }
+        if op == ArithOp::Divide {
+            for i in 0..n {
+                if other.get(i).unwrap() == 0.0 {
+                    return Err(Error::InvalidParameter(format!(
+                        "other[{i}] is zero in Divide"
+                    )));
+                }
+            }
+        }
+        let data = self.as_slice_mut();
+        for i in 0..n {
+            let v2 = other.get(i).unwrap();
+            match op {
+                ArithOp::Add => data[i] += v2,
+                ArithOp::Subtract => data[i] -= v2,
+                ArithOp::Multiply => data[i] *= v2,
+                ArithOp::Divide => data[i] /= v2,
+            }
+        }
+        Ok(())
+    }
+
+    /// Apply an element-wise logical operation in-place.
+    ///
+    /// Treats non-zero as `true` and zero as `false`.
+    /// Requires both arrays to have the same length.
+    ///
+    /// C equivalent: `numaLogicalOp()` in `numafunc1.c`
+    pub fn logical_op(&mut self, op: LogicalOp, other: &Numa) -> Result<()> {
+        let n = self.len();
+        if n != other.len() {
+            return Err(Error::InvalidParameter(format!(
+                "length mismatch: {} vs {}",
+                n,
+                other.len()
+            )));
+        }
+        let data = self.as_slice_mut();
+        for i in 0..n {
+            let v1 = data[i] != 0.0;
+            let v2 = other.get(i).unwrap() != 0.0;
+            data[i] = match op {
+                LogicalOp::Union => (v1 || v2) as u8 as f32,
+                LogicalOp::Intersection => (v1 && v2) as u8 as f32,
+                LogicalOp::Subtraction => (v1 && !v2) as u8 as f32,
+                LogicalOp::ExclusiveOr => (v1 != v2) as u8 as f32,
+            };
+        }
+        Ok(())
+    }
+
+    /// Invert indicator array values in-place (0 → 1, nonzero → 0).
+    ///
+    /// C equivalent: `numaInvert()` in `numafunc1.c`
+    pub fn invert(&mut self) {
+        for v in self.as_slice_mut() {
+            *v = if *v == 0.0 { 1.0 } else { 0.0 };
+        }
+    }
+
+    /// Add `val` to the element at `index`.
+    ///
+    /// C equivalent: `numaAddToNumber()` in `numafunc1.c`
+    pub fn add_to_element(&mut self, index: usize, val: f32) -> Result<()> {
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        if index >= n {
+            return Err(Error::IndexOutOfBounds { index, len: n });
+        }
+        self.as_slice_mut()[index] += val;
+        Ok(())
+    }
+
+    // ====================================================================
+    // Delta / absval
+    // ====================================================================
+
+    /// Return a new Numa containing the first-difference of `self`.
+    ///
+    /// Output length is `self.len() - 1`. Returns an empty Numa if
+    /// `self.len() < 2`.
+    ///
+    /// C equivalent: `numaMakeDelta()` in `numafunc1.c`
+    pub fn make_delta(&self) -> Numa {
+        let n = self.len();
+        if n < 2 {
+            return Numa::new();
+        }
+        let mut nad = Numa::with_capacity(n - 1);
+        for i in 1..n {
+            nad.push(self.get(i).unwrap() - self.get(i - 1).unwrap());
+        }
+        nad
+    }
+
+    /// Replace each element with its absolute value in-place.
+    ///
+    /// C equivalent: `numaMakeAbsval()` in `numafunc1.c`
+    pub fn abs_val(&mut self) {
+        for v in self.as_slice_mut() {
+            *v = v.abs();
+        }
+    }
+
+    // ====================================================================
+    // Border add / remove
+    // ====================================================================
+
+    /// Return a new Numa with `left` and `right` border elements prepended
+    /// and appended, each initialized to `val`.
+    ///
+    /// The x-parameters are adjusted so that the sequence continues
+    /// smoothly outside the original range.
+    ///
+    /// C equivalent: `numaAddBorder()` in `numafunc1.c`
+    pub fn add_border(&self, left: usize, right: usize, val: f32) -> Numa {
+        if left == 0 && right == 0 {
+            return self.clone();
+        }
+        let n = self.len();
+        let total = n + left + right;
+        let (startx, delx) = self.parameters();
+        let mut nad = Numa::with_capacity(total);
+        for _ in 0..left {
+            nad.push(val);
+        }
+        for v in self.iter() {
+            nad.push(v);
+        }
+        for _ in 0..right {
+            nad.push(val);
+        }
+        nad.set_parameters(startx - delx * left as f32, delx);
+        nad
+    }
+
+    /// Return a new Numa with `left` and `right` border elements added
+    /// using the specified border fill strategy.
+    ///
+    /// C equivalent: `numaAddSpecifiedBorder()` in `numafunc1.c`
+    pub fn add_specified_border(
+        &self,
+        left: usize,
+        right: usize,
+        border_type: BorderType,
+    ) -> Result<Numa> {
+        let n = self.len();
+        if left == 0 && right == 0 {
+            return Ok(self.clone());
+        }
+        if border_type == BorderType::Mirrored && (left > n || right > n) {
+            return Err(Error::InvalidParameter(
+                "border too large for mirrored".into(),
+            ));
+        }
+        let mut nad = self.add_border(left, right, 0.0);
+        let total = nad.len();
+        let data = nad.as_slice_mut();
+        match border_type {
+            BorderType::Continued => {
+                let edge_left = if n > 0 { data[left] } else { 0.0 };
+                let edge_right = if n > 0 { data[total - right - 1] } else { 0.0 };
+                for i in 0..left {
+                    data[i] = edge_left;
+                }
+                for i in (total - right)..total {
+                    data[i] = edge_right;
+                }
+            }
+            BorderType::Mirrored => {
+                for i in 0..left {
+                    data[i] = data[2 * left - 1 - i];
+                }
+                for i in 0..right {
+                    data[total - right + i] = data[total - right - i - 1];
+                }
+            }
+        }
+        Ok(nad)
+    }
+
+    /// Return a new Numa with `left` elements removed from the start and
+    /// `right` elements removed from the end.
+    ///
+    /// C equivalent: `numaRemoveBorder()` in `numafunc1.c`
+    pub fn remove_border(&self, left: usize, right: usize) -> Result<Numa> {
+        let n = self.len();
+        if left == 0 && right == 0 {
+            return Ok(self.clone());
+        }
+        let combined = left + right;
+        if combined > n {
+            return Err(Error::InvalidParameter(format!(
+                "border ({left}+{right}={combined}) exceeds length {n}"
+            )));
+        }
+        let len = n - combined;
+        let (startx, delx) = self.parameters();
+        let src = self.as_slice();
+        let mut nad = Numa::with_capacity(len);
+        for i in 0..len {
+            nad.push(src[left + i]);
+        }
+        nad.set_parameters(startx + delx * left as f32, delx);
+        Ok(nad)
+    }
+
+    // ====================================================================
+    // Run counting
+    // ====================================================================
+
+    /// Count the number of contiguous nonzero runs.
+    ///
+    /// C equivalent: `numaCountNonzeroRuns()` in `numafunc1.c`
+    pub fn count_nonzero_runs(&self) -> Result<usize> {
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        let mut count = 0usize;
+        let mut in_run = false;
+        for i in 0..n {
+            let val = self.get_i32(i).unwrap();
+            if !in_run && val > 0 {
+                count += 1;
+                in_run = true;
+            } else if in_run && val == 0 {
+                in_run = false;
+            }
+        }
+        Ok(count)
+    }
+}
+
+impl Numaa {
+    /// Append Numa arrays from `other` in the range `[istart, iend]`.
+    ///
+    /// `iend = None` means append through the last element.
+    ///
+    /// C equivalent: `numaaJoin()` in `numafunc1.c`
+    pub fn join_range(&mut self, other: &Numaa, istart: usize, iend: Option<usize>) {
+        let n = other.len();
+        if n == 0 {
+            return;
+        }
+        let end = iend.unwrap_or(n - 1).min(n - 1);
+        if istart > end {
+            return;
+        }
+        for i in istart..=end {
+            self.push(other.get(i).unwrap().clone());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1694,5 +2010,275 @@ mod tests {
         let (val, count) = na.mode().unwrap();
         assert!(val.is_nan());
         assert_eq!(count, 3);
+    }
+
+    // -- Numa::arith_op --
+
+    #[test]
+
+    fn test_arith_op_add() {
+        let mut na1 = Numa::from_vec(vec![1.0, 2.0, 3.0]);
+        let na2 = Numa::from_vec(vec![10.0, 20.0, 30.0]);
+        na1.arith_op(ArithOp::Add, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[11.0, 22.0, 33.0]);
+    }
+
+    #[test]
+
+    fn test_arith_op_subtract() {
+        let mut na1 = Numa::from_vec(vec![10.0, 20.0, 30.0]);
+        let na2 = Numa::from_vec(vec![1.0, 2.0, 3.0]);
+        na1.arith_op(ArithOp::Subtract, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[9.0, 18.0, 27.0]);
+    }
+
+    #[test]
+
+    fn test_arith_op_multiply() {
+        let mut na1 = Numa::from_vec(vec![2.0, 3.0, 4.0]);
+        let na2 = Numa::from_vec(vec![5.0, 6.0, 7.0]);
+        na1.arith_op(ArithOp::Multiply, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[10.0, 18.0, 28.0]);
+    }
+
+    #[test]
+
+    fn test_arith_op_divide() {
+        let mut na1 = Numa::from_vec(vec![10.0, 20.0, 30.0]);
+        let na2 = Numa::from_vec(vec![2.0, 4.0, 5.0]);
+        na1.arith_op(ArithOp::Divide, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[5.0, 5.0, 6.0]);
+    }
+
+    #[test]
+
+    fn test_arith_op_divide_by_zero() {
+        let mut na1 = Numa::from_vec(vec![1.0, 2.0]);
+        let na2 = Numa::from_vec(vec![1.0, 0.0]);
+        assert!(na1.arith_op(ArithOp::Divide, &na2).is_err());
+    }
+
+    #[test]
+
+    fn test_arith_op_length_mismatch() {
+        let mut na1 = Numa::from_vec(vec![1.0, 2.0]);
+        let na2 = Numa::from_vec(vec![1.0]);
+        assert!(na1.arith_op(ArithOp::Add, &na2).is_err());
+    }
+
+    // -- Numa::logical_op --
+
+    #[test]
+
+    fn test_logical_op_union() {
+        let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
+        let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
+        na1.logical_op(LogicalOp::Union, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[0.0, 1.0, 1.0, 1.0]);
+    }
+
+    #[test]
+
+    fn test_logical_op_intersection() {
+        let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
+        let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
+        na1.logical_op(LogicalOp::Intersection, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[0.0, 0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+
+    fn test_logical_op_subtraction() {
+        let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
+        let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
+        na1.logical_op(LogicalOp::Subtraction, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[0.0, 1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+
+    fn test_logical_op_xor() {
+        let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
+        let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
+        na1.logical_op(LogicalOp::ExclusiveOr, &na2).unwrap();
+        assert_eq!(na1.as_slice(), &[0.0, 1.0, 1.0, 0.0]);
+    }
+
+    // -- Numa::invert --
+
+    #[test]
+
+    fn test_invert() {
+        let mut na = Numa::from_vec(vec![0.0, 1.0, 0.0, 5.0]);
+        na.invert();
+        assert_eq!(na.as_slice(), &[1.0, 0.0, 1.0, 0.0]);
+    }
+
+    // -- Numa::add_to_element --
+
+    #[test]
+
+    fn test_add_to_element() {
+        let mut na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
+        na.add_to_element(1, 10.0).unwrap();
+        assert_eq!(na.as_slice(), &[1.0, 12.0, 3.0]);
+    }
+
+    #[test]
+
+    fn test_add_to_element_out_of_bounds() {
+        let mut na = Numa::from_vec(vec![1.0, 2.0]);
+        assert!(na.add_to_element(5, 1.0).is_err());
+    }
+
+    // -- Numa::make_delta --
+
+    #[test]
+
+    fn test_make_delta() {
+        let na = Numa::from_vec(vec![1.0, 3.0, 6.0, 10.0]);
+        let d = na.make_delta();
+        assert_eq!(d.as_slice(), &[2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+
+    fn test_make_delta_too_short() {
+        let na = Numa::from_vec(vec![5.0]);
+        let d = na.make_delta();
+        assert!(d.is_empty());
+    }
+
+    // -- Numa::abs_val --
+
+    #[test]
+
+    fn test_abs_val() {
+        let mut na = Numa::from_vec(vec![-3.0, 0.0, 2.0, -5.0]);
+        na.abs_val();
+        assert_eq!(na.as_slice(), &[3.0, 0.0, 2.0, 5.0]);
+    }
+
+    // -- Numa::add_border --
+
+    #[test]
+
+    fn test_add_border_basic() {
+        let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
+        let bordered = na.add_border(2, 1, 0.0);
+        assert_eq!(bordered.as_slice(), &[0.0, 0.0, 1.0, 2.0, 3.0, 0.0]);
+    }
+
+    #[test]
+
+    fn test_add_border_no_border() {
+        let na = Numa::from_vec(vec![1.0, 2.0]);
+        let result = na.add_border(0, 0, 99.0);
+        assert_eq!(result.as_slice(), na.as_slice());
+    }
+
+    // -- Numa::add_specified_border --
+
+    #[test]
+
+    fn test_add_specified_border_continued() {
+        let na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
+        let bordered = na
+            .add_specified_border(2, 2, BorderType::Continued)
+            .unwrap();
+        // left 2 filled with 10, right 2 filled with 30
+        assert_eq!(
+            bordered.as_slice(),
+            &[10.0, 10.0, 10.0, 20.0, 30.0, 30.0, 30.0]
+        );
+    }
+
+    #[test]
+
+    fn test_add_specified_border_mirrored() {
+        let na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
+        let bordered = na.add_specified_border(2, 2, BorderType::Mirrored).unwrap();
+        // left 2: mirror of [10,20] → [20,10]; right 2: mirror of [20,30] → [30,20]
+        assert_eq!(
+            bordered.as_slice(),
+            &[20.0, 10.0, 10.0, 20.0, 30.0, 30.0, 20.0]
+        );
+    }
+
+    #[test]
+
+    fn test_add_specified_border_mirrored_too_large() {
+        let na = Numa::from_vec(vec![1.0, 2.0]);
+        assert!(na.add_specified_border(3, 0, BorderType::Mirrored).is_err());
+    }
+
+    // -- Numa::remove_border --
+
+    #[test]
+
+    fn test_remove_border_basic() {
+        let na = Numa::from_vec(vec![0.0, 0.0, 1.0, 2.0, 3.0, 0.0]);
+        let removed = na.remove_border(2, 1).unwrap();
+        assert_eq!(removed.as_slice(), &[1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+
+    fn test_remove_border_too_large() {
+        let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
+        assert!(na.remove_border(2, 2).is_err());
+    }
+
+    // -- Numa::count_nonzero_runs --
+
+    #[test]
+
+    fn test_count_nonzero_runs_basic() {
+        let na = Numa::from_vec(vec![0.0, 1.0, 2.0, 0.0, 3.0, 0.0, 4.0, 5.0]);
+        assert_eq!(na.count_nonzero_runs().unwrap(), 3);
+    }
+
+    #[test]
+
+    fn test_count_nonzero_runs_all_zero() {
+        let na = Numa::from_vec(vec![0.0, 0.0, 0.0]);
+        assert_eq!(na.count_nonzero_runs().unwrap(), 0);
+    }
+
+    #[test]
+
+    fn test_count_nonzero_runs_empty() {
+        let na = Numa::new();
+        assert!(na.count_nonzero_runs().is_err());
+    }
+
+    // -- Numaa::join_range --
+
+    #[test]
+
+    fn test_numaa_join_range_all() {
+        let mut naad = Numaa::new();
+        naad.push(Numa::from_vec(vec![1.0]));
+        let mut naas = Numaa::new();
+        naas.push(Numa::from_vec(vec![2.0]));
+        naas.push(Numa::from_vec(vec![3.0]));
+        naad.join_range(&naas, 0, None);
+        assert_eq!(naad.len(), 3);
+        assert_eq!(naad.get(1).unwrap().as_slice(), &[2.0]);
+        assert_eq!(naad.get(2).unwrap().as_slice(), &[3.0]);
+    }
+
+    #[test]
+
+    fn test_numaa_join_range_partial() {
+        let mut naad = Numaa::new();
+        let mut naas = Numaa::new();
+        naas.push(Numa::from_vec(vec![10.0]));
+        naas.push(Numa::from_vec(vec![20.0]));
+        naas.push(Numa::from_vec(vec![30.0]));
+        naad.join_range(&naas, 1, Some(2));
+        assert_eq!(naad.len(), 2);
+        assert_eq!(naad.get(0).unwrap().as_slice(), &[20.0]);
+        assert_eq!(naad.get(1).unwrap().as_slice(), &[30.0]);
     }
 }
