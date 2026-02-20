@@ -300,16 +300,19 @@ impl Pixa {
                 let y2 = ((row as i32 + 1) * tile_h + delta).min(ph);
                 let w = (x2 - x).max(0) as u32;
                 let h = (y2 - y).max(0) as u32;
+                let bx_x = x + orig;
+                let bx_y = y + orig;
                 if w > 0 && h > 0 {
                     let tile = pix
                         .clip_rectangle(x as u32, y as u32, w, h)
                         .unwrap_or_else(|_| pix.clone());
-                    let bx_x = x + orig;
-                    let bx_y = y + orig;
                     let cb = Box::new(bx_x, bx_y, w as i32, h as i32).unwrap();
                     pixa.push_with_box(tile, cb);
                 } else {
-                    pixa.push(Pix::new(1, 1, pix.depth()).unwrap());
+                    // Placeholder so that pixa[i] always has a corresponding box
+                    let placeholder = Pix::new(1, 1, pix.depth()).unwrap();
+                    let cb = Box::new(bx_x, bx_y, 1, 1).unwrap();
+                    pixa.push_with_box(placeholder, cb);
                 }
             }
         }
