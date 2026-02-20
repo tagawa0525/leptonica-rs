@@ -520,7 +520,7 @@ mod tests {
         let mut dpix = DPix::new(2, 2).unwrap();
         for y in 0..2 {
             for x in 0..2 {
-                dpix.set_pixel(x, y, 3.14).unwrap();
+                dpix.set_pixel(x, y, std::f64::consts::FRAC_PI_2).unwrap();
             }
         }
 
@@ -532,7 +532,7 @@ mod tests {
         let restored = DPix::read_from_file(&path).unwrap();
 
         assert_eq!(restored.width(), 2);
-        assert!((restored.get_pixel(0, 0).unwrap() - 3.14).abs() < 1e-10);
+        assert!((restored.get_pixel(0, 0).unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-10);
 
         std::fs::remove_dir_all(&dir).ok();
     }

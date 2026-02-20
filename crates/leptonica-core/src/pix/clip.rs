@@ -1459,7 +1459,7 @@ mod tests {
             let mut pm = base.try_into_mut().unwrap();
             for y in 0..10u32 {
                 for x in 0..10u32 {
-                    pm.set_pixel_unchecked(x, y, (x + y * 10) as u32);
+                    pm.set_pixel_unchecked(x, y, x + y * 10);
                 }
             }
             Pix::from(pm)

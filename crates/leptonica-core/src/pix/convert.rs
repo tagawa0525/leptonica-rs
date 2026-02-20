@@ -3345,7 +3345,7 @@ mod tests {
         let pix = Pix::new(20, 1, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         for i in 0..20 {
-            pm.set_pixel_unchecked(i, 0, (i * 13) as u32);
+            pm.set_pixel_unchecked(i, 0, i * 13);
         }
         let pix: Pix = pm.into();
 
@@ -3382,7 +3382,7 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..5u32 {
             for x in 0..5u32 {
-                pm.set_pixel_unchecked(x, y, (x * 50 + y * 10) as u32);
+                pm.set_pixel_unchecked(x, y, x * 50 + y * 10);
             }
         }
         let pix: Pix = pm.into();

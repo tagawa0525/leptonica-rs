@@ -21,7 +21,7 @@ fn make_gray_test_image() -> Pix {
     for y in 0..60 {
         for x in 0..60 {
             // Background gradient (brighter right side)
-            let bg = 120 + (x as u32 * 2).min(135);
+            let bg = 120 + (x * 2).min(135);
             // Dark "text" region in center
             let val = if x > 15 && x < 45 && y > 15 && y < 45 {
                 bg / 3

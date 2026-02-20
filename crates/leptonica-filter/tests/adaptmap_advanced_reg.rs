@@ -14,7 +14,7 @@ fn make_gray_test_image() -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..60 {
         for x in 0..60 {
-            let val = (x * 4).min(255) as u32;
+            let val = (x * 4).min(255);
             pm.set_pixel_unchecked(x, y, val);
         }
     }
