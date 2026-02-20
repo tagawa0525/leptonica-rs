@@ -1494,27 +1494,33 @@ impl Pix {
     ) -> Result<Pix> {
         use crate::colormap::PixColormap;
         let cmap = PixColormap::create_random(8, true, true)?;
-        // Extract colors before consuming cmap
-        let ncolors = cmap.len();
-        let colors: Vec<(u8, u8, u8)> = (0..ncolors)
-            .map(|i| cmap.get_rgb(i).unwrap_or((0, 0, 0)))
-            .collect();
 
         let pixd = self.convert_to_8()?;
         let mut pixd = pixd.to_mut();
         pixd.set_colormap(Some(cmap))?;
 
+        // Helper: write colormap index directly into each 8bpp pixel in pta.
+        fn render_pta_cmap_index(pix: &mut crate::pix::PixMut, pta: &Pta, index: u8) {
+            let (w, h) = (pix.width() as i32, pix.height() as i32);
+            for (fx, fy) in pta.iter() {
+                let x = fx as i32;
+                let y = fy as i32;
+                if x >= 0 && x < w && y >= 0 && y < h {
+                    pix.set_pixel_unchecked(x as u32, y as u32, index as u32);
+                }
+            }
+        }
+
         let n = ptaa.len();
         for i in 0..n {
-            let index = 1 + (i % 254);
-            let (r, g, b) = colors.get(index).copied().unwrap_or((0, 0, 0));
-            let color = Color { r, g, b };
+            // Use colormap indices 1..254 (0 = white background, 255 = black border).
+            let index = (1 + (i % 254)) as u8;
             if let Some(pta) = ptaa.get(i) {
                 if polyflag {
                     let pta_wide = generate_polyline_pta(pta, width.max(1), closeflag);
-                    pixd.render_pta_color(&pta_wide, color)?;
+                    render_pta_cmap_index(&mut pixd, &pta_wide, index);
                 } else {
-                    pixd.render_pta_color(pta, color)?;
+                    render_pta_cmap_index(&mut pixd, pta, index);
                 }
             }
         }
@@ -1607,10 +1613,14 @@ pub fn fill_polygon(pixs: &Pix, pta: &Pta, xmin: i32, ymin: i32) -> Result<Pix> 
         xs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let mut i = 0;
         while i + 1 < xs.len() {
-            let x_start = xs[i].ceil() as u32;
-            let x_end = xs[i + 1].floor() as u32;
-            for x in x_start..=x_end {
-                if x < w {
+            let x_start_f = xs[i].ceil();
+            let x_end_f = xs[i + 1].floor();
+            // Skip spans that are entirely outside [0, w-1]; clamp the rest
+            // to avoid pathological iteration from negative-to-u32 wrapping.
+            if x_start_f < w as f32 && x_end_f >= 0.0 {
+                let x_start = x_start_f.max(0.0) as u32;
+                let x_end = (x_end_f as u32).min(w - 1);
+                for x in x_start..=x_end {
                     let _ = pixd.set_pixel(x, row, 1);
                 }
             }
