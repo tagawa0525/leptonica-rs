@@ -759,7 +759,6 @@ mod tests {
     // ================================================================
 
     #[test]
-
     fn test_add_black_or_white_border_white_8bpp() {
         use super::super::InitColor;
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -773,7 +772,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_add_black_or_white_border_black_8bpp() {
         use super::super::InitColor;
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -787,7 +785,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_add_black_or_white_border_1bpp() {
         use super::super::InitColor;
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();

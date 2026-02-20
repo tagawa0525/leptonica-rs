@@ -760,7 +760,6 @@ mod tests {
     // ================================================================
 
     #[test]
-
     fn test_get_rgb_component_cmap() {
         use crate::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
@@ -784,7 +783,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_get_rgb_line() {
         let pix = Pix::new(3, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -800,7 +798,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_copy_rgb_component() {
         let pix_d = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm_d = pix_d.try_into_mut().unwrap();
@@ -824,7 +821,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_alpha_is_opaque_true() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -839,7 +835,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_alpha_is_opaque_false() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -856,7 +851,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_infer_resolution() {
         // 3000x2000 image with 10 inch long side → 300 ppi
         let pix = Pix::new(3000, 2000, PixelDepth::Bit8).unwrap();
@@ -937,7 +931,6 @@ mod tests {
     // ================================================================
 
     #[test]
-
     fn test_get_rgb_pixel() {
         let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -957,14 +950,12 @@ mod tests {
     }
 
     #[test]
-
     fn test_get_rgb_pixel_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.get_rgb_pixel(0, 0).is_err());
     }
 
     #[test]
-
     fn test_get_rgb_pixel_out_of_bounds() {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         assert!(pix.get_rgb_pixel(5, 0).is_err());
@@ -972,7 +963,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_rgb_pixel() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -989,7 +979,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_rgb_pixel_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -997,7 +986,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_rgb_pixel_out_of_bounds() {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
