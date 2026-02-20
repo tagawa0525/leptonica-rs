@@ -449,8 +449,6 @@ impl Numa {
         let mut sign = 0i32;
         let mut x0 = startx + istart as f32 * delx;
         let mut x1 = x0;
-        let mut out_x0 = x0;
-        let mut out_x1 = x0;
 
         for i in (istart + 1)..n {
             let fval = self.get(i).unwrap();
@@ -495,16 +493,13 @@ impl Numa {
             abovelast = above;
 
             if output {
-                out_x0 = x0;
-                out_x1 = x1;
-                nad.push(out_x0);
-                nad.push(out_x1);
+                nad.push(x0);
+                nad.push(x1);
                 nad.push(sign as f32);
                 output = false;
                 x0 = x;
             }
         }
-        let _ = (out_x0, out_x1);
         Ok(nad)
     }
 
