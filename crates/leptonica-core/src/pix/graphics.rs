@@ -476,14 +476,14 @@ pub fn generate_hash_box_pta(
             let n = (2.0 + diag / (1.4 * spacing as f32)) as usize;
             for i in 0..n {
                 let x = (bx as f32 + (i as f32 + 0.5) * 1.4 * spacing as f32) as i32;
-                if let Ok(isect) = b.intersect_by_line(x, by - 1, 1.0) {
-                    if isect.count == 2 {
-                        let (x1, y1) = isect.p1.unwrap();
-                        let (x2, y2) = isect.p2.unwrap();
-                        let line = generate_wide_line_pta(x1, y1, x2, y2, width);
-                        for pt in line.iter() {
-                            ptad.push(pt.0, pt.1);
-                        }
+                if let Ok(isect) = b.intersect_by_line(x, by - 1, 1.0)
+                    && isect.count == 2
+                {
+                    let (x1, y1) = isect.p1.unwrap();
+                    let (x2, y2) = isect.p2.unwrap();
+                    let line = generate_wide_line_pta(x1, y1, x2, y2, width);
+                    for pt in line.iter() {
+                        ptad.push(pt.0, pt.1);
                     }
                 }
             }
@@ -493,14 +493,14 @@ pub fn generate_hash_box_pta(
             let n = (2.0 + diag / (1.4 * spacing as f32)) as usize;
             for i in 0..n {
                 let x = (bx as f32 - bh as f32 + (i as f32 + 0.5) * 1.4 * spacing as f32) as i32;
-                if let Ok(isect) = b.intersect_by_line(x, by - 1, -1.0) {
-                    if isect.count == 2 {
-                        let (x1, y1) = isect.p1.unwrap();
-                        let (x2, y2) = isect.p2.unwrap();
-                        let line = generate_wide_line_pta(x1, y1, x2, y2, width);
-                        for pt in line.iter() {
-                            ptad.push(pt.0, pt.1);
-                        }
+                if let Ok(isect) = b.intersect_by_line(x, by - 1, -1.0)
+                    && isect.count == 2
+                {
+                    let (x1, y1) = isect.p1.unwrap();
+                    let (x2, y2) = isect.p2.unwrap();
+                    let line = generate_wide_line_pta(x1, y1, x2, y2, width);
+                    for pt in line.iter() {
+                        ptad.push(pt.0, pt.1);
                     }
                 }
             }
@@ -601,8 +601,8 @@ pub fn generate_grid_pta(w: u32, h: u32, nx: u32, ny: u32, width: u32) -> Result
         ));
     }
     let width = width.max(1);
-    let bx = (w + nx - 1) / nx;
-    let by = (h + ny - 1) / ny;
+    let bx = w.div_ceil(nx);
+    let by = h.div_ceil(ny);
 
     let mut boxa = Boxa::new();
     for i in 0..ny {
@@ -741,7 +741,7 @@ fn make_plot_pta_from_numa_gen(
     // Optionally widen the plot
     let mut ptad = if linewidth > 1 {
         // Even linewidth → filled square; odd → filled circle
-        let pattern = if linewidth % 2 == 0 {
+        let pattern = if linewidth.is_multiple_of(2) {
             generate_filled_square_pta(linewidth)?
         } else {
             generate_filled_circle_pta(linewidth / 2)
@@ -1873,14 +1873,14 @@ mod tests {
         boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
         boxa.push(crate::box_::Box::new(20, 20, 5, 5).unwrap());
         let pta = generate_boxa_pta(&boxa, 1, false);
-        assert!(pta.len() > 0); // should contain outline points of both boxes
+        assert!(!pta.is_empty()); // should contain outline points of both boxes
     }
 
     #[test]
     fn test_generate_hash_box_pta() {
         let b = crate::box_::Box::new(0, 0, 20, 20).unwrap();
         let pta = generate_hash_box_pta(&b, 4, 1, HashOrientation::Horizontal, false).unwrap();
-        assert!(pta.len() > 0);
+        assert!(!pta.is_empty());
     }
 
     #[test]
@@ -1890,7 +1890,7 @@ mod tests {
         boxa.push(crate::box_::Box::new(0, 0, 20, 20).unwrap());
         let pta =
             generate_hash_boxa_pta(&boxa, 4, 1, HashOrientation::Vertical, false, false).unwrap();
-        assert!(pta.len() > 0);
+        assert!(!pta.is_empty());
     }
 
     #[test]
@@ -1917,7 +1917,7 @@ mod tests {
     #[test]
     fn test_generate_grid_pta() {
         let pta = generate_grid_pta(100, 80, 4, 3, 1).unwrap();
-        assert!(pta.len() > 0);
+        assert!(!pta.is_empty());
     }
 
     #[test]

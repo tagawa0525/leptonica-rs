@@ -830,7 +830,7 @@ impl FPix {
     ///
     /// C equivalent: `fpixAutoRenderContours()` in `graphics.c`
     pub fn auto_render_contours(&self, ncontours: i32) -> crate::error::Result<Pix> {
-        if ncontours < 2 || ncontours > 500 {
+        if !(2..=500).contains(&ncontours) {
             return Err(crate::error::Error::InvalidParameter(
                 "ncontours must be in [2, 500]".to_string(),
             ));

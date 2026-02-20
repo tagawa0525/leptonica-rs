@@ -663,6 +663,7 @@ impl Pix {
     /// `other` is overlaid.
     ///
     /// Corresponds to `pixBlendColorByChannel()` in Leptonica's `blend.c`.
+    #[expect(clippy::too_many_arguments)]
     pub fn blend_color_by_channel(
         &self,
         other: &Pix,
@@ -723,7 +724,7 @@ impl Pix {
     /// overlap region rather than being fixed:
     /// - If `median < 128`: `pivot = median + shift`
     /// - Otherwise: `pivot = median - shift`
-    /// The pivot is clamped to `[85, 170]`.
+    ///   The pivot is clamped to `[85, 170]`.
     ///
     /// Blend formula per pixel (using destination `d`, blender `c`, `fract`):
     ///
@@ -1029,16 +1030,16 @@ impl PixMut {
         // Build LUT: source colormap index -> destination colormap index
         let mut new_dst_cmap = self.colormap().unwrap().clone();
         let mut lut = vec![0u32; src_len.max(1)];
-        for i in 0..src_len {
-            if let Some(src_cmap) = other.colormap() {
-                if let Some((r, g, b)) = src_cmap.get_rgb(i) {
-                    let idx = if let Some(existing) = new_dst_cmap.get_index(r, g, b) {
-                        existing
-                    } else {
-                        new_dst_cmap.add_rgb(r, g, b).unwrap_or(0)
-                    };
-                    lut[i] = idx as u32;
-                }
+        for (i, lut_entry) in lut.iter_mut().enumerate().take(src_len) {
+            if let Some(src_cmap) = other.colormap()
+                && let Some((r, g, b)) = src_cmap.get_rgb(i)
+            {
+                let idx = if let Some(existing) = new_dst_cmap.get_index(r, g, b) {
+                    existing
+                } else {
+                    new_dst_cmap.add_rgb(r, g, b).unwrap_or(0)
+                };
+                *lut_entry = idx as u32;
             }
         }
         self.set_colormap(Some(new_dst_cmap))?;
