@@ -548,6 +548,17 @@ impl Pixa {
         let w = first.width();
         let h = first.height();
 
+        for pix in &self.pix {
+            if pix.depth() != PixelDepth::Bit8 {
+                return Err(Error::UnsupportedDepth(pix.depth().bits()));
+            }
+            if pix.width() != w || pix.height() != h {
+                return Err(Error::InvalidParameter(
+                    "all pix must have identical dimensions".into(),
+                ));
+            }
+        }
+
         let pixd_base = Pix::new(w, h, PixelDepth::Bit8)
             .map_err(|e| Error::InvalidParameter(format!("cannot create output pix: {e}")))?;
         let mut pixd = pixd_base.try_into_mut().unwrap();
