@@ -424,4 +424,54 @@ mod tests {
             assert!((v - 100.0).abs() < 1.0, "row {i}: expected ~100, got {v}");
         }
     }
+
+    #[test]
+    fn test_average_intensity_profile_vertical() {
+        use crate::pix::extract::ProfileDirection;
+        // Uniform 8bpp image - vertical profile should also be constant
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            for y in 0..10u32 {
+                for x in 0..10u32 {
+                    pm.set_pixel_unchecked(x, y, 80);
+                }
+            }
+            Pix::from(pm)
+        };
+        let profile = pix
+            .average_intensity_profile(1.0, ProfileDirection::Vertical, 0, 9, 1, 1)
+            .unwrap();
+        assert_eq!(profile.len(), 10);
+        for j in 0..10 {
+            let v = profile.get(j).unwrap();
+            assert!((v - 80.0).abs() < 1.0, "col {j}: expected ~80, got {v}");
+        }
+    }
+
+    #[test]
+    fn test_average_intensity_profile_partial_fract() {
+        use crate::pix::extract::ProfileDirection;
+        // 10×10 image: left half = 0, right half = 200
+        // fract = 0.5 centres on the middle 5 columns (2..=6 for w=10: start=2, end=7)
+        // The middle 5 columns include both halves so average is 100.
+        let pix = {
+            let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            for y in 0..10u32 {
+                for x in 0..10u32 {
+                    pm.set_pixel_unchecked(x, y, if x < 5 { 0 } else { 200 });
+                }
+            }
+            Pix::from(pm)
+        };
+        let profile = pix
+            .average_intensity_profile(1.0, ProfileDirection::Horizontal, 0, 9, 1, 1)
+            .unwrap();
+        // With fract=1.0 the full row is used, so average over left(0)+right(200) = 100
+        for i in 0..10 {
+            let v = profile.get(i).unwrap();
+            assert!((v - 100.0).abs() < 1.0, "row {i}: expected ~100, got {v}");
+        }
+    }
 }
