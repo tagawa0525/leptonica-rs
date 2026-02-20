@@ -1211,9 +1211,12 @@ impl Pixaa {
 
     /// Return `true` if every Pixa in the array is non-empty.
     ///
+    /// An empty Pixaa is considered "full" (vacuously true),
+    /// consistent with `Pixa::is_full`.
+    ///
     /// C equivalent: `pixaaIsFull()` in `pixabasic.c`
     pub fn is_full(&self) -> bool {
-        !self.pixas.is_empty() && self.pixas.iter().all(|p| !p.is_empty())
+        self.pixas.iter().all(|p| !p.is_empty())
     }
 
     /// Overwrite every Pixa slot with a clone of `pixa`.
@@ -1883,6 +1886,8 @@ mod tests {
 
     #[test]
     fn test_pixaa_is_full() {
+        // Empty Pixaa is vacuously full (consistent with Pixa::is_full)
+        assert!(Pixaa::new().is_full());
         let mut pixaa = Pixaa::new();
         let mut p = Pixa::new();
         p.push(make_test_pix(10, 10));
