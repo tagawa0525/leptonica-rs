@@ -267,8 +267,8 @@ fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
         let dst_row = &mut dst_data[y * wpl..(y + 1) * wpl];
 
         // Initialize accumulator to 0 (OR identity)
-        for w in dst_row.iter_mut() {
-            *w = 0;
+        for dst_word in dst_row.iter_mut() {
+            *dst_word = 0;
         }
 
         for d in left..=right {
@@ -367,8 +367,8 @@ fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
         let dst_row = &mut dst_data[y * wpl..(y + 1) * wpl];
 
         // Initialize accumulator to all-1s (AND identity)
-        for w in dst_row.iter_mut() {
-            *w = !0;
+        for dst_word in dst_row.iter_mut() {
+            *dst_word = !0;
         }
 
         for d in left..=right {
