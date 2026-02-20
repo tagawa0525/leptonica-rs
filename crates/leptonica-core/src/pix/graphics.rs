@@ -700,6 +700,11 @@ fn make_plot_pta_from_numa_gen(
     if na.is_empty() {
         return Err(Error::NullInput("empty Numa"));
     }
+    if orient != HashOrientation::Horizontal && orient != HashOrientation::Vertical {
+        return Err(Error::InvalidParameter(
+            "orient must be Horizontal or Vertical for plot generation".to_string(),
+        ));
+    }
     let linewidth = linewidth.clamp(1, 7);
     let absval = {
         let min = na.min_value().unwrap_or(0.0).abs();
@@ -1225,6 +1230,11 @@ impl PixMut {
         if pixm.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(pixm.depth().bits()));
         }
+        if self.has_colormap() {
+            return Err(Error::InvalidParameter(
+                "render_hash_mask_color: dest Pix must not have a colormap".to_string(),
+            ));
+        }
         if spacing <= 1 {
             return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
         }
@@ -1358,10 +1368,26 @@ impl PixMut {
         let (orient, refpos) = match plotloc {
             PlotLocation::Top => (HashOrientation::Horizontal, max as i32),
             PlotLocation::MidHoriz => (HashOrientation::Horizontal, h as i32 / 2),
-            PlotLocation::Bottom => (HashOrientation::Horizontal, h as i32 - max as i32 - 1),
+            PlotLocation::Bottom => {
+                let refpos = h as i32 - max as i32 - 1;
+                if refpos < 0 {
+                    return Err(Error::InvalidParameter(
+                        "max exceeds image height for Bottom plot location".to_string(),
+                    ));
+                }
+                (HashOrientation::Horizontal, refpos)
+            }
             PlotLocation::Left => (HashOrientation::Vertical, max as i32),
             PlotLocation::MidVert => (HashOrientation::Vertical, w as i32 / 2),
-            PlotLocation::Right => (HashOrientation::Vertical, w as i32 - max as i32 - 1),
+            PlotLocation::Right => {
+                let refpos = w as i32 - max as i32 - 1;
+                if refpos < 0 {
+                    return Err(Error::InvalidParameter(
+                        "max exceeds image width for Right plot location".to_string(),
+                    ));
+                }
+                (HashOrientation::Vertical, refpos)
+            }
         };
         let pta = make_plot_pta_from_numa_gen(na, orient, linewidth, refpos, max, true)?;
         self.render_pta_color(&pta, color)
