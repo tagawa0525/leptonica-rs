@@ -255,7 +255,7 @@ impl Pix {
         factor1: u32,
         factor2: u32,
     ) -> Result<Numa> {
-        if fract < 0.0 || fract > 1.0 {
+        if !(0.0..=1.0).contains(&fract) {
             return Err(Error::InvalidParameter(
                 "fract must be in [0.0, 1.0]".into(),
             ));

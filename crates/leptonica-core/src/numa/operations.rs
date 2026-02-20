@@ -1315,13 +1315,12 @@ impl Numa {
             }
         }
         let data = self.as_slice_mut();
-        for i in 0..n {
-            let v2 = other.get(i).unwrap();
+        for (d, v2) in data.iter_mut().zip(other.as_slice()) {
             match op {
-                ArithOp::Add => data[i] += v2,
-                ArithOp::Subtract => data[i] -= v2,
-                ArithOp::Multiply => data[i] *= v2,
-                ArithOp::Divide => data[i] /= v2,
+                ArithOp::Add => *d += v2,
+                ArithOp::Subtract => *d -= v2,
+                ArithOp::Multiply => *d *= v2,
+                ArithOp::Divide => *d /= v2,
             }
         }
         Ok(())
@@ -1343,10 +1342,10 @@ impl Numa {
             )));
         }
         let data = self.as_slice_mut();
-        for i in 0..n {
-            let v1 = data[i] != 0.0;
-            let v2 = other.get(i).unwrap() != 0.0;
-            data[i] = match op {
+        for (d, v2_raw) in data.iter_mut().zip(other.as_slice()) {
+            let v1 = *d != 0.0;
+            let v2 = *v2_raw != 0.0;
+            *d = match op {
                 LogicalOp::Union => (v1 || v2) as u8 as f32,
                 LogicalOp::Intersection => (v1 && v2) as u8 as f32,
                 LogicalOp::Subtraction => (v1 && !v2) as u8 as f32,
@@ -1469,12 +1468,8 @@ impl Numa {
             BorderType::Continued => {
                 let edge_left = if n > 0 { data[left] } else { 0.0 };
                 let edge_right = if n > 0 { data[total - right - 1] } else { 0.0 };
-                for i in 0..left {
-                    data[i] = edge_left;
-                }
-                for i in (total - right)..total {
-                    data[i] = edge_right;
-                }
+                data[..left].fill(edge_left);
+                data[(total - right)..total].fill(edge_right);
             }
             BorderType::Mirrored => {
                 for i in 0..left {
