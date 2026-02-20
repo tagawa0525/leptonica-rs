@@ -360,6 +360,25 @@ pub enum HashOrientation {
     NegSlope,
 }
 
+/// Location for Numa plot rendering.
+///
+/// C Leptonica constants: `L_PLOT_AT_TOP`, `L_PLOT_AT_MID_HORIZ`, etc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlotLocation {
+    /// Plot horizontally at top of image
+    Top,
+    /// Plot horizontally at vertical midpoint
+    MidHoriz,
+    /// Plot horizontally at bottom of image
+    Bottom,
+    /// Plot vertically at left of image
+    Left,
+    /// Plot vertically at horizontal midpoint
+    MidVert,
+    /// Plot vertically at right of image
+    Right,
+}
+
 /// Generate a Pta for the outlines of all boxes in `boxa`.
 ///
 /// If `remove_dups` is true, duplicate points are removed.
@@ -656,6 +675,127 @@ fn remove_duplicate_pts(pta: Pta) -> Pta {
         let key = (x.round() as i32, y.round() as i32);
         if seen.insert(key) {
             out.push(x, y);
+        }
+    }
+    out
+}
+
+/// Build a Pta representing a plot of `na` values.
+///
+/// Corresponds to C's `makePlotPtaFromNumaGen()` in `graphics.c`.
+///
+/// * `orient` – `Horizontal` for y(x) plot; `Vertical` for x(y) plot
+/// * `linewidth` – clamped to \[1, 7\]
+/// * `refpos` – baseline y (horizontal) or x (vertical) in pixels
+/// * `max` – maximum excursion in pixels from baseline
+/// * `drawref` – whether to add the baseline and its normal
+fn make_plot_pta_from_numa_gen(
+    na: &crate::numa::Numa,
+    orient: HashOrientation,
+    linewidth: u32,
+    refpos: i32,
+    max: u32,
+    drawref: bool,
+) -> Result<Pta> {
+    if na.is_empty() {
+        return Err(Error::NullInput("empty Numa"));
+    }
+    let linewidth = linewidth.clamp(1, 7);
+    let absval = {
+        let min = na.min_value().unwrap_or(0.0).abs();
+        let maxv = na.max_value().unwrap_or(0.0).abs();
+        f32::max(min, maxv)
+    };
+    if absval == 0.0 {
+        return Ok(Pta::new());
+    }
+    let scale = max as f32 / absval;
+    let n = na.len();
+    let (start, del) = na.parameters();
+
+    // Generate the plot points
+    let mut pta1 = Pta::with_capacity(n);
+    let mut maxw: i32 = 0;
+    let mut maxh: i32 = 0;
+    for i in 0..n {
+        let val = na.get(i).unwrap_or(0.0);
+        if orient == HashOrientation::Horizontal {
+            pta1.push(start + i as f32 * del, refpos as f32 + scale * val);
+            maxw = ((start + n as f32 * del).max(start) + linewidth as f32) as i32;
+            maxh = refpos + max as i32 + linewidth as i32;
+        } else {
+            pta1.push(refpos as f32 + scale * val, start + i as f32 * del);
+            maxw = refpos + max as i32 + linewidth as i32;
+            maxh = ((start + n as f32 * del).max(start) + linewidth as f32) as i32;
+        }
+    }
+
+    // Optionally widen the plot
+    let mut ptad = if linewidth > 1 {
+        // Even linewidth → filled square; odd → filled circle
+        let pattern = if linewidth % 2 == 0 {
+            generate_filled_square_pta(linewidth)?
+        } else {
+            generate_filled_circle_pta(linewidth / 2)
+        };
+        let offset = linewidth as i32 / 2;
+        let maxw = maxw.max(0) as u32;
+        let maxh = maxh.max(0) as u32;
+        replicate_pattern(&pta1, &pattern, offset, offset, maxw, maxh)
+    } else {
+        pta1.clone()
+    };
+
+    // Optionally draw reference lines
+    if drawref {
+        if orient == HashOrientation::Horizontal {
+            let ref_line = generate_line_pta(
+                start as i32,
+                refpos,
+                (start + n as f32 * del) as i32,
+                refpos,
+            );
+            ptad.join(&ref_line, 0, None).ok();
+            let normal = generate_line_pta(
+                start as i32,
+                refpos - max as i32,
+                start as i32,
+                refpos + max as i32,
+            );
+            ptad.join(&normal, 0, None).ok();
+        } else {
+            let ref_line = generate_line_pta(
+                refpos,
+                start as i32,
+                refpos,
+                (start + n as f32 * del) as i32,
+            );
+            ptad.join(&ref_line, 0, None).ok();
+            let normal = generate_line_pta(
+                refpos - max as i32,
+                start as i32,
+                refpos + max as i32,
+                start as i32,
+            );
+            ptad.join(&normal, 0, None).ok();
+        }
+    }
+
+    Ok(ptad)
+}
+
+/// Stamp `pattern` at each point of `pts`, clipping to `(maxw, maxh)`.
+///
+/// Each pattern point is offset by `(-ox, -oy)` relative to the stamp center.
+fn replicate_pattern(pts: &Pta, pattern: &Pta, ox: i32, oy: i32, maxw: u32, maxh: u32) -> Pta {
+    let mut out = Pta::with_capacity(pts.len() * pattern.len());
+    for (px, py) in pts.iter() {
+        for (qx, qy) in pattern.iter() {
+            let tx = px + qx - ox as f32;
+            let ty = py + qy - oy as f32;
+            if tx >= 0.0 && tx < maxw as f32 && ty >= 0.0 && ty < maxh as f32 {
+                out.push(tx, ty);
+            }
         }
     }
     out
@@ -977,6 +1117,280 @@ impl PixMut {
     }
 
     // has_colormap() is now provided by the main PixMut impl in mod.rs
+
+    // -- Phase 17.2: Boxa / Hash / Grid / Plot rendering --
+
+    /// Render outlines of all boxes in `boxa`.
+    ///
+    /// C equivalent: `pixRenderBoxa()` in `graphics.c`
+    pub fn render_boxa(&mut self, boxa: &Boxa, width: u32, op: PixelOp) -> Result<()> {
+        let pta = generate_boxa_pta(boxa, width.max(1), false);
+        self.render_pta(&pta, op)
+    }
+
+    /// Render outlines of all boxes in `boxa` with a specific color.
+    ///
+    /// C equivalent: `pixRenderBoxaArb()` in `graphics.c`
+    pub fn render_boxa_color(&mut self, boxa: &Boxa, width: u32, color: Color) -> Result<()> {
+        let pta = generate_boxa_pta(boxa, width.max(1), false);
+        self.render_pta_color(&pta, color)
+    }
+
+    /// Render outlines of all boxes in `boxa` with alpha blending (32bpp only).
+    ///
+    /// C equivalent: `pixRenderBoxaBlend()` in `graphics.c`
+    pub fn render_boxa_blend(
+        &mut self,
+        boxa: &Boxa,
+        width: u32,
+        color: Color,
+        fract: f32,
+        remove_dups: bool,
+    ) -> Result<()> {
+        let pta = generate_boxa_pta(boxa, width.max(1), remove_dups);
+        self.render_pta_blend(&pta, color, fract)
+    }
+
+    /// Render hash lines filling a single box.
+    ///
+    /// C equivalent: `pixRenderHashBox()` in `graphics.c`
+    pub fn render_hash_box(
+        &mut self,
+        b: &Box,
+        spacing: u32,
+        width: u32,
+        orient: HashOrientation,
+        outline: bool,
+        op: PixelOp,
+    ) -> Result<()> {
+        if spacing <= 1 {
+            return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+        }
+        let pta = generate_hash_box_pta(b, spacing, width.max(1), orient, outline)?;
+        self.render_pta(&pta, op)
+    }
+
+    /// Render hash lines filling a single box with a specific color.
+    ///
+    /// C equivalent: `pixRenderHashBoxArb()` in `graphics.c`
+    pub fn render_hash_box_color(
+        &mut self,
+        b: &Box,
+        spacing: u32,
+        width: u32,
+        orient: HashOrientation,
+        outline: bool,
+        color: Color,
+    ) -> Result<()> {
+        if spacing <= 1 {
+            return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+        }
+        let pta = generate_hash_box_pta(b, spacing, width.max(1), orient, outline)?;
+        self.render_pta_color(&pta, color)
+    }
+
+    /// Render hash lines filling a single box with alpha blending (32bpp only).
+    ///
+    /// C equivalent: `pixRenderHashBoxBlend()` in `graphics.c`
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_hash_box_blend(
+        &mut self,
+        b: &Box,
+        spacing: u32,
+        width: u32,
+        orient: HashOrientation,
+        outline: bool,
+        color: Color,
+        fract: f32,
+    ) -> Result<()> {
+        if spacing <= 1 {
+            return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+        }
+        let pta = generate_hash_box_pta(b, spacing, width.max(1), orient, outline)?;
+        self.render_pta_blend(&pta, color, fract)
+    }
+
+    /// Render hash lines through a 1bpp mask with a specific color.
+    ///
+    /// Hash lines are generated for the bounding box of `pixm` then filtered
+    /// so only pixels where `pixm` is 1 are rendered.  The mask is offset
+    /// by (`x`, `y`) relative to `self`.
+    ///
+    /// C equivalent: `pixRenderHashMaskArb()` in `graphics.c`
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_hash_mask_color(
+        &mut self,
+        pixm: &Pix,
+        x: i32,
+        y: i32,
+        spacing: u32,
+        width: u32,
+        orient: HashOrientation,
+        outline: bool,
+        color: Color,
+    ) -> Result<()> {
+        if pixm.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(pixm.depth().bits()));
+        }
+        if spacing <= 1 {
+            return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+        }
+        let mw = pixm.width();
+        let mh = pixm.height();
+        let b = Box::new(0, 0, mw as i32, mh as i32)?;
+        let pta_all = generate_hash_box_pta(&b, spacing, width.max(1), orient, outline)?;
+
+        // Compute pixel value for the given color/depth once
+        let depth = self.depth();
+        let pixel_val = match depth {
+            PixelDepth::Bit1 => 1u32,
+            PixelDepth::Bit2 => (color.to_gray() >> 6) as u32,
+            PixelDepth::Bit4 => (color.to_gray() >> 4) as u32,
+            PixelDepth::Bit8 => color.to_gray() as u32,
+            PixelDepth::Bit16 => {
+                let g = color.to_gray() as u32;
+                (g << 8) | g
+            }
+            PixelDepth::Bit32 => color.to_pixel32(),
+        };
+
+        let sw = self.width() as i32;
+        let sh = self.height() as i32;
+        for (px, py) in pta_all.iter() {
+            let pxi = px as i32;
+            let pyi = py as i32;
+            if pxi >= 0
+                && pxi < mw as i32
+                && pyi >= 0
+                && pyi < mh as i32
+                && pixm.get_pixel(pxi as u32, pyi as u32).unwrap_or(0) > 0
+            {
+                let tx = pxi + x;
+                let ty = pyi + y;
+                if tx >= 0 && tx < sw && ty >= 0 && ty < sh {
+                    self.set_pixel_unchecked(tx as u32, ty as u32, pixel_val);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Render hash lines filling all boxes in `boxa`.
+    ///
+    /// C equivalent: `pixRenderHashBoxa()` in `graphics.c`
+    pub fn render_hash_boxa(
+        &mut self,
+        boxa: &Boxa,
+        spacing: u32,
+        width: u32,
+        orient: HashOrientation,
+        outline: bool,
+        op: PixelOp,
+    ) -> Result<()> {
+        if spacing <= 1 {
+            return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+        }
+        let pta = generate_hash_boxa_pta(boxa, spacing, width.max(1), orient, outline, true)?;
+        self.render_pta(&pta, op)
+    }
+
+    /// Render hash lines filling all boxes in `boxa` with a specific color.
+    ///
+    /// C equivalent: `pixRenderHashBoxaArb()` in `graphics.c`
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_hash_boxa_color(
+        &mut self,
+        boxa: &Boxa,
+        spacing: u32,
+        width: u32,
+        orient: HashOrientation,
+        outline: bool,
+        color: Color,
+    ) -> Result<()> {
+        if spacing <= 1 {
+            return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+        }
+        let pta = generate_hash_boxa_pta(boxa, spacing, width.max(1), orient, outline, true)?;
+        self.render_pta_color(&pta, color)
+    }
+
+    /// Render hash lines filling all boxes in `boxa` with alpha blending (32bpp only).
+    ///
+    /// C equivalent: `pixRenderHashBoxaBlend()` in `graphics.c`
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_hash_boxa_blend(
+        &mut self,
+        boxa: &Boxa,
+        spacing: u32,
+        width: u32,
+        orient: HashOrientation,
+        outline: bool,
+        color: Color,
+        fract: f32,
+    ) -> Result<()> {
+        if spacing <= 1 {
+            return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+        }
+        let pta = generate_hash_boxa_pta(boxa, spacing, width.max(1), orient, outline, true)?;
+        self.render_pta_blend(&pta, color, fract)
+    }
+
+    /// Render a grid of `nx`×`ny` cells with a specific color.
+    ///
+    /// The grid cells are sized to fit the image dimensions.
+    ///
+    /// C equivalent: `pixRenderGridArb()` in `graphics.c`
+    pub fn render_grid_color(&mut self, nx: u32, ny: u32, width: u32, color: Color) -> Result<()> {
+        if nx == 0 || ny == 0 {
+            return Err(Error::InvalidParameter("nx and ny must be > 0".to_string()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let pta = generate_grid_pta(w, h, nx, ny, width.max(1))?;
+        self.render_pta_color(&pta, color)
+    }
+
+    /// Render a plot of Numa values onto the image at the specified location.
+    ///
+    /// C equivalent: `pixRenderPlotFromNuma()` in `graphics.c`
+    pub fn render_plot_from_numa(
+        &mut self,
+        na: &crate::numa::Numa,
+        plotloc: PlotLocation,
+        linewidth: u32,
+        max: u32,
+        color: Color,
+    ) -> Result<()> {
+        let (w, h) = (self.width(), self.height());
+        let (orient, refpos) = match plotloc {
+            PlotLocation::Top => (HashOrientation::Horizontal, max as i32),
+            PlotLocation::MidHoriz => (HashOrientation::Horizontal, h as i32 / 2),
+            PlotLocation::Bottom => (HashOrientation::Horizontal, h as i32 - max as i32 - 1),
+            PlotLocation::Left => (HashOrientation::Vertical, max as i32),
+            PlotLocation::MidVert => (HashOrientation::Vertical, w as i32 / 2),
+            PlotLocation::Right => (HashOrientation::Vertical, w as i32 - max as i32 - 1),
+        };
+        let pta = make_plot_pta_from_numa_gen(na, orient, linewidth, refpos, max, true)?;
+        self.render_pta_color(&pta, color)
+    }
+
+    /// Render a plot of Numa values with full control over orientation.
+    ///
+    /// C equivalent: `pixRenderPlotFromNumaGen()` in `graphics.c`
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_plot_from_numa_gen(
+        &mut self,
+        na: &crate::numa::Numa,
+        orient: HashOrientation,
+        linewidth: u32,
+        refpos: i32,
+        max: u32,
+        drawref: bool,
+        color: Color,
+    ) -> Result<()> {
+        let pta = make_plot_pta_from_numa_gen(na, orient, linewidth, refpos, max, drawref)?;
+        self.render_pta_color(&pta, color)
+    }
 }
 
 // =============================================================================
@@ -1070,6 +1484,146 @@ impl Pix {
 
         Ok(pixd.into())
     }
+
+    /// Render each Pta in `ptaa` in a different random color onto an 8bpp
+    /// colormapped copy of `self`.
+    ///
+    /// If `polyflag` is true, each Pta is rendered as a polyline of `width`
+    /// pixels (optionally closed).  Otherwise all points are rendered as-is.
+    ///
+    /// C equivalent: `pixRenderRandomCmapPtaa()` in `graphics.c`
+    pub fn render_random_cmap_ptaa(
+        &self,
+        ptaa: &Ptaa,
+        polyflag: bool,
+        width: u32,
+        closeflag: bool,
+    ) -> Result<Pix> {
+        use crate::colormap::PixColormap;
+        let cmap = PixColormap::create_random(8, true, true)?;
+        // Extract colors before consuming cmap
+        let ncolors = cmap.len();
+        let colors: Vec<(u8, u8, u8)> = (0..ncolors)
+            .map(|i| cmap.get_rgb(i).unwrap_or((0, 0, 0)))
+            .collect();
+
+        let pixd = self.convert_to_8()?;
+        let mut pixd = pixd.to_mut();
+        pixd.set_colormap(Some(cmap))?;
+
+        let n = ptaa.len();
+        for i in 0..n {
+            let index = 1 + (i % 254);
+            let (r, g, b) = colors.get(index).copied().unwrap_or((0, 0, 0));
+            let color = Color { r, g, b };
+            if let Some(pta) = ptaa.get(i) {
+                if polyflag {
+                    let pta_wide = generate_polyline_pta(pta, width.max(1), closeflag);
+                    pixd.render_pta_color(&pta_wide, color)?;
+                } else {
+                    pixd.render_pta_color(pta, color)?;
+                }
+            }
+        }
+        Ok(pixd.into())
+    }
+}
+
+/// Render a polygon outline as a minimum-sized 1 bpp `Pix`.
+///
+/// Returns `(pix, xmin, ymin)` where `xmin`/`ymin` are the minimum
+/// coordinates of the input vertices.
+///
+/// C equivalent: `pixRenderPolygon()` in `graphics.c`
+pub fn render_polygon(pta: &Pta, width: u32) -> Result<(Pix, i32, i32)> {
+    if pta.is_empty() {
+        return Err(Error::NullInput("empty polygon"));
+    }
+    let width = width.max(1);
+    let pta1 = generate_polyline_pta(pta, width, true);
+    let pta2 = if width < 2 {
+        convert_line_to_4cc(&pta1)
+    } else {
+        pta1
+    };
+
+    let (fxmin, fxmax, fymin, fymax) = pta2
+        .bounding_box()
+        .ok_or(Error::NullInput("empty polygon after conversion"))?;
+
+    let xmin = (fxmin + 0.5) as i32;
+    let ymin = (fymin + 0.5) as i32;
+    let w = (fxmax + 0.5) as u32 + 1;
+    let h = (fymax + 0.5) as u32 + 1;
+
+    let pix = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut pixd = pix.to_mut();
+    pixd.render_polyline(&pta2, width, true, PixelOp::Set)?;
+    Ok((pixd.into(), xmin, ymin))
+}
+
+/// Fill the interior of a polygon outline.
+///
+/// `pixs` must be 1 bpp with the 4-connected polygon outline (as produced by
+/// [`render_polygon`]).  `pta` are the original polygon vertices.  `xmin` and
+/// `ymin` are the offsets returned by `render_polygon`.
+///
+/// C equivalent: `pixFillPolygon()` in `graphics.c`
+pub fn fill_polygon(pixs: &Pix, pta: &Pta, xmin: i32, ymin: i32) -> Result<Pix> {
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pixs.depth().bits()));
+    }
+    if pta.len() < 3 {
+        return Err(Error::InvalidParameter(
+            "polygon requires at least 3 vertices".to_string(),
+        ));
+    }
+
+    let (w, h) = (pixs.width(), pixs.height());
+    let n = pta.len();
+
+    // Translate vertices to pixs coordinate space
+    let verts: Vec<(f32, f32)> = pta
+        .iter()
+        .map(|(x, y)| (x - xmin as f32, y - ymin as f32))
+        .collect();
+
+    let mut pixd = pixs.to_mut();
+
+    // Scanline fill using the even-odd rule
+    for row in 0..h {
+        let fy = row as f32 + 0.5;
+        let mut xs: Vec<f32> = Vec::new();
+        for i in 0..n {
+            let (x0, y0) = verts[i];
+            let (x1, y1) = verts[(i + 1) % n];
+            let (y_lo, y_hi, x_lo, x_hi) = if y0 <= y1 {
+                (y0, y1, x0, x1)
+            } else {
+                (y1, y0, x1, x0)
+            };
+            if fy > y_lo && fy <= y_hi && (y_hi - y_lo).abs() > f32::EPSILON {
+                let t = (fy - y_lo) / (y_hi - y_lo);
+                xs.push(x_lo + t * (x_hi - x_lo));
+            }
+        }
+        xs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mut i = 0;
+        while i + 1 < xs.len() {
+            let x_start = xs[i].ceil() as u32;
+            let x_end = xs[i + 1].floor() as u32;
+            for x in x_start..=x_end {
+                if x < w {
+                    let _ = pixd.set_pixel(x, row, 1);
+                }
+            }
+            i += 2;
+        }
+    }
+
+    // OR the polygon outline back in
+    let result: Pix = pixd.into();
+    result.or(&pixs.clone())
 }
 
 #[cfg(test)]
@@ -1363,7 +1917,6 @@ mod tests {
     // -- Phase 17.2 rendering extension tests --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_boxa() {
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();
@@ -1376,7 +1929,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_boxa_color() {
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -1389,7 +1941,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_hash_box() {
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();
@@ -1402,7 +1953,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_hash_box_color() {
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -1415,7 +1965,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_hash_boxa() {
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();
@@ -1428,9 +1977,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_hash_mask_color() {
-        use crate::colormap::RgbaQuad;
         // Create a small 1bpp mask with some pixels set
         let mut pixm = Pix::new(20, 20, super::super::PixelDepth::Bit1)
             .unwrap()
@@ -1461,7 +2008,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_grid_color() {
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -1477,7 +2023,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_random_cmap_ptaa() {
         use crate::pta::Ptaa;
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
@@ -1494,7 +2039,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_polygon() {
         let mut vertices = Pta::new();
         vertices.push(10.0, 0.0);
@@ -1507,7 +2051,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_fill_polygon() {
         // Create a simple square polygon
         let mut vertices = Pta::new();
@@ -1527,7 +2070,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_render_plot_from_numa() {
         use crate::numa::Numa;
         let pix = Pix::new(100, 80, super::super::PixelDepth::Bit32).unwrap();
