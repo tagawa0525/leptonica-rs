@@ -787,6 +787,13 @@ impl Pix {
 
     /// Check if two images (with or without colormaps) are equal.
     ///
+    /// Returns `true` if the images have the same dimensions and identical RGB
+    /// values at every pixel position.
+    ///
+    /// For images with colormaps, the comparison is done on the RGB values
+    /// obtained after colormap lookup. For images without colormaps, RGB values
+    /// are extracted directly from the stored pixel values.
+    ///
     /// Corresponds to `pixEqualWithCmap()` in Leptonica's `compare.c`.
     pub fn equals_with_cmap(&self, other: &Pix) -> bool {
         if self.width() != other.width() || self.height() != other.height() {
@@ -819,9 +826,20 @@ impl Pix {
         true
     }
 
-    /// Create a 32bpp color-coded display showing differences between two 8bpp images.
+    /// Create a 32bpp color-coded display showing differences between two images.
     ///
-    /// Pixels differing by more than `mindiff` are tinted with `diffcolor`.
+    /// Supported depths: 8bpp (grayscale) and 32bpp (RGB). The output image is
+    /// always 32bpp RGB.
+    ///
+    /// The `mindiff` parameter is the threshold above which pixels are tinted
+    /// with `diffcolor`:
+    /// - For 8bpp images, the difference is the absolute difference between
+    ///   grayscale pixel values.
+    /// - For 32bpp images, the difference is the maximum component difference
+    ///   across the R, G, and B channels.
+    ///
+    /// Both images must have the same depth; otherwise `Error::IncompatibleDepths`
+    /// is returned.
     ///
     /// Corresponds to `pixDisplayDiff()` in Leptonica's `compare.c`.
     pub fn display_diff(&self, other: &Pix, mindiff: u32, diffcolor: Color) -> Result<Pix> {
@@ -874,6 +892,12 @@ impl Pix {
     }
 
     /// Create a 4bpp color-coded display showing differences between two binary images.
+    ///
+    /// Both images must be 1bpp. Returns a 4bpp image with a colormap where:
+    /// - white (index 0) = both pixels off
+    /// - black (index 1) = both pixels on
+    /// - red (index 2) = first image on but second off
+    /// - green (index 3) = first image off but second on
     ///
     /// Corresponds to `pixDisplayDiffBinary()` in Leptonica's `compare.c`.
     pub fn display_diff_binary(&self, other: &Pix) -> Result<Pix> {
@@ -1011,7 +1035,19 @@ impl Pix {
         }
     }
 
-    /// Build a 256-bin histogram of pixel absolute differences between two 8bpp images.
+    /// Build a 256-bin histogram of pixel absolute differences between two images.
+    ///
+    /// The `factor` parameter enables spatial subsampling: `factor = 1` samples every
+    /// pixel, `factor = 2` samples every other pixel in both x and y, etc. Larger
+    /// factors reduce the number of sampled pixels and speed up the computation.
+    ///
+    /// Returns a [`Numa`] with 256 elements, where `histogram[i]` contains the count
+    /// of sampled pixels whose absolute difference is exactly `i`.
+    ///
+    /// Supported depths are 8bpp and 32bpp. For 8bpp grayscale images, the
+    /// per-pixel difference is the absolute difference of the gray values. For
+    /// 32bpp RGB images, the per-pixel difference is the maximum of the absolute
+    /// differences of the R, G, and B channels.
     ///
     /// Corresponds to `pixGetDifferenceHistogram()` in Leptonica's `compare.c`.
     pub fn get_difference_histogram(&self, other: &Pix, factor: u32) -> Result<Numa> {
@@ -1056,7 +1092,14 @@ impl Pix {
         Ok(na)
     }
 
-    /// Get the fraction and average of differences exceeding `mindiff`.
+    /// Get statistics on pixel differences above a threshold.
+    ///
+    /// Returns a [`DifferenceStats`] where:
+    /// - `fract_diff` is the fraction of sampled pixels with absolute difference ≥ `mindiff`
+    /// - `ave_diff` is the average of `(difference − mindiff)` for those pixels
+    ///
+    /// The `factor` parameter enables spatial subsampling (same semantics as
+    /// [`get_difference_histogram`][Self::get_difference_histogram]).
     ///
     /// Corresponds to `pixGetDifferenceStats()` in Leptonica's `compare.c`.
     pub fn get_difference_stats(
@@ -1096,6 +1139,19 @@ impl Pix {
 
     /// Build a rank-normalized cumulative difference histogram.
     ///
+    /// Returns a [`Numa`] with 256 elements where `rank[i]` represents the
+    /// fraction of pixels whose absolute difference is greater than `i`. In
+    /// other words, it is the complement of the cumulative distribution of
+    /// pixel differences.
+    ///
+    /// - `rank[0]` is always `1.0` when there is at least one pixel,
+    ///   because every pixel has a difference ≥ 0.
+    /// - `rank[255]` represents the fraction of pixels with the maximum
+    ///   possible difference.
+    ///
+    /// The histogram is rank-normalized by dividing by the total number of
+    /// counted pixels so that each `rank[i]` lies in the range `[0.0, 1.0]`.
+    ///
     /// Corresponds to `pixCompareRankDifference()` in Leptonica's `compare.c`.
     pub fn compare_rank_difference(&self, other: &Pix, factor: u32) -> Result<Numa> {
         let hist_na = self.get_difference_histogram(other, factor)?;
@@ -1121,6 +1177,13 @@ impl Pix {
 
     /// Test if two images are sufficiently similar given fractional and average thresholds.
     ///
+    /// Returns `true` if both `fract_diff <= maxfract` and `ave_diff <= maxave`.
+    ///
+    /// The `mindiff` parameter sets the minimum difference threshold passed to
+    /// [`get_difference_stats`][Self::get_difference_stats]. `maxfract` is the
+    /// maximum acceptable fraction of differing pixels and `maxave` is the
+    /// maximum acceptable average excess difference.
+    ///
     /// Corresponds to `pixTestForSimilarity()` in Leptonica's `compare.c`.
     pub fn test_for_similarity(
         &self,
@@ -1135,6 +1198,19 @@ impl Pix {
     }
 
     /// Compute peak signal-to-noise ratio (PSNR) between two images.
+    ///
+    /// Returns the PSNR in decibels (dB); higher values indicate greater similarity.
+    /// For identical images (zero mean squared error) or when no samples are
+    /// compared, this returns `1000.0` as a sentinel value because the true PSNR
+    /// would be infinite.
+    ///
+    /// The `factor` parameter controls subsampling: only every `factor`-th pixel
+    /// in both x and y directions is used in the computation. A value of `0`
+    /// is treated as `1` (no subsampling).
+    ///
+    /// Supported depths are 8bpp (grayscale) and 32bpp (RGB). For 32bpp
+    /// images, the mean squared error is computed per channel (R, G, B) and
+    /// averaged across the three channels before converting to PSNR.
     ///
     /// Corresponds to `pixGetPSNR()` in Leptonica's `compare.c`.
     pub fn get_psnr(&self, other: &Pix, factor: u32) -> Result<f32> {
