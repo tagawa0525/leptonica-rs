@@ -1101,11 +1101,17 @@ impl Pixa {
         let canvas = Pix::new(canvas_w, canvas_h, outdepth)?;
         let mut dst = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
 
-        // Fill background
+        // Fill background with depth-appropriate white value
         if background != 0 {
+            let white: u32 = match outdepth {
+                crate::pix::PixelDepth::Bit1 => 1,
+                crate::pix::PixelDepth::Bit8 => 255,
+                crate::pix::PixelDepth::Bit32 => 0xFFFF_FFFFu32,
+                _ => (1u32 << (outdepth as u32)) - 1,
+            };
             for y in 0..canvas_h {
                 for x in 0..canvas_w {
-                    dst.set_pixel_unchecked(x, y, 0xFFFFFFFF);
+                    dst.set_pixel_unchecked(x, y, white);
                 }
             }
         }
