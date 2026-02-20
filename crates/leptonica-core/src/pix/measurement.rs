@@ -46,8 +46,8 @@ impl Pix {
         }
         let w = self.width() as i32;
         let h = self.height() as i32;
-        let mut nfg = 0u32;
-        let mut nboundary = 0u32;
+        let mut nfg = 0u64;
+        let mut nboundary = 0u64;
         for y in 0..h {
             for x in 0..w {
                 if self.get_pixel_unchecked(x as u32, y as u32) != 0 {
@@ -80,7 +80,7 @@ impl Pix {
         if nfg == 0 {
             return Ok(0.0);
         }
-        Ok(nboundary as f32 / nfg as f32)
+        Ok((nboundary as f64 / nfg as f64) as f32)
     }
 
     /// Compute the Jaccard overlap fraction between two 1bpp images.
@@ -189,7 +189,10 @@ mod tests {
         let ratio = pix.find_perim_to_area_ratio().unwrap();
         // boundary = pixels touching bg; for a solid block the boundaries are
         // the outer ring (16 pixels), ratio = 16/25
-        assert!(ratio > 0.0 && ratio <= 1.0);
+        assert!(
+            (ratio - 16.0_f32 / 25.0).abs() < 1e-6,
+            "expected 16/25 = 0.64, got {ratio}"
+        );
     }
 
     #[test]
