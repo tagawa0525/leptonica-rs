@@ -1157,10 +1157,6 @@ impl Pix {
         Ok((fg_val, bg_val))
     }
 
-    /// Compute the sum of pixel values along a column within a region.
-    ///
-    /// For 8bpp images, the maximum sum is 255 * height. With typical
-    /// image dimensions (height <= 8_000_000), this fits within i32.
     /// Clip an image to each box in a `Boxa`, returning a `Pixa`.
     ///
     /// Each element of the returned `Pixa` is the sub-image clipped by the
@@ -1296,6 +1292,10 @@ impl Pix {
         Ok(false)
     }
 
+    /// Compute the sum of pixel values along a column within a region.
+    ///
+    /// For 8bpp images, the maximum sum is 255 * height. With typical
+    /// image dimensions (height <= 8_000_000), this fits within i32.
     fn column_sum_in_region(&self, x: u32, y_start: u32, height: u32, factor: u32) -> i32 {
         let mut sum = 0i64;
         let mut y = y_start;
