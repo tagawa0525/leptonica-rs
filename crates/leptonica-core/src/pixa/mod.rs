@@ -340,11 +340,18 @@ impl Pixa {
     ///
     /// C equivalent: `pixaSetText()` in `pixabasic.c`
     pub fn set_text(&mut self, text: Option<String>) {
-        for pix in &mut self.pix {
-            let mut pm = pix.clone().try_into_mut().unwrap_or_else(|p| p.to_mut());
-            pm.set_text(text.clone());
-            *pix = pm.into();
-        }
+        // Take ownership of the entire Vec to avoid Arc-count inflation:
+        // iterating &mut self.pix and calling clone() would increment the
+        // Arc count, guaranteeing try_into_mut() always fails.
+        let pix_vec = std::mem::take(&mut self.pix);
+        self.pix = pix_vec
+            .into_iter()
+            .map(|p| {
+                let mut pm = p.try_into_mut().unwrap_or_else(|p| p.to_mut());
+                pm.set_text(text.clone());
+                pm.into()
+            })
+            .collect();
     }
 
     /// Count the number of Pix that have a non-None text string.
