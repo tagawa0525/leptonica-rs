@@ -663,6 +663,69 @@ impl Sarray {
         }
     }
 
+    /// Return a new Sarray sorted according to an index Numa.
+    ///
+    /// Each value in `naindex` is an index into `self`; the output contains
+    /// `self[naindex[0]]`, `self[naindex[1]]`, …
+    ///
+    /// C equivalent: `sarraySortByIndex()` in `sarray2.c`
+    pub fn sort_by_index(&self, naindex: &crate::numa::Numa) -> Sarray {
+        let n = naindex.len();
+        let mut out = Sarray::with_capacity(n);
+        for i in 0..n {
+            if let Some(idx) = naindex.get_i32(i) {
+                if let Some(s) = self.data.get(idx as usize) {
+                    out.data.push(s.clone());
+                }
+            }
+        }
+        out
+    }
+
+    /// Find the next contiguous range of strings in `self` that do **not**
+    /// contain `substr` (at optional byte offset `loc`, or anywhere if `None`).
+    ///
+    /// Returns `Some((actual_start, end, new_start))` where:
+    /// - `actual_start`: index of first string in the range
+    /// - `end`: index of last string in the range (inclusive)
+    /// - `new_start`: index to use for the next call (first past the range)
+    ///
+    /// Returns `None` if no valid range is found starting at or after `start`.
+    ///
+    /// C equivalent: `sarrayParseRange()` in `sarray1.c`
+    pub fn parse_range(
+        &self,
+        start: usize,
+        substr: &str,
+        loc: Option<usize>,
+    ) -> Option<(usize, usize, usize)> {
+        let n = self.data.len();
+        if start >= n {
+            return None;
+        }
+
+        let matches = |s: &str| -> bool {
+            if let Some(offset) = loc {
+                // substr must appear at byte position `offset`
+                s.len() >= offset + substr.len() && &s[offset..offset + substr.len()] == substr
+            } else {
+                s.contains(substr)
+            }
+        };
+
+        // Skip leading strings that DO have the marker
+        let actual_start = (start..n).find(|&i| !matches(&self.data[i]))?;
+
+        // Find end: last consecutive string without the marker
+        let end = (actual_start + 1..n)
+            .take_while(|&i| !matches(&self.data[i]))
+            .last()
+            .unwrap_or(actual_start);
+
+        let new_start = end + 1;
+        Some((actual_start, end, new_start))
+    }
+
     // ========================================================================
     // Set Operations
     // ========================================================================
@@ -1639,7 +1702,6 @@ mod tests {
     // -- Phase 16.5 new functions --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sort_by_index() {
         use crate::numa::Numa;
         let sa = Sarray::from_str_slice(&["c", "a", "b"]);
@@ -1652,7 +1714,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_range() {
         // Lines: "ok1", "--skip", "ok2", "ok3"
         // Range of non-'--' lines starting at 0: should be [0,0], next=1
