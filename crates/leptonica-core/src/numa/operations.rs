@@ -1371,7 +1371,7 @@ impl Numa {
     pub fn add_to_element(&mut self, index: usize, val: f32) -> Result<()> {
         let n = self.len();
         if n == 0 {
-            return Err(Error::InvalidParameter("Numa is empty".into()));
+            return Err(Error::NullInput("empty Numa"));
         }
         if index >= n {
             return Err(Error::IndexOutOfBounds { index, len: n });
@@ -1526,7 +1526,7 @@ impl Numa {
     pub fn count_nonzero_runs(&self) -> Result<usize> {
         let n = self.len();
         if n == 0 {
-            return Err(Error::InvalidParameter("Numa is empty".into()));
+            return Err(Error::NullInput("empty Numa"));
         }
         let mut count = 0usize;
         let mut in_run = false;
