@@ -780,6 +780,75 @@ impl FPix {
     pub fn sum(&self) -> f32 {
         self.data.iter().sum()
     }
+
+    // -- Phase 17.2: Contour rendering --
+
+    /// Render contour lines from the FPix data, returning an 8bpp colormapped Pix.
+    ///
+    /// Contours are drawn at every `incr` interval.  A pixel is classified as a
+    /// contour if its fractional distance to the nearest contour level is ≤ `proxim`.
+    /// Negative values are shown in red (index 2); non-negative in black (index 1).
+    /// White (index 0) is the background.
+    ///
+    /// `proxim` defaults to 0.15 when ≤ 0.
+    ///
+    /// C equivalent: `fpixRenderContours()` in `graphics.c`
+    pub fn render_contours(&self, incr: f32, proxim: f32) -> crate::error::Result<Pix> {
+        use crate::colormap::PixColormap;
+        if incr <= 0.0 {
+            return Err(crate::error::Error::InvalidParameter(
+                "incr must be > 0".to_string(),
+            ));
+        }
+        let proxim = if proxim <= 0.0 { 0.15 } else { proxim };
+        let (w, h) = self.dimensions();
+        let pix = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut pixd = pix.to_mut();
+        let mut cmap = PixColormap::new(8)?;
+        cmap.add_rgb(255, 255, 255)?; // index 0: white
+        cmap.add_rgb(0, 0, 0)?; // index 1: black
+        cmap.add_rgb(255, 0, 0)?; // index 2: red
+        pixd.set_colormap(Some(cmap))?;
+        let inv_incr = 1.0 / incr;
+        for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y);
+                let finter = inv_incr * val;
+                let above = finter - finter.floor();
+                let below = finter.ceil() - finter;
+                let diff = above.min(below);
+                if diff <= proxim {
+                    let idx: u32 = if val < 0.0 { 2 } else { 1 };
+                    let _ = pixd.set_pixel(x, y, idx);
+                }
+            }
+        }
+        Ok(pixd.into())
+    }
+
+    /// Auto-render contours with approximately `ncontours` levels.
+    ///
+    /// C equivalent: `fpixAutoRenderContours()` in `graphics.c`
+    pub fn auto_render_contours(&self, ncontours: i32) -> crate::error::Result<Pix> {
+        if ncontours < 2 || ncontours > 500 {
+            return Err(crate::error::Error::InvalidParameter(
+                "ncontours must be in [2, 500]".to_string(),
+            ));
+        }
+        let min = self
+            .min_value()
+            .ok_or(crate::error::Error::NullInput("empty FPix"))?;
+        let max = self
+            .max_value()
+            .ok_or(crate::error::Error::NullInput("empty FPix"))?;
+        if (min - max).abs() < f32::EPSILON {
+            return Err(crate::error::Error::InvalidParameter(
+                "all values in FPix are equal".to_string(),
+            ));
+        }
+        let incr = (max - min) / (ncontours as f32 - 1.0);
+        self.render_contours(incr, 0.15)
+    }
 }
 
 // ============================================================================
@@ -1434,5 +1503,35 @@ mod tests {
         // Should be independent copies
         assert_eq!(fpix1.data(), fpix2.data());
         assert_ne!(fpix1.data().as_ptr(), fpix2.data().as_ptr());
+    }
+
+    // -- Phase 17.2 FPix rendering tests --
+
+    #[test]
+    fn test_fpix_render_contours() {
+        // Create a simple gradient FPix
+        let mut fpix = FPix::new(50, 50).unwrap();
+        for y in 0..50u32 {
+            for x in 0..50u32 {
+                fpix.set_pixel_unchecked(x, y, (x + y) as f32);
+            }
+        }
+        let pix = fpix.render_contours(10.0, 0.15).unwrap();
+        // Output should be 8bpp with colormap
+        assert_eq!(pix.depth(), PixelDepth::Bit8);
+        assert!(pix.has_colormap());
+    }
+
+    #[test]
+    fn test_fpix_auto_render_contours() {
+        let mut fpix = FPix::new(50, 50).unwrap();
+        for y in 0..50u32 {
+            for x in 0..50u32 {
+                fpix.set_pixel_unchecked(x, y, x as f32);
+            }
+        }
+        let pix = fpix.auto_render_contours(10).unwrap();
+        assert_eq!(pix.depth(), PixelDepth::Bit8);
+        assert!(pix.has_colormap());
     }
 }
