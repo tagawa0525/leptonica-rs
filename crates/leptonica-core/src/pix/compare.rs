@@ -828,6 +828,12 @@ impl Pix {
         if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
+        if self.depth() != other.depth() {
+            return Err(Error::IncompatibleDepths(
+                self.depth().bits(),
+                other.depth().bits(),
+            ));
+        }
         if self.width() != other.width() || self.height() != other.height() {
             return Err(Error::DimensionMismatch {
                 expected: (self.width(), self.height()),
