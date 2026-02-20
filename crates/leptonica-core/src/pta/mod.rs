@@ -242,7 +242,7 @@ impl Pta {
             } else {
                 startx + i as f32 * delx
             };
-            let yval = nay.get(i).unwrap_or(0.0);
+            let yval = nay.get(i).unwrap();
             pta.push(xval, yval);
         }
         pta
