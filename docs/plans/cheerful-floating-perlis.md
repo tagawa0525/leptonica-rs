@@ -1,6 +1,6 @@
 # Debug版テスト速度改善
 
-Status: PLANNED
+Status: IMPLEMENTED
 
 ## Context
 
