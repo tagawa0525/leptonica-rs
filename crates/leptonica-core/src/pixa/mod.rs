@@ -1554,4 +1554,162 @@ mod tests {
         let pixa = Pixa::new();
         assert!(pixa.find_dimensions().is_err());
     }
+
+    // -- Phase 16.4 new functions --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_create_from_pix() {
+        let pix = make_test_pix(10, 20);
+        let pixa = Pixa::create_from_pix(&pix, 3);
+        assert_eq!(pixa.len(), 3);
+        assert_eq!(pixa.get(0).unwrap().width(), 10);
+        assert_eq!(pixa.get(2).unwrap().height(), 20);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_create_from_boxa() {
+        use crate::pix::PixelDepth;
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut boxa = Boxa::new();
+        boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
+        boxa.push(crate::box_::Box::new(20, 20, 15, 15).unwrap());
+        let pixa = Pixa::create_from_boxa(&pix, &boxa);
+        assert_eq!(pixa.len(), 2);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_split_pix() {
+        use crate::pix::PixelDepth;
+        let pix = Pix::new(100, 60, PixelDepth::Bit8).unwrap();
+        let pixa = Pixa::split_pix(&pix, 2, 3, 0, 0).unwrap();
+        assert_eq!(pixa.len(), 6); // 2*3
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_box_geometry() {
+        let mut pixa = Pixa::new();
+        let pix = make_test_pix(10, 10);
+        pixa.push_with_box(pix, crate::box_::Box::new(5, 10, 20, 30).unwrap());
+        let (x, y, w, h) = pixa.get_box_geometry(0).unwrap();
+        assert_eq!(x, 5);
+        assert_eq!(y, 10);
+        assert_eq!(w, 20);
+        assert_eq!(h, 30);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_is_full() {
+        let mut pixa = Pixa::new();
+        pixa.init_full(3, Some(&make_test_pix(10, 10)), None);
+        assert!(pixa.is_full());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixa_set_text_count_text() {
+        let mut pixa = Pixa::new();
+        pixa.push(make_test_pix(10, 10));
+        pixa.push(make_test_pix(10, 10));
+        pixa.push(make_test_pix(10, 10));
+        pixa.set_text(Some("hello".to_string()));
+        assert_eq!(pixa.count_text(), 3);
+        pixa.set_text(None);
+        assert_eq!(pixa.count_text(), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixa_remove_selected() {
+        let mut pixa = Pixa::new();
+        pixa.push(make_test_pix(1, 1));
+        pixa.push(make_test_pix(2, 2));
+        pixa.push(make_test_pix(3, 3));
+        pixa.push(make_test_pix(4, 4));
+        // Remove indices 1 and 3 (descending order required)
+        let na = crate::numa::Numa::from_slice(&[3.0, 1.0]);
+        pixa.remove_selected(&na).unwrap();
+        assert_eq!(pixa.len(), 2);
+        assert_eq!(pixa.get(0).unwrap().width(), 1);
+        assert_eq!(pixa.get(1).unwrap().width(), 3);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixa_join() {
+        let mut pixa1 = Pixa::new();
+        pixa1.push(make_test_pix(1, 1));
+        pixa1.push(make_test_pix(2, 2));
+        let pixa2 = {
+            let mut p = Pixa::new();
+            p.push(make_test_pix(3, 3));
+            p
+        };
+        pixa1.join(&pixa2, 0, None).unwrap();
+        assert_eq!(pixa1.len(), 3);
+        assert_eq!(pixa1.get(2).unwrap().width(), 3);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixa_interleave() {
+        let mut pixa1 = Pixa::new();
+        pixa1.push(make_test_pix(1, 1));
+        pixa1.push(make_test_pix(3, 3));
+        let mut pixa2 = Pixa::new();
+        pixa2.push(make_test_pix(2, 2));
+        pixa2.push(make_test_pix(4, 4));
+        let merged = pixa1.interleave(&pixa2).unwrap();
+        assert_eq!(merged.len(), 4);
+        assert_eq!(merged.get(0).unwrap().width(), 1);
+        assert_eq!(merged.get(1).unwrap().width(), 2);
+        assert_eq!(merged.get(2).unwrap().width(), 3);
+        assert_eq!(merged.get(3).unwrap().width(), 4);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixaa_is_full() {
+        let mut pixaa = Pixaa::new();
+        let mut p = Pixa::new();
+        p.push(make_test_pix(10, 10));
+        pixaa.push(p);
+        assert!(pixaa.is_full());
+        pixaa.push(Pixa::new()); // empty slot
+        assert!(!pixaa.is_full());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixaa_init_full() {
+        let mut pixaa = Pixaa::new();
+        let mut template = Pixa::new();
+        template.push(make_test_pix(5, 5));
+        for _ in 0..3 {
+            pixaa.push(Pixa::new());
+        }
+        pixaa.init_full(&template);
+        for i in 0..3 {
+            assert_eq!(pixaa.get(i).unwrap().len(), 1);
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pixaa_join() {
+        let mut pixaa1 = Pixaa::new();
+        let mut p = Pixa::new();
+        p.push(make_test_pix(1, 1));
+        pixaa1.push(p);
+        let mut pixaa2 = Pixaa::new();
+        let mut q = Pixa::new();
+        q.push(make_test_pix(2, 2));
+        pixaa2.push(q);
+        pixaa1.join(&pixaa2).unwrap();
+        assert_eq!(pixaa1.len(), 2);
+    }
 }
