@@ -1,6 +1,6 @@
 # leptonica-rs 未実装関数の段階的実装計画
 
-Status: IN_PROGRESS (Phase 1-4 大部分実装済み、残り20関数)
+Status: IN_PROGRESS (Phase 1-4 大部分実装済み、残り13関数)
 
 ## Context
 
@@ -84,7 +84,7 @@ cargo test -p <crate>
 
 実装場所: `crates/leptonica-core/src/pix/convert.rs:336-555`
 
-#### 1.2 RGBコンポーネント操作 — ⚠️ 3/5実装済み、残り2関数
+#### 1.2 RGBコンポーネント操作 — ✅ 5/5実装済み
 
 実装場所: `crates/leptonica-core/src/pix/rgb.rs`
 
@@ -93,21 +93,21 @@ cargo test -p <crate>
 | `pixGetRGBComponent` | ✅ `get_rgb_component` (rgb.rs:37) |
 | `pixSetRGBComponent` | ✅ `set_rgb_component` (rgb.rs:443) |
 | `pixCreateRGBImage` | ✅ `create_rgb_image` (rgb.rs:71) |
-| `pixGetRGBPixel` | ❌ 未実装 |
-| `pixSetRGBPixel` | ❌ 未実装 |
+| `pixGetRGBPixel` | ✅ `get_rgb_pixel` (rgb.rs:340) |
+| `pixSetRGBPixel` | ✅ `set_rgb_pixel` (rgb.rs:465) |
 
-#### 1.3 カラーマップ除去 — ⚠️ 3/4実装済み、残り1関数
+#### 1.3 カラーマップ除去 — ✅ 4/4実装済み
 
 実装場所: `crates/leptonica-core/src/pix/convert.rs:560-778`
 
 | 関数 | 状態 |
 |------|------|
 | `pixRemoveColormap` | ✅ `remove_colormap` (convert.rs:560) |
-| `pixRemoveColormapGeneral` | ❌ 未実装（`remove_colormap` の `RemoveColormapTarget` でカバー可能か要検討） |
+| `pixRemoveColormapGeneral` | ✅ 不要（`remove_colormap` + `RemoveColormapTarget` で同等機能をカバー） |
 | `pixAddGrayColormap8` | ✅ `add_gray_colormap_8` (convert.rs:700) |
 | `pixAddMinimalGrayColormap8` | ✅ `add_minimal_gray_colormap_8` (convert.rs:725) |
 
-#### 1.4 深度変換（トップレベル） — ⚠️ 7/10実装済み、残り3関数
+#### 1.4 深度変換（トップレベル） — ⚠️ 8/10実装済み、残り2関数（外部依存）
 
 実装場所: `crates/leptonica-core/src/pix/convert.rs`
 
@@ -119,12 +119,12 @@ cargo test -p <crate>
 | `pixConvert8To32` | ✅ `convert_8_to_32` (convert.rs:810) |
 | `pixConvert8To16` | ✅ `convert_8_to_16` (convert.rs:854) |
 | `pixConvert16To8` | ✅ `convert_16_to_8` (convert.rs:897) |
-| `pixConvert32To8` | ❌ 未実装 |
+| `pixConvert32To8` | ✅ `convert_32_to_8` (convert.rs:1253) |
 | `pixConvertTo8Or32` | ✅ `convert_to_8_or_32` (convert.rs:956) |
 | `pixConvertLossless` | ✅ `convert_lossless` (convert.rs:984) |
 | `pixRemoveAlpha` | ✅ `remove_alpha` (convert.rs:1041) |
 
-#### 1.5 バイナリ展開 — ⚠️ 基本版6/6実装済み、Cmap版3関数未実装
+#### 1.5 バイナリ展開 — ✅ 9/9実装済み
 
 実装場所: `crates/leptonica-core/src/pix/convert.rs:1084-1202`
 
@@ -136,11 +136,11 @@ cargo test -p <crate>
 | `pixConvert1To8` | ✅ (convert.rs:1179) |
 | `pixConvert1To16` | ✅ (convert.rs:1190) |
 | `pixConvert1To32` | ✅ (convert.rs:1201) |
-| `pixConvert1To2Cmap` | ❌ 未実装 |
-| `pixConvert1To4Cmap` | ❌ 未実装 |
-| `pixConvert1To8Cmap` | ❌ 未実装 |
+| `pixConvert1To2Cmap` | ✅ `convert_1_to_2_cmap` (convert.rs:1213) |
+| `pixConvert1To4Cmap` | ✅ `convert_1_to_4_cmap` (convert.rs:1231) |
+| `pixConvert1To8Cmap` | ✅ `convert_1_to_8_cmap` (convert.rs:1249) |
 
-#### 1.6 ボーダー操作 — ⚠️ 7/8実装済み、残り1関数
+#### 1.6 ボーダー操作 — ✅ 8/8実装済み
 
 実装場所: `crates/leptonica-core/src/pix/border.rs`
 
@@ -150,7 +150,7 @@ cargo test -p <crate>
 | `pixAddBorderGeneral` | ✅ `add_border_general` (border.rs:86) |
 | `pixRemoveBorder` | ✅ `remove_border` (border.rs:156) |
 | `pixRemoveBorderGeneral` | ✅ `remove_border_general` (border.rs:196) |
-| `pixAddBlackOrWhiteBorder` | ❌ 未実装 |
+| `pixAddBlackOrWhiteBorder` | ✅ `add_black_or_white_border` (border.rs:378) |
 | `pixSetBorderVal` | ✅ `set_border_val` (border.rs:389) |
 | `pixAddMirroredBorder` | ✅ `add_mirrored_border` (border.rs:251) |
 | `pixAddRepeatedBorder` | ✅ `add_repeated_border` (border.rs:318) |
@@ -273,23 +273,20 @@ Phase 1-4完了後に計画策定:
 
 | Phase | 総関数数 | 実装済み | 未実装 | 進捗率 |
 |-------|---------|---------|--------|--------|
-| 1 (core基盤) | 53 | 43 | 10 | 81% |
+| 1 (core基盤) | 53 | 51 | 2 | 96% |
 | 2 (filter enhance) | 21 | 19 | 2 | 90% |
 | 3 (filter convolve) | 24 | 19 | 5 | 79% |
 | 4 (core統計/Numa) | 15 | 15 | 0 | 100% |
-| **合計 (Phase 1-4)** | **113** | **96** | **17** | **85%** |
+| **合計 (Phase 1-4)** | **113** | **104** | **9** | **92%** |
 
 ### 残り未実装関数一覧
 
-**Phase 1 (10個)**:
-- `pixGetRGBPixel`, `pixSetRGBPixel` (1.2)
-- `pixRemoveColormapGeneral` (1.3)
-- `pixConvertTo1`, `pixConvertTo1Adaptive`, `pixConvert32To8` (1.4)
-- `pixConvert1To2Cmap`, `pixConvert1To4Cmap`, `pixConvert1To8Cmap` (1.5)
-- `pixAddBlackOrWhiteBorder` (1.6)
+**Phase 1 (2個、外部依存)**:
+- `pixConvertTo1` (1.4) — filter crateの二値化/閾値処理が必要
+- `pixConvertTo1Adaptive` (1.4) — filter crateの適応的閾値が必要
 
 **Phase 2 (2個)**:
-- `pixMosaicColorShiftRGB` (2.4)
+- `pixMosaicColorShiftRGB` (2.4) — BMF/Pixa display/scaling依存
 - `pixHalfEdgeByBandpass` (2.4)
 
 **Phase 3 (5個)**:
