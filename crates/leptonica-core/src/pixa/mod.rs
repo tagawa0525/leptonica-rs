@@ -363,17 +363,22 @@ impl Pixa {
 
     /// Remove the Pix at the selected indices (given as f32 in the Numa).
     ///
-    /// Indices should be in **descending** order to preserve correctness
-    /// during removal.
+    /// Indices are sorted in descending order internally before removal,
+    /// so they may be provided in any order.
     ///
     /// C equivalent: `pixaRemoveSelected()` in `pixabasic.c`
     pub fn remove_selected(&mut self, na: &Numa) -> Result<()> {
         let n = na.len();
-        for i in 0..n {
-            let idx = na
-                .get_i32(i)
-                .ok_or_else(|| Error::InvalidParameter("invalid index in na".to_string()))?
-                as usize;
+        let mut indices: Vec<usize> = (0..n)
+            .map(|i| {
+                na.get_i32(i)
+                    .ok_or_else(|| Error::InvalidParameter("invalid index in na".to_string()))
+                    .map(|v| v as usize)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        // Sort descending so earlier removals don't shift later indices
+        indices.sort_unstable_by(|a, b| b.cmp(a));
+        for idx in indices {
             self.remove(idx)?;
         }
         Ok(())
