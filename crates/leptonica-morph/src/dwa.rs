@@ -208,7 +208,7 @@ fn shift_row(row: &[u32], wpl: usize, shift: i32, out: &mut [u32]) {
             };
         } else if shift < 0 {
             // Right shift: source is further left in the row
-            let hi = if i >= word_offset + 1 {
+            let hi = if i > word_offset {
                 row[i - word_offset - 1]
             } else {
                 0
