@@ -797,6 +797,156 @@ impl Pix {
         Ok(result)
     }
 
+    /// Compute a histogram of colormap pixel indices over a masked region.
+    ///
+    /// The mask is 1bpp and specifies which pixels to include (ON pixels).
+    /// `x`, `y` are the offset of the mask relative to the image UL corner.
+    /// Returns a `Numa` of size `2^d` (d = image depth).
+    ///
+    /// C equivalent: `pixGetCmapHistogramMasked()` in `pix4.c`
+    pub fn cmap_histogram_masked(&self, mask: &Pix, x: i32, y: i32, factor: u32) -> Result<Numa> {
+        if self.colormap().is_none() {
+            return Err(Error::InvalidParameter("image has no colormap".into()));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+        let depth = self.depth();
+        match depth {
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
+            _ => return Err(Error::UnsupportedDepth(depth.bits())),
+        }
+
+        let nbins = 1usize << depth.bits();
+        let mut histogram = vec![0.0f32; nbins];
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let wm = mask.width() as i32;
+        let hm = mask.height() as i32;
+
+        let mut j = 0i32;
+        while j < hm {
+            let sy = y + j;
+            if sy >= 0 && sy < h {
+                let mut i = 0i32;
+                while i < wm {
+                    let sx = x + i;
+                    if sx >= 0 && sx < w && mask.get_pixel_unchecked(i as u32, j as u32) != 0 {
+                        let idx = self.get_pixel_unchecked(sx as u32, sy as u32) as usize;
+                        if idx < nbins {
+                            histogram[idx] += 1.0;
+                        }
+                    }
+                    i += factor as i32;
+                }
+            }
+            j += factor as i32;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
+    }
+
+    /// Compute a histogram of colormap pixel indices within a rectangular region.
+    ///
+    /// If `region` is `None`, the full image is used (same as `cmap_histogram`).
+    /// Returns a `Numa` of size `2^d`.
+    ///
+    /// C equivalent: `pixGetCmapHistogramInRect()` in `pix4.c`
+    pub fn cmap_histogram_in_rect(&self, region: Option<&Box>, factor: u32) -> Result<Numa> {
+        if region.is_none() {
+            return self.cmap_histogram(factor);
+        }
+        if self.colormap().is_none() {
+            return Err(Error::InvalidParameter("image has no colormap".into()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+        let depth = self.depth();
+        match depth {
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
+            _ => return Err(Error::UnsupportedDepth(depth.bits())),
+        }
+
+        let nbins = 1usize << depth.bits();
+        let mut histogram = vec![0.0f32; nbins];
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let (xstart, ystart, xend, yend, _, _) = clip_box_to_rect(region, w, h)
+            .ok_or_else(|| Error::InvalidParameter("region does not intersect image".into()))?;
+
+        let mut j = ystart;
+        while j < yend {
+            let mut i = xstart;
+            while i < xend {
+                let idx = self.get_pixel_unchecked(i as u32, j as u32) as usize;
+                if idx < nbins {
+                    histogram[idx] += 1.0;
+                }
+                i += factor as i32;
+            }
+            j += factor as i32;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
+    }
+
+    /// Return the maximum colormap index value used in a colormapped image.
+    ///
+    /// Supported depths: 1, 2, 4, 8 bpp. The image must have a colormap.
+    ///
+    /// C equivalent: `pixGetMaxColorIndex()` in `pix4.c`
+    pub fn max_color_index(&self) -> Result<u32> {
+        if self.colormap().is_none() {
+            return Err(Error::InvalidParameter("image has no colormap".into()));
+        }
+        let depth = self.depth();
+        match depth {
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {}
+            _ => return Err(Error::UnsupportedDepth(depth.bits())),
+        }
+
+        if depth == PixelDepth::Bit1 {
+            // For 1bpp: max index is 1 if any ON pixels exist, else 0
+            let w = self.width();
+            let h = self.height();
+            for y in 0..h {
+                for x in 0..w {
+                    if self.get_pixel_unchecked(x, y) != 0 {
+                        return Ok(1);
+                    }
+                }
+            }
+            return Ok(0);
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let max_possible = (1u32 << depth.bits()) - 1;
+        let mut max_idx = 0u32;
+        'outer: for y in 0..h {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, y);
+                if val > max_idx {
+                    max_idx = val;
+                    if max_idx == max_possible {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        Ok(max_idx)
+    }
+
     /// Count unique RGB colors in a 32bpp image.
     ///
     /// # Arguments
@@ -1612,5 +1762,158 @@ mod tests {
         assert!((stats.mean - 0.0).abs() < 0.001);
         assert!((stats.mode - 0.0).abs() < 0.001);
         assert!((stats.variance - 0.0).abs() < 0.001);
+    }
+
+    // -- Pix::cmap_histogram_masked --
+
+    #[test]
+    fn test_cmap_histogram_masked_basic() {
+        use crate::PixColormap;
+        // 8bpp image with colormap: fill all pixels with index 2
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 0, 0, 255).unwrap();
+            cmap.add_rgba(0, 255, 0, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            for y in 0..4 {
+                for x in 0..4 {
+                    pm.set_pixel_unchecked(x, y, 2);
+                }
+            }
+            Pix::from(pm)
+        };
+        // Mask that only includes top-left 2x2
+        let mask = {
+            let m = Pix::new(2, 2, PixelDepth::Bit1).unwrap();
+            let mut mm = m.try_into_mut().unwrap();
+            for y in 0..2 {
+                for x in 0..2 {
+                    mm.set_pixel_unchecked(x, y, 1);
+                }
+            }
+            Pix::from(mm)
+        };
+        let hist = pix.cmap_histogram_masked(&mask, 0, 0, 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        assert_eq!(hist[2], 4.0); // 4 masked ON pixels, all index 2
+        assert_eq!(hist[0], 0.0);
+    }
+
+    #[test]
+    fn test_cmap_histogram_masked_no_cmap() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mask = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        assert!(pix.cmap_histogram_masked(&mask, 0, 0, 1).is_err());
+    }
+
+    // -- Pix::cmap_histogram_in_rect --
+
+    #[test]
+    fn test_cmap_histogram_in_rect_full() {
+        use crate::PixColormap;
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 0, 0, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            for y in 0..4 {
+                for x in 0..4 {
+                    pm.set_pixel_unchecked(x, y, 1);
+                }
+            }
+            Pix::from(pm)
+        };
+        // No region → full image
+        let hist = pix.cmap_histogram_in_rect(None, 1).unwrap();
+        assert_eq!(hist.len(), 256);
+        assert_eq!(hist[1], 16.0); // 4*4 pixels all index 1
+    }
+
+    #[test]
+    fn test_cmap_histogram_in_rect_subregion() {
+        use crate::PixColormap;
+        use crate::box_::Box as LepBox;
+        // 4x4 image; top-left 2x2 = index 0, rest = index 1
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 0, 0, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            for y in 0..4 {
+                for x in 0..4 {
+                    let idx = if x < 2 && y < 2 { 0 } else { 1 };
+                    pm.set_pixel_unchecked(x, y, idx);
+                }
+            }
+            Pix::from(pm)
+        };
+        // Subregion: top-left 2x2
+        let region = LepBox::new(0, 0, 2, 2).unwrap();
+        let hist = pix.cmap_histogram_in_rect(Some(&region), 1).unwrap();
+        assert_eq!(hist[0], 4.0);
+        assert_eq!(hist[1], 0.0);
+    }
+
+    // -- Pix::max_color_index --
+
+    #[test]
+    fn test_max_color_index_8bpp() {
+        use crate::PixColormap;
+        let pix = {
+            let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(8).unwrap();
+            for _ in 0..5 {
+                cmap.add_rgba(0, 0, 0, 255).unwrap();
+            }
+            pm.set_colormap(Some(cmap)).unwrap();
+            pm.set_pixel_unchecked(0, 0, 3);
+            pm.set_pixel_unchecked(1, 0, 4);
+            Pix::from(pm)
+        };
+        let max = pix.max_color_index().unwrap();
+        assert_eq!(max, 4);
+    }
+
+    #[test]
+    fn test_max_color_index_no_cmap() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        assert!(pix.max_color_index().is_err());
+    }
+
+    #[test]
+    fn test_max_color_index_1bpp() {
+        use crate::PixColormap;
+        // All OFF → max index is 0
+        let pix_all_off = {
+            let base = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(1).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 255, 255, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            Pix::from(pm)
+        };
+        assert_eq!(pix_all_off.max_color_index().unwrap(), 0);
+
+        // Any ON pixel → max index is 1
+        let pix_with_on = {
+            let base = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+            let mut pm = base.try_into_mut().unwrap();
+            let mut cmap = PixColormap::new(1).unwrap();
+            cmap.add_rgba(0, 0, 0, 255).unwrap();
+            cmap.add_rgba(255, 255, 255, 255).unwrap();
+            pm.set_colormap(Some(cmap)).unwrap();
+            pm.set_pixel_unchecked(2, 2, 1);
+            Pix::from(pm)
+        };
+        assert_eq!(pix_with_on.max_color_index().unwrap(), 1);
     }
 }
