@@ -1,6 +1,6 @@
 # leptonica-core 全関数移植計画 (Phase 10-17)
 
-Status: IN_PROGRESS (Phase 15.3 完了)
+Status: IN_PROGRESS (Phase 15.4 完了)
 
 ## Context
 
@@ -361,7 +361,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 
 修正ファイル: `crates/leptonica-core/src/pix/histogram.rs`
 
-### 15.4 クリッピング・測定 (`feat/core-pix-clip-ext`)
+### 15.4 クリッピング・測定 (`feat/core-pix-clip-ext`) ✅ IMPLEMENTED
 
 対象（pix5.c）:
 - pixClipRectangle, pixClipRectangleWithBorder, pixClipRectangles
