@@ -133,6 +133,12 @@ impl Numa {
                 continue;
             }
 
+            // Boundary guard: im is the last index, no im+1 available
+            if im + 1 >= nx {
+                nady.push(fay[im]);
+                continue;
+            }
+
             let excess = xval - fax[im];
             let denom = fax[im + 1] - fax[im];
             let fract = if denom != 0.0 { excess / denom } else { 0.0 };
