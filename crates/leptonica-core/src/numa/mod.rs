@@ -4,8 +4,10 @@
 //! signal processing, and general numeric data storage.
 
 mod histogram;
+mod interpolation;
 mod operations;
 pub mod serial;
+mod sort;
 
 pub use histogram::HistogramStats;
 pub use operations::{
