@@ -900,7 +900,7 @@ impl Pix {
                     (true, false) => 2u32,
                     (false, true) => 3u32,
                 };
-                let _ = result_mut.set_pixel(x, y, idx);
+                result_mut.set_pixel_unchecked(x, y, idx);
             }
         }
         Ok(result_mut.into())
