@@ -2017,7 +2017,7 @@ mod tests {
     // -- Numa::arith_op --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_arith_op_add() {
         let mut na1 = Numa::from_vec(vec![1.0, 2.0, 3.0]);
         let na2 = Numa::from_vec(vec![10.0, 20.0, 30.0]);
@@ -2026,7 +2026,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_arith_op_subtract() {
         let mut na1 = Numa::from_vec(vec![10.0, 20.0, 30.0]);
         let na2 = Numa::from_vec(vec![1.0, 2.0, 3.0]);
@@ -2035,7 +2035,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_arith_op_multiply() {
         let mut na1 = Numa::from_vec(vec![2.0, 3.0, 4.0]);
         let na2 = Numa::from_vec(vec![5.0, 6.0, 7.0]);
@@ -2044,7 +2044,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_arith_op_divide() {
         let mut na1 = Numa::from_vec(vec![10.0, 20.0, 30.0]);
         let na2 = Numa::from_vec(vec![2.0, 4.0, 5.0]);
@@ -2053,7 +2053,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_arith_op_divide_by_zero() {
         let mut na1 = Numa::from_vec(vec![1.0, 2.0]);
         let na2 = Numa::from_vec(vec![1.0, 0.0]);
@@ -2061,7 +2061,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_arith_op_length_mismatch() {
         let mut na1 = Numa::from_vec(vec![1.0, 2.0]);
         let na2 = Numa::from_vec(vec![1.0]);
@@ -2071,7 +2071,7 @@ mod tests {
     // -- Numa::logical_op --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_logical_op_union() {
         let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
         let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
@@ -2080,7 +2080,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_logical_op_intersection() {
         let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
         let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
@@ -2089,7 +2089,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_logical_op_subtraction() {
         let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
         let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
@@ -2098,7 +2098,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_logical_op_xor() {
         let mut na1 = Numa::from_vec(vec![0.0, 1.0, 0.0, 1.0]);
         let na2 = Numa::from_vec(vec![0.0, 0.0, 1.0, 1.0]);
@@ -2109,7 +2109,7 @@ mod tests {
     // -- Numa::invert --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_invert() {
         let mut na = Numa::from_vec(vec![0.0, 1.0, 0.0, 5.0]);
         na.invert();
@@ -2119,7 +2119,7 @@ mod tests {
     // -- Numa::add_to_element --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_to_element() {
         let mut na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
         na.add_to_element(1, 10.0).unwrap();
@@ -2127,7 +2127,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_to_element_out_of_bounds() {
         let mut na = Numa::from_vec(vec![1.0, 2.0]);
         assert!(na.add_to_element(5, 1.0).is_err());
@@ -2136,7 +2136,7 @@ mod tests {
     // -- Numa::make_delta --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_make_delta() {
         let na = Numa::from_vec(vec![1.0, 3.0, 6.0, 10.0]);
         let d = na.make_delta();
@@ -2144,7 +2144,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_make_delta_too_short() {
         let na = Numa::from_vec(vec![5.0]);
         let d = na.make_delta();
@@ -2154,7 +2154,7 @@ mod tests {
     // -- Numa::abs_val --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_abs_val() {
         let mut na = Numa::from_vec(vec![-3.0, 0.0, 2.0, -5.0]);
         na.abs_val();
@@ -2164,7 +2164,7 @@ mod tests {
     // -- Numa::add_border --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_border_basic() {
         let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
         let bordered = na.add_border(2, 1, 0.0);
@@ -2172,7 +2172,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_border_no_border() {
         let na = Numa::from_vec(vec![1.0, 2.0]);
         let result = na.add_border(0, 0, 99.0);
@@ -2182,7 +2182,7 @@ mod tests {
     // -- Numa::add_specified_border --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_specified_border_continued() {
         let na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
         let bordered = na
@@ -2196,7 +2196,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_specified_border_mirrored() {
         let na = Numa::from_vec(vec![10.0, 20.0, 30.0]);
         let bordered = na.add_specified_border(2, 2, BorderType::Mirrored).unwrap();
@@ -2208,7 +2208,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_specified_border_mirrored_too_large() {
         let na = Numa::from_vec(vec![1.0, 2.0]);
         assert!(na.add_specified_border(3, 0, BorderType::Mirrored).is_err());
@@ -2217,7 +2217,7 @@ mod tests {
     // -- Numa::remove_border --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_remove_border_basic() {
         let na = Numa::from_vec(vec![0.0, 0.0, 1.0, 2.0, 3.0, 0.0]);
         let removed = na.remove_border(2, 1).unwrap();
@@ -2225,7 +2225,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_remove_border_too_large() {
         let na = Numa::from_vec(vec![1.0, 2.0, 3.0]);
         assert!(na.remove_border(2, 2).is_err());
@@ -2234,21 +2234,21 @@ mod tests {
     // -- Numa::count_nonzero_runs --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_count_nonzero_runs_basic() {
         let na = Numa::from_vec(vec![0.0, 1.0, 2.0, 0.0, 3.0, 0.0, 4.0, 5.0]);
         assert_eq!(na.count_nonzero_runs().unwrap(), 3);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_count_nonzero_runs_all_zero() {
         let na = Numa::from_vec(vec![0.0, 0.0, 0.0]);
         assert_eq!(na.count_nonzero_runs().unwrap(), 0);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_count_nonzero_runs_empty() {
         let na = Numa::new();
         assert!(na.count_nonzero_runs().is_err());
@@ -2257,7 +2257,7 @@ mod tests {
     // -- Numaa::join_range --
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_numaa_join_range_all() {
         let mut naad = Numaa::new();
         naad.push(Numa::from_vec(vec![1.0]));
@@ -2271,7 +2271,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_numaa_join_range_partial() {
         let mut naad = Numaa::new();
         let mut naas = Numaa::new();
