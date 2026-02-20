@@ -181,22 +181,74 @@ pub fn close_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     erode_brick_dwa(&dilated, hsize, vsize)
 }
 
-/// Horizontal dilation using word-aligned operations
+/// Shift a row of words by `shift` bit positions.
+///
+/// Positive shift = left (toward higher bit numbers / lower pixel indices).
+/// Negative shift = right (toward lower bit numbers / higher pixel indices).
+/// Out-of-range words are treated as 0 (asymmetric boundary condition).
+fn shift_row(row: &[u32], wpl: usize, shift: i32, out: &mut [u32]) {
+    let abs_shift = shift.unsigned_abs() as usize;
+    let word_offset = abs_shift / 32;
+    let bit_shift = (abs_shift % 32) as u32;
+
+    for i in 0..wpl {
+        if shift > 0 {
+            // Left shift: source is further right in the row
+            let src_idx = i + word_offset;
+            let hi = if src_idx < wpl { row[src_idx] } else { 0 };
+            let lo = if src_idx + 1 < wpl {
+                row[src_idx + 1]
+            } else {
+                0
+            };
+            out[i] = if bit_shift == 0 {
+                hi
+            } else {
+                (hi << bit_shift) | (lo >> (32 - bit_shift))
+            };
+        } else if shift < 0 {
+            // Right shift: source is further left in the row
+            let hi = if i > word_offset {
+                row[i - word_offset - 1]
+            } else {
+                0
+            };
+            let lo = if i >= word_offset {
+                row[i - word_offset]
+            } else {
+                0
+            };
+            out[i] = if bit_shift == 0 {
+                lo
+            } else {
+                (lo >> bit_shift) | (hi << (32 - bit_shift))
+            };
+        } else {
+            out[i] = row[i];
+        }
+    }
+}
+
+/// Compute the mask to clear padding bits in the last word of a row.
+///
+/// For images whose width is not a multiple of 32, the last word contains
+/// padding bits (LSBs) that must remain 0 to avoid corrupting subsequent
+/// operations (e.g., close = dilate then erode).
+fn last_word_mask(width: u32) -> u32 {
+    let rem = width % 32;
+    if rem == 0 { !0 } else { !0u32 << (32 - rem) }
+}
+
+/// Horizontal dilation using word-aligned shift operations
 ///
 /// For each pixel, if ANY pixel in the horizontal neighborhood is set,
-/// the output pixel is set.
-///
-/// NOTE: The current implementation uses per-bit neighborhood scanning
-/// rather than word/shift-based operations, making it O(width*height*hsize).
-/// A future optimization could use word-aligned bit shifts to accumulate
-/// OR-ed shifted rows, reducing the complexity to O(width*height*wpl).
-#[allow(clippy::needless_range_loop)]
+/// the output pixel is set. Operates on whole 32-bit words, giving
+/// ~32x speedup over the per-bit approach.
 fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
-    let wpl = pix.wpl();
+    let wpl = pix.wpl() as usize;
 
-    // Match Sel::create_brick origin convention: origin at hsize/2
     let origin = (hsize / 2) as i32;
     let left = -origin;
     let right = hsize as i32 - 1 - origin;
@@ -207,43 +259,27 @@ fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let src_data = pix.data();
     let dst_data = out_mut.data_mut();
 
-    for y in 0..h {
-        let src_row = &src_data[(y * wpl) as usize..((y + 1) * wpl) as usize];
-        let dst_row = &mut dst_data[(y * wpl) as usize..((y + 1) * wpl) as usize];
+    let mut shifted = vec![0u32; wpl];
+    let mask = last_word_mask(w);
 
-        // Process word by word
-        for word_idx in 0..wpl as usize {
-            let mut result: u32 = 0;
+    for y in 0..h as usize {
+        let src_row = &src_data[y * wpl..(y + 1) * wpl];
+        let dst_row = &mut dst_data[y * wpl..(y + 1) * wpl];
 
-            // For each bit position in this word
-            for bit in 0..32 {
-                let x = (word_idx * 32 + bit) as i32;
-                if x >= w as i32 {
-                    break;
-                }
-
-                // Check if any pixel in the neighborhood is set
-                let mut dilated = false;
-                for dx in left..=right {
-                    let sx = x + dx;
-                    if sx >= 0 && sx < w as i32 {
-                        let src_word_idx = sx as usize / 32;
-                        let src_bit = 31 - (sx as usize % 32);
-                        if (src_row[src_word_idx] >> src_bit) & 1 == 1 {
-                            dilated = true;
-                            break;
-                        }
-                    }
-                }
-
-                if dilated {
-                    let dst_bit = 31 - bit;
-                    result |= 1 << dst_bit;
-                }
-            }
-
-            dst_row[word_idx] = result;
+        // Initialize accumulator to 0 (OR identity)
+        for dst_word in dst_row.iter_mut() {
+            *dst_word = 0;
         }
+
+        for d in left..=right {
+            shift_row(src_row, wpl, d, &mut shifted);
+            for i in 0..wpl {
+                dst_row[i] |= shifted[i];
+            }
+        }
+
+        // Clear padding bits in the last word
+        dst_row[wpl - 1] &= mask;
     }
 
     Ok(out_mut.into())
@@ -303,20 +339,16 @@ fn dilate_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
     Ok(out_mut.into())
 }
 
-/// Horizontal erosion using word-aligned operations
+/// Horizontal erosion using word-aligned shift operations
 ///
 /// For each pixel, if ALL pixels in the horizontal neighborhood are set,
-/// the output pixel is set.
-///
-/// NOTE: Same per-bit scanning limitation as `dilate_horizontal_dwa`.
-/// See that function's doc comment for optimization notes.
-#[allow(clippy::needless_range_loop)]
+/// the output pixel is set. Operates on whole 32-bit words, giving
+/// ~32x speedup over the per-bit approach.
 fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
-    let wpl = pix.wpl();
+    let wpl = pix.wpl() as usize;
 
-    // Match Sel::create_brick origin convention: origin at hsize/2
     let origin = (hsize / 2) as i32;
     let left = -origin;
     let right = hsize as i32 - 1 - origin;
@@ -327,46 +359,27 @@ fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let src_data = pix.data();
     let dst_data = out_mut.data_mut();
 
-    for y in 0..h {
-        let src_row = &src_data[(y * wpl) as usize..((y + 1) * wpl) as usize];
-        let dst_row = &mut dst_data[(y * wpl) as usize..((y + 1) * wpl) as usize];
+    let mut shifted = vec![0u32; wpl];
+    let mask = last_word_mask(w);
 
-        // Process word by word
-        for word_idx in 0..wpl as usize {
-            let mut result: u32 = 0;
+    for y in 0..h as usize {
+        let src_row = &src_data[y * wpl..(y + 1) * wpl];
+        let dst_row = &mut dst_data[y * wpl..(y + 1) * wpl];
 
-            // For each bit position in this word
-            for bit in 0..32 {
-                let x = (word_idx * 32 + bit) as i32;
-                if x >= w as i32 {
-                    break;
-                }
-
-                // Check if all pixels in the neighborhood are set
-                let mut eroded = true;
-                for dx in left..=right {
-                    let sx = x + dx;
-                    if sx < 0 || sx >= w as i32 {
-                        // Outside boundary - treat as background (0) for asymmetric b.c.
-                        eroded = false;
-                        break;
-                    }
-                    let src_word_idx = sx as usize / 32;
-                    let src_bit = 31 - (sx as usize % 32);
-                    if (src_row[src_word_idx] >> src_bit) & 1 == 0 {
-                        eroded = false;
-                        break;
-                    }
-                }
-
-                if eroded {
-                    let dst_bit = 31 - bit;
-                    result |= 1 << dst_bit;
-                }
-            }
-
-            dst_row[word_idx] = result;
+        // Initialize accumulator to all-1s (AND identity)
+        for dst_word in dst_row.iter_mut() {
+            *dst_word = !0;
         }
+
+        for d in left..=right {
+            shift_row(src_row, wpl, d, &mut shifted);
+            for i in 0..wpl {
+                dst_row[i] &= shifted[i];
+            }
+        }
+
+        // Clear padding bits in the last word
+        dst_row[wpl - 1] &= mask;
     }
 
     Ok(out_mut.into())
@@ -423,129 +436,6 @@ fn erode_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
                     dst_data[(y as u32 * wpl) as usize + word_idx] |= bit_mask;
                 }
             }
-        }
-    }
-
-    Ok(out_mut.into())
-}
-
-/// Optimized horizontal dilation for small sizes using shifts
-///
-/// For hsize <= 3, we can use efficient bit shifts.
-/// This is called internally when appropriate.
-#[allow(dead_code)]
-fn dilate_horizontal_shift(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
-    if hsize > 3 {
-        return dilate_horizontal_dwa(pix, hsize);
-    }
-
-    let w = pix.width();
-    let h = pix.height();
-    let wpl = pix.wpl();
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    let src_data = pix.data();
-    let dst_data = out_mut.data_mut();
-
-    for y in 0..h {
-        let row_start = (y * wpl) as usize;
-
-        for word_idx in 0..wpl as usize {
-            let current = src_data[row_start + word_idx];
-
-            // Get adjacent words for cross-word shifting
-            let prev_word = if word_idx > 0 {
-                src_data[row_start + word_idx - 1]
-            } else {
-                0
-            };
-            let next_word = if word_idx + 1 < wpl as usize {
-                src_data[row_start + word_idx + 1]
-            } else {
-                0
-            };
-
-            let mut result = current;
-
-            // For hsize >= 2, OR with left shift
-            if hsize >= 2 {
-                // Shift left by 1: bring in MSB from next word
-                let shifted_left = (current << 1) | (next_word >> 31);
-                result |= shifted_left;
-            }
-
-            // For hsize >= 3, OR with right shift
-            if hsize >= 3 {
-                // Shift right by 1: bring in LSB from prev word
-                let shifted_right = (current >> 1) | (prev_word << 31);
-                result |= shifted_right;
-            }
-
-            dst_data[row_start + word_idx] = result;
-        }
-    }
-
-    Ok(out_mut.into())
-}
-
-/// Optimized horizontal erosion for small sizes using shifts
-///
-/// For hsize <= 3, we can use efficient bit shifts.
-/// This is called internally when appropriate.
-#[allow(dead_code)]
-fn erode_horizontal_shift(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
-    if hsize > 3 {
-        return erode_horizontal_dwa(pix, hsize);
-    }
-
-    let w = pix.width();
-    let h = pix.height();
-    let wpl = pix.wpl();
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    let src_data = pix.data();
-    let dst_data = out_mut.data_mut();
-
-    for y in 0..h {
-        let row_start = (y * wpl) as usize;
-
-        for word_idx in 0..wpl as usize {
-            let current = src_data[row_start + word_idx];
-
-            // Get adjacent words for cross-word shifting
-            // For erosion, outside boundary is 0 (asymmetric b.c.)
-            let prev_word = if word_idx > 0 {
-                src_data[row_start + word_idx - 1]
-            } else {
-                0
-            };
-            let next_word = if word_idx + 1 < wpl as usize {
-                src_data[row_start + word_idx + 1]
-            } else {
-                0
-            };
-
-            let mut result = current;
-
-            // For hsize >= 2, AND with left shift
-            if hsize >= 2 {
-                // Shift left by 1: bring in MSB from next word
-                let shifted_left = (current << 1) | (next_word >> 31);
-                result &= shifted_left;
-            }
-
-            // For hsize >= 3, AND with right shift
-            if hsize >= 3 {
-                // Shift right by 1: bring in LSB from prev word
-                let shifted_right = (current >> 1) | (prev_word << 31);
-                result &= shifted_right;
-            }
-
-            dst_data[row_start + word_idx] = result;
         }
     }
 
@@ -792,49 +682,5 @@ mod tests {
         // 4x4 object eroded by 7x7 should be very small or empty
         // (since the object is smaller than the SE)
         assert!(count_foreground_pixels(&eroded) < count_foreground_pixels(&pix));
-    }
-
-    #[test]
-    fn test_shift_optimization_dilate() {
-        let pix = create_test_image();
-
-        // Test the shift-based optimization for small sizes
-        let dwa_result = dilate_horizontal_dwa(&pix, 3).unwrap();
-        let shift_result = dilate_horizontal_shift(&pix, 3).unwrap();
-
-        // Results should be identical
-        for y in 0..pix.height() {
-            for x in 0..pix.width() {
-                let dwa_val = dwa_result.get_pixel_unchecked(x, y);
-                let shift_val = shift_result.get_pixel_unchecked(x, y);
-                assert_eq!(
-                    dwa_val, shift_val,
-                    "Shift optimization mismatch at ({}, {})",
-                    x, y
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_shift_optimization_erode() {
-        let pix = create_test_image();
-
-        // Test the shift-based optimization for small sizes
-        let dwa_result = erode_horizontal_dwa(&pix, 3).unwrap();
-        let shift_result = erode_horizontal_shift(&pix, 3).unwrap();
-
-        // Results should be identical
-        for y in 0..pix.height() {
-            for x in 0..pix.width() {
-                let dwa_val = dwa_result.get_pixel_unchecked(x, y);
-                let shift_val = shift_result.get_pixel_unchecked(x, y);
-                assert_eq!(
-                    dwa_val, shift_val,
-                    "Shift optimization mismatch at ({}, {})",
-                    x, y
-                );
-            }
-        }
     }
 }
