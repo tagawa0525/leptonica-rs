@@ -1,9 +1,14 @@
 # leptonica-rs 未実装関数の段階的実装計画
 
+Status: IN_PROGRESS (Phase 1-4 大部分実装済み、残り20関数)
+
 ## Context
 
-C版leptonicaの1,863関数に対してRust版は387関数（20.8%）を実装済み。残り1,476関数を段階的に実装する。
+C版leptonicaの1,863関数に対してRust版の実装を段階的に進める計画。
 依存関係・インパクト・実現可能性の順で優先度を決定し、クレートごとにサブエージェント、ファイルごとにサブサブエージェントで並列管理する。
+
+Phase 1-4 の大部分は 1000_core-full-porting.md (Phase 10-17) および個別の計画書で実装済み。
+本計画書に残る未実装関数は約20個。
 
 ## エージェント構成
 
@@ -75,269 +80,182 @@ cargo test -p <crate>
 
 他クレートが依存する変換・操作関数。全ての後続Phaseの前提条件。
 
-#### 1.1 RGB→Gray変換 (`feat/core-pixconv-rgb2gray`)
+#### 1.1 RGB→Gray変換 — ✅ 全6関数実装済み
 
-対象C関数（`pixconv.c`）:
-| 関数 | 内容 |
+実装場所: `crates/leptonica-core/src/pix/convert.rs:336-555`
+
+#### 1.2 RGBコンポーネント操作 — ⚠️ 3/5実装済み、残り2関数
+
+実装場所: `crates/leptonica-core/src/pix/rgb.rs`
+
+| 関数 | 状態 |
 |------|------|
-| `pixConvertRGBToLuminance` | 標準重み付き輝度変換 |
-| `pixConvertRGBToGray` | カスタム重み付きRGB→Gray |
-| `pixConvertRGBToGrayFast` | Greenチャンネル抽出（最速） |
-| `pixConvertRGBToGrayMinMax` | RGB min/max チャンネル |
-| `pixConvertRGBToGraySatBoost` | 彩度ブースト変換 |
-| `pixConvertRGBToGrayGeneral` | 上記のディスパッチャー |
+| `pixGetRGBComponent` | ✅ `get_rgb_component` (rgb.rs:37) |
+| `pixSetRGBComponent` | ✅ `set_rgb_component` (rgb.rs:443) |
+| `pixCreateRGBImage` | ✅ `create_rgb_image` (rgb.rs:71) |
+| `pixGetRGBPixel` | ❌ 未実装 |
+| `pixSetRGBPixel` | ❌ 未実装 |
 
-修正ファイル: `crates/leptonica-core/src/pix/convert.rs`（既存拡張）
+#### 1.3 カラーマップ除去 — ⚠️ 3/4実装済み、残り1関数
 
-#### 1.2 RGBコンポーネント操作 (`feat/core-pix-rgb`)
+実装場所: `crates/leptonica-core/src/pix/convert.rs:560-778`
 
-対象C関数（`pix2.c`）:
-| 関数 | 内容 |
+| 関数 | 状態 |
 |------|------|
-| `pixGetRGBComponent` | R/G/B/Aチャンネルを8bppとして抽出 |
-| `pixSetRGBComponent` | 8bppからチャンネル設定 |
-| `pixCreateRGBImage` | 3枚の8bppから32bpp合成 |
-| `pixGetRGBPixel` | 単一ピクセルのR,G,B取得 |
-| `pixSetRGBPixel` | 単一ピクセルのR,G,B設定 |
+| `pixRemoveColormap` | ✅ `remove_colormap` (convert.rs:560) |
+| `pixRemoveColormapGeneral` | ❌ 未実装（`remove_colormap` の `RemoveColormapTarget` でカバー可能か要検討） |
+| `pixAddGrayColormap8` | ✅ `add_gray_colormap_8` (convert.rs:700) |
+| `pixAddMinimalGrayColormap8` | ✅ `add_minimal_gray_colormap_8` (convert.rs:725) |
 
-新規ファイル: `crates/leptonica-core/src/pix/rgb.rs`
+#### 1.4 深度変換（トップレベル） — ⚠️ 7/10実装済み、残り3関数
 
-#### 1.3 カラーマップ除去 (`feat/core-pixconv-cmap`)
+実装場所: `crates/leptonica-core/src/pix/convert.rs`
 
-対象C関数（`pixconv.c`）:
-| 関数 | 内容 |
+| 関数 | 状態 |
 |------|------|
-| `pixRemoveColormap` | カラーマップ展開（自動深度選択） |
-| `pixRemoveColormapGeneral` | ターゲット深度指定版 |
-| `pixAddGrayColormap8` | 8bppにグレーカラーマップ追加 |
-| `pixAddMinimalGrayColormap8` | 最小グレーカラーマップ追加 |
+| `pixConvertTo1` | ❌ 未実装（二値化/閾値処理が必要） |
+| `pixConvertTo1Adaptive` | ❌ 未実装（適応的閾値が必要） |
+| `pixConvertTo16` | ✅ `convert_to_16` (convert.rs:779) |
+| `pixConvert8To32` | ✅ `convert_8_to_32` (convert.rs:810) |
+| `pixConvert8To16` | ✅ `convert_8_to_16` (convert.rs:854) |
+| `pixConvert16To8` | ✅ `convert_16_to_8` (convert.rs:897) |
+| `pixConvert32To8` | ❌ 未実装 |
+| `pixConvertTo8Or32` | ✅ `convert_to_8_or_32` (convert.rs:956) |
+| `pixConvertLossless` | ✅ `convert_lossless` (convert.rs:984) |
+| `pixRemoveAlpha` | ✅ `remove_alpha` (convert.rs:1041) |
 
-修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+#### 1.5 バイナリ展開 — ⚠️ 基本版6/6実装済み、Cmap版3関数未実装
 
-#### 1.4 深度変換（トップレベル） (`feat/core-pixconv-depth`)
+実装場所: `crates/leptonica-core/src/pix/convert.rs:1084-1202`
 
-対象C関数（`pixconv.c`）:
-| 関数 | 内容 |
+| 関数 | 状態 |
 |------|------|
-| `pixConvertTo1` | 任意深度→1bpp（閾値指定） |
-| `pixConvertTo1Adaptive` | 適応的閾値版 |
-| `pixConvertTo16` | 任意深度→16bpp |
-| `pixConvert8To32` | 8bpp→32bpp |
-| `pixConvert8To16` | 8bpp→16bpp |
-| `pixConvert16To8` | 16bpp→8bpp |
-| `pixConvert32To8` | 32bpp→8bpp |
-| `pixConvertTo8Or32` | 入力に基づき8or32選択 |
-| `pixConvertLossless` | ロスレス深度拡大 |
-| `pixRemoveAlpha` | アルファを白背景でブレンド |
+| `pixUnpackBinary` | ✅ `unpack_binary` (convert.rs:1084) |
+| `pixConvert1To2` | ✅ (convert.rs:1155) |
+| `pixConvert1To4` | ✅ (convert.rs:1167) |
+| `pixConvert1To8` | ✅ (convert.rs:1179) |
+| `pixConvert1To16` | ✅ (convert.rs:1190) |
+| `pixConvert1To32` | ✅ (convert.rs:1201) |
+| `pixConvert1To2Cmap` | ❌ 未実装 |
+| `pixConvert1To4Cmap` | ❌ 未実装 |
+| `pixConvert1To8Cmap` | ❌ 未実装 |
 
-修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+#### 1.6 ボーダー操作 — ⚠️ 7/8実装済み、残り1関数
 
-#### 1.5 バイナリ展開 (`feat/core-pixconv-unpack`)
+実装場所: `crates/leptonica-core/src/pix/border.rs`
 
-対象C関数（`pixconv.c`）:
-| 関数 | 内容 |
+| 関数 | 状態 |
 |------|------|
-| `pixUnpackBinary` | 1bpp→2/4/8/16/32bpp |
-| `pixConvert1To2/4/8` | 値マッピング付き展開 |
-| `pixConvert1To2/4/8Cmap` | カラーマップ付き展開 |
-| `pixConvert1To16/32` | 高深度への展開 |
+| `pixAddBorder` | ✅ `add_border` (border.rs:45) |
+| `pixAddBorderGeneral` | ✅ `add_border_general` (border.rs:86) |
+| `pixRemoveBorder` | ✅ `remove_border` (border.rs:156) |
+| `pixRemoveBorderGeneral` | ✅ `remove_border_general` (border.rs:196) |
+| `pixAddBlackOrWhiteBorder` | ❌ 未実装 |
+| `pixSetBorderVal` | ✅ `set_border_val` (border.rs:389) |
+| `pixAddMirroredBorder` | ✅ `add_mirrored_border` (border.rs:251) |
+| `pixAddRepeatedBorder` | ✅ `add_repeated_border` (border.rs:318) |
 
-修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+#### 1.7 マスク操作 — ✅ 全5関数実装済み
 
-#### 1.6 ボーダー操作 (`feat/core-pix-border`)
+実装場所: `crates/leptonica-core/src/pix/mask.rs:26-207`
 
-対象C関数（`pix2.c`）:
-| 関数 | 内容 |
-|------|------|
-| `pixAddBorder` | 均一ボーダー追加 |
-| `pixAddBorderGeneral` | 上下左右個別指定 |
-| `pixRemoveBorder` | ボーダー除去 |
-| `pixRemoveBorderGeneral` | 個別指定除去 |
-| `pixAddBlackOrWhiteBorder` | 白黒ボーダー |
-| `pixSetBorderVal` | ボーダー値設定 |
-| `pixAddMirroredBorder` | ミラーボーダー（畳み込み用） |
-| `pixAddRepeatedBorder` | リピートボーダー |
+#### 1.8 ピクセルカウント・行列統計 — ✅ 全6関数実装済み
 
-修正ファイル: `crates/leptonica-core/src/pix/border.rs`（既存拡張）
-
-#### 1.7 マスク操作 (`feat/core-pix-mask`)
-
-対象C関数（`pix3.c`）:
-| 関数 | 内容 |
-|------|------|
-| `pixSetMasked` | マスクONの位置に値設定 |
-| `pixCombineMasked` | マスクを通じて2画像合成 |
-| `pixPaintThroughMask` | マスクを通じてペイント |
-| `pixMakeMaskFromVal` | 特定値からマスク生成 |
-| `pixMakeMaskFromLUT` | LUTからマスク生成 |
-
-新規ファイル: `crates/leptonica-core/src/pix/mask.rs`
-
-#### 1.8 ピクセルカウント・行列統計 (`feat/core-pix-counting`)
-
-対象C関数（`pix3.c`）:
-| 関数 | 内容 |
-|------|------|
-| `pixCountPixelsInRect` | 矩形領域内のONピクセル数 |
-| `pixCountByRow` | 行ごとのONピクセル数 |
-| `pixCountByColumn` | 列ごとのONピクセル数 |
-| `pixZero` | 全ピクセルがゼロか判定 |
-| `pixForegroundFraction` | ONピクセルの割合 |
-| `pixThresholdPixelSum` | ピクセル数が閾値超か判定 |
-
-修正ファイル: `crates/leptonica-core/src/pix/statistics.rs`（既存拡張）
+実装場所: `crates/leptonica-core/src/pix/statistics.rs:189-346`
 
 ---
 
-### Phase 2: leptonica-filter enhance.c（画像強調）
+### Phase 2: leptonica-filter enhance.c — ⚠️ 19/21実装済み、残り2関数
 
 Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
-#### 2.1 TRC基盤 (`feat/filter-enhance-trc`)
+#### 2.1 TRC基盤 — ✅ 全5関数実装済み
 
-| 関数 | 内容 |
+実装場所: `crates/leptonica-filter/src/enhance.rs:37-274`
+
+#### 2.2 ガンマ・コントラスト・均等化 — ✅ 全6関数実装済み
+
+実装場所: `crates/leptonica-filter/src/enhance.rs:345-457`
+
+#### 2.3 HSV修正 — ✅ 全4関数実装済み
+
+実装場所: `crates/leptonica-filter/src/enhance.rs:499-645`
+
+#### 2.4 カラーシフト・行列変換 — ⚠️ 4/6実装済み、残り2関数
+
+実装場所: `crates/leptonica-filter/src/enhance.rs:696-860`
+
+| 関数 | 状態 |
 |------|------|
-| `numaGammaTRC` | ガンマLUT生成（256エントリ） |
-| `numaContrastTRC` | コントラストLUT生成 |
-| `numaEqualizeTRC` | ヒストグラム均等化LUT生成 |
-| `pixTRCMap` | LUT適用（8bpp/32bpp） |
-| `pixTRCMapGeneral` | R,G,B個別LUT適用 |
-
-新規ファイル: `crates/leptonica-filter/src/enhance.rs`
-
-#### 2.2 ガンマ・コントラスト・均等化 (`feat/filter-enhance-gamma`)
-
-| 関数 | 内容 |
-|------|------|
-| `pixGammaTRC` | ガンマTRC適用 |
-| `pixGammaTRCMasked` | マスク付きガンマ |
-| `pixGammaTRCWithAlpha` | アルファ保持ガンマ |
-| `pixContrastTRC` | コントラストTRC |
-| `pixContrastTRCMasked` | マスク付きコントラスト |
-| `pixEqualizeTRC` | ヒストグラム均等化 |
-
-修正ファイル: `crates/leptonica-filter/src/enhance.rs`
-
-#### 2.3 HSV修正 (`feat/filter-enhance-hsv`)
-
-| 関数 | 内容 |
-|------|------|
-| `pixModifyHue` | 色相シフト |
-| `pixModifySaturation` | 彩度スケーリング |
-| `pixModifyBrightness` | 明度スケーリング |
-| `pixMeasureSaturation` | 平均彩度測定 |
-
-修正ファイル: `crates/leptonica-filter/src/enhance.rs`
-
-#### 2.4 カラーシフト・行列変換 (`feat/filter-enhance-colorops`)
-
-| 関数 | 内容 |
-|------|------|
-| `pixColorShiftRGB` | RGB定数加算 |
-| `pixMosaicColorShiftRGB` | タイル別カラーシフト |
-| `pixDarkenGray` | 低彩度ピクセル暗色化 |
-| `pixMultConstantColor` | チャンネル別定数乗算 |
-| `pixMultMatrixColor` | 3x3色行列変換 |
-| `pixHalfEdgeByBandpass` | バンドパスエッジ検出 |
-
-修正ファイル: `crates/leptonica-filter/src/enhance.rs`
+| `pixColorShiftRGB` | ✅ `color_shift_rgb` (enhance.rs:696) |
+| `pixMosaicColorShiftRGB` | ❌ 未実装（タイル別カラーシフト） |
+| `pixDarkenGray` | ✅ `darken_gray` (enhance.rs:760) |
+| `pixMultConstantColor` | ✅ `mult_constant_color` (enhance.rs:817) |
+| `pixMultMatrixColor` | ✅ `mult_matrix_color` (enhance.rs:860) |
+| `pixHalfEdgeByBandpass` | ❌ 未実装（バンドパスエッジ検出） |
 
 ---
 
-### Phase 3: leptonica-filter convolve.c（高速畳み込み）
+### Phase 3: leptonica-filter convolve.c — ⚠️ 19/24実装済み、残り5関数
 
-#### 3.1 ブロック畳み込み (`feat/filter-convolve-block`)
+#### 3.1 ブロック畳み込み — ⚠️ 4/6実装済み、残り2関数
 
-| 関数 | 内容 |
+実装場所: `crates/leptonica-filter/src/block_conv.rs`
+
+| 関数 | 状態 |
 |------|------|
-| `pixBlockconvAccum` | 積分画像（アキュムレータ）生成 |
-| `pixBlockconvGray` | 積分画像によるGray畳み込み |
-| `pixBlockconv` | Gray/Color自動ディスパッチ |
-| `pixBlockconvGrayUnnormalized` | 正規化なし版 |
-| `pixBlockconvTiled` | タイル化大画像対応 |
-| `pixBlockconvGrayTile` | Grayタイル化版 |
+| `pixBlockconvAccum` | ✅ `blockconv_accum` (block_conv.rs:36) |
+| `pixBlockconvGray` | ✅ `blockconv_gray` (block_conv.rs:91) |
+| `pixBlockconv` | ✅ `blockconv` (block_conv.rs:179) |
+| `pixBlockconvGrayUnnormalized` | ✅ `blockconv_gray_unnormalized` (block_conv.rs:215) |
+| `pixBlockconvTiled` | ❌ 未実装（タイル化大画像対応） |
+| `pixBlockconvGrayTile` | ❌ 未実装（Grayタイル化版） |
 
-新規ファイル: `crates/leptonica-filter/src/block_conv.rs`
+#### 3.2 ウィンドウ統計 — ✅ 全5関数実装済み
 
-#### 3.2 ウィンドウ統計 (`feat/filter-convolve-windowed`)
+実装場所: `crates/leptonica-filter/src/windowed.rs:122-326`
 
-| 関数 | 内容 |
+#### 3.3 分離可能畳み込み — ✅ 全2関数実装済み
+
+実装場所: `crates/leptonica-filter/src/convolve.rs:158-195`
+
+#### 3.4 アンシャープマスク拡張 — ⚠️ 3/5実装済み、残り2関数
+
+実装場所: `crates/leptonica-filter/src/edge.rs`
+
+| 関数 | 状態 |
 |------|------|
-| `pixWindowedMean` | 局所平均（積分画像利用） |
-| `pixWindowedMeanSquare` | 局所平均二乗 |
-| `pixWindowedVariance` | 局所分散 |
-| `pixWindowedStats` | 全統計量一括計算 |
-| `pixMeanSquareAccum` | 平均二乗アキュムレータ |
+| `pixUnsharpMasking` | ✅ `unsharp_mask` (edge.rs:143) |
+| `pixUnsharpMaskingFast` | ✅ `unsharp_masking_fast` (edge.rs:183) |
+| `pixUnsharpMaskingGrayFast` | ✅ `unsharp_masking_gray_fast` (edge.rs:224) |
+| `pixUnsharpMaskingGray1D` | ❌ 未実装 |
+| `pixUnsharpMaskingGray2D` | ❌ 未実装 |
 
-新規ファイル: `crates/leptonica-filter/src/windowed.rs`
+#### 3.5 その他 — ⚠️ 4/5実装済み、残り1関数
 
-#### 3.3 分離可能畳み込み (`feat/filter-convolve-sep`)
+実装場所: `crates/leptonica-filter/src/convolve.rs`
 
-| 関数 | 内容 |
+| 関数 | 状態 |
 |------|------|
-| `pixConvolveSep` | 分離可能2D畳み込み |
-| `pixConvolveRGBSep` | RGB分離可能畳み込み |
-
-修正ファイル: `crates/leptonica-filter/src/convolve.rs`
-
-#### 3.4 アンシャープマスク拡張 (`feat/filter-enhance-unsharp`)
-
-Phase 3.1のブロック畳み込みに依存。
-
-| 関数 | 内容 |
-|------|------|
-| `pixUnsharpMasking` | カラー対応ラッパー |
-| `pixUnsharpMaskingFast` | ブロック畳み込み高速版 |
-| `pixUnsharpMaskingGrayFast` | Gray高速版 |
-| `pixUnsharpMaskingGray1D` | 1D版 |
-| `pixUnsharpMaskingGray2D` | 2D版 |
-
-修正ファイル: `crates/leptonica-filter/src/edge.rs`（既存拡張）
-
-#### 3.5 その他 (`feat/filter-convolve-misc`)
-
-| 関数 | 内容 |
-|------|------|
-| `pixCensusTransform` | ローカルバイナリパターン |
-| `pixAddGaussianNoise` | ガウシアンノイズ追加 |
-| `pixConvolveWithBias` | バイアス付き畳み込み |
-| `pixBlockrank` | バイナリブロックランク |
-| `pixBlocksum` | バイナリブロック和 |
-
-修正ファイル: `crates/leptonica-filter/src/convolve.rs`
+| `pixCensusTransform` | ✅ `census_transform` (convolve.rs:252) |
+| `pixAddGaussianNoise` | ✅ `add_gaussian_noise` (convolve.rs:300) |
+| `pixConvolveWithBias` | ❌ 未実装（バイアス付き畳み込み） |
+| `pixBlockrank` | ✅ `blockrank` (convolve.rs:522) |
+| `pixBlocksum` | ✅ `blocksum` (convolve.rs:422) |
 
 ---
 
-### Phase 4: leptonica-core 統計・Numa拡張
+### Phase 4: leptonica-core 統計・Numa拡張 — ✅ 全関数実装済み
 
-#### 4.1 ヒストグラム拡張 (`feat/core-stats-histogram`)
+詳細計画: `docs/plans/400_core-numa-stats.md` (IMPLEMENTED)
 
-| 関数 | 内容 |
-|------|------|
-| `pixGetGrayHistogramMasked` | マスク内ヒストグラム |
-| `pixGetGrayHistogramInRect` | 矩形内ヒストグラム |
-| `pixGetColorHistogramMasked` | マスク内カラーヒストグラム |
-| `pixGetRankValue` | ランク順値取得 |
-| `pixGetExtremeValue` | 最小/最大値 |
-| `pixGetMaxValueInRect` | 矩形内最大値 |
-| `pixGetRangeValues` | 値範囲 |
+#### 4.1 ヒストグラム拡張 — ✅ 全7関数実装済み
 
-修正ファイル: `crates/leptonica-core/src/pix/histogram.rs`, `statistics.rs`
+実装場所: `crates/leptonica-core/src/pix/histogram.rs`, `statistics.rs`
 
-#### 4.2 Numa高度操作 (`feat/core-numa-ops`)
+#### 4.2 Numa高度操作 — ✅ 全8関数実装済み
 
-| 関数 | 内容 |
-|------|------|
-| `numaSort` | ソート |
-| `numaGetMedian` | 中央値 |
-| `numaGetMode` | 最頻値 |
-| `numaGetRankValue` | ランク値 |
-| `numaReverse` | 反転 |
-| `numaMakeSequence` | 数列生成 |
-| `numaMakeConstant` | 定数配列生成 |
-| `numaJoin` | 結合 |
-
-修正ファイル: `crates/leptonica-core/src/numa/operations.rs`
+実装場所: `crates/leptonica-core/src/numa/operations.rs`
 
 ---
 
@@ -353,13 +271,31 @@ Phase 1-4完了後に計画策定:
 
 ## 対象関数数サマリー
 
-| Phase | ブランチ数 | 関数数 | 累計 |
-|-------|-----------|--------|------|
-| 1 (core基盤) | 8 | 53 | 53 |
-| 2 (filter enhance) | 4 | 21 | 74 |
-| 3 (filter convolve) | 5 | 24 | 98 |
-| 4 (core統計/Numa) | 2 | 15 | 113 |
-| **合計 (Phase 1-4)** | **19** | **113** | **113** |
+| Phase | 総関数数 | 実装済み | 未実装 | 進捗率 |
+|-------|---------|---------|--------|--------|
+| 1 (core基盤) | 53 | 43 | 10 | 81% |
+| 2 (filter enhance) | 21 | 19 | 2 | 90% |
+| 3 (filter convolve) | 24 | 19 | 5 | 79% |
+| 4 (core統計/Numa) | 15 | 15 | 0 | 100% |
+| **合計 (Phase 1-4)** | **113** | **96** | **17** | **85%** |
+
+### 残り未実装関数一覧
+
+**Phase 1 (10個)**:
+- `pixGetRGBPixel`, `pixSetRGBPixel` (1.2)
+- `pixRemoveColormapGeneral` (1.3)
+- `pixConvertTo1`, `pixConvertTo1Adaptive`, `pixConvert32To8` (1.4)
+- `pixConvert1To2Cmap`, `pixConvert1To4Cmap`, `pixConvert1To8Cmap` (1.5)
+- `pixAddBlackOrWhiteBorder` (1.6)
+
+**Phase 2 (2個)**:
+- `pixMosaicColorShiftRGB` (2.4)
+- `pixHalfEdgeByBandpass` (2.4)
+
+**Phase 3 (5個)**:
+- `pixBlockconvTiled`, `pixBlockconvGrayTile` (3.1)
+- `pixUnsharpMaskingGray1D`, `pixUnsharpMaskingGray2D` (3.4)
+- `pixConvolveWithBias` (3.5)
 
 ## 検証方法
 

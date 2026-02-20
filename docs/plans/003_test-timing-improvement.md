@@ -1,6 +1,6 @@
 # 003: テスト実行時間の改善
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## 背景
 

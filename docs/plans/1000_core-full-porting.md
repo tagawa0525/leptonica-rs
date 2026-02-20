@@ -1,6 +1,6 @@
 # leptonica-core 全関数移植計画 (Phase 10-17)
 
-Status: IN_PROGRESS (Phase 17.3 完了)
+Status: IMPLEMENTED (Phase 10-17 全完了)
 
 ## Context
 
