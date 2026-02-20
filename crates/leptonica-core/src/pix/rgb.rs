@@ -337,8 +337,21 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixGetRGBPixel()` in `pix2.c`
-    pub fn get_rgb_pixel(&self, _x: u32, _y: u32) -> Result<(u8, u8, u8)> {
-        todo!()
+    pub fn get_rgb_pixel(&self, x: u32, y: u32) -> Result<(u8, u8, u8)> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if x >= self.width() || y >= self.height() {
+            return Err(Error::InvalidParameter(format!(
+                "get_rgb_pixel: ({}, {}) out of bounds for {}x{}",
+                x,
+                y,
+                self.width(),
+                self.height()
+            )));
+        }
+        let pixel = self.get_pixel_unchecked(x, y);
+        Ok(color::extract_rgb(pixel))
     }
 }
 
@@ -449,15 +462,22 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetRGBPixel()` in `pix2.c`
-    pub fn set_rgb_pixel(
-        &mut self,
-        _x: u32,
-        _y: u32,
-        _rval: u8,
-        _gval: u8,
-        _bval: u8,
-    ) -> Result<()> {
-        todo!()
+    pub fn set_rgb_pixel(&mut self, x: u32, y: u32, rval: u8, gval: u8, bval: u8) -> Result<()> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if x >= self.width() || y >= self.height() {
+            return Err(Error::InvalidParameter(format!(
+                "set_rgb_pixel: ({}, {}) out of bounds for {}x{}",
+                x,
+                y,
+                self.width(),
+                self.height()
+            )));
+        }
+        let pixel = color::compose_rgb(rval, gval, bval);
+        self.set_pixel_unchecked(x, y, pixel);
+        Ok(())
     }
 
     /// Set a single color component from an 8 bpp source image.
@@ -917,7 +937,7 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_get_rgb_pixel() {
         let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -937,14 +957,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_get_rgb_pixel_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.get_rgb_pixel(0, 0).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_get_rgb_pixel_out_of_bounds() {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         assert!(pix.get_rgb_pixel(5, 0).is_err());
@@ -952,7 +972,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_set_rgb_pixel() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -969,7 +989,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_set_rgb_pixel_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -977,7 +997,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_set_rgb_pixel_out_of_bounds() {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();

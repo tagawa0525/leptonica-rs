@@ -377,13 +377,14 @@ impl Pix {
     /// C Leptonica: `pixAddBlackOrWhiteBorder()` in `pix2.c`
     pub fn add_black_or_white_border(
         &self,
-        _left: u32,
-        _right: u32,
-        _top: u32,
-        _bot: u32,
-        _color: super::InitColor,
+        left: u32,
+        right: u32,
+        top: u32,
+        bot: u32,
+        color: super::InitColor,
     ) -> Result<Pix> {
-        todo!()
+        let val = super::PixMut::get_black_or_white_val(self, color);
+        self.add_border_general(left, right, top, bot, val)
     }
 }
 
@@ -758,7 +759,7 @@ mod tests {
     // ================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_black_or_white_border_white_8bpp() {
         use super::super::InitColor;
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -772,7 +773,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_black_or_white_border_black_8bpp() {
         use super::super::InitColor;
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -786,7 +787,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_add_black_or_white_border_1bpp() {
         use super::super::InitColor;
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
