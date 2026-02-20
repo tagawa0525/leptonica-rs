@@ -609,9 +609,9 @@ mod tests {
         let r = p.copy_range(1, Some(2)).unwrap();
         assert_eq!(r.len(), 2);
         // copy_range uses integer rounding: (1,1),(2,2)
-        let (x, y) = r.get(0).unwrap();
+        let (x, _y) = r.get(0).unwrap();
         assert_eq!(x as i32, 1);
-        let (x2, y2) = r.get(1).unwrap();
+        let (x2, _y2) = r.get(1).unwrap();
         assert_eq!(x2 as i32, 2);
     }
 

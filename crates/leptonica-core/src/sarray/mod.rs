@@ -679,13 +679,11 @@ impl Sarray {
         let n = naindex.len();
         let mut out = Sarray::with_capacity(n);
         for i in 0..n {
-            if let Some(idx) = naindex.get_i32(i) {
-                if idx >= 0 {
-                    if let Some(s) = self.data.get(idx as usize) {
-                        out.data.push(s.clone());
-                    }
-                }
-                // Negative or out-of-bounds indices are silently skipped.
+            if let Some(idx) = naindex.get_i32(i)
+                && idx >= 0
+                && let Some(s) = self.data.get(idx as usize)
+            {
+                out.data.push(s.clone());
             }
         }
         out

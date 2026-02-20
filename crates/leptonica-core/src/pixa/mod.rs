@@ -1082,7 +1082,7 @@ impl Pixa {
         // Tile into columns
         let n = scaled_pix.len();
         let ncols = ncols as usize;
-        let nrows = (n + ncols - 1) / ncols;
+        let nrows = n.div_ceil(ncols);
 
         // Compute row heights
         let mut row_heights: Vec<u32> = Vec::with_capacity(nrows);
@@ -1118,7 +1118,7 @@ impl Pixa {
 
         // Blit tiles
         let mut cy = spacing as i32;
-        for row in 0..nrows {
+        for (row, &rh) in row_heights.iter().enumerate().take(nrows) {
             let mut cx = spacing as i32;
             for col in 0..ncols {
                 let idx = row * ncols + col;
@@ -1127,7 +1127,7 @@ impl Pixa {
                 }
                 cx += tile_width as i32 + spacing as i32;
             }
-            cy += row_heights[row] as i32 + spacing as i32;
+            cy += rh as i32 + spacing as i32;
         }
 
         Ok(dst.into())

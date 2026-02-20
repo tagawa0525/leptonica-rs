@@ -105,7 +105,7 @@ fn test_extend_by_replication_colormap_preserved() {
     // Set pixel values (colormap indices)
     for y in 0..3 {
         for x in 0..3 {
-            pix_mut.set_pixel_unchecked(x, y, (x % 2) as u32);
+            pix_mut.set_pixel_unchecked(x, y, x % 2);
         }
     }
 

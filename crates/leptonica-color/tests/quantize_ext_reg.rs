@@ -217,7 +217,7 @@ fn test_quant_from_cmap_gray() {
     let pix = Pix::new(100, 1, PixelDepth::Bit8).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
     for x in 0..100u32 {
-        pm.set_pixel_unchecked(x, 0, (x * 255 / 99) as u32);
+        pm.set_pixel_unchecked(x, 0, x * 255 / 99);
     }
     let pix: Pix = pm.into();
     let mut cmap = PixColormap::new(8).unwrap();

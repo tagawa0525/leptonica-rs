@@ -630,7 +630,7 @@ mod tests {
         let cmap = PixColormap::gray_to_false_color(2.0);
         assert_eq!(cmap.len(), 256);
         // Middle region (around 128) should be green-ish
-        let (r, g, b) = cmap.get_rgb(128).unwrap();
+        let (_r, g, _b) = cmap.get_rgb(128).unwrap();
         assert_eq!(g, 255);
     }
 
@@ -1002,8 +1002,8 @@ mod tests {
     #[test]
     fn test_build_gamma_trc_identity() {
         let lut = build_gamma_trc(1.0, 0, 255);
-        for i in 0..256 {
-            assert_eq!(lut[i], i as u8);
+        for (i, &val) in lut.iter().enumerate() {
+            assert_eq!(val, i as u8);
         }
     }
 
@@ -1032,8 +1032,8 @@ mod tests {
     #[test]
     fn test_build_contrast_trc_zero() {
         let lut = build_contrast_trc(0.0);
-        for i in 0..256 {
-            assert_eq!(lut[i], i as u8);
+        for (i, &val) in lut.iter().enumerate() {
+            assert_eq!(val, i as u8);
         }
     }
 

@@ -1120,8 +1120,7 @@ impl Pix {
         let mindiff = mindiff.min(255) as usize;
         let mut count_diff = 0f32;
         let mut sum_diff = 0f32;
-        for i in mindiff..256 {
-            let count = hist[i];
+        for (i, &count) in hist.iter().enumerate().take(256).skip(mindiff) {
             count_diff += count;
             sum_diff += count * (i as f32 - mindiff as f32);
         }
@@ -1165,9 +1164,9 @@ impl Pix {
             return Ok(rank);
         }
         let mut cumsum = 1.0f32;
-        for i in 0..256 {
+        for &h in hist.iter().take(256) {
             rank.push(cumsum);
-            cumsum -= hist[i] / total;
+            cumsum -= h / total;
             if cumsum < 0.0 {
                 cumsum = 0.0;
             }

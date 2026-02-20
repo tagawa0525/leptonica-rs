@@ -76,10 +76,7 @@ fn test_distance_function_filled_rect() {
     .unwrap();
     // Center (5,5) should have distance ~6 (distance to nearest edge)
     let center_val = dist.get_pixel_unchecked(5, 5);
-    assert!(
-        center_val >= 5 && center_val <= 6,
-        "center_val = {center_val}"
-    );
+    assert!((5..=6).contains(&center_val), "center_val = {center_val}");
     // Edge pixel should have distance 1
     assert_eq!(dist.get_pixel_unchecked(0, 5), 1);
 }

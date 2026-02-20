@@ -326,7 +326,7 @@ fn test_most_populated_colors_basic() {
 fn test_most_populated_colors_uniform() {
     let pix = make_uniform_rgb(100, 150, 200, 20, 20);
     let colors = most_populated_colors(&pix, 5, 1, 5).unwrap();
-    assert!(colors.len() >= 1);
+    assert!(!colors.is_empty());
     // The single color should dominate
     let (r, g, b, count) = colors[0];
     // With sigbits=5, quantized values: 100>>3<<3 = 96, 150>>3<<3 = 148 (approx)

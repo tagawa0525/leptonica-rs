@@ -16,7 +16,7 @@ fn make_gradient_image() -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..30 {
         for x in 0..40 {
-            let val = ((x * 6) as u32).min(255);
+            let val = (x * 6).min(255);
             pm.set_pixel_unchecked(x, y, val);
         }
     }
@@ -103,7 +103,7 @@ fn test_abs_diff_by_column_vertical_gradient() {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..40 {
         for x in 0..20 {
-            pm.set_pixel_unchecked(x, y, ((y * 6) as u32).min(255));
+            pm.set_pixel_unchecked(x, y, (y * 6).min(255));
         }
     }
     let pix: Pix = pm.into();

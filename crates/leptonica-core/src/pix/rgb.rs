@@ -850,13 +850,12 @@ mod tests {
     }
 
     #[test]
-
     fn test_get_raster_data_8bpp() {
         let pix = Pix::new(3, 2, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..2u32 {
             for x in 0..3u32 {
-                pm.set_pixel(x, y, (y * 3 + x) as u32).unwrap();
+                pm.set_pixel(x, y, y * 3 + x).unwrap();
             }
         }
         let pix: Pix = pm.into();
@@ -869,7 +868,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_get_raster_data_32bpp() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -884,7 +882,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_set_cmap_pixel() {
         use crate::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();

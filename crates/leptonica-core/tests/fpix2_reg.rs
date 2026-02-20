@@ -75,8 +75,8 @@ fn test_dpix_invalid_dimensions() {
 #[test]
 fn test_dpix_pixel_access() {
     let mut dpix = DPix::new(10, 10).unwrap();
-    dpix.set_pixel(5, 5, 3.14159).unwrap();
-    assert!((dpix.get_pixel(5, 5).unwrap() - 3.14159).abs() < 1e-10);
+    dpix.set_pixel(5, 5, std::f64::consts::PI).unwrap();
+    assert!((dpix.get_pixel(5, 5).unwrap() - std::f64::consts::PI).abs() < 1e-10);
 
     // Out of bounds
     assert!(dpix.get_pixel(10, 0).is_err());

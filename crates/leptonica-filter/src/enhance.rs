@@ -916,8 +916,8 @@ mod tests {
     fn test_gamma_trc_identity() {
         // gamma=1.0, minval=0, maxval=255 should be identity
         let lut = gamma_trc(1.0, 0, 255).unwrap();
-        for i in 0..256 {
-            assert_eq!(lut[i], i as u8, "identity mismatch at {}", i);
+        for (i, &val) in lut.iter().enumerate() {
+            assert_eq!(val, i as u8, "identity mismatch at {}", i);
         }
     }
 
@@ -965,8 +965,8 @@ mod tests {
     fn test_contrast_trc_zero_factor() {
         // factor=0 should be identity
         let lut = contrast_trc(0.0).unwrap();
-        for i in 0..256 {
-            assert_eq!(lut[i], i as u8, "identity mismatch at {}", i);
+        for (i, &val) in lut.iter().enumerate() {
+            assert_eq!(val, i as u8, "identity mismatch at {}", i);
         }
     }
 
@@ -1013,8 +1013,8 @@ mod tests {
         // fract=0: identity mapping
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let lut = equalize_trc(&pix, 0.0, 1).unwrap();
-        for i in 0..256 {
-            assert_eq!(lut[i], i as u8, "identity mismatch at {}", i);
+        for (i, &val) in lut.iter().enumerate() {
+            assert_eq!(val, i as u8, "identity mismatch at {}", i);
         }
     }
 

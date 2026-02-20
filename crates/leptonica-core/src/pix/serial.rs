@@ -367,7 +367,7 @@ mod tests {
         let mut pix_mut = PixMut::new(100, 50, PixelDepth::Bit8).unwrap();
         for y in 0..50u32 {
             for x in 0..100u32 {
-                let val = ((x + y * 100) % 256) as u32;
+                let val = (x + y * 100) % 256;
                 let wpl = pix_mut.wpl();
                 let word_idx = (y * wpl + x / 4) as usize;
                 let byte_pos = 3 - (x % 4) as usize;
