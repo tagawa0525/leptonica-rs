@@ -2,9 +2,17 @@
 //!
 //! Arrays of floating-point coordinate pairs.
 
+pub mod lsf;
 pub mod serial;
+pub mod sort;
+pub mod transform;
+
+pub use lsf::{apply_cubic_fit, apply_linear_fit, apply_quadratic_fit, apply_quartic_fit};
+pub use sort::SortBy;
+pub use transform::{SelectCoord, SelectRelation};
 
 use crate::error::{Error, Result};
+use crate::numa::Numa;
 
 /// Array of points
 #[derive(Debug, Clone, Default)]
@@ -220,6 +228,79 @@ impl Pta {
         }
     }
 
+    /// Create a Pta from a Numa (y values), using Numa's x-parameters for x.
+    /// If `nax` is `Some`, use those x values instead.
+    ///
+    /// C equivalent: `ptaCreateFromNuma()` in `ptabasic.c`
+    pub fn create_from_numa(nax: Option<&Numa>, nay: &Numa) -> Self {
+        let n = nay.len();
+        let (startx, delx) = nay.parameters();
+        let mut pta = Self::with_capacity(n);
+        for i in 0..n {
+            let xval = if let Some(na) = nax {
+                na.get(i).unwrap_or(startx + i as f32 * delx)
+            } else {
+                startx + i as f32 * delx
+            };
+            let yval = nay.get(i).unwrap();
+            pta.push(xval, yval);
+        }
+        pta
+    }
+
+    /// Return a new Pta containing points `[istart, iend]` (integer coordinates).
+    ///
+    /// `iend = None` means "to the end".
+    ///
+    /// C equivalent: `ptaCopyRange()` in `ptabasic.c`
+    pub fn copy_range(&self, istart: usize, iend: Option<usize>) -> Result<Pta> {
+        let n = self.len();
+        if istart >= n {
+            return Err(Error::IndexOutOfBounds {
+                index: istart,
+                len: n,
+            });
+        }
+        let iend = match iend {
+            Some(e) if e < n => e,
+            _ => n - 1,
+        };
+        if istart > iend {
+            return Err(Error::InvalidParameter("istart > iend; no pts".to_string()));
+        }
+        let mut ptad = Pta::with_capacity(iend - istart + 1);
+        for i in istart..=iend {
+            let (x, y) = self
+                .get_i_pt(i)
+                .map(|(ix, iy)| (ix as f32, iy as f32))
+                .unwrap();
+            ptad.push(x, y);
+        }
+        Ok(ptad)
+    }
+
+    /// Get a point as rounded integer coordinates `(x, y)`.
+    ///
+    /// C equivalent: `ptaGetIPt()` in `ptabasic.c`
+    pub fn get_i_pt(&self, index: usize) -> Option<(i32, i32)> {
+        if index < self.x.len() {
+            Some(((self.x[index] + 0.5) as i32, (self.y[index] + 0.5) as i32))
+        } else {
+            None
+        }
+    }
+
+    /// Get cloned (x_vec, y_vec) arrays.
+    ///
+    /// C equivalent: `ptaGetArrays()` in `ptabasic.c`
+    pub fn get_arrays(&self) -> Option<(Vec<f32>, Vec<f32>)> {
+        if self.x.is_empty() {
+            None
+        } else {
+            Some((self.x.clone(), self.y.clone()))
+        }
+    }
+
     /// Create an iterator over points
     pub fn iter(&self) -> PtaIter<'_> {
         PtaIter {
@@ -366,6 +447,55 @@ impl Ptaa {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Pta> {
         self.ptas.iter_mut()
     }
+
+    /// Replace all entries with clones of `pta` up to the current length.
+    ///
+    /// C equivalent: `ptaaInitFull()` in `ptabasic.c`
+    pub fn init_full(&mut self, pta: &Pta) {
+        for slot in &mut self.ptas {
+            *slot = pta.clone();
+        }
+    }
+
+    /// Replace the Pta at `index` with a new one.
+    ///
+    /// C equivalent: `ptaaReplacePta()` in `ptabasic.c`
+    pub fn replace(&mut self, index: usize, pta: Pta) -> Result<()> {
+        let n = self.ptas.len();
+        if index >= n {
+            return Err(Error::IndexOutOfBounds { index, len: n });
+        }
+        self.ptas[index] = pta;
+        Ok(())
+    }
+
+    /// Add a point `(x, y)` to the Pta at `ipta`.
+    ///
+    /// C equivalent: `ptaaAddPt()` in `ptabasic.c`
+    pub fn add_pt(&mut self, ipta: usize, x: f32, y: f32) -> Result<()> {
+        let n = self.ptas.len();
+        if ipta >= n {
+            return Err(Error::IndexOutOfBounds {
+                index: ipta,
+                len: n,
+            });
+        }
+        self.ptas[ipta].push(x, y);
+        Ok(())
+    }
+
+    /// Remove trailing empty Pta arrays, resetting the count.
+    ///
+    /// C equivalent: `ptaaTruncate()` in `ptabasic.c`
+    pub fn truncate(&mut self) {
+        while let Some(last) = self.ptas.last() {
+            if last.is_empty() {
+                self.ptas.pop();
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -445,6 +575,111 @@ mod tests {
 
         let points: Vec<_> = pta.iter().collect();
         assert_eq!(points, vec![(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)]);
+    }
+
+    #[test]
+    fn test_create_from_numa_with_nax() {
+        use crate::numa::Numa;
+        let nax = Numa::from_slice(&[10.0, 20.0, 30.0]);
+        let nay = Numa::from_slice(&[1.0, 2.0, 3.0]);
+        let p = Pta::create_from_numa(Some(&nax), &nay);
+        assert_eq!(p.len(), 3);
+        assert_eq!(p.get(0), Some((10.0, 1.0)));
+        assert_eq!(p.get(2), Some((30.0, 3.0)));
+    }
+
+    #[test]
+    fn test_create_from_numa_no_nax() {
+        use crate::numa::Numa;
+        // nay has startx=0, delx=1
+        let nay = Numa::from_slice(&[5.0, 10.0, 15.0]);
+        let p = Pta::create_from_numa(None, &nay);
+        assert_eq!(p.len(), 3);
+        assert_eq!(p.get(0), Some((0.0, 5.0)));
+        assert_eq!(p.get(2), Some((2.0, 15.0)));
+    }
+
+    #[test]
+    fn test_copy_range() {
+        let mut p = Pta::new();
+        p.push(0.0, 0.0);
+        p.push(1.0, 1.0);
+        p.push(2.0, 2.0);
+        p.push(3.0, 3.0);
+        let r = p.copy_range(1, Some(2)).unwrap();
+        assert_eq!(r.len(), 2);
+        // copy_range uses integer rounding: (1,1),(2,2)
+        let (x, y) = r.get(0).unwrap();
+        assert_eq!(x as i32, 1);
+        let (x2, y2) = r.get(1).unwrap();
+        assert_eq!(x2 as i32, 2);
+    }
+
+    #[test]
+    fn test_get_i_pt() {
+        let mut p = Pta::new();
+        p.push(1.6, 2.4);
+        assert_eq!(p.get_i_pt(0), Some((2, 2))); // round to nearest
+        assert_eq!(p.get_i_pt(1), None);
+    }
+
+    #[test]
+    fn test_get_arrays() {
+        let mut p = Pta::new();
+        p.push(1.0, 4.0);
+        p.push(2.0, 5.0);
+        let (xs, ys) = p.get_arrays().unwrap();
+        assert_eq!(xs, vec![1.0, 2.0]);
+        assert_eq!(ys, vec![4.0, 5.0]);
+        assert!(Pta::new().get_arrays().is_none());
+    }
+
+    #[test]
+    fn test_ptaa_init_full() {
+        let mut ptaa = Ptaa::with_capacity(3);
+        // fill with empty Pta to reach capacity
+        ptaa.push(Pta::new());
+        ptaa.push(Pta::new());
+        ptaa.push(Pta::new());
+        let mut template = Pta::new();
+        template.push(1.0, 2.0);
+        ptaa.init_full(&template);
+        assert_eq!(ptaa.len(), 3);
+        for pta in ptaa.iter() {
+            assert_eq!(pta.len(), 1);
+            assert_eq!(pta.get(0), Some((1.0, 2.0)));
+        }
+    }
+
+    #[test]
+    fn test_ptaa_replace() {
+        let mut ptaa = Ptaa::new();
+        ptaa.push(Pta::new());
+        ptaa.push(Pta::new());
+        let mut new_pta = Pta::new();
+        new_pta.push(9.0, 9.0);
+        ptaa.replace(1, new_pta).unwrap();
+        assert_eq!(ptaa.get(1).unwrap().get(0), Some((9.0, 9.0)));
+    }
+
+    #[test]
+    fn test_ptaa_add_pt() {
+        let mut ptaa = Ptaa::new();
+        ptaa.push(Pta::new());
+        ptaa.add_pt(0, 5.0, 6.0).unwrap();
+        assert_eq!(ptaa.get(0).unwrap().get(0), Some((5.0, 6.0)));
+    }
+
+    #[test]
+    fn test_ptaa_truncate() {
+        let mut ptaa = Ptaa::new();
+        let mut p = Pta::new();
+        p.push(1.0, 1.0);
+        ptaa.push(p);
+        ptaa.push(Pta::new()); // empty
+        ptaa.push(Pta::new()); // empty
+        ptaa.truncate();
+        assert_eq!(ptaa.len(), 1);
     }
 
     #[test]
