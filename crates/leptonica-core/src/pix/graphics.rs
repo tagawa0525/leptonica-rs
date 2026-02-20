@@ -8,9 +8,9 @@
 //! - Contours (for grayscale images)
 
 use super::{PixMut, PixelDepth};
-use crate::box_::Box;
+use crate::box_::{Box, Boxa};
 use crate::error::{Error, Result};
-use crate::pta::Pta;
+use crate::pta::{Pta, Ptaa};
 
 /// Pixel operation for rendering
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -343,9 +343,6 @@ pub fn generate_circle_outline_pta(cx: i32, cy: i32, radius: u32, width: u32) ->
 // =============================================================================
 // Phase 17.1: Additional PTA/PTAA generation functions
 // =============================================================================
-
-use crate::box_::Boxa;
-use crate::pta::Ptaa;
 
 /// Orientation for hash-pattern line rendering.
 ///
