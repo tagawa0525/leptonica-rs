@@ -11,7 +11,8 @@
 //! These correspond to Leptonica's blend.c functions including
 //! pixBlendColor, pixBlendGray, pixBlendMask, and pixBlendHardLight.
 
-use super::{Pix, PixelDepth};
+use super::graphics::Color;
+use super::{Pix, PixMut, PixelDepth};
 use crate::color;
 use crate::error::{Error, Result};
 
@@ -38,6 +39,37 @@ pub enum GrayBlendType {
     /// Gray with inverse: blend toward inverse based on gray value
     /// d -> d + f * (0.5 - d) * (1 - c)
     GrayWithInverse,
+}
+
+/// Fade type for [`Pix::fade_with_gray`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FadeWithGrayType {
+    /// Fade pixels toward white based on the gray blender value
+    ToWhite,
+    /// Fade pixels toward black based on the gray blender value
+    ToBlack,
+}
+
+/// Direction from which fading originates in [`PixMut::linear_edge_fade`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FadeDirection {
+    /// Fade from the left edge inward
+    FromLeft,
+    /// Fade from the right edge inward
+    FromRight,
+    /// Fade from the top edge inward
+    FromTop,
+    /// Fade from the bottom edge inward
+    FromBottom,
+}
+
+/// Target photometry for edge fading in [`PixMut::linear_edge_fade`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FadeTarget {
+    /// Fade edges toward white
+    ToWhite,
+    /// Fade edges toward black
+    ToBlack,
 }
 
 /// Blend mode for standard blend operations
@@ -563,6 +595,101 @@ impl Pix {
 
         Ok(result_mut.into())
     }
+
+    /// Blend using the inverse of the blender pixel values.
+    ///
+    /// Corresponds to `pixBlendGrayInverse()` in Leptonica's `blend.c`.
+    pub fn blend_gray_inverse(&self, _other: &Pix, _x: i32, _y: i32, _fract: f32) -> Result<Pix> {
+        todo!("pixBlendGrayInverse not yet implemented")
+    }
+
+    /// Blend with separate per-channel blending fractions.
+    ///
+    /// Corresponds to `pixBlendColorByChannel()` in Leptonica's `blend.c`.
+    pub fn blend_color_by_channel(
+        &self,
+        _other: &Pix,
+        _x: i32,
+        _y: i32,
+        _rfract: f32,
+        _gfract: f32,
+        _bfract: f32,
+        _transparent: bool,
+        _transpix: Color,
+    ) -> Result<Pix> {
+        todo!("pixBlendColorByChannel not yet implemented")
+    }
+
+    /// Adaptive gray blend that adjusts based on local pixel values.
+    ///
+    /// Corresponds to `pixBlendGrayAdapt()` in Leptonica's `blend.c`.
+    pub fn blend_gray_adapt(
+        &self,
+        _other: &Pix,
+        _x: i32,
+        _y: i32,
+        _fract: f32,
+        _shift: i32,
+    ) -> Result<Pix> {
+        todo!("pixBlendGrayAdapt not yet implemented")
+    }
+
+    /// Fade a color or grayscale image using a grayscale blender image.
+    ///
+    /// Corresponds to `pixFadeWithGray()` in Leptonica's `blend.c`.
+    pub fn fade_with_gray(
+        &self,
+        _blender: &Pix,
+        _factor: f32,
+        _fade_type: FadeWithGrayType,
+    ) -> Result<Pix> {
+        todo!("pixFadeWithGray not yet implemented")
+    }
+
+    /// Multiply each pixel by a color factor (component-wise).
+    ///
+    /// Corresponds to `pixMultiplyByColor()` in Leptonica's `blend.c`.
+    pub fn multiply_by_color(&self, _color: Color) -> Result<Pix> {
+        todo!("pixMultiplyByColor not yet implemented")
+    }
+
+    /// Alpha-blend a 32bpp RGBA image against a uniform background color.
+    ///
+    /// Corresponds to `pixAlphaBlendUniform()` in Leptonica's `blend.c`.
+    pub fn alpha_blend_uniform(&self, _color: u32) -> Result<Pix> {
+        todo!("pixAlphaBlendUniform not yet implemented")
+    }
+
+    /// Generate an alpha channel for the image based on gray values.
+    ///
+    /// Corresponds to `pixAddAlphaToBlend()` in Leptonica's `blend.c`.
+    pub fn add_alpha_to_blend(&self, _fract: f32, _invert: bool) -> Result<Pix> {
+        todo!("pixAddAlphaToBlend not yet implemented")
+    }
+}
+
+impl PixMut {
+    /// Blend a colormapped source image onto this colormapped image in-place.
+    ///
+    /// Only pixels in the source with index > `sindex` are blended.
+    ///
+    /// Corresponds to `pixBlendCmap()` in Leptonica's `blend.c`.
+    pub fn blend_cmap(&mut self, _other: &Pix, _x: i32, _y: i32, _sindex: usize) -> Result<()> {
+        todo!("pixBlendCmap not yet implemented")
+    }
+
+    /// Apply a linear fade from one edge of the image inward.
+    ///
+    /// Corresponds to `pixLinearEdgeFade()` in Leptonica's `blend.c`.
+    pub fn linear_edge_fade(
+        &mut self,
+        _dir: FadeDirection,
+        _fadeto: FadeTarget,
+        _distfract: f32,
+        _maxfade: f32,
+    ) -> Result<()> {
+        todo!("pixLinearEdgeFade not yet implemented")
+    }
 }
 
 /// Hard light component calculation
@@ -1000,5 +1127,174 @@ mod tests {
         // This is close to base=100, which is the expected "no effect" behavior
         let val = result.get_pixel(0, 0).unwrap();
         assert!((98..=102).contains(&val)); // Close to original
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_blend_gray_inverse_basic() {
+        let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut bm = base.to_mut();
+        for y in 0..10 {
+            for x in 0..10 {
+                bm.set_pixel(x, y, 128).unwrap();
+            }
+        }
+        let base: Pix = bm.into();
+        let blender = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = base.blend_gray_inverse(&blender, 0, 0, 0.5).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_blend_color_by_channel_basic() {
+        use super::super::graphics::Color;
+        let base = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let blend = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let result = base
+            .blend_color_by_channel(
+                &blend,
+                0,
+                0,
+                0.5,
+                0.5,
+                0.5,
+                false,
+                Color { r: 0, g: 0, b: 0 },
+            )
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_blend_gray_adapt_basic() {
+        let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut bm = base.to_mut();
+        for y in 0..10 {
+            for x in 0..10 {
+                bm.set_pixel(x, y, 128).unwrap();
+            }
+        }
+        let base: Pix = bm.into();
+        let blender = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = base.blend_gray_adapt(&blender, 0, 0, 0.5, -1).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_fade_with_gray_to_white() {
+        let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut bm = base.to_mut();
+        for y in 0..10 {
+            for x in 0..10 {
+                bm.set_pixel(x, y, 100).unwrap();
+            }
+        }
+        let base: Pix = bm.into();
+        let gray = {
+            let g = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+            let mut gm = g.to_mut();
+            for y in 0..10 {
+                for x in 0..10 {
+                    gm.set_pixel(x, y, 255).unwrap();
+                }
+            }
+            let g: Pix = gm.into();
+            g
+        };
+        let result = base
+            .fade_with_gray(&gray, 255.0, FadeWithGrayType::ToWhite)
+            .unwrap();
+        // Fully white blender with factor=255 → pixel becomes 255
+        let val = result.get_pixel(0, 0).unwrap();
+        assert_eq!(val, 255);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_multiply_by_color_basic() {
+        use super::super::graphics::Color;
+        use crate::color::compose_rgb;
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        for y in 0..4 {
+            for x in 0..4 {
+                pm.set_pixel(x, y, compose_rgb(255, 255, 255)).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+        // white * red(255,0,0) → red
+        let result = pix.multiply_by_color(Color { r: 255, g: 0, b: 0 }).unwrap();
+        let pixel = result.get_pixel(0, 0).unwrap();
+        assert_eq!(crate::color::red(pixel), 255);
+        assert_eq!(crate::color::green(pixel), 0);
+        assert_eq!(crate::color::blue(pixel), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_alpha_blend_uniform_basic() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_spp(4);
+        for y in 0..4 {
+            for x in 0..4 {
+                pm.set_pixel(x, y, crate::color::compose_rgba(100, 100, 100, 128))
+                    .unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+        let result = pix
+            .alpha_blend_uniform(crate::color::compose_rgb(255, 255, 255))
+            .unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_add_alpha_to_blend_basic() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = pix.add_alpha_to_blend(0.5, false).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_blend_cmap_basic() {
+        use crate::colormap::PixColormap;
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_rgb(255, 255, 255).unwrap(); // index 0 = white
+        cmap.add_rgb(255, 0, 0).unwrap(); // index 1 = red
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        pm.set_colormap(Some(cmap)).unwrap();
+        // All pixels are 0 (white); blend a small red image at origin
+        let mut cmap2 = PixColormap::new(8).unwrap();
+        cmap2.add_rgb(255, 0, 0).unwrap();
+        let pix2 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pm2 = pix2.to_mut();
+        pm2.set_colormap(Some(cmap2)).unwrap();
+        let pix2: Pix = pm2.into();
+        pm.blend_cmap(&pix2, 0, 0, 0).unwrap();
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_linear_edge_fade_8bpp() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        for y in 0..20 {
+            for x in 0..20 {
+                pm.set_pixel(x, y, 200).unwrap();
+            }
+        }
+        pm.linear_edge_fade(FadeDirection::FromLeft, FadeTarget::ToBlack, 0.5, 1.0)
+            .unwrap();
+        // Left edge pixels should be darker
+        let left = pm.get_pixel(0, 10).unwrap();
+        let mid = pm.get_pixel(10, 10).unwrap();
+        assert!(left < mid);
     }
 }

@@ -11,9 +11,11 @@
 //! pixEqual, pixSubtract, pixAbsDifference, pixGetRMSDiff, and
 //! pixCorrelationBinary.
 
+use super::graphics::Color;
 use super::{Pix, PixelDepth};
 use crate::color;
 use crate::error::{Error, Result};
+use crate::numa::Numa;
 
 /// Type of comparison for difference operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +87,31 @@ impl Default for CompareResult {
             n_diff: 0,
         }
     }
+}
+
+/// Result of a gray or RGB image comparison.
+///
+/// Corresponds to the output arguments of `pixCompareGray()` /
+/// `pixCompareRGB()` / `pixCompareGrayOrRGB()` in `compare.c`.
+#[derive(Debug, Clone)]
+pub struct PixCompareResult {
+    /// Whether pixel values are identical
+    pub same: bool,
+    /// Average pixel difference (mean absolute value)
+    pub diff: f32,
+    /// Root-mean-square pixel difference
+    pub rms_diff: f32,
+    /// Difference image (same size as the overlap region)
+    pub pix_diff: Option<Pix>,
+}
+
+/// Statistics returned by [`Pix::get_difference_stats`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DifferenceStats {
+    /// Fraction of sampled pixels whose difference is >= `mindiff`
+    pub fract_diff: f32,
+    /// Average difference of those pixels, minus `mindiff`
+    pub ave_diff: f32,
 }
 
 impl Pix {
@@ -757,6 +784,103 @@ impl Pix {
 
         Ok((rms, mean_abs, max_diff, diff_count))
     }
+
+    /// Check if two images (with or without colormaps) are equal.
+    ///
+    /// Corresponds to `pixEqualWithCmap()` in Leptonica's `compare.c`.
+    pub fn equals_with_cmap(&self, _other: &Pix) -> bool {
+        todo!("pixEqualWithCmap not yet implemented")
+    }
+
+    /// Create a 32bpp color-coded display showing differences between two 8bpp images.
+    ///
+    /// Pixels differing by more than `mindiff` are tinted with `diffcolor`.
+    ///
+    /// Corresponds to `pixDisplayDiff()` in Leptonica's `compare.c`.
+    pub fn display_diff(&self, _other: &Pix, _mindiff: u32, _diffcolor: Color) -> Result<Pix> {
+        todo!("pixDisplayDiff not yet implemented")
+    }
+
+    /// Create a 4bpp color-coded display showing differences between two binary images.
+    ///
+    /// Corresponds to `pixDisplayDiffBinary()` in Leptonica's `compare.c`.
+    pub fn display_diff_binary(&self, _other: &Pix) -> Result<Pix> {
+        todo!("pixDisplayDiffBinary not yet implemented")
+    }
+
+    /// Compare two grayscale images and return statistics.
+    ///
+    /// Corresponds to `pixCompareGray()` in Leptonica's `compare.c`.
+    pub fn compare_gray(&self, _other: &Pix, _comp: CompareType) -> Result<PixCompareResult> {
+        todo!("pixCompareGray not yet implemented")
+    }
+
+    /// Compare two RGB images and return statistics.
+    ///
+    /// Corresponds to `pixCompareRGB()` in Leptonica's `compare.c`.
+    pub fn compare_rgb(&self, _other: &Pix, _comp: CompareType) -> Result<PixCompareResult> {
+        todo!("pixCompareRGB not yet implemented")
+    }
+
+    /// Compare two grayscale or RGB images and return statistics.
+    ///
+    /// Dispatches to `compare_gray` or `compare_rgb` based on image depth.
+    ///
+    /// Corresponds to `pixCompareGrayOrRGB()` in Leptonica's `compare.c`.
+    pub fn compare_gray_or_rgb(
+        &self,
+        _other: &Pix,
+        _comp: CompareType,
+    ) -> Result<PixCompareResult> {
+        todo!("pixCompareGrayOrRGB not yet implemented")
+    }
+
+    /// Build a 256-bin histogram of pixel absolute differences between two 8bpp images.
+    ///
+    /// Corresponds to `pixGetDifferenceHistogram()` in Leptonica's `compare.c`.
+    pub fn get_difference_histogram(&self, _other: &Pix, _factor: u32) -> Result<Numa> {
+        todo!("pixGetDifferenceHistogram not yet implemented")
+    }
+
+    /// Get the fraction and average of differences exceeding `mindiff`.
+    ///
+    /// Corresponds to `pixGetDifferenceStats()` in Leptonica's `compare.c`.
+    pub fn get_difference_stats(
+        &self,
+        _other: &Pix,
+        _factor: u32,
+        _mindiff: u32,
+    ) -> Result<DifferenceStats> {
+        todo!("pixGetDifferenceStats not yet implemented")
+    }
+
+    /// Build a rank-normalized cumulative difference histogram.
+    ///
+    /// Corresponds to `pixCompareRankDifference()` in Leptonica's `compare.c`.
+    pub fn compare_rank_difference(&self, _other: &Pix, _factor: u32) -> Result<Numa> {
+        todo!("pixCompareRankDifference not yet implemented")
+    }
+
+    /// Test if two images are sufficiently similar given fractional and average thresholds.
+    ///
+    /// Corresponds to `pixTestForSimilarity()` in Leptonica's `compare.c`.
+    pub fn test_for_similarity(
+        &self,
+        _other: &Pix,
+        _factor: u32,
+        _mindiff: u32,
+        _maxfract: f32,
+        _maxave: f32,
+    ) -> Result<bool> {
+        todo!("pixTestForSimilarity not yet implemented")
+    }
+
+    /// Compute peak signal-to-noise ratio (PSNR) between two images.
+    ///
+    /// Corresponds to `pixGetPSNR()` in Leptonica's `compare.c`.
+    pub fn get_psnr(&self, _other: &Pix, _factor: u32) -> Result<f32> {
+        todo!("pixGetPSNR not yet implemented")
+    }
 }
 
 /// Compute binary correlation between two 1-bit images.
@@ -1261,5 +1385,144 @@ mod tests {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let pix2 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(pix1.count_pixel_diffs(&pix2).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_equals_with_cmap() {
+        use crate::colormap::PixColormap;
+        let cmap = PixColormap::new(8).unwrap();
+        let pix1 = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = pix1.to_mut();
+        pm.set_colormap(Some(cmap)).unwrap();
+        let pix1: Pix = pm.into();
+        let pix2 = pix1.deep_clone();
+        assert!(pix1.equals_with_cmap(&pix2));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_diff() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        use crate::pix::graphics::Color;
+        let pixd = pix1
+            .display_diff(&pix2, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!(pixd.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_diff_binary() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let pix2 = pix1.deep_clone();
+        let pixd = pix1.display_diff_binary(&pix2).unwrap();
+        assert_eq!(pixd.depth(), PixelDepth::Bit4);
+        assert!(pixd.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_compare_gray_identical() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        let res = pix1.compare_gray(&pix2, CompareType::AbsDiff).unwrap();
+        assert!(res.same);
+        assert_eq!(res.diff, 0.0);
+        assert_eq!(res.rms_diff, 0.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_compare_rgb_identical() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+        let pix2 = pix1.deep_clone();
+        let res = pix1.compare_rgb(&pix2, CompareType::AbsDiff).unwrap();
+        assert!(res.same);
+        assert_eq!(res.diff, 0.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_compare_gray_or_rgb_gray() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        let res = pix1
+            .compare_gray_or_rgb(&pix2, CompareType::AbsDiff)
+            .unwrap();
+        assert!(res.same);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_difference_histogram() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        let na = pix1.get_difference_histogram(&pix2, 1).unwrap();
+        assert_eq!(na.len(), 256);
+        // All differences are 0 for identical images
+        assert_eq!(na.get(0).unwrap(), 100.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_difference_stats_identical() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        let stats = pix1.get_difference_stats(&pix2, 1, 1).unwrap();
+        assert_eq!(stats.fract_diff, 0.0);
+        assert_eq!(stats.ave_diff, 0.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_compare_rank_difference() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        let na = pix1.compare_rank_difference(&pix2, 1).unwrap();
+        assert_eq!(na.len(), 256);
+        // All identical → rank = 1.0 at index 0, then decreasing
+        assert!((na.get(0).unwrap() - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_test_for_similarity_identical() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        let similar = pix1.test_for_similarity(&pix2, 1, 1, 1.0, 256.0).unwrap();
+        assert!(similar);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_psnr_identical() {
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = pix1.deep_clone();
+        let psnr = pix1.get_psnr(&pix2, 1).unwrap();
+        assert!(psnr > 100.0); // Should return 1000.0 for identical
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_psnr_different() {
+        let pix1 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix1.to_mut();
+        for y in 0..4 {
+            for x in 0..4 {
+                pm.set_pixel(x, y, 100).unwrap();
+            }
+        }
+        let pix1: Pix = pm.into();
+        let mut pm2 = pix1.deep_clone().to_mut();
+        for y in 0..4 {
+            for x in 0..4 {
+                pm2.set_pixel(x, y, 110).unwrap();
+            }
+        }
+        let pix2: Pix = pm2.into();
+        let psnr = pix1.get_psnr(&pix2, 1).unwrap();
+        assert!(psnr > 0.0 && psnr < 100.0);
     }
 }
