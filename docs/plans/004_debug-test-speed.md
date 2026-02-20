@@ -166,3 +166,33 @@ time cargo test --workspace --release
 # クリッピーチェック
 cargo clippy --workspace
 ```
+
+## 実装結果
+
+PR: #115
+
+### 実装時の追加修正
+
+ワードシフト版dilationで、画像幅が32の倍数でない場合にパディングビット（最終ワードの
+画像幅を超えるビット）が設定される問題を発見。close操作（dilate→erode）で後続の
+erosionがこのパディングビットを読み取り、結果が不正になっていた。
+`last_word_mask()` を追加し、各行末のパディングビットをクリアすることで解決。
+
+### 改善前後の比較（上位テスト、0.1秒以上）
+
+全体: debug 259秒 → 9.7秒、release 14秒 → 6.5秒
+
+| テスト | 改善前 debug | 改善後 debug | 改善後 release | debug/release比 |
+|--------|------------:|------------:|--------------:|----------------:|
+| binmorph5_reg | 81.77s | 7.09s | 6.03s | 1.2x |
+| bilateral1_reg_exact | 64.97s | 5.85s | 2.72s | 2.2x |
+| bilateral2_reg (gray) | 35.15s | 2.98s | 1.42s | 2.1x |
+| bilateral2_reg (color) | — | 1.39s | 0.70s | 2.0x |
+| skew_reg | 7.41s | 0.93s | 0.64s | 1.4x |
+| gifio_reg | — | 0.88s | 0.61s | 1.5x |
+| binmorph4_reg | 8.50s | 0.74s | 0.58s | 1.3x |
+| dwamorph2_reg (vertical) | — | 0.71s | 0.64s | 1.1x |
+| convolve_reg | — | 0.19s | 0.08s | 2.4x |
+
+- debug/release比は最大2.4x（convolve_reg）。全テストが目標の3-5倍以内
+- 最も時間のかかるbinmorph5_reg (7.09s) はrelease版でも6.03sかかるため、計算量に起因
