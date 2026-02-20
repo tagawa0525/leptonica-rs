@@ -250,6 +250,10 @@ impl Pixa {
     /// Each resulting Pix is the sub-image defined by the corresponding
     /// bounding box, clamped to the image boundary.
     ///
+    /// Boxes that are entirely outside the image or result in zero area
+    /// after clamping are **skipped**. The returned Pixa may therefore
+    /// have fewer elements than `boxa`.
+    ///
     /// C equivalent: `pixaCreateFromBoxa()` in `pixabasic.c`
     pub fn create_from_boxa(pix: &Pix, boxa: &Boxa) -> Self {
         let n = boxa.len();
