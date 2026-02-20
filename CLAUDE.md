@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # leptonica-rs
 
 C版leptonicaのRust移植プロジェクト。Workspace構成で機能別crateに分割。Rust edition 2024。
+devプロファイルは `opt-level = 1` に設定済み（テスト実行時間 259秒→9.7秒の効果）。
 
 ## ビルド・テスト・リント
 
@@ -47,7 +48,7 @@ leptonica-io → leptonica-core
 ```
 
 - **leptonica-core**: Pix, Box, Numa, FPix等の基本データ構造
-- **leptonica-io**: 画像I/O（PNG, JPEG, TIFF, WebP, PDF等。feature flagで各フォーマットを有効化）
+- **leptonica-io**: 画像I/O。デフォルト: `bmp`, `pnm`, `png-format`, `jpeg`。オプション: `gif-format`, `tiff-format`, `webp-format`, `jp2k-format`, `pdf-format`, `ps-format`。`all-formats` で全有効化
 - **leptonica-morph**: 形態学演算（binary, grayscale, DWA等）
 - **leptonica-transform**: 幾何変換（回転、アフィン、射影等）
 - **leptonica-filter**: フィルタリング（bilateral, rank, convolve, edge等）
@@ -56,14 +57,14 @@ leptonica-io → leptonica-core
 - **leptonica-recog**: 文字認識・バーコード・デワープ
 - **leptonica-test**: 回帰テストインフラ（RegParams, Generate/Compare/Displayモード）
 - **leptonica-doc**: ドキュメント用crate
-- **leptonica**: ファサードcrate（全crateをre-export）
+- **leptonica**: ファサードcrate（coreは直接re-export、他は名前空間付き: `leptonica::color::*` 等）
 
 ## Git規約
 
 - mainブランチに直接コミットしない。必ずfeature branchを作成し、GitHub PRを経由してマージする
 - PRではGitHub Copilot等の自動レビューを待ち、指摘事項を修正してからマージする
 - マージ後のブランチは速やかに削除する
-- マージコミットには変更の要約・理由・影響範囲を記載する（Linus Torvalds方式）
+- マージコミットには `## Why` / `## What` / `## Impact` セクションで変更の動機・内容・影響範囲を記載
 - 1コミットには1つの論理的変更のみ含める。無関係な変更を混在させない
 - 計画書 (`docs/plans/`) を実装着手前にコミットすること。計画書未コミットで実装PRを作成しない
 - ブランチ命名: `feat/<crate>-<機能>`, `test/<スコープ>`, `refactor/<スコープ>`, `docs/<スコープ>`
@@ -107,13 +108,16 @@ pub struct PixMut { inner: PixData }         // 可変・直接所有
 - `pixmut.into()` で `Pix` に戻す
 - `RefCell`や`Mutex`を使わない
 - ピクセルフォーマット: 32bit `0xRRGGBBAA`（RED_SHIFT=24, GREEN_SHIFT=16, BLUE_SHIFT=8, ALPHA_SHIFT=0）
+- カラー操作: `color::compose_rgba()` / `color::extract_rgba()` 等のヘルパーを使う（直接ビットシフトしない）
 - implブロックは機能別に複数ファイルに分散（`crates/leptonica-core/src/pix/`配下: access.rs, arith.rs, convert.rs, rop.rs等）
 
 ### エラー処理
 
 - `thiserror`による構造化エラーenum。文字列ベースのエラーは使わない
 - `#[from]`で標準エラー型からの自動変換
-- `pub type Result<T> = std::result::Result<T, Error>;`
+- 各crateの命名規約: core → `Error`/`Result<T>`、他 → `<Domain>Error`/`<Domain>Result<T>`
+  （例: `FilterError`/`FilterResult<T>`, `MorphError`/`MorphResult<T>`）
+- 各domain crateは `#[from] leptonica_core::Error` を含み、coreエラーが自動伝播される
 
 ### ピクセルアクセス
 
