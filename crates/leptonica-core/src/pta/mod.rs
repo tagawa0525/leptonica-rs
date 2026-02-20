@@ -578,7 +578,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_from_numa_with_nax() {
         use crate::numa::Numa;
         let nax = Numa::from_slice(&[10.0, 20.0, 30.0]);
@@ -590,7 +589,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_from_numa_no_nax() {
         use crate::numa::Numa;
         // nay has startx=0, delx=1
@@ -602,7 +600,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_copy_range() {
         let mut p = Pta::new();
         p.push(0.0, 0.0);
@@ -619,7 +616,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_i_pt() {
         let mut p = Pta::new();
         p.push(1.6, 2.4);
@@ -628,7 +624,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_arrays() {
         let mut p = Pta::new();
         p.push(1.0, 4.0);
@@ -640,7 +635,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_ptaa_init_full() {
         let mut ptaa = Ptaa::with_capacity(3);
         // fill with empty Pta to reach capacity
@@ -658,7 +652,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_ptaa_replace() {
         let mut ptaa = Ptaa::new();
         ptaa.push(Pta::new());
@@ -670,7 +663,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_ptaa_add_pt() {
         let mut ptaa = Ptaa::new();
         ptaa.push(Pta::new());
@@ -679,7 +671,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_ptaa_truncate() {
         let mut ptaa = Ptaa::new();
         let mut p = Pta::new();
