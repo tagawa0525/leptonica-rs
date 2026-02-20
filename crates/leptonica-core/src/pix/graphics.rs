@@ -955,4 +955,95 @@ mod tests {
         // Value should be flipped: 100 ^ 255 = 155
         assert_eq!(pix_mut.get_pixel(5, 5), Some(155));
     }
+
+    // -- Phase 17.1 new functions --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_boxa_pta() {
+        use crate::box_::Boxa;
+        let mut boxa = Boxa::new();
+        boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
+        boxa.push(crate::box_::Box::new(20, 20, 5, 5).unwrap());
+        let pta = generate_boxa_pta(&boxa, 1, false);
+        assert!(pta.len() > 0); // should contain outline points of both boxes
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_hash_box_pta() {
+        let b = crate::box_::Box::new(0, 0, 20, 20).unwrap();
+        let pta = generate_hash_box_pta(&b, 4, 1, HashOrientation::Horizontal, false).unwrap();
+        assert!(pta.len() > 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_hash_boxa_pta() {
+        use crate::box_::Boxa;
+        let mut boxa = Boxa::new();
+        boxa.push(crate::box_::Box::new(0, 0, 20, 20).unwrap());
+        let pta =
+            generate_hash_boxa_pta(&boxa, 4, 1, HashOrientation::Vertical, false, false).unwrap();
+        assert!(pta.len() > 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_ptaa_boxa() {
+        use crate::box_::Boxa;
+        let mut boxa = Boxa::new();
+        boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
+        boxa.push(crate::box_::Box::new(5, 5, 8, 8).unwrap());
+        let ptaa = generate_ptaa_boxa(&boxa);
+        assert_eq!(ptaa.len(), 2);
+        // Each pta should have 4 corner points
+        assert_eq!(ptaa.get(0).unwrap().len(), 4);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_ptaa_hash_boxa() {
+        use crate::box_::Boxa;
+        let mut boxa = Boxa::new();
+        boxa.push(crate::box_::Box::new(0, 0, 20, 20).unwrap());
+        let ptaa = generate_ptaa_hash_boxa(&boxa, 4, 1, HashOrientation::PosSlope, false).unwrap();
+        assert_eq!(ptaa.len(), 1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_grid_pta() {
+        let pta = generate_grid_pta(100, 80, 4, 3, 1).unwrap();
+        assert!(pta.len() > 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_line_to_4cc() {
+        // Create a diagonal line (8-connected)
+        let mut pta = Pta::new();
+        pta.push(0.0, 0.0);
+        pta.push(1.0, 1.0);
+        pta.push(2.0, 2.0);
+        let pta4 = convert_line_to_4cc(&pta);
+        // 3 diagonal steps → 3 extra intermediate points added
+        assert_eq!(pta4.len(), 5); // 0,0 | 1,0 | 1,1 | 2,1 | 2,2
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_filled_square_pta() {
+        let pta = generate_filled_square_pta(3).unwrap();
+        assert_eq!(pta.len(), 9); // 3×3 = 9 points
+        // Check corners
+        assert!(
+            pta.iter()
+                .any(|(x, y)| (x - 0.0).abs() < 0.01 && (y - 0.0).abs() < 0.01)
+        );
+        assert!(
+            pta.iter()
+                .any(|(x, y)| (x - 2.0).abs() < 0.01 && (y - 2.0).abs() < 0.01)
+        );
+    }
 }
