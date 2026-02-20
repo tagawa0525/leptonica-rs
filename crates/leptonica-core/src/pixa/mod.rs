@@ -495,13 +495,13 @@ impl Pixa {
             return Err(Error::UnsupportedDepth(dst.depth().bits()));
         }
         let n = self.pix.len();
+        if n == 0 {
+            return Err(Error::InvalidParameter("pixa is empty".into()));
+        }
         if dst.width() as usize != n {
             return Err(Error::InvalidParameter(
                 "dst width must equal pixa length".into(),
             ));
-        }
-        if n == 0 {
-            return Ok(());
         }
         let h = dst.height();
         for (k, pix) in self.pix.iter().enumerate() {
@@ -513,6 +513,11 @@ impl Pixa {
                     index: col as usize,
                     len: pix.width() as usize,
                 });
+            }
+            if pix.height() != h {
+                return Err(Error::InvalidParameter(
+                    "all pix heights must match dst height".into(),
+                ));
             }
             for i in 0..h {
                 let val = pix.get_pixel_unchecked(col, i);
