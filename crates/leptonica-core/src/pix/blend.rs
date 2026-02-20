@@ -596,7 +596,23 @@ impl Pix {
         Ok(result_mut.into())
     }
 
-    /// Blend using the inverse of the blender pixel values.
+    /// Blend a grayscale blender image onto this image using inverse transformation.
+    ///
+    /// Both `self` and `other` must be 8bpp grayscale. The blend is computed
+    /// per pixel as follows (all values in the range 0–255):
+    ///
+    /// - Let `d` be the destination (this image) pixel value.
+    /// - Let `c` be the blender (`other`) pixel value.
+    /// - Let `fract` be the global blending fraction in \[0.0, 1.0\].
+    ///
+    /// ```text
+    /// a      = (1 - fract) * d + fract * (255 - d)
+    /// result = (c * d + a * (255 - c)) / 255
+    /// ```
+    ///
+    /// The parameters `x` and `y` specify the top-left position in `self` where
+    /// `other` is placed. Pixels of `self` outside the blender region are unchanged.
+    /// `fract` is clamped to \[0.0, 1.0\].
     ///
     /// Corresponds to `pixBlendGrayInverse()` in Leptonica's `blend.c`.
     pub fn blend_gray_inverse(&self, other: &Pix, x: i32, y: i32, fract: f32) -> Result<Pix> {
@@ -633,6 +649,18 @@ impl Pix {
     }
 
     /// Blend with separate per-channel blending fractions.
+    ///
+    /// Both `self` and `other` must be 32bpp RGB. Blends with independent
+    /// fractions for each color channel (R, G, B):
+    /// - `fract < 0.0`: takes the minimum of the two channel values
+    /// - `fract > 1.0`: takes the maximum of the two channel values
+    /// - `0.0 <= fract <= 1.0`: linear interpolation between the values
+    ///
+    /// The `transparent` parameter enables transparency based on exact color
+    /// match. If `true`, source pixels that exactly match `transpix` are skipped.
+    ///
+    /// The `x` and `y` parameters specify the top-left position in `self` where
+    /// `other` is overlaid.
     ///
     /// Corresponds to `pixBlendColorByChannel()` in Leptonica's `blend.c`.
     pub fn blend_color_by_channel(
@@ -688,7 +716,22 @@ impl Pix {
         Ok(result_mut.into())
     }
 
-    /// Adaptive gray blend that adjusts based on local pixel values.
+    /// Adaptive gray blend that adjusts blend strength based on local statistics.
+    ///
+    /// Both `self` and `other` must be 8bpp grayscale. "Adaptive" means the
+    /// blend target (pivot) is derived from the median pixel value in the
+    /// overlap region rather than being fixed:
+    /// - If `median < 128`: `pivot = median + shift`
+    /// - Otherwise: `pivot = median - shift`
+    /// The pivot is clamped to `[85, 170]`.
+    ///
+    /// Blend formula per pixel (using destination `d`, blender `c`, `fract`):
+    ///
+    /// ```text
+    /// result = d + fract * (pivot - d) * (1 - c / 256)
+    /// ```
+    ///
+    /// The `x` and `y` parameters specify the position of `other` within `self`.
     ///
     /// Corresponds to `pixBlendGrayAdapt()` in Leptonica's `blend.c`.
     pub fn blend_gray_adapt(
@@ -753,7 +796,22 @@ impl Pix {
         Ok(result_mut.into())
     }
 
-    /// Fade a color or grayscale image using a grayscale blender image.
+    /// Fade a color or grayscale image toward white or black using a grayscale blender.
+    ///
+    /// The `blender` image must be 8bpp grayscale; `self` may be 8bpp or 32bpp.
+    /// The `factor` parameter (typically 0–255) scales the overall blender
+    /// effect; higher values produce stronger fading. Per-pixel, the effective
+    /// fraction is:
+    ///
+    /// ```text
+    /// fract = (factor / 255) * (blender_pixel / 255)
+    /// ```
+    ///
+    /// Then, for `ToWhite`: `result = p + fract * (255 - p)`
+    /// For `ToBlack`: `result = p * (1 - fract)`
+    ///
+    /// Supports 8bpp and 32bpp source images. For 32bpp, each channel is
+    /// faded independently. Pixels outside the blender bounds are unchanged.
     ///
     /// Corresponds to `pixFadeWithGray()` in Leptonica's `blend.c`.
     pub fn fade_with_gray(
@@ -819,6 +877,14 @@ impl Pix {
 
     /// Multiply each pixel by a color factor (component-wise).
     ///
+    /// Each RGB component of each pixel is multiplied by the corresponding
+    /// component of `color`, normalized to `[0, 1]` (i.e. `r/255`, `g/255`,
+    /// `b/255`). This darkens or tints the image toward the given color.
+    ///
+    /// Only 32bpp (`PixelDepth::Bit32`) images are supported. Other depths
+    /// return `Error::UnsupportedDepth`. Returns a new 32bpp image; the
+    /// input is not modified.
+    ///
     /// Corresponds to `pixMultiplyByColor()` in Leptonica's `blend.c`.
     pub fn multiply_by_color(&self, color: Color) -> Result<Pix> {
         if self.depth() != PixelDepth::Bit32 {
@@ -845,6 +911,19 @@ impl Pix {
     }
 
     /// Alpha-blend a 32bpp RGBA image against a uniform background color.
+    ///
+    /// For each pixel, standard alpha compositing is applied:
+    ///
+    /// ```text
+    /// result_channel = alpha * foreground + (1 - alpha) * background
+    /// ```
+    ///
+    /// where `alpha` is the source pixel's alpha channel normalized to `[0, 1]`,
+    /// `foreground` comes from the source RGB channels, and `background` comes
+    /// from `bg_color`. The alpha channel is discarded in the result.
+    ///
+    /// Returns a 32bpp RGB image (no alpha). Requires 32bpp input;
+    /// other depths return `Error::UnsupportedDepth`.
     ///
     /// Corresponds to `pixAlphaBlendUniform()` in Leptonica's `blend.c`.
     pub fn alpha_blend_uniform(&self, bg_color: u32) -> Result<Pix> {
@@ -876,7 +955,17 @@ impl Pix {
         Ok(result_mut.into())
     }
 
-    /// Generate an alpha channel for the image based on gray values.
+    /// Generate a 32bpp RGBA image with an alpha channel derived from grayscale intensity.
+    ///
+    /// Darker pixels receive higher alpha values (more opaque). The `fract` parameter
+    /// scales the computed alpha values:
+    /// - `fract = 0.0` yields no alpha (all pixels fully transparent).
+    /// - `fract = 1.0` uses the full alpha based on the gray level.
+    ///
+    /// If `invert` is `true`, the RGB channels are inverted before computing
+    /// the gray value and resulting alpha.
+    ///
+    /// Supports 8bpp and 32bpp source images. Returns a 32bpp RGBA image.
     ///
     /// Corresponds to `pixAddAlphaToBlend()` in Leptonica's `blend.c`.
     pub fn add_alpha_to_blend(&self, fract: f32, invert: bool) -> Result<Pix> {
@@ -913,7 +1002,17 @@ impl Pix {
 impl PixMut {
     /// Blend a colormapped source image onto this colormapped image in-place.
     ///
-    /// Only pixels in the source with index > `sindex` are blended.
+    /// Both images must have colormaps. The source colormap entries are merged
+    /// into the destination colormap, and a lookup table (LUT) is built to map
+    /// source indices to destination indices.
+    ///
+    /// The `x` and `y` parameters specify the top-left position (in destination
+    /// coordinates) where the source image is placed on the destination image.
+    ///
+    /// The `sindex` parameter is the minimum source colormap index to blend
+    /// (exclusive). Only source pixels with colormap index greater than
+    /// `sindex` are blended; pixels with index `<= sindex` are left unchanged
+    /// in the destination.
     ///
     /// Corresponds to `pixBlendCmap()` in Leptonica's `blend.c`.
     pub fn blend_cmap(&mut self, other: &Pix, x: i32, y: i32, sindex: usize) -> Result<()> {
@@ -964,6 +1063,14 @@ impl PixMut {
     }
 
     /// Apply a linear fade from one edge of the image inward.
+    ///
+    /// The `distfract` parameter specifies the fraction of the image dimension
+    /// (width or height depending on `dir`) over which the fade occurs.
+    /// The `maxfade` parameter is the maximum fade strength at the edge
+    /// (`0.0` = no fade, `1.0` = full fade to the target color).
+    /// Pixels beyond the fade range are unchanged.
+    ///
+    /// Supports 8bpp and 32bpp images. Modifies `self` in-place.
     ///
     /// Corresponds to `pixLinearEdgeFade()` in Leptonica's `blend.c`.
     pub fn linear_edge_fade(
