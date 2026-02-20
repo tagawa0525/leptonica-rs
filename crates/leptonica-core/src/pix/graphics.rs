@@ -1341,7 +1341,7 @@ mod tests {
         pta.push(1.0, 1.0);
         pta.push(2.0, 2.0);
         let pta4 = convert_line_to_4cc(&pta);
-        // 3 diagonal steps → 3 extra intermediate points added
+        // 2 diagonal steps → 2 extra intermediate points added
         assert_eq!(pta4.len(), 5); // 0,0 | 1,0 | 1,1 | 2,1 | 2,2
     }
 
