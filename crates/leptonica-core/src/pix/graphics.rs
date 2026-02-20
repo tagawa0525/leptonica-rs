@@ -1546,12 +1546,16 @@ pub fn render_polygon(pta: &Pta, width: u32) -> Result<(Pix, i32, i32)> {
 
     let xmin = (fxmin + 0.5) as i32;
     let ymin = (fymin + 0.5) as i32;
-    let w = (fxmax + 0.5) as u32 + 1;
-    let h = (fymax + 0.5) as u32 + 1;
+    // Width and height span from fxmin to fxmax (and fymin to fymax).
+    let w = (fxmax - fxmin + 0.5) as u32 + 1;
+    let h = (fymax - fymin + 0.5) as u32 + 1;
+
+    // Translate points so that (xmin, ymin) maps to (0, 0) in the new Pix.
+    let pta2_translated = pta2.transform_pts(-xmin, -ymin, 1.0, 1.0);
 
     let pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut pixd = pix.to_mut();
-    pixd.render_polyline(&pta2, width, true, PixelOp::Set)?;
+    pixd.render_polyline(&pta2_translated, width, true, PixelOp::Set)?;
     Ok((pixd.into(), xmin, ymin))
 }
 
