@@ -1472,7 +1472,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blend_gray_inverse_basic() {
         let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut bm = base.to_mut();
@@ -1488,7 +1487,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blend_color_by_channel_basic() {
         use super::super::graphics::Color;
         let base = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
@@ -1509,7 +1507,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blend_gray_adapt_basic() {
         let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut bm = base.to_mut();
@@ -1525,7 +1522,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_fade_with_gray_to_white() {
         let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut bm = base.to_mut();
@@ -1555,7 +1551,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_multiply_by_color_basic() {
         use super::super::graphics::Color;
         use crate::color::compose_rgb;
@@ -1576,7 +1571,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_alpha_blend_uniform_basic() {
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
@@ -1595,7 +1589,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_alpha_to_blend_basic() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let result = pix.add_alpha_to_blend(0.5, false).unwrap();
@@ -1603,7 +1596,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_blend_cmap_basic() {
         use crate::colormap::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
@@ -1623,7 +1615,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_linear_edge_fade_8bpp() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.to_mut();

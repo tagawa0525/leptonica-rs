@@ -1682,7 +1682,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_equals_with_cmap() {
         use crate::colormap::PixColormap;
         let cmap = PixColormap::new(8).unwrap();
@@ -1695,7 +1694,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_display_diff() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1707,7 +1705,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_display_diff_binary() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1717,7 +1714,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_gray_identical() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1728,7 +1724,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_rgb_identical() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1738,7 +1733,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_gray_or_rgb_gray() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1749,7 +1743,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_difference_histogram() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1760,7 +1753,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_difference_stats_identical() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1770,7 +1762,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compare_rank_difference() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1781,7 +1772,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_test_for_similarity_identical() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1790,7 +1780,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_psnr_identical() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
@@ -1799,7 +1788,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_psnr_different() {
         let pix1 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
         let mut pm = pix1.to_mut();
