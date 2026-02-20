@@ -1435,4 +1435,36 @@ mod tests {
         assert_eq!(fpix1.data(), fpix2.data());
         assert_ne!(fpix1.data().as_ptr(), fpix2.data().as_ptr());
     }
+
+    // -- Phase 17.2 FPix rendering tests --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_fpix_render_contours() {
+        // Create a simple gradient FPix
+        let mut fpix = FPix::new(50, 50).unwrap();
+        for y in 0..50u32 {
+            for x in 0..50u32 {
+                fpix.set_pixel_unchecked(x, y, (x + y) as f32);
+            }
+        }
+        let pix = fpix.render_contours(10.0, 0.15).unwrap();
+        // Output should be 8bpp with colormap
+        assert_eq!(pix.depth(), PixelDepth::Bit8);
+        assert!(pix.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_fpix_auto_render_contours() {
+        let mut fpix = FPix::new(50, 50).unwrap();
+        for y in 0..50u32 {
+            for x in 0..50u32 {
+                fpix.set_pixel_unchecked(x, y, x as f32);
+            }
+        }
+        let pix = fpix.auto_render_contours(10).unwrap();
+        assert_eq!(pix.depth(), PixelDepth::Bit8);
+        assert!(pix.has_colormap());
+    }
 }

@@ -1359,4 +1359,185 @@ mod tests {
                 .any(|(x, y)| (x - 2.0).abs() < 0.01 && (y - 2.0).abs() < 0.01)
         );
     }
+
+    // -- Phase 17.2 rendering extension tests --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_boxa() {
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(10, 10, 20, 20).unwrap());
+        boxa.push(Box::new(50, 50, 15, 15).unwrap());
+        pm.render_boxa(&boxa, 1, PixelOp::Set).unwrap();
+        // Corner pixels of first box should be set
+        assert_eq!(pm.get_pixel(10, 10), Some(255));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_boxa_color() {
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(10, 10, 20, 20).unwrap());
+        let red = Color { r: 255, g: 0, b: 0 };
+        pm.render_boxa_color(&boxa, 1, red).unwrap();
+        let px = pm.get_pixel(10, 10).unwrap();
+        assert_ne!(px, 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_hash_box() {
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        let b = Box::new(10, 10, 40, 40).unwrap();
+        pm.render_hash_box(&b, 5, 1, HashOrientation::Horizontal, false, PixelOp::Set)
+            .unwrap();
+        // Some pixel inside box should be set
+        let any_set = (10..50).any(|y| (10..50).any(|x| pm.get_pixel(x, y) == Some(255)));
+        assert!(any_set);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_hash_box_color() {
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        let b = Box::new(10, 10, 40, 40).unwrap();
+        let blue = Color { r: 0, g: 0, b: 255 };
+        pm.render_hash_box_color(&b, 5, 1, HashOrientation::Vertical, false, blue)
+            .unwrap();
+        let any_set = (10..50).any(|y| (10..50).any(|x| pm.get_pixel(x, y) != Some(0)));
+        assert!(any_set);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_hash_boxa() {
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit8).unwrap();
+        let mut pm = pix.to_mut();
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(5, 5, 30, 30).unwrap());
+        pm.render_hash_boxa(&boxa, 4, 1, HashOrientation::PosSlope, false, PixelOp::Set)
+            .unwrap();
+        let any_set = (5..35).any(|y| (5..35).any(|x| pm.get_pixel(x, y) == Some(255)));
+        assert!(any_set);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_hash_mask_color() {
+        use crate::colormap::RgbaQuad;
+        // Create a small 1bpp mask with some pixels set
+        let mut pixm = Pix::new(20, 20, super::super::PixelDepth::Bit1)
+            .unwrap()
+            .to_mut();
+        for y in 5..15 {
+            for x in 5..15 {
+                let _ = pixm.set_pixel(x, y, 1);
+            }
+        }
+        let pixm: Pix = pixm.into();
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        let green = Color { r: 0, g: 255, b: 0 };
+        pm.render_hash_mask_color(
+            &pixm,
+            10,
+            10,
+            3,
+            1,
+            HashOrientation::Horizontal,
+            false,
+            green,
+        )
+        .unwrap();
+        // Some pixels in the mask area should be set
+        let any_set = (15..25).any(|y| (15..25).any(|x| pm.get_pixel(x, y) != Some(0)));
+        assert!(any_set);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_grid_color() {
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        let white = Color {
+            r: 255,
+            g: 255,
+            b: 255,
+        };
+        pm.render_grid_color(4, 4, 1, white).unwrap();
+        // Some pixels should be non-zero (grid lines drawn)
+        let any_set = (0..100u32).any(|y| (0..100u32).any(|x| pm.get_pixel(x, y) != Some(0)));
+        assert!(any_set);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_random_cmap_ptaa() {
+        use crate::pta::Ptaa;
+        let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
+        let mut ptaa = Ptaa::new();
+        let mut pta1 = Pta::new();
+        pta1.push(10.0, 10.0);
+        pta1.push(20.0, 10.0);
+        pta1.push(20.0, 20.0);
+        ptaa.push(pta1);
+        let pixd = pix.render_random_cmap_ptaa(&ptaa, false, 1, false).unwrap();
+        // Output should be 8bpp with colormap
+        assert_eq!(pixd.depth(), super::super::PixelDepth::Bit8);
+        assert!(pixd.has_colormap());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_polygon() {
+        let mut vertices = Pta::new();
+        vertices.push(10.0, 0.0);
+        vertices.push(20.0, 10.0);
+        vertices.push(10.0, 20.0);
+        vertices.push(0.0, 10.0);
+        let (pixd, _xmin, _ymin) = render_polygon(&vertices, 1).unwrap();
+        assert_eq!(pixd.depth(), super::super::PixelDepth::Bit1);
+        assert!(pixd.width() > 0 && pixd.height() > 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_fill_polygon() {
+        // Create a simple square polygon
+        let mut vertices = Pta::new();
+        vertices.push(5.0, 5.0);
+        vertices.push(15.0, 5.0);
+        vertices.push(15.0, 15.0);
+        vertices.push(5.0, 15.0);
+        let (outline, xmin, ymin) = render_polygon(&vertices, 1).unwrap();
+        let filled = fill_polygon(&outline, &vertices, xmin, ymin).unwrap();
+        assert_eq!(filled.depth(), super::super::PixelDepth::Bit1);
+        // Interior point (10, 10) relative to polygon origin should be set
+        let cx = 10 - xmin;
+        let cy = 10 - ymin;
+        if cx >= 0 && cy >= 0 {
+            assert_eq!(filled.get_pixel(cx as u32, cy as u32), Some(1));
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_plot_from_numa() {
+        use crate::numa::Numa;
+        let pix = Pix::new(100, 80, super::super::PixelDepth::Bit32).unwrap();
+        let mut pm = pix.to_mut();
+        let na = Numa::from_slice(&[1.0, 2.0, 3.0, 2.0, 1.0]);
+        let red = Color { r: 255, g: 0, b: 0 };
+        pm.render_plot_from_numa(&na, PlotLocation::MidHoriz, 1, 20, red)
+            .unwrap();
+        // Some pixels should be non-zero
+        let any_set = (0..80u32).any(|y| (0..100u32).any(|x| pm.get_pixel(x, y) != Some(0)));
+        assert!(any_set);
+    }
 }
