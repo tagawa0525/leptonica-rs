@@ -13,7 +13,24 @@ impl Pix {
     ///
     /// C equivalent: `pixFindAreaFraction()` in `pix5.c`
     pub fn find_area_fraction(&self) -> Result<f32> {
-        todo!()
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        let total = (w as u64) * (h as u64);
+        if total == 0 {
+            return Ok(0.0);
+        }
+        let mut count = 0u64;
+        for y in 0..h {
+            for x in 0..w {
+                if self.get_pixel_unchecked(x, y) != 0 {
+                    count += 1;
+                }
+            }
+        }
+        Ok(count as f32 / total as f32)
     }
 
     /// Compute the ratio of boundary pixels to all foreground pixels.
@@ -24,7 +41,46 @@ impl Pix {
     ///
     /// C equivalent: `pixFindPerimToAreaRatio()` in `pix5.c`
     pub fn find_perim_to_area_ratio(&self) -> Result<f32> {
-        todo!()
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let mut nfg = 0u32;
+        let mut nboundary = 0u32;
+        for y in 0..h {
+            for x in 0..w {
+                if self.get_pixel_unchecked(x as u32, y as u32) != 0 {
+                    nfg += 1;
+                    // Check all 8 neighbors; boundary if any is bg or out-of-bounds
+                    let is_interior = [
+                        (x - 1, y - 1),
+                        (x, y - 1),
+                        (x + 1, y - 1),
+                        (x - 1, y),
+                        (x + 1, y),
+                        (x - 1, y + 1),
+                        (x, y + 1),
+                        (x + 1, y + 1),
+                    ]
+                    .iter()
+                    .all(|&(nx, ny)| {
+                        nx >= 0
+                            && ny >= 0
+                            && nx < w
+                            && ny < h
+                            && self.get_pixel_unchecked(nx as u32, ny as u32) != 0
+                    });
+                    if !is_interior {
+                        nboundary += 1;
+                    }
+                }
+            }
+        }
+        if nfg == 0 {
+            return Ok(0.0);
+        }
+        Ok(nboundary as f32 / nfg as f32)
     }
 
     /// Compute the Jaccard overlap fraction between two 1bpp images.
@@ -35,7 +91,51 @@ impl Pix {
     ///
     /// C equivalent: `pixFindOverlapFraction()` in `pix5.c`
     pub fn find_overlap_fraction(&self, other: &Pix, x2: i32, y2: i32) -> Result<(f32, u32)> {
-        todo!()
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if other.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(other.depth().bits()));
+        }
+        let w1 = self.width() as i32;
+        let h1 = self.height() as i32;
+        let w2 = other.width() as i32;
+        let h2 = other.height() as i32;
+
+        let mut nintersect = 0u32;
+        let mut nunion = 0u32;
+
+        // Count fg pixels in self
+        for y in 0..h1 {
+            for x in 0..w1 {
+                if self.get_pixel_unchecked(x as u32, y as u32) != 0 {
+                    nunion += 1;
+                }
+            }
+        }
+        // For each fg pixel in other, check overlap with self
+        for oy in 0..h2 {
+            for ox in 0..w2 {
+                if other.get_pixel_unchecked(ox as u32, oy as u32) != 0 {
+                    let sx = x2 + ox;
+                    let sy = y2 + oy;
+                    if sx >= 0 && sy >= 0 && sx < w1 && sy < h1 {
+                        if self.get_pixel_unchecked(sx as u32, sy as u32) != 0 {
+                            nintersect += 1;
+                        } else {
+                            nunion += 1; // in other but not in self
+                        }
+                    } else {
+                        nunion += 1; // outside self, add to union
+                    }
+                }
+            }
+        }
+
+        if nunion == 0 {
+            return Ok((0.0, 0));
+        }
+        Ok((nintersect as f32 / nunion as f32, nintersect))
     }
 }
 
@@ -46,7 +146,6 @@ mod tests {
     // -- Pix::find_area_fraction --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_area_fraction_half() {
         // 4x4 image with exactly half the pixels ON
         let pix = {
@@ -64,7 +163,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_area_fraction_all_off() {
         let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
         let frac = pix.find_area_fraction().unwrap();
@@ -74,7 +172,6 @@ mod tests {
     // -- Pix::find_perim_to_area_ratio --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_perim_to_area_ratio_solid_block() {
         // 5x5 solid block: interior pixels are (1..=3)x(1..=3) = 9 pixels
         // boundary pixels = 25 - 9 = 16
@@ -96,7 +193,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_perim_to_area_ratio_no_fg() {
         let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
         let ratio = pix.find_perim_to_area_ratio().unwrap();
@@ -106,7 +202,6 @@ mod tests {
     // -- Pix::find_overlap_fraction --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_overlap_fraction_full_overlap() {
         // Two identical 4x4 all-ON images overlapping at (0,0)
         let make_all_on = || {
@@ -127,7 +222,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_overlap_fraction_no_overlap() {
         // Two 4x4 images placed far apart (no overlap)
         let make_all_on = || {

@@ -1169,7 +1169,27 @@ impl Pix {
     ///
     /// C equivalent: `pixClipRectangles()` in `pix5.c`
     pub fn clip_rectangles(&self, boxes: &crate::Boxa) -> Result<crate::pixa::Pixa> {
-        todo!()
+        let mut pixa = crate::pixa::Pixa::new();
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        for i in 0..boxes.len() {
+            let b = boxes
+                .get(i)
+                .ok_or_else(|| Error::InvalidParameter("box index out of range".into()))?;
+            let x0 = b.x.max(0);
+            let y0 = b.y.max(0);
+            let x1 = (b.x + b.w).min(w);
+            let y1 = (b.y + b.h).min(h);
+            if x1 <= x0 || y1 <= y0 {
+                continue;
+            }
+            let clipped =
+                self.clip_rectangle(x0 as u32, y0 as u32, (x1 - x0) as u32, (y1 - y0) as u32)?;
+            let box_c = Box::new(x0, y0, x1 - x0, y1 - y0)
+                .map_err(|e| Error::InvalidParameter(format!("invalid clipped box: {e}")))?;
+            pixa.push_with_box(clipped, box_c);
+        }
+        Ok(pixa)
     }
 
     /// Crop to at most `w × h`, returning a clone if already within bounds.
@@ -1178,7 +1198,14 @@ impl Pix {
     ///
     /// C equivalent: `pixCropToSize()` in `pix5.c`
     pub fn crop_to_size(&self, w: u32, h: u32) -> Result<Pix> {
-        todo!()
+        let ws = self.width();
+        let hs = self.height();
+        if ws <= w && hs <= h {
+            return Ok(self.clone());
+        }
+        let wd = ws.min(w);
+        let hd = hs.min(h);
+        self.clip_rectangle(0, 0, wd, hd)
     }
 
     /// Resize to exactly `w × h` without scaling.
@@ -1188,7 +1215,51 @@ impl Pix {
     ///
     /// C equivalent: `pixResizeToMatch()` in `pix5.c`
     pub fn resize_to_match(&self, pixt: Option<&Pix>, w: u32, h: u32) -> Result<Pix> {
-        todo!()
+        let (tw, th) = if let Some(t) = pixt {
+            (t.width(), t.height())
+        } else {
+            if w == 0 || h == 0 {
+                return Err(Error::InvalidParameter("w and h must be > 0".into()));
+            }
+            (w, h)
+        };
+        let ws = self.width();
+        let hs = self.height();
+        if ws == tw && hs == th {
+            return Ok(self.clone());
+        }
+        let depth = self.depth();
+        let pixd_base = Pix::new(tw, th, depth)
+            .map_err(|e| Error::InvalidParameter(format!("cannot create pixd: {e}")))?;
+        let mut pixd = pixd_base.try_into_mut().unwrap();
+        // Copy source pixels (clipped to min dimensions)
+        let copy_w = ws.min(tw);
+        let copy_h = hs.min(th);
+        for y in 0..copy_h {
+            for x in 0..copy_w {
+                let val = self.get_pixel_unchecked(x, y);
+                pixd.set_pixel_unchecked(x, y, val);
+            }
+        }
+        // Replicate last column if width needs expanding
+        if ws < tw {
+            for y in 0..copy_h {
+                let last_val = self.get_pixel_unchecked(ws - 1, y);
+                for x in ws..tw {
+                    pixd.set_pixel_unchecked(x, y, last_val);
+                }
+            }
+        }
+        // Replicate last row if height needs expanding
+        if hs < th {
+            for i in hs..th {
+                for x in 0..tw {
+                    let val = pixd.get_pixel_unchecked(x, hs - 1);
+                    pixd.set_pixel_unchecked(x, i, val);
+                }
+            }
+        }
+        Ok(pixd.into())
     }
 
     /// Test whether the image can be further clipped without losing foreground.
@@ -1201,7 +1272,28 @@ impl Pix {
     ///
     /// C equivalent: `pixTestClipToForeground()` in `pix5.c`
     pub fn test_clip_to_foreground(&self) -> Result<bool> {
-        todo!()
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        // top row
+        if !(0..w).any(|x| self.get_pixel_unchecked(x, 0) != 0) {
+            return Ok(true);
+        }
+        // bottom row
+        if !(0..w).any(|x| self.get_pixel_unchecked(x, h - 1) != 0) {
+            return Ok(true);
+        }
+        // left column
+        if !(0..h).any(|y| self.get_pixel_unchecked(0, y) != 0) {
+            return Ok(true);
+        }
+        // right column
+        if !(0..h).any(|y| self.get_pixel_unchecked(w - 1, y) != 0) {
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     fn column_sum_in_region(&self, x: u32, y_start: u32, height: u32, factor: u32) -> i32 {
@@ -1352,7 +1444,6 @@ mod tests {
     // -- Pix::clip_rectangles --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_clip_rectangles_basic() {
         use crate::Boxa;
         use crate::box_::Box as LepBox;
@@ -1380,7 +1471,6 @@ mod tests {
     // -- Pix::crop_to_size --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_crop_to_size_smaller() {
         let pix = {
             let base = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -1395,7 +1485,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_crop_to_size_already_fits() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let result = pix.crop_to_size(10, 10).unwrap();
@@ -1407,7 +1496,6 @@ mod tests {
     // -- Pix::resize_to_match --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_resize_to_match_crop() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let resized = pix.resize_to_match(None, 10, 10).unwrap();
@@ -1416,7 +1504,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_resize_to_match_expand() {
         // Expand by replicating last row/col
         let pix = {
@@ -1444,7 +1531,6 @@ mod tests {
     // -- Pix::test_clip_to_foreground --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_test_clip_to_foreground_can_clip() {
         // Image with fg only in center - can be clipped
         let pix = {
@@ -1457,7 +1543,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_test_clip_to_foreground_cannot_clip() {
         // Image with fg touching all 4 edges - cannot be clipped
         let pix = {

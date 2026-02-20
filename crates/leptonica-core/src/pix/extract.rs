@@ -170,7 +170,33 @@ impl Pix {
     ///
     /// C equivalent: `pixRankRowTransform()` in `pix5.c`
     pub fn rank_row_transform(&self) -> Result<Pix> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.has_colormap() {
+            return Err(Error::InvalidParameter(
+                "rank_row_transform: image must not have a colormap".into(),
+            ));
+        }
+        let w = self.width();
+        let h = self.height();
+        let pixd_base = Pix::new(w, h, PixelDepth::Bit8)
+            .map_err(|e| Error::InvalidParameter(format!("cannot create pixd: {e}")))?;
+        let mut pixd = pixd_base.try_into_mut().unwrap();
+        for i in 0..h {
+            let mut histo = [0u32; 256];
+            for j in 0..w {
+                histo[self.get_pixel_unchecked(j, i) as usize] += 1;
+            }
+            let mut j = 0u32;
+            for (m, &count) in histo.iter().enumerate() {
+                for _ in 0..count {
+                    pixd.set_pixel_unchecked(j, i, m as u32);
+                    j += 1;
+                }
+            }
+        }
+        Ok(pixd.into())
     }
 
     /// Sort each column of an 8bpp image from minimum to maximum value.
@@ -180,7 +206,33 @@ impl Pix {
     ///
     /// C equivalent: `pixRankColumnTransform()` in `pix5.c`
     pub fn rank_column_transform(&self) -> Result<Pix> {
-        todo!()
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.has_colormap() {
+            return Err(Error::InvalidParameter(
+                "rank_column_transform: image must not have a colormap".into(),
+            ));
+        }
+        let w = self.width();
+        let h = self.height();
+        let pixd_base = Pix::new(w, h, PixelDepth::Bit8)
+            .map_err(|e| Error::InvalidParameter(format!("cannot create pixd: {e}")))?;
+        let mut pixd = pixd_base.try_into_mut().unwrap();
+        for j in 0..w {
+            let mut histo = [0u32; 256];
+            for i in 0..h {
+                histo[self.get_pixel_unchecked(j, i) as usize] += 1;
+            }
+            let mut i = 0u32;
+            for (m, &count) in histo.iter().enumerate() {
+                for _ in 0..count {
+                    pixd.set_pixel_unchecked(j, i, m as u32);
+                    i += 1;
+                }
+            }
+        }
+        Ok(pixd.into())
     }
 
     /// Compute the average pixel intensity profile along rows or columns.
@@ -201,7 +253,45 @@ impl Pix {
         factor1: u32,
         factor2: u32,
     ) -> Result<Numa> {
-        todo!()
+        if fract < 0.0 || fract > 1.0 {
+            return Err(Error::InvalidParameter(
+                "fract must be in [0.0, 1.0]".into(),
+            ));
+        }
+        if last < first {
+            return Err(Error::InvalidParameter("last must be >= first".into()));
+        }
+        let f1 = factor1.max(1);
+        let f2 = factor2.max(1);
+        let w = self.width();
+        let h = self.height();
+        let mut nad = Numa::new();
+        nad.set_parameters(0.0, f2 as f32);
+        match dir {
+            ProfileDirection::Horizontal => {
+                let start = (0.5 * (1.0 - fract) * w as f32) as i32;
+                let end = w as i32 - start;
+                let last_clamped = last.min(h - 1);
+                let mut i = first;
+                while i <= last_clamped {
+                    let ave = self.average_on_line(start, i as i32, end, i as i32, f1 as i32)?;
+                    nad.push(ave);
+                    i += f2;
+                }
+            }
+            ProfileDirection::Vertical => {
+                let start = (0.5 * (1.0 - fract) * h as f32) as i32;
+                let end = h as i32 - start;
+                let last_clamped = last.min(w - 1);
+                let mut j = first;
+                while j <= last_clamped {
+                    let ave = self.average_on_line(j as i32, start, j as i32, end, f1 as i32)?;
+                    nad.push(ave);
+                    j += f2;
+                }
+            }
+        }
+        Ok(nad)
     }
 }
 
@@ -268,7 +358,6 @@ mod tests {
     // -- Pix::rank_row_transform --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_row_transform_basic() {
         // 1×4 image: pixels [3,1,4,2] → sorted [1,2,3,4]
         let pix = {
@@ -290,7 +379,6 @@ mod tests {
     // -- Pix::rank_column_transform --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_column_transform_basic() {
         // 4×1 image (single column of 4 rows): pixels [3,1,4,2] → sorted [1,2,3,4]
         let pix = {
@@ -312,7 +400,6 @@ mod tests {
     // -- Pix::average_intensity_profile --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_average_intensity_profile_horizontal() {
         use crate::pix::extract::ProfileDirection;
         // Uniform 8bpp image - profile should be constant

@@ -586,7 +586,17 @@ impl Pixa {
     ///
     /// C equivalent: `pixaFindDimensions()` in `pix5.c`
     pub fn find_dimensions(&self) -> Result<(crate::Numa, crate::Numa)> {
-        todo!()
+        if self.pix.is_empty() {
+            return Err(Error::InvalidParameter("pixa is empty".into()));
+        }
+        let n = self.pix.len();
+        let mut na_w = crate::Numa::with_capacity(n);
+        let mut na_h = crate::Numa::with_capacity(n);
+        for pix in &self.pix {
+            na_w.push(pix.width() as f32);
+            na_h.push(pix.height() as f32);
+        }
+        Ok((na_w, na_h))
     }
 
     // ========================================================================
@@ -1522,7 +1532,6 @@ mod tests {
     // -- Pixa::find_dimensions --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_dimensions_basic() {
         use crate::pix::{Pix, PixelDepth};
         let mut pixa = Pixa::new();
@@ -1541,7 +1550,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_dimensions_empty() {
         let pixa = Pixa::new();
         assert!(pixa.find_dimensions().is_err());
