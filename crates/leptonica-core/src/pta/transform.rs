@@ -99,6 +99,12 @@ impl Pta {
             })
             .ok_or_else(|| Error::InvalidParameter("start pt not in ptas".to_string()))?;
 
+        // Build n-1 interior points starting from start_idx.
+        // We must skip index n-1 (the closing duplicate of index 0), so
+        // when start_idx + j reaches n-1 we jump to (start_idx+j+1)%n.
+        // Using simply (start_idx+j)%n would visit both index n-1 and
+        // index 0 (which hold the same coordinates), causing a duplicate
+        // and missing one interior point.
         let mut ptad = Pta::with_capacity(n);
         for j in 0..n - 1 {
             let index = if start_idx + j < n - 1 {
