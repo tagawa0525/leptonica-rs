@@ -341,6 +341,330 @@ pub fn generate_circle_outline_pta(cx: i32, cy: i32, radius: u32, width: u32) ->
 }
 
 // =============================================================================
+// Phase 17.1: Additional PTA/PTAA generation functions
+// =============================================================================
+
+use crate::box_::Boxa;
+use crate::pta::Ptaa;
+
+/// Orientation for hash-pattern line rendering.
+///
+/// C Leptonica constants: `L_HORIZONTAL_LINE`, `L_POS_SLOPE_LINE`,
+/// `L_VERTICAL_LINE`, `L_NEG_SLOPE_LINE`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HashOrientation {
+    /// Horizontal lines (left to right)
+    Horizontal,
+    /// Diagonal lines with positive slope (+45°)
+    PosSlope,
+    /// Vertical lines (top to bottom)
+    Vertical,
+    /// Diagonal lines with negative slope (-45°)
+    NegSlope,
+}
+
+/// Generate a Pta for the outlines of all boxes in `boxa`.
+///
+/// If `remove_dups` is true, duplicate points are removed.
+///
+/// C equivalent: `generatePtaBoxa()` in `graphics.c`
+pub fn generate_boxa_pta(boxa: &Boxa, width: u32, remove_dups: bool) -> Pta {
+    let width = width.max(1);
+    let mut combined = Pta::new();
+    for i in 0..boxa.len() {
+        if let Some(b) = boxa.get(i) {
+            let pta = generate_box_pta(b, width);
+            for pt in pta.iter() {
+                combined.push(pt.0, pt.1);
+            }
+        }
+    }
+    if remove_dups {
+        remove_duplicate_pts(combined)
+    } else {
+        combined
+    }
+}
+
+/// Generate a Pta of hash lines for a single box.
+///
+/// * `spacing` – space between hash lines (must be > 1)
+/// * `width` – line width in pixels
+/// * `orient` – orientation of hash lines
+/// * `outline` – whether to also draw the box outline
+///
+/// C equivalent: `generatePtaHashBox()` in `graphics.c`
+pub fn generate_hash_box_pta(
+    b: &Box,
+    spacing: u32,
+    width: u32,
+    orient: HashOrientation,
+    outline: bool,
+) -> Result<Pta> {
+    if spacing <= 1 {
+        return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+    }
+    let bx = b.x;
+    let by = b.y;
+    let bw = b.w;
+    let bh = b.h;
+    if bw == 0 || bh == 0 {
+        return Err(Error::InvalidParameter(
+            "box has zero width or height".to_string(),
+        ));
+    }
+    let width = width.max(1);
+
+    let mut ptad = Pta::new();
+
+    if outline {
+        let outline_pta = generate_box_pta(b, width);
+        for pt in outline_pta.iter() {
+            ptad.push(pt.0, pt.1);
+        }
+    }
+
+    match orient {
+        HashOrientation::Horizontal => {
+            let n = 1 + bh as usize / spacing as usize;
+            for i in 0..n {
+                let y = by
+                    + if n > 1 {
+                        (i * (bh as usize - 1) / (n - 1)) as i32
+                    } else {
+                        0
+                    };
+                let line = generate_wide_line_pta(bx, y, bx + bw - 1, y, width);
+                for pt in line.iter() {
+                    ptad.push(pt.0, pt.1);
+                }
+            }
+        }
+        HashOrientation::Vertical => {
+            let n = 1 + bw as usize / spacing as usize;
+            for i in 0..n {
+                let x = bx
+                    + if n > 1 {
+                        (i * (bw as usize - 1) / (n - 1)) as i32
+                    } else {
+                        0
+                    };
+                let line = generate_wide_line_pta(x, by, x, by + bh - 1, width);
+                for pt in line.iter() {
+                    ptad.push(pt.0, pt.1);
+                }
+            }
+        }
+        HashOrientation::PosSlope => {
+            let diag = bw as f32 + bh as f32;
+            let n = (2.0 + diag / (1.4 * spacing as f32)) as usize;
+            for i in 0..n {
+                let x = (bx as f32 + (i as f32 + 0.5) * 1.4 * spacing as f32) as i32;
+                if let Ok(isect) = b.intersect_by_line(x, by - 1, 1.0) {
+                    if isect.count == 2 {
+                        let (x1, y1) = isect.p1.unwrap();
+                        let (x2, y2) = isect.p2.unwrap();
+                        let line = generate_wide_line_pta(x1, y1, x2, y2, width);
+                        for pt in line.iter() {
+                            ptad.push(pt.0, pt.1);
+                        }
+                    }
+                }
+            }
+        }
+        HashOrientation::NegSlope => {
+            let diag = bw as f32 + bh as f32;
+            let n = (2.0 + diag / (1.4 * spacing as f32)) as usize;
+            for i in 0..n {
+                let x = (bx as f32 - bh as f32 + (i as f32 + 0.5) * 1.4 * spacing as f32) as i32;
+                if let Ok(isect) = b.intersect_by_line(x, by - 1, -1.0) {
+                    if isect.count == 2 {
+                        let (x1, y1) = isect.p1.unwrap();
+                        let (x2, y2) = isect.p2.unwrap();
+                        let line = generate_wide_line_pta(x1, y1, x2, y2, width);
+                        for pt in line.iter() {
+                            ptad.push(pt.0, pt.1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(ptad)
+}
+
+/// Generate a Pta of hash lines for all boxes in `boxa`.
+///
+/// C equivalent: `generatePtaHashBoxa()` in `graphics.c`
+pub fn generate_hash_boxa_pta(
+    boxa: &Boxa,
+    spacing: u32,
+    width: u32,
+    orient: HashOrientation,
+    outline: bool,
+    remove_dups: bool,
+) -> Result<Pta> {
+    if spacing <= 1 {
+        return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+    }
+    let mut combined = Pta::new();
+    for i in 0..boxa.len() {
+        if let Some(b) = boxa.get(i) {
+            let pta = generate_hash_box_pta(b, spacing, width, orient, outline)?;
+            for pt in pta.iter() {
+                combined.push(pt.0, pt.1);
+            }
+        }
+    }
+    if remove_dups {
+        Ok(remove_duplicate_pts(combined))
+    } else {
+        Ok(combined)
+    }
+}
+
+/// Generate a Ptaa where each Pta contains the 4 corner points of each box
+/// in `boxa`.
+///
+/// C equivalent: `generatePtaaBoxa()` in `graphics.c`
+pub fn generate_ptaa_boxa(boxa: &Boxa) -> Ptaa {
+    let mut ptaa = Ptaa::with_capacity(boxa.len());
+    for i in 0..boxa.len() {
+        if let Some(b) = boxa.get(i) {
+            let x = b.x;
+            let y = b.y;
+            let w = b.w;
+            let h = b.h;
+            let mut pta = Pta::with_capacity(4);
+            pta.push(x as f32, y as f32);
+            pta.push((x + w - 1) as f32, y as f32);
+            pta.push((x + w - 1) as f32, (y + h - 1) as f32);
+            pta.push(x as f32, (y + h - 1) as f32);
+            ptaa.push(pta);
+        }
+    }
+    ptaa
+}
+
+/// Generate a Ptaa where each Pta is a hash-line pattern for a single box
+/// in `boxa`.
+///
+/// C equivalent: `generatePtaaHashBoxa()` in `graphics.c`
+pub fn generate_ptaa_hash_boxa(
+    boxa: &Boxa,
+    spacing: u32,
+    width: u32,
+    orient: HashOrientation,
+    outline: bool,
+) -> Result<Ptaa> {
+    if spacing <= 1 {
+        return Err(Error::InvalidParameter("spacing must be > 1".to_string()));
+    }
+    let mut ptaa = Ptaa::with_capacity(boxa.len());
+    for i in 0..boxa.len() {
+        if let Some(b) = boxa.get(i) {
+            let pta = generate_hash_box_pta(b, spacing, width, orient, outline)?;
+            ptaa.push(pta);
+        }
+    }
+    Ok(ptaa)
+}
+
+/// Generate a grid Pta: outlines of `nx` × `ny` rectangles covering a
+/// `w` × `h` region, with line width `width`.
+///
+/// C equivalent: `generatePtaGrid()` in `graphics.c`
+pub fn generate_grid_pta(w: u32, h: u32, nx: u32, ny: u32, width: u32) -> Result<Pta> {
+    if nx == 0 || ny == 0 {
+        return Err(Error::InvalidParameter("nx and ny must be > 0".to_string()));
+    }
+    if w < 2 * nx || h < 2 * ny {
+        return Err(Error::InvalidParameter(
+            "w or h too small for requested grid".to_string(),
+        ));
+    }
+    let width = width.max(1);
+    let bx = (w + nx - 1) / nx;
+    let by = (h + ny - 1) / ny;
+
+    let mut boxa = Boxa::new();
+    for i in 0..ny {
+        let y1 = by * i;
+        let y2 = (y1 + by).min(h - 1);
+        for j in 0..nx {
+            let x1 = bx * j;
+            let x2 = (x1 + bx).min(w - 1);
+            let cell_w = (x2 - x1 + 1) as i32;
+            let cell_h = (y2 - y1 + 1) as i32;
+            if let Ok(b) = Box::new(x1 as i32, y1 as i32, cell_w, cell_h) {
+                boxa.push(b);
+            }
+        }
+    }
+
+    Ok(generate_boxa_pta(&boxa, width, true))
+}
+
+/// Convert an 8-connected line Pta to 4-connected by inserting intermediate
+/// points at diagonal steps.
+///
+/// C equivalent: `convertPtaLineTo4cc()` in `graphics.c`
+pub fn convert_line_to_4cc(ptas: &Pta) -> Pta {
+    let n = ptas.len();
+    if n == 0 {
+        return Pta::new();
+    }
+    let mut ptad = Pta::with_capacity(n + n / 2);
+    let (mut xp, mut yp) = ptas.get(0).unwrap();
+    ptad.push(xp, yp);
+    for i in 1..n {
+        let (x, y) = ptas.get(i).unwrap();
+        if (x - xp).abs() > f32::EPSILON && (y - yp).abs() > f32::EPSILON {
+            // Diagonal step: insert (x, yp) first to make it 4-connected
+            ptad.push(x, yp);
+        }
+        ptad.push(x, y);
+        xp = x;
+        yp = y;
+    }
+    ptad
+}
+
+/// Generate a Pta of all points inside a `side` × `side` filled square.
+///
+/// The square occupies coordinates `(0, 0)` to `(side - 1, side - 1)`.
+///
+/// C equivalent: `generatePtaFilledSquare()` in `graphics.c`
+pub fn generate_filled_square_pta(side: u32) -> Result<Pta> {
+    if side == 0 {
+        return Err(Error::InvalidParameter("side must be > 0".to_string()));
+    }
+    let mut pta = Pta::with_capacity((side * side) as usize);
+    for y in 0..side {
+        for x in 0..side {
+            pta.push(x as f32, y as f32);
+        }
+    }
+    Ok(pta)
+}
+
+/// Remove duplicate (x, y) pairs from a Pta, preserving order of first
+/// occurrence.
+fn remove_duplicate_pts(pta: Pta) -> Pta {
+    use std::collections::HashSet;
+    let mut seen: HashSet<(i32, i32)> = HashSet::new();
+    let mut out = Pta::with_capacity(pta.len());
+    for (x, y) in pta.iter() {
+        let key = (x.round() as i32, y.round() as i32);
+        if seen.insert(key) {
+            out.push(x, y);
+        }
+    }
+    out
+}
+
+// =============================================================================
 // PixMut rendering implementations
 // =============================================================================
 
@@ -959,7 +1283,6 @@ mod tests {
     // -- Phase 17.1 new functions --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_boxa_pta() {
         use crate::box_::Boxa;
         let mut boxa = Boxa::new();
@@ -970,7 +1293,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_hash_box_pta() {
         let b = crate::box_::Box::new(0, 0, 20, 20).unwrap();
         let pta = generate_hash_box_pta(&b, 4, 1, HashOrientation::Horizontal, false).unwrap();
@@ -978,7 +1300,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_hash_boxa_pta() {
         use crate::box_::Boxa;
         let mut boxa = Boxa::new();
@@ -989,7 +1310,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_ptaa_boxa() {
         use crate::box_::Boxa;
         let mut boxa = Boxa::new();
@@ -1002,7 +1322,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_ptaa_hash_boxa() {
         use crate::box_::Boxa;
         let mut boxa = Boxa::new();
@@ -1012,14 +1331,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_grid_pta() {
         let pta = generate_grid_pta(100, 80, 4, 3, 1).unwrap();
         assert!(pta.len() > 0);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convert_line_to_4cc() {
         // Create a diagonal line (8-connected)
         let mut pta = Pta::new();
@@ -1032,7 +1349,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_filled_square_pta() {
         let pta = generate_filled_square_pta(3).unwrap();
         assert_eq!(pta.len(), 9); // 3×3 = 9 points
