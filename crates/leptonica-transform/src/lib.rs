@@ -39,7 +39,11 @@ pub use rotate::{
     rotate_180_in_place, rotate_about_center, rotate_by_angle, rotate_by_angle_with_options,
     rotate_by_radians, rotate_orth, rotate_with_method,
 };
-pub use scale::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
+pub use scale::{
+    ScaleMethod, scale, scale_by_int_sampling, scale_by_sampling, scale_by_sampling_with_shift,
+    scale_color_li, scale_general, scale_gray_li, scale_li, scale_smooth, scale_to_resolution,
+    scale_to_size,
+};
 pub use shear::{
     ShearFill, h_shear, h_shear_center, h_shear_corner, h_shear_ip, h_shear_li, v_shear,
     v_shear_center, v_shear_corner, v_shear_ip, v_shear_li,

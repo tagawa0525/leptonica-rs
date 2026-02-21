@@ -102,6 +102,377 @@ pub fn scale_by_sampling(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResu
     scale(pix, scale_x, scale_y, ScaleMethod::Sampling)
 }
 
+/// Scale using bilinear (linear) interpolation.
+///
+/// For 8bpp (grayscale) and 32bpp (color) images.
+/// If scale factors are both < 0.7, redirects to [`scale_general`] with area mapping.
+pub fn scale_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({}, {})",
+            scale_x, scale_y
+        )));
+    }
+    let max_scale = scale_x.max(scale_y);
+    if max_scale < 0.7 {
+        return scale_general(pix, scale_x, scale_y, 0.0, 0);
+    }
+    let depth = pix.depth();
+    match depth {
+        PixelDepth::Bit32 => scale_color_li(pix, scale_x, scale_y),
+        PixelDepth::Bit8 => scale_gray_li(pix, scale_x, scale_y),
+        _ => {
+            let new_w = ((pix.width() as f32) * scale_x).round() as u32;
+            let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+            scale_by_sampling_impl(pix, new_w.max(1), new_h.max(1))
+        }
+    }
+}
+
+/// Scale a 32bpp color image using bilinear interpolation.
+///
+/// If scale factors are both < 0.7, redirects to area mapping via [`scale_general`].
+pub fn scale_color_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({}, {})",
+            scale_x, scale_y
+        )));
+    }
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::InvalidParameters(
+            "scale_color_li requires 32bpp input".to_string(),
+        ));
+    }
+    let max_scale = scale_x.max(scale_y);
+    if max_scale < 0.7 {
+        return scale_general(pix, scale_x, scale_y, 0.0, 0);
+    }
+    let new_w = ((pix.width() as f32) * scale_x).round() as u32;
+    let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+    scale_linear_color(pix, new_w.max(1), new_h.max(1))
+}
+
+/// Scale an 8bpp grayscale image using bilinear interpolation.
+///
+/// If scale factors are both < 0.7, redirects to area mapping via [`scale_general`].
+pub fn scale_gray_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({}, {})",
+            scale_x, scale_y
+        )));
+    }
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::InvalidParameters(
+            "scale_gray_li requires 8bpp input".to_string(),
+        ));
+    }
+    let max_scale = scale_x.max(scale_y);
+    if max_scale < 0.7 {
+        return scale_general(pix, scale_x, scale_y, 0.0, 0);
+    }
+    let new_w = ((pix.width() as f32) * scale_x).round() as u32;
+    let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+    scale_linear_gray(pix, new_w.max(1), new_h.max(1))
+}
+
+/// General-purpose scaling with optional sharpening.
+///
+/// Dispatches to the appropriate method based on scale factors:
+/// - For 1bpp: nearest-neighbor sampling
+/// - For `max_scale < 0.7`: smooth (box-filter) or area mapping
+/// - Otherwise: linear interpolation (LI)
+///
+/// **Note**: The `sharpfract` and `sharpwidth` parameters are accepted for API compatibility
+/// but sharpening is not applied. Use an external unsharp-masking step if needed.
+pub fn scale_general(
+    pix: &Pix,
+    scale_x: f32,
+    scale_y: f32,
+    _sharpfract: f32,
+    _sharpwidth: i32,
+) -> TransformResult<Pix> {
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({}, {})",
+            scale_x, scale_y
+        )));
+    }
+    if scale_x == 1.0 && scale_y == 1.0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let depth = pix.depth();
+    // 1bpp: fall through to sampling
+    if depth == PixelDepth::Bit1 {
+        let new_w = ((pix.width() as f32) * scale_x).round() as u32;
+        let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+        return scale_by_sampling_impl(pix, new_w.max(1), new_h.max(1));
+    }
+
+    let max_scale = scale_x.max(scale_y);
+    let min_scale = scale_x.min(scale_y);
+
+    if max_scale < 0.7 {
+        if min_scale < 0.02 {
+            scale_smooth(pix, scale_x, scale_y)
+        } else {
+            let new_w = ((pix.width() as f32) * scale_x).round() as u32;
+            let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+            scale_area_map(pix, scale_x, scale_y, new_w.max(1), new_h.max(1))
+        }
+    } else {
+        // Linear interpolation
+        let new_w = ((pix.width() as f32) * scale_x).round() as u32;
+        let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+        scale_linear(pix, new_w.max(1), new_h.max(1))
+    }
+}
+
+/// Scale to a target resolution.
+///
+/// If the image has a known resolution (`xres > 0`), the scale factor is computed as
+/// `target / xres`. If the resolution is unknown (0), `assumed` is used instead;
+/// passing `assumed == 0.0` returns a copy of the input unchanged.
+pub fn scale_to_resolution(pix: &Pix, target: f32, assumed: f32) -> TransformResult<Pix> {
+    if target <= 0.0 {
+        return Err(TransformError::InvalidParameters(
+            "target resolution must be > 0".to_string(),
+        ));
+    }
+    let xres = pix.xres();
+    let effective_res = if xres > 0 {
+        xres as f32
+    } else if assumed <= 0.0 {
+        return Ok(pix.deep_clone());
+    } else {
+        assumed
+    };
+    let factor = target / effective_res;
+    scale(pix, factor, factor, ScaleMethod::Auto)
+}
+
+/// Scale using nearest-neighbor sampling with a configurable half-pixel shift.
+///
+/// `shift_x` / `shift_y` must be either `0.0` or `0.5`.
+/// The default (used by [`scale_by_sampling`]) is `0.5`.
+/// Using `0.0` minimizes edge effects near image borders.
+pub fn scale_by_sampling_with_shift(
+    pix: &Pix,
+    scale_x: f32,
+    scale_y: f32,
+    shift_x: f32,
+    shift_y: f32,
+) -> TransformResult<Pix> {
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({}, {})",
+            scale_x, scale_y
+        )));
+    }
+    if (shift_x != 0.0 && shift_x != 0.5) || (shift_y != 0.0 && shift_y != 0.5) {
+        return Err(TransformError::InvalidParameters(
+            "shift must be 0.0 or 0.5".to_string(),
+        ));
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let new_w = ((w as f32) * scale_x).round() as u32;
+    let new_h = ((h as f32) * scale_y).round() as u32;
+    if new_w == 0 || new_h == 0 {
+        return Err(TransformError::InvalidScaleFactor(
+            "resulting dimensions would be zero".to_string(),
+        ));
+    }
+
+    let depth = pix.depth();
+    let out_pix = Pix::new(new_w, new_h, depth)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    if let Some(cmap) = pix.colormap() {
+        let _ = out_mut.set_colormap(Some(cmap.clone()));
+    }
+
+    let inv_x = w as f32 / new_w as f32;
+    let inv_y = h as f32 / new_h as f32;
+
+    for y in 0..new_h {
+        let src_y = ((y as f32 + shift_y) * inv_y) as u32;
+        let src_y = src_y.min(h - 1);
+        for x in 0..new_w {
+            let src_x = ((x as f32 + shift_x) * inv_x) as u32;
+            let src_x = src_x.min(w - 1);
+            out_mut.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(src_x, src_y));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Scale by an integer subsampling factor (isotropic downsampling).
+///
+/// A `factor` of 1 returns a copy. For `factor >= 2`, every `factor`-th pixel
+/// is sampled (equivalent to `scale_by_sampling(pix, 1/factor, 1/factor)`).
+pub fn scale_by_int_sampling(pix: &Pix, factor: u32) -> TransformResult<Pix> {
+    if factor == 0 {
+        return Err(TransformError::InvalidParameters(
+            "factor must be >= 1".to_string(),
+        ));
+    }
+    if factor == 1 {
+        return Ok(pix.deep_clone());
+    }
+    let scale = 1.0 / factor as f32;
+    scale_by_sampling(pix, scale, scale)
+}
+
+/// Smooth downscaling using a box filter followed by subsampling.
+///
+/// Should only be used when both scale factors are < 0.7. For larger factors,
+/// this redirects to [`scale_general`] with LI.
+///
+/// The box filter width is `max(2, round(1 / min_scale))`, ensuring adequate
+/// anti-aliasing.
+pub fn scale_smooth(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({}, {})",
+            scale_x, scale_y
+        )));
+    }
+    if scale_x >= 0.7 || scale_y >= 0.7 {
+        return scale_general(pix, scale_x, scale_y, 0.0, 0);
+    }
+
+    let depth = pix.depth();
+    let w = pix.width();
+    let h = pix.height();
+    let new_w = ((w as f32) * scale_x).round() as u32;
+    let new_h = ((h as f32) * scale_y).round() as u32;
+    if new_w == 0 || new_h == 0 {
+        return Err(TransformError::InvalidScaleFactor(
+            "resulting dimensions would be zero".to_string(),
+        ));
+    }
+
+    let min_scale = scale_x.min(scale_y);
+    let isize = (1.0 / min_scale + 0.5).floor() as u32;
+    let isize = isize.clamp(2, 10000);
+
+    match depth {
+        PixelDepth::Bit8 if pix.colormap().is_none() => {
+            scale_smooth_gray(pix, scale_x, scale_y, new_w, new_h, isize)
+        }
+        PixelDepth::Bit32 => scale_smooth_color(pix, scale_x, scale_y, new_w, new_h, isize),
+        _ => scale_area_map(pix, scale_x, scale_y, new_w, new_h),
+    }
+}
+
+/// Box-filter smooth downscale for 8bpp grayscale
+fn scale_smooth_gray(
+    pix: &Pix,
+    scale_x: f32,
+    scale_y: f32,
+    new_w: u32,
+    new_h: u32,
+    isize: u32,
+) -> TransformResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let out_pix = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    let half = isize / 2;
+    for yd in 0..new_h {
+        let ys_center = (yd as f32 / scale_y + 0.5) as i32;
+        for xd in 0..new_w {
+            let xs_center = (xd as f32 / scale_x + 0.5) as i32;
+            let mut sum: u32 = 0;
+            let mut count: u32 = 0;
+            for dy in 0..isize {
+                let ys = ys_center - half as i32 + dy as i32;
+                if ys < 0 || ys >= h as i32 {
+                    continue;
+                }
+                for dx in 0..isize {
+                    let xs = xs_center - half as i32 + dx as i32;
+                    if xs < 0 || xs >= w as i32 {
+                        continue;
+                    }
+                    sum += pix.get_pixel_unchecked(xs as u32, ys as u32);
+                    count += 1;
+                }
+            }
+            let val = if count > 0 {
+                ((sum as f32 / count as f32) + 0.5) as u32
+            } else {
+                0
+            };
+            out_mut.set_pixel_unchecked(xd, yd, val.min(255));
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Box-filter smooth downscale for 32bpp color
+fn scale_smooth_color(
+    pix: &Pix,
+    scale_x: f32,
+    scale_y: f32,
+    new_w: u32,
+    new_h: u32,
+    isize: u32,
+) -> TransformResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let out_pix = Pix::new(new_w, new_h, PixelDepth::Bit32)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+    out_mut.set_spp(pix.spp());
+
+    let half = isize / 2;
+    for yd in 0..new_h {
+        let ys_center = (yd as f32 / scale_y + 0.5) as i32;
+        for xd in 0..new_w {
+            let xs_center = (xd as f32 / scale_x + 0.5) as i32;
+            let mut sum_r: u32 = 0;
+            let mut sum_g: u32 = 0;
+            let mut sum_b: u32 = 0;
+            let mut sum_a: u32 = 0;
+            let mut count: u32 = 0;
+            for dy in 0..isize {
+                let ys = ys_center - half as i32 + dy as i32;
+                if ys < 0 || ys >= h as i32 {
+                    continue;
+                }
+                for dx in 0..isize {
+                    let xs = xs_center - half as i32 + dx as i32;
+                    if xs < 0 || xs >= w as i32 {
+                        continue;
+                    }
+                    let (r, g, b, a) =
+                        color::extract_rgba(pix.get_pixel_unchecked(xs as u32, ys as u32));
+                    sum_r += r as u32;
+                    sum_g += g as u32;
+                    sum_b += b as u32;
+                    sum_a += a as u32;
+                    count += 1;
+                }
+            }
+            let pixel = if count > 0 {
+                let r = ((sum_r as f32 / count as f32) + 0.5) as u8;
+                let g = ((sum_g as f32 / count as f32) + 0.5) as u8;
+                let b = ((sum_b as f32 / count as f32) + 0.5) as u8;
+                let a = ((sum_a as f32 / count as f32) + 0.5) as u8;
+                color::compose_rgba(r, g, b, a)
+            } else {
+                0
+            };
+            out_mut.set_pixel_unchecked(xd, yd, pixel);
+        }
+    }
+    Ok(out_mut.into())
+}
+
 /// Internal sampling implementation
 fn scale_by_sampling_impl(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
     let w = pix.width();
@@ -589,5 +960,183 @@ mod tests {
 
         assert_eq!((scaled.width(), scaled.height()), (8, 8));
         assert_eq!(scaled.depth(), PixelDepth::Bit1);
+    }
+
+    // --- Phase 3: Scale拡張 - 基本 ---
+
+    #[test]
+    fn test_scale_li_gray_upscale() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                pix_mut.set_pixel_unchecked(x, y, x * 30 + y * 30);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_li(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (8, 8));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+        // top-left corner must stay the same
+        assert_eq!(scaled.get_pixel(0, 0).unwrap(), 0);
+        // bottom-right output corner (7,7) maps exactly to source (3,3) = 3*30+3*30 = 180
+        assert_eq!(scaled.get_pixel(7, 7).unwrap(), 180);
+    }
+
+    #[test]
+    fn test_scale_li_color_upscale() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, color::compose_rgb(0, 0, 0));
+        pix_mut.set_pixel_unchecked(3, 3, color::compose_rgb(255, 255, 255));
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_li(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (8, 8));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    fn test_scale_color_li_basic() {
+        let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, color::compose_rgb(100, 0, 0));
+        pix_mut.set_pixel_unchecked(2, 0, color::compose_rgb(0, 100, 0));
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_color_li(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (6, 6));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    fn test_scale_gray_li_basic() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, 50);
+        pix_mut.set_pixel_unchecked(3, 3, 200);
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_gray_li(&pix, 1.5, 1.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (6, 6));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_general_no_sharpening_gray() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let scaled = scale_general(&pix, 0.5, 0.5, 0.0, 1).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (50, 50));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_general_upscale_color() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let scaled = scale_general(&pix, 2.0, 2.0, 0.0, 1).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (8, 8));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    fn test_scale_to_resolution_known_res() {
+        let mut pix = Pix::new(100, 100, PixelDepth::Bit8)
+            .unwrap()
+            .try_into_mut()
+            .unwrap();
+        pix.set_xres(300);
+        pix.set_yres(300);
+        let pix: Pix = pix.into();
+        // Scale from 300 DPI to 150 DPI → factor = 0.5
+        let scaled = scale_to_resolution(&pix, 150.0, 300.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (50, 50));
+    }
+
+    #[test]
+    fn test_scale_to_resolution_unknown_res() {
+        // No xres set → uses assumed value
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let scaled = scale_to_resolution(&pix, 150.0, 300.0).unwrap();
+        // assumed=300 DPI → target/assumed = 150/300 = 0.5 → 50x50
+        assert_eq!((scaled.width(), scaled.height()), (50, 50));
+    }
+
+    #[test]
+    fn test_scale_by_sampling_with_shift_zero() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pix_mut.set_pixel_unchecked(x, y, x * 10);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_by_sampling_with_shift(&pix, 0.5, 0.5, 0.0, 0.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (4, 4));
+    }
+
+    #[test]
+    fn test_scale_by_sampling_with_shift_half() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let scaled = scale_by_sampling_with_shift(&pix, 0.5, 0.5, 0.5, 0.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (4, 4));
+    }
+
+    #[test]
+    fn test_scale_by_int_sampling_factor2() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pix_mut.set_pixel_unchecked(x, y, x * 10);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_by_int_sampling(&pix, 2).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (4, 4));
+        // With factor=2 and shift=0.5: src_x = (0 + 0.5) * 2 = 1 → pixel[1,0] = 10
+        assert_eq!(scaled.get_pixel(0, 0).unwrap(), 10);
+    }
+
+    #[test]
+    fn test_scale_by_int_sampling_factor1() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let scaled = scale_by_int_sampling(&pix, 1).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (5, 5));
+    }
+
+    #[test]
+    fn test_scale_smooth_gray() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        // Alternating checkerboard
+        for y in 0..20u32 {
+            for x in 0..20u32 {
+                pix_mut.set_pixel_unchecked(x, y, ((x + y) % 2) * 255);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_smooth(&pix, 0.5, 0.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (10, 10));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+        // The smoothed result should be approximately 127 (average of 0 and 255)
+        let center_val = scaled.get_pixel(5, 5).unwrap();
+        assert!(
+            center_val > 100 && center_val < 160,
+            "expected ~127 but got {center_val}"
+        );
+    }
+
+    #[test]
+    fn test_scale_smooth_color() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..20u32 {
+            for x in 0..20u32 {
+                let v = ((x + y) % 2) as u8 * 255;
+                pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(v, v, v));
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_smooth(&pix, 0.5, 0.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (10, 10));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
     }
 }
