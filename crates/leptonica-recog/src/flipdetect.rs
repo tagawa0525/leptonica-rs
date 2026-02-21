@@ -428,6 +428,13 @@ fn create_word_boundary_mask(pix: &Pix, npixels: u32) -> RecogResult<Option<Pix>
 /// Reduce a 1bpp image by 2x using rank-1 (OR) reduction.
 /// Each 2x2 block becomes ON if any pixel in the block is ON.
 fn reduce_rank_binary_2x(pix: &Pix) -> RecogResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
     let w = pix.width();
     let h = pix.height();
     let new_w = w.div_ceil(2);
