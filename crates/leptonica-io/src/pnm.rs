@@ -688,11 +688,19 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
             // Grayscale / binary
             for y in 0..h {
                 for x in 0..w {
-                    let mut buf = [0u8; 1];
-                    reader.read_exact(&mut buf).map_err(IoError::Io)?;
-                    let val = buf[0] & mask8;
-                    let val = if bps == 1 { val ^ 1 } else { val }; // PAM white-is-1 → leptonica 0=white
-                    pix_mut.set_pixel_unchecked(x, y, val as u32);
+                    if bps == 16 {
+                        // 16-bit grayscale: read two bytes per sample (big-endian)
+                        let mut buf = [0u8; 2];
+                        reader.read_exact(&mut buf).map_err(IoError::Io)?;
+                        let val = u16::from_be_bytes(buf) as u32;
+                        pix_mut.set_pixel_unchecked(x, y, val);
+                    } else {
+                        let mut buf = [0u8; 1];
+                        reader.read_exact(&mut buf).map_err(IoError::Io)?;
+                        let val = buf[0] & mask8;
+                        let val = if bps == 1 { val ^ 1 } else { val }; // PAM white-is-1 → leptonica 0=white
+                        pix_mut.set_pixel_unchecked(x, y, val as u32);
+                    }
                 }
             }
         }
