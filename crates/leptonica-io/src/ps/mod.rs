@@ -113,6 +113,12 @@ impl PsOptions {
         self
     }
 
+    /// Set the JPEG quality (1-100) for Level 2 DCT compression
+    pub fn quality(mut self, quality: u8) -> Self {
+        self.quality = quality;
+        self
+    }
+
     /// Enable or disable bounding box output
     pub fn bounding_box(mut self, enable: bool) -> Self {
         self.write_bounding_box = enable;
@@ -495,12 +501,7 @@ fn generate_dct_ps(
         let (image_data, samples_per_pixel, _bits_per_sample) = prepare_image_data(pix)?;
 
         // Encode as JPEG
-        let quality = if options.quality == 0 {
-            75
-        } else {
-            options.quality
-        }
-        .clamp(1, 100);
+        let quality = options.quality.clamp(1, 100);
         let color_type = if samples_per_pixel == 1 {
             jpeg_encoder::ColorType::Luma
         } else {
@@ -528,9 +529,7 @@ fn generate_dct_ps(
         let mut ps = String::new();
 
         // DSC header
-        if options.write_bounding_box {
-            ps.push_str("%!PS-Adobe-3.0 EPSF-3.0\n");
-        }
+        ps.push_str("%!PS-Adobe-3.0 EPSF-3.0\n");
         ps.push_str("%%Creator: leptonica-rs\n");
         if let Some(ref title) = options.title {
             ps.push_str(&format!("%%Title: {}\n", title));
