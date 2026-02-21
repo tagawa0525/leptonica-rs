@@ -8,10 +8,33 @@
 //! - Reading: Supports both lossy and lossless WebP images
 //! - Writing: Currently only lossless encoding is supported by the underlying library
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use image_webp::{ColorType, WebPDecoder, WebPEncoder};
-use leptonica_core::{Pix, PixelDepth, color};
+use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{BufRead, Read, Seek, Write};
+
+/// Read WebP header metadata without decoding pixel data
+pub fn read_header_webp(data: &[u8]) -> IoResult<ImageHeader> {
+    let cursor = std::io::Cursor::new(data);
+    let decoder = WebPDecoder::new(cursor)
+        .map_err(|e| IoError::DecodeError(format!("WebP decode error: {}", e)))?;
+
+    let (width, height) = decoder.dimensions();
+    let spp: u32 = if decoder.has_alpha() { 4 } else { 3 };
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth: 32,
+        bps: 8,
+        spp,
+        has_colormap: false,
+        num_colors: 0,
+        format: ImageFormat::WebP,
+        x_resolution: None,
+        y_resolution: None,
+    })
+}
 
 /// Read a WebP image
 ///

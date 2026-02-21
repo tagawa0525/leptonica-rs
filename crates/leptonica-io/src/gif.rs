@@ -3,11 +3,38 @@
 //! Supports reading and writing single-frame GIF images.
 //! Animated GIFs (multiple frames) are not supported.
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use gif::{ColorOutput, DecodeOptions, Encoder, Frame, Repeat};
 use leptonica_color::{OctreeOptions, octree_quant};
-use leptonica_core::{Pix, PixColormap, PixelDepth};
+use leptonica_core::{ImageFormat, Pix, PixColormap, PixelDepth};
 use std::io::{Read, Write};
+
+/// Read GIF header metadata without decoding pixel data
+pub fn read_header_gif(data: &[u8]) -> IoResult<ImageHeader> {
+    let mut options = DecodeOptions::new();
+    options.set_color_output(ColorOutput::Indexed);
+
+    let decoder = options
+        .read_info(data)
+        .map_err(|e| IoError::DecodeError(format!("GIF decode error: {}", e)))?;
+
+    let width = decoder.width() as u32;
+    let height = decoder.height() as u32;
+    let num_colors = decoder.global_palette().map_or(0, |p| (p.len() / 3) as u32);
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth: 8,
+        bps: 8,
+        spp: 1,
+        has_colormap: true,
+        num_colors,
+        format: ImageFormat::Gif,
+        x_resolution: None,
+        y_resolution: None,
+    })
+}
 
 /// Read a GIF image
 ///

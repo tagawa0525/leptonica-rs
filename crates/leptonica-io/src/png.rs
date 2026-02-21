@@ -1,9 +1,80 @@
 //! PNG image format support
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixColormap, PixelDepth, color};
+use crate::{IoError, IoResult, header::ImageHeader};
+use leptonica_core::{ImageFormat, Pix, PixColormap, PixelDepth, color};
 use png::{BitDepth, ColorType, Decoder, Encoder};
 use std::io::{BufRead, Seek, Write};
+
+/// Read PNG header metadata without decoding pixel data
+pub fn read_header_png(data: &[u8]) -> IoResult<ImageHeader> {
+    let cursor = std::io::Cursor::new(data);
+    let decoder = Decoder::new(cursor);
+    let reader = decoder
+        .read_info()
+        .map_err(|e| IoError::DecodeError(format!("PNG decode error: {}", e)))?;
+
+    let info = reader.info();
+    let width = info.width;
+    let height = info.height;
+    let color_type = info.color_type;
+    let bit_depth = info.bit_depth;
+
+    let (depth, spp) = match (color_type, bit_depth) {
+        (ColorType::Grayscale, BitDepth::One) => (1u32, 1u32),
+        (ColorType::Grayscale, BitDepth::Two) => (2, 1),
+        (ColorType::Grayscale, BitDepth::Four) => (4, 1),
+        (ColorType::Grayscale, BitDepth::Eight) => (8, 1),
+        (ColorType::Grayscale, BitDepth::Sixteen) => (16, 1),
+        (ColorType::GrayscaleAlpha, _) => (32, 4),
+        (ColorType::Rgb, _) => (32, 3),
+        (ColorType::Rgba, _) => (32, 4),
+        (ColorType::Indexed, BitDepth::One) => (1, 1),
+        (ColorType::Indexed, BitDepth::Two) => (2, 1),
+        (ColorType::Indexed, BitDepth::Four) => (4, 1),
+        (ColorType::Indexed, BitDepth::Eight) => (8, 1),
+        _ => {
+            return Err(IoError::UnsupportedFormat(format!(
+                "unsupported PNG format: {:?} {:?}",
+                color_type, bit_depth
+            )));
+        }
+    };
+
+    let has_colormap = color_type == ColorType::Indexed;
+    let num_colors = if has_colormap {
+        info.palette.as_ref().map_or(0, |p| (p.len() / 3) as u32)
+    } else {
+        0
+    };
+
+    // pHYs chunk: pixels per unit
+    let (x_dpi, y_dpi) = if let Some(dims) = info.pixel_dims {
+        use png::Unit;
+        match dims.unit {
+            Unit::Meter => {
+                let x = (dims.xppu as f32 * 0.0254).round() as u32;
+                let y = (dims.yppu as f32 * 0.0254).round() as u32;
+                (Some(x), Some(y))
+            }
+            _ => (None, None),
+        }
+    } else {
+        (None, None)
+    };
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth,
+        bps: bit_depth as u32,
+        spp,
+        has_colormap,
+        num_colors,
+        format: ImageFormat::Png,
+        x_resolution: x_dpi,
+        y_resolution: y_dpi,
+    })
+}
 
 /// Read a PNG image
 pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {

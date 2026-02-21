@@ -2,12 +2,72 @@
 //!
 //! Reads and writes Windows Bitmap (BMP) files.
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::{IoError, IoResult, header::ImageHeader};
+use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{Read, Write};
 
 /// BMP file header size
 const BMP_FILE_HEADER_SIZE: usize = 14;
+
+/// Read BMP header metadata without decoding pixel data
+pub fn read_header_bmp(data: &[u8]) -> IoResult<ImageHeader> {
+    // Need at least file header (14) + info header (40)
+    if data.len() < BMP_FILE_HEADER_SIZE + 40 {
+        return Err(IoError::InvalidData("BMP data too short".to_string()));
+    }
+    if &data[0..2] != b"BM" {
+        return Err(IoError::InvalidData("not a BMP file".to_string()));
+    }
+
+    // BITMAPINFOHEADER starts at offset 14
+    let info = &data[BMP_FILE_HEADER_SIZE..];
+
+    let width = i32::from_le_bytes(info[4..8].try_into().unwrap()).unsigned_abs();
+    let height = i32::from_le_bytes(info[8..12].try_into().unwrap()).unsigned_abs();
+    let bits_per_pixel = u16::from_le_bytes(info[14..16].try_into().unwrap());
+
+    // XPelsPerMeter / YPelsPerMeter (offset 24/28 within info header)
+    let x_ppm = i32::from_le_bytes(info[24..28].try_into().unwrap());
+    let y_ppm = i32::from_le_bytes(info[28..32].try_into().unwrap());
+    // Convert pixels/metre → DPI (1 m = 39.3701 inches)
+    let x_dpi = if x_ppm > 0 {
+        Some((x_ppm as f32 * 0.0254).round() as u32)
+    } else {
+        None
+    };
+    let y_dpi = if y_ppm > 0 {
+        Some((y_ppm as f32 * 0.0254).round() as u32)
+    } else {
+        None
+    };
+
+    let (depth, spp, has_colormap, num_colors) = match bits_per_pixel {
+        1 => (1u32, 1u32, true, 2u32),
+        4 => (4, 1, true, 16),
+        8 => (8, 1, true, 256),
+        24 => (32, 3, false, 0),
+        32 => (32, 4, false, 0),
+        _ => {
+            return Err(IoError::UnsupportedFormat(format!(
+                "unsupported BMP bit depth: {}",
+                bits_per_pixel
+            )));
+        }
+    };
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth,
+        bps: bits_per_pixel.min(8) as u32,
+        spp,
+        has_colormap,
+        num_colors,
+        format: ImageFormat::Bmp,
+        x_resolution: x_dpi,
+        y_resolution: y_dpi,
+    })
+}
 
 /// BMP info header size (BITMAPINFOHEADER)
 const BMP_INFO_HEADER_SIZE: u32 = 40;

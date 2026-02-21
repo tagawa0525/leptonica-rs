@@ -10,10 +10,51 @@
 //! Writing is not yet supported. The openjp2 crate's low-level API requires
 //! additional work to integrate properly.
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use hayro_jpeg2000::{ColorSpace, DecodeSettings, Image};
-use leptonica_core::{Pix, PixelDepth};
+use leptonica_core::{ImageFormat, Pix, PixelDepth};
 use std::io::{Read, Seek};
+
+/// Read JPEG 2000 header metadata without decoding pixel data
+pub fn read_header_jp2k(data: &[u8]) -> IoResult<ImageHeader> {
+    let settings = DecodeSettings::default();
+    let image = Image::new(data, &settings)
+        .map_err(|e| IoError::DecodeError(format!("JP2K decode error: {}", e)))?;
+
+    let width = image.width();
+    let height = image.height();
+    let has_alpha = image.has_alpha();
+    let spp: u32 = match image.color_space() {
+        ColorSpace::Gray => {
+            if has_alpha {
+                4
+            } else {
+                1
+            }
+        }
+        _ => {
+            if has_alpha {
+                4
+            } else {
+                3
+            }
+        }
+    };
+    let depth: u32 = if spp == 1 { 8 } else { 32 };
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth,
+        bps: 8,
+        spp,
+        has_colormap: false,
+        num_colors: 0,
+        format: ImageFormat::Jp2,
+        x_resolution: None,
+        y_resolution: None,
+    })
+}
 
 /// Read a JPEG 2000 image
 ///

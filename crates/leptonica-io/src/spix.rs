@@ -7,9 +7,41 @@
 //!
 //! C Leptonica: `spixio.c`
 
-use crate::IoResult;
-use leptonica_core::Pix;
+use crate::{IoResult, header::ImageHeader};
+use leptonica_core::{ImageFormat, Pix};
 use std::io::{Read, Write};
+
+/// Read SPIX header metadata without decoding pixel data
+///
+/// # Note on spp
+///
+/// The SPIX format does not store samples-per-pixel (spp) in its header.
+/// This function returns `spp=3` for 32-bit images and `spp=1` for others.
+/// RGBA images (spp=4) cannot be distinguished from RGB (spp=3) from the
+/// header alone; callers that need the exact spp must decode the full image.
+///
+/// # See also
+///
+/// C Leptonica: `sreadHeaderSpix()` in `spixio.c`
+pub fn read_header_spix(data: &[u8]) -> IoResult<ImageHeader> {
+    let h = Pix::read_spix_header(data)?;
+    // 32-bit images store RGB or RGBA; spp cannot be determined from the header
+    let spp: u32 = if h.depth == 32 { 3 } else { 1 };
+    // bps = bits per channel: 8 for 32bpp (4 channels × 8 bits), depth itself otherwise
+    let bps: u32 = if h.depth == 32 { 8 } else { h.depth };
+    Ok(ImageHeader {
+        width: h.width,
+        height: h.height,
+        depth: h.depth,
+        bps,
+        spp,
+        has_colormap: h.ncolors > 0,
+        num_colors: h.ncolors,
+        format: ImageFormat::Spix,
+        x_resolution: None,
+        y_resolution: None,
+    })
+}
 
 /// Read a SPIX image
 ///

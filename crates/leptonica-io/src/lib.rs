@@ -35,10 +35,14 @@ pub mod pdf;
 #[cfg(feature = "ps-format")]
 pub mod ps;
 
+pub mod header;
 pub mod spix;
 
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
+pub use header::{
+    ImageHeader, choose_output_format, read_image_header, read_image_header_mem, write_image_auto,
+};
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
 
 use std::fs::File;

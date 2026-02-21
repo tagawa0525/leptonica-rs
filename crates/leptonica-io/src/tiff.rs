@@ -3,7 +3,7 @@
 //! This module provides reading and writing support for TIFF images,
 //! including multipage TIFFs and various compression formats.
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{Read, Seek, Write};
 use tiff::ColorType;
@@ -11,6 +11,56 @@ use tiff::decoder::{Decoder, DecodingResult};
 use tiff::encoder::colortype::{Gray8, Gray16, RGB8, RGBA8};
 use tiff::encoder::{Compression, TiffEncoder};
 use tiff::tags::PhotometricInterpretation;
+
+/// Read TIFF header metadata without decoding pixel data
+pub fn read_header_tiff(data: &[u8]) -> IoResult<ImageHeader> {
+    let cursor = std::io::Cursor::new(data);
+    let mut decoder = Decoder::new(cursor)
+        .map_err(|e| IoError::DecodeError(format!("TIFF decode error: {}", e)))?;
+
+    let (width, height) = decoder
+        .dimensions()
+        .map_err(|e| IoError::DecodeError(format!("TIFF dimensions: {}", e)))?;
+
+    let color_type = decoder
+        .colortype()
+        .map_err(|e| IoError::DecodeError(format!("TIFF colortype: {}", e)))?;
+
+    let (depth, spp, bps) = match color_type {
+        ColorType::Gray(n) => {
+            let d = if n <= 8 { 8u32 } else { 16 };
+            (d, 1u32, n as u32)
+        }
+        ColorType::GrayA(n) => (32, 4, n as u32),
+        ColorType::Palette(n) => (n as u32, 1, n as u32),
+        ColorType::RGB(n) => (32, 3, n as u32),
+        ColorType::RGBA(n) => (32, 4, n as u32),
+        _ => (32, 3, 8),
+    };
+
+    // DPI from TIFF tags
+    let x_dpi = decoder
+        .get_tag_f32(tiff::tags::Tag::XResolution)
+        .ok()
+        .map(|v| v.round() as u32);
+    let y_dpi = decoder
+        .get_tag_f32(tiff::tags::Tag::YResolution)
+        .ok()
+        .map(|v| v.round() as u32);
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth,
+        bps,
+        spp,
+        has_colormap: matches!(color_type, ColorType::Palette(_)),
+        num_colors: 0,
+        format: ImageFormat::Tiff,
+        x_resolution: x_dpi,
+        y_resolution: y_dpi,
+    })
+}
 
 /// TIFF compression format
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -2,9 +2,59 @@
 //!
 //! Supports PBM (P1/P4), PGM (P2/P5), and PPM (P3/P6) formats.
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::{IoError, IoResult, header::ImageHeader};
+use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{BufRead, BufReader, Read, Write};
+
+/// Read PNM header metadata without decoding pixel data
+pub fn read_header_pnm(data: &[u8]) -> IoResult<ImageHeader> {
+    let mut reader = BufReader::new(data);
+
+    let mut magic = [0u8; 2];
+    reader.read_exact(&mut magic).map_err(IoError::Io)?;
+
+    let pnm_type = PnmType::from_magic(&magic)
+        .ok_or_else(|| IoError::InvalidData("invalid PNM magic number".to_string()))?;
+
+    skip_whitespace_and_comments(&mut reader)?;
+    let width = read_number(&mut reader)?;
+    skip_whitespace_and_comments(&mut reader)?;
+    let height = read_number(&mut reader)?;
+
+    let maxval = match pnm_type {
+        PnmType::PbmAscii | PnmType::PbmBinary => 1,
+        _ => {
+            skip_whitespace_and_comments(&mut reader)?;
+            read_number(&mut reader)?
+        }
+    };
+
+    let (depth, spp, bps) = match pnm_type {
+        PnmType::PbmAscii | PnmType::PbmBinary => (1u32, 1u32, 1u32),
+        PnmType::PgmAscii | PnmType::PgmBinary => {
+            if maxval > 255 {
+                (16, 1, 16)
+            } else {
+                (8, 1, 8)
+            }
+        }
+        // PPM images use 32 bpp internally (24-bit RGB in 32-bit word), 8 bits per sample
+        PnmType::PpmAscii | PnmType::PpmBinary => (32, 3, 8),
+    };
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth,
+        bps,
+        spp,
+        has_colormap: false,
+        num_colors: 0,
+        format: ImageFormat::Pnm,
+        x_resolution: None,
+        y_resolution: None,
+    })
+}
 
 /// PNM format type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

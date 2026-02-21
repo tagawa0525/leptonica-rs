@@ -2,10 +2,50 @@
 //!
 //! Reading and writing JPEG images using the jpeg-decoder and jpeg-encoder crates.
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use jpeg_decoder::{Decoder, PixelFormat};
-use leptonica_core::{Pix, PixelDepth, color, pix::RemoveColormapTarget};
+use leptonica_core::{ImageFormat, Pix, PixelDepth, color, pix::RemoveColormapTarget};
 use std::io::{Read, Write};
+
+/// Read JPEG header metadata without decoding pixel data
+pub fn read_header_jpeg(data: &[u8]) -> IoResult<ImageHeader> {
+    let mut decoder = Decoder::new(std::io::Cursor::new(data));
+    // read_info() reads only the headers, not pixel data
+    decoder
+        .read_info()
+        .map_err(|e| IoError::DecodeError(format!("JPEG decode error: {}", e)))?;
+
+    let info = decoder
+        .info()
+        .ok_or_else(|| IoError::InvalidData("missing JPEG info".to_string()))?;
+
+    let width = info.width as u32;
+    let height = info.height as u32;
+
+    let (depth, spp, bps) = match info.pixel_format {
+        PixelFormat::L8 => (8u32, 1u32, 8u32),
+        PixelFormat::L16 => (16, 1, 16),
+        PixelFormat::RGB24 => (32, 3, 8),
+        PixelFormat::CMYK32 => {
+            return Err(IoError::UnsupportedFormat(
+                "CMYK JPEG not supported".to_string(),
+            ));
+        }
+    };
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth,
+        bps,
+        spp,
+        has_colormap: false,
+        num_colors: 0,
+        format: ImageFormat::Jpeg,
+        x_resolution: None,
+        y_resolution: None,
+    })
+}
 
 /// Options for JPEG encoding
 pub struct JpegOptions {
