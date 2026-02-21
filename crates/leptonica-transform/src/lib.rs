@@ -21,15 +21,17 @@ pub mod shear;
 pub mod warper;
 
 pub use affine::{
-    AffineFill, AffineMatrix, Point, affine, affine_pta, affine_rotate, affine_sampled,
-    affine_sampled_pta, affine_scale, translate,
+    AffineFill, AffineMatrix, Point, affine, affine_pta, affine_pta_with_alpha, affine_rotate,
+    affine_sampled, affine_sampled_pta, affine_scale, translate,
 };
 pub use bilinear::{
-    BilinearCoeffs, bilinear, bilinear_pta, bilinear_sampled, bilinear_sampled_pta,
+    BilinearCoeffs, bilinear, bilinear_pta, bilinear_pta_with_alpha, bilinear_sampled,
+    bilinear_sampled_pta,
 };
 pub use error::{TransformError, TransformResult};
 pub use projective::{
-    ProjectiveCoeffs, projective, projective_pta, projective_sampled, projective_sampled_pta,
+    ProjectiveCoeffs, projective, projective_pta, projective_pta_with_alpha, projective_sampled,
+    projective_sampled_pta,
 };
 pub use rotate::{
     RotateFill, RotateMethod, RotateOptions, flip_lr, flip_tb, rotate, rotate_90, rotate_180,

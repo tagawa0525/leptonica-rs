@@ -758,6 +758,181 @@ fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
 }
 
 // ============================================================================
+// WithAlpha Affine Transformation
+// ============================================================================
+
+/// Apply an affine transformation preserving the alpha channel
+///
+/// This is equivalent to Leptonica's `pixAffinePtaWithAlpha`.
+///
+/// The function transforms the RGB and alpha channels independently using
+/// the same geometric mapping. This allows precise blending control—pixels
+/// outside the transformed boundary become fully transparent.
+///
+/// # Arguments
+/// * `pix` - Input 32bpp image (with or without alpha)
+/// * `src_pts` - 3 source points
+/// * `dst_pts` - 3 destination points
+/// * `alpha_mask` - Optional 8bpp grayscale image for alpha. If `None`, uses `opacity`
+/// * `opacity` - Opacity fraction (0.0 = transparent, 1.0 = opaque). Used when `alpha_mask` is `None`
+/// * `border` - Number of border pixels to add around the image and alpha mask. Controls the
+///   region used for edge feathering and increases the output image size (shifting the point
+///   coordinate space by `border` pixels in both X and Y).
+///
+/// # Returns
+/// A 32bpp RGBA image with spp=4
+pub fn affine_pta_with_alpha(
+    pix: &Pix,
+    src_pts: [Point; 3],
+    dst_pts: [Point; 3],
+    alpha_mask: Option<&Pix>,
+    opacity: f32,
+    border: u32,
+) -> TransformResult<Pix> {
+    with_alpha_transform(
+        pix,
+        alpha_mask,
+        opacity,
+        border,
+        &src_pts,
+        &dst_pts,
+        |img, src, dst| {
+            let s: [Point; 3] = [src[0], src[1], src[2]];
+            let d: [Point; 3] = [dst[0], dst[1], dst[2]];
+            affine_pta(img, s, d, AffineFill::Black)
+        },
+    )
+}
+
+/// Common WithAlpha transform implementation
+///
+/// Shared by affine, bilinear, and projective WithAlpha transforms.
+/// The `transform_fn` closure performs the actual geometric transform
+/// on both color (32bpp) and grayscale (8bpp) images.
+///
+/// Algorithm (follows C Leptonica's `pixAffinePtaWithAlpha` pattern):
+/// 1. Add border to source image
+/// 2. Adjust point coordinates for border offset
+/// 3. Transform RGB channels (color)
+/// 4. Prepare alpha channel (from mask or uniform opacity)
+/// 5. Apply edge feathering rings
+/// 6. Add border to alpha and transform (grayscale)
+/// 7. Set alpha channel in result
+pub(crate) fn with_alpha_transform<F>(
+    pix: &Pix,
+    alpha_mask: Option<&Pix>,
+    opacity: f32,
+    border: u32,
+    src_pts: &[Point],
+    dst_pts: &[Point],
+    transform_fn: F,
+) -> TransformResult<Pix>
+where
+    F: Fn(&Pix, &[Point], &[Point]) -> TransformResult<Pix>,
+{
+    use leptonica_core::pix::RgbComponent;
+
+    // Validate inputs
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(
+            "WithAlpha requires 32bpp input".into(),
+        ));
+    }
+
+    let opacity = opacity.clamp(0.0, 1.0);
+
+    if let Some(mask) = alpha_mask
+        && mask.depth() != PixelDepth::Bit8
+    {
+        return Err(TransformError::InvalidParameters(
+            "alpha_mask must be 8bpp".into(),
+        ));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+
+    // Step 1: Add border to source image (black border)
+    let pixb1 = pix.add_border(border, 0)?;
+
+    // Step 2: Adjust point coordinates for border offset
+    let border_f = border as f32;
+    let adj_src: Vec<Point> = src_pts
+        .iter()
+        .map(|p| Point::new(p.x + border_f, p.y + border_f))
+        .collect();
+    let adj_dst: Vec<Point> = dst_pts
+        .iter()
+        .map(|p| Point::new(p.x + border_f, p.y + border_f))
+        .collect();
+
+    // Step 3: Transform RGB channels
+    let pixd = transform_fn(&pixb1, &adj_src, &adj_dst)?;
+
+    // Step 4: Prepare alpha channel (8bpp grayscale)
+    let use_custom_mask = alpha_mask.is_some();
+    let pix_alpha = if let Some(mask) = alpha_mask {
+        // Resize alpha mask to match source dimensions using resize_to_match
+        // (crops if larger, replicates last row/col if smaller)
+        if mask.width() != ws || mask.height() != hs {
+            mask.resize_to_match(None, ws, hs)?
+        } else {
+            mask.deep_clone()
+        }
+    } else {
+        // Create uniform alpha from opacity
+        let alpha_val = (255.0 * opacity) as u32;
+        let alpha_pix = Pix::new(ws, hs, PixelDepth::Bit8)?;
+        let mut am = alpha_pix.try_into_mut().unwrap();
+        for y in 0..hs {
+            for x in 0..ws {
+                am.set_pixel_unchecked(x, y, alpha_val);
+            }
+        }
+        am.into()
+    };
+
+    // Step 5: Apply edge feathering (only for images > 10x10, only when no custom mask)
+    // Feathering is skipped for custom masks to avoid increasing alpha above the mask's values.
+    let pix_alpha = if !use_custom_mask && ws > 10 && hs > 10 {
+        let mut am = pix_alpha.try_into_mut().unwrap();
+        // Ring 1 (outermost): fully transparent
+        am.set_border_val(1, 1, 1, 1, 0)
+            .map_err(TransformError::Core)?;
+
+        // Ring 2: semi-transparent
+        if ws > 12 && hs > 12 {
+            let ring2_val = (255.0 * opacity * 0.5) as u32;
+            for x in 1..(ws - 1) {
+                am.set_pixel_unchecked(x, 1, ring2_val);
+                am.set_pixel_unchecked(x, hs - 2, ring2_val);
+            }
+            for y in 1..(hs - 1) {
+                am.set_pixel_unchecked(1, y, ring2_val);
+                am.set_pixel_unchecked(ws - 2, y, ring2_val);
+            }
+        }
+        am.into()
+    } else {
+        pix_alpha
+    };
+
+    // Step 6: Add border to alpha (black border = fully transparent)
+    let pixb2 = pix_alpha.add_border(border, 0)?;
+
+    // Step 7: Transform alpha channel (grayscale)
+    let pixga = transform_fn(&pixb2, &adj_src, &adj_dst)?;
+
+    // Step 8: Set alpha channel in result
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+    pixd_mut
+        .set_rgb_component(&pixga, RgbComponent::Alpha)
+        .map_err(TransformError::Core)?;
+
+    Ok(pixd_mut.into())
+}
+
+// ============================================================================
 // Utility Functions
 // ============================================================================
 
@@ -1178,6 +1353,154 @@ mod tests {
     // ========================================================================
     // Color preservation tests
     // ========================================================================
+
+    // ========================================================================
+    // WithAlpha tests
+    // ========================================================================
+
+    #[test]
+    fn test_affine_pta_with_alpha_basic() {
+        // 32bpp RGBA image with known content
+        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_spp(4);
+        for y in 0..50u32 {
+            for x in 0..50u32 {
+                let pixel = color::compose_rgba((x * 5) as u8, (y * 5) as u8, 128, 255);
+                pm.set_pixel_unchecked(x, y, pixel);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // Identity-like transform (small translation)
+        let src = [
+            Point::new(0.0, 0.0),
+            Point::new(49.0, 0.0),
+            Point::new(0.0, 49.0),
+        ];
+        let dst = [
+            Point::new(2.0, 2.0),
+            Point::new(47.0, 2.0),
+            Point::new(2.0, 47.0),
+        ];
+
+        let result = affine_pta_with_alpha(&pix, src, dst, None, 1.0, 10).unwrap();
+
+        // Result should be 32bpp with spp=4
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert_eq!(result.spp(), 4);
+
+        // Result should be larger than input due to border
+        assert_eq!(result.width(), 70); // 50 + 2*10
+        assert_eq!(result.height(), 70);
+
+        // Border pixels should have alpha = 0 (transparent)
+        assert_eq!(color::alpha(result.get_pixel_unchecked(0, 0)), 0);
+
+        // Interior pixels should have non-zero alpha
+        let center_pixel = result.get_pixel_unchecked(35, 35);
+        assert!(color::alpha(center_pixel) > 0);
+    }
+
+    #[test]
+    fn test_affine_pta_with_alpha_opacity() {
+        let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..30u32 {
+            for x in 0..30u32 {
+                pm.set_pixel_unchecked(x, y, color::compose_rgb(100, 150, 200));
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let src = [
+            Point::new(0.0, 0.0),
+            Point::new(29.0, 0.0),
+            Point::new(0.0, 29.0),
+        ];
+        let dst = src; // Identity
+
+        // 50% opacity
+        let result = affine_pta_with_alpha(&pix, src, dst, None, 0.5, 5).unwrap();
+        assert_eq!(result.spp(), 4);
+
+        // Interior pixel alpha should be approximately 127 (255 * 0.5)
+        // Account for edge feathering by checking a pixel well inside
+        let interior = result.get_pixel_unchecked(20, 20);
+        let alpha = color::alpha(interior);
+        assert!(
+            (alpha as i32 - 127).abs() <= 2,
+            "Expected alpha ~127, got {}",
+            alpha
+        );
+    }
+
+    #[test]
+    fn test_affine_pta_with_alpha_custom_mask() {
+        let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..30u32 {
+            for x in 0..30u32 {
+                pm.set_pixel_unchecked(x, y, color::compose_rgb(100, 150, 200));
+            }
+        }
+        let pix: Pix = pm.into();
+
+        // Create custom alpha mask: left half opaque, right half transparent
+        let mask = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
+        let mut mm = mask.try_into_mut().unwrap();
+        for y in 0..30u32 {
+            for x in 0..15u32 {
+                mm.set_pixel_unchecked(x, y, 255);
+            }
+            for x in 15..30u32 {
+                mm.set_pixel_unchecked(x, y, 0);
+            }
+        }
+        let mask: Pix = mm.into();
+
+        let src = [
+            Point::new(0.0, 0.0),
+            Point::new(29.0, 0.0),
+            Point::new(0.0, 29.0),
+        ];
+        let dst = src; // Identity
+
+        let result = affine_pta_with_alpha(&pix, src, dst, Some(&mask), 1.0, 5).unwrap();
+        assert_eq!(result.spp(), 4);
+
+        // Output is 40x40 (30x30 + 5px border on each side).
+        // Identity transform: source pixel (sx, sy) -> output pixel (sx+5, sy+5).
+        // Mask: left half (sx < 15) = 255, right half (sx >= 15) = 0.
+        // Sample away from the border at output row y=15 (source row 10).
+        // Output (7, 15) -> source (2, 10): left half, alpha should be 255.
+        // Output (27, 15) -> source (22, 10): right half, alpha should be 0.
+        let opaque_pixel = result.get_pixel(7, 15).unwrap();
+        let transparent_pixel = result.get_pixel(27, 15).unwrap();
+        // Alpha is in the lowest byte (ALPHA_SHIFT=0, format 0xRRGGBBAA)
+        let opaque_alpha = (opaque_pixel & 0xff) as u8;
+        let transparent_alpha = (transparent_pixel & 0xff) as u8;
+        assert!(
+            opaque_alpha > 200,
+            "expected high alpha in masked-opaque region, got {opaque_alpha}"
+        );
+        assert!(
+            transparent_alpha < 50,
+            "expected low alpha in masked-transparent region, got {transparent_alpha}"
+        );
+    }
+
+    #[test]
+    fn test_affine_pta_with_alpha_invalid_depth() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let src = [
+            Point::new(0.0, 0.0),
+            Point::new(19.0, 0.0),
+            Point::new(0.0, 19.0),
+        ];
+        let result = affine_pta_with_alpha(&pix, src, src, None, 1.0, 5);
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_affine_preserves_colormap() {
