@@ -590,4 +590,196 @@ mod tests {
         assert_eq!((scaled.width(), scaled.height()), (8, 8));
         assert_eq!(scaled.depth(), PixelDepth::Bit1);
     }
+
+    // --- Phase 3: Scale拡張 - 基本 ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_li_gray_upscale() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                pix_mut.set_pixel_unchecked(x, y, x * 30 + y * 30);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_li(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (8, 8));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+        // top-left corner must stay the same
+        assert_eq!(scaled.get_pixel(0, 0).unwrap(), 0);
+        // bottom-right must stay the same (val = 3*30 + 3*30 = 180)
+        assert_eq!(scaled.get_pixel(6, 6).unwrap(), 180);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_li_color_upscale() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, color::compose_rgb(0, 0, 0));
+        pix_mut.set_pixel_unchecked(3, 3, color::compose_rgb(255, 255, 255));
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_li(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (8, 8));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_color_li_basic() {
+        let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, color::compose_rgb(100, 0, 0));
+        pix_mut.set_pixel_unchecked(2, 0, color::compose_rgb(0, 100, 0));
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_color_li(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (6, 6));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_li_basic() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, 50);
+        pix_mut.set_pixel_unchecked(3, 3, 200);
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_gray_li(&pix, 1.5, 1.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (6, 6));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_general_no_sharpening_gray() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let scaled = scale_general(&pix, 0.5, 0.5, 0.0, 1).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (50, 50));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_general_upscale_color() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let scaled = scale_general(&pix, 2.0, 2.0, 0.0, 1).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (8, 8));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_resolution_known_res() {
+        let mut pix = Pix::new(100, 100, PixelDepth::Bit8)
+            .unwrap()
+            .try_into_mut()
+            .unwrap();
+        pix.set_xres(300);
+        pix.set_yres(300);
+        let pix: Pix = pix.into();
+        // Scale from 300 DPI to 150 DPI → factor = 0.5
+        let scaled = scale_to_resolution(&pix, 150.0, 300.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (50, 50));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_resolution_unknown_res() {
+        // No xres set → uses assumed value
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let scaled = scale_to_resolution(&pix, 150.0, 300.0).unwrap();
+        // assumed=300 DPI → target/assumed = 150/300 = 0.5 → 50x50
+        assert_eq!((scaled.width(), scaled.height()), (50, 50));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_by_sampling_with_shift_zero() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pix_mut.set_pixel_unchecked(x, y, x * 10);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_by_sampling_with_shift(&pix, 0.5, 0.5, 0.0, 0.0).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (4, 4));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_by_sampling_with_shift_half() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let scaled = scale_by_sampling_with_shift(&pix, 0.5, 0.5, 0.5, 0.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (4, 4));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_by_int_sampling_factor2() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pix_mut.set_pixel_unchecked(x, y, x * 10);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_by_int_sampling(&pix, 2).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (4, 4));
+        // With factor=2 and shift=0.5: src_x = (0 + 0.5) * 2 = 1 → pixel[1,0] = 10
+        assert_eq!(scaled.get_pixel(0, 0).unwrap(), 10);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_by_int_sampling_factor1() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let scaled = scale_by_int_sampling(&pix, 1).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (5, 5));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_smooth_gray() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        // Alternating checkerboard
+        for y in 0..20u32 {
+            for x in 0..20u32 {
+                pix_mut.set_pixel_unchecked(x, y, ((x + y) % 2) * 255);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_smooth(&pix, 0.5, 0.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (10, 10));
+        assert_eq!(scaled.depth(), PixelDepth::Bit8);
+        // The smoothed result should be approximately 127 (average of 0 and 255)
+        let center_val = scaled.get_pixel(5, 5).unwrap();
+        assert!(
+            center_val > 100 && center_val < 160,
+            "expected ~127 but got {center_val}"
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_smooth_color() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..20u32 {
+            for x in 0..20u32 {
+                let v = ((x + y) % 2) as u8 * 255;
+                pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(v, v, v));
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let scaled = scale_smooth(&pix, 0.5, 0.5).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (10, 10));
+        assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
 }
