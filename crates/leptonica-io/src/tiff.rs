@@ -1245,4 +1245,16 @@ mod tests {
         assert_eq!(loaded[1].width(), 20);
         assert_eq!(loaded[2].width(), 30);
     }
+
+    #[test]
+    fn test_write_tiff_append_empty_pages_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut buffer = Cursor::new(Vec::new());
+        write_tiff(&pix, &mut buffer, TiffCompression::None).unwrap();
+
+        let existing = Cursor::new(buffer.into_inner());
+        let mut output = Cursor::new(Vec::new());
+        let result = write_tiff_append(existing, &[], &mut output, TiffCompression::None);
+        assert!(result.is_err());
+    }
 }
