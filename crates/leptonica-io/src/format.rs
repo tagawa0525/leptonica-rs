@@ -206,4 +206,10 @@ mod tests {
         let data = [0xFF, 0x4F, 0xFF, 0x51, 0x00, 0x00, 0x00, 0x00];
         assert_eq!(detect_format_from_bytes(&data).unwrap(), ImageFormat::Jp2);
     }
+
+    #[test]
+    fn test_detect_spix() {
+        let data = b"spix\x00\x00\x00\x00\x00\x00\x00\x00";
+        assert_eq!(detect_format_from_bytes(data).unwrap(), ImageFormat::Spix);
+    }
 }
