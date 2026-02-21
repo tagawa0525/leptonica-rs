@@ -682,8 +682,12 @@ pub fn expand_replicate(pix: &Pix, factor: u32) -> TransformResult<Pix> {
     }
     let w = pix.width();
     let h = pix.height();
-    let new_w = w * factor;
-    let new_h = h * factor;
+    let new_w = w.checked_mul(factor).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled width would overflow u32".to_string())
+    })?;
+    let new_h = h.checked_mul(factor).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled height would overflow u32".to_string())
+    })?;
     let depth = pix.depth();
 
     let out = Pix::new(new_w, new_h, depth)?;
