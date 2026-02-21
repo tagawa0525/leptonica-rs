@@ -280,6 +280,8 @@ ENDHDR
 
 ## Phase 6: PDF DCT圧縮（1 PR）
 
+**Status: IMPLEMENTED** (PR #126)
+
 **C参照**: `reference/leptonica/src/pdfio2.c`
 
 ### 実装内容
