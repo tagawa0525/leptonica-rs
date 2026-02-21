@@ -843,6 +843,13 @@ pub fn write_pam<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     let depth_bits = pix.depth().bits();
     let spp = pix.spp();
 
+    // For 32bpp, normalize spp to 3 (RGB) if it's not 3 or 4
+    let effective_spp = if depth_bits == 32 && spp != 3 && spp != 4 {
+        3
+    } else {
+        spp
+    };
+
     let maxval: u32 = if depth_bits < 32 {
         (1u32 << depth_bits) - 1
     } else {
@@ -853,9 +860,9 @@ pub fn write_pam<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     writeln!(writer, "P7").map_err(IoError::Io)?;
     writeln!(writer, "WIDTH {}", width).map_err(IoError::Io)?;
     writeln!(writer, "HEIGHT {}", height).map_err(IoError::Io)?;
-    writeln!(writer, "DEPTH {}", spp).map_err(IoError::Io)?;
+    writeln!(writer, "DEPTH {}", effective_spp).map_err(IoError::Io)?;
     writeln!(writer, "MAXVAL {}", maxval).map_err(IoError::Io)?;
-    let tupltype = match (spp, depth_bits) {
+    let tupltype = match (effective_spp, depth_bits) {
         (1, 1) => "BLACKANDWHITE",
         (1, _) => "GRAYSCALE",
         (3, _) => "RGB",
