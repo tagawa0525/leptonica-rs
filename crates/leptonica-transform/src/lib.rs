@@ -40,11 +40,14 @@ pub use rotate::{
     rotate_by_radians, rotate_orth, rotate_with_method,
 };
 pub use scale::{
-    ScaleMethod, expand_replicate, scale, scale_binary, scale_by_int_sampling, scale_by_sampling,
-    scale_by_sampling_with_shift, scale_color_li, scale_general, scale_gray_li, scale_li,
-    scale_smooth, scale_to_gray, scale_to_gray_2, scale_to_gray_3, scale_to_gray_4,
-    scale_to_gray_6, scale_to_gray_8, scale_to_gray_16, scale_to_gray_fast, scale_to_resolution,
-    scale_to_size,
+    GrayMinMaxMode, ScaleMethod, expand_replicate, scale, scale_binary, scale_by_int_sampling,
+    scale_by_sampling, scale_by_sampling_with_shift, scale_color_2x_li, scale_color_4x_li,
+    scale_color_li, scale_general, scale_gray_2x_li, scale_gray_2x_li_dither,
+    scale_gray_2x_li_thresh, scale_gray_4x_li, scale_gray_4x_li_dither, scale_gray_4x_li_thresh,
+    scale_gray_li, scale_gray_min_max, scale_gray_rank_cascade, scale_li, scale_smooth,
+    scale_to_gray, scale_to_gray_2, scale_to_gray_3, scale_to_gray_4, scale_to_gray_6,
+    scale_to_gray_8, scale_to_gray_16, scale_to_gray_fast, scale_to_gray_mipmap,
+    scale_to_resolution, scale_to_size,
 };
 pub use shear::{
     ShearFill, h_shear, h_shear_center, h_shear_corner, h_shear_ip, h_shear_li, v_shear,

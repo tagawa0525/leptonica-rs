@@ -734,6 +734,501 @@ pub fn scale_binary(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pi
     scale_by_sampling_with_shift(pix, scale_x, scale_y, 0.5, 0.5)
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 5: Special scaling operations
+// ────────────────────────────────────────────────────────────────────────────
+
+/// 2× upscale of a 32bpp color image using linear interpolation.
+///
+/// Equivalent to `scale_color_li(pix, 2.0, 2.0)`.
+pub fn scale_color_2x_li(pix: &Pix) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    scale_color_li(pix, 2.0, 2.0)
+}
+
+/// 4× upscale of a 32bpp color image using linear interpolation.
+///
+/// Equivalent to `scale_color_li(pix, 4.0, 4.0)`.
+pub fn scale_color_4x_li(pix: &Pix) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    scale_color_li(pix, 4.0, 4.0)
+}
+
+/// 2× upscale of an 8bpp grayscale image using linear interpolation.
+///
+/// Equivalent to `scale_gray_li(pix, 2.0, 2.0)`.
+pub fn scale_gray_2x_li(pix: &Pix) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    scale_gray_li(pix, 2.0, 2.0)
+}
+
+/// 4× upscale of an 8bpp grayscale image using linear interpolation.
+///
+/// Equivalent to `scale_gray_li(pix, 4.0, 4.0)`.
+pub fn scale_gray_4x_li(pix: &Pix) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    scale_gray_li(pix, 4.0, 4.0)
+}
+
+/// 2× upscale of an 8bpp image with LI, then threshold to 1bpp.
+///
+/// `thresh` must be in `[0, 256]`.  Pixels with value `< thresh` become
+/// black (1) and pixels `>= thresh` become white (0).
+pub fn scale_gray_2x_li_thresh(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    if !(0..=256).contains(&thresh) {
+        return Err(TransformError::InvalidParameters(format!(
+            "thresh must be in [0, 256], got {thresh}"
+        )));
+    }
+    let gray = scale_gray_2x_li(pix)?;
+    gray_threshold_to_binary(&gray, thresh as u8)
+}
+
+/// 4× upscale of an 8bpp image with LI, then threshold to 1bpp.
+///
+/// `thresh` must be in `[0, 256]`.  Pixels with value `< thresh` become
+/// black (1) and pixels `>= thresh` become white (0).
+pub fn scale_gray_4x_li_thresh(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    if !(0..=256).contains(&thresh) {
+        return Err(TransformError::InvalidParameters(format!(
+            "thresh must be in [0, 256], got {thresh}"
+        )));
+    }
+    let gray = scale_gray_4x_li(pix)?;
+    gray_threshold_to_binary(&gray, thresh as u8)
+}
+
+/// 2× upscale of an 8bpp image with LI, then Floyd-Steinberg dither to 1bpp.
+pub fn scale_gray_2x_li_dither(pix: &Pix) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    let gray = scale_gray_2x_li(pix)?;
+    gray_floyd_steinberg_dither(&gray)
+}
+
+/// 4× upscale of an 8bpp image with LI, then Floyd-Steinberg dither to 1bpp.
+pub fn scale_gray_4x_li_dither(pix: &Pix) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    let gray = scale_gray_4x_li(pix)?;
+    gray_floyd_steinberg_dither(&gray)
+}
+
+/// Downscale an 8bpp image by selecting the min, max, or max-minus-min value
+/// from each `xfact × yfact` block.
+///
+/// The output dimensions are `(w / xfact, h / yfact)`.
+/// Use [`GrayMinMaxMode`] to select which aggregate to compute.
+pub fn scale_gray_min_max(
+    pix: &Pix,
+    xfact: u32,
+    yfact: u32,
+    mode: GrayMinMaxMode,
+) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    if xfact == 0 || yfact == 0 {
+        return Err(TransformError::InvalidParameters(
+            "xfact and yfact must be >= 1".to_string(),
+        ));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+    let wd = (ws / xfact).max(1);
+    let hd = (hs / yfact).max(1);
+    let xfact = if ws / xfact == 0 { ws } else { xfact };
+    let yfact = if hs / yfact == 0 { hs } else { yfact };
+
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for i in 0..hd {
+        for j in 0..wd {
+            let mut minval: u32 = 255;
+            let mut maxval: u32 = 0;
+            let compute_min = mode == GrayMinMaxMode::Min || mode == GrayMinMaxMode::MaxDiff;
+            let compute_max = mode == GrayMinMaxMode::Max || mode == GrayMinMaxMode::MaxDiff;
+
+            for k in 0..yfact {
+                let ys = (yfact * i + k).min(hs - 1);
+                for m in 0..xfact {
+                    let xs = (xfact * j + m).min(ws - 1);
+                    let val = pix.get_pixel_unchecked(xs, ys);
+                    if compute_min && val < minval {
+                        minval = val;
+                    }
+                    if compute_max && val > maxval {
+                        maxval = val;
+                    }
+                }
+            }
+
+            let out_val = match mode {
+                GrayMinMaxMode::Min => minval,
+                GrayMinMaxMode::Max => maxval,
+                GrayMinMaxMode::MaxDiff => maxval.saturating_sub(minval),
+            };
+            out_mut.set_pixel_unchecked(j, i, out_val);
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Apply up to four cascaded 2× rank downscales to an 8bpp image.
+///
+/// Each level selects the rank-th value (1=darkest, 4=lightest) from a 2×2
+/// block.  Use `level = 0` to stop the cascade early.  `level1` must be > 0.
+///
+/// The maximum reduction is 16× (four stages of 2×).
+pub fn scale_gray_rank_cascade(
+    pix: &Pix,
+    level1: i32,
+    level2: i32,
+    level3: i32,
+    level4: i32,
+) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "cmapped input not supported".to_string(),
+        ));
+    }
+    for &lvl in &[level1, level2, level3, level4] {
+        if lvl > 4 {
+            return Err(TransformError::InvalidParameters(format!(
+                "levels must be in [0, 4], got {lvl}"
+            )));
+        }
+    }
+    if level1 <= 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let t1 = scale_gray_rank2(pix, level1)?;
+    if level2 <= 0 {
+        return Ok(t1);
+    }
+    let t2 = scale_gray_rank2(&t1, level2)?;
+    if level3 <= 0 {
+        return Ok(t2);
+    }
+    let t3 = scale_gray_rank2(&t2, level3)?;
+    if level4 <= 0 {
+        return Ok(t3);
+    }
+    scale_gray_rank2(&t3, level4)
+}
+
+/// Scale a 1bpp image to 8bpp grayscale using mipmap-based interpolation.
+///
+/// `scale_factor` must be in `(0, 1)`.  Two nearby scale-to-gray reductions
+/// are computed and linearly interpolated to produce the output.
+///
+/// Note: this method can produce noticeable aliasing; prefer [`scale_to_gray`]
+/// for production use.
+pub fn scale_to_gray_mipmap(pix: &Pix, scale_factor: f32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if scale_factor <= 0.0 || scale_factor >= 1.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale_factor must be in (0, 1), got {scale_factor}"
+        )));
+    }
+    let (w, h) = (pix.width(), pix.height());
+    let min_src = w.min(h);
+    let min_dst = (min_src as f32 * scale_factor) as u32;
+    if min_dst < 2 {
+        return Err(TransformError::InvalidScaleFactor(
+            "scale_factor too small: destination would be < 2 pixels".to_string(),
+        ));
+    }
+
+    if scale_factor > 0.5 {
+        // Interpolate between full 1→8 and 2× reduced
+        let s1 = pix.convert_1_to_8(255, 0)?;
+        let s2 = scale_to_gray_2(pix)?;
+        scale_mipmap(&s1, &s2, scale_factor)
+    } else if scale_factor == 0.5 {
+        scale_to_gray_2(pix)
+    } else if scale_factor > 0.25 {
+        let s1 = scale_to_gray_2(pix)?;
+        let s2 = scale_to_gray_4(pix)?;
+        scale_mipmap(&s1, &s2, 2.0 * scale_factor)
+    } else if scale_factor == 0.25 {
+        scale_to_gray_4(pix)
+    } else if scale_factor > 0.125 {
+        let s1 = scale_to_gray_4(pix)?;
+        let s2 = scale_to_gray_8(pix)?;
+        scale_mipmap(&s1, &s2, 4.0 * scale_factor)
+    } else if scale_factor == 0.125 {
+        scale_to_gray_8(pix)
+    } else if scale_factor > 0.0625 {
+        let s1 = scale_to_gray_8(pix)?;
+        let s2 = scale_to_gray_16(pix)?;
+        scale_mipmap(&s1, &s2, 8.0 * scale_factor)
+    } else if scale_factor == 0.0625 {
+        scale_to_gray_16(pix)
+    } else {
+        // Beyond the pyramid: scale from 16× reduced
+        let red = 16.0 * scale_factor;
+        let t = scale_to_gray_16(pix)?;
+        if red < 0.7 {
+            scale_smooth(&t, red, red)
+        } else {
+            scale_gray_li(&t, red, red)
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Private helpers for Phase 5
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Threshold an 8bpp image to 1bpp.
+/// Pixels `< thresh` → black (1); pixels `>= thresh` → white (0).
+fn gray_threshold_to_binary(pix: &Pix, thresh: u8) -> TransformResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y) as u8;
+            let binary: u32 = if val < thresh { 1 } else { 0 };
+            out_mut.set_pixel_unchecked(x, y, binary);
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Floyd-Steinberg error-diffusion dithering from 8bpp to 1bpp.
+///
+/// In the output 1bpp image: 0 = white, 1 = black.
+fn gray_floyd_steinberg_dither(pix: &Pix) -> TransformResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+
+    // Use an f32 buffer to accumulate diffused errors.
+    let mut buf: Vec<f32> = Vec::with_capacity((w * h) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            buf.push(pix.get_pixel_unchecked(x, y) as f32);
+        }
+    }
+
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) as usize;
+            let old_val = buf[idx].clamp(0.0, 255.0);
+            // Quantize: >= 128 → white (0 in 1bpp), < 128 → black (1 in 1bpp)
+            let (new_val, binary) = if old_val >= 128.0 {
+                (255.0_f32, 0_u32)
+            } else {
+                (0.0_f32, 1_u32)
+            };
+            out_mut.set_pixel_unchecked(x, y, binary);
+            let error = old_val - new_val;
+
+            // Distribute error to neighbours (Floyd-Steinberg weights)
+            if x + 1 < w {
+                buf[idx + 1] += error * 7.0 / 16.0;
+            }
+            if y + 1 < h {
+                if x > 0 {
+                    buf[((y + 1) * w + x - 1) as usize] += error * 3.0 / 16.0;
+                }
+                buf[((y + 1) * w + x) as usize] += error * 5.0 / 16.0;
+                if x + 1 < w {
+                    buf[((y + 1) * w + x + 1) as usize] += error * 1.0 / 16.0;
+                }
+            }
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Single-stage 2× grayscale rank reduction.
+///
+/// `rank` in `[1, 4]`: 1 = darkest, 4 = lightest.
+fn scale_gray_rank2(pix: &Pix, rank: i32) -> TransformResult<Pix> {
+    if !(1..=4).contains(&rank) {
+        return Err(TransformError::InvalidParameters(format!(
+            "rank must be in [1, 4], got {rank}"
+        )));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+    if ws < 2 || hs < 2 {
+        return Err(TransformError::InvalidParameters(
+            "image too small for 2x rank reduction".to_string(),
+        ));
+    }
+    let wd = ws / 2;
+    let hd = hs / 2;
+
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for i in 0..hd {
+        for j in 0..wd {
+            let mut vals = [
+                pix.get_pixel_unchecked(2 * j, 2 * i),
+                pix.get_pixel_unchecked(2 * j + 1, 2 * i),
+                pix.get_pixel_unchecked(2 * j, 2 * i + 1),
+                pix.get_pixel_unchecked(2 * j + 1, 2 * i + 1),
+            ];
+            vals.sort_unstable();
+            // rank 1 = darkest (index 0), rank 4 = lightest (index 3)
+            let out_val = vals[(rank - 1) as usize];
+            out_mut.set_pixel_unchecked(j, i, out_val);
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Mipmap interpolation between two 8bpp images at adjacent pyramid levels.
+///
+/// `pixs1` is the higher-resolution image; `pixs2` is 2× lower resolution.
+/// `scale` (in `[0.5, 1.0]`) is the reduction factor relative to `pixs1`.
+fn scale_mipmap(pixs1: &Pix, pixs2: &Pix, scale: f32) -> TransformResult<Pix> {
+    if pixs1.depth() != PixelDepth::Bit8 || pixs2.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pixs1.depth()
+        )));
+    }
+    let ws2 = pixs2.width();
+    let hs2 = pixs2.height();
+    let wd = (2.0 * scale * ws2 as f32) as u32;
+    let hd = (2.0 * scale * hs2 as f32) as u32;
+    if wd == 0 || hd == 0 {
+        return Err(TransformError::InvalidScaleFactor(
+            "mipmap output dimensions would be zero".to_string(),
+        ));
+    }
+
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    // For each output pixel, linearly interpolate between the two source levels.
+    // A weight of `scale - 0.5` blends from the high-res to the low-res image.
+    let frac = (scale - 0.5) * 2.0; // 0.0 at scale=0.5, 1.0 at scale=1.0
+
+    let ws1 = pixs1.width();
+    let hs1 = pixs1.height();
+
+    for y in 0..hd {
+        let src_y1 = ((y as f32 / hd as f32) * hs1 as f32) as u32;
+        let src_y2 = ((y as f32 / hd as f32) * hs2 as f32) as u32;
+        let src_y1 = src_y1.min(hs1 - 1);
+        let src_y2 = src_y2.min(hs2 - 1);
+        for x in 0..wd {
+            let src_x1 = ((x as f32 / wd as f32) * ws1 as f32) as u32;
+            let src_x2 = ((x as f32 / wd as f32) * ws2 as f32) as u32;
+            let src_x1 = src_x1.min(ws1 - 1);
+            let src_x2 = src_x2.min(ws2 - 1);
+            let v1 = pixs1.get_pixel_unchecked(src_x1, src_y1) as f32;
+            let v2 = pixs2.get_pixel_unchecked(src_x2, src_y2) as f32;
+            let val = (v1 * (1.0 - frac) + v2 * frac).round() as u32;
+            out_mut.set_pixel_unchecked(x, y, val.min(255));
+        }
+    }
+    Ok(out_mut.into())
+}
+
 /// Internal sampling implementation
 fn scale_by_sampling_impl(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
     let w = pix.width();
@@ -1563,7 +2058,6 @@ mod tests {
     // --- Phase 5: Scale拡張 - 特殊 ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_color_2x_li_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit32).unwrap();
         let out = scale_color_2x_li(&pix).unwrap();
@@ -1572,7 +2066,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_color_4x_li_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit32).unwrap();
         let out = scale_color_4x_li(&pix).unwrap();
@@ -1581,7 +2074,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_2x_li_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let out = scale_gray_2x_li(&pix).unwrap();
@@ -1590,7 +2082,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_4x_li_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let out = scale_gray_4x_li(&pix).unwrap();
@@ -1599,7 +2090,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_2x_li_thresh_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let out = scale_gray_2x_li_thresh(&pix, 128).unwrap();
@@ -1608,7 +2098,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_4x_li_thresh_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let out = scale_gray_4x_li_thresh(&pix, 128).unwrap();
@@ -1617,7 +2106,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_2x_li_dither_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let out = scale_gray_2x_li_dither(&pix).unwrap();
@@ -1626,7 +2114,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_4x_li_dither_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
         let out = scale_gray_4x_li_dither(&pix).unwrap();
@@ -1635,7 +2122,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_min_max_2x_min() {
         let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1650,7 +2136,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_min_max_2x_max() {
         let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1665,7 +2150,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_rank_cascade_single() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let out = scale_gray_rank_cascade(&pix, 1, 0, 0, 0).unwrap();
@@ -1673,7 +2157,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_rank_cascade_double() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let out = scale_gray_rank_cascade(&pix, 1, 1, 0, 0).unwrap();
@@ -1681,7 +2164,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_to_gray_mipmap_half() {
         let pix = make_1bpp(16, 16, &[]);
         let out = scale_to_gray_mipmap(&pix, 0.5).unwrap();
@@ -1690,7 +2172,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_to_gray_mipmap_quarter() {
         let pix = make_1bpp(16, 16, &[]);
         let out = scale_to_gray_mipmap(&pix, 0.25).unwrap();
