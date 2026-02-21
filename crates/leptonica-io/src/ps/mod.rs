@@ -172,9 +172,39 @@ pub fn write_ps<W: Write>(pix: &Pix, mut writer: W, options: &PsOptions) -> IoRe
 /// * `images` - Slice of images to include
 /// * `writer` - Output destination
 /// * `options` - PostScript output options (page_number is overridden per page)
-pub fn write_ps_multi<W: Write>(images: &[&Pix], writer: W, options: &PsOptions) -> IoResult<()> {
-    let _ = (images, writer, options);
-    todo!("write_ps_multi not yet implemented")
+pub fn write_ps_multi<W: Write>(
+    images: &[&Pix],
+    mut writer: W,
+    options: &PsOptions,
+) -> IoResult<()> {
+    if images.is_empty() {
+        return Err(IoError::InvalidData("no images provided".to_string()));
+    }
+
+    let mut ps = String::new();
+
+    // DSC header
+    ps.push_str("%!PS-Adobe-3.0\n");
+    ps.push_str("%%Creator: leptonica-rs\n");
+    if let Some(ref title) = options.title {
+        ps.push_str(&format!("%%Title: {}\n", title));
+    }
+    ps.push_str(&format!("%%Pages: {}\n", images.len()));
+    ps.push_str("%%EndComments\n");
+
+    writer.write_all(ps.as_bytes()).map_err(IoError::Io)?;
+
+    for (i, pix) in images.iter().enumerate() {
+        let mut page_options = options.clone();
+        page_options.page_number = (i + 1) as u32;
+        page_options.write_bounding_box = false;
+
+        let page_ps = generate_ps(pix, &page_options)?;
+        writer.write_all(page_ps.as_bytes()).map_err(IoError::Io)?;
+    }
+
+    writer.write_all(b"%%EOF\n").map_err(IoError::Io)?;
+    Ok(())
 }
 
 /// Write an image as EPS (Encapsulated PostScript)
@@ -448,8 +478,133 @@ fn generate_dct_ps(
     width_pt: f32,
     height_pt: f32,
 ) -> IoResult<String> {
-    let _ = (pix, options, x_pt, y_pt, width_pt, height_pt);
-    todo!("generate_dct_ps not yet implemented")
+    #[cfg(not(feature = "jpeg"))]
+    {
+        let _ = (pix, options, x_pt, y_pt, width_pt, height_pt);
+        return Err(IoError::UnsupportedFormat(
+            "Level 2 DCT requires jpeg feature".to_string(),
+        ));
+    }
+
+    #[cfg(feature = "jpeg")]
+    {
+        let width = pix.width();
+        let height = pix.height();
+
+        // Prepare image data
+        let (image_data, samples_per_pixel, _bits_per_sample) = prepare_image_data(pix)?;
+
+        // Encode as JPEG
+        let quality = if options.quality == 0 {
+            75
+        } else {
+            options.quality
+        }
+        .clamp(1, 100);
+        let color_type = if samples_per_pixel == 1 {
+            jpeg_encoder::ColorType::Luma
+        } else {
+            jpeg_encoder::ColorType::Rgb
+        };
+
+        if width > u16::MAX as u32 || height > u16::MAX as u32 {
+            return Err(IoError::EncodeError(format!(
+                "image dimensions {}x{} exceed JPEG maximum of 65535",
+                width, height
+            )));
+        }
+
+        let mut jpeg_buf = Vec::new();
+        let encoder = jpeg_encoder::Encoder::new(&mut jpeg_buf, quality);
+        encoder
+            .encode(&image_data, width as u16, height as u16, color_type)
+            .map_err(|e| IoError::EncodeError(format!("JPEG encode for PS error: {}", e)))?;
+
+        // Encode JPEG data with ASCII85
+        let encoded = ascii85::encode(&jpeg_buf);
+
+        let page_no = options.page_number;
+
+        let mut ps = String::new();
+
+        // DSC header
+        if options.write_bounding_box {
+            ps.push_str("%!PS-Adobe-3.0 EPSF-3.0\n");
+        }
+        ps.push_str("%%Creator: leptonica-rs\n");
+        if let Some(ref title) = options.title {
+            ps.push_str(&format!("%%Title: {}\n", title));
+        }
+        ps.push_str("%%DocumentData: Clean7Bit\n");
+
+        if options.write_bounding_box {
+            ps.push_str(&format!(
+                "%%BoundingBox: {:.2} {:.2} {:.2} {:.2}\n",
+                x_pt,
+                y_pt,
+                x_pt + width_pt,
+                y_pt + height_pt
+            ));
+        }
+
+        ps.push_str("%%LanguageLevel: 2\n");
+        ps.push_str("%%EndComments\n");
+        ps.push_str(&format!("%%Page: {} {}\n", page_no, page_no));
+
+        ps.push_str("save\n");
+        ps.push_str(&format!(
+            "{:.2} {:.2} translate         %set image origin in pts\n",
+            x_pt, y_pt
+        ));
+        ps.push_str(&format!(
+            "{:.2} {:.2} scale             %set image size in pts\n",
+            width_pt, height_pt
+        ));
+
+        // Color space
+        if samples_per_pixel == 1 {
+            ps.push_str("/DeviceGray setcolorspace\n");
+        } else {
+            ps.push_str("/DeviceRGB setcolorspace\n");
+        }
+
+        // Data filter setup: ASCII85 → DCTDecode
+        ps.push_str("/RawData currentfile /ASCII85Decode filter def\n");
+        ps.push_str("/Data RawData << >> /DCTDecode filter def\n");
+
+        // Image dictionary
+        ps.push_str("{ << /ImageType 1\n");
+        ps.push_str(&format!("     /Width {}\n", width));
+        ps.push_str(&format!("     /Height {}\n", height));
+        ps.push_str("     /BitsPerComponent 8\n");
+        ps.push_str(&format!(
+            "     /ImageMatrix [ {} 0 0 {} 0 {} ]\n",
+            width,
+            -(height as i32),
+            height
+        ));
+
+        // Decode array
+        if samples_per_pixel == 1 {
+            ps.push_str("     /Decode [0 1]\n");
+        } else {
+            ps.push_str("     /Decode [0 1 0 1 0 1]\n");
+        }
+
+        ps.push_str("     /DataSource Data\n");
+        ps.push_str("  >> image\n");
+        ps.push_str("  Data closefile\n");
+        ps.push_str("  RawData flushfile\n");
+        ps.push_str("  showpage\n");
+        ps.push_str("  restore\n");
+        ps.push_str("} exec\n");
+
+        // Encoded data
+        ps.push_str(&encoded);
+        ps.push('\n');
+
+        Ok(ps)
+    }
 }
 
 /// Prepare image data for PostScript embedding
@@ -731,7 +886,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_ps_multi_pages() {
         let pix1 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let pix2 = Pix::new(200, 150, PixelDepth::Bit32).unwrap();
@@ -753,7 +907,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_ps_level2_rgb() {
         let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -774,7 +927,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_ps_level2_grayscale() {
         let pix = Pix::new(60, 60, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -794,7 +946,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_ps_level2_1bpp_fallback() {
         // 1bpp should fall back to Level 3 Flate
         let pix = Pix::new(80, 80, PixelDepth::Bit1).unwrap();
