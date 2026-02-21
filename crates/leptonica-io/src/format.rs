@@ -50,6 +50,9 @@ mod magic {
     /// JPEG 2000 codestream (J2K) signature
     /// Starts with: FF 4F FF 51
     pub const J2K_SIGNATURE: &[u8] = &[0xFF, 0x4F, 0xFF, 0x51];
+
+    /// SPIX: Leptonica's native binary format
+    pub const SPIX: &[u8] = b"spix";
 }
 
 /// Detect image format from a file path
@@ -104,6 +107,11 @@ pub fn detect_format_from_bytes(data: &[u8]) -> IoResult<ImageFormat> {
     }
     if data.len() >= 4 && data.starts_with(magic::J2K_SIGNATURE) {
         return Ok(ImageFormat::Jp2);
+    }
+
+    // Check SPIX (Leptonica native format)
+    if data.len() >= 4 && data.starts_with(magic::SPIX) {
+        return Ok(ImageFormat::Spix);
     }
 
     // Check PNM formats
@@ -197,5 +205,11 @@ mod tests {
         // J2K codestream signature
         let data = [0xFF, 0x4F, 0xFF, 0x51, 0x00, 0x00, 0x00, 0x00];
         assert_eq!(detect_format_from_bytes(&data).unwrap(), ImageFormat::Jp2);
+    }
+
+    #[test]
+    fn test_detect_spix() {
+        let data = b"spix\x00\x00\x00\x00\x00\x00\x00\x00";
+        assert_eq!(detect_format_from_bytes(data).unwrap(), ImageFormat::Spix);
     }
 }

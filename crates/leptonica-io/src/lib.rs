@@ -35,6 +35,8 @@ pub mod pdf;
 #[cfg(feature = "ps-format")]
 pub mod ps;
 
+pub mod spix;
+
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
@@ -107,6 +109,8 @@ pub fn read_image_format<R: Read + Seek + std::io::BufRead>(
 
         #[cfg(feature = "jp2k-format")]
         ImageFormat::Jp2 => jp2k::read_jp2k(reader),
+
+        ImageFormat::Spix => spix::read_spix(reader),
 
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
@@ -191,6 +195,8 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
 
         #[cfg(feature = "ps-format")]
         ImageFormat::Ps => ps::write_ps(pix, writer, &ps::PsOptions::default()),
+
+        ImageFormat::Spix => spix::write_spix(pix, writer),
 
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
