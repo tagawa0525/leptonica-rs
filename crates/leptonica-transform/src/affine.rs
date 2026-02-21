@@ -780,14 +780,160 @@ fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
 /// # Returns
 /// A 32bpp RGBA image with spp=4
 pub fn affine_pta_with_alpha(
-    _pix: &Pix,
-    _src_pts: [Point; 3],
-    _dst_pts: [Point; 3],
-    _alpha_mask: Option<&Pix>,
-    _opacity: f32,
-    _border: u32,
+    pix: &Pix,
+    src_pts: [Point; 3],
+    dst_pts: [Point; 3],
+    alpha_mask: Option<&Pix>,
+    opacity: f32,
+    border: u32,
 ) -> TransformResult<Pix> {
-    todo!("affine_pta_with_alpha not yet implemented")
+    with_alpha_transform(
+        pix,
+        alpha_mask,
+        opacity,
+        border,
+        &src_pts,
+        &dst_pts,
+        |img, src, dst| {
+            let s: [Point; 3] = [src[0], src[1], src[2]];
+            let d: [Point; 3] = [dst[0], dst[1], dst[2]];
+            affine_pta(img, s, d, AffineFill::Black)
+        },
+    )
+}
+
+/// Common WithAlpha transform implementation
+///
+/// Shared by affine, bilinear, and projective WithAlpha transforms.
+/// The `transform_fn` closure performs the actual geometric transform
+/// on both color (32bpp) and grayscale (8bpp) images.
+///
+/// Algorithm (follows C Leptonica's `pixAffinePtaWithAlpha` pattern):
+/// 1. Add border to source image
+/// 2. Adjust point coordinates for border offset
+/// 3. Transform RGB channels (color)
+/// 4. Prepare alpha channel (from mask or uniform opacity)
+/// 5. Apply edge feathering rings
+/// 6. Add border to alpha and transform (grayscale)
+/// 7. Set alpha channel in result
+pub(crate) fn with_alpha_transform<F>(
+    pix: &Pix,
+    alpha_mask: Option<&Pix>,
+    opacity: f32,
+    border: u32,
+    src_pts: &[Point],
+    dst_pts: &[Point],
+    transform_fn: F,
+) -> TransformResult<Pix>
+where
+    F: Fn(&Pix, &[Point], &[Point]) -> TransformResult<Pix>,
+{
+    use leptonica_core::pix::RgbComponent;
+
+    // Validate inputs
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(
+            "WithAlpha requires 32bpp input".into(),
+        ));
+    }
+
+    let opacity = opacity.clamp(0.0, 1.0);
+
+    if let Some(mask) = alpha_mask
+        && mask.depth() != PixelDepth::Bit8
+    {
+        return Err(TransformError::InvalidParameters(
+            "alpha_mask must be 8bpp".into(),
+        ));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+
+    // Step 1: Add border to source image (black border)
+    let pixb1 = pix.add_border(border, 0)?;
+
+    // Step 2: Adjust point coordinates for border offset
+    let border_f = border as f32;
+    let adj_src: Vec<Point> = src_pts
+        .iter()
+        .map(|p| Point::new(p.x + border_f, p.y + border_f))
+        .collect();
+    let adj_dst: Vec<Point> = dst_pts
+        .iter()
+        .map(|p| Point::new(p.x + border_f, p.y + border_f))
+        .collect();
+
+    // Step 3: Transform RGB channels
+    let pixd = transform_fn(&pixb1, &adj_src, &adj_dst)?;
+
+    // Step 4: Prepare alpha channel (8bpp grayscale)
+    let pix_alpha = if let Some(mask) = alpha_mask {
+        // Resize alpha mask to match source dimensions if needed
+        if mask.width() != ws || mask.height() != hs {
+            let resized = Pix::new(ws, hs, PixelDepth::Bit8)?;
+            let mut rm = resized.try_into_mut().unwrap();
+            let copy_w = ws.min(mask.width());
+            let copy_h = hs.min(mask.height());
+            for y in 0..copy_h {
+                for x in 0..copy_w {
+                    rm.set_pixel_unchecked(x, y, mask.get_pixel_unchecked(x, y));
+                }
+            }
+            rm.into()
+        } else {
+            mask.deep_clone()
+        }
+    } else {
+        // Create uniform alpha from opacity
+        let alpha_val = (255.0 * opacity) as u32;
+        let alpha_pix = Pix::new(ws, hs, PixelDepth::Bit8)?;
+        let mut am = alpha_pix.try_into_mut().unwrap();
+        for y in 0..hs {
+            for x in 0..ws {
+                am.set_pixel_unchecked(x, y, alpha_val);
+            }
+        }
+        am.into()
+    };
+
+    // Step 5: Apply edge feathering (only for images > 10x10)
+    let pix_alpha = if ws > 10 && hs > 10 {
+        let mut am = pix_alpha.try_into_mut().unwrap();
+        // Ring 1 (outermost): fully transparent
+        am.set_border_val(1, 1, 1, 1, 0)
+            .map_err(TransformError::Core)?;
+
+        // Ring 2: semi-transparent
+        if ws > 12 && hs > 12 {
+            let ring2_val = (255.0 * opacity * 0.5) as u32;
+            for x in 1..(ws - 1) {
+                am.set_pixel_unchecked(x, 1, ring2_val);
+                am.set_pixel_unchecked(x, hs - 2, ring2_val);
+            }
+            for y in 1..(hs - 1) {
+                am.set_pixel_unchecked(1, y, ring2_val);
+                am.set_pixel_unchecked(ws - 2, y, ring2_val);
+            }
+        }
+        am.into()
+    } else {
+        pix_alpha
+    };
+
+    // Step 6: Add border to alpha (black border = fully transparent)
+    let pixb2 = pix_alpha.add_border(border, 0)?;
+
+    // Step 7: Transform alpha channel (grayscale)
+    let pixga = transform_fn(&pixb2, &adj_src, &adj_dst)?;
+
+    // Step 8: Set alpha channel in result
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+    pixd_mut
+        .set_rgb_component(&pixga, RgbComponent::Alpha)
+        .map_err(TransformError::Core)?;
+
+    Ok(pixd_mut.into())
 }
 
 // ============================================================================
@@ -1217,7 +1363,6 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_affine_pta_with_alpha_basic() {
         // 32bpp RGBA image with known content
         let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
@@ -1262,7 +1407,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_affine_pta_with_alpha_opacity() {
         let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1296,7 +1440,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_affine_pta_with_alpha_custom_mask() {
         let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1332,7 +1475,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_affine_pta_with_alpha_invalid_depth() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let src = [

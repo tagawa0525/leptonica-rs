@@ -647,14 +647,26 @@ fn area_interp(v00: u8, v10: u8, v01: u8, v11: u8, xf: i32, yf: i32) -> u8 {
 /// # Returns
 /// A 32bpp RGBA image with spp=4
 pub fn projective_pta_with_alpha(
-    _pix: &Pix,
-    _src_pts: [Point; 4],
-    _dst_pts: [Point; 4],
-    _alpha_mask: Option<&Pix>,
-    _opacity: f32,
-    _border: u32,
+    pix: &Pix,
+    src_pts: [Point; 4],
+    dst_pts: [Point; 4],
+    alpha_mask: Option<&Pix>,
+    opacity: f32,
+    border: u32,
 ) -> TransformResult<Pix> {
-    todo!("projective_pta_with_alpha not yet implemented")
+    crate::affine::with_alpha_transform(
+        pix,
+        alpha_mask,
+        opacity,
+        border,
+        &src_pts,
+        &dst_pts,
+        |img, src, dst| {
+            let s: [Point; 4] = [src[0], src[1], src[2], src[3]];
+            let d: [Point; 4] = [dst[0], dst[1], dst[2], dst[3]];
+            projective_pta(img, s, d, AffineFill::Black)
+        },
+    )
 }
 
 /// Fill an image with a constant value
@@ -1011,7 +1023,6 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_projective_pta_with_alpha_basic() {
         let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1053,7 +1064,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_projective_pta_with_alpha_invalid_depth() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let pts = [
