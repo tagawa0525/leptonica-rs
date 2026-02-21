@@ -22,10 +22,10 @@ pub fn read_header_jpeg(data: &[u8]) -> IoResult<ImageHeader> {
     let width = info.width as u32;
     let height = info.height as u32;
 
-    let (depth, spp) = match info.pixel_format {
-        PixelFormat::L8 => (8u32, 1u32),
-        PixelFormat::L16 => (16, 1),
-        PixelFormat::RGB24 => (32, 3),
+    let (depth, spp, bps) = match info.pixel_format {
+        PixelFormat::L8 => (8u32, 1u32, 8u32),
+        PixelFormat::L16 => (16, 1, 16),
+        PixelFormat::RGB24 => (32, 3, 8),
         PixelFormat::CMYK32 => {
             return Err(IoError::UnsupportedFormat(
                 "CMYK JPEG not supported".to_string(),
@@ -37,7 +37,7 @@ pub fn read_header_jpeg(data: &[u8]) -> IoResult<ImageHeader> {
         width,
         height,
         depth,
-        bps: 8,
+        bps,
         spp,
         has_colormap: false,
         num_colors: 0,
