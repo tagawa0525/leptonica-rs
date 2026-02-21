@@ -72,6 +72,7 @@ pub mod barcode;
 pub mod baseline;
 pub mod dewarp;
 mod error;
+pub mod flipdetect;
 pub mod jbclass;
 pub mod pageseg;
 pub mod recog;
@@ -96,6 +97,12 @@ pub use dewarp::{Dewarp, DewarpOptions, DewarpResult, dewarp_single_page};
 // Re-export commonly used types from barcode
 pub use barcode::{
     BarcodeFormat, BarcodeOptions, BarcodeResult, DecodeMethod, decode_barcode, process_barcodes,
+};
+
+// Re-export commonly used types from flipdetect
+pub use flipdetect::{
+    OrientCorrectResult, OrientDetectResult, TextOrientation, make_orient_decision, mirror_detect,
+    orient_correct, orient_detect, up_down_detect,
 };
 
 // Re-export core for convenience
