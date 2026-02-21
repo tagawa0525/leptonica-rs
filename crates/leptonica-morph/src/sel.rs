@@ -876,19 +876,21 @@ const BASIC_LINEAR: &[u32] = &[
 pub fn sela_add_basic() -> Vec<Sel> {
     let mut sels = Vec::new();
 
-    // Linear horizontal bricks: 1×N with origin at (0, N/2)
+    // Linear horizontal bricks: 1×N with origin at (N/2, 0)
     for &size in BASIC_LINEAR {
         if let Ok(mut sel) = Sel::create_brick(size, 1) {
-            sel.set_origin(0, size / 2).ok();
+            sel.set_origin(size / 2, 0)
+                .expect("horizontal SEL origin is within bounds");
             sel.set_name(format!("sel_{}h", size));
             sels.push(sel);
         }
     }
 
-    // Linear vertical bricks: N×1 with origin at (N/2, 0)
+    // Linear vertical bricks: N×1 with origin at (0, N/2)
     for &size in BASIC_LINEAR {
         if let Ok(mut sel) = Sel::create_brick(1, size) {
-            sel.set_origin(size / 2, 0).ok();
+            sel.set_origin(0, size / 2)
+                .expect("vertical SEL origin is within bounds");
             sel.set_name(format!("sel_{}v", size));
             sels.push(sel);
         }
@@ -897,7 +899,8 @@ pub fn sela_add_basic() -> Vec<Sel> {
     // Square 2-D bricks 2×2 – 5×5
     for i in 2u32..=5 {
         if let Ok(mut sel) = Sel::create_brick(i, i) {
-            sel.set_origin(i / 2, i / 2).ok();
+            sel.set_origin(i / 2, i / 2)
+                .expect("square SEL origin is within bounds");
             sel.set_name(format!("sel_{}", i));
             sels.push(sel);
         }
@@ -906,7 +909,8 @@ pub fn sela_add_basic() -> Vec<Sel> {
     // Diagonal sel_2dp: 2×2, hits at (0,1) and (1,0), origin (0,0)
     // Pattern: . x / x .  (DontCare on diagonal, Hit off-diagonal)
     if let Ok(mut sel) = Sel::create_brick(2, 2) {
-        sel.set_origin(0, 0).ok();
+        sel.set_origin(0, 0)
+            .expect("sel_2dp origin is within bounds");
         sel.set_element(0, 0, SelElement::DontCare);
         sel.set_element(1, 1, SelElement::DontCare);
         sel.set_name("sel_2dp");
@@ -916,7 +920,8 @@ pub fn sela_add_basic() -> Vec<Sel> {
     // Diagonal sel_2dm: 2×2, hits at (0,0) and (1,1), origin (0,0)
     // Pattern: x . / . x
     if let Ok(mut sel) = Sel::create_brick(2, 2) {
-        sel.set_origin(0, 0).ok();
+        sel.set_origin(0, 0)
+            .expect("sel_2dm origin is within bounds");
         sel.set_element(0, 1, SelElement::DontCare);
         sel.set_element(1, 0, SelElement::DontCare);
         sel.set_name("sel_2dm");
@@ -926,7 +931,8 @@ pub fn sela_add_basic() -> Vec<Sel> {
     // sel_5dp: 5×5, positive-slope diagonal (top-right to bottom-left)
     // Hit positions: (0,4),(1,3),(2,2),(3,1),(4,0) with origin (2,2)
     if let Ok(mut sel) = Sel::new(5, 5) {
-        sel.set_origin(2, 2).ok();
+        sel.set_origin(2, 2)
+            .expect("diagonal SEL origin is within bounds");
         for i in 0u32..5 {
             sel.set_element(4 - i, i, SelElement::Hit);
         }
@@ -937,7 +943,8 @@ pub fn sela_add_basic() -> Vec<Sel> {
     // sel_5dm: 5×5, negative-slope diagonal (top-left to bottom-right)
     // Hit positions: (0,0),(1,1),(2,2),(3,3),(4,4) with origin (2,2)
     if let Ok(mut sel) = Sel::new(5, 5) {
-        sel.set_origin(2, 2).ok();
+        sel.set_origin(2, 2)
+            .expect("diagonal SEL origin is within bounds");
         for i in 0u32..5 {
             sel.set_element(i, i, SelElement::Hit);
         }
@@ -1010,9 +1017,10 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
         sels.push(sel);
     }
 
-    // sel_sl1: slanted edge (13×6, origin (6,2), mostly DontCare with sparse hit/miss)
+    // sel_sl1: slanted edge (width=6, height=13, origin cx=3 cy=6)
     if let Ok(mut sel) = Sel::new(6, 13) {
-        sel.set_origin(6, 2).ok();
+        sel.set_origin(3, 6)
+            .expect("sel_sl1 origin is within bounds");
         sel.set_element(3, 0, SelElement::Miss);
         sel.set_element(5, 0, SelElement::Hit);
         sel.set_element(2, 4, SelElement::Miss);
@@ -1029,7 +1037,8 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
 
     // sel_ulc: upper-left corner
     if let Ok(mut sel) = Sel::create_brick(4, 4) {
-        sel.set_origin(1, 1).ok();
+        sel.set_origin(1, 1)
+            .expect("sel_ulc origin is within bounds");
         for y in 0u32..4 {
             for x in 0u32..4 {
                 sel.set_element(x, y, SelElement::Miss);
@@ -1050,7 +1059,8 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
 
     // sel_urc: upper-right corner
     if let Ok(mut sel) = Sel::create_brick(4, 4) {
-        sel.set_origin(1, 2).ok();
+        sel.set_origin(1, 2)
+            .expect("sel_urc origin is within bounds");
         for y in 0u32..4 {
             for x in 0u32..4 {
                 sel.set_element(x, y, SelElement::Miss);
@@ -1070,8 +1080,11 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
     }
 
     // sel_llc: lower-left corner
+    // Hits at (row,col): (0,1)(0,2)(0,3)(1,2)(1,3)(2,3) [C notation]
+    // → set_element(col, row, val) in Rust API
     if let Ok(mut sel) = Sel::create_brick(4, 4) {
-        sel.set_origin(2, 1).ok();
+        sel.set_origin(2, 1)
+            .expect("sel_llc origin is within bounds");
         for y in 0u32..4 {
             for x in 0u32..4 {
                 sel.set_element(x, y, SelElement::Miss);
@@ -1080,12 +1093,6 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
         sel.set_element(1, 1, SelElement::DontCare);
         sel.set_element(1, 2, SelElement::DontCare);
         sel.set_element(2, 2, SelElement::DontCare);
-        sel.set_element(2, 0, SelElement::Hit);
-        sel.set_element(3, 0, SelElement::Hit);
-        sel.set_element(3, 1, SelElement::Hit);
-        sel.set_element(2, 1, SelElement::Hit); // wait – C uses (0,1),(0,2),(0,3),(1,2),(1,3),(2,3)
-        // re-checked from C: origin (2,1); hits at (row,col): (0,1)(0,2)(0,3)(1,2)(1,3)(2,3)
-        // sel_set_element(sel, row, col, val) → our API is set_element(x=col, y=row, val)
         sel.set_element(1, 0, SelElement::Hit);
         sel.set_element(2, 0, SelElement::Hit);
         sel.set_element(3, 0, SelElement::Hit);
@@ -1098,7 +1105,8 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
 
     // sel_lrc: lower-right corner
     if let Ok(mut sel) = Sel::create_brick(4, 4) {
-        sel.set_origin(2, 2).ok();
+        sel.set_origin(2, 2)
+            .expect("sel_lrc origin is within bounds");
         for y in 0u32..4 {
             for x in 0u32..4 {
                 sel.set_element(x, y, SelElement::Miss);
@@ -1128,14 +1136,16 @@ pub fn sela_add_dwa_linear() -> Vec<Sel> {
 
     for i in 2u32..64 {
         if let Ok(mut sel) = Sel::create_brick(i, 1) {
-            sel.set_origin(0, i / 2).ok();
+            sel.set_origin(i / 2, 0)
+                .expect("horizontal SEL origin is within bounds");
             sel.set_name(format!("sel_{}h", i));
             sels.push(sel);
         }
     }
     for i in 2u32..64 {
         if let Ok(mut sel) = Sel::create_brick(1, i) {
-            sel.set_origin(i / 2, 0).ok();
+            sel.set_origin(0, i / 2)
+                .expect("vertical SEL origin is within bounds");
             sel.set_name(format!("sel_{}v", i));
             sels.push(sel);
         }
@@ -1204,6 +1214,11 @@ pub fn sela_add_cross_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphR
             "hlsize must be > 0".to_string(),
         ));
     }
+    if mdist <= 0.0 {
+        return Err(MorphError::InvalidParameters(
+            "mdist must be > 0".to_string(),
+        ));
+    }
     if norient == 0 || norient > 8 {
         return Err(MorphError::InvalidParameters(
             "norient must be in [1, 8]".to_string(),
@@ -1224,7 +1239,7 @@ pub fn sela_add_cross_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphR
     let mut sels = Vec::with_capacity(norient as usize);
     for i in 0..norient {
         let mut sel = Sel::new(w, w)?;
-        sel.set_origin(yc as u32, xc as u32)?;
+        sel.set_origin(xc as u32, yc as u32)?;
         let rad = i as f64 * rad_incr;
 
         // Four arms of hits (cross shape)
@@ -1271,6 +1286,11 @@ pub fn sela_add_t_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphResul
             "hlsize must be > 2".to_string(),
         ));
     }
+    if mdist <= 0.0 {
+        return Err(MorphError::InvalidParameters(
+            "mdist must be > 0".to_string(),
+        ));
+    }
     if norient == 0 || norient > 8 {
         return Err(MorphError::InvalidParameters(
             "norient must be in [1, 8]".to_string(),
@@ -1294,7 +1314,7 @@ pub fn sela_add_t_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphResul
         for j in 0..4u32 {
             let j_ang = j as f64 * half_pi;
             let mut sel = Sel::new(w, w)?;
-            sel.set_origin(yc as u32, xc as u32)?;
+            sel.set_origin(xc as u32, yc as u32)?;
 
             // Three arms of hits (T shape): straight + two half-perpendiculars
             for (arm_rad, len_mult) in [
@@ -1349,9 +1369,9 @@ pub fn sel_make_plus_sign(size: u32, linewidth: u32) -> MorphResult<Sel> {
             "size must be >= 3".to_string(),
         ));
     }
-    if linewidth > size {
+    if linewidth == 0 || linewidth > size {
         return Err(MorphError::InvalidParameters(
-            "linewidth must be <= size".to_string(),
+            "linewidth must be between 1 and size".to_string(),
         ));
     }
 
