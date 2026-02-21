@@ -363,43 +363,86 @@ pub fn close_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
 /// This function pads the image by the SEL extent before closing, then strips
 /// the border, preventing those artifacts.
 ///
+/// The horizontal border is rounded up to the nearest 32-bit word boundary
+/// to align with the rasterop word granularity.
+///
 /// # Arguments
 /// * `pix` - 1 bpp input image
 /// * `sel` - Structuring element
 ///
 /// Based on C leptonica `pixCloseSafe`.
 pub fn close_safe(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
-    unimplemented!("close_safe")
+    check_binary(pix)?;
+    let (xp, yp, xn, yn) = sel.find_max_translations();
+    let xmax = xp.max(xn);
+    // Round up to nearest multiple of 32 (full 32-bit words for rasterop alignment)
+    let xbord = xmax.div_ceil(32) * 32;
+    let padded = pix.add_border_general(xbord, xbord, yp, yn, 0)?;
+    let closed = close(&padded, sel)?;
+    Ok(closed.remove_border_general(xbord, xbord, yp, yn)?)
 }
 
 /// Close a binary image safely using a brick (rectangular) structuring element.
 ///
-/// Pads the image by the SEL half-extent before closing to prevent border
-/// artifacts, then strips the border.
+/// Pads the image by the SEL half-extent (rounded up to 32-bit word boundary)
+/// before closing to prevent border artifacts, then strips the border.
 ///
 /// # Arguments
 /// * `pix` - 1 bpp input image
-/// * `hsize` - Horizontal size of the brick
-/// * `vsize` - Vertical size of the brick
+/// * `hsize` - Horizontal size of the brick (must be >= 1)
+/// * `vsize` - Vertical size of the brick (must be >= 1)
 ///
 /// Based on C leptonica `pixCloseSafeBrick`.
 pub fn close_safe_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("close_safe_brick")
+    check_binary(pix)?;
+    if hsize < 1 || vsize < 1 {
+        return Err(MorphError::InvalidParameters(
+            "hsize and vsize must be >= 1".into(),
+        ));
+    }
+    if hsize == 1 && vsize == 1 {
+        return Ok(pix.clone());
+    }
+    let maxtrans = (hsize / 2).max(vsize / 2);
+    // Round up to nearest multiple of 32 (full 32-bit words for rasterop alignment)
+    let bordsize = maxtrans.div_ceil(32) * 32;
+    let padded = pix.add_border(bordsize, 0)?;
+    let closed = close_brick(&padded, hsize, vsize)?;
+    Ok(closed.remove_border(bordsize)?)
 }
 
 /// Close a binary image safely using composite brick decomposition.
 ///
 /// Like `close_safe_brick` but uses composite (factored) structuring elements
-/// for improved efficiency on large bricks.
+/// for improved efficiency on large bricks. Uses the same border padding
+/// as `close_safe_brick`.
 ///
 /// # Arguments
 /// * `pix` - 1 bpp input image
-/// * `hsize` - Horizontal size of the brick
-/// * `vsize` - Vertical size of the brick
+/// * `hsize` - Horizontal size of the brick (must be >= 1)
+/// * `vsize` - Vertical size of the brick (must be >= 1)
 ///
 /// Based on C leptonica `pixCloseSafeCompBrick`.
 pub fn close_safe_comp_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("close_safe_comp_brick")
+    check_binary(pix)?;
+    if hsize < 1 || vsize < 1 {
+        return Err(MorphError::InvalidParameters(
+            "hsize and vsize must be >= 1".into(),
+        ));
+    }
+    if hsize == 1 && vsize == 1 {
+        return Ok(pix.clone());
+    }
+    let maxtrans = (hsize / 2).max(vsize / 2);
+    // Round up to nearest multiple of 32 (full 32-bit words for rasterop alignment)
+    let bordsize = maxtrans.div_ceil(32) * 32;
+    let padded = pix.add_border(bordsize, 0)?;
+    // Composite closing: dilate then erode using composite 1D decomposition
+    let dil_h: Pix = dilate_1d_composite(&padded, hsize, true)?.into();
+    let dil_hv: Pix = dilate_1d_composite(&dil_h, vsize, false)?.into();
+    let ero_h: Pix = erode_1d_composite(&dil_hv, hsize, true)?.into();
+    let closed: Pix = erode_1d_composite(&ero_h, vsize, false)?.into();
+    Ok(closed.remove_border(bordsize)?)
 }
 
 /// Generalized morphological opening: Hit-Miss Transform followed by dilation.
@@ -414,7 +457,9 @@ pub fn close_safe_comp_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<P
 ///
 /// Based on C leptonica `pixOpenGeneralized`.
 pub fn open_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
-    unimplemented!("open_generalized")
+    check_binary(pix)?;
+    let hmt = hit_miss_transform(pix, sel)?;
+    dilate(&hmt, sel)
 }
 
 /// Generalized morphological closing: dilation followed by Hit-Miss Transform.
@@ -429,7 +474,9 @@ pub fn open_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 ///
 /// Based on C leptonica `pixCloseGeneralized`.
 pub fn close_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
-    unimplemented!("close_generalized")
+    check_binary(pix)?;
+    let dilated = dilate(pix, sel)?;
+    hit_miss_transform(&dilated, sel)
 }
 
 /// Composite 1D dilation: brick(f1) then comb(f1, f2) when beneficial.
@@ -1258,7 +1305,7 @@ mod tests {
     // --- close_safe tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_identity_on_1x1_sel() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(1, 1).unwrap();
@@ -1268,7 +1315,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(5, 5).unwrap();
@@ -1278,7 +1325,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_at_least_as_large_as_close() {
         // close_safe should produce a superset of close (no pixels are eroded at border)
         let pix = create_rasterop_test_image();
@@ -1291,7 +1338,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1302,7 +1349,7 @@ mod tests {
     // --- close_safe_brick tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_brick_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let result = close_safe_brick(&pix, 5, 5).unwrap();
@@ -1311,7 +1358,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_brick_identity_1x1() {
         let pix = create_rasterop_test_image();
         let result = close_safe_brick(&pix, 1, 1).unwrap();
@@ -1319,7 +1366,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_brick_at_least_as_large_as_close_brick() {
         let pix = create_rasterop_test_image();
         let safe = close_safe_brick(&pix, 5, 5).unwrap();
@@ -1328,7 +1375,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_brick_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let result = close_safe_brick(&pix, 3, 3);
@@ -1338,7 +1385,7 @@ mod tests {
     // --- close_safe_comp_brick tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_comp_brick_matches_close_safe_brick() {
         let pix = create_rasterop_test_image();
         // For non-composite sizes, both should give the same result
@@ -1352,7 +1399,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_safe_comp_brick_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let result = close_safe_comp_brick(&pix, 10, 10).unwrap();
@@ -1363,7 +1410,7 @@ mod tests {
     // --- open_generalized tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_open_generalized_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1372,7 +1419,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_open_generalized_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1382,7 +1429,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_open_generalized_produces_subset() {
         // Generalized opening always produces a subset (fewer or equal ON pixels)
         let pix = create_rasterop_test_image();
@@ -1394,7 +1441,7 @@ mod tests {
     // --- close_generalized tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_generalized_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1403,7 +1450,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_generalized_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1413,12 +1460,18 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_close_generalized_produces_superset() {
-        // Generalized closing always produces a superset (more or equal ON pixels)
+        // For a pure-hit SEL, close_generalized = dilate then HMT = dilate then erode = close.
+        // With asymmetric boundary conditions closing is NOT necessarily extensive
+        // (border pixels can be eroded away), so we verify equivalence with standard close.
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(3, 3).unwrap();
-        let result = close_generalized(&pix, &sel).unwrap();
-        assert!(result.count_pixels() >= pix.count_pixels());
+        let generalized = close_generalized(&pix, &sel).unwrap();
+        let standard = close(&pix, &sel).unwrap();
+        assert_eq!(generalized.width(), standard.width());
+        assert_eq!(generalized.height(), standard.height());
+        // Both should produce same result since pure-hit HMT = erode
+        assert_eq!(generalized.count_pixels(), standard.count_pixels());
     }
 }
