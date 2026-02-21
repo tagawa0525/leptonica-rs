@@ -129,13 +129,21 @@ pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoRe
 
     let encoder = jpeg_encoder::Encoder::new(writer, quality);
 
+    // Cast to usize once to avoid repeated casts and u32 overflow in arithmetic.
+    // Near the 65535×65535 limit: 65535 * 65535 * 3 = ~12.9 GB, which exceeds
+    // u32::MAX, so all sizing and indexing must use usize.
+    let (w, h) = (w as usize, h as usize);
+
     match pix.depth() {
         PixelDepth::Bit8 => {
             // Grayscale: extract pixel values into a byte buffer
-            let mut data = vec![0u8; (w * h) as usize];
+            let size = w.checked_mul(h).ok_or_else(|| {
+                IoError::EncodeError("image too large: w * h overflows usize".to_string())
+            })?;
+            let mut data = vec![0u8; size];
             for y in 0..h {
                 for x in 0..w {
-                    data[(y * w + x) as usize] = pix.get_pixel_unchecked(x, y) as u8;
+                    data[y * w + x] = pix.get_pixel_unchecked(x as u32, y as u32) as u8;
                 }
             }
             encoder
@@ -152,12 +160,18 @@ pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoRe
                 )));
             }
             // RGB: extract R, G, B channels (alpha ignored)
-            let mut data = vec![0u8; (w * h * 3) as usize];
+            let size = w
+                .checked_mul(h)
+                .and_then(|n| n.checked_mul(3))
+                .ok_or_else(|| {
+                    IoError::EncodeError("image too large: w * h * 3 overflows usize".to_string())
+                })?;
+            let mut data = vec![0u8; size];
             for y in 0..h {
                 for x in 0..w {
-                    let pixel = pix.get_pixel_unchecked(x, y);
+                    let pixel = pix.get_pixel_unchecked(x as u32, y as u32);
                     let (r, g, b) = color::extract_rgb(pixel);
-                    let idx = ((y * w + x) * 3) as usize;
+                    let idx = (y * w + x) * 3;
                     data[idx] = r;
                     data[idx + 1] = g;
                     data[idx + 2] = b;
