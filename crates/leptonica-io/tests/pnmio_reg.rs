@@ -17,7 +17,7 @@
 
 use leptonica_io::{
     ImageFormat,
-    pnm::{read_pam, write_pam, write_pnm_ascii},
+    pnm::{read_pam, write_pam},
     read_image, read_image_mem, write_image, write_image_mem,
 };
 use leptonica_test::{RegParams, load_test_image, regout_dir};
@@ -204,7 +204,6 @@ fn compare_rgb(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
 // Partially implemented tests (still ignored where upstream deps are missing)
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pnmio_reg_1bpp_pam() {
     // Test 1: 1bpp PBM → PAM roundtrip
     let pix1 = load_test_image("rabi.png").expect("load rabi.png");
@@ -233,7 +232,6 @@ fn pnmio_reg_4bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pnmio_reg_8bpp_pam() {
     // Test 7: 8bpp PGM → PAM roundtrip
     let pix1 = load_test_image("weasel8.png").expect("load weasel8.png");
@@ -256,7 +254,6 @@ fn pnmio_reg_8bpp_pam() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pnmio_reg_24bpp_pam() {
     // Test 10: 24bpp PPM → PAM roundtrip
     let pix1 = load_test_image("marge.jpg").expect("load marge.jpg");
@@ -279,7 +276,6 @@ fn pnmio_reg_24bpp_pam() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pnmio_reg_32bpp_rgba_pam() {
     // Test 11: 32bpp RGBA → PAM roundtrip
     use leptonica_core::color;
