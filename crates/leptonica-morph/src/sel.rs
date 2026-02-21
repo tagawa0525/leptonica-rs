@@ -637,13 +637,25 @@ impl Sel {
 
     /// Deserialize a SEL from the Leptonica binary SEL file format (Version 1).
     ///
+    /// Leading blank lines before "Sel Version" are silently skipped, which
+    /// allows reading individual SELs from a Sela file stream.
+    ///
     /// Based on C leptonica `selReadStream`.
     pub fn read_from_reader<R: BufRead>(mut reader: R) -> MorphResult<Self> {
         let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
 
-        // Line 1: "  Sel Version 1"
+        // Line 1: "  Sel Version 1" (skip any preceding blank lines)
         let mut line = String::new();
-        reader.read_line(&mut line).map_err(map_io)?;
+        loop {
+            line.clear();
+            reader.read_line(&mut line).map_err(map_io)?;
+            if !line.trim().is_empty() {
+                break;
+            }
+            if line.is_empty() {
+                return Err(MorphError::InvalidParameters("unexpected EOF".into()));
+            }
+        }
         let version: u32 = line
             .trim()
             .strip_prefix("Sel Version")
@@ -880,14 +892,14 @@ pub struct Sela {
 impl Sela {
     /// Create an empty Sela.
     pub fn new() -> Self {
-        unimplemented!()
+        Self { sels: Vec::new() }
     }
 
     /// Return the number of SELs in the collection.
     ///
     /// Based on C leptonica `selaGetCount`.
     pub fn count(&self) -> usize {
-        unimplemented!()
+        self.sels.len()
     }
 
     /// Add a [`Sel`] to the collection.
@@ -896,7 +908,13 @@ impl Sela {
     ///
     /// Based on C leptonica `selaAddSel`.
     pub fn add(&mut self, sel: Sel) -> MorphResult<()> {
-        unimplemented!()
+        if sel.name().is_none() {
+            return Err(MorphError::InvalidParameters(
+                "SEL must have a name to be added to Sela".into(),
+            ));
+        }
+        self.sels.push(sel);
+        Ok(())
     }
 
     /// Return a reference to the SEL at the given index.
@@ -905,7 +923,7 @@ impl Sela {
     ///
     /// Based on C leptonica `selaGetSel`.
     pub fn get(&self, index: usize) -> Option<&Sel> {
-        unimplemented!()
+        self.sels.get(index)
     }
 
     /// Find a SEL by its name.
@@ -914,7 +932,7 @@ impl Sela {
     ///
     /// Based on C leptonica `selaFindSelByName`.
     pub fn find_by_name(&self, name: &str) -> Option<&Sel> {
-        unimplemented!()
+        self.sels.iter().find(|s| s.name() == Some(name))
     }
 
     /// Deserialize a `Sela` from the Leptonica text format.
@@ -929,14 +947,77 @@ impl Sela {
     ///
     /// Based on C leptonica `selaRead` / `selaReadStream`.
     pub fn read<P: AsRef<Path>>(path: P) -> MorphResult<Self> {
-        unimplemented!()
+        let file = std::fs::File::open(path.as_ref())
+            .map_err(|e| MorphError::InvalidParameters(format!("cannot open sela file: {}", e)))?;
+        Self::read_from_reader(std::io::BufReader::new(file))
     }
 
     /// Serialize this `Sela` to the Leptonica text format.
     ///
     /// Based on C leptonica `selaWrite` / `selaWriteStream`.
     pub fn write<P: AsRef<Path>>(&self, path: P) -> MorphResult<()> {
-        unimplemented!()
+        let file = std::fs::File::create(path.as_ref()).map_err(|e| {
+            MorphError::InvalidParameters(format!("cannot create sela file: {}", e))
+        })?;
+        self.write_to_writer(std::io::BufWriter::new(file))
+    }
+
+    /// Serialize to any [`Write`] sink.
+    pub fn write_to_writer<W: Write>(&self, mut writer: W) -> MorphResult<()> {
+        let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
+        writeln!(writer, "\nSela Version 1").map_err(map_io)?;
+        writeln!(writer, "Number of Sels = {}", self.sels.len()).map_err(map_io)?;
+        writeln!(writer).map_err(map_io)?;
+        for sel in &self.sels {
+            sel.write_to_writer(&mut writer)?;
+        }
+        Ok(())
+    }
+
+    /// Deserialize from any [`BufRead`] source.
+    pub fn read_from_reader<R: BufRead>(mut reader: R) -> MorphResult<Self> {
+        let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
+
+        // Skip optional leading blank line then read header
+        let mut line = String::new();
+        loop {
+            line.clear();
+            reader.read_line(&mut line).map_err(map_io)?;
+            if !line.trim().is_empty() {
+                break;
+            }
+        }
+        // line now contains "Sela Version N"
+        let version: u32 = line
+            .trim()
+            .strip_prefix("Sela Version")
+            .ok_or_else(|| MorphError::InvalidParameters("not a sela file".into()))?
+            .trim()
+            .parse()
+            .map_err(|_| MorphError::InvalidParameters("invalid sela version".into()))?;
+        if version != 1 {
+            return Err(MorphError::InvalidParameters(format!(
+                "unsupported sela version: {}",
+                version
+            )));
+        }
+
+        line.clear();
+        reader.read_line(&mut line).map_err(map_io)?;
+        let n: usize = line
+            .trim()
+            .strip_prefix("Number of Sels =")
+            .ok_or_else(|| MorphError::InvalidParameters("bad sela header".into()))?
+            .trim()
+            .parse()
+            .map_err(|_| MorphError::InvalidParameters("invalid sel count".into()))?;
+
+        let mut sela = Sela::new();
+        for _ in 0..n {
+            let sel = Sel::read_from_reader(&mut reader)?;
+            sela.add(sel)?;
+        }
+        Ok(sela)
     }
 }
 
@@ -1979,14 +2060,12 @@ mod tests {
     // ── Phase 6: Sela tests ─────────────────────────────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_new_is_empty() {
         let sela = Sela::new();
         assert_eq!(sela.count(), 0);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_and_count() {
         let mut sela = Sela::new();
         let mut sel = Sel::new(3, 3).unwrap();
@@ -1996,7 +2075,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_unnamed_fails() {
         let mut sela = Sela::new();
         let sel = Sel::new(3, 3).unwrap(); // no name
@@ -2004,7 +2082,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_get_by_index() {
         let mut sela = Sela::new();
         let mut sel = Sel::new(3, 3).unwrap();
@@ -2015,14 +2092,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_get_out_of_bounds_returns_none() {
         let sela = Sela::new();
         assert!(sela.get(0).is_none());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_find_by_name() {
         let mut sela = Sela::new();
         let mut sel = Sel::new(3, 3).unwrap();
@@ -2033,7 +2108,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_write_and_read_roundtrip() {
         use std::io::BufReader;
 
