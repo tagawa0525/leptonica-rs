@@ -33,6 +33,12 @@ pub enum PsLevel {
     /// Level 1: Uncompressed, hex-encoded
     /// Most compatible but largest file size
     Level1,
+    /// Level 2: DCT (JPEG) compressed with ASCII85 encoding
+    ///
+    /// Best for photographic images. Requires the `jpeg` feature.
+    /// Quality is controlled by `PsOptions::quality` (1-100, default 75).
+    /// 1bpp images fall back to Level 3 Flate since JPEG is unsuitable.
+    Level2,
     /// Level 3: Flate compressed with ASCII85 encoding
     /// Good compression, widely supported
     #[default]
@@ -46,6 +52,8 @@ pub struct PsOptions {
     pub level: PsLevel,
     /// Resolution in PPI (0 to use image's resolution, or 300 as fallback)
     pub resolution: u32,
+    /// JPEG quality (1-100, default 75) - used when level is Level2
+    pub quality: u8,
     /// Scale factor (0.0 or 1.0 for no scaling)
     pub scale: f32,
     /// Whether to write bounding box (required for EPS)
@@ -61,6 +69,7 @@ impl Default for PsOptions {
         Self {
             level: PsLevel::Level3,
             resolution: 0,
+            quality: 75,
             scale: 1.0,
             write_bounding_box: true,
             title: None,
@@ -101,6 +110,12 @@ impl PsOptions {
     /// Set the scale factor
     pub fn scale(mut self, scale: f32) -> Self {
         self.scale = scale;
+        self
+    }
+
+    /// Set the JPEG quality (1-100) for Level 2 DCT compression
+    pub fn quality(mut self, quality: u8) -> Self {
+        self.quality = quality;
         self
     }
 
@@ -154,6 +169,50 @@ pub fn write_ps<W: Write>(pix: &Pix, mut writer: W, options: &PsOptions) -> IoRe
     Ok(())
 }
 
+/// Write multiple images to a multi-page PostScript document
+///
+/// Each image becomes one page in the output PS.
+///
+/// # Arguments
+///
+/// * `images` - Slice of images to include
+/// * `writer` - Output destination
+/// * `options` - PostScript output options (page_number is overridden per page)
+pub fn write_ps_multi<W: Write>(
+    images: &[&Pix],
+    mut writer: W,
+    options: &PsOptions,
+) -> IoResult<()> {
+    if images.is_empty() {
+        return Err(IoError::InvalidData("no images provided".to_string()));
+    }
+
+    let mut ps = String::new();
+
+    // DSC header
+    ps.push_str("%!PS-Adobe-3.0\n");
+    ps.push_str("%%Creator: leptonica-rs\n");
+    if let Some(ref title) = options.title {
+        ps.push_str(&format!("%%Title: {}\n", title));
+    }
+    ps.push_str(&format!("%%Pages: {}\n", images.len()));
+    ps.push_str("%%EndComments\n");
+
+    writer.write_all(ps.as_bytes()).map_err(IoError::Io)?;
+
+    for (i, pix) in images.iter().enumerate() {
+        let mut page_options = options.clone();
+        page_options.page_number = (i + 1) as u32;
+        page_options.write_bounding_box = false;
+
+        let page_ps = generate_ps(pix, &page_options)?;
+        writer.write_all(page_ps.as_bytes()).map_err(IoError::Io)?;
+    }
+
+    writer.write_all(b"%%EOF\n").map_err(IoError::Io)?;
+    Ok(())
+}
+
 /// Write an image as EPS (Encapsulated PostScript)
 ///
 /// EPS includes bounding box information suitable for embedding in documents.
@@ -196,6 +255,14 @@ fn generate_ps(pix: &Pix, options: &PsOptions) -> IoResult<String> {
 
     match options.level {
         PsLevel::Level1 => generate_uncompressed_ps(pix, options, x_pt, y_pt, width_pt, height_pt),
+        PsLevel::Level2 => {
+            // Level 2 DCT: 1bpp falls back to Level 3 Flate
+            if pix.depth() == PixelDepth::Bit1 {
+                generate_flate_ps(pix, options, x_pt, y_pt, width_pt, height_pt)
+            } else {
+                generate_dct_ps(pix, options, x_pt, y_pt, width_pt, height_pt)
+            }
+        }
         PsLevel::Level3 => generate_flate_ps(pix, options, x_pt, y_pt, width_pt, height_pt),
     }
 }
@@ -406,6 +473,137 @@ fn generate_flate_ps(
     ps.push('\n');
 
     Ok(ps)
+}
+
+/// Generate DCT (JPEG) compressed (Level 2) PostScript
+fn generate_dct_ps(
+    pix: &Pix,
+    options: &PsOptions,
+    x_pt: f32,
+    y_pt: f32,
+    width_pt: f32,
+    height_pt: f32,
+) -> IoResult<String> {
+    #[cfg(not(feature = "jpeg"))]
+    {
+        let _ = (pix, options, x_pt, y_pt, width_pt, height_pt);
+        return Err(IoError::UnsupportedFormat(
+            "Level 2 DCT requires jpeg feature".to_string(),
+        ));
+    }
+
+    #[cfg(feature = "jpeg")]
+    {
+        let width = pix.width();
+        let height = pix.height();
+
+        // Prepare image data
+        let (image_data, samples_per_pixel, _bits_per_sample) = prepare_image_data(pix)?;
+
+        // Encode as JPEG
+        let quality = options.quality.clamp(1, 100);
+        let color_type = if samples_per_pixel == 1 {
+            jpeg_encoder::ColorType::Luma
+        } else {
+            jpeg_encoder::ColorType::Rgb
+        };
+
+        if width > u16::MAX as u32 || height > u16::MAX as u32 {
+            return Err(IoError::EncodeError(format!(
+                "image dimensions {}x{} exceed JPEG maximum of 65535",
+                width, height
+            )));
+        }
+
+        let mut jpeg_buf = Vec::new();
+        let encoder = jpeg_encoder::Encoder::new(&mut jpeg_buf, quality);
+        encoder
+            .encode(&image_data, width as u16, height as u16, color_type)
+            .map_err(|e| IoError::EncodeError(format!("JPEG encode for PS error: {}", e)))?;
+
+        // Encode JPEG data with ASCII85
+        let encoded = ascii85::encode(&jpeg_buf);
+
+        let page_no = options.page_number;
+
+        let mut ps = String::new();
+
+        // DSC header
+        ps.push_str("%!PS-Adobe-3.0 EPSF-3.0\n");
+        ps.push_str("%%Creator: leptonica-rs\n");
+        if let Some(ref title) = options.title {
+            ps.push_str(&format!("%%Title: {}\n", title));
+        }
+        ps.push_str("%%DocumentData: Clean7Bit\n");
+
+        if options.write_bounding_box {
+            ps.push_str(&format!(
+                "%%BoundingBox: {:.2} {:.2} {:.2} {:.2}\n",
+                x_pt,
+                y_pt,
+                x_pt + width_pt,
+                y_pt + height_pt
+            ));
+        }
+
+        ps.push_str("%%LanguageLevel: 2\n");
+        ps.push_str("%%EndComments\n");
+        ps.push_str(&format!("%%Page: {} {}\n", page_no, page_no));
+
+        ps.push_str("save\n");
+        ps.push_str(&format!(
+            "{:.2} {:.2} translate         %set image origin in pts\n",
+            x_pt, y_pt
+        ));
+        ps.push_str(&format!(
+            "{:.2} {:.2} scale             %set image size in pts\n",
+            width_pt, height_pt
+        ));
+
+        // Color space
+        if samples_per_pixel == 1 {
+            ps.push_str("/DeviceGray setcolorspace\n");
+        } else {
+            ps.push_str("/DeviceRGB setcolorspace\n");
+        }
+
+        // Data filter setup: ASCII85 → DCTDecode
+        ps.push_str("/RawData currentfile /ASCII85Decode filter def\n");
+        ps.push_str("/Data RawData << >> /DCTDecode filter def\n");
+
+        // Image dictionary
+        ps.push_str("{ << /ImageType 1\n");
+        ps.push_str(&format!("     /Width {}\n", width));
+        ps.push_str(&format!("     /Height {}\n", height));
+        ps.push_str("     /BitsPerComponent 8\n");
+        ps.push_str(&format!(
+            "     /ImageMatrix [ {} 0 0 {} 0 {} ]\n",
+            width,
+            -(height as i32),
+            height
+        ));
+
+        // Decode array
+        if samples_per_pixel == 1 {
+            ps.push_str("     /Decode [0 1]\n");
+        } else {
+            ps.push_str("     /Decode [0 1 0 1 0 1]\n");
+        }
+
+        ps.push_str("     /DataSource Data\n");
+        ps.push_str("  >> image\n");
+        ps.push_str("  Data closefile\n");
+        ps.push_str("  RawData flushfile\n");
+        ps.push_str("  showpage\n");
+        ps.push_str("  restore\n");
+        ps.push_str("} exec\n");
+
+        // Encoded data
+        ps.push_str(&encoded);
+        ps.push('\n');
+
+        Ok(ps)
+    }
 }
 
 /// Prepare image data for PostScript embedding
@@ -684,5 +882,77 @@ mod tests {
         let hex = bytes_to_hex(&data, 2, 2);
         assert!(hex.contains("00ff"));
         assert!(hex.contains("abcd"));
+    }
+
+    #[test]
+    fn test_write_ps_multi_pages() {
+        let pix1 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let pix2 = Pix::new(200, 150, PixelDepth::Bit32).unwrap();
+        let pix3 = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
+
+        let images: Vec<&Pix> = vec![&pix1, &pix2, &pix3];
+        let options = PsOptions::with_title("Multi-page Test");
+
+        let mut buffer = Vec::new();
+        write_ps_multi(&images, &mut buffer, &options).unwrap();
+
+        let ps_str = String::from_utf8_lossy(&buffer);
+        assert!(ps_str.starts_with("%!PS-Adobe"));
+        // Should contain page markers for each page
+        assert!(ps_str.contains("%%Page: 1 1"));
+        assert!(ps_str.contains("%%Page: 2 2"));
+        assert!(ps_str.contains("%%Page: 3 3"));
+        assert!(ps_str.contains("%%Pages: 3"));
+    }
+
+    #[test]
+    fn test_write_ps_level2_rgb() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..50 {
+            for x in 0..50 {
+                let c = color::compose_rgb(x as u8 * 5, y as u8 * 5, 128);
+                pix_mut.set_pixel(x, y, c).unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let options = PsOptions::default().level(PsLevel::Level2);
+        let ps_data = write_ps_mem(&pix, &options).unwrap();
+
+        let ps_str = String::from_utf8_lossy(&ps_data);
+        assert!(ps_str.contains("DCTDecode"));
+        assert!(ps_str.contains("LanguageLevel: 2"));
+    }
+
+    #[test]
+    fn test_write_ps_level2_grayscale() {
+        let pix = Pix::new(60, 60, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..60 {
+            for x in 0..60 {
+                pix_mut.set_pixel(x, y, ((x + y) * 3) % 256).unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let options = PsOptions::default().level(PsLevel::Level2);
+        let ps_data = write_ps_mem(&pix, &options).unwrap();
+
+        let ps_str = String::from_utf8_lossy(&ps_data);
+        assert!(ps_str.contains("DCTDecode"));
+        assert!(ps_str.contains("DeviceGray"));
+    }
+
+    #[test]
+    fn test_write_ps_level2_1bpp_fallback() {
+        // 1bpp should fall back to Level 3 Flate
+        let pix = Pix::new(80, 80, PixelDepth::Bit1).unwrap();
+        let options = PsOptions::default().level(PsLevel::Level2);
+        let ps_data = write_ps_mem(&pix, &options).unwrap();
+
+        let ps_str = String::from_utf8_lossy(&ps_data);
+        assert!(ps_str.contains("FlateDecode"));
+        assert!(!ps_str.contains("DCTDecode"));
     }
 }
