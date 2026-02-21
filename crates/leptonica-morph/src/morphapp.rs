@@ -199,15 +199,15 @@ pub fn seedfill_morph(
     Ok(current)
 }
 
-/// Grayscale morphological gradient: dilation - original (after optional smoothing).
+/// Grayscale morphological gradient: dilation - erosion (after optional smoothing).
 ///
 /// Emphasises edges and transitions in an 8-bpp image. Optional block
 /// convolution smoothing can be applied first to reduce noise.
 ///
 /// # Arguments
 /// * `pix` - 8 bpp input image
-/// * `hsize` - SEL width (will be rounded up to odd if even)
-/// * `vsize` - SEL height (will be rounded up to odd if even)
+/// * `hsize` - SEL width
+/// * `vsize` - SEL height
 /// * `smoothing` - half-width of smoothing convolution (0 = no smoothing)
 ///
 /// Based on C leptonica `pixMorphGradient`.
@@ -223,17 +223,8 @@ pub fn morph_gradient(pix: &Pix, hsize: u32, vsize: u32, smoothing: u32) -> Morp
             "smoothing > 0 requires block convolution (not yet implemented)".into(),
         ));
     }
-    // Round up even sizes to odd (same convention as gradient_gray internally)
-    let hsize = if hsize.is_multiple_of(2) {
-        hsize + 1
-    } else {
-        hsize
-    };
-    let vsize = if vsize.is_multiple_of(2) {
-        vsize + 1
-    } else {
-        vsize
-    };
+    // Note: size rounding to odd values is handled by lower-level grayscale
+    // morphology functions (via ensure_odd) called inside `gradient_gray`.
     gradient_gray(pix, hsize, vsize)
 }
 
