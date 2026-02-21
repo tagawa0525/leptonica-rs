@@ -143,6 +143,14 @@ pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoRe
                 .map_err(|e| IoError::EncodeError(format!("JPEG encode error: {}", e)))?;
         }
         PixelDepth::Bit32 => {
+            // Validate spp: JPEG supports only RGB (spp=3) or RGBA (spp=4, alpha ignored).
+            let spp = pix.spp();
+            if spp != 3 && spp != 4 {
+                return Err(IoError::EncodeError(format!(
+                    "32bpp image has spp={}, expected 3 (RGB) or 4 (RGBA)",
+                    spp
+                )));
+            }
             // RGB: extract R, G, B channels (alpha ignored)
             let mut data = vec![0u8; (w * h * 3) as usize];
             for y in 0..h {
