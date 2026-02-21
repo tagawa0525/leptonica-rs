@@ -3,7 +3,8 @@
 //! A structuring element defines the neighborhood used in morphological operations.
 
 use crate::{MorphError, MorphResult};
-use leptonica_core::Pix;
+use leptonica_core::{Pix, Pta};
+use std::io::{BufRead, Write};
 
 /// Element type in a structuring element
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -547,6 +548,78 @@ impl Sel {
 
         Ok(sel)
     }
+
+    /// Return SEL dimensions and origin as a tuple: (height, width, cy, cx).
+    ///
+    /// Based on C leptonica `selGetParameters`.
+    pub fn get_parameters(&self) -> (u32, u32, u32, u32) {
+        unimplemented!("get_parameters")
+    }
+
+    /// Return a human-readable string representation of the SEL.
+    ///
+    /// Each element is encoded as:
+    /// - `x` / `X`: Hit (uppercase if at origin)
+    /// - `o` / `O`: Miss (uppercase if at origin)
+    /// - ` ` / `C`: DontCare (uppercase `C` if at origin)
+    ///
+    /// Based on C leptonica `selPrintToString`.
+    pub fn print_to_string(&self) -> String {
+        unimplemented!("print_to_string")
+    }
+
+    /// Serialize the SEL to the Leptonica binary SEL file format (Version 1).
+    ///
+    /// Format:
+    /// ```text
+    ///   Sel Version 1
+    ///   ------  <name>  ------
+    ///   sy = <h>, sx = <w>, cy = <cy>, cx = <cx>
+    ///     <row data: 0=dont_care, 1=hit, 2=miss>
+    ///     ...
+    /// ```
+    ///
+    /// Based on C leptonica `selWriteStream`.
+    pub fn write_to_writer<W: Write>(&self, writer: &mut W) -> MorphResult<()> {
+        unimplemented!("write_to_writer")
+    }
+
+    /// Deserialize a SEL from the Leptonica binary SEL file format (Version 1).
+    ///
+    /// Based on C leptonica `selReadStream`.
+    pub fn read_from_reader<R: BufRead>(reader: R) -> MorphResult<Self> {
+        unimplemented!("read_from_reader")
+    }
+
+    /// Create a SEL from a 32-bpp color image.
+    ///
+    /// Pixel color encoding:
+    /// - Pure green (R=0, G>0, B=0): Hit
+    /// - Pure red (R>0, G=0, B=0): Miss
+    /// - White (R>0, G>0, B>0): DontCare
+    /// - Any non-white, non-primary pixel: error
+    ///
+    /// The origin is set to the first non-white pixel found.
+    /// Based on C leptonica `selCreateFromColorPix`.
+    pub fn from_color_image(pix: &Pix, name: Option<&str>) -> MorphResult<Self> {
+        unimplemented!("from_color_image")
+    }
+
+    /// Create a SEL from a point array (PTA).
+    ///
+    /// Each point in the PTA becomes a Hit element.
+    /// The SEL is sized to enclose all points (using their bounding box).
+    ///
+    /// # Arguments
+    /// * `pta` - point array; all points must have non-negative coordinates
+    /// * `cy` - y coordinate of the origin
+    /// * `cx` - x coordinate of the origin
+    /// * `name` - optional name for the SEL
+    ///
+    /// Based on C leptonica `selCreateFromPta`.
+    pub fn from_pta(pta: &Pta, cy: u32, cx: u32, name: Option<&str>) -> MorphResult<Self> {
+        unimplemented!("from_pta")
+    }
 }
 
 #[cfg(test)]
@@ -731,5 +804,167 @@ mod tests {
         assert_eq!(sel.get_element(0, 4), Some(SelElement::Hit));
         assert_eq!(sel.get_element(0, 7), Some(SelElement::Hit));
         assert_eq!(sel.get_element(0, 10), Some(SelElement::Hit));
+    }
+
+    // --- Phase 3: SEL I/O and extended creation ---
+
+    fn make_hit_miss_sel() -> Sel {
+        // 3x3: center=Hit, corners=Miss, edges=DontCare
+        let mut sel = Sel::new(3, 3).unwrap();
+        sel.set_origin(1, 1).unwrap();
+        sel.set_element(1, 1, SelElement::Hit);
+        sel.set_element(0, 0, SelElement::Miss);
+        sel.set_element(2, 0, SelElement::Miss);
+        sel.set_element(0, 2, SelElement::Miss);
+        sel.set_element(2, 2, SelElement::Miss);
+        sel.set_name("test_sel");
+        sel
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_parameters_returns_height_width_cy_cx() {
+        let sel = make_hit_miss_sel();
+        let (sy, sx, cy, cx) = sel.get_parameters();
+        assert_eq!(sy, 3);
+        assert_eq!(sx, 3);
+        assert_eq!(cy, 1);
+        assert_eq!(cx, 1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_parameters_brick() {
+        let sel = Sel::create_brick(5, 3).unwrap();
+        let (sy, sx, cy, cx) = sel.get_parameters();
+        assert_eq!(sy, 3); // height
+        assert_eq!(sx, 5); // width
+        assert_eq!(cy, 1); // height/2
+        assert_eq!(cx, 2); // width/2
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_print_to_string_encodes_elements() {
+        let sel = make_hit_miss_sel();
+        let s = sel.print_to_string();
+        // Should have height rows each ending with '\n'
+        let lines: Vec<&str> = s.lines().collect();
+        assert_eq!(lines.len(), 3);
+        // Center (1,1) is the origin, element is Hit → 'X'
+        assert!(lines[1].contains('X'));
+        // Corners are Miss → 'o'
+        assert!(lines[0].starts_with('o'));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_print_to_string_dont_care_is_space() {
+        let sel = Sel::create_brick(1, 1).unwrap();
+        // 1x1 with Hit at origin
+        let s = sel.print_to_string();
+        // Single cell, hit at origin → 'X'
+        assert_eq!(s.trim(), "X");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_read_roundtrip() {
+        let original = make_hit_miss_sel();
+        let mut buf = Vec::new();
+        original.write_to_writer(&mut buf).unwrap();
+        let text = std::str::from_utf8(&buf).unwrap();
+        assert!(text.contains("Sel Version 1"));
+        assert!(text.contains("test_sel"));
+
+        let restored = Sel::read_from_reader(std::io::BufReader::new(buf.as_slice())).unwrap();
+        assert_eq!(restored.width(), original.width());
+        assert_eq!(restored.height(), original.height());
+        assert_eq!(restored.origin_x(), original.origin_x());
+        assert_eq!(restored.origin_y(), original.origin_y());
+        assert_eq!(restored.name(), original.name());
+        for y in 0..original.height() {
+            for x in 0..original.width() {
+                assert_eq!(restored.get_element(x, y), original.get_element(x, y));
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_format_matches_leptonica() {
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let mut buf = Vec::new();
+        sel.write_to_writer(&mut buf).unwrap();
+        let text = std::str::from_utf8(&buf).unwrap();
+        // Check format header
+        assert!(text.contains("  Sel Version 1\n"));
+        assert!(text.contains("  sy = 3, sx = 3, cy = 1, cx = 1\n"));
+        // Brick: all 1 (Hit), each row "    111\n"
+        assert!(text.contains("    111\n"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_read_from_reader_invalid_version_errors() {
+        let data =
+            b"  Sel Version 99\n  ------  foo  ------\n  sy = 1, sx = 1, cy = 0, cx = 0\n    1\n\n";
+        let result = Sel::read_from_reader(std::io::BufReader::new(data.as_slice()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_from_color_image_green_is_hit_red_is_miss() {
+        use leptonica_core::{Pix, PixelDepth};
+        // 3x1 image: green, red, white
+        let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // Green pixel at (0,0) → Hit
+        pm.set_pixel_unchecked(0, 0, leptonica_core::color::compose_rgba(0, 255, 0, 0));
+        // Red pixel at (1,0) → Miss
+        pm.set_pixel_unchecked(1, 0, leptonica_core::color::compose_rgba(255, 0, 0, 0));
+        // White pixel at (2,0) → DontCare
+        pm.set_pixel_unchecked(2, 0, leptonica_core::color::compose_rgba(255, 255, 255, 0));
+        let pix: Pix = pm.into();
+
+        let sel = Sel::from_color_image(&pix, Some("test")).unwrap();
+        assert_eq!(sel.get_element(0, 0), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(1, 0), Some(SelElement::Miss));
+        assert_eq!(sel.get_element(2, 0), Some(SelElement::DontCare));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_from_color_image_requires_32bpp() {
+        use leptonica_core::{Pix, PixelDepth};
+        let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
+        assert!(Sel::from_color_image(&pix, None).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_from_pta_creates_hit_at_each_point() {
+        use leptonica_core::Pta;
+        let mut pta = Pta::new();
+        pta.push(2.0, 1.0); // (x=2, y=1)
+        pta.push(3.0, 2.0); // (x=3, y=2)
+        let sel = Sel::from_pta(&pta, 0, 0, Some("pta_test")).unwrap();
+        assert_eq!(sel.get_element(2, 1), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(3, 2), Some(SelElement::Hit));
+        assert_eq!(sel.name(), Some("pta_test"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_from_pta_origin_and_dimensions() {
+        use leptonica_core::Pta;
+        let mut pta = Pta::new();
+        pta.push(1.0, 0.0);
+        pta.push(2.0, 1.0);
+        // bounding box: x in [1,2], y in [0,1] → w=2, h=2 → sel is (x+w=4) x (y+h=2)
+        let sel = Sel::from_pta(&pta, 1, 2, None).unwrap();
+        assert_eq!(sel.origin_y(), 1);
+        assert_eq!(sel.origin_x(), 2);
     }
 }
