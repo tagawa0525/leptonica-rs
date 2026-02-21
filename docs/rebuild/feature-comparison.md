@@ -1,6 +1,6 @@
 # C版 vs Rust版 機能比較
 
-調査日: 2026-02-21（Phase 13-17.3 実装を反映）
+調査日: 2026-02-21（Phase 13-17.3 実装 + IO全移植計画 Phase 1-7 完了を反映）
 
 ## 概要
 
@@ -18,7 +18,7 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 | クレート | ✅ 同等 | 🔄 異なる | ❌ 未実装 | 合計 | カバレッジ |
 |---------|--------|----------|---------|------|-----------|
 | [leptonica-core](comparison/core.md) | 495 | 24 | 363 | 882 | 58.8% |
-| [leptonica-io](comparison/io.md) | 32 | 15 | 99 | 146 | 32.2% |
+| [leptonica-io](comparison/io.md) | 68 | 17 | 61 | 146 | 58.2% |
 | [leptonica-transform](comparison/transform.md) | 39 | 12 | 101 | 152 | 33.6% |
 | [leptonica-morph](comparison/morph.md) | 34 | 12 | 74 | 120 | 38.3% |
 | [leptonica-filter](comparison/filter.md) | 50 | 0 | 49 | 99 | 50.5% |
@@ -26,7 +26,7 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 | [leptonica-region](comparison/region.md) | 27 | 8 | 60 | 95 | 36.8% |
 | [leptonica-recog](comparison/recog.md) | 42 | 9 | 93 | 144 | 35.4% |
 | [その他](comparison/misc.md) | 13 | 0 | 103 | 116 | 11.2% |
-| **合計** | **783** | **96** | **1,001** | **1,880** | **46.8%** |
+| **合計** | **819** | **98** | **963** | **1,880** | **48.8%** |
 
 ### 分類基準
 
@@ -70,17 +70,19 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 
 | フォーマット | C版 | Rust版 | 備考 |
 | ------------ | --- | ------ | ---- |
-| BMP | ✅ bmpio.c | ✅ bmp.rs | 完全実装 |
-| PNG | ✅ pngio.c | ✅ png.rs | feature gate |
-| JPEG | ✅ jpegio.c | ✅ jpeg.rs | feature gate |
-| PNM (PBM/PGM/PPM) | ✅ pnmio.c | ✅ pnm.rs | feature gate |
-| TIFF | ✅ tiffio.c | ✅ tiff.rs | feature gate、マルチページ対応 |
-| GIF | ✅ gifio.c | ✅ gif.rs | feature gate |
-| WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate |
-| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | 読み込み対応 |
-| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | 書き込み対応 |
-| PostScript | ✅ psio1-2.c | ✅ ps/ | EPS/PS出力 |
+| BMP | ✅ bmpio.c | ✅ bmp.rs | デフォルト有効 |
+| PNG | ✅ pngio.c | ✅ png.rs | feature gate (`png-format`、デフォルト有効) |
+| JPEG | ✅ jpegio.c | ✅ jpeg.rs | feature gate (`jpeg`、デフォルト有効)、読み書き対応 |
+| PNM (PBM/PGM/PPM/PAM) | ✅ pnmio.c | ✅ pnm.rs | デフォルト有効、ASCII/Binary/PAM対応 |
+| TIFF | ✅ tiffio.c | ✅ tiff.rs | feature gate (`tiff-format`)、マルチページ対応 |
+| GIF | ✅ gifio.c | ✅ gif.rs | feature gate (`gif-format`) |
+| WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate (`webp-format`) |
+| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | feature gate (`jp2k-format`)、読み込み対応 |
+| SPIX | ✅ spixio.c | ✅ spix.rs | Leptonica独自シリアライズ形式 |
+| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | feature gate (`pdf-format`)、Flate/DCT圧縮 |
+| PostScript | ✅ psio1-2.c | ✅ ps/ | feature gate (`ps-format`)、Level 1/2/3、マルチページ |
 | フォーマット検出 | ✅ readfile.c | ✅ format.rs | 完全実装 |
+| ヘッダー読み取り | ✅ readfile.c | ✅ header.rs | 全フォーマット対応 |
 
 ### 3. 幾何変換
 
@@ -178,7 +180,7 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 | クレート | 行数 | 関数カバレッジ | 主要機能 |
 | -------- | ---- | ------------- | -------- |
 | leptonica-core | ~46,300 | 519/882 (58.8%) | Pix, Box, Pta, Colormap, 演算, 比較, ブレンド, 描画, 統計, ヒストグラム |
-| leptonica-io | 2,795 | 47/146 (32.2%) | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS |
+| leptonica-io | ~7,930 | 85/146 (58.2%) | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS/SPIX + ヘッダー読み取り |
 | leptonica-transform | 1,509 | 51/152 (33.6%) | 回転, スケーリング, アフィン, 射影, シアー |
 | leptonica-morph | 827 | 46/120 (38.3%) | 二値/グレースケール/カラー形態学, DWA, 細線化 |
 | leptonica-filter | 917 | 50/99 (50.5%) | 畳み込み, エッジ検出, バイラテラル, ランク |
@@ -186,7 +188,7 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 | leptonica-region | 2,385 | 35/95 (36.8%) | 連結成分, シードフィル, 分水嶺, 四分木, 迷路 |
 | leptonica-recog | 6,580 | 51/144 (35.4%) | スキュー補正, デワーピング, 文字認識, バーコード |
 | その他 | - | 13/116 (11.2%) | ワーパー, エンコーディング |
-| **合計** | **~64,000** | **879/1,880 (46.8%)** | |
+| **合計** | **~69,100** | **917/1,880 (48.8%)** | |
 
 ## 未実装の主要領域
 
