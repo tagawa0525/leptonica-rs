@@ -549,7 +549,7 @@ fn erode_1d_composite(
 /// Find the factor pair (f1, f2) where f1 * f2 = size and f1 + f2 is minimized.
 ///
 /// Returns (1, size) for primes (no composite decomposition possible).
-fn select_composable_sizes(size: u32) -> (u32, u32) {
+pub(crate) fn select_composable_sizes(size: u32) -> (u32, u32) {
     if size <= 1 {
         return (1, size);
     }

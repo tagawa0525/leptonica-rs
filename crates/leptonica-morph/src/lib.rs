@@ -61,3 +61,9 @@ pub use morphapp::{
     MorphOpType, intersection_of_morph_ops, morph_gradient, morph_sequence_masked, seedfill_morph,
     union_of_morph_ops,
 };
+
+// Re-export SEL set generation functions
+pub use sel::{
+    sel_make_plus_sign, sela_add_basic, sela_add_cross_junctions, sela_add_dwa_combs,
+    sela_add_dwa_linear, sela_add_hit_miss, sela_add_t_junctions,
+};
