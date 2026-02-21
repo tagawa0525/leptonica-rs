@@ -44,6 +44,15 @@ pub enum PdfCompression {
     Auto,
     /// Flate (Deflate/zlib) compression - works for all image types
     Flate,
+    /// DCT (JPEG) compression - best for photographic images
+    ///
+    /// Requires the `jpeg` feature to be enabled. Uses the `jpeg-encoder` crate
+    /// to compress image data and embeds it with the DCTDecode filter.
+    /// Quality is controlled by `PdfOptions::quality` (1-100, default 75).
+    ///
+    /// Note: 1bpp images are always written with Flate even when Jpeg is selected,
+    /// since JPEG is unsuitable for binary images.
+    Jpeg,
 }
 
 /// PDF output options
@@ -146,6 +155,24 @@ pub fn write_pdf_multi<W: Write>(
     let pdf_data = generate_pdf(images, options)?;
     writer.write_all(&pdf_data).map_err(IoError::Io)?;
     Ok(())
+}
+
+/// Write multiple image files to a multi-page PDF
+///
+/// Reads each file, detects its format, and adds it as a page in the PDF.
+///
+/// # Arguments
+///
+/// * `paths` - Slice of file paths to include
+/// * `writer` - Output destination
+/// * `options` - PDF output options
+pub fn write_pdf_from_files<W: Write>(
+    paths: &[impl AsRef<std::path::Path>],
+    writer: W,
+    options: &PdfOptions,
+) -> IoResult<()> {
+    let _ = (paths, writer, options);
+    todo!("write_pdf_from_files not yet implemented")
 }
 
 /// Generate PDF data from images
@@ -489,5 +516,145 @@ mod tests {
         assert_eq!(opts.title, Some("Test".to_string()));
         assert_eq!(opts.resolution, 150);
         assert_eq!(opts.compression, PdfCompression::Flate);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pdf_jpeg_compression() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..100 {
+            for x in 0..100 {
+                pix_mut
+                    .set_pixel(x, y, color::compose_rgb(x as u8, y as u8, 128))
+                    .unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            quality: 75,
+            ..Default::default()
+        };
+        let pdf_data = write_pdf_mem(&pix, &options).unwrap();
+
+        // Verify PDF header
+        assert!(pdf_data.starts_with(b"%PDF-"));
+        // DCTDecode filter should be present in the PDF
+        let pdf_str = String::from_utf8_lossy(&pdf_data);
+        assert!(
+            pdf_str.contains("DCTDecode"),
+            "PDF should contain DCTDecode filter"
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pdf_jpeg_smaller_than_flate() {
+        // For photographic images, JPEG should produce smaller output
+        let pix = Pix::new(200, 200, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..200 {
+            for x in 0..200 {
+                pix_mut
+                    .set_pixel(x, y, color::compose_rgb(x as u8, (y / 2) as u8, 100))
+                    .unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let flate_options = PdfOptions {
+            compression: PdfCompression::Flate,
+            ..Default::default()
+        };
+        let jpeg_options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            quality: 75,
+            ..Default::default()
+        };
+
+        let flate_data = write_pdf_mem(&pix, &flate_options).unwrap();
+        let jpeg_data = write_pdf_mem(&pix, &jpeg_options).unwrap();
+
+        assert!(
+            jpeg_data.len() < flate_data.len(),
+            "JPEG ({}) should be smaller than Flate ({}) for photographic content",
+            jpeg_data.len(),
+            flate_data.len()
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pdf_jpeg_1bpp_fallback() {
+        // 1bpp images should fall back to Flate even when Jpeg is selected
+        let pix = Pix::new(80, 80, PixelDepth::Bit1).unwrap();
+        let options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            ..Default::default()
+        };
+        let pdf_data = write_pdf_mem(&pix, &options).unwrap();
+
+        // Should not contain DCTDecode since 1bpp falls back to Flate
+        assert!(pdf_data.starts_with(b"%PDF-"));
+        let pdf_str = String::from_utf8_lossy(&pdf_data);
+        assert!(
+            pdf_str.contains("FlateDecode"),
+            "1bpp should use FlateDecode even with Jpeg option"
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pdf_jpeg_grayscale() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..100 {
+            for x in 0..100 {
+                pix_mut.set_pixel(x, y, ((x + y) * 2) % 256).unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            quality: 85,
+            ..Default::default()
+        };
+        let pdf_data = write_pdf_mem(&pix, &options).unwrap();
+
+        assert!(pdf_data.starts_with(b"%PDF-"));
+        let pdf_str = String::from_utf8_lossy(&pdf_data);
+        assert!(
+            pdf_str.contains("DCTDecode"),
+            "8bpp PDF should contain DCTDecode"
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pdf_from_files() {
+        // Create temporary test images
+        let outdir = std::env::temp_dir().join("leptonica_pdf_test");
+        std::fs::create_dir_all(&outdir).unwrap();
+
+        let pix1 = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let pix2 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+
+        let path1 = outdir.join("test1.pnm");
+        let path2 = outdir.join("test2.pnm");
+        crate::write_image(&pix1, &path1, leptonica_core::ImageFormat::Pnm).unwrap();
+        crate::write_image(&pix2, &path2, leptonica_core::ImageFormat::Pnm).unwrap();
+
+        let options = PdfOptions::with_title("From Files Test");
+        let mut buffer = Vec::new();
+        write_pdf_from_files(&[&path1, &path2], &mut buffer, &options).unwrap();
+
+        assert!(buffer.starts_with(b"%PDF-"));
+        assert!(buffer.len() > 200);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&outdir);
     }
 }
