@@ -15,10 +15,25 @@ use std::io::{BufRead, Read, Seek, Write};
 
 /// Read WebP header metadata without decoding pixel data
 pub fn read_header_webp(data: &[u8]) -> IoResult<ImageHeader> {
-    let _ = data;
-    Err(IoError::UnsupportedFormat(
-        "WebP header reading not yet implemented".to_string(),
-    ))
+    let cursor = std::io::Cursor::new(data);
+    let decoder = WebPDecoder::new(cursor)
+        .map_err(|e| IoError::DecodeError(format!("WebP decode error: {}", e)))?;
+
+    let (width, height) = decoder.dimensions();
+    let spp: u32 = if decoder.has_alpha() { 4 } else { 3 };
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth: 32,
+        bps: 8,
+        spp,
+        has_colormap: false,
+        num_colors: 0,
+        format: ImageFormat::WebP,
+        x_resolution: None,
+        y_resolution: None,
+    })
 }
 
 /// Read a WebP image

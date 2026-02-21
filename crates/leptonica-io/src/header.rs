@@ -270,7 +270,6 @@ mod tests {
     // --- read_image_header tests (require format implementations) ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_read_header_png() {
         use leptonica_core::PixelDepth;
         let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
@@ -283,7 +282,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_read_header_jpeg() {
         use leptonica_core::PixelDepth;
         let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
@@ -295,7 +293,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_read_header_spix() {
         use leptonica_core::PixelDepth;
         let pix = Pix::new(50, 40, PixelDepth::Bit8).unwrap();
@@ -308,7 +305,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_read_header_bmp() {
         use leptonica_core::PixelDepth;
         let pix = Pix::new(30, 20, PixelDepth::Bit8).unwrap();

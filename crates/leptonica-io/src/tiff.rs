@@ -14,10 +14,55 @@ use tiff::tags::PhotometricInterpretation;
 
 /// Read TIFF header metadata without decoding pixel data
 pub fn read_header_tiff(data: &[u8]) -> IoResult<ImageHeader> {
-    let _ = data;
-    Err(IoError::UnsupportedFormat(
-        "TIFF header reading not yet implemented".to_string(),
-    ))
+    let cursor = std::io::Cursor::new(data);
+    let mut decoder = Decoder::new(cursor)
+        .map_err(|e| IoError::DecodeError(format!("TIFF decode error: {}", e)))?;
+
+    let (width, height) = decoder
+        .dimensions()
+        .map_err(|e| IoError::DecodeError(format!("TIFF dimensions: {}", e)))?;
+
+    let color_type = decoder
+        .colortype()
+        .map_err(|e| IoError::DecodeError(format!("TIFF colortype: {}", e)))?;
+
+    let (depth, spp) = match color_type {
+        ColorType::Gray(bps) => {
+            let d = if bps <= 8 { 8u32 } else { 16 };
+            (d, 1u32)
+        }
+        ColorType::GrayA(bps) => {
+            let d = if bps <= 8 { 32u32 } else { 32 };
+            (d, 4)
+        }
+        ColorType::Palette(bps) => (bps as u32, 1),
+        ColorType::RGB(_) => (32, 3),
+        ColorType::RGBA(_) => (32, 4),
+        _ => (32, 3),
+    };
+
+    // DPI from TIFF tags
+    let x_dpi = decoder
+        .get_tag_f32(tiff::tags::Tag::XResolution)
+        .ok()
+        .map(|v| v.round() as u32);
+    let y_dpi = decoder
+        .get_tag_f32(tiff::tags::Tag::YResolution)
+        .ok()
+        .map(|v| v.round() as u32);
+
+    Ok(ImageHeader {
+        width,
+        height,
+        depth,
+        bps: depth.min(8),
+        spp,
+        has_colormap: matches!(color_type, ColorType::Palette(_)),
+        num_colors: 0,
+        format: ImageFormat::Tiff,
+        x_resolution: x_dpi,
+        y_resolution: y_dpi,
+    })
 }
 
 /// TIFF compression format

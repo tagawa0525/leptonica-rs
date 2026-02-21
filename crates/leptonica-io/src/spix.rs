@@ -7,7 +7,7 @@
 //!
 //! C Leptonica: `spixio.c`
 
-use crate::{IoError, IoResult, header::ImageHeader};
+use crate::{IoResult, header::ImageHeader};
 use leptonica_core::{ImageFormat, Pix};
 use std::io::{Read, Write};
 
@@ -17,10 +17,20 @@ use std::io::{Read, Write};
 ///
 /// C Leptonica: `sreadHeaderSpix()` in `spixio.c`
 pub fn read_header_spix(data: &[u8]) -> IoResult<ImageHeader> {
-    let _ = data;
-    Err(IoError::UnsupportedFormat(
-        "SPIX header reading not yet implemented".to_string(),
-    ))
+    let h = Pix::read_spix_header(data)?;
+    let spp: u32 = if h.depth == 32 { 3 } else { 1 };
+    Ok(ImageHeader {
+        width: h.width,
+        height: h.height,
+        depth: h.depth,
+        bps: h.depth.min(8),
+        spp,
+        has_colormap: h.ncolors > 0,
+        num_colors: h.ncolors,
+        format: ImageFormat::Spix,
+        x_resolution: None,
+        y_resolution: None,
+    })
 }
 
 /// Read a SPIX image
