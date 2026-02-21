@@ -442,6 +442,60 @@ fn erode_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
     Ok(out_mut.into())
 }
 
+// ---------------------------------------------------------------------------
+// Composite and Extended DWA stubs (Phase 5)
+// ---------------------------------------------------------------------------
+
+/// Compute the extended composite parameters for DWA operations on sizes > 63.
+///
+/// # Returns
+///
+/// `(n, extra)` where `n` is the number of 63-wide passes and `extra` is the
+/// residual (always in range 1..=63, approximate if size==64).
+pub fn get_extended_composite_parameters(_size: u32) -> (u32, u32) {
+    unimplemented!("not yet implemented")
+}
+
+/// Composite DWA dilation (≤ 63 per dimension, delegates to extend for larger).
+pub fn dilate_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Composite DWA erosion (≤ 63 per dimension, delegates to extend for larger).
+pub fn erode_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Composite DWA opening.
+pub fn open_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Composite DWA closing.
+pub fn close_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Extended composite DWA dilation (arbitrary size, > 63 supported).
+pub fn dilate_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Extended composite DWA erosion (arbitrary size, > 63 supported).
+pub fn erode_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Extended composite DWA opening.
+pub fn open_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Extended composite DWA closing.
+pub fn close_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -682,5 +736,188 @@ mod tests {
         // 4x4 object eroded by 7x7 should be very small or empty
         // (since the object is smaller than the SE)
         assert!(count_foreground_pixels(&eroded) < count_foreground_pixels(&pix));
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 5: Composite DWA tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_extended_composite_parameters() {
+        // For size <= 63, n=0 and extra=size
+        assert_eq!(get_extended_composite_parameters(1), (0, 1));
+        assert_eq!(get_extended_composite_parameters(63), (0, 63));
+        // For size=64: approximate (n=1, extra=2 → use 63)
+        assert_eq!(get_extended_composite_parameters(64), (1, 2));
+        // For size=65: n=1, extra=3
+        assert_eq!(get_extended_composite_parameters(65), (1, 3));
+        // For size=125: n=2, extra=1 → just n passes of 63
+        assert_eq!(get_extended_composite_parameters(125), (2, 1));
+        // For size=200: n=3, extra=14
+        assert_eq!(get_extended_composite_parameters(200), (3, 14));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_comp_dilate_identity() {
+        let pix = create_test_image();
+        let dilated = dilate_comp_brick_dwa(&pix, 1, 1).unwrap();
+        assert_eq!(
+            count_foreground_pixels(&dilated),
+            count_foreground_pixels(&pix)
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_comp_erode_identity() {
+        let pix = create_test_image();
+        let eroded = erode_comp_brick_dwa(&pix, 1, 1).unwrap();
+        assert_eq!(
+            count_foreground_pixels(&eroded),
+            count_foreground_pixels(&pix)
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_comp_dilate_increases_foreground() {
+        let pix = create_test_image();
+        let original = count_foreground_pixels(&pix);
+        let dilated = dilate_comp_brick_dwa(&pix, 3, 3).unwrap();
+        assert!(count_foreground_pixels(&dilated) >= original);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_comp_erode_decreases_foreground() {
+        let pix = create_test_image();
+        let original = count_foreground_pixels(&pix);
+        let eroded = erode_comp_brick_dwa(&pix, 3, 3).unwrap();
+        assert!(count_foreground_pixels(&eroded) <= original);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_comp_open_removes_small_objects() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 2..8 {
+            for x in 2..8 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        pm.set_pixel_unchecked(0, 0, 1);
+        let pix: Pix = pm.into();
+        let opened = open_comp_brick_dwa(&pix, 3, 3).unwrap();
+        assert_eq!(opened.get_pixel_unchecked(0, 0), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_comp_close_fills_holes() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 2..8 {
+            for x in 2..8 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        for y in 4..6 {
+            for x in 4..6 {
+                pm.set_pixel_unchecked(x, y, 0);
+            }
+        }
+        let pix: Pix = pm.into();
+        let original = count_foreground_pixels(&pix);
+        let closed = close_comp_brick_dwa(&pix, 3, 3).unwrap();
+        assert!(count_foreground_pixels(&closed) >= original);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extend_dilate_large_se() {
+        // Use a larger image to test with SE > 63
+        let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 90..110 {
+            for x in 90..110 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let pix: Pix = pm.into();
+        let original = count_foreground_pixels(&pix);
+        let dilated = dilate_comp_brick_extend_dwa(&pix, 70, 70).unwrap();
+        assert!(count_foreground_pixels(&dilated) > original);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extend_erode_large_se() {
+        let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 10..190 {
+            for x in 10..190 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let pix: Pix = pm.into();
+        let original = count_foreground_pixels(&pix);
+        let eroded = erode_comp_brick_extend_dwa(&pix, 70, 70).unwrap();
+        assert!(count_foreground_pixels(&eroded) < original);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_comp_dilate_delegates_to_extend_for_large_se() {
+        let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 90..110 {
+            for x in 90..110 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let pix: Pix = pm.into();
+        // comp_brick_dwa with large SE should succeed (delegates to extend)
+        let result = dilate_comp_brick_dwa(&pix, 100, 100);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extend_open_large_se() {
+        let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 10..190 {
+            for x in 10..190 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        pm.set_pixel_unchecked(0, 0, 1);
+        let pix: Pix = pm.into();
+        let opened = open_comp_brick_extend_dwa(&pix, 70, 70).unwrap();
+        assert_eq!(opened.get_pixel_unchecked(0, 0), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extend_close_large_se() {
+        let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 10..190 {
+            for x in 10..190 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        for y in 90..110 {
+            for x in 90..110 {
+                pm.set_pixel_unchecked(x, y, 0);
+            }
+        }
+        let pix: Pix = pm.into();
+        let original = count_foreground_pixels(&pix);
+        let closed = close_comp_brick_extend_dwa(&pix, 70, 70).unwrap();
+        assert!(count_foreground_pixels(&closed) >= original);
     }
 }

@@ -364,6 +364,56 @@ pub fn morph_comp_sequence(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
     morph_sequence(pix, sequence)
 }
 
+/// Execute a binary morphological sequence using DWA (word-aligned) operations
+///
+/// Same as [`morph_sequence`] but dispatches to DWA functions for performance.
+///
+/// # Arguments
+///
+/// * `pix` - A 1-bpp binary image
+/// * `sequence` - A sequence string (e.g., "d3.3 + e3.3")
+///
+/// # Returns
+///
+/// A new image with all operations applied, or an error.
+pub fn morph_sequence_dwa(_pix: &Pix, _sequence: &str) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Execute a binary composite morphological sequence using DWA operations
+///
+/// Similar to [`morph_sequence_dwa`] but uses composite DWA operations
+/// that support sizes up to 63 pixels per dimension.
+///
+/// # Arguments
+///
+/// * `pix` - A 1-bpp binary image
+/// * `sequence` - A sequence string (e.g., "d3.3 + e3.3")
+///
+/// # Returns
+///
+/// A new image with all operations applied, or an error.
+pub fn morph_comp_sequence_dwa(_pix: &Pix, _sequence: &str) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Execute a color (32 bpp) morphological sequence on an image
+///
+/// Processes each RGB channel independently using brick structuring elements.
+/// All structuring element dimensions must be odd numbers.
+///
+/// # Arguments
+///
+/// * `pix` - A 32-bpp RGB image
+/// * `sequence` - A sequence string with d/e/o/c operations (e.g., "c5.3 + o7.5")
+///
+/// # Returns
+///
+/// A new image with all operations applied, or an error.
+pub fn color_morph_sequence(_pix: &Pix, _sequence: &str) -> MorphResult<Pix> {
+    unimplemented!("not yet implemented")
+}
+
 /// Execute a grayscale morphological sequence on an image
 ///
 /// # Arguments
@@ -605,6 +655,66 @@ mod tests {
     fn test_verify_grayscale_success() {
         let seq = MorphSequence::parse("d3.3 + e5.5 + tw7.7").unwrap();
         assert!(seq.verify_grayscale().is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 5: DWA and color sequence tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_morph_sequence_dwa_basic() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
+        let result = morph_sequence_dwa(&pix, "d3.3 + e3.3");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().width(), 20);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_morph_sequence_dwa_non_binary_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(morph_sequence_dwa(&pix, "d3.3").is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_morph_comp_sequence_dwa_basic() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
+        let result = morph_comp_sequence_dwa(&pix, "d3.3 + e3.3");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().width(), 20);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_morph_comp_sequence_dwa_non_binary_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(morph_comp_sequence_dwa(&pix, "d3.3").is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_morph_sequence_basic() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        let result = color_morph_sequence(&pix, "d3.3");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().width(), 20);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_morph_sequence_non_rgb_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(color_morph_sequence(&pix, "d3.3").is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_color_morph_sequence_even_dim_error() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        // C says: dimensions must be odd for color morphology
+        assert!(color_morph_sequence(&pix, "d4.4").is_err());
     }
 
     #[test]

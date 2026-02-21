@@ -50,11 +50,17 @@ pub use thin_sels::{ThinSelSet, make_thin_sels, sels_4and8cc_thin, sels_4cc_thin
 
 // Re-export sequence functions
 pub use sequence::{
-    MorphOp, MorphSequence, gray_morph_sequence, morph_comp_sequence, morph_sequence,
+    MorphOp, MorphSequence, color_morph_sequence, gray_morph_sequence, morph_comp_sequence,
+    morph_comp_sequence_dwa, morph_sequence, morph_sequence_dwa,
 };
 
 // Re-export DWA (high-speed morphology) functions
-pub use dwa::{close_brick_dwa, dilate_brick_dwa, erode_brick_dwa, open_brick_dwa};
+pub use dwa::{
+    close_brick_dwa, close_comp_brick_dwa, close_comp_brick_extend_dwa, dilate_brick_dwa,
+    dilate_comp_brick_dwa, dilate_comp_brick_extend_dwa, erode_brick_dwa, erode_comp_brick_dwa,
+    erode_comp_brick_extend_dwa, get_extended_composite_parameters, open_brick_dwa,
+    open_comp_brick_dwa, open_comp_brick_extend_dwa,
+};
 
 // Re-export morphological application functions
 pub use morphapp::{
