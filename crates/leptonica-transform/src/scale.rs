@@ -822,7 +822,7 @@ pub fn scale_gray_2x_li_thresh(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
         )));
     }
     let gray = scale_gray_2x_li(pix)?;
-    gray_threshold_to_binary(&gray, thresh as u8)
+    gray_threshold_to_binary(&gray, thresh)
 }
 
 /// 4× upscale of an 8bpp image with LI, then threshold to 1bpp.
@@ -847,7 +847,7 @@ pub fn scale_gray_4x_li_thresh(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
         )));
     }
     let gray = scale_gray_4x_li(pix)?;
-    gray_threshold_to_binary(&gray, thresh as u8)
+    gray_threshold_to_binary(&gray, thresh)
 }
 
 /// 2× upscale of an 8bpp image with LI, then Floyd-Steinberg dither to 1bpp.
@@ -1079,15 +1079,16 @@ pub fn scale_to_gray_mipmap(pix: &Pix, scale_factor: f32) -> TransformResult<Pix
 // ────────────────────────────────────────────────────────────────────────────
 
 /// Threshold an 8bpp image to 1bpp.
-/// Pixels `< thresh` → black (1); pixels `>= thresh` → white (0).
-fn gray_threshold_to_binary(pix: &Pix, thresh: u8) -> TransformResult<Pix> {
+/// Pixels with value `< thresh` → black (1); pixels `>= thresh` → white (0).
+/// `thresh = 256` means all pixels become black.
+fn gray_threshold_to_binary(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
     let w = pix.width();
     let h = pix.height();
     let out = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
-            let val = pix.get_pixel_unchecked(x, y) as u8;
+            let val = pix.get_pixel_unchecked(x, y) as i32;
             let binary: u32 = if val < thresh { 1 } else { 0 };
             out_mut.set_pixel_unchecked(x, y, binary);
         }
