@@ -123,7 +123,8 @@ pub struct OrientCorrectResult {
 ///
 /// # Arguments
 /// * `pix` - 1 bpp deskewed document image (150-300 ppi)
-/// * `min_count` - Minimum number of (up + down) hits; use 0 for default (70)
+/// * `min_count` - Minimum value of max(up_hits, down_hits) required to produce a
+///   non-zero confidence; use 0 for default (70)
 /// * `npixels` - Number of pixels to trim from word boundaries; use 0 for typical mode
 pub fn up_down_detect(pix: &Pix, min_count: u32, npixels: u32) -> RecogResult<f32> {
     if pix.depth() != PixelDepth::Bit1 {
