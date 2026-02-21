@@ -368,22 +368,30 @@ impl Pta {
     /// Returns a new Pta with all points translated by (dx, dy).
     ///
     /// Corresponds to C Leptonica's `ptaTranslate`.
-    pub fn translated_by(&self, _dx: f32, _dy: f32) -> Pta {
-        todo!("translated_by not yet implemented")
+    pub fn translated_by(&self, dx: f32, dy: f32) -> Pta {
+        self.iter().map(|(x, y)| (x + dx, y + dy)).collect()
     }
 
     /// Returns a new Pta with all points scaled about the origin by (sx, sy).
     ///
     /// Corresponds to C Leptonica's `ptaScale`.
-    pub fn scaled_by(&self, _sx: f32, _sy: f32) -> Pta {
-        todo!("scaled_by not yet implemented")
+    pub fn scaled_by(&self, sx: f32, sy: f32) -> Pta {
+        self.iter().map(|(x, y)| (sx * x, sy * y)).collect()
     }
 
     /// Returns a new Pta with all points rotated about center (xc, yc) by angle (radians, clockwise).
     ///
     /// Corresponds to C Leptonica's `ptaRotate`.
-    pub fn rotated_about(&self, _xc: f32, _yc: f32, _angle: f32) -> Pta {
-        todo!("rotated_about not yet implemented")
+    pub fn rotated_about(&self, xc: f32, yc: f32, angle: f32) -> Pta {
+        let sina = angle.sin();
+        let cosa = angle.cos();
+        self.iter()
+            .map(|(x, y)| {
+                let xp = xc + (x - xc) * cosa - (y - yc) * sina;
+                let yp = yc + (x - xc) * sina + (y - yc) * cosa;
+                (xp, yp)
+            })
+            .collect()
     }
 }
 
@@ -732,7 +740,6 @@ mod tests {
     // -- Pta::translated_by --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_translated_by() {
         let mut pta = Pta::new();
         pta.push(1.0, 2.0);
@@ -747,7 +754,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_translated_by_empty() {
         let pta = Pta::new();
         let result = pta.translated_by(5.0, 5.0);
@@ -757,7 +763,6 @@ mod tests {
     // -- Pta::scaled_by --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_scaled_by() {
         let mut pta = Pta::new();
         pta.push(2.0, 4.0);
@@ -774,7 +779,6 @@ mod tests {
     // -- Pta::rotated_about --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_rotated_about_90deg() {
         // Rotate (1, 0) 90° clockwise about origin → (0, 1)
         let mut pta = Pta::new();
@@ -786,7 +790,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_rotated_about_center() {
         // Rotate (2, 0) 90° clockwise about (1, 0) → (1, 1)
         let mut pta = Pta::new();

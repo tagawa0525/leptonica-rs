@@ -719,15 +719,28 @@ impl Boxa {
     /// Returns a new Boxa with all boxes translated by (dx, dy).
     ///
     /// Corresponds to C Leptonica's `boxaTranslate`.
-    pub fn translate(&self, _dx: f32, _dy: f32) -> Boxa {
-        todo!("Boxa::translate not yet implemented")
+    pub fn translate(&self, dx: f32, dy: f32) -> Boxa {
+        self.boxes
+            .iter()
+            .map(|b| Box::new_unchecked(b.x + dx.round() as i32, b.y + dy.round() as i32, b.w, b.h))
+            .collect()
     }
 
     /// Returns a new Boxa with all boxes scaled about the origin by (sx, sy).
     ///
     /// Corresponds to C Leptonica's `boxaScale`.
-    pub fn scale(&self, _sx: f32, _sy: f32) -> Boxa {
-        todo!("Boxa::scale not yet implemented")
+    pub fn scale(&self, sx: f32, sy: f32) -> Boxa {
+        self.boxes
+            .iter()
+            .map(|b| {
+                Box::new_unchecked(
+                    (b.x as f32 * sx).round() as i32,
+                    (b.y as f32 * sy).round() as i32,
+                    (b.w as f32 * sx).round() as i32,
+                    (b.h as f32 * sy).round() as i32,
+                )
+            })
+            .collect()
     }
 
     /// Returns a new Boxa with all boxes rotated about center (xc, yc) by angle (radians, clockwise).
@@ -736,8 +749,56 @@ impl Boxa {
     /// bounding box of those corners becomes the new box.
     ///
     /// Corresponds to C Leptonica's `boxaRotate`.
-    pub fn rotate(&self, _xc: f32, _yc: f32, _angle: f32) -> Boxa {
-        todo!("Boxa::rotate not yet implemented")
+    pub fn rotate(&self, xc: f32, yc: f32, angle: f32) -> Boxa {
+        let sina = angle.sin();
+        let cosa = angle.cos();
+
+        let rotate_pt = |x: f32, y: f32| -> (f32, f32) {
+            let xp = xc + (x - xc) * cosa - (y - yc) * sina;
+            let yp = yc + (x - xc) * sina + (y - yc) * cosa;
+            (xp, yp)
+        };
+
+        self.boxes
+            .iter()
+            .map(|b| {
+                let x0 = b.x as f32;
+                let y0 = b.y as f32;
+                let x1 = (b.x + b.w) as f32;
+                let y1 = (b.y + b.h) as f32;
+
+                let corners = [
+                    rotate_pt(x0, y0),
+                    rotate_pt(x1, y0),
+                    rotate_pt(x0, y1),
+                    rotate_pt(x1, y1),
+                ];
+
+                let xmin = corners
+                    .iter()
+                    .map(|(x, _)| *x)
+                    .fold(f32::INFINITY, f32::min);
+                let ymin = corners
+                    .iter()
+                    .map(|(_, y)| *y)
+                    .fold(f32::INFINITY, f32::min);
+                let xmax = corners
+                    .iter()
+                    .map(|(x, _)| *x)
+                    .fold(f32::NEG_INFINITY, f32::max);
+                let ymax = corners
+                    .iter()
+                    .map(|(_, y)| *y)
+                    .fold(f32::NEG_INFINITY, f32::max);
+
+                Box::new_unchecked(
+                    xmin.round() as i32,
+                    ymin.round() as i32,
+                    (xmax - xmin).round() as i32,
+                    (ymax - ymin).round() as i32,
+                )
+            })
+            .collect()
     }
 }
 
@@ -915,7 +976,6 @@ mod tests {
     // -- Boxa::translate --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_translate() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 30, 40).unwrap());
@@ -932,7 +992,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_translate_empty() {
         let boxa = Boxa::new();
         let result = boxa.translate(1.0, 2.0);
@@ -942,7 +1001,6 @@ mod tests {
     // -- Boxa::scale --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_scale() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 30, 40).unwrap());
@@ -959,7 +1017,6 @@ mod tests {
     // -- Boxa::rotate --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_rotate_identity() {
         // Rotate by 0 degrees: boxes should be unchanged
         let mut boxa = Boxa::new();
@@ -975,7 +1032,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_rotate_180() {
         // Rotate a box 180° about its own center: should return the same bounding box
         let mut boxa = Boxa::new();

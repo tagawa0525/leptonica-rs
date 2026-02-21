@@ -982,10 +982,16 @@ pub fn affine_rotate(pix: &Pix, center_x: f32, center_y: f32, angle: f32) -> Tra
 ///
 /// Corresponds to C Leptonica's `ptaAffineTransform`.
 pub fn pta_affine_transform(
-    _pta: &leptonica_core::Pta,
-    _matrix: &AffineMatrix,
+    pta: &leptonica_core::Pta,
+    matrix: &AffineMatrix,
 ) -> leptonica_core::Pta {
-    todo!("pta_affine_transform not yet implemented")
+    let c = matrix.coeffs();
+    // c = [a, b, tx, d, e, ty]
+    // x' = a*x + b*y + tx
+    // y' = d*x + e*y + ty
+    pta.iter()
+        .map(|(x, y)| (c[0] * x + c[1] * y + c[2], c[3] * x + c[4] * y + c[5]))
+        .collect()
 }
 
 /// Returns a new Boxa with all boxes transformed by an affine matrix.
@@ -995,10 +1001,51 @@ pub fn pta_affine_transform(
 ///
 /// Corresponds to C Leptonica's `boxaAffineTransform`.
 pub fn boxa_affine_transform(
-    _boxa: &leptonica_core::Boxa,
-    _matrix: &AffineMatrix,
+    boxa: &leptonica_core::Boxa,
+    matrix: &AffineMatrix,
 ) -> leptonica_core::Boxa {
-    todo!("boxa_affine_transform not yet implemented")
+    use leptonica_core::Pta;
+
+    // Convert each box to 4 corners, transform, then find bounding box
+    let n = boxa.len();
+    let mut flat_pta = Pta::with_capacity(n * 4);
+    for b in boxa.iter() {
+        let x0 = b.x as f32;
+        let y0 = b.y as f32;
+        let x1 = (b.x + b.w) as f32;
+        let y1 = (b.y + b.h) as f32;
+        flat_pta.push(x0, y0);
+        flat_pta.push(x1, y0);
+        flat_pta.push(x0, y1);
+        flat_pta.push(x1, y1);
+    }
+
+    let transformed = pta_affine_transform(&flat_pta, matrix);
+
+    // Group every 4 points into a bounding box
+    let mut result = leptonica_core::Boxa::with_capacity(n);
+    for i in 0..n {
+        let base = i * 4;
+        let xmin = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().0)
+            .fold(f32::INFINITY, f32::min);
+        let ymin = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().1)
+            .fold(f32::INFINITY, f32::min);
+        let xmax = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().0)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let ymax = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().1)
+            .fold(f32::NEG_INFINITY, f32::max);
+        result.push(leptonica_core::Box::new_unchecked(
+            xmin.round() as i32,
+            ymin.round() as i32,
+            (xmax - xmin).round() as i32,
+            (ymax - ymin).round() as i32,
+        ));
+    }
+    result
 }
 
 // ============================================================================
@@ -1555,7 +1602,6 @@ mod tests {
     // -- pta_affine_transform --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_affine_transform_identity() {
         use leptonica_core::Pta;
         let mut pta = Pta::new();
@@ -1570,7 +1616,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_affine_transform_translation() {
         use leptonica_core::Pta;
         let mut pta = Pta::new();
@@ -1585,7 +1630,6 @@ mod tests {
     // -- boxa_affine_transform --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_affine_transform_identity() {
         use leptonica_core::{Box as LBox, Boxa};
         let mut boxa = Boxa::new();
@@ -1602,7 +1646,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_affine_transform_translation() {
         use leptonica_core::{Box as LBox, Boxa};
         let mut boxa = Boxa::new();
