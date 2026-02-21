@@ -6,7 +6,10 @@
 //! - Seedfill via dilation (binary reconstruction)
 //! - Grayscale morphological gradient
 
-use crate::{MorphError, MorphResult, Sel, close, dilate, erode, hit_miss_transform, open};
+use crate::{
+    MorphError, MorphResult, Sel, close, dilate, erode, gradient_gray, hit_miss_transform,
+    morph_sequence, open,
+};
 use leptonica_core::{Pix, PixelDepth};
 
 /// Type of morphological operation for union/intersection functions.
@@ -36,7 +39,17 @@ pub enum MorphOpType {
 ///
 /// Based on C leptonica `pixMorphSequenceMasked`.
 pub fn morph_sequence_masked(pix: &Pix, mask: Option<&Pix>, sequence: &str) -> MorphResult<Pix> {
-    unimplemented!("morph_sequence_masked")
+    let result = morph_sequence(pix, sequence)?;
+    if let Some(m) = mask {
+        let mut rm = match result.try_into_mut() {
+            Ok(pm) => pm,
+            Err(p) => p.to_mut(),
+        };
+        rm.combine_masked(pix, m)?;
+        Ok(rm.into())
+    } else {
+        Ok(result)
+    }
 }
 
 /// Compute the union (OR) of a morphological operation applied to an image
@@ -52,7 +65,26 @@ pub fn morph_sequence_masked(pix: &Pix, mask: Option<&Pix>, sequence: &str) -> M
 ///
 /// Based on C leptonica `pixUnionOfMorphOps`.
 pub fn union_of_morph_ops(pix: &Pix, sels: &[Sel], op: MorphOpType) -> MorphResult<Pix> {
-    unimplemented!("union_of_morph_ops")
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    if sels.is_empty() {
+        return Err(MorphError::InvalidParameters(
+            "sels must not be empty".into(),
+        ));
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut result = out.try_into_mut().unwrap();
+    for sel in sels {
+        let partial = apply_morph_op(pix, sel, op)?;
+        result.or_inplace(&partial)?;
+    }
+    Ok(result.into())
 }
 
 /// Compute the intersection (AND) of a morphological operation applied to an
@@ -68,7 +100,39 @@ pub fn union_of_morph_ops(pix: &Pix, sels: &[Sel], op: MorphOpType) -> MorphResu
 ///
 /// Based on C leptonica `pixIntersectionOfMorphOps`.
 pub fn intersection_of_morph_ops(pix: &Pix, sels: &[Sel], op: MorphOpType) -> MorphResult<Pix> {
-    unimplemented!("intersection_of_morph_ops")
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    if sels.is_empty() {
+        return Err(MorphError::InvalidParameters(
+            "sels must not be empty".into(),
+        ));
+    }
+    // Start with all-ON image, AND each result in
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut result = out.try_into_mut().unwrap();
+    result.set_all();
+    for sel in sels {
+        let partial = apply_morph_op(pix, sel, op)?;
+        result.and_inplace(&partial)?;
+    }
+    Ok(result.into())
+}
+
+/// Apply a single morphological operation with the given SEL.
+fn apply_morph_op(pix: &Pix, sel: &Sel, op: MorphOpType) -> MorphResult<Pix> {
+    match op {
+        MorphOpType::Dilate => dilate(pix, sel),
+        MorphOpType::Erode => erode(pix, sel),
+        MorphOpType::Open => open(pix, sel),
+        MorphOpType::Close => close(pix, sel),
+        MorphOpType::HitMiss => hit_miss_transform(pix, sel),
+    }
 }
 
 /// Binary seedfill via morphological dilation (binary reconstruction).
@@ -89,7 +153,50 @@ pub fn seedfill_morph(
     max_iters: u32,
     connectivity: u8,
 ) -> MorphResult<Pix> {
-    unimplemented!("seedfill_morph")
+    if seed.depth() != PixelDepth::Bit1 || mask.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: seed.depth().bits(),
+        });
+    }
+    if connectivity != 4 && connectivity != 8 {
+        return Err(MorphError::InvalidParameters(
+            "connectivity must be 4 or 8".into(),
+        ));
+    }
+    if seed.width() != mask.width() || seed.height() != mask.height() {
+        return Err(MorphError::InvalidParameters(
+            "seed and mask must have the same dimensions".into(),
+        ));
+    }
+
+    let max_iters = if max_iters == 0 { 1000 } else { max_iters };
+
+    // Build a 3x3 SEL: for 8-connected, use full 3x3 brick; for 4-connected,
+    // use a '+' shape (no corner hits)
+    let sel = if connectivity == 8 {
+        Sel::create_brick(3, 3)?
+    } else {
+        // 4-connected: 3x3 brick minus corners = plus sign
+        Sel::create_cross(3)?
+    };
+
+    let mut current = seed.clone();
+    let mut next;
+    for _ in 0..max_iters {
+        next = dilate(&current, &sel)?;
+        let mut next_mut = match next.try_into_mut() {
+            Ok(pm) => pm,
+            Err(p) => p.to_mut(),
+        };
+        next_mut.and_inplace(mask)?;
+        let candidate: Pix = next_mut.into();
+        if candidate.equals(&current) {
+            return Ok(candidate);
+        }
+        current = candidate;
+    }
+    Ok(current)
 }
 
 /// Grayscale morphological gradient: dilation - original (after optional smoothing).
@@ -105,7 +212,29 @@ pub fn seedfill_morph(
 ///
 /// Based on C leptonica `pixMorphGradient`.
 pub fn morph_gradient(pix: &Pix, hsize: u32, vsize: u32, smoothing: u32) -> MorphResult<Pix> {
-    unimplemented!("morph_gradient")
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if smoothing > 0 {
+        return Err(MorphError::InvalidParameters(
+            "smoothing > 0 requires block convolution (not yet implemented)".into(),
+        ));
+    }
+    // Round up even sizes to odd (same convention as gradient_gray internally)
+    let hsize = if hsize.is_multiple_of(2) {
+        hsize + 1
+    } else {
+        hsize
+    };
+    let vsize = if vsize.is_multiple_of(2) {
+        vsize + 1
+    } else {
+        vsize
+    };
+    gradient_gray(pix, hsize, vsize)
 }
 
 #[cfg(test)]
@@ -138,7 +267,6 @@ mod tests {
     // --- morph_sequence_masked tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_sequence_masked_no_mask_equals_sequence() {
         let pix = create_1bpp_test();
         let result_masked = morph_sequence_masked(&pix, None, "D3.3").unwrap();
@@ -147,7 +275,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_sequence_masked_restores_under_mask() {
         let pix = create_1bpp_test();
         // mask covers center 8x8 region
@@ -172,7 +299,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_sequence_masked_preserves_dimensions() {
         let pix = create_1bpp_test();
         let result = morph_sequence_masked(&pix, None, "D3.3").unwrap();
@@ -183,7 +309,6 @@ mod tests {
     // --- union_of_morph_ops tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_union_of_morph_ops_single_sel_equals_direct() {
         let pix = create_1bpp_test();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -193,7 +318,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_union_of_morph_ops_superset() {
         let pix = create_1bpp_test();
         let sels: Vec<_> = [3u32, 5, 7]
@@ -207,7 +331,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_union_of_morph_ops_requires_1bpp() {
         let pix = Pix::new(32, 32, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -215,7 +338,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_union_of_morph_ops_empty_sels_error() {
         let pix = create_1bpp_test();
         assert!(union_of_morph_ops(&pix, &[], MorphOpType::Dilate).is_err());
@@ -224,7 +346,6 @@ mod tests {
     // --- intersection_of_morph_ops tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersection_of_morph_ops_single_sel_equals_direct() {
         let pix = create_1bpp_test();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -234,7 +355,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersection_of_morph_ops_subset() {
         let pix = create_1bpp_test();
         let sels: Vec<_> = [3u32, 5]
@@ -248,7 +368,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_intersection_of_morph_ops_requires_1bpp() {
         let pix = Pix::new(32, 32, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -258,7 +377,6 @@ mod tests {
     // --- seedfill_morph tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_seedfill_morph_grows_into_mask() {
         // Seed: single pixel; mask: larger region
         let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
@@ -281,7 +399,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_seedfill_morph_bounded_by_mask() {
         let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -309,7 +426,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_seedfill_morph_requires_1bpp() {
         let seed = Pix::new(32, 32, PixelDepth::Bit8).unwrap();
         let mask = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
@@ -317,7 +433,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_seedfill_morph_invalid_connectivity() {
         let seed = create_1bpp_test();
         let mask = create_1bpp_test();
@@ -327,7 +442,6 @@ mod tests {
     // --- morph_gradient tests ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_gradient_preserves_dimensions() {
         let pix = create_8bpp_test();
         let result = morph_gradient(&pix, 3, 3, 0).unwrap();
@@ -336,14 +450,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_gradient_requires_8bpp() {
         let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
         assert!(morph_gradient(&pix, 3, 3, 0).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_gradient_uniform_image_is_zero() {
         // Uniform gray image → gradient should be all zeros
         let pix = Pix::new(32, 32, PixelDepth::Bit8).unwrap();
