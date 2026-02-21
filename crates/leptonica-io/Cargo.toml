@@ -14,6 +14,7 @@ thiserror.workspace = true
 # Optional image format support
 png = { workspace = true, optional = true }
 jpeg-decoder = { workspace = true, optional = true }
+jpeg-encoder = { workspace = true, optional = true }
 gif = { workspace = true, optional = true }
 tiff = { workspace = true, optional = true }
 half = { workspace = true, optional = true }
@@ -27,7 +28,7 @@ default = ["bmp", "pnm", "png-format", "jpeg"]
 bmp = []
 pnm = []
 png-format = ["png"]
-jpeg = ["jpeg-decoder"]
+jpeg = ["jpeg-decoder", "jpeg-encoder"]
 gif-format = ["gif", "leptonica-color"]
 tiff-format = ["tiff", "half"]
 webp-format = ["image-webp"]
