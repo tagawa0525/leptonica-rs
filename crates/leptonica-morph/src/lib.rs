@@ -19,7 +19,6 @@ mod error;
 pub mod grayscale;
 pub mod morphapp;
 pub mod sel;
-pub mod sel_sets;
 pub mod sequence;
 pub mod thin;
 pub mod thin_sels;
@@ -64,7 +63,7 @@ pub use morphapp::{
 };
 
 // Re-export SEL set generation functions
-pub use sel_sets::{
-    sela_add_basic, sela_add_cross_junctions, sela_add_dwa_combs, sela_add_dwa_linear,
-    sela_add_hit_miss, sela_add_t_junctions,
+pub use sel::{
+    sel_make_plus_sign, sela_add_basic, sela_add_cross_junctions, sela_add_dwa_combs,
+    sela_add_dwa_linear, sela_add_hit_miss, sela_add_t_junctions,
 };
