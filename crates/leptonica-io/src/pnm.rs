@@ -720,12 +720,20 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         2 => {
             // Grayscale + alpha → 32bpp
             pix_mut.set_spp(4);
+            let bytes_per_sample = if mv > 255 { 2 } else { 1 };
+            let mut sample_buf = vec![0u8; 2 * bytes_per_sample];
             for y in 0..h {
                 for x in 0..w {
-                    let mut buf = [0u8; 2];
-                    reader.read_exact(&mut buf).map_err(IoError::Io)?;
-                    let g = buf[0] & mask8;
-                    let a = buf[1] & mask8;
+                    reader.read_exact(&mut sample_buf).map_err(IoError::Io)?;
+                    let (g, a) = if bytes_per_sample == 2 {
+                        let g = read_sample_16(&sample_buf[0..2], mv);
+                        let a = read_sample_16(&sample_buf[2..4], mv);
+                        (g, a)
+                    } else {
+                        let g = scale_sample(sample_buf[0] & mask8, mv);
+                        let a = scale_sample(sample_buf[1] & mask8, mv);
+                        (g, a)
+                    };
                     let pixel = color::compose_rgba(g, g, g, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
@@ -734,13 +742,24 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         3 => {
             // RGB
             pix_mut.set_spp(3);
+            let bytes_per_sample = if mv > 255 { 2 } else { 1 };
+            let mut sample_buf = vec![0u8; 3 * bytes_per_sample];
             for y in 0..h {
                 for x in 0..w {
-                    let mut buf = [0u8; 3];
-                    reader.read_exact(&mut buf).map_err(IoError::Io)?;
-                    let r = buf[0] & mask8;
-                    let g = buf[1] & mask8;
-                    let b = buf[2] & mask8;
+                    reader.read_exact(&mut sample_buf).map_err(IoError::Io)?;
+                    let (r, g, b) = if bytes_per_sample == 2 {
+                        (
+                            read_sample_16(&sample_buf[0..2], mv),
+                            read_sample_16(&sample_buf[2..4], mv),
+                            read_sample_16(&sample_buf[4..6], mv),
+                        )
+                    } else {
+                        (
+                            scale_sample(sample_buf[0] & mask8, mv),
+                            scale_sample(sample_buf[1] & mask8, mv),
+                            scale_sample(sample_buf[2] & mask8, mv),
+                        )
+                    };
                     let pixel = color::compose_rgb(r, g, b);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
@@ -749,14 +768,26 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         4 => {
             // RGBA
             pix_mut.set_spp(4);
+            let bytes_per_sample = if mv > 255 { 2 } else { 1 };
+            let mut sample_buf = vec![0u8; 4 * bytes_per_sample];
             for y in 0..h {
                 for x in 0..w {
-                    let mut buf = [0u8; 4];
-                    reader.read_exact(&mut buf).map_err(IoError::Io)?;
-                    let r = buf[0] & mask8;
-                    let g = buf[1] & mask8;
-                    let b = buf[2] & mask8;
-                    let a = buf[3] & mask8;
+                    reader.read_exact(&mut sample_buf).map_err(IoError::Io)?;
+                    let (r, g, b, a) = if bytes_per_sample == 2 {
+                        (
+                            read_sample_16(&sample_buf[0..2], mv),
+                            read_sample_16(&sample_buf[2..4], mv),
+                            read_sample_16(&sample_buf[4..6], mv),
+                            read_sample_16(&sample_buf[6..8], mv),
+                        )
+                    } else {
+                        (
+                            scale_sample(sample_buf[0] & mask8, mv),
+                            scale_sample(sample_buf[1] & mask8, mv),
+                            scale_sample(sample_buf[2] & mask8, mv),
+                            scale_sample(sample_buf[3] & mask8, mv),
+                        )
+                    };
                     let pixel = color::compose_rgba(r, g, b, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
@@ -769,6 +800,21 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
     let _ = tupltype;
 
     Ok(pix_mut.into())
+}
+
+/// Scale an 8-bit sample value from 0..maxval to 0..255
+fn scale_sample(val: u8, maxval: u32) -> u8 {
+    if maxval == 255 {
+        val
+    } else {
+        (val as u32 * 255 / maxval) as u8
+    }
+}
+
+/// Read a 16-bit big-endian sample and scale to 0..255
+fn read_sample_16(buf: &[u8], maxval: u32) -> u8 {
+    let val = u16::from_be_bytes([buf[0], buf[1]]) as u32;
+    (val * 255 / maxval) as u8
 }
 
 /// Write a Pix as PAM (P7 Portable Arbitrary Map)
