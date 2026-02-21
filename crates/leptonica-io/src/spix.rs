@@ -7,7 +7,7 @@
 //!
 //! C Leptonica: `spixio.c`
 
-use crate::{IoError, IoResult};
+use crate::IoResult;
 use leptonica_core::Pix;
 use std::io::{Read, Write};
 
@@ -16,10 +16,8 @@ use std::io::{Read, Write};
 /// # See also
 ///
 /// C Leptonica: `pixReadStreamSpix()` in `spixio.c`
-pub fn read_spix<R: Read>(_reader: R) -> IoResult<Pix> {
-    Err(IoError::UnsupportedFormat(
-        "SPIX not yet implemented".to_string(),
-    ))
+pub fn read_spix<R: Read>(mut reader: R) -> IoResult<Pix> {
+    Ok(Pix::read_spix(&mut reader)?)
 }
 
 /// Write a Pix as SPIX
@@ -27,10 +25,8 @@ pub fn read_spix<R: Read>(_reader: R) -> IoResult<Pix> {
 /// # See also
 ///
 /// C Leptonica: `pixWriteStreamSpix()` in `spixio.c`
-pub fn write_spix<W: Write>(_pix: &Pix, _writer: W) -> IoResult<()> {
-    Err(IoError::UnsupportedFormat(
-        "SPIX not yet implemented".to_string(),
-    ))
+pub fn write_spix<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
+    Ok(pix.write_spix(&mut writer)?)
 }
 
 #[cfg(test)]
@@ -40,7 +36,6 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_spix_roundtrip_1bpp() {
         let pix = Pix::new(64, 48, PixelDepth::Bit1).unwrap();
         let mut buf = Vec::new();
@@ -54,7 +49,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_spix_roundtrip_8bpp() {
         let pix = Pix::new(100, 50, PixelDepth::Bit8).unwrap();
         let mut buf = Vec::new();
@@ -67,7 +61,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_spix_roundtrip_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut buf = Vec::new();
@@ -80,14 +73,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_spix_invalid_magic() {
         let data = b"notspix_invalid_data_here_padding";
         assert!(read_spix(Cursor::new(data)).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_spix_truncated() {
         let data = b"spix";
         assert!(read_spix(Cursor::new(data)).is_err());

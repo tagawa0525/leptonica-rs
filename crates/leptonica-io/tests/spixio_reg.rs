@@ -15,7 +15,6 @@ use leptonica_test::RegParams;
 use std::io::Cursor;
 
 #[test]
-#[ignore = "not yet implemented"]
 fn spixio_reg() {
     let mut rp = RegParams::new("spixio");
 
@@ -90,7 +89,6 @@ fn test_spix_roundtrip(rp: &mut RegParams, pix: &Pix, label: &str) {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn spixio_write_reg() {
     let mut rp = RegParams::new("spixio_write");
 
