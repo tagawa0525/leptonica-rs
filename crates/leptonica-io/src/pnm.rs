@@ -602,14 +602,21 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
     let mut depth: Option<u32> = None; // spp
     let mut maxval: Option<u32> = None;
     let mut tupltype: Option<String> = None;
+    let mut found_endhdr = false;
 
-    for _ in 0..20 {
-        skip_whitespace_and_comments(&mut reader)?;
+    loop {
         let mut line = String::new();
-        reader.read_line(&mut line).map_err(IoError::Io)?;
-        let line = line.trim_end_matches(['\n', '\r']);
+        let n = reader.read_line(&mut line).map_err(IoError::Io)?;
+        if n == 0 {
+            break;
+        }
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
 
         if line == "ENDHDR" {
+            found_endhdr = true;
             break;
         }
         if let Some(rest) = line.strip_prefix("WIDTH ") {
@@ -639,6 +646,12 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         } else if let Some(rest) = line.strip_prefix("TUPLTYPE ") {
             tupltype = Some(rest.trim().to_string());
         }
+    }
+
+    if !found_endhdr {
+        return Err(IoError::InvalidData(
+            "PAM header missing ENDHDR".to_string(),
+        ));
     }
 
     let w = width.ok_or_else(|| IoError::InvalidData("missing PAM WIDTH".to_string()))?;
