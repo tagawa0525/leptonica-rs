@@ -50,8 +50,8 @@ pub enum PdfCompression {
     /// to compress image data and embeds it with the DCTDecode filter.
     /// Quality is controlled by `PdfOptions::quality` (1-100, default 75).
     ///
-    /// Note: 1bpp images are always written with Flate even when Jpeg is selected,
-    /// since JPEG is unsuitable for binary images.
+    /// Note: 1bpp, 2bpp, and 4bpp images are always written with Flate even when
+    /// Jpeg is selected, since JPEG is unsuitable for low-depth images.
     Jpeg,
 }
 
