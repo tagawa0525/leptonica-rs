@@ -771,8 +771,8 @@ impl Sel {
                 let pixel = pix.get_pixel_unchecked(x, y);
                 let (r, g, b, _) = leptonica_core::color::extract_rgba(pixel);
 
-                // Non-white pixel = first one sets the origin
-                if r < 255 && g < 255 && b < 255 {
+                // Non-white pixel (white is exactly 255,255,255) = first one sets the origin
+                if !(r == 255 && g == 255 && b == 255) {
                     num_origins += 1;
                     if num_origins == 1 {
                         sel.set_origin(x, y)?;
