@@ -6,7 +6,7 @@
 
 | 項目 | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | ---- | ------------------------- | --------------------- |
-| ソースファイル数 | **182個** (.c) | **70+個** (.rs) |
+| ソースファイル数 | **182個** (.c) | **56個** (.rs) |
 | コード行数 | **約240,000行** | **約120,000行** |
 | 実装率（行数ベース） | 100% | **約50%** |
 
@@ -33,13 +33,13 @@
 | PNG | ✅ pngio.c | ✅ png.rs | feature gate、ヘッダー読み取り対応 |
 | JPEG | ✅ jpegio.c | ✅ jpeg.rs | feature gate、読み書き+ヘッダー対応 |
 | PNM (PBM/PGM/PPM/PAM) | ✅ pnmio.c | ✅ pnm.rs | ASCII/Binary/PAM全対応 |
-| TIFF | ✅ tiffio.c | ✅ tiff.rs | マルチページ、圧縮検出、追記対応 |
-| GIF | ✅ gifio.c | ✅ gif.rs | feature gate |
-| WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate、ヘッダー読み取り対応 |
-| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | 読み込み+ヘッダー対応 |
+| TIFF | ✅ tiffio.c | ✅ tiff.rs | feature gate (`tiff-format`)、マルチページ、圧縮検出、追記対応 |
+| GIF | ✅ gifio.c | ✅ gif.rs | feature gate (`gif-format`) |
+| WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate (`webp-format`)、ヘッダー読み取り対応 |
+| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | feature gate (`jp2k-format`)、読み込み+ヘッダー対応 |
 | SPIX | ✅ spixio.c | ✅ spix.rs | Leptonica独自シリアライズ形式 |
-| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | Flate/DCT圧縮、マルチページ対応 |
-| PostScript | ✅ psio1-2.c | ✅ ps/ | Level 1/2/3、マルチページ対応 |
+| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | feature gate (`pdf-format`)、Flate/DCT圧縮、マルチページ対応 |
+| PostScript | ✅ psio1-2.c | ✅ ps/ | feature gate (`ps-format`)、Level 1/2/3、マルチページ対応 |
 | フォーマット検出 | ✅ readfile.c | ✅ format.rs | 完全実装 |
 | ヘッダー読み取り | ✅ readfile.c | ✅ header.rs | 全フォーマット対応 |
 

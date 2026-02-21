@@ -325,9 +325,9 @@
 - jpeg-decoder / jpeg-encoder
 - png crate
 - tiff crate
-- gif crate (image-rsベース)
-- webp crate
-- jpeg2000 crate
+- gif crate
+- image-webp crate
+- hayro-jpeg2000 crate
 - pdf-writer (PDF出力)
 - miniz_oxide (Flate圧縮)
 

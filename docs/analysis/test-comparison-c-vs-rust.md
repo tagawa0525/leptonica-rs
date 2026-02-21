@@ -69,8 +69,7 @@ writetext, xformbox
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
 - `crates/leptonica-io/tests/`に統合テスト（9ファイル、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
-- テスト出力: `tests/regout/`（`.gitignore`対象）
-- goldenファイル: `tests/golden/`（コミット対象、REGTEST_MODE=generateで生成）
+- テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
 ### テスト分布
 

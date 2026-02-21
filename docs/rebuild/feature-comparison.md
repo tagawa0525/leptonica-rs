@@ -77,10 +77,10 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 | TIFF | ✅ tiffio.c | ✅ tiff.rs | feature gate、マルチページ対応 |
 | GIF | ✅ gifio.c | ✅ gif.rs | feature gate |
 | WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate |
-| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | 読み込み対応 |
+| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | feature gate (`jp2k-format`)、読み込み対応 |
 | SPIX | ✅ spixio.c | ✅ spix.rs | Leptonica独自シリアライズ形式 |
-| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | 書き込み対応、Flate/DCT圧縮 |
-| PostScript | ✅ psio1-2.c | ✅ ps/ | EPS/PS出力、Level 1/2/3、マルチページ |
+| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | feature gate (`pdf-format`)、Flate/DCT圧縮 |
+| PostScript | ✅ psio1-2.c | ✅ ps/ | feature gate (`ps-format`)、Level 1/2/3、マルチページ |
 | フォーマット検出 | ✅ readfile.c | ✅ format.rs | 完全実装 |
 | ヘッダー読み取り | ✅ readfile.c | ✅ header.rs | 全フォーマット対応 |
 
