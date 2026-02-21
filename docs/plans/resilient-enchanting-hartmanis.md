@@ -45,7 +45,7 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ## 計画書1: 300_transform-full-porting.md
 
-### 実装対象（スコープ除外後: ~45関数）
+### 実装対象（スコープ除外後: ~51関数）
 
 | Phase | 対象 | PR数 | 関数数 |
 |-------|------|------|--------|
@@ -53,9 +53,9 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 | 2 | PTA/BOXA変換ユーティリティ | 1 | 8 (translate/scale/rotate/affineTransform × PTA+BOXA) |
 | 3 | Scale拡張 - 基本 | 1 | ~8 (pixScaleLI, pixScaleGeneral, ToSize系, BySampling系) |
 | 4 | Scale拡張 - 1bpp→8bpp変換 | 1 | ~10 (pixScaleToGray系、pixExpandReplicate) |
-| 5 | Scale拡張 - 特殊 | 1 | ~8 (2x/4xLI, MinMax, Rank, Mipmap) |
-| 6 | Rotation拡張 | 1 | ~5 (Corner系、Center系、IP系、pixRotateWithAlpha) |
-| 7 | Flip検出 | 1 | ~3 (pixOrientDetect, pixOrientCorrect, pixMirrorDetect) |
+| 5 | Scale拡張 - 特殊 | 1 | ~11 (2x/4xLI, MinMax, Rank, Mipmap, threshold/dither) |
+| 6 | Rotation拡張 | 1 | ~8 (Corner系、Center系、IP系、pixRotateWithAlpha) |
+| 7 | Flip検出 | 1 | 3 (pixOrientDetect, pixOrientCorrect, pixMirrorDetect) |
 
 ### スコープ除外
 
@@ -81,16 +81,16 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ## 計画書2: 301_morph-full-porting.md
 
-### 実装対象（スコープ除外後: ~35関数）
+### 実装対象（スコープ除外後: ~48関数）
 
 | Phase | 対象 | PR数 | 関数数 |
 |-------|------|------|--------|
 | 1 | Safe closing + Generalized ops | 1 | 5 (closeSafe系, openGeneralized, closeGeneralized) |
-| 2 | Morphological applications | 1 | ~8 (masked sequence, by-component, union/intersection, HDome, FastTophat) |
-| 3 | SEL管理拡張 | 1 | ~8 (Sel I/O, createFromString, createFromPix, rotateOrth, findMaxTranslation) |
-| 4 | SEL生成 | 1 | ~5 (generateSelBoundary, generateSelWithRuns, generateSelRandom) |
-| 5 | DWA拡張 + シーケンス拡張 | 1 | ~6 (Extended DWA, DWA sequence, color sequence) |
-| 6 | Sela配列管理 | 1 | ~3 (selaCreate, findSelByName, getSel) |
+| 2 | Morphological applications | 1 | ~11 (masked sequence, by-component, union/intersection, HDome, FastTophat, gradient, seedfill) |
+| 3 | SEL管理拡張 | 1 | ~7 (Sel I/O, createFromColorImage, createFromPta, printToString, getParameters, copy) |
+| 4 | SEL生成 | 1 | ~7 (cross/T junction, plus sign, basic/hitMiss/dwaLinear/dwaComb sets) |
+| 5 | DWA拡張 + シーケンス拡張 | 1 | ~11 (composite DWA, extended DWA, DWA/color sequence) |
+| 6 | Sela配列管理 | 1 | ~7 (Sela struct, add, get, findByName, count, read, write) |
 
 ### スコープ除外
 
@@ -115,14 +115,14 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ## 計画書3: 401_filter-full-porting.md
 
-### 実装対象（スコープ除外後: ~15関数）
+### 実装対象（スコープ除外後: ~14関数）
 
 | Phase | 対象 | PR数 | 関数数 |
 |-------|------|------|--------|
 | 1 | FPix畳み込み | 1 | 3 (fpixConvolve, fpixConvolveSep, pixConvolveWithBias) |
 | 2 | Tiled block畳み込み | 1 | 2 (pixBlockconvTiled, pixBlockconvGrayTile) |
-| 3 | Adaptmap拡張 | 1 | ~5 (foreground map, threshold spread, flex norm, smoothConnected) |
-| 4 | Block bilateral + 追加 | 1 | ~3 (pixBlockBilateralExact, pixGlobalNormNoSatRGB) |
+| 3 | Adaptmap拡張 | 1 | 5 (foreground map, threshold spread, flex norm, smoothConnected, minmax) |
+| 4 | Block bilateral + 追加 | 1 | 4 (pixBlockBilateralExact, pixGlobalNormNoSatRGB, unsharpMasking, unsharpMaskingGray) |
 
 ### スコープ除外
 
@@ -141,16 +141,16 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ## 計画書4: 500_region-full-porting.md
 
-### 実装対象（スコープ除外後: ~35関数）
+### 実装対象（スコープ除外後: ~32関数）
 
 | Phase | 対象 | PR数 | 関数数 |
 |-------|------|------|--------|
-| 1 | Seedfill拡張 | 1 | ~8 (border comp, hole filling variants, simple gray seedfill) |
+| 1 | Seedfill拡張 | 1 | 7 (border comp, hole filling variants, simple gray seedfill, basin) |
 | 2 | Local extrema | 1 | 3 (pixLocalExtrema, pixQualifyLocalMinima, pixSelectedLocalExtrema) |
-| 3 | ConnComp拡張 | 1 | ~5 (pixCountConnComp, nextOnPixelInRaster, seedfillBB系) |
-| 4 | Label拡張 | 1 | ~4 (connCompTransform, connCompAreaTransform, incrInit/Add, locToColor) |
-| 5 | CCBord拡張 | 1 | ~6 (step chains, single path, I/O, SVG export) |
-| 6 | Watershed拡張 | 1 | ~3 (basin tracking, render fill/colors) |
+| 3 | ConnComp拡張 | 1 | 5 (pixCountConnComp, nextOnPixelInRaster, seedfillBB系) |
+| 4 | Label拡張 | 1 | 5 (connCompTransform, connCompAreaTransform, IncrementalLabeler, locToColor) |
+| 5 | CCBord拡張 | 1 | 7 (step chains, single path, I/O, SVG export) |
+| 6 | Watershed拡張 | 1 | 4 (basins, num_basins, render fill/colors) |
 | 7 | Gray maze | 1 | 1 (pixSearchGrayMaze) |
 
 ### スコープ除外
@@ -174,23 +174,23 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ## 計画書5: 700_recog-full-porting.md
 
-### 実装対象（スコープ除外後: ~55関数）
+### 実装対象（スコープ除外後: ~70関数）
 
 | Phase | 対象 | PR数 | 関数数 |
 |-------|------|------|--------|
-| 1 | Recog シリアライゼーション | 1 | ~6 (read/write for Recog) |
-| 2 | Recog query/inspection | 1 | ~8 (getCount, getClassIndex, getClassString, setParams等) |
-| 3 | Bootstrap digit recognizer | 1 | ~4 (makeBootDigitRecog, trainFromBoot, digitPad) |
-| 4 | 高度な識別・フィルタリング | 1 | ~5 (preSplittingFilter, splittingFilter, correlationBestShift) |
-| 5 | Dewarp シリアライゼーション | 1 | ~4 (dewarpRead/Write) |
-| 6 | Dewarpa コンテナ管理 | 1 | ~8 (create, insert, get, set系) |
-| 7 | Dewarpa モデル管理 | 1 | ~6 (testForValidModel, setValidModels, insertRefModels等) |
-| 8 | Dewarp2 高度なモデル構築 | 1 | ~5 (buildPageModel, LSF, endpoint処理) |
-| 9 | Dewarp3/4 拡張適用 | 1 | ~5 (boxaApplyDisparity, dewarpa適用, singlePageInit/Run) |
-| 10 | JbClass シリアライゼーション + 拡張 | 1 | ~6 (jbDataRead/Write, word detection) |
-| 11 | Skew拡張 | 1 | ~5 (sweepAndSearch variants, deskew variants) |
-| 12 | Baseline拡張 | 1 | ~3 (localSkew, deskewLocal) |
-| 13 | Barcode拡張 | 1 | ~5 (width extraction, peak detection, mask generation) |
+| 1 | Recog シリアライゼーション | 1 | 6 (read/write/readFromFile/writeToFile/extractPixa/createFromPixa) |
+| 2 | Recog query/inspection | 1 | 6 (getCount, getClassCount, getClassIndex, getClassString, stringToIndex, setParams) |
+| 3 | Bootstrap digit recognizer | 1 | 4 (makeBootDigitRecog, trainFromBoot, padDigitTrainingSet, isPaddingNeeded) |
+| 4 | 高度な識別・フィルタリング | 1 | 5 (preSplittingFilter, splittingFilter, extractNumbers, removeOutliers, filterPixaBySize) |
+| 5 | Dewarp シリアライゼーション | 1 | 4 (dewarpRead/Write/readFromFile/writeToFile) |
+| 6 | Dewarpa コンテナ管理 | 1 | 10 (new, insert, get, destroy, setCurvatures, useBothArrays, setCheckColumns, setMaxDistance, read, write) |
+| 7 | Dewarpa モデル管理 | 1 | 6 (insertRefModels, useSingleModel, swapPages, createRef, minimize, stripRefModels) |
+| 8 | Dewarp2 高度なモデル構築 | 1 | 5 (buildPageModel, findVertDisparity, findHorizDisparity, findTextlineFlowDirection, populateFullRes) |
+| 9 | Dewarp3/4 拡張適用 | 1 | 4 (dewarpaApplyDisparity, applyDisparityBoxa, singlePageInit, singlePageRun) |
+| 10 | JbClass シリアライゼーション + 拡張 | 1 | 6 (jbDataWrite/Read/writeToFile/readFromFile, wordMaskByDilation, wordBoxesByDilation) |
+| 11 | Skew拡張 | 1 | 6 (deskew, deskewBoth, deskewGeneral, findSkewSweepAndSearch, ...Score, ...ScorePivot) |
+| 12 | Baseline拡張 | 1 | 3 (deskewLocal, getLocalSkewTransform, getLocalSkewAngles) |
+| 13 | Barcode拡張 | 1 | ~5 (locateBarcodesMorphological, extractBarcodeWidths, findBarcodePeaks, barcodeMask) |
 
 ### スコープ除外
 
@@ -240,12 +240,12 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 | 計画書 | crate | Phase数 | PR数 | 推定関数数 |
 |--------|-------|---------|------|-----------|
-| 300 | transform | 7 | 7 | ~45 |
-| 301 | morph | 6 | 6 | ~35 |
-| 401 | filter | 4 | 4 | ~15 |
-| 500 | region | 7 | 7 | ~30 |
-| 700 | recog | 13 | 13 | ~55 |
-| **合計** | | **37** | **37** | **~180** |
+| 300 | transform | 7 | 7 | ~51 |
+| 301 | morph | 6 | 6 | ~48 |
+| 401 | filter | 4 | 4 | ~14 |
+| 500 | region | 7 | 7 | ~32 |
+| 700 | recog | 13 | 13 | ~70 |
+| **合計** | | **37** | **37** | **~215** |
 
 ## ワークフロー
 
