@@ -13,6 +13,11 @@ pub fn read_header_pnm(data: &[u8]) -> IoResult<ImageHeader> {
     let mut magic = [0u8; 2];
     reader.read_exact(&mut magic).map_err(IoError::Io)?;
 
+    // P7 (PAM) has a different header format
+    if &magic == b"P7" {
+        return read_header_pam(&mut reader);
+    }
+
     let pnm_type = PnmType::from_magic(&magic)
         .ok_or_else(|| IoError::InvalidData("invalid PNM magic number".to_string()))?;
 
@@ -45,6 +50,98 @@ pub fn read_header_pnm(data: &[u8]) -> IoResult<ImageHeader> {
     Ok(ImageHeader {
         width,
         height,
+        depth,
+        bps,
+        spp,
+        has_colormap: false,
+        num_colors: 0,
+        format: ImageFormat::Pnm,
+        x_resolution: None,
+        y_resolution: None,
+    })
+}
+
+/// Parse a PAM (P7) header and return an ImageHeader
+fn read_header_pam<R: BufRead>(reader: &mut R) -> IoResult<ImageHeader> {
+    let mut width: Option<u32> = None;
+    let mut height: Option<u32> = None;
+    let mut pam_depth: Option<u32> = None; // spp
+    let mut maxval: Option<u32> = None;
+    let mut found_endhdr = false;
+
+    loop {
+        let mut line = String::new();
+        let n = reader.read_line(&mut line).map_err(IoError::Io)?;
+        if n == 0 {
+            break;
+        }
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if line == "ENDHDR" {
+            found_endhdr = true;
+            break;
+        }
+        if let Some(rest) = line.strip_prefix("WIDTH ") {
+            width = Some(
+                rest.trim()
+                    .parse()
+                    .map_err(|_| IoError::InvalidData("invalid PAM WIDTH".to_string()))?,
+            );
+        } else if let Some(rest) = line.strip_prefix("HEIGHT ") {
+            height = Some(
+                rest.trim()
+                    .parse()
+                    .map_err(|_| IoError::InvalidData("invalid PAM HEIGHT".to_string()))?,
+            );
+        } else if let Some(rest) = line.strip_prefix("DEPTH ") {
+            pam_depth = Some(
+                rest.trim()
+                    .parse()
+                    .map_err(|_| IoError::InvalidData("invalid PAM DEPTH".to_string()))?,
+            );
+        } else if let Some(rest) = line.strip_prefix("MAXVAL ") {
+            maxval = Some(
+                rest.trim()
+                    .parse()
+                    .map_err(|_| IoError::InvalidData("invalid PAM MAXVAL".to_string()))?,
+            );
+        }
+    }
+
+    if !found_endhdr {
+        return Err(IoError::InvalidData(
+            "PAM header missing ENDHDR".to_string(),
+        ));
+    }
+
+    let w = width.ok_or_else(|| IoError::InvalidData("missing PAM WIDTH".to_string()))?;
+    let h = height.ok_or_else(|| IoError::InvalidData("missing PAM HEIGHT".to_string()))?;
+    let spp = pam_depth.ok_or_else(|| IoError::InvalidData("missing PAM DEPTH".to_string()))?;
+    let mv = maxval.ok_or_else(|| IoError::InvalidData("missing PAM MAXVAL".to_string()))?;
+
+    let bps: u32 = if mv == 1 {
+        1
+    } else if mv <= 3 {
+        2
+    } else if mv <= 15 {
+        4
+    } else if mv <= 255 {
+        8
+    } else {
+        16
+    };
+
+    let depth = match spp {
+        1 => bps,
+        2..=4 => 32,
+        _ => 32,
+    };
+
+    Ok(ImageHeader {
+        width: w,
+        height: h,
         depth,
         bps,
         spp,
