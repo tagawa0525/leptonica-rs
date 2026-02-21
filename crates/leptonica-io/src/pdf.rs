@@ -271,15 +271,13 @@ fn write_page(
     let (image_data, color_space, bits_per_component) = prepare_image_data(pix)?;
 
     // Determine whether to use JPEG compression
-    let use_jpeg = matches!(
-        options.compression,
-        PdfCompression::Jpeg | PdfCompression::Auto
-    ) && pix.depth() != PixelDepth::Bit1
+    // Only PdfCompression::Jpeg triggers DCT encoding; Auto and Flate use FlateDecode.
+    // 1bpp/2bpp/4bpp always use Flate since JPEG is unsuitable for low-depth images.
+    #[cfg(feature = "jpeg")]
+    let use_jpeg = matches!(options.compression, PdfCompression::Jpeg)
+        && pix.depth() != PixelDepth::Bit1
         && pix.depth() != PixelDepth::Bit2
         && pix.depth() != PixelDepth::Bit4;
-
-    #[cfg(feature = "jpeg")]
-    let use_jpeg = use_jpeg && matches!(options.compression, PdfCompression::Jpeg);
 
     #[cfg(not(feature = "jpeg"))]
     let use_jpeg = false;
