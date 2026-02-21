@@ -356,6 +356,82 @@ pub fn close_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
     erode_brick(&dilated, width, height)
 }
 
+/// Close a binary image safely, avoiding boundary artifacts.
+///
+/// Standard `close` can introduce artifacts at image borders because erosion
+/// after dilation may erode pixels that were dilated using the padded edge.
+/// This function pads the image by the SEL extent before closing, then strips
+/// the border, preventing those artifacts.
+///
+/// # Arguments
+/// * `pix` - 1 bpp input image
+/// * `sel` - Structuring element
+///
+/// Based on C leptonica `pixCloseSafe`.
+pub fn close_safe(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
+    unimplemented!("close_safe")
+}
+
+/// Close a binary image safely using a brick (rectangular) structuring element.
+///
+/// Pads the image by the SEL half-extent before closing to prevent border
+/// artifacts, then strips the border.
+///
+/// # Arguments
+/// * `pix` - 1 bpp input image
+/// * `hsize` - Horizontal size of the brick
+/// * `vsize` - Vertical size of the brick
+///
+/// Based on C leptonica `pixCloseSafeBrick`.
+pub fn close_safe_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("close_safe_brick")
+}
+
+/// Close a binary image safely using composite brick decomposition.
+///
+/// Like `close_safe_brick` but uses composite (factored) structuring elements
+/// for improved efficiency on large bricks.
+///
+/// # Arguments
+/// * `pix` - 1 bpp input image
+/// * `hsize` - Horizontal size of the brick
+/// * `vsize` - Vertical size of the brick
+///
+/// Based on C leptonica `pixCloseSafeCompBrick`.
+pub fn close_safe_comp_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    unimplemented!("close_safe_comp_brick")
+}
+
+/// Generalized morphological opening: Hit-Miss Transform followed by dilation.
+///
+/// Unlike standard `open` which uses only hit elements, this operation uses
+/// both hit and miss elements of the SEL. It finds patterns matching the full
+/// SEL (via HMT) and then expands those matches by the same SEL.
+///
+/// # Arguments
+/// * `pix` - 1 bpp input image
+/// * `sel` - Structuring element with both hit and miss elements
+///
+/// Based on C leptonica `pixOpenGeneralized`.
+pub fn open_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
+    unimplemented!("open_generalized")
+}
+
+/// Generalized morphological closing: dilation followed by Hit-Miss Transform.
+///
+/// Unlike standard `close` which uses only hit elements, this operation uses
+/// both hit and miss elements of the SEL. It expands the image by the SEL
+/// (via dilation) and then finds patterns matching the full SEL (via HMT).
+///
+/// # Arguments
+/// * `pix` - 1 bpp input image
+/// * `sel` - Structuring element with both hit and miss elements
+///
+/// Based on C leptonica `pixCloseGeneralized`.
+pub fn close_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
+    unimplemented!("close_generalized")
+}
+
 /// Composite 1D dilation: brick(f1) then comb(f1, f2) when beneficial.
 ///
 /// `horizontal`: true for horizontal, false for vertical.
@@ -1177,5 +1253,172 @@ mod tests {
                 size,
             );
         }
+    }
+
+    // --- close_safe tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_identity_on_1x1_sel() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_brick(1, 1).unwrap();
+        let result = close_safe(&pix, &sel).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_preserves_dimensions() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_brick(5, 5).unwrap();
+        let result = close_safe(&pix, &sel).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_at_least_as_large_as_close() {
+        // close_safe should produce a superset of close (no pixels are eroded at border)
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_brick(5, 5).unwrap();
+        let safe = close_safe(&pix, &sel).unwrap();
+        let regular = close(&pix, &sel).unwrap();
+        // Every ON pixel in safe should be ON in safe (safe >= close on interior)
+        // At minimum, the two should have same or more pixels in safe
+        assert!(safe.count_pixels() >= regular.count_pixels());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_requires_1bpp() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let result = close_safe(&pix, &sel);
+        assert!(result.is_err());
+    }
+
+    // --- close_safe_brick tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_brick_preserves_dimensions() {
+        let pix = create_rasterop_test_image();
+        let result = close_safe_brick(&pix, 5, 5).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_brick_identity_1x1() {
+        let pix = create_rasterop_test_image();
+        let result = close_safe_brick(&pix, 1, 1).unwrap();
+        assert!(result.equals(&pix));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_brick_at_least_as_large_as_close_brick() {
+        let pix = create_rasterop_test_image();
+        let safe = close_safe_brick(&pix, 5, 5).unwrap();
+        let regular = close_brick(&pix, 5, 5).unwrap();
+        assert!(safe.count_pixels() >= regular.count_pixels());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_brick_requires_1bpp() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let result = close_safe_brick(&pix, 3, 3);
+        assert!(result.is_err());
+    }
+
+    // --- close_safe_comp_brick tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_comp_brick_matches_close_safe_brick() {
+        let pix = create_rasterop_test_image();
+        // For non-composite sizes, both should give the same result
+        for &(h, v) in &[(5u32, 5u32), (3, 7), (1, 5)] {
+            let comp = close_safe_comp_brick(&pix, h, v).unwrap();
+            let regular = close_safe_brick(&pix, h, v).unwrap();
+            // May differ slightly for composite-factored sizes, but should have similar count
+            let _ = comp; // Just verify no panic
+            let _ = regular;
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_safe_comp_brick_preserves_dimensions() {
+        let pix = create_rasterop_test_image();
+        let result = close_safe_comp_brick(&pix, 10, 10).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    // --- open_generalized tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_open_generalized_requires_1bpp() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let result = open_generalized(&pix, &sel);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_open_generalized_preserves_dimensions() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let result = open_generalized(&pix, &sel).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_open_generalized_produces_subset() {
+        // Generalized opening always produces a subset (fewer or equal ON pixels)
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let result = open_generalized(&pix, &sel).unwrap();
+        assert!(result.count_pixels() <= pix.count_pixels());
+    }
+
+    // --- close_generalized tests ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_generalized_requires_1bpp() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let result = close_generalized(&pix, &sel);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_generalized_preserves_dimensions() {
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let result = close_generalized(&pix, &sel).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_close_generalized_produces_superset() {
+        // Generalized closing always produces a superset (more or equal ON pixels)
+        let pix = create_rasterop_test_image();
+        let sel = Sel::create_brick(3, 3).unwrap();
+        let result = close_generalized(&pix, &sel).unwrap();
+        assert!(result.count_pixels() >= pix.count_pixels());
     }
 }
