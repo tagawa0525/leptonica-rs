@@ -208,6 +208,8 @@ pub struct ImageHeader {
 
 ## Phase 4: PNM拡張 - ASCII書き込み + PAM（1 PR）
 
+**Status: IMPLEMENTED** (PR #122)
+
 **C参照**: `reference/leptonica/src/pnmio.c` L400-700
 
 ### 実装内容
