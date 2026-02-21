@@ -711,6 +711,97 @@ impl<'a> IntoIterator for &'a Boxa {
     }
 }
 
+impl Boxa {
+    // ============================================================================
+    // Geometric transform methods (returning new Boxa, matching C boxaTranslate etc.)
+    // ============================================================================
+
+    /// Returns a new Boxa with all boxes translated by (dx, dy).
+    ///
+    /// Corresponds to C Leptonica's `boxaTranslate`.
+    pub fn translate(&self, dx: f32, dy: f32) -> Boxa {
+        self.boxes
+            .iter()
+            .map(|b| Box::new_unchecked(b.x + dx.round() as i32, b.y + dy.round() as i32, b.w, b.h))
+            .collect()
+    }
+
+    /// Returns a new Boxa with all boxes scaled about the origin by (sx, sy).
+    ///
+    /// Corresponds to C Leptonica's `boxaScale`.
+    pub fn scale(&self, sx: f32, sy: f32) -> Boxa {
+        self.boxes
+            .iter()
+            .map(|b| {
+                Box::new_unchecked(
+                    (b.x as f32 * sx).round() as i32,
+                    (b.y as f32 * sy).round() as i32,
+                    (b.w as f32 * sx).round() as i32,
+                    (b.h as f32 * sy).round() as i32,
+                )
+            })
+            .collect()
+    }
+
+    /// Returns a new Boxa with all boxes rotated about center (xc, yc) by angle (radians, clockwise).
+    ///
+    /// Each box is represented by its 4 corners; after rotation the axis-aligned
+    /// bounding box of those corners becomes the new box.
+    ///
+    /// Corresponds to C Leptonica's `boxaRotate`.
+    pub fn rotate(&self, xc: f32, yc: f32, angle: f32) -> Boxa {
+        let sina = angle.sin();
+        let cosa = angle.cos();
+
+        let rotate_pt = |x: f32, y: f32| -> (f32, f32) {
+            let xp = xc + (x - xc) * cosa - (y - yc) * sina;
+            let yp = yc + (x - xc) * sina + (y - yc) * cosa;
+            (xp, yp)
+        };
+
+        self.boxes
+            .iter()
+            .map(|b| {
+                let x0 = b.x as f32;
+                let y0 = b.y as f32;
+                let x1 = (b.x + b.w) as f32;
+                let y1 = (b.y + b.h) as f32;
+
+                let corners = [
+                    rotate_pt(x0, y0),
+                    rotate_pt(x1, y0),
+                    rotate_pt(x0, y1),
+                    rotate_pt(x1, y1),
+                ];
+
+                let xmin = corners
+                    .iter()
+                    .map(|(x, _)| *x)
+                    .fold(f32::INFINITY, f32::min);
+                let ymin = corners
+                    .iter()
+                    .map(|(_, y)| *y)
+                    .fold(f32::INFINITY, f32::min);
+                let xmax = corners
+                    .iter()
+                    .map(|(x, _)| *x)
+                    .fold(f32::NEG_INFINITY, f32::max);
+                let ymax = corners
+                    .iter()
+                    .map(|(_, y)| *y)
+                    .fold(f32::NEG_INFINITY, f32::max);
+
+                Box::new_unchecked(
+                    xmin.round() as i32,
+                    ymin.round() as i32,
+                    (xmax - xmin).round() as i32,
+                    (ymax - ymin).round() as i32,
+                )
+            })
+            .collect()
+    }
+}
+
 /// Array of Boxa
 #[derive(Debug, Clone, Default)]
 pub struct Boxaa {
@@ -880,5 +971,80 @@ mod tests {
         assert_eq!(boxa.get(0).unwrap().x, 0);
         assert_eq!(boxa.get(1).unwrap().x, 50);
         assert_eq!(boxa.get(2).unwrap().x, 100);
+    }
+
+    // -- Boxa::translate --
+
+    #[test]
+    fn test_boxa_translate() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(10, 20, 30, 40).unwrap());
+        boxa.push(Box::new(0, 0, 5, 5).unwrap());
+
+        let result = boxa.translate(5.0, -3.0);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result.get(0).unwrap().x, 15);
+        assert_eq!(result.get(0).unwrap().y, 17);
+        assert_eq!(result.get(0).unwrap().w, 30);
+        assert_eq!(result.get(0).unwrap().h, 40);
+        assert_eq!(result.get(1).unwrap().x, 5);
+        assert_eq!(result.get(1).unwrap().y, -3);
+    }
+
+    #[test]
+    fn test_boxa_translate_empty() {
+        let boxa = Boxa::new();
+        let result = boxa.translate(1.0, 2.0);
+        assert!(result.is_empty());
+    }
+
+    // -- Boxa::scale --
+
+    #[test]
+    fn test_boxa_scale() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(10, 20, 30, 40).unwrap());
+
+        let result = boxa.scale(2.0, 0.5);
+        assert_eq!(result.len(), 1);
+        // x * 2 = 20, y * 0.5 = 10, w * 2 = 60, h * 0.5 = 20
+        assert_eq!(result.get(0).unwrap().x, 20);
+        assert_eq!(result.get(0).unwrap().y, 10);
+        assert_eq!(result.get(0).unwrap().w, 60);
+        assert_eq!(result.get(0).unwrap().h, 20);
+    }
+
+    // -- Boxa::rotate --
+
+    #[test]
+    fn test_boxa_rotate_identity() {
+        // Rotate by 0 degrees: boxes should be unchanged
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(10, 10, 20, 30).unwrap());
+
+        let result = boxa.rotate(0.0, 0.0, 0.0);
+        assert_eq!(result.len(), 1);
+        let b = result.get(0).unwrap();
+        assert_eq!(b.x, 10);
+        assert_eq!(b.y, 10);
+        assert_eq!(b.w, 20);
+        assert_eq!(b.h, 30);
+    }
+
+    #[test]
+    fn test_boxa_rotate_180() {
+        // Rotate a box 180° about its own center: should return the same bounding box
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(0, 0, 10, 10).unwrap());
+
+        // Rotate 180° about center (5, 5)
+        let result = boxa.rotate(5.0, 5.0, std::f32::consts::PI);
+        assert_eq!(result.len(), 1);
+        let b = result.get(0).unwrap();
+        // After 180° rotation the bounding box should be the same
+        assert!((b.x - 0).abs() <= 1);
+        assert!((b.y - 0).abs() <= 1);
+        assert!((b.w - 10).abs() <= 1);
+        assert!((b.h - 10).abs() <= 1);
     }
 }

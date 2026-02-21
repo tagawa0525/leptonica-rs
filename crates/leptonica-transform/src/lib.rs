@@ -22,7 +22,8 @@ pub mod warper;
 
 pub use affine::{
     AffineFill, AffineMatrix, Point, affine, affine_pta, affine_pta_with_alpha, affine_rotate,
-    affine_sampled, affine_sampled_pta, affine_scale, translate,
+    affine_sampled, affine_sampled_pta, affine_scale, boxa_affine_transform, pta_affine_transform,
+    translate,
 };
 pub use bilinear::{
     BilinearCoeffs, bilinear, bilinear_pta, bilinear_pta_with_alpha, bilinear_sampled,

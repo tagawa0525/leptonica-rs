@@ -973,6 +973,82 @@ pub fn affine_rotate(pix: &Pix, center_x: f32, center_y: f32, angle: f32) -> Tra
 }
 
 // ============================================================================
+// PTA / BOXA Affine Transform
+// ============================================================================
+
+/// Returns a new Pta with all points transformed by an affine matrix.
+///
+/// Applies: x' = a*x + b*y + tx, y' = c*x + d*y + ty
+///
+/// Corresponds to C Leptonica's `ptaAffineTransform`.
+pub fn pta_affine_transform(
+    pta: &leptonica_core::Pta,
+    matrix: &AffineMatrix,
+) -> leptonica_core::Pta {
+    let c = matrix.coeffs();
+    // c = [a, b, tx, c, d, ty]
+    // x' = a*x + b*y + tx
+    // y' = c*x + d*y + ty
+    pta.iter()
+        .map(|(x, y)| (c[0] * x + c[1] * y + c[2], c[3] * x + c[4] * y + c[5]))
+        .collect()
+}
+
+/// Returns a new Boxa with all boxes transformed by an affine matrix.
+///
+/// Each box's 4 corners are transformed by the affine matrix; the axis-aligned
+/// bounding box of those corners becomes the new box.
+///
+/// Corresponds to C Leptonica's `boxaAffineTransform`.
+pub fn boxa_affine_transform(
+    boxa: &leptonica_core::Boxa,
+    matrix: &AffineMatrix,
+) -> leptonica_core::Boxa {
+    use leptonica_core::Pta;
+
+    // Convert each box to 4 corners, transform, then find bounding box
+    let n = boxa.len();
+    let mut flat_pta = Pta::with_capacity(n * 4);
+    for b in boxa.iter() {
+        let x0 = b.x as f32;
+        let y0 = b.y as f32;
+        let x1 = (b.x + b.w) as f32;
+        let y1 = (b.y + b.h) as f32;
+        flat_pta.push(x0, y0);
+        flat_pta.push(x1, y0);
+        flat_pta.push(x0, y1);
+        flat_pta.push(x1, y1);
+    }
+
+    let transformed = pta_affine_transform(&flat_pta, matrix);
+
+    // Group every 4 points into a bounding box
+    let mut result = leptonica_core::Boxa::with_capacity(n);
+    for i in 0..n {
+        let base = i * 4;
+        let xmin = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().0)
+            .fold(f32::INFINITY, f32::min);
+        let ymin = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().1)
+            .fold(f32::INFINITY, f32::min);
+        let xmax = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().0)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let ymax = (0..4)
+            .map(|k| transformed.get(base + k).unwrap().1)
+            .fold(f32::NEG_INFINITY, f32::max);
+        result.push(leptonica_core::Box::new_unchecked(
+            xmin.round() as i32,
+            ymin.round() as i32,
+            (xmax - xmin).round() as i32,
+            (ymax - ymin).round() as i32,
+        ));
+    }
+    result
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1521,5 +1597,66 @@ mod tests {
         let result = affine_sampled(&pix, &m, AffineFill::White).unwrap();
 
         assert!(result.colormap().is_some());
+    }
+
+    // -- pta_affine_transform --
+
+    #[test]
+    fn test_pta_affine_transform_identity() {
+        use leptonica_core::Pta;
+        let mut pta = Pta::new();
+        pta.push(1.0, 2.0);
+        pta.push(3.0, 4.0);
+
+        let matrix = AffineMatrix::identity();
+        let result = pta_affine_transform(&pta, &matrix);
+        assert_eq!(result.len(), 2);
+        assert!((result.get(0).unwrap().0 - 1.0).abs() < 1e-5);
+        assert!((result.get(0).unwrap().1 - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_pta_affine_transform_translation() {
+        use leptonica_core::Pta;
+        let mut pta = Pta::new();
+        pta.push(1.0, 2.0);
+
+        let matrix = AffineMatrix::translation(10.0, 20.0);
+        let result = pta_affine_transform(&pta, &matrix);
+        assert!((result.get(0).unwrap().0 - 11.0).abs() < 1e-5);
+        assert!((result.get(0).unwrap().1 - 22.0).abs() < 1e-5);
+    }
+
+    // -- boxa_affine_transform --
+
+    #[test]
+    fn test_boxa_affine_transform_identity() {
+        use leptonica_core::{Box as LBox, Boxa};
+        let mut boxa = Boxa::new();
+        boxa.push(LBox::new(10, 20, 30, 40).unwrap());
+
+        let matrix = AffineMatrix::identity();
+        let result = boxa_affine_transform(&boxa, &matrix);
+        assert_eq!(result.len(), 1);
+        let b = result.get(0).unwrap();
+        assert_eq!(b.x, 10);
+        assert_eq!(b.y, 20);
+        assert_eq!(b.w, 30);
+        assert_eq!(b.h, 40);
+    }
+
+    #[test]
+    fn test_boxa_affine_transform_translation() {
+        use leptonica_core::{Box as LBox, Boxa};
+        let mut boxa = Boxa::new();
+        boxa.push(LBox::new(0, 0, 10, 10).unwrap());
+
+        let matrix = AffineMatrix::translation(5.0, 3.0);
+        let result = boxa_affine_transform(&boxa, &matrix);
+        let b = result.get(0).unwrap();
+        assert_eq!(b.x, 5);
+        assert_eq!(b.y, 3);
+        assert_eq!(b.w, 10);
+        assert_eq!(b.h, 10);
     }
 }
