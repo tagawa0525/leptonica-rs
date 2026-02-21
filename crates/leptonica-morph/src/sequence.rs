@@ -364,6 +364,109 @@ pub fn morph_comp_sequence(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
     morph_sequence(pix, sequence)
 }
 
+/// Execute a binary morphological sequence using DWA (word-aligned) operations
+///
+/// Same as [`morph_sequence`] but dispatches to DWA functions for performance.
+///
+/// # Arguments
+///
+/// * `pix` - A 1-bpp binary image
+/// * `sequence` - A sequence string (e.g., "d3.3 + e3.3")
+///
+/// # Returns
+///
+/// A new image with all operations applied, or an error.
+pub fn morph_sequence_dwa(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    let seq = MorphSequence::parse(sequence)?;
+    seq.verify_binary()?;
+    let mut result = pix.clone();
+    for op in seq.ops() {
+        result = execute_dwa_op(&result, op)?;
+    }
+    Ok(result)
+}
+
+/// Execute a binary composite morphological sequence using DWA operations
+///
+/// Similar to [`morph_sequence_dwa`] but uses composite DWA operations
+/// that support sizes up to 63 pixels per dimension.
+///
+/// # Arguments
+///
+/// * `pix` - A 1-bpp binary image
+/// * `sequence` - A sequence string (e.g., "d3.3 + e3.3")
+///
+/// # Returns
+///
+/// A new image with all operations applied, or an error.
+pub fn morph_comp_sequence_dwa(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    let seq = MorphSequence::parse(sequence)?;
+    seq.verify_binary()?;
+    let mut result = pix.clone();
+    for op in seq.ops() {
+        result = execute_comp_dwa_op(&result, op)?;
+    }
+    Ok(result)
+}
+
+/// Execute a color (32 bpp) morphological sequence on an image
+///
+/// Processes each RGB channel independently using brick structuring elements.
+/// All structuring element dimensions must be odd numbers.
+///
+/// # Arguments
+///
+/// * `pix` - A 32-bpp RGB image
+/// * `sequence` - A sequence string with d/e/o/c operations (e.g., "c5.3 + o7.5")
+///
+/// # Returns
+///
+/// A new image with all operations applied, or an error.
+pub fn color_morph_sequence(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "32-bpp RGB",
+            actual: pix.depth().bits(),
+        });
+    }
+    let seq = MorphSequence::parse(sequence)?;
+    // Color morphology requires odd dimensions (same as C)
+    for (i, op) in seq.ops().iter().enumerate() {
+        if let MorphOp::Tophat { .. } = op {
+            return Err(MorphError::InvalidSequence(format!(
+                "operation {} (tophat) is not valid for color morphology",
+                i + 1
+            )));
+        }
+        let (w, h) = op.dimensions();
+        if w % 2 == 0 || h % 2 == 0 {
+            return Err(MorphError::InvalidSequence(format!(
+                "color morphology requires odd dimensions, got {}x{} at operation {}",
+                w,
+                h,
+                i + 1
+            )));
+        }
+    }
+    let mut result = pix.clone();
+    for op in seq.ops() {
+        result = execute_color_op(&result, op)?;
+    }
+    Ok(result)
+}
+
 /// Execute a grayscale morphological sequence on an image
 ///
 /// # Arguments
@@ -421,6 +524,47 @@ fn execute_binary_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Close { width, height } => crate::close_brick(pix, *width, *height),
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
+        )),
+    }
+}
+
+/// Execute a single binary DWA morphological operation
+fn execute_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
+    match op {
+        MorphOp::Dilate { width, height } => crate::dwa::dilate_brick_dwa(pix, *width, *height),
+        MorphOp::Erode { width, height } => crate::dwa::erode_brick_dwa(pix, *width, *height),
+        MorphOp::Open { width, height } => crate::dwa::open_brick_dwa(pix, *width, *height),
+        MorphOp::Close { width, height } => crate::dwa::close_brick_dwa(pix, *width, *height),
+        MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
+            "tophat is only valid for grayscale operations".to_string(),
+        )),
+    }
+}
+
+/// Execute a single binary composite DWA morphological operation
+fn execute_comp_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
+    match op {
+        MorphOp::Dilate { width, height } => {
+            crate::dwa::dilate_comp_brick_dwa(pix, *width, *height)
+        }
+        MorphOp::Erode { width, height } => crate::dwa::erode_comp_brick_dwa(pix, *width, *height),
+        MorphOp::Open { width, height } => crate::dwa::open_comp_brick_dwa(pix, *width, *height),
+        MorphOp::Close { width, height } => crate::dwa::close_comp_brick_dwa(pix, *width, *height),
+        MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
+            "tophat is only valid for grayscale operations".to_string(),
+        )),
+    }
+}
+
+/// Execute a single color morphological operation
+fn execute_color_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
+    match op {
+        MorphOp::Dilate { width, height } => crate::color::dilate_color(pix, *width, *height),
+        MorphOp::Erode { width, height } => crate::color::erode_color(pix, *width, *height),
+        MorphOp::Open { width, height } => crate::color::open_color(pix, *width, *height),
+        MorphOp::Close { width, height } => crate::color::close_color(pix, *width, *height),
+        MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
+            "tophat is not valid for color morphology".to_string(),
         )),
     }
 }
@@ -605,6 +749,66 @@ mod tests {
     fn test_verify_grayscale_success() {
         let seq = MorphSequence::parse("d3.3 + e5.5 + tw7.7").unwrap();
         assert!(seq.verify_grayscale().is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 5: DWA and color sequence tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+
+    fn test_morph_sequence_dwa_basic() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
+        let result = morph_sequence_dwa(&pix, "d3.3 + e3.3");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().width(), 20);
+    }
+
+    #[test]
+
+    fn test_morph_sequence_dwa_non_binary_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(morph_sequence_dwa(&pix, "d3.3").is_err());
+    }
+
+    #[test]
+
+    fn test_morph_comp_sequence_dwa_basic() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
+        let result = morph_comp_sequence_dwa(&pix, "d3.3 + e3.3");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().width(), 20);
+    }
+
+    #[test]
+
+    fn test_morph_comp_sequence_dwa_non_binary_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(morph_comp_sequence_dwa(&pix, "d3.3").is_err());
+    }
+
+    #[test]
+
+    fn test_color_morph_sequence_basic() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        let result = color_morph_sequence(&pix, "d3.3");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().width(), 20);
+    }
+
+    #[test]
+
+    fn test_color_morph_sequence_non_rgb_error() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(color_morph_sequence(&pix, "d3.3").is_err());
+    }
+
+    #[test]
+
+    fn test_color_morph_sequence_even_dim_error() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        // C says: dimensions must be odd for color morphology
+        assert!(color_morph_sequence(&pix, "d4.4").is_err());
     }
 
     #[test]
