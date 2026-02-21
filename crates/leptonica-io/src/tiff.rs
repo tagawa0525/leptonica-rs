@@ -26,19 +26,16 @@ pub fn read_header_tiff(data: &[u8]) -> IoResult<ImageHeader> {
         .colortype()
         .map_err(|e| IoError::DecodeError(format!("TIFF colortype: {}", e)))?;
 
-    let (depth, spp) = match color_type {
-        ColorType::Gray(bps) => {
-            let d = if bps <= 8 { 8u32 } else { 16 };
-            (d, 1u32)
+    let (depth, spp, bps) = match color_type {
+        ColorType::Gray(n) => {
+            let d = if n <= 8 { 8u32 } else { 16 };
+            (d, 1u32, n as u32)
         }
-        ColorType::GrayA(bps) => {
-            let d = if bps <= 8 { 32u32 } else { 32 };
-            (d, 4)
-        }
-        ColorType::Palette(bps) => (bps as u32, 1),
-        ColorType::RGB(_) => (32, 3),
-        ColorType::RGBA(_) => (32, 4),
-        _ => (32, 3),
+        ColorType::GrayA(n) => (32, 4, n as u32),
+        ColorType::Palette(n) => (n as u32, 1, n as u32),
+        ColorType::RGB(n) => (32, 3, n as u32),
+        ColorType::RGBA(n) => (32, 4, n as u32),
+        _ => (32, 3, 8),
     };
 
     // DPI from TIFF tags
@@ -55,7 +52,7 @@ pub fn read_header_tiff(data: &[u8]) -> IoResult<ImageHeader> {
         width,
         height,
         depth,
-        bps: depth.min(8),
+        bps,
         spp,
         has_colormap: matches!(color_type, ColorType::Palette(_)),
         num_colors: 0,
