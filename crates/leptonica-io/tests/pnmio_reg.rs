@@ -15,7 +15,11 @@
 //! - PAM format (P7)
 //! - `pixThresholdTo2bpp()` / `pixThresholdTo4bpp()`
 
-use leptonica_io::{ImageFormat, read_image, read_image_mem, write_image, write_image_mem};
+use leptonica_io::{
+    ImageFormat,
+    pnm::{read_pam, write_pam, write_pnm_ascii},
+    read_image, read_image_mem, write_image, write_image_mem,
+};
 use leptonica_test::{RegParams, load_test_image, regout_dir};
 use std::fs;
 
@@ -197,39 +201,107 @@ fn compare_rgb(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
     true
 }
 
-// Ignored tests for unimplemented features
+// Partially implemented tests (still ignored where upstream deps are missing)
+
 #[test]
-#[ignore = "PAM (P7) format not implemented"]
+#[ignore = "not yet implemented"]
 fn pnmio_reg_1bpp_pam() {
-    eprintln!("SKIP: PAM format support not yet implemented");
+    // Test 1: 1bpp PBM → PAM roundtrip
+    let pix1 = load_test_image("rabi.png").expect("load rabi.png");
+    assert_eq!(pix1.depth().bits(), 1);
+
+    let mut buf = Vec::new();
+    write_pam(&pix1, &mut buf).expect("write PAM 1bpp");
+    assert!(buf.starts_with(b"P7"), "PAM magic");
+
+    let pix2 = read_pam(std::io::Cursor::new(&buf)).expect("read PAM 1bpp");
+    assert_eq!(pix2.width(), pix1.width());
+    assert_eq!(pix2.height(), pix1.height());
+    assert_eq!(pix2.depth().bits(), 1);
 }
 
 #[test]
-#[ignore = "pixThresholdTo2bpp() not implemented; ASCII PNM write and PAM not implemented"]
+#[ignore = "pixThresholdTo2bpp() not implemented"]
 fn pnmio_reg_2bpp() {
-    eprintln!("SKIP: pixThresholdTo2bpp, ASCII PNM write, PAM support not yet implemented");
+    eprintln!("SKIP: pixThresholdTo2bpp not yet implemented");
 }
 
 #[test]
-#[ignore = "pixThresholdTo4bpp() not implemented; ASCII PNM write and PAM not implemented"]
+#[ignore = "pixThresholdTo4bpp() not implemented"]
 fn pnmio_reg_4bpp() {
-    eprintln!("SKIP: pixThresholdTo4bpp, ASCII PNM write, PAM support not yet implemented");
+    eprintln!("SKIP: pixThresholdTo4bpp not yet implemented");
 }
 
 #[test]
-#[ignore = "PAM (P7) format not implemented"]
+#[ignore = "not yet implemented"]
 fn pnmio_reg_8bpp_pam() {
-    eprintln!("SKIP: PAM format support not yet implemented");
+    // Test 7: 8bpp PGM → PAM roundtrip
+    let pix1 = load_test_image("weasel8.png").expect("load weasel8.png");
+    assert_eq!(pix1.depth().bits(), 8);
+
+    let mut buf = Vec::new();
+    write_pam(&pix1, &mut buf).expect("write PAM 8bpp");
+    assert!(buf.starts_with(b"P7"), "PAM magic");
+
+    let pix2 = read_pam(std::io::Cursor::new(&buf)).expect("read PAM 8bpp");
+    assert_eq!(pix2.width(), pix1.width());
+    assert_eq!(pix2.height(), pix1.height());
+    assert_eq!(pix2.depth().bits(), 8);
+
+    for y in 0..pix1.height() {
+        for x in 0..pix1.width() {
+            assert_eq!(pix2.get_pixel(x, y), pix1.get_pixel(x, y));
+        }
+    }
 }
 
 #[test]
-#[ignore = "PAM (P7) format not implemented"]
+#[ignore = "not yet implemented"]
 fn pnmio_reg_24bpp_pam() {
-    eprintln!("SKIP: PAM format support not yet implemented");
+    // Test 10: 24bpp PPM → PAM roundtrip
+    let pix1 = load_test_image("marge.jpg").expect("load marge.jpg");
+    assert_eq!(pix1.depth().bits(), 32);
+
+    let mut buf = Vec::new();
+    write_pam(&pix1, &mut buf).expect("write PAM 24bpp");
+    assert!(buf.starts_with(b"P7"), "PAM magic");
+
+    let pix2 = read_pam(std::io::Cursor::new(&buf)).expect("read PAM 24bpp");
+    assert_eq!(pix2.width(), pix1.width());
+    assert_eq!(pix2.height(), pix1.height());
+
+    // Compare RGB channels (ignore alpha)
+    for y in 0..pix1.height() {
+        for x in 0..pix1.width() {
+            assert_eq!(pix2.get_rgb(x, y), pix1.get_rgb(x, y));
+        }
+    }
 }
 
 #[test]
-#[ignore = "PAM (P7) format not implemented; PNM P6 does not support alpha channel"]
+#[ignore = "not yet implemented"]
 fn pnmio_reg_32bpp_rgba_pam() {
-    eprintln!("SKIP: PAM format support not yet implemented for RGBA roundtrip");
+    // Test 11: 32bpp RGBA → PAM roundtrip
+    use leptonica_core::color;
+    use leptonica_io::PixelDepth;
+
+    let pix1 = leptonica_io::Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+    let mut pix_mut = pix1.try_into_mut().unwrap();
+    pix_mut.set_spp(4);
+    // Set a pixel with non-opaque alpha
+    let pixel = color::compose_rgba(200, 100, 50, 128);
+    pix_mut.set_pixel_unchecked(1, 1, pixel);
+    let pix1: leptonica_io::Pix = pix_mut.into();
+
+    let mut buf = Vec::new();
+    write_pam(&pix1, &mut buf).expect("write PAM RGBA");
+    assert!(buf.starts_with(b"P7"), "PAM magic");
+
+    let pix2 = read_pam(std::io::Cursor::new(&buf)).expect("read PAM RGBA");
+    assert_eq!(pix2.spp(), 4);
+
+    // Check the specific pixel
+    let p1 = pix1.get_pixel(1, 1);
+    let p2 = pix2.get_pixel(1, 1);
+    assert_eq!(p1, p2, "RGBA pixel roundtrip");
 }

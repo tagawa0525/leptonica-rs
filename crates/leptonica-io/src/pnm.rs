@@ -383,6 +383,49 @@ fn read_ppm_binary<R: Read>(
     Ok(())
 }
 
+/// Write a Pix as ASCII PNM (P1/P2/P3)
+///
+/// Selection rules (following C Leptonica `pixWriteStreamAsciiPnm`):
+/// - 1 bpp → P1 (PBM ASCII)
+/// - 2/4/8/16 bpp, no colormap or grayscale colormap → P2 (PGM ASCII)
+/// - 2/4/8 bpp with color-valued colormap, or 32 bpp → P3 (PPM ASCII)
+///
+/// # See also
+///
+/// C Leptonica: `pixWriteStreamAsciiPnm()` in `pnmio.c`
+pub fn write_pnm_ascii<W: Write>(_pix: &Pix, _writer: W) -> IoResult<()> {
+    Err(IoError::UnsupportedFormat(
+        "ASCII PNM write not yet implemented".to_string(),
+    ))
+}
+
+/// Read a PAM (P7) image
+///
+/// Supports all tuple types: BLACKANDWHITE, GRAYSCALE, RGB, RGB_ALPHA.
+///
+/// # See also
+///
+/// C Leptonica: `pixReadStreamPnm()` type-7 branch in `pnmio.c`
+pub fn read_pam<R: Read>(_reader: R) -> IoResult<Pix> {
+    Err(IoError::UnsupportedFormat(
+        "PAM (P7) read not yet implemented".to_string(),
+    ))
+}
+
+/// Write a Pix as PAM (P7 Portable Arbitrary Map)
+///
+/// Supports 1/2/4/8/16 bpp grayscale and 32 bpp RGB/RGBA.
+/// Colormapped images have their colormap removed before writing.
+///
+/// # See also
+///
+/// C Leptonica: `pixWriteStreamPam()` in `pnmio.c`
+pub fn write_pam<W: Write>(_pix: &Pix, _writer: W) -> IoResult<()> {
+    Err(IoError::UnsupportedFormat(
+        "PAM (P7) write not yet implemented".to_string(),
+    ))
+}
+
 /// Write a PNM image
 pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     let width = pix.width();
@@ -482,6 +525,112 @@ pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pnm_ascii_1bpp() {
+        let pix = Pix::new(8, 4, PixelDepth::Bit1).unwrap();
+        let mut buf = Vec::new();
+        write_pnm_ascii(&pix, &mut buf).unwrap();
+        assert!(buf.starts_with(b"P1"));
+        // P1 output should be readable back
+        let pix2 = read_pnm(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(pix2.width(), 8);
+        assert_eq!(pix2.height(), 4);
+        assert_eq!(pix2.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pnm_ascii_8bpp() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..4 {
+            for x in 0..4u32 {
+                pix_mut.set_pixel_unchecked(x, y, x * 60 + y * 15);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let mut buf = Vec::new();
+        write_pnm_ascii(&pix, &mut buf).unwrap();
+        assert!(buf.starts_with(b"P2"));
+        let pix2 = read_pnm(std::io::Cursor::new(&buf)).unwrap();
+        for y in 0..4 {
+            for x in 0..4u32 {
+                assert_eq!(pix2.get_pixel(x, y), pix.get_pixel(x, y));
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_pnm_ascii_32bpp() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_rgb(0, 0, 255, 0, 0).unwrap();
+        let pix: Pix = pix_mut.into();
+        let mut buf = Vec::new();
+        write_pnm_ascii(&pix, &mut buf).unwrap();
+        assert!(buf.starts_with(b"P3"));
+        let pix2 = read_pnm(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(pix2.get_rgb(0, 0), Some((255, 0, 0)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pam_roundtrip_8bpp() {
+        let pix = Pix::new(10, 8, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..8 {
+            for x in 0..10u32 {
+                pix_mut.set_pixel_unchecked(x, y, (x + y * 10) % 256);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+        let mut buf = Vec::new();
+        write_pam(&pix, &mut buf).unwrap();
+        assert!(buf.starts_with(b"P7"));
+        let pix2 = read_pam(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(pix2.width(), 10);
+        assert_eq!(pix2.height(), 8);
+        assert_eq!(pix2.depth(), PixelDepth::Bit8);
+        for y in 0..8 {
+            for x in 0..10u32 {
+                assert_eq!(pix2.get_pixel(x, y), pix.get_pixel(x, y));
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pam_roundtrip_rgb() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_spp(3);
+        pix_mut.set_rgb(0, 0, 255, 128, 64).unwrap();
+        let pix: Pix = pix_mut.into();
+        let mut buf = Vec::new();
+        write_pam(&pix, &mut buf).unwrap();
+        assert!(buf.starts_with(b"P7"));
+        let pix2 = read_pam(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(pix2.get_rgb(0, 0), Some((255, 128, 64)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pam_roundtrip_rgba() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_spp(4);
+        pix_mut.set_rgba(1, 1, 100, 150, 200, 128).unwrap();
+        let pix: Pix = pix_mut.into();
+        let mut buf = Vec::new();
+        write_pam(&pix, &mut buf).unwrap();
+        assert!(buf.starts_with(b"P7"));
+        let pix2 = read_pam(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(pix2.spp(), 4);
+        assert_eq!(pix2.get_rgba(1, 1), Some((100, 150, 200, 128)));
+    }
 
     #[test]
     fn test_pgm_roundtrip() {
