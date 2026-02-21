@@ -44,6 +44,15 @@ pub enum PdfCompression {
     Auto,
     /// Flate (Deflate/zlib) compression - works for all image types
     Flate,
+    /// DCT (JPEG) compression - best for photographic images
+    ///
+    /// Requires the `jpeg` feature to be enabled. Uses the `jpeg-encoder` crate
+    /// to compress image data and embeds it with the DCTDecode filter.
+    /// Quality is controlled by `PdfOptions::quality` (1-100, default 75).
+    ///
+    /// Note: 1bpp, 2bpp, and 4bpp images are always written with Flate even when
+    /// Jpeg is selected, since JPEG is unsuitable for low-depth images.
+    Jpeg,
 }
 
 /// PDF output options
@@ -148,6 +157,35 @@ pub fn write_pdf_multi<W: Write>(
     Ok(())
 }
 
+/// Write multiple image files to a multi-page PDF
+///
+/// Reads each file, detects its format, and adds it as a page in the PDF.
+///
+/// # Arguments
+///
+/// * `paths` - Slice of file paths to include
+/// * `writer` - Output destination
+/// * `options` - PDF output options
+pub fn write_pdf_from_files<W: Write>(
+    paths: &[impl AsRef<std::path::Path>],
+    mut writer: W,
+    options: &PdfOptions,
+) -> IoResult<()> {
+    if paths.is_empty() {
+        return Err(IoError::InvalidData("no files provided".to_string()));
+    }
+
+    let images: Vec<Pix> = paths
+        .iter()
+        .map(crate::read_image)
+        .collect::<IoResult<Vec<_>>>()?;
+
+    let image_refs: Vec<&Pix> = images.iter().collect();
+    let pdf_data = generate_pdf(&image_refs, options)?;
+    writer.write_all(&pdf_data).map_err(IoError::Io)?;
+    Ok(())
+}
+
 /// Generate PDF data from images
 fn generate_pdf(images: &[&Pix], options: &PdfOptions) -> IoResult<Vec<u8>> {
     if images.is_empty() {
@@ -232,12 +270,36 @@ fn write_page(
     // Prepare image data
     let (image_data, color_space, bits_per_component) = prepare_image_data(pix)?;
 
+    // Determine whether to use JPEG compression
+    // Only PdfCompression::Jpeg triggers DCT encoding; Auto and Flate use FlateDecode.
+    // 1bpp/2bpp/4bpp always use Flate since JPEG is unsuitable for low-depth images.
+    #[cfg(feature = "jpeg")]
+    let use_jpeg = matches!(options.compression, PdfCompression::Jpeg)
+        && pix.depth() != PixelDepth::Bit1
+        && pix.depth() != PixelDepth::Bit2
+        && pix.depth() != PixelDepth::Bit4;
+
+    #[cfg(not(feature = "jpeg"))]
+    let use_jpeg = false;
+
     // Compress image data
-    let compressed_data = compress_to_vec_zlib(&image_data, 6);
+    let (compressed_data, filter) = if use_jpeg {
+        #[cfg(feature = "jpeg")]
+        {
+            let jpeg_data = encode_jpeg_for_pdf(&image_data, width, height, color_space, options)?;
+            (jpeg_data, Filter::DctDecode)
+        }
+        #[cfg(not(feature = "jpeg"))]
+        {
+            unreachable!()
+        }
+    } else {
+        (compress_to_vec_zlib(&image_data, 6), Filter::FlateDecode)
+    };
 
     // Write image XObject
     let mut image = pdf.image_xobject(image_id, &compressed_data);
-    image.filter(Filter::FlateDecode);
+    image.filter(filter);
     image.width(width as i32);
     image.height(height as i32);
     match color_space {
@@ -386,6 +448,42 @@ fn prepare_image_data(pix: &Pix) -> IoResult<(Vec<u8>, PdfColorSpace, i32)> {
     }
 }
 
+/// Encode image data as JPEG for PDF embedding
+#[cfg(feature = "jpeg")]
+fn encode_jpeg_for_pdf(
+    image_data: &[u8],
+    width: u32,
+    height: u32,
+    color_space: PdfColorSpace,
+    options: &PdfOptions,
+) -> IoResult<Vec<u8>> {
+    let quality = if options.quality == 0 {
+        75
+    } else {
+        options.quality
+    }
+    .clamp(1, 100);
+
+    let color_type = match color_space {
+        PdfColorSpace::DeviceGray => jpeg_encoder::ColorType::Luma,
+        PdfColorSpace::DeviceRgb => jpeg_encoder::ColorType::Rgb,
+    };
+
+    if width > u16::MAX as u32 || height > u16::MAX as u32 {
+        return Err(IoError::EncodeError(format!(
+            "image dimensions {}x{} exceed JPEG maximum of 65535",
+            width, height
+        )));
+    }
+
+    let mut jpeg_buf = Vec::new();
+    let encoder = jpeg_encoder::Encoder::new(&mut jpeg_buf, quality);
+    encoder
+        .encode(image_data, width as u16, height as u16, color_type)
+        .map_err(|e| IoError::EncodeError(format!("JPEG encode for PDF error: {}", e)))?;
+    Ok(jpeg_buf)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -489,5 +587,140 @@ mod tests {
         assert_eq!(opts.title, Some("Test".to_string()));
         assert_eq!(opts.resolution, 150);
         assert_eq!(opts.compression, PdfCompression::Flate);
+    }
+
+    #[test]
+    fn test_write_pdf_jpeg_compression() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..100 {
+            for x in 0..100 {
+                pix_mut
+                    .set_pixel(x, y, color::compose_rgb(x as u8, y as u8, 128))
+                    .unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            quality: 75,
+            ..Default::default()
+        };
+        let pdf_data = write_pdf_mem(&pix, &options).unwrap();
+
+        // Verify PDF header
+        assert!(pdf_data.starts_with(b"%PDF-"));
+        // DCTDecode filter should be present in the PDF
+        let pdf_str = String::from_utf8_lossy(&pdf_data);
+        assert!(
+            pdf_str.contains("DCTDecode"),
+            "PDF should contain DCTDecode filter"
+        );
+    }
+
+    #[test]
+    fn test_write_pdf_jpeg_smaller_than_flate() {
+        // For photographic images, JPEG should produce smaller output
+        let pix = Pix::new(200, 200, PixelDepth::Bit32).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..200 {
+            for x in 0..200 {
+                pix_mut
+                    .set_pixel(x, y, color::compose_rgb(x as u8, (y / 2) as u8, 100))
+                    .unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let flate_options = PdfOptions {
+            compression: PdfCompression::Flate,
+            ..Default::default()
+        };
+        let jpeg_options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            quality: 75,
+            ..Default::default()
+        };
+
+        let flate_data = write_pdf_mem(&pix, &flate_options).unwrap();
+        let jpeg_data = write_pdf_mem(&pix, &jpeg_options).unwrap();
+
+        assert!(
+            jpeg_data.len() < flate_data.len(),
+            "JPEG ({}) should be smaller than Flate ({}) for photographic content",
+            jpeg_data.len(),
+            flate_data.len()
+        );
+    }
+
+    #[test]
+    fn test_write_pdf_jpeg_1bpp_fallback() {
+        // 1bpp images should fall back to Flate even when Jpeg is selected
+        let pix = Pix::new(80, 80, PixelDepth::Bit1).unwrap();
+        let options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            ..Default::default()
+        };
+        let pdf_data = write_pdf_mem(&pix, &options).unwrap();
+
+        // Should not contain DCTDecode since 1bpp falls back to Flate
+        assert!(pdf_data.starts_with(b"%PDF-"));
+        let pdf_str = String::from_utf8_lossy(&pdf_data);
+        assert!(
+            pdf_str.contains("FlateDecode"),
+            "1bpp should use FlateDecode even with Jpeg option"
+        );
+    }
+
+    #[test]
+    fn test_write_pdf_jpeg_grayscale() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..100 {
+            for x in 0..100 {
+                pix_mut.set_pixel(x, y, ((x + y) * 2) % 256).unwrap();
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        let options = PdfOptions {
+            compression: PdfCompression::Jpeg,
+            quality: 85,
+            ..Default::default()
+        };
+        let pdf_data = write_pdf_mem(&pix, &options).unwrap();
+
+        assert!(pdf_data.starts_with(b"%PDF-"));
+        let pdf_str = String::from_utf8_lossy(&pdf_data);
+        assert!(
+            pdf_str.contains("DCTDecode"),
+            "8bpp PDF should contain DCTDecode"
+        );
+    }
+
+    #[test]
+    fn test_write_pdf_from_files() {
+        // Create temporary test images
+        let outdir = std::env::temp_dir().join("leptonica_pdf_test");
+        std::fs::create_dir_all(&outdir).unwrap();
+
+        let pix1 = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let pix2 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
+
+        let path1 = outdir.join("test1.pnm");
+        let path2 = outdir.join("test2.pnm");
+        crate::write_image(&pix1, &path1, leptonica_core::ImageFormat::Pnm).unwrap();
+        crate::write_image(&pix2, &path2, leptonica_core::ImageFormat::Pnm).unwrap();
+
+        let options = PdfOptions::with_title("From Files Test");
+        let mut buffer = Vec::new();
+        write_pdf_from_files(&[&path1, &path2], &mut buffer, &options).unwrap();
+
+        assert!(buffer.starts_with(b"%PDF-"));
+        assert!(buffer.len() > 200);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&outdir);
     }
 }
