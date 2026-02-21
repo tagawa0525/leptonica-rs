@@ -218,8 +218,23 @@ pub fn tiff_resolution<R: Read + Seek>(reader: R) -> IoResult<Option<(f32, f32)>
 ///
 /// Reads the Compression tag from the first page of the TIFF.
 pub fn tiff_compression<R: Read + Seek>(reader: R) -> IoResult<TiffCompression> {
-    let _ = reader;
-    todo!("tiff_compression not yet implemented")
+    let mut decoder = Decoder::new(reader)
+        .map_err(|e| IoError::DecodeError(format!("TIFF decode error: {}", e)))?;
+
+    let compression_val = decoder
+        .get_tag_u32(tiff::tags::Tag::Compression)
+        .unwrap_or(1); // Default: no compression
+
+    Ok(match compression_val {
+        1 => TiffCompression::None,
+        2 => TiffCompression::Rle, // CCITT modified Huffman RLE
+        3 => TiffCompression::G3,
+        4 => TiffCompression::G4,
+        5 => TiffCompression::Lzw,
+        8 | 0x80B2 => TiffCompression::Zip, // Deflate or OldDeflate
+        0x8005 => TiffCompression::PackBits,
+        _ => TiffCompression::None, // Unknown → treat as None
+    })
 }
 
 /// Append one or more pages to an existing multipage TIFF
@@ -240,8 +255,18 @@ pub fn write_tiff_append<R: Read + Seek, W: Write + Seek>(
     writer: W,
     compression: TiffCompression,
 ) -> IoResult<()> {
-    let _ = (existing, new_pages, writer, compression);
-    todo!("write_tiff_append not yet implemented")
+    if new_pages.is_empty() {
+        return Err(IoError::InvalidData("no pages to append".to_string()));
+    }
+
+    // Read all existing pages
+    let existing_pages = read_tiff_multipage(existing)?;
+
+    // Write all pages (existing + new) as a single multipage TIFF
+    let mut all_pages: Vec<&Pix> = existing_pages.iter().collect();
+    all_pages.extend_from_slice(new_pages);
+
+    write_tiff_multipage(&all_pages, writer, compression)
 }
 
 /// Decode a TIFF image from the current decoder position
@@ -1135,7 +1160,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_tiff_compression_detect_none() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let mut buffer = Cursor::new(Vec::new());
@@ -1147,7 +1171,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_tiff_compression_detect_lzw() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let mut buffer = Cursor::new(Vec::new());
@@ -1159,7 +1182,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_tiff_compression_detect_zip() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let mut buffer = Cursor::new(Vec::new());
@@ -1171,7 +1193,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_tiff_append_single() {
         // Create an initial 2-page TIFF
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -1199,7 +1220,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_tiff_append_multiple() {
         // Create an initial single-page TIFF
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();

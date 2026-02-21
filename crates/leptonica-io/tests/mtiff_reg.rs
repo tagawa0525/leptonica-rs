@@ -273,7 +273,6 @@ fn mtiff_reg_write_multipage_from_dir() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn mtiff_reg_append_mode() {
     use leptonica_io::tiff::write_tiff_append;
 
@@ -347,7 +346,6 @@ fn mtiff_reg_split_reverse() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn mtiff_reg_compression_detect() {
     let pix =
         leptonica_core::Pix::new(16, 16, leptonica_core::PixelDepth::Bit8).expect("create pix");
