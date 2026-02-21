@@ -553,7 +553,7 @@ impl Sel {
     ///
     /// Based on C leptonica `selGetParameters`.
     pub fn get_parameters(&self) -> (u32, u32, u32, u32) {
-        unimplemented!("get_parameters")
+        (self.height, self.width, self.cy, self.cx)
     }
 
     /// Return a human-readable string representation of the SEL.
@@ -565,7 +565,38 @@ impl Sel {
     ///
     /// Based on C leptonica `selPrintToString`.
     pub fn print_to_string(&self) -> String {
-        unimplemented!("print_to_string")
+        let mut s = String::with_capacity((self.height as usize) * (self.width as usize + 1));
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let is_center = x == self.cx && y == self.cy;
+                let ch = match self.data[(y * self.width + x) as usize] {
+                    SelElement::Hit => {
+                        if is_center {
+                            'X'
+                        } else {
+                            'x'
+                        }
+                    }
+                    SelElement::Miss => {
+                        if is_center {
+                            'O'
+                        } else {
+                            'o'
+                        }
+                    }
+                    SelElement::DontCare => {
+                        if is_center {
+                            'C'
+                        } else {
+                            ' '
+                        }
+                    }
+                };
+                s.push(ch);
+            }
+            s.push('\n');
+        }
+        s
     }
 
     /// Serialize the SEL to the Leptonica binary SEL file format (Version 1).
@@ -581,14 +612,128 @@ impl Sel {
     ///
     /// Based on C leptonica `selWriteStream`.
     pub fn write_to_writer<W: Write>(&self, writer: &mut W) -> MorphResult<()> {
-        unimplemented!("write_to_writer")
+        let name = self.name.as_deref().unwrap_or("");
+        let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
+        writeln!(writer, "  Sel Version 1").map_err(map_io)?;
+        writeln!(writer, "  ------  {}  ------", name).map_err(map_io)?;
+        writeln!(
+            writer,
+            "  sy = {}, sx = {}, cy = {}, cx = {}",
+            self.height, self.width, self.cy, self.cx
+        )
+        .map_err(map_io)?;
+        for y in 0..self.height {
+            write!(writer, "    ").map_err(map_io)?;
+            for x in 0..self.width {
+                let val = self.data[(y * self.width + x) as usize] as u8;
+                write!(writer, "{}", val).map_err(map_io)?;
+            }
+            writeln!(writer).map_err(map_io)?;
+        }
+        writeln!(writer).map_err(map_io)?;
+        Ok(())
     }
 
     /// Deserialize a SEL from the Leptonica binary SEL file format (Version 1).
     ///
     /// Based on C leptonica `selReadStream`.
-    pub fn read_from_reader<R: BufRead>(reader: R) -> MorphResult<Self> {
-        unimplemented!("read_from_reader")
+    pub fn read_from_reader<R: BufRead>(mut reader: R) -> MorphResult<Self> {
+        let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
+
+        // Line 1: "  Sel Version 1"
+        let mut line = String::new();
+        reader.read_line(&mut line).map_err(map_io)?;
+        let version: u32 = line
+            .trim()
+            .strip_prefix("Sel Version")
+            .ok_or_else(|| MorphError::InvalidParameters("not a sel file".into()))?
+            .trim()
+            .parse()
+            .map_err(|_| MorphError::InvalidParameters("invalid version number".into()))?;
+        if version != 1 {
+            return Err(MorphError::InvalidParameters(format!(
+                "invalid sel version: {}",
+                version
+            )));
+        }
+
+        // Line 2: "  ------  <name>  ------"
+        line.clear();
+        reader.read_line(&mut line).map_err(map_io)?;
+        let name = {
+            let trimmed = line.trim();
+            let inner = trimmed
+                .strip_prefix("------")
+                .ok_or_else(|| MorphError::InvalidParameters("bad sel name line".into()))?
+                .trim();
+            inner
+                .strip_suffix("------")
+                .ok_or_else(|| MorphError::InvalidParameters("bad sel name line".into()))?
+                .trim()
+                .to_string()
+        };
+
+        // Line 3: "  sy = <h>, sx = <w>, cy = <cy>, cx = <cx>"
+        line.clear();
+        reader.read_line(&mut line).map_err(map_io)?;
+        let (sy, sx, cy, cx) = Self::parse_dimensions(line.trim())?;
+
+        let mut sel = Sel::new(sx, sy)?;
+        sel.set_origin(cx, cy)?;
+        if !name.is_empty() {
+            sel.set_name(&name);
+        }
+
+        // Read sy rows of pixel data
+        for y in 0..sy {
+            line.clear();
+            reader.read_line(&mut line).map_err(map_io)?;
+            let row_data = line.trim();
+            if row_data.len() != sx as usize {
+                return Err(MorphError::InvalidParameters(format!(
+                    "row {} length {} != expected {}",
+                    y,
+                    row_data.len(),
+                    sx
+                )));
+            }
+            for (x, ch) in row_data.chars().enumerate() {
+                let elem = match ch {
+                    '0' => SelElement::DontCare,
+                    '1' => SelElement::Hit,
+                    '2' => SelElement::Miss,
+                    other => {
+                        return Err(MorphError::InvalidParameters(format!(
+                            "invalid sel element: {}",
+                            other
+                        )));
+                    }
+                };
+                sel.set_element(x as u32, y, elem);
+            }
+        }
+
+        Ok(sel)
+    }
+
+    fn parse_dimensions(line: &str) -> MorphResult<(u32, u32, u32, u32)> {
+        let parse_kv = |s: &str, key: &str| -> MorphResult<u32> {
+            s.trim()
+                .strip_prefix(key)
+                .ok_or_else(|| MorphError::InvalidParameters(format!("expected key '{}'", key)))?
+                .trim()
+                .parse()
+                .map_err(|_| MorphError::InvalidParameters("invalid dimension value".into()))
+        };
+        let parts: Vec<&str> = line.splitn(4, ',').collect();
+        if parts.len() != 4 {
+            return Err(MorphError::InvalidParameters("bad dimensions line".into()));
+        }
+        let sy = parse_kv(parts[0], "sy =")?;
+        let sx = parse_kv(parts[1], "sx =")?;
+        let cy = parse_kv(parts[2], "cy =")?;
+        let cx = parse_kv(parts[3], "cx =")?;
+        Ok((sy, sx, cy, cx))
     }
 
     /// Create a SEL from a 32-bpp color image.
@@ -602,7 +747,61 @@ impl Sel {
     /// The origin is set to the first non-white pixel found.
     /// Based on C leptonica `selCreateFromColorPix`.
     pub fn from_color_image(pix: &Pix, name: Option<&str>) -> MorphResult<Self> {
-        unimplemented!("from_color_image")
+        use leptonica_core::PixelDepth;
+        if pix.depth() != PixelDepth::Bit32 {
+            return Err(MorphError::UnsupportedDepth {
+                expected: "32-bpp color",
+                actual: pix.depth().bits(),
+            });
+        }
+
+        let w = pix.width();
+        let h = pix.height();
+        let mut sel = Sel::new(w, h)?;
+        sel.set_origin(w / 2, h / 2)?;
+        if let Some(n) = name {
+            sel.set_name(n);
+        }
+
+        let mut num_origins = 0u32;
+        let mut has_hits = false;
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = pix.get_pixel_unchecked(x, y);
+                let (r, g, b, _) = leptonica_core::color::extract_rgba(pixel);
+
+                // Non-white pixel = first one sets the origin
+                if r < 255 && g < 255 && b < 255 {
+                    num_origins += 1;
+                    if num_origins == 1 {
+                        sel.set_origin(x, y)?;
+                    }
+                }
+
+                if r == 0 && g > 0 && b == 0 {
+                    has_hits = true;
+                    sel.set_element(x, y, SelElement::Hit);
+                } else if r > 0 && g == 0 && b == 0 {
+                    sel.set_element(x, y, SelElement::Miss);
+                } else if r > 0 && g > 0 && b > 0 {
+                    sel.set_element(x, y, SelElement::DontCare);
+                } else {
+                    return Err(MorphError::InvalidParameters(format!(
+                        "invalid pixel color at ({}, {}): r={}, g={}, b={}",
+                        x, y, r, g, b
+                    )));
+                }
+            }
+        }
+
+        if !has_hits {
+            return Err(MorphError::InvalidParameters(
+                "no hits found in color image".into(),
+            ));
+        }
+
+        Ok(sel)
     }
 
     /// Create a SEL from a point array (PTA).
@@ -618,7 +817,41 @@ impl Sel {
     ///
     /// Based on C leptonica `selCreateFromPta`.
     pub fn from_pta(pta: &Pta, cy: u32, cx: u32, name: Option<&str>) -> MorphResult<Self> {
-        unimplemented!("from_pta")
+        if pta.is_empty() {
+            return Err(MorphError::InvalidParameters("PTA is empty".into()));
+        }
+
+        let (x_min, y_min, x_max, y_max) = pta
+            .bounding_box()
+            .ok_or_else(|| MorphError::InvalidParameters("PTA is empty".into()))?;
+
+        if x_min < 0.0 || y_min < 0.0 {
+            return Err(MorphError::InvalidParameters(
+                "PTA points must have non-negative coordinates".into(),
+            ));
+        }
+
+        let w = x_max as u32 + 1;
+        let h = y_max as u32 + 1;
+        let mut sel = Sel::new(w, h)?;
+        sel.set_origin(cx, cy)?;
+        if let Some(n) = name {
+            sel.set_name(n);
+        }
+
+        for i in 0..pta.len() {
+            let (x, y) = pta
+                .get_i_pt(i)
+                .ok_or_else(|| MorphError::InvalidParameters("PTA index out of bounds".into()))?;
+            if x < 0 || y < 0 {
+                return Err(MorphError::InvalidParameters(
+                    "PTA point coordinates must be non-negative".into(),
+                ));
+            }
+            sel.set_element(x as u32, y as u32, SelElement::Hit);
+        }
+
+        Ok(sel)
     }
 }
 
@@ -822,7 +1055,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_parameters_returns_height_width_cy_cx() {
         let sel = make_hit_miss_sel();
         let (sy, sx, cy, cx) = sel.get_parameters();
@@ -833,7 +1065,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_parameters_brick() {
         let sel = Sel::create_brick(5, 3).unwrap();
         let (sy, sx, cy, cx) = sel.get_parameters();
@@ -844,7 +1075,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_print_to_string_encodes_elements() {
         let sel = make_hit_miss_sel();
         let s = sel.print_to_string();
@@ -858,7 +1088,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_print_to_string_dont_care_is_space() {
         let sel = Sel::create_brick(1, 1).unwrap();
         // 1x1 with Hit at origin
@@ -868,7 +1097,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_read_roundtrip() {
         let original = make_hit_miss_sel();
         let mut buf = Vec::new();
@@ -891,7 +1119,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_format_matches_leptonica() {
         let sel = Sel::create_brick(3, 3).unwrap();
         let mut buf = Vec::new();
@@ -905,7 +1132,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_read_from_reader_invalid_version_errors() {
         let data =
             b"  Sel Version 99\n  ------  foo  ------\n  sy = 1, sx = 1, cy = 0, cx = 0\n    1\n\n";
@@ -914,7 +1140,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_from_color_image_green_is_hit_red_is_miss() {
         use leptonica_core::{Pix, PixelDepth};
         // 3x1 image: green, red, white
@@ -935,7 +1160,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_from_color_image_requires_32bpp() {
         use leptonica_core::{Pix, PixelDepth};
         let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
@@ -943,7 +1167,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_from_pta_creates_hit_at_each_point() {
         use leptonica_core::Pta;
         let mut pta = Pta::new();
@@ -956,7 +1179,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_from_pta_origin_and_dimensions() {
         use leptonica_core::Pta;
         let mut pta = Pta::new();
