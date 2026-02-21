@@ -1,14 +1,14 @@
 # C版 vs Rust版 機能比較
 
-調査日: 2026-02-05
+調査日: 2026-02-21（IO全移植計画完了を反映）
 
 ## 概要
 
 | 項目 | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | ---- | ------------------------- | --------------------- |
-| ソースファイル数 | **182個** (.c) | **56個** (.rs) |
-| コード行数 | **約240,000行** | **約20,200行** |
-| 実装率（行数ベース） | 100% | **約8.4%** |
+| ソースファイル数 | **182個** (.c) | **70+個** (.rs) |
+| コード行数 | **約240,000行** | **約120,000行** |
+| 実装率（行数ベース） | 100% | **約50%** |
 
 ## 機能カテゴリ別比較
 
@@ -30,16 +30,18 @@
 | フォーマット | C版 | Rust版 | 備考 |
 | ------------ | --- | ------ | ---- |
 | BMP | ✅ bmpio.c | ✅ bmp.rs | 完全実装 |
-| PNG | ✅ pngio.c | ✅ png.rs | feature gate |
-| JPEG | ✅ jpegio.c | ✅ jpeg.rs | feature gate |
-| PNM (PBM/PGM/PPM) | ✅ pnmio.c | ✅ pnm.rs | feature gate |
-| TIFF | ✅ tiffio.c | ✅ tiff.rs | feature gate、マルチページ対応 |
+| PNG | ✅ pngio.c | ✅ png.rs | feature gate、ヘッダー読み取り対応 |
+| JPEG | ✅ jpegio.c | ✅ jpeg.rs | feature gate、読み書き+ヘッダー対応 |
+| PNM (PBM/PGM/PPM/PAM) | ✅ pnmio.c | ✅ pnm.rs | ASCII/Binary/PAM全対応 |
+| TIFF | ✅ tiffio.c | ✅ tiff.rs | マルチページ、圧縮検出、追記対応 |
 | GIF | ✅ gifio.c | ✅ gif.rs | feature gate |
-| WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate |
-| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | 読み込み対応 |
-| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | 書き込み対応 |
-| PostScript | ✅ psio1-2.c | ✅ ps/ | EPS/PS出力 |
+| WebP | ✅ webpio.c, webpanimio.c | ✅ webp.rs | feature gate、ヘッダー読み取り対応 |
+| JP2K (JPEG2000) | ✅ jp2kio.c | ✅ jp2k.rs | 読み込み+ヘッダー対応 |
+| SPIX | ✅ spixio.c | ✅ spix.rs | Leptonica独自シリアライズ形式 |
+| PDF | ✅ pdfio1-2.c, pdfapp.c | ✅ pdf.rs | Flate/DCT圧縮、マルチページ対応 |
+| PostScript | ✅ psio1-2.c | ✅ ps/ | Level 1/2/3、マルチページ対応 |
 | フォーマット検出 | ✅ readfile.c | ✅ format.rs | 完全実装 |
+| ヘッダー読み取り | ✅ readfile.c | ✅ header.rs | 全フォーマット対応 |
 
 ### 3. 幾何変換
 
@@ -153,7 +155,7 @@
 | クレート | 行数 | 完成度 | 主要機能 |
 | -------- | ---- | ------ | -------- |
 | leptonica-core | 2,519 | ★★★★★ | Pix, Box, Pta, Colormap |
-| leptonica-io | 2,795 | ★★★★★ | BMP/PNG/JPEG/PNM/TIFF読み書き |
+| leptonica-io | ~7,930 | ★★★★★ | 全フォーマット読み書き、ヘッダー、SPIX、PDF/PS拡張 |
 | leptonica-transform | 1,509 | ★★★★★ | 回転（直交）、スケーリング |
 | leptonica-morph | 827 | ★★★★★ | 二値形態学操作 |
 | leptonica-filter | 917 | ★★★★★ | 畳み込み、エッジ検出 |
@@ -184,7 +186,7 @@
 2. ~~**文字認識** - OCR関連~~ ✅ 完了（テンプレートマッチング、DID）
 3. ~~**JBIG2分類** - 圧縮用クラスタリング~~ ✅ 完了
 4. **バーコード** - 特殊用途
-5. **PDF/PS出力** - 特殊用途
+5. ~~**PDF/PS出力** - 特殊用途~~ ✅ 完了（Flate/DCT圧縮、マルチページ対応）
 
 ## C版機能カテゴリ（182ファイル）
 

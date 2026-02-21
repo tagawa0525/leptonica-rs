@@ -1,14 +1,14 @@
 # C版 vs Rust版 テストケース比較
 
-調査日: 2026-02-05（更新）
+調査日: 2026-02-21（IO全移植計画完了を反映）
 
 ## 概要
 
 | 項目             | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | ---------------- | ------------------------- | --------------------- |
-| テスト総数       | **305個** (.c)            | **33ファイル**        |
-| 回帰テスト       | **160個** (*_reg.c)       | なし                  |
-| 個別テスト関数   | 多数                      | **217個**             |
+| テスト総数       | **305個** (.c)            | **42+ファイル**       |
+| 回帰テスト       | **160個** (*_reg.c)       | **9個** (IO回帰テスト)|
+| 個別テスト関数   | 多数                      | **2,592個**           |
 | テストランナー   | alltests_reg.c            | `cargo test`          |
 
 ## C版テストの特徴
@@ -66,9 +66,11 @@ writetext, xformbox
 
 ### 構造（Rust版）
 
-- 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール
-- 単体テストのみ、統合テストなし
-- テストデータなし（in-memory生成のみ）
+- 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
+- `crates/leptonica-io/tests/`に統合テスト（9ファイル、C版`*_reg.c`に対応）
+- テストデータ: `tests/data/images/`（実画像使用）
+- テスト出力: `tests/regout/`（`.gitignore`対象）
+- goldenファイル: `tests/golden/`（コミット対象、REGTEST_MODE=generateで生成）
 
 ### テスト分布
 
@@ -90,6 +92,21 @@ writetext, xformbox
 | leptonica-io        | format.rs          | 7        |
 | leptonica-io        | png.rs             | 2        |
 | leptonica-io        | pnm.rs             | 2        |
+| leptonica-io        | jpeg.rs            | 5+       |
+| leptonica-io        | tiff.rs            | 6+       |
+| leptonica-io        | spix.rs            | 5+       |
+| leptonica-io        | header.rs          | 10+      |
+| leptonica-io        | ps/mod.rs          | 19       |
+| leptonica-io        | pdf.rs             | 10+      |
+| leptonica-io (統合) | jpegio_reg.rs      | 2        |
+| leptonica-io (統合) | spixio_reg.rs      | 2        |
+| leptonica-io (統合) | pnmio_reg.rs       | 7        |
+| leptonica-io (統合) | mtiff_reg.rs       | 10       |
+| leptonica-io (統合) | iomisc_reg.rs      | 13       |
+| leptonica-io (統合) | ioformats_reg.rs   | 1        |
+| leptonica-io (統合) | pngio_reg.rs       | 1        |
+| leptonica-io (統合) | gifio_reg.rs       | 2        |
+| leptonica-io (統合) | webpio_reg.rs      | 3        |
 | leptonica-morph     | binary.rs          | 7        |
 | leptonica-morph     | sel.rs             | 6        |
 | leptonica-recog     | baseline.rs        | 7        |
@@ -107,20 +124,21 @@ writetext, xformbox
 | leptonica-region    | watershed.rs       | 6        |
 | leptonica-transform | rotate.rs          | 15       |
 | leptonica-transform | scale.rs           | 8        |
-| **合計**            | **33ファイル**     | **217個**|
+| **合計**            | **42+ファイル**    | **2,592個**|
 
 ### クレート別集計
 
 | クレート            | テスト数 | カバー範囲                            |
 | ------------------- | -------- | ------------------------------------- |
-| leptonica-color     | 33       | 色空間変換、分析、量子化、二値化      |
-| leptonica-core      | 32       | Pix、Box、Colormap、Pta基本操作       |
-| leptonica-filter    | 15       | 畳み込み、エッジ検出、カーネル        |
-| leptonica-io        | 13       | BMP/PNG/PNM読み書き、フォーマット判定 |
-| leptonica-morph     | 13       | 二値モルフォロジー、構造化要素        |
-| leptonica-recog     | 60       | ページ分割、傾き検出、文字認識、JBIG2 |
-| leptonica-region    | 28       | 連結成分、ラベリング、シードフィル    |
-| leptonica-transform | 23       | 回転、スケーリング                    |
+| leptonica-core      | 1,372    | Pix、Box、Colormap、Pta、Numa、Pixa等 |
+| leptonica-filter    | 250      | 畳み込み、エッジ検出、バイラテラル、ランク |
+| leptonica-transform | 183      | 回転、スケーリング、アフィン、射影    |
+| leptonica-morph     | 182      | 二値/グレースケール/カラー形態学、DWA |
+| leptonica-color     | 164      | 色空間変換、分析、量子化、二値化      |
+| leptonica-recog     | 156      | ページ分割、傾き検出、文字認識、JBIG2 |
+| leptonica-io        | 150      | 全フォーマット読み書き、ヘッダー、回帰テスト |
+| leptonica-region    | 131      | 連結成分、ラベリング、シードフィル    |
+| leptonica-test      | 4        | テストインフラ                        |
 
 ### テストがないクレート
 
@@ -130,31 +148,32 @@ writetext, xformbox
 
 | 観点             | C版                    | Rust版                        |
 | ---------------- | ---------------------- | ----------------------------- |
-| **回帰テスト**   | ゴールデンファイル比較 | なし                          |
-| **視覚テスト**   | 画像出力・目視確認     | なし                          |
-| **I/Oテスト**    | 全フォーマット網羅     | BMP/PNG/PNMのみ               |
-| **統合テスト**   | alltests_reg.c         | なし                          |
-| **テストデータ** | 豊富（画像、PDF等）    | in-memory生成のみ             |
-| **カバレッジ**   | 160分野                | 約15分野（8クレート）         |
+| **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル  |
+| **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応    |
+| **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応          |
+| **統合テスト**   | alltests_reg.c         | 9ファイル（IO回帰テスト）     |
+| **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像    |
+| **カバレッジ**   | 160分野                | 9クレート、2,592テスト関数    |
 
 ## 推奨アクション
 
 ### 優先度高
 
-1. **統合テスト追加**: `tests/`ディレクトリに回帰テスト
-2. **ゴールデンファイル**: C版の出力を参照データとして利用
-3. **テストデータ**: `reference/leptonica/prog/`の画像を活用
+1. ~~**統合テスト追加**: `tests/`ディレクトリに回帰テスト~~ ✅ IO回帰テスト完了
+2. ~~**ゴールデンファイル**: C版の出力を参照データとして利用~~ ✅ RegParams実装済み
+3. ~~**テストデータ**: `reference/leptonica/prog/`の画像を活用~~ ✅ tests/data/images/使用中
+4. **非IO回帰テスト**: morph/transform/filter/color等の回帰テスト追加
 
 ### 優先度中
 
-1. **JPEG/TIFF I/O**: テスト追加が必要（現在BMP/PNG/PNMのみ）
-2. **モルフォロジー**: グレースケールモルフォロジーのテスト追加
-3. **幾何変換**: affine, bilinear, projective変換のテスト追加
+1. ~~**JPEG/TIFF I/O**: テスト追加が必要~~ ✅ jpegio_reg, mtiff_reg実装済み
+2. **モルフォロジー**: グレースケールモルフォロジーの回帰テスト追加
+3. **幾何変換**: affine, bilinear, projective変換の回帰テスト追加
 
 ### 優先度低
 
 1. **ベンチマーク**: C版との性能比較
-2. **視覚テスト**: 画像出力による確認機構
+2. ~~**視覚テスト**: 画像出力による確認機構~~ ✅ REGTEST_MODE=display実装済み
 
 ## 参考
 
