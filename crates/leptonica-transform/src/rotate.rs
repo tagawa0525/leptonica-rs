@@ -12,7 +12,8 @@
 //! - **Shear**: Good for 1bpp images, uses 2 or 3 shear operations.
 //! - **Bilinear**: Good balance of speed and quality.
 
-use crate::TransformResult;
+use crate::shear::{ShearFill, h_shear_ip, v_shear_ip};
+use crate::{TransformError, TransformResult};
 use leptonica_core::{Pix, PixMut, PixelDepth, color};
 
 // ============================================================================
@@ -1203,6 +1204,315 @@ fn rotate_2_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
     }
 }
 
+// ============================================================================
+// Phase 6: Corner area-map rotations
+// ============================================================================
+
+/// Rotate an image by area-map about the upper-left corner (dispatcher)
+///
+/// Dispatches to `rotate_am_color_corner` for 32bpp, `rotate_am_gray_corner`
+/// for 8bpp, and clones for other depths.
+///
+/// # Arguments
+/// * `pix` - Input image (8bpp or 32bpp)
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `fill` - Background fill color
+pub fn rotate_am_corner(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    match pix.depth() {
+        PixelDepth::Bit32 => rotate_am_color_corner(pix, angle, fill),
+        PixelDepth::Bit8 => rotate_am_gray_corner(pix, angle, fill),
+        _ => Ok(pix.deep_clone()),
+    }
+}
+
+/// Rotate a 32bpp color image by area-map about the upper-left corner
+///
+/// # Arguments
+/// * `pix` - 32bpp input image
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `fill` - Background fill color
+pub fn rotate_am_color_corner(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let colorval = fill.to_value(PixelDepth::Bit32);
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    rotate_area_map_color(
+        pix,
+        &mut out_mut,
+        cos_a,
+        sin_a,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        colorval,
+    );
+
+    Ok(out_mut.into())
+}
+
+/// Rotate an 8bpp grayscale image by area-map about the upper-left corner
+///
+/// # Arguments
+/// * `pix` - 8bpp input image
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `fill` - Background fill color
+pub fn rotate_am_gray_corner(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let grayval = fill.to_value(PixelDepth::Bit8) as u8;
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    rotate_area_map_gray(pix, &mut out_mut, cos_a, sin_a, 0.0, 0.0, 0.0, 0.0, grayval);
+
+    Ok(out_mut.into())
+}
+
+// ============================================================================
+// Phase 6: Public shear rotation API
+// ============================================================================
+
+/// Rotate an image by shear about an arbitrary center point
+///
+/// Uses 2-shear for small angles (|angle| <= ~0.06 rad) and 3-shear otherwise.
+/// The output is the same size as the input.
+///
+/// # Arguments
+/// * `pix` - Input image
+/// * `cx` - X coordinate of rotation center
+/// * `cy` - Y coordinate of rotation center
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `fill` - Background fill color
+pub fn rotate_shear(
+    pix: &Pix,
+    cx: i32,
+    cy: i32,
+    angle: f32,
+    fill: ShearFill,
+) -> TransformResult<Pix> {
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let depth = pix.depth();
+    let fill_value = fill.to_value(depth);
+
+    let out_pix = Pix::new(w, h, depth)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    if let Some(cmap) = pix.colormap() {
+        let _ = out_mut.set_colormap(Some(cmap.clone()));
+    }
+    fill_image(&mut out_mut, fill_value);
+    rotate_shear_impl(pix, &mut out_mut, angle, cx, cy, fill_value);
+
+    Ok(out_mut.into())
+}
+
+/// Rotate an image in-place by 3-shear about an arbitrary center point
+///
+/// Uses the H-V-H 3-shear sequence (Paeth's algorithm).
+/// The image must not have a colormap.
+///
+/// # Arguments
+/// * `pix` - Image to rotate in place (must not have colormap)
+/// * `cx` - X coordinate of rotation center
+/// * `cy` - Y coordinate of rotation center
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `fill` - Background fill color
+pub fn rotate_shear_ip(
+    pix: &mut PixMut,
+    cx: i32,
+    cy: i32,
+    angle: f32,
+    fill: ShearFill,
+) -> TransformResult<()> {
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(());
+    }
+
+    let hangle = angle.sin().atan();
+    let half_angle = angle / 2.0;
+
+    // H-V-H 3-shear sequence (matches pixRotateShearIP in C leptonica)
+    h_shear_ip(pix, cy, half_angle, fill)?;
+    v_shear_ip(pix, cx, hangle, fill)?;
+    h_shear_ip(pix, cy, half_angle, fill)?;
+
+    Ok(())
+}
+
+/// Rotate an image by shear about the image center
+///
+/// Equivalent to `rotate_shear` with center = (w/2, h/2).
+///
+/// # Arguments
+/// * `pix` - Input image
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `fill` - Background fill color
+pub fn rotate_shear_center(pix: &Pix, angle: f32, fill: ShearFill) -> TransformResult<Pix> {
+    let cx = (pix.width() / 2) as i32;
+    let cy = (pix.height() / 2) as i32;
+    rotate_shear(pix, cx, cy, angle, fill)
+}
+
+/// Rotate an image in-place by shear about the image center
+///
+/// Equivalent to `rotate_shear_ip` with center = (w/2, h/2).
+/// The image must not have a colormap.
+///
+/// # Arguments
+/// * `pix` - Image to rotate in place (must not have colormap)
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `fill` - Background fill color
+pub fn rotate_shear_center_ip(
+    pix: &mut PixMut,
+    angle: f32,
+    fill: ShearFill,
+) -> TransformResult<()> {
+    let cx = (pix.width() / 2) as i32;
+    let cy = (pix.height() / 2) as i32;
+    rotate_shear_ip(pix, cx, cy, angle, fill)
+}
+
+// ============================================================================
+// Phase 6: Alpha-channel rotation
+// ============================================================================
+
+/// Rotate a 32bpp image with alpha channel handling
+///
+/// Rotates the RGB channels with area-map interpolation, then separately
+/// rotates the alpha channel and combines the results.
+///
+/// # Arguments
+/// * `pix` - 32bpp input image
+/// * `angle` - Rotation angle in radians (positive = clockwise)
+/// * `alpha_pix` - Optional 8bpp alpha channel; if None, a uniform alpha
+///   derived from `fract` is used
+/// * `fract` - Alpha fill fraction in [0.0, 1.0] when `alpha_pix` is None
+///   (0.0 = fully transparent, 1.0 = fully opaque)
+pub fn rotate_with_alpha(
+    pix: &Pix,
+    angle: f32,
+    alpha_pix: Option<&Pix>,
+    fract: f32,
+) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Create or validate alpha channel
+    let alpha_owned;
+    let alpha = if let Some(a) = alpha_pix {
+        if a.depth() != PixelDepth::Bit8 {
+            return Err(TransformError::UnsupportedDepth(format!("{:?}", a.depth())));
+        }
+        if a.width() != w || a.height() != h {
+            return Err(TransformError::InvalidParameters(format!(
+                "alpha image dimensions ({}x{}) must match source image dimensions ({}x{})",
+                a.width(),
+                a.height(),
+                w,
+                h
+            )));
+        }
+        a
+    } else {
+        let a_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut a_mut = a_pix.try_into_mut().unwrap();
+        let alpha_val = (255.0 * fract.clamp(0.0, 1.0) + 0.5) as u32;
+        for y in 0..h {
+            for x in 0..w {
+                a_mut.set_pixel_unchecked(x, y, alpha_val);
+            }
+        }
+        alpha_owned = Pix::from(a_mut);
+        &alpha_owned
+    };
+
+    // Rotate the RGB image (area map, same size as input)
+    let options = RotateOptions {
+        method: RotateMethod::AreaMap,
+        fill: RotateFill::White,
+        expand: false,
+        ..Default::default()
+    };
+    let rotated = rotate(pix, angle, &options)?;
+
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        // No rotation: just copy alpha into result
+        let mut out_mut = rotated.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = out_mut.get_pixel_unchecked(x, y);
+                let a = alpha.get_pixel_unchecked(x, y) & 0xFF;
+                out_mut.set_pixel_unchecked(x, y, (pixel & 0xFFFFFF00) | a);
+            }
+        }
+        return Ok(out_mut.into());
+    }
+
+    // Rotate the alpha channel separately with area-map (same size, white border)
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    let cx = w as f32 / 2.0;
+    let cy = h as f32 / 2.0;
+
+    let alpha_out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut alpha_out = alpha_out_pix.try_into_mut().unwrap();
+    rotate_area_map_gray(alpha, &mut alpha_out, cos_a, sin_a, cx, cy, cx, cy, 255);
+    let rotated_alpha: Pix = alpha_out.into();
+
+    // Set alpha channel in rotated RGB result
+    let mut out_mut = rotated.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let pixel = out_mut.get_pixel_unchecked(x, y);
+            let a = rotated_alpha.get_pixel_unchecked(x, y) & 0xFF;
+            out_mut.set_pixel_unchecked(x, y, (pixel & 0xFFFFFF00) | a);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 /// 3-shear rotation (Paeth's algorithm)
 ///
 /// y' = y + tan(angle/2) * (x - xcen)  [first V-shear]
@@ -1708,5 +2018,101 @@ mod tests {
         };
         let rotated = rotate(&pix, 0.15, &options).unwrap(); // ~8.5 degrees
         assert_eq!(rotated.width(), 50);
+    }
+
+    // ========================================================================
+    // Phase 6: Rotation拡張テスト
+    // ========================================================================
+
+    #[test]
+    fn test_rotate_am_gray_corner_smoke() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_am_gray_corner(&pix, 0.2, RotateFill::White).unwrap();
+        assert_eq!(rotated.width(), 50);
+        assert_eq!(rotated.height(), 50);
+        assert_eq!(rotated.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_rotate_am_gray_corner_small_angle_clones() {
+        let pix = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_am_gray_corner(&pix, 0.0, RotateFill::White).unwrap();
+        assert_eq!(rotated.width(), 30);
+    }
+
+    #[test]
+    fn test_rotate_am_color_corner_smoke() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        let rotated = rotate_am_color_corner(&pix, 0.2, RotateFill::White).unwrap();
+        assert_eq!(rotated.width(), 50);
+        assert_eq!(rotated.height(), 50);
+        assert_eq!(rotated.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    fn test_rotate_am_corner_dispatches_gray() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_am_corner(&pix, 0.2, RotateFill::White).unwrap();
+        assert_eq!(rotated.depth(), PixelDepth::Bit8);
+        assert_eq!(rotated.width(), 50);
+    }
+
+    #[test]
+    fn test_rotate_am_corner_dispatches_color() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        let rotated = rotate_am_corner(&pix, 0.2, RotateFill::White).unwrap();
+        assert_eq!(rotated.depth(), PixelDepth::Bit32);
+        assert_eq!(rotated.width(), 50);
+    }
+
+    #[test]
+    fn test_rotate_shear_pub_smoke() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_shear(&pix, 25, 25, 0.1, ShearFill::White).unwrap();
+        assert_eq!(rotated.width(), 50);
+        assert_eq!(rotated.height(), 50);
+    }
+
+    #[test]
+    fn test_rotate_shear_center_smoke() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_shear_center(&pix, 0.1, ShearFill::White).unwrap();
+        assert_eq!(rotated.width(), 50);
+        assert_eq!(rotated.height(), 50);
+    }
+
+    #[test]
+    fn test_rotate_shear_ip_smoke() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        rotate_shear_ip(&mut pix_mut, 25, 25, 0.1, ShearFill::White).unwrap();
+        assert_eq!(pix_mut.width(), 50);
+        assert_eq!(pix_mut.height(), 50);
+    }
+
+    #[test]
+    fn test_rotate_shear_center_ip_smoke() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        rotate_shear_center_ip(&mut pix_mut, 0.1, ShearFill::White).unwrap();
+        assert_eq!(pix_mut.width(), 50);
+        assert_eq!(pix_mut.height(), 50);
+    }
+
+    #[test]
+    fn test_rotate_with_alpha_uniform() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        let rotated = rotate_with_alpha(&pix, 0.2, None, 0.5).unwrap();
+        assert_eq!(rotated.depth(), PixelDepth::Bit32);
+        assert_eq!(rotated.width(), 50);
+        assert_eq!(rotated.height(), 50);
+    }
+
+    #[test]
+    fn test_rotate_with_alpha_custom_alpha() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        let alpha = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        let rotated = rotate_with_alpha(&pix, 0.2, Some(&alpha), 1.0).unwrap();
+        assert_eq!(rotated.depth(), PixelDepth::Bit32);
     }
 }
