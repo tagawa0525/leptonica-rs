@@ -821,24 +821,11 @@ impl Sel {
             return Err(MorphError::InvalidParameters("PTA is empty".into()));
         }
 
-        let (x_min, y_min, x_max, y_max) = pta
-            .bounding_box()
-            .ok_or_else(|| MorphError::InvalidParameters("PTA is empty".into()))?;
-
-        if x_min < 0.0 || y_min < 0.0 {
-            return Err(MorphError::InvalidParameters(
-                "PTA points must have non-negative coordinates".into(),
-            ));
-        }
-
-        let w = x_max as u32 + 1;
-        let h = y_max as u32 + 1;
-        let mut sel = Sel::new(w, h)?;
-        sel.set_origin(cx, cy)?;
-        if let Some(n) = name {
-            sel.set_name(n);
-        }
-
+        // First pass: determine SEL width/height from the integer coordinates
+        // returned by get_i_pt (which rounds, not truncates), so size and element
+        // placement are consistent.
+        let mut max_x: i32 = 0;
+        let mut max_y: i32 = 0;
         for i in 0..pta.len() {
             let (x, y) = pta
                 .get_i_pt(i)
@@ -848,6 +835,27 @@ impl Sel {
                     "PTA point coordinates must be non-negative".into(),
                 ));
             }
+            if x > max_x {
+                max_x = x;
+            }
+            if y > max_y {
+                max_y = y;
+            }
+        }
+
+        let w = max_x as u32 + 1;
+        let h = max_y as u32 + 1;
+        let mut sel = Sel::new(w, h)?;
+        sel.set_origin(cx, cy)?;
+        if let Some(n) = name {
+            sel.set_name(n);
+        }
+
+        // Second pass: set hit elements using the same integer coordinates.
+        for i in 0..pta.len() {
+            let (x, y) = pta
+                .get_i_pt(i)
+                .ok_or_else(|| MorphError::InvalidParameters("PTA index out of bounds".into()))?;
             sel.set_element(x as u32, y as u32, SelElement::Hit);
         }
 
