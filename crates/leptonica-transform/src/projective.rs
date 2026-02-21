@@ -642,7 +642,9 @@ fn area_interp(v00: u8, v10: u8, v01: u8, v11: u8, xf: i32, yf: i32) -> u8 {
 /// * `dst_pts` - 4 destination points
 /// * `alpha_mask` - Optional 8bpp grayscale image for alpha. If `None`, uses `opacity`
 /// * `opacity` - Opacity fraction (0.0 = transparent, 1.0 = opaque). Used when `alpha_mask` is `None`
-/// * `border` - Number of border pixels for edge feathering
+/// * `border` - Number of border pixels used both for edge feathering and for the added border
+///   around the transformed image; this increases the output image dimensions by `border` pixels
+///   on each side.
 ///
 /// # Returns
 /// A 32bpp RGBA image with spp=4

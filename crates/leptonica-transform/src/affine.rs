@@ -775,7 +775,9 @@ fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
 /// * `dst_pts` - 3 destination points
 /// * `alpha_mask` - Optional 8bpp grayscale image for alpha. If `None`, uses `opacity`
 /// * `opacity` - Opacity fraction (0.0 = transparent, 1.0 = opaque). Used when `alpha_mask` is `None`
-/// * `border` - Number of border pixels for edge feathering
+/// * `border` - Number of border pixels to add around the image and alpha mask. Controls the
+///   region used for edge feathering and increases the output image size (shifting the point
+///   coordinate space by `border` pixels in both X and Y).
 ///
 /// # Returns
 /// A 32bpp RGBA image with spp=4
