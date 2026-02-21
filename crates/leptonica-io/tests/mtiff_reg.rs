@@ -16,8 +16,8 @@
 //! - TIFF to PS/PDF conversion
 
 use leptonica_io::tiff::{
-    TiffCompression, read_tiff, read_tiff_multipage, read_tiff_page, tiff_page_count, write_tiff,
-    write_tiff_multipage,
+    TiffCompression, read_tiff, read_tiff_multipage, read_tiff_page, tiff_compression,
+    tiff_page_count, write_tiff, write_tiff_multipage,
 };
 use leptonica_test::{RegParams, load_test_image, regout_dir};
 use std::fs;
@@ -273,9 +273,40 @@ fn mtiff_reg_write_multipage_from_dir() {
 }
 
 #[test]
-#[ignore = "pixWriteTiff() append mode not implemented"]
 fn mtiff_reg_append_mode() {
-    eprintln!("SKIP: TIFF append mode not yet implemented");
+    use leptonica_io::tiff::write_tiff_append;
+
+    let outdir = regout_dir();
+    fs::create_dir_all(&outdir).expect("Failed to create output directory");
+
+    // Create initial 2-page TIFF
+    let pix1 =
+        leptonica_core::Pix::new(40, 30, leptonica_core::PixelDepth::Bit8).expect("create pix1");
+    let pix2 =
+        leptonica_core::Pix::new(60, 50, leptonica_core::PixelDepth::Bit8).expect("create pix2");
+    let pages: Vec<&leptonica_core::Pix> = vec![&pix1, &pix2];
+
+    let mut buffer = Cursor::new(Vec::new());
+    write_tiff_multipage(&pages, &mut buffer, TiffCompression::Lzw).expect("write initial TIFF");
+
+    // Append a third page
+    let pix3 =
+        leptonica_core::Pix::new(80, 70, leptonica_core::PixelDepth::Bit8).expect("create pix3");
+    let existing = Cursor::new(buffer.into_inner());
+    let mut output = Cursor::new(Vec::new());
+    write_tiff_append(existing, &[&pix3], &mut output, TiffCompression::Lzw).expect("append page");
+
+    // Verify result: 3 pages with correct dimensions
+    output.set_position(0);
+    let count = tiff_page_count(output.clone()).expect("page count");
+    assert_eq!(count, 3, "expected 3 pages after append");
+
+    output.set_position(0);
+    let loaded = read_tiff_multipage(output).expect("read appended TIFF");
+    assert_eq!(loaded.len(), 3);
+    assert_eq!(loaded[0].width(), 40);
+    assert_eq!(loaded[1].width(), 60);
+    assert_eq!(loaded[2].width(), 80);
 }
 
 #[test]
@@ -312,4 +343,25 @@ fn mtiff_reg_custom_tags() {
 #[ignore = "Requires tiffGetCount, pixReadTiff(path, page), and pixWriteTiff append mode"]
 fn mtiff_reg_split_reverse() {
     eprintln!("SKIP: Split-reverse test requires append mode, not yet implemented");
+}
+
+#[test]
+fn mtiff_reg_compression_detect() {
+    let pix =
+        leptonica_core::Pix::new(16, 16, leptonica_core::PixelDepth::Bit8).expect("create pix");
+
+    // Test various compression types
+    for (comp, expected) in [
+        (TiffCompression::None, TiffCompression::None),
+        (TiffCompression::Lzw, TiffCompression::Lzw),
+        (TiffCompression::Zip, TiffCompression::Zip),
+        (TiffCompression::PackBits, TiffCompression::PackBits),
+    ] {
+        let mut buffer = Cursor::new(Vec::new());
+        write_tiff(&pix, &mut buffer, comp).expect("write TIFF");
+
+        buffer.set_position(0);
+        let detected = tiff_compression(buffer).expect("detect compression");
+        assert_eq!(detected, expected, "compression mismatch for {:?}", comp);
+    }
 }
