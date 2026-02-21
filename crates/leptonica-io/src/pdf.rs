@@ -461,7 +461,8 @@ fn encode_jpeg_for_pdf(
         75
     } else {
         options.quality
-    };
+    }
+    .clamp(1, 100);
 
     let color_type = match color_space {
         PdfColorSpace::DeviceGray => jpeg_encoder::ColorType::Luma,
