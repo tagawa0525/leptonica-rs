@@ -1,6 +1,6 @@
 # leptonica-io 全未実装関数の移植計画
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
@@ -303,6 +303,8 @@ ENDHDR
 ---
 
 ## Phase 7: PS拡張（1 PR）
+
+**Status: IMPLEMENTED** (PR #128)
 
 **C参照**: `reference/leptonica/src/psio1.c`, `psio2.c`
 
