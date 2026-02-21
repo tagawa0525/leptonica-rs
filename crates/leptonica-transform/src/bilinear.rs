@@ -566,6 +566,39 @@ fn area_interp(v00: u8, v10: u8, v01: u8, v11: u8, xf: i32, yf: i32) -> u8 {
     val.clamp(0, 255) as u8
 }
 
+// ============================================================================
+// WithAlpha Bilinear Transformation
+// ============================================================================
+
+/// Apply a bilinear transformation preserving the alpha channel
+///
+/// This is equivalent to Leptonica's `pixBilinearPtaWithAlpha`.
+///
+/// The function transforms the RGB and alpha channels independently using
+/// the same geometric mapping. This allows precise blending control—pixels
+/// outside the transformed boundary become fully transparent.
+///
+/// # Arguments
+/// * `pix` - Input 32bpp image (with or without alpha)
+/// * `src_pts` - 4 source points
+/// * `dst_pts` - 4 destination points
+/// * `alpha_mask` - Optional 8bpp grayscale image for alpha. If `None`, uses `opacity`
+/// * `opacity` - Opacity fraction (0.0 = transparent, 1.0 = opaque). Used when `alpha_mask` is `None`
+/// * `border` - Number of border pixels for edge feathering
+///
+/// # Returns
+/// A 32bpp RGBA image with spp=4
+pub fn bilinear_pta_with_alpha(
+    _pix: &Pix,
+    _src_pts: [Point; 4],
+    _dst_pts: [Point; 4],
+    _alpha_mask: Option<&Pix>,
+    _opacity: f32,
+    _border: u32,
+) -> TransformResult<Pix> {
+    todo!("bilinear_pta_with_alpha not yet implemented")
+}
+
 /// Fill an image with a constant value
 fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
     let w = pix.width();
@@ -901,6 +934,66 @@ mod tests {
                 assert_eq!(val, 0, "Expected black fill at ({}, {})", x, y);
             }
         }
+    }
+
+    // ========================================================================
+    // WithAlpha tests
+    // ========================================================================
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_bilinear_pta_with_alpha_basic() {
+        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_spp(4);
+        for y in 0..50u32 {
+            for x in 0..50u32 {
+                let pixel = color::compose_rgba((x * 5) as u8, (y * 5) as u8, 128, 255);
+                pm.set_pixel_unchecked(x, y, pixel);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let src = [
+            Point::new(0.0, 0.0),
+            Point::new(49.0, 0.0),
+            Point::new(0.0, 49.0),
+            Point::new(49.0, 49.0),
+        ];
+        let dst = [
+            Point::new(2.0, 2.0),
+            Point::new(47.0, 2.0),
+            Point::new(2.0, 47.0),
+            Point::new(47.0, 47.0),
+        ];
+
+        let result = bilinear_pta_with_alpha(&pix, src, dst, None, 1.0, 10).unwrap();
+
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        assert_eq!(result.spp(), 4);
+        assert_eq!(result.width(), 70);
+        assert_eq!(result.height(), 70);
+
+        // Border pixels should have alpha = 0
+        assert_eq!(color::alpha(result.get_pixel_unchecked(0, 0)), 0);
+
+        // Interior pixels should have non-zero alpha
+        let center_pixel = result.get_pixel_unchecked(35, 35);
+        assert!(color::alpha(center_pixel) > 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_bilinear_pta_with_alpha_invalid_depth() {
+        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let pts = [
+            Point::new(0.0, 0.0),
+            Point::new(19.0, 0.0),
+            Point::new(0.0, 19.0),
+            Point::new(19.0, 19.0),
+        ];
+        let result = bilinear_pta_with_alpha(&pix, pts, pts, None, 1.0, 5);
+        assert!(result.is_err());
     }
 
     // ========================================================================
