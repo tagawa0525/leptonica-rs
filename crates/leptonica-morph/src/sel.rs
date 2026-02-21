@@ -973,10 +973,12 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
         sels.push(sel);
     }
 
-    // sel_3de: top edge detector (2×3, origin (0,1))
+    // sel_3de: top edge detector (3×2, origin cx=1 cy=0)
+    // C: selCreateBrick(sy=2, sx=3, cy=0, cx=1, SEL_HIT)
     // Row 0: all Hit; Row 1: all Miss
     if let Ok(mut sel) = Sel::create_brick(3, 2) {
-        sel.set_origin(0, 1).ok();
+        sel.set_origin(1, 0)
+            .expect("sel_3de origin is within bounds");
         sel.set_element(0, 1, SelElement::Miss);
         sel.set_element(1, 1, SelElement::Miss);
         sel.set_element(2, 1, SelElement::Miss);
@@ -984,10 +986,12 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
         sels.push(sel);
     }
 
-    // sel_3ue: bottom edge detector (2×3, origin (1,1))
+    // sel_3ue: bottom edge detector (3×2, origin cx=1 cy=1)
+    // C: selCreateBrick(sy=2, sx=3, cy=1, cx=1, SEL_HIT)
     // Row 0: all Miss; Row 1: all Hit
     if let Ok(mut sel) = Sel::create_brick(3, 2) {
-        sel.set_origin(1, 1).ok();
+        sel.set_origin(1, 1)
+            .expect("sel_3ue origin is within bounds");
         sel.set_element(0, 0, SelElement::Miss);
         sel.set_element(1, 0, SelElement::Miss);
         sel.set_element(2, 0, SelElement::Miss);
@@ -995,10 +999,12 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
         sels.push(sel);
     }
 
-    // sel_3re: right edge detector (3×2, origin (1,0))
+    // sel_3re: right edge detector (2×3, origin cx=0 cy=1)
+    // C: selCreateBrick(sy=3, sx=2, cy=1, cx=0, SEL_HIT)
     // Col 0: all Hit; Col 1: all Miss
     if let Ok(mut sel) = Sel::create_brick(2, 3) {
-        sel.set_origin(1, 0).ok();
+        sel.set_origin(0, 1)
+            .expect("sel_3re origin is within bounds");
         sel.set_element(1, 0, SelElement::Miss);
         sel.set_element(1, 1, SelElement::Miss);
         sel.set_element(1, 2, SelElement::Miss);
@@ -1006,10 +1012,12 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
         sels.push(sel);
     }
 
-    // sel_3le: left edge detector (3×2, origin (1,1))
+    // sel_3le: left edge detector (2×3, origin cx=1 cy=1)
+    // C: selCreateBrick(sy=3, sx=2, cy=1, cx=1, SEL_HIT)
     // Col 0: all Miss; Col 1: all Hit
     if let Ok(mut sel) = Sel::create_brick(2, 3) {
-        sel.set_origin(1, 1).ok();
+        sel.set_origin(1, 1)
+            .expect("sel_3le origin is within bounds");
         sel.set_element(0, 0, SelElement::Miss);
         sel.set_element(0, 1, SelElement::Miss);
         sel.set_element(0, 2, SelElement::Miss);
@@ -1017,9 +1025,10 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
         sels.push(sel);
     }
 
-    // sel_sl1: slanted edge (width=6, height=13, origin cx=3 cy=6)
+    // sel_sl1: slanted edge (width=6, height=13, origin cx=2 cy=6)
+    // C: selCreateBrick(sy=13, sx=6, cy=6, cx=2, SEL_DONT_CARE)
     if let Ok(mut sel) = Sel::new(6, 13) {
-        sel.set_origin(3, 6)
+        sel.set_origin(2, 6)
             .expect("sel_sl1 origin is within bounds");
         sel.set_element(3, 0, SelElement::Miss);
         sel.set_element(5, 0, SelElement::Hit);
@@ -1058,8 +1067,9 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
     }
 
     // sel_urc: upper-right corner
+    // C: selCreateBrick(sy=4, sx=4, cy=1, cx=2, SEL_MISS)
     if let Ok(mut sel) = Sel::create_brick(4, 4) {
-        sel.set_origin(1, 2)
+        sel.set_origin(2, 1)
             .expect("sel_urc origin is within bounds");
         for y in 0u32..4 {
             for x in 0u32..4 {
@@ -1080,10 +1090,11 @@ pub fn sela_add_hit_miss() -> Vec<Sel> {
     }
 
     // sel_llc: lower-left corner
+    // C: selCreateBrick(sy=4, sx=4, cy=2, cx=1, SEL_MISS)
     // Hits at (row,col): (0,1)(0,2)(0,3)(1,2)(1,3)(2,3) [C notation]
     // → set_element(col, row, val) in Rust API
     if let Ok(mut sel) = Sel::create_brick(4, 4) {
-        sel.set_origin(2, 1)
+        sel.set_origin(1, 2)
             .expect("sel_llc origin is within bounds");
         for y in 0u32..4 {
             for x in 0u32..4 {
