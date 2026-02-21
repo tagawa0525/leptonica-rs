@@ -473,6 +473,256 @@ fn scale_smooth_color(
     Ok(out_mut.into())
 }
 
+// --- Phase 4: 1bpp→8bpp scale-to-gray functions ---
+
+/// Scale a 1bpp binary image to 8bpp grayscale using optimal integer reduction.
+///
+/// Dispatches to the most appropriate `scale_to_gray_N` function based on `scale_factor`.
+/// For scale factors that are not exact powers-of-two-reciprocals, binary pre-scaling
+/// is applied before the nearest integer `scale_to_gray_N` step.
+///
+/// `scale_factor` must be in (0.0, 1.0).
+pub fn scale_to_gray(pix: &Pix, scale_factor: f32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::InvalidParameters(
+            "scale_to_gray requires 1bpp input".to_string(),
+        ));
+    }
+    if scale_factor <= 0.0 || scale_factor >= 1.0 {
+        return Err(TransformError::InvalidParameters(
+            "scale_factor must be in (0.0, 1.0)".to_string(),
+        ));
+    }
+
+    if scale_factor > 0.5 {
+        let mag = 2.0 * scale_factor;
+        let pre = scale_binary(pix, mag, mag)?;
+        scale_to_gray_2(&pre)
+    } else if scale_factor == 0.5 {
+        scale_to_gray_2(pix)
+    } else if scale_factor > 1.0 / 3.0 {
+        let mag = 3.0 * scale_factor;
+        let pre = scale_binary(pix, mag, mag)?;
+        scale_to_gray_3(&pre)
+    } else if scale_factor > 0.25 {
+        let mag = 4.0 * scale_factor;
+        let pre = scale_binary(pix, mag, mag)?;
+        scale_to_gray_4(&pre)
+    } else if scale_factor == 0.25 {
+        scale_to_gray_4(pix)
+    } else if scale_factor > 1.0 / 6.0 {
+        let mag = 6.0 * scale_factor;
+        let pre = scale_binary(pix, mag, mag)?;
+        scale_to_gray_6(&pre)
+    } else if scale_factor > 0.125 {
+        let mag = 8.0 * scale_factor;
+        let pre = scale_binary(pix, mag, mag)?;
+        scale_to_gray_8(&pre)
+    } else if scale_factor == 0.125 {
+        scale_to_gray_8(pix)
+    } else if scale_factor > 0.0625 {
+        let red = 8.0 * scale_factor;
+        let pre = scale_binary(pix, red, red)?;
+        scale_to_gray_8(&pre)
+    } else if scale_factor == 0.0625 {
+        scale_to_gray_16(pix)
+    } else {
+        let red = 16.0 * scale_factor;
+        let pre = scale_to_gray_16(pix)?;
+        if red < 0.7 {
+            scale_smooth(&pre, red, red)
+        } else {
+            scale_gray_li(&pre, red, red)
+        }
+    }
+}
+
+/// Faster variant of [`scale_to_gray`] for scale factors in [0.0625, 0.5].
+///
+/// Binary downscaling is applied first, followed by `scale_to_gray_2`.
+/// Quality is slightly lower than [`scale_to_gray`] but computation is faster.
+pub fn scale_to_gray_fast(pix: &Pix, scale_factor: f32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::InvalidParameters(
+            "scale_to_gray_fast requires 1bpp input".to_string(),
+        ));
+    }
+    if scale_factor <= 0.0 || scale_factor >= 1.0 {
+        return Err(TransformError::InvalidParameters(
+            "scale_factor must be in (0.0, 1.0)".to_string(),
+        ));
+    }
+
+    let eps = 0.0001;
+    // Exact special cases
+    if (scale_factor - 0.5).abs() < eps {
+        return scale_to_gray_2(pix);
+    } else if (scale_factor - 1.0 / 3.0).abs() < eps {
+        return scale_to_gray_3(pix);
+    } else if (scale_factor - 0.25).abs() < eps {
+        return scale_to_gray_4(pix);
+    } else if (scale_factor - 1.0 / 6.0).abs() < eps {
+        return scale_to_gray_6(pix);
+    } else if (scale_factor - 0.125).abs() < eps {
+        return scale_to_gray_8(pix);
+    } else if (scale_factor - 0.0625).abs() < eps {
+        return scale_to_gray_16(pix);
+    }
+
+    if scale_factor > 0.0625 {
+        let factor = 2.0 * scale_factor;
+        let pre = scale_binary(pix, factor, factor)?;
+        scale_to_gray_2(&pre)
+    } else {
+        let factor = 16.0 * scale_factor;
+        let pre = scale_to_gray_16(pix)?;
+        if factor < 0.7 {
+            scale_smooth(&pre, factor, factor)
+        } else {
+            scale_gray_li(&pre, factor, factor)
+        }
+    }
+}
+
+/// Scale a 1bpp image to 8bpp by averaging 2×2 pixel blocks.
+///
+/// Each output pixel represents the fraction of white pixels in a 2×2 source block
+/// (0 = all black, 255 = all white).
+/// Output dimensions: `(w/2, h/2)`.
+pub fn scale_to_gray_2(pix: &Pix) -> TransformResult<Pix> {
+    scale_to_gray_n(pix, 2)
+}
+
+/// Scale a 1bpp image to 8bpp by averaging 3×3 pixel blocks.
+/// Output dimensions: `(w/3, h/3)`.
+pub fn scale_to_gray_3(pix: &Pix) -> TransformResult<Pix> {
+    scale_to_gray_n(pix, 3)
+}
+
+/// Scale a 1bpp image to 8bpp by averaging 4×4 pixel blocks.
+/// Output dimensions: `(w/4, h/4)`.
+pub fn scale_to_gray_4(pix: &Pix) -> TransformResult<Pix> {
+    scale_to_gray_n(pix, 4)
+}
+
+/// Scale a 1bpp image to 8bpp by averaging 6×6 pixel blocks.
+/// Output dimensions: `(w/6, h/6)`.
+pub fn scale_to_gray_6(pix: &Pix) -> TransformResult<Pix> {
+    scale_to_gray_n(pix, 6)
+}
+
+/// Scale a 1bpp image to 8bpp by averaging 8×8 pixel blocks.
+/// Output dimensions: `(w/8, h/8)`.
+pub fn scale_to_gray_8(pix: &Pix) -> TransformResult<Pix> {
+    scale_to_gray_n(pix, 8)
+}
+
+/// Scale a 1bpp image to 8bpp by averaging 16×16 pixel blocks.
+/// Output dimensions: `(w/16, h/16)`.
+pub fn scale_to_gray_16(pix: &Pix) -> TransformResult<Pix> {
+    scale_to_gray_n(pix, 16)
+}
+
+/// Generic N×N scale-to-gray for 1bpp input.
+/// For each N×N block, counts white (0) pixels and maps to 0-255.
+fn scale_to_gray_n(pix: &Pix, n: u32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::InvalidParameters(format!(
+            "scale_to_gray_{n} requires 1bpp input"
+        )));
+    }
+    let ws = pix.width();
+    let hs = pix.height();
+    let wd = ws / n;
+    let hd = hs / n;
+    if wd == 0 || hd == 0 {
+        return Err(TransformError::InvalidParameters(format!(
+            "image too small for scale_to_gray_{n}: {ws}x{hs}"
+        )));
+    }
+
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    let total = n * n;
+
+    for yd in 0..hd {
+        for xd in 0..wd {
+            let mut white_count: u32 = 0;
+            for dy in 0..n {
+                let ys = yd * n + dy;
+                for dx in 0..n {
+                    let xs = xd * n + dx;
+                    if xs < ws && ys < hs {
+                        // 1bpp: 0 = white, 1 = black
+                        if pix.get_pixel_unchecked(xs, ys) == 0 {
+                            white_count += 1;
+                        }
+                    }
+                }
+            }
+            let gray = ((white_count * 255 + total / 2) / total).min(255);
+            out_mut.set_pixel_unchecked(xd, yd, gray);
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Replicate each pixel `factor` times in each direction.
+///
+/// All pixel depths (1, 2, 4, 8, 16, 32 bpp) are supported.
+/// A factor of 1 returns a copy.
+pub fn expand_replicate(pix: &Pix, factor: u32) -> TransformResult<Pix> {
+    if factor == 0 {
+        return Err(TransformError::InvalidParameters(
+            "factor must be >= 1".to_string(),
+        ));
+    }
+    if factor == 1 {
+        return Ok(pix.deep_clone());
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let new_w = w.checked_mul(factor).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled width would overflow u32".to_string())
+    })?;
+    let new_h = h.checked_mul(factor).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled height would overflow u32".to_string())
+    })?;
+    let depth = pix.depth();
+
+    let out = Pix::new(new_w, new_h, depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    if let Some(cmap) = pix.colormap() {
+        let _ = out_mut.set_colormap(Some(cmap.clone()));
+    }
+    out_mut.set_spp(pix.spp());
+
+    for ys in 0..h {
+        for xs in 0..w {
+            let val = pix.get_pixel_unchecked(xs, ys);
+            for dy in 0..factor {
+                for dx in 0..factor {
+                    out_mut.set_pixel_unchecked(xs * factor + dx, ys * factor + dy, val);
+                }
+            }
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Scale a 1bpp binary image using nearest-neighbor sampling.
+///
+/// This is equivalent to [`scale_by_sampling_with_shift`] with `shift = 0.5`
+/// applied to a 1bpp image.
+pub fn scale_binary(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::InvalidParameters(
+            "scale_binary requires 1bpp input".to_string(),
+        ));
+    }
+    scale_by_sampling_with_shift(pix, scale_x, scale_y, 0.5, 0.5)
+}
+
 /// Internal sampling implementation
 fn scale_by_sampling_impl(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
     let w = pix.width();
@@ -1138,5 +1388,164 @@ mod tests {
         let scaled = scale_smooth(&pix, 0.5, 0.5).unwrap();
         assert_eq!((scaled.width(), scaled.height()), (10, 10));
         assert_eq!(scaled.depth(), PixelDepth::Bit32);
+    }
+
+    // --- Phase 4: Scale拡張 - 1bpp→8bpp変換 ---
+
+    fn make_1bpp(w: u32, h: u32, vals: &[(u32, u32, u32)]) -> Pix {
+        let pix = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for &(x, y, v) in vals {
+            pix_mut.set_pixel_unchecked(x, y, v);
+        }
+        pix_mut.into()
+    }
+
+    #[test]
+    fn test_scale_to_gray_2_dims() {
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray_2(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_2_all_white() {
+        // 1bpp: all 0 (white) → 8bpp: all 255
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray_2(&pix).unwrap();
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 255);
+        assert_eq!(out.get_pixel(3, 3).unwrap(), 255);
+    }
+
+    #[test]
+    fn test_scale_to_gray_2_all_black() {
+        // 1bpp: all 1 (black) → 8bpp: all 0
+        let vals: Vec<(u32, u32, u32)> = (0..8)
+            .flat_map(|y| (0..8u32).map(move |x| (x, y, 1)))
+            .collect();
+        let pix = make_1bpp(8, 8, &vals);
+        let out = scale_to_gray_2(&pix).unwrap();
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_scale_to_gray_2_half_black() {
+        // Top row of each 2x2 block is black → half pixels black → gray ≈ 127-128
+        let vals: Vec<(u32, u32, u32)> = (0..8u32)
+            .flat_map(|y| (0..8u32).map(move |x| (x, y, if y % 2 == 0 { 1 } else { 0 })))
+            .collect();
+        let pix = make_1bpp(8, 8, &vals);
+        let out = scale_to_gray_2(&pix).unwrap();
+        let v = out.get_pixel(0, 0).unwrap();
+        assert!(v == 127 || v == 128, "expected ~128 but got {v}");
+    }
+
+    #[test]
+    fn test_scale_to_gray_4_dims() {
+        let pix = make_1bpp(16, 16, &[]);
+        let out = scale_to_gray_4(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_8_dims() {
+        let pix = make_1bpp(32, 32, &[]);
+        let out = scale_to_gray_8(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_3_dims() {
+        let pix = make_1bpp(12, 12, &[]);
+        let out = scale_to_gray_3(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_6_dims() {
+        let pix = make_1bpp(24, 24, &[]);
+        let out = scale_to_gray_6(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_16_dims() {
+        let pix = make_1bpp(64, 64, &[]);
+        let out = scale_to_gray_16(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_general_half() {
+        // scale=0.5 should give same as scale_to_gray_2
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray(&pix, 0.5).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_general_quarter() {
+        let pix = make_1bpp(16, 16, &[]);
+        let out = scale_to_gray(&pix, 0.25).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_scale_to_gray_fast_half() {
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray_fast(&pix, 0.5).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_expand_replicate_8bpp() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, 100);
+        pix_mut.set_pixel_unchecked(1, 0, 200);
+        pix_mut.set_pixel_unchecked(0, 1, 50);
+        pix_mut.set_pixel_unchecked(1, 1, 150);
+        let pix: Pix = pix_mut.into();
+        let out = expand_replicate(&pix, 3).unwrap();
+        assert_eq!((out.width(), out.height()), (6, 6));
+        // Each 3x3 block must have the same value
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 100);
+        assert_eq!(out.get_pixel(2, 2).unwrap(), 100);
+        assert_eq!(out.get_pixel(3, 0).unwrap(), 200);
+        assert_eq!(out.get_pixel(5, 0).unwrap(), 200);
+        assert_eq!(out.get_pixel(0, 3).unwrap(), 50);
+        assert_eq!(out.get_pixel(3, 3).unwrap(), 150);
+    }
+
+    #[test]
+    fn test_expand_replicate_factor1() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let out = expand_replicate(&pix, 1).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+    }
+
+    #[test]
+    fn test_scale_binary_upscale() {
+        let pix = make_1bpp(4, 4, &[(1, 1, 1)]);
+        let out = scale_binary(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((out.width(), out.height()), (8, 8));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    fn test_scale_binary_downscale() {
+        let pix = make_1bpp(8, 8, &[(1, 1, 1), (4, 4, 1)]);
+        let out = scale_binary(&pix, 0.5, 0.5).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
     }
 }
