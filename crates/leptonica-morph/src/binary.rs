@@ -389,17 +389,12 @@ pub fn close_safe(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 ///
 /// # Arguments
 /// * `pix` - 1 bpp input image
-/// * `hsize` - Horizontal size of the brick (must be >= 1)
-/// * `vsize` - Vertical size of the brick (must be >= 1)
+/// * `hsize` - Horizontal size of the brick
+/// * `vsize` - Vertical size of the brick
 ///
 /// Based on C leptonica `pixCloseSafeBrick`.
 pub fn close_safe_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
-    if hsize < 1 || vsize < 1 {
-        return Err(MorphError::InvalidParameters(
-            "hsize and vsize must be >= 1".into(),
-        ));
-    }
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
@@ -414,35 +409,21 @@ pub fn close_safe_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 /// Close a binary image safely using composite brick decomposition.
 ///
 /// Like `close_safe_brick` but uses composite (factored) structuring elements
-/// for improved efficiency on large bricks. Uses the same border padding
-/// as `close_safe_brick`.
+/// for improved efficiency on large bricks. In this Rust implementation,
+/// `close_safe_brick` already uses composite decomposition internally
+/// (via `dilate_brick`/`erode_brick`), so this delegates to it.
 ///
 /// # Arguments
 /// * `pix` - 1 bpp input image
-/// * `hsize` - Horizontal size of the brick (must be >= 1)
-/// * `vsize` - Vertical size of the brick (must be >= 1)
+/// * `hsize` - Horizontal size of the brick
+/// * `vsize` - Vertical size of the brick
 ///
 /// Based on C leptonica `pixCloseSafeCompBrick`.
 pub fn close_safe_comp_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    check_binary(pix)?;
-    if hsize < 1 || vsize < 1 {
-        return Err(MorphError::InvalidParameters(
-            "hsize and vsize must be >= 1".into(),
-        ));
-    }
-    if hsize == 1 && vsize == 1 {
-        return Ok(pix.clone());
-    }
-    let maxtrans = (hsize / 2).max(vsize / 2);
-    // Round up to nearest multiple of 32 (full 32-bit words for rasterop alignment)
-    let bordsize = maxtrans.div_ceil(32) * 32;
-    let padded = pix.add_border(bordsize, 0)?;
-    // Composite closing: dilate then erode using composite 1D decomposition
-    let dil_h: Pix = dilate_1d_composite(&padded, hsize, true)?.into();
-    let dil_hv: Pix = dilate_1d_composite(&dil_h, vsize, false)?.into();
-    let ero_h: Pix = erode_1d_composite(&dil_hv, hsize, true)?.into();
-    let closed: Pix = erode_1d_composite(&ero_h, vsize, false)?.into();
-    Ok(closed.remove_border(bordsize)?)
+    // close_brick internally uses composite decomposition via
+    // dilate_1d_composite/erode_1d_composite, so close_safe_brick
+    // already provides the composite behavior with proper bit clearing.
+    close_safe_brick(pix, hsize, vsize)
 }
 
 /// Generalized morphological opening: Hit-Miss Transform followed by dilation.
@@ -1305,7 +1286,6 @@ mod tests {
     // --- close_safe tests ---
 
     #[test]
-
     fn test_close_safe_identity_on_1x1_sel() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(1, 1).unwrap();
@@ -1315,7 +1295,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_safe_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(5, 5).unwrap();
@@ -1325,7 +1304,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_safe_at_least_as_large_as_close() {
         // close_safe should produce a superset of close (no pixels are eroded at border)
         let pix = create_rasterop_test_image();
@@ -1338,7 +1316,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_safe_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1349,7 +1326,6 @@ mod tests {
     // --- close_safe_brick tests ---
 
     #[test]
-
     fn test_close_safe_brick_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let result = close_safe_brick(&pix, 5, 5).unwrap();
@@ -1358,7 +1334,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_safe_brick_identity_1x1() {
         let pix = create_rasterop_test_image();
         let result = close_safe_brick(&pix, 1, 1).unwrap();
@@ -1366,7 +1341,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_safe_brick_at_least_as_large_as_close_brick() {
         let pix = create_rasterop_test_image();
         let safe = close_safe_brick(&pix, 5, 5).unwrap();
@@ -1375,7 +1349,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_safe_brick_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let result = close_safe_brick(&pix, 3, 3);
@@ -1385,21 +1358,21 @@ mod tests {
     // --- close_safe_comp_brick tests ---
 
     #[test]
-
     fn test_close_safe_comp_brick_matches_close_safe_brick() {
         let pix = create_rasterop_test_image();
-        // For non-composite sizes, both should give the same result
-        for &(h, v) in &[(5u32, 5u32), (3, 7), (1, 5)] {
+        for &(h, v) in &[(5u32, 5u32), (3, 7), (1, 5), (9, 9)] {
             let comp = close_safe_comp_brick(&pix, h, v).unwrap();
             let regular = close_safe_brick(&pix, h, v).unwrap();
-            // May differ slightly for composite-factored sizes, but should have similar count
-            let _ = comp; // Just verify no panic
-            let _ = regular;
+            assert!(
+                comp.equals(&regular),
+                "close_safe_comp_brick({}, {}) != close_safe_brick",
+                h,
+                v
+            );
         }
     }
 
     #[test]
-
     fn test_close_safe_comp_brick_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let result = close_safe_comp_brick(&pix, 10, 10).unwrap();
@@ -1410,7 +1383,6 @@ mod tests {
     // --- open_generalized tests ---
 
     #[test]
-
     fn test_open_generalized_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1419,7 +1391,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_open_generalized_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1429,7 +1400,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_open_generalized_produces_subset() {
         // Generalized opening always produces a subset (fewer or equal ON pixels)
         let pix = create_rasterop_test_image();
@@ -1441,7 +1411,6 @@ mod tests {
     // --- close_generalized tests ---
 
     #[test]
-
     fn test_close_generalized_requires_1bpp() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1450,7 +1419,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_generalized_preserves_dimensions() {
         let pix = create_rasterop_test_image();
         let sel = Sel::create_brick(3, 3).unwrap();
@@ -1460,7 +1428,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_close_generalized_produces_superset() {
         // For a pure-hit SEL, close_generalized = dilate then HMT = dilate then erode = close.
         // With asymmetric boundary conditions closing is NOT necessarily extensive
