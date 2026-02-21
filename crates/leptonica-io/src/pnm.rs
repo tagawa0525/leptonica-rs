@@ -700,21 +700,23 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
     let pix = Pix::new(w, h, pix_depth)?;
     let mut pix_mut = pix.try_into_mut().unwrap();
 
+    // Read pixel data (row-buffered for performance)
+    let bytes_per_sample = if mv > 255 { 2usize } else { 1 };
+    let row_bytes = w as usize * spp as usize * bytes_per_sample;
+    let mut row_buf = vec![0u8; row_bytes];
+
     match spp {
         1 => {
             // Grayscale / binary
             for y in 0..h {
+                reader.read_exact(&mut row_buf).map_err(IoError::Io)?;
                 for x in 0..w {
                     if bps == 16 {
-                        // 16-bit grayscale: read two bytes per sample (big-endian)
-                        let mut buf = [0u8; 2];
-                        reader.read_exact(&mut buf).map_err(IoError::Io)?;
-                        let val = u16::from_be_bytes(buf) as u32;
+                        let idx = x as usize * 2;
+                        let val = u16::from_be_bytes([row_buf[idx], row_buf[idx + 1]]) as u32;
                         pix_mut.set_pixel_unchecked(x, y, val);
                     } else {
-                        let mut buf = [0u8; 1];
-                        reader.read_exact(&mut buf).map_err(IoError::Io)?;
-                        let val = buf[0] & mask8;
+                        let val = row_buf[x as usize] & mask8;
                         let val = if bps == 1 { val ^ 1 } else { val }; // PAM white-is-1 → leptonica 0=white
                         pix_mut.set_pixel_unchecked(x, y, val as u32);
                     }
@@ -724,19 +726,20 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         2 => {
             // Grayscale + alpha → 32bpp
             pix_mut.set_spp(4);
-            let bytes_per_sample = if mv > 255 { 2 } else { 1 };
-            let mut sample_buf = vec![0u8; 2 * bytes_per_sample];
             for y in 0..h {
+                reader.read_exact(&mut row_buf).map_err(IoError::Io)?;
                 for x in 0..w {
-                    reader.read_exact(&mut sample_buf).map_err(IoError::Io)?;
+                    let idx = x as usize * 2 * bytes_per_sample;
                     let (g, a) = if bytes_per_sample == 2 {
-                        let g = read_sample_16(&sample_buf[0..2], mv);
-                        let a = read_sample_16(&sample_buf[2..4], mv);
-                        (g, a)
+                        (
+                            read_sample_16(&row_buf[idx..idx + 2], mv),
+                            read_sample_16(&row_buf[idx + 2..idx + 4], mv),
+                        )
                     } else {
-                        let g = scale_sample(sample_buf[0] & mask8, mv);
-                        let a = scale_sample(sample_buf[1] & mask8, mv);
-                        (g, a)
+                        (
+                            scale_sample(row_buf[idx] & mask8, mv),
+                            scale_sample(row_buf[idx + 1] & mask8, mv),
+                        )
                     };
                     let pixel = color::compose_rgba(g, g, g, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
@@ -746,22 +749,21 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         3 => {
             // RGB
             pix_mut.set_spp(3);
-            let bytes_per_sample = if mv > 255 { 2 } else { 1 };
-            let mut sample_buf = vec![0u8; 3 * bytes_per_sample];
             for y in 0..h {
+                reader.read_exact(&mut row_buf).map_err(IoError::Io)?;
                 for x in 0..w {
-                    reader.read_exact(&mut sample_buf).map_err(IoError::Io)?;
+                    let idx = x as usize * 3 * bytes_per_sample;
                     let (r, g, b) = if bytes_per_sample == 2 {
                         (
-                            read_sample_16(&sample_buf[0..2], mv),
-                            read_sample_16(&sample_buf[2..4], mv),
-                            read_sample_16(&sample_buf[4..6], mv),
+                            read_sample_16(&row_buf[idx..idx + 2], mv),
+                            read_sample_16(&row_buf[idx + 2..idx + 4], mv),
+                            read_sample_16(&row_buf[idx + 4..idx + 6], mv),
                         )
                     } else {
                         (
-                            scale_sample(sample_buf[0] & mask8, mv),
-                            scale_sample(sample_buf[1] & mask8, mv),
-                            scale_sample(sample_buf[2] & mask8, mv),
+                            scale_sample(row_buf[idx] & mask8, mv),
+                            scale_sample(row_buf[idx + 1] & mask8, mv),
+                            scale_sample(row_buf[idx + 2] & mask8, mv),
                         )
                     };
                     let pixel = color::compose_rgb(r, g, b);
@@ -772,24 +774,23 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         4 => {
             // RGBA
             pix_mut.set_spp(4);
-            let bytes_per_sample = if mv > 255 { 2 } else { 1 };
-            let mut sample_buf = vec![0u8; 4 * bytes_per_sample];
             for y in 0..h {
+                reader.read_exact(&mut row_buf).map_err(IoError::Io)?;
                 for x in 0..w {
-                    reader.read_exact(&mut sample_buf).map_err(IoError::Io)?;
+                    let idx = x as usize * 4 * bytes_per_sample;
                     let (r, g, b, a) = if bytes_per_sample == 2 {
                         (
-                            read_sample_16(&sample_buf[0..2], mv),
-                            read_sample_16(&sample_buf[2..4], mv),
-                            read_sample_16(&sample_buf[4..6], mv),
-                            read_sample_16(&sample_buf[6..8], mv),
+                            read_sample_16(&row_buf[idx..idx + 2], mv),
+                            read_sample_16(&row_buf[idx + 2..idx + 4], mv),
+                            read_sample_16(&row_buf[idx + 4..idx + 6], mv),
+                            read_sample_16(&row_buf[idx + 6..idx + 8], mv),
                         )
                     } else {
                         (
-                            scale_sample(sample_buf[0] & mask8, mv),
-                            scale_sample(sample_buf[1] & mask8, mv),
-                            scale_sample(sample_buf[2] & mask8, mv),
-                            scale_sample(sample_buf[3] & mask8, mv),
+                            scale_sample(row_buf[idx] & mask8, mv),
+                            scale_sample(row_buf[idx + 1] & mask8, mv),
+                            scale_sample(row_buf[idx + 2] & mask8, mv),
+                            scale_sample(row_buf[idx + 3] & mask8, mv),
                         )
                     };
                     let pixel = color::compose_rgba(r, g, b, a);
@@ -800,7 +801,6 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
         _ => unreachable!(),
     }
 
-    // Note tupltype but don't use it to override pix_depth determination
     let _ = tupltype;
 
     Ok(pix_mut.into())
@@ -876,81 +876,62 @@ pub fn write_pam<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     writeln!(writer, "TUPLTYPE {}", tupltype).map_err(IoError::Io)?;
     writeln!(writer, "ENDHDR").map_err(IoError::Io)?;
 
-    // Pixel data
+    // Pixel data (row-buffered for performance)
     match pix.depth() {
         PixelDepth::Bit1 => {
             // 1 byte per pixel; PAM uses white-is-1 photometry (flip leptonica convention)
+            let mut row_buf = vec![0u8; width as usize];
             for y in 0..height {
                 for x in 0..width {
                     let val = pix.get_pixel_unchecked(x, y);
-                    let byte = (val ^ 1) as u8; // flip: leptonica 1=black → PAM 0=black
-                    writer.write_all(&[byte]).map_err(IoError::Io)?;
+                    row_buf[x as usize] = (val ^ 1) as u8;
                 }
+                writer.write_all(&row_buf).map_err(IoError::Io)?;
             }
         }
-        PixelDepth::Bit2 => {
+        PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8 => {
+            let mut row_buf = vec![0u8; width as usize];
             for y in 0..height {
                 for x in 0..width {
-                    let val = pix.get_pixel_unchecked(x, y) as u8;
-                    writer.write_all(&[val]).map_err(IoError::Io)?;
+                    row_buf[x as usize] = pix.get_pixel_unchecked(x, y) as u8;
                 }
-            }
-        }
-        PixelDepth::Bit4 => {
-            for y in 0..height {
-                for x in 0..width {
-                    let val = pix.get_pixel_unchecked(x, y) as u8;
-                    writer.write_all(&[val]).map_err(IoError::Io)?;
-                }
-            }
-        }
-        PixelDepth::Bit8 => {
-            for y in 0..height {
-                for x in 0..width {
-                    let val = pix.get_pixel_unchecked(x, y) as u8;
-                    writer.write_all(&[val]).map_err(IoError::Io)?;
-                }
+                writer.write_all(&row_buf).map_err(IoError::Io)?;
             }
         }
         PixelDepth::Bit16 => {
+            let mut row_buf = vec![0u8; (width * 2) as usize];
             for y in 0..height {
                 for x in 0..width {
                     let val = pix.get_pixel_unchecked(x, y) as u16;
-                    // PAM 16-bit values are stored big-endian
-                    writer.write_all(&val.to_be_bytes()).map_err(IoError::Io)?;
+                    let idx = (x * 2) as usize;
+                    row_buf[idx..idx + 2].copy_from_slice(&val.to_be_bytes());
                 }
+                writer.write_all(&row_buf).map_err(IoError::Io)?;
             }
         }
-        PixelDepth::Bit32 => match spp {
-            3 => {
-                for y in 0..height {
-                    for x in 0..width {
-                        let pixel = pix.get_pixel_unchecked(x, y);
-                        let (r, g, b) = color::extract_rgb(pixel);
-                        writer.write_all(&[r, g, b]).map_err(IoError::Io)?;
-                    }
-                }
-            }
-            4 => {
-                for y in 0..height {
-                    for x in 0..width {
-                        let pixel = pix.get_pixel_unchecked(x, y);
+        PixelDepth::Bit32 => {
+            let channels = if effective_spp == 4 { 4usize } else { 3 };
+            let mut row_buf = vec![0u8; width as usize * channels];
+            for y in 0..height {
+                for x in 0..width {
+                    let pixel = pix.get_pixel_unchecked(x, y);
+                    let idx = x as usize * channels;
+                    if channels == 4 {
                         let (r, g, b, a) = color::extract_rgba(pixel);
-                        writer.write_all(&[r, g, b, a]).map_err(IoError::Io)?;
-                    }
-                }
-            }
-            _ => {
-                // Default: treat as RGB
-                for y in 0..height {
-                    for x in 0..width {
-                        let pixel = pix.get_pixel_unchecked(x, y);
+                        row_buf[idx] = r;
+                        row_buf[idx + 1] = g;
+                        row_buf[idx + 2] = b;
+                        row_buf[idx + 3] = a;
+                    } else {
                         let (r, g, b) = color::extract_rgb(pixel);
-                        writer.write_all(&[r, g, b]).map_err(IoError::Io)?;
+                        row_buf[idx] = r;
+                        row_buf[idx + 1] = g;
+                        row_buf[idx + 2] = b;
                     }
                 }
+                writer.write_all(&row_buf).map_err(IoError::Io)?;
             }
-        },
+        }
     }
 
     Ok(())
