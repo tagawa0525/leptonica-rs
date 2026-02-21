@@ -1444,6 +1444,15 @@ pub fn rotate_with_alpha(
         if a.depth() != PixelDepth::Bit8 {
             return Err(TransformError::UnsupportedDepth(format!("{:?}", a.depth())));
         }
+        if a.width() != w || a.height() != h {
+            return Err(TransformError::InvalidParameters(format!(
+                "alpha image dimensions ({}x{}) must match source image dimensions ({}x{})",
+                a.width(),
+                a.height(),
+                w,
+                h
+            )));
+        }
         a
     } else {
         let a_pix = Pix::new(w, h, PixelDepth::Bit8)?;
