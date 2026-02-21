@@ -391,15 +391,15 @@ fn create_word_boundary_mask(pix: &Pix, npixels: u32) -> RecogResult<Option<Pix>
     let mut mask_mut = mask.try_into_mut().unwrap();
 
     // Scan for horizontal runs (connected components on rows)
-    // Simple approach: find horizontal runs of ON pixels in the opened image
+    // Use unchecked access: loop bounds guarantee x < w and y < h
     for y in 0..h {
         let mut x = 0u32;
         while x < w {
             // Find start of a run
-            if word_pix.get_pixel(x, y).unwrap_or(0) != 0 {
+            if word_pix.get_pixel_unchecked(x, y) != 0 {
                 let run_start = x;
                 // Find end of run
-                while x < w && word_pix.get_pixel(x, y).unwrap_or(0) != 0 {
+                while x < w && word_pix.get_pixel_unchecked(x, y) != 0 {
                     x += 1;
                 }
                 let run_end = x; // exclusive
@@ -414,7 +414,8 @@ fn create_word_boundary_mask(pix: &Pix, npixels: u32) -> RecogResult<Option<Pix>
                     let y_end = (y + 13).min(h);
                     for my in y_start..y_end {
                         for mx in trimmed_start..trimmed_end {
-                            mask_mut.set_pixel(mx, my, 1).ok();
+                            // Safety: mx < run_end <= w, my < y_end <= h
+                            mask_mut.set_pixel_unchecked(mx, my, 1);
                         }
                     }
                 }
