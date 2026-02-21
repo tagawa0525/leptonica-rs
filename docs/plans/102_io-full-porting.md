@@ -1,6 +1,6 @@
 # leptonica-io 全未実装関数の移植計画
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 ## Context
 
@@ -58,6 +58,8 @@ Phase 1 (JPEG書き込み) ← 最重要、Phase 6/7のJPEG圧縮を可能にす
 
 ## Phase 1: JPEG書き込み（1 PR）
 
+**Status: IMPLEMENTED** (PR #118)
+
 **C参照**: `reference/leptonica/src/jpegio.c` L250-500
 
 ### 実装内容
@@ -93,6 +95,8 @@ Phase 1 (JPEG書き込み) ← 最重要、Phase 6/7のJPEG圧縮を可能にす
 ---
 
 ## Phase 2: SPIX形式（1 PR）
+
+**Status: IMPLEMENTED** (PR #119)
 
 **C参照**: `reference/leptonica/src/spixio.c` 全504行
 
@@ -132,6 +136,8 @@ rdata     (rdatasize bytes) -- 生ラスタデータ
 ---
 
 ## Phase 3: ヘッダー読み取り + フォーマットユーティリティ（1 PR）
+
+**Status: IMPLEMENTED** (PR #120)
 
 **C参照**: `reference/leptonica/src/readfile.c` L415-549, `writefile.c` L563-691
 
