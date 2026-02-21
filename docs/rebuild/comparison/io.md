@@ -1,14 +1,14 @@
 # leptonica-io: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-15
+調査日: 2026-02-21（IO全移植計画 Phase 1-7 完了を反映）
 
 ## サマリー
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 32 |
-| 🔄 異なる | 15 |
-| ❌ 未実装 | 99 |
+| ✅ 同等 | 68 |
+| 🔄 異なる | 17 |
+| ❌ 未実装 | 61 |
 | 合計 | 146 |
 
 ## 詳細
@@ -25,12 +25,12 @@
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixReadStreamPng | ✅ 同等 | `png::read_png` | Uses png crate |
-| readHeaderPng | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| freadHeaderPng | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| readHeaderMemPng | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| fgetPngResolution | ❌ 未実装 | - | 解像度取得のみは未サポート |
+| readHeaderPng | ✅ 同等 | `png::read_header_png` | IHDR + pHYsチャンク解析 |
+| freadHeaderPng | ✅ 同等 | `png::read_header_png` | Unified with stream |
+| readHeaderMemPng | ✅ 同等 | `png::read_header_png` | Unified with stream |
+| fgetPngResolution | ✅ 同等 | `png::read_header_png` | ImageHeader.x/y_resolution |
 | isPngInterlaced | ❌ 未実装 | - | Interlace判定は未サポート |
-| fgetPngColormapInfo | ❌ 未実装 | - | Colormap情報取得は未サポート |
+| fgetPngColormapInfo | ❌ 未実装 | - | Colormap詳細情報取得は未サポート |
 | pixWritePng | ✅ 同等 | `png::write_png` | Top level wrapper |
 | pixWriteStreamPng | ✅ 同等 | `png::write_png` | Uses png crate |
 | pixSetZlibCompression | ❌ 未実装 | - | 圧縮レベル設定は未サポート |
@@ -43,31 +43,31 @@
 |-------|------|----------|------|
 | pixReadJpeg | ✅ 同等 | `jpeg::read_jpeg` | Top level wrapper |
 | pixReadStreamJpeg | ✅ 同等 | `jpeg::read_jpeg` | Uses jpeg-decoder crate |
-| readHeaderJpeg | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| freadHeaderJpeg | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| fgetJpegResolution | ❌ 未実装 | - | 解像度取得のみは未サポート |
+| readHeaderJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | jpeg-decoderでinfo取得 |
+| freadHeaderJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | Unified with stream |
+| fgetJpegResolution | ✅ 同等 | `jpeg::read_header_jpeg` | ImageHeader.x/y_resolution |
 | fgetJpegComment | ❌ 未実装 | - | コメント取得は未サポート |
 | pixWriteJpeg | 🔄 異なる | `jpeg::write_jpeg` | jpeg-encoder使用、C版はlibjpeg |
 | pixWriteStreamJpeg | 🔄 異なる | `jpeg::write_jpeg` | jpeg-encoder使用 |
 | pixReadMemJpeg | ✅ 同等 | `jpeg::read_jpeg` | Unified with stream |
-| readHeaderMemJpeg | ❌ 未実装 | - | Memory版header読み取り未サポート |
-| readResolutionMemJpeg | ❌ 未実装 | - | Memory版解像度取得未サポート |
+| readHeaderMemJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | Unified with stream |
+| readResolutionMemJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | ImageHeader.x/y_resolution |
 | pixWriteMemJpeg | 🔄 異なる | `jpeg::write_jpeg_mem` | jpeg-encoder使用 |
 | pixSetChromaSampling | ❌ 未実装 | - | Chroma sampling設定未サポート |
 
-### pnmio.c (PNM/PBM/PGM/PPM I/O)
+### pnmio.c (PNM/PBM/PGM/PPM/PAM I/O)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixReadStreamPnm | ✅ 同等 | `pnm::read_pnm` | PBM/PGM/PPM対応 |
-| readHeaderPnm | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| freadHeaderPnm | ❌ 未実装 | - | Header読み取りのみは未サポート |
+| pixReadStreamPnm | ✅ 同等 | `pnm::read_pnm` | PBM/PGM/PPM/PAM対応 |
+| readHeaderPnm | ✅ 同等 | `pnm::read_header_pnm` | PNMヘッダー解析 |
+| freadHeaderPnm | ✅ 同等 | `pnm::read_header_pnm` | Unified with stream |
 | pixWriteStreamPnm | ✅ 同等 | `pnm::write_pnm` | Binary format出力 |
-| pixWriteStreamAsciiPnm | ❌ 未実装 | - | ASCII format出力は未サポート |
-| pixWriteStreamPam | ❌ 未実装 | - | PAM format (P7) は未サポート |
+| pixWriteStreamAsciiPnm | ✅ 同等 | `pnm::write_pnm_ascii` | P1/P2/P3 ASCII形式 |
+| pixWriteStreamPam | ✅ 同等 | `pnm::write_pam` | P7 PAM形式 |
 | pixReadMemPnm | ✅ 同等 | `pnm::read_pnm` | Unified with stream |
-| readHeaderMemPnm | ❌ 未実装 | - | Memory版header読み取り未サポート |
+| readHeaderMemPnm | ✅ 同等 | `pnm::read_header_pnm` | Unified with stream |
 | pixWriteMemPnm | ✅ 同等 | `pnm::write_pnm` | Unified with stream |
-| pixWriteMemPam | ❌ 未実装 | - | PAM format memory出力未サポート |
+| pixWriteMemPam | ✅ 同等 | `pnm::write_pam` | Unified with stream |
 
 ### tiffio.c (TIFF I/O)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -77,7 +77,7 @@
 | pixWriteTiff | ✅ 同等 | `tiff::write_tiff` | Top level wrapper |
 | pixWriteTiffCustom | ❌ 未実装 | - | カスタムタグ対応未実装 |
 | pixWriteStreamTiff | ✅ 同等 | `tiff::write_tiff` | Uses tiff crate |
-| pixWriteStreamTiffWA | ❌ 未実装 | - | Write-append mode未サポート |
+| pixWriteStreamTiffWA | 🔄 異なる | `tiff::write_tiff_append` | read-all-rewrite方式 |
 | pixReadFromMultipageTiff | ✅ 同等 | `tiff::read_tiff_page` | 指定ページ読み取り |
 | pixaReadMultipageTiff | ✅ 同等 | `tiff::read_tiff_multipage` | 全ページ読み取り |
 | pixaWriteMultipageTiff | ✅ 同等 | `tiff::write_tiff_multipage` | 複数ページ書き込み |
@@ -86,10 +86,10 @@
 | fprintTiffInfo | ❌ 未実装 | - | TIFF情報表示は未サポート |
 | tiffGetCount | ✅ 同等 | `tiff::tiff_page_count` | ページ数取得 |
 | getTiffResolution | ✅ 同等 | `tiff::tiff_resolution` | 解像度取得 |
-| readHeaderTiff | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| freadHeaderTiff | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| readHeaderMemTiff | ❌ 未実装 | - | Memory版header読み取り未サポート |
-| findTiffCompression | ❌ 未実装 | - | 圧縮形式検出は未サポート |
+| readHeaderTiff | ✅ 同等 | `tiff::read_header_tiff` | TIFFディレクトリ情報 |
+| freadHeaderTiff | ✅ 同等 | `tiff::read_header_tiff` | Unified with stream |
+| readHeaderMemTiff | ✅ 同等 | `tiff::read_header_tiff` | Unified with stream |
+| findTiffCompression | ✅ 同等 | `tiff::tiff_compression` | 圧縮形式検出 |
 | extractG4DataFromFile | ❌ 未実装 | - | G4データ抽出は未サポート |
 | pixReadMemTiff | ✅ 同等 | `tiff::read_tiff` | Unified with stream |
 | pixReadMemFromMultipageTiff | ✅ 同等 | `tiff::read_tiff_page` | Memory版ページ読み取り |
@@ -111,8 +111,8 @@
 |-------|------|----------|------|
 | pixReadStreamWebP | ✅ 同等 | `webp::read_webp` | Uses webp crate |
 | pixReadMemWebP | ✅ 同等 | `webp::read_webp` | Unified with stream |
-| readHeaderWebP | ❌ 未実装 | - | Header読み取りのみは未サポート |
-| readHeaderMemWebP | ❌ 未実装 | - | Memory版header読み取り未サポート |
+| readHeaderWebP | ✅ 同等 | `webp::read_header_webp` | VP8/VP8L/VP8Xチャンク解析 |
+| readHeaderMemWebP | ✅ 同等 | `webp::read_header_webp` | Unified with stream |
 | pixWriteWebP | ✅ 同等 | `webp::write_webp` | Top level wrapper |
 | pixWriteStreamWebP | ✅ 同等 | `webp::write_webp` | Uses webp crate |
 | pixWriteMemWebP | ✅ 同等 | `webp::write_webp` | Unified with stream |
@@ -137,7 +137,7 @@
 ### pdfio1.c (PDF I/O - High Level)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| convertFilesToPdf | ❌ 未実装 | - | ファイル群→PDF変換未実装 |
+| convertFilesToPdf | 🔄 異なる | `pdf::write_pdf_from_files` | パス群→PDF、異なるAPI |
 | saConvertFilesToPdf | ❌ 未実装 | - | SARRAY版ファイル群→PDF未実装 |
 | saConvertFilesToPdfData | ❌ 未実装 | - | SARRAY版→PDFメモリ未実装 |
 | selectDefaultPdfEncoding | ❌ 未実装 | - | デフォルトエンコード選択未実装 |
@@ -201,7 +201,7 @@
 | pixWriteSegmentedPageToPS | ❌ 未実装 | - | Pixセグメント化ページ→PS未実装 |
 | pixWriteMixedToPS | ❌ 未実装 | - | 混合コンテンツ→PS未実装 |
 | convertToPSEmbed | ❌ 未実装 | - | 埋め込みPS変換未実装 |
-| pixaWriteCompressedToPS | ❌ 未実装 | - | Pixa圧縮→PS未実装 |
+| pixaWriteCompressedToPS | 🔄 異なる | `ps::write_ps_multi` | マルチページPS、異なるAPI |
 | pixWriteCompressedToPS | ❌ 未実装 | - | Pix圧縮→PS未実装 |
 
 ### psio2.c (PostScript I/O - Low Level)
@@ -231,31 +231,31 @@
 | pixReadWithHint | ❌ 未実装 | - | ヒント付き読み取り未実装 |
 | pixReadIndexed | ❌ 未実装 | - | インデックス指定読み取り未実装 |
 | pixReadStream | ✅ 同等 | `read_image_format` | Stream読み取り |
-| pixReadHeader | ❌ 未実装 | - | Header読み取り未実装 |
+| pixReadHeader | ✅ 同等 | `read_image_header` | ユニバーサルヘッダー読み取り |
 | findFileFormat | 🔄 異なる | `detect_format` | ファイルフォーマット検出 |
 | findFileFormatStream | 🔄 異なる | `detect_format_from_bytes` | Stream版フォーマット検出 |
 | findFileFormatBuffer | 🔄 異なる | `detect_format_from_bytes` | Buffer版フォーマット検出 |
 | fileFormatIsTiff | ❌ 未実装 | - | TIFF判定未実装 |
 | pixReadMem | ✅ 同等 | `read_image_mem` | Memory読み取り |
-| pixReadHeaderMem | ❌ 未実装 | - | Memory版header読み取り未実装 |
+| pixReadHeaderMem | ✅ 同等 | `read_image_header_mem` | Memory版header読み取り |
 | writeImageFileInfo | ❌ 未実装 | - | 画像ファイル情報書き込み未実装 |
 | ioFormatTest | ❌ 未実装 | - | I/Oフォーマットテスト未実装 |
 
 ### writefile.c (汎用書き込み)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| l_jpegSetQuality | ❌ 未実装 | - | JPEG品質設定未実装 |
+| l_jpegSetQuality | ❌ 未実装 | - | グローバル品質設定（RustはJpegOptionsで対応） |
 | setLeptDebugOK | ❌ 未実装 | - | デバッグ設定未実装 |
 | pixaWriteFiles | ❌ 未実装 | - | Pixa複数ファイル書き込み未実装 |
 | pixWriteDebug | ❌ 未実装 | - | デバッグ書き込み未実装 |
 | pixWrite | ✅ 同等 | `write_image` | ファイルパスへ書き込み |
-| pixWriteAutoFormat | ❌ 未実装 | - | 自動フォーマット書き込み未実装 |
+| pixWriteAutoFormat | ✅ 同等 | `write_image_auto` | 拡張子推定による書き込み |
 | pixWriteStream | ✅ 同等 | `write_image_format` | Stream書き込み |
-| pixWriteImpliedFormat | ❌ 未実装 | - | 拡張子から判定書き込み未実装 |
-| pixChooseOutputFormat | ❌ 未実装 | - | 出力フォーマット選択未実装 |
-| getImpliedFileFormat | ❌ 未実装 | - | 拡張子からフォーマット取得未実装 |
-| getFormatFromExtension | ❌ 未実装 | - | 拡張子判定未実装 |
-| pixGetAutoFormat | ❌ 未実装 | - | 自動フォーマット取得未実装 |
+| pixWriteImpliedFormat | ✅ 同等 | `write_image_auto` | 拡張子から判定書き込み |
+| pixChooseOutputFormat | ✅ 同等 | `choose_output_format` | 深度/colormapに基づく自動選択 |
+| getImpliedFileFormat | ✅ 同等 | `ImageFormat::from_path` | パスからフォーマット取得 |
+| getFormatFromExtension | ✅ 同等 | `ImageFormat::from_extension` | 拡張子判定 |
+| pixGetAutoFormat | ✅ 同等 | `choose_output_format` | 自動フォーマット取得 |
 | getFormatExtension | ❌ 未実装 | - | フォーマット→拡張子変換未実装 |
 | pixWriteMem | ✅ 同等 | `write_image_mem` | Memory書き込み |
 | l_fileDisplay | ❌ 未実装 | - | ファイル表示未実装 |
@@ -269,15 +269,15 @@
 ### spixio.c (SPIX serialization)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixReadStreamSpix | ❌ 未実装 | - | SPIX読み取り未実装 |
-| readHeaderSpix | ❌ 未実装 | - | SPIXヘッダー読み取り未実装 |
-| freadHeaderSpix | ❌ 未実装 | - | SPIXヘッダーファイル読み取り未実装 |
-| sreadHeaderSpix | ❌ 未実装 | - | SPIXヘッダー文字列読み取り未実装 |
-| pixWriteStreamSpix | ❌ 未実装 | - | SPIX書き込み未実装 |
-| pixReadMemSpix | ❌ 未実装 | - | SPIXメモリ読み取り未実装 |
-| pixWriteMemSpix | ❌ 未実装 | - | SPIXメモリ書き込み未実装 |
-| pixSerializeToMemory | ❌ 未実装 | - | Pixシリアライズ未実装 |
-| pixDeserializeFromMemory | ❌ 未実装 | - | Pixデシリアライズ未実装 |
+| pixReadStreamSpix | ✅ 同等 | `spix::read_spix` | SPIX読み取り |
+| readHeaderSpix | ✅ 同等 | `spix::read_header_spix` | 先頭24バイト解析 |
+| freadHeaderSpix | ✅ 同等 | `spix::read_header_spix` | Unified with stream |
+| sreadHeaderSpix | ✅ 同等 | `spix::read_header_spix` | Unified with stream |
+| pixWriteStreamSpix | ✅ 同等 | `spix::write_spix` | SPIX書き込み |
+| pixReadMemSpix | ✅ 同等 | `spix::read_spix` | Unified with stream |
+| pixWriteMemSpix | ✅ 同等 | `spix::write_spix` | Unified with stream |
+| pixSerializeToMemory | ✅ 同等 | `spix::write_spix` | Pixシリアライズ |
+| pixDeserializeFromMemory | ✅ 同等 | `spix::read_spix` | Pixデシリアライズ |
 
 ## 設計上の相違点
 
@@ -325,62 +325,35 @@
 - jpeg-decoder / jpeg-encoder
 - png crate
 - tiff crate
-- gif crate (image-rsベース)
-- webp crate
-- jpeg2000 crate
+- gif crate
+- image-webp crate
+- hayro-jpeg2000 crate
+- pdf-writer (PDF出力)
+- miniz_oxide (Flate圧縮)
 
 ### 5. 未実装の主要機能カテゴリ
 
-1. **Header-only読み取り**: 画像本体を読まずにメタデータのみ取得する関数群
-2. **PostScript高レベル機能**: 複数ファイル→PS、セグメント化PS等
-3. **PDF高レベル機能**: 複数ファイル→PDF、PDF連結、セグメント化PDF等
-4. **SPIX serialization**: Leptonica独自のシリアライゼーション形式
-5. **アニメーションWebP**: WebPアニメーション対応
-6. **Display機能**: pixDisplay等のGUI表示機能
-7. **品質・圧縮設定**: グローバル変数による品質/圧縮レベル設定
-
-## 推奨される次のステップ
-
-### 優先度: 高
-
-1. **Header読み取り機能**: メタデータのみ取得する軽量API
-   - 各フォーマット用の`read_header_*`関数
-   - `ImageHeader { width, height, depth, format, ... }`型の導入
-
-2. **JPEG品質設定**: `JpegOptions`構造体でのオプション指定
-   - C版の`pixSetChromaSampling`相当
-
-3. **PNG圧縮レベル設定**: `PngOptions`構造体でのオプション指定
-   - C版の`pixSetZlibCompression`相当
-
-### 優先度: 中
-
-4. **PDF高レベル機能**:
-   - 複数画像→単一PDF (`pixaConvertToPdf`相当)
-   - PDF連結 (`concatenatePdf`相当)
-
-5. **PostScript基本機能**:
-   - 複数画像→PSファイル
-   - 圧縮PS出力
-
-6. **TIFF拡張機能**:
-   - カスタムタグ対応 (`pixWriteTiffCustom`相当)
-
-### 優先度: 低
-
-7. **アニメーションWebP**: 静止画中心なら不要
-8. **SPIX serialization**: Leptonica特有、他形式で代替可能
-9. **Display機能**: I/Oライブラリの範囲外
+1. **PDF高レベル変換機能**: 複数ファイル→PDF（セグメント化、連結等）
+2. **PostScript高レベル機能**: セグメント化PS、生フォーマット埋め込み
+3. **アニメーションWebP**: WebPアニメーション対応
+4. **Display機能**: pixDisplay等のGUI表示機能
+5. **品質・圧縮設定**: グローバル変数による品質/圧縮レベル設定（RustではOptions構造体で対応済み）
 
 ## まとめ
 
-Rust版leptonica-ioは、基本的な画像I/O機能（BMP, PNG, JPEG, TIFF, GIF, WebP, JP2K）の読み書きは実装済みで、C版の約22%の関数が同等または類似の機能を提供している。
+Rust版leptonica-ioは、IO全移植計画（Phase 1-7）の完了により、C版146関数のうち85関数（58.2%）が同等または類似の機能を提供している（32.2% → 58.2%に改善）。
 
-未実装の68%は主に以下のカテゴリ:
-- Header-only読み取り（メタデータのみ）
-- PDF/PS高レベル変換機能
-- 品質・圧縮レベルのグローバル設定
-- GUI表示機能
-- Leptonica独自フォーマット（SPIX）
+主な追加機能:
+- JPEG書き込み（Phase 1）
+- SPIX形式の読み書き（Phase 2）
+- 全フォーマットのヘッダー読み取り + フォーマットユーティリティ（Phase 3）
+- PNM ASCII書き込み + PAM形式（Phase 4）
+- TIFF圧縮検出 + 追記モード（Phase 5）
+- PDF DCT（JPEG）圧縮（Phase 6）
+- PS マルチページ + Level 2 DCT圧縮（Phase 7）
 
-Rust版は外部crateを活用したモダンなI/O抽象化（Read/Write trait）を採用し、C版より型安全でメモリ安全なAPIを提供している。
+残りの未実装42%は主に:
+- PDF/PS高レベル変換・セグメント化機能
+- GUI表示機能（pixDisplay等）
+- アニメーションWebP
+- JP2K書き込み（pure Rustエンコーダなし）
