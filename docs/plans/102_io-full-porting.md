@@ -248,6 +248,8 @@ ENDHDR
 
 ## Phase 5: TIFF拡張（1 PR）
 
+**Status: IMPLEMENTED** (PR #124)
+
 **C参照**: `reference/leptonica/src/tiffio.c`
 
 ### 実装内容
