@@ -469,6 +469,13 @@ fn encode_jpeg_for_pdf(
         PdfColorSpace::DeviceRgb => jpeg_encoder::ColorType::Rgb,
     };
 
+    if width > u16::MAX as u32 || height > u16::MAX as u32 {
+        return Err(IoError::EncodeError(format!(
+            "image dimensions {}x{} exceed JPEG maximum of 65535",
+            width, height
+        )));
+    }
+
     let mut jpeg_buf = Vec::new();
     let encoder = jpeg_encoder::Encoder::new(&mut jpeg_buf, quality);
     encoder
