@@ -257,7 +257,7 @@ pub fn scale_to_resolution(pix: &Pix, target: f32, assumed: f32) -> TransformRes
 ///
 /// `shift_x` / `shift_y` must be either `0.0` or `0.5`.
 /// The default (used by [`scale_by_sampling`]) is `0.5`.
-/// Using `0.0` minimises edge effects near image borders.
+/// Using `0.0` minimizes edge effects near image borders.
 pub fn scale_by_sampling_with_shift(
     pix: &Pix,
     scale_x: f32,
@@ -965,7 +965,6 @@ mod tests {
     // --- Phase 3: Scale拡張 - 基本 ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_li_gray_upscale() {
         let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -985,7 +984,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_li_color_upscale() {
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -998,7 +996,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_color_li_basic() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1011,7 +1008,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_li_basic() {
         let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1024,7 +1020,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_general_no_sharpening_gray() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let scaled = scale_general(&pix, 0.5, 0.5, 0.0, 1).unwrap();
@@ -1033,7 +1028,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_general_upscale_color() {
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         let scaled = scale_general(&pix, 2.0, 2.0, 0.0, 1).unwrap();
@@ -1042,7 +1036,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_to_resolution_known_res() {
         let mut pix = Pix::new(100, 100, PixelDepth::Bit8)
             .unwrap()
@@ -1057,7 +1050,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_to_resolution_unknown_res() {
         // No xres set → uses assumed value
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -1067,7 +1059,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_by_sampling_with_shift_zero() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1082,7 +1073,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_by_sampling_with_shift_half() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let scaled = scale_by_sampling_with_shift(&pix, 0.5, 0.5, 0.5, 0.5).unwrap();
@@ -1090,7 +1080,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_by_int_sampling_factor2() {
         let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1107,7 +1096,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_by_int_sampling_factor1() {
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
         let scaled = scale_by_int_sampling(&pix, 1).unwrap();
@@ -1115,7 +1103,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_smooth_gray() {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1138,7 +1125,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_smooth_color() {
         let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
