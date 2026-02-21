@@ -1468,6 +1468,26 @@ mod tests {
 
         let result = affine_pta_with_alpha(&pix, src, dst, Some(&mask), 1.0, 5).unwrap();
         assert_eq!(result.spp(), 4);
+
+        // Output is 40x40 (30x30 + 5px border on each side).
+        // Identity transform: source pixel (sx, sy) -> output pixel (sx+5, sy+5).
+        // Mask: left half (sx < 15) = 255, right half (sx >= 15) = 0.
+        // Sample away from the border at output row y=15 (source row 10).
+        // Output (7, 15) -> source (2, 10): left half, alpha should be 255.
+        // Output (27, 15) -> source (22, 10): right half, alpha should be 0.
+        let opaque_pixel = result.get_pixel(7, 15).unwrap();
+        let transparent_pixel = result.get_pixel(27, 15).unwrap();
+        // Alpha is in the lowest byte (ALPHA_SHIFT=0, format 0xRRGGBBAA)
+        let opaque_alpha = (opaque_pixel & 0xff) as u8;
+        let transparent_alpha = (transparent_pixel & 0xff) as u8;
+        assert!(
+            opaque_alpha > 200,
+            "expected high alpha in masked-opaque region, got {opaque_alpha}"
+        );
+        assert!(
+            transparent_alpha < 50,
+            "expected low alpha in masked-transparent region, got {transparent_alpha}"
+        );
     }
 
     #[test]
