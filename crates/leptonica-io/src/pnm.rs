@@ -579,7 +579,11 @@ pub fn write_pnm_ascii<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
 
 /// Read a PAM (P7) image
 ///
-/// Supports all tuple types: BLACKANDWHITE, GRAYSCALE, RGB, RGB_ALPHA.
+/// Supports the standard PAM tuple types `BLACKANDWHITE`, `GRAYSCALE`, `RGB`,
+/// and `RGB_ALPHA`. Additionally, images with `DEPTH 2` are accepted and
+/// treated as grayscale + alpha: the grayscale sample is replicated into the
+/// R, G, and B channels, and the alpha sample is used as the alpha component
+/// of the resulting 32 bpp `Pix`.
 ///
 /// # See also
 ///
