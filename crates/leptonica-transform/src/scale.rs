@@ -1139,4 +1139,179 @@ mod tests {
         assert_eq!((scaled.width(), scaled.height()), (10, 10));
         assert_eq!(scaled.depth(), PixelDepth::Bit32);
     }
+
+    // --- Phase 4: Scale拡張 - 1bpp→8bpp変換 ---
+
+    fn make_1bpp(w: u32, h: u32, vals: &[(u32, u32, u32)]) -> Pix {
+        let pix = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for &(x, y, v) in vals {
+            pix_mut.set_pixel_unchecked(x, y, v);
+        }
+        pix_mut.into()
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_2_dims() {
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray_2(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_2_all_white() {
+        // 1bpp: all 0 (white) → 8bpp: all 255
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray_2(&pix).unwrap();
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 255);
+        assert_eq!(out.get_pixel(3, 3).unwrap(), 255);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_2_all_black() {
+        // 1bpp: all 1 (black) → 8bpp: all 0
+        let vals: Vec<(u32, u32, u32)> = (0..8)
+            .flat_map(|y| (0..8u32).map(move |x| (x, y, 1)))
+            .collect();
+        let pix = make_1bpp(8, 8, &vals);
+        let out = scale_to_gray_2(&pix).unwrap();
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_2_half_black() {
+        // Top row of each 2x2 block is black → half pixels black → gray ≈ 127-128
+        let vals: Vec<(u32, u32, u32)> = (0..8u32)
+            .flat_map(|y| (0..8u32).map(move |x| (x, y, if y % 2 == 0 { 1 } else { 0 })))
+            .collect();
+        let pix = make_1bpp(8, 8, &vals);
+        let out = scale_to_gray_2(&pix).unwrap();
+        let v = out.get_pixel(0, 0).unwrap();
+        assert!(v == 127 || v == 128, "expected ~128 but got {v}");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_4_dims() {
+        let pix = make_1bpp(16, 16, &[]);
+        let out = scale_to_gray_4(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_8_dims() {
+        let pix = make_1bpp(32, 32, &[]);
+        let out = scale_to_gray_8(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_3_dims() {
+        let pix = make_1bpp(12, 12, &[]);
+        let out = scale_to_gray_3(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_6_dims() {
+        let pix = make_1bpp(24, 24, &[]);
+        let out = scale_to_gray_6(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_16_dims() {
+        let pix = make_1bpp(64, 64, &[]);
+        let out = scale_to_gray_16(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_general_half() {
+        // scale=0.5 should give same as scale_to_gray_2
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray(&pix, 0.5).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_general_quarter() {
+        let pix = make_1bpp(16, 16, &[]);
+        let out = scale_to_gray(&pix, 0.25).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_fast_half() {
+        let pix = make_1bpp(8, 8, &[]);
+        let out = scale_to_gray_fast(&pix, 0.5).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_expand_replicate_8bpp() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        pix_mut.set_pixel_unchecked(0, 0, 100);
+        pix_mut.set_pixel_unchecked(1, 0, 200);
+        pix_mut.set_pixel_unchecked(0, 1, 50);
+        pix_mut.set_pixel_unchecked(1, 1, 150);
+        let pix: Pix = pix_mut.into();
+        let out = expand_replicate(&pix, 3).unwrap();
+        assert_eq!((out.width(), out.height()), (6, 6));
+        // Each 3x3 block must have the same value
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 100);
+        assert_eq!(out.get_pixel(2, 2).unwrap(), 100);
+        assert_eq!(out.get_pixel(3, 0).unwrap(), 200);
+        assert_eq!(out.get_pixel(5, 0).unwrap(), 200);
+        assert_eq!(out.get_pixel(0, 3).unwrap(), 50);
+        assert_eq!(out.get_pixel(3, 3).unwrap(), 150);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_expand_replicate_factor1() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let out = expand_replicate(&pix, 1).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_binary_upscale() {
+        let pix = make_1bpp(4, 4, &[(1, 1, 1)]);
+        let out = scale_binary(&pix, 2.0, 2.0).unwrap();
+        assert_eq!((out.width(), out.height()), (8, 8));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_binary_downscale() {
+        let pix = make_1bpp(8, 8, &[(1, 1, 1), (4, 4, 1)]);
+        let out = scale_binary(&pix, 0.5, 0.5).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
 }
