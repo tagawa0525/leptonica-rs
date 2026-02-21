@@ -241,14 +241,18 @@ pub fn tiff_compression<R: Read + Seek>(reader: R) -> IoResult<TiffCompression> 
 ///
 /// Reads all existing pages from the reader, then writes them plus the new
 /// pages to the writer. The `tiff` crate does not support true append mode,
-/// so the file is rewritten with the additional pages.
+/// so the file is rewritten with the additional pages. This involves
+/// decoding all existing pages and re-encoding them into a new multipage
+/// TIFF, so the specified `compression` is applied to all pages in the
+/// output (both existing and new), and original TIFF tags/metadata may not
+/// be preserved.
 ///
 /// # Arguments
 ///
 /// * `existing` - Reader for the existing TIFF data
 /// * `new_pages` - New pages to append
 /// * `writer` - Writer for the output (can be the same file via a buffer)
-/// * `compression` - Compression to use for the new pages
+/// * `compression` - Compression to use for all pages in the output TIFF
 pub fn write_tiff_append<R: Read + Seek, W: Write + Seek>(
     existing: R,
     new_pages: &[&Pix],
