@@ -5,6 +5,7 @@
 use crate::{MorphError, MorphResult};
 use leptonica_core::{Pix, Pta};
 use std::io::{BufRead, Write};
+use std::path::Path;
 
 /// Element type in a structuring element
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -860,6 +861,82 @@ impl Sel {
         }
 
         Ok(sel)
+    }
+}
+
+// ── Phase 6: Sela – ordered collection of Sel instances ────────────────────
+
+/// An ordered, named collection of [`Sel`] structuring elements.
+///
+/// `Sela` mirrors the C leptonica `SELA` type and supports:
+/// - Building up a set incrementally with [`add`](Sela::add)
+/// - Indexed and name-based lookup
+/// - Serialization/deserialization using the Leptonica text format
+#[derive(Debug, Clone, Default)]
+pub struct Sela {
+    sels: Vec<Sel>,
+}
+
+impl Sela {
+    /// Create an empty Sela.
+    pub fn new() -> Self {
+        unimplemented!()
+    }
+
+    /// Return the number of SELs in the collection.
+    ///
+    /// Based on C leptonica `selaGetCount`.
+    pub fn count(&self) -> usize {
+        unimplemented!()
+    }
+
+    /// Add a [`Sel`] to the collection.
+    ///
+    /// The SEL must have a name (see [`Sel::set_name`]).
+    ///
+    /// Based on C leptonica `selaAddSel`.
+    pub fn add(&mut self, sel: Sel) -> MorphResult<()> {
+        unimplemented!()
+    }
+
+    /// Return a reference to the SEL at the given index.
+    ///
+    /// Returns `None` if `index >= self.count()`.
+    ///
+    /// Based on C leptonica `selaGetSel`.
+    pub fn get(&self, index: usize) -> Option<&Sel> {
+        unimplemented!()
+    }
+
+    /// Find a SEL by its name.
+    ///
+    /// Returns `None` if no SEL with the given name exists.
+    ///
+    /// Based on C leptonica `selaFindSelByName`.
+    pub fn find_by_name(&self, name: &str) -> Option<&Sel> {
+        unimplemented!()
+    }
+
+    /// Deserialize a `Sela` from the Leptonica text format.
+    ///
+    /// File format (produced by `selaWrite` / [`write`](Sela::write)):
+    /// ```text
+    /// \nSela Version 1\nNumber of Sels = N\n\n
+    /// <SEL 0>
+    /// ...
+    /// <SEL N-1>
+    /// ```
+    ///
+    /// Based on C leptonica `selaRead` / `selaReadStream`.
+    pub fn read<P: AsRef<Path>>(path: P) -> MorphResult<Self> {
+        unimplemented!()
+    }
+
+    /// Serialize this `Sela` to the Leptonica text format.
+    ///
+    /// Based on C leptonica `selaWrite` / `selaWriteStream`.
+    pub fn write<P: AsRef<Path>>(&self, path: P) -> MorphResult<()> {
+        unimplemented!()
     }
 }
 
@@ -1897,5 +1974,91 @@ mod tests {
             sel_make_plus_sign(5, 6).is_err(),
             "linewidth > size should fail"
         );
+    }
+
+    // ── Phase 6: Sela tests ─────────────────────────────────────────────────
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_new_is_empty() {
+        let sela = Sela::new();
+        assert_eq!(sela.count(), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_and_count() {
+        let mut sela = Sela::new();
+        let mut sel = Sel::new(3, 3).unwrap();
+        sel.set_name("test_sel");
+        sela.add(sel).unwrap();
+        assert_eq!(sela.count(), 1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_unnamed_fails() {
+        let mut sela = Sela::new();
+        let sel = Sel::new(3, 3).unwrap(); // no name
+        assert!(sela.add(sel).is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_get_by_index() {
+        let mut sela = Sela::new();
+        let mut sel = Sel::new(3, 3).unwrap();
+        sel.set_name("my_sel");
+        sela.add(sel).unwrap();
+        let retrieved = sela.get(0).unwrap();
+        assert_eq!(retrieved.name(), Some("my_sel"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_get_out_of_bounds_returns_none() {
+        let sela = Sela::new();
+        assert!(sela.get(0).is_none());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_find_by_name() {
+        let mut sela = Sela::new();
+        let mut sel = Sel::new(3, 3).unwrap();
+        sel.set_name("target");
+        sela.add(sel).unwrap();
+        assert!(sela.find_by_name("target").is_some());
+        assert!(sela.find_by_name("missing").is_none());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_write_and_read_roundtrip() {
+        use std::io::BufReader;
+
+        let mut sela = Sela::new();
+        let mut sel1 = Sel::new(3, 3).unwrap();
+        sel1.set_name("sel_a");
+        sel1.set_element(1, 1, SelElement::Hit);
+        sela.add(sel1).unwrap();
+
+        let mut sel2 = Sel::new(5, 1).unwrap();
+        sel2.set_name("sel_b");
+        sel2.set_origin(2, 0).unwrap();
+        for x in 0..5 {
+            sel2.set_element(x, 0, SelElement::Hit);
+        }
+        sela.add(sel2).unwrap();
+
+        let tmp = std::env::temp_dir().join("test_sela_roundtrip.sel");
+        sela.write(&tmp).unwrap();
+
+        let loaded = Sela::read(&tmp).unwrap();
+        assert_eq!(loaded.count(), 2);
+        assert!(loaded.find_by_name("sel_a").is_some());
+        assert!(loaded.find_by_name("sel_b").is_some());
+
+        let _ = std::fs::remove_file(&tmp);
     }
 }
