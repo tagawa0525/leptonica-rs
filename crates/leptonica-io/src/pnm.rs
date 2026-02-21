@@ -29,23 +29,24 @@ pub fn read_header_pnm(data: &[u8]) -> IoResult<ImageHeader> {
         }
     };
 
-    let (depth, spp) = match pnm_type {
-        PnmType::PbmAscii | PnmType::PbmBinary => (1u32, 1u32),
+    let (depth, spp, bps) = match pnm_type {
+        PnmType::PbmAscii | PnmType::PbmBinary => (1u32, 1u32, 1u32),
         PnmType::PgmAscii | PnmType::PgmBinary => {
             if maxval > 255 {
-                (16, 1)
+                (16, 1, 16)
             } else {
-                (8, 1)
+                (8, 1, 8)
             }
         }
-        PnmType::PpmAscii | PnmType::PpmBinary => (32, 3),
+        // PPM images use 32 bpp internally (24-bit RGB in 32-bit word), 8 bits per sample
+        PnmType::PpmAscii | PnmType::PpmBinary => (32, 3, 8),
     };
 
     Ok(ImageHeader {
         width,
         height,
         depth,
-        bps: depth.min(8),
+        bps,
         spp,
         has_colormap: false,
         num_colors: 0,
