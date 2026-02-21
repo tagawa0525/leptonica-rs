@@ -868,19 +868,12 @@ where
     let pixd = transform_fn(&pixb1, &adj_src, &adj_dst)?;
 
     // Step 4: Prepare alpha channel (8bpp grayscale)
+    let use_custom_mask = alpha_mask.is_some();
     let pix_alpha = if let Some(mask) = alpha_mask {
-        // Resize alpha mask to match source dimensions if needed
+        // Resize alpha mask to match source dimensions using resize_to_match
+        // (crops if larger, replicates last row/col if smaller)
         if mask.width() != ws || mask.height() != hs {
-            let resized = Pix::new(ws, hs, PixelDepth::Bit8)?;
-            let mut rm = resized.try_into_mut().unwrap();
-            let copy_w = ws.min(mask.width());
-            let copy_h = hs.min(mask.height());
-            for y in 0..copy_h {
-                for x in 0..copy_w {
-                    rm.set_pixel_unchecked(x, y, mask.get_pixel_unchecked(x, y));
-                }
-            }
-            rm.into()
+            mask.resize_to_match(None, ws, hs)?
         } else {
             mask.deep_clone()
         }
@@ -897,8 +890,9 @@ where
         am.into()
     };
 
-    // Step 5: Apply edge feathering (only for images > 10x10)
-    let pix_alpha = if ws > 10 && hs > 10 {
+    // Step 5: Apply edge feathering (only for images > 10x10, only when no custom mask)
+    // Feathering is skipped for custom masks to avoid increasing alpha above the mask's values.
+    let pix_alpha = if !use_custom_mask && ws > 10 && hs > 10 {
         let mut am = pix_alpha.try_into_mut().unwrap();
         // Ring 1 (outermost): fully transparent
         am.set_border_val(1, 1, 1, 1, 0)
