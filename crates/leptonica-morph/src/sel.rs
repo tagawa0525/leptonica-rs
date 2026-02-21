@@ -863,6 +863,79 @@ impl Sel {
     }
 }
 
+// ── Phase 4: SEL-set generation free functions ─────────────────────────────
+
+const BASIC_LINEAR: &[u32] = &[
+    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21, 25, 30, 31, 35, 40, 41, 45, 50, 51,
+];
+
+/// Build the "basic" SEL library (horizontal/vertical bricks, square bricks,
+/// diagonal SELs).
+///
+/// Returns the same set as C leptonica `selaAddBasic`.
+pub fn sela_add_basic() -> Vec<Sel> {
+    unimplemented!("not yet implemented")
+}
+
+/// Build the hit-miss SEL library (isolated pixel, edge, corner, slanted-edge).
+///
+/// Returns the same set as C leptonica `selaAddHitMiss`.
+pub fn sela_add_hit_miss() -> Vec<Sel> {
+    unimplemented!("not yet implemented")
+}
+
+/// Build linear SELs for sizes 2–63 (horizontal and vertical).
+///
+/// Returns the same set as C leptonica `selaAddDwaLinear`.
+pub fn sela_add_dwa_linear() -> Vec<Sel> {
+    unimplemented!("not yet implemented")
+}
+
+/// Build comb SELs for DWA composite operations (sizes 4–63).
+///
+/// For each composable size that can be factored as `f1 * f2`,
+/// generates a horizontal comb and a vertical comb SEL.
+///
+/// Returns the same set as C leptonica `selaAddDwaCombs`.
+pub fn sela_add_dwa_combs() -> Vec<Sel> {
+    unimplemented!("not yet implemented")
+}
+
+/// Build hit-miss SELs for detecting cross (X) junctions of two lines.
+///
+/// # Arguments
+/// * `hlsize` - Length of each hit arm from the origin
+/// * `mdist`  - Distance of miss elements from the origin
+/// * `norient` - Number of orientations (1–8); generates `norient` SELs
+///
+/// Based on C leptonica `selaAddCrossJunctions`.
+pub fn sela_add_cross_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphResult<Vec<Sel>> {
+    unimplemented!("not yet implemented")
+}
+
+/// Build hit-miss SELs for detecting T-junctions of two lines.
+///
+/// # Arguments
+/// * `hlsize` - Length of each hit arm from the origin
+/// * `mdist`  - Distance of miss elements from the origin
+/// * `norient` - Number of orientations (1–8); generates `4 * norient` SELs
+///
+/// Based on C leptonica `selaAddTJunctions`.
+pub fn sela_add_t_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphResult<Vec<Sel>> {
+    unimplemented!("not yet implemented")
+}
+
+/// Create a plus-sign (+) SEL of the given size and line width.
+///
+/// # Arguments
+/// * `size`      - Side of the bounding square (must be >= 3)
+/// * `linewidth` - Width of the horizontal/vertical arms
+///
+/// Based on C leptonica `selMakePlusSign`.
+pub fn sel_make_plus_sign(size: u32, linewidth: u32) -> MorphResult<Sel> {
+    unimplemented!("not yet implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1196,5 +1269,168 @@ mod tests {
         let sel = Sel::from_pta(&pta, 1, 2, None).unwrap();
         assert_eq!(sel.origin_y(), 1);
         assert_eq!(sel.origin_x(), 2);
+    }
+
+    // ── Phase 4: SEL-set generation tests ────────────────────────────────
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_basic_count() {
+        // 25 horizontal + 25 vertical + 4 squares (2..=5) + 4 diagonals = 58
+        let sels = sela_add_basic();
+        assert_eq!(sels.len(), 58);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_basic_has_expected_names() {
+        let sels = sela_add_basic();
+        let names: Vec<_> = sels.iter().filter_map(|s| s.name()).collect();
+        assert!(names.iter().any(|n| *n == "sel_2h"), "missing sel_2h");
+        assert!(names.iter().any(|n| *n == "sel_51v"), "missing sel_51v");
+        assert!(
+            names.iter().any(|n| *n == "sel_4"),
+            "missing sel_4 (2D square)"
+        );
+        assert!(names.iter().any(|n| *n == "sel_2dp"), "missing sel_2dp");
+        assert!(names.iter().any(|n| *n == "sel_5dm"), "missing sel_5dm");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_basic_linear_sel_dimensions() {
+        let sels = sela_add_basic();
+        // sel_5h: 1 row, 5 columns, origin (0, 2)
+        let sel_5h = sels.iter().find(|s| s.name() == Some("sel_5h")).unwrap();
+        assert_eq!(sel_5h.height(), 1);
+        assert_eq!(sel_5h.width(), 5);
+        assert_eq!(sel_5h.origin_y(), 0);
+        assert_eq!(sel_5h.origin_x(), 2);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_hit_miss_count() {
+        // 1 isolated + 4 edge + 1 slanted + 4 corner = 10
+        let sels = sela_add_hit_miss();
+        assert_eq!(sels.len(), 10);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_hit_miss_isolated_pixel() {
+        let sels = sela_add_hit_miss();
+        let sel = sels.iter().find(|s| s.name() == Some("sel_3hm")).unwrap();
+        // 3x3, all miss except center hit
+        assert_eq!(sel.width(), 3);
+        assert_eq!(sel.height(), 3);
+        assert_eq!(sel.hit_count(), 1);
+        assert_eq!(sel.get_element(1, 1), Some(SelElement::Hit));
+        assert_eq!(sel.get_element(0, 0), Some(SelElement::Miss));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_dwa_linear_count() {
+        // sizes 2..=63 horizontal + vertical = 62 * 2 = 124
+        let sels = sela_add_dwa_linear();
+        assert_eq!(sels.len(), 124);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_dwa_linear_sizes() {
+        let sels = sela_add_dwa_linear();
+        // first SEL should be sel_2h: 1×2
+        let first = &sels[0];
+        assert_eq!(first.name(), Some("sel_2h"));
+        assert_eq!(first.width(), 2);
+        assert_eq!(first.height(), 1);
+        // last should be sel_63v: 63×1
+        let last = &sels[sels.len() - 1];
+        assert_eq!(last.name(), Some("sel_63v"));
+        assert_eq!(last.height(), 63);
+        assert_eq!(last.width(), 1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_dwa_combs_nonempty() {
+        let sels = sela_add_dwa_combs();
+        assert!(!sels.is_empty());
+        // Each comb SEL should be either 1×N (horizontal) or N×1 (vertical)
+        for s in &sels {
+            let is_h = s.height() == 1 && s.width() > 1;
+            let is_v = s.width() == 1 && s.height() > 1;
+            assert!(is_h || is_v, "comb sel {:?} has unexpected shape", s.name());
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_dwa_combs_hit_spacing() {
+        let sels = sela_add_dwa_combs();
+        // sel_comb_4h should have factor1=2, factor2=2, width=4, 2 hits
+        let sel = sels
+            .iter()
+            .find(|s| s.name() == Some("sel_comb_4h"))
+            .unwrap();
+        assert_eq!(sel.width(), 4);
+        assert_eq!(sel.height(), 1);
+        assert_eq!(sel.hit_count(), 2);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_cross_junctions_count() {
+        let sels = sela_add_cross_junctions(6.0, 5.0, 2).unwrap();
+        assert_eq!(sels.len(), 2); // norient SELs
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_cross_junctions_has_hits_and_misses() {
+        let sels = sela_add_cross_junctions(6.0, 5.0, 1).unwrap();
+        let sel = &sels[0];
+        assert!(sel.hit_count() > 0, "cross junction sel should have hits");
+        assert!(
+            sel.miss_count() > 0,
+            "cross junction sel should have misses"
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sela_add_t_junctions_count() {
+        let sels = sela_add_t_junctions(6.0, 5.0, 2).unwrap();
+        assert_eq!(sels.len(), 8); // 4 * norient SELs
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sel_make_plus_sign_dimensions() {
+        let sel = sel_make_plus_sign(5, 1).unwrap();
+        assert_eq!(sel.width(), 5);
+        assert_eq!(sel.height(), 5);
+        assert_eq!(sel.origin_x(), 2);
+        assert_eq!(sel.origin_y(), 2);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sel_make_plus_sign_hit_count() {
+        // size=5, linewidth=1: horizontal 5 hits + vertical 5 hits - center 1 = 9 hits
+        let sel = sel_make_plus_sign(5, 1).unwrap();
+        assert_eq!(sel.hit_count(), 9);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sel_make_plus_sign_invalid() {
+        assert!(sel_make_plus_sign(2, 1).is_err(), "size < 3 should fail");
+        assert!(
+            sel_make_plus_sign(5, 6).is_err(),
+            "linewidth > size should fail"
+        );
     }
 }
