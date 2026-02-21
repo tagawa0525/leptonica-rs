@@ -214,6 +214,36 @@ pub fn tiff_resolution<R: Read + Seek>(reader: R) -> IoResult<Option<(f32, f32)>
     }
 }
 
+/// Detect the compression method used in a TIFF file
+///
+/// Reads the Compression tag from the first page of the TIFF.
+pub fn tiff_compression<R: Read + Seek>(reader: R) -> IoResult<TiffCompression> {
+    let _ = reader;
+    todo!("tiff_compression not yet implemented")
+}
+
+/// Append one or more pages to an existing multipage TIFF
+///
+/// Reads all existing pages from the reader, then writes them plus the new
+/// pages to the writer. The `tiff` crate does not support true append mode,
+/// so the file is rewritten with the additional pages.
+///
+/// # Arguments
+///
+/// * `existing` - Reader for the existing TIFF data
+/// * `new_pages` - New pages to append
+/// * `writer` - Writer for the output (can be the same file via a buffer)
+/// * `compression` - Compression to use for the new pages
+pub fn write_tiff_append<R: Read + Seek, W: Write + Seek>(
+    existing: R,
+    new_pages: &[&Pix],
+    writer: W,
+    compression: TiffCompression,
+) -> IoResult<()> {
+    let _ = (existing, new_pages, writer, compression);
+    todo!("write_tiff_append not yet implemented")
+}
+
 /// Decode a TIFF image from the current decoder position
 fn decode_tiff_image<R: Read + Seek>(decoder: &mut Decoder<R>) -> IoResult<Pix> {
     let (width, height) = decoder
@@ -1102,5 +1132,93 @@ mod tests {
             Some(TiffCompression::Lzw)
         );
         assert_eq!(TiffCompression::from_image_format(ImageFormat::Png), None);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_tiff_compression_detect_none() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut buffer = Cursor::new(Vec::new());
+        write_tiff(&pix, &mut buffer, TiffCompression::None).unwrap();
+
+        buffer.set_position(0);
+        let compression = tiff_compression(buffer).unwrap();
+        assert_eq!(compression, TiffCompression::None);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_tiff_compression_detect_lzw() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut buffer = Cursor::new(Vec::new());
+        write_tiff(&pix, &mut buffer, TiffCompression::Lzw).unwrap();
+
+        buffer.set_position(0);
+        let compression = tiff_compression(buffer).unwrap();
+        assert_eq!(compression, TiffCompression::Lzw);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_tiff_compression_detect_zip() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut buffer = Cursor::new(Vec::new());
+        write_tiff(&pix, &mut buffer, TiffCompression::Zip).unwrap();
+
+        buffer.set_position(0);
+        let compression = tiff_compression(buffer).unwrap();
+        assert_eq!(compression, TiffCompression::Zip);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_tiff_append_single() {
+        // Create an initial 2-page TIFF
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let pix2 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let pages: Vec<&Pix> = vec![&pix1, &pix2];
+        let mut buffer = Cursor::new(Vec::new());
+        write_tiff_multipage(&pages, &mut buffer, TiffCompression::None).unwrap();
+
+        // Append a third page
+        let pix3 = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
+        let existing = Cursor::new(buffer.into_inner());
+        let mut output = Cursor::new(Vec::new());
+        write_tiff_append(existing, &[&pix3], &mut output, TiffCompression::None).unwrap();
+
+        // Verify 3 pages
+        output.set_position(0);
+        let count = tiff_page_count(output.clone()).unwrap();
+        assert_eq!(count, 3);
+
+        output.set_position(0);
+        let loaded = read_tiff_multipage(output).unwrap();
+        assert_eq!(loaded[0].width(), 10);
+        assert_eq!(loaded[1].width(), 20);
+        assert_eq!(loaded[2].width(), 30);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_tiff_append_multiple() {
+        // Create an initial single-page TIFF
+        let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let mut buffer = Cursor::new(Vec::new());
+        write_tiff(&pix1, &mut buffer, TiffCompression::Lzw).unwrap();
+
+        // Append two more pages
+        let pix2 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+        let pix3 = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
+        let existing = Cursor::new(buffer.into_inner());
+        let mut output = Cursor::new(Vec::new());
+        write_tiff_append(existing, &[&pix2, &pix3], &mut output, TiffCompression::Lzw).unwrap();
+
+        // Verify 3 pages
+        output.set_position(0);
+        let loaded = read_tiff_multipage(output).unwrap();
+        assert_eq!(loaded.len(), 3);
+        assert_eq!(loaded[0].width(), 10);
+        assert_eq!(loaded[1].width(), 20);
+        assert_eq!(loaded[2].width(), 30);
     }
 }
