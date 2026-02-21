@@ -1037,30 +1037,34 @@ pub fn scale_to_gray_mipmap(pix: &Pix, scale_factor: f32) -> TransformResult<Pix
         ));
     }
 
-    if scale_factor > 0.5 {
+    // Use range comparisons with a small epsilon to avoid floating-point
+    // equality fragility while still correctly identifying the exact power-of-2
+    // boundaries that correspond to an available pyramid level.
+    const EPS: f32 = 1e-6;
+    if scale_factor > 0.5 + EPS {
         // Interpolate between full 1→8 and 2× reduced
         let s1 = pix.convert_1_to_8(255, 0)?;
         let s2 = scale_to_gray_2(pix)?;
         scale_mipmap(&s1, &s2, scale_factor)
-    } else if scale_factor == 0.5 {
+    } else if (scale_factor - 0.5).abs() < EPS {
         scale_to_gray_2(pix)
-    } else if scale_factor > 0.25 {
+    } else if scale_factor > 0.25 + EPS {
         let s1 = scale_to_gray_2(pix)?;
         let s2 = scale_to_gray_4(pix)?;
         scale_mipmap(&s1, &s2, 2.0 * scale_factor)
-    } else if scale_factor == 0.25 {
+    } else if (scale_factor - 0.25).abs() < EPS {
         scale_to_gray_4(pix)
-    } else if scale_factor > 0.125 {
+    } else if scale_factor > 0.125 + EPS {
         let s1 = scale_to_gray_4(pix)?;
         let s2 = scale_to_gray_8(pix)?;
         scale_mipmap(&s1, &s2, 4.0 * scale_factor)
-    } else if scale_factor == 0.125 {
+    } else if (scale_factor - 0.125).abs() < EPS {
         scale_to_gray_8(pix)
-    } else if scale_factor > 0.0625 {
+    } else if scale_factor > 0.0625 + EPS {
         let s1 = scale_to_gray_8(pix)?;
         let s2 = scale_to_gray_16(pix)?;
         scale_mipmap(&s1, &s2, 8.0 * scale_factor)
-    } else if scale_factor == 0.0625 {
+    } else if (scale_factor - 0.0625).abs() < EPS {
         scale_to_gray_16(pix)
     } else {
         // Beyond the pyramid: scale from 16× reduced
