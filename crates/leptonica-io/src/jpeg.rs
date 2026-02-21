@@ -4,7 +4,7 @@
 
 use crate::{IoError, IoResult};
 use jpeg_decoder::{Decoder, PixelFormat};
-use leptonica_core::{Pix, PixelDepth, color};
+use leptonica_core::{Pix, PixelDepth, color, pix::RemoveColormapTarget};
 use std::io::{Read, Write};
 
 /// Options for JPEG encoding
@@ -98,8 +98,76 @@ pub fn read_jpeg<R: Read>(reader: R) -> IoResult<Pix> {
 /// # See also
 ///
 /// C Leptonica: `pixWriteStreamJpeg()` in `jpegio.c`
-pub fn write_jpeg<W: Write>(_pix: &Pix, _writer: W, _options: &JpegOptions) -> IoResult<()> {
-    todo!("JPEG writing not yet implemented")
+pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoResult<()> {
+    let quality = options.quality.clamp(1, 100);
+
+    // Convert pix to a form suitable for JPEG encoding.
+    // Following C version logic: remove colormap based on source content,
+    // then ensure depth is 8 (grayscale) or 32 (RGB).
+    let pix = if pix.has_colormap() {
+        pix.remove_colormap(RemoveColormapTarget::BasedOnSrc)
+            .map_err(|e| IoError::EncodeError(format!("colormap removal failed: {}", e)))?
+    } else {
+        match pix.depth() {
+            PixelDepth::Bit8 | PixelDepth::Bit32 => pix.deep_clone(),
+            PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit16 => pix
+                .convert_to_8()
+                .map_err(|e| IoError::EncodeError(format!("depth conversion failed: {}", e)))?,
+        }
+    };
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // jpeg-encoder uses u16 for dimensions
+    if w > u16::MAX as u32 || h > u16::MAX as u32 {
+        return Err(IoError::EncodeError(format!(
+            "image dimensions {}x{} exceed JPEG maximum of 65535",
+            w, h
+        )));
+    }
+
+    let encoder = jpeg_encoder::Encoder::new(writer, quality);
+
+    match pix.depth() {
+        PixelDepth::Bit8 => {
+            // Grayscale: extract pixel values into a byte buffer
+            let mut data = vec![0u8; (w * h) as usize];
+            for y in 0..h {
+                for x in 0..w {
+                    data[(y * w + x) as usize] = pix.get_pixel_unchecked(x, y) as u8;
+                }
+            }
+            encoder
+                .encode(&data, w as u16, h as u16, jpeg_encoder::ColorType::Luma)
+                .map_err(|e| IoError::EncodeError(format!("JPEG encode error: {}", e)))?;
+        }
+        PixelDepth::Bit32 => {
+            // RGB: extract R, G, B channels (alpha ignored)
+            let mut data = vec![0u8; (w * h * 3) as usize];
+            for y in 0..h {
+                for x in 0..w {
+                    let pixel = pix.get_pixel_unchecked(x, y);
+                    let (r, g, b) = color::extract_rgb(pixel);
+                    let idx = ((y * w + x) * 3) as usize;
+                    data[idx] = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b;
+                }
+            }
+            encoder
+                .encode(&data, w as u16, h as u16, jpeg_encoder::ColorType::Rgb)
+                .map_err(|e| IoError::EncodeError(format!("JPEG encode error: {}", e)))?;
+        }
+        _ => {
+            return Err(IoError::EncodeError(format!(
+                "unexpected depth {} after conversion",
+                pix.depth().bits()
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -108,7 +176,6 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_jpeg_write_grayscale_roundtrip() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -133,7 +200,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_jpeg_write_rgb_roundtrip() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -160,7 +226,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_jpeg_write_1bpp_converts() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
 
@@ -174,7 +239,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_jpeg_quality_affects_size() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();

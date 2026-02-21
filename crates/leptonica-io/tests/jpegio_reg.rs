@@ -64,7 +64,6 @@ fn jpegio_reg() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn jpegio_write_reg() {
     let mut rp = RegParams::new("jpegio_write");
 
