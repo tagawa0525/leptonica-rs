@@ -874,21 +874,274 @@ const BASIC_LINEAR: &[u32] = &[
 ///
 /// Returns the same set as C leptonica `selaAddBasic`.
 pub fn sela_add_basic() -> Vec<Sel> {
-    unimplemented!("not yet implemented")
+    let mut sels = Vec::new();
+
+    // Linear horizontal bricks: 1×N with origin at (0, N/2)
+    for &size in BASIC_LINEAR {
+        if let Ok(mut sel) = Sel::create_brick(size, 1) {
+            sel.set_origin(0, size / 2).ok();
+            sel.set_name(format!("sel_{}h", size));
+            sels.push(sel);
+        }
+    }
+
+    // Linear vertical bricks: N×1 with origin at (N/2, 0)
+    for &size in BASIC_LINEAR {
+        if let Ok(mut sel) = Sel::create_brick(1, size) {
+            sel.set_origin(size / 2, 0).ok();
+            sel.set_name(format!("sel_{}v", size));
+            sels.push(sel);
+        }
+    }
+
+    // Square 2-D bricks 2×2 – 5×5
+    for i in 2u32..=5 {
+        if let Ok(mut sel) = Sel::create_brick(i, i) {
+            sel.set_origin(i / 2, i / 2).ok();
+            sel.set_name(format!("sel_{}", i));
+            sels.push(sel);
+        }
+    }
+
+    // Diagonal sel_2dp: 2×2, hits at (0,1) and (1,0), origin (0,0)
+    // Pattern: . x / x .  (DontCare on diagonal, Hit off-diagonal)
+    if let Ok(mut sel) = Sel::create_brick(2, 2) {
+        sel.set_origin(0, 0).ok();
+        sel.set_element(0, 0, SelElement::DontCare);
+        sel.set_element(1, 1, SelElement::DontCare);
+        sel.set_name("sel_2dp");
+        sels.push(sel);
+    }
+
+    // Diagonal sel_2dm: 2×2, hits at (0,0) and (1,1), origin (0,0)
+    // Pattern: x . / . x
+    if let Ok(mut sel) = Sel::create_brick(2, 2) {
+        sel.set_origin(0, 0).ok();
+        sel.set_element(0, 1, SelElement::DontCare);
+        sel.set_element(1, 0, SelElement::DontCare);
+        sel.set_name("sel_2dm");
+        sels.push(sel);
+    }
+
+    // sel_5dp: 5×5, positive-slope diagonal (top-right to bottom-left)
+    // Hit positions: (0,4),(1,3),(2,2),(3,1),(4,0) with origin (2,2)
+    if let Ok(mut sel) = Sel::new(5, 5) {
+        sel.set_origin(2, 2).ok();
+        for i in 0u32..5 {
+            sel.set_element(4 - i, i, SelElement::Hit);
+        }
+        sel.set_name("sel_5dp");
+        sels.push(sel);
+    }
+
+    // sel_5dm: 5×5, negative-slope diagonal (top-left to bottom-right)
+    // Hit positions: (0,0),(1,1),(2,2),(3,3),(4,4) with origin (2,2)
+    if let Ok(mut sel) = Sel::new(5, 5) {
+        sel.set_origin(2, 2).ok();
+        for i in 0u32..5 {
+            sel.set_element(i, i, SelElement::Hit);
+        }
+        sel.set_name("sel_5dm");
+        sels.push(sel);
+    }
+
+    sels
 }
 
 /// Build the hit-miss SEL library (isolated pixel, edge, corner, slanted-edge).
 ///
 /// Returns the same set as C leptonica `selaAddHitMiss`.
 pub fn sela_add_hit_miss() -> Vec<Sel> {
-    unimplemented!("not yet implemented")
+    let mut sels = Vec::new();
+
+    // sel_3hm: isolated foreground pixel (3×3 all miss, center hit)
+    if let Ok(mut sel) = Sel::create_brick(3, 3) {
+        for y in 0u32..3 {
+            for x in 0u32..3 {
+                sel.set_element(x, y, SelElement::Miss);
+            }
+        }
+        sel.set_element(1, 1, SelElement::Hit);
+        sel.set_name("sel_3hm");
+        sels.push(sel);
+    }
+
+    // sel_3de: top edge detector (2×3, origin (0,1))
+    // Row 0: all Hit; Row 1: all Miss
+    if let Ok(mut sel) = Sel::create_brick(3, 2) {
+        sel.set_origin(0, 1).ok();
+        sel.set_element(0, 1, SelElement::Miss);
+        sel.set_element(1, 1, SelElement::Miss);
+        sel.set_element(2, 1, SelElement::Miss);
+        sel.set_name("sel_3de");
+        sels.push(sel);
+    }
+
+    // sel_3ue: bottom edge detector (2×3, origin (1,1))
+    // Row 0: all Miss; Row 1: all Hit
+    if let Ok(mut sel) = Sel::create_brick(3, 2) {
+        sel.set_origin(1, 1).ok();
+        sel.set_element(0, 0, SelElement::Miss);
+        sel.set_element(1, 0, SelElement::Miss);
+        sel.set_element(2, 0, SelElement::Miss);
+        sel.set_name("sel_3ue");
+        sels.push(sel);
+    }
+
+    // sel_3re: right edge detector (3×2, origin (1,0))
+    // Col 0: all Hit; Col 1: all Miss
+    if let Ok(mut sel) = Sel::create_brick(2, 3) {
+        sel.set_origin(1, 0).ok();
+        sel.set_element(1, 0, SelElement::Miss);
+        sel.set_element(1, 1, SelElement::Miss);
+        sel.set_element(1, 2, SelElement::Miss);
+        sel.set_name("sel_3re");
+        sels.push(sel);
+    }
+
+    // sel_3le: left edge detector (3×2, origin (1,1))
+    // Col 0: all Miss; Col 1: all Hit
+    if let Ok(mut sel) = Sel::create_brick(2, 3) {
+        sel.set_origin(1, 1).ok();
+        sel.set_element(0, 0, SelElement::Miss);
+        sel.set_element(0, 1, SelElement::Miss);
+        sel.set_element(0, 2, SelElement::Miss);
+        sel.set_name("sel_3le");
+        sels.push(sel);
+    }
+
+    // sel_sl1: slanted edge (13×6, origin (6,2), mostly DontCare with sparse hit/miss)
+    if let Ok(mut sel) = Sel::new(6, 13) {
+        sel.set_origin(6, 2).ok();
+        sel.set_element(3, 0, SelElement::Miss);
+        sel.set_element(5, 0, SelElement::Hit);
+        sel.set_element(2, 4, SelElement::Miss);
+        sel.set_element(4, 4, SelElement::Hit);
+        sel.set_element(1, 8, SelElement::Miss);
+        sel.set_element(3, 8, SelElement::Hit);
+        sel.set_element(0, 12, SelElement::Miss);
+        sel.set_element(2, 12, SelElement::Hit);
+        sel.set_name("sel_sl1");
+        sels.push(sel);
+    }
+
+    // Corner detectors: 4×4 with mix of Hit/Miss/DontCare
+
+    // sel_ulc: upper-left corner
+    if let Ok(mut sel) = Sel::create_brick(4, 4) {
+        sel.set_origin(1, 1).ok();
+        for y in 0u32..4 {
+            for x in 0u32..4 {
+                sel.set_element(x, y, SelElement::Miss);
+            }
+        }
+        sel.set_element(1, 1, SelElement::DontCare);
+        sel.set_element(2, 1, SelElement::DontCare);
+        sel.set_element(1, 2, SelElement::DontCare);
+        sel.set_element(3, 1, SelElement::Hit);
+        sel.set_element(2, 2, SelElement::Hit);
+        sel.set_element(3, 2, SelElement::Hit);
+        sel.set_element(1, 3, SelElement::Hit);
+        sel.set_element(2, 3, SelElement::Hit);
+        sel.set_element(3, 3, SelElement::Hit);
+        sel.set_name("sel_ulc");
+        sels.push(sel);
+    }
+
+    // sel_urc: upper-right corner
+    if let Ok(mut sel) = Sel::create_brick(4, 4) {
+        sel.set_origin(1, 2).ok();
+        for y in 0u32..4 {
+            for x in 0u32..4 {
+                sel.set_element(x, y, SelElement::Miss);
+            }
+        }
+        sel.set_element(1, 1, SelElement::DontCare);
+        sel.set_element(2, 1, SelElement::DontCare);
+        sel.set_element(2, 2, SelElement::DontCare);
+        sel.set_element(0, 1, SelElement::Hit);
+        sel.set_element(0, 2, SelElement::Hit);
+        sel.set_element(1, 2, SelElement::Hit);
+        sel.set_element(0, 3, SelElement::Hit);
+        sel.set_element(1, 3, SelElement::Hit);
+        sel.set_element(2, 3, SelElement::Hit);
+        sel.set_name("sel_urc");
+        sels.push(sel);
+    }
+
+    // sel_llc: lower-left corner
+    if let Ok(mut sel) = Sel::create_brick(4, 4) {
+        sel.set_origin(2, 1).ok();
+        for y in 0u32..4 {
+            for x in 0u32..4 {
+                sel.set_element(x, y, SelElement::Miss);
+            }
+        }
+        sel.set_element(1, 1, SelElement::DontCare);
+        sel.set_element(1, 2, SelElement::DontCare);
+        sel.set_element(2, 2, SelElement::DontCare);
+        sel.set_element(2, 0, SelElement::Hit);
+        sel.set_element(3, 0, SelElement::Hit);
+        sel.set_element(3, 1, SelElement::Hit);
+        sel.set_element(2, 1, SelElement::Hit); // wait – C uses (0,1),(0,2),(0,3),(1,2),(1,3),(2,3)
+        // re-checked from C: origin (2,1); hits at (row,col): (0,1)(0,2)(0,3)(1,2)(1,3)(2,3)
+        // sel_set_element(sel, row, col, val) → our API is set_element(x=col, y=row, val)
+        sel.set_element(1, 0, SelElement::Hit);
+        sel.set_element(2, 0, SelElement::Hit);
+        sel.set_element(3, 0, SelElement::Hit);
+        sel.set_element(2, 1, SelElement::Hit);
+        sel.set_element(3, 1, SelElement::Hit);
+        sel.set_element(3, 2, SelElement::Hit);
+        sel.set_name("sel_llc");
+        sels.push(sel);
+    }
+
+    // sel_lrc: lower-right corner
+    if let Ok(mut sel) = Sel::create_brick(4, 4) {
+        sel.set_origin(2, 2).ok();
+        for y in 0u32..4 {
+            for x in 0u32..4 {
+                sel.set_element(x, y, SelElement::Miss);
+            }
+        }
+        sel.set_element(2, 1, SelElement::DontCare);
+        sel.set_element(1, 2, SelElement::DontCare);
+        sel.set_element(2, 2, SelElement::DontCare);
+        sel.set_element(0, 0, SelElement::Hit);
+        sel.set_element(1, 0, SelElement::Hit);
+        sel.set_element(2, 0, SelElement::Hit);
+        sel.set_element(0, 1, SelElement::Hit);
+        sel.set_element(1, 1, SelElement::Hit);
+        sel.set_element(0, 2, SelElement::Hit);
+        sel.set_name("sel_lrc");
+        sels.push(sel);
+    }
+
+    sels
 }
 
 /// Build linear SELs for sizes 2–63 (horizontal and vertical).
 ///
 /// Returns the same set as C leptonica `selaAddDwaLinear`.
 pub fn sela_add_dwa_linear() -> Vec<Sel> {
-    unimplemented!("not yet implemented")
+    let mut sels = Vec::new();
+
+    for i in 2u32..64 {
+        if let Ok(mut sel) = Sel::create_brick(i, 1) {
+            sel.set_origin(0, i / 2).ok();
+            sel.set_name(format!("sel_{}h", i));
+            sels.push(sel);
+        }
+    }
+    for i in 2u32..64 {
+        if let Ok(mut sel) = Sel::create_brick(1, i) {
+            sel.set_origin(i / 2, 0).ok();
+            sel.set_name(format!("sel_{}v", i));
+            sels.push(sel);
+        }
+    }
+
+    sels
 }
 
 /// Build comb SELs for DWA composite operations (sizes 4–63).
@@ -898,7 +1151,43 @@ pub fn sela_add_dwa_linear() -> Vec<Sel> {
 ///
 /// Returns the same set as C leptonica `selaAddDwaCombs`.
 pub fn sela_add_dwa_combs() -> Vec<Sel> {
-    unimplemented!("not yet implemented")
+    use crate::binary::select_composable_sizes;
+
+    let mut sels = Vec::new();
+    let mut prev_size = 0u32;
+
+    for i in 4u32..64 {
+        let (f1, f2) = select_composable_sizes(i);
+        let size = f1 * f2;
+        if size == prev_size {
+            continue;
+        }
+        if let Ok(mut sel) = Sel::create_comb_horizontal(f1, f2) {
+            sel.set_name(format!("sel_comb_{}h", size));
+            sels.push(sel);
+        }
+        if let Ok(mut sel) = Sel::create_comb_vertical(f1, f2) {
+            sel.set_name(format!("sel_comb_{}v", size));
+            sels.push(sel);
+        }
+        prev_size = size;
+    }
+
+    sels
+}
+
+/// Generate pixel positions along a line from a center point.
+///
+/// Starting from `(xc, yc)`, extends `length` pixels in direction `radang` (radians).
+fn line_points_from_pt(xc: i32, yc: i32, length: f64, radang: f64) -> Vec<(i32, i32)> {
+    let n = length.ceil() as i32;
+    (1..=n)
+        .map(|k| {
+            let x = xc + (k as f64 * radang.cos()).round() as i32;
+            let y = yc + (k as f64 * radang.sin()).round() as i32;
+            (x, y)
+        })
+        .collect()
 }
 
 /// Build hit-miss SELs for detecting cross (X) junctions of two lines.
@@ -910,7 +1199,62 @@ pub fn sela_add_dwa_combs() -> Vec<Sel> {
 ///
 /// Based on C leptonica `selaAddCrossJunctions`.
 pub fn sela_add_cross_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphResult<Vec<Sel>> {
-    unimplemented!("not yet implemented")
+    if hlsize <= 0.0 {
+        return Err(MorphError::InvalidParameters(
+            "hlsize must be > 0".to_string(),
+        ));
+    }
+    if norient == 0 || norient > 8 {
+        return Err(MorphError::InvalidParameters(
+            "norient must be in [1, 8]".to_string(),
+        ));
+    }
+
+    let half_pi = std::f64::consts::FRAC_PI_2;
+    let rad_incr = half_pi / norient as f64;
+    let w_f = 2.2 * (hlsize.max(mdist) as f64 + 0.5);
+    let w = if (w_f as u32).is_multiple_of(2) {
+        w_f as u32 + 1
+    } else {
+        w_f as u32
+    };
+    let xc = (w / 2) as i32;
+    let yc = (w / 2) as i32;
+
+    let mut sels = Vec::with_capacity(norient as usize);
+    for i in 0..norient {
+        let mut sel = Sel::new(w, w)?;
+        sel.set_origin(yc as u32, xc as u32)?;
+        let rad = i as f64 * rad_incr;
+
+        // Four arms of hits (cross shape)
+        for &angle_off in &[0.0, half_pi, std::f64::consts::PI, 3.0 * half_pi] {
+            for (px, py) in line_points_from_pt(xc, yc, (hlsize + 1.0) as f64, rad + angle_off) {
+                if px >= 0 && py >= 0 && (px as u32) < w && (py as u32) < w {
+                    sel.set_element(px as u32, py as u32, SelElement::Hit);
+                }
+            }
+        }
+        sel.set_element(xc as u32, yc as u32, SelElement::Hit); // origin itself
+
+        // Four miss elements between arms
+        for j in 0..4i32 {
+            let angle = rad + (j as f64 - 0.5) * half_pi;
+            let mx = xc + (mdist as f64 * angle.cos()).round() as i32;
+            let my = yc + (mdist as f64 * angle.sin()).round() as i32;
+            if mx >= 0 && my >= 0 && (mx as u32) < w && (my as u32) < w {
+                // Only set to Miss if not already Hit
+                if sel.get_element(mx as u32, my as u32) != Some(SelElement::Hit) {
+                    sel.set_element(mx as u32, my as u32, SelElement::Miss);
+                }
+            }
+        }
+
+        sel.set_name(format!("sel_cross_{}", i));
+        sels.push(sel);
+    }
+
+    Ok(sels)
 }
 
 /// Build hit-miss SELs for detecting T-junctions of two lines.
@@ -922,7 +1266,74 @@ pub fn sela_add_cross_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphR
 ///
 /// Based on C leptonica `selaAddTJunctions`.
 pub fn sela_add_t_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphResult<Vec<Sel>> {
-    unimplemented!("not yet implemented")
+    if hlsize <= 2.0 {
+        return Err(MorphError::InvalidParameters(
+            "hlsize must be > 2".to_string(),
+        ));
+    }
+    if norient == 0 || norient > 8 {
+        return Err(MorphError::InvalidParameters(
+            "norient must be in [1, 8]".to_string(),
+        ));
+    }
+
+    let half_pi = std::f64::consts::FRAC_PI_2;
+    let rad_incr = half_pi / norient as f64;
+    let w_f = 2.4 * (hlsize.max(mdist) as f64 + 0.5);
+    let w = if (w_f as u32).is_multiple_of(2) {
+        w_f as u32 + 1
+    } else {
+        w_f as u32
+    };
+    let xc = (w / 2) as i32;
+    let yc = (w / 2) as i32;
+
+    let mut sels = Vec::with_capacity(4 * norient as usize);
+    for i in 0..norient {
+        let rad = i as f64 * rad_incr;
+        for j in 0..4u32 {
+            let j_ang = j as f64 * half_pi;
+            let mut sel = Sel::new(w, w)?;
+            sel.set_origin(yc as u32, xc as u32)?;
+
+            // Three arms of hits (T shape): straight + two half-perpendiculars
+            for (arm_rad, len_mult) in [
+                (j_ang + rad, hlsize as f64 + 1.0),
+                (j_ang + rad + half_pi, hlsize as f64 / 2.0 + 1.0),
+                (j_ang + rad - half_pi, hlsize as f64 / 2.0 + 1.0),
+            ] {
+                for (px, py) in line_points_from_pt(xc, yc, len_mult, arm_rad) {
+                    if px >= 0 && py >= 0 && (px as u32) < w && (py as u32) < w {
+                        sel.set_element(px as u32, py as u32, SelElement::Hit);
+                    }
+                }
+            }
+            sel.set_element(xc as u32, yc as u32, SelElement::Hit); // origin
+
+            // Three miss elements (opposite to arms)
+            for (k, &dist) in [mdist as f64, mdist as f64 / 2.0, mdist as f64 / 2.0]
+                .iter()
+                .enumerate()
+            {
+                let angle = j_ang + rad + std::f64::consts::PI + (k as f64 - 1.0) * half_pi;
+                let mx = xc + (dist * angle.cos()).round() as i32;
+                let my = yc + (dist * angle.sin()).round() as i32;
+                if mx >= 0
+                    && my >= 0
+                    && (mx as u32) < w
+                    && (my as u32) < w
+                    && sel.get_element(mx as u32, my as u32) != Some(SelElement::Hit)
+                {
+                    sel.set_element(mx as u32, my as u32, SelElement::Miss);
+                }
+            }
+
+            sel.set_name(format!("sel_t_{}_{}", i, j));
+            sels.push(sel);
+        }
+    }
+
+    Ok(sels)
 }
 
 /// Create a plus-sign (+) SEL of the given size and line width.
@@ -933,7 +1344,45 @@ pub fn sela_add_t_junctions(hlsize: f32, mdist: f32, norient: u32) -> MorphResul
 ///
 /// Based on C leptonica `selMakePlusSign`.
 pub fn sel_make_plus_sign(size: u32, linewidth: u32) -> MorphResult<Sel> {
-    unimplemented!("not yet implemented")
+    if size < 3 {
+        return Err(MorphError::InvalidParameters(
+            "size must be >= 3".to_string(),
+        ));
+    }
+    if linewidth > size {
+        return Err(MorphError::InvalidParameters(
+            "linewidth must be <= size".to_string(),
+        ));
+    }
+
+    let mut sel = Sel::new(size, size)?;
+    sel.set_origin(size / 2, size / 2)?;
+    sel.set_name("plus_sign");
+
+    let cx = size / 2;
+    let cy = size / 2;
+    let half = linewidth / 2;
+
+    // Horizontal arm
+    for x in 0..size {
+        for dy in 0..linewidth {
+            let y = cy.saturating_sub(half) + dy;
+            if y < size {
+                sel.set_element(x, y, SelElement::Hit);
+            }
+        }
+    }
+    // Vertical arm
+    for y in 0..size {
+        for dx in 0..linewidth {
+            let x = cx.saturating_sub(half) + dx;
+            if x < size {
+                sel.set_element(x, y, SelElement::Hit);
+            }
+        }
+    }
+
+    Ok(sel)
 }
 
 #[cfg(test)]
@@ -1274,7 +1723,6 @@ mod tests {
     // ── Phase 4: SEL-set generation tests ────────────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_basic_count() {
         // 25 horizontal + 25 vertical + 4 squares (2..=5) + 4 diagonals = 58
         let sels = sela_add_basic();
@@ -1282,7 +1730,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_basic_has_expected_names() {
         let sels = sela_add_basic();
         let names: Vec<_> = sels.iter().filter_map(|s| s.name()).collect();
@@ -1297,7 +1744,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_basic_linear_sel_dimensions() {
         let sels = sela_add_basic();
         // sel_5h: 1 row, 5 columns, origin (0, 2)
@@ -1309,7 +1755,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_hit_miss_count() {
         // 1 isolated + 4 edge + 1 slanted + 4 corner = 10
         let sels = sela_add_hit_miss();
@@ -1317,7 +1762,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_hit_miss_isolated_pixel() {
         let sels = sela_add_hit_miss();
         let sel = sels.iter().find(|s| s.name() == Some("sel_3hm")).unwrap();
@@ -1330,7 +1774,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_dwa_linear_count() {
         // sizes 2..=63 horizontal + vertical = 62 * 2 = 124
         let sels = sela_add_dwa_linear();
@@ -1338,7 +1781,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_dwa_linear_sizes() {
         let sels = sela_add_dwa_linear();
         // first SEL should be sel_2h: 1×2
@@ -1354,7 +1796,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_dwa_combs_nonempty() {
         let sels = sela_add_dwa_combs();
         assert!(!sels.is_empty());
@@ -1367,7 +1808,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_dwa_combs_hit_spacing() {
         let sels = sela_add_dwa_combs();
         // sel_comb_4h should have factor1=2, factor2=2, width=4, 2 hits
@@ -1381,14 +1821,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_cross_junctions_count() {
         let sels = sela_add_cross_junctions(6.0, 5.0, 2).unwrap();
         assert_eq!(sels.len(), 2); // norient SELs
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_cross_junctions_has_hits_and_misses() {
         let sels = sela_add_cross_junctions(6.0, 5.0, 1).unwrap();
         let sel = &sels[0];
@@ -1400,14 +1838,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sela_add_t_junctions_count() {
         let sels = sela_add_t_junctions(6.0, 5.0, 2).unwrap();
         assert_eq!(sels.len(), 8); // 4 * norient SELs
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sel_make_plus_sign_dimensions() {
         let sel = sel_make_plus_sign(5, 1).unwrap();
         assert_eq!(sel.width(), 5);
@@ -1417,7 +1853,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sel_make_plus_sign_hit_count() {
         // size=5, linewidth=1: horizontal 5 hits + vertical 5 hits - center 1 = 9 hits
         let sel = sel_make_plus_sign(5, 1).unwrap();
@@ -1425,7 +1860,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sel_make_plus_sign_invalid() {
         assert!(sel_make_plus_sign(2, 1).is_err(), "size < 3 should fail");
         assert!(
