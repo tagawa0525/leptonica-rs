@@ -44,6 +44,8 @@ pub use header::{
     ImageHeader, choose_output_format, read_image_header, read_image_header_mem, write_image_auto,
 };
 pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
+#[cfg(feature = "pnm")]
+pub use pnm::{read_pam, write_pam, write_pnm_ascii};
 
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek, Write};

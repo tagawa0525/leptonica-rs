@@ -35,13 +35,15 @@ mod magic {
     pub const RIFF: &[u8] = b"RIFF";
     pub const WEBP: &[u8] = b"WEBP";
 
-    /// PNM formats
+    /// PNM formats (P1-P6 and P7 PAM)
     pub const PBM_ASCII: &[u8] = b"P1";
     pub const PGM_ASCII: &[u8] = b"P2";
     pub const PPM_ASCII: &[u8] = b"P3";
     pub const PBM_BINARY: &[u8] = b"P4";
     pub const PGM_BINARY: &[u8] = b"P5";
     pub const PPM_BINARY: &[u8] = b"P6";
+    /// PAM (Portable Arbitrary Map)
+    pub const PAM: &[u8] = b"P7";
 
     /// JPEG 2000 Part 1 (JP2) signature box
     /// Starts with: 00 00 00 0C 6A 50 20 20 0D 0A 87 0A
@@ -114,7 +116,7 @@ pub fn detect_format_from_bytes(data: &[u8]) -> IoResult<ImageFormat> {
         return Ok(ImageFormat::Spix);
     }
 
-    // Check PNM formats
+    // Check PNM formats (P1-P7)
     if data.len() >= 2 {
         let first_two = &data[..2];
         if first_two == magic::PBM_ASCII
@@ -123,6 +125,7 @@ pub fn detect_format_from_bytes(data: &[u8]) -> IoResult<ImageFormat> {
             || first_two == magic::PBM_BINARY
             || first_two == magic::PGM_BINARY
             || first_two == magic::PPM_BINARY
+            || first_two == magic::PAM
         {
             return Ok(ImageFormat::Pnm);
         }
@@ -211,5 +214,11 @@ mod tests {
     fn test_detect_spix() {
         let data = b"spix\x00\x00\x00\x00\x00\x00\x00\x00";
         assert_eq!(detect_format_from_bytes(data).unwrap(), ImageFormat::Spix);
+    }
+
+    #[test]
+    fn test_detect_pam() {
+        let data = b"P7\nWIDTH 10\n";
+        assert_eq!(detect_format_from_bytes(data).unwrap(), ImageFormat::Pnm);
     }
 }
