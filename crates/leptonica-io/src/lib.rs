@@ -157,6 +157,9 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
         #[cfg(feature = "png-format")]
         ImageFormat::Png => png::write_png(pix, writer),
 
+        #[cfg(feature = "jpeg")]
+        ImageFormat::Jpeg => jpeg::write_jpeg(pix, writer, &jpeg::JpegOptions::default()),
+
         #[cfg(feature = "tiff-format")]
         ImageFormat::Tiff
         | ImageFormat::TiffG3
