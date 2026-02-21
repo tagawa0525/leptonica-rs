@@ -360,6 +360,33 @@ impl FromIterator<(f32, f32)> for Pta {
     }
 }
 
+impl Pta {
+    // ============================================================================
+    // Geometric transform methods (returning new Pta, matching C ptaTranslate etc.)
+    // ============================================================================
+
+    /// Returns a new Pta with all points translated by (dx, dy).
+    ///
+    /// Corresponds to C Leptonica's `ptaTranslate`.
+    pub fn translated_by(&self, _dx: f32, _dy: f32) -> Pta {
+        todo!("translated_by not yet implemented")
+    }
+
+    /// Returns a new Pta with all points scaled about the origin by (sx, sy).
+    ///
+    /// Corresponds to C Leptonica's `ptaScale`.
+    pub fn scaled_by(&self, _sx: f32, _sy: f32) -> Pta {
+        todo!("scaled_by not yet implemented")
+    }
+
+    /// Returns a new Pta with all points rotated about center (xc, yc) by angle (radians, clockwise).
+    ///
+    /// Corresponds to C Leptonica's `ptaRotate`.
+    pub fn rotated_about(&self, _xc: f32, _yc: f32, _angle: f32) -> Pta {
+        todo!("rotated_about not yet implemented")
+    }
+}
+
 /// Array of Pta
 #[derive(Debug, Clone, Default)]
 pub struct Ptaa {
@@ -700,5 +727,73 @@ mod tests {
 
         let flat = ptaa.flatten();
         assert_eq!(flat.len(), 3);
+    }
+
+    // -- Pta::translated_by --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_translated_by() {
+        let mut pta = Pta::new();
+        pta.push(1.0, 2.0);
+        pta.push(3.0, 4.0);
+
+        let result = pta.translated_by(10.0, 20.0);
+        assert_eq!(result.len(), 2);
+        assert!((result.get(0).unwrap().0 - 11.0).abs() < 1e-6);
+        assert!((result.get(0).unwrap().1 - 22.0).abs() < 1e-6);
+        assert!((result.get(1).unwrap().0 - 13.0).abs() < 1e-6);
+        assert!((result.get(1).unwrap().1 - 24.0).abs() < 1e-6);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_translated_by_empty() {
+        let pta = Pta::new();
+        let result = pta.translated_by(5.0, 5.0);
+        assert!(result.is_empty());
+    }
+
+    // -- Pta::scaled_by --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_scaled_by() {
+        let mut pta = Pta::new();
+        pta.push(2.0, 4.0);
+        pta.push(6.0, 8.0);
+
+        let result = pta.scaled_by(2.0, 0.5);
+        assert_eq!(result.len(), 2);
+        assert!((result.get(0).unwrap().0 - 4.0).abs() < 1e-6);
+        assert!((result.get(0).unwrap().1 - 2.0).abs() < 1e-6);
+        assert!((result.get(1).unwrap().0 - 12.0).abs() < 1e-6);
+        assert!((result.get(1).unwrap().1 - 4.0).abs() < 1e-6);
+    }
+
+    // -- Pta::rotated_about --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_rotated_about_90deg() {
+        // Rotate (1, 0) 90° clockwise about origin → (0, 1)
+        let mut pta = Pta::new();
+        pta.push(1.0, 0.0);
+
+        let result = pta.rotated_about(0.0, 0.0, std::f32::consts::FRAC_PI_2);
+        assert!((result.get(0).unwrap().0 - 0.0).abs() < 1e-5);
+        assert!((result.get(0).unwrap().1 - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_rotated_about_center() {
+        // Rotate (2, 0) 90° clockwise about (1, 0) → (1, 1)
+        let mut pta = Pta::new();
+        pta.push(2.0, 0.0);
+
+        let result = pta.rotated_about(1.0, 0.0, std::f32::consts::FRAC_PI_2);
+        assert!((result.get(0).unwrap().0 - 1.0).abs() < 1e-5);
+        assert!((result.get(0).unwrap().1 - 1.0).abs() < 1e-5);
     }
 }

@@ -973,6 +973,35 @@ pub fn affine_rotate(pix: &Pix, center_x: f32, center_y: f32, angle: f32) -> Tra
 }
 
 // ============================================================================
+// PTA / BOXA Affine Transform
+// ============================================================================
+
+/// Returns a new Pta with all points transformed by an affine matrix.
+///
+/// Applies: x' = a*x + b*y + tx, y' = c*x + d*y + ty
+///
+/// Corresponds to C Leptonica's `ptaAffineTransform`.
+pub fn pta_affine_transform(
+    _pta: &leptonica_core::Pta,
+    _matrix: &AffineMatrix,
+) -> leptonica_core::Pta {
+    todo!("pta_affine_transform not yet implemented")
+}
+
+/// Returns a new Boxa with all boxes transformed by an affine matrix.
+///
+/// Each box's 4 corners are transformed by the affine matrix; the axis-aligned
+/// bounding box of those corners becomes the new box.
+///
+/// Corresponds to C Leptonica's `boxaAffineTransform`.
+pub fn boxa_affine_transform(
+    _boxa: &leptonica_core::Boxa,
+    _matrix: &AffineMatrix,
+) -> leptonica_core::Boxa {
+    todo!("boxa_affine_transform not yet implemented")
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1521,5 +1550,70 @@ mod tests {
         let result = affine_sampled(&pix, &m, AffineFill::White).unwrap();
 
         assert!(result.colormap().is_some());
+    }
+
+    // -- pta_affine_transform --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_affine_transform_identity() {
+        use leptonica_core::Pta;
+        let mut pta = Pta::new();
+        pta.push(1.0, 2.0);
+        pta.push(3.0, 4.0);
+
+        let matrix = AffineMatrix::identity();
+        let result = pta_affine_transform(&pta, &matrix);
+        assert_eq!(result.len(), 2);
+        assert!((result.get(0).unwrap().0 - 1.0).abs() < 1e-5);
+        assert!((result.get(0).unwrap().1 - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_affine_transform_translation() {
+        use leptonica_core::Pta;
+        let mut pta = Pta::new();
+        pta.push(1.0, 2.0);
+
+        let matrix = AffineMatrix::translation(10.0, 20.0);
+        let result = pta_affine_transform(&pta, &matrix);
+        assert!((result.get(0).unwrap().0 - 11.0).abs() < 1e-5);
+        assert!((result.get(0).unwrap().1 - 22.0).abs() < 1e-5);
+    }
+
+    // -- boxa_affine_transform --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_boxa_affine_transform_identity() {
+        use leptonica_core::{Box as LBox, Boxa};
+        let mut boxa = Boxa::new();
+        boxa.push(LBox::new(10, 20, 30, 40).unwrap());
+
+        let matrix = AffineMatrix::identity();
+        let result = boxa_affine_transform(&boxa, &matrix);
+        assert_eq!(result.len(), 1);
+        let b = result.get(0).unwrap();
+        assert_eq!(b.x, 10);
+        assert_eq!(b.y, 20);
+        assert_eq!(b.w, 30);
+        assert_eq!(b.h, 40);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_boxa_affine_transform_translation() {
+        use leptonica_core::{Box as LBox, Boxa};
+        let mut boxa = Boxa::new();
+        boxa.push(LBox::new(0, 0, 10, 10).unwrap());
+
+        let matrix = AffineMatrix::translation(5.0, 3.0);
+        let result = boxa_affine_transform(&boxa, &matrix);
+        let b = result.get(0).unwrap();
+        assert_eq!(b.x, 5);
+        assert_eq!(b.y, 3);
+        assert_eq!(b.w, 10);
+        assert_eq!(b.h, 10);
     }
 }
