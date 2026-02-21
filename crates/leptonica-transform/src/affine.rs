@@ -986,9 +986,9 @@ pub fn pta_affine_transform(
     matrix: &AffineMatrix,
 ) -> leptonica_core::Pta {
     let c = matrix.coeffs();
-    // c = [a, b, tx, d, e, ty]
+    // c = [a, b, tx, c, d, ty]
     // x' = a*x + b*y + tx
-    // y' = d*x + e*y + ty
+    // y' = c*x + d*y + ty
     pta.iter()
         .map(|(x, y)| (c[0] * x + c[1] * y + c[2], c[3] * x + c[4] * y + c[5]))
         .collect()
