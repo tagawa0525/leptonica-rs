@@ -978,8 +978,13 @@ pub fn scale_gray_rank_cascade(
             "cmapped input not supported".to_string(),
         ));
     }
-    for &lvl in &[level1, level2, level3, level4] {
-        if lvl > 4 {
+    if level1 > 4 {
+        return Err(TransformError::InvalidParameters(format!(
+            "level1 must be in [1, 4], got {level1}"
+        )));
+    }
+    for &lvl in &[level2, level3, level4] {
+        if !(0..=4).contains(&lvl) {
             return Err(TransformError::InvalidParameters(format!(
                 "levels must be in [0, 4], got {lvl}"
             )));
