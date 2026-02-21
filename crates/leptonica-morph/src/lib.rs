@@ -17,6 +17,7 @@ pub mod color;
 pub mod dwa;
 mod error;
 pub mod grayscale;
+pub mod morphapp;
 pub mod sel;
 pub mod sequence;
 pub mod thin;
@@ -54,3 +55,9 @@ pub use sequence::{
 
 // Re-export DWA (high-speed morphology) functions
 pub use dwa::{close_brick_dwa, dilate_brick_dwa, erode_brick_dwa, open_brick_dwa};
+
+// Re-export morphological application functions
+pub use morphapp::{
+    MorphOpType, intersection_of_morph_ops, morph_gradient, morph_sequence_masked, seedfill_morph,
+    union_of_morph_ops,
+};
