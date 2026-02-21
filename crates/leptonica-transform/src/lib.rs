@@ -36,8 +36,10 @@ pub use projective::{
 };
 pub use rotate::{
     RotateFill, RotateMethod, RotateOptions, flip_lr, flip_tb, rotate, rotate_90, rotate_180,
-    rotate_180_in_place, rotate_about_center, rotate_by_angle, rotate_by_angle_with_options,
-    rotate_by_radians, rotate_orth, rotate_with_method,
+    rotate_180_in_place, rotate_about_center, rotate_am_color_corner, rotate_am_corner,
+    rotate_am_gray_corner, rotate_by_angle, rotate_by_angle_with_options, rotate_by_radians,
+    rotate_orth, rotate_shear, rotate_shear_center, rotate_shear_center_ip, rotate_shear_ip,
+    rotate_with_alpha, rotate_with_method,
 };
 pub use scale::{
     GrayMinMaxMode, ScaleMethod, expand_replicate, scale, scale_binary, scale_by_int_sampling,
