@@ -443,57 +443,299 @@ fn erode_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
 }
 
 // ---------------------------------------------------------------------------
-// Composite and Extended DWA stubs (Phase 5)
+// Composite and Extended DWA (Phase 5)
 // ---------------------------------------------------------------------------
 
 /// Compute the extended composite parameters for DWA operations on sizes > 63.
 ///
-/// # Returns
+/// Decomposes a linear SE size into `n` passes of size 63 plus one pass of
+/// size `extra`.  For size > 63 the formula is:
+///   `size = 63 + (n - 1) * 62 + (extra - 1)`
 ///
-/// `(n, extra)` where `n` is the number of 63-wide passes and `extra` is the
-/// residual (always in range 1..=63, approximate if size==64).
-pub fn get_extended_composite_parameters(_size: u32) -> (u32, u32) {
-    unimplemented!("not yet implemented")
+/// Returns `(n, extra)` where extra is in 1..=63.
+///
+/// Reference: Leptonica `getExtendedCompositeParameters()` in morphdwa.c
+pub fn get_extended_composite_parameters(size: u32) -> (u32, u32) {
+    if size <= 63 {
+        return (0, size.max(1));
+    }
+    let n = 1 + (size - 63) / 62;
+    let extra = size - 63 - (n - 1) * 62 + 1;
+    (n, extra)
 }
 
 /// Composite DWA dilation (≤ 63 per dimension, delegates to extend for larger).
-pub fn dilate_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+///
+/// Decomposes each dimension into two factors via `select_composable_sizes`,
+/// then applies brick DWA followed by comb DWA.  The decomposition may
+/// approximate the requested size for primes (e.g., 37 → 6×6 = 36).
+pub fn dilate_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    validate_sizes(hsize, vsize)?;
+    if hsize > 63 || vsize > 63 {
+        return dilate_comp_brick_extend_dwa(pix, hsize, vsize);
+    }
+    if hsize == 1 && vsize == 1 {
+        return Ok(pix.clone());
+    }
+    composite_dwa_op(pix, hsize, vsize, DwaOp::Dilate)
 }
 
 /// Composite DWA erosion (≤ 63 per dimension, delegates to extend for larger).
-pub fn erode_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+pub fn erode_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    validate_sizes(hsize, vsize)?;
+    if hsize > 63 || vsize > 63 {
+        return erode_comp_brick_extend_dwa(pix, hsize, vsize);
+    }
+    if hsize == 1 && vsize == 1 {
+        return Ok(pix.clone());
+    }
+    composite_dwa_op(pix, hsize, vsize, DwaOp::Erode)
 }
 
-/// Composite DWA opening.
-pub fn open_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+/// Composite DWA opening (erosion then dilation).
+pub fn open_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    let eroded = erode_comp_brick_dwa(pix, hsize, vsize)?;
+    dilate_comp_brick_dwa(&eroded, hsize, vsize)
 }
 
-/// Composite DWA closing.
-pub fn close_comp_brick_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+/// Composite DWA closing (dilation then erosion).
+pub fn close_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    let dilated = dilate_comp_brick_dwa(pix, hsize, vsize)?;
+    erode_comp_brick_dwa(&dilated, hsize, vsize)
 }
 
 /// Extended composite DWA dilation (arbitrary size, > 63 supported).
-pub fn dilate_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+///
+/// Chains multiple 63-pixel DWA passes plus one residual pass.
+/// Called automatically by `dilate_comp_brick_dwa` when a dimension > 63.
+pub fn dilate_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    validate_sizes(hsize, vsize)?;
+    if hsize < 64 && vsize < 64 {
+        return dilate_comp_brick_dwa(pix, hsize, vsize);
+    }
+    let result = extend_dwa_1d(pix, hsize, true, DwaOp::Dilate)?;
+    extend_dwa_1d(&result, vsize, false, DwaOp::Dilate)
 }
 
 /// Extended composite DWA erosion (arbitrary size, > 63 supported).
-pub fn erode_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+pub fn erode_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    validate_sizes(hsize, vsize)?;
+    if hsize < 64 && vsize < 64 {
+        return erode_comp_brick_dwa(pix, hsize, vsize);
+    }
+    let result = extend_dwa_1d(pix, hsize, true, DwaOp::Erode)?;
+    extend_dwa_1d(&result, vsize, false, DwaOp::Erode)
 }
 
 /// Extended composite DWA opening.
-pub fn open_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+pub fn open_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    let eroded = erode_comp_brick_extend_dwa(pix, hsize, vsize)?;
+    dilate_comp_brick_extend_dwa(&eroded, hsize, vsize)
 }
 
 /// Extended composite DWA closing.
-pub fn close_comp_brick_extend_dwa(_pix: &Pix, _hsize: u32, _vsize: u32) -> MorphResult<Pix> {
-    unimplemented!("not yet implemented")
+pub fn close_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    let dilated = dilate_comp_brick_extend_dwa(pix, hsize, vsize)?;
+    erode_comp_brick_extend_dwa(&dilated, hsize, vsize)
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers for composite / extended DWA
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DwaOp {
+    Dilate,
+    Erode,
+}
+
+fn validate_sizes(hsize: u32, vsize: u32) -> MorphResult<()> {
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be > 0".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Apply a single 1-D brick DWA (horizontal or vertical).
+fn apply_1d_dwa(pix: &Pix, size: u32, horizontal: bool, op: DwaOp) -> MorphResult<Pix> {
+    let (h, v) = if horizontal { (size, 1) } else { (1, size) };
+    match op {
+        DwaOp::Dilate => dilate_brick_dwa(pix, h, v),
+        DwaOp::Erode => erode_brick_dwa(pix, h, v),
+    }
+}
+
+/// Composite DWA: decompose size into brick × comb for each dimension.
+fn composite_dwa_op(pix: &Pix, hsize: u32, vsize: u32, op: DwaOp) -> MorphResult<Pix> {
+    let mut result = pix.clone();
+
+    if hsize > 1 {
+        let (s1, s2) = crate::binary::select_composable_sizes(hsize);
+        result = apply_1d_dwa(&result, s1, true, op)?;
+        if s2 > 1 {
+            result = comb_dwa(&result, s2, s1, true, op)?;
+        }
+    }
+    if vsize > 1 {
+        let (s1, s2) = crate::binary::select_composable_sizes(vsize);
+        result = apply_1d_dwa(&result, s1, false, op)?;
+        if s2 > 1 {
+            result = comb_dwa(&result, s2, s1, false, op)?;
+        }
+    }
+    Ok(result)
+}
+
+/// Comb DWA: hits at 0, spacing, 2·spacing, …, (n−1)·spacing.
+fn comb_dwa(pix: &Pix, n: u32, spacing: u32, horizontal: bool, op: DwaOp) -> MorphResult<Pix> {
+    if n <= 1 {
+        return Ok(pix.clone());
+    }
+    let origin = ((n - 1) * spacing) as i32 / 2;
+    if horizontal {
+        comb_horizontal_dwa(pix, n, spacing, origin, op)
+    } else {
+        comb_vertical_dwa(pix, n, spacing, origin, op)
+    }
+}
+
+/// Horizontal comb DWA via word-aligned shift-and-accumulate.
+fn comb_horizontal_dwa(
+    pix: &Pix,
+    n: u32,
+    spacing: u32,
+    origin: i32,
+    op: DwaOp,
+) -> MorphResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let wpl = pix.wpl() as usize;
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    let src = pix.data();
+    let dst = out_mut.data_mut();
+    let mut shifted = vec![0u32; wpl];
+    let mask = last_word_mask(w);
+    let init = if op == DwaOp::Dilate { 0u32 } else { !0u32 };
+
+    for y in 0..h as usize {
+        let src_row = &src[y * wpl..(y + 1) * wpl];
+        let dst_row = &mut dst[y * wpl..(y + 1) * wpl];
+        dst_row.fill(init);
+        for k in 0..n {
+            let d = (k * spacing) as i32 - origin;
+            shift_row(src_row, wpl, d, &mut shifted);
+            for i in 0..wpl {
+                if op == DwaOp::Dilate {
+                    dst_row[i] |= shifted[i];
+                } else {
+                    dst_row[i] &= shifted[i];
+                }
+            }
+        }
+        dst_row[wpl - 1] &= mask;
+    }
+    Ok(out_mut.into())
+}
+
+/// Vertical comb DWA: per-pixel accumulate at comb positions.
+fn comb_vertical_dwa(pix: &Pix, n: u32, spacing: u32, origin: i32, op: DwaOp) -> MorphResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let wpl = pix.wpl();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    let src = pix.data();
+    let dst = out_mut.data_mut();
+
+    for wi in 0..wpl as usize {
+        for bit in 0..32u32 {
+            let x = wi * 32 + bit as usize;
+            if x >= w as usize {
+                break;
+            }
+            let bm = 1u32 << (31 - bit);
+            for y in 0..h as i32 {
+                let mut acc = op == DwaOp::Erode; // dilate→false, erode→true
+                for k in 0..n {
+                    let sy = y + (k * spacing) as i32 - origin;
+                    if sy >= 0 && sy < h as i32 {
+                        let hit = src[(sy as u32 * wpl) as usize + wi] & bm != 0;
+                        if op == DwaOp::Dilate {
+                            if hit {
+                                acc = true;
+                                break;
+                            }
+                        } else if !hit {
+                            acc = false;
+                            break;
+                        }
+                    } else if op == DwaOp::Erode {
+                        acc = false;
+                        break;
+                    }
+                }
+                if acc {
+                    dst[(y as u32 * wpl) as usize + wi] |= bm;
+                }
+            }
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Extended DWA: chain multiple 63-pixel passes for one dimension.
+///
+/// Follows the C algorithm in `pixDilateCompBrickExtendDwa`.
+fn extend_dwa_1d(pix: &Pix, size: u32, horizontal: bool, op: DwaOp) -> MorphResult<Pix> {
+    if size == 1 {
+        return Ok(pix.clone());
+    }
+    if size < 64 {
+        return apply_1d_dwa(pix, size, horizontal, op);
+    }
+    if size == 64 {
+        // Approximate: use 63 (same as C)
+        return apply_1d_dwa(pix, 63, horizontal, op);
+    }
+
+    let (n, extra) = get_extended_composite_parameters(size);
+    let nops = if extra < 3 { n } else { n + 1 };
+
+    let mut result;
+    let mut temp;
+
+    if nops & 1 == 1 {
+        // Odd number of ops
+        result = if extra > 2 {
+            apply_1d_dwa(pix, extra, horizontal, op)?
+        } else {
+            apply_1d_dwa(pix, 63, horizontal, op)?
+        };
+        for _ in 0..nops / 2 {
+            temp = apply_1d_dwa(&result, 63, horizontal, op)?;
+            result = apply_1d_dwa(&temp, 63, horizontal, op)?;
+        }
+    } else {
+        // Even number of ops
+        temp = if extra > 2 {
+            apply_1d_dwa(pix, extra, horizontal, op)?
+        } else {
+            apply_1d_dwa(pix, 63, horizontal, op)?
+        };
+        result = apply_1d_dwa(&temp, 63, horizontal, op)?;
+        for _ in 0..nops / 2 - 1 {
+            temp = apply_1d_dwa(&result, 63, horizontal, op)?;
+            result = apply_1d_dwa(&temp, 63, horizontal, op)?;
+        }
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -743,7 +985,6 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_extended_composite_parameters() {
         // For size <= 63, n=0 and extra=size
         assert_eq!(get_extended_composite_parameters(1), (0, 1));
@@ -759,7 +1000,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_comp_dilate_identity() {
         let pix = create_test_image();
         let dilated = dilate_comp_brick_dwa(&pix, 1, 1).unwrap();
@@ -770,7 +1010,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_comp_erode_identity() {
         let pix = create_test_image();
         let eroded = erode_comp_brick_dwa(&pix, 1, 1).unwrap();
@@ -781,7 +1020,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_comp_dilate_increases_foreground() {
         let pix = create_test_image();
         let original = count_foreground_pixels(&pix);
@@ -790,7 +1028,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_comp_erode_decreases_foreground() {
         let pix = create_test_image();
         let original = count_foreground_pixels(&pix);
@@ -799,7 +1036,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_comp_open_removes_small_objects() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -815,7 +1051,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_comp_close_fills_holes() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -836,7 +1071,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_extend_dilate_large_se() {
         // Use a larger image to test with SE > 63
         let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
@@ -853,7 +1087,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_extend_erode_large_se() {
         let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -869,7 +1102,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_comp_dilate_delegates_to_extend_for_large_se() {
         let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -885,7 +1117,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_extend_open_large_se() {
         let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -901,7 +1132,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_extend_close_large_se() {
         let pix = Pix::new(200, 200, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -910,14 +1140,16 @@ mod tests {
                 pm.set_pixel_unchecked(x, y, 1);
             }
         }
-        for y in 90..110 {
-            for x in 90..110 {
+        // Create a small hole that the SE can fill
+        for y in 95..105 {
+            for x in 95..105 {
                 pm.set_pixel_unchecked(x, y, 0);
             }
         }
         let pix: Pix = pm.into();
-        let original = count_foreground_pixels(&pix);
+        // Close should fill the hole (SE 70x70 is much larger than 10x10 hole)
         let closed = close_comp_brick_extend_dwa(&pix, 70, 70).unwrap();
-        assert!(count_foreground_pixels(&closed) >= original);
+        // Verify the hole center pixel is now filled
+        assert_eq!(closed.get_pixel_unchecked(100, 100), 1);
     }
 }
