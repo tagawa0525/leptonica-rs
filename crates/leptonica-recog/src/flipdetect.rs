@@ -320,7 +320,8 @@ pub fn orient_correct(
 ///
 /// # Arguments
 /// * `pix` - 1 bpp deskewed document image (150-300 ppi)
-/// * `min_count` - Minimum count of (left + right) hits; use 0 for default (100)
+/// * `min_count` - Minimum value of max(right_hits, left_hits) required to produce a
+///   non-zero confidence; use 0 for default (100)
 pub fn mirror_detect(pix: &Pix, min_count: u32) -> RecogResult<f32> {
     if pix.depth() != PixelDepth::Bit1 {
         return Err(RecogError::UnsupportedDepth {
