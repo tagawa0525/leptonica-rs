@@ -168,11 +168,22 @@ pub fn write_pdf_multi<W: Write>(
 /// * `options` - PDF output options
 pub fn write_pdf_from_files<W: Write>(
     paths: &[impl AsRef<std::path::Path>],
-    writer: W,
+    mut writer: W,
     options: &PdfOptions,
 ) -> IoResult<()> {
-    let _ = (paths, writer, options);
-    todo!("write_pdf_from_files not yet implemented")
+    if paths.is_empty() {
+        return Err(IoError::InvalidData("no files provided".to_string()));
+    }
+
+    let images: Vec<Pix> = paths
+        .iter()
+        .map(crate::read_image)
+        .collect::<IoResult<Vec<_>>>()?;
+
+    let image_refs: Vec<&Pix> = images.iter().collect();
+    let pdf_data = generate_pdf(&image_refs, options)?;
+    writer.write_all(&pdf_data).map_err(IoError::Io)?;
+    Ok(())
 }
 
 /// Generate PDF data from images
@@ -259,12 +270,38 @@ fn write_page(
     // Prepare image data
     let (image_data, color_space, bits_per_component) = prepare_image_data(pix)?;
 
+    // Determine whether to use JPEG compression
+    let use_jpeg = matches!(
+        options.compression,
+        PdfCompression::Jpeg | PdfCompression::Auto
+    ) && pix.depth() != PixelDepth::Bit1
+        && pix.depth() != PixelDepth::Bit2
+        && pix.depth() != PixelDepth::Bit4;
+
+    #[cfg(feature = "jpeg")]
+    let use_jpeg = use_jpeg && matches!(options.compression, PdfCompression::Jpeg);
+
+    #[cfg(not(feature = "jpeg"))]
+    let use_jpeg = false;
+
     // Compress image data
-    let compressed_data = compress_to_vec_zlib(&image_data, 6);
+    let (compressed_data, filter) = if use_jpeg {
+        #[cfg(feature = "jpeg")]
+        {
+            let jpeg_data = encode_jpeg_for_pdf(&image_data, width, height, color_space, options)?;
+            (jpeg_data, Filter::DctDecode)
+        }
+        #[cfg(not(feature = "jpeg"))]
+        {
+            unreachable!()
+        }
+    } else {
+        (compress_to_vec_zlib(&image_data, 6), Filter::FlateDecode)
+    };
 
     // Write image XObject
     let mut image = pdf.image_xobject(image_id, &compressed_data);
-    image.filter(Filter::FlateDecode);
+    image.filter(filter);
     image.width(width as i32);
     image.height(height as i32);
     match color_space {
@@ -413,6 +450,34 @@ fn prepare_image_data(pix: &Pix) -> IoResult<(Vec<u8>, PdfColorSpace, i32)> {
     }
 }
 
+/// Encode image data as JPEG for PDF embedding
+#[cfg(feature = "jpeg")]
+fn encode_jpeg_for_pdf(
+    image_data: &[u8],
+    width: u32,
+    height: u32,
+    color_space: PdfColorSpace,
+    options: &PdfOptions,
+) -> IoResult<Vec<u8>> {
+    let quality = if options.quality == 0 {
+        75
+    } else {
+        options.quality
+    };
+
+    let color_type = match color_space {
+        PdfColorSpace::DeviceGray => jpeg_encoder::ColorType::Luma,
+        PdfColorSpace::DeviceRgb => jpeg_encoder::ColorType::Rgb,
+    };
+
+    let mut jpeg_buf = Vec::new();
+    let encoder = jpeg_encoder::Encoder::new(&mut jpeg_buf, quality);
+    encoder
+        .encode(image_data, width as u16, height as u16, color_type)
+        .map_err(|e| IoError::EncodeError(format!("JPEG encode for PDF error: {}", e)))?;
+    Ok(jpeg_buf)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -519,7 +584,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_pdf_jpeg_compression() {
         let pix = Pix::new(100, 100, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -550,7 +614,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_pdf_jpeg_smaller_than_flate() {
         // For photographic images, JPEG should produce smaller output
         let pix = Pix::new(200, 200, PixelDepth::Bit32).unwrap();
@@ -586,7 +649,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_pdf_jpeg_1bpp_fallback() {
         // 1bpp images should fall back to Flate even when Jpeg is selected
         let pix = Pix::new(80, 80, PixelDepth::Bit1).unwrap();
@@ -606,7 +668,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_pdf_jpeg_grayscale() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -633,7 +694,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_pdf_from_files() {
         // Create temporary test images
         let outdir = std::env::temp_dir().join("leptonica_pdf_test");
