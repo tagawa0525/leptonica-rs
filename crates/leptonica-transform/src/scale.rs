@@ -21,6 +21,17 @@ pub enum ScaleMethod {
     Auto,
 }
 
+/// Mode for grayscale min/max downscaling
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GrayMinMaxMode {
+    /// Select minimum value in block (darkest)
+    Min,
+    /// Select maximum value in block (lightest)
+    Max,
+    /// Select max minus min value in block (contrast)
+    MaxDiff,
+}
+
 /// Scale an image by the given factors
 ///
 /// # Arguments
@@ -1547,5 +1558,143 @@ mod tests {
         let out = scale_binary(&pix, 0.5, 0.5).unwrap();
         assert_eq!((out.width(), out.height()), (4, 4));
         assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
+
+    // --- Phase 5: Scale拡張 - 特殊 ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_color_2x_li_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit32).unwrap();
+        let out = scale_color_2x_li(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (8, 6));
+        assert_eq!(out.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_color_4x_li_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit32).unwrap();
+        let out = scale_color_4x_li(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (16, 12));
+        assert_eq!(out.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_2x_li_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_2x_li(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (8, 6));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_4x_li_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_4x_li(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (16, 12));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_2x_li_thresh_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_2x_li_thresh(&pix, 128).unwrap();
+        assert_eq!((out.width(), out.height()), (8, 6));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_4x_li_thresh_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_4x_li_thresh(&pix, 128).unwrap();
+        assert_eq!((out.width(), out.height()), (16, 12));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_2x_li_dither_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_2x_li_dither(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (8, 6));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_4x_li_dither_dims() {
+        let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_4x_li_dither(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (16, 12));
+        assert_eq!(out.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_min_max_2x_min() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 50);
+        pm.set_pixel_unchecked(1, 0, 100);
+        pm.set_pixel_unchecked(0, 1, 200);
+        pm.set_pixel_unchecked(1, 1, 150);
+        let pix: Pix = pm.into();
+        let out = scale_gray_min_max(&pix, 2, 2, GrayMinMaxMode::Min).unwrap();
+        assert_eq!((out.width(), out.height()), (2, 2));
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 50);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_min_max_2x_max() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 50);
+        pm.set_pixel_unchecked(1, 0, 100);
+        pm.set_pixel_unchecked(0, 1, 200);
+        pm.set_pixel_unchecked(1, 1, 150);
+        let pix: Pix = pm.into();
+        let out = scale_gray_min_max(&pix, 2, 2, GrayMinMaxMode::Max).unwrap();
+        assert_eq!((out.width(), out.height()), (2, 2));
+        assert_eq!(out.get_pixel(0, 0).unwrap(), 200);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_rank_cascade_single() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_rank_cascade(&pix, 1, 0, 0, 0).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_rank_cascade_double() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let out = scale_gray_rank_cascade(&pix, 1, 1, 0, 0).unwrap();
+        assert_eq!((out.width(), out.height()), (2, 2));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_mipmap_half() {
+        let pix = make_1bpp(16, 16, &[]);
+        let out = scale_to_gray_mipmap(&pix, 0.5).unwrap();
+        assert_eq!((out.width(), out.height()), (8, 8));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_to_gray_mipmap_quarter() {
+        let pix = make_1bpp(16, 16, &[]);
+        let out = scale_to_gray_mipmap(&pix, 0.25).unwrap();
+        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!(out.depth(), PixelDepth::Bit8);
     }
 }
