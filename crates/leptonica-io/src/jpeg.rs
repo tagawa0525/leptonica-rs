@@ -2,10 +2,18 @@
 //!
 //! Reading and writing JPEG images using the jpeg-decoder and jpeg-encoder crates.
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use jpeg_decoder::{Decoder, PixelFormat};
-use leptonica_core::{Pix, PixelDepth, color, pix::RemoveColormapTarget};
+use leptonica_core::{ImageFormat, Pix, PixelDepth, color, pix::RemoveColormapTarget};
 use std::io::{Read, Write};
+
+/// Read JPEG header metadata without decoding pixel data
+pub fn read_header_jpeg(data: &[u8]) -> IoResult<ImageHeader> {
+    let _ = data;
+    Err(IoError::UnsupportedFormat(
+        "JPEG header reading not yet implemented".to_string(),
+    ))
+}
 
 /// Options for JPEG encoding
 pub struct JpegOptions {

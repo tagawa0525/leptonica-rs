@@ -2,9 +2,17 @@
 //!
 //! Supports PBM (P1/P4), PGM (P2/P5), and PPM (P3/P6) formats.
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::{IoError, IoResult, header::ImageHeader};
+use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{BufRead, BufReader, Read, Write};
+
+/// Read PNM header metadata without decoding pixel data
+pub fn read_header_pnm(data: &[u8]) -> IoResult<ImageHeader> {
+    let _ = data;
+    Err(IoError::UnsupportedFormat(
+        "PNM header reading not yet implemented".to_string(),
+    ))
+}
 
 /// PNM format type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

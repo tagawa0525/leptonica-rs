@@ -3,7 +3,7 @@
 //! This module provides reading and writing support for TIFF images,
 //! including multipage TIFFs and various compression formats.
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{Read, Seek, Write};
 use tiff::ColorType;
@@ -11,6 +11,14 @@ use tiff::decoder::{Decoder, DecodingResult};
 use tiff::encoder::colortype::{Gray8, Gray16, RGB8, RGBA8};
 use tiff::encoder::{Compression, TiffEncoder};
 use tiff::tags::PhotometricInterpretation;
+
+/// Read TIFF header metadata without decoding pixel data
+pub fn read_header_tiff(data: &[u8]) -> IoResult<ImageHeader> {
+    let _ = data;
+    Err(IoError::UnsupportedFormat(
+        "TIFF header reading not yet implemented".to_string(),
+    ))
+}
 
 /// TIFF compression format
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -1,9 +1,17 @@
 //! PNG image format support
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixColormap, PixelDepth, color};
+use crate::{IoError, IoResult, header::ImageHeader};
+use leptonica_core::{ImageFormat, Pix, PixColormap, PixelDepth, color};
 use png::{BitDepth, ColorType, Decoder, Encoder};
 use std::io::{BufRead, Seek, Write};
+
+/// Read PNG header metadata without decoding pixel data
+pub fn read_header_png(data: &[u8]) -> IoResult<ImageHeader> {
+    let _ = data;
+    Err(IoError::UnsupportedFormat(
+        "PNG header reading not yet implemented".to_string(),
+    ))
+}
 
 /// Read a PNG image
 pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {

@@ -10,10 +10,18 @@
 //! Writing is not yet supported. The openjp2 crate's low-level API requires
 //! additional work to integrate properly.
 
-use crate::{IoError, IoResult};
+use crate::{IoError, IoResult, header::ImageHeader};
 use hayro_jpeg2000::{ColorSpace, DecodeSettings, Image};
-use leptonica_core::{Pix, PixelDepth};
+use leptonica_core::{ImageFormat, Pix, PixelDepth};
 use std::io::{Read, Seek};
+
+/// Read JPEG 2000 header metadata without decoding pixel data
+pub fn read_header_jp2k(data: &[u8]) -> IoResult<ImageHeader> {
+    let _ = data;
+    Err(IoError::UnsupportedFormat(
+        "JP2K header reading not yet implemented".to_string(),
+    ))
+}
 
 /// Read a JPEG 2000 image
 ///

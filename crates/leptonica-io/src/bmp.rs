@@ -2,12 +2,20 @@
 //!
 //! Reads and writes Windows Bitmap (BMP) files.
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::{IoError, IoResult, header::ImageHeader};
+use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{Read, Write};
 
 /// BMP file header size
 const BMP_FILE_HEADER_SIZE: usize = 14;
+
+/// Read BMP header metadata without decoding pixel data
+pub fn read_header_bmp(data: &[u8]) -> IoResult<ImageHeader> {
+    let _ = data;
+    Err(IoError::UnsupportedFormat(
+        "BMP header reading not yet implemented".to_string(),
+    ))
+}
 
 /// BMP info header size (BITMAPINFOHEADER)
 const BMP_INFO_HEADER_SIZE: u32 = 40;

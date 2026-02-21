@@ -210,6 +210,41 @@ impl ImageFormat {
             Self::Spix => "spix",
         }
     }
+
+    /// Determine the image format from a file extension.
+    ///
+    /// The extension is matched case-insensitively and without a leading dot.
+    /// Returns `None` for unknown or unsupported extensions.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `getImgFileFormat()` / extension table in `writefile.c`
+    pub fn from_extension(ext: &str) -> Option<Self> {
+        match ext.to_ascii_lowercase().as_str() {
+            "bmp" => Some(Self::Bmp),
+            "jpg" | "jpeg" => Some(Self::Jpeg),
+            "png" => Some(Self::Png),
+            "tif" | "tiff" => Some(Self::Tiff),
+            "pbm" | "pgm" | "pnm" | "ppm" => Some(Self::Pnm),
+            "gif" => Some(Self::Gif),
+            "jp2" | "j2k" => Some(Self::Jp2),
+            "ps" => Some(Self::Ps),
+            "pdf" => Some(Self::Lpdf),
+            "webp" => Some(Self::WebP),
+            "spix" => Some(Self::Spix),
+            _ => None,
+        }
+    }
+
+    /// Determine the image format from a file path by examining its extension.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `getImgFileFormat()` in `writefile.c`
+    pub fn from_path(path: &std::path::Path) -> Option<Self> {
+        let ext = path.extension()?.to_str()?;
+        Self::from_extension(ext)
+    }
 }
 
 /// Internal PIX data
