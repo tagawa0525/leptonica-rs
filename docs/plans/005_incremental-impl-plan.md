@@ -56,8 +56,8 @@ main
 ## ドキュメント更新
 
 各クレートのサブエージェントは実装完了時に以下のドキュメントも更新する:
-- `docs/rebuild/comparison/<crate>.md` — 実装した関数の状態を ❌→✅ に更新
-- `docs/rebuild/feature-comparison.md` — カバレッジ数値を更新
+- `docs/porting/comparison/<crate>.md` — 実装した関数の状態を ❌→✅ に更新
+- `docs/porting/feature-comparison.md` — カバレッジ数値を更新
 
 ## TDDワークフロー（各ファイルブランチ内）
 

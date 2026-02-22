@@ -205,8 +205,7 @@ TDD不要（ライブラリコードを含まないため）。
 対象ファイル:
 - `leptonica/`（Cargo.toml, src/lib.rs）— facade crate
 - `CLAUDE.md`、`README.md`
-- `docs/rebuild/`（prompt.md, overall-plan.md, feature-comparison.md, test-comparison.md）
-- `docs/analysis/`（feature-comparison-c-vs-rust.md, test-comparison-c-vs-rust.md）
+- `docs/porting/`（prompt.md, overall-plan.md, feature-comparison.md, test-comparison.md）
 
 除外: `docs/plans/`内のセッション固有ファイル（50+個）。`000_overall-plan.md`はae0ee8bに既存のため対応不要。
 
