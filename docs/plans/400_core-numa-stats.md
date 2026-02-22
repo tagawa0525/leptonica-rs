@@ -213,8 +213,8 @@ pixel_rank_value           ← gray_histogram / color_histogram + histogram_val_
 ## ドキュメント更新
 
 各PRマージ後に更新:
-- `docs/rebuild/comparison/core.md` — 実装した関数の ❌→✅
-- `docs/rebuild/feature-comparison.md` — カバレッジ数値更新
+- `docs/porting/comparison/core.md` — 実装した関数の ❌→✅
+- `docs/porting/feature-comparison.md` — カバレッジ数値更新
 
 ## 検証
 

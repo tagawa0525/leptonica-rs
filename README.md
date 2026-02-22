@@ -1,35 +1,55 @@
 # leptonica-rs
 
-[Leptonica](http://www.leptonica.org/) 画像処理ライブラリのRust移植。
+A Rust reimplementation of the [Leptonica](http://www.leptonica.org/) image processing library.
 
-C版 Leptonica（約240,000行）の機能をRustで再実装し、安全性・保守性を向上させる。
+[日本語](README.ja.md)
 
-## Crate構成
+## About Leptonica
+
+[Leptonica](http://www.leptonica.org/) is an open-source C library for image processing and analysis, created and maintained by Dan Bloomberg. With approximately 240,000 lines of code and over 2,700 functions, it covers a broad range of operations from document image processing to natural image analysis. Leptonica has served as a foundational library for projects such as [Tesseract OCR](https://github.com/tesseract-ocr/tesseract/) and [OpenCV](https://github.com/opencv/opencv) for over 20 years.
+
+This project reimplements Leptonica's design and algorithms in Rust. The original C source code and documentation serve as the primary reference, included as a git submodule under `reference/leptonica/`.
+
+## Porting Status
+
+Progress against the original 182 source files and 1,880 public functions.
+
+| Metric               | Value                      |
+| -------------------- | -------------------------- |
+| Lines of code        | ~120,000 / ~240,000       |
+| Function coverage    | 1,128 / 1,880 (60.0%)    |
+| Regression test coverage | 59 / 159 (37.1%)      |
+
+Details: [Feature comparison](docs/porting/feature-comparison.md) / [Test comparison](docs/porting/test-comparison.md)
+
+## Crate Structure
 
 ```text
 leptonica-rs/
 ├── crates/
-│   ├── leptonica-core/        # Pix, Box, Numa, FPix等の基本データ構造
-│   ├── leptonica-io/          # 画像I/O (PNG, JPEG, TIFF, GIF, WebP等)
-│   ├── leptonica-transform/   # 幾何変換 (rotate, scale, affine等)
-│   ├── leptonica-filter/      # フィルタリング (bilateral, rank, adaptmap, convolve, edge)
-│   ├── leptonica-color/       # 色処理 (segmentation, quantize, threshold, colorspace)
-│   ├── leptonica-morph/       # 形態学演算 (binary, grayscale, DWA, thinning)
-│   ├── leptonica-region/      # 領域解析 (conncomp, ccbord, quadtree, watershed, maze)
-│   ├── leptonica-recog/       # 認識 (barcode, dewarp, baseline, pageseg, jbclass)
-│   └── leptonica-test/        # テストインフラ
-├── leptonica/                 # ファサードcrate (re-export)
-└── reference/leptonica/       # C版ソース (git submodule, read-only参照)
+│   ├── leptonica-core/        # Pix, Box, Numa, FPix and other base data structures
+│   ├── leptonica-io/          # Image I/O (PNG, JPEG, TIFF, GIF, WebP, etc.)
+│   ├── leptonica-morph/       # Morphological operations (binary, grayscale, DWA, thinning)
+│   ├── leptonica-transform/   # Geometric transforms (rotate, scale, affine, etc.)
+│   ├── leptonica-filter/      # Filtering (bilateral, rank, adaptmap, convolve, edge)
+│   ├── leptonica-color/       # Color processing (segmentation, quantize, threshold, colorspace)
+│   ├── leptonica-region/      # Region analysis (conncomp, ccbord, quadtree, watershed, maze)
+│   ├── leptonica-recog/       # Recognition (barcode, dewarp, baseline, pageseg, jbclass)
+│   └── leptonica-test/        # Test infrastructure
+├── leptonica/                 # Facade crate (re-exports)
+└── reference/leptonica/       # Original C source (git submodule, read-only)
 ```
 
-### 依存関係
+### Dependency Graph
 
 ```text
-leptonica-recog → leptonica-region → leptonica-filter → leptonica-color
-    → leptonica-transform → leptonica-morph → leptonica-io → leptonica-core
+leptonica-recog → leptonica-morph, leptonica-transform, leptonica-region, leptonica-color, leptonica-core
+leptonica-morph, leptonica-transform, leptonica-filter, leptonica-color → leptonica-io, leptonica-core
+leptonica-region → leptonica-core
+leptonica-io → leptonica-core
 ```
 
-## ビルド・テスト
+## Build & Test
 
 ```bash
 cargo check --workspace
@@ -37,28 +57,31 @@ cargo test --workspace
 cargo clippy --workspace
 ```
 
-## C版リファレンス
-
-`reference/leptonica/` にC版ソースをgit submoduleとして配置:
+### Fetching the C Reference
 
 ```bash
 git submodule update --init
 ```
 
-> **注意**: `.gitmodules` では SSH URL（`git@github.com:...`）を使用しています。
-> 実行するにはGitHubでSSHキーを設定しておく必要があります。
-> SSHが使えない環境では、`.gitmodules` 内のURLをHTTPS形式（`https://github.com/...`）に変更してください。
+> **Note**: `.gitmodules` uses SSH URLs (`git@github.com:...`).
+> If SSH keys are not configured, change the URL to HTTPS format.
 
-回帰テストはC版の `prog/*_reg.c`（160ファイル）に対応する形で作成する。
+## Documentation
 
-## ドキュメント
+- `CLAUDE.md` -- Development conventions and process rules
+- `docs/plans/` -- Implementation plans for each feature
+- `docs/porting/` -- Porting reference materials (prompts, feature comparison, test comparison)
 
-- `CLAUDE.md` — 開発規約・プロセスルール
-- `docs/rebuild/prompt.md` — 移植作業の詳細プロンプト
-- `docs/rebuild/` — 前回実装からの引き継ぎ資料
-- `docs/plans/` — 各機能の実装計画書
+## License
 
-## ライセンス
+This project is distributed under the [BSD 2-Clause License](LICENSE), the same license as the original [Leptonica](http://www.leptonica.org/).
 
-本プロジェクトは [BSD 2-Clause License](LICENSE) の下で配布されています。
-本家 [Leptonica](http://www.leptonica.org/) と同じライセンスです。
+## How This Project Is Built
+
+The porting work is carried out primarily by AI coding agents, including [Claude Code](https://docs.anthropic.com/en/docs/claude-code). A human maintainer defines the overall architecture, process rules, and acceptance criteria, while the agents read the original C source, write Rust code, and run tests under those constraints. Every commit goes through CI and automated review before merging.
+
+This means the codebase may contain patterns that reflect AI-assisted development. Bug reports and feedback are welcome.
+
+## Acknowledgments
+
+This project relies entirely on the source code, documentation, and regression tests of the original C Leptonica. It would not exist without the decades of design, implementation, and maintenance work by Dan Bloomberg and the Leptonica contributors.
