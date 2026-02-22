@@ -61,6 +61,7 @@
 //! - Performance may vary for very large images
 
 mod apply;
+pub mod dewarpa;
 pub mod io;
 mod model;
 mod textline;
@@ -70,6 +71,7 @@ pub use apply::{
     apply_disparity, apply_horizontal_disparity, apply_vertical_disparity,
     estimate_disparity_magnitude,
 };
+pub use dewarpa::Dewarpa;
 pub use model::{build_horizontal_disparity, build_vertical_disparity, populate_full_resolution};
 pub use textline::{
     find_textline_centers, is_line_coverage_valid, remove_short_lines, sort_lines_by_y,
