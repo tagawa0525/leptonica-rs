@@ -74,7 +74,8 @@ pub use apply::{
 pub use dewarpa::Dewarpa;
 pub use model::{build_horizontal_disparity, build_vertical_disparity, populate_full_resolution};
 pub use textline::{
-    find_textline_centers, is_line_coverage_valid, remove_short_lines, sort_lines_by_y,
+    find_textline_centers, is_line_coverage_valid, pix_find_textline_flow_direction,
+    remove_short_lines, sort_lines_by_y,
 };
 pub use types::{Dewarp, DewarpOptions, DewarpResult, TextLine};
 

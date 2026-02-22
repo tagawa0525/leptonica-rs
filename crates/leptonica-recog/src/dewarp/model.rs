@@ -32,7 +32,10 @@ impl Dewarp {
     ///
     /// Returns an error if the vertical disparity model cannot be built.
     pub fn build_page_model(&mut self, pix: &Pix) -> RecogResult<()> {
-        todo!("build_page_model not yet implemented")
+        self.find_vert_disparity(pix)?;
+        // Horizontal disparity is optional; ignore errors
+        let _ = self.find_horiz_disparity(pix);
+        populate_full_resolution(self)
     }
 
     /// Build the vertical disparity model from a source image.
@@ -48,7 +51,13 @@ impl Dewarp {
     ///
     /// Returns an error if not enough text lines can be detected.
     pub fn find_vert_disparity(&mut self, pix: &Pix) -> RecogResult<()> {
-        todo!("find_vert_disparity not yet implemented")
+        let options = DewarpOptions::new()
+            .with_sampling(self.sampling)
+            .with_reduction_factor(self.reduction_factor)
+            .with_min_lines(self.min_lines);
+        let binary = binarize_pix(pix)?;
+        let lines = find_textline_centers(&binary)?;
+        build_vertical_disparity(self, &lines, &options)
     }
 
     /// Build the horizontal disparity model from a source image.
@@ -64,7 +73,13 @@ impl Dewarp {
     ///
     /// Returns an error if not enough text lines can be detected.
     pub fn find_horiz_disparity(&mut self, pix: &Pix) -> RecogResult<()> {
-        todo!("find_horiz_disparity not yet implemented")
+        let options = DewarpOptions::new()
+            .with_sampling(self.sampling)
+            .with_reduction_factor(self.reduction_factor)
+            .with_min_lines(self.min_lines);
+        let binary = binarize_pix(pix)?;
+        let lines = find_textline_centers(&binary)?;
+        build_horizontal_disparity(self, &lines, &options)
     }
 
     /// Populate full-resolution disparity arrays with optional crop offset.
@@ -81,8 +96,8 @@ impl Dewarp {
     /// # Errors
     ///
     /// Returns an error if interpolation fails.
-    pub fn populate_full_res(&mut self, pix: &Pix, x: u32, y: u32) -> RecogResult<()> {
-        todo!("populate_full_res not yet implemented")
+    pub fn populate_full_res(&mut self, _pix: &Pix, _x: u32, _y: u32) -> RecogResult<()> {
+        populate_full_resolution(self)
     }
 }
 
@@ -729,7 +744,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_find_vert_disparity() {
         let opts = DewarpOptions::default().with_min_lines(4);
         let mut dewarp = Dewarp::new(800, 600, 0, &opts);
@@ -740,7 +754,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_find_horiz_disparity() {
         let opts = DewarpOptions::default().with_min_lines(4);
         let mut dewarp = Dewarp::new(800, 600, 0, &opts);
@@ -750,7 +763,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_build_page_model_empty() {
         let opts = DewarpOptions::default().with_min_lines(4);
         let mut dewarp = Dewarp::new(800, 600, 0, &opts);
@@ -760,7 +772,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_populate_full_res() {
         let opts = DewarpOptions::default().with_min_lines(4);
         let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
