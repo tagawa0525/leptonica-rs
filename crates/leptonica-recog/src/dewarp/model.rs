@@ -55,7 +55,7 @@ impl Dewarp {
             .with_sampling(self.sampling)
             .with_reduction_factor(self.reduction_factor)
             .with_min_lines(self.min_lines);
-        let binary = binarize_pix(pix)?;
+        let binary = binarize_for_dewarp(pix)?;
         let lines = find_textline_centers(&binary)?;
         build_vertical_disparity(self, &lines, &options)
     }
@@ -77,7 +77,7 @@ impl Dewarp {
             .with_sampling(self.sampling)
             .with_reduction_factor(self.reduction_factor)
             .with_min_lines(self.min_lines);
-        let binary = binarize_pix(pix)?;
+        let binary = binarize_for_dewarp(pix)?;
         let lines = find_textline_centers(&binary)?;
         build_horizontal_disparity(self, &lines, &options)
     }
@@ -105,7 +105,7 @@ impl Dewarp {
 }
 
 /// Convert any-depth image to a binary Pix for text-line detection.
-fn binarize_pix(pix: &Pix) -> RecogResult<Pix> {
+fn binarize_for_dewarp(pix: &Pix) -> RecogResult<Pix> {
     match pix.depth() {
         PixelDepth::Bit1 => Ok(pix.deep_clone()),
         PixelDepth::Bit8 => {
