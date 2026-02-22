@@ -743,11 +743,6 @@ impl Boxa {
             .collect()
     }
 
-    /// Returns a new Boxa with all boxes rotated about center (xc, yc) by angle (radians, clockwise).
-    ///
-    /// Each box is represented by its 4 corners; after rotation the axis-aligned
-    /// bounding box of those corners becomes the new box.
-    ///
     /// Apply a 3x3 affine transformation matrix to all boxes.
     ///
     /// Each box is converted to 4 corner points, transformed by the matrix,

@@ -226,20 +226,12 @@ impl Pta {
 
     /// Rotate all points about center (xc, yc) by angle (radians, clockwise positive).
     ///
-    /// Unlike [`rotate`](Pta::rotate) which rotates in-place around the origin,
-    /// this method returns a new Pta and allows specifying a rotation center.
+    /// This is a convenience wrapper around [`Pta::rotated_about`], which
+    /// provides the canonical implementation corresponding to the C function.
     ///
     /// C equivalent: `ptaRotate()` in `affinecompose.c`
     pub fn rotate_around(&self, xc: f32, yc: f32, angle: f32) -> Pta {
-        let sina = angle.sin();
-        let cosa = angle.cos();
-        self.iter()
-            .map(|(x, y)| {
-                let xp = xc + (x - xc) * cosa - (y - yc) * sina;
-                let yp = yc + (x - xc) * sina + (y - yc) * cosa;
-                (xp, yp)
-            })
-            .collect()
+        self.rotated_about(xc, yc, angle)
     }
 
     /// Apply a 3x3 affine transformation matrix to all points.
