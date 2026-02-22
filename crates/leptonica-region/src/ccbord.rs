@@ -7,6 +7,21 @@
 //! - Outer borders are traced clockwise
 //! - Hole borders are traced counter-clockwise
 //!
+//! # Known Limitations
+//!
+//! **Memory Efficiency Issue in `get_all_borders()`:**
+//! The current implementation has O(n_components * image_size) memory complexity.
+//! When processing images with many components (e.g., feyn-fract.tif), memory usage
+//! can exceed available RAM. This is due to the Vec-based component detection
+//! accumulating all components before processing, unlike the C reference implementation
+//! which processes components sequentially and releases memory immediately.
+//!
+//! **Workaround:** For large images with many components, consider:
+//! - Processing components iteratively rather than collecting all at once
+//! - Or breaking the image into smaller regions before calling `get_all_borders()`
+//!
+//! See `docs/plans/500_region-full-porting.md` Phase 5 for improvement plan.
+//!
 //! # Examples
 //!
 //! ```
@@ -791,6 +806,12 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
 /// # Errors
 ///
 /// Returns an error if the image is not 1-bit depth.
+///
+/// # Performance Warning
+///
+/// This function uses O(n_components * image_size) memory. For images with many
+/// components (especially large ones), memory usage can be prohibitive. See the
+/// module documentation for known limitations and workarounds.
 pub fn get_all_borders(pix: &Pix) -> RegionResult<ImageBorders> {
     if pix.depth() != PixelDepth::Bit1 {
         return Err(RegionError::UnsupportedDepth {
