@@ -98,8 +98,9 @@ pub use seedfill::{
 
 // Re-export watershed types and functions
 pub use watershed::{
-    WatershedOptions, compute_gradient, find_basins, find_local_maxima, find_local_minima,
-    watershed_segmentation,
+    WatershedOptions, WatershedResult, compute_gradient, find_basins, find_local_maxima,
+    find_local_minima, watershed_render_colors, watershed_render_fill, watershed_segmentation,
+    watershed_with_basins,
 };
 
 // Re-export ccbord types and functions

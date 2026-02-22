@@ -492,8 +492,8 @@ impl ImageBorders {
             .write_all(b"ccba")
             .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
 
-        let width_bytes = (self.width as u32).to_le_bytes();
-        let height_bytes = (self.height as u32).to_le_bytes();
+        let width_bytes = self.width.to_le_bytes();
+        let height_bytes = self.height.to_le_bytes();
         writer
             .write_all(&width_bytes)
             .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
@@ -509,10 +509,10 @@ impl ImageBorders {
 
         // Per-component data
         for comp in &self.components {
-            let bx = (comp.bounds.x as i32).to_le_bytes();
-            let by = (comp.bounds.y as i32).to_le_bytes();
-            let bw = (comp.bounds.w as i32).to_le_bytes();
-            let bh = (comp.bounds.h as i32).to_le_bytes();
+            let bx = comp.bounds.x.to_le_bytes();
+            let by = comp.bounds.y.to_le_bytes();
+            let bw = comp.bounds.w.to_le_bytes();
+            let bh = comp.bounds.h.to_le_bytes();
 
             writer
                 .write_all(&bx)
@@ -699,8 +699,8 @@ fn write_border<W: Write>(writer: &mut W, border: &Border) -> RegionResult<()> {
         .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
 
     // Start point
-    let sx = (border.start.x as i32).to_le_bytes();
-    let sy = (border.start.y as i32).to_le_bytes();
+    let sx = border.start.x.to_le_bytes();
+    let sy = border.start.y.to_le_bytes();
     writer
         .write_all(&sx)
         .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
@@ -721,8 +721,8 @@ fn write_border<W: Write>(writer: &mut W, border: &Border) -> RegionResult<()> {
 
     // Points
     for p in &border.points {
-        let px = (p.x as i32).to_le_bytes();
-        let py = (p.y as i32).to_le_bytes();
+        let px = p.x.to_le_bytes();
+        let py = p.y.to_le_bytes();
         writer
             .write_all(&px)
             .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;

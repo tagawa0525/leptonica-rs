@@ -259,7 +259,7 @@ Phase 5 実装時に、`find_connected_components()` を逐次処理版に変更
 
 ## Phase 6: Watershed拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/watershed.c` L400-600
 
