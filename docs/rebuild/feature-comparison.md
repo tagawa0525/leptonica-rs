@@ -1,6 +1,6 @@
 # C版 vs Rust版 機能比較
 
-調査日: 2026-02-22（301_morph全移植計画完了を反映）
+調査日: 2026-02-22（300_transform全移植計画完了を反映）
 
 ## 概要
 
@@ -19,14 +19,14 @@ C版の全public関数を抽出し、Rust版での実装状況を3段階で分�
 |---------|--------|----------|---------|------|-----------|
 | [leptonica-core](comparison/core.md) | 495 | 24 | 363 | 882 | 58.8% |
 | [leptonica-io](comparison/io.md) | 68 | 17 | 61 | 146 | 58.2% |
-| [leptonica-transform](comparison/transform.md) | 39 | 12 | 101 | 152 | 33.6% |
+| [leptonica-transform](comparison/transform.md) | 82 | 9 | 61 | 152 | 59.9% |
 | [leptonica-morph](comparison/morph.md) | 82 | 16 | 22 | 120 | 81.7% |
 | [leptonica-filter](comparison/filter.md) | 50 | 0 | 49 | 99 | 50.5% |
 | [leptonica-color](comparison/color.md) | 51 | 16 | 59 | 126 | 53.2% |
 | [leptonica-region](comparison/region.md) | 27 | 8 | 60 | 95 | 36.8% |
 | [leptonica-recog](comparison/recog.md) | 42 | 9 | 93 | 144 | 35.4% |
 | [その他](comparison/misc.md) | 13 | 0 | 103 | 116 | 11.2% |
-| **合計** | **867** | **102** | **911** | **1,880** | **51.5%** |
+| **合計** | **910** | **99** | **871** | **1,880** | **53.7%** |
 
 ### 分類基準
 

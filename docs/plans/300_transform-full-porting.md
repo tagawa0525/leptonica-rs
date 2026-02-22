@@ -1,6 +1,6 @@
 # leptonica-transform 全未実装関数の移植計画
 
-Status: PLANNED
+Status: COMPLETED
 
 ## Context
 
@@ -58,7 +58,7 @@ Phase 1 (Alpha変換) ← 他の変換と組み合わせで使用頻度高
 
 ## Phase 1: Alpha付き変換（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR: 既存実装、計画策定前に完了済み)
 
 **C参照**: `reference/leptonica/src/affine.c` L780-870, `bilinear.c` L580-660, `projective.c` L580-660
 
@@ -92,7 +92,7 @@ Phase 1 (Alpha変換) ← 他の変換と組み合わせで使用頻度高
 
 ## Phase 2: PTA/BOXA変換ユーティリティ（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR: #150)
 
 **C参照**: `reference/leptonica/src/affine.c` (ptaXform系), `pta.c`, `boxa2.c`
 
@@ -126,7 +126,7 @@ BOXA（矩形群）への変換適用:
 
 ## Phase 3: Scale拡張 - 基本（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR: 既存実装、計画策定前に完了済み)
 
 **C参照**: `reference/leptonica/src/scale1.c` L70-700
 
@@ -156,7 +156,7 @@ BOXA（矩形群）への変換適用:
 
 ## Phase 4: Scale拡張 - 1bpp→8bpp変換（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR: 既存実装、計画策定前に完了済み)
 
 **C参照**: `reference/leptonica/src/scale2.c` L70-600
 
@@ -194,7 +194,7 @@ BOXA（矩形群）への変換適用:
 
 ## Phase 5: Scale拡張 - 特殊（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR: 既存実装、計画策定前に完了済み)
 
 **C参照**: `reference/leptonica/src/scale1.c` L1800-2500, `scale2.c` L600-1200
 
@@ -227,7 +227,7 @@ BOXA（矩形群）への変換適用:
 
 ## Phase 6: Rotation拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR: 既存実装、計画策定前に完了済み)
 
 **C参照**: `reference/leptonica/src/rotateam.c`, `rotateshear.c`, `rotate.c`
 
@@ -262,7 +262,7 @@ Alpha付き回転:
 
 ## Phase 7: Flip検出（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (crates/leptonica-recog/src/flipdetect.rs に実装済み、計画策定前に完了)
 
 **C参照**: `reference/leptonica/src/flipdetect.c` 全1400行
 

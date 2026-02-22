@@ -1,6 +1,6 @@
 # C版 vs Rust版 テストケース比較
 
-調査日: 2026-02-21（IO全移植計画完了を反映）
+調査日: 2026-02-22（300_transform全移植計画完了を反映）
 
 ## 概要
 
@@ -8,7 +8,7 @@
 | ---------------- | ------------------------- | --------------------- |
 | テスト総数       | **305個** (.c)            | **42+ファイル**       |
 | 回帰テスト       | **160個** (*_reg.c)       | **9個** (IO回帰テスト)|
-| 個別テスト関数   | 多数                      | **2,839個**           |
+| 個別テスト関数   | 多数                      | **2,845個**           |
 | テストランナー   | alltests_reg.c            | `cargo test`          |
 
 ## C版テストの特徴
@@ -124,17 +124,17 @@ writetext, xformbox
 | leptonica-region    | label.rs           | 5        |
 | leptonica-region    | seedfill.rs        | 7        |
 | leptonica-region    | watershed.rs       | 6        |
-| leptonica-transform | rotate.rs          | 15       |
-| leptonica-transform | scale.rs           | 8        |
-| **合計**            | **42+ファイル**    | **2,592個**|
+| leptonica-transform | rotate.rs          | 227 (合計) |
+| leptonica-transform | scale.rs           | (上記に含む) |
+| **合計**            | **42+ファイル**    | **2,845個**|
 
 ### クレート別集計
 
 | クレート            | テスト数 | カバー範囲                            |
 | ------------------- | -------- | ------------------------------------- |
-| leptonica-core      | 1,372    | Pix、Box、Colormap、Pta、Numa、Pixa等 |
+| leptonica-core      | 1,169    | Pix、Box、Colormap、Pta、Numa、Pixa等 |
 | leptonica-filter    | 250      | 畳み込み、エッジ検出、バイラテラル、ランク |
-| leptonica-transform | 183      | 回転、スケーリング、アフィン、射影    |
+| leptonica-transform | 227      | 回転、スケーリング、アフィン、射影    |
 | leptonica-morph     | 211      | 二値/グレースケール/カラー形態学、DWA、SEL、Sela |
 | leptonica-color     | 164      | 色空間変換、分析、量子化、二値化      |
 | leptonica-recog     | 156      | ページ分割、傾き検出、文字認識、JBIG2 |
@@ -155,7 +155,7 @@ writetext, xformbox
 | **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応          |
 | **統合テスト**   | alltests_reg.c         | 9ファイル（IO回帰テスト）     |
 | **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像    |
-| **カバレッジ**   | 160分野                | 9クレート、2,592テスト関数    |
+| **カバレッジ**   | 160分野                | 9クレート、2,845テスト関数    |
 
 ## 推奨アクション
 
