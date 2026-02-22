@@ -533,32 +533,32 @@ impl IncrementalLabeler {
         queue.push_back((x, y));
         self.labels[idx] = label;
 
-        while let Some((cx, cy)) = queue.pop_front() {
-            // Get neighbors based on connectivity
-            let neighbors = match self.connectivity {
-                ConnectivityType::FourWay => {
-                    vec![
-                        (cx as i32, cy as i32 - 1), // up
-                        (cx as i32, cy as i32 + 1), // down
-                        (cx as i32 - 1, cy as i32), // left
-                        (cx as i32 + 1, cy as i32),
-                    ] // right
-                }
-                ConnectivityType::EightWay => {
-                    vec![
-                        (cx as i32, cy as i32 - 1),     // up
-                        (cx as i32, cy as i32 + 1),     // down
-                        (cx as i32 - 1, cy as i32),     // left
-                        (cx as i32 + 1, cy as i32),     // right
-                        (cx as i32 - 1, cy as i32 - 1), // up-left
-                        (cx as i32 + 1, cy as i32 - 1), // up-right
-                        (cx as i32 - 1, cy as i32 + 1), // down-left
-                        (cx as i32 + 1, cy as i32 + 1), // down-right
-                    ]
-                }
-            };
+        const FOUR_WAY: &[(i32, i32)] = &[
+            (0, -1), // up
+            (0, 1),  // down
+            (-1, 0), // left
+            (1, 0),  // right
+        ];
+        const EIGHT_WAY: &[(i32, i32)] = &[
+            (0, -1),  // up
+            (0, 1),   // down
+            (-1, 0),  // left
+            (1, 0),   // right
+            (-1, -1), // up-left
+            (1, -1),  // up-right
+            (-1, 1),  // down-left
+            (1, 1),   // down-right
+        ];
+        let offsets: &[(i32, i32)] = match self.connectivity {
+            ConnectivityType::FourWay => FOUR_WAY,
+            ConnectivityType::EightWay => EIGHT_WAY,
+        };
 
-            for (nx, ny) in neighbors {
+        while let Some((cx, cy)) = queue.pop_front() {
+            for &(dx, dy) in offsets {
+                let nx = cx as i32 + dx;
+                let ny = cy as i32 + dy;
+
                 // Check bounds
                 if nx < 0 || nx >= self.width as i32 || ny < 0 || ny >= self.height as i32 {
                     continue;
