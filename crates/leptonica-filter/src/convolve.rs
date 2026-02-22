@@ -592,8 +592,9 @@ pub fn blockrank(pix: &Pix, wc: u32, hc: u32, rank: f32) -> FilterResult<Pix> {
 /// border handling.
 ///
 /// If `normalize` is true, the kernel values are scaled so that they sum
-/// to 1.0 before convolution. Returns an error if the kernel sum is near
-/// zero (cannot normalize).
+/// to 1.0 before convolution. If the kernel sum is very close to zero,
+/// normalization is skipped and the kernel is applied without scaling
+/// (matching the behavior of the underlying Leptonica C implementation).
 ///
 /// C equivalent: `fpixConvolve()` in `convolve.c`
 pub fn fpix_convolve(fpix: &FPix, kernel: &Kernel, normalize: bool) -> FilterResult<FPix> {
@@ -659,7 +660,8 @@ pub fn fpix_convolve_sep(
 /// added before converting back to a `Pix`.
 ///
 /// - If `kernel1` (and optional `kernel2`) have no negative values, a
-///   standard normalized convolution is performed (bias = 0, 8-bpp output).
+///   standard convolution is performed with kernel coefficients applied
+///   as-is (bias = 0, 8-bpp output).
 /// - If any kernel value is negative, FPix convolution is used; the
 ///   minimum output value is shifted to 0.  `force8` controls whether the
 ///   output is clamped to 8-bpp or promoted to 16-bpp.
@@ -707,7 +709,11 @@ pub fn convolve_with_bias(
     let minval = data.iter().cloned().fold(f32::INFINITY, f32::min);
     let maxval = data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let range = maxval - minval;
-    let bias = if minval < 0.0 { (-minval) as i32 } else { 0 };
+    let bias = if minval < 0.0 {
+        (-minval).ceil() as i32
+    } else {
+        0
+    };
 
     // Shift values so minimum is 0
     let mut fpix3 = FPix::new_with_value(fpix2.width(), fpix2.height(), 0.0)?;
@@ -1333,23 +1339,42 @@ mod tests {
 
     #[test]
     fn test_fpix_convolve_sep_matches_non_sep() {
-        // Uniform FPix
-        let fpix = FPix::new_with_value(5, 5, 50.0).unwrap();
+        // Non-uniform FPix to ensure a meaningful comparison
+        let mut fpix = FPix::new(7, 7).unwrap();
+        for y in 0..7u32 {
+            for x in 0..7u32 {
+                fpix.set_pixel_unchecked(x, y, (x * 10 + y * 3) as f32);
+            }
+        }
 
         // Separable box kernel: kx=[1,1,1], ky=[1,1,1]
-        // Non-sep: 3x3 all-ones kernel
         let kernel_x = Kernel::from_slice(3, 1, &[1.0, 1.0, 1.0]).unwrap();
         let kernel_y = Kernel::from_slice(1, 3, &[1.0, 1.0, 1.0]).unwrap();
+        // Non-separable equivalent: 3x3 all-ones kernel (outer product)
+        let kernel_2d = Kernel::from_slice(3, 3, &[1.0; 9]).unwrap();
 
         let result_sep = fpix_convolve_sep(&fpix, &kernel_x, &kernel_y, true).unwrap();
+        let result_non_sep = fpix_convolve(&fpix, &kernel_2d, true).unwrap();
 
-        // With normalized separable kernel on uniform image, result = 50.0
-        let center = result_sep.get_pixel_unchecked(2, 2);
-        assert!(
-            (center - 50.0).abs() < 0.5,
-            "Expected ~50.0, got {}",
-            center
-        );
+        // Verify full outputs match within tolerance
+        let w = fpix.width();
+        let h = fpix.height();
+        let tol = 1e-4;
+        for y in 0..h {
+            for x in 0..w {
+                let v_sep = result_sep.get_pixel_unchecked(x, y);
+                let v_non = result_non_sep.get_pixel_unchecked(x, y);
+                assert!(
+                    (v_sep - v_non).abs() <= tol,
+                    "sep vs non-sep differ at ({},{}): {} vs {}, diff={}",
+                    x,
+                    y,
+                    v_sep,
+                    v_non,
+                    (v_sep - v_non).abs()
+                );
+            }
+        }
     }
 
     #[test]
@@ -1372,26 +1397,46 @@ mod tests {
 
     #[test]
     fn test_convolve_with_bias_negative_kernel() {
-        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        // Non-uniform image: Laplacian on a constant image produces all zeros,
+        // so we need varying pixel values to generate negative convolution output.
+        let pix = Pix::new(7, 7, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        for y in 0..5u32 {
-            for x in 0..5u32 {
-                pix_mut.set_pixel_unchecked(x, y, 128);
+        for y in 0..7u32 {
+            for x in 0..7u32 {
+                // Gradient pattern: values range from 0 to 252
+                pix_mut.set_pixel_unchecked(x, y, ((x + y) * 21).min(255));
             }
         }
         let pix: Pix = pix_mut.into();
 
-        // Laplacian kernel (has negative values)
+        // Laplacian kernel (has negative values, sum=0)
         let kernel = Kernel::laplacian();
-        let (result, _bias) = convolve_with_bias(&pix, &kernel, None, true).unwrap();
-        // Result should have no negative pixel values (bias ensures this)
+        let (result, bias) = convolve_with_bias(&pix, &kernel, None, true).unwrap();
+
+        // Laplacian on a gradient image produces negative values at some pixels,
+        // so convolve_with_bias must apply a positive bias.
+        assert!(
+            bias > 0,
+            "Expected positive bias for Laplacian on gradient image, got {}",
+            bias
+        );
+
+        // Verify minimum pixel is 0 (bias correctly shifts the range)
         let w = result.width();
         let h = result.height();
+        let mut min_val = 255u32;
         for y in 0..h {
             for x in 0..w {
                 let v = result.get_pixel_unchecked(x, y);
-                assert!(v <= 255, "pixel ({},{}) = {} exceeds 255", x, y, v);
+                if v < min_val {
+                    min_val = v;
+                }
             }
         }
+        assert_eq!(
+            min_val, 0,
+            "Expected minimum pixel value 0 after biasing, got {}",
+            min_val
+        );
     }
 }
