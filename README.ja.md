@@ -77,6 +77,12 @@ git submodule update --init
 本プロジェクトは [BSD 2-Clause License](LICENSE) の下で配布されている。
 C版 [Leptonica](http://www.leptonica.org/) と同じライセンスである。
 
+## 開発体制
+
+移植作業は主に [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 等のAIコーディングエージェントが実施している。人間のメンテナがアーキテクチャ、プロセスルール、受け入れ基準を定め、エージェントがC版ソースを読み、Rustコードを書き、テストを実行する。すべてのコミットはCI・自動レビューを経てからマージされる。
+
+そのため、AI支援開発に特有のパターンが含まれている可能性がある。バグ報告やフィードバックは歓迎する。
+
 ## 謝辞
 
 本プロジェクトはC版Leptonicaのソースコード、ドキュメント、回帰テストに全面的に依拠している。Dan Bloomberg 氏をはじめとするLeptonicaコントリビュータの方々の長年にわたる設計・実装・保守の成果なくして、この移植は成り立たない。

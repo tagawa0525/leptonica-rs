@@ -76,6 +76,12 @@ git submodule update --init
 
 This project is distributed under the [BSD 2-Clause License](LICENSE), the same license as the original [Leptonica](http://www.leptonica.org/).
 
+## How This Project Is Built
+
+The porting work is carried out primarily by AI coding agents, including [Claude Code](https://docs.anthropic.com/en/docs/claude-code). A human maintainer defines the overall architecture, process rules, and acceptance criteria, while the agents read the original C source, write Rust code, and run tests under those constraints. Every commit goes through CI and automated review before merging.
+
+This means the codebase may contain patterns that reflect AI-assisted development. Bug reports and feedback are welcome.
+
 ## Acknowledgments
 
 This project relies entirely on the source code, documentation, and regression tests of the original C Leptonica. It would not exist without the decades of design, implementation, and maintenance work by Dan Bloomberg and the Leptonica contributors.
