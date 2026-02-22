@@ -7,16 +7,16 @@
 //! only basic utility functions are provided.
 
 use crate::{RecogError, RecogResult};
+use leptonica_color::{pix_convert_to_gray, threshold_to_binary};
 use leptonica_core::{Box as PixBox, Boxa, Pix, Pixa, PixelDepth};
+use leptonica_morph::binary::{close_brick, open_brick};
+use leptonica_region::{ConnectivityType, find_connected_components};
 
 /// Maximum space width in barcode (in pixels) for mask generation
-#[allow(dead_code)]
 pub const MAX_SPACE_WIDTH: i32 = 19;
 /// Opening width to remove noise (in pixels)
-#[allow(dead_code)]
 pub const MAX_NOISE_WIDTH: i32 = 50;
 /// Opening height to remove noise (in pixels)
-#[allow(dead_code)]
 pub const MAX_NOISE_HEIGHT: i32 = 30;
 
 /// Minimum barcode image dimensions
@@ -118,9 +118,108 @@ pub fn deskew_barcode(pix_gray: &Pix, bbox: &PixBox, margin: i32) -> RecogResult
     Ok((result, 0.0, 10.0))
 }
 
+/// Generates a binary mask covering barcode regions using morphological operations.
+///
+/// Detects both horizontal and vertical barcodes by:
+/// 1. Closing + opening + XOR to isolate bar regions
+/// 2. Opening to remove non-barcode noise
+/// 3. OR-ing horizontal and vertical results
+///
+/// # Arguments
+/// * `pix` - Input 1 bpp binary image (edge-detected or thresholded)
+///
+/// # Errors
+///
+/// Returns an error if `pix` is not 1 bpp or morphological operations fail.
+pub fn barcode_gen_mask(pix: &Pix) -> RecogResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1 bpp",
+            actual: pix.depth() as u32,
+        });
+    }
+
+    let max_space = MAX_SPACE_WIDTH as u32 + 1;
+    let noise_w = MAX_NOISE_WIDTH as u32;
+    let noise_h = MAX_NOISE_HEIGHT as u32;
+
+    // Identify horizontal barcodes: close then open, XOR gives bar regions,
+    // then open to remove non-barcode noise
+    let h_close = close_brick(pix, max_space, 1)?;
+    let h_open = open_brick(pix, max_space, 1)?;
+    let h_xor = h_open.xor(&h_close)?;
+    let h_mask = open_brick(&h_xor, noise_w, noise_h)?;
+
+    // Identify vertical barcodes (same logic, transposed dimensions)
+    let v_close = close_brick(pix, 1, max_space)?;
+    let v_open = open_brick(pix, 1, max_space)?;
+    let v_xor = v_open.xor(&v_close)?;
+    let v_mask = open_brick(&v_xor, noise_h, noise_w)?;
+
+    // Combine horizontal and vertical masks
+    let result = h_mask.or(&v_mask)?;
+    Ok(result)
+}
+
+/// Locates barcode regions in an image using morphological analysis.
+///
+/// Unlike [`locate_barcodes`] which requires edge-filtered input, this function
+/// works directly on any depth image by:
+/// 1. Converting to 1 bpp binary
+/// 2. Applying [`barcode_gen_mask`] to identify bar regions
+/// 3. Finding connected components in the mask
+///
+/// # Errors
+///
+/// Returns an error if the image is empty or processing fails.
+pub fn locate_barcodes_morphological(pix: &Pix) -> RecogResult<Boxa> {
+    // Convert to 1 bpp binary
+    let binary = match pix.depth() {
+        PixelDepth::Bit1 => pix.clone(),
+        PixelDepth::Bit8 => threshold_to_binary(pix, 128)?,
+        _ => {
+            let gray = pix_convert_to_gray(pix)?;
+            threshold_to_binary(&gray, 128)?
+        }
+    };
+
+    // Generate barcode mask using morphological operations
+    let mask = barcode_gen_mask(&binary)?;
+
+    // Find connected components in the mask
+    let components = find_connected_components(&mask, ConnectivityType::EightWay)?;
+
+    // Convert to Boxa
+    let mut boxa = Boxa::with_capacity(components.len());
+    for comp in components {
+        let b = comp.bounds;
+        if let Ok(bbox) = PixBox::new(b.x, b.y, b.w, b.h) {
+            boxa.push(bbox);
+        }
+    }
+
+    Ok(boxa)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_barcode_gen_mask_returns_pix() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let mask = barcode_gen_mask(&pix).unwrap();
+        assert_eq!(mask.width(), pix.width());
+        assert_eq!(mask.height(), pix.height());
+    }
+
+    #[test]
+    fn test_locate_barcodes_morphological_empty() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let boxa = locate_barcodes_morphological(&pix).unwrap();
+        // Empty image should return empty Boxa
+        assert_eq!(boxa.len(), 0);
+    }
 
     #[test]
     fn test_min_dimensions() {

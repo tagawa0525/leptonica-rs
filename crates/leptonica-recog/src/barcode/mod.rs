@@ -48,13 +48,16 @@ mod signal;
 mod types;
 
 pub use decode::{dispatch_decoder, is_format_supported};
-pub use detect::{deskew_barcode, extract_barcodes, locate_barcodes};
+pub use detect::{
+    barcode_gen_mask, deskew_barcode, extract_barcodes, locate_barcodes,
+    locate_barcodes_morphological,
+};
 pub use signal::{
-    extract_crossings, quantize_crossings_by_width, quantize_crossings_by_window,
-    widths_to_bar_string,
+    extract_barcode_widths, extract_crossings, find_barcode_peaks, quantize_crossings_by_width,
+    quantize_crossings_by_window, widths_to_bar_string,
 };
 pub use types::{
-    BarcodeFormat, BarcodeOptions, BarcodeResult, DecodeMethod, FormatVerification,
+    BarcodeFormat, BarcodeOptions, BarcodeResult, DecodeMethod, Direction, FormatVerification,
     SUPPORTED_FORMATS,
 };
 
