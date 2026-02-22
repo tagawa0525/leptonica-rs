@@ -1,5 +1,7 @@
 # Leptonica Rust移植 全体計画
 
+**Status: IMPLEMENTED**（全フェーズ実装完了 2026-02-22）
+
 ## 概要
 
 Leptonica画像処理ライブラリ（C言語、約240,000行）をRustに移植する。
@@ -185,12 +187,16 @@ impl TryFrom<&image::DynamicImage> for Pix { ... }
 
 ---
 
-## 7. 次のアクション
+## 7. 実装完了状況（2026-02-22）
 
-フェーズ1（leptonica-core）の実装を開始:
+全フェーズの実装が完了した。各 crate の詳細は以下の計画書を参照:
 
-1. プロジェクト構造のセットアップ（Cargo workspace）
-2. `PixelDepth` enum と `Pix` 構造体の実装
-3. ピクセルアクセス関数の実装
-4. `Box` / `Boxa` の実装
-5. 単体テストの作成
+| crate | 計画書 | 状態 |
+|-------|--------|------|
+| leptonica-recog | `docs/plans/700_recog-full-porting.md` | IMPLEMENTED (Phase 1-13) |
+| leptonica-transform | `docs/plans/300_transform-full-porting.md` | IMPLEMENTED |
+| leptonica-morph | `docs/plans/301_morph-full-porting.md` | IMPLEMENTED |
+| leptonica-filter | `docs/plans/401_filter-full-porting.md` | IMPLEMENTED |
+| leptonica-region | `docs/plans/500_region-full-porting.md` | IMPLEMENTED |
+| leptonica-io | `docs/plans/102_io-full-porting.md` | IMPLEMENTED |
+| leptonica-core | `docs/plans/1000_core-full-porting.md` | IMPLEMENTED |
