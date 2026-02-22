@@ -289,8 +289,14 @@ pub fn blockconv_gray_tile(
     // The output strips (wc+2) border pixels from each side.
     // This corresponds to the interior region that pixTilingPaintTile()
     // would extract from a full-size output in the C implementation.
-    let wd = w - 2 * (wc + 2);
-    let hd = h - 2 * (hc + 2);
+    let border_w = 2 * (wc + 2);
+    let border_h = 2 * (hc + 2);
+    let wd = w
+        .checked_sub(border_w)
+        .ok_or_else(|| FilterError::InvalidParameters("tile width too small for kernel".into()))?;
+    let hd = h
+        .checked_sub(border_h)
+        .ok_or_else(|| FilterError::InvalidParameters("tile height too small for kernel".into()))?;
 
     // Validate and use provided accumulator, or compute one
     let owned_acc;
