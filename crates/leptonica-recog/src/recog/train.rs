@@ -199,8 +199,12 @@ impl Recog {
         Ok(pix4)
     }
 
-    /// Adds a processed sample to the recognizer
-    fn add_sample(&mut self, pix: &Pix, label: &str) -> RecogResult<()> {
+    /// Adds a processed sample to the recognizer (skips pre-processing).
+    ///
+    /// The caller must supply a pre-binarized, noise-cleaned, foreground-
+    /// clipped image.  This is used by deserialization to avoid re-processing
+    /// images that were already processed during the original training.
+    pub(crate) fn add_sample(&mut self, pix: &Pix, label: &str) -> RecogResult<()> {
         // Find or create the class index
         let index = self.get_or_create_class_index(label);
 
