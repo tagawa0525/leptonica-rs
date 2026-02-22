@@ -29,11 +29,11 @@ leptonica-region → leptonica-core
 leptonica-io → leptonica-core
 ```
 
-core=基本データ構造, io=画像I/O, morph=形態学演算, transform=幾何変換, filter=フィルタリング, color=色処理, region=領域解析, recog=文字認識・バーコード・デワープ, test=回帰テストインフラ, leptonica=ファサード
+core=基本データ構造, io=画像I/O, morph=形態学演算, transform=幾何変換, filter=フィルタリング, color=色処理, region=領域解析, recog=文字認識・バーコード・デワープ, test=回帰テストインフラ, doc=ドキュメント生成, leptonica=ファサード
 
 ## PRワークフロー
 
-グローバルCLAUDE.mdのGit/TDD規約に加え、以下のプロジェクト固有ルールを適用する。
+以下のGit/TDDルールをプロジェクト標準として適用する。
 
 ### コミット構成
 
@@ -47,7 +47,7 @@ core=基本データ構造, io=画像I/O, morph=形態学演算, transform=幾�
 1. PR作成
 2. `/gh-actions-check` でCopilotレビューワークフローが `completed/success` になるまで待つ
 3. `/gh-pr-review` でコメント確認・対応
-4. **レビュー修正は独立した `fix:` コミットで積む（RED/GREENに混入させない）**
+4. **レビュー修正は独立した `fix(<crate>):` コミットで積む（RED/GREENに混入させない）**
 5. push後の再レビューサイクルも完了を確認（同じ手順を繰り返す）
 6. `docs/plans/` の進捗ステータスや `docs/rebuild/` の実装状況を更新する（`docs:` コミット）
 7. 全チェック通過後 `/gh-pr-merge --merge`
@@ -55,7 +55,7 @@ core=基本データ構造, io=画像I/O, morph=形態学演算, transform=幾�
 ### PRやり直し時
 
 - 元のRED/GREENをそのままcherry-pick（内容を改変しない）
-- 過去PRのレビュー修正は独立 `fix:` コミットとして積む
+- 過去PRのレビュー修正は独立 `fix(<crate>):` コミットとして積む
 - 異なるPRの修正は別コミットにする
 
 ### 規約
