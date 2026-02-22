@@ -130,19 +130,29 @@ impl JbData {
         let lattice_w = read_i32(&mut reader)?;
         let lattice_h = read_i32(&mut reader)?;
         let n_comps = read_u32(&mut reader)? as usize;
-        let mut naclass = Vec::with_capacity(n_comps);
+        let mut naclass: Vec<usize> = Vec::new();
+        naclass.try_reserve_exact(n_comps).map_err(|e| {
+            RecogError::InvalidParameter(format!("failed to allocate naclass: {e}"))
+        })?;
         for _ in 0..n_comps {
             naclass.push(read_u32(&mut reader)? as usize);
         }
-        let mut napage = Vec::with_capacity(n_comps);
+        let mut napage: Vec<usize> = Vec::new();
+        napage
+            .try_reserve_exact(n_comps)
+            .map_err(|e| RecogError::InvalidParameter(format!("failed to allocate napage: {e}")))?;
         for _ in 0..n_comps {
             napage.push(read_u32(&mut reader)? as usize);
         }
-        let mut xs = Vec::with_capacity(n_comps);
+        let mut xs: Vec<i32> = Vec::new();
+        xs.try_reserve_exact(n_comps)
+            .map_err(|e| RecogError::InvalidParameter(format!("failed to allocate xs: {e}")))?;
         for _ in 0..n_comps {
             xs.push(read_i32(&mut reader)?);
         }
-        let mut ys = Vec::with_capacity(n_comps);
+        let mut ys: Vec<i32> = Vec::new();
+        ys.try_reserve_exact(n_comps)
+            .map_err(|e| RecogError::InvalidParameter(format!("failed to allocate ys: {e}")))?;
         for _ in 0..n_comps {
             ys.push(read_i32(&mut reader)?);
         }
