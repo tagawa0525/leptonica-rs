@@ -6,7 +6,7 @@
 
 use crate::conncomp::ConnectivityType;
 use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Pix, PixMut, PixelDepth};
+use leptonica_core::{Pix, PixMut, PixelDepth, Pta};
 use std::collections::VecDeque;
 
 /// Options for seed fill operations
@@ -2063,6 +2063,95 @@ pub fn seedfill_gray_basin(
     Ok(out_mut.into())
 }
 
+/// Type of extremum to select
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtremaType {
+    /// Local minima
+    Minima,
+    /// Local maxima
+    Maxima,
+}
+
+/// Find local extrema of a grayscale image.
+///
+/// Computes local minima and maxima masks by comparing the original
+/// image with its morphological erosion and dilation. A pixel is a
+/// local minimum if it equals its eroded value, and a local maximum
+/// if it equals its dilated value. `min_diff` excludes flat regions
+/// where the difference between dilated and eroded is smaller than
+/// the threshold.
+///
+/// # Arguments
+///
+/// * `pix` - 8-bpp input image
+/// * `min_max_size` - kernel size for erosion/dilation (must be odd, >= 1)
+/// * `min_diff` - minimum required difference between dilated and eroded values
+///
+/// # Returns
+///
+/// `(minima_mask, maxima_mask)` — 1-bpp masks
+///
+/// # See also
+///
+/// C Leptonica: `pixLocalExtrema()` / `pixSelectedLocalExtrema()` in `seedfill.c`
+pub fn local_extrema(_pix: &Pix, _min_max_size: u32, _min_diff: u32) -> RegionResult<(Pix, Pix)> {
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(),
+    ))
+}
+
+/// Filter local minima mask to retain only true local minima.
+///
+/// For each connected component in `pix_min`, verifies that:
+/// 1. The component value in `pix` does not exceed `max_val`.
+/// 2. All pixels in `pix` adjacent (8-connected) to the component
+///    have strictly greater values.
+///
+/// Components failing either condition are removed from the returned mask.
+///
+/// # Arguments
+///
+/// * `pix` - 8-bpp grayscale image
+/// * `pix_min` - 1-bpp candidate minima mask
+/// * `max_val` - maximum allowed value for a local minimum
+///
+/// # See also
+///
+/// C Leptonica: `pixQualifyLocalMinima()` in `seedfill.c`
+pub fn qualify_local_minima(_pix: &Pix, _pix_min: &Pix, _max_val: u8) -> RegionResult<Pix> {
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(),
+    ))
+}
+
+/// Return coordinates of selected local extrema.
+///
+/// Finds 3×3 local minima and maxima by comparing with erosion/dilation.
+/// Applies a minimum-distance filter: extrema of opposite type within
+/// `min_distance` pixels (8-connected) of each other are removed.
+/// `min_distance == 0` disables filtering.
+///
+/// Returns the coordinates of the extrema of the requested `select_type`.
+///
+/// # Arguments
+///
+/// * `pix` - 8-bpp input image
+/// * `min_distance` - minimum separation between min and max extrema (0 = no filter)
+/// * `select_type` - which extrema type to return
+///
+/// # See also
+///
+/// C Leptonica: `pixSelectedLocalExtrema()` in `seedfill.c`
+pub fn selected_local_extrema(
+    _pix: &Pix,
+    _min_distance: u32,
+    _select_type: ExtremaType,
+) -> RegionResult<Pta> {
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2523,5 +2612,149 @@ mod tests {
                 assert_eq!(result.get_pixel(x, y), Some(100));
             }
         }
+    }
+
+    fn make_8bpp(width: u32, height: u32, pixels: &[(u32, u32, u8)]) -> Pix {
+        let pix = Pix::new(width, height, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for &(x, y, v) in pixels {
+            pix_mut.set_pixel(x, y, v as u32).unwrap();
+        }
+        pix_mut.into()
+    }
+
+    // -- Phase 2: local extrema tests --
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_local_extrema_isolated_min_max() {
+        // 5×5 image: center (2,2) is a local minimum (0),
+        // corners (0,0),(0,4),(4,0),(4,4) are local maxima (200).
+        // Middle edges are intermediate (100).
+        let mut vals = vec![];
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                let v = if x == 2 && y == 2 {
+                    0u8
+                } else if (x == 0 || x == 4) && (y == 0 || y == 4) {
+                    200
+                } else {
+                    100
+                };
+                vals.push((x, y, v));
+            }
+        }
+        let pix = make_8bpp(5, 5, &vals);
+
+        let (pixmin, pixmax) = local_extrema(&pix, 3, 0).unwrap();
+        assert_eq!(pixmin.depth().bits(), 1);
+        assert_eq!(pixmax.depth().bits(), 1);
+        // Center should be detected as minimum
+        assert_eq!(pixmin.get_pixel(2, 2), Some(1));
+        // At least one corner should be maximum
+        assert_eq!(pixmax.get_pixel(0, 0), Some(1));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_local_extrema_flat_excluded_by_min_diff() {
+        // Flat image: all pixels same value.
+        // With min_diff > 0, no extrema should be found.
+        let pix = make_8bpp(5, 5, &[]);
+        // All pixels default to 0, so dilate==erode==0, diff==0 < min_diff==1
+        let (pixmin, pixmax) = local_extrema(&pix, 3, 1).unwrap();
+        let mut any_min = false;
+        let mut any_max = false;
+        for y in 0..5 {
+            for x in 0..5 {
+                if pixmin.get_pixel(x, y) == Some(1) {
+                    any_min = true;
+                }
+                if pixmax.get_pixel(x, y) == Some(1) {
+                    any_max = true;
+                }
+            }
+        }
+        assert!(!any_min, "flat image should have no minima with min_diff>0");
+        assert!(!any_max, "flat image should have no maxima with min_diff>0");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_qualify_local_minima_threshold() {
+        // 5×5 image with two candidate minima:
+        // (1,1) = 50 and (3,3) = 200, surrounded by 255.
+        let mut vals: Vec<(u32, u32, u8)> = (0..5)
+            .flat_map(|y| (0..5u32).map(move |x| (x, y, 255u8)))
+            .collect();
+        vals.push((1, 1, 50));
+        vals.push((3, 3, 200));
+        let pix = make_8bpp(5, 5, &vals);
+
+        // Both are candidates for local minima (1bpp mask)
+        let pix_min_pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let mut pix_min_mut = pix_min_pix.try_into_mut().unwrap();
+        pix_min_mut.set_pixel(1, 1, 1).unwrap();
+        pix_min_mut.set_pixel(3, 3, 1).unwrap();
+        let pix_min: Pix = pix_min_mut.into();
+
+        // max_val = 100: should keep (1,1)=50 but drop (3,3)=200
+        let result = qualify_local_minima(&pix, &pix_min, 100).unwrap();
+        assert_eq!(result.get_pixel(1, 1), Some(1));
+        assert_eq!(result.get_pixel(3, 3), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_qualify_local_minima_not_true_minimum() {
+        // 5×5 image: candidate at (2,2)=100 but neighbor (2,3)=100 (same value).
+        // Not a true minimum since neighbor is not strictly greater.
+        let mut vals: Vec<(u32, u32, u8)> = (0..5)
+            .flat_map(|y| (0..5u32).map(move |x| (x, y, 200u8)))
+            .collect();
+        vals.push((2, 2, 100));
+        vals.push((2, 3, 100)); // same value neighbor → not a true minimum
+        let pix = make_8bpp(5, 5, &vals);
+
+        let pix_min_pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let mut pix_min_mut = pix_min_pix.try_into_mut().unwrap();
+        pix_min_mut.set_pixel(2, 2, 1).unwrap();
+        let pix_min: Pix = pix_min_mut.into();
+
+        let result = qualify_local_minima(&pix, &pix_min, 255).unwrap();
+        // Should be rejected because adjacent pixel has same value
+        assert_eq!(result.get_pixel(2, 2), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_selected_local_extrema_no_filter() {
+        // Image with a clear local minimum at center (2,2)=0, rest=200.
+        let mut vals: Vec<(u32, u32, u8)> = (0..5)
+            .flat_map(|y| (0..5u32).map(move |x| (x, y, 200u8)))
+            .collect();
+        vals.push((2, 2, 0));
+        let pix = make_8bpp(5, 5, &vals);
+
+        let pta = selected_local_extrema(&pix, 0, ExtremaType::Minima).unwrap();
+        // Should contain (2, 2) as a minimum
+        let mut found = false;
+        for i in 0..pta.len() {
+            let (x, y) = pta.get(i).unwrap();
+            if x as u32 == 2 && y as u32 == 2 {
+                found = true;
+            }
+        }
+        assert!(found, "center minimum should be found");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_selected_local_extrema_returns_pta() {
+        // Verify return type and basic structure
+        let pix = make_8bpp(5, 5, &[]);
+        let pta = selected_local_extrema(&pix, 0, ExtremaType::Minima).unwrap();
+        // Should return a valid Pta (may be empty for flat image)
+        let _ = pta.len();
     }
 }

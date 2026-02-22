@@ -87,11 +87,12 @@ pub use label::{
 
 // Re-export seedfill types and functions
 pub use seedfill::{
-    BoundaryCondition, SeedFillOptions, clear_border, distance_function, extract_border_conn_comps,
-    fill_bg_from_border, fill_closed_borders, fill_holes, fill_holes_to_bounding_rect,
-    find_equal_values, floodfill, holes_by_filling, remove_seeded_components, seedfill_binary,
-    seedfill_binary_restricted, seedfill_gray, seedfill_gray_basin, seedfill_gray_inv,
-    seedfill_gray_inv_simple, seedfill_gray_simple, seedspread, select_min_in_conncomp,
+    BoundaryCondition, ExtremaType, SeedFillOptions, clear_border, distance_function,
+    extract_border_conn_comps, fill_bg_from_border, fill_closed_borders, fill_holes,
+    fill_holes_to_bounding_rect, find_equal_values, floodfill, holes_by_filling, local_extrema,
+    qualify_local_minima, remove_seeded_components, seedfill_binary, seedfill_binary_restricted,
+    seedfill_gray, seedfill_gray_basin, seedfill_gray_inv, seedfill_gray_inv_simple,
+    seedfill_gray_simple, seedspread, select_min_in_conncomp, selected_local_extrema,
 };
 
 // Re-export watershed types and functions
