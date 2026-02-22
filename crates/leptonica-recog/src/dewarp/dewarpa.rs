@@ -803,7 +803,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_apply_disparity_no_model() {
         use leptonica_core::{Pix, PixelDepth};
         let da = make_dewarpa(3);
@@ -813,7 +812,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_apply_disparity_boxa_empty() {
         use leptonica_core::box_::Boxa;
         let da = make_dewarpa(3);
@@ -822,7 +820,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_resolve_dewarp_ref_model() {
         // A ref model should resolve to the referenced page's model.
         let mut da = make_dewarpa(5);

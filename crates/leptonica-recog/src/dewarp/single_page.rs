@@ -3,10 +3,11 @@
 //! These thin wrappers combine Dewarpa initialisation and application into
 //! two simple calls, mirroring the C `dewarpSinglePage*` family.
 
-use crate::RecogResult;
+use crate::{RecogError, RecogResult};
 use leptonica_core::Pix;
 
 use super::dewarpa::Dewarpa;
+use super::types::{Dewarp, DewarpOptions};
 
 /// Initialise a single-page dewarping pipeline from a source image.
 ///
@@ -33,8 +34,14 @@ use super::dewarpa::Dewarpa;
 /// let dewarpa = dewarp_single_page_init(&pix).unwrap();
 /// let dewarped = dewarp_single_page_run(&dewarpa, &pix).unwrap();
 /// ```
-pub fn dewarp_single_page_init(_pix: &Pix) -> RecogResult<Dewarpa> {
-    todo!("Phase 9: implement dewarp_single_page_init")
+pub fn dewarp_single_page_init(pix: &Pix) -> RecogResult<Dewarpa> {
+    let opts = DewarpOptions::default();
+    let mut da = Dewarpa::new(1, opts.sampling, opts.reduction_factor, opts.min_lines, 5);
+    let mut dw = Dewarp::new(pix.width(), pix.height(), 0, &opts);
+    dw.build_page_model(pix)?;
+    da.insert(dw)
+        .map_err(|e| RecogError::InvalidParameter(format!("failed to insert page model: {e}")))?;
+    Ok(da)
 }
 
 /// Apply a pre-built single-page dewarping pipeline to an image.
@@ -50,8 +57,8 @@ pub fn dewarp_single_page_init(_pix: &Pix) -> RecogResult<Dewarpa> {
 /// # Errors
 ///
 /// Returns an error if page 0 has no model or if applying the disparity fails.
-pub fn dewarp_single_page_run(_dewarpa: &Dewarpa, _pix: &Pix) -> RecogResult<Pix> {
-    todo!("Phase 9: implement dewarp_single_page_run")
+pub fn dewarp_single_page_run(dewarpa: &Dewarpa, pix: &Pix) -> RecogResult<Pix> {
+    dewarpa.apply_disparity(0, pix, 0, 0)
 }
 
 #[cfg(test)]
@@ -60,7 +67,6 @@ mod tests {
     use leptonica_core::PixelDepth;
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_single_page_init_empty_image() {
         // An empty image has no text lines; init should return an error.
         let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
@@ -69,7 +75,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_single_page_run_no_model() {
         // A Dewarpa with no models should return an error when run.
         let da = Dewarpa::new(1, 30, 1, 15, 5);
