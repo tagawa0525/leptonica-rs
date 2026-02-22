@@ -376,7 +376,7 @@ mod tests {
     }
 }
 
-// ===== Phase 4 Label Extensions (not yet implemented) =====
+// ===== Phase 4 Label Extensions =====
 
 /// Transformation type for connected components
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
