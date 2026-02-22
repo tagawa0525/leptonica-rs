@@ -233,7 +233,7 @@ pub fn find_skew_and_deskew(
     // Only deskew if angle is significant and confidence is sufficient
     let deskewed =
         if result.angle.abs() >= MIN_DESKEW_ANGLE && result.confidence >= MIN_ALLOWED_CONFIDENCE {
-            deskew(pix, result.angle)?
+            deskew_by_angle(pix, result.angle)?
         } else {
             pix.deep_clone()
         };
@@ -249,7 +249,7 @@ pub fn find_skew_and_deskew(
 ///
 /// # Returns
 /// The deskewed image
-pub fn deskew(pix: &Pix, angle: f32) -> RecogResult<Pix> {
+pub fn deskew_by_angle(pix: &Pix, angle: f32) -> RecogResult<Pix> {
     if angle.abs() < 0.001 {
         return Ok(pix.deep_clone());
     }
@@ -257,6 +257,215 @@ pub fn deskew(pix: &Pix, angle: f32) -> RecogResult<Pix> {
     // Rotate by the detected angle to correct skew
     let rotated = rotate_by_angle(pix, angle)?;
     Ok(rotated)
+}
+
+/// Options for the deskew high-level interface
+#[derive(Debug, Clone)]
+pub struct DeskewOptions {
+    /// Reduction factor (1, 2, 4, or 8)
+    pub sweep_reduction: u32,
+    /// Half the sweep range in degrees
+    pub sweep_range: f32,
+    /// Angle increment for sweep phase in degrees
+    pub sweep_delta: f32,
+    /// Additional reduction for binary search phase
+    pub search_reduction: u32,
+}
+
+impl Default for DeskewOptions {
+    fn default() -> Self {
+        Self {
+            sweep_reduction: 2,
+            sweep_range: 7.0,
+            sweep_delta: 1.0,
+            search_reduction: 2,
+        }
+    }
+}
+
+impl DeskewOptions {
+    /// Validate options, returning an error if any field is invalid.
+    pub fn validate(&self) -> RecogResult<()> {
+        if !matches!(self.sweep_reduction, 1 | 2 | 4 | 8) {
+            return Err(RecogError::InvalidParameter(
+                "sweep_reduction must be 1, 2, 4, or 8".to_string(),
+            ));
+        }
+        if !matches!(self.search_reduction, 1 | 2 | 4 | 8) {
+            return Err(RecogError::InvalidParameter(
+                "search_reduction must be 1, 2, 4, or 8".to_string(),
+            ));
+        }
+        if self.search_reduction > self.sweep_reduction {
+            return Err(RecogError::InvalidParameter(
+                "search_reduction must not exceed sweep_reduction".to_string(),
+            ));
+        }
+        if self.sweep_range <= 0.0 {
+            return Err(RecogError::InvalidParameter(
+                "sweep_range must be positive".to_string(),
+            ));
+        }
+        if self.sweep_delta <= 0.0 {
+            return Err(RecogError::InvalidParameter(
+                "sweep_delta must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Options for sweep-and-search skew detection (alias for [`SkewDetectOptions`])
+pub type SkewSearchOptions = SkewDetectOptions;
+
+/// Pivot point for sweep-and-search skew correction
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkewPivot {
+    /// Rotate about the top-left corner
+    Corner,
+    /// Rotate about the image center
+    Center,
+}
+
+/// Automatically detect and correct skew using default settings.
+///
+/// # Errors
+///
+/// Returns an error if the image is empty or skew detection fails.
+pub fn deskew(pix: &Pix) -> RecogResult<Pix> {
+    let opts = SkewDetectOptions::default();
+    let (deskewed, _) = find_skew_and_deskew(pix, &opts)?;
+    Ok(deskewed)
+}
+
+/// Deskew and return both the corrected image and a binarised version.
+///
+/// Returns `(corrected_original, corrected_1bpp)`.
+///
+/// # Errors
+///
+/// Returns an error if the image is empty or skew detection fails.
+pub fn deskew_both(pix: &Pix) -> RecogResult<(Pix, Pix)> {
+    let opts = SkewDetectOptions::default();
+    let (corrected, _) = find_skew_and_deskew(pix, &opts)?;
+    let binary = ensure_binary(&corrected)?;
+    Ok((corrected, binary))
+}
+
+/// Deskew with explicit options; returns `(corrected_image, detected_angle_deg)`.
+///
+/// # Errors
+///
+/// Returns an error if parameters are invalid or skew detection fails.
+pub fn deskew_general(pix: &Pix, options: &DeskewOptions) -> RecogResult<(Pix, f32)> {
+    options.validate()?;
+    let detect_opts = SkewDetectOptions {
+        sweep_range: options.sweep_range,
+        sweep_delta: options.sweep_delta,
+        min_bs_delta: 0.01,
+        sweep_reduction: options.sweep_reduction,
+        bs_reduction: options.search_reduction,
+    };
+    detect_opts.validate()?;
+    let (corrected, result) = find_skew_and_deskew(pix, &detect_opts)?;
+    Ok((corrected, result.angle))
+}
+
+/// Coarse sweep followed by binary-search refinement.
+///
+/// Equivalent to [`find_skew`] but exposed under the Leptonica-style name.
+///
+/// # Errors
+///
+/// Returns an error if the image is empty or parameters are invalid.
+pub fn find_skew_sweep_and_search(
+    pix: &Pix,
+    options: &SkewSearchOptions,
+) -> RecogResult<SkewResult> {
+    find_skew(pix, options)
+}
+
+/// Sweep-and-search with score information.
+///
+/// Returns `(angle_deg, confidence, end_score)`.
+///
+/// The `end_score` is the differential-square-sum score at the final angle.
+///
+/// # Errors
+///
+/// Returns an error if the image is empty or parameters are invalid.
+pub fn find_skew_sweep_and_search_score(
+    pix: &Pix,
+    options: &SkewSearchOptions,
+) -> RecogResult<(f32, f32, f32)> {
+    find_skew_sweep_and_search_score_pivot(pix, options, SkewPivot::Corner)
+}
+
+/// Sweep-and-search with score information and a pivot point.
+///
+/// Returns `(angle_deg, confidence, end_score)`.
+///
+/// * `SkewPivot::Corner` – standard shear-based sweep from the top-left corner.
+/// * `SkewPivot::Center` – image is shifted so that the pivot is the center before sweeping.
+///
+/// # Errors
+///
+/// Returns an error if the image is empty or parameters are invalid.
+pub fn find_skew_sweep_and_search_score_pivot(
+    pix: &Pix,
+    options: &SkewSearchOptions,
+    pivot: SkewPivot,
+) -> RecogResult<(f32, f32, f32)> {
+    options.validate()?;
+
+    let binary_pix = ensure_binary(pix)?;
+    if is_image_empty(&binary_pix) {
+        return Err(RecogError::NoContent(
+            "image is empty or all white".to_string(),
+        ));
+    }
+
+    // For center pivot, crop to the central half of the image so the sweep
+    // is anchored to the center rather than the top-left corner.
+    let work_pix = if pivot == SkewPivot::Center {
+        let w = binary_pix.width();
+        let h = binary_pix.height();
+        binary_pix.clip_rectangle(w / 4, h / 4, w / 2, h / 2)?
+    } else {
+        binary_pix
+    };
+
+    let sweep_pix = reduce_image(&work_pix, options.sweep_reduction)?;
+    let search_pix = if options.bs_reduction == options.sweep_reduction {
+        sweep_pix.deep_clone()
+    } else {
+        reduce_image(&work_pix, options.bs_reduction)?
+    };
+
+    let (best_angle, _) = sweep_angles(
+        &sweep_pix,
+        -options.sweep_range,
+        options.sweep_range,
+        options.sweep_delta,
+    )?;
+
+    let (refined_angle, max_score, min_score) = binary_search_angle(
+        &search_pix,
+        best_angle,
+        options.sweep_delta,
+        options.min_bs_delta,
+    )?;
+
+    let confidence = calculate_confidence(
+        &search_pix,
+        max_score,
+        min_score,
+        refined_angle,
+        options.sweep_range,
+        options.sweep_delta,
+    );
+
+    Ok((refined_angle, confidence, max_score as f32))
 }
 
 /// Ensure image is binary (1 bpp)
@@ -688,9 +897,9 @@ mod tests {
     }
 
     #[test]
-    fn test_deskew_zero_angle() {
+    fn test_deskew_by_angle_zero() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
-        let deskewed = deskew(&pix, 0.0).unwrap();
+        let deskewed = deskew_by_angle(&pix, 0.0).unwrap();
         assert_eq!(deskewed.width(), 100);
         assert_eq!(deskewed.height(), 100);
     }
@@ -700,5 +909,59 @@ mod tests {
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let binary = ensure_binary(&pix).unwrap();
         assert_eq!(binary.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    fn test_deskew_auto_smoke() {
+        // deskew on a 1bpp image with horizontal lines should succeed.
+        let pix = create_horizontal_lines_image(400, 400, 30);
+        let result = deskew(&pix);
+        assert!(result.is_ok());
+        let out = result.unwrap();
+        assert_eq!(out.width(), pix.width());
+    }
+
+    #[test]
+    fn test_deskew_both_smoke() {
+        let pix = create_horizontal_lines_image(400, 400, 30);
+        let (orig_out, bpp1_out) = deskew_both(&pix).unwrap();
+        assert_eq!(orig_out.width(), pix.width());
+        assert_eq!(bpp1_out.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    fn test_deskew_general_returns_angle() {
+        let pix = create_horizontal_lines_image(400, 400, 30);
+        let opts = DeskewOptions::default();
+        let (out, angle) = deskew_general(&pix, &opts).unwrap();
+        assert_eq!(out.width(), pix.width());
+        assert!(angle.abs() < 10.0, "angle {angle} out of expected range");
+    }
+
+    #[test]
+    fn test_find_skew_sweep_and_search_smoke() {
+        let pix = create_horizontal_lines_image(400, 400, 30);
+        let opts = SkewSearchOptions::default();
+        let result = find_skew_sweep_and_search(&pix, &opts);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_find_skew_sweep_and_search_score_smoke() {
+        let pix = create_horizontal_lines_image(400, 400, 30);
+        let opts = SkewSearchOptions::default();
+        let (angle, conf, endscore) = find_skew_sweep_and_search_score(&pix, &opts).unwrap();
+        assert!(angle.abs() < 10.0);
+        let _ = (conf, endscore);
+    }
+
+    #[test]
+    fn test_find_skew_sweep_and_search_score_pivot_center() {
+        let pix = create_horizontal_lines_image(400, 400, 30);
+        let opts = SkewSearchOptions::default();
+        let r_corner = find_skew_sweep_and_search_score_pivot(&pix, &opts, SkewPivot::Corner);
+        let r_center = find_skew_sweep_and_search_score_pivot(&pix, &opts, SkewPivot::Center);
+        assert!(r_corner.is_ok());
+        assert!(r_center.is_ok());
     }
 }

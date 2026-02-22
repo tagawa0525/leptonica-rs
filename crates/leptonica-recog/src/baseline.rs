@@ -264,7 +264,7 @@ pub fn deskew_local(
     if angle_range < 0.5 || angles.is_empty() {
         // Use average angle for global correction
         let avg_angle: f32 = angles.iter().sum::<f32>() / angles.len().max(1) as f32;
-        return crate::skew::deskew(pix, avg_angle);
+        return crate::skew::deskew_by_angle(pix, avg_angle);
     }
 
     // Apply local correction using vertical shear interpolation
