@@ -23,11 +23,37 @@
 use std::io::{Read, Write};
 use std::path::Path;
 
+use leptonica_core::Pix;
+
 use crate::error::{RecogError, RecogResult};
 
 use super::types::JbData;
 
 const MAGIC: &[u8; 8] = b"JBDATA\x01\x00";
+
+fn write_u32<W: Write>(w: &mut W, v: u32) -> RecogResult<()> {
+    w.write_all(&v.to_le_bytes())
+        .map_err(|e| RecogError::InvalidParameter(e.to_string()))
+}
+
+fn write_i32<W: Write>(w: &mut W, v: i32) -> RecogResult<()> {
+    w.write_all(&v.to_le_bytes())
+        .map_err(|e| RecogError::InvalidParameter(e.to_string()))
+}
+
+fn read_u32<R: Read>(r: &mut R) -> RecogResult<u32> {
+    let mut buf = [0u8; 4];
+    r.read_exact(&mut buf)
+        .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+    Ok(u32::from_le_bytes(buf))
+}
+
+fn read_i32<R: Read>(r: &mut R) -> RecogResult<i32> {
+    let mut buf = [0u8; 4];
+    r.read_exact(&mut buf)
+        .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+    Ok(i32::from_le_bytes(buf))
+}
 
 impl JbData {
     /// Serialises this [`JbData`] to `writer` in binary format.
@@ -35,8 +61,34 @@ impl JbData {
     /// # Errors
     ///
     /// Returns an error if writing fails or the Pix cannot be encoded.
-    pub fn write<W: Write>(&self, _writer: W) -> RecogResult<()> {
-        todo!("Phase 10: implement JbData::write")
+    pub fn write<W: Write>(&self, mut writer: W) -> RecogResult<()> {
+        writer
+            .write_all(MAGIC)
+            .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+        write_u32(&mut writer, self.npages as u32)?;
+        write_i32(&mut writer, self.w)?;
+        write_i32(&mut writer, self.h)?;
+        write_u32(&mut writer, self.nclass as u32)?;
+        write_i32(&mut writer, self.lattice_w)?;
+        write_i32(&mut writer, self.lattice_h)?;
+        let n_comps = self.naclass.len() as u32;
+        write_u32(&mut writer, n_comps)?;
+        for &v in &self.naclass {
+            write_u32(&mut writer, v as u32)?;
+        }
+        for &v in &self.napage {
+            write_u32(&mut writer, v as u32)?;
+        }
+        for &(x, _) in &self.ptaul {
+            write_i32(&mut writer, x)?;
+        }
+        for &(_, y) in &self.ptaul {
+            write_i32(&mut writer, y)?;
+        }
+        self.pix
+            .write_spix(&mut writer)
+            .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+        Ok(())
     }
 
     /// Deserialises a [`JbData`] from `reader`.
@@ -44,8 +96,54 @@ impl JbData {
     /// # Errors
     ///
     /// Returns an error if the data is malformed or reading fails.
-    pub fn read<R: Read>(_reader: R) -> RecogResult<JbData> {
-        todo!("Phase 10: implement JbData::read")
+    pub fn read<R: Read>(mut reader: R) -> RecogResult<JbData> {
+        let mut magic = [0u8; 8];
+        reader
+            .read_exact(&mut magic)
+            .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+        if &magic != MAGIC {
+            return Err(RecogError::InvalidParameter(
+                "invalid JbData magic bytes".to_string(),
+            ));
+        }
+        let npages = read_u32(&mut reader)? as usize;
+        let w = read_i32(&mut reader)?;
+        let h = read_i32(&mut reader)?;
+        let nclass = read_u32(&mut reader)? as usize;
+        let lattice_w = read_i32(&mut reader)?;
+        let lattice_h = read_i32(&mut reader)?;
+        let n_comps = read_u32(&mut reader)? as usize;
+        let mut naclass = Vec::with_capacity(n_comps);
+        for _ in 0..n_comps {
+            naclass.push(read_u32(&mut reader)? as usize);
+        }
+        let mut napage = Vec::with_capacity(n_comps);
+        for _ in 0..n_comps {
+            napage.push(read_u32(&mut reader)? as usize);
+        }
+        let mut xs = Vec::with_capacity(n_comps);
+        for _ in 0..n_comps {
+            xs.push(read_i32(&mut reader)?);
+        }
+        let mut ys = Vec::with_capacity(n_comps);
+        for _ in 0..n_comps {
+            ys.push(read_i32(&mut reader)?);
+        }
+        let ptaul = xs.into_iter().zip(ys).collect();
+        let pix =
+            Pix::read_spix(&mut reader).map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+        Ok(JbData {
+            pix,
+            npages,
+            w,
+            h,
+            nclass,
+            lattice_w,
+            lattice_h,
+            naclass,
+            napage,
+            ptaul,
+        })
     }
 
     /// Writes this [`JbData`] to a file at `path`.
@@ -75,9 +173,7 @@ impl JbData {
 mod tests {
     use leptonica_core::{Pix, PixelDepth};
 
-    use super::super::classify::rank_haus_init;
-    use super::super::types::JbComponent;
-    use super::super::types::{JbClasser, JbData, JbMethod};
+    use super::super::types::JbData;
 
     fn make_jbdata() -> JbData {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -96,7 +192,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_jbdata_write_read_roundtrip() {
         let data = make_jbdata();
         let mut buf = Vec::new();
@@ -114,7 +209,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_jbdata_invalid_magic() {
         let bad = b"BADJBDAT";
         let result = JbData::read(bad.as_slice());
@@ -122,7 +216,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_jbdata_file_roundtrip() {
         let data = make_jbdata();
         let path = std::env::temp_dir().join("jbdata_test.bin");

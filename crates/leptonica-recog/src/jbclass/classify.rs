@@ -32,8 +32,23 @@ use super::types::{
 /// # Errors
 ///
 /// Returns an error if `pix` is not 1 bpp or morphological operations fail.
-pub fn pix_word_mask_by_dilation(_pix: &Pix, _max_dil: u32) -> RecogResult<(Pix, u32)> {
-    todo!("Phase 10: implement pix_word_mask_by_dilation")
+pub fn pix_word_mask_by_dilation(pix: &Pix, max_dil: u32) -> RecogResult<(Pix, u32)> {
+    let max_dil = max_dil.max(1);
+    let mut best = pix.clone();
+    let mut best_size = 0u32;
+    let mut prev_count = find_connected_components(pix, ConnectivityType::FourWay)?.len() as u32;
+    for size in 1..=max_dil {
+        let dil_w = 2 * size + 1;
+        let dilated = morph_binary::dilate_brick(&best, dil_w, 1)?;
+        let count = find_connected_components(&dilated, ConnectivityType::FourWay)?.len() as u32;
+        best = dilated;
+        best_size = size;
+        if count >= prev_count {
+            break;
+        }
+        prev_count = count;
+    }
+    Ok((best, best_size))
 }
 
 /// Detects word bounding boxes by progressive dilation.
@@ -49,8 +64,19 @@ pub fn pix_word_mask_by_dilation(_pix: &Pix, _max_dil: u32) -> RecogResult<(Pix,
 /// # Errors
 ///
 /// Returns an error if `pix` is not 1 bpp or component detection fails.
-pub fn pix_word_boxes_by_dilation(_pix: &Pix, _max_dil: u32) -> RecogResult<Boxa> {
-    todo!("Phase 10: implement pix_word_boxes_by_dilation")
+pub fn pix_word_boxes_by_dilation(pix: &Pix, max_dil: u32) -> RecogResult<Boxa> {
+    let (mask, _) = pix_word_mask_by_dilation(pix, max_dil)?;
+    let comps = find_connected_components(&mask, ConnectivityType::FourWay)?;
+    let mut boxa = Boxa::with_capacity(comps.len());
+    for comp in comps {
+        boxa.push(PixBox::new_unchecked(
+            comp.bounds.x,
+            comp.bounds.y,
+            comp.bounds.w,
+            comp.bounds.h,
+        ));
+    }
+    Ok(boxa)
 }
 
 /// Maximum difference in width for matching
@@ -892,7 +918,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pix_word_mask_by_dilation_empty_image() {
         // An empty binary image should return a zero-dilation mask.
         let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
@@ -903,7 +928,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pix_word_boxes_by_dilation_empty_image() {
         let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
         let boxa = pix_word_boxes_by_dilation(&pix, 10).unwrap();
@@ -911,7 +935,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pix_word_mask_wrong_depth() {
         let pix = Pix::new(200, 100, PixelDepth::Bit8).unwrap();
         let result = pix_word_mask_by_dilation(&pix, 10);
