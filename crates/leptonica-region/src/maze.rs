@@ -34,9 +34,36 @@
 //! ```
 
 use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Pix, PixMut, PixelDepth};
+use leptonica_core::{Numa, Pix, PixMut, PixelDepth, Pta};
 use rand::RngExt;
 use std::collections::VecDeque;
+
+/// Find the minimum-cost path through a grayscale image using Dijkstra's algorithm.
+///
+/// The grayscale value of each pixel is treated as a traversal cost.
+/// Finds the path from `start` to `end` that minimises total accumulated cost.
+///
+/// # Arguments
+///
+/// * `pix` - 8-bit grayscale input image
+/// * `start` - Starting pixel `(x, y)`
+/// * `end` - Target pixel `(x, y)`
+///
+/// # Returns
+///
+/// A tuple `(path, costs)` where:
+/// - `path` (`Pta`) contains the (x, y) coordinates along the path, from start to end
+/// - `costs` (`Numa`) contains the accumulated cost at each step
+///
+/// Returns `RegionError::InvalidSeed` if `start` or `end` is out of bounds.
+/// Returns `RegionError::SegmentationError` if no path exists.
+pub fn search_gray_maze(
+    pix: &Pix,
+    start: (u32, u32),
+    end: (u32, u32),
+) -> RegionResult<(Pta, Numa)> {
+    todo!("Phase 7: not yet implemented")
+}
 
 /// Direction from parent to child in maze traversal
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -961,6 +988,81 @@ mod tests {
         assert_eq!(vis.width(), 10);
         assert_eq!(vis.height(), 10);
         assert_eq!(vis.depth(), PixelDepth::Bit32);
+    }
+
+    // --- Phase 7: search_gray_maze tests ---
+
+    fn create_gray_maze(width: u32, height: u32, values: &[Vec<u32>]) -> Pix {
+        let pix = Pix::new(width, height, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for (y, row) in values.iter().enumerate() {
+            for (x, &v) in row.iter().enumerate() {
+                let _ = pix_mut.set_pixel(x as u32, y as u32, v);
+            }
+        }
+        pix_mut.into()
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_maze_uniform_reaches_end() {
+        // All-zero cost: any path has the same cost; algorithm should reach end
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let (path, costs) = search_gray_maze(&pix, (0, 0), (4, 4)).unwrap();
+        let last = path.get(path.len() - 1).unwrap();
+        assert_eq!(last, (4.0, 4.0));
+        assert_eq!(path.len(), costs.len());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_maze_path_length() {
+        // Path on uniform image must be at least Manhattan distance + 1
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let (path, _costs) = search_gray_maze(&pix, (0, 0), (4, 4)).unwrap();
+        // Manhattan distance = 8; path must have >= 9 points
+        assert!(path.len() >= 9);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_maze_avoids_high_cost() {
+        // High-cost column in the middle: optimal path should avoid it
+        let values = vec![
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 0, 0, 0], // gap at bottom
+        ];
+        let pix = create_gray_maze(5, 5, &values);
+        let (path, _costs) = search_gray_maze(&pix, (0, 0), (4, 0)).unwrap();
+        // Path should not pass through column x=2 rows 0-3
+        for i in 0..path.len() {
+            let (px, py) = path.get(i).unwrap();
+            if py < 4.0 {
+                assert_ne!(px as u32, 2, "path should avoid high-cost column");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_maze_costs_monotone() {
+        // Accumulated cost must be monotonically non-decreasing
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let (_path, costs) = search_gray_maze(&pix, (0, 0), (4, 4)).unwrap();
+        for i in 1..costs.len() {
+            assert!(costs.get(i).unwrap() >= costs.get(i - 1).unwrap());
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_gray_maze_out_of_bounds_start() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let result = search_gray_maze(&pix, (10, 10), (4, 4));
+        assert!(result.is_err());
     }
 
     #[test]
