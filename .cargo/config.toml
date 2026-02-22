@@ -1,0 +1,11 @@
+# Cargo workspace configuration
+
+[target.x86_64-unknown-linux-gnu]
+# Wrap test binaries with a script that applies ulimit to cap memory usage.
+# Prevents OOM during tests that process large images.
+# Limit: 4 GB virtual address space per test binary.
+runner = [
+    "sh",
+    "-c",
+    "ulimit -v 4194304 && exec \"$0\" \"$@\"",
+]

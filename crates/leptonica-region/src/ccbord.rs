@@ -47,6 +47,7 @@ use crate::conncomp::{ConnectivityType, find_connected_components};
 use crate::error::{RegionError, RegionResult};
 use crate::seedfill::fill_holes;
 use leptonica_core::{Box, Pix, PixelDepth};
+use std::io::{Read, Write};
 
 /// Direction for chain code representation (8-connectivity)
 ///
@@ -323,6 +324,9 @@ pub struct ComponentBorders {
     pub outer: Border,
     /// Hole borders (may be empty, in local coordinates)
     pub holes: Vec<Border>,
+    /// Single continuous path (outer + holes connected via cuts, in local coordinates)
+    /// Computed by `ImageBorders::generate_single_path()`
+    pub single_path: Option<Vec<BorderPoint>>,
 }
 
 impl ComponentBorders {
@@ -332,6 +336,7 @@ impl ComponentBorders {
             bounds,
             outer,
             holes: Vec::new(),
+            single_path: None,
         }
     }
 
@@ -399,6 +404,390 @@ impl ImageBorders {
     pub fn has_holes(&self) -> bool {
         self.components.iter().any(|c| c.has_holes())
     }
+}
+
+impl ImageBorders {
+    /// Compute step chain codes for all borders in the image
+    ///
+    /// Populates `Border::chain_code` for outer and hole borders of each component.
+    pub fn generate_step_chains(&mut self) {
+        for comp in &mut self.components {
+            comp.outer.compute_chain_code();
+            for hole in &mut comp.holes {
+                hole.compute_chain_code();
+            }
+        }
+    }
+
+    /// Reconstruct pixel coordinates from step chain codes
+    ///
+    /// For each border with a computed chain code, regenerates `Border::points`
+    /// from the start point and chain code directions.
+    pub fn step_chains_to_pix_coords(&mut self) -> RegionResult<()> {
+        for comp in &mut self.components {
+            if let Some(code) = &comp.outer.chain_code {
+                let start = comp.outer.start;
+                let restored = from_chain_code(start, code);
+                comp.outer.points = restored;
+            }
+            for hole in &mut comp.holes {
+                if let Some(code) = &hole.chain_code {
+                    let start = hole.start;
+                    let restored = from_chain_code(start, code);
+                    hole.points = restored;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Generate a single continuous path for each component (for SVG export)
+    ///
+    /// For components without holes, copies the outer border points.
+    /// For components with holes, builds a single connected path that includes
+    /// the outer border and each hole border via straight-line cut paths.
+    /// Result is stored in `ComponentBorders::single_path`.
+    pub fn generate_single_path(&mut self) -> RegionResult<()> {
+        for comp in &mut self.components {
+            let mut path = Vec::new();
+
+            if comp.holes.is_empty() {
+                // No holes - just use outer border
+                path = comp.outer.points.clone();
+            } else {
+                // With holes - build a single continuous path
+                // This is a simplified implementation that concatenates borders via cuts
+                path.extend(&comp.outer.points);
+
+                for hole in &comp.holes {
+                    // Connect hole to outer border via a cut path.
+                    // Return to the same outer-border cut point to keep the path continuous.
+                    if !hole.points.is_empty() {
+                        let cut_point = path.last().copied().unwrap_or(comp.outer.points[0]);
+                        path.push(hole.points[0]);
+                        path.extend(&hole.points);
+                        path.push(hole.points[0]);
+                        path.push(cut_point);
+                    }
+                }
+            }
+
+            comp.single_path = Some(path);
+        }
+        Ok(())
+    }
+
+    /// Serialize borders to binary format
+    ///
+    /// Format: magic "ccba" + image dimensions + per-component step chains.
+    ///
+    /// Note: `single_path` is **not** serialized. After deserialization,
+    /// call [`ImageBorders::generate_single_path`] again if needed.
+    ///
+    /// Note: `chain_code` fields are **not** serialized. Only the decoded
+    /// pixel-coordinate points are written.
+    pub fn write<W: Write>(&self, mut writer: W) -> RegionResult<()> {
+        // Header: "ccba" (4 bytes) + image dimensions (8 bytes)
+        writer
+            .write_all(b"ccba")
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        let width_bytes = (self.width as u32).to_le_bytes();
+        let height_bytes = (self.height as u32).to_le_bytes();
+        writer
+            .write_all(&width_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        writer
+            .write_all(&height_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        // Number of components
+        let ncc = (self.components.len() as u32).to_le_bytes();
+        writer
+            .write_all(&ncc)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        // Per-component data
+        for comp in &self.components {
+            let bx = (comp.bounds.x as i32).to_le_bytes();
+            let by = (comp.bounds.y as i32).to_le_bytes();
+            let bw = (comp.bounds.w as i32).to_le_bytes();
+            let bh = (comp.bounds.h as i32).to_le_bytes();
+
+            writer
+                .write_all(&bx)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            writer
+                .write_all(&by)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            writer
+                .write_all(&bw)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            writer
+                .write_all(&bh)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+            // Number of borders (outer + holes)
+            let nb: u32 = comp.border_count().try_into().map_err(|_| {
+                RegionError::InvalidParameters(format!(
+                    "component has too many borders to serialize: {}",
+                    comp.border_count()
+                ))
+            })?;
+            writer
+                .write_all(&nb.to_le_bytes())
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+            // Outer border
+            write_border(&mut writer, &comp.outer)?;
+
+            // Hole borders
+            for hole in &comp.holes {
+                write_border(&mut writer, hole)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Deserialize borders from binary format
+    pub fn read_from<R: Read>(mut reader: R) -> RegionResult<Self> {
+        let mut magic = [0u8; 4];
+        reader
+            .read_exact(&mut magic)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        if &magic != b"ccba" {
+            return Err(RegionError::InvalidParameters(
+                "invalid ccba magic header".to_string(),
+            ));
+        }
+
+        let mut width_bytes = [0u8; 4];
+        let mut height_bytes = [0u8; 4];
+        let mut ncc_bytes = [0u8; 4];
+
+        reader
+            .read_exact(&mut width_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        reader
+            .read_exact(&mut height_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        reader
+            .read_exact(&mut ncc_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        let width = u32::from_le_bytes(width_bytes);
+        let height = u32::from_le_bytes(height_bytes);
+        let ncc = u32::from_le_bytes(ncc_bytes) as usize;
+
+        let mut image_borders = ImageBorders::new(width, height);
+
+        for _ in 0..ncc {
+            let mut bx_bytes = [0u8; 4];
+            let mut by_bytes = [0u8; 4];
+            let mut bw_bytes = [0u8; 4];
+            let mut bh_bytes = [0u8; 4];
+            let mut nb_bytes = [0u8; 4];
+
+            reader
+                .read_exact(&mut bx_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut by_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut bw_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut bh_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut nb_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+            let bx = i32::from_le_bytes(bx_bytes);
+            let by = i32::from_le_bytes(by_bytes);
+            let bw = i32::from_le_bytes(bw_bytes);
+            let bh = i32::from_le_bytes(bh_bytes);
+            let bounds = Box::new_unchecked(bx, by, bw, bh);
+            let nb = u32::from_le_bytes(nb_bytes) as usize;
+
+            if nb == 0 {
+                continue;
+            }
+
+            let outer = read_border(&mut reader)?;
+            let mut comp = ComponentBorders::new(bounds, outer);
+
+            for _ in 1..nb {
+                let hole = read_border(&mut reader)?;
+                comp.holes.push(hole);
+            }
+
+            image_borders.components.push(comp);
+        }
+
+        Ok(image_borders)
+    }
+
+    /// Generate an SVG polygon string for all component borders
+    ///
+    /// Uses the single path (if computed via `generate_single_path`) or
+    /// falls back to the outer border in global coordinates.
+    pub fn to_svg_string(&self) -> RegionResult<String> {
+        let mut svg = String::new();
+        svg.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n");
+        svg.push_str(&format!(
+            "<svg width=\"{}\" height=\"{}\" viewBox=\"0 0 {} {}\">\n",
+            self.width, self.height, self.width, self.height
+        ));
+
+        for comp in &self.components {
+            // Collect global-coordinate points: single_path is in local coords, so offset by bounds.
+            let global_points: Vec<BorderPoint>;
+            let points: &[BorderPoint] = if let Some(ref single) = comp.single_path {
+                global_points = single
+                    .iter()
+                    .map(|p| BorderPoint {
+                        x: p.x + comp.bounds.x,
+                        y: p.y + comp.bounds.y,
+                    })
+                    .collect();
+                &global_points
+            } else {
+                global_points = comp.outer_global().points;
+                &global_points
+            };
+
+            if !points.is_empty() {
+                svg.push_str("  <polygon style=\"stroke-width:1;stroke:black;\" points=\"");
+                use std::fmt::Write as FmtWrite;
+                for (i, p) in points.iter().enumerate() {
+                    if i > 0 {
+                        svg.push(' ');
+                    }
+                    let _ = write!(svg, "{},{}", p.x, p.y);
+                }
+                svg.push_str("\" />\n");
+            }
+        }
+
+        svg.push_str("</svg>\n");
+        Ok(svg)
+    }
+
+    /// Write SVG representation to a writer
+    pub fn write_svg<W: Write>(&self, mut writer: W) -> RegionResult<()> {
+        let svg = self.to_svg_string()?;
+        writer
+            .write_all(svg.as_bytes())
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        Ok(())
+    }
+}
+
+/// Helper: write a border to the stream
+fn write_border<W: Write>(writer: &mut W, border: &Border) -> RegionResult<()> {
+    // Border type (1 byte: 0 = Outer, 1 = Hole)
+    let border_type = match border.border_type {
+        BorderType::Outer => 0u8,
+        BorderType::Hole => 1u8,
+    };
+    writer
+        .write_all(&[border_type])
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    // Start point
+    let sx = (border.start.x as i32).to_le_bytes();
+    let sy = (border.start.y as i32).to_le_bytes();
+    writer
+        .write_all(&sx)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    writer
+        .write_all(&sy)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    // Number of points
+    let np: u32 = border.points.len().try_into().map_err(|_| {
+        RegionError::InvalidParameters(format!(
+            "border has too many points to serialize: {}",
+            border.points.len()
+        ))
+    })?;
+    writer
+        .write_all(&np.to_le_bytes())
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    // Points
+    for p in &border.points {
+        let px = (p.x as i32).to_le_bytes();
+        let py = (p.y as i32).to_le_bytes();
+        writer
+            .write_all(&px)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        writer
+            .write_all(&py)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    }
+
+    Ok(())
+}
+
+/// Helper: read a border from the stream
+fn read_border<R: Read>(reader: &mut R) -> RegionResult<Border> {
+    let mut type_byte = [0u8; 1];
+    let mut sx_bytes = [0u8; 4];
+    let mut sy_bytes = [0u8; 4];
+    let mut np_bytes = [0u8; 4];
+
+    reader
+        .read_exact(&mut type_byte)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    reader
+        .read_exact(&mut sx_bytes)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    reader
+        .read_exact(&mut sy_bytes)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    reader
+        .read_exact(&mut np_bytes)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    let border_type = match type_byte[0] {
+        0 => BorderType::Outer,
+        1 => BorderType::Hole,
+        b => {
+            return Err(RegionError::InvalidParameters(format!(
+                "invalid border type byte: {b}"
+            )));
+        }
+    };
+    let sx = i32::from_le_bytes(sx_bytes);
+    let sy = i32::from_le_bytes(sy_bytes);
+    let np = u32::from_le_bytes(np_bytes) as usize;
+
+    let start = BorderPoint::new(sx, sy);
+    let mut points = Vec::with_capacity(np);
+
+    for _ in 0..np {
+        let mut px_bytes = [0u8; 4];
+        let mut py_bytes = [0u8; 4];
+        reader
+            .read_exact(&mut px_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        reader
+            .read_exact(&mut py_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        let px = i32::from_le_bytes(px_bytes);
+        let py = i32::from_le_bytes(py_bytes);
+        points.push(BorderPoint::new(px, py));
+    }
+
+    let mut border = Border::new(border_type, points);
+    border.start = start;
+    Ok(border)
 }
 
 /// Find the next border pixel by searching clockwise from the current search position
@@ -1171,6 +1560,191 @@ mod tests {
         assert!(!comp.outer.is_empty());
         // The component should have a hole
         assert!(comp.has_holes());
+    }
+
+    // --- Phase 5: CCBord拡張テスト ---
+
+    #[test]
+    fn test_generate_step_chains() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        borders.generate_step_chains();
+
+        let comp = &borders.components[0];
+        assert!(comp.outer.chain_code.is_some());
+        let chain = comp.outer.chain_code.as_ref().unwrap();
+        // 8 border pixels → 7 steps (n-1 chain codes)
+        assert!(!chain.is_empty());
+    }
+
+    #[test]
+    fn test_step_chains_to_pix_coords_roundtrip() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        let original_points = borders.components[0].outer.points.clone();
+        borders.generate_step_chains();
+        borders.step_chains_to_pix_coords().unwrap();
+
+        assert_eq!(borders.components[0].outer.points, original_points);
+    }
+
+    #[test]
+    fn test_generate_single_path_no_holes() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        borders.generate_single_path().unwrap();
+
+        let comp = &borders.components[0];
+        assert!(comp.single_path.is_some());
+        let path = comp.single_path.as_ref().unwrap();
+        // For no-hole component, single path == outer border
+        assert_eq!(*path, comp.outer.points);
+    }
+
+    #[test]
+    fn test_generate_single_path_with_holes() {
+        // Ring: 7x7 frame (hollow square)
+        let mut pixels = Vec::new();
+        for y in 0..7u32 {
+            for x in 0..7u32 {
+                if y == 0 || y == 6 || x == 0 || x == 6 {
+                    pixels.push((x, y));
+                }
+            }
+        }
+        let pix = create_test_image(8, 8, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        borders.generate_single_path().unwrap();
+
+        let comp = &borders.components[0];
+        assert!(comp.single_path.is_some());
+        let path = comp.single_path.as_ref().unwrap();
+        // Path must be non-empty and longer than outer border alone
+        assert!(!path.is_empty());
+        assert!(path.len() >= comp.outer.points.len());
+    }
+
+    #[test]
+    fn test_write_read_roundtrip() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_step_chains();
+
+        let mut buf = Vec::new();
+        borders.write(&mut buf).unwrap();
+
+        let read_back = ImageBorders::read_from(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(read_back.width, borders.width);
+        assert_eq!(read_back.height, borders.height);
+        assert_eq!(read_back.component_count(), borders.component_count());
+        assert_eq!(
+            read_back.components[0].outer.points,
+            borders.components[0].outer.points
+        );
+    }
+
+    #[test]
+    fn test_to_svg_string() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_single_path().unwrap();
+
+        let svg = borders.to_svg_string().unwrap();
+        assert!(svg.contains("<svg "));
+        assert!(svg.contains("polygon"));
+        assert!(svg.contains("</svg>"));
+    }
+
+    #[test]
+    fn test_write_svg() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_single_path().unwrap();
+
+        let mut buf = Vec::new();
+        borders.write_svg(&mut buf).unwrap();
+        let svg_str = String::from_utf8(buf).unwrap();
+        assert!(svg_str.contains("<svg "));
+        assert!(svg_str.contains("</svg>"));
+    }
+
+    #[test]
+    fn test_write_read_with_holes() {
+        // Ring shape
+        let mut pixels = Vec::new();
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                if y == 0 || y == 4 || x == 0 || x == 4 {
+                    pixels.push((x, y));
+                }
+            }
+        }
+        let pix = create_test_image(5, 5, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_step_chains();
+
+        let mut buf = Vec::new();
+        borders.write(&mut buf).unwrap();
+
+        let read_back = ImageBorders::read_from(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(read_back.component_count(), 1);
+        // Outer + hole borders
+        assert_eq!(
+            read_back.components[0].holes.len(),
+            borders.components[0].holes.len()
+        );
+    }
+
+    #[test]
+    fn test_write_read_empty() {
+        let borders = ImageBorders::new(100, 200);
+        let mut buf = Vec::new();
+        borders.write(&mut buf).unwrap();
+
+        let read_back = ImageBorders::read_from(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(read_back.width, 100);
+        assert_eq!(read_back.height, 200);
+        assert_eq!(read_back.component_count(), 0);
     }
 
     #[test]
