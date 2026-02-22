@@ -627,22 +627,36 @@ impl ImageBorders {
     pub fn to_svg_string(&self) -> RegionResult<String> {
         let mut svg = String::new();
         svg.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n");
-        svg.push_str("<svg>\n");
+        svg.push_str(&format!(
+            "<svg width=\"{}\" height=\"{}\" viewBox=\"0 0 {} {}\">\n",
+            self.width, self.height, self.width, self.height
+        ));
 
         for comp in &self.components {
-            let path = if let Some(ref single) = comp.single_path {
-                single.clone()
+            // Collect global-coordinate points: single_path is in local coords, so offset by bounds.
+            let global_points: Vec<BorderPoint>;
+            let points: &[BorderPoint] = if let Some(ref single) = comp.single_path {
+                global_points = single
+                    .iter()
+                    .map(|p| BorderPoint {
+                        x: p.x + comp.bounds.x,
+                        y: p.y + comp.bounds.y,
+                    })
+                    .collect();
+                &global_points
             } else {
-                comp.outer_global().points
+                global_points = comp.outer_global().points;
+                &global_points
             };
 
-            if !path.is_empty() {
+            if !points.is_empty() {
                 svg.push_str("  <polygon style=\"stroke-width:1;stroke:black;\" points=\"");
-                for (i, p) in path.iter().enumerate() {
+                use std::fmt::Write as FmtWrite;
+                for (i, p) in points.iter().enumerate() {
                     if i > 0 {
                         svg.push(' ');
                     }
-                    svg.push_str(&format!("{},{}", p.x, p.y));
+                    let _ = write!(svg, "{},{}", p.x, p.y);
                 }
                 svg.push_str("\" />\n");
             }
@@ -1655,7 +1669,7 @@ mod tests {
         borders.generate_single_path().unwrap();
 
         let svg = borders.to_svg_string().unwrap();
-        assert!(svg.contains("<svg>"));
+        assert!(svg.contains("<svg "));
         assert!(svg.contains("polygon"));
         assert!(svg.contains("</svg>"));
     }
@@ -1676,7 +1690,7 @@ mod tests {
         let mut buf = Vec::new();
         borders.write_svg(&mut buf).unwrap();
         let svg_str = String::from_utf8(buf).unwrap();
-        assert!(svg_str.contains("<svg>"));
+        assert!(svg_str.contains("<svg "));
         assert!(svg_str.contains("</svg>"));
     }
 
