@@ -5,7 +5,7 @@
 //! efficient labeling.
 
 use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Box, Boxa, Pix, Pixa, PixelDepth};
+use leptonica_core::{Box, Boxa, Pix, PixMut, Pixa, PixelDepth};
 
 /// Connectivity type for component analysis
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -629,6 +629,239 @@ pub fn get_sorted_neighbor_values(
     Ok(values)
 }
 
+/// Count connected components without full labeling
+///
+/// Returns the number of connected components (4-way or 8-way) in a binary image.
+/// More efficient than `find_connected_components()` when only the count is needed.
+///
+/// # Arguments
+///
+/// * `pix` - 1-bpp binary image
+/// * `connectivity` - 4-way or 8-way connectivity
+///
+/// # Returns
+///
+/// Number of connected components
+///
+/// # Errors
+///
+/// Returns an error if the image is not 1-bit depth, or if the component count
+/// exceeds `u32::MAX`.
+pub fn count_conn_comp(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<u32> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    // For now, use find_connected_components as implementation
+    // TODO: Optimize to avoid storing all component info
+    let components = find_connected_components(pix, connectivity)?;
+    u32::try_from(components.len())
+        .map_err(|_| RegionError::InvalidParameters("component count exceeds u32::MAX".into()))
+}
+
+/// Find the next ON pixel in raster scan order starting from a given position
+///
+/// Scans the image from left to right, top to bottom, starting at the pixel
+/// **after** `(start_x, start_y)` in raster order. The start pixel itself is
+/// not checked.
+///
+/// # Arguments
+///
+/// * `pix` - 1-bpp binary image
+/// * `start_x` - Starting x coordinate (exclusive: scan begins after this position)
+/// * `start_y` - Starting y coordinate (exclusive: scan begins after this position)
+///
+/// # Returns
+///
+/// Coordinates of the next ON pixel, or None if none found
+pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<(u32, u32)> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return None;
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    if start_x >= w || start_y >= h {
+        return None;
+    }
+
+    // Scan from the pixel AFTER (start_x, start_y) in raster order
+    let mut y = start_y;
+    let mut x = start_x + 1;
+
+    // Move to next row if past end of current row
+    if x >= w {
+        x = 0;
+        y += 1;
+    }
+
+    // Scan remaining rows
+    for sy in y..h {
+        let x_start = if sy == y { x } else { 0 };
+        for sx in x_start..w {
+            if let Some(val) = pix.get_pixel(sx, sy)
+                && val != 0
+            {
+                return Some((sx, sy));
+            }
+        }
+    }
+
+    None
+}
+
+/// Seedfill starting at a point with bounding box tracking
+///
+/// Performs a flood fill starting from the given point. Clears (sets to 0) all
+/// ON pixels reachable from `(x, y)` via the specified connectivity, modifying
+/// the image in-place. Returns the bounding box of all pixels that were cleared.
+///
+/// # Arguments
+///
+/// * `pix` - Mutable 1-bit binary image to fill
+/// * `x` - Starting x coordinate
+/// * `y` - Starting y coordinate
+/// * `connectivity` - 4-way or 8-way connectivity
+///
+/// # Returns
+///
+/// Bounding box of the filled (cleared) region
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The image is not 1-bit depth
+/// - The coordinates are out of bounds
+/// - The starting pixel is OFF
+pub fn seedfill_bb(
+    pix: &mut PixMut,
+    x: u32,
+    y: u32,
+    connectivity: ConnectivityType,
+) -> RegionResult<Box> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    if x >= w || y >= h {
+        return Err(RegionError::InvalidParameters(format!(
+            "coordinates ({x}, {y}) out of bounds for {w}x{h} image"
+        )));
+    }
+
+    // Check if starting pixel is ON
+    if pix.get_pixel(x, y).unwrap_or(0) == 0 {
+        return Err(RegionError::InvalidParameters(
+            "starting pixel must be ON (non-zero)".into(),
+        ));
+    }
+
+    // BFS flood fill while tracking bounding box
+    let total = (w as usize).saturating_mul(h as usize);
+    let mut filled = vec![false; total];
+    let mut queue = std::collections::VecDeque::new();
+    let mut min_x = x;
+    let mut max_x = x;
+    let mut min_y = y;
+    let mut max_y = y;
+
+    // Start from seed point
+    let sidx = (y as usize) * (w as usize) + (x as usize);
+    filled[sidx] = true;
+    queue.push_back((x, y));
+
+    while let Some((cx, cy)) = queue.pop_front() {
+        // Clear this pixel in-place (flood fill removes pixels from image)
+        let _ = pix.set_pixel(cx, cy, 0);
+
+        // Update bounding box
+        if cx < min_x {
+            min_x = cx;
+        }
+        if cx > max_x {
+            max_x = cx;
+        }
+        if cy < min_y {
+            min_y = cy;
+        }
+        if cy > max_y {
+            max_y = cy;
+        }
+
+        // Get neighbors based on connectivity
+        let neighbors = match connectivity {
+            ConnectivityType::FourWay => {
+                let mut n = Vec::with_capacity(4);
+                if cx > 0 {
+                    n.push((cx - 1, cy));
+                }
+                if cx + 1 < w {
+                    n.push((cx + 1, cy));
+                }
+                if cy > 0 {
+                    n.push((cx, cy - 1));
+                }
+                if cy + 1 < h {
+                    n.push((cx, cy + 1));
+                }
+                n
+            }
+            ConnectivityType::EightWay => {
+                let mut n = Vec::with_capacity(8);
+                for dy in -1i32..=1 {
+                    for dx in -1i32..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+                        let nx = cx as i32 + dx;
+                        let ny = cy as i32 + dy;
+                        if nx >= 0 && nx < w as i32 && ny >= 0 && ny < h as i32 {
+                            n.push((nx as u32, ny as u32));
+                        }
+                    }
+                }
+                n
+            }
+        };
+
+        // Add ON neighbors to queue
+        for (nx, ny) in neighbors {
+            let nidx = (ny as usize) * (w as usize) + (nx as usize);
+            if !filled[nidx] && pix.get_pixel(nx, ny).unwrap_or(0) != 0 {
+                filled[nidx] = true;
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+
+    Ok(Box {
+        x: min_x as i32,
+        y: min_y as i32,
+        w: (max_x - min_x + 1) as i32,
+        h: (max_y - min_y + 1) as i32,
+    })
+}
+
+/// 4-connected seedfill with bounding box tracking
+pub fn seedfill_4_bb(pix: &mut PixMut, x: u32, y: u32) -> RegionResult<Box> {
+    seedfill_bb(pix, x, y, ConnectivityType::FourWay)
+}
+
+/// 8-connected seedfill with bounding box tracking
+pub fn seedfill_8_bb(pix: &mut PixMut, x: u32, y: u32) -> RegionResult<Box> {
+    seedfill_bb(pix, x, y, ConnectivityType::EightWay)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -814,5 +1047,129 @@ mod tests {
         assert_eq!(components[0].bounds.y, 0);
         assert_eq!(components[0].bounds.w, 3);
         assert_eq!(components[0].bounds.h, 3);
+    }
+
+    // -- Phase 3: ConnComp拡張 tests --
+
+    #[test]
+    fn test_count_conn_comp_basic() {
+        // Create a 10x10 image with two separate components
+        let pix = create_test_image(
+            10,
+            10,
+            &[
+                (1, 1),
+                (2, 1),
+                (1, 2), // Component 1: 3 pixels
+                (6, 6),
+                (7, 6),
+                (6, 7),
+                (7, 7), // Component 2: 4 pixels
+            ],
+        );
+
+        let count = count_conn_comp(&pix, ConnectivityType::FourWay).unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_next_on_pixel_in_raster_basic() {
+        // 5x5 image: pixels at (1,0), (3,2), (4,4)
+        let pix = create_test_image(5, 5, &[(1, 0), (3, 2), (4, 4)]);
+
+        // From origin, should find (1,0)
+        let next = next_on_pixel_in_raster(&pix, 0, 0).unwrap();
+        assert_eq!(next, (1, 0));
+
+        // From (1,0), should find (3,2)
+        let next = next_on_pixel_in_raster(&pix, 1, 0).unwrap();
+        assert_eq!(next, (3, 2));
+
+        // From (3,2), should find (4,4)
+        let next = next_on_pixel_in_raster(&pix, 3, 2).unwrap();
+        assert_eq!(next, (4, 4));
+
+        // From (4,4), should find nothing
+        let next = next_on_pixel_in_raster(&pix, 4, 4);
+        assert!(next.is_none());
+    }
+
+    #[test]
+    fn test_next_on_pixel_raster_order() {
+        // Verify raster scan order (left-to-right, top-to-bottom)
+        let pix = create_test_image(5, 5, &[(2, 1), (1, 2), (3, 1)]);
+
+        // Should traverse in raster order: (1,2) comes after (3,1) in raster scan
+        let next1 = next_on_pixel_in_raster(&pix, 0, 0).unwrap();
+        assert_eq!(next1, (2, 1)); // First in raster order
+
+        let next2 = next_on_pixel_in_raster(&pix, next1.0, next1.1).unwrap();
+        assert_eq!(next2, (3, 1)); // Second in raster order (same row)
+
+        let next3 = next_on_pixel_in_raster(&pix, next2.0, next2.1).unwrap();
+        assert_eq!(next3, (1, 2)); // Third in raster order (next row)
+    }
+
+    #[test]
+    fn test_seedfill_bb_basic() {
+        // Create a 5x5 image with a square component at (1,1) to (3,3)
+        let pix = create_test_image(
+            5,
+            5,
+            &[
+                (1, 1),
+                (2, 1),
+                (3, 1),
+                (1, 2),
+                (2, 2),
+                (3, 2),
+                (1, 3),
+                (2, 3),
+                (3, 3),
+            ],
+        );
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        let bbox = seedfill_4_bb(&mut pix_mut, 2, 2).unwrap();
+
+        // Bounding box should be (1,1) to (3,3)
+        assert_eq!(bbox.x, 1);
+        assert_eq!(bbox.y, 1);
+        assert_eq!(bbox.w, 3);
+        assert_eq!(bbox.h, 3);
+
+        // All filled pixels should now be OFF (in-place modification)
+        for y in 1..=3u32 {
+            for x in 1..=3u32 {
+                assert_eq!(
+                    pix_mut.get_pixel(x, y),
+                    Some(0),
+                    "pixel ({x},{y}) should be OFF after seedfill"
+                );
+            }
+        }
+        // Pixels outside the component should remain OFF (were never ON)
+        assert_eq!(pix_mut.get_pixel(0, 0), Some(0));
+        assert_eq!(pix_mut.get_pixel(4, 4), Some(0));
+    }
+
+    #[test]
+    fn test_seedfill_8_bb() {
+        // Diagonal pixels should be connected in 8-way mode
+        let pix = create_test_image(5, 5, &[(1, 1), (2, 2), (3, 3)]);
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        let bbox = seedfill_8_bb(&mut pix_mut, 1, 1).unwrap();
+
+        // Should cover all three pixels
+        assert_eq!(bbox.x, 1);
+        assert_eq!(bbox.y, 1);
+        assert_eq!(bbox.w, 3);
+        assert_eq!(bbox.h, 3);
+
+        // All filled pixels should now be OFF (in-place modification)
+        assert_eq!(pix_mut.get_pixel(1, 1), Some(0));
+        assert_eq!(pix_mut.get_pixel(2, 2), Some(0));
+        assert_eq!(pix_mut.get_pixel(3, 3), Some(0));
     }
 }
