@@ -481,7 +481,20 @@ pub fn dilate_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<P
     composite_dwa_op(pix, hsize, vsize, DwaOp::Dilate)
 }
 
-/// Composite DWA erosion (≤ 63 per dimension, delegates to extend for larger).
+/// Composite DWA erosion with a brick structuring element (≤ 63 per dimension).
+///
+/// Like [`dilate_comp_brick_dwa`] but applies erosion. For dimensions larger
+/// than 63 pixels, automatically delegates to [`erode_comp_brick_extend_dwa`].
+///
+/// # Arguments
+///
+/// * `pix` - Input 1-bpp binary image
+/// * `hsize` - Horizontal size of the brick structuring element (≥ 1, ≤ 63)
+/// * `vsize` - Vertical size of the brick structuring element (≥ 1, ≤ 63)
+///
+/// # Returns
+///
+/// A new `Pix` with the erosion applied, or a `MorphError` on invalid input.
 pub fn erode_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
     validate_sizes(hsize, vsize)?;
@@ -494,22 +507,66 @@ pub fn erode_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pi
     composite_dwa_op(pix, hsize, vsize, DwaOp::Erode)
 }
 
-/// Composite DWA opening (erosion then dilation).
+/// Composite DWA opening with a brick structuring element.
+///
+/// Performs an erosion followed by a dilation using composite DWA brick
+/// operations, which decompose the requested horizontal and vertical sizes
+/// into factors and apply fast DWA passes. For dimensions larger than
+/// 63 pixels, delegates to the corresponding `*_extend_dwa` routines.
+///
+/// # Arguments
+///
+/// * `pix` - Input 1-bpp binary image
+/// * `hsize` - Horizontal size of the brick structuring element (≥ 1)
+/// * `vsize` - Vertical size of the brick structuring element (≥ 1)
+///
+/// # Returns
+///
+/// A new `Pix` with the opening applied, or a `MorphError` on invalid input.
 pub fn open_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     let eroded = erode_comp_brick_dwa(pix, hsize, vsize)?;
     dilate_comp_brick_dwa(&eroded, hsize, vsize)
 }
 
-/// Composite DWA closing (dilation then erosion).
+/// Composite DWA closing with a brick structuring element.
+///
+/// Performs a dilation followed by an erosion using composite DWA brick
+/// operations, which decompose the requested horizontal and vertical sizes
+/// into factors and apply fast DWA passes. For dimensions larger than
+/// 63 pixels, delegates to the corresponding `*_extend_dwa` routines.
+///
+/// # Arguments
+///
+/// * `pix` - Input 1-bpp binary image
+/// * `hsize` - Horizontal size of the brick structuring element (≥ 1)
+/// * `vsize` - Vertical size of the brick structuring element (≥ 1)
+///
+/// # Returns
+///
+/// A new `Pix` with the closing applied, or a `MorphError` on invalid input.
 pub fn close_comp_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     let dilated = dilate_comp_brick_dwa(pix, hsize, vsize)?;
     erode_comp_brick_dwa(&dilated, hsize, vsize)
 }
 
-/// Extended composite DWA dilation (arbitrary size, > 63 supported).
+/// Extended composite DWA dilation with a brick structuring element (arbitrary size).
 ///
-/// Chains multiple 63-pixel DWA passes plus one residual pass.
-/// Called automatically by `dilate_comp_brick_dwa` when a dimension > 63.
+/// Supports brick dimensions beyond 63 pixels by chaining multiple 63-pixel
+/// DWA passes plus one residual pass, computed by
+/// [`get_extended_composite_parameters`]. For sizes ≤ 63 in both dimensions,
+/// delegates to [`dilate_comp_brick_dwa`].
+///
+/// Called automatically by [`dilate_comp_brick_dwa`] when a dimension > 63.
+///
+/// # Arguments
+///
+/// * `pix` - Input 1-bpp binary image
+/// * `hsize` - Horizontal size of the brick structuring element (≥ 1)
+/// * `vsize` - Vertical size of the brick structuring element (≥ 1)
+///
+/// # Returns
+///
+/// A new `Pix` with the dilation applied, or a `MorphError` on invalid input.
 pub fn dilate_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
     validate_sizes(hsize, vsize)?;
@@ -520,7 +577,20 @@ pub fn dilate_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphR
     extend_dwa_1d(&result, vsize, false, DwaOp::Dilate)
 }
 
-/// Extended composite DWA erosion (arbitrary size, > 63 supported).
+/// Extended composite DWA erosion with a brick structuring element (arbitrary size).
+///
+/// Like [`dilate_comp_brick_extend_dwa`] but applies erosion. For sizes ≤ 63
+/// in both dimensions, delegates to [`erode_comp_brick_dwa`].
+///
+/// # Arguments
+///
+/// * `pix` - Input 1-bpp binary image
+/// * `hsize` - Horizontal size of the brick structuring element (≥ 1)
+/// * `vsize` - Vertical size of the brick structuring element (≥ 1)
+///
+/// # Returns
+///
+/// A new `Pix` with the erosion applied, or a `MorphError` on invalid input.
 pub fn erode_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
     validate_sizes(hsize, vsize)?;
@@ -531,13 +601,39 @@ pub fn erode_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphRe
     extend_dwa_1d(&result, vsize, false, DwaOp::Erode)
 }
 
-/// Extended composite DWA opening.
+/// Extended composite DWA opening with a brick structuring element (arbitrary size).
+///
+/// Performs erosion followed by dilation using extended composite DWA operations,
+/// supporting brick dimensions beyond 63 pixels via multi-pass chaining.
+///
+/// # Arguments
+///
+/// * `pix` - Input 1-bpp binary image
+/// * `hsize` - Horizontal size of the brick structuring element (≥ 1)
+/// * `vsize` - Vertical size of the brick structuring element (≥ 1)
+///
+/// # Returns
+///
+/// A new `Pix` with the opening applied, or a `MorphError` on invalid input.
 pub fn open_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     let eroded = erode_comp_brick_extend_dwa(pix, hsize, vsize)?;
     dilate_comp_brick_extend_dwa(&eroded, hsize, vsize)
 }
 
-/// Extended composite DWA closing.
+/// Extended composite DWA closing with a brick structuring element (arbitrary size).
+///
+/// Performs dilation followed by erosion using extended composite DWA operations,
+/// supporting brick dimensions beyond 63 pixels via multi-pass chaining.
+///
+/// # Arguments
+///
+/// * `pix` - Input 1-bpp binary image
+/// * `hsize` - Horizontal size of the brick structuring element (≥ 1)
+/// * `vsize` - Vertical size of the brick structuring element (≥ 1)
+///
+/// # Returns
+///
+/// A new `Pix` with the closing applied, or a `MorphError` on invalid input.
 pub fn close_comp_brick_extend_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     let dilated = dilate_comp_brick_extend_dwa(pix, hsize, vsize)?;
     erode_comp_brick_extend_dwa(&dilated, hsize, vsize)
