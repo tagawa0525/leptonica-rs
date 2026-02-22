@@ -622,10 +622,7 @@ pub fn search_binary_maze(
 
     // Validate start position
     if xi >= width || yi >= height {
-        return Err(RegionError::InvalidParameters(format!(
-            "start position ({}, {}) out of bounds for {}x{} image",
-            xi, yi, width, height
-        )));
+        return Err(RegionError::InvalidSeed { x: xi, y: yi });
     }
 
     // Check that start is on a passage
