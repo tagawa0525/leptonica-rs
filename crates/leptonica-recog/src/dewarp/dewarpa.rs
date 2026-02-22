@@ -186,6 +186,7 @@ impl Dewarpa {
     pub fn dewarp_options(&self) -> DewarpOptions {
         DewarpOptions::default()
             .with_sampling(self.sampling)
+            .with_reduction_factor(self.reduction_factor)
             .with_min_lines(self.min_lines)
             .with_use_both(self.use_both)
     }
