@@ -303,7 +303,8 @@ mod tests {
     fn test_union_of_morph_ops_single_sel_equals_direct() {
         let pix = create_1bpp_test();
         let sel = Sel::create_brick(3, 3).unwrap();
-        let union = union_of_morph_ops(&pix, &[sel.clone()], MorphOpType::Dilate).unwrap();
+        let union =
+            union_of_morph_ops(&pix, std::slice::from_ref(&sel), MorphOpType::Dilate).unwrap();
         let direct = dilate(&pix, &sel).unwrap();
         assert!(union.equals(&direct));
     }
@@ -340,7 +341,9 @@ mod tests {
     fn test_intersection_of_morph_ops_single_sel_equals_direct() {
         let pix = create_1bpp_test();
         let sel = Sel::create_brick(3, 3).unwrap();
-        let result = intersection_of_morph_ops(&pix, &[sel.clone()], MorphOpType::Erode).unwrap();
+        let result =
+            intersection_of_morph_ops(&pix, std::slice::from_ref(&sel), MorphOpType::Erode)
+                .unwrap();
         let direct = erode(&pix, &sel).unwrap();
         assert!(result.equals(&direct));
     }

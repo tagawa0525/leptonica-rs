@@ -1094,8 +1094,8 @@ mod tests {
         assert_eq!(result.len(), 1);
         let b = result.get(0).unwrap();
         // After 180° rotation the bounding box should be the same
-        assert!((b.x - 0).abs() <= 1);
-        assert!((b.y - 0).abs() <= 1);
+        assert!(b.x.abs() <= 1);
+        assert!(b.y.abs() <= 1);
         assert!((b.w - 10).abs() <= 1);
         assert!((b.h - 10).abs() <= 1);
     }
