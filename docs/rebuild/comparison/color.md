@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 51 |
+| ✅ 同等 | 52 |
 | 🔄 異なる | 16 |
-| ❌ 未実装 | 59 |
+| ❌ 未実装 | 58 |
 | 合計 | 126 |
 
 ## 詳細
@@ -136,7 +136,7 @@
 | pixShiftByComponent | ✅ 同等 | pix_shift_by_component | |
 | pixelShiftByComponent | ✅ 同等 | pixel_shift_by_component | |
 | pixelFractionalShift | ✅ 同等 | pixel_fractional_shift | |
-| pixShiftWithInvariantHue | ❌ 未実装 | - | Hue-invariant shift未実装 |
+| pixShiftWithInvariantHue | ✅ 同等 | coloring.rs pix_map_with_invariant_hue() | Hue-invariant shift |
 
 ### binarize.c
 | C関数 | 状態 | Rust対応 | 備考 |

@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 33 |
+| ✅ 同等 | 40 |
 | 🔄 異なる | 8 |
-| ❌ 未実装 | 54 |
+| ❌ 未実装 | 47 |
 | 合計 | 95 |
 
 ## 詳細
@@ -20,7 +20,7 @@
 | pixConnCompPixa | ✅ 同等 | conncomp_pixa() | - |
 | pixConnCompBB | 🔄 異なる | find_connected_components | 異なるAPI: bounding box情報はConnectedComponentに含まれる |
 | pixCountConnComp | ✅ 同等 | pix_count_components (label.rs) | - |
-| nextOnPixelInRaster | ❌ 未実装 | - | - |
+| nextOnPixelInRaster | ✅ 同等 | conncomp.rs next_on_pixel_in_raster() | - |
 | pixSeedfillBB | ❌ 未実装 | - | - |
 | pixSeedfill4BB | ❌ 未実装 | - | - |
 | pixSeedfill8BB | ❌ 未実装 | - | - |
@@ -72,10 +72,10 @@
 | seedfillBinaryLow | ❌ 未実装 | - | Low-level関数 |
 | pixHolesByFilling | ✅ 同等 | fill_holes | - |
 | pixFillClosedBorders | ✅ 同等 | fill_closed_borders() | - |
-| pixExtractBorderConnComps | ❌ 未実装 | - | - |
+| pixExtractBorderConnComps | ✅ 同等 | seedfill.rs extract_border_conn_comps() | - |
 | pixRemoveBorderConnComps | ✅ 同等 | clear_border | - |
-| pixFillBgFromBorder | ❌ 未実装 | - | - |
-| pixFillHolesToBoundingRect | ❌ 未実装 | - | - |
+| pixFillBgFromBorder | ✅ 同等 | seedfill.rs fill_bg_from_border() | - |
+| pixFillHolesToBoundingRect | ✅ 同等 | seedfill.rs fill_holes_to_bounding_rect() | - |
 | pixSeedfillGray | ✅ 同等 | seedfill_gray | - |
 | pixSeedfillGrayInv | ✅ 同等 | seedfill_gray_inv() | - |
 | seedfillGrayLow | ❌ 未実装 | - | Low-level関数 |
@@ -103,8 +103,8 @@
 | wshedDestroy | ❌ 未実装 | - | - |
 | wshedApply | 🔄 異なる | watershed_segmentation | 異なるAPI: WatershedOptionsを使用 |
 | wshedBasins | 🔄 異なる | find_basins | 異なるアルゴリズム |
-| wshedRenderFill | ❌ 未実装 | - | - |
-| wshedRenderColors | ❌ 未実装 | - | - |
+| wshedRenderFill | ✅ 同等 | watershed.rs watershed_render_fill() | - |
+| wshedRenderColors | ✅ 同等 | watershed.rs watershed_render_colors() | - |
 
 ### pixlabel.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -134,7 +134,7 @@
 |-------|------|----------|------|
 | generateBinaryMaze | ✅ 同等 | generate_binary_maze | - |
 | pixSearchBinaryMaze | ✅ 同等 | search_binary_maze | - |
-| pixSearchGrayMaze | ❌ 未実装 | - | - |
+| pixSearchGrayMaze | ✅ 同等 | maze.rs search_gray_maze() | - |
 
 ## 注記
 
@@ -182,19 +182,19 @@
 
 | ファイル | 実装済 | 未実装 | 実装率 |
 |---------|--------|--------|--------|
-| conncomp.c | 4 | 7 | 36.4% |
+| conncomp.c | 5 | 6 | 45.5% |
 | ccbord.c | 4 | 28 | 12.5% |
-| seedfill.c | 18 | 10 | 64.3% |
-| watershed.c | 2 | 4 | 33.3% |
+| seedfill.c | 21 | 7 | 75.0% |
+| watershed.c | 4 | 2 | 66.7% |
 | pixlabel.c | 3 | 3 | 50.0% |
 | quadtree.c | 8 | 1 | 88.9% |
-| maze.c | 2 | 1 | 66.7% |
+| maze.c | 3 | 0 | 100.0% |
 
 ### 全体
 
-- 実装済: 33関数 (34.7%)
+- 実装済: 40関数 (42.1%)
 - 部分実装/異なるAPI: 8関数 (8.4%)
-- 未実装: 54関数 (56.8%)
+- 未実装: 47関数 (49.5%)
 
 ### 推奨される次の実装項目
 

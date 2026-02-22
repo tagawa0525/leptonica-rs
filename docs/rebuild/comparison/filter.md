@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 56 |
+| ✅ 同等 | 82 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 43 |
+| ❌ 未実装 | 17 |
 | 合計 | 99 |
 
 ## 詳細
@@ -21,8 +21,8 @@
 | pixBlockconvGray | ✅ 同等 | block_conv.rs blockconv_gray() | グレースケールブロック畳み込み |
 | pixBlockconvAccum | ✅ 同等 | block_conv.rs blockconv_accum() | 畳み込み用アキュムレータ |
 | pixBlockconvGrayUnnormalized | ✅ 同等 | block_conv.rs blockconv_gray_unnormalized() | 正規化なしブロック畳み込み |
-| pixBlockconvTiled | ❌ 未実装 | - | タイル化ブロック畳み込み |
-| pixBlockconvGrayTile | ❌ 未実装 | - | グレースケールタイル化ブロック畳み込み |
+| pixBlockconvTiled | ✅ 同等 | block_conv.rs blockconv_tiled() | タイル化ブロック畳み込み |
+| pixBlockconvGrayTile | ✅ 同等 | block_conv.rs blockconv_gray_tile() | グレースケールタイル化ブロック畳み込み |
 | pixWindowedStats | ✅ 同等 | windowed.rs windowed_stats() | ウィンドウ統計量(mean, mean-square, variance, RMS) |
 | pixWindowedMean | ✅ 同等 | windowed.rs windowed_mean() | ウィンドウ平均 |
 | pixWindowedMeanSquare | ✅ 同等 | windowed.rs windowed_mean_square() | ウィンドウ平均二乗 |
@@ -68,7 +68,7 @@
 | numaEqualizeTRC | ✅ 同等 | equalize_trc() | TrcLut([u8;256])を返す |
 | pixTRCMap | ✅ 同等 | trc_map() | 汎用TRCマッパー |
 | pixTRCMapGeneral | ✅ 同等 | trc_map_general() | R,G,B個別LUT適用 |
-| pixUnsharpMasking | ❌ 未実装 | - | アンシャープマスキング(カラー対応) |
+| pixUnsharpMasking | ✅ 同等 | enhance.rs unsharp_masking() | アンシャープマスキング(カラー対応) |
 | pixUnsharpMaskingGray | ✅ 同等 | unsharp_mask() | グレースケールアンシャープマスキング |
 | pixUnsharpMaskingFast | ✅ 同等 | edge.rs unsharp_masking_fast() | 高速アンシャープマスキング(カラー対応) |
 | pixUnsharpMaskingGrayFast | ✅ 同等 | edge.rs unsharp_masking_gray_fast() | 高速グレースケールアンシャープマスキング |
@@ -100,36 +100,36 @@
 
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixCleanBackgroundToWhite | ❌ 未実装 | - | 背景を白にクリーン化 |
+| pixCleanBackgroundToWhite | ✅ 同等 | adaptmap.rs clean_background_to_white() | 背景を白にクリーン化 |
 | pixBackgroundNormSimple | ✅ 同等 | background_norm_simple() | シンプル背景正規化 |
 | pixBackgroundNorm | ✅ 同等 | background_norm() | 背景正規化 |
-| pixBackgroundNormMorph | ❌ 未実装 | - | モルフォロジーベース背景正規化 |
-| pixBackgroundNormGrayArray | ❌ 未実装 | - | グレー背景正規化配列 (returns l_int32) |
-| pixBackgroundNormRGBArrays | ❌ 未実装 | - | RGB背景正規化配列 (returns l_int32) |
-| pixBackgroundNormGrayArrayMorph | ❌ 未実装 | - | モルフォロジーベースグレー背景正規化配列 (returns l_int32) |
-| pixBackgroundNormRGBArraysMorph | ❌ 未実装 | - | モルフォロジーベースRGB背景正規化配列 (returns l_int32) |
-| pixGetBackgroundGrayMap | ❌ 未実装 | - | グレー背景マップ取得 (returns l_int32) |
-| pixGetBackgroundRGBMap | ❌ 未実装 | - | RGB背景マップ取得 (returns l_int32) |
-| pixGetBackgroundGrayMapMorph | ❌ 未実装 | - | モルフォロジーベースグレー背景マップ取得 (returns l_int32) |
-| pixGetBackgroundRGBMapMorph | ❌ 未実装 | - | モルフォロジーベースRGB背景マップ取得 (returns l_int32) |
-| pixFillMapHoles | ❌ 未実装 | - | マップの穴埋め (returns l_int32) |
-| pixExtendByReplication | ❌ 未実装 | - | 複製による拡張 |
-| pixSmoothConnectedRegions | ❌ 未実装 | - | 連結領域の平滑化 (returns l_int32) |
+| pixBackgroundNormMorph | ✅ 同等 | adaptmap.rs background_norm_morph() | モルフォロジーベース背景正規化 |
+| pixBackgroundNormGrayArray | ✅ 同等 | adaptmap.rs background_norm_gray_array() | グレー背景正規化配列 |
+| pixBackgroundNormRGBArrays | ✅ 同等 | adaptmap.rs background_norm_rgb_arrays() | RGB背景正規化配列 |
+| pixBackgroundNormGrayArrayMorph | ✅ 同等 | adaptmap.rs background_norm_gray_array_morph() | モルフォロジーベースグレー背景正規化配列 |
+| pixBackgroundNormRGBArraysMorph | ✅ 同等 | adaptmap.rs background_norm_rgb_arrays_morph() | モルフォロジーベースRGB背景正規化配列 |
+| pixGetBackgroundGrayMap | ✅ 同等 | adaptmap.rs get_background_gray_map() | グレー背景マップ取得 |
+| pixGetBackgroundRGBMap | ✅ 同等 | adaptmap.rs get_background_rgb_map() | RGB背景マップ取得 |
+| pixGetBackgroundGrayMapMorph | ✅ 同等 | adaptmap.rs get_background_gray_map_morph() | モルフォロジーベースグレー背景マップ取得 |
+| pixGetBackgroundRGBMapMorph | ✅ 同等 | adaptmap.rs get_background_rgb_map_morph() | モルフォロジーベースRGB背景マップ取得 |
+| pixFillMapHoles | ✅ 同等 | adaptmap.rs fill_map_holes() | マップの穴埋め |
+| pixExtendByReplication | ✅ 同等 | adaptmap.rs extend_by_replication() | 複製による拡張 |
+| pixSmoothConnectedRegions | ✅ 同等 | adaptmap.rs smooth_connected_regions() | 連結領域の平滑化 |
 | pixGetForegroundGrayMap | ❌ 未実装 | - | グレー前景マップ取得 (returns l_int32) |
-| pixGetInvBackgroundMap | ❌ 未実装 | - | 逆背景マップ取得 |
-| pixApplyInvBackgroundGrayMap | ❌ 未実装 | - | グレー逆背景マップ適用 |
-| pixApplyInvBackgroundRGBMap | ❌ 未実装 | - | RGB逆背景マップ適用 |
-| pixApplyVariableGrayMap | ❌ 未実装 | - | 可変グレーマップ適用 |
-| pixGlobalNormRGB | ❌ 未実装 | - | グローバルRGB正規化 |
-| pixGlobalNormNoSatRGB | ❌ 未実装 | - | 彩度保持グローバルRGB正規化 |
-| pixThresholdSpreadNorm | ❌ 未実装 | - | 閾値スプレッド正規化 (returns l_int32) |
-| pixBackgroundNormFlex | ❌ 未実装 | - | フレキシブル背景正規化 |
+| pixGetInvBackgroundMap | ✅ 同等 | adaptmap.rs get_inv_background_map() | 逆背景マップ取得 |
+| pixApplyInvBackgroundGrayMap | ✅ 同等 | adaptmap.rs apply_inv_background_gray_map() | グレー逆背景マップ適用 |
+| pixApplyInvBackgroundRGBMap | ✅ 同等 | adaptmap.rs apply_inv_background_rgb_map() | RGB逆背景マップ適用 |
+| pixApplyVariableGrayMap | ✅ 同等 | adaptmap.rs apply_variable_gray_map() | 可変グレーマップ適用 |
+| pixGlobalNormRGB | ✅ 同等 | adaptmap.rs global_norm_rgb() | グローバルRGB正規化 |
+| pixGlobalNormNoSatRGB | ✅ 同等 | adaptmap.rs global_norm_no_sat_rgb() | 彩度保持グローバルRGB正規化 |
+| pixThresholdSpreadNorm | ✅ 同等 | adaptmap.rs threshold_spread_norm() | 閾値スプレッド正規化 |
+| pixBackgroundNormFlex | ✅ 同等 | adaptmap.rs background_norm_flex() | フレキシブル背景正規化 |
 | pixContrastNorm | ✅ 同等 | contrast_norm() | コントラスト正規化 |
 | pixMinMaxTiles | ❌ 未実装 | - | タイル最小最大値 (static, returns l_int32) |
 | pixSetLowContrast | ❌ 未実装 | - | 低コントラスト設定 (static, returns l_int32) |
 | pixLinearTRCTiled | ❌ 未実装 | - | タイル線形TRC (static) |
-| pixBackgroundNormTo1MinMax | ❌ 未実装 | - | 背景正規化→1 bpp MinMax |
-| pixConvertTo8MinMax | ❌ 未実装 | - | 8 bpp MinMax変換 |
+| pixBackgroundNormTo1MinMax | ✅ 同等 | adaptmap.rs background_norm_to_1_min_max() | 背景正規化→1 bpp MinMax |
+| pixConvertTo8MinMax | ✅ 同等 | adaptmap.rs convert_to_8_min_max() | 8 bpp MinMax変換 |
 | pixSelectiveContrastMod | ❌ 未実装 | - | 選択的コントラスト変更 (static, returns l_int32*) |
 
 ### rank.c

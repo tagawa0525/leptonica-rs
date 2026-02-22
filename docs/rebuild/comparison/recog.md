@@ -8,9 +8,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 84 |
+| ✅ 同等 | 83 |
 | 🔄 異なる | 16 |
-| ❌ 未実装 | 44 |
+| ❌ 未実装 | 45 |
 | 合計 | 144 |
 
 > **注記**: Phase 1-13（2026-02-22完了）により、シリアライゼーション・Dewarpa管理・
@@ -116,7 +116,7 @@
 | pixFindSkewSweepAndSearch | 🔄 異なる | `skew::find_skew` (内部実装) | スイープ+探索（オプション指定で実現） |
 | pixFindSkewSweepAndSearchScore | ✅ 同等 | `skew::find_skew_sweep_and_search_score` | スイープ+探索（スコア付き） |
 | pixFindSkewSweepAndSearchScorePivot | ✅ 同等 | `skew::find_skew_sweep_and_search_score_pivot` | スイープ+探索（ピボット指定） |
-| pixFindSkewOrthogonalRange | ✅ 同等 | `skew::find_skew_orthogonal_range` | 直交範囲での傾き検出 |
+| pixFindSkewOrthogonalRange | ❌ 未実装 | - | 直交範囲での傾き検出 |
 
 ### dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c (Dewarping)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -187,9 +187,9 @@
 | jbRankHausInit | ✅ 同等 | `jbclass::rank_haus_init` | Rank Hausdorff分類器初期化 |
 | jbCorrelationInit | ✅ 同等 | `jbclass::correlation_init` | 相関ベース分類器初期化 |
 | jbCorrelationInitWithoutComponents | ❌ 未実装 | - | コンポーネントなし相関分類器初期化 |
-| jbAddPages | ❌ 未実装 | - | 複数ページ追加 |
+| jbAddPages | ✅ 同等 | `JbClasser::add_pages` | 複数ページ追加 |
 | jbAddPage | ✅ 同等 | `JbClasser::add_page` | ページ追加 |
-| jbAddPageComponents | ✅ 同等 | `JbClasser::add_page_components` | ページコンポーネント追加 |
+| jbAddPageComponents | ❌ 未実装 | - | ページコンポーネント追加（内部ロジック未実装） |
 | jbClassifyRankHaus | 🔄 異なる | `JbClasser` (内部実装) | Rank Hausdorff分類（内部で自動実行） |
 | jbClassifyCorrelation | 🔄 異なる | `JbClasser` (内部実装) | 相関ベース分類（内部で自動実行） |
 | jbClasserCreate | 🔄 異なる | `rank_haus_init` / `correlation_init` | 分類器作成（専用関数に分割） |

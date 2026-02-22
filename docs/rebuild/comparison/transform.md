@@ -122,7 +122,7 @@
 | pixAffinePtaGray | 🔄 | affine::affine_gray | 内部実装として存在 |
 | pixAffineGray | 🔄 | affine::affine_gray | 内部実装として存在 |
 | pixAffinePtaWithAlpha | ✅ | affine::affine_pta_with_alpha | 同等 |
-| getAffineXformCoeffs | ✅ | AffineMatrix::from_point_pairs | 同等 (メソッドとして実装) |
+| getAffineXformCoeffs | ✅ | AffineMatrix::from_three_points | 同等 (メソッドとして実装) |
 | affineInvertXform | ✅ | AffineMatrix::invert | 同等 (メソッドとして実装) |
 | affineXformSampledPt | ✅ | AffineMatrix::transform_point_sampled | 同等 (メソッドとして実装) |
 | affineXformPt | ✅ | AffineMatrix::transform_point | 同等 (メソッドとして実装) |
@@ -162,7 +162,7 @@
 | pixBilinearPtaGray | 🔄 | bilinear::bilinear_gray | 内部実装として存在 |
 | pixBilinearGray | 🔄 | bilinear::bilinear_gray | 内部実装として存在 |
 | pixBilinearPtaWithAlpha | ✅ | bilinear::bilinear_pta_with_alpha | 同等 |
-| getBilinearXformCoeffs | ✅ | BilinearCoeffs::from_point_pairs | 同等 (メソッドとして実装) |
+| getBilinearXformCoeffs | ✅ | BilinearCoeffs::from_four_points | 同等 (メソッドとして実装) |
 | bilinearXformSampledPt | ✅ | BilinearCoeffs::transform_point_sampled | 同等 (メソッドとして実装) |
 | bilinearXformPt | ✅ | BilinearCoeffs::transform_point | 同等 (メソッドとして実装) |
 
@@ -178,7 +178,7 @@
 | pixProjectivePtaGray | 🔄 | projective::projective_gray | 内部実装として存在 |
 | pixProjectiveGray | 🔄 | projective::projective_gray | 内部実装として存在 |
 | pixProjectivePtaWithAlpha | ✅ | projective::projective_pta_with_alpha | 同等 |
-| getProjectiveXformCoeffs | ✅ | ProjectiveCoeffs::from_point_pairs | 同等 (メソッドとして実装) |
+| getProjectiveXformCoeffs | ✅ | ProjectiveCoeffs::from_four_points | 同等 (メソッドとして実装) |
 | projectiveXformSampledPt | ✅ | ProjectiveCoeffs::transform_point_sampled | 同等 (メソッドとして実装) |
 | projectiveXformPt | ✅ | ProjectiveCoeffs::transform_point | 同等 (メソッドとして実装) |
 
@@ -238,5 +238,5 @@
 3. **設計の違い**:
    - C版: 関数ベースのAPI（Gray/Color別）
    - Rust版: 統一APIで深度自動判定
-   - 係数計算はメソッド化（AffineMatrix::from_point_pairs等）
+   - 係数計算はメソッド化（AffineMatrix::from_three_points, BilinearCoeffs::from_four_points等）
    - flipdetect機能はleptonica-recog crateに配置
