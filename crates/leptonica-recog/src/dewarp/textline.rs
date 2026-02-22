@@ -288,6 +288,66 @@ pub fn sort_lines_by_y(lines: &mut [TextLine]) {
     });
 }
 
+/// Estimate the predominant text-line flow direction of an image.
+///
+/// Detects text lines and fits a line through their mid-points to determine
+/// the overall angle at which text flows across the page.
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image (1 bpp)
+///
+/// # Returns
+///
+/// Angle in radians (0.0 = horizontal left-to-right text,
+/// positive = text tilted counter-clockwise).
+///
+/// Returns 0.0 if not enough text lines are found.
+pub fn pix_find_textline_flow_direction(pix: &Pix) -> RecogResult<f32> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let lines = find_textline_centers(pix)?;
+    if lines.len() < 2 {
+        return Ok(0.0);
+    }
+
+    // Collect (x_mid, y_mid) of each line
+    let points: Vec<(f64, f64)> = lines
+        .iter()
+        .filter_map(|l| {
+            let n = l.points.len();
+            if n == 0 {
+                return None;
+            }
+            Some((l.points[n / 2].0 as f64, l.points[n / 2].1 as f64))
+        })
+        .collect();
+
+    if points.len() < 2 {
+        return Ok(0.0);
+    }
+
+    // Linear regression: y = m*x + b
+    let n = points.len() as f64;
+    let sx: f64 = points.iter().map(|(x, _)| x).sum();
+    let sy: f64 = points.iter().map(|(_, y)| y).sum();
+    let sxx: f64 = points.iter().map(|(x, _)| x * x).sum();
+    let sxy: f64 = points.iter().map(|(x, y)| x * y).sum();
+
+    let det = n * sxx - sx * sx;
+    if det.abs() < 1e-10 {
+        return Ok(0.0);
+    }
+
+    let slope = (n * sxy - sx * sy) / det;
+    Ok(slope.atan() as f32)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -352,6 +412,15 @@ mod tests {
         ];
 
         assert!(!is_line_coverage_valid(&lines, 500, 6));
+    }
+
+    #[test]
+    fn test_pix_find_textline_flow_direction_empty() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
+        let result = pix_find_textline_flow_direction(&pix);
+        assert!(result.is_ok());
+        // Empty image with no text lines → fallback to 0.0 radians (horizontal)
+        assert!((result.unwrap() - 0.0).abs() < 0.1);
     }
 
     #[test]

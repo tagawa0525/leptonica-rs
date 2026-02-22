@@ -4,10 +4,132 @@
 //! disparity models from text line centers.
 
 use crate::{RecogError, RecogResult};
-use leptonica_core::FPix;
+use leptonica_color::{
+    AdaptiveThresholdOptions, adaptive_threshold, pix_convert_to_gray, threshold_to_binary,
+};
+use leptonica_core::{FPix, Pix, PixelDepth};
 
-use super::textline::{is_line_coverage_valid, remove_short_lines, sort_lines_by_y};
+use super::textline::{
+    find_textline_centers, is_line_coverage_valid, remove_short_lines, sort_lines_by_y,
+};
 use super::types::{Dewarp, DewarpOptions, TextLine};
+
+// ---------------------------------------------------------------------------
+// Dewarp instance methods
+// ---------------------------------------------------------------------------
+
+impl Dewarp {
+    /// Build a complete page model from a source image.
+    ///
+    /// Runs the full pipeline: text-line detection → vertical disparity →
+    /// optional horizontal disparity → full-resolution population.
+    ///
+    /// # Arguments
+    ///
+    /// * `pix` - Source image (any depth)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the vertical disparity model cannot be built.
+    pub fn build_page_model(&mut self, pix: &Pix) -> RecogResult<()> {
+        self.find_vert_disparity(pix)?;
+        // Horizontal disparity is optional; ignore errors
+        let _ = self.find_horiz_disparity(pix);
+        populate_full_resolution(self)
+    }
+
+    /// Build the vertical disparity model from a source image.
+    ///
+    /// Binarizes `pix`, detects text lines, and populates the sampled
+    /// vertical disparity array.
+    ///
+    /// # Arguments
+    ///
+    /// * `pix` - Source image (any depth)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if not enough text lines can be detected.
+    pub fn find_vert_disparity(&mut self, pix: &Pix) -> RecogResult<()> {
+        let options = DewarpOptions::new()
+            .with_sampling(self.sampling)
+            .with_reduction_factor(self.reduction_factor)
+            .with_min_lines(self.min_lines);
+        let binary = binarize_for_dewarp(pix)?;
+        let lines = find_textline_centers(&binary)?;
+        build_vertical_disparity(self, &lines, &options)
+    }
+
+    /// Build the horizontal disparity model from a source image.
+    ///
+    /// Binarizes `pix`, detects text lines, and populates the sampled
+    /// horizontal disparity array.
+    ///
+    /// # Arguments
+    ///
+    /// * `pix` - Source image (any depth)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if not enough text lines can be detected.
+    pub fn find_horiz_disparity(&mut self, pix: &Pix) -> RecogResult<()> {
+        let options = DewarpOptions::new()
+            .with_sampling(self.sampling)
+            .with_reduction_factor(self.reduction_factor)
+            .with_min_lines(self.min_lines);
+        let binary = binarize_for_dewarp(pix)?;
+        let lines = find_textline_centers(&binary)?;
+        build_horizontal_disparity(self, &lines, &options)
+    }
+
+    /// Populate full-resolution disparity arrays.
+    ///
+    /// This is a variant of [`populate_full_resolution`] that accepts `pix`,
+    /// `x`, and `y` parameters for API compatibility with the C reference
+    /// implementation.  The `x`/`y` crop-offset handling and per-pix dimension
+    /// checking are not yet applied; the method currently delegates directly to
+    /// [`populate_full_resolution`].
+    ///
+    /// # Arguments
+    ///
+    /// * `pix` - Source image (reserved for future offset handling)
+    /// * `x` - X offset of `pix` within the full page (reserved, currently ignored)
+    /// * `y` - Y offset of `pix` within the full page (reserved, currently ignored)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if interpolation fails.
+    pub fn populate_full_res(&mut self, _pix: &Pix, _x: u32, _y: u32) -> RecogResult<()> {
+        populate_full_resolution(self)
+    }
+}
+
+/// Convert any-depth image to a binary Pix for text-line detection.
+fn binarize_for_dewarp(pix: &Pix) -> RecogResult<Pix> {
+    match pix.depth() {
+        PixelDepth::Bit1 => Ok(pix.deep_clone()),
+        PixelDepth::Bit8 => {
+            let opts = AdaptiveThresholdOptions::default();
+            match adaptive_threshold(pix, &opts) {
+                Ok(b) => Ok(b),
+                Err(_) => threshold_to_binary(pix, 128).map_err(|e| e.into()),
+            }
+        }
+        PixelDepth::Bit32 => {
+            let gray = pix_convert_to_gray(pix)?;
+            let opts = AdaptiveThresholdOptions::default();
+            match adaptive_threshold(&gray, &opts) {
+                Ok(b) => Ok(b),
+                Err(_) => threshold_to_binary(&gray, 128).map_err(|e| e.into()),
+            }
+        }
+        // Other depths (Bit2, Bit4, Bit16): convert to grayscale then threshold
+        _ => {
+            let gray = pix_convert_to_gray(pix)?;
+            threshold_to_binary(&gray, 128).map_err(|e| e.into())
+        }
+    }
+}
 
 /// Build the vertical disparity model
 ///
@@ -623,6 +745,48 @@ mod tests {
         // Check corner values
         assert!((scaled.get_pixel(0, 0).unwrap() - 0.0).abs() < 0.01);
         assert!((scaled.get_pixel(20, 20).unwrap() - 4.0).abs() < 0.5); // Near bottom-right
+    }
+
+    #[test]
+    fn test_dewarp_find_vert_disparity() {
+        let opts = DewarpOptions::default().with_min_lines(4);
+        let mut dewarp = Dewarp::new(800, 600, 0, &opts);
+        // Use an empty binary image - should fail (no text lines)
+        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let result = dewarp.find_vert_disparity(&pix);
+        assert!(result.is_err()); // No lines in empty image
+    }
+
+    #[test]
+    fn test_dewarp_find_horiz_disparity() {
+        let opts = DewarpOptions::default().with_min_lines(4);
+        let mut dewarp = Dewarp::new(800, 600, 0, &opts);
+        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let result = dewarp.find_horiz_disparity(&pix);
+        assert!(result.is_err()); // No lines in empty image
+    }
+
+    #[test]
+    fn test_dewarp_build_page_model_empty() {
+        let opts = DewarpOptions::default().with_min_lines(4);
+        let mut dewarp = Dewarp::new(800, 600, 0, &opts);
+        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let result = dewarp.build_page_model(&pix);
+        assert!(result.is_err()); // No lines in empty image
+    }
+
+    #[test]
+    fn test_dewarp_populate_full_res() {
+        let opts = DewarpOptions::default().with_min_lines(4);
+        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let lines: Vec<TextLine> = (0..8)
+            .map(|i| create_straight_line(50.0 + i as f32 * 70.0, 50.0, 750.0, 10.0))
+            .collect();
+        let mut dewarp = Dewarp::new(800, 600, 0, &opts);
+        build_vertical_disparity(&mut dewarp, &lines, &opts).unwrap();
+        let result = dewarp.populate_full_res(&pix, 0, 0);
+        assert!(result.is_ok());
+        assert!(dewarp.full_v_disparity.is_some());
     }
 
     #[test]
