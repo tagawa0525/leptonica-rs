@@ -207,7 +207,7 @@ impl Dewarpa {
     /// # Errors
     ///
     /// Returns an error if model insertion fails.
-    pub fn insert_ref_models(&mut self, _use_both: bool) -> RecogResult<u32> {
+    pub fn insert_ref_models(&mut self, use_both: bool) -> RecogResult<u32> {
         let n = self.dewarp_array.len();
         let max_d = self.max_dist as usize;
 
@@ -216,13 +216,14 @@ impl Dewarpa {
 
         let mut count = 0u32;
         for page in missing {
-            // Find nearest real (non-ref, v_success) model within max_dist
+            // Find nearest real (non-ref) model within max_dist.
+            // When use_both is true, require h_success in addition to v_success.
             let mut best: Option<usize> = None;
             let mut best_dist = usize::MAX;
             for ref_page in 0..n {
                 let is_valid = self.dewarp_array[ref_page]
                     .as_ref()
-                    .is_some_and(|d| !d.is_ref() && d.v_success);
+                    .is_some_and(|d| !d.is_ref() && d.v_success && (!use_both || d.h_success));
                 if is_valid {
                     let dist = ref_page.abs_diff(page);
                     if dist <= max_d && dist < best_dist {
