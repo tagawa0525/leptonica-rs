@@ -135,6 +135,23 @@ impl Dewarp {
         let min_lines = read_u32(&mut reader)?;
         let n_lines = read_u32(&mut reader)?;
 
+        // Validate invariants enforced by Dewarp::new / DewarpOptions
+        if sampling < 8 {
+            return Err(RecogError::InvalidParameter(format!(
+                "sampling must be >= 8, got {sampling}"
+            )));
+        }
+        if reduction_factor != 1 && reduction_factor != 2 {
+            return Err(RecogError::InvalidParameter(format!(
+                "reduction_factor must be 1 or 2, got {reduction_factor}"
+            )));
+        }
+        if width == 0 || height == 0 {
+            return Err(RecogError::InvalidParameter(
+                "width and height must be non-zero".to_string(),
+            ));
+        }
+
         let min_curvature = read_i32(&mut reader)?;
         let max_curvature = read_i32(&mut reader)?;
         let left_slope = read_i32(&mut reader)?;
@@ -147,6 +164,11 @@ impl Dewarp {
             .read_exact(&mut flags_buf)
             .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
         let flags = flags_buf[0];
+        if flags & !0x0F != 0 {
+            return Err(RecogError::InvalidParameter(format!(
+                "reserved bits set in flags byte: {flags:#04x}"
+            )));
+        }
         let v_success = (flags & 1) != 0;
         let h_success = (flags & 2) != 0;
         let v_valid = (flags & 4) != 0;
@@ -233,14 +255,24 @@ fn write_fpix<W: Write>(writer: &mut W, fpix: Option<&FPix>) -> RecogResult<()> 
     Ok(())
 }
 
+/// Maximum number of f32 pixels allowed in a single FPix (≈16 MiB).
+const MAX_FPIX_PIXELS: usize = 4_096 * 4_096;
+
 /// Reads an optional FPix from `reader`.
 fn read_fpix<R: Read>(reader: &mut R) -> RecogResult<Option<FPix>> {
     let mut flag = [0u8; 1];
     reader
         .read_exact(&mut flag)
         .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
-    if flag[0] == 0 {
-        return Ok(None);
+    match flag[0] {
+        0 => return Ok(None),
+        1 => {}
+        _ => {
+            return Err(RecogError::InvalidParameter(format!(
+                "invalid FPix presence flag: {}",
+                flag[0]
+            )));
+        }
     }
 
     let w = read_u32(reader)?;
@@ -248,6 +280,12 @@ fn read_fpix<R: Read>(reader: &mut R) -> RecogResult<Option<FPix>> {
     let n = (w as usize)
         .checked_mul(h as usize)
         .ok_or_else(|| RecogError::InvalidParameter("FPix dimensions overflow".to_string()))?;
+
+    if n > MAX_FPIX_PIXELS {
+        return Err(RecogError::InvalidParameter(format!(
+            "FPix pixel count {n} exceeds maximum {MAX_FPIX_PIXELS}"
+        )));
+    }
 
     let mut data = vec![0.0f32; n];
     for v in data.iter_mut() {
