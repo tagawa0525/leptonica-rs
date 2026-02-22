@@ -47,6 +47,7 @@ use crate::conncomp::{ConnectivityType, find_connected_components};
 use crate::error::{RegionError, RegionResult};
 use crate::seedfill::fill_holes;
 use leptonica_core::{Box, Pix, PixelDepth};
+use std::io::{Read, Write};
 
 /// Direction for chain code representation (8-connectivity)
 ///
@@ -323,6 +324,9 @@ pub struct ComponentBorders {
     pub outer: Border,
     /// Hole borders (may be empty, in local coordinates)
     pub holes: Vec<Border>,
+    /// Single continuous path (outer + holes connected via cuts, in local coordinates)
+    /// Computed by `ImageBorders::generate_single_path()`
+    pub single_path: Option<Vec<BorderPoint>>,
 }
 
 impl ComponentBorders {
@@ -332,6 +336,7 @@ impl ComponentBorders {
             bounds,
             outer,
             holes: Vec::new(),
+            single_path: None,
         }
     }
 
@@ -398,6 +403,58 @@ impl ImageBorders {
     /// Check if any component has holes
     pub fn has_holes(&self) -> bool {
         self.components.iter().any(|c| c.has_holes())
+    }
+}
+
+impl ImageBorders {
+    /// Compute step chain codes for all borders in the image
+    ///
+    /// Populates `Border::chain_code` for outer and hole borders of each component.
+    pub fn generate_step_chains(&mut self) {
+        todo!("not yet implemented")
+    }
+
+    /// Reconstruct pixel coordinates from step chain codes
+    ///
+    /// For each border with a computed chain code, regenerates `Border::points`
+    /// from the start point and chain code directions.
+    pub fn step_chains_to_pix_coords(&mut self) -> RegionResult<()> {
+        todo!("not yet implemented")
+    }
+
+    /// Generate a single continuous path for each component (for SVG export)
+    ///
+    /// For components without holes, copies the outer border points.
+    /// For components with holes, builds a single connected path that includes
+    /// the outer border and each hole border via straight-line cut paths.
+    /// Result is stored in `ComponentBorders::single_path`.
+    pub fn generate_single_path(&mut self) -> RegionResult<()> {
+        todo!("not yet implemented")
+    }
+
+    /// Serialize borders to binary format
+    ///
+    /// Format: magic "ccba" + image dimensions + per-component step chains.
+    pub fn write<W: Write>(&self, writer: W) -> RegionResult<()> {
+        todo!("not yet implemented")
+    }
+
+    /// Deserialize borders from binary format
+    pub fn read_from<R: Read>(reader: R) -> RegionResult<Self> {
+        todo!("not yet implemented")
+    }
+
+    /// Generate an SVG polygon string for all component borders
+    ///
+    /// Uses the single path (if computed via `generate_single_path`) or
+    /// falls back to the outer border in global coordinates.
+    pub fn to_svg_string(&self) -> RegionResult<String> {
+        todo!("not yet implemented")
+    }
+
+    /// Write SVG representation to a writer
+    pub fn write_svg<W: Write>(&self, writer: W) -> RegionResult<()> {
+        todo!("not yet implemented")
     }
 }
 
@@ -1171,6 +1228,200 @@ mod tests {
         assert!(!comp.outer.is_empty());
         // The component should have a hole
         assert!(comp.has_holes());
+    }
+
+    // --- Phase 5: CCBord拡張テスト ---
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_step_chains() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        borders.generate_step_chains();
+
+        let comp = &borders.components[0];
+        assert!(comp.outer.chain_code.is_some());
+        let chain = comp.outer.chain_code.as_ref().unwrap();
+        // 8 border pixels → 7 steps (n-1 chain codes)
+        assert!(!chain.is_empty());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_step_chains_to_pix_coords_roundtrip() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        let original_points = borders.components[0].outer.points.clone();
+        borders.generate_step_chains();
+        borders.step_chains_to_pix_coords().unwrap();
+
+        assert_eq!(borders.components[0].outer.points, original_points);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_single_path_no_holes() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        borders.generate_single_path().unwrap();
+
+        let comp = &borders.components[0];
+        assert!(comp.single_path.is_some());
+        let path = comp.single_path.as_ref().unwrap();
+        // For no-hole component, single path == outer border
+        assert_eq!(*path, comp.outer.points);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_generate_single_path_with_holes() {
+        // Ring: 7x7 frame (hollow square)
+        let mut pixels = Vec::new();
+        for y in 0..7u32 {
+            for x in 0..7u32 {
+                if y == 0 || y == 6 || x == 0 || x == 6 {
+                    pixels.push((x, y));
+                }
+            }
+        }
+        let pix = create_test_image(8, 8, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+
+        borders.generate_single_path().unwrap();
+
+        let comp = &borders.components[0];
+        assert!(comp.single_path.is_some());
+        let path = comp.single_path.as_ref().unwrap();
+        // Path must be non-empty and longer than outer border alone
+        assert!(!path.is_empty());
+        assert!(path.len() >= comp.outer.points.len());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_read_roundtrip() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_step_chains();
+
+        let mut buf = Vec::new();
+        borders.write(&mut buf).unwrap();
+
+        let read_back = ImageBorders::read_from(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(read_back.width, borders.width);
+        assert_eq!(read_back.height, borders.height);
+        assert_eq!(read_back.component_count(), borders.component_count());
+        assert_eq!(
+            read_back.components[0].outer.points,
+            borders.components[0].outer.points
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_to_svg_string() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_single_path().unwrap();
+
+        let svg = borders.to_svg_string().unwrap();
+        assert!(svg.contains("<svg>"));
+        assert!(svg.contains("polygon"));
+        assert!(svg.contains("</svg>"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_svg() {
+        let mut pixels = Vec::new();
+        for y in 1..4 {
+            for x in 1..4 {
+                pixels.push((x, y));
+            }
+        }
+        let pix = create_test_image(6, 6, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_single_path().unwrap();
+
+        let mut buf = Vec::new();
+        borders.write_svg(&mut buf).unwrap();
+        let svg_str = String::from_utf8(buf).unwrap();
+        assert!(svg_str.contains("<svg>"));
+        assert!(svg_str.contains("</svg>"));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_read_with_holes() {
+        // Ring shape
+        let mut pixels = Vec::new();
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                if y == 0 || y == 4 || x == 0 || x == 4 {
+                    pixels.push((x, y));
+                }
+            }
+        }
+        let pix = create_test_image(5, 5, &pixels);
+        let mut borders = get_all_borders(&pix).unwrap();
+        borders.generate_step_chains();
+
+        let mut buf = Vec::new();
+        borders.write(&mut buf).unwrap();
+
+        let read_back = ImageBorders::read_from(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(read_back.component_count(), 1);
+        // Outer + hole borders
+        assert_eq!(
+            read_back.components[0].holes.len(),
+            borders.components[0].holes.len()
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_read_empty() {
+        let borders = ImageBorders::new(100, 200);
+        let mut buf = Vec::new();
+        borders.write(&mut buf).unwrap();
+
+        let read_back = ImageBorders::read_from(std::io::Cursor::new(&buf)).unwrap();
+        assert_eq!(read_back.width, 100);
+        assert_eq!(read_back.height, 200);
+        assert_eq!(read_back.component_count(), 0);
     }
 
     #[test]
