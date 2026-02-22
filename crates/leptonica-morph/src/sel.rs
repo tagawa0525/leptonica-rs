@@ -648,12 +648,12 @@ impl Sel {
         let mut line = String::new();
         loop {
             line.clear();
-            reader.read_line(&mut line).map_err(map_io)?;
+            let bytes_read = reader.read_line(&mut line).map_err(map_io)?;
+            if bytes_read == 0 {
+                return Err(MorphError::InvalidParameters("unexpected EOF".into()));
+            }
             if !line.trim().is_empty() {
                 break;
-            }
-            if line.is_empty() {
-                return Err(MorphError::InvalidParameters("unexpected EOF".into()));
             }
         }
         let version: u32 = line
@@ -982,7 +982,12 @@ impl Sela {
         let mut line = String::new();
         loop {
             line.clear();
-            reader.read_line(&mut line).map_err(map_io)?;
+            let bytes_read = reader.read_line(&mut line).map_err(map_io)?;
+            if bytes_read == 0 {
+                return Err(MorphError::InvalidParameters(
+                    "unexpected EOF before Sela header".into(),
+                ));
+            }
             if !line.trim().is_empty() {
                 break;
             }
