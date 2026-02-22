@@ -311,6 +311,10 @@ impl Dewarp {
     /// * `page` - Page number for this reference model
     /// * `ref_page` - Page number of the model to borrow from
     pub fn create_ref(page: u32, ref_page: u32) -> Self {
+        assert_ne!(
+            page, ref_page,
+            "create_ref: page ({page}) must differ from ref_page ({ref_page}) to avoid a self-referential model"
+        );
         Self {
             page_number: page,
             width: 0,
