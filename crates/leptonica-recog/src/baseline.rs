@@ -15,7 +15,7 @@
 
 use crate::skew::SkewDetectOptions;
 use crate::{RecogError, RecogResult};
-use leptonica_core::{Pix, PixelDepth};
+use leptonica_core::{Numa, Pix, PixelDepth, Pta};
 use leptonica_morph::sequence::morph_sequence;
 
 /// Options for baseline detection
@@ -166,7 +166,7 @@ pub fn find_baselines(pix: &Pix, options: &BaselineOptions) -> RecogResult<Basel
     })
 }
 
-/// Get local skew angles for vertical slices of the image
+/// Get local skew angles for vertical slices of the image (simple variant).
 ///
 /// # Arguments
 /// * `pix` - Input image
@@ -175,11 +175,8 @@ pub fn find_baselines(pix: &Pix, options: &BaselineOptions) -> RecogResult<Basel
 ///
 /// # Returns
 /// Vector of skew angles, one per slice
-pub fn get_local_skew_angles(
-    pix: &Pix,
-    num_slices: u32,
-    sweep_range: f32,
-) -> RecogResult<Vec<f32>> {
+#[allow(dead_code)]
+fn get_slice_skew_angles(pix: &Pix, num_slices: u32, sweep_range: f32) -> RecogResult<Vec<f32>> {
     if !(2..=20).contains(&num_slices) {
         return Err(RecogError::InvalidParameter(
             "num_slices must be between 2 and 20".to_string(),
@@ -233,18 +230,11 @@ pub fn get_local_skew_angles(
     Ok(angles)
 }
 
-/// Apply local deskew based on baseline analysis
+/// Apply local deskew based on baseline analysis (internal helper).
 ///
-/// This corrects for varying skew across the page (keystone effect)
-///
-/// # Arguments
-/// * `pix` - Input image
-/// * `options` - Baseline options
-/// * `skew_options` - Skew detection options
-///
-/// # Returns
-/// The locally deskewed image
-pub fn deskew_local(
+/// This corrects for varying skew across the page (keystone effect).
+#[allow(dead_code)]
+fn deskew_local_baseline_opts(
     pix: &Pix,
     options: &BaselineOptions,
     skew_options: &SkewDetectOptions,
@@ -255,7 +245,7 @@ pub fn deskew_local(
     let binary = ensure_binary(pix)?;
 
     // Get local skew angles
-    let angles = get_local_skew_angles(&binary, options.num_slices, skew_options.sweep_range)?;
+    let angles = get_slice_skew_angles(&binary, options.num_slices, skew_options.sweep_range)?;
 
     // If all angles are similar, just do global deskew
     let angle_range = angles.iter().cloned().fold(f32::NAN, f32::max)
@@ -269,6 +259,102 @@ pub fn deskew_local(
 
     // Apply local correction using vertical shear interpolation
     apply_local_deskew(pix, &angles)
+}
+
+// ============================================================================
+// Public API (C-compatible signatures)
+// ============================================================================
+
+/// Deskew an image using local skew detection.
+///
+/// Divides the image into `nslice` horizontal slices, detects the skew angle
+/// for each slice independently, and applies a varying correction.
+///
+/// # Arguments
+/// * `pix` - Input image (1 or 8 bpp)
+/// * `nslice` - Number of horizontal slices (2–20)
+/// * `reduction` - Subsampling factor for angle computation (1, 2, or 4)
+/// * `redsweep` - Sweep reduction factor (1, 2, 4, or 8)
+/// * `redsearch` - Binary-search reduction factor (1, 2, 4, or 8)
+/// * `sweep_range` - Half-angle range for sweep in degrees
+/// * `sweep_delta` - Step size for sweep in degrees
+/// * `min_bs_delta` - Minimum improvement for binary search termination
+///
+/// # Errors
+///
+/// Returns an error if parameters are invalid or processing fails.
+#[allow(clippy::too_many_arguments)]
+pub fn deskew_local(
+    _pix: &Pix,
+    nslice: u32,
+    reduction: u32,
+    redsweep: u32,
+    redsearch: u32,
+    sweep_range: f32,
+    sweep_delta: f32,
+    min_bs_delta: f32,
+) -> RecogResult<Pix> {
+    todo!(
+        "deskew_local(nslice={nslice}, reduction={reduction}, redsweep={redsweep}, redsearch={redsearch}, sweep_range={sweep_range}, sweep_delta={sweep_delta}, min_bs_delta={min_bs_delta})"
+    )
+}
+
+/// Compute a set of control points for a local skew transform.
+///
+/// Returns a [`Pta`] containing `(nslice × ny)` control points that map
+/// positions in the original image to deskewed positions.
+///
+/// # Arguments
+/// * `nslice` - Number of horizontal slices
+/// * `ny` - Number of vertical sample points per slice
+/// * `reduction` - Subsampling factor used when the angles were measured
+/// * `angles` - Skew angle (degrees) for each slice; length must equal `nslice`
+/// * `cx` - X coordinate of the image centre (used as pivot for shear)
+/// * `cy` - Y coordinate of the image centre (used as pivot for shear)
+///
+/// # Errors
+///
+/// Returns an error if `angles.len() != nslice as usize`.
+pub fn get_local_skew_transform(
+    nslice: u32,
+    ny: u32,
+    reduction: u32,
+    angles: &[f32],
+    cx: f32,
+    cy: f32,
+) -> RecogResult<Pta> {
+    todo!(
+        "get_local_skew_transform(nslice={nslice}, ny={ny}, reduction={reduction}, cx={cx}, cy={cy}, angles.len={})",
+        angles.len()
+    )
+}
+
+/// Compute per-slice skew angles for a document image.
+///
+/// Divides `pix` into `nslice` horizontal slices and runs sweep-and-search
+/// skew detection on each slice.
+///
+/// # Returns
+/// A tuple `(angles, avg_angle, confidence)` where `angles` is a [`Numa`]
+/// of per-slice angles (degrees), `avg_angle` is the image-wide average, and
+/// `confidence` is a quality score in [0, 1].
+///
+/// # Errors
+///
+/// Returns an error if parameters are invalid or the image is too small.
+pub fn get_local_skew_angles(
+    pix: &Pix,
+    nslice: u32,
+    reduction: u32,
+    sweep_range: f32,
+    sweep_delta: f32,
+    min_bs_delta: f32,
+) -> RecogResult<(Numa, f32, f32)> {
+    todo!(
+        "get_local_skew_angles(nslice={nslice}, reduction={reduction}, sweep_range={sweep_range}, sweep_delta={sweep_delta}, min_bs_delta={min_bs_delta}), pix={}x{}",
+        pix.width(),
+        pix.height()
+    )
 }
 
 // ============================================================================
@@ -460,6 +546,7 @@ fn filter_baselines(
 }
 
 /// Extract a horizontal slice from an image
+#[allow(dead_code)]
 fn extract_horizontal_slice(pix: &Pix, y_start: u32, y_end: u32) -> RecogResult<Pix> {
     let w = pix.width();
     let new_h = y_end - y_start;
@@ -484,6 +571,7 @@ fn extract_horizontal_slice(pix: &Pix, y_start: u32, y_end: u32) -> RecogResult<
 }
 
 /// Apply local deskew using interpolated shear
+#[allow(dead_code)]
 fn apply_local_deskew(pix: &Pix, angles: &[f32]) -> RecogResult<Pix> {
     let w = pix.width();
     let h = pix.height();
@@ -635,14 +723,41 @@ mod tests {
     }
 
     #[test]
-    fn test_get_local_skew_angles() {
+    fn test_get_slice_skew_angles() {
         let pix = create_text_like_image(400, 400, 10, 10);
-        let angles = get_local_skew_angles(&pix, 4, 5.0).unwrap();
+        let angles = get_slice_skew_angles(&pix, 4, 5.0).unwrap();
 
         assert_eq!(angles.len(), 4);
         // All angles should be near zero for horizontal lines
         for angle in angles {
             assert!(angle.abs() < 2.0);
         }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_local_skew_angles_returns_numa() {
+        let pix = create_text_like_image(400, 400, 10, 10);
+        let (angles, avg, conf) = get_local_skew_angles(&pix, 4, 2, 7.0, 1.0, 0.01).unwrap();
+        assert_eq!(angles.len(), 4);
+        assert!(avg.abs() < 2.0);
+        assert!(conf >= 0.0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_deskew_local_new_api() {
+        let pix = create_text_like_image(400, 400, 10, 10);
+        let result = deskew_local(&pix, 4, 2, 2, 1, 7.0, 1.0, 0.01).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_get_local_skew_transform() {
+        let angles = vec![0.5f32, 0.3, 0.1, -0.1];
+        let pta = get_local_skew_transform(4, 1, 2, &angles, 200.0, 200.0).unwrap();
+        assert!(!pta.is_empty());
     }
 }
