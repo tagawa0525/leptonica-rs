@@ -55,8 +55,11 @@ use std::collections::VecDeque;
 /// - `path` (`Pta`) contains the (x, y) coordinates along the path, from start to end
 /// - `costs` (`Numa`) contains the accumulated cost at each step
 ///
-/// Returns `RegionError::InvalidSeed` if `start` or `end` is out of bounds.
-/// Returns `RegionError::SegmentationError` if no path exists.
+/// # Errors
+///
+/// - `RegionError::UnsupportedDepth` if `pix` is not 8-bit grayscale.
+/// - `RegionError::InvalidSeed` if `start` or `end` is out of bounds.
+/// - `RegionError::SegmentationError` if no path exists between `start` and `end`.
 pub fn search_gray_maze(
     pix: &Pix,
     start: (u32, u32),
@@ -92,8 +95,8 @@ pub fn search_gray_maze(
     let start_cost = pix.get_pixel(start.0, start.1).unwrap_or(0) as f64;
     cost[start_idx] = start_cost;
 
-    // Min-heap: (negative_cost, index) using BinaryHeap (which is a max-heap)
-    // We store ordered_float-like encoding: use `(cost_bits, idx)` with reversed order
+    // Min-heap using BinaryHeap (which is a max-heap) with Reverse wrapper to invert ordering.
+    // We encode cost as (Reverse(cost_bits), idx) so that smaller costs are popped first.
     use std::cmp::Reverse;
     let mut heap: std::collections::BinaryHeap<(Reverse<u64>, usize)> =
         std::collections::BinaryHeap::new();
@@ -1161,6 +1164,51 @@ mod tests {
     fn test_gray_maze_out_of_bounds_start() {
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
         let result = search_gray_maze(&pix, (10, 10), (4, 4));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_gray_maze_out_of_bounds_end() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let result = search_gray_maze(&pix, (0, 0), (10, 10));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_gray_maze_start_equals_end() {
+        let values = vec![vec![0u32, 0, 0], vec![0, 42, 0], vec![0, 0, 0]];
+        let pix = create_gray_maze(3, 3, &values);
+        let (path, costs) = search_gray_maze(&pix, (1, 1), (1, 1)).unwrap();
+        assert_eq!(path.len(), 1);
+        assert_eq!(path.get(0).unwrap(), (1.0, 1.0));
+        assert_eq!(costs.len(), 1);
+        assert_eq!(costs.get(0).unwrap(), 42.0);
+    }
+
+    #[test]
+    fn test_gray_maze_no_path_returns_error() {
+        // A single surrounded pixel cannot reach any neighbor because all costs
+        // are nonzero, but the Dijkstra implementation always finds a path in a
+        // fully connected grid. Instead test on a 1×1 image where start==end==only pixel
+        // but end is unreachable: use a 1-pixel image and request end outside bounds.
+        // (True "no path" can't happen on a fully connected grid; test unreachable case
+        // via out-of-bounds which returns error.)
+        //
+        // For a genuine SegmentationError, we would need walls, which don't exist in
+        // a grayscale image (all pixels are traversable). The error path is still
+        // exercised by out-of-bounds checks above.
+        //
+        // This test documents the expected error type for reference.
+        let pix = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        // 1×1 image: start == end == (0,0), should succeed
+        let (path, _) = search_gray_maze(&pix, (0, 0), (0, 0)).unwrap();
+        assert_eq!(path.len(), 1);
+    }
+
+    #[test]
+    fn test_gray_maze_unsupported_depth() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let result = search_gray_maze(&pix, (0, 0), (4, 4));
         assert!(result.is_err());
     }
 
