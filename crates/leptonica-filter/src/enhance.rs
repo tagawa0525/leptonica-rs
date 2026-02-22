@@ -905,6 +905,113 @@ pub fn mult_matrix_color(pix: &Pix, kel: &Kernel) -> FilterResult<Pix> {
     Ok(pm.into())
 }
 
+// ============================================================================
+// Phase 4: unsharp masking (precise, Gaussian-based)
+// ============================================================================
+
+/// Apply unsharp masking to an 8bpp grayscale image using box convolution.
+///
+/// For `halfwidth` <= 2, delegates to the fast block-convolution version.
+/// For larger kernels, applies box convolution for the blur and then computes:
+/// `output = pix + fract * (pix - blur)`
+///
+/// C版: `pixUnsharpMaskingGray()` in `enhance.c`
+///
+/// # Arguments
+/// * `pix` - 8bpp grayscale image (no colormap)
+/// * `halfwidth` - Half-width of the smoothing kernel; must be >= 1
+/// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
+pub fn unsharp_masking_gray(pix: &Pix, halfwidth: u32, fract: f32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped images not supported".into(),
+        ));
+    }
+    if fract <= 0.0 || halfwidth == 0 {
+        return Ok(pix.deep_clone());
+    }
+    if halfwidth <= 2 {
+        use crate::edge::unsharp_masking_gray_fast;
+        return unsharp_masking_gray_fast(pix, halfwidth, fract);
+    }
+
+    let blurred = crate::block_conv::blockconv_gray(pix, None, halfwidth, halfwidth)?;
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let src = pix.get_pixel_unchecked(x, y) as f32;
+            let blur = blurred.get_pixel_unchecked(x, y) as f32;
+            let result = (src + fract * (src - blur) + 0.5) as i32;
+            out_mut.set_pixel_unchecked(x, y, result.clamp(0, 255) as u32);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Apply unsharp masking to an 8bpp grayscale or 32bpp color image.
+///
+/// For 1bpp input, returns an error. For `halfwidth` <= 2, delegates to the
+/// fast version. For other depths, converts to 8 or 32 bpp first.
+///
+/// C版: `pixUnsharpMasking()` in `enhance.c`
+///
+/// # Arguments
+/// * `pix` - Any depth except 1bpp; with or without colormap
+/// * `halfwidth` - Half-width of the smoothing kernel; must be >= 1
+/// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
+pub fn unsharp_masking(pix: &Pix, halfwidth: u32, fract: f32) -> FilterResult<Pix> {
+    if pix.depth() == PixelDepth::Bit1 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "not 1bpp",
+            actual: 1,
+        });
+    }
+    if fract <= 0.0 || halfwidth == 0 {
+        return Ok(pix.deep_clone());
+    }
+    if halfwidth <= 2 {
+        use crate::edge::unsharp_masking_fast;
+        return unsharp_masking_fast(pix, halfwidth, fract);
+    }
+
+    match pix.depth() {
+        PixelDepth::Bit8 => unsharp_masking_gray(pix, halfwidth, fract),
+        PixelDepth::Bit32 => {
+            use leptonica_core::pix::RgbComponent;
+            let pix_r = pix.get_rgb_component(RgbComponent::Red)?;
+            let pix_g = pix.get_rgb_component(RgbComponent::Green)?;
+            let pix_b = pix.get_rgb_component(RgbComponent::Blue)?;
+            let res_r = unsharp_masking_gray(&pix_r, halfwidth, fract)?;
+            let res_g = unsharp_masking_gray(&pix_g, halfwidth, fract)?;
+            let res_b = unsharp_masking_gray(&pix_b, halfwidth, fract)?;
+            let mut result = Pix::create_rgb_image(&res_r, &res_g, &res_b)?;
+            // Preserve alpha channel for 32bpp RGBA images
+            if pix.spp() == 4 {
+                let pix_a = pix.get_rgb_component(RgbComponent::Alpha)?;
+                let mut result_mut = result.try_into_mut().unwrap();
+                result_mut.set_rgb_component(&pix_a, RgbComponent::Alpha)?;
+                result = result_mut.into();
+            }
+            Ok(result)
+        }
+        _ => {
+            let converted = pix.convert_to_8_or_32()?;
+            unsharp_masking(&converted, halfwidth, fract)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1693,5 +1800,67 @@ mod tests {
         let kel = Kernel::from_slice(2, 2, &[1.0, 0.0, 0.0, 1.0]).unwrap();
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         assert!(mult_matrix_color(&pix, &kel).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 4: unsharp_masking / unsharp_masking_gray tests
+    // -------------------------------------------------------------------------
+
+    fn create_8bpp_gradient() -> Pix {
+        let pix = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..30u32 {
+            for x in 0..30u32 {
+                pm.set_pixel_unchecked(x, y, (x * 8).min(255));
+            }
+        }
+        pm.into()
+    }
+
+    #[test]
+    fn test_unsharp_masking_gray_basic() {
+        let pix = create_8bpp_gradient();
+        let result = unsharp_masking_gray(&pix, 3, 0.5).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_unsharp_masking_gray_no_sharpening() {
+        let pix = create_8bpp_gradient();
+        // fract <= 0 should return a clone
+        let result = unsharp_masking_gray(&pix, 3, 0.0).unwrap();
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                assert_eq!(
+                    result.get_pixel_unchecked(x, y),
+                    pix.get_pixel_unchecked(x, y)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_unsharp_masking_color() {
+        let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..30u32 {
+            for x in 0..30u32 {
+                let v = (x * 8).min(255) as u8;
+                pm.set_pixel_unchecked(x, y, leptonica_core::color::compose_rgb(v, v, v));
+            }
+        }
+        let pix: Pix = pm.into();
+        let result = unsharp_masking(&pix, 3, 0.5).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    fn test_unsharp_masking_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(unsharp_masking(&pix, 3, 0.5).is_err());
     }
 }

@@ -1650,8 +1650,68 @@ pub fn convert_to_8_min_max(pix: &Pix) -> FilterResult<Pix> {
 }
 
 // ============================================================================
-// Phase 3: Adaptmap拡張
+// Phase 4: Block bilateral + 追加
 // ============================================================================
+
+/// Global normalization of RGB image without saturation.
+///
+/// Computes the rank value of each channel at the given `rank` percentile,
+/// determines the maximum scaling fraction across channels, and applies
+/// `global_norm_rgb` with a `mapval` chosen to avoid saturation in all channels.
+///
+/// C版: `pixGlobalNormNoSatRGB()` in `adaptmap.c`
+///
+/// # Arguments
+/// * `pix` - 32bpp RGB image
+/// * `rval` - Reference red value that maps to white
+/// * `gval` - Reference green value that maps to white
+/// * `bval` - Reference blue value that maps to white
+/// * `factor` - Subsampling factor (>= 1)
+/// * `rank` - Percentile in [0.0, 1.0]; use a value close to 1.0
+pub fn global_norm_no_sat_rgb(
+    pix: &Pix,
+    rval: u32,
+    gval: u32,
+    bval: u32,
+    factor: u32,
+    rank: f32,
+) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if factor < 1 {
+        return Err(FilterError::InvalidParameters("factor must be >= 1".into()));
+    }
+    if !(0.0..=1.0).contains(&rank) {
+        return Err(FilterError::InvalidParameters(
+            "rank must be in [0.0, 1.0]".into(),
+        ));
+    }
+    if rval == 0 || gval == 0 || bval == 0 {
+        return Err(FilterError::InvalidParameters(
+            "rval, gval, bval must be > 0".into(),
+        ));
+    }
+
+    let (rankrval, rankgval, rankbval) = pix
+        .rank_value_masked_rgb(None, 0, 0, factor, rank)
+        .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+
+    let rfract = rankrval / rval as f32;
+    let gfract = rankgval / gval as f32;
+    let bfract = rankbval / bval as f32;
+    let maxfract = rfract.max(gfract).max(bfract);
+
+    if maxfract <= 0.0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let mapval = (255.0 / maxfract) as u32;
+    global_norm_rgb(pix, rval, gval, bval, mapval)
+}
 
 /// Edge filter type for adaptive threshold spread normalization.
 ///
@@ -2297,5 +2357,51 @@ mod tests {
                 assert_eq!(result.get_pixel_unchecked(x, y), val_ref);
             }
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 4: global_norm_no_sat_rgb tests
+    // -------------------------------------------------------------------------
+
+    fn create_test_color_image_for_norm() -> Pix {
+        let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..20u32 {
+            for x in 0..20u32 {
+                // Slight color imbalance: R dominant
+                let r: u8 = 180;
+                let g: u8 = 120;
+                let b: u8 = 90;
+                pm.set_pixel_unchecked(x, y, leptonica_core::color::compose_rgb(r, g, b));
+            }
+        }
+        pm.into()
+    }
+
+    #[test]
+    fn test_global_norm_no_sat_rgb_basic() {
+        let pix = create_test_color_image_for_norm();
+        let result = global_norm_no_sat_rgb(&pix, 180, 120, 90, 1, 1.0).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+        // After normalization with the exact color as reference, all channels should be
+        // at least as bright as before, and at least one should be strictly brighter
+        let (r, g, b) = leptonica_core::color::extract_rgb(result.get_pixel_unchecked(10, 10));
+        assert!(r >= 180 && g >= 120 && b >= 90 && (r > 180 || g > 120 || b > 90));
+    }
+
+    #[test]
+    fn test_global_norm_no_sat_rgb_invalid_params() {
+        let pix = create_test_color_image_for_norm();
+        // factor 0 is invalid
+        assert!(global_norm_no_sat_rgb(&pix, 180, 120, 90, 0, 0.5).is_err());
+        // rank out of range
+        assert!(global_norm_no_sat_rgb(&pix, 180, 120, 90, 1, 1.5).is_err());
+        // zero channel value
+        assert!(global_norm_no_sat_rgb(&pix, 0, 120, 90, 1, 0.5).is_err());
+        // wrong depth
+        let gray = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        assert!(global_norm_no_sat_rgb(&gray, 100, 100, 100, 1, 0.5).is_err());
     }
 }
