@@ -1655,7 +1655,7 @@ pub fn convert_to_8_min_max(pix: &Pix) -> FilterResult<Pix> {
 
 /// Edge filter type for adaptive threshold spread normalization.
 ///
-/// C Leptonica: `L_SOBEL_EDGE` / `L_TWO_SIDED_EDGE` in `adaptmap.c`
+/// C版: `L_SOBEL_EDGE` / `L_TWO_SIDED_EDGE` in `adaptmap.c`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EdgeFilterType {
     /// Sobel vertical edge filter (C: `L_SOBEL_EDGE`)
@@ -1707,7 +1707,7 @@ impl Default for FlexNormOptions {
 ///
 /// Returns the background-normalized 8 bpp image.
 ///
-/// C Leptonica: `pixThresholdSpreadNorm()` in `adaptmap.c`
+/// C版: `pixThresholdSpreadNorm()` in `adaptmap.c`
 pub fn threshold_spread_norm(
     pix: &Pix,
     _filter_type: EdgeFilterType,
@@ -1781,7 +1781,7 @@ pub fn threshold_spread_norm(
 /// - `pix`: 8 bpp grayscale source image; no colormap
 /// - `options`: tile size, smoothing, and delta (delta=0 skips basin filling)
 ///
-/// C Leptonica: `pixBackgroundNormFlex()` in `adaptmap.c`
+/// C版: `pixBackgroundNormFlex()` in `adaptmap.c`
 pub fn background_norm_flex(pix: &Pix, options: &FlexNormOptions) -> FilterResult<Pix> {
     use leptonica_transform::scale::scale_smooth;
 
@@ -1850,7 +1850,7 @@ pub fn background_norm_flex(pix: &Pix, options: &FlexNormOptions) -> FilterResul
 /// - `mask`: optional 1 bpp mask defining regions to smooth
 /// - `factor`: subsampling factor for computing the average (>= 1)
 ///
-/// C Leptonica: `pixSmoothConnectedRegions()` in `adaptmap.c`
+/// C版: `pixSmoothConnectedRegions()` in `adaptmap.c`
 pub fn smooth_connected_regions(pix: &Pix, mask: Option<&Pix>, factor: u32) -> FilterResult<Pix> {
     use leptonica_core::PixelStatType;
     use leptonica_region::conncomp::{ConnectivityType, conncomp_pixa};
@@ -1921,13 +1921,13 @@ pub fn smooth_connected_regions(pix: &Pix, mask: Option<&Pix>, factor: u32) -> F
 /// - `pix`: any depth, with or without colormap
 /// - `contrast`: 1–10 (1 reduces contrast slightly; 10 maximizes darkening)
 ///
-/// C Leptonica: `pixBackgroundNormTo1MinMax()` in `adaptmap.c`
+/// C版: `pixBackgroundNormTo1MinMax()` in `adaptmap.c`
 pub fn background_norm_to_1_min_max(pix: &Pix, contrast: u32) -> FilterResult<Pix> {
     use crate::enhance::gamma_trc_pix;
 
     if !(1..=10).contains(&contrast) {
         return Err(FilterError::InvalidParameters(
-            "contrast must be in [1..10]".into(),
+            "contrast must be between 1 and 10 inclusive".into(),
         ));
     }
 
