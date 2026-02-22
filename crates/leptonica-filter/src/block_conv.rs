@@ -247,6 +247,250 @@ pub fn blockconv_gray_unnormalized(pix: &Pix, wc: u32, hc: u32) -> FilterResult<
     Ok(out_mut.into())
 }
 
+/// Block convolution on a single pre-padded 8 bpp tile using an integral image.
+///
+/// The input tile must have at least `wc + 2` extra border pixels on each side.
+/// Returns a smaller image containing only the convolved interior region
+/// of size `(w - 2*(wc + 2)) × (h - 2*(hc + 2))`, i.e. with `wc + 2` pixels
+/// stripped from each side.
+///
+/// If either `wc` or `hc` is 0, returns a copy of the input (no-op).
+///
+/// An optional pre-computed accumulator (`pixacc`) can be provided.
+///
+/// # See also
+///
+/// C Leptonica: `pixBlockconvGrayTile()` in `convolve.c`
+pub fn blockconv_gray_tile(
+    pixs: &Pix,
+    pixacc: Option<&Pix>,
+    wc: u32,
+    hc: u32,
+) -> FilterResult<Pix> {
+    check_8bpp(pixs)?;
+
+    let w = pixs.width();
+    let h = pixs.height();
+
+    if wc == 0 || hc == 0 {
+        return Ok(pixs.deep_clone());
+    }
+
+    // Reduce kernel if it exceeds tile dimensions
+    let mut wc = wc;
+    let mut hc = hc;
+    if w < 2 * wc + 3 || h < 2 * hc + 3 {
+        wc = wc.min((w - 1) / 2);
+        hc = hc.min((h - 1) / 2);
+    }
+    if wc == 0 || hc == 0 {
+        return Ok(pixs.deep_clone());
+    }
+
+    // The output strips (wc+2) border pixels from each side.
+    // This corresponds to the interior region that pixTilingPaintTile()
+    // would extract from a full-size output in the C implementation.
+    let border_w = 2 * (wc + 2);
+    let border_h = 2 * (hc + 2);
+    let wd = w
+        .checked_sub(border_w)
+        .ok_or_else(|| FilterError::InvalidParameters("tile width too small for kernel".into()))?;
+    let hd = h
+        .checked_sub(border_h)
+        .ok_or_else(|| FilterError::InvalidParameters("tile height too small for kernel".into()))?;
+
+    // Validate and use provided accumulator, or compute one
+    let owned_acc;
+    let acc = match pixacc {
+        Some(a) => {
+            if a.depth() != PixelDepth::Bit32 || a.width() != w || a.height() != h {
+                return Err(FilterError::InvalidParameters(
+                    "accumulator must be 32 bpp with same dimensions as input".into(),
+                ));
+            }
+            a
+        }
+        None => {
+            owned_acc = blockconv_accum(pixs)?;
+            &owned_acc
+        }
+    };
+
+    let norm = 1.0 / ((2 * wc + 1) as f64 * (2 * hc + 1) as f64);
+
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    // Compute convolution for each output pixel. The output pixel (ox, oy)
+    // maps to source position (ox + wc + 2, oy + hc + 2), which is always
+    // in the clean interior where no boundary clamping is needed.
+    for oy in 0..hd {
+        let i = oy + hc + 2;
+        let imin = i - hc - 1; // always >= 1
+        let imax = i + hc; // always <= h - 2
+
+        for ox in 0..wd {
+            let j = ox + wc + 2;
+            let jmin = j - wc - 1; // always >= 1
+            let jmax = j + wc; // always <= w - 2
+
+            // Four-corner lookup on integral image:
+            // sum of pixels in window [j-wc, j+wc] × [i-hc, i+hc]
+            let val = acc.get_pixel_unchecked(jmax, imax) as i64
+                - acc.get_pixel_unchecked(jmin, imax) as i64
+                + acc.get_pixel_unchecked(jmin, imin) as i64
+                - acc.get_pixel_unchecked(jmax, imin) as i64;
+
+            let result = (norm * val as f64 + 0.5) as u32;
+            out_mut.set_pixel_unchecked(ox, oy, result.min(255));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Tiled block convolution on an 8 or 32 bpp image.
+///
+/// Divides the image into `nx × ny` tiles and convolves each tile
+/// independently using [`blockconv_gray`].  This reduces peak memory
+/// usage compared to [`blockconv`] because the integral-image accumulator
+/// is only allocated for one tile at a time.
+///
+/// `wc` and `hc` are the half-width and half-height of the convolution kernel.
+///
+/// If `nx ≤ 1` **and** `ny ≤ 1`, delegates to [`blockconv`].
+///
+/// # See also
+///
+/// C Leptonica: `pixBlockconvTiled()` in `convolve.c`
+pub fn blockconv_tiled(pix: &Pix, wc: u32, hc: u32, nx: u32, ny: u32) -> FilterResult<Pix> {
+    if wc == 0 || hc == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    // Validate tile counts: must be non-zero to avoid division-by-zero.
+    if nx == 0 || ny == 0 {
+        return Err(FilterError::InvalidParameters(
+            "nx and ny must be non-zero".into(),
+        ));
+    }
+
+    if nx <= 1 && ny <= 1 {
+        return blockconv(pix, wc, hc);
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Reduce kernel if it exceeds image dimensions
+    let mut wc = wc;
+    let mut hc = hc;
+    if w < 2 * wc + 3 || h < 2 * hc + 3 {
+        wc = wc.min((w - 1) / 2);
+        hc = hc.min((h - 1) / 2);
+    }
+    if wc == 0 || hc == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+
+    // Adjust nx/ny if tiles would be too small (each tile needs at least
+    // (wc+2) × (hc+2) pixels for the overlap region to be meaningful).
+    // Clamp to at least 1 to avoid division-by-zero after adjustment.
+    let mut nx = nx;
+    let mut ny = ny;
+    if w / nx < wc + 2 {
+        nx = (w / (wc + 2)).max(1);
+    }
+    if h / ny < hc + 2 {
+        ny = (h / (hc + 2)).max(1);
+    }
+
+    // After adjustment, tiling may have collapsed to a single tile.
+    // Delegate to blockconv() to avoid unnecessary per-tile overhead.
+    if nx <= 1 && ny <= 1 {
+        return blockconv(pix, wc, hc);
+    }
+
+    match d {
+        PixelDepth::Bit8 => blockconv_tiled_gray(pix, wc, hc, nx, ny),
+        _ => {
+            // 32bpp: split into R/G/B channels, convolve each, recombine
+            let pix_r = pix.get_rgb_component(RgbComponent::Red)?;
+            let pix_g = pix.get_rgb_component(RgbComponent::Green)?;
+            let pix_b = pix.get_rgb_component(RgbComponent::Blue)?;
+
+            let conv_r = blockconv_tiled_gray(&pix_r, wc, hc, nx, ny)?;
+            let conv_g = blockconv_tiled_gray(&pix_g, wc, hc, nx, ny)?;
+            let conv_b = blockconv_tiled_gray(&pix_b, wc, hc, nx, ny)?;
+
+            Ok(Pix::create_rgb_image(&conv_r, &conv_g, &conv_b)?)
+        }
+    }
+}
+
+/// Tiled block convolution on an 8 bpp image.
+///
+/// For each tile, clips a region from the source with `wc + 1` overlap on
+/// each side (bounded by image dimensions), runs [`blockconv_gray`] on the
+/// clipped region, and copies the relevant output pixels.  This uses the
+/// same boundary normalization correction as the non-tiled version, ensuring
+/// pixel-identical results while reducing peak memory usage.
+fn blockconv_tiled_gray(pix: &Pix, wc: u32, hc: u32, nx: u32, ny: u32) -> FilterResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let wt = w / nx;
+    let ht = h / ny;
+
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for iy in 0..ny {
+        for jx in 0..nx {
+            // Output region for this tile in source coordinates
+            let out_x = jx * wt;
+            let out_y = iy * ht;
+            let out_w = if jx == nx - 1 { w - out_x } else { wt };
+            let out_h = if iy == ny - 1 { h - out_y } else { ht };
+
+            // Input region: extend the tile with asymmetric overlap, clipped
+            // to image bounds.  Left/top extend by wc+1 (the extra pixel
+            // beyond wc ensures blockconv_gray's integral-image xmin/ymin
+            // offsets are correct for all interior pixels).  Right/bottom
+            // extend by wc so the convolution window is fully covered.
+            let clip_x = out_x.saturating_sub(wc + 1);
+            let clip_y = out_y.saturating_sub(hc + 1);
+            let clip_right = (out_x + out_w + wc).min(w - 1);
+            let clip_bottom = (out_y + out_h + hc).min(h - 1);
+            let clip_w = clip_right - clip_x + 1;
+            let clip_h = clip_bottom - clip_y + 1;
+
+            let tile = pix.clip_rectangle(clip_x, clip_y, clip_w, clip_h)?;
+            let convolved = blockconv_gray(&tile, None, wc, hc)?;
+
+            // Copy output pixels from the convolved tile.
+            // The offset translates from source coords to tile coords.
+            let off_x = out_x - clip_x;
+            let off_y = out_y - clip_y;
+            for dy in 0..out_h {
+                for dx in 0..out_w {
+                    let val = convolved.get_pixel_unchecked(off_x + dx, off_y + dy);
+                    out_mut.set_pixel_unchecked(out_x + dx, out_y + dy, val);
+                }
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -524,5 +768,125 @@ mod tests {
     fn test_blockconv_gray_unnormalized_rejects_non_8bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         assert!(blockconv_gray_unnormalized(&pix, 2, 2).is_err());
+    }
+
+    // ---- blockconv_gray_tile tests ----
+
+    #[test]
+    fn test_blockconv_gray_tile_basic() {
+        // Create a uniform 8bpp image with padding (wc=2, so border = wc+1 = 3)
+        let pix = create_uniform_gray_image(20, 20, 100);
+        let bordered = pix.add_mirrored_border(3, 3, 3, 3).unwrap();
+        assert_eq!(bordered.width(), 26);
+        assert_eq!(bordered.height(), 26);
+
+        let result = blockconv_gray_tile(&bordered, None, 2, 2).unwrap();
+        // Output: (26 - 2*(2 + 2)) × (26 - 2*(2 + 2)) = 18×18
+        assert_eq!(result.width(), 18);
+        assert_eq!(result.height(), 18);
+
+        // Uniform input → all output pixels should be ~100
+        for y in 0..result.height() {
+            for x in 0..result.width() {
+                let val = result.get_pixel_unchecked(x, y);
+                assert!(
+                    (val as i32 - 100).unsigned_abs() <= 1,
+                    "pixel ({},{}) = {}, expected ~100",
+                    x,
+                    y,
+                    val
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_blockconv_gray_tile_noop_zero_kernel() {
+        let pix = create_test_gray_image(10, 10);
+        let result = blockconv_gray_tile(&pix, None, 0, 2).unwrap();
+        for y in 0..10 {
+            for x in 0..10 {
+                assert_eq!(
+                    pix.get_pixel_unchecked(x, y),
+                    result.get_pixel_unchecked(x, y)
+                );
+            }
+        }
+    }
+
+    // ---- blockconv_tiled tests ----
+
+    #[test]
+    fn test_blockconv_tiled_matches_non_tiled() {
+        let pix = create_test_gray_image(40, 40);
+        let non_tiled = blockconv(&pix, 3, 3).unwrap();
+        let tiled = blockconv_tiled(&pix, 3, 3, 2, 2).unwrap();
+
+        assert_eq!(tiled.width(), 40);
+        assert_eq!(tiled.height(), 40);
+
+        for y in 0..40u32 {
+            for x in 0..40u32 {
+                let v1 = non_tiled.get_pixel_unchecked(x, y) as i32;
+                let v2 = tiled.get_pixel_unchecked(x, y) as i32;
+                assert!(
+                    (v1 - v2).unsigned_abs() <= 1,
+                    "mismatch at ({},{}): non_tiled={}, tiled={}",
+                    x,
+                    y,
+                    v1,
+                    v2
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_blockconv_tiled_single_tile_delegates() {
+        let pix = create_uniform_gray_image(20, 20, 128);
+        let result = blockconv_tiled(&pix, 2, 2, 1, 1).unwrap();
+        let expected = blockconv(&pix, 2, 2).unwrap();
+
+        for y in 0..20u32 {
+            for x in 0..20u32 {
+                assert_eq!(
+                    expected.get_pixel_unchecked(x, y),
+                    result.get_pixel_unchecked(x, y),
+                    "mismatch at ({},{})",
+                    x,
+                    y
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_blockconv_tiled_color() {
+        let pix = create_test_color_image(30, 30);
+        let non_tiled = blockconv(&pix, 2, 2).unwrap();
+        let tiled = blockconv_tiled(&pix, 2, 2, 3, 3).unwrap();
+
+        assert_eq!(tiled.depth(), PixelDepth::Bit32);
+
+        for y in 0..30u32 {
+            for x in 0..30u32 {
+                let (r1, g1, b1) = color::extract_rgb(non_tiled.get_pixel_unchecked(x, y));
+                let (r2, g2, b2) = color::extract_rgb(tiled.get_pixel_unchecked(x, y));
+                assert!(
+                    (r1 as i32 - r2 as i32).unsigned_abs() <= 1
+                        && (g1 as i32 - g2 as i32).unsigned_abs() <= 1
+                        && (b1 as i32 - b2 as i32).unsigned_abs() <= 1,
+                    "mismatch at ({},{}): non_tiled=({},{},{}), tiled=({},{},{})",
+                    x,
+                    y,
+                    r1,
+                    g1,
+                    b1,
+                    r2,
+                    g2,
+                    b2
+                );
+            }
+        }
     }
 }
