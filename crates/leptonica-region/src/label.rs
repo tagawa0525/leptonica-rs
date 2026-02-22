@@ -607,8 +607,9 @@ impl IncrementalLabeler {
 
 /// Convert a labeled image to a color image for visualization
 ///
-/// Each unique label is mapped to a color. The function attempts to ensure that
-/// adjacent components have different colors when possible.
+/// Each unique label is deterministically mapped to a color from a fixed
+/// palette based on its numeric value. This function does not analyze spatial
+/// adjacency, so adjacent components may share the same color.
 ///
 /// # Arguments
 ///
