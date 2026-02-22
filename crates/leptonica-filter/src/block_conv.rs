@@ -460,9 +460,11 @@ fn blockconv_tiled_gray(pix: &Pix, wc: u32, hc: u32, nx: u32, ny: u32) -> Filter
             let out_w = if jx == nx - 1 { w - out_x } else { wt };
             let out_h = if iy == ny - 1 { h - out_y } else { ht };
 
-            // Input region: extend by wc+1 overlap, clipped to image bounds.
-            // The extra pixel beyond wc ensures blockconv_gray's integral
-            // image has the correct xmin/ymin offsets for interior pixels.
+            // Input region: extend the tile with asymmetric overlap, clipped
+            // to image bounds.  Left/top extend by wc+1 (the extra pixel
+            // beyond wc ensures blockconv_gray's integral-image xmin/ymin
+            // offsets are correct for all interior pixels).  Right/bottom
+            // extend by wc so the convolution window is fully covered.
             let clip_x = out_x.saturating_sub(wc + 1);
             let clip_y = out_y.saturating_sub(hc + 1);
             let clip_right = (out_x + out_w + wc).min(w - 1);
@@ -779,7 +781,7 @@ mod tests {
         assert_eq!(bordered.height(), 26);
 
         let result = blockconv_gray_tile(&bordered, None, 2, 2).unwrap();
-        // Output: (26 - 2*2 - 2) × (26 - 2*2 - 2) = 18×18
+        // Output: (26 - 2*(2 + 2)) × (26 - 2*(2 + 2)) = 18×18
         assert_eq!(result.width(), 18);
         assert_eq!(result.height(), 18);
 
