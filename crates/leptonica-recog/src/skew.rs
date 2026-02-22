@@ -270,8 +270,6 @@ pub struct DeskewOptions {
     pub sweep_delta: f32,
     /// Additional reduction for binary search phase
     pub search_reduction: u32,
-    /// Binarisation threshold (0-255)
-    pub threshold: u32,
 }
 
 impl Default for DeskewOptions {
@@ -281,7 +279,6 @@ impl Default for DeskewOptions {
             sweep_range: 7.0,
             sweep_delta: 1.0,
             search_reduction: 2,
-            threshold: 128,
         }
     }
 }
