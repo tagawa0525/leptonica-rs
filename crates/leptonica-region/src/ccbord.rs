@@ -480,6 +480,12 @@ impl ImageBorders {
     /// Serialize borders to binary format
     ///
     /// Format: magic "ccba" + image dimensions + per-component step chains.
+    ///
+    /// Note: `single_path` is **not** serialized. After deserialization,
+    /// call [`ImageBorders::generate_single_path`] again if needed.
+    ///
+    /// Note: `chain_code` fields are **not** serialized. Only the decoded
+    /// pixel-coordinate points are written.
     pub fn write<W: Write>(&self, mut writer: W) -> RegionResult<()> {
         // Header: "ccba" (4 bytes) + image dimensions (8 bytes)
         writer
