@@ -475,7 +475,9 @@ impl IncrementalLabeler {
     /// * `height` - Image height
     /// * `connectivity` - Connectivity type (4-way or 8-way)
     pub fn new(width: u32, height: u32, connectivity: ConnectivityType) -> Self {
-        let size = (width * height) as usize;
+        let size = (width as usize)
+            .checked_mul(height as usize)
+            .expect("image dimensions too large to allocate labels");
         Self {
             width,
             height,
