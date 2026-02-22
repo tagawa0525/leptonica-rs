@@ -96,7 +96,7 @@ Basin filling:
 
 ## Phase 2: Local extrema（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/seedfill.c` L1100-1350
 
@@ -232,6 +232,28 @@ SVG出力:
 - single path の連続性検証
 - write/read のラウンドトリップ（バイナリ形式）
 - SVG出力の有効性検証（基本的なSVGパース）
+
+### 既知の問題：メモリ効率
+
+**Issue:** `get_all_borders()` が O(n_components * image_size) のメモリ使用量
+
+**背景:**
+- C版 leptonica: `pixGetAllCCBorders()` で component を逐次処理し、各処理後に即座にメモリ解放
+  - `pixConnComp()` で component を検出して pixa に格納
+  - ループ内で `pixaGetPix()` で一つずつ取出し、`pixGetCCBorders()` で処理
+  - 処理後 `pixDestroy()` で即座に解放 → ピークメモリが制限される
+
+- Rust版: `find_connected_components()` で全 component を先に検出後、ループで処理
+  - 全 component が Vec に格納される → メモリが累積
+  - 例：feyn-fract.tif (1600×1100) で component 数が多い場合、17GB 以上のメモリ割り当てを試みる
+
+**改善案:**
+Phase 5 実装時に、`find_connected_components()` を逐次処理版に変更することを検討。
+または、`get_all_borders()` で component iterator を使用して、一度に 1 component のみ保持するように改正。
+
+**現状:**
+- `ccbord_reg_feyn_fract` テストは `#[ignore]` で実行スキップ（既知制限）
+- 小～中規模画像（dreyfus1.png 等）では問題なし
 
 ---
 
