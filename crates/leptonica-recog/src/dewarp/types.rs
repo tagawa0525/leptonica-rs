@@ -174,6 +174,9 @@ pub struct Dewarp {
 
     /// Horizontal model is valid for rendering
     pub(crate) h_valid: bool,
+
+    /// If this is a reference model, the page number it borrows from
+    pub(crate) ref_page: Option<u32>,
 }
 
 impl Dewarp {
@@ -214,6 +217,7 @@ impl Dewarp {
             h_success: false,
             v_valid: false,
             h_valid: false,
+            ref_page: None,
         }
     }
 
@@ -293,6 +297,26 @@ impl Dewarp {
     pub fn minimize(&mut self) {
         self.full_v_disparity = None;
         self.full_h_disparity = None;
+    }
+
+    /// Create a reference Dewarp model that borrows disparity data from another page.
+    ///
+    /// # Arguments
+    ///
+    /// * `page` - Page number for this reference model
+    /// * `ref_page` - Page number of the model to borrow from
+    pub fn create_ref(page: u32, ref_page: u32) -> Self {
+        todo!("create_ref not yet implemented")
+    }
+
+    /// Returns `true` if this model references another page's disparity data.
+    pub fn is_ref(&self) -> bool {
+        todo!("is_ref not yet implemented")
+    }
+
+    /// Returns the page number this model references, if any.
+    pub fn ref_page(&self) -> Option<u32> {
+        todo!("ref_page not yet implemented")
     }
 }
 
@@ -453,5 +477,25 @@ mod tests {
         assert!(line.is_empty());
         assert_eq!(line.horizontal_extent(), 0.0);
         assert_eq!(line.mid_y(), None);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_dewarp_create_ref() {
+        let ref_dew = Dewarp::create_ref(3, 5);
+        assert_eq!(ref_dew.page_number(), 3);
+        assert_eq!(ref_dew.ref_page(), Some(5));
+        assert!(ref_dew.is_ref());
+        assert!(!ref_dew.v_success());
+        assert!(!ref_dew.h_success());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_dewarp_is_ref_false() {
+        let opts = DewarpOptions::default();
+        let dw = Dewarp::new(800, 600, 0, &opts);
+        assert!(!dw.is_ref());
+        assert_eq!(dw.ref_page(), None);
     }
 }

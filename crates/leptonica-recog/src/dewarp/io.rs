@@ -84,6 +84,21 @@ impl Dewarp {
             .write_all(&[flags])
             .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
 
+        // ref_page: presence byte + optional u32
+        match self.ref_page {
+            None => writer
+                .write_all(&[0u8])
+                .map_err(|e| RecogError::InvalidParameter(e.to_string()))?,
+            Some(p) => {
+                writer
+                    .write_all(&[1u8])
+                    .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+                writer
+                    .write_all(&p.to_le_bytes())
+                    .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+            }
+        }
+
         // FPix arrays (4 of them, each prefixed with has-data byte)
         write_fpix(&mut writer, self.sampled_v_disparity.as_ref())?;
         write_fpix(&mut writer, self.sampled_h_disparity.as_ref())?;
@@ -174,6 +189,22 @@ impl Dewarp {
         let v_valid = (flags & 4) != 0;
         let h_valid = (flags & 8) != 0;
 
+        // ref_page
+        let mut ref_flag = [0u8; 1];
+        reader
+            .read_exact(&mut ref_flag)
+            .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
+        let ref_page = match ref_flag[0] {
+            0 => None,
+            1 => Some(read_u32(&mut reader)?),
+            _ => {
+                return Err(RecogError::InvalidParameter(format!(
+                    "invalid ref_page presence flag: {}",
+                    ref_flag[0]
+                )));
+            }
+        };
+
         let sampled_v_disparity = read_fpix(&mut reader)?;
         let sampled_h_disparity = read_fpix(&mut reader)?;
         let full_v_disparity = read_fpix(&mut reader)?;
@@ -203,6 +234,7 @@ impl Dewarp {
             h_success,
             v_valid,
             h_valid,
+            ref_page,
         })
     }
 
@@ -373,6 +405,18 @@ mod tests {
         let bad = b"NOTDEWARP_DATA";
         let result = Dewarp::read(bad.as_slice());
         assert!(result.is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_dewarp_ref_page_roundtrip() {
+        let ref_dew = Dewarp::create_ref(3, 5);
+        let mut buf = Vec::new();
+        ref_dew.write(&mut buf).unwrap();
+        let r = Dewarp::read(buf.as_slice()).unwrap();
+        assert_eq!(r.page_number(), 3);
+        assert_eq!(r.ref_page(), Some(5));
+        assert!(r.is_ref());
     }
 
     #[test]
