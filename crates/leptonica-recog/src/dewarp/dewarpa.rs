@@ -299,6 +299,19 @@ impl Dewarpa {
             )));
         }
         self.dewarp_array.swap(page1, page2);
+        // Update each model's internal page number to match its new position.
+        if let Some(ref mut d) = self.dewarp_array[page1] {
+            d.set_page_number(
+                u32::try_from(page1)
+                    .map_err(|_| RecogError::InvalidParameter("page1 overflows u32".to_string()))?,
+            );
+        }
+        if let Some(ref mut d) = self.dewarp_array[page2] {
+            d.set_page_number(
+                u32::try_from(page2)
+                    .map_err(|_| RecogError::InvalidParameter("page2 overflows u32".to_string()))?,
+            );
+        }
         Ok(())
     }
 
@@ -671,9 +684,9 @@ mod tests {
         let mut da = make_dewarpa(5);
         da.insert(make_dewarp(1)).unwrap();
         da.swap_pages(1, 3).unwrap();
-        // After swap: page 1 is empty, page 3 has the model
+        // After swap: page 1 is empty, page 3 has the model (page_number updated to new position)
         assert!(da.get(1).is_none());
-        assert!(da.get(3).is_some_and(|d| d.page_number() == 1));
+        assert!(da.get(3).is_some_and(|d| d.page_number() == 3));
     }
 
     #[test]

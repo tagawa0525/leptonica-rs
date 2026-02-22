@@ -226,6 +226,11 @@ impl Dewarp {
         self.page_number
     }
 
+    /// Set the page number
+    pub(crate) fn set_page_number(&mut self, page: u32) {
+        self.page_number = page;
+    }
+
     /// Get the original image width
     pub fn width(&self) -> u32 {
         self.width
