@@ -34,6 +34,7 @@
 //! ```
 
 mod classify;
+pub mod io;
 mod types;
 
 pub use classify::*;

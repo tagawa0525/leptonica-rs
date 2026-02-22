@@ -3,7 +3,7 @@
 //! This module implements the classification algorithms for JBIG2-style
 //! connected component clustering.
 
-use leptonica_core::{Box as PixBox, Pix, PixelDepth};
+use leptonica_core::{Box as PixBox, Boxa, Pix, PixelDepth};
 use leptonica_morph::binary as morph_binary;
 use leptonica_region::{ConnectivityType, find_connected_components};
 
@@ -13,6 +13,45 @@ use super::types::{
     DEFAULT_MAX_HEIGHT, DEFAULT_MAX_WIDTH, DEFAULT_SIZE_HAUS, DEFAULT_THRESH, JbClasser,
     JbComponent, JbData, JbMethod, TEMPLATE_BORDER,
 };
+
+/// Generates a word mask by progressive dilation.
+///
+/// Dilates `pix` horizontally in steps of 1, stopping when successive steps
+/// produce the same count of connected components.  Returns the mask at that
+/// dilation level and the dilation size used.
+///
+/// The algorithm mirrors Leptonica's `pixWordMaskByDilation`:
+/// - Dilate by 1 pixel at a time up to `max_dil`
+/// - Stop when the component count stabilises (delta == 0)
+///
+/// # Arguments
+///
+/// * `pix`     - Input binary image (1 bpp)
+/// * `max_dil` - Maximum horizontal dilation to attempt (clamped to ≥ 1)
+///
+/// # Errors
+///
+/// Returns an error if `pix` is not 1 bpp or morphological operations fail.
+pub fn pix_word_mask_by_dilation(_pix: &Pix, _max_dil: u32) -> RecogResult<(Pix, u32)> {
+    todo!("Phase 10: implement pix_word_mask_by_dilation")
+}
+
+/// Detects word bounding boxes by progressive dilation.
+///
+/// Calls [`pix_word_mask_by_dilation`] internally and returns the bounding boxes
+/// of each connected component in the resulting word mask.
+///
+/// # Arguments
+///
+/// * `pix`     - Input binary image (1 bpp)
+/// * `max_dil` - Maximum horizontal dilation to attempt
+///
+/// # Errors
+///
+/// Returns an error if `pix` is not 1 bpp or component detection fails.
+pub fn pix_word_boxes_by_dilation(_pix: &Pix, _max_dil: u32) -> RecogResult<Boxa> {
+    todo!("Phase 10: implement pix_word_boxes_by_dilation")
+}
 
 /// Maximum difference in width for matching
 const MAX_DIFF_WIDTH: i32 = 2;
@@ -849,6 +888,33 @@ mod tests {
     fn test_get_data_empty() {
         let classer = JbClasser::new(JbMethod::RankHaus, JbComponent::ConnComps);
         let result = classer.get_data();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pix_word_mask_by_dilation_empty_image() {
+        // An empty binary image should return a zero-dilation mask.
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let (mask, dil) = pix_word_mask_by_dilation(&pix, 10).unwrap();
+        assert_eq!(mask.width(), pix.width());
+        assert_eq!(mask.height(), pix.height());
+        let _ = dil; // dilation level is implementation detail
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pix_word_boxes_by_dilation_empty_image() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let boxa = pix_word_boxes_by_dilation(&pix, 10).unwrap();
+        assert_eq!(boxa.len(), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pix_word_mask_wrong_depth() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit8).unwrap();
+        let result = pix_word_mask_by_dilation(&pix, 10);
         assert!(result.is_err());
     }
 }
