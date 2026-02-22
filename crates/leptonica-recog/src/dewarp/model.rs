@@ -82,16 +82,19 @@ impl Dewarp {
         build_horizontal_disparity(self, &lines, &options)
     }
 
-    /// Populate full-resolution disparity arrays with optional crop offset.
+    /// Populate full-resolution disparity arrays.
     ///
-    /// This is a variant of [`populate_full_resolution`] that accepts an
-    /// optional (x, y) offset for images that are crops of a larger page.
+    /// This is a variant of [`populate_full_resolution`] that accepts `pix`,
+    /// `x`, and `y` parameters for API compatibility with the C reference
+    /// implementation.  The `x`/`y` crop-offset handling and per-pix dimension
+    /// checking are not yet applied; the method currently delegates directly to
+    /// [`populate_full_resolution`].
     ///
     /// # Arguments
     ///
-    /// * `pix` - Source image (used for dimension checking)
-    /// * `x` - X offset of `pix` within the full page (0 for full page)
-    /// * `y` - Y offset of `pix` within the full page (0 for full page)
+    /// * `pix` - Source image (reserved for future offset handling)
+    /// * `x` - X offset of `pix` within the full page (reserved, currently ignored)
+    /// * `y` - Y offset of `pix` within the full page (reserved, currently ignored)
     ///
     /// # Errors
     ///
