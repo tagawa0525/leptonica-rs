@@ -2072,6 +2072,64 @@ pub enum ExtremaType {
     Maxima,
 }
 
+/// Private helper: gray erosion (is_min=true) or dilation (is_min=false) with radius `r`.
+fn gray_minmax(data: &[u8], w: u32, h: u32, r: u32, is_min: bool) -> Vec<u8> {
+    let mut out = vec![0u8; (w * h) as usize];
+    let r = r as i32;
+    for y in 0..h as i32 {
+        for x in 0..w as i32 {
+            let mut val = if is_min { 255u8 } else { 0u8 };
+            for dy in -r..=r {
+                let ny = y + dy;
+                if ny < 0 || ny >= h as i32 {
+                    continue;
+                }
+                for dx in -r..=r {
+                    let nx = x + dx;
+                    if nx < 0 || nx >= w as i32 {
+                        continue;
+                    }
+                    let v = data[(ny as u32 * w + nx as u32) as usize];
+                    if is_min {
+                        val = val.min(v);
+                    } else {
+                        val = val.max(v);
+                    }
+                }
+            }
+            out[(y as u32 * w + x as u32) as usize] = val;
+        }
+    }
+    out
+}
+
+/// Private helper: binary dilation with square kernel of radius `r`.
+fn binary_dilate(mask: &[bool], w: u32, h: u32, r: u32) -> Vec<bool> {
+    let mut out = vec![false; (w * h) as usize];
+    let r = r as i32;
+    for y in 0..h as i32 {
+        for x in 0..w as i32 {
+            'outer: for dy in -r..=r {
+                let ny = y + dy;
+                if ny < 0 || ny >= h as i32 {
+                    continue;
+                }
+                for dx in -r..=r {
+                    let nx = x + dx;
+                    if nx < 0 || nx >= w as i32 {
+                        continue;
+                    }
+                    if mask[(ny as u32 * w + nx as u32) as usize] {
+                        out[(y as u32 * w + x as u32) as usize] = true;
+                        break 'outer;
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Find local extrema of a grayscale image.
 ///
 /// Computes local minima and maxima masks by comparing the original
@@ -2094,10 +2152,52 @@ pub enum ExtremaType {
 /// # See also
 ///
 /// C Leptonica: `pixLocalExtrema()` / `pixSelectedLocalExtrema()` in `seedfill.c`
-pub fn local_extrema(_pix: &Pix, _min_max_size: u32, _min_diff: u32) -> RegionResult<(Pix, Pix)> {
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(),
-    ))
+pub fn local_extrema(pix: &Pix, min_max_size: u32, min_diff: u32) -> RegionResult<(Pix, Pix)> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let r = min_max_size.saturating_sub(1) / 2;
+
+    let mut data = vec![0u8; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            data[(y * w + x) as usize] = pix.get_pixel(x, y).unwrap_or(0) as u8;
+        }
+    }
+
+    let eroded = gray_minmax(&data, w, h, r, true);
+    let dilated = gray_minmax(&data, w, h, r, false);
+
+    let min_pix = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
+    let max_pix = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
+    let mut min_mut = min_pix.try_into_mut().unwrap();
+    let mut max_mut = max_pix.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) as usize;
+            let v = data[idx];
+            let e = eroded[idx];
+            let d = dilated[idx];
+            let diff = d.saturating_sub(e) as u32;
+            if diff >= min_diff {
+                if v == e {
+                    min_mut.set_pixel_unchecked(x, y, 1);
+                }
+                if v == d {
+                    max_mut.set_pixel_unchecked(x, y, 1);
+                }
+            }
+        }
+    }
+
+    Ok((min_mut.into(), max_mut.into()))
 }
 
 /// Filter local minima mask to retain only true local minima.
@@ -2118,10 +2218,129 @@ pub fn local_extrema(_pix: &Pix, _min_max_size: u32, _min_diff: u32) -> RegionRe
 /// # See also
 ///
 /// C Leptonica: `pixQualifyLocalMinima()` in `seedfill.c`
-pub fn qualify_local_minima(_pix: &Pix, _pix_min: &Pix, _max_val: u8) -> RegionResult<Pix> {
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(),
-    ))
+pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix_min.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix_min.depth().bits(),
+        });
+    }
+
+    let w = pix.width().min(pix_min.width());
+    let h = pix.height().min(pix_min.height());
+
+    // Build mask array and gray data
+    let mut mask = vec![false; (w * h) as usize];
+    let mut gray = vec![0u8; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) as usize;
+            mask[idx] = pix_min.get_pixel(x, y).unwrap_or(0) != 0;
+            gray[idx] = pix.get_pixel(x, y).unwrap_or(0) as u8;
+        }
+    }
+
+    // Find connected components in mask via BFS (8-connected)
+    let mut visited = vec![false; (w * h) as usize];
+    let mut keep = mask.clone();
+
+    for sy in 0..h {
+        for sx in 0..w {
+            let sidx = (sy * w + sx) as usize;
+            if !mask[sidx] || visited[sidx] {
+                continue;
+            }
+
+            // BFS: collect all pixels of this CC
+            let mut queue = VecDeque::new();
+            let mut cc_pixels = Vec::new();
+            queue.push_back((sx, sy));
+            visited[sidx] = true;
+
+            while let Some((cx, cy)) = queue.pop_front() {
+                cc_pixels.push((cx, cy));
+                for dy in -1i32..=1 {
+                    for dx in -1i32..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+                        let nx = cx as i32 + dx;
+                        let ny = cy as i32 + dy;
+                        if nx < 0 || nx >= w as i32 || ny < 0 || ny >= h as i32 {
+                            continue;
+                        }
+                        let nidx = (ny as u32 * w + nx as u32) as usize;
+                        if mask[nidx] && !visited[nidx] {
+                            visited[nidx] = true;
+                            queue.push_back((nx as u32, ny as u32));
+                        }
+                    }
+                }
+            }
+
+            // Value of this CC (first pixel value)
+            let cc_val = gray[(cc_pixels[0].1 * w + cc_pixels[0].0) as usize];
+
+            // Reject if value exceeds max_val
+            if cc_val > max_val {
+                for &(px, py) in &cc_pixels {
+                    keep[(py * w + px) as usize] = false;
+                }
+                continue;
+            }
+
+            // Check all 8-neighbors of CC pixels that are NOT in the CC
+            let cc_set: std::collections::HashSet<(u32, u32)> = cc_pixels.iter().cloned().collect();
+            let mut is_true_min = true;
+            'check: for &(cx, cy) in &cc_pixels {
+                for dy in -1i32..=1 {
+                    for dx in -1i32..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+                        let nx = cx as i32 + dx;
+                        let ny = cy as i32 + dy;
+                        if nx < 0 || nx >= w as i32 || ny < 0 || ny >= h as i32 {
+                            continue;
+                        }
+                        let np = (nx as u32, ny as u32);
+                        if !cc_set.contains(&np) {
+                            let nval = gray[(ny as u32 * w + nx as u32) as usize];
+                            if nval <= cc_val {
+                                is_true_min = false;
+                                break 'check;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !is_true_min {
+                for &(px, py) in &cc_pixels {
+                    keep[(py * w + px) as usize] = false;
+                }
+            }
+        }
+    }
+
+    // Write output mask
+    let out = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            if keep[(y * w + x) as usize] {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 /// Return coordinates of selected local extrema.
@@ -2143,13 +2362,74 @@ pub fn qualify_local_minima(_pix: &Pix, _pix_min: &Pix, _max_val: u8) -> RegionR
 ///
 /// C Leptonica: `pixSelectedLocalExtrema()` in `seedfill.c`
 pub fn selected_local_extrema(
-    _pix: &Pix,
-    _min_distance: u32,
-    _select_type: ExtremaType,
+    pix: &Pix,
+    min_distance: u32,
+    select_type: ExtremaType,
 ) -> RegionResult<Pta> {
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(),
-    ))
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    let mut data = vec![0u8; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            data[(y * w + x) as usize] = pix.get_pixel(x, y).unwrap_or(0) as u8;
+        }
+    }
+
+    // 3×3 erosion/dilation (radius = 1)
+    let eroded = gray_minmax(&data, w, h, 1, true);
+    let dilated = gray_minmax(&data, w, h, 1, false);
+
+    // Candidates: pixels equal to their eroded/dilated value
+    let mut pixmin_mask = vec![false; (w * h) as usize];
+    let mut pixmax_mask = vec![false; (w * h) as usize];
+    for i in 0..(w * h) as usize {
+        if data[i] == eroded[i] {
+            pixmin_mask[i] = true;
+        }
+        if data[i] == dilated[i] {
+            pixmax_mask[i] = true;
+        }
+    }
+
+    // Apply distance filter
+    if min_distance > 0 {
+        let r = min_distance;
+        let dilated_min = binary_dilate(&pixmin_mask, w, h, r);
+        let dilated_max = binary_dilate(&pixmax_mask, w, h, r);
+        // Remove min pixels that are within distance r of any max, and vice versa
+        for i in 0..(w * h) as usize {
+            if dilated_max[i] {
+                pixmin_mask[i] = false;
+            }
+            if dilated_min[i] {
+                pixmax_mask[i] = false;
+            }
+        }
+    }
+
+    let selected = match select_type {
+        ExtremaType::Minima => &pixmin_mask,
+        ExtremaType::Maxima => &pixmax_mask,
+    };
+
+    let mut pta = Pta::new();
+    for y in 0..h {
+        for x in 0..w {
+            if selected[(y * w + x) as usize] {
+                pta.push(x as f32, y as f32);
+            }
+        }
+    }
+
+    Ok(pta)
 }
 
 #[cfg(test)]
@@ -2626,7 +2906,6 @@ mod tests {
     // -- Phase 2: local extrema tests --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_local_extrema_isolated_min_max() {
         // 5×5 image: center (2,2) is a local minimum (0),
         // corners (0,0),(0,4),(4,0),(4,4) are local maxima (200).
@@ -2656,7 +2935,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_local_extrema_flat_excluded_by_min_diff() {
         // Flat image: all pixels same value.
         // With min_diff > 0, no extrema should be found.
@@ -2680,7 +2958,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_qualify_local_minima_threshold() {
         // 5×5 image with two candidate minima:
         // (1,1) = 50 and (3,3) = 200, surrounded by 255.
@@ -2705,7 +2982,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_qualify_local_minima_not_true_minimum() {
         // 5×5 image: candidate at (2,2)=100 but neighbor (2,3)=100 (same value).
         // Not a true minimum since neighbor is not strictly greater.
@@ -2727,7 +3003,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_selected_local_extrema_no_filter() {
         // Image with a clear local minimum at center (2,2)=0, rest=200.
         let mut vals: Vec<(u32, u32, u8)> = (0..5)
@@ -2749,7 +3024,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_selected_local_extrema_returns_pta() {
         // Verify return type and basic structure
         let pix = make_8bpp(5, 5, &[]);
