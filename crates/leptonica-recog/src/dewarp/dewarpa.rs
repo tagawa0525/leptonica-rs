@@ -300,12 +300,19 @@ impl Dewarpa {
         let use_both = (flags & 1) != 0;
         let check_columns = (flags & 2) != 0;
 
+        // Guard against unreasonable max_pages values from input
+        const MAX_PAGES: usize = 100_000;
+        if max_pages > MAX_PAGES {
+            return Err(RecogError::InvalidParameter(format!(
+                "Dewarpa max_pages {max_pages} exceeds maximum {MAX_PAGES}"
+            )));
+        }
+
         let n_entries = read_u32(&mut reader)? as usize;
         // Guard against unreasonable entry counts
-        const MAX_ENTRIES: usize = 100_000;
-        if n_entries > MAX_ENTRIES {
+        if n_entries > MAX_PAGES {
             return Err(RecogError::InvalidParameter(format!(
-                "Dewarpa entry count {n_entries} exceeds maximum {MAX_ENTRIES}"
+                "Dewarpa entry count {n_entries} exceeds maximum {MAX_PAGES}"
             )));
         }
 
@@ -314,8 +321,11 @@ impl Dewarpa {
         for _ in 0..n_entries {
             let dw = Dewarp::read(&mut reader)?;
             let page = dw.page_number() as usize;
-            if page >= dewarp_array.len() {
-                dewarp_array.resize_with(page + 1, || None);
+            // Reject entries outside the declared page range
+            if page >= max_pages {
+                return Err(RecogError::InvalidParameter(format!(
+                    "Dewarpa entry has page index {page} outside allowed range [0, {max_pages})"
+                )));
             }
             dewarp_array[page] = Some(dw);
         }
