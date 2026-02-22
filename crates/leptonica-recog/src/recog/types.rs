@@ -420,6 +420,28 @@ pub const DEFAULT_MIN_SPLIT_W: i32 = 6;
 /// Default maximum split height
 pub const DEFAULT_MAX_SPLIT_H: i32 = 60;
 
+/// Target selection for outlier removal
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutlierTarget {
+    /// Compare each template against its class's averaged template
+    Average,
+    /// Compare each template against the individual best template in its class
+    Individual,
+}
+
+/// Result of pre-splitting filter validation for a single character image
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreFilterResult {
+    /// Whether the image passed the filter
+    pub is_valid: bool,
+    /// Image width in pixels
+    pub width: u32,
+    /// Image height in pixels
+    pub height: u32,
+    /// Reason for rejection, if any
+    pub reason: Option<String>,
+}
+
 /// Parameters for creating a recognizer
 ///
 /// These parameters control the scaling and matching behavior of the recognizer.

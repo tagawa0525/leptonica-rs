@@ -10,7 +10,7 @@ use leptonica_region::{ConnectivityType, find_connected_components};
 use crate::error::{RecogError, RecogResult};
 
 use super::train::{binarize_pix, compute_centroid, compute_correlation_with_centering};
-use super::types::{Rch, Rcha, Recog, TemplateUse};
+use super::types::{OutlierTarget, PreFilterResult, Rch, Rcha, Recog, TemplateUse};
 
 /// Minimum fill factor for filtering components
 const MIN_FILL_FACTOR: f32 = 0.10;
@@ -271,7 +271,7 @@ impl Recog {
         let pix2 = morph_binary::close_brick(&pix1, 1, 3).map_err(RecogError::Morph)?;
 
         // Filter out noise
-        let pix3 = self.pre_splitting_filter(&pix2)?;
+        let pix3 = self.remove_noisy_components(&pix2)?;
 
         // Get connected components
         let components = find_connected_components(&pix3, ConnectivityType::EightWay)
@@ -330,8 +330,201 @@ impl Recog {
         Ok((chars, char_boxes))
     }
 
-    /// Pre-splitting filter to remove noise
-    fn pre_splitting_filter(&self, pix: &Pix) -> RecogResult<Pix> {
+    /// Validates a single character image against pre-splitting criteria.
+    ///
+    /// Checks that the image meets minimum height and fill-factor thresholds.
+    /// Returns a [`PreFilterResult`] describing whether the image is valid
+    /// and, if not, the reason for rejection.
+    ///
+    /// # Arguments
+    ///
+    /// * `pix` - Single character image to validate
+    pub fn pre_splitting_filter(&self, pix: &Pix) -> PreFilterResult {
+        let w = pix.width();
+        let h = pix.height();
+
+        let min_h = DEFAULT_MIN_HEIGHT.min(h / 2).max(1);
+
+        if h < min_h {
+            return PreFilterResult {
+                is_valid: false,
+                width: w,
+                height: h,
+                reason: Some(format!("height {h} is below minimum {min_h}")),
+            };
+        }
+
+        // Count foreground pixels and compute fill factor
+        let mut fg_count = 0u32;
+        for y in 0..h {
+            for x in 0..w {
+                if pix.get_pixel(x, y).unwrap_or(0) == 1 {
+                    fg_count += 1;
+                }
+            }
+        }
+
+        let area = w * h;
+        let fill = if area == 0 {
+            0.0f32
+        } else {
+            fg_count as f32 / area as f32
+        };
+
+        if fill < MIN_FILL_FACTOR {
+            return PreFilterResult {
+                is_valid: false,
+                width: w,
+                height: h,
+                reason: Some(format!(
+                    "fill factor {fill:.3} is below minimum {MIN_FILL_FACTOR}"
+                )),
+            };
+        }
+
+        PreFilterResult {
+            is_valid: true,
+            width: w,
+            height: h,
+            reason: None,
+        }
+    }
+
+    /// Returns `true` if the image's aspect ratio falls within the allowed range.
+    ///
+    /// `min_aspect` ≤ width/height ≤ `max_aspect`
+    ///
+    /// # Arguments
+    ///
+    /// * `pix` - Image to check
+    /// * `min_aspect` - Minimum allowed width-to-height ratio
+    /// * `max_aspect` - Maximum allowed width-to-height ratio
+    pub fn splitting_filter(pix: &Pix, min_aspect: f32, max_aspect: f32) -> bool {
+        let h = pix.height();
+        if h == 0 {
+            return false;
+        }
+        let aspect = pix.width() as f32 / h as f32;
+        aspect >= min_aspect && aspect <= max_aspect
+    }
+
+    /// Removes outlier templates whose correlation score falls below `min_score`.
+    ///
+    /// For each class, the correlation of every individual template is compared
+    /// against either the class average (`OutlierTarget::Average`) or the
+    /// best individual template (`OutlierTarget::Individual`).  Templates
+    /// whose score is below `min_score` are removed, provided that at least
+    /// `min_fraction` of the original templates would remain.
+    ///
+    /// If removing outliers would leave fewer than `min_fraction` templates for
+    /// a class, that class is left unchanged.
+    ///
+    /// # Arguments
+    ///
+    /// * `min_score` - Minimum acceptable correlation score (0.0–1.0)
+    /// * `min_fraction` - Minimum fraction of templates that must remain (0.0–1.0)
+    /// * `target` - Whether to compare against the averaged or best individual template
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if training has not been completed.
+    pub fn remove_outliers(
+        &mut self,
+        min_score: f32,
+        min_fraction: f32,
+        target: OutlierTarget,
+    ) -> RecogResult<()> {
+        if !self.train_done {
+            return Err(RecogError::IdentificationError(
+                "training not finished".to_string(),
+            ));
+        }
+
+        for class_idx in 0..self.set_size {
+            let n = self.pixaa[class_idx].len();
+            if n == 0 {
+                continue;
+            }
+
+            // Determine the reference template for scoring
+            let ref_pix = match target {
+                OutlierTarget::Average => self.pixa_u.get(class_idx).cloned(),
+                OutlierTarget::Individual => {
+                    // Use the template with the highest self-correlation (all same: just pick first)
+                    self.pixaa[class_idx].first().cloned()
+                }
+            };
+
+            let Some(reference) = ref_pix else {
+                continue;
+            };
+
+            // Compute scores for each template in this class
+            let scores: Vec<f32> = self.pixaa[class_idx]
+                .iter()
+                .map(|tmpl| {
+                    compute_correlation_score(tmpl, &reference, &self.sumtab).unwrap_or(0.0)
+                })
+                .collect();
+
+            // Identify templates that pass the min_score threshold
+            let keep: Vec<bool> = scores.iter().map(|&s| s >= min_score).collect();
+            let keep_count = keep.iter().filter(|&&k| k).count();
+
+            // Only remove outliers if enough templates would remain
+            let min_keep = ((n as f32 * min_fraction).ceil() as usize).max(1);
+            if keep_count < min_keep {
+                continue;
+            }
+
+            // Remove outliers (iterate in reverse to preserve indices)
+            let mut to_remove: Vec<usize> = keep
+                .iter()
+                .enumerate()
+                .filter(|&(_, &k)| !k)
+                .map(|(i, _)| i)
+                .collect();
+            to_remove.reverse();
+            for idx in to_remove {
+                self.pixaa[class_idx].remove(idx);
+                self.ptaa[class_idx].remove(idx);
+            }
+        }
+
+        // Re-run finish_training to recompute averages
+        self.train_done = false;
+        self.ave_done = false;
+        self.finish_training()
+    }
+
+    /// Filters character images by size, returning only those within the given bounds.
+    ///
+    /// # Arguments
+    ///
+    /// * `pixa` - Slice of images to filter
+    /// * `min_w` - Minimum acceptable width in pixels
+    /// * `max_w` - Maximum acceptable width in pixels
+    /// * `min_h` - Minimum acceptable height in pixels
+    /// * `max_h` - Maximum acceptable height in pixels
+    pub fn filter_pixa_by_size(
+        pixa: &[Pix],
+        min_w: u32,
+        max_w: u32,
+        min_h: u32,
+        max_h: u32,
+    ) -> Vec<Pix> {
+        pixa.iter()
+            .filter(|p| {
+                let w = p.width();
+                let h = p.height();
+                w >= min_w && w <= max_w && h >= min_h && h <= max_h
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Removes noisy (too small or too sparse) components from an image
+    fn remove_noisy_components(&self, pix: &Pix) -> RecogResult<Pix> {
         let w = pix.width();
         let h = pix.height();
 
@@ -590,6 +783,106 @@ fn clip_to_foreground(pix: &Pix) -> RecogResult<Pix> {
 mod tests {
     use super::*;
     use crate::recog::train::{create, make_sumtab};
+    use crate::recog::types::OutlierTarget;
+
+    fn make_solid_pix(w: u32, h: u32) -> Pix {
+        let p = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut m = p.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let _ = m.set_pixel(x, y, 1);
+            }
+        }
+        m.into()
+    }
+
+    fn make_trained_recog() -> super::Recog {
+        let mut recog = create(0, 0, 0, 150, 1).unwrap();
+        let p_a = make_solid_pix(5, 20);
+        let p_b = make_solid_pix(8, 20);
+        recog.train_labeled(&p_a, "A").unwrap();
+        recog.train_labeled(&p_b, "B").unwrap();
+        recog.finish_training().unwrap();
+        recog
+    }
+
+    #[test]
+    fn test_pre_splitting_filter_valid_image() {
+        let recog = create(0, 0, 0, 150, 1).unwrap();
+        // Solid 5×20 image: tall enough and fully filled
+        let pix = make_solid_pix(5, 20);
+        let result = recog.pre_splitting_filter(&pix);
+        assert!(result.is_valid);
+        assert_eq!(result.width, 5);
+        assert_eq!(result.height, 20);
+        assert!(result.reason.is_none());
+    }
+
+    #[test]
+    fn test_pre_splitting_filter_rejects_sparse_image() {
+        let recog = create(0, 0, 0, 150, 1).unwrap();
+        // 10×20 with only one pixel set → fill < MIN_FILL_FACTOR
+        let p = Pix::new(10, 20, PixelDepth::Bit1).unwrap();
+        let mut m = p.try_into_mut().unwrap();
+        let _ = m.set_pixel(5, 10, 1);
+        let pix: Pix = m.into();
+        let result = recog.pre_splitting_filter(&pix);
+        assert!(!result.is_valid);
+        assert!(result.reason.is_some());
+    }
+
+    #[test]
+    fn test_splitting_filter_in_range() {
+        // 10×10 image: aspect = 1.0, allowed range [0.5, 2.0]
+        let pix = make_solid_pix(10, 10);
+        assert!(Recog::splitting_filter(&pix, 0.5, 2.0));
+    }
+
+    #[test]
+    fn test_splitting_filter_too_wide() {
+        // 30×10 image: aspect = 3.0, max 2.0 → rejected
+        let pix = make_solid_pix(30, 10);
+        assert!(!Recog::splitting_filter(&pix, 0.5, 2.0));
+    }
+
+    #[test]
+    fn test_remove_outliers_keeps_good_templates() {
+        let mut recog = make_trained_recog();
+        let before_a = recog.pixaa[0].len();
+        // Very low min_score: all templates should be kept
+        recog
+            .remove_outliers(0.0, 0.5, OutlierTarget::Average)
+            .unwrap();
+        assert_eq!(recog.pixaa[0].len(), before_a);
+    }
+
+    #[test]
+    fn test_remove_outliers_requires_training() {
+        let mut recog = create(0, 0, 0, 150, 1).unwrap();
+        let result = recog.remove_outliers(0.5, 0.5, OutlierTarget::Average);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_filter_pixa_by_size_keeps_matching() {
+        let images = vec![
+            make_solid_pix(5, 10),
+            make_solid_pix(10, 20),
+            make_solid_pix(15, 30),
+        ];
+        let filtered = Recog::filter_pixa_by_size(&images, 8, 12, 15, 25);
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].width(), 10);
+        assert_eq!(filtered[0].height(), 20);
+    }
+
+    #[test]
+    fn test_filter_pixa_by_size_empty_result() {
+        let images = vec![make_solid_pix(5, 10)];
+        // width 5 < min_w 10
+        let filtered = Recog::filter_pixa_by_size(&images, 10, 20, 5, 15);
+        assert!(filtered.is_empty());
+    }
 
     #[test]
     fn test_compute_correlation_score_identical() {
