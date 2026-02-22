@@ -283,6 +283,38 @@ impl Default for DeskewOptions {
     }
 }
 
+impl DeskewOptions {
+    /// Validate options, returning an error if any field is invalid.
+    pub fn validate(&self) -> RecogResult<()> {
+        if !matches!(self.sweep_reduction, 1 | 2 | 4 | 8) {
+            return Err(RecogError::InvalidParameter(
+                "sweep_reduction must be 1, 2, 4, or 8".to_string(),
+            ));
+        }
+        if !matches!(self.search_reduction, 1 | 2 | 4 | 8) {
+            return Err(RecogError::InvalidParameter(
+                "search_reduction must be 1, 2, 4, or 8".to_string(),
+            ));
+        }
+        if self.search_reduction > self.sweep_reduction {
+            return Err(RecogError::InvalidParameter(
+                "search_reduction must not exceed sweep_reduction".to_string(),
+            ));
+        }
+        if self.sweep_range <= 0.0 {
+            return Err(RecogError::InvalidParameter(
+                "sweep_range must be positive".to_string(),
+            ));
+        }
+        if self.sweep_delta <= 0.0 {
+            return Err(RecogError::InvalidParameter(
+                "sweep_delta must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Options for sweep-and-search skew detection (alias for [`SkewDetectOptions`])
 pub type SkewSearchOptions = SkewDetectOptions;
 
@@ -326,12 +358,13 @@ pub fn deskew_both(pix: &Pix) -> RecogResult<(Pix, Pix)> {
 ///
 /// Returns an error if parameters are invalid or skew detection fails.
 pub fn deskew_general(pix: &Pix, options: &DeskewOptions) -> RecogResult<(Pix, f32)> {
+    options.validate()?;
     let detect_opts = SkewDetectOptions {
         sweep_range: options.sweep_range,
         sweep_delta: options.sweep_delta,
         min_bs_delta: 0.01,
-        sweep_reduction: options.sweep_reduction.max(1),
-        bs_reduction: options.search_reduction.max(1),
+        sweep_reduction: options.sweep_reduction,
+        bs_reduction: options.search_reduction,
     };
     detect_opts.validate()?;
     let (corrected, result) = find_skew_and_deskew(pix, &detect_opts)?;
