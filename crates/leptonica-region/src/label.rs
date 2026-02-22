@@ -791,10 +791,10 @@ mod tests_phase4 {
         let _ = labeler.add_component(&pix, 2, 8);
         let incremental_result = labeler.finish();
 
-        // Both should produce the same number of components
+        // Both should produce the same number of components.
+        // Scan max label from the 32-bit labeled image (pix_count_components requires 1-bit input).
         let batch_count = pix_count_components(&pix, ConnectivityType::FourWay).unwrap();
-        let incremental_count =
-            pix_count_components(&incremental_result, ConnectivityType::FourWay).unwrap_or(3); // Expected: 3
+        let incremental_count = get_component_sizes(&incremental_result).unwrap().len() as u32;
 
         assert_eq!(batch_count, incremental_count);
     }
