@@ -1,6 +1,6 @@
 # leptonica-morph 全未実装関数の移植計画
 
-Status: PLANNED
+Status: COMPLETED
 
 ## Context
 
@@ -59,7 +59,7 @@ Phase 1 (Safe closing + Generalized) ← 基盤
 
 ## Phase 1: Safe closing + Generalized ops（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR #140, merged)
 
 **C参照**: `reference/leptonica/src/morph.c` L170-350
 
@@ -92,7 +92,7 @@ Generalized ops:
 
 ## Phase 2: Morphological applications（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR #141, merged)
 
 **C参照**: `reference/leptonica/src/morphapp.c` 全体
 
@@ -131,7 +131,7 @@ Generalized ops:
 
 ## Phase 3: SEL管理拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR #143, merged)
 
 **C参照**: `reference/leptonica/src/sel1.c` L800-1200
 
@@ -165,7 +165,7 @@ SEL操作:
 
 ## Phase 4: SEL生成（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR #144, merged)
 
 **C参照**: `reference/leptonica/src/sel2.c`
 
@@ -196,7 +196,7 @@ SEL生成ユーティリティ:
 
 ## Phase 5: DWA拡張 + シーケンス拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR #146, merged; review fixes in PR #148)
 
 **C参照**: `reference/leptonica/src/morphdwa.c` L400-900, `morphseq.c` L300-600
 
@@ -235,7 +235,7 @@ Extended DWA（>63px対応）:
 
 ## Phase 6: Sela配列管理（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED** (PR #147, merged)
 
 **C参照**: `reference/leptonica/src/sel1.c` L70-200
 
@@ -301,12 +301,12 @@ pub struct Sela {
 
 ```
 main
-└── feat/morph-safe-closing      ← Phase 1
-└── feat/morph-applications      ← Phase 2
-└── feat/morph-sel-io            ← Phase 3
-└── feat/morph-sel-gen           ← Phase 4
-└── feat/morph-dwa-ext           ← Phase 5
-└── feat/morph-sela              ← Phase 6
+└── feat/morph-safe-closing      ← Phase 1 (PR #140, merged)
+└── feat/morph-applications      ← Phase 2 (PR #141, merged)
+└── feat/morph-sel-io            ← Phase 3 (PR #143, merged)
+└── feat/morph-sel-gen           ← Phase 4 (PR #144, merged)
+└── feat/morph-dwa-ext           ← Phase 5 (PR #146, merged; review fix PR #148)
+└── feat/morph-sela              ← Phase 6 (PR #147, merged)
 ```
 
 ## 検証方法
