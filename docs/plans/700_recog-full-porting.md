@@ -149,7 +149,7 @@ pub struct RecogParams {
 
 ## Phase 3: Bootstrap digit recognizer（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/recogtrain.c` L800-1100
 
