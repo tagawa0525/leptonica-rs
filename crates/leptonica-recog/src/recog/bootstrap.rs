@@ -112,7 +112,9 @@ impl Recog {
     ///
     /// For each class present in `boot_recog` but absent in `self`, the
     /// averaged template from `boot_recog` is added to `self` as a training
-    /// sample.
+    /// sample.  The training state is reset automatically before adding
+    /// templates, so this method may be called on an already-trained recognizer
+    /// (matching the behaviour of [`pad_digit_training_set`](Recog::pad_digit_training_set)).
     ///
     /// After merging, training is finished automatically.
     ///
@@ -122,21 +124,18 @@ impl Recog {
     ///
     /// # Errors
     ///
-    /// Returns an error if training has already been completed, or if
-    /// `boot_recog` has not yet completed averaging.
+    /// Returns an error if `boot_recog` has not yet completed averaging.
     pub fn train_from_boot(&mut self, boot_recog: &Recog) -> RecogResult<()> {
-        if self.train_done {
-            return Err(RecogError::TrainingError(
-                "training has already been completed; reset train_done first".to_string(),
-            ));
-        }
-
         if !boot_recog.ave_done {
             return Err(RecogError::TrainingError(
                 "boot_recog must have completed training before calling train_from_boot"
                     .to_string(),
             ));
         }
+
+        // Reset training state so we can add more samples.
+        self.train_done = false;
+        self.ave_done = false;
 
         // Collect missing labels before mutating self.
         let to_add: Vec<(usize, String)> = boot_recog
@@ -314,10 +313,8 @@ mod tests {
         recog.train_labeled(&p, "0").unwrap();
         recog.finish_training().unwrap();
 
-        // train_from_boot should add missing digits from boot
+        // train_from_boot auto-resets and adds missing digits from boot
         let classes_before = recog.get_class_count();
-        recog.train_done = false; // reset to allow re-training
-        recog.ave_done = false;
         recog.train_from_boot(&boot).unwrap();
         assert!(recog.get_class_count() > classes_before);
     }
