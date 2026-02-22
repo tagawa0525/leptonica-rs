@@ -30,8 +30,8 @@ impl Recog {
     /// Converts a single-character string to a numeric index via its first
     /// UTF-8 byte value.
     ///
-    /// This mirrors C leptonica's `recogGetClassIndex` approach of using the
-    /// raw byte value of the first character as a numeric class identifier.
+    /// This follows the Leptonica convention of using the raw byte value of
+    /// the first character as a numeric class identifier.
     ///
     /// # Errors
     ///
@@ -144,6 +144,7 @@ mod tests {
         recog.set_params(params);
         assert_eq!(recog.scale_w, 40);
         assert_eq!(recog.scale_h, 40);
+        assert_eq!(recog.line_w, 0);
         assert_eq!(recog.threshold, 128);
         assert_eq!(recog.max_y_shift, 0);
     }
