@@ -123,6 +123,7 @@ fn binarize_pix(pix: &Pix) -> RecogResult<Pix> {
                 Err(_) => threshold_to_binary(&gray, 128).map_err(|e| e.into()),
             }
         }
+        // Other depths (Bit2, Bit4, Bit16): convert to grayscale then threshold
         _ => {
             let gray = pix_convert_to_gray(pix)?;
             threshold_to_binary(&gray, 128).map_err(|e| e.into())
