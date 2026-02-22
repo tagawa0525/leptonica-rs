@@ -17,10 +17,10 @@ C版の182ソースファイル・1,880関数に対する移植の進捗。
 | 指標                 | 数値                      |
 | -------------------- | ------------------------- |
 | コード行数           | 約120,000行 / 240,000行  |
-| 関数カバレッジ       | 819 + 98 / 1,880 (48.8%) |
+| 関数カバレッジ       | 1,128 / 1,880 (60.0%)    |
 | 回帰テストカバレッジ | 58 / 159 (36.5%)          |
 
-詳細: [機能比較](docs/rebuild/feature-comparison.md) / [テスト比較](docs/rebuild/test-comparison.md)
+詳細: [機能比較](docs/porting/feature-comparison.md) / [テスト比較](docs/porting/test-comparison.md)
 
 ## Crate構成
 
@@ -70,7 +70,7 @@ git submodule update --init
 
 - `CLAUDE.md` -- 開発規約・プロセスルール
 - `docs/plans/` -- 各機能の実装計画書
-- `docs/rebuild/` -- 引き継ぎ資料（移植プロンプト、機能比較、テスト比較）
+- `docs/porting/` -- 引き継ぎ資料（移植プロンプト、機能比較、テスト比較）
 
 ## ライセンス
 

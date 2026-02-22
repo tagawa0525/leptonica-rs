@@ -17,10 +17,10 @@ Progress against the original 182 source files and 1,880 public functions.
 | Metric               | Value                      |
 | -------------------- | -------------------------- |
 | Lines of code        | ~120,000 / ~240,000       |
-| Function coverage    | 819 + 98 / 1,880 (48.8%) |
+| Function coverage    | 1,128 / 1,880 (60.0%)    |
 | Regression test coverage | 58 / 159 (36.5%)      |
 
-Details: [Feature comparison](docs/rebuild/feature-comparison.md) / [Test comparison](docs/rebuild/test-comparison.md)
+Details: [Feature comparison](docs/porting/feature-comparison.md) / [Test comparison](docs/porting/test-comparison.md)
 
 ## Crate Structure
 
@@ -70,7 +70,7 @@ git submodule update --init
 
 - `CLAUDE.md` -- Development conventions and process rules
 - `docs/plans/` -- Implementation plans for each feature
-- `docs/rebuild/` -- Porting reference materials (prompts, feature comparison, test comparison)
+- `docs/porting/` -- Porting reference materials (prompts, feature comparison, test comparison)
 
 ## License
 
