@@ -27,6 +27,7 @@
 //! // let result = recog.identify_pix(&unknown_pix).unwrap();
 //! ```
 
+pub mod bootstrap;
 mod did;
 mod ident;
 pub mod io;
