@@ -591,14 +591,8 @@ impl IncrementalLabeler {
     /// Get the resulting labeled image
     pub fn finish(self) -> Pix {
         // Create a 32-bit image
-        let pix = Pix::new(self.width, self.height, PixelDepth::Bit32)
-            .map_err(|_| ())
-            .unwrap_or_else(|_| {
-                // Fallback: create a new image by allocating manually
-                // This should not happen in practice
-                Pix::new(self.width, self.height, PixelDepth::Bit32)
-                    .unwrap_or_else(|_| panic!("Failed to allocate image"))
-            });
+        let pix =
+            Pix::new(self.width, self.height, PixelDepth::Bit32).expect("Failed to allocate image");
         let mut pix_mut = pix.try_into_mut().unwrap_or_else(|p| p.to_mut());
 
         for (idx, &label) in self.labels.iter().enumerate() {
