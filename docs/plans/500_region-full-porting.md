@@ -133,7 +133,7 @@ min_max_sizeでdilate/erodeのカーネルサイズ、min_diffで平坦領域の
 
 ## Phase 3: ConnComp拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/conncomp.c` L300-700
 
