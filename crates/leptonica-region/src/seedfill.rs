@@ -1680,65 +1680,14 @@ pub fn holes_by_filling(pix: &Pix, connectivity: ConnectivityType) -> RegionResu
     Ok(out_mut.into())
 }
 
-/// Simple iterative grayscale seedfill (morphological reconstruction).
+/// Private helper: iterative raster/anti-raster scan with min-clamp (grayscale reconstruction).
 ///
-/// Performs grayscale morphological reconstruction using sequential
-/// raster and anti-raster scans. The mask clips the seed from above
-/// (seed values cannot exceed mask values).
-///
-/// # Arguments
-///
-/// * `seed` - 8-bpp seed image
-/// * `mask` - 8-bpp filling mask (upper bound)
-/// * `connectivity` - 4-way or 8-way connectivity
-///
-/// # See also
-///
-/// C Leptonica: `pixSeedfillGraySimple()` in `seedfill.c`
-pub fn seedfill_gray_simple(
-    seed: &Pix,
-    mask: &Pix,
-    connectivity: ConnectivityType,
-) -> RegionResult<Pix> {
-    if seed.depth() != PixelDepth::Bit8 {
-        return Err(RegionError::UnsupportedDepth {
-            expected: "8-bit",
-            actual: seed.depth().bits(),
-        });
-    }
-    if mask.depth() != PixelDepth::Bit8 {
-        return Err(RegionError::UnsupportedDepth {
-            expected: "8-bit",
-            actual: mask.depth().bits(),
-        });
-    }
-
-    let w = seed.width();
-    let h = seed.height();
-    if mask.width() != w || mask.height() != h {
-        return Err(RegionError::InvalidParameters(
-            "seed and mask must have the same dimensions".to_string(),
-        ));
-    }
-
-    // Initialize output with seed clamped to mask
-    let mut data = vec![0u8; (w * h) as usize];
-    let mut mask_data = vec![0u8; (w * h) as usize];
-    for y in 0..h {
-        for x in 0..w {
-            let sv = seed.get_pixel(x, y).unwrap_or(0) as u8;
-            let mv = mask.get_pixel(x, y).unwrap_or(0) as u8;
-            let idx = (y * w + x) as usize;
-            data[idx] = sv.min(mv);
-            mask_data[idx] = mv;
-        }
-    }
-
-    let use_8 = connectivity == ConnectivityType::EightWay;
+/// Modifies `data` in-place. Pixels where `mask_data[i] == 0` are skipped.
+/// Each pixel is updated to `max(self, causal_neighbors).min(mask_data[i])`.
+fn scan_gray_reconstruct(data: &mut [u8], mask_data: &[u8], w: u32, h: u32, use_8: bool) {
     const MAX_ITERS: u32 = 40;
-
     for _ in 0..MAX_ITERS {
-        let prev = data.clone();
+        let prev = data.to_vec();
 
         // Raster scan (UL -> LR)
         for y in 0..h {
@@ -1794,11 +1743,141 @@ pub fn seedfill_gray_simple(
             }
         }
 
-        // Check convergence
-        if data == prev {
+        if data == prev.as_slice() {
             break;
         }
     }
+}
+
+/// Private helper: iterative raster/anti-raster scan with max-propagate (inverse grayscale reconstruction).
+///
+/// Modifies `data` in-place. Pixels where `mask_data[i] == 255` are skipped.
+/// Each pixel is updated to `max(self, causal_neighbors)` only when that max exceeds the mask.
+fn scan_gray_inv_reconstruct(data: &mut [u8], mask_data: &[u8], w: u32, h: u32, use_8: bool) {
+    const MAX_ITERS: u32 = 40;
+    for _ in 0..MAX_ITERS {
+        let prev = data.to_vec();
+
+        // Raster scan (UL -> LR)
+        for y in 0..h {
+            for x in 0..w {
+                let idx = (y * w + x) as usize;
+                let maskval = mask_data[idx];
+                if maskval == 255 {
+                    continue;
+                }
+                let mut maxval = data[idx];
+                if y > 0 {
+                    maxval = maxval.max(data[((y - 1) * w + x) as usize]);
+                }
+                if x > 0 {
+                    maxval = maxval.max(data[(y * w + x - 1) as usize]);
+                }
+                if use_8 {
+                    if x > 0 && y > 0 {
+                        maxval = maxval.max(data[((y - 1) * w + x - 1) as usize]);
+                    }
+                    if x + 1 < w && y > 0 {
+                        maxval = maxval.max(data[((y - 1) * w + x + 1) as usize]);
+                    }
+                }
+                if maxval > maskval {
+                    data[idx] = maxval;
+                }
+            }
+        }
+
+        // Anti-raster scan (LR -> UL)
+        for y in (0..h).rev() {
+            for x in (0..w).rev() {
+                let idx = (y * w + x) as usize;
+                let maskval = mask_data[idx];
+                if maskval == 255 {
+                    continue;
+                }
+                let mut maxval = data[idx];
+                if y + 1 < h {
+                    maxval = maxval.max(data[((y + 1) * w + x) as usize]);
+                }
+                if x + 1 < w {
+                    maxval = maxval.max(data[(y * w + x + 1) as usize]);
+                }
+                if use_8 {
+                    if x + 1 < w && y + 1 < h {
+                        maxval = maxval.max(data[((y + 1) * w + x + 1) as usize]);
+                    }
+                    if x > 0 && y + 1 < h {
+                        maxval = maxval.max(data[((y + 1) * w + x - 1) as usize]);
+                    }
+                }
+                if maxval > maskval {
+                    data[idx] = maxval;
+                }
+            }
+        }
+
+        if data == prev.as_slice() {
+            break;
+        }
+    }
+}
+
+/// Simple iterative grayscale seedfill (morphological reconstruction).
+///
+/// Performs grayscale morphological reconstruction using sequential
+/// raster and anti-raster scans. The mask clips the seed from above
+/// (seed values cannot exceed mask values).
+///
+/// # Arguments
+///
+/// * `seed` - 8-bpp seed image
+/// * `mask` - 8-bpp filling mask (upper bound)
+/// * `connectivity` - 4-way or 8-way connectivity
+///
+/// # See also
+///
+/// C Leptonica: `pixSeedfillGraySimple()` in `seedfill.c`
+pub fn seedfill_gray_simple(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<Pix> {
+    if seed.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: seed.depth().bits(),
+        });
+    }
+    if mask.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: mask.depth().bits(),
+        });
+    }
+
+    let w = seed.width();
+    let h = seed.height();
+    if mask.width() != w || mask.height() != h {
+        return Err(RegionError::InvalidParameters(
+            "seed and mask must have the same dimensions".to_string(),
+        ));
+    }
+
+    // Initialize output with seed clamped to mask
+    let mut data = vec![0u8; (w * h) as usize];
+    let mut mask_data = vec![0u8; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let sv = seed.get_pixel(x, y).unwrap_or(0) as u8;
+            let mv = mask.get_pixel(x, y).unwrap_or(0) as u8;
+            let idx = (y * w + x) as usize;
+            data[idx] = sv.min(mv);
+            mask_data[idx] = mv;
+        }
+    }
+
+    let use_8 = connectivity == ConnectivityType::EightWay;
+    scan_gray_reconstruct(&mut data, &mask_data, w, h, use_8);
 
     // Write output
     let out = Pix::new(w, h, PixelDepth::Bit8).map_err(RegionError::Core)?;
@@ -1867,73 +1946,7 @@ pub fn seedfill_gray_inv_simple(
     }
 
     let use_8 = connectivity == ConnectivityType::EightWay;
-    const MAX_ITERS: u32 = 40;
-
-    for _ in 0..MAX_ITERS {
-        let prev = data.clone();
-
-        // Raster scan (UL -> LR): propagate max where > mask
-        for y in 0..h {
-            for x in 0..w {
-                let idx = (y * w + x) as usize;
-                let maskval = mask_data[idx];
-                if maskval == 255 {
-                    continue;
-                }
-                let mut maxval = data[idx];
-                if y > 0 {
-                    maxval = maxval.max(data[((y - 1) * w + x) as usize]);
-                }
-                if x > 0 {
-                    maxval = maxval.max(data[(y * w + x - 1) as usize]);
-                }
-                if use_8 {
-                    if x > 0 && y > 0 {
-                        maxval = maxval.max(data[((y - 1) * w + x - 1) as usize]);
-                    }
-                    if x + 1 < w && y > 0 {
-                        maxval = maxval.max(data[((y - 1) * w + x + 1) as usize]);
-                    }
-                }
-                if maxval > maskval {
-                    data[idx] = maxval;
-                }
-            }
-        }
-
-        // Anti-raster scan (LR -> UL)
-        for y in (0..h).rev() {
-            for x in (0..w).rev() {
-                let idx = (y * w + x) as usize;
-                let maskval = mask_data[idx];
-                if maskval == 255 {
-                    continue;
-                }
-                let mut maxval = data[idx];
-                if y + 1 < h {
-                    maxval = maxval.max(data[((y + 1) * w + x) as usize]);
-                }
-                if x + 1 < w {
-                    maxval = maxval.max(data[(y * w + x + 1) as usize]);
-                }
-                if use_8 {
-                    if x + 1 < w && y + 1 < h {
-                        maxval = maxval.max(data[((y + 1) * w + x + 1) as usize]);
-                    }
-                    if x > 0 && y + 1 < h {
-                        maxval = maxval.max(data[((y + 1) * w + x - 1) as usize]);
-                    }
-                }
-                if maxval > maskval {
-                    data[idx] = maxval;
-                }
-            }
-        }
-
-        if data == prev {
-            break;
-        }
-    }
+    scan_gray_inv_reconstruct(&mut data, &mask_data, w, h, use_8);
 
     let out = Pix::new(w, h, PixelDepth::Bit8).map_err(RegionError::Core)?;
     let mut out_mut = out.try_into_mut().unwrap();
@@ -2022,77 +2035,16 @@ pub fn seedfill_gray_basin(
         *v = 255 - *v;
     }
 
-    // Run standard gray seedfill (simple) on inverted images
-    // Seed is clipped from above by mask
+    // Run standard gray seedfill (simple) on inverted images.
+    // Seed is clipped from above by mask.
     let use_8 = connectivity == ConnectivityType::EightWay;
-    const MAX_ITERS: u32 = 40;
 
     // Initialize: seed clamped to mask
     for i in 0..seed_data.len() {
         seed_data[i] = seed_data[i].min(mask_data[i]);
     }
 
-    for _ in 0..MAX_ITERS {
-        let prev = seed_data.clone();
-
-        // Raster scan
-        for y in 0..h {
-            for x in 0..w {
-                let idx = (y * w + x) as usize;
-                let maskval = mask_data[idx];
-                if maskval == 0 {
-                    continue;
-                }
-                let mut maxval = seed_data[idx];
-                if y > 0 {
-                    maxval = maxval.max(seed_data[((y - 1) * w + x) as usize]);
-                }
-                if x > 0 {
-                    maxval = maxval.max(seed_data[(y * w + x - 1) as usize]);
-                }
-                if use_8 {
-                    if x > 0 && y > 0 {
-                        maxval = maxval.max(seed_data[((y - 1) * w + x - 1) as usize]);
-                    }
-                    if x + 1 < w && y > 0 {
-                        maxval = maxval.max(seed_data[((y - 1) * w + x + 1) as usize]);
-                    }
-                }
-                seed_data[idx] = maxval.min(maskval);
-            }
-        }
-
-        // Anti-raster scan
-        for y in (0..h).rev() {
-            for x in (0..w).rev() {
-                let idx = (y * w + x) as usize;
-                let maskval = mask_data[idx];
-                if maskval == 0 {
-                    continue;
-                }
-                let mut maxval = seed_data[idx];
-                if y + 1 < h {
-                    maxval = maxval.max(seed_data[((y + 1) * w + x) as usize]);
-                }
-                if x + 1 < w {
-                    maxval = maxval.max(seed_data[(y * w + x + 1) as usize]);
-                }
-                if use_8 {
-                    if x + 1 < w && y + 1 < h {
-                        maxval = maxval.max(seed_data[((y + 1) * w + x + 1) as usize]);
-                    }
-                    if x > 0 && y + 1 < h {
-                        maxval = maxval.max(seed_data[((y + 1) * w + x - 1) as usize]);
-                    }
-                }
-                seed_data[idx] = maxval.min(maskval);
-            }
-        }
-
-        if seed_data == prev {
-            break;
-        }
-    }
+    scan_gray_reconstruct(&mut seed_data, &mask_data, w, h, use_8);
 
     // Re-invert
     for v in &mut seed_data {
