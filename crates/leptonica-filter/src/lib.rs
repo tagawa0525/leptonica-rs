@@ -26,13 +26,15 @@ pub use kernel::Kernel;
 
 // Re-export commonly used functions
 pub use adaptmap::{
-    BackgroundNormOptions, ContrastNormOptions, apply_inv_background_gray_map,
-    apply_inv_background_rgb_map, apply_variable_gray_map, background_norm,
-    background_norm_gray_array, background_norm_gray_array_morph, background_norm_morph,
-    background_norm_rgb_arrays, background_norm_rgb_arrays_morph, background_norm_simple,
+    BackgroundNormOptions, ContrastNormOptions, EdgeFilterType, FlexNormOptions,
+    apply_inv_background_gray_map, apply_inv_background_rgb_map, apply_variable_gray_map,
+    background_norm, background_norm_flex, background_norm_gray_array,
+    background_norm_gray_array_morph, background_norm_morph, background_norm_rgb_arrays,
+    background_norm_rgb_arrays_morph, background_norm_simple, background_norm_to_1_min_max,
     clean_background_to_white, contrast_norm, contrast_norm_simple, convert_to_8_min_max,
     extend_by_replication, fill_map_holes, get_background_gray_map, get_background_gray_map_morph,
     get_background_rgb_map, get_background_rgb_map_morph, get_inv_background_map, global_norm_rgb,
+    smooth_connected_regions, threshold_spread_norm,
 };
 pub use bilateral::{
     bilateral, bilateral_exact, bilateral_gray, bilateral_gray_exact, make_range_kernel,
