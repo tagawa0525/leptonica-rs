@@ -362,7 +362,7 @@ I/O:
 
 ## Phase 9: Dewarp3/4 拡張適用（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/dewarp3.c`, `dewarp4.c`
 

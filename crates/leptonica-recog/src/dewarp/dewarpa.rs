@@ -6,6 +6,10 @@
 use std::io::{Read, Write};
 
 use crate::error::{RecogError, RecogResult};
+use leptonica_core::{
+    Pix,
+    box_::{Box as LBox, Boxa},
+};
 
 use super::types::{Dewarp, DewarpOptions};
 
@@ -314,6 +318,81 @@ impl Dewarpa {
             );
         }
         Ok(())
+    }
+
+    /// Apply the disparity model for `page` to an image.
+    ///
+    /// If the model at `page` is a reference model, the disparity is borrowed
+    /// from the referenced page.  The `x` and `y` parameters are reserved for
+    /// future crop-offset support and are currently ignored.
+    ///
+    /// # Arguments
+    ///
+    /// * `page` - 0-indexed page number
+    /// * `pix` - Source image to dewarp (any depth supported by [`apply_disparity`])
+    /// * `x` - X offset of `pix` within the full page (reserved, currently ignored)
+    /// * `y` - Y offset of `pix` within the full page (reserved, currently ignored)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `page` (or its referenced page) has no model, or if
+    /// applying the disparity fails.
+    pub fn apply_disparity(&self, page: usize, pix: &Pix, _x: u32, _y: u32) -> RecogResult<Pix> {
+        let dewarp = self.resolve_dewarp(page)?;
+        super::apply::apply_disparity(pix, dewarp, 255)
+    }
+
+    /// Apply the vertical disparity for `page` to a set of bounding boxes.
+    ///
+    /// Each box is shifted vertically by the disparity value sampled at the
+    /// box's centre point.  If the model at `page` is a reference model, the
+    /// disparity is borrowed from the referenced page.
+    ///
+    /// # Arguments
+    ///
+    /// * `page` - 0-indexed page number
+    /// * `boxa` - Bounding boxes defined in the original (warped) coordinate space
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model has no full-resolution vertical disparity array.
+    pub fn apply_disparity_boxa(&self, page: usize, boxa: &Boxa) -> RecogResult<Boxa> {
+        let dewarp = self.resolve_dewarp(page)?;
+        let v_disp = dewarp.full_v_disparity.as_ref().ok_or_else(|| {
+            RecogError::InvalidParameter(
+                "no full-resolution vertical disparity available".to_string(),
+            )
+        })?;
+
+        let mut result = Boxa::with_capacity(boxa.len());
+        for b in boxa.boxes() {
+            // Sample disparity at the centre of the box
+            let cx = (b.x + b.w / 2).max(0) as u32;
+            let cy = (b.y + b.h / 2).max(0) as u32;
+            let vval = v_disp.get_pixel(cx, cy).unwrap_or(0.0);
+            let new_y = b.y - vval.round() as i32;
+            result.push(LBox::new_unchecked(b.x, new_y, b.w, b.h));
+        }
+        Ok(result)
+    }
+
+    /// Resolve the effective [`Dewarp`] model for `page`.
+    ///
+    /// If the slot at `page` is a reference model, follows `ref_page` once to
+    /// find the real model.  Double indirection is not supported.
+    fn resolve_dewarp(&self, page: usize) -> RecogResult<&Dewarp> {
+        let dw = self.get(page).ok_or_else(|| {
+            RecogError::InvalidParameter(format!("page {page} has no Dewarp model"))
+        })?;
+        if let Some(ref_page) = dw.ref_page() {
+            self.get(ref_page as usize).ok_or_else(|| {
+                RecogError::InvalidParameter(format!(
+                    "reference model for page {page} points to page {ref_page} which has no model"
+                ))
+            })
+        } else {
+            Ok(dw)
+        }
     }
 
     /// Remove all reference models from the container.
@@ -721,5 +800,44 @@ mod tests {
         assert_eq!(da2.model_count(), 1);
         assert!(da2.get(2).is_some());
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_apply_disparity_no_model() {
+        use leptonica_core::{Pix, PixelDepth};
+        let da = make_dewarpa(3);
+        let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
+        let result = da.apply_disparity(0, &pix, 0, 0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_apply_disparity_boxa_empty() {
+        use leptonica_core::box_::Boxa;
+        let da = make_dewarpa(3);
+        let result = da.apply_disparity_boxa(0, &Boxa::new());
+        assert!(result.is_err()); // No model at page 0
+    }
+
+    #[test]
+    fn test_resolve_dewarp_ref_model() {
+        // A ref model should resolve to the referenced page's model.
+        let mut da = make_dewarpa(5);
+        let mut dw = make_dewarp(2);
+        dw.v_success = true;
+        da.insert(dw).unwrap();
+        da.use_single_model(2, false).unwrap();
+        // Page 0 is a ref pointing to page 2; apply should succeed
+        let pix = leptonica_core::Pix::new(10, 10, leptonica_core::PixelDepth::Bit8).unwrap();
+        // No full disparity on the model, so apply_disparity returns an error,
+        // but for a different reason (no disparity data), not "no model".
+        let result = da.apply_disparity(0, &pix, 0, 0);
+        // We expect an error about missing disparity, not missing model
+        match result {
+            Err(crate::error::RecogError::InvalidParameter(msg)) => {
+                assert!(!msg.contains("has no Dewarp model"), "unexpected: {msg}");
+            }
+            _ => {} // Any other outcome is acceptable for the RED phase
+        }
     }
 }

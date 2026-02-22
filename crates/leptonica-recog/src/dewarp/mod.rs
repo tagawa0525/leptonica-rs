@@ -64,6 +64,7 @@ mod apply;
 pub mod dewarpa;
 pub mod io;
 mod model;
+mod single_page;
 mod textline;
 mod types;
 
@@ -73,6 +74,7 @@ pub use apply::{
 };
 pub use dewarpa::Dewarpa;
 pub use model::{build_horizontal_disparity, build_vertical_disparity, populate_full_resolution};
+pub use single_page::{dewarp_single_page_init, dewarp_single_page_run};
 pub use textline::{
     find_textline_centers, is_line_coverage_valid, pix_find_textline_flow_direction,
     remove_short_lines, sort_lines_by_y,
