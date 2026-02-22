@@ -335,7 +335,7 @@ I/O:
 
 ## Phase 8: Dewarp2 高度なモデル構築（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/dewarp2.c` 全体
 
