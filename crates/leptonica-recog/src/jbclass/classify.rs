@@ -39,7 +39,7 @@ pub fn pix_word_mask_by_dilation(pix: &Pix, max_dil: u32) -> RecogResult<(Pix, u
     let mut prev_count = find_connected_components(pix, ConnectivityType::FourWay)?.len() as u32;
     for size in 1..=max_dil {
         let dil_w = 2 * size + 1;
-        let dilated = morph_binary::dilate_brick(&best, dil_w, 1)?;
+        let dilated = morph_binary::dilate_brick(pix, dil_w, 1)?;
         let count = find_connected_components(&dilated, ConnectivityType::FourWay)?.len() as u32;
         best = dilated;
         best_size = size;
