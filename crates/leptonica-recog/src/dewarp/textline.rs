@@ -419,7 +419,7 @@ mod tests {
         let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
         let result = pix_find_textline_flow_direction(&pix);
         assert!(result.is_ok());
-        // Empty image → default direction (0.0 radians = horizontal)
+        // Empty image with no text lines → fallback to 0.0 radians (horizontal)
         assert!((result.unwrap() - 0.0).abs() < 0.1);
     }
 
