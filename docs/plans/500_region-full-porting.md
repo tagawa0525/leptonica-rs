@@ -96,7 +96,7 @@ Basin filling:
 
 ## Phase 2: Local extrema（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/seedfill.c` L1100-1350
 
