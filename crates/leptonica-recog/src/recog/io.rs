@@ -39,18 +39,26 @@ impl Recog {
         write_u8(&mut writer, self.train_done as u8)?;
 
         // Class data
-        write_u32(&mut writer, self.set_size as u32)?;
+        let set_size = u32::try_from(self.set_size)
+            .map_err(|_| RecogError::InvalidParameter("set_size exceeds u32::MAX".to_string()))?;
+        write_u32(&mut writer, set_size)?;
         for class_idx in 0..self.set_size {
             // Label
             let label_bytes = self.sa_text[class_idx].as_bytes();
-            write_u32(&mut writer, label_bytes.len() as u32)?;
+            let label_len = u32::try_from(label_bytes.len()).map_err(|_| {
+                RecogError::InvalidParameter("label length exceeds u32::MAX".to_string())
+            })?;
+            write_u32(&mut writer, label_len)?;
             writer
                 .write_all(label_bytes)
                 .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
 
             // Unscaled templates
             let templates = &self.pixaa_u[class_idx];
-            write_u32(&mut writer, templates.len() as u32)?;
+            let template_count = u32::try_from(templates.len()).map_err(|_| {
+                RecogError::InvalidParameter("template count exceeds u32::MAX".to_string())
+            })?;
+            write_u32(&mut writer, template_count)?;
             for pix in templates {
                 write_pix(&mut writer, pix)?;
             }
