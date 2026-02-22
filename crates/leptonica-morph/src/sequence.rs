@@ -424,7 +424,9 @@ pub fn morph_comp_sequence_dwa(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
 /// Execute a color (32 bpp) morphological sequence on an image
 ///
 /// Processes each RGB channel independently using brick structuring elements.
-/// All structuring element dimensions must be odd numbers.
+/// Even-valued dimensions are silently coerced to the next odd value, matching
+/// the behavior of `dilate_color`, `erode_color`, and other direct color
+/// morphology functions.
 ///
 /// # Arguments
 ///
@@ -434,6 +436,11 @@ pub fn morph_comp_sequence_dwa(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
 /// # Returns
 ///
 /// A new image with all operations applied, or an error.
+///
+/// # Errors
+///
+/// Returns an error if `pix` is not 32-bpp, the sequence is invalid, or a
+/// tophat operation is specified (which is not valid for color morphology).
 pub fn color_morph_sequence(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
     if pix.depth() != PixelDepth::Bit32 {
         return Err(MorphError::UnsupportedDepth {
@@ -442,20 +449,10 @@ pub fn color_morph_sequence(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
         });
     }
     let seq = MorphSequence::parse(sequence)?;
-    // Color morphology requires odd dimensions (same as C)
     for (i, op) in seq.ops().iter().enumerate() {
         if let MorphOp::Tophat { .. } = op {
             return Err(MorphError::InvalidSequence(format!(
                 "operation {} (tophat) is not valid for color morphology",
-                i + 1
-            )));
-        }
-        let (w, h) = op.dimensions();
-        if w % 2 == 0 || h % 2 == 0 {
-            return Err(MorphError::InvalidSequence(format!(
-                "color morphology requires odd dimensions, got {}x{} at operation {}",
-                w,
-                h,
                 i + 1
             )));
         }
@@ -756,7 +753,6 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-
     fn test_morph_sequence_dwa_basic() {
         let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
         let result = morph_sequence_dwa(&pix, "d3.3 + e3.3");
@@ -765,14 +761,12 @@ mod tests {
     }
 
     #[test]
-
     fn test_morph_sequence_dwa_non_binary_error() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(morph_sequence_dwa(&pix, "d3.3").is_err());
     }
 
     #[test]
-
     fn test_morph_comp_sequence_dwa_basic() {
         let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
         let result = morph_comp_sequence_dwa(&pix, "d3.3 + e3.3");
@@ -781,14 +775,12 @@ mod tests {
     }
 
     #[test]
-
     fn test_morph_comp_sequence_dwa_non_binary_error() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(morph_comp_sequence_dwa(&pix, "d3.3").is_err());
     }
 
     #[test]
-
     fn test_color_morph_sequence_basic() {
         let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
         let result = color_morph_sequence(&pix, "d3.3");
@@ -797,18 +789,16 @@ mod tests {
     }
 
     #[test]
-
     fn test_color_morph_sequence_non_rgb_error() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(color_morph_sequence(&pix, "d3.3").is_err());
     }
 
     #[test]
-
-    fn test_color_morph_sequence_even_dim_error() {
+    fn test_color_morph_sequence_even_dim_coerced() {
         let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
-        // C says: dimensions must be odd for color morphology
-        assert!(color_morph_sequence(&pix, "d4.4").is_err());
+        // Even dimensions are silently coerced to odd, matching dilate_color behavior
+        assert!(color_morph_sequence(&pix, "d4.4").is_ok());
     }
 
     #[test]
