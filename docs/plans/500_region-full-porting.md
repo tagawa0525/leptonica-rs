@@ -287,7 +287,7 @@ Render:
 
 ## Phase 7: Gray maze（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/maze.c` L400-600
 

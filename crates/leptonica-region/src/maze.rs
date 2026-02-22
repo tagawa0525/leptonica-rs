@@ -62,7 +62,114 @@ pub fn search_gray_maze(
     start: (u32, u32),
     end: (u32, u32),
 ) -> RegionResult<(Pta, Numa)> {
-    todo!("Phase 7: not yet implemented")
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let width = pix.width();
+    let height = pix.height();
+
+    if start.0 >= width || start.1 >= height {
+        return Err(RegionError::InvalidSeed {
+            x: start.0,
+            y: start.1,
+        });
+    }
+    if end.0 >= width || end.1 >= height {
+        return Err(RegionError::InvalidSeed { x: end.0, y: end.1 });
+    }
+
+    // cost[y * width + x] = accumulated cost from start to (x, y)
+    let n = (width * height) as usize;
+    let mut cost = vec![f64::INFINITY; n];
+    // parent index, used to reconstruct the path
+    let mut parent = vec![usize::MAX; n];
+
+    let start_idx = (start.1 * width + start.0) as usize;
+    let start_cost = pix.get_pixel(start.0, start.1).unwrap_or(0) as f64;
+    cost[start_idx] = start_cost;
+
+    // Min-heap: (negative_cost, index) using BinaryHeap (which is a max-heap)
+    // We store ordered_float-like encoding: use `(cost_bits, idx)` with reversed order
+    use std::cmp::Reverse;
+    let mut heap: std::collections::BinaryHeap<(Reverse<u64>, usize)> =
+        std::collections::BinaryHeap::new();
+    heap.push((Reverse(start_cost.to_bits()), start_idx));
+
+    let end_idx = (end.1 * width + end.0) as usize;
+
+    // 4-way connectivity
+    const DX: [i32; 4] = [0, 0, -1, 1];
+    const DY: [i32; 4] = [-1, 1, 0, 0];
+
+    while let Some((Reverse(cost_bits), idx)) = heap.pop() {
+        let curr_cost = f64::from_bits(cost_bits);
+        if curr_cost > cost[idx] {
+            // Stale entry; skip
+            continue;
+        }
+        if idx == end_idx {
+            break;
+        }
+
+        let x = (idx as u32) % width;
+        let y = (idx as u32) / width;
+
+        for dir in 0..4 {
+            let nx = x as i32 + DX[dir];
+            let ny = y as i32 + DY[dir];
+            if nx < 0 || nx >= width as i32 || ny < 0 || ny >= height as i32 {
+                continue;
+            }
+            let nx = nx as u32;
+            let ny = ny as u32;
+            let nidx = (ny * width + nx) as usize;
+            let step_cost = pix.get_pixel(nx, ny).unwrap_or(0) as f64;
+            let new_cost = curr_cost + step_cost;
+            if new_cost < cost[nidx] {
+                cost[nidx] = new_cost;
+                parent[nidx] = idx;
+                heap.push((Reverse(new_cost.to_bits()), nidx));
+            }
+        }
+    }
+
+    if cost[end_idx].is_infinite() {
+        return Err(RegionError::SegmentationError(
+            "no path found between start and end".to_string(),
+        ));
+    }
+
+    // Reconstruct path by following parent pointers from end to start
+    let mut path_indices = Vec::new();
+    let mut cur = end_idx;
+    while cur != usize::MAX {
+        path_indices.push(cur);
+        if cur == start_idx {
+            break;
+        }
+        cur = parent[cur];
+        if path_indices.len() > n {
+            // Cycle guard (should not happen in correct Dijkstra)
+            break;
+        }
+    }
+    path_indices.reverse(); // now start → end
+
+    let mut pta = Pta::with_capacity(path_indices.len());
+    let mut numa = Numa::with_capacity(path_indices.len());
+
+    for &pidx in &path_indices {
+        let px = (pidx as u32) % width;
+        let py = (pidx as u32) / width;
+        pta.push(px as f32, py as f32);
+        numa.push(cost[pidx] as f32);
+    }
+
+    Ok((pta, numa))
 }
 
 /// Direction from parent to child in maze traversal
@@ -1004,7 +1111,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_maze_uniform_reaches_end() {
         // All-zero cost: any path has the same cost; algorithm should reach end
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -1015,7 +1121,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_maze_path_length() {
         // Path on uniform image must be at least Manhattan distance + 1
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -1025,7 +1130,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_maze_avoids_high_cost() {
         // High-cost column in the middle: optimal path should avoid it
         let values = vec![
@@ -1047,7 +1151,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_maze_costs_monotone() {
         // Accumulated cost must be monotonically non-decreasing
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
@@ -1058,7 +1161,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gray_maze_out_of_bounds_start() {
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
         let result = search_gray_maze(&pix, (10, 10), (4, 4));
