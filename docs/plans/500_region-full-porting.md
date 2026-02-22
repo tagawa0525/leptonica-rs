@@ -1,6 +1,6 @@
 # leptonica-region 全未実装関数の移植計画
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 ## Context
 
@@ -59,7 +59,7 @@ Phase 1 (Seedfill拡張) ← 基盤。border comp/holeはPhase 3のconncompか�
 
 ## Phase 1: Seedfill拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/seedfill.c` L180-600
 
