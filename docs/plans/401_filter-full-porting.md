@@ -1,6 +1,6 @@
 # leptonica-filter 全未実装関数の移植計画
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
@@ -120,7 +120,7 @@ Phase 1 (FPix畳み込み) ← FPixへの直接畳み込みサポート
 
 ## Phase 3: Adaptmap拡張（1 PR）
 
-**Status: IN_PROGRESS**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/adaptmap.c` L1600-2100
 
@@ -163,7 +163,7 @@ pub struct FlexNormOptions {
 
 ## Phase 4: Block bilateral + 追加（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/bilateral.c` L380-500, `adaptmap.c` L2200-2350
 
