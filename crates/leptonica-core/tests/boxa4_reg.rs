@@ -15,8 +15,11 @@ use leptonica_test::RegParams;
 ///
 /// C version uses boxa1.ba through boxa5.ba and showboxes.pac/showboxes1.baa
 /// test data files and performs 14 regtest checks.
+/// Partial port. The C version also tests boxaSmoothSequenceMedian,
+/// boxaReconcileAllByMedian, boxaReconcileSidesByMedian, boxaaTranspose,
+/// and boxaPlotSides (all not yet implemented).
+/// Currently only tests split_even_odd + merge_even_odd roundtrip.
 #[test]
-#[ignore = "not yet implemented: smooth_sequence_median, reconcile_all_by_median, reconcile_sides_by_median, Boxaa::transpose"]
 fn boxa4_reg() {
     let mut rp = RegParams::new("boxa4");
 

@@ -5,6 +5,11 @@
 //! scaling/rotation methods at different parameters to verify symmetry
 //! and correctness.
 //!
+//! NOTE: Partial port. The C version also tests pixScaleAreaMap (not public)
+//! and pixRotateBySampling (not public), and uses display_tiled_in_columns
+//! for golden file comparison. Currently tests exercise the API without
+//! golden file comparison.
+//!
 //! # See also
 //!
 //! C Leptonica: `reference/leptonica/prog/smallpix_reg.c`
@@ -40,7 +45,6 @@ fn make_test_pattern() -> Pix {
 ///
 /// C version expands 2x first, then scales at factors 0.30–0.685.
 #[test]
-#[ignore = "not yet implemented"]
 fn smallpix_reg_scale_smooth() {
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 2).expect("expand 2x");
@@ -50,13 +54,10 @@ fn smallpix_reg_scale_smooth() {
         let pix2 = scale_smooth(&pix1, scale, scale).expect("scale_smooth");
         let _pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
     }
-
-    // TODO: display_tiled_in_columns + write_pix_and_check
 }
 
 /// Test pixScaleBySampling at 11 downscale factors (C test check 2)
 #[test]
-#[ignore = "not yet implemented"]
 fn smallpix_reg_scale_by_sampling() {
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 2).expect("expand 2x");
@@ -70,7 +71,6 @@ fn smallpix_reg_scale_by_sampling() {
 
 /// Test pixRotateAMCorner at 11 angles (C test check 3)
 #[test]
-#[ignore = "not yet implemented"]
 fn smallpix_reg_rotate_am() {
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
@@ -84,7 +84,6 @@ fn smallpix_reg_rotate_am() {
 
 /// Test pixRotateAMColorFast at 11 angles (C test check 6)
 #[test]
-#[ignore = "not yet implemented"]
 fn smallpix_reg_rotate_am_color_fast() {
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
@@ -99,7 +98,6 @@ fn smallpix_reg_rotate_am_color_fast() {
 
 /// Test pixScaleColorLI at 11 upscale factors (C test check 7)
 #[test]
-#[ignore = "not yet implemented"]
 fn smallpix_reg_scale_color_li() {
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
@@ -113,7 +111,6 @@ fn smallpix_reg_scale_color_li() {
 
 /// Test pixScaleLI at 11 upscale factors (C test check 8)
 #[test]
-#[ignore = "not yet implemented"]
 fn smallpix_reg_scale_li() {
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");

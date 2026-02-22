@@ -25,8 +25,10 @@ const SAME: [i32; 3] = [1, -1, -1];
 ///
 /// C version uses boxap1.ba, boxap2.ba, boxap3.ba test data files
 /// and performs 45 regtest checks (3 datasets × 15 checks each).
+/// Partial port. The C version also tests boxaMedianDimensions,
+/// boxaSizeConsistency, boxaReconcileSizeByMedian, and boxaPlotSizes/Sides
+/// (all not yet implemented). Currently only tests read → scale → serialize.
 #[test]
-#[ignore = "not yet implemented: median_dimensions, size_consistency, reconcile_size_by_median"]
 fn boxa3_reg() {
     let mut rp = RegParams::new("boxa3");
 

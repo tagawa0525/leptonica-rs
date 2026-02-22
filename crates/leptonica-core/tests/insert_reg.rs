@@ -12,7 +12,6 @@ use leptonica_test::RegParams;
 
 /// Test Numa insert/remove cycle preserves data (C test checks 0–2)
 #[test]
-#[ignore = "not yet implemented"]
 fn insert_reg_numa() {
     let mut rp = RegParams::new("insert_numa");
 
@@ -43,7 +42,6 @@ fn insert_reg_numa() {
 
 /// Test Boxa insert/remove cycle preserves data (C test checks 3–5)
 #[test]
-#[ignore = "not yet implemented"]
 fn insert_reg_boxa() {
     let mut rp = RegParams::new("insert_boxa");
 
