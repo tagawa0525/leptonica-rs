@@ -1,6 +1,6 @@
 # leptonica-io: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-21（IO全移植計画 Phase 1-7 完了を反映）
+調査日: 2026-02-22（700_recog-full-porting Phase 1-13 全完了を反映）
 
 ## サマリー
 

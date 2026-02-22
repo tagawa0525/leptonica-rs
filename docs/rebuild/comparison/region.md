@@ -1,6 +1,6 @@
 # leptonica-region: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-18（Phase 8.3, 8.4 実装を反映）
+調査日: 2026-02-22（700_recog-full-porting Phase 1-13 全完了を反映）
 
 ## サマリー
 
