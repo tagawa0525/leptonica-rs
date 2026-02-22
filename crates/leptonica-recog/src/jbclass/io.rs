@@ -62,6 +62,11 @@ impl JbData {
     ///
     /// Returns an error if writing fails or the Pix cannot be encoded.
     pub fn write<W: Write>(&self, mut writer: W) -> RecogResult<()> {
+        if self.naclass.len() != self.napage.len() || self.naclass.len() != self.ptaul.len() {
+            return Err(RecogError::InvalidParameter(
+                "naclass, napage and ptaul must all have the same length".to_string(),
+            ));
+        }
         writer
             .write_all(MAGIC)
             .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
