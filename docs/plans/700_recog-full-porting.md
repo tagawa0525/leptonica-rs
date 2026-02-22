@@ -307,7 +307,7 @@ I/O:
 
 ## Phase 7: Dewarpa モデル管理（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/dewarp4.c` L70-400
 
