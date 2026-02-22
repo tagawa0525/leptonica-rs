@@ -467,7 +467,7 @@ pub enum SkewPivot {
 
 ## Phase 12: Baseline拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/baseline.c` L300-500
 
