@@ -522,9 +522,14 @@ impl ImageBorders {
                 .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
 
             // Number of borders (outer + holes)
-            let nb = (comp.border_count() as u32).to_le_bytes();
+            let nb: u32 = comp.border_count().try_into().map_err(|_| {
+                RegionError::InvalidParameters(format!(
+                    "component has too many borders to serialize: {}",
+                    comp.border_count()
+                ))
+            })?;
             writer
-                .write_all(&nb)
+                .write_all(&nb.to_le_bytes())
                 .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
 
             // Outer border
@@ -698,9 +703,14 @@ fn write_border<W: Write>(writer: &mut W, border: &Border) -> RegionResult<()> {
         .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
 
     // Number of points
-    let np = (border.points.len() as u32).to_le_bytes();
+    let np: u32 = border.points.len().try_into().map_err(|_| {
+        RegionError::InvalidParameters(format!(
+            "border has too many points to serialize: {}",
+            border.points.len()
+        ))
+    })?;
     writer
-        .write_all(&np)
+        .write_all(&np.to_le_bytes())
         .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
 
     // Points
