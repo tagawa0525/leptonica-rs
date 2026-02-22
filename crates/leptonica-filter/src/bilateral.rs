@@ -632,6 +632,23 @@ fn bilateral_apply(bil: &BilateralData, pix: &Pix) -> FilterResult<Pix> {
     Ok(pixd_mut.into())
 }
 
+/// Convenience wrapper for exact bilateral filtering.
+///
+/// Builds a Gaussian spatial kernel with `halfwidth = floor(2 * spatial_stdev)`
+/// and a range kernel from `range_stdev`, then applies exact bilateral filtering.
+/// Accepts 8bpp grayscale or 32bpp color images.
+///
+/// C版: `pixBlockBilateralExact()` in `bilateral.c`
+///
+/// # Arguments
+/// * `pix` - 8bpp grayscale or 32bpp color image (no colormap)
+/// * `spatial_stdev` - Spatial Gaussian std dev (must be > 0.0)
+/// * `range_stdev` - Range Gaussian std dev (must be > 0.0)
+pub fn block_bilateral_exact(pix: &Pix, spatial_stdev: f32, range_stdev: f32) -> FilterResult<Pix> {
+    let _ = (pix, spatial_stdev, range_stdev);
+    Err(FilterError::InvalidParameters("not yet implemented".into()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -746,5 +763,48 @@ mod tests {
         // Should return a copy without error
         let result = bilateral_exact(&pix, 2.0, 30.0);
         assert!(result.is_ok());
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 4: block_bilateral_exact tests
+    // -------------------------------------------------------------------------
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_block_bilateral_exact_gray() {
+        let pix = create_test_gray_image();
+        let result = block_bilateral_exact(&pix, 2.0, 30.0).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        // Should match bilateral_exact output
+        let expected = bilateral_exact(&pix, 2.0, 30.0).unwrap();
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                assert_eq!(
+                    result.get_pixel_unchecked(x, y),
+                    expected.get_pixel_unchecked(x, y)
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_block_bilateral_exact_color() {
+        let pix = create_test_color_image();
+        let result = block_bilateral_exact(&pix, 2.0, 30.0).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_block_bilateral_exact_invalid_params() {
+        let pix = create_test_gray_image();
+        assert!(block_bilateral_exact(&pix, 0.0, 30.0).is_err());
+        assert!(block_bilateral_exact(&pix, 2.0, 0.0).is_err());
+        assert!(block_bilateral_exact(&pix, -1.0, 30.0).is_err());
     }
 }

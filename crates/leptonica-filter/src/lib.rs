@@ -33,11 +33,12 @@ pub use adaptmap::{
     background_norm_rgb_arrays_morph, background_norm_simple, background_norm_to_1_min_max,
     clean_background_to_white, contrast_norm, contrast_norm_simple, convert_to_8_min_max,
     extend_by_replication, fill_map_holes, get_background_gray_map, get_background_gray_map_morph,
-    get_background_rgb_map, get_background_rgb_map_morph, get_inv_background_map, global_norm_rgb,
-    smooth_connected_regions, threshold_spread_norm,
+    get_background_rgb_map, get_background_rgb_map_morph, get_inv_background_map,
+    global_norm_no_sat_rgb, global_norm_rgb, smooth_connected_regions, threshold_spread_norm,
 };
 pub use bilateral::{
-    bilateral, bilateral_exact, bilateral_gray, bilateral_gray_exact, make_range_kernel,
+    bilateral, bilateral_exact, bilateral_gray, bilateral_gray_exact, block_bilateral_exact,
+    make_range_kernel,
 };
 pub use block_conv::{blockconv, blockconv_accum, blockconv_gray, blockconv_gray_unnormalized};
 pub use convolve::{
@@ -52,7 +53,8 @@ pub use enhance::{
     TrcLut, color_shift_rgb, contrast_trc, contrast_trc_masked, contrast_trc_pix, darken_gray,
     equalize_trc, equalize_trc_pix, gamma_trc, gamma_trc_masked, gamma_trc_pix,
     gamma_trc_with_alpha, measure_saturation, modify_brightness, modify_hue, modify_saturation,
-    mult_constant_color, mult_matrix_color, trc_map, trc_map_general,
+    mult_constant_color, mult_matrix_color, trc_map, trc_map_general, unsharp_masking,
+    unsharp_masking_gray,
 };
 pub use rank::{
     max_filter, median_filter, min_filter, rank_filter, rank_filter_color, rank_filter_gray,

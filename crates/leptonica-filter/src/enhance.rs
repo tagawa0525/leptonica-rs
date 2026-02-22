@@ -905,6 +905,43 @@ pub fn mult_matrix_color(pix: &Pix, kel: &Kernel) -> FilterResult<Pix> {
     Ok(pm.into())
 }
 
+// ============================================================================
+// Phase 4: unsharp masking (precise, Gaussian-based)
+// ============================================================================
+
+/// Apply unsharp masking to an 8bpp grayscale image using box convolution.
+///
+/// For `half_width` <= 2, delegates to the fast block-convolution version.
+/// For larger kernels, applies box convolution for the blur and then computes:
+/// `output = pix + fract * (pix - blur)`
+///
+/// C版: `pixUnsharpMaskingGray()` in `enhance.c`
+///
+/// # Arguments
+/// * `pix` - 8bpp grayscale image (no colormap)
+/// * `half_width` - Half-width of the smoothing kernel; must be >= 1
+/// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
+pub fn unsharp_masking_gray(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<Pix> {
+    let _ = (pix, half_width, fract);
+    Err(FilterError::InvalidParameters("not yet implemented".into()))
+}
+
+/// Apply unsharp masking to an 8bpp grayscale or 32bpp color image.
+///
+/// For 1bpp input, returns an error. For `half_width` <= 2, delegates to the
+/// fast version. For other depths, converts to 8 or 32 bpp first.
+///
+/// C版: `pixUnsharpMasking()` in `enhance.c`
+///
+/// # Arguments
+/// * `pix` - Any depth except 1bpp; with or without colormap
+/// * `half_width` - Half-width of the smoothing kernel; must be >= 1
+/// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
+pub fn unsharp_masking(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<Pix> {
+    let _ = (pix, half_width, fract);
+    Err(FilterError::InvalidParameters("not yet implemented".into()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1693,5 +1730,71 @@ mod tests {
         let kel = Kernel::from_slice(2, 2, &[1.0, 0.0, 0.0, 1.0]).unwrap();
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         assert!(mult_matrix_color(&pix, &kel).is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 4: unsharp_masking / unsharp_masking_gray tests
+    // -------------------------------------------------------------------------
+
+    fn create_8bpp_gradient() -> Pix {
+        let pix = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..30u32 {
+            for x in 0..30u32 {
+                pm.set_pixel_unchecked(x, y, (x * 8).min(255));
+            }
+        }
+        pm.into()
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_gray_basic() {
+        let pix = create_8bpp_gradient();
+        let result = unsharp_masking_gray(&pix, 3, 0.5).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_gray_no_sharpening() {
+        let pix = create_8bpp_gradient();
+        // fract <= 0 should return a clone
+        let result = unsharp_masking_gray(&pix, 3, 0.0).unwrap();
+        for y in 0..pix.height() {
+            for x in 0..pix.width() {
+                assert_eq!(
+                    result.get_pixel_unchecked(x, y),
+                    pix.get_pixel_unchecked(x, y)
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_color() {
+        let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..30u32 {
+            for x in 0..30u32 {
+                let v = (x * 8).min(255) as u8;
+                pm.set_pixel_unchecked(x, y, leptonica_core::color::compose_rgb(v, v, v));
+            }
+        }
+        let pix: Pix = pm.into();
+        let result = unsharp_masking(&pix, 3, 0.5).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_unsharp_masking_invalid_depth() {
+        let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+        assert!(unsharp_masking(&pix, 3, 0.5).is_err());
     }
 }
