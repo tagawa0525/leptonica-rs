@@ -174,6 +174,9 @@ pub struct Dewarp {
 
     /// Horizontal model is valid for rendering
     pub(crate) h_valid: bool,
+
+    /// If this is a reference model, the page number it borrows from
+    pub(crate) ref_page: Option<u32>,
 }
 
 impl Dewarp {
@@ -214,12 +217,18 @@ impl Dewarp {
             h_success: false,
             v_valid: false,
             h_valid: false,
+            ref_page: None,
         }
     }
 
     /// Get the page number
     pub fn page_number(&self) -> u32 {
         self.page_number
+    }
+
+    /// Set the page number
+    pub(crate) fn set_page_number(&mut self, page: u32) {
+        self.page_number = page;
     }
 
     /// Get the original image width
@@ -293,6 +302,55 @@ impl Dewarp {
     pub fn minimize(&mut self) {
         self.full_v_disparity = None;
         self.full_h_disparity = None;
+    }
+
+    /// Create a reference Dewarp model that borrows disparity data from another page.
+    ///
+    /// # Arguments
+    ///
+    /// * `page` - Page number for this reference model
+    /// * `ref_page` - Page number of the model to borrow from
+    pub fn create_ref(page: u32, ref_page: u32) -> Self {
+        assert_ne!(
+            page, ref_page,
+            "create_ref: page ({page}) must differ from ref_page ({ref_page}) to avoid a self-referential model"
+        );
+        Self {
+            page_number: page,
+            width: 0,
+            height: 0,
+            nx: 0,
+            ny: 0,
+            sampling: 30,
+            reduction_factor: 1,
+            min_lines: 15,
+            n_lines: 0,
+            sampled_v_disparity: None,
+            sampled_h_disparity: None,
+            full_v_disparity: None,
+            full_h_disparity: None,
+            min_curvature: 0,
+            max_curvature: 0,
+            left_slope: 0,
+            right_slope: 0,
+            left_curvature: 0,
+            right_curvature: 0,
+            v_success: false,
+            h_success: false,
+            v_valid: false,
+            h_valid: false,
+            ref_page: Some(ref_page),
+        }
+    }
+
+    /// Returns `true` if this model references another page's disparity data.
+    pub fn is_ref(&self) -> bool {
+        self.ref_page.is_some()
+    }
+
+    /// Returns the page number this model references, if any.
+    pub fn ref_page(&self) -> Option<u32> {
+        self.ref_page
     }
 }
 
@@ -453,5 +511,23 @@ mod tests {
         assert!(line.is_empty());
         assert_eq!(line.horizontal_extent(), 0.0);
         assert_eq!(line.mid_y(), None);
+    }
+
+    #[test]
+    fn test_dewarp_create_ref() {
+        let ref_dew = Dewarp::create_ref(3, 5);
+        assert_eq!(ref_dew.page_number(), 3);
+        assert_eq!(ref_dew.ref_page(), Some(5));
+        assert!(ref_dew.is_ref());
+        assert!(!ref_dew.v_success());
+        assert!(!ref_dew.h_success());
+    }
+
+    #[test]
+    fn test_dewarp_is_ref_false() {
+        let opts = DewarpOptions::default();
+        let dw = Dewarp::new(800, 600, 0, &opts);
+        assert!(!dw.is_ref());
+        assert_eq!(dw.ref_page(), None);
     }
 }

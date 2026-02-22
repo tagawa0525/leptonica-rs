@@ -190,6 +190,142 @@ impl Dewarpa {
             .with_min_lines(self.min_lines)
             .with_use_both(self.use_both)
     }
+
+    /// Fill empty page slots by inserting reference models pointing to the nearest valid page.
+    ///
+    /// For each page without a model, finds the nearest page with a valid non-reference model
+    /// within `max_dist` pages, and inserts a reference Dewarp pointing to it.
+    ///
+    /// # Arguments
+    ///
+    /// * `use_both` - If `true`, reference models use both V and H disparity
+    ///
+    /// # Returns
+    ///
+    /// The number of reference models inserted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if model insertion fails.
+    pub fn insert_ref_models(&mut self, use_both: bool) -> RecogResult<u32> {
+        let n = self.dewarp_array.len();
+        let max_d = self.max_dist as usize;
+
+        // Collect pages that need a reference model
+        let missing: Vec<usize> = (0..n).filter(|&i| self.dewarp_array[i].is_none()).collect();
+
+        let mut count = 0u32;
+        for page in missing {
+            // Find nearest real (non-ref) model within max_dist.
+            // When use_both is true, require h_success in addition to v_success.
+            let mut best: Option<usize> = None;
+            let mut best_dist = usize::MAX;
+            for ref_page in 0..n {
+                let is_valid = self.dewarp_array[ref_page]
+                    .as_ref()
+                    .is_some_and(|d| !d.is_ref() && d.v_success && (!use_both || d.h_success));
+                if is_valid {
+                    let dist = ref_page.abs_diff(page);
+                    if dist <= max_d && dist < best_dist {
+                        best = Some(ref_page);
+                        best_dist = dist;
+                    }
+                }
+            }
+            if let Some(ref_page) = best {
+                self.dewarp_array[page] = Some(Dewarp::create_ref(page as u32, ref_page as u32));
+                count = count.saturating_add(1);
+            }
+        }
+        Ok(count)
+    }
+
+    /// Apply a single page's model to all other pages via reference models.
+    ///
+    /// Replaces every slot (except `page`) with a reference model pointing to `page`.
+    ///
+    /// # Arguments
+    ///
+    /// * `page` - The page whose model to use
+    /// * `use_both` - If `true`, apply both V and H disparity
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `page` has no model.
+    pub fn use_single_model(&mut self, page: usize, _use_both: bool) -> RecogResult<()> {
+        if self
+            .dewarp_array
+            .get(page)
+            .and_then(|s| s.as_ref())
+            .is_none()
+        {
+            return Err(RecogError::InvalidParameter(format!(
+                "page {page} has no Dewarp model"
+            )));
+        }
+        let n = self.dewarp_array.len();
+        let page_u32 = u32::try_from(page)
+            .map_err(|_| RecogError::InvalidParameter("page index overflows u32".to_string()))?;
+        for i in 0..n {
+            if i != page {
+                let i_u32 = u32::try_from(i).map_err(|_| {
+                    RecogError::InvalidParameter("page index overflows u32".to_string())
+                })?;
+                self.dewarp_array[i] = Some(Dewarp::create_ref(i_u32, page_u32));
+            }
+        }
+        Ok(())
+    }
+
+    /// Swap the Dewarp models at two page positions.
+    ///
+    /// # Arguments
+    ///
+    /// * `page1` - First page index
+    /// * `page2` - Second page index
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either index is out of bounds.
+    pub fn swap_pages(&mut self, page1: usize, page2: usize) -> RecogResult<()> {
+        let n = self.dewarp_array.len();
+        if page1 >= n {
+            return Err(RecogError::InvalidParameter(format!(
+                "page1 index {page1} out of bounds (len={n})"
+            )));
+        }
+        if page2 >= n {
+            return Err(RecogError::InvalidParameter(format!(
+                "page2 index {page2} out of bounds (len={n})"
+            )));
+        }
+        self.dewarp_array.swap(page1, page2);
+        // Update each model's internal page number to match its new position.
+        if let Some(ref mut d) = self.dewarp_array[page1] {
+            d.set_page_number(
+                u32::try_from(page1)
+                    .map_err(|_| RecogError::InvalidParameter("page1 overflows u32".to_string()))?,
+            );
+        }
+        if let Some(ref mut d) = self.dewarp_array[page2] {
+            d.set_page_number(
+                u32::try_from(page2)
+                    .map_err(|_| RecogError::InvalidParameter("page2 overflows u32".to_string()))?,
+            );
+        }
+        Ok(())
+    }
+
+    /// Remove all reference models from the container.
+    ///
+    /// Non-reference models are kept unchanged.
+    pub fn strip_ref_models(&mut self) {
+        for slot in self.dewarp_array.iter_mut() {
+            if slot.as_ref().is_some_and(|d| d.is_ref()) {
+                *slot = None;
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +641,73 @@ mod tests {
         let bad = b"BAD_MAGIC_BYTES";
         let result = Dewarpa::read(bad.as_slice());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_insert_ref_models() {
+        let mut da = make_dewarpa(5);
+        let mut dw = make_dewarp(2);
+        dw.v_success = true;
+        da.insert(dw).unwrap();
+        let n = da.insert_ref_models(false).unwrap();
+        // Pages 0, 1, 3, 4 are within max_dist=5 of page 2 and should get ref models
+        assert!(n > 0);
+        let p0 = da.get(0);
+        let p2 = da.get(2);
+        assert!(p0.is_some_and(|d| d.is_ref()));
+        assert!(p2.is_some_and(|d| !d.is_ref()));
+    }
+
+    #[test]
+    fn test_use_single_model() {
+        let mut da = make_dewarpa(5);
+        da.insert(make_dewarp(2)).unwrap();
+        da.use_single_model(2, false).unwrap();
+        // Page 2 is the real model; all others are refs pointing to page 2
+        for i in 0..5 {
+            let m = da.get(i);
+            if i == 2 {
+                assert!(m.is_some_and(|d| !d.is_ref()));
+            } else {
+                assert!(m.is_some_and(|d| d.is_ref() && d.ref_page() == Some(2)));
+            }
+        }
+    }
+
+    #[test]
+    fn test_use_single_model_no_model() {
+        let mut da = make_dewarpa(5);
+        assert!(da.use_single_model(2, false).is_err());
+    }
+
+    #[test]
+    fn test_swap_pages() {
+        let mut da = make_dewarpa(5);
+        da.insert(make_dewarp(1)).unwrap();
+        da.swap_pages(1, 3).unwrap();
+        // After swap: page 1 is empty, page 3 has the model (page_number updated to new position)
+        assert!(da.get(1).is_none());
+        assert!(da.get(3).is_some_and(|d| d.page_number() == 3));
+    }
+
+    #[test]
+    fn test_swap_pages_out_of_bounds() {
+        let mut da = make_dewarpa(5);
+        assert!(da.swap_pages(0, 10).is_err());
+        assert!(da.swap_pages(10, 0).is_err());
+    }
+
+    #[test]
+    fn test_strip_ref_models() {
+        let mut da = make_dewarpa(5);
+        da.insert(make_dewarp(2)).unwrap();
+        da.use_single_model(2, false).unwrap();
+        // 5 total models: 1 real + 4 refs
+        assert_eq!(da.model_count(), 5);
+        da.strip_ref_models();
+        // Only the real model at page 2 remains
+        assert_eq!(da.model_count(), 1);
+        assert!(da.get(2).is_some_and(|d| !d.is_ref()));
     }
 
     #[test]
