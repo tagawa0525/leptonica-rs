@@ -305,13 +305,39 @@ pub fn widths_to_bar_string(widths: &[u8]) -> String {
 ///
 /// # Returns
 /// * `Numa` of quantized bar widths (values 1–4)
-pub fn extract_barcode_widths(pix: &Pix, _direction: Direction) -> RecogResult<Numa> {
-    todo!(
-        "extract_barcode_widths pix={}x{} depth={:?}",
-        pix.width(),
-        pix.height(),
-        pix.depth()
-    )
+pub fn extract_barcode_widths(pix: &Pix, direction: Direction) -> RecogResult<Numa> {
+    use leptonica_transform::rotate_90;
+
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth() as u32,
+        });
+    }
+
+    // For vertical barcodes, rotate 90° clockwise so bars become horizontal
+    let rotated;
+    let scan_pix = match direction {
+        Direction::Horizontal => pix,
+        Direction::Vertical => {
+            rotated = rotate_90(pix, true)?;
+            &rotated
+        }
+    };
+
+    // Extract crossings using default threshold
+    let crossings = extract_crossings(scan_pix, 120.0)?;
+
+    // Quantize to unit bar widths
+    let widths = quantize_crossings_by_width(&crossings, 0.25)?;
+
+    // Convert Vec<u8> to Numa
+    let mut numa = Numa::with_capacity(widths.len());
+    for w in widths {
+        numa.push(w as f32);
+    }
+
+    Ok(numa)
 }
 
 /// Finds local peak positions in a `Numa` that exceed a threshold.
@@ -324,8 +350,23 @@ pub fn extract_barcode_widths(pix: &Pix, _direction: Direction) -> RecogResult<N
 ///
 /// # Returns
 /// * `Numa` of indices where peaks occur
-pub fn find_barcode_peaks(numa: &Numa, _threshold: f32) -> RecogResult<Numa> {
-    todo!("find_barcode_peaks len={}", numa.len())
+pub fn find_barcode_peaks(numa: &Numa, threshold: f32) -> RecogResult<Numa> {
+    let vals = numa.as_slice();
+    let n = vals.len();
+    let mut peaks = Numa::new();
+
+    if n < 3 {
+        return Ok(peaks);
+    }
+
+    for i in 1..n - 1 {
+        let v = vals[i];
+        if v > threshold && v > vals[i - 1] && v > vals[i + 1] {
+            peaks.push(i as f32);
+        }
+    }
+
+    Ok(peaks)
 }
 
 #[cfg(test)]
@@ -370,22 +411,30 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_extract_barcode_widths_horizontal() {
         let pix = leptonica_core::Pix::new(200, 50, leptonica_core::PixelDepth::Bit8).unwrap();
+        // A blank image won't have enough crossings, so we expect an error
         let result = extract_barcode_widths(&pix, Direction::Horizontal);
-        assert!(result.is_ok());
-        let widths = result.unwrap();
-        assert!(widths.len() > 0);
+        assert!(result.is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_barcode_peaks_empty() {
         let numa = Numa::with_capacity(0);
         let result = find_barcode_peaks(&numa, 0.5);
         assert!(result.is_ok());
         let peaks = result.unwrap();
         assert_eq!(peaks.len(), 0);
+    }
+
+    #[test]
+    fn test_find_barcode_peaks_finds_peak() {
+        let mut numa = Numa::new();
+        for v in [0.0f32, 0.3, 0.8, 0.3, 0.0] {
+            numa.push(v);
+        }
+        let peaks = find_barcode_peaks(&numa, 0.5).unwrap();
+        assert_eq!(peaks.len(), 1);
+        assert!((peaks.get(0).unwrap() - 2.0).abs() < 1e-6);
     }
 }
