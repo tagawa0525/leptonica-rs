@@ -306,17 +306,42 @@ impl Dewarp {
     /// * `page` - Page number for this reference model
     /// * `ref_page` - Page number of the model to borrow from
     pub fn create_ref(page: u32, ref_page: u32) -> Self {
-        todo!("create_ref not yet implemented")
+        Self {
+            page_number: page,
+            width: 0,
+            height: 0,
+            nx: 0,
+            ny: 0,
+            sampling: 30,
+            reduction_factor: 1,
+            min_lines: 15,
+            n_lines: 0,
+            sampled_v_disparity: None,
+            sampled_h_disparity: None,
+            full_v_disparity: None,
+            full_h_disparity: None,
+            min_curvature: 0,
+            max_curvature: 0,
+            left_slope: 0,
+            right_slope: 0,
+            left_curvature: 0,
+            right_curvature: 0,
+            v_success: false,
+            h_success: false,
+            v_valid: false,
+            h_valid: false,
+            ref_page: Some(ref_page),
+        }
     }
 
     /// Returns `true` if this model references another page's disparity data.
     pub fn is_ref(&self) -> bool {
-        todo!("is_ref not yet implemented")
+        self.ref_page.is_some()
     }
 
     /// Returns the page number this model references, if any.
     pub fn ref_page(&self) -> Option<u32> {
-        todo!("ref_page not yet implemented")
+        self.ref_page
     }
 }
 
@@ -480,7 +505,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_create_ref() {
         let ref_dew = Dewarp::create_ref(3, 5);
         assert_eq!(ref_dew.page_number(), 3);
@@ -491,7 +515,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_is_ref_false() {
         let opts = DewarpOptions::default();
         let dw = Dewarp::new(800, 600, 0, &opts);

@@ -208,7 +208,35 @@ impl Dewarpa {
     ///
     /// Returns an error if model insertion fails.
     pub fn insert_ref_models(&mut self, _use_both: bool) -> RecogResult<u32> {
-        todo!("insert_ref_models not yet implemented")
+        let n = self.dewarp_array.len();
+        let max_d = self.max_dist as usize;
+
+        // Collect pages that need a reference model
+        let missing: Vec<usize> = (0..n).filter(|&i| self.dewarp_array[i].is_none()).collect();
+
+        let mut count = 0u32;
+        for page in missing {
+            // Find nearest real (non-ref, v_success) model within max_dist
+            let mut best: Option<usize> = None;
+            let mut best_dist = usize::MAX;
+            for ref_page in 0..n {
+                let is_valid = self.dewarp_array[ref_page]
+                    .as_ref()
+                    .is_some_and(|d| !d.is_ref() && d.v_success);
+                if is_valid {
+                    let dist = ref_page.abs_diff(page);
+                    if dist <= max_d && dist < best_dist {
+                        best = Some(ref_page);
+                        best_dist = dist;
+                    }
+                }
+            }
+            if let Some(ref_page) = best {
+                self.dewarp_array[page] = Some(Dewarp::create_ref(page as u32, ref_page as u32));
+                count = count.saturating_add(1);
+            }
+        }
+        Ok(count)
     }
 
     /// Apply a single page's model to all other pages via reference models.
@@ -223,8 +251,29 @@ impl Dewarpa {
     /// # Errors
     ///
     /// Returns an error if `page` has no model.
-    pub fn use_single_model(&mut self, _page: usize, _use_both: bool) -> RecogResult<()> {
-        todo!("use_single_model not yet implemented")
+    pub fn use_single_model(&mut self, page: usize, _use_both: bool) -> RecogResult<()> {
+        if self
+            .dewarp_array
+            .get(page)
+            .and_then(|s| s.as_ref())
+            .is_none()
+        {
+            return Err(RecogError::InvalidParameter(format!(
+                "page {page} has no Dewarp model"
+            )));
+        }
+        let n = self.dewarp_array.len();
+        let page_u32 = u32::try_from(page)
+            .map_err(|_| RecogError::InvalidParameter("page index overflows u32".to_string()))?;
+        for i in 0..n {
+            if i != page {
+                let i_u32 = u32::try_from(i).map_err(|_| {
+                    RecogError::InvalidParameter("page index overflows u32".to_string())
+                })?;
+                self.dewarp_array[i] = Some(Dewarp::create_ref(i_u32, page_u32));
+            }
+        }
+        Ok(())
     }
 
     /// Swap the Dewarp models at two page positions.
@@ -237,15 +286,31 @@ impl Dewarpa {
     /// # Errors
     ///
     /// Returns an error if either index is out of bounds.
-    pub fn swap_pages(&mut self, _page1: usize, _page2: usize) -> RecogResult<()> {
-        todo!("swap_pages not yet implemented")
+    pub fn swap_pages(&mut self, page1: usize, page2: usize) -> RecogResult<()> {
+        let n = self.dewarp_array.len();
+        if page1 >= n {
+            return Err(RecogError::InvalidParameter(format!(
+                "page1 index {page1} out of bounds (len={n})"
+            )));
+        }
+        if page2 >= n {
+            return Err(RecogError::InvalidParameter(format!(
+                "page2 index {page2} out of bounds (len={n})"
+            )));
+        }
+        self.dewarp_array.swap(page1, page2);
+        Ok(())
     }
 
     /// Remove all reference models from the container.
     ///
     /// Non-reference models are kept unchanged.
     pub fn strip_ref_models(&mut self) {
-        todo!("strip_ref_models not yet implemented")
+        for slot in self.dewarp_array.iter_mut() {
+            if slot.as_ref().is_some_and(|d| d.is_ref()) {
+                *slot = None;
+            }
+        }
     }
 }
 
@@ -565,7 +630,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_insert_ref_models() {
         let mut da = make_dewarpa(5);
         let mut dw = make_dewarp(2);
@@ -581,7 +645,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_use_single_model() {
         let mut da = make_dewarpa(5);
         da.insert(make_dewarp(2)).unwrap();
@@ -598,14 +661,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_use_single_model_no_model() {
         let mut da = make_dewarpa(5);
         assert!(da.use_single_model(2, false).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_swap_pages() {
         let mut da = make_dewarpa(5);
         da.insert(make_dewarp(1)).unwrap();
@@ -616,7 +677,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_swap_pages_out_of_bounds() {
         let mut da = make_dewarpa(5);
         assert!(da.swap_pages(0, 10).is_err());
@@ -624,7 +684,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_strip_ref_models() {
         let mut da = make_dewarpa(5);
         da.insert(make_dewarp(2)).unwrap();

@@ -150,7 +150,7 @@ impl Dewarp {
         let min_lines = read_u32(&mut reader)?;
         let n_lines = read_u32(&mut reader)?;
 
-        // Validate invariants enforced by Dewarp::new / DewarpOptions
+        // Validate invariants that do not depend on ref_page
         if sampling < 8 {
             return Err(RecogError::InvalidParameter(format!(
                 "sampling must be >= 8, got {sampling}"
@@ -160,11 +160,6 @@ impl Dewarp {
             return Err(RecogError::InvalidParameter(format!(
                 "reduction_factor must be 1 or 2, got {reduction_factor}"
             )));
-        }
-        if width == 0 || height == 0 {
-            return Err(RecogError::InvalidParameter(
-                "width and height must be non-zero".to_string(),
-            ));
         }
 
         let min_curvature = read_i32(&mut reader)?;
@@ -204,6 +199,13 @@ impl Dewarp {
                 )));
             }
         };
+
+        // width and height may be 0 only for reference models
+        if ref_page.is_none() && (width == 0 || height == 0) {
+            return Err(RecogError::InvalidParameter(
+                "width and height must be non-zero for non-reference models".to_string(),
+            ));
+        }
 
         let sampled_v_disparity = read_fpix(&mut reader)?;
         let sampled_h_disparity = read_fpix(&mut reader)?;
@@ -408,7 +410,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_dewarp_ref_page_roundtrip() {
         let ref_dew = Dewarp::create_ref(3, 5);
         let mut buf = Vec::new();
