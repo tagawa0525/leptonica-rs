@@ -2388,9 +2388,10 @@ mod tests {
         assert_eq!(result.width(), pix.width());
         assert_eq!(result.height(), pix.height());
         assert_eq!(result.depth(), PixelDepth::Bit32);
-        // After normalization with the exact color as reference, pixels should be brighter
+        // After normalization with the exact color as reference, all channels should be
+        // at least as bright as before, and at least one should be strictly brighter
         let (r, g, b) = leptonica_core::color::extract_rgb(result.get_pixel_unchecked(10, 10));
-        assert!(r > 180 || g > 120 || b > 90);
+        assert!(r >= 180 && g >= 120 && b >= 90 && (r > 180 || g > 120 || b > 90));
     }
 
     #[test]
