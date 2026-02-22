@@ -257,7 +257,7 @@ pub struct PreFilterResult {
 
 ## Phase 6: Dewarpa コンテナ管理（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/dewarp1.c` L70-400
 
