@@ -436,6 +436,57 @@ fn get_neighbors(
     neighbors
 }
 
+/// Result of watershed segmentation with per-basin images
+pub struct WatershedResult {
+    /// Per-basin images (each contains only pixels belonging to that basin)
+    basins: Vec<Pix>,
+    /// Width of the source image
+    width: u32,
+    /// Height of the source image
+    height: u32,
+}
+
+impl WatershedResult {
+    /// Number of basins found
+    pub fn num_basins(&self) -> u32 {
+        todo!("Phase 6: not yet implemented")
+    }
+
+    /// Per-basin images
+    pub fn basins(&self) -> &[Pix] {
+        todo!("Phase 6: not yet implemented")
+    }
+}
+
+/// Perform watershed segmentation and return a `WatershedResult` with per-basin images.
+///
+/// Unlike `watershed_segmentation`, this function extracts each basin
+/// into a separate `Pix` so callers can render or inspect them individually.
+pub fn watershed_with_basins(
+    pix: &Pix,
+    options: &WatershedOptions,
+) -> RegionResult<WatershedResult> {
+    todo!("Phase 6: not yet implemented")
+}
+
+/// Render each basin filled with its minimum pixel value.
+///
+/// The output is an 8-bit image where every pixel within a basin is set to
+/// the minimum gray value found in that basin.  Watershed boundary pixels
+/// (label 0) are set to 0.
+pub fn watershed_render_fill(result: &WatershedResult) -> RegionResult<Pix> {
+    todo!("Phase 6: not yet implemented")
+}
+
+/// Render each basin with a distinct pseudo-random color.
+///
+/// The output is a 32-bit RGBA image where pixels belonging to the same
+/// basin share the same color and adjacent basins have different colors.
+/// Watershed boundary pixels are black (0x000000FF).
+pub fn watershed_render_colors(result: &WatershedResult) -> RegionResult<Pix> {
+    todo!("Phase 6: not yet implemented")
+}
+
 /// Find basins (catchment regions) in a grayscale image
 ///
 /// Each basin is a region where all paths following the steepest descent
@@ -574,5 +625,94 @@ mod tests {
 
         let result = watershed_segmentation(&pix, &options);
         assert!(result.is_err());
+    }
+
+    // --- Phase 6 tests ---
+
+    fn create_two_basin_image() -> Pix {
+        // Two basins separated by a ridge
+        // Basin 1 (left): minimum at (0,1)=0
+        // Basin 2 (right): minimum at (4,1)=0
+        // Ridge at center column (x=2): value=20
+        create_gray_image(
+            5,
+            3,
+            &[
+                vec![5, 3, 20, 3, 5],
+                vec![0, 3, 20, 3, 0],
+                vec![5, 3, 20, 3, 5],
+            ],
+        )
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_watershed_with_basins_num_basins() {
+        let pix = create_two_basin_image();
+        let options = WatershedOptions::new().with_min_depth(1);
+        let result = watershed_with_basins(&pix, &options).unwrap();
+        assert_eq!(result.num_basins(), 2);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_watershed_with_basins_basin_images() {
+        let pix = create_two_basin_image();
+        let options = WatershedOptions::new().with_min_depth(1);
+        let result = watershed_with_basins(&pix, &options).unwrap();
+        assert_eq!(result.basins().len(), result.num_basins() as usize);
+        for basin in result.basins() {
+            assert_eq!(basin.width(), pix.width());
+            assert_eq!(basin.height(), pix.height());
+            assert_eq!(basin.depth(), PixelDepth::Bit8);
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_watershed_render_fill_min_value() {
+        let pix = create_two_basin_image();
+        let options = WatershedOptions::new().with_min_depth(1);
+        let result = watershed_with_basins(&pix, &options).unwrap();
+        let filled = watershed_render_fill(&result).unwrap();
+
+        assert_eq!(filled.width(), pix.width());
+        assert_eq!(filled.height(), pix.height());
+        assert_eq!(filled.depth(), PixelDepth::Bit8);
+
+        // The minimum pixel in basin 1 is 0; all basin 1 pixels should be 0.
+        // Check that at least the known minimum pixel is 0.
+        assert_eq!(filled.get_pixel(0, 1).unwrap(), 0);
+        assert_eq!(filled.get_pixel(4, 1).unwrap(), 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_watershed_render_colors_32bpp() {
+        let pix = create_two_basin_image();
+        let options = WatershedOptions::new().with_min_depth(1);
+        let result = watershed_with_basins(&pix, &options).unwrap();
+        let colored = watershed_render_colors(&result).unwrap();
+
+        assert_eq!(colored.width(), pix.width());
+        assert_eq!(colored.height(), pix.height());
+        assert_eq!(colored.depth(), PixelDepth::Bit32);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_watershed_render_colors_different_basins() {
+        let pix = create_two_basin_image();
+        let options = WatershedOptions::new().with_min_depth(1);
+        let result = watershed_with_basins(&pix, &options).unwrap();
+        let colored = watershed_render_colors(&result).unwrap();
+
+        // Basin 1 and basin 2 should have different colors
+        let color_left = colored.get_pixel(0, 1).unwrap();
+        let color_right = colored.get_pixel(4, 1).unwrap();
+        assert_ne!(color_left, color_right);
+        // Neither should be the black boundary color
+        assert_ne!(color_left, 0x000000FF);
+        assert_ne!(color_right, 0x000000FF);
     }
 }
