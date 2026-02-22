@@ -591,12 +591,21 @@ pub fn blockrank(pix: &Pix, wc: u32, hc: u32, rank: f32) -> FilterResult<Pix> {
 /// the corresponding neighborhood in the input. Uses replicate (clamp)
 /// border handling.
 ///
-/// If `normalize` is true, the kernel values are scaled so that they sum
-/// to 1.0 before convolution. If the kernel sum is very close to zero,
-/// normalization is skipped and the kernel is applied without scaling
-/// (matching the behavior of the underlying Leptonica C implementation).
+/// # Arguments
 ///
-/// C equivalent: `fpixConvolve()` in `convolve.c`
+/// * `fpix` - Input floating-point image to be convolved.
+/// * `kernel` - Convolution kernel specifying the weights and kernel center.
+/// * `normalize` - If `true`, the kernel is normalized to sum to 1.0 unless
+///   its sum is very close to zero, in which case no normalization is applied
+///   (matching the behavior of the underlying Leptonica C implementation).
+///
+/// # Returns
+///
+/// A new `FPix` containing the convolution result.
+///
+/// # See also
+///
+/// C Leptonica: `fpixConvolve()` in `convolve.c`
 pub fn fpix_convolve(fpix: &FPix, kernel: &Kernel, normalize: bool) -> FilterResult<FPix> {
     let w = fpix.width() as i32;
     let h = fpix.height() as i32;
@@ -642,7 +651,21 @@ pub fn fpix_convolve(fpix: &FPix, kernel: &Kernel, normalize: bool) -> FilterRes
 /// vertical direction. The full 2-D kernel must be separable (the outer
 /// product of the two 1-D kernels).
 ///
-/// C equivalent: `fpixConvolveSep()` in `convolve.c`
+/// # Arguments
+///
+/// * `fpix` - Source floating-point image to be convolved.
+/// * `kernel_x` - 1-D kernel applied horizontally (along the x-axis).
+/// * `kernel_y` - 1-D kernel applied vertically (along the y-axis).
+/// * `normalize` - If `true`, attempts to normalize each kernel so that
+///   the sum of its coefficients is 1.0 (when numerically stable).
+///
+/// # Returns
+///
+/// A new `FPix` containing the result of the separable convolution.
+///
+/// # See also
+///
+/// C Leptonica: `fpixConvolveSep()` in `convolve.c`
 pub fn fpix_convolve_sep(
     fpix: &FPix,
     kernel_x: &Kernel,
@@ -656,9 +679,6 @@ pub fn fpix_convolve_sep(
 /// Convolve an 8-bpp grayscale image and apply an automatic bias so that
 /// all output values are non-negative.
 ///
-/// Returns `(result_pix, bias)` where `bias` is the integer shift that was
-/// added before converting back to a `Pix`.
-///
 /// - If `kernel1` (and optional `kernel2`) have no negative values, a
 ///   standard convolution is performed with kernel coefficients applied
 ///   as-is (bias = 0, 8-bpp output).
@@ -666,7 +686,26 @@ pub fn fpix_convolve_sep(
 ///   minimum output value is shifted to 0.  `force8` controls whether the
 ///   output is clamped to 8-bpp or promoted to 16-bpp.
 ///
-/// C equivalent: `pixConvolveWithBias()` in `convolve.c`
+/// # Arguments
+///
+/// * `pix` - Input 8-bpp grayscale image.
+/// * `kernel1` - Primary convolution kernel (used alone or as x-direction).
+/// * `kernel2` - Optional second kernel for separable convolution (y-direction).
+/// * `force8` - If `true` and the output range exceeds 255, scale to 8-bpp;
+///   otherwise promote to 16-bpp.
+///
+/// # Returns
+///
+/// `(result_pix, bias)` where `bias` is the integer shift added before
+/// converting back to a `Pix`. If no negative kernel values, `bias` is 0.
+///
+/// # Errors
+///
+/// Returns [`FilterError::InvalidParameters`] if `pix` is not 8-bpp.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvolveWithBias()` in `convolve.c`
 pub fn convolve_with_bias(
     pix: &Pix,
     kernel1: &Kernel,
