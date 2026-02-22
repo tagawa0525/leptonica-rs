@@ -10,7 +10,7 @@ leptonica-region crateはseedfill、conncomp、ccbord、watershed、maze、quadt
 1. **Seedfill拡張** - border component抽出、hole filling variants、simple grayscale seedfillが未実装
 2. **Local extrema** - 局所極値検出が未実装
 3. **ConnComp拡張** - seedfillBB系（bounding box追跡付き）、nextOnPixelInRasterが未実装
-4. **Label拡張** - connComp transform系、incremental labeling が未実装
+4. **Label拡張** - ✅ 実装済み（PR #163）
 5. **CCBord拡張** - step chain生成、single path、I/O、SVG出力が未実装
 6. **Watershed拡張** - basin追跡、render fill/colors が未実装
 7. **Gray maze** - グレースケール迷路探索が未実装
@@ -21,7 +21,7 @@ leptonica-region crateはseedfill、conncomp、ccbord、watershed、maze、quadt
 |-----------|-------------|------|
 | seedfill.rs | 13 | コア実装済み、border comp/simple variant未対応 |
 | conncomp.rs | 7 | 基本実装済み、seedfillBB未対応 |
-| label.rs | 6 | 基本ラベリング済み、transform/incremental未対応 |
+| label.rs | 9 | 完了（conn_comp_transform/IncrementalLabeler/label_to_color 追加済み） |
 | ccbord.rs | 7 | 基本border tracing済み、chain/I/O/SVG未対応 |
 | watershed.rs | 5 | 基本アルゴリズム済み、render未対応 |
 | maze.rs | 3 | binary maze済み、gray maze未対応 |
