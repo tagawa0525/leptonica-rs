@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 50 |
+| ✅ 同等 | 56 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 49 |
+| ❌ 未実装 | 43 |
 | 合計 | 99 |
 
 ## 詳細
@@ -35,9 +35,9 @@
 | pixConvolveSep | ✅ 同等 | convolve.rs convolve_sep() | 分離可能畳み込み |
 | pixConvolveRGB | ✅ 同等 | convolve_color() | RGB畳み込み |
 | pixConvolveRGBSep | ✅ 同等 | convolve.rs convolve_rgb_sep() | RGB分離可能畳み込み |
-| fpixConvolve | ❌ 未実装 | - | 浮動小数点畳み込み (operates on FPIX) |
-| fpixConvolveSep | ❌ 未実装 | - | 浮動小数点分離可能畳み込み (operates on FPIX) |
-| pixConvolveWithBias | ❌ 未実装 | - | バイアス付き畳み込み |
+| fpixConvolve | ✅ 同等 | convolve.rs fpix_convolve() | 浮動小数点畳み込み (FPix対応) |
+| fpixConvolveSep | ✅ 同等 | convolve.rs fpix_convolve_sep() | 浮動小数点分離可能畳み込み (FPix対応) |
+| pixConvolveWithBias | ✅ 同等 | convolve.rs convolve_with_bias() | バイアス付き畳み込み |
 | l_setConvolveSampling | ❌ 未実装 | - | 畳み込みサブサンプリングパラメータ設定 (void) |
 | pixAddGaussianNoise | ✅ 同等 | convolve.rs add_gaussian_noise() | ガウシアンノイズ追加 |
 | gaussDistribSampling | ❌ 未実装 | - | ガウス分布サンプリング (returns l_float32) |
@@ -89,11 +89,11 @@
 
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixBilateral | ❌ 未実装 | - | 高速分離可能バイラテラルフィルタ(カラー/グレー自動判定) |
-| pixBilateralGray | ❌ 未実装 | - | 高速分離可能バイラテラルフィルタ(グレースケール) |
+| pixBilateral | ✅ 同等 | bilateral.rs bilateral() | 高速分離可能バイラテラルフィルタ(カラー/グレー自動判定) |
+| pixBilateralGray | ✅ 同等 | bilateral.rs bilateral_gray() | 高速分離可能バイラテラルフィルタ(グレースケール) |
 | pixBilateralExact | ✅ 同等 | bilateral_exact() | 厳密バイラテラルフィルタ(カラー/グレー自動判定) |
 | pixBilateralGrayExact | ✅ 同等 | bilateral_gray_exact() | 厳密バイラテラルフィルタ(グレースケール) |
-| pixBlockBilateralExact | ❌ 未実装 | - | ブロックベース厳密バイラテラルフィルタ |
+| pixBlockBilateralExact | ✅ 同等 | bilateral.rs block_bilateral_exact() | ブロックベース厳密バイラテラルフィルタ |
 | makeRangeKernel | ✅ 同等 | make_range_kernel() | レンジカーネル生成 (returns L_KERNEL*) |
 
 ### adaptmap.c
@@ -152,7 +152,7 @@
 4. **ウィンドウ統計**: windowed_stats(), windowed_mean(), windowed_mean_square(), windowed_variance(), mean_square_accum()
 5. **エッジ検出**: sobel_edge(), laplacian_edge(), sharpen(), emboss()
 6. **アンシャープマスク**: unsharp_mask(), unsharp_masking_fast(), unsharp_masking_gray_fast()
-7. **バイラテラルフィルタ**: bilateral_exact(), bilateral_gray_exact(), make_range_kernel()
+7. **バイラテラルフィルタ**: bilateral(), bilateral_gray(), bilateral_exact(), bilateral_gray_exact(), block_bilateral_exact(), make_range_kernel()
 8. **ランクフィルタ**: rank_filter(), rank_filter_gray(), rank_filter_color(), median_filter(), min_filter(), max_filter()
 9. **適応マッピング**: background_norm(), background_norm_simple(), contrast_norm(), contrast_norm_simple()
 10. **その他**: blockrank(), blocksum(), census_transform(), add_gaussian_noise()
@@ -160,17 +160,15 @@
 ### 主要な未実装機能
 
 #### 高優先度
-1. **高速バイラテラル**: pixBilateral, pixBilateralGray (分離可能近似版)
-2. **adaptmap.c詳細機能**: モルフォロジーベース正規化、マップ操作群
+1. **adaptmap.c詳細機能**: モルフォロジーベース正規化、マップ操作群
 
 #### 中優先度
-3. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile
-4. **タイル化畳み込み**: pixBlockconvTiled, pixBlockconvGrayTile
-5. **アンシャープマスクバリエーション**: pixUnsharpMasking (カラー), pixUnsharpMaskingGray1D/2D
+2. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile
+3. **タイル化畳み込み**: pixBlockconvTiled, pixBlockconvGrayTile
+4. **アンシャープマスクバリエーション**: pixUnsharpMasking (カラー), pixUnsharpMaskingGray1D/2D
 
 #### 低優先度
-6. **FPix畳み込み**: fpixConvolve, fpixConvolveSep
-7. **補助関数**: l_setConvolveSampling, gaussDistribSampling等
+5. **補助関数**: l_setConvolveSampling, gaussDistribSampling等
 
 ## 設計ノート
 
