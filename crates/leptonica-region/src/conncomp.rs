@@ -682,13 +682,23 @@ pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<
         return None;
     }
 
-    // Scan from (start_x, start_y) to end
-    for y in start_y..h {
-        let x_start = if y == start_y { start_x } else { 0 };
-        for x in x_start..w {
-            if let Some(val) = pix.get_pixel(x, y) {
+    // Scan from the pixel AFTER (start_x, start_y) in raster order
+    let mut y = start_y;
+    let mut x = start_x + 1;
+
+    // Move to next row if past end of current row
+    if x >= w {
+        x = 0;
+        y += 1;
+    }
+
+    // Scan remaining rows
+    for sy in y..h {
+        let x_start = if sy == y { x } else { 0 };
+        for sx in x_start..w {
+            if let Some(val) = pix.get_pixel(sx, sy) {
                 if val != 0 {
-                    return Some((x, y));
+                    return Some((sx, sy));
                 }
             }
         }
@@ -699,8 +709,8 @@ pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<
 
 /// Seedfill starting at a point with bounding box tracking
 ///
-/// Performs a flood fill starting from the given point, returning both
-/// the modified image and the bounding box of the filled region.
+/// Performs a flood fill starting from the given point. Modifies the input image
+/// in-place and returns the bounding box of all pixels that were filled.
 ///
 /// # Arguments
 ///
@@ -718,10 +728,102 @@ pub fn seedfill_bb(
     y: u32,
     connectivity: ConnectivityType,
 ) -> RegionResult<Box> {
-    // TODO: Implement seedfill with bounding box
-    Err(RegionError::InvalidParameters(
-        "seedfill_bb not yet implemented".into(),
-    ))
+    let w = pix.width();
+    let h = pix.height();
+
+    if x >= w || y >= h {
+        return Err(RegionError::InvalidParameters(format!(
+            "coordinates ({x}, {y}) out of bounds for {w}x{h} image"
+        )));
+    }
+
+    // Check if starting pixel is ON
+    if pix.get_pixel(x, y).unwrap_or(0) == 0 {
+        return Err(RegionError::InvalidParameters(
+            "starting pixel must be ON (non-zero)".into(),
+        ));
+    }
+
+    // BFS flood fill while tracking bounding box
+    let mut filled = vec![false; (w * h) as usize];
+    let mut queue = std::collections::VecDeque::new();
+    let mut min_x = x;
+    let mut max_x = x;
+    let mut min_y = y;
+    let mut max_y = y;
+
+    // Start from seed point
+    let sidx = (y * w + x) as usize;
+    filled[sidx] = true;
+    queue.push_back((x, y));
+
+    while let Some((cx, cy)) = queue.pop_front() {
+        // Update bounding box
+        if cx < min_x {
+            min_x = cx;
+        }
+        if cx > max_x {
+            max_x = cx;
+        }
+        if cy < min_y {
+            min_y = cy;
+        }
+        if cy > max_y {
+            max_y = cy;
+        }
+
+        // Get neighbors based on connectivity
+        let neighbors = match connectivity {
+            ConnectivityType::FourWay => {
+                let mut n = Vec::with_capacity(4);
+                if cx > 0 {
+                    n.push((cx - 1, cy));
+                }
+                if cx + 1 < w {
+                    n.push((cx + 1, cy));
+                }
+                if cy > 0 {
+                    n.push((cx, cy - 1));
+                }
+                if cy + 1 < h {
+                    n.push((cx, cy + 1));
+                }
+                n
+            }
+            ConnectivityType::EightWay => {
+                let mut n = Vec::with_capacity(8);
+                for dy in -1i32..=1 {
+                    for dx in -1i32..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+                        let nx = cx as i32 + dx;
+                        let ny = cy as i32 + dy;
+                        if nx >= 0 && nx < w as i32 && ny >= 0 && ny < h as i32 {
+                            n.push((nx as u32, ny as u32));
+                        }
+                    }
+                }
+                n
+            }
+        };
+
+        // Add ON neighbors to queue
+        for (nx, ny) in neighbors {
+            let nidx = (ny * w + nx) as usize;
+            if !filled[nidx] && pix.get_pixel(nx, ny).unwrap_or(0) != 0 {
+                filled[nidx] = true;
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+
+    Ok(Box {
+        x: min_x as i32,
+        y: min_y as i32,
+        w: (max_x - min_x + 1) as i32,
+        h: (max_y - min_y + 1) as i32,
+    })
 }
 
 /// 4-connected seedfill with bounding box tracking
@@ -924,7 +1026,6 @@ mod tests {
     // -- Phase 3: ConnComp拡張 tests --
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_count_conn_comp_basic() {
         // Create a 5x5 image with two separate components
         let pix = create_test_image(
@@ -946,7 +1047,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_next_on_pixel_in_raster_basic() {
         // 5x5 image: pixels at (1,0), (3,2), (4,4)
         let pix = create_test_image(5, 5, &[(1, 0), (3, 2), (4, 4)]);
@@ -969,7 +1069,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_next_on_pixel_raster_order() {
         // Verify raster scan order (left-to-right, top-to-bottom)
         let pix = create_test_image(5, 5, &[(2, 1), (1, 2), (3, 1)]);
@@ -986,7 +1085,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_seedfill_bb_basic() {
         // Create a 5x5 image with a square component at (1,1) to (3,3)
         let pix = create_test_image(
@@ -1016,7 +1114,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_seedfill_8_bb() {
         // Diagonal pixels should be connected in 8-way mode
         let pix = create_test_image(5, 5, &[(1, 1), (2, 2), (3, 3)]);
