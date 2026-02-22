@@ -263,7 +263,7 @@ pub fn deskew_by_angle(pix: &Pix, angle: f32) -> RecogResult<Pix> {
 #[derive(Debug, Clone)]
 pub struct DeskewOptions {
     /// Reduction factor (1, 2, or 4)
-    pub reduce_factor: u32,
+    pub sweep_reduction: u32,
     /// Half the sweep range in degrees
     pub sweep_range: f32,
     /// Angle increment for sweep phase in degrees
@@ -275,7 +275,7 @@ pub struct DeskewOptions {
 impl Default for DeskewOptions {
     fn default() -> Self {
         Self {
-            reduce_factor: 2,
+            sweep_reduction: 2,
             sweep_range: 7.0,
             sweep_delta: 1.0,
             search_reduction: 2,
@@ -330,7 +330,7 @@ pub fn deskew_general(pix: &Pix, options: &DeskewOptions) -> RecogResult<(Pix, f
         sweep_range: options.sweep_range,
         sweep_delta: options.sweep_delta,
         min_bs_delta: 0.01,
-        sweep_reduction: options.reduce_factor.max(1),
+        sweep_reduction: options.sweep_reduction.max(1),
         bs_reduction: options.search_reduction.max(1),
     };
     detect_opts.validate()?;
