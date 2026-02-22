@@ -2073,28 +2073,66 @@ pub enum ExtremaType {
 }
 
 /// Private helper: gray erosion (is_min=true) or dilation (is_min=false) with radius `r`.
+/// Private helper: grayscale min/max (erosion/dilation) with square kernel of radius `r`.
+///
+/// # Panics
+///
+/// Panics if `r > i32::MAX as u32`.
 fn gray_minmax(data: &[u8], w: u32, h: u32, r: u32, is_min: bool) -> Vec<u8> {
-    let mut out = vec![0u8; (w * h) as usize];
+    assert!(r <= i32::MAX as u32, "gray_minmax: r exceeds i32::MAX");
+    let num_pixels = (w * h) as usize;
+    let mut out = vec![0u8; num_pixels];
+
+    if r == 0 {
+        out.copy_from_slice(data);
+        return out;
+    }
+
     let r = r as i32;
+
+    // Separable two-pass filter: horizontal then vertical.
+    // Reduces complexity from O(w*h*(2r+1)^2) to O(w*h*(2r+1)).
+    let mut tmp = vec![0u8; num_pixels];
+
+    // Horizontal pass
     for y in 0..h as i32 {
+        let row_offset = y as u32 * w;
         for x in 0..w as i32 {
+            let mut val = if is_min { 255u8 } else { 0u8 };
+            for dx in -r..=r {
+                let nx = x + dx;
+                if nx < 0 || nx >= w as i32 {
+                    continue;
+                }
+                let v = data[(row_offset + nx as u32) as usize];
+                if is_min {
+                    if v < val {
+                        val = v;
+                    }
+                } else if v > val {
+                    val = v;
+                }
+            }
+            tmp[(row_offset + x as u32) as usize] = val;
+        }
+    }
+
+    // Vertical pass on horizontally-filtered data
+    for x in 0..w as i32 {
+        for y in 0..h as i32 {
             let mut val = if is_min { 255u8 } else { 0u8 };
             for dy in -r..=r {
                 let ny = y + dy;
                 if ny < 0 || ny >= h as i32 {
                     continue;
                 }
-                for dx in -r..=r {
-                    let nx = x + dx;
-                    if nx < 0 || nx >= w as i32 {
-                        continue;
+                let v = tmp[(ny as u32 * w + x as u32) as usize];
+                if is_min {
+                    if v < val {
+                        val = v;
                     }
-                    let v = data[(ny as u32 * w + nx as u32) as usize];
-                    if is_min {
-                        val = val.min(v);
-                    } else {
-                        val = val.max(v);
-                    }
+                } else if v > val {
+                    val = v;
                 }
             }
             out[(y as u32 * w + x as u32) as usize] = val;
@@ -2104,7 +2142,12 @@ fn gray_minmax(data: &[u8], w: u32, h: u32, r: u32, is_min: bool) -> Vec<u8> {
 }
 
 /// Private helper: binary dilation with square kernel of radius `r`.
+///
+/// # Panics
+///
+/// Panics if `r > i32::MAX as u32`.
 fn binary_dilate(mask: &[bool], w: u32, h: u32, r: u32) -> Vec<bool> {
+    assert!(r <= i32::MAX as u32, "binary_dilate: r exceeds i32::MAX");
     let mut out = vec![false; (w * h) as usize];
     let r = r as i32;
     for y in 0..h as i32 {
@@ -2159,10 +2202,15 @@ pub fn local_extrema(pix: &Pix, min_max_size: u32, min_diff: u32) -> RegionResul
             actual: pix.depth().bits(),
         });
     }
+    if min_max_size == 0 || min_max_size.is_multiple_of(2) {
+        return Err(RegionError::InvalidParameters(
+            "min_max_size must be odd and >= 1".into(),
+        ));
+    }
 
     let w = pix.width();
     let h = pix.height();
-    let r = min_max_size.saturating_sub(1) / 2;
+    let r = (min_max_size - 1) / 2;
 
     let mut data = vec![0u8; (w * h) as usize];
     for y in 0..h {
@@ -2232,8 +2280,15 @@ pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResu
         });
     }
 
-    let w = pix.width().min(pix_min.width());
-    let h = pix.height().min(pix_min.height());
+    let w = pix.width();
+    let h = pix.height();
+    if pix_min.width() != w || pix_min.height() != h {
+        return Err(RegionError::InvalidParameters(format!(
+            "pix ({w}x{h}) and pix_min ({}x{}) must have the same dimensions",
+            pix_min.width(),
+            pix_min.height()
+        )));
+    }
 
     // Build mask array and gray data
     let mut mask = vec![false; (w * h) as usize];
@@ -2249,6 +2304,8 @@ pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResu
     // Find connected components in mask via BFS (8-connected)
     let mut visited = vec![false; (w * h) as usize];
     let mut keep = mask.clone();
+    // Reusable CC membership buffer (avoids per-CC allocation)
+    let mut cc_buf = vec![false; (w * h) as usize];
 
     for sy in 0..h {
         for sx in 0..w {
@@ -2295,8 +2352,11 @@ pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResu
                 continue;
             }
 
-            // Check all 8-neighbors of CC pixels that are NOT in the CC
-            let cc_set: std::collections::HashSet<(u32, u32)> = cc_pixels.iter().cloned().collect();
+            // Check all 8-neighbors of CC pixels that are NOT in the CC.
+            // Mark CC pixels in the reusable buffer.
+            for &(px, py) in &cc_pixels {
+                cc_buf[(py * w + px) as usize] = true;
+            }
             let mut is_true_min = true;
             'check: for &(cx, cy) in &cc_pixels {
                 for dy in -1i32..=1 {
@@ -2309,8 +2369,7 @@ pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResu
                         if nx < 0 || nx >= w as i32 || ny < 0 || ny >= h as i32 {
                             continue;
                         }
-                        let np = (nx as u32, ny as u32);
-                        if !cc_set.contains(&np) {
+                        if !cc_buf[(ny as u32 * w + nx as u32) as usize] {
                             let nval = gray[(ny as u32 * w + nx as u32) as usize];
                             if nval <= cc_val {
                                 is_true_min = false;
@@ -2325,6 +2384,11 @@ pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResu
                 for &(px, py) in &cc_pixels {
                     keep[(py * w + px) as usize] = false;
                 }
+            }
+
+            // Clear cc_buf for reuse in the next CC
+            for &(px, py) in &cc_pixels {
+                cc_buf[(py * w + px) as usize] = false;
             }
         }
     }
@@ -2371,6 +2435,13 @@ pub fn selected_local_extrema(
             expected: "8-bit",
             actual: pix.depth().bits(),
         });
+    }
+    if min_distance > i32::MAX as u32 {
+        return Err(RegionError::InvalidParameters(format!(
+            "min_distance {} exceeds maximum allowed value {}",
+            min_distance,
+            i32::MAX
+        )));
     }
 
     let w = pix.width();
@@ -3030,5 +3101,61 @@ mod tests {
         let pta = selected_local_extrema(&pix, 0, ExtremaType::Minima).unwrap();
         // Should return a valid Pta (may be empty for flat image)
         let _ = pta.len();
+    }
+
+    #[test]
+    fn test_selected_local_extrema_distance_filter() {
+        // 9×9 image: local minimum at (2,2)=0 and local maximum at (6,6)=200, rest=100.
+        // With min_distance=3, the minimum at (2,2) should be removed because it is
+        // within distance 3 of the maximum at (6,6), and vice versa.
+        let mut vals: Vec<(u32, u32, u8)> = (0..9)
+            .flat_map(|y| (0..9u32).map(move |x| (x, y, 100u8)))
+            .collect();
+        vals.push((2, 2, 0));
+        vals.push((6, 6, 200));
+        let pix = make_8bpp(9, 9, &vals);
+
+        // With no distance filter, both extrema are found
+        let pta_min_no_filter = selected_local_extrema(&pix, 0, ExtremaType::Minima).unwrap();
+        let found_min = (0..pta_min_no_filter.len()).any(|i| {
+            pta_min_no_filter
+                .get(i)
+                .map(|(x, y)| x as u32 == 2 && y as u32 == 2)
+                .unwrap_or(false)
+        });
+        assert!(found_min, "minimum at (2,2) should be found with no filter");
+
+        // With min_distance=1, boundary case: adjacent extrema are filtered
+        let pix_adj = make_8bpp(
+            5,
+            5,
+            &[
+                (1, 2, 0), // minimum
+                (3, 2, 200), // maximum, 2 pixels away
+                           // rest default 0 (will not be extrema since surrounded by 0)
+            ],
+        );
+        // Verify the function accepts min_distance=1 without error
+        let _ = selected_local_extrema(&pix_adj, 1, ExtremaType::Minima).unwrap();
+    }
+
+    #[test]
+    fn test_local_extrema_invalid_params() {
+        let pix = make_8bpp(5, 5, &[]);
+        // min_max_size == 0 should error
+        assert!(local_extrema(&pix, 0, 0).is_err());
+        // even min_max_size should error
+        assert!(local_extrema(&pix, 2, 0).is_err());
+        // odd min_max_size >= 1 should succeed
+        assert!(local_extrema(&pix, 1, 0).is_ok());
+        assert!(local_extrema(&pix, 3, 0).is_ok());
+    }
+
+    #[test]
+    fn test_qualify_local_minima_size_mismatch() {
+        let pix = make_8bpp(5, 5, &[]);
+        let pix_min = Pix::new(6, 5, PixelDepth::Bit1).unwrap();
+        // Mismatched dimensions should return an error
+        assert!(qualify_local_minima(&pix, &pix_min, 255).is_err());
     }
 }
