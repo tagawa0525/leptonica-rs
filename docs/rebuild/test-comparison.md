@@ -1,14 +1,14 @@
 # C版 vs Rust版 テストケース比較
 
-調査日: 2026-02-22（300_transform全移植計画完了を反映）
+調査日: 2026-02-22（700_recog-full-porting Phase 1-13 全完了を反映）
 
 ## 概要
 
 | 項目             | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | ---------------- | ------------------------- | --------------------- |
-| テスト総数       | **305個** (.c)            | **42+ファイル**       |
-| 回帰テスト       | **160個** (*_reg.c)       | **9個** (IO回帰テスト)|
-| 個別テスト関数   | 多数                      | **2,845個**           |
+| テスト総数       | **305個** (.c)            | **80ファイル**        |
+| 回帰テスト       | **160個** (*_reg.c)       | **80個** (*_reg.rs)  |
+| 個別テスト関数   | 多数                      | **3,064個**（3,004 passed + 60 ignored）|
 | テストランナー   | alltests_reg.c            | `cargo test`          |
 
 ## C版テストの特徴
@@ -67,7 +67,7 @@ writetext, xformbox
 ### 構造（Rust版）
 
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
-- `crates/leptonica-io/tests/`に統合テスト（9ファイル、C版`*_reg.c`に対応）
+- `crates/*/tests/`に統合テスト（80ファイル、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
 - テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
@@ -112,11 +112,16 @@ writetext, xformbox
 | leptonica-morph     | dwa.rs             | 22       |
 | leptonica-morph     | sequence.rs        | 18       |
 | leptonica-recog     | baseline.rs        | 7        |
+| leptonica-recog     | barcode/detect.rs  | 5        |
+| leptonica-recog     | barcode/signal.rs  | 8        |
+| leptonica-recog     | dewarp/*.rs        | 40+      |
 | leptonica-recog     | jbclass/classify.rs| 7        |
+| leptonica-recog     | jbclass/io.rs      | 6        |
 | leptonica-recog     | jbclass/types.rs   | 5        |
 | leptonica-recog     | pageseg.rs         | 10       |
 | leptonica-recog     | recog/did.rs       | 5        |
 | leptonica-recog     | recog/ident.rs     | 5        |
+| leptonica-recog     | recog/io.rs        | 6+       |
 | leptonica-recog     | recog/train.rs     | 7        |
 | leptonica-recog     | recog/types.rs     | 5        |
 | leptonica-recog     | skew.rs            | 9        |
@@ -126,7 +131,7 @@ writetext, xformbox
 | leptonica-region    | watershed.rs       | 6        |
 | leptonica-transform | rotate.rs          | 227 (合計) |
 | leptonica-transform | scale.rs           | (上記に含む) |
-| **合計**            | **42+ファイル**    | **2,845個**|
+| **合計**            | **80ファイル**     | **3,064個**（3,004 passed + 60 ignored）|
 
 ### クレート別集計
 
@@ -137,7 +142,7 @@ writetext, xformbox
 | leptonica-transform | 227      | 回転、スケーリング、アフィン、射影    |
 | leptonica-morph     | 211      | 二値/グレースケール/カラー形態学、DWA、SEL、Sela |
 | leptonica-color     | 164      | 色空間変換、分析、量子化、二値化      |
-| leptonica-recog     | 156      | ページ分割、傾き検出、文字認識、JBIG2 |
+| leptonica-recog     | 264      | ページ分割、傾き検出、文字認識、JBIG2、デワープ、バーコード |
 | leptonica-io        | 150      | 全フォーマット読み書き、ヘッダー、回帰テスト |
 | leptonica-region    | 131      | 連結成分、ラベリング、シードフィル    |
 | leptonica-test      | 4        | テストインフラ                        |
@@ -153,9 +158,9 @@ writetext, xformbox
 | **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル  |
 | **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応    |
 | **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応          |
-| **統合テスト**   | alltests_reg.c         | 9ファイル（IO回帰テスト）     |
+| **統合テスト**   | alltests_reg.c         | 80ファイル（全crate回帰テスト）|
 | **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像    |
-| **カバレッジ**   | 160分野                | 9クレート、2,845テスト関数    |
+| **カバレッジ**   | 160分野                | 9クレート、3,064テスト関数    |
 
 ## 推奨アクション
 

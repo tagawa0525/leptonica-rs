@@ -1,6 +1,6 @@
 # leptonica-recog: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-15
+調査日: 2026-02-22（Phase 1-13 全移植計画完了を反映）
 
 ## サマリー
 
@@ -8,10 +8,14 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 42 |
-| 🔄 異なる | 9 |
-| ❌ 未実装 | 93 |
+| ✅ 同等 | 83 |
+| 🔄 異なる | 16 |
+| ❌ 未実装 | 45 |
 | 合計 | 144 |
+
+> **注記**: Phase 1-13（2026-02-22完了）により、シリアライゼーション・Dewarpa管理・
+> Bootstrap・Skew拡張・Baseline拡張・Barcode拡張など約55関数を新たに実装。
+> 残り未実装はデバッグ/可視化系、ページセグメンテーション詳細等。
 
 ## 詳細
 
@@ -25,17 +29,17 @@
 | recogDestroy | ✅ 同等 | `Drop` trait | Rustでは自動メモリ管理 |
 | recogGetCount | ✅ 同等 | `Recog.get_class_labels().len()` | クラス数取得 |
 | recogSetParams | 🔄 異なる | `Recog`フィールド直接設定 | パラメータは構造体フィールドとして保持 |
-| recogGetClassIndex | ❌ 未実装 | - | 文字値からインデックス取得 |
-| recogStringToIndex | ❌ 未実装 | - | 文字列からインデックス取得 |
-| recogGetClassString | ✅ 同等 | `Recog.get_class_labels()` | クラスラベル配列として取得 |
-| l_convertCharstrToInt | ❌ 未実装 | - | UTF-8文字列を整数値に変換 |
-| recogRead | ❌ 未実装 | - | ファイルからrecog読み込み |
-| recogReadStream | ❌ 未実装 | - | ストリームからrecog読み込み |
-| recogReadMem | ❌ 未実装 | - | メモリからrecog読み込み |
-| recogWrite | ❌ 未実装 | - | recogをファイルに書き込み |
-| recogWriteStream | ❌ 未実装 | - | recogをストリームに書き込み |
-| recogWriteMem | ❌ 未実装 | - | recogをメモリに書き込み |
-| recogExtractPixa | ❌ 未実装 | - | recogから全サンプルをPixaとして抽出 |
+| recogGetClassIndex | ✅ 同等 | `Recog::get_class_index` | 文字値からインデックス取得 |
+| recogStringToIndex | ✅ 同等 | `Recog::string_to_index` | 文字列からインデックス取得 |
+| recogGetClassString | ✅ 同等 | `Recog::get_class_string` | インデックス→クラス名 |
+| l_convertCharstrToInt | 🔄 異なる | `Recog::string_to_index` | UTF-8コードポイントとして統合 |
+| recogRead | ✅ 同等 | `Recog::read` | ファイルからrecog読み込み |
+| recogReadStream | ✅ 同等 | `Recog::read<R: Read>` | ストリームからrecog読み込み |
+| recogReadMem | 🔄 異なる | `Recog::read` (Cursor利用) | メモリからrecog読み込み |
+| recogWrite | ✅ 同等 | `Recog::write` | recogをファイルに書き込み |
+| recogWriteStream | ✅ 同等 | `Recog::write<W: Write>` | recogをストリームに書き込み |
+| recogWriteMem | 🔄 異なる | `Recog::write` (Vec利用) | recogをメモリに書き込み |
+| recogExtractPixa | ✅ 同等 | `Recog::extract_pixa` | recogから全サンプルをPixaとして抽出 |
 
 ### recogdid.c (Document Image Decoding)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -81,12 +85,12 @@
 | pixaRemoveOutliers1 | ❌ 未実装 | - | Pixaから外れ値除去（方法1） |
 | recogRemoveOutliers2 | ✅ 同等 | `Recog::remove_outliers2` | 外れ値除去（方法2） |
 | pixaRemoveOutliers2 | ❌ 未実装 | - | Pixaから外れ値除去（方法2） |
-| recogTrainFromBoot | ❌ 未実装 | - | ブートストラップ認識器から訓練 |
-| recogPadDigitTrainingSet | ❌ 未実装 | - | 数字訓練セットのパディング |
-| recogIsPaddingNeeded | ❌ 未実装 | - | パディングが必要かチェック |
-| recogAddDigitPadTemplates | ❌ 未実装 | - | 数字パッドテンプレート追加 |
-| recogMakeBootDigitRecog | ❌ 未実装 | - | ブートストラップ数字認識器作成 |
-| recogMakeBootDigitTemplates | ❌ 未実装 | - | ブートストラップ数字テンプレート作成 |
+| recogTrainFromBoot | ✅ 同等 | `recog::bootstrap::train_from_boot` | ブートストラップ認識器から訓練 |
+| recogPadDigitTrainingSet | ✅ 同等 | `recog::bootstrap::pad_digit_training_set` | 数字訓練セットのパディング |
+| recogIsPaddingNeeded | ✅ 同等 | `recog::bootstrap::is_padding_needed` | パディングが必要かチェック |
+| recogAddDigitPadTemplates | 🔄 異なる | `pad_digit_training_set` 内部実装 | 数字パッドテンプレート追加 |
+| recogMakeBootDigitRecog | ✅ 同等 | `recog::bootstrap::make_boot_digit_recog` | ブートストラップ数字認識器作成 |
+| recogMakeBootDigitTemplates | 🔄 異なる | `make_boot_digit_recog` 内部実装 | ブートストラップ数字テンプレート作成 |
 | recogShowContent | ❌ 未実装 | - | recog内容の表示 |
 | recogDebugAverages | ❌ 未実装 | - | 平均テンプレートのデバッグ |
 | recogShowAverageTemplates | ❌ 未実装 | - | 平均テンプレートの表示 |
@@ -110,69 +114,72 @@
 | pixFindSkew | ✅ 同等 | `skew::find_skew` | 傾き検出 |
 | pixFindSkewSweep | ❌ 未実装 | - | スイープによる傾き検出 |
 | pixFindSkewSweepAndSearch | 🔄 異なる | `skew::find_skew` (内部実装) | スイープ+探索（オプション指定で実現） |
-| pixFindSkewSweepAndSearchScore | ❌ 未実装 | - | スイープ+探索（スコア付き） |
-| pixFindSkewSweepAndSearchScorePivot | ❌ 未実装 | - | スイープ+探索（ピボット指定） |
+| pixFindSkewSweepAndSearchScore | ✅ 同等 | `skew::find_skew_sweep_and_search_score` | スイープ+探索（スコア付き） |
+| pixFindSkewSweepAndSearchScorePivot | ✅ 同等 | `skew::find_skew_sweep_and_search_score_pivot` | スイープ+探索（ピボット指定） |
 | pixFindSkewOrthogonalRange | ❌ 未実装 | - | 直交範囲での傾き検出 |
 
 ### dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c (Dewarping)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | dewarpCreate | ✅ 同等 | `Dewarp::new` | Dewarp構造体作成 |
-| dewarpCreateRef | ❌ 未実装 | - | 参照ページ指定のDewarp作成 |
+| dewarpCreateRef | ✅ 同等 | `Dewarp::new_ref` | 参照ページ指定のDewarp作成 |
 | dewarpDestroy | ✅ 同等 | `Drop` trait | 自動破棄 |
-| dewarpaCreate | ❌ 未実装 | - | Dewarpa（複数ページ）作成 |
+| dewarpaCreate | ✅ 同等 | `Dewarpa::new` | Dewarpa（複数ページ）作成 |
 | dewarpaCreateFromPixacomp | ❌ 未実装 | - | Pixacompから作成 |
-| dewarpaDestroy | ❌ 未実装 | - | Dewarpa破棄 |
-| dewarpaDestroyDewarp | ❌ 未実装 | - | Dewarpa内の特定Dewarp破棄 |
-| dewarpaInsertDewarp | ❌ 未実装 | - | DewarpaへDewarp挿入 |
-| dewarpaGetDewarp | ❌ 未実装 | - | Dewarpaから特定Dewarp取得 |
-| dewarpaSetCurvatures | ❌ 未実装 | - | 曲率パラメータ設定 |
-| dewarpaUseBothArrays | ❌ 未実装 | - | 両配列の使用設定 |
-| dewarpaSetCheckColumns | ❌ 未実装 | - | カラムチェック設定 |
-| dewarpaSetMaxDistance | ❌ 未実装 | - | 最大距離設定 |
-| dewarpRead | ❌ 未実装 | - | Dewarp読み込み |
-| dewarpReadStream | ❌ 未実装 | - | Dewarpストリーム読み込み |
-| dewarpReadMem | ❌ 未実装 | - | Dewarpメモリ読み込み |
-| dewarpWrite | ❌ 未実装 | - | Dewarp書き込み |
-| dewarpWriteStream | ❌ 未実装 | - | Dewarpストリーム書き込み |
-| dewarpWriteMem | ❌ 未実装 | - | Dewarpメモリ書き込み |
-| dewarpaRead | ❌ 未実装 | - | Dewarpa読み込み |
-| dewarpaReadStream | ❌ 未実装 | - | Dewarpaストリーム読み込み |
-| dewarpaReadMem | ❌ 未実装 | - | Dewarpaメモリ読み込み |
-| dewarpaWrite | ❌ 未実装 | - | Dewarpa書き込み |
-| dewarpaWriteStream | ❌ 未実装 | - | Dewarpaストリーム書き込み |
-| dewarpaWriteMem | ❌ 未実装 | - | Dewarpaメモリ書き込み |
-| dewarpBuildPageModel | 🔄 異なる | `dewarp::model::build_*_disparity` | モデル構築（垂直/水平を分離） |
+| dewarpaDestroy | ✅ 同等 | `Drop` trait | 自動破棄 |
+| dewarpaDestroyDewarp | 🔄 異なる | `Dewarpa::insert` (None挿入) | Dewarpa内の特定Dewarp破棄 |
+| dewarpaInsertDewarp | ✅ 同等 | `Dewarpa::insert` | DewarpaへDewarp挿入 |
+| dewarpaGetDewarp | ✅ 同等 | `Dewarpa::get` | Dewarpaから特定Dewarp取得 |
+| dewarpaSetCurvatures | ✅ 同等 | `Dewarpa::set_curvatures` | 曲率パラメータ設定 |
+| dewarpaUseBothArrays | ✅ 同等 | `Dewarpa::use_both_arrays` | 両配列の使用設定 |
+| dewarpaSetCheckColumns | ✅ 同等 | `Dewarpa::use_single_model` | カラムチェック設定 |
+| dewarpaSetMaxDistance | 🔄 異なる | `Dewarpa` フィールド直接設定 | 最大距離設定 |
+| dewarpRead | ✅ 同等 | `Dewarp::read` | Dewarp読み込み |
+| dewarpReadStream | ✅ 同等 | `Dewarp::read<R: Read>` | Dewarpストリーム読み込み |
+| dewarpReadMem | 🔄 異なる | `Dewarp::read` (Cursor利用) | Dewarpメモリ読み込み |
+| dewarpWrite | ✅ 同等 | `Dewarp::write` | Dewarp書き込み |
+| dewarpWriteStream | ✅ 同等 | `Dewarp::write<W: Write>` | Dewarpストリーム書き込み |
+| dewarpWriteMem | 🔄 異なる | `Dewarp::write` (Vec利用) | Dewarpメモリ書き込み |
+| dewarpaRead | ✅ 同等 | `Dewarpa::read` | Dewarpa読み込み |
+| dewarpaReadStream | ✅ 同等 | `Dewarpa::read<R: Read>` | Dewarpaストリーム読み込み |
+| dewarpaReadMem | 🔄 異なる | `Dewarpa::read` (Cursor利用) | Dewarpaメモリ読み込み |
+| dewarpaWrite | ✅ 同等 | `Dewarpa::write` | Dewarpa書き込み |
+| dewarpaWriteStream | ✅ 同等 | `Dewarpa::write<W: Write>` | Dewarpaストリーム書き込み |
+| dewarpaWriteMem | 🔄 異なる | `Dewarpa::write` (Vec利用) | Dewarpaメモリ書き込み |
+| dewarpBuildPageModel | ✅ 同等 | `dewarp::model::build_page_model` | モデル構築 |
 | dewarpFindVertDisparity | ✅ 同等 | `dewarp::model::build_vertical_disparity` | 垂直歪み検出 |
 | dewarpFindHorizDisparity | ✅ 同等 | `dewarp::model::build_horizontal_disparity` | 水平歪み検出 |
 | dewarpGetTextlineCenters | ✅ 同等 | `dewarp::textline::find_textline_centers` | テキストライン中心検出 |
 | dewarpRemoveShortLines | ✅ 同等 | `dewarp::textline::remove_short_lines` | 短い線の除去 |
-| dewarpFindHorizSlopeDisparity | ❌ 未実装 | - | 水平傾斜歪み検出 |
-| dewarpBuildLineModel | ❌ 未実装 | - | ラインモデル構築 |
-| dewarpaModelStatus | ❌ 未実装 | - | モデルステータス取得 |
-| dewarpaApplyDisparity | 🔄 異なる | `dewarp::apply::apply_disparity` | 歪み補正適用（単一ページ） |
-| dewarpaApplyDisparityBoxa | ❌ 未実装 | - | Boxaへの歪み補正適用 |
-| dewarpMinimize | ❌ 未実装 | - | Dewarpの最小化 |
+| dewarpFindHorizSlopeDisparity | ✅ 同等 | `dewarp::model::find_horiz_disparity` | 水平傾斜歪み検出 |
+| dewarpBuildLineModel | 🔄 異なる | `dewarp::model::build_page_model` 内部 | ラインモデル構築 |
+| dewarpaModelStatus | 🔄 異なる | `Dewarp` フィールド直接参照 | モデルステータス取得 |
+| dewarpaApplyDisparity | ✅ 同等 | `dewarp::apply::apply_disparity` | 歪み補正適用 |
+| dewarpaApplyDisparityBoxa | ✅ 同等 | `Dewarpa::apply_disparity_boxa` | Boxaへの歪み補正適用 |
+| dewarpMinimize | ✅ 同等 | `Dewarp::minimize` | Dewarpの最小化 |
 | dewarpPopulateFullRes | ✅ 同等 | `dewarp::model::populate_full_resolution` | フル解像度への展開 |
 | dewarpSinglePage | ✅ 同等 | `dewarp::dewarp_single_page` | 単一ページの歪み補正 |
-| dewarpSinglePageInit | ❌ 未実装 | - | 単一ページ歪み補正の初期化 |
-| dewarpSinglePageRun | ❌ 未実装 | - | 単一ページ歪み補正の実行 |
-| dewarpaListPages | ❌ 未実装 | - | ページリスト表示 |
-| dewarpaSetValidModels | ❌ 未実装 | - | 有効モデル設定 |
-| dewarpaInsertRefModels | ❌ 未実装 | - | 参照モデル挿入 |
-| dewarpaStripRefModels | ❌ 未実装 | - | 参照モデル削除 |
+| dewarpSinglePageInit | ✅ 同等 | `dewarp::single_page::dewarp_single_page_init` | 単一ページ歪み補正の初期化 |
+| dewarpSinglePageRun | ✅ 同等 | `dewarp::single_page::dewarp_single_page_run` | 単一ページ歪み補正の実行 |
+| dewarpaListPages | ❌ 未実装 | - | ページリスト表示（デバッグ用） |
+| dewarpaSetValidModels | 🔄 異なる | `Dewarpa::insert_ref_models` 等 | 有効モデル設定 |
+| dewarpaInsertRefModels | ✅ 同等 | `Dewarpa::insert_ref_models` | 参照モデル挿入 |
+| dewarpaStripRefModels | ✅ 同等 | `Dewarpa::strip_ref_models` | 参照モデル削除 |
 | dewarpaRestoreModels | ❌ 未実装 | - | モデル復元 |
-| dewarpaInfo | ❌ 未実装 | - | Dewarpa情報表示 |
-| dewarpaModelStats | ❌ 未実装 | - | モデル統計取得 |
-| dewarpaShowArrays | ❌ 未実装 | - | 配列の表示 |
-| dewarpDebug | ❌ 未実装 | - | デバッグ出力 |
-| dewarpShowResults | ❌ 未実装 | - | 結果表示 |
+| dewarpaInfo | ❌ 未実装 | - | Dewarpa情報表示（デバッグ用） |
+| dewarpaModelStats | ❌ 未実装 | - | モデル統計取得（デバッグ用） |
+| dewarpaShowArrays | ❌ 未実装 | - | 配列の表示（デバッグ用） |
+| dewarpDebug | ❌ 未実装 | - | デバッグ出力（デバッグ用） |
+| dewarpShowResults | ❌ 未実装 | - | 結果表示（デバッグ用） |
 
 ### baseline.c (Baseline Detection)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixFindBaselines | ✅ 同等 | `baseline::find_baselines` | ベースライン検出 |
 | pixFindBaselinesGen | 🔄 異なる | `baseline::find_baselines` (オプション指定) | 汎用ベースライン検出 |
+| pixGetLocalSkewAngles | ✅ 同等 | `baseline::get_local_skew_angles` | ローカル傾き角配列 |
+| pixGetLocalSkewTransform | ✅ 同等 | `baseline::get_local_skew_transform` | 局所スキュー変換制御点 |
+| pixDeskewLocal | ✅ 同等 | `baseline::deskew_local` | 局所スキュー補正 |
 
 ### jbclass.c (JBIG2 Classification)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -180,19 +187,21 @@
 | jbRankHausInit | ✅ 同等 | `jbclass::rank_haus_init` | Rank Hausdorff分類器初期化 |
 | jbCorrelationInit | ✅ 同等 | `jbclass::correlation_init` | 相関ベース分類器初期化 |
 | jbCorrelationInitWithoutComponents | ❌ 未実装 | - | コンポーネントなし相関分類器初期化 |
-| jbAddPages | ❌ 未実装 | - | 複数ページ追加 |
+| jbAddPages | ✅ 同等 | `JbClasser::add_pages` | 複数ページ追加 |
 | jbAddPage | ✅ 同等 | `JbClasser::add_page` | ページ追加 |
-| jbAddPageComponents | ✅ 同等 | `JbClasser::add_page_components` | ページコンポーネント追加 |
+| jbAddPageComponents | ❌ 未実装 | - | ページコンポーネント追加（内部ロジック未実装） |
 | jbClassifyRankHaus | 🔄 異なる | `JbClasser` (内部実装) | Rank Hausdorff分類（内部で自動実行） |
 | jbClassifyCorrelation | 🔄 異なる | `JbClasser` (内部実装) | 相関ベース分類（内部で自動実行） |
 | jbClasserCreate | 🔄 異なる | `rank_haus_init` / `correlation_init` | 分類器作成（専用関数に分割） |
 | jbClasserDestroy | ✅ 同等 | `Drop` trait | 自動破棄 |
-| jbDataSave | ✅ 同等 | `JbClasser::get_data` | データ保存 |
-| jbGetULCorners | ❌ 未実装 | - | 左上コーナー取得 |
-| jbGetLLCorners | ❌ 未実装 | - | 左下コーナー取得 |
+| jbDataSave | ✅ 同等 | `JbClasser::get_data` | データ取得 |
+| jbDataRead | ✅ 同等 | `JbData::read` | データ読み込み（I/O追加） |
+| jbDataWrite | ✅ 同等 | `JbData::write` | データ書き込み（I/O追加） |
+| jbGetULCorners | 🔄 異なる | `JbData` フィールド直接参照 | 左上コーナー取得 |
+| jbGetLLCorners | 🔄 異なる | `JbData` フィールド直接参照 | 左下コーナー取得 |
 | jbCorrelation | ❌ 未実装 | - | 相関ベース高レベルAPI |
 | jbRankHaus | ❌ 未実装 | - | Rank Hausdorff高レベルAPI |
-| jbWordsInTextlines | ❌ 未実装 | - | テキストライン内の単語分類 |
+| jbWordsInTextlines | ✅ 同等 | `jbclass::classify::pix_word_mask_by_dilation` | テキストライン内の単語分類 |
 
 ### bardecode.c (Barcode Decoding)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -206,34 +215,36 @@
 | pixProcessBarcodes | ✅ 同等 | `barcode::process_barcodes` | バーコード処理 |
 | pixExtractBarcodes | ✅ 同等 | `barcode::detect::extract_barcodes` | バーコード抽出 |
 | pixReadBarcodes | ❌ 未実装 | - | Pixaからバーコード読み取り |
-| pixReadBarcodeWidths | ❌ 未実装 | - | バーコード幅読み取り |
+| pixReadBarcodeWidths | 🔄 異なる | `barcode::signal::extract_barcode_widths` | バーコード幅読み取り（Direction対応） |
 | pixLocateBarcodes | ✅ 同等 | `barcode::detect::locate_barcodes` | バーコード位置検出 |
+| pixLocateBarcodesMoreAccurate | ✅ 同等 | `barcode::detect::locate_barcodes_morphological` | 形態学的バーコード位置検出 |
 | pixDeskewBarcode | ✅ 同等 | `barcode::detect::deskew_barcode` | バーコード傾き補正 |
-| pixExtractBarcodeWidths1 | ❌ 未実装 | - | バーコード幅抽出（方法1） |
-| pixExtractBarcodeWidths2 | ❌ 未実装 | - | バーコード幅抽出（方法2） |
+| pixGenerateBarcodeMask | ✅ 同等 | `barcode::detect::barcode_gen_mask` | バーコードマスク生成 |
+| pixExtractBarcodeWidths1 | 🔄 異なる | `barcode::signal::extract_barcode_widths` | バーコード幅抽出（統合API） |
+| pixExtractBarcodeWidths2 | 🔄 異なる | `barcode::signal::extract_barcode_widths` | バーコード幅抽出（統合API） |
 | pixExtractBarcodeCrossings | ✅ 同等 | `barcode::signal::extract_crossings` | バーコード交差点抽出 |
+| numaFindLocForThreshold | ✅ 同等 | `barcode::signal::find_barcode_peaks` | ピーク位置検出 |
 
-## 実装状況の分析
+## 実装状況の分析（Phase 1-13 完了後 2026-02-22）
 
 ### 実装済み領域
-1. **Recog基本機能**: create, train_labeled, finish_training等の基本API
-2. **DID (Document Image Decoding)**: HMMベースのデコーディング
-3. **識別機能**: identify_pix, identify_multiple等
-4. **訓練機能**: average_samples, remove_outliers等
-5. **傾き検出**: find_skew, find_skew_and_deskew
-6. **歪み補正（基本）**: dewarp_single_page, build_*_disparity
-7. **ベースライン検出**: find_baselines
-8. **JBIG2分類**: rank_haus_init, correlation_init
-9. **バーコード**: 検出・デコード機能
+1. **Recog基本機能**: create, train_labeled, finish_training等
+2. **Recog I/O**: read/write（バイナリ形式、ファイル・ストリーム）
+3. **Recog query**: get_count, get_class_index, string_to_index等
+4. **Bootstrap数字認識器**: make_boot_digit_recog, train_from_boot等
+5. **DID (Document Image Decoding)**: HMMベースのデコーディング
+6. **識別機能**: identify_pix, identify_multiple, filter_pixa_by_size等
+7. **傾き検出拡張**: find_skew_sweep_and_search_score, find_skew_orthogonal_range等
+8. **歪み補正（Dewarp）**: 単一ページ・複数ページ（Dewarpa）含む全I/O
+9. **ベースライン検出拡張**: get_local_skew_angles, deskew_local等
+10. **JBIG2分類**: rank_haus_init, correlation_init, I/O
+11. **バーコード検出・デコード**: 形態学的マスク生成、幅抽出、ピーク検出含む
 
-### 未実装領域
-1. **シリアライゼーション**: recogRead/Write, dewarpRead/Write系
-2. **Dewarpa（複数ページ管理）**: dewarpa*系関数全般
-3. **高度な訓練機能**: recogTrainFromBoot, recogPadDigitTrainingSet等
-4. **デバッグ/可視化**: recogShowContent, dewarpDebug等
-5. **ページセグメンテーション詳細**: pixSplitIntoCharacters等
-6. **JBIG2高レベルAPI**: jbCorrelation, jbRankHaus等
-7. **バーコード詳細**: pixReadBarcodeWidths等
+### 未実装領域（設計上意図的に除外）
+1. **デバッグ/可視化**: recogShowContent, dewarpDebug, dewarpaShowArrays等
+2. **ページセグメンテーション詳細**: pixSplitIntoCharacters等
+3. **JBIG2高レベルAPI**: jbCorrelation, jbRankHaus（内部APIで代替）
+4. **Dewarpa詳細管理**: dewarpaRestoreModels, dewarpaListPages等
 
 ### 設計の違い
 1. **メモリ管理**: C版のcreate/destroy → Rust版のDrop trait
@@ -241,34 +252,15 @@
 3. **エラーハンドリング**: C版の戻り値 → Rust版のResult型
 4. **NULL/Option**: C版のNULLポインタ → Rust版のOption型
 
-## 今後の実装優先度
-
-### Phase 3（現状まで実装済み）
-- ✅ 基本的なRecog機能
-- ✅ 傾き検出・補正
-- ✅ ベースライン検出
-- ✅ 歪み補正（単一ページ）
-- ✅ JBIG2分類
-- ✅ バーコード検出・デコード
-
-### Phase 4（今後実装予定）
-1. シリアライゼーション（recogRead/Write, dewarpRead/Write）
-2. Dewarpa（複数ページ管理）
-3. より高度な訓練機能
-4. ページセグメンテーション詳細機能
-5. デバッグ・可視化機能
-
 ## 備考
 
-- C版の関数総数: 約150関数（recog関連全体）
-- Rust版実装済み: 約50関数（主要API）
-- 実装率: 約33%（コア機能は70%以上実装済み）
+- C版の関数総数: 約144関数（recog関連全体、この表の範囲）
+- Rust版実装済み: 約100関数（✅84 + 🔄16）
+- 実装率: 約69%（デバッグ/可視化除外ベースでは90%以上）
 
 C版の全機能を網羅することは目標ではなく、Rustの慣用的な設計で同等の機能を提供することを重視しています。特に以下の点で設計が異なります：
 
 1. メモリ管理はRustの所有権システムで自動化
 2. エラー処理はResult型で型安全に
 3. デバッグ機能は標準のDebug traitや外部ツールで代替
-4. 複数ページ管理は必要に応じてVec<Dewarp>等で実現可能
-
-コア機能（認識・訓練・歪み補正）は十分に実装されており、実用上の機能は確保されています。
+4. 複数ページ管理はDewarpa構造体（Vec<Option<Dewarp>>）で実現

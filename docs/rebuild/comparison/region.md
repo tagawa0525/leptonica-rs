@@ -1,14 +1,14 @@
 # leptonica-region: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-18（Phase 8.3, 8.4 実装を反映）
+調査日: 2026-02-22（700_recog-full-porting Phase 1-13 全完了を反映）
 
 ## サマリー
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 27 |
+| ✅ 同等 | 40 |
 | 🔄 異なる | 8 |
-| ❌ 未実装 | 60 |
+| ❌ 未実装 | 47 |
 | 合計 | 95 |
 
 ## 詳細
@@ -20,7 +20,7 @@
 | pixConnCompPixa | ✅ 同等 | conncomp_pixa() | - |
 | pixConnCompBB | 🔄 異なる | find_connected_components | 異なるAPI: bounding box情報はConnectedComponentに含まれる |
 | pixCountConnComp | ✅ 同等 | pix_count_components (label.rs) | - |
-| nextOnPixelInRaster | ❌ 未実装 | - | - |
+| nextOnPixelInRaster | ✅ 同等 | conncomp.rs next_on_pixel_in_raster() | - |
 | pixSeedfillBB | ❌ 未実装 | - | - |
 | pixSeedfill4BB | ❌ 未実装 | - | - |
 | pixSeedfill8BB | ❌ 未実装 | - | - |
@@ -72,26 +72,26 @@
 | seedfillBinaryLow | ❌ 未実装 | - | Low-level関数 |
 | pixHolesByFilling | ✅ 同等 | fill_holes | - |
 | pixFillClosedBorders | ✅ 同等 | fill_closed_borders() | - |
-| pixExtractBorderConnComps | ❌ 未実装 | - | - |
+| pixExtractBorderConnComps | ✅ 同等 | seedfill.rs extract_border_conn_comps() | - |
 | pixRemoveBorderConnComps | ✅ 同等 | clear_border | - |
-| pixFillBgFromBorder | ❌ 未実装 | - | - |
-| pixFillHolesToBoundingRect | ❌ 未実装 | - | - |
+| pixFillBgFromBorder | ✅ 同等 | seedfill.rs fill_bg_from_border() | - |
+| pixFillHolesToBoundingRect | ✅ 同等 | seedfill.rs fill_holes_to_bounding_rect() | - |
 | pixSeedfillGray | ✅ 同等 | seedfill_gray | - |
 | pixSeedfillGrayInv | ✅ 同等 | seedfill_gray_inv() | - |
 | seedfillGrayLow | ❌ 未実装 | - | Low-level関数 |
 | seedfillGrayInvLow | ❌ 未実装 | - | Low-level関数 |
-| pixSeedfillGraySimple | ❌ 未実装 | - | - |
-| pixSeedfillGrayInvSimple | ❌ 未実装 | - | - |
+| pixSeedfillGraySimple | ✅ 同等 | seedfill.rs seedfill_gray_simple() | - |
+| pixSeedfillGrayInvSimple | ✅ 同等 | seedfill.rs seedfill_gray_inv_simple() | - |
 | seedfillGrayLowSimple | ❌ 未実装 | - | Low-level関数 |
 | seedfillGrayInvLowSimple | ❌ 未実装 | - | Low-level関数 |
-| pixSeedfillGrayBasin | ❌ 未実装 | - | - |
+| pixSeedfillGrayBasin | ✅ 同等 | seedfill.rs seedfill_gray_basin() | - |
 | pixDistanceFunction | ✅ 同等 | distance_function() | Chamfer距離変換 |
 | distanceFunctionLow | ❌ 未実装 | - | Low-level関数 |
 | pixSeedspread | ✅ 同等 | seedfill::seedspread() | Voronoiライクなシード拡散 |
 | seedspreadLow | ❌ 未実装 | - | Low-level関数 |
-| pixLocalExtrema | ❌ 未実装 | - | - |
-| pixQualifyLocalMinima | ❌ 未実装 | - | - |
-| pixSelectedLocalExtrema | ❌ 未実装 | - | - |
+| pixLocalExtrema | ✅ 同等 | seedfill.rs local_extrema() | - |
+| pixQualifyLocalMinima | ✅ 同等 | seedfill.rs qualify_local_minima() | - |
+| pixSelectedLocalExtrema | ✅ 同等 | seedfill.rs selected_local_extrema() | - |
 | pixFindEqualValues | ✅ 同等 | find_equal_values() | - |
 | pixSelectMinInConnComp | ✅ 同等 | seedfill::select_min_in_conncomp() | 連結成分内最小値検出 |
 | pixRemoveSeededComponents | ✅ 同等 | remove_seeded_components() | - |
@@ -103,8 +103,8 @@
 | wshedDestroy | ❌ 未実装 | - | - |
 | wshedApply | 🔄 異なる | watershed_segmentation | 異なるAPI: WatershedOptionsを使用 |
 | wshedBasins | 🔄 異なる | find_basins | 異なるアルゴリズム |
-| wshedRenderFill | ❌ 未実装 | - | - |
-| wshedRenderColors | ❌ 未実装 | - | - |
+| wshedRenderFill | ✅ 同等 | watershed.rs watershed_render_fill() | - |
+| wshedRenderColors | ✅ 同等 | watershed.rs watershed_render_colors() | - |
 
 ### pixlabel.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -134,7 +134,7 @@
 |-------|------|----------|------|
 | generateBinaryMaze | ✅ 同等 | generate_binary_maze | - |
 | pixSearchBinaryMaze | ✅ 同等 | search_binary_maze | - |
-| pixSearchGrayMaze | ❌ 未実装 | - | - |
+| pixSearchGrayMaze | ✅ 同等 | maze.rs search_gray_maze() | - |
 
 ## 注記
 
@@ -165,7 +165,7 @@
 ### 未実装の主要機能
 
 - **ccbord.c**: CCBORDAデータ構造全体、シリアライゼーション、SVG出力
-- **seedfill.c**: 局所極値検出（pixLocalExtrema等、leptonica-morphへの依存で未実装）
+- **seedfill.c**: 残りは Low-level 関数（seedfillGrayLow 等）と border 系
 - **watershed.c**: L_WSHEDデータ構造、レンダリング関数
 - **pixlabel.c**: インクリメンタル結合、色変換
 
@@ -182,24 +182,23 @@
 
 | ファイル | 実装済 | 未実装 | 実装率 |
 |---------|--------|--------|--------|
-| conncomp.c | 4 | 7 | 36.4% |
+| conncomp.c | 5 | 6 | 45.5% |
 | ccbord.c | 4 | 28 | 12.5% |
-| seedfill.c | 12 | 16 | 42.9% |
-| watershed.c | 2 | 4 | 33.3% |
+| seedfill.c | 21 | 7 | 75.0% |
+| watershed.c | 4 | 2 | 66.7% |
 | pixlabel.c | 3 | 3 | 50.0% |
 | quadtree.c | 8 | 1 | 88.9% |
-| maze.c | 2 | 1 | 66.7% |
+| maze.c | 3 | 0 | 100.0% |
 
 ### 全体
 
-- 実装済: 27関数 (28.4%)
+- 実装済: 40関数 (42.1%)
 - 部分実装/異なるAPI: 8関数 (8.4%)
-- 未実装: 60関数 (63.2%)
+- 未実装: 47関数 (49.5%)
 
 ### 推奨される次の実装項目
 
 1. **高優先度**:
-   - pixLocalExtrema (seedfill.c) - watershed/その他で使用（要: leptonica-morph依存追加）
    - pixSeedfillBB系関数 (conncomp.c) - 既存コードとの互換性
 
 2. **中優先度**:

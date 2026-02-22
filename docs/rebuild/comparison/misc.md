@@ -1,6 +1,6 @@
 # その他: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-15
+調査日: 2026-02-22（700_recog-full-porting Phase 1-13 全完了を反映）
 
 ## 対象ファイル
 
@@ -49,9 +49,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 13 |
+| ✅ 同等 | 12 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 103 |
+| ❌ 未実装 | 104 |
 | 合計 | 116 |
 
 注: この集計は主要な公開関数のみをカウント。静的(内部)関数は除外。
@@ -170,7 +170,7 @@
 | encodeBase64 | ❌ 未実装 | - | Base64エンコード |
 | decodeBase64 | ❌ 未実装 | - | Base64デコード |
 | encodeAscii85 | ✅ 同等 | 実装済み | PS/PDFモジュール内で使用 |
-| decodeAscii85 | ✅ 同等 | 実装済み | PS/PDFモジュール内で使用 |
+| decodeAscii85 | ❌ 未実装 | - | encodeAscii85のみ実装済み |
 | encodeAscii85WithComp | ❌ 未実装 | - | 圧縮付きAscii85 |
 | decodeAscii85WithComp | ❌ 未実装 | - | 圧縮付きAscii85デコード |
 | reformatPacked64 | ❌ 未実装 | - | パックされた64再フォーマット |

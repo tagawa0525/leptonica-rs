@@ -1,6 +1,6 @@
 # leptonica-io: C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-21（IO全移植計画 Phase 1-7 完了を反映）
+調査日: 2026-02-22（700_recog-full-porting Phase 1-13 全完了を反映）
 
 ## サマリー
 
@@ -52,7 +52,7 @@
 | pixReadMemJpeg | ✅ 同等 | `jpeg::read_jpeg` | Unified with stream |
 | readHeaderMemJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | Unified with stream |
 | readResolutionMemJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | ImageHeader.x/y_resolution |
-| pixWriteMemJpeg | 🔄 異なる | `jpeg::write_jpeg_mem` | jpeg-encoder使用 |
+| pixWriteMemJpeg | 🔄 異なる | `write_image_mem` → `jpeg::write_jpeg` | 統一メモリI/O API経由 |
 | pixSetChromaSampling | ❌ 未実装 | - | Chroma sampling設定未サポート |
 
 ### pnmio.c (PNM/PBM/PGM/PPM/PAM I/O)
