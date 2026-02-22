@@ -833,11 +833,9 @@ mod tests {
         // but for a different reason (no disparity data), not "no model".
         let result = da.apply_disparity(0, &pix, 0, 0);
         // We expect an error about missing disparity, not missing model
-        match result {
-            Err(crate::error::RecogError::InvalidParameter(msg)) => {
-                assert!(!msg.contains("has no Dewarp model"), "unexpected: {msg}");
-            }
-            _ => {} // Any other outcome is acceptable for the RED phase
+        // Any other outcome is acceptable for the RED phase
+        if let Err(crate::error::RecogError::InvalidParameter(msg)) = result {
+            assert!(!msg.contains("has no Dewarp model"), "unexpected: {msg}");
         }
     }
 }
