@@ -593,6 +593,9 @@ pub fn watershed_render_colors(result: &WatershedResult) -> RegionResult<Pix> {
             let label = result.labeled.get_pixel(x, y).unwrap_or(0);
             if label > 0 && (label as usize) <= colors.len() {
                 let _ = output.set_pixel(x, y, colors[(label - 1) as usize]);
+            } else {
+                // Watershed boundary or unlabeled: opaque black as documented
+                let _ = output.set_pixel(x, y, 0x000000FF);
             }
         }
     }
