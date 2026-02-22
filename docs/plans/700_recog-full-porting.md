@@ -180,7 +180,7 @@ pub struct RecogParams {
 
 ## Phase 4: 高度な識別・フィルタリング（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/recogident.c` L600-900
 
