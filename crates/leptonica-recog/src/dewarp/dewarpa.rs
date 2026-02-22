@@ -96,7 +96,10 @@ impl Dewarpa {
     pub fn insert(&mut self, dewarp: Dewarp) -> RecogResult<()> {
         let page = dewarp.page_number() as usize;
         if page >= self.dewarp_array.len() {
-            self.dewarp_array.resize_with(page + 1, || None);
+            let new_len = page.checked_add(1).ok_or_else(|| {
+                RecogError::InvalidParameter("page index overflows usize".to_string())
+            })?;
+            self.dewarp_array.resize_with(new_len, || None);
             self.max_pages = self.dewarp_array.len();
         }
         self.dewarp_array[page] = Some(dewarp);
