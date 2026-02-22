@@ -230,8 +230,16 @@ impl Pta {
     /// this method returns a new Pta and allows specifying a rotation center.
     ///
     /// C equivalent: `ptaRotate()` in `affinecompose.c`
-    pub fn rotate_around(&self, _xc: f32, _yc: f32, _angle: f32) -> Pta {
-        unimplemented!()
+    pub fn rotate_around(&self, xc: f32, yc: f32, angle: f32) -> Pta {
+        let sina = angle.sin();
+        let cosa = angle.cos();
+        self.iter()
+            .map(|(x, y)| {
+                let xp = xc + (x - xc) * cosa - (y - yc) * sina;
+                let yp = yc + (x - xc) * sina + (y - yc) * cosa;
+                (xp, yp)
+            })
+            .collect()
     }
 
     /// Apply a 3x3 affine transformation matrix to all points.
@@ -241,8 +249,11 @@ impl Pta {
     /// - y' = c*x + d*y + ty
     ///
     /// C equivalent: `ptaAffineTransform()` in `affinecompose.c`
-    pub fn affine_transform(&self, _mat: &[f32; 6]) -> Pta {
-        unimplemented!()
+    pub fn affine_transform(&self, mat: &[f32; 6]) -> Pta {
+        let [a, b, tx, c, d, ty] = *mat;
+        self.iter()
+            .map(|(x, y)| (a * x + b * y + tx, c * x + d * y + ty))
+            .collect()
     }
 
     /// Shift then scale all points: `x = round(scalex * (x + shiftx))`.
@@ -665,7 +676,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_rotate_around_origin() {
         let mut p = Pta::new();
         p.push(10.0, 0.0);
@@ -678,7 +688,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_rotate_around_center() {
         let mut p = Pta::new();
         p.push(20.0, 10.0);
@@ -690,7 +699,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_affine_transform() {
         let mut p = Pta::new();
         p.push(1.0, 0.0);
@@ -704,7 +712,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pta_affine_transform_empty() {
         let p = Pta::new();
         let mat = [1.0f32, 0.0, 10.0, 0.0, 1.0, 20.0];

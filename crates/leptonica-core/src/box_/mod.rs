@@ -758,8 +758,51 @@ impl Boxa {
     /// - y' = c*x + d*y + ty
     ///
     /// Corresponds to C Leptonica's `boxaAffineTransform`.
-    pub fn affine_transform(&self, _mat: &[f32; 6]) -> Boxa {
-        unimplemented!()
+    pub fn affine_transform(&self, mat: &[f32; 6]) -> Boxa {
+        let [a, b, tx, c, d, ty] = *mat;
+        let transform_pt =
+            |x: f32, y: f32| -> (f32, f32) { (a * x + b * y + tx, c * x + d * y + ty) };
+
+        self.boxes
+            .iter()
+            .map(|bx| {
+                let x0 = bx.x as f32;
+                let y0 = bx.y as f32;
+                let x1 = (bx.x + bx.w) as f32;
+                let y1 = (bx.y + bx.h) as f32;
+
+                let corners = [
+                    transform_pt(x0, y0),
+                    transform_pt(x1, y0),
+                    transform_pt(x0, y1),
+                    transform_pt(x1, y1),
+                ];
+
+                let xmin = corners
+                    .iter()
+                    .map(|(x, _)| *x)
+                    .fold(f32::INFINITY, f32::min);
+                let ymin = corners
+                    .iter()
+                    .map(|(_, y)| *y)
+                    .fold(f32::INFINITY, f32::min);
+                let xmax = corners
+                    .iter()
+                    .map(|(x, _)| *x)
+                    .fold(f32::NEG_INFINITY, f32::max);
+                let ymax = corners
+                    .iter()
+                    .map(|(_, y)| *y)
+                    .fold(f32::NEG_INFINITY, f32::max);
+
+                Box::new_unchecked(
+                    xmin.round() as i32,
+                    ymin.round() as i32,
+                    (xmax - xmin).round() as i32,
+                    (ymax - ymin).round() as i32,
+                )
+            })
+            .collect()
     }
 
     /// Corresponds to C Leptonica's `boxaRotate`.
@@ -1063,7 +1106,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_affine_transform_identity() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 20, 30, 40).unwrap());
@@ -1079,7 +1121,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxa_affine_transform_scale_translate() {
         let mut boxa = Boxa::new();
         boxa.push(Box::new(10, 10, 20, 20).unwrap());
