@@ -658,7 +658,7 @@ pub fn label_to_color(labeled: &Pix) -> RegionResult<Pix> {
         for x in 0..width {
             if let Some(label) = labeled.get_pixel(x, y) {
                 let color = if label == 0 {
-                    0x00000000 // Black for background
+                    0x000000FF // Black, opaque background (0xRRGGBBAA)
                 } else {
                     // Use existing color if assigned, otherwise generate new one
                     if let Some(&c) = color_map.get(&label) {
@@ -813,9 +813,9 @@ mod tests_phase4 {
         assert_eq!(colored.width(), labeled.width());
         assert_eq!(colored.height(), labeled.height());
 
-        // Background should be black (or specific color, depending on implementation)
+        // Background should be opaque black (0xRRGGBBAA format)
         let bg_color = colored.get_pixel(0, 0).unwrap();
-        assert!(bg_color == 0 || bg_color == 0xFF000000); // Black in RGBA
+        assert_eq!(bg_color, 0x000000FF); // Opaque black in 0xRRGGBBAA
     }
 
     #[test]
