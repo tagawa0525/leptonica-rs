@@ -81,7 +81,8 @@ pub use conncomp::{
 
 // Re-export label types and functions
 pub use label::{
-    ComponentStats, get_component_bounds_from_labels, get_component_sizes, get_component_stats,
+    ComponentStats, ConnCompTransform, IncrementalLabeler, conn_comp_transform,
+    get_component_bounds_from_labels, get_component_sizes, get_component_stats, label_to_color,
     pix_count_components, pix_get_component_bounds, pix_label_connected_components,
 };
 

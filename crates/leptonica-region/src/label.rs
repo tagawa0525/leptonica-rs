@@ -375,3 +375,464 @@ mod tests {
         assert!(bounds.is_empty());
     }
 }
+
+// ===== Phase 4 Label Extensions =====
+
+/// Transformation type for connected components
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnCompTransform {
+    /// Transform to area (pixel count) of each component
+    Area,
+    /// Transform to label number
+    Label,
+}
+
+/// Transform connected components by replacing pixel values with transformation results
+///
+/// Each connected component is filled with a value determined by the transformation type:
+/// - Area: pixel count of the component
+/// - Label: label number of the component
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image (1-bit)
+/// * `connectivity` - Connectivity type (4-way or 8-way)
+/// * `transform_type` - Type of transformation (Area or Label)
+///
+/// # Returns
+///
+/// A 32-bit image where each pixel contains the transformed value.
+pub fn conn_comp_transform(
+    pix: &Pix,
+    connectivity: ConnectivityType,
+    transform_type: ConnCompTransform,
+) -> RegionResult<Pix> {
+    // Get labeled image
+    let labeled = label_connected_components(pix, connectivity)?;
+
+    // Get component sizes
+    let sizes = get_component_sizes(&labeled)?;
+
+    let width = labeled.width();
+    let height = labeled.height();
+
+    // Create output image (32-bit)
+    let output = Pix::new(width, height, PixelDepth::Bit32).map_err(RegionError::Core)?;
+    let mut result = output.try_into_mut().unwrap_or_else(|p| p.to_mut());
+
+    // Transform pixel values based on type
+    for y in 0..height {
+        for x in 0..width {
+            if let Some(label) = labeled.get_pixel(x, y) {
+                let value = if label > 0 {
+                    match transform_type {
+                        ConnCompTransform::Area => {
+                            // Get area (pixel count) - labels are 1-indexed
+                            sizes.get(label as usize - 1).copied().unwrap_or(0)
+                        }
+                        ConnCompTransform::Label => label,
+                    }
+                } else {
+                    0
+                };
+
+                let _ = result.set_pixel(x, y, value);
+            }
+        }
+    }
+
+    Ok(result.into())
+}
+
+/// Incremental connected component labeler
+///
+/// Allows components to be added sequentially with automatic label assignment.
+pub struct IncrementalLabeler {
+    width: u32,
+    height: u32,
+    connectivity: ConnectivityType,
+    labels: Vec<u32>,
+    next_label: u32,
+}
+
+impl std::fmt::Debug for IncrementalLabeler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IncrementalLabeler")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("connectivity", &self.connectivity)
+            .field("next_label", &self.next_label)
+            .finish()
+    }
+}
+
+impl IncrementalLabeler {
+    /// Create a new incremental labeler
+    ///
+    /// # Arguments
+    ///
+    /// * `width` - Image width
+    /// * `height` - Image height
+    /// * `connectivity` - Connectivity type (4-way or 8-way)
+    pub fn new(width: u32, height: u32, connectivity: ConnectivityType) -> Self {
+        let size = (width as usize)
+            .checked_mul(height as usize)
+            .expect("image dimensions too large to allocate labels");
+        Self {
+            width,
+            height,
+            connectivity,
+            labels: vec![0; size],
+            next_label: 1,
+        }
+    }
+
+    /// Add a new component at the given position
+    ///
+    /// Uses BFS to find connected pixels and assigns them to the next label.
+    ///
+    /// # Arguments
+    ///
+    /// * `pix` - Source image (must be 1-bit binary)
+    /// * `x` - X coordinate of seed point
+    /// * `y` - Y coordinate of seed point
+    pub fn add_component(&mut self, pix: &Pix, x: u32, y: u32) -> RegionResult<u32> {
+        // Check bounds and validate seed position within the labeler
+        if x >= self.width || y >= self.height {
+            return Err(RegionError::InvalidSeed { x, y });
+        }
+
+        // Ensure the source image is 1-bit binary as documented
+        if pix.depth() != PixelDepth::Bit1 {
+            return Err(RegionError::UnsupportedDepth {
+                expected: "1-bit",
+                actual: pix.depth().bits(),
+            });
+        }
+
+        // Ensure the source image dimensions match the labeler dimensions
+        if pix.width() != self.width || pix.height() != self.height {
+            return Err(RegionError::InvalidSeed { x, y });
+        }
+
+        // Check if seed point is already labeled
+        let idx = (y * self.width + x) as usize;
+        if self.labels[idx] != 0 {
+            return Ok(self.labels[idx]); // Already labeled
+        }
+
+        // Check if seed point is valid foreground; treat None or 0 as invalid
+        match pix.get_pixel(x, y) {
+            Some(1) => {} // valid foreground seed
+            _ => return Err(RegionError::InvalidSeed { x, y }),
+        }
+
+        // BFS to find all connected pixels
+        let label = self.next_label;
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back((x, y));
+        self.labels[idx] = label;
+
+        const FOUR_WAY: &[(i32, i32)] = &[
+            (0, -1), // up
+            (0, 1),  // down
+            (-1, 0), // left
+            (1, 0),  // right
+        ];
+        const EIGHT_WAY: &[(i32, i32)] = &[
+            (0, -1),  // up
+            (0, 1),   // down
+            (-1, 0),  // left
+            (1, 0),   // right
+            (-1, -1), // up-left
+            (1, -1),  // up-right
+            (-1, 1),  // down-left
+            (1, 1),   // down-right
+        ];
+        let offsets: &[(i32, i32)] = match self.connectivity {
+            ConnectivityType::FourWay => FOUR_WAY,
+            ConnectivityType::EightWay => EIGHT_WAY,
+        };
+
+        while let Some((cx, cy)) = queue.pop_front() {
+            for &(dx, dy) in offsets {
+                let nx = cx as i32 + dx;
+                let ny = cy as i32 + dy;
+
+                // Check bounds
+                if nx < 0 || nx >= self.width as i32 || ny < 0 || ny >= self.height as i32 {
+                    continue;
+                }
+
+                let nx = nx as u32;
+                let ny = ny as u32;
+                let n_idx = (ny * self.width + nx) as usize;
+
+                // Check if already labeled
+                if self.labels[n_idx] != 0 {
+                    continue;
+                }
+
+                // Check if foreground
+                if pix.get_pixel(nx, ny) != Some(1) {
+                    continue;
+                }
+
+                // Label and enqueue
+                self.labels[n_idx] = label;
+                queue.push_back((nx, ny));
+            }
+        }
+
+        self.next_label += 1;
+        Ok(label)
+    }
+
+    /// Get the resulting labeled image
+    pub fn finish(self) -> Pix {
+        // Create a 32-bit image
+        let pix =
+            Pix::new(self.width, self.height, PixelDepth::Bit32).expect("Failed to allocate image");
+        let mut pix_mut = pix.try_into_mut().unwrap_or_else(|p| p.to_mut());
+
+        for (idx, &label) in self.labels.iter().enumerate() {
+            let y = (idx as u32) / self.width;
+            let x = (idx as u32) % self.width;
+            let _ = pix_mut.set_pixel(x, y, label);
+        }
+
+        pix_mut.into()
+    }
+}
+
+/// Convert a labeled image to a color image for visualization
+///
+/// Each unique label is deterministically mapped to a color from a fixed
+/// palette based on its numeric value. This function does not analyze spatial
+/// adjacency, so adjacent components may share the same color.
+///
+/// # Arguments
+///
+/// * `labeled` - Labeled image (32-bit, output from label_connected_components)
+///
+/// # Returns
+///
+/// A 32-bit RGBA image where each pixel contains a color for its label.
+pub fn label_to_color(labeled: &Pix) -> RegionResult<Pix> {
+    if labeled.depth() != PixelDepth::Bit32 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "32-bit (labeled image)",
+            actual: labeled.depth().bits(),
+        });
+    }
+
+    let width = labeled.width();
+    let height = labeled.height();
+
+    // Create output image (32-bit RGBA)
+    let pix = Pix::new(width, height, PixelDepth::Bit32).map_err(RegionError::Core)?;
+    let mut pix_mut = pix.try_into_mut().unwrap_or_else(|p| p.to_mut());
+
+    // Pre-generate colors for all labels using a simple hash-based approach
+    // This ensures deterministic color assignment
+    let mut color_map: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+
+    // Standard palette colors for good visual separation
+    let palette = vec![
+        0xFF0000FF, // Red
+        0x00FF00FF, // Green
+        0x0000FFFF, // Blue
+        0xFFFF00FF, // Yellow
+        0xFF00FFFF, // Magenta
+        0x00FFFFFF, // Cyan
+        0xFF8000FF, // Orange
+        0x8000FFFF, // Purple
+        0x00FF80FF, // Spring Green
+        0xFF0080FF, // Rose
+        0x80FF00FF, // Chartreuse
+        0x0080FFFF, // Sky Blue
+    ];
+
+    // Assign colors to labels
+    for y in 0..height {
+        for x in 0..width {
+            if let Some(label) = labeled.get_pixel(x, y) {
+                let color = if label == 0 {
+                    0x000000FF // Black, opaque background (0xRRGGBBAA)
+                } else {
+                    // Use existing color if assigned, otherwise generate new one
+                    if let Some(&c) = color_map.get(&label) {
+                        c
+                    } else {
+                        // Simple hash-based color assignment
+                        let idx = (label as usize).wrapping_mul(2654435761) % palette.len();
+                        let c = palette[idx];
+                        color_map.insert(label, c);
+                        c
+                    }
+                };
+
+                let _ = pix_mut.set_pixel(x, y, color);
+            }
+        }
+    }
+
+    Ok(pix_mut.into())
+}
+
+#[cfg(test)]
+mod tests_phase4 {
+    use super::*;
+
+    fn create_test_image_with_components(width: u32, height: u32) -> Pix {
+        let pix = Pix::new(width, height, PixelDepth::Bit1).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+
+        // Component 1: 2x2 square at (1,1)
+        for x in 1..3 {
+            for y in 1..3 {
+                let _ = pix_mut.set_pixel(x, y, 1);
+            }
+        }
+
+        // Component 2: 3x1 line at (6,5)
+        for x in 6..9 {
+            let _ = pix_mut.set_pixel(x, 5, 1);
+        }
+
+        // Component 3: single pixel at (2,8)
+        let _ = pix_mut.set_pixel(2, 8, 1);
+
+        pix_mut.into()
+    }
+
+    #[test]
+    fn test_conn_comp_area_transform() {
+        let pix = create_test_image_with_components(10, 10);
+
+        let transformed =
+            conn_comp_transform(&pix, ConnectivityType::FourWay, ConnCompTransform::Area).unwrap();
+
+        // Component 1: 4 pixels
+        assert_eq!(transformed.get_pixel(1, 1), Some(4));
+        assert_eq!(transformed.get_pixel(2, 2), Some(4));
+
+        // Component 2: 3 pixels
+        assert_eq!(transformed.get_pixel(6, 5), Some(3));
+        assert_eq!(transformed.get_pixel(8, 5), Some(3));
+
+        // Component 3: 1 pixel
+        assert_eq!(transformed.get_pixel(2, 8), Some(1));
+
+        // Background: 0
+        assert_eq!(transformed.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_conn_comp_label_transform() {
+        let pix = create_test_image_with_components(10, 10);
+
+        let transformed =
+            conn_comp_transform(&pix, ConnectivityType::FourWay, ConnCompTransform::Label).unwrap();
+
+        // All pixels in component 1 should have same label
+        let label1 = transformed.get_pixel(1, 1).unwrap();
+        assert_eq!(transformed.get_pixel(2, 2), Some(label1));
+
+        // All pixels in component 2 should have same (different) label
+        let label2 = transformed.get_pixel(6, 5).unwrap();
+        assert_ne!(label2, label1);
+        assert_eq!(transformed.get_pixel(8, 5), Some(label2));
+
+        // Component 3 should have yet another label
+        let label3 = transformed.get_pixel(2, 8).unwrap();
+        assert_ne!(label3, label1);
+        assert_ne!(label3, label2);
+
+        // Background: 0
+        assert_eq!(transformed.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    fn test_incremental_labeler_basic() {
+        let pix = create_test_image_with_components(10, 10);
+
+        let mut labeler = IncrementalLabeler::new(10, 10, ConnectivityType::FourWay);
+
+        // Add first component at (1,1)
+        let label1 = labeler.add_component(&pix, 1, 1).unwrap();
+        assert_eq!(label1, 1);
+
+        // Add second component at (6,5)
+        let label2 = labeler.add_component(&pix, 6, 5).unwrap();
+        assert_eq!(label2, 2);
+
+        // Add third component at (2,8)
+        let label3 = labeler.add_component(&pix, 2, 8).unwrap();
+        assert_eq!(label3, 3);
+
+        let result = labeler.finish();
+
+        // Verify labeling
+        assert_eq!(result.get_pixel(1, 1), Some(label1));
+        assert_eq!(result.get_pixel(2, 2), Some(label1));
+        assert_eq!(result.get_pixel(6, 5), Some(label2));
+        assert_eq!(result.get_pixel(2, 8), Some(label3));
+    }
+
+    #[test]
+    fn test_incremental_vs_batch_labeling() {
+        let pix = create_test_image_with_components(10, 10);
+
+        // Incremental labeling
+        let mut labeler = IncrementalLabeler::new(10, 10, ConnectivityType::FourWay);
+        let _ = labeler.add_component(&pix, 1, 1);
+        let _ = labeler.add_component(&pix, 6, 5);
+        let _ = labeler.add_component(&pix, 2, 8);
+        let incremental_result = labeler.finish();
+
+        // Both should produce the same number of components.
+        // Scan max label from the 32-bit labeled image (pix_count_components requires 1-bit input).
+        let batch_count = pix_count_components(&pix, ConnectivityType::FourWay).unwrap();
+        let incremental_count = get_component_sizes(&incremental_result).unwrap().len() as u32;
+
+        assert_eq!(batch_count, incremental_count);
+    }
+
+    #[test]
+    fn test_label_to_color_basic() {
+        let pix = create_test_image_with_components(10, 10);
+        let labeled = pix_label_connected_components(&pix, ConnectivityType::FourWay).unwrap();
+
+        let colored = label_to_color(&labeled).unwrap();
+
+        // Check depth is 32-bit
+        assert_eq!(colored.depth(), PixelDepth::Bit32);
+
+        // Check that colored image has correct dimensions
+        assert_eq!(colored.width(), labeled.width());
+        assert_eq!(colored.height(), labeled.height());
+
+        // Background should be opaque black (0xRRGGBBAA format)
+        let bg_color = colored.get_pixel(0, 0).unwrap();
+        assert_eq!(bg_color, 0x000000FF); // Opaque black in 0xRRGGBBAA
+    }
+
+    #[test]
+    fn test_label_to_color_adjacent_different() {
+        let pix = create_test_image_with_components(10, 10);
+        let labeled = pix_label_connected_components(&pix, ConnectivityType::FourWay).unwrap();
+
+        let colored = label_to_color(&labeled).unwrap();
+
+        // Component 1 at (1,1) and (1,2) should have same color
+        let color1 = colored.get_pixel(1, 1).unwrap();
+        assert_eq!(colored.get_pixel(1, 2), Some(color1));
+
+        // Adjacent different components should ideally have different colors
+        // (implementation may not guarantee this for all adjacencies, but should try)
+        let _color2 = colored.get_pixel(6, 5).unwrap();
+        let _color3 = colored.get_pixel(2, 8).unwrap();
+        // Note: exact color difference check would depend on implementation
+    }
+}

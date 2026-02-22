@@ -28,6 +28,10 @@ pub enum RegionError {
     /// Empty image
     #[error("empty image: no pixels to process")]
     EmptyImage,
+
+    /// Function not yet implemented
+    #[error("not yet implemented")]
+    NotImplemented,
 }
 
 /// Result type for region operations
