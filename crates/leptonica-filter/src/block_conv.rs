@@ -249,9 +249,10 @@ pub fn blockconv_gray_unnormalized(pix: &Pix, wc: u32, hc: u32) -> FilterResult<
 
 /// Block convolution on a single pre-padded 8 bpp tile using an integral image.
 ///
-/// The input tile must have at least `wc + 1` extra border pixels on each side.
+/// The input tile must have at least `wc + 2` extra border pixels on each side.
 /// Returns a smaller image containing only the convolved interior region
-/// of size `(w - 2*wc - 2) × (h - 2*hc - 2)`.
+/// of size `(w - 2*(wc + 2)) × (h - 2*(hc + 2))`, i.e. with `wc + 2` pixels
+/// stripped from each side.
 ///
 /// If either `wc` or `hc` is 0, returns a copy of the input (no-op).
 ///
