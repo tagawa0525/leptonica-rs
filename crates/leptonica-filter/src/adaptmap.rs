@@ -1664,7 +1664,7 @@ pub enum EdgeFilterType {
 
 /// Options for flexible background normalization.
 ///
-/// C Leptonica: `pixBackgroundNormFlex()` parameters in `adaptmap.c`
+/// C版: `pixBackgroundNormFlex()` parameters in `adaptmap.c`
 #[derive(Debug, Clone)]
 pub struct FlexNormOptions {
     /// Tile width; must be in [3, 10]
@@ -1677,6 +1677,18 @@ pub struct FlexNormOptions {
     pub smooth_y: u32,
     /// Basin-filling height delta; use 0 to skip (values > 0 not yet supported)
     pub delta: u32,
+}
+
+impl Default for FlexNormOptions {
+    fn default() -> Self {
+        Self {
+            tile_width: 5,
+            tile_height: 5,
+            smooth_x: 2,
+            smooth_y: 2,
+            delta: 0,
+        }
+    }
 }
 
 /// Adaptive threshold spread normalization.
