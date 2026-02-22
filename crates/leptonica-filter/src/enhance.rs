@@ -995,7 +995,15 @@ pub fn unsharp_masking(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<P
             let res_r = unsharp_masking_gray(&pix_r, half_width, fract)?;
             let res_g = unsharp_masking_gray(&pix_g, half_width, fract)?;
             let res_b = unsharp_masking_gray(&pix_b, half_width, fract)?;
-            Ok(Pix::create_rgb_image(&res_r, &res_g, &res_b)?)
+            let mut result = Pix::create_rgb_image(&res_r, &res_g, &res_b)?;
+            // Preserve alpha channel for 32bpp RGBA images
+            if pix.spp() == 4 {
+                let pix_a = pix.get_rgb_component(RgbComponent::Alpha)?;
+                let mut result_mut = result.try_into_mut().unwrap();
+                result_mut.set_rgb_component(&pix_a, RgbComponent::Alpha)?;
+                result = result_mut.into();
+            }
+            Ok(result)
         }
         _ => {
             let converted = pix.convert_to_8_or_32()?;
