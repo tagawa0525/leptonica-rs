@@ -8,7 +8,7 @@
 | ---------------- | ------------------------- | --------------------- |
 | テスト総数       | **305個** (.c)            | **42+ファイル**       |
 | 回帰テスト       | **160個** (*_reg.c)       | **9個** (IO回帰テスト)|
-| 個別テスト関数   | 多数                      | **2,592個**           |
+| 個別テスト関数   | 多数                      | **2,839個**           |
 | テストランナー   | alltests_reg.c            | `cargo test`          |
 
 ## C版テストの特徴
@@ -106,8 +106,11 @@ writetext, xformbox
 | leptonica-io (統合) | pngio_reg.rs       | 1        |
 | leptonica-io (統合) | gifio_reg.rs       | 2        |
 | leptonica-io (統合) | webpio_reg.rs      | 3        |
-| leptonica-morph     | binary.rs          | 7        |
-| leptonica-morph     | sel.rs             | 6        |
+| leptonica-morph     | binary.rs          | 27       |
+| leptonica-morph     | morphapp.rs        | 14       |
+| leptonica-morph     | sel.rs             | 40       |
+| leptonica-morph     | dwa.rs             | 22       |
+| leptonica-morph     | sequence.rs        | 18       |
 | leptonica-recog     | baseline.rs        | 7        |
 | leptonica-recog     | jbclass/classify.rs| 7        |
 | leptonica-recog     | jbclass/types.rs   | 5        |
@@ -132,7 +135,7 @@ writetext, xformbox
 | leptonica-core      | 1,372    | Pix、Box、Colormap、Pta、Numa、Pixa等 |
 | leptonica-filter    | 250      | 畳み込み、エッジ検出、バイラテラル、ランク |
 | leptonica-transform | 183      | 回転、スケーリング、アフィン、射影    |
-| leptonica-morph     | 182      | 二値/グレースケール/カラー形態学、DWA |
+| leptonica-morph     | 211      | 二値/グレースケール/カラー形態学、DWA、SEL、Sela |
 | leptonica-color     | 164      | 色空間変換、分析、量子化、二値化      |
 | leptonica-recog     | 156      | ページ分割、傾き検出、文字認識、JBIG2 |
 | leptonica-io        | 150      | 全フォーマット読み書き、ヘッダー、回帰テスト |
