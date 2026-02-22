@@ -69,6 +69,10 @@ impl Recog {
     ///
     /// After padding, training is finished automatically.
     ///
+    /// # Arguments
+    ///
+    /// * `scale_h` - Target template height in pixels for the bootstrap recognizer (minimum 20)
+    ///
     /// # Errors
     ///
     /// Returns an error if `scale_h` is less than 20, or if the recognizer's
