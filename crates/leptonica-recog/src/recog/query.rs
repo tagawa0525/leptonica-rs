@@ -2,52 +2,59 @@
 //!
 //! Provides accessors for recognizer state and a `set_params` mutator.
 
-use crate::error::RecogResult;
+use crate::error::{RecogError, RecogResult};
 
 use super::types::{Recog, RecogParams};
 
 impl Recog {
     /// Returns the total number of training templates across all classes.
     pub fn get_count(&self) -> usize {
-        todo!("not yet implemented")
+        self.num_samples
     }
 
     /// Returns the number of character classes.
     pub fn get_class_count(&self) -> usize {
-        todo!("not yet implemented")
+        self.set_size
     }
 
     /// Returns the index of the class with the given label, if it exists.
-    pub fn get_class_index(&self, _class_str: &str) -> Option<usize> {
-        todo!("not yet implemented")
+    pub fn get_class_index(&self, class_str: &str) -> Option<usize> {
+        self.sa_text.iter().position(|s| s == class_str)
     }
 
     /// Returns the label of the class at the given index, if in bounds.
-    pub fn get_class_string(&self, _index: usize) -> Option<&str> {
-        todo!("not yet implemented")
+    pub fn get_class_string(&self, index: usize) -> Option<&str> {
+        self.sa_text.get(index).map(|s| s.as_str())
     }
 
-    /// Converts a single-character string to its class index via its
-    /// UTF-8 code point value.
+    /// Converts a single-character string to a numeric index via its first
+    /// UTF-8 byte value.
     ///
-    /// The mapping used by C leptonica is: class index = first byte of the
-    /// UTF-8 encoding of the first character in `class_str`.
+    /// This mirrors C leptonica's `recogGetClassIndex` approach of using the
+    /// raw byte value of the first character as a numeric class identifier.
     ///
     /// # Errors
     ///
-    /// Returns an error if `class_str` is empty or contains no valid UTF-8
-    /// character.
-    pub fn string_to_index(_class_str: &str) -> RecogResult<usize> {
-        todo!("not yet implemented")
+    /// Returns an error if `class_str` is empty.
+    pub fn string_to_index(class_str: &str) -> RecogResult<usize> {
+        let byte = class_str.as_bytes().first().ok_or_else(|| {
+            RecogError::InvalidParameter("class_str must not be empty".to_string())
+        })?;
+        Ok(*byte as usize)
     }
 
     /// Updates recognizer parameters.
     ///
     /// Only the scale and matching parameters are updated; template data is
     /// left unchanged.  Call [`finish_training`](Recog::finish_training)
-    /// afterwards if scaled templates need to be recomputed.
-    pub fn set_params(&mut self, _params: RecogParams) {
-        todo!("not yet implemented")
+    /// afterwards if scaled templates need to be recomputed with the new
+    /// scaling settings.
+    pub fn set_params(&mut self, params: RecogParams) {
+        self.scale_w = params.scale_w;
+        self.scale_h = params.scale_h;
+        self.line_w = params.line_w;
+        self.threshold = params.threshold;
+        self.max_y_shift = params.max_y_shift;
     }
 }
 
@@ -76,7 +83,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_count() {
         let recog = make_trained_recog();
         // One sample per class, two classes.
@@ -84,14 +90,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_class_count() {
         let recog = make_trained_recog();
         assert_eq!(recog.get_class_count(), 2);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_class_index() {
         let recog = make_trained_recog();
         assert_eq!(recog.get_class_index("A"), Some(0));
@@ -100,7 +104,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_class_string() {
         let recog = make_trained_recog();
         assert_eq!(recog.get_class_string(0), Some("A"));
@@ -109,7 +112,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_class_index_and_string_roundtrip() {
         let recog = make_trained_recog();
         for idx in 0..recog.get_class_count() {
@@ -120,7 +122,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_string_to_index() {
         // 'A' has UTF-8 byte value 65
         let idx = Recog::string_to_index("A").unwrap();
@@ -131,7 +132,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_set_params() {
         let mut recog = create(0, 0, 0, 150, 1).unwrap();
         let params = RecogParams {
