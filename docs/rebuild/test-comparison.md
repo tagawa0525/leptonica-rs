@@ -8,7 +8,7 @@
 | ---------------- | ------------------------- | --------------------- |
 | テスト総数       | **305個** (.c)            | **80ファイル**        |
 | 回帰テスト       | **160個** (*_reg.c)       | **80個** (*_reg.rs)  |
-| 個別テスト関数   | 多数                      | **3,064個**（3004 passed + 60 ignored）|
+| 個別テスト関数   | 多数                      | **3,064個**（3,004 passed + 60 ignored）|
 | テストランナー   | alltests_reg.c            | `cargo test`          |
 
 ## C版テストの特徴
@@ -131,7 +131,7 @@ writetext, xformbox
 | leptonica-region    | watershed.rs       | 6        |
 | leptonica-transform | rotate.rs          | 227 (合計) |
 | leptonica-transform | scale.rs           | (上記に含む) |
-| **合計**            | **80ファイル**     | **3,064個**（3004 passed + 60 ignored）|
+| **合計**            | **80ファイル**     | **3,064個**（3,004 passed + 60 ignored）|
 
 ### クレート別集計
 
