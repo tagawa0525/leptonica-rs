@@ -4,31 +4,30 @@
 //! in both new-allocation and in-place modes.
 //!
 //! The C version uses morphological open/dilate to create two different
-//! images, then tests all logic ops between them. This Rust port uses
-//! two pre-existing test images instead, since morphological operations
-//! reside in leptonica-morph (not available from leptonica-core).
+//! images from test1.png, then tests all logic ops between them.
+//! This Rust port uses an image and its inverse (same dimensions
+//! guaranteed), since morphological operations reside in leptonica-morph.
 //!
 //! # See also
 //!
 //! C Leptonica: `reference/leptonica/prog/logicops_reg.c`
 
-use leptonica_core::{ImageFormat, Pix};
+use leptonica_core::Pix;
 use leptonica_test::RegParams;
 
-/// Test pixInvert: new allocation (C check 0) and consistency (C checks 1-2).
+/// Test pixInvert: double-invert identity (C checks 0-2).
 ///
-/// Verifies that inverting an image twice yields the original,
-/// and that inverted serialization is stable.
+/// Verifies that inverting an image twice yields the original.
 #[test]
-#[ignore = "not yet implemented: requires morph ops or golden file comparison"]
 fn logicops_reg_invert() {
     let mut rp = RegParams::new("logicops_invert");
 
     let pix1 = leptonica_test::load_test_image("test1.png").expect("load test1.png");
 
-    // Invert and write golden
+    // Invert
     let pix2 = pix1.invert();
-    rp.write_pix_and_check(&pix2, ImageFormat::Png).unwrap();
+    // Inverted should differ from original
+    rp.compare_values(0.0, if pix1.equals(&pix2) { 1.0 } else { 0.0 }, 0.0);
 
     // Double invert should yield original
     let pix3 = pix2.invert();
@@ -37,49 +36,58 @@ fn logicops_reg_invert() {
     assert!(rp.cleanup(), "logicops invert test failed");
 }
 
-/// Test pixAnd, pixOr, pixXor, pixSubtract: new allocation (C checks 3-28).
+/// Test pixAnd, pixOr, pixXor, pixSubtract: algebraic properties (C checks 3-28).
 ///
-/// Uses two different test images. Verifies basic algebraic properties
-/// of logic operations (commutativity, identity, self-cancellation).
+/// Uses an image and its inverse to test identity laws, self-cancellation,
+/// De Morgan's laws, and commutativity.
 #[test]
-#[ignore = "not yet implemented: requires morph ops or golden file comparison"]
 fn logicops_reg_binary_ops() {
     let mut rp = RegParams::new("logicops_binops");
 
     let pix_a = leptonica_test::load_test_image("test1.png").expect("load test1.png");
-    let pix_b = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix_b = pix_a.invert(); // same dimensions, different content
+
+    // --- Self-operation identities ---
 
     // AND: a & a == a
-    let pix_and_self = pix_a.and(&pix_a).expect("and self");
-    rp.compare_pix(&pix_a, &pix_and_self);
+    let result = pix_a.and(&pix_a).expect("and self");
+    rp.compare_pix(&pix_a, &result);
 
     // OR: a | a == a
-    let pix_or_self = pix_a.or(&pix_a).expect("or self");
-    rp.compare_pix(&pix_a, &pix_or_self);
+    let result = pix_a.or(&pix_a).expect("or self");
+    rp.compare_pix(&pix_a, &result);
 
-    // XOR: a ^ a == 0 (empty)
-    let pix_xor_self = pix_a.xor(&pix_a).expect("xor self");
-    assert!(pix_xor_self.is_zero(), "xor self should be zero");
+    // XOR: a ^ a == 0
+    let result = pix_a.xor(&pix_a).expect("xor self");
+    rp.compare_values(1.0, if result.is_zero() { 1.0 } else { 0.0 }, 0.0);
 
-    // Subtract: a - a == 0 (empty)
-    let pix_sub_self = pix_a.subtract(&pix_a).expect("subtract self");
-    assert!(pix_sub_self.is_zero(), "subtract self should be zero");
+    // Subtract: a - a == 0
+    let result = pix_a.subtract(&pix_a).expect("subtract self");
+    rp.compare_values(1.0, if result.is_zero() { 1.0 } else { 0.0 }, 0.0);
 
-    // AND golden
-    let pix_and = pix_a.and(&pix_b).expect("and");
-    rp.write_pix_and_check(&pix_and, ImageFormat::Png).unwrap();
+    // --- Cross-image operations with inverse ---
 
-    // OR golden
-    let pix_or = pix_a.or(&pix_b).expect("or");
-    rp.write_pix_and_check(&pix_or, ImageFormat::Png).unwrap();
+    // AND with inverse: a & ~a == 0
+    let result = pix_a.and(&pix_b).expect("and inverse");
+    rp.compare_values(1.0, if result.is_zero() { 1.0 } else { 0.0 }, 0.0);
 
-    // XOR golden
-    let pix_xor = pix_a.xor(&pix_b).expect("xor");
-    rp.write_pix_and_check(&pix_xor, ImageFormat::Png).unwrap();
+    // OR with inverse: a | ~a == all-ones
+    let result = pix_a.or(&pix_b).expect("or inverse");
+    let all_ones = result.invert();
+    rp.compare_values(1.0, if all_ones.is_zero() { 1.0 } else { 0.0 }, 0.0);
 
-    // Subtract golden
-    let pix_sub = pix_a.subtract(&pix_b).expect("subtract");
-    rp.write_pix_and_check(&pix_sub, ImageFormat::Png).unwrap();
+    // XOR with inverse: a ^ ~a == all-ones
+    let result = pix_a.xor(&pix_b).expect("xor inverse");
+    let all_ones = result.invert();
+    rp.compare_values(1.0, if all_ones.is_zero() { 1.0 } else { 0.0 }, 0.0);
+
+    // Subtract: a - ~a == a (removing inverse bits leaves original)
+    let result = pix_a.subtract(&pix_b).expect("subtract inverse");
+    rp.compare_pix(&pix_a, &result);
+
+    // Subtract: ~a - a == ~a
+    let result = pix_b.subtract(&pix_a).expect("subtract from inverse");
+    rp.compare_pix(&pix_b, &result);
 
     assert!(rp.cleanup(), "logicops binary ops test failed");
 }
@@ -87,14 +95,13 @@ fn logicops_reg_binary_ops() {
 /// Test in-place logic operations via PixMut (C in-place checks).
 ///
 /// Verifies that in-place operations produce the same result as
-/// new-allocation operations.
+/// new-allocation operations, using an image and its inverse.
 #[test]
-#[ignore = "not yet implemented: requires morph ops or golden file comparison"]
 fn logicops_reg_inplace() {
     let mut rp = RegParams::new("logicops_inplace");
 
     let pix_a = leptonica_test::load_test_image("test1.png").expect("load test1.png");
-    let pix_b = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix_b = pix_a.invert();
 
     // AND: new-alloc vs in-place
     let expected = pix_a.and(&pix_b).expect("and");

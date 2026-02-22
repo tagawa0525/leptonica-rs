@@ -17,7 +17,6 @@ use leptonica_test::RegParams;
 ///
 /// Counts foreground pixels and verifies consistency with is_zero.
 #[test]
-#[ignore = "not yet implemented: requires golden file generation"]
 fn compare_reg_count_pixels() {
     let mut rp = RegParams::new("compare_count");
 
@@ -43,7 +42,6 @@ fn compare_reg_count_pixels() {
 /// Verifies that equals returns true for cloned images and false
 /// for different images.
 #[test]
-#[ignore = "not yet implemented: requires golden file generation"]
 fn compare_reg_equals() {
     let mut rp = RegParams::new("compare_equals");
 
@@ -69,7 +67,6 @@ fn compare_reg_equals() {
 /// Verifies that correlation is high for identical images and
 /// decreases with increasing translation.
 #[test]
-#[ignore = "not yet implemented: requires golden file generation"]
 fn compare_reg_correlation() {
     let mut rp = RegParams::new("compare_correl");
 

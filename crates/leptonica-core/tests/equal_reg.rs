@@ -17,7 +17,6 @@ use leptonica_test::RegParams;
 
 /// Test 1bpp binary image: write/read round-trip preserves equality (C check 0).
 #[test]
-#[ignore = "not yet implemented: requires leptonica-io write/read round-trip"]
 fn equal_reg_binary_roundtrip() {
     let mut rp = RegParams::new("equal_binary");
 
@@ -74,7 +73,6 @@ fn equal_reg_8bpp_colormap() {
 ///
 /// Tests depth conversion round-trip with karen8.jpg.
 #[test]
-#[ignore = "not yet implemented: requires threshold/quantization functions"]
 fn equal_reg_8bpp_gray() {
     let mut rp = RegParams::new("equal_8bpp_gray");
 
@@ -97,7 +95,6 @@ fn equal_reg_8bpp_gray() {
 ///
 /// Tests remove_colormap after depth conversion on marge.jpg.
 #[test]
-#[ignore = "not yet implemented: requires pixOctreeQuantNumColors"]
 fn equal_reg_rgb() {
     let mut rp = RegParams::new("equal_rgb");
 
