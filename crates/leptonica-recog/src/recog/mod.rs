@@ -30,6 +30,7 @@
 mod did;
 mod ident;
 pub mod io;
+pub mod query;
 mod train;
 mod types;
 
