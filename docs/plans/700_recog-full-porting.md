@@ -110,7 +110,7 @@ C版のバイナリ形式に互換:
 
 ## Phase 2: Recog query/inspection（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/recogbasic.c` L500-800
 
