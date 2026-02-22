@@ -497,8 +497,21 @@ impl IncrementalLabeler {
     /// * `x` - X coordinate of seed point
     /// * `y` - Y coordinate of seed point
     pub fn add_component(&mut self, pix: &Pix, x: u32, y: u32) -> RegionResult<u32> {
-        // Check bounds and validate seed position
+        // Check bounds and validate seed position within the labeler
         if x >= self.width || y >= self.height {
+            return Err(RegionError::InvalidSeed { x, y });
+        }
+
+        // Ensure the source image is 1-bit binary as documented
+        if pix.depth() != PixelDepth::Bit1 {
+            return Err(RegionError::UnsupportedDepth {
+                expected: "1-bit",
+                actual: pix.depth().bits(),
+            });
+        }
+
+        // Ensure the source image dimensions match the labeler dimensions
+        if pix.width() != self.width || pix.height() != self.height {
             return Err(RegionError::InvalidSeed { x, y });
         }
 
@@ -508,9 +521,10 @@ impl IncrementalLabeler {
             return Ok(self.labels[idx]); // Already labeled
         }
 
-        // Check if seed point is foreground
-        if pix.get_pixel(x, y) == Some(0) {
-            return Err(RegionError::InvalidSeed { x, y });
+        // Check if seed point is valid foreground; treat None or 0 as invalid
+        match pix.get_pixel(x, y) {
+            Some(1) => {} // valid foreground seed
+            _ => return Err(RegionError::InvalidSeed { x, y }),
         }
 
         // BFS to find all connected pixels
