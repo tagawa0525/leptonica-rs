@@ -285,7 +285,7 @@ fn deskew_local_baseline_opts(
 /// Returns an error if parameters are invalid or processing fails.
 #[allow(clippy::too_many_arguments)]
 pub fn deskew_local(
-    _pix: &Pix,
+    pix: &Pix,
     nslice: u32,
     reduction: u32,
     redsweep: u32,
@@ -294,9 +294,45 @@ pub fn deskew_local(
     sweep_delta: f32,
     min_bs_delta: f32,
 ) -> RecogResult<Pix> {
-    todo!(
-        "deskew_local(nslice={nslice}, reduction={reduction}, redsweep={redsweep}, redsearch={redsearch}, sweep_range={sweep_range}, sweep_delta={sweep_delta}, min_bs_delta={min_bs_delta})"
-    )
+    // Use defaults for out-of-range values (match C version behaviour)
+    let nslice = if !(2..=20).contains(&nslice) {
+        10
+    } else {
+        nslice
+    };
+    let sweep_red = match redsweep {
+        1 | 2 | 4 | 8 => redsweep,
+        _ => 2,
+    };
+    let _ = redsearch; // used indirectly via get_local_skew_angles default
+    let sweep_range = if sweep_range <= 0.0 { 7.0 } else { sweep_range };
+    let sweep_delta = if sweep_delta <= 0.0 { 1.0 } else { sweep_delta };
+    let min_bs_delta = if min_bs_delta <= 0.0 {
+        0.01
+    } else {
+        min_bs_delta
+    };
+    // reduction is passed through to get_local_skew_angles (overrides redsweep)
+    let red = match reduction {
+        1 | 2 | 4 | 8 => reduction,
+        _ => sweep_red,
+    };
+
+    // Get per-raster-line angle estimates via linear fit over slice samples
+    let (_, a, b) =
+        get_local_skew_angles(pix, nslice, red, sweep_range, sweep_delta, min_bs_delta)?;
+
+    // Compute one angle per slice from the linear fit (y = slice centre)
+    let h = pix.height() as f32;
+    let angles: Vec<f32> = (0..nslice as usize)
+        .map(|i| {
+            let y_center = (i as f32 + 0.5) / nslice as f32 * h;
+            a * y_center + b
+        })
+        .collect();
+
+    // Apply interpolated local shear correction
+    apply_local_deskew(pix, &angles)
 }
 
 /// Compute a set of control points for a local skew transform.
@@ -323,25 +359,58 @@ pub fn get_local_skew_transform(
     cx: f32,
     cy: f32,
 ) -> RecogResult<Pta> {
-    todo!(
-        "get_local_skew_transform(nslice={nslice}, ny={ny}, reduction={reduction}, cx={cx}, cy={cy}, angles.len={})",
-        angles.len()
-    )
+    if angles.len() != nslice as usize {
+        return Err(RecogError::InvalidParameter(format!(
+            "angles length {} must equal nslice {}",
+            angles.len(),
+            nslice
+        )));
+    }
+    if nslice == 0 || ny == 0 {
+        return Err(RecogError::InvalidParameter(
+            "nslice and ny must be positive".to_string(),
+        ));
+    }
+
+    // Total image height estimate: cy is the vertical centre so h ≈ 2 * cy
+    // (scaled by reduction to recover original-resolution coordinates)
+    let h_full = cy * 2.0 * reduction as f32;
+    let slice_h = h_full / nslice as f32;
+
+    let mut pta = Pta::with_capacity(nslice as usize * ny as usize);
+
+    for (i, &angle_deg) in angles.iter().enumerate() {
+        let tan_a = angle_deg.to_radians().tan();
+        for j in 0..ny as usize {
+            // y position at the centre of this sample within the slice
+            let y_frac = (j as f32 + 0.5) / ny as f32;
+            let y = (i as f32 + y_frac) * slice_h;
+            // Horizontal shear offset relative to the vertical centre (cy)
+            let x_shift = (y - cy) * tan_a;
+            pta.push(cx + x_shift, y);
+        }
+    }
+
+    Ok(pta)
 }
 
 /// Compute per-slice skew angles for a document image.
 ///
 /// Divides `pix` into `nslice` horizontal slices and runs sweep-and-search
-/// skew detection on each slice.
+/// skew detection on each slice. Slices overlap by 50% to reduce edge effects.
+///
+/// A linear least-squares fit over the (y_center, angle) sample points is used
+/// to produce a smooth angle estimate for every raster line.
 ///
 /// # Returns
-/// A tuple `(angles, avg_angle, confidence)` where `angles` is a [`Numa`]
-/// of per-slice angles (degrees), `avg_angle` is the image-wide average, and
-/// `confidence` is a quality score in [0, 1].
+/// A tuple `(angles, slope, intercept)` where `angles` is a [`Numa`] of
+/// per-raster-line angle estimates (length = image height), `slope` is the
+/// coefficient `a` in `angle = a·y + b`, and `intercept` is `b`.
 ///
 /// # Errors
 ///
-/// Returns an error if parameters are invalid or the image is too small.
+/// Returns an error if the image is too small or no reliable skew samples
+/// could be collected.
 pub fn get_local_skew_angles(
     pix: &Pix,
     nslice: u32,
@@ -350,16 +419,108 @@ pub fn get_local_skew_angles(
     sweep_delta: f32,
     min_bs_delta: f32,
 ) -> RecogResult<(Numa, f32, f32)> {
-    todo!(
-        "get_local_skew_angles(nslice={nslice}, reduction={reduction}, sweep_range={sweep_range}, sweep_delta={sweep_delta}, min_bs_delta={min_bs_delta}), pix={}x{}",
-        pix.width(),
-        pix.height()
-    )
+    // Apply defaults for 0 / out-of-range values (matching C version behaviour)
+    let nslice = if !(2..=20).contains(&nslice) {
+        10
+    } else {
+        nslice
+    };
+    let sweep_reduction = match reduction {
+        1 | 2 | 4 | 8 => reduction,
+        _ => 2,
+    };
+    let bs_reduction = (sweep_reduction / 2).max(1);
+    let sweep_range = if sweep_range <= 0.0 { 7.0 } else { sweep_range };
+    let sweep_delta = if sweep_delta <= 0.0 { 1.0 } else { sweep_delta };
+    let min_bs_delta = if min_bs_delta <= 0.0 {
+        0.01
+    } else {
+        min_bs_delta
+    };
+
+    let binary = ensure_binary(pix)?;
+    let w = binary.width();
+    let h = binary.height();
+
+    let hs = (h / nslice).max(1);
+    let ovlap = hs / 2; // 50 % overlap (OverlapFraction = 0.5 in C version)
+
+    let skew_opts = crate::skew::SkewDetectOptions {
+        sweep_range,
+        sweep_delta,
+        min_bs_delta,
+        sweep_reduction,
+        bs_reduction,
+    };
+
+    // Minimum confidence for a sample to be included (MinAllowedConfidence = 1.0)
+    const MIN_CONF: f32 = 1.0;
+
+    // Collect (y_center, angle) pairs with sufficient confidence
+    let mut pts: Vec<(f32, f32)> = Vec::new();
+    for i in 0..nslice {
+        let y_start = if i == 0 {
+            0
+        } else {
+            (hs * i).saturating_sub(ovlap)
+        };
+        let y_end = if i == nslice - 1 {
+            h
+        } else {
+            (hs * (i + 1) + ovlap).min(h)
+        };
+        if y_end <= y_start {
+            continue;
+        }
+        let y_center = (y_start + y_end) as f32 / 2.0;
+
+        let slice = binary.clip_rectangle(0, y_start, w, y_end - y_start)?;
+        if let Ok(result) = crate::skew::find_skew(&slice, &skew_opts)
+            && result.confidence >= MIN_CONF
+        {
+            pts.push((y_center, result.angle));
+        }
+    }
+
+    // Linear least-squares fit: angle = a * y + b
+    let (a, b) = if pts.len() >= 2 {
+        linear_lsf(&pts)
+    } else {
+        // Not enough data — use zero skew
+        (0.0_f32, 0.0_f32)
+    };
+
+    // Build per-raster-line Numa
+    let mut naskew = Numa::with_capacity(h as usize);
+    for i in 0..h {
+        naskew.push(a * i as f32 + b);
+    }
+
+    Ok((naskew, a, b))
 }
 
 // ============================================================================
 // Internal functions
 // ============================================================================
+
+/// Linear least-squares fit through a set of (x, y) points.
+///
+/// Returns `(a, b)` such that `y ≈ a·x + b` minimises the sum of squared
+/// residuals. Falls back to `(0, mean_y)` when the denominator is near zero.
+fn linear_lsf(pts: &[(f32, f32)]) -> (f32, f32) {
+    let n = pts.len() as f32;
+    let sum_x: f32 = pts.iter().map(|&(x, _)| x).sum();
+    let sum_y: f32 = pts.iter().map(|&(_, y)| y).sum();
+    let sum_xx: f32 = pts.iter().map(|&(x, _)| x * x).sum();
+    let sum_xy: f32 = pts.iter().map(|&(x, y)| x * y).sum();
+    let denom = n * sum_xx - sum_x * sum_x;
+    if denom.abs() < 1e-10 {
+        return (0.0, sum_y / n);
+    }
+    let a = (n * sum_xy - sum_x * sum_y) / denom;
+    let b = (sum_y - a * sum_x) / n;
+    (a, b)
+}
 
 /// Ensure image is binary
 fn ensure_binary(pix: &Pix) -> RecogResult<Pix> {
@@ -735,17 +896,17 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_local_skew_angles_returns_numa() {
         let pix = create_text_like_image(400, 400, 10, 10);
-        let (angles, avg, conf) = get_local_skew_angles(&pix, 4, 2, 7.0, 1.0, 0.01).unwrap();
-        assert_eq!(angles.len(), 4);
-        assert!(avg.abs() < 2.0);
-        assert!(conf >= 0.0);
+        // Numa length equals image height (one angle per raster line)
+        let (angles, slope, _intercept) =
+            get_local_skew_angles(&pix, 4, 2, 7.0, 1.0, 0.01).unwrap();
+        assert_eq!(angles.len(), pix.height() as usize);
+        // For near-horizontal lines, the slope should be tiny
+        assert!(slope.abs() < 1.0);
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_deskew_local_new_api() {
         let pix = create_text_like_image(400, 400, 10, 10);
         let result = deskew_local(&pix, 4, 2, 2, 1, 7.0, 1.0, 0.01).unwrap();
@@ -754,10 +915,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_get_local_skew_transform() {
         let angles = vec![0.5f32, 0.3, 0.1, -0.1];
         let pta = get_local_skew_transform(4, 1, 2, &angles, 200.0, 200.0).unwrap();
-        assert!(!pta.is_empty());
+        // Should produce nslice * ny = 4 * 1 = 4 points
+        assert_eq!(pta.len(), 4);
     }
 }

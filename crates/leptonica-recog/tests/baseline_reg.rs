@@ -23,7 +23,6 @@ use leptonica_test::{RegParams, load_test_image};
 /// C版: pixDeskewLocal(pixs, 10, 0, 0, 0.0, 0.0, 0.0)
 /// Rust: deskew_local(pix, nslice, reduction, redsweep, redsearch, sweep_range, sweep_delta, min_bs_delta)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_0_deskew_local() {
     let mut rp = RegParams::new("baseline_0_deskew_local");
 
@@ -64,7 +63,6 @@ fn test_0_deskew_local() {
 /// C版: pixGetLocalSkewAngles(pixs, 10, 0, 0, 0.0, 0.0, 0.0, NULL, NULL, 1)
 /// Rust: get_local_skew_angles(pix, nslice, reduction, sweep_range, sweep_delta, min_bs_delta)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_1_2_local_skew_angles() {
     let mut rp = RegParams::new("baseline_1_2_skew_angles");
 
@@ -85,8 +83,8 @@ fn test_1_2_local_skew_angles() {
                 }
             }
 
-            // Should get 10 angles (one per slice)
-            rp.compare_values(10.0, angles.len() as f64, 0.0);
+            // Numa contains one angle per raster line (length = image height)
+            rp.compare_values(pixs.height() as f64, angles.len() as f64, 0.0);
 
             // Verify angles are in a reasonable range
             let all_reasonable = (0..angles.len())
