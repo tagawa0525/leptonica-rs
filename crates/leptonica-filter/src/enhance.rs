@@ -911,7 +911,7 @@ pub fn mult_matrix_color(pix: &Pix, kel: &Kernel) -> FilterResult<Pix> {
 
 /// Apply unsharp masking to an 8bpp grayscale image using box convolution.
 ///
-/// For `half_width` <= 2, delegates to the fast block-convolution version.
+/// For `halfwidth` <= 2, delegates to the fast block-convolution version.
 /// For larger kernels, applies box convolution for the blur and then computes:
 /// `output = pix + fract * (pix - blur)`
 ///
@@ -919,9 +919,9 @@ pub fn mult_matrix_color(pix: &Pix, kel: &Kernel) -> FilterResult<Pix> {
 ///
 /// # Arguments
 /// * `pix` - 8bpp grayscale image (no colormap)
-/// * `half_width` - Half-width of the smoothing kernel; must be >= 1
+/// * `halfwidth` - Half-width of the smoothing kernel; must be >= 1
 /// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
-pub fn unsharp_masking_gray(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<Pix> {
+pub fn unsharp_masking_gray(pix: &Pix, halfwidth: u32, fract: f32) -> FilterResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
             expected: "8bpp",
@@ -933,15 +933,15 @@ pub fn unsharp_masking_gray(pix: &Pix, half_width: u32, fract: f32) -> FilterRes
             "colormapped images not supported".into(),
         ));
     }
-    if fract <= 0.0 || half_width == 0 {
+    if fract <= 0.0 || halfwidth == 0 {
         return Ok(pix.deep_clone());
     }
-    if half_width <= 2 {
+    if halfwidth <= 2 {
         use crate::edge::unsharp_masking_gray_fast;
-        return unsharp_masking_gray_fast(pix, half_width, fract);
+        return unsharp_masking_gray_fast(pix, halfwidth, fract);
     }
 
-    let blurred = crate::block_conv::blockconv_gray(pix, None, half_width, half_width)?;
+    let blurred = crate::block_conv::blockconv_gray(pix, None, halfwidth, halfwidth)?;
     let w = pix.width();
     let h = pix.height();
     let out = Pix::new(w, h, PixelDepth::Bit8)?;
@@ -961,40 +961,40 @@ pub fn unsharp_masking_gray(pix: &Pix, half_width: u32, fract: f32) -> FilterRes
 
 /// Apply unsharp masking to an 8bpp grayscale or 32bpp color image.
 ///
-/// For 1bpp input, returns an error. For `half_width` <= 2, delegates to the
+/// For 1bpp input, returns an error. For `halfwidth` <= 2, delegates to the
 /// fast version. For other depths, converts to 8 or 32 bpp first.
 ///
 /// C版: `pixUnsharpMasking()` in `enhance.c`
 ///
 /// # Arguments
 /// * `pix` - Any depth except 1bpp; with or without colormap
-/// * `half_width` - Half-width of the smoothing kernel; must be >= 1
+/// * `halfwidth` - Half-width of the smoothing kernel; must be >= 1
 /// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
-pub fn unsharp_masking(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<Pix> {
+pub fn unsharp_masking(pix: &Pix, halfwidth: u32, fract: f32) -> FilterResult<Pix> {
     if pix.depth() == PixelDepth::Bit1 {
         return Err(FilterError::UnsupportedDepth {
             expected: "not 1bpp",
             actual: 1,
         });
     }
-    if fract <= 0.0 || half_width == 0 {
+    if fract <= 0.0 || halfwidth == 0 {
         return Ok(pix.deep_clone());
     }
-    if half_width <= 2 {
+    if halfwidth <= 2 {
         use crate::edge::unsharp_masking_fast;
-        return unsharp_masking_fast(pix, half_width, fract);
+        return unsharp_masking_fast(pix, halfwidth, fract);
     }
 
     match pix.depth() {
-        PixelDepth::Bit8 => unsharp_masking_gray(pix, half_width, fract),
+        PixelDepth::Bit8 => unsharp_masking_gray(pix, halfwidth, fract),
         PixelDepth::Bit32 => {
             use leptonica_core::pix::RgbComponent;
             let pix_r = pix.get_rgb_component(RgbComponent::Red)?;
             let pix_g = pix.get_rgb_component(RgbComponent::Green)?;
             let pix_b = pix.get_rgb_component(RgbComponent::Blue)?;
-            let res_r = unsharp_masking_gray(&pix_r, half_width, fract)?;
-            let res_g = unsharp_masking_gray(&pix_g, half_width, fract)?;
-            let res_b = unsharp_masking_gray(&pix_b, half_width, fract)?;
+            let res_r = unsharp_masking_gray(&pix_r, halfwidth, fract)?;
+            let res_g = unsharp_masking_gray(&pix_g, halfwidth, fract)?;
+            let res_b = unsharp_masking_gray(&pix_b, halfwidth, fract)?;
             let mut result = Pix::create_rgb_image(&res_r, &res_g, &res_b)?;
             // Preserve alpha channel for 32bpp RGBA images
             if pix.spp() == 4 {
@@ -1007,7 +1007,7 @@ pub fn unsharp_masking(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<P
         }
         _ => {
             let converted = pix.convert_to_8_or_32()?;
-            unsharp_masking(&converted, half_width, fract)
+            unsharp_masking(&converted, halfwidth, fract)
         }
     }
 }
