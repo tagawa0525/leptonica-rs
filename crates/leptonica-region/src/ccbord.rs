@@ -411,7 +411,12 @@ impl ImageBorders {
     ///
     /// Populates `Border::chain_code` for outer and hole borders of each component.
     pub fn generate_step_chains(&mut self) {
-        todo!("not yet implemented")
+        for comp in &mut self.components {
+            comp.outer.compute_chain_code();
+            for hole in &mut comp.holes {
+                hole.compute_chain_code();
+            }
+        }
     }
 
     /// Reconstruct pixel coordinates from step chain codes
@@ -419,7 +424,21 @@ impl ImageBorders {
     /// For each border with a computed chain code, regenerates `Border::points`
     /// from the start point and chain code directions.
     pub fn step_chains_to_pix_coords(&mut self) -> RegionResult<()> {
-        todo!("not yet implemented")
+        for comp in &mut self.components {
+            if let Some(code) = &comp.outer.chain_code {
+                let start = comp.outer.start;
+                let restored = from_chain_code(start, code);
+                comp.outer.points = restored;
+            }
+            for hole in &mut comp.holes {
+                if let Some(code) = &hole.chain_code {
+                    let start = hole.start;
+                    let restored = from_chain_code(start, code);
+                    hole.points = restored;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Generate a single continuous path for each component (for SVG export)
@@ -429,19 +448,175 @@ impl ImageBorders {
     /// the outer border and each hole border via straight-line cut paths.
     /// Result is stored in `ComponentBorders::single_path`.
     pub fn generate_single_path(&mut self) -> RegionResult<()> {
-        todo!("not yet implemented")
+        for comp in &mut self.components {
+            let mut path = Vec::new();
+
+            if comp.holes.is_empty() {
+                // No holes - just use outer border
+                path = comp.outer.points.clone();
+            } else {
+                // With holes - build a single continuous path
+                // This is a simplified implementation that concatenates borders via cuts
+                path.extend(&comp.outer.points);
+
+                for hole in &comp.holes {
+                    // Connect hole to outer border via simple line segment
+                    // (In a full implementation, we'd compute the optimal cut path)
+                    if !hole.points.is_empty() {
+                        path.push(hole.points[0]);
+                        path.extend(&hole.points);
+                        path.push(hole.points[0]);
+                        path.push(comp.outer.points[0]);
+                    }
+                }
+            }
+
+            comp.single_path = Some(path);
+        }
+        Ok(())
     }
 
     /// Serialize borders to binary format
     ///
     /// Format: magic "ccba" + image dimensions + per-component step chains.
-    pub fn write<W: Write>(&self, writer: W) -> RegionResult<()> {
-        todo!("not yet implemented")
+    pub fn write<W: Write>(&self, mut writer: W) -> RegionResult<()> {
+        // Header: "ccba" (4 bytes) + image dimensions (8 bytes)
+        writer
+            .write_all(b"ccba")
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        let width_bytes = (self.width as u32).to_le_bytes();
+        let height_bytes = (self.height as u32).to_le_bytes();
+        writer
+            .write_all(&width_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        writer
+            .write_all(&height_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        // Number of components
+        let ncc = (self.components.len() as u32).to_le_bytes();
+        writer
+            .write_all(&ncc)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        // Per-component data
+        for comp in &self.components {
+            let bx = (comp.bounds.x as i32).to_le_bytes();
+            let by = (comp.bounds.y as i32).to_le_bytes();
+            let bw = (comp.bounds.w as i32).to_le_bytes();
+            let bh = (comp.bounds.h as i32).to_le_bytes();
+
+            writer
+                .write_all(&bx)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            writer
+                .write_all(&by)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            writer
+                .write_all(&bw)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            writer
+                .write_all(&bh)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+            // Number of borders (outer + holes)
+            let nb = (comp.border_count() as u32).to_le_bytes();
+            writer
+                .write_all(&nb)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+            // Outer border
+            write_border(&mut writer, &comp.outer)?;
+
+            // Hole borders
+            for hole in &comp.holes {
+                write_border(&mut writer, hole)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Deserialize borders from binary format
-    pub fn read_from<R: Read>(reader: R) -> RegionResult<Self> {
-        todo!("not yet implemented")
+    pub fn read_from<R: Read>(mut reader: R) -> RegionResult<Self> {
+        let mut magic = [0u8; 4];
+        reader
+            .read_exact(&mut magic)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        if &magic != b"ccba" {
+            return Err(RegionError::InvalidParameters(
+                "invalid ccba magic header".to_string(),
+            ));
+        }
+
+        let mut width_bytes = [0u8; 4];
+        let mut height_bytes = [0u8; 4];
+        let mut ncc_bytes = [0u8; 4];
+
+        reader
+            .read_exact(&mut width_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        reader
+            .read_exact(&mut height_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        reader
+            .read_exact(&mut ncc_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        let width = u32::from_le_bytes(width_bytes);
+        let height = u32::from_le_bytes(height_bytes);
+        let ncc = u32::from_le_bytes(ncc_bytes) as usize;
+
+        let mut image_borders = ImageBorders::new(width, height);
+
+        for _ in 0..ncc {
+            let mut bx_bytes = [0u8; 4];
+            let mut by_bytes = [0u8; 4];
+            let mut bw_bytes = [0u8; 4];
+            let mut bh_bytes = [0u8; 4];
+            let mut nb_bytes = [0u8; 4];
+
+            reader
+                .read_exact(&mut bx_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut by_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut bw_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut bh_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+            reader
+                .read_exact(&mut nb_bytes)
+                .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+            let bx = i32::from_le_bytes(bx_bytes);
+            let by = i32::from_le_bytes(by_bytes);
+            let bw = i32::from_le_bytes(bw_bytes);
+            let bh = i32::from_le_bytes(bh_bytes);
+            let bounds = Box::new_unchecked(bx, by, bw, bh);
+            let nb = u32::from_le_bytes(nb_bytes) as usize;
+
+            if nb == 0 {
+                continue;
+            }
+
+            let outer = read_border(&mut reader)?;
+            let mut comp = ComponentBorders::new(bounds, outer);
+
+            for _ in 1..nb {
+                let hole = read_border(&mut reader)?;
+                comp.holes.push(hole);
+            }
+
+            image_borders.components.push(comp);
+        }
+
+        Ok(image_borders)
     }
 
     /// Generate an SVG polygon string for all component borders
@@ -449,13 +624,135 @@ impl ImageBorders {
     /// Uses the single path (if computed via `generate_single_path`) or
     /// falls back to the outer border in global coordinates.
     pub fn to_svg_string(&self) -> RegionResult<String> {
-        todo!("not yet implemented")
+        let mut svg = String::new();
+        svg.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n");
+        svg.push_str("<svg>\n");
+
+        for comp in &self.components {
+            let path = if let Some(ref single) = comp.single_path {
+                single.clone()
+            } else {
+                comp.outer_global().points
+            };
+
+            if !path.is_empty() {
+                svg.push_str("  <polygon style=\"stroke-width:1;stroke:black;\" points=\"");
+                for (i, p) in path.iter().enumerate() {
+                    if i > 0 {
+                        svg.push(' ');
+                    }
+                    svg.push_str(&format!("{},{}", p.x, p.y));
+                }
+                svg.push_str("\" />\n");
+            }
+        }
+
+        svg.push_str("</svg>\n");
+        Ok(svg)
     }
 
     /// Write SVG representation to a writer
-    pub fn write_svg<W: Write>(&self, writer: W) -> RegionResult<()> {
-        todo!("not yet implemented")
+    pub fn write_svg<W: Write>(&self, mut writer: W) -> RegionResult<()> {
+        let svg = self.to_svg_string()?;
+        writer
+            .write_all(svg.as_bytes())
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        Ok(())
     }
+}
+
+/// Helper: write a border to the stream
+fn write_border<W: Write>(writer: &mut W, border: &Border) -> RegionResult<()> {
+    // Border type (1 byte: 0 = Outer, 1 = Hole)
+    let border_type = match border.border_type {
+        BorderType::Outer => 0u8,
+        BorderType::Hole => 1u8,
+    };
+    writer
+        .write_all(&[border_type])
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    // Start point
+    let sx = (border.start.x as i32).to_le_bytes();
+    let sy = (border.start.y as i32).to_le_bytes();
+    writer
+        .write_all(&sx)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    writer
+        .write_all(&sy)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    // Number of points
+    let np = (border.points.len() as u32).to_le_bytes();
+    writer
+        .write_all(&np)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    // Points
+    for p in &border.points {
+        let px = (p.x as i32).to_le_bytes();
+        let py = (p.y as i32).to_le_bytes();
+        writer
+            .write_all(&px)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        writer
+            .write_all(&py)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    }
+
+    Ok(())
+}
+
+/// Helper: read a border from the stream
+fn read_border<R: Read>(reader: &mut R) -> RegionResult<Border> {
+    let mut type_byte = [0u8; 1];
+    let mut sx_bytes = [0u8; 4];
+    let mut sy_bytes = [0u8; 4];
+    let mut np_bytes = [0u8; 4];
+
+    reader
+        .read_exact(&mut type_byte)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    reader
+        .read_exact(&mut sx_bytes)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    reader
+        .read_exact(&mut sy_bytes)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+    reader
+        .read_exact(&mut np_bytes)
+        .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+    let border_type = match type_byte[0] {
+        0 => BorderType::Outer,
+        1 => BorderType::Hole,
+        _ => BorderType::Outer,
+    };
+    let sx = i32::from_le_bytes(sx_bytes);
+    let sy = i32::from_le_bytes(sy_bytes);
+    let np = u32::from_le_bytes(np_bytes) as usize;
+
+    let start = BorderPoint::new(sx, sy);
+    let mut points = Vec::with_capacity(np);
+
+    for _ in 0..np {
+        let mut px_bytes = [0u8; 4];
+        let mut py_bytes = [0u8; 4];
+        reader
+            .read_exact(&mut px_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        reader
+            .read_exact(&mut py_bytes)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+
+        let px = i32::from_le_bytes(px_bytes);
+        let py = i32::from_le_bytes(py_bytes);
+        points.push(BorderPoint::new(px, py));
+    }
+
+    let mut border = Border::new(border_type, points);
+    border.start = start;
+    Ok(border)
 }
 
 /// Find the next border pixel by searching clockwise from the current search position
@@ -1233,7 +1530,6 @@ mod tests {
     // --- Phase 5: CCBord拡張テスト ---
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_generate_step_chains() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1254,7 +1550,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_step_chains_to_pix_coords_roundtrip() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1273,7 +1569,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_generate_single_path_no_holes() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1294,7 +1590,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_generate_single_path_with_holes() {
         // Ring: 7x7 frame (hollow square)
         let mut pixels = Vec::new();
@@ -1319,7 +1615,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_write_read_roundtrip() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1345,7 +1641,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_to_svg_string() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1364,7 +1660,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_write_svg() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1384,7 +1680,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_write_read_with_holes() {
         // Ring shape
         let mut pixels = Vec::new();
@@ -1412,7 +1708,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn test_write_read_empty() {
         let borders = ImageBorders::new(100, 200);
         let mut buf = Vec::new();
