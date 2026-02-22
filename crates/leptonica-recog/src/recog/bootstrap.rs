@@ -116,9 +116,14 @@ impl Recog {
     ///
     /// After merging, training is finished automatically.
     ///
+    /// # Arguments
+    ///
+    /// * `boot_recog` - A fully trained recognizer whose classes will supplement `self`
+    ///
     /// # Errors
     ///
-    /// Returns an error if training has already been completed.
+    /// Returns an error if training has already been completed, or if
+    /// `boot_recog` has not yet completed averaging.
     pub fn train_from_boot(&mut self, boot_recog: &Recog) -> RecogResult<()> {
         if self.train_done {
             return Err(RecogError::TrainingError(
