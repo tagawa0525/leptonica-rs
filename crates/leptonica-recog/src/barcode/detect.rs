@@ -118,9 +118,64 @@ pub fn deskew_barcode(pix_gray: &Pix, bbox: &PixBox, margin: i32) -> RecogResult
     Ok((result, 0.0, 10.0))
 }
 
+/// Generates a binary mask covering barcode regions using morphological operations.
+///
+/// Detects both horizontal and vertical barcodes by:
+/// 1. Closing + opening + XOR to isolate bar regions
+/// 2. Opening to remove non-barcode noise
+/// 3. OR-ing horizontal and vertical results
+///
+/// # Arguments
+/// * `pix` - Input 1 bpp binary image (edge-detected or thresholded)
+///
+/// # Errors
+///
+/// Returns an error if `pix` is not 1 bpp or morphological operations fail.
+pub fn barcode_gen_mask(pix: &Pix) -> RecogResult<Pix> {
+    todo!("barcode_gen_mask pix={}x{}", pix.width(), pix.height())
+}
+
+/// Locates barcode regions in an image using morphological analysis.
+///
+/// Unlike [`locate_barcodes`] which requires edge-filtered input, this function
+/// works directly on any depth image by:
+/// 1. Converting to 1 bpp binary
+/// 2. Applying [`barcode_gen_mask`] to identify bar regions
+/// 3. Finding connected components in the mask
+///
+/// # Errors
+///
+/// Returns an error if the image is empty or processing fails.
+pub fn locate_barcodes_morphological(pix: &Pix) -> RecogResult<Boxa> {
+    todo!(
+        "locate_barcodes_morphological pix={}x{} depth={:?}",
+        pix.width(),
+        pix.height(),
+        pix.depth()
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_barcode_gen_mask_returns_pix() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let mask = barcode_gen_mask(&pix).unwrap();
+        assert_eq!(mask.width(), pix.width());
+        assert_eq!(mask.height(), pix.height());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_locate_barcodes_morphological_empty() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let boxa = locate_barcodes_morphological(&pix).unwrap();
+        // Empty image should return empty Boxa
+        assert_eq!(boxa.len(), 0);
+    }
 
     #[test]
     fn test_min_dimensions() {

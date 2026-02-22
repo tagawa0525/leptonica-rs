@@ -4,7 +4,9 @@
 //! from barcode images.
 
 use crate::{RecogError, RecogResult};
-use leptonica_core::{Pix, PixelDepth};
+use leptonica_core::{Numa, Pix, PixelDepth};
+
+use super::types::Direction;
 
 /// Extracts bar width crossings from a barcode image
 ///
@@ -292,6 +294,40 @@ pub fn widths_to_bar_string(widths: &[u8]) -> String {
     widths.iter().map(|&w| char::from(b'0' + w)).collect()
 }
 
+/// Extracts bar widths from a barcode image in the given scan direction.
+///
+/// For `Direction::Horizontal`, scans left-to-right (standard for vertical-bar barcodes).
+/// For `Direction::Vertical`, rotates 90° clockwise then scans horizontally.
+///
+/// # Arguments
+/// * `pix` - 8 bpp grayscale barcode image
+/// * `direction` - Scan direction
+///
+/// # Returns
+/// * `Numa` of quantized bar widths (values 1–4)
+pub fn extract_barcode_widths(pix: &Pix, _direction: Direction) -> RecogResult<Numa> {
+    todo!(
+        "extract_barcode_widths pix={}x{} depth={:?}",
+        pix.width(),
+        pix.height(),
+        pix.depth()
+    )
+}
+
+/// Finds local peak positions in a `Numa` that exceed a threshold.
+///
+/// A peak is a value strictly greater than both its neighbors and the threshold.
+///
+/// # Arguments
+/// * `numa` - Input numeric array
+/// * `threshold` - Minimum value for a peak
+///
+/// # Returns
+/// * `Numa` of indices where peaks occur
+pub fn find_barcode_peaks(numa: &Numa, _threshold: f32) -> RecogResult<Numa> {
+    todo!("find_barcode_peaks len={}", numa.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -331,5 +367,25 @@ mod tests {
         let distances = vec![10.0, 10.0, 10.0, 10.0];
         let error = eval_sync_error(&distances, 10.0, 0.0);
         assert!(error < 0.1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extract_barcode_widths_horizontal() {
+        let pix = leptonica_core::Pix::new(200, 50, leptonica_core::PixelDepth::Bit8).unwrap();
+        let result = extract_barcode_widths(&pix, Direction::Horizontal);
+        assert!(result.is_ok());
+        let widths = result.unwrap();
+        assert!(widths.len() > 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_find_barcode_peaks_empty() {
+        let numa = Numa::with_capacity(0);
+        let result = find_barcode_peaks(&numa, 0.5);
+        assert!(result.is_ok());
+        let peaks = result.unwrap();
+        assert_eq!(peaks.len(), 0);
     }
 }

@@ -210,6 +210,15 @@ impl FormatVerification {
     }
 }
 
+/// Scan direction for barcode width extraction
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    /// Scan horizontally (left to right) — standard for vertical-bar barcodes
+    Horizontal,
+    /// Scan vertically (top to bottom) — used for horizontal-bar codes
+    Vertical,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
