@@ -5,6 +5,7 @@
 use crate::{MorphError, MorphResult};
 use leptonica_core::{Pix, Pta};
 use std::io::{BufRead, Write};
+use std::path::Path;
 
 /// Element type in a structuring element
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -636,13 +637,25 @@ impl Sel {
 
     /// Deserialize a SEL from the Leptonica binary SEL file format (Version 1).
     ///
+    /// Leading blank lines before "Sel Version" are silently skipped, which
+    /// allows reading individual SELs from a Sela file stream.
+    ///
     /// Based on C leptonica `selReadStream`.
     pub fn read_from_reader<R: BufRead>(mut reader: R) -> MorphResult<Self> {
         let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
 
-        // Line 1: "  Sel Version 1"
+        // Line 1: "  Sel Version 1" (skip any preceding blank lines)
         let mut line = String::new();
-        reader.read_line(&mut line).map_err(map_io)?;
+        loop {
+            line.clear();
+            let bytes_read = reader.read_line(&mut line).map_err(map_io)?;
+            if bytes_read == 0 {
+                return Err(MorphError::InvalidParameters("unexpected EOF".into()));
+            }
+            if !line.trim().is_empty() {
+                break;
+            }
+        }
         let version: u32 = line
             .trim()
             .strip_prefix("Sel Version")
@@ -860,6 +873,156 @@ impl Sel {
         }
 
         Ok(sel)
+    }
+}
+
+// ── Phase 6: Sela – ordered collection of Sel instances ────────────────────
+
+/// An ordered, named collection of [`Sel`] structuring elements.
+///
+/// `Sela` mirrors the C leptonica `SELA` type and supports:
+/// - Building up a set incrementally with [`add`](Sela::add)
+/// - Indexed and name-based lookup
+/// - Serialization/deserialization using the Leptonica text format
+#[derive(Debug, Clone, Default)]
+pub struct Sela {
+    sels: Vec<Sel>,
+}
+
+impl Sela {
+    /// Create an empty Sela.
+    pub fn new() -> Self {
+        Self { sels: Vec::new() }
+    }
+
+    /// Return the number of SELs in the collection.
+    ///
+    /// Based on C leptonica `selaGetCount`.
+    pub fn count(&self) -> usize {
+        self.sels.len()
+    }
+
+    /// Add a [`Sel`] to the collection.
+    ///
+    /// The SEL must have a name (see [`Sel::set_name`]).
+    ///
+    /// Based on C leptonica `selaAddSel`.
+    pub fn add(&mut self, sel: Sel) -> MorphResult<()> {
+        if sel.name().is_none() {
+            return Err(MorphError::InvalidParameters(
+                "SEL must have a name to be added to Sela".into(),
+            ));
+        }
+        self.sels.push(sel);
+        Ok(())
+    }
+
+    /// Return a reference to the SEL at the given index.
+    ///
+    /// Returns `None` if `index >= self.count()`.
+    ///
+    /// Based on C leptonica `selaGetSel`.
+    pub fn get(&self, index: usize) -> Option<&Sel> {
+        self.sels.get(index)
+    }
+
+    /// Find a SEL by its name.
+    ///
+    /// Returns `None` if no SEL with the given name exists.
+    ///
+    /// Based on C leptonica `selaFindSelByName`.
+    pub fn find_by_name(&self, name: &str) -> Option<&Sel> {
+        self.sels.iter().find(|s| s.name() == Some(name))
+    }
+
+    /// Deserialize a `Sela` from the Leptonica text format.
+    ///
+    /// File format (produced by `selaWrite` / [`write`](Sela::write)):
+    /// ```text
+    /// \nSela Version 1\nNumber of Sels = N\n\n
+    /// <SEL 0>
+    /// ...
+    /// <SEL N-1>
+    /// ```
+    ///
+    /// Based on C leptonica `selaRead` / `selaReadStream`.
+    pub fn read<P: AsRef<Path>>(path: P) -> MorphResult<Self> {
+        let file = std::fs::File::open(path.as_ref())
+            .map_err(|e| MorphError::InvalidParameters(format!("cannot open sela file: {}", e)))?;
+        Self::read_from_reader(std::io::BufReader::new(file))
+    }
+
+    /// Serialize this `Sela` to the Leptonica text format.
+    ///
+    /// Based on C leptonica `selaWrite` / `selaWriteStream`.
+    pub fn write<P: AsRef<Path>>(&self, path: P) -> MorphResult<()> {
+        let file = std::fs::File::create(path.as_ref()).map_err(|e| {
+            MorphError::InvalidParameters(format!("cannot create sela file: {}", e))
+        })?;
+        self.write_to_writer(std::io::BufWriter::new(file))
+    }
+
+    /// Serialize to any [`Write`] sink.
+    pub fn write_to_writer<W: Write>(&self, mut writer: W) -> MorphResult<()> {
+        let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
+        writeln!(writer, "\nSela Version 1").map_err(map_io)?;
+        writeln!(writer, "Number of Sels = {}", self.sels.len()).map_err(map_io)?;
+        writeln!(writer).map_err(map_io)?;
+        for sel in &self.sels {
+            sel.write_to_writer(&mut writer)?;
+        }
+        Ok(())
+    }
+
+    /// Deserialize from any [`BufRead`] source.
+    pub fn read_from_reader<R: BufRead>(mut reader: R) -> MorphResult<Self> {
+        let map_io = |e: std::io::Error| MorphError::InvalidParameters(e.to_string());
+
+        // Skip optional leading blank line then read header
+        let mut line = String::new();
+        loop {
+            line.clear();
+            let bytes_read = reader.read_line(&mut line).map_err(map_io)?;
+            if bytes_read == 0 {
+                return Err(MorphError::InvalidParameters(
+                    "unexpected EOF before Sela header".into(),
+                ));
+            }
+            if !line.trim().is_empty() {
+                break;
+            }
+        }
+        // line now contains "Sela Version N"
+        let version: u32 = line
+            .trim()
+            .strip_prefix("Sela Version")
+            .ok_or_else(|| MorphError::InvalidParameters("not a sela file".into()))?
+            .trim()
+            .parse()
+            .map_err(|_| MorphError::InvalidParameters("invalid sela version".into()))?;
+        if version != 1 {
+            return Err(MorphError::InvalidParameters(format!(
+                "unsupported sela version: {}",
+                version
+            )));
+        }
+
+        line.clear();
+        reader.read_line(&mut line).map_err(map_io)?;
+        let n: usize = line
+            .trim()
+            .strip_prefix("Number of Sels =")
+            .ok_or_else(|| MorphError::InvalidParameters("bad sela header".into()))?
+            .trim()
+            .parse()
+            .map_err(|_| MorphError::InvalidParameters("invalid sel count".into()))?;
+
+        let mut sela = Sela::new();
+        for _ in 0..n {
+            let sel = Sel::read_from_reader(&mut reader)?;
+            sela.add(sel)?;
+        }
+        Ok(sela)
     }
 }
 
@@ -1897,5 +2060,84 @@ mod tests {
             sel_make_plus_sign(5, 6).is_err(),
             "linewidth > size should fail"
         );
+    }
+
+    // ── Phase 6: Sela tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_sela_new_is_empty() {
+        let sela = Sela::new();
+        assert_eq!(sela.count(), 0);
+    }
+
+    #[test]
+    fn test_sela_add_and_count() {
+        let mut sela = Sela::new();
+        let mut sel = Sel::new(3, 3).unwrap();
+        sel.set_name("test_sel");
+        sela.add(sel).unwrap();
+        assert_eq!(sela.count(), 1);
+    }
+
+    #[test]
+    fn test_sela_add_unnamed_fails() {
+        let mut sela = Sela::new();
+        let sel = Sel::new(3, 3).unwrap(); // no name
+        assert!(sela.add(sel).is_err());
+    }
+
+    #[test]
+    fn test_sela_get_by_index() {
+        let mut sela = Sela::new();
+        let mut sel = Sel::new(3, 3).unwrap();
+        sel.set_name("my_sel");
+        sela.add(sel).unwrap();
+        let retrieved = sela.get(0).unwrap();
+        assert_eq!(retrieved.name(), Some("my_sel"));
+    }
+
+    #[test]
+    fn test_sela_get_out_of_bounds_returns_none() {
+        let sela = Sela::new();
+        assert!(sela.get(0).is_none());
+    }
+
+    #[test]
+    fn test_sela_find_by_name() {
+        let mut sela = Sela::new();
+        let mut sel = Sel::new(3, 3).unwrap();
+        sel.set_name("target");
+        sela.add(sel).unwrap();
+        assert!(sela.find_by_name("target").is_some());
+        assert!(sela.find_by_name("missing").is_none());
+    }
+
+    #[test]
+    fn test_sela_write_and_read_roundtrip() {
+        use std::io::BufReader;
+
+        let mut sela = Sela::new();
+        let mut sel1 = Sel::new(3, 3).unwrap();
+        sel1.set_name("sel_a");
+        sel1.set_element(1, 1, SelElement::Hit);
+        sela.add(sel1).unwrap();
+
+        let mut sel2 = Sel::new(5, 1).unwrap();
+        sel2.set_name("sel_b");
+        sel2.set_origin(2, 0).unwrap();
+        for x in 0..5 {
+            sel2.set_element(x, 0, SelElement::Hit);
+        }
+        sela.add(sel2).unwrap();
+
+        let tmp = std::env::temp_dir().join("test_sela_roundtrip.sel");
+        sela.write(&tmp).unwrap();
+
+        let loaded = Sela::read(&tmp).unwrap();
+        assert_eq!(loaded.count(), 2);
+        assert!(loaded.find_by_name("sel_a").is_some());
+        assert!(loaded.find_by_name("sel_b").is_some());
+
+        let _ = std::fs::remove_file(&tmp);
     }
 }

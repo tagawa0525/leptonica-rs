@@ -24,7 +24,7 @@ pub mod thin;
 pub mod thin_sels;
 
 pub use error::{MorphError, MorphResult};
-pub use sel::{Sel, SelElement};
+pub use sel::{Sel, SelElement, Sela};
 
 // Re-export commonly used binary morphology functions
 pub use binary::{
