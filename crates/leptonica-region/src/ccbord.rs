@@ -460,13 +460,14 @@ impl ImageBorders {
                 path.extend(&comp.outer.points);
 
                 for hole in &comp.holes {
-                    // Connect hole to outer border via simple line segment
-                    // (In a full implementation, we'd compute the optimal cut path)
+                    // Connect hole to outer border via a cut path.
+                    // Return to the same outer-border cut point to keep the path continuous.
                     if !hole.points.is_empty() {
+                        let cut_point = path.last().copied().unwrap_or(comp.outer.points[0]);
                         path.push(hole.points[0]);
                         path.extend(&hole.points);
                         path.push(hole.points[0]);
-                        path.push(comp.outer.points[0]);
+                        path.push(cut_point);
                     }
                 }
             }
