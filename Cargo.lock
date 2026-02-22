@@ -357,6 +357,7 @@ dependencies = [
  "leptonica-core",
  "leptonica-io",
  "leptonica-morph",
+ "leptonica-region",
  "leptonica-test",
  "leptonica-transform",
  "thiserror",

@@ -1,6 +1,6 @@
 # leptonica-filter 全未実装関数の移植計画
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 ## Context
 
@@ -59,7 +59,7 @@ Phase 1 (FPix畳み込み) ← FPixへの直接畳み込みサポート
 
 ## Phase 1: FPix畳み込み（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/convolve.c` L1600-1850
 
@@ -91,7 +91,7 @@ Phase 1 (FPix畳み込み) ← FPixへの直接畳み込みサポート
 
 ## Phase 2: Tiled block畳み込み（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/convolve.c` L280-400
 
@@ -120,7 +120,7 @@ Phase 1 (FPix畳み込み) ← FPixへの直接畳み込みサポート
 
 ## Phase 3: Adaptmap拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IN_PROGRESS**
 
 **C参照**: `reference/leptonica/src/adaptmap.c` L1600-2100
 

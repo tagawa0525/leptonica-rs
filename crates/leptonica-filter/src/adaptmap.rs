@@ -1650,6 +1650,328 @@ pub fn convert_to_8_min_max(pix: &Pix) -> FilterResult<Pix> {
 }
 
 // ============================================================================
+// Phase 3: Adaptmap拡張
+// ============================================================================
+
+/// Edge filter type for adaptive threshold spread normalization.
+///
+/// C版: `L_SOBEL_EDGE` / `L_TWO_SIDED_EDGE` in `adaptmap.c`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EdgeFilterType {
+    /// Sobel vertical edge filter (C: `L_SOBEL_EDGE`)
+    Sobel,
+}
+
+/// Options for flexible background normalization.
+///
+/// C版: `pixBackgroundNormFlex()` parameters in `adaptmap.c`
+#[derive(Debug, Clone)]
+pub struct FlexNormOptions {
+    /// Tile width; must be in [3, 10]
+    pub tile_width: u32,
+    /// Tile height; must be in [3, 10]
+    pub tile_height: u32,
+    /// Half-width of smoothing convolution in X; must be in [1, 3]
+    pub smooth_x: u32,
+    /// Half-width of smoothing convolution in Y; must be in [1, 3]
+    pub smooth_y: u32,
+    /// Basin-filling height delta; use 0 to skip (values > 0 not yet supported)
+    pub delta: u32,
+}
+
+impl Default for FlexNormOptions {
+    fn default() -> Self {
+        Self {
+            tile_width: 5,
+            tile_height: 5,
+            smooth_x: 2,
+            smooth_y: 2,
+            delta: 0,
+        }
+    }
+}
+
+/// Adaptive threshold spread normalization.
+///
+/// Computes a local threshold map using edge pixel values spread across the
+/// image, then normalizes `pix` so that local thresholds align with a target.
+///
+/// # Parameters
+///
+/// - `pix`: 8 bpp grayscale source image; no colormap
+/// - `filter_type`: edge detection method; currently only [`EdgeFilterType::Sobel`]
+/// - `edge_thresh`: threshold on edge magnitude to select edge seed pixels
+/// - `smooth_x`, `smooth_y`: half-width of box-blur applied to the spread map
+/// - `thresh_norm`: gamma value applied to the spread map before normalization
+///   (1.0 = linear; < 1.0 darkens mid-tones; > 1.0 brightens mid-tones)
+///
+/// Returns the background-normalized 8 bpp image.
+///
+/// C版: `pixThresholdSpreadNorm()` in `adaptmap.c`
+pub fn threshold_spread_norm(
+    pix: &Pix,
+    _filter_type: EdgeFilterType,
+    edge_thresh: u8,
+    smooth_x: u32,
+    smooth_y: u32,
+    thresh_norm: f32,
+) -> FilterResult<Pix> {
+    use leptonica_region::{conncomp::ConnectivityType, seedfill::seedspread};
+
+    use crate::{
+        block_conv::blockconv,
+        edge::{EdgeOrientation, sobel_edge},
+        enhance::gamma_trc_pix,
+    };
+
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let thresh = edge_thresh as u32;
+
+    // 1. Sobel vertical edge filter
+    let edge_pix = sobel_edge(pix, EdgeOrientation::Vertical)?;
+
+    // 2. Build seed image: pix values where edge is below threshold, else 0.
+    //    This selects pixels near the fg/bg boundary as threshold seeds.
+    let seed = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut seed_mut = seed.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let edge_val = edge_pix.get_pixel_unchecked(x, y);
+            if edge_val <= thresh {
+                seed_mut.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(x, y));
+            }
+        }
+    }
+    let seed: Pix = seed_mut.into();
+
+    // 3. Spread seed values to fill non-seed regions
+    let spread = seedspread(&seed, ConnectivityType::FourWay)
+        .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+
+    // 4. Smooth the spread threshold map
+    let smoothed = blockconv(&spread, smooth_x, smooth_y)?;
+
+    // 5. Optional gamma correction on the threshold map
+    let thresh_map = if (thresh_norm - 1.0).abs() < 1e-6 {
+        smoothed
+    } else {
+        gamma_trc_pix(&smoothed, thresh_norm, 0, 255)?
+    };
+
+    // 6. Normalize pix so that local threshold aligns to 128
+    apply_variable_gray_map(pix, &thresh_map, 128)
+}
+
+/// Flexible adaptive background normalization.
+///
+/// Generates a background estimate using smoothed subsampling, then maps the
+/// image so the background is normalized to 200.  Basin-filling (delta > 0)
+/// is not yet supported.
+///
+/// # Parameters
+///
+/// - `pix`: 8 bpp grayscale source image; no colormap
+/// - `options`: tile size, smoothing, and delta (delta=0 skips basin filling)
+///
+/// C版: `pixBackgroundNormFlex()` in `adaptmap.c`
+pub fn background_norm_flex(pix: &Pix, options: &FlexNormOptions) -> FilterResult<Pix> {
+    use leptonica_transform::scale::scale_smooth;
+
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let sx = options.tile_width;
+    let sy = options.tile_height;
+    let smooth_x = options.smooth_x;
+    let smooth_y = options.smooth_y;
+
+    if sx < 3 || sy < 3 {
+        return Err(FilterError::InvalidParameters(
+            "tile_width and tile_height must be >= 3".into(),
+        ));
+    }
+    if sx > 10 || sy > 10 {
+        return Err(FilterError::InvalidParameters(
+            "tile_width and tile_height must be <= 10".into(),
+        ));
+    }
+    if smooth_x < 1 || smooth_y < 1 {
+        return Err(FilterError::InvalidParameters(
+            "smooth_x and smooth_y must be >= 1".into(),
+        ));
+    }
+    if smooth_x > 3 || smooth_y > 3 {
+        return Err(FilterError::InvalidParameters(
+            "smooth_x and smooth_y must be <= 3".into(),
+        ));
+    }
+    if options.delta > 0 {
+        return Err(FilterError::InvalidParameters(
+            "delta > 0 (basin filling) is not yet supported".into(),
+        ));
+    }
+
+    // Scale down to tile-level resolution to estimate the background
+    let scale_x = 1.0 / sx as f32;
+    let scale_y = 1.0 / sy as f32;
+    let scaled = scale_smooth(pix, scale_x, scale_y)
+        .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+
+    // Extend by 1 pixel on right/bottom via replication (matches C pixExtendByReplication)
+    let extended = extend_by_replication(&scaled, 1, 1)?;
+
+    // Compute the inverse background map (maps bg pixels to 200)
+    let inv_map = get_inv_background_map(&extended, 200, smooth_x, smooth_y)?;
+
+    // Apply the inverse map to the source image
+    apply_inv_background_gray_map(pix, &inv_map, sx, sy)
+}
+
+/// Smooth connected foreground regions in the mask.
+///
+/// For each 8-connected region in `mask`, sets the corresponding pixels in
+/// `pix` to the average value of those pixels.  When `mask` is `None`, the
+/// image is returned unchanged.
+///
+/// # Parameters
+///
+/// - `pix`: 8 bpp grayscale; no colormap
+/// - `mask`: optional 1 bpp mask defining regions to smooth
+/// - `factor`: subsampling factor for computing the average (>= 1)
+///
+/// C版: `pixSmoothConnectedRegions()` in `adaptmap.c`
+pub fn smooth_connected_regions(pix: &Pix, mask: Option<&Pix>, factor: u32) -> FilterResult<Pix> {
+    use leptonica_core::PixelStatType;
+    use leptonica_region::conncomp::{ConnectivityType, conncomp_pixa};
+
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if factor == 0 {
+        return Err(FilterError::InvalidParameters("factor must be >= 1".into()));
+    }
+
+    let mask = match mask {
+        None => return Ok(pix.deep_clone()),
+        Some(m) => m,
+    };
+
+    if mask.depth() != PixelDepth::Bit1 {
+        return Err(FilterError::InvalidParameters("mask must be 1 bpp".into()));
+    }
+
+    let (boxa, pixa) = conncomp_pixa(mask, ConnectivityType::EightWay)
+        .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+
+    let n = boxa.len();
+    if n == 0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let result = pix.deep_clone();
+    let mut result_mut = result.try_into_mut().unwrap_or_else(|p| p.to_mut());
+
+    for i in 0..n {
+        let comp_mask = match pixa.get(i) {
+            Some(m) => m,
+            None => continue,
+        };
+        let b = match boxa.get(i) {
+            Some(b) => b,
+            None => continue,
+        };
+
+        let avg = pix
+            .average_masked(Some(comp_mask), b.x, b.y, factor, PixelStatType::MeanAbsVal)
+            .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+        let avg_val = avg.round() as u32;
+
+        result_mut
+            .paint_through_mask(comp_mask, b.x, b.y, avg_val)
+            .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+    }
+
+    Ok(result_mut.into())
+}
+
+/// Binarize using background normalization with min-max color rendering.
+///
+/// Convenience pipeline that:
+/// 1. Converts `pix` to 8 bpp grayscale using min-of-RGB (strongly renders color to black).
+/// 2. Normalizes the background to 200.
+/// 3. Enhances contrast according to `contrast` (1 = minimal; 10 = maximum).
+/// 4. Thresholds at 180 to produce a 1 bpp binary image.
+///
+/// # Parameters
+///
+/// - `pix`: any depth, with or without colormap
+/// - `contrast`: 1–10 (1 reduces contrast slightly; 10 maximizes darkening)
+///
+/// C版: `pixBackgroundNormTo1MinMax()` in `adaptmap.c`
+pub fn background_norm_to_1_min_max(pix: &Pix, contrast: u32) -> FilterResult<Pix> {
+    use crate::enhance::gamma_trc_pix;
+
+    if !(1..=10).contains(&contrast) {
+        return Err(FilterError::InvalidParameters(
+            "contrast must be between 1 and 10 inclusive".into(),
+        ));
+    }
+
+    // Step 1: convert to 8bpp grayscale using min-of-RGB
+    let gray = convert_to_8_min_max(pix)?;
+
+    // Step 2: normalize background to ~200
+    let normalized = background_norm_simple(&gray)?;
+
+    // Step 3: selective contrast enhancement (gamma curve based on contrast level)
+    let (gamma, minval, maxval) = match contrast {
+        1 => (2.0f32, 50i32, 200i32),
+        2 => (1.8, 60, 200),
+        3 => (1.6, 70, 200),
+        4 => (1.4, 80, 200),
+        5 => (1.2, 90, 200),
+        6 => (1.0, 100, 200),
+        7 => (0.85, 110, 200),
+        8 => (0.7, 120, 200),
+        9 => (0.6, 130, 200),
+        _ => (0.5, 140, 200), // contrast == 10
+    };
+    let contrasted = gamma_trc_pix(&normalized, gamma, minval, maxval)?;
+
+    // Step 4: threshold at 180 → 1 bpp binary image
+    threshold_8bpp_to_1bpp(&contrasted, 180)
+}
+
+/// Threshold an 8 bpp image to 1 bpp: output is 1 (fg) where pixel < thresh.
+fn threshold_8bpp_to_1bpp(pix: &Pix, thresh: u32) -> FilterResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            out_mut.set_pixel_unchecked(x, y, if val < thresh { 1 } else { 0 });
+        }
+    }
+    Ok(out_mut.into())
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1871,6 +2193,108 @@ mod tests {
             for x in 0..5 {
                 let val = filled.get_pixel_unchecked(x, y);
                 assert!(val > 0, "Hole at ({}, {}) not filled", x, y);
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 3: Adaptmap拡張
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_background_norm_to_1_min_max_basic() {
+        let pix = create_test_gray_image(); // 50×50 8bpp
+        let result = background_norm_to_1_min_max(&pix, 1).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit1);
+    }
+
+    #[test]
+    fn test_background_norm_to_1_min_max_contrast_range() {
+        let pix = create_test_gray_image();
+        for contrast in 1..=10 {
+            let result = background_norm_to_1_min_max(&pix, contrast).unwrap();
+            assert_eq!(result.depth(), PixelDepth::Bit1);
+        }
+    }
+
+    #[test]
+    fn test_background_norm_to_1_min_max_invalid_contrast() {
+        let pix = create_test_gray_image();
+        assert!(background_norm_to_1_min_max(&pix, 0).is_err());
+        assert!(background_norm_to_1_min_max(&pix, 11).is_err());
+    }
+
+    #[test]
+    fn test_background_norm_flex_basic() {
+        let pix = create_test_gray_image(); // 50×50 8bpp
+        let opts = FlexNormOptions {
+            tile_width: 5,
+            tile_height: 5,
+            smooth_x: 1,
+            smooth_y: 1,
+            delta: 0,
+        };
+        let result = background_norm_flex(&pix, &opts).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_background_norm_flex_invalid_tile_size() {
+        let pix = create_test_gray_image();
+        // tile_width < 3 → error
+        let opts = FlexNormOptions {
+            tile_width: 2,
+            tile_height: 5,
+            smooth_x: 1,
+            smooth_y: 1,
+            delta: 0,
+        };
+        assert!(background_norm_flex(&pix, &opts).is_err());
+    }
+
+    #[test]
+    fn test_threshold_spread_norm_basic() {
+        let pix = create_test_gray_image(); // 50×50 8bpp
+        let result = threshold_spread_norm(&pix, EdgeFilterType::Sobel, 18, 4, 4, 1.0).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_smooth_connected_regions_no_mask() {
+        let pix = create_test_gray_image(); // 50×50 8bpp
+        // When mask is None, output equals input
+        let result = smooth_connected_regions(&pix, None, 1).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    fn test_smooth_connected_regions_with_mask() {
+        let pix = create_test_gray_image(); // 50×50 8bpp
+        // Create a simple 1bpp mask with a small fg region
+        let mask = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
+        let mut mask_mut = mask.try_into_mut().unwrap();
+        for y in 10..20 {
+            for x in 10..20 {
+                mask_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        let mask = mask_mut.into();
+        let result = smooth_connected_regions(&pix, Some(&mask), 1).unwrap();
+        assert_eq!(result.width(), pix.width());
+        assert_eq!(result.height(), pix.height());
+        // Pixels in the masked region should all have the same value (averaged)
+        let val_ref = result.get_pixel_unchecked(10, 10);
+        for y in 10..20 {
+            for x in 10..20 {
+                assert_eq!(result.get_pixel_unchecked(x, y), val_ref);
             }
         }
     }
