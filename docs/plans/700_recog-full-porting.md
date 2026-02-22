@@ -1,6 +1,6 @@
 # leptonica-recog 全未実装関数の移植計画
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 ## Context
 
@@ -74,7 +74,7 @@ Phase 1 (Recog I/O) ← 基盤。学習済みモデルの永続化
 
 ## Phase 1: Recog シリアライゼーション（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/recogbasic.c` L800-1100
 

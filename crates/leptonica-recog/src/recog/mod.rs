@@ -29,9 +29,11 @@
 
 mod did;
 mod ident;
+pub mod io;
 mod train;
 mod types;
 
 pub use ident::*;
 pub use train::*;
+pub use types::RecogParams;
 pub use types::*;

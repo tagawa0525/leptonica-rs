@@ -420,6 +420,23 @@ pub const DEFAULT_MIN_SPLIT_W: i32 = 6;
 /// Default maximum split height
 pub const DEFAULT_MAX_SPLIT_H: i32 = 60;
 
+/// Parameters for creating a recognizer
+///
+/// These parameters control the scaling and matching behavior of the recognizer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RecogParams {
+    /// Target width for scaling (0 = no horizontal scaling)
+    pub scale_w: i32,
+    /// Target height for scaling (0 = no vertical scaling)
+    pub scale_h: i32,
+    /// Line width for skeleton-based recognition (0 = skip)
+    pub line_w: i32,
+    /// Binarization threshold for depth > 1
+    pub threshold: i32,
+    /// Maximum vertical shift during matching (0, 1, or 2)
+    pub max_y_shift: i32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
