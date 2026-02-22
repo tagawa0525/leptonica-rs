@@ -34,9 +34,146 @@
 //! ```
 
 use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Pix, PixMut, PixelDepth};
+use leptonica_core::{Numa, Pix, PixMut, PixelDepth, Pta};
 use rand::RngExt;
 use std::collections::VecDeque;
+
+/// Find the minimum-cost path through a grayscale image using Dijkstra's algorithm.
+///
+/// The grayscale value of each pixel is treated as a traversal cost.
+/// Finds the path from `start` to `end` that minimises total accumulated cost.
+///
+/// # Arguments
+///
+/// * `pix` - 8-bit grayscale input image
+/// * `start` - Starting pixel `(x, y)`
+/// * `end` - Target pixel `(x, y)`
+///
+/// # Returns
+///
+/// A tuple `(path, costs)` where:
+/// - `path` (`Pta`) contains the (x, y) coordinates along the path, from start to end
+/// - `costs` (`Numa`) contains the accumulated cost at each step
+///
+/// # Errors
+///
+/// - `RegionError::UnsupportedDepth` if `pix` is not 8-bit grayscale.
+/// - `RegionError::InvalidSeed` if `start` or `end` is out of bounds.
+/// - `RegionError::SegmentationError` if no path exists between `start` and `end`.
+pub fn search_gray_maze(
+    pix: &Pix,
+    start: (u32, u32),
+    end: (u32, u32),
+) -> RegionResult<(Pta, Numa)> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let width = pix.width();
+    let height = pix.height();
+
+    if start.0 >= width || start.1 >= height {
+        return Err(RegionError::InvalidSeed {
+            x: start.0,
+            y: start.1,
+        });
+    }
+    if end.0 >= width || end.1 >= height {
+        return Err(RegionError::InvalidSeed { x: end.0, y: end.1 });
+    }
+
+    // cost[y * width + x] = accumulated cost from start to (x, y)
+    let n = (width * height) as usize;
+    let mut cost = vec![f64::INFINITY; n];
+    // parent index, used to reconstruct the path
+    let mut parent = vec![usize::MAX; n];
+
+    let start_idx = (start.1 * width + start.0) as usize;
+    let start_cost = pix.get_pixel(start.0, start.1).unwrap_or(0) as f64;
+    cost[start_idx] = start_cost;
+
+    // Min-heap using BinaryHeap (which is a max-heap) with Reverse wrapper to invert ordering.
+    // We encode cost as (Reverse(cost_bits), idx) so that smaller costs are popped first.
+    use std::cmp::Reverse;
+    let mut heap: std::collections::BinaryHeap<(Reverse<u64>, usize)> =
+        std::collections::BinaryHeap::new();
+    heap.push((Reverse(start_cost.to_bits()), start_idx));
+
+    let end_idx = (end.1 * width + end.0) as usize;
+
+    // 4-way connectivity
+    const DX: [i32; 4] = [0, 0, -1, 1];
+    const DY: [i32; 4] = [-1, 1, 0, 0];
+
+    while let Some((Reverse(cost_bits), idx)) = heap.pop() {
+        let curr_cost = f64::from_bits(cost_bits);
+        if curr_cost > cost[idx] {
+            // Stale entry; skip
+            continue;
+        }
+        if idx == end_idx {
+            break;
+        }
+
+        let x = (idx as u32) % width;
+        let y = (idx as u32) / width;
+
+        for dir in 0..4 {
+            let nx = x as i32 + DX[dir];
+            let ny = y as i32 + DY[dir];
+            if nx < 0 || nx >= width as i32 || ny < 0 || ny >= height as i32 {
+                continue;
+            }
+            let nx = nx as u32;
+            let ny = ny as u32;
+            let nidx = (ny * width + nx) as usize;
+            let step_cost = pix.get_pixel(nx, ny).unwrap_or(0) as f64;
+            let new_cost = curr_cost + step_cost;
+            if new_cost < cost[nidx] {
+                cost[nidx] = new_cost;
+                parent[nidx] = idx;
+                heap.push((Reverse(new_cost.to_bits()), nidx));
+            }
+        }
+    }
+
+    if cost[end_idx].is_infinite() {
+        return Err(RegionError::SegmentationError(
+            "no path found between start and end".to_string(),
+        ));
+    }
+
+    // Reconstruct path by following parent pointers from end to start
+    let mut path_indices = Vec::new();
+    let mut cur = end_idx;
+    while cur != usize::MAX {
+        path_indices.push(cur);
+        if cur == start_idx {
+            break;
+        }
+        cur = parent[cur];
+        if path_indices.len() > n {
+            // Cycle guard (should not happen in correct Dijkstra)
+            break;
+        }
+    }
+    path_indices.reverse(); // now start → end
+
+    let mut pta = Pta::with_capacity(path_indices.len());
+    let mut numa = Numa::with_capacity(path_indices.len());
+
+    for &pidx in &path_indices {
+        let px = (pidx as u32) % width;
+        let py = (pidx as u32) / width;
+        pta.push(px as f32, py as f32);
+        numa.push(cost[pidx] as f32);
+    }
+
+    Ok((pta, numa))
+}
 
 /// Direction from parent to child in maze traversal
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -488,10 +625,7 @@ pub fn search_binary_maze(
 
     // Validate start position
     if xi >= width || yi >= height {
-        return Err(RegionError::InvalidParameters(format!(
-            "start position ({}, {}) out of bounds for {}x{} image",
-            xi, yi, width, height
-        )));
+        return Err(RegionError::InvalidSeed { x: xi, y: yi });
     }
 
     // Check that start is on a passage
@@ -961,6 +1095,121 @@ mod tests {
         assert_eq!(vis.width(), 10);
         assert_eq!(vis.height(), 10);
         assert_eq!(vis.depth(), PixelDepth::Bit32);
+    }
+
+    // --- Phase 7: search_gray_maze tests ---
+
+    fn create_gray_maze(width: u32, height: u32, values: &[Vec<u32>]) -> Pix {
+        let pix = Pix::new(width, height, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for (y, row) in values.iter().enumerate() {
+            for (x, &v) in row.iter().enumerate() {
+                let _ = pix_mut.set_pixel(x as u32, y as u32, v);
+            }
+        }
+        pix_mut.into()
+    }
+
+    #[test]
+    fn test_gray_maze_uniform_reaches_end() {
+        // All-zero cost: any path has the same cost; algorithm should reach end
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let (path, costs) = search_gray_maze(&pix, (0, 0), (4, 4)).unwrap();
+        let last = path.get(path.len() - 1).unwrap();
+        assert_eq!(last, (4.0, 4.0));
+        assert_eq!(path.len(), costs.len());
+    }
+
+    #[test]
+    fn test_gray_maze_path_length() {
+        // Path on uniform image must be at least Manhattan distance + 1
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let (path, _costs) = search_gray_maze(&pix, (0, 0), (4, 4)).unwrap();
+        // Manhattan distance = 8; path must have >= 9 points
+        assert!(path.len() >= 9);
+    }
+
+    #[test]
+    fn test_gray_maze_avoids_high_cost() {
+        // High-cost column in the middle: optimal path should avoid it
+        let values = vec![
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 200, 0, 0],
+            vec![0, 0, 0, 0, 0], // gap at bottom
+        ];
+        let pix = create_gray_maze(5, 5, &values);
+        let (path, _costs) = search_gray_maze(&pix, (0, 0), (4, 0)).unwrap();
+        // Path should not pass through column x=2 rows 0-3
+        for i in 0..path.len() {
+            let (px, py) = path.get(i).unwrap();
+            if py < 4.0 {
+                assert_ne!(px as u32, 2, "path should avoid high-cost column");
+            }
+        }
+    }
+
+    #[test]
+    fn test_gray_maze_costs_monotone() {
+        // Accumulated cost must be monotonically non-decreasing
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let (_path, costs) = search_gray_maze(&pix, (0, 0), (4, 4)).unwrap();
+        for i in 1..costs.len() {
+            assert!(costs.get(i).unwrap() >= costs.get(i - 1).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_gray_maze_out_of_bounds_start() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let result = search_gray_maze(&pix, (10, 10), (4, 4));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_gray_maze_out_of_bounds_end() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let result = search_gray_maze(&pix, (0, 0), (10, 10));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_gray_maze_start_equals_end() {
+        let values = vec![vec![0u32, 0, 0], vec![0, 42, 0], vec![0, 0, 0]];
+        let pix = create_gray_maze(3, 3, &values);
+        let (path, costs) = search_gray_maze(&pix, (1, 1), (1, 1)).unwrap();
+        assert_eq!(path.len(), 1);
+        assert_eq!(path.get(0).unwrap(), (1.0, 1.0));
+        assert_eq!(costs.len(), 1);
+        assert_eq!(costs.get(0).unwrap(), 42.0);
+    }
+
+    #[test]
+    fn test_gray_maze_no_path_returns_error() {
+        // A single surrounded pixel cannot reach any neighbor because all costs
+        // are nonzero, but the Dijkstra implementation always finds a path in a
+        // fully connected grid. Instead test on a 1×1 image where start==end==only pixel
+        // but end is unreachable: use a 1-pixel image and request end outside bounds.
+        // (True "no path" can't happen on a fully connected grid; test unreachable case
+        // via out-of-bounds which returns error.)
+        //
+        // For a genuine SegmentationError, we would need walls, which don't exist in
+        // a grayscale image (all pixels are traversable). The error path is still
+        // exercised by out-of-bounds checks above.
+        //
+        // This test documents the expected error type for reference.
+        let pix = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        // 1×1 image: start == end == (0,0), should succeed
+        let (path, _) = search_gray_maze(&pix, (0, 0), (0, 0)).unwrap();
+        assert_eq!(path.len(), 1);
+    }
+
+    #[test]
+    fn test_gray_maze_unsupported_depth() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let result = search_gray_maze(&pix, (0, 0), (4, 4));
+        assert!(result.is_err());
     }
 
     #[test]

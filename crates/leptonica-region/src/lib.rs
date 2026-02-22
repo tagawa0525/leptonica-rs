@@ -124,5 +124,5 @@ pub use quadtree::{
 pub use maze::{
     DEFAULT_ANISOTROPY_RATIO, DEFAULT_WALL_PROBABILITY, MIN_MAZE_HEIGHT, MIN_MAZE_WIDTH,
     MazeDirection, MazeGenerationOptions, MazePath, generate_binary_maze, render_maze_path,
-    search_binary_maze,
+    search_binary_maze, search_gray_maze,
 };
