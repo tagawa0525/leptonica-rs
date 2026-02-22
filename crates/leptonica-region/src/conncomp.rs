@@ -631,7 +631,7 @@ pub fn get_sorted_neighbor_values(
 
 /// Count connected components without full labeling
 ///
-/// Returns the number of 8-connected components in a binary image.
+/// Returns the number of connected components (4-way or 8-way) in a binary image.
 /// More efficient than `find_connected_components()` when only the count is needed.
 ///
 /// # Arguments
@@ -642,6 +642,11 @@ pub fn get_sorted_neighbor_values(
 /// # Returns
 ///
 /// Number of connected components
+///
+/// # Errors
+///
+/// Returns an error if the image is not 1-bit depth, or if the component count
+/// exceeds `u32::MAX`.
 pub fn count_conn_comp(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<u32> {
     if pix.depth() != PixelDepth::Bit1 {
         return Err(RegionError::UnsupportedDepth {
@@ -653,19 +658,21 @@ pub fn count_conn_comp(pix: &Pix, connectivity: ConnectivityType) -> RegionResul
     // For now, use find_connected_components as implementation
     // TODO: Optimize to avoid storing all component info
     let components = find_connected_components(pix, connectivity)?;
-    Ok(components.len() as u32)
+    u32::try_from(components.len())
+        .map_err(|_| RegionError::InvalidParameters("component count exceeds u32::MAX".into()))
 }
 
 /// Find the next ON pixel in raster scan order starting from a given position
 ///
-/// Scans the image from left to right, top to bottom, starting just after
-/// the given coordinates and returns the first ON pixel found.
+/// Scans the image from left to right, top to bottom, starting at the pixel
+/// **after** `(start_x, start_y)` in raster order. The start pixel itself is
+/// not checked.
 ///
 /// # Arguments
 ///
 /// * `pix` - 1-bpp binary image
-/// * `start_x` - Starting x coordinate (inclusive)
-/// * `start_y` - Starting y coordinate (inclusive)
+/// * `start_x` - Starting x coordinate (exclusive: scan begins after this position)
+/// * `start_y` - Starting y coordinate (exclusive: scan begins after this position)
 ///
 /// # Returns
 ///
@@ -696,10 +703,10 @@ pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<
     for sy in y..h {
         let x_start = if sy == y { x } else { 0 };
         for sx in x_start..w {
-            if let Some(val) = pix.get_pixel(sx, sy) {
-                if val != 0 {
-                    return Some((sx, sy));
-                }
+            if let Some(val) = pix.get_pixel(sx, sy)
+                && val != 0
+            {
+                return Some((sx, sy));
             }
         }
     }
@@ -709,25 +716,40 @@ pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<
 
 /// Seedfill starting at a point with bounding box tracking
 ///
-/// Performs a flood fill starting from the given point. Modifies the input image
-/// in-place and returns the bounding box of all pixels that were filled.
+/// Performs a flood fill starting from the given point. Clears (sets to 0) all
+/// ON pixels reachable from `(x, y)` via the specified connectivity, modifying
+/// the image in-place. Returns the bounding box of all pixels that were cleared.
 ///
 /// # Arguments
 ///
-/// * `pix` - Mutable binary image to fill
+/// * `pix` - Mutable 1-bit binary image to fill
 /// * `x` - Starting x coordinate
 /// * `y` - Starting y coordinate
 /// * `connectivity` - 4-way or 8-way connectivity
 ///
 /// # Returns
 ///
-/// Bounding box of the filled region
+/// Bounding box of the filled (cleared) region
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The image is not 1-bit depth
+/// - The coordinates are out of bounds
+/// - The starting pixel is OFF
 pub fn seedfill_bb(
     pix: &mut PixMut,
     x: u32,
     y: u32,
     connectivity: ConnectivityType,
 ) -> RegionResult<Box> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
     let w = pix.width();
     let h = pix.height();
 
@@ -745,7 +767,8 @@ pub fn seedfill_bb(
     }
 
     // BFS flood fill while tracking bounding box
-    let mut filled = vec![false; (w * h) as usize];
+    let total = (w as usize).saturating_mul(h as usize);
+    let mut filled = vec![false; total];
     let mut queue = std::collections::VecDeque::new();
     let mut min_x = x;
     let mut max_x = x;
@@ -753,11 +776,14 @@ pub fn seedfill_bb(
     let mut max_y = y;
 
     // Start from seed point
-    let sidx = (y * w + x) as usize;
+    let sidx = (y as usize) * (w as usize) + (x as usize);
     filled[sidx] = true;
     queue.push_back((x, y));
 
     while let Some((cx, cy)) = queue.pop_front() {
+        // Clear this pixel in-place (flood fill removes pixels from image)
+        let _ = pix.set_pixel(cx, cy, 0);
+
         // Update bounding box
         if cx < min_x {
             min_x = cx;
@@ -810,7 +836,7 @@ pub fn seedfill_bb(
 
         // Add ON neighbors to queue
         for (nx, ny) in neighbors {
-            let nidx = (ny * w + nx) as usize;
+            let nidx = (ny as usize) * (w as usize) + (nx as usize);
             if !filled[nidx] && pix.get_pixel(nx, ny).unwrap_or(0) != 0 {
                 filled[nidx] = true;
                 queue.push_back((nx, ny));
@@ -1027,7 +1053,7 @@ mod tests {
 
     #[test]
     fn test_count_conn_comp_basic() {
-        // Create a 5x5 image with two separate components
+        // Create a 10x10 image with two separate components
         let pix = create_test_image(
             10,
             10,
@@ -1111,6 +1137,20 @@ mod tests {
         assert_eq!(bbox.y, 1);
         assert_eq!(bbox.w, 3);
         assert_eq!(bbox.h, 3);
+
+        // All filled pixels should now be OFF (in-place modification)
+        for y in 1..=3u32 {
+            for x in 1..=3u32 {
+                assert_eq!(
+                    pix_mut.get_pixel(x, y),
+                    Some(0),
+                    "pixel ({x},{y}) should be OFF after seedfill"
+                );
+            }
+        }
+        // Pixels outside the component should remain OFF (were never ON)
+        assert_eq!(pix_mut.get_pixel(0, 0), Some(0));
+        assert_eq!(pix_mut.get_pixel(4, 4), Some(0));
     }
 
     #[test]
@@ -1121,10 +1161,15 @@ mod tests {
 
         let bbox = seedfill_8_bb(&mut pix_mut, 1, 1).unwrap();
 
-        // Should fill all three pixels
+        // Should cover all three pixels
         assert_eq!(bbox.x, 1);
         assert_eq!(bbox.y, 1);
         assert_eq!(bbox.w, 3);
         assert_eq!(bbox.h, 3);
+
+        // All filled pixels should now be OFF (in-place modification)
+        assert_eq!(pix_mut.get_pixel(1, 1), Some(0));
+        assert_eq!(pix_mut.get_pixel(2, 2), Some(0));
+        assert_eq!(pix_mut.get_pixel(3, 3), Some(0));
     }
 }
