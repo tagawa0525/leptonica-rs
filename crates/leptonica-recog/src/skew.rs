@@ -303,8 +303,10 @@ pub enum SkewPivot {
 /// # Errors
 ///
 /// Returns an error if the image is empty or skew detection fails.
-pub fn deskew(_pix: &Pix) -> RecogResult<Pix> {
-    todo!("Phase 11: implement deskew")
+pub fn deskew(pix: &Pix) -> RecogResult<Pix> {
+    let opts = SkewDetectOptions::default();
+    let (deskewed, _) = find_skew_and_deskew(pix, &opts)?;
+    Ok(deskewed)
 }
 
 /// Deskew and return both the corrected image and a binarised version.
@@ -314,8 +316,11 @@ pub fn deskew(_pix: &Pix) -> RecogResult<Pix> {
 /// # Errors
 ///
 /// Returns an error if the image is empty or skew detection fails.
-pub fn deskew_both(_pix: &Pix) -> RecogResult<(Pix, Pix)> {
-    todo!("Phase 11: implement deskew_both")
+pub fn deskew_both(pix: &Pix) -> RecogResult<(Pix, Pix)> {
+    let opts = SkewDetectOptions::default();
+    let (corrected, _) = find_skew_and_deskew(pix, &opts)?;
+    let binary = ensure_binary(&corrected)?;
+    Ok((corrected, binary))
 }
 
 /// Deskew with explicit options; returns `(corrected_image, detected_angle_deg)`.
@@ -323,8 +328,17 @@ pub fn deskew_both(_pix: &Pix) -> RecogResult<(Pix, Pix)> {
 /// # Errors
 ///
 /// Returns an error if parameters are invalid or skew detection fails.
-pub fn deskew_general(_pix: &Pix, _options: &DeskewOptions) -> RecogResult<(Pix, f32)> {
-    todo!("Phase 11: implement deskew_general")
+pub fn deskew_general(pix: &Pix, options: &DeskewOptions) -> RecogResult<(Pix, f32)> {
+    let detect_opts = SkewDetectOptions {
+        sweep_range: options.sweep_range,
+        sweep_delta: options.sweep_delta,
+        min_bs_delta: 0.01,
+        sweep_reduction: options.reduce_factor.max(1),
+        bs_reduction: options.search_reduction.max(1),
+    };
+    detect_opts.validate()?;
+    let (corrected, result) = find_skew_and_deskew(pix, &detect_opts)?;
+    Ok((corrected, result.angle))
 }
 
 /// Coarse sweep followed by binary-search refinement.
@@ -335,39 +349,93 @@ pub fn deskew_general(_pix: &Pix, _options: &DeskewOptions) -> RecogResult<(Pix,
 ///
 /// Returns an error if the image is empty or parameters are invalid.
 pub fn find_skew_sweep_and_search(
-    _pix: &Pix,
-    _options: &SkewSearchOptions,
+    pix: &Pix,
+    options: &SkewSearchOptions,
 ) -> RecogResult<SkewResult> {
-    todo!("Phase 11: implement find_skew_sweep_and_search")
+    find_skew(pix, options)
 }
 
 /// Sweep-and-search with score information.
 ///
 /// Returns `(angle_deg, confidence, end_score)`.
 ///
+/// The `end_score` is the differential-square-sum score at the final angle.
+///
 /// # Errors
 ///
 /// Returns an error if the image is empty or parameters are invalid.
 pub fn find_skew_sweep_and_search_score(
-    _pix: &Pix,
-    _options: &SkewSearchOptions,
+    pix: &Pix,
+    options: &SkewSearchOptions,
 ) -> RecogResult<(f32, f32, f32)> {
-    todo!("Phase 11: implement find_skew_sweep_and_search_score")
+    find_skew_sweep_and_search_score_pivot(pix, options, SkewPivot::Corner)
 }
 
 /// Sweep-and-search with score information and a pivot point.
 ///
 /// Returns `(angle_deg, confidence, end_score)`.
 ///
+/// * `SkewPivot::Corner` – standard shear-based sweep from the top-left corner.
+/// * `SkewPivot::Center` – image is shifted so that the pivot is the centre before sweeping.
+///
 /// # Errors
 ///
 /// Returns an error if the image is empty or parameters are invalid.
 pub fn find_skew_sweep_and_search_score_pivot(
-    _pix: &Pix,
-    _options: &SkewSearchOptions,
-    _pivot: SkewPivot,
+    pix: &Pix,
+    options: &SkewSearchOptions,
+    pivot: SkewPivot,
 ) -> RecogResult<(f32, f32, f32)> {
-    todo!("Phase 11: implement find_skew_sweep_and_search_score_pivot")
+    options.validate()?;
+
+    let binary_pix = ensure_binary(pix)?;
+    if is_image_empty(&binary_pix) {
+        return Err(RecogError::NoContent(
+            "image is empty or all white".to_string(),
+        ));
+    }
+
+    // For center pivot, crop to the central half of the image so the sweep
+    // is anchored to the centre rather than the top-left corner.
+    let work_pix = if pivot == SkewPivot::Center {
+        let w = binary_pix.width();
+        let h = binary_pix.height();
+        binary_pix.clip_rectangle(w / 4, h / 4, w / 2, h / 2)?
+    } else {
+        binary_pix
+    };
+
+    let sweep_pix = reduce_image(&work_pix, options.sweep_reduction)?;
+    let search_pix = if options.bs_reduction == options.sweep_reduction {
+        sweep_pix.deep_clone()
+    } else {
+        reduce_image(&work_pix, options.bs_reduction)?
+    };
+
+    let (best_angle, _) = sweep_angles(
+        &sweep_pix,
+        -options.sweep_range,
+        options.sweep_range,
+        options.sweep_delta,
+    )?;
+
+    let (refined_angle, max_score, min_score) = binary_search_angle(
+        &search_pix,
+        best_angle,
+        options.sweep_delta,
+        options.min_bs_delta,
+    )?;
+
+    let confidence = calculate_confidence(
+        &search_pix,
+        max_score,
+        min_score,
+        refined_angle,
+        options.sweep_range,
+        options.sweep_delta,
+    );
+
+    Ok((refined_angle, confidence, max_score as f32))
 }
 
 /// Ensure image is binary (1 bpp)
@@ -814,7 +882,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_deskew_auto_smoke() {
         // deskew on a 1bpp image with horizontal lines should succeed.
         let pix = create_horizontal_lines_image(400, 400, 30);
@@ -825,7 +892,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_deskew_both_smoke() {
         let pix = create_horizontal_lines_image(400, 400, 30);
         let (orig_out, bpp1_out) = deskew_both(&pix).unwrap();
@@ -834,7 +900,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_deskew_general_returns_angle() {
         let pix = create_horizontal_lines_image(400, 400, 30);
         let opts = DeskewOptions::default();
@@ -844,7 +909,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_skew_sweep_and_search_smoke() {
         let pix = create_horizontal_lines_image(400, 400, 30);
         let opts = SkewSearchOptions::default();
@@ -853,7 +917,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_skew_sweep_and_search_score_smoke() {
         let pix = create_horizontal_lines_image(400, 400, 30);
         let opts = SkewSearchOptions::default();
@@ -863,7 +926,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_find_skew_sweep_and_search_score_pivot_center() {
         let pix = create_horizontal_lines_image(400, 400, 30);
         let opts = SkewSearchOptions::default();

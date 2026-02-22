@@ -421,7 +421,7 @@ Word detection:
 
 ## Phase 11: Skew拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/skew.c` L200-700
 
