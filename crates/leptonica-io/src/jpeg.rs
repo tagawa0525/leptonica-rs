@@ -243,7 +243,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..10u32 {
             for x in 0..10u32 {
-                pix_mut.set_pixel_unchecked(x, y, (x * 25) as u32);
+                pix_mut.set_pixel_unchecked(x, y, x * 25);
             }
         }
         let pix: Pix = pix_mut.into();
@@ -306,7 +306,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..100u32 {
             for x in 0..100u32 {
-                pix_mut.set_pixel_unchecked(x, y, ((x + y) % 256) as u32);
+                pix_mut.set_pixel_unchecked(x, y, (x + y) % 256);
             }
         }
         let pix: Pix = pix_mut.into();

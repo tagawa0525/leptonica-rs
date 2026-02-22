@@ -1927,14 +1927,11 @@ mod tests {
     fn test_sela_add_basic_has_expected_names() {
         let sels = sela_add_basic();
         let names: Vec<_> = sels.iter().filter_map(|s| s.name()).collect();
-        assert!(names.iter().any(|n| *n == "sel_2h"), "missing sel_2h");
-        assert!(names.iter().any(|n| *n == "sel_51v"), "missing sel_51v");
-        assert!(
-            names.iter().any(|n| *n == "sel_4"),
-            "missing sel_4 (2D square)"
-        );
-        assert!(names.iter().any(|n| *n == "sel_2dp"), "missing sel_2dp");
-        assert!(names.iter().any(|n| *n == "sel_5dm"), "missing sel_5dm");
+        assert!(names.contains(&"sel_2h"), "missing sel_2h");
+        assert!(names.contains(&"sel_51v"), "missing sel_51v");
+        assert!(names.contains(&"sel_4"), "missing sel_4 (2D square)");
+        assert!(names.contains(&"sel_2dp"), "missing sel_2dp");
+        assert!(names.contains(&"sel_5dm"), "missing sel_5dm");
     }
 
     #[test]
@@ -2114,8 +2111,6 @@ mod tests {
 
     #[test]
     fn test_sela_write_and_read_roundtrip() {
-        use std::io::BufReader;
-
         let mut sela = Sela::new();
         let mut sel1 = Sel::new(3, 3).unwrap();
         sel1.set_name("sel_a");
