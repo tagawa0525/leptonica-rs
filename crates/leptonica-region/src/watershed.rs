@@ -438,8 +438,10 @@ fn get_neighbors(
 
 /// Result of watershed segmentation with per-basin images
 pub struct WatershedResult {
-    /// Per-basin images (each contains only pixels belonging to that basin)
+    /// Per-basin 8-bit images (same size as source; non-basin pixels = 0)
     basins: Vec<Pix>,
+    /// Labeled image: 0 = watershed boundary, 1+ = basin label
+    labeled: Pix,
     /// Width of the source image
     width: u32,
     /// Height of the source image
@@ -449,12 +451,12 @@ pub struct WatershedResult {
 impl WatershedResult {
     /// Number of basins found
     pub fn num_basins(&self) -> u32 {
-        todo!("Phase 6: not yet implemented")
+        self.basins.len() as u32
     }
 
-    /// Per-basin images
+    /// Per-basin images (8-bit, same dimensions as source)
     pub fn basins(&self) -> &[Pix] {
-        todo!("Phase 6: not yet implemented")
+        &self.basins
     }
 }
 
@@ -466,7 +468,55 @@ pub fn watershed_with_basins(
     pix: &Pix,
     options: &WatershedOptions,
 ) -> RegionResult<WatershedResult> {
-    todo!("Phase 6: not yet implemented")
+    let labeled = watershed_segmentation(pix, options)?;
+    let width = pix.width();
+    let height = pix.height();
+
+    // Find distinct non-zero basin labels
+    let mut max_label = 0u32;
+    for y in 0..height {
+        for x in 0..width {
+            let label = labeled.get_pixel(x, y).unwrap_or(0);
+            if label > max_label {
+                max_label = label;
+            }
+        }
+    }
+
+    if max_label == 0 {
+        return Ok(WatershedResult {
+            basins: Vec::new(),
+            labeled,
+            width,
+            height,
+        });
+    }
+
+    // Build one 8-bit image per basin label
+    let mut basin_images: Vec<_> = (0..max_label)
+        .map(|_| {
+            Pix::new(width, height, PixelDepth::Bit8)
+                .map_err(RegionError::Core)
+                .map(|p| p.try_into_mut().unwrap_or_else(|p| p.to_mut()))
+        })
+        .collect::<RegionResult<Vec<_>>>()?;
+
+    for y in 0..height {
+        for x in 0..width {
+            let label = labeled.get_pixel(x, y).unwrap_or(0);
+            if label > 0 {
+                let val = pix.get_pixel(x, y).unwrap_or(0);
+                let _ = basin_images[(label - 1) as usize].set_pixel(x, y, val);
+            }
+        }
+    }
+
+    Ok(WatershedResult {
+        basins: basin_images.into_iter().map(|m| m.into()).collect(),
+        labeled,
+        width,
+        height,
+    })
 }
 
 /// Render each basin filled with its minimum pixel value.
@@ -475,7 +525,43 @@ pub fn watershed_with_basins(
 /// the minimum gray value found in that basin.  Watershed boundary pixels
 /// (label 0) are set to 0.
 pub fn watershed_render_fill(result: &WatershedResult) -> RegionResult<Pix> {
-    todo!("Phase 6: not yet implemented")
+    let width = result.width;
+    let height = result.height;
+    let mut output = Pix::new(width, height, PixelDepth::Bit8)
+        .map_err(RegionError::Core)?
+        .try_into_mut()
+        .unwrap_or_else(|p| p.to_mut());
+
+    for (idx, basin) in result.basins.iter().enumerate() {
+        let label = (idx + 1) as u32;
+
+        // Find the minimum value among pixels belonging to this basin
+        let mut min_val = u32::MAX;
+        for y in 0..height {
+            for x in 0..width {
+                if result.labeled.get_pixel(x, y).unwrap_or(0) == label {
+                    let v = basin.get_pixel(x, y).unwrap_or(u32::MAX);
+                    if v < min_val {
+                        min_val = v;
+                    }
+                }
+            }
+        }
+        if min_val == u32::MAX {
+            continue;
+        }
+
+        // Fill all basin pixels with the minimum value
+        for y in 0..height {
+            for x in 0..width {
+                if result.labeled.get_pixel(x, y).unwrap_or(0) == label {
+                    let _ = output.set_pixel(x, y, min_val);
+                }
+            }
+        }
+    }
+
+    Ok(output.into())
 }
 
 /// Render each basin with a distinct pseudo-random color.
@@ -484,7 +570,34 @@ pub fn watershed_render_fill(result: &WatershedResult) -> RegionResult<Pix> {
 /// basin share the same color and adjacent basins have different colors.
 /// Watershed boundary pixels are black (0x000000FF).
 pub fn watershed_render_colors(result: &WatershedResult) -> RegionResult<Pix> {
-    todo!("Phase 6: not yet implemented")
+    let width = result.width;
+    let height = result.height;
+    let mut output = Pix::new(width, height, PixelDepth::Bit32)
+        .map_err(RegionError::Core)?
+        .try_into_mut()
+        .unwrap_or_else(|p| p.to_mut());
+
+    // Generate a deterministic color per basin using a simple hash
+    let colors: Vec<u32> = (0..result.basins.len())
+        .map(|idx| {
+            let h = idx.wrapping_add(1).wrapping_mul(2654435761);
+            let r = ((h >> 16) & 0xFF) as u32 | 0x40; // ensure not too dark
+            let g = ((h >> 8) & 0xFF) as u32 | 0x40;
+            let b = (h & 0xFF) as u32 | 0x40;
+            (r << 24) | (g << 16) | (b << 8) | 0xFF
+        })
+        .collect();
+
+    for y in 0..height {
+        for x in 0..width {
+            let label = result.labeled.get_pixel(x, y).unwrap_or(0);
+            if label > 0 && (label as usize) <= colors.len() {
+                let _ = output.set_pixel(x, y, colors[(label - 1) as usize]);
+            }
+        }
+    }
+
+    Ok(output.into())
 }
 
 /// Find basins (catchment regions) in a grayscale image
@@ -646,7 +759,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_watershed_with_basins_num_basins() {
         let pix = create_two_basin_image();
         let options = WatershedOptions::new().with_min_depth(1);
@@ -655,7 +767,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_watershed_with_basins_basin_images() {
         let pix = create_two_basin_image();
         let options = WatershedOptions::new().with_min_depth(1);
@@ -669,7 +780,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_watershed_render_fill_min_value() {
         let pix = create_two_basin_image();
         let options = WatershedOptions::new().with_min_depth(1);
@@ -687,7 +797,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_watershed_render_colors_32bpp() {
         let pix = create_two_basin_image();
         let options = WatershedOptions::new().with_min_depth(1);
@@ -700,7 +809,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_watershed_render_colors_different_basins() {
         let pix = create_two_basin_image();
         let options = WatershedOptions::new().with_min_depth(1);
