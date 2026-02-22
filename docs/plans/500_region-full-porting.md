@@ -162,7 +162,7 @@ SeedfillBB系（bounding box追跡付きseedfill）:
 
 ## Phase 4: Label拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/conncomp.c`（transform系）, `label.c`相当の機能
 
