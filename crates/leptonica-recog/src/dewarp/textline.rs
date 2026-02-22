@@ -288,6 +288,25 @@ pub fn sort_lines_by_y(lines: &mut [TextLine]) {
     });
 }
 
+/// Estimate the predominant text-line flow direction of an image.
+///
+/// Detects text lines and fits a line through their mid-points to determine
+/// the overall angle at which text flows across the page.
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image (1 bpp)
+///
+/// # Returns
+///
+/// Angle in radians (0.0 = horizontal left-to-right text,
+/// positive = text tilted counter-clockwise).
+///
+/// Returns 0.0 if not enough text lines are found.
+pub fn pix_find_textline_flow_direction(pix: &Pix) -> RecogResult<f32> {
+    todo!("pix_find_textline_flow_direction not yet implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -352,6 +371,16 @@ mod tests {
         ];
 
         assert!(!is_line_coverage_valid(&lines, 500, 6));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pix_find_textline_flow_direction_empty() {
+        let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
+        let result = pix_find_textline_flow_direction(&pix);
+        assert!(result.is_ok());
+        // Empty image → default direction (0.0 radians = horizontal)
+        assert!((result.unwrap() - 0.0).abs() < 0.1);
     }
 
     #[test]
