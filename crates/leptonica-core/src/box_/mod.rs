@@ -748,6 +748,20 @@ impl Boxa {
     /// Each box is represented by its 4 corners; after rotation the axis-aligned
     /// bounding box of those corners becomes the new box.
     ///
+    /// Apply a 3x3 affine transformation matrix to all boxes.
+    ///
+    /// Each box is converted to 4 corner points, transformed by the matrix,
+    /// then the axis-aligned bounding box is computed.
+    ///
+    /// The matrix is given as [a, b, tx, c, d, ty] where:
+    /// - x' = a*x + b*y + tx
+    /// - y' = c*x + d*y + ty
+    ///
+    /// Corresponds to C Leptonica's `boxaAffineTransform`.
+    pub fn affine_transform(&self, _mat: &[f32; 6]) -> Boxa {
+        unimplemented!()
+    }
+
     /// Corresponds to C Leptonica's `boxaRotate`.
     pub fn rotate(&self, xc: f32, yc: f32, angle: f32) -> Boxa {
         let sina = angle.sin();
@@ -1046,5 +1060,37 @@ mod tests {
         assert!((b.y - 0).abs() <= 1);
         assert!((b.w - 10).abs() <= 1);
         assert!((b.h - 10).abs() <= 1);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_boxa_affine_transform_identity() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(10, 20, 30, 40).unwrap());
+        // Identity matrix: [1, 0, 0, 0, 1, 0]
+        let mat = [1.0f32, 0.0, 0.0, 0.0, 1.0, 0.0];
+        let result = boxa.affine_transform(&mat);
+        assert_eq!(result.len(), 1);
+        let b = result.get(0).unwrap();
+        assert_eq!(b.x, 10);
+        assert_eq!(b.y, 20);
+        assert_eq!(b.w, 30);
+        assert_eq!(b.h, 40);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_boxa_affine_transform_scale_translate() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(10, 10, 20, 20).unwrap());
+        // Scale 2x + translate (5, 10): [2, 0, 5, 0, 2, 10]
+        let mat = [2.0f32, 0.0, 5.0, 0.0, 2.0, 10.0];
+        let result = boxa.affine_transform(&mat);
+        assert_eq!(result.len(), 1);
+        let b = result.get(0).unwrap();
+        assert_eq!(b.x, 25); // 2*10+5
+        assert_eq!(b.y, 30); // 2*10+10
+        assert_eq!(b.w, 40); // 2*20
+        assert_eq!(b.h, 40); // 2*20
     }
 }

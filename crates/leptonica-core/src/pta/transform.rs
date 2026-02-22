@@ -224,6 +224,27 @@ impl Pta {
         false
     }
 
+    /// Rotate all points about center (xc, yc) by angle (radians, clockwise positive).
+    ///
+    /// Unlike [`rotate`](Pta::rotate) which rotates in-place around the origin,
+    /// this method returns a new Pta and allows specifying a rotation center.
+    ///
+    /// C equivalent: `ptaRotate()` in `affinecompose.c`
+    pub fn rotate_around(&self, _xc: f32, _yc: f32, _angle: f32) -> Pta {
+        unimplemented!()
+    }
+
+    /// Apply a 3x3 affine transformation matrix to all points.
+    ///
+    /// The matrix is given as [a, b, tx, c, d, ty] where:
+    /// - x' = a*x + b*y + tx
+    /// - y' = c*x + d*y + ty
+    ///
+    /// C equivalent: `ptaAffineTransform()` in `affinecompose.c`
+    pub fn affine_transform(&self, _mat: &[f32; 6]) -> Pta {
+        unimplemented!()
+    }
+
     /// Shift then scale all points: `x = round(scalex * (x + shiftx))`.
     ///
     /// C equivalent: `ptaTransform()` in `ptafunc1.c`
@@ -641,6 +662,54 @@ mod tests {
         assert_eq!(nay.len(), 2);
         assert_eq!(nax.get(0), Some(1.0));
         assert_eq!(nay.get(1), Some(5.0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_rotate_around_origin() {
+        let mut p = Pta::new();
+        p.push(10.0, 0.0);
+        // Rotate 90 degrees (π/2) clockwise around origin
+        let r = p.rotate_around(0.0, 0.0, std::f32::consts::FRAC_PI_2);
+        assert_eq!(r.len(), 1);
+        let (x, y) = r.get(0).unwrap();
+        assert!((x - 0.0).abs() < 0.01, "x should be ~0, got {}", x);
+        assert!((y - 10.0).abs() < 0.01, "y should be ~10, got {}", y);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_rotate_around_center() {
+        let mut p = Pta::new();
+        p.push(20.0, 10.0);
+        // Rotate 90 degrees around (10, 10)
+        let r = p.rotate_around(10.0, 10.0, std::f32::consts::FRAC_PI_2);
+        let (x, y) = r.get(0).unwrap();
+        assert!((x - 10.0).abs() < 0.01, "x should be ~10, got {}", x);
+        assert!((y - 20.0).abs() < 0.01, "y should be ~20, got {}", y);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_affine_transform() {
+        let mut p = Pta::new();
+        p.push(1.0, 0.0);
+        p.push(0.0, 1.0);
+        // Scale x by 2, translate y by 5: mat = [2, 0, 0, 0, 1, 5]
+        let mat = [2.0f32, 0.0, 0.0, 0.0, 1.0, 5.0];
+        let t = p.affine_transform(&mat);
+        assert_eq!(t.len(), 2);
+        assert_eq!(t.get(0), Some((2.0, 5.0)));
+        assert_eq!(t.get(1), Some((0.0, 6.0)));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_pta_affine_transform_empty() {
+        let p = Pta::new();
+        let mat = [1.0f32, 0.0, 10.0, 0.0, 1.0, 20.0];
+        let t = p.affine_transform(&mat);
+        assert_eq!(t.len(), 0);
     }
 
     #[test]
