@@ -131,6 +131,13 @@ impl Recog {
             ));
         }
 
+        if !boot_recog.ave_done {
+            return Err(RecogError::TrainingError(
+                "boot_recog must have completed training before calling train_from_boot"
+                    .to_string(),
+            ));
+        }
+
         // Collect missing labels before mutating self.
         let to_add: Vec<(usize, String)> = boot_recog
             .sa_text
