@@ -262,7 +262,7 @@ pub fn deskew_by_angle(pix: &Pix, angle: f32) -> RecogResult<Pix> {
 /// Options for the deskew high-level interface
 #[derive(Debug, Clone)]
 pub struct DeskewOptions {
-    /// Reduction factor (1, 2, or 4)
+    /// Reduction factor (1, 2, 4, or 8)
     pub sweep_reduction: u32,
     /// Half the sweep range in degrees
     pub sweep_range: f32,
@@ -323,7 +323,7 @@ pub type SkewSearchOptions = SkewDetectOptions;
 pub enum SkewPivot {
     /// Rotate about the top-left corner
     Corner,
-    /// Rotate about the image centre
+    /// Rotate about the image center
     Center,
 }
 
@@ -406,7 +406,7 @@ pub fn find_skew_sweep_and_search_score(
 /// Returns `(angle_deg, confidence, end_score)`.
 ///
 /// * `SkewPivot::Corner` – standard shear-based sweep from the top-left corner.
-/// * `SkewPivot::Center` – image is shifted so that the pivot is the centre before sweeping.
+/// * `SkewPivot::Center` – image is shifted so that the pivot is the center before sweeping.
 ///
 /// # Errors
 ///
@@ -426,7 +426,7 @@ pub fn find_skew_sweep_and_search_score_pivot(
     }
 
     // For center pivot, crop to the central half of the image so the sweep
-    // is anchored to the centre rather than the top-left corner.
+    // is anchored to the center rather than the top-left corner.
     let work_pix = if pivot == SkewPivot::Center {
         let w = binary_pix.width();
         let h = binary_pix.height();
