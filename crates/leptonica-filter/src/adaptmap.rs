@@ -1679,8 +1679,41 @@ pub fn global_norm_no_sat_rgb(
     factor: u32,
     rank: f32,
 ) -> FilterResult<Pix> {
-    let _ = (pix, rval, gval, bval, factor, rank);
-    Err(FilterError::InvalidParameters("not yet implemented".into()))
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if factor < 1 {
+        return Err(FilterError::InvalidParameters("factor must be >= 1".into()));
+    }
+    if !(0.0..=1.0).contains(&rank) {
+        return Err(FilterError::InvalidParameters(
+            "rank must be in [0.0, 1.0]".into(),
+        ));
+    }
+    if rval == 0 || gval == 0 || bval == 0 {
+        return Err(FilterError::InvalidParameters(
+            "rval, gval, bval must be > 0".into(),
+        ));
+    }
+
+    let (rankrval, rankgval, rankbval) = pix
+        .rank_value_masked_rgb(None, 0, 0, factor, rank)
+        .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+
+    let rfract = rankrval / rval as f32;
+    let gfract = rankgval / gval as f32;
+    let bfract = rankbval / bval as f32;
+    let maxfract = rfract.max(gfract).max(bfract);
+
+    if maxfract <= 0.0 {
+        return Ok(pix.deep_clone());
+    }
+
+    let mapval = (255.0 / maxfract) as u32;
+    global_norm_rgb(pix, rval, gval, bval, mapval)
 }
 
 /// Edge filter type for adaptive threshold spread normalization.
@@ -2349,7 +2382,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_global_norm_no_sat_rgb_basic() {
         let pix = create_test_color_image_for_norm();
         let result = global_norm_no_sat_rgb(&pix, 180, 120, 90, 1, 1.0).unwrap();
@@ -2362,7 +2394,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_global_norm_no_sat_rgb_invalid_params() {
         let pix = create_test_color_image_for_norm();
         // factor 0 is invalid

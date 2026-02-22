@@ -922,8 +922,41 @@ pub fn mult_matrix_color(pix: &Pix, kel: &Kernel) -> FilterResult<Pix> {
 /// * `half_width` - Half-width of the smoothing kernel; must be >= 1
 /// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
 pub fn unsharp_masking_gray(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<Pix> {
-    let _ = (pix, half_width, fract);
-    Err(FilterError::InvalidParameters("not yet implemented".into()))
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped images not supported".into(),
+        ));
+    }
+    if fract <= 0.0 || half_width == 0 {
+        return Ok(pix.deep_clone());
+    }
+    if half_width <= 2 {
+        use crate::edge::unsharp_masking_gray_fast;
+        return unsharp_masking_gray_fast(pix, half_width, fract);
+    }
+
+    let blurred = crate::block_conv::blockconv_gray(pix, None, half_width, half_width)?;
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let src = pix.get_pixel_unchecked(x, y) as f32;
+            let blur = blurred.get_pixel_unchecked(x, y) as f32;
+            let result = (src + fract * (src - blur) + 0.5) as i32;
+            out_mut.set_pixel_unchecked(x, y, result.clamp(0, 255) as u32);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 /// Apply unsharp masking to an 8bpp grayscale or 32bpp color image.
@@ -938,8 +971,37 @@ pub fn unsharp_masking_gray(pix: &Pix, half_width: u32, fract: f32) -> FilterRes
 /// * `half_width` - Half-width of the smoothing kernel; must be >= 1
 /// * `fract` - Fraction of the high-pass signal to add back; must be > 0.0
 pub fn unsharp_masking(pix: &Pix, half_width: u32, fract: f32) -> FilterResult<Pix> {
-    let _ = (pix, half_width, fract);
-    Err(FilterError::InvalidParameters("not yet implemented".into()))
+    if pix.depth() == PixelDepth::Bit1 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "not 1bpp",
+            actual: 1,
+        });
+    }
+    if fract <= 0.0 || half_width == 0 {
+        return Ok(pix.deep_clone());
+    }
+    if half_width <= 2 {
+        use crate::edge::unsharp_masking_fast;
+        return unsharp_masking_fast(pix, half_width, fract);
+    }
+
+    match pix.depth() {
+        PixelDepth::Bit8 => unsharp_masking_gray(pix, half_width, fract),
+        PixelDepth::Bit32 => {
+            use leptonica_core::pix::RgbComponent;
+            let pix_r = pix.get_rgb_component(RgbComponent::Red)?;
+            let pix_g = pix.get_rgb_component(RgbComponent::Green)?;
+            let pix_b = pix.get_rgb_component(RgbComponent::Blue)?;
+            let res_r = unsharp_masking_gray(&pix_r, half_width, fract)?;
+            let res_g = unsharp_masking_gray(&pix_g, half_width, fract)?;
+            let res_b = unsharp_masking_gray(&pix_b, half_width, fract)?;
+            Ok(Pix::create_rgb_image(&res_r, &res_g, &res_b)?)
+        }
+        _ => {
+            let converted = pix.convert_to_8_or_32()?;
+            unsharp_masking(&converted, half_width, fract)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1748,7 +1810,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_unsharp_masking_gray_basic() {
         let pix = create_8bpp_gradient();
         let result = unsharp_masking_gray(&pix, 3, 0.5).unwrap();
@@ -1758,7 +1819,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_unsharp_masking_gray_no_sharpening() {
         let pix = create_8bpp_gradient();
         // fract <= 0 should return a clone
@@ -1774,7 +1834,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_unsharp_masking_color() {
         let pix = Pix::new(30, 30, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1792,7 +1851,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_unsharp_masking_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(unsharp_masking(&pix, 3, 0.5).is_err());

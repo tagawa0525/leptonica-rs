@@ -645,8 +645,7 @@ fn bilateral_apply(bil: &BilateralData, pix: &Pix) -> FilterResult<Pix> {
 /// * `spatial_stdev` - Spatial Gaussian std dev (must be > 0.0)
 /// * `range_stdev` - Range Gaussian std dev (must be > 0.0)
 pub fn block_bilateral_exact(pix: &Pix, spatial_stdev: f32, range_stdev: f32) -> FilterResult<Pix> {
-    let _ = (pix, spatial_stdev, range_stdev);
-    Err(FilterError::InvalidParameters("not yet implemented".into()))
+    bilateral_exact(pix, spatial_stdev, range_stdev)
 }
 
 #[cfg(test)]
@@ -770,7 +769,6 @@ mod tests {
     // -------------------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_block_bilateral_exact_gray() {
         let pix = create_test_gray_image();
         let result = block_bilateral_exact(&pix, 2.0, 30.0).unwrap();
@@ -790,7 +788,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_block_bilateral_exact_color() {
         let pix = create_test_color_image();
         let result = block_bilateral_exact(&pix, 2.0, 30.0).unwrap();
@@ -800,7 +797,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_block_bilateral_exact_invalid_params() {
         let pix = create_test_gray_image();
         assert!(block_bilateral_exact(&pix, 0.0, 30.0).is_err());
