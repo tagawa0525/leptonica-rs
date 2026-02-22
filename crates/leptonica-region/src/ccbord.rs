@@ -741,7 +741,11 @@ fn read_border<R: Read>(reader: &mut R) -> RegionResult<Border> {
     let border_type = match type_byte[0] {
         0 => BorderType::Outer,
         1 => BorderType::Hole,
-        _ => BorderType::Outer,
+        b => {
+            return Err(RegionError::InvalidParameters(format!(
+                "invalid border type byte: {b}"
+            )));
+        }
     };
     let sx = i32::from_le_bytes(sx_bytes);
     let sy = i32::from_le_bytes(sy_bytes);
