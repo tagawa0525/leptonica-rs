@@ -3,7 +3,7 @@
 //! Implements image convolution with arbitrary kernels.
 
 use crate::{FilterError, FilterResult, Kernel};
-use leptonica_core::{Pix, PixelDepth, color, pix::RgbComponent};
+use leptonica_core::{FPix, Pix, PixelDepth, color, pix::RgbComponent};
 
 /// Convolve an 8-bit grayscale image with a kernel
 ///
@@ -585,6 +585,55 @@ pub fn blockrank(pix: &Pix, wc: u32, hc: u32, rank: f32) -> FilterResult<Pix> {
     Ok(pixd_mut.into())
 }
 
+/// Convolve an FPix (floating-point image) with a kernel.
+///
+/// Each pixel in the output is the weighted sum of the kernel applied to
+/// the corresponding neighborhood in the input. Uses replicate border
+/// handling (clamp to edge).
+///
+/// C equivalent: `fpixConvolve()` in `convolve.c`
+pub fn fpix_convolve(fpix: &FPix, kernel: &Kernel, normalize: bool) -> FilterResult<FPix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Convolve an FPix with a pair of separable 1-D kernels.
+///
+/// Applies `kernel_x` in the horizontal direction, then `kernel_y` in the
+/// vertical direction. Only valid when the full 2-D kernel is separable
+/// (i.e., it can be expressed as the outer product of the two 1-D kernels).
+///
+/// C equivalent: `fpixConvolveSep()` in `convolve.c`
+pub fn fpix_convolve_sep(
+    fpix: &FPix,
+    kernel_x: &Kernel,
+    kernel_y: &Kernel,
+    normalize: bool,
+) -> FilterResult<FPix> {
+    unimplemented!("not yet implemented")
+}
+
+/// Convolve an 8-bpp grayscale image and apply an automatic bias so that
+/// all output values are non-negative.
+///
+/// Returns `(result_pix, bias)` where `bias` is the integer shift that was
+/// added before converting back to a `Pix`.
+///
+/// - If the kernel has no negative values, a standard normalized convolution
+///   is performed (bias = 0, 8-bpp output).
+/// - If the kernel has negative values, FPix convolution is used; the
+///   minimum output value is shifted to 0.  `force8` controls whether the
+///   output is clamped to 8-bpp or allowed to be 16-bpp.
+///
+/// C equivalent: `pixConvolveWithBias()` in `convolve.c`
+pub fn convolve_with_bias(
+    pix: &Pix,
+    kernel1: &Kernel,
+    kernel2: Option<&Kernel>,
+    force8: bool,
+) -> FilterResult<(Pix, i32)> {
+    unimplemented!("not yet implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1143,5 +1192,103 @@ mod tests {
 
         assert!(result_low.is_err());
         assert!(result_high.is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_fpix_convolve_basic() {
+        // Create 3x3 FPix with value 1.0 in center, 0.0 elsewhere
+        let mut fpix = FPix::new(3, 3).unwrap();
+        fpix.set_pixel_unchecked(1, 1, 1.0);
+
+        // 3x3 box kernel (all 1.0)
+        let kernel = Kernel::from_slice(3, 3, &[1.0; 9]).unwrap();
+
+        let result = fpix_convolve(&fpix, &kernel, false).unwrap();
+        // Center pixel: 1.0 * 1.0 = 1.0
+        assert!((result.get_pixel_unchecked(1, 1) - 1.0).abs() < 0.01);
+        // All other pixels: 0.0
+        assert!((result.get_pixel_unchecked(0, 0) - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_fpix_convolve_normalized() {
+        // Create 3x3 FPix with constant value 100.0
+        let fpix = FPix::new_with_value(5, 5, 100.0).unwrap();
+
+        // Box kernel normalized: result should be 100.0
+        let kernel = Kernel::from_slice(3, 3, &[1.0; 9]).unwrap();
+        let result = fpix_convolve(&fpix, &kernel, true).unwrap();
+
+        // With normalization, constant image convolves to same value
+        assert!((result.get_pixel_unchecked(2, 2) - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_fpix_convolve_sep_matches_non_sep() {
+        // Uniform FPix
+        let fpix = FPix::new_with_value(5, 5, 50.0).unwrap();
+
+        // Separable box kernel: kx=[1,1,1], ky=[1,1,1]
+        // Non-sep: 3x3 all-ones kernel
+        let kernel_x = Kernel::from_slice(3, 1, &[1.0, 1.0, 1.0]).unwrap();
+        let kernel_y = Kernel::from_slice(1, 3, &[1.0, 1.0, 1.0]).unwrap();
+
+        let result_sep = fpix_convolve_sep(&fpix, &kernel_x, &kernel_y, true).unwrap();
+
+        // With normalized separable kernel on uniform image, result = 50.0
+        let center = result_sep.get_pixel_unchecked(2, 2);
+        assert!(
+            (center - 50.0).abs() < 0.5,
+            "Expected ~50.0, got {}",
+            center
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convolve_with_bias_no_negative_kernel() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                pix_mut.set_pixel_unchecked(x, y, 100);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        // All-positive kernel: no bias needed
+        let kernel = Kernel::from_slice(3, 3, &[1.0; 9]).unwrap();
+        let (result, bias) = convolve_with_bias(&pix, &kernel, None, true).unwrap();
+        assert_eq!(bias, 0);
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convolve_with_bias_negative_kernel() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                pix_mut.set_pixel_unchecked(x, y, 128);
+            }
+        }
+        let pix: Pix = pix_mut.into();
+
+        // Laplacian kernel (has negative values)
+        let kernel = Kernel::laplacian();
+        let (result, _bias) = convolve_with_bias(&pix, &kernel, None, true).unwrap();
+        // Result should have no negative pixel values (bias ensures this)
+        let w = result.width();
+        let h = result.height();
+        for y in 0..h {
+            for x in 0..w {
+                let v = result.get_pixel_unchecked(x, y);
+                assert!(v <= 255, "pixel ({},{}) = {} exceeds 255", x, y, v);
+            }
+        }
     }
 }
