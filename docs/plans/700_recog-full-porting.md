@@ -1,6 +1,6 @@
 # leptonica-recog 全未実装関数の移植計画
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
@@ -497,7 +497,7 @@ pub enum SkewPivot {
 
 ## Phase 13: Barcode拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/bardecode.c`, barcode検出関連
 
