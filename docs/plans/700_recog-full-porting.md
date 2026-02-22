@@ -389,7 +389,7 @@ I/O:
 
 ## Phase 10: JbClass シリアライゼーション + 拡張（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/jbclass.c` L1500-1900
 

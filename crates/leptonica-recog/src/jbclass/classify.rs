@@ -3,7 +3,7 @@
 //! This module implements the classification algorithms for JBIG2-style
 //! connected component clustering.
 
-use leptonica_core::{Box as PixBox, Pix, PixelDepth};
+use leptonica_core::{Box as PixBox, Boxa, Pix, PixelDepth};
 use leptonica_morph::binary as morph_binary;
 use leptonica_region::{ConnectivityType, find_connected_components};
 
@@ -13,6 +13,75 @@ use super::types::{
     DEFAULT_MAX_HEIGHT, DEFAULT_MAX_WIDTH, DEFAULT_SIZE_HAUS, DEFAULT_THRESH, JbClasser,
     JbComponent, JbData, JbMethod, TEMPLATE_BORDER,
 };
+
+/// Generates a word mask by progressive dilation.
+///
+/// Dilates `pix` horizontally in steps of 1, stopping when successive steps
+/// produce the same count of connected components.  Returns the mask at that
+/// dilation level and the dilation size used.
+///
+/// The algorithm mirrors Leptonica's `pixWordMaskByDilation`:
+/// - Dilate by 1 pixel at a time up to `max_dil`
+/// - Stop when the component count stabilises (delta == 0)
+///
+/// # Arguments
+///
+/// * `pix`     - Input binary image (1 bpp)
+/// * `max_dil` - Maximum horizontal dilation to attempt (clamped to ≥ 1)
+///
+/// # Errors
+///
+/// Returns an error if `pix` is not 1 bpp or morphological operations fail.
+pub fn pix_word_mask_by_dilation(pix: &Pix, max_dil: u32) -> RecogResult<(Pix, u32)> {
+    let max_dil = max_dil.max(1);
+    let mut best = pix.clone();
+    let mut best_size = 0u32;
+    let mut prev_count = find_connected_components(pix, ConnectivityType::FourWay)?.len() as u32;
+    // If there are no components, no dilation is needed; return the original image.
+    if prev_count == 0 {
+        return Ok((best, best_size));
+    }
+    for size in 1..=max_dil {
+        let dil_w = 2 * size + 1;
+        let dilated = morph_binary::dilate_brick(pix, dil_w, 1)?;
+        let count = find_connected_components(&dilated, ConnectivityType::FourWay)?.len() as u32;
+        if count >= prev_count {
+            break;
+        }
+        prev_count = count;
+        best = dilated;
+        best_size = size;
+    }
+    Ok((best, best_size))
+}
+
+/// Detects word bounding boxes by progressive dilation.
+///
+/// Calls [`pix_word_mask_by_dilation`] internally and returns the bounding boxes
+/// of each connected component in the resulting word mask.
+///
+/// # Arguments
+///
+/// * `pix`     - Input binary image (1 bpp)
+/// * `max_dil` - Maximum horizontal dilation to attempt
+///
+/// # Errors
+///
+/// Returns an error if `pix` is not 1 bpp or component detection fails.
+pub fn pix_word_boxes_by_dilation(pix: &Pix, max_dil: u32) -> RecogResult<Boxa> {
+    let (mask, _) = pix_word_mask_by_dilation(pix, max_dil)?;
+    let comps = find_connected_components(&mask, ConnectivityType::FourWay)?;
+    let mut boxa = Boxa::with_capacity(comps.len());
+    for comp in comps {
+        boxa.push(PixBox::new_unchecked(
+            comp.bounds.x,
+            comp.bounds.y,
+            comp.bounds.w,
+            comp.bounds.h,
+        ));
+    }
+    Ok(boxa)
+}
 
 /// Maximum difference in width for matching
 const MAX_DIFF_WIDTH: i32 = 2;
@@ -849,6 +918,30 @@ mod tests {
     fn test_get_data_empty() {
         let classer = JbClasser::new(JbMethod::RankHaus, JbComponent::ConnComps);
         let result = classer.get_data();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pix_word_mask_by_dilation_empty_image() {
+        // An empty binary image should return a zero-dilation mask.
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let (mask, dil) = pix_word_mask_by_dilation(&pix, 10).unwrap();
+        assert_eq!(mask.width(), pix.width());
+        assert_eq!(mask.height(), pix.height());
+        let _ = dil; // dilation level is implementation detail
+    }
+
+    #[test]
+    fn test_pix_word_boxes_by_dilation_empty_image() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit1).unwrap();
+        let boxa = pix_word_boxes_by_dilation(&pix, 10).unwrap();
+        assert_eq!(boxa.len(), 0);
+    }
+
+    #[test]
+    fn test_pix_word_mask_wrong_depth() {
+        let pix = Pix::new(200, 100, PixelDepth::Bit8).unwrap();
+        let result = pix_word_mask_by_dilation(&pix, 10);
         assert!(result.is_err());
     }
 }
