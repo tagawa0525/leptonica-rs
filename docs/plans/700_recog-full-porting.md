@@ -224,7 +224,7 @@ pub struct PreFilterResult {
 
 ## Phase 5: Dewarp シリアライゼーション（1 PR）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 **C参照**: `reference/leptonica/src/dewarp1.c` L900-1200
 

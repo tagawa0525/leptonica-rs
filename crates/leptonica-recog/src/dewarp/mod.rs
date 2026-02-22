@@ -61,6 +61,7 @@
 //! - Performance may vary for very large images
 
 mod apply;
+pub mod io;
 mod model;
 mod textline;
 mod types;
