@@ -65,19 +65,31 @@ impl JbData {
         writer
             .write_all(MAGIC)
             .map_err(|e| RecogError::InvalidParameter(e.to_string()))?;
-        write_u32(&mut writer, self.npages as u32)?;
+        let npages = u32::try_from(self.npages)
+            .map_err(|_| RecogError::InvalidParameter("npages too large for u32".to_string()))?;
+        write_u32(&mut writer, npages)?;
         write_i32(&mut writer, self.w)?;
         write_i32(&mut writer, self.h)?;
-        write_u32(&mut writer, self.nclass as u32)?;
+        let nclass = u32::try_from(self.nclass)
+            .map_err(|_| RecogError::InvalidParameter("nclass too large for u32".to_string()))?;
+        write_u32(&mut writer, nclass)?;
         write_i32(&mut writer, self.lattice_w)?;
         write_i32(&mut writer, self.lattice_h)?;
-        let n_comps = self.naclass.len() as u32;
+        let n_comps = u32::try_from(self.naclass.len()).map_err(|_| {
+            RecogError::InvalidParameter("naclass length too large for u32".to_string())
+        })?;
         write_u32(&mut writer, n_comps)?;
         for &v in &self.naclass {
-            write_u32(&mut writer, v as u32)?;
+            let v_u32 = u32::try_from(v).map_err(|_| {
+                RecogError::InvalidParameter("naclass value too large for u32".to_string())
+            })?;
+            write_u32(&mut writer, v_u32)?;
         }
         for &v in &self.napage {
-            write_u32(&mut writer, v as u32)?;
+            let v_u32 = u32::try_from(v).map_err(|_| {
+                RecogError::InvalidParameter("napage value too large for u32".to_string())
+            })?;
+            write_u32(&mut writer, v_u32)?;
         }
         for &(x, _) in &self.ptaul {
             write_i32(&mut writer, x)?;
