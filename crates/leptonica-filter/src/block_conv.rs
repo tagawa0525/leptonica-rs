@@ -367,6 +367,14 @@ pub fn blockconv_tiled(pix: &Pix, wc: u32, hc: u32, nx: u32, ny: u32) -> FilterR
     if wc == 0 || hc == 0 {
         return Ok(pix.deep_clone());
     }
+
+    // Validate tile counts: must be non-zero to avoid division-by-zero.
+    if nx == 0 || ny == 0 {
+        return Err(FilterError::InvalidParameters(
+            "nx and ny must be non-zero".into(),
+        ));
+    }
+
     if nx <= 1 && ny <= 1 {
         return blockconv(pix, wc, hc);
     }
@@ -394,14 +402,21 @@ pub fn blockconv_tiled(pix: &Pix, wc: u32, hc: u32, nx: u32, ny: u32) -> FilterR
     }
 
     // Adjust nx/ny if tiles would be too small (each tile needs at least
-    // (wc+2) × (hc+2) pixels for the overlap region to be meaningful)
+    // (wc+2) × (hc+2) pixels for the overlap region to be meaningful).
+    // Clamp to at least 1 to avoid division-by-zero after adjustment.
     let mut nx = nx;
     let mut ny = ny;
     if w / nx < wc + 2 {
-        nx = w / (wc + 2);
+        nx = (w / (wc + 2)).max(1);
     }
     if h / ny < hc + 2 {
-        ny = h / (hc + 2);
+        ny = (h / (hc + 2)).max(1);
+    }
+
+    // After adjustment, tiling may have collapsed to a single tile.
+    // Delegate to blockconv() to avoid unnecessary per-tile overhead.
+    if nx <= 1 && ny <= 1 {
+        return blockconv(pix, wc, hc);
     }
 
     match d {
