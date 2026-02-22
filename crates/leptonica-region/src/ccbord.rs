@@ -1585,7 +1585,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_step_chains_to_pix_coords_roundtrip() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1604,7 +1603,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_generate_single_path_no_holes() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1625,7 +1623,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_generate_single_path_with_holes() {
         // Ring: 7x7 frame (hollow square)
         let mut pixels = Vec::new();
@@ -1650,7 +1647,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_write_read_roundtrip() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1676,7 +1672,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_to_svg_string() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1695,7 +1690,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_write_svg() {
         let mut pixels = Vec::new();
         for y in 1..4 {
@@ -1715,7 +1709,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_write_read_with_holes() {
         // Ring shape
         let mut pixels = Vec::new();
@@ -1743,7 +1736,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_write_read_empty() {
         let borders = ImageBorders::new(100, 200);
         let mut buf = Vec::new();
