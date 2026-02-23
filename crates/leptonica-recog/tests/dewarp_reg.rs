@@ -14,6 +14,7 @@
 
 use leptonica_color::threshold_to_binary;
 use leptonica_core::PixelDepth;
+use leptonica_recog::RecogError;
 use leptonica_recog::dewarp::{
     DewarpOptions, dewarp_single_page, find_textline_centers, is_line_coverage_valid,
     remove_short_lines,
@@ -96,18 +97,16 @@ fn dewarp_reg_line_coverage() {
 
     eprintln!("  Lines after filtering: {}", filtered.len());
 
-    // Coverage validity depends on line distribution across top/bottom halves.
-    // With few detected lines, coverage may be invalid — just verify the
-    // function runs and the strict threshold is definitely invalid.
-    let lenient = is_line_coverage_valid(&filtered, pix_bin.height(), 1);
-    eprintln!("  Coverage valid (min_lines=1): {}", lenient);
+    // Coverage requires ≥3 lines in each half (top/bottom) of the image.
+    // With only ~2 filtered lines from 1555.007.jpg, coverage is invalid.
+    let valid_low = is_line_coverage_valid(&filtered, pix_bin.height(), 1);
+    let valid_high = is_line_coverage_valid(&filtered, pix_bin.height(), 1000);
+    eprintln!("  Coverage valid (min_lines=1): {}", valid_low);
+    eprintln!("  Coverage valid (min_lines=1000): {}", valid_high);
 
-    // With very high min_lines requirement, coverage should be invalid
-    let strict = is_line_coverage_valid(&filtered, pix_bin.height(), 1000);
-    rp.compare_values(1.0, if !strict { 1.0 } else { 0.0 }, 0.0);
-
-    // Lenient and strict should differ (lenient should be >= strict)
-    rp.compare_values(1.0, if lenient || !strict { 1.0 } else { 0.0 }, 0.0);
+    // Both should be false: too few lines to cover both halves
+    rp.compare_values(1.0, if !valid_low { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !valid_high { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "dewarp line_coverage test failed");
 }
@@ -145,11 +144,14 @@ fn dewarp_reg_single_page() {
             // Should have found text lines
             rp.compare_values(1.0, if dw.n_lines() > 0 { 1.0 } else { 0.0 }, 0.0);
         }
-        Err(e) => {
+        Err(RecogError::NoContent(msg)) => {
             // dewarp may fail if not enough text lines are found; that's acceptable
             // for a partial port (the C version uses preprocessed images)
-            eprintln!("dewarp_single_page returned error (may be expected): {e}");
-            rp.compare_values(1.0, 1.0, 0.0); // pass anyway
+            eprintln!("dewarp_single_page: expected NoContent: {msg}");
+            rp.compare_values(1.0, if msg.contains("text lines") { 1.0 } else { 0.0 }, 0.0);
+        }
+        Err(e) => {
+            panic!("dewarp_single_page unexpected error: {e}");
         }
     }
 
@@ -173,9 +175,12 @@ fn dewarp_reg_custom_options() {
         Ok(dr) => {
             rp.compare_values(1.0, if dr.pix.width() > 0 { 1.0 } else { 0.0 }, 0.0);
         }
+        Err(RecogError::NoContent(msg)) => {
+            eprintln!("dewarp custom_options: expected NoContent: {msg}");
+            rp.compare_values(1.0, if msg.contains("text lines") { 1.0 } else { 0.0 }, 0.0);
+        }
         Err(e) => {
-            eprintln!("dewarp with custom options failed: {e}");
-            rp.compare_values(1.0, 1.0, 0.0);
+            panic!("dewarp custom_options unexpected error: {e}");
         }
     }
 
@@ -202,9 +207,12 @@ fn dewarp_reg_second_page() {
             rp.compare_values(w as f64, dr.pix.width() as f64, 0.0);
             rp.compare_values(h as f64, dr.pix.height() as f64, 0.0);
         }
+        Err(RecogError::NoContent(msg)) => {
+            eprintln!("dewarp second_page: expected NoContent: {msg}");
+            rp.compare_values(1.0, if msg.contains("text lines") { 1.0 } else { 0.0 }, 0.0);
+        }
         Err(e) => {
-            eprintln!("dewarp on 1555.003.jpg failed: {e}");
-            rp.compare_values(1.0, 1.0, 0.0);
+            panic!("dewarp second_page unexpected error: {e}");
         }
     }
 
