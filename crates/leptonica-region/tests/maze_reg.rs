@@ -41,7 +41,7 @@ fn maze_reg_binary() {
         search_binary_maze(&maze, (20, 20), (170, 170), false).expect("search_binary_maze");
     // Maze might not have a path if walls block it — just check the result structure
     assert!(
-        path.found || path.len() == 0,
+        path.found || path.is_empty(),
         "path structure should be valid"
     );
 
@@ -62,7 +62,7 @@ fn maze_reg_gray() {
     let h = pix.height();
 
     // Paths from the C test (NPATHS = 6)
-    let paths: &[((u32, u32), (u32, u32))] = &[
+    let paths = &[
         ((42, 117), (419, 383)),
         ((73, 319), (419, 383)),
         ((42, 117), (326, 168)),

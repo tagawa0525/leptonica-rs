@@ -45,7 +45,7 @@ fn italic_reg_word_mask() {
     // Dilation size should be reasonable
     rp.compare_values(
         1.0,
-        if dil_size >= 1 && dil_size <= 20 {
+        if (1..=20).contains(&dil_size) {
             1.0
         } else {
             0.0
@@ -106,7 +106,7 @@ fn italic_reg_conncomp() {
     let (boxa, pixa) = conncomp_pixa(&mask, ConnectivityType::EightWay).expect("conncomp_pixa");
 
     // Should find word regions in the italic text
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(boxa.len() as f64, pixa.len() as f64, 0.0);
 
     // All boxes should have valid dimensions

@@ -45,7 +45,7 @@ fn wordboxes_reg_lucasta_full() {
     // Should find a reasonable dilation size
     rp.compare_values(
         1.0,
-        if dil_size >= 1 && dil_size <= 20 {
+        if (1..=20).contains(&dil_size) {
             1.0
         } else {
             0.0
@@ -55,7 +55,7 @@ fn wordboxes_reg_lucasta_full() {
 
     // Word boxes
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes lucasta");
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "wordboxes lucasta full test failed");
 }
@@ -82,7 +82,7 @@ fn wordboxes_reg_lucasta_scaled() {
     rp.compare_values(h as f64, mask.height() as f64, 0.0);
 
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes scaled");
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "wordboxes lucasta scaled test failed");
 }
@@ -104,7 +104,7 @@ fn wordboxes_reg_zanotti() {
     rp.compare_values(pix.height() as f64, mask.height() as f64, 0.0);
 
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes zanotti");
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "wordboxes zanotti test failed");
 }
@@ -126,7 +126,7 @@ fn wordboxes_reg_words15() {
     rp.compare_values(h as f64, mask.height() as f64, 0.0);
 
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes words.15");
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "wordboxes words15 test failed");
 }
@@ -146,7 +146,7 @@ fn wordboxes_reg_words44() {
     rp.compare_values(h as f64, mask.height() as f64, 0.0);
 
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes words.44");
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "wordboxes words44 test failed");
 }
@@ -171,18 +171,20 @@ fn wordboxes_reg_mask_box_consistency() {
         if let Some(b) = boxa.get(i) {
             let cx = b.x + b.w / 2;
             let cy = b.y + b.h / 2;
-            if cx >= 0 && cy >= 0 && (cx as u32) < mask.width() && (cy as u32) < mask.height() {
-                if let Some(val) = mask.get_pixel(cx as u32, cy as u32) {
-                    if val != 0 {
-                        boxes_in_mask += 1;
-                    }
-                }
+            if cx >= 0
+                && cy >= 0
+                && (cx as u32) < mask.width()
+                && (cy as u32) < mask.height()
+                && let Some(val) = mask.get_pixel(cx as u32, cy as u32)
+                && val != 0
+            {
+                boxes_in_mask += 1;
             }
         }
     }
 
     // Most boxes should overlap with mask
-    let ratio = if boxa.len() > 0 {
+    let ratio = if !boxa.is_empty() {
         boxes_in_mask as f64 / boxa.len() as f64
     } else {
         0.0

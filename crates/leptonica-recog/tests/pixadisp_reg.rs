@@ -51,7 +51,7 @@ fn pixadisp_reg_display_tiled() {
         y += tile_h + 15;
     }
 
-    rp.compare_values(1.0, if pixa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !pixa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // display_tiled: arrange in rows up to max_width=1000, white background, 5px spacing
     let tiled = pixa.display_tiled(1000, 1, 5).expect("display_tiled");
@@ -92,7 +92,7 @@ fn pixadisp_reg_display_tiled_and_scaled() {
         }
     }
 
-    rp.compare_values(1.0, if pixa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !pixa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // display_tiled_and_scaled: 8bpp output, tile_width=250, 5 columns, white bg, 10px spacing, 2px border
     let scaled = pixa
@@ -171,7 +171,7 @@ fn pixadisp_reg_black_bg() {
         }
     }
 
-    if pixa.len() == 0 {
+    if pixa.is_empty() {
         rp.compare_values(1.0, 0.0, 0.0);
         assert!(
             rp.cleanup(),
@@ -217,7 +217,7 @@ fn pixadisp_reg_display_1bpp() {
         }
     }
 
-    if pixa.len() == 0 {
+    if pixa.is_empty() {
         rp.compare_values(1.0, 0.0, 0.0);
         assert!(rp.cleanup(), "pixadisp 1bpp test failed (no components)");
         return;
@@ -264,7 +264,7 @@ fn pixadisp_reg_brev_images() {
 
     rp.compare_values(brev_files.len() as f64, pixa.len() as f64, 0.0);
 
-    if pixa.len() > 0 {
+    if !pixa.is_empty() {
         // Display tiled with scaled 32bpp output
         let tiled = pixa
             .display_tiled_and_scaled(PixelDepth::Bit32, 300, 3, 1, 15, 0)
