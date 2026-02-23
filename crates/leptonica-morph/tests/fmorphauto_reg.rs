@@ -29,6 +29,8 @@ fn fmorphauto_reg_dilate_erode() {
     let w = pix.width();
     let h = pix.height();
 
+    let orig_count = pix.count_pixels();
+
     // Test with various brick sel sizes (subset of C test sel library)
     let sizes: &[(u32, u32)] = &[(1, 1), (3, 3), (5, 5), (7, 1), (1, 7)];
     for &(sw, sh) in sizes {
@@ -42,7 +44,7 @@ fn fmorphauto_reg_dilate_erode() {
         // Dilation is extensive: result contains at least all original pixels
         rp.compare_values(
             1.0,
-            if dilated.count_pixels() >= pix.count_pixels() {
+            if dilated.count_pixels() >= orig_count {
                 1.0
             } else {
                 0.0
@@ -53,11 +55,12 @@ fn fmorphauto_reg_dilate_erode() {
         let eroded = erode(&pix, &sel).expect("erode");
         rp.compare_values(w as f64, eroded.width() as f64, 0.0);
         rp.compare_values(h as f64, eroded.height() as f64, 0.0);
+        assert_eq!(eroded.depth(), PixelDepth::Bit1);
 
         // Erosion is anti-extensive: result is subset of original pixels
         rp.compare_values(
             1.0,
-            if eroded.count_pixels() <= pix.count_pixels() {
+            if eroded.count_pixels() <= orig_count {
                 1.0
             } else {
                 0.0
@@ -69,7 +72,7 @@ fn fmorphauto_reg_dilate_erode() {
     assert!(rp.cleanup(), "fmorphauto dilate_erode test failed");
 }
 
-/// Test that dilate-erode roundtrip (open) gives fewer pixels than original.
+/// Test that morphological opening (erode then dilate) gives fewer pixels than original.
 ///
 /// C: open = dilate(erode(pix)); result should be subset of original
 #[test]
@@ -77,6 +80,7 @@ fn fmorphauto_reg_open_subset() {
     let mut rp = RegParams::new("fmorphauto_open");
 
     let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
     let orig_count = pix.count_pixels();
@@ -88,6 +92,7 @@ fn fmorphauto_reg_open_subset() {
 
     rp.compare_values(w as f64, opened.width() as f64, 0.0);
     rp.compare_values(h as f64, opened.height() as f64, 0.0);
+    assert_eq!(opened.depth(), PixelDepth::Bit1);
 
     // Opening is anti-extensive: opened <= original
     rp.compare_values(

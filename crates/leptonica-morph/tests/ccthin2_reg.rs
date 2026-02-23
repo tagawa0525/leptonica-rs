@@ -59,6 +59,7 @@ fn ccthin2_reg_thin_8cc() {
     let mut rp = RegParams::new("cthin2_8cc");
 
     let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
 
@@ -66,6 +67,18 @@ fn ccthin2_reg_thin_8cc() {
         .expect("thin_connected 8-way");
     rp.compare_values(w as f64, thinned.width() as f64, 0.0);
     rp.compare_values(h as f64, thinned.height() as f64, 0.0);
+    assert_eq!(thinned.depth(), PixelDepth::Bit1);
+
+    // Thinning is anti-extensive: result is subset of original
+    rp.compare_values(
+        1.0,
+        if thinned.count_pixels() <= pix.count_pixels() {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
 
     assert!(rp.cleanup(), "ccthin2 thin_8cc test failed");
 }
@@ -73,12 +86,13 @@ fn ccthin2_reg_thin_8cc() {
 /// Test thin_connected_by_set with multiple sel sets (C: pixThinConnectedBySet).
 ///
 /// C: pix1 = pixThinConnectedBySet(pixs, L_THIN_FG, sela, 0);
-/// Tests Set4cc1, Set4cc2, Set8cc1, Set48.
+/// Tests Set4cc1, Set4cc2, Set4cc3, Set8cc1, Set48.
 #[test]
 fn ccthin2_reg_thin_by_set() {
     let mut rp = RegParams::new("cthin2_set");
 
     let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
 
@@ -119,6 +133,7 @@ fn ccthin2_reg_thin_bg() {
     let mut rp = RegParams::new("cthin2_bg");
 
     let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
 
@@ -127,6 +142,7 @@ fn ccthin2_reg_thin_bg() {
         .expect("thin_connected_by_set BG");
     rp.compare_values(w as f64, thinned.width() as f64, 0.0);
     rp.compare_values(h as f64, thinned.height() as f64, 0.0);
+    assert_eq!(thinned.depth(), PixelDepth::Bit1);
 
     assert!(rp.cleanup(), "ccthin2 thin_bg test failed");
 }

@@ -60,16 +60,17 @@ fn fhmtauto_reg_identity_sel() {
     let mut rp = RegParams::new("fhmtauto_id");
 
     let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
-    let orig_count = pix.count_pixels();
 
-    // A 1x1 HIT sel: hit-miss transform should not change foreground count
+    // A 1x1 HIT sel: hit-miss transform should return the original image
     let sel = Sel::create_brick(1, 1).expect("create 1x1 sel");
     let result = hit_miss_transform(&pix, &sel).expect("hit_miss_transform 1x1");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
-    rp.compare_values(orig_count as f64, result.count_pixels() as f64, 0.0);
+    assert_eq!(result.depth(), PixelDepth::Bit1);
+    assert!(result.equals(&pix));
 
     assert!(rp.cleanup(), "fhmtauto identity sel test failed");
 }

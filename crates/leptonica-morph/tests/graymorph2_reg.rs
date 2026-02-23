@@ -31,6 +31,8 @@ fn graymorph2_reg_dilate() {
     let w = pix.width();
     let h = pix.height();
 
+    let orig_mean = pix.average_in_rect(None).expect("average_in_rect") as f64;
+
     let sizes: &[(u32, u32)] = &[(3, 1), (1, 3), (3, 3)];
     for &(hsize, vsize) in sizes {
         let dilated = dilate_gray(&pix, hsize, vsize).expect("dilate_gray");
@@ -40,8 +42,9 @@ fn graymorph2_reg_dilate() {
 
         // Dilation should not decrease pixel values (max filter)
         // Verifies monotonicity: mean value should be >= original mean
-        let orig_mean = pix.average_in_rect(None).unwrap_or(0.0) as f64;
-        let dil_mean = dilated.average_in_rect(None).unwrap_or(0.0) as f64;
+        let dil_mean = dilated
+            .average_in_rect(None)
+            .expect("average_in_rect dilated") as f64;
         rp.compare_values(1.0, if dil_mean >= orig_mean { 1.0 } else { 0.0 }, 0.0);
     }
 
@@ -56,8 +59,10 @@ fn graymorph2_reg_erode() {
     let mut rp = RegParams::new("gmorph2_erode");
 
     let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    assert_eq!(pix.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();
+    let orig_mean = pix.average_in_rect(None).expect("average_in_rect") as f64;
 
     let sizes: &[(u32, u32)] = &[(3, 1), (1, 3), (3, 3)];
     for &(hsize, vsize) in sizes {
@@ -67,8 +72,9 @@ fn graymorph2_reg_erode() {
         assert_eq!(eroded.depth(), PixelDepth::Bit8);
 
         // Erosion should not increase pixel values (min filter)
-        let orig_mean = pix.average_in_rect(None).unwrap_or(0.0) as f64;
-        let er_mean = eroded.average_in_rect(None).unwrap_or(0.0) as f64;
+        let er_mean = eroded
+            .average_in_rect(None)
+            .expect("average_in_rect eroded") as f64;
         rp.compare_values(1.0, if er_mean <= orig_mean { 1.0 } else { 0.0 }, 0.0);
     }
 
