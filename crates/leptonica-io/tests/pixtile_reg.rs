@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 /// Extracts non-overlapping sub-regions and verifies dimensions,
 /// simulating the simplest tiling operation.
 #[test]
-#[ignore = "not yet implemented: pixtile tests require feature verification"]
 fn pixtile_reg_basic_clip() {
     let mut rp = RegParams::new("pixtile_clip");
 

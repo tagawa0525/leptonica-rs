@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 /// Since segmented PDF is not available, verifies that individual images
 /// can be written to PDF (the prerequisite for segmented output).
 #[test]
-#[ignore = "not yet implemented: PDF segmented output tests require feature verification"]
 fn pdfseg_reg_basic_pdf_output() {
     let mut rp = RegParams::new("pdfseg_basic");
 

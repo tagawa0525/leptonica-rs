@@ -20,7 +20,6 @@ use leptonica_test::RegParams;
 /// Since segmented PS is not available, verifies that images can be
 /// written as PS at different compression levels.
 #[test]
-#[ignore = "not yet implemented: PS segmented output tests require feature verification"]
 fn psioseg_reg_basic_ps_output() {
     let mut rp = RegParams::new("psioseg_basic");
 
