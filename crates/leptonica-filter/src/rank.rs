@@ -650,19 +650,21 @@ pub fn scale_gray_rank2(pix: &Pix, rank: u8) -> FilterResult<Pix> {
         ));
     }
 
-    // Ranks 1 and 4 are just min/max — delegate to the faster path.
-    match rank {
-        1 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Min),
-        4 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Max),
-        _ => {}
-    }
-
+    // Enforce minimum size for all ranks before any delegation, so that rank=1
+    // and rank=4 fail consistently with rank=2 and rank=3 on tiny images.
     let ws = pix.width();
     let hs = pix.height();
     if ws < 2 || hs < 2 {
         return Err(FilterError::InvalidParameters(
             "image too small for 2x downscaling (need at least 2x2)".to_string(),
         ));
+    }
+
+    // Ranks 1 and 4 are just min/max — delegate to the faster path.
+    match rank {
+        1 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Min),
+        4 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Max),
+        _ => {}
     }
 
     let wd = ws / 2;
