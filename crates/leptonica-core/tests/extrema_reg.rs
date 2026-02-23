@@ -16,15 +16,38 @@ use leptonica_test::RegParams;
 
 /// Test Numa extrema finding (C checks 0-1).
 ///
-/// Requires numaFindExtrema which is not available in leptonica-core.
+/// Creates a sine waveform and verifies find_extrema detects peaks and valleys
+/// with a hysteresis threshold of delta=0.1.
 #[test]
 #[ignore = "not yet implemented: Numa::find_extrema not available"]
 fn extrema_reg_find_extrema() {
-    // C version:
-    // 1. Creates a 1D sine-like waveform (500 samples)
-    // 2. numaFindExtrema(na, 0.1, &nax) - find local extrema with delta=0.1
-    // 3. Writes nax to golden file (byte data)
-    // 4. Verifies plot file was created
+    let mut rp = RegParams::new("extrema_find");
+
+    let pi = std::f64::consts::PI;
+    let mut na = Numa::new();
+    for i in 0..500 {
+        let angle = 0.02293 * i as f64 * pi;
+        na.push(angle.sin() as f32);
+    }
+
+    // delta=0.1 で極値インデックスを検出
+    let nax = na.find_extrema(0.1).expect("find_extrema");
+
+    // サイン波 500 点で周期 ≈ 87 点 → 峰と谷が交互に 11-12 個程度検出される
+    rp.compare_values(1.0, if nax.len() > 8 { 1.0 } else { 0.0 }, 0.0);
+
+    // 全インデックスが有効範囲 [0, 500) 内であること
+    let all_valid = (0..nax.len()).all(|i| (nax[i] as usize) < 500);
+    rp.compare_values(1.0, if all_valid { 1.0 } else { 0.0 }, 0.0);
+
+    // 極値の値も取得できること
+    let (nax2, nav) = na
+        .find_extrema_with_values(0.1)
+        .expect("find_extrema_with_values");
+    rp.compare_values(nax.len() as f64, nax2.len() as f64, 0.0);
+    rp.compare_values(nax.len() as f64, nav.len() as f64, 0.0);
+
+    assert!(rp.cleanup(), "extrema find_extrema test failed");
 }
 
 /// Test Numa basic min/max operations that are available.
