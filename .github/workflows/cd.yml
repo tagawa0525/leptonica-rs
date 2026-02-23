@@ -25,6 +25,14 @@ jobs:
       - name: test
         run: cargo test --all-features
 
+      - name: Verify tag is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Error: tag must be on main branch"
+            exit 1
+          fi
+
       - name: publish
         run: cargo publish
         env:
