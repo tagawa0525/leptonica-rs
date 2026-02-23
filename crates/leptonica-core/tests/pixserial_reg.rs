@@ -33,7 +33,6 @@ const IMAGES: &[&str] = &[
 ///
 /// For each image: serialize to bytes, deserialize, compare pixels.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixserial_reg_memory_roundtrip() {
     let mut rp = RegParams::new("pixserial_memory");
 
@@ -63,7 +62,6 @@ fn pixserial_reg_memory_roundtrip() {
 ///
 /// For each image: clip a 150×150 region, write to SPIX file, read back, compare.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixserial_reg_file_roundtrip() {
     let mut rp = RegParams::new("pixserial_file");
 
@@ -102,7 +100,6 @@ fn pixserial_reg_file_roundtrip() {
 ///
 /// For each image: serialize to SPIX bytes, read header, verify dimensions match.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixserial_reg_header() {
     let mut rp = RegParams::new("pixserial_header");
 

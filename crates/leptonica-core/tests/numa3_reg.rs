@@ -22,7 +22,6 @@ use leptonica_test::RegParams;
 /// Inserts random values into a sorted Numa via add_sorted,
 /// then verifies the result matches a sorted-then-reversed version.
 #[test]
-#[ignore = "not yet implemented"]
 fn numa3_reg_sorted_insertion() {
     let mut rp = RegParams::new("numa3_sorted");
 
@@ -88,7 +87,6 @@ fn numa3_reg_sorted_insertion() {
 /// Creates a noisy signal, applies windowed mean, and verifies
 /// the smoothed output is less variable than the input.
 #[test]
-#[ignore = "not yet implemented"]
 fn numa3_reg_windowed_mean() {
     let mut rp = RegParams::new("numa3_windowed");
 
@@ -131,7 +129,6 @@ fn numa3_reg_windowed_mean() {
 ///
 /// Creates a Numa, computes histogram, verifies basic statistics.
 #[test]
-#[ignore = "not yet implemented"]
 fn numa3_reg_histogram() {
     let mut rp = RegParams::new("numa3_histogram");
 
@@ -170,7 +167,6 @@ fn numa3_reg_histogram() {
 ///
 /// Verifies that identical arrays are similar and different arrays are not.
 #[test]
-#[ignore = "not yet implemented"]
 fn numa3_reg_similar() {
     let mut rp = RegParams::new("numa3_similar");
 

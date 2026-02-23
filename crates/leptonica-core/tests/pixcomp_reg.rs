@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 /// While PixComp provides in-memory compression, Pixa stores uncompressed images.
 /// This test verifies basic Pixa array construction and element access.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_pixa_array() {
     let mut rp = RegParams::new("pixcomp_pixa");
 

@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 /// Since ascii85::encode is not publicly accessible, we verify indirectly
 /// by checking that PS output of an image contains ASCII85 markers.
 #[test]
-#[ignore = "not yet implemented"]
 fn encoding_reg_ps_ascii85() {
     let mut rp = RegParams::new("encoding_ps_ascii85");
 
