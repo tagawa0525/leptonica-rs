@@ -270,7 +270,6 @@ fn numa3_reg_morphology() {
 /// normalizes it with transform, then finds the valley threshold
 /// between the two peaks using find_loc_for_threshold.
 #[test]
-#[ignore = "not yet implemented: numaFindLocForThreshold not available"]
 fn numa3_reg_threshold_finding() {
     let mut rp = RegParams::new("numa3_threshold");
 

@@ -1746,6 +1746,106 @@ impl Numa {
     }
 
     // ====================================================================
+    // Threshold finding
+    // ====================================================================
+
+    /// Find the valley threshold between two peaks in a bimodal histogram.
+    ///
+    /// Locates the local minimum between the first and second peaks.
+    /// Returns `(threshold_index, fraction_below)` where `fraction_below`
+    /// is the sum of values at indices `0..=threshold` divided by the total sum.
+    ///
+    /// `skip` controls the look-ahead distance for peak/valley detection.
+    /// Pass `0` to use the default of `20`.
+    ///
+    /// C equivalent: `numaFindLocForThreshold(na, skip, &thresh, &fract)`
+    /// in `numafunc2.c`
+    pub fn find_loc_for_threshold(&self, skip: usize) -> Result<(usize, f32)> {
+        let skip = if skip == 0 { 20 } else { skip };
+        let n = self.len();
+
+        // Require non-constant array
+        let min_val = (0..n).map(|i| self[i]).fold(f32::INFINITY, f32::min);
+        let max_val = (0..n).map(|i| self[i]).fold(f32::NEG_INFINITY, f32::max);
+        if min_val >= max_val {
+            return Err(Error::InvalidParameter(
+                "all array values are the same".into(),
+            ));
+        }
+
+        // Find the top of the first peak
+        let mut pval = self[0];
+        let mut peak_end = n;
+        for i in 1..n {
+            let val = self[i];
+            let index = (i + skip).min(n - 1);
+            let jval = self[index];
+            if val < pval && jval < pval {
+                peak_end = i;
+                break;
+            }
+            pval = val;
+        }
+        if peak_end > n - 5 {
+            return Err(Error::InvalidParameter(
+                "top of first peak not found".into(),
+            ));
+        }
+
+        // Find the low point in the valley
+        let mut found = false;
+        let mut index = peak_end;
+        pval = self[peak_end];
+        let mut i = peak_end + 1;
+        while i < n {
+            let val = self[i];
+            if val <= pval {
+                pval = val;
+                i += 1;
+            } else {
+                let j = (i + skip).min(n - 1);
+                let jval = self[j];
+                if val > jval {
+                    pval = jval;
+                    index = j;
+                    i = j + 1;
+                } else {
+                    index = i;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if !found {
+            return Err(Error::InvalidParameter("no minimum found".into()));
+        }
+
+        // Find the minimum in the look-back window
+        let mut minloc = index;
+        let mut minval = self[index];
+        let lookback_start = index.saturating_sub(skip);
+        for i in (lookback_start..index).rev() {
+            if self[i] < minval {
+                minval = self[i];
+                minloc = i;
+            }
+        }
+
+        if minloc > n - 10 {
+            return Err(Error::InvalidParameter(
+                "minimum at end of array; invalid".into(),
+            ));
+        }
+
+        // Compute fraction below threshold
+        let partsum: f32 = (0..=minloc).map(|i| self[i]).sum();
+        let total: f32 = (0..n).map(|i| self[i]).sum();
+        let frac = if total > 0.0 { partsum / total } else { 0.0 };
+
+        Ok((minloc, frac))
+    }
+
+    // ====================================================================
     // Run counting
     // ====================================================================
 
