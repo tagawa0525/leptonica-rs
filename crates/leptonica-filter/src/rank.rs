@@ -576,6 +576,11 @@ pub fn scale_gray_min_max(pix: &Pix, xfact: u32, yfact: u32, op: MinMaxOp) -> Fi
             actual: pix.depth().bits(),
         });
     }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped 8-bpp images are not supported; remove the colormap first".to_string(),
+        ));
+    }
     if xfact < 1 || yfact < 1 {
         return Err(FilterError::InvalidParameters(
             "xfact and yfact must be >= 1".to_string(),
@@ -643,6 +648,11 @@ pub fn scale_gray_rank2(pix: &Pix, rank: u8) -> FilterResult<Pix> {
             expected: "8-bpp grayscale",
             actual: pix.depth().bits(),
         });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped 8-bpp images are not supported; remove the colormap first".to_string(),
+        ));
     }
     if !(1..=4).contains(&rank) {
         return Err(FilterError::InvalidParameters(
@@ -712,6 +722,11 @@ pub fn scale_gray_rank_cascade(
             expected: "8-bpp grayscale",
             actual: pix.depth().bits(),
         });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped 8-bpp images are not supported; remove the colormap first".to_string(),
+        ));
     }
     if level1 > 4 || level2 > 4 || level3 > 4 || level4 > 4 {
         return Err(FilterError::InvalidParameters(
