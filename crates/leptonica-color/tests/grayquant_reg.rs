@@ -24,7 +24,6 @@ use leptonica_test::RegParams;
 ///
 /// Converts 8bpp grayscale to 1bpp at a given threshold.
 #[test]
-#[ignore = "not yet implemented: grayquant regression tests"]
 fn grayquant_reg_threshold_binary() {
     let mut rp = RegParams::new("gquant_bin");
 
@@ -45,7 +44,6 @@ fn grayquant_reg_threshold_binary() {
 ///
 /// Thresholds 8bpp gray to 2bpp and 4bpp with various levels.
 #[test]
-#[ignore = "not yet implemented: grayquant regression tests"]
 fn grayquant_reg_threshold_multi() {
     let mut rp = RegParams::new("gquant_multi");
 
@@ -88,7 +86,6 @@ fn grayquant_reg_threshold_multi() {
 /// Tests median_cut_quant, octree_quant_256, fixed_octcube_quant_256,
 /// and octree_quant_by_population.
 #[test]
-#[ignore = "not yet implemented: grayquant regression tests"]
 fn grayquant_reg_color_quant() {
     let mut rp = RegParams::new("gquant_cquant");
 

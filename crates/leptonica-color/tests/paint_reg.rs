@@ -23,7 +23,6 @@ use leptonica_test::RegParams;
 ///
 /// Colorizes dark and light gray pixels in a 32bpp image.
 #[test]
-#[ignore = "not yet implemented: paint regression tests"]
 fn paint_reg_color_gray() {
     let mut rp = RegParams::new("paint_cgray");
 
@@ -71,7 +70,6 @@ fn paint_reg_color_gray() {
 ///
 /// Creates a binary mask from thresholding, then paints a color through it.
 #[test]
-#[ignore = "not yet implemented: paint regression tests"]
 fn paint_reg_through_mask() {
     let mut rp = RegParams::new("paint_mask");
 
@@ -104,7 +102,6 @@ fn paint_reg_through_mask() {
 ///
 /// Renders colored lines and box outlines on a 32bpp image.
 #[test]
-#[ignore = "not yet implemented: paint regression tests"]
 fn paint_reg_render_color() {
     let mut rp = RegParams::new("paint_render");
 
@@ -146,7 +143,6 @@ fn paint_reg_render_color() {
 ///
 /// Renders blended lines and box outlines on a 32bpp image.
 #[test]
-#[ignore = "not yet implemented: paint regression tests"]
 fn paint_reg_render_blend() {
     let mut rp = RegParams::new("paint_blend");
 

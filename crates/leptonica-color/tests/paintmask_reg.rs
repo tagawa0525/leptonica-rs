@@ -22,7 +22,6 @@ use leptonica_test::RegParams;
 /// Creates a mask from rabi.png, clips and inverts it, then paints through
 /// the mask onto a 32bpp image.
 #[test]
-#[ignore = "not yet implemented: paintmask regression tests"]
 fn paintmask_reg_32bpp() {
     let mut rp = RegParams::new("pmask_32");
 
@@ -59,7 +58,6 @@ fn paintmask_reg_32bpp() {
 ///
 /// Quantizes a 32bpp image and clips a region.
 #[test]
-#[ignore = "not yet implemented: paintmask regression tests"]
 fn paintmask_reg_quant_clip() {
     let mut rp = RegParams::new("pmask_qclip");
 

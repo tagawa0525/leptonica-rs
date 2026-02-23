@@ -20,7 +20,6 @@ use leptonica_test::RegParams;
 ///
 /// Converts 8bpp grayscale to 1bpp using Floyd-Steinberg dithering.
 #[test]
-#[ignore = "not yet implemented: dither regression tests"]
 fn dither_reg_to_binary() {
     let mut rp = RegParams::new("dither_bin");
 
@@ -48,7 +47,6 @@ fn dither_reg_to_binary() {
 ///
 /// Converts 8bpp grayscale to 1bpp using ordered (Bayer) dithering.
 #[test]
-#[ignore = "not yet implemented: dither regression tests"]
 fn dither_reg_ordered() {
     let mut rp = RegParams::new("dither_ord");
 

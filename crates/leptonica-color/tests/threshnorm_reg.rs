@@ -22,7 +22,6 @@ use leptonica_test::RegParams;
 /// targetthresh, targetthresh+20, targetthresh+40. We test the same
 /// threshold sweep on raw 8bpp gray.
 #[test]
-#[ignore = "not yet implemented: threshnorm regression tests"]
 fn threshnorm_reg_threshold_sweep() {
     let mut rp = RegParams::new("threshnorm_sweep");
 
