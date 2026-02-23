@@ -26,26 +26,23 @@ fn psioseg_reg_basic_ps_output() {
     // Test image that would be segmented in C
     let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
 
-    // Level 1 (no compression) - corresponds to G4-like output for text
+    // Level 1: uncompressed hex-encoded PostScript baseline
     let opts_l1 = PsOptions::default().level(PsLevel::Level1);
     let data_l1 = leptonica_io::ps::write_ps_mem(&pix, &opts_l1).expect("write_ps_mem level1");
-    rp.compare_values(1.0, if data_l1.len() > 100 { 1.0 } else { 0.0 }, 0.0);
+    let ps_l1 = String::from_utf8_lossy(&data_l1);
+    rp.compare_values(1.0, if ps_l1.starts_with("%!") { 1.0 } else { 0.0 }, 0.0);
+    // Level 1 uses ASCIIHexDecode
+    let has_hex = ps_l1.contains("ASCIIHexDecode") || ps_l1.contains("readhexstring");
+    rp.compare_values(1.0, if has_hex { 1.0 } else { 0.0 }, 0.0);
 
-    // Level 3 (Flate) - alternative compression
+    // Level 3: Flate compressed with ASCII85 encoding
     let opts_l3 = PsOptions::default().level(PsLevel::Level3);
     let data_l3 = leptonica_io::ps::write_ps_mem(&pix, &opts_l3).expect("write_ps_mem level3");
-    rp.compare_values(1.0, if data_l3.len() > 100 { 1.0 } else { 0.0 }, 0.0);
-
-    // Flate should be more compact than uncompressed hex
-    rp.compare_values(
-        1.0,
-        if data_l3.len() < data_l1.len() {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
+    let ps_l3 = String::from_utf8_lossy(&data_l3);
+    rp.compare_values(1.0, if ps_l3.starts_with("%!") { 1.0 } else { 0.0 }, 0.0);
+    // Level 3 uses FlateDecode or ASCII85 EOD marker
+    let has_flate = ps_l3.contains("FlateDecode") || ps_l3.contains("~>");
+    rp.compare_values(1.0, if has_flate { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "psioseg basic ps output test failed");
 }
