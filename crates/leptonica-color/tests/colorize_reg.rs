@@ -22,7 +22,6 @@ use leptonica_test::RegParams;
 /// Verifies gray pixel colorization on a 32bpp image, both with a Box region
 /// and on the full image.
 #[test]
-#[ignore = "not yet implemented"]
 fn colorize_reg_color_gray() {
     let mut rp = RegParams::new("colorize_gray");
 
@@ -59,7 +58,6 @@ fn colorize_reg_color_gray() {
 ///
 /// Verifies masked colorization on a 32bpp image with a 1bpp binary mask.
 #[test]
-#[ignore = "not yet implemented"]
 fn colorize_reg_color_gray_masked() {
     let mut rp = RegParams::new("colorize_masked");
 

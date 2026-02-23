@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 /// Verifies that gray pixels are darkened while leaving colorful pixels
 /// mostly unaffected.
 #[test]
-#[ignore = "not yet implemented"]
 fn lowsat_reg_darken_gray() {
     let mut rp = RegParams::new("lowsat_darken");
 
@@ -48,7 +47,6 @@ fn lowsat_reg_darken_gray() {
 /// Verifies saturation modification produces correct dimensions and
 /// measure_saturation returns a reasonable value.
 #[test]
-#[ignore = "not yet implemented"]
 fn lowsat_reg_saturation() {
     let mut rp = RegParams::new("lowsat_sat");
 

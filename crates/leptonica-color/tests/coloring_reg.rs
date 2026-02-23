@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 ///
 /// Shifts white pixels to various background tints on a 32bpp RGB image.
 #[test]
-#[ignore = "not yet implemented"]
 fn coloring_reg_background_shift() {
     let mut rp = RegParams::new("coloring_bg");
 
@@ -52,7 +51,6 @@ fn coloring_reg_background_shift() {
 ///
 /// Shifts black pixels to a specified foreground color on a 32bpp RGB image.
 #[test]
-#[ignore = "not yet implemented"]
 fn coloring_reg_foreground_shift() {
     let mut rp = RegParams::new("coloring_fg");
 

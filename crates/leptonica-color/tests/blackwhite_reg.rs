@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies adding a white border to images of various depths.
 #[test]
-#[ignore = "not yet implemented"]
 fn blackwhite_reg_white_border() {
     let mut rp = RegParams::new("bw_white");
 
@@ -46,7 +45,6 @@ fn blackwhite_reg_white_border() {
 ///
 /// Verifies adding a black border to images of various depths.
 #[test]
-#[ignore = "not yet implemented"]
 fn blackwhite_reg_black_border() {
     let mut rp = RegParams::new("bw_black");
 
@@ -70,7 +68,6 @@ fn blackwhite_reg_black_border() {
 ///
 /// Verifies removing alpha channel then adding a border.
 #[test]
-#[ignore = "not yet implemented"]
 fn blackwhite_reg_alpha_blend() {
     let mut rp = RegParams::new("bw_alpha");
 
