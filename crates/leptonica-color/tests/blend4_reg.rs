@@ -14,8 +14,7 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/blend4_reg.c`
 
-use leptonica_core::pix::blend::blend_with_gray_mask;
-use leptonica_core::{Pix, PixelDepth};
+use leptonica_core::{Pix, PixelDepth, blend_with_gray_mask};
 use leptonica_test::RegParams;
 use leptonica_transform::scale_by_sampling;
 
