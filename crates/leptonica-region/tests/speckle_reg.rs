@@ -27,7 +27,6 @@ use leptonica_test::RegParams;
 ///
 /// Clears all foreground pixels connected to the border.
 #[test]
-#[ignore = "not yet implemented: speckle regression tests"]
 fn speckle_reg_clear_border() {
     let mut rp = RegParams::new("speckle_border");
 
@@ -54,7 +53,6 @@ fn speckle_reg_clear_border() {
 ///
 /// Counts and finds connected components in feyn.tif (already 1bpp).
 #[test]
-#[ignore = "not yet implemented: speckle regression tests"]
 fn speckle_reg_count_components() {
     let mut rp = RegParams::new("speckle_count");
 
@@ -81,7 +79,6 @@ fn speckle_reg_count_components() {
 /// Removes connected components smaller than a given size threshold to
 /// simulate speckle noise removal.
 #[test]
-#[ignore = "not yet implemented: speckle regression tests"]
 fn speckle_reg_select_by_size() {
     let mut rp = RegParams::new("speckle_size");
 

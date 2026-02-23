@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 /// Computes the distance from each foreground pixel to the nearest background
 /// pixel for 4-way and 8-way connectivity at 8bpp and 16bpp output depth.
 #[test]
-#[ignore = "not yet implemented: distance regression tests"]
 fn distance_reg_all_combos() {
     let mut rp = RegParams::new("dist_combos");
 
@@ -58,7 +57,6 @@ fn distance_reg_all_combos() {
 /// then applies seedfill_gray to label each connected component with
 /// the maximum distance value in that component.
 #[test]
-#[ignore = "not yet implemented: distance regression tests"]
 fn distance_reg_seedfill_labeling() {
     let mut rp = RegParams::new("dist_seedfill");
 

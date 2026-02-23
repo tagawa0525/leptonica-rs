@@ -23,7 +23,6 @@ use leptonica_test::RegParams;
 ///
 /// Generates a binary maze and finds the shortest path between two points.
 #[test]
-#[ignore = "not yet implemented: maze regression tests"]
 fn maze_reg_binary() {
     let mut rp = RegParams::new("maze_bin");
 
@@ -53,7 +52,6 @@ fn maze_reg_binary() {
 ///
 /// Finds minimum-cost paths through a grayscale image using Dijkstra's algorithm.
 #[test]
-#[ignore = "not yet implemented: maze regression tests"]
 fn maze_reg_gray() {
     let mut rp = RegParams::new("maze_gray");
 
@@ -88,7 +86,6 @@ fn maze_reg_gray() {
 ///
 /// Verifies that the generated maze has at least one passage (connected component).
 #[test]
-#[ignore = "not yet implemented: maze regression tests"]
 fn maze_reg_connectivity() {
     let mut rp = RegParams::new("maze_conn");
 

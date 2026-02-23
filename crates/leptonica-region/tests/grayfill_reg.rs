@@ -39,7 +39,6 @@ fn make_mask_200() -> Pix {
 /// Seeds the image from a small central region and propagates using the
 /// inverse gray fill rule (seed <= mask).
 #[test]
-#[ignore = "not yet implemented: grayfill regression tests"]
 fn grayfill_reg_inv() {
     let mut rp = RegParams::new("gfill_inv");
 
@@ -76,7 +75,6 @@ fn grayfill_reg_inv() {
 ///
 /// Seeds from a high-value central region and fills up to mask values.
 #[test]
-#[ignore = "not yet implemented: grayfill regression tests"]
 fn grayfill_reg_standard() {
     let mut rp = RegParams::new("gfill_std");
 
@@ -114,7 +112,6 @@ fn grayfill_reg_standard() {
 ///
 /// Finds local minima in the mask, then uses them as seeds for basin filling.
 #[test]
-#[ignore = "not yet implemented: grayfill regression tests"]
 fn grayfill_reg_basin() {
     let mut rp = RegParams::new("gfill_basin");
 
@@ -123,7 +120,8 @@ fn grayfill_reg_basin() {
     let h = mask.height();
 
     // C: pixLocalExtrema(pixm, 0, 0, &pixmin, NULL);
-    let (pixmin, _pixmax) = local_extrema(&mask, 0, 0).expect("local_extrema");
+    // Rust requires min_max_size to be odd and >= 1; 0 in C means "no size filter"
+    let (pixmin, _pixmax) = local_extrema(&mask, 1, 0).expect("local_extrema");
     assert_eq!(pixmin.depth(), PixelDepth::Bit1);
 
     // C: pixs3 = pixSeedfillGrayBasin(pixmin, pixm, 30, 4);
