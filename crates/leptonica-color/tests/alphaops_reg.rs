@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies blending an RGBA image over a uniform background color.
 #[test]
-#[ignore = "not yet implemented: alpha_blend_uniform"]
 fn alphaops_reg_blend_uniform() {
     let mut rp = RegParams::new("alphaops_uniform");
 
@@ -51,7 +50,6 @@ fn alphaops_reg_blend_uniform() {
 /// Verifies that alpha can be removed (compositing against white) and
 /// that add_alpha_to_blend generates a usable alpha channel.
 #[test]
-#[ignore = "not yet implemented: remove_alpha and add_alpha_to_blend"]
 fn alphaops_reg_remove_add_alpha() {
     let mut rp = RegParams::new("alphaops_alpha");
 
@@ -79,7 +77,6 @@ fn alphaops_reg_remove_add_alpha() {
 ///
 /// Verifies component-wise color multiplication preserves dimensions.
 #[test]
-#[ignore = "not yet implemented: multiply_by_color"]
 fn alphaops_reg_multiply_by_color() {
     let mut rp = RegParams::new("alphaops_mult");
 
@@ -101,7 +98,6 @@ fn alphaops_reg_multiply_by_color() {
 ///
 /// Verifies blending two images using a gray mask.
 #[test]
-#[ignore = "not yet implemented: blend_with_gray_mask in alphaops context"]
 fn alphaops_reg_blend_with_mask() {
     let mut rp = RegParams::new("alphaops_mask");
 

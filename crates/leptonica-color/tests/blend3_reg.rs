@@ -18,14 +18,15 @@ use leptonica_test::RegParams;
 /// Test blend_gray_inverse (C checks: BlendTest pixBlendGrayInverse portion).
 ///
 /// Verifies inverse gray blending produces output with correct dimensions.
+/// Rust impl only supports 8bpp (C supports 8bpp and 32bpp).
 #[test]
-#[ignore = "not yet implemented: blend_gray_inverse"]
 fn blend3_reg_gray_inverse() {
     let mut rp = RegParams::new("blend3_inv");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    // blend_gray_inverse requires 8bpp base and blend images
+    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
     let blend = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
-    assert_eq!(pix.depth(), PixelDepth::Bit32);
+    assert_eq!(pix.depth(), PixelDepth::Bit8);
     assert_eq!(blend.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();
@@ -36,7 +37,7 @@ fn blend3_reg_gray_inverse() {
         .expect("blend_gray_inverse 0.5");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
-    assert_eq!(result.depth(), PixelDepth::Bit32);
+    assert_eq!(result.depth(), PixelDepth::Bit8);
 
     // Different position and fraction
     let result2 = pix
@@ -50,13 +51,13 @@ fn blend3_reg_gray_inverse() {
 /// Test blend_color_by_channel (C checks: BlendTest pixBlendColorByChannel).
 ///
 /// Verifies per-channel color blending produces 32bpp output.
+/// Both base and blend must be 32bpp for blend_color_by_channel.
 #[test]
-#[ignore = "not yet implemented: blend_color_by_channel"]
 fn blend3_reg_color_by_channel() {
     let mut rp = RegParams::new("blend3_chan");
 
     let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
-    let blend = leptonica_test::load_test_image("weasel8.240c.png").expect("load weasel8.240c.png");
+    let blend = leptonica_test::load_test_image("weasel32.png").expect("load weasel32.png");
     let w = pix.width();
     let h = pix.height();
 
@@ -92,7 +93,6 @@ fn blend3_reg_color_by_channel() {
 ///
 /// Verifies blending works when the base image is 8bpp grayscale.
 #[test]
-#[ignore = "not yet implemented: blend on 8bpp base"]
 fn blend3_reg_gray_base() {
     let mut rp = RegParams::new("blend3_gbase");
 

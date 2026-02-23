@@ -17,7 +17,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies blending two color images with a gray mask.
 #[test]
-#[ignore = "not yet implemented: blend_with_gray_mask on RGB images"]
 fn blend2_reg_rgb() {
     let mut rp = RegParams::new("blend2_rgb");
 
@@ -48,7 +47,6 @@ fn blend2_reg_rgb() {
 ///
 /// Verifies blending two 8bpp images with a gray mask produces 8bpp output.
 #[test]
-#[ignore = "not yet implemented: blend_with_gray_mask on grayscale images"]
 fn blend2_reg_gray() {
     let mut rp = RegParams::new("blend2_gray");
 
@@ -72,7 +70,6 @@ fn blend2_reg_gray() {
 ///
 /// Verifies blending works with negative x,y (overlay shifted left/up).
 #[test]
-#[ignore = "not yet implemented: blend_with_gray_mask with negative offsets"]
 fn blend2_reg_negative_offset() {
     let mut rp = RegParams::new("blend2_neg");
 

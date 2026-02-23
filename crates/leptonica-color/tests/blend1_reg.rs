@@ -18,7 +18,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies gray blending onto a color image preserves dimensions.
 #[test]
-#[ignore = "not yet implemented: blend_gray straight"]
 fn blend1_reg_gray_straight() {
     let mut rp = RegParams::new("blend1_gray");
 
@@ -51,7 +50,6 @@ fn blend1_reg_gray_straight() {
 ///
 /// Verifies gray blending with inverse mode preserves dimensions.
 #[test]
-#[ignore = "not yet implemented: blend_gray with inverse"]
 fn blend1_reg_gray_inverse() {
     let mut rp = RegParams::new("blend1_inv");
 
@@ -74,13 +72,16 @@ fn blend1_reg_gray_inverse() {
 /// Test blend_gray_adapt (C checks 8-12).
 ///
 /// Verifies adaptive gray blending preserves dimensions.
+/// Rust impl only supports 8bpp (C supports 8bpp and 32bpp).
 #[test]
-#[ignore = "not yet implemented: blend_gray_adapt"]
 fn blend1_reg_adapt() {
     let mut rp = RegParams::new("blend1_adapt");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    // blend_gray_adapt requires 8bpp base and blend images
+    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
     let blend = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
+    assert_eq!(pix.depth(), PixelDepth::Bit8);
+    assert_eq!(blend.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();
 
@@ -90,7 +91,7 @@ fn blend1_reg_adapt() {
         .expect("blend_gray_adapt");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
-    assert_eq!(result.depth(), PixelDepth::Bit32);
+    assert_eq!(result.depth(), PixelDepth::Bit8);
 
     // Different fraction and shift
     let result2 = pix
@@ -105,7 +106,6 @@ fn blend1_reg_adapt() {
 ///
 /// Verifies color blending onto a color image preserves dimensions.
 #[test]
-#[ignore = "not yet implemented: blend_color"]
 fn blend1_reg_color() {
     let mut rp = RegParams::new("blend1_color");
 

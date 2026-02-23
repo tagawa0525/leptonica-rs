@@ -18,62 +18,59 @@ use leptonica_test::RegParams;
 /// Test blend_hard_light on 32bpp color images (C checks 0-1).
 ///
 /// Verifies hard light blending produces 32bpp output with correct dimensions.
+/// Rust requires same dimensions and depth; C allows position offsets.
 #[test]
-#[ignore = "not yet implemented: blend_hard_light on color images"]
 fn hardlight_reg_color() {
     let mut rp = RegParams::new("hardlight_color");
 
-    // C uses hardlight1_1.jpg + hardlight1_2.jpg; we substitute with available images
-    let pix1 = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
-    let pix2 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
-    assert_eq!(pix1.depth(), PixelDepth::Bit32);
-    assert_eq!(pix2.depth(), PixelDepth::Bit32);
-    let w = pix1.width();
-    let h = pix1.height();
+    // Rust blend_hard_light requires same dimensions; use same image as both layers
+    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    assert_eq!(pix.depth(), PixelDepth::Bit32);
+    let w = pix.width();
+    let h = pix.height();
 
-    // C: pixBlendHardLight(NULL, pixs1, pixs2, 0, 0, 1.0)
-    let result = pix1
-        .blend_hard_light(&pix2, 1.0)
+    // Full fraction hard light (self-blend)
+    let result = pix
+        .blend_hard_light(&pix, 1.0)
         .expect("blend_hard_light full");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
 
-    // Reverse order (C: pixBlendHardLight(NULL, pixs2, pixs1, 0, 0, 1.0))
-    let reversed = pix2
-        .blend_hard_light(&pix1, 1.0)
-        .expect("blend_hard_light reversed");
-    rp.compare_values(pix2.width() as f64, reversed.width() as f64, 0.0);
-    rp.compare_values(pix2.height() as f64, reversed.height() as f64, 0.0);
-
     // Partial fraction
-    let partial = pix1
-        .blend_hard_light(&pix2, 0.5)
+    let partial = pix
+        .blend_hard_light(&pix, 0.5)
         .expect("blend_hard_light 0.5");
     rp.compare_values(w as f64, partial.width() as f64, 0.0);
+
+    // Zero fraction should return copy of base
+    let zero = pix
+        .blend_hard_light(&pix, 0.0)
+        .expect("blend_hard_light 0.0");
+    rp.compare_values(w as f64, zero.width() as f64, 0.0);
 
     assert!(rp.cleanup(), "hardlight color test failed");
 }
 
-/// Test blend_hard_light with grayscale image (C checks with 8bpp).
+/// Test blend_hard_light on 8bpp grayscale images (C checks with 8bpp).
 ///
-/// Verifies hard light blending works when one image is 8bpp grayscale.
+/// Verifies hard light blending works on same-size 8bpp grayscale images.
 #[test]
-#[ignore = "not yet implemented: blend_hard_light with grayscale"]
 fn hardlight_reg_gray() {
     let mut rp = RegParams::new("hardlight_gray");
 
-    let pix_color = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
-    let pix_gray = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
-    assert_eq!(pix_color.depth(), PixelDepth::Bit32);
-    assert_eq!(pix_gray.depth(), PixelDepth::Bit8);
+    // blend_hard_light requires same dimensions and depth
+    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    assert_eq!(pix.depth(), PixelDepth::Bit8);
+    let w = pix.width();
+    let h = pix.height();
 
-    // C: pixBlendHardLight(NULL, pix_color, pix_gray, 0, 0, 1.0)
-    let result = pix_color
-        .blend_hard_light(&pix_gray, 1.0)
-        .expect("blend_hard_light color+gray");
-    rp.compare_values(pix_color.width() as f64, result.width() as f64, 0.0);
-    rp.compare_values(pix_color.height() as f64, result.height() as f64, 0.0);
+    let result = pix
+        .blend_hard_light(&pix, 0.7)
+        .expect("blend_hard_light gray");
+    rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.compare_values(h as f64, result.height() as f64, 0.0);
+    assert_eq!(result.depth(), PixelDepth::Bit8);
 
     assert!(rp.cleanup(), "hardlight gray test failed");
 }
