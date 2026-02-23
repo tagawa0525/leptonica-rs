@@ -266,13 +266,43 @@ fn numa3_reg_morphology() {
 
 /// Test threshold finding from histogram (C checks 7-10).
 ///
-/// Requires numaTransform, numaFindLocForThreshold which are not available.
+/// Builds a bimodal histogram with peaks at bins 50 and 180,
+/// normalizes it with transform, then finds the valley threshold
+/// between the two peaks using find_loc_for_threshold.
 #[test]
-#[ignore = "not yet implemented: numaFindLocForThreshold not available"]
 fn numa3_reg_threshold_finding() {
-    // C version:
-    // 1. Read two-peak-histo.na
-    // 2. Apply windowed mean smoothing at various half-widths
-    // 3. Normalize with numaTransform
-    // 4. Find threshold with numaFindLocForThreshold
+    let mut rp = RegParams::new("numa3_threshold");
+
+    // Bimodal distribution: two Gaussian peaks (around 50 and 180)
+    let mut na = Numa::new();
+    for i in 0..256usize {
+        let x = i as f32;
+        let peak1 = (-(x - 50.0).powi(2) / 200.0).exp() * 100.0;
+        let peak2 = (-(x - 180.0).powi(2) / 200.0).exp() * 60.0;
+        na.push(peak1 + peak2);
+    }
+
+    // Normalize with transform (divide by sum to make total equal to 1)
+    let sum: f32 = (0..na.len()).map(|i| na[i]).sum();
+    let nt = na.transform(0.0, 1.0 / sum);
+
+    // Threshold should be detected between the two peaks (50 and 180)
+    let (thresh, frac) = nt
+        .find_loc_for_threshold(0)
+        .expect("find_loc_for_threshold");
+    let in_range = thresh > 80 && thresh < 160;
+    rp.compare_values(1.0, if in_range { 1.0 } else { 0.0 }, 0.0);
+
+    // frac: fraction below first peak (0.0 to 1.0)
+    rp.compare_values(
+        1.0,
+        if (0.0..=1.0).contains(&frac) {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+
+    assert!(rp.cleanup(), "numa3 threshold finding test failed");
 }
