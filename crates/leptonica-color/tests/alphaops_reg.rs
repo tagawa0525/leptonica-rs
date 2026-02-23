@@ -84,8 +84,8 @@ fn alphaops_reg_multiply_by_color() {
     let w = pix.width();
     let h = pix.height();
 
-    // C: pixMultiplyByColor(NULL, pix, NULL, 0xffffa000)
-    let color = leptonica_core::Color::new(0xff, 0xa0, 0x00);
+    // C: pixMultiplyByColor(NULL, pix, NULL, 0xffffa000) → RGBA: R=0xff G=0xff B=0xa0
+    let color = leptonica_core::Color::new(0xff, 0xff, 0xa0);
     let result = pix.multiply_by_color(color).expect("multiply_by_color");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
