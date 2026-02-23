@@ -131,7 +131,7 @@ Rust独自: sel_morphapp
 | affine       | affine_reg.rs      | ✅   |
 | alphaxform   | alphaxform_reg.rs  | ✅   |
 | bilinear     | bilinear_reg.rs    | ✅   |
-| checkerboard | checkerboard_reg.rs| ✅   |
+| checkerboard | checkerboard_reg.rs | ✅   |
 | circle       | circle_reg.rs      | ✅   |
 | crop         | crop_reg.rs        | ✅   |
 | expand       | expand_reg.rs      | ✅   |
@@ -305,7 +305,7 @@ Rust独自: conncomp_ext, seedfill_ext
 | **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応           |
 | **統合テスト**   | alltests_reg.c         | 162ファイル（全crate回帰テスト）|
 | **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像     |
-| **カバレッジ**   | 159分野                | 9クレート、3,270テスト関数     |
+| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数     |
 
 ## 参考
 
