@@ -1664,7 +1664,10 @@ impl Numa {
     /// C equivalent: `numaFindExtrema(nas, delta, &pnav)` in `numafunc2.c`
     pub fn find_extrema_with_values(&self, delta: f32) -> Result<(Numa, Numa)> {
         let (nad, nav) = self.find_extrema_internal(delta, true)?;
-        Ok((nad, nav.unwrap_or_else(Numa::new)))
+        Ok((
+            nad,
+            nav.expect("find_extrema_internal(with_values=true) must return Some(nav)"),
+        ))
     }
 
     fn find_extrema_internal(&self, delta: f32, with_values: bool) -> Result<(Numa, Option<Numa>)> {
