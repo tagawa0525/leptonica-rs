@@ -28,7 +28,7 @@ static const char *segment_seed_sequence  = "r1143 + o4.4 + x4";
 static const char *segment_dilation_sequence = "d3.3";
 ```
 
-- `r<n>` = ランク縮小（rank reduction, 2のべき乗で縮小）
+- `r<n>` = ランク縮小（rank reduction, 各桁1〜4がランク閾値; 桁数分だけ2倍縮小を繰り返す）
 - `x<n>` = バイナリ拡張（binary expansion）
 
 leptonica-rsの`sequence.rs:213-218`で明示的にエラーを返す:
