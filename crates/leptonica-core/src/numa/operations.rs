@@ -1740,9 +1740,8 @@ impl Numa {
                 loc = i;
             }
         }
-        // The final loc is not saved (C code has this commented out)
-        let _ = loc;
-
+        // The final loc is intentionally not saved.
+        // C equivalent has `numaAddNumber(nad, loc)` commented out.
         Ok((nad, nav))
     }
 
