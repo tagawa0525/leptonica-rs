@@ -532,6 +532,36 @@ impl PixMut {
         }
     }
 
+    /// Apply a raster operation to a rectangular sub-region.
+    ///
+    /// Equivalent to C leptonica's `pixRasterop(pixd, dx, dy, dw, dh, op, pixs, sx, sy)`.
+    /// Pixels outside either image boundary are silently skipped.
+    ///
+    /// # Arguments
+    ///
+    /// * `dst_x`, `dst_y` — top-left corner in the destination (may be negative)
+    /// * `width`, `height` — size of the region to process
+    /// * `op` — raster operation
+    /// * `src` — source image
+    /// * `src_x`, `src_y` — top-left corner in the source (may be negative)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `src` and `self` have different bit depths.
+    pub fn rop_region_inplace(
+        &mut self,
+        _dst_x: i32,
+        _dst_y: i32,
+        _width: u32,
+        _height: u32,
+        _op: RopOp,
+        _src: &Pix,
+        _src_x: i32,
+        _src_y: i32,
+    ) -> Result<()> {
+        todo!("rop_region_inplace not yet implemented")
+    }
+
     /// Clear a rectangular region to zero.
     ///
     /// # Arguments
@@ -1095,5 +1125,95 @@ mod tests {
 
         assert_eq!(result.get_pixel(0, 0), Some(1));
         assert_eq!(result.get_pixel(31, 31), Some(1));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rop_region_inplace_src() {
+        // dst: 8x8 1bpp 全ゼロ
+        // src: 4x4 1bpp で左上 2x2 がセット
+        // dst(2,2) に Src ROP で貼り付け → (2,2),(3,2),(2,3),(3,3) が 1 になる
+        let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
+
+        let mut src = Pix::new(4, 4, PixelDepth::Bit1).unwrap().to_mut();
+        src.set_pixel(0, 0, 1).unwrap();
+        src.set_pixel(1, 0, 1).unwrap();
+        src.set_pixel(0, 1, 1).unwrap();
+        src.set_pixel(1, 1, 1).unwrap();
+        let src: Pix = src.into();
+
+        dst.rop_region_inplace(2, 2, 4, 4, RopOp::Src, &src, 0, 0)
+            .unwrap();
+        let dst: Pix = dst.into();
+
+        assert_eq!(dst.get_pixel(2, 2), Some(1));
+        assert_eq!(dst.get_pixel(3, 2), Some(1));
+        assert_eq!(dst.get_pixel(2, 3), Some(1));
+        assert_eq!(dst.get_pixel(3, 3), Some(1));
+        // src(2,0) = 0 → dst(4,2) = 0
+        assert_eq!(dst.get_pixel(4, 2), Some(0));
+        // 領域外は変化しない
+        assert_eq!(dst.get_pixel(0, 0), Some(0));
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rop_region_inplace_xor() {
+        // jbig2sym.cc の pixRasterop(target, dx, dy, w, h, PIX_SRC^PIX_DST, sym, 0, 0) 相当
+        let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
+        dst.set_pixel(3, 3, 1).unwrap();
+        dst.set_pixel(4, 3, 1).unwrap();
+
+        let mut src = Pix::new(4, 4, PixelDepth::Bit1).unwrap().to_mut();
+        src.set_pixel(0, 0, 1).unwrap(); // (3,3) と XOR → 0
+        src.set_pixel(1, 0, 1).unwrap(); // (4,3) と XOR → 0
+        let src: Pix = src.into();
+
+        dst.rop_region_inplace(3, 3, 4, 4, RopOp::Xor, &src, 0, 0)
+            .unwrap();
+        let dst: Pix = dst.into();
+
+        assert_eq!(dst.get_pixel(3, 3), Some(0)); // 1 XOR 1 = 0
+        assert_eq!(dst.get_pixel(4, 3), Some(0)); // 1 XOR 1 = 0
+        assert_eq!(dst.get_pixel(5, 3), Some(0)); // 0 XOR 0 = 0
+        assert_eq!(dst.get_pixel(3, 4), Some(0)); // 0 XOR 0 = 0
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rop_region_inplace_negative_offset() {
+        // dst 側のオフセットが負の場合、境界外ピクセルをスキップ
+        let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
+
+        let mut src = Pix::new(4, 4, PixelDepth::Bit1).unwrap().to_mut();
+        // src の全ピクセルをセット
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                src.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        let src: Pix = src.into();
+
+        // dst(-1,-1) から貼り付け → (0,0)〜(2,2) だけ書き込まれる
+        dst.rop_region_inplace(-1, -1, 4, 4, RopOp::Src, &src, 0, 0)
+            .unwrap();
+        let dst: Pix = dst.into();
+
+        assert_eq!(dst.get_pixel(0, 0), Some(1));
+        assert_eq!(dst.get_pixel(2, 0), Some(1));
+        assert_eq!(dst.get_pixel(0, 2), Some(1));
+        assert_eq!(dst.get_pixel(2, 2), Some(1));
+        // dst(-1, -1) は範囲外なので書き込まれない（dst(0,0) は src(1,1) が書き込まれる）
+        assert_eq!(dst.get_pixel(3, 0), Some(0)); // 4列目はない（dst x=3 は src x=4 で範囲外）
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rop_region_inplace_depth_mismatch() {
+        let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
+        let src = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+
+        let result = dst.rop_region_inplace(0, 0, 4, 4, RopOp::Src, &src, 0, 0);
+        assert!(result.is_err());
     }
 }
