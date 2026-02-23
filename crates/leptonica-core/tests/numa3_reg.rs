@@ -228,15 +228,41 @@ fn numa3_reg_rank_extraction() {
 
 /// Test numa-morphology operations (C checks 2-6).
 ///
-/// Requires numaErode, numaDilate, numaOpen, numaClose which are not available.
+/// Creates a sine waveform and verifies erode/dilate/open/close morphological
+/// properties: dilated >= original >= eroded at each point.
 #[test]
 #[ignore = "not yet implemented: Numa morphology operations not available"]
 fn numa3_reg_morphology() {
-    // C version:
-    // 1. Read lyra.5.na
-    // 2. Apply numaErode(na, 21), numaDilate(na, 21)
-    // 3. Apply numaOpen(na, 21), numaClose(na, 21)
-    // 4. Generate plots for visual verification
+    let mut rp = RegParams::new("numa3_morphology");
+
+    let n = 200usize;
+    let mut na = Numa::new();
+    for i in 0..n {
+        na.push((i as f32 * 0.1).sin());
+    }
+
+    let ne = na.erode(21).expect("erode");
+    let nd = na.dilate(21).expect("dilate");
+
+    // dilated >= original >= eroded at each point
+    let erode_le_orig = (0..n).all(|i| ne[i] <= na[i] + 1e-5);
+    let dilate_ge_orig = (0..n).all(|i| nd[i] >= na[i] - 1e-5);
+    rp.compare_values(1.0, if erode_le_orig { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if dilate_ge_orig { 1.0 } else { 0.0 }, 0.0);
+
+    // open <= dilate, close >= erode at each point
+    let no = na.open(21).expect("open");
+    let nc = na.close(21).expect("close");
+    let open_le_dilate = (0..n).all(|i| no[i] <= nd[i] + 1e-5);
+    let close_ge_erode = (0..n).all(|i| nc[i] >= ne[i] - 1e-5);
+    rp.compare_values(1.0, if open_le_dilate { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if close_ge_erode { 1.0 } else { 0.0 }, 0.0);
+
+    // transform: shift=1.0, scale=2.0 → each value becomes 2*(x+1)
+    let nt = na.transform(1.0, 2.0);
+    rp.compare_values((2.0 * (na[0] + 1.0)) as f64, nt[0] as f64, 1e-4);
+
+    assert!(rp.cleanup(), "numa3 morphology test failed");
 }
 
 /// Test threshold finding from histogram (C checks 7-10).
