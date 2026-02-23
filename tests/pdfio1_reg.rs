@@ -1,3 +1,4 @@
+#![cfg(all(feature = "pdf-format", feature = "tiff-format"))]
 //! PDF I/O regression test (part 1)
 //!
 //! Tests basic PDF generation: single image, multiple compression modes,

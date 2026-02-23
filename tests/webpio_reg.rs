@@ -1,3 +1,4 @@
+#![cfg(feature = "webp-format")]
 //! WebP I/O regression test
 //!
 //! Corresponds to `webpio_reg.c` in the C version.

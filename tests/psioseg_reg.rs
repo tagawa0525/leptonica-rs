@@ -1,3 +1,4 @@
+#![cfg(feature = "ps-format")]
 //! PostScript segmented output regression test
 //!
 //! Tests PostScript generation with mixed-raster encoding where

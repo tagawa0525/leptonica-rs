@@ -1,3 +1,4 @@
+#![cfg(feature = "tiff-format")]
 //! Multipage TIFF I/O regression test
 //!
 //! Corresponds to `mtiff_reg.c` in the C version.

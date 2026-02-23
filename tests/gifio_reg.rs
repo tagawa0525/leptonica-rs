@@ -1,3 +1,4 @@
+#![cfg(feature = "gif-format")]
 //! GIF I/O regression test
 //!
 //! Corresponds to `gifio_reg.c` in the C version.

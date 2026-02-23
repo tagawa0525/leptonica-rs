@@ -1,3 +1,4 @@
+#![cfg(feature = "ps-format")]
 //! PostScript I/O regression test
 //!
 //! Tests PostScript output at all three levels (uncompressed, DCT, Flate),

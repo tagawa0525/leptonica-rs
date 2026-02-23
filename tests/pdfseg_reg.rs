@@ -1,3 +1,4 @@
+#![cfg(all(feature = "pdf-format", feature = "tiff-format"))]
 //! PDF segmented output regression test
 //!
 //! Tests PDF generation with mixed-raster encoding where text regions
