@@ -28,7 +28,6 @@ use leptonica_test::RegParams;
 ///    pixr = jbDataRender(data, 0)  -- render page 0
 ///    pixr = jbDataRender(data, 1)  -- render page 1
 #[test]
-#[ignore = "not yet implemented"]
 fn jbclass_reg_rank_haus() {
     let mut rp = RegParams::new("jbclass_haus");
 
@@ -89,7 +88,6 @@ fn jbclass_reg_rank_haus() {
 ///    data = jbDataSave(classer)
 ///    pixr = jbDataRender(data, 0)
 #[test]
-#[ignore = "not yet implemented"]
 fn jbclass_reg_correlation() {
     let mut rp = RegParams::new("jbclass_corr");
 
@@ -134,7 +132,6 @@ fn jbclass_reg_correlation() {
 /// C: pixWordMaskByDilation(pixs, &pix1, &size, pixadb)
 ///    Returns a mask where words are connected blobs.
 #[test]
-#[ignore = "not yet implemented"]
 fn jbclass_reg_word_mask() {
     let mut rp = RegParams::new("jbclass_wordmask");
 
@@ -167,7 +164,6 @@ fn jbclass_reg_word_mask() {
 /// C: pixWordBoxesByDilation(pixs, 18, 18, 0, 5, NULL, &boxa)
 ///    Returns bounding boxes of word regions.
 #[test]
-#[ignore = "not yet implemented"]
 fn jbclass_reg_word_boxes() {
     let mut rp = RegParams::new("jbclass_wordboxes");
 

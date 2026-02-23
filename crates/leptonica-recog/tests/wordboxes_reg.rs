@@ -25,7 +25,6 @@ use leptonica_transform::scale_by_sampling;
 /// C: pixWordMaskByDilation(pix1, &pix2, &size, NULL)
 ///    On lucasta.150.jpg binarized image.
 #[test]
-#[ignore = "not yet implemented"]
 fn wordboxes_reg_lucasta_full() {
     let mut rp = RegParams::new("wordboxes_lucasta");
 
@@ -65,7 +64,6 @@ fn wordboxes_reg_lucasta_full() {
 ///
 /// C: pixScale(pixs, 0.6, 0.6) then pixWordMaskByDilation
 #[test]
-#[ignore = "not yet implemented"]
 fn wordboxes_reg_lucasta_scaled() {
     let mut rp = RegParams::new("wordboxes_lucasta_s");
 
@@ -93,7 +91,6 @@ fn wordboxes_reg_lucasta_scaled() {
 ///
 /// C: pixWordMaskByDilation on zanotti-78.jpg binarized, full and scaled.
 #[test]
-#[ignore = "not yet implemented"]
 fn wordboxes_reg_zanotti() {
     let mut rp = RegParams::new("wordboxes_zanotti");
 
@@ -116,7 +113,6 @@ fn wordboxes_reg_zanotti() {
 ///
 /// C: pixWordMaskByDilation on pre-binarized word images.
 #[test]
-#[ignore = "not yet implemented"]
 fn wordboxes_reg_words15() {
     let mut rp = RegParams::new("wordboxes_w15");
 
@@ -137,7 +133,6 @@ fn wordboxes_reg_words15() {
 
 /// Test word detection on words.44.tif (C test section 4).
 #[test]
-#[ignore = "not yet implemented"]
 fn wordboxes_reg_words44() {
     let mut rp = RegParams::new("wordboxes_w44");
 
@@ -161,7 +156,6 @@ fn wordboxes_reg_words44() {
 /// Each bounding box from pix_word_boxes_by_dilation should correspond to
 /// a connected component in the word mask.
 #[test]
-#[ignore = "not yet implemented"]
 fn wordboxes_reg_mask_box_consistency() {
     let mut rp = RegParams::new("wordboxes_consist");
 
