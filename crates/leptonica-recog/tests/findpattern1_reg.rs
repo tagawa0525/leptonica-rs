@@ -25,7 +25,6 @@ use leptonica_test::RegParams;
 ///
 /// Rust: Create a small rectangular SEL and run HMT on the binarized page.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern1_reg_hmt_basic() {
     let mut rp = RegParams::new("findpat1_hmt");
 
@@ -65,7 +64,6 @@ fn findpattern1_reg_hmt_basic() {
 ///
 /// Verify that pattern images load correctly and have expected properties.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern1_reg_pattern_images() {
     let mut rp = RegParams::new("findpat1_images");
 
@@ -131,7 +129,6 @@ fn findpattern1_reg_pattern_images() {
 ///
 /// Rust: Use a horizontal brick SEL to detect horizontal features.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern1_reg_hmt_brick() {
     let mut rp = RegParams::new("findpat1_brick");
 

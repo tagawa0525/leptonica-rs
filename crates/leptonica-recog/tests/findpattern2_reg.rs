@@ -25,7 +25,6 @@ use leptonica_test::RegParams;
 ///
 /// Rust: Manually construct a cross-shaped SEL to detect asterisk-like patterns.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern2_reg_asterisk_hmt() {
     let mut rp = RegParams::new("findpat2_asterisk");
 
@@ -66,7 +65,6 @@ fn findpattern2_reg_asterisk_hmt() {
 ///
 /// Rust: Detect asterisks via dilation + connected components.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern2_reg_component_count() {
     let mut rp = RegParams::new("findpat2_count");
 
@@ -106,7 +104,6 @@ fn findpattern2_reg_component_count() {
 ///
 /// Verify template image properties.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern2_reg_template() {
     let mut rp = RegParams::new("findpat2_template");
 

@@ -24,7 +24,6 @@ use leptonica_test::RegParams;
 /// C: pixConnComp(pix1, &boxa, 4)
 ///    Extract components from binarized photo.
 #[test]
-#[ignore = "not yet implemented"]
 fn partition_reg_conncomp_test8() {
     let mut rp = RegParams::new("partition_test8");
 
@@ -48,7 +47,6 @@ fn partition_reg_conncomp_test8() {
 ///    pixConnComp(pix2, &boxa, 4)
 ///    boxaSelectBySize(boxa, 3, 3, L_SELECT_IF_BOTH, ...)
 #[test]
-#[ignore = "not yet implemented"]
 fn partition_reg_dilate_conncomp() {
     let mut rp = RegParams::new("partition_dilate");
 
@@ -92,7 +90,6 @@ fn partition_reg_dilate_conncomp() {
 ///
 /// Rust: select_by_size filters boxes by minimum dimensions.
 #[test]
-#[ignore = "not yet implemented"]
 fn partition_reg_select_by_size() {
     let mut rp = RegParams::new("partition_select");
 
@@ -136,7 +133,6 @@ fn partition_reg_select_by_size() {
 ///
 /// Rust: draw_boxa_random and paint_boxa_random on 32bpp output.
 #[test]
-#[ignore = "not yet implemented"]
 fn partition_reg_draw_boxes() {
     let mut rp = RegParams::new("partition_draw");
 

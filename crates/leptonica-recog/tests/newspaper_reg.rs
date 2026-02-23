@@ -29,7 +29,6 @@ use leptonica_transform::scale_to_gray_4;
 /// C: pixScaleToGray4(pixs)
 ///    Reduce binary image to 1/4 scale grayscale.
 #[test]
-#[ignore = "not yet implemented"]
 fn newspaper_reg_scale_reduce() {
     let mut rp = RegParams::new("newspaper_scale");
 
@@ -60,7 +59,6 @@ fn newspaper_reg_scale_reduce() {
 /// C: pixMorphSequence(pixs, "c1.80 + c80.1", 0)
 ///    Detect horizontal and vertical lines via closing operations.
 #[test]
-#[ignore = "not yet implemented"]
 fn newspaper_reg_line_detect() {
     let mut rp = RegParams::new("newspaper_lines");
 
@@ -92,7 +90,6 @@ fn newspaper_reg_line_detect() {
 ///
 /// Rust: pix.xor() to remove detected lines from the document.
 #[test]
-#[ignore = "not yet implemented"]
 fn newspaper_reg_line_removal() {
     let mut rp = RegParams::new("newspaper_removal");
 
@@ -126,7 +123,6 @@ fn newspaper_reg_line_removal() {
 /// C: pixSeedfillBinary(NULL, seed, mask, 8)
 ///    Reconstruct text blocks using seed + mask.
 #[test]
-#[ignore = "not yet implemented"]
 fn newspaper_reg_seedfill() {
     let mut rp = RegParams::new("newspaper_seedfill");
 
@@ -158,7 +154,6 @@ fn newspaper_reg_seedfill() {
 ///
 /// Rust: segment_regions + conncomp_pixa for region detection.
 #[test]
-#[ignore = "not yet implemented"]
 fn newspaper_reg_article_regions() {
     let mut rp = RegParams::new("newspaper_regions");
 
@@ -201,7 +196,6 @@ fn newspaper_reg_article_regions() {
 ///
 /// Rust: Combine morph_sequence, XOR, and conncomp for text block extraction.
 #[test]
-#[ignore = "not yet implemented"]
 fn newspaper_reg_full_pipeline() {
     let mut rp = RegParams::new("newspaper_pipeline");
 

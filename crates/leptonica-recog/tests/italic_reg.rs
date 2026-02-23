@@ -24,7 +24,6 @@ use leptonica_test::RegParams;
 /// C: pixWordMaskByDilation(pixb, &pixm, &size, NULL)
 ///    Creates a mask where words are connected blobs.
 #[test]
-#[ignore = "not yet implemented"]
 fn italic_reg_word_mask() {
     let mut rp = RegParams::new("italic_wordmask");
 
@@ -62,7 +61,6 @@ fn italic_reg_word_mask() {
 /// C: pixMorphSequence(pixm, "d1.5 + c15.1", 0)
 ///    Dilate vertically then close horizontally to connect italic words.
 #[test]
-#[ignore = "not yet implemented"]
 fn italic_reg_morph_sequence() {
     let mut rp = RegParams::new("italic_morph");
 
@@ -91,7 +89,6 @@ fn italic_reg_morph_sequence() {
 /// C: pixConnComp(pixm, &pixa, 8)
 ///    Extract word-level connected components from the word mask.
 #[test]
-#[ignore = "not yet implemented"]
 fn italic_reg_conncomp() {
     let mut rp = RegParams::new("italic_conncomp");
 
