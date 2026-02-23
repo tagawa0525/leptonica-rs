@@ -20,13 +20,12 @@ use leptonica_test::RegParams;
 ///
 /// C: sela4 = sela4ccThin(NULL); pix1 = selaDisplayInPix(sela4, 35, 3, 15, 3);
 #[test]
-#[ignore = "not yet implemented: ccthin1 regression tests"]
 fn ccthin1_reg_4cc_sels() {
     let mut rp = RegParams::new("cthin1_4cc");
 
     let sels = sels_4cc_thin();
-    // There should be exactly 7 4-cc thinning sels
-    rp.compare_values(7.0, sels.len() as f64, 0.0);
+    // There are 9 4-cc thinning sels (SEL_4_1 through SEL_4_9)
+    rp.compare_values(9.0, sels.len() as f64, 0.0);
 
     // Each sel should have at least one hit element
     for sel in &sels {
@@ -40,13 +39,12 @@ fn ccthin1_reg_4cc_sels() {
 ///
 /// C: sela8 = sela8ccThin(NULL); pix1 = selaDisplayInPix(sela8, 35, 3, 15, 3);
 #[test]
-#[ignore = "not yet implemented: ccthin1 regression tests"]
 fn ccthin1_reg_8cc_sels() {
     let mut rp = RegParams::new("cthin1_8cc");
 
     let sels = sels_8cc_thin();
-    // There should be exactly 7 8-cc thinning sels
-    rp.compare_values(7.0, sels.len() as f64, 0.0);
+    // There are 9 8-cc thinning sels (SEL_8_1 through SEL_8_9)
+    rp.compare_values(9.0, sels.len() as f64, 0.0);
 
     for sel in &sels {
         rp.compare_values(1.0, if sel.hit_count() > 0 { 1.0 } else { 0.0 }, 0.0);
@@ -59,13 +57,12 @@ fn ccthin1_reg_8cc_sels() {
 ///
 /// C: sela48 = sela4and8ccThin(NULL);
 #[test]
-#[ignore = "not yet implemented: ccthin1 regression tests"]
 fn ccthin1_reg_4and8cc_sels() {
     let mut rp = RegParams::new("cthin1_48cc");
 
     let sels = sels_4and8cc_thin();
-    // There should be exactly 6 4-and-8-cc preserving sels
-    rp.compare_values(6.0, sels.len() as f64, 0.0);
+    // There are 2 4-and-8-cc preserving sels (SEL_48_1, SEL_48_2)
+    rp.compare_values(2.0, sels.len() as f64, 0.0);
 
     for sel in &sels {
         rp.compare_values(1.0, if sel.hit_count() > 0 { 1.0 } else { 0.0 }, 0.0);
@@ -78,7 +75,6 @@ fn ccthin1_reg_4and8cc_sels() {
 ///
 /// C: various sel rotation tests from sela4ccThin and selRotateOrth
 #[test]
-#[ignore = "not yet implemented: ccthin1 regression tests"]
 fn ccthin1_reg_make_thin_sels() {
     let mut rp = RegParams::new("cthin1_make");
 

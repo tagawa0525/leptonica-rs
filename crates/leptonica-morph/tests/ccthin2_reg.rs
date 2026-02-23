@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 ///
 /// C: pix1 = pixThinConnected(pixs, L_THIN_FG, 4, 0);
 #[test]
-#[ignore = "not yet implemented: ccthin2 regression tests"]
 fn ccthin2_reg_thin_4cc() {
     let mut rp = RegParams::new("cthin2_4cc");
 
@@ -56,7 +55,6 @@ fn ccthin2_reg_thin_4cc() {
 ///
 /// C: pix1 = pixThinConnected(pixs, L_THIN_FG, 8, 0);
 #[test]
-#[ignore = "not yet implemented: ccthin2 regression tests"]
 fn ccthin2_reg_thin_8cc() {
     let mut rp = RegParams::new("cthin2_8cc");
 
@@ -77,7 +75,6 @@ fn ccthin2_reg_thin_8cc() {
 /// C: pix1 = pixThinConnectedBySet(pixs, L_THIN_FG, sela, 0);
 /// Tests Set4cc1, Set4cc2, Set8cc1, Set48.
 #[test]
-#[ignore = "not yet implemented: ccthin2 regression tests"]
 fn ccthin2_reg_thin_by_set() {
     let mut rp = RegParams::new("cthin2_set");
 
@@ -118,7 +115,6 @@ fn ccthin2_reg_thin_by_set() {
 ///
 /// C: pix1 = pixThinConnectedBySet(pixs, L_THIN_BG, sela, 5);
 #[test]
-#[ignore = "not yet implemented: ccthin2 regression tests"]
 fn ccthin2_reg_thin_bg() {
     let mut rp = RegParams::new("cthin2_bg");
 

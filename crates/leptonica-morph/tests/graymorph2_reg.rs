@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 /// C: pix1 = pixDilateGray3(pixs, 3, 1);  pix2 = pixDilateGray(pixs, 3, 1);
 /// C: regTestComparePix(rp, pix1, pix2);
 #[test]
-#[ignore = "not yet implemented: graymorph2 regression tests"]
 fn graymorph2_reg_dilate() {
     let mut rp = RegParams::new("gmorph2_dilate");
 
@@ -52,7 +51,6 @@ fn graymorph2_reg_dilate() {
 ///
 /// C: pix1 = pixErodeGray3(pixs, 3, 1);  pix2 = pixErodeGray(pixs, 3, 1);
 #[test]
-#[ignore = "not yet implemented: graymorph2 regression tests"]
 fn graymorph2_reg_erode() {
     let mut rp = RegParams::new("gmorph2_erode");
 
