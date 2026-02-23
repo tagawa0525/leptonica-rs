@@ -35,8 +35,8 @@ fn make_test_pattern() -> Pix {
     // Draw horizontal and vertical cross lines through center (4,4)
     let mut pm = pix.try_into_mut().expect("into_mut");
     for i in 0..9u32 {
-        let _ = pm.set_pixel(i, 4, green); // horizontal
-        let _ = pm.set_pixel(4, i, green); // vertical
+        pm.set_pixel(i, 4, green).expect("set_pixel horizontal");
+        pm.set_pixel(4, i, green).expect("set_pixel vertical");
     }
     pm.into()
 }
@@ -52,7 +52,10 @@ fn smallpix_reg_scale_smooth() {
     for i in 0..11 {
         let scale = 0.30 + 0.035 * i as f32;
         let pix2 = scale_smooth(&pix1, scale, scale).expect("scale_smooth");
-        let _pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
+        assert!(pix2.width() > 0 && pix2.height() > 0);
+        let pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
+        assert_eq!(pix3.width(), pix2.width() * 6);
+        assert_eq!(pix3.height(), pix2.height() * 6);
     }
 }
 
@@ -65,7 +68,9 @@ fn smallpix_reg_scale_by_sampling() {
     for i in 0..11 {
         let scale = 0.30 + 0.035 * i as f32;
         let pix2 = scale_by_sampling(&pix1, scale, scale).expect("scale_by_sampling");
-        let _pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
+        assert!(pix2.width() > 0 && pix2.height() > 0);
+        let pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
+        assert_eq!(pix3.width(), pix2.width() * 6);
     }
 }
 
@@ -78,7 +83,9 @@ fn smallpix_reg_rotate_am() {
     for i in 0..11 {
         let angle = 0.10 + 0.05 * i as f32;
         let pix2 = rotate_am_corner(&pix1, angle, RotateFill::Black).expect("rotate_am_corner");
-        let _pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
+        assert!(pix2.width() > 0 && pix2.height() > 0);
+        let pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
+        assert_eq!(pix3.width(), pix2.width() * 8);
     }
 }
 
@@ -92,7 +99,9 @@ fn smallpix_reg_rotate_am_color_fast() {
         let angle = 0.10 + 0.05 * i as f32;
         let pix2 = rotate_am_color_corner(&pix1, angle, RotateFill::Black)
             .expect("rotate_am_color_corner");
-        let _pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
+        assert!(pix2.width() > 0 && pix2.height() > 0);
+        let pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
+        assert_eq!(pix3.width(), pix2.width() * 8);
     }
 }
 
@@ -105,7 +114,9 @@ fn smallpix_reg_scale_color_li() {
     for i in 0..11 {
         let scale = 1.0 + 0.2 * i as f32;
         let pix2 = scale_color_li(&pix1, scale, scale).expect("scale_color_li");
-        let _pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
+        assert!(pix2.width() > 0 && pix2.height() > 0);
+        let pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
+        assert_eq!(pix3.width(), pix2.width() * 4);
     }
 }
 
@@ -118,7 +129,9 @@ fn smallpix_reg_scale_li() {
     for i in 0..11 {
         let scale = 1.0 + 0.2 * i as f32;
         let pix2 = scale_li(&pix1, scale, scale).expect("scale_li");
-        let _pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
+        assert!(pix2.width() > 0 && pix2.height() > 0);
+        let pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
+        assert_eq!(pix3.width(), pix2.width() * 4);
     }
 }
 
