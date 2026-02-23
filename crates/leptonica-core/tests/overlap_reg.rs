@@ -32,8 +32,8 @@ fn overlap_reg_combine_overlaps() {
     // Two overlapping boxes merge into one, plus isolated = 2 total
     rp.compare_values(2.0, combined.len() as f64, 0.0);
 
-    // Combined result must contain all boxes from original
-    let contained = combined.all_contained_in(&combined);
+    // Original boxes must all be contained in the combined result
+    let contained = boxa1.all_contained_in(&combined);
     rp.compare_values(1.0, if contained { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "overlap combine test failed");
@@ -76,19 +76,15 @@ fn overlap_reg_combine_in_pair() {
 
     let (result1, result2) = Boxa::combine_overlaps_in_pair(&boxa1, &boxa2);
 
-    // Results should have fewer or equal boxes than inputs
+    // Pairwise combination should merge more boxes than combining each Boxa independently,
+    // because it merges across the two input arrays as well as within each.
+    let combined1 = boxa1.combine_overlaps();
+    let combined2 = boxa2.combine_overlaps();
+    let total_individual = combined1.len() + combined2.len();
+    let total_pair = result1.len() + result2.len();
     rp.compare_values(
         1.0,
-        if result1.len() <= boxa1.len() {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
-    rp.compare_values(
-        1.0,
-        if result2.len() <= boxa2.len() {
+        if total_pair < total_individual {
             1.0
         } else {
             0.0
@@ -117,7 +113,7 @@ fn overlap_reg_distance_functions() {
 
             // overlap and separation should be consistent:
             // if ovl > 0 (overlap), sep must be 0
-            // if sep > 0 (gap), ovl must be <= 0
+            // if sep > 0 (touching or separated), ovl must be <= 0
             if h_ovl > 0 {
                 rp.compare_values(0.0, h_sep as f64, 0.0);
             }
