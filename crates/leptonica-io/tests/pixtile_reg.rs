@@ -33,12 +33,28 @@ fn pixtile_reg_basic_clip() {
     rp.compare_values(tile_w as f64, tile.width() as f64, 0.0);
     rp.compare_values(tile_h as f64, tile.height() as f64, 0.0);
 
+    // Verify pixel values match between source and clipped tile
+    let p_orig = pix.get_pixel(0, 0).expect("get_pixel origin");
+    let p_tile = tile.get_pixel(0, 0).expect("get_pixel tile origin");
+    rp.compare_values(p_orig as f64, p_tile as f64, 0.0);
+    // Check a point near the tile boundary
+    let mid_x = tile_w.min(tile.width()) - 1;
+    let mid_y = tile_h.min(tile.height()) - 1;
+    let p_orig_mid = pix.get_pixel(mid_x, mid_y).expect("get_pixel mid");
+    let p_tile_mid = tile.get_pixel(mid_x, mid_y).expect("get_pixel tile mid");
+    rp.compare_values(p_orig_mid as f64, p_tile_mid as f64, 0.0);
+
     // Clip bottom-right quadrant
     let tile_br = pix
         .clip_rectangle(tile_w, tile_h, w - tile_w, h - tile_h)
         .expect("clip br");
     rp.compare_values((w - tile_w) as f64, tile_br.width() as f64, 0.0);
     rp.compare_values((h - tile_h) as f64, tile_br.height() as f64, 0.0);
+
+    // Verify pixel at (0,0) of bottom-right tile matches source at (tile_w, tile_h)
+    let p_orig_br = pix.get_pixel(tile_w, tile_h).expect("get_pixel br");
+    let p_tile_br = tile_br.get_pixel(0, 0).expect("get_pixel tile br");
+    rp.compare_values(p_orig_br as f64, p_tile_br as f64, 0.0);
 
     assert!(rp.cleanup(), "pixtile basic clip test failed");
 }
