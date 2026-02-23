@@ -47,7 +47,45 @@ use leptonica_core::{Pix, PixelDepth};
 /// assert_eq!(dst.height(), 4);
 /// ```
 pub fn reduce_rank_binary_2(pix: &Pix, level: u8) -> TransformResult<Pix> {
-    todo!("reduce_rank_binary_2 not yet implemented")
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::InvalidParameters(
+            "reduce_rank_binary_2 requires a 1-bpp image".to_string(),
+        ));
+    }
+    if !(1..=4).contains(&level) {
+        return Err(TransformError::InvalidParameters(format!(
+            "level must be 1–4, got {level}"
+        )));
+    }
+
+    let src_w = pix.width();
+    let src_h = pix.height();
+    let dst_w = src_w / 2;
+    let dst_h = src_h / 2;
+
+    let mut dst = Pix::new(dst_w, dst_h, PixelDepth::Bit1)
+        .map_err(TransformError::Core)?
+        .to_mut();
+
+    for oy in 0..dst_h {
+        for ox in 0..dst_w {
+            let sx = ox * 2;
+            let sy = oy * 2;
+
+            // 2x2 ブロックの 4 ピクセルを取得（境界では 0 扱い）
+            let p00 = pix.get_pixel(sx, sy).unwrap_or(0);
+            let p10 = pix.get_pixel(sx + 1, sy).unwrap_or(0);
+            let p01 = pix.get_pixel(sx, sy + 1).unwrap_or(0);
+            let p11 = pix.get_pixel(sx + 1, sy + 1).unwrap_or(0);
+            let count = p00 + p10 + p01 + p11;
+
+            if count >= level as u32 {
+                dst.set_pixel_unchecked(ox, oy, 1);
+            }
+        }
+    }
+
+    Ok(dst.into())
 }
 
 /// Apply cascaded 2x rank reductions to a 1-bpp image.
@@ -80,7 +118,14 @@ pub fn reduce_rank_binary_2(pix: &Pix, level: u8) -> TransformResult<Pix> {
 /// assert_eq!(dst.height(), 4);
 /// ```
 pub fn reduce_rank_binary_cascade(pix: &Pix, levels: &[u8]) -> TransformResult<Pix> {
-    todo!("reduce_rank_binary_cascade not yet implemented")
+    if levels.is_empty() {
+        return Ok(pix.clone());
+    }
+    let mut current = reduce_rank_binary_2(pix, levels[0])?;
+    for &lvl in &levels[1..] {
+        current = reduce_rank_binary_2(&current, lvl)?;
+    }
+    Ok(current)
 }
 
 // ---------------------------------------------------------------------------
@@ -108,7 +153,6 @@ mod tests {
     // ── size checks ───────────────────────────────────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_output_size_even() {
         let src = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
         let dst = reduce_rank_binary_2(&src, 1).unwrap();
@@ -117,7 +161,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_output_size_odd() {
         // 奇数サイズは floor(n/2) に切り捨て
         let src = Pix::new(9, 7, PixelDepth::Bit1).unwrap();
@@ -129,7 +172,6 @@ mod tests {
     // ── level 1: any ON pixel in 2x2 block → OR ───────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_level1_all_off() {
         #[rustfmt::skip]
         let pixels: Vec<u8> = vec![
@@ -147,7 +189,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_level1_one_on_per_block() {
         // 各 2x2 ブロックにちょうど 1 ピクセルが ON → レベル 1 では出力 ON
         #[rustfmt::skip]
@@ -168,7 +209,6 @@ mod tests {
     // ── level 4: all ON in 2x2 block → AND ───────────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_level4_partial() {
         // 3 ピクセル ON の 2x2 ブロック → レベル 4 では出力 OFF
         #[rustfmt::skip]
@@ -189,7 +229,6 @@ mod tests {
     // ── level 2/3 中間値 ───────────────────────────────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_level2() {
         // 2個ONのブロック: レベル2でON, レベル3でOFF
         #[rustfmt::skip]
@@ -208,14 +247,12 @@ mod tests {
     // ── エラーケース ──────────────────────────────────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_invalid_depth() {
         let src = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         assert!(reduce_rank_binary_2(&src, 1).is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_reduce_rank_binary_2_invalid_level() {
         let src = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
         assert!(reduce_rank_binary_2(&src, 0).is_err());
@@ -225,7 +262,6 @@ mod tests {
     // ── cascade ────────────────────────────────────────────────────────────
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_cascade_r11_size() {
         // "r11": 2段階 level-1 縮小 → 16x16 → 4x4
         let src = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
@@ -235,7 +271,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_cascade_r1143_size() {
         // "r1143": 4段階縮小 → 64x64 → 4x4
         let src = Pix::new(64, 64, PixelDepth::Bit1).unwrap();
@@ -245,7 +280,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_cascade_empty_levels() {
         // 空のlevels → 入力をclone
         let mut src = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
