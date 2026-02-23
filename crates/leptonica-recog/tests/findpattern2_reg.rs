@@ -83,7 +83,7 @@ fn findpattern2_reg_component_count() {
     let (boxa, _pixa) = conncomp_pixa(&dilated, ConnectivityType::EightWay).expect("conncomp");
 
     // Should find asterisk components
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // All components should have valid dimensions
     let all_valid = (0..boxa.len()).all(|i| {

@@ -148,7 +148,7 @@ fn jbclass_reg_word_mask() {
     // Dilation size should be reasonable (1-20)
     rp.compare_values(
         1.0,
-        if dil_size >= 1 && dil_size <= 20 {
+        if (1..=20).contains(&dil_size) {
             1.0
         } else {
             0.0
@@ -173,7 +173,7 @@ fn jbclass_reg_word_boxes() {
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes_by_dilation");
 
     // Should find word regions in a text document
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // All boxes should have valid dimensions
     let all_valid = (0..boxa.len()).all(|i| {

@@ -185,7 +185,7 @@ fn newspaper_reg_article_regions() {
         conncomp_pixa(&seg.textblock_mask, ConnectivityType::EightWay).expect("conncomp blocks");
 
     // Should find text regions in a newspaper page
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "newspaper article_regions test failed");
 }
@@ -223,7 +223,7 @@ fn newspaper_reg_full_pipeline() {
     let (boxa, _) = conncomp_pixa(&blocks, ConnectivityType::EightWay).expect("conncomp blocks");
 
     // Should find text block regions
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // Blocks should have reasonable sizes (> 10x10 pixels)
     let large_blocks: Vec<_> = (0..boxa.len())

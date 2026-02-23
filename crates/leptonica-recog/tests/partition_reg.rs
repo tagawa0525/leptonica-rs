@@ -35,7 +35,7 @@ fn partition_reg_conncomp_test8() {
     let (boxa, pixa) = conncomp_pixa(&pix_bin, ConnectivityType::FourWay).expect("conncomp test8");
 
     // Should find components
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(boxa.len() as f64, pixa.len() as f64, 0.0);
 
     assert!(rp.cleanup(), "partition conncomp_test8 test failed");
@@ -67,7 +67,7 @@ fn partition_reg_dilate_conncomp() {
     // Extract block-level components
     let (boxa, _) = conncomp_pixa(&dilated, ConnectivityType::FourWay).expect("conncomp dilated");
 
-    rp.compare_values(1.0, if boxa.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // Filter by minimum size (>= 3x3)
     let filtered = boxa.select_by_size(3, 3, SizeRelation::GreaterThanOrEqual);
@@ -147,7 +147,7 @@ fn partition_reg_draw_boxes() {
     let dilated = dilate_brick(&pix_bin, 5, 5).expect("dilate");
     let (boxa, _) = conncomp_pixa(&dilated, ConnectivityType::FourWay).expect("conncomp");
 
-    if boxa.len() == 0 {
+    if boxa.is_empty() {
         rp.compare_values(1.0, 0.0, 0.0);
         assert!(rp.cleanup(), "no boxes found");
         return;
