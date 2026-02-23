@@ -105,8 +105,8 @@ for (i = 0; i < factor2; i++) {
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `crates/leptonica-morph/src/sel.rs` | `Sel::create_comb` 追加 |
-| `crates/leptonica-morph/src/binary.rs` | `select_composable_sizes` 追加、brick関数をcomposite化 |
+| `src/morph/src/sel.rs` | `Sel::create_comb` 追加 |
+| `src/morph/src/binary.rs` | `select_composable_sizes` 追加、brick関数をcomposite化 |
 
 #### Sel::create_comb(factor1, factor2)
 

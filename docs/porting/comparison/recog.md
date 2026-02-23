@@ -1,4 +1,4 @@
-# leptonica-recog: C版 vs Rust版 関数レベル比較
+# leptonica (src/recog/): C版 vs Rust版 関数レベル比較
 
 調査日: 2026-02-22（Phase 1-13 全移植計画完了を反映）
 

@@ -201,7 +201,7 @@ leptonica-rsでは `Pix` は `Arc<PixData>` で管理されるため、この参
 
 jbig2enc-rsを実装する前に、leptonica-rs側で以下を追加する必要がある:
 
-### leptonica-morph crate への追加
+### leptonica (src/morph/) への追加
 
 1. **`r<n>` ランク縮小演算子** (`morph_sequence`対応)
    - 参照: `reference/leptonica/src/binreduce.c`の`pixReduceRankBinary2()`等
@@ -211,7 +211,7 @@ jbig2enc-rsを実装する前に、leptonica-rs側で以下を追加する必要
    - 参照: `reference/leptonica/src/binexpand.c`の`pixExpandBinaryPower2()`
    - 注: `transform::expand_replicate()`として既実装の可能性あり（確認要）
 
-### leptonica-core crate への追加
+### leptonica (src/core/) への追加
 
 3. **`PixMut::rop_region_inplace()`** — オフセット・領域指定付きラスタ演算
    - 参照: `reference/leptonica/src/rop.c`の`pixRasterop()`

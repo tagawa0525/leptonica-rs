@@ -1,4 +1,4 @@
-# leptonica-morph: C版 vs Rust版 関数レベル比較
+# leptonica (src/morph/): C版 vs Rust版 関数レベル比較
 
 調査日: 2026-02-22（301_morph-full-porting全Phase完了を反映）
 

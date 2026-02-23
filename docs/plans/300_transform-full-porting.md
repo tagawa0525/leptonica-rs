@@ -78,9 +78,9 @@ Phase 1 (Alpha変換) ← 他の変換と組み合わせで使用頻度高
 
 ### 修正ファイル
 
-- `crates/leptonica-transform/src/affine.rs`: `affine_pta_with_alpha` 追加
-- `crates/leptonica-transform/src/bilinear.rs`: `bilinear_pta_with_alpha` 追加
-- `crates/leptonica-transform/src/projective.rs`: `projective_pta_with_alpha` 追加
+- `src/transform/src/affine.rs`: `affine_pta_with_alpha` 追加
+- `src/transform/src/bilinear.rs`: `bilinear_pta_with_alpha` 追加
+- `src/transform/src/projective.rs`: `projective_pta_with_alpha` 追加
 
 ### テスト
 
@@ -112,8 +112,8 @@ BOXA（矩形群）への変換適用:
 
 ### 修正ファイル
 
-- `crates/leptonica-core/src/pta.rs`: 変換メソッド追加
-- `crates/leptonica-core/src/boxa.rs`: 変換メソッド追加
+- `src/core/src/pta.rs`: 変換メソッド追加
+- `src/core/src/boxa.rs`: 変換メソッド追加
 
 ### テスト
 
@@ -143,7 +143,7 @@ BOXA（矩形群）への変換適用:
 
 ### 修正ファイル
 
-- `crates/leptonica-transform/src/scale.rs`: 上記関数追加
+- `src/transform/src/scale.rs`: 上記関数追加
 
 ### テスト
 
@@ -181,7 +181,7 @@ BOXA（矩形群）への変換適用:
 
 ### 修正ファイル
 
-- `crates/leptonica-transform/src/scale.rs`: 上記関数追加
+- `src/transform/src/scale.rs`: 上記関数追加
 
 ### テスト
 
@@ -214,7 +214,7 @@ BOXA（矩形群）への変換適用:
 
 ### 修正ファイル
 
-- `crates/leptonica-transform/src/scale.rs`: 上記関数追加
+- `src/transform/src/scale.rs`: 上記関数追加
 
 ### テスト
 
@@ -249,7 +249,7 @@ Alpha付き回転:
 
 ### 修正ファイル
 
-- `crates/leptonica-transform/src/rotate.rs`: 上記関数追加
+- `src/transform/src/rotate.rs`: 上記関数追加
 
 ### テスト
 
@@ -262,7 +262,7 @@ Alpha付き回転:
 
 ## Phase 7: Flip検出（1 PR）
 
-**Status: IMPLEMENTED** (crates/leptonica-recog/src/flipdetect.rs に実装済み、計画策定前に完了)
+**Status: IMPLEMENTED** (src/recog/src/flipdetect.rs に実装済み、計画策定前に完了)
 
 **C参照**: `reference/leptonica/src/flipdetect.c` 全1400行
 
@@ -291,8 +291,8 @@ pub struct MirrorDetectResult {
 
 ### 修正ファイル
 
-- `crates/leptonica-transform/src/flipdetect.rs`（新規）
-- `crates/leptonica-transform/src/lib.rs`: `pub mod flipdetect` 追加
+- `src/transform/src/flipdetect.rs`（新規）
+- `src/transform/src/lib.rs`: `pub mod flipdetect` 追加
 
 ### テスト
 
@@ -326,7 +326,7 @@ pub struct MirrorDetectResult {
 
 ### PRワークフロー
 
-1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+1. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 2. `/gh-pr-create` でPR作成
 3. `/gh-actions-check` でCopilotレビュー到着を確認
 4. `/gh-pr-review` でレビューコメント対応
@@ -351,8 +351,8 @@ main
 各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p leptonica-transform
+cargo fmt --all -- --check
 cargo clippy -p leptonica-transform -- -D warnings
-cargo test -p leptonica-transform
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo test --test transform
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```

@@ -1,4 +1,4 @@
-# leptonica-color: C版 vs Rust版 関数レベル比較
+# leptonica (src/color/): C版 vs Rust版 関数レベル比較
 
 調査日: 2026-02-22（700_recog-full-porting Phase 1-13 全完了を反映）
 

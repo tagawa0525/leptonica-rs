@@ -22,39 +22,31 @@ C版の182ソースファイル・1,880関数に対する移植の進捗。
 
 詳細: [機能比較](docs/porting/feature-comparison.md) / [テスト比較](docs/porting/test-comparison.md)
 
-## Crate構成
+## モジュール構成
+
+単一クレート `leptonica` の各モジュールが Leptonica の機能領域に対応する:
 
 ```text
-leptonica-rs/
-├── crates/
-│   ├── leptonica-core/        # Pix, Box, Numa, FPix等の基本データ構造
-│   ├── leptonica-io/          # 画像I/O (PNG, JPEG, TIFF, GIF, WebP等)
-│   ├── leptonica-morph/       # 形態学演算 (binary, grayscale, DWA, thinning)
-│   ├── leptonica-transform/   # 幾何変換 (rotate, scale, affine等)
-│   ├── leptonica-filter/      # フィルタリング (bilateral, rank, adaptmap, convolve, edge)
-│   ├── leptonica-color/       # 色処理 (segmentation, quantize, threshold, colorspace)
-│   ├── leptonica-region/      # 領域解析 (conncomp, ccbord, quadtree, watershed, maze)
-│   ├── leptonica-recog/       # 認識 (barcode, dewarp, baseline, pageseg, jbclass)
-│   └── leptonica-test/        # テストインフラ
-├── leptonica/                 # ファサードcrate (re-export)
-└── reference/leptonica/       # C版ソース (git submodule, read-only参照)
-```
-
-### 依存関係
-
-```text
-leptonica-recog → leptonica-morph, leptonica-transform, leptonica-region, leptonica-color, leptonica-core
-leptonica-morph, leptonica-transform, leptonica-filter, leptonica-color → leptonica-io, leptonica-core
-leptonica-region → leptonica-core
-leptonica-io → leptonica-core
+src/
+├── lib.rs          # 公開API入口（core型のルート再エクスポート）
+├── core/           # 基本データ構造 (Pix, Box, Numa, FPix, Pta, Pixa, Colormap, SArray)
+│   └── pixel.rs    # RGBAピクセル操作 (compose_rgba, extract_rgb 等)
+├── io/             # 画像I/O (PNG, JPEG, TIFF, BMP, GIF, WebP, PDF, PS)
+├── transform/      # 幾何変換 (回転, スケール, アフィン, 射影, バイリニア)
+├── morph/          # 形態学演算 (膨張, 収縮, オープニング, クロージング, DWA)
+├── filter/         # フィルタリング (畳み込み, エッジ, 二値化, ランク, 適応マップ)
+├── color/          # 色処理 (量子化, 二値化, 色空間変換, セグメンテーション)
+├── region/         # 領域解析 (連結成分, ラベリング, 流域分割, 迷路)
+└── recog/          # 文字認識・バーコード・デワープ・JBIG2分類
 ```
 
 ## ビルド・テスト
 
 ```bash
-cargo check --workspace
-cargo test --workspace
-cargo clippy --workspace
+cargo check --all-features
+cargo test
+cargo test --all-features
+cargo clippy --all-features --all-targets
 ```
 
 ### C版リファレンスの取得

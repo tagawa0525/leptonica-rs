@@ -57,21 +57,21 @@ leptonica (facade)                 → 全 crate
 
 | crate | 主な内容 | 状態 | 計画書 |
 | --- | --- | --- | --- |
-| leptonica-core | Pix/PixMut, Box/Boxa, Numa, Pta, Pixa, Colormap | ✅ IMPLEMENTED | `1000_core-full-porting.md` |
-| leptonica-io | PNG/JPEG/TIFF/GIF/WebP/BMP/PNM/SPIX 読み書き | ✅ IMPLEMENTED | `102_io-full-porting.md` |
-| leptonica-morph | 膨張/収縮/開閉, DWA, thin, morph sequence | ✅ IMPLEMENTED | `301_morph-full-porting.md` |
-| leptonica-transform | 回転, スケール, アフィン, bilinear, projective, shear | ✅ IMPLEMENTED | `300_transform-full-porting.md` |
-| leptonica-filter | 畳み込み, エッジ, adapt, bilateral, rank | ✅ IMPLEMENTED | `401_filter-full-porting.md` |
-| leptonica-color | 色空間変換, 量子化, threshold, coloring | ✅ IMPLEMENTED | - |
-| leptonica-region | conncomp, seedfill, watershed, quadtree | ✅ IMPLEMENTED | `500_region-full-porting.md` |
+| leptonica (src/core/) | Pix/PixMut, Box/Boxa, Numa, Pta, Pixa, Colormap | ✅ IMPLEMENTED | `100_core-full-porting.md` |
+| leptonica (src/io/) | PNG/JPEG/TIFF/GIF/WebP/BMP/PNM/SPIX 読み書き | ✅ IMPLEMENTED | `201_io-full-porting.md` |
+| leptonica (src/morph/) | 膨張/収縮/開閉, DWA, thin, morph sequence | ✅ IMPLEMENTED | `400_morph-full-porting.md` |
+| leptonica (src/transform/) | 回転, スケール, アフィン, bilinear, projective, shear | ✅ IMPLEMENTED | `300_transform-full-porting.md` |
+| leptonica (src/filter/) | 畳み込み, エッジ, adapt, bilateral, rank | ✅ IMPLEMENTED | `500_filter-full-porting.md` |
+| leptonica (src/color/) | 色空間変換, 量子化, threshold, coloring | ✅ IMPLEMENTED | - |
+| leptonica (src/region/) | conncomp, seedfill, watershed, quadtree | ✅ IMPLEMENTED | `700_region-full-porting.md` |
 | leptonica-doc | PDF補助（最小限） | ✅ 基本実装 | - |
-| leptonica-recog | OCR, barcode, dewarp, skew, baseline (Phase 1-13) | ✅ IMPLEMENTED | `700_recog-full-porting.md` |
+| leptonica (src/recog/) | OCR, barcode, dewarp, skew, baseline (Phase 1-13) | ✅ IMPLEMENTED | `800_recog-full-porting.md` |
 | leptonica-test | RegParams, compare_pix, compare_values | ✅ IMPLEMENTED | - |
 | leptonica | ファサード（全 crate re-export） | ✅ IMPLEMENTED | - |
 
 ---
 
-## 3. フェーズ1: leptonica-core 詳細
+## 3. フェーズ1: leptonica (src/core/) 詳細
 
 ### 3.1 PIX構造体
 
@@ -113,7 +113,7 @@ struct PixData {
 
 ---
 
-## 4. フェーズ2: leptonica-io 詳細
+## 4. フェーズ2: leptonica (src/io/) 詳細
 
 ### 4.1 対応フォーマット
 
@@ -200,10 +200,10 @@ impl TryFrom<&image::DynamicImage> for Pix { ... }
 
 | crate | 計画書 | 状態 |
 |-------|--------|------|
-| leptonica-recog | `docs/plans/700_recog-full-porting.md` | IMPLEMENTED (Phase 1-13) |
-| leptonica-transform | `docs/plans/300_transform-full-porting.md` | IMPLEMENTED |
-| leptonica-morph | `docs/plans/301_morph-full-porting.md` | IMPLEMENTED |
-| leptonica-filter | `docs/plans/401_filter-full-porting.md` | IMPLEMENTED |
-| leptonica-region | `docs/plans/500_region-full-porting.md` | IMPLEMENTED |
-| leptonica-io | `docs/plans/102_io-full-porting.md` | IMPLEMENTED |
-| leptonica-core | `docs/plans/1000_core-full-porting.md` | IMPLEMENTED |
+| leptonica (src/recog/) | `docs/plans/800_recog-full-porting.md` | IMPLEMENTED (Phase 1-13) |
+| leptonica (src/transform/) | `docs/plans/300_transform-full-porting.md` | IMPLEMENTED |
+| leptonica (src/morph/) | `docs/plans/400_morph-full-porting.md` | IMPLEMENTED |
+| leptonica (src/filter/) | `docs/plans/500_filter-full-porting.md` | IMPLEMENTED |
+| leptonica (src/region/) | `docs/plans/700_region-full-porting.md` | IMPLEMENTED |
+| leptonica (src/io/) | `docs/plans/201_io-full-porting.md` | IMPLEMENTED |
+| leptonica (src/core/) | `docs/plans/100_core-full-porting.md` | IMPLEMENTED |

@@ -22,39 +22,31 @@ Progress against the original 182 source files and 1,880 public functions.
 
 Details: [Feature comparison](docs/porting/feature-comparison.md) / [Test comparison](docs/porting/test-comparison.md)
 
-## Crate Structure
+## Module Structure
+
+Single crate `leptonica` with modules matching Leptonica's functional areas:
 
 ```text
-leptonica-rs/
-├── crates/
-│   ├── leptonica-core/        # Pix, Box, Numa, FPix and other base data structures
-│   ├── leptonica-io/          # Image I/O (PNG, JPEG, TIFF, GIF, WebP, etc.)
-│   ├── leptonica-morph/       # Morphological operations (binary, grayscale, DWA, thinning)
-│   ├── leptonica-transform/   # Geometric transforms (rotate, scale, affine, etc.)
-│   ├── leptonica-filter/      # Filtering (bilateral, rank, adaptmap, convolve, edge)
-│   ├── leptonica-color/       # Color processing (segmentation, quantize, threshold, colorspace)
-│   ├── leptonica-region/      # Region analysis (conncomp, ccbord, quadtree, watershed, maze)
-│   ├── leptonica-recog/       # Recognition (barcode, dewarp, baseline, pageseg, jbclass)
-│   └── leptonica-test/        # Test infrastructure
-├── leptonica/                 # Facade crate (re-exports)
-└── reference/leptonica/       # Original C source (git submodule, read-only)
-```
-
-### Dependency Graph
-
-```text
-leptonica-recog → leptonica-morph, leptonica-transform, leptonica-region, leptonica-color, leptonica-core
-leptonica-morph, leptonica-transform, leptonica-filter, leptonica-color → leptonica-io, leptonica-core
-leptonica-region → leptonica-core
-leptonica-io → leptonica-core
+src/
+├── lib.rs          # Public API entry (re-exports core types at root)
+├── core/           # Base data structures (Pix, Box, Numa, FPix, Pta, Pixa, Colormap, SArray)
+│   └── pixel.rs    # RGBA pixel ops (compose_rgba, extract_rgb, etc.)
+├── io/             # Image I/O (PNG, JPEG, TIFF, BMP, GIF, WebP, PDF, PS)
+├── transform/      # Geometric transforms (rotate, scale, affine, projective, bilinear)
+├── morph/          # Morphological ops (dilate, erode, open, close, DWA, thinning)
+├── filter/         # Filtering (convolve, bilateral, rank, edge, adaptmap)
+├── color/          # Color processing (quantize, binarize, colorspace, segmentation)
+├── region/         # Region analysis (conncomp, ccbord, quadtree, watershed, maze)
+└── recog/          # Recognition (barcode, dewarp, baseline, pageseg, jbclass)
 ```
 
 ## Build & Test
 
 ```bash
-cargo check --workspace
-cargo test --workspace
-cargo clippy --workspace
+cargo check --all-features
+cargo test
+cargo test --all-features
+cargo clippy --all-features --all-targets
 ```
 
 ### Fetching the C Reference
