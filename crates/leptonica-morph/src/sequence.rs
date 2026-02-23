@@ -88,10 +88,28 @@ pub enum MorphOp {
         /// Height of the brick SE
         height: u32,
     },
+    /// Cascaded 2x rank reduction (binary only)
+    ///
+    /// Each element of `levels` is a rank threshold (1–4) for one halving step.
+    /// Corresponds to the `r<digits>` operator in morphological sequences.
+    RankReduce {
+        /// Rank thresholds, one per halving step
+        levels: Vec<u8>,
+    },
+    /// Binary image expansion by a power-of-2 factor
+    ///
+    /// Corresponds to the `x<factor>` operator in morphological sequences.
+    BinaryExpand {
+        /// Expansion factor (must be a power of 2)
+        factor: u32,
+    },
 }
 
 impl MorphOp {
-    /// Get the width and height of the operation's structuring element
+    /// Get the width and height of the operation's structuring element.
+    ///
+    /// For `RankReduce` and `BinaryExpand`, which do not use a brick SE,
+    /// returns `(0, 0)`.
     pub fn dimensions(&self) -> (u32, u32) {
         match self {
             MorphOp::Dilate { width, height }
@@ -99,6 +117,7 @@ impl MorphOp {
             | MorphOp::Open { width, height }
             | MorphOp::Close { width, height }
             | MorphOp::Tophat { width, height, .. } => (*width, *height),
+            MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => (0, 0),
         }
     }
 
@@ -522,6 +541,9 @@ fn execute_binary_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
+        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
+            todo!("RankReduce/BinaryExpand execution not yet implemented")
+        }
     }
 }
 
@@ -535,6 +557,9 @@ fn execute_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
+        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
+            todo!("RankReduce/BinaryExpand execution not yet implemented")
+        }
     }
 }
 
@@ -550,6 +575,9 @@ fn execute_comp_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
+        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
+            todo!("RankReduce/BinaryExpand execution not yet implemented")
+        }
     }
 }
 
@@ -563,6 +591,11 @@ fn execute_color_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is not valid for color morphology".to_string(),
         )),
+        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
+            Err(MorphError::UnsupportedOperation(
+                "RankReduce/BinaryExpand are binary-only operations".to_string(),
+            ))
+        }
     }
 }
 
@@ -583,6 +616,11 @@ fn execute_gray_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
             } else {
                 crate::bottom_hat_gray(pix, *width, *height)
             }
+        }
+        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
+            Err(MorphError::UnsupportedOperation(
+                "RankReduce/BinaryExpand are binary-only operations".to_string(),
+            ))
         }
     }
 }
@@ -875,5 +913,89 @@ mod tests {
         let seq = MorphSequence::parse("d3.3 + e5.5").unwrap();
         assert_eq!(seq.len(), 2);
         assert!(!seq.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // r / x 演算子テスト（jbig2enc で使用する演算子）
+    // -----------------------------------------------------------------------
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rank_reduce_r11() {
+        // "r11" → RankReduce { levels: [1, 1] }
+        let seq = MorphSequence::parse("r11").unwrap();
+        assert_eq!(seq.len(), 1);
+        match &seq.ops()[0] {
+            MorphOp::RankReduce { levels } => assert_eq!(levels, &[1u8, 1]),
+            other => panic!("expected RankReduce, got {other:?}"),
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rank_reduce_r1143() {
+        // "r1143" → RankReduce { levels: [1, 1, 4, 3] }
+        let seq = MorphSequence::parse("r1143").unwrap();
+        match &seq.ops()[0] {
+            MorphOp::RankReduce { levels } => assert_eq!(levels, &[1u8, 1, 4, 3]),
+            other => panic!("expected RankReduce, got {other:?}"),
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_binary_expand_x4() {
+        // "x4" → BinaryExpand { factor: 4 }
+        let seq = MorphSequence::parse("x4").unwrap();
+        assert_eq!(seq.len(), 1);
+        match &seq.ops()[0] {
+            MorphOp::BinaryExpand { factor } => assert_eq!(*factor, 4u32),
+            other => panic!("expected BinaryExpand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_jbig2enc_seed_sequence() {
+        // jbig2.cc の "r1143 + o4.4 + x4" がパース可能かつ 3 演算子
+        let seq = MorphSequence::parse("r1143 + o4.4 + x4").unwrap();
+        assert_eq!(seq.len(), 3);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_morph_sequence_r11_size() {
+        // "r11": 16x16 → 4x4
+        let pix = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
+        let result = morph_sequence(&pix, "r11").unwrap();
+        assert_eq!(result.width(), 4);
+        assert_eq!(result.height(), 4);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_morph_sequence_x4_size() {
+        // "x4": 4x4 → 16x16
+        let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        let result = morph_sequence(&pix, "x4").unwrap();
+        assert_eq!(result.width(), 16);
+        assert_eq!(result.height(), 16);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_morph_sequence_r11_x4_roundtrip_size() {
+        // "r11 + x4": 縮小後に拡大 → 元サイズに戻る
+        let pix = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
+        let result = morph_sequence(&pix, "r11 + x4").unwrap();
+        assert_eq!(result.width(), 16);
+        assert_eq!(result.height(), 16);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rank_reduce_invalid_digit() {
+        // level 0 または 5 は無効
+        assert!(MorphSequence::parse("r05").is_err());
     }
 }
