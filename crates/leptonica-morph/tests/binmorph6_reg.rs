@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 ///    pix5 = pixCloseSafe(NULL, pix1, sel);
 ///    pix6 = pixSubtract(NULL, pix3, pix1);
 #[test]
-#[ignore = "not yet implemented: binmorph6 regression tests"]
 fn binmorph6_reg_custom_sel() {
     let mut rp = RegParams::new("bmorph6_sel");
 
@@ -68,7 +67,6 @@ fn binmorph6_reg_custom_sel() {
 ///
 /// Creates a custom structuring element from a pattern string.
 #[test]
-#[ignore = "not yet implemented: binmorph6 regression tests"]
 fn binmorph6_reg_sel_from_string() {
     let mut rp = RegParams::new("bmorph6_strsel");
 
@@ -80,8 +78,8 @@ fn binmorph6_reg_sel_from_string() {
 
     // Verify center element
     assert_eq!(cross.get_element(1, 1), Some(SelElement::Hit));
-    // Verify corner elements
-    assert_eq!(cross.get_element(0, 0), Some(SelElement::DontCare));
+    // Verify corner elements ('o' = Miss in from_string)
+    assert_eq!(cross.get_element(0, 0), Some(SelElement::Miss));
 
     assert!(rp.cleanup(), "binmorph6 sel_from_string test failed");
 }

@@ -20,7 +20,6 @@ use leptonica_test::RegParams;
 /// C: pixt1 = pixDilate(NULL, pixs, sel);
 ///    pixt2 = pixFMorphopGen_1(NULL, pixs1, L_MORPH_DILATE, selname);  -- not available
 #[test]
-#[ignore = "not yet implemented: fmorphauto regression tests"]
 fn fmorphauto_reg_dilate_erode() {
     let mut rp = RegParams::new("fmorphauto_ops");
 
@@ -74,7 +73,6 @@ fn fmorphauto_reg_dilate_erode() {
 ///
 /// C: open = erode(dilate(pix)); result should be subset of original
 #[test]
-#[ignore = "not yet implemented: fmorphauto regression tests"]
 fn fmorphauto_reg_open_subset() {
     let mut rp = RegParams::new("fmorphauto_open");
 
@@ -83,9 +81,10 @@ fn fmorphauto_reg_open_subset() {
     let h = pix.height();
     let orig_count = pix.count_pixels();
 
+    // Opening = erode then dilate (anti-extensive: result <= original)
     let sel = Sel::create_brick(3, 3).expect("create 3x3 sel");
-    let dilated = dilate(&pix, &sel).expect("dilate");
-    let opened = erode(&dilated, &sel).expect("erode (open second step)");
+    let eroded = erode(&pix, &sel).expect("erode (open first step)");
+    let opened = dilate(&eroded, &sel).expect("dilate (open second step)");
 
     rp.compare_values(w as f64, opened.width() as f64, 0.0);
     rp.compare_values(h as f64, opened.height() as f64, 0.0);

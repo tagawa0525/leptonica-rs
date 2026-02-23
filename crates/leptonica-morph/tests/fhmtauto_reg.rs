@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 /// C: pixref = pixHMT(NULL, pixs, sel);
 ///    pix2 = pixFHMTGen_1(NULL, pix1, selname);  -- auto-gen version (not available)
 #[test]
-#[ignore = "not yet implemented: fhmtauto regression tests"]
 fn fhmtauto_reg_hit_miss() {
     let mut rp = RegParams::new("fhmtauto_hmt");
 
@@ -57,7 +56,6 @@ fn fhmtauto_reg_hit_miss() {
 ///
 /// Verifies that HMT with a 1x1 HIT sel returns the original image.
 #[test]
-#[ignore = "not yet implemented: fhmtauto regression tests"]
 fn fhmtauto_reg_identity_sel() {
     let mut rp = RegParams::new("fhmtauto_id");
 
