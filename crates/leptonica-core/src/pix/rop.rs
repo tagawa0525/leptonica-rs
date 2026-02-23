@@ -550,16 +550,68 @@ impl PixMut {
     /// Returns an error if `src` and `self` have different bit depths.
     pub fn rop_region_inplace(
         &mut self,
-        _dst_x: i32,
-        _dst_y: i32,
-        _width: u32,
-        _height: u32,
-        _op: RopOp,
-        _src: &Pix,
-        _src_x: i32,
-        _src_y: i32,
+        dst_x: i32,
+        dst_y: i32,
+        width: u32,
+        height: u32,
+        op: RopOp,
+        src: &Pix,
+        src_x: i32,
+        src_y: i32,
     ) -> Result<()> {
-        todo!("rop_region_inplace not yet implemented")
+        if op.requires_source() && self.depth() != src.depth() {
+            return Err(Error::IncompatibleDepths(
+                self.depth().bits(),
+                src.depth().bits(),
+            ));
+        }
+
+        let max_val = self.depth().max_value();
+        let dst_w = self.width() as i32;
+        let dst_h = self.height() as i32;
+        let src_w = src.width() as i32;
+        let src_h = src.height() as i32;
+
+        for row in 0..height as i32 {
+            for col in 0..width as i32 {
+                let tx = dst_x + col;
+                let ty = dst_y + row;
+                let sx = src_x + col;
+                let sy = src_y + row;
+
+                if tx < 0 || ty < 0 || tx >= dst_w || ty >= dst_h {
+                    continue;
+                }
+                let tx = tx as u32;
+                let ty = ty as u32;
+
+                let val = if !op.requires_source() {
+                    let d = self.get_pixel(tx, ty).unwrap_or(0);
+                    apply_rop_value(d, 0, op, max_val)
+                } else {
+                    if sx < 0 || sy < 0 || sx >= src_w || sy >= src_h {
+                        continue;
+                    }
+                    let sx = sx as u32;
+                    let sy = sy as u32;
+                    let d = self.get_pixel(tx, ty).unwrap_or(0);
+                    let s = src.get_pixel(sx, sy).unwrap_or(0);
+                    if self.depth() == PixelDepth::Bit32 {
+                        let (dr, dg, db) = color::extract_rgb(d);
+                        let (sr, sg, sb) = color::extract_rgb(s);
+                        let rr = apply_rop_value(dr as u32, sr as u32, op, 255) as u8;
+                        let rg = apply_rop_value(dg as u32, sg as u32, op, 255) as u8;
+                        let rb = apply_rop_value(db as u32, sb as u32, op, 255) as u8;
+                        color::compose_rgb(rr, rg, rb)
+                    } else {
+                        apply_rop_value(d, s, op, max_val)
+                    }
+                };
+                self.set_pixel_unchecked(tx, ty, val);
+            }
+        }
+
+        Ok(())
     }
 
     /// Clear a rectangular region to zero.
@@ -1128,7 +1180,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rop_region_inplace_src() {
         // dst: 8x8 1bpp 全ゼロ
         // src: 4x4 1bpp で左上 2x2 がセット
@@ -1157,7 +1208,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rop_region_inplace_xor() {
         // jbig2sym.cc の pixRasterop(target, dx, dy, w, h, PIX_SRC^PIX_DST, sym, 0, 0) 相当
         let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
@@ -1180,7 +1230,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rop_region_inplace_negative_offset() {
         // dst 側のオフセットが負の場合、境界外ピクセルをスキップ
         let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
@@ -1208,7 +1257,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rop_region_inplace_depth_mismatch() {
         let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
         let src = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
