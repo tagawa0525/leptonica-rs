@@ -19,7 +19,7 @@ use leptonica_test::RegParams;
 /// Test 1bpp → various depth conversions (C checks 0-3).
 ///
 /// Converts test1.png (1bpp) to 2, 4, 8, 32 bpp and verifies
-/// the round-trip through serialization.
+/// the resulting depths and that image dimensions are preserved.
 #[test]
 fn conversion_reg_from_1bpp() {
     let mut rp = RegParams::new("conversion_from_1bpp");
