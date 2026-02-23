@@ -1763,6 +1763,9 @@ impl Numa {
     pub fn find_loc_for_threshold(&self, skip: usize) -> Result<(usize, f32)> {
         let skip = if skip == 0 { 20 } else { skip };
         let n = self.len();
+        if n == 0 {
+            return Err(Error::InvalidParameter("empty array".into()));
+        }
 
         // Require non-constant array
         let min_val = (0..n).map(|i| self[i]).fold(f32::INFINITY, f32::min);
@@ -1786,7 +1789,7 @@ impl Numa {
             }
             pval = val;
         }
-        if peak_end > n - 5 {
+        if peak_end >= n.saturating_sub(5) {
             return Err(Error::InvalidParameter(
                 "top of first peak not found".into(),
             ));
@@ -1831,7 +1834,7 @@ impl Numa {
             }
         }
 
-        if minloc > n - 10 {
+        if minloc >= n.saturating_sub(10) {
             return Err(Error::InvalidParameter(
                 "minimum at end of array; invalid".into(),
             ));
