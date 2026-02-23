@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 /// Creates a sine waveform and verifies find_extrema detects peaks and valleys
 /// with a hysteresis threshold of delta=0.1.
 #[test]
-#[ignore = "not yet implemented: Numa::find_extrema not available"]
 fn extrema_reg_find_extrema() {
     let mut rp = RegParams::new("extrema_find");
 
