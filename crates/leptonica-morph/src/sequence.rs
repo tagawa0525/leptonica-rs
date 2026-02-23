@@ -97,11 +97,15 @@ pub enum MorphOp {
         /// Rank thresholds, one per halving step
         levels: Vec<u8>,
     },
-    /// Binary image expansion by a power-of-2 factor
+    /// Binary image expansion by replication.
     ///
     /// Corresponds to the `x<factor>` operator in morphological sequences.
+    /// The sequence parser only accepts power-of-2 factors (1, 2, 4, 8, …).
+    /// Note: the underlying [`expand_replicate`] function does not enforce the
+    /// power-of-2 constraint, so `BinaryExpand` structs constructed directly
+    /// may carry non-power-of-2 values.
     BinaryExpand {
-        /// Expansion factor (must be a power of 2)
+        /// Expansion factor; the sequence parser enforces that this is a power of 2
         factor: u32,
     },
 }
