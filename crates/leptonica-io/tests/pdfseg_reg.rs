@@ -26,17 +26,9 @@ fn pdfseg_reg_basic_pdf_output() {
     let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
     let opts = leptonica_io::pdf::PdfOptions::default();
     let data = leptonica_io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
-    let pdf_str = String::from_utf8_lossy(&data);
 
-    rp.compare_values(
-        1.0,
-        if pdf_str.starts_with("%PDF-") {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
+    // PDF header check via byte comparison (avoid converting entire binary stream)
+    rp.compare_values(1.0, if data.starts_with(b"%PDF-") { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(1.0, if data.len() > 100 { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "pdfseg basic pdf output test failed");
