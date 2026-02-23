@@ -71,6 +71,7 @@ fn smallpix_reg_scale_by_sampling() {
         assert!(pix2.width() > 0 && pix2.height() > 0);
         let pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
         assert_eq!(pix3.width(), pix2.width() * 6);
+        assert_eq!(pix3.height(), pix2.height() * 6);
     }
 }
 
@@ -86,6 +87,7 @@ fn smallpix_reg_rotate_am() {
         assert!(pix2.width() > 0 && pix2.height() > 0);
         let pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
         assert_eq!(pix3.width(), pix2.width() * 8);
+        assert_eq!(pix3.height(), pix2.height() * 8);
     }
 }
 
@@ -102,6 +104,7 @@ fn smallpix_reg_rotate_am_color_fast() {
         assert!(pix2.width() > 0 && pix2.height() > 0);
         let pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
         assert_eq!(pix3.width(), pix2.width() * 8);
+        assert_eq!(pix3.height(), pix2.height() * 8);
     }
 }
 
@@ -117,6 +120,7 @@ fn smallpix_reg_scale_color_li() {
         assert!(pix2.width() > 0 && pix2.height() > 0);
         let pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
         assert_eq!(pix3.width(), pix2.width() * 4);
+        assert_eq!(pix3.height(), pix2.height() * 4);
     }
 }
 
@@ -132,6 +136,7 @@ fn smallpix_reg_scale_li() {
         assert!(pix2.width() > 0 && pix2.height() > 0);
         let pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
         assert_eq!(pix3.width(), pix2.width() * 4);
+        assert_eq!(pix3.height(), pix2.height() * 4);
     }
 }
 
