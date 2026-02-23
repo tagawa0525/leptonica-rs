@@ -3,11 +3,11 @@
 //! This module implements the classification algorithms for JBIG2-style
 //! connected component clustering.
 
-use leptonica_core::{Box as PixBox, Boxa, Pix, PixelDepth};
-use leptonica_morph::binary as morph_binary;
-use leptonica_region::{ConnectivityType, find_connected_components};
+use crate::core::{Box as PixBox, Boxa, Pix, PixelDepth};
+use crate::morph::binary as morph_binary;
+use crate::region::{ConnectivityType, find_connected_components};
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::types::{
     DEFAULT_MAX_HEIGHT, DEFAULT_MAX_WIDTH, DEFAULT_SIZE_HAUS, DEFAULT_THRESH, JbClasser,
@@ -773,7 +773,7 @@ fn add_border(pix: &Pix, border: u32) -> RecogResult<Pix> {
 }
 
 /// Helper: Copies source image to destination at specified position
-fn copy_to(dst: &mut leptonica_core::PixMut, src: &Pix, x: i32, y: i32) -> RecogResult<()> {
+fn copy_to(dst: &mut crate::core::PixMut, src: &Pix, x: i32, y: i32) -> RecogResult<()> {
     for sy in 0..src.height() {
         for sx in 0..src.width() {
             if let Some(val) = src.get_pixel(sx, sy)

@@ -13,12 +13,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/grayquant_reg.c`
 
-use leptonica_color::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::{
     MedianCutOptions, fixed_octcube_quant_256, median_cut_quant, octree_quant_256,
     octree_quant_by_population, threshold_to_2bpp, threshold_to_4bpp, threshold_to_binary,
 };
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
 
 /// Test threshold_to_binary (C check 0: pixThresholdToBinary).
 ///
@@ -27,7 +28,7 @@ use leptonica_test::RegParams;
 fn grayquant_reg_threshold_binary() {
     let mut rp = RegParams::new("gquant_bin");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -47,7 +48,7 @@ fn grayquant_reg_threshold_binary() {
 fn grayquant_reg_threshold_multi() {
     let mut rp = RegParams::new("gquant_multi");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -89,7 +90,7 @@ fn grayquant_reg_threshold_multi() {
 fn grayquant_reg_color_quant() {
     let mut rp = RegParams::new("gquant_cquant");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();

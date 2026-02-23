@@ -16,13 +16,14 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/newspaper_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_morph::{morph_sequence, seedfill_morph};
-use leptonica_recog::pageseg::{PageSegOptions, segment_regions};
-use leptonica_region::{ConnectivityType, conncomp_pixa};
-use leptonica_test::RegParams;
-use leptonica_transform::scale_to_gray_4;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::morph::{morph_sequence, seedfill_morph};
+use leptonica::recog::pageseg::{PageSegOptions, segment_regions};
+use leptonica::region::{ConnectivityType, conncomp_pixa};
+use leptonica::transform::scale_to_gray_4;
 
 /// Test scale_to_gray_4 reduction on scots-frag.tif (C test: pixScaleToGray4).
 ///
@@ -32,7 +33,7 @@ use leptonica_transform::scale_to_gray_4;
 fn newspaper_reg_scale_reduce() {
     let mut rp = RegParams::new("newspaper_scale");
 
-    let pix = leptonica_test::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
+    let pix = common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix.clone()
     } else {
@@ -62,7 +63,7 @@ fn newspaper_reg_scale_reduce() {
 fn newspaper_reg_line_detect() {
     let mut rp = RegParams::new("newspaper_lines");
 
-    let pix = leptonica_test::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
+    let pix = common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -93,7 +94,7 @@ fn newspaper_reg_line_detect() {
 fn newspaper_reg_line_removal() {
     let mut rp = RegParams::new("newspaper_removal");
 
-    let pix = leptonica_test::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
+    let pix = common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -126,7 +127,7 @@ fn newspaper_reg_line_removal() {
 fn newspaper_reg_seedfill() {
     let mut rp = RegParams::new("newspaper_seedfill");
 
-    let pix = leptonica_test::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
+    let pix = common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -157,7 +158,7 @@ fn newspaper_reg_seedfill() {
 fn newspaper_reg_article_regions() {
     let mut rp = RegParams::new("newspaper_regions");
 
-    let pix = leptonica_test::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
+    let pix = common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -199,7 +200,7 @@ fn newspaper_reg_article_regions() {
 fn newspaper_reg_full_pipeline() {
     let mut rp = RegParams::new("newspaper_pipeline");
 
-    let pix = leptonica_test::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
+    let pix = common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {

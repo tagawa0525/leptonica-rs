@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/rankhisto_reg.c`
 
-use leptonica_filter::{gamma_trc_pix, rank_filter, rank_filter_color};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::filter::{gamma_trc_pix, rank_filter, rank_filter_color};
 
 /// Test rank_filter on 32bpp color image (C rank filter portion).
 ///
@@ -22,7 +23,7 @@ use leptonica_test::RegParams;
 fn rankhisto_reg_rank_filter_color() {
     let mut rp = RegParams::new("rankhisto_color");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -30,7 +31,7 @@ fn rankhisto_reg_rank_filter_color() {
     let median_color = rank_filter_color(&pix, 5, 5, 0.5).expect("rank_filter_color median");
     rp.compare_values(w as f64, median_color.width() as f64, 0.0);
     rp.compare_values(h as f64, median_color.height() as f64, 0.0);
-    assert_eq!(median_color.depth(), leptonica_core::PixelDepth::Bit32);
+    assert_eq!(median_color.depth(), leptonica::PixelDepth::Bit32);
 
     // Min filter on color image
     let min_color = rank_filter_color(&pix, 5, 5, 0.0001).expect("rank_filter_color min");
@@ -50,7 +51,7 @@ fn rankhisto_reg_rank_filter_color() {
 fn rankhisto_reg_gamma_on_filtered() {
     let mut rp = RegParams::new("rankhisto_gamma");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -59,7 +60,7 @@ fn rankhisto_reg_gamma_on_filtered() {
     let corrected = gamma_trc_pix(&filtered, 1.0, 0, 240).expect("gamma_trc 0..240");
     rp.compare_values(w as f64, corrected.width() as f64, 0.0);
     rp.compare_values(h as f64, corrected.height() as f64, 0.0);
-    assert_eq!(corrected.depth(), leptonica_core::PixelDepth::Bit32);
+    assert_eq!(corrected.depth(), leptonica::PixelDepth::Bit32);
 
     assert!(rp.cleanup(), "rankhisto gamma on filtered test failed");
 }

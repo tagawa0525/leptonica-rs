@@ -6,9 +6,10 @@
 //! Safe closingはdilationで画像境界を超える部分を考慮して
 //! 正しい結果を返す。
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{close_brick, dilate_brick, erode_brick, open_brick};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{close_brick, dilate_brick, erode_brick, open_brick};
 
 #[test]
 fn binmorph2_reg() {

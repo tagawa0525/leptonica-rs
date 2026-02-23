@@ -13,9 +13,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/graymorph2_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{dilate_gray, erode_gray};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::morph::{dilate_gray, erode_gray};
 
 /// Test dilate_gray with 3x1, 1x3, and 3x3 sizes (C checks 0-5).
 ///
@@ -26,7 +27,7 @@ fn graymorph2_reg_dilate() {
     let mut rp = RegParams::new("gmorph2_dilate");
 
     // C: pixs = pixRead("test8.jpg");
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();
@@ -58,7 +59,7 @@ fn graymorph2_reg_dilate() {
 fn graymorph2_reg_erode() {
     let mut rp = RegParams::new("gmorph2_erode");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();

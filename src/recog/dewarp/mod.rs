@@ -16,12 +16,12 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_recog::dewarp::{dewarp_single_page, DewarpOptions};
-//! use leptonica_core::Pix;
+//! use leptonica::recog::dewarp::{dewarp_single_page, DewarpOptions};
+//! use leptonica::core::Pix;
 //!
 //! // Load a scanned document image
 //! // let pix = ... load image ...
-//! # let pix = Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+//! # let pix = Pix::new(800, 600, leptonica::core::PixelDepth::Bit1).unwrap();
 //!
 //! // Dewarp with default options
 //! let options = DewarpOptions::default();
@@ -44,7 +44,7 @@
 //! Use [`DewarpOptions`] to configure the dewarping behavior:
 //!
 //! ```
-//! use leptonica_recog::dewarp::DewarpOptions;
+//! use leptonica::recog::dewarp::DewarpOptions;
 //!
 //! let options = DewarpOptions::new()
 //!     .with_sampling(20)        // Finer sampling for better accuracy
@@ -81,11 +81,11 @@ pub use textline::{
 };
 pub use types::{Dewarp, DewarpOptions, DewarpResult, TextLine};
 
-use crate::{RecogError, RecogResult};
-use leptonica_color::{
+use crate::color::{
     AdaptiveThresholdOptions, adaptive_threshold, pix_convert_to_gray, threshold_to_binary,
 };
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::recog::{RecogError, RecogResult};
 
 /// Dewarp a single page
 ///
@@ -105,10 +105,10 @@ use leptonica_core::{Pix, PixelDepth};
 /// # Example
 ///
 /// ```no_run
-/// use leptonica_recog::dewarp::{dewarp_single_page, DewarpOptions};
-/// use leptonica_core::Pix;
+/// use leptonica::recog::dewarp::{dewarp_single_page, DewarpOptions};
+/// use leptonica::core::Pix;
 ///
-/// # let pix = Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+/// # let pix = Pix::new(800, 600, leptonica::core::PixelDepth::Bit1).unwrap();
 /// let options = DewarpOptions::default();
 /// match dewarp_single_page(&pix, &options) {
 ///     Ok(result) => {

@@ -13,13 +13,14 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/flipdetect_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_recog::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::recog::{
     TextOrientation, make_orient_decision, mirror_detect, orient_correct, orient_detect,
     up_down_detect,
 };
-use leptonica_test::RegParams;
-use leptonica_transform::scale_by_sampling;
+use leptonica::transform::scale_by_sampling;
 
 /// Test orient_detect on 4 rotations of feyn.tif (C checks 0-9).
 ///
@@ -34,7 +35,7 @@ use leptonica_transform::scale_by_sampling;
 fn flipdetect_reg_orient_detect() {
     let mut rp = RegParams::new("flipdetect_orient");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     // Scale to 50% like C version
@@ -46,7 +47,7 @@ fn flipdetect_reg_orient_detect() {
     rp.compare_values(1.0, if result.up_confidence > 0.0 { 1.0 } else { 0.0 }, 0.0);
 
     // Rotation 90 CW: Right orientation — left_confidence should be negative
-    let pix90 = leptonica_transform::rotate_orth(&pix1, 1).expect("rotate 90 CW");
+    let pix90 = leptonica::transform::rotate_orth(&pix1, 1).expect("rotate 90 CW");
     let result90 = orient_detect(&pix90, 0).expect("orient_detect rotation 90");
     rp.compare_values(
         1.0,
@@ -59,7 +60,7 @@ fn flipdetect_reg_orient_detect() {
     );
 
     // Rotation 180: upside down — up_confidence should be negative
-    let pix180 = leptonica_transform::rotate_orth(&pix1, 2).expect("rotate 180");
+    let pix180 = leptonica::transform::rotate_orth(&pix1, 2).expect("rotate 180");
     let result180 = orient_detect(&pix180, 0).expect("orient_detect rotation 180");
     rp.compare_values(
         1.0,
@@ -72,7 +73,7 @@ fn flipdetect_reg_orient_detect() {
     );
 
     // Rotation 270 CW (= 90 CCW): Left orientation — left_confidence should be positive
-    let pix270 = leptonica_transform::rotate_orth(&pix1, 3).expect("rotate 270 CW");
+    let pix270 = leptonica::transform::rotate_orth(&pix1, 3).expect("rotate 270 CW");
     let result270 = orient_detect(&pix270, 0).expect("orient_detect rotation 270");
     rp.compare_values(
         1.0,
@@ -97,12 +98,12 @@ fn flipdetect_reg_orient_detect() {
 fn flipdetect_reg_orient_correct() {
     let mut rp = RegParams::new("flipdetect_correct");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let pix1 = scale_by_sampling(&pix, 0.5, 0.5).expect("scale 0.5");
 
     // Rotate 90 CW (produces Right orientation)
-    let pix90 = leptonica_transform::rotate_orth(&pix1, 1).expect("rotate 90 CW");
+    let pix90 = leptonica::transform::rotate_orth(&pix1, 1).expect("rotate 90 CW");
 
     // orient_correct should detect and fix the rotation
     let result = orient_correct(&pix90, 0.0, 0.0).expect("orient_correct");
@@ -207,7 +208,7 @@ fn flipdetect_reg_make_decision() {
 fn flipdetect_reg_up_down() {
     let mut rp = RegParams::new("flipdetect_updown");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let pix1 = scale_by_sampling(&pix, 0.5, 0.5).expect("scale 0.5");
 
@@ -216,7 +217,7 @@ fn flipdetect_reg_up_down() {
     rp.compare_values(1.0, if conf_up > 0.0 { 1.0 } else { 0.0 }, 0.0);
 
     // Upside-down (180 rotation): confidence should be negative
-    let pix180 = leptonica_transform::rotate_orth(&pix1, 2).expect("rotate 180");
+    let pix180 = leptonica::transform::rotate_orth(&pix1, 2).expect("rotate 180");
     let conf_down = up_down_detect(&pix180, 0, 0).expect("up_down_detect inverted");
     rp.compare_values(1.0, if conf_down < 0.0 { 1.0 } else { 0.0 }, 0.0);
 
@@ -235,7 +236,7 @@ fn flipdetect_reg_up_down() {
 fn flipdetect_reg_mirror() {
     let mut rp = RegParams::new("flipdetect_mirror");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let pix1 = scale_by_sampling(&pix, 0.5, 0.5).expect("scale 0.5");
 
@@ -244,7 +245,7 @@ fn flipdetect_reg_mirror() {
     rp.compare_values(1.0, if conf > 0.0 { 1.0 } else { 0.0 }, 0.0);
 
     // Mirrored text (flip LR): confidence should decrease
-    let pix_lr = leptonica_transform::flip_lr(&pix1).expect("flip_lr");
+    let pix_lr = leptonica::transform::flip_lr(&pix1).expect("flip_lr");
     let conf_mirror = mirror_detect(&pix_lr, 0).expect("mirror_detect mirrored");
 
     // The mirrored confidence should be less than normal confidence

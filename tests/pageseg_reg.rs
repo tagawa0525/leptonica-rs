@@ -17,12 +17,13 @@
 //!   - extract_textlines (= pixExtractTextlines の簡易版)
 //!   - is_text_region (= pixDecideIfText の簡易版)
 
-use leptonica_core::PixelDepth;
-use leptonica_recog::pageseg::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::recog::pageseg::{
     PageSegOptions, extract_textlines, generate_textblock_mask, generate_textline_mask,
     is_text_region, segment_regions,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 // ============================================================================
 // Test 0-19: Generic page segmentation (pixGetRegionsBinary equivalent)
@@ -614,14 +615,14 @@ fn test_11_image_too_small() {
     let mut rp = RegParams::new("pageseg_11_too_small");
 
     // Create a small image that should be rejected
-    let small_pix = leptonica_core::Pix::new(50, 50, PixelDepth::Bit1).unwrap();
+    let small_pix = leptonica::Pix::new(50, 50, PixelDepth::Bit1).unwrap();
     let opts = PageSegOptions::default();
     let result = segment_regions(&small_pix, &opts);
     rp.compare_values(1.0, if result.is_err() { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  50x50 correctly rejected: {}", result.is_err());
 
     // Image at exactly min dimensions should work (with appropriate content)
-    let ok_pix = leptonica_core::Pix::new(100, 100, PixelDepth::Bit1).unwrap();
+    let ok_pix = leptonica::Pix::new(100, 100, PixelDepth::Bit1).unwrap();
     let result2 = segment_regions(&ok_pix, &opts);
     rp.compare_values(1.0, if result2.is_ok() { 1.0 } else { 0.0 }, 0.0);
     eprintln!("  100x100 accepted: {}", result2.is_ok());
@@ -745,8 +746,8 @@ fn test_31_36_auto_photoinvert() {
 // ============================================================================
 
 /// Create a synthetic document image with text-like horizontal lines
-fn create_test_document(w: u32, h: u32) -> leptonica_core::Pix {
-    let pix = leptonica_core::Pix::new(w, h, PixelDepth::Bit1).unwrap();
+fn create_test_document(w: u32, h: u32) -> leptonica::Pix {
+    let pix = leptonica::Pix::new(w, h, PixelDepth::Bit1).unwrap();
     let mut pix_mut = pix.try_into_mut().unwrap();
 
     // Create text-like horizontal lines that fit in the image
@@ -773,7 +774,7 @@ fn create_test_document(w: u32, h: u32) -> leptonica_core::Pix {
 /// Check if a 1bpp image has any foreground (black) pixels
 ///
 /// Samples the image at regular intervals to avoid full scan of large images.
-fn has_foreground_pixels(pix: &leptonica_core::Pix) -> bool {
+fn has_foreground_pixels(pix: &leptonica::Pix) -> bool {
     let w = pix.width();
     let h = pix.height();
 

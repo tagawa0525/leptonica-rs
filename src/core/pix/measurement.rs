@@ -4,7 +4,7 @@
 //! Corresponds to functions in C Leptonica's `pix5.c`.
 
 use super::{Pix, PixelDepth};
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 impl Pix {
     /// Compute the fraction of foreground pixels in a 1bpp image.

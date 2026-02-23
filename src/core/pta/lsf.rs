@@ -2,9 +2,9 @@
 //!
 //! Corresponds to functions in C Leptonica's `ptafunc1.c`.
 
-use crate::error::{Error, Result};
-use crate::numa::Numa;
-use crate::pta::Pta;
+use crate::core::error::{Error, Result};
+use crate::core::numa::Numa;
+use crate::core::pta::Pta;
 
 impl Pta {
     /// Linear least-squares fit y = ax + b.

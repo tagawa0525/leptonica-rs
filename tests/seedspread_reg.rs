@@ -4,8 +4,8 @@
 //!
 //! C Leptonica: `seedfill.c` — `pixSeedspread`, `pixSelectMinInConnComp`
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_region::ConnectivityType;
+use leptonica::region::ConnectivityType;
+use leptonica::{Pix, PixelDepth};
 
 // ============================================================================
 // seedspread
@@ -19,7 +19,7 @@ fn test_seedspread_single_seed_4conn() {
     pm.set_pixel(10, 10, 100).unwrap();
     let pix: Pix = pm.into();
 
-    let result = leptonica_region::seedfill::seedspread(&pix, ConnectivityType::FourWay).unwrap();
+    let result = leptonica::region::seedfill::seedspread(&pix, ConnectivityType::FourWay).unwrap();
     assert_eq!(result.width(), 20);
     assert_eq!(result.height(), 20);
     assert_eq!(result.depth(), PixelDepth::Bit8);
@@ -36,7 +36,7 @@ fn test_seedspread_single_seed_8conn() {
     pm.set_pixel(10, 10, 200).unwrap();
     let pix: Pix = pm.into();
 
-    let result = leptonica_region::seedfill::seedspread(&pix, ConnectivityType::EightWay).unwrap();
+    let result = leptonica::region::seedfill::seedspread(&pix, ConnectivityType::EightWay).unwrap();
     // All pixels should be 200
     assert_eq!(result.get_pixel(0, 0).unwrap(), 200);
     assert_eq!(result.get_pixel(19, 19).unwrap(), 200);
@@ -51,7 +51,7 @@ fn test_seedspread_two_seeds_voronoi() {
     pm.set_pixel(15, 10, 150).unwrap();
     let pix: Pix = pm.into();
 
-    let result = leptonica_region::seedfill::seedspread(&pix, ConnectivityType::FourWay).unwrap();
+    let result = leptonica::region::seedfill::seedspread(&pix, ConnectivityType::FourWay).unwrap();
     // Pixels near left seed should have value 50
     assert_eq!(result.get_pixel(0, 10).unwrap(), 50);
     assert_eq!(result.get_pixel(5, 10).unwrap(), 50);
@@ -73,7 +73,7 @@ fn test_seedspread_multiple_seeds() {
     pm.set_pixel(17, 17, 40).unwrap();
     let pix: Pix = pm.into();
 
-    let result = leptonica_region::seedfill::seedspread(&pix, ConnectivityType::EightWay).unwrap();
+    let result = leptonica::region::seedfill::seedspread(&pix, ConnectivityType::EightWay).unwrap();
     // Each corner should retain its seed value
     assert_eq!(result.get_pixel(2, 2).unwrap(), 10);
     assert_eq!(result.get_pixel(17, 2).unwrap(), 20);
@@ -90,7 +90,7 @@ fn test_seedspread_multiple_seeds() {
 #[test]
 fn test_seedspread_rejects_non_8bpp() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
-    assert!(leptonica_region::seedfill::seedspread(&pix, ConnectivityType::FourWay).is_err());
+    assert!(leptonica::region::seedfill::seedspread(&pix, ConnectivityType::FourWay).is_err());
 }
 
 // ============================================================================
@@ -126,7 +126,7 @@ fn test_select_min_in_conncomp_basic() {
     }
     let mask: Pix = mm.into();
 
-    let (pta, values) = leptonica_region::seedfill::select_min_in_conncomp(&pixs, &mask).unwrap();
+    let (pta, values) = leptonica::region::seedfill::select_min_in_conncomp(&pixs, &mask).unwrap();
 
     // Should find 2 components
     assert_eq!(pta.len(), 2);
@@ -159,7 +159,7 @@ fn test_select_min_in_conncomp_single_pixel() {
     mm.set_pixel_unchecked(5, 5, 1);
     let mask: Pix = mm.into();
 
-    let (pta, values) = leptonica_region::seedfill::select_min_in_conncomp(&pixs, &mask).unwrap();
+    let (pta, values) = leptonica::region::seedfill::select_min_in_conncomp(&pixs, &mask).unwrap();
     assert_eq!(pta.len(), 1);
     let (px, py) = pta.get(0).unwrap();
     assert_eq!(px as u32, 5);
@@ -171,5 +171,5 @@ fn test_select_min_in_conncomp_single_pixel() {
 fn test_select_min_in_conncomp_dimension_mismatch() {
     let pixs = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let pixm = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
-    assert!(leptonica_region::seedfill::select_min_in_conncomp(&pixs, &pixm).is_err());
+    assert!(leptonica::region::seedfill::select_min_in_conncomp(&pixs, &pixm).is_err());
 }

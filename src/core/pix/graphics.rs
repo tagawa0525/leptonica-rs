@@ -8,9 +8,9 @@
 //! - Contours (for grayscale images)
 
 use super::{PixMut, PixelDepth};
-use crate::box_::{Box, Boxa};
-use crate::error::{Error, Result};
-use crate::pta::{Pta, Ptaa};
+use crate::core::box_::{Box, Boxa};
+use crate::core::error::{Error, Result};
+use crate::core::pta::{Pta, Ptaa};
 
 /// Pixel operation for rendering
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -60,7 +60,7 @@ impl Color {
 
     /// Compose as 32-bit RGBA pixel
     pub fn to_pixel32(&self) -> u32 {
-        crate::color::compose_rgb(self.r, self.g, self.b)
+        crate::core::pixel::compose_rgb(self.r, self.g, self.b)
     }
 }
 
@@ -690,7 +690,7 @@ fn remove_duplicate_pts(pta: Pta) -> Pta {
 /// * `max` – maximum excursion in pixels from baseline
 /// * `drawref` – whether to add the baseline and its normal
 fn make_plot_pta_from_numa_gen(
-    na: &crate::numa::Numa,
+    na: &crate::core::numa::Numa,
     orient: HashOrientation,
     linewidth: u32,
     refpos: i32,
@@ -915,13 +915,13 @@ impl PixMut {
             let yu = yi as u32;
 
             let current = self.get_pixel_unchecked(xu, yu);
-            let (r, g, b) = crate::color::extract_rgb(current);
+            let (r, g, b) = crate::core::pixel::extract_rgb(current);
 
             let new_r = ((1.0 - fract) * r as f32 + fract * color.r as f32) as u8;
             let new_g = ((1.0 - fract) * g as f32 + fract * color.g as f32) as u8;
             let new_b = ((1.0 - fract) * b as f32 + fract * color.b as f32) as u8;
 
-            let new_pixel = crate::color::compose_rgb(new_r, new_g, new_b);
+            let new_pixel = crate::core::pixel::compose_rgb(new_r, new_g, new_b);
             self.set_pixel_unchecked(xu, yu, new_pixel);
         }
 
@@ -1358,7 +1358,7 @@ impl PixMut {
     /// C equivalent: `pixRenderPlotFromNuma()` in `graphics.c`
     pub fn render_plot_from_numa(
         &mut self,
-        na: &crate::numa::Numa,
+        na: &crate::core::numa::Numa,
         plotloc: PlotLocation,
         linewidth: u32,
         max: u32,
@@ -1399,7 +1399,7 @@ impl PixMut {
     #[allow(clippy::too_many_arguments)]
     pub fn render_plot_from_numa_gen(
         &mut self,
-        na: &crate::numa::Numa,
+        na: &crate::core::numa::Numa,
         orient: HashOrientation,
         linewidth: u32,
         refpos: i32,
@@ -1518,7 +1518,7 @@ impl Pix {
         width: u32,
         closeflag: bool,
     ) -> Result<Pix> {
-        use crate::colormap::PixColormap;
+        use crate::core::colormap::PixColormap;
         let cmap = PixColormap::create_random(8, true, true)?;
 
         let pixd = self.convert_to_8()?;
@@ -1526,7 +1526,7 @@ impl Pix {
         pixd.set_colormap(Some(cmap))?;
 
         // Helper: write colormap index directly into each 8bpp pixel in pta.
-        fn render_pta_cmap_index(pix: &mut crate::pix::PixMut, pta: &Pta, index: u8) {
+        fn render_pta_cmap_index(pix: &mut crate::core::pix::PixMut, pta: &Pta, index: u8) {
             let (w, h) = (pix.width() as i32, pix.height() as i32);
             for (fx, fy) in pta.iter() {
                 let x = fx as i32;
@@ -1843,7 +1843,7 @@ mod tests {
         assert_eq!(c.to_gray(), 150);
 
         let pixel = c.to_pixel32();
-        let (r, g, b) = crate::color::extract_rgb(pixel);
+        let (r, g, b) = crate::core::pixel::extract_rgb(pixel);
         assert_eq!((r, g, b), (100, 150, 200));
     }
 
@@ -1868,26 +1868,26 @@ mod tests {
 
     #[test]
     fn test_generate_boxa_pta() {
-        use crate::box_::Boxa;
+        use crate::core::box_::Boxa;
         let mut boxa = Boxa::new();
-        boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
-        boxa.push(crate::box_::Box::new(20, 20, 5, 5).unwrap());
+        boxa.push(crate::core::box_::Box::new(0, 0, 10, 10).unwrap());
+        boxa.push(crate::core::box_::Box::new(20, 20, 5, 5).unwrap());
         let pta = generate_boxa_pta(&boxa, 1, false);
         assert!(!pta.is_empty()); // should contain outline points of both boxes
     }
 
     #[test]
     fn test_generate_hash_box_pta() {
-        let b = crate::box_::Box::new(0, 0, 20, 20).unwrap();
+        let b = crate::core::box_::Box::new(0, 0, 20, 20).unwrap();
         let pta = generate_hash_box_pta(&b, 4, 1, HashOrientation::Horizontal, false).unwrap();
         assert!(!pta.is_empty());
     }
 
     #[test]
     fn test_generate_hash_boxa_pta() {
-        use crate::box_::Boxa;
+        use crate::core::box_::Boxa;
         let mut boxa = Boxa::new();
-        boxa.push(crate::box_::Box::new(0, 0, 20, 20).unwrap());
+        boxa.push(crate::core::box_::Box::new(0, 0, 20, 20).unwrap());
         let pta =
             generate_hash_boxa_pta(&boxa, 4, 1, HashOrientation::Vertical, false, false).unwrap();
         assert!(!pta.is_empty());
@@ -1895,10 +1895,10 @@ mod tests {
 
     #[test]
     fn test_generate_ptaa_boxa() {
-        use crate::box_::Boxa;
+        use crate::core::box_::Boxa;
         let mut boxa = Boxa::new();
-        boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
-        boxa.push(crate::box_::Box::new(5, 5, 8, 8).unwrap());
+        boxa.push(crate::core::box_::Box::new(0, 0, 10, 10).unwrap());
+        boxa.push(crate::core::box_::Box::new(5, 5, 8, 8).unwrap());
         let ptaa = generate_ptaa_boxa(&boxa);
         assert_eq!(ptaa.len(), 2);
         // Each pta should have 4 corner points
@@ -1907,9 +1907,9 @@ mod tests {
 
     #[test]
     fn test_generate_ptaa_hash_boxa() {
-        use crate::box_::Boxa;
+        use crate::core::box_::Boxa;
         let mut boxa = Boxa::new();
-        boxa.push(crate::box_::Box::new(0, 0, 20, 20).unwrap());
+        boxa.push(crate::core::box_::Box::new(0, 0, 20, 20).unwrap());
         let ptaa = generate_ptaa_hash_boxa(&boxa, 4, 1, HashOrientation::PosSlope, false).unwrap();
         assert_eq!(ptaa.len(), 1);
     }
@@ -2057,7 +2057,7 @@ mod tests {
 
     #[test]
     fn test_render_random_cmap_ptaa() {
-        use crate::pta::Ptaa;
+        use crate::core::pta::Ptaa;
         let pix = Pix::new(100, 100, super::super::PixelDepth::Bit32).unwrap();
         let mut ptaa = Ptaa::new();
         let mut pta1 = Pta::new();
@@ -2104,7 +2104,7 @@ mod tests {
 
     #[test]
     fn test_render_plot_from_numa() {
-        use crate::numa::Numa;
+        use crate::core::numa::Numa;
         let pix = Pix::new(100, 80, super::super::PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
         let na = Numa::from_slice(&[1.0, 2.0, 3.0, 2.0, 1.0]);

@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/psioseg_reg.c`
 
-use leptonica_io::ps::{PsLevel, PsOptions};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::io::ps::{PsLevel, PsOptions};
 
 /// Test basic PS output of images used in C segmented tests (partial).
 ///
@@ -24,11 +25,11 @@ fn psioseg_reg_basic_ps_output() {
     let mut rp = RegParams::new("psioseg_basic");
 
     // Test image that would be segmented in C
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
 
     // Level 1: uncompressed hex-encoded PostScript baseline
     let opts_l1 = PsOptions::default().level(PsLevel::Level1);
-    let data_l1 = leptonica_io::ps::write_ps_mem(&pix, &opts_l1).expect("write_ps_mem level1");
+    let data_l1 = leptonica::io::ps::write_ps_mem(&pix, &opts_l1).expect("write_ps_mem level1");
     let ps_l1 = String::from_utf8_lossy(&data_l1);
     rp.compare_values(1.0, if ps_l1.starts_with("%!") { 1.0 } else { 0.0 }, 0.0);
     // Level 1 uses ASCIIHexDecode
@@ -37,7 +38,7 @@ fn psioseg_reg_basic_ps_output() {
 
     // Level 3: Flate compressed with ASCII85 encoding
     let opts_l3 = PsOptions::default().level(PsLevel::Level3);
-    let data_l3 = leptonica_io::ps::write_ps_mem(&pix, &opts_l3).expect("write_ps_mem level3");
+    let data_l3 = leptonica::io::ps::write_ps_mem(&pix, &opts_l3).expect("write_ps_mem level3");
     let ps_l3 = String::from_utf8_lossy(&data_l3);
     rp.compare_values(1.0, if ps_l3.starts_with("%!") { 1.0 } else { 0.0 }, 0.0);
     // Level 3 uses FlateDecode or ASCII85 EOD marker

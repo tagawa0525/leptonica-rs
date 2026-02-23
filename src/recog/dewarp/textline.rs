@@ -3,10 +3,10 @@
 //! This module provides functionality to detect text line centers
 //! in a binary image. These centers are used to build the disparity model.
 
-use crate::{RecogError, RecogResult};
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_morph::{close_brick, erode_brick, open_brick};
-use leptonica_region::{ConnectivityType, find_connected_components};
+use crate::core::{Pix, PixelDepth};
+use crate::morph::{close_brick, erode_brick, open_brick};
+use crate::recog::{RecogError, RecogResult};
+use crate::region::{ConnectivityType, find_connected_components};
 
 use super::types::TextLine;
 

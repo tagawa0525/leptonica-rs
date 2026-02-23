@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/threshnorm_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
 
 /// Test threshold_to_binary at multiple thresholds (partial C AddTestSet).
 ///
@@ -25,7 +26,7 @@ use leptonica_test::RegParams;
 fn threshnorm_reg_threshold_sweep() {
     let mut rp = RegParams::new("threshnorm_sweep");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 

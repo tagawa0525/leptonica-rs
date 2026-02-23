@@ -9,9 +9,10 @@
 //! 4. Rendered border pixels are a subset of the original image pixels
 //! 5. Chain code encode/decode roundtrip preserves border points
 
-use leptonica_core::PixelDepth;
-use leptonica_region::{from_chain_code, get_all_borders, render_borders, to_chain_code};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::region::{from_chain_code, get_all_borders, render_borders, to_chain_code};
 
 /// Equivalent of the C version's RunCCBordTest function.
 fn run_ccbord_test(fname: &str, rp: &mut RegParams) {

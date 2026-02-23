@@ -2,8 +2,8 @@
 //!
 //! Reads and writes Windows Bitmap (BMP) files.
 
-use crate::{IoError, IoResult, header::ImageHeader};
-use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
+use crate::core::{ImageFormat, Pix, PixelDepth, pixel};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use std::io::{Read, Write};
 
 /// BMP file header size
@@ -178,7 +178,7 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
         let mut palette = vec![0u8; num_colors * 4];
         reader.read_exact(&mut palette).map_err(IoError::Io)?;
 
-        let mut cmap = leptonica_core::PixColormap::new(bits_per_pixel as u32)?;
+        let mut cmap = crate::core::PixColormap::new(bits_per_pixel as u32)?;
         for i in 0..num_colors {
             let b = palette[i * 4];
             let g = palette[i * 4 + 1];
@@ -249,7 +249,7 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
                     let b = row_buffer[idx];
                     let g = row_buffer[idx + 1];
                     let r = row_buffer[idx + 2];
-                    let pixel = color::compose_rgb(r, g, b);
+                    let pixel = pixel::compose_rgb(r, g, b);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -260,7 +260,7 @@ pub fn read_bmp<R: Read>(mut reader: R) -> IoResult<Pix> {
                     let g = row_buffer[idx + 1];
                     let r = row_buffer[idx + 2];
                     let a = row_buffer[idx + 3];
-                    let pixel = color::compose_rgba(r, g, b, a);
+                    let pixel = pixel::compose_rgba(r, g, b, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -394,7 +394,7 @@ pub fn write_bmp<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
             PixelDepth::Bit32 => {
                 for x in 0..width {
                     let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                    let (r, g, b) = color::extract_rgb(pixel);
+                    let (r, g, b) = pixel::extract_rgb(pixel);
                     let idx = (x as usize) * 3;
                     row_buffer[idx] = b;
                     row_buffer[idx + 1] = g;

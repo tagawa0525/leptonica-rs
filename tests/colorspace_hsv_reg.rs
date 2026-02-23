@@ -7,17 +7,18 @@
 //! - pixMakeHistoHS, pixMakeHistoHV, pixMakeHistoSV
 //! - pixConvertRGBToYUV, pixConvertYUVToRGB
 
-use leptonica_color::colorspace::{
+use leptonica::color::colorspace::{
     RegionFlag, make_histo_hs, make_histo_hv, make_histo_sv, make_range_mask_hs,
     make_range_mask_hv, make_range_mask_sv, pix_convert_rgb_to_yuv, pix_convert_yuv_to_rgb,
 };
-use leptonica_core::{Pix, PixelDepth, color};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 /// Create a uniform RGB image
 fn make_uniform_rgb(r: u8, g: u8, b: u8, w: u32, h: u32) -> Pix {
     let pix = Pix::new(w, h, PixelDepth::Bit32).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
-    let pixel = color::compose_rgb(r, g, b);
+    let pixel = pixel::compose_rgb(r, g, b);
     for y in 0..h {
         for x in 0..w {
             pm.set_pixel_unchecked(x, y, pixel);
@@ -34,11 +35,11 @@ fn make_tricolor(w: u32, h: u32) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let pixel = if x < third {
-                color::compose_rgb(255, 0, 0)
+                pixel::compose_rgb(255, 0, 0)
             } else if x < 2 * third {
-                color::compose_rgb(0, 255, 0)
+                pixel::compose_rgb(0, 255, 0)
             } else {
-                color::compose_rgb(0, 0, 255)
+                pixel::compose_rgb(0, 0, 255)
             };
             pm.set_pixel_unchecked(x, y, pixel);
         }
@@ -243,8 +244,8 @@ fn test_yuv_roundtrip() {
     for (x, y) in [(5, 5), (15, 5), (25, 5)] {
         let orig = pix.get_pixel_unchecked(x, y);
         let back = rgb.get_pixel_unchecked(x, y);
-        let (r1, g1, b1) = color::extract_rgb(orig);
-        let (r2, g2, b2) = color::extract_rgb(back);
+        let (r1, g1, b1) = pixel::extract_rgb(orig);
+        let (r2, g2, b2) = pixel::extract_rgb(back);
         assert!(
             (r1 as i32 - r2 as i32).abs() <= 2
                 && (g1 as i32 - g2 as i32).abs() <= 2

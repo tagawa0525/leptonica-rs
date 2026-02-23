@@ -14,11 +14,12 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/wordboxes_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_recog::jbclass::{pix_word_boxes_by_dilation, pix_word_mask_by_dilation};
-use leptonica_test::RegParams;
-use leptonica_transform::scale_by_sampling;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::recog::jbclass::{pix_word_boxes_by_dilation, pix_word_mask_by_dilation};
+use leptonica::transform::scale_by_sampling;
 
 /// Test word mask by dilation on lucasta.150.jpg at full scale (C test section 1).
 ///
@@ -28,7 +29,7 @@ use leptonica_transform::scale_by_sampling;
 fn wordboxes_reg_lucasta_full() {
     let mut rp = RegParams::new("wordboxes_lucasta");
 
-    let pix_orig = leptonica_test::load_test_image("lucasta.150.jpg").expect("load lucasta");
+    let pix_orig = common::load_test_image("lucasta.150.jpg").expect("load lucasta");
     // Convert to binary
     let pix_gray = pix_orig.convert_to_8().expect("convert to gray");
     let pix = threshold_to_binary(&pix_gray, 128).expect("threshold");
@@ -67,7 +68,7 @@ fn wordboxes_reg_lucasta_full() {
 fn wordboxes_reg_lucasta_scaled() {
     let mut rp = RegParams::new("wordboxes_lucasta_s");
 
-    let pix_orig = leptonica_test::load_test_image("lucasta.150.jpg").expect("load lucasta");
+    let pix_orig = common::load_test_image("lucasta.150.jpg").expect("load lucasta");
     let pix_gray = pix_orig.convert_to_8().expect("convert to gray");
     let pix_bin = threshold_to_binary(&pix_gray, 128).expect("threshold");
 
@@ -94,7 +95,7 @@ fn wordboxes_reg_lucasta_scaled() {
 fn wordboxes_reg_zanotti() {
     let mut rp = RegParams::new("wordboxes_zanotti");
 
-    let pix_orig = leptonica_test::load_test_image("zanotti-78.jpg").expect("load zanotti");
+    let pix_orig = common::load_test_image("zanotti-78.jpg").expect("load zanotti");
     let pix_gray = pix_orig.convert_to_8().expect("convert to gray");
     let pix = threshold_to_binary(&pix_gray, 128).expect("threshold");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
@@ -116,7 +117,7 @@ fn wordboxes_reg_zanotti() {
 fn wordboxes_reg_words15() {
     let mut rp = RegParams::new("wordboxes_w15");
 
-    let pix = leptonica_test::load_test_image("words.15.tif").expect("load words.15.tif");
+    let pix = common::load_test_image("words.15.tif").expect("load words.15.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
@@ -136,7 +137,7 @@ fn wordboxes_reg_words15() {
 fn wordboxes_reg_words44() {
     let mut rp = RegParams::new("wordboxes_w44");
 
-    let pix = leptonica_test::load_test_image("words.44.tif").expect("load words.44.tif");
+    let pix = common::load_test_image("words.44.tif").expect("load words.44.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
@@ -159,7 +160,7 @@ fn wordboxes_reg_words44() {
 fn wordboxes_reg_mask_box_consistency() {
     let mut rp = RegParams::new("wordboxes_consist");
 
-    let pix = leptonica_test::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
+    let pix = common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     let (mask, _) = pix_word_mask_by_dilation(&pix, 20).expect("word_mask");

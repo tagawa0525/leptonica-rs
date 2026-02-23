@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/rasteropip_reg.c`
 
-use leptonica_core::{InColor, Pix};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{InColor, Pix};
 
 /// Test in-place vertical shift: opposite shifts within separate bands.
 ///
@@ -23,7 +24,7 @@ use leptonica_test::RegParams;
 fn rasteropip_reg_vip_shifts() {
     let mut rp = RegParams::new("rasteropip_vip");
 
-    let pix1 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix1 = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix1.width() as i32;
 
     // Shift a narrow band, rest should be unchanged
@@ -46,7 +47,7 @@ fn rasteropip_reg_vip_shifts() {
 fn rasteropip_reg_hip_shifts() {
     let mut rp = RegParams::new("rasteropip_hip");
 
-    let pix1 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix1 = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let h = pix1.height() as i32;
 
     // Shift a band, rest should be unchanged
@@ -90,7 +91,7 @@ fn rasteropip_reg_mirrored_border() {
 
     let mut rp = RegParams::new("rasteropip_mirror");
 
-    let pixs = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pixs = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pixs.width();
     let h = pixs.height();
 

@@ -11,8 +11,9 @@
 //! - pixBackgroundNormRGBArrays
 //! - pixCleanBackgroundToWhite
 
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_filter::adaptmap::{self, BackgroundNormOptions};
+use leptonica::core::pixel;
+use leptonica::filter::adaptmap::{self, BackgroundNormOptions};
+use leptonica::{Pix, PixelDepth};
 
 /// Create a grayscale test image with uneven background
 fn make_gray_test_image() -> Pix {
@@ -43,7 +44,7 @@ fn make_color_test_image() -> Pix {
             let r = (120 + x * 2).min(255) as u8;
             let g = (140 + y).min(255) as u8;
             let b = 180u8;
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(r, g, b));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
         }
     }
     pm.into()

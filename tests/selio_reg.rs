@@ -10,8 +10,9 @@
 //! cargo test -p leptonica-morph --test selio_reg -- --nocapture
 //! ```
 
-use leptonica_morph::{Sel, SelElement};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::morph::{Sel, SelElement};
 
 // ---------------------------------------------------------------
 //  C版の textsel 定義（selCreateFromString用）

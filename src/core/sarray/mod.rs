@@ -6,7 +6,7 @@
 
 pub mod serial;
 
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 use std::collections::HashSet;
 
 /// Array of strings
@@ -19,7 +19,7 @@ use std::collections::HashSet;
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::Sarray;
+/// use leptonica::core::Sarray;
 ///
 /// // Create from words
 /// let sa = Sarray::from_words("hello world");
@@ -76,7 +76,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::initialized(3, "hello");
     /// assert_eq!(sa.len(), 3);
@@ -95,7 +95,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_words("hello  world\nfoo\tbar");
     /// assert_eq!(sa.len(), 4);
@@ -117,7 +117,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_lines("line1\n\nline2", true);
     /// assert_eq!(sa.len(), 3);
@@ -164,7 +164,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::generate_integers(5);
     /// assert_eq!(sa.len(), 5);
@@ -293,7 +293,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_str_slice(&["a", "b", "c"]);
     /// assert_eq!(sa.join(", "), "a, b, c");
@@ -327,7 +327,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_str_slice(&["a", "b", "c", "d"]);
     /// assert_eq!(sa.join_range(1, 2, "-"), Some("b-c".to_string()));
@@ -362,7 +362,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_str_slice(&["a", "b", "c", "d"]);
     /// let result = sa.concat_uniformly(2, " ");
@@ -425,7 +425,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let mut sa1 = Sarray::from_str_slice(&["a", "b"]);
     /// let mut sa2 = Sarray::from_str_slice(&["x"]);
@@ -461,7 +461,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let mut sa = Sarray::new();
     /// sa.split_string("a,b;c", &[',', ';']);
@@ -487,7 +487,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let words = Sarray::from_words("hello world foo bar");
     /// let lines = words.words_to_lines(12);
@@ -544,7 +544,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_str_slice(&["apple", "banana", "apricot"]);
     /// let filtered = sa.filter_by_substring("ap");
@@ -570,7 +570,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_str_slice(&["a", "b", "c", "d"]);
     /// let selected = sa.select_range(1, Some(2));
@@ -601,7 +601,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let mut sa = Sarray::from_str_slice(&["c", "a", "b"]);
     /// sa.sort();
@@ -646,7 +646,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_str_slice(&["a", "b", "c"]);
     /// let indices = [2, 0, 1];
@@ -675,7 +675,7 @@ impl Sarray {
     /// - Out-of-bounds (but non-negative) indices are similarly skipped.
     ///
     /// C equivalent: `sarraySortByIndex()` in `sarray2.c`
-    pub fn sort_by_index(&self, naindex: &crate::numa::Numa) -> Sarray {
+    pub fn sort_by_index(&self, naindex: &crate::core::numa::Numa) -> Sarray {
         let n = naindex.len();
         let mut out = Sarray::with_capacity(n);
         for i in 0..n {
@@ -742,7 +742,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let mut sa = Sarray::from_str_slice(&["a", "b", "a", "c", "b"]);
     /// sa.remove_duplicates();
@@ -838,7 +838,7 @@ impl Sarray {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Sarray;
+    /// use leptonica::core::Sarray;
     ///
     /// let sa = Sarray::from_str_slice(&["name,John", "age,30", "city,NY"]);
     /// assert_eq!(sa.lookup_csv_kv("age"), Some("30".to_string()));
@@ -1710,7 +1710,7 @@ mod tests {
 
     #[test]
     fn test_sort_by_index() {
-        use crate::numa::Numa;
+        use crate::core::numa::Numa;
         let sa = Sarray::from_str_slice(&["c", "a", "b"]);
         // index [1, 2, 0] maps new pos → old pos: new[0]=old[1]="a", etc.
         let na = Numa::from_slice(&[1.0, 2.0, 0.0]);

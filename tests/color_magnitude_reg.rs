@@ -4,15 +4,16 @@
 //!
 //! C Leptonica: `colorcontent.c` — `pixColorMagnitude`
 
-use leptonica_color::{ColorMagnitudeType, color_magnitude};
-use leptonica_core::{Pix, PixelDepth, color};
+use leptonica::color::{ColorMagnitudeType, color_magnitude};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 #[test]
 fn test_color_magnitude_gray_pixel() {
     // A pure gray pixel (r=g=b) should have magnitude 0 for all types
     let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
     let mut pm = pix.to_mut();
-    pm.set_pixel_unchecked(0, 0, color::compose_rgba(128, 128, 128, 255));
+    pm.set_pixel_unchecked(0, 0, pixel::compose_rgba(128, 128, 128, 255));
     let pix: Pix = pm.into();
 
     for mag_type in [
@@ -31,7 +32,7 @@ fn test_color_magnitude_pure_red() {
     // Pure red (255, 0, 0)
     let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
     let mut pm = pix.to_mut();
-    pm.set_pixel_unchecked(0, 0, color::compose_rgba(255, 0, 0, 255));
+    pm.set_pixel_unchecked(0, 0, pixel::compose_rgba(255, 0, 0, 255));
     let pix: Pix = pm.into();
 
     // MaxDiff: max(255,0,0) - min(255,0,0) = 255
@@ -52,7 +53,7 @@ fn test_color_magnitude_known_values() {
     // R=100, G=120, B=140 → known expected values
     let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
     let mut pm = pix.to_mut();
-    pm.set_pixel_unchecked(0, 0, color::compose_rgba(100, 120, 140, 255));
+    pm.set_pixel_unchecked(0, 0, pixel::compose_rgba(100, 120, 140, 255));
     let pix: Pix = pm.into();
 
     // IntermedDiff: |100-120|=20, |100-140|=40, |120-140|=20
@@ -75,9 +76,9 @@ fn test_color_magnitude_multiple_pixels() {
     // 3x1 image with different colors
     let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
     let mut pm = pix.to_mut();
-    pm.set_pixel_unchecked(0, 0, color::compose_rgba(100, 100, 100, 255)); // gray
-    pm.set_pixel_unchecked(1, 0, color::compose_rgba(200, 0, 0, 255)); // red
-    pm.set_pixel_unchecked(2, 0, color::compose_rgba(50, 100, 150, 255)); // blue-ish
+    pm.set_pixel_unchecked(0, 0, pixel::compose_rgba(100, 100, 100, 255)); // gray
+    pm.set_pixel_unchecked(1, 0, pixel::compose_rgba(200, 0, 0, 255)); // red
+    pm.set_pixel_unchecked(2, 0, pixel::compose_rgba(50, 100, 150, 255)); // blue-ish
     let pix: Pix = pm.into();
 
     let result = color_magnitude(&pix, ColorMagnitudeType::MaxDiff).unwrap();

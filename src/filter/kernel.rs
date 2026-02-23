@@ -2,7 +2,7 @@
 //!
 //! Defines kernel structures for image convolution operations.
 
-use crate::{FilterError, FilterResult};
+use crate::filter::{FilterError, FilterResult};
 
 /// A 2D convolution kernel
 #[derive(Debug, Clone)]

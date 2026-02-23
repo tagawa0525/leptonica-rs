@@ -2,7 +2,7 @@
 //!
 //! This module defines the core types for dewarping operations.
 
-use leptonica_core::FPix;
+use crate::core::FPix;
 
 /// Options for dewarping operations
 ///
@@ -358,7 +358,7 @@ impl Dewarp {
 #[derive(Debug)]
 pub struct DewarpResult {
     /// The dewarped image
-    pub pix: leptonica_core::Pix,
+    pub pix: crate::core::Pix,
 
     /// The dewarp model used (contains disparity arrays)
     pub dewarp: Dewarp,
@@ -372,7 +372,7 @@ pub struct DewarpResult {
 
 impl DewarpResult {
     /// Create a new dewarp result
-    pub fn new(pix: leptonica_core::Pix, dewarp: Dewarp, v_applied: bool, h_applied: bool) -> Self {
+    pub fn new(pix: crate::core::Pix, dewarp: Dewarp, v_applied: bool, h_applied: bool) -> Self {
         Self {
             pix,
             dewarp,

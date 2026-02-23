@@ -6,11 +6,11 @@
 //! - Seedfill via dilation (binary reconstruction)
 //! - Grayscale morphological gradient
 
-use crate::{
+use crate::core::{Pix, PixelDepth};
+use crate::morph::{
     MorphError, MorphResult, Sel, close, dilate, erode, gradient_gray, hit_miss_transform,
     morph_sequence, open,
 };
-use leptonica_core::{Pix, PixelDepth};
 
 /// Type of morphological operation for union/intersection functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -231,7 +231,7 @@ pub fn morph_gradient(pix: &Pix, hsize: u32, vsize: u32, smoothing: u32) -> Morp
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{Pix, PixelDepth};
+    use crate::core::{Pix, PixelDepth};
 
     fn create_1bpp_test() -> Pix {
         let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
@@ -261,7 +261,7 @@ mod tests {
     fn test_morph_sequence_masked_no_mask_equals_sequence() {
         let pix = create_1bpp_test();
         let result_masked = morph_sequence_masked(&pix, None, "D3.3").unwrap();
-        let result_direct = crate::morph_sequence(&pix, "D3.3").unwrap();
+        let result_direct = crate::morph::morph_sequence(&pix, "D3.3").unwrap();
         assert!(result_masked.equals(&result_direct));
     }
 

@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/warper_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
-use leptonica_transform::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::transform::{
     StereoscopicParams, WarpDirection, WarpFill, WarpOperation, WarpType, random_harmonic_warp,
     stretch_horizontal, warp_stereoscopic,
 };
@@ -27,7 +28,7 @@ use leptonica_transform::{
 fn warper_reg_random_harmonic() {
     let mut rp = RegParams::new("warper_rhw");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
 
     let w = pix.width();
@@ -59,7 +60,7 @@ fn warper_reg_random_harmonic() {
 fn warper_reg_stereoscopic() {
     let mut rp = RegParams::new("warper_stereo");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -95,7 +96,7 @@ fn warper_reg_stereoscopic() {
 fn warper_reg_stretch_horizontal() {
     let mut rp = RegParams::new("warper_stretch");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let h = pix.height();
 
     // Quadratic left stretch with linear interpolation

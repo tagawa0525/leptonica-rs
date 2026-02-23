@@ -12,7 +12,8 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/encoding_reg.c`
 
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
 
 /// Test that PostScript output contains ASCII85-encoded data.
 ///
@@ -22,10 +23,10 @@ use leptonica_test::RegParams;
 fn encoding_reg_ps_ascii85() {
     let mut rp = RegParams::new("encoding_ps_ascii85");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     // Write as PostScript to memory
-    let ps_data = leptonica_io::write_image_mem(&pix, leptonica_io::ImageFormat::Ps);
+    let ps_data = leptonica::io::write_image_mem(&pix, leptonica::io::ImageFormat::Ps);
     match ps_data {
         Ok(data) => {
             let ps_str = String::from_utf8_lossy(&data);
@@ -40,7 +41,7 @@ fn encoding_reg_ps_ascii85() {
         Err(e) => {
             // PS output requires the "ps-format" feature; verify it's UnsupportedFormat
             assert!(
-                matches!(e, leptonica_io::IoError::UnsupportedFormat(_)),
+                matches!(e, leptonica::io::IoError::UnsupportedFormat(_)),
                 "expected UnsupportedFormat error, got: {e}"
             );
             rp.compare_values(1.0, 1.0, 0.0);

@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/distance_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_region::{BoundaryCondition, ConnectivityType, distance_function, seedfill_gray};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::region::{BoundaryCondition, ConnectivityType, distance_function, seedfill_gray};
 
 /// Test distance_function with all connectivity/depth/boundary combinations (C checks 1-8).
 ///
@@ -26,7 +27,7 @@ fn distance_reg_all_combos() {
 
     // C: pix = pixRead("feyn.tif"); pixs = pixClipRectangle(pix, box, NULL);
     // box = boxCreate(383, 338, 1480, 1050);
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = pix
         .clip_rectangle(383, 338, 800, 500)
         .expect("clip feyn region");
@@ -60,7 +61,7 @@ fn distance_reg_all_combos() {
 fn distance_reg_seedfill_labeling() {
     let mut rp = RegParams::new("dist_seedfill");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = pix
         .clip_rectangle(383, 338, 400, 300)
         .expect("clip feyn region");
@@ -82,7 +83,7 @@ fn distance_reg_seedfill_labeling() {
         let template = dist.create_template();
         let mut m = template.try_into_mut().expect("try_into_mut");
         m.set_masked(&pixs, 255).expect("set_masked");
-        let p: leptonica_core::Pix = m.into();
+        let p: leptonica::Pix = m.into();
         p
     };
 

@@ -5,9 +5,9 @@
 //! C Leptonica: `conncomp.c`, `pixlabel.c`
 //! - pixConnCompPixa, pixGetSortedNeighborValues
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_region::ConnectivityType;
-use leptonica_region::conncomp::{conncomp_pixa, get_sorted_neighbor_values};
+use leptonica::region::ConnectivityType;
+use leptonica::region::conncomp::{conncomp_pixa, get_sorted_neighbor_values};
+use leptonica::{Pix, PixelDepth};
 
 /// Create a binary image with specific pixels set to foreground
 fn make_binary_image(w: u32, h: u32, pixels: &[(u32, u32)]) -> Pix {

@@ -3,8 +3,8 @@
 //! This module provides reading and writing support for TIFF images,
 //! including multipage TIFFs and various compression formats.
 
-use crate::{IoError, IoResult, header::ImageHeader};
-use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
+use crate::core::{ImageFormat, Pix, PixelDepth, pixel};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use std::io::{Read, Seek, Write};
 use tiff::ColorType;
 use tiff::decoder::{Decoder, DecodingResult};
@@ -385,7 +385,7 @@ fn decode_tiff_image<R: Read + Seek>(decoder: &mut Decoder<R>) -> IoResult<Pix> 
 /// Convert U8 data to Pix format
 fn convert_u8_to_pix(
     data: &[u8],
-    pix_mut: &mut leptonica_core::PixMut,
+    pix_mut: &mut crate::core::PixMut,
     color_type: ColorType,
     invert: bool,
 ) -> IoResult<()> {
@@ -461,7 +461,7 @@ fn convert_u8_to_pix(
                         let r = data[idx];
                         let g = data[idx + 1];
                         let b = data[idx + 2];
-                        let pixel = color::compose_rgb(r, g, b);
+                        let pixel = pixel::compose_rgb(r, g, b);
                         pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -477,7 +477,7 @@ fn convert_u8_to_pix(
                         let g = data[idx + 1];
                         let b = data[idx + 2];
                         let a = data[idx + 3];
-                        let pixel = color::compose_rgba(r, g, b, a);
+                        let pixel = pixel::compose_rgba(r, g, b, a);
                         pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -491,7 +491,7 @@ fn convert_u8_to_pix(
                     if idx + 1 < data.len() {
                         let g = data[idx];
                         let a = data[idx + 1];
-                        let pixel = color::compose_rgba(g, g, g, a);
+                        let pixel = pixel::compose_rgba(g, g, g, a);
                         pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -535,7 +535,7 @@ fn convert_u8_to_pix(
 /// Convert U16 data to Pix format
 fn convert_u16_to_pix(
     data: &[u16],
-    pix_mut: &mut leptonica_core::PixMut,
+    pix_mut: &mut crate::core::PixMut,
     color_type: ColorType,
 ) -> IoResult<()> {
     let width = pix_mut.width();
@@ -561,7 +561,7 @@ fn convert_u16_to_pix(
                         let r = (data[idx] >> 8) as u8;
                         let g = (data[idx + 1] >> 8) as u8;
                         let b = (data[idx + 2] >> 8) as u8;
-                        let pixel = color::compose_rgb(r, g, b);
+                        let pixel = pixel::compose_rgb(r, g, b);
                         pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -577,7 +577,7 @@ fn convert_u16_to_pix(
                         let g = (data[idx + 1] >> 8) as u8;
                         let b = (data[idx + 2] >> 8) as u8;
                         let a = (data[idx + 3] >> 8) as u8;
-                        let pixel = color::compose_rgba(r, g, b, a);
+                        let pixel = pixel::compose_rgba(r, g, b, a);
                         pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -590,7 +590,7 @@ fn convert_u16_to_pix(
                     if idx + 1 < data.len() {
                         let g = (data[idx] >> 8) as u8;
                         let a = (data[idx + 1] >> 8) as u8;
-                        let pixel = color::compose_rgba(g, g, g, a);
+                        let pixel = pixel::compose_rgba(g, g, g, a);
                         pix_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -607,7 +607,7 @@ fn convert_u16_to_pix(
 }
 
 /// Convert U32 data to Pix format
-fn convert_u32_to_pix(data: &[u32], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_u32_to_pix(data: &[u32], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -623,7 +623,7 @@ fn convert_u32_to_pix(data: &[u32], pix_mut: &mut leptonica_core::PixMut) -> IoR
 }
 
 /// Convert U64 data to Pix format (downsample to 32-bit)
-fn convert_u64_to_pix(data: &[u64], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_u64_to_pix(data: &[u64], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -639,7 +639,7 @@ fn convert_u64_to_pix(data: &[u64], pix_mut: &mut leptonica_core::PixMut) -> IoR
 }
 
 /// Convert F16 data to Pix format
-fn convert_f16_to_pix(data: &[half::f16], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_f16_to_pix(data: &[half::f16], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -671,7 +671,7 @@ fn convert_f16_to_pix(data: &[half::f16], pix_mut: &mut leptonica_core::PixMut) 
 }
 
 /// Convert F32 data to Pix format
-fn convert_f32_to_pix(data: &[f32], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_f32_to_pix(data: &[f32], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -697,7 +697,7 @@ fn convert_f32_to_pix(data: &[f32], pix_mut: &mut leptonica_core::PixMut) -> IoR
 }
 
 /// Convert F64 data to Pix format
-fn convert_f64_to_pix(data: &[f64], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_f64_to_pix(data: &[f64], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -722,7 +722,7 @@ fn convert_f64_to_pix(data: &[f64], pix_mut: &mut leptonica_core::PixMut) -> IoR
 }
 
 /// Convert I8 data to Pix format
-fn convert_i8_to_pix(data: &[i8], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_i8_to_pix(data: &[i8], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -740,7 +740,7 @@ fn convert_i8_to_pix(data: &[i8], pix_mut: &mut leptonica_core::PixMut) -> IoRes
 }
 
 /// Convert I16 data to Pix format
-fn convert_i16_to_pix(data: &[i16], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_i16_to_pix(data: &[i16], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -758,7 +758,7 @@ fn convert_i16_to_pix(data: &[i16], pix_mut: &mut leptonica_core::PixMut) -> IoR
 }
 
 /// Convert I32 data to Pix format
-fn convert_i32_to_pix(data: &[i32], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_i32_to_pix(data: &[i32], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -776,7 +776,7 @@ fn convert_i32_to_pix(data: &[i32], pix_mut: &mut leptonica_core::PixMut) -> IoR
 }
 
 /// Convert I64 data to Pix format
-fn convert_i64_to_pix(data: &[i64], pix_mut: &mut leptonica_core::PixMut) -> IoResult<()> {
+fn convert_i64_to_pix(data: &[i64], pix_mut: &mut crate::core::PixMut) -> IoResult<()> {
     let width = pix_mut.width();
     let height = pix_mut.height();
 
@@ -903,7 +903,7 @@ fn write_pix_to_encoder<W: Write + Seek>(mut encoder: TiffEncoder<W>, pix: &Pix)
                 for y in 0..height {
                     for x in 0..width {
                         let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                        let (r, g, b, a) = color::extract_rgba(pixel);
+                        let (r, g, b, a) = pixel::extract_rgba(pixel);
                         let idx = ((y * width + x) * 4) as usize;
                         data[idx] = r;
                         data[idx + 1] = g;
@@ -920,7 +920,7 @@ fn write_pix_to_encoder<W: Write + Seek>(mut encoder: TiffEncoder<W>, pix: &Pix)
                 for y in 0..height {
                     for x in 0..width {
                         let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
                         let idx = ((y * width + x) * 3) as usize;
                         data[idx] = r;
                         data[idx + 1] = g;
@@ -1000,7 +1000,7 @@ fn write_pix_page_to_encoder<W: Write + Seek>(
                 for y in 0..height {
                     for x in 0..width {
                         let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                        let (r, g, b, a) = color::extract_rgba(pixel);
+                        let (r, g, b, a) = pixel::extract_rgba(pixel);
                         let idx = ((y * width + x) * 4) as usize;
                         data[idx] = r;
                         data[idx + 1] = g;
@@ -1016,7 +1016,7 @@ fn write_pix_page_to_encoder<W: Write + Seek>(
                 for y in 0..height {
                     for x in 0..width {
                         let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
                         let idx = ((y * width + x) * 3) as usize;
                         data[idx] = r;
                         data[idx + 1] = g;

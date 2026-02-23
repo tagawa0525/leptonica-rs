@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/hardlight_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
 
 /// Test blend_hard_light on 32bpp color images (C checks 0-1).
 ///
@@ -24,7 +25,7 @@ fn hardlight_reg_color() {
     let mut rp = RegParams::new("hardlight_color");
 
     // Rust blend_hard_light requires same dimensions; use same image as both layers
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
@@ -60,7 +61,7 @@ fn hardlight_reg_gray() {
     let mut rp = RegParams::new("hardlight_gray");
 
     // blend_hard_light requires same dimensions and depth
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();

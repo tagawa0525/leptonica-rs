@@ -4,7 +4,7 @@
 //! "Connectivity-preserving morphological image transformations"
 //! (http://www.leptonica.com/papers/conn.pdf)
 
-use crate::{MorphResult, Sel};
+use crate::morph::{MorphResult, Sel};
 
 // ============================================================================
 // 4-connected thinning SELs
@@ -172,9 +172,9 @@ fn sel_from_thin_pattern(pattern: &str, name: &str) -> MorphResult<Sel> {
     for (y, line) in lines.iter().enumerate() {
         for (x, ch) in line.chars().enumerate() {
             let elem = match ch {
-                'x' | 'X' | 'C' | 'c' => crate::SelElement::Hit,
-                'o' | 'O' => crate::SelElement::Miss,
-                _ => crate::SelElement::DontCare,
+                'x' | 'X' | 'C' | 'c' => crate::morph::SelElement::Hit,
+                'o' | 'O' => crate::morph::SelElement::Miss,
+                _ => crate::morph::SelElement::DontCare,
             };
             sel.set_element(x as u32, y as u32, elem);
         }
@@ -424,14 +424,14 @@ mod tests {
         let sel = &sels[0];
 
         // Center should be hit (C)
-        assert_eq!(sel.get_element(1, 1), Some(crate::SelElement::Hit));
+        assert_eq!(sel.get_element(1, 1), Some(crate::morph::SelElement::Hit));
         // Left should be miss (o)
-        assert_eq!(sel.get_element(0, 1), Some(crate::SelElement::Miss));
+        assert_eq!(sel.get_element(0, 1), Some(crate::morph::SelElement::Miss));
         // Right should be hit (x)
-        assert_eq!(sel.get_element(2, 1), Some(crate::SelElement::Hit));
+        assert_eq!(sel.get_element(2, 1), Some(crate::morph::SelElement::Hit));
         // Top-right should be hit (x)
-        assert_eq!(sel.get_element(2, 0), Some(crate::SelElement::Hit));
+        assert_eq!(sel.get_element(2, 0), Some(crate::morph::SelElement::Hit));
         // Bottom-right should be hit (x)
-        assert_eq!(sel.get_element(2, 2), Some(crate::SelElement::Hit));
+        assert_eq!(sel.get_element(2, 2), Some(crate::morph::SelElement::Hit));
     }
 }

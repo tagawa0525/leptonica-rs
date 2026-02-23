@@ -16,8 +16,9 @@
 //! cargo test -p leptonica-io --test pngio_reg --features all-formats
 //! ```
 
-use leptonica_io::{ImageFormat, read_image, write_image, write_image_mem};
-use leptonica_test::{RegParams, load_test_image, regout_dir};
+mod common;
+use common::{RegParams, load_test_image, regout_dir};
+use leptonica::io::{ImageFormat, read_image, write_image, write_image_mem};
 use std::fs;
 
 const FILE_1BPP: &str = "rabi.png";
@@ -128,7 +129,7 @@ fn pngio_reg() {
 }
 
 /// Test PNG roundtrip: write to file and read back
-fn test_png_roundtrip(pix: &leptonica_core::Pix, outdir: &str, name: &str) -> bool {
+fn test_png_roundtrip(pix: &leptonica::Pix, outdir: &str, name: &str) -> bool {
     let path = format!("{}/{}.png", outdir, name);
 
     if let Err(e) = write_image(pix, &path, ImageFormat::Png) {
@@ -159,7 +160,7 @@ fn test_png_roundtrip(pix: &leptonica_core::Pix, outdir: &str, name: &str) -> bo
 }
 
 /// Test PNG memory-based read/write
-fn test_png_memory(pix: &leptonica_core::Pix) -> bool {
+fn test_png_memory(pix: &leptonica::Pix) -> bool {
     let data = match write_image_mem(pix, ImageFormat::Png) {
         Ok(d) => d,
         Err(e) => {
@@ -168,7 +169,7 @@ fn test_png_memory(pix: &leptonica_core::Pix) -> bool {
         }
     };
 
-    let pix2 = match leptonica_io::read_image_mem(&data) {
+    let pix2 = match leptonica::io::read_image_mem(&data) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("    Failed to read from memory: {}", e);
@@ -180,7 +181,7 @@ fn test_png_memory(pix: &leptonica_core::Pix) -> bool {
 }
 
 /// Test pixel data integrity
-fn test_pixel_integrity(pix: &leptonica_core::Pix) -> bool {
+fn test_pixel_integrity(pix: &leptonica::Pix) -> bool {
     let w = pix.width();
     let h = pix.height();
 
@@ -203,7 +204,7 @@ fn test_pixel_integrity(pix: &leptonica_core::Pix) -> bool {
 }
 
 /// Compare pixels of two images (sampled for large images)
-fn compare_pixels(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
+fn compare_pixels(pix1: &leptonica::Pix, pix2: &leptonica::Pix) -> bool {
     let w = pix1.width();
     let h = pix1.height();
 

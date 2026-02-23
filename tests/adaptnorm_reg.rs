@@ -19,12 +19,13 @@
 //!   - pixGammaTRC, pixGammaTRCMasked, pixDitherTo2bpp, pixThresholdTo4bpp
 //!   - pixThresholdToBinary, pixLocalExtrema, pixSeedfillGrayBasin, pixScaleSmooth
 
-use leptonica_core::Pix;
-use leptonica_filter::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::Pix;
+use leptonica::filter::{
     BackgroundNormOptions, ContrastNormOptions, background_norm, background_norm_simple,
     contrast_norm, contrast_norm_simple,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 /// Helper: sample min and max pixel values from an 8bpp image
 fn sample_min_max(pix: &Pix) -> (u32, u32) {

@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/multitype_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
-use leptonica_transform::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::transform::{
     AffineFill, AffineMatrix, BilinearCoeffs, Point, ProjectiveCoeffs, RotateFill, RotateOptions,
     affine, affine_sampled, bilinear, bilinear_sampled, expand_replicate, projective,
     projective_sampled, rotate, scale_to_size,
@@ -25,7 +26,7 @@ const TARGET_W: u32 = 200;
 const TARGET_H: u32 = 200;
 
 /// Helper: scale image to fixed size for consistent transform testing.
-fn to_target_size(pix: &leptonica_core::Pix) -> leptonica_core::Pix {
+fn to_target_size(pix: &leptonica::Pix) -> leptonica::Pix {
     scale_to_size(pix, TARGET_W, TARGET_H).expect("scale_to_size")
 }
 
@@ -50,7 +51,7 @@ fn multitype_reg_rotate() {
     };
 
     for img in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let pix_scaled = to_target_size(&pix);
 
         let rotated = rotate(&pix_scaled, 0.3, &opts).expect("rotate");
@@ -77,7 +78,7 @@ fn multitype_reg_affine() {
     let matrix = AffineMatrix::rotation(100.0f32, 100.0f32, 0.2f32);
 
     for img in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let pix_scaled = to_target_size(&pix);
 
         // Sampled affine
@@ -118,7 +119,7 @@ fn multitype_reg_projective() {
     let coeffs = ProjectiveCoeffs::from_four_points(src, dst).expect("projective coeffs");
 
     for img in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let pix_scaled = to_target_size(&pix);
 
         // Sampled projective
@@ -159,7 +160,7 @@ fn multitype_reg_bilinear() {
     let coeffs = BilinearCoeffs::from_four_points(src, dst).expect("bilinear coeffs");
 
     for img in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let pix_scaled = to_target_size(&pix);
 
         // Sampled bilinear
@@ -191,7 +192,7 @@ fn multitype_reg_scale() {
     ];
 
     for img in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
 
         let scaled = scale_to_size(&pix, TARGET_W, TARGET_H).expect("scale_to_size");
         rp.compare_values(TARGET_W as f64, scaled.width() as f64, 0.0);
@@ -210,8 +211,7 @@ fn multitype_reg_scale() {
 fn multitype_reg_alpha() {
     let mut rp = RegParams::new("multitype_alpha");
 
-    let pix =
-        leptonica_test::load_test_image("test-gray-alpha.png").expect("load test-gray-alpha.png");
+    let pix = common::load_test_image("test-gray-alpha.png").expect("load test-gray-alpha.png");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
 
     // Remove alpha before transformation

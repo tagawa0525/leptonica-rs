@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/shear2_reg.c`
 
-use leptonica_test::RegParams;
-use leptonica_transform::{WarpDirection, WarpFill, WarpOperation};
+mod common;
+use common::RegParams;
+use leptonica::transform::{WarpDirection, WarpFill, WarpOperation};
 
 /// Test quadratic vertical shear sampled on 32bpp color (C check 0).
 ///
@@ -21,12 +22,12 @@ use leptonica_transform::{WarpDirection, WarpFill, WarpOperation};
 fn shear2_reg_color_sampled() {
     let mut rp = RegParams::new("shear2_color_samp");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
     let h = pix.height();
 
     // Sampled, warp to left
-    let left = leptonica_transform::quadratic_v_shear_sampled(
+    let left = leptonica::transform::quadratic_v_shear_sampled(
         &pix,
         WarpDirection::ToLeft,
         60,
@@ -38,7 +39,7 @@ fn shear2_reg_color_sampled() {
     rp.compare_values(w as f64, left.width() as f64, 0.0);
 
     // Sampled, warp to right
-    let right = leptonica_transform::quadratic_v_shear_sampled(
+    let right = leptonica::transform::quadratic_v_shear_sampled(
         &pix,
         WarpDirection::ToRight,
         60,
@@ -62,12 +63,12 @@ fn shear2_reg_color_sampled() {
 fn shear2_reg_gray_interpolated() {
     let mut rp = RegParams::new("shear2_gray_interp");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let w = pix.width();
     let h = pix.height();
 
     // Interpolated, warp to left
-    let left = leptonica_transform::quadratic_v_shear_li(
+    let left = leptonica::transform::quadratic_v_shear_li(
         &pix,
         WarpDirection::ToLeft,
         60,
@@ -79,7 +80,7 @@ fn shear2_reg_gray_interpolated() {
     rp.compare_values(h as f64, left.height() as f64, 0.0);
 
     // Interpolated, warp to right
-    let right = leptonica_transform::quadratic_v_shear_li(
+    let right = leptonica::transform::quadratic_v_shear_li(
         &pix,
         WarpDirection::ToRight,
         60,
@@ -100,11 +101,11 @@ fn shear2_reg_gray_interpolated() {
 fn shear2_reg_general() {
     let mut rp = RegParams::new("shear2_general");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
 
     // General function with Sampled operation
-    let sampled = leptonica_transform::quadratic_v_shear(
+    let sampled = leptonica::transform::quadratic_v_shear(
         &pix,
         WarpDirection::ToLeft,
         60,
@@ -116,7 +117,7 @@ fn shear2_reg_general() {
     rp.compare_values(w as f64, sampled.width() as f64, 0.0);
 
     // General function with Interpolated operation
-    let interp = leptonica_transform::quadratic_v_shear(
+    let interp = leptonica::transform::quadratic_v_shear(
         &pix,
         WarpDirection::ToRight,
         60,

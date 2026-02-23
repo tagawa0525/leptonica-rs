@@ -10,10 +10,11 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/kernel_reg.c`
 
-use leptonica_filter::{
+mod common;
+use common::RegParams;
+use leptonica::filter::{
     Kernel, blockconv, blockconv_gray, box_blur, convolve, convolve_gray, gaussian_blur,
 };
-use leptonica_test::RegParams;
 
 /// Test kernel creation from slice (C checks 0-3 kernel I/O).
 ///
@@ -56,7 +57,7 @@ fn kernel_reg_creation() {
 fn kernel_reg_convolve() {
     let mut rp = RegParams::new("kernel_conv");
 
-    let pix8 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix8 = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix8.width();
     let h = pix8.height();
 
@@ -87,7 +88,7 @@ fn kernel_reg_convolve() {
 fn kernel_reg_blockconv() {
     let mut rp = RegParams::new("kernel_blockconv");
 
-    let pix8 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix8 = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix8.width();
     let h = pix8.height();
 
@@ -120,7 +121,7 @@ fn kernel_reg_blockconv() {
 fn kernel_reg_convolve_color() {
     let mut rp = RegParams::new("kernel_conv_color");
 
-    let pix32 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix32 = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix32.width();
     let h = pix32.height();
 

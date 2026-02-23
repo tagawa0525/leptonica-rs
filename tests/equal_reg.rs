@@ -12,15 +12,16 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/equal_reg.c`
 
-use leptonica_core::pix::RemoveColormapTarget;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::core::pix::RemoveColormapTarget;
 
 /// Test 1bpp binary image: write/read round-trip preserves equality (C check 0).
 #[test]
 fn equal_reg_binary_roundtrip() {
     let mut rp = RegParams::new("equal_binary");
 
-    let pix1 = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix1 = common::load_test_image("feyn.tif").expect("load feyn.tif");
 
     // Verify self-equality
     rp.compare_pix(&pix1, &pix1);
@@ -41,7 +42,7 @@ fn equal_reg_binary_roundtrip() {
 fn equal_reg_8bpp_colormap() {
     let mut rp = RegParams::new("equal_8bpp_cmap");
 
-    let pix1 = leptonica_test::load_test_image("dreyfus8.png").expect("load dreyfus8.png");
+    let pix1 = common::load_test_image("dreyfus8.png").expect("load dreyfus8.png");
 
     // Remove colormap based on source
     let pix2 = pix1
@@ -76,7 +77,7 @@ fn equal_reg_8bpp_colormap() {
 fn equal_reg_8bpp_gray() {
     let mut rp = RegParams::new("equal_8bpp_gray");
 
-    let pix1 = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix1 = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     // Convert 8bpp gray → 32bpp → 8bpp
     let pix_32 = pix1.convert_to_32().expect("convert to 32");
@@ -98,7 +99,7 @@ fn equal_reg_8bpp_gray() {
 fn equal_reg_rgb() {
     let mut rp = RegParams::new("equal_rgb");
 
-    let pix1 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix1 = common::load_test_image("marge.jpg").expect("load marge.jpg");
 
     // Convert 32bpp → 8bpp → 32bpp
     let pix_8 = pix1.convert_to_8().expect("convert to 8");

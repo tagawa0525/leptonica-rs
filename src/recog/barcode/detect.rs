@@ -6,11 +6,11 @@
 //! filtering which are not yet fully implemented in leptonica-core. Currently,
 //! only basic utility functions are provided.
 
-use crate::{RecogError, RecogResult};
-use leptonica_color::{pix_convert_to_gray, threshold_to_binary};
-use leptonica_core::{Box as PixBox, Boxa, Pix, Pixa, PixelDepth};
-use leptonica_morph::binary::{close_brick, open_brick};
-use leptonica_region::{ConnectivityType, find_connected_components};
+use crate::color::{pix_convert_to_gray, threshold_to_binary};
+use crate::core::{Box as PixBox, Boxa, Pix, Pixa, PixelDepth};
+use crate::morph::binary::{close_brick, open_brick};
+use crate::recog::{RecogError, RecogResult};
+use crate::region::{ConnectivityType, find_connected_components};
 
 /// Maximum space width in barcode (in pixels) for mask generation
 pub const MAX_SPACE_WIDTH: i32 = 19;

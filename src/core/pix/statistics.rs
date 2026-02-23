@@ -5,9 +5,9 @@
 //! Corresponds to functions in C Leptonica's `pix3.c`.
 
 use super::{Pix, PixelDepth};
-use crate::Numa;
-use crate::box_::Box;
-use crate::error::{Error, Result};
+use crate::core::Numa;
+use crate::core::box_::Box;
+use crate::core::error::{Error, Result};
 
 /// Type of pixel value interpretation for average calculations.
 ///
@@ -107,7 +107,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(64, 64, PixelDepth::Bit1).unwrap();
     /// assert_eq!(pix.count_pixels(), 0);
@@ -362,8 +362,8 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
-    /// use leptonica_core::pix::statistics::PixelMaxType;
+    /// use leptonica::core::{Pix, PixelDepth};
+    /// use leptonica::core::pix::statistics::PixelMaxType;
     ///
     /// let pix = Pix::new(10, 5, PixelDepth::Bit8).unwrap();
     /// let na = pix.average_by_row(None, PixelMaxType::WhiteIsMax).unwrap();
@@ -429,8 +429,8 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
-    /// use leptonica_core::pix::statistics::PixelMaxType;
+    /// use leptonica::core::{Pix, PixelDepth};
+    /// use leptonica::core::pix::statistics::PixelMaxType;
     ///
     /// let pix = Pix::new(10, 5, PixelDepth::Bit8).unwrap();
     /// let na = pix.average_by_column(None, PixelMaxType::WhiteIsMax).unwrap();
@@ -501,7 +501,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     /// let ave = pix.average_in_rect(None).unwrap();
@@ -541,7 +541,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     /// let ave = pix.average_in_rect_filtered(None, 0, 255, 1).unwrap();
@@ -624,7 +624,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     /// let rootvar = pix.variance_in_rect(None).unwrap();
@@ -685,7 +685,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(10, 5, PixelDepth::Bit8).unwrap();
     /// let na = pix.variance_by_row(None).unwrap();
@@ -747,7 +747,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(10, 5, PixelDepth::Bit8).unwrap();
     /// let na = pix.variance_by_column(None).unwrap();
@@ -862,9 +862,9 @@ impl Pix {
                 let mut x = 0u32;
                 while x < w {
                     let pixel = line[x as usize];
-                    let r = crate::color::red(pixel) as u32;
-                    let g = crate::color::green(pixel) as u32;
-                    let b = crate::color::blue(pixel) as u32;
+                    let r = crate::core::pixel::red(pixel) as u32;
+                    let g = crate::core::pixel::green(pixel) as u32;
+                    let b = crate::core::pixel::blue(pixel) as u32;
                     match extreme_type {
                         ExtremeType::Min => {
                             if r < ext_r {
@@ -1042,9 +1042,9 @@ impl Pix {
             let mut max_val: u32 = 0;
 
             let shift = match color {
-                RgbComponent::Red => crate::color::RED_SHIFT,
-                RgbComponent::Green => crate::color::GREEN_SHIFT,
-                RgbComponent::Blue => crate::color::BLUE_SHIFT,
+                RgbComponent::Red => crate::core::pixel::RED_SHIFT,
+                RgbComponent::Green => crate::core::pixel::GREEN_SHIFT,
+                RgbComponent::Blue => crate::core::pixel::BLUE_SHIFT,
                 RgbComponent::Alpha => unreachable!(),
             };
 
@@ -1114,9 +1114,9 @@ impl Pix {
                 let mut x = 0u32;
                 while x < w {
                     let pixel = line[x as usize];
-                    let r = crate::color::red(pixel) as usize;
-                    let g = crate::color::green(pixel) as usize;
-                    let b = crate::color::blue(pixel) as usize;
+                    let r = crate::core::pixel::red(pixel) as usize;
+                    let g = crate::core::pixel::green(pixel) as usize;
+                    let b = crate::core::pixel::blue(pixel) as usize;
                     r_hist[r] += 1.0;
                     g_hist[g] += 1.0;
                     b_hist[b] += 1.0;
@@ -1136,7 +1136,7 @@ impl Pix {
             let g_val = g_numa.histogram_val_from_rank(rank).unwrap_or(0.0);
             let b_val = b_numa.histogram_val_from_rank(rank).unwrap_or(0.0);
 
-            Ok(crate::color::compose_rgb(
+            Ok(crate::core::pixel::compose_rgb(
                 r_val.round() as u8,
                 g_val.round() as u8,
                 b_val.round() as u8,
@@ -1779,7 +1779,7 @@ impl Pix {
                         }
                     }
                     let pixel = self.get_pixel_unchecked(x, y);
-                    let (r, g, b, _) = crate::color::extract_rgba(pixel);
+                    let (r, g, b, _) = crate::core::pixel::extract_rgba(pixel);
                     sum_r += r as u64;
                     sum_g += g as u64;
                     sum_b += b as u64;
@@ -1794,7 +1794,7 @@ impl Pix {
             let avg_r = ((sum_r as f64 / count as f64) + 0.5) as u8;
             let avg_g = ((sum_g as f64 / count as f64) + 0.5) as u8;
             let avg_b = ((sum_b as f64 / count as f64) + 0.5) as u8;
-            Ok(crate::color::compose_rgb(avg_r, avg_g, avg_b))
+            Ok(crate::core::pixel::compose_rgb(avg_r, avg_g, avg_b))
         }
     }
 
@@ -1837,7 +1837,7 @@ impl Pix {
             let r = r_pix.get_pixel_stats_gray(factor, stat_type)?;
             let g = g_pix.get_pixel_stats_gray(factor, stat_type)?;
             let b = b_pix.get_pixel_stats_gray(factor, stat_type)?;
-            Ok(crate::color::compose_rgb(r as u8, g as u8, b as u8))
+            Ok(crate::core::pixel::compose_rgb(r as u8, g as u8, b as u8))
         }
     }
 
@@ -1975,7 +1975,7 @@ impl Pix {
                     continue;
                 }
                 let pixel = self.get_pixel_unchecked(x as u32, y as u32);
-                let (r, g, b, _) = crate::color::extract_rgba(pixel);
+                let (r, g, b, _) = crate::core::pixel::extract_rgba(pixel);
                 rsum += r as f64;
                 gsum += g as f64;
                 bsum += b as f64;
@@ -1989,7 +1989,7 @@ impl Pix {
         let r = (rsum / count as f64) as u8;
         let g = (gsum / count as f64) as u8;
         let b = (bsum / count as f64) as u8;
-        Ok(Some(crate::color::compose_rgb(r, g, b)))
+        Ok(Some(crate::core::pixel::compose_rgb(r, g, b)))
     }
 
     /// Compute the average absolute difference between adjacent pixels on a line.
@@ -2633,7 +2633,7 @@ mod tests {
         pm.set_pixel(3, 3, 100).unwrap(); // Inside region
         let pix: Pix = pm.into();
 
-        let region = crate::Box::new(0, 0, 10, 10).unwrap();
+        let region = crate::core::Box::new(0, 0, 10, 10).unwrap();
         let result = pix.max_value_in_rect(Some(&region)).unwrap();
         assert_eq!(result.max_val, 100);
         assert_eq!(result.x, 3);
@@ -2786,9 +2786,9 @@ mod tests {
 
         // All pixels same color; histogram interpolation may cause ±1 per channel
         let val = pix.pixel_rank_value(1, 0.5).unwrap();
-        let r = crate::color::red(val) as i32;
-        let g = crate::color::green(val) as i32;
-        let b = crate::color::blue(val) as i32;
+        let r = crate::core::pixel::red(val) as i32;
+        let g = crate::core::pixel::green(val) as i32;
+        let b = crate::core::pixel::blue(val) as i32;
         assert!((r - 100).abs() <= 1, "expected r~100, got {r}");
         assert!((g - 50).abs() <= 1, "expected g~50, got {g}");
         assert!((b - 200).abs() <= 1, "expected b~200, got {b}");
@@ -2910,7 +2910,7 @@ mod tests {
         // 2x2 image: all red pixels
         let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        let red = crate::color::compose_rgba(200, 0, 0, 255);
+        let red = crate::core::pixel::compose_rgba(200, 0, 0, 255);
         for y in 0..2 {
             for x in 0..2 {
                 pm.set_pixel_unchecked(x, y, red);
@@ -2919,7 +2919,7 @@ mod tests {
         let pix: Pix = pm.into();
         let avg = pix.average_in_rect_rgb(None, None, 1).unwrap();
         let result = avg.unwrap();
-        let (r, g, b, _) = crate::color::extract_rgba(result);
+        let (r, g, b, _) = crate::core::pixel::extract_rgba(result);
         assert_eq!(r, 200);
         assert_eq!(g, 0);
         assert_eq!(b, 0);
@@ -2936,7 +2936,7 @@ mod tests {
         // All pixels masked → returns None
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        let red = crate::color::compose_rgba(100, 50, 25, 255);
+        let red = crate::core::pixel::compose_rgba(100, 50, 25, 255);
         for y in 0..4 {
             for x in 0..4 {
                 pm.set_pixel_unchecked(x, y, red);
@@ -3169,7 +3169,7 @@ mod tests {
         // 4x4 uniform red image; subsampling factor=2 should still average to red
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        let red = crate::color::compose_rgba(180, 20, 10, 255);
+        let red = crate::core::pixel::compose_rgba(180, 20, 10, 255);
         for y in 0..4 {
             for x in 0..4 {
                 pm.set_pixel_unchecked(x, y, red);
@@ -3177,7 +3177,7 @@ mod tests {
         }
         let pix: Pix = pm.into();
         let avg = pix.average_in_rect_rgb(None, None, 2).unwrap().unwrap();
-        let (r, g, b, _) = crate::color::extract_rgba(avg);
+        let (r, g, b, _) = crate::core::pixel::extract_rgba(avg);
         assert_eq!(r, 180);
         assert_eq!(g, 20);
         assert_eq!(b, 10);

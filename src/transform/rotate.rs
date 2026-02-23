@@ -12,9 +12,9 @@
 //! - **Shear**: Good for 1bpp images, uses 2 or 3 shear operations.
 //! - **Bilinear**: Good balance of speed and quality.
 
-use crate::shear::{ShearFill, h_shear_ip, v_shear_ip};
-use crate::{TransformError, TransformResult};
-use leptonica_core::{Pix, PixMut, PixelDepth, color};
+use crate::core::{Pix, PixMut, PixelDepth, pixel};
+use crate::transform::shear::{ShearFill, h_shear_ip, v_shear_ip};
+use crate::transform::{TransformError, TransformResult};
 
 // ============================================================================
 // Constants from Leptonica
@@ -298,8 +298,8 @@ pub fn rotate_180_in_place(pix: &mut PixMut) -> TransformResult<()> {
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_transform::rotate_by_angle;
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::transform::rotate_by_angle;
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 /// let rotated = rotate_by_angle(&pix, 45.0).unwrap();
@@ -704,8 +704,8 @@ fn interpolate_edge_pixel(
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_transform::{rotate, RotateOptions, RotateMethod, RotateFill};
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::transform::{rotate, RotateOptions, RotateMethod, RotateFill};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 /// let options = RotateOptions::with_method(RotateMethod::AreaMap);
@@ -1112,17 +1112,17 @@ fn rotate_area_map_color(
             let word11 = src.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
 
             // Extract and interpolate each channel (RGBA format)
-            let (r00, g00, b00, a00) = color::extract_rgba(word00);
-            let (r10, g10, b10, a10) = color::extract_rgba(word10);
-            let (r01, g01, b01, a01) = color::extract_rgba(word01);
-            let (r11, g11, b11, a11) = color::extract_rgba(word11);
+            let (r00, g00, b00, a00) = pixel::extract_rgba(word00);
+            let (r10, g10, b10, a10) = pixel::extract_rgba(word10);
+            let (r01, g01, b01, a01) = pixel::extract_rgba(word01);
+            let (r11, g11, b11, a11) = pixel::extract_rgba(word11);
 
             let rval = area_interp(r00, r10, r01, r11, xf, yf);
             let gval = area_interp(g00, g10, g01, g11, xf, yf);
             let bval = area_interp(b00, b10, b01, b11, xf, yf);
             let aval = area_interp(a00, a10, a01, a11, xf, yf);
 
-            let pixel = color::compose_rgba(rval, gval, bval, aval);
+            let pixel = pixel::compose_rgba(rval, gval, bval, aval);
             dst.set_pixel_unchecked(j, i, pixel);
         }
     }
@@ -1575,7 +1575,7 @@ fn rotate_3_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{PixelDepth, color};
+    use crate::core::{PixelDepth, pixel};
 
     #[test]
     fn test_rotate_90_clockwise() {
@@ -1745,10 +1745,10 @@ mod tests {
         let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        let red = color::compose_rgb(255, 0, 0);
-        let green = color::compose_rgb(0, 255, 0);
-        let blue = color::compose_rgb(0, 0, 255);
-        let white = color::compose_rgb(255, 255, 255);
+        let red = pixel::compose_rgb(255, 0, 0);
+        let green = pixel::compose_rgb(0, 255, 0);
+        let blue = pixel::compose_rgb(0, 0, 255);
+        let white = pixel::compose_rgb(255, 255, 255);
 
         // [R, G]
         // [B, W]
@@ -1940,7 +1940,7 @@ mod tests {
         // Create a simple gradient
         for y in 0..30 {
             for x in 0..30 {
-                let val = color::compose_rgb(x as u8 * 8, y as u8 * 8, 128);
+                let val = pixel::compose_rgb(x as u8 * 8, y as u8 * 8, 128);
                 pix_mut.set_pixel_unchecked(x, y, val);
             }
         }

@@ -4,7 +4,7 @@
 //! Corresponds to mask functions in C Leptonica's `pix3.c`.
 
 use super::{Pix, PixMut, PixelDepth};
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 impl PixMut {
     /// Set pixels to a value where a 1 bpp mask is ON.
@@ -299,7 +299,7 @@ impl Pix {
     /// C equivalent: `pixCopyWithBoxa()` in `pix3.c`
     pub fn copy_with_boxa(
         &self,
-        boxa: &crate::box_::Boxa,
+        boxa: &crate::core::box_::Boxa,
         background: super::InitColor,
     ) -> Result<Pix> {
         let w = self.width();
@@ -352,7 +352,7 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b, _) = crate::color::extract_rgba(pixel);
+                let (r, g, b, _) = crate::core::pixel::extract_rgba(pixel);
                 let val = rc * r as f32 + gc * g as f32 + bc * b as f32;
                 if val > thresh {
                     mm.set_pixel_unchecked(x, y, 1);
@@ -380,17 +380,17 @@ impl Pix {
         let mut rm = result.try_into_mut().unwrap();
 
         // Extract replacement RGB from val (ignore alpha byte of val)
-        let (new_r, new_g, new_b, _) = crate::color::extract_rgba(val);
+        let (new_r, new_g, new_b, _) = crate::core::pixel::extract_rgba(val);
 
         for y in 0..h {
             for x in 0..w {
                 let pixel = rm.get_pixel_unchecked(x, y);
-                let (_, _, _, a) = crate::color::extract_rgba(pixel);
+                let (_, _, _, a) = crate::core::pixel::extract_rgba(pixel);
                 if a == 0 {
                     rm.set_pixel_unchecked(
                         x,
                         y,
-                        crate::color::compose_rgba(new_r, new_g, new_b, 0),
+                        crate::core::pixel::compose_rgba(new_r, new_g, new_b, 0),
                     );
                 }
             }
@@ -415,7 +415,7 @@ fn mask_val(val: u32, depth: PixelDepth) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pix::PixelDepth;
+    use crate::core::pix::PixelDepth;
 
     #[test]
     fn test_set_masked_8bpp() {
@@ -713,8 +713,8 @@ mod tests {
 
     #[test]
     fn test_copy_with_boxa_white_bg() {
-        use crate::box_::{Box, Boxa};
-        use crate::pix::InitColor;
+        use crate::core::box_::{Box, Boxa};
+        use crate::core::pix::InitColor;
 
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -737,8 +737,8 @@ mod tests {
 
     #[test]
     fn test_copy_with_boxa_black_bg() {
-        use crate::box_::{Box, Boxa};
-        use crate::pix::InitColor;
+        use crate::core::box_::{Box, Boxa};
+        use crate::core::pix::InitColor;
 
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -765,9 +765,9 @@ mod tests {
         let pix = Pix::new(4, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         // Red pixel: R=200, G=0, B=0 → 200*1.0 + 0 + 0 = 200 > 100 → mask ON
-        pm.set_pixel_unchecked(0, 0, crate::color::compose_rgba(200, 0, 0, 255));
+        pm.set_pixel_unchecked(0, 0, crate::core::pixel::compose_rgba(200, 0, 0, 255));
         // Blue pixel: R=0, G=0, B=200 → 0*1.0 + 0 + 0 = 0 < 100 → mask OFF
-        pm.set_pixel_unchecked(1, 0, crate::color::compose_rgba(0, 0, 200, 255));
+        pm.set_pixel_unchecked(1, 0, crate::core::pixel::compose_rgba(0, 0, 200, 255));
         let pix: Pix = pm.into();
 
         // rc=1.0, gc=0.0, bc=0.0, thresh=100 → mask ON where red > 100
@@ -790,21 +790,21 @@ mod tests {
         let pix = Pix::new(4, 2, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         // Pixel with alpha=0 (fully transparent): R=10, G=20, B=30
-        pm.set_pixel_unchecked(0, 0, crate::color::compose_rgba(10, 20, 30, 0));
+        pm.set_pixel_unchecked(0, 0, crate::core::pixel::compose_rgba(10, 20, 30, 0));
         // Pixel with alpha=255 (opaque): R=100, G=150, B=200
-        pm.set_pixel_unchecked(1, 0, crate::color::compose_rgba(100, 150, 200, 255));
+        pm.set_pixel_unchecked(1, 0, crate::core::pixel::compose_rgba(100, 150, 200, 255));
         let pix: Pix = pm.into();
 
         // Set transparent pixels to white (0xFFFFFF00)
         let result = pix.set_under_transparency(0xFFFFFF00).unwrap();
 
         // Transparent pixel → replaced with white RGB, alpha preserved at 0
-        let (r, g, b, a) = crate::color::extract_rgba(result.get_pixel(0, 0).unwrap());
+        let (r, g, b, a) = crate::core::pixel::extract_rgba(result.get_pixel(0, 0).unwrap());
         assert_eq!((r, g, b), (255, 255, 255));
         assert_eq!(a, 0);
 
         // Opaque pixel → unchanged
-        let (r, g, b, a) = crate::color::extract_rgba(result.get_pixel(1, 0).unwrap());
+        let (r, g, b, a) = crate::core::pixel::extract_rgba(result.get_pixel(1, 0).unwrap());
         assert_eq!((r, g, b, a), (100, 150, 200, 255));
     }
 

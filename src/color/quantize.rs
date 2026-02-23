@@ -4,8 +4,8 @@
 //! - Median cut algorithm
 //! - Octree quantization
 
-use crate::{ColorError, ColorResult};
-use leptonica_core::{Pix, PixColormap, PixelDepth, color};
+use crate::color::{ColorError, ColorResult};
+use crate::core::{Pix, PixColormap, PixelDepth, pixel};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
@@ -54,7 +54,7 @@ pub fn median_cut_quant(pix: &Pix, options: &MedianCutOptions) -> ColorResult<Pi
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             pixels.push([r, g, b]);
         }
     }
@@ -312,7 +312,7 @@ pub fn octree_quant(pix: &Pix, options: &OctreeOptions) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             octree.add_color(r, g, b);
         }
     }
@@ -340,7 +340,7 @@ pub fn octree_quant(pix: &Pix, options: &OctreeOptions) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let idx = octree.get_palette_index(r, g, b);
             out_mut.set_pixel_unchecked(x, y, idx as u32);
         }
@@ -566,7 +566,7 @@ pub fn fixed_octcube_quant_256(pix: &Pix) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let index = (r as u32 & 0xe0) | ((g as u32 >> 3) & 0x1c) | (b as u32 >> 6);
             out_mut.set_pixel_unchecked(x, y, index);
         }
@@ -613,7 +613,7 @@ pub fn octree_quant_by_population(pix: &Pix, level: u32) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let ri = (r >> shift) as usize;
             let gi = (g >> shift) as usize;
             let bi = (b >> shift) as usize;
@@ -679,7 +679,7 @@ pub fn octree_quant_by_population(pix: &Pix, level: u32) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let ri = (r >> shift) as usize;
             let gi = (g >> shift) as usize;
             let bi = (b >> shift) as usize;
@@ -730,7 +730,7 @@ pub fn octree_quant_num_colors(pix: &Pix, max_colors: u32, subsample: u32) -> Co
     for y in (0..h).step_by(sub as usize) {
         for x in (0..w).step_by(sub as usize) {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             octree.add_color(r, g, b);
         }
     }
@@ -765,7 +765,7 @@ pub fn octree_quant_num_colors(pix: &Pix, max_colors: u32, subsample: u32) -> Co
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let idx = octree.get_palette_index(r, g, b);
             out_mut.set_pixel_unchecked(x, y, idx as u32);
         }
@@ -828,7 +828,7 @@ pub fn median_cut_quant_mixed(
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let rg = (r as i32 - g as i32).unsigned_abs();
             let rb = (r as i32 - b as i32).unsigned_abs();
             let gb = (g as i32 - b as i32).unsigned_abs();
@@ -851,7 +851,7 @@ pub fn median_cut_quant_mixed(
             let idx = (y * w + x) as usize;
             if !is_gray[idx] {
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 color_indices.push(color_pixels.len());
                 color_pixels.push([r, g, b]);
             }
@@ -924,7 +924,7 @@ pub fn median_cut_quant_mixed(
             if is_gray[idx] {
                 // Map to nearest gray level
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 let gray_val = ((r as u32 + g as u32 + b as u32) / 3) as u8;
 
                 // Clamp to dark/light thresholds
@@ -948,7 +948,7 @@ pub fn median_cut_quant_mixed(
             } else {
                 // Find nearest color entry (search only color portion of colormap)
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 let mut best_idx = 0u32;
                 let mut best_dist = u32::MAX;
                 for i in 0..color_entries {
@@ -1079,7 +1079,7 @@ pub fn quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorRes
         for y in 0..h {
             for x in 0..w {
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 if let Some(idx) = cmap.find_nearest(r, g, b) {
                     out_mut.set_pixel_unchecked(x, y, idx as u32);
                 }
@@ -1169,7 +1169,7 @@ mod tests {
                 let r = (x * 4) as u8;
                 let g = (y * 4) as u8;
                 let b = 128;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -1185,11 +1185,11 @@ mod tests {
         for y in 0..30 {
             for x in 0..30 {
                 let pixel = if x < 10 {
-                    color::compose_rgb(255, 0, 0) // Red
+                    pixel::compose_rgb(255, 0, 0) // Red
                 } else if x < 20 {
-                    color::compose_rgb(0, 255, 0) // Green
+                    pixel::compose_rgb(0, 255, 0) // Green
                 } else {
-                    color::compose_rgb(0, 0, 255) // Blue
+                    pixel::compose_rgb(0, 0, 255) // Blue
                 };
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }

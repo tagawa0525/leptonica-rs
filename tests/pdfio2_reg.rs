@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pdfio2_reg.c`
 
-use leptonica_io::pdf::PdfOptions;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::io::pdf::PdfOptions;
 
 /// Test PDF from file list (C partial check).
 ///
@@ -22,26 +23,27 @@ fn pdfio2_reg_from_files() {
     let mut rp = RegParams::new("pdfio2_from_files");
 
     // Write test images to temp files, then create PDF from file list
-    let tmpdir = std::path::PathBuf::from(leptonica_test::regout_dir()).join("pdfio2_from_files");
+    let tmpdir = std::path::PathBuf::from(common::regout_dir()).join("pdfio2_from_files");
     std::fs::create_dir_all(&tmpdir).expect("create temp dir");
 
     let test_images = ["feyn.tif", "karen8.jpg", "marge.jpg"];
     let mut paths = Vec::new();
     for img in &test_images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let path = tmpdir.join(img);
         let format = match *img {
-            s if s.ends_with(".tif") => leptonica_io::ImageFormat::Tiff,
-            s if s.ends_with(".jpg") => leptonica_io::ImageFormat::Jpeg,
-            _ => leptonica_io::ImageFormat::Png,
+            s if s.ends_with(".tif") => leptonica::io::ImageFormat::Tiff,
+            s if s.ends_with(".jpg") => leptonica::io::ImageFormat::Jpeg,
+            _ => leptonica::io::ImageFormat::Png,
         };
-        leptonica_io::write_image(&pix, &path, format).expect("write temp image");
+        leptonica::io::write_image(&pix, &path, format).expect("write temp image");
         paths.push(path);
     }
 
     let opts = PdfOptions::with_title("Multi-file PDF");
     let mut buf = Vec::new();
-    leptonica_io::pdf::write_pdf_from_files(&paths, &mut buf, &opts).expect("write_pdf_from_files");
+    leptonica::io::pdf::write_pdf_from_files(&paths, &mut buf, &opts)
+        .expect("write_pdf_from_files");
 
     // Should start with PDF header
     let header = String::from_utf8_lossy(&buf[..8.min(buf.len())]);
@@ -73,9 +75,9 @@ fn pdfio2_reg_from_files() {
 fn pdfio2_reg_memory_output() {
     let mut rp = RegParams::new("pdfio2_memory");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let opts = PdfOptions::default().resolution(150);
-    let data = leptonica_io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
+    let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
 
     // Valid PDF header
     let pdf_str = String::from_utf8_lossy(&data);

@@ -16,8 +16,8 @@
 //! Based on Leptonica's `binreduce.c`: `pixReduceRankBinary2` and
 //! `pixReduceRankBinaryCascade`.
 
-use crate::{TransformError, TransformResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::transform::{TransformError, TransformResult};
 
 /// Reduce a 1-bpp image to half size using rank (threshold) filtering.
 ///
@@ -38,8 +38,8 @@ use leptonica_core::{Pix, PixelDepth};
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::{Pix, PixelDepth};
-/// use leptonica_transform::binreduce::reduce_rank_binary_2;
+/// use leptonica::core::{Pix, PixelDepth};
+/// use leptonica::transform::binreduce::reduce_rank_binary_2;
 ///
 /// let src = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
 /// let dst = reduce_rank_binary_2(&src, 1).unwrap();
@@ -108,8 +108,8 @@ pub fn reduce_rank_binary_2(pix: &Pix, level: u8) -> TransformResult<Pix> {
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::{Pix, PixelDepth};
-/// use leptonica_transform::binreduce::reduce_rank_binary_cascade;
+/// use leptonica::core::{Pix, PixelDepth};
+/// use leptonica::transform::binreduce::reduce_rank_binary_cascade;
 ///
 /// let src = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
 /// // "r11" in morph sequence: two rank-1 reductions → 4x smaller
@@ -135,7 +135,7 @@ pub fn reduce_rank_binary_cascade(pix: &Pix, levels: &[u8]) -> TransformResult<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::PixelDepth;
+    use crate::core::PixelDepth;
 
     // ── helper: create a 1bpp image from a row-major bit pattern ──────────
     fn make_1bpp(width: u32, height: u32, pixels: &[u8]) -> Pix {

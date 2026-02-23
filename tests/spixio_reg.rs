@@ -9,9 +9,10 @@
 //! - Format detection from bytes
 //! - write_image_mem / read_image_mem dispatch
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_io::{ImageFormat, read_image_mem, write_image_mem};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::io::{ImageFormat, read_image_mem, write_image_mem};
+use leptonica::{Pix, PixelDepth};
 use std::io::Cursor;
 
 #[test]
@@ -38,7 +39,7 @@ fn spixio_reg() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let spix_data = write_image_mem(&pix, ImageFormat::Spix).expect("write SPIX");
     assert!(spix_data.starts_with(b"spix"));
-    let fmt = leptonica_io::detect_format_from_bytes(&spix_data);
+    let fmt = leptonica::io::detect_format_from_bytes(&spix_data);
     let is_spix = matches!(fmt, Ok(ImageFormat::Spix));
     rp.compare_values(1.0, if is_spix { 1.0 } else { 0.0 }, 0.0);
     eprintln!(
@@ -112,8 +113,8 @@ fn spixio_write_reg() {
     // Test low-level read_spix / write_spix directly
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut buf = Vec::new();
-    leptonica_io::spix::write_spix(&pix, &mut buf).expect("write_spix");
-    let pix2 = leptonica_io::spix::read_spix(Cursor::new(&buf)).expect("read_spix");
+    leptonica::io::spix::write_spix(&pix, &mut buf).expect("write_spix");
+    let pix2 = leptonica::io::spix::read_spix(Cursor::new(&buf)).expect("read_spix");
     rp.compare_values(pix.width() as f64, pix2.width() as f64, 0.0);
 
     assert!(rp.cleanup(), "spixio_write regression test failed");

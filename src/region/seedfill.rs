@@ -4,9 +4,9 @@
 //! and grayscale images. These are useful for region filling, hole filling,
 //! and morphological reconstruction.
 
-use crate::conncomp::ConnectivityType;
-use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Pix, PixMut, PixelDepth, Pta};
+use crate::core::{Pix, PixMut, PixelDepth, Pta};
+use crate::region::conncomp::ConnectivityType;
+use crate::region::error::{RegionError, RegionResult};
 use std::collections::VecDeque;
 
 /// Options for seed fill operations
@@ -1278,8 +1278,8 @@ pub fn seedspread(pixs: &Pix, connectivity: ConnectivityType) -> RegionResult<Pi
 pub fn select_min_in_conncomp(
     pixs: &Pix,
     pixm: &Pix,
-) -> RegionResult<(leptonica_core::Pta, leptonica_core::Numa)> {
-    use crate::conncomp::conncomp_pixa;
+) -> RegionResult<(crate::core::Pta, crate::core::Numa)> {
+    use crate::region::conncomp::conncomp_pixa;
 
     if pixs.depth() != PixelDepth::Bit8 {
         return Err(RegionError::UnsupportedDepth {
@@ -1309,8 +1309,8 @@ pub fn select_min_in_conncomp(
     let (boxa, pixa) = conncomp_pixa(pixm, ConnectivityType::EightWay)?;
 
     let n = boxa.len();
-    let mut pta = leptonica_core::Pta::with_capacity(n);
-    let mut numa = leptonica_core::Numa::with_capacity(n);
+    let mut pta = crate::core::Pta::with_capacity(n);
+    let mut numa = crate::core::Numa::with_capacity(n);
 
     for i in 0..n {
         let b = boxa.get(i).unwrap();
@@ -1498,7 +1498,7 @@ pub fn fill_holes_to_bounding_rect(
     maxhfract: f32,
     minfgfract: f32,
 ) -> RegionResult<Pix> {
-    use crate::conncomp::conncomp_pixa;
+    use crate::region::conncomp::conncomp_pixa;
 
     if pix.depth() != PixelDepth::Bit1 {
         return Err(RegionError::UnsupportedDepth {

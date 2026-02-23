@@ -27,12 +27,13 @@
 //! cargo test -p leptonica-morph --test dwamorph2_reg -- --nocapture
 //! ```
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{
     close_brick, close_brick_dwa, dilate_brick, dilate_brick_dwa, erode_brick, erode_brick_dwa,
     open_brick, open_brick_dwa,
 };
-use leptonica_test::{RegParams, load_test_image};
 use std::time::Instant;
 
 /// Number of repetitions for timing (reduced from C version's 20 for test speed)
@@ -44,7 +45,7 @@ const NTIMES: u32 = 2;
 const MAX_LINEAR_SIZE: u32 = 32;
 
 /// Count differing pixels between two images
-fn count_diff_pixels(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> u64 {
+fn count_diff_pixels(pix1: &leptonica::Pix, pix2: &leptonica::Pix) -> u64 {
     if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
         return u64::MAX;
     }
@@ -516,16 +517,16 @@ fn dwamorph2_reg_full() {
                 "dilate",
                 dilate_brick
                     as fn(
-                        &leptonica_core::Pix,
+                        &leptonica::Pix,
                         u32,
                         u32,
-                    ) -> leptonica_morph::MorphResult<leptonica_core::Pix>,
+                    ) -> leptonica::morph::MorphResult<leptonica::Pix>,
                 dilate_brick_dwa
                     as fn(
-                        &leptonica_core::Pix,
+                        &leptonica::Pix,
                         u32,
                         u32,
-                    ) -> leptonica_morph::MorphResult<leptonica_core::Pix>,
+                    ) -> leptonica::morph::MorphResult<leptonica::Pix>,
             ),
             ("erode", erode_brick, erode_brick_dwa),
             ("open", open_brick, open_brick_dwa),

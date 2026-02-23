@@ -10,8 +10,8 @@
 //!
 //! The last digit is a check digit.
 
-use crate::barcode::types::FormatVerification;
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::FormatVerification;
+use crate::recog::{RecogError, RecogResult};
 
 /// UPC-A symbol patterns
 const UPCA: &[&str] = &[

@@ -15,8 +15,8 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_recog::barcode::{process_barcodes, BarcodeOptions, BarcodeFormat};
-//! use leptonica_io::read_image;
+//! use leptonica::recog::barcode::{process_barcodes, BarcodeOptions, BarcodeFormat};
+//! use leptonica::io::read_image;
 //!
 //! // Load an image containing a barcode
 //! let pix = read_image("/path/to/barcode.png").unwrap();
@@ -34,7 +34,7 @@
 //! If you have a pre-extracted bar width string:
 //!
 //! ```no_run
-//! use leptonica_recog::barcode::{decode_barcode, BarcodeFormat};
+//! use leptonica::recog::barcode::{decode_barcode, BarcodeFormat};
 //!
 //! // Decode a bar width string with known format
 //! let result = decode_barcode("111321121123...", BarcodeFormat::UpcA).unwrap();
@@ -61,8 +61,8 @@ pub use types::{
     SUPPORTED_FORMATS,
 };
 
-use crate::{RecogError, RecogResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::recog::{RecogError, RecogResult};
 
 /// Processes an image to detect and decode barcodes
 ///
@@ -79,8 +79,8 @@ use leptonica_core::{Pix, PixelDepth};
 /// # Example
 ///
 /// ```no_run
-/// use leptonica_recog::barcode::{process_barcodes, BarcodeOptions, BarcodeFormat};
-/// use leptonica_io::read_image;
+/// use leptonica::recog::barcode::{process_barcodes, BarcodeOptions, BarcodeFormat};
+/// use leptonica::io::read_image;
 ///
 /// let pix = read_image("barcode.png").unwrap();
 /// let results = process_barcodes(&pix, &BarcodeOptions::default()).unwrap();
@@ -182,7 +182,7 @@ pub fn process_barcodes(pix: &Pix, options: &BarcodeOptions) -> RecogResult<Vec<
 /// # Example
 ///
 /// ```no_run
-/// use leptonica_recog::barcode::{decode_barcode, BarcodeFormat};
+/// use leptonica::recog::barcode::{decode_barcode, BarcodeFormat};
 ///
 /// // Auto-detect format
 /// let result = decode_barcode("111321121...", BarcodeFormat::Any).unwrap();

@@ -14,10 +14,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/smallpix_reg.c`
 
-use leptonica_core::Pix;
-use leptonica_core::PixelDepth;
-use leptonica_core::color;
-use leptonica_transform::{
+use leptonica::Pix;
+use leptonica::PixelDepth;
+use leptonica::core::pixel;
+use leptonica::transform::{
     RotateFill, expand_replicate, rotate_am_color_corner, rotate_am_corner, scale_by_sampling,
     scale_color_li, scale_li, scale_smooth,
 };
@@ -30,7 +30,7 @@ use leptonica_transform::{
 /// We create it directly by setting pixels.
 fn make_test_pattern() -> Pix {
     let pix = Pix::new(9, 9, PixelDepth::Bit32).expect("create 9x9");
-    let green = color::compose_rgba(0, 255, 0, 0);
+    let green = pixel::compose_rgba(0, 255, 0, 0);
 
     // Draw horizontal and vertical cross lines through center (4,4)
     let mut pm = pix.try_into_mut().expect("into_mut");

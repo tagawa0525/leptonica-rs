@@ -4,7 +4,7 @@
 //!
 //! C Leptonica: `boxfunc1.c`, `boxfunc4.c`
 
-use leptonica_core::{Box, Boxa, SizeRelation};
+use leptonica::{Box, Boxa, SizeRelation};
 
 // ============================================================================
 // Box::overlap_area / overlap_fraction

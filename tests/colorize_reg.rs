@@ -13,9 +13,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/colorize_reg.c`
 
-use leptonica_color::{ColorGrayOptions, PaintType, pix_color_gray, pix_color_gray_masked};
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::{ColorGrayOptions, PaintType, pix_color_gray, pix_color_gray_masked};
 
 /// Test pix_color_gray with region and full-image (C checks 12: pixColorGray).
 ///
@@ -25,13 +26,13 @@ use leptonica_test::RegParams;
 fn colorize_reg_color_gray() {
     let mut rp = RegParams::new("colorize_gray");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
 
     // C: pixColorGray(pix13, box, L_PAINT_DARK, 220, 0, 0, 255) — blue on dark pixels
-    let region = leptonica_core::Box::new(200, 200, 250, 350).expect("create box");
+    let region = leptonica::Box::new(200, 200, 250, 350).expect("create box");
     let options = ColorGrayOptions {
         paint_type: PaintType::Dark,
         threshold: 220,
@@ -61,13 +62,13 @@ fn colorize_reg_color_gray() {
 fn colorize_reg_color_gray_masked() {
     let mut rp = RegParams::new("colorize_masked");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
 
     // Load a 1bpp image as mask
-    let mask = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let mask = common::load_test_image("test1.png").expect("load test1.png");
     assert_eq!(mask.depth(), PixelDepth::Bit1);
 
     // C: pixColorGrayMasked(pix2, pix9, L_PAINT_DARK, 225, irval, igval, ibval)

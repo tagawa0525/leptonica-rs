@@ -11,8 +11,9 @@
 //! For 16 bpp, conversion to 8 bpp occurs (lossy).
 //! For 32 bpp, octree quantization occurs (lossy).
 
-use leptonica_io::{ImageFormat, read_image, read_image_mem, write_image, write_image_mem};
-use leptonica_test::{RegParams, load_test_image, regout_dir};
+mod common;
+use common::{RegParams, load_test_image, regout_dir};
+use leptonica::io::{ImageFormat, read_image, read_image_mem, write_image, write_image_mem};
 use std::fs;
 
 const FILE_1BPP: &str = "feyn.tif";

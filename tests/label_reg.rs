@@ -9,9 +9,10 @@
 //! 4. Component properties (area, bounds) are valid
 //! 5. feyn-fract.tif has a large number of components
 
-use leptonica_core::PixelDepth;
-use leptonica_region::{ConnectivityType, find_connected_components, label_connected_components};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::region::{ConnectivityType, find_connected_components, label_connected_components};
 
 #[test]
 fn label_reg() {

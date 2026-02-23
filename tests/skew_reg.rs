@@ -3,10 +3,11 @@
 //! C版: reference/leptonica/prog/skew_reg.c
 //! テキスト画像のスキュー(傾き)検出と補正をテスト。
 
-use leptonica_core::PixelDepth;
-use leptonica_recog::SkewDetectOptions;
-use leptonica_recog::skew::{find_skew, find_skew_and_deskew};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::recog::SkewDetectOptions;
+use leptonica::recog::skew::{find_skew, find_skew_and_deskew};
 
 #[test]
 fn skew_reg() {

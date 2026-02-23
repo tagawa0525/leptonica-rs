@@ -51,7 +51,7 @@ impl Numa {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// // Create a simple histogram: values 0, 1, 2, 3 with counts 1, 2, 3, 4
     /// let hist = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
@@ -170,7 +170,7 @@ impl Numa {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// // Uniform histogram: each bin has count 1
     /// let mut hist = Numa::from_vec(vec![1.0; 10]);
@@ -244,7 +244,7 @@ impl Numa {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// // Uniform histogram
     /// let mut hist = Numa::from_vec(vec![1.0; 10]);

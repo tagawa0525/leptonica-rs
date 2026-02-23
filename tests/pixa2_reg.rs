@@ -10,9 +10,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pixa2_reg.c`
 
-use leptonica_core::pix::statistics::PixelMaxType;
-use leptonica_core::{BlendMode, Box, Color, Pix, PixelDepth, PixelOp};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::core::pix::statistics::PixelMaxType;
+use leptonica::{BlendMode, Box, Color, Pix, PixelDepth, PixelOp};
 
 /// Helper: get pixel value, panicking on out-of-bounds.
 fn px(pix: &Pix, x: u32, y: u32) -> u32 {
@@ -384,12 +385,12 @@ fn pixa2_reg_correlation() {
     let checker = make_binary_checkerboard(64, 64);
 
     // Self-correlation should be 1.0
-    let corr = leptonica_core::correlation_binary(&checker, &checker).unwrap();
+    let corr = leptonica::correlation_binary(&checker, &checker).unwrap();
     rp.compare_values(1.0, corr, 0.001);
 
     // Inverted should have low correlation
     let inverted = checker.invert();
-    let corr_inv = leptonica_core::correlation_binary(&checker, &inverted).unwrap();
+    let corr_inv = leptonica::correlation_binary(&checker, &inverted).unwrap();
     rp.compare_values(0.0, corr_inv, 0.01);
 
     assert!(rp.cleanup(), "pixa2_reg correlation tests failed");
@@ -575,11 +576,11 @@ fn pixa2_reg_pta_generation() {
     let mut rp = RegParams::new("pixa2_pta_gen");
 
     // Generate a line Pta
-    let pta = leptonica_core::pix::graphics::generate_line_pta(0, 0, 100, 0);
+    let pta = leptonica::core::pix::graphics::generate_line_pta(0, 0, 100, 0);
     rp.compare_values(1.0, if !pta.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // Generate a filled circle Pta
-    let circle_pta = leptonica_core::pix::graphics::generate_filled_circle_pta(10);
+    let circle_pta = leptonica::core::pix::graphics::generate_filled_circle_pta(10);
     rp.compare_values(1.0, if !circle_pta.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "pixa2_reg pta generation tests failed");

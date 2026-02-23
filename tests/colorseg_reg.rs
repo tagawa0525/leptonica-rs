@@ -3,11 +3,13 @@
 //! C version: reference/leptonica/prog/colorseg_reg.c
 //! Tests color_segment, color_segment_simple, color_segment_cluster.
 
-use leptonica_color::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::color::{
     ColorSegmentOptions, color_segment, color_segment_cluster, color_segment_simple,
 };
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_test::{RegParams, load_test_image};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 fn create_test_image() -> Pix {
     let w = 120u32;
@@ -18,22 +20,22 @@ fn create_test_image() -> Pix {
         for x in 0..w {
             let pixel = if y < h / 3 {
                 if x < w / 3 {
-                    color::compose_rgb(200, 50, 50)
+                    pixel::compose_rgb(200, 50, 50)
                 } else if x < 2 * w / 3 {
-                    color::compose_rgb(50, 200, 50)
+                    pixel::compose_rgb(50, 200, 50)
                 } else {
-                    color::compose_rgb(50, 50, 200)
+                    pixel::compose_rgb(50, 50, 200)
                 }
             } else if y < 2 * h / 3 {
                 if x < w / 2 {
-                    color::compose_rgb(200, 200, 50)
+                    pixel::compose_rgb(200, 200, 50)
                 } else {
-                    color::compose_rgb(200, 50, 200)
+                    pixel::compose_rgb(200, 50, 200)
                 }
             } else if x < w / 2 {
-                color::compose_rgb(50, 200, 200)
+                pixel::compose_rgb(50, 200, 200)
             } else {
-                color::compose_rgb(180, 180, 180)
+                pixel::compose_rgb(180, 180, 180)
             };
             pix_mut.set_pixel_unchecked(x, y, pixel);
         }
@@ -50,7 +52,7 @@ fn create_gradient_image() -> Pix {
         for x in 0..w {
             let r = ((x * 255) / w) as u8;
             let g = ((y * 255) / h) as u8;
-            pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(r, g, 100));
+            pix_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, 100));
         }
     }
     pix_mut.into()

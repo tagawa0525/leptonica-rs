@@ -11,7 +11,7 @@
 //! ## Generating a maze
 //!
 //! ```
-//! use leptonica_region::{MazeGenerationOptions, generate_binary_maze};
+//! use leptonica::region::{MazeGenerationOptions, generate_binary_maze};
 //!
 //! let options = MazeGenerationOptions::new(100, 100)
 //!     .with_wall_probability(0.6)
@@ -22,7 +22,7 @@
 //! ## Finding a path through a maze
 //!
 //! ```
-//! use leptonica_region::{MazeGenerationOptions, generate_binary_maze, search_binary_maze};
+//! use leptonica::region::{MazeGenerationOptions, generate_binary_maze, search_binary_maze};
 //!
 //! let options = MazeGenerationOptions::new(100, 100).with_start(16, 20);
 //! let maze = generate_binary_maze(&options).unwrap();
@@ -33,8 +33,8 @@
 //! }
 //! ```
 
-use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Numa, Pix, PixMut, PixelDepth, Pta};
+use crate::core::{Numa, Pix, PixMut, PixelDepth, Pta};
+use crate::region::error::{RegionError, RegionResult};
 use rand::RngExt;
 use std::collections::VecDeque;
 

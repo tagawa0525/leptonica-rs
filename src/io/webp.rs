@@ -8,9 +8,9 @@
 //! - Reading: Supports both lossy and lossless WebP images
 //! - Writing: Currently only lossless encoding is supported by the underlying library
 
-use crate::{IoError, IoResult, header::ImageHeader};
+use crate::core::{ImageFormat, Pix, PixelDepth, pixel};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use image_webp::{ColorType, WebPDecoder, WebPEncoder};
-use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
 use std::io::{BufRead, Read, Seek, Write};
 
 /// Read WebP header metadata without decoding pixel data
@@ -93,7 +93,7 @@ pub fn read_webp<R: Read + BufRead + Seek>(reader: R) -> IoResult<Pix> {
                 let b = buffer[idx + 2];
                 let a = buffer[idx + 3];
                 // Pix stores RGBA in 32-bit word (R is MSB, A is LSB on big-endian)
-                let pixel = color::compose_rgba(r, g, b, a);
+                let pixel = pixel::compose_rgba(r, g, b, a);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -106,7 +106,7 @@ pub fn read_webp<R: Read + BufRead + Seek>(reader: R) -> IoResult<Pix> {
                 let g = buffer[idx + 1];
                 let b = buffer[idx + 2];
                 // Set alpha to fully opaque
-                let pixel = color::compose_rgba(r, g, b, 255);
+                let pixel = pixel::compose_rgba(r, g, b, 255);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -164,7 +164,7 @@ pub fn write_webp_with_options<W: Write>(
         for y in 0..height {
             for x in 0..width {
                 let pixel = write_pix.get_pixel(x, y).unwrap_or(0);
-                let (r, g, b, a) = color::extract_rgba(pixel);
+                let (r, g, b, a) = pixel::extract_rgba(pixel);
                 buffer.push(r);
                 buffer.push(g);
                 buffer.push(b);
@@ -178,7 +178,7 @@ pub fn write_webp_with_options<W: Write>(
         for y in 0..height {
             for x in 0..width {
                 let pixel = write_pix.get_pixel(x, y).unwrap_or(0);
-                let (r, g, b, _) = color::extract_rgba(pixel);
+                let (r, g, b, _) = pixel::extract_rgba(pixel);
                 buffer.push(r);
                 buffer.push(g);
                 buffer.push(b);
@@ -255,7 +255,7 @@ fn convert_colormapped_to_32bpp(pix: &Pix) -> IoResult<Pix> {
             if let Some(idx) = pix.get_pixel(x, y)
                 && let Some((r, g, b)) = cmap.get_rgb(idx as usize)
             {
-                let pixel = color::compose_rgba(r, g, b, 255);
+                let pixel = pixel::compose_rgba(r, g, b, 255);
                 new_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -283,7 +283,7 @@ fn convert_grayscale_to_32bpp(pix: &Pix) -> IoResult<Pix> {
             if let Some(val) = pix.get_pixel(x, y) {
                 // Scale to 0-255
                 let gray = ((val * 255) / max_val) as u8;
-                let pixel = color::compose_rgba(gray, gray, gray, 255);
+                let pixel = pixel::compose_rgba(gray, gray, gray, 255);
                 new_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -303,7 +303,7 @@ fn convert_16bpp_to_32bpp(pix: &Pix) -> IoResult<Pix> {
             if let Some(val16) = pix.get_pixel(x, y) {
                 // Scale 16-bit to 8-bit
                 let gray = (val16 >> 8) as u8;
-                let pixel = color::compose_rgba(gray, gray, gray, 255);
+                let pixel = pixel::compose_rgba(gray, gray, gray, 255);
                 new_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -345,7 +345,7 @@ mod tests {
                 let r = (x * 25) as u8;
                 let g = (y * 25) as u8;
                 let b = 128u8;
-                let pixel = color::compose_rgba(r, g, b, 255);
+                let pixel = pixel::compose_rgba(r, g, b, 255);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -365,7 +365,7 @@ mod tests {
                 let g = (y * 32) as u8;
                 let b = 100u8;
                 let a = if (x + y) % 2 == 0 { 255 } else { 128 };
-                let pixel = color::compose_rgba(r, g, b, a);
+                let pixel = pixel::compose_rgba(r, g, b, a);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -490,8 +490,8 @@ mod tests {
         let b = 200u8;
         let a = 255u8;
 
-        let pixel = color::compose_rgba(r, g, b, a);
-        let (r2, g2, b2, a2) = color::extract_rgba(pixel);
+        let pixel = pixel::compose_rgba(r, g, b, a);
+        let (r2, g2, b2, a2) = pixel::extract_rgba(pixel);
 
         assert_eq!(r, r2);
         assert_eq!(g, g2);

@@ -14,9 +14,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/blend4_reg.c`
 
-use leptonica_core::{Pix, PixelDepth, blend_with_gray_mask};
-use leptonica_test::RegParams;
-use leptonica_transform::scale_by_sampling;
+mod common;
+use common::RegParams;
+use leptonica::transform::scale_by_sampling;
+use leptonica::{Pix, PixelDepth, blend_with_gray_mask};
 
 /// Test add_alpha_to_blend on various blender images (C checks 0-4).
 ///
@@ -28,12 +29,11 @@ fn blend4_reg_add_alpha() {
 
     // Load blender images
     // feyn-word.tif is 1bpp; add_alpha_to_blend requires 8 or 32bpp, so convert first
-    let feyn_raw = leptonica_test::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
+    let feyn_raw = common::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
     let feyn = feyn_raw.convert_to_8().expect("feyn to 8bpp");
-    let weasel_raw =
-        leptonica_test::load_test_image("weasel4.16c.png").expect("load weasel4.16c.png");
+    let weasel_raw = common::load_test_image("weasel4.16c.png").expect("load weasel4.16c.png");
     let weasel = weasel_raw.convert_to_32().expect("weasel to 32bpp");
-    let karen = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let karen = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     // add_alpha_to_blend at 30% opacity, normal (not inverted)
     let feyn_alpha = feyn.add_alpha_to_blend(0.3, false).expect("feyn alpha");
@@ -68,7 +68,7 @@ fn blend4_reg_add_alpha() {
 fn blend4_reg_alpha_composite() {
     let mut rp = RegParams::new("blend4_composite");
 
-    let karen = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let karen = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let rgba = karen.add_alpha_to_blend(0.3, false).expect("alpha");
 
     // Composite on white background
@@ -98,8 +98,8 @@ fn blend4_reg_alpha_composite() {
 fn blend4_reg_gray_mask_blend() {
     let mut rp = RegParams::new("blend4_mask");
 
-    let fish = leptonica_test::load_test_image("fish24.jpg").expect("load fish24.jpg");
-    let wyom = leptonica_test::load_test_image("wyom.jpg").expect("load wyom.jpg");
+    let fish = common::load_test_image("fish24.jpg").expect("load fish24.jpg");
+    let wyom = common::load_test_image("wyom.jpg").expect("load wyom.jpg");
 
     // Scale wyom to match fish dimensions
     let w = fish.width();
@@ -136,8 +136,8 @@ fn blend4_reg_gray_mask_blend() {
 fn blend4_reg_mask_offset() {
     let mut rp = RegParams::new("blend4_offset");
 
-    let fish = leptonica_test::load_test_image("fish24.jpg").expect("load fish24.jpg");
-    let karen = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let fish = common::load_test_image("fish24.jpg").expect("load fish24.jpg");
+    let karen = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let karen32 = karen.add_alpha_to_blend(0.5, false).expect("karen alpha");
     let karen_rgb = karen32.alpha_blend_uniform(0x80808000).expect("flatten");
 

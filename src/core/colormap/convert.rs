@@ -14,8 +14,8 @@
 //! pixcmapShiftIntensity, pixcmapShiftByComponent)
 
 use super::{PixColormap, RgbaQuad};
-use crate::color;
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 /// Components per color for binary serialization.
 ///
@@ -113,7 +113,7 @@ impl PixColormap {
     ///
     /// C Leptonica: `pixcmapGrayToColor()` in `colormap.c`
     pub fn gray_to_color(color_pixel: u32) -> Self {
-        let (rval, gval, bval) = color::extract_rgb(color_pixel);
+        let (rval, gval, bval) = pixel::extract_rgb(color_pixel);
         let mut cmap = Self::new(8).unwrap();
         for i in 0..256 {
             let r = rval as i32 + (i * (255 - rval as i32)) / 255;
@@ -270,7 +270,7 @@ impl PixColormap {
     pub fn to_rgb_table(&self) -> Vec<u32> {
         self.colors()
             .iter()
-            .map(|c| color::compose_rgba(c.red, c.green, c.blue, c.alpha))
+            .map(|c| pixel::compose_rgba(c.red, c.green, c.blue, c.alpha))
             .collect()
     }
 
@@ -527,8 +527,8 @@ impl PixColormap {
 ///
 /// C Leptonica: `pixelShiftByComponent()` in `coloring.c`
 fn pixel_shift_by_component(r: u8, g: u8, b: u8, src_pixel: u32, dst_pixel: u32) -> (u8, u8, u8) {
-    let (rs, gs, bs) = color::extract_rgb(src_pixel);
-    let (rd, gd, bd) = color::extract_rgb(dst_pixel);
+    let (rs, gs, bs) = pixel::extract_rgb(src_pixel);
+    let (rd, gd, bd) = pixel::extract_rgb(dst_pixel);
 
     let shift_component = |val: u8, src: u8, dst: u8| -> u8 {
         if dst == src {
@@ -602,7 +602,7 @@ fn build_contrast_trc(factor: f32) -> [u8; 256] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::color;
+    use crate::core::pixel;
 
     // ---------------------------------------------------------------
     //  gray_to_false_color
@@ -646,7 +646,7 @@ mod tests {
 
     #[test]
     fn test_gray_to_color_red_tint() {
-        let cmap = PixColormap::gray_to_color(color::compose_rgb(255, 0, 0));
+        let cmap = PixColormap::gray_to_color(pixel::compose_rgb(255, 0, 0));
         assert_eq!(cmap.depth(), 8);
         assert_eq!(cmap.len(), 256);
         // Index 0 → the specified color (red)
@@ -657,7 +657,7 @@ mod tests {
 
     #[test]
     fn test_gray_to_color_blue_tint_midpoint() {
-        let cmap = PixColormap::gray_to_color(color::compose_rgb(0, 0, 200));
+        let cmap = PixColormap::gray_to_color(pixel::compose_rgb(0, 0, 200));
         // Midpoint (index 128) should be interpolated
         let (r, g, b) = cmap.get_rgb(128).unwrap();
         // r = 0 + (128 * 255) / 255 = 128
@@ -801,7 +801,7 @@ mod tests {
         cmap.add_rgba(0xAA, 0xBB, 0xCC, 0xDD).unwrap();
         let table = cmap.to_rgb_table();
         assert_eq!(table.len(), 1);
-        assert_eq!(table[0], color::compose_rgba(0xAA, 0xBB, 0xCC, 0xDD));
+        assert_eq!(table[0], pixel::compose_rgba(0xAA, 0xBB, 0xCC, 0xDD));
     }
 
     // ---------------------------------------------------------------
@@ -964,7 +964,7 @@ mod tests {
     fn test_shift_by_component_identity() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 150, 200).unwrap();
-        let src = color::compose_rgb(128, 128, 128);
+        let src = pixel::compose_rgb(128, 128, 128);
         cmap.shift_by_component(src, src); // src == dst → no change
         assert_eq!(cmap.get_rgb(0), Some((100, 150, 200)));
     }
@@ -973,8 +973,8 @@ mod tests {
     fn test_shift_by_component_darken() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(200, 200, 200).unwrap();
-        let src = color::compose_rgb(200, 200, 200);
-        let dst = color::compose_rgb(100, 100, 100);
+        let src = pixel::compose_rgb(200, 200, 200);
+        let dst = pixel::compose_rgb(100, 100, 100);
         cmap.shift_by_component(src, dst);
         let (r, g, b) = cmap.get_rgb(0).unwrap();
         // 200 * 100 / 200 = 100
@@ -987,8 +987,8 @@ mod tests {
     fn test_shift_by_component_brighten() {
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(100, 100, 100).unwrap();
-        let src = color::compose_rgb(100, 100, 100);
-        let dst = color::compose_rgb(200, 200, 200);
+        let src = pixel::compose_rgb(100, 100, 100);
+        let dst = pixel::compose_rgb(200, 200, 200);
         cmap.shift_by_component(src, dst);
         let (r, _, _) = cmap.get_rgb(0).unwrap();
         // 255 - (255 - 200) * (255 - 100) / (255 - 100) = 255 - 55 = 200
@@ -1058,23 +1058,23 @@ mod tests {
 
     #[test]
     fn test_pixel_shift_by_component_identity() {
-        let src = color::compose_rgb(128, 128, 128);
+        let src = pixel::compose_rgb(128, 128, 128);
         let (r, g, b) = pixel_shift_by_component(100, 150, 200, src, src);
         assert_eq!((r, g, b), (100, 150, 200));
     }
 
     #[test]
     fn test_pixel_shift_by_component_decrease() {
-        let src = color::compose_rgb(200, 200, 200);
-        let dst = color::compose_rgb(100, 100, 100);
+        let src = pixel::compose_rgb(200, 200, 200);
+        let dst = pixel::compose_rgb(100, 100, 100);
         let (r, _, _) = pixel_shift_by_component(200, 200, 200, src, dst);
         assert_eq!(r, 100); // 200 * 100 / 200
     }
 
     #[test]
     fn test_pixel_shift_by_component_increase() {
-        let src = color::compose_rgb(100, 100, 100);
-        let dst = color::compose_rgb(200, 200, 200);
+        let src = pixel::compose_rgb(100, 100, 100);
+        let dst = pixel::compose_rgb(200, 200, 200);
         let (r, _, _) = pixel_shift_by_component(100, 100, 100, src, dst);
         // 255 - (255 - 200) * (255 - 100) / (255 - 100) = 200
         assert_eq!(r, 200);

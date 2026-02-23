@@ -8,12 +8,13 @@
 //! 3. Gradient computation produces meaningful edge responses
 //! 4. Error handling for invalid input depths
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_region::{
+mod common;
+use common::RegParams;
+use leptonica::region::{
     ConnectivityType, WatershedOptions, compute_gradient, find_local_maxima, find_local_minima,
     watershed_segmentation,
 };
-use leptonica_test::RegParams;
+use leptonica::{Pix, PixelDepth};
 
 /// Create the synthetic test image used in the C version.
 fn create_synthetic_image(variant: u32) -> Pix {

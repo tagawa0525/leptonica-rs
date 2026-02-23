@@ -2,7 +2,7 @@
 //!
 //! Provides accessors for recognizer state and a `set_params` mutator.
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::types::{Recog, RecogParams};
 
@@ -61,9 +61,9 @@ impl Recog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{Pix, PixelDepth};
+    use crate::core::{Pix, PixelDepth};
 
-    use crate::recog::train::create;
+    use crate::recog::recog::train::create;
 
     fn make_trained_recog() -> Recog {
         let mut recog = create(0, 0, 0, 150, 1).unwrap();

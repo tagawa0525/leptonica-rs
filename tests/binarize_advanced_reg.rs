@@ -7,11 +7,11 @@
 //! - pixThresholdTo2bpp, pixThresholdTo4bpp
 //! - pixOtsuAdaptiveThreshold, pixSauvolaBinarizeTiled
 
-use leptonica_color::threshold::{
+use leptonica::color::threshold::{
     generate_mask_by_band, generate_mask_by_value, otsu_adaptive_threshold, sauvola_binarize_tiled,
     threshold_to_2bpp, threshold_to_4bpp, var_threshold_to_binary,
 };
-use leptonica_core::{Pix, PixelDepth};
+use leptonica::{Pix, PixelDepth};
 
 /// Create an 8bpp gradient image (0..255 across width)
 fn make_gradient_8bpp(w: u32, h: u32) -> Pix {

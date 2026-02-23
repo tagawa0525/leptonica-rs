@@ -13,7 +13,8 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/translate_reg.c`
 
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
 
 /// Test translation with positive offsets (C check 0).
 ///
@@ -23,12 +24,12 @@ use leptonica_test::RegParams;
 fn translate_reg_positive_shift() {
     let mut rp = RegParams::new("translate_pos");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let w = pix.width();
     let h = pix.height();
 
     // Translate by (30, 25) pixels
-    let shifted = leptonica_transform::translate(&pix, 30.0, 25.0).expect("translate +30,+25");
+    let shifted = leptonica::transform::translate(&pix, 30.0, 25.0).expect("translate +30,+25");
     rp.compare_values(w as f64, shifted.width() as f64, 0.0);
     rp.compare_values(h as f64, shifted.height() as f64, 0.0);
 
@@ -48,12 +49,12 @@ fn translate_reg_positive_shift() {
 fn translate_reg_negative_shift() {
     let mut rp = RegParams::new("translate_neg");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let w = pix.width();
     let h = pix.height();
 
     // Translate by (-20, -15) pixels
-    let shifted = leptonica_transform::translate(&pix, -20.0, -15.0).expect("translate -20,-15");
+    let shifted = leptonica::transform::translate(&pix, -20.0, -15.0).expect("translate -20,-15");
     rp.compare_values(w as f64, shifted.width() as f64, 0.0);
     rp.compare_values(h as f64, shifted.height() as f64, 0.0);
 
@@ -72,11 +73,11 @@ fn translate_reg_negative_shift() {
 fn translate_reg_rgb() {
     let mut rp = RegParams::new("translate_rgb");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
     let h = pix.height();
 
-    let shifted = leptonica_transform::translate(&pix, 15.0, 20.0).expect("translate rgb");
+    let shifted = leptonica::transform::translate(&pix, 15.0, 20.0).expect("translate rgb");
     rp.compare_values(w as f64, shifted.width() as f64, 0.0);
     rp.compare_values(h as f64, shifted.height() as f64, 0.0);
 

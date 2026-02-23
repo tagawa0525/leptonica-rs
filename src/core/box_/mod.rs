@@ -8,7 +8,7 @@ pub mod geometry;
 pub mod select;
 pub mod serial;
 
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 /// Size comparison relation for selection functions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

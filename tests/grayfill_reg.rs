@@ -12,12 +12,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/grayfill_reg.c`
 
-use leptonica_core::{Pix, PixMut, PixelDepth};
-use leptonica_region::{
+mod common;
+use common::RegParams;
+use leptonica::region::{
     ConnectivityType, local_extrema, seedfill_gray, seedfill_gray_basin, seedfill_gray_inv,
     seedfill_gray_inv_simple, seedfill_gray_simple,
 };
-use leptonica_test::RegParams;
+use leptonica::{Pix, PixMut, PixelDepth};
 
 /// Create the 200x200 mask image from the C test.
 ///

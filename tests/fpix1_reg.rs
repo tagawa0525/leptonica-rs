@@ -7,8 +7,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/fpix1_reg.c`
 
-use leptonica_core::{FPix, NegativeHandling, Pix, PixelDepth};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{FPix, NegativeHandling, Pix, PixelDepth};
 
 // ==========================================================================
 // Test 1: FPix creation and basic properties

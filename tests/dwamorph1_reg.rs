@@ -4,12 +4,13 @@
 //! DWA (destination word accumulation) 高速morphology操作をテスト。
 //! DWA結果が通常のbrick操作と一致することを検証。
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{
     close_brick, close_brick_dwa, dilate_brick, dilate_brick_dwa, erode_brick, erode_brick_dwa,
     open_brick, open_brick_dwa,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 #[test]
 fn dwamorph1_reg() {

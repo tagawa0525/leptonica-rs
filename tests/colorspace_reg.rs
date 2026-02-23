@@ -3,11 +3,12 @@
 //! C version: reference/leptonica/prog/colorspace_reg.c
 //! Tests RGB<->HSV, RGB<->Lab, RGB<->YUV conversions.
 
-use leptonica_color::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::color::{
     hsv_to_rgb, lab_to_rgb, pix_convert_hsv_to_rgb, pix_convert_rgb_to_hsv, pix_convert_to_gray,
     rgb_to_gray, rgb_to_hsv, rgb_to_lab, rgb_to_xyz, rgb_to_yuv, xyz_to_rgb, yuv_to_rgb,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 #[test]
 fn colorspace_reg() {

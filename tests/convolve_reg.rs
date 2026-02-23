@@ -9,8 +9,9 @@
 //! - pixConvolve -> convolve
 //! - Custom Gaussian -> gaussian_blur
 
-use leptonica_filter::{Kernel, box_blur, convolve, gaussian_blur};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::filter::{Kernel, box_blur, convolve, gaussian_blur};
 
 /// Test convolution operations.
 ///
@@ -70,7 +71,7 @@ fn convolve_reg() {
     assert!(rp.cleanup(), "convolve regression test failed");
 }
 
-fn pixel_variance(pix: &leptonica_core::Pix) -> f64 {
+fn pixel_variance(pix: &leptonica::Pix) -> f64 {
     let mut sum = 0.0_f64;
     let mut sum_sq = 0.0_f64;
     let mut n = 0u64;

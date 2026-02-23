@@ -51,7 +51,7 @@ pub use histogram::ColorHistogram;
 pub use rgb::RgbComponent;
 pub use rop::{InColor, RopOp};
 
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 use std::sync::Arc;
 
 /// Initial color for `Pix::new_with_colormap`.
@@ -271,7 +271,7 @@ struct PixData {
     /// Text string associated with pix
     text: Option<String>,
     /// Optional colormap for indexed images (1, 2, 4, 8 bpp)
-    colormap: Option<crate::PixColormap>,
+    colormap: Option<crate::core::PixColormap>,
     /// The image data (packed 32-bit words)
     data: Vec<u32>,
 }
@@ -284,7 +284,7 @@ struct PixData {
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// // Create a new 8-bit grayscale image
 /// let pix = Pix::new(640, 480, PixelDepth::Bit8).unwrap();
@@ -439,7 +439,7 @@ impl Pix {
 
     /// Get a reference to the image's colormap, if present.
     #[inline]
-    pub fn colormap(&self) -> Option<&crate::PixColormap> {
+    pub fn colormap(&self) -> Option<&crate::core::PixColormap> {
         self.inner.colormap.as_ref()
     }
 
@@ -528,7 +528,7 @@ impl Pix {
             )));
         }
         let pix = Self::new(width, height, depth)?;
-        let mut cmap = crate::PixColormap::new(depth.bits())?;
+        let mut cmap = crate::core::PixColormap::new(depth.bits())?;
         match init_color {
             InitColor::Black => cmap.add_rgb(0, 0, 0)?,
             InitColor::White => cmap.add_rgb(255, 255, 255)?,
@@ -800,14 +800,14 @@ impl PixMut {
 
     /// Get a reference to the image's colormap, if present.
     #[inline]
-    pub fn colormap(&self) -> Option<&crate::PixColormap> {
+    pub fn colormap(&self) -> Option<&crate::core::PixColormap> {
         self.inner.colormap.as_ref()
     }
 
     /// Set or remove the colormap.
     ///
     /// Colormaps are only valid for 1, 2, 4, and 8 bpp images.
-    pub fn set_colormap(&mut self, cmap: Option<crate::PixColormap>) -> Result<()> {
+    pub fn set_colormap(&mut self, cmap: Option<crate::core::PixColormap>) -> Result<()> {
         if let Some(ref cm) = cmap {
             if !self.inner.depth.colormap_allowed() {
                 return Err(Error::ColormapNotAllowed(self.inner.depth.bits()));
@@ -1069,7 +1069,7 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixClearInRect()` in `pix2.c`
-    pub fn clear_in_rect(&mut self, rect: &crate::Box) -> Result<()> {
+    pub fn clear_in_rect(&mut self, rect: &crate::core::Box) -> Result<()> {
         self.set_in_rect_arbitrary(rect, 0)
     }
 
@@ -1078,7 +1078,7 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetInRect()` in `pix2.c`
-    pub fn set_in_rect(&mut self, rect: &crate::Box) -> Result<()> {
+    pub fn set_in_rect(&mut self, rect: &crate::core::Box) -> Result<()> {
         let max_val = self.inner.depth.max_value();
         self.set_in_rect_arbitrary(rect, max_val)
     }
@@ -1088,7 +1088,7 @@ impl PixMut {
     /// # See also
     ///
     /// C Leptonica: `pixSetInRectArbitrary()` in `pix2.c`
-    pub fn set_in_rect_arbitrary(&mut self, rect: &crate::Box, val: u32) -> Result<()> {
+    pub fn set_in_rect_arbitrary(&mut self, rect: &crate::core::Box, val: u32) -> Result<()> {
         let w = self.width();
         let h = self.height();
 
@@ -1357,7 +1357,7 @@ mod tests {
 
     #[test]
     fn test_create_template_with_colormap() {
-        let mut cmap = crate::PixColormap::new(8).unwrap();
+        let mut cmap = crate::core::PixColormap::new(8).unwrap();
         cmap.add_rgba(255, 0, 0, 255).unwrap();
         cmap.add_rgba(0, 255, 0, 255).unwrap();
 
@@ -1431,7 +1431,7 @@ mod tests {
 
     #[test]
     fn test_copy_colormap_from() {
-        let mut cmap = crate::PixColormap::new(8).unwrap();
+        let mut cmap = crate::core::PixColormap::new(8).unwrap();
         cmap.add_rgb(10, 20, 30).unwrap();
 
         let src = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
@@ -1452,7 +1452,7 @@ mod tests {
     #[test]
     fn test_copy_colormap_from_none() {
         // Copying from a pix with no colormap should remove existing colormap
-        let mut cmap = crate::PixColormap::new(8).unwrap();
+        let mut cmap = crate::core::PixColormap::new(8).unwrap();
         cmap.add_rgb(10, 20, 30).unwrap();
 
         let dst = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
@@ -1668,7 +1668,7 @@ mod tests {
         // Fill all with 200
         pm.set_all_arbitrary(200).unwrap();
 
-        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        let rect = crate::core::Box::new(5, 5, 10, 10).unwrap();
         pm.clear_in_rect(&rect).unwrap();
 
         // Inside rect should be 0
@@ -1683,7 +1683,7 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
 
-        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        let rect = crate::core::Box::new(5, 5, 10, 10).unwrap();
         pm.set_in_rect(&rect).unwrap();
 
         // Inside rect should be 255 (max for 8bpp)
@@ -1697,7 +1697,7 @@ mod tests {
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
 
-        let rect = crate::Box::new(5, 5, 10, 10).unwrap();
+        let rect = crate::core::Box::new(5, 5, 10, 10).unwrap();
         pm.set_in_rect_arbitrary(&rect, 42).unwrap();
 
         // Inside rect should be 42
@@ -1770,7 +1770,7 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
 
         // Rectangle entirely outside the image with negative coordinates
-        let rect = crate::Box::new(-10, -5, 5, 5).unwrap();
+        let rect = crate::core::Box::new(-10, -5, 5, 5).unwrap();
         pm.set_in_rect(&rect).unwrap();
 
         // No pixels should be modified
@@ -1785,7 +1785,7 @@ mod tests {
 
         // Rectangle partially overlapping the image, starting at negative coordinates
         // Intersection with a 20x20 image is x=[0,5), y=[0,5)
-        let rect = crate::Box::new(-5, -5, 10, 10).unwrap();
+        let rect = crate::core::Box::new(-5, -5, 10, 10).unwrap();
         pm.set_in_rect(&rect).unwrap();
 
         // Pixels inside the intersection should be set to 255
@@ -1803,7 +1803,7 @@ mod tests {
 
         // Rectangle extending beyond the right and bottom edges
         // Intersection with a 20x20 image is x=[15,20), y=[15,20)
-        let rect = crate::Box::new(15, 15, 10, 10).unwrap();
+        let rect = crate::core::Box::new(15, 15, 10, 10).unwrap();
         pm.set_in_rect(&rect).unwrap();
 
         // Pixels inside the intersection should be set to 255

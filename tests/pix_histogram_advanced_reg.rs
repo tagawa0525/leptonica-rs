@@ -8,8 +8,9 @@
 //! - pixGetAverageTiled, pixGetAverageTiledRGB
 //! - pixGetRankValueMasked, pixGetRankValueMaskedRGB
 
-use leptonica_core::pix::statistics::PixelStatType;
-use leptonica_core::{Numaa, Pix, PixColormap, PixelDepth, RgbaQuad, color};
+use leptonica::core::pix::statistics::PixelStatType;
+use leptonica::core::pixel;
+use leptonica::{Numaa, Pix, PixColormap, PixelDepth, RgbaQuad};
 
 /// Create a uniform 8bpp image
 fn make_uniform_gray(val: u32, w: u32, h: u32) -> Pix {
@@ -40,7 +41,7 @@ fn make_gradient_gray(w: u32, h: u32) -> Pix {
 fn make_uniform_rgb(r: u8, g: u8, b: u8, w: u32, h: u32) -> Pix {
     let pix = Pix::new(w, h, PixelDepth::Bit32).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
-    let pixel = color::compose_rgb(r, g, b);
+    let pixel = pixel::compose_rgb(r, g, b);
     for y in 0..h {
         for x in 0..w {
             pm.set_pixel_unchecked(x, y, pixel);
@@ -175,7 +176,7 @@ fn test_count_rgb_colors_gradient() {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..10 {
         for x in 0..10 {
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(x as u8 * 25, y as u8 * 25, 0));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(x as u8 * 25, y as u8 * 25, 0));
         }
     }
     let pix: Pix = pm.into();

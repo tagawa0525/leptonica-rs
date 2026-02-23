@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/dither_reg.c`
 
-use leptonica_color::{dither_to_binary, dither_to_binary_with_threshold, ordered_dither};
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::{dither_to_binary, dither_to_binary_with_threshold, ordered_dither};
 
 /// Test dither_to_binary (C check 0: pixDitherToBinary).
 ///
@@ -23,7 +24,7 @@ use leptonica_test::RegParams;
 fn dither_reg_to_binary() {
     let mut rp = RegParams::new("dither_bin");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -50,7 +51,7 @@ fn dither_reg_to_binary() {
 fn dither_reg_ordered() {
     let mut rp = RegParams::new("dither_ord");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 

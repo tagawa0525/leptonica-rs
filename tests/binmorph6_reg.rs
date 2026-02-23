@@ -10,9 +10,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/binmorph6_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{Sel, SelElement, close_safe, dilate, open};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::morph::{Sel, SelElement, close_safe, dilate, open};
 
 /// Test dilate, open, close_safe with a custom Sel from a Pix (C checks 0-5).
 ///
@@ -25,7 +26,7 @@ fn binmorph6_reg_custom_sel() {
     let mut rp = RegParams::new("bmorph6_sel");
 
     // C: pix1 = pixRead("feyn-fract.tif");
-    let pix1 = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix1 = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix1.depth(), PixelDepth::Bit1);
     let w = pix1.width();
     let h = pix1.height();

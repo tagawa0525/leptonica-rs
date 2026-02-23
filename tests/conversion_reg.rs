@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/conversion_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_core::pix::RemoveColormapTarget;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::core::pix::RemoveColormapTarget;
 
 /// Test 1bpp → various depth conversions (C checks 0-3).
 ///
@@ -24,7 +25,7 @@ use leptonica_test::RegParams;
 fn conversion_reg_from_1bpp() {
     let mut rp = RegParams::new("conversion_from_1bpp");
 
-    let pix1 = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix1 = common::load_test_image("test1.png").expect("load test1.png");
     assert_eq!(pix1.depth(), PixelDepth::Bit1);
 
     // 1 → 2 bpp (via unpack)
@@ -59,7 +60,7 @@ fn conversion_reg_from_1bpp() {
 fn conversion_reg_from_2bpp() {
     let mut rp = RegParams::new("conversion_from_2bpp");
 
-    let pix2 = leptonica_test::load_test_image("dreyfus2.png").expect("load dreyfus2.png");
+    let pix2 = common::load_test_image("dreyfus2.png").expect("load dreyfus2.png");
     assert_eq!(pix2.depth(), PixelDepth::Bit2);
 
     // Remove colormap to grayscale
@@ -88,7 +89,7 @@ fn conversion_reg_from_2bpp() {
 fn conversion_reg_from_4bpp() {
     let mut rp = RegParams::new("conversion_from_4bpp");
 
-    let pix4 = leptonica_test::load_test_image("weasel4.16c.png").expect("load weasel4.16c.png");
+    let pix4 = common::load_test_image("weasel4.16c.png").expect("load weasel4.16c.png");
     assert_eq!(pix4.depth(), PixelDepth::Bit4);
 
     // Remove colormap based on src
@@ -99,7 +100,7 @@ fn conversion_reg_from_4bpp() {
     rp.compare_values(pix4.height() as f64, pix8.height() as f64, 0.0);
 
     // Convert 4 bpp grayscale image
-    let pix4g = leptonica_test::load_test_image("weasel4.16g.png").expect("load weasel4.16g.png");
+    let pix4g = common::load_test_image("weasel4.16g.png").expect("load weasel4.16g.png");
     let pix8g = pix4g.convert_4_to_8(false).expect("convert_4_to_8 no cmap");
     assert_eq!(pix8g.depth(), PixelDepth::Bit8);
     rp.compare_values(8.0, pix8g.depth().bits() as f64, 0.0);
@@ -112,7 +113,7 @@ fn conversion_reg_from_4bpp() {
 fn conversion_reg_from_8bpp() {
     let mut rp = RegParams::new("conversion_from_8bpp");
 
-    let pix8c = leptonica_test::load_test_image("weasel8.240c.png").expect("load weasel8.240c");
+    let pix8c = common::load_test_image("weasel8.240c.png").expect("load weasel8.240c");
     assert_eq!(pix8c.depth(), PixelDepth::Bit8);
 
     // Remove colormap based on src
@@ -137,7 +138,7 @@ fn conversion_reg_from_8bpp() {
 fn conversion_reg_gray_to_other() {
     let mut rp = RegParams::new("conversion_gray_to_other");
 
-    let pix8 = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix8 = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     assert_eq!(pix8.depth(), PixelDepth::Bit8);
 
     // 8 → 16 bpp
@@ -162,19 +163,19 @@ fn conversion_reg_gray_to_other() {
 fn conversion_reg_from_16bpp() {
     let mut rp = RegParams::new("conversion_from_16bpp");
 
-    let pix16 = leptonica_test::load_test_image("test16.tif").expect("load test16.tif");
+    let pix16 = common::load_test_image("test16.tif").expect("load test16.tif");
     assert_eq!(pix16.depth(), PixelDepth::Bit16);
 
     // 16 → 8 bpp (LS byte)
     let pix8_ls = pix16
-        .convert_16_to_8(leptonica_core::pix::Convert16To8Type::LsByte)
+        .convert_16_to_8(leptonica::core::pix::Convert16To8Type::LsByte)
         .expect("convert 16→8 ls");
     assert_eq!(pix8_ls.depth(), PixelDepth::Bit8);
     rp.compare_values(8.0, pix8_ls.depth().bits() as f64, 0.0);
 
     // 16 → 8 bpp (MS byte)
     let pix8_ms = pix16
-        .convert_16_to_8(leptonica_core::pix::Convert16To8Type::MsByte)
+        .convert_16_to_8(leptonica::core::pix::Convert16To8Type::MsByte)
         .expect("convert 16→8 ms");
     assert_eq!(pix8_ms.depth(), PixelDepth::Bit8);
 
@@ -190,7 +191,7 @@ fn conversion_reg_from_16bpp() {
 fn conversion_reg_from_32bpp() {
     let mut rp = RegParams::new("conversion_from_32bpp");
 
-    let pix32 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix32 = common::load_test_image("marge.jpg").expect("load marge.jpg");
     assert_eq!(pix32.depth(), PixelDepth::Bit32);
 
     // 32 → 8 bpp grayscale

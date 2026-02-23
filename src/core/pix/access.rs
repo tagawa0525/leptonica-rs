@@ -4,7 +4,7 @@
 //! These correspond to Leptonica's GET_DATA_* and SET_DATA_* macros.
 
 use super::{Pix, PixMut, PixelDepth};
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 /// Bit masks for pixel extraction
 const MASK_1: u32 = 0x1;
@@ -289,7 +289,7 @@ impl PixMut {
         if self.depth() != PixelDepth::Bit32 {
             return Err(Error::IncompatibleDepths(self.depth().bits(), 32));
         }
-        let pixel = crate::color::compose_rgb(r, g, b);
+        let pixel = crate::core::pixel::compose_rgb(r, g, b);
         self.set_pixel(x, y, pixel)
     }
 
@@ -301,7 +301,7 @@ impl PixMut {
         if self.depth() != PixelDepth::Bit32 {
             return Err(Error::IncompatibleDepths(self.depth().bits(), 32));
         }
-        let pixel = crate::color::compose_rgba(r, g, b, a);
+        let pixel = crate::core::pixel::compose_rgba(r, g, b, a);
         self.set_pixel(x, y, pixel)
     }
 }
@@ -314,7 +314,7 @@ impl Pix {
         if self.depth() != PixelDepth::Bit32 {
             return None;
         }
-        self.get_pixel(x, y).map(crate::color::extract_rgb)
+        self.get_pixel(x, y).map(crate::core::pixel::extract_rgb)
     }
 
     /// Get RGBA values at (x, y)
@@ -324,7 +324,7 @@ impl Pix {
         if self.depth() != PixelDepth::Bit32 {
             return None;
         }
-        self.get_pixel(x, y).map(crate::color::extract_rgba)
+        self.get_pixel(x, y).map(crate::core::pixel::extract_rgba)
     }
 }
 

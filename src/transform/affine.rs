@@ -25,8 +25,8 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_transform::affine::{AffineMatrix, AffineFill, affine_sampled, Point};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::transform::affine::{AffineMatrix, AffineFill, affine_sampled, Point};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 //!
@@ -37,8 +37,8 @@
 //! let transformed = affine_sampled(&pix, &matrix, AffineFill::White).unwrap();
 //! ```
 
-use crate::{TransformError, TransformResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::transform::{TransformError, TransformResult};
 
 // ============================================================================
 // Type Definitions
@@ -715,10 +715,10 @@ fn affine_color(pix: &Pix, inv_matrix: &AffineMatrix, fill: AffineFill) -> Trans
             let p11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
 
             // Extract RGBA components
-            let (r00, g00, b00, a00) = color::extract_rgba(p00);
-            let (r10, g10, b10, a10) = color::extract_rgba(p10);
-            let (r01, g01, b01, a01) = color::extract_rgba(p01);
-            let (r11, g11, b11, a11) = color::extract_rgba(p11);
+            let (r00, g00, b00, a00) = pixel::extract_rgba(p00);
+            let (r10, g10, b10, a10) = pixel::extract_rgba(p10);
+            let (r01, g01, b01, a01) = pixel::extract_rgba(p01);
+            let (r11, g11, b11, a11) = pixel::extract_rgba(p11);
 
             // Area-weighted interpolation for each channel
             let r = area_interp(r00, r10, r01, r11, xf, yf);
@@ -726,7 +726,7 @@ fn affine_color(pix: &Pix, inv_matrix: &AffineMatrix, fill: AffineFill) -> Trans
             let b = area_interp(b00, b10, b01, b11, xf, yf);
             let av = area_interp(a00, a10, a01, a11, xf, yf);
 
-            let pixel = color::compose_rgba(r, g, b, av);
+            let pixel = pixel::compose_rgba(r, g, b, av);
             out_mut.set_pixel_unchecked(i, j, pixel);
         }
     }
@@ -747,7 +747,7 @@ fn area_interp(v00: u8, v10: u8, v01: u8, v11: u8, xf: i32, yf: i32) -> u8 {
 }
 
 /// Fill an image with a constant value
-fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
+fn fill_image(pix: &mut crate::core::PixMut, value: u32) {
     let w = pix.width();
     let h = pix.height();
     for y in 0..h {
@@ -830,7 +830,7 @@ pub(crate) fn with_alpha_transform<F>(
 where
     F: Fn(&Pix, &[Point], &[Point]) -> TransformResult<Pix>,
 {
-    use leptonica_core::pix::RgbComponent;
+    use crate::core::pix::RgbComponent;
 
     // Validate inputs
     if pix.depth() != PixelDepth::Bit32 {
@@ -981,10 +981,7 @@ pub fn affine_rotate(pix: &Pix, center_x: f32, center_y: f32, angle: f32) -> Tra
 /// Applies: x' = a*x + b*y + tx, y' = c*x + d*y + ty
 ///
 /// Corresponds to C Leptonica's `ptaAffineTransform`.
-pub fn pta_affine_transform(
-    pta: &leptonica_core::Pta,
-    matrix: &AffineMatrix,
-) -> leptonica_core::Pta {
+pub fn pta_affine_transform(pta: &crate::core::Pta, matrix: &AffineMatrix) -> crate::core::Pta {
     let c = matrix.coeffs();
     // c = [a, b, tx, c, d, ty]
     // x' = a*x + b*y + tx
@@ -1000,11 +997,8 @@ pub fn pta_affine_transform(
 /// bounding box of those corners becomes the new box.
 ///
 /// Corresponds to C Leptonica's `boxaAffineTransform`.
-pub fn boxa_affine_transform(
-    boxa: &leptonica_core::Boxa,
-    matrix: &AffineMatrix,
-) -> leptonica_core::Boxa {
-    use leptonica_core::Pta;
+pub fn boxa_affine_transform(boxa: &crate::core::Boxa, matrix: &AffineMatrix) -> crate::core::Boxa {
+    use crate::core::Pta;
 
     // Convert each box to 4 corners, transform, then find bounding box
     let n = boxa.len();
@@ -1023,7 +1017,7 @@ pub fn boxa_affine_transform(
     let transformed = pta_affine_transform(&flat_pta, matrix);
 
     // Group every 4 points into a bounding box
-    let mut result = leptonica_core::Boxa::with_capacity(n);
+    let mut result = crate::core::Boxa::with_capacity(n);
     for i in 0..n {
         let base = i * 4;
         let xmin = (0..4)
@@ -1038,7 +1032,7 @@ pub fn boxa_affine_transform(
         let ymax = (0..4)
             .map(|k| transformed.get(base + k).unwrap().1)
             .fold(f32::NEG_INFINITY, f32::max);
-        result.push(leptonica_core::Box::new_unchecked(
+        result.push(crate::core::Box::new_unchecked(
             xmin.round() as i32,
             ymin.round() as i32,
             (xmax - xmin).round() as i32,
@@ -1442,7 +1436,7 @@ mod tests {
         pm.set_spp(4);
         for y in 0..50u32 {
             for x in 0..50u32 {
-                let pixel = color::compose_rgba((x * 5) as u8, (y * 5) as u8, 128, 255);
+                let pixel = pixel::compose_rgba((x * 5) as u8, (y * 5) as u8, 128, 255);
                 pm.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -1471,11 +1465,11 @@ mod tests {
         assert_eq!(result.height(), 70);
 
         // Border pixels should have alpha = 0 (transparent)
-        assert_eq!(color::alpha(result.get_pixel_unchecked(0, 0)), 0);
+        assert_eq!(pixel::alpha(result.get_pixel_unchecked(0, 0)), 0);
 
         // Interior pixels should have non-zero alpha
         let center_pixel = result.get_pixel_unchecked(35, 35);
-        assert!(color::alpha(center_pixel) > 0);
+        assert!(pixel::alpha(center_pixel) > 0);
     }
 
     #[test]
@@ -1484,7 +1478,7 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..30u32 {
             for x in 0..30u32 {
-                pm.set_pixel_unchecked(x, y, color::compose_rgb(100, 150, 200));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgb(100, 150, 200));
             }
         }
         let pix: Pix = pm.into();
@@ -1503,7 +1497,7 @@ mod tests {
         // Interior pixel alpha should be approximately 127 (255 * 0.5)
         // Account for edge feathering by checking a pixel well inside
         let interior = result.get_pixel_unchecked(20, 20);
-        let alpha = color::alpha(interior);
+        let alpha = pixel::alpha(interior);
         assert!(
             (alpha as i32 - 127).abs() <= 2,
             "Expected alpha ~127, got {}",
@@ -1517,7 +1511,7 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..30u32 {
             for x in 0..30u32 {
-                pm.set_pixel_unchecked(x, y, color::compose_rgb(100, 150, 200));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgb(100, 150, 200));
             }
         }
         let pix: Pix = pm.into();
@@ -1580,7 +1574,7 @@ mod tests {
 
     #[test]
     fn test_affine_preserves_colormap() {
-        use leptonica_core::PixColormap;
+        use crate::core::PixColormap;
 
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1603,7 +1597,7 @@ mod tests {
 
     #[test]
     fn test_pta_affine_transform_identity() {
-        use leptonica_core::Pta;
+        use crate::core::Pta;
         let mut pta = Pta::new();
         pta.push(1.0, 2.0);
         pta.push(3.0, 4.0);
@@ -1617,7 +1611,7 @@ mod tests {
 
     #[test]
     fn test_pta_affine_transform_translation() {
-        use leptonica_core::Pta;
+        use crate::core::Pta;
         let mut pta = Pta::new();
         pta.push(1.0, 2.0);
 
@@ -1631,7 +1625,7 @@ mod tests {
 
     #[test]
     fn test_boxa_affine_transform_identity() {
-        use leptonica_core::{Box as LBox, Boxa};
+        use crate::core::{Box as LBox, Boxa};
         let mut boxa = Boxa::new();
         boxa.push(LBox::new(10, 20, 30, 40).unwrap());
 
@@ -1647,7 +1641,7 @@ mod tests {
 
     #[test]
     fn test_boxa_affine_transform_translation() {
-        use leptonica_core::{Box as LBox, Boxa};
+        use crate::core::{Box as LBox, Boxa};
         let mut boxa = Boxa::new();
         boxa.push(LBox::new(0, 0, 10, 10).unwrap());
 

@@ -4,7 +4,7 @@
 //! Corresponds to border functions in C Leptonica's `pix2.c`.
 
 use super::{Pix, PixMut, PixelDepth};
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 impl Pix {
     /// Add a uniform border of `npix` pixels on all sides.
@@ -35,7 +35,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
     /// let bordered = pix.add_border(10, 0).unwrap();
@@ -76,7 +76,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
     /// let bordered = pix.add_border_general(5, 10, 15, 20, 255).unwrap();
@@ -146,7 +146,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(120, 100, PixelDepth::Bit8).unwrap();
     /// let inner = pix.remove_border(10).unwrap();
@@ -186,7 +186,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(115, 115, PixelDepth::Bit8).unwrap();
     /// let inner = pix.remove_border_general(5, 10, 15, 20).unwrap();

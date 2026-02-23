@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/lowsat_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_filter::{darken_gray, measure_saturation, modify_saturation};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::filter::{darken_gray, measure_saturation, modify_saturation};
 
 /// Test darken_gray (C check 2: pixDarkenGray).
 ///
@@ -25,7 +26,7 @@ fn lowsat_reg_darken_gray() {
     let mut rp = RegParams::new("lowsat_darken");
 
     // C: pix3 = pixDarkenGray(NULL, pix2, 220, 10)
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
@@ -50,7 +51,7 @@ fn lowsat_reg_darken_gray() {
 fn lowsat_reg_saturation() {
     let mut rp = RegParams::new("lowsat_sat");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();

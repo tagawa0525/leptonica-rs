@@ -7,8 +7,8 @@
 //!
 //! C Leptonica: `spixio.c`
 
-use crate::{IoResult, header::ImageHeader};
-use leptonica_core::{ImageFormat, Pix};
+use crate::core::{ImageFormat, Pix};
+use crate::io::{IoResult, header::ImageHeader};
 use std::io::{Read, Write};
 
 /// Read SPIX header metadata without decoding pixel data
@@ -64,7 +64,7 @@ pub fn write_spix<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{Pix, PixelDepth};
+    use crate::core::{Pix, PixelDepth};
     use std::io::Cursor;
 
     #[test]

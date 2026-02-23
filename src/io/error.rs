@@ -27,7 +27,7 @@ pub enum IoError {
 
     /// Core library error
     #[error("core error: {0}")]
-    Core(#[from] leptonica_core::Error),
+    Core(#[from] crate::core::Error),
 }
 
 /// Result type for I/O operations

@@ -13,9 +13,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/alphaxform_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
-use leptonica_transform::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::transform::{
     Point, affine_pta_with_alpha, bilinear_pta_with_alpha, projective_pta_with_alpha,
     rotate_with_alpha,
 };
@@ -28,7 +29,7 @@ use leptonica_transform::{
 fn alphaxform_reg_rotate_with_alpha() {
     let mut rp = RegParams::new("alphaxform_rotate");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
     let h = pix.height();
     assert_eq!(pix.depth(), PixelDepth::Bit32);
@@ -57,7 +58,7 @@ fn alphaxform_reg_rotate_with_alpha() {
 fn alphaxform_reg_affine_pta_with_alpha() {
     let mut rp = RegParams::new("alphaxform_affine");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix.width();
     let h = pix.height();
     assert_eq!(pix.depth(), PixelDepth::Bit32);
@@ -96,7 +97,7 @@ fn alphaxform_reg_affine_pta_with_alpha() {
 fn alphaxform_reg_projective_pta_with_alpha() {
     let mut rp = RegParams::new("alphaxform_proj");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
 
     // Near-identity projective: map a square to a slightly inset square
@@ -129,7 +130,7 @@ fn alphaxform_reg_projective_pta_with_alpha() {
 fn alphaxform_reg_bilinear_pta_with_alpha() {
     let mut rp = RegParams::new("alphaxform_bilin");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
 
     // Near-identity bilinear: map a square to a slightly inset square

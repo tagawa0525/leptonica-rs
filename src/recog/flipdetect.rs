@@ -14,12 +14,12 @@
 //! - [`up_down_detect`]: Detect if text is rightside-up or upside-down
 //! - [`mirror_detect`]: Detect if text is mirror-reversed
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_morph::Sel;
-use leptonica_morph::{hit_miss_transform, morph_comp_sequence};
-use leptonica_transform::{rotate_90, rotate_orth};
+use crate::core::{Pix, PixelDepth};
+use crate::morph::Sel;
+use crate::morph::{hit_miss_transform, morph_comp_sequence};
+use crate::transform::{rotate_90, rotate_orth};
 
-use crate::{RecogError, RecogResult};
+use crate::recog::{RecogError, RecogResult};
 
 // --- Text SEL patterns (6 wide x 5 tall) ---
 // These detect ascenders (characters like b, d, h, k, l) and descenders (g, p, q)
@@ -380,7 +380,7 @@ pub fn mirror_detect(pix: &Pix, min_count: u32) -> RecogResult<f32> {
 /// Create a mask that trims `npixels` from each end of word bounding boxes.
 /// Used in `up_down_detect` when `npixels > 0`.
 fn create_word_boundary_mask(pix: &Pix, npixels: u32) -> RecogResult<Option<Pix>> {
-    use leptonica_morph::morph_sequence;
+    use crate::morph::morph_sequence;
 
     // Open to find word regions
     let word_pix = morph_sequence(pix, "o10.1")?;
@@ -485,7 +485,7 @@ fn reduce_rank_binary_cascade_2(pix: &Pix) -> RecogResult<Pix> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::PixelDepth;
+    use crate::core::PixelDepth;
 
     fn make_1bpp_image(w: u32, h: u32) -> Pix {
         Pix::new(w, h, PixelDepth::Bit1).unwrap()

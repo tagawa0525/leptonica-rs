@@ -2,8 +2,8 @@
 //!
 //! Detects image formats by examining magic numbers in the file header.
 
-use crate::{IoError, IoResult};
-use leptonica_core::ImageFormat;
+use crate::core::ImageFormat;
+use crate::io::{IoError, IoResult};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;

@@ -13,9 +13,9 @@
 
 use super::graphics::Color;
 use super::{Pix, PixelDepth};
-use crate::color;
-use crate::error::{Error, Result};
-use crate::numa::Numa;
+use crate::core::error::{Error, Result};
+use crate::core::numa::Numa;
+use crate::core::pixel;
 
 /// Type of comparison for difference operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,7 +36,7 @@ pub enum CompareType {
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
 /// let pix2 = pix1.deep_clone();
@@ -145,7 +145,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     /// let mut pix2_mut = pix1.to_mut();
@@ -227,8 +227,8 @@ impl Pix {
             for x in 0..w {
                 let v1 = self.get_pixel_unchecked(x, y);
                 let v2 = other.get_pixel_unchecked(x, y);
-                let (r1, g1, b1, _) = color::extract_rgba(v1);
-                let (r2, g2, b2, _) = color::extract_rgba(v2);
+                let (r1, g1, b1, _) = pixel::extract_rgba(v1);
+                let (r2, g2, b2, _) = pixel::extract_rgba(v2);
                 total += 1;
                 if r1 == r2 && g1 == g2 && b1 == b2 {
                     matching += 1;
@@ -271,7 +271,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     /// let pix2 = pix1.deep_clone();
@@ -503,8 +503,8 @@ impl Pix {
                 let pixel1 = self.get_pixel(x, y).unwrap_or(0);
                 let pixel2 = other.get_pixel(x, y).unwrap_or(0);
 
-                let (r1, g1, b1) = color::extract_rgb(pixel1);
-                let (r2, g2, b2) = color::extract_rgb(pixel2);
+                let (r1, g1, b1) = pixel::extract_rgb(pixel1);
+                let (r2, g2, b2) = pixel::extract_rgb(pixel2);
 
                 let (r_diff, g_diff, b_diff) = match compare_type {
                     CompareType::Subtract => (
@@ -519,7 +519,7 @@ impl Pix {
                     ),
                 };
 
-                let result_pixel = color::compose_rgb(r_diff, g_diff, b_diff);
+                let result_pixel = pixel::compose_rgb(r_diff, g_diff, b_diff);
                 result_mut.set_pixel_unchecked(x, y, result_pixel);
             }
         }
@@ -667,8 +667,8 @@ impl Pix {
                         let pixel1 = self.get_pixel(x, y).unwrap_or(0);
                         let pixel2 = other.get_pixel(x, y).unwrap_or(0);
 
-                        let (r1, g1, b1) = color::extract_rgb(pixel1);
-                        let (r2, g2, b2) = color::extract_rgb(pixel2);
+                        let (r1, g1, b1) = pixel::extract_rgb(pixel1);
+                        let (r2, g2, b2) = pixel::extract_rgb(pixel2);
 
                         let r_diff = (r1 as i32 - r2 as i32).abs() as f64;
                         let g_diff = (g1 as i32 - g2 as i32).abs() as f64;
@@ -747,8 +747,8 @@ impl Pix {
                         let pixel1 = self.get_pixel(x, y).unwrap_or(0);
                         let pixel2 = other.get_pixel(x, y).unwrap_or(0);
 
-                        let (r1, g1, b1) = color::extract_rgb(pixel1);
-                        let (r2, g2, b2) = color::extract_rgb(pixel2);
+                        let (r1, g1, b1) = pixel::extract_rgb(pixel1);
+                        let (r2, g2, b2) = pixel::extract_rgb(pixel2);
 
                         let r_diff = (r1 as i32 - r2 as i32).unsigned_abs();
                         let g_diff = (g1 as i32 - g2 as i32).unsigned_abs();
@@ -811,12 +811,12 @@ impl Pix {
                 let (r1, g1, b1) = if let Some(cmap) = self.colormap() {
                     cmap.get_rgb(v1 as usize).unwrap_or((0, 0, 0))
                 } else {
-                    color::extract_rgb(v1)
+                    pixel::extract_rgb(v1)
                 };
                 let (r2, g2, b2) = if let Some(cmap) = other.colormap() {
                     cmap.get_rgb(v2 as usize).unwrap_or((0, 0, 0))
                 } else {
-                    color::extract_rgb(v2)
+                    pixel::extract_rgb(v2)
                 };
                 if r1 != r2 || g1 != g2 || b1 != b2 {
                     return false;
@@ -862,7 +862,7 @@ impl Pix {
         let h = self.height();
         let result = Pix::new(w, h, PixelDepth::Bit32)?;
         let mut result_mut = result.try_into_mut().unwrap();
-        let diff_val = color::compose_rgb(diffcolor.r, diffcolor.g, diffcolor.b);
+        let diff_val = pixel::compose_rgb(diffcolor.r, diffcolor.g, diffcolor.b);
         for y in 0..h {
             for x in 0..w {
                 let v1 = self.get_pixel_unchecked(x, y);
@@ -870,8 +870,8 @@ impl Pix {
                 let max_component_diff = if self.depth() == PixelDepth::Bit8 {
                     v1.abs_diff(v2)
                 } else {
-                    let (r1, g1, b1) = color::extract_rgb(v1);
-                    let (r2, g2, b2) = color::extract_rgb(v2);
+                    let (r1, g1, b1) = pixel::extract_rgb(v1);
+                    let (r2, g2, b2) = pixel::extract_rgb(v2);
                     let dr = (r1 as i32 - r2 as i32).unsigned_abs();
                     let dg = (g1 as i32 - g2 as i32).unsigned_abs();
                     let db = (b1 as i32 - b2 as i32).unsigned_abs();
@@ -881,7 +881,7 @@ impl Pix {
                     diff_val
                 } else if self.depth() == PixelDepth::Bit8 {
                     let gray = (v1 & 0xFF) as u8;
-                    color::compose_rgb(gray, gray, gray)
+                    pixel::compose_rgb(gray, gray, gray)
                 } else {
                     v1 | 0xFF // ensure alpha = 255
                 };
@@ -912,7 +912,7 @@ impl Pix {
         }
         let w = self.width();
         let h = self.height();
-        let mut cmap = crate::colormap::PixColormap::new(4)?;
+        let mut cmap = crate::core::colormap::PixColormap::new(4)?;
         cmap.add_rgb(255, 255, 255)?; // index 0 = white (both off)
         cmap.add_rgb(0, 0, 0)?; // index 1 = black (both on)
         cmap.add_rgb(255, 0, 0)?; // index 2 = red (pix1 on, pix2 off)
@@ -1000,7 +1000,7 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = diff.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 let rf = r as f64;
                 let gf = g as f64;
                 let bf = b as f64;
@@ -1073,8 +1073,8 @@ impl Pix {
                 let diff_idx = if self.depth() == PixelDepth::Bit8 {
                     v1.abs_diff(v2)
                 } else {
-                    let (r1, g1, b1) = color::extract_rgb(v1);
-                    let (r2, g2, b2) = color::extract_rgb(v2);
+                    let (r1, g1, b1) = pixel::extract_rgb(v1);
+                    let (r2, g2, b2) = pixel::extract_rgb(v2);
                     let dr = (r1 as i32 - r2 as i32).unsigned_abs();
                     let dg = (g1 as i32 - g2 as i32).unsigned_abs();
                     let db = (b1 as i32 - b2 as i32).unsigned_abs();
@@ -1237,8 +1237,8 @@ impl Pix {
                     let diff = v1 as i64 - v2 as i64;
                     sum_sq += (diff * diff) as f64;
                 } else {
-                    let (r1, g1, b1) = color::extract_rgb(v1);
-                    let (r2, g2, b2) = color::extract_rgb(v2);
+                    let (r1, g1, b1) = pixel::extract_rgb(v1);
+                    let (r2, g2, b2) = pixel::extract_rgb(v2);
                     let dr = r1 as i64 - r2 as i64;
                     let dg = g1 as i64 - g2 as i64;
                     let db = b1 as i64 - b2 as i64;
@@ -1286,8 +1286,8 @@ impl Pix {
 /// # Example
 ///
 /// ```
-/// use leptonica_core::{Pix, PixelDepth};
-/// use leptonica_core::pix::compare::correlation_binary;
+/// use leptonica::core::{Pix, PixelDepth};
+/// use leptonica::core::pix::compare::correlation_binary;
 ///
 /// let pix1 = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
 /// let pix2 = pix1.deep_clone();
@@ -1618,7 +1618,7 @@ mod tests {
 
     #[test]
     fn test_diff_rgb() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix1 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix1_mut = pix1.to_mut();
@@ -1640,7 +1640,7 @@ mod tests {
 
     #[test]
     fn test_equals_rgb_ignore_alpha() {
-        use crate::color::compose_rgba;
+        use crate::core::pixel::compose_rgba;
 
         let pix1 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix1_mut = pix1.to_mut();
@@ -1705,7 +1705,7 @@ mod tests {
 
     #[test]
     fn test_count_pixel_diffs_identical_color() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix1 = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         let mut pix1_mut = pix1.to_mut();
@@ -1723,7 +1723,7 @@ mod tests {
 
     #[test]
     fn test_count_pixel_diffs_color_one_channel() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix1 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix1_mut = pix1.to_mut();
@@ -1764,7 +1764,7 @@ mod tests {
 
     #[test]
     fn test_equals_with_cmap() {
-        use crate::colormap::PixColormap;
+        use crate::core::colormap::PixColormap;
         let cmap = PixColormap::new(8).unwrap();
         let pix1 = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
         let mut pm = pix1.to_mut();
@@ -1778,7 +1778,7 @@ mod tests {
     fn test_display_diff() {
         let pix1 = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let pix2 = pix1.deep_clone();
-        use crate::pix::graphics::Color;
+        use crate::core::pix::graphics::Color;
         let pixd = pix1
             .display_diff(&pix2, 1, Color { r: 255, g: 0, b: 0 })
             .unwrap();

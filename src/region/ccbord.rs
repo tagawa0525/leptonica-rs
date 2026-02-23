@@ -25,8 +25,8 @@
 //! # Examples
 //!
 //! ```
-//! use leptonica_region::ccbord::{get_outer_border, BorderPoint};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::region::ccbord::{get_outer_border, BorderPoint};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! // Create a 5x5 binary image with a 3x3 square
 //! let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
@@ -43,10 +43,10 @@
 //! assert!(!border.is_empty());
 //! ```
 
-use crate::conncomp::{ConnectivityType, find_connected_components};
-use crate::error::{RegionError, RegionResult};
-use crate::seedfill::fill_holes;
-use leptonica_core::{Box, Pix, PixelDepth};
+use crate::core::{Box, Pix, PixelDepth};
+use crate::region::conncomp::{ConnectivityType, find_connected_components};
+use crate::region::error::{RegionError, RegionResult};
+use crate::region::seedfill::fill_holes;
 use std::io::{Read, Write};
 
 /// Direction for chain code representation (8-connectivity)

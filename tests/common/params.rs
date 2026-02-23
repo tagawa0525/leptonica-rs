@@ -1,9 +1,9 @@
 //! Regression test parameters and operations
 
-use crate::error::{TestError, TestResult};
-use crate::{golden_dir, regout_dir};
-use leptonica_core::Pix;
-use leptonica_io::ImageFormat;
+use super::error::{TestError, TestResult};
+use super::{golden_dir, regout_dir};
+use leptonica::Pix;
+use leptonica::io::ImageFormat;
 use std::fs;
 use std::path::Path;
 
@@ -204,9 +204,11 @@ impl RegParams {
         );
 
         // Write the local file
-        leptonica_io::write_image(pix, &local_path, format).map_err(|e| TestError::ImageWrite {
-            path: local_path.clone(),
-            message: e.to_string(),
+        leptonica::io::write_image(pix, &local_path, format).map_err(|e| {
+            TestError::ImageWrite {
+                path: local_path.clone(),
+                message: e.to_string(),
+            }
         })?;
 
         // Check based on mode
@@ -279,11 +281,11 @@ impl RegParams {
 
     /// Compare two image files pixel-by-pixel
     fn compare_image_files(&self, path1: &str, path2: &str) -> bool {
-        let pix1 = match leptonica_io::read_image(path1) {
+        let pix1 = match leptonica::io::read_image(path1) {
             Ok(p) => p,
             Err(_) => return false,
         };
-        let pix2 = match leptonica_io::read_image(path2) {
+        let pix2 = match leptonica::io::read_image(path2) {
             Ok(p) => p,
             Err(_) => return false,
         };

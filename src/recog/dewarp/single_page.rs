@@ -3,8 +3,8 @@
 //! These thin wrappers combine Dewarpa initialisation and application into
 //! two simple calls, mirroring the C `dewarpSinglePage*` family.
 
-use crate::{RecogError, RecogResult};
-use leptonica_core::Pix;
+use crate::core::Pix;
+use crate::recog::{RecogError, RecogResult};
 
 use super::dewarpa::Dewarpa;
 use super::types::{Dewarp, DewarpOptions};
@@ -27,8 +27,8 @@ use super::types::{Dewarp, DewarpOptions};
 /// # Example
 ///
 /// ```no_run
-/// use leptonica_recog::dewarp::{dewarp_single_page_init, dewarp_single_page_run};
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::recog::dewarp::{dewarp_single_page_init, dewarp_single_page_run};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// # let pix = Pix::new(800, 600, PixelDepth::Bit1).unwrap();
 /// let dewarpa = dewarp_single_page_init(&pix).unwrap();
@@ -64,7 +64,7 @@ pub fn dewarp_single_page_run(dewarpa: &Dewarpa, pix: &Pix) -> RecogResult<Pix> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::PixelDepth;
+    use crate::core::PixelDepth;
 
     #[test]
     fn test_dewarp_single_page_init_empty_image() {

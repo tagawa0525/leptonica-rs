@@ -26,14 +26,25 @@
 //! assert_eq!(pix.height(), 480);
 //! ```
 
-// Re-export core types (primary data structures used everywhere)
-pub use leptonica_core::*;
+// Internal modules
+pub mod color;
+pub mod core;
+pub mod filter;
+pub mod io;
+pub mod morph;
+pub mod recog;
+pub mod region;
+pub mod transform;
 
-// Re-export domain crates as modules to avoid name conflicts
-pub use leptonica_color as color;
-pub use leptonica_filter as filter;
-pub use leptonica_io as io;
-pub use leptonica_morph as morph;
-pub use leptonica_recog as recog;
-pub use leptonica_region as region;
-pub use leptonica_transform as transform;
+// Re-export core types at root level (maintaining public API)
+pub use core::{
+    BlendMode, Box, Boxa, Boxaa, Color, ColorHistogram, ColormapArrays, CompareResult, CompareType,
+    ComponentsPerColor, ContourOutput, CountRelativeToZero, DPix, DiffDirection, Error,
+    ExtremeResult, ExtremeType, FPix, GrayBlendType, HistogramResult, HistogramStats, ImageFormat,
+    InColor, InitColor, InterpolationType, MaskBlendType, MaxValueResult, NegativeHandling,
+    NonOpaqueInfo, Numa, Numaa, Pix, PixColormap, PixMut, Pixa, PixaSortType, Pixaa, PixelDepth,
+    PixelDiffResult, PixelMaxType, PixelOp, PixelStatType, Pta, Ptaa, RangeComponent, RangeValues,
+    Result, RgbaQuad, RopOp, RowColumnStats, Sarray, Sarraya, ScanDirection, SizeRelation,
+    SortOrder, SpixHeader, StatsRequest, ThresholdComparison, WindowedStats, blend_with_gray_mask,
+    correlation_binary,
+};

@@ -6,9 +6,9 @@
 use std::io::{Read, Write};
 use std::path::Path;
 
-use leptonica_core::{Pix, Pixa, PixelDepth};
+use crate::core::{Pix, Pixa, PixelDepth};
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::train::create;
 use super::types::{CharsetType, Recog, RecogParams};
@@ -314,9 +314,9 @@ fn charset_type_from_byte(b: u8) -> RecogResult<CharsetType> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{Pix, PixelDepth};
+    use crate::core::{Pix, PixelDepth};
 
-    use crate::recog::train::create;
+    use crate::recog::recog::train::create;
 
     fn make_simple_recog() -> Recog {
         // Build a minimal recognizer with two 1-sample classes.

@@ -10,9 +10,10 @@
 //! - `DoWebpTest1`: Write various depths to WebP, read back, compare
 //! - `DoWebpTest2`: Lossy quality levels and PSNR measurement (not ported)
 
-use leptonica_io::webp::{read_webp, write_webp};
-use leptonica_io::{ImageFormat, read_image, read_image_mem, write_image, write_image_mem};
-use leptonica_test::{RegParams, load_test_image, regout_dir};
+mod common;
+use common::{RegParams, load_test_image, regout_dir};
+use leptonica::io::webp::{read_webp, write_webp};
+use leptonica::io::{ImageFormat, read_image, read_image_mem, write_image, write_image_mem};
 use std::fs;
 use std::io::Cursor;
 

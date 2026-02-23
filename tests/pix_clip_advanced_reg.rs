@@ -8,7 +8,7 @@
 //! - pixMakeFrameMask, pixFractionFgInMask
 //! - pixAverageOnLine
 
-use leptonica_core::{Box, Pix, PixelDepth, ScanDirection};
+use leptonica::{Box, Pix, PixelDepth, ScanDirection};
 
 /// Create a 1bpp image with a foreground rectangle
 fn make_fg_image(w: u32, h: u32, fx: u32, fy: u32, fw: u32, fh: u32) -> Pix {

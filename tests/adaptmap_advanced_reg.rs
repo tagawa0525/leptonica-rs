@@ -5,8 +5,9 @@
 //! - pixGlobalNormRGB
 //! - pixConvertTo8MinMax
 
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_filter::adaptmap;
+use leptonica::core::pixel;
+use leptonica::filter::adaptmap;
+use leptonica::{Pix, PixelDepth};
 
 /// Create a grayscale test image
 fn make_gray_test_image() -> Pix {
@@ -31,7 +32,7 @@ fn make_color_cast_image() -> Pix {
             let r = (200 + x).min(255) as u8;
             let g = (170 + x).min(255) as u8;
             let b = (150 + x).min(255) as u8;
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(r, g, b));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
         }
     }
     pm.into()
@@ -123,7 +124,7 @@ fn test_global_norm_rgb_white_mapping() {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..10 {
         for x in 0..10 {
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(128, 128, 128));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(128, 128, 128));
         }
     }
     let pix: Pix = pm.into();
@@ -132,7 +133,7 @@ fn test_global_norm_rgb_white_mapping() {
 
     // With rval=gval=bval=255 and mapval=255, pixels should be unchanged
     let pixel = result.get_pixel_unchecked(5, 5);
-    let (r, g, b, _) = color::extract_rgba(pixel);
+    let (r, g, b, _) = pixel::extract_rgba(pixel);
     assert_eq!(r, 128);
     assert_eq!(g, 128);
     assert_eq!(b, 128);

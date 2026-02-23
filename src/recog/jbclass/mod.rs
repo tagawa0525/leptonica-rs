@@ -17,7 +17,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_recog::jbclass::{JbClasser, JbComponent, rank_haus_init};
+//! use leptonica::recog::jbclass::{JbClasser, JbComponent, rank_haus_init};
 //!
 //! // Create a classifier using rank Hausdorff method
 //! let mut classer = rank_haus_init(

@@ -11,8 +11,8 @@
 //! # Quick Start
 //!
 //! ```no_run
-//! use leptonica_recog::skew::{find_skew_and_deskew, SkewDetectOptions};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::recog::skew::{find_skew_and_deskew, SkewDetectOptions};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! // Load or create a document image
 //! let pix = Pix::new(800, 600, PixelDepth::Bit1).unwrap();
@@ -25,7 +25,7 @@
 //! # Character Recognition Example
 //!
 //! ```no_run
-//! use leptonica_recog::recog::{Recog, create};
+//! use leptonica::recog::recog::{Recog, create};
 //!
 //! // Create a recognizer with scaling
 //! let mut recog = create(40, 40, 0, 150, 1).unwrap();
@@ -43,7 +43,7 @@
 //! # JBIG2 Classification Example
 //!
 //! ```no_run
-//! use leptonica_recog::jbclass::{JbClasser, JbComponent, rank_haus_init};
+//! use leptonica::recog::jbclass::{JbClasser, JbComponent, rank_haus_init};
 //!
 //! // Create a classifier
 //! let mut classer = rank_haus_init(
@@ -75,6 +75,7 @@ mod error;
 pub mod flipdetect;
 pub mod jbclass;
 pub mod pageseg;
+#[allow(clippy::module_inception)]
 pub mod recog;
 pub mod skew;
 
@@ -106,4 +107,4 @@ pub use flipdetect::{
 };
 
 // Re-export core for convenience
-pub use leptonica_core;
+pub use crate::core;

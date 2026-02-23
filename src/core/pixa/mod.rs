@@ -3,10 +3,10 @@
 //! These structures manage collections of images, optionally with
 //! associated bounding boxes for each image.
 
-use crate::box_::{Box, Boxa, SizeRelation};
-use crate::error::{Error, Result};
-use crate::numa::{Numa, SortOrder};
-use crate::pix::{Pix, PixMut, PixelDepth, statistics::RowColStatType};
+use crate::core::box_::{Box, Boxa, SizeRelation};
+use crate::core::error::{Error, Result};
+use crate::core::numa::{Numa, SortOrder};
+use crate::core::pix::{Pix, PixMut, PixelDepth, statistics::RowColStatType};
 
 /// Sort key for Pixa sorting operations.
 ///
@@ -52,7 +52,7 @@ pub enum PixaSortType {
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::{Pixa, Pix, PixelDepth};
+/// use leptonica::core::{Pixa, Pix, PixelDepth};
 ///
 /// let mut pixa = Pixa::new();
 /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -793,13 +793,13 @@ impl Pixa {
     /// Returns `(na_widths, na_heights)`. Returns an error if the Pixa is empty.
     ///
     /// C equivalent: `pixaFindDimensions()` in `pix5.c`
-    pub fn find_dimensions(&self) -> Result<(crate::Numa, crate::Numa)> {
+    pub fn find_dimensions(&self) -> Result<(crate::core::Numa, crate::core::Numa)> {
         if self.pix.is_empty() {
             return Err(Error::InvalidParameter("pixa is empty".into()));
         }
         let n = self.pix.len();
-        let mut na_w = crate::Numa::with_capacity(n);
-        let mut na_h = crate::Numa::with_capacity(n);
+        let mut na_w = crate::core::Numa::with_capacity(n);
+        let mut na_h = crate::core::Numa::with_capacity(n);
         for pix in &self.pix {
             na_w.push(pix.width() as f32);
             na_h.push(pix.height() as f32);
@@ -1035,7 +1035,7 @@ impl Pixa {
     /// C equivalent: `pixaDisplayTiledAndScaled()` in `pixafunc2.c`
     pub fn display_tiled_and_scaled(
         &self,
-        outdepth: crate::pix::PixelDepth,
+        outdepth: crate::core::pix::PixelDepth,
         tile_width: u32,
         ncols: u32,
         background: u32,
@@ -1104,9 +1104,9 @@ impl Pixa {
         // Fill background with depth-appropriate white value
         if background != 0 {
             let white: u32 = match outdepth {
-                crate::pix::PixelDepth::Bit1 => 1,
-                crate::pix::PixelDepth::Bit8 => 255,
-                crate::pix::PixelDepth::Bit32 => 0xFFFF_FFFFu32,
+                crate::core::pix::PixelDepth::Bit1 => 1,
+                crate::core::pix::PixelDepth::Bit8 => 255,
+                crate::core::pix::PixelDepth::Bit32 => 0xFFFF_FFFFu32,
                 _ => (1u32 << (outdepth as u32)) - 1,
             };
             for y in 0..canvas_h {
@@ -1163,7 +1163,7 @@ impl Pixa {
 // Helper functions
 // ============================================================================
 
-use crate::box_::{compare_relation, compare_relation_i64};
+use crate::core::box_::{compare_relation, compare_relation_i64};
 
 /// Copy pixels from `src` onto `dst` at offset (ox, oy).
 ///
@@ -1248,8 +1248,8 @@ fn scale_pix_to_size(src: &Pix, wd: u32, hd: u32) -> Pix {
 ///
 /// Only the targets Bit1, Bit8, and Bit32 produce well-defined output;
 /// other `outdepth` values are rejected and a deep clone is returned.
-fn convert_pix_depth(src: &Pix, outdepth: crate::pix::PixelDepth) -> Pix {
-    use crate::pix::PixelDepth;
+fn convert_pix_depth(src: &Pix, outdepth: crate::core::pix::PixelDepth) -> Pix {
+    use crate::core::pix::PixelDepth;
     // Validate that outdepth is one of the supported targets
     if !matches!(
         outdepth,
@@ -1302,7 +1302,7 @@ fn convert_pix_depth(src: &Pix, outdepth: crate::pix::PixelDepth) -> Pix {
 ///
 /// The source is converted to `outdepth` before blitting so that the pixel
 /// values are interpreted consistently.
-fn add_border_pix(src: &Pix, border: u32, outdepth: crate::pix::PixelDepth) -> Pix {
+fn add_border_pix(src: &Pix, border: u32, outdepth: crate::core::pix::PixelDepth) -> Pix {
     let w = src.width() + 2 * border;
     let h = src.height() + 2 * border;
     let dst_pix = Pix::new(w, h, outdepth).unwrap_or_else(|_| src.deep_clone());
@@ -1910,7 +1910,7 @@ mod tests {
 
     #[test]
     fn test_pixa_count_pixels() {
-        use crate::pix::PixelDepth;
+        use crate::core::pix::PixelDepth;
 
         let mut pixa = Pixa::new();
 
@@ -1948,7 +1948,7 @@ mod tests {
 
     #[test]
     fn test_pixa_count_pixels_not_1bpp() {
-        use crate::pix::PixelDepth;
+        use crate::core::pix::PixelDepth;
 
         let mut pixa = Pixa::new();
         pixa.push(Pix::new(10, 10, PixelDepth::Bit8).unwrap());
@@ -1959,7 +1959,7 @@ mod tests {
 
     #[test]
     fn test_extract_column_from_each_basic() {
-        use crate::pix::PixelDepth;
+        use crate::core::pix::PixelDepth;
         // 3 images of size 2x3, each with a distinct value in column 0
         // Image 0: col0 = [10, 20, 30]
         // Image 1: col0 = [40, 50, 60]
@@ -1995,8 +1995,8 @@ mod tests {
 
     #[test]
     fn test_aligned_stats_mean() {
-        use crate::pix::PixelDepth;
-        use crate::pix::statistics::RowColStatType;
+        use crate::core::pix::PixelDepth;
+        use crate::core::pix::statistics::RowColStatType;
         // 3 identical 2x2 8bpp images, all pixels = 60
         let mut pixa = Pixa::new();
         for _ in 0..3 {
@@ -2025,7 +2025,7 @@ mod tests {
 
     #[test]
     fn test_aligned_stats_empty_pixa() {
-        use crate::pix::statistics::RowColStatType;
+        use crate::core::pix::statistics::RowColStatType;
         let pixa = Pixa::new();
         assert!(
             pixa.aligned_stats(RowColStatType::MeanAbsVal, 0, 0)
@@ -2037,7 +2037,7 @@ mod tests {
 
     #[test]
     fn test_find_dimensions_basic() {
-        use crate::pix::{Pix, PixelDepth};
+        use crate::core::pix::{Pix, PixelDepth};
         let mut pixa = Pixa::new();
         pixa.push(Pix::new(10, 20, PixelDepth::Bit8).unwrap());
         pixa.push(Pix::new(30, 40, PixelDepth::Bit8).unwrap());
@@ -2072,18 +2072,18 @@ mod tests {
 
     #[test]
     fn test_create_from_boxa() {
-        use crate::pix::PixelDepth;
+        use crate::core::pix::PixelDepth;
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let mut boxa = Boxa::new();
-        boxa.push(crate::box_::Box::new(0, 0, 10, 10).unwrap());
-        boxa.push(crate::box_::Box::new(20, 20, 15, 15).unwrap());
+        boxa.push(crate::core::box_::Box::new(0, 0, 10, 10).unwrap());
+        boxa.push(crate::core::box_::Box::new(20, 20, 15, 15).unwrap());
         let pixa = Pixa::create_from_boxa(&pix, &boxa);
         assert_eq!(pixa.len(), 2);
     }
 
     #[test]
     fn test_split_pix() {
-        use crate::pix::PixelDepth;
+        use crate::core::pix::PixelDepth;
         let pix = Pix::new(100, 60, PixelDepth::Bit8).unwrap();
         let pixa = Pixa::split_pix(&pix, 2, 3, 0, 0).unwrap();
         assert_eq!(pixa.len(), 6); // 2*3
@@ -2093,7 +2093,7 @@ mod tests {
     fn test_get_box_geometry() {
         let mut pixa = Pixa::new();
         let pix = make_test_pix(10, 10);
-        pixa.push_with_box(pix, crate::box_::Box::new(5, 10, 20, 30).unwrap());
+        pixa.push_with_box(pix, crate::core::box_::Box::new(5, 10, 20, 30).unwrap());
         let (x, y, w, h) = pixa.get_box_geometry(0).unwrap();
         assert_eq!(x, 5);
         assert_eq!(y, 10);
@@ -2130,7 +2130,7 @@ mod tests {
         pixa.push(make_test_pix(3, 3));
         pixa.push(make_test_pix(4, 4));
         // Remove indices 1 and 3 (descending order required)
-        let na = crate::numa::Numa::from_slice(&[3.0, 1.0]);
+        let na = crate::core::numa::Numa::from_slice(&[3.0, 1.0]);
         pixa.remove_selected(&na).unwrap();
         assert_eq!(pixa.len(), 2);
         assert_eq!(pixa.get(0).unwrap().width(), 1);
@@ -2233,7 +2233,7 @@ mod tests {
 
     #[test]
     fn test_display_tiled_and_scaled() {
-        use crate::pix::PixelDepth;
+        use crate::core::pix::PixelDepth;
         let pix = make_test_pix(10, 10);
         let pixa = Pixa::create_from_pix(&pix, 4);
         let result = pixa.display_tiled_and_scaled(PixelDepth::Bit8, 20, 2, 0, 2, 0);

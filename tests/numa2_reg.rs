@@ -10,8 +10,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/numa2_reg.c`
 
-use leptonica_core::Numa;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Numa;
 
 // ============================================================================
 // Test 1: Numa windowed stats

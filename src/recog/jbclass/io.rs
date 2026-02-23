@@ -23,9 +23,9 @@
 use std::io::{Read, Write};
 use std::path::Path;
 
-use leptonica_core::Pix;
+use crate::core::Pix;
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::types::JbData;
 
@@ -198,7 +198,7 @@ impl JbData {
 
 #[cfg(test)]
 mod tests {
-    use leptonica_core::{Pix, PixelDepth};
+    use crate::core::{Pix, PixelDepth};
 
     use super::super::types::JbData;
 

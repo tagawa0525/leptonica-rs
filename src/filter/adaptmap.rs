@@ -13,7 +13,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use leptonica_filter::adaptmap::{background_norm_simple, contrast_norm_simple};
+//! use leptonica::filter::adaptmap::{background_norm_simple, contrast_norm_simple};
 //!
 //! // Normalize background with default parameters
 //! let normalized = background_norm_simple(&pix)?;
@@ -22,8 +22,8 @@
 //! let enhanced = contrast_norm_simple(&pix)?;
 //! ```
 
-use crate::{FilterError, FilterResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::filter::{FilterError, FilterResult};
 
 // ============================================================================
 // Default parameters (matching C version defaults)
@@ -545,11 +545,11 @@ pub fn clean_background_to_white(
             for y in 0..h {
                 for x in 0..w {
                     let pixel = out.get_pixel_unchecked(x, y);
-                    let (r, g, b, _a) = color::extract_rgba(pixel);
+                    let (r, g, b, _a) = pixel::extract_rgba(pixel);
                     let nr = if r >= 180 { 255 } else { r };
                     let ng = if g >= 180 { 255 } else { g };
                     let nb = if b >= 180 { 255 } else { b };
-                    out.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+                    out.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
                 }
             }
             Ok(out.into())
@@ -869,7 +869,7 @@ fn extract_rgb_channels(pix: &Pix) -> FilterResult<(Pix, Pix, Pix)> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, _) = color::extract_rgba(pixel);
+            let (r, g, b, _) = pixel::extract_rgba(pixel);
             r_mut.set_pixel_unchecked(x, y, r as u32);
             g_mut.set_pixel_unchecked(x, y, g as u32);
             b_mut.set_pixel_unchecked(x, y, b as u32);
@@ -893,7 +893,7 @@ fn combine_rgb_channels(pix_r: &Pix, pix_g: &Pix, pix_b: &Pix, spp: u32) -> Filt
             let r = pix_r.get_pixel_unchecked(x, y) as u8;
             let g = pix_g.get_pixel_unchecked(x, y) as u8;
             let b = pix_b.get_pixel_unchecked(x, y) as u8;
-            let pixel = color::compose_rgb(r, g, b);
+            let pixel = pixel::compose_rgb(r, g, b);
             out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
@@ -1290,8 +1290,8 @@ pub fn get_background_gray_map_morph(
     let scale = 1.0 / reduction as f32;
 
     // Downscale and apply morphological closing to estimate background
-    let pix1 = leptonica_transform::scale_by_sampling(pix, scale, scale)?;
-    let pix2 = leptonica_morph::close_gray(&pix1, size, size)?;
+    let pix1 = crate::transform::scale_by_sampling(pix, scale, scale)?;
+    let pix2 = crate::morph::close_gray(&pix1, size, size)?;
     let pix3 = extend_by_replication(&pix2, 1, 1)?;
 
     // Fill holes in the map
@@ -1339,11 +1339,11 @@ pub fn get_background_rgb_map_morph(
 
     // Process each channel: extract, downscale, close, extend, fill holes
     let map_r =
-        get_background_single_channel_morph(pix, reduction, size, nx, ny, color::RED_SHIFT)?;
+        get_background_single_channel_morph(pix, reduction, size, nx, ny, pixel::RED_SHIFT)?;
     let map_g =
-        get_background_single_channel_morph(pix, reduction, size, nx, ny, color::GREEN_SHIFT)?;
+        get_background_single_channel_morph(pix, reduction, size, nx, ny, pixel::GREEN_SHIFT)?;
     let map_b =
-        get_background_single_channel_morph(pix, reduction, size, nx, ny, color::BLUE_SHIFT)?;
+        get_background_single_channel_morph(pix, reduction, size, nx, ny, pixel::BLUE_SHIFT)?;
 
     Ok((map_r, map_g, map_b))
 }
@@ -1361,7 +1361,7 @@ fn get_background_single_channel_morph(
     shift: u32,
 ) -> FilterResult<Pix> {
     let pix1 = scale_rgb_to_gray_fast(pix, reduction, shift)?;
-    let pix2 = leptonica_morph::close_gray(&pix1, size, size)?;
+    let pix2 = crate::morph::close_gray(&pix1, size, size)?;
     let pix3 = extend_by_replication(&pix2, 1, 1)?;
     fill_map_holes_inner(&pix3, nx, ny)
 }
@@ -1609,9 +1609,9 @@ pub fn global_norm_rgb(
     let g_max = (255 * gval / mapval).max(1);
     let b_max = (255 * bval / mapval).max(1);
 
-    let r_lut = crate::gamma_trc(1.0, 0, r_max as i32)?;
-    let g_lut = crate::gamma_trc(1.0, 0, g_max as i32)?;
-    let b_lut = crate::gamma_trc(1.0, 0, b_max as i32)?;
+    let r_lut = crate::filter::gamma_trc(1.0, 0, r_max as i32)?;
+    let g_lut = crate::filter::gamma_trc(1.0, 0, g_max as i32)?;
+    let b_lut = crate::filter::gamma_trc(1.0, 0, b_max as i32)?;
 
     let w = pix.width();
     let h = pix.height();
@@ -1622,11 +1622,11 @@ pub fn global_norm_rgb(
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, _) = color::extract_rgba(pixel);
+            let (r, g, b, _) = pixel::extract_rgba(pixel);
             let nr = r_lut[r as usize];
             let ng = g_lut[g as usize];
             let nb = b_lut[b as usize];
-            out_mut.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+            out_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
         }
     }
 
@@ -1641,7 +1641,7 @@ pub fn global_norm_rgb(
 /// which is useful for document binarization. For other depths, delegates
 /// to standard conversion.
 pub fn convert_to_8_min_max(pix: &Pix) -> FilterResult<Pix> {
-    use leptonica_core::pix::MinMaxType;
+    use crate::core::pix::MinMaxType;
 
     match pix.depth() {
         PixelDepth::Bit32 => Ok(pix.convert_rgb_to_gray_min_max(MinMaxType::Min)?),
@@ -1776,9 +1776,9 @@ pub fn threshold_spread_norm(
     smooth_y: u32,
     thresh_norm: f32,
 ) -> FilterResult<Pix> {
-    use leptonica_region::{conncomp::ConnectivityType, seedfill::seedspread};
+    use crate::region::{conncomp::ConnectivityType, seedfill::seedspread};
 
-    use crate::{
+    use crate::filter::{
         block_conv::blockconv,
         edge::{EdgeOrientation, sobel_edge},
         enhance::gamma_trc_pix,
@@ -1843,7 +1843,7 @@ pub fn threshold_spread_norm(
 ///
 /// C版: `pixBackgroundNormFlex()` in `adaptmap.c`
 pub fn background_norm_flex(pix: &Pix, options: &FlexNormOptions) -> FilterResult<Pix> {
-    use leptonica_transform::scale::scale_smooth;
+    use crate::transform::scale::scale_smooth;
 
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
@@ -1912,8 +1912,8 @@ pub fn background_norm_flex(pix: &Pix, options: &FlexNormOptions) -> FilterResul
 ///
 /// C版: `pixSmoothConnectedRegions()` in `adaptmap.c`
 pub fn smooth_connected_regions(pix: &Pix, mask: Option<&Pix>, factor: u32) -> FilterResult<Pix> {
-    use leptonica_core::PixelStatType;
-    use leptonica_region::conncomp::{ConnectivityType, conncomp_pixa};
+    use crate::core::PixelStatType;
+    use crate::region::conncomp::{ConnectivityType, conncomp_pixa};
 
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
@@ -1983,7 +1983,7 @@ pub fn smooth_connected_regions(pix: &Pix, mask: Option<&Pix>, factor: u32) -> F
 ///
 /// C版: `pixBackgroundNormTo1MinMax()` in `adaptmap.c`
 pub fn background_norm_to_1_min_max(pix: &Pix, contrast: u32) -> FilterResult<Pix> {
-    use crate::enhance::gamma_trc_pix;
+    use crate::filter::enhance::gamma_trc_pix;
 
     if !(1..=10).contains(&contrast) {
         return Err(FilterError::InvalidParameters(
@@ -2070,7 +2070,7 @@ mod tests {
                 let r = (100 + x * 2).min(255) as u8;
                 let g = (150 + y).min(255) as u8;
                 let b = 180u8;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -2372,7 +2372,7 @@ mod tests {
                 let r: u8 = 180;
                 let g: u8 = 120;
                 let b: u8 = 90;
-                pm.set_pixel_unchecked(x, y, leptonica_core::color::compose_rgb(r, g, b));
+                pm.set_pixel_unchecked(x, y, crate::core::pixel::compose_rgb(r, g, b));
             }
         }
         pm.into()
@@ -2387,7 +2387,7 @@ mod tests {
         assert_eq!(result.depth(), PixelDepth::Bit32);
         // After normalization with the exact color as reference, all channels should be
         // at least as bright as before, and at least one should be strictly brighter
-        let (r, g, b) = leptonica_core::color::extract_rgb(result.get_pixel_unchecked(10, 10));
+        let (r, g, b) = crate::core::pixel::extract_rgb(result.get_pixel_unchecked(10, 10));
         assert!(r >= 180 && g >= 120 && b >= 90 && (r > 180 || g > 120 || b > 90));
     }
 

@@ -17,8 +17,8 @@
 //!
 //! C Leptonica: `sarray1.c` (`sarrayReadStream`, `sarrayWriteStream`)
 
-use crate::error::{Error, Result};
-use crate::sarray::Sarray;
+use crate::core::error::{Error, Result};
+use crate::core::sarray::Sarray;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 

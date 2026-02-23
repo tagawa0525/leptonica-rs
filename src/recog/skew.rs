@@ -16,9 +16,9 @@
 //!    differential square sum of row pixel counts is computed. Text lines
 //!    produce maximum score when horizontal.
 
-use crate::{RecogError, RecogResult};
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_transform::rotate_by_angle;
+use crate::core::{Pix, PixelDepth};
+use crate::recog::{RecogError, RecogResult};
+use crate::transform::rotate_by_angle;
 
 /// Options for skew detection
 #[derive(Debug, Clone)]
@@ -154,8 +154,8 @@ const MIN_ALLOWED_CONFIDENCE: f32 = 3.0;
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_recog::skew::{find_skew, SkewDetectOptions};
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::recog::skew::{find_skew, SkewDetectOptions};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
 /// let result = find_skew(&pix, &SkewDetectOptions::default()).unwrap();

@@ -7,8 +7,8 @@
 //! The start and stop codes are "111141".
 //! The last two codes are check characters (C and K).
 
-use crate::barcode::types::FormatVerification;
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::FormatVerification;
+use crate::recog::{RecogError, RecogResult};
 
 /// Code 93 symbol patterns
 const CODE93: &[&str] = &[

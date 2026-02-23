@@ -13,10 +13,11 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/findpattern1_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_morph::{Sel, SelElement, hit_miss_transform};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::morph::{Sel, SelElement, hit_miss_transform};
 
 /// Test hit-miss transform on tribune page (C test: pixHMT).
 ///
@@ -28,7 +29,7 @@ use leptonica_test::RegParams;
 fn findpattern1_reg_hmt_basic() {
     let mut rp = RegParams::new("findpat1_hmt");
 
-    let pix = leptonica_test::load_test_image("tribune-page-4x.png").expect("load tribune page");
+    let pix = common::load_test_image("tribune-page-4x.png").expect("load tribune page");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -67,10 +68,9 @@ fn findpattern1_reg_hmt_basic() {
 fn findpattern1_reg_pattern_images() {
     let mut rp = RegParams::new("findpat1_images");
 
-    let word = leptonica_test::load_test_image("tribune-word.png").expect("load tribune-word.png");
-    let letter_t = leptonica_test::load_test_image("tribune-t.png").expect("load tribune-t.png");
-    let page =
-        leptonica_test::load_test_image("tribune-page-4x.png").expect("load tribune-page-4x");
+    let word = common::load_test_image("tribune-word.png").expect("load tribune-word.png");
+    let letter_t = common::load_test_image("tribune-t.png").expect("load tribune-t.png");
+    let page = common::load_test_image("tribune-page-4x.png").expect("load tribune-page-4x");
 
     // Pattern images should be binary
     let word_bin = if word.depth() == PixelDepth::Bit1 {
@@ -132,7 +132,7 @@ fn findpattern1_reg_pattern_images() {
 fn findpattern1_reg_hmt_brick() {
     let mut rp = RegParams::new("findpat1_brick");
 
-    let pix = leptonica_test::load_test_image("tribune-page-4x.png").expect("load page");
+    let pix = common::load_test_image("tribune-page-4x.png").expect("load page");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {

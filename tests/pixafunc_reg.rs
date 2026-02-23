@@ -4,7 +4,7 @@
 //!
 //! C Leptonica: `pixafunc1.c`
 
-use leptonica_core::{Box, Pix, Pixa, PixaSortType, PixelDepth, SizeRelation, SortOrder};
+use leptonica::{Box, Pix, Pixa, PixaSortType, PixelDepth, SizeRelation, SortOrder};
 
 fn make_pix(w: u32, h: u32) -> Pix {
     Pix::new(w, h, PixelDepth::Bit8).unwrap()

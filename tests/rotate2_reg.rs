@@ -12,8 +12,9 @@
 //!   2. Rotation by ANGLE2 with sampling method
 //!   3. Rotation by ANGLE2 with area-map method (requires >= 8bpp)
 
-use leptonica_test::{RegParams, load_test_image};
-use leptonica_transform::{rotate_by_angle, rotate_by_radians};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::transform::{rotate_by_angle, rotate_by_radians};
 
 /// Test arbitrary-angle rotation methods
 ///

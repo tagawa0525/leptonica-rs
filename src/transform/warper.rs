@@ -27,10 +27,10 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_transform::warper::{
+//! use leptonica::transform::warper::{
 //!     random_harmonic_warp, stretch_horizontal, WarpDirection, WarpType, WarpOperation, WarpFill,
 //! };
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 //!
@@ -48,8 +48,8 @@
 //! ).unwrap();
 //! ```
 
-use crate::{TransformError, TransformResult};
-use leptonica_core::{Pix, PixMut, PixelDepth, color};
+use crate::core::{Pix, PixMut, PixelDepth, pixel};
+use crate::transform::{TransformError, TransformResult};
 use std::f64::consts::PI;
 
 // ============================================================================
@@ -213,8 +213,8 @@ impl Default for StereoscopicParams {
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_transform::warper::random_harmonic_warp;
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::transform::warper::random_harmonic_warp;
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 /// let warped = random_harmonic_warp(&pix, 4.0, 6.0, 0.10, 0.13, 3, 3, 42, 255).unwrap();
@@ -556,15 +556,15 @@ pub fn stretch_horizontal_li(
                         let word0 = pix.get_pixel_unchecked(jp as u32, i as u32);
                         let word1 = pix.get_pixel_unchecked((jp + 1) as u32, i as u32);
 
-                        let (r0, g0, b0, a0) = color::extract_rgba(word0);
-                        let (r1, g1, b1, a1) = color::extract_rgba(word1);
+                        let (r0, g0, b0, a0) = pixel::extract_rgba(word0);
+                        let (r1, g1, b1, a1) = pixel::extract_rgba(word1);
 
                         let r = interp_channel(r0, r1, jf);
                         let g = interp_channel(g0, g1, jf);
                         let b = interp_channel(b0, b1, jf);
                         let a = interp_channel(a0, a1, jf);
 
-                        let pixel = color::compose_rgba(r, g, b, a);
+                        let pixel = pixel::compose_rgba(r, g, b, a);
                         out_mut.set_pixel_unchecked(jd as u32, i as u32, pixel);
                     }
                 } else {
@@ -805,15 +805,15 @@ pub fn quadratic_v_shear_li(
                         let word0 = src_pix.get_pixel_unchecked(j as u32, yp as u32);
                         let word1 = src_pix.get_pixel_unchecked(j as u32, (yp + 1) as u32);
 
-                        let (r0, g0, b0, a0) = color::extract_rgba(word0);
-                        let (r1, g1, b1, a1) = color::extract_rgba(word1);
+                        let (r0, g0, b0, a0) = pixel::extract_rgba(word0);
+                        let (r1, g1, b1, a1) = pixel::extract_rgba(word1);
 
                         let r = interp_channel(r0, r1, yf);
                         let g = interp_channel(g0, g1, yf);
                         let b = interp_channel(b0, b1, yf);
                         let a = interp_channel(a0, a1, yf);
 
-                        color::compose_rgba(r, g, b, a)
+                        pixel::compose_rgba(r, g, b, a)
                     } else {
                         src_pix.get_pixel_unchecked(j as u32, yp as u32)
                     };
@@ -852,8 +852,8 @@ pub fn quadratic_v_shear_li(
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_transform::warper::{warp_stereoscopic, StereoscopicParams};
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::transform::warper::{warp_stereoscopic, StereoscopicParams};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 /// let stereo = warp_stereoscopic(&pix, StereoscopicParams::default()).unwrap();
@@ -987,13 +987,13 @@ pub fn stereo_from_pair(
             let word1 = pix1.get_pixel_unchecked(i, j);
             let word2 = pix2.get_pixel_unchecked(i, j);
 
-            let (r1, g1, b1, _) = color::extract_rgba(word1);
-            let (_, g2, b2, _) = color::extract_rgba(word2);
+            let (r1, g1, b1, _) = pixel::extract_rgba(word1);
+            let (_, g2, b2, _) = pixel::extract_rgba(word2);
 
             // Compute weighted red from pix1
             let rval = (rwt * r1 as f32 + gwt * g1 as f32 + bwt * b1 as f32 + 0.5) as u8;
 
-            let pixel = color::compose_rgba(rval, g2, b2, 255);
+            let pixel = pixel::compose_rgba(rval, g2, b2, 255);
             out_mut.set_pixel_unchecked(i, j, pixel);
         }
     }
@@ -1023,7 +1023,7 @@ fn interp_channel(v0: u8, v1: u8, f: i32) -> u8 {
 }
 
 /// Remove colormap from an image
-fn remove_colormap(pix: &Pix, cmap: &leptonica_core::PixColormap) -> TransformResult<Pix> {
+fn remove_colormap(pix: &Pix, cmap: &crate::core::PixColormap) -> TransformResult<Pix> {
     let w = pix.width();
     let h = pix.height();
 
@@ -1059,7 +1059,7 @@ fn remove_colormap(pix: &Pix, cmap: &leptonica_core::PixColormap) -> TransformRe
                 let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let pixel = if idx < cmap.len() {
                     let c = &cmap.colors()[idx];
-                    color::compose_rgba(c.red, c.green, c.blue, 255)
+                    pixel::compose_rgba(c.red, c.green, c.blue, 255)
                 } else {
                     0
                 };
@@ -1091,7 +1091,7 @@ fn convert_to_32bpp(pix: &Pix) -> TransformResult<Pix> {
                 let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let pixel = if idx < cmap.len() {
                     let c = &cmap.colors()[idx];
-                    color::compose_rgba(c.red, c.green, c.blue, 255)
+                    pixel::compose_rgba(c.red, c.green, c.blue, 255)
                 } else {
                     0
                 };
@@ -1117,7 +1117,7 @@ fn convert_to_32bpp(pix: &Pix) -> TransformResult<Pix> {
                     PixelDepth::Bit16 => (val >> 8) as u8,
                     PixelDepth::Bit32 => unreachable!(),
                 };
-                let pixel = color::compose_rgba(gray, gray, gray, 255);
+                let pixel = pixel::compose_rgba(gray, gray, gray, 255);
                 out_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -1142,7 +1142,7 @@ fn split_rgb(pix: &Pix) -> TransformResult<(Pix, Pix, Pix)> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, _) = color::extract_rgba(pixel);
+            let (r, g, b, _) = pixel::extract_rgba(pixel);
             r_mut.set_pixel_unchecked(x, y, r as u32);
             g_mut.set_pixel_unchecked(x, y, g as u32);
             b_mut.set_pixel_unchecked(x, y, b as u32);
@@ -1165,7 +1165,7 @@ fn combine_rgb(pix_r: &Pix, pix_g: &Pix, pix_b: &Pix) -> TransformResult<Pix> {
             let r = pix_r.get_pixel_unchecked(x, y) as u8;
             let g = pix_g.get_pixel_unchecked(x, y) as u8;
             let b = pix_b.get_pixel_unchecked(x, y) as u8;
-            let pixel = color::compose_rgba(r, g, b, 255);
+            let pixel = pixel::compose_rgba(r, g, b, 255);
             out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
@@ -1279,8 +1279,8 @@ fn apply_quad_v_shear_for_stereo(
 
 /// Horizontal shear with linear interpolation (for stereo)
 fn h_shear_li(pix: &Pix, yloc: i32, angle: f32, fill: WarpFill) -> TransformResult<Pix> {
-    use crate::shear::ShearFill;
-    use crate::shear::h_shear_li as shear_h_shear_li;
+    use crate::transform::shear::ShearFill;
+    use crate::transform::shear::h_shear_li as shear_h_shear_li;
 
     let shear_fill = match fill {
         WarpFill::White => ShearFill::White,
@@ -1634,7 +1634,7 @@ mod tests {
         assert_eq!(result.depth(), PixelDepth::Bit32);
 
         let pixel = result.get_pixel_unchecked(5, 5);
-        let (r, g, b, _) = color::extract_rgba(pixel);
+        let (r, g, b, _) = pixel::extract_rgba(pixel);
         assert_eq!(r, 128);
         assert_eq!(g, 128);
         assert_eq!(b, 128);
@@ -1644,7 +1644,7 @@ mod tests {
     fn test_split_and_combine_rgb() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        let red_pixel = color::compose_rgba(255, 0, 0, 255);
+        let red_pixel = pixel::compose_rgba(255, 0, 0, 255);
         pix_mut.set_pixel_unchecked(5, 5, red_pixel);
         let pix: Pix = pix_mut.into();
 
@@ -1655,7 +1655,7 @@ mod tests {
 
         let combined = combine_rgb(&r, &g, &b).unwrap();
         let pixel = combined.get_pixel_unchecked(5, 5);
-        let (rc, gc, bc, _) = color::extract_rgba(pixel);
+        let (rc, gc, bc, _) = pixel::extract_rgba(pixel);
         assert_eq!(rc, 255);
         assert_eq!(gc, 0);
         assert_eq!(bc, 0);

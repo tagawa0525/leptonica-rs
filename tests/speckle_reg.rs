@@ -16,12 +16,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/speckle_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_region::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::region::{
     ConnectivityType, SizeSelectRelation, SizeSelectType, clear_border, find_connected_components,
     pix_count_components, pix_select_by_size,
 };
-use leptonica_test::RegParams;
 
 /// Test clear_border on a binary image (border noise removal).
 ///
@@ -31,7 +32,7 @@ fn speckle_reg_clear_border() {
     let mut rp = RegParams::new("speckle_border");
 
     // Use feyn.tif as a binary test image (already 1bpp)
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let region = pix.clip_rectangle(383, 338, 400, 300).expect("clip region");
     let w = region.width();
     let h = region.height();
@@ -57,7 +58,7 @@ fn speckle_reg_count_components() {
     let mut rp = RegParams::new("speckle_count");
 
     // feyn.tif is already 1bpp — no threshold needed
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let binary = pix.clip_rectangle(383, 338, 400, 300).expect("clip region");
     assert_eq!(binary.depth(), PixelDepth::Bit1);
 
@@ -83,7 +84,7 @@ fn speckle_reg_select_by_size() {
     let mut rp = RegParams::new("speckle_size");
 
     // feyn.tif is already 1bpp
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let binary = pix.clip_rectangle(383, 338, 400, 300).expect("clip region");
     let w = binary.width();
     let h = binary.height();

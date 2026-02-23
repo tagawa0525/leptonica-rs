@@ -314,129 +314,18 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 name = "leptonica"
 version = "0.1.0"
 dependencies = [
- "leptonica-color",
- "leptonica-core",
- "leptonica-filter",
- "leptonica-io",
- "leptonica-morph",
- "leptonica-recog",
- "leptonica-region",
- "leptonica-transform",
-]
-
-[[package]]
-name = "leptonica-color"
-version = "0.1.0"
-dependencies = [
- "leptonica-core",
- "leptonica-io",
- "leptonica-test",
- "leptonica-transform",
- "thiserror",
-]
-
-[[package]]
-name = "leptonica-core"
-version = "0.1.0"
-dependencies = [
- "leptonica-io",
- "leptonica-test",
- "thiserror",
-]
-
-[[package]]
-name = "leptonica-doc"
-version = "0.1.0"
-dependencies = [
- "leptonica-core",
-]
-
-[[package]]
-name = "leptonica-filter"
-version = "0.1.0"
-dependencies = [
- "leptonica-core",
- "leptonica-io",
- "leptonica-morph",
- "leptonica-region",
- "leptonica-test",
- "leptonica-transform",
- "thiserror",
-]
-
-[[package]]
-name = "leptonica-io"
-version = "0.1.0"
-dependencies = [
  "gif",
  "half",
  "hayro-jpeg2000",
  "image-webp",
  "jpeg-decoder",
  "jpeg-encoder",
- "leptonica-color",
- "leptonica-core",
- "leptonica-test",
  "miniz_oxide 0.9.0",
  "pdf-writer",
  "png",
- "thiserror",
- "tiff",
-]
-
-[[package]]
-name = "leptonica-morph"
-version = "0.1.0"
-dependencies = [
- "leptonica-core",
- "leptonica-io",
- "leptonica-test",
- "leptonica-transform",
- "thiserror",
-]
-
-[[package]]
-name = "leptonica-recog"
-version = "0.1.0"
-dependencies = [
- "leptonica-color",
- "leptonica-core",
- "leptonica-io",
- "leptonica-morph",
- "leptonica-region",
- "leptonica-test",
- "leptonica-transform",
- "thiserror",
-]
-
-[[package]]
-name = "leptonica-region"
-version = "0.1.0"
-dependencies = [
- "leptonica-core",
- "leptonica-io",
- "leptonica-test",
  "rand",
  "thiserror",
-]
-
-[[package]]
-name = "leptonica-test"
-version = "0.1.0"
-dependencies = [
- "leptonica-core",
- "leptonica-io",
- "thiserror",
-]
-
-[[package]]
-name = "leptonica-transform"
-version = "0.1.0"
-dependencies = [
- "leptonica-core",
- "leptonica-io",
- "leptonica-test",
- "thiserror",
+ "tiff",
 ]
 
 [[package]]

@@ -5,11 +5,11 @@
 
 use std::io::{Read, Write};
 
-use crate::error::{RecogError, RecogResult};
-use leptonica_core::{
+use crate::core::{
     Pix,
     box_::{Box as LBox, Boxa},
 };
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::types::{Dewarp, DewarpOptions};
 
@@ -804,7 +804,7 @@ mod tests {
 
     #[test]
     fn test_apply_disparity_no_model() {
-        use leptonica_core::{Pix, PixelDepth};
+        use crate::core::{Pix, PixelDepth};
         let da = make_dewarpa(3);
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let result = da.apply_disparity(0, &pix, 0, 0);
@@ -813,7 +813,7 @@ mod tests {
 
     #[test]
     fn test_apply_disparity_boxa_empty() {
-        use leptonica_core::box_::Boxa;
+        use crate::core::box_::Boxa;
         let da = make_dewarpa(3);
         let result = da.apply_disparity_boxa(0, &Boxa::new());
         assert!(result.is_err()); // No model at page 0
@@ -828,13 +828,13 @@ mod tests {
         da.insert(dw).unwrap();
         da.use_single_model(2, false).unwrap();
         // Page 0 is a ref pointing to page 2; apply should succeed
-        let pix = leptonica_core::Pix::new(10, 10, leptonica_core::PixelDepth::Bit8).unwrap();
+        let pix = crate::core::Pix::new(10, 10, crate::core::PixelDepth::Bit8).unwrap();
         // No full disparity on the model, so apply_disparity returns an error,
         // but for a different reason (no disparity data), not "no model".
         let result = da.apply_disparity(0, &pix, 0, 0);
         // We expect an error about missing disparity, not missing model
         // Any other outcome is acceptable for the RED phase
-        if let Err(crate::error::RecogError::InvalidParameter(msg)) = result {
+        if let Err(crate::recog::error::RecogError::InvalidParameter(msg)) = result {
             assert!(!msg.contains("has no Dewarp model"), "unexpected: {msg}");
         }
     }

@@ -25,8 +25,8 @@
 //! # Examples
 //!
 //! ```no_run
-//! use leptonica_color::coloring::{pix_color_gray, ColorGrayOptions, PaintType};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::color::coloring::{pix_color_gray, ColorGrayOptions, PaintType};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! // Colorize light pixels with red
 //! let pix = Pix::new(100, 100, PixelDepth::Bit32).unwrap();
@@ -38,8 +38,8 @@
 //! let colored = pix_color_gray(&pix, None, &options).unwrap();
 //! ```
 
-use crate::{ColorError, ColorResult};
-use leptonica_core::{Box, Pix, PixelDepth, color};
+use crate::color::{ColorError, ColorResult};
+use crate::core::{Box, Pix, PixelDepth, pixel};
 
 /// Paint type for gray colorization
 ///
@@ -206,7 +206,7 @@ fn shift_component(val: u8, src: u8, dst: u8) -> u8 {
 ///
 /// The mapped pixel in 32-bit RGBA format.
 pub fn pixel_linear_map_to_target_color(pixel: u32, src_map: u32, dst_map: u32) -> u32 {
-    let (r, g, b, a) = color::extract_rgba(pixel);
+    let (r, g, b, a) = pixel::extract_rgba(pixel);
     let (sr, sg, sb) = extract_rgb_from_color(src_map);
     let (dr, dg, db) = extract_rgb_from_color(dst_map);
 
@@ -219,7 +219,7 @@ pub fn pixel_linear_map_to_target_color(pixel: u32, src_map: u32, dst_map: u32) 
     let ng = linear_map_component(g, sg, dg);
     let nb = linear_map_component(b, sb, db);
 
-    color::compose_rgba(nr, ng, nb, a)
+    pixel::compose_rgba(nr, ng, nb, a)
 }
 
 /// Helper to perform linear mapping on a single component
@@ -435,7 +435,7 @@ pub fn pix_color_gray_masked(
 /// Helper to colorize a single pixel
 #[inline]
 fn colorize_pixel(pixel: u32, options: &ColorGrayOptions) -> u32 {
-    let (r, g, b, a) = color::extract_rgba(pixel);
+    let (r, g, b, a) = pixel::extract_rgba(pixel);
     let (tr, tg, tb) = options.target_color;
 
     // Calculate average gray value
@@ -452,7 +452,7 @@ fn colorize_pixel(pixel: u32, options: &ColorGrayOptions) -> u32 {
             let nr = (tr as f32 * factor) as u8;
             let ng = (tg as f32 * factor) as u8;
             let nb = (tb as f32 * factor) as u8;
-            color::compose_rgba(nr, ng, nb, a)
+            pixel::compose_rgba(nr, ng, nb, a)
         }
         PaintType::Dark => {
             if avg >= options.threshold {
@@ -464,7 +464,7 @@ fn colorize_pixel(pixel: u32, options: &ColorGrayOptions) -> u32 {
             let nr = tr + ((255.0 - tr as f32) * factor) as u8;
             let ng = tg + ((255.0 - tg as f32) * factor) as u8;
             let nb = tb + ((255.0 - tb as f32) * factor) as u8;
-            color::compose_rgba(nr, ng, nb, a)
+            pixel::compose_rgba(nr, ng, nb, a)
         }
     }
 }
@@ -531,7 +531,7 @@ fn pix_snap_color_32bpp(pix: &Pix, src_color: u32, dst_color: u32, diff: u8) -> 
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, a) = color::extract_rgba(pixel);
+            let (r, g, b, a) = pixel::extract_rgba(pixel);
 
             let new_pixel = if (r as i16 - sr as i16).unsigned_abs() as u8 <= diff
                 && (g as i16 - sg as i16).unsigned_abs() as u8 <= diff
@@ -539,7 +539,7 @@ fn pix_snap_color_32bpp(pix: &Pix, src_color: u32, dst_color: u32, diff: u8) -> 
             {
                 // Extract RGB from dst_color and compose with original alpha
                 let (dr, dg, db) = extract_rgb_from_color(dst_color);
-                color::compose_rgba(dr, dg, db, a)
+                pixel::compose_rgba(dr, dg, db, a)
             } else {
                 pixel
             };
@@ -612,13 +612,13 @@ pub fn pix_linear_map_to_target_color(
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, a) = color::extract_rgba(pixel);
+            let (r, g, b, a) = pixel::extract_rgba(pixel);
 
             let nr = rtab[r as usize];
             let ng = gtab[g as usize];
             let nb = btab[b as usize];
 
-            let new_pixel = color::compose_rgba(nr, ng, nb, a);
+            let new_pixel = pixel::compose_rgba(nr, ng, nb, a);
             out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
@@ -681,13 +681,13 @@ pub fn pix_shift_by_component(pix: &Pix, src_color: u32, dst_color: u32) -> Colo
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, a) = color::extract_rgba(pixel);
+            let (r, g, b, a) = pixel::extract_rgba(pixel);
 
             let nr = rtab[r as usize];
             let ng = gtab[g as usize];
             let nb = btab[b as usize];
 
-            let new_pixel = color::compose_rgba(nr, ng, nb, a);
+            let new_pixel = pixel::compose_rgba(nr, ng, nb, a);
             out_mut.set_pixel_unchecked(x, y, new_pixel);
         }
     }
@@ -814,7 +814,7 @@ mod tests {
         // Fill with gray
         for y in 0..10 {
             for x in 0..10 {
-                let pixel = color::compose_rgb(128, 128, 128);
+                let pixel = pixel::compose_rgb(128, 128, 128);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -829,7 +829,7 @@ mod tests {
 
         // Check that pixels are now reddish
         let pixel = result.get_pixel_unchecked(5, 5);
-        let (r, g, b, _) = color::extract_rgba(pixel);
+        let (r, g, b, _) = pixel::extract_rgba(pixel);
 
         // Red should be dominant
         assert!(r > g);
@@ -846,7 +846,7 @@ mod tests {
         // Fill with dark gray
         for y in 0..10 {
             for x in 0..10 {
-                let pixel = color::compose_rgb(64, 64, 64);
+                let pixel = pixel::compose_rgb(64, 64, 64);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -861,7 +861,7 @@ mod tests {
 
         // Check that pixels are now bluish
         let pixel = result.get_pixel_unchecked(5, 5);
-        let (r, g, b, _) = color::extract_rgba(pixel);
+        let (r, g, b, _) = pixel::extract_rgba(pixel);
 
         // Blue should be dominant
         assert!(b > r);
@@ -876,7 +876,7 @@ mod tests {
         // Fill with near-white
         for y in 0..10 {
             for x in 0..10 {
-                let pixel = color::compose_rgb(250, 252, 248);
+                let pixel = pixel::compose_rgb(250, 252, 248);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -885,7 +885,7 @@ mod tests {
         let result = pix_snap_color(&pix_mut.into(), 0xFFFFFF00, 0xFFFFFF00, 10).unwrap();
 
         let pixel = result.get_pixel_unchecked(5, 5);
-        let (r, g, b, _) = color::extract_rgba(pixel);
+        let (r, g, b, _) = pixel::extract_rgba(pixel);
 
         assert_eq!((r, g, b), (255, 255, 255));
     }
@@ -917,7 +917,7 @@ mod tests {
         // Fill with mid-gray
         for y in 0..10 {
             for x in 0..10 {
-                let pixel = color::compose_rgb(128, 128, 128);
+                let pixel = pixel::compose_rgb(128, 128, 128);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -927,7 +927,7 @@ mod tests {
             pix_linear_map_to_target_color(&pix_mut.into(), 0x80808000, 0x40404000).unwrap();
 
         let pixel = result.get_pixel_unchecked(5, 5);
-        let (r, g, b, _) = color::extract_rgba(pixel);
+        let (r, g, b, _) = pixel::extract_rgba(pixel);
 
         // Should be around 64
         assert_eq!(r, 64);
@@ -943,7 +943,7 @@ mod tests {
         // Fill with white
         for y in 0..10 {
             for x in 0..10 {
-                let pixel = color::compose_rgb(255, 255, 255);
+                let pixel = pixel::compose_rgb(255, 255, 255);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -952,7 +952,7 @@ mod tests {
         let result = pix_shift_by_component(&pix_mut.into(), 0xFFFFFF00, 0xFF808000).unwrap();
 
         let pixel = result.get_pixel_unchecked(5, 5);
-        let (r, g, b, _) = color::extract_rgba(pixel);
+        let (r, g, b, _) = pixel::extract_rgba(pixel);
 
         // Red should stay 255, green and blue should be shifted down
         assert_eq!(r, 255);
@@ -968,7 +968,7 @@ mod tests {
         // Fill with a color
         for y in 0..10 {
             for x in 0..10 {
-                let pixel = color::compose_rgb(200, 100, 50);
+                let pixel = pixel::compose_rgb(200, 100, 50);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -977,7 +977,7 @@ mod tests {
         let result = pix_map_with_invariant_hue(&pix_mut.into(), 0xC8643200, 0.5).unwrap();
 
         let pixel = result.get_pixel_unchecked(5, 5);
-        let (r, g, b, _) = color::extract_rgba(pixel);
+        let (r, g, b, _) = pixel::extract_rgba(pixel);
 
         // All components should be higher (shifted toward white)
         assert!(r > 200 || (r == 255));

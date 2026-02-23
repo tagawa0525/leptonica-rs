@@ -3,11 +3,12 @@
 //! C version: reference/leptonica/prog/binarize_reg.c
 //! Tests Otsu, adaptive threshold, Sauvola and other binarization methods.
 
-use leptonica_color::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::color::{
     AdaptiveThresholdOptions, adaptive_threshold, compute_otsu_threshold, dither_to_binary,
     sauvola_threshold, threshold_otsu, threshold_to_binary,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 #[test]
 fn binarize_reg() {

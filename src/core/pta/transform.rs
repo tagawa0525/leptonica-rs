@@ -2,10 +2,10 @@
 //!
 //! Corresponds to functions in C Leptonica's `ptafunc1.c`.
 
-use crate::box_::Box as LBox;
-use crate::error::{Error, Result};
-use crate::numa::Numa;
-use crate::pta::{Pta, Ptaa};
+use crate::core::box_::Box as LBox;
+use crate::core::error::{Error, Result};
+use crate::core::numa::Numa;
+use crate::core::pta::{Pta, Ptaa};
 
 impl Pta {
     /// Return a new Pta by subsampling every `subfactor`-th point.

@@ -2,9 +2,9 @@
 //!
 //! Reading and writing JPEG images using the jpeg-decoder and jpeg-encoder crates.
 
-use crate::{IoError, IoResult, header::ImageHeader};
+use crate::core::{ImageFormat, Pix, PixelDepth, pix::RemoveColormapTarget, pixel};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use jpeg_decoder::{Decoder, PixelFormat};
-use leptonica_core::{ImageFormat, Pix, PixelDepth, color, pix::RemoveColormapTarget};
 use std::io::{Read, Write};
 
 /// Read JPEG header metadata without decoding pixel data
@@ -115,7 +115,7 @@ pub fn read_jpeg<R: Read>(reader: R) -> IoResult<Pix> {
                     let r = pixels[idx];
                     let g = pixels[idx + 1];
                     let b = pixels[idx + 2];
-                    let pixel = color::compose_rgb(r, g, b);
+                    let pixel = pixel::compose_rgb(r, g, b);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -210,7 +210,7 @@ pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoRe
             for y in 0..h {
                 for x in 0..w {
                     let pixel = pix.get_pixel_unchecked(x as u32, y as u32);
-                    let (r, g, b) = color::extract_rgb(pixel);
+                    let (r, g, b) = pixel::extract_rgb(pixel);
                     let idx = (y * w + x) * 3;
                     data[idx] = r;
                     data[idx + 1] = g;
@@ -268,7 +268,7 @@ mod tests {
         pix_mut.set_spp(3);
         for y in 0..10u32 {
             for x in 0..10u32 {
-                let pixel = color::compose_rgb((x * 25) as u8, (y * 25) as u8, 128);
+                let pixel = pixel::compose_rgb((x * 25) as u8, (y * 25) as u8, 128);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }

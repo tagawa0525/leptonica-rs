@@ -14,8 +14,8 @@
 //!
 //! Based on Leptonica's `graymorph.c` implementation.
 
-use crate::{MorphError, MorphResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::morph::{MorphError, MorphResult};
 
 /// Dilate a grayscale image with a brick structuring element
 ///

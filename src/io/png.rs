@@ -1,7 +1,7 @@
 //! PNG image format support
 
-use crate::{IoError, IoResult, header::ImageHeader};
-use leptonica_core::{ImageFormat, Pix, PixColormap, PixelDepth, color};
+use crate::core::{ImageFormat, Pix, PixColormap, PixelDepth, pixel};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use png::{BitDepth, ColorType, Decoder, Encoder};
 use std::io::{BufRead, Seek, Write};
 
@@ -211,7 +211,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                     } else {
                         (data[idx], data[idx + 1])
                     };
-                    let pixel = color::compose_rgba(g, g, g, a);
+                    let pixel = pixel::compose_rgba(g, g, g, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -227,7 +227,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                     } else {
                         (data[idx], data[idx + 1], data[idx + 2])
                     };
-                    let pixel = color::compose_rgb(r, g, b);
+                    let pixel = pixel::compose_rgb(r, g, b);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -243,7 +243,7 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
                     } else {
                         (data[idx], data[idx + 1], data[idx + 2], data[idx + 3])
                     };
-                    let pixel = color::compose_rgba(r, g, b, a);
+                    let pixel = pixel::compose_rgba(r, g, b, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -394,7 +394,7 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
             (ColorType::Rgb, _) => {
                 for x in 0..width {
                     let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                    let (r, g, b) = color::extract_rgb(pixel);
+                    let (r, g, b) = pixel::extract_rgb(pixel);
                     let idx = row_start + (x as usize * 3);
                     data[idx] = r;
                     data[idx + 1] = g;
@@ -404,7 +404,7 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
             (ColorType::Rgba, _) => {
                 for x in 0..width {
                     let pixel = pix.get_pixel(x, y).unwrap_or(0);
-                    let (r, g, b, a) = color::extract_rgba(pixel);
+                    let (r, g, b, a) = pixel::extract_rgba(pixel);
                     let idx = row_start + (x as usize * 4);
                     data[idx] = r;
                     data[idx + 1] = g;

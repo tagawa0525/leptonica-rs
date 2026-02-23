@@ -12,7 +12,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_recog::recog::{Recog, create};
+//! use leptonica::recog::recog::{Recog, create};
 //!
 //! // Create a recognizer with default scaling
 //! let mut recog = create(40, 40, 0, 150, 1).unwrap();

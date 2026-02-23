@@ -15,9 +15,10 @@
 //!
 //! Point data from `MakePtas()` function in C version.
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_test::{RegParams, load_test_image};
-use leptonica_transform::{AffineFill, Point, ScaleMethod, affine_pta, affine_sampled_pta, scale};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::transform::{AffineFill, Point, ScaleMethod, affine_pta, affine_sampled_pta, scale};
+use leptonica::{Pix, PixelDepth};
 
 // Point data from C version (affine_reg.c MakePtas function)
 const X1: [i32; 5] = [300, 300, 300, 95, 32];

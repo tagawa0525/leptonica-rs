@@ -24,9 +24,9 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_transform::bilinear::{BilinearCoeffs, bilinear_sampled};
-//! use leptonica_transform::affine::{AffineFill, Point};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::transform::bilinear::{BilinearCoeffs, bilinear_sampled};
+//! use leptonica::transform::affine::{AffineFill, Point};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 //!
@@ -51,9 +51,9 @@
 //! let transformed = bilinear_sampled(&pix, &coeffs, AffineFill::White).unwrap();
 //! ```
 
-use crate::affine::{AffineFill, Point};
-use crate::{TransformError, TransformResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::transform::affine::{AffineFill, Point};
+use crate::transform::{TransformError, TransformResult};
 
 // ============================================================================
 // Bilinear Coefficients
@@ -535,10 +535,10 @@ fn bilinear_color(pix: &Pix, coeffs: &BilinearCoeffs, fill: AffineFill) -> Trans
             let p11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
 
             // Extract RGBA components
-            let (r00, g00, b00, a00) = color::extract_rgba(p00);
-            let (r10, g10, b10, a10) = color::extract_rgba(p10);
-            let (r01, g01, b01, a01) = color::extract_rgba(p01);
-            let (r11, g11, b11, a11) = color::extract_rgba(p11);
+            let (r00, g00, b00, a00) = pixel::extract_rgba(p00);
+            let (r10, g10, b10, a10) = pixel::extract_rgba(p10);
+            let (r01, g01, b01, a01) = pixel::extract_rgba(p01);
+            let (r11, g11, b11, a11) = pixel::extract_rgba(p11);
 
             // Area-weighted interpolation for each channel
             let r = area_interp(r00, r10, r01, r11, xf, yf);
@@ -546,7 +546,7 @@ fn bilinear_color(pix: &Pix, coeffs: &BilinearCoeffs, fill: AffineFill) -> Trans
             let bv = area_interp(b00, b10, b01, b11, xf, yf);
             let av = area_interp(a00, a10, a01, a11, xf, yf);
 
-            let pixel = color::compose_rgba(r, gv, bv, av);
+            let pixel = pixel::compose_rgba(r, gv, bv, av);
             out_mut.set_pixel_unchecked(i, j, pixel);
         }
     }
@@ -597,7 +597,7 @@ pub fn bilinear_pta_with_alpha(
     opacity: f32,
     border: u32,
 ) -> TransformResult<Pix> {
-    crate::affine::with_alpha_transform(
+    crate::transform::affine::with_alpha_transform(
         pix,
         alpha_mask,
         opacity,
@@ -613,7 +613,7 @@ pub fn bilinear_pta_with_alpha(
 }
 
 /// Fill an image with a constant value
-fn fill_image(pix: &mut leptonica_core::PixMut, value: u32) {
+fn fill_image(pix: &mut crate::core::PixMut, value: u32) {
     let w = pix.width();
     let h = pix.height();
     for y in 0..h {
@@ -900,7 +900,7 @@ mod tests {
 
     #[test]
     fn test_bilinear_preserves_colormap() {
-        use leptonica_core::PixColormap;
+        use crate::core::PixColormap;
 
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -960,7 +960,7 @@ mod tests {
         pm.set_spp(4);
         for y in 0..50u32 {
             for x in 0..50u32 {
-                let pixel = color::compose_rgba((x * 5) as u8, (y * 5) as u8, 128, 255);
+                let pixel = pixel::compose_rgba((x * 5) as u8, (y * 5) as u8, 128, 255);
                 pm.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -987,11 +987,11 @@ mod tests {
         assert_eq!(result.height(), 70);
 
         // Border pixels should have alpha = 0
-        assert_eq!(color::alpha(result.get_pixel_unchecked(0, 0)), 0);
+        assert_eq!(pixel::alpha(result.get_pixel_unchecked(0, 0)), 0);
 
         // Interior pixels should have non-zero alpha
         let center_pixel = result.get_pixel_unchecked(35, 35);
-        assert!(color::alpha(center_pixel) > 0);
+        assert!(pixel::alpha(center_pixel) > 0);
     }
 
     #[test]

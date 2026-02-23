@@ -7,8 +7,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pixa1_reg.c`
 
-use leptonica_core::{Box, Pix, Pixa, Pixaa, PixelDepth};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{Box, Pix, Pixa, Pixaa, PixelDepth};
 
 fn make_test_pix(width: u32, height: u32) -> Pix {
     Pix::new(width, height, PixelDepth::Bit8).unwrap()

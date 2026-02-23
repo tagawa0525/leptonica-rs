@@ -7,8 +7,8 @@
 //! and 3 are narrow. No information is carried in the spaces
 //! between the bars.
 
-use crate::barcode::types::FormatVerification;
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::FormatVerification;
+use crate::recog::{RecogError, RecogResult};
 
 /// Code 2 of 5 symbol patterns (digits 0-9, start, stop)
 const CODE2OF5: &[&str] = &[

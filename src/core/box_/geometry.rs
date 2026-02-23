@@ -5,7 +5,7 @@
 //!
 //! C Leptonica equivalents: boxfunc1.c
 
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 use super::{Box, Boxa};
 

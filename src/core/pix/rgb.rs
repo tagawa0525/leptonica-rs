@@ -8,8 +8,8 @@
 //! C Leptonica: `pix2.c` (`pixGetRGBComponent`, `pixSetRGBComponent`, etc.)
 
 use super::{Pix, PixMut, PixelDepth};
-use crate::color;
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 /// Color component selector for RGB channel operations.
 ///
@@ -49,10 +49,10 @@ impl Pix {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
                 let val = match comp {
-                    RgbComponent::Red => color::red(pixel),
-                    RgbComponent::Green => color::green(pixel),
-                    RgbComponent::Blue => color::blue(pixel),
-                    RgbComponent::Alpha => color::alpha(pixel),
+                    RgbComponent::Red => pixel::red(pixel),
+                    RgbComponent::Green => pixel::green(pixel),
+                    RgbComponent::Blue => pixel::blue(pixel),
+                    RgbComponent::Alpha => pixel::alpha(pixel),
                 };
                 result_mut.set_pixel_unchecked(x, y, val as u32);
             }
@@ -98,7 +98,7 @@ impl Pix {
                 let r = pix_r.get_pixel_unchecked(x, y) as u8;
                 let g = pix_g.get_pixel_unchecked(x, y) as u8;
                 let b = pix_b.get_pixel_unchecked(x, y) as u8;
-                result_mut.set_pixel_unchecked(x, y, color::compose_rgb(r, g, b));
+                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
             }
         }
 
@@ -170,7 +170,7 @@ impl Pix {
 
         for x in 0..self.width() {
             let pixel = self.get_pixel_unchecked(x, row);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             buf_r.push(r);
             buf_g.push(g);
             buf_b.push(b);
@@ -200,7 +200,7 @@ impl Pix {
         for y in 0..self.height() {
             for x in 0..self.width() {
                 let pixel = self.get_pixel_unchecked(x, y);
-                if color::alpha(pixel) != 255 {
+                if pixel::alpha(pixel) != 255 {
                     return Ok(false);
                 }
             }
@@ -285,7 +285,7 @@ impl Pix {
             for y in 0..h {
                 for x in 0..w {
                     let pixel = self.get_pixel_unchecked(x, y);
-                    let (r, g, b) = color::extract_rgb(pixel);
+                    let (r, g, b) = pixel::extract_rgb(pixel);
                     data.push(r);
                     data.push(g);
                     data.push(b);
@@ -351,7 +351,7 @@ impl Pix {
             )));
         }
         let pixel = self.get_pixel_unchecked(x, y);
-        Ok(color::extract_rgb(pixel))
+        Ok(pixel::extract_rgb(pixel))
     }
 }
 
@@ -383,8 +383,8 @@ impl PixMut {
             for x in 0..w {
                 let src_pixel = src.get_pixel_unchecked(x, y);
                 let dst_pixel = self.get_pixel_unchecked(x, y);
-                let (mut r, mut g, mut b, mut a) = color::extract_rgba(dst_pixel);
-                let (sr, sg, sb, sa) = color::extract_rgba(src_pixel);
+                let (mut r, mut g, mut b, mut a) = pixel::extract_rgba(dst_pixel);
+                let (sr, sg, sb, sa) = pixel::extract_rgba(src_pixel);
 
                 match comp {
                     RgbComponent::Red => r = sr,
@@ -393,7 +393,7 @@ impl PixMut {
                     RgbComponent::Alpha => a = sa,
                 }
 
-                self.set_pixel_unchecked(x, y, color::compose_rgba(r, g, b, a));
+                self.set_pixel_unchecked(x, y, pixel::compose_rgba(r, g, b, a));
             }
         }
 
@@ -475,7 +475,7 @@ impl PixMut {
                 self.height()
             )));
         }
-        let pixel = color::compose_rgb(rval, gval, bval);
+        let pixel = pixel::compose_rgb(rval, gval, bval);
         self.set_pixel_unchecked(x, y, pixel);
         Ok(())
     }
@@ -510,7 +510,7 @@ impl PixMut {
             for x in 0..w {
                 let src_val = src.get_pixel_unchecked(x, y) as u8;
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (mut r, mut g, mut b, mut a) = color::extract_rgba(pixel);
+                let (mut r, mut g, mut b, mut a) = pixel::extract_rgba(pixel);
 
                 match comp {
                     RgbComponent::Red => r = src_val,
@@ -519,7 +519,7 @@ impl PixMut {
                     RgbComponent::Alpha => a = src_val,
                 }
 
-                self.set_pixel_unchecked(x, y, color::compose_rgba(r, g, b, a));
+                self.set_pixel_unchecked(x, y, pixel::compose_rgba(r, g, b, a));
             }
         }
 
@@ -530,8 +530,8 @@ impl PixMut {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::color;
-    use crate::pix::PixelDepth;
+    use crate::core::pix::PixelDepth;
+    use crate::core::pixel;
 
     #[test]
     fn test_get_rgb_component_red() {
@@ -578,7 +578,7 @@ mod tests {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         pm.set_spp(4);
-        pm.set_pixel_unchecked(0, 0, color::compose_rgba(100, 150, 200, 128));
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgba(100, 150, 200, 128));
         let pix: Pix = pm.into();
 
         let alpha = pix.get_rgb_component(RgbComponent::Alpha).unwrap();
@@ -620,9 +620,9 @@ mod tests {
         pm.set_rgb_component(&src, RgbComponent::Red).unwrap();
         let pix: Pix = pm.into();
 
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (255, 100, 100));
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 0));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(1, 0));
         assert_eq!((r, g, b), (0, 100, 100));
     }
 
@@ -641,7 +641,7 @@ mod tests {
         assert_eq!(pm.spp(), 4);
         let pix: Pix = pm.into();
 
-        let (_, _, _, a) = color::extract_rgba(pix.get_pixel_unchecked(0, 0));
+        let (_, _, _, a) = pixel::extract_rgba(pix.get_pixel_unchecked(0, 0));
         assert_eq!(a, 128);
     }
 
@@ -672,14 +672,14 @@ mod tests {
         pm.set_rgb_component(&src, RgbComponent::Red).unwrap();
         let pix: Pix = pm.into();
 
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (255, 20, 30));
         // Other pixels unchanged
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 0));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(1, 0));
         assert_eq!((r, g, b), (10, 20, 30));
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 1));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(0, 1));
         assert_eq!((r, g, b), (10, 20, 30));
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 1));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(1, 1));
         assert_eq!((r, g, b), (10, 20, 30));
     }
 
@@ -705,9 +705,9 @@ mod tests {
 
         let rgb = Pix::create_rgb_image(&r, &g, &b).unwrap();
         assert_eq!(rgb.depth(), PixelDepth::Bit32);
-        let (rv, gv, bv) = color::extract_rgb(rgb.get_pixel_unchecked(0, 0));
+        let (rv, gv, bv) = pixel::extract_rgb(rgb.get_pixel_unchecked(0, 0));
         assert_eq!((rv, gv, bv), (255, 0, 128));
-        let (rv, gv, bv) = color::extract_rgb(rgb.get_pixel_unchecked(1, 0));
+        let (rv, gv, bv) = pixel::extract_rgb(rgb.get_pixel_unchecked(1, 0));
         assert_eq!((rv, gv, bv), (0, 255, 64));
     }
 
@@ -748,8 +748,8 @@ mod tests {
 
         for y in 0..2 {
             for x in 0..3 {
-                let (or, og, ob) = color::extract_rgb(pix.get_pixel_unchecked(x, y));
-                let (rr, rg, rb) = color::extract_rgb(result.get_pixel_unchecked(x, y));
+                let (or, og, ob) = pixel::extract_rgb(pix.get_pixel_unchecked(x, y));
+                let (rr, rg, rb) = pixel::extract_rgb(result.get_pixel_unchecked(x, y));
                 assert_eq!((or, og, ob), (rr, rg, rb), "mismatch at ({}, {})", x, y);
             }
         }
@@ -761,7 +761,7 @@ mod tests {
 
     #[test]
     fn test_get_rgb_component_cmap() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(255, 0, 0).unwrap(); // index 0: red
         cmap.add_rgb(0, 128, 0).unwrap(); // index 1: green
@@ -811,12 +811,12 @@ mod tests {
         let pix_s: Pix = pm_s.into();
 
         pm_d.copy_rgb_component(&pix_s, RgbComponent::Red).unwrap();
-        let (r, _, _) = color::extract_rgb(pm_d.get_pixel_unchecked(0, 0));
+        let (r, _, _) = pixel::extract_rgb(pm_d.get_pixel_unchecked(0, 0));
         assert_eq!(r, 255);
-        let (r, _, _) = color::extract_rgb(pm_d.get_pixel_unchecked(1, 0));
+        let (r, _, _) = pixel::extract_rgb(pm_d.get_pixel_unchecked(1, 0));
         assert_eq!(r, 0);
         // Green and blue should be unchanged
-        let (_, g, b) = color::extract_rgb(pm_d.get_pixel_unchecked(0, 0));
+        let (_, g, b) = pixel::extract_rgb(pm_d.get_pixel_unchecked(0, 0));
         assert_eq!((g, b), (100, 100));
     }
 
@@ -827,7 +827,7 @@ mod tests {
         pm.set_spp(4);
         for y in 0..3 {
             for x in 0..3 {
-                pm.set_pixel_unchecked(x, y, color::compose_rgba(100, 100, 100, 255));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgba(100, 100, 100, 255));
             }
         }
         let pix: Pix = pm.into();
@@ -841,11 +841,11 @@ mod tests {
         pm.set_spp(4);
         for y in 0..3 {
             for x in 0..3 {
-                pm.set_pixel_unchecked(x, y, color::compose_rgba(100, 100, 100, 255));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgba(100, 100, 100, 255));
             }
         }
         // Set one pixel with alpha != 255
-        pm.set_pixel_unchecked(1, 1, color::compose_rgba(100, 100, 100, 128));
+        pm.set_pixel_unchecked(1, 1, pixel::compose_rgba(100, 100, 100, 128));
         let pix: Pix = pm.into();
         assert!(!pix.alpha_is_opaque().unwrap());
     }
@@ -971,10 +971,10 @@ mod tests {
         pm.set_rgb_pixel(1, 0, 10, 20, 30).unwrap();
 
         let pix: Pix = pm.into();
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (255, 128, 64));
 
-        let (r, g, b) = color::extract_rgb(pix.get_pixel_unchecked(1, 0));
+        let (r, g, b) = pixel::extract_rgb(pix.get_pixel_unchecked(1, 0));
         assert_eq!((r, g, b), (10, 20, 30));
     }
 
@@ -994,7 +994,7 @@ mod tests {
 
     #[test]
     fn test_set_cmap_pixel() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(255, 0, 0).unwrap(); // index 0
         cmap.add_rgb(0, 255, 0).unwrap(); // index 1

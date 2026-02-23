@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/locminmax_reg.c`
 
-use leptonica_filter::blockconv_gray;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::filter::blockconv_gray;
 
 /// Test blockconv smoothing as preprocessing for local extrema (C check 0).
 ///
@@ -23,7 +24,7 @@ use leptonica_test::RegParams;
 fn locminmax_reg_blockconv_smooth() {
     let mut rp = RegParams::new("locminmax_smooth");
 
-    let pix8 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix8 = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix8.width();
     let h = pix8.height();
 
@@ -33,7 +34,7 @@ fn locminmax_reg_blockconv_smooth() {
     rp.compare_values(h as f64, smoothed.height() as f64, 0.0);
 
     // Smoothed image should be 8bpp
-    assert_eq!(smoothed.depth(), leptonica_core::PixelDepth::Bit8);
+    assert_eq!(smoothed.depth(), leptonica::PixelDepth::Bit8);
 
     assert!(rp.cleanup(), "locminmax blockconv smooth test failed");
 }

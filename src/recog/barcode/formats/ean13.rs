@@ -10,8 +10,8 @@
 //!
 //! If the first digit is 0, the encoding is identical to UPC-A.
 
-use crate::barcode::types::FormatVerification;
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::FormatVerification;
+use crate::recog::{RecogError, RecogResult};
 
 /// UPC-A/EAN-13 symbol patterns (left side, odd parity)
 const UPCA: &[&str] = &[

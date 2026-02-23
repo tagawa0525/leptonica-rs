@@ -15,8 +15,8 @@
 //! pixAbsDifference, and pixMinOrMax.
 
 use super::{Pix, PixMut, PixelDepth};
-use crate::color;
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 impl Pix {
     /// Add a constant value to all pixels.
@@ -39,7 +39,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     /// let brightened = pix.add_constant(50).unwrap();
@@ -75,7 +75,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     /// let darkened = pix.multiply_constant(0.5).unwrap();
@@ -115,7 +115,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix1 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
     /// let pix2 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -282,12 +282,12 @@ impl Pix {
                         let pixel_s = self.get_pixel(x, y).unwrap_or(0);
                         let val_g = (gray.get_pixel(x, y).unwrap_or(0) & 0xFF) as f32;
 
-                        let (r, g, b) = color::extract_rgb(pixel_s);
+                        let (r, g, b) = pixel::extract_rgb(pixel_s);
                         let r_new = ((r as f32 * val_g * norm + 0.5) as u32).min(255) as u8;
                         let g_new = ((g as f32 * val_g * norm + 0.5) as u32).min(255) as u8;
                         let b_new = ((b as f32 * val_g * norm + 0.5) as u32).min(255) as u8;
 
-                        let result_pixel = color::compose_rgb(r_new, g_new, b_new);
+                        let result_pixel = pixel::compose_rgb(r_new, g_new, b_new);
                         result_mut.set_pixel_unchecked(x, y, result_pixel);
                     }
                 }
@@ -385,8 +385,8 @@ impl Pix {
                         let pixel1 = self.get_pixel(x, y).unwrap_or(0);
                         let pixel2 = other.get_pixel(x, y).unwrap_or(0);
 
-                        let (r1, g1, b1) = color::extract_rgb(pixel1);
-                        let (r2, g2, b2) = color::extract_rgb(pixel2);
+                        let (r1, g1, b1) = pixel::extract_rgb(pixel1);
+                        let (r2, g2, b2) = pixel::extract_rgb(pixel2);
 
                         let (r_out, g_out, b_out) = match op {
                             ArithBinaryOp::Add => (
@@ -408,7 +408,7 @@ impl Pix {
                             ArithBinaryOp::Max => (r1.max(r2), g1.max(g2), b1.max(b2)),
                         };
 
-                        let result_pixel = color::compose_rgb(r_out, g_out, b_out);
+                        let result_pixel = pixel::compose_rgb(r_out, g_out, b_out);
                         result_mut.set_pixel_unchecked(x, y, result_pixel);
                     }
                 }
@@ -467,7 +467,7 @@ impl PixMut {
                 for y in 0..height {
                     for x in 0..width {
                         let pixel = self.get_pixel(x, y).unwrap_or(0);
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
 
                         let r_new = if val < 0 {
                             (r as i32 + val).max(0) as u8
@@ -485,7 +485,7 @@ impl PixMut {
                             (b as i32 + val).min(255) as u8
                         };
 
-                        let new_pixel = color::compose_rgb(r_new, g_new, b_new);
+                        let new_pixel = pixel::compose_rgb(r_new, g_new, b_new);
                         self.set_pixel_unchecked(x, y, new_pixel);
                     }
                 }
@@ -538,13 +538,13 @@ impl PixMut {
                 for y in 0..height {
                     for x in 0..width {
                         let pixel = self.get_pixel(x, y).unwrap_or(0);
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
 
                         let r_new = ((factor * r as f32) as u32).min(255) as u8;
                         let g_new = ((factor * g as f32) as u32).min(255) as u8;
                         let b_new = ((factor * b as f32) as u32).min(255) as u8;
 
-                        let new_pixel = color::compose_rgb(r_new, g_new, b_new);
+                        let new_pixel = pixel::compose_rgb(r_new, g_new, b_new);
                         self.set_pixel_unchecked(x, y, new_pixel);
                     }
                 }
@@ -688,8 +688,8 @@ impl PixMut {
                         let pixel1 = self.get_pixel(x, y).unwrap_or(0);
                         let pixel2 = other.get_pixel(x, y).unwrap_or(0);
 
-                        let (r1, g1, b1) = color::extract_rgb(pixel1);
-                        let (r2, g2, b2) = color::extract_rgb(pixel2);
+                        let (r1, g1, b1) = pixel::extract_rgb(pixel1);
+                        let (r2, g2, b2) = pixel::extract_rgb(pixel2);
 
                         let (r_out, g_out, b_out) = match op {
                             ArithBinaryOp::Add => (
@@ -711,7 +711,7 @@ impl PixMut {
                             ArithBinaryOp::Max => (r1.max(r2), g1.max(g2), b1.max(b2)),
                         };
 
-                        let result_pixel = color::compose_rgb(r_out, g_out, b_out);
+                        let result_pixel = pixel::compose_rgb(r_out, g_out, b_out);
                         self.set_pixel_unchecked(x, y, result_pixel);
                     }
                 }
@@ -921,7 +921,7 @@ mod tests {
 
     #[test]
     fn test_add_constant_rgb() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.to_mut();
@@ -938,7 +938,7 @@ mod tests {
 
     #[test]
     fn test_add_constant_rgb_clipping() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.to_mut();
@@ -955,7 +955,7 @@ mod tests {
 
     #[test]
     fn test_arith_add_rgb() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix1 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix1_mut = pix1.to_mut();
@@ -977,7 +977,7 @@ mod tests {
 
     #[test]
     fn test_arith_abs_diff_rgb() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix1 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix1_mut = pix1.to_mut();

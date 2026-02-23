@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/alphaops_reg.c`
 
-use leptonica_core::{PixelDepth, blend_with_gray_mask};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{PixelDepth, blend_with_gray_mask};
 
 /// Test alpha_blend_uniform (C checks 0-1, 4).
 ///
@@ -22,7 +23,7 @@ use leptonica_test::RegParams;
 fn alphaops_reg_blend_uniform() {
     let mut rp = RegParams::new("alphaops_uniform");
 
-    let pix = leptonica_test::load_test_image("books_logo.png").expect("load books_logo.png");
+    let pix = common::load_test_image("books_logo.png").expect("load books_logo.png");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
@@ -53,7 +54,7 @@ fn alphaops_reg_blend_uniform() {
 fn alphaops_reg_remove_add_alpha() {
     let mut rp = RegParams::new("alphaops_alpha");
 
-    let pix = leptonica_test::load_test_image("books_logo.png").expect("load books_logo.png");
+    let pix = common::load_test_image("books_logo.png").expect("load books_logo.png");
     let w = pix.width();
     let h = pix.height();
 
@@ -80,12 +81,12 @@ fn alphaops_reg_remove_add_alpha() {
 fn alphaops_reg_multiply_by_color() {
     let mut rp = RegParams::new("alphaops_mult");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     let w = pix.width();
     let h = pix.height();
 
     // C: pixMultiplyByColor(NULL, pix, NULL, 0xffffa000) → RGBA: R=0xff G=0xff B=0xa0
-    let color = leptonica_core::Color::new(0xff, 0xff, 0xa0);
+    let color = leptonica::Color::new(0xff, 0xff, 0xa0);
     let result = pix.multiply_by_color(color).expect("multiply_by_color");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
@@ -101,13 +102,13 @@ fn alphaops_reg_multiply_by_color() {
 fn alphaops_reg_blend_with_mask() {
     let mut rp = RegParams::new("alphaops_mask");
 
-    let pix1 = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
-    let pix2 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix1 = common::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix2 = common::load_test_image("marge.jpg").expect("load marge.jpg");
     let w = pix1.width();
     let h = pix1.height();
 
     // Create a simple gradient mask (8bpp)
-    let mask = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let mask = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     let blended = blend_with_gray_mask(&pix1, &pix2, &mask, 0, 0).expect("blend_with_gray_mask");
     rp.compare_values(w as f64, blended.width() as f64, 0.0);

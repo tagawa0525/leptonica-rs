@@ -2,8 +2,8 @@
 //!
 //! A structuring element defines the neighborhood used in morphological operations.
 
-use crate::{MorphError, MorphResult};
-use leptonica_core::{Pix, Pta};
+use crate::core::{Pix, Pta};
+use crate::morph::{MorphError, MorphResult};
 use std::io::{BufRead, Write};
 use std::path::Path;
 
@@ -218,7 +218,7 @@ impl Sel {
     ///
     /// # Example
     /// ```
-    /// use leptonica_morph::Sel;
+    /// use leptonica::morph::Sel;
     ///
     /// let sel = Sel::from_string(
     ///     "xxx\n\
@@ -527,7 +527,7 @@ impl Sel {
     ///
     /// C Leptonica: `selCreateFromPix()` in `sel1.c`
     pub fn from_pix(pix: &Pix, cx: u32, cy: u32) -> MorphResult<Self> {
-        if pix.depth() != leptonica_core::PixelDepth::Bit1 {
+        if pix.depth() != crate::core::PixelDepth::Bit1 {
             return Err(MorphError::UnsupportedDepth {
                 expected: "1 bpp",
                 actual: pix.depth() as u32,
@@ -760,7 +760,7 @@ impl Sel {
     /// The origin is set to the first non-white pixel found.
     /// Based on C leptonica `selCreateFromColorPix`.
     pub fn from_color_image(pix: &Pix, name: Option<&str>) -> MorphResult<Self> {
-        use leptonica_core::PixelDepth;
+        use crate::core::PixelDepth;
         if pix.depth() != PixelDepth::Bit32 {
             return Err(MorphError::UnsupportedDepth {
                 expected: "32-bpp color",
@@ -782,7 +782,7 @@ impl Sel {
         for y in 0..h {
             for x in 0..w {
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b, _) = leptonica_core::color::extract_rgba(pixel);
+                let (r, g, b, _) = crate::core::pixel::extract_rgba(pixel);
 
                 // Non-white pixel (white is exactly 255,255,255) = first one sets the origin
                 if !(r == 255 && g == 255 && b == 255) {
@@ -1335,7 +1335,7 @@ pub fn sela_add_dwa_linear() -> Vec<Sel> {
 ///
 /// Returns the same set as C leptonica `selaAddDwaCombs`.
 pub fn sela_add_dwa_combs() -> Vec<Sel> {
-    use crate::binary::select_composable_sizes;
+    use crate::morph::binary::select_composable_sizes;
 
     let mut sels = Vec::new();
     let mut prev_size = 0u32;
@@ -1865,16 +1865,16 @@ mod tests {
 
     #[test]
     fn test_from_color_image_green_is_hit_red_is_miss() {
-        use leptonica_core::{Pix, PixelDepth};
+        use crate::core::{Pix, PixelDepth};
         // 3x1 image: green, red, white
         let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         // Green pixel at (0,0) → Hit
-        pm.set_pixel_unchecked(0, 0, leptonica_core::color::compose_rgba(0, 255, 0, 0));
+        pm.set_pixel_unchecked(0, 0, crate::core::pixel::compose_rgba(0, 255, 0, 0));
         // Red pixel at (1,0) → Miss
-        pm.set_pixel_unchecked(1, 0, leptonica_core::color::compose_rgba(255, 0, 0, 0));
+        pm.set_pixel_unchecked(1, 0, crate::core::pixel::compose_rgba(255, 0, 0, 0));
         // White pixel at (2,0) → DontCare
-        pm.set_pixel_unchecked(2, 0, leptonica_core::color::compose_rgba(255, 255, 255, 0));
+        pm.set_pixel_unchecked(2, 0, crate::core::pixel::compose_rgba(255, 255, 255, 0));
         let pix: Pix = pm.into();
 
         let sel = Sel::from_color_image(&pix, Some("test")).unwrap();
@@ -1885,14 +1885,14 @@ mod tests {
 
     #[test]
     fn test_from_color_image_requires_32bpp() {
-        use leptonica_core::{Pix, PixelDepth};
+        use crate::core::{Pix, PixelDepth};
         let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
         assert!(Sel::from_color_image(&pix, None).is_err());
     }
 
     #[test]
     fn test_from_pta_creates_hit_at_each_point() {
-        use leptonica_core::Pta;
+        use crate::core::Pta;
         let mut pta = Pta::new();
         pta.push(2.0, 1.0); // (x=2, y=1)
         pta.push(3.0, 2.0); // (x=3, y=2)
@@ -1904,7 +1904,7 @@ mod tests {
 
     #[test]
     fn test_from_pta_origin_and_dimensions() {
-        use leptonica_core::Pta;
+        use crate::core::Pta;
         let mut pta = Pta::new();
         pta.push(1.0, 0.0);
         pta.push(2.0, 1.0);

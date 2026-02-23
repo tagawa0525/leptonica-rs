@@ -7,9 +7,9 @@
 //! The DID method was pioneered by Gary Kopec and provides a
 //! maximum a posteriori (MAP) decoding of document images.
 
-use leptonica_core::{Box as PixBox, Pix};
+use crate::core::{Box as PixBox, Pix};
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::train::{binarize_pix, compute_centroid};
 use super::types::{Rcha, Rdid, Recog};
@@ -626,8 +626,8 @@ fn compute_correlation_score_aligned(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::recog::train::create;
-    use leptonica_core::PixelDepth;
+    use crate::core::PixelDepth;
+    use crate::recog::recog::train::create;
 
     #[test]
     fn test_decode_not_trained() {

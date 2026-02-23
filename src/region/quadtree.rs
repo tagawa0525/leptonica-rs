@@ -25,8 +25,8 @@
 //! ## Computing quadtree mean values
 //!
 //! ```
-//! use leptonica_region::quadtree::{quadtree_mean, quadtree_max_levels};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::region::quadtree::{quadtree_mean, quadtree_max_levels};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! // Create an 8-bit grayscale image
 //! let pix = Pix::new(64, 64, PixelDepth::Bit8).unwrap();
@@ -39,8 +39,8 @@
 //! assert_eq!(result.num_levels(), 3);
 //! ```
 
-use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Box, Boxa, Boxaa, FPix, Pix, PixelDepth};
+use crate::core::{Box, Boxa, Boxaa, FPix, Pix, PixelDepth};
+use crate::region::error::{RegionError, RegionResult};
 
 // ============================================================================
 // Integral Image

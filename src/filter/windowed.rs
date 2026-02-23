@@ -8,9 +8,9 @@
 //! C Leptonica: `convolve.c` (`pixWindowedStats`, `pixWindowedMean`,
 //! `pixWindowedMeanSquare`, `pixWindowedVariance`, `pixMeanSquareAccum`)
 
-use crate::block_conv::blockconv_accum;
-use crate::{FilterError, FilterResult};
-use leptonica_core::{FPix, Pix, PixelDepth};
+use crate::core::{FPix, Pix, PixelDepth};
+use crate::filter::block_conv::blockconv_accum;
+use crate::filter::{FilterError, FilterResult};
 
 /// Result of [`windowed_stats`] containing all windowed statistics.
 pub struct WindowedStatsResult {

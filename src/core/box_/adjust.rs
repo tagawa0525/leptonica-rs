@@ -5,8 +5,8 @@
 //!
 //! C Leptonica equivalents: boxfunc1.c, boxfunc4.c
 
-use crate::error::{Error, Result};
-use crate::pta::Pta;
+use crate::core::error::{Error, Result};
+use crate::core::pta::Pta;
 
 use super::geometry::Direction;
 use super::{Box, Boxa, Boxaa};

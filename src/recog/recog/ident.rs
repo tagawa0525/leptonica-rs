@@ -3,11 +3,11 @@
 //! This module provides functionality for identifying characters using
 //! trained template recognizers.
 
-use leptonica_core::{Box as PixBox, Pix, PixelDepth};
-use leptonica_morph::binary as morph_binary;
-use leptonica_region::{ConnectivityType, find_connected_components};
+use crate::core::{Box as PixBox, Pix, PixelDepth};
+use crate::morph::binary as morph_binary;
+use crate::region::{ConnectivityType, find_connected_components};
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::train::{binarize_pix, compute_centroid, compute_correlation_with_centering};
 use super::types::{OutlierTarget, PreFilterResult, Rch, Rcha, Recog, TemplateUse};
@@ -716,7 +716,7 @@ fn extract_box(pix: &Pix, bounds: &PixBox) -> RecogResult<Pix> {
 }
 
 /// Copies a region to a destination image at specified position
-fn copy_to_box(dst: &mut leptonica_core::PixMut, src: &Pix, x: i32, y: i32) -> RecogResult<()> {
+fn copy_to_box(dst: &mut crate::core::PixMut, src: &Pix, x: i32, y: i32) -> RecogResult<()> {
     for sy in 0..src.height() {
         for sx in 0..src.width() {
             if let Some(val) = src.get_pixel(sx, sy)
@@ -782,8 +782,8 @@ fn clip_to_foreground(pix: &Pix) -> RecogResult<Pix> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::recog::train::{create, make_sumtab};
-    use crate::recog::types::OutlierTarget;
+    use crate::recog::recog::train::{create, make_sumtab};
+    use crate::recog::recog::types::OutlierTarget;
 
     fn make_solid_pix(w: u32, h: u32) -> Pix {
         let p = Pix::new(w, h, PixelDepth::Bit1).unwrap();

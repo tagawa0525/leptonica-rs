@@ -4,9 +4,9 @@
 //! The watershed transform treats the grayscale image as a topographic
 //! surface and finds boundaries between catchment basins.
 
-use crate::conncomp::ConnectivityType;
-use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::region::conncomp::ConnectivityType;
+use crate::region::error::{RegionError, RegionResult};
 use std::collections::BinaryHeap;
 
 /// Options for watershed segmentation

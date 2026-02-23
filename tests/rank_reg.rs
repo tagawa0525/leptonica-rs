@@ -13,9 +13,11 @@
 //!   - pixScaleGrayRank2()      -> scale_gray_rank2()
 //!   - pixScaleGrayRankCascade() -> scale_gray_rank_cascade()
 
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_filter::{max_filter, median_filter, min_filter, rank_filter, rank_filter_gray};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::core::pixel;
+use leptonica::filter::{max_filter, median_filter, min_filter, rank_filter, rank_filter_gray};
+use leptonica::{Pix, PixelDepth};
 
 /// Test 0: Basic grayscale rank filter with rank=0.4
 ///
@@ -176,9 +178,9 @@ fn rank_reg_color_varying_ranks() {
     let v_med = pix_med_result.get_pixel_unchecked(cx, cy);
     let v_max = pix_max_result.get_pixel_unchecked(cx, cy);
 
-    let (rmin, gmin, bmin, _) = color::extract_rgba(v_min);
-    let (rmed, gmed, bmed, _) = color::extract_rgba(v_med);
-    let (rmax, gmax, bmax, _) = color::extract_rgba(v_max);
+    let (rmin, gmin, bmin, _) = pixel::extract_rgba(v_min);
+    let (rmed, gmed, bmed, _) = pixel::extract_rgba(v_med);
+    let (rmax, gmax, bmax, _) = pixel::extract_rgba(v_max);
 
     rp.compare_values(
         1.0,
@@ -337,7 +339,7 @@ fn rank_reg_scale_gray_rank2() {
     let hs = pixs.height();
 
     for rank in 1u8..=4 {
-        let pixd = leptonica_filter::scale_gray_rank2(&pixs, rank)
+        let pixd = leptonica::filter::scale_gray_rank2(&pixs, rank)
             .unwrap_or_else(|e| panic!("scale_gray_rank2(rank={rank}): {e}"));
         rp.compare_values((ws / 2) as f64, pixd.width() as f64, 0.0);
         rp.compare_values((hs / 2) as f64, pixd.height() as f64, 0.0);
@@ -345,8 +347,8 @@ fn rank_reg_scale_gray_rank2() {
     }
 
     // rank=1 (min) should be darker than or equal to rank=4 (max) per pixel
-    let pix1 = leptonica_filter::scale_gray_rank2(&pixs, 1).expect("rank1");
-    let pix4 = leptonica_filter::scale_gray_rank2(&pixs, 4).expect("rank4");
+    let pix1 = leptonica::filter::scale_gray_rank2(&pixs, 1).expect("rank1");
+    let pix4 = leptonica::filter::scale_gray_rank2(&pixs, 4).expect("rank4");
     let wd = ws / 2;
     let hd = hs / 2;
     let monotone = (0..hd)
@@ -369,19 +371,19 @@ fn rank_reg_scale_gray_rank_cascade() {
 
     // 1 level: result is ws/2 x hs/2
     let pix1 =
-        leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 0, 0, 0).expect("cascade level=1");
+        leptonica::filter::scale_gray_rank_cascade(&pixs, 1, 0, 0, 0).expect("cascade level=1");
     rp.compare_values((ws / 2) as f64, pix1.width() as f64, 0.0);
     rp.compare_values((hs / 2) as f64, pix1.height() as f64, 0.0);
 
     // 2 levels: result is ws/4 x hs/4
     let pix2 =
-        leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 2, 0, 0).expect("cascade level=2");
+        leptonica::filter::scale_gray_rank_cascade(&pixs, 1, 2, 0, 0).expect("cascade level=2");
     rp.compare_values((ws / 4) as f64, pix2.width() as f64, 0.0);
     rp.compare_values((hs / 4) as f64, pix2.height() as f64, 0.0);
 
     // 4 levels: result is ws/16 x hs/16
     let pix4 =
-        leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 2, 3, 4).expect("cascade level=4");
+        leptonica::filter::scale_gray_rank_cascade(&pixs, 1, 2, 3, 4).expect("cascade level=4");
     rp.compare_values((ws / 16) as f64, pix4.width() as f64, 0.0);
     rp.compare_values((hs / 16) as f64, pix4.height() as f64, 0.0);
 
@@ -400,11 +402,11 @@ fn rank_reg_scale_gray_min_max() {
     let hs = pixs.height();
 
     for op in [
-        leptonica_filter::MinMaxOp::Min,
-        leptonica_filter::MinMaxOp::Max,
-        leptonica_filter::MinMaxOp::MaxDiff,
+        leptonica::filter::MinMaxOp::Min,
+        leptonica::filter::MinMaxOp::Max,
+        leptonica::filter::MinMaxOp::MaxDiff,
     ] {
-        let pixd = leptonica_filter::scale_gray_min_max(&pixs, 2, 2, op)
+        let pixd = leptonica::filter::scale_gray_min_max(&pixs, 2, 2, op)
             .unwrap_or_else(|e| panic!("scale_gray_min_max({op:?}): {e}"));
         rp.compare_values((ws / 2) as f64, pixd.width() as f64, 0.0);
         rp.compare_values((hs / 2) as f64, pixd.height() as f64, 0.0);
@@ -413,10 +415,10 @@ fn rank_reg_scale_gray_min_max() {
 
     // Min output should be darker than or equal to Max output per pixel
     let pix_min =
-        leptonica_filter::scale_gray_min_max(&pixs, 2, 2, leptonica_filter::MinMaxOp::Min)
+        leptonica::filter::scale_gray_min_max(&pixs, 2, 2, leptonica::filter::MinMaxOp::Min)
             .expect("min");
     let pix_max =
-        leptonica_filter::scale_gray_min_max(&pixs, 2, 2, leptonica_filter::MinMaxOp::Max)
+        leptonica::filter::scale_gray_min_max(&pixs, 2, 2, leptonica::filter::MinMaxOp::Max)
             .expect("max");
     let wd = ws / 2;
     let hd = hs / 2;

@@ -5,8 +5,8 @@
 //!
 //! C Leptonica equivalents: boxfunc4.c
 
-use crate::error::{Error, Result};
-use crate::numa::Numa;
+use crate::core::error::{Error, Result};
+use crate::core::numa::Numa;
 
 use super::{
     Boxa, Boxaa, SizeRelation, compare_relation, compare_relation_f64, compare_relation_i64,
@@ -237,7 +237,7 @@ impl Boxaa {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::box_::Box;
+    use crate::core::box_::Box;
 
     fn sample_boxa() -> Boxa {
         let mut boxa = Boxa::new();

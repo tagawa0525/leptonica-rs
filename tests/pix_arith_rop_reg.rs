@@ -4,7 +4,7 @@
 //!
 //! C Leptonica: `pixarith.c`, `rop.c`
 
-use leptonica_core::{InColor, Pix, PixelDepth};
+use leptonica::{InColor, Pix, PixelDepth};
 
 // ============================================================================
 // PixMut::mult_const_accumulate

@@ -5,10 +5,10 @@
 //!
 //! C Leptonica equivalents: boxfunc3.c
 
-use crate::box_::{Box, Boxa};
-use crate::error::{Error, Result};
-use crate::pix::PixMut;
-use crate::pix::graphics::{Color, PixelOp};
+use crate::core::box_::{Box, Boxa};
+use crate::core::error::{Error, Result};
+use crate::core::pix::PixMut;
+use crate::core::pix::graphics::{Color, PixelOp};
 
 // ---- Types ----
 
@@ -130,7 +130,7 @@ impl PixMut {
         }
         for (i, b) in boxa.boxes().iter().enumerate() {
             let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
-            let val = crate::color::compose_rgb(color.r, color.g, color.b);
+            let val = crate::core::pixel::compose_rgb(color.r, color.g, color.b);
             fill_box_val(self, b, val);
         }
         Ok(())
@@ -159,11 +159,15 @@ impl PixMut {
             for py in y..y_end {
                 for px in x..x_end {
                     let pixel = self.get_pixel_unchecked(px, py);
-                    let (r, g, b_ch, a) = crate::color::extract_rgba(pixel);
+                    let (r, g, b_ch, a) = crate::core::pixel::extract_rgba(pixel);
                     let nr = (r as f32 * (1.0 - fract) + blend_r * fract) as u8;
                     let ng = (g as f32 * (1.0 - fract) + blend_g * fract) as u8;
                     let nb = (b_ch as f32 * (1.0 - fract) + blend_b * fract) as u8;
-                    self.set_pixel_unchecked(px, py, crate::color::compose_rgba(nr, ng, nb, a));
+                    self.set_pixel_unchecked(
+                        px,
+                        py,
+                        crate::core::pixel::compose_rgba(nr, ng, nb, a),
+                    );
                 }
             }
         }
@@ -286,8 +290,8 @@ impl Boxa {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::box_::Box;
-    use crate::pix::{Pix, PixelDepth};
+    use crate::core::box_::Box;
+    use crate::core::pix::{Pix, PixelDepth};
 
     fn make_pix(w: u32, h: u32, depth: PixelDepth) -> PixMut {
         Pix::new(w, h, depth).unwrap().to_mut()

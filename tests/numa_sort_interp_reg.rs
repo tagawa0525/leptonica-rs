@@ -9,9 +9,7 @@
 //! - numaClipToInterval, numaMakeThresholdIndicator
 //! - numaGetNonzeroRange, numaGetCountRelativeToZero, numaSubsample
 
-use leptonica_core::{
-    CountRelativeToZero, InterpolationType, Numa, SortOrder, ThresholdComparison,
-};
+use leptonica::{CountRelativeToZero, InterpolationType, Numa, SortOrder, ThresholdComparison};
 
 // ============================================================================
 // numaSortAutoSelect / sort_auto_select

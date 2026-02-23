@@ -14,15 +14,16 @@
 //!   - pixBilateralExact -> bilateral_gray_exact (lower-level)
 //!   - pixBilateral -> NOT IMPLEMENTED (separable approximate version)
 
-use leptonica_filter::{Kernel, bilateral_exact, bilateral_gray_exact, make_range_kernel};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::filter::{Kernel, bilateral_exact, bilateral_gray_exact, make_range_kernel};
 
 /// Helper: run exact bilateral tests on a single image.
 ///
 /// C version calls pixBlockBilateralExact with 4 parameter combinations,
 /// plus pixBilateral (separable) with various ncomps/reduction.
 /// Rust only has bilateral_exact (= pixBlockBilateralExact).
-fn do_exact_tests_on_image(pixs: &leptonica_core::Pix, rp: &mut RegParams, label: &str) {
+fn do_exact_tests_on_image(pixs: &leptonica::Pix, rp: &mut RegParams, label: &str) {
     let w = pixs.width();
     let h = pixs.height();
     eprintln!(

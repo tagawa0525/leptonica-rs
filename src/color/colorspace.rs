@@ -7,8 +7,8 @@
 //! - RGB ↔ YUV
 //! - RGB → Grayscale
 
-use crate::{ColorError, ColorResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::color::{ColorError, ColorResult};
+use crate::core::{Pix, PixelDepth, pixel};
 
 /// HSV color representation
 ///
@@ -376,7 +376,7 @@ pub fn pix_convert_to_gray(pix: &Pix) -> ColorResult<Pix> {
             for y in 0..h {
                 for x in 0..w {
                     let pixel = pix.get_pixel_unchecked(x, y);
-                    let (r, g, b) = color::extract_rgb(pixel);
+                    let (r, g, b) = pixel::extract_rgb(pixel);
                     let gray = rgb_to_gray(r, g, b);
                     out_mut.set_pixel_unchecked(x, y, gray as u32);
                 }
@@ -410,7 +410,7 @@ pub fn pix_extract_channel(pix: &Pix, channel: ColorChannel) -> ColorResult<Pix>
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, a) = color::extract_rgba(pixel);
+            let (r, g, b, a) = pixel::extract_rgba(pixel);
 
             let value = match channel {
                 ColorChannel::Red => r,
@@ -459,14 +459,14 @@ pub fn pix_convert_rgb_to_hsv(pix: &Pix) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b, a) = color::extract_rgba(pixel);
+            let (r, g, b, a) = pixel::extract_rgba(pixel);
             let hsv = rgb_to_hsv(r, g, b);
 
             let h_val = (hsv.h * 255.0).round() as u8;
             let s_val = (hsv.s * 255.0).round() as u8;
             let v_val = (hsv.v * 255.0).round() as u8;
 
-            let result = color::compose_rgba(h_val, s_val, v_val, a);
+            let result = pixel::compose_rgba(h_val, s_val, v_val, a);
             out_mut.set_pixel_unchecked(x, y, result);
         }
     }
@@ -495,7 +495,7 @@ pub fn pix_convert_hsv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (h_val, s_val, v_val, a) = color::extract_rgba(pixel);
+            let (h_val, s_val, v_val, a) = pixel::extract_rgba(pixel);
 
             let hsv = Hsv::new(
                 h_val as f32 / 255.0,
@@ -504,7 +504,7 @@ pub fn pix_convert_hsv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
             );
             let (r, g, b) = hsv_to_rgb(hsv);
 
-            let result = color::compose_rgba(r, g, b, a);
+            let result = pixel::compose_rgba(r, g, b, a);
             out_mut.set_pixel_unchecked(x, y, result);
         }
     }
@@ -574,8 +574,8 @@ pub fn make_range_mask_hs(
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
-            let hsv = color::rgb_to_hsv(r, g, b);
+            let (r, g, b) = pixel::extract_rgb(pixel);
+            let hsv = pixel::rgb_to_hsv(r, g, b);
             let hval = hsv.h as usize;
             let sval = hsv.s as usize;
 
@@ -635,8 +635,8 @@ pub fn make_range_mask_hv(
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
-            let hsv = color::rgb_to_hsv(r, g, b);
+            let (r, g, b) = pixel::extract_rgb(pixel);
+            let hsv = pixel::rgb_to_hsv(r, g, b);
             let hval = hsv.h as usize;
             let vval = hsv.v as usize;
 
@@ -696,8 +696,8 @@ pub fn make_range_mask_sv(
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
-            let hsv = color::rgb_to_hsv(r, g, b);
+            let (r, g, b) = pixel::extract_rgb(pixel);
+            let hsv = pixel::rgb_to_hsv(r, g, b);
             let sval = hsv.s as usize;
             let vval = hsv.v as usize;
 
@@ -778,8 +778,8 @@ pub fn make_histo_hs(pix: &Pix, factor: i32) -> ColorResult<Pix> {
     for y in (0..h).step_by(factor as usize) {
         for x in (0..w).step_by(factor as usize) {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
-            let hsv = color::rgb_to_hsv(r, g, b);
+            let (r, g, b) = pixel::extract_rgb(pixel);
+            let hsv = pixel::rgb_to_hsv(r, g, b);
             // rgb_to_hsv guarantees: h∈[0,239], s∈[0,255]
             let count = histo_mut.get_pixel_unchecked(hsv.s as u32, hsv.h as u32);
             histo_mut.set_pixel_unchecked(hsv.s as u32, hsv.h as u32, count.saturating_add(1));
@@ -816,8 +816,8 @@ pub fn make_histo_hv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
     for y in (0..h).step_by(factor as usize) {
         for x in (0..w).step_by(factor as usize) {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
-            let hsv = color::rgb_to_hsv(r, g, b);
+            let (r, g, b) = pixel::extract_rgb(pixel);
+            let hsv = pixel::rgb_to_hsv(r, g, b);
             // rgb_to_hsv guarantees: h∈[0,239], v∈[0,255]
             let count = histo_mut.get_pixel_unchecked(hsv.v as u32, hsv.h as u32);
             histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.h as u32, count.saturating_add(1));
@@ -854,8 +854,8 @@ pub fn make_histo_sv(pix: &Pix, factor: i32) -> ColorResult<Pix> {
     for y in (0..h).step_by(factor as usize) {
         for x in (0..w).step_by(factor as usize) {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
-            let hsv = color::rgb_to_hsv(r, g, b);
+            let (r, g, b) = pixel::extract_rgb(pixel);
+            let hsv = pixel::rgb_to_hsv(r, g, b);
             // rgb_to_hsv guarantees: s∈[0,255], v∈[0,255]
             let count = histo_mut.get_pixel_unchecked(hsv.v as u32, hsv.s as u32);
             histo_mut.set_pixel_unchecked(hsv.v as u32, hsv.s as u32, count.saturating_add(1));
@@ -928,7 +928,7 @@ pub fn pix_convert_rgb_to_yuv(pix: &Pix) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let (yv, uv, vv) = convert_rgb_to_yuv_leptonica(r, g, b);
             // Store as (Y << 24) | (U << 16) | (V << 8), matching C
             let result = ((yv as u32) << 24) | ((uv as u32) << 16) | ((vv as u32) << 8);
@@ -967,7 +967,7 @@ pub fn pix_convert_yuv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
             let uv = (pixel >> 16) & 0xff;
             let vv = (pixel >> 8) & 0xff;
             let (r, g, b) = convert_yuv_to_rgb_leptonica(yv as u8, uv as u8, vv as u8);
-            let result = color::compose_rgb(r, g, b);
+            let result = pixel::compose_rgb(r, g, b);
             out_mut.set_pixel_unchecked(x, y, result);
         }
     }
@@ -1172,7 +1172,7 @@ mod tests {
 
         for y in 0..10 {
             for x in 0..10 {
-                let pixel = color::compose_rgb(100, 150, 200);
+                let pixel = pixel::compose_rgb(100, 150, 200);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -1190,7 +1190,7 @@ mod tests {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        let pixel = color::compose_rgba(100, 150, 200, 255);
+        let pixel = pixel::compose_rgba(100, 150, 200, 255);
         for y in 0..5 {
             for x in 0..5 {
                 pix_mut.set_pixel_unchecked(x, y, pixel);
@@ -1214,7 +1214,7 @@ mod tests {
         let pix = Pix::new(5, 5, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        let pixel = color::compose_rgb(200, 100, 50);
+        let pixel = pixel::compose_rgb(200, 100, 50);
         for y in 0..5 {
             for x in 0..5 {
                 pix_mut.set_pixel_unchecked(x, y, pixel);
@@ -1228,8 +1228,8 @@ mod tests {
         let original = pix.get_pixel_unchecked(0, 0);
         let converted = rgb_pix.get_pixel_unchecked(0, 0);
 
-        let (r1, g1, b1) = color::extract_rgb(original);
-        let (r2, g2, b2) = color::extract_rgb(converted);
+        let (r1, g1, b1) = pixel::extract_rgb(original);
+        let (r2, g2, b2) = pixel::extract_rgb(converted);
 
         assert!((r1 as i32 - r2 as i32).abs() <= 2);
         assert!((g1 as i32 - g2 as i32).abs() <= 2);

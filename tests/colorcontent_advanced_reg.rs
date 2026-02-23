@@ -7,17 +7,18 @@
 //! - pixColorFraction, pixNumSignificantGrayColors, pixColorsForQuantization
 //! - pixGetRGBHistogram, pixGetMostPopulatedColors
 
-use leptonica_color::analysis::{
+use leptonica::color::analysis::{
     color_fraction, colors_for_quantization, mask_over_color_pixels, mask_over_color_range,
     mask_over_gray_pixels, most_populated_colors, num_significant_gray_colors, rgb_histogram,
 };
-use leptonica_core::{Pix, PixelDepth, color};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 /// Create a uniform RGB image
 fn make_uniform_rgb(r: u8, g: u8, b: u8, w: u32, h: u32) -> Pix {
     let pix = Pix::new(w, h, PixelDepth::Bit32).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
-    let pixel = color::compose_rgb(r, g, b);
+    let pixel = pixel::compose_rgb(r, g, b);
     for y in 0..h {
         for x in 0..w {
             pm.set_pixel_unchecked(x, y, pixel);
@@ -34,11 +35,11 @@ fn make_tricolor(w: u32, h: u32) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let pixel = if x < third {
-                color::compose_rgb(255, 0, 0)
+                pixel::compose_rgb(255, 0, 0)
             } else if x < 2 * third {
-                color::compose_rgb(0, 255, 0)
+                pixel::compose_rgb(0, 255, 0)
             } else {
-                color::compose_rgb(0, 0, 255)
+                pixel::compose_rgb(0, 0, 255)
             };
             pm.set_pixel_unchecked(x, y, pixel);
         }
@@ -59,7 +60,7 @@ fn make_gray_gradient_rgb(w: u32, h: u32) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let v = ((x as f32 / w as f32) * 255.0) as u8;
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(v, v, v));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(v, v, v));
         }
     }
     pm.into()
@@ -165,9 +166,9 @@ fn test_mask_over_color_range_partial() {
     for y in 0..10u32 {
         for x in 0..20u32 {
             let pixel = if x < 10 {
-                color::compose_rgb(255, 0, 0)
+                pixel::compose_rgb(255, 0, 0)
             } else {
-                color::compose_rgb(0, 0, 255)
+                pixel::compose_rgb(0, 0, 255)
             };
             pm.set_pixel_unchecked(x, y, pixel);
         }

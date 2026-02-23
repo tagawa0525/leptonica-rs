@@ -4,9 +4,9 @@
 //! be used to seed training when only a small number of real samples are
 //! available.
 
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::train::create;
 use super::types::{CharsetType, Recog};
@@ -258,9 +258,9 @@ fn make_digit_pix(d: u32, w: u32, h: u32) -> RecogResult<Pix> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{Pix, PixelDepth};
+    use crate::core::{Pix, PixelDepth};
 
-    use crate::recog::train::create;
+    use crate::recog::recog::train::create;
 
     #[test]
     fn test_make_boot_digit_recog_produces_ten_classes() {

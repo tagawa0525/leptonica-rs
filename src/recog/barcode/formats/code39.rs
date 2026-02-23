@@ -6,8 +6,8 @@
 //! Each symbol has 5 black and 4 white bars.
 //! The start and stop codes are "121121211" (the asterisk).
 
-use crate::barcode::types::FormatVerification;
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::FormatVerification;
+use crate::recog::{RecogError, RecogResult};
 
 /// Code 39 symbol patterns
 const CODE39: &[&str] = &[

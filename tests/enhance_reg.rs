@@ -12,12 +12,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/enhance_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_filter::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::filter::{
     Kernel, contrast_trc_pix, gamma_trc_pix, measure_saturation, modify_hue, modify_saturation,
     mult_constant_color, mult_matrix_color, unsharp_masking,
 };
-use leptonica_test::RegParams;
 
 /// Test gamma TRC on RGB image (C checks 0-1).
 ///
@@ -26,7 +27,7 @@ use leptonica_test::RegParams;
 fn enhance_reg_gamma_trc() {
     let mut rp = RegParams::new("enhance_gamma");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
@@ -56,7 +57,7 @@ fn enhance_reg_gamma_trc() {
 fn enhance_reg_modify_hue() {
     let mut rp = RegParams::new("enhance_hue");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
@@ -86,7 +87,7 @@ fn enhance_reg_modify_hue() {
 fn enhance_reg_saturation() {
     let mut rp = RegParams::new("enhance_sat");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
@@ -126,7 +127,7 @@ fn enhance_reg_saturation() {
 fn enhance_reg_contrast_unsharp() {
     let mut rp = RegParams::new("enhance_contrast");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -155,7 +156,7 @@ fn enhance_reg_contrast_unsharp() {
 fn enhance_reg_mult_color() {
     let mut rp = RegParams::new("enhance_mult");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();

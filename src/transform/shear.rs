@@ -32,8 +32,8 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_transform::{h_shear, v_shear, ShearFill};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::transform::{h_shear, v_shear, ShearFill};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 //!
@@ -44,8 +44,8 @@
 //! let sheared = v_shear(&pix, 0, 0.1, ShearFill::White).unwrap();
 //! ```
 
-use crate::{TransformError, TransformResult};
-use leptonica_core::{Pix, PixMut, PixelDepth, color};
+use crate::core::{Pix, PixMut, PixelDepth, pixel};
+use crate::transform::{TransformError, TransformResult};
 
 // ============================================================================
 // Constants
@@ -145,8 +145,8 @@ fn normalize_angle_for_shear(mut radang: f32, mindif: f32) -> Option<f32> {
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_transform::{h_shear, ShearFill};
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::transform::{h_shear, ShearFill};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 /// let sheared = h_shear(&pix, 50, 0.1, ShearFill::White).unwrap();
@@ -735,15 +735,15 @@ fn h_shear_li_color(
                 let word0 = src.get_pixel_unchecked(xp as u32, y as u32);
                 let word1 = src.get_pixel_unchecked((xp + 1) as u32, y as u32);
 
-                let (r0, g0, b0, a0) = color::extract_rgba(word0);
-                let (r1, g1, b1, a1) = color::extract_rgba(word1);
+                let (r0, g0, b0, a0) = pixel::extract_rgba(word0);
+                let (r1, g1, b1, a1) = pixel::extract_rgba(word1);
 
                 let r = interp_channel(r0, r1, xf);
                 let g = interp_channel(g0, g1, xf);
                 let b = interp_channel(b0, b1, xf);
                 let a = interp_channel(a0, a1, xf);
 
-                color::compose_rgba(r, g, b, a)
+                pixel::compose_rgba(r, g, b, a)
             } else {
                 src.get_pixel_unchecked(xp as u32, y as u32)
             };
@@ -818,15 +818,15 @@ fn v_shear_li_color(
                 let word0 = src.get_pixel_unchecked(x as u32, yp as u32);
                 let word1 = src.get_pixel_unchecked(x as u32, (yp + 1) as u32);
 
-                let (r0, g0, b0, a0) = color::extract_rgba(word0);
-                let (r1, g1, b1, a1) = color::extract_rgba(word1);
+                let (r0, g0, b0, a0) = pixel::extract_rgba(word0);
+                let (r1, g1, b1, a1) = pixel::extract_rgba(word1);
 
                 let r = interp_channel(r0, r1, yf);
                 let g = interp_channel(g0, g1, yf);
                 let b = interp_channel(b0, b1, yf);
                 let a = interp_channel(a0, a1, yf);
 
-                color::compose_rgba(r, g, b, a)
+                pixel::compose_rgba(r, g, b, a)
             } else {
                 src.get_pixel_unchecked(x as u32, yp as u32)
             };
@@ -901,7 +901,7 @@ fn remove_colormap(pix: &Pix) -> TransformResult<Pix> {
                 let idx = pix.get_pixel_unchecked(x, y) as usize;
                 let pixel = if idx < cmap.len() {
                     let c = &cmap.colors()[idx];
-                    color::compose_rgba(c.red, c.green, c.blue, 255)
+                    pixel::compose_rgba(c.red, c.green, c.blue, 255)
                 } else {
                     0
                 };
@@ -1183,7 +1183,7 @@ mod tests {
     fn test_h_shear_32bpp() {
         let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        let red = color::compose_rgb(255, 0, 0);
+        let red = pixel::compose_rgb(255, 0, 0);
         pix_mut.set_pixel_unchecked(10, 5, red);
         let pix: Pix = pix_mut.into();
 
@@ -1217,7 +1217,7 @@ mod tests {
 
     #[test]
     fn test_h_shear_preserves_colormap() {
-        use leptonica_core::PixColormap;
+        use crate::core::PixColormap;
 
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1236,7 +1236,7 @@ mod tests {
 
     #[test]
     fn test_h_shear_li_removes_colormap() {
-        use leptonica_core::PixColormap;
+        use crate::core::PixColormap;
 
         let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();

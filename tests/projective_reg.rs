@@ -13,11 +13,12 @@
 //! Projective uses 4 point correspondences (same as bilinear) but implements
 //! a perspective (homography) mapping.
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_test::{RegParams, load_test_image};
-use leptonica_transform::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::transform::{
     AffineFill, Point, ScaleMethod, projective_pta, projective_sampled_pta, scale,
 };
+use leptonica::{Pix, PixelDepth};
 
 // Point data from C version (projective_reg.c MakePtas function)
 const X1: [i32; 5] = [300, 300, 300, 300, 32];

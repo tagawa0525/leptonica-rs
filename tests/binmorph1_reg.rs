@@ -8,9 +8,10 @@
 //! cargo test -p leptonica-morph --test binmorph1_reg
 //! ```
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{Sel, close_brick, dilate_brick, erode_brick, open_brick};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{Sel, close_brick, dilate_brick, erode_brick, open_brick};
 
 // Brick sel dimensions (matching C version)
 const WIDTH: u32 = 21;
@@ -118,11 +119,11 @@ fn binmorph1_reg() {
     assert_eq!(sel.height(), HEIGHT);
 
     // Verify SEL-based operations match brick operations
-    let dilated_sel = leptonica_morph::dilate(&pixs, &sel).expect("SEL dilation failed");
+    let dilated_sel = leptonica::morph::dilate(&pixs, &sel).expect("SEL dilation failed");
     let match_dilate = dilated.equals(&dilated_sel);
     rp.compare_values(1.0, if match_dilate { 1.0 } else { 0.0 }, 0.0);
 
-    let eroded_sel = leptonica_morph::erode(&pixs, &sel).expect("SEL erosion failed");
+    let eroded_sel = leptonica::morph::erode(&pixs, &sel).expect("SEL erosion failed");
     let match_erode = eroded.equals(&eroded_sel);
     rp.compare_values(1.0, if match_erode { 1.0 } else { 0.0 }, 0.0);
 

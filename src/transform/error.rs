@@ -7,7 +7,7 @@ use thiserror::Error;
 pub enum TransformError {
     /// Core library error
     #[error("core error: {0}")]
-    Core(#[from] leptonica_core::Error),
+    Core(#[from] crate::core::Error),
 
     /// Invalid scale factor
     #[error("invalid scale factor: {0}")]

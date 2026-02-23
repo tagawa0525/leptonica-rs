@@ -1,7 +1,7 @@
 //! Edge detection and enhancement operations
 
-use crate::{FilterError, FilterResult, Kernel, blockconv_gray, convolve_gray};
-use leptonica_core::{Pix, PixelDepth, pix::RgbComponent};
+use crate::core::{Pix, PixelDepth, pix::RgbComponent};
+use crate::filter::{FilterError, FilterResult, Kernel, blockconv_gray, convolve_gray};
 
 /// Edge detection orientation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

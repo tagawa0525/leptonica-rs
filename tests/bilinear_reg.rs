@@ -13,11 +13,12 @@
 //!
 //! Bilinear uses 4 point correspondences (vs 3 for affine).
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_test::{RegParams, load_test_image};
-use leptonica_transform::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::transform::{
     AffineFill, Point, ScaleMethod, bilinear_pta, bilinear_sampled_pta, scale,
 };
+use leptonica::{Pix, PixelDepth};
 
 // Point data from C version (bilinear_reg.c MakePtas function)
 const X1: [i32; 3] = [32, 32, 32];

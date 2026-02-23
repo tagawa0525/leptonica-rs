@@ -8,8 +8,8 @@
 //! C Leptonica: `pix2.c`, `pix5.c`
 
 use super::{Pix, PixelDepth};
-use crate::Box;
-use crate::error::{Error, Result};
+use crate::core::Box;
+use crate::core::error::{Error, Result};
 
 /// Direction for scanning an image to find the foreground edge.
 ///
@@ -62,7 +62,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
     /// let clipped = pix.clip_rectangle(10, 20, 50, 40).unwrap();
@@ -73,7 +73,7 @@ impl Pix {
     /// Regions extending beyond the image are clipped:
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
     /// let clipped = pix.clip_rectangle(80, 60, 50, 50).unwrap();
@@ -1164,8 +1164,8 @@ impl Pix {
     /// Boxes that do not intersect the image are skipped.
     ///
     /// C equivalent: `pixClipRectangles()` in `pix5.c`
-    pub fn clip_rectangles(&self, boxes: &crate::Boxa) -> Result<crate::pixa::Pixa> {
-        let mut pixa = crate::pixa::Pixa::new();
+    pub fn clip_rectangles(&self, boxes: &crate::core::Boxa) -> Result<crate::core::pixa::Pixa> {
+        let mut pixa = crate::core::pixa::Pixa::new();
         let w = self.width() as i32;
         let h = self.height() as i32;
         for i in 0..boxes.len() {
@@ -1396,7 +1396,7 @@ mod tests {
 
     #[test]
     fn test_clip_rectangle_32bpp() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix = Pix::new(100, 80, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -1452,8 +1452,8 @@ mod tests {
 
     #[test]
     fn test_clip_rectangles_basic() {
-        use crate::Boxa;
-        use crate::box_::Box as LepBox;
+        use crate::core::Boxa;
+        use crate::core::box_::Box as LepBox;
         let pix = {
             let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
             let mut pm = base.try_into_mut().unwrap();

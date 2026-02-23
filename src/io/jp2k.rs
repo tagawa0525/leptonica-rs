@@ -10,9 +10,9 @@
 //! Writing is not yet supported. The openjp2 crate's low-level API requires
 //! additional work to integrate properly.
 
-use crate::{IoError, IoResult, header::ImageHeader};
+use crate::core::{ImageFormat, Pix, PixelDepth};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use hayro_jpeg2000::{ColorSpace, DecodeSettings, Image};
-use leptonica_core::{ImageFormat, Pix, PixelDepth};
 use std::io::{Read, Seek};
 
 /// Read JPEG 2000 header metadata without decoding pixel data

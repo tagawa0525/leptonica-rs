@@ -13,11 +13,12 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/findpattern2_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_morph::{Sel, SelElement, dilate_brick, hit_miss_transform};
-use leptonica_region::{ConnectivityType, conncomp_pixa};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::morph::{Sel, SelElement, dilate_brick, hit_miss_transform};
+use leptonica::region::{ConnectivityType, conncomp_pixa};
 
 /// Test asterisk detection using HMT with a cross-shaped SEL.
 ///
@@ -28,7 +29,7 @@ use leptonica_test::RegParams;
 fn findpattern2_reg_asterisk_hmt() {
     let mut rp = RegParams::new("findpat2_asterisk");
 
-    let pix = leptonica_test::load_test_image("asterisk.png").expect("load asterisk.png");
+    let pix = common::load_test_image("asterisk.png").expect("load asterisk.png");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -68,7 +69,7 @@ fn findpattern2_reg_asterisk_hmt() {
 fn findpattern2_reg_component_count() {
     let mut rp = RegParams::new("findpat2_count");
 
-    let pix = leptonica_test::load_test_image("asterisk.png").expect("load asterisk.png");
+    let pix = common::load_test_image("asterisk.png").expect("load asterisk.png");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -107,9 +108,8 @@ fn findpattern2_reg_component_count() {
 fn findpattern2_reg_template() {
     let mut rp = RegParams::new("findpat2_template");
 
-    let template =
-        leptonica_test::load_test_image("one-asterisk.png").expect("load one-asterisk.png");
-    let page = leptonica_test::load_test_image("asterisk.png").expect("load asterisk.png");
+    let template = common::load_test_image("one-asterisk.png").expect("load one-asterisk.png");
+    let page = common::load_test_image("asterisk.png").expect("load asterisk.png");
 
     // Template should be smaller than the page
     rp.compare_values(

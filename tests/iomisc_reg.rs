@@ -10,8 +10,9 @@
 //!   - TIFF compression variants (tests 18-29)
 //!   - PNM alpha roundtrip (tests 30-31)
 
-use leptonica_io::{ImageFormat, read_image, write_image, write_image_mem};
-use leptonica_test::{RegParams, load_test_image, regout_dir};
+mod common;
+use common::{RegParams, load_test_image, regout_dir};
+use leptonica::io::{ImageFormat, read_image, write_image, write_image_mem};
 use std::fs;
 
 // ============================================================================
@@ -366,8 +367,8 @@ fn iomisc_reg_format_detection() {
     ];
 
     for &(filename, expected_format) in test_cases {
-        let path = leptonica_test::test_data_path(filename);
-        match leptonica_io::detect_format(&path) {
+        let path = common::test_data_path(filename);
+        match leptonica::io::detect_format(&path) {
             Ok(detected) => {
                 rp.compare_values(expected_format as i32 as f64, detected as i32 as f64, 0.0);
             }
@@ -378,9 +379,9 @@ fn iomisc_reg_format_detection() {
     }
 
     for &(filename, expected_format) in test_cases {
-        let path = leptonica_test::test_data_path(filename);
+        let path = common::test_data_path(filename);
         let data = fs::read(&path).expect("read file");
-        match leptonica_io::detect_format_from_bytes(&data) {
+        match leptonica::io::detect_format_from_bytes(&data) {
             Ok(detected) => {
                 rp.compare_values(expected_format as i32 as f64, detected as i32 as f64, 0.0);
             }
@@ -404,7 +405,7 @@ fn iomisc_reg_memory_io() {
     {
         let pix = load_test_image("weasel8.png").expect("load weasel8.png");
         let data = write_image_mem(&pix, ImageFormat::Png).expect("write 8bpp PNG to memory");
-        let pix2 = leptonica_io::read_image_mem(&data).expect("read 8bpp PNG from memory");
+        let pix2 = leptonica::io::read_image_mem(&data).expect("read 8bpp PNG from memory");
         let same = pix.equals(&pix2);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     }
@@ -413,7 +414,7 @@ fn iomisc_reg_memory_io() {
     {
         let pix = load_test_image("marge.jpg").expect("load marge.jpg");
         let data = write_image_mem(&pix, ImageFormat::Png).expect("write 32bpp PNG to memory");
-        let pix2 = leptonica_io::read_image_mem(&data).expect("read 32bpp PNG from memory");
+        let pix2 = leptonica::io::read_image_mem(&data).expect("read 32bpp PNG from memory");
         let same = pix.equals(&pix2);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     }
@@ -423,7 +424,7 @@ fn iomisc_reg_memory_io() {
         let pix = load_test_image("weasel8.png").expect("load weasel8.png");
         let data =
             write_image_mem(&pix, ImageFormat::TiffLzw).expect("write 8bpp TIFF-LZW to memory");
-        let pix2 = leptonica_io::read_image_mem(&data).expect("read 8bpp TIFF-LZW from memory");
+        let pix2 = leptonica::io::read_image_mem(&data).expect("read 8bpp TIFF-LZW from memory");
         let same = pix.equals(&pix2);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     }
@@ -433,7 +434,7 @@ fn iomisc_reg_memory_io() {
         let pix = load_test_image("test16.tif").expect("load test16.tif");
         if pix.depth().bits() == 16 {
             let data = write_image_mem(&pix, ImageFormat::Png).expect("write 16bpp PNG to memory");
-            let pix2 = leptonica_io::read_image_mem(&data).expect("read 16bpp PNG from memory");
+            let pix2 = leptonica::io::read_image_mem(&data).expect("read 16bpp PNG from memory");
             let same = pix.equals(&pix2);
             rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         } else {

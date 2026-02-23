@@ -4,9 +4,10 @@
 //! 境界条件でのmorphology操作をテスト。
 //! 小さい画像、大きいカーネル、エッジケースを検証。
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{Sel, close_brick, dilate_brick, erode_brick, open_brick};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{Sel, close_brick, dilate_brick, erode_brick, open_brick};
 
 #[test]
 fn binmorph3_reg() {

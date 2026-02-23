@@ -13,7 +13,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_color::{pix_convert_to_gray, threshold_otsu, rgb_to_hsv};
+//! use leptonica::color::{pix_convert_to_gray, threshold_otsu, rgb_to_hsv};
 //!
 //! // Convert RGB to HSV
 //! let hsv = rgb_to_hsv(255, 128, 64);
@@ -30,7 +30,7 @@ pub mod segment;
 pub mod threshold;
 
 // Re-export core types
-pub use leptonica_core;
+pub use crate::core;
 
 // Re-export error types
 pub use error::{ColorError, ColorResult};

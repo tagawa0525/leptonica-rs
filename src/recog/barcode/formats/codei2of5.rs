@@ -5,8 +5,8 @@
 //! This format always encodes an even number of digits.
 //! The start code is "1111"; the stop code is "211".
 
-use crate::barcode::types::FormatVerification;
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::FormatVerification;
+use crate::recog::{RecogError, RecogResult};
 
 /// Interleaved 2 of 5 symbol patterns (digits 0-9, start, stop)
 const CODEI2OF5: &[&str] = &[

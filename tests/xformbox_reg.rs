@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/xformbox_reg.c`
 
-use leptonica_core::{Box as LeptBox, Boxa};
-use leptonica_test::RegParams;
-use leptonica_transform::AffineMatrix;
+mod common;
+use common::RegParams;
+use leptonica::transform::AffineMatrix;
+use leptonica::{Box as LeptBox, Boxa};
 
 /// Test Boxa translate, scale, rotate individually (C partial check 5).
 ///
@@ -68,7 +69,7 @@ fn xformbox_reg_affine_transform() {
 
     // Identity affine should preserve all coordinates
     let identity = AffineMatrix::identity();
-    let id_result = leptonica_transform::boxa_affine_transform(&boxa, &identity);
+    let id_result = leptonica::transform::boxa_affine_transform(&boxa, &identity);
     rp.compare_values(boxa.len() as f64, id_result.len() as f64, 0.0);
     let ob = boxa.get(0).expect("original box 0");
     let ib = id_result.get(0).expect("identity box 0");
@@ -79,7 +80,7 @@ fn xformbox_reg_affine_transform() {
 
     // Translation-only affine should match Boxa::translate
     let mat_translate = AffineMatrix::translation(44.0, 39.0);
-    let affine_translated = leptonica_transform::boxa_affine_transform(&boxa, &mat_translate);
+    let affine_translated = leptonica::transform::boxa_affine_transform(&boxa, &mat_translate);
     let direct_translated = boxa.translate(44.0, 39.0);
 
     let at = affine_translated.get(0).expect("affine translated box 0");

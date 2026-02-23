@@ -6,9 +6,9 @@
 //! - Adaptive (local) thresholding
 //! - Floyd-Steinberg dithering
 
-use crate::colorspace::pix_convert_to_gray;
-use crate::{ColorError, ColorResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::color::colorspace::pix_convert_to_gray;
+use crate::color::{ColorError, ColorResult};
+use crate::core::{Pix, PixelDepth};
 
 // =============================================================================
 // Fixed Threshold Binarization
@@ -951,7 +951,7 @@ fn ensure_grayscale(pix: &Pix) -> ColorResult<Pix> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::color;
+    use crate::core::pixel;
 
     fn create_gradient_image() -> Pix {
         let pix = Pix::new(256, 1, PixelDepth::Bit8).unwrap();
@@ -1109,7 +1109,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let gray = (x * 25) as u8;
-                let pixel = color::compose_rgb(gray, gray, gray);
+                let pixel = pixel::compose_rgb(gray, gray, gray);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }

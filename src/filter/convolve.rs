@@ -2,8 +2,8 @@
 //!
 //! Implements image convolution with arbitrary kernels.
 
-use crate::{FilterError, FilterResult, Kernel};
-use leptonica_core::{FPix, Pix, PixelDepth, color, pix::RgbComponent};
+use crate::core::{FPix, Pix, PixelDepth, pix::RgbComponent, pixel};
+use crate::filter::{FilterError, FilterResult, Kernel};
 
 /// Convolve an 8-bit grayscale image with a kernel
 ///
@@ -83,7 +83,7 @@ pub fn convolve_color(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
                     let pixel = pix.get_pixel_unchecked(sx, sy);
-                    let (r, g, b, a) = color::extract_rgba(pixel);
+                    let (r, g, b, a) = pixel::extract_rgba(pixel);
                     let k = kernel.get(kx, ky).unwrap_or(0.0);
 
                     sum_r += r as f32 * k;
@@ -98,7 +98,7 @@ pub fn convolve_color(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
             let b = sum_b.round().clamp(0.0, 255.0) as u8;
             let a = sum_a.round().clamp(0.0, 255.0) as u8;
 
-            let result = color::compose_rgba(r, g, b, a);
+            let result = pixel::compose_rgba(r, g, b, a);
             out_mut.set_pixel_unchecked(x, y, result);
         }
     }
@@ -259,7 +259,7 @@ pub fn census_transform(pix: &Pix, halfsize: u32) -> FilterResult<Pix> {
     }
 
     // Get neighborhood average using blockconv_gray
-    let pixav = crate::block_conv::blockconv_gray(pix, None, halfsize, halfsize)?;
+    let pixav = crate::filter::block_conv::blockconv_gray(pix, None, halfsize, halfsize)?;
 
     // Compare each pixel with its neighborhood average
     let w = pix.width();
@@ -381,7 +381,7 @@ pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
         for y in 0..h {
             for x in 0..w {
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b, a) = color::extract_rgba(pixel);
+                let (r, g, b, a) = pixel::extract_rgba(pixel);
 
                 let r_noise = (stdev * sampler.sample()).round() as i32;
                 let g_noise = (stdev * sampler.sample()).round() as i32;
@@ -391,7 +391,7 @@ pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
                 let g_out = ((g as i32) + g_noise).clamp(0, 255) as u8;
                 let b_out = ((b as i32) + b_noise).clamp(0, 255) as u8;
 
-                let result = color::compose_rgba(r_out, g_out, b_out, a);
+                let result = pixel::compose_rgba(r_out, g_out, b_out, a);
                 pixd_mut.set_pixel_unchecked(x, y, result);
             }
         }
@@ -447,7 +447,7 @@ pub fn blocksum(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
     let pix8 = pix.convert_1_to_8(0, 255)?;
 
     // Compute integral image using blockconv_accum
-    let acc = crate::block_conv::blockconv_accum(&pix8)?;
+    let acc = crate::filter::block_conv::blockconv_accum(&pix8)?;
 
     // Compute block sums using integral image
     let pixd = Pix::new(w, h, PixelDepth::Bit8)?;
@@ -777,10 +777,7 @@ pub fn convolve_with_bias(
         8
     };
 
-    let result = fpix3.to_pix(
-        out_depth,
-        leptonica_core::fpix::NegativeHandling::ClipToZero,
-    )?;
+    let result = fpix3.to_pix(out_depth, crate::core::fpix::NegativeHandling::ClipToZero)?;
     Ok((result, bias))
 }
 
@@ -812,7 +809,7 @@ mod tests {
                 let r = (x * 50) as u8;
                 let g = (y * 50) as u8;
                 let b = 128;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -969,8 +966,8 @@ mod tests {
             for x in 0..pix.width() {
                 let sep_px = result.get_pixel_unchecked(x, y);
                 let full_px = result_full.get_pixel_unchecked(x, y);
-                let (sr, sg, sb, sa) = color::extract_rgba(sep_px);
-                let (fr, fg, fb, fa) = color::extract_rgba(full_px);
+                let (sr, sg, sb, sa) = pixel::extract_rgba(sep_px);
+                let (fr, fg, fb, fa) = pixel::extract_rgba(full_px);
                 assert!(
                     (sr as i32 - fr as i32).abs() <= 1
                         && (sg as i32 - fg as i32).abs() <= 1
@@ -1022,8 +1019,8 @@ mod tests {
             for x in 0..pix.width() {
                 let sep_px = result_sep.get_pixel_unchecked(x, y);
                 let full_px = result_full.get_pixel_unchecked(x, y);
-                let (sr, sg, sb, _) = color::extract_rgba(sep_px);
-                let (fr, fg, fb, _) = color::extract_rgba(full_px);
+                let (sr, sg, sb, _) = pixel::extract_rgba(sep_px);
+                let (fr, fg, fb, _) = pixel::extract_rgba(full_px);
                 // Allow ±1 rounding tolerance per channel
                 assert!(
                     (sr as i32 - fr as i32).abs() <= 1

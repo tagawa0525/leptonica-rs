@@ -3,11 +3,13 @@
 //! C version: reference/leptonica/prog/colorfill_reg.c
 //! Tests color_fill, color_fill_from_seed, pixel_is_on_color_boundary.
 
-use leptonica_color::colorfill::{
+mod common;
+use common::RegParams;
+use leptonica::color::colorfill::{
     ColorFillOptions, Connectivity, color_fill, color_fill_from_seed, pixel_is_on_color_boundary,
 };
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_test::RegParams;
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 fn make_small_test_pix(c1: u32, c2: u32) -> Pix {
     let pix = Pix::new(17, 17, PixelDepth::Bit32).unwrap();
@@ -41,14 +43,14 @@ fn create_color_regions() -> Pix {
         for x in 0..w {
             let pixel = if y < h / 2 {
                 if x < w / 2 {
-                    color::compose_rgb(200, 80, 80)
+                    pixel::compose_rgb(200, 80, 80)
                 } else {
-                    color::compose_rgb(80, 200, 80)
+                    pixel::compose_rgb(80, 200, 80)
                 }
             } else if x < w / 2 {
-                color::compose_rgb(80, 80, 200)
+                pixel::compose_rgb(80, 80, 200)
             } else {
-                color::compose_rgb(200, 200, 80)
+                pixel::compose_rgb(200, 200, 80)
             };
             pm.set_pixel_unchecked(x, y, pixel);
         }
@@ -72,7 +74,7 @@ fn create_random_color_image(w: u32, h: u32) -> Pix {
                     pm.set_pixel_unchecked(
                         bx + dx,
                         by + dy,
-                        color::compose_rgb(
+                        pixel::compose_rgb(
                             r.saturating_add(v),
                             g.saturating_add(v),
                             b.saturating_add(v),
@@ -246,7 +248,7 @@ fn colorfill_reg() {
         let mut pm = p.try_into_mut().unwrap();
         for y in 0..20u32 {
             for x in 0..20u32 {
-                pm.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgb(30, 30, 30));
             }
         }
         let r: Pix = pm.into();

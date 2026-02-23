@@ -23,9 +23,9 @@
 //!
 //! C Leptonica: `spixio.c` (`pixSerializeToMemory`, `pixDeserializeFromMemory`)
 
-use crate::PixColormap;
-use crate::error::{Error, Result};
-use crate::pix::{ImageFormat, Pix, PixMut, PixelDepth};
+use crate::core::PixColormap;
+use crate::core::error::{Error, Result};
+use crate::core::pix::{ImageFormat, Pix, PixMut, PixelDepth};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
@@ -341,8 +341,8 @@ fn copy_u32_slice_to_bytes(src: &[u32], dest: &mut [u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::colormap::PixColormap;
-    use crate::pix::ImageFormat;
+    use crate::core::colormap::PixColormap;
+    use crate::core::pix::ImageFormat;
     use std::io::Cursor;
 
     #[test]

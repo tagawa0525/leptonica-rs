@@ -12,8 +12,9 @@
 //! C version additionally tests repeated arbitrary-angle rotation (shear,
 //! sampling, area-map) on multiple image depths, which is covered in rotate2_reg.
 
-use leptonica_test::{RegParams, load_test_image};
-use leptonica_transform::{flip_lr, flip_tb, rotate_90, rotate_180};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::transform::{flip_lr, flip_tb, rotate_90, rotate_180};
 
 /// Test basic orthogonal rotations and flips on a 1bpp image
 ///

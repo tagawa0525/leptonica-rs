@@ -4,8 +4,8 @@
 //! in binary images. It uses Union-Find (disjoint set) data structure for
 //! efficient labeling.
 
-use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Box, Boxa, Pix, PixMut, Pixa, PixelDepth};
+use crate::core::{Box, Boxa, Pix, PixMut, Pixa, PixelDepth};
+use crate::region::error::{RegionError, RegionResult};
 
 /// Connectivity type for component analysis
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

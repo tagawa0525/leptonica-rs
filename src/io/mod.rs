@@ -38,12 +38,12 @@ pub mod ps;
 pub mod header;
 pub mod spix;
 
+pub use crate::core::{ImageFormat, Pix, PixMut, PixelDepth};
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
 pub use header::{
     ImageHeader, choose_output_format, read_image_header, read_image_header_mem, write_image_auto,
 };
-pub use leptonica_core::{ImageFormat, Pix, PixMut, PixelDepth};
 #[cfg(feature = "pnm")]
 pub use pnm::{read_pam, write_pam, write_pnm_ascii};
 

@@ -4,7 +4,7 @@
 //!
 //! C Leptonica: `fpix1.c`, `fpix2.c`
 
-use leptonica_core::{DPix, FPix, NegativeHandling};
+use leptonica::{DPix, FPix, NegativeHandling};
 
 // ============================================================================
 // FPix::create_template

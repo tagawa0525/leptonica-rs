@@ -29,8 +29,8 @@
 //! C Leptonica: `boxbasic.c` (`boxaReadStream`, `boxaWriteStream`,
 //! `boxaaReadStream`, `boxaaWriteStream`)
 
-use crate::box_::{Box, Boxa, Boxaa};
-use crate::error::{Error, Result};
+use crate::core::box_::{Box, Boxa, Boxaa};
+use crate::core::error::{Error, Result};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 

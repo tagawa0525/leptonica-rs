@@ -15,11 +15,12 @@
 //! - 1000-image stress test
 //! - TIFF to PS/PDF conversion
 
-use leptonica_io::tiff::{
+mod common;
+use common::{RegParams, load_test_image, regout_dir};
+use leptonica::io::tiff::{
     TiffCompression, read_tiff, read_tiff_multipage, read_tiff_page, tiff_compression,
     tiff_page_count, write_tiff, write_tiff_multipage,
 };
-use leptonica_test::{RegParams, load_test_image, regout_dir};
 use std::fs;
 use std::io::Cursor;
 
@@ -34,7 +35,7 @@ fn mtiff_reg() {
     eprintln!("\n=== Test 0: Write/read multipage TIFF from weasel8 images ===");
     {
         let weasel8_files = &["weasel8.240c.png", "weasel8.png"];
-        let mut pages_in: Vec<leptonica_core::Pix> = Vec::new();
+        let mut pages_in: Vec<leptonica::Pix> = Vec::new();
 
         for &fname in weasel8_files {
             match load_test_image(fname) {
@@ -44,7 +45,7 @@ fn mtiff_reg() {
         }
 
         if pages_in.len() >= 2 {
-            let page_refs: Vec<&leptonica_core::Pix> = pages_in.iter().collect();
+            let page_refs: Vec<&leptonica::Pix> = pages_in.iter().collect();
 
             let mtiff_path = format!("{}/weasel8_multi.tif", outdir);
             {
@@ -89,30 +90,27 @@ fn mtiff_reg() {
     // Test 4-5: Read individual pages from multipage TIFF
     eprintln!("\n=== Test 4: Read individual pages ===");
     {
-        let pix1 = leptonica_core::Pix::new(40, 30, leptonica_core::PixelDepth::Bit8)
-            .expect("create pix1");
+        let pix1 = leptonica::Pix::new(40, 30, leptonica::PixelDepth::Bit8).expect("create pix1");
         let mut pix1_mut = pix1.try_into_mut().unwrap();
         for y in 0..30 {
             for x in 0..40 {
                 pix1_mut.set_pixel(x, y, (x * 6) % 256).unwrap();
             }
         }
-        let pix1: leptonica_core::Pix = pix1_mut.into();
+        let pix1: leptonica::Pix = pix1_mut.into();
 
-        let pix2 = leptonica_core::Pix::new(60, 50, leptonica_core::PixelDepth::Bit8)
-            .expect("create pix2");
+        let pix2 = leptonica::Pix::new(60, 50, leptonica::PixelDepth::Bit8).expect("create pix2");
         let mut pix2_mut = pix2.try_into_mut().unwrap();
         for y in 0..50 {
             for x in 0..60 {
                 pix2_mut.set_pixel(x, y, (y * 5) % 256).unwrap();
             }
         }
-        let pix2: leptonica_core::Pix = pix2_mut.into();
+        let pix2: leptonica::Pix = pix2_mut.into();
 
-        let pix3 = leptonica_core::Pix::new(20, 20, leptonica_core::PixelDepth::Bit8)
-            .expect("create pix3");
+        let pix3 = leptonica::Pix::new(20, 20, leptonica::PixelDepth::Bit8).expect("create pix3");
 
-        let pages: Vec<&leptonica_core::Pix> = vec![&pix1, &pix2, &pix3];
+        let pages: Vec<&leptonica::Pix> = vec![&pix1, &pix2, &pix3];
 
         let mut buffer = Cursor::new(Vec::new());
         write_tiff_multipage(&pages, &mut buffer, TiffCompression::Lzw)
@@ -145,18 +143,18 @@ fn mtiff_reg() {
                 rp.compare_values(1.0, 1.0, 0.0);
                 rp.compare_values(1.0, 1.0, 0.0);
                 rp.compare_values(1.0, 1.0, 0.0);
-                leptonica_core::Pix::new(1, 1, leptonica_core::PixelDepth::Bit8).unwrap()
+                leptonica::Pix::new(1, 1, leptonica::PixelDepth::Bit8).unwrap()
             }
         };
 
         if base_pix.width() > 1 {
             let n = 5;
-            let mut pixa1: Vec<leptonica_core::Pix> = Vec::new();
+            let mut pixa1: Vec<leptonica::Pix> = Vec::new();
             for _ in 0..n {
                 pixa1.push(base_pix.deep_clone());
             }
 
-            let page_refs: Vec<&leptonica_core::Pix> = pixa1.iter().collect();
+            let page_refs: Vec<&leptonica::Pix> = pixa1.iter().collect();
             let mut buffer = Cursor::new(Vec::new());
             write_tiff_multipage(&page_refs, &mut buffer, TiffCompression::Lzw)
                 .expect("write multipage to memory");
@@ -165,7 +163,7 @@ fn mtiff_reg() {
             let pixa2 = read_tiff_multipage(buffer.clone()).expect("read multipage from memory");
             rp.compare_values(n as f64, pixa2.len() as f64, 0.0);
 
-            let page_refs2: Vec<&leptonica_core::Pix> = pixa2.iter().collect();
+            let page_refs2: Vec<&leptonica::Pix> = pixa2.iter().collect();
             let mut buffer2 = Cursor::new(Vec::new());
             write_tiff_multipage(&page_refs2, &mut buffer2, TiffCompression::Lzw)
                 .expect("write multipage to memory (2)");
@@ -187,17 +185,17 @@ fn mtiff_reg() {
     // Test 8: Various compression formats
     eprintln!("\n=== Test 8: Compression formats ===");
     {
-        let pix = leptonica_core::Pix::new(32, 32, leptonica_core::PixelDepth::Bit8)
-            .expect("create test pix");
+        let pix =
+            leptonica::Pix::new(32, 32, leptonica::PixelDepth::Bit8).expect("create test pix");
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..32 {
             for x in 0..32 {
                 pix_mut.set_pixel(x, y, ((x + y) * 4) % 256).unwrap();
             }
         }
-        let pix: leptonica_core::Pix = pix_mut.into();
+        let pix: leptonica::Pix = pix_mut.into();
 
-        let pages: Vec<&leptonica_core::Pix> = vec![&pix, &pix, &pix];
+        let pages: Vec<&leptonica::Pix> = vec![&pix, &pix, &pix];
 
         for compression in [
             TiffCompression::None,
@@ -248,7 +246,7 @@ fn mtiff_reg() {
     eprintln!("\n=== Test 10: 32bpp RGB multipage TIFF ===");
     {
         if let Ok(pixs) = load_test_image("test24.jpg") {
-            let pages: Vec<&leptonica_core::Pix> = vec![&pixs, &pixs];
+            let pages: Vec<&leptonica::Pix> = vec![&pixs, &pixs];
 
             let mut buffer = Cursor::new(Vec::new());
             write_tiff_multipage(&pages, &mut buffer, TiffCompression::Lzw)
@@ -274,24 +272,21 @@ fn mtiff_reg_write_multipage_from_dir() {
 
 #[test]
 fn mtiff_reg_append_mode() {
-    use leptonica_io::tiff::write_tiff_append;
+    use leptonica::io::tiff::write_tiff_append;
 
     let outdir = regout_dir();
     fs::create_dir_all(&outdir).expect("Failed to create output directory");
 
     // Create initial 2-page TIFF
-    let pix1 =
-        leptonica_core::Pix::new(40, 30, leptonica_core::PixelDepth::Bit8).expect("create pix1");
-    let pix2 =
-        leptonica_core::Pix::new(60, 50, leptonica_core::PixelDepth::Bit8).expect("create pix2");
-    let pages: Vec<&leptonica_core::Pix> = vec![&pix1, &pix2];
+    let pix1 = leptonica::Pix::new(40, 30, leptonica::PixelDepth::Bit8).expect("create pix1");
+    let pix2 = leptonica::Pix::new(60, 50, leptonica::PixelDepth::Bit8).expect("create pix2");
+    let pages: Vec<&leptonica::Pix> = vec![&pix1, &pix2];
 
     let mut buffer = Cursor::new(Vec::new());
     write_tiff_multipage(&pages, &mut buffer, TiffCompression::Lzw).expect("write initial TIFF");
 
     // Append a third page
-    let pix3 =
-        leptonica_core::Pix::new(80, 70, leptonica_core::PixelDepth::Bit8).expect("create pix3");
+    let pix3 = leptonica::Pix::new(80, 70, leptonica::PixelDepth::Bit8).expect("create pix3");
     let existing = Cursor::new(buffer.into_inner());
     let mut output = Cursor::new(Vec::new());
     write_tiff_append(existing, &[&pix3], &mut output, TiffCompression::Lzw).expect("append page");
@@ -347,8 +342,7 @@ fn mtiff_reg_split_reverse() {
 
 #[test]
 fn mtiff_reg_compression_detect() {
-    let pix =
-        leptonica_core::Pix::new(16, 16, leptonica_core::PixelDepth::Bit8).expect("create pix");
+    let pix = leptonica::Pix::new(16, 16, leptonica::PixelDepth::Bit8).expect("create pix");
 
     // Test various compression types
     for (comp, expected) in [

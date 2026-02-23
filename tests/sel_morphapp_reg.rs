@@ -6,9 +6,9 @@
 //! - selFindMaxTranslations, selCreateFromPix
 //! - pixExtractBoundary
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_morph::binary::{BoundaryType, extract_boundary};
-use leptonica_morph::sel::{Sel, SelElement};
+use leptonica::morph::binary::{BoundaryType, extract_boundary};
+use leptonica::morph::sel::{Sel, SelElement};
+use leptonica::{Pix, PixelDepth};
 
 /// Create a small binary image with a filled rectangle in the center
 fn make_binary_rect(w: u32, h: u32, x0: u32, y0: u32, x1: u32, y1: u32) -> Pix {

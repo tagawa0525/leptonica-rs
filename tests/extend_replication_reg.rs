@@ -2,8 +2,8 @@
 //!
 //! C版: reference/leptonica/src/adaptmap.c:pixExtendByReplication()
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_filter::extend_by_replication;
+use leptonica::filter::extend_by_replication;
+use leptonica::{Pix, PixelDepth};
 
 #[test]
 fn test_extend_by_replication_basic() {
@@ -48,16 +48,16 @@ fn test_extend_by_replication_basic() {
 
 #[test]
 fn test_extend_by_replication_32bpp() {
-    use leptonica_core::color;
+    use leptonica::core::pixel;
 
     // Test with 32bpp RGB image
     let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
     let mut pix_mut = pix.try_into_mut().unwrap();
 
-    pix_mut.set_pixel_unchecked(0, 0, color::compose_rgb(255, 0, 0));
-    pix_mut.set_pixel_unchecked(1, 0, color::compose_rgb(0, 255, 0));
-    pix_mut.set_pixel_unchecked(0, 1, color::compose_rgb(0, 0, 255));
-    pix_mut.set_pixel_unchecked(1, 1, color::compose_rgb(255, 255, 0));
+    pix_mut.set_pixel_unchecked(0, 0, pixel::compose_rgb(255, 0, 0));
+    pix_mut.set_pixel_unchecked(1, 0, pixel::compose_rgb(0, 255, 0));
+    pix_mut.set_pixel_unchecked(0, 1, pixel::compose_rgb(0, 0, 255));
+    pix_mut.set_pixel_unchecked(1, 1, pixel::compose_rgb(255, 255, 0));
 
     let pix: Pix = pix_mut.into();
 
@@ -71,11 +71,11 @@ fn test_extend_by_replication_32bpp() {
     // Check corner replication
     assert_eq!(
         result.get_pixel_unchecked(0, 0),
-        color::compose_rgb(255, 0, 0)
+        pixel::compose_rgb(255, 0, 0)
     );
     assert_eq!(
         result.get_pixel_unchecked(5, 0),
-        color::compose_rgb(0, 255, 0)
+        pixel::compose_rgb(0, 255, 0)
     );
 }
 
@@ -91,7 +91,7 @@ fn test_extend_by_replication_zero_extend() {
 
 #[test]
 fn test_extend_by_replication_colormap_preserved() {
-    use leptonica_core::colormap::{PixColormap, RgbaQuad};
+    use leptonica::core::colormap::{PixColormap, RgbaQuad};
 
     // Create 8bpp image with colormap
     let pix = Pix::new(3, 3, PixelDepth::Bit8).unwrap();

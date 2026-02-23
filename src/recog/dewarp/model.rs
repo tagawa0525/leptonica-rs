@@ -3,11 +3,11 @@
 //! This module provides functions to build vertical and horizontal
 //! disparity models from text line centers.
 
-use crate::{RecogError, RecogResult};
-use leptonica_color::{
+use crate::color::{
     AdaptiveThresholdOptions, adaptive_threshold, pix_convert_to_gray, threshold_to_binary,
 };
-use leptonica_core::{FPix, Pix, PixelDepth};
+use crate::core::{FPix, Pix, PixelDepth};
+use crate::recog::{RecogError, RecogResult};
 
 use super::textline::{
     find_textline_centers, is_line_coverage_valid, remove_short_lines, sort_lines_by_y,
@@ -752,7 +752,7 @@ mod tests {
         let opts = DewarpOptions::default().with_min_lines(4);
         let mut dewarp = Dewarp::new(800, 600, 0, &opts);
         // Use an empty binary image - should fail (no text lines)
-        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let pix = crate::core::Pix::new(800, 600, crate::core::PixelDepth::Bit1).unwrap();
         let result = dewarp.find_vert_disparity(&pix);
         assert!(result.is_err()); // No lines in empty image
     }
@@ -761,7 +761,7 @@ mod tests {
     fn test_dewarp_find_horiz_disparity() {
         let opts = DewarpOptions::default().with_min_lines(4);
         let mut dewarp = Dewarp::new(800, 600, 0, &opts);
-        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let pix = crate::core::Pix::new(800, 600, crate::core::PixelDepth::Bit1).unwrap();
         let result = dewarp.find_horiz_disparity(&pix);
         assert!(result.is_err()); // No lines in empty image
     }
@@ -770,7 +770,7 @@ mod tests {
     fn test_dewarp_build_page_model_empty() {
         let opts = DewarpOptions::default().with_min_lines(4);
         let mut dewarp = Dewarp::new(800, 600, 0, &opts);
-        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let pix = crate::core::Pix::new(800, 600, crate::core::PixelDepth::Bit1).unwrap();
         let result = dewarp.build_page_model(&pix);
         assert!(result.is_err()); // No lines in empty image
     }
@@ -778,7 +778,7 @@ mod tests {
     #[test]
     fn test_dewarp_populate_full_res() {
         let opts = DewarpOptions::default().with_min_lines(4);
-        let pix = leptonica_core::Pix::new(800, 600, leptonica_core::PixelDepth::Bit1).unwrap();
+        let pix = crate::core::Pix::new(800, 600, crate::core::PixelDepth::Bit1).unwrap();
         let lines: Vec<TextLine> = (0..8)
             .map(|i| create_straight_line(50.0 + i as f32 * 70.0, 50.0, 750.0, 10.0))
             .collect();

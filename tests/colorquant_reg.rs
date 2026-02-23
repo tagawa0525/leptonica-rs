@@ -3,12 +3,14 @@
 //! C version: reference/leptonica/prog/colorquant_reg.c
 //! Tests MedianCut and Octree quantization with various parameters.
 
-use leptonica_color::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::color::{
     MedianCutOptions, OctreeOptions, median_cut_quant, median_cut_quant_simple, octree_quant,
     octree_quant_256,
 };
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_test::{RegParams, load_test_image};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 fn scale_to_max_width(pix: &Pix, max_width: u32) -> Pix {
     let w = pix.width();
@@ -39,7 +41,7 @@ fn create_color_gradient(w: u32, h: u32) -> Pix {
             let r = ((x * 255) / w.max(1)) as u8;
             let g = ((y * 255) / h.max(1)) as u8;
             let b = (128u32.wrapping_add((x + y) * 64 / (w + h).max(1))) as u8;
-            let pixel = color::compose_rgb(r, g, b);
+            let pixel = pixel::compose_rgb(r, g, b);
             pix_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
@@ -158,7 +160,7 @@ fn colorquant_reg() {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..50u32 {
             for x in 0..50u32 {
-                pm.set_pixel_unchecked(x, y, color::compose_rgb(128, 64, 32));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgb(128, 64, 32));
             }
         }
         let uniform_pix: Pix = pm.into();

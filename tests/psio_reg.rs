@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/psio_reg.c`
 
-use leptonica_io::ps::{PsLevel, PsOptions};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::io::ps::{PsLevel, PsOptions};
 
 /// Test PostScript Level 1 (uncompressed) output (C check 0).
 ///
@@ -21,9 +22,9 @@ use leptonica_test::RegParams;
 fn psio_reg_level1() {
     let mut rp = RegParams::new("psio_level1");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let opts = PsOptions::default().level(PsLevel::Level1);
-    let data = leptonica_io::ps::write_ps_mem(&pix, &opts).expect("write_ps_mem level1");
+    let data = leptonica::io::ps::write_ps_mem(&pix, &opts).expect("write_ps_mem level1");
     let ps_str = String::from_utf8_lossy(&data);
 
     // Should contain DSC header
@@ -47,9 +48,9 @@ fn psio_reg_level2() {
     let mut rp = RegParams::new("psio_level2");
 
     // 8bpp grayscale
-    let pix8 = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix8 = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let opts = PsOptions::default().level(PsLevel::Level2);
-    let data = leptonica_io::ps::write_ps_mem(&pix8, &opts).expect("write_ps_mem level2 8bpp");
+    let data = leptonica::io::ps::write_ps_mem(&pix8, &opts).expect("write_ps_mem level2 8bpp");
     let ps_str = String::from_utf8_lossy(&data);
 
     // Should contain DSC header
@@ -60,8 +61,8 @@ fn psio_reg_level2() {
     rp.compare_values(1.0, if has_dct_or_a85 { 1.0 } else { 0.0 }, 0.0);
 
     // 32bpp RGB
-    let pix32 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
-    let data32 = leptonica_io::ps::write_ps_mem(&pix32, &opts).expect("write_ps_mem level2 32bpp");
+    let pix32 = common::load_test_image("marge.jpg").expect("load marge.jpg");
+    let data32 = leptonica::io::ps::write_ps_mem(&pix32, &opts).expect("write_ps_mem level2 32bpp");
     let ps_str32 = String::from_utf8_lossy(&data32);
 
     rp.compare_values(1.0, if ps_str32.starts_with("%!") { 1.0 } else { 0.0 }, 0.0);
@@ -85,8 +86,8 @@ fn psio_reg_level3() {
     let opts = PsOptions::default().level(PsLevel::Level3);
 
     for (img, _label) in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
-        let data = leptonica_io::ps::write_ps_mem(&pix, &opts).expect("write_ps_mem level3");
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let data = leptonica::io::ps::write_ps_mem(&pix, &opts).expect("write_ps_mem level3");
         let ps_str = String::from_utf8_lossy(&data);
 
         // Should contain DSC header
@@ -107,9 +108,9 @@ fn psio_reg_level3() {
 fn psio_reg_eps() {
     let mut rp = RegParams::new("psio_eps");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let opts = PsOptions::eps();
-    let data = leptonica_io::ps::write_eps_mem(&pix, &opts).expect("write_eps_mem");
+    let data = leptonica::io::ps::write_eps_mem(&pix, &opts).expect("write_eps_mem");
     let eps_str = String::from_utf8_lossy(&data);
 
     // EPS should contain BoundingBox
@@ -132,15 +133,15 @@ fn psio_reg_eps() {
 fn psio_reg_multipage() {
     let mut rp = RegParams::new("psio_multipage");
 
-    let pix1 = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
-    let pix2 = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
-    let pix3 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix1 = common::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix2 = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix3 = common::load_test_image("marge.jpg").expect("load marge.jpg");
 
-    let images: Vec<&leptonica_io::Pix> = vec![&pix1, &pix2, &pix3];
+    let images: Vec<&leptonica::io::Pix> = vec![&pix1, &pix2, &pix3];
     let opts = PsOptions::default().level(PsLevel::Level3);
 
     let mut buf = Vec::new();
-    leptonica_io::ps::write_ps_multi(&images, &mut buf, &opts).expect("write_ps_multi");
+    leptonica::io::ps::write_ps_multi(&images, &mut buf, &opts).expect("write_ps_multi");
     let ps_str = String::from_utf8_lossy(&buf);
 
     // Should contain DSC header
@@ -164,15 +165,15 @@ fn psio_reg_multipage() {
 fn psio_reg_options() {
     let mut rp = RegParams::new("psio_options");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     // Default options
     let data_default =
-        leptonica_io::ps::write_ps_mem(&pix, &PsOptions::default()).expect("default");
+        leptonica::io::ps::write_ps_mem(&pix, &PsOptions::default()).expect("default");
 
     // Custom resolution 150 PPI
     let opts_150 = PsOptions::default().resolution(150);
-    let data_150 = leptonica_io::ps::write_ps_mem(&pix, &opts_150).expect("150 ppi");
+    let data_150 = leptonica::io::ps::write_ps_mem(&pix, &opts_150).expect("150 ppi");
 
     // Both should produce valid PS
     let s_default = String::from_utf8_lossy(&data_default);

@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/extrema_reg.c`
 
-use leptonica_core::Numa;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Numa;
 
 /// Test Numa extrema finding (C checks 0-1).
 ///

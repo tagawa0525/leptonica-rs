@@ -27,8 +27,8 @@
 //! C Leptonica: `ptabasic.c` (`ptaReadStream`, `ptaWriteStream`,
 //! `ptaaReadStream`, `ptaaWriteStream`)
 
-use crate::error::{Error, Result};
-use crate::pta::{Pta, Ptaa};
+use crate::core::error::{Error, Result};
+use crate::core::pta::{Pta, Ptaa};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 

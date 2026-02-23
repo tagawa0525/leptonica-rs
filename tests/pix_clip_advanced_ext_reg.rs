@@ -4,7 +4,7 @@
 //!
 //! C Leptonica: `pix4.c`, `pix5.c`
 
-use leptonica_core::{Box, Pix, PixelDepth, ScanDirection};
+use leptonica::{Box, Pix, PixelDepth, ScanDirection};
 
 // ============================================================================
 // Pix::scan_for_edge

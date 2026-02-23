@@ -13,12 +13,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/jbclass_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_recog::jbclass::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::recog::jbclass::{
     JbComponent, correlation_init, pix_word_boxes_by_dilation, pix_word_mask_by_dilation,
     rank_haus_init,
 };
-use leptonica_test::RegParams;
 
 /// Test rank_haus_init classification on pageseg images (C checks 0-3).
 ///
@@ -31,8 +32,8 @@ use leptonica_test::RegParams;
 fn jbclass_reg_rank_haus() {
     let mut rp = RegParams::new("jbclass_haus");
 
-    let pix1 = leptonica_test::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
-    let pix4 = leptonica_test::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
+    let pix1 = common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
+    let pix4 = common::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
     assert_eq!(pix1.depth(), PixelDepth::Bit1);
     assert_eq!(pix4.depth(), PixelDepth::Bit1);
 
@@ -91,8 +92,8 @@ fn jbclass_reg_rank_haus() {
 fn jbclass_reg_correlation() {
     let mut rp = RegParams::new("jbclass_corr");
 
-    let pix1 = leptonica_test::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
-    let pix4 = leptonica_test::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
+    let pix1 = common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
+    let pix4 = common::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
     assert_eq!(pix1.depth(), PixelDepth::Bit1);
     assert_eq!(pix4.depth(), PixelDepth::Bit1);
 
@@ -135,7 +136,7 @@ fn jbclass_reg_correlation() {
 fn jbclass_reg_word_mask() {
     let mut rp = RegParams::new("jbclass_wordmask");
 
-    let pix = leptonica_test::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
+    let pix = common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     let (mask, dil_size) = pix_word_mask_by_dilation(&pix, 20).expect("word_mask_by_dilation");
@@ -167,7 +168,7 @@ fn jbclass_reg_word_mask() {
 fn jbclass_reg_word_boxes() {
     let mut rp = RegParams::new("jbclass_wordboxes");
 
-    let pix = leptonica_test::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
+    let pix = common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes_by_dilation");

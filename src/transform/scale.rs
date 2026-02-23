@@ -5,8 +5,8 @@
 //! - Sampling (nearest neighbor)
 //! - Area mapping (for downscaling with anti-aliasing)
 
-use crate::{TransformError, TransformResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::transform::{TransformError, TransformResult};
 
 /// Scaling method to use
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -461,7 +461,7 @@ fn scale_smooth_color(
                         continue;
                     }
                     let (r, g, b, a) =
-                        color::extract_rgba(pix.get_pixel_unchecked(xs as u32, ys as u32));
+                        pixel::extract_rgba(pix.get_pixel_unchecked(xs as u32, ys as u32));
                     sum_r += r as u32;
                     sum_g += g as u32;
                     sum_b += b as u32;
@@ -474,7 +474,7 @@ fn scale_smooth_color(
                 let g = ((sum_g as f32 / count as f32) + 0.5) as u8;
                 let b = ((sum_b as f32 / count as f32) + 0.5) as u8;
                 let a = ((sum_a as f32 / count as f32) + 0.5) as u8;
-                color::compose_rgba(r, g, b, a)
+                pixel::compose_rgba(r, g, b, a)
             } else {
                 0
             };
@@ -1372,17 +1372,17 @@ fn scale_linear_gray(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> 
 
 /// Interpolate between 4 color pixels using bilinear weights
 fn interpolate_color(p00: u32, p10: u32, p01: u32, p11: u32, fx: f32, fy: f32) -> u32 {
-    let (r00, g00, b00, a00) = color::extract_rgba(p00);
-    let (r10, g10, b10, a10) = color::extract_rgba(p10);
-    let (r01, g01, b01, a01) = color::extract_rgba(p01);
-    let (r11, g11, b11, a11) = color::extract_rgba(p11);
+    let (r00, g00, b00, a00) = pixel::extract_rgba(p00);
+    let (r10, g10, b10, a10) = pixel::extract_rgba(p10);
+    let (r01, g01, b01, a01) = pixel::extract_rgba(p01);
+    let (r11, g11, b11, a11) = pixel::extract_rgba(p11);
 
     let r = interpolate_channel(r00, r10, r01, r11, fx, fy);
     let g = interpolate_channel(g00, g10, g01, g11, fx, fy);
     let b = interpolate_channel(b00, b10, b01, b11, fx, fy);
     let a = interpolate_channel(a00, a10, a01, a11, fx, fy);
 
-    color::compose_rgba(r, g, b, a)
+    pixel::compose_rgba(r, g, b, a)
 }
 
 /// Bilinear interpolation for a single channel
@@ -1526,7 +1526,7 @@ fn area_average_color(pix: &Pix, x0: f32, y0: f32, x1: f32, y1: f32) -> u32 {
 
             let weight = x_weight * y_weight;
             let pixel = pix.get_pixel_unchecked(sx, sy);
-            let (r, g, b, a) = color::extract_rgba(pixel);
+            let (r, g, b, a) = pixel::extract_rgba(pixel);
 
             sum_r += r as f32 * weight;
             sum_g += g as f32 * weight;
@@ -1541,7 +1541,7 @@ fn area_average_color(pix: &Pix, x0: f32, y0: f32, x1: f32, y1: f32) -> u32 {
         let g = (sum_g / total_weight).round().clamp(0.0, 255.0) as u8;
         let b = (sum_b / total_weight).round().clamp(0.0, 255.0) as u8;
         let a = (sum_a / total_weight).round().clamp(0.0, 255.0) as u8;
-        color::compose_rgba(r, g, b, a)
+        pixel::compose_rgba(r, g, b, a)
     } else {
         0
     }
@@ -1649,8 +1649,8 @@ mod tests {
         let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        let black = color::compose_rgb(0, 0, 0);
-        let white = color::compose_rgb(255, 255, 255);
+        let black = pixel::compose_rgb(0, 0, 0);
+        let white = pixel::compose_rgb(255, 255, 255);
 
         pix_mut.set_pixel_unchecked(0, 0, black);
         pix_mut.set_pixel_unchecked(1, 0, white);
@@ -1753,8 +1753,8 @@ mod tests {
     fn test_scale_li_color_upscale() {
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        pix_mut.set_pixel_unchecked(0, 0, color::compose_rgb(0, 0, 0));
-        pix_mut.set_pixel_unchecked(3, 3, color::compose_rgb(255, 255, 255));
+        pix_mut.set_pixel_unchecked(0, 0, pixel::compose_rgb(0, 0, 0));
+        pix_mut.set_pixel_unchecked(3, 3, pixel::compose_rgb(255, 255, 255));
         let pix: Pix = pix_mut.into();
         let scaled = scale_li(&pix, 2.0, 2.0).unwrap();
         assert_eq!((scaled.width(), scaled.height()), (8, 8));
@@ -1765,8 +1765,8 @@ mod tests {
     fn test_scale_color_li_basic() {
         let pix = Pix::new(3, 3, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
-        pix_mut.set_pixel_unchecked(0, 0, color::compose_rgb(100, 0, 0));
-        pix_mut.set_pixel_unchecked(2, 0, color::compose_rgb(0, 100, 0));
+        pix_mut.set_pixel_unchecked(0, 0, pixel::compose_rgb(100, 0, 0));
+        pix_mut.set_pixel_unchecked(2, 0, pixel::compose_rgb(0, 100, 0));
         let pix: Pix = pix_mut.into();
         let scaled = scale_color_li(&pix, 2.0, 2.0).unwrap();
         assert_eq!((scaled.width(), scaled.height()), (6, 6));
@@ -1897,7 +1897,7 @@ mod tests {
         for y in 0..20u32 {
             for x in 0..20u32 {
                 let v = ((x + y) % 2) as u8 * 255;
-                pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(v, v, v));
+                pix_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(v, v, v));
             }
         }
         let pix: Pix = pix_mut.into();

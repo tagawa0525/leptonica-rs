@@ -12,11 +12,12 @@
 //!   Test 13-14: pixFindBaselinesGen(minw=30) -- 短い行テスト (29本期待)
 //!   Test 15-16: pixFindBaselinesGen(minw=30) -- 短い行テスト (40本期待)
 
-use leptonica_core::PixelDepth;
-use leptonica_recog::baseline::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::recog::baseline::{
     BaselineOptions, deskew_local, find_baselines, get_local_skew_angles,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 /// Test 0: Local deskew (pixDeskewLocal equivalent)
 ///
@@ -198,11 +199,11 @@ fn test_8_10_baselines_dark_image() {
     let _pixs = load_test_image("pedante.079.jpg").expect("load pedante.079.jpg");
 
     // C版: pixRemoveBorder(pixs, 30) -- Rust未実装
-    // C版: pixConvertRGBToGray(pix1, 0.33, 0.34, 0.33) -- leptonica_color crate
-    // C版: pixScale(pix2, 4.0, 4.0) -- leptonica_transform crate (要確認)
+    // C版: pixConvertRGBToGray(pix1, 0.33, 0.34, 0.33) -- leptonica::color crate
+    // C版: pixScale(pix2, 4.0, 4.0) -- leptonica::transform crate (要確認)
     // C版: pixCleanBackgroundToWhite() -- Rust未実装
     // C版: pixThresholdToBinary(pix4, 170) -- Rust未実装(公開API)
-    // C版: pixDeskew(pix5, 2) -- leptonica_recog::skew::find_skew_and_deskew
+    // C版: pixDeskew(pix5, 2) -- leptonica::recog::skew::find_skew_and_deskew
     // C版: pixFindBaselinesGen(pix1, 50, &pta, pixadb)
     // C版: regTestCompareValues(rp, 35, numaGetCount(na), 0)  /* 9 */
     eprintln!("Test skipped: multiple preprocessing APIs not yet implemented in Rust");

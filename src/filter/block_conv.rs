@@ -8,9 +8,9 @@
 //! C Leptonica: `convolve.c` (`pixBlockconv`, `pixBlockconvGray`,
 //! `pixBlockconvAccum`, `pixBlockconvGrayUnnormalized`)
 
-use crate::{FilterError, FilterResult};
-use leptonica_core::pix::RgbComponent;
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::pix::RgbComponent;
+use crate::core::{Pix, PixelDepth};
+use crate::filter::{FilterError, FilterResult};
 
 /// Validate that the input image is 8 bpp grayscale.
 fn check_8bpp(pix: &Pix) -> FilterResult<()> {
@@ -494,7 +494,7 @@ fn blockconv_tiled_gray(pix: &Pix, wc: u32, hc: u32, nx: u32, ny: u32) -> Filter
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{PixelDepth, color};
+    use crate::core::{PixelDepth, pixel};
 
     fn create_test_gray_image(w: u32, h: u32) -> Pix {
         let pix = Pix::new(w, h, PixelDepth::Bit8).unwrap();
@@ -527,7 +527,7 @@ mod tests {
                 let r = (x * 50 % 256) as u8;
                 let g = (y * 50 % 256) as u8;
                 let b = 128u8;
-                pm.set_pixel_unchecked(x, y, color::compose_rgb(r, g, b));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
             }
         }
         pm.into()
@@ -691,7 +691,7 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..20 {
             for x in 0..20 {
-                pm.set_pixel_unchecked(x, y, color::compose_rgb(100, 150, 200));
+                pm.set_pixel_unchecked(x, y, pixel::compose_rgb(100, 150, 200));
             }
         }
         let pix: Pix = pm.into();
@@ -699,7 +699,7 @@ mod tests {
         let result = blockconv(&pix, 3, 3).unwrap();
         for y in 0..20 {
             for x in 0..20 {
-                let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(x, y));
+                let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(x, y));
                 assert!(
                     (r as i32 - 100).unsigned_abs() <= 1,
                     "R mismatch at ({},{})",
@@ -870,8 +870,8 @@ mod tests {
 
         for y in 0..30u32 {
             for x in 0..30u32 {
-                let (r1, g1, b1) = color::extract_rgb(non_tiled.get_pixel_unchecked(x, y));
-                let (r2, g2, b2) = color::extract_rgb(tiled.get_pixel_unchecked(x, y));
+                let (r1, g1, b1) = pixel::extract_rgb(non_tiled.get_pixel_unchecked(x, y));
+                let (r2, g2, b2) = pixel::extract_rgb(tiled.get_pixel_unchecked(x, y));
                 assert!(
                     (r1 as i32 - r2 as i32).unsigned_abs() <= 1
                         && (g1 as i32 - g2 as i32).unsigned_abs() <= 1

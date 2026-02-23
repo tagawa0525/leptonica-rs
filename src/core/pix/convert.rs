@@ -7,8 +7,8 @@
 //! C Leptonica: `pixconv.c` (`pixConvertTo8`, `pixConvertTo32`, etc.)
 
 use super::{Pix, PixelDepth};
-use crate::color;
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 /// Default perceptual weights for RGB-to-gray conversion.
 ///
@@ -134,7 +134,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix32 = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     /// let pix8 = pix32.convert_to_8().unwrap();
@@ -213,9 +213,9 @@ impl Pix {
                 for y in 0..h {
                     for x in 0..w {
                         let pixel = self.get_pixel_unchecked(x, y);
-                        let r = color::red(pixel) as f32;
-                        let g = color::green(pixel) as f32;
-                        let b = color::blue(pixel) as f32;
+                        let r = pixel::red(pixel) as f32;
+                        let g = pixel::green(pixel) as f32;
+                        let b = pixel::blue(pixel) as f32;
                         let gray = (L_RED_WEIGHT * r + L_GREEN_WEIGHT * g + L_BLUE_WEIGHT * b + 0.5)
                             as u32;
                         result_mut.set_pixel_unchecked(x, y, gray.min(255));
@@ -250,8 +250,8 @@ impl Pix {
             }
             PixelDepth::Bit1 => {
                 // 1-bit: 0 -> white (255,255,255), 1 -> black (0,0,0)
-                let white = color::compose_rgb(255, 255, 255);
-                let black = color::compose_rgb(0, 0, 0);
+                let white = pixel::compose_rgb(255, 255, 255);
+                let black = pixel::compose_rgb(0, 0, 0);
                 let result = Pix::new(w, h, PixelDepth::Bit32)?;
                 let mut result_mut = result.try_into_mut().unwrap();
                 for y in 0..h {
@@ -276,7 +276,7 @@ impl Pix {
                             2 => 170,
                             _ => 255,
                         };
-                        let pixel = color::compose_rgb(gray, gray, gray);
+                        let pixel = pixel::compose_rgb(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -290,7 +290,7 @@ impl Pix {
                     for x in 0..w {
                         let val = self.get_pixel_unchecked(x, y);
                         let gray = (val * 255 / 15) as u8;
-                        let pixel = color::compose_rgb(gray, gray, gray);
+                        let pixel = pixel::compose_rgb(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -303,7 +303,7 @@ impl Pix {
                 for y in 0..h {
                     for x in 0..w {
                         let gray = self.get_pixel_unchecked(x, y) as u8;
-                        let pixel = color::compose_rgb(gray, gray, gray);
+                        let pixel = pixel::compose_rgb(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -317,7 +317,7 @@ impl Pix {
                     for x in 0..w {
                         let val = self.get_pixel_unchecked(x, y);
                         let gray = (val >> 8) as u8;
-                        let pixel = color::compose_rgb(gray, gray, gray);
+                        let pixel = pixel::compose_rgb(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -378,9 +378,9 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let r = color::red(pixel) as f32;
-                let g = color::green(pixel) as f32;
-                let b = color::blue(pixel) as f32;
+                let r = pixel::red(pixel) as f32;
+                let g = pixel::green(pixel) as f32;
+                let b = pixel::blue(pixel) as f32;
                 let gray = (rwt * r + gwt * g + bwt * b + 0.5) as u32;
                 result_mut.set_pixel_unchecked(x, y, gray.min(255));
             }
@@ -411,7 +411,7 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let g = color::green(pixel) as u32;
+                let g = pixel::green(pixel) as u32;
                 result_mut.set_pixel_unchecked(x, y, g);
             }
         }
@@ -438,7 +438,7 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 let (r, g, b) = (r as i32, g as i32, b as i32);
                 let min_val = r.min(g).min(b);
                 let max_val = r.max(g).max(b);
@@ -499,7 +499,7 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 let (r, g, b) = (r as i32, g as i32, b as i32);
                 let min_val = r.min(g).min(b);
                 let max_val = r.max(g).max(b);
@@ -664,12 +664,12 @@ impl Pix {
                 for (i, pixel_val) in lut.iter_mut().enumerate().take(cmap.len()) {
                     *pixel_val = if target == RemoveColormapTarget::ToFullColor {
                         if let Some((r, g, b)) = cmap.get_rgb(i) {
-                            color::compose_rgb(r, g, b)
+                            pixel::compose_rgb(r, g, b)
                         } else {
                             0
                         }
                     } else if let Some((r, g, b, a)) = cmap.get_rgba(i) {
-                        color::compose_rgba(r, g, b, a)
+                        pixel::compose_rgba(r, g, b, a)
                     } else {
                         0
                     };
@@ -698,7 +698,7 @@ impl Pix {
     ///
     /// C Leptonica: `pixAddGrayColormap8()` in `pixconv.c`
     pub fn add_gray_colormap_8(&self) -> Result<Pix> {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         if self.depth() != PixelDepth::Bit8 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -723,7 +723,7 @@ impl Pix {
     ///
     /// C Leptonica: `pixAddMinimalGrayColormap8()` in `pixconv.c`
     pub fn add_minimal_gray_colormap_8(&self) -> Result<Pix> {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         if self.depth() != PixelDepth::Bit8 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -1053,7 +1053,7 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b, a) = color::extract_rgba(pixel);
+                let (r, g, b, a) = pixel::extract_rgba(pixel);
                 let a32 = a as u32;
                 let inv_a = 255 - a32;
 
@@ -1061,7 +1061,7 @@ impl Pix {
                 let ng = ((a32 * g as u32 + inv_a * 255) / 255).min(255) as u8;
                 let nb = ((a32 * b as u32 + inv_a * 255) / 255).min(255) as u8;
 
-                result_mut.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
             }
         }
 
@@ -1208,7 +1208,7 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvert1To2Cmap()` in `pixconv.c`
     pub fn convert_1_to_2_cmap(&self) -> Result<Pix> {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         if self.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -1229,7 +1229,7 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvert1To4Cmap()` in `pixconv.c`
     pub fn convert_1_to_4_cmap(&self) -> Result<Pix> {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         if self.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -1250,7 +1250,7 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvert1To8Cmap()` in `pixconv.c`
     pub fn convert_1_to_8_cmap(&self) -> Result<Pix> {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         if self.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
@@ -1320,7 +1320,7 @@ impl Pix {
         result_mut.set_resolution(self.xres(), self.yres());
 
         if add_colormap {
-            use crate::PixColormap;
+            use crate::core::PixColormap;
             let mut cmap = PixColormap::new(8)?;
             for &v in &vals {
                 cmap.add_rgb(v, v, v)?;
@@ -1369,7 +1369,7 @@ impl Pix {
         result_mut.set_resolution(self.xres(), self.yres());
 
         if add_colormap {
-            use crate::PixColormap;
+            use crate::core::PixColormap;
             let mut cmap = PixColormap::new(8)?;
             for i in 0..16u32 {
                 let v = (i * 255 / 15) as u8;
@@ -1548,7 +1548,7 @@ impl Pix {
 
         match self.depth() {
             PixelDepth::Bit2 | PixelDepth::Bit4 => {
-                use crate::PixColormap;
+                use crate::core::PixColormap;
                 let d = self.depth().bits();
                 let n = 1u32 << d;
                 let mut cmap = PixColormap::new(d)?;
@@ -1592,7 +1592,7 @@ impl Pix {
             return Ok(self.deep_clone());
         }
 
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         let w = self.width();
         let h = self.height();
@@ -1720,7 +1720,7 @@ impl Pix {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
 
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         let mut result_mut = self.to_mut();
         let mut cmap = PixColormap::new(1)?;
         cmap.add_rgba(255, 255, 255, 0)?; // index 0: white + transparent
@@ -1764,7 +1764,7 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 let val = rc * r as f32 + gc * g as f32 + bc * b as f32;
                 let val = (val.clamp(0.0, 255.0) + 0.5) as u32;
                 result_mut.set_pixel_unchecked(x, y, val);
@@ -1791,7 +1791,7 @@ impl Pix {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
 
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         // Normalize to 8bpp gray
         let gray = if self.has_colormap() {
@@ -1843,7 +1843,7 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvertGrayToFalseColor()` in `pixconv.c`
     pub fn convert_gray_to_false_color(&self, gamma: f32) -> Result<Pix> {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
 
         let d = self.depth();
         if d != PixelDepth::Bit8 && d != PixelDepth::Bit16 {
@@ -1878,7 +1878,7 @@ impl Pix {
     ///
     /// C Leptonica: `pixConvertCmapTo1()` in `pixconv.c`
     pub fn convert_cmap_to_1(&self) -> Result<Pix> {
-        use crate::colormap::query::RangeComponent;
+        use crate::core::colormap::query::RangeComponent;
 
         let cmap = self
             .colormap()
@@ -2045,7 +2045,7 @@ mod tests {
 
         let result = pix.convert_to_32().unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (100, 150, 200));
     }
 
@@ -2054,7 +2054,7 @@ mod tests {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let result = pix.convert_to_32().unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (255, 255, 255));
     }
 
@@ -2070,11 +2070,11 @@ mod tests {
         let result = pix.convert_to_32().unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
 
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (0, 0, 0));
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(1, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(1, 0));
         assert_eq!((r, g, b), (128, 128, 128));
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(2, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(2, 0));
         assert_eq!((r, g, b), (255, 255, 255));
     }
 
@@ -2273,7 +2273,7 @@ mod tests {
     #[test]
     fn test_remove_colormap_to_binary() {
         use super::RemoveColormapTarget;
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 1 bpp with black/white colormap
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2291,7 +2291,7 @@ mod tests {
     #[test]
     fn test_remove_colormap_to_binary_inverted() {
         use super::RemoveColormapTarget;
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 1 bpp with inverted colormap (0 -> white, 1 -> black)
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2309,7 +2309,7 @@ mod tests {
     #[test]
     fn test_remove_colormap_to_grayscale() {
         use super::RemoveColormapTarget;
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 4 bpp with grayscale colormap
         let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2327,7 +2327,7 @@ mod tests {
     #[test]
     fn test_remove_colormap_to_full_color() {
         use super::RemoveColormapTarget;
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 8 bpp with color colormap
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2349,7 +2349,7 @@ mod tests {
     #[test]
     fn test_remove_colormap_with_alpha() {
         use super::RemoveColormapTarget;
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 8 bpp with colormap that has alpha
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2370,7 +2370,7 @@ mod tests {
     #[test]
     fn test_remove_colormap_based_on_src_grayscale() {
         use super::RemoveColormapTarget;
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 8 bpp with grayscale colormap -> should convert to 8 bpp gray
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2388,7 +2388,7 @@ mod tests {
     #[test]
     fn test_remove_colormap_based_on_src_color() {
         use super::RemoveColormapTarget;
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 8 bpp with color colormap -> should convert to 32 bpp
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2420,7 +2420,7 @@ mod tests {
 
     #[test]
     fn test_add_gray_colormap_8_already_has_colormap() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // If already has colormap, return deep clone
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -2505,15 +2505,15 @@ mod tests {
 
         let result = pix.convert_8_to_32().unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(0, 0));
         assert_eq!((r, g, b), (0, 0, 0));
-        assert_eq!(color::alpha(result.get_pixel_unchecked(0, 0)), 255);
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(1, 0));
+        assert_eq!(pixel::alpha(result.get_pixel_unchecked(0, 0)), 255);
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(1, 0));
         assert_eq!((r, g, b), (128, 128, 128));
-        assert_eq!(color::alpha(result.get_pixel_unchecked(1, 0)), 255);
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(2, 0));
+        assert_eq!(pixel::alpha(result.get_pixel_unchecked(1, 0)), 255);
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(2, 0));
         assert_eq!((r, g, b), (255, 255, 255));
-        assert_eq!(color::alpha(result.get_pixel_unchecked(2, 0)), 255);
+        assert_eq!(pixel::alpha(result.get_pixel_unchecked(2, 0)), 255);
     }
 
     #[test]
@@ -2693,7 +2693,7 @@ mod tests {
 
     #[test]
     fn test_convert_lossless_rejects_colormap() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         let cmap = PixColormap::create_linear(4, true).unwrap();
@@ -2708,22 +2708,22 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         pm.set_spp(4);
         // Semi-transparent red pixel (R=255, G=0, B=0, A=128)
-        pm.set_pixel_unchecked(0, 0, color::compose_rgba(255, 0, 0, 128));
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgba(255, 0, 0, 128));
         // Fully opaque blue pixel
-        pm.set_pixel_unchecked(1, 0, color::compose_rgba(0, 0, 255, 255));
+        pm.set_pixel_unchecked(1, 0, pixel::compose_rgba(0, 0, 255, 255));
         let pix: Pix = pm.into();
 
         let result = pix.remove_alpha().unwrap();
         assert_eq!(result.spp(), 3);
         // Semi-transparent red over white: r = (128*255 + 127*255)/255 = 255
         // g = (128*0 + 127*255)/255 = 127, b = (128*0 + 127*255)/255 = 127
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(0, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(0, 0));
         assert_eq!(r, 255);
         assert!((g as i32 - 127).abs() <= 1);
         assert!((b as i32 - 127).abs() <= 1);
 
         // Fully opaque blue stays blue
-        let (r, g, b) = color::extract_rgb(result.get_pixel_unchecked(1, 0));
+        let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(1, 0));
         assert_eq!((r, g, b), (0, 0, 255));
     }
 
@@ -3229,7 +3229,7 @@ mod tests {
 
     #[test]
     fn test_convert_to_2_with_colormap() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 2bpp with colormap → strip colormap, convert to grayscale then 2bpp
         let pix = Pix::new(2, 1, PixelDepth::Bit2).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -3386,7 +3386,7 @@ mod tests {
 
     #[test]
     fn test_convert_gray_to_colormap_already_has_colormap() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         let pix = Pix::new(10, 10, PixelDepth::Bit4).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         let cmap = PixColormap::create_linear(4, true).unwrap();
@@ -3588,11 +3588,11 @@ mod tests {
         let pix = Pix::new(3, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         // pure red pixel: R=200, G=0, B=0
-        pm.set_pixel_unchecked(0, 0, color::compose_rgb(200, 0, 0));
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgb(200, 0, 0));
         // pure green pixel: R=0, G=100, B=0
-        pm.set_pixel_unchecked(1, 0, color::compose_rgb(0, 100, 0));
+        pm.set_pixel_unchecked(1, 0, pixel::compose_rgb(0, 100, 0));
         // mixed: R=100, G=100, B=100 with weights 0.5, 0.3, 0.2 → 60.0 → 60
-        pm.set_pixel_unchecked(2, 0, color::compose_rgb(100, 100, 100));
+        pm.set_pixel_unchecked(2, 0, pixel::compose_rgb(100, 100, 100));
         let pix: Pix = pm.into();
 
         let result = pix.convert_rgb_to_gray_arb(0.5, 0.3, 0.2).unwrap();
@@ -3610,8 +3610,8 @@ mod tests {
         // Large weights cause overflow: clipped to 255
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        pm.set_pixel_unchecked(0, 0, color::compose_rgb(255, 255, 255));
-        pm.set_pixel_unchecked(1, 0, color::compose_rgb(0, 0, 0));
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgb(255, 255, 255));
+        pm.set_pixel_unchecked(1, 0, pixel::compose_rgb(0, 0, 0));
         let pix: Pix = pm.into();
 
         // weights 2.0 each → 255*2+255*2+255*2=1530 → clip to 255
@@ -3626,8 +3626,8 @@ mod tests {
         // At least one positive coefficient is required
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        pm.set_pixel_unchecked(0, 0, color::compose_rgb(100, 50, 0));
-        pm.set_pixel_unchecked(1, 0, color::compose_rgb(50, 100, 0));
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgb(100, 50, 0));
+        pm.set_pixel_unchecked(1, 0, pixel::compose_rgb(50, 100, 0));
         let pix: Pix = pm.into();
 
         // rc positive, gc negative → R dominates, result clipped at 0
@@ -3666,16 +3666,16 @@ mod tests {
         // Use red tint (255,0,0): gray=0 maps to the tint color; gray=255 maps to white.
         // This is the C behavior of pixcmapGrayToColor: dark → color, bright → white.
         let result = pix
-            .colorize_gray(color::compose_rgb(255, 0, 0), false)
+            .colorize_gray(pixel::compose_rgb(255, 0, 0), false)
             .unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
         // pixel 0 (gray=0): maps to pure red (the tint color itself)
         let p0 = result.get_pixel(0, 0).unwrap();
-        let (r0, g0, b0) = color::extract_rgb(p0);
+        let (r0, g0, b0) = pixel::extract_rgb(p0);
         assert_eq!((r0, g0, b0), (255, 0, 0));
         // pixel 2 (gray=255): maps to white (all channels = 255)
         let p2 = result.get_pixel(2, 0).unwrap();
-        let (r2, g2, b2) = color::extract_rgb(p2);
+        let (r2, g2, b2) = pixel::extract_rgb(p2);
         assert_eq!((r2, g2, b2), (255, 255, 255));
     }
 
@@ -3690,7 +3690,7 @@ mod tests {
         let pix: Pix = pm.into();
 
         let result = pix
-            .colorize_gray(color::compose_rgb(0, 0, 255), true)
+            .colorize_gray(pixel::compose_rgb(0, 0, 255), true)
             .unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit8);
         assert!(result.has_colormap());
@@ -3702,7 +3702,7 @@ mod tests {
     #[test]
     fn test_colorize_gray_from_cmapped() {
         // Colormapped input is first converted to gray, then colorized
-        use crate::colormap::PixColormap;
+        use crate::core::colormap::PixColormap;
         let pix = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgba(100, 100, 100, 255).unwrap();
@@ -3714,7 +3714,7 @@ mod tests {
         let pix: Pix = pm.into();
 
         let result = pix
-            .colorize_gray(color::compose_rgb(255, 128, 0), false)
+            .colorize_gray(pixel::compose_rgb(255, 128, 0), false)
             .unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
     }
@@ -3724,7 +3724,7 @@ mod tests {
         // 32bpp without colormap → error
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         assert!(
-            pix.colorize_gray(color::compose_rgb(255, 0, 0), false)
+            pix.colorize_gray(pixel::compose_rgb(255, 0, 0), false)
                 .is_err()
         );
     }
@@ -3778,7 +3778,7 @@ mod tests {
     #[test]
     fn test_convert_cmap_to_1_basic() {
         // Create a colormapped image with clear dark (FG) and light (BG) colors
-        use crate::colormap::PixColormap;
+        use crate::core::colormap::PixColormap;
         // 1bpp colormapped: dark color at index 0, light at index 1
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgba(10, 10, 10, 255).unwrap(); // index 0: very dark

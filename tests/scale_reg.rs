@@ -15,8 +15,9 @@
 //! C version tests `pixScale` on 10 images of varying depth/colormap,
 //! and also tests `pixScaleToGray*`, `pixScaleSmoothToSize`, etc.
 
-use leptonica_test::{RegParams, load_test_image};
-use leptonica_transform::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::transform::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
 
 /// Test scaling operations on grayscale and binary images
 ///

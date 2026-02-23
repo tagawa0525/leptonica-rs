@@ -12,8 +12,8 @@
 //! ## Finding connected components
 //!
 //! ```
-//! use leptonica_region::{find_connected_components, ConnectivityType};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::region::{find_connected_components, ConnectivityType};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! // Create a binary image
 //! let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
@@ -34,8 +34,8 @@
 //! ## Flood fill
 //!
 //! ```
-//! use leptonica_region::{floodfill, ConnectivityType};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::region::{floodfill, ConnectivityType};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
 //! let mut pix_mut = pix.try_into_mut().unwrap();
@@ -48,8 +48,8 @@
 //! ## Watershed segmentation
 //!
 //! ```
-//! use leptonica_region::{watershed_segmentation, WatershedOptions};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::region::{watershed_segmentation, WatershedOptions};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
 //! let options = WatershedOptions::default();
@@ -67,7 +67,7 @@ pub mod select;
 pub mod watershed;
 
 // Re-export core types
-pub use leptonica_core;
+pub use crate::core;
 
 // Re-export error types
 pub use error::{RegionError, RegionResult};

@@ -2,9 +2,9 @@
 //!
 //! Corresponds to functions in C Leptonica's `ptafunc2.c`.
 
-use crate::error::{Error, Result};
-use crate::numa::{Numa, SortOrder};
-use crate::pta::{Pta, Ptaa};
+use crate::core::error::{Error, Result};
+use crate::core::numa::{Numa, SortOrder};
+use crate::core::pta::{Pta, Ptaa};
 
 /// Which coordinate to sort by
 #[derive(Debug, Clone, Copy, PartialEq)]

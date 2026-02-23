@@ -10,12 +10,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/lowaccess_reg.c`
 
-use leptonica_core::pix::{
+mod common;
+use common::RegParams;
+use leptonica::core::pix::{
     get_data_bit, get_data_byte, get_data_dibit, get_data_qbit, get_data_two_bytes, set_data_bit,
     set_data_byte, set_data_dibit, set_data_qbit, set_data_two_bytes,
 };
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_test::RegParams;
+use leptonica::{Pix, PixelDepth};
 
 /// Test 1bpp get/set pixel via high-level API (C checks 0-3).
 ///
@@ -24,7 +25,7 @@ use leptonica_test::RegParams;
 fn lowaccess_reg_1bpp() {
     let mut rp = RegParams::new("lowaccess_1bpp");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     let w = pix.width();

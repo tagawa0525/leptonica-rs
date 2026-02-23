@@ -7,23 +7,23 @@ use thiserror::Error;
 pub enum RecogError {
     /// Core library error
     #[error("core error: {0}")]
-    Core(#[from] leptonica_core::Error),
+    Core(#[from] crate::core::Error),
 
     /// Transform library error
     #[error("transform error: {0}")]
-    Transform(#[from] leptonica_transform::TransformError),
+    Transform(#[from] crate::transform::TransformError),
 
     /// Morphology library error
     #[error("morphology error: {0}")]
-    Morph(#[from] leptonica_morph::MorphError),
+    Morph(#[from] crate::morph::MorphError),
 
     /// Region library error
     #[error("region error: {0}")]
-    Region(#[from] leptonica_region::RegionError),
+    Region(#[from] crate::region::RegionError),
 
     /// Color library error
     #[error("color error: {0}")]
-    Color(#[from] leptonica_color::ColorError),
+    Color(#[from] crate::color::ColorError),
 
     /// Unsupported pixel depth for this operation
     #[error("unsupported depth: expected {expected}, got {actual}")]

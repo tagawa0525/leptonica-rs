@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/rankbin_reg.c`
 
-use leptonica_filter::{max_filter, median_filter, min_filter, rank_filter_gray};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::filter::{max_filter, median_filter, min_filter, rank_filter_gray};
 
 /// Test rank_filter_gray: basic and extreme ranks (C ranks 0/1 approx).
 ///
@@ -22,7 +23,7 @@ use leptonica_test::RegParams;
 fn rankbin_reg_rank_filter_gray() {
     let mut rp = RegParams::new("rankbin_gray");
 
-    let pix = leptonica_test::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
+    let pix = common::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
     let w = pix.width();
     let h = pix.height();
 

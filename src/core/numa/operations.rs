@@ -12,7 +12,7 @@
 //!   - `numaMakeHistogramClipped()` - histogram with clipped range
 
 use super::{Numa, Numaa};
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 /// Arithmetic operation for element-wise Numa arithmetic.
 ///
@@ -232,7 +232,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let seq = Numa::make_sequence(0.0, 1.0, 5);
     /// assert_eq!(seq.len(), 5);
@@ -261,7 +261,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     /// let psums = na.partial_sums();
@@ -293,7 +293,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let mut na1 = Numa::from_vec(vec![1.0, 2.0]);
     /// let na2 = Numa::from_vec(vec![3.0, 4.0]);
@@ -317,7 +317,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let mut na1 = Numa::from_vec(vec![1.0]);
     /// let na2 = Numa::from_vec(vec![10.0, 20.0, 30.0, 40.0]);
@@ -357,7 +357,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na1 = Numa::from_vec(vec![1.0, 2.0, 3.0]);
     /// let na2 = Numa::from_vec(vec![1.0, 2.0, 3.0]);
@@ -402,7 +402,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na = Numa::from_vec(vec![42.0; 20]);
     /// let mean = na.windowed_mean(3);
@@ -453,7 +453,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na = Numa::from_vec(vec![3.0; 20]);
     /// let ms = na.windowed_mean_square(3);
@@ -507,7 +507,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na = Numa::from_vec(vec![42.0; 20]);
     /// let stats = na.windowed_stats(3);
@@ -671,7 +671,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 2.0, 1.0]);
     /// let result = na.make_histogram(10).unwrap();
@@ -767,7 +767,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na = Numa::from_vec(vec![1.0, 3.0, 5.0, 7.0, 9.0]);
     /// let histo = na.make_histogram_clipped(2.0, 10.0).unwrap();
@@ -821,7 +821,7 @@ impl Numa {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::Numa;
+    /// use leptonica::core::Numa;
     ///
     /// let na = Numa::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     /// let (min, max, mean, var, median, rval) = na.stats_using_histogram(10, 0.5).unwrap();

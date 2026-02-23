@@ -11,8 +11,8 @@ pub use lsf::{apply_cubic_fit, apply_linear_fit, apply_quadratic_fit, apply_quar
 pub use sort::SortBy;
 pub use transform::{SelectCoord, SelectRelation};
 
-use crate::error::{Error, Result};
-use crate::numa::Numa;
+use crate::core::error::{Error, Result};
+use crate::core::numa::Numa;
 
 /// Array of points
 #[derive(Debug, Clone, Default)]
@@ -614,7 +614,7 @@ mod tests {
 
     #[test]
     fn test_create_from_numa_with_nax() {
-        use crate::numa::Numa;
+        use crate::core::numa::Numa;
         let nax = Numa::from_slice(&[10.0, 20.0, 30.0]);
         let nay = Numa::from_slice(&[1.0, 2.0, 3.0]);
         let p = Pta::create_from_numa(Some(&nax), &nay);
@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn test_create_from_numa_no_nax() {
-        use crate::numa::Numa;
+        use crate::core::numa::Numa;
         // nay has startx=0, delx=1
         let nay = Numa::from_slice(&[5.0, 10.0, 15.0]);
         let p = Pta::create_from_numa(None, &nay);

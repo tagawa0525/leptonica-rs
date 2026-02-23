@@ -12,15 +12,16 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/rasterop_reg.c`
 
-use leptonica_core::{InColor, Pix, RopOp};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{InColor, Pix, RopOp};
 
 /// Test rasterop_vip: vertical in-place shift (zero shift is identity).
 #[test]
 fn rasterop_reg_vip() {
     let mut rp = RegParams::new("rasterop_vip");
 
-    let pix1 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix1 = common::load_test_image("test8.jpg").expect("load test8.jpg");
 
     // Zero shift should be identity
     let mut pm = pix1.deep_clone().try_into_mut().expect("into_mut");
@@ -43,7 +44,7 @@ fn rasterop_reg_vip() {
 fn rasterop_reg_hip() {
     let mut rp = RegParams::new("rasterop_hip");
 
-    let pix1 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix1 = common::load_test_image("test8.jpg").expect("load test8.jpg");
 
     // Zero shift should be identity
     let mut pm = pix1.deep_clone().try_into_mut().expect("into_mut");
@@ -66,7 +67,7 @@ fn rasterop_reg_hip() {
 fn rasterop_reg_translate() {
     let mut rp = RegParams::new("rasterop_translate");
 
-    let pix1 = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix1 = common::load_test_image("test1.png").expect("load test1.png");
 
     // Zero translate should be identity
     let pix2 = pix1.translate(0, 0, InColor::White);
@@ -88,7 +89,7 @@ fn rasterop_reg_translate() {
 fn rasterop_reg_general() {
     let mut rp = RegParams::new("rasterop_general");
 
-    let pix_a = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix_a = common::load_test_image("test1.png").expect("load test1.png");
 
     // Src: rop(a, a, Src) == a
     let result = pix_a.rop(&pix_a, RopOp::Src).expect("rop src");

@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/blend1_reg.c`
 
-use leptonica_core::{GrayBlendType, PixelDepth};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{GrayBlendType, PixelDepth};
 
 /// Test blend_gray with GrayBlendType::Gray (C checks 0-2).
 ///
@@ -21,10 +22,10 @@ use leptonica_test::RegParams;
 fn blend1_reg_gray_straight() {
     let mut rp = RegParams::new("blend1_gray");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     // C uses blender8.png; we use weasel8.png as 8bpp blend source
-    let blend = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
+    let blend = common::load_test_image("weasel8.png").expect("load weasel8.png");
     assert_eq!(blend.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();
@@ -53,8 +54,8 @@ fn blend1_reg_gray_straight() {
 fn blend1_reg_gray_inverse() {
     let mut rp = RegParams::new("blend1_inv");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
-    let blend = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
+    let blend = common::load_test_image("weasel8.png").expect("load weasel8.png");
     let w = pix.width();
     let h = pix.height();
 
@@ -78,8 +79,8 @@ fn blend1_reg_adapt() {
     let mut rp = RegParams::new("blend1_adapt");
 
     // blend_gray_adapt requires 8bpp base and blend images
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
-    let blend = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let blend = common::load_test_image("weasel8.png").expect("load weasel8.png");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
     assert_eq!(blend.depth(), PixelDepth::Bit8);
     let w = pix.width();
@@ -109,9 +110,9 @@ fn blend1_reg_adapt() {
 fn blend1_reg_color() {
     let mut rp = RegParams::new("blend1_color");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     // C uses weasel4.11c.png with colormap removed; load 32bpp color blend source
-    let blend = leptonica_test::load_test_image("weasel32.png").expect("load weasel32.png");
+    let blend = common::load_test_image("weasel32.png").expect("load weasel32.png");
     let w = pix.width();
     let h = pix.height();
 

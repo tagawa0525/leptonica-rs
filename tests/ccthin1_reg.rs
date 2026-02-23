@@ -11,10 +11,11 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/ccthin1_reg.c`
 
-use leptonica_morph::{
+mod common;
+use common::RegParams;
+use leptonica::morph::{
     ThinSelSet, make_thin_sels, sels_4and8cc_thin, sels_4cc_thin, sels_8cc_thin,
 };
-use leptonica_test::RegParams;
 
 /// Test sels_4cc_thin: generate 4-connected component thinning sels (C check 0).
 ///

@@ -7,8 +7,9 @@
 //! - pixRowStats, pixColumnStats
 //! - pixGetPixelAverage, pixGetPixelStats
 
-use leptonica_core::pix::statistics::{DiffDirection, PixelStatType, StatsRequest};
-use leptonica_core::{Pix, PixelDepth, color};
+use leptonica::core::pix::statistics::{DiffDirection, PixelStatType, StatsRequest};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 /// Create a grayscale test image with a gradient
 fn make_gradient_image() -> Pix {
@@ -41,7 +42,7 @@ fn make_color_image() -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..20 {
         for x in 0..20 {
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(100, 150, 200));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(100, 150, 200));
         }
     }
     pm.into()
@@ -207,7 +208,7 @@ fn test_get_pixel_average_gray() {
 fn test_get_pixel_average_rgb() {
     let pix = make_color_image();
     let avg = pix.get_pixel_average(None, 0, 0, 1).unwrap();
-    let (r, g, b, _) = color::extract_rgba(avg);
+    let (r, g, b, _) = pixel::extract_rgba(avg);
     assert_eq!(r, 100);
     assert_eq!(g, 150);
     assert_eq!(b, 200);

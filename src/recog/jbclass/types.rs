@@ -3,7 +3,7 @@
 //! This module contains the core data structures for JBIG2-style
 //! connected component classification and template compression.
 
-use leptonica_core::Pix;
+use crate::core::Pix;
 use std::collections::HashMap;
 
 /// Classification method

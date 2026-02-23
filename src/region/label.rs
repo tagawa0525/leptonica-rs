@@ -3,9 +3,9 @@
 //! This module provides high-level functions for labeling and analyzing
 //! connected components in images.
 
-use crate::conncomp::{ConnectivityType, label_connected_components};
-use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Box, Pix, PixelDepth};
+use crate::core::{Box, Pix, PixelDepth};
+use crate::region::conncomp::{ConnectivityType, label_connected_components};
+use crate::region::error::{RegionError, RegionResult};
 
 /// Label connected components in an image
 ///

@@ -4,8 +4,9 @@
 //! - pixBilateral
 //! - pixBilateralGray
 
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_filter::bilateral;
+use leptonica::core::pixel;
+use leptonica::filter::bilateral;
+use leptonica::{Pix, PixelDepth};
 
 /// Create a grayscale test image with a sharp edge
 fn make_gray_edge_image() -> Pix {
@@ -29,7 +30,7 @@ fn make_color_edge_image() -> Pix {
             let r = if x < 30 { 40u8 } else { 220 };
             let g = if y < 30 { 60u8 } else { 180 };
             let b = 128u8;
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(r, g, b));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
         }
     }
     pm.into()
@@ -163,8 +164,8 @@ fn test_bilateral_fast_color_preserves_edges() {
     // Check red channel edge preservation
     let left_pixel = result.get_pixel_unchecked(10, 30);
     let right_pixel = result.get_pixel_unchecked(50, 30);
-    let (r_left, _, _, _) = color::extract_rgba(left_pixel);
-    let (r_right, _, _, _) = color::extract_rgba(right_pixel);
+    let (r_left, _, _, _) = pixel::extract_rgba(left_pixel);
+    let (r_right, _, _, _) = pixel::extract_rgba(right_pixel);
     assert!(
         r_right > r_left + 50,
         "red edge not preserved: left={r_left}, right={r_right}"

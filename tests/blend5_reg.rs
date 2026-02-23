@@ -13,10 +13,11 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/blend5_reg.c`
 
-use leptonica_color::pix_snap_color;
-use leptonica_core::PixelDepth;
-use leptonica_core::pix::blend::{FadeDirection, FadeTarget};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::pix_snap_color;
+use leptonica::core::pix::blend::{FadeDirection, FadeTarget};
 
 /// Test pix_snap_color on 32bpp RGB images (C checks 0-3).
 ///
@@ -26,7 +27,7 @@ use leptonica_test::RegParams;
 fn blend5_reg_snap_color_rgb() {
     let mut rp = RegParams::new("blend5_snap_rgb");
 
-    let pix = leptonica_test::load_test_image("Leptonica.jpg").expect("load Leptonica.jpg");
+    let pix = common::load_test_image("Leptonica.jpg").expect("load Leptonica.jpg");
     let pix32 = pix.convert_to_32().expect("convert to 32bpp");
     assert_eq!(pix32.depth(), PixelDepth::Bit32);
 
@@ -53,7 +54,7 @@ fn blend5_reg_snap_color_rgb() {
 fn blend5_reg_snap_color_gray() {
     let mut rp = RegParams::new("blend5_snap_gray");
 
-    let pix = leptonica_test::load_test_image("wyom.jpg").expect("load wyom.jpg");
+    let pix = common::load_test_image("wyom.jpg").expect("load wyom.jpg");
     let pix8 = pix.convert_to_8().expect("convert to 8bpp");
     assert_eq!(pix8.depth(), PixelDepth::Bit8);
 
@@ -80,7 +81,7 @@ fn blend5_reg_snap_color_gray() {
 fn blend5_reg_edge_fade_rgb() {
     let mut rp = RegParams::new("blend5_fade_rgb");
 
-    let pix = leptonica_test::load_test_image("Leptonica.jpg").expect("load Leptonica.jpg");
+    let pix = common::load_test_image("Leptonica.jpg").expect("load Leptonica.jpg");
     let pix32 = pix.convert_to_32().expect("convert to 32bpp");
     let w = pix32.width();
     let h = pix32.height();
@@ -90,7 +91,7 @@ fn blend5_reg_edge_fade_rgb() {
     pix_mut
         .linear_edge_fade(FadeDirection::FromLeft, FadeTarget::ToWhite, 0.5, 0.8)
         .expect("fade left white");
-    let result: leptonica_core::Pix = pix_mut.into();
+    let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
 
@@ -99,7 +100,7 @@ fn blend5_reg_edge_fade_rgb() {
     pix_mut
         .linear_edge_fade(FadeDirection::FromRight, FadeTarget::ToBlack, 0.5, 0.8)
         .expect("fade right black");
-    let result: leptonica_core::Pix = pix_mut.into();
+    let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
 
     // Fade from top to white
@@ -107,7 +108,7 @@ fn blend5_reg_edge_fade_rgb() {
     pix_mut
         .linear_edge_fade(FadeDirection::FromTop, FadeTarget::ToWhite, 0.3, 0.6)
         .expect("fade top white");
-    let result: leptonica_core::Pix = pix_mut.into();
+    let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
 
     // Fade from bottom to black
@@ -115,7 +116,7 @@ fn blend5_reg_edge_fade_rgb() {
     pix_mut
         .linear_edge_fade(FadeDirection::FromBottom, FadeTarget::ToBlack, 0.3, 0.6)
         .expect("fade bottom black");
-    let result: leptonica_core::Pix = pix_mut.into();
+    let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
 
     assert!(rp.cleanup(), "blend5 edge_fade_rgb test failed");
@@ -130,7 +131,7 @@ fn blend5_reg_edge_fade_rgb() {
 fn blend5_reg_edge_fade_gray() {
     let mut rp = RegParams::new("blend5_fade_gray");
 
-    let pix = leptonica_test::load_test_image("wyom.jpg").expect("load wyom.jpg");
+    let pix = common::load_test_image("wyom.jpg").expect("load wyom.jpg");
     let pix8 = pix.convert_to_8().expect("convert to 8bpp");
     let w = pix8.width();
     let h = pix8.height();
@@ -140,7 +141,7 @@ fn blend5_reg_edge_fade_gray() {
     pix_mut
         .linear_edge_fade(FadeDirection::FromLeft, FadeTarget::ToBlack, 0.5, 0.8)
         .expect("fade left black 8bpp");
-    let result: leptonica_core::Pix = pix_mut.into();
+    let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit8);
@@ -150,7 +151,7 @@ fn blend5_reg_edge_fade_gray() {
     pix_mut
         .linear_edge_fade(FadeDirection::FromRight, FadeTarget::ToWhite, 0.5, 0.8)
         .expect("fade right white 8bpp");
-    let result: leptonica_core::Pix = pix_mut.into();
+    let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
 
     assert!(rp.cleanup(), "blend5 edge_fade_gray test failed");
@@ -165,7 +166,7 @@ fn blend5_reg_edge_fade_gray() {
 fn blend5_reg_edge_fade_combined() {
     let mut rp = RegParams::new("blend5_fade_combined");
 
-    let pix = leptonica_test::load_test_image("Leptonica.jpg").expect("load Leptonica.jpg");
+    let pix = common::load_test_image("Leptonica.jpg").expect("load Leptonica.jpg");
     let pix32 = pix.convert_to_32().expect("convert to 32bpp");
     let w = pix32.width();
     let h = pix32.height();
@@ -184,7 +185,7 @@ fn blend5_reg_edge_fade_combined() {
         .linear_edge_fade(FadeDirection::FromBottom, FadeTarget::ToWhite, 0.3, 0.8)
         .expect("fade bottom");
 
-    let result: leptonica_core::Pix = pix_mut.into();
+    let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);

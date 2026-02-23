@@ -3,8 +3,8 @@
 //! This module provides functions to apply the built disparity models
 //! to dewarp images.
 
-use crate::{RecogError, RecogResult};
-use leptonica_core::{FPix, Pix, PixelDepth};
+use crate::core::{FPix, Pix, PixelDepth};
+use crate::recog::{RecogError, RecogResult};
 
 use super::types::Dewarp;
 
@@ -266,7 +266,7 @@ pub fn estimate_disparity_magnitude(lines: &[super::types::TextLine]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::FPix;
+    use crate::core::FPix;
 
     #[test]
     fn test_apply_vertical_disparity_no_shift() {

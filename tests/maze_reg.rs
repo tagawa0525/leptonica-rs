@@ -12,12 +12,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/maze_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_region::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::region::{
     ConnectivityType, MazeGenerationOptions, generate_binary_maze, pix_count_components,
     search_binary_maze, search_gray_maze,
 };
-use leptonica_test::RegParams;
 
 /// Test generate_binary_maze and search_binary_maze (C check 0).
 ///
@@ -56,7 +57,7 @@ fn maze_reg_gray() {
     let mut rp = RegParams::new("maze_gray");
 
     // C: pixg = pixRead("test8.jpg");
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
     let w = pix.width();
     let h = pix.height();

@@ -7,7 +7,7 @@ pub mod convert;
 pub mod query;
 pub mod serial;
 
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 /// RGBA color entry
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

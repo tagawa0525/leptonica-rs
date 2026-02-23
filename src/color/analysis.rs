@@ -5,9 +5,9 @@
 //! - Color counting
 //! - Grayscale detection
 
-use crate::colorspace::rgb_to_hsv;
-use crate::{ColorError, ColorResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::color::colorspace::rgb_to_hsv;
+use crate::color::{ColorError, ColorResult};
+use crate::core::{Pix, PixelDepth, pixel};
 use std::collections::HashSet;
 
 /// Method for computing the color magnitude of a pixel.
@@ -141,7 +141,7 @@ fn analyze_color(pix: &Pix) -> ColorResult<ColorStats> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
 
             // Count unique colors (ignore alpha)
             let rgb_key = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
@@ -235,7 +235,7 @@ fn count_colors_32bpp(pix: &Pix) -> ColorResult<u32> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let rgb_key = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
             colors.insert(rgb_key);
         }
@@ -266,7 +266,7 @@ fn check_grayscale_32bpp(pix: &Pix) -> ColorResult<bool> {
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
 
             if r != g || g != b {
                 return Ok(false);
@@ -299,7 +299,7 @@ fn check_grayscale_tolerant_32bpp(pix: &Pix, tolerance: u8) -> ColorResult<bool>
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
 
             let r = r as i32;
             let g = g as i32;
@@ -320,7 +320,7 @@ fn check_grayscale_tolerant_32bpp(pix: &Pix, tolerance: u8) -> ColorResult<bool>
 pub fn grayscale_histogram(pix: &Pix) -> ColorResult<[u32; 256]> {
     let gray_pix = match pix.depth() {
         PixelDepth::Bit8 => pix.clone(),
-        PixelDepth::Bit32 => crate::colorspace::pix_convert_to_gray(pix)?,
+        PixelDepth::Bit32 => crate::color::colorspace::pix_convert_to_gray(pix)?,
         _ => {
             return Err(ColorError::UnsupportedDepth {
                 expected: "8 or 32 bpp",
@@ -371,7 +371,7 @@ pub fn mask_over_color_pixels(pix: &Pix, threshdiff: i32, mindist: i32) -> Color
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let ri = r as i32;
             let gi = g as i32;
             let bi = b as i32;
@@ -414,7 +414,7 @@ pub fn mask_over_gray_pixels(pix: &Pix, maxlimit: i32, satlimit: i32) -> ColorRe
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let ri = r as i32;
             let gi = g as i32;
             let bi = b as i32;
@@ -461,7 +461,7 @@ pub fn mask_over_color_range(
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let rv = r as i32;
             let gv = g as i32;
             let bv = b as i32;
@@ -520,7 +520,7 @@ pub fn color_fraction(
         while x < w {
             total += 1;
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let ri = r as i32;
             let gi = g as i32;
             let bi = b as i32;
@@ -647,7 +647,7 @@ pub fn colors_for_quantization(pix: &Pix, thresh: i32) -> ColorResult<(u32, bool
         for y in 0..h {
             for x in 0..w {
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let r = color::red(pixel);
+                let r = pixel::red(pixel);
                 histogram[r as usize] += 1;
             }
         }
@@ -665,7 +665,7 @@ pub fn colors_for_quantization(pix: &Pix, thresh: i32) -> ColorResult<(u32, bool
         for y in 0..h {
             for x in 0..w {
                 let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b) = color::extract_rgb(pixel);
+                let (r, g, b) = pixel::extract_rgb(pixel);
                 let cube = ((r >> 4) as u32) << 8 | ((g >> 4) as u32) << 4 | (b >> 4) as u32;
                 *cubes.entry(cube).or_insert(0u32) += 1;
             }
@@ -710,7 +710,7 @@ pub fn rgb_histogram(pix: &Pix, sigbits: i32, factor: i32) -> ColorResult<Vec<f3
         let mut x = 0;
         while x < w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let rgbindex = rtab[r as usize] | gtab[g as usize] | btab[b as usize];
             hist[rgbindex as usize] += 1.0;
             x += factor;
@@ -898,7 +898,7 @@ pub fn color_magnitude(pix: &Pix, mag_type: ColorMagnitudeType) -> ColorResult<P
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
             let (ri, gi, bi) = (r as i32, g as i32, b as i32);
 
             let colorval = match mag_type {
@@ -964,7 +964,7 @@ mod tests {
                 let r = (x * 25) as u8;
                 let g = (y * 25) as u8;
                 let b = 128;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -979,7 +979,7 @@ mod tests {
         for y in 0..10 {
             for x in 0..10 {
                 let gray = ((x + y) * 12) as u8;
-                let pixel = color::compose_rgb(gray, gray, gray);
+                let pixel = pixel::compose_rgb(gray, gray, gray);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -1045,7 +1045,7 @@ mod tests {
         // Almost gray - small differences
         for y in 0..5 {
             for x in 0..5 {
-                let pixel = color::compose_rgb(128, 130, 127);
+                let pixel = pixel::compose_rgb(128, 130, 127);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -1093,9 +1093,9 @@ mod tests {
         for y in 0..10 {
             for x in 0..30 {
                 let pixel = if x < 20 {
-                    color::compose_rgb(255, 0, 0)
+                    pixel::compose_rgb(255, 0, 0)
                 } else {
-                    color::compose_rgb(0, 0, 255)
+                    pixel::compose_rgb(0, 0, 255)
                 };
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }

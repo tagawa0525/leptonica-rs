@@ -7,11 +7,12 @@
 //! - pixOctreeQuantNumColors, pixMedianCutQuantMixed
 //! - pixQuantFromCmap, pixRemoveUnusedColors
 
-use leptonica_color::quantize::{
+use leptonica::color::quantize::{
     fixed_octcube_quant_256, median_cut_quant_mixed, octree_quant_by_population,
     octree_quant_num_colors, quant_from_cmap, remove_unused_colors,
 };
-use leptonica_core::{Pix, PixColormap, PixelDepth, color};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixColormap, PixelDepth};
 
 /// Create a tricolor image (red/green/blue vertical stripes)
 fn make_tricolor(w: u32, h: u32) -> Pix {
@@ -21,11 +22,11 @@ fn make_tricolor(w: u32, h: u32) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let pixel = if x < third {
-                color::compose_rgb(255, 0, 0)
+                pixel::compose_rgb(255, 0, 0)
             } else if x < 2 * third {
-                color::compose_rgb(0, 255, 0)
+                pixel::compose_rgb(0, 255, 0)
             } else {
-                color::compose_rgb(0, 0, 255)
+                pixel::compose_rgb(0, 0, 255)
             };
             pm.set_pixel_unchecked(x, y, pixel);
         }
@@ -42,7 +43,7 @@ fn make_color_gradient(w: u32, h: u32) -> Pix {
             let r = ((x as f32 / w as f32) * 255.0) as u8;
             let g = ((y as f32 / h as f32) * 255.0) as u8;
             let b = 128u8;
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(r, g, b));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
         }
     }
     pm.into()
@@ -58,10 +59,10 @@ fn make_mixed_gray_color(w: u32, h: u32) -> Pix {
             let pixel = if x < half {
                 // Left half: grayscale gradient
                 let g = ((y as f32 / h as f32) * 255.0) as u8;
-                color::compose_rgb(g, g, g)
+                pixel::compose_rgb(g, g, g)
             } else {
                 // Right half: color
-                color::compose_rgb(255, 0, 0)
+                pixel::compose_rgb(255, 0, 0)
             };
             pm.set_pixel_unchecked(x, y, pixel);
         }
@@ -181,7 +182,7 @@ fn test_median_cut_quant_mixed_all_gray() {
     for y in 0..50u32 {
         for x in 0..50u32 {
             let g = ((y as f32 / 50.0) * 255.0) as u8;
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(g, g, g));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(g, g, g));
         }
     }
     let pix: Pix = pm.into();

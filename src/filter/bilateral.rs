@@ -15,14 +15,14 @@
 //! # Example
 //!
 //! ```ignore
-//! use leptonica_filter::bilateral_exact;
+//! use leptonica::filter::bilateral_exact;
 //!
 //! let smoothed = bilateral_exact(&pix, 2.0, 30.0)?;
 //! ```
 
-use crate::{FilterError, FilterResult, Kernel};
-use leptonica_core::pix::RgbComponent;
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::pix::RgbComponent;
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::filter::{FilterError, FilterResult, Kernel};
 
 /// Create a range kernel for bilateral filtering
 ///
@@ -210,7 +210,7 @@ fn bilateral_color_exact(
     for y in 0..h {
         for x in 0..w {
             let center_pixel = pix.get_pixel_unchecked(x, y);
-            let (center_r, center_g, center_b, center_a) = color::extract_rgba(center_pixel);
+            let (center_r, center_g, center_b, center_a) = pixel::extract_rgba(center_pixel);
 
             let mut sum_r = 0.0f32;
             let mut sum_g = 0.0f32;
@@ -230,7 +230,7 @@ fn bilateral_color_exact(
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
                     let neighbor_pixel = pix.get_pixel_unchecked(sx, sy);
-                    let (nr, ng, nb, na) = color::extract_rgba(neighbor_pixel);
+                    let (nr, ng, nb, na) = pixel::extract_rgba(neighbor_pixel);
 
                     let spatial_weight = spatial_kernel.get(kx, ky).unwrap_or(0.0);
 
@@ -278,7 +278,7 @@ fn bilateral_color_exact(
                 center_a
             };
 
-            let result = color::compose_rgba(result_r, result_g, result_b, result_a);
+            let result = pixel::compose_rgba(result_r, result_g, result_b, result_a);
             out_mut.set_pixel_unchecked(x, y, result);
         }
     }
@@ -447,7 +447,7 @@ impl BilateralData {
         ncomps: u32,
         reduction: u32,
     ) -> FilterResult<Self> {
-        use leptonica_transform::{ScaleMethod, scale};
+        use crate::transform::{ScaleMethod, scale};
 
         // Downscale
         let pix_reduced = if reduction == 1 {
@@ -676,7 +676,7 @@ mod tests {
                 let r = if x < 10 { 50 } else { 200 };
                 let g = if y < 10 { 100 } else { 150 };
                 let b = 128;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }

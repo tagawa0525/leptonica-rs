@@ -4,8 +4,8 @@
 //! Corresponds to functions in C Leptonica's `pix5.c`.
 
 use super::{Pix, PixelDepth};
-use crate::Numa;
-use crate::error::{Error, Result};
+use crate::core::Numa;
+use crate::core::error::{Error, Result};
 
 /// Direction for profile scanning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,7 +46,7 @@ impl Pix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
     /// // Extract along a horizontal line at y=50
@@ -403,7 +403,7 @@ mod tests {
 
     #[test]
     fn test_average_intensity_profile_horizontal() {
-        use crate::pix::extract::ProfileDirection;
+        use crate::core::pix::extract::ProfileDirection;
         // Uniform 8bpp image - profile should be constant
         let pix = {
             let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn test_average_intensity_profile_vertical() {
-        use crate::pix::extract::ProfileDirection;
+        use crate::core::pix::extract::ProfileDirection;
         // Uniform 8bpp image - vertical profile should also be constant
         let pix = {
             let base = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
@@ -451,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_average_intensity_profile_partial_fract() {
-        use crate::pix::extract::ProfileDirection;
+        use crate::core::pix::extract::ProfileDirection;
         // 10×10 image: left half = 0, right half = 200
         // fract = 0.5 centres on the middle 5 columns (2..=6 for w=10: start=2, end=7)
         // The middle 5 columns include both halves so average is 100.

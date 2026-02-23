@@ -12,16 +12,16 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_io::pdf::{write_pdf_mem, PdfOptions};
-//! use leptonica_core::Pix;
+//! use leptonica::io::pdf::{write_pdf_mem, PdfOptions};
+//! use leptonica::core::Pix;
 //!
-//! let pix = Pix::new(100, 100, leptonica_core::PixelDepth::Bit8).unwrap();
+//! let pix = Pix::new(100, 100, leptonica::core::PixelDepth::Bit8).unwrap();
 //! let options = PdfOptions::default();
 //! let pdf_data = write_pdf_mem(&pix, &options).unwrap();
 //! ```
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::io::{IoError, IoResult};
 use miniz_oxide::deflate::compress_to_vec_zlib;
 use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect, Ref, TextStr};
 use std::io::Write;
@@ -177,7 +177,7 @@ pub fn write_pdf_from_files<W: Write>(
 
     let images: Vec<Pix> = paths
         .iter()
-        .map(crate::read_image)
+        .map(crate::io::read_image)
         .collect::<IoResult<Vec<_>>>()?;
 
     let image_refs: Vec<&Pix> = images.iter().collect();
@@ -430,13 +430,13 @@ fn prepare_image_data(pix: &Pix) -> IoResult<(Vec<u8>, PdfColorSpace, i32)> {
                 for x in 0..width {
                     let pixel = pix.get_pixel(x, y).unwrap_or(0);
                     if spp == 4 {
-                        let (r, g, b, _a) = color::extract_rgba(pixel);
+                        let (r, g, b, _a) = pixel::extract_rgba(pixel);
                         data.push(r);
                         data.push(g);
                         data.push(b);
                         // Alpha is ignored in PDF (no transparency support in this impl)
                     } else {
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
                         data.push(r);
                         data.push(g);
                         data.push(b);
@@ -487,7 +487,7 @@ fn encode_jpeg_for_pdf(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::PixelDepth;
+    use crate::core::PixelDepth;
 
     #[test]
     fn test_write_pdf_grayscale() {
@@ -519,11 +519,11 @@ mod tests {
         for y in 0..50 {
             for x in 0..50 {
                 let color = if x < 17 {
-                    color::compose_rgb(255, 0, 0) // Red
+                    pixel::compose_rgb(255, 0, 0) // Red
                 } else if x < 34 {
-                    color::compose_rgb(0, 255, 0) // Green
+                    pixel::compose_rgb(0, 255, 0) // Green
                 } else {
-                    color::compose_rgb(0, 0, 255) // Blue
+                    pixel::compose_rgb(0, 0, 255) // Blue
                 };
                 pix_mut.set_pixel(x, y, color).unwrap();
             }
@@ -596,7 +596,7 @@ mod tests {
         for y in 0..100 {
             for x in 0..100 {
                 pix_mut
-                    .set_pixel(x, y, color::compose_rgb(x as u8, y as u8, 128))
+                    .set_pixel(x, y, pixel::compose_rgb(x as u8, y as u8, 128))
                     .unwrap();
             }
         }
@@ -627,7 +627,7 @@ mod tests {
         for y in 0..200 {
             for x in 0..200 {
                 pix_mut
-                    .set_pixel(x, y, color::compose_rgb(x as u8, (y / 2) as u8, 100))
+                    .set_pixel(x, y, pixel::compose_rgb(x as u8, (y / 2) as u8, 100))
                     .unwrap();
             }
         }
@@ -710,8 +710,8 @@ mod tests {
 
         let path1 = outdir.join("test1.pnm");
         let path2 = outdir.join("test2.pnm");
-        crate::write_image(&pix1, &path1, leptonica_core::ImageFormat::Pnm).unwrap();
-        crate::write_image(&pix2, &path2, leptonica_core::ImageFormat::Pnm).unwrap();
+        crate::io::write_image(&pix1, &path1, crate::core::ImageFormat::Pnm).unwrap();
+        crate::io::write_image(&pix2, &path2, crate::core::ImageFormat::Pnm).unwrap();
 
         let options = PdfOptions::with_title("From Files Test");
         let mut buffer = Vec::new();

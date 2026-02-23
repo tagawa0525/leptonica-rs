@@ -1,6 +1,7 @@
-//! leptonica-test - Regression test framework for Leptonica
+#![allow(dead_code, unused_imports)]
+//! Regression test framework for Leptonica
 //!
-//! This crate provides a regression test framework similar to the C version's
+//! This module provides a regression test framework similar to the C version's
 //! regutils.c, supporting three modes:
 //!
 //! - **Generate**: Create golden files for comparison
@@ -10,7 +11,8 @@
 //! # Usage
 //!
 //! ```ignore
-//! use leptonica_test::{RegParams, RegTestMode};
+//! mod common;
+//! use common::{RegParams, RegTestMode};
 //!
 //! let mut rp = RegParams::new("conncomp");
 //! rp.compare_values(4452.0, count as f64, 0.0);
@@ -36,9 +38,9 @@ pub use params::{RegParams, RegTestMode};
 /// # Returns
 ///
 /// The loaded image, or an error if loading fails.
-pub fn load_test_image(name: &str) -> TestResult<leptonica_core::Pix> {
+pub fn load_test_image(name: &str) -> TestResult<leptonica::Pix> {
     let path = test_data_path(name);
-    leptonica_io::read_image(&path).map_err(|e| TestError::ImageLoad {
+    leptonica::io::read_image(&path).map_err(|e| TestError::ImageLoad {
         path: path.clone(),
         message: e.to_string(),
     })
@@ -46,9 +48,7 @@ pub fn load_test_image(name: &str) -> TestResult<leptonica_core::Pix> {
 
 /// Get the path to the workspace root
 fn workspace_root() -> String {
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    // leptonica-test is at crates/leptonica-test, so go up two directories
-    format!("{}/../..", manifest_dir)
+    env!("CARGO_MANIFEST_DIR").to_string()
 }
 
 /// Get the path to a test data file

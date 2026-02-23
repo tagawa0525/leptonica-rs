@@ -16,8 +16,8 @@
 //! 3. **Text Block Detection**: Group text lines into paragraphs/blocks
 //!    by detecting vertical whitespace between blocks.
 
-use crate::{RecogError, RecogResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::recog::{RecogError, RecogResult};
 
 /// Minimum dimensions for page segmentation
 const MIN_WIDTH: u32 = 100;
@@ -130,8 +130,8 @@ pub struct SegmentationResult {
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_recog::pageseg::{segment_regions, PageSegOptions};
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::recog::pageseg::{segment_regions, PageSegOptions};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(500, 700, PixelDepth::Bit1).unwrap();
 /// let result = segment_regions(&pix, &PageSegOptions::default()).unwrap();
@@ -476,23 +476,23 @@ fn generate_textblock_mask_internal(textline_mask: &Pix, vws: &Pix) -> RecogResu
 
 /// Simple morphological opening (erode then dilate)
 fn morphological_open(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    leptonica_morph::open_brick(pix, se_w, se_h).map_err(Into::into)
+    crate::morph::open_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
 /// Simple morphological closing (dilate then erode)
 fn morphological_close(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    leptonica_morph::close_brick(pix, se_w, se_h).map_err(Into::into)
+    crate::morph::close_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
 /// Morphological erosion with rectangular structuring element
 fn morphological_erode(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    leptonica_morph::erode_brick(pix, se_w, se_h).map_err(Into::into)
+    crate::morph::erode_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
 /// Morphological dilation with rectangular structuring element
 #[allow(dead_code)]
 fn morphological_dilate(pix: &Pix, se_w: u32, se_h: u32) -> RecogResult<Pix> {
-    leptonica_morph::dilate_brick(pix, se_w, se_h).map_err(Into::into)
+    crate::morph::dilate_brick(pix, se_w, se_h).map_err(Into::into)
 }
 
 /// Seed fill operation using word-level operations
@@ -530,7 +530,7 @@ fn seed_fill(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
     let mut current = seed.deep_clone();
 
     loop {
-        let dilated = leptonica_morph::dilate_brick(&current, 3, 3)?;
+        let dilated = crate::morph::dilate_brick(&current, 3, 3)?;
         let dilated_data = dilated.data();
         let current_data = current.data();
 

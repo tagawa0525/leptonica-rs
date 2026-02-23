@@ -9,9 +9,10 @@
 //! cargo test -p leptonica-morph --test morphseq_reg
 //! ```
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{gray_morph_sequence, morph_comp_sequence, morph_sequence};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{gray_morph_sequence, morph_comp_sequence, morph_sequence};
 
 // C version sequence definitions
 const SEQUENCE1: &str = "O1.3 + C3.1";
@@ -135,8 +136,8 @@ fn morphseq_reg() {
     // Test 5: Verify gray sequence operations match individual operations
     // ====================================================================
     eprintln!("  Testing gray sequence vs individual ops");
-    let pix1 = leptonica_morph::open_gray(&pixg, 3, 3).expect("open_gray");
-    let pix2 = leptonica_morph::close_gray(&pix1, 3, 3).expect("close_gray after open");
+    let pix1 = leptonica::morph::open_gray(&pixg, 3, 3).expect("open_gray");
+    let pix2 = leptonica::morph::close_gray(&pix1, 3, 3).expect("close_gray after open");
     let pix3 = gray_morph_sequence(&pixg, "O3.3 + C3.3").expect("gray sequence O3.3+C3.3");
     let same = pix2.equals(&pix3);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);

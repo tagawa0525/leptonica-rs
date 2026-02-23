@@ -2,8 +2,8 @@
 //!
 //! Supports PBM (P1/P4), PGM (P2/P5), and PPM (P3/P6) formats.
 
-use crate::{IoError, IoResult, header::ImageHeader};
-use leptonica_core::{ImageFormat, Pix, PixelDepth, color};
+use crate::core::{ImageFormat, Pix, PixelDepth, pixel};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use std::io::{BufRead, BufReader, Read, Write};
 
 /// Read PNM header metadata without decoding pixel data
@@ -312,7 +312,7 @@ fn read_number<R: BufRead>(reader: &mut R) -> IoResult<u32> {
 
 fn read_pbm_ascii<R: BufRead>(
     reader: &mut R,
-    pix: &mut leptonica_core::pix::PixMut,
+    pix: &mut crate::core::pix::PixMut,
     width: u32,
     height: u32,
 ) -> IoResult<()> {
@@ -320,7 +320,7 @@ fn read_pbm_ascii<R: BufRead>(
         for x in 0..width {
             skip_whitespace_and_comments(reader)?;
             let val = read_number(reader)?;
-            // PBM: 1 = black, 0 = white (same convention as leptonica_core 1bpp)
+            // PBM: 1 = black, 0 = white (same convention as crate::core 1bpp)
             pix.set_pixel_unchecked(x, y, if val != 0 { 1 } else { 0 });
         }
     }
@@ -329,7 +329,7 @@ fn read_pbm_ascii<R: BufRead>(
 
 fn read_pbm_binary<R: Read>(
     reader: &mut R,
-    pix: &mut leptonica_core::pix::PixMut,
+    pix: &mut crate::core::pix::PixMut,
     width: u32,
     height: u32,
 ) -> IoResult<()> {
@@ -351,7 +351,7 @@ fn read_pbm_binary<R: Read>(
 
 fn read_pgm_ascii<R: BufRead>(
     reader: &mut R,
-    pix: &mut leptonica_core::pix::PixMut,
+    pix: &mut crate::core::pix::PixMut,
     width: u32,
     height: u32,
     maxval: u32,
@@ -373,7 +373,7 @@ fn read_pgm_ascii<R: BufRead>(
 
 fn read_pgm_binary<R: Read>(
     reader: &mut R,
-    pix: &mut leptonica_core::pix::PixMut,
+    pix: &mut crate::core::pix::PixMut,
     width: u32,
     height: u32,
     maxval: u32,
@@ -410,7 +410,7 @@ fn read_pgm_binary<R: Read>(
 
 fn read_ppm_ascii<R: BufRead>(
     reader: &mut R,
-    pix: &mut leptonica_core::pix::PixMut,
+    pix: &mut crate::core::pix::PixMut,
     width: u32,
     height: u32,
     maxval: u32,
@@ -434,7 +434,7 @@ fn read_ppm_ascii<R: BufRead>(
                 (r as u8, g as u8, b as u8)
             };
 
-            let pixel = color::compose_rgb(r, g, b);
+            let pixel = pixel::compose_rgb(r, g, b);
             pix.set_pixel_unchecked(x, y, pixel);
         }
     }
@@ -443,7 +443,7 @@ fn read_ppm_ascii<R: BufRead>(
 
 fn read_ppm_binary<R: Read>(
     reader: &mut R,
-    pix: &mut leptonica_core::pix::PixMut,
+    pix: &mut crate::core::pix::PixMut,
     width: u32,
     height: u32,
     maxval: u32,
@@ -479,7 +479,7 @@ fn read_ppm_binary<R: Read>(
                 (r, g, b)
             };
 
-            let pixel = color::compose_rgb(r, g, b);
+            let pixel = pixel::compose_rgb(r, g, b);
             pix.set_pixel_unchecked(x, y, pixel);
         }
     }
@@ -504,7 +504,7 @@ pub fn write_pnm_ascii<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     let owned;
     let pix = if pix.has_colormap() {
         owned = pix
-            .remove_colormap(leptonica_core::pix::RemoveColormapTarget::BasedOnSrc)
+            .remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)
             .map_err(|e| IoError::EncodeError(format!("colormap removal failed: {}", e)))?;
         &owned
     } else {
@@ -559,7 +559,7 @@ pub fn write_pnm_ascii<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
             for y in 0..height {
                 for x in 0..width {
                     let pixel = pix.get_pixel_unchecked(x, y);
-                    let (r, g, b) = color::extract_rgb(pixel);
+                    let (r, g, b) = pixel::extract_rgb(pixel);
                     for &ch in &[r, g, b] {
                         let s = format!("{:3} ", ch);
                         writer.write_all(s.as_bytes()).map_err(IoError::Io)?;
@@ -741,7 +741,7 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
                             scale_sample(row_buf[idx + 1] & mask8, mv),
                         )
                     };
-                    let pixel = color::compose_rgba(g, g, g, a);
+                    let pixel = pixel::compose_rgba(g, g, g, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -766,7 +766,7 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
                             scale_sample(row_buf[idx + 2] & mask8, mv),
                         )
                     };
-                    let pixel = color::compose_rgb(r, g, b);
+                    let pixel = pixel::compose_rgb(r, g, b);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -793,7 +793,7 @@ pub fn read_pam<R: Read>(reader: R) -> IoResult<Pix> {
                             scale_sample(row_buf[idx + 3] & mask8, mv),
                         )
                     };
-                    let pixel = color::compose_rgba(r, g, b, a);
+                    let pixel = pixel::compose_rgba(r, g, b, a);
                     pix_mut.set_pixel_unchecked(x, y, pixel);
                 }
             }
@@ -837,7 +837,7 @@ pub fn write_pam<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
     let owned;
     let pix = if pix.has_colormap() {
         owned = pix
-            .remove_colormap(leptonica_core::pix::RemoveColormapTarget::BasedOnSrc)
+            .remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)
             .map_err(|e| IoError::EncodeError(format!("colormap removal failed: {}", e)))?;
         &owned
     } else {
@@ -917,13 +917,13 @@ pub fn write_pam<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
                     let pixel = pix.get_pixel_unchecked(x, y);
                     let idx = x as usize * channels;
                     if channels == 4 {
-                        let (r, g, b, a) = color::extract_rgba(pixel);
+                        let (r, g, b, a) = pixel::extract_rgba(pixel);
                         row_buf[idx] = r;
                         row_buf[idx + 1] = g;
                         row_buf[idx + 2] = b;
                         row_buf[idx + 3] = a;
                     } else {
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
                         row_buf[idx] = r;
                         row_buf[idx + 1] = g;
                         row_buf[idx + 2] = b;
@@ -1017,7 +1017,7 @@ pub fn write_pnm<W: Write>(pix: &Pix, mut writer: W) -> IoResult<()> {
                         // Expand colormapped pixel through the colormap
                         cm.get_rgb(pixel as usize).unwrap_or((0, 0, 0))
                     } else {
-                        color::extract_rgb(pixel)
+                        pixel::extract_rgb(pixel)
                     };
                     let idx = (x * 3) as usize;
                     row_buffer[idx] = r;

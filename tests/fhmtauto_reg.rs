@@ -12,9 +12,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/fhmtauto_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{Sel, ThinSelSet, hit_miss_transform, make_thin_sels};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::morph::{Sel, ThinSelSet, hit_miss_transform, make_thin_sels};
 
 /// Test hit_miss_transform with various sels (C: pixHMT).
 ///
@@ -25,7 +26,7 @@ fn fhmtauto_reg_hit_miss() {
     let mut rp = RegParams::new("fhmtauto_hmt");
 
     // C: pixs = pixRead("feyn-fract.tif");
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
@@ -59,7 +60,7 @@ fn fhmtauto_reg_hit_miss() {
 fn fhmtauto_reg_identity_sel() {
     let mut rp = RegParams::new("fhmtauto_id");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();

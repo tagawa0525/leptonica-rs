@@ -2,12 +2,14 @@
 //!
 //! C version: reference/leptonica/prog/cmapquant_reg.c
 
-use leptonica_color::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::color::{
     MedianCutOptions, OctreeOptions, median_cut_quant, median_cut_quant_simple, octree_quant,
     octree_quant_256,
 };
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_test::{RegParams, load_test_image};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 fn load_source_image() -> Pix {
     if let Ok(pix) = load_test_image("lucasta.150.jpg") {
@@ -34,7 +36,7 @@ fn convert_gray_to_rgb(pix: &Pix) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let gray = pix.get_pixel(x, y).unwrap_or(0) as u8;
-            let pixel = color::compose_rgb(gray, gray, gray);
+            let pixel = pixel::compose_rgb(gray, gray, gray);
             out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
@@ -51,7 +53,7 @@ fn create_synthetic_text_image(w: u32, h: u32) -> Pix {
             } else {
                 (200 + ((x * 3 + y * 7) % 56)) as u8
             };
-            let pixel = color::compose_rgb(gray, gray, gray);
+            let pixel = pixel::compose_rgb(gray, gray, gray);
             out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }
@@ -67,7 +69,7 @@ fn apply_color_to_region(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32, r: u8, g: 
     for y in 0..ph {
         for x in 0..pw {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (pr, pg, pb) = color::extract_rgb(pixel);
+            let (pr, pg, pb) = pixel::extract_rgb(pixel);
             let new_pixel = if x >= x0 && x < x0 + w && y >= y0 && y < y0 + h {
                 let avg = ((pr as u32 + pg as u32 + pb as u32) / 3) as u8;
                 if avg < 220 {
@@ -75,7 +77,7 @@ fn apply_color_to_region(pix: &Pix, x0: u32, y0: u32, w: u32, h: u32, r: u8, g: 
                     let nr = (r as f32 * (1.0 - factor) + pr as f32 * factor) as u8;
                     let ng = (g as f32 * (1.0 - factor) + pg as f32 * factor) as u8;
                     let nb = (b as f32 * (1.0 - factor) + pb as f32 * factor) as u8;
-                    color::compose_rgb(nr, ng, nb)
+                    pixel::compose_rgb(nr, ng, nb)
                 } else {
                     pixel
                 }
@@ -351,11 +353,11 @@ fn create_3color_image(w: u32, h: u32) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let pixel = if x < w / 3 {
-                color::compose_rgb(255, 0, 0)
+                pixel::compose_rgb(255, 0, 0)
             } else if x < 2 * w / 3 {
-                color::compose_rgb(0, 255, 0)
+                pixel::compose_rgb(0, 255, 0)
             } else {
-                color::compose_rgb(0, 0, 255)
+                pixel::compose_rgb(0, 0, 255)
             };
             out_mut.set_pixel_unchecked(x, y, pixel);
         }
@@ -369,7 +371,7 @@ fn create_gray_gradient(w: u32, h: u32) -> Pix {
     for y in 0..h {
         for x in 0..w {
             let gray = ((x * 255) / w.max(1)) as u8;
-            let pixel = color::compose_rgb(gray, gray, gray);
+            let pixel = pixel::compose_rgb(gray, gray, gray);
             out_mut.set_pixel_unchecked(x, y, pixel);
         }
     }

@@ -12,18 +12,18 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_io::ps::{write_ps_mem, PsOptions, PsLevel};
-//! use leptonica_core::Pix;
+//! use leptonica::io::ps::{write_ps_mem, PsOptions, PsLevel};
+//! use leptonica::core::Pix;
 //!
-//! let pix = Pix::new(100, 100, leptonica_core::PixelDepth::Bit8).unwrap();
+//! let pix = Pix::new(100, 100, leptonica::core::PixelDepth::Bit8).unwrap();
 //! let options = PsOptions::default();
 //! let ps_data = write_ps_mem(&pix, &options).unwrap();
 //! ```
 
 mod ascii85;
 
-use crate::{IoError, IoResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::io::{IoError, IoResult};
 use miniz_oxide::deflate::compress_to_vec_zlib;
 use std::io::Write;
 
@@ -700,12 +700,12 @@ fn prepare_image_data(pix: &Pix) -> IoResult<(Vec<u8>, u32, u32)> {
                 for x in 0..width {
                     let pixel = pix.get_pixel(x, y).unwrap_or(0);
                     if spp == 4 {
-                        let (r, g, b, _a) = color::extract_rgba(pixel);
+                        let (r, g, b, _a) = pixel::extract_rgba(pixel);
                         data.push(r);
                         data.push(g);
                         data.push(b);
                     } else {
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
                         data.push(r);
                         data.push(g);
                         data.push(b);
@@ -756,7 +756,7 @@ pub fn get_res_letter_page(width: u32, height: u32, fill_fraction: f32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::PixelDepth;
+    use crate::core::PixelDepth;
 
     #[test]
     fn test_write_ps_grayscale_level1() {
@@ -801,7 +801,7 @@ mod tests {
 
         for y in 0..30 {
             for x in 0..30 {
-                let color = color::compose_rgb((x * 8) as u8, (y * 8) as u8, 128);
+                let color = pixel::compose_rgb((x * 8) as u8, (y * 8) as u8, 128);
                 pix_mut.set_pixel(x, y, color).unwrap();
             }
         }
@@ -911,7 +911,7 @@ mod tests {
         let mut pix_mut = pix.try_into_mut().unwrap();
         for y in 0..50 {
             for x in 0..50 {
-                let c = color::compose_rgb(x as u8 * 5, y as u8 * 5, 128);
+                let c = pixel::compose_rgb(x as u8 * 5, y as u8 * 5, 128);
                 pix_mut.set_pixel(x, y, c).unwrap();
             }
         }

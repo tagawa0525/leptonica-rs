@@ -12,7 +12,8 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pixtile_reg.c`
 
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
 
 /// Test basic image clipping as partial substitute for tiling.
 ///
@@ -22,7 +23,7 @@ use leptonica_test::RegParams;
 fn pixtile_reg_basic_clip() {
     let mut rp = RegParams::new("pixtile_clip");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let w = pix.width();
     let h = pix.height();
 

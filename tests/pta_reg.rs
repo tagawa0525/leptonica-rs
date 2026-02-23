@@ -8,8 +8,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pta_reg.c`
 
-use leptonica_core::{Pta, Ptaa};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{Pta, Ptaa};
 
 #[test]
 fn pta_reg() {

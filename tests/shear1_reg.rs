@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/shear1_reg.c`
 
-use leptonica_test::RegParams;
-use leptonica_transform::{
+mod common;
+use common::RegParams;
+use leptonica::transform::{
     ShearFill, h_shear, h_shear_center, h_shear_corner, v_shear, v_shear_center, v_shear_corner,
 };
 
@@ -25,7 +26,7 @@ const ANGLE1: f32 = std::f32::consts::PI / 12.0;
 fn shear1_reg_grayscale_8bpp() {
     let mut rp = RegParams::new("shear1_gray8");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -65,24 +66,24 @@ fn shear1_reg_grayscale_8bpp() {
 fn shear1_reg_binary() {
     let mut rp = RegParams::new("shear1_binary");
 
-    let pix = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix = common::load_test_image("test1.png").expect("load test1.png");
     let h = pix.height();
     let w = pix.width();
-    assert_eq!(pix.depth(), leptonica_core::PixelDepth::Bit1);
+    assert_eq!(pix.depth(), leptonica::PixelDepth::Bit1);
 
     // Horizontal shear with white and black fill
     let hw = h_shear_corner(&pix, ANGLE1, ShearFill::White).expect("h_shear_corner white");
     let hb = h_shear_corner(&pix, ANGLE1, ShearFill::Black).expect("h_shear_corner black");
     rp.compare_values(h as f64, hw.height() as f64, 0.0);
     rp.compare_values(h as f64, hb.height() as f64, 0.0);
-    assert_eq!(hw.depth(), leptonica_core::PixelDepth::Bit1);
+    assert_eq!(hw.depth(), leptonica::PixelDepth::Bit1);
 
     // Vertical shear
     let vw = v_shear_corner(&pix, ANGLE1, ShearFill::White).expect("v_shear_corner white");
     let vb = v_shear_corner(&pix, ANGLE1, ShearFill::Black).expect("v_shear_corner black");
     rp.compare_values(w as f64, vw.width() as f64, 0.0);
     rp.compare_values(w as f64, vb.width() as f64, 0.0);
-    assert_eq!(vw.depth(), leptonica_core::PixelDepth::Bit1);
+    assert_eq!(vw.depth(), leptonica::PixelDepth::Bit1);
 
     assert!(rp.cleanup(), "shear1 binary test failed");
 }
@@ -95,24 +96,24 @@ fn shear1_reg_binary() {
 fn shear1_reg_in_place() {
     let mut rp = RegParams::new("shear1_inplace");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let h = pix.height();
     let w = pix.width();
 
     // Compare h_shear vs h_shear_ip at center
     let expected = h_shear(&pix, (h / 2) as i32, ANGLE1, ShearFill::White).expect("h_shear");
     let mut pix_mut = pix.to_mut();
-    leptonica_transform::h_shear_ip(&mut pix_mut, (h / 2) as i32, ANGLE1, ShearFill::White)
+    leptonica::transform::h_shear_ip(&mut pix_mut, (h / 2) as i32, ANGLE1, ShearFill::White)
         .expect("h_shear_ip");
-    let actual: leptonica_core::Pix = pix_mut.into();
+    let actual: leptonica::Pix = pix_mut.into();
     rp.compare_pix(&expected, &actual);
 
     // Compare v_shear vs v_shear_ip at center
     let expected_v = v_shear(&pix, (w / 2) as i32, ANGLE1, ShearFill::Black).expect("v_shear");
     let mut pix_mut_v = pix.to_mut();
-    leptonica_transform::v_shear_ip(&mut pix_mut_v, (w / 2) as i32, ANGLE1, ShearFill::Black)
+    leptonica::transform::v_shear_ip(&mut pix_mut_v, (w / 2) as i32, ANGLE1, ShearFill::Black)
         .expect("v_shear_ip");
-    let actual_v: leptonica_core::Pix = pix_mut_v.into();
+    let actual_v: leptonica::Pix = pix_mut_v.into();
     rp.compare_pix(&expected_v, &actual_v);
 
     assert!(rp.cleanup(), "shear1 in-place test failed");
@@ -126,20 +127,20 @@ fn shear1_reg_interpolated() {
     let mut rp = RegParams::new("shear1_interp");
 
     // 8bpp
-    let pix8 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
-    let hli = leptonica_transform::h_shear_li(&pix8, 0, ANGLE1, ShearFill::White)
+    let pix8 = common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let hli = leptonica::transform::h_shear_li(&pix8, 0, ANGLE1, ShearFill::White)
         .expect("h_shear_li 8bpp");
     rp.compare_values(pix8.height() as f64, hli.height() as f64, 0.0);
-    let vli = leptonica_transform::v_shear_li(&pix8, 0, ANGLE1, ShearFill::White)
+    let vli = leptonica::transform::v_shear_li(&pix8, 0, ANGLE1, ShearFill::White)
         .expect("v_shear_li 8bpp");
     rp.compare_values(pix8.width() as f64, vli.width() as f64, 0.0);
 
     // 32bpp
-    let pix32 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
-    let hli32 = leptonica_transform::h_shear_li(&pix32, 0, ANGLE1, ShearFill::Black)
+    let pix32 = common::load_test_image("marge.jpg").expect("load marge.jpg");
+    let hli32 = leptonica::transform::h_shear_li(&pix32, 0, ANGLE1, ShearFill::Black)
         .expect("h_shear_li 32bpp");
     rp.compare_values(pix32.height() as f64, hli32.height() as f64, 0.0);
-    let vli32 = leptonica_transform::v_shear_li(&pix32, 0, ANGLE1, ShearFill::Black)
+    let vli32 = leptonica::transform::v_shear_li(&pix32, 0, ANGLE1, ShearFill::Black)
         .expect("v_shear_li 32bpp");
     rp.compare_values(pix32.width() as f64, vli32.width() as f64, 0.0);
 

@@ -12,13 +12,14 @@
 //! 7. Max levels computation for various image sizes
 //! 8. Error handling for invalid inputs
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_region::{
+mod common;
+use common::RegParams;
+use leptonica::region::{
     IntegralImage, SquaredIntegralImage, mean_in_rectangle, quadtree_max_levels, quadtree_mean,
     quadtree_mean_with_integral, quadtree_regions, quadtree_variance,
     quadtree_variance_with_integral, variance_in_rectangle,
 };
-use leptonica_test::RegParams;
+use leptonica::{Pix, PixelDepth};
 
 /// Create a synthetic 8-bit grayscale image for testing.
 fn create_test_grayscale_image(width: u32, height: u32) -> Pix {
@@ -257,7 +258,7 @@ fn quadtree_integral_image() {
     let sub_sum = integral.sum_rect(4, 4, 4, 4).expect("sub sum");
     rp.compare_values(1600.0, sub_sum as f64, 0.0);
 
-    let rect = leptonica_core::Box::new_unchecked(0, 0, 16, 16);
+    let rect = leptonica::Box::new_unchecked(0, 0, 16, 16);
     let mean = mean_in_rectangle(&rect, &integral).expect("mean_in_rectangle");
     rp.compare_values(100.0, mean as f64, 0.001);
 
@@ -291,7 +292,7 @@ fn quadtree_integral_image() {
     eprintln!("=== Squared integral image ===");
     let sq_integral = SquaredIntegralImage::from_pix(&pix_uniform).expect("SquaredIntegralImage");
 
-    let rect_all = leptonica_core::Box::new_unchecked(0, 0, 16, 16);
+    let rect_all = leptonica::Box::new_unchecked(0, 0, 16, 16);
     let (var, rvar) = variance_in_rectangle(&rect_all, &integral, &sq_integral).expect("variance");
     rp.compare_values(0.0, var as f64, 0.001);
     rp.compare_values(0.0, rvar as f64, 0.001);
@@ -311,7 +312,7 @@ fn quadtree_integral_image() {
     let int_nu = IntegralImage::from_pix(&pix_nonuniform).expect("IntegralImage nonuniform");
     let sq_nu =
         SquaredIntegralImage::from_pix(&pix_nonuniform).expect("SqIntegralImage nonuniform");
-    let rect_nu = leptonica_core::Box::new_unchecked(0, 0, 4, 1);
+    let rect_nu = leptonica::Box::new_unchecked(0, 0, 4, 1);
     let (var_nu, rvar_nu) =
         variance_in_rectangle(&rect_nu, &int_nu, &sq_nu).expect("variance nonuniform");
     rp.compare_values(25.0, var_nu as f64, 0.1);

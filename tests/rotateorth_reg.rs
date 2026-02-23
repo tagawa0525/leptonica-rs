@@ -13,8 +13,9 @@
 //! binary (test1.png), 4bpp colormapped (weasel4.8g.png),
 //! grayscale (test8.jpg), colormap (dreyfus8.png), RGB (marge.jpg).
 
-use leptonica_test::{RegParams, load_test_image};
-use leptonica_transform::{rotate_90, rotate_180, rotate_orth};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::transform::{rotate_90, rotate_180, rotate_orth};
 
 /// Test orthogonal rotations on multiple depths
 ///
@@ -39,7 +40,7 @@ fn rotateorth_reg() {
     assert!(rp.cleanup(), "rotateorth regression test failed");
 }
 
-fn test_orth_rotation(rp: &mut RegParams, pixs: &leptonica_core::Pix, label: &str) {
+fn test_orth_rotation(rp: &mut RegParams, pixs: &leptonica::Pix, label: &str) {
     let w = pixs.width();
     let h = pixs.height();
     eprintln!("Testing {} orthogonal rotation: {}x{}", label, w, h);

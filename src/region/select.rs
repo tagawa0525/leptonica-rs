@@ -5,9 +5,11 @@
 //!
 //! C equivalent: `pixSelectBySize()` and related functions in `pixafunc1.c`
 
-use crate::conncomp::{ConnectivityType, find_connected_components, label_connected_components};
-use crate::error::{RegionError, RegionResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::region::conncomp::{
+    ConnectivityType, find_connected_components, label_connected_components,
+};
+use crate::region::error::{RegionError, RegionResult};
 use std::collections::HashSet;
 
 /// Selection type for component filtering by bounding box dimensions.
@@ -69,8 +71,8 @@ pub enum SizeSelectRelation {
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::{Pix, PixelDepth};
-/// use leptonica_region::{
+/// use leptonica::core::{Pix, PixelDepth};
+/// use leptonica::region::{
 ///     ConnectivityType, SizeSelectType, SizeSelectRelation, pix_select_by_size,
 ///     find_connected_components,
 /// };

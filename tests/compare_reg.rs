@@ -10,8 +10,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/compare_reg.c`
 
-use leptonica_core::Pix;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Pix;
 
 /// Test count_pixels and basic pixel statistics on binary images.
 ///
@@ -20,7 +21,7 @@ use leptonica_test::RegParams;
 fn compare_reg_count_pixels() {
     let mut rp = RegParams::new("compare_count");
 
-    let pix1 = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix1 = common::load_test_image("feyn.tif").expect("load feyn.tif");
 
     // Count foreground pixels
     let count = pix1.count_pixels();
@@ -30,7 +31,7 @@ fn compare_reg_count_pixels() {
     assert!(!pix1.is_zero(), "feyn.tif should not be zero");
 
     // Create empty image and verify zero
-    let empty = Pix::new(100, 100, leptonica_core::PixelDepth::Bit1).expect("create empty");
+    let empty = Pix::new(100, 100, leptonica::PixelDepth::Bit1).expect("create empty");
     assert!(empty.is_zero(), "new 1bpp image should be zero");
     rp.compare_values(0.0, empty.count_pixels() as f64, 0.0);
 
@@ -45,7 +46,7 @@ fn compare_reg_count_pixels() {
 fn compare_reg_equals() {
     let mut rp = RegParams::new("compare_equals");
 
-    let pix1 = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix1 = common::load_test_image("test1.png").expect("load test1.png");
     let pix2 = pix1.deep_clone();
 
     // Same image should be equal
@@ -70,15 +71,15 @@ fn compare_reg_equals() {
 fn compare_reg_correlation() {
     let mut rp = RegParams::new("compare_correl");
 
-    let pix1 = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix1 = common::load_test_image("feyn.tif").expect("load feyn.tif");
 
     // Self-correlation should be 1.0
-    let score = leptonica_core::pix::correlation_binary(&pix1, &pix1).expect("self correl");
+    let score = leptonica::core::pix::correlation_binary(&pix1, &pix1).expect("self correl");
     rp.compare_values(1.0, score, 0.001);
 
     // Correlation with inverted should be low (near 0)
     let pix2 = pix1.invert();
-    let score_inv = leptonica_core::pix::correlation_binary(&pix1, &pix2).expect("inv correl");
+    let score_inv = leptonica::core::pix::correlation_binary(&pix1, &pix2).expect("inv correl");
     assert!(
         score_inv < 0.5,
         "correlation with inverse should be low, got {score_inv}"

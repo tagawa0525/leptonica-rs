@@ -7,8 +7,8 @@
 //! C Leptonica: `colormap.c`
 
 use super::{PixColormap, RgbaQuad};
-use crate::color;
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 /// Component selector for range value queries.
 ///
@@ -242,7 +242,7 @@ impl PixColormap {
     /// C Leptonica: `pixcmapGetColor32()` in `colormap.c`
     pub fn get_color32(&self, index: usize) -> Option<u32> {
         self.get_rgb(index)
-            .map(|(r, g, b)| color::compose_rgb(r, g, b))
+            .map(|(r, g, b)| pixel::compose_rgb(r, g, b))
     }
 
     /// Get a packed 32-bit RGBA value at index.
@@ -252,7 +252,7 @@ impl PixColormap {
     /// C Leptonica: `pixcmapGetRGBA32()` in `colormap.c`
     pub fn get_rgba32(&self, index: usize) -> Option<u32> {
         self.get_rgba(index)
-            .map(|(r, g, b, a)| color::compose_rgba(r, g, b, a))
+            .map(|(r, g, b, a)| pixel::compose_rgba(r, g, b, a))
     }
 
     /// Reset the RGB color at an existing index (alpha set to 255).

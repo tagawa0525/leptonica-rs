@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/logicops_reg.c`
 
-use leptonica_core::Pix;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Pix;
 
 /// Test pixInvert: double-invert identity (C checks 0-2).
 ///
@@ -22,7 +23,7 @@ use leptonica_test::RegParams;
 fn logicops_reg_invert() {
     let mut rp = RegParams::new("logicops_invert");
 
-    let pix1 = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix1 = common::load_test_image("test1.png").expect("load test1.png");
 
     // Invert
     let pix2 = pix1.invert();
@@ -44,7 +45,7 @@ fn logicops_reg_invert() {
 fn logicops_reg_binary_ops() {
     let mut rp = RegParams::new("logicops_binops");
 
-    let pix_a = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix_a = common::load_test_image("test1.png").expect("load test1.png");
     let pix_b = pix_a.invert(); // same dimensions, different content
 
     // --- Self-operation identities ---
@@ -100,7 +101,7 @@ fn logicops_reg_binary_ops() {
 fn logicops_reg_inplace() {
     let mut rp = RegParams::new("logicops_inplace");
 
-    let pix_a = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix_a = common::load_test_image("test1.png").expect("load test1.png");
     let pix_b = pix_a.invert();
 
     // AND: new-alloc vs in-place

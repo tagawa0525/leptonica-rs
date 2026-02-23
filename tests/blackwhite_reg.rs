@@ -14,8 +14,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/blackwhite_reg.c`
 
-use leptonica_core::{InitColor, PixMut, PixelDepth};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{InitColor, PixMut, PixelDepth};
 
 /// Test add_border_general with white border (C check 0: white boundary loop).
 ///
@@ -28,7 +29,7 @@ fn blackwhite_reg_white_border() {
     let images = ["marge.jpg", "test8.jpg", "dreyfus8.png"];
 
     for name in &images {
-        let pix = leptonica_test::load_test_image(name).expect(name);
+        let pix = common::load_test_image(name).expect(name);
         let wval = PixMut::get_black_or_white_val(&pix, InitColor::White);
 
         let bordered = pix
@@ -51,7 +52,7 @@ fn blackwhite_reg_black_border() {
     let images = ["marge.jpg", "test8.jpg", "dreyfus8.png"];
 
     for name in &images {
-        let pix = leptonica_test::load_test_image(name).expect(name);
+        let pix = common::load_test_image(name).expect(name);
         let bval = PixMut::get_black_or_white_val(&pix, InitColor::Black);
 
         let bordered = pix
@@ -72,8 +73,7 @@ fn blackwhite_reg_alpha_blend() {
     let mut rp = RegParams::new("bw_alpha");
 
     // test-gray-alpha.png has alpha channel (spp == 4)
-    let pix =
-        leptonica_test::load_test_image("test-gray-alpha.png").expect("load test-gray-alpha.png");
+    let pix = common::load_test_image("test-gray-alpha.png").expect("load test-gray-alpha.png");
     let wval = PixMut::get_black_or_white_val(&pix, InitColor::White);
 
     // C: pixAlphaBlendUniform(pixs, wval) — remove alpha over white

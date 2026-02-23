@@ -10,8 +10,9 @@
 //! 3. 8-way count <= 4-way count (diagonal connections reduce count)
 //! 4. Each component has positive pixel count and bounding box
 
-use leptonica_region::{ConnectivityType, find_connected_components};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::region::{ConnectivityType, find_connected_components};
 
 #[test]
 fn conncomp_reg() {

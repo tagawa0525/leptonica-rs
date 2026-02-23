@@ -13,8 +13,8 @@
 
 use super::graphics::Color;
 use super::{Pix, PixMut, PixelDepth};
-use crate::color;
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 /// Mask blend type for 1-bit mask blending
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,7 +114,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let base = Pix::new(100, 100, PixelDepth::Bit32).unwrap();
     /// let overlay = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
@@ -166,14 +166,14 @@ impl Pix {
                         (result_val.round() as u32).min(255)
                     }
                     PixelDepth::Bit32 => {
-                        let (br, bg, bb) = color::extract_rgb(base_pixel);
-                        let (or, og, ob) = color::extract_rgb(blend_pixel);
+                        let (br, bg, bb) = pixel::extract_rgb(base_pixel);
+                        let (or, og, ob) = pixel::extract_rgb(blend_pixel);
 
                         let rr = ((1.0 - fract) * br as f32 + fract * or as f32).round() as u8;
                         let rg = ((1.0 - fract) * bg as f32 + fract * og as f32).round() as u8;
                         let rb = ((1.0 - fract) * bb as f32 + fract * ob as f32).round() as u8;
 
-                        color::compose_rgb(rr, rg, rb)
+                        pixel::compose_rgb(rr, rg, rb)
                     }
                     _ => {
                         // For other depths, blend in pixel value space
@@ -257,7 +257,7 @@ impl Pix {
                         (result_val.round() as u32).clamp(0, 255)
                     }
                     PixelDepth::Bit32 => {
-                        let (br, bg, bb) = color::extract_rgb(base_pixel);
+                        let (br, bg, bb) = pixel::extract_rgb(base_pixel);
 
                         let (rr, rg, rb) = match blend_type {
                             GrayBlendType::Gray => {
@@ -284,7 +284,7 @@ impl Pix {
                             }
                         };
 
-                        color::compose_rgb(rr, rg, rb)
+                        pixel::compose_rgb(rr, rg, rb)
                     }
                     _ => base_pixel, // Other depths: no change
                 };
@@ -380,7 +380,7 @@ impl Pix {
                         ((result_val * 255.0).round() as u32).clamp(0, 255)
                     }
                     PixelDepth::Bit32 => {
-                        let (r, g, b) = color::extract_rgb(base_pixel);
+                        let (r, g, b) = pixel::extract_rgb(base_pixel);
                         let pr = r as f32 / 255.0;
                         let pg = g as f32 / 255.0;
                         let pb = b as f32 / 255.0;
@@ -410,7 +410,7 @@ impl Pix {
                         let rg = (rg * 255.0).round().clamp(0.0, 255.0) as u8;
                         let rb = (rb * 255.0).round().clamp(0.0, 255.0) as u8;
 
-                        color::compose_rgb(rr, rg, rb)
+                        pixel::compose_rgb(rr, rg, rb)
                     }
                     _ => base_pixel,
                 };
@@ -465,7 +465,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let base = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
     /// let blend = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
@@ -576,14 +576,14 @@ impl Pix {
                         let base_pixel = self.get_pixel(x, y).unwrap();
                         let blend_pixel = other.get_pixel(x, y).unwrap();
 
-                        let (br, bg, bb) = color::extract_rgb(base_pixel);
-                        let (or, og, ob) = color::extract_rgb(blend_pixel);
+                        let (br, bg, bb) = pixel::extract_rgb(base_pixel);
+                        let (or, og, ob) = pixel::extract_rgb(blend_pixel);
 
                         let rr = op(br, or);
                         let rg = op(bg, og);
                         let rb = op(bb, ob);
 
-                        let result_pixel = color::compose_rgb(rr, rg, rb);
+                        let result_pixel = pixel::compose_rgb(rr, rg, rb);
                         result_mut.set_pixel_unchecked(x, y, result_pixel);
                     }
                 }
@@ -696,21 +696,21 @@ impl Pix {
                 }
                 let blend_pixel = other.get_pixel_unchecked(bx as u32, by as u32);
                 if transparent {
-                    let (br, bg, bb) = color::extract_rgb(blend_pixel);
+                    let (br, bg, bb) = pixel::extract_rgb(blend_pixel);
                     if br == transpix.r && bg == transpix.g && bb == transpix.b {
                         continue;
                     }
                 }
                 let base_pixel = self.get_pixel_unchecked(dx as u32, dy as u32);
-                let (pr, pg, pb) = color::extract_rgb(base_pixel);
-                let (cr, cg, cb) = color::extract_rgb(blend_pixel);
+                let (pr, pg, pb) = pixel::extract_rgb(base_pixel);
+                let (cr, cg, cb) = pixel::extract_rgb(blend_pixel);
                 let new_r = blend_component(pr, cr, rfract);
                 let new_g = blend_component(pg, cg, gfract);
                 let new_b = blend_component(pb, cb, bfract);
                 result_mut.set_pixel_unchecked(
                     dx as u32,
                     dy as u32,
-                    color::compose_rgb(new_r, new_g, new_b),
+                    pixel::compose_rgb(new_r, new_g, new_b),
                 );
             }
         }
@@ -847,7 +847,7 @@ impl Pix {
                         }
                     }
                     PixelDepth::Bit32 => {
-                        let (r, g, b) = color::extract_rgb(src_pixel);
+                        let (r, g, b) = pixel::extract_rgb(src_pixel);
                         let (nr, ng, nb) = match fade_type {
                             FadeWithGrayType::ToWhite => (
                                 (r as f32 + fract * (255.0 - r as f32))
@@ -866,7 +866,7 @@ impl Pix {
                                 (b as f32 * (1.0 - fract)).round().clamp(0.0, 255.0) as u8,
                             ),
                         };
-                        color::compose_rgb(nr, ng, nb)
+                        pixel::compose_rgb(nr, ng, nb)
                     }
                     _ => src_pixel,
                 };
@@ -901,11 +901,11 @@ impl Pix {
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b) = crate::color::extract_rgb(pixel);
+                let (r, g, b) = crate::core::pixel::extract_rgb(pixel);
                 let nr = (r as f32 * fr).round().clamp(0.0, 255.0) as u8;
                 let ng = (g as f32 * fg).round().clamp(0.0, 255.0) as u8;
                 let nb = (b as f32 * fb).round().clamp(0.0, 255.0) as u8;
-                result_mut.set_pixel_unchecked(x, y, crate::color::compose_rgb(nr, ng, nb));
+                result_mut.set_pixel_unchecked(x, y, crate::core::pixel::compose_rgb(nr, ng, nb));
             }
         }
         Ok(result_mut.into())
@@ -933,13 +933,13 @@ impl Pix {
         }
         let w = self.width();
         let h = self.height();
-        let (bg_r, bg_g, bg_b) = color::extract_rgb(bg_color);
+        let (bg_r, bg_g, bg_b) = pixel::extract_rgb(bg_color);
         let result = Pix::new(w, h, PixelDepth::Bit32)?;
         let mut result_mut = result.try_into_mut().unwrap();
         for y in 0..h {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b, a) = color::extract_rgba(pixel);
+                let (r, g, b, a) = pixel::extract_rgba(pixel);
                 let alpha = a as f32 / 255.0;
                 let nr = (alpha * r as f32 + (1.0 - alpha) * bg_r as f32)
                     .round()
@@ -950,7 +950,7 @@ impl Pix {
                 let nb = (alpha * b as f32 + (1.0 - alpha) * bg_b as f32)
                     .round()
                     .clamp(0.0, 255.0) as u8;
-                result_mut.set_pixel_unchecked(x, y, color::compose_rgb(nr, ng, nb));
+                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
             }
         }
         Ok(result_mut.into())
@@ -983,7 +983,7 @@ impl Pix {
                         let v = (pixel & 0xFF) as u8;
                         (v, v, v)
                     }
-                    PixelDepth::Bit32 => color::extract_rgb(pixel),
+                    PixelDepth::Bit32 => pixel::extract_rgb(pixel),
                     _ => return Err(Error::UnsupportedDepth(self.depth().bits())),
                 };
                 if invert {
@@ -993,7 +993,7 @@ impl Pix {
                 }
                 let gray = (r as u32 + g as u32 + b as u32) / 3;
                 let alpha = ((255 - gray) as f32 * fract).round().clamp(0.0, 255.0) as u8;
-                result_mut.set_pixel_unchecked(x, y, color::compose_rgba(r, g, b, alpha));
+                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgba(r, g, b, alpha));
             }
         }
         Ok(result_mut.into())
@@ -1117,7 +1117,7 @@ impl PixMut {
                         self.set_pixel_unchecked(x, y, new_val);
                     }
                     PixelDepth::Bit32 => {
-                        let (r, g, b) = color::extract_rgb(pixel);
+                        let (r, g, b) = pixel::extract_rgb(pixel);
                         let new_r = (r as f32 + (limit - r as f32) * del)
                             .round()
                             .clamp(0.0, 255.0) as u8;
@@ -1127,7 +1127,7 @@ impl PixMut {
                         let new_b = (b as f32 + (limit - b as f32) * del)
                             .round()
                             .clamp(0.0, 255.0) as u8;
-                        self.set_pixel_unchecked(x, y, color::compose_rgb(new_r, new_g, new_b));
+                        self.set_pixel_unchecked(x, y, pixel::compose_rgb(new_r, new_g, new_b));
                     }
                     _ => {}
                 }
@@ -1243,14 +1243,14 @@ pub fn blend_with_gray_mask(base: &Pix, overlay: &Pix, mask: &Pix, x: i32, y: i3
                     (result_val.round() as u32).min(255)
                 }
                 PixelDepth::Bit32 => {
-                    let (br, bg, bb) = color::extract_rgb(base_pixel);
-                    let (or, og, ob) = color::extract_rgb(overlay_pixel);
+                    let (br, bg, bb) = pixel::extract_rgb(base_pixel);
+                    let (or, og, ob) = pixel::extract_rgb(overlay_pixel);
 
                     let rr = ((1.0 - alpha) * br as f32 + alpha * or as f32).round() as u8;
                     let rg = ((1.0 - alpha) * bg as f32 + alpha * og as f32).round() as u8;
                     let rb = ((1.0 - alpha) * bb as f32 + alpha * ob as f32).round() as u8;
 
-                    color::compose_rgb(rr, rg, rb)
+                    pixel::compose_rgb(rr, rg, rb)
                 }
                 _ => base_pixel,
             };
@@ -1319,7 +1319,7 @@ mod tests {
 
     #[test]
     fn test_blend_color_rgb() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let base = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut base_mut = base.to_mut();
@@ -1673,7 +1673,7 @@ mod tests {
     #[test]
     fn test_multiply_by_color_basic() {
         use super::super::graphics::Color;
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
         let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
         let mut pm = pix.to_mut();
         for y in 0..4 {
@@ -1685,9 +1685,9 @@ mod tests {
         // white * red(255,0,0) → red
         let result = pix.multiply_by_color(Color { r: 255, g: 0, b: 0 }).unwrap();
         let pixel = result.get_pixel(0, 0).unwrap();
-        assert_eq!(crate::color::red(pixel), 255);
-        assert_eq!(crate::color::green(pixel), 0);
-        assert_eq!(crate::color::blue(pixel), 0);
+        assert_eq!(crate::core::pixel::red(pixel), 255);
+        assert_eq!(crate::core::pixel::green(pixel), 0);
+        assert_eq!(crate::core::pixel::blue(pixel), 0);
     }
 
     #[test]
@@ -1697,13 +1697,13 @@ mod tests {
         pm.set_spp(4);
         for y in 0..4 {
             for x in 0..4 {
-                pm.set_pixel(x, y, crate::color::compose_rgba(100, 100, 100, 128))
+                pm.set_pixel(x, y, crate::core::pixel::compose_rgba(100, 100, 100, 128))
                     .unwrap();
             }
         }
         let pix: Pix = pm.into();
         let result = pix
-            .alpha_blend_uniform(crate::color::compose_rgb(255, 255, 255))
+            .alpha_blend_uniform(crate::core::pixel::compose_rgb(255, 255, 255))
             .unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit32);
     }
@@ -1717,7 +1717,7 @@ mod tests {
 
     #[test]
     fn test_blend_cmap_basic() {
-        use crate::colormap::PixColormap;
+        use crate::core::colormap::PixColormap;
         let mut cmap = PixColormap::new(8).unwrap();
         cmap.add_rgb(255, 255, 255).unwrap(); // index 0 = white
         cmap.add_rgb(255, 0, 0).unwrap(); // index 1 = red

@@ -10,12 +10,13 @@
 //! cargo test -p leptonica-morph --test binmorph5_reg
 //! ```
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{
     close_brick, close_brick_dwa, dilate_brick, dilate_brick_dwa, erode_brick, erode_brick_dwa,
     open_brick, open_brick_dwa,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 /// C version: PixCompareDwa()
 #[allow(clippy::too_many_arguments)]
@@ -23,12 +24,12 @@ fn pix_compare_dwa(
     rp: &mut RegParams,
     size: u32,
     op_type: &str,
-    pix1: &leptonica_core::Pix,
-    pix2: &leptonica_core::Pix,
-    pix3: &leptonica_core::Pix,
-    pix4: &leptonica_core::Pix,
-    pix5: &leptonica_core::Pix,
-    pix6: &leptonica_core::Pix,
+    pix1: &leptonica::Pix,
+    pix2: &leptonica::Pix,
+    pix3: &leptonica::Pix,
+    pix4: &leptonica::Pix,
+    pix5: &leptonica::Pix,
+    pix6: &leptonica::Pix,
 ) {
     let same = pix1.equals(pix2);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
@@ -50,7 +51,7 @@ fn pix_compare_dwa(
 /// C版: DoComparisonDwa1() -- pixDilateCompBrickExtendDwa vs pixDilateCompBrick
 /// Rust: pixDilateCompBrickExtendDwa, pixDilateCompBrick -- 未実装
 /// 代用: DWA non-composite vs standard brick (同じ趣旨のテスト)
-fn do_comparison_dwa1(rp: &mut RegParams, pixs: &leptonica_core::Pix, size: u32) {
+fn do_comparison_dwa1(rp: &mut RegParams, pixs: &leptonica::Pix, size: u32) {
     eprintln!("..{}..", size);
 
     // Dilation
@@ -93,7 +94,7 @@ fn do_comparison_dwa1(rp: &mut RegParams, pixs: &leptonica_core::Pix, size: u32)
 
 /// C版: DoComparisonDwa2() -- pixDilateCompBrickExtendDwa vs pixDilateBrick (exactly decomposable sizes)
 /// 同様にDWA vs brickで代用
-fn do_comparison_dwa2(rp: &mut RegParams, pixs: &leptonica_core::Pix, size: u32) {
+fn do_comparison_dwa2(rp: &mut RegParams, pixs: &leptonica::Pix, size: u32) {
     eprintln!("..{}..", size);
 
     // Dilation

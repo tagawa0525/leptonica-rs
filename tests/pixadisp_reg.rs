@@ -14,9 +14,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pixadisp_reg.c`
 
-use leptonica_core::{Pixa, PixelDepth};
-use leptonica_test::RegParams;
-use leptonica_transform::scale_by_sampling;
+mod common;
+use common::RegParams;
+use leptonica::transform::scale_by_sampling;
+use leptonica::{Pixa, PixelDepth};
 
 /// Test display_tiled with clipped regions from feyn.tif (C test section 1).
 ///
@@ -30,7 +31,7 @@ use leptonica_transform::scale_by_sampling;
 fn pixadisp_reg_display_tiled() {
     let mut rp = RegParams::new("pixadisp_tiled");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     // Clip small regions to create a Pixa (simulating connected component extraction)
@@ -73,7 +74,7 @@ fn pixadisp_reg_display_tiled() {
 fn pixadisp_reg_display_tiled_and_scaled() {
     let mut rp = RegParams::new("pixadisp_scaled");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     // Clip regions for Pixa
@@ -128,7 +129,7 @@ fn pixadisp_reg_display_tiled_color() {
     let mut rp = RegParams::new("pixadisp_color");
 
     // Use marge.jpg (color image) for 32bpp testing
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
 
     // Create pixa with multiple copies at different sizes
     let mut pixa = Pixa::new();
@@ -158,7 +159,7 @@ fn pixadisp_reg_display_tiled_color() {
 fn pixadisp_reg_black_bg() {
     let mut rp = RegParams::new("pixadisp_blackbg");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     // Clip small regions
@@ -198,7 +199,7 @@ fn pixadisp_reg_black_bg() {
 fn pixadisp_reg_display_1bpp() {
     let mut rp = RegParams::new("pixadisp_1bpp");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
 
     // Clip larger regions for 1bpp test
@@ -256,7 +257,7 @@ fn pixadisp_reg_brev_images() {
 
     let mut pixa = Pixa::new();
     for name in &brev_files {
-        match leptonica_test::load_test_image(name) {
+        match common::load_test_image(name) {
             Ok(img) => pixa.push(img),
             Err(e) => eprintln!("Failed to load {}: {}", name, e),
         }

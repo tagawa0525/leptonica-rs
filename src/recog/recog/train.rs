@@ -3,12 +3,12 @@
 //! This module provides functionality for training character recognizers
 //! using labeled template images.
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_morph::binary as morph_binary;
-use leptonica_transform::scale;
+use crate::color::threshold_to_binary;
+use crate::core::{Pix, PixelDepth};
+use crate::morph::binary as morph_binary;
+use crate::transform::scale;
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::types::{
     CharsetType, DEFAULT_MAX_ARRAY_SIZE, DEFAULT_MAX_HT_RATIO, DEFAULT_MAX_SPLIT_H,
@@ -24,7 +24,7 @@ pub fn binarize_pix(pix: &Pix, threshold: u8) -> RecogResult<Pix> {
         PixelDepth::Bit8 => threshold_to_binary(pix, threshold).map_err(RecogError::Color),
         _ => {
             // For other depths, convert to grayscale first
-            let gray = leptonica_color::pix_convert_to_gray(pix).map_err(RecogError::Color)?;
+            let gray = crate::color::pix_convert_to_gray(pix).map_err(RecogError::Color)?;
             threshold_to_binary(&gray, threshold).map_err(RecogError::Color)
         }
     }

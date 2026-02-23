@@ -2,7 +2,7 @@
 //!
 //! This module contains the core data structures for barcode detection and decoding.
 
-use leptonica_core::Box as PixBox;
+use crate::core::Box as PixBox;
 
 /// Barcode format types
 ///

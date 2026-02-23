@@ -7,8 +7,8 @@
 //! 10 digits, and optionally 6 other characters. The start and
 //! stop codes can be any of four (typically denoted A, B, C, D).
 
-use crate::barcode::types::FormatVerification;
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::FormatVerification;
+use crate::recog::{RecogError, RecogResult};
 
 /// Codabar symbol patterns
 const CODABAR: &[&str] = &[

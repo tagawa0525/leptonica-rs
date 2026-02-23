@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pixserial_reg.c`
 
-use leptonica_core::Pix;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Pix;
 
 /// Images from the C test (all bit depths).
 const IMAGES: &[&str] = &[
@@ -37,7 +38,7 @@ fn pixserial_reg_memory_roundtrip() {
     let mut rp = RegParams::new("pixserial_memory");
 
     for img in IMAGES {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
 
         // Serialize to bytes
         let data = pix.write_spix_to_bytes().expect("write_spix_to_bytes");
@@ -69,7 +70,7 @@ fn pixserial_reg_file_roundtrip() {
     std::fs::create_dir_all(&tmpdir).expect("create temp dir");
 
     for (i, img) in IMAGES.iter().enumerate() {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
 
         // Clip to at most 150×150 from top-left
         let clip_w = pix.width().min(150);
@@ -104,7 +105,7 @@ fn pixserial_reg_header() {
     let mut rp = RegParams::new("pixserial_header");
 
     for img in IMAGES {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
 
         // Serialize to bytes
         let data = pix.write_spix_to_bytes().expect("write_spix_to_bytes");

@@ -19,8 +19,8 @@
 //!
 //! C Leptonica: `colormap.c` (`pixcmapReadStream`, `pixcmapWriteStream`)
 
-use crate::PixColormap;
-use crate::error::{Error, Result};
+use crate::core::PixColormap;
+use crate::core::error::{Error, Result};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 

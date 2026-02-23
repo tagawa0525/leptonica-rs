@@ -7,9 +7,9 @@
 use std::io::{Read, Write};
 use std::path::Path;
 
-use leptonica_core::FPix;
+use crate::core::FPix;
 
-use crate::error::{RecogError, RecogResult};
+use crate::recog::error::{RecogError, RecogResult};
 
 use super::types::Dewarp;
 

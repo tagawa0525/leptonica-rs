@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/projection_reg.c`
 
-use leptonica_core::StatsRequest;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::StatsRequest;
 
 /// Test column stats and row stats symmetry (C checks 12-17).
 ///
@@ -23,7 +24,7 @@ use leptonica_test::RegParams;
 fn projection_reg_symmetry() {
     let mut rp = RegParams::new("projection_sym");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pix8 = pix.convert_to_8().expect("convert_to_8");
 
     let request = StatsRequest::all();
@@ -32,7 +33,7 @@ fn projection_reg_symmetry() {
     let col_stats = pix8.column_stats(None, &request).expect("column_stats");
 
     // Rotate 90° clockwise, then get row stats
-    let rotated = leptonica_transform::rotate_orth(&pix8, 1).expect("rotate_orth 90");
+    let rotated = leptonica::transform::rotate_orth(&pix8, 1).expect("rotate_orth 90");
     let row_stats = rotated.row_stats(None, &request).expect("row_stats");
 
     // Mean arrays should have the same length (image width = rotated height)
@@ -65,7 +66,7 @@ fn projection_reg_symmetry() {
 fn projection_reg_column_stats() {
     let mut rp = RegParams::new("projection_col");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let w = pix.width();
 
     let request = StatsRequest::all();
@@ -102,7 +103,7 @@ fn projection_reg_column_stats() {
 fn projection_reg_row_stats() {
     let mut rp = RegParams::new("projection_row");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let h = pix.height();
 
     let request = StatsRequest::all();

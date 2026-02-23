@@ -25,8 +25,8 @@
 //! # Examples
 //!
 //! ```
-//! use leptonica_morph::sequence::{MorphSequence, morph_sequence, gray_morph_sequence};
-//! use leptonica_core::{Pix, PixelDepth};
+//! use leptonica::morph::sequence::{MorphSequence, morph_sequence, gray_morph_sequence};
+//! use leptonica::core::{Pix, PixelDepth};
 //!
 //! // Parse and validate a sequence
 //! let seq = MorphSequence::parse("o5.5 + e3.3").unwrap();
@@ -45,9 +45,9 @@
 //!
 //! Based on Leptonica's `morphseq.c` implementation.
 
-use crate::{MorphError, MorphResult};
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_transform::{expand_replicate, reduce_rank_binary_cascade};
+use crate::core::{Pix, PixelDepth};
+use crate::morph::{MorphError, MorphResult};
+use crate::transform::{expand_replicate, reduce_rank_binary_cascade};
 
 /// A parsed morphological operation
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,7 +154,7 @@ impl MorphSequence {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_morph::sequence::MorphSequence;
+    /// use leptonica::morph::sequence::MorphSequence;
     ///
     /// let seq = MorphSequence::parse("d3.3 + e5.5").unwrap();
     /// assert_eq!(seq.ops().len(), 2);
@@ -384,8 +384,8 @@ impl MorphSequence {
 /// # Examples
 ///
 /// ```
-/// use leptonica_morph::sequence::morph_sequence;
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::morph::sequence::morph_sequence;
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
 /// let result = morph_sequence(&pix, "d3.3 + e3.3").unwrap();
@@ -554,8 +554,8 @@ pub fn color_morph_sequence(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
 /// # Examples
 ///
 /// ```
-/// use leptonica_morph::sequence::gray_morph_sequence;
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::morph::sequence::gray_morph_sequence;
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
 /// let result = gray_morph_sequence(&pix, "o5.5 + c3.3").unwrap();
@@ -586,10 +586,10 @@ pub fn gray_morph_sequence(pix: &Pix, sequence: &str) -> MorphResult<Pix> {
 /// Execute a single binary morphological operation
 fn execute_binary_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
     match op {
-        MorphOp::Dilate { width, height } => crate::dilate_brick(pix, *width, *height),
-        MorphOp::Erode { width, height } => crate::erode_brick(pix, *width, *height),
-        MorphOp::Open { width, height } => crate::open_brick(pix, *width, *height),
-        MorphOp::Close { width, height } => crate::close_brick(pix, *width, *height),
+        MorphOp::Dilate { width, height } => crate::morph::dilate_brick(pix, *width, *height),
+        MorphOp::Erode { width, height } => crate::morph::erode_brick(pix, *width, *height),
+        MorphOp::Open { width, height } => crate::morph::open_brick(pix, *width, *height),
+        MorphOp::Close { width, height } => crate::morph::close_brick(pix, *width, *height),
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
@@ -604,10 +604,16 @@ fn execute_binary_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
 /// Execute a single binary DWA morphological operation
 fn execute_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
     match op {
-        MorphOp::Dilate { width, height } => crate::dwa::dilate_brick_dwa(pix, *width, *height),
-        MorphOp::Erode { width, height } => crate::dwa::erode_brick_dwa(pix, *width, *height),
-        MorphOp::Open { width, height } => crate::dwa::open_brick_dwa(pix, *width, *height),
-        MorphOp::Close { width, height } => crate::dwa::close_brick_dwa(pix, *width, *height),
+        MorphOp::Dilate { width, height } => {
+            crate::morph::dwa::dilate_brick_dwa(pix, *width, *height)
+        }
+        MorphOp::Erode { width, height } => {
+            crate::morph::dwa::erode_brick_dwa(pix, *width, *height)
+        }
+        MorphOp::Open { width, height } => crate::morph::dwa::open_brick_dwa(pix, *width, *height),
+        MorphOp::Close { width, height } => {
+            crate::morph::dwa::close_brick_dwa(pix, *width, *height)
+        }
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
@@ -623,11 +629,17 @@ fn execute_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
 fn execute_comp_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
     match op {
         MorphOp::Dilate { width, height } => {
-            crate::dwa::dilate_comp_brick_dwa(pix, *width, *height)
+            crate::morph::dwa::dilate_comp_brick_dwa(pix, *width, *height)
         }
-        MorphOp::Erode { width, height } => crate::dwa::erode_comp_brick_dwa(pix, *width, *height),
-        MorphOp::Open { width, height } => crate::dwa::open_comp_brick_dwa(pix, *width, *height),
-        MorphOp::Close { width, height } => crate::dwa::close_comp_brick_dwa(pix, *width, *height),
+        MorphOp::Erode { width, height } => {
+            crate::morph::dwa::erode_comp_brick_dwa(pix, *width, *height)
+        }
+        MorphOp::Open { width, height } => {
+            crate::morph::dwa::open_comp_brick_dwa(pix, *width, *height)
+        }
+        MorphOp::Close { width, height } => {
+            crate::morph::dwa::close_comp_brick_dwa(pix, *width, *height)
+        }
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
@@ -642,10 +654,12 @@ fn execute_comp_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
 /// Execute a single color morphological operation
 fn execute_color_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
     match op {
-        MorphOp::Dilate { width, height } => crate::color::dilate_color(pix, *width, *height),
-        MorphOp::Erode { width, height } => crate::color::erode_color(pix, *width, *height),
-        MorphOp::Open { width, height } => crate::color::open_color(pix, *width, *height),
-        MorphOp::Close { width, height } => crate::color::close_color(pix, *width, *height),
+        MorphOp::Dilate { width, height } => {
+            crate::morph::color::dilate_color(pix, *width, *height)
+        }
+        MorphOp::Erode { width, height } => crate::morph::color::erode_color(pix, *width, *height),
+        MorphOp::Open { width, height } => crate::morph::color::open_color(pix, *width, *height),
+        MorphOp::Close { width, height } => crate::morph::color::close_color(pix, *width, *height),
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is not valid for color morphology".to_string(),
         )),
@@ -660,19 +674,19 @@ fn execute_color_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
 /// Execute a single grayscale morphological operation
 fn execute_gray_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
     match op {
-        MorphOp::Dilate { width, height } => crate::dilate_gray(pix, *width, *height),
-        MorphOp::Erode { width, height } => crate::erode_gray(pix, *width, *height),
-        MorphOp::Open { width, height } => crate::open_gray(pix, *width, *height),
-        MorphOp::Close { width, height } => crate::close_gray(pix, *width, *height),
+        MorphOp::Dilate { width, height } => crate::morph::dilate_gray(pix, *width, *height),
+        MorphOp::Erode { width, height } => crate::morph::erode_gray(pix, *width, *height),
+        MorphOp::Open { width, height } => crate::morph::open_gray(pix, *width, *height),
+        MorphOp::Close { width, height } => crate::morph::close_gray(pix, *width, *height),
         MorphOp::Tophat {
             white,
             width,
             height,
         } => {
             if *white {
-                crate::top_hat_gray(pix, *width, *height)
+                crate::morph::top_hat_gray(pix, *width, *height)
             } else {
-                crate::bottom_hat_gray(pix, *width, *height)
+                crate::morph::bottom_hat_gray(pix, *width, *height)
             }
         }
         MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {

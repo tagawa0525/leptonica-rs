@@ -10,8 +10,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/blend2_reg.c`
 
-use leptonica_core::{PixelDepth, blend_with_gray_mask};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{PixelDepth, blend_with_gray_mask};
 
 /// Test blend_with_gray_mask on two RGB images (C checks 0-3).
 ///
@@ -21,13 +22,13 @@ fn blend2_reg_rgb() {
     let mut rp = RegParams::new("blend2_rgb");
 
     // C: pixs1 = pixRead("wyom.jpg"), pixs2 = pixRead("fish24.jpg")
-    let pix1 = leptonica_test::load_test_image("wyom.jpg").expect("load wyom.jpg");
-    let pix2 = leptonica_test::load_test_image("fish24.jpg").expect("load fish24.jpg");
+    let pix1 = common::load_test_image("wyom.jpg").expect("load wyom.jpg");
+    let pix2 = common::load_test_image("fish24.jpg").expect("load fish24.jpg");
     assert_eq!(pix1.depth(), PixelDepth::Bit32);
     assert_eq!(pix2.depth(), PixelDepth::Bit32);
 
     // Use karen8.jpg as 8bpp gray mask (C creates gradient mask)
-    let mask = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let mask = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     assert_eq!(mask.depth(), PixelDepth::Bit8);
 
     // C: pixBlendWithGrayMask(pix1, pix2, pixg, 50, 50)
@@ -50,13 +51,13 @@ fn blend2_reg_rgb() {
 fn blend2_reg_gray() {
     let mut rp = RegParams::new("blend2_gray");
 
-    let pix1 = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
-    let pix2 = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix1 = common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix2 = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     assert_eq!(pix1.depth(), PixelDepth::Bit8);
     assert_eq!(pix2.depth(), PixelDepth::Bit8);
 
     // Use a different 8bpp image as mask
-    let mask = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
+    let mask = common::load_test_image("weasel8.png").expect("load weasel8.png");
 
     let blended = blend_with_gray_mask(&pix1, &pix2, &mask, 10, 10).expect("blend gray");
     rp.compare_values(pix1.width() as f64, blended.width() as f64, 0.0);
@@ -73,9 +74,9 @@ fn blend2_reg_gray() {
 fn blend2_reg_negative_offset() {
     let mut rp = RegParams::new("blend2_neg");
 
-    let pix1 = leptonica_test::load_test_image("wyom.jpg").expect("load wyom.jpg");
-    let pix2 = leptonica_test::load_test_image("fish24.jpg").expect("load fish24.jpg");
-    let mask = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix1 = common::load_test_image("wyom.jpg").expect("load wyom.jpg");
+    let pix2 = common::load_test_image("fish24.jpg").expect("load fish24.jpg");
+    let mask = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     // C: pixBlendWithGrayMask(pix3, pix4, pixg, -100, -100)
     let blended =

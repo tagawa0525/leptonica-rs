@@ -3,10 +3,10 @@
 //! Supports reading and writing single-frame GIF images.
 //! Animated GIFs (multiple frames) are not supported.
 
-use crate::{IoError, IoResult, header::ImageHeader};
+use crate::color::{OctreeOptions, octree_quant};
+use crate::core::{ImageFormat, Pix, PixColormap, PixelDepth};
+use crate::io::{IoError, IoResult, header::ImageHeader};
 use gif::{ColorOutput, DecodeOptions, Encoder, Frame, Repeat};
-use leptonica_color::{OctreeOptions, octree_quant};
-use leptonica_core::{ImageFormat, Pix, PixColormap, PixelDepth};
 use std::io::{Read, Write};
 
 /// Read GIF header metadata without decoding pixel data
@@ -319,7 +319,7 @@ fn convert_16bpp_to_8bpp_grayscale(pix: &Pix) -> IoResult<(Pix, PixColormap)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::color;
+    use crate::core::pixel;
     use std::io::Cursor;
 
     fn create_paletted_pix() -> Pix {
@@ -542,7 +542,7 @@ mod tests {
                 let r = (x * 16) as u8;
                 let g = (y * 16) as u8;
                 let b = 128u8;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }

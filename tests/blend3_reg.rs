@@ -12,8 +12,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/blend3_reg.c`
 
-use leptonica_core::{Color, PixelDepth};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{Color, PixelDepth};
 
 /// Test blend_gray_inverse (C checks: BlendTest pixBlendGrayInverse portion).
 ///
@@ -24,8 +25,8 @@ fn blend3_reg_gray_inverse() {
     let mut rp = RegParams::new("blend3_inv");
 
     // blend_gray_inverse requires 8bpp base and blend images
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
-    let blend = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let blend = common::load_test_image("weasel8.png").expect("load weasel8.png");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
     assert_eq!(blend.depth(), PixelDepth::Bit8);
     let w = pix.width();
@@ -56,8 +57,8 @@ fn blend3_reg_gray_inverse() {
 fn blend3_reg_color_by_channel() {
     let mut rp = RegParams::new("blend3_chan");
 
-    let pix = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
-    let blend = leptonica_test::load_test_image("weasel32.png").expect("load weasel32.png");
+    let pix = common::load_test_image("marge.jpg").expect("load marge.jpg");
+    let blend = common::load_test_image("weasel32.png").expect("load weasel32.png");
     let w = pix.width();
     let h = pix.height();
 
@@ -96,8 +97,8 @@ fn blend3_reg_color_by_channel() {
 fn blend3_reg_gray_base() {
     let mut rp = RegParams::new("blend3_gbase");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
-    let blend = leptonica_test::load_test_image("weasel8.png").expect("load weasel8.png");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let blend = common::load_test_image("weasel8.png").expect("load weasel8.png");
     assert_eq!(pix.depth(), PixelDepth::Bit8);
     assert_eq!(blend.depth(), PixelDepth::Bit8);
     let w = pix.width();

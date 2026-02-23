@@ -8,7 +8,7 @@
 //! # Examples
 //!
 //! ```
-//! use leptonica_core::FPix;
+//! use leptonica::core::FPix;
 //!
 //! // Create a 100x100 floating-point image
 //! let mut fpix = FPix::new(100, 100).unwrap();
@@ -24,8 +24,8 @@
 
 pub mod serial;
 
-use crate::error::{Error, Result};
-use crate::pix::{Pix, PixelDepth};
+use crate::core::error::{Error, Result};
+use crate::core::pix::{Pix, PixelDepth};
 
 /// How to handle negative values when converting FPix to Pix
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -76,7 +76,7 @@ impl FPix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::FPix;
+    /// use leptonica::core::FPix;
     ///
     /// let fpix = FPix::new(640, 480).unwrap();
     /// assert_eq!(fpix.width(), 640);
@@ -114,7 +114,7 @@ impl FPix {
     /// # Examples
     ///
     /// ```
-    /// use leptonica_core::FPix;
+    /// use leptonica::core::FPix;
     ///
     /// let fpix = FPix::new_with_value(100, 100, 0.5).unwrap();
     /// assert_eq!(fpix.get_pixel(50, 50).unwrap(), 0.5);
@@ -793,10 +793,10 @@ impl FPix {
     /// `proxim` defaults to 0.15 when ≤ 0.
     ///
     /// C equivalent: `fpixRenderContours()` in `graphics.c`
-    pub fn render_contours(&self, incr: f32, proxim: f32) -> crate::error::Result<Pix> {
-        use crate::colormap::PixColormap;
+    pub fn render_contours(&self, incr: f32, proxim: f32) -> crate::core::error::Result<Pix> {
+        use crate::core::colormap::PixColormap;
         if incr <= 0.0 {
-            return Err(crate::error::Error::InvalidParameter(
+            return Err(crate::core::error::Error::InvalidParameter(
                 "incr must be > 0".to_string(),
             ));
         }
@@ -829,20 +829,20 @@ impl FPix {
     /// Auto-render contours with approximately `ncontours` levels.
     ///
     /// C equivalent: `fpixAutoRenderContours()` in `graphics.c`
-    pub fn auto_render_contours(&self, ncontours: i32) -> crate::error::Result<Pix> {
+    pub fn auto_render_contours(&self, ncontours: i32) -> crate::core::error::Result<Pix> {
         if !(2..=500).contains(&ncontours) {
-            return Err(crate::error::Error::InvalidParameter(
+            return Err(crate::core::error::Error::InvalidParameter(
                 "ncontours must be in [2, 500]".to_string(),
             ));
         }
         let min = self
             .min_value()
-            .ok_or(crate::error::Error::NullInput("empty FPix"))?;
+            .ok_or(crate::core::error::Error::NullInput("empty FPix"))?;
         let max = self
             .max_value()
-            .ok_or(crate::error::Error::NullInput("empty FPix"))?;
+            .ok_or(crate::core::error::Error::NullInput("empty FPix"))?;
         if (min - max).abs() < f32::EPSILON {
-            return Err(crate::error::Error::InvalidParameter(
+            return Err(crate::core::error::Error::InvalidParameter(
                 "all values in FPix are equal".to_string(),
             ));
         }

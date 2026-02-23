@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/overlap_reg.c`
 
-use leptonica_core::{Box, Boxa};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{Box, Boxa};
 
 /// Test combine_overlaps: boxes that overlap are merged into bounding regions.
 ///

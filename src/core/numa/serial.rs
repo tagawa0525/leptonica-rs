@@ -30,8 +30,8 @@
 //! C Leptonica: `numabasic.c` (`numaReadStream`, `numaWriteStream`,
 //! `numaaReadStream`, `numaaWriteStream`)
 
-use crate::error::{Error, Result};
-use crate::numa::{Numa, Numaa};
+use crate::core::error::{Error, Result};
+use crate::core::numa::{Numa, Numaa};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 

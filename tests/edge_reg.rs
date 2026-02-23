@@ -13,10 +13,11 @@
 //! - Unsharp mask -> unsharp_mask
 //! - Emboss kernel -> emboss
 
-use leptonica_filter::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::filter::{
     EdgeOrientation, emboss, laplacian_edge, sharpen, sobel_edge, unsharp_mask,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 /// Test edge detection and enhancement operations.
 ///

@@ -10,8 +10,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pdfio1_reg.c`
 
-use leptonica_io::pdf::{PdfCompression, PdfOptions};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::io::pdf::{PdfCompression, PdfOptions};
 
 /// Test basic PDF output with auto compression (C checks 0-2).
 ///
@@ -27,9 +28,9 @@ fn pdfio1_reg_auto_compression() {
     ];
 
     for (img, _label) in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let opts = PdfOptions::default();
-        let data = leptonica_io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
+        let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
         let header = String::from_utf8_lossy(&data[..8.min(data.len())]);
 
         // PDF should start with %PDF-
@@ -66,8 +67,8 @@ fn pdfio1_reg_flate() {
     let opts = PdfOptions::default().compression(PdfCompression::Flate);
 
     for img in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
-        let data = leptonica_io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem flate");
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem flate");
 
         // PDF header
         let header = String::from_utf8_lossy(&data[..8.min(data.len())]);
@@ -101,8 +102,8 @@ fn pdfio1_reg_jpeg() {
     let opts = PdfOptions::default().compression(PdfCompression::Jpeg);
 
     // 8bpp grayscale
-    let pix8 = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
-    let data8 = leptonica_io::pdf::write_pdf_mem(&pix8, &opts).expect("write_pdf_mem jpeg 8bpp");
+    let pix8 = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let data8 = leptonica::io::pdf::write_pdf_mem(&pix8, &opts).expect("write_pdf_mem jpeg 8bpp");
     let pdf_str8 = String::from_utf8_lossy(&data8);
 
     rp.compare_values(
@@ -119,8 +120,9 @@ fn pdfio1_reg_jpeg() {
     rp.compare_values(1.0, if has_dct { 1.0 } else { 0.0 }, 0.0);
 
     // 32bpp RGB
-    let pix32 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
-    let data32 = leptonica_io::pdf::write_pdf_mem(&pix32, &opts).expect("write_pdf_mem jpeg 32bpp");
+    let pix32 = common::load_test_image("marge.jpg").expect("load marge.jpg");
+    let data32 =
+        leptonica::io::pdf::write_pdf_mem(&pix32, &opts).expect("write_pdf_mem jpeg 32bpp");
     let pdf_str32 = String::from_utf8_lossy(&data32);
 
     rp.compare_values(
@@ -143,15 +145,15 @@ fn pdfio1_reg_jpeg() {
 fn pdfio1_reg_multipage() {
     let mut rp = RegParams::new("pdfio1_multipage");
 
-    let pix1 = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
-    let pix2 = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
-    let pix3 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix1 = common::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix2 = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix3 = common::load_test_image("marge.jpg").expect("load marge.jpg");
 
-    let images: Vec<&leptonica_io::Pix> = vec![&pix1, &pix2, &pix3];
+    let images: Vec<&leptonica::io::Pix> = vec![&pix1, &pix2, &pix3];
     let opts = PdfOptions::default();
 
     let mut buf = Vec::new();
-    leptonica_io::pdf::write_pdf_multi(&images, &mut buf, &opts).expect("write_pdf_multi");
+    leptonica::io::pdf::write_pdf_multi(&images, &mut buf, &opts).expect("write_pdf_multi");
 
     // Should start with PDF header
     let header = String::from_utf8_lossy(&buf[..8.min(buf.len())]);
@@ -183,9 +185,9 @@ fn pdfio1_reg_multipage() {
 fn pdfio1_reg_title() {
     let mut rp = RegParams::new("pdfio1_title");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let opts = PdfOptions::with_title("Test Document");
-    let data = leptonica_io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem with title");
+    let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem with title");
     let pdf_str = String::from_utf8_lossy(&data);
 
     // Should contain the title

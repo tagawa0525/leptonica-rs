@@ -5,7 +5,7 @@
 //! `numafunc1.c`.
 
 use super::{InterpolationType, Numa};
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 impl Numa {
     /// Interpolate at evenly-spaced x values over an interval.

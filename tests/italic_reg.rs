@@ -12,12 +12,13 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/italic_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_morph::morph_sequence;
-use leptonica_recog::jbclass::pix_word_mask_by_dilation;
-use leptonica_region::{ConnectivityType, conncomp_pixa};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::morph::morph_sequence;
+use leptonica::recog::jbclass::pix_word_mask_by_dilation;
+use leptonica::region::{ConnectivityType, conncomp_pixa};
 
 /// Test word mask by dilation on italic text (C test: pixWordMaskByDilation).
 ///
@@ -27,7 +28,7 @@ use leptonica_test::RegParams;
 fn italic_reg_word_mask() {
     let mut rp = RegParams::new("italic_wordmask");
 
-    let pix = leptonica_test::load_test_image("italic.png").expect("load italic.png");
+    let pix = common::load_test_image("italic.png").expect("load italic.png");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -64,7 +65,7 @@ fn italic_reg_word_mask() {
 fn italic_reg_morph_sequence() {
     let mut rp = RegParams::new("italic_morph");
 
-    let pix = leptonica_test::load_test_image("italic.png").expect("load italic.png");
+    let pix = common::load_test_image("italic.png").expect("load italic.png");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -92,7 +93,7 @@ fn italic_reg_morph_sequence() {
 fn italic_reg_conncomp() {
     let mut rp = RegParams::new("italic_conncomp");
 
-    let pix = leptonica_test::load_test_image("italic.png").expect("load italic.png");
+    let pix = common::load_test_image("italic.png").expect("load italic.png");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {

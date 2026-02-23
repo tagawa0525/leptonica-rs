@@ -14,11 +14,12 @@
 //!   - pixGetBackgroundRGBMap, pixApplyInvBackgroundRGBMap, pixFillMapHoles
 //!   - pixGammaTRCMasked (leptonica-enhance, not yet implemented)
 
-use leptonica_filter::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::filter::{
     BackgroundNormOptions, ContrastNormOptions, background_norm, background_norm_simple,
     contrast_norm, contrast_norm_simple,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 /// Test background normalization on grayscale image.
 ///
@@ -291,7 +292,7 @@ fn adaptmap_reg_fill_map_holes() {}
 fn adaptmap_reg_gamma_trc_masked() {}
 
 /// Helper: sample min and max pixel values from an 8bpp image
-fn sample_min_max(pix: &leptonica_core::Pix) -> (u32, u32) {
+fn sample_min_max(pix: &leptonica::Pix) -> (u32, u32) {
     let w = pix.width();
     let h = pix.height();
     let mut min_val = 255u32;

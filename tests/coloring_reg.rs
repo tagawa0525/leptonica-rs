@@ -11,9 +11,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/coloring_reg.c`
 
-use leptonica_color::pix_shift_by_component;
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::pix_shift_by_component;
 
 /// Test pix_shift_by_component for background coloring (C checks 4-7).
 ///
@@ -22,7 +23,7 @@ use leptonica_test::RegParams;
 fn coloring_reg_background_shift() {
     let mut rp = RegParams::new("coloring_bg");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
@@ -54,7 +55,7 @@ fn coloring_reg_background_shift() {
 fn coloring_reg_foreground_shift() {
     let mut rp = RegParams::new("coloring_fg");
 
-    let pix = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pix = common::load_test_image("test24.jpg").expect("load test24.jpg");
     let w = pix.width();
     let h = pix.height();
 

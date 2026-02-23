@@ -27,8 +27,8 @@
 //! C Leptonica: `fpix1.c` (`fpixReadStream`, `fpixWriteStream`,
 //! `dpixReadStream`, `dpixWriteStream`)
 
-use crate::error::{Error, Result};
-use crate::fpix::{DPix, FPix};
+use crate::core::error::{Error, Result};
+use crate::core::fpix::{DPix, FPix};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 

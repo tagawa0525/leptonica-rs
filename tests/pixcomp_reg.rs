@@ -11,8 +11,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pixcomp_reg.c`
 
-use leptonica_core::Pixa;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Pixa;
 
 /// Test Pixa array operations as partial substitute for PixAComp (C checks 0-2).
 ///
@@ -26,7 +27,7 @@ fn pixcomp_reg_pixa_array() {
 
     let mut pixa = Pixa::new();
     for img in &images {
-        let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         pixa.push(pix);
     }
 
@@ -35,8 +36,7 @@ fn pixcomp_reg_pixa_array() {
 
     // Verify element access preserves dimensions
     for (i, img) in images.iter().enumerate() {
-        let pix_orig =
-            leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+        let pix_orig = common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let pix_ref = pixa.get(i).unwrap_or_else(|| panic!("get {i}"));
         rp.compare_values(pix_orig.width() as f64, pix_ref.width() as f64, 0.0);
         rp.compare_values(pix_orig.height() as f64, pix_ref.height() as f64, 0.0);

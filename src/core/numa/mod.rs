@@ -15,7 +15,7 @@ pub use operations::{
     SortOrder, ThresholdComparison, WindowedStats,
 };
 
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 /// Array of floating-point numbers
 ///
@@ -26,7 +26,7 @@ use crate::error::{Error, Result};
 /// # Examples
 ///
 /// ```
-/// use leptonica_core::Numa;
+/// use leptonica::core::Numa;
 ///
 /// let mut numa = Numa::new();
 /// numa.push(1.0);

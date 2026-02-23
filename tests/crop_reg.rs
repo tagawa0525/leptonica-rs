@@ -13,8 +13,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/crop_reg.c`
 
-use leptonica_core::Box as LeptBox;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Box as LeptBox;
 
 /// Test clip_rectangle_with_border fully contained (C check 6).
 ///
@@ -23,7 +24,7 @@ use leptonica_test::RegParams;
 fn crop_reg_clip_with_border_contained() {
     let mut rp = RegParams::new("crop_border_contained");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pix8 = pix.convert_to_8().expect("convert_to_8");
 
     // Create a box fully within the image
@@ -50,7 +51,7 @@ fn crop_reg_clip_with_border_contained() {
 fn crop_reg_clip_with_border_edge() {
     let mut rp = RegParams::new("crop_border_edge");
 
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pix8 = pix.convert_to_8().expect("convert_to_8");
 
     // Box near top edge: border will be clipped
@@ -73,7 +74,7 @@ fn crop_reg_clip_with_border_edge() {
 fn crop_reg_basic_clip() {
     let mut rp = RegParams::new("crop_basic_clip");
 
-    let pix = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
+    let pix = common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     // Clip a centered region
     let cw = 100;

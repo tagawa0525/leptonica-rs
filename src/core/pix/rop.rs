@@ -11,8 +11,8 @@
 //! pixAnd, pixOr, pixXor, and pixInvert.
 
 use super::{Pix, PixMut, PixelDepth};
-use crate::color;
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 /// Color to fill when shifting or translating image regions.
 ///
@@ -91,7 +91,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix1 = Pix::new(64, 64, PixelDepth::Bit1).unwrap();
     /// let pix2 = Pix::new(64, 64, PixelDepth::Bit1).unwrap();
@@ -154,7 +154,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(64, 64, PixelDepth::Bit1).unwrap();
     /// let inverted = pix.invert();
@@ -271,14 +271,14 @@ impl Pix {
                 let d_pixel = self.get_pixel(x, y).unwrap_or(0);
                 let s_pixel = other.get_pixel(x, y).unwrap_or(0);
 
-                let (dr, dg, db) = color::extract_rgb(d_pixel);
-                let (sr, sg, sb) = color::extract_rgb(s_pixel);
+                let (dr, dg, db) = pixel::extract_rgb(d_pixel);
+                let (sr, sg, sb) = pixel::extract_rgb(s_pixel);
 
                 let rr = apply_rop_value(dr as u32, sr as u32, op, 255) as u8;
                 let rg = apply_rop_value(dg as u32, sg as u32, op, 255) as u8;
                 let rb = apply_rop_value(db as u32, sb as u32, op, 255) as u8;
 
-                let result_pixel = color::compose_rgb(rr, rg, rb);
+                let result_pixel = pixel::compose_rgb(rr, rg, rb);
                 result_mut.set_pixel_unchecked(x, y, result_pixel);
             }
         }
@@ -503,14 +503,14 @@ impl PixMut {
                 let d_pixel = self.get_pixel(x, y).unwrap_or(0);
                 let s_pixel = other.get_pixel(x, y).unwrap_or(0);
 
-                let (dr, dg, db) = color::extract_rgb(d_pixel);
-                let (sr, sg, sb) = color::extract_rgb(s_pixel);
+                let (dr, dg, db) = pixel::extract_rgb(d_pixel);
+                let (sr, sg, sb) = pixel::extract_rgb(s_pixel);
 
                 let rr = apply_rop_value(dr as u32, sr as u32, op, 255) as u8;
                 let rg = apply_rop_value(dg as u32, sg as u32, op, 255) as u8;
                 let rb = apply_rop_value(db as u32, sb as u32, op, 255) as u8;
 
-                let result_pixel = color::compose_rgb(rr, rg, rb);
+                let result_pixel = pixel::compose_rgb(rr, rg, rb);
                 self.set_pixel_unchecked(x, y, result_pixel);
             }
         }
@@ -598,12 +598,12 @@ impl PixMut {
                     let d = self.get_pixel(tx, ty).unwrap_or(0);
                     let s = src.get_pixel(sx, sy).unwrap_or(0);
                     if self.depth() == PixelDepth::Bit32 {
-                        let (dr, dg, db) = color::extract_rgb(d);
-                        let (sr, sg, sb) = color::extract_rgb(s);
+                        let (dr, dg, db) = pixel::extract_rgb(d);
+                        let (sr, sg, sb) = pixel::extract_rgb(s);
                         let rr = apply_rop_value(dr as u32, sr as u32, op, 255) as u8;
                         let rg = apply_rop_value(dg as u32, sg as u32, op, 255) as u8;
                         let rb = apply_rop_value(db as u32, sb as u32, op, 255) as u8;
-                        color::compose_rgb(rr, rg, rb)
+                        pixel::compose_rgb(rr, rg, rb)
                     } else {
                         apply_rop_value(d, s, op, max_val)
                     }
@@ -1117,7 +1117,7 @@ mod tests {
 
     #[test]
     fn test_rgb_and() {
-        use crate::color::compose_rgb;
+        use crate::core::pixel::compose_rgb;
 
         let pix1 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pix1_mut = pix1.to_mut();

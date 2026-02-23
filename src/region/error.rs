@@ -7,7 +7,7 @@ use thiserror::Error;
 pub enum RegionError {
     /// Core library error
     #[error("core error: {0}")]
-    Core(#[from] leptonica_core::Error),
+    Core(#[from] crate::core::Error),
 
     /// Unsupported pixel depth for this operation
     #[error("unsupported depth: expected {expected}, got {actual}")]

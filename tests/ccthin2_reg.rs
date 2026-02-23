@@ -11,11 +11,12 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/ccthin2_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::morph::{
     Connectivity, ThinSelSet, ThinType, make_thin_sels, thin_connected, thin_connected_by_set,
 };
-use leptonica_test::RegParams;
 
 /// Test thin_connected 4-way on a binary image.
 ///
@@ -24,7 +25,7 @@ use leptonica_test::RegParams;
 fn ccthin2_reg_thin_4cc() {
     let mut rp = RegParams::new("cthin2_4cc");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
@@ -58,7 +59,7 @@ fn ccthin2_reg_thin_4cc() {
 fn ccthin2_reg_thin_8cc() {
     let mut rp = RegParams::new("cthin2_8cc");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
@@ -91,7 +92,7 @@ fn ccthin2_reg_thin_8cc() {
 fn ccthin2_reg_thin_by_set() {
     let mut rp = RegParams::new("cthin2_set");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
@@ -132,7 +133,7 @@ fn ccthin2_reg_thin_by_set() {
 fn ccthin2_reg_thin_bg() {
     let mut rp = RegParams::new("cthin2_bg");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();

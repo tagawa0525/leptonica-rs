@@ -4,7 +4,7 @@
 //! Corresponds to sort-related functions in C Leptonica's `numafunc1.c`.
 
 use super::{Numa, SortOrder};
-use crate::error::{Error, Result};
+use crate::core::error::{Error, Result};
 
 impl Numa {
     /// Sort a Numa of non-negative integers using bin sort.

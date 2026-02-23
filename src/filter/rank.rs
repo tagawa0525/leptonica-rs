@@ -15,7 +15,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use leptonica_filter::rank_filter;
+//! use leptonica::filter::rank_filter;
 //!
 //! // Apply median filter (rank = 0.5)
 //! let median = median_filter(&pix, 3, 3)?;
@@ -30,8 +30,8 @@
 //! let ranked = rank_filter(&pix, 5, 5, 0.25)?;
 //! ```
 
-use crate::{FilterError, FilterResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::core::{Pix, PixelDepth, pixel};
+use crate::filter::{FilterError, FilterResult};
 
 /// Two-histogram structure for efficient rank computation
 ///
@@ -380,7 +380,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                                 (x as i32 + kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
                             let sy = (ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
                             let pixel = pix.get_pixel_unchecked(sx, sy);
-                            let (r, g, b, a) = color::extract_rgba(pixel);
+                            let (r, g, b, a) = pixel::extract_rgba(pixel);
                             hist_r.add(r);
                             hist_g.add(g);
                             hist_b.add(b);
@@ -397,14 +397,14 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                         let sx = (x as i32 + kx as i32 - half_w).clamp(0, img_w as i32 - 1) as u32;
 
                         let old_pixel = pix.get_pixel_unchecked(sx, old_y);
-                        let (or, og, ob, oa) = color::extract_rgba(old_pixel);
+                        let (or, og, ob, oa) = pixel::extract_rgba(old_pixel);
                         hist_r.remove(or);
                         hist_g.remove(og);
                         hist_b.remove(ob);
                         hist_a.remove(oa);
 
                         let new_pixel = pix.get_pixel_unchecked(sx, new_y);
-                        let (nr, ng, nb, na) = color::extract_rgba(new_pixel);
+                        let (nr, ng, nb, na) = pixel::extract_rgba(new_pixel);
                         hist_r.add(nr);
                         hist_g.add(ng);
                         hist_b.add(nb);
@@ -417,7 +417,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                 let result_b = hist_b.get_rank_value(rank_position);
                 let result_a = hist_a.get_rank_value(rank_position);
 
-                let result = color::compose_rgba(result_r, result_g, result_b, result_a);
+                let result = pixel::compose_rgba(result_r, result_g, result_b, result_a);
                 out_mut.set_pixel_unchecked(x, y, result);
             }
         }
@@ -438,7 +438,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                             let sy =
                                 (y as i32 + ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
                             let pixel = pix.get_pixel_unchecked(sx, sy);
-                            let (r, g, b, a) = color::extract_rgba(pixel);
+                            let (r, g, b, a) = pixel::extract_rgba(pixel);
                             hist_r.add(r);
                             hist_g.add(g);
                             hist_b.add(b);
@@ -455,14 +455,14 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                         let sy = (y as i32 + ky as i32 - half_h).clamp(0, img_h as i32 - 1) as u32;
 
                         let old_pixel = pix.get_pixel_unchecked(old_x, sy);
-                        let (or, og, ob, oa) = color::extract_rgba(old_pixel);
+                        let (or, og, ob, oa) = pixel::extract_rgba(old_pixel);
                         hist_r.remove(or);
                         hist_g.remove(og);
                         hist_b.remove(ob);
                         hist_a.remove(oa);
 
                         let new_pixel = pix.get_pixel_unchecked(new_x, sy);
-                        let (nr, ng, nb, na) = color::extract_rgba(new_pixel);
+                        let (nr, ng, nb, na) = pixel::extract_rgba(new_pixel);
                         hist_r.add(nr);
                         hist_g.add(ng);
                         hist_b.add(nb);
@@ -475,7 +475,7 @@ pub fn rank_filter_color(pix: &Pix, width: u32, height: u32, rank: f32) -> Filte
                 let result_b = hist_b.get_rank_value(rank_position);
                 let result_a = hist_a.get_rank_value(rank_position);
 
-                let result = color::compose_rgba(result_r, result_g, result_b, result_a);
+                let result = pixel::compose_rgba(result_r, result_g, result_b, result_a);
                 out_mut.set_pixel_unchecked(x, y, result);
             }
         }
@@ -783,7 +783,7 @@ mod tests {
                 let r = (x * 25) as u8;
                 let g = (y * 25) as u8;
                 let b = 128;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }

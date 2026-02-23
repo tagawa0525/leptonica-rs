@@ -7,8 +7,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/insert_reg.c`
 
-use leptonica_core::{Box, Boxa, Numa};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{Box, Boxa, Numa};
 
 /// Test Numa insert/remove cycle preserves data (C test checks 0–2)
 #[test]

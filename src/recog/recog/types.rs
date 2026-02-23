@@ -2,7 +2,7 @@
 //!
 //! This module contains the core data structures for template-based character recognition.
 
-use leptonica_core::{Box as PixBox, Pix};
+use crate::core::{Box as PixBox, Pix};
 
 /// Character set type for recognition
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

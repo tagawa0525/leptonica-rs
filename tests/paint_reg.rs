@@ -15,9 +15,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/paint_reg.c`
 
-use leptonica_color::{ColorGrayOptions, PaintType, pix_color_gray, threshold_to_binary};
-use leptonica_core::{Color, PixelDepth};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::color::{ColorGrayOptions, PaintType, pix_color_gray, threshold_to_binary};
+use leptonica::{Color, PixelDepth};
 
 /// Test pix_color_gray on 32bpp RGB (C checks 0-1, 4-5).
 ///
@@ -27,14 +28,14 @@ fn paint_reg_color_gray() {
     let mut rp = RegParams::new("paint_cgray");
 
     // C: pixs = pixRead("lucasta-frag.jpg"); pixt = pixConvert8To32(pixs);
-    let pix8 = leptonica_test::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
+    let pix8 = common::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
     let pix = pix8.convert_8_to_32().expect("convert_8_to_32");
     assert_eq!(pix.depth(), PixelDepth::Bit32);
     let w = pix.width();
     let h = pix.height();
 
     // C: pixColorGray(pixt, box, L_PAINT_DARK, 220, 0, 0, 255) — blue on dark
-    let region = leptonica_core::Box::new(120, 30, 200, 200).expect("create box");
+    let region = leptonica::Box::new(120, 30, 200, 200).expect("create box");
     let dark_options = ColorGrayOptions {
         paint_type: PaintType::Dark,
         threshold: 220,
@@ -74,7 +75,7 @@ fn paint_reg_through_mask() {
     let mut rp = RegParams::new("paint_mask");
 
     // C: pixs = pixRead("lucasta-frag.jpg");
-    let pix8 = leptonica_test::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
+    let pix8 = common::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
     let pix32 = pix8.convert_8_to_32().expect("convert_8_to_32");
     let w = pix32.width();
     let h = pix32.height();
@@ -85,12 +86,12 @@ fn paint_reg_through_mask() {
     let mask = mask.invert();
 
     // C: composeRGBPixel(50, 0, 250, &val32); pixPaintThroughMask(pixt, pixb, x, y, val32);
-    let val = leptonica_core::color::compose_rgb(50, 0, 250);
+    let val = leptonica::core::pixel::compose_rgb(50, 0, 250);
     let mut pixmut = pix32.try_into_mut().expect("try_into_mut");
     pixmut
         .paint_through_mask(&mask, 0, 0, val)
         .expect("paint_through_mask");
-    let result: leptonica_core::Pix = pixmut.into();
+    let result: leptonica::Pix = pixmut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -105,7 +106,7 @@ fn paint_reg_through_mask() {
 fn paint_reg_render_color() {
     let mut rp = RegParams::new("paint_render");
 
-    let pix8 = leptonica_test::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
+    let pix8 = common::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
     let pix32 = pix8.convert_8_to_32().expect("convert_8_to_32");
     let w = pix32.width();
     let h = pix32.height();
@@ -125,13 +126,13 @@ fn paint_reg_render_color() {
         .expect("render_line_color 2");
 
     // C: box = boxCreate(70, 80, 300, 245); pixRenderBoxArb(pixt, box, 3, 200, 200, 25);
-    let region = leptonica_core::Box::new(70, 80, 200, 150).expect("create box");
+    let region = leptonica::Box::new(70, 80, 200, 150).expect("create box");
     let color3 = Color::new(200, 200, 25);
     pixmut
         .render_box_color(&region, 3, color3)
         .expect("render_box_color");
 
-    let result: leptonica_core::Pix = pixmut.into();
+    let result: leptonica::Pix = pixmut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -146,7 +147,7 @@ fn paint_reg_render_color() {
 fn paint_reg_render_blend() {
     let mut rp = RegParams::new("paint_blend");
 
-    let pix8 = leptonica_test::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
+    let pix8 = common::load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
     let pix32 = pix8.convert_8_to_32().expect("convert_8_to_32");
     let w = pix32.width();
     let h = pix32.height();
@@ -160,13 +161,13 @@ fn paint_reg_render_blend() {
         .expect("render_line_blend");
 
     // C: box = boxCreate(70, 80, 300, 245); pixRenderBoxBlend(pixt, box, 3, 200, 200, 25, 0.6);
-    let region = leptonica_core::Box::new(70, 80, 200, 150).expect("create box");
+    let region = leptonica::Box::new(70, 80, 200, 150).expect("create box");
     let color2 = Color::new(200, 200, 25);
     pixmut
         .render_box_blend(&region, 3, color2, 0.6)
         .expect("render_box_blend");
 
-    let result: leptonica_core::Pix = pixmut.into();
+    let result: leptonica::Pix = pixmut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);

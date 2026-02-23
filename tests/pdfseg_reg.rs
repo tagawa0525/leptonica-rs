@@ -12,7 +12,8 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/pdfseg_reg.c`
 
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
 
 /// Test basic PDF output of images that would be segmented in C (partial).
 ///
@@ -23,9 +24,9 @@ fn pdfseg_reg_basic_pdf_output() {
     let mut rp = RegParams::new("pdfseg_basic");
 
     // Test that the images used in C segmented tests can be read and written
-    let pix = leptonica_test::load_test_image("feyn.tif").expect("load feyn.tif");
-    let opts = leptonica_io::pdf::PdfOptions::default();
-    let data = leptonica_io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
+    let pix = common::load_test_image("feyn.tif").expect("load feyn.tif");
+    let opts = leptonica::io::pdf::PdfOptions::default();
+    let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
 
     // PDF header check via byte comparison (avoid converting entire binary stream)
     rp.compare_values(1.0, if data.starts_with(b"%PDF-") { 1.0 } else { 0.0 }, 0.0);

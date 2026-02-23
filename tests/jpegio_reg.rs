@@ -10,8 +10,9 @@
 //! - JPEG write and read-back roundtrip
 //! - Header reading (resolution, comment) -- not ported
 
-use leptonica_io::{ImageFormat, read_image_mem, write_image_mem};
-use leptonica_test::{RegParams, load_test_image, test_data_path};
+mod common;
+use common::{RegParams, load_test_image, test_data_path};
+use leptonica::io::{ImageFormat, read_image_mem, write_image_mem};
 
 #[test]
 fn jpegio_reg() {
@@ -28,7 +29,7 @@ fn jpegio_reg() {
     // --- Test 3: Format detection ---
     eprintln!("=== Test: Format detection ===");
     let path = test_data_path("test8.jpg");
-    let fmt = leptonica_io::detect_format(&path);
+    let fmt = leptonica::io::detect_format(&path);
     let is_jpeg = matches!(fmt, Ok(ImageFormat::Jpeg));
     rp.compare_values(1.0, if is_jpeg { 1.0 } else { 0.0 }, 0.0);
     eprintln!(
@@ -37,7 +38,7 @@ fn jpegio_reg() {
     );
 
     let path_png = test_data_path("test1.png");
-    let fmt_png = leptonica_io::detect_format(&path_png);
+    let fmt_png = leptonica::io::detect_format(&path_png);
     let is_png = matches!(fmt_png, Ok(ImageFormat::Png));
     rp.compare_values(1.0, if is_png { 1.0 } else { 0.0 }, 0.0);
 
@@ -56,7 +57,7 @@ fn jpegio_reg() {
     // --- Test 5: Format detection from bytes ---
     eprintln!("=== Test: Format detection from bytes ===");
     let jpeg_bytes = std::fs::read(test_data_path("test8.jpg")).expect("read bytes");
-    let fmt_bytes = leptonica_io::detect_format_from_bytes(&jpeg_bytes);
+    let fmt_bytes = leptonica::io::detect_format_from_bytes(&jpeg_bytes);
     let is_jpeg_bytes = matches!(fmt_bytes, Ok(ImageFormat::Jpeg));
     rp.compare_values(1.0, if is_jpeg_bytes { 1.0 } else { 0.0 }, 0.0);
 
@@ -128,7 +129,7 @@ fn test_jpeg_read(rp: &mut RegParams, fname: &str) {
     rp.compare_values(1.0, if w > 0 && h > 0 { 1.0 } else { 0.0 }, 0.0);
 }
 
-fn compare_pix_sampled(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
+fn compare_pix_sampled(pix1: &leptonica::Pix, pix2: &leptonica::Pix) -> bool {
     if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
         return false;
     }
@@ -144,7 +145,7 @@ fn compare_pix_sampled(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -
 }
 
 /// Compare two 8bpp grayscale images with a per-pixel tolerance.
-fn compare_pix_lossy(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix, tol: u32) -> bool {
+fn compare_pix_lossy(pix1: &leptonica::Pix, pix2: &leptonica::Pix, tol: u32) -> bool {
     if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
         return false;
     }
@@ -162,7 +163,7 @@ fn compare_pix_lossy(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix, tol
 }
 
 /// Compare two 32bpp RGB images with a per-channel tolerance.
-fn compare_pix_lossy_rgb(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix, tol: u8) -> bool {
+fn compare_pix_lossy_rgb(pix1: &leptonica::Pix, pix2: &leptonica::Pix, tol: u8) -> bool {
     if pix1.width() != pix2.width() || pix1.height() != pix2.height() {
         return false;
     }
@@ -171,8 +172,8 @@ fn compare_pix_lossy_rgb(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix,
         for x in (0..pix1.width()).step_by(step as usize) {
             let p1 = pix1.get_pixel(x, y).unwrap_or(0);
             let p2 = pix2.get_pixel(x, y).unwrap_or(0);
-            let (r1, g1, b1) = leptonica_core::color::extract_rgb(p1);
-            let (r2, g2, b2) = leptonica_core::color::extract_rgb(p2);
+            let (r1, g1, b1) = leptonica::core::pixel::extract_rgb(p1);
+            let (r2, g2, b2) = leptonica::core::pixel::extract_rgb(p2);
             if r1.abs_diff(r2) > tol || g1.abs_diff(g2) > tol || b1.abs_diff(b2) > tol {
                 return false;
             }

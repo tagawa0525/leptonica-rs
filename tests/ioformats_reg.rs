@@ -8,10 +8,11 @@
 //! - Read various formats and verify properties (depth, colormap)
 //! - Memory write/read roundtrip for PNG and BMP
 
-use leptonica_io::{
+mod common;
+use common::{RegParams, load_test_image, test_data_path};
+use leptonica::io::{
     ImageFormat, detect_format, detect_format_from_bytes, read_image_mem, write_image_mem,
 };
-use leptonica_test::{RegParams, load_test_image, test_data_path};
 
 #[test]
 fn ioformats_reg() {
@@ -130,7 +131,7 @@ fn test_format_detect_bytes(rp: &mut RegParams, fname: &str, expected: ImageForm
     );
 }
 
-fn test_png_roundtrip(rp: &mut RegParams, pix: &leptonica_core::Pix, label: &str) {
+fn test_png_roundtrip(rp: &mut RegParams, pix: &leptonica::Pix, label: &str) {
     let png_data = write_image_mem(pix, ImageFormat::Png).expect("write PNG");
     let pix2 = read_image_mem(&png_data).expect("read PNG");
     let same_dims = pix.width() == pix2.width() && pix.height() == pix2.height();

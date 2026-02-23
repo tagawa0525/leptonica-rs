@@ -2,8 +2,8 @@
 //!
 //! Implements erosion, dilation, opening, and closing for 1-bpp images.
 
-use crate::{MorphError, MorphResult, Sel};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::morph::{MorphError, MorphResult, Sel};
 
 /// Dilate a binary image using rasterop (word-level shift-and-OR)
 ///
@@ -29,7 +29,7 @@ pub fn dilate(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 /// Used internally by composite decomposition where intermediate
 /// results need to preserve bits beyond the image width for the
 /// next decomposition step to read.
-fn dilate_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<leptonica_core::PixMut> {
+fn dilate_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<crate::core::PixMut> {
     check_binary(pix)?;
 
     let w = pix.width();
@@ -84,7 +84,7 @@ pub fn erode(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 }
 
 /// Rasterop erosion without clearing unused bits.
-fn erode_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<leptonica_core::PixMut> {
+fn erode_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<crate::core::PixMut> {
     check_binary(pix)?;
 
     let h = pix.height();
@@ -464,11 +464,7 @@ pub fn close_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 ///
 /// `horizontal`: true for horizontal, false for vertical.
 /// Returns PixMut without clearing unused bits (caller's responsibility).
-fn dilate_1d_composite(
-    pix: &Pix,
-    size: u32,
-    horizontal: bool,
-) -> MorphResult<leptonica_core::PixMut> {
+fn dilate_1d_composite(pix: &Pix, size: u32, horizontal: bool) -> MorphResult<crate::core::PixMut> {
     if size <= 1 {
         // Identity: 1x1 SEL at origin just copies the image
         let sel = Sel::create_horizontal(1)?;
@@ -513,11 +509,7 @@ fn dilate_1d_composite(
 }
 
 /// Composite 1D erosion: brick(f1) then comb(f1, f2) when beneficial.
-fn erode_1d_composite(
-    pix: &Pix,
-    size: u32,
-    horizontal: bool,
-) -> MorphResult<leptonica_core::PixMut> {
+fn erode_1d_composite(pix: &Pix, size: u32, horizontal: bool) -> MorphResult<crate::core::PixMut> {
     if size <= 1 {
         let sel = Sel::create_horizontal(1)?;
         return erode_rasterop(pix, &sel);
@@ -753,7 +745,7 @@ fn remove_border(
     top: u32,
     orig_w: u32,
     orig_h: u32,
-) -> MorphResult<leptonica_core::PixMut> {
+) -> MorphResult<crate::core::PixMut> {
     debug_assert!(
         left.is_multiple_of(32),
         "horizontal border must be word-aligned"

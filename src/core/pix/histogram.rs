@@ -4,10 +4,10 @@
 
 use super::statistics::{PixelStatType, clip_box_to_rect};
 use super::{Pix, PixelDepth};
-use crate::Box;
-use crate::error::{Error, Result};
-use crate::numa::{Numa, Numaa};
-use crate::{PixColormap, color};
+use crate::core::Box;
+use crate::core::error::{Error, Result};
+use crate::core::numa::{Numa, Numaa};
+use crate::core::{PixColormap, pixel};
 
 /// RGB channel histograms
 ///
@@ -55,7 +55,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
     /// let hist = pix.gray_histogram(1).unwrap();
@@ -368,7 +368,7 @@ impl Pix {
     /// # Example
     ///
     /// ```
-    /// use leptonica_core::{Pix, PixelDepth};
+    /// use leptonica::core::{Pix, PixelDepth};
     ///
     /// let pix = Pix::new(100, 100, PixelDepth::Bit32).unwrap();
     /// let hist = pix.color_histogram(1).unwrap();
@@ -406,9 +406,9 @@ impl Pix {
             let mut x = 0;
             while x < width {
                 let pixel = line[x as usize];
-                let r = color::red(pixel) as usize;
-                let g = color::green(pixel) as usize;
-                let b = color::blue(pixel) as usize;
+                let r = pixel::red(pixel) as usize;
+                let g = pixel::green(pixel) as usize;
+                let b = pixel::blue(pixel) as usize;
                 r_hist[r] += 1.0;
                 g_hist[g] += 1.0;
                 b_hist[b] += 1.0;
@@ -496,9 +496,9 @@ impl Pix {
                         let bit_idx = 31 - (j as u32 & 31);
                         if (linem[word_idx] >> bit_idx) & 1 != 0 {
                             let pixel = lines[sx as usize];
-                            let r = color::red(pixel) as usize;
-                            let g = color::green(pixel) as usize;
-                            let b = color::blue(pixel) as usize;
+                            let r = pixel::red(pixel) as usize;
+                            let g = pixel::green(pixel) as usize;
+                            let b = pixel::blue(pixel) as usize;
                             r_hist[r] += 1.0;
                             g_hist[g] += 1.0;
                             b_hist[b] += 1.0;
@@ -1499,7 +1499,7 @@ mod tests {
         let pix: Pix = pm.into();
 
         // Histogram of top-left 50x50 region
-        let region = crate::Box::new(0, 0, 50, 50).unwrap();
+        let region = crate::core::Box::new(0, 0, 50, 50).unwrap();
         let hist = pix.gray_histogram_in_rect(Some(&region), 1).unwrap();
         assert_eq!(hist.len(), 256);
         assert_eq!(hist[128], 2500.0); // 50*50 = 2500 pixels of value 128
@@ -1511,7 +1511,7 @@ mod tests {
     fn test_gray_histogram_in_rect_clipped() {
         // Region extends beyond image boundary
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
-        let region = crate::Box::new(25, 25, 100, 100).unwrap();
+        let region = crate::core::Box::new(25, 25, 100, 100).unwrap();
         let hist = pix.gray_histogram_in_rect(Some(&region), 1).unwrap();
         assert_eq!(hist.len(), 256);
         // Only 25x25 = 625 pixels should be counted
@@ -1522,7 +1522,7 @@ mod tests {
 
     fn test_gray_histogram_in_rect_with_factor() {
         let pix = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
-        let region = crate::Box::new(0, 0, 100, 100).unwrap();
+        let region = crate::core::Box::new(0, 0, 100, 100).unwrap();
         let hist = pix.gray_histogram_in_rect(Some(&region), 2).unwrap();
         assert_eq!(hist[0], 2500.0); // 50*50 = 2500 pixels sampled
     }
@@ -1768,7 +1768,7 @@ mod tests {
 
     #[test]
     fn test_cmap_histogram_masked_basic() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // 8bpp image with colormap: fill all pixels with index 2
         let pix = {
             let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
@@ -1813,7 +1813,7 @@ mod tests {
 
     #[test]
     fn test_cmap_histogram_in_rect_full() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         let pix = {
             let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
             let mut pm = base.try_into_mut().unwrap();
@@ -1836,8 +1836,8 @@ mod tests {
 
     #[test]
     fn test_cmap_histogram_in_rect_subregion() {
-        use crate::PixColormap;
-        use crate::box_::Box as LepBox;
+        use crate::core::PixColormap;
+        use crate::core::box_::Box as LepBox;
         // 4x4 image; top-left 2x2 = index 0, rest = index 1
         let pix = {
             let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
@@ -1865,7 +1865,7 @@ mod tests {
 
     #[test]
     fn test_max_color_index_8bpp() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         let pix = {
             let base = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
             let mut pm = base.try_into_mut().unwrap();
@@ -1890,7 +1890,7 @@ mod tests {
 
     #[test]
     fn test_max_color_index_1bpp() {
-        use crate::PixColormap;
+        use crate::core::PixColormap;
         // All OFF → max index is 0
         let pix_all_off = {
             let base = Pix::new(4, 4, PixelDepth::Bit1).unwrap();

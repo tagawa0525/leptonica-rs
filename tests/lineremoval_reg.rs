@@ -14,11 +14,12 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/lineremoval_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_morph::{close_gray, erode_gray, open_gray};
-use leptonica_recog::skew::{SkewDetectOptions, find_skew};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::morph::{close_gray, erode_gray, open_gray};
+use leptonica::recog::skew::{SkewDetectOptions, find_skew};
 
 /// Test skew detection on dave-orig.png (C test section: pixFindSkew).
 ///
@@ -28,7 +29,7 @@ use leptonica_test::RegParams;
 fn lineremoval_reg_find_skew() {
     let mut rp = RegParams::new("lineremoval_skew");
 
-    let pix = leptonica_test::load_test_image("dave-orig.png").expect("load dave-orig.png");
+    let pix = common::load_test_image("dave-orig.png").expect("load dave-orig.png");
 
     // Convert to binary for skew detection
     let pix_gray = pix.convert_to_8().expect("convert to gray");
@@ -61,7 +62,7 @@ fn lineremoval_reg_find_skew() {
 fn lineremoval_reg_gray_morph() {
     let mut rp = RegParams::new("lineremoval_morph");
 
-    let pix = leptonica_test::load_test_image("dave-orig.png").expect("load dave-orig.png");
+    let pix = common::load_test_image("dave-orig.png").expect("load dave-orig.png");
     let pix_gray = pix.convert_to_8().expect("convert to gray");
     assert_eq!(pix_gray.depth(), PixelDepth::Bit8);
 
@@ -95,7 +96,7 @@ fn lineremoval_reg_gray_morph() {
 fn lineremoval_reg_arith_combine() {
     let mut rp = RegParams::new("lineremoval_arith");
 
-    let pix = leptonica_test::load_test_image("dave-orig.png").expect("load dave-orig.png");
+    let pix = common::load_test_image("dave-orig.png").expect("load dave-orig.png");
     let pix_gray = pix.convert_to_8().expect("convert to gray");
     let w = pix_gray.width();
     let h = pix_gray.height();
@@ -119,7 +120,7 @@ fn lineremoval_reg_arith_combine() {
     let src_gray = open_gray(&pix_gray, 5, 5).expect("open for combine source");
     dest.combine_masked(&src_gray, &mask)
         .expect("combine_masked");
-    let result: leptonica_core::Pix = dest.into();
+    let result: leptonica::Pix = dest.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
 
@@ -136,7 +137,7 @@ fn lineremoval_reg_arith_combine() {
 fn lineremoval_reg_pipeline() {
     let mut rp = RegParams::new("lineremoval_pipe");
 
-    let pix = leptonica_test::load_test_image("dave-orig.png").expect("load dave-orig.png");
+    let pix = common::load_test_image("dave-orig.png").expect("load dave-orig.png");
     let pix_gray = pix.convert_to_8().expect("convert to gray");
 
     // Step 1: Detect horizontal lines via close + erode
@@ -155,7 +156,7 @@ fn lineremoval_reg_pipeline() {
     result
         .combine_masked(&cleaned, &line_mask)
         .expect("combine_masked");
-    let result: leptonica_core::Pix = result.into();
+    let result: leptonica::Pix = result.into();
 
     rp.compare_values(pix_gray.width() as f64, result.width() as f64, 0.0);
     rp.compare_values(pix_gray.height() as f64, result.height() as f64, 0.0);

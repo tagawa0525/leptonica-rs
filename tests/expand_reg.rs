@@ -9,9 +9,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/expand_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
-use leptonica_transform::expand_replicate;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::transform::expand_replicate;
 
 /// Test expand_replicate on 1bpp binary image (C checks 0-1).
 ///
@@ -20,7 +21,7 @@ use leptonica_transform::expand_replicate;
 fn expand_reg_1bpp() {
     let mut rp = RegParams::new("expand_1bpp");
 
-    let pix1 = leptonica_test::load_test_image("test1.png").expect("load test1.png");
+    let pix1 = common::load_test_image("test1.png").expect("load test1.png");
     assert_eq!(pix1.depth(), PixelDepth::Bit1);
 
     // Expand 2×
@@ -41,7 +42,7 @@ fn expand_reg_1bpp() {
 fn expand_reg_2bpp() {
     let mut rp = RegParams::new("expand_2bpp");
 
-    let pix2 = leptonica_test::load_test_image("weasel2.4g.png").expect("load weasel2.4g.png");
+    let pix2 = common::load_test_image("weasel2.4g.png").expect("load weasel2.4g.png");
     assert_eq!(pix2.depth(), PixelDepth::Bit2);
 
     // Expand 2×
@@ -58,7 +59,7 @@ fn expand_reg_2bpp() {
 fn expand_reg_4bpp() {
     let mut rp = RegParams::new("expand_4bpp");
 
-    let pix4 = leptonica_test::load_test_image("weasel4.16g.png").expect("load weasel4.16g.png");
+    let pix4 = common::load_test_image("weasel4.16g.png").expect("load weasel4.16g.png");
     assert_eq!(pix4.depth(), PixelDepth::Bit4);
 
     let pix2x = expand_replicate(&pix4, 2).expect("expand 2x");
@@ -74,7 +75,7 @@ fn expand_reg_4bpp() {
 fn expand_reg_8bpp() {
     let mut rp = RegParams::new("expand_8bpp");
 
-    let pix8 = leptonica_test::load_test_image("weasel8.149g.png").expect("load weasel8.149g.png");
+    let pix8 = common::load_test_image("weasel8.149g.png").expect("load weasel8.149g.png");
     assert_eq!(pix8.depth(), PixelDepth::Bit8);
 
     let pix2x = expand_replicate(&pix8, 2).expect("expand 2x");
@@ -90,7 +91,7 @@ fn expand_reg_8bpp() {
 fn expand_reg_32bpp() {
     let mut rp = RegParams::new("expand_32bpp");
 
-    let pix32 = leptonica_test::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix32 = common::load_test_image("marge.jpg").expect("load marge.jpg");
     assert_eq!(pix32.depth(), PixelDepth::Bit32);
 
     let pix2x = expand_replicate(&pix32, 2).expect("expand 2x");
@@ -124,7 +125,7 @@ fn expand_reg_binary_power2() {
 fn expand_reg_clip() {
     let mut rp = RegParams::new("expand_clip");
 
-    let pix = leptonica_test::load_test_image("speckle.png").expect("load speckle.png");
+    let pix = common::load_test_image("speckle.png").expect("load speckle.png");
 
     // Expand then clip a sub-region (top-left quadrant)
     let pix2x = expand_replicate(&pix, 2).expect("expand 2x");

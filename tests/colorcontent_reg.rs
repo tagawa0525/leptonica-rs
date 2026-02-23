@@ -3,11 +3,13 @@
 //! C version: reference/leptonica/prog/colorcontent_reg.c
 //! Tests color_content, count_colors, is_grayscale, grayscale_histogram.
 
-use leptonica_color::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::color::{
     color_content, count_colors, grayscale_histogram, is_grayscale, is_grayscale_tolerant,
 };
-use leptonica_core::{Pix, PixelDepth, color};
-use leptonica_test::{RegParams, load_test_image};
+use leptonica::core::pixel;
+use leptonica::{Pix, PixelDepth};
 
 fn create_known_color_image() -> Pix {
     let (w, h) = (60u32, 40u32);
@@ -16,11 +18,11 @@ fn create_known_color_image() -> Pix {
     for y in 0..h {
         for x in 0..w {
             let pixel = if x < 36 {
-                color::compose_rgb(255, 0, 0)
+                pixel::compose_rgb(255, 0, 0)
             } else if x < 54 {
-                color::compose_rgb(0, 255, 0)
+                pixel::compose_rgb(0, 255, 0)
             } else {
-                color::compose_rgb(0, 0, 255)
+                pixel::compose_rgb(0, 0, 255)
             };
             pm.set_pixel_unchecked(x, y, pixel);
         }
@@ -35,7 +37,7 @@ fn create_grayscale_rgb() -> Pix {
     for y in 0..h {
         for x in 0..w {
             let gray = ((x + y) * 5 % 256) as u8;
-            pm.set_pixel_unchecked(x, y, color::compose_rgb(gray, gray, gray));
+            pm.set_pixel_unchecked(x, y, pixel::compose_rgb(gray, gray, gray));
         }
     }
     pm.into()
@@ -140,7 +142,7 @@ fn colorcontent_reg() {
                 pm.set_pixel_unchecked(
                     x,
                     y,
-                    color::compose_rgb(base, base.wrapping_add(1), base.wrapping_add(2)),
+                    pixel::compose_rgb(base, base.wrapping_add(1), base.wrapping_add(2)),
                 );
             }
         }

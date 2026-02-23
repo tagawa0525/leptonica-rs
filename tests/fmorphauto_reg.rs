@@ -11,9 +11,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/fmorphauto_reg.c`
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{Sel, dilate, erode};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::morph::{Sel, dilate, erode};
 
 /// Test dilate and erode with various brick sels (C: pixDilate, pixErode).
 ///
@@ -24,7 +25,7 @@ fn fmorphauto_reg_dilate_erode() {
     let mut rp = RegParams::new("fmorphauto_ops");
 
     // C: pixs = pixRead("feyn-fract.tif");
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();
@@ -79,7 +80,7 @@ fn fmorphauto_reg_dilate_erode() {
 fn fmorphauto_reg_open_subset() {
     let mut rp = RegParams::new("fmorphauto_open");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     assert_eq!(pix.depth(), PixelDepth::Bit1);
     let w = pix.width();
     let h = pix.height();

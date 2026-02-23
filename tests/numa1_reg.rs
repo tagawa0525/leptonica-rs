@@ -6,8 +6,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/numa1_reg.c`
 
-use leptonica_core::Numa;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Numa;
 
 // ========================================================================
 // Test: Histograms (C tests 0-10)
@@ -358,7 +359,7 @@ fn numa1_reg_make_sequence() {
 fn numa1_reg_numaa() {
     let mut rp = RegParams::new("numa1_numaa");
 
-    use leptonica_core::Numaa;
+    use leptonica::Numaa;
 
     let mut naa = Numaa::new();
     rp.compare_values(0.0, naa.len() as f64, 0.0);

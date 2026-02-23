@@ -9,9 +9,10 @@
 //! cargo test -p leptonica-morph --test colormorph_reg
 //! ```
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{close_color, dilate_color, erode_color, open_color};
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{close_color, dilate_color, erode_color, open_color};
 
 const SIZE: u32 = 7;
 
@@ -46,8 +47,8 @@ fn colormorph_reg() {
         for x in (0..w).step_by(10) {
             let orig = pixs.get_pixel(x, y).unwrap_or(0);
             let dil = pix1.get_pixel(x, y).unwrap_or(0);
-            let (or, og, ob) = leptonica_core::color::extract_rgb(orig);
-            let (dr, dg, db) = leptonica_core::color::extract_rgb(dil);
+            let (or, og, ob) = leptonica::core::pixel::extract_rgb(orig);
+            let (dr, dg, db) = leptonica::core::pixel::extract_rgb(dil);
             if dr < or || dg < og || db < ob {
                 dilation_valid = false;
                 break;
@@ -72,8 +73,8 @@ fn colormorph_reg() {
         for x in (0..w).step_by(10) {
             let orig = pixs.get_pixel(x, y).unwrap_or(0);
             let ero = pix2.get_pixel(x, y).unwrap_or(0);
-            let (or, og, ob) = leptonica_core::color::extract_rgb(orig);
-            let (er, eg, eb) = leptonica_core::color::extract_rgb(ero);
+            let (or, og, ob) = leptonica::core::pixel::extract_rgb(orig);
+            let (er, eg, eb) = leptonica::core::pixel::extract_rgb(ero);
             if er > or || eg > og || eb > ob {
                 erosion_valid = false;
                 break;
@@ -98,8 +99,8 @@ fn colormorph_reg() {
         for x in (0..w).step_by(10) {
             let orig = pixs.get_pixel(x, y).unwrap_or(0);
             let opn = pix3.get_pixel(x, y).unwrap_or(0);
-            let (or, og, ob) = leptonica_core::color::extract_rgb(orig);
-            let (opr, opg, opb) = leptonica_core::color::extract_rgb(opn);
+            let (or, og, ob) = leptonica::core::pixel::extract_rgb(orig);
+            let (opr, opg, opb) = leptonica::core::pixel::extract_rgb(opn);
             if opr > or || opg > og || opb > ob {
                 open_valid = false;
                 break;
@@ -124,8 +125,8 @@ fn colormorph_reg() {
         for x in (0..w).step_by(10) {
             let orig = pixs.get_pixel(x, y).unwrap_or(0);
             let cls = pix4.get_pixel(x, y).unwrap_or(0);
-            let (or, og, ob) = leptonica_core::color::extract_rgb(orig);
-            let (cr, cg, cb) = leptonica_core::color::extract_rgb(cls);
+            let (or, og, ob) = leptonica::core::pixel::extract_rgb(orig);
+            let (cr, cg, cb) = leptonica::core::pixel::extract_rgb(cls);
             if cr < or || cg < og || cb < ob {
                 close_valid = false;
                 break;

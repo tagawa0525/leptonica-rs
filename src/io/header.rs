@@ -6,8 +6,8 @@
 //!
 //! C Leptonica: `readfile.c` (`pixReadHeader*`), `writefile.c`
 
-use crate::{IoError, IoResult, detect_format_from_bytes};
-use leptonica_core::ImageFormat;
+use crate::core::ImageFormat;
+use crate::io::{IoError, IoResult, detect_format_from_bytes};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
@@ -69,16 +69,16 @@ pub fn read_image_header_mem(data: &[u8]) -> IoResult<ImageHeader> {
 fn read_header_for_format(data: &[u8], format: ImageFormat) -> IoResult<ImageHeader> {
     match format {
         #[cfg(feature = "bmp")]
-        ImageFormat::Bmp => crate::bmp::read_header_bmp(data),
+        ImageFormat::Bmp => crate::io::bmp::read_header_bmp(data),
 
         #[cfg(feature = "pnm")]
-        ImageFormat::Pnm => crate::pnm::read_header_pnm(data),
+        ImageFormat::Pnm => crate::io::pnm::read_header_pnm(data),
 
         #[cfg(feature = "png-format")]
-        ImageFormat::Png => crate::png::read_header_png(data),
+        ImageFormat::Png => crate::io::png::read_header_png(data),
 
         #[cfg(feature = "jpeg")]
-        ImageFormat::Jpeg => crate::jpeg::read_header_jpeg(data),
+        ImageFormat::Jpeg => crate::io::jpeg::read_header_jpeg(data),
 
         #[cfg(feature = "tiff-format")]
         ImageFormat::Tiff
@@ -88,18 +88,18 @@ fn read_header_for_format(data: &[u8], format: ImageFormat) -> IoResult<ImageHea
         | ImageFormat::TiffPackbits
         | ImageFormat::TiffLzw
         | ImageFormat::TiffZip
-        | ImageFormat::TiffJpeg => crate::tiff::read_header_tiff(data),
+        | ImageFormat::TiffJpeg => crate::io::tiff::read_header_tiff(data),
 
         #[cfg(feature = "gif-format")]
-        ImageFormat::Gif => crate::gif::read_header_gif(data),
+        ImageFormat::Gif => crate::io::gif::read_header_gif(data),
 
         #[cfg(feature = "webp-format")]
-        ImageFormat::WebP => crate::webp::read_header_webp(data),
+        ImageFormat::WebP => crate::io::webp::read_header_webp(data),
 
         #[cfg(feature = "jp2k-format")]
-        ImageFormat::Jp2 => crate::jp2k::read_header_jp2k(data),
+        ImageFormat::Jp2 => crate::io::jp2k::read_header_jp2k(data),
 
-        ImageFormat::Spix => crate::spix::read_header_spix(data),
+        ImageFormat::Spix => crate::io::spix::read_header_spix(data),
 
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
@@ -118,8 +118,8 @@ fn read_header_for_format(data: &[u8], format: ImageFormat) -> IoResult<ImageHea
 /// # See also
 ///
 /// C Leptonica: `pixChooseOutputFormat()` in `writefile.c`
-pub fn choose_output_format(pix: &leptonica_core::Pix) -> ImageFormat {
-    use leptonica_core::PixelDepth;
+pub fn choose_output_format(pix: &crate::core::Pix) -> ImageFormat {
+    use crate::core::PixelDepth;
     match pix.depth() {
         PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 => ImageFormat::Png,
         PixelDepth::Bit8 => ImageFormat::Png,
@@ -141,16 +141,16 @@ pub fn choose_output_format(pix: &leptonica_core::Pix) -> ImageFormat {
 /// # See also
 ///
 /// C Leptonica: `pixWrite()` in `writefile.c`
-pub fn write_image_auto<P: AsRef<Path>>(pix: &leptonica_core::Pix, path: P) -> IoResult<()> {
+pub fn write_image_auto<P: AsRef<Path>>(pix: &crate::core::Pix, path: P) -> IoResult<()> {
     let path = path.as_ref();
     let format = ImageFormat::from_path(path).unwrap_or_else(|| choose_output_format(pix));
-    crate::write_image(pix, path, format)
+    crate::io::write_image(pix, path, format)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use leptonica_core::{ImageFormat, Pix, PixelDepth};
+    use crate::core::{ImageFormat, Pix, PixelDepth};
 
     // --- from_extension tests ---
 
@@ -271,9 +271,9 @@ mod tests {
 
     #[test]
     fn test_read_header_png() {
-        use leptonica_core::PixelDepth;
+        use crate::core::PixelDepth;
         let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
-        let data = crate::write_image_mem(&pix, ImageFormat::Png).unwrap();
+        let data = crate::io::write_image_mem(&pix, ImageFormat::Png).unwrap();
         let header = read_image_header_mem(&data).unwrap();
         assert_eq!(header.width, 100);
         assert_eq!(header.height, 80);
@@ -283,9 +283,9 @@ mod tests {
 
     #[test]
     fn test_read_header_jpeg() {
-        use leptonica_core::PixelDepth;
+        use crate::core::PixelDepth;
         let pix = Pix::new(100, 80, PixelDepth::Bit8).unwrap();
-        let data = crate::write_image_mem(&pix, ImageFormat::Jpeg).unwrap();
+        let data = crate::io::write_image_mem(&pix, ImageFormat::Jpeg).unwrap();
         let header = read_image_header_mem(&data).unwrap();
         assert_eq!(header.width, 100);
         assert_eq!(header.height, 80);
@@ -294,9 +294,9 @@ mod tests {
 
     #[test]
     fn test_read_header_spix() {
-        use leptonica_core::PixelDepth;
+        use crate::core::PixelDepth;
         let pix = Pix::new(50, 40, PixelDepth::Bit8).unwrap();
-        let data = crate::write_image_mem(&pix, ImageFormat::Spix).unwrap();
+        let data = crate::io::write_image_mem(&pix, ImageFormat::Spix).unwrap();
         let header = read_image_header_mem(&data).unwrap();
         assert_eq!(header.width, 50);
         assert_eq!(header.height, 40);
@@ -306,9 +306,9 @@ mod tests {
 
     #[test]
     fn test_read_header_bmp() {
-        use leptonica_core::PixelDepth;
+        use crate::core::PixelDepth;
         let pix = Pix::new(30, 20, PixelDepth::Bit8).unwrap();
-        let data = crate::write_image_mem(&pix, ImageFormat::Bmp).unwrap();
+        let data = crate::io::write_image_mem(&pix, ImageFormat::Bmp).unwrap();
         let header = read_image_header_mem(&data).unwrap();
         assert_eq!(header.width, 30);
         assert_eq!(header.height, 20);

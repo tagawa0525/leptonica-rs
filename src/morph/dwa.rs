@@ -14,10 +14,10 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_core::Pix;
-//! use leptonica_morph::dwa;
+//! use leptonica::core::Pix;
+//! use leptonica::morph::dwa;
 //!
-//! # fn example(pix: &Pix) -> leptonica_morph::MorphResult<()> {
+//! # fn example(pix: &Pix) -> leptonica::morph::MorphResult<()> {
 //! // Fast dilation with a 5x5 brick
 //! let dilated = dwa::dilate_brick_dwa(pix, 5, 5)?;
 //!
@@ -33,8 +33,8 @@
 //! # }
 //! ```
 
-use crate::{MorphError, MorphResult};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::morph::{MorphError, MorphResult};
 
 /// Check that the image is binary (1-bpp)
 fn check_binary(pix: &Pix) -> MorphResult<()> {
@@ -65,10 +65,10 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
 /// # Example
 ///
 /// ```no_run
-/// use leptonica_core::Pix;
-/// use leptonica_morph::dwa::dilate_brick_dwa;
+/// use leptonica::core::Pix;
+/// use leptonica::morph::dwa::dilate_brick_dwa;
 ///
-/// # fn example(pix: &Pix) -> leptonica_morph::MorphResult<()> {
+/// # fn example(pix: &Pix) -> leptonica::morph::MorphResult<()> {
 /// let dilated = dilate_brick_dwa(pix, 5, 5)?;
 /// # Ok(())
 /// # }
@@ -672,14 +672,14 @@ fn composite_dwa_op(pix: &Pix, hsize: u32, vsize: u32, op: DwaOp) -> MorphResult
     let mut result = pix.clone();
 
     if hsize > 1 {
-        let (s1, s2) = crate::binary::select_composable_sizes(hsize);
+        let (s1, s2) = crate::morph::binary::select_composable_sizes(hsize);
         result = apply_1d_dwa(&result, s1, true, op)?;
         if s2 > 1 {
             result = comb_dwa(&result, s2, s1, true, op)?;
         }
     }
     if vsize > 1 {
-        let (s1, s2) = crate::binary::select_composable_sizes(vsize);
+        let (s1, s2) = crate::morph::binary::select_composable_sizes(vsize);
         result = apply_1d_dwa(&result, s1, false, op)?;
         if s2 > 1 {
             result = comb_dwa(&result, s2, s1, false, op)?;
@@ -1030,7 +1030,7 @@ mod tests {
 
     #[test]
     fn test_comparison_with_regular_morph() {
-        use crate::binary::{dilate_brick, erode_brick};
+        use crate::morph::binary::{dilate_brick, erode_brick};
 
         let pix = create_test_image();
 

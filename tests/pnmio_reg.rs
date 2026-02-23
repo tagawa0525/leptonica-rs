@@ -15,12 +15,13 @@
 //! - PAM format (P7)
 //! - `pixThresholdTo2bpp()` / `pixThresholdTo4bpp()`
 
-use leptonica_io::{
+mod common;
+use common::{RegParams, load_test_image, regout_dir};
+use leptonica::io::{
     ImageFormat,
     pnm::{read_pam, write_pam},
     read_image, read_image_mem, write_image, write_image_mem,
 };
-use leptonica_test::{RegParams, load_test_image, regout_dir};
 use std::fs;
 
 #[test]
@@ -156,15 +157,15 @@ fn pnmio_reg() {
     eprintln!("=== Extra: PNM format detection ===");
     {
         let ok1 = matches!(
-            leptonica_io::detect_format_from_bytes(b"P4\n10 10\n"),
+            leptonica::io::detect_format_from_bytes(b"P4\n10 10\n"),
             Ok(ImageFormat::Pnm)
         );
         let ok2 = matches!(
-            leptonica_io::detect_format_from_bytes(b"P5\n10 10\n255\n"),
+            leptonica::io::detect_format_from_bytes(b"P5\n10 10\n255\n"),
             Ok(ImageFormat::Pnm)
         );
         let ok3 = matches!(
-            leptonica_io::detect_format_from_bytes(b"P6\n10 10\n255\n"),
+            leptonica::io::detect_format_from_bytes(b"P6\n10 10\n255\n"),
             Ok(ImageFormat::Pnm)
         );
         let all_ok = ok1 && ok2 && ok3;
@@ -175,7 +176,7 @@ fn pnmio_reg() {
 }
 
 /// Compare RGB channels of two 32bpp images
-fn compare_rgb(pix1: &leptonica_core::Pix, pix2: &leptonica_core::Pix) -> bool {
+fn compare_rgb(pix1: &leptonica::Pix, pix2: &leptonica::Pix) -> bool {
     let w = pix1.width();
     let h = pix1.height();
 
@@ -278,16 +279,16 @@ fn pnmio_reg_24bpp_pam() {
 #[test]
 fn pnmio_reg_32bpp_rgba_pam() {
     // Test 11: 32bpp RGBA → PAM roundtrip
-    use leptonica_core::color;
-    use leptonica_io::PixelDepth;
+    use leptonica::core::pixel;
+    use leptonica::io::PixelDepth;
 
-    let pix1 = leptonica_io::Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+    let pix1 = leptonica::io::Pix::new(4, 4, PixelDepth::Bit32).unwrap();
     let mut pix_mut = pix1.try_into_mut().unwrap();
     pix_mut.set_spp(4);
     // Set a pixel with non-opaque alpha
-    let pixel = color::compose_rgba(200, 100, 50, 128);
+    let pixel = pixel::compose_rgba(200, 100, 50, 128);
     pix_mut.set_pixel_unchecked(1, 1, pixel);
-    let pix1: leptonica_io::Pix = pix_mut.into();
+    let pix1: leptonica::io::Pix = pix_mut.into();
 
     let mut buf = Vec::new();
     write_pam(&pix1, &mut buf).expect("write PAM RGBA");

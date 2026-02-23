@@ -12,10 +12,11 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/paintmask_reg.c`
 
-use leptonica_color::MedianCutOptions;
-use leptonica_color::median_cut_quant;
-use leptonica_core::PixelDepth;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::MedianCutOptions;
+use leptonica::color::median_cut_quant;
 
 /// Test paint_through_mask on 32bpp with clipped mask (C check 1 setup).
 ///
@@ -26,7 +27,7 @@ fn paintmask_reg_32bpp() {
     let mut rp = RegParams::new("pmask_32");
 
     // C: pixs = pixRead("test24.jpg");
-    let pixs = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pixs = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pixs.depth(), PixelDepth::Bit32);
     let w = pixs.width();
     let h = pixs.height();
@@ -35,18 +36,18 @@ fn paintmask_reg_32bpp() {
     //    box = boxCreate(303, 1983, 800, 500);
     //    pixm = pixClipRectangle(pixt1, box, NULL);
     //    pixInvert(pixm, pixm);
-    let rabi = leptonica_test::load_test_image("rabi.png").expect("load rabi.png");
+    let rabi = common::load_test_image("rabi.png").expect("load rabi.png");
     let mask = rabi.clip_rectangle(303, 1983, 800, 500).expect("clip mask");
     let mask = mask.invert();
     assert_eq!(mask.depth(), PixelDepth::Bit1);
 
     // C: pixPaintThroughMask(pixt, pixb, box->x, box->y, val32);
-    let val = leptonica_core::color::compose_rgb(3, 192, 128);
+    let val = leptonica::core::pixel::compose_rgb(3, 192, 128);
     let mut pixmut = pixs.try_into_mut().expect("try_into_mut");
     pixmut
         .paint_through_mask(&mask, 100, 100, val)
         .expect("paint_through_mask on 32bpp");
-    let result: leptonica_core::Pix = pixmut.into();
+    let result: leptonica::Pix = pixmut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -61,7 +62,7 @@ fn paintmask_reg_32bpp() {
 fn paintmask_reg_quant_clip() {
     let mut rp = RegParams::new("pmask_qclip");
 
-    let pixs = leptonica_test::load_test_image("test24.jpg").expect("load test24.jpg");
+    let pixs = common::load_test_image("test24.jpg").expect("load test24.jpg");
     assert_eq!(pixs.depth(), PixelDepth::Bit32);
 
     // C: pixt1 = pixMedianCutQuant(pixs, 0);

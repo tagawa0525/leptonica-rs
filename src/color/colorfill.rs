@@ -20,18 +20,18 @@
 //! # Example
 //!
 //! ```no_run
-//! use leptonica_color::colorfill::{color_fill_from_seed, ColorFillOptions};
-//! use leptonica_core::Pix;
+//! use leptonica::color::colorfill::{color_fill_from_seed, ColorFillOptions};
+//! use leptonica::core::Pix;
 //!
-//! let pix = Pix::new(100, 100, leptonica_core::PixelDepth::Bit32).unwrap();
+//! let pix = Pix::new(100, 100, leptonica::core::PixelDepth::Bit32).unwrap();
 //! let options = ColorFillOptions::default();
 //! if let Some(result) = color_fill_from_seed(&pix, 50, 50, &options).unwrap() {
 //!     println!("Filled {} pixels", result.pixel_count);
 //! }
 //! ```
 
-use crate::{ColorError, ColorResult};
-use leptonica_core::{Pix, PixelDepth, color};
+use crate::color::{ColorError, ColorResult};
+use crate::core::{Pix, PixelDepth, pixel};
 use std::collections::VecDeque;
 
 // =============================================================================
@@ -158,7 +158,7 @@ pub struct ColorRegions {
 /// A pixel is considered valid if at least one RGB component is >= min_max.
 #[inline]
 fn pixel_color_is_valid(val: u32, min_max: u32) -> bool {
-    let (r, g, b) = color::extract_rgb(val);
+    let (r, g, b) = pixel::extract_rgb(val);
     r as u32 >= min_max || g as u32 >= min_max || b as u32 >= min_max
 }
 
@@ -172,8 +172,8 @@ fn pixel_color_is_valid(val: u32, min_max: u32) -> bool {
 /// to be grouped together while separating truly different colors.
 #[inline]
 fn colors_are_similar(val1: u32, val2: u32, max_diff: u32) -> bool {
-    let (r1, g1, b1) = color::extract_rgb(val1);
-    let (r2, g2, b2) = color::extract_rgb(val2);
+    let (r1, g1, b1) = pixel::extract_rgb(val1);
+    let (r2, g2, b2) = pixel::extract_rgb(val2);
 
     let rdiff = r1 as i32 - r2 as i32;
     let gdiff = g1 as i32 - g2 as i32;
@@ -299,7 +299,7 @@ pub fn color_fill_from_seed(
 
         // Add to result
         let _ = result.set_pixel(x, y, 1);
-        let (r, g, b) = color::extract_rgb(current_color);
+        let (r, g, b) = pixel::extract_rgb(current_color);
         r_sum += r as u64;
         g_sum += g as u64;
         b_sum += b as u64;
@@ -413,7 +413,7 @@ pub fn color_fill(pix: &Pix, options: &ColorFillOptions) -> ColorResult<ColorReg
 /// Updates the global visited mask and returns the local region mask if valid.
 fn fill_region_local(
     pix: &Pix,
-    visited: &mut leptonica_core::PixMut,
+    visited: &mut crate::core::PixMut,
     start_x: u32,
     start_y: u32,
     options: &ColorFillOptions,
@@ -565,11 +565,11 @@ mod tests {
         for y in 0..40 {
             for x in 0..60 {
                 let pixel = if x < 20 {
-                    color::compose_rgb(200, 50, 50) // Red
+                    pixel::compose_rgb(200, 50, 50) // Red
                 } else if x < 40 {
-                    color::compose_rgb(50, 200, 50) // Green
+                    pixel::compose_rgb(50, 200, 50) // Green
                 } else {
-                    color::compose_rgb(50, 50, 200) // Blue
+                    pixel::compose_rgb(50, 50, 200) // Blue
                 };
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
@@ -588,7 +588,7 @@ mod tests {
                 // Smooth horizontal gradient from red to blue
                 let r = (255 - (x * 255 / 100)) as u8;
                 let b = (x * 255 / 100) as u8;
-                let pixel = color::compose_rgb(r, 100, b);
+                let pixel = pixel::compose_rgb(r, 100, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }
@@ -599,23 +599,23 @@ mod tests {
     #[test]
     fn test_pixel_color_is_valid() {
         // High brightness pixel
-        let bright = color::compose_rgb(200, 100, 50);
+        let bright = pixel::compose_rgb(200, 100, 50);
         assert!(pixel_color_is_valid(bright, 70));
 
         // Dark pixel
-        let dark = color::compose_rgb(30, 40, 50);
+        let dark = pixel::compose_rgb(30, 40, 50);
         assert!(!pixel_color_is_valid(dark, 70));
 
         // Edge case: exactly at threshold
-        let edge = color::compose_rgb(70, 30, 30);
+        let edge = pixel::compose_rgb(70, 30, 30);
         assert!(pixel_color_is_valid(edge, 70));
     }
 
     #[test]
     fn test_colors_are_similar() {
-        let red1 = color::compose_rgb(200, 50, 50);
-        let red2 = color::compose_rgb(210, 55, 45);
-        let blue = color::compose_rgb(50, 50, 200);
+        let red1 = pixel::compose_rgb(200, 50, 50);
+        let red2 = pixel::compose_rgb(210, 55, 45);
+        let blue = pixel::compose_rgb(50, 50, 200);
 
         // Similar reds should match
         assert!(colors_are_similar(red1, red2, 40));
@@ -662,7 +662,7 @@ mod tests {
         // Fill with dark pixels
         for y in 0..10 {
             for x in 0..10 {
-                pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30));
+                pix_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(30, 30, 30));
             }
         }
         let pix: Pix = pix_mut.into();
@@ -764,14 +764,14 @@ mod tests {
         // Small bright region
         for y in 0..5 {
             for x in 0..5 {
-                pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(200, 100, 100));
+                pix_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(200, 100, 100));
             }
         }
         // Rest is dark
         for y in 0..10 {
             for x in 0..10 {
                 if x >= 5 || y >= 5 {
-                    pix_mut.set_pixel_unchecked(x, y, color::compose_rgb(30, 30, 30));
+                    pix_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(30, 30, 30));
                 }
             }
         }

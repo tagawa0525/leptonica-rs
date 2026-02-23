@@ -7,8 +7,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/boxa1_reg.c`
 
-use leptonica_core::{Box, Boxa};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::{Box, Boxa};
 
 #[test]
 fn boxa1_reg() {

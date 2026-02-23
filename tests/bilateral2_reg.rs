@@ -12,8 +12,9 @@
 //!   - pixBilateral(reduction=4) -> NOT IMPLEMENTED (separable approximate)
 //!   - pixBlockBilateralExact -> bilateral_exact (used as substitute)
 
-use leptonica_filter::bilateral_exact;
-use leptonica_test::{RegParams, load_test_image};
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::filter::bilateral_exact;
 
 /// Parameter variation test on 8bpp grayscale image.
 ///

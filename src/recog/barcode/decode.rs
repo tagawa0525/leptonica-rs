@@ -3,13 +3,13 @@
 //! This module provides the main dispatch logic for decoding barcodes
 //! based on their format.
 
-use crate::barcode::formats::{
+use crate::recog::barcode::formats::{
     decode_codabar, decode_code2of5, decode_code39, decode_code93, decode_codei2of5, decode_ean13,
     decode_upca, verify_codabar, verify_code2of5, verify_code39, verify_code93, verify_codei2of5,
     verify_ean13, verify_upca,
 };
-use crate::barcode::types::{BarcodeFormat, BarcodeResult, SUPPORTED_FORMATS};
-use crate::{RecogError, RecogResult};
+use crate::recog::barcode::types::{BarcodeFormat, BarcodeResult, SUPPORTED_FORMATS};
+use crate::recog::{RecogError, RecogResult};
 
 /// Decodes a barcode from a bar width string
 ///

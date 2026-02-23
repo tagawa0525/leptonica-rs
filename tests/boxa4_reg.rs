@@ -8,8 +8,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/boxa4_reg.c`
 
-use leptonica_core::Boxa;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Boxa;
 
 /// Test Boxa smoothing, reconciliation, split/merge, and Boxaa transpose.
 ///
@@ -39,7 +40,7 @@ fn boxa4_reg() {
     // TODO: boxaReconcileAllByMedian(boxa5, L_ADJUST_SKIP, L_ADJUST_TOP_AND_BOT, 50, 0)
 
     // --- Test split even/odd + reconcile sides (C check 9) ---
-    let boxa5_path = leptonica_test::test_data_path("boxa5.ba");
+    let boxa5_path = common::test_data_path("boxa5.ba");
     assert!(
         std::path::Path::new(&boxa5_path).exists(),
         "test fixture boxa5.ba not found at {boxa5_path}"

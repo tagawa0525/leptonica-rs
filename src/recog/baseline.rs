@@ -13,10 +13,10 @@
 //! 3. **Peak Detection**: Find peaks in the differential signal (baselines)
 //! 4. **Endpoint Detection**: For each baseline, find left and right text boundaries
 
-use crate::skew::SkewDetectOptions;
-use crate::{RecogError, RecogResult};
-use leptonica_core::{Numa, Pix, PixelDepth, Pta};
-use leptonica_morph::sequence::morph_sequence;
+use crate::core::{Numa, Pix, PixelDepth, Pta};
+use crate::morph::sequence::morph_sequence;
+use crate::recog::skew::SkewDetectOptions;
+use crate::recog::{RecogError, RecogResult};
 
 /// Options for baseline detection
 #[derive(Debug, Clone)]
@@ -120,8 +120,8 @@ const ZERO_THRESHOLD_RATIO: i32 = 100;
 ///
 /// # Example
 /// ```no_run
-/// use leptonica_recog::baseline::{find_baselines, BaselineOptions};
-/// use leptonica_core::{Pix, PixelDepth};
+/// use leptonica::recog::baseline::{find_baselines, BaselineOptions};
+/// use leptonica::core::{Pix, PixelDepth};
 ///
 /// let pix = Pix::new(500, 300, PixelDepth::Bit1).unwrap();
 /// let result = find_baselines(&pix, &BaselineOptions::default()).unwrap();
@@ -221,7 +221,7 @@ fn get_slice_skew_angles(pix: &Pix, num_slices: u32, sweep_range: f32) -> RecogR
         let slice = extract_horizontal_slice(&binary, y_start, y_end)?;
 
         // Detect skew for this slice
-        match crate::skew::find_skew(&slice, &skew_options) {
+        match crate::recog::skew::find_skew(&slice, &skew_options) {
             Ok(result) => angles.push(result.angle),
             Err(_) => angles.push(0.0), // Default to 0 if detection fails
         }
@@ -254,7 +254,7 @@ fn deskew_local_baseline_opts(
     if angle_range < 0.5 || angles.is_empty() {
         // Use average angle for global correction
         let avg_angle: f32 = angles.iter().sum::<f32>() / angles.len().max(1) as f32;
-        return crate::skew::deskew_by_angle(pix, avg_angle);
+        return crate::recog::skew::deskew_by_angle(pix, avg_angle);
     }
 
     // Apply local correction using vertical shear interpolation
@@ -445,7 +445,7 @@ pub fn get_local_skew_angles(
     let hs = (h / nslice).max(1);
     let ovlap = hs / 2; // 50 % overlap (OverlapFraction = 0.5 in C version)
 
-    let skew_opts = crate::skew::SkewDetectOptions {
+    let skew_opts = crate::recog::skew::SkewDetectOptions {
         sweep_range,
         sweep_delta,
         min_bs_delta,
@@ -475,7 +475,7 @@ pub fn get_local_skew_angles(
         let y_center = (y_start + y_end) as f32 / 2.0;
 
         let slice = binary.clip_rectangle(0, y_start, w, y_end - y_start)?;
-        if let Ok(result) = crate::skew::find_skew(&slice, &skew_opts)
+        if let Ok(result) = crate::recog::skew::find_skew(&slice, &skew_opts)
             && result.confidence >= MIN_CONF
         {
             pts.push((y_center, result.angle));

@@ -10,8 +10,8 @@
 //! 3. **Clean**: Morphological cleanup (optional)
 //! 4. **Reduce**: Remove unpopular colors
 
-use crate::{ColorError, ColorResult};
-use leptonica_core::{Pix, PixColormap, PixelDepth, color};
+use crate::color::{ColorError, ColorResult};
+use crate::core::{Pix, PixColormap, PixelDepth, pixel};
 
 // =============================================================================
 // Constants
@@ -121,10 +121,10 @@ impl ColorSegmentOptions {
 /// # Example
 ///
 /// ```no_run
-/// use leptonica_color::segment::{color_segment, ColorSegmentOptions};
-/// use leptonica_core::Pix;
+/// use leptonica::color::segment::{color_segment, ColorSegmentOptions};
+/// use leptonica::core::Pix;
 ///
-/// let pix = Pix::new(100, 100, leptonica_core::PixelDepth::Bit32).unwrap();
+/// let pix = Pix::new(100, 100, leptonica::core::PixelDepth::Bit32).unwrap();
 /// let options = ColorSegmentOptions::for_colors(5);
 /// let segmented = color_segment(&pix, &options).unwrap();
 /// ```
@@ -187,10 +187,10 @@ pub fn color_segment(pix: &Pix, options: &ColorSegmentOptions) -> ColorResult<Pi
 /// # Example
 ///
 /// ```no_run
-/// use leptonica_color::segment::color_segment_simple;
-/// use leptonica_core::Pix;
+/// use leptonica::color::segment::color_segment_simple;
+/// use leptonica::core::Pix;
 ///
-/// let pix = Pix::new(100, 100, leptonica_core::PixelDepth::Bit32).unwrap();
+/// let pix = Pix::new(100, 100, leptonica::core::PixelDepth::Bit32).unwrap();
 /// let segmented = color_segment_simple(&pix, 5).unwrap();
 /// ```
 pub fn color_segment_simple(pix: &Pix, final_colors: u32) -> ColorResult<Pix> {
@@ -266,7 +266,7 @@ pub fn color_segment_cluster(pix: &Pix, max_dist: u32, max_colors: u32) -> Color
 ///
 /// A vector of pixel counts per colormap index.
 pub fn assign_to_nearest_color(
-    dest: &mut leptonica_core::PixMut,
+    dest: &mut crate::core::PixMut,
     src: &Pix,
     reference: &Pix,
     mask: Option<&Pix>,
@@ -305,7 +305,7 @@ pub fn assign_to_nearest_color(
             }
 
             let pixel = src.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
 
             // Find nearest color in colormap
             let idx = colormap.find_nearest(r, g, b).unwrap_or(0);
@@ -351,7 +351,7 @@ fn cluster_try(pix: &Pix, max_dist: u32, max_colors: u32) -> Result<Pix, Cluster
     for y in 0..h {
         for x in 0..w {
             let pixel = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = color::extract_rgb(pixel);
+            let (r, g, b) = pixel::extract_rgb(pixel);
 
             // Try to find an existing cluster within max_dist
             let mut found = false;
@@ -510,11 +510,11 @@ mod tests {
         for y in 0..60 {
             for x in 0..60 {
                 let pixel = if x < 20 {
-                    color::compose_rgb(255, 0, 0) // Red
+                    pixel::compose_rgb(255, 0, 0) // Red
                 } else if x < 40 {
-                    color::compose_rgb(0, 255, 0) // Green
+                    pixel::compose_rgb(0, 255, 0) // Green
                 } else {
-                    color::compose_rgb(0, 0, 255) // Blue
+                    pixel::compose_rgb(0, 0, 255) // Blue
                 };
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
@@ -533,7 +533,7 @@ mod tests {
                 let r = (x * 4) as u8;
                 let g = (y * 4) as u8;
                 let b = 128;
-                let pixel = color::compose_rgb(r, g, b);
+                let pixel = pixel::compose_rgb(r, g, b);
                 pix_mut.set_pixel_unchecked(x, y, pixel);
             }
         }

@@ -12,14 +12,15 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/dewarp_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::PixelDepth;
-use leptonica_recog::RecogError;
-use leptonica_recog::dewarp::{
+mod common;
+use common::RegParams;
+use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::recog::RecogError;
+use leptonica::recog::dewarp::{
     DewarpOptions, dewarp_single_page, find_textline_centers, is_line_coverage_valid,
     remove_short_lines,
 };
-use leptonica_test::RegParams;
 
 /// Test find_textline_centers on a document image.
 ///
@@ -30,7 +31,7 @@ fn dewarp_reg_find_textlines() {
     let mut rp = RegParams::new("dewarp_textlines");
 
     // 1555.007.jpg is an RGB document image; convert to binary
-    let pix = leptonica_test::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
+    let pix = common::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
     assert!(pix.width() > 100 && pix.height() > 100);
 
     let pix_gray = pix.convert_to_8().expect("convert to gray");
@@ -60,7 +61,7 @@ fn dewarp_reg_find_textlines() {
 fn dewarp_reg_remove_short_lines() {
     let mut rp = RegParams::new("dewarp_short_lines");
 
-    let pix = leptonica_test::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
+    let pix = common::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
     let pix_gray = pix.convert_to_8().expect("convert to gray");
     let pix_bin = threshold_to_binary(&pix_gray, 128).expect("threshold");
 
@@ -88,7 +89,7 @@ fn dewarp_reg_remove_short_lines() {
 fn dewarp_reg_line_coverage() {
     let mut rp = RegParams::new("dewarp_coverage");
 
-    let pix = leptonica_test::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
+    let pix = common::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
     let pix_gray = pix.convert_to_8().expect("convert to gray");
     let pix_bin = threshold_to_binary(&pix_gray, 128).expect("threshold");
 
@@ -123,7 +124,7 @@ fn dewarp_reg_line_coverage() {
 fn dewarp_reg_single_page() {
     let mut rp = RegParams::new("dewarp_single");
 
-    let pix = leptonica_test::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
+    let pix = common::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -165,7 +166,7 @@ fn dewarp_reg_single_page() {
 fn dewarp_reg_custom_options() {
     let mut rp = RegParams::new("dewarp_custom");
 
-    let pix = leptonica_test::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
+    let pix = common::load_test_image("1555.007.jpg").expect("load 1555.007.jpg");
 
     // Lower min_lines to accept sparser documents
     let opts = DewarpOptions::default().with_min_lines(4);
@@ -195,7 +196,7 @@ fn dewarp_reg_custom_options() {
 fn dewarp_reg_second_page() {
     let mut rp = RegParams::new("dewarp_page2");
 
-    let pix = leptonica_test::load_test_image("1555.003.jpg").expect("load 1555.003.jpg");
+    let pix = common::load_test_image("1555.003.jpg").expect("load 1555.003.jpg");
     let w = pix.width();
     let h = pix.height();
 

@@ -14,9 +14,10 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/numa3_reg.c`
 
-use leptonica_core::Numa;
-use leptonica_core::numa::SortOrder;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Numa;
+use leptonica::core::numa::SortOrder;
 
 /// Test sorted insertion and sort verification (C checks 11-12).
 ///

@@ -8,8 +8,9 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/boxa3_reg.c`
 
-use leptonica_core::Boxa;
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::Boxa;
 
 /// Expected variance values for pair-based size consistency check
 /// (matches C static arrays: varp, varm, same)
@@ -35,7 +36,7 @@ fn boxa3_reg() {
     let boxa_files = ["boxap1.ba", "boxap2.ba", "boxap3.ba"];
 
     for file in &boxa_files {
-        let boxa1 = Boxa::read_from_file(leptonica_test::test_data_path(file))
+        let boxa1 = Boxa::read_from_file(common::test_data_path(file))
             .unwrap_or_else(|_| panic!("read {file}"));
 
         // Scale to normalized width

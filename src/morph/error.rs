@@ -7,7 +7,7 @@ use thiserror::Error;
 pub enum MorphError {
     /// Core library error
     #[error("core error: {0}")]
-    Core(#[from] leptonica_core::Error),
+    Core(#[from] crate::core::Error),
 
     /// Invalid structuring element
     #[error("invalid structuring element: {0}")]

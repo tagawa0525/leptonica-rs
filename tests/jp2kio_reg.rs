@@ -10,7 +10,8 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/jp2kio_reg.c`
 
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
 
 /// Test JP2K format detection from magic bytes.
 ///
@@ -23,10 +24,10 @@ fn jp2kio_reg_format_detection() {
     let jp2_magic: &[u8] = &[
         0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A,
     ];
-    let format = leptonica_io::detect_format_from_bytes(jp2_magic);
+    let format = leptonica::io::detect_format_from_bytes(jp2_magic);
     rp.compare_values(
         1.0,
-        if matches!(format, Ok(leptonica_io::ImageFormat::Jp2)) {
+        if matches!(format, Ok(leptonica::io::ImageFormat::Jp2)) {
             1.0
         } else {
             0.0

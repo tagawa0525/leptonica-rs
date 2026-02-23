@@ -13,11 +13,12 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/partition_reg.c`
 
-use leptonica_color::threshold_to_binary;
-use leptonica_core::{Pix, PixelDepth, SizeRelation};
-use leptonica_morph::dilate_brick;
-use leptonica_region::{ConnectivityType, conncomp_pixa};
-use leptonica_test::RegParams;
+mod common;
+use common::RegParams;
+use leptonica::color::threshold_to_binary;
+use leptonica::morph::dilate_brick;
+use leptonica::region::{ConnectivityType, conncomp_pixa};
+use leptonica::{Pix, PixelDepth, SizeRelation};
 
 /// Test connected components on test8.jpg (C test: pixConnComp).
 ///
@@ -27,7 +28,7 @@ use leptonica_test::RegParams;
 fn partition_reg_conncomp_test8() {
     let mut rp = RegParams::new("partition_test8");
 
-    let pix = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = common::load_test_image("test8.jpg").expect("load test8.jpg");
     let pix_gray = pix.convert_to_8().expect("convert to gray");
     let pix_bin = threshold_to_binary(&pix_gray, 128).expect("threshold");
     assert_eq!(pix_bin.depth(), PixelDepth::Bit1);
@@ -50,7 +51,7 @@ fn partition_reg_conncomp_test8() {
 fn partition_reg_dilate_conncomp() {
     let mut rp = RegParams::new("partition_dilate");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -93,7 +94,7 @@ fn partition_reg_dilate_conncomp() {
 fn partition_reg_select_by_size() {
     let mut rp = RegParams::new("partition_select");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
@@ -136,7 +137,7 @@ fn partition_reg_select_by_size() {
 fn partition_reg_draw_boxes() {
     let mut rp = RegParams::new("partition_draw");
 
-    let pix = leptonica_test::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix = common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     let pix_bin = if pix.depth() == PixelDepth::Bit1 {
         pix.clone()
     } else {

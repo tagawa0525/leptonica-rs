@@ -14,12 +14,13 @@
 //! cargo test -p leptonica-morph --test graymorph1_reg
 //! ```
 
-use leptonica_core::PixelDepth;
-use leptonica_morph::{
+mod common;
+use common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::morph::{
     bottom_hat_gray, close_gray, dilate_gray, erode_gray, gray_morph_sequence, open_gray,
     top_hat_gray,
 };
-use leptonica_test::{RegParams, load_test_image};
 
 const WSIZE: u32 = 7;
 const HSIZE: u32 = 7;

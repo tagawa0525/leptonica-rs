@@ -20,9 +20,9 @@
 //!
 //! Based on Leptonica's `ccthin.c` implementation.
 
-use crate::thin_sels::{ThinSelSet, make_thin_sels};
-use crate::{MorphError, MorphResult, Sel, hit_miss_transform};
-use leptonica_core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth};
+use crate::morph::thin_sels::{ThinSelSet, make_thin_sels};
+use crate::morph::{MorphError, MorphResult, Sel, hit_miss_transform};
 
 /// Type of thinning operation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -73,7 +73,7 @@ const DEFAULT_MAX_ITERS: u32 = 10000;
 /// # Example
 ///
 /// ```ignore
-/// use leptonica_morph::{thin_connected, ThinType, Connectivity};
+/// use leptonica::morph::{thin_connected, ThinType, Connectivity};
 ///
 /// let thinned = thin_connected(&pix, ThinType::Foreground, Connectivity::Four, 0)?;
 /// ```

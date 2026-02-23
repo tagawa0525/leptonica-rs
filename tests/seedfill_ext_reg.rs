@@ -6,12 +6,12 @@
 //! - pixDistanceFunction, pixFindEqualValues, pixFillClosedBorders
 //! - pixRemoveSeededComponents, pixSeedfillGrayInv, pixSeedfillBinaryRestricted
 
-use leptonica_core::{Pix, PixelDepth};
-use leptonica_region::ConnectivityType;
-use leptonica_region::seedfill::{
+use leptonica::region::ConnectivityType;
+use leptonica::region::seedfill::{
     BoundaryCondition, distance_function, fill_closed_borders, find_equal_values,
     remove_seeded_components, seedfill_binary_restricted, seedfill_gray_inv,
 };
+use leptonica::{Pix, PixelDepth};
 
 /// Create a binary rect: foreground pixels in [x0,x1) × [y0,y1)
 fn make_binary_rect(w: u32, h: u32, x0: u32, y0: u32, x1: u32, y1: u32) -> Pix {

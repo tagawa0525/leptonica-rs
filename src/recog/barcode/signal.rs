@@ -3,8 +3,8 @@
 //! This module provides functions for extracting and quantizing bar widths
 //! from barcode images.
 
-use crate::{RecogError, RecogResult};
-use leptonica_core::{Numa, Pix, PixelDepth};
+use crate::core::{Numa, Pix, PixelDepth};
+use crate::recog::{RecogError, RecogResult};
 
 use super::types::Direction;
 
@@ -306,7 +306,7 @@ pub fn widths_to_bar_string(widths: &[u8]) -> String {
 /// # Returns
 /// * `Numa` of quantized bar widths (values 1–4)
 pub fn extract_barcode_widths(pix: &Pix, direction: Direction) -> RecogResult<Numa> {
-    use leptonica_transform::rotate_90;
+    use crate::transform::rotate_90;
 
     if pix.depth() != PixelDepth::Bit8 {
         return Err(RecogError::UnsupportedDepth {
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_extract_barcode_widths_horizontal() {
-        let pix = leptonica_core::Pix::new(200, 50, leptonica_core::PixelDepth::Bit8).unwrap();
+        let pix = crate::core::Pix::new(200, 50, crate::core::PixelDepth::Bit8).unwrap();
         // A blank image won't have enough crossings, so we expect an error
         let result = extract_barcode_widths(&pix, Direction::Horizontal);
         assert!(result.is_err());
