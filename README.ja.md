@@ -1,5 +1,10 @@
 # leptonica-rs
 
+[![CI](https://github.com/tagawa/leptonica-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/tagawa/leptonica-rs/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/leptonica.svg)](https://crates.io/crates/leptonica)
+[![docs.rs](https://docs.rs/leptonica/badge.svg)](https://docs.rs/leptonica)
+[![License: BSD-2-Clause](https://img.shields.io/badge/license-BSD--2--Clause-blue.svg)](LICENSE)
+
 [Leptonica](http://www.leptonica.org/) 画像処理ライブラリのRust移植。
 
 [English](README.md)
