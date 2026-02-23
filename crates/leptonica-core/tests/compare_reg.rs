@@ -76,7 +76,7 @@ fn compare_reg_correlation() {
     let score = leptonica_core::pix::correlation_binary(&pix1, &pix1).expect("self correl");
     rp.compare_values(1.0, score, 0.001);
 
-    // Correlation with inverted should be low (near 0 or negative)
+    // Correlation with inverted should be low (near 0)
     let pix2 = pix1.invert();
     let score_inv = leptonica_core::pix::correlation_binary(&pix1, &pix2).expect("inv correl");
     assert!(
