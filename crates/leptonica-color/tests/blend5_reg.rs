@@ -23,7 +23,6 @@ use leptonica_test::RegParams;
 /// C: pixSnapColor(NULL, pixs, 0xffffff00, 0xffffe400, 30)
 ///    Snap near-white to yellow with tolerance 30.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend5_reg_snap_color_rgb() {
     let mut rp = RegParams::new("blend5_snap_rgb");
 
@@ -51,7 +50,6 @@ fn blend5_reg_snap_color_rgb() {
 ///
 /// Rust: Convert to 8bpp and snap gray values.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend5_reg_snap_color_gray() {
     let mut rp = RegParams::new("blend5_snap_gray");
 
@@ -79,7 +77,6 @@ fn blend5_reg_snap_color_gray() {
 ///
 /// Rust: linear_edge_fade on PixMut with all direction/target combos.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend5_reg_edge_fade_rgb() {
     let mut rp = RegParams::new("blend5_fade_rgb");
 
@@ -130,7 +127,6 @@ fn blend5_reg_edge_fade_rgb() {
 ///
 /// Rust: linear_edge_fade on 8bpp PixMut.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend5_reg_edge_fade_gray() {
     let mut rp = RegParams::new("blend5_fade_gray");
 
@@ -166,7 +162,6 @@ fn blend5_reg_edge_fade_gray() {
 ///
 /// Rust: Apply all four fades to the same PixMut.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend5_reg_edge_fade_combined() {
     let mut rp = RegParams::new("blend5_fade_combined");
 

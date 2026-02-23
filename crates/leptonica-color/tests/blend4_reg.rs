@@ -24,13 +24,16 @@ use leptonica_transform::scale_by_sampling;
 /// C: pixAddAlphaToBlend(pixt, 0.3, 0) on feyn-word, weasel, karen
 ///    Creates RGBA blenders with 30% opacity.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend4_reg_add_alpha() {
     let mut rp = RegParams::new("blend4_alpha");
 
     // Load blender images
-    let feyn = leptonica_test::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
-    let weasel = leptonica_test::load_test_image("weasel4.16c.png").expect("load weasel4.16c.png");
+    // feyn-word.tif is 1bpp; add_alpha_to_blend requires 8 or 32bpp, so convert first
+    let feyn_raw = leptonica_test::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
+    let feyn = feyn_raw.convert_to_8().expect("feyn to 8bpp");
+    let weasel_raw =
+        leptonica_test::load_test_image("weasel4.16c.png").expect("load weasel4.16c.png");
+    let weasel = weasel_raw.convert_to_32().expect("weasel to 32bpp");
     let karen = leptonica_test::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
     // add_alpha_to_blend at 30% opacity, normal (not inverted)
@@ -63,7 +66,6 @@ fn blend4_reg_add_alpha() {
 ///
 /// Rust: alpha_blend_uniform flattens RGBA to RGB with solid background.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend4_reg_alpha_composite() {
     let mut rp = RegParams::new("blend4_composite");
 
@@ -94,7 +96,6 @@ fn blend4_reg_alpha_composite() {
 ///
 /// Rust: Create a synthetic gradient mask and blend fish24 with wyom.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend4_reg_gray_mask_blend() {
     let mut rp = RegParams::new("blend4_mask");
 
@@ -133,7 +134,6 @@ fn blend4_reg_gray_mask_blend() {
 ///
 /// C: pixBlendWithGrayMask(pix1, pix2, pixg, x, y) with non-zero offset.
 #[test]
-#[ignore = "not yet implemented"]
 fn blend4_reg_mask_offset() {
     let mut rp = RegParams::new("blend4_offset");
 
