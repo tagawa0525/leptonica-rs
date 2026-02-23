@@ -43,20 +43,13 @@ fn multitype_reg_rotate() {
         "test8.jpg",
         "marge.jpg",
     ];
-    let depths = [
-        PixelDepth::Bit1,
-        PixelDepth::Bit2,
-        PixelDepth::Bit4,
-        PixelDepth::Bit8,
-        PixelDepth::Bit32,
-    ];
 
     let opts = RotateOptions {
         fill: RotateFill::White,
         ..Default::default()
     };
 
-    for (img, &expected_depth) in images.iter().zip(depths.iter()) {
+    for img in &images {
         let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let pix_scaled = to_target_size(&pix);
 
@@ -64,7 +57,6 @@ fn multitype_reg_rotate() {
 
         // rotate() may expand the canvas to fit rotated content,
         // so we only verify the operation succeeds and produces non-empty output.
-        let _ = expected_depth; // rotation may convert some depths
         rp.compare_values(1.0, if rotated.width() > 0 { 1.0 } else { 0.0 }, 0.0);
         rp.compare_values(1.0, if rotated.height() > 0 { 1.0 } else { 0.0 }, 0.0);
     }
