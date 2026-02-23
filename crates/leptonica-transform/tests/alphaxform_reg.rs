@@ -25,7 +25,6 @@ use leptonica_transform::{
 /// Verifies that rotate_with_alpha produces 32bpp output at the same
 /// dimensions as the input, with different opacity values.
 #[test]
-#[ignore = "not yet implemented: rotate_with_alpha"]
 fn alphaxform_reg_rotate_with_alpha() {
     let mut rp = RegParams::new("alphaxform_rotate");
 
@@ -55,7 +54,6 @@ fn alphaxform_reg_rotate_with_alpha() {
 /// Verifies that affine_pta_with_alpha produces 32bpp output and that
 /// an identity transform preserves dimensions.
 #[test]
-#[ignore = "not yet implemented: affine_pta_with_alpha"]
 fn alphaxform_reg_affine_pta_with_alpha() {
     let mut rp = RegParams::new("alphaxform_affine");
 
@@ -95,7 +93,6 @@ fn alphaxform_reg_affine_pta_with_alpha() {
 ///
 /// Verifies that projective_pta_with_alpha produces 32bpp output.
 #[test]
-#[ignore = "not yet implemented: projective_pta_with_alpha"]
 fn alphaxform_reg_projective_pta_with_alpha() {
     let mut rp = RegParams::new("alphaxform_proj");
 
@@ -129,7 +126,6 @@ fn alphaxform_reg_projective_pta_with_alpha() {
 ///
 /// Verifies that bilinear_pta_with_alpha produces 32bpp output.
 #[test]
-#[ignore = "not yet implemented: bilinear_pta_with_alpha"]
 fn alphaxform_reg_bilinear_pta_with_alpha() {
     let mut rp = RegParams::new("alphaxform_bilin");
 

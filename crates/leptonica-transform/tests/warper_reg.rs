@@ -24,7 +24,6 @@ use leptonica_transform::{
 /// Verifies that random_harmonic_warp produces consistent results for
 /// a given seed, and dimensions are preserved across parameter sets.
 #[test]
-#[ignore = "not yet implemented: random_harmonic_warp"]
 fn warper_reg_random_harmonic() {
     let mut rp = RegParams::new("warper_rhw");
 
@@ -57,7 +56,6 @@ fn warper_reg_random_harmonic() {
 ///
 /// Verifies stereoscopic warp produces 32bpp output at original dimensions.
 #[test]
-#[ignore = "not yet implemented: warp_stereoscopic"]
 fn warper_reg_stereoscopic() {
     let mut rp = RegParams::new("warper_stereo");
 
@@ -94,7 +92,6 @@ fn warper_reg_stereoscopic() {
 /// Verifies horizontal stretch preserves image height and produces
 /// valid output for different warp types and directions.
 #[test]
-#[ignore = "not yet implemented: stretch_horizontal"]
 fn warper_reg_stretch_horizontal() {
     let mut rp = RegParams::new("warper_stretch");
 
