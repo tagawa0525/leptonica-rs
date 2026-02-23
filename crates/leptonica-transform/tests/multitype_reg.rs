@@ -219,6 +219,7 @@ fn multitype_reg_alpha() {
 
     let scaled = scale_to_size(&pix_no_alpha, TARGET_W, TARGET_H).expect("scale_to_size");
     rp.compare_values(TARGET_W as f64, scaled.width() as f64, 0.0);
+    rp.compare_values(TARGET_H as f64, scaled.height() as f64, 0.0);
 
     // Rotate after alpha removal
     let opts = RotateOptions {
@@ -226,8 +227,16 @@ fn multitype_reg_alpha() {
         ..Default::default()
     };
     let rotated = rotate(&scaled, 0.2, &opts).expect("rotate");
-    // rotate() may expand the canvas, so only verify non-empty output.
-    rp.compare_values(1.0, if rotated.width() > 0 { 1.0 } else { 0.0 }, 0.0);
+    // rotate() may expand the canvas, so only verify non-empty output in both dimensions.
+    rp.compare_values(
+        1.0,
+        if rotated.width() > 0 && rotated.height() > 0 {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
 
     assert!(rp.cleanup(), "multitype alpha test failed");
 }
