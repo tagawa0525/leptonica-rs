@@ -18,7 +18,6 @@ use leptonica_test::RegParams;
 ///
 /// Writes multiple images from files to a single PDF.
 #[test]
-#[ignore = "not yet implemented: PDF from files tests require feature verification"]
 fn pdfio2_reg_from_files() {
     let mut rp = RegParams::new("pdfio2_from_files");
 
@@ -69,7 +68,6 @@ fn pdfio2_reg_from_files() {
 ///
 /// Generates PDF to memory and verifies basic structure.
 #[test]
-#[ignore = "not yet implemented: PDF output tests require feature verification"]
 fn pdfio2_reg_memory_output() {
     let mut rp = RegParams::new("pdfio2_memory");
 

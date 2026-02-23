@@ -18,7 +18,6 @@ use leptonica_test::RegParams;
 ///
 /// Writes an image to PS at Level 1, verifies DSC header and hex data.
 #[test]
-#[ignore = "not yet implemented: PS output tests require feature verification"]
 fn psio_reg_level1() {
     let mut rp = RegParams::new("psio_level1");
 
@@ -46,7 +45,6 @@ fn psio_reg_level1() {
 ///
 /// Writes 8bpp and 32bpp images to PS at Level 2, verifies JPEG encoding.
 #[test]
-#[ignore = "not yet implemented: PS output tests require feature verification"]
 fn psio_reg_level2() {
     let mut rp = RegParams::new("psio_level2");
 
@@ -78,7 +76,6 @@ fn psio_reg_level2() {
 ///
 /// Writes images at various depths to PS at Level 3, verifies Flate encoding.
 #[test]
-#[ignore = "not yet implemented: PS output tests require feature verification"]
 fn psio_reg_level3() {
     let mut rp = RegParams::new("psio_level3");
 
@@ -109,7 +106,6 @@ fn psio_reg_level3() {
 ///
 /// Writes an image as EPS, verifies bounding box is present.
 #[test]
-#[ignore = "not yet implemented: PS output tests require feature verification"]
 fn psio_reg_eps() {
     let mut rp = RegParams::new("psio_eps");
 
@@ -135,7 +131,6 @@ fn psio_reg_eps() {
 ///
 /// Writes multiple images to a single PS document, verifies page markers.
 #[test]
-#[ignore = "not yet implemented: PS output tests require feature verification"]
 fn psio_reg_multipage() {
     let mut rp = RegParams::new("psio_multipage");
 
@@ -168,7 +163,6 @@ fn psio_reg_multipage() {
 ///
 /// Verifies resolution and scale options affect output.
 #[test]
-#[ignore = "not yet implemented: PS output tests require feature verification"]
 fn psio_reg_options() {
     let mut rp = RegParams::new("psio_options");
 

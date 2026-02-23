@@ -17,7 +17,6 @@ use leptonica_test::RegParams;
 ///
 /// Writes images of various depths, verifies PDF header and structure.
 #[test]
-#[ignore = "not yet implemented: PDF output tests require feature verification"]
 fn pdfio1_reg_auto_compression() {
     let mut rp = RegParams::new("pdfio1_auto");
 
@@ -55,7 +54,6 @@ fn pdfio1_reg_auto_compression() {
 ///
 /// Writes images with explicit Flate compression.
 #[test]
-#[ignore = "not yet implemented: PDF output tests require feature verification"]
 fn pdfio1_reg_flate() {
     let mut rp = RegParams::new("pdfio1_flate");
 
@@ -97,7 +95,6 @@ fn pdfio1_reg_flate() {
 /// Writes 8bpp and 32bpp images with JPEG compression.
 /// Note: 1bpp falls back to Flate since JPEG is unsuitable for binary.
 #[test]
-#[ignore = "not yet implemented: PDF output tests require feature verification"]
 fn pdfio1_reg_jpeg() {
     let mut rp = RegParams::new("pdfio1_jpeg");
 
@@ -143,7 +140,6 @@ fn pdfio1_reg_jpeg() {
 ///
 /// Creates a PDF with multiple images, verifies page count.
 #[test]
-#[ignore = "not yet implemented: PDF output tests require feature verification"]
 fn pdfio1_reg_multipage() {
     let mut rp = RegParams::new("pdfio1_multipage");
 
@@ -187,7 +183,6 @@ fn pdfio1_reg_multipage() {
 ///
 /// Verifies the title metadata appears in the PDF output.
 #[test]
-#[ignore = "not yet implemented: PDF output tests require feature verification"]
 fn pdfio1_reg_title() {
     let mut rp = RegParams::new("pdfio1_title");
 

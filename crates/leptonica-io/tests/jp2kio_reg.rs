@@ -16,7 +16,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies that JP2K file data is correctly identified.
 #[test]
-#[ignore = "not yet implemented: JP2K tests require feature verification"]
 fn jp2kio_reg_format_detection() {
     let mut rp = RegParams::new("jp2kio_format");
 
@@ -57,7 +56,6 @@ fn jp2kio_reg_format_detection() {
 ///
 /// Reads a JP2K image header and verifies dimensions.
 #[test]
-#[ignore = "not yet implemented: JP2K tests require feature verification"]
 fn jp2kio_reg_header_reading() {
     let mut rp = RegParams::new("jp2kio_header");
 
@@ -83,7 +81,6 @@ fn jp2kio_reg_header_reading() {
 ///
 /// Reads JP2K image data from memory bytes.
 #[test]
-#[ignore = "not yet implemented: JP2K tests require feature verification"]
 fn jp2kio_reg_memory_read() {
     let mut rp = RegParams::new("jp2kio_memread");
 
