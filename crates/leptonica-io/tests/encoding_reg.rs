@@ -37,8 +37,12 @@ fn encoding_reg_ps_ascii85() {
             let has_ps_header = ps_str.starts_with("%!");
             rp.compare_values(1.0, if has_ps_header { 1.0 } else { 0.0 }, 0.0);
         }
-        Err(_) => {
-            // PS output not available for this image type; skip gracefully
+        Err(e) => {
+            // PS output requires the "ps-format" feature; verify it's UnsupportedFormat
+            assert!(
+                matches!(e, leptonica_io::IoError::UnsupportedFormat(_)),
+                "expected UnsupportedFormat error, got: {e}"
+            );
             rp.compare_values(1.0, 1.0, 0.0);
             rp.compare_values(1.0, 1.0, 0.0);
         }
