@@ -33,7 +33,6 @@ fn to_target_size(pix: &leptonica_core::Pix) -> leptonica_core::Pix {
 ///
 /// Verifies that rotation runs without error on 1, 2, 4, 8, 32 bpp images.
 #[test]
-#[ignore = "not yet implemented"]
 fn multitype_reg_rotate() {
     let mut rp = RegParams::new("multitype_rotate");
 
@@ -77,7 +76,6 @@ fn multitype_reg_rotate() {
 ///
 /// Verifies affine and affine_sampled on 1, 8, 32 bpp images.
 #[test]
-#[ignore = "not yet implemented"]
 fn multitype_reg_affine() {
     let mut rp = RegParams::new("multitype_affine");
 
@@ -107,7 +105,6 @@ fn multitype_reg_affine() {
 
 /// Test projective transforms across multiple bit depths (C checks 8-10).
 #[test]
-#[ignore = "not yet implemented"]
 fn multitype_reg_projective() {
     let mut rp = RegParams::new("multitype_projective");
 
@@ -147,7 +144,6 @@ fn multitype_reg_projective() {
 
 /// Test bilinear transforms across multiple bit depths (C checks 11-13).
 #[test]
-#[ignore = "not yet implemented"]
 fn multitype_reg_bilinear() {
     let mut rp = RegParams::new("multitype_bilinear");
 
@@ -187,7 +183,6 @@ fn multitype_reg_bilinear() {
 
 /// Test scale_to_size across all image types (C scale checks).
 #[test]
-#[ignore = "not yet implemented"]
 fn multitype_reg_scale() {
     let mut rp = RegParams::new("multitype_scale");
 
@@ -216,7 +211,6 @@ fn multitype_reg_scale() {
 
 /// Test with alpha-channel image (C check for test-gray-alpha.png).
 #[test]
-#[ignore = "not yet implemented"]
 fn multitype_reg_alpha() {
     let mut rp = RegParams::new("multitype_alpha");
 

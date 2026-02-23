@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 /// Converts test1.png (1bpp) to 2, 4, 8, 32 bpp and verifies
 /// the round-trip through serialization.
 #[test]
-#[ignore = "not yet implemented"]
 fn conversion_reg_from_1bpp() {
     let mut rp = RegParams::new("conversion_from_1bpp");
 
@@ -57,7 +56,6 @@ fn conversion_reg_from_1bpp() {
 
 /// Test 2bpp colormapped → various depth conversions (C checks 4-7).
 #[test]
-#[ignore = "not yet implemented"]
 fn conversion_reg_from_2bpp() {
     let mut rp = RegParams::new("conversion_from_2bpp");
 
@@ -87,7 +85,6 @@ fn conversion_reg_from_2bpp() {
 
 /// Test 4bpp colormapped → various depth conversions (C checks 8-11).
 #[test]
-#[ignore = "not yet implemented"]
 fn conversion_reg_from_4bpp() {
     let mut rp = RegParams::new("conversion_from_4bpp");
 
@@ -112,7 +109,6 @@ fn conversion_reg_from_4bpp() {
 
 /// Test 8bpp colormapped → various depth conversions (C checks 12-15).
 #[test]
-#[ignore = "not yet implemented"]
 fn conversion_reg_from_8bpp() {
     let mut rp = RegParams::new("conversion_from_8bpp");
 
@@ -138,7 +134,6 @@ fn conversion_reg_from_8bpp() {
 
 /// Test 8bpp grayscale → other depths (C checks 16-19).
 #[test]
-#[ignore = "not yet implemented"]
 fn conversion_reg_gray_to_other() {
     let mut rp = RegParams::new("conversion_gray_to_other");
 
@@ -164,7 +159,6 @@ fn conversion_reg_gray_to_other() {
 
 /// Test 16bpp → 8bpp conversions (C checks 20-23).
 #[test]
-#[ignore = "not yet implemented"]
 fn conversion_reg_from_16bpp() {
     let mut rp = RegParams::new("conversion_from_16bpp");
 
@@ -193,7 +187,6 @@ fn conversion_reg_from_16bpp() {
 
 /// Test 32bpp RGB → various depth conversions (C checks 24-31).
 #[test]
-#[ignore = "not yet implemented"]
 fn conversion_reg_from_32bpp() {
     let mut rp = RegParams::new("conversion_from_32bpp");
 

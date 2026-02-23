@@ -21,7 +21,6 @@ use leptonica_test::RegParams;
 ///
 /// Creates a 1bpp image, sets pixels, reads them back, and verifies consistency.
 #[test]
-#[ignore = "not yet implemented"]
 fn lowaccess_reg_1bpp() {
     let mut rp = RegParams::new("lowaccess_1bpp");
 
@@ -63,7 +62,6 @@ fn lowaccess_reg_1bpp() {
 
 /// Test low-level 1bpp access functions: get_data_bit, set_data_bit (C checks 4-7).
 #[test]
-#[ignore = "not yet implemented"]
 fn lowaccess_reg_1bpp_lowlevel() {
     let mut rp = RegParams::new("lowaccess_1bpp_ll");
 
@@ -100,7 +98,6 @@ fn lowaccess_reg_1bpp_lowlevel() {
 
 /// Test 2bpp low-level access (C checks 8-11).
 #[test]
-#[ignore = "not yet implemented"]
 fn lowaccess_reg_2bpp() {
     let mut rp = RegParams::new("lowaccess_2bpp");
 
@@ -136,7 +133,6 @@ fn lowaccess_reg_2bpp() {
 
 /// Test 4bpp low-level access (C checks 12-15).
 #[test]
-#[ignore = "not yet implemented"]
 fn lowaccess_reg_4bpp() {
     let mut rp = RegParams::new("lowaccess_4bpp");
 
@@ -172,7 +168,6 @@ fn lowaccess_reg_4bpp() {
 
 /// Test 8bpp low-level access (C checks 16-19).
 #[test]
-#[ignore = "not yet implemented"]
 fn lowaccess_reg_8bpp() {
     let mut rp = RegParams::new("lowaccess_8bpp");
 
@@ -208,7 +203,6 @@ fn lowaccess_reg_8bpp() {
 
 /// Test 16bpp low-level access (C checks 20-23).
 #[test]
-#[ignore = "not yet implemented"]
 fn lowaccess_reg_16bpp() {
     let mut rp = RegParams::new("lowaccess_16bpp");
 
@@ -246,7 +240,6 @@ fn lowaccess_reg_16bpp() {
 ///
 /// Uses high-level get_pixel/set_pixel for 32bpp (RGBA) images.
 #[test]
-#[ignore = "not yet implemented"]
 fn lowaccess_reg_32bpp() {
     let mut rp = RegParams::new("lowaccess_32bpp");
 

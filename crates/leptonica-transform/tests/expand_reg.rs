@@ -17,7 +17,6 @@ use leptonica_transform::expand_replicate;
 ///
 /// Verifies 2× and 3× expansion preserves content structure.
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_1bpp() {
     let mut rp = RegParams::new("expand_1bpp");
 
@@ -39,7 +38,6 @@ fn expand_reg_1bpp() {
 
 /// Test expand_replicate on 2bpp image (C checks 2-3).
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_2bpp() {
     let mut rp = RegParams::new("expand_2bpp");
 
@@ -57,7 +55,6 @@ fn expand_reg_2bpp() {
 
 /// Test expand_replicate on 4bpp image (C checks 4-5).
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_4bpp() {
     let mut rp = RegParams::new("expand_4bpp");
 
@@ -74,7 +71,6 @@ fn expand_reg_4bpp() {
 
 /// Test expand_replicate on 8bpp image (C checks 6-7).
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_8bpp() {
     let mut rp = RegParams::new("expand_8bpp");
 
@@ -91,7 +87,6 @@ fn expand_reg_8bpp() {
 
 /// Test expand_replicate on 32bpp RGB image (C checks 8-9).
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_32bpp() {
     let mut rp = RegParams::new("expand_32bpp");
 
@@ -126,7 +121,6 @@ fn expand_reg_binary_power2() {
 
 /// Test expand_replicate with clipping (C additional checks).
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_clip() {
     let mut rp = RegParams::new("expand_clip");
 

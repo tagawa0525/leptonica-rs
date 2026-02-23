@@ -32,7 +32,6 @@ fn extrema_reg_find_extrema() {
 /// Verifies that min and max values can be found in a Numa array
 /// using available API.
 #[test]
-#[ignore = "not yet implemented"]
 fn extrema_reg_min_max() {
     let mut rp = RegParams::new("extrema_min_max");
 
@@ -64,7 +63,6 @@ fn extrema_reg_min_max() {
 /// Creates a sine waveform and verifies basic statistics,
 /// without the numaFindExtrema function.
 #[test]
-#[ignore = "not yet implemented"]
 fn extrema_reg_sine_waveform() {
     let mut rp = RegParams::new("extrema_sine");
 
