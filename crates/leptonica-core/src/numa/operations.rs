@@ -595,9 +595,9 @@ impl Numa {
 
     /// Morphological closing: dilation followed by erosion.
     ///
-    /// The C version adds a mirrored border of `size` on each side before
-    /// dilating, then erodes, then removes the border, so edge effects are
-    /// handled correctly.
+    /// The C version adds a mirrored border of `hsize` (`size / 2`) elements on
+    /// each side before dilating, then erodes, then removes the border, so edge
+    /// effects are handled correctly.
     ///
     /// C equivalent: `numaClose(nas, size)` in `numafunc2.c`
     pub fn close(&self, size: u32) -> Result<Numa> {
