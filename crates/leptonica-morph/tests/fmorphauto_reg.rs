@@ -71,7 +71,7 @@ fn fmorphauto_reg_dilate_erode() {
 
 /// Test that dilate-erode roundtrip (open) gives fewer pixels than original.
 ///
-/// C: open = erode(dilate(pix)); result should be subset of original
+/// C: open = dilate(erode(pix)); result should be subset of original
 #[test]
 fn fmorphauto_reg_open_subset() {
     let mut rp = RegParams::new("fmorphauto_open");

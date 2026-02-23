@@ -1,12 +1,13 @@
 //! Gray morphology 2 regression test
 //!
-//! Tests the equivalence between the optimized 3x3 fast-path and the general
-//! gray morphological operations. The C version compares pixDilateGray3 vs
+//! Regression tests for gray morphological operations using 3x1, 1x3, and 3x3
+//! structuring elements. The original C version compares pixDilateGray3 vs
 //! pixDilateGray and pixErodeGray3 vs pixErodeGray for various sizes.
 //!
-//! Partial migration: dilate_gray and erode_gray with 3x1, 1x3, and 3x3 sizes
-//! are tested. The equivalence between the 3x3 fast-path (internal) and the
-//! general algorithm is verified by checking output dimensions and pixel ranges.
+//! This Rust test is a partial migration: it exercises `dilate_gray` and
+//! `erode_gray` with 3x1, 1x3, and 3x3 sizes and verifies basic properties
+//! such as output dimensions, pixel depth, and monotonicity (dilation does
+//! not decrease, and erosion does not increase, the mean pixel value).
 //!
 //! # See also
 //!
