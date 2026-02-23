@@ -22,7 +22,7 @@ fn pdfio2_reg_from_files() {
     let mut rp = RegParams::new("pdfio2_from_files");
 
     // Write test images to temp files, then create PDF from file list
-    let tmpdir = std::env::temp_dir().join(format!("lept_pdfio2_{}", std::process::id()));
+    let tmpdir = std::path::PathBuf::from(leptonica_test::regout_dir()).join("pdfio2_from_files");
     std::fs::create_dir_all(&tmpdir).expect("create temp dir");
 
     let test_images = ["feyn.tif", "karen8.jpg", "marge.jpg"];
@@ -59,7 +59,9 @@ fn pdfio2_reg_from_files() {
     rp.compare_values(1.0, if buf.len() > 1000 { 1.0 } else { 0.0 }, 0.0);
 
     // Clean up
-    std::fs::remove_dir_all(&tmpdir).ok();
+    if let Err(e) = std::fs::remove_dir_all(&tmpdir) {
+        eprintln!("Failed to remove temporary directory {tmpdir:?}: {e}");
+    }
 
     assert!(rp.cleanup(), "pdfio2 from files test failed");
 }
