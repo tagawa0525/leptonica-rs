@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Publish crates in dependency order
+        run: |
+          # Level 1: no internal deps
+          cargo publish -p leptonica-core
+          sleep 60
+
+          # Level 2: depends on core only
+          cargo publish -p leptonica-io
+          cargo publish -p leptonica-doc
+          sleep 60
+
+          # Level 3: depends on core + io
+          cargo publish -p leptonica-region
+          cargo publish -p leptonica-transform
+          cargo publish -p leptonica-test
+          sleep 60
+
+          # Level 4: depends on core + io + transform
+          cargo publish -p leptonica-color
+          cargo publish -p leptonica-morph
+          sleep 60
+
+          # Level 5: depends on level 4
+          cargo publish -p leptonica-filter
+          cargo publish -p leptonica-recog
+          sleep 60
+
+          # Level 6: facade
+          cargo publish -p leptonica
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
