@@ -231,7 +231,6 @@ fn numa3_reg_rank_extraction() {
 /// Creates a sine waveform and verifies erode/dilate/open/close morphological
 /// properties: dilated >= original >= eroded at each point.
 #[test]
-#[ignore = "not yet implemented: Numa morphology operations not available"]
 fn numa3_reg_morphology() {
     let mut rp = RegParams::new("numa3_morphology");
 

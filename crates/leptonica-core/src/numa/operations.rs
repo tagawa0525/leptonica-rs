@@ -516,6 +516,116 @@ impl Numa {
     }
 
     // ====================================================================
+    // Morphological operations
+    // ====================================================================
+
+    /// Linear morphological erosion: minimum value in a sliding window.
+    ///
+    /// For each position `i`, the output is the minimum of
+    /// `self[i - hsize .. i + hsize]` where `hsize = size / 2`.
+    /// Boundary positions are padded with `1.0e37` (large sentinel) so that
+    /// interior minima are not suppressed near the edges.
+    ///
+    /// `size` is forced to be odd (incremented if even). If `size == 1` the
+    /// original array is returned unchanged.
+    ///
+    /// C equivalent: `numaErode(nas, size)` in `numafunc2.c`
+    pub fn erode(&self, size: u32) -> Result<Numa> {
+        let mut size = size;
+        if size.is_multiple_of(2) {
+            size += 1;
+        }
+        let n = self.len();
+        if size <= 1 || n == 0 {
+            return Ok(self.clone());
+        }
+        let hsize = (size / 2) as usize;
+        let padded_len = n + 2 * hsize;
+        let mut fas = vec![1.0e37f32; padded_len];
+        let src = self.as_slice();
+        fas[hsize..hsize + n].copy_from_slice(src);
+        let mut nad = Numa::with_capacity(n);
+        for i in 0..n {
+            let win = &fas[i..i + size as usize];
+            let min = win.iter().copied().fold(f32::INFINITY, f32::min);
+            nad.push(min);
+        }
+        Ok(nad)
+    }
+
+    /// Linear morphological dilation: maximum value in a sliding window.
+    ///
+    /// For each position `i`, the output is the maximum of
+    /// `self[i - hsize .. i + hsize]` where `hsize = size / 2`.
+    /// Boundary positions are padded with `-1.0e37` (small sentinel).
+    ///
+    /// `size` is forced to be odd (incremented if even). If `size == 1` the
+    /// original array is returned unchanged.
+    ///
+    /// C equivalent: `numaDilate(nas, size)` in `numafunc2.c`
+    pub fn dilate(&self, size: u32) -> Result<Numa> {
+        let mut size = size;
+        if size.is_multiple_of(2) {
+            size += 1;
+        }
+        let n = self.len();
+        if size <= 1 || n == 0 {
+            return Ok(self.clone());
+        }
+        let hsize = (size / 2) as usize;
+        let padded_len = n + 2 * hsize;
+        let mut fas = vec![-1.0e37f32; padded_len];
+        let src = self.as_slice();
+        fas[hsize..hsize + n].copy_from_slice(src);
+        let mut nad = Numa::with_capacity(n);
+        for i in 0..n {
+            let win = &fas[i..i + size as usize];
+            let max = win.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+            nad.push(max);
+        }
+        Ok(nad)
+    }
+
+    /// Morphological opening: erosion followed by dilation.
+    ///
+    /// C equivalent: `numaOpen(nas, size)` in `numafunc2.c`
+    pub fn open(&self, size: u32) -> Result<Numa> {
+        self.erode(size)?.dilate(size)
+    }
+
+    /// Morphological closing: dilation followed by erosion.
+    ///
+    /// The C version adds a mirrored border of `size` on each side before
+    /// dilating, then erodes, then removes the border, so edge effects are
+    /// handled correctly.
+    ///
+    /// C equivalent: `numaClose(nas, size)` in `numafunc2.c`
+    pub fn close(&self, size: u32) -> Result<Numa> {
+        let mut size = size;
+        if size.is_multiple_of(2) {
+            size += 1;
+        }
+        let hsize = (size / 2) as usize;
+        let bordered = self.add_specified_border(hsize, hsize, BorderType::Mirrored)?;
+        let dilated = bordered.dilate(size)?;
+        let eroded = dilated.erode(size)?;
+        eroded.remove_border(hsize, hsize)
+    }
+
+    /// Linear transform: scale each value after applying a shift.
+    ///
+    /// Computes `output[i] = scale * (self[i] + shift)`.
+    ///
+    /// C equivalent: `numaTransform(nas, shift, scale)` in `numafunc2.c`
+    pub fn transform(&self, shift: f32, scale: f32) -> Numa {
+        let mut nad = Numa::with_capacity(self.len());
+        for i in 0..self.len() {
+            nad.push(scale * (self[i] + shift));
+        }
+        nad
+    }
+
+    // ====================================================================
     // Histogram construction
     // ====================================================================
 
