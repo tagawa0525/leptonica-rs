@@ -273,7 +273,7 @@ fn numa3_reg_morphology() {
 fn numa3_reg_threshold_finding() {
     let mut rp = RegParams::new("numa3_threshold");
 
-    // バイモーダル分布: ガウス状の峰を 2 つ（50 と 180 付近）
+    // Bimodal distribution: two Gaussian peaks (around 50 and 180)
     let mut na = Numa::new();
     for i in 0..256usize {
         let x = i as f32;
@@ -282,18 +282,18 @@ fn numa3_reg_threshold_finding() {
         na.push(peak1 + peak2);
     }
 
-    // transform で正規化（sum で割ることで全要素の和を 1 にする）
+    // Normalize with transform (divide by sum to make total equal to 1)
     let sum: f32 = (0..na.len()).map(|i| na[i]).sum();
     let nt = na.transform(0.0, 1.0 / sum);
 
-    // 2 つの峰（50, 180）の間にしきい値が検出されること
+    // Threshold should be detected between the two peaks (50 and 180)
     let (thresh, frac) = nt
         .find_loc_for_threshold(0)
         .expect("find_loc_for_threshold");
     let in_range = thresh > 80 && thresh < 160;
     rp.compare_values(1.0, if in_range { 1.0 } else { 0.0 }, 0.0);
 
-    // frac: 第 1 峰以下の割合（0.0〜1.0）
+    // frac: fraction below first peak (0.0 to 1.0)
     rp.compare_values(
         1.0,
         if (0.0..=1.0).contains(&frac) {
