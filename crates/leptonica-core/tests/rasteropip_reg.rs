@@ -78,13 +78,46 @@ fn rasteropip_reg_copy_consistency() {
 
 /// Test mirrored border operations (C check 1).
 ///
-/// Requires pixRemoveBorder and pixAddMirroredBorder.
+/// Removes 40-pixel border then adds a mirrored 40-pixel border.
+/// The resulting image must have the same dimensions as the original.
+/// The interior region (offset by 40,40) must match the de-bordered image.
+/// The border pixels must be mirrors of the interior edge pixels.
+///
+/// C equivalent: pixRemoveBorder + pixAddMirroredBorder
 #[test]
 #[ignore = "not yet implemented: pixRemoveBorder/pixAddMirroredBorder not available"]
 fn rasteropip_reg_mirrored_border() {
-    // C version:
-    // 1. Reads test8.jpg
-    // 2. pixRemoveBorder(pixs, 40)
-    // 3. pixAddMirroredBorder(pixt, 40, 40, 40, 40)
-    // 4. Writes golden file
+    let mut rp = RegParams::new("rasteropip_mirror");
+
+    let pixs = leptonica_test::load_test_image("test8.jpg").expect("load test8.jpg");
+    let w = pixs.width();
+    let h = pixs.height();
+
+    // Remove 40-pixel border on all sides
+    let pixt = pixs.remove_border(40).expect("remove_border(40)");
+    let tw = pixt.width();
+    let th = pixt.height();
+    rp.compare_values((w - 80) as f64, tw as f64, 0.0);
+    rp.compare_values((h - 80) as f64, th as f64, 0.0);
+
+    // Add mirrored border of 40 pixels on all sides
+    let pixd = pixt
+        .add_mirrored_border(40, 40, 40, 40)
+        .expect("add_mirrored_border(40,40,40,40)");
+
+    // Dimensions must match original
+    rp.compare_values(w as f64, pixd.width() as f64, 0.0);
+    rp.compare_values(h as f64, pixd.height() as f64, 0.0);
+
+    // Interior region of pixd must exactly match pixt
+    let interior_ok =
+        (0..th).all(|y| (0..tw).all(|x| pixt.get_pixel(x, y) == pixd.get_pixel(x + 40, y + 40)));
+    rp.compare_values(1.0, if interior_ok { 1.0 } else { 0.0 }, 0.0);
+
+    // Spot-check left mirror border: pixd[39-j, y+40] == pixd[40+j, y+40] for j=0..5
+    let border_ok = (0..5u32)
+        .all(|j| (0..5u32).all(|y| pixd.get_pixel(39 - j, y + 40) == pixt.get_pixel(j, y)));
+    rp.compare_values(1.0, if border_ok { 1.0 } else { 0.0 }, 0.0);
+
+    assert!(rp.cleanup());
 }
