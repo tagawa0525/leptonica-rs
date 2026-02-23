@@ -548,6 +548,7 @@ impl PixMut {
     /// # Errors
     ///
     /// Returns an error if `src` and `self` have different bit depths.
+    #[allow(clippy::too_many_arguments)]
     pub fn rop_region_inplace(
         &mut self,
         dst_x: i32,

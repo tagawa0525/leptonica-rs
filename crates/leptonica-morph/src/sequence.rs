@@ -47,6 +47,7 @@
 
 use crate::{MorphError, MorphResult};
 use leptonica_core::{Pix, PixelDepth};
+use leptonica_transform::{expand_replicate, reduce_rank_binary_cascade};
 
 /// A parsed morphological operation
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -229,12 +230,59 @@ impl MorphSequence {
                     height,
                 })
             }
-            'r' | 'x' | 'b' => {
-                // Rank reduction, expansion, and border are not yet supported
-                Err(MorphError::UnsupportedOperation(format!(
-                    "operation '{}' is not yet supported (rank reduction, expansion, and border operations require additional infrastructure)",
-                    first_char
-                )))
+            'r' => {
+                // Rank reduction: r<d1><d2>...<dN>
+                // 各桁 d_i は rank level (1–4)
+                let digits_str = &op_str[1..];
+                if digits_str.is_empty() {
+                    return Err(MorphError::InvalidSequence(
+                        "rank reduce 'r' requires at least one level digit".to_string(),
+                    ));
+                }
+                let mut levels = Vec::with_capacity(digits_str.len());
+                for ch in digits_str.chars() {
+                    match ch {
+                        '1'..='4' => levels.push(ch as u8 - b'0'),
+                        '0' | '5'..='9' => {
+                            return Err(MorphError::InvalidSequence(format!(
+                                "rank level must be 1–4, got '{ch}' in '{op_str}'"
+                            )));
+                        }
+                        _ => {
+                            return Err(MorphError::InvalidSequence(format!(
+                                "non-digit character '{ch}' in rank reduce '{op_str}'"
+                            )));
+                        }
+                    }
+                }
+                Ok(MorphOp::RankReduce { levels })
+            }
+            'x' => {
+                // Binary expansion: x<factor>
+                let factor_str = &op_str[1..];
+                if factor_str.is_empty() {
+                    return Err(MorphError::InvalidSequence(
+                        "binary expand 'x' requires a factor".to_string(),
+                    ));
+                }
+                let factor: u32 = factor_str.parse().map_err(|_| {
+                    MorphError::InvalidSequence(format!(
+                        "invalid expansion factor '{}' in '{}'",
+                        factor_str, op_str
+                    ))
+                })?;
+                if factor == 0 || !factor.is_power_of_two() {
+                    return Err(MorphError::InvalidSequence(format!(
+                        "expansion factor must be a power of 2 > 0, got {factor}"
+                    )));
+                }
+                Ok(MorphOp::BinaryExpand { factor })
+            }
+            'b' => {
+                // Border operations are not supported
+                Err(MorphError::UnsupportedOperation(
+                    "operation 'b' (border) is not supported".to_string(),
+                ))
             }
             _ => Err(MorphError::InvalidSequence(format!(
                 "unknown operation '{}' in '{}'",
@@ -541,8 +589,10 @@ fn execute_binary_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
-        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
-            todo!("RankReduce/BinaryExpand execution not yet implemented")
+        MorphOp::RankReduce { levels } => reduce_rank_binary_cascade(pix, levels)
+            .map_err(|e| MorphError::InvalidSequence(e.to_string())),
+        MorphOp::BinaryExpand { factor } => {
+            expand_replicate(pix, *factor).map_err(|e| MorphError::InvalidSequence(e.to_string()))
         }
     }
 }
@@ -557,8 +607,10 @@ fn execute_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
-        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
-            todo!("RankReduce/BinaryExpand execution not yet implemented")
+        MorphOp::RankReduce { levels } => reduce_rank_binary_cascade(pix, levels)
+            .map_err(|e| MorphError::InvalidSequence(e.to_string())),
+        MorphOp::BinaryExpand { factor } => {
+            expand_replicate(pix, *factor).map_err(|e| MorphError::InvalidSequence(e.to_string()))
         }
     }
 }
@@ -575,8 +627,10 @@ fn execute_comp_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
-        MorphOp::RankReduce { .. } | MorphOp::BinaryExpand { .. } => {
-            todo!("RankReduce/BinaryExpand execution not yet implemented")
+        MorphOp::RankReduce { levels } => reduce_rank_binary_cascade(pix, levels)
+            .map_err(|e| MorphError::InvalidSequence(e.to_string())),
+        MorphOp::BinaryExpand { factor } => {
+            expand_replicate(pix, *factor).map_err(|e| MorphError::InvalidSequence(e.to_string()))
         }
     }
 }
@@ -747,17 +801,16 @@ mod tests {
 
     #[test]
     fn test_parse_unsupported_operations() {
-        // Rank reduction
-        let result = MorphSequence::parse("r23");
-        assert!(result.is_err());
-
-        // Expansion
-        let result = MorphSequence::parse("x4");
-        assert!(result.is_err());
-
-        // Border
+        // Border は未サポート
         let result = MorphSequence::parse("b32");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_r_and_x_now_supported() {
+        // r と x は実装済み
+        assert!(MorphSequence::parse("r23").is_ok());
+        assert!(MorphSequence::parse("x4").is_ok());
     }
 
     #[test]
@@ -920,7 +973,6 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rank_reduce_r11() {
         // "r11" → RankReduce { levels: [1, 1] }
         let seq = MorphSequence::parse("r11").unwrap();
@@ -932,7 +984,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rank_reduce_r1143() {
         // "r1143" → RankReduce { levels: [1, 1, 4, 3] }
         let seq = MorphSequence::parse("r1143").unwrap();
@@ -943,7 +994,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_binary_expand_x4() {
         // "x4" → BinaryExpand { factor: 4 }
         let seq = MorphSequence::parse("x4").unwrap();
@@ -955,7 +1005,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_jbig2enc_seed_sequence() {
         // jbig2.cc の "r1143 + o4.4 + x4" がパース可能かつ 3 演算子
         let seq = MorphSequence::parse("r1143 + o4.4 + x4").unwrap();
@@ -963,7 +1012,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_sequence_r11_size() {
         // "r11": 16x16 → 4x4
         let pix = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
@@ -973,7 +1021,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_sequence_x4_size() {
         // "x4": 4x4 → 16x16
         let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
@@ -983,7 +1030,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_morph_sequence_r11_x4_roundtrip_size() {
         // "r11 + x4": 縮小後に拡大 → 元サイズに戻る
         let pix = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
@@ -993,7 +1039,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_reduce_invalid_digit() {
         // level 0 または 5 は無効
         assert!(MorphSequence::parse("r05").is_err());
