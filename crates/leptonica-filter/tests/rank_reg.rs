@@ -377,11 +377,13 @@ fn rank_reg_scale_gray_rank_cascade() {
     let pix2 =
         leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 2, 0, 0).expect("cascade level=2");
     rp.compare_values((ws / 4) as f64, pix2.width() as f64, 0.0);
+    rp.compare_values((hs / 4) as f64, pix2.height() as f64, 0.0);
 
     // 4 levels: result is ws/16 x hs/16
     let pix4 =
         leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 2, 3, 4).expect("cascade level=4");
     rp.compare_values((ws / 16) as f64, pix4.width() as f64, 0.0);
+    rp.compare_values((hs / 16) as f64, pix4.height() as f64, 0.0);
 
     assert!(rp.cleanup(), "rank_scale_gray_cascade test failed");
 }
