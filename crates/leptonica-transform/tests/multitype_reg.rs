@@ -125,10 +125,12 @@ fn multitype_reg_projective() {
         let result = projective_sampled(&pix_scaled, &coeffs, AffineFill::White)
             .expect("projective_sampled");
         rp.compare_values(TARGET_W as f64, result.width() as f64, 0.0);
+        rp.compare_values(TARGET_H as f64, result.height() as f64, 0.0);
 
         // Interpolated projective
         let result2 = projective(&pix_scaled, &coeffs, AffineFill::White).expect("projective");
         rp.compare_values(TARGET_W as f64, result2.width() as f64, 0.0);
+        rp.compare_values(TARGET_H as f64, result2.height() as f64, 0.0);
     }
 
     assert!(rp.cleanup(), "multitype projective test failed");
