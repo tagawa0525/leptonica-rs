@@ -13,6 +13,7 @@
 
 pub mod affine;
 pub mod bilinear;
+pub mod binreduce;
 mod error;
 pub mod projective;
 pub mod rotate;
@@ -29,6 +30,7 @@ pub use bilinear::{
     BilinearCoeffs, bilinear, bilinear_pta, bilinear_pta_with_alpha, bilinear_sampled,
     bilinear_sampled_pta,
 };
+pub use binreduce::{reduce_rank_binary_2, reduce_rank_binary_cascade};
 pub use error::{TransformError, TransformResult};
 pub use projective::{
     ProjectiveCoeffs, projective, projective_pta, projective_pta_with_alpha, projective_sampled,

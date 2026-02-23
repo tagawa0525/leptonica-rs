@@ -391,6 +391,7 @@ dependencies = [
  "leptonica-core",
  "leptonica-io",
  "leptonica-test",
+ "leptonica-transform",
  "thiserror",
 ]
 
