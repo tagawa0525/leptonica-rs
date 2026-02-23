@@ -16,15 +16,53 @@ use leptonica_test::RegParams;
 
 /// Test Numa extrema finding (C checks 0-1).
 ///
-/// Requires numaFindExtrema which is not available in leptonica-core.
+/// Creates a sine waveform and verifies find_extrema detects peaks and valleys
+/// with a hysteresis threshold of delta=0.1.
 #[test]
-#[ignore = "not yet implemented: Numa::find_extrema not available"]
 fn extrema_reg_find_extrema() {
-    // C version:
-    // 1. Creates a 1D sine-like waveform (500 samples)
-    // 2. numaFindExtrema(na, 0.1, &nax) - find local extrema with delta=0.1
-    // 3. Writes nax to golden file (byte data)
-    // 4. Verifies plot file was created
+    let mut rp = RegParams::new("extrema_find");
+
+    let pi = std::f64::consts::PI;
+    let mut na = Numa::new();
+    for i in 0..500 {
+        let angle = 0.02293 * i as f64 * pi;
+        na.push(angle.sin() as f32);
+    }
+
+    // delta=0.1 で極値インデックスを検出
+    let nax = na.find_extrema(0.1).expect("find_extrema");
+
+    // サイン波 500 点で周期 ≈ 87 点 → 5.7 サイクル → 峰+谷で 10〜14 個程度
+    let len_ok = nax.len() >= 10 && nax.len() <= 14;
+    rp.compare_values(1.0, if len_ok { 1.0 } else { 0.0 }, 0.0);
+
+    // 全インデックスが有効範囲 [0, 500) 内かつ整数値であること
+    let all_valid = (0..nax.len()).all(|i| {
+        let idx = nax[i];
+        idx >= 0.0 && idx < 500.0 && idx.fract() == 0.0
+    });
+    rp.compare_values(1.0, if all_valid { 1.0 } else { 0.0 }, 0.0);
+
+    // 極値の値も取得できること
+    let (nax2, nav) = na
+        .find_extrema_with_values(0.1)
+        .expect("find_extrema_with_values");
+    rp.compare_values(nax.len() as f64, nax2.len() as f64, 0.0);
+    rp.compare_values(nax.len() as f64, nav.len() as f64, 0.0);
+
+    // nav の値が対応するインデックスの実際の値と一致すること
+    let nav_matches = (0..nav.len()).all(|i| {
+        let idx = nax2[i] as usize;
+        (nav[i] - na[idx]).abs() < 1e-5
+    });
+    rp.compare_values(1.0, if nav_matches { 1.0 } else { 0.0 }, 0.0);
+
+    // 峰(正)と谷(負)が交互に現れること（サイン波の場合）
+    let alternating =
+        (0..nav.len().saturating_sub(1)).all(|i| (nav[i] > 0.0) != (nav[i + 1] > 0.0));
+    rp.compare_values(1.0, if alternating { 1.0 } else { 0.0 }, 0.0);
+
+    assert!(rp.cleanup(), "extrema find_extrema test failed");
 }
 
 /// Test Numa basic min/max operations that are available.

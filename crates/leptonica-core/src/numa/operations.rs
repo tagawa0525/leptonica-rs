@@ -1638,6 +1638,114 @@ impl Numa {
     }
 
     // ====================================================================
+    // Extrema finding
+    // ====================================================================
+
+    /// Find local extrema (peaks and valleys) with a hysteresis threshold.
+    ///
+    /// Returns a Numa containing the array indices of detected extrema in
+    /// alternating peak/valley order. Only extrema that differ from the
+    /// previous extremum by at least `delta` are recorded.
+    ///
+    /// The final candidate location is not saved (matching C behavior where
+    /// the last `numaAddNumber(nad, loc)` is commented out).
+    ///
+    /// C equivalent: `numaFindExtrema(nas, delta, NULL)` in `numafunc2.c`
+    pub fn find_extrema(&self, delta: f32) -> Result<Numa> {
+        let (nad, _) = self.find_extrema_internal(delta, false)?;
+        Ok(nad)
+    }
+
+    /// Find local extrema and return both indices and values.
+    ///
+    /// Returns `(indices, values)` where both arrays contain the same number
+    /// of elements corresponding to each detected extremum.
+    ///
+    /// C equivalent: `numaFindExtrema(nas, delta, &pnav)` in `numafunc2.c`
+    pub fn find_extrema_with_values(&self, delta: f32) -> Result<(Numa, Numa)> {
+        let (nad, nav) = self.find_extrema_internal(delta, true)?;
+        Ok((
+            nad,
+            nav.expect("find_extrema_internal(with_values=true) must return Some(nav)"),
+        ))
+    }
+
+    fn find_extrema_internal(&self, delta: f32, with_values: bool) -> Result<(Numa, Option<Numa>)> {
+        if delta < 0.0 {
+            return Err(Error::InvalidParameter("delta < 0".into()));
+        }
+        let n = self.len();
+        let mut nad = Numa::new();
+        let nav = if with_values { Some(Numa::new()) } else { None };
+
+        if n == 0 {
+            return Ok((nad, nav));
+        }
+
+        let startval = self[0];
+        // Find first point that deviates from startval by at least delta
+        let mut first = None;
+        for i in 1..n {
+            if (self[i] - startval).abs() >= delta {
+                first = Some(i);
+                break;
+            }
+        }
+        let i0 = match first {
+            Some(i) => i,
+            None => return Ok((nad, nav)),
+        };
+
+        let val0 = self[i0];
+        let mut direction: i32;
+        let mut maxval: f32;
+        let mut minval: f32;
+        if val0 > startval {
+            direction = 1;
+            maxval = val0;
+            minval = 0.0; // unused while direction=1
+        } else {
+            direction = -1;
+            minval = val0;
+            maxval = 0.0; // unused while direction=-1
+        }
+        let mut loc = i0;
+
+        let mut nav = nav;
+        for i in (i0 + 1)..n {
+            let val = self[i];
+            if direction == 1 {
+                if val > maxval {
+                    maxval = val;
+                    loc = i;
+                } else if maxval - val >= delta {
+                    nad.push(loc as f32);
+                    if let Some(ref mut nav) = nav {
+                        nav.push(maxval);
+                    }
+                    direction = -1;
+                    minval = val;
+                    loc = i;
+                }
+            } else if val < minval {
+                minval = val;
+                loc = i;
+            } else if val - minval >= delta {
+                nad.push(loc as f32);
+                if let Some(ref mut nav) = nav {
+                    nav.push(minval);
+                }
+                direction = 1;
+                maxval = val;
+                loc = i;
+            }
+        }
+        // The final loc is intentionally not saved.
+        // C equivalent has `numaAddNumber(nad, loc)` commented out.
+        Ok((nad, nav))
+    }
+
+    // ====================================================================
     // Run counting
     // ====================================================================
 
