@@ -39,7 +39,7 @@ fn extrema_reg_find_extrema() {
     // 全インデックスが有効範囲 [0, 500) 内かつ整数値であること
     let all_valid = (0..nax.len()).all(|i| {
         let idx = nax[i];
-        idx >= 0.0 && idx < 500.0 && idx.fract() == 0.0
+        (0.0..500.0).contains(&idx) && idx.fract() == 0.0
     });
     rp.compare_values(1.0, if all_valid { 1.0 } else { 0.0 }, 0.0);
 
