@@ -1,0 +1,31 @@
+#[path = "../common/mod.rs"]
+mod common;
+
+mod alphaops_reg;
+mod binarize_advanced_reg;
+mod binarize_reg;
+mod blackwhite_reg;
+mod blend1_reg;
+mod blend2_reg;
+mod blend3_reg;
+mod blend4_reg;
+mod blend5_reg;
+mod cmapquant_reg;
+mod color_magnitude_reg;
+mod colorcontent_advanced_reg;
+mod colorcontent_reg;
+mod colorfill_reg;
+mod coloring_reg;
+mod colorize_reg;
+mod colormask_reg;
+mod colorquant_reg;
+mod colorseg_reg;
+mod colorspace_hsv_reg;
+mod colorspace_reg;
+mod dither_reg;
+mod grayquant_reg;
+mod hardlight_reg;
+mod paint_reg;
+mod paintmask_reg;
+mod quantize_ext_reg;
+mod threshnorm_reg;

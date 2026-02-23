@@ -38,3 +38,4 @@ all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format",
 
 [profile.dev]
 opt-level = 1
+

@@ -1,0 +1,35 @@
+#[path = "../common/mod.rs"]
+mod common;
+
+mod boxa1_reg;
+mod boxa2_reg;
+mod boxa3_reg;
+mod boxa4_reg;
+mod boxfunc_reg;
+mod compare_reg;
+mod conversion_reg;
+mod equal_reg;
+mod extrema_reg;
+mod fpix1_reg;
+mod fpix2_reg;
+mod insert_reg;
+mod logicops_reg;
+mod lowaccess_reg;
+mod numa1_reg;
+mod numa2_reg;
+mod numa3_reg;
+mod numa_sort_interp_reg;
+mod overlap_reg;
+mod pix_arith_rop_reg;
+mod pix_clip_advanced_ext_reg;
+mod pix_clip_advanced_reg;
+mod pix_histogram_advanced_reg;
+mod pix_stats_advanced_reg;
+mod pixa1_reg;
+mod pixa2_reg;
+mod pixafunc_reg;
+mod pixcomp_reg;
+mod pixserial_reg;
+mod pta_reg;
+mod rasterop_reg;
+mod rasteropip_reg;
