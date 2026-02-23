@@ -179,6 +179,34 @@ fn add_mirrored_border(nas: &Numa, left: usize, right: usize) -> Numa {
 }
 
 // ============================================================================
+// Sliding window min/max helper
+// ============================================================================
+
+/// Apply a sliding window reduction over `nas` with sentinel-padded borders.
+///
+/// Pads `hsize` elements on each side with `sentinel`, then for each position
+/// applies `reduce` over the window of `size` elements.
+fn sliding_window_reduce(
+    nas: &Numa,
+    size: usize,
+    hsize: usize,
+    sentinel: f32,
+    reduce: impl Fn(f32, f32) -> f32,
+) -> Numa {
+    let n = nas.len();
+    let padded_len = n + 2 * hsize;
+    let mut fas = vec![sentinel; padded_len];
+    fas[hsize..hsize + n].copy_from_slice(nas.as_slice());
+    let mut nad = Numa::with_capacity(n);
+    for i in 0..n {
+        let win = &fas[i..i + size];
+        let val = win.iter().copied().fold(sentinel, &reduce);
+        nad.push(val);
+    }
+    nad
+}
+
+// ============================================================================
 // BinSizeArray for numaMakeHistogram
 // ============================================================================
 
@@ -535,22 +563,17 @@ impl Numa {
         if size.is_multiple_of(2) {
             size += 1;
         }
-        let n = self.len();
-        if size <= 1 || n == 0 {
+        if size <= 1 || self.is_empty() {
             return Ok(self.clone());
         }
         let hsize = (size / 2) as usize;
-        let padded_len = n + 2 * hsize;
-        let mut fas = vec![1.0e37f32; padded_len];
-        let src = self.as_slice();
-        fas[hsize..hsize + n].copy_from_slice(src);
-        let mut nad = Numa::with_capacity(n);
-        for i in 0..n {
-            let win = &fas[i..i + size as usize];
-            let min = win.iter().copied().fold(f32::INFINITY, f32::min);
-            nad.push(min);
-        }
-        Ok(nad)
+        Ok(sliding_window_reduce(
+            self,
+            size as usize,
+            hsize,
+            1.0e37f32,
+            f32::min,
+        ))
     }
 
     /// Linear morphological dilation: maximum value in a sliding window.
@@ -568,22 +591,17 @@ impl Numa {
         if size.is_multiple_of(2) {
             size += 1;
         }
-        let n = self.len();
-        if size <= 1 || n == 0 {
+        if size <= 1 || self.is_empty() {
             return Ok(self.clone());
         }
         let hsize = (size / 2) as usize;
-        let padded_len = n + 2 * hsize;
-        let mut fas = vec![-1.0e37f32; padded_len];
-        let src = self.as_slice();
-        fas[hsize..hsize + n].copy_from_slice(src);
-        let mut nad = Numa::with_capacity(n);
-        for i in 0..n {
-            let win = &fas[i..i + size as usize];
-            let max = win.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-            nad.push(max);
-        }
-        Ok(nad)
+        Ok(sliding_window_reduce(
+            self,
+            size as usize,
+            hsize,
+            -1.0e37f32,
+            f32::max,
+        ))
     }
 
     /// Morphological opening: erosion followed by dilation.
