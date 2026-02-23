@@ -547,6 +547,69 @@ pub fn max_filter(pix: &Pix, width: u32, height: u32) -> FilterResult<Pix> {
     rank_filter(pix, width, height, 1.0)
 }
 
+// ---------------------------------------------------------------------------
+// Grayscale downscaling by rank / min-max selection
+// C reference: reference/leptonica/src/scale2.c
+// ---------------------------------------------------------------------------
+
+/// Operation type for [`scale_gray_min_max`].
+#[derive(Debug, Clone, Copy)]
+pub enum MinMaxOp {
+    /// Output the minimum value in each block (grayscale erosion analogue).
+    Min,
+    /// Output the maximum value in each block (grayscale dilation analogue).
+    Max,
+    /// Output the difference `max − min` within each block.
+    MaxDiff,
+}
+
+/// Downsample an 8bpp grayscale image by min, max, or max-diff within blocks.
+///
+/// For each `xfact × yfact` block of source pixels the output pixel contains
+/// the minimum, maximum, or (maximum − minimum) value of that block.
+///
+/// C equivalent: `pixScaleGrayMinMax`
+pub fn scale_gray_min_max(
+    _pix: &Pix,
+    _xfact: u32,
+    _yfact: u32,
+    _op: MinMaxOp,
+) -> FilterResult<Pix> {
+    unimplemented!("scale_gray_min_max: not yet implemented")
+}
+
+/// Downsample an 8bpp grayscale image by 2× using rank selection in 2×2 blocks.
+///
+/// Each 2×2 block in the source maps to one output pixel.  The `rank` parameter
+/// selects which of the four sorted values to output:
+/// - `1` → darkest (minimum)
+/// - `2` → second darkest
+/// - `3` → second lightest
+/// - `4` → lightest (maximum)
+///
+/// C equivalent: `pixScaleGrayRank2`
+pub fn scale_gray_rank2(_pix: &Pix, _rank: u8) -> FilterResult<Pix> {
+    unimplemented!("scale_gray_rank2: not yet implemented")
+}
+
+/// Apply [`scale_gray_rank2`] cascaded up to four times.
+///
+/// Each active level (value > 0) halves both dimensions using the given rank.
+/// A level value of `0` stops the cascade at that stage and returns the
+/// image accumulated so far.  If `level1 == 0` the source image is returned
+/// unchanged.
+///
+/// C equivalent: `pixScaleGrayRankCascade`
+pub fn scale_gray_rank_cascade(
+    _pix: &Pix,
+    _level1: u8,
+    _level2: u8,
+    _level3: u8,
+    _level4: u8,
+) -> FilterResult<Pix> {
+    unimplemented!("scale_gray_rank_cascade: not yet implemented")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

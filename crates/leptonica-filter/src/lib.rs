@@ -57,7 +57,8 @@ pub use enhance::{
     unsharp_masking_gray,
 };
 pub use rank::{
-    max_filter, median_filter, min_filter, rank_filter, rank_filter_color, rank_filter_gray,
+    MinMaxOp, max_filter, median_filter, min_filter, rank_filter, rank_filter_color,
+    rank_filter_gray, scale_gray_min_max, scale_gray_rank_cascade, scale_gray_rank2,
 };
 pub use windowed::{
     WindowedStatsResult, mean_square_accum, windowed_mean, windowed_mean_square, windowed_stats,
