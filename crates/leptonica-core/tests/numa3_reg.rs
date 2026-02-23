@@ -1,13 +1,14 @@
 //! Numa advanced operations regression test
 //!
-//! Tests rank extraction, numa-morphology, threshold finding,
-//! and sorted insertion.
+//! Tests sorted insertion, windowed mean, histogram statistics,
+//! and similarity comparison.
 //!
 //! The C version tests histogram-based rank extraction, numa morphological
 //! operations (erode/dilate/open/close), windowed mean smoothing,
 //! and sorted insertion with verification.
 //! This Rust port tests available Numa operations: sorted insertion,
-//! windowed mean, histogram, and similarity checking.
+//! windowed mean, histogram statistics, and similarity checking.
+//! Rank extraction, morphology, and threshold finding are not yet available.
 //!
 //! # See also
 //!
@@ -148,7 +149,17 @@ fn numa3_reg_histogram() {
     let hist = &hist_result.histogram;
 
     // Histogram should have non-zero entries
-    rp.compare_values(1.0, if hist.len() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(1.0, if !hist.is_empty() { 1.0 } else { 0.0 }, 0.0);
+
+    // Verify total count sums to the number of input values
+    let total_count: f64 = (0..hist.len()).map(|i| hist[i] as f64).sum();
+    rp.compare_values(na.len() as f64, total_count, 0.0);
+
+    // Verify the two peaks: bins for values 100 and 200 should each have count 50
+    let bin100 = ((100 - hist_result.binstart) / hist_result.binsize) as usize;
+    let bin200 = ((200 - hist_result.binstart) / hist_result.binsize) as usize;
+    rp.compare_values(50.0, hist[bin100] as f64, 0.0);
+    rp.compare_values(50.0, hist[bin200] as f64, 0.0);
 
     // Compute histogram stats
     let stats = hist.histogram_stats(hist_result.binstart as f32, hist_result.binsize as f32);
