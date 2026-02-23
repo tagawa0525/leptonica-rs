@@ -40,18 +40,27 @@ fn boxa4_reg() {
 
     // --- Test split even/odd + reconcile sides (C check 9) ---
     let boxa5_path = leptonica_test::test_data_path("boxa5.ba");
-    if std::path::Path::new(&boxa5_path).exists() {
-        let boxa1 = Boxa::read_from_file(&boxa5_path).expect("read boxa5.ba");
-        let (boxa1e, boxa1o) = boxa1.split_even_odd(false);
-        // split_even_odd should partition correctly
-        rp.compare_values(
-            boxa1.len() as f64,
-            (boxa1e.len() + boxa1o.len()) as f64,
-            0.0,
+    assert!(
+        std::path::Path::new(&boxa5_path).exists(),
+        "test fixture boxa5.ba not found at {boxa5_path}"
+    );
+    let boxa1 = Boxa::read_from_file(&boxa5_path).expect("read boxa5.ba");
+    let (boxa1e, boxa1o) = boxa1.split_even_odd(false);
+    // split_even_odd should partition correctly
+    rp.compare_values(
+        boxa1.len() as f64,
+        (boxa1e.len() + boxa1o.len()) as f64,
+        0.0,
+    );
+    // Merge back and verify content equality (not just length)
+    let merged = Boxa::merge_even_odd(&boxa1e, &boxa1o, false).expect("merge");
+    rp.compare_values(boxa1.len() as f64, merged.len() as f64, 0.0);
+    for i in 0..boxa1.len() {
+        assert_eq!(
+            boxa1.get(i),
+            merged.get(i),
+            "box at index {i} differs after split/merge roundtrip"
         );
-        // Merge back
-        let merged = Boxa::merge_even_odd(&boxa1e, &boxa1o, false).expect("merge");
-        rp.compare_values(boxa1.len() as f64, merged.len() as f64, 0.0);
     }
 
     // --- Test smoothing with capped min (C check 10) ---
