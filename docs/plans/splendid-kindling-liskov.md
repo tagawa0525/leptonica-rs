@@ -13,7 +13,7 @@ Rust 移植の品質と完成度を高める。
 - **新規実装が必要**: 対応する Rust 実装がなく、C 版アルゴリズムを移植する必要がある
 - **依存関係により保留**: 他 crate の未実装機能に依存しており、先に依存先を実装する必要がある
 
-本計画では上位 6 PR で合計 7 個の ignore テストを解除する。
+本計画では上位 6 PR で合計 8 個の ignore テストを解除する。
 
 ---
 
@@ -151,12 +151,12 @@ C 版: `reference/leptonica/src/numafunc2.c:162–427`
 impl Numa {
     /// C: numaErode()
     /// Linear morphological erosion with size `size` (forced odd).
-    /// Pads boundary with f32::MAX (large values) before taking min in window.
+    /// Pads boundary with 1.0e37f32 (large sentinel value) before taking min in window.
     pub fn erode(&self, size: u32) -> Result<Numa>;
 
     /// C: numaDilate()
     /// Linear morphological dilation with size `size` (forced odd).
-    /// Pads boundary with f32::MIN (small values) before taking max in window.
+    /// Pads boundary with -1.0e37f32 (small sentinel value) before taking max in window.
     pub fn dilate(&self, size: u32) -> Result<Numa>;
 
     /// C: numaOpen() = erode then dilate
