@@ -16,6 +16,15 @@ jobs:
 
       - uses: Swatinem/rust-cache@60eaf308e9556e6520284586925d6da4e91bb95c # v2
 
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
+
+      - name: test
+        run: cargo test --all-features
+
       - name: publish
         run: cargo publish
         env:
