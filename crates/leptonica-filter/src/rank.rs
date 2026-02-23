@@ -569,13 +569,62 @@ pub enum MinMaxOp {
 /// the minimum, maximum, or (maximum − minimum) value of that block.
 ///
 /// C equivalent: `pixScaleGrayMinMax`
-pub fn scale_gray_min_max(
-    _pix: &Pix,
-    _xfact: u32,
-    _yfact: u32,
-    _op: MinMaxOp,
-) -> FilterResult<Pix> {
-    unimplemented!("scale_gray_min_max: not yet implemented")
+pub fn scale_gray_min_max(pix: &Pix, xfact: u32, yfact: u32, op: MinMaxOp) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if xfact < 1 || yfact < 1 {
+        return Err(FilterError::InvalidParameters(
+            "xfact and yfact must be >= 1".to_string(),
+        ));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+
+    // Compute output dimensions; adjust factors if image is smaller than one block.
+    let (wd, xfact) = {
+        let d = ws / xfact;
+        if d == 0 { (1, ws) } else { (d, xfact) }
+    };
+    let (hd, yfact) = {
+        let d = hs / yfact;
+        if d == 0 { (1, hs) } else { (d, yfact) }
+    };
+
+    let out_pix = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    for i in 0..hd {
+        for j in 0..wd {
+            let mut minval = 255u8;
+            let mut maxval = 0u8;
+            for k in 0..yfact {
+                let sy = yfact * i + k;
+                for m in 0..xfact {
+                    let sx = xfact * j + m;
+                    let val = pix.get_pixel_unchecked(sx, sy) as u8;
+                    if val < minval {
+                        minval = val;
+                    }
+                    if val > maxval {
+                        maxval = val;
+                    }
+                }
+            }
+            let out_val = match op {
+                MinMaxOp::Min => minval,
+                MinMaxOp::Max => maxval,
+                MinMaxOp::MaxDiff => maxval - minval,
+            };
+            out_mut.set_pixel_unchecked(j, i, out_val as u32);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 /// Downsample an 8bpp grayscale image by 2× using rank selection in 2×2 blocks.
@@ -588,8 +637,57 @@ pub fn scale_gray_min_max(
 /// - `4` → lightest (maximum)
 ///
 /// C equivalent: `pixScaleGrayRank2`
-pub fn scale_gray_rank2(_pix: &Pix, _rank: u8) -> FilterResult<Pix> {
-    unimplemented!("scale_gray_rank2: not yet implemented")
+pub fn scale_gray_rank2(pix: &Pix, rank: u8) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(1..=4).contains(&rank) {
+        return Err(FilterError::InvalidParameters(
+            "rank must be in [1, 4]".to_string(),
+        ));
+    }
+
+    // Ranks 1 and 4 are just min/max — delegate to the faster path.
+    match rank {
+        1 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Min),
+        4 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Max),
+        _ => {}
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+    if ws < 2 || hs < 2 {
+        return Err(FilterError::InvalidParameters(
+            "image too small for 2x downscaling (need at least 2x2)".to_string(),
+        ));
+    }
+
+    let wd = ws / 2;
+    let hd = hs / 2;
+
+    let out_pix = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    for i in 0..hd {
+        for j in 0..wd {
+            // Collect the 2×2 block and sort to find the rank-th value.
+            let mut vals = [
+                pix.get_pixel_unchecked(2 * j, 2 * i) as u8,
+                pix.get_pixel_unchecked(2 * j + 1, 2 * i) as u8,
+                pix.get_pixel_unchecked(2 * j, 2 * i + 1) as u8,
+                pix.get_pixel_unchecked(2 * j + 1, 2 * i + 1) as u8,
+            ];
+            vals.sort_unstable();
+            // rank is 1-indexed: rank=2 → sorted index 1, rank=3 → sorted index 2.
+            let out_val = vals[(rank - 1) as usize];
+            out_mut.set_pixel_unchecked(j, i, out_val as u32);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 /// Apply [`scale_gray_rank2`] cascaded up to four times.
@@ -601,13 +699,43 @@ pub fn scale_gray_rank2(_pix: &Pix, _rank: u8) -> FilterResult<Pix> {
 ///
 /// C equivalent: `pixScaleGrayRankCascade`
 pub fn scale_gray_rank_cascade(
-    _pix: &Pix,
-    _level1: u8,
-    _level2: u8,
-    _level3: u8,
-    _level4: u8,
+    pix: &Pix,
+    level1: u8,
+    level2: u8,
+    level3: u8,
+    level4: u8,
 ) -> FilterResult<Pix> {
-    unimplemented!("scale_gray_rank_cascade: not yet implemented")
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if level1 > 4 || level2 > 4 || level3 > 4 || level4 > 4 {
+        return Err(FilterError::InvalidParameters(
+            "all levels must be in [0, 4]".to_string(),
+        ));
+    }
+
+    if level1 == 0 {
+        return Ok(pix.deep_clone());
+    }
+    let pix1 = scale_gray_rank2(pix, level1)?;
+
+    if level2 == 0 {
+        return Ok(pix1);
+    }
+    let pix2 = scale_gray_rank2(&pix1, level2)?;
+
+    if level3 == 0 {
+        return Ok(pix2);
+    }
+    let pix3 = scale_gray_rank2(&pix2, level3)?;
+
+    if level4 == 0 {
+        return Ok(pix3);
+    }
+    scale_gray_rank2(&pix3, level4)
 }
 
 #[cfg(test)]

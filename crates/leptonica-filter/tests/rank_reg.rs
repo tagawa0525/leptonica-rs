@@ -329,7 +329,6 @@ fn rank_reg_param_validation() {
 /// rank=1 gives the darkest (min) pixel, rank=4 gives the lightest (max).
 /// Values 2 and 3 are the second-smallest and second-largest respectively.
 #[test]
-#[ignore = "C: pixScaleGrayRank2() -- not implemented in Rust"]
 fn rank_reg_scale_gray_rank2() {
     let mut rp = RegParams::new("rank_scale_gray_rank2");
 
@@ -361,7 +360,6 @@ fn rank_reg_scale_gray_rank2() {
 ///
 /// Each active level (> 0) halves the dimensions. Level 0 stops the cascade.
 #[test]
-#[ignore = "C: pixScaleGrayRankCascade() -- not implemented in Rust"]
 fn rank_reg_scale_gray_rank_cascade() {
     let mut rp = RegParams::new("rank_scale_gray_cascade");
 
@@ -392,7 +390,6 @@ fn rank_reg_scale_gray_rank_cascade() {
 ///
 /// For each (xfact × yfact) block, output the min, max, or (max-min) value.
 #[test]
-#[ignore = "C: pixScaleGrayMinMax() -- not implemented in Rust"]
 fn rank_reg_scale_gray_min_max() {
     let mut rp = RegParams::new("rank_scale_gray_minmax");
 
