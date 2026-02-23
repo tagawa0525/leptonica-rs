@@ -547,6 +547,214 @@ pub fn max_filter(pix: &Pix, width: u32, height: u32) -> FilterResult<Pix> {
     rank_filter(pix, width, height, 1.0)
 }
 
+// ---------------------------------------------------------------------------
+// Grayscale downscaling by rank / min-max selection
+// C reference: reference/leptonica/src/scale2.c
+// ---------------------------------------------------------------------------
+
+/// Operation type for [`scale_gray_min_max`].
+#[derive(Debug, Clone, Copy)]
+pub enum MinMaxOp {
+    /// Output the minimum value in each block (grayscale erosion analogue).
+    Min,
+    /// Output the maximum value in each block (grayscale dilation analogue).
+    Max,
+    /// Output the difference `max − min` within each block.
+    MaxDiff,
+}
+
+/// Downsample an 8bpp grayscale image by min, max, or max-diff within blocks.
+///
+/// For each `xfact × yfact` block of source pixels the output pixel contains
+/// the minimum, maximum, or (maximum − minimum) value of that block.
+///
+/// C equivalent: `pixScaleGrayMinMax`
+pub fn scale_gray_min_max(pix: &Pix, xfact: u32, yfact: u32, op: MinMaxOp) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped 8-bpp images are not supported; remove the colormap first".to_string(),
+        ));
+    }
+    if xfact < 1 || yfact < 1 {
+        return Err(FilterError::InvalidParameters(
+            "xfact and yfact must be >= 1".to_string(),
+        ));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+
+    // Compute output dimensions; adjust factors if image is smaller than one block.
+    let (wd, xfact) = {
+        let d = ws / xfact;
+        if d == 0 { (1, ws) } else { (d, xfact) }
+    };
+    let (hd, yfact) = {
+        let d = hs / yfact;
+        if d == 0 { (1, hs) } else { (d, yfact) }
+    };
+
+    let out_pix = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    for i in 0..hd {
+        for j in 0..wd {
+            let mut minval = 255u8;
+            let mut maxval = 0u8;
+            for k in 0..yfact {
+                let sy = yfact * i + k;
+                for m in 0..xfact {
+                    let sx = xfact * j + m;
+                    let val = pix.get_pixel_unchecked(sx, sy) as u8;
+                    if val < minval {
+                        minval = val;
+                    }
+                    if val > maxval {
+                        maxval = val;
+                    }
+                }
+            }
+            let out_val = match op {
+                MinMaxOp::Min => minval,
+                MinMaxOp::Max => maxval,
+                MinMaxOp::MaxDiff => maxval - minval,
+            };
+            out_mut.set_pixel_unchecked(j, i, out_val as u32);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Downsample an 8bpp grayscale image by 2× using rank selection in 2×2 blocks.
+///
+/// Each 2×2 block in the source maps to one output pixel.  The `rank` parameter
+/// selects which of the four sorted values to output:
+/// - `1` → darkest (minimum)
+/// - `2` → second darkest
+/// - `3` → second lightest
+/// - `4` → lightest (maximum)
+///
+/// C equivalent: `pixScaleGrayRank2`
+pub fn scale_gray_rank2(pix: &Pix, rank: u8) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped 8-bpp images are not supported; remove the colormap first".to_string(),
+        ));
+    }
+    if !(1..=4).contains(&rank) {
+        return Err(FilterError::InvalidParameters(
+            "rank must be in [1, 4]".to_string(),
+        ));
+    }
+
+    // Enforce minimum size for all ranks before any delegation, so that rank=1
+    // and rank=4 fail consistently with rank=2 and rank=3 on tiny images.
+    let ws = pix.width();
+    let hs = pix.height();
+    if ws < 2 || hs < 2 {
+        return Err(FilterError::InvalidParameters(
+            "image too small for 2x downscaling (need at least 2x2)".to_string(),
+        ));
+    }
+
+    // Ranks 1 and 4 are just min/max — delegate to the faster path.
+    match rank {
+        1 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Min),
+        4 => return scale_gray_min_max(pix, 2, 2, MinMaxOp::Max),
+        _ => {}
+    }
+
+    let wd = ws / 2;
+    let hd = hs / 2;
+
+    let out_pix = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    for i in 0..hd {
+        for j in 0..wd {
+            // Collect the 2×2 block and sort to find the rank-th value.
+            let mut vals = [
+                pix.get_pixel_unchecked(2 * j, 2 * i) as u8,
+                pix.get_pixel_unchecked(2 * j + 1, 2 * i) as u8,
+                pix.get_pixel_unchecked(2 * j, 2 * i + 1) as u8,
+                pix.get_pixel_unchecked(2 * j + 1, 2 * i + 1) as u8,
+            ];
+            vals.sort_unstable();
+            // rank is 1-indexed: rank=2 → sorted index 1, rank=3 → sorted index 2.
+            let out_val = vals[(rank - 1) as usize];
+            out_mut.set_pixel_unchecked(j, i, out_val as u32);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Apply [`scale_gray_rank2`] cascaded up to four times.
+///
+/// Each active level (value > 0) halves both dimensions using the given rank.
+/// A level value of `0` stops the cascade at that stage and returns the
+/// image accumulated so far.  If `level1 == 0` the source image is returned
+/// unchanged.
+///
+/// C equivalent: `pixScaleGrayRankCascade`
+pub fn scale_gray_rank_cascade(
+    pix: &Pix,
+    level1: u8,
+    level2: u8,
+    level3: u8,
+    level4: u8,
+) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "colormapped 8-bpp images are not supported; remove the colormap first".to_string(),
+        ));
+    }
+    if level1 > 4 || level2 > 4 || level3 > 4 || level4 > 4 {
+        return Err(FilterError::InvalidParameters(
+            "all levels must be in [0, 4]".to_string(),
+        ));
+    }
+
+    if level1 == 0 {
+        return Ok(pix.deep_clone());
+    }
+    let pix1 = scale_gray_rank2(pix, level1)?;
+
+    if level2 == 0 {
+        return Ok(pix1);
+    }
+    let pix2 = scale_gray_rank2(&pix1, level2)?;
+
+    if level3 == 0 {
+        return Ok(pix2);
+    }
+    let pix3 = scale_gray_rank2(&pix2, level3)?;
+
+    if level4 == 0 {
+        return Ok(pix3);
+    }
+    scale_gray_rank2(&pix3, level4)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

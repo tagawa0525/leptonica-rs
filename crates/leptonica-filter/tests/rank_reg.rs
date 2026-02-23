@@ -8,10 +8,10 @@
 //!   (3) Compare rank=0.0 with erosion, rank=1.0 with dilation (requires leptonica-morph)
 //!   (4) Median filter (rank=0.5) basic correctness
 //!
-//! C APIs not implemented in Rust (skipped):
-//!   - pixScaleGrayMinMax()
-//!   - pixScaleGrayRank2()
-//!   - pixScaleGrayRankCascade()
+//! C APIs implemented in Rust (tests below):
+//!   - pixScaleGrayMinMax()     -> scale_gray_min_max()
+//!   - pixScaleGrayRank2()      -> scale_gray_rank2()
+//!   - pixScaleGrayRankCascade() -> scale_gray_rank_cascade()
 
 use leptonica_core::{Pix, PixelDepth, color};
 use leptonica_filter::{max_filter, median_filter, min_filter, rank_filter, rank_filter_gray};
@@ -324,17 +324,106 @@ fn rank_reg_param_validation() {
     assert!(rp.cleanup(), "rank_params regression test failed");
 }
 
-/// C: pixScaleGrayRank2() -- not implemented in Rust
+/// Test pixScaleGrayRank2(): 2x downscale by rank selection from 2x2 blocks.
+///
+/// rank=1 gives the darkest (min) pixel, rank=4 gives the lightest (max).
+/// Values 2 and 3 are the second-smallest and second-largest respectively.
 #[test]
-#[ignore = "C: pixScaleGrayRank2() -- not implemented in Rust"]
-fn rank_reg_scale_gray_rank2() {}
+fn rank_reg_scale_gray_rank2() {
+    let mut rp = RegParams::new("rank_scale_gray_rank2");
 
-/// C: pixScaleGrayRankCascade() -- not implemented in Rust
-#[test]
-#[ignore = "C: pixScaleGrayRankCascade() -- not implemented in Rust"]
-fn rank_reg_scale_gray_rank_cascade() {}
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let ws = pixs.width();
+    let hs = pixs.height();
 
-/// C: pixScaleGrayMinMax() -- not implemented in Rust
+    for rank in 1u8..=4 {
+        let pixd = leptonica_filter::scale_gray_rank2(&pixs, rank)
+            .unwrap_or_else(|e| panic!("scale_gray_rank2(rank={rank}): {e}"));
+        rp.compare_values((ws / 2) as f64, pixd.width() as f64, 0.0);
+        rp.compare_values((hs / 2) as f64, pixd.height() as f64, 0.0);
+        rp.compare_values(8.0, pixd.depth().bits() as f64, 0.0);
+    }
+
+    // rank=1 (min) should be darker than or equal to rank=4 (max) per pixel
+    let pix1 = leptonica_filter::scale_gray_rank2(&pixs, 1).expect("rank1");
+    let pix4 = leptonica_filter::scale_gray_rank2(&pixs, 4).expect("rank4");
+    let wd = ws / 2;
+    let hd = hs / 2;
+    let monotone = (0..hd)
+        .all(|y| (0..wd).all(|x| pix1.get_pixel_unchecked(x, y) <= pix4.get_pixel_unchecked(x, y)));
+    rp.compare_values(1.0, if monotone { 1.0 } else { 0.0 }, 0.0);
+
+    assert!(rp.cleanup(), "rank_scale_gray_rank2 test failed");
+}
+
+/// Test pixScaleGrayRankCascade(): apply scale_gray_rank2 up to 4 times.
+///
+/// Each active level (> 0) halves the dimensions. Level 0 stops the cascade.
 #[test]
-#[ignore = "C: pixScaleGrayMinMax() -- not implemented in Rust"]
-fn rank_reg_scale_gray_min_max() {}
+fn rank_reg_scale_gray_rank_cascade() {
+    let mut rp = RegParams::new("rank_scale_gray_cascade");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let ws = pixs.width();
+    let hs = pixs.height();
+
+    // 1 level: result is ws/2 x hs/2
+    let pix1 =
+        leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 0, 0, 0).expect("cascade level=1");
+    rp.compare_values((ws / 2) as f64, pix1.width() as f64, 0.0);
+    rp.compare_values((hs / 2) as f64, pix1.height() as f64, 0.0);
+
+    // 2 levels: result is ws/4 x hs/4
+    let pix2 =
+        leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 2, 0, 0).expect("cascade level=2");
+    rp.compare_values((ws / 4) as f64, pix2.width() as f64, 0.0);
+    rp.compare_values((hs / 4) as f64, pix2.height() as f64, 0.0);
+
+    // 4 levels: result is ws/16 x hs/16
+    let pix4 =
+        leptonica_filter::scale_gray_rank_cascade(&pixs, 1, 2, 3, 4).expect("cascade level=4");
+    rp.compare_values((ws / 16) as f64, pix4.width() as f64, 0.0);
+    rp.compare_values((hs / 16) as f64, pix4.height() as f64, 0.0);
+
+    assert!(rp.cleanup(), "rank_scale_gray_cascade test failed");
+}
+
+/// Test pixScaleGrayMinMax(): downsample by block min, max, or max-diff.
+///
+/// For each (xfact × yfact) block, output the min, max, or (max-min) value.
+#[test]
+fn rank_reg_scale_gray_min_max() {
+    let mut rp = RegParams::new("rank_scale_gray_minmax");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let ws = pixs.width();
+    let hs = pixs.height();
+
+    for op in [
+        leptonica_filter::MinMaxOp::Min,
+        leptonica_filter::MinMaxOp::Max,
+        leptonica_filter::MinMaxOp::MaxDiff,
+    ] {
+        let pixd = leptonica_filter::scale_gray_min_max(&pixs, 2, 2, op)
+            .unwrap_or_else(|e| panic!("scale_gray_min_max({op:?}): {e}"));
+        rp.compare_values((ws / 2) as f64, pixd.width() as f64, 0.0);
+        rp.compare_values((hs / 2) as f64, pixd.height() as f64, 0.0);
+        rp.compare_values(8.0, pixd.depth().bits() as f64, 0.0);
+    }
+
+    // Min output should be darker than or equal to Max output per pixel
+    let pix_min =
+        leptonica_filter::scale_gray_min_max(&pixs, 2, 2, leptonica_filter::MinMaxOp::Min)
+            .expect("min");
+    let pix_max =
+        leptonica_filter::scale_gray_min_max(&pixs, 2, 2, leptonica_filter::MinMaxOp::Max)
+            .expect("max");
+    let wd = ws / 2;
+    let hd = hs / 2;
+    let min_le_max = (0..hd).all(|y| {
+        (0..wd).all(|x| pix_min.get_pixel_unchecked(x, y) <= pix_max.get_pixel_unchecked(x, y))
+    });
+    rp.compare_values(1.0, if min_le_max { 1.0 } else { 0.0 }, 0.0);
+
+    assert!(rp.cleanup(), "rank_scale_gray_minmax test failed");
+}
