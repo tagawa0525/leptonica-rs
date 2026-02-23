@@ -126,13 +126,13 @@ fn expand_reg_clip() {
 
     let pix = leptonica_test::load_test_image("speckle.png").expect("load speckle.png");
 
-    // Expand then clip should give back region of correct size
+    // Expand then clip a sub-region (top-left quadrant)
     let pix2x = expand_replicate(&pix, 2).expect("expand 2x");
-    let clipped = pix2x
-        .clip_rectangle(0, 0, pix.width() * 2, pix.height() * 2)
-        .expect("clip");
-    rp.compare_values((pix.width() * 2) as f64, clipped.width() as f64, 0.0);
-    rp.compare_values((pix.height() * 2) as f64, clipped.height() as f64, 0.0);
+    let clip_w = pix.width(); // half the expanded width
+    let clip_h = pix.height(); // half the expanded height
+    let clipped = pix2x.clip_rectangle(0, 0, clip_w, clip_h).expect("clip");
+    rp.compare_values(clip_w as f64, clipped.width() as f64, 0.0);
+    rp.compare_values(clip_h as f64, clipped.height() as f64, 0.0);
 
     // Full clip should equal original
     let full_clip = pix2x
