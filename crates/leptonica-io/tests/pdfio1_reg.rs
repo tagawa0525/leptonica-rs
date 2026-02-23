@@ -165,13 +165,10 @@ fn pdfio1_reg_multipage() {
         0.0,
     );
 
-    // Count Page objects (each image creates a /Type /Page entry)
+    // Count /MediaBox entries (one per page, not present in /Pages catalog)
     let pdf_str = String::from_utf8_lossy(&buf);
-    let page_count = pdf_str.matches("/Type /Page\n").count()
-        + pdf_str.matches("/Type /Page\r\n").count()
-        + pdf_str.matches("/Type /Page ").count();
-    // At least 3 pages (may include /Type /Pages as catalog)
-    rp.compare_values(1.0, if page_count >= 3 { 1.0 } else { 0.0 }, 0.0);
+    let page_count = pdf_str.matches("/MediaBox").count();
+    rp.compare_values(3.0, page_count as f64, 0.0);
 
     // Should have non-trivial size
     rp.compare_values(1.0, if buf.len() > 1000 { 1.0 } else { 0.0 }, 0.0);
