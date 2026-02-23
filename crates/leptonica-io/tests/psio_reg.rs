@@ -29,10 +29,8 @@ fn psio_reg_level1() {
     // Should contain DSC header
     rp.compare_values(1.0, if ps_str.starts_with("%!") { 1.0 } else { 0.0 }, 0.0);
 
-    // Level 1 uses hex encoding, not ASCII85
-    let has_hex_data = ps_str.contains("currentfile /ASCIIHexDecode")
-        || ps_str.contains("readhexstring")
-        || !ps_str.contains("~>");
+    // Level 1 uses hex encoding (ASCIIHexDecode), not ASCII85
+    let has_hex_data = ps_str.contains("ASCIIHexDecode") || ps_str.contains("readhexstring");
     rp.compare_values(1.0, if has_hex_data { 1.0 } else { 0.0 }, 0.0);
 
     // Should have non-trivial size
@@ -190,16 +188,9 @@ fn psio_reg_options() {
     );
     rp.compare_values(1.0, if s_150.starts_with("%!") { 1.0 } else { 0.0 }, 0.0);
 
-    // Different resolution should produce different sizes (scaling changes)
-    rp.compare_values(
-        1.0,
-        if data_default.len() != data_150.len() {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
+    // Different resolution should produce different scaling in the PS output.
+    // Check that the PS content differs (not just size, which could coincide).
+    rp.compare_values(1.0, if s_default != s_150 { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "psio options test failed");
 }
