@@ -153,7 +153,7 @@ Co-Authored-By: ..."
 # - C版ソースを参照してRust実装を作成
 # - テストから #[ignore] を除去
 # - cargo test -p <crate> が全て通ることを確認
-# - cargo clippy --workspace が通ることを確認
+# - cargo clippy --all-features --all-targets が通ることを確認
 git add crates/<crate>/src/ crates/<crate>/tests/
 git commit -m "feat(<crate>): implement <機能>
 
@@ -184,7 +184,7 @@ gh pr create --base main \
 ## Test plan
 - [ ] cargo check --workspace
 - [ ] cargo test -p <crate>
-- [ ] cargo clippy --workspace
+- [ ] cargo clippy --all-features --all-targets
 PREOF
 )"
 
@@ -581,8 +581,8 @@ git worktree remove ../leptonica-rs-work
 
 ```bash
 cargo check --workspace        # コンパイル通過
-cargo test --workspace         # 全テストパス
-cargo clippy --workspace       # 警告なし
+cargo test --all-features         # 全テストパス
+cargo clippy --all-features --all-targets       # 警告なし
 ```
 
 ### 最終検証

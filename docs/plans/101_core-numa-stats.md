@@ -20,9 +20,9 @@ Phase 4 は以下の2つのサブフェーズから成る：
 
 | ファイル | 変更種別 |
 |---------|---------|
-| `crates/leptonica-core/src/numa/operations.rs` | 既存拡張 |
-| `crates/leptonica-core/src/numa/mod.rs` | re-export追加 |
-| `crates/leptonica-core/src/lib.rs` | re-export追加 |
+| `src/core/src/numa/operations.rs` | 既存拡張 |
+| `src/core/src/numa/mod.rs` | re-export追加 |
+| `src/core/src/lib.rs` | re-export追加 |
 
 ### C参照コード
 
@@ -103,10 +103,10 @@ mode           ← sort に依存
 
 | ファイル | 変更種別 |
 |---------|---------|
-| `crates/leptonica-core/src/pix/histogram.rs` | 既存拡張（masked/rect histogram追加） |
-| `crates/leptonica-core/src/pix/statistics.rs` | 既存拡張（extreme/rank/max関数追加） |
-| `crates/leptonica-core/src/pix/mod.rs` | re-export追加、`clip_box_to_rect` を `pub(crate)` 化 |
-| `crates/leptonica-core/src/lib.rs` | re-export追加 |
+| `src/core/src/pix/histogram.rs` | 既存拡張（masked/rect histogram追加） |
+| `src/core/src/pix/statistics.rs` | 既存拡張（extreme/rank/max関数追加） |
+| `src/core/src/pix/mod.rs` | re-export追加、`clip_box_to_rect` を `pub(crate)` 化 |
+| `src/core/src/lib.rs` | re-export追加 |
 
 ### C参照コード
 
@@ -220,15 +220,15 @@ pixel_rank_value           ← gray_histogram / color_histogram + histogram_val_
 
 各コミット前:
 ```bash
-cargo fmt --check -p leptonica-core
-cargo clippy -p leptonica-core -- -D warnings
-cargo test -p leptonica-core
+cargo fmt --all -- --check
+cargo clippy --all-features -- -D warnings
+cargo test --test core
 ```
 
 各PR作成前:
 ```bash
-cargo test --workspace
-cargo clippy --workspace -- -D warnings
+cargo test --all-features
+cargo clippy --all-features --all-targets -- -D warnings
 cargo fmt --all -- --check
 ```
 

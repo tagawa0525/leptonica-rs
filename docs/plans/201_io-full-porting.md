@@ -81,9 +81,9 @@ Phase 1 (JPEG書き込み) ← 最重要、Phase 6/7のJPEG圧縮を可能にす
 ### 修正ファイル
 
 - `Cargo.toml`（workspace）: `jpeg-encoder` 追加
-- `crates/leptonica-io/Cargo.toml`: `jpeg-encoder` optional dep, `jpeg` feature に追加
-- `crates/leptonica-io/src/jpeg.rs`: `write_jpeg`, `JpegOptions` 追加
-- `crates/leptonica-io/src/lib.rs`: `write_image_format` の `Jpeg` 分岐追加
+- `src/io/Cargo.toml`: `jpeg-encoder` optional dep, `jpeg` feature に追加
+- `src/io/src/jpeg.rs`: `write_jpeg`, `JpegOptions` 追加
+- `src/io/src/lib.rs`: `write_image_format` の `Jpeg` 分岐追加
 
 ### テスト
 
@@ -123,9 +123,9 @@ rdata     (rdatasize bytes) -- 生ラスタデータ
 
 ### 修正ファイル
 
-- `crates/leptonica-io/src/spix.rs`（新規）
-- `crates/leptonica-io/src/lib.rs`: `pub mod spix`, `read_image_format`/`write_image_format` に `Spix` 追加
-- `crates/leptonica-io/src/format.rs`: SPIX マジックナンバー `b"spix"` 追加
+- `src/io/src/spix.rs`（新規）
+- `src/io/src/lib.rs`: `pub mod spix`, `read_image_format`/`write_image_format` に `Spix` 追加
+- `src/io/src/format.rs`: SPIX マジックナンバー `b"spix"` 追加
 
 ### テスト
 
@@ -194,8 +194,8 @@ pub struct ImageHeader {
 
 ### 修正ファイル
 
-- `crates/leptonica-io/src/lib.rs`: `ImageHeader`, `read_image_header`, `read_image_header_mem`, `choose_output_format`, `write_image_auto` 追加
-- `crates/leptonica-core/src/pix/mod.rs`: `ImageFormat::from_extension`, `from_path` メソッド追加
+- `src/io/src/lib.rs`: `ImageHeader`, `read_image_header`, `read_image_header_mem`, `choose_output_format`, `write_image_auto` 追加
+- `src/core/src/pix/mod.rs`: `ImageFormat::from_extension`, `from_path` メソッド追加
 - 各フォーマットモジュール: `read_header_*` 関数追加
 
 ### テスト
@@ -234,9 +234,9 @@ ENDHDR
 
 ### 修正ファイル
 
-- `crates/leptonica-io/src/pnm.rs`: ASCII write, PAM read/write 追加
-- `crates/leptonica-io/src/format.rs`: `P7` マジック追加
-- `crates/leptonica-io/src/lib.rs`: PAMフォーマットのディスパッチ追加（PnmとしてまとめるかPamを別にするか要検討）
+- `src/io/src/pnm.rs`: ASCII write, PAM read/write 追加
+- `src/io/src/format.rs`: `P7` マジック追加
+- `src/io/src/lib.rs`: PAMフォーマットのディスパッチ追加（PnmとしてまとめるかPamを別にするか要検討）
 
 ### テスト
 
@@ -267,7 +267,7 @@ ENDHDR
 
 ### 修正ファイル
 
-- `crates/leptonica-io/src/tiff.rs`: 上記4関数追加
+- `src/io/src/tiff.rs`: 上記4関数追加
 
 ### テスト
 
@@ -293,7 +293,7 @@ ENDHDR
 
 ### 修正ファイル
 
-- `crates/leptonica-io/src/pdf.rs`: JPEG圧縮パス追加、`write_pdf_from_files`
+- `src/io/src/pdf.rs`: JPEG圧縮パス追加、`write_pdf_from_files`
 
 ### テスト
 
@@ -315,7 +315,7 @@ ENDHDR
 
 ### 修正ファイル
 
-- `crates/leptonica-io/src/ps/mod.rs`: マルチページ対応、Level 2追加
+- `src/io/src/ps/mod.rs`: マルチページ対応、Level 2追加
 
 ### テスト
 
@@ -353,7 +353,7 @@ C版の約146関数のうち:
 
 ### PRワークフロー
 
-1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+1. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 2. `/gh-pr-create` でPR作成
 3. `/gh-actions-check` でCopilotレビュー到着を確認
 4. `/gh-pr-review` でレビューコメント対応
@@ -378,8 +378,8 @@ main
 各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p leptonica-io
-cargo clippy -p leptonica-io -- -D warnings
-cargo test -p leptonica-io
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo fmt --all -- --check
+cargo clippy --all-features -- -D warnings
+cargo test --test io
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```

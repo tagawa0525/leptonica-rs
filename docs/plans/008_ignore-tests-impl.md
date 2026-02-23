@@ -39,14 +39,14 @@ PR1〜4 は互いに独立。PR5 は PR3 に依存（`Numa::transform` が必要
 
 ### 変更ファイル
 
-- `crates/leptonica-region/tests/grayfill_reg.rs`（テスト本体の記述）
+- `src/region/tests/grayfill_reg.rs`（テスト本体の記述）
 
 ### 実装内容
 
 `grayfill_reg_hybrid_comparison` の空の本体に、C 版 `grayfill_reg.c` の checks 19–34 相当を実装する。
 
 使用する既存 API（プロダクションコード変更なし）:
-- `PixMut::add_constant_inplace(i32)` — `crates/leptonica-core/src/pix/arith.rs:434`
+- `PixMut::add_constant_inplace(i32)` — `src/core/src/pix/arith.rs:434`
 - `seedfill_gray(&seed, &mask, connectivity)` — `leptonica-region`（公開済み）
 - `seedfill_gray_simple(&seed, &mask, connectivity)` — `leptonica-region`（公開済み）
 - `seedfill_gray_inv(&seed, &mask, connectivity)` — `leptonica-region`（公開済み）
@@ -102,13 +102,13 @@ fn grayfill_reg_hybrid_comparison() {
 
 ### 変更ファイル
 
-- `crates/leptonica-core/tests/rasteropip_reg.rs`（テスト本体の記述）
+- `src/core/tests/rasteropip_reg.rs`（テスト本体の記述）
 
 ### 実装内容
 
 使用する既存 API（プロダクションコード変更なし）:
-- `Pix::remove_border(npix: u32)` — `crates/leptonica-core/src/pix/border.rs:156`
-- `Pix::add_mirrored_border(left, right, top, bot: u32)` — `crates/leptonica-core/src/pix/border.rs:251`
+- `Pix::remove_border(npix: u32)` — `src/core/src/pix/border.rs:156`
+- `Pix::add_mirrored_border(left, right, top, bot: u32)` — `src/core/src/pix/border.rs:251`
 
 ### テスト内容（C 版 rasteropip_reg.c check 1 相当）
 
@@ -139,9 +139,9 @@ fn rasteropip_reg_mirrored_border() {
 
 ### 変更ファイル
 
-- `crates/leptonica-core/src/numa/operations.rs`（実装追加）
-- `crates/leptonica-core/src/numa/mod.rs`（メソッド公開）
-- `crates/leptonica-core/tests/numa3_reg.rs`（テスト本体の記述）
+- `src/core/src/numa/operations.rs`（実装追加）
+- `src/core/src/numa/mod.rs`（メソッド公開）
+- `src/core/tests/numa3_reg.rs`（テスト本体の記述）
 
 ### 実装する関数
 
@@ -229,8 +229,8 @@ fn numa3_reg_morphology() {
 
 ### 変更ファイル
 
-- `crates/leptonica-core/src/numa/operations.rs`（実装追加）
-- `crates/leptonica-core/tests/extrema_reg.rs`（テスト本体の記述）
+- `src/core/src/numa/operations.rs`（実装追加）
+- `src/core/tests/extrema_reg.rs`（テスト本体の記述）
 
 ### 実装する関数
 
@@ -298,8 +298,8 @@ fn extrema_reg_find_extrema() {
 
 ### 変更ファイル
 
-- `crates/leptonica-core/src/numa/operations.rs`（実装追加）
-- `crates/leptonica-core/tests/numa3_reg.rs`（テスト本体の記述）
+- `src/core/src/numa/operations.rs`（実装追加）
+- `src/core/tests/numa3_reg.rs`（テスト本体の記述）
 
 ### 実装する関数
 
@@ -350,10 +350,10 @@ fn numa3_reg_threshold_finding() {
 
 ### 変更ファイル
 
-- `crates/leptonica-filter/src/rank.rs`（実装追加）
+- `src/filter/src/rank.rs`（実装追加）
   ※ scale 操作だが `pixScaleGrayRank2` は rank 操作に近く、filter crate に追加する
-- `crates/leptonica-filter/src/lib.rs`（pub use 追加）
-- `crates/leptonica-filter/tests/rank_reg.rs`（3 テストの本体記述）
+- `src/filter/src/lib.rs`（pub use 追加）
+- `src/filter/tests/rank_reg.rs`（3 テストの本体記述）
 
 ### 実装する関数
 
@@ -436,10 +436,10 @@ fn rank_reg_scale_gray_min_max() {
 cargo test --package <crate> <test_name>
 
 # workspace 全体で回帰がないこと
-cargo test --workspace
+cargo test --all-features
 
 # lint/fmt チェック
-cargo clippy --workspace -- -D warnings
+cargo clippy --all-features --all-targets -- -D warnings
 cargo fmt --all -- --check
 ```
 
@@ -454,15 +454,15 @@ REGTEST_MODE=generate cargo test --package <crate> <test_name>
 
 | ファイル | 用途 |
 |---|---|
-| `crates/leptonica-region/tests/grayfill_reg.rs` | PR1 テスト |
-| `crates/leptonica-core/src/pix/arith.rs` | PR1 使用: `add_constant_inplace` (行 434) |
-| `crates/leptonica-region/src/seedfill.rs` | PR1 使用: `seedfill_gray_simple` (行 1840) |
-| `crates/leptonica-core/tests/rasteropip_reg.rs` | PR2 テスト |
-| `crates/leptonica-core/src/pix/border.rs` | PR2 使用: `remove_border` (行 156), `add_mirrored_border` (行 251) |
-| `crates/leptonica-core/src/numa/operations.rs` | PR3/4/5 実装場所 |
-| `crates/leptonica-core/tests/numa3_reg.rs` | PR3/5 テスト |
-| `crates/leptonica-core/tests/extrema_reg.rs` | PR4 テスト |
-| `crates/leptonica-filter/src/rank.rs` | PR6 実装場所 |
-| `crates/leptonica-filter/tests/rank_reg.rs` | PR6 テスト |
+| `src/region/tests/grayfill_reg.rs` | PR1 テスト |
+| `src/core/src/pix/arith.rs` | PR1 使用: `add_constant_inplace` (行 434) |
+| `src/region/src/seedfill.rs` | PR1 使用: `seedfill_gray_simple` (行 1840) |
+| `src/core/tests/rasteropip_reg.rs` | PR2 テスト |
+| `src/core/src/pix/border.rs` | PR2 使用: `remove_border` (行 156), `add_mirrored_border` (行 251) |
+| `src/core/src/numa/operations.rs` | PR3/4/5 実装場所 |
+| `src/core/tests/numa3_reg.rs` | PR3/5 テスト |
+| `src/core/tests/extrema_reg.rs` | PR4 テスト |
+| `src/filter/src/rank.rs` | PR6 実装場所 |
+| `src/filter/tests/rank_reg.rs` | PR6 テスト |
 | `reference/leptonica/src/numafunc2.c` | PR3/4/5 C版参照 (erode:162, transform:407, find_extrema:2491, threshold:2597) |
 | `reference/leptonica/src/scale2.c` | PR6 C版参照 (ScaleGrayMinMax:997, Rank2:1245, Cascade:1183) |

@@ -82,7 +82,7 @@ Basin filling:
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/seedfill.rs`: 上記7関数追加
+- `src/region/src/seedfill.rs`: 上記7関数追加
 
 ### テスト
 
@@ -121,7 +121,7 @@ min_max_sizeでdilate/erodeのカーネルサイズ、min_diffで平坦領域の
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/seedfill.rs`: 上記3関数追加
+- `src/region/src/seedfill.rs`: 上記3関数追加
 
 ### テスト
 
@@ -149,7 +149,7 @@ SeedfillBB系（bounding box追跡付きseedfill）:
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/conncomp.rs`: 上記5関数追加
+- `src/region/src/conncomp.rs`: 上記5関数追加
 
 ### テスト
 
@@ -188,7 +188,7 @@ Label→Color変換:
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/label.rs`: 上記関数・構造体追加
+- `src/region/src/label.rs`: 上記関数・構造体追加
 
 ### テスト
 
@@ -224,7 +224,7 @@ SVG出力:
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/ccbord.rs`: 上記メソッド追加
+- `src/region/src/ccbord.rs`: 上記メソッド追加
 
 ### テスト
 
@@ -275,7 +275,7 @@ Render:
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/watershed.rs`: 上記関数・メソッド追加
+- `src/region/src/watershed.rs`: 上記関数・メソッド追加
 
 ### テスト
 
@@ -305,7 +305,7 @@ Dijkstraアルゴリズムを使用し、各ピクセルのグレー値をコス
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/maze.rs`: `search_gray_maze` 追加
+- `src/region/src/maze.rs`: `search_gray_maze` 追加
 
 ### テスト
 
@@ -338,7 +338,7 @@ Dijkstraアルゴリズムを使用し、各ピクセルのグレー値をコス
 
 ### PRワークフロー
 
-1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+1. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 2. `/gh-pr-create` でPR作成
 3. `/gh-actions-check` でCopilotレビュー到着を確認
 4. `/gh-pr-review` でレビューコメント対応
@@ -363,8 +363,8 @@ main
 各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p leptonica-region
-cargo clippy -p leptonica-region -- -D warnings
-cargo test -p leptonica-region
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo fmt --all -- --check
+cargo clippy --all-features -- -D warnings
+cargo test --test region
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```

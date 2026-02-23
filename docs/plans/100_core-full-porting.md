@@ -49,7 +49,7 @@ Phase 10 (Serialization)
 
 ### PRワークフロー（厳守）
 
-1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+1. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 2. `/gh-pr-create` でPR作成
 3. **GitHub Copilotレビューを必ず待つ（3〜10分かかる）**
    - `/gh-actions-check` でレビューの到着を確認する
@@ -107,7 +107,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 
 対象: pixRead/pixReadStream/pixReadMem/pixWrite/pixWriteStream/pixWriteMem + デバッグ出力
 
-修正ファイル: `crates/leptonica-core/src/pix/serial.rs`（新規）
+修正ファイル: `src/core/src/pix/serial.rs`（新規）
 
 **注**: 画像フォーマット(PNG/JPEG等)のI/Oは leptonica-io の責務。ここでは leptonica 独自バイナリフォーマットの読み書きのみ。
 
@@ -115,30 +115,30 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 
 対象: boxaRead/boxaReadStream/boxaReadMem/boxaWrite/boxaWriteStream/boxaWriteMem + boxaaRead/Write系 + boxPrintStreamInfo + boxaWriteDebug/boxaWriteStderr
 
-修正ファイル: `crates/leptonica-core/src/box_/serial.rs`（新規）
+修正ファイル: `src/core/src/box_/serial.rs`（新規）
 
 ### 10.3 Numa/Numaa シリアライゼーション (`feat/core-numa-serial`)
 
 対象: numaRead/numaReadStream/numaReadMem/numaWrite/numaWriteStream/numaWriteMem + numaaRead/Write系
 
-修正ファイル: `crates/leptonica-core/src/numa/serial.rs`（新規）
+修正ファイル: `src/core/src/numa/serial.rs`（新規）
 
 ### 10.4 Pta/Ptaa/Pixa/Pixaa シリアライゼーション (`feat/core-collection-serial`)
 
 対象: ptaRead/Write系 + ptaaRead/Write系 + pixaRead/Write系 + pixaaRead/Write系
 
 修正ファイル:
-- `crates/leptonica-core/src/pta/serial.rs`（新規）
-- `crates/leptonica-core/src/pixa/serial.rs`（新規）
+- `src/core/src/pta/serial.rs`（新規）
+- `src/core/src/pixa/serial.rs`（新規）
 
 ### 10.5 FPix/DPix/Sarray/Colormap シリアライゼーション (`feat/core-misc-serial`)
 
 対象: fpixRead/Write系 + dpixRead/Write系 + sarrayRead/Write系 + pixcmapRead/Write系 + pixcmapSerialize/Deserialize
 
 修正ファイル:
-- `crates/leptonica-core/src/fpix/serial.rs`（新規）
-- `crates/leptonica-core/src/sarray/serial.rs`（新規）
-- `crates/leptonica-core/src/colormap/serial.rs`（新規）
+- `src/core/src/fpix/serial.rs`（新規）
+- `src/core/src/sarray/serial.rs`（新規）
+- `src/core/src/colormap/serial.rs`（新規）
 
 ---
 
@@ -152,7 +152,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 - pixCopyResolution, pixScaleResolution, pixCopyInputFormat
 - pixAddText, pixCopyText, pixPrintStreamInfo
 
-修正ファイル: `crates/leptonica-core/src/pix/mod.rs`, `access.rs`
+修正ファイル: `src/core/src/pix/mod.rs`, `access.rs`
 
 ### 11.2 ピクセル設定・ボーダー拡張 (`feat/core-pix-setters`)
 
@@ -165,7 +165,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 - pixAddMixedBorder, pixAddContinuedBorder
 - pixGetBlackOrWhiteVal, pixClearPixel, pixFlipPixel, pixGetRandomPixel
 
-修正ファイル: `crates/leptonica-core/src/pix/access.rs`, `border.rs`
+修正ファイル: `src/core/src/pix/access.rs`, `border.rs`
 
 ### 11.3 RGB成分・アルファ操作 (`feat/core-pix-rgb`)
 
@@ -178,7 +178,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 - pixEndianByteSwapNew, pixEndianByteSwap, pixEndianTwoByteSwap
 - pixGetRasterData, pixSetCmapPixel
 
-修正ファイル: `crates/leptonica-core/src/pix/rgb.rs`, `access.rs`
+修正ファイル: `src/core/src/pix/rgb.rs`, `access.rs`
 
 ---
 
@@ -198,7 +198,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 - pixcmapGetRankIntensity, pixcmapGetNearestIndex, pixcmapGetNearestGrayIndex
 - pixcmapGetDistanceToColor, pixcmapGetRangeValues
 
-修正ファイル: `crates/leptonica-core/src/colormap/query.rs`（新規）
+修正ファイル: `src/core/src/colormap/query.rs`（新規）
 
 ### 12.2 カラーマップ変換・効果 (`feat/core-cmap-convert`)
 
@@ -209,7 +209,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 - pixcmapGammaTRC, pixcmapContrastTRC
 - pixcmapShiftIntensity, pixcmapShiftByComponent
 
-修正ファイル: `crates/leptonica-core/src/colormap/convert.rs`（新規）
+修正ファイル: `src/core/src/colormap/convert.rs`（新規）
 
 ---
 
@@ -232,7 +232,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 - ⏭️ pixConvertTo1Adaptive - 後続（filter crateの`pixBackgroundNormSimple`依存）
 - ⏭️ pixConvertTo1BySampling - 後続（transform crateの`pixScaleBySampling`依存）
 
-修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+修正ファイル: `src/core/src/pix/convert.rs`
 
 実装内容: 8関数 + 35テスト
 
@@ -252,7 +252,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wrap）
 + Convert32To16Type enum + 25テスト
 
-修正ファイル: `crates/leptonica-core/src/pix/convert.rs`
+修正ファイル: `src/core/src/pix/convert.rs`
 
 ---
 
@@ -271,7 +271,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - boxGetCenter, boxIntersectByLine
 - boxClipToRectangle, boxClipToRectangleParams
 
-修正ファイル: `crates/leptonica-core/src/box_/geometry.rs`（新規）
+修正ファイル: `src/core/src/box_/geometry.rs`（新規）
 
 ### 14.2 Box 調整・変換 (`feat/core-box-adjust`)
 
@@ -282,7 +282,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - boxaJoin, boxaaJoin, boxaSplitEvenOdd, boxaMergeEvenOdd
 - boxaConvertToPta, ptaConvertToBoxa, boxConvertToPta, ptaConvertToBox
 
-修正ファイル: `crates/leptonica-core/src/box_/adjust.rs`（新規）
+修正ファイル: `src/core/src/box_/adjust.rs`（新規）
 
 ### 14.3 Box 選択・統計 (`feat/core-box-select`)
 
@@ -298,7 +298,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - boxaGetSizes, boxaGetArea
 - boxfunc5.c スムージング関数群
 
-修正ファイル: `crates/leptonica-core/src/box_/select.rs`（新規）
+修正ファイル: `src/core/src/box_/select.rs`（新規）
 
 ### 14.4 Box 描画・マスク (`feat/core-box-draw`)
 
@@ -311,7 +311,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - boxaCompareRegions, pixSelectLargeULComp, boxaSelectLargeULBox
 - boxaDisplayTiled
 
-修正ファイル: `crates/leptonica-core/src/box_/draw.rs`（新規）
+修正ファイル: `src/core/src/box_/draw.rs`（新規）
 
 ---
 
@@ -329,7 +329,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - pixCountPixelsByRow, pixCountPixelsByColumn, pixCountPixelsInRow
 - pixGetMomentByColumn
 
-修正ファイル: `crates/leptonica-core/src/pix/mask.rs`
+修正ファイル: `src/core/src/pix/mask.rs`
 
 ### 15.2 行列統計・差分 (`feat/core-pix-rowcol-stats`)
 
@@ -342,7 +342,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - pixSetPixelColumn
 - pixMirroredTiling, pixFindRepCloseTile
 
-修正ファイル: `crates/leptonica-core/src/pix/statistics.rs`
+修正ファイル: `src/core/src/pix/statistics.rs`
 
 ### 15.3 ヒストグラム拡張 (`feat/core-pix-hist-ext`)
 
@@ -359,7 +359,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - pixaGetAlignedStats, pixaExtractColumnFromEachPix
 - pixSplitDistributionFgBg
 
-修正ファイル: `crates/leptonica-core/src/pix/histogram.rs`
+修正ファイル: `src/core/src/pix/histogram.rs`
 
 ### 15.4 クリッピング・測定 (`feat/core-pix-clip-ext`) ✅ IMPLEMENTED
 
@@ -375,7 +375,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - pixSelectComponentBySize, pixFilterComponentBySize
 - pixaFindDimensions, pixFindAreaPerimRatio, etc. (pix5.c measurement群)
 
-修正ファイル: `crates/leptonica-core/src/pix/clip.rs`, `extract.rs`
+修正ファイル: `src/core/src/pix/clip.rs`, `extract.rs`
 
 ---
 
@@ -390,7 +390,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - numaCountNonzeroRuns, numaSubsample
 - numaJoin, numaaJoin
 
-修正ファイル: `crates/leptonica-core/src/numa/operations.rs`
+修正ファイル: `src/core/src/numa/operations.rs`
 
 ### 16.2 Numa ソート・補間 (`feat/core-numa-sort`)
 
@@ -409,7 +409,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - numaUniformSampling, numaLowPassIntervals, numaThresholdEdges
 - numaGetSpanValues, numaGetEdgeValues
 
-修正ファイル: `crates/leptonica-core/src/numa/sort.rs`（新規）, `interpolation.rs`（新規）
+修正ファイル: `src/core/src/numa/sort.rs`（新規）, `interpolation.rs`（新規）
 
 ### 16.3 Pta/Ptaa 基本・変換 (`feat/core-pta-ext`)
 
@@ -421,8 +421,8 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - ptafunc2: 最小二乗法、ソート、統計
 
 修正ファイル:
-- `crates/leptonica-core/src/pta/mod.rs`（拡張）
-- `crates/leptonica-core/src/pta/transform.rs`（新規）
+- `src/core/src/pta/mod.rs`（拡張）
+- `src/core/src/pta/transform.rs`（新規）
 
 ### 16.4 Pixa 基本拡張 (`feat/core-pixa-basic`)
 
@@ -435,7 +435,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - pixaInitFull, pixaJoin, pixaInterleave
 - Pixaa型の全実装
 
-修正ファイル: `crates/leptonica-core/src/pixa/mod.rs`（拡張）
+修正ファイル: `src/core/src/pixa/mod.rs`（拡張）
 
 ### 16.5 Pixa/Sarray 高度操作 (`feat/core-pixa-advanced`)
 
@@ -449,8 +449,8 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - sarraySelectRange, sarrayParseRange, sarraySortByIndex, sarrayAppend
 
 修正ファイル:
-- `crates/leptonica-core/src/pixa/display.rs`（新規）
-- `crates/leptonica-core/src/sarray/operations.rs`（新規）
+- `src/core/src/pixa/display.rs`（新規）
+- `src/core/src/sarray/operations.rs`（新規）
 
 ---
 
@@ -467,7 +467,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - generatePtaFilledCircle, generatePtaFilledSquare
 - pixGeneratePtaBoundary
 
-修正ファイル: `crates/leptonica-core/src/pix/graphics.rs`
+修正ファイル: `src/core/src/pix/graphics.rs`
 
 ### 17.2 レンダリング拡張 (`feat/core-graphics-render`)
 
@@ -485,7 +485,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - pixRenderContours, fpixAutoRenderContours, fpixRenderContours
 - pixRenderPlotFromNuma, pixRenderPlotFromNumaGen
 
-修正ファイル: `crates/leptonica-core/src/pix/graphics.rs`
+修正ファイル: `src/core/src/pix/graphics.rs`
 
 ### 17.3 Compare/Blend 拡張 (`feat/core-compare-blend`)
 
@@ -502,7 +502,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - pixAlphaBlendUniform, pixAddAlphaToBlend, pixSetAlphaOverWhite
 - pixLinearEdgeFade
 
-修正ファイル: `crates/leptonica-core/src/pix/compare.rs`, `blend.rs`
+修正ファイル: `src/core/src/pix/compare.rs`, `blend.rs`
 
 ---
 
@@ -513,7 +513,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - fpixSetDimensions, fpixCopyResolution: Phase 11.1
 - fpixConvolveSep, fpixConvolve: leptonica-filter の責務（スコープ外）
 
-修正ファイル: `crates/leptonica-core/src/fpix/mod.rs`
+修正ファイル: `src/core/src/fpix/mod.rs`
 
 ---
 
@@ -539,10 +539,10 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p leptonica-core
-cargo clippy -p leptonica-core -- -D warnings
-cargo test -p leptonica-core
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo fmt --all -- --check
+cargo clippy --all-features -- -D warnings
+cargo test --test core
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```
 
 シリアライゼーション（Phase 10）はラウンドトリップテストを重点的に:

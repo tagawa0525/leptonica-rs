@@ -45,7 +45,7 @@ backup のアプローチが優れている理由:
 
 ### 対象ファイル
 
-- `crates/leptonica-io/src/gif.rs` — 唯一の変更対象
+- `src/io/src/gif.rs` — 唯一の変更対象
 
 ### 具体的な変更
 
@@ -88,8 +88,8 @@ backup のアプローチが優れている理由:
 
 ### 再利用する既存コード
 
-- `leptonica_color::quantize::octree_quant` (`crates/leptonica-color/src/quantize.rs:292`)
-- `leptonica_color::quantize::OctreeOptions` (`crates/leptonica-color/src/quantize.rs:280`)
+- `leptonica_color::quantize::octree_quant` (`src/color/src/quantize.rs:292`)
+- `leptonica_color::quantize::OctreeOptions` (`src/color/src/quantize.rs:280`)
 
 ## コミット計画
 
@@ -102,7 +102,7 @@ backup のアプローチが優れている理由:
 ## 検証
 
 ```bash
-cargo test -p leptonica-io --features gif-format -- gif
+cargo test --test io --features gif-format -- gif
 ```
 
 重要テスト:

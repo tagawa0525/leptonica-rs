@@ -61,7 +61,7 @@ git push --force-with-lease origin main
 **C版リファレンス**（gitサブモジュール `reference/leptonica/`）:
 - C実装: `reference/leptonica/src/*.c`、`reference/leptonica/src/*.h`
 - C回帰テスト: `reference/leptonica/prog/*_reg.c`（160+テスト）
-- 対応例: `reference/leptonica/prog/boxa1_reg.c` → `crates/leptonica-core/tests/boxa1_reg.rs`
+- 対応例: `reference/leptonica/prog/boxa1_reg.c` → `src/core/tests/boxa1_reg.rs`
 
 ## 6. 再構築フェーズ（12ブランチ・直列実行厳守）
 
@@ -72,7 +72,7 @@ TDD不要（テスト対象のコードを含まないため）。
 対象ファイル:
 - `Cargo.toml`（workspace定義）、`Cargo.lock`
 - 全crateの`Cargo.toml` + 空`src/lib.rs`
-- `crates/leptonica-test/src/`（lib.rs, error.rs, params.rs）
+- `tests/common/src/`（lib.rs, error.rs, params.rs）
 - `crates/leptonica-doc/src/lib.rs`
 - `tests/data/images/`（テスト画像群）
 - `.gitignore`、`.markdownlintignore`、`src/main.rs`
@@ -84,10 +84,10 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 2: `feat/core-pix` — Pix/Box/Pta
 
 対象ファイル:
-- `crates/leptonica-core/src/`（error.rs, lib.rs）
-- `crates/leptonica-core/src/pix/`（mod.rs, ops.rs, access.rs, convert.rs, clip.rs）
-- `crates/leptonica-core/src/box_/mod.rs`
-- `crates/leptonica-core/src/pta/mod.rs`
+- `src/core/src/`（error.rs, lib.rs）
+- `src/core/src/pix/`（mod.rs, ops.rs, access.rs, convert.rs, clip.rs）
+- `src/core/src/box_/mod.rs`
+- `src/core/src/pta/mod.rs`
 
 テスト: `boxa1_reg`, `boxa2_reg`, `pta_reg`
 
@@ -98,11 +98,11 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 3: `feat/core-data` — Numa/FPix/Pixa/Sarray/Colormap
 
 対象ファイル:
-- `crates/leptonica-core/src/numa/`（mod.rs, histogram.rs, operations.rs）
-- `crates/leptonica-core/src/fpix/mod.rs`
-- `crates/leptonica-core/src/pixa/mod.rs`
-- `crates/leptonica-core/src/sarray/mod.rs`
-- `crates/leptonica-core/src/colormap/mod.rs`
+- `src/core/src/numa/`（mod.rs, histogram.rs, operations.rs）
+- `src/core/src/fpix/mod.rs`
+- `src/core/src/pixa/mod.rs`
+- `src/core/src/sarray/mod.rs`
+- `src/core/src/colormap/mod.rs`
 
 テスト: `numa1_reg`, `numa2_reg`, `fpix1_reg`, `pixa1_reg`
 
@@ -113,7 +113,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 4: `feat/core-ops` — Pix演算・描画・統計
 
 対象ファイル:
-- `crates/leptonica-core/src/pix/`（arith.rs, blend.rs, rop.rs, graphics.rs, border.rs, compare.rs, histogram.rs, statistics.rs, extract.rs）
+- `src/core/src/pix/`（arith.rs, blend.rs, rop.rs, graphics.rs, border.rs, compare.rs, histogram.rs, statistics.rs, extract.rs）
 
 テスト: `pixa2_reg`
 
@@ -124,7 +124,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 5: `feat/io` — 全画像I/O
 
 対象ファイル:
-- `crates/leptonica-io/src/`（lib.rs, error.rs, format.rs, png.rs, jpeg.rs, tiff.rs, gif.rs, bmp.rs, pnm.rs, webp.rs, pdf.rs, jp2k.rs, ps/mod.rs, ps/ascii85.rs）
+- `src/io/src/`（lib.rs, error.rs, format.rs, png.rs, jpeg.rs, tiff.rs, gif.rs, bmp.rs, pnm.rs, webp.rs, pdf.rs, jp2k.rs, ps/mod.rs, ps/ascii85.rs）
 
 テスト: `pngio_reg`, `jpegio_reg`, `ioformats_reg`, `iomisc_reg`, `gifio_reg`, `webpio_reg`, `mtiff_reg`, `pnmio_reg`
 
@@ -135,7 +135,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 6: `feat/transform` — 幾何変換
 
 対象ファイル:
-- `crates/leptonica-transform/src/`（lib.rs, error.rs, rotate.rs, scale.rs, affine.rs, bilinear.rs, projective.rs, shear.rs, warper.rs）
+- `src/transform/src/`（lib.rs, error.rs, rotate.rs, scale.rs, affine.rs, bilinear.rs, projective.rs, shear.rs, warper.rs）
 
 テスト: `rotate1_reg`, `rotate2_reg`, `rotateorth_reg`, `scale_reg`, `affine_reg`, `bilinear_reg`, `projective_reg`
 
@@ -146,7 +146,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 7: `feat/filter` — フィルタリング
 
 対象ファイル:
-- `crates/leptonica-filter/src/`（lib.rs, error.rs, kernel.rs, bilateral.rs, rank.rs, convolve.rs, adaptmap.rs, edge.rs）
+- `src/filter/src/`（lib.rs, error.rs, kernel.rs, bilateral.rs, rank.rs, convolve.rs, adaptmap.rs, edge.rs）
 
 テスト: `bilateral1_reg`, `bilateral2_reg`, `rank_reg`, `convolve_reg`, `adaptmap_reg`, `adaptnorm_reg`, `edge_reg`
 
@@ -157,7 +157,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 8: `feat/color` — 色処理
 
 対象ファイル:
-- `crates/leptonica-color/src/`（lib.rs, error.rs, threshold.rs, quantize.rs, segment.rs, colorspace.rs, colorfill.rs, coloring.rs, analysis.rs）
+- `src/color/src/`（lib.rs, error.rs, threshold.rs, quantize.rs, segment.rs, colorspace.rs, colorfill.rs, coloring.rs, analysis.rs）
 
 テスト: `binarize_reg`, `cmapquant_reg`, `colorquant_reg`, `colorseg_reg`, `colorcontent_reg`, `colorfill_reg`, `colorspace_reg`
 
@@ -168,7 +168,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 9: `feat/morph` — 形態学演算
 
 対象ファイル:
-- `crates/leptonica-morph/src/`（lib.rs, error.rs, sel.rs, sequence.rs, thin_sels.rs, binary.rs, grayscale.rs, color.rs, dwa.rs, thin.rs）
+- `src/morph/src/`（lib.rs, error.rs, sel.rs, sequence.rs, thin_sels.rs, binary.rs, grayscale.rs, color.rs, dwa.rs, thin.rs）
 
 テスト: `binmorph1-5_reg`, `graymorph1_reg`, `colormorph_reg`, `dwamorph1-2_reg`, `morphseq_reg`, `selio_reg`
 
@@ -179,7 +179,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 10: `feat/region` — 領域解析
 
 対象ファイル:
-- `crates/leptonica-region/src/`（lib.rs, error.rs, conncomp.rs, ccbord.rs, label.rs, quadtree.rs, watershed.rs, maze.rs, seedfill.rs, select.rs）
+- `src/region/src/`（lib.rs, error.rs, conncomp.rs, ccbord.rs, label.rs, quadtree.rs, watershed.rs, maze.rs, seedfill.rs, select.rs）
 
 テスト: `conncomp_reg`, `ccbord_reg`, `label_reg`, `quadtree_reg`, `watershed_reg`
 
@@ -190,7 +190,7 @@ TDD不要（テスト対象のコードを含まないため）。
 ### Phase 11: `feat/recog` — 認識
 
 対象ファイル:
-- `crates/leptonica-recog/src/`（lib.rs, error.rs, baseline.rs, pageseg.rs, skew.rs, barcode/\*, dewarp/\*, jbclass/\*, recog/\*）
+- `src/recog/src/`（lib.rs, error.rs, baseline.rs, pageseg.rs, skew.rs, barcode/\*, dewarp/\*, jbclass/\*, recog/\*）
 
 テスト: `baseline_reg`, `pageseg_reg`, `skew_reg`
 
@@ -250,7 +250,7 @@ git checkout -b <branch> main
 - `backup/pre-rebuild`タグから実装ファイルを取得する
 - スタブを実装に置換し、`#[ignore]`を除去する
 - ドキュメントと実装の整合性を確認する
-- `cargo check --workspace && cargo test --workspace`で検証後コミット
+- `cargo check --workspace && cargo test --all-features`で検証後コミット
 
 ### D. REFACTORコミット（任意）
 
@@ -295,7 +295,7 @@ git push origin --delete <branch>
 ## 8. 検証
 
 **各PR**:
-- `cargo check --workspace` + `cargo test --workspace` 通過
+- `cargo check --workspace` + `cargo test --all-features` 通過
 - Copilotレビュー指摘全件解決
 
 **全Phase完了後**:
@@ -354,4 +354,4 @@ Phase 12で変更した。
 サブエージェントが起動したバックグラウンドテストがタイムアウト
 （exit code 143/SIGTERM）で失敗する事例が複数発生した。
 テスト自体の問題ではなく、実行時間制限による強制終了が原因。
-最終状態での`cargo test --workspace`は正常通過している。
+最終状態での`cargo test --all-features`は正常通過している。

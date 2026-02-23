@@ -79,7 +79,7 @@ Phase 1 (FPix畳み込み) ← FPixへの直接畳み込みサポート
 
 ### 修正ファイル
 
-- `crates/leptonica-filter/src/convolve.rs`: 上記3関数追加
+- `src/filter/src/convolve.rs`: 上記3関数追加
 
 ### テスト
 
@@ -108,7 +108,7 @@ Phase 1 (FPix畳み込み) ← FPixへの直接畳み込みサポート
 
 ### 修正ファイル
 
-- `crates/leptonica-filter/src/convolve.rs`: 上記2関数追加
+- `src/filter/src/convolve.rs`: 上記2関数追加
 
 ### テスト
 
@@ -150,7 +150,7 @@ pub struct FlexNormOptions {
 
 ### 修正ファイル
 
-- `crates/leptonica-filter/src/adaptmap.rs`: 上記関数・構造体追加
+- `src/filter/src/adaptmap.rs`: 上記関数・構造体追加
 
 ### テスト
 
@@ -182,9 +182,9 @@ pub struct FlexNormOptions {
 
 ### 修正ファイル
 
-- `crates/leptonica-filter/src/bilateral.rs`: `block_bilateral_exact` 追加
-- `crates/leptonica-filter/src/adaptmap.rs`: `global_norm_no_sat_rgb` 追加
-- `crates/leptonica-filter/src/enhance.rs`: `unsharp_masking`, `unsharp_masking_gray` 追加
+- `src/filter/src/bilateral.rs`: `block_bilateral_exact` 追加
+- `src/filter/src/adaptmap.rs`: `global_norm_no_sat_rgb` 追加
+- `src/filter/src/enhance.rs`: `unsharp_masking`, `unsharp_masking_gray` 追加
 
 ### テスト
 
@@ -219,7 +219,7 @@ C版の約127関数（filter scope内89関数）のうち:
 
 ### PRワークフロー
 
-1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+1. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 2. `/gh-pr-create` でPR作成
 3. `/gh-actions-check` でCopilotレビュー到着を確認
 4. `/gh-pr-review` でレビューコメント対応
@@ -241,8 +241,8 @@ main
 各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p leptonica-filter
-cargo clippy -p leptonica-filter -- -D warnings
-cargo test -p leptonica-filter
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo fmt --all -- --check
+cargo clippy --all-features -- -D warnings
+cargo test --test filter
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```

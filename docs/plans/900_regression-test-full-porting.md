@@ -249,7 +249,7 @@ CLAUDE.mdのTDD/PRワークフローに従う:
 
 ```bash
 # 全テスト実行
-cargo test --workspace
+cargo test --all-features
 
 # 特定crateのテスト
 cargo test --package leptonica-core
@@ -259,7 +259,7 @@ cargo test --package leptonica-morph
 cargo test graymorph2_reg --package leptonica-morph
 
 # lint & format
-cargo clippy --workspace -- -D warnings
+cargo clippy --all-features --all-targets -- -D warnings
 cargo fmt --all -- --check
 
 # golden生成（新テスト追加時）
@@ -268,7 +268,7 @@ REGTEST_MODE=generate cargo test <test_name> --package <crate>
 
 ## 重要ファイル
 
-- テストインフラ: `crates/leptonica-test/src/lib.rs` (RegParams, load_test_image)
+- テストインフラ: `tests/common/src/lib.rs` (RegParams, load_test_image)
 - テストデータ: `tests/data/images/`
 - goldenファイル: `tests/golden/`
 - テスト出力: `tests/regout/`

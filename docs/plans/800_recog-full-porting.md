@@ -97,8 +97,8 @@ C版のバイナリ形式に互換:
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/recog/io.rs`（新規）
-- `crates/leptonica-recog/src/recog/mod.rs`: `pub mod io` 追加
+- `src/recog/src/recog/io.rs`（新規）
+- `src/recog/src/recog/mod.rs`: `pub mod io` 追加
 
 ### テスト
 
@@ -136,8 +136,8 @@ pub struct RecogParams {
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/recog/types.rs`: `RecogParams` 構造体追加・拡張
-- `crates/leptonica-recog/src/recog/train.rs`: query メソッド追加
+- `src/recog/src/recog/types.rs`: `RecogParams` 構造体追加・拡張
+- `src/recog/src/recog/train.rs`: query メソッド追加
 
 ### テスト
 
@@ -168,7 +168,7 @@ pub struct RecogParams {
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/recog/train.rs`: 上記関数追加
+- `src/recog/src/recog/train.rs`: 上記関数追加
 
 ### テスト
 
@@ -212,7 +212,7 @@ pub struct PreFilterResult {
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/recog/ident.rs`: 上記関数追加
+- `src/recog/src/recog/ident.rs`: 上記関数追加
 
 ### テスト
 
@@ -244,8 +244,8 @@ pub struct PreFilterResult {
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/dewarp/io.rs`（新規）
-- `crates/leptonica-recog/src/dewarp/mod.rs`: `pub mod io` 追加
+- `src/recog/src/dewarp/io.rs`（新規）
+- `src/recog/src/dewarp/mod.rs`: `pub mod io` 追加
 
 ### テスト
 
@@ -293,8 +293,8 @@ I/O:
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/dewarp/dewarpa.rs`（新規）
-- `crates/leptonica-recog/src/dewarp/mod.rs`: `pub mod dewarpa` 追加
+- `src/recog/src/dewarp/dewarpa.rs`（新規）
+- `src/recog/src/dewarp/mod.rs`: `pub mod dewarpa` 追加
 
 ### テスト
 
@@ -322,8 +322,8 @@ I/O:
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/dewarp/dewarpa.rs`: 上記関数追加
-- `crates/leptonica-recog/src/dewarp/types.rs`: 参照ページフラグ追加
+- `src/recog/src/dewarp/dewarpa.rs`: 上記関数追加
+- `src/recog/src/dewarp/types.rs`: 参照ページフラグ追加
 
 ### テスト
 
@@ -349,8 +349,8 @@ I/O:
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/dewarp/model.rs`: 上記関数追加・拡張
-- `crates/leptonica-recog/src/dewarp/textline.rs`: flow direction検出追加
+- `src/recog/src/dewarp/model.rs`: 上記関数追加・拡張
+- `src/recog/src/dewarp/textline.rs`: flow direction検出追加
 
 ### テスト
 
@@ -375,9 +375,9 @@ I/O:
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/dewarp/apply.rs`: dewarpa経由の適用追加
-- `crates/leptonica-recog/src/dewarp/dewarpa.rs`: apply_disparity/boxa追加
-- `crates/leptonica-recog/src/dewarp/mod.rs`: single_page_init/run追加
+- `src/recog/src/dewarp/apply.rs`: dewarpa経由の適用追加
+- `src/recog/src/dewarp/dewarpa.rs`: apply_disparity/boxa追加
+- `src/recog/src/dewarp/mod.rs`: single_page_init/run追加
 
 ### テスト
 
@@ -407,9 +407,9 @@ Word detection:
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/jbclass/io.rs`（新規）
-- `crates/leptonica-recog/src/jbclass/classify.rs`: word detection追加
-- `crates/leptonica-recog/src/jbclass/mod.rs`: `pub mod io` 追加
+- `src/recog/src/jbclass/io.rs`（新規）
+- `src/recog/src/jbclass/classify.rs`: word detection追加
+- `src/recog/src/jbclass/mod.rs`: `pub mod io` 追加
 
 ### テスト
 
@@ -454,7 +454,7 @@ pub enum SkewPivot {
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/skew.rs`: 上記関数・構造体追加
+- `src/recog/src/skew.rs`: 上記関数・構造体追加
 
 ### テスト
 
@@ -485,7 +485,7 @@ pub enum SkewPivot {
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/baseline.rs`: 上記関数追加
+- `src/recog/src/baseline.rs`: 上記関数追加
 
 ### テスト
 
@@ -515,10 +515,10 @@ pub enum SkewPivot {
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/barcode/detect.rs`: 形態学検出の完全実装
-- `crates/leptonica-recog/src/barcode/signal.rs`: width extraction、peak detection追加
-- `crates/leptonica-recog/src/barcode/formats/code128.rs`（新規、可能であれば）
-- `crates/leptonica-recog/src/barcode/formats/ean8.rs`（新規、可能であれば）
+- `src/recog/src/barcode/detect.rs`: 形態学検出の完全実装
+- `src/recog/src/barcode/signal.rs`: width extraction、peak detection追加
+- `src/recog/src/barcode/formats/code128.rs`（新規、可能であれば）
+- `src/recog/src/barcode/formats/ean8.rs`（新規、可能であれば）
 
 ### テスト
 
@@ -558,7 +558,7 @@ pub enum SkewPivot {
 
 ### PRワークフロー
 
-1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+1. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 2. `/gh-pr-create` でPR作成
 3. `/gh-actions-check` でCopilotレビュー到着を確認
 4. `/gh-pr-review` でレビューコメント対応
@@ -589,8 +589,8 @@ main
 各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p leptonica-recog
-cargo clippy -p leptonica-recog -- -D warnings
-cargo test -p leptonica-recog
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo fmt --all -- --check
+cargo clippy --all-features -- -D warnings
+cargo test --test recog
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```

@@ -18,13 +18,13 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ## 成果物: 5つの計画書
 
-102_io-full-porting.md と同じ形式で、以下の5つの計画書を作成しコミットする:
+201_io-full-porting.md と同じ形式で、以下の5つの計画書を作成しコミットする:
 
 1. `300_transform-full-porting.md`
-2. `301_morph-full-porting.md`
-3. `401_filter-full-porting.md`
-4. `500_region-full-porting.md`
-5. `700_recog-full-porting.md`
+2. `400_morph-full-porting.md`
+3. `500_filter-full-porting.md`
+4. `700_region-full-porting.md`
+5. `800_recog-full-porting.md`
 
 各計画書のコミット後、計画書に記載された順序で実装PRを作成する。
 
@@ -68,18 +68,18 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 修正ファイル
 
-- `crates/leptonica-transform/src/affine.rs`: WithAlpha
-- `crates/leptonica-transform/src/bilinear.rs`: WithAlpha
-- `crates/leptonica-transform/src/projective.rs`: WithAlpha
-- `crates/leptonica-transform/src/scale.rs`: 大幅拡張
-- `crates/leptonica-transform/src/rotate.rs`: Corner/Center/IP拡張
-- `crates/leptonica-transform/src/flipdetect.rs` (新規)
-- `crates/leptonica-core/src/pta.rs`: PTA変換メソッド追加
-- `crates/leptonica-core/src/boxa.rs`: BOXA変換メソッド追加
+- `src/transform/src/affine.rs`: WithAlpha
+- `src/transform/src/bilinear.rs`: WithAlpha
+- `src/transform/src/projective.rs`: WithAlpha
+- `src/transform/src/scale.rs`: 大幅拡張
+- `src/transform/src/rotate.rs`: Corner/Center/IP拡張
+- `src/transform/src/flipdetect.rs` (新規)
+- `src/core/src/pta.rs`: PTA変換メソッド追加
+- `src/core/src/boxa.rs`: BOXA変換メソッド追加
 
 ---
 
-## 計画書2: 301_morph-full-porting.md
+## 計画書2: 400_morph-full-porting.md
 
 ### 実装対象（スコープ除外後: ~48関数）
 
@@ -105,15 +105,15 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 修正ファイル
 
-- `crates/leptonica-morph/src/binary.rs`: safe closing, generalized ops
-- `crates/leptonica-morph/src/morphapp.rs` (新規): application関数群
-- `crates/leptonica-morph/src/sel.rs`: I/O、生成、操作拡張
-- `crates/leptonica-morph/src/dwa.rs`: Extended DWA
-- `crates/leptonica-morph/src/sequence.rs`: DWA/colorシーケンス
+- `src/morph/src/binary.rs`: safe closing, generalized ops
+- `src/morph/src/morphapp.rs` (新規): application関数群
+- `src/morph/src/sel.rs`: I/O、生成、操作拡張
+- `src/morph/src/dwa.rs`: Extended DWA
+- `src/morph/src/sequence.rs`: DWA/colorシーケンス
 
 ---
 
-## 計画書3: 401_filter-full-porting.md
+## 計画書3: 500_filter-full-porting.md
 
 ### 実装対象（スコープ除外後: ~14関数）
 
@@ -133,13 +133,13 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 修正ファイル
 
-- `crates/leptonica-filter/src/convolve.rs`: FPix畳み込み、bias、tiled
-- `crates/leptonica-filter/src/adaptmap.rs`: foreground map、flex norm等
-- `crates/leptonica-filter/src/bilateral.rs`: block bilateral
+- `src/filter/src/convolve.rs`: FPix畳み込み、bias、tiled
+- `src/filter/src/adaptmap.rs`: foreground map、flex norm等
+- `src/filter/src/bilateral.rs`: block bilateral
 
 ---
 
-## 計画書4: 500_region-full-porting.md
+## 計画書4: 700_region-full-porting.md
 
 ### 実装対象（スコープ除外後: ~32関数）
 
@@ -163,16 +163,16 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 修正ファイル
 
-- `crates/leptonica-region/src/seedfill.rs`: border comp、hole filling、simple variants、local extrema
-- `crates/leptonica-region/src/conncomp.rs`: count、nextPixel、seedfillBB
-- `crates/leptonica-region/src/label.rs`: transform、incremental
-- `crates/leptonica-region/src/ccbord.rs`: chain code生成、I/O
-- `crates/leptonica-region/src/watershed.rs`: basin、render
-- `crates/leptonica-region/src/maze.rs`: gray maze
+- `src/region/src/seedfill.rs`: border comp、hole filling、simple variants、local extrema
+- `src/region/src/conncomp.rs`: count、nextPixel、seedfillBB
+- `src/region/src/label.rs`: transform、incremental
+- `src/region/src/ccbord.rs`: chain code生成、I/O
+- `src/region/src/watershed.rs`: basin、render
+- `src/region/src/maze.rs`: gray maze
 
 ---
 
-## 計画書5: 700_recog-full-porting.md
+## 計画書5: 800_recog-full-porting.md
 
 ### 実装対象（スコープ除外後: ~70関数）
 
@@ -206,17 +206,17 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 修正ファイル
 
-- `crates/leptonica-recog/src/recog/types.rs`: 構造体拡張
-- `crates/leptonica-recog/src/recog/io.rs` (新規): シリアライゼーション
-- `crates/leptonica-recog/src/recog/ident.rs`: フィルタリング拡張
-- `crates/leptonica-recog/src/recog/train.rs`: bootstrap、digit pad
-- `crates/leptonica-recog/src/dewarp/`: 各サブモジュール拡張
-- `crates/leptonica-recog/src/dewarp/io.rs` (新規): シリアライゼーション
-- `crates/leptonica-recog/src/dewarp/dewarpa.rs` (新規): コンテナ管理
-- `crates/leptonica-recog/src/jbclass/io.rs` (新規): シリアライゼーション
-- `crates/leptonica-recog/src/skew.rs`: sweep/search拡張
-- `crates/leptonica-recog/src/baseline.rs`: local skew
-- `crates/leptonica-recog/src/barcode/`: width/peak拡張
+- `src/recog/src/recog/types.rs`: 構造体拡張
+- `src/recog/src/recog/io.rs` (新規): シリアライゼーション
+- `src/recog/src/recog/ident.rs`: フィルタリング拡張
+- `src/recog/src/recog/train.rs`: bootstrap、digit pad
+- `src/recog/src/dewarp/`: 各サブモジュール拡張
+- `src/recog/src/dewarp/io.rs` (新規): シリアライゼーション
+- `src/recog/src/dewarp/dewarpa.rs` (新規): コンテナ管理
+- `src/recog/src/jbclass/io.rs` (新規): シリアライゼーション
+- `src/recog/src/skew.rs`: sweep/search拡張
+- `src/recog/src/baseline.rs`: local skew
+- `src/recog/src/barcode/`: width/peak拡張
 
 ---
 
@@ -280,7 +280,7 @@ IO計画(102)と同じワークフローを踏襲する。
 1. **RED**: テスト作成コミット（`#[ignore = "not yet implemented"]` 付き）
 2. **GREEN**: 実装コミット（`#[ignore]` 除去、テスト通過）
 3. **REFACTOR**: 必要に応じてリファクタリングコミット
-4. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+4. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 5. `/gh-pr-create` でPR作成
 6. `/gh-actions-check` でCopilotレビュー到着を確認（**到着するまで待つ**）
 7. `/gh-pr-review` でレビューコメント対応
@@ -297,5 +297,5 @@ IO計画(102)と同じワークフローを踏襲する。
 cargo fmt --check -p <crate名>
 cargo clippy -p <crate名> -- -D warnings
 cargo test -p <crate名>
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```

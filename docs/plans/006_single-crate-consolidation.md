@@ -1,6 +1,6 @@
 # Plan: 単一クレート統合
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
@@ -35,7 +35,7 @@ leptonica-rs/
 ├── Cargo.lock
 ├── src/
 │   ├── lib.rs
-│   ├── core/               # ← crates/leptonica-core/src/
+│   ├── core/               # ← src/core/src/
 │   │   ├── mod.rs          # (旧 lib.rs)
 │   │   ├── pixel.rs        # ← lib.rs のインライン pub mod color を抽出
 │   │   ├── box_/
@@ -47,20 +47,20 @@ leptonica-rs/
 │   │   ├── pixa/
 │   │   ├── pta/
 │   │   └── sarray/
-│   ├── io/                 # ← crates/leptonica-io/src/
-│   ├── transform/          # ← crates/leptonica-transform/src/
-│   ├── color/              # ← crates/leptonica-color/src/
-│   ├── region/             # ← crates/leptonica-region/src/
-│   ├── morph/              # ← crates/leptonica-morph/src/
-│   ├── filter/             # ← crates/leptonica-filter/src/
-│   └── recog/              # ← crates/leptonica-recog/src/
+│   ├── io/                 # ← src/io/src/
+│   ├── transform/          # ← src/transform/src/
+│   ├── color/              # ← src/color/src/
+│   ├── region/             # ← src/region/src/
+│   ├── morph/              # ← src/morph/src/
+│   ├── filter/             # ← src/filter/src/
+│   └── recog/              # ← src/recog/src/
 ├── tests/
 │   ├── common/
 │   │   ├── mod.rs          # ← leptonica-test/src/lib.rs
 │   │   ├── error.rs
 │   │   └── params.rs
-│   ├── boxa1_reg.rs        # ← crates/leptonica-core/tests/
-│   ├── gifio_reg.rs        # ← crates/leptonica-io/tests/
+│   ├── boxa1_reg.rs        # ← src/core/tests/
+│   ├── gifio_reg.rs        # ← src/io/tests/
 │   ├── ...                 # （計162ファイル、名前衝突なし）
 │   ├── data/images/        # 変更なし
 │   ├── golden/             # 変更なし
@@ -159,8 +159,8 @@ pub use core::{
 | 変換前 | 変換後 |
 |--------|--------|
 | `use leptonica_core::X` | `use crate::core::X` |
-| `use leptonica_core::color::X` | `use crate::core::pixel::X` |
-| `leptonica_core::color::X`（パス内） | `crate::core::pixel::X` |
+| `use crate::core::pixel::X` | `use crate::core::pixel::X` |
+| `crate::core::pixel::X`（パス内） | `crate::core::pixel::X` |
 | `use leptonica_io::X` | `use crate::io::X` |
 | `use leptonica_transform::X` | `use crate::transform::X` |
 | `use leptonica_morph::X` | `use crate::morph::X` |
@@ -201,9 +201,9 @@ pub use core::{
 | 変換前 | 変換後 |
 |--------|--------|
 | `use leptonica_core::X` | `use leptonica::X`（ルート再エクスポート経由） |
-| `use leptonica_core::color::X` | `use leptonica::core::pixel::X` |
+| `use crate::core::pixel::X` | `use leptonica::core::pixel::X` |
 | `use leptonica_core::color` | `use leptonica::core::pixel` |
-| `leptonica_core::color::X`（パス内） | `leptonica::core::pixel::X` |
+| `crate::core::pixel::X`（パス内） | `leptonica::core::pixel::X` |
 | `use leptonica_morph::X` | `use leptonica::morph::X` |
 | `use leptonica_io::X` | `use leptonica::io::X` |
 | `use leptonica_transform::X` | `use leptonica::transform::X` |
@@ -265,7 +265,7 @@ git mv leptonica/src/lib.rs src/lib.rs
 
 # leptonica-test → tests/common/
 mkdir -p tests/common
-git mv crates/leptonica-test/src/* tests/common/
+git mv tests/common/src/* tests/common/
 git mv tests/common/lib.rs tests/common/mod.rs
 
 # 各クレートのテストを tests/ に移動（計162ファイル、名前衝突なし）
@@ -335,10 +335,10 @@ leptonica_recog:: → crate::recog::
 
 - `Cargo.toml` — ルートパッケージ定義（workspace 廃止）
 - `src/lib.rs` — 公開 API の入口
-- `crates/leptonica-core/src/lib.rs:62-360` — `pub mod color` 命名衝突の発生源
-- `crates/leptonica-io/src/gif.rs:8` — `leptonica_color` optional 依存
-- `crates/leptonica-test/src/lib.rs:48-52` — `workspace_root()` パス計算
-- `crates/leptonica-io/Cargo.toml:32` — `gif-format = ["gif", "leptonica-color"]`
+- `src/core/src/lib.rs:62-360` — `pub mod color` 命名衝突の発生源
+- `src/io/src/gif.rs:8` — `leptonica_color` optional 依存
+- `tests/common/src/lib.rs:48-52` — `workspace_root()` パス計算
+- `src/io/Cargo.toml:32` — `gif-format = ["gif", "leptonica-color"]`
 
 ## 検証方法
 

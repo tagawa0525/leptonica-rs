@@ -79,7 +79,7 @@ Generalized ops:
 
 ### 修正ファイル
 
-- `crates/leptonica-morph/src/binary.rs`: 上記5関数追加
+- `src/morph/src/binary.rs`: 上記5関数追加
 
 ### テスト
 
@@ -117,8 +117,8 @@ Generalized ops:
 
 ### 修正ファイル
 
-- `crates/leptonica-morph/src/morphapp.rs`（新規）: 上記関数群
-- `crates/leptonica-morph/src/lib.rs`: `pub mod morphapp` 追加
+- `src/morph/src/morphapp.rs`（新規）: 上記関数群
+- `src/morph/src/lib.rs`: `pub mod morphapp` 追加
 
 ### テスト
 
@@ -152,7 +152,7 @@ SEL操作:
 
 ### 修正ファイル
 
-- `crates/leptonica-morph/src/sel.rs`: I/O、生成、操作関数追加
+- `src/morph/src/sel.rs`: I/O、生成、操作関数追加
 
 ### テスト
 
@@ -184,7 +184,7 @@ SEL生成ユーティリティ:
 
 ### 修正ファイル
 
-- `crates/leptonica-morph/src/sel.rs`: 上記関数追加
+- `src/morph/src/sel.rs`: 上記関数追加
 
 ### テスト
 
@@ -221,8 +221,8 @@ Extended DWA（>63px対応）:
 
 ### 修正ファイル
 
-- `crates/leptonica-morph/src/dwa.rs`: composite/extended DWA追加
-- `crates/leptonica-morph/src/sequence.rs`: DWA/colorシーケンス追加
+- `src/morph/src/dwa.rs`: composite/extended DWA追加
+- `src/morph/src/sequence.rs`: DWA/colorシーケンス追加
 
 ### テスト
 
@@ -257,8 +257,8 @@ pub struct Sela {
 
 ### 修正ファイル
 
-- `crates/leptonica-morph/src/sel.rs`: `Sela` 構造体と上記メソッド追加
-- `crates/leptonica-morph/src/lib.rs`: `Sela` をpublic APIに追加
+- `src/morph/src/sel.rs`: `Sela` 構造体と上記メソッド追加
+- `src/morph/src/lib.rs`: `Sela` をpublic APIに追加
 
 ### テスト
 
@@ -290,7 +290,7 @@ pub struct Sela {
 
 ### PRワークフロー
 
-1. `cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --all -- --check`
+1. `cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --all -- --check`
 2. `/gh-pr-create` でPR作成
 3. `/gh-actions-check` でCopilotレビュー到着を確認
 4. `/gh-pr-review` でレビューコメント対応
@@ -314,8 +314,8 @@ main
 各PRで以下を実行:
 
 ```bash
-cargo fmt --check -p leptonica-morph
-cargo clippy -p leptonica-morph -- -D warnings
-cargo test -p leptonica-morph
-cargo test --workspace  # PR前に全ワークスペーステスト
+cargo fmt --all -- --check
+cargo clippy --all-features -- -D warnings
+cargo test --test morph
+cargo test --all-features  # PR前に全ワークスペーステスト
 ```

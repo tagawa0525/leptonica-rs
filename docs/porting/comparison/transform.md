@@ -1,4 +1,4 @@
-# leptonica-transform: C版 vs Rust版 関数レベル比較
+# leptonica (src/transform/): C版 vs Rust版 関数レベル比較
 
 調査日: 2026-02-22（300_transform全移植計画完了を反映）
 
@@ -196,14 +196,14 @@
 | pixHShearLI | ✅ | shear::h_shear_li | 同等 |
 | pixVShearLI | ✅ | shear::v_shear_li | 同等 |
 
-### flipdetect.c (leptonica-recog に実装)
+### flipdetect.c (leptonica (src/recog/) に実装)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixOrientDetect | ✅ | recog::flipdetect::orient_detect | leptonica-recog crateに実装 |
-| pixOrientCorrect | ✅ | recog::flipdetect::orient_correct | leptonica-recog crateに実装 |
-| pixMirrorDetect | ✅ | recog::flipdetect::mirror_detect | leptonica-recog crateに実装 |
+| pixOrientDetect | ✅ | recog::flipdetect::orient_detect | leptonica (src/recog/) に実装 |
+| pixOrientCorrect | ✅ | recog::flipdetect::orient_correct | leptonica (src/recog/) に実装 |
+| pixMirrorDetect | ✅ | recog::flipdetect::mirror_detect | leptonica (src/recog/) に実装 |
 
-*注: flipdetect.c の3関数はleptonica-recog crateで実装済み。上記152関数カウントには含まれない。*
+*注: flipdetect.c の3関数はleptonica (src/recog/) で実装済み。上記152関数カウントには含まれない。*
 
 ## 追加機能 (Rust版のみ)
 

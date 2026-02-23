@@ -7,7 +7,7 @@ Status: IN_PROGRESS (Phase 1-4 大部分実装済み、残り13関数)
 C版leptonicaの1,863関数に対してRust版の実装を段階的に進める計画。
 依存関係・インパクト・実現可能性の順で優先度を決定し、クレートごとにサブエージェント、ファイルごとにサブサブエージェントで並列管理する。
 
-Phase 1-4 の大部分は 1000_core-full-porting.md (Phase 10-17) および個別の計画書で実装済み。
+Phase 1-4 の大部分は 100_core-full-porting.md (Phase 10-17) および個別の計画書で実装済み。
 本計画書に残る未実装関数は約20個。
 
 ## エージェント構成
@@ -44,7 +44,7 @@ main
 
 ## PRワークフロー（厳守）
 
-1. PR作成前に全テスト・リントを通す（`cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo fmt --check`）
+1. PR作成前に全テスト・リントを通す（`cargo test --all-features && cargo clippy --all-features --all-targets -- -D warnings && cargo fmt --check`）
 2. `/gh-pr-create` でPR作成
 3. GitHub Copilotの自動レビューを**必ず待つ**（3〜10分かかる）
 4. `/gh-pr-review` でレビューコメントを確認し、指摘事項を修正
@@ -76,17 +76,17 @@ cargo test -p <crate>
 
 依存関係に基づく順序。Phase 1（core基盤）が後続全てのPhaseの前提条件。
 
-### Phase 1: leptonica-core 基盤関数
+### Phase 1: leptonica (src/core/) 基盤関数
 
 他クレートが依存する変換・操作関数。全ての後続Phaseの前提条件。
 
 #### 1.1 RGB→Gray変換 — ✅ 全6関数実装済み
 
-実装場所: `crates/leptonica-core/src/pix/convert.rs:336-555`
+実装場所: `src/core/src/pix/convert.rs:336-555`
 
 #### 1.2 RGBコンポーネント操作 — ✅ 5/5実装済み
 
-実装場所: `crates/leptonica-core/src/pix/rgb.rs`
+実装場所: `src/core/src/pix/rgb.rs`
 
 | 関数 | 状態 |
 |------|------|
@@ -98,7 +98,7 @@ cargo test -p <crate>
 
 #### 1.3 カラーマップ除去 — ✅ 4/4実装済み
 
-実装場所: `crates/leptonica-core/src/pix/convert.rs:560-778`
+実装場所: `src/core/src/pix/convert.rs:560-778`
 
 | 関数 | 状態 |
 |------|------|
@@ -109,7 +109,7 @@ cargo test -p <crate>
 
 #### 1.4 深度変換（トップレベル） — ⚠️ 8/10実装済み、残り2関数（外部依存）
 
-実装場所: `crates/leptonica-core/src/pix/convert.rs`
+実装場所: `src/core/src/pix/convert.rs`
 
 | 関数 | 状態 |
 |------|------|
@@ -126,7 +126,7 @@ cargo test -p <crate>
 
 #### 1.5 バイナリ展開 — ✅ 9/9実装済み
 
-実装場所: `crates/leptonica-core/src/pix/convert.rs:1084-1202`
+実装場所: `src/core/src/pix/convert.rs:1084-1202`
 
 | 関数 | 状態 |
 |------|------|
@@ -142,7 +142,7 @@ cargo test -p <crate>
 
 #### 1.6 ボーダー操作 — ✅ 8/8実装済み
 
-実装場所: `crates/leptonica-core/src/pix/border.rs`
+実装場所: `src/core/src/pix/border.rs`
 
 | 関数 | 状態 |
 |------|------|
@@ -157,33 +157,33 @@ cargo test -p <crate>
 
 #### 1.7 マスク操作 — ✅ 全5関数実装済み
 
-実装場所: `crates/leptonica-core/src/pix/mask.rs:26-207`
+実装場所: `src/core/src/pix/mask.rs:26-207`
 
 #### 1.8 ピクセルカウント・行列統計 — ✅ 全6関数実装済み
 
-実装場所: `crates/leptonica-core/src/pix/statistics.rs:189-346`
+実装場所: `src/core/src/pix/statistics.rs:189-346`
 
 ---
 
-### Phase 2: leptonica-filter enhance.c — ⚠️ 19/21実装済み、残り2関数
+### Phase 2: leptonica (src/filter/) enhance.c — ⚠️ 19/21実装済み、残り2関数
 
 Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 #### 2.1 TRC基盤 — ✅ 全5関数実装済み
 
-実装場所: `crates/leptonica-filter/src/enhance.rs:37-274`
+実装場所: `src/filter/src/enhance.rs:37-274`
 
 #### 2.2 ガンマ・コントラスト・均等化 — ✅ 全6関数実装済み
 
-実装場所: `crates/leptonica-filter/src/enhance.rs:345-457`
+実装場所: `src/filter/src/enhance.rs:345-457`
 
 #### 2.3 HSV修正 — ✅ 全4関数実装済み
 
-実装場所: `crates/leptonica-filter/src/enhance.rs:499-645`
+実装場所: `src/filter/src/enhance.rs:499-645`
 
 #### 2.4 カラーシフト・行列変換 — ⚠️ 4/6実装済み、残り2関数
 
-実装場所: `crates/leptonica-filter/src/enhance.rs:696-860`
+実装場所: `src/filter/src/enhance.rs:696-860`
 
 | 関数 | 状態 |
 |------|------|
@@ -196,11 +196,11 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 ---
 
-### Phase 3: leptonica-filter convolve.c — ⚠️ 19/24実装済み、残り5関数
+### Phase 3: leptonica (src/filter/) convolve.c — ⚠️ 19/24実装済み、残り5関数
 
 #### 3.1 ブロック畳み込み — ⚠️ 4/6実装済み、残り2関数
 
-実装場所: `crates/leptonica-filter/src/block_conv.rs`
+実装場所: `src/filter/src/block_conv.rs`
 
 | 関数 | 状態 |
 |------|------|
@@ -213,15 +213,15 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 #### 3.2 ウィンドウ統計 — ✅ 全5関数実装済み
 
-実装場所: `crates/leptonica-filter/src/windowed.rs:122-326`
+実装場所: `src/filter/src/windowed.rs:122-326`
 
 #### 3.3 分離可能畳み込み — ✅ 全2関数実装済み
 
-実装場所: `crates/leptonica-filter/src/convolve.rs:158-195`
+実装場所: `src/filter/src/convolve.rs:158-195`
 
 #### 3.4 アンシャープマスク拡張 — ⚠️ 3/5実装済み、残り2関数
 
-実装場所: `crates/leptonica-filter/src/edge.rs`
+実装場所: `src/filter/src/edge.rs`
 
 | 関数 | 状態 |
 |------|------|
@@ -233,7 +233,7 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 #### 3.5 その他 — ⚠️ 4/5実装済み、残り1関数
 
-実装場所: `crates/leptonica-filter/src/convolve.rs`
+実装場所: `src/filter/src/convolve.rs`
 
 | 関数 | 状態 |
 |------|------|
@@ -245,17 +245,17 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 ---
 
-### Phase 4: leptonica-core 統計・Numa拡張 — ✅ 全関数実装済み
+### Phase 4: leptonica (src/core/) 統計・Numa拡張 — ✅ 全関数実装済み
 
-詳細計画: `docs/plans/400_core-numa-stats.md` (IMPLEMENTED)
+詳細計画: `docs/plans/101_core-numa-stats.md` (IMPLEMENTED)
 
 #### 4.1 ヒストグラム拡張 — ✅ 全7関数実装済み
 
-実装場所: `crates/leptonica-core/src/pix/histogram.rs`, `statistics.rs`
+実装場所: `src/core/src/pix/histogram.rs`, `statistics.rs`
 
 #### 4.2 Numa高度操作 — ✅ 全8関数実装済み
 
-実装場所: `crates/leptonica-core/src/numa/operations.rs`
+実装場所: `src/core/src/numa/operations.rs`
 
 ---
 
@@ -263,11 +263,11 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 Phase 1-4完了後に計画策定:
 
-- **Phase 5**: leptonica-filter adaptmap.c拡張（背景マップ、モルフォロジーベース正規化）
-- **Phase 6**: leptonica-filter bilateral.c（高速バイラテラル）
-- **Phase 7**: leptonica-core pix5.c（クリップ、測定）、boxfunc拡張
-- **Phase 8**: leptonica-color 拡張（画像レベル変換、色分析、量子化拡張）
-- **Phase 9+**: leptonica-region, leptonica-morph, leptonica-recog 拡張
+- **Phase 5**: leptonica (src/filter/) adaptmap.c拡張（背景マップ、モルフォロジーベース正規化）
+- **Phase 6**: leptonica (src/filter/) bilateral.c（高速バイラテラル）
+- **Phase 7**: leptonica (src/core/) pix5.c（クリップ、測定）、boxfunc拡張
+- **Phase 8**: leptonica (src/color/) 拡張（画像レベル変換、色分析、量子化拡張）
+- **Phase 9+**: leptonica (src/region/), leptonica (src/morph/), leptonica (src/recog/) 拡張
 
 ## 対象関数数サマリー
 
@@ -305,8 +305,8 @@ cargo test -p <crate>
 
 各PR作成後:
 ```bash
-cargo test --workspace           # 全クレートテスト
-cargo clippy --workspace -- -D warnings  # 全体lint
+cargo test --all-features           # 全クレートテスト
+cargo clippy --all-features --all-targets -- -D warnings  # 全体lint
 ```
 
 ## 重要な設計パターン（既存踏襲）
