@@ -207,7 +207,7 @@ fn compare_pixels(pix1: &leptonica::Pix, pix2: &leptonica::Pix) -> bool {
     let w = pix1.width();
     let h = pix1.height();
 
-    let step = std::cmp::max(1, std::cmp::min(w, h) / 100) as u32;
+    let step = std::cmp::max(1, std::cmp::min(w, h) / 100);
 
     for y in (0..h).step_by(step as usize) {
         for x in (0..w).step_by(step as usize) {
