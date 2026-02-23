@@ -65,8 +65,8 @@ fn pixserial_reg_memory_roundtrip() {
 fn pixserial_reg_file_roundtrip() {
     let mut rp = RegParams::new("pixserial_file");
 
-    let tmpdir = std::env::temp_dir().join("lept_pixserial");
-    std::fs::create_dir_all(&tmpdir).ok();
+    let tmpdir = std::env::temp_dir().join(format!("lept_pixserial_{}", std::process::id()));
+    std::fs::create_dir_all(&tmpdir).expect("create temp dir");
 
     for (i, img) in IMAGES.iter().enumerate() {
         let pix = leptonica_test::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
