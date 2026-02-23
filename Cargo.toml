@@ -22,16 +22,16 @@ repository = "https://github.com/tagawa/leptonica-rs"
 
 [workspace.dependencies]
 # Internal crates
-leptonica-core = { path = "crates/leptonica-core" }
-leptonica-io = { path = "crates/leptonica-io" }
-leptonica-morph = { path = "crates/leptonica-morph" }
-leptonica-transform = { path = "crates/leptonica-transform" }
-leptonica-filter = { path = "crates/leptonica-filter" }
-leptonica-color = { path = "crates/leptonica-color" }
-leptonica-region = { path = "crates/leptonica-region" }
-leptonica-doc = { path = "crates/leptonica-doc" }
-leptonica-recog = { path = "crates/leptonica-recog" }
-leptonica-test = { path = "crates/leptonica-test" }
+leptonica-core = { path = "crates/leptonica-core", version = "0.1.0" }
+leptonica-io = { path = "crates/leptonica-io", version = "0.1.0" }
+leptonica-morph = { path = "crates/leptonica-morph", version = "0.1.0" }
+leptonica-transform = { path = "crates/leptonica-transform", version = "0.1.0" }
+leptonica-filter = { path = "crates/leptonica-filter", version = "0.1.0" }
+leptonica-color = { path = "crates/leptonica-color", version = "0.1.0" }
+leptonica-region = { path = "crates/leptonica-region", version = "0.1.0" }
+leptonica-doc = { path = "crates/leptonica-doc", version = "0.1.0" }
+leptonica-recog = { path = "crates/leptonica-recog", version = "0.1.0" }
+leptonica-test = { path = "crates/leptonica-test", version = "0.1.0" }
 
 # External dependencies
 thiserror = "2.0.18"
