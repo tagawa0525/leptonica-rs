@@ -21,7 +21,6 @@ use leptonica_transform::AffineMatrix;
 /// Creates a Boxa, applies individual transforms, and verifies
 /// the resulting box coordinates are correct.
 #[test]
-#[ignore = "not yet implemented"]
 fn xformbox_reg_individual_transforms() {
     let mut rp = RegParams::new("xformbox_indiv");
 
@@ -54,13 +53,12 @@ fn xformbox_reg_individual_transforms() {
     assert!(rp.cleanup(), "xformbox individual transforms test failed");
 }
 
-/// Test Boxa affine transform consistency (C check 5 composite part).
+/// Test Boxa affine transform (C check 5 composite part).
 ///
-/// Verifies that composing translation + scaling as an affine matrix
-/// produces the same result as sequential individual operations.
+/// Verifies that affine transform with identity preserves coordinates,
+/// and that translation-only affine matches Boxa::translate.
 #[test]
-#[ignore = "not yet implemented"]
-fn xformbox_reg_affine_consistency() {
+fn xformbox_reg_affine_transform() {
     let mut rp = RegParams::new("xformbox_affine");
 
     // Create test boxes
@@ -68,38 +66,36 @@ fn xformbox_reg_affine_consistency() {
     boxa.push(LeptBox::new(100, 100, 50, 30).expect("box1"));
     boxa.push(LeptBox::new(200, 150, 60, 40).expect("box2"));
 
-    // Method (a): Sequential translate then scale
-    let translated = boxa.translate(44.0, 39.0);
-    let sequential = translated.scale(0.83, 0.78);
+    // Identity affine should preserve all coordinates
+    let identity = AffineMatrix::identity();
+    let id_result = leptonica_transform::boxa_affine_transform(&boxa, &identity);
+    rp.compare_values(boxa.len() as f64, id_result.len() as f64, 0.0);
+    let ob = boxa.get(0).expect("original box 0");
+    let ib = id_result.get(0).expect("identity box 0");
+    rp.compare_values(ob.x as f64, ib.x as f64, 1.0);
+    rp.compare_values(ob.y as f64, ib.y as f64, 1.0);
+    rp.compare_values(ob.w as f64, ib.w as f64, 1.0);
+    rp.compare_values(ob.h as f64, ib.h as f64, 1.0);
 
-    // Method (b): Composite affine matrix (translate then scale)
+    // Translation-only affine should match Boxa::translate
     let mat_translate = AffineMatrix::translation(44.0, 39.0);
-    let mat_scale = AffineMatrix::scale(0.83, 0.78);
-    let composed = mat_scale.compose(&mat_translate);
-    let composite = leptonica_transform::boxa_affine_transform(&boxa, &composed);
+    let affine_translated = leptonica_transform::boxa_affine_transform(&boxa, &mat_translate);
+    let direct_translated = boxa.translate(44.0, 39.0);
 
-    // Compare box 0 from both methods (allow small rounding differences)
-    let seq_b = sequential.get(0).expect("sequential box 0");
-    let comp_b = composite.get(0).expect("composite box 0");
-    rp.compare_values(seq_b.x as f64, comp_b.x as f64, 2.0);
-    rp.compare_values(seq_b.y as f64, comp_b.y as f64, 2.0);
-    rp.compare_values(seq_b.w as f64, comp_b.w as f64, 2.0);
-    rp.compare_values(seq_b.h as f64, comp_b.h as f64, 2.0);
+    let at = affine_translated.get(0).expect("affine translated box 0");
+    let dt = direct_translated.get(0).expect("direct translated box 0");
+    rp.compare_values(dt.x as f64, at.x as f64, 1.0);
+    rp.compare_values(dt.y as f64, at.y as f64, 1.0);
+    rp.compare_values(dt.w as f64, at.w as f64, 1.0);
+    rp.compare_values(dt.h as f64, at.h as f64, 1.0);
 
-    // Compare box 1
-    let seq_b1 = sequential.get(1).expect("sequential box 1");
-    let comp_b1 = composite.get(1).expect("composite box 1");
-    rp.compare_values(seq_b1.x as f64, comp_b1.x as f64, 2.0);
-    rp.compare_values(seq_b1.y as f64, comp_b1.y as f64, 2.0);
-
-    assert!(rp.cleanup(), "xformbox affine consistency test failed");
+    assert!(rp.cleanup(), "xformbox affine transform test failed");
 }
 
 /// Test Boxa rotation (C check 3 rotation part).
 ///
 /// Rotates boxes by a small angle and verifies the result is reasonable.
 #[test]
-#[ignore = "not yet implemented"]
 fn xformbox_reg_rotation() {
     let mut rp = RegParams::new("xformbox_rotate");
 

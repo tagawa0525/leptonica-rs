@@ -20,7 +20,6 @@ use leptonica_test::RegParams;
 /// Verifies column_stats(image) ≈ row_stats(rotate90(image)) for
 /// mean, median, and variance statistics.
 #[test]
-#[ignore = "not yet implemented"]
 fn projection_reg_symmetry() {
     let mut rp = RegParams::new("projection_sym");
 
@@ -63,7 +62,6 @@ fn projection_reg_symmetry() {
 /// Computes all six statistics for columns and verifies they are
 /// within expected ranges for a grayscale image.
 #[test]
-#[ignore = "not yet implemented"]
 fn projection_reg_column_stats() {
     let mut rp = RegParams::new("projection_col");
 
@@ -101,7 +99,6 @@ fn projection_reg_column_stats() {
 /// Computes all six statistics for rows and verifies they are
 /// within expected ranges for a grayscale image.
 #[test]
-#[ignore = "not yet implemented"]
 fn projection_reg_row_stats() {
     let mut rp = RegParams::new("projection_row");
 

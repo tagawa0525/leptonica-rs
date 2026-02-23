@@ -18,7 +18,6 @@ use leptonica_transform::{WarpDirection, WarpFill, WarpOperation};
 ///
 /// Applies sampled quadratic shear in both directions and verifies output.
 #[test]
-#[ignore = "not yet implemented"]
 fn shear2_reg_color_sampled() {
     let mut rp = RegParams::new("shear2_color_samp");
 
@@ -60,7 +59,6 @@ fn shear2_reg_color_sampled() {
 ///
 /// Applies interpolated quadratic shear in both directions.
 #[test]
-#[ignore = "not yet implemented"]
 fn shear2_reg_gray_interpolated() {
     let mut rp = RegParams::new("shear2_gray_interp");
 
@@ -99,7 +97,6 @@ fn shear2_reg_gray_interpolated() {
 ///
 /// Uses the general quadratic_v_shear with explicit WarpOperation.
 #[test]
-#[ignore = "not yet implemented"]
 fn shear2_reg_general() {
     let mut rp = RegParams::new("shear2_general");
 

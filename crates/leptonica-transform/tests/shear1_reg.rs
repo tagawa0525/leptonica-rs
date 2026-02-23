@@ -22,7 +22,6 @@ const ANGLE1: f32 = std::f32::consts::PI / 12.0;
 ///
 /// Verifies shear about corner, center, and arbitrary line with both fills.
 #[test]
-#[ignore = "not yet implemented"]
 fn shear1_reg_grayscale_8bpp() {
     let mut rp = RegParams::new("shear1_gray8");
 
@@ -63,7 +62,6 @@ fn shear1_reg_grayscale_8bpp() {
 ///
 /// Verifies shear operations preserve binary depth and produce valid output.
 #[test]
-#[ignore = "not yet implemented"]
 fn shear1_reg_binary() {
     let mut rp = RegParams::new("shear1_binary");
 
@@ -94,7 +92,6 @@ fn shear1_reg_binary() {
 /// Verifies in-place h_shear_ip and v_shear_ip produce the same result
 /// as the allocating variants.
 #[test]
-#[ignore = "not yet implemented"]
 fn shear1_reg_in_place() {
     let mut rp = RegParams::new("shear1_inplace");
 
@@ -104,7 +101,7 @@ fn shear1_reg_in_place() {
 
     // Compare h_shear vs h_shear_ip at center
     let expected = h_shear(&pix, (h / 2) as i32, ANGLE1, ShearFill::White).expect("h_shear");
-    let mut pix_mut = pix.clone().try_into_mut().expect("try_into_mut");
+    let mut pix_mut = pix.to_mut();
     leptonica_transform::h_shear_ip(&mut pix_mut, (h / 2) as i32, ANGLE1, ShearFill::White)
         .expect("h_shear_ip");
     let actual: leptonica_core::Pix = pix_mut.into();
@@ -112,7 +109,7 @@ fn shear1_reg_in_place() {
 
     // Compare v_shear vs v_shear_ip at center
     let expected_v = v_shear(&pix, (w / 2) as i32, ANGLE1, ShearFill::Black).expect("v_shear");
-    let mut pix_mut_v = pix.clone().try_into_mut().expect("try_into_mut");
+    let mut pix_mut_v = pix.to_mut();
     leptonica_transform::v_shear_ip(&mut pix_mut_v, (w / 2) as i32, ANGLE1, ShearFill::Black)
         .expect("v_shear_ip");
     let actual_v: leptonica_core::Pix = pix_mut_v.into();
@@ -125,7 +122,6 @@ fn shear1_reg_in_place() {
 ///
 /// Verifies h_shear_li and v_shear_li produce valid output at 8bpp and 32bpp.
 #[test]
-#[ignore = "not yet implemented"]
 fn shear1_reg_interpolated() {
     let mut rp = RegParams::new("shear1_interp");
 

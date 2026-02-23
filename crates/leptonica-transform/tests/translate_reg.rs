@@ -20,7 +20,6 @@ use leptonica_test::RegParams;
 /// Translates a grayscale image by positive (x, y) and verifies
 /// the output dimensions are preserved.
 #[test]
-#[ignore = "not yet implemented"]
 fn translate_reg_positive_shift() {
     let mut rp = RegParams::new("translate_pos");
 
@@ -46,7 +45,6 @@ fn translate_reg_positive_shift() {
 /// Translates a grayscale image by negative (x, y) and verifies
 /// the output dimensions are preserved and content shifted.
 #[test]
-#[ignore = "not yet implemented"]
 fn translate_reg_negative_shift() {
     let mut rp = RegParams::new("translate_neg");
 
@@ -71,7 +69,6 @@ fn translate_reg_negative_shift() {
 ///
 /// Verifies translation works on color images and preserves RGB values.
 #[test]
-#[ignore = "not yet implemented"]
 fn translate_reg_rgb() {
     let mut rp = RegParams::new("translate_rgb");
 

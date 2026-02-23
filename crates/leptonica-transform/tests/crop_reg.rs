@@ -20,7 +20,6 @@ use leptonica_test::RegParams;
 ///
 /// Clips a rectangle that is fully within the image with an added border.
 #[test]
-#[ignore = "not yet implemented"]
 fn crop_reg_clip_with_border_contained() {
     let mut rp = RegParams::new("crop_border_contained");
 
@@ -48,7 +47,6 @@ fn crop_reg_clip_with_border_contained() {
 ///
 /// Clips a rectangle that extends near the edge, so full border is not possible.
 #[test]
-#[ignore = "not yet implemented"]
 fn crop_reg_clip_with_border_edge() {
     let mut rp = RegParams::new("crop_border_edge");
 
@@ -72,7 +70,6 @@ fn crop_reg_clip_with_border_edge() {
 ///
 /// Additional test beyond the C checks, verifying pixel correspondence.
 #[test]
-#[ignore = "not yet implemented"]
 fn crop_reg_basic_clip() {
     let mut rp = RegParams::new("crop_basic_clip");
 
