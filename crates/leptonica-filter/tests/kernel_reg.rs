@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies Kernel::from_slice, box_kernel, and gaussian kernel creation.
 #[test]
-#[ignore = "not yet implemented: Kernel creation from slice/box/gaussian"]
 fn kernel_reg_creation() {
     let mut rp = RegParams::new("kernel_create");
 
@@ -31,15 +30,16 @@ fn kernel_reg_creation() {
     let kernel = Kernel::from_slice(5, 5, &data).expect("from_slice 5x5");
     rp.compare_values(5.0, kernel.width() as f64, 0.0);
     rp.compare_values(5.0, kernel.height() as f64, 0.0);
-    rp.compare_values(115.0, kernel.sum() as f64, 1.0);
+    // sum of data: 17+38+49+38+17 = 159 (from_slice does not normalize)
+    rp.compare_values(159.0, kernel.sum() as f64, 1.0);
 
     // Box kernel (C: makeFlatKernel 11x11)
     let box_k = Kernel::box_kernel(11).expect("box_kernel 11");
     rp.compare_values(11.0, box_k.width() as f64, 0.0);
     rp.compare_values(11.0, box_k.height() as f64, 0.0);
 
-    // Gaussian kernel (C: makeGaussianKernel size=5 sigma=2)
-    let gauss = Kernel::gaussian(5, 2.0).expect("gaussian kernel size=5 sigma=2");
+    // Gaussian kernel (C: makeGaussianKernel halfsize=5 → 11x11; Rust uses full-width)
+    let gauss = Kernel::gaussian(11, 2.0).expect("gaussian kernel size=11 sigma=2");
     rp.compare_values(11.0, gauss.width() as f64, 0.0);
     rp.compare_values(11.0, gauss.height() as f64, 0.0);
     // Gaussian sum should be approximately 1.0 (normalized)
@@ -53,7 +53,6 @@ fn kernel_reg_creation() {
 ///
 /// Verifies convolve and convolve_gray preserve dimensions.
 #[test]
-#[ignore = "not yet implemented: convolve with custom kernel"]
 fn kernel_reg_convolve() {
     let mut rp = RegParams::new("kernel_conv");
 
@@ -85,7 +84,6 @@ fn kernel_reg_convolve() {
 ///
 /// Verifies blockconv and box_blur preserve dimensions.
 #[test]
-#[ignore = "not yet implemented: blockconv and box_blur"]
 fn kernel_reg_blockconv() {
     let mut rp = RegParams::new("kernel_blockconv");
 
@@ -119,7 +117,6 @@ fn kernel_reg_blockconv() {
 ///
 /// Verifies convolve on a color image produces 32bpp output.
 #[test]
-#[ignore = "not yet implemented: convolve on 32bpp color image"]
 fn kernel_reg_convolve_color() {
     let mut rp = RegParams::new("kernel_conv_color");
 

@@ -23,7 +23,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies gamma_trc_pix preserves dimensions and produces 32bpp output.
 #[test]
-#[ignore = "not yet implemented: gamma_trc_pix on color image"]
 fn enhance_reg_gamma_trc() {
     let mut rp = RegParams::new("enhance_gamma");
 
@@ -54,7 +53,6 @@ fn enhance_reg_gamma_trc() {
 ///
 /// Verifies modify_hue produces 32bpp output with same dimensions.
 #[test]
-#[ignore = "not yet implemented: modify_hue"]
 fn enhance_reg_modify_hue() {
     let mut rp = RegParams::new("enhance_hue");
 
@@ -85,7 +83,6 @@ fn enhance_reg_modify_hue() {
 ///
 /// Verifies saturation modification and measurement are consistent.
 #[test]
-#[ignore = "not yet implemented: modify_saturation and measure_saturation"]
 fn enhance_reg_saturation() {
     let mut rp = RegParams::new("enhance_sat");
 
@@ -126,7 +123,6 @@ fn enhance_reg_saturation() {
 ///
 /// Verifies contrast enhancement and sharpening preserve dimensions.
 #[test]
-#[ignore = "not yet implemented: contrast_trc_pix and unsharp_masking"]
 fn enhance_reg_contrast_unsharp() {
     let mut rp = RegParams::new("enhance_contrast");
 
@@ -156,7 +152,6 @@ fn enhance_reg_contrast_unsharp() {
 ///
 /// Verifies color matrix operations produce 32bpp output.
 #[test]
-#[ignore = "not yet implemented: mult_constant_color and mult_matrix_color"]
 fn enhance_reg_mult_color() {
     let mut rp = RegParams::new("enhance_mult");
 

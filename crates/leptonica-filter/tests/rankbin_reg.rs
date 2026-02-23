@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 /// Verifies rank filter at 0.0 (min), 0.5 (median), 1.0 (max) approximates
 /// the corresponding min/median/max filters.
 #[test]
-#[ignore = "not yet implemented: rank_filter_gray basic and extremes"]
 fn rankbin_reg_rank_filter_gray() {
     let mut rp = RegParams::new("rankbin_gray");
 

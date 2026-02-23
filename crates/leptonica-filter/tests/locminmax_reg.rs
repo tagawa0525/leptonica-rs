@@ -20,7 +20,6 @@ use leptonica_test::RegParams;
 /// Verifies that blockconv produces a smoothed 8bpp image at original dimensions.
 /// In C, pixBlockconv is used to smooth before calling pixLocalExtrema.
 #[test]
-#[ignore = "not yet implemented: blockconv_gray smoothing"]
 fn locminmax_reg_blockconv_smooth() {
     let mut rp = RegParams::new("locminmax_smooth");
 

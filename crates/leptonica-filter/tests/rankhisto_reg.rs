@@ -19,7 +19,6 @@ use leptonica_test::RegParams;
 ///
 /// Verifies rank_filter works on 32bpp image and produces valid output.
 #[test]
-#[ignore = "not yet implemented: rank_filter on color image"]
 fn rankhisto_reg_rank_filter_color() {
     let mut rp = RegParams::new("rankhisto_color");
 
@@ -48,7 +47,6 @@ fn rankhisto_reg_rank_filter_color() {
 ///
 /// Verifies that gamma correction can be applied after rank filtering.
 #[test]
-#[ignore = "not yet implemented: gamma_trc_pix after rank filter"]
 fn rankhisto_reg_gamma_on_filtered() {
     let mut rp = RegParams::new("rankhisto_gamma");
 
