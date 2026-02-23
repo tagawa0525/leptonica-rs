@@ -10,11 +10,11 @@ jobs:
     name: Publish to crates.io
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@ef4e0b8bee46222890f942fd8c368792abf192eb # stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@60eaf308e9556e6520284586925d6da4e91bb95c # v2
 
       - name: publish
         run: cargo publish
