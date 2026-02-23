@@ -1232,29 +1232,30 @@ mod tests {
 
     #[test]
     fn test_rop_region_inplace_negative_offset() {
-        // dst 側のオフセットが負の場合、境界外ピクセルをスキップ
+        // dst(-1,-1) へのオフセット付き貼り付けで、正しいピクセルが正しい位置に
+        // コピーされることをオフセット計算のレベルで検証する。
+        //
+        // src(1,1) だけを ON にしておくと:
+        //   row=1, col=1 → tx=(-1+1)=0, ty=(-1+1)=0, sx=(0+1)=1, sy=(0+1)=1
+        //   → dst(0,0) = src(1,1) = 1
+        //   他の有効ピクセル（row=1,col=2 など）は src が 0 なので dst も 0 のまま
         let mut dst = Pix::new(8, 8, PixelDepth::Bit1).unwrap().to_mut();
 
         let mut src = Pix::new(4, 4, PixelDepth::Bit1).unwrap().to_mut();
-        // src の全ピクセルをセット
-        for y in 0..4u32 {
-            for x in 0..4u32 {
-                src.set_pixel(x, y, 1).unwrap();
-            }
-        }
+        src.set_pixel(1, 1, 1).unwrap(); // src(1,1) のみ ON
         let src: Pix = src.into();
 
-        // dst(-1,-1) から貼り付け → (0,0)〜(2,2) だけ書き込まれる
         dst.rop_region_inplace(-1, -1, 4, 4, RopOp::Src, &src, 0, 0)
             .unwrap();
         let dst: Pix = dst.into();
 
-        assert_eq!(dst.get_pixel(0, 0), Some(1));
-        assert_eq!(dst.get_pixel(2, 0), Some(1));
-        assert_eq!(dst.get_pixel(0, 2), Some(1));
-        assert_eq!(dst.get_pixel(2, 2), Some(1));
-        // dst(-1, -1) は範囲外なので書き込まれない（dst(0,0) は src(1,1) が書き込まれる）
-        assert_eq!(dst.get_pixel(3, 0), Some(0)); // 4列目はない（dst x=3 は src x=4 で範囲外）
+        // src(1,1) だけが ON → dst(0,0) にのみ 1 が書き込まれる
+        assert_eq!(dst.get_pixel(0, 0), Some(1)); // src(1,1)=1 がマップされる
+        assert_eq!(dst.get_pixel(1, 0), Some(0)); // src(2,1)=0
+        assert_eq!(dst.get_pixel(0, 1), Some(0)); // src(1,2)=0
+        assert_eq!(dst.get_pixel(1, 1), Some(0)); // src(2,2)=0
+        // dst(-1, -1)、(-1, 0)、(0, -1) は範囲外なのでスキップされる
+        assert_eq!(dst.get_pixel(3, 0), Some(0)); // dst x=3 は src x=4 で範囲外
     }
 
     #[test]
