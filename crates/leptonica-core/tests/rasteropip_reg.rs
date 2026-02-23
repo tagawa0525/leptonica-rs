@@ -85,7 +85,6 @@ fn rasteropip_reg_copy_consistency() {
 ///
 /// C equivalent: pixRemoveBorder + pixAddMirroredBorder
 #[test]
-#[ignore = "not yet implemented: pixRemoveBorder/pixAddMirroredBorder not available"]
 fn rasteropip_reg_mirrored_border() {
     let mut rp = RegParams::new("rasteropip_mirror");
 
