@@ -75,6 +75,29 @@ src/
 - テストデータ: `tests/data/images/`, golden: `tests/golden/`, 出力: `tests/regout/`
 - インフラ: `tests/common/`（`RegParams`, `compare_values()`, `compare_pix()` 等）
 
+### テストのディレクトリ構造
+
+```text
+tests/
+├── common/          # ヘルパー（RegParams, load_test_image 等）
+├── core/            # main.rs + 32テストモジュール
+├── io/              # main.rs + 17テストモジュール
+├── morph/           # main.rs + 18テストモジュール
+├── transform/       # main.rs + 21テストモジュール
+├── filter/          # main.rs + 19テストモジュール
+├── color/           # main.rs + 28テストモジュール
+├── region/          # main.rs + 13テストモジュール
+└── recog/           # main.rs + 14テストモジュール
+```
+
+各ディレクトリの `main.rs` がテストバイナリのエントリポイント。モジュール単位で実行可能:
+
+```bash
+cargo test --test core       # core テストのみ
+cargo test --test io         # io テストのみ
+cargo test convolve_reg      # テスト名でフィルタ（全バイナリ横断）
+```
+
 ## 設計原則
 
 ### Pix/PixMut
