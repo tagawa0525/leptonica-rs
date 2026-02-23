@@ -55,10 +55,10 @@ fn lowsat_reg_saturation() {
     let w = pix.width();
     let h = pix.height();
 
-    // Measure original saturation
+    // Measure original saturation (returns mean saturation in [0..255])
     let original_sat = measure_saturation(&pix, 1).expect("measure_saturation");
-    // Saturation should be a reasonable value between 0 and 1
     assert!(original_sat >= 0.0, "saturation should be non-negative");
+    assert!(original_sat <= 255.0, "saturation should be <= 255");
 
     // Increase saturation
     let saturated = modify_saturation(&pix, 0.5).expect("modify_saturation +0.5");
