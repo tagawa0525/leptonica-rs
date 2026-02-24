@@ -1,11 +1,11 @@
 # leptonica-rs
 
-[![CI](https://github.com/tagawa/leptonica-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/tagawa/leptonica-rs/actions/workflows/ci.yml)
+[![CI](https://github.com/tagawa0525/leptonica-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/tagawa0525/leptonica-rs/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/leptonica.svg)](https://crates.io/crates/leptonica)
 [![docs.rs](https://docs.rs/leptonica/badge.svg)](https://docs.rs/leptonica)
 [![License: BSD-2-Clause](https://img.shields.io/badge/license-BSD--2--Clause-blue.svg)](LICENSE)
 
-A Rust reimplementation of the [Leptonica](http://www.leptonica.org/) image processing library.
+A pure Rust reimplementation of the [Leptonica](http://www.leptonica.org/) image processing library — **no C dependencies**, cross-compile friendly, and `unsafe`-free.
 
 [日本語](README.ja.md)
 
@@ -25,7 +25,7 @@ Progress against the original 182 source files and 1,880 public functions.
 | Function coverage    | 1,128 / 1,880 (60.0%)    |
 | Regression test coverage | 140 / 159 (88.1%)     |
 
-Details: [Feature comparison](docs/porting/feature-comparison.md) / [Test comparison](docs/porting/test-comparison.md)
+Details: [Feature comparison](docs/en/porting/feature-comparison.md) / [Test comparison](docs/en/porting/test-comparison.md)
 
 ## Module Structure
 
