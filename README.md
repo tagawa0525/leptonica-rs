@@ -25,7 +25,7 @@ Progress against the original 182 source files and 1,880 public functions.
 | Function coverage    | 1,128 / 1,880 (60.0%)    |
 | Regression test coverage | 140 / 159 (88.1%)     |
 
-Details: [Feature comparison](docs/porting/feature-comparison.md) / [Test comparison](docs/porting/test-comparison.md)
+Details: [Feature comparison](docs/en/porting/feature-comparison.md) / [Test comparison](docs/en/porting/test-comparison.md)
 
 ## Module Structure
 
