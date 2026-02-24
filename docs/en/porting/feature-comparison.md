@@ -13,7 +13,7 @@ Survey date: 2026-02-23 (Phase 10-1 blend regression tests complete, all 10 phas
 ## Function-level Comparison Summary
 
 All public functions from the C version were extracted and classified into 3 categories by implementation status in the Rust version.
-See files under `docs/porting/comparison/` for details.
+See files under `docs/porting/comparison/` for details (currently only available in Japanese).
 
 | Module | ✅ Equivalent | 🔄 Different | ❌ Unimplemented | Total | Coverage |
 |--------|--------------|-------------|----------------|-------|----------|
@@ -238,7 +238,8 @@ Other:            compare, blend, pixarith, rop, bardecode, graphics, maze, warp
 
 ## Detailed Comparison Documents
 
-Function-level comparison per module (list of all public functions and their implementation status):
+Function-level comparison per module (list of all public functions and their implementation status).
+Note: these per-module files are currently only available in Japanese.
 
 - [leptonica (src/core/)](../../porting/comparison/core.md) — 882 functions
 - [leptonica (src/io/)](../../porting/comparison/io.md) — 146 functions
