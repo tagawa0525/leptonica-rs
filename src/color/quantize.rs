@@ -1156,6 +1156,846 @@ pub fn remove_unused_colors(pix: &Pix) -> ColorResult<Pix> {
     Ok(out_mut.into())
 }
 
+// =============================================================================
+// Octcube Index Helper
+// =============================================================================
+
+/// Compute octcube index for an (r,g,b) pixel at given level.
+/// level 1: 8 cubes, level 2: 64 cubes, level 3: 512 cubes, etc.
+fn octcube_index(r: u8, g: u8, b: u8, level: u32) -> u32 {
+    let shift = 8 - level;
+    let ri = (r as u32 >> shift) & ((1 << level) - 1);
+    let gi = (g as u32 >> shift) & ((1 << level) - 1);
+    let bi = (b as u32 >> shift) & ((1 << level) - 1);
+    (ri << (2 * level)) | (gi << level) | bi
+}
+
+/// Compute the center RGB values for an octcube at a given level and index.
+fn octcube_center(index: u32, level: u32) -> (u8, u8, u8) {
+    let mask = (1u32 << level) - 1;
+    let ri = (index >> (2 * level)) & mask;
+    let gi = (index >> level) & mask;
+    let bi = index & mask;
+    let shift = 8 - level;
+    let half = 1u32 << (shift - 1);
+    let r = ((ri << shift) + half).min(255) as u8;
+    let g = ((gi << shift) + half).min(255) as u8;
+    let b = ((bi << shift) + half).min(255) as u8;
+    (r, g, b)
+}
+
+// =============================================================================
+// Octcube Quantization with Gray Mixing
+// =============================================================================
+
+/// Quantize using octcube for color pixels and gray levels for near-gray pixels.
+///
+/// Generates a colormapped image where the colormap has two sections:
+/// octcube entries for color pixels, and grayscale entries for near-gray pixels.
+/// The `delta` threshold determines whether a pixel is color or gray based on
+/// the maximum difference between the min and max of its RGB components.
+///
+/// # See also
+///
+/// C Leptonica: `pixOctcubeQuantMixedWithGray()` in `colorquant1.c`
+pub fn octcube_quant_mixed_with_gray(
+    pix: &Pix,
+    depth: u32,
+    gray_levels: u32,
+    delta: u32,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if gray_levels < 2 {
+        return Err(ColorError::InvalidParameters(
+            "gray_levels must be at least 2".into(),
+        ));
+    }
+
+    let (octlevels, size) = if depth == 4 {
+        if gray_levels > 8 {
+            return Err(ColorError::InvalidParameters(
+                "max 8 gray levels for depth 4".into(),
+            ));
+        }
+        (1u32, 8u32)
+    } else if depth == 8 {
+        if gray_levels > 192 {
+            return Err(ColorError::InvalidParameters(
+                "max 192 gray levels for depth 8".into(),
+            ));
+        }
+        (2u32, 64u32)
+    } else {
+        return Err(ColorError::InvalidParameters("depth must be 4 or 8".into()));
+    };
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Build gray quantization lookup table
+    let mut tabval = vec![0u32; 256];
+    for i in 0u32..256 {
+        tabval[i as usize] = (i * gray_levels / 256).min(gray_levels - 1);
+    }
+
+    // Create colormap: first `size` entries for color octcubes (placeholder),
+    // then `gray_levels` entries for gray
+    let out_depth = if depth == 4 {
+        PixelDepth::Bit4
+    } else {
+        PixelDepth::Bit8
+    };
+    let mut colormap = PixColormap::new(depth)?;
+    for _ in 0..size {
+        colormap.add_rgb(1, 1, 1)?; // placeholder for octcube colors
+    }
+    for j in 0..gray_levels {
+        let val = (255 * j / (gray_levels - 1)) as u8;
+        colormap.add_rgb(val, val, val)?;
+    }
+
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    // Per-octcube accumulators
+    let mut carray = vec![0u64; size as usize];
+    let mut rarray = vec![0u64; size as usize];
+    let mut garray = vec![0u64; size as usize];
+    let mut barray = vec![0u64; size as usize];
+
+    // Assign each pixel to color octcube or gray level
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let rval = r as i32;
+            let gval = g as i32;
+            let bval = b as i32;
+
+            // Compute max-min difference and midval
+            let (del, midval) = if rval > gval {
+                if gval > bval {
+                    (rval - bval, gval)
+                } else if rval > bval {
+                    (rval - gval, bval)
+                } else {
+                    (bval - gval, rval)
+                }
+            } else if rval > bval {
+                (gval - bval, rval)
+            } else if gval > bval {
+                (gval - rval, bval)
+            } else {
+                (bval - rval, gval)
+            };
+
+            if del > delta as i32 {
+                // Color pixel → octcube
+                let octindex = octcube_index(r, g, b, octlevels);
+                carray[octindex as usize] += 1;
+                rarray[octindex as usize] += rval as u64;
+                garray[octindex as usize] += gval as u64;
+                barray[octindex as usize] += bval as u64;
+                out_mut.set_pixel_unchecked(x, y, octindex);
+            } else {
+                // Gray pixel
+                let val = size + tabval[midval as usize];
+                out_mut.set_pixel_unchecked(x, y, val);
+            }
+        }
+    }
+
+    // Average the colors in each occupied octcube and update the colormap
+    for i in 0..size as usize {
+        if carray[i] > 0 {
+            let r = (rarray[i] / carray[i]) as u8;
+            let g = (garray[i] / carray[i]) as u8;
+            let b = (barray[i] / carray[i]) as u8;
+            if let Some(entry) = colormap.get_mut(i) {
+                entry.red = r;
+                entry.green = g;
+                entry.blue = b;
+            }
+        }
+    }
+
+    out_mut.set_colormap(Some(colormap))?;
+    Ok(out_mut.into())
+}
+
+// =============================================================================
+// Few-Colors Octcube Quantization
+// =============================================================================
+
+/// Quantize an image with few colors using octcube at given level.
+///
+/// Builds an octcube histogram at the given level, averages colors in each
+/// occupied cube to produce the colormap, then maps pixels. Fails if more
+/// than 256 cubes are occupied. Output depth is 2, 4, or 8 bpp.
+///
+/// # See also
+///
+/// C Leptonica: `pixFewColorsOctcubeQuant1()` in `colorquant1.c`
+pub fn few_colors_octcube_quant1(pix: &Pix, level: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(1..=6).contains(&level) {
+        return Err(ColorError::InvalidParameters(
+            "level must be between 1 and 6".into(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let size = 1u32 << (3 * level);
+
+    // First pass: accumulate per-octcube
+    let mut carray = vec![0u64; size as usize];
+    let mut rarray = vec![0u64; size as usize];
+    let mut garray = vec![0u64; size as usize];
+    let mut barray = vec![0u64; size as usize];
+
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let idx = octcube_index(r, g, b, level) as usize;
+            carray[idx] += 1;
+            rarray[idx] += r as u64;
+            garray[idx] += g as u64;
+            barray[idx] += b as u64;
+        }
+    }
+
+    // Count occupied cubes and build mapping
+    let mut ncolors = 0u32;
+    let mut cube_to_cmap = vec![0u32; size as usize];
+    for i in 0..size as usize {
+        if carray[i] > 0 {
+            cube_to_cmap[i] = ncolors;
+            ncolors += 1;
+        }
+    }
+
+    if ncolors > 256 {
+        return Err(ColorError::InvalidParameters(format!(
+            "too many occupied octcubes: {ncolors} (max 256)"
+        )));
+    }
+
+    let out_depth_bits = if ncolors <= 4 {
+        2
+    } else if ncolors <= 16 {
+        4
+    } else {
+        8
+    };
+    let out_depth = match out_depth_bits {
+        2 => PixelDepth::Bit2,
+        4 => PixelDepth::Bit4,
+        _ => PixelDepth::Bit8,
+    };
+
+    // Build colormap from averaged colors
+    let mut colormap = PixColormap::new(out_depth_bits)?;
+    for i in 0..size as usize {
+        if carray[i] > 0 {
+            let r = (rarray[i] / carray[i]) as u8;
+            let g = (garray[i] / carray[i]) as u8;
+            let b = (barray[i] / carray[i]) as u8;
+            colormap.add_rgb(r, g, b)?;
+        }
+    }
+
+    // Second pass: map pixels
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    out_mut.set_colormap(Some(colormap))?;
+
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let idx = octcube_index(r, g, b, level) as usize;
+            out_mut.set_pixel_unchecked(x, y, cube_to_cmap[idx]);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Quantize with few colors, using a pre-computed ncolors estimate.
+///
+/// Similar to `few_colors_octcube_quant1` but uses the provided `ncolors`
+/// estimate. Assigns the color of the first pixel found in each octcube
+/// rather than the average.
+///
+/// # See also
+///
+/// C Leptonica: `pixFewColorsOctcubeQuant2()` in `colorquant1.c`
+pub fn few_colors_octcube_quant2(pix: &Pix, level: u32, ncolors: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(3..=6).contains(&level) {
+        return Err(ColorError::InvalidParameters(
+            "level must be between 3 and 6".into(),
+        ));
+    }
+    if ncolors > 256 {
+        return Err(ColorError::InvalidParameters(
+            "ncolors must be <= 256".into(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let size = 1u32 << (3 * level);
+
+    // octarray maps octcube index → (cindex+1), 0 means unoccupied
+    let mut octarray = vec![0u32; size as usize];
+    // colorarray stores the first pixel color for each cmap entry
+    let mut colorarray: Vec<u32> = vec![0; ncolors as usize + 1];
+
+    let out_depth_bits = if ncolors <= 4 {
+        2
+    } else if ncolors <= 16 {
+        4
+    } else {
+        8
+    };
+    let out_depth = match out_depth_bits {
+        2 => PixelDepth::Bit2,
+        4 => PixelDepth::Bit4,
+        _ => PixelDepth::Bit8,
+    };
+
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let mut cindex = 1u32;
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let octindex = octcube_index(r, g, b, level) as usize;
+            let oval = octarray[octindex];
+            if oval == 0 {
+                octarray[octindex] = cindex;
+                colorarray[cindex as usize] = pval;
+                out_mut.set_pixel_unchecked(x, y, cindex - 1);
+                cindex += 1;
+            } else {
+                out_mut.set_pixel_unchecked(x, y, oval - 1);
+            }
+        }
+    }
+
+    // Build colormap from first-found pixels
+    let actual_colors = cindex - 1;
+    let mut colormap = PixColormap::new(out_depth_bits)?;
+    for i in 1..=actual_colors {
+        let (r, g, b) = pixel::extract_rgb(colorarray[i as usize]);
+        colormap.add_rgb(r, g, b)?;
+    }
+
+    out_mut.set_colormap(Some(colormap))?;
+    Ok(out_mut.into())
+}
+
+/// Few-colors quantization with gray mixing.
+///
+/// First tries `few_colors_octcube_quant1`. If that fails (too many colors),
+/// falls back to `octcube_quant_mixed_with_gray` with depth 8.
+///
+/// # See also
+///
+/// C Leptonica: `pixFewColorsOctcubeQuantMixed()` in `colorquant1.c`
+pub fn few_colors_octcube_quant_mixed(pix: &Pix, level: u32, dark_thresh: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let level = if level == 0 { 3 } else { level };
+    if level > 6 {
+        return Err(ColorError::InvalidParameters("level must be <= 6".into()));
+    }
+    let dark_thresh = if dark_thresh == 0 { 20 } else { dark_thresh };
+
+    // Try few-colors quantization first
+    match few_colors_octcube_quant1(pix, level) {
+        Ok(quant1) => {
+            // Separate color from gray entries and re-quantize gray pixels
+            let cmap = quant1.colormap().ok_or_else(|| {
+                ColorError::InvalidParameters("expected colormapped image".into())
+            })?;
+            let ncolors = cmap.len();
+            let w = pix.width();
+            let h = pix.height();
+
+            // Classify cmap entries as color or gray
+            let diff_thresh = 20u32;
+            let light_thresh = 244u32;
+            let mut is_color_entry = vec![false; ncolors];
+            let mut color_lut = vec![-1i32; ncolors]; // old index → new color index
+            let mut cmapd = PixColormap::new(8)?;
+
+            let mut color_idx = 0i32;
+            for i in 0..ncolors {
+                if let Some((r, g, b)) = cmap.get_rgb(i) {
+                    let minval = r.min(g).min(b) as u32;
+                    let maxval = r.max(g).max(b) as u32;
+                    if minval > light_thresh || maxval < dark_thresh {
+                        continue;
+                    }
+                    if maxval - minval >= diff_thresh {
+                        is_color_entry[i] = true;
+                        cmapd.add_rgb(r, g, b)?;
+                        color_lut[i] = color_idx;
+                        color_idx += 1;
+                    }
+                }
+            }
+
+            // Build output: color pixels get mapped, gray pixels filled later
+            let out = Pix::new(w, h, PixelDepth::Bit8)?;
+            let mut out_mut = out.try_into_mut().unwrap();
+
+            let n_color_entries = cmapd.len();
+
+            // Add gray entries (256 levels minus color entries)
+            let ngray = (256 - n_color_entries).max(2);
+            for i in 0..ngray {
+                let val = (i * 255 / (ngray - 1)) as u8;
+                if cmapd.len() >= 256 {
+                    break;
+                }
+                cmapd.add_rgb(val, val, val)?;
+            }
+
+            out_mut.set_colormap(Some(cmapd))?;
+
+            for y in 0..h {
+                for x in 0..w {
+                    let old_idx = quant1.get_pixel_unchecked(x, y) as usize;
+                    if old_idx < ncolors && is_color_entry[old_idx] {
+                        out_mut.set_pixel_unchecked(x, y, color_lut[old_idx] as u32);
+                    } else {
+                        // Map from source RGB to gray
+                        let pval = pix.get_pixel_unchecked(x, y);
+                        let (r, g, b) = pixel::extract_rgb(pval);
+                        let gray = ((r as u32 + g as u32 + b as u32) / 3) as u8;
+                        let gray_idx = if ngray > 1 {
+                            let scaled = gray as f32 / 255.0 * (ngray - 1) as f32;
+                            scaled.round() as u32
+                        } else {
+                            0
+                        };
+                        let cmap_idx = n_color_entries as u32 + gray_idx.min(ngray as u32 - 1);
+                        out_mut.set_pixel_unchecked(x, y, cmap_idx);
+                    }
+                }
+            }
+
+            Ok(out_mut.into())
+        }
+        Err(_) => {
+            // Fallback to octcube quant mixed with gray
+            octcube_quant_mixed_with_gray(pix, 8, 64, dark_thresh)
+        }
+    }
+}
+
+// =============================================================================
+// Fixed Partition Octcube Quantization with RGB Output
+// =============================================================================
+
+/// Fixed octcube quantization generating RGB output (not colormapped).
+///
+/// For each pixel, replaces it with the center color of the octcube
+/// it falls into at the given level. This produces a 32bpp RGB image
+/// with quantized colors rather than a colormapped image.
+///
+/// # See also
+///
+/// C Leptonica: `pixFixedOctcubeQuantGenRGB()` in `colorquant1.c`
+pub fn fixed_octcube_quant_gen_rgb(pix: &Pix, level: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(1..=6).contains(&level) {
+        return Err(ColorError::InvalidParameters(
+            "level must be between 1 and 6".into(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    let out = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let idx = octcube_index(r, g, b, level);
+            let (qr, qg, qb) = octcube_center(idx, level);
+            out_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(qr, qg, qb));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+// =============================================================================
+// Octcube Quantization from Existing Colormap
+// =============================================================================
+
+/// Quantize a 32bpp RGB image using an existing colormap via nearest-color search.
+///
+/// For each pixel, finds the nearest color in the colormap using Euclidean
+/// distance in RGB space. Output depth is determined by colormap size and mindepth.
+///
+/// # See also
+///
+/// C Leptonica: `pixOctcubeQuantFromCmap()` in `colorquant1.c`
+pub fn octcube_quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if cmap.is_empty() {
+        return Err(ColorError::InvalidParameters(
+            "colormap must not be empty".into(),
+        ));
+    }
+    if !matches!(mindepth, 2 | 4 | 8) {
+        return Err(ColorError::InvalidParameters(format!(
+            "mindepth must be 2, 4, or 8; got {mindepth}"
+        )));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    let needed_depth = if cmap.len() <= 4 {
+        2
+    } else if cmap.len() <= 16 {
+        4
+    } else {
+        8
+    };
+    let out_depth_bits = needed_depth.max(mindepth);
+    let out_depth = match out_depth_bits {
+        2 => PixelDepth::Bit2,
+        4 => PixelDepth::Bit4,
+        _ => PixelDepth::Bit8,
+    };
+
+    let mut out_cmap = PixColormap::new(out_depth_bits)?;
+    for i in 0..cmap.len() {
+        if let Some((r, g, b)) = cmap.get_rgb(i) {
+            out_cmap.add_rgb(r, g, b)?;
+        }
+    }
+
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    out_mut.set_colormap(Some(out_cmap))?;
+
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            if let Some(idx) = cmap.find_nearest(r, g, b) {
+                out_mut.set_pixel_unchecked(x, y, idx as u32);
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Quantize using an existing colormap via octcube lookup table for speed.
+///
+/// Builds a LUT mapping each octcube index (at level 4) to the nearest
+/// colormap entry, then uses it to map pixels. Faster than per-pixel
+/// nearest search for large images.
+///
+/// # See also
+///
+/// C Leptonica: `pixOctcubeQuantFromCmapLUT()` in `colorquant1.c`
+pub fn octcube_quant_from_cmap_lut(
+    pix: &Pix,
+    cmap: &PixColormap,
+    mindepth: u32,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if cmap.is_empty() {
+        return Err(ColorError::InvalidParameters(
+            "colormap must not be empty".into(),
+        ));
+    }
+    if !matches!(mindepth, 2 | 4 | 8) {
+        return Err(ColorError::InvalidParameters(format!(
+            "mindepth must be 2, 4, or 8; got {mindepth}"
+        )));
+    }
+
+    let lut_level = 4u32;
+    let lut_size = 1u32 << (3 * lut_level); // 4096
+
+    // Build LUT: for each octcube center, find nearest cmap entry
+    let mut lut = vec![0u32; lut_size as usize];
+    for i in 0..lut_size {
+        let (cr, cg, cb) = octcube_center(i, lut_level);
+        if let Some(idx) = cmap.find_nearest(cr, cg, cb) {
+            lut[i as usize] = idx as u32;
+        }
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    let needed_depth = if cmap.len() <= 4 {
+        2
+    } else if cmap.len() <= 16 {
+        4
+    } else {
+        8
+    };
+    let out_depth_bits = needed_depth.max(mindepth);
+    let out_depth = match out_depth_bits {
+        2 => PixelDepth::Bit2,
+        4 => PixelDepth::Bit4,
+        _ => PixelDepth::Bit8,
+    };
+
+    let mut out_cmap = PixColormap::new(out_depth_bits)?;
+    for i in 0..cmap.len() {
+        if let Some((r, g, b)) = cmap.get_rgb(i) {
+            out_cmap.add_rgb(r, g, b)?;
+        }
+    }
+
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    out_mut.set_colormap(Some(out_cmap))?;
+
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let idx = octcube_index(r, g, b, lut_level) as usize;
+            out_mut.set_pixel_unchecked(x, y, lut[idx]);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+// =============================================================================
+// Octcube Tree (Histogram)
+// =============================================================================
+
+/// Result of building an octcube tree: a histogram of pixel counts per octcube.
+#[derive(Debug, Clone)]
+pub struct OctcubeTree {
+    /// Count of pixels in each octcube at the given level.
+    pub histogram: Vec<u32>,
+    /// The octcube level used.
+    pub level: u32,
+}
+
+/// Build octcube tree (histogram of pixel counts per octcube).
+///
+/// Counts how many pixels fall into each octcube at the given level.
+///
+/// # See also
+///
+/// C Leptonica: `pixOctcubeTree()` (histogram generation part)
+pub fn octcube_tree(pix: &Pix, level: u32) -> ColorResult<OctcubeTree> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(1..=6).contains(&level) {
+        return Err(ColorError::InvalidParameters(
+            "level must be between 1 and 6".into(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let size = 1u32 << (3 * level);
+    let mut histogram = vec![0u32; size as usize];
+
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let idx = octcube_index(r, g, b, level) as usize;
+            histogram[idx] += 1;
+        }
+    }
+
+    Ok(OctcubeTree { histogram, level })
+}
+
+// =============================================================================
+// Number of Occupied Octcubes
+// =============================================================================
+
+/// Count number of octcubes that contain at least `min_count` pixels.
+///
+/// # See also
+///
+/// C Leptonica: `pixNumberOccupiedOctcubes()` in `colorquant1.c`
+pub fn number_occupied_octcubes(pix: &Pix, level: u32, min_count: u32) -> ColorResult<u32> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(1..=6).contains(&level) {
+        return Err(ColorError::InvalidParameters(
+            "level must be between 1 and 6".into(),
+        ));
+    }
+
+    let min_count = min_count.max(1);
+    let tree = octcube_tree(pix, level)?;
+    let count = tree.histogram.iter().filter(|&&c| c >= min_count).count() as u32;
+    Ok(count)
+}
+
+// =============================================================================
+// Few Colors Median Cut Quantization Mixed
+// =============================================================================
+
+/// Median cut quantization for few-color images with gray mixing.
+///
+/// First estimates the number of colors in the image. If more than
+/// `ncolors`, returns an error. If the image has no significant color
+/// content, converts to grayscale and quantizes. Otherwise uses
+/// `median_cut_quant_mixed` for the actual quantization.
+///
+/// # See also
+///
+/// C Leptonica: `pixFewColorsMedianCutQuantMixed()` in `colorquant2.c`
+pub fn few_colors_median_cut_quant_mixed(pix: &Pix, ncolors: u32, ngray: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let max_ncolors = 20u32;
+    let dark_thresh = 20u32;
+    let light_thresh = 244u32;
+    let diff_thresh = 15u32;
+
+    let ncolors = ncolors.max(max_ncolors);
+    let ngray = ngray.max(max_ncolors);
+
+    // Estimate the number of significant colors using octcube level 3
+    let estimated = number_occupied_octcubes(pix, 3, 1)?;
+    if estimated > max_ncolors {
+        return Err(ColorError::InvalidParameters(format!(
+            "too many colors: {estimated} (max {max_ncolors})"
+        )));
+    }
+
+    // Check if image has significant color content
+    let w = pix.width();
+    let h = pix.height();
+    let total = (w * h) as u64;
+    let mut color_count = 0u64;
+
+    for y in 0..h {
+        for x in 0..w {
+            let pval = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(pval);
+            let minv = r.min(g).min(b);
+            let maxv = r.max(g).max(b);
+            if maxv as u32 >= dark_thresh
+                && (minv as u32) <= light_thresh
+                && (maxv - minv) as u32 >= diff_thresh
+            {
+                color_count += 1;
+            }
+        }
+    }
+
+    let is_color = color_count > total / 20; // > 5% color pixels
+
+    if !is_color {
+        // Convert to grayscale and quantize uniformly
+        let out = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut out_mut = out.try_into_mut().unwrap();
+        let mut colormap = PixColormap::new(8)?;
+        for i in 0..ngray {
+            let val = if ngray > 1 {
+                (i * 255 / (ngray - 1)) as u8
+            } else {
+                128
+            };
+            colormap.add_rgb(val, val, val)?;
+        }
+        out_mut.set_colormap(Some(colormap))?;
+
+        for y in 0..h {
+            for x in 0..w {
+                let pval = pix.get_pixel_unchecked(x, y);
+                let (r, g, b) = pixel::extract_rgb(pval);
+                let gray = ((r as u32 + g as u32 + b as u32) / 3) as u8;
+                let idx = if ngray > 1 {
+                    let scaled = gray as f32 / 255.0 * (ngray - 1) as f32;
+                    scaled.round() as u32
+                } else {
+                    0
+                };
+                out_mut.set_pixel_unchecked(x, y, idx.min(ngray - 1));
+            }
+        }
+
+        return Ok(out_mut.into());
+    }
+
+    // Use mixed gray/color quantizer
+    median_cut_quant_mixed(pix, ncolors, ngray, dark_thresh, light_thresh, diff_thresh)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

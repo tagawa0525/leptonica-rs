@@ -8,7 +8,12 @@
 
 use crate::color::colorspace::pix_convert_to_gray;
 use crate::color::{ColorError, ColorResult};
-use crate::core::{Pix, PixelDepth};
+use crate::core::pixel;
+use crate::core::{Pix, PixColormap, PixelDepth};
+use crate::filter::adaptmap::{
+    BackgroundNormOptions, ContrastNormOptions, background_norm, contrast_norm,
+};
+use crate::region::conncomp::{ConnectivityType, count_conn_comp};
 
 // =============================================================================
 // Fixed Threshold Binarization
@@ -946,6 +951,807 @@ fn ensure_grayscale(pix: &Pix) -> ColorResult<Pix> {
             actual: pix.depth().bits(),
         }),
     }
+}
+
+// =============================================================================
+// Composite Binarization (binarize.c)
+// =============================================================================
+
+/// Otsu threshold after background normalization.
+///
+/// Normalizes the background of the input image, then applies Otsu adaptive
+/// thresholding on the result to produce a binary image.
+///
+/// # See also
+///
+/// C Leptonica: `pixOtsuThreshOnBackgroundNorm()` in `binarize.c`
+#[allow(clippy::too_many_arguments)]
+pub fn otsu_thresh_on_background_norm(
+    pix: &Pix,
+    _mask: Option<&Pix>,
+    sx: u32,
+    sy: u32,
+    thresh: u32,
+    min_count: u32,
+    bg_val: u32,
+    smooth_x: u32,
+    smooth_y: u32,
+    score_fract: f32,
+) -> ColorResult<(Pix, u32)> {
+    let opts = BackgroundNormOptions {
+        tile_width: sx.max(4),
+        tile_height: sy.max(4),
+        fg_threshold: thresh,
+        min_count,
+        bg_val: bg_val.clamp(128, 255),
+        smooth_x,
+        smooth_y,
+    };
+    let normed = background_norm(pix, &opts)
+        .map_err(|e| ColorError::InvalidParameters(format!("background_norm failed: {e}")))?;
+
+    let w = normed.width();
+    let h = normed.height();
+    let (_thresh_map, binary) = otsu_adaptive_threshold(&normed, w, h, 0, 0, score_fract)?;
+
+    // Extract the global Otsu threshold from the normalized image
+    let gray = ensure_grayscale(&normed)?;
+    let tval = compute_otsu_threshold(&gray)? as u32;
+
+    Ok((binary, tval))
+}
+
+/// Masked threshold after background normalization.
+///
+/// Normalizes the background and then applies Otsu thresholding.
+/// Similar to [`otsu_thresh_on_background_norm`] with masking support.
+///
+/// # See also
+///
+/// C Leptonica: `pixMaskedThreshOnBackgroundNorm()` in `binarize.c`
+#[allow(clippy::too_many_arguments)]
+pub fn masked_thresh_on_background_norm(
+    pix: &Pix,
+    _mask: Option<&Pix>,
+    sx: u32,
+    sy: u32,
+    thresh: u32,
+    min_count: u32,
+    smooth_x: u32,
+    smooth_y: u32,
+    score_fract: f32,
+) -> ColorResult<(Pix, u32)> {
+    let opts = BackgroundNormOptions {
+        tile_width: sx.max(4),
+        tile_height: sy.max(4),
+        fg_threshold: thresh,
+        min_count,
+        bg_val: 200,
+        smooth_x,
+        smooth_y,
+    };
+    let normed = background_norm(pix, &opts)
+        .map_err(|e| ColorError::InvalidParameters(format!("background_norm failed: {e}")))?;
+
+    let w = normed.width();
+    let h = normed.height();
+    let (_thresh_map, binary) = otsu_adaptive_threshold(&normed, w, h, 0, 0, score_fract)?;
+
+    let gray = ensure_grayscale(&normed)?;
+    let tval = compute_otsu_threshold(&gray)? as u32;
+
+    Ok((binary, tval))
+}
+
+/// Sauvola threshold after contrast normalization.
+///
+/// Applies contrast normalization to stretch local contrast, then uses
+/// Sauvola binarization on the result.
+///
+/// # See also
+///
+/// C Leptonica: `pixSauvolaOnContrastNorm()` in `binarize.c`
+pub fn sauvola_on_contrast_norm(pix: &Pix, mindiff: u32) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let opts = ContrastNormOptions {
+        min_diff: mindiff,
+        ..ContrastNormOptions::default()
+    };
+    let normed = contrast_norm(&gray, &opts)
+        .map_err(|e| ColorError::InvalidParameters(format!("contrast_norm failed: {e}")))?;
+
+    sauvola_threshold(&normed, 7, 0.34, 128.0)
+}
+
+/// Threshold after double normalization (background + contrast).
+///
+/// Applies background normalization followed by contrast normalization,
+/// then binarizes the result at a fixed threshold.
+///
+/// # See also
+///
+/// C Leptonica: `pixThreshOnDoubleNorm()` in `binarize.c`
+pub fn thresh_on_double_norm(pix: &Pix, mindiff: u32) -> ColorResult<Pix> {
+    let bg_opts = BackgroundNormOptions::default();
+    let normed_bg = background_norm(pix, &bg_opts)
+        .map_err(|e| ColorError::InvalidParameters(format!("background_norm failed: {e}")))?;
+
+    let gray = ensure_grayscale(&normed_bg)?;
+    let cn_opts = ContrastNormOptions {
+        min_diff: mindiff,
+        ..ContrastNormOptions::default()
+    };
+    let normed = contrast_norm(&gray, &cn_opts)
+        .map_err(|e| ColorError::InvalidParameters(format!("contrast_norm failed: {e}")))?;
+
+    threshold_to_binary(&normed, 200)
+}
+
+/// Find optimal threshold by minimizing connected component count.
+///
+/// Sweeps thresholds from `start` to `end` by `incr`, binarizing at each
+/// level and counting 4-connected and 8-connected components. The optimal
+/// threshold minimizes the ratio of 4cc / 8cc counts (or finds where it
+/// first drops below `thresh48`).
+///
+/// # See also
+///
+/// C Leptonica: `pixThresholdByConnComp()` in `binarize.c`
+pub fn threshold_by_conn_comp(
+    pix: &Pix,
+    _mask: Option<&Pix>,
+    start: u32,
+    end: u32,
+    incr: u32,
+    thresh48: f32,
+    extra_thresh: Option<&mut u32>,
+) -> ColorResult<(Pix, u32)> {
+    let gray = ensure_grayscale(pix)?;
+
+    let start = start.max(1);
+    let end = end.min(254);
+    let incr = incr.max(1);
+
+    let mut best_thresh = start;
+    let mut best_ratio = f32::MAX;
+    let mut best_binary: Option<Pix> = None;
+
+    let mut t = start;
+    while t <= end {
+        let binary = threshold_to_binary(&gray, t as u8)?;
+        let cc4 = count_conn_comp(&binary, ConnectivityType::FourWay)
+            .map_err(|e| ColorError::InvalidParameters(format!("count_conn_comp failed: {e}")))?;
+        let cc8 = count_conn_comp(&binary, ConnectivityType::EightWay)
+            .map_err(|e| ColorError::InvalidParameters(format!("count_conn_comp failed: {e}")))?;
+
+        let ratio = if cc8 > 0 {
+            cc4 as f32 / cc8 as f32
+        } else {
+            f32::MAX
+        };
+
+        if ratio < best_ratio {
+            best_ratio = ratio;
+            best_thresh = t;
+            best_binary = Some(binary);
+        }
+
+        if ratio < thresh48 {
+            best_thresh = t;
+            best_binary = Some(threshold_to_binary(&gray, t as u8)?);
+            break;
+        }
+
+        t += incr;
+    }
+
+    if let Some(et) = extra_thresh {
+        *et = best_thresh;
+    }
+
+    let binary = match best_binary {
+        Some(b) => b,
+        None => threshold_to_binary(&gray, best_thresh as u8)?,
+    };
+
+    Ok((binary, best_thresh))
+}
+
+/// Find threshold using histogram analysis.
+///
+/// Builds a histogram of the grayscale image, smooths it, and looks for a
+/// valley between the two main peaks. The valley location is used as the
+/// binarization threshold.
+///
+/// # See also
+///
+/// C Leptonica: `pixThresholdByHisto()` in `binarize.c`
+pub fn threshold_by_histo(pix: &Pix, factor: u32, _nthresh: u32) -> ColorResult<(Pix, u32)> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+    let factor = factor.max(1);
+
+    // Build histogram with subsampling
+    let mut histo = [0u32; 256];
+    for y in (0..h).step_by(factor as usize) {
+        for x in (0..w).step_by(factor as usize) {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            histo[val] += 1;
+        }
+    }
+
+    // Smooth histogram (simple moving average, width=5)
+    let mut smoothed = [0f64; 256];
+    for (i, slot) in smoothed.iter_mut().enumerate() {
+        let lo = i.saturating_sub(2);
+        let hi = (i + 2).min(255);
+        let mut sum = 0u64;
+        let mut cnt = 0u32;
+        for &h in &histo[lo..=hi] {
+            sum += h as u64;
+            cnt += 1;
+        }
+        *slot = sum as f64 / cnt as f64;
+    }
+
+    // Find two main peaks
+    let mut peak1_idx = 0usize;
+    let mut peak1_val = 0.0f64;
+    for (i, &v) in smoothed.iter().enumerate() {
+        if v > peak1_val {
+            peak1_val = v;
+            peak1_idx = i;
+        }
+    }
+
+    // Find second peak (at least 30 bins away from first)
+    let mut peak2_idx = 0usize;
+    let mut peak2_val = 0.0f64;
+    for (i, &v) in smoothed.iter().enumerate() {
+        if (i as isize - peak1_idx as isize).unsigned_abs() >= 30 && v > peak2_val {
+            peak2_val = v;
+            peak2_idx = i;
+        }
+    }
+
+    // Find valley between the two peaks
+    let (lo, hi) = if peak1_idx < peak2_idx {
+        (peak1_idx, peak2_idx)
+    } else {
+        (peak2_idx, peak1_idx)
+    };
+
+    let mut valley_idx = (lo + hi) / 2;
+    let mut valley_val = f64::MAX;
+    for (i, &v) in smoothed.iter().enumerate().take(hi + 1).skip(lo) {
+        if v < valley_val {
+            valley_val = v;
+            valley_idx = i;
+        }
+    }
+
+    let thresh = valley_idx as u32;
+    let binary = threshold_to_binary(&gray, thresh as u8)?;
+
+    Ok((binary, thresh))
+}
+
+// =============================================================================
+// Generalized Adaptive Thresholding (grayquant.c)
+// =============================================================================
+
+/// Generalized adaptive threshold to binary.
+///
+/// Applies gamma correction and maps the `[black_val, white_val]` range to
+/// `[0, 255]`, then uses Otsu thresholding.
+///
+/// # See also
+///
+/// C Leptonica: `pixAdaptThresholdToBinaryGen()` in `grayquant.c`
+pub fn adapt_threshold_to_binary_gen(
+    pix: &Pix,
+    _mask: Option<&Pix>,
+    gamma: f32,
+    black_val: i32,
+    white_val: i32,
+) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    // Build gamma + range mapping LUT
+    let gamma = if gamma <= 0.0 { 1.0f32 } else { gamma };
+    let range = (white_val - black_val).max(1) as f32;
+
+    let mut lut = [0u8; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let clamped = (i as i32).clamp(black_val, white_val);
+        let normalized = (clamped - black_val) as f32 / range;
+        let gamma_corrected = normalized.powf(1.0 / gamma);
+        *entry = (gamma_corrected * 255.0).clamp(0.0, 255.0) as u8;
+    }
+
+    // Apply LUT
+    let mapped = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut mapped_mut = mapped.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            mapped_mut.set_pixel_unchecked(x, y, lut[val.min(255)] as u32);
+        }
+    }
+
+    let mapped_pix: Pix = mapped_mut.into();
+    threshold_otsu(&mapped_pix)
+}
+
+/// Floyd-Steinberg dither to 2bpp (4 levels).
+///
+/// Uses error-diffusion dithering with output levels 0, 85, 170, 255
+/// mapped to 2bpp values 0–3.
+///
+/// # See also
+///
+/// C Leptonica: `pixDitherTo2bpp()` in `grayquant.c`
+pub fn dither_to_2bpp(pix: &Pix) -> ColorResult<Pix> {
+    dither_to_2bpp_spec(pix, 64, 128, 192)
+}
+
+/// Dither to 2bpp with specified thresholds.
+///
+/// The three thresholds divide the 0–255 range into four output levels.
+///
+/// # See also
+///
+/// C Leptonica: `pixDitherTo2bppSpec()` in `grayquant.c`
+pub fn dither_to_2bpp_spec(
+    pix: &Pix,
+    thresh1: u32,
+    thresh2: u32,
+    thresh3: u32,
+) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    // Quantization levels
+    let levels: [f32; 4] = [0.0, 85.0, 170.0, 255.0];
+    let thresholds = [thresh1 as f32, thresh2 as f32, thresh3 as f32];
+
+    // Work buffer for error diffusion
+    let mut buffer: Vec<f32> = Vec::with_capacity((w * h) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            buffer.push(gray.get_pixel_unchecked(x, y) as f32);
+        }
+    }
+
+    let out = Pix::new(w, h, PixelDepth::Bit2)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let idx = (y * w + x) as usize;
+            let old_pixel = buffer[idx];
+
+            // Quantize to one of 4 levels
+            let level_idx = if old_pixel < thresholds[0] {
+                0
+            } else if old_pixel < thresholds[1] {
+                1
+            } else if old_pixel < thresholds[2] {
+                2
+            } else {
+                3
+            };
+
+            let new_pixel = levels[level_idx];
+            out_mut.set_pixel_unchecked(x, y, level_idx as u32);
+
+            // Floyd-Steinberg error diffusion
+            let error = old_pixel - new_pixel;
+            if x + 1 < w {
+                buffer[idx + 1] += error * 7.0 / 16.0;
+            }
+            if y + 1 < h {
+                let next_row = ((y + 1) * w) as usize;
+                if x > 0 {
+                    buffer[next_row + x as usize - 1] += error * 3.0 / 16.0;
+                }
+                buffer[next_row + x as usize] += error * 5.0 / 16.0;
+                if x + 1 < w {
+                    buffer[next_row + x as usize + 1] += error * 1.0 / 16.0;
+                }
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Multi-level threshold on 8bpp image.
+///
+/// Quantizes an 8bpp grayscale image to `nlevels` evenly-spaced gray values.
+/// If `with_colormap` is true, attaches a grayscale colormap.
+///
+/// # See also
+///
+/// C Leptonica: `pixThresholdOn8bpp()` in `grayquant.c`
+pub fn threshold_on_8bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    let nlevels = nlevels.clamp(2, 256);
+    let step = 256.0 / nlevels as f32;
+
+    // Build LUT: map each 0–255 value to the nearest quantized level
+    let mut lut = [0u8; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let level_idx = ((i as f32 / step) as u32).min(nlevels - 1);
+        let center = ((level_idx as f32 + 0.5) * step).clamp(0.0, 255.0);
+        *entry = center as u8;
+    }
+
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            out_mut.set_pixel_unchecked(x, y, lut[val.min(255)] as u32);
+        }
+    }
+
+    if with_colormap {
+        let mut cmap = PixColormap::new(8)
+            .map_err(|e| ColorError::InvalidParameters(format!("colormap creation failed: {e}")))?;
+        for i in 0..nlevels {
+            let center = (((i as f32 + 0.5) * step).clamp(0.0, 255.0)) as u8;
+            let _ = cmap.add_rgb(center, center, center);
+        }
+        out_mut
+            .set_colormap(Some(cmap))
+            .map_err(|e| ColorError::InvalidParameters(format!("set_colormap failed: {e}")))?;
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Threshold with arbitrary levels specified as a space-separated string.
+///
+/// The string contains threshold values that divide the 0–255 range into
+/// N+1 output levels (where N is the number of thresholds).
+///
+/// # See also
+///
+/// C Leptonica: `pixThresholdGrayArb()` in `grayquant.c`
+pub fn threshold_gray_arb(pix: &Pix, edgevals: &str) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    // Parse threshold values from the string
+    let thresholds: Vec<u32> = edgevals
+        .split_whitespace()
+        .filter_map(|s| s.parse::<u32>().ok())
+        .collect();
+
+    if thresholds.is_empty() {
+        return Err(ColorError::InvalidParameters(
+            "edgevals must contain at least one threshold value".into(),
+        ));
+    }
+
+    let nlevels = thresholds.len() as u32 + 1;
+
+    // Determine output depth
+    let out_depth = if nlevels <= 2 {
+        PixelDepth::Bit1
+    } else if nlevels <= 4 {
+        PixelDepth::Bit2
+    } else if nlevels <= 16 {
+        PixelDepth::Bit4
+    } else {
+        PixelDepth::Bit8
+    };
+
+    // Build LUT
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let mut level = 0u32;
+        for &t in &thresholds {
+            if (i as u32) >= t {
+                level += 1;
+            }
+        }
+        *entry = level;
+    }
+
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            out_mut.set_pixel_unchecked(x, y, lut[val.min(255)]);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Generate mask by color band in 32bpp image.
+///
+/// Pixels within distance `maxdist` of `refval` (in each R, G, B component)
+/// are set to 1 in the output 1bpp mask.
+///
+/// # See also
+///
+/// C Leptonica: `pixGenerateMaskByBand32()` in `grayquant.c`
+pub fn generate_mask_by_band_32(pix: &Pix, refval: u32, maxdist: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let (ref_r, ref_g, ref_b) = pixel::extract_rgb(refval);
+
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(val);
+            let dr = (r as i32 - ref_r as i32).unsigned_abs();
+            let dg = (g as i32 - ref_g as i32).unsigned_abs();
+            let db = (b as i32 - ref_b as i32).unsigned_abs();
+            if dr <= maxdist && dg <= maxdist && db <= maxdist {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Generate mask by color discrimination in 32bpp.
+///
+/// Pixels closer to `color1` than `color2` (by Euclidean distance in RGB
+/// space) with a difference exceeding `mindiff` are set in the output mask.
+///
+/// # See also
+///
+/// C Leptonica: `pixGenerateMaskByDiscr32()` in `grayquant.c`
+pub fn generate_mask_by_discr_32(
+    pix: &Pix,
+    color1: u32,
+    color2: u32,
+    mindiff: u32,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let (r1, g1, b1) = pixel::extract_rgb(color1);
+    let (r2, g2, b2) = pixel::extract_rgb(color2);
+
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(val);
+
+            let dist1_sq = (r as i64 - r1 as i64).pow(2)
+                + (g as i64 - g1 as i64).pow(2)
+                + (b as i64 - b1 as i64).pow(2);
+            let dist2_sq = (r as i64 - r2 as i64).pow(2)
+                + (g as i64 - g2 as i64).pow(2)
+                + (b as i64 - b2 as i64).pow(2);
+
+            let diff = ((dist2_sq as f64).sqrt() - (dist1_sq as f64).sqrt()).abs() as u32;
+            if dist1_sq < dist2_sq && diff >= mindiff {
+                out_mut.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Gray quantization using histogram analysis.
+///
+/// Builds a histogram of the grayscale image, identifies significant peaks,
+/// creates a colormap from peak values, and quantizes each pixel to the
+/// nearest colormap entry.
+///
+/// # See also
+///
+/// C Leptonica: `pixGrayQuantFromHisto()` in `grayquant.c`
+pub fn gray_quant_from_histo(
+    pix: &Pix,
+    _mask: Option<&Pix>,
+    minfract: f64,
+    maxsize: u32,
+) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    // Build histogram
+    let mut histo = [0u32; 256];
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            histo[val] += 1;
+        }
+    }
+
+    let total = (w * h) as f64;
+    let min_count = (minfract * total) as u32;
+    let maxsize = maxsize.clamp(2, 256);
+
+    // Find significant peaks (local maxima above threshold)
+    let mut peaks: Vec<u8> = Vec::new();
+    for i in 1..255usize {
+        if histo[i] >= min_count && histo[i] >= histo[i - 1] && histo[i] >= histo[i + 1] {
+            peaks.push(i as u8);
+        }
+    }
+
+    // If no peaks found, use evenly-spaced levels
+    if peaks.is_empty() {
+        let n = maxsize.min(8);
+        for i in 0..n {
+            peaks.push((i * 255 / (n - 1).max(1)) as u8);
+        }
+    }
+
+    // Limit to maxsize entries
+    while peaks.len() > maxsize as usize {
+        peaks.pop();
+    }
+
+    // Build colormap from peaks
+    let cmap_depth = if peaks.len() <= 2 {
+        1
+    } else if peaks.len() <= 4 {
+        2
+    } else if peaks.len() <= 16 {
+        4
+    } else {
+        8
+    };
+    let mut cmap = PixColormap::new(cmap_depth)
+        .map_err(|e| ColorError::InvalidParameters(format!("colormap creation failed: {e}")))?;
+    for &p in &peaks {
+        let _ = cmap.add_rgb(p, p, p);
+    }
+
+    let out_depth = match cmap_depth {
+        1 => PixelDepth::Bit1,
+        2 => PixelDepth::Bit2,
+        4 => PixelDepth::Bit4,
+        _ => PixelDepth::Bit8,
+    };
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    // Map each pixel to the nearest peak
+    // Build LUT for speed
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let mut best_idx = 0u32;
+        let mut best_dist = u32::MAX;
+        for (j, &p) in peaks.iter().enumerate() {
+            let dist = (i as i32 - p as i32).unsigned_abs();
+            if dist < best_dist {
+                best_dist = dist;
+                best_idx = j as u32;
+            }
+        }
+        *entry = best_idx;
+    }
+
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            out_mut.set_pixel_unchecked(x, y, lut[val.min(255)]);
+        }
+    }
+
+    out_mut
+        .set_colormap(Some(cmap))
+        .map_err(|e| ColorError::InvalidParameters(format!("set_colormap failed: {e}")))?;
+
+    Ok(out_mut.into())
+}
+
+/// Gray quantization from existing colormap.
+///
+/// Maps each pixel to the nearest gray value in the provided colormap.
+///
+/// # See also
+///
+/// C Leptonica: `pixGrayQuantFromCmap()` in `grayquant.c`
+pub fn gray_quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
+    let gray = ensure_grayscale(pix)?;
+    let w = gray.width();
+    let h = gray.height();
+
+    let ncolors = cmap.len();
+    if ncolors == 0 {
+        return Err(ColorError::InvalidParameters(
+            "colormap must not be empty".into(),
+        ));
+    }
+
+    // Extract gray values from colormap
+    let cmap_grays: Vec<u8> = (0..ncolors)
+        .map(|i| {
+            let (r, g, b) = cmap.get_rgb(i).unwrap_or((128, 128, 128));
+            ((r as u32 + g as u32 + b as u32) / 3) as u8
+        })
+        .collect();
+
+    // Build LUT: for each 0–255 input, find nearest colormap entry
+    let mut lut = [0u32; 256];
+    for (i, entry) in lut.iter_mut().enumerate() {
+        let mut best_idx = 0u32;
+        let mut best_dist = u32::MAX;
+        for (j, &g) in cmap_grays.iter().enumerate() {
+            let dist = (i as i32 - g as i32).unsigned_abs();
+            if dist < best_dist {
+                best_dist = dist;
+                best_idx = j as u32;
+            }
+        }
+        *entry = best_idx;
+    }
+
+    // Determine output depth
+    let out_depth_val = mindepth.max(cmap.depth());
+    let out_depth = match out_depth_val {
+        0..=1 => PixelDepth::Bit1,
+        2 => PixelDepth::Bit2,
+        3..=4 => PixelDepth::Bit4,
+        _ => PixelDepth::Bit8,
+    };
+
+    let out = Pix::new(w, h, out_depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let val = gray.get_pixel_unchecked(x, y) as usize;
+            out_mut.set_pixel_unchecked(x, y, lut[val.min(255)]);
+        }
+    }
+
+    // Clone and attach colormap
+    let mut out_cmap = PixColormap::new(out_depth.bits())
+        .map_err(|e| ColorError::InvalidParameters(format!("colormap creation failed: {e}")))?;
+    for i in 0..ncolors {
+        if let Some((r, g, b)) = cmap.get_rgb(i) {
+            let _ = out_cmap.add_rgb(r, g, b);
+        }
+    }
+    out_mut
+        .set_colormap(Some(out_cmap))
+        .map_err(|e| ColorError::InvalidParameters(format!("set_colormap failed: {e}")))?;
+
+    Ok(out_mut.into())
 }
 
 #[cfg(test)]

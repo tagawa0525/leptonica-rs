@@ -7,8 +7,8 @@
 
 use crate::color::colorspace::rgb_to_hsv;
 use crate::color::{ColorError, ColorResult};
-use crate::core::{Pix, PixelDepth, pixel};
-use std::collections::HashSet;
+use crate::core::{Pix, PixColormap, PixelDepth, pixel};
+use std::collections::{HashMap, HashSet};
 
 /// Method for computing the color magnitude of a pixel.
 ///
@@ -935,6 +935,382 @@ pub fn color_magnitude(pix: &Pix, mag_type: ColorMagnitudeType) -> ColorResult<P
     }
 
     Ok(out_mut.into())
+}
+
+/// Shift image colors to normalize white point.
+///
+/// Colors are linearly mapped so that `(rref, gref, bref)` becomes `(255, 255, 255)`.
+/// If any reference value is `<= 0`, the input is returned unchanged.
+///
+/// # See also
+///
+/// C Leptonica: `pixColorShiftWhitePoint()` in `colorcontent.c`
+pub fn color_shift_white_point(pix: &Pix, rref: i32, gref: i32, bref: i32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    // No transform if any ref value is <= 0
+    if rref <= 0 || gref <= 0 || bref <= 0 {
+        return Ok(pix.clone());
+    }
+
+    // Build LUT for each channel: lut[i] = min(255, (i * 255) / ref)
+    let build_lut = |refval: i32| -> [u8; 256] {
+        let mut lut = [0u8; 256];
+        for (i, entry) in lut.iter_mut().enumerate() {
+            *entry = ((i as i32 * 255) / refval).min(255) as u8;
+        }
+        lut
+    };
+
+    let rlut = build_lut(rref);
+    let glut = build_lut(gref);
+    let blut = build_lut(bref);
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit32)
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to create output: {e}")))?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            let nr = rlut[r as usize];
+            let ng = glut[g as usize];
+            let nb = blut[b as usize];
+            out_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Find fraction of image that contains significant color.
+///
+/// Returns the color fraction (0.0 to 1.0). This is a simplified version
+/// that returns just the fraction without optional mask outputs.
+///
+/// # See also
+///
+/// C Leptonica: `pixFindColorRegions()` in `colorcontent.c`
+#[allow(clippy::too_many_arguments)]
+pub fn find_color_regions(
+    pix: &Pix,
+    mask: Option<&Pix>,
+    factor: u32,
+    light_thresh: i32,
+    dark_thresh: i32,
+    min_diff: i32,
+    color_diff: i32,
+    edge_fract: f32,
+) -> ColorResult<f32> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let factor = factor.max(1);
+    let light_thresh = if light_thresh < 0 { 210 } else { light_thresh };
+    let dark_thresh = if dark_thresh < 0 { 70 } else { dark_thresh };
+    let min_diff = if min_diff < 0 { 10 } else { min_diff };
+    let color_diff = if color_diff < 0 { 90 } else { color_diff };
+    let edge_fract = if !(0.0..=1.0).contains(&edge_fract) {
+        0.05
+    } else {
+        edge_fract
+    };
+
+    let w = pix.width();
+    let h = pix.height();
+    if w == 0 || h == 0 {
+        return Ok(0.0);
+    }
+
+    // Check if mask covers most of the image
+    if let Some(m) = mask {
+        let mw = m.width();
+        let mh = m.height();
+        let total = (mw as u64) * (mh as u64);
+        if total > 0 {
+            let mut fg_count = 0u64;
+            for y in 0..mh {
+                for x in 0..mw {
+                    if m.get_pixel_unchecked(x, y) != 0 {
+                        fg_count += 1;
+                    }
+                }
+            }
+            if (fg_count as f32 / total as f32) > 0.7 {
+                return Ok(0.0);
+            }
+        }
+    }
+
+    // Check if background is light enough by sampling at factor
+    let mut sum_avg = 0i64;
+    let mut sample_count = 0u64;
+    for y in (0..h).step_by(factor as usize) {
+        for x in (0..w).step_by(factor as usize) {
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            sum_avg += (r as i64 + g as i64 + b as i64) / 3;
+            sample_count += 1;
+        }
+    }
+    if sample_count == 0 {
+        return Ok(0.0);
+    }
+    let avg_brightness = (sum_avg as f32) / (sample_count as f32);
+    if avg_brightness < light_thresh as f32 * 0.8 {
+        return Ok(0.0);
+    }
+
+    // Edge exclusion bounds
+    let x_margin = (w as f32 * edge_fract) as u32;
+    let y_margin = (h as f32 * edge_fract) as u32;
+
+    let mut color_count = 0u64;
+    let mut total_count = 0u64;
+
+    for y in (0..h).step_by(factor as usize) {
+        for x in (0..w).step_by(factor as usize) {
+            // Skip edge pixels
+            if x < x_margin || x >= w - x_margin || y < y_margin || y >= h - y_margin {
+                continue;
+            }
+
+            // Skip masked pixels
+            if let Some(m) = mask
+                && x < m.width()
+                && y < m.height()
+                && m.get_pixel_unchecked(x, y) != 0
+            {
+                continue;
+            }
+
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            let (ri, gi, bi) = (r as i32, g as i32, b as i32);
+            let avg = (ri + gi + bi) / 3;
+
+            total_count += 1;
+
+            // Skip dark pixels
+            if avg < dark_thresh {
+                continue;
+            }
+
+            // Check for color: max component diff > color_diff, or g-r > min_diff, or b-r > min_diff
+            let max_comp = ri.max(gi).max(bi);
+            let min_comp = ri.min(gi).min(bi);
+            let is_color =
+                (max_comp - min_comp > color_diff) || (gi - ri > min_diff) || (bi - ri > min_diff);
+
+            if is_color {
+                color_count += 1;
+            }
+        }
+    }
+
+    if total_count == 0 {
+        return Ok(0.0);
+    }
+
+    Ok(color_count as f32 / total_count as f32)
+}
+
+/// Convert 32bpp RGB to colormapped image (lossless, ≤256 colors).
+///
+/// Fails if image has more than 256 unique colors.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvertRGBToCmapLossless()` in `colorcontent.c`
+pub fn convert_rgb_to_cmap_lossless(pix: &Pix) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // First pass: count unique colors
+    let ncolors = count_colors(pix)?;
+    if ncolors > 256 {
+        return Err(ColorError::QuantizationError(format!(
+            "too many colors: {ncolors} (max 256)"
+        )));
+    }
+
+    // Choose minimum depth
+    let depth = if ncolors <= 2 {
+        PixelDepth::Bit1
+    } else if ncolors <= 4 {
+        PixelDepth::Bit2
+    } else if ncolors <= 16 {
+        PixelDepth::Bit4
+    } else {
+        PixelDepth::Bit8
+    };
+
+    let out = Pix::new(w, h, depth)
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to create output: {e}")))?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let mut cmap = PixColormap::new(depth.bits())
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to create colormap: {e}")))?;
+
+    // Map from RGB key to colormap index
+    let mut color_map: HashMap<u32, u32> = HashMap::new();
+
+    for y in 0..h {
+        for x in 0..w {
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            let rgb_key = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+
+            let idx = match color_map.get(&rgb_key) {
+                Some(&i) => i,
+                None => {
+                    let i = cmap.add_rgb(r, g, b).map_err(|e| {
+                        ColorError::QuantizationError(format!(
+                            "failed to add color to colormap: {e}"
+                        ))
+                    })?;
+                    color_map.insert(rgb_key, i as u32);
+                    i as u32
+                }
+            };
+
+            out_mut.set_pixel_unchecked(x, y, idx);
+        }
+    }
+
+    out_mut
+        .set_colormap(Some(cmap))
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to set colormap: {e}")))?;
+
+    Ok(out_mut.into())
+}
+
+/// Simple color quantization using significant bits and a target number of colors.
+///
+/// Uses [`rgb_histogram`] and [`most_populated_colors`] to find the most common colors,
+/// then maps each pixel to the nearest colormap entry.
+///
+/// # See also
+///
+/// C Leptonica: `pixSimpleColorQuantize()` in `colorcontent.c`
+pub fn simple_color_quantize(pix: &Pix, sigbits: u32, max_colors: u32) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !(2..=4).contains(&sigbits) {
+        return Err(ColorError::InvalidParameters(
+            "sigbits must be in {2, 3, 4}".into(),
+        ));
+    }
+    if max_colors < 1 {
+        return Err(ColorError::InvalidParameters(
+            "max_colors must be >= 1".into(),
+        ));
+    }
+
+    let colors = most_populated_colors(pix, sigbits as i32, 1, max_colors as i32)?;
+    if colors.is_empty() {
+        return Err(ColorError::EmptyImage);
+    }
+
+    // Build colormap from the most populated colors
+    let mut cmap = PixColormap::new(8)
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to create colormap: {e}")))?;
+    for &(r, g, b, _count) in &colors {
+        cmap.add_rgb(r, g, b)
+            .map_err(|e| ColorError::QuantizationError(format!("failed to add color: {e}")))?;
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit8)
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to create output: {e}")))?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    // Map each pixel to the nearest colormap entry
+    for y in 0..h {
+        for x in 0..w {
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            let idx = cmap.find_nearest(r, g, b).unwrap_or(0);
+            out_mut.set_pixel_unchecked(x, y, idx as u32);
+        }
+    }
+
+    out_mut
+        .set_colormap(Some(cmap))
+        .map_err(|e| ColorError::InvalidParameters(format!("failed to set colormap: {e}")))?;
+
+    Ok(out_mut.into())
+}
+
+/// Detect if image has significant red highlight areas.
+///
+/// Returns `(has_red, fract)` where `fract` is the fraction of red pixels
+/// and `has_red` is true when the fraction exceeds 0.01.
+///
+/// A pixel is considered "highlight red" if `r >= 150`, `r > 2 * g`, and `r > 2 * b`.
+///
+/// # See also
+///
+/// C Leptonica: `pixHasHighlightRed()` in `colorcontent.c`
+pub fn has_highlight_red(pix: &Pix, factor: u32) -> ColorResult<(bool, f32)> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let factor = factor.max(1) as usize;
+    let w = pix.width();
+    let h = pix.height();
+
+    let mut red_count = 0u64;
+    let mut total_count = 0u64;
+
+    for y in (0..h).step_by(factor) {
+        for x in (0..w).step_by(factor) {
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            let (ri, gi, bi) = (r as i32, g as i32, b as i32);
+
+            total_count += 1;
+
+            if ri >= 150 && ri > 2 * gi && ri > 2 * bi {
+                red_count += 1;
+            }
+        }
+    }
+
+    if total_count == 0 {
+        return Ok((false, 0.0));
+    }
+
+    let fract = red_count as f32 / total_count as f32;
+    Ok((fract > 0.01, fract))
 }
 
 #[cfg(test)]

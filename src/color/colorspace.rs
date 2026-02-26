@@ -8,7 +8,7 @@
 //! - RGB → Grayscale
 
 use crate::color::{ColorError, ColorResult};
-use crate::core::{Pix, PixelDepth, pixel};
+use crate::core::{FPix, Pix, PixColormap, PixelDepth, pixel};
 
 /// HSV color representation
 ///
@@ -973,6 +973,445 @@ pub fn pix_convert_yuv_to_rgb(pix: &Pix) -> ColorResult<Pix> {
     }
 
     Ok(out_mut.into())
+}
+
+// =============================================================================
+// Colormap-level conversions
+// =============================================================================
+
+/// Convert colormap entries from RGB to HSV in-place.
+///
+/// Each (r,g,b) entry is replaced with (h,s,v) using the Leptonica integer
+/// HSV convention: h∈\[0,239\], s∈\[0,255\], v∈\[0,255\].
+///
+/// # See also
+///
+/// C Leptonica: `pixcmapConvertRGBToHSV()` in `colorspace.c`
+pub fn pix_colormap_convert_rgb_to_hsv(cmap: &mut PixColormap) -> ColorResult<()> {
+    for i in 0..cmap.len() {
+        let (r, g, b) = cmap.get_rgb(i).unwrap();
+        let hsv = pixel::rgb_to_hsv(r, g, b);
+        let quad = cmap.get_mut(i).unwrap();
+        quad.red = hsv.h as u8;
+        quad.green = hsv.s as u8;
+        quad.blue = hsv.v as u8;
+    }
+    Ok(())
+}
+
+/// Convert colormap entries from HSV back to RGB in-place.
+///
+/// Each (h,s,v) entry is replaced with (r,g,b) using the Leptonica integer
+/// HSV convention.
+///
+/// # See also
+///
+/// C Leptonica: `pixcmapConvertHSVToRGB()` in `colorspace.c`
+pub fn pix_colormap_convert_hsv_to_rgb(cmap: &mut PixColormap) -> ColorResult<()> {
+    for i in 0..cmap.len() {
+        let (h, s, v) = cmap.get_rgb(i).unwrap();
+        let hsv = pixel::Hsv {
+            h: h as i32,
+            s: s as i32,
+            v: v as i32,
+        };
+        let (r, g, b) = pixel::hsv_to_rgb(hsv);
+        let quad = cmap.get_mut(i).unwrap();
+        quad.red = r;
+        quad.green = g;
+        quad.blue = b;
+    }
+    Ok(())
+}
+
+/// Convert colormap entries from RGB to YUV in-place.
+///
+/// Uses Leptonica video-range BT.601 encoding.
+///
+/// # See also
+///
+/// C Leptonica: `pixcmapConvertRGBToYUV()` in `colorspace.c`
+pub fn pix_colormap_convert_rgb_to_yuv(cmap: &mut PixColormap) -> ColorResult<()> {
+    for i in 0..cmap.len() {
+        let (r, g, b) = cmap.get_rgb(i).unwrap();
+        let (yv, uv, vv) = convert_rgb_to_yuv_leptonica(r, g, b);
+        let quad = cmap.get_mut(i).unwrap();
+        quad.red = yv;
+        quad.green = uv;
+        quad.blue = vv;
+    }
+    Ok(())
+}
+
+/// Convert colormap entries from YUV back to RGB in-place.
+///
+/// Uses Leptonica video-range BT.601 encoding.
+///
+/// # See also
+///
+/// C Leptonica: `pixcmapConvertYUVToRGB()` in `colorspace.c`
+pub fn pix_colormap_convert_yuv_to_rgb(cmap: &mut PixColormap) -> ColorResult<()> {
+    for i in 0..cmap.len() {
+        let (yv, uv, vv) = cmap.get_rgb(i).unwrap();
+        let (r, g, b) = convert_yuv_to_rgb_leptonica(yv, uv, vv);
+        let quad = cmap.get_mut(i).unwrap();
+        quad.red = r;
+        quad.green = g;
+        quad.blue = b;
+    }
+    Ok(())
+}
+
+// =============================================================================
+// HSV histogram peak finding
+// =============================================================================
+
+/// Type of HSV histogram for peak finding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HsvHistoType {
+    /// Hue-Saturation histogram (240 × 256)
+    HS,
+    /// Hue-Value histogram (240 × 256)
+    HV,
+    /// Saturation-Value histogram (256 × 256)
+    SV,
+}
+
+/// Result of HSV histogram peak finding: `(peak_locations, peak_areas)`
+pub type HsvPeaksResult = (Vec<(i32, i32)>, Vec<u32>);
+
+/// Find peaks in an HSV 2D histogram.
+///
+/// Takes a 32bpp histogram image (from `make_histo_hs` / `make_histo_hv` /
+/// `make_histo_sv`), finds peaks using a sliding window approach.
+///
+/// Returns `(points, areas)` – locations and integrated areas of peaks.
+///
+/// # Arguments
+///
+/// * `pixs` – 32bpp histogram image
+/// * `histo_type` – which kind of HSV histogram
+/// * `width` – half-width of the sliding window
+/// * `height` – half-height of the sliding window
+/// * `npeaks` – maximum number of peaks to find
+/// * `erase_factor` – ratio of erase window to sliding window (≥ 1.0)
+///
+/// # See also
+///
+/// C Leptonica: `pixFindHistoPeaksHSV()` in `colorspace.c`
+pub fn find_histo_peaks_hsv(
+    pixs: &Pix,
+    histo_type: HsvHistoType,
+    width: i32,
+    height: i32,
+    npeaks: i32,
+    erase_factor: f32,
+) -> ColorResult<HsvPeaksResult> {
+    if pixs.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pixs.depth().bits(),
+        });
+    }
+    if width < 1 || height < 1 || npeaks < 1 {
+        return Err(ColorError::InvalidParameters(
+            "width, height and npeaks must be >= 1".into(),
+        ));
+    }
+
+    let pw = pixs.width() as i32;
+    let ph = pixs.height() as i32;
+    let erase_factor = erase_factor.max(1.0);
+
+    // Build a local accumulated-sum buffer (sliding window sums)
+    let mut sums = vec![0u64; (pw * ph) as usize];
+    for yy in 0..ph {
+        for xx in 0..pw {
+            let y0 = (yy - height).max(0);
+            let y1 = (yy + height).min(ph - 1);
+            let x0 = (xx - width).max(0);
+            let x1 = (xx + width).min(pw - 1);
+            let mut total = 0u64;
+            for sy in y0..=y1 {
+                for sx in x0..=x1 {
+                    total += pixs.get_pixel_unchecked(sx as u32, sy as u32) as u64;
+                }
+            }
+            sums[(yy * pw + xx) as usize] = total;
+        }
+    }
+
+    let ew = (width as f32 * erase_factor) as i32;
+    let eh = (height as f32 * erase_factor) as i32;
+
+    // For HS / HV histograms the hue axis (vertical) wraps at 240
+    let hue_wrap = matches!(histo_type, HsvHistoType::HS | HsvHistoType::HV);
+
+    let mut points = Vec::new();
+    let mut areas = Vec::new();
+
+    for _ in 0..npeaks {
+        // Find the maximum in the sums buffer
+        let mut best_val = 0u64;
+        let mut best_idx = 0usize;
+        for (idx, &v) in sums.iter().enumerate() {
+            if v > best_val {
+                best_val = v;
+                best_idx = idx;
+            }
+        }
+        if best_val == 0 {
+            break;
+        }
+
+        let peak_x = (best_idx as i32) % pw;
+        let peak_y = (best_idx as i32) / pw;
+        points.push((peak_x, peak_y));
+        areas.push(best_val as u32);
+
+        // Erase a window around the peak in sums
+        let ey0 = peak_y - eh;
+        let ey1 = peak_y + eh;
+        let ex0 = (peak_x - ew).max(0);
+        let ex1 = (peak_x + ew).min(pw - 1);
+
+        for ey in ey0..=ey1 {
+            let ay = if hue_wrap {
+                ((ey % ph) + ph) % ph
+            } else {
+                ey.clamp(0, ph - 1)
+            };
+            for ex in ex0..=ex1 {
+                sums[(ay * pw + ex) as usize] = 0;
+            }
+        }
+    }
+
+    Ok((points, areas))
+}
+
+// =============================================================================
+// Image-level RGB ↔ XYZ (floating-point FPix channels)
+// =============================================================================
+
+/// Convert a 32bpp RGB image to CIE XYZ using three `FPix` channels.
+///
+/// Returns `(fpix_x, fpix_y, fpix_z)`.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvertRGBToXYZ()` in `colorspace.c`
+pub fn pix_convert_rgb_to_xyz(pix: &Pix) -> ColorResult<(FPix, FPix, FPix)> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let mut fx = FPix::new(w, h)?;
+    let mut fy = FPix::new(w, h)?;
+    let mut fz = FPix::new(w, h)?;
+
+    for y in 0..h {
+        for x in 0..w {
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            let xyz = rgb_to_xyz(r, g, b);
+            fx.set_pixel_unchecked(x, y, xyz.x);
+            fy.set_pixel_unchecked(x, y, xyz.y);
+            fz.set_pixel_unchecked(x, y, xyz.z);
+        }
+    }
+
+    Ok((fx, fy, fz))
+}
+
+/// Convert CIE XYZ `FPix` channels back to a 32bpp RGB `Pix`.
+///
+/// # See also
+///
+/// C Leptonica: `fpixaConvertXYZToRGB()` in `colorspace.c`
+pub fn fpixa_convert_xyz_to_rgb(fx: &FPix, fy: &FPix, fz: &FPix) -> ColorResult<Pix> {
+    let w = fx.width();
+    let h = fx.height();
+    if fy.width() != w || fy.height() != h || fz.width() != w || fz.height() != h {
+        return Err(ColorError::InvalidParameters(
+            "FPix dimensions must match".into(),
+        ));
+    }
+
+    let out = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let xyz = Xyz::new(
+                fx.get_pixel_unchecked(x, y),
+                fy.get_pixel_unchecked(x, y),
+                fz.get_pixel_unchecked(x, y),
+            );
+            let (r, g, b) = xyz_to_rgb(xyz);
+            out_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+// =============================================================================
+// Image-level RGB ↔ LAB (floating-point FPix channels)
+// =============================================================================
+
+/// Convert a 32bpp RGB image to CIE L\*a\*b\* using three `FPix` channels.
+///
+/// Returns `(fpix_l, fpix_a, fpix_b)`.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvertRGBToLAB()` in `colorspace.c`
+pub fn pix_convert_rgb_to_lab(pix: &Pix) -> ColorResult<(FPix, FPix, FPix)> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let mut fl = FPix::new(w, h)?;
+    let mut fa = FPix::new(w, h)?;
+    let mut fb = FPix::new(w, h)?;
+
+    for y in 0..h {
+        for x in 0..w {
+            let p = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(p);
+            let lab = rgb_to_lab(r, g, b);
+            fl.set_pixel_unchecked(x, y, lab.l);
+            fa.set_pixel_unchecked(x, y, lab.a);
+            fb.set_pixel_unchecked(x, y, lab.b);
+        }
+    }
+
+    Ok((fl, fa, fb))
+}
+
+/// Convert CIE L\*a\*b\* `FPix` channels back to a 32bpp RGB `Pix`.
+///
+/// # See also
+///
+/// C Leptonica: `fpixaConvertLABToRGB()` in `colorspace.c`
+pub fn fpixa_convert_lab_to_rgb(fl: &FPix, fa: &FPix, fb: &FPix) -> ColorResult<Pix> {
+    let w = fl.width();
+    let h = fl.height();
+    if fa.width() != w || fa.height() != h || fb.width() != w || fb.height() != h {
+        return Err(ColorError::InvalidParameters(
+            "FPix dimensions must match".into(),
+        ));
+    }
+
+    let out = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let lab = Lab::new(
+                fl.get_pixel_unchecked(x, y),
+                fa.get_pixel_unchecked(x, y),
+                fb.get_pixel_unchecked(x, y),
+            );
+            let (r, g, b) = lab_to_rgb(lab);
+            out_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(r, g, b));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+// =============================================================================
+// FPix-level XYZ ↔ LAB
+// =============================================================================
+
+/// Convert XYZ `FPix` channels to LAB `FPix` channels.
+///
+/// # See also
+///
+/// C Leptonica: `fpixaConvertXYZToLAB()` in `colorspace.c`
+pub fn fpixa_convert_xyz_to_lab(
+    fx: &FPix,
+    fy: &FPix,
+    fz: &FPix,
+) -> ColorResult<(FPix, FPix, FPix)> {
+    let w = fx.width();
+    let h = fx.height();
+    if fy.width() != w || fy.height() != h || fz.width() != w || fz.height() != h {
+        return Err(ColorError::InvalidParameters(
+            "FPix dimensions must match".into(),
+        ));
+    }
+
+    let mut fl = FPix::new(w, h)?;
+    let mut fa = FPix::new(w, h)?;
+    let mut fb = FPix::new(w, h)?;
+
+    for y in 0..h {
+        for x in 0..w {
+            let xyz = Xyz::new(
+                fx.get_pixel_unchecked(x, y),
+                fy.get_pixel_unchecked(x, y),
+                fz.get_pixel_unchecked(x, y),
+            );
+            let lab = xyz_to_lab(xyz);
+            fl.set_pixel_unchecked(x, y, lab.l);
+            fa.set_pixel_unchecked(x, y, lab.a);
+            fb.set_pixel_unchecked(x, y, lab.b);
+        }
+    }
+
+    Ok((fl, fa, fb))
+}
+
+/// Convert LAB `FPix` channels to XYZ `FPix` channels.
+///
+/// # See also
+///
+/// C Leptonica: `fpixaConvertLABToXYZ()` in `colorspace.c`
+pub fn fpixa_convert_lab_to_xyz(
+    fl: &FPix,
+    fa: &FPix,
+    fb: &FPix,
+) -> ColorResult<(FPix, FPix, FPix)> {
+    let w = fl.width();
+    let h = fl.height();
+    if fa.width() != w || fa.height() != h || fb.width() != w || fb.height() != h {
+        return Err(ColorError::InvalidParameters(
+            "FPix dimensions must match".into(),
+        ));
+    }
+
+    let mut fx = FPix::new(w, h)?;
+    let mut fy = FPix::new(w, h)?;
+    let mut fz = FPix::new(w, h)?;
+
+    for y in 0..h {
+        for x in 0..w {
+            let lab = Lab::new(
+                fl.get_pixel_unchecked(x, y),
+                fa.get_pixel_unchecked(x, y),
+                fb.get_pixel_unchecked(x, y),
+            );
+            let xyz = lab_to_xyz(lab);
+            fx.set_pixel_unchecked(x, y, xyz.x);
+            fy.set_pixel_unchecked(x, y, xyz.y);
+            fz.set_pixel_unchecked(x, y, xyz.z);
+        }
+    }
+
+    Ok((fx, fy, fz))
 }
 
 #[cfg(test)]

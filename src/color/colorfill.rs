@@ -546,6 +546,102 @@ pub fn pixel_is_on_color_boundary(pix: &Pix, x: u32, y: u32) -> bool {
     false
 }
 
+/// Analyze color content by spatial location.
+///
+/// Divides the image into blocks of `factor × factor` pixels and computes the
+/// color content (max component difference) of each block. Returns an image
+/// of the same size where each block is filled with a gray value proportional
+/// to its color content.
+///
+/// # Arguments
+///
+/// * `pix` - 32-bpp RGB input image
+/// * `factor` - Block size in pixels (must be >= 2)
+/// * `min_max` - Minimum max-component value for a pixel to be considered colorful
+/// * `max_diff` - Threshold on component difference: above this → high color content
+///
+/// # See also
+///
+/// C Leptonica: `pixColorContentByLocation()` in `colorfill.c`
+pub fn color_content_by_location(
+    pix: &Pix,
+    factor: u32,
+    min_max: u32,
+    max_diff: u32,
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if factor < 2 {
+        return Err(ColorError::InvalidParameters("factor must be >= 2".into()));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let nx = w.div_ceil(factor);
+    let ny = h.div_ceil(factor);
+
+    for by in 0..ny {
+        for bx in 0..nx {
+            let x0 = bx * factor;
+            let y0 = by * factor;
+            let x1 = (x0 + factor).min(w);
+            let y1 = (y0 + factor).min(h);
+
+            let mut sum_r: u64 = 0;
+            let mut sum_g: u64 = 0;
+            let mut sum_b: u64 = 0;
+            let mut count: u64 = 0;
+
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let px = pix.get_pixel_unchecked(x, y);
+                    let (r, g, b) = pixel::extract_rgb(px);
+                    sum_r += r as u64;
+                    sum_g += g as u64;
+                    sum_b += b as u64;
+                    count += 1;
+                }
+            }
+
+            if count == 0 {
+                continue;
+            }
+
+            let avg_r = (sum_r / count) as u32;
+            let avg_g = (sum_g / count) as u32;
+            let avg_b = (sum_b / count) as u32;
+
+            let max_c = avg_r.max(avg_g).max(avg_b);
+            let min_c = avg_r.min(avg_g).min(avg_b);
+            let diff = max_c - min_c;
+
+            // Map color content to an output value
+            let val = if max_c < min_max {
+                0u32
+            } else if max_diff == 0 {
+                if diff > 0 { 255 } else { 0 }
+            } else {
+                ((diff * 255) / max_diff).min(255)
+            };
+
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    out_mut.set_pixel_unchecked(x, y, val);
+                }
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 // =============================================================================
 // Tests
 // =============================================================================

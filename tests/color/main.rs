@@ -11,6 +11,7 @@ mod blend3_reg;
 mod blend4_reg;
 mod blend5_reg;
 mod cmapquant_reg;
+mod color_coverage_reg;
 mod color_magnitude_reg;
 mod colorcontent_advanced_reg;
 mod colorcontent_reg;

@@ -10,8 +10,10 @@
 //! 3. **Clean**: Morphological cleanup (optional)
 //! 4. **Reduce**: Remove unpopular colors
 
+use crate::color::threshold::generate_mask_by_value;
 use crate::color::{ColorError, ColorResult};
 use crate::core::{Pix, PixColormap, PixelDepth, pixel};
+use crate::morph::binary::close_safe_comp_brick;
 
 // =============================================================================
 // Constants
@@ -492,6 +494,91 @@ fn color_segment_remove_colors(
     }
 
     Ok(out_mut.into())
+}
+
+/// Clean color segmentation results using morphological operations.
+///
+/// This is phase 3 of color segmentation. Colors with larger populations
+/// are closed first, absorbing small intercolated regions of a different color.
+///
+/// # Arguments
+///
+/// * `pix` - 8-bpp colormapped image (modified in place)
+/// * `sel_size` - Size of the structuring element for closing
+/// * `count_array` - Pixel counts per colormap index
+///
+/// # See also
+///
+/// C Leptonica: `pixColorSegmentClean()` in `colorseg.c`
+pub fn color_segment_clean(
+    pix: &mut crate::core::PixMut,
+    sel_size: u32,
+    count_array: &[u32],
+) -> ColorResult<()> {
+    if sel_size <= 1 {
+        return Ok(());
+    }
+
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let colormap = pix
+        .colormap()
+        .ok_or_else(|| ColorError::InvalidParameters("image has no colormap".into()))?;
+    let ncolors = colormap.len();
+
+    if count_array.len() < ncolors {
+        return Err(ColorError::InvalidParameters(
+            "count_array shorter than colormap".into(),
+        ));
+    }
+
+    // Sort colormap indices in decreasing order of pixel population
+    let mut sorted_indices: Vec<usize> = (0..ncolors).collect();
+    sorted_indices.sort_by(|&a, &b| count_array[b].cmp(&count_array[a]));
+
+    // Create an immutable snapshot for mask generation
+    let w = pix.width();
+    let h = pix.height();
+    let snap = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut snap_mut = snap.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            snap_mut.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(x, y));
+        }
+    }
+    let snap: Pix = snap_mut.into();
+
+    for &val in &sorted_indices {
+        // Generate 1bpp mask for this color value
+        let mask = generate_mask_by_value(&snap, val as u32)?;
+
+        // Close the mask to fill small gaps
+        let closed = close_safe_comp_brick(&mask, sel_size, sel_size)
+            .map_err(|e| ColorError::InvalidParameters(format!("morph close failed: {e}")))?;
+
+        // XOR to find pixels added by closing
+        let diff = closed
+            .xor(&mask)
+            .map_err(|e| ColorError::InvalidParameters(format!("xor failed: {e}")))?;
+
+        // Set those newly added pixels to this color index
+        let w = pix.width().min(diff.width());
+        let h = pix.height().min(diff.height());
+        for y in 0..h {
+            for x in 0..w {
+                if diff.get_pixel_unchecked(x, y) != 0 {
+                    pix.set_pixel_unchecked(x, y, val as u32);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 // =============================================================================
