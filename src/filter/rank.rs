@@ -815,6 +815,13 @@ pub fn rank_filter_with_scaling(
     let w = pix.width();
     let h = pix.height();
 
+    // Fall back to unscaled filter if downscaled dimensions would be zero
+    let sw = (w as f32 * scalefactor + 0.5) as u32;
+    let sh = (h as f32 * scalefactor + 0.5) as u32;
+    if sw == 0 || sh == 0 {
+        return rank_filter(pix, wf, hf, rank);
+    }
+
     // Downscale
     let pix1 = scale(pix, scalefactor, scalefactor, ScaleMethod::AreaMap)?;
 
