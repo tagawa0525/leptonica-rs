@@ -1095,3 +1095,146 @@ fn generate_pta_boundary() {
     // Empty image has no boundary pixels
     assert_eq!(pta.len(), 0);
 }
+
+// ---------------------------------------------------------------------------
+// Pixa serialization (pixabasic.c)
+// ---------------------------------------------------------------------------
+
+/// Test `Pixa::write_to_bytes` / `Pixa::read_from_bytes` – round-trip empty.
+#[test]
+#[ignore = "not yet implemented"]
+fn pixa_serial_roundtrip_empty() {
+    let pixa = Pixa::new();
+    let bytes = pixa.write_to_bytes().unwrap();
+    let restored = Pixa::read_from_bytes(&bytes).unwrap();
+    assert_eq!(restored.len(), 0);
+}
+
+/// Test `Pixa::write_to_bytes` / `Pixa::read_from_bytes` – round-trip with images.
+#[test]
+#[ignore = "not yet implemented"]
+fn pixa_serial_roundtrip_with_images() {
+    let mut pixa = Pixa::new();
+    pixa.push(Pix::new(10, 10, PixelDepth::Bit8).unwrap());
+    pixa.push(Pix::new(20, 15, PixelDepth::Bit8).unwrap());
+
+    let bytes = pixa.write_to_bytes().unwrap();
+    let restored = Pixa::read_from_bytes(&bytes).unwrap();
+
+    assert_eq!(restored.len(), 2);
+    assert_eq!(restored.get(0).unwrap().width(), 10);
+    assert_eq!(restored.get(1).unwrap().width(), 20);
+    assert_eq!(restored.get(1).unwrap().height(), 15);
+}
+
+/// Test `Pixa::write_to_bytes` / `Pixa::read_from_bytes` – preserves boxes.
+#[test]
+#[ignore = "not yet implemented"]
+fn pixa_serial_roundtrip_with_boxes() {
+    let mut pixa = Pixa::new();
+    pixa.push_with_box(
+        Pix::new(10, 10, PixelDepth::Bit8).unwrap(),
+        Box::new(1, 2, 3, 4).unwrap(),
+    );
+
+    let bytes = pixa.write_to_bytes().unwrap();
+    let restored = Pixa::read_from_bytes(&bytes).unwrap();
+
+    assert_eq!(restored.len(), 1);
+    assert_eq!(restored.boxa().len(), 1);
+    let b = restored.get_box(0).unwrap();
+    assert_eq!((b.x, b.y, b.w, b.h), (1, 2, 3, 4));
+}
+
+/// Test `Pixa::write_to_file` / `Pixa::read_from_file` – file round-trip.
+#[test]
+#[ignore = "not yet implemented"]
+fn pixa_serial_file_roundtrip() {
+    let mut pixa = Pixa::new();
+    pixa.push(Pix::new(5, 5, PixelDepth::Bit8).unwrap());
+
+    let dir = std::env::temp_dir().join("leptonica_test_pixa_serial_cov");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("test.pixa");
+
+    pixa.write_to_file(&path).unwrap();
+    let restored = Pixa::read_from_file(&path).unwrap();
+
+    assert_eq!(restored.len(), 1);
+    assert_eq!(restored.get(0).unwrap().width(), 5);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Test `Pixa::read_from_bytes` – rejects garbage data.
+#[test]
+#[ignore = "not yet implemented"]
+fn pixa_serial_invalid_data() {
+    assert!(Pixa::read_from_bytes(b"garbage data").is_err());
+    assert!(Pixa::read_from_bytes(b"").is_err());
+}
+
+/// Test `Pixa::write_to_bytes` / `Pixa::read_from_reader` – reader round-trip.
+#[test]
+#[ignore = "not yet implemented"]
+fn pixa_serial_reader_roundtrip() {
+    let mut pixa = Pixa::new();
+    pixa.push(Pix::new(8, 8, PixelDepth::Bit8).unwrap());
+
+    let mut buf = Vec::new();
+    pixa.write_to_writer(&mut buf).unwrap();
+
+    let restored = Pixa::read_from_reader(&mut std::io::Cursor::new(&buf)).unwrap();
+    assert_eq!(restored.len(), 1);
+    assert_eq!(restored.get(0).unwrap().width(), 8);
+}
+
+// ---------------------------------------------------------------------------
+// Boxaa::read_from_files (boxbasic.c)
+// ---------------------------------------------------------------------------
+
+/// Test `Boxaa::read_from_files` – reads boxa files from a directory.
+#[test]
+#[ignore = "not yet implemented"]
+fn boxaa_read_from_files() {
+    use leptonica::Boxaa;
+
+    let dir = std::env::temp_dir().join("leptonica_test_boxaa_from_files");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // Write two boxa files
+    let mut boxa1 = Boxa::new();
+    boxa1.push(Box::new(10, 20, 30, 40).unwrap());
+    boxa1.write_to_file(dir.join("a.boxa")).unwrap();
+
+    let mut boxa2 = Boxa::new();
+    boxa2.push(Box::new(50, 60, 70, 80).unwrap());
+    boxa2.write_to_file(dir.join("b.boxa")).unwrap();
+
+    let baa = Boxaa::read_from_files(&dir, None, 0, 0).unwrap();
+    assert_eq!(baa.len(), 2);
+    assert_eq!(baa.get(0).unwrap().len(), 1);
+    assert_eq!(baa.get(1).unwrap().len(), 1);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Test `Boxaa::read_from_files` with substring filter.
+#[test]
+#[ignore = "not yet implemented"]
+fn boxaa_read_from_files_with_filter() {
+    use leptonica::Boxaa;
+
+    let dir = std::env::temp_dir().join("leptonica_test_boxaa_from_files_filter");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let mut boxa = Boxa::new();
+    boxa.push(Box::new(1, 2, 3, 4).unwrap());
+    boxa.write_to_file(dir.join("keep_a.boxa")).unwrap();
+    boxa.write_to_file(dir.join("skip_b.boxa")).unwrap();
+
+    let baa = Boxaa::read_from_files(&dir, Some("keep"), 0, 0).unwrap();
+    assert_eq!(baa.len(), 1);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
