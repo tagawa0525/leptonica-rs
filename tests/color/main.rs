@@ -27,6 +27,7 @@ mod dither_reg;
 mod grayquant_reg;
 mod hardlight_reg;
 mod paint_reg;
+mod paintcmap_reg;
 mod paintmask_reg;
 mod quantize_ext_reg;
 mod threshnorm_reg;

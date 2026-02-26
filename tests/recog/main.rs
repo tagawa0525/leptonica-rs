@@ -2,6 +2,7 @@
 mod common;
 
 mod baseline_reg;
+mod correlscore_reg;
 mod dewarp_reg;
 mod findpattern1_reg;
 mod findpattern2_reg;

@@ -84,7 +84,8 @@ pub use label::{
     ComponentStats, ConnCompTransform, IncrementalLabeler, conn_comp_transform,
     get_component_bounds_from_labels, get_component_sizes, get_component_stats, label_to_color,
     pix_conn_comp_incr_add, pix_conn_comp_incr_init, pix_count_components,
-    pix_get_component_bounds, pix_label_connected_components, pix_loc_to_color_transform,
+    pix_get_component_bounds, pix_get_sorted_neighbor_values, pix_label_connected_components,
+    pix_loc_to_color_transform,
 };
 
 // Re-export seedfill types and functions

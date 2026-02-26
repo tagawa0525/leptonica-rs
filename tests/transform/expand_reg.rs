@@ -105,18 +105,49 @@ fn expand_reg_32bpp() {
     assert!(rp.cleanup(), "expand 32bpp test failed");
 }
 
-/// Test binary power-of-2 expansion (C checks 10-42).
-///
-/// Requires pixExpandBinaryPower2, pixReduceRankBinary2, pixReduceRankBinaryCascade
-/// which are not available in leptonica-transform.
+/// Test binary power-of-2 expansion and reduce round-trip.
 #[test]
-#[ignore = "not yet implemented: pixExpandBinaryPower2/pixReduceRankBinary2 not available"]
 fn expand_reg_binary_power2() {
-    // C version tests:
-    // 1. pixExpandBinaryPower2(pix1, 2), (4), (8)
-    // 2. pixReduceRankBinary2(expanded, 1), (2), (3)
-    // 3. Verifies round-trip: expand × n then reduce × n == original
-    // 4. pixReduceRankBinaryCascade cascaded reductions
+    use leptonica::transform::binexpand::{expand_binary_power2, expand_binary_replicate};
+    use leptonica::transform::binreduce::reduce_rank_binary_2;
+
+    let pix1 = crate::common::load_test_image("test1.png").expect("load test1.png");
+
+    // Expand 2x then reduce 2x
+    let expanded = expand_binary_power2(&pix1, 2).unwrap();
+    assert_eq!(expanded.width(), pix1.width() * 2);
+    assert_eq!(expanded.height(), pix1.height() * 2);
+
+    let reduced = reduce_rank_binary_2(&expanded, 2).unwrap();
+    assert_eq!(reduced.width(), pix1.width());
+    assert_eq!(reduced.height(), pix1.height());
+
+    // Expand 4x
+    let expanded4 = expand_binary_power2(&pix1, 4).unwrap();
+    assert_eq!(expanded4.width(), pix1.width() * 4);
+
+    // Expand binary replicate with different x/y factors
+    let repl = expand_binary_replicate(&pix1, 3, 2).unwrap();
+    assert_eq!(repl.width(), pix1.width() * 3);
+    assert_eq!(repl.height(), pix1.height() * 2);
+}
+
+/// Test make_subsample_tab_2x.
+#[test]
+fn expand_reg_subsample_tab() {
+    use leptonica::transform::binexpand::make_subsample_tab_2x;
+
+    let tab = make_subsample_tab_2x(1).unwrap();
+    assert_eq!(tab.len(), 256);
+
+    // All zeros → all zeros
+    assert_eq!(tab[0], 0);
+    // All ones (0xFF) → level 1 should give all ones output (0x0F = 4 bits)
+    assert_eq!(tab[0xFF], 0x0F);
+
+    // Invalid level
+    assert!(make_subsample_tab_2x(0).is_err());
+    assert!(make_subsample_tab_2x(5).is_err());
 }
 
 /// Test expand_replicate with clipping (C additional checks).

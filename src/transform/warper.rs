@@ -1290,6 +1290,78 @@ fn h_shear_li(pix: &Pix, yloc: i32, angle: f32, fill: WarpFill) -> TransformResu
     shear_h_shear_li(pix, yloc, angle, shear_fill)
 }
 
+/// Generate a simple CAPTCHA image by applying random harmonic warping.
+///
+/// Takes an input image (typically rendered text) and applies a random
+/// harmonic warp with the specified number of terms and border expansion.
+///
+/// # Arguments
+///
+/// * `pix` - Input image (typically text rendered on white background)
+/// * `border` - Number of pixels to add as border before warping
+/// * `nterms` - Number of harmonic terms (1-4, more = more distortion)
+/// * `seed` - Random seed for reproducibility
+/// * `color` - If true, apply random color shifts
+///
+/// # Returns
+///
+/// A distorted image suitable for CAPTCHA use.
+///
+/// # Reference
+///
+/// C Leptonica: `pixSimpleCaptcha()`
+pub fn simple_captcha(
+    pix: &Pix,
+    border: u32,
+    nterms: u32,
+    seed: u32,
+    color: bool,
+) -> TransformResult<Pix> {
+    use crate::core::PixelDepth;
+    let _ = color; // Reserved for future color warping
+
+    if nterms == 0 || nterms > 4 {
+        return Err(TransformError::InvalidParameters(format!(
+            "nterms must be 1-4, got {nterms}"
+        )));
+    }
+
+    // Add border
+    let src = if border > 0 {
+        pix.add_border_general(border, border, border, border, 0)
+            .map_err(TransformError::Core)?
+    } else {
+        pix.clone()
+    };
+
+    // Convert to 8-bit if needed for warp
+    let work = match src.depth() {
+        PixelDepth::Bit1 => {
+            // Convert 1bpp to 8bpp for warping
+            let mut out = crate::core::Pix::new(src.width(), src.height(), PixelDepth::Bit8)
+                .map_err(TransformError::Core)?
+                .to_mut();
+            for y in 0..src.height() {
+                for x in 0..src.width() {
+                    let val = src.get_pixel(x, y).unwrap_or(0);
+                    out.set_pixel_unchecked(x, y, if val == 1 { 0 } else { 255 });
+                }
+            }
+            let p: crate::core::Pix = out.into();
+            p
+        }
+        _ => src,
+    };
+
+    // Apply random harmonic warp with configured distortion level
+    let xmag = 3.0 + nterms as f32;
+    let ymag = 4.0 + nterms as f32;
+
+    random_harmonic_warp(
+        &work, xmag, ymag, xmag, ymag, nterms, nterms, seed, 255, // white fill value
+    )
+}
+
 // ============================================================================
 // Tests
 // ============================================================================

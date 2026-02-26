@@ -11,7 +11,10 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;
-use leptonica::region::{ConnectivityType, find_connected_components, label_connected_components};
+use leptonica::region::{
+    ConnectivityType, find_connected_components, label_connected_components,
+    pix_get_sorted_neighbor_values,
+};
 
 #[test]
 fn label_reg() {
@@ -82,4 +85,29 @@ fn label_reg() {
     rp.compare_values(1.0, if comps_fract.len() > 100 { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "label regression test failed");
+}
+
+/// Test pix_get_sorted_neighbor_values on a labeled image.
+#[test]
+fn label_reg_sorted_neighbors() {
+    let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
+    let labeled =
+        label_connected_components(&pixs, ConnectivityType::EightWay).expect("label components");
+
+    // Find a pixel with neighbors (somewhere in the middle)
+    let x = labeled.width() / 2;
+    let y = labeled.height() / 2;
+
+    let neighbors = pix_get_sorted_neighbor_values(&labeled, x, y, ConnectivityType::EightWay)
+        .expect("get sorted neighbors");
+
+    // Values should be sorted
+    for i in 1..neighbors.len() {
+        assert!(neighbors[i] >= neighbors[i - 1], "neighbors not sorted");
+    }
+
+    // No zero values (background excluded)
+    for &v in &neighbors {
+        assert_ne!(v, 0, "background value should be excluded");
+    }
 }

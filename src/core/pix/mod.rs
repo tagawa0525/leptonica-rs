@@ -804,6 +804,12 @@ impl PixMut {
         self.inner.colormap.as_ref()
     }
 
+    /// Get a mutable reference to the image's colormap, if present.
+    #[inline]
+    pub fn colormap_mut(&mut self) -> Option<&mut crate::core::PixColormap> {
+        self.inner.colormap.as_mut()
+    }
+
     /// Set or remove the colormap.
     ///
     /// Colormaps are only valid for 1, 2, 4, and 8 bpp images.

@@ -70,6 +70,7 @@
 
 pub mod barcode;
 pub mod baseline;
+pub mod correlscore;
 pub mod dewarp;
 mod error;
 pub mod flipdetect;
