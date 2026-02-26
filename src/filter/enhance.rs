@@ -959,6 +959,77 @@ pub fn unsharp_masking_gray(pix: &Pix, halfwidth: u32, fract: f32) -> FilterResu
     Ok(out_mut.into())
 }
 
+/// Edge detection using difference of two lowpass-filtered images
+///
+/// Creates a bandpass filter by subtracting two block-convolution
+/// smoothed versions of the image.  The result is rectified (clamped
+/// to non-negative).  Which half of the edge is detected depends on
+/// relative filter sizes.
+///
+/// # Arguments
+/// * `pix` - Input 8bpp grayscale or 32bpp RGB image
+/// * `sm1h`, `sm1v` - Half-widths of the first smoothing filter
+/// * `sm2h`, `sm2v` - Half-widths of the second smoothing filter;
+///   must differ from `(sm1h, sm1v)`
+///
+/// # See also
+///
+/// C Leptonica: `pixHalfEdgeByBandpass()` in `enhance.c`
+pub fn half_edge_by_bandpass(
+    pix: &Pix,
+    sm1h: u32,
+    sm1v: u32,
+    sm2h: u32,
+    sm2v: u32,
+) -> FilterResult<Pix> {
+    if sm1h == sm2h && sm1v == sm2v {
+        return Err(FilterError::InvalidParameters(
+            "sm1 and sm2 must differ".to_string(),
+        ));
+    }
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    if d == PixelDepth::Bit8 && pix.has_colormap() {
+        return Err(FilterError::InvalidParameters(
+            "8bpp input must not have a colormap".to_string(),
+        ));
+    }
+
+    // Convert 32bpp to luminance
+    let pixg = if d == PixelDepth::Bit32 {
+        pix.convert_rgb_to_luminance()?
+    } else {
+        pix.clone()
+    };
+
+    // Make accumulator and use it for both convolutions
+    let pixacc = crate::filter::blockconv_accum(&pixg)?;
+    let pixc1 = crate::filter::blockconv_gray(&pixg, Some(&pixacc), sm1h, sm1v)?;
+    let pixc2 = crate::filter::blockconv_gray(&pixg, Some(&pixacc), sm2h, sm2v)?;
+
+    // Compute pixc1 - pixc2, rectified (clamped to 0)
+    let w = pixc1.width();
+    let h = pixc1.height();
+    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    for y in 0..h {
+        for x in 0..w {
+            let v1 = pixc1.get_pixel_unchecked(x, y) as i32;
+            let v2 = pixc2.get_pixel_unchecked(x, y) as i32;
+            let diff = (v1 - v2).max(0) as u32;
+            out_mut.set_pixel_unchecked(x, y, diff);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 /// Apply unsharp masking to an 8bpp grayscale or 32bpp color image.
 ///
 /// For 1bpp input, returns an error. For `halfwidth` <= 2, delegates to the

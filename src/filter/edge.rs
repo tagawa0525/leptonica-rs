@@ -1,6 +1,6 @@
 //! Edge detection and enhancement operations
 
-use crate::core::{Pix, PixelDepth, pix::RgbComponent};
+use crate::core::{Numa, Pix, PixelDepth, pix::RgbComponent};
 use crate::filter::{FilterError, FilterResult, Kernel, blockconv_gray, convolve_gray};
 
 /// Edge detection orientation
@@ -313,6 +313,276 @@ pub fn emboss(pix: &Pix) -> FilterResult<Pix> {
     }
 
     Ok(out_mut.into())
+}
+
+/// Side from which to measure an edge profile
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EdgeSide {
+    /// Scan from the left side
+    FromLeft,
+    /// Scan from the right side
+    FromRight,
+    /// Scan from the top
+    FromTop,
+    /// Scan from the bottom
+    FromBottom,
+}
+
+/// Two-sided edge filter
+///
+/// Detects edges by computing directional gradients on both sides of a
+/// transition.  Only registers edges where gradients have the same sign,
+/// storing the minimum absolute gradient.  This suppresses single-pixel
+/// noise.
+///
+/// # Arguments
+/// * `pix` - Input 8bpp grayscale image
+/// * `orientation` - `Horizontal` or `Vertical` (not `All`)
+///
+/// # See also
+///
+/// C Leptonica: `pixTwoSidedEdgeFilter()` in `edge.c`
+pub fn two_sided_edge_filter(pix: &Pix, orientation: EdgeOrientation) -> FilterResult<Pix> {
+    check_grayscale(pix)?;
+    if orientation == EdgeOrientation::All {
+        return Err(FilterError::InvalidParameters(
+            "orientflag must be Horizontal or Vertical, not All".to_string(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    if orientation == EdgeOrientation::Vertical && w < 2 {
+        return Err(FilterError::InvalidParameters(
+            "image width must be >= 2 for vertical edge filter".to_string(),
+        ));
+    }
+    if orientation == EdgeOrientation::Horizontal && h < 2 {
+        return Err(FilterError::InvalidParameters(
+            "image height must be >= 2 for horizontal edge filter".to_string(),
+        ));
+    }
+
+    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    if orientation == EdgeOrientation::Vertical {
+        for y in 0..h {
+            let mut cval = pix.get_pixel_unchecked(1, y) as i32;
+            let mut lgrad = cval - pix.get_pixel_unchecked(0, y) as i32;
+            for x in 1..w - 1 {
+                let rval = pix.get_pixel_unchecked(x + 1, y) as i32;
+                let rgrad = rval - cval;
+                if lgrad * rgrad > 0 {
+                    let val = if lgrad < 0 {
+                        -lgrad.max(rgrad) // both negative: max is less negative
+                    } else {
+                        lgrad.min(rgrad)
+                    };
+                    out_mut.set_pixel_unchecked(x, y, val as u32);
+                }
+                lgrad = rgrad;
+                cval = rval;
+            }
+        }
+    } else {
+        // Horizontal edges
+        for x in 0..w {
+            let mut cval = pix.get_pixel_unchecked(x, 1) as i32;
+            let mut tgrad = cval - pix.get_pixel_unchecked(x, 0) as i32;
+            for y in 1..h - 1 {
+                let bval = pix.get_pixel_unchecked(x, y + 1) as i32;
+                let bgrad = bval - cval;
+                if tgrad * bgrad > 0 {
+                    let val = if tgrad < 0 {
+                        -tgrad.max(bgrad)
+                    } else {
+                        tgrad.min(bgrad)
+                    };
+                    out_mut.set_pixel_unchecked(x, y, val as u32);
+                }
+                tgrad = bgrad;
+                cval = bval;
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Get edge profile from a binary image
+///
+/// Extracts foreground edge pixel positions from one side of the image.
+/// For left/right scans, returns a Numa of length `h` with x-positions.
+/// For top/bottom scans, returns a Numa of length `w` with y-positions.
+///
+/// # Arguments
+/// * `pix` - Input 1bpp binary image
+/// * `side` - Which side to scan from
+///
+/// # See also
+///
+/// C Leptonica: `pixGetEdgeProfile()` in `edge.c`
+pub fn get_edge_profile(pix: &Pix, side: EdgeSide) -> FilterResult<Numa> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let mut na = Numa::with_capacity(
+        if matches!(side, EdgeSide::FromLeft | EdgeSide::FromRight) {
+            h as usize
+        } else {
+            w as usize
+        },
+    );
+
+    match side {
+        EdgeSide::FromLeft => {
+            // For each row, find the leftmost ON pixel
+            for y in 0..h {
+                let mut loc = 0i32;
+                for x in 0..w {
+                    if pix.get_pixel_unchecked(x, y) == 1 {
+                        loc = x as i32;
+                        break;
+                    }
+                    if x == w - 1 {
+                        loc = 0;
+                    }
+                }
+                na.push(loc as f32);
+            }
+        }
+        EdgeSide::FromRight => {
+            // For each row, find the rightmost ON pixel
+            for y in 0..h {
+                let mut loc = (w - 1) as i32;
+                for x in (0..w).rev() {
+                    if pix.get_pixel_unchecked(x, y) == 1 {
+                        loc = x as i32;
+                        break;
+                    }
+                    if x == 0 {
+                        loc = (w - 1) as i32;
+                    }
+                }
+                na.push(loc as f32);
+            }
+        }
+        EdgeSide::FromTop => {
+            // For each column, find the topmost ON pixel
+            for x in 0..w {
+                let mut loc = 0i32;
+                for y in 0..h {
+                    if pix.get_pixel_unchecked(x, y) == 1 {
+                        loc = y as i32;
+                        break;
+                    }
+                    if y == h - 1 {
+                        loc = 0;
+                    }
+                }
+                na.push(loc as f32);
+            }
+        }
+        EdgeSide::FromBottom => {
+            // For each column, find the bottommost ON pixel
+            for x in 0..w {
+                let mut loc = (h - 1) as i32;
+                for y in (0..h).rev() {
+                    if pix.get_pixel_unchecked(x, y) == 1 {
+                        loc = y as i32;
+                        break;
+                    }
+                    if y == 0 {
+                        loc = (h - 1) as i32;
+                    }
+                }
+                na.push(loc as f32);
+            }
+        }
+    }
+
+    Ok(na)
+}
+
+/// Measure edge smoothness of a binary image
+///
+/// Quantifies edge smoothness by measuring jumps and reversals in the
+/// edge profile.
+///
+/// # Arguments
+/// * `pix` - Input 1bpp binary image
+/// * `side` - Which side to scan from
+/// * `minjump` - Minimum pixel jump to count (>= 1)
+/// * `minreversal` - Minimum reversal depth to count (>= 1)
+///
+/// # Returns
+/// `(jumps_per_length, jumpsum_per_length, reversals_per_length)`
+///
+/// # See also
+///
+/// C Leptonica: `pixMeasureEdgeSmoothness()` in `edge.c`
+pub fn measure_edge_smoothness(
+    pix: &Pix,
+    side: EdgeSide,
+    minjump: u32,
+    minreversal: u32,
+) -> FilterResult<(f32, f32, f32)> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    if minjump < 1 {
+        return Err(FilterError::InvalidParameters(
+            "minjump must be >= 1".to_string(),
+        ));
+    }
+    if minreversal < 1 {
+        return Err(FilterError::InvalidParameters(
+            "minreversal must be >= 1".to_string(),
+        ));
+    }
+
+    let na = get_edge_profile(pix, side)?;
+    let n = na.len();
+    if n < 2 {
+        return Ok((0.0, 0.0, 0.0));
+    }
+
+    // Compute jumps
+    let mut njumps = 0u32;
+    let mut jumpsum = 0u32;
+    let mut val = na.get_i32(0).unwrap_or(0);
+    for i in 1..n {
+        let nval = na.get_i32(i).unwrap_or(0);
+        let diff = (nval - val).unsigned_abs();
+        if diff >= minjump {
+            njumps += 1;
+            jumpsum += diff;
+        }
+        val = nval;
+    }
+    let len = (n - 1) as f32;
+    let jpl = njumps as f32 / len;
+    let jspl = jumpsum as f32 / len;
+
+    // Compute reversals
+    let nae = na
+        .find_extrema(minreversal as f32)
+        .map_err(|e| FilterError::InvalidParameters(format!("find_extrema failed: {e}")))?;
+    let nreversal = if nae.len() > 1 { nae.len() - 1 } else { 0 };
+    let rpl = nreversal as f32 / len;
+
+    Ok((jpl, jspl, rpl))
 }
 
 fn check_grayscale(pix: &Pix) -> FilterResult<()> {
