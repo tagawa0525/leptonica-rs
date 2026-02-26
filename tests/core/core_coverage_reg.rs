@@ -1102,7 +1102,7 @@ fn generate_pta_boundary() {
 
 /// Test `Pixa::write_to_bytes` / `Pixa::read_from_bytes` – round-trip empty.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_serial_roundtrip_empty() {
     let pixa = Pixa::new();
     let bytes = pixa.write_to_bytes().unwrap();
@@ -1112,7 +1112,7 @@ fn pixa_serial_roundtrip_empty() {
 
 /// Test `Pixa::write_to_bytes` / `Pixa::read_from_bytes` – round-trip with images.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_serial_roundtrip_with_images() {
     let mut pixa = Pixa::new();
     pixa.push(Pix::new(10, 10, PixelDepth::Bit8).unwrap());
@@ -1129,7 +1129,7 @@ fn pixa_serial_roundtrip_with_images() {
 
 /// Test `Pixa::write_to_bytes` / `Pixa::read_from_bytes` – preserves boxes.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_serial_roundtrip_with_boxes() {
     let mut pixa = Pixa::new();
     pixa.push_with_box(
@@ -1148,7 +1148,7 @@ fn pixa_serial_roundtrip_with_boxes() {
 
 /// Test `Pixa::write_to_file` / `Pixa::read_from_file` – file round-trip.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_serial_file_roundtrip() {
     let mut pixa = Pixa::new();
     pixa.push(Pix::new(5, 5, PixelDepth::Bit8).unwrap());
@@ -1168,7 +1168,7 @@ fn pixa_serial_file_roundtrip() {
 
 /// Test `Pixa::read_from_bytes` – rejects garbage data.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_serial_invalid_data() {
     assert!(Pixa::read_from_bytes(b"garbage data").is_err());
     assert!(Pixa::read_from_bytes(b"").is_err());
@@ -1176,7 +1176,7 @@ fn pixa_serial_invalid_data() {
 
 /// Test `Pixa::write_to_bytes` / `Pixa::read_from_reader` – reader round-trip.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_serial_reader_roundtrip() {
     let mut pixa = Pixa::new();
     pixa.push(Pix::new(8, 8, PixelDepth::Bit8).unwrap());
@@ -1195,7 +1195,7 @@ fn pixa_serial_reader_roundtrip() {
 
 /// Test `Boxaa::read_from_files` – reads boxa files from a directory.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxaa_read_from_files() {
     use leptonica::Boxaa;
 
@@ -1221,7 +1221,7 @@ fn boxaa_read_from_files() {
 
 /// Test `Boxaa::read_from_files` with substring filter.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxaa_read_from_files_with_filter() {
     use leptonica::Boxaa;
 

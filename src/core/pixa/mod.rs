@@ -3,6 +3,8 @@
 //! These structures manage collections of images, optionally with
 //! associated bounding boxes for each image.
 
+mod serial;
+
 use crate::core::box_::{Box, Boxa, SizeRelation};
 use crate::core::error::{Error, Result};
 use crate::core::numa::{Numa, SortOrder};

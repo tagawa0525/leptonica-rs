@@ -205,6 +205,58 @@ impl Boxaa {
         self.write_to_writer(&mut buf)?;
         Ok(buf)
     }
+
+    /// Read serialized Boxa files from a directory and collect into a Boxaa.
+    ///
+    /// Files are lexically sorted. Use `substr` to filter filenames, and
+    /// `first`/`nfiles` to select a contiguous subset (0 = all from `first`).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaaReadFromFiles()` in `boxbasic.c`
+    pub fn read_from_files(
+        dir: impl AsRef<Path>,
+        substr: Option<&str>,
+        first: usize,
+        nfiles: usize,
+    ) -> Result<Self> {
+        let dir = dir.as_ref();
+        let mut paths: Vec<_> = std::fs::read_dir(dir)?
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_ok_and(|ft| ft.is_file()))
+            .map(|e| e.path())
+            .filter(|p| {
+                if let Some(s) = substr {
+                    p.file_name()
+                        .and_then(|n| n.to_str())
+                        .is_some_and(|n| n.contains(s))
+                } else {
+                    true
+                }
+            })
+            .collect();
+        paths.sort();
+
+        let end = if nfiles == 0 {
+            paths.len()
+        } else {
+            (first + nfiles).min(paths.len())
+        };
+        if first >= paths.len() {
+            return Err(Error::InvalidParameter("no boxa files found".into()));
+        }
+        let selected = &paths[first..end];
+        if selected.is_empty() {
+            return Err(Error::InvalidParameter("no boxa files found".into()));
+        }
+
+        let mut baa = Boxaa::with_capacity(selected.len());
+        for path in selected {
+            let boxa = Boxa::read_from_file(path)?;
+            baa.push(boxa);
+        }
+        Ok(baa)
+    }
 }
 
 // --- Internal parsing/writing helpers ---
