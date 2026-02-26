@@ -1026,6 +1026,44 @@ impl Sela {
     }
 }
 
+/// Create a Sela from a Pixa of color-coded images.
+///
+/// Each Pix in the Pixa should be a 32-bpp color image representing a SEL
+/// using the color encoding from [`Sel::from_color_image`].
+/// The SArray provides names for each SEL.
+///
+/// # Arguments
+/// * `pixa` - Collection of 32-bpp color images
+/// * `sa` - Array of names, one per image
+///
+/// Based on C leptonica `selaCreateFromColorPixa`.
+pub fn sela_create_from_color_pixa(
+    pixa: &crate::core::Pixa,
+    sa: &crate::core::Sarray,
+) -> MorphResult<Sela> {
+    if pixa.len() != sa.len() {
+        return Err(MorphError::InvalidParameters(format!(
+            "pixa length ({}) must match sarray length ({})",
+            pixa.len(),
+            sa.len()
+        )));
+    }
+
+    let mut sela = Sela::new();
+    for i in 0..pixa.len() {
+        let pix = pixa.get(i).ok_or_else(|| {
+            MorphError::InvalidParameters(format!("pixa index {} out of bounds", i))
+        })?;
+        let name = sa.get(i).ok_or_else(|| {
+            MorphError::InvalidParameters(format!("sarray index {} out of bounds", i))
+        })?;
+        let sel = Sel::from_color_image(pix, Some(name))?;
+        sela.add(sel)?;
+    }
+
+    Ok(sela)
+}
+
 // ── Phase 4: SEL-set generation free functions ─────────────────────────────
 
 const BASIC_LINEAR: &[u32] = &[

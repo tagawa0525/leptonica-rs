@@ -2,6 +2,7 @@
 //!
 //! Higher-level morphological operations including:
 //! - Sequence operations with masking
+//! - Sequence operations by connected component or region
 //! - Union and intersection of morphological ops over a set of SELs
 //! - Seedfill via dilation (binary reconstruction)
 //! - Grayscale morphological gradient
@@ -11,6 +12,7 @@ use crate::morph::{
     MorphError, MorphResult, Sel, close, dilate, erode, gradient_gray, hit_miss_transform,
     morph_sequence, open,
 };
+use crate::region::{ConnectivityType, conncomp_pixa};
 
 /// Type of morphological operation for union/intersection functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -226,6 +228,187 @@ pub fn morph_gradient(pix: &Pix, hsize: u32, vsize: u32, smoothing: u32) -> Morp
     // Note: size rounding to odd values is handled by lower-level grayscale
     // morphology functions (via ensure_odd) called inside `gradient_gray`.
     gradient_gray(pix, hsize, vsize)
+}
+
+/// Apply a morphological sequence to each connected component separately.
+///
+/// Extracts connected components, applies the sequence to each one
+/// independently, then composites results back into a single image.
+///
+/// # Arguments
+/// * `pix` - 1 bpp input image
+/// * `sequence` - morphological sequence string (e.g., `"D3.3"`)
+/// * `min_w` - minimum component width to process (0 = no filter)
+/// * `min_h` - minimum component height to process (0 = no filter)
+/// * `connectivity` - 4 or 8 connected
+///
+/// Based on C leptonica `pixMorphSequenceByComponent`.
+pub fn morph_sequence_by_component(
+    pix: &Pix,
+    sequence: &str,
+    min_w: u32,
+    min_h: u32,
+    connectivity: u8,
+) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let conn = match connectivity {
+        4 => ConnectivityType::FourWay,
+        8 => ConnectivityType::EightWay,
+        _ => {
+            return Err(MorphError::InvalidParameters(
+                "connectivity must be 4 or 8".into(),
+            ));
+        }
+    };
+
+    let (boxa, pixa) = conncomp_pixa(pix, conn)
+        .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {}", e)))?;
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for i in 0..pixa.len() {
+        let comp = pixa.get(i).unwrap();
+        let b = boxa.get(i).unwrap();
+        let bw = b.w as u32;
+        let bh = b.h as u32;
+
+        // Filter by minimum size
+        if (min_w > 0 && bw < min_w) || (min_h > 0 && bh < min_h) {
+            continue;
+        }
+
+        // Apply morph sequence to this component
+        let processed = morph_sequence(comp, sequence)?;
+
+        // Paste result back at original position
+        let ox = b.x;
+        let oy = b.y;
+        let pw = processed.width();
+        let ph = processed.height();
+        for py in 0..ph {
+            let dy = oy + py as i32;
+            if dy < 0 || dy as u32 >= h {
+                continue;
+            }
+            for px in 0..pw {
+                let dx = ox + px as i32;
+                if dx < 0 || dx as u32 >= w {
+                    continue;
+                }
+                if processed.get_pixel_unchecked(px, py) != 0 {
+                    out_mut.set_pixel_unchecked(dx as u32, dy as u32, 1);
+                }
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Apply a morphological sequence to each region defined by a mask.
+///
+/// For each connected component in the mask, extracts the corresponding
+/// region from the source, applies the sequence, and pastes back.
+///
+/// # Arguments
+/// * `pix` - 1 bpp input image
+/// * `mask` - 1 bpp mask defining regions (connected components)
+/// * `sequence` - morphological sequence string
+/// * `connectivity` - 4 or 8 connected
+/// * `min_w` - minimum region width to process (0 = no filter)
+/// * `min_h` - minimum region height to process (0 = no filter)
+///
+/// Based on C leptonica `pixMorphSequenceByRegion`.
+pub fn morph_sequence_by_region(
+    pix: &Pix,
+    mask: &Pix,
+    sequence: &str,
+    connectivity: u8,
+    min_w: u32,
+    min_h: u32,
+) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    if mask.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: mask.depth().bits(),
+        });
+    }
+
+    let conn = match connectivity {
+        4 => ConnectivityType::FourWay,
+        8 => ConnectivityType::EightWay,
+        _ => {
+            return Err(MorphError::InvalidParameters(
+                "connectivity must be 4 or 8".into(),
+            ));
+        }
+    };
+
+    let (boxa, mask_pixa) = conncomp_pixa(mask, conn)
+        .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {}", e)))?;
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    for i in 0..mask_pixa.len() {
+        let mask_comp = mask_pixa.get(i).unwrap();
+        let b = boxa.get(i).unwrap();
+        let bw = b.w as u32;
+        let bh = b.h as u32;
+
+        if (min_w > 0 && bw < min_w) || (min_h > 0 && bh < min_h) {
+            continue;
+        }
+
+        // Clip source region to match the mask component bounds
+        let clip = pix.clip_rectangle(b.x as u32, b.y as u32, bw, bh)?;
+
+        // AND with mask component to get only pixels within this region
+        let region = clip.and(mask_comp)?;
+
+        // Apply morph sequence
+        let processed = morph_sequence(&region, sequence)?;
+
+        // Paste back
+        let ox = b.x;
+        let oy = b.y;
+        let pw = processed.width();
+        let ph = processed.height();
+        for py in 0..ph {
+            let dy = oy + py as i32;
+            if dy < 0 || dy as u32 >= h {
+                continue;
+            }
+            for px in 0..pw {
+                let dx = ox + px as i32;
+                if dx < 0 || dx as u32 >= w {
+                    continue;
+                }
+                if processed.get_pixel_unchecked(px, py) != 0 {
+                    out_mut.set_pixel_unchecked(dx as u32, dy as u32, 1);
+                }
+            }
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 #[cfg(test)]

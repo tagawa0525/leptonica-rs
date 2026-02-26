@@ -19,6 +19,7 @@ mod error;
 pub mod grayscale;
 pub mod morphapp;
 pub mod sel;
+pub mod selgen;
 pub mod sequence;
 pub mod thin;
 pub mod thin_sels;
@@ -45,6 +46,7 @@ pub use color::{
 };
 
 // Re-export thinning functions
+pub use thin::pixa_thin_connected;
 pub use thin::{Connectivity, ThinType, thin_connected, thin_connected_by_set};
 pub use thin_sels::{ThinSelSet, make_thin_sels, sels_4and8cc_thin, sels_4cc_thin, sels_8cc_thin};
 
@@ -64,12 +66,12 @@ pub use dwa::{
 
 // Re-export morphological application functions
 pub use morphapp::{
-    MorphOpType, intersection_of_morph_ops, morph_gradient, morph_sequence_masked, seedfill_morph,
-    union_of_morph_ops,
+    MorphOpType, intersection_of_morph_ops, morph_gradient, morph_sequence_by_component,
+    morph_sequence_by_region, morph_sequence_masked, seedfill_morph, union_of_morph_ops,
 };
 
 // Re-export SEL set generation functions
 pub use sel::{
     sel_make_plus_sign, sela_add_basic, sela_add_cross_junctions, sela_add_dwa_combs,
-    sela_add_dwa_linear, sela_add_hit_miss, sela_add_t_junctions,
+    sela_add_dwa_linear, sela_add_hit_miss, sela_add_t_junctions, sela_create_from_color_pixa,
 };
