@@ -352,6 +352,18 @@ pub fn two_sided_edge_filter(pix: &Pix, orientation: EdgeOrientation) -> FilterR
 
     let w = pix.width();
     let h = pix.height();
+
+    if orientation == EdgeOrientation::Vertical && w < 2 {
+        return Err(FilterError::InvalidParameters(
+            "image width must be >= 2 for vertical edge filter".to_string(),
+        ));
+    }
+    if orientation == EdgeOrientation::Horizontal && h < 2 {
+        return Err(FilterError::InvalidParameters(
+            "image height must be >= 2 for horizontal edge filter".to_string(),
+        ));
+    }
+
     let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
