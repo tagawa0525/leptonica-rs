@@ -61,7 +61,7 @@ fn make_ring(w: u32, h: u32, x0: u32, y0: u32, x1: u32, y1: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_bb_4conn() {
     let pix = make_rect(20, 20, 2, 3, 7, 8);
     let mut pm = pix.try_into_mut().unwrap();
@@ -76,7 +76,7 @@ fn test_seedfill_bb_4conn() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_bb_8conn() {
     // Diagonal pixels: only connected in 8-way
     let pix = make_binary(10, 10, &[(2, 2), (3, 3), (4, 4)]);
@@ -93,7 +93,7 @@ fn test_seedfill_bb_8conn() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_4_bb_basic() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let mut pm = pix.try_into_mut().unwrap();
@@ -102,7 +102,7 @@ fn test_seedfill_4_bb_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_4_bb_diagonal_not_connected() {
     // Diagonal pixels should be separate in 4-connectivity
     let pix = make_binary(10, 10, &[(2, 2), (3, 3)]);
@@ -118,7 +118,7 @@ fn test_seedfill_4_bb_diagonal_not_connected() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_8_bb_diagonal() {
     let pix = make_binary(10, 10, &[(2, 2), (3, 3)]);
     let mut pm = pix.try_into_mut().unwrap();
@@ -132,7 +132,7 @@ fn test_seedfill_8_bb_diagonal() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_clears_component() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let mut pm = pix.try_into_mut().unwrap();
@@ -146,7 +146,7 @@ fn test_seedfill_clears_component() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_preserves_other_components() {
     // Two separate rects
     let pix = make_binary(
@@ -178,7 +178,7 @@ fn test_seedfill_preserves_other_components() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_4_basic() {
     let pix = make_rect(10, 10, 2, 2, 6, 6);
     let mut pm = pix.try_into_mut().unwrap();
@@ -195,7 +195,7 @@ fn test_seedfill_4_basic() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_8_basic() {
     let pix = make_binary(10, 10, &[(2, 2), (3, 3), (4, 4)]);
     let mut pm = pix.try_into_mut().unwrap();
@@ -206,11 +206,11 @@ fn test_seedfill_8_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_seedfill_8_does_not_clear_4conn_separate() {
     // Diagonal: seedfill_4 should NOT clear, seedfill_8 should
     let pix = make_binary(10, 10, &[(2, 2), (3, 3)]);
-    let mut pm4 = pix.clone().try_into_mut().unwrap();
+    let mut pm4 = pix.to_mut();
     seedfill_4(&mut pm4, 2, 2).unwrap();
     assert_eq!(pm4.get_pixel(3, 3), Some(1)); // not cleared by 4-conn
 
@@ -224,7 +224,7 @@ fn test_seedfill_8_does_not_clear_4conn_separate() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_get_all_borders_two_components() {
     // Two separate rects
     let mut pixels = Vec::new();
@@ -251,7 +251,7 @@ fn test_get_all_borders_two_components() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_get_outer_border_l_shape() {
     // L-shaped component
     let pix = make_binary(10, 10, &[(1, 1), (1, 2), (1, 3), (2, 3), (3, 3)]);
@@ -265,7 +265,7 @@ fn test_get_outer_border_l_shape() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_get_hole_border() {
     // Ring shape: 7x7 frame
     let pix = make_ring(10, 10, 1, 1, 8, 8);
@@ -280,7 +280,7 @@ fn test_pix_get_hole_border() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_locate_outside_seed_pixel() {
     let pix = make_ring(10, 10, 1, 1, 8, 8);
     let hole_bounds = leptonica::core::Box::new_unchecked(2, 2, 5, 5);
@@ -296,7 +296,7 @@ fn test_locate_outside_seed_pixel() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_generate_global_locs() {
     let pix = make_rect(20, 20, 5, 5, 10, 10);
     let mut borders = get_all_borders(&pix).unwrap();
@@ -317,7 +317,7 @@ fn test_generate_global_locs() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_generate_step_chains_coverage() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let mut borders = get_all_borders(&pix).unwrap();
@@ -333,7 +333,7 @@ fn test_generate_step_chains_coverage() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_step_chains_to_pix_coords_coverage() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let mut borders = get_all_borders(&pix).unwrap();
@@ -348,7 +348,7 @@ fn test_step_chains_to_pix_coords_coverage() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_generate_sp_global_locs() {
     let pix = make_rect(20, 20, 5, 5, 10, 10);
     let mut borders = get_all_borders(&pix).unwrap();
@@ -368,7 +368,7 @@ fn test_generate_sp_global_locs() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_generate_single_path_coverage() {
     let pix = make_ring(10, 10, 0, 0, 7, 7);
     let mut borders = get_all_borders(&pix).unwrap();
@@ -384,7 +384,7 @@ fn test_generate_single_path_coverage() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_get_cut_path_for_hole() {
     // Ring shape
     let pix = make_ring(10, 10, 0, 0, 7, 7);
@@ -401,7 +401,7 @@ fn test_get_cut_path_for_hole() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_write_to_file() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let borders = get_all_borders(&pix).unwrap();
@@ -416,7 +416,7 @@ fn test_write_to_file() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_write_stream() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let borders = get_all_borders(&pix).unwrap();
@@ -432,7 +432,7 @@ fn test_write_stream() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_read_from_file() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let borders = get_all_borders(&pix).unwrap();
@@ -451,7 +451,7 @@ fn test_read_from_file() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_read_stream() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let borders = get_all_borders(&pix).unwrap();
@@ -467,7 +467,7 @@ fn test_read_stream() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_write_svg_to_file() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let mut borders = get_all_borders(&pix).unwrap();
@@ -484,7 +484,7 @@ fn test_write_svg_to_file() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_to_svg_string_coverage() {
     let pix = make_rect(10, 10, 1, 1, 5, 5);
     let mut borders = get_all_borders(&pix).unwrap();
@@ -500,7 +500,7 @@ fn test_to_svg_string_coverage() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_conn_comp_incr_init_empty() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let (labeler, ncc) = pix_conn_comp_incr_init(&pix, ConnectivityType::FourWay).unwrap();
@@ -510,7 +510,7 @@ fn test_pix_conn_comp_incr_init_empty() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_conn_comp_incr_init_with_components() {
     let pix = make_binary(10, 10, &[(1, 1), (2, 1), (5, 5), (6, 5)]);
     let (labeler, ncc) = pix_conn_comp_incr_init(&pix, ConnectivityType::FourWay).unwrap();
@@ -528,7 +528,7 @@ fn test_pix_conn_comp_incr_init_with_components() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_conn_comp_incr_add_new_component() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let (mut labeler, mut ncc) = pix_conn_comp_incr_init(&pix, ConnectivityType::FourWay).unwrap();
@@ -541,7 +541,7 @@ fn test_pix_conn_comp_incr_add_new_component() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_conn_comp_incr_add_join() {
     // Create two separate components, then connect them
     let pix = make_binary(10, 10, &[(1, 1), (3, 1)]);
@@ -555,7 +555,7 @@ fn test_pix_conn_comp_incr_add_join() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_conn_comp_incr_add_extend() {
     let pix = make_binary(10, 10, &[(1, 1), (2, 1)]);
     let (mut labeler, mut ncc) = pix_conn_comp_incr_init(&pix, ConnectivityType::FourWay).unwrap();
@@ -572,7 +572,7 @@ fn test_pix_conn_comp_incr_add_extend() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_loc_to_color_transform_basic() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     let colored = pix_loc_to_color_transform(&pix).unwrap();
@@ -590,7 +590,7 @@ fn test_pix_loc_to_color_transform_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_loc_to_color_transform_empty() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let colored = pix_loc_to_color_transform(&pix).unwrap();
@@ -603,13 +603,13 @@ fn test_pix_loc_to_color_transform_empty() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_pix_loc_to_color_transform_spatial_coding() {
-    // Pixels at different locations should get different colors
-    let pix = make_binary(100, 100, &[(10, 10), (90, 90)]);
+    // Pixels at different asymmetric locations should get different colors
+    let pix = make_binary(100, 100, &[(10, 10), (80, 30)]);
     let colored = pix_loc_to_color_transform(&pix).unwrap();
     let c1 = colored.get_pixel(10, 10).unwrap();
-    let c2 = colored.get_pixel(90, 90).unwrap();
+    let c2 = colored.get_pixel(80, 30).unwrap();
     // Different locations should yield different color encodings
     assert_ne!(c1, c2);
 }
