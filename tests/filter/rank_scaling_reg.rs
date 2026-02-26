@@ -56,5 +56,16 @@ fn rank_scaling_reg() {
     let pix1 = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     assert!(rank_filter_with_scaling(&pix1, 3, 3, 0.5, 0.5).is_err());
 
+    // 32bpp test
+    let pixs32 = load_test_image("test24.jpg").expect("load test24.jpg");
+    let w32 = pixs32.width();
+    let h32 = pixs32.height();
+
+    let pixd32 =
+        rank_filter_with_scaling(&pixs32, 7, 7, 0.5, 0.5).expect("32bpp rank filter with scaling");
+    rp.compare_values(w32 as f64, pixd32.width() as f64, 0.0);
+    rp.compare_values(h32 as f64, pixd32.height() as f64, 0.0);
+    assert_eq!(pixd32.depth(), PixelDepth::Bit32);
+
     assert!(rp.cleanup(), "rank_scaling_reg failed");
 }
