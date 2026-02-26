@@ -216,7 +216,7 @@
 | boxaExtractSortedPattern | ❌ 未実装 | - | パターンに基づくBoxa抽出 |
 | numaaCompareImagesByBoxes | ❌ 未実装 | - | ボックスベースの画像比較 |
 
-### bootnumgen.c (Bootstrap数字生成データ)
+### bootnumgen1.c, bootnumgen2.c, bootnumgen3.c, bootnumgen4.c (Bootstrap数字生成データ)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | l_bootnum_gen1 | 🚫 不要 | - | ブートストラップ数字セット1（組み込みデータジェネレータ） |
