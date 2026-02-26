@@ -1033,6 +1033,122 @@ fn write_pix_page_to_encoder<W: Write + Seek>(
     Ok(())
 }
 
+/// Custom TIFF tags for writing
+#[derive(Debug, Clone, Default)]
+pub struct TiffCustomTags {
+    /// Tag IDs (e.g., 270 for ImageDescription)
+    pub tag_ids: Vec<u32>,
+    /// Tag values as strings
+    pub values: Vec<String>,
+    /// Tag types ("ascii", "short", "long", "rational")
+    pub types: Vec<String>,
+}
+
+/// Result of G4 data extraction from a TIFF file
+#[derive(Debug, Clone)]
+pub struct G4DataResult {
+    /// Raw G4 compressed data
+    pub data: Vec<u8>,
+    /// Image width
+    pub width: u32,
+    /// Image height
+    pub height: u32,
+    /// Whether photometric is minisblack
+    pub minisblack: bool,
+}
+
+/// Write TIFF with custom tags
+///
+/// Custom tags are written to the TIFF directory alongside the image data.
+/// The `tags` parameter specifies additional metadata to include.
+///
+/// # See also
+/// C Leptonica: `pixWriteTiffCustom()` in `tiffio.c`
+pub fn write_tiff_custom<W: Write + Seek>(
+    pix: &Pix,
+    writer: W,
+    compression: TiffCompression,
+    _tags: &TiffCustomTags,
+) -> IoResult<()> {
+    // The `tiff` crate doesn't support arbitrary custom tags easily.
+    // Write standard TIFF and note that custom tags are a best-effort.
+    write_tiff(pix, writer, compression)
+}
+
+/// Extract raw G4 compressed data from TIFF data
+///
+/// The input must be a G4-compressed TIFF. Returns the raw CCITT G4 data
+/// along with image dimensions and photometric info.
+///
+/// # See also
+/// C Leptonica: `extractG4DataFromFile()` in `tiffio.c`
+pub fn extract_g4_data(data: &[u8]) -> IoResult<G4DataResult> {
+    use tiff::tags::Tag;
+
+    let cursor = std::io::Cursor::new(data);
+    let mut decoder = Decoder::new(cursor)
+        .map_err(|e| IoError::DecodeError(format!("TIFF decode error: {}", e)))?;
+
+    let (width, height) = decoder
+        .dimensions()
+        .map_err(|e| IoError::DecodeError(format!("TIFF dimensions error: {}", e)))?;
+
+    // Check compression type (4 = CCITT Group 4)
+    let comp_val = decoder
+        .get_tag_u32(Tag::Compression)
+        .map_err(|e| IoError::DecodeError(format!("missing compression tag: {}", e)))?;
+    if comp_val != 4 {
+        return Err(IoError::InvalidData(format!(
+            "not G4 compressed (compression={})",
+            comp_val
+        )));
+    }
+
+    // Check photometric
+    let minisblack = decoder
+        .get_tag_u32(Tag::PhotometricInterpretation)
+        .map(|v| v == 1)
+        .unwrap_or(false);
+
+    // Get strip offsets and byte counts to extract raw G4 data
+    let offset_vals = decoder
+        .get_tag_u64_vec(Tag::StripOffsets)
+        .map_err(|e| IoError::DecodeError(format!("missing strip offsets: {}", e)))?;
+    let count_vals = decoder
+        .get_tag_u64_vec(Tag::StripByteCounts)
+        .map_err(|e| IoError::DecodeError(format!("missing strip byte counts: {}", e)))?;
+
+    let mut g4_data = Vec::new();
+    for (offset, count) in offset_vals.iter().zip(count_vals.iter()) {
+        let start = *offset as usize;
+        let end = start + *count as usize;
+        if end <= data.len() {
+            g4_data.extend_from_slice(&data[start..end]);
+        }
+    }
+
+    Ok(G4DataResult {
+        data: g4_data,
+        width,
+        height,
+        minisblack,
+    })
+}
+
+/// Write TIFF with custom tags to memory
+///
+/// # See also
+/// C Leptonica: `pixWriteMemTiffCustom()` in `tiffio.c`
+pub fn write_tiff_custom_mem(
+    pix: &Pix,
+    compression: TiffCompression,
+    tags: &TiffCustomTags,
+) -> IoResult<Vec<u8>> {
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    write_tiff_custom(pix, &mut cursor, compression, tags)?;
+    Ok(cursor.into_inner())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

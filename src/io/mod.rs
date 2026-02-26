@@ -207,3 +207,85 @@ pub fn write_image_format<W: Write>(pix: &Pix, writer: W, format: ImageFormat) -
         _ => Err(IoError::UnsupportedFormat(format!("{:?}", format))),
     }
 }
+
+/// Read multiple image files from a directory into a Pixa
+///
+/// Files are sorted alphabetically. An optional substring filter
+/// can be used to match only certain filenames.
+///
+/// # See also
+/// C Leptonica: `pixaReadFiles()` in `readfile.c`
+pub fn pixa_read_files(dir: impl AsRef<Path>, substr: Option<&str>) -> IoResult<crate::core::Pixa> {
+    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(dir.as_ref())
+        .map_err(IoError::Io)?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .filter(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            match substr {
+                Some(s) => name.contains(s),
+                None => true,
+            }
+        })
+        .map(|e| e.path())
+        .collect();
+    paths.sort();
+
+    let mut pixa = crate::core::Pixa::new();
+    for path in &paths {
+        let pix = read_image(path)?;
+        pixa.push(pix);
+    }
+    Ok(pixa)
+}
+
+/// Write Pixa images to numbered files
+///
+/// Files are named as `{rootname}NNN.{ext}` where NNN is a zero-padded
+/// index and ext is determined by the format.
+///
+/// # See also
+/// C Leptonica: `pixaWriteFiles()` in `writefile.c`
+pub fn pixa_write_files(
+    rootname: &str,
+    pixa: &crate::core::Pixa,
+    format: ImageFormat,
+) -> IoResult<()> {
+    let ext = get_format_extension(format);
+    for i in 0..pixa.len() {
+        let pix = pixa
+            .get(i)
+            .ok_or_else(|| IoError::InvalidData(format!("pixa index {} out of range", i)))?;
+        let filename = format!("{}{:03}.{}", rootname, i, ext);
+        write_image(pix, &filename, format)?;
+    }
+    Ok(())
+}
+
+/// Get the file extension for an image format
+///
+/// # See also
+/// C Leptonica: `getFormatExtension()` in `writefile.c`
+pub fn get_format_extension(format: ImageFormat) -> &'static str {
+    match format {
+        ImageFormat::Bmp => "bmp",
+        ImageFormat::Jpeg => "jpg",
+        ImageFormat::Png => "png",
+        ImageFormat::Tiff
+        | ImageFormat::TiffG3
+        | ImageFormat::TiffG4
+        | ImageFormat::TiffRle
+        | ImageFormat::TiffPackbits
+        | ImageFormat::TiffLzw
+        | ImageFormat::TiffZip
+        | ImageFormat::TiffJpeg => "tif",
+        ImageFormat::Pnm => "pnm",
+        ImageFormat::Ps => "ps",
+        ImageFormat::Gif => "gif",
+        ImageFormat::Jp2 => "jp2",
+        ImageFormat::WebP => "webp",
+        ImageFormat::Lpdf => "pdf",
+        ImageFormat::Spix => "spix",
+        _ => "dat",
+    }
+}

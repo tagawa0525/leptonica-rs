@@ -423,6 +423,63 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
     Ok(())
 }
 
+/// Check if PNG data uses interlacing
+///
+/// # See also
+/// C Leptonica: `isPngInterlaced()` in `pngio.c`
+pub fn is_png_interlaced(data: &[u8]) -> IoResult<bool> {
+    let cursor = std::io::Cursor::new(data);
+    let decoder = Decoder::new(cursor);
+    let reader = decoder
+        .read_info()
+        .map_err(|e| IoError::DecodeError(format!("PNG decode error: {}", e)))?;
+    Ok(reader.info().interlaced)
+}
+
+/// Get PNG colormap information from data
+///
+/// Returns `None` if the image is not colormapped.
+/// Returns `Some((colormap, has_transparency))` if colormapped.
+///
+/// # See also
+/// C Leptonica: `fgetPngColormapInfo()` in `pngio.c`
+pub fn get_png_colormap_info(data: &[u8]) -> IoResult<Option<(PixColormap, bool)>> {
+    let cursor = std::io::Cursor::new(data);
+    let decoder = Decoder::new(cursor);
+    let reader = decoder
+        .read_info()
+        .map_err(|e| IoError::DecodeError(format!("PNG decode error: {}", e)))?;
+
+    let info = reader.info();
+    if info.color_type != ColorType::Indexed {
+        return Ok(None);
+    }
+
+    let palette = match info.palette.as_ref() {
+        Some(p) => p,
+        None => return Ok(None),
+    };
+
+    let bit_depth = info.bit_depth as u32;
+    let mut cmap = PixColormap::new(bit_depth).map_err(IoError::Core)?;
+
+    let palette_bytes: &[u8] = palette;
+    for chunk in palette_bytes.chunks(3) {
+        if chunk.len() == 3 {
+            cmap.add_rgb(chunk[0], chunk[1], chunk[2])
+                .map_err(IoError::Core)?;
+        }
+    }
+
+    // Check for transparency via tRNS chunk
+    let has_transparency = info.trns.as_ref().is_some_and(|trns| {
+        let trns_bytes: &[u8] = trns;
+        trns_bytes.iter().any(|&v| v < 255)
+    });
+
+    Ok(Some((cmap, has_transparency)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

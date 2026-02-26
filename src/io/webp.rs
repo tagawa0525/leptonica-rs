@@ -329,6 +329,218 @@ fn clone_pix_32bpp(pix: &Pix) -> IoResult<Pix> {
     Ok(new_mut.into())
 }
 
+/// Options for animated WebP encoding
+#[derive(Debug, Clone)]
+pub struct WebPAnimOptions {
+    /// Loop count (0 = infinite)
+    pub loop_count: u32,
+    /// Duration per frame in milliseconds
+    pub duration_ms: u32,
+    /// Quality (0-100, for lossy mode)
+    pub quality: u32,
+    /// Use lossless encoding
+    pub lossless: bool,
+}
+
+impl Default for WebPAnimOptions {
+    fn default() -> Self {
+        Self {
+            loop_count: 0,
+            duration_ms: 100,
+            quality: 75,
+            lossless: true,
+        }
+    }
+}
+
+/// Write animated WebP to memory from a Pixa
+///
+/// Each Pix in the Pixa becomes a frame. All frames must have the same dimensions
+/// (the first frame's dimensions are used as the canvas size).
+///
+/// # See also
+/// C Leptonica: `pixaWriteMemWebPAnim()` in `webpanimio.c`
+pub fn write_webp_anim_mem(
+    pixa: &crate::core::Pixa,
+    options: &WebPAnimOptions,
+) -> IoResult<Vec<u8>> {
+    if pixa.is_empty() {
+        return Err(IoError::InvalidData("pixa is empty".to_string()));
+    }
+
+    // Get canvas dimensions from first frame
+    let first = pixa.get(0).unwrap();
+    let canvas_w = first.width();
+    let canvas_h = first.height();
+
+    // Encode each frame as a standalone WebP image
+    let mut frame_data: Vec<Vec<u8>> = Vec::new();
+    for i in 0..pixa.len() {
+        let pix = pixa.get(i).unwrap();
+        let mut buf = Vec::new();
+        write_webp(pix, &mut buf)?;
+        frame_data.push(buf);
+    }
+
+    // Build animated WebP (RIFF container with ANIM + ANMF chunks)
+    build_animated_webp(
+        &frame_data,
+        canvas_w,
+        canvas_h,
+        options.loop_count,
+        options.duration_ms,
+    )
+}
+
+/// Write animated WebP to a writer
+///
+/// # See also
+/// C Leptonica: `pixaWriteStreamWebPAnim()` in `webpanimio.c`
+pub fn write_webp_anim<W: Write>(
+    pixa: &crate::core::Pixa,
+    mut writer: W,
+    options: &WebPAnimOptions,
+) -> IoResult<()> {
+    let data = write_webp_anim_mem(pixa, options)?;
+    writer.write_all(&data).map_err(IoError::Io)?;
+    Ok(())
+}
+
+/// Write animated WebP to a file
+///
+/// # See also
+/// C Leptonica: `pixaWriteWebPAnim()` in `webpanimio.c`
+pub fn write_webp_anim_file(
+    pixa: &crate::core::Pixa,
+    path: impl AsRef<std::path::Path>,
+    options: &WebPAnimOptions,
+) -> IoResult<()> {
+    let data = write_webp_anim_mem(pixa, options)?;
+    std::fs::write(path, &data).map_err(IoError::Io)?;
+    Ok(())
+}
+
+/// Build an animated WebP file from individual WebP frame data
+///
+/// Uses the extended WebP format (VP8X + ANIM + ANMF chunks).
+fn build_animated_webp(
+    frames: &[Vec<u8>],
+    canvas_w: u32,
+    canvas_h: u32,
+    loop_count: u32,
+    duration_ms: u32,
+) -> IoResult<Vec<u8>> {
+    let mut buf = Vec::new();
+
+    // Placeholder for RIFF header (will be filled at the end)
+    buf.extend_from_slice(b"RIFF");
+    buf.extend_from_slice(&[0u8; 4]); // file size placeholder
+    buf.extend_from_slice(b"WEBP");
+
+    // VP8X chunk: extended format flags
+    buf.extend_from_slice(b"VP8X");
+    buf.extend_from_slice(&10u32.to_le_bytes()); // chunk size
+    // Flags: bit 1 = animation
+    buf.extend_from_slice(&0x02u32.to_le_bytes()); // flags
+    // Canvas width - 1 (24 bits) and height - 1 (24 bits)
+    let w_minus_1 = canvas_w.saturating_sub(1);
+    let h_minus_1 = canvas_h.saturating_sub(1);
+    buf.push((w_minus_1 & 0xFF) as u8);
+    buf.push(((w_minus_1 >> 8) & 0xFF) as u8);
+    buf.push(((w_minus_1 >> 16) & 0xFF) as u8);
+    buf.push((h_minus_1 & 0xFF) as u8);
+    buf.push(((h_minus_1 >> 8) & 0xFF) as u8);
+    buf.push(((h_minus_1 >> 16) & 0xFF) as u8);
+
+    // ANIM chunk: animation parameters
+    buf.extend_from_slice(b"ANIM");
+    buf.extend_from_slice(&6u32.to_le_bytes()); // chunk size
+    // Background color (BGRA) = transparent
+    buf.extend_from_slice(&[0u8; 4]);
+    // Loop count
+    buf.extend_from_slice(&(loop_count as u16).to_le_bytes());
+
+    // ANMF chunks: one per frame
+    for frame in frames {
+        // Extract the VP8/VP8L bitstream from the WebP container
+        let bitstream = extract_webp_bitstream(frame)?;
+        let chunk_type = &bitstream.0;
+        let bitstream_data = &bitstream.1;
+
+        // ANMF payload: 16 bytes header + sub-chunk
+        let sub_chunk_size = 8 + bitstream_data.len(); // chunk_type(4) + size(4) + data
+        let anmf_payload_size = 16 + sub_chunk_size;
+        // Pad to even
+        let padded_sub = if bitstream_data.len() % 2 != 0 { 1 } else { 0 };
+
+        buf.extend_from_slice(b"ANMF");
+        buf.extend_from_slice(&((anmf_payload_size + padded_sub) as u32).to_le_bytes());
+
+        // Frame X offset (24 bits, divided by 2)
+        buf.extend_from_slice(&[0u8; 3]);
+        // Frame Y offset (24 bits, divided by 2)
+        buf.extend_from_slice(&[0u8; 3]);
+
+        // Frame width - 1 (24 bits)
+        buf.push((w_minus_1 & 0xFF) as u8);
+        buf.push(((w_minus_1 >> 8) & 0xFF) as u8);
+        buf.push(((w_minus_1 >> 16) & 0xFF) as u8);
+
+        // Frame height - 1 (24 bits)
+        buf.push((h_minus_1 & 0xFF) as u8);
+        buf.push(((h_minus_1 >> 8) & 0xFF) as u8);
+        buf.push(((h_minus_1 >> 16) & 0xFF) as u8);
+
+        // Duration (24 bits)
+        buf.push((duration_ms & 0xFF) as u8);
+        buf.push(((duration_ms >> 8) & 0xFF) as u8);
+        buf.push(((duration_ms >> 16) & 0xFF) as u8);
+
+        // Flags: disposal=0, blending=0
+        buf.push(0);
+
+        // Sub-chunk (VP8 or VP8L)
+        buf.extend_from_slice(chunk_type);
+        buf.extend_from_slice(&(bitstream_data.len() as u32).to_le_bytes());
+        buf.extend_from_slice(bitstream_data);
+        if padded_sub > 0 {
+            buf.push(0);
+        }
+    }
+
+    // Fix RIFF file size
+    let file_size = (buf.len() - 8) as u32;
+    buf[4..8].copy_from_slice(&file_size.to_le_bytes());
+
+    Ok(buf)
+}
+
+/// Extract the VP8/VP8L bitstream data from a WebP container
+fn extract_webp_bitstream(webp_data: &[u8]) -> IoResult<([u8; 4], Vec<u8>)> {
+    if webp_data.len() < 12 || &webp_data[0..4] != b"RIFF" || &webp_data[8..12] != b"WEBP" {
+        return Err(IoError::InvalidData("invalid WebP data".to_string()));
+    }
+
+    let mut pos = 12;
+    while pos + 8 <= webp_data.len() {
+        let chunk_id: [u8; 4] = webp_data[pos..pos + 4].try_into().unwrap();
+        let chunk_size =
+            u32::from_le_bytes(webp_data[pos + 4..pos + 8].try_into().unwrap()) as usize;
+
+        if &chunk_id == b"VP8 " || &chunk_id == b"VP8L" {
+            let data_end = (pos + 8 + chunk_size).min(webp_data.len());
+            return Ok((chunk_id, webp_data[pos + 8..data_end].to_vec()));
+        }
+
+        // Move to next chunk (padded to even boundary)
+        pos += 8 + chunk_size + (chunk_size % 2);
+    }
+
+    Err(IoError::InvalidData(
+        "no VP8/VP8L chunk found in WebP data".to_string(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
