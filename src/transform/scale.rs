@@ -314,13 +314,13 @@ pub fn scale_binary_with_shift(
             "scale factors must be positive".to_string(),
         ));
     }
-    if scale_x == 1.0 && scale_y == 1.0 {
-        return Ok(pix.deep_clone());
-    }
     if (shift_x != 0.0 && shift_x != 0.5) || (shift_y != 0.0 && shift_y != 0.5) {
         return Err(TransformError::InvalidParameters(
             "shift must be 0.0 or 0.5".to_string(),
         ));
+    }
+    if scale_x == 1.0 && scale_y == 1.0 {
+        return Ok(pix.deep_clone());
     }
     scale_by_sampling_with_shift(pix, scale_x, scale_y, shift_x, shift_y)
 }

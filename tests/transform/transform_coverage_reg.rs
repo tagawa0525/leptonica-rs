@@ -19,7 +19,6 @@ use leptonica::transform::{GrayMinMaxMode, RotateFill};
 
 /// Test embed_for_rotation: embed a small image in a larger one for rotation
 #[test]
-#[ignore = "not yet implemented"]
 fn test_embed_for_rotation_basic() {
     use leptonica::transform::rotate::embed_for_rotation;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -36,7 +35,6 @@ fn test_embed_for_rotation_basic() {
 
 /// Test embed_for_rotation: tiny angle returns clone
 #[test]
-#[ignore = "not yet implemented"]
 fn test_embed_for_rotation_tiny_angle() {
     use leptonica::transform::rotate::embed_for_rotation;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -48,7 +46,6 @@ fn test_embed_for_rotation_tiny_angle() {
 
 /// Test rotate_binary_nice: rotate a 1bpp image with anti-aliased edges
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rotate_binary_nice() {
     use leptonica::transform::rotate::rotate_binary_nice;
     let pix = load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
@@ -65,7 +62,6 @@ fn test_rotate_binary_nice() {
 
 /// Test rotate_binary_nice: validates 1bpp input
 #[test]
-#[ignore = "not yet implemented"]
 fn test_rotate_binary_nice_rejects_non_binary() {
     use leptonica::transform::rotate::rotate_binary_nice;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -79,7 +75,6 @@ fn test_rotate_binary_nice_rejects_non_binary() {
 
 /// Test scale_to_size_rel: relative size specification
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_to_size_rel_basic() {
     use leptonica::transform::scale::scale_to_size_rel;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -94,7 +89,6 @@ fn test_scale_to_size_rel_basic() {
 
 /// Test scale_to_size_rel: zero deltas return copy
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_to_size_rel_zero_delta() {
     use leptonica::transform::scale::scale_to_size_rel;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -105,7 +99,6 @@ fn test_scale_to_size_rel_zero_delta() {
 
 /// Test scale_to_size_rel: negative delta reduces size
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_to_size_rel_negative() {
     use leptonica::transform::scale::scale_to_size_rel;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -120,7 +113,6 @@ fn test_scale_to_size_rel_negative() {
 
 /// Test scale_to_size_rel: delta reducing to zero returns error
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_to_size_rel_zero_result() {
     use leptonica::transform::scale::scale_to_size_rel;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -130,7 +122,6 @@ fn test_scale_to_size_rel_zero_result() {
 
 /// Test scale_by_sampling_to_size: target width only
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_by_sampling_to_size_width_only() {
     use leptonica::transform::scale::scale_by_sampling_to_size;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -153,7 +144,6 @@ fn test_scale_by_sampling_to_size_width_only() {
 
 /// Test scale_by_sampling_to_size: target height only
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_by_sampling_to_size_height_only() {
     use leptonica::transform::scale::scale_by_sampling_to_size;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -165,7 +155,6 @@ fn test_scale_by_sampling_to_size_height_only() {
 
 /// Test scale_by_sampling_to_size: both zero returns error
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_by_sampling_to_size_both_zero() {
     use leptonica::transform::scale::scale_by_sampling_to_size;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -174,7 +163,6 @@ fn test_scale_by_sampling_to_size_both_zero() {
 
 /// Test scale_smooth_to_size: target size with smooth downscaling
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_smooth_to_size_basic() {
     use leptonica::transform::scale::scale_smooth_to_size;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -188,7 +176,6 @@ fn test_scale_smooth_to_size_basic() {
 
 /// Test scale_smooth_to_size: width only
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_smooth_to_size_width_only() {
     use leptonica::transform::scale::scale_smooth_to_size;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -198,7 +185,6 @@ fn test_scale_smooth_to_size_width_only() {
 
 /// Test scale_area_map_2: fast 2x downscale
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_area_map_2_gray() {
     use leptonica::transform::scale::scale_area_map_2;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -213,7 +199,6 @@ fn test_scale_area_map_2_gray() {
 
 /// Test scale_area_map_2: 32bpp color
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_area_map_2_color() {
     use leptonica::transform::scale::scale_area_map_2;
     let pix = load_test_image("test24.jpg").expect("load test24.jpg");
@@ -229,7 +214,6 @@ fn test_scale_area_map_2_color() {
 
 /// Test scale_area_map_2: rejects 1bpp
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_area_map_2_rejects_1bpp() {
     use leptonica::transform::scale::scale_area_map_2;
     let pix = load_test_image("feyn-fract.tif").expect("load binary");
@@ -238,7 +222,6 @@ fn test_scale_area_map_2_rejects_1bpp() {
 
 /// Test scale_area_map_to_size: target dimensions
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_area_map_to_size_basic() {
     use leptonica::transform::scale::scale_area_map_to_size;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -249,7 +232,6 @@ fn test_scale_area_map_to_size_basic() {
 
 /// Test scale_area_map_to_size: height only (aspect ratio)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_area_map_to_size_height_only() {
     use leptonica::transform::scale::scale_area_map_to_size;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
@@ -259,7 +241,6 @@ fn test_scale_area_map_to_size_height_only() {
 
 /// Test scale_binary_with_shift: scale 1bpp with sub-pixel shift
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_binary_with_shift() {
     use leptonica::transform::scale::scale_binary_with_shift;
     let pix = load_test_image("feyn-fract.tif").expect("load binary");
@@ -278,7 +259,6 @@ fn test_scale_binary_with_shift() {
 
 /// Test scale_binary_with_shift: shift=0.0 also works
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_binary_with_shift_zero() {
     use leptonica::transform::scale::scale_binary_with_shift;
     let pix = load_test_image("feyn-fract.tif").expect("load binary");
@@ -289,7 +269,6 @@ fn test_scale_binary_with_shift_zero() {
 
 /// Test scale_binary_with_shift: invalid shift rejected
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_binary_with_shift_invalid_shift() {
     use leptonica::transform::scale::scale_binary_with_shift;
     let pix = load_test_image("feyn-fract.tif").expect("load binary");
@@ -298,7 +277,6 @@ fn test_scale_binary_with_shift_invalid_shift() {
 
 /// Test scale_binary_with_shift: identity returns copy
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_binary_with_shift_identity() {
     use leptonica::transform::scale::scale_binary_with_shift;
     let pix = load_test_image("feyn-fract.tif").expect("load binary");
@@ -309,7 +287,6 @@ fn test_scale_binary_with_shift_identity() {
 
 /// Test scale_binary_with_shift: rejects non-1bpp
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_binary_with_shift_rejects_non_binary() {
     use leptonica::transform::scale::scale_binary_with_shift;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -318,7 +295,6 @@ fn test_scale_binary_with_shift_rejects_non_binary() {
 
 /// Test scale_gray_min_max_2: min mode
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_min_max_2_min() {
     use leptonica::transform::scale::scale_gray_min_max_2;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -333,7 +309,6 @@ fn test_scale_gray_min_max_2_min() {
 
 /// Test scale_gray_min_max_2: max mode
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_min_max_2_max() {
     use leptonica::transform::scale::scale_gray_min_max_2;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -344,7 +319,6 @@ fn test_scale_gray_min_max_2_max() {
 
 /// Test scale_gray_min_max_2: maxdiff mode
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_min_max_2_maxdiff() {
     use leptonica::transform::scale::scale_gray_min_max_2;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -354,7 +328,6 @@ fn test_scale_gray_min_max_2_maxdiff() {
 
 /// Test scale_gray_min_max_2: rejects non-8bpp
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_min_max_2_rejects_non_gray() {
     use leptonica::transform::scale::scale_gray_min_max_2;
     let pix = load_test_image("feyn-fract.tif").expect("load binary");
@@ -363,7 +336,6 @@ fn test_scale_gray_min_max_2_rejects_non_gray() {
 
 /// Test scale_gray_rank_2: rank 1 (darkest)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_rank_2_rank1() {
     use leptonica::transform::scale::scale_gray_rank_2;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -378,7 +350,6 @@ fn test_scale_gray_rank_2_rank1() {
 
 /// Test scale_gray_rank_2: rank 2 and 3 (middle ranks)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_rank_2_middle() {
     use leptonica::transform::scale::scale_gray_rank_2;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -390,7 +361,6 @@ fn test_scale_gray_rank_2_middle() {
 
 /// Test scale_gray_rank_2: rank 4 (lightest)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_rank_2_rank4() {
     use leptonica::transform::scale::scale_gray_rank_2;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -400,7 +370,6 @@ fn test_scale_gray_rank_2_rank4() {
 
 /// Test scale_gray_rank_2: invalid rank
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_gray_rank_2_invalid_rank() {
     use leptonica::transform::scale::scale_gray_rank_2;
     let pix = load_test_image("test8.jpg").expect("load gray");
@@ -410,7 +379,6 @@ fn test_scale_gray_rank_2_invalid_rank() {
 
 /// Test scale_with_alpha: scale a 32bpp image preserving alpha
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_with_alpha_basic() {
     use leptonica::transform::scale::scale_with_alpha;
     // Create a 32bpp image
@@ -430,7 +398,6 @@ fn test_scale_with_alpha_basic() {
 
 /// Test scale_with_alpha: with explicit alpha mask
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_with_alpha_with_mask() {
     use leptonica::transform::scale::scale_with_alpha;
     let pix = load_test_image("test24.jpg").expect("load color");
@@ -453,7 +420,6 @@ fn test_scale_with_alpha_with_mask() {
 
 /// Test scale_with_alpha: fractional alpha
 #[test]
-#[ignore = "not yet implemented"]
 fn test_scale_with_alpha_fractional() {
     use leptonica::transform::scale::scale_with_alpha;
     let pix = load_test_image("test24.jpg").expect("load color");
@@ -467,7 +433,6 @@ fn test_scale_with_alpha_fractional() {
 
 /// Test Pta translated_by (ptaTranslate)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pta_translate() {
     use leptonica::transform::pta_translate;
     let mut pta = Pta::new();
@@ -482,7 +447,6 @@ fn test_pta_translate() {
 
 /// Test Pta translated_by with empty pta
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pta_translate_empty() {
     use leptonica::transform::pta_translate;
     let pta = Pta::new();
@@ -492,7 +456,6 @@ fn test_pta_translate_empty() {
 
 /// Test Pta scaled_by (ptaScale)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pta_scale() {
     use leptonica::transform::pta_scale;
     let mut pta = Pta::new();
@@ -511,7 +474,6 @@ fn test_pta_scale() {
 
 /// Test Boxa translate (boxaTranslate)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_boxa_translate() {
     use leptonica::core::box_::Box as LBox;
     use leptonica::transform::boxa_translate;
@@ -530,7 +492,6 @@ fn test_boxa_translate() {
 
 /// Test Boxa scale (boxaScale)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_boxa_scale() {
     use leptonica::core::box_::Box as LBox;
     use leptonica::transform::boxa_scale;
@@ -548,7 +509,6 @@ fn test_boxa_scale() {
 
 /// Test Boxa rotate (boxaRotate)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_boxa_rotate() {
     use leptonica::core::box_::Box as LBox;
     use leptonica::transform::boxa_rotate;
