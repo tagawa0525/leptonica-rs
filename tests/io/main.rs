@@ -26,3 +26,5 @@ mod psioseg_reg;
 mod spixio_reg;
 #[cfg(feature = "webp-format")]
 mod webpio_reg;
+
+mod io_coverage_reg;
