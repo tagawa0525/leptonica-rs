@@ -8,7 +8,8 @@
 |------|-----|
 | ✅ 同等 | 40 |
 | 🔄 異なる | 8 |
-| ❌ 未実装 | 47 |
+| ❌ 未実装 | 25 |
+| 🚫 不要 | 22 |
 | 合計 | 95 |
 
 ## 詳細
@@ -31,14 +32,14 @@
 ### ccbord.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| ccbaCreate | ❌ 未実装 | - | CCBORDAデータ構造未実装 |
-| ccbaDestroy | ❌ 未実装 | - | - |
-| ccbCreate | ❌ 未実装 | - | - |
-| ccbDestroy | ❌ 未実装 | - | - |
-| ccbaAddCcb | ❌ 未実装 | - | - |
-| ccbaExtendArray | ❌ 未実装 | - | - |
-| ccbaGetCount | ❌ 未実装 | - | - |
-| ccbaGetCcb | ❌ 未実装 | - | - |
+| ccbaCreate | 🚫 不要 | - | Cメモリ管理: Rustでは不要 |
+| ccbaDestroy | 🚫 不要 | - | Cメモリ管理: Rustでは不要 |
+| ccbCreate | 🚫 不要 | - | Cメモリ管理: Rustでは不要 |
+| ccbDestroy | 🚫 不要 | - | Cメモリ管理: Rustでは不要 |
+| ccbaAddCcb | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
+| ccbaExtendArray | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
+| ccbaGetCount | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
+| ccbaGetCcb | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
 | pixGetAllCCBorders | 🔄 異なる | get_all_borders | 異なるAPI: ImageBordersを返す |
 | pixGetCCBorders | ❌ 未実装 | - | - |
 | pixGetOuterBordersPtaa | 🔄 異なる | get_outer_borders | 異なるAPI: Vec<Border>を返す |
@@ -53,10 +54,10 @@
 | ccbaGenerateSPGlobalLocs | ❌ 未実装 | - | - |
 | ccbaGenerateSinglePath | ❌ 未実装 | - | - |
 | getCutPathForHole | ❌ 未実装 | - | - |
-| ccbaDisplayBorder | ❌ 未実装 | - | - |
-| ccbaDisplaySPBorder | ❌ 未実装 | - | - |
-| ccbaDisplayImage1 | ❌ 未実装 | - | - |
-| ccbaDisplayImage2 | ❌ 未実装 | - | - |
+| ccbaDisplayBorder | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
+| ccbaDisplaySPBorder | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
+| ccbaDisplayImage1 | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
+| ccbaDisplayImage2 | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
 | ccbaWrite | ❌ 未実装 | - | - |
 | ccbaWriteStream | ❌ 未実装 | - | - |
 | ccbaRead | ❌ 未実装 | - | - |
@@ -69,7 +70,7 @@
 |-------|------|----------|------|
 | pixSeedfillBinary | 🔄 異なる | seedfill_binary | 異なるAPI: SeedFillOptionsを使用 |
 | pixSeedfillBinaryRestricted | ✅ 同等 | seedfill_binary_restricted() | - |
-| seedfillBinaryLow | ❌ 未実装 | - | Low-level関数 |
+| seedfillBinaryLow | 🚫 不要 | - | Low-level内部関数: 高レベルAPIでカバー |
 | pixHolesByFilling | ✅ 同等 | fill_holes | - |
 | pixFillClosedBorders | ✅ 同等 | fill_closed_borders() | - |
 | pixExtractBorderConnComps | ✅ 同等 | seedfill.rs extract_border_conn_comps() | - |
@@ -78,17 +79,17 @@
 | pixFillHolesToBoundingRect | ✅ 同等 | seedfill.rs fill_holes_to_bounding_rect() | - |
 | pixSeedfillGray | ✅ 同等 | seedfill_gray | - |
 | pixSeedfillGrayInv | ✅ 同等 | seedfill_gray_inv() | - |
-| seedfillGrayLow | ❌ 未実装 | - | Low-level関数 |
-| seedfillGrayInvLow | ❌ 未実装 | - | Low-level関数 |
+| seedfillGrayLow | 🚫 不要 | - | Low-level内部関数: 高レベルAPIでカバー |
+| seedfillGrayInvLow | 🚫 不要 | - | Low-level内部関数: 高レベルAPIでカバー |
 | pixSeedfillGraySimple | ✅ 同等 | seedfill.rs seedfill_gray_simple() | - |
 | pixSeedfillGrayInvSimple | ✅ 同等 | seedfill.rs seedfill_gray_inv_simple() | - |
-| seedfillGrayLowSimple | ❌ 未実装 | - | Low-level関数 |
-| seedfillGrayInvLowSimple | ❌ 未実装 | - | Low-level関数 |
+| seedfillGrayLowSimple | 🚫 不要 | - | Low-level内部関数: 高レベルAPIでカバー |
+| seedfillGrayInvLowSimple | 🚫 不要 | - | Low-level内部関数: 高レベルAPIでカバー |
 | pixSeedfillGrayBasin | ✅ 同等 | seedfill.rs seedfill_gray_basin() | - |
 | pixDistanceFunction | ✅ 同等 | distance_function() | Chamfer距離変換 |
-| distanceFunctionLow | ❌ 未実装 | - | Low-level関数 |
+| distanceFunctionLow | 🚫 不要 | - | Low-level内部関数: 高レベルAPIでカバー |
 | pixSeedspread | ✅ 同等 | seedfill::seedspread() | Voronoiライクなシード拡散 |
-| seedspreadLow | ❌ 未実装 | - | Low-level関数 |
+| seedspreadLow | 🚫 不要 | - | Low-level内部関数: 高レベルAPIでカバー |
 | pixLocalExtrema | ✅ 同等 | seedfill.rs local_extrema() | - |
 | pixQualifyLocalMinima | ✅ 同等 | seedfill.rs qualify_local_minima() | - |
 | pixSelectedLocalExtrema | ✅ 同等 | seedfill.rs selected_local_extrema() | - |
@@ -99,8 +100,8 @@
 ### watershed.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| wshedCreate | ❌ 未実装 | - | L_WSHED構造体未実装 |
-| wshedDestroy | ❌ 未実装 | - | - |
+| wshedCreate | 🚫 不要 | - | C構造体管理: RustではWatershedOptionsを使用 |
+| wshedDestroy | 🚫 不要 | - | C構造体管理: RustではDropで自動解放 |
 | wshedApply | 🔄 異なる | watershed_segmentation | 異なるAPI: WatershedOptionsを使用 |
 | wshedBasins | 🔄 異なる | find_basins | 異なるアルゴリズム |
 | wshedRenderFill | ✅ 同等 | watershed.rs watershed_render_fill() | - |
@@ -127,7 +128,7 @@
 | quadtreeGetParent | ✅ 同等 | QuadtreeResult::get_parent | - |
 | quadtreeGetChildren | ✅ 同等 | QuadtreeResult::get_children | - |
 | quadtreeMaxLevels | ✅ 同等 | quadtree_max_levels | - |
-| fpixaDisplayQuadtree | ❌ 未実装 | - | - |
+| fpixaDisplayQuadtree | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
 
 ### maze.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -164,10 +165,15 @@
 
 ### 未実装の主要機能
 
-- **ccbord.c**: CCBORDAデータ構造全体、シリアライゼーション、SVG出力
-- **seedfill.c**: 残りは Low-level 関数（seedfillGrayLow 等）と border 系
-- **watershed.c**: L_WSHEDデータ構造、レンダリング関数
-- **pixlabel.c**: インクリメンタル結合、色変換
+- **ccbord.c**: チェインコード生成（ccbaGenerateGlobalLocs等）、シリアライゼーション（ccbaWrite/Read）、SVG出力、境界抽出（pixGetCCBorders等）
+- **conncomp.c**: Seedfill BB系関数（pixSeedfillBB, pixSeedfill4BB等）
+- **pixlabel.c**: インクリメンタル結合（pixConnCompIncrInit/Add）、色変換（pixLocToColorTransform）
+
+### 🚫 不要と判定した関数群
+
+- **Cメモリ/データ構造管理**: ccbaCreate/Destroy, ccbCreate/Destroy, ccbaAddCcb, ccbaExtendArray, ccbaGetCount, ccbaGetCcb, wshedCreate/Destroy
+- **Low-level内部関数**: seedfillBinaryLow, seedfillGrayLow, seedfillGrayInvLow, seedfillGrayLowSimple, seedfillGrayInvLowSimple, distanceFunctionLow, seedspreadLow
+- **表示/可視化関数**: ccbaDisplayBorder, ccbaDisplaySPBorder, ccbaDisplayImage1, ccbaDisplayImage2, fpixaDisplayQuadtree
 
 ### Rust版の追加機能
 
@@ -180,21 +186,22 @@
 
 ### ファイル別実装率
 
-| ファイル | 実装済 | 未実装 | 実装率 |
-|---------|--------|--------|--------|
-| conncomp.c | 5 | 6 | 45.5% |
-| ccbord.c | 4 | 28 | 12.5% |
-| seedfill.c | 21 | 7 | 75.0% |
-| watershed.c | 4 | 2 | 66.7% |
-| pixlabel.c | 3 | 3 | 50.0% |
-| quadtree.c | 8 | 1 | 88.9% |
-| maze.c | 3 | 0 | 100.0% |
+| ファイル | 実装済 | 未実装 | 不要 | 実装率 |
+|---------|--------|--------|------|--------|
+| conncomp.c | 5 | 6 | 0 | 45.5% |
+| ccbord.c | 4 | 16 | 12 | 20.0% |
+| seedfill.c | 21 | 0 | 7 | 100.0% |
+| watershed.c | 4 | 0 | 2 | 100.0% |
+| pixlabel.c | 3 | 3 | 0 | 50.0% |
+| quadtree.c | 8 | 0 | 1 | 100.0% |
+| maze.c | 3 | 0 | 0 | 100.0% |
 
 ### 全体
 
 - 実装済: 40関数 (42.1%)
 - 部分実装/異なるAPI: 8関数 (8.4%)
-- 未実装: 47関数 (49.5%)
+- 未実装: 25関数 (26.3%)
+- 不要: 22関数 (23.2%)
 
 ### 推奨される次の実装項目
 
@@ -202,9 +209,9 @@
    - pixSeedfillBB系関数 (conncomp.c) - 既存コードとの互換性
 
 2. **中優先度**:
-   - CCBORDA構造体とシリアライゼーション (ccbord.c)
-   - pixSearchGrayMaze (maze.c) - 一般化された経路探索
+   - CCBORDA チェインコード生成・シリアライゼーション (ccbord.c)
+   - 境界抽出関数 (pixGetCCBorders, pixGetOuterBorder, pixGetHoleBorder)
 
 3. **低優先度**:
-   - 可視化関数 (fpixaDisplayQuadtree等)
    - インクリメンタル結合 (pixConnCompIncrInit/Add)
+   - pixLocToColorTransform

@@ -8,7 +8,8 @@
 |------|-----|
 | ✅ 同等 | 82 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 17 |
+| ❌ 未実装 | 6 |
+| 🚫 不要 | 11 |
 | 合計 | 99 |
 
 ## 詳細
@@ -38,9 +39,9 @@
 | fpixConvolve | ✅ 同等 | convolve.rs fpix_convolve() | 浮動小数点畳み込み (FPix対応) |
 | fpixConvolveSep | ✅ 同等 | convolve.rs fpix_convolve_sep() | 浮動小数点分離可能畳み込み (FPix対応) |
 | pixConvolveWithBias | ✅ 同等 | convolve.rs convolve_with_bias() | バイアス付き畳み込み |
-| l_setConvolveSampling | ❌ 未実装 | - | 畳み込みサブサンプリングパラメータ設定 (void) |
+| l_setConvolveSampling | 🚫 不要 | - | グローバル変数セッター（C固有パターン） |
 | pixAddGaussianNoise | ✅ 同等 | convolve.rs add_gaussian_noise() | ガウシアンノイズ追加 |
-| gaussDistribSampling | ❌ 未実装 | - | ガウス分布サンプリング (returns l_float32) |
+| gaussDistribSampling | 🚫 不要 | - | Box-Muller法ヘルパー; add_gaussian_noise()内で実装済み |
 
 ### edge.c
 
@@ -50,8 +51,8 @@
 | pixTwoSidedEdgeFilter | ❌ 未実装 | - | 両側エッジ勾配フィルタ |
 | pixMeasureEdgeSmoothness | ❌ 未実装 | - | エッジ滑らかさ測定 (returns l_ok) |
 | pixGetEdgeProfile | ❌ 未実装 | - | エッジプロファイル取得 (returns NUMA*) |
-| pixGetLastOffPixelInRun | ❌ 未実装 | - | ランの最後のOFFピクセル取得 (returns l_ok) |
-| pixGetLastOnPixelInRun | ❌ 未実装 | - | ランの最後のONピクセル取得 (returns l_int32) |
+| pixGetLastOffPixelInRun | 🚫 不要 | - | エッジプロファイル用低レベル内部ヘルパー |
+| pixGetLastOnPixelInRun | 🚫 不要 | - | エッジプロファイル用低レベル内部ヘルパー |
 
 ### enhance.c
 
@@ -72,13 +73,13 @@
 | pixUnsharpMaskingGray | ✅ 同等 | unsharp_mask() | グレースケールアンシャープマスキング |
 | pixUnsharpMaskingFast | ✅ 同等 | edge.rs unsharp_masking_fast() | 高速アンシャープマスキング(カラー対応) |
 | pixUnsharpMaskingGrayFast | ✅ 同等 | edge.rs unsharp_masking_gray_fast() | 高速グレースケールアンシャープマスキング |
-| pixUnsharpMaskingGray1D | ❌ 未実装 | - | 1Dグレースケールアンシャープマスキング |
-| pixUnsharpMaskingGray2D | ❌ 未実装 | - | 2Dグレースケールアンシャープマスキング |
+| pixUnsharpMaskingGray1D | 🚫 不要 | - | unsharp_masking_gray_fast()の内部ヘルパー（実装済み） |
+| pixUnsharpMaskingGray2D | 🚫 不要 | - | unsharp_masking_gray_fast()の内部ヘルパー（実装済み） |
 | pixModifyHue | ✅ 同等 | modify_hue() | 色相変更 |
 | pixModifySaturation | ✅ 同等 | modify_saturation() | 彩度変更 |
 | pixMeasureSaturation | ✅ 同等 | measure_saturation() | 彩度測定 |
 | pixModifyBrightness | ✅ 同等 | modify_brightness() | 明度変更 |
-| pixMosaicColorShiftRGB | ❌ 未実装 | - | モザイク色シフト |
+| pixMosaicColorShiftRGB | 🚫 不要 | - | デバッグ/表示用モザイク可視化関数 |
 | pixColorShiftRGB | ✅ 同等 | color_shift_rgb() | 色シフト |
 | pixDarkenGray | ✅ 同等 | darken_gray() | グレーピクセル暗色化 |
 | pixMultConstantColor | ✅ 同等 | mult_constant_color() | 定数乗算カラー変換 |
@@ -125,12 +126,12 @@
 | pixThresholdSpreadNorm | ✅ 同等 | adaptmap.rs threshold_spread_norm() | 閾値スプレッド正規化 |
 | pixBackgroundNormFlex | ✅ 同等 | adaptmap.rs background_norm_flex() | フレキシブル背景正規化 |
 | pixContrastNorm | ✅ 同等 | contrast_norm() | コントラスト正規化 |
-| pixMinMaxTiles | ❌ 未実装 | - | タイル最小最大値 (static, returns l_int32) |
-| pixSetLowContrast | ❌ 未実装 | - | 低コントラスト設定 (static, returns l_int32) |
-| pixLinearTRCTiled | ❌ 未実装 | - | タイル線形TRC (static) |
+| pixMinMaxTiles | 🚫 不要 | - | static内部ヘルパー（contrast_norm内で実装済み） |
+| pixSetLowContrast | 🚫 不要 | - | static内部ヘルパー（contrast_norm内で実装済み） |
+| pixLinearTRCTiled | 🚫 不要 | - | static内部ヘルパー（contrast_norm内で実装済み） |
 | pixBackgroundNormTo1MinMax | ✅ 同等 | adaptmap.rs background_norm_to_1_min_max() | 背景正規化→1 bpp MinMax |
 | pixConvertTo8MinMax | ✅ 同等 | adaptmap.rs convert_to_8_min_max() | 8 bpp MinMax変換 |
-| pixSelectiveContrastMod | ❌ 未実装 | - | 選択的コントラスト変更 (static, returns l_int32*) |
+| pixSelectiveContrastMod | 🚫 不要 | - | static内部ヘルパー |
 
 ### rank.c
 
@@ -159,16 +160,23 @@
 
 ### 主要な未実装機能
 
-#### 高優先度
-1. **adaptmap.c詳細機能**: モルフォロジーベース正規化、マップ操作群
-
 #### 中優先度
+1. **エッジ検出**: pixTwoSidedEdgeFilter, pixHalfEdgeByBandpass
 2. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile
-3. **タイル化畳み込み**: pixBlockconvTiled, pixBlockconvGrayTile
-4. **アンシャープマスクバリエーション**: pixUnsharpMasking (カラー), pixUnsharpMaskingGray1D/2D
+3. **適応マップ**: pixGetForegroundGrayMap
 
 #### 低優先度
-5. **補助関数**: l_setConvolveSampling, gaussDistribSampling等
+4. **ランクフィルタ**: pixRankFilterWithScaling（スケーリング加速付き）
+
+### 不要と判断した機能（🚫 不要: 11件）
+
+1. **C固有パターン**: l_setConvolveSampling（グローバル変数セッター）
+2. **内部ヘルパー（実装済み高レベルAPIでカバー）**:
+   - gaussDistribSampling（add_gaussian_noise内で実装済み）
+   - pixUnsharpMaskingGray1D/2D（unsharp_masking_gray_fast内で実装済み）
+   - pixMinMaxTiles, pixSetLowContrast, pixLinearTRCTiled, pixSelectiveContrastMod（static、contrast_norm等で実装済み）
+3. **低レベルヘルパー**: pixGetLastOffPixelInRun, pixGetLastOnPixelInRun（エッジプロファイル内部関数）
+4. **デバッグ/表示専用**: pixMosaicColorShiftRGB（モザイク可視化）
 
 ## 設計ノート
 
@@ -185,8 +193,7 @@
 - 分離可能畳み込みによる計算量削減
 
 ### 今後の実装推奨順序
-1. adaptmap.c の詳細機能（モルフォロジーベース背景正規化、マップユーティリティ）
-2. 高速バイラテラルフィルタ（pixBilateral, pixBilateralGray）
-3. タイル化畳み込み（pixBlockconvTiled, pixBlockconvGrayTile）
-4. 残りのアンシャープマスクバリエーション
-5. エッジ測定関数
+1. エッジ検出バリエーション（pixTwoSidedEdgeFilter, pixHalfEdgeByBandpass）
+2. エッジ測定関数（pixMeasureEdgeSmoothness, pixGetEdgeProfile）
+3. 適応マップ（pixGetForegroundGrayMap）
+4. スケーリング付きランクフィルタ（pixRankFilterWithScaling）

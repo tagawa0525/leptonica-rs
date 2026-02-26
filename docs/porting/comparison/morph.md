@@ -8,8 +8,9 @@
 |------|-----|
 | ✅ 同等 | 82 |
 | 🔄 異なる | 16 |
-| ❌ 未実装 | 22 |
-| 合計 | 120 |
+| ❌ 未実装 | 10 |
+| 🚫 不要 | 21 |
+| 合計 | 129 |
 
 ## 詳細
 
@@ -33,8 +34,8 @@
 | pixOpenCompBrick | 🔄 異なる | binary::open_brick | Rust版は分離可能分解を自動選択 |
 | pixCloseCompBrick | 🔄 異なる | binary::close_brick | Rust版は分離可能分解を自動選択 |
 | pixCloseSafeCompBrick | ✅ 同等 | binary::close_safe_comp_brick | Phase 1で実装 |
-| resetMorphBoundaryCondition | ❌ 未実装 | - | C版はグローバル変数、Rustではオプション構造体で対応 |
-| getMorphBorderPixelColor | ❌ 未実装 | - | スコープ除外 |
+| resetMorphBoundaryCondition | 🚫 不要 | - | C版グローバル変数setter（Rustでは引数で明示指定） |
+| getMorphBorderPixelColor | 🚫 不要 | - | C版グローバル状態アクセサ（Rustでは引数で明示指定） |
 
 ### morphapp.c (応用演算)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -50,10 +51,10 @@
 | pixTophat | ✅ 同等 | binary::top_hat | |
 | pixHMT | ✅ 同等 | binary::hit_miss_transform | |
 | pixMorphCompSequence | ✅ 同等 | sequence::morph_comp_sequence | |
-| pixGrayscaleMorphSum | ❌ 未実装 | - | |
-| pixMultiplyByColor | ❌ 未実装 | - | |
-| pixHMTDwa | ❌ 未実装 | - | DWA版HMT |
-| pixFHMTGen | ❌ 未実装 | - | コード生成 |
+| pixGrayscaleMorphSum | 🚫 不要 | - | C版leptonicaに存在しない関数 |
+| pixMultiplyByColor | 🚫 不要 | - | blend.c所属（morph領域外） |
+| pixHMTDwa | 🚫 不要 | - | DWA自動生成コード |
+| pixFHMTGen | 🚫 不要 | - | DWAコード生成 |
 
 ### morphdwa.c (DWA実装)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -71,9 +72,9 @@
 | pixOpenCompBrickExtendDwa | ✅ 同等 | dwa::open_comp_brick_extend_dwa | Phase 5で実装 |
 | pixCloseCompBrickExtendDwa | ✅ 同等 | dwa::close_comp_brick_extend_dwa | Phase 5で実装 |
 | getExtendedCompositeParameters | ✅ 同等 | dwa::get_extended_composite_parameters | Phase 5で実装 |
-| makeLinearBrickDwaGen | ❌ 未実装 | - | DWAコード生成（Rustでは不要） |
-| makeLinearBrickDwa | ❌ 未実装 | - | |
-| pixMorphDwa_*系 | ❌ 未実装 | - | 生成されたDWA関数 |
+| makeLinearBrickDwaGen | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| makeLinearBrickDwa | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| pixMorphDwa_*系 | 🚫 不要 | - | DWA自動生成関数（Rustでは手書き実装） |
 
 ### morphseq.c (シーケンス処理)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -97,8 +98,8 @@
 | pixDilateGray3 | 🔄 異なる | grayscale::dilate_gray | dilate_gray() が 3x3 で fast path にディスパッチ |
 | pixOpenGray3 | 🔄 異なる | grayscale::open_gray | open_gray() が 3x3 で fast path にディスパッチ |
 | pixCloseGray3 | 🔄 異なる | grayscale::close_gray | close_gray() が 3x3 で fast path にディスパッチ |
-| dilateGrayLow | ❌ 未実装 | - | 低レベル関数（内部実装で対応） |
-| erodeGrayLow | ❌ 未実装 | - | |
+| dilateGrayLow | 🚫 不要 | - | 低レベル内部関数（高レベルAPIで対応済み） |
+| erodeGrayLow | 🚫 不要 | - | 低レベル内部関数（高レベルAPIで対応済み） |
 | pixTophat | ✅ 同等 | grayscale::top_hat_gray | white/black両対応 |
 
 ### colormorph.c (カラー形態学)
@@ -157,8 +158,8 @@
 | selReadFromColorImage | ✅ 同等 | sel::Sel::from_color_image | Phase 3で実装 |
 | selCreateFromColorPix | ✅ 同等 | sel::Sel::from_color_image | Phase 3で実装 |
 | selaCreateFromColorPixa | ❌ 未実装 | - | Pixa操作はアプリケーション層 |
-| selDisplayInPix | ❌ 未実装 | - | 可視化専用（スコープ除外） |
-| selaDisplayInPix | ❌ 未実装 | - | 可視化専用（スコープ除外） |
+| selDisplayInPix | 🚫 不要 | - | 可視化専用 |
+| selaDisplayInPix | 🚫 不要 | - | 可視化専用 |
 
 ### sel2.c (Sel定義済みセット)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -182,8 +183,8 @@
 | pixGetRunCentersOnLine | ❌ 未実装 | - | |
 | pixGetRunsOnLine | ❌ 未実装 | - | |
 | pixSubsampleBoundaryPixels | ❌ 未実装 | - | |
-| adjacentOnPixelInRaster | ❌ 未実装 | - | |
-| pixDisplayHitMissSel | ❌ 未実装 | - | 可視化専用 |
+| adjacentOnPixelInRaster | 🚫 不要 | - | 低レベル内部ヘルパー（pixSubsampleBoundaryPixels内部で使用） |
+| pixDisplayHitMissSel | 🚫 不要 | - | 可視化専用 |
 
 ### ccthin.c (連結成分保存細線化)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -196,12 +197,12 @@
 ### dwacomb.2.c / fmorphauto.c / fmorphgen.1.c / fmorphgenlow.1.c (DWAコード生成)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| fmorphopgen_low_2 | ❌ 未実装 | - | DWAコード生成（Rustでは不要） |
-| fmorphautogen | ❌ 未実装 | - | |
-| fmorphautogen1 | ❌ 未実装 | - | |
-| fmorphautogen2 | ❌ 未実装 | - | |
-| fmorphopgen_low_1 | ❌ 未実装 | - | |
-| (低レベル関数群) | ❌ 未実装 | - | DWA内部実装 |
+| fmorphopgen_low_2 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| fmorphautogen | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| fmorphautogen1 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| fmorphautogen2 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| fmorphopgen_low_1 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| (低レベル関数群) | 🚫 不要 | - | DWA内部実装（Rustでは手書き実装） |
 
 ## 実装状況の分析
 
@@ -221,8 +222,17 @@
 
 ### 未実装領域
 1. **Sel自動生成**: pixGenerateSelBoundary等（selgen.c）
-2. **DWAコード生成機能**: 実行時ではなくコンパイル時に生成（Rustでは不要）
-3. **一部のmorphapp関数**: by-component/by-region処理
+2. **一部のmorphapp関数**: by-component/by-region処理
+3. **selaCreateFromColorPixa**: Pixa→Sela一括変換
+4. **pixaThinConnected**: PIXA版の細線化
+
+### 不要（Rustでは対応不要）
+1. **DWAコード生成機能**: fmorphautogen等（Rustでは手書き実装で対応）
+2. **DWA自動生成関数**: pixMorphDwa_*系、pixHMTDwa、pixFHMTGen等
+3. **C版グローバル変数管理**: resetMorphBoundaryCondition、getMorphBorderPixelColor（Rustでは引数で明示指定）
+4. **低レベル内部関数**: dilateGrayLow、erodeGrayLow（高レベルAPIで対応済み）
+5. **可視化専用関数**: selDisplayInPix、selaDisplayInPix、pixDisplayHitMissSel
+6. **morph領域外の関数**: pixMultiplyByColor（blend.c所属）、pixGrayscaleMorphSum（C版に存在しない）
 
 ### アーキテクチャの違い
 
