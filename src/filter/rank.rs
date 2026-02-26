@@ -765,7 +765,9 @@ pub fn scale_gray_rank_cascade(
 /// * `pix` - Input 8 or 32bpp image (no colormap)
 /// * `wf`, `hf` - Filter dimensions (each >= 1)
 /// * `rank` - Rank value in \[0.0, 1.0\]: 0.0 = min, 0.5 = median, 1.0 = max
-/// * `scalefactor` - Downscale factor in \[0.2, 0.7\]
+/// * `scalefactor` - Downscale factor; values in \[0.2, 0.7\] enable
+///   accelerated filtering. Values outside this range fall back to
+///   the unscaled `rank_filter` (matching C Leptonica behavior).
 ///
 /// # See also
 ///
