@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 40 |
+| ✅ 同等 | 65 |
 | 🔄 異なる | 8 |
-| ❌ 未実装 | 25 |
+| ❌ 未実装 | 0 |
 | 🚫 不要 | 22 |
 | 合計 | 95 |
 
@@ -22,12 +22,12 @@
 | pixConnCompBB | 🔄 異なる | find_connected_components | 異なるAPI: bounding box情報はConnectedComponentに含まれる |
 | pixCountConnComp | ✅ 同等 | pix_count_components (label.rs) | - |
 | nextOnPixelInRaster | ✅ 同等 | conncomp.rs next_on_pixel_in_raster() | - |
-| pixSeedfillBB | ❌ 未実装 | - | - |
-| pixSeedfill4BB | ❌ 未実装 | - | - |
-| pixSeedfill8BB | ❌ 未実装 | - | - |
-| pixSeedfill | ❌ 未実装 | - | - |
-| pixSeedfill4 | ❌ 未実装 | - | - |
-| pixSeedfill8 | ❌ 未実装 | - | - |
+| pixSeedfillBB | ✅ 同等 | `conncomp::seedfill_bb` |  |
+| pixSeedfill4BB | ✅ 同等 | `conncomp::seedfill_4_bb` |  |
+| pixSeedfill8BB | ✅ 同等 | `conncomp::seedfill_8_bb` |  |
+| pixSeedfill | ✅ 同等 | `conncomp::seedfill` |  |
+| pixSeedfill4 | ✅ 同等 | `conncomp::seedfill_4` |  |
+| pixSeedfill8 | ✅ 同等 | `conncomp::seedfill_8` |  |
 
 ### ccbord.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -41,29 +41,29 @@
 | ccbaGetCount | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
 | ccbaGetCcb | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
 | pixGetAllCCBorders | 🔄 異なる | get_all_borders | 異なるAPI: ImageBordersを返す |
-| pixGetCCBorders | ❌ 未実装 | - | - |
+| pixGetCCBorders | ✅ 同等 | `get_cc_borders` |  |
 | pixGetOuterBordersPtaa | 🔄 異なる | get_outer_borders | 異なるAPI: Vec<Border>を返す |
 | pixGetOuterBorderPta | 🔄 異なる | get_outer_border | 異なるAPI: Borderを返す |
-| pixGetOuterBorder | ❌ 未実装 | - | - |
-| pixGetHoleBorder | ❌ 未実装 | - | - |
+| pixGetOuterBorder | ✅ 同等 | `get_outer_border` |  |
+| pixGetHoleBorder | ✅ 同等 | `get_hole_border` |  |
 | findNextBorderPixel | ✅ 同等 | find_next_border_pixel (private) | - |
-| locateOutsideSeedPixel | ❌ 未実装 | - | - |
-| ccbaGenerateGlobalLocs | ❌ 未実装 | - | - |
-| ccbaGenerateStepChains | ❌ 未実装 | - | - |
-| ccbaStepChainsToPixCoords | ❌ 未実装 | - | - |
-| ccbaGenerateSPGlobalLocs | ❌ 未実装 | - | - |
-| ccbaGenerateSinglePath | ❌ 未実装 | - | - |
-| getCutPathForHole | ❌ 未実装 | - | - |
+| locateOutsideSeedPixel | ✅ 同等 | `locate_outside_seed_pixel` |  |
+| ccbaGenerateGlobalLocs | ✅ 同等 | `ccbord::generate_global_locs` |  |
+| ccbaGenerateStepChains | ✅ 同等 | `ccbord::generate_step_chains` |  |
+| ccbaStepChainsToPixCoords | ✅ 同等 | `ccbord::step_chains_to_pix_coords` |  |
+| ccbaGenerateSPGlobalLocs | ✅ 同等 | `ccbord::generate_sp_global_locs` |  |
+| ccbaGenerateSinglePath | ✅ 同等 | `ccbord::generate_single_path` |  |
+| getCutPathForHole | ✅ 同等 | `get_cut_path_for_hole` |  |
 | ccbaDisplayBorder | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
 | ccbaDisplaySPBorder | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
 | ccbaDisplayImage1 | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
 | ccbaDisplayImage2 | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
-| ccbaWrite | ❌ 未実装 | - | - |
-| ccbaWriteStream | ❌ 未実装 | - | - |
-| ccbaRead | ❌ 未実装 | - | - |
-| ccbaReadStream | ❌ 未実装 | - | - |
-| ccbaWriteSVG | ❌ 未実装 | - | - |
-| ccbaWriteSVGString | ❌ 未実装 | - | - |
+| ccbaWrite | ✅ 同等 | `ccbord::write` |  |
+| ccbaWriteStream | ✅ 同等 | `ccbord::write_stream` |  |
+| ccbaRead | ✅ 同等 | `ccbord::read` |  |
+| ccbaReadStream | ✅ 同等 | `ccbord::read_stream` |  |
+| ccbaWriteSVG | ✅ 同等 | `ccbord::write_svg` |  |
+| ccbaWriteSVGString | ✅ 同等 | `ccbord::write_svg_string` |  |
 
 ### seedfill.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -112,10 +112,10 @@
 |-------|------|----------|------|
 | pixConnCompTransform | ✅ 同等 | label_connected_components | - |
 | pixConnCompAreaTransform | ✅ 同等 | component_area_transform | - |
-| pixConnCompIncrInit | ❌ 未実装 | - | - |
-| pixConnCompIncrAdd | ❌ 未実装 | - | - |
+| pixConnCompIncrInit | ✅ 同等 | `conn_comp_incr_init` |  |
+| pixConnCompIncrAdd | ✅ 同等 | `conn_comp_incr_add` |  |
 | pixGetSortedNeighborValues | ✅ 同等 | get_sorted_neighbor_values() | - |
-| pixLocToColorTransform | ❌ 未実装 | - | - |
+| pixLocToColorTransform | ✅ 同等 | `loc_to_color_transform` |  |
 
 ### quadtree.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -163,11 +163,12 @@
 6. **Maze (maze.c)**
    - C版/Rust版: 同等のアルゴリズム、BFS-based生成と探索
 
-### 未実装の主要機能
+### 実装完了（元未実装 → 全て実装済み）
 
-- **ccbord.c**: チェインコード生成（ccbaGenerateGlobalLocs等）、シリアライゼーション（ccbaWrite/Read）、SVG出力、境界抽出（pixGetCCBorders等）
-- **conncomp.c**: Seedfill BB系関数（pixSeedfillBB, pixSeedfill4BB等）
-- **pixlabel.c**: インクリメンタル結合（pixConnCompIncrInit/Add）、色変換（pixLocToColorTransform）
+全ての未実装関数が実装された:
+- **ccbord.c**: チェインコード生成、シリアライゼーション、SVG出力、境界抽出 — 実装済み
+- **conncomp.c**: Seedfill BB系関数 — 実装済み
+- **pixlabel.c**: インクリメンタル結合、色変換 — 実装済み
 
 ### 🚫 不要と判定した関数群
 
@@ -188,30 +189,21 @@
 
 | ファイル | 実装済 | 未実装 | 不要 | 実装率 |
 |---------|--------|--------|------|--------|
-| conncomp.c | 5 | 6 | 0 | 45.5% |
-| ccbord.c | 4 | 16 | 12 | 20.0% |
+| conncomp.c | 11 | 0 | 0 | 100.0% |
+| ccbord.c | 20 | 0 | 12 | 100.0% |
 | seedfill.c | 21 | 0 | 7 | 100.0% |
 | watershed.c | 4 | 0 | 2 | 100.0% |
-| pixlabel.c | 3 | 3 | 0 | 50.0% |
+| pixlabel.c | 6 | 0 | 0 | 100.0% |
 | quadtree.c | 8 | 0 | 1 | 100.0% |
 | maze.c | 3 | 0 | 0 | 100.0% |
 
 ### 全体
 
-- 実装済: 40関数 (42.1%)
+- 実装済: 65関数 (68.4%)
 - 部分実装/異なるAPI: 8関数 (8.4%)
-- 未実装: 25関数 (26.3%)
+- 未実装: 0関数 (0%)
 - 不要: 22関数 (23.2%)
 
 ### 推奨される次の実装項目
 
-1. **高優先度**:
-   - pixSeedfillBB系関数 (conncomp.c) - 既存コードとの互換性
-
-2. **中優先度**:
-   - CCBORDA チェインコード生成・シリアライゼーション (ccbord.c)
-   - 境界抽出関数 (pixGetCCBorders, pixGetOuterBorder, pixGetHoleBorder)
-
-3. **低優先度**:
-   - インクリメンタル結合 (pixConnCompIncrInit/Add)
-   - pixLocToColorTransform
+全関数の実装が完了。🚫不要を除く実カバレッジは100%に達した。
