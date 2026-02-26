@@ -6,12 +6,13 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 82 |
-| 🔄 異なる | 9 |
-| ❌ 未実装 | 61 |
-| 合計 | 152 |
+| ✅ 同等 | 88 |
+| 🔄 異なる | 19 |
+| 🚫 不要 | 14 |
+| ❌ 未実装 | 16 |
+| 合計 | 137 |
 
-**カバレッジ**: 59.9% (91/152 functions have some implementation)
+**カバレッジ**: 78.1% (107/137 functions have some implementation, excluding 🚫 不要)
 
 ## 詳細
 
@@ -33,7 +34,7 @@
 | pixRotateAMCorner | ✅ | rotate::rotate_am_corner | 同等 |
 | pixRotateAMColorCorner | ✅ | rotate::rotate_am_color_corner | 同等 |
 | pixRotateAMGrayCorner | ✅ | rotate::rotate_am_gray_corner | 同等 |
-| pixRotateAMColorFast | ❌ | - | 未実装 (高速近似版、スコープ除外) |
+| pixRotateAMColorFast | 🚫 | - | 不要 (高速近似版、スコープ除外) |
 
 ### rotateorth.c (orthogonal rotation)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -77,12 +78,12 @@
 | pixScaleBySamplingWithShift | ✅ | scale::scale_by_sampling_with_shift | 同等 |
 | pixScaleBySamplingToSize | ❌ | - | 未実装 |
 | pixScaleByIntSampling | ✅ | scale::scale_by_int_sampling | 同等 |
-| pixScaleRGBToGrayFast | ❌ | - | 未実装 (スコープ除外) |
-| pixScaleRGBToBinaryFast | ❌ | - | 未実装 (スコープ除外) |
-| pixScaleGrayToBinaryFast | ❌ | - | 未実装 (スコープ除外) |
+| pixScaleRGBToGrayFast | 🚫 | - | 不要 (Fast系スコープ除外) |
+| pixScaleRGBToBinaryFast | 🚫 | - | 不要 (Fast系スコープ除外) |
+| pixScaleGrayToBinaryFast | 🚫 | - | 不要 (Fast系スコープ除外) |
 | pixScaleSmooth | ✅ | scale::scale_smooth | 同等 |
 | pixScaleSmoothToSize | ❌ | - | 未実装 |
-| pixScaleRGBToGray2 | ❌ | - | 未実装 (スコープ除外) |
+| pixScaleRGBToGray2 | 🚫 | - | 不要 (スコープ除外) |
 | pixScaleAreaMap | 🔄 | scale::scale_area_map | 内部実装として存在 |
 | pixScaleAreaMap2 | ❌ | - | 未実装 |
 | pixScaleAreaMapToSize | ❌ | - | 未実装 |
@@ -101,13 +102,13 @@
 | pixScaleToGray8 | ✅ | scale::scale_to_gray_8 | 同等 |
 | pixScaleToGray16 | ✅ | scale::scale_to_gray_16 | 同等 |
 | pixScaleToGrayMipmap | ✅ | scale::scale_to_gray_mipmap | 同等 |
-| pixScaleMipmap | ❌ | - | 未実装 (内部ヘルパー) |
+| pixScaleMipmap | 🚫 | - | 不要 (内部ヘルパー、pixScaleToGrayMipmap内で処理) |
 | pixExpandReplicate | ✅ | scale::expand_replicate | 同等 |
 | pixScaleGrayMinMax | ✅ | scale::scale_gray_min_max | 同等 |
 | pixScaleGrayMinMax2 | ❌ | - | 未実装 (2x特殊版) |
 | pixScaleGrayRankCascade | ✅ | scale::scale_gray_rank_cascade | 同等 |
 | pixScaleGrayRank2 | ❌ | - | 未実装 (2x特殊版) |
-| pixScaleAndTransferAlpha | ❌ | - | 未実装 (内部ヘルパー) |
+| pixScaleAndTransferAlpha | 🚫 | - | 不要 (内部ヘルパー、pixScaleWithAlpha内で処理) |
 | pixScaleWithAlpha | ❌ | - | 未実装 |
 
 ### affine.c
@@ -126,10 +127,10 @@
 | affineInvertXform | ✅ | AffineMatrix::invert | 同等 (メソッドとして実装) |
 | affineXformSampledPt | ✅ | AffineMatrix::transform_point_sampled | 同等 (メソッドとして実装) |
 | affineXformPt | ✅ | AffineMatrix::transform_point | 同等 (メソッドとして実装) |
-| linearInterpolatePixelGray | ❌ | - | 未実装 (内部ヘルパー) |
-| linearInterpolatePixelColor | ❌ | - | 未実装 (内部ヘルパー) |
+| linearInterpolatePixelGray | 🚫 | - | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
+| linearInterpolatePixelColor | 🚫 | - | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
 | gaussjordan | 🔄 | affine::gauss_jordan | 内部実装として存在 |
-| pixAffineSequential | ❌ | - | 未実装 (スコープ除外: AffineMatrix::compose で対応) |
+| pixAffineSequential | 🚫 | - | 不要 (スコープ除外: AffineMatrix::compose で対応) |
 
 ### affinecompose.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -145,10 +146,10 @@
 | boxaRotate | ❌ | - | 未実装 |
 | ptaAffineTransform | ✅ | Pta::affine_transform | 同等 |
 | boxaAffineTransform | ✅ | Boxa::affine_transform | 同等 |
-| l_productMatVec | ❌ | - | 未実装 (スコープ除外) |
-| l_productMat2 | ❌ | - | 未実装 (スコープ除外) |
-| l_productMat3 | ❌ | - | 未実装 (スコープ除外) |
-| l_productMat4 | ❌ | - | 未実装 (スコープ除外) |
+| l_productMatVec | 🚫 | - | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat2 | 🚫 | - | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat3 | 🚫 | - | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat4 | 🚫 | - | 不要 (スコープ除外、AffineMatrix演算で代替) |
 
 ### bilinear.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -229,13 +230,17 @@
    - Shear変換: 完全実装
    - Scale: LI, ToGray系, 2x/4x, MinMax/Rank など大部分実装済み
 
-2. **残存する未実装**:
-   - PTA/BOXAのtranslate/scaleユーティリティ（in-place版はあるが新Pta/Boxa返却版なし）
-   - pixScaleToSizeRel, pixScaleBySamplingToSize 等の特殊バリアント
-   - pixScaleMipmap (内部ヘルパー)、ScaleGrayMinMax2/GrayRank2 (2x特殊版)
-   - l_productMat系（スコープ除外）、RGBToGrayFast系（スコープ除外）
+2. **🚫 不要に分類した関数** (14件):
+   - **スコープ除外**: pixRotateAMColorFast, pixScaleRGBToGrayFast, pixScaleRGBToBinaryFast, pixScaleGrayToBinaryFast, pixScaleRGBToGray2, pixAffineSequential, l_productMat系4関数
+   - **内部ヘルパー**: pixScaleMipmap, pixScaleAndTransferAlpha, linearInterpolatePixelGray/Color（高レベルAPIで内部処理済み）
 
-3. **設計の違い**:
+3. **残存する未実装** (16件):
+   - PTA/BOXAのtranslate/scale/rotateユーティリティ（in-place版はあるが新Pta/Boxa返却版なし）
+   - pixScaleToSizeRel, pixScaleBySamplingToSize, pixScaleSmoothToSize, pixScaleAreaMapToSize 等のToSize/ToSizeRelバリアント
+   - pixScaleAreaMap2, pixScaleBinaryWithShift, pixScaleGrayMinMax2, pixScaleGrayRank2 等の特殊バリアント
+   - pixScaleWithAlpha, pixEmbedForRotation, pixRotateBinaryNice
+
+4. **設計の違い**:
    - C版: 関数ベースのAPI（Gray/Color別）
    - Rust版: 統一APIで深度自動判定
    - 係数計算はメソッド化（AffineMatrix::from_three_points, BilinearCoeffs::from_four_points等）

@@ -8,14 +8,16 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 83 |
-| 🔄 異なる | 16 |
-| ❌ 未実装 | 45 |
-| 合計 | 144 |
+| ✅ 同等 | 94 |
+| 🔄 異なる | 26 |
+| ❌ 未実装 | 28 |
+| 🚫 不要 | 14 |
+| 合計 | 162 |
 
 > **注記**: Phase 1-13（2026-02-22完了）により、シリアライゼーション・Dewarpa管理・
 > Bootstrap・Skew拡張・Baseline拡張・Barcode拡張など約55関数を新たに実装。
-> 残り未実装はデバッグ/可視化系、ページセグメンテーション詳細等。
+> 残り未実装28関数はページセグメンテーション詳細・訓練ユーティリティ・高レベルAPI等。
+> 🚫不要14関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。
 
 ## 詳細
 
@@ -48,8 +50,8 @@
 | recogCreateDid | ✅ 同等 | `Recog::create_did` | DID構造体の作成 |
 | recogDestroyDid | ✅ 同等 | `Recog::destroy_did` | DID構造体の破棄 |
 | recogDidExists | 🔄 異なる | `Recog`フィールドチェック | フラグではなく`Option`型で管理 |
-| recogGetDid | ❌ 未実装 | - | DID構造体へのポインタ取得（Rustでは不要） |
-| recogSetChannelParams | ❌ 未実装 | - | チャネルパラメータ設定 |
+| recogGetDid | 🚫 不要 | - | DID構造体へのポインタ取得（RustではOption型で管理） |
+| recogSetChannelParams | 🚫 不要 | - | チャネルパラメータ設定（Rustでは構造体フィールド直接設定） |
 
 ### recogident.c (Identification)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -63,7 +65,7 @@
 | recogSkipIdentify | ❌ 未実装 | - | 認識をスキップ |
 | recogProcessToIdentify | ❌ 未実装 | - | 認識前の画像処理 |
 | recogExtractNumbers | ❌ 未実装 | - | 数字列の抽出 |
-| showExtractNumbers | ❌ 未実装 | - | 数字列抽出のデバッグ表示 |
+| showExtractNumbers | 🚫 不要 | - | 数字列抽出のデバッグ表示 |
 | rchaDestroy | ✅ 同等 | `Drop` trait | Rcha構造体の自動破棄 |
 | rchDestroy | ✅ 同等 | `Drop` trait | Rch構造体の自動破棄 |
 | rchaExtract | ❌ 未実装 | - | Rcha配列からデータ抽出 |
@@ -91,11 +93,11 @@
 | recogAddDigitPadTemplates | 🔄 異なる | `pad_digit_training_set` 内部実装 | 数字パッドテンプレート追加 |
 | recogMakeBootDigitRecog | ✅ 同等 | `recog::bootstrap::make_boot_digit_recog` | ブートストラップ数字認識器作成 |
 | recogMakeBootDigitTemplates | 🔄 異なる | `make_boot_digit_recog` 内部実装 | ブートストラップ数字テンプレート作成 |
-| recogShowContent | ❌ 未実装 | - | recog内容の表示 |
-| recogDebugAverages | ❌ 未実装 | - | 平均テンプレートのデバッグ |
-| recogShowAverageTemplates | ❌ 未実装 | - | 平均テンプレートの表示 |
-| recogShowMatchesInRange | ❌ 未実装 | - | スコア範囲内のマッチ表示 |
-| recogShowMatch | ❌ 未実装 | - | マッチの表示 |
+| recogShowContent | 🚫 不要 | - | recog内容の表示（デバッグ/可視化） |
+| recogDebugAverages | 🚫 不要 | - | 平均テンプレートのデバッグ（デバッグ/可視化） |
+| recogShowAverageTemplates | 🚫 不要 | - | 平均テンプレートの表示（デバッグ/可視化） |
+| recogShowMatchesInRange | 🚫 不要 | - | スコア範囲内のマッチ表示（デバッグ/可視化） |
+| recogShowMatch | 🚫 不要 | - | マッチの表示（デバッグ/可視化） |
 
 ### pageseg.c (Page Segmentation)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -161,16 +163,16 @@
 | dewarpSinglePage | ✅ 同等 | `dewarp::dewarp_single_page` | 単一ページの歪み補正 |
 | dewarpSinglePageInit | ✅ 同等 | `dewarp::single_page::dewarp_single_page_init` | 単一ページ歪み補正の初期化 |
 | dewarpSinglePageRun | ✅ 同等 | `dewarp::single_page::dewarp_single_page_run` | 単一ページ歪み補正の実行 |
-| dewarpaListPages | ❌ 未実装 | - | ページリスト表示（デバッグ用） |
+| dewarpaListPages | 🚫 不要 | - | ページリスト表示（デバッグ/可視化） |
 | dewarpaSetValidModels | 🔄 異なる | `Dewarpa::insert_ref_models` 等 | 有効モデル設定 |
 | dewarpaInsertRefModels | ✅ 同等 | `Dewarpa::insert_ref_models` | 参照モデル挿入 |
 | dewarpaStripRefModels | ✅ 同等 | `Dewarpa::strip_ref_models` | 参照モデル削除 |
 | dewarpaRestoreModels | ❌ 未実装 | - | モデル復元 |
-| dewarpaInfo | ❌ 未実装 | - | Dewarpa情報表示（デバッグ用） |
-| dewarpaModelStats | ❌ 未実装 | - | モデル統計取得（デバッグ用） |
-| dewarpaShowArrays | ❌ 未実装 | - | 配列の表示（デバッグ用） |
-| dewarpDebug | ❌ 未実装 | - | デバッグ出力（デバッグ用） |
-| dewarpShowResults | ❌ 未実装 | - | 結果表示（デバッグ用） |
+| dewarpaInfo | 🚫 不要 | - | Dewarpa情報表示（デバッグ/可視化） |
+| dewarpaModelStats | 🚫 不要 | - | モデル統計取得（デバッグ/可視化） |
+| dewarpaShowArrays | 🚫 不要 | - | 配列の表示（デバッグ/可視化） |
+| dewarpDebug | 🚫 不要 | - | デバッグ出力（デバッグ/可視化） |
+| dewarpShowResults | 🚫 不要 | - | 結果表示（デバッグ/可視化） |
 
 ### baseline.c (Baseline Detection)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -240,11 +242,19 @@
 10. **JBIG2分類**: rank_haus_init, correlation_init, I/O
 11. **バーコード検出・デコード**: 形態学的マスク生成、幅抽出、ピーク検出含む
 
-### 未実装領域（設計上意図的に除外）
-1. **デバッグ/可視化**: recogShowContent, dewarpDebug, dewarpaShowArrays等
-2. **ページセグメンテーション詳細**: pixSplitIntoCharacters等
-3. **JBIG2高レベルAPI**: jbCorrelation, jbRankHaus（内部APIで代替）
-4. **Dewarpa詳細管理**: dewarpaRestoreModels, dewarpaListPages等
+### 🚫 不要（Rustの設計で代替済み）
+1. **デバッグ/可視化（12関数）**: recogShowContent, recogDebugAverages, recogShowAverageTemplates, recogShowMatchesInRange, recogShowMatch, showExtractNumbers, dewarpaListPages, dewarpaInfo, dewarpaModelStats, dewarpaShowArrays, dewarpDebug, dewarpShowResults — Debug trait・外部ツールで代替
+2. **C固有getter（1関数）**: recogGetDid — RustではOption型で直接管理
+3. **C固有setter（1関数）**: recogSetChannelParams — Rustでは構造体フィールド直接設定
+
+### 未実装領域（実装価値あり）
+1. **ページセグメンテーション詳細**: pixFindPageForeground, pixSplitIntoCharacters, pixSplitComponentWithProfile, pixGetWordsInTextlines, pixGetWordBoxesInTextlines
+2. **JBIG2高レベルAPI**: jbCorrelation, jbRankHaus, jbCorrelationInitWithoutComponents, jbAddPageComponents
+3. **Recog訓練ユーティリティ**: recogProcessLabeled, recogAddSample, pixaAccumulateSamples, recogFilterPixaBySize, recogSortPixaByClass, pixaRemoveOutliers1, pixaRemoveOutliers2
+4. **Recog作成・識別**: recogCreateFromRecog, recogCreateFromPixaNoFinish, recogSkipIdentify, recogProcessToIdentify, recogExtractNumbers, rchaExtract, rchExtract
+5. **Skew検出拡張**: pixFindSkewSweep, pixFindSkewOrthogonalRange
+6. **Dewarpa管理**: dewarpaCreateFromPixacomp, dewarpaRestoreModels
+7. **バーコード**: pixReadBarcodes
 
 ### 設計の違い
 1. **メモリ管理**: C版のcreate/destroy → Rust版のDrop trait
@@ -254,9 +264,11 @@
 
 ## 備考
 
-- C版の関数総数: 約144関数（recog関連全体、この表の範囲）
-- Rust版実装済み: 約100関数（✅84 + 🔄16）
-- 実装率: 約69%（デバッグ/可視化除外ベースでは90%以上）
+- C版の関数総数: 162関数（recog関連全体、この表の範囲）
+- Rust版実装済み: 120関数（✅94 + 🔄26）
+- 🚫不要: 14関数（デバッグ/可視化12 + C固有getter/setter 2）
+- ❌未実装: 28関数（実装価値あり）
+- 実装率: 74%（全体）、81%（🚫不要除外ベース）
 
 C版の全機能を網羅することは目標ではなく、Rustの慣用的な設計で同等の機能を提供することを重視しています。特に以下の点で設計が異なります：
 
