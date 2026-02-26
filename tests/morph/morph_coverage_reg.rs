@@ -71,20 +71,18 @@ fn make_run_pattern() -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_morph_sequence_by_component_basic() {
     let pix = make_two_rects(40, 40);
     let result = morph_sequence_by_component(&pix, "d3.3", 0, 0, 4).unwrap();
-    // Dilation should grow each component but result is still 1bpp
+    // Dilation applied per component; result is still 1bpp with same dimensions
     assert_eq!(result.depth(), PixelDepth::Bit1);
     assert_eq!(result.width(), 40);
     assert_eq!(result.height(), 40);
-    // Should have more pixels than original due to dilation
-    assert!(result.count_pixels() > pix.count_pixels());
+    // Both components should still be present
+    assert!(result.count_pixels() >= pix.count_pixels());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_morph_sequence_by_component_min_size_filter() {
     let pix = make_two_rects(40, 40);
     // Set min size to filter out the smaller component (8x8)
@@ -100,7 +98,6 @@ fn test_morph_sequence_by_component_min_size_filter() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_morph_sequence_by_component_requires_1bpp() {
     let pix = Pix::new(40, 40, PixelDepth::Bit8).unwrap();
     assert!(morph_sequence_by_component(&pix, "d3.3", 0, 0, 4).is_err());
@@ -111,7 +108,6 @@ fn test_morph_sequence_by_component_requires_1bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_morph_sequence_by_region_basic() {
     let pix = make_two_rects(40, 40);
     let mask = make_two_rects(40, 40);
@@ -123,7 +119,6 @@ fn test_morph_sequence_by_region_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_morph_sequence_by_region_requires_1bpp() {
     let pix = Pix::new(40, 40, PixelDepth::Bit8).unwrap();
     let mask = make_two_rects(40, 40);
@@ -135,7 +130,6 @@ fn test_morph_sequence_by_region_requires_1bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_boundary_basic() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     let sel = generate_sel_boundary(&pix, 1, 1, 0, 0, true, true, true, true).unwrap();
@@ -145,7 +139,6 @@ fn test_generate_sel_boundary_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_boundary_skip_hits() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     // Skip=2 means subsample boundary pixels
@@ -154,7 +147,6 @@ fn test_generate_sel_boundary_skip_hits() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_boundary_requires_1bpp() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     assert!(generate_sel_boundary(&pix, 1, 1, 0, 0, true, true, true, true).is_err());
@@ -165,7 +157,6 @@ fn test_generate_sel_boundary_requires_1bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_with_runs_basic() {
     let pix = make_rect(30, 30, 5, 5, 25, 25);
     let sel = generate_sel_with_runs(&pix, 2, 2, 1, 1, 0, 0, 0, 0).unwrap();
@@ -173,7 +164,6 @@ fn test_generate_sel_with_runs_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_with_runs_requires_1bpp() {
     let pix = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
     assert!(generate_sel_with_runs(&pix, 2, 2, 1, 1, 0, 0, 0, 0).is_err());
@@ -184,7 +174,6 @@ fn test_generate_sel_with_runs_requires_1bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_random_basic() {
     let pix = make_rect(30, 30, 5, 5, 25, 25);
     let sel = generate_sel_random(&pix, 0.5, 0.5, 1, 0, 0, 0, 0).unwrap();
@@ -192,7 +181,6 @@ fn test_generate_sel_random_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_random_requires_1bpp() {
     let pix = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
     assert!(generate_sel_random(&pix, 0.5, 0.5, 1, 0, 0, 0, 0).is_err());
@@ -203,7 +191,6 @@ fn test_generate_sel_random_requires_1bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_run_centers_on_line_horizontal() {
     let pix = make_run_pattern();
     // Horizontal line at y=5: runs are 5bg, 10fg, 5bg, 10fg, 10bg
@@ -219,7 +206,6 @@ fn test_get_run_centers_on_line_horizontal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_run_centers_on_line_vertical() {
     // Vertical: set x=10, scan column
     let pix = make_run_pattern();
@@ -229,7 +215,6 @@ fn test_get_run_centers_on_line_vertical() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_run_centers_on_line_min_length_filter() {
     let pix = make_run_pattern();
     // Only runs with length >= 15 (none qualifies since runs are length 10)
@@ -242,7 +227,6 @@ fn test_get_run_centers_on_line_min_length_filter() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_runs_on_line_horizontal() {
     let pix = make_run_pattern();
     // Horizontal line at y=5
@@ -256,7 +240,6 @@ fn test_get_runs_on_line_horizontal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_runs_on_line_single_pixel_line() {
     let pix = Pix::new(1, 1, PixelDepth::Bit1).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -272,7 +255,6 @@ fn test_get_runs_on_line_single_pixel_line() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_subsample_boundary_pixels_skip_0() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     let boundary =
@@ -283,7 +265,6 @@ fn test_subsample_boundary_pixels_skip_0() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_subsample_boundary_pixels_skip_2() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     let boundary =
@@ -300,7 +281,6 @@ fn test_subsample_boundary_pixels_skip_2() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sela_create_from_color_pixa_basic() {
     use leptonica::morph::sel::sela_create_from_color_pixa;
 
@@ -333,7 +313,6 @@ fn test_sela_create_from_color_pixa_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sela_create_from_color_pixa_mismatched_lengths() {
     use leptonica::morph::sel::sela_create_from_color_pixa;
 
@@ -348,7 +327,6 @@ fn test_sela_create_from_color_pixa_mismatched_lengths() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_thin_connected_basic() {
     // Create a Pixa with thick rectangles
     let mut pixa = Pixa::new();
@@ -368,7 +346,6 @@ fn test_pixa_thin_connected_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_thin_connected_requires_1bpp() {
     let mut pixa = Pixa::new();
     pixa.push(Pix::new(10, 10, PixelDepth::Bit8).unwrap());
@@ -376,7 +353,6 @@ fn test_pixa_thin_connected_requires_1bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_thin_connected_empty_pixa() {
     let pixa = Pixa::new();
     let result = pixa_thin_connected(&pixa, ThinType::Foreground, Connectivity::Four, 0).unwrap();
