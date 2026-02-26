@@ -744,10 +744,11 @@ impl Pix {
                 bm.set_pixel_unchecked(dst_x, y, bm.get_pixel_unchecked(src_x, y));
             }
         }
-        // Repeated top border (full width including side borders)
+        // Repeated top border (full width including side borders):
+        // Copy the bottom `top` rows of the interior to the top border (wrap-around).
         for j in 0..top {
             for x in 0..wd {
-                let src_y = top + h - top + j;
+                let src_y = h + j;
                 let dst_y = j;
                 bm.set_pixel_unchecked(x, dst_y, bm.get_pixel_unchecked(x, src_y));
             }

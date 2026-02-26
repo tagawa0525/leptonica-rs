@@ -243,11 +243,15 @@ impl Boxaa {
             (first + nfiles).min(paths.len())
         };
         if first >= paths.len() {
-            return Err(Error::InvalidParameter("no boxa files found".into()));
+            return Err(Error::InvalidParameter(
+                "starting index out of range for available boxa files".into(),
+            ));
         }
         let selected = &paths[first..end];
         if selected.is_empty() {
-            return Err(Error::InvalidParameter("no boxa files found".into()));
+            return Err(Error::InvalidParameter(
+                "no boxa files found in the specified range".into(),
+            ));
         }
 
         let mut baa = Boxaa::with_capacity(selected.len());

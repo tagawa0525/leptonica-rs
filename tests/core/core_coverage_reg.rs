@@ -177,8 +177,46 @@ fn shift_and_transfer_alpha() {
 fn paint_self_through_mask() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mask = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+
+    // Success path with search direction 0 at origin.
     let result = pix.paint_self_through_mask(&mask, 0, 0, 0).unwrap();
     assert_eq!(result.width(), 20);
+    assert_eq!(result.height(), 20);
+
+    // Success path with search direction 1 at origin.
+    let result_dir1 = pix.paint_self_through_mask(&mask, 0, 0, 1).unwrap();
+    assert_eq!(result_dir1.width(), 20);
+    assert_eq!(result_dir1.height(), 20);
+
+    // Empty mask (no set bits) should succeed as a no-op.
+    let empty_mask = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
+    let result_empty = pix.paint_self_through_mask(&empty_mask, 0, 0, 0);
+    assert!(
+        result_empty.is_ok(),
+        "painting with an empty (no set bits) mask should succeed as a no-op"
+    );
+
+    // Mask larger than the source image: clips to image bounds, succeeds.
+    let large_mask = Pix::new(40, 40, PixelDepth::Bit1).unwrap();
+    let result_large = pix.paint_self_through_mask(&large_mask, 0, 0, 0);
+    assert!(
+        result_large.is_ok(),
+        "painting with a mask larger than the source image should succeed (clipped)"
+    );
+
+    // Mask offset partially outside the image bounds: clips, succeeds.
+    let result_partial_oob = pix.paint_self_through_mask(&mask, 15, 15, 0);
+    assert!(
+        result_partial_oob.is_ok(),
+        "painting with a mask partially outside image bounds should succeed (clipped)"
+    );
+
+    // Mask fully outside the image bounds: no-op, succeeds.
+    let result_full_oob = pix.paint_self_through_mask(&mask, 25, 25, 0);
+    assert!(
+        result_full_oob.is_ok(),
+        "painting with a mask fully outside image bounds should succeed (no-op)"
+    );
 }
 
 /// Test `Pix::make_alpha_from_mask` – create alpha channel from 1bpp mask.
@@ -937,9 +975,46 @@ fn quantize_if_few_colors() {
 #[test]
 
 fn convert_to_1_adaptive() {
+    // Create a synthetic 8bpp image where the left half is dark and the
+    // right half is bright. Adaptive thresholding should produce a 1bpp
+    // result with distinct regions.
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+
+    let width = pm.width();
+    for y in 0..pm.height() {
+        for x in 0..width {
+            let val = if x < width / 2 { 40u32 } else { 220u32 };
+            pm.set_pixel(x, y, val).unwrap();
+        }
+    }
+    let pix: Pix = pm.into();
+
     let result = pix.convert_to_1_adaptive().unwrap();
     assert_eq!(result.depth(), PixelDepth::Bit1);
+    assert_eq!(result.width(), 20);
+    assert_eq!(result.height(), 20);
+
+    // Verify that the dark (left) and bright (right) halves produce different
+    // foreground densities: the dark half should have more foreground (1) pixels.
+    let mut left_fg = 0u32;
+    let mut right_fg = 0u32;
+    for y in 0..result.height() {
+        for x in 0..result.width() {
+            let v = result.get_pixel(x, y).unwrap();
+            if v != 0 {
+                if x < result.width() / 2 {
+                    left_fg += 1;
+                } else {
+                    right_fg += 1;
+                }
+            }
+        }
+    }
+    assert!(
+        left_fg >= right_fg,
+        "dark half should have at least as many foreground pixels: left_fg={left_fg}, right_fg={right_fg}"
+    );
 }
 
 /// Test `Pix::convert_to_1_by_sampling` – binary by sampling.

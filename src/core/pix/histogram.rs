@@ -1807,7 +1807,9 @@ impl Pix {
             }
         }
 
-        // Apply score_fract to adjust threshold
+        // Blend the pure Otsu threshold with the global mean.
+        // `score_fract` is the weight for the Otsu threshold;
+        // (1.0 - score_fract) is the weight for the mean.
         let thresh =
             (best_thresh as f32 * score_fract + (1.0 - score_fract) * total_mean as f32) as u32;
         let thresh = thresh.min(255);

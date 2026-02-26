@@ -575,25 +575,31 @@ fn count_reversals_numa(na: &Numa, min_reversal: u32) -> u32 {
     for i in 1..n {
         let val = na.get(i).unwrap_or(0.0);
         if val > last_val {
-            if decreasing && (extremum - last_val) >= min_rev {
-                // Was going down, now going up → reversal
-                reversals += 1;
-                extremum = last_val;
-            }
-            if !increasing {
+            if decreasing {
+                if (extremum - last_val) >= min_rev {
+                    // Was going down by enough, now going up → reversal
+                    reversals += 1;
+                    increasing = true;
+                    decreasing = false;
+                    extremum = last_val;
+                }
+                // If magnitude below threshold, stay in decreasing state
+            } else if !increasing {
                 increasing = true;
-                decreasing = false;
                 extremum = last_val;
             }
         } else if val < last_val {
-            if increasing && (last_val - extremum) >= min_rev {
-                // Was going up, now going down → reversal
-                reversals += 1;
-                extremum = last_val;
-            }
-            if !decreasing {
+            if increasing {
+                if (last_val - extremum) >= min_rev {
+                    // Was going up by enough, now going down → reversal
+                    reversals += 1;
+                    decreasing = true;
+                    increasing = false;
+                    extremum = last_val;
+                }
+                // If magnitude below threshold, stay in increasing state
+            } else if !decreasing {
                 decreasing = true;
-                increasing = false;
                 extremum = last_val;
             }
         }

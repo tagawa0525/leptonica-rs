@@ -100,13 +100,18 @@ impl Pixa {
 
             // Read PNG data
             let pos = cursor.position() as usize;
-            if pos + size > data.len() {
+            let end = pos.checked_add(size).ok_or_else(|| {
+                Error::DecodeError(format!(
+                    "integer overflow computing PNG data end position for pix[{i}]"
+                ))
+            })?;
+            if end > data.len() {
                 return Err(Error::DecodeError(format!(
                     "unexpected end of data reading pix[{i}]"
                 )));
             }
-            let png_data = &data[pos..pos + size];
-            cursor.set_position((pos + size) as u64);
+            let png_data = &data[pos..end];
+            cursor.set_position(end as u64);
 
             let pix = crate::io::png::read_png(Cursor::new(png_data))
                 .map_err(|e| Error::DecodeError(format!("failed to read PNG for pix[{i}]: {e}")))?;

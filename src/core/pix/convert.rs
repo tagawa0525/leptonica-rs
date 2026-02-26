@@ -2006,6 +2006,9 @@ impl Pix {
         if self.depth() != PixelDepth::Bit8 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
+        if depth != 1 && n_levels < 2 {
+            return Err(Error::InvalidParameter("nlevels must be at least 2".into()));
+        }
         if cmap_flag && n_levels < 2 {
             return Err(Error::InvalidParameter("nlevels must be at least 2".into()));
         }
@@ -2022,7 +2025,8 @@ impl Pix {
                 for y in 0..h {
                     for x in 0..w {
                         let val = self.get_pixel_unchecked(x, y);
-                        // In 1bpp: 1 = black (foreground), 0 = white (background)
+                        // C Leptonica convention: pixel < threshold → 1 (foreground/black),
+                        // pixel >= threshold → 0 (background/white).
                         let bit = if val < 128 { 1u32 } else { 0u32 };
                         rm.set_pixel_unchecked(x, y, bit);
                     }
@@ -2229,10 +2233,10 @@ impl Pix {
                 for x in 0..w {
                     let px = self.get_pixel_unchecked(x, y);
                     let (r, g, b) = pixel::extract_rgb(px);
-                    // Map to 6×6×6 cube index
-                    let ri = ((r as u32 + 25) / 51).min(5);
-                    let gi = ((g as u32 + 25) / 51).min(5);
-                    let bi = ((b as u32 + 25) / 51).min(5);
+                    // Map to 6×6×6 cube index: quantize each channel from 0..255 to 0..5 with rounding
+                    let ri = ((r as u32 * 5 + 127) / 255).min(5);
+                    let gi = ((g as u32 * 5 + 127) / 255).min(5);
+                    let bi = ((b as u32 * 5 + 127) / 255).min(5);
                     let idx = ri * 36 + gi * 6 + bi;
                     rm.set_pixel_unchecked(x, y, idx);
                 }
