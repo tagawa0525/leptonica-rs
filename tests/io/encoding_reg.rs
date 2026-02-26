@@ -1,44 +1,32 @@
 //! Encoding regression test
 //!
-//! Tests ASCII85 encoding/decoding of binary data.
-//!
-//! The C version tests encodeAscii85/decodeAscii85 round-trips,
-//! compressed variants, and pix text metadata storage.
-//! The Rust ascii85 module is private (internal to PostScript output),
-//! and decoding is not implemented.
-//! Available tests verify PostScript output contains valid ASCII85 data.
+//! Tests Base64 and ASCII85 encoding/decoding.
 //!
 //! # See also
 //!
 //! C Leptonica: `reference/leptonica/prog/encoding_reg.c`
 
 use crate::common::RegParams;
+use leptonica::core::encoding;
 
 /// Test that PostScript output contains ASCII85-encoded data.
-///
-/// Since ascii85::encode is not publicly accessible, we verify indirectly
-/// by checking that PS output of an image contains ASCII85 markers.
 #[test]
 fn encoding_reg_ps_ascii85() {
     let mut rp = RegParams::new("encoding_ps_ascii85");
 
     let pix = crate::common::load_test_image("karen8.jpg").expect("load karen8.jpg");
 
-    // Write as PostScript to memory
     let ps_data = leptonica::io::write_image_mem(&pix, leptonica::io::ImageFormat::Ps);
     match ps_data {
         Ok(data) => {
             let ps_str = String::from_utf8_lossy(&data);
-            // PostScript with ASCII85 encoding should contain the EOD marker "~>"
             let has_a85_eod = ps_str.contains("~>");
             rp.compare_values(1.0, if has_a85_eod { 1.0 } else { 0.0 }, 0.0);
 
-            // Should contain standard PS header
             let has_ps_header = ps_str.starts_with("%!");
             rp.compare_values(1.0, if has_ps_header { 1.0 } else { 0.0 }, 0.0);
         }
         Err(e) => {
-            // PS output requires the "ps-format" feature; verify it's UnsupportedFormat
             assert!(
                 matches!(e, leptonica::io::IoError::UnsupportedFormat(_)),
                 "expected UnsupportedFormat error, got: {e}"
@@ -51,39 +39,75 @@ fn encoding_reg_ps_ascii85() {
     assert!(rp.cleanup(), "encoding ps ascii85 test failed");
 }
 
-/// Test ASCII85 encode/decode round-trip (C check 0).
-///
-/// Requires publicly accessible ascii85::encode and ascii85::decode.
+/// Test Base64 encode/decode round-trip.
 #[test]
-#[ignore = "not yet implemented: ascii85 module is private, decode not available"]
+#[ignore = "not yet implemented"]
+fn encoding_reg_base64_roundtrip() {
+    let data = b"Hello, World! This is a test of Base64 encoding.";
+    let encoded = encoding::encode_base64(data);
+    let decoded = encoding::decode_base64(&encoded).unwrap();
+    assert_eq!(decoded, data);
+}
+
+/// Test Base64 with binary data.
+#[test]
+#[ignore = "not yet implemented"]
+fn encoding_reg_base64_binary() {
+    let data: Vec<u8> = (0..=255).collect();
+    let encoded = encoding::encode_base64(&data);
+    let decoded = encoding::decode_base64(&encoded).unwrap();
+    assert_eq!(decoded, data);
+}
+
+/// Test ASCII85 decode (C check 0).
+#[test]
+#[ignore = "not yet implemented"]
+fn encoding_reg_ascii85_decode() {
+    // "Man " encodes to "9jqo^"
+    let decoded = encoding::decode_ascii85(b"9jqo^~>").unwrap();
+    assert_eq!(decoded, b"Man ");
+
+    // Test zero encoding
+    let decoded = encoding::decode_ascii85(b"z~>").unwrap();
+    assert_eq!(decoded, vec![0, 0, 0, 0]);
+}
+
+/// Test ASCII85 round-trip via PS module encoding then public decoding.
+#[test]
+#[ignore = "not yet implemented"]
 fn encoding_reg_ascii85_roundtrip() {
-    // C version:
-    // 1. Read karen8.jpg as binary
-    // 2. encodeAscii85(bina, fbytes, &nbytes1)
-    // 3. decodeAscii85(a85a, nbytes1, &nbytes2)
-    // 4. Verify fbytes == nbytes2
+    // Encode some binary data, then decode
+    let _original: Vec<u8> = (0..100).collect();
+    // We can't call ascii85::encode directly (private), but we test decode
+    // with known-good ASCII85 data
+    let encoded = b"!!*-'\"9eu7#RLhG$k3[W&-~>";
+    let decoded = encoding::decode_ascii85(encoded).unwrap();
+    assert!(!decoded.is_empty());
 }
 
-/// Test ASCII85 with compression (C checks 2-3).
-///
-/// Requires encodeAscii85WithComp/decodeAscii85WithComp.
+/// Test Base64 padding variants.
 #[test]
-#[ignore = "not yet implemented: ascii85 compression variants not available"]
-fn encoding_reg_ascii85_compression() {
-    // C version:
-    // 1. encodeAscii85WithComp on ascii data
-    // 2. decodeAscii85WithComp to verify round-trip
-}
+#[ignore = "not yet implemented"]
+fn encoding_reg_base64_padding() {
+    // 0 bytes
+    assert_eq!(encoding::encode_base64(&[]), "");
+    assert_eq!(encoding::decode_base64("").unwrap(), Vec::<u8>::new());
 
-/// Test pix text metadata storage (C check 4).
-///
-/// Requires pixSetTextCompNew/pixGetTextCompNew.
-#[test]
-#[ignore = "not yet implemented: Pix text metadata storage not available"]
-fn encoding_reg_pix_text_metadata() {
-    // C version:
-    // 1. Read weasel32.png as binary
-    // 2. pixSetTextCompNew(pix, bina, nbytes1)
-    // 3. pixGetTextCompNew(pix, &nbytes2)
-    // 4. Compare original and retrieved binary data
+    // 1 byte → 2 chars + ==
+    let enc = encoding::encode_base64(&[0x41]);
+    assert!(enc.ends_with("=="));
+    assert_eq!(encoding::decode_base64(&enc).unwrap(), vec![0x41]);
+
+    // 2 bytes → 3 chars + =
+    let enc = encoding::encode_base64(&[0x41, 0x42]);
+    assert!(enc.ends_with('='));
+    assert_eq!(encoding::decode_base64(&enc).unwrap(), vec![0x41, 0x42]);
+
+    // 3 bytes → 4 chars, no padding
+    let enc = encoding::encode_base64(&[0x41, 0x42, 0x43]);
+    assert!(!enc.contains('='));
+    assert_eq!(
+        encoding::decode_base64(&enc).unwrap(),
+        vec![0x41, 0x42, 0x43]
+    );
 }

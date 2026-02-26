@@ -126,14 +126,17 @@ fn warper_reg_stretch_horizontal() {
     assert!(rp.cleanup(), "warper stretch horizontal test failed");
 }
 
-/// Test pixSimpleCaptcha (C checks 4-7 captcha part).
-///
-/// Requires pixSimpleCaptcha which is not available in leptonica-transform.
+/// Test pixSimpleCaptcha.
 #[test]
-#[ignore = "not yet implemented: pixSimpleCaptcha not available"]
+#[ignore = "not yet implemented"]
 fn warper_reg_captcha() {
-    // C version:
-    // 1. pixSimpleCaptcha(pixs, border=25, nterms=1..4, seed, color, invert=0)
-    // 2. 50 captcha variants per nterms value (k=1..4)
-    // 3. Tiled display of each set with regTestWritePixAndCheck
+    let pix = crate::common::load_test_image("weasel8.149g.png").expect("load test image");
+
+    let result = leptonica::transform::warper::simple_captcha(&pix, 10, 2, 42, false);
+    assert!(result.is_ok());
+    let captcha = result.unwrap();
+    assert!(captcha.width() > 0);
+    assert!(captcha.height() > 0);
+    // Captcha should be at least as large as original + border
+    assert!(captcha.width() >= pix.width());
 }

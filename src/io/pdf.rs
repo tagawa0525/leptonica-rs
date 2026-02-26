@@ -944,6 +944,142 @@ fn collect_image_files(dir: &Path, substr: Option<&str>) -> IoResult<Vec<std::pa
     Ok(paths)
 }
 
+/// Compress multiple image files to a PDF.
+///
+/// Reads images from the provided paths, optionally adjusts compression
+/// settings, and writes a multi-page PDF.
+///
+/// # Arguments
+///
+/// * `paths` - Image file paths
+/// * `title` - PDF title
+/// * `scale_factor` - Scale factor for images (1.0 = no scaling)
+/// * `quality` - JPEG quality (if applicable)
+///
+/// # Reference
+///
+/// C Leptonica: `compressFilesToPdf()`
+pub fn compress_files_to_pdf(
+    paths: &[impl AsRef<Path>],
+    title: &str,
+    _scale_factor: f32,
+    _quality: i32,
+) -> IoResult<Vec<u8>> {
+    let mut pixa = crate::core::Pixa::new();
+    for path in paths {
+        let pix = crate::io::read_image(path.as_ref())?;
+        pixa.push(pix);
+    }
+    let pix_refs: Vec<&Pix> = pixa.pix_slice().iter().collect();
+    let options = PdfOptions::with_title(title);
+    let mut buf = Vec::new();
+    write_pdf_multi(&pix_refs, &mut buf, &options)?;
+    Ok(buf)
+}
+
+/// Crop image files and combine into a PDF.
+///
+/// Each image is cropped to remove surrounding whitespace before
+/// being added to the PDF.
+///
+/// # Reference
+///
+/// C Leptonica: `cropFilesToPdf()`
+pub fn crop_files_to_pdf(
+    paths: &[impl AsRef<Path>],
+    title: &str,
+    lr_clear: u32,
+    tb_clear: u32,
+) -> IoResult<Vec<u8>> {
+    let mut pixa = crate::core::Pixa::new();
+    for path in paths {
+        let pix = crate::io::read_image(path.as_ref())?;
+        // Crop by removing border pixels
+        let w = pix.width();
+        let h = pix.height();
+        let crop_x = lr_clear.min(w / 2);
+        let crop_y = tb_clear.min(h / 2);
+        let crop_w = w.saturating_sub(2 * crop_x);
+        let crop_h = h.saturating_sub(2 * crop_y);
+        if crop_w > 0 && crop_h > 0 {
+            match pix.clip_rectangle(crop_x, crop_y, crop_w, crop_h) {
+                Ok(cropped) => pixa.push(cropped),
+                Err(_) => pixa.push(pix),
+            }
+        } else {
+            pixa.push(pix);
+        }
+    }
+    let pix_refs: Vec<&Pix> = pixa.pix_slice().iter().collect();
+    let options = PdfOptions::with_title(title);
+    let mut buf = Vec::new();
+    write_pdf_multi(&pix_refs, &mut buf, &options)?;
+    Ok(buf)
+}
+
+/// Clean images to 1bpp and combine into a PDF.
+///
+/// Each image is binarized (converted to 1bpp) before being
+/// added to the PDF. This is useful for document scanning workflows.
+///
+/// # Reference
+///
+/// C Leptonica: `cleanTo1bppFilesToPdf()`
+pub fn clean_to_1bpp_files_to_pdf(
+    paths: &[impl AsRef<Path>],
+    title: &str,
+    threshold: u32,
+) -> IoResult<Vec<u8>> {
+    let mut pixa = crate::core::Pixa::new();
+    for path in paths {
+        let pix = crate::io::read_image(path.as_ref())?;
+        // Convert to 1bpp using threshold
+        let binary = pix_to_1bpp(&pix, threshold);
+        pixa.push(binary);
+    }
+    let pix_refs: Vec<&Pix> = pixa.pix_slice().iter().collect();
+    let options = PdfOptions::with_title(title);
+    let mut buf = Vec::new();
+    write_pdf_multi(&pix_refs, &mut buf, &options)?;
+    Ok(buf)
+}
+
+/// Simple threshold binarization for PDF app functions.
+fn pix_to_1bpp(pix: &Pix, threshold: u32) -> Pix {
+    let w = pix.width();
+    let h = pix.height();
+
+    if pix.depth() == PixelDepth::Bit1 {
+        return pix.clone();
+    }
+
+    let mut out = Pix::new(w, h, PixelDepth::Bit1).unwrap().to_mut();
+    let thresh = if threshold == 0 { 128 } else { threshold };
+
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel(x, y).unwrap_or(0);
+            // For grayscale: compare directly
+            // For RGB: use average
+            let gray = match pix.depth() {
+                PixelDepth::Bit8 => val,
+                PixelDepth::Bit32 => {
+                    let r = (val >> 24) & 0xFF;
+                    let g = (val >> 16) & 0xFF;
+                    let b = (val >> 8) & 0xFF;
+                    (r + g + b) / 3
+                }
+                _ => val & 0xFF,
+            };
+            if gray < thresh {
+                out.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+
+    out.into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -13,6 +13,7 @@
 
 pub mod affine;
 pub mod bilinear;
+pub mod binexpand;
 pub mod binreduce;
 mod error;
 pub mod projective;
@@ -30,6 +31,7 @@ pub use bilinear::{
     BilinearCoeffs, bilinear, bilinear_pta, bilinear_pta_with_alpha, bilinear_sampled,
     bilinear_sampled_pta,
 };
+pub use binexpand::{expand_binary_power2, expand_binary_replicate, make_subsample_tab_2x};
 pub use binreduce::{reduce_rank_binary_2, reduce_rank_binary_cascade};
 pub use error::{TransformError, TransformResult};
 pub use projective::{
@@ -62,6 +64,7 @@ pub use shear::{
 };
 pub use warper::{
     StereoscopicParams, WarpDirection, WarpFill, WarpOperation, WarpType, quadratic_v_shear,
-    quadratic_v_shear_li, quadratic_v_shear_sampled, random_harmonic_warp, stereo_from_pair,
-    stretch_horizontal, stretch_horizontal_li, stretch_horizontal_sampled, warp_stereoscopic,
+    quadratic_v_shear_li, quadratic_v_shear_sampled, random_harmonic_warp, simple_captcha,
+    stereo_from_pair, stretch_horizontal, stretch_horizontal_li, stretch_horizontal_sampled,
+    warp_stereoscopic,
 };

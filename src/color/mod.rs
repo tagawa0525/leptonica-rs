@@ -25,6 +25,7 @@ pub mod colorfill;
 pub mod coloring;
 pub mod colorspace;
 pub mod error;
+pub mod paintcmap;
 pub mod quantize;
 pub mod segment;
 pub mod threshold;
@@ -225,4 +226,11 @@ pub use coloring::{
     pixel_linear_map_to_target_color,
     pixel_shift_by_component,
     snap_color_cmap,
+};
+
+// Re-export paintcmap functions
+pub use paintcmap::{
+    add_colorized_gray_to_cmap, pix_color_gray_cmap, pix_color_gray_masked_cmap,
+    pix_color_gray_regions_cmap, pix_set_masked_cmap, pix_set_select_cmap,
+    pix_set_select_masked_cmap,
 };

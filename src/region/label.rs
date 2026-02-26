@@ -957,6 +957,74 @@ pub fn pix_loc_to_color_transform(pix: &Pix) -> RegionResult<Pix> {
     Ok(out_mut.into())
 }
 
+/// Get the unique sorted neighbor values for a pixel in a labeled image.
+///
+/// Returns the set of non-zero neighboring pixel values, sorted smallest
+/// to largest. Background (0) values are excluded.
+///
+/// # Arguments
+///
+/// * `pix` - Labeled image (8, 16, or 32 bpp)
+/// * `x` - X coordinate
+/// * `y` - Y coordinate
+/// * `connectivity` - 4-way or 8-way connectivity
+///
+/// # Returns
+///
+/// A sorted Vec of unique non-zero neighbor values.
+///
+/// # Reference
+///
+/// C Leptonica: `pixGetSortedNeighborValues()`
+pub fn pix_get_sorted_neighbor_values(
+    pix: &Pix,
+    x: u32,
+    y: u32,
+    connectivity: ConnectivityType,
+) -> RegionResult<Vec<u32>> {
+    let depth = pix.depth().bits();
+    if depth < 8 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "8, 16, or 32 bpp",
+            actual: depth,
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    let neighbors: Vec<(i32, i32)> = match connectivity {
+        ConnectivityType::FourWay => vec![(-1, 0), (1, 0), (0, -1), (0, 1)],
+        ConnectivityType::EightWay => vec![
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (0, 1),
+            (1, 1),
+        ],
+    };
+
+    let mut values = std::collections::BTreeSet::new();
+    for (dx, dy) in &neighbors {
+        let nx = x as i32 + dx;
+        let ny = y as i32 + dy;
+        if nx >= 0
+            && ny >= 0
+            && (nx as u32) < w
+            && (ny as u32) < h
+            && let Some(val) = pix.get_pixel(nx as u32, ny as u32)
+            && val != 0
+        {
+            values.insert(val);
+        }
+    }
+
+    Ok(values.into_iter().collect())
+}
+
 #[cfg(test)]
 mod tests_phase4 {
     use super::*;
