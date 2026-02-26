@@ -359,6 +359,39 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
     Ok(())
 }
 
+/// Apply thinning to each component in a Pixa.
+///
+/// Each Pix in the input Pixa must be 1-bpp. Returns a new Pixa with
+/// the thinned versions of each component.
+///
+/// # Arguments
+///
+/// * `pixa` - Collection of 1-bpp binary images
+/// * `thin_type` - Whether to thin foreground or background
+/// * `connectivity` - 4 or 8 connectivity to preserve
+/// * `max_iters` - Maximum number of iterations (0 = until convergence)
+///
+/// Based on C leptonica `pixaThinConnected`.
+pub fn pixa_thin_connected(
+    pixa: &crate::core::Pixa,
+    thin_type: ThinType,
+    connectivity: Connectivity,
+    max_iters: u32,
+) -> MorphResult<crate::core::Pixa> {
+    let mut result = crate::core::Pixa::with_capacity(pixa.len());
+
+    for i in 0..pixa.len() {
+        let pix = pixa.get(i).ok_or_else(|| {
+            MorphError::InvalidParameters(format!("pixa index {} out of bounds", i))
+        })?;
+        check_binary(pix)?;
+        let thinned = thin_connected(pix, thin_type, connectivity, max_iters)?;
+        result.push(thinned);
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -16,6 +16,7 @@ mod fhmtauto_reg;
 mod fmorphauto_reg;
 mod graymorph1_reg;
 mod graymorph2_reg;
+mod morph_coverage_reg;
 mod morphseq_reg;
 mod sel_morphapp_reg;
 mod selio_reg;
