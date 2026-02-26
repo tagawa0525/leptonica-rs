@@ -447,12 +447,40 @@ pub fn conn_comp_transform(
 /// Incremental connected component labeler
 ///
 /// Allows components to be added sequentially with automatic label assignment.
+/// Union-find: find root with path halving
+fn uf_find(parent: &mut [u32], mut x: u32) -> u32 {
+    while parent[x as usize] != x {
+        parent[x as usize] = parent[parent[x as usize] as usize];
+        x = parent[x as usize];
+    }
+    x
+}
+
+/// Union-find: merge two sets by rank
+fn uf_union(parent: &mut [u32], rank: &mut [u8], x: u32, y: u32) {
+    let rx = uf_find(parent, x);
+    let ry = uf_find(parent, y);
+    if rx == ry {
+        return;
+    }
+    if rank[rx as usize] < rank[ry as usize] {
+        parent[rx as usize] = ry;
+    } else if rank[rx as usize] > rank[ry as usize] {
+        parent[ry as usize] = rx;
+    } else {
+        parent[ry as usize] = rx;
+        rank[rx as usize] += 1;
+    }
+}
+
 pub struct IncrementalLabeler {
     width: u32,
     height: u32,
     connectivity: ConnectivityType,
     labels: Vec<u32>,
     next_label: u32,
+    parent: Vec<u32>,
+    rank: Vec<u8>,
 }
 
 impl std::fmt::Debug for IncrementalLabeler {
@@ -484,6 +512,8 @@ impl IncrementalLabeler {
             connectivity,
             labels: vec![0; size],
             next_label: 1,
+            parent: vec![0],
+            rank: vec![0],
         }
     }
 
@@ -529,6 +559,8 @@ impl IncrementalLabeler {
 
         // BFS to find all connected pixels
         let label = self.next_label;
+        self.parent.push(label);
+        self.rank.push(0);
         let mut queue = std::collections::VecDeque::new();
         queue.push_back((x, y));
         self.labels[idx] = label;
@@ -589,16 +621,22 @@ impl IncrementalLabeler {
     }
 
     /// Get the resulting labeled image
-    pub fn finish(self) -> Pix {
+    pub fn finish(mut self) -> Pix {
         // Create a 32-bit image
         let pix =
             Pix::new(self.width, self.height, PixelDepth::Bit32).expect("Failed to allocate image");
         let mut pix_mut = pix.try_into_mut().unwrap_or_else(|p| p.to_mut());
 
-        for (idx, &label) in self.labels.iter().enumerate() {
+        for idx in 0..self.labels.len() {
+            let label = self.labels[idx];
+            let resolved = if label > 0 {
+                uf_find(&mut self.parent, label)
+            } else {
+                0
+            };
             let y = (idx as u32) / self.width;
             let x = (idx as u32) % self.width;
-            let _ = pix_mut.set_pixel(x, y, label);
+            let _ = pix_mut.set_pixel(x, y, resolved);
         }
 
         pix_mut.into()
@@ -678,6 +716,245 @@ pub fn label_to_color(labeled: &Pix) -> RegionResult<Pix> {
     }
 
     Ok(pix_mut.into())
+}
+
+/// Initialize incremental connected component labeling from a binary image
+///
+/// Creates an `IncrementalLabeler` pre-populated with all existing foreground
+/// components from the input image. New pixels can then be added incrementally
+/// using `pix_conn_comp_incr_add`.
+///
+/// Rust equivalent of C `pixConnCompIncrInit`.
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image (1-bit)
+/// * `connectivity` - Connectivity type (4-way or 8-way)
+///
+/// # Returns
+///
+/// A tuple of (IncrementalLabeler, number_of_components).
+pub fn pix_conn_comp_incr_init(
+    pix: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<(IncrementalLabeler, u32)> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let width = pix.width();
+    let height = pix.height();
+
+    // Check if image is empty
+    let mut has_fg = false;
+    'outer: for y in 0..height {
+        for x in 0..width {
+            if pix.get_pixel(x, y) == Some(1) {
+                has_fg = true;
+                break 'outer;
+            }
+        }
+    }
+
+    if !has_fg {
+        return Ok((IncrementalLabeler::new(width, height, connectivity), 0));
+    }
+
+    // Label existing components
+    let labeled = label_connected_components(pix, connectivity)?;
+
+    // Find max label
+    let mut max_label = 0u32;
+    let mut labeler = IncrementalLabeler::new(width, height, connectivity);
+
+    for y in 0..height {
+        for x in 0..width {
+            if let Some(label) = labeled.get_pixel(x, y)
+                && label > 0
+            {
+                let idx = (y * width + x) as usize;
+                labeler.labels[idx] = label;
+                if label > max_label {
+                    max_label = label;
+                }
+            }
+        }
+    }
+
+    labeler.next_label = max_label + 1;
+    labeler.parent = (0..=max_label).collect();
+    labeler.rank = vec![0; (max_label + 1) as usize];
+    Ok((labeler, max_label))
+}
+
+/// Add a single pixel to incremental connected component labeling
+///
+/// Adds the pixel at (x, y) and updates labels. If the pixel connects
+/// existing components, they are merged.
+///
+/// Rust equivalent of C `pixConnCompIncrAdd`.
+///
+/// # Arguments
+///
+/// * `labeler` - The incremental labeler
+/// * `ncc` - Current number of components (updated in place)
+/// * `x` - X coordinate of pixel to add
+/// * `y` - Y coordinate of pixel to add
+///
+/// # Returns
+///
+/// Ok(()) on success, Err if coordinates are out of bounds.
+pub fn pix_conn_comp_incr_add(
+    labeler: &mut IncrementalLabeler,
+    ncc: &mut u32,
+    x: u32,
+    y: u32,
+) -> RegionResult<()> {
+    if x >= labeler.width || y >= labeler.height {
+        return Err(RegionError::InvalidSeed { x, y });
+    }
+
+    let idx = (y * labeler.width + x) as usize;
+
+    // Already labeled
+    if labeler.labels[idx] != 0 {
+        return Ok(());
+    }
+
+    // Find unique neighbor labels
+    let offsets: &[(i32, i32)] = match labeler.connectivity {
+        ConnectivityType::FourWay => &[(0, -1), (0, 1), (-1, 0), (1, 0)],
+        ConnectivityType::EightWay => &[
+            (0, -1),
+            (0, 1),
+            (-1, 0),
+            (1, 0),
+            (-1, -1),
+            (1, -1),
+            (-1, 1),
+            (1, 1),
+        ],
+    };
+
+    let mut neighbor_labels: Vec<u32> = Vec::with_capacity(8);
+    for &(dx, dy) in offsets {
+        let nx = x as i32 + dx;
+        let ny = y as i32 + dy;
+        if nx >= 0 && nx < labeler.width as i32 && ny >= 0 && ny < labeler.height as i32 {
+            let n_idx = (ny as u32 * labeler.width + nx as u32) as usize;
+            let val = labeler.labels[n_idx];
+            if val > 0 {
+                let root = uf_find(&mut labeler.parent, val);
+                if !neighbor_labels.contains(&root) {
+                    neighbor_labels.push(root);
+                }
+            }
+        }
+    }
+    neighbor_labels.sort_unstable();
+
+    if neighbor_labels.is_empty() {
+        // New isolated component
+        let label = labeler.next_label;
+        labeler.labels[idx] = label;
+        labeler.parent.push(label);
+        labeler.rank.push(0);
+        labeler.next_label += 1;
+        *ncc += 1;
+    } else {
+        // Assign to the smallest neighbor label
+        let first_label = neighbor_labels[0];
+        labeler.labels[idx] = first_label;
+
+        // Union all neighbor labels via union-find
+        if neighbor_labels.len() > 1 {
+            for &other_label in &neighbor_labels[1..] {
+                uf_union(
+                    &mut labeler.parent,
+                    &mut labeler.rank,
+                    first_label,
+                    other_label,
+                );
+                *ncc -= 1;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Transform pixel locations to color encoding
+///
+/// Creates an RGB image where each foreground pixel is colored based on its
+/// (x, y) location and the area of its connected component. The encoding is
+/// approximately invariant to 4-fold orthogonal rotation and weakly depends
+/// on translation/small rotation.
+///
+/// Rust equivalent of C `pixLocToColorTransform`.
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image (1-bit)
+///
+/// # Returns
+///
+/// A 32-bit RGBA image. Background pixels are black (0x00000000).
+pub fn pix_loc_to_color_transform(pix: &Pix) -> RegionResult<Pix> {
+    use crate::core::pixel::compose_rgba;
+
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RegionError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let w2 = w / 2;
+    let h2 = h / 2;
+    let inv_w2 = if w2 > 0 { 255.0 / w2 as f32 } else { 0.0 };
+    let inv_h2 = if h2 > 0 { 255.0 / h2 as f32 } else { 0.0 };
+
+    // Get connected component area transform (label each pixel with its component area)
+    let area_pix = crate::region::conncomp::component_area_transform(&label_connected_components(
+        pix,
+        ConnectivityType::EightWay,
+    )?)?;
+
+    // Create output 32-bit image
+    let out = Pix::new(w, h, PixelDepth::Bit32).map_err(RegionError::Core)?;
+    let mut out_mut = out.try_into_mut().unwrap_or_else(|p| p.to_mut());
+
+    for y in 0..h {
+        for x in 0..w {
+            if pix.get_pixel(x, y).unwrap_or(0) == 0 {
+                continue;
+            }
+
+            let (rval, gval) = if w < h {
+                let r = (inv_h2 * (y as f32 - h2 as f32).abs()) as u8;
+                let g = (inv_w2 * (x as f32 - w2 as f32).abs()) as u8;
+                (r, g)
+            } else {
+                let r = (inv_w2 * (x as f32 - w2 as f32).abs()) as u8;
+                let g = (inv_h2 * (y as f32 - h2 as f32).abs()) as u8;
+                (r, g)
+            };
+
+            // Blue channel: component area clipped to 255
+            let area = area_pix.get_pixel(x, y).unwrap_or(0);
+            let bval = area.min(255) as u8;
+
+            let color = compose_rgba(rval, gval, bval, 255);
+            let _ = out_mut.set_pixel(x, y, color);
+        }
+    }
+
+    Ok(out_mut.into())
 }
 
 #[cfg(test)]

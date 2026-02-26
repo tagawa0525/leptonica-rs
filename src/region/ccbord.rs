@@ -327,6 +327,12 @@ pub struct ComponentBorders {
     /// Single continuous path (outer + holes connected via cuts, in local coordinates)
     /// Computed by `ImageBorders::generate_single_path()`
     pub single_path: Option<Vec<BorderPoint>>,
+    /// Outer border in global coordinates (computed by `generate_global_locs`)
+    pub global_outer: Option<Border>,
+    /// Hole borders in global coordinates (computed by `generate_global_locs`)
+    pub global_holes: Option<Vec<Border>>,
+    /// Single path in global coordinates (computed by `generate_sp_global_locs`)
+    pub global_single_path: Option<Vec<BorderPoint>>,
 }
 
 impl ComponentBorders {
@@ -337,6 +343,9 @@ impl ComponentBorders {
             outer,
             holes: Vec::new(),
             single_path: None,
+            global_outer: None,
+            global_holes: None,
+            global_single_path: None,
         }
     }
 
@@ -403,6 +412,35 @@ impl ImageBorders {
     /// Check if any component has holes
     pub fn has_holes(&self) -> bool {
         self.components.iter().any(|c| c.has_holes())
+    }
+
+    /// Convert local border coordinates to global coordinates and store them
+    ///
+    /// Populates `ComponentBorders::global_outer` and `ComponentBorders::global_holes`
+    /// for each component. Rust equivalent of C `ccbaGenerateGlobalLocs`.
+    pub fn generate_global_locs(&mut self) {
+        for comp in &mut self.components {
+            comp.global_outer = Some(comp.outer_global());
+            comp.global_holes = Some(comp.holes_global());
+        }
+    }
+
+    /// Convert single-path local coordinates to global coordinates and store them
+    ///
+    /// Must be called after `generate_single_path()`. Populates
+    /// `ComponentBorders::global_single_path` for each component.
+    /// Rust equivalent of C `ccbaGenerateSPGlobalLocs`.
+    pub fn generate_sp_global_locs(&mut self) {
+        for comp in &mut self.components {
+            if let Some(ref single) = comp.single_path {
+                comp.global_single_path = Some(
+                    single
+                        .iter()
+                        .map(|p| BorderPoint::new(p.x + comp.bounds.x, p.y + comp.bounds.y))
+                        .collect(),
+                );
+            }
+        }
     }
 }
 
@@ -684,6 +722,30 @@ impl ImageBorders {
             .write_all(svg.as_bytes())
             .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
         Ok(())
+    }
+
+    /// Write borders to a file (Rust equivalent of C `ccbaWrite`)
+    pub fn write_to_file<P: AsRef<std::path::Path>>(&self, path: P) -> RegionResult<()> {
+        let file = std::fs::File::create(path)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        let writer = std::io::BufWriter::new(file);
+        self.write(writer)
+    }
+
+    /// Read borders from a file (Rust equivalent of C `ccbaRead`)
+    pub fn read_from_file<P: AsRef<std::path::Path>>(path: P) -> RegionResult<Self> {
+        let file =
+            std::fs::File::open(path).map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        let reader = std::io::BufReader::new(file);
+        Self::read_from(reader)
+    }
+
+    /// Write SVG representation to a file (Rust equivalent of C `ccbaWriteSVG`)
+    pub fn write_svg_to_file<P: AsRef<std::path::Path>>(&self, path: P) -> RegionResult<()> {
+        let file = std::fs::File::create(path)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        let writer = std::io::BufWriter::new(file);
+        self.write_svg(writer)
     }
 }
 
@@ -1101,7 +1163,7 @@ pub fn get_component_borders(pix: &Pix, bounds: Box) -> RegionResult<ComponentBo
     for hole_comp in &hole_components {
         // Find a starting pixel for the hole border
         // We need to find a pixel on the component boundary adjacent to this hole
-        if let Some(start) = find_hole_start_pixel(pix, &hole_comp.bounds) {
+        if let Some(start) = locate_outside_seed_pixel(pix, &hole_comp.bounds) {
             // Trace the hole border
             match trace_hole_border(pix, start, &hole_comp.bounds) {
                 Ok(border) => component_borders.holes.push(border),
@@ -1115,8 +1177,20 @@ pub fn get_component_borders(pix: &Pix, bounds: Box) -> RegionResult<ComponentBo
 
 /// Find a starting pixel for tracing a hole border
 ///
-/// We look for a foreground pixel adjacent to the hole
-fn find_hole_start_pixel(pix: &Pix, hole_bounds: &Box) -> Option<BorderPoint> {
+/// Locates a foreground pixel adjacent to the hole specified by `hole_bounds`.
+/// Scans from the top of the hole bounding box rightward.
+///
+/// Rust equivalent of C `locateOutsideSeedPixel`.
+///
+/// # Arguments
+///
+/// * `pix` - Binary image
+/// * `hole_bounds` - Bounding box of the hole interior
+///
+/// # Returns
+///
+/// A foreground `BorderPoint` adjacent to the hole, or `None` if not found.
+pub fn locate_outside_seed_pixel(pix: &Pix, hole_bounds: &Box) -> Option<BorderPoint> {
     let width = pix.width() as i32;
 
     // Start from the top of the hole bounding box and scan right
@@ -1131,6 +1205,25 @@ fn find_hole_start_pixel(pix: &Pix, hole_bounds: &Box) -> Option<BorderPoint> {
     }
 
     None
+}
+
+/// Trace the border of a hole inside a connected component
+///
+/// Rust equivalent of C `pixGetHoleBorder`.
+///
+/// # Arguments
+///
+/// * `pix` - Binary image containing the component
+/// * `hole_bounds` - Bounding box of the hole
+///
+/// # Returns
+///
+/// Border with points tracing the hole boundary.
+pub fn pix_get_hole_border(pix: &Pix, hole_bounds: &Box) -> RegionResult<Border> {
+    let start = locate_outside_seed_pixel(pix, hole_bounds).ok_or_else(|| {
+        RegionError::InvalidParameters("no seed pixel found for hole border".to_string())
+    })?;
+    trace_hole_border(pix, start, hole_bounds)
 }
 
 /// Trace a hole border starting from a given pixel
@@ -1177,6 +1270,71 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
     }
 
     Ok(Border::new(BorderType::Hole, points))
+}
+
+/// Find a cut path connecting the outer border to a hole border
+///
+/// Returns a sequence of points forming a straight-line cut from the
+/// closest point on the outer border to the closest point on the hole border.
+///
+/// Rust equivalent of C `getCutPathForHole`.
+///
+/// # Arguments
+///
+/// * `outer` - The outer border of the component (local coordinates)
+/// * `hole` - A hole border (local coordinates)
+/// * `bounds` - Bounding box of the component
+///
+/// # Returns
+///
+/// A vector of `BorderPoint` forming the cut path (may be empty if borders are empty).
+pub fn get_cut_path_for_hole(outer: &Border, hole: &Border, _bounds: &Box) -> Vec<BorderPoint> {
+    if outer.is_empty() || hole.is_empty() {
+        return Vec::new();
+    }
+
+    // Find closest pair of points between outer and hole borders
+    let mut min_dist = i64::MAX;
+    let mut best_outer_pt = outer.points[0];
+    let mut best_hole_pt = hole.points[0];
+
+    for op in &outer.points {
+        for hp in &hole.points {
+            let dx = (op.x - hp.x) as i64;
+            let dy = (op.y - hp.y) as i64;
+            let dist = dx * dx + dy * dy;
+            if dist < min_dist {
+                min_dist = dist;
+                best_outer_pt = *op;
+                best_hole_pt = *hp;
+            }
+        }
+    }
+
+    // Generate straight-line cut path using Bresenham-like approach
+    let mut path = Vec::new();
+    let mut x = best_outer_pt.x;
+    let mut y = best_outer_pt.y;
+    let tx = best_hole_pt.x;
+    let ty = best_hole_pt.y;
+
+    path.push(BorderPoint::new(x, y));
+
+    while x != tx || y != ty {
+        if x < tx {
+            x += 1;
+        } else if x > tx {
+            x -= 1;
+        }
+        if y < ty {
+            y += 1;
+        } else if y > ty {
+            y -= 1;
+        }
+        path.push(BorderPoint::new(x, y));
+    }
+
+    path
 }
 
 /// Get all borders from a binary image

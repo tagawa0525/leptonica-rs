@@ -76,14 +76,15 @@ pub use error::{RegionError, RegionResult};
 pub use conncomp::{
     ConnectedComponent, ConnectivityType, component_area_transform, conncomp_pixa,
     extract_component, filter_components_by_size, find_connected_components,
-    get_sorted_neighbor_values, label_connected_components,
+    get_sorted_neighbor_values, label_connected_components, seedfill, seedfill_4, seedfill_8,
 };
 
 // Re-export label types and functions
 pub use label::{
     ComponentStats, ConnCompTransform, IncrementalLabeler, conn_comp_transform,
     get_component_bounds_from_labels, get_component_sizes, get_component_stats, label_to_color,
-    pix_count_components, pix_get_component_bounds, pix_label_connected_components,
+    pix_conn_comp_incr_add, pix_conn_comp_incr_init, pix_count_components,
+    pix_get_component_bounds, pix_label_connected_components, pix_loc_to_color_transform,
 };
 
 // Re-export seedfill types and functions
@@ -106,7 +107,8 @@ pub use watershed::{
 // Re-export ccbord types and functions
 pub use ccbord::{
     Border, BorderPoint, BorderType, ComponentBorders, Direction, ImageBorders, from_chain_code,
-    get_all_borders, get_component_borders, get_outer_border, get_outer_borders, render_borders,
+    get_all_borders, get_component_borders, get_cut_path_for_hole, get_outer_border,
+    get_outer_borders, locate_outside_seed_pixel, pix_get_hole_border, render_borders,
     to_chain_code,
 };
 
