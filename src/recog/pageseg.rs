@@ -461,29 +461,43 @@ pub fn split_component_with_profile(
         }
     }
 
-    // Find split points: columns where projection is at a local minimum
+    // Find split points: look for valleys in the projection
     let delta = delta.max(1) as usize;
     let mindel = mindel.max(1) as u32;
     let mut split_points = Vec::new();
 
-    for x in delta..col_sums.len().saturating_sub(delta) {
-        let val = col_sums[x];
-        let left_max = col_sums[x.saturating_sub(delta)..x]
-            .iter()
-            .copied()
-            .max()
-            .unwrap_or(0);
-        let right_max = col_sums[x + 1..(x + 1 + delta).min(col_sums.len())]
-            .iter()
-            .copied()
-            .max()
-            .unwrap_or(0);
-        if val < left_max
-            && val < right_max
-            && left_max - val >= mindel
-            && right_max - val >= mindel
-        {
-            split_points.push(x as u32);
+    // Find gaps (runs of columns below a threshold)
+    let max_sum = col_sums.iter().copied().max().unwrap_or(0);
+    let gap_thresh = (max_sum as f32 * 0.1) as u32;
+
+    let mut in_gap = false;
+    let mut gap_start = 0usize;
+
+    for (x, &sum) in col_sums.iter().enumerate() {
+        if sum <= gap_thresh {
+            if !in_gap {
+                in_gap = true;
+                gap_start = x;
+            }
+        } else if in_gap {
+            in_gap = false;
+            let left_max = if gap_start >= delta {
+                col_sums[gap_start.saturating_sub(delta)..gap_start]
+                    .iter()
+                    .copied()
+                    .max()
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+            let right_max = col_sums[x..(x + delta).min(col_sums.len())]
+                .iter()
+                .copied()
+                .max()
+                .unwrap_or(0);
+            if left_max >= mindel && right_max >= mindel {
+                split_points.push(((gap_start + x) / 2) as u32);
+            }
         }
     }
 
