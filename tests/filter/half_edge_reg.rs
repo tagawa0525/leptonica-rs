@@ -8,6 +8,7 @@
 //! - pixHalfEdgeByBandpass -> half_edge_by_bandpass
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::core::pix::RemoveColormapTarget;
 use leptonica::filter::half_edge_by_bandpass;
 use leptonica::{Pix, PixelDepth};
 
@@ -17,6 +18,9 @@ fn half_edge_reg() {
     let mut rp = RegParams::new("half_edge");
 
     let pixs8 = load_test_image("dreyfus8.png").expect("load dreyfus8.png");
+    let pixs8 = pixs8
+        .remove_colormap(RemoveColormapTarget::ToGrayscale)
+        .expect("remove colormap");
     let w = pixs8.width();
     let h = pixs8.height();
 

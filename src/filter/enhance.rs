@@ -994,6 +994,11 @@ pub fn half_edge_by_bandpass(
             actual: d.bits(),
         });
     }
+    if d == PixelDepth::Bit8 && pix.has_colormap() {
+        return Err(FilterError::InvalidParameters(
+            "8bpp input must not have a colormap".to_string(),
+        ));
+    }
 
     // Convert 32bpp to luminance
     let pixg = if d == PixelDepth::Bit32 {
