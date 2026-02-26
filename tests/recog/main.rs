@@ -13,5 +13,6 @@ mod newspaper_reg;
 mod pageseg_reg;
 mod partition_reg;
 mod pixadisp_reg;
+mod recog_coverage_reg;
 mod skew_reg;
 mod wordboxes_reg;

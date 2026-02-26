@@ -850,6 +850,235 @@ fn count_and_pixels(pix1: &Pix, pix2: &Pix) -> RecogResult<i32> {
     Ok(count)
 }
 
+/// Creates a correlation-based classifier without keeping component instances.
+///
+/// Like [`correlation_init`], but sets `keep_pixaa = false` for lower memory.
+///
+/// Corresponds to `jbCorrelationInitWithoutComponents` in C Leptonica.
+pub fn correlation_init_without_components(
+    components: JbComponent,
+    max_width: i32,
+    max_height: i32,
+    thresh: f32,
+    weight_factor: f32,
+) -> RecogResult<JbClasser> {
+    let mut classer = correlation_init(components, max_width, max_height, thresh, weight_factor)?;
+    classer.keep_pixaa = false;
+    Ok(classer)
+}
+
+/// Adds pre-extracted page components to a classifier.
+///
+/// The components in `pixa` with corresponding bounding boxes `boxa` are
+/// classified according to the method stored in the classer.
+///
+/// Corresponds to `jbAddPageComponents` in C Leptonica.
+pub fn add_page_components(
+    classer: &mut JbClasser,
+    pix: &Pix,
+    boxa: &[PixBox],
+    pixa: &[Pix],
+) -> RecogResult<()> {
+    // Update page dimensions
+    let w = pix.width() as i32;
+    let h = pix.height() as i32;
+    classer.w = classer.w.max(w);
+    classer.h = classer.h.max(h);
+
+    let page = classer.npages;
+    let mut n_added = 0usize;
+
+    for (comp, bounds) in pixa.iter().zip(boxa.iter()) {
+        let cw = comp.width() as i32;
+        let ch = comp.height() as i32;
+        if cw > classer.max_width || ch > classer.max_height || cw == 0 || ch == 0 {
+            continue;
+        }
+
+        // Add border
+        let bordered = add_border(comp, TEMPLATE_BORDER as u32)?;
+        let (cx, cy) = compute_centroid(&bordered)?;
+
+        // Try to match against existing templates
+        let matched = match classer.method {
+            JbMethod::RankHaus => try_match_rank_haus(classer, &bordered),
+            JbMethod::Correlation => try_match_correlation(classer, &bordered),
+        };
+
+        let class_id = match matched {
+            Some(id) => id,
+            None => {
+                // Create new class
+                let id = classer.nclass;
+                classer.nclass += 1;
+                let dilated = if classer.method == JbMethod::RankHaus {
+                    morph_binary::dilate_brick(
+                        &bordered,
+                        classer.size_haus as u32,
+                        classer.size_haus as u32,
+                    )
+                    .unwrap_or_else(|_| bordered.clone())
+                } else {
+                    bordered.clone()
+                };
+                classer.pixat.push(bordered.clone());
+                classer.pixatd.push(dilated);
+                classer.ptact.push((cx, cy));
+                classer.naarea.push(cw * ch);
+                let key = (bordered.width() as i32, bordered.height() as i32);
+                classer.dahash.entry(key).or_default().push(id);
+                if classer.keep_pixaa {
+                    classer.pixaa.push(Vec::new());
+                }
+                classer.nafgt.push(count_fg_pixels(&bordered).unwrap_or(0));
+                id
+            }
+        };
+
+        // Record component classification
+        classer.naclass.push(class_id);
+        classer.napage.push(page);
+        classer.ptac.push((cx, cy));
+        classer.ptaul.push((bounds.x, bounds.y));
+        classer.ptall.push((bounds.x, bounds.y + bounds.h));
+
+        if classer.keep_pixaa && class_id < classer.pixaa.len() {
+            classer.pixaa[class_id].push(bordered);
+        }
+
+        n_added += 1;
+    }
+
+    classer.nacomps.push(n_added);
+    classer.base_index += n_added;
+    classer.npages += 1;
+
+    Ok(())
+}
+
+/// Try to match a component to an existing RankHaus template
+fn try_match_rank_haus(classer: &JbClasser, bordered: &Pix) -> Option<usize> {
+    let key = (bordered.width() as i32, bordered.height() as i32);
+    let candidates = classer.dahash.get(&key)?;
+    for &id in candidates {
+        if id < classer.pixatd.len()
+            && hausdorff_distance(
+                bordered,
+                &classer.pixat[id],
+                classer.size_haus,
+                classer.rank_haus,
+            )
+            .unwrap_or(false)
+        {
+            return Some(id);
+        }
+    }
+    // Also check nearby sizes
+    for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
+        for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
+            if dw == 0 && dh == 0 {
+                continue;
+            }
+            let key2 = (key.0 + dw, key.1 + dh);
+            if let Some(candidates) = classer.dahash.get(&key2) {
+                for &id in candidates {
+                    if id < classer.pixatd.len()
+                        && hausdorff_distance(
+                            bordered,
+                            &classer.pixat[id],
+                            classer.size_haus,
+                            classer.rank_haus,
+                        )
+                        .unwrap_or(false)
+                    {
+                        return Some(id);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Try to match a component to an existing Correlation template
+fn try_match_correlation(classer: &JbClasser, bordered: &Pix) -> Option<usize> {
+    let key = (bordered.width() as i32, bordered.height() as i32);
+    let (cx, cy) = compute_centroid(bordered).ok()?;
+    let area = count_fg_pixels(bordered).unwrap_or(0);
+
+    // Check exact size and nearby sizes
+    for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
+        for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
+            let key2 = (key.0 + dw, key.1 + dh);
+            if let Some(candidates) = classer.dahash.get(&key2) {
+                for &id in candidates {
+                    if id < classer.pixat.len() {
+                        let (tcx, tcy) = classer.ptact[id];
+                        let tarea = classer.naarea.get(id).copied().unwrap_or(0);
+                        let score = correlation_score_aligned(
+                            bordered,
+                            &classer.pixat[id],
+                            (cx, cy),
+                            (tcx, tcy),
+                            area,
+                            tarea,
+                        )
+                        .unwrap_or(0.0);
+                        if score >= classer.thresh {
+                            return Some(id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Runs full correlation-based JB classification on a set of page images.
+///
+/// Creates a correlation classifier, processes all pages, and returns
+/// the compressed [`JbData`].
+///
+/// Corresponds to `jbCorrelation` in C Leptonica.
+pub fn jb_correlation(
+    pages: &[Pix],
+    thresh: f32,
+    weight: f32,
+    components: JbComponent,
+) -> RecogResult<JbData> {
+    if pages.is_empty() {
+        return Err(RecogError::InvalidParameter(
+            "pages slice is empty".to_string(),
+        ));
+    }
+    let mut classer = correlation_init(components, 0, 0, thresh, weight)?;
+    classer.add_pages(pages)?;
+    classer.get_data()
+}
+
+/// Runs full rank-Hausdorff-based JB classification on a set of page images.
+///
+/// Creates a RankHaus classifier, processes all pages, and returns
+/// the compressed [`JbData`].
+///
+/// Corresponds to `jbRankHaus` in C Leptonica.
+pub fn jb_rank_haus(
+    pages: &[Pix],
+    size: i32,
+    rank: f32,
+    components: JbComponent,
+) -> RecogResult<JbData> {
+    if pages.is_empty() {
+        return Err(RecogError::InvalidParameter(
+            "pages slice is empty".to_string(),
+        ));
+    }
+    let mut classer = rank_haus_init(components, 0, 0, size, rank)?;
+    classer.add_pages(pages)?;
+    classer.get_data()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -194,6 +194,75 @@ pub fn decode_barcode(bar_str: &str, format: BarcodeFormat) -> RecogResult<Barco
     dispatch_decoder(bar_str, format)
 }
 
+/// Reads and decodes barcodes from a slice of pre-extracted barcode images.
+///
+/// Each image in `pixa` should be a deskewed 8 bpp barcode region.
+/// Returns decoded data for all successfully decoded barcodes.
+///
+/// Corresponds to `pixReadBarcodes` in C Leptonica.
+pub fn read_barcodes(pixa: &[Pix], format: BarcodeFormat) -> RecogResult<Vec<BarcodeResult>> {
+    if pixa.is_empty() {
+        return Err(RecogError::NoBarcodeFound);
+    }
+
+    let opts = BarcodeOptions::with_format(format);
+    let mut results = Vec::new();
+
+    for pix in pixa {
+        // Ensure 8bpp
+        let gray = match pix.depth() {
+            PixelDepth::Bit8 => pix.clone(),
+            PixelDepth::Bit1 => {
+                // Convert 1bpp to 8bpp
+                let w = pix.width();
+                let h = pix.height();
+                let gray = Pix::new(w, h, PixelDepth::Bit8).map_err(RecogError::Core)?;
+                let mut gm = gray.try_into_mut().unwrap_or_else(|p| p.to_mut());
+                for y in 0..h {
+                    for x in 0..w {
+                        let v = pix.get_pixel(x, y).unwrap_or(0);
+                        let _ = gm.set_pixel(x, y, if v == 1 { 0 } else { 255 });
+                    }
+                }
+                gm.into()
+            }
+            _ => continue,
+        };
+
+        // Extract bar widths
+        let crossings = match extract_crossings(&gray, opts.crossing_threshold) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let widths = match opts.method {
+            DecodeMethod::UseWidths => match quantize_crossings_by_width(&crossings, 0.25) {
+                Ok(w) => w,
+                Err(_) => continue,
+            },
+            DecodeMethod::UseWindows => match quantize_crossings_by_window(&crossings, 2.0) {
+                Ok((w, _)) => w,
+                Err(_) => continue,
+            },
+        };
+
+        let bar_string = widths_to_bar_string(&widths);
+
+        match dispatch_decoder(&bar_string, format) {
+            Ok(result) => results.push(result),
+            Err(_) => continue,
+        }
+    }
+
+    if results.is_empty() {
+        return Err(RecogError::BarcodeError(
+            "no valid barcode data decoded".to_string(),
+        ));
+    }
+
+    Ok(results)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

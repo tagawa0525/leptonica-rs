@@ -804,6 +804,105 @@ fn calculate_confidence(
     (max_score / min_score) as f32
 }
 
+/// Finds the skew angle using only the sweep phase (no binary search).
+///
+/// This is a low-level function that does a single pass through the angle
+/// range.  For most uses, prefer [`find_skew`] which also refines with
+/// binary search.
+///
+/// Corresponds to `pixFindSkewSweep` in C Leptonica.
+///
+/// # Arguments
+///
+/// * `pix` - Input image (1 bpp binary recommended)
+/// * `reduction` - Reduction factor: 1, 2, 4, or 8
+/// * `sweep_range` - Half the sweep range in degrees
+/// * `sweep_delta` - Angle increment in degrees
+pub fn find_skew_sweep(
+    pix: &Pix,
+    reduction: u32,
+    sweep_range: f32,
+    sweep_delta: f32,
+) -> RecogResult<f32> {
+    if !matches!(reduction, 1 | 2 | 4 | 8) {
+        return Err(RecogError::InvalidParameter(
+            "reduction must be 1, 2, 4, or 8".to_string(),
+        ));
+    }
+    if sweep_range <= 0.0 || sweep_delta <= 0.0 {
+        return Err(RecogError::InvalidParameter(
+            "sweep_range and sweep_delta must be positive".to_string(),
+        ));
+    }
+
+    let binary_pix = ensure_binary(pix)?;
+    if is_image_empty(&binary_pix) {
+        return Err(RecogError::NoContent(
+            "image is empty or all white".to_string(),
+        ));
+    }
+
+    let reduced = reduce_image(&binary_pix, reduction)?;
+
+    let (best_angle, _) = sweep_angles(&reduced, -sweep_range, sweep_range, sweep_delta)?;
+    Ok(best_angle)
+}
+
+/// Finds the skew angle by searching in two orthogonal directions.
+///
+/// First searches around 0° (landscape), then around 90° (portrait),
+/// and returns the result with higher confidence.
+///
+/// Corresponds to `pixFindSkewOrthogonalRange` in C Leptonica.
+///
+/// # Arguments
+///
+/// * `pix` - Input binary image
+/// * `redsweep` - Reduction factor for sweep phase
+/// * `redsearch` - Reduction factor for search phase
+/// * `sweep_range` - Half sweep range in degrees
+/// * `sweep_delta` - Angle increment in degrees
+/// * `minbs_delta` - Minimum binary search delta
+/// * `confprior` - Confidence penalty for 90° result
+///
+/// # Returns
+///
+/// `(angle, confidence)` for best direction
+pub fn find_skew_orthogonal_range(
+    pix: &Pix,
+    redsweep: u32,
+    redsearch: u32,
+    sweep_range: f32,
+    sweep_delta: f32,
+    minbs_delta: f32,
+    confprior: f32,
+) -> RecogResult<(f32, f32)> {
+    // Search around 0°
+    let opts = SkewDetectOptions {
+        sweep_range,
+        sweep_delta,
+        min_bs_delta: minbs_delta,
+        sweep_reduction: redsweep,
+        bs_reduction: redsearch,
+    };
+
+    let result0 = find_skew(pix, &opts)?;
+
+    // Search around 90° by rotating the image
+    let rotated = rotate_by_angle(pix, std::f32::consts::FRAC_PI_2)?;
+    let result90 = find_skew(&rotated, &opts)?;
+
+    // Apply confprior penalty to 90° result
+    let conf90_adjusted = result90.confidence - confprior;
+
+    if result0.confidence >= conf90_adjusted {
+        Ok((result0.angle, result0.confidence))
+    } else {
+        // Adjust angle: the 90° search was done on rotated image
+        Ok((result90.angle + 90.0, result90.confidence))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
