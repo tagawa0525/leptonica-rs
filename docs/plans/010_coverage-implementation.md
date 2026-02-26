@@ -1,6 +1,6 @@
 # 未実装関数の実装（カバレッジ向上）
 
-**Status: IN_PROGRESS**
+**Status: IMPLEMENTED**
 
 ## 概要
 

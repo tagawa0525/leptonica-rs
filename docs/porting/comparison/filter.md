@@ -6,10 +6,10 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 100 |
+| ✅ 同等 | 106 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 6 |
-| 🚫 不要 | 11 |
+| ❌ 未実装 | 0 |
+| 🚫 不要 | 12 |
 | 合計 | 118 |
 
 ## 詳細
@@ -72,9 +72,9 @@
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixSobelEdgeFilter | ✅ 同等 | sobel_edge() | Sobelエッジ検出 |
-| pixTwoSidedEdgeFilter | ❌ 未実装 | - | 両側エッジ勾配フィルタ |
-| pixMeasureEdgeSmoothness | ❌ 未実装 | - | エッジ滑らかさ測定 (returns l_ok) |
-| pixGetEdgeProfile | ❌ 未実装 | - | エッジプロファイル取得 (returns NUMA*) |
+| pixTwoSidedEdgeFilter | ✅ 同等 | `two_sided_edge_filter` | 両側エッジ勾配フィルタ |
+| pixMeasureEdgeSmoothness | ✅ 同等 | `measure_edge_smoothness` | エッジ滑らかさ測定 (returns l_ok) |
+| pixGetEdgeProfile | ✅ 同等 | `get_edge_profile` | エッジプロファイル取得 (returns NUMA*) |
 | pixGetLastOffPixelInRun | 🚫 不要 | - | エッジプロファイル用低レベル内部ヘルパー |
 | pixGetLastOnPixelInRun | 🚫 不要 | - | エッジプロファイル用低レベル内部ヘルパー |
 
@@ -108,7 +108,7 @@
 | pixDarkenGray | ✅ 同等 | darken_gray() | グレーピクセル暗色化 |
 | pixMultConstantColor | ✅ 同等 | mult_constant_color() | 定数乗算カラー変換 |
 | pixMultMatrixColor | ✅ 同等 | mult_matrix_color() | 行列乗算カラー変換 |
-| pixHalfEdgeByBandpass | ❌ 未実装 | - | バンドパスによるハーフエッジ |
+| pixHalfEdgeByBandpass | ✅ 同等 | `half_edge_by_bandpass` | バンドパスによるハーフエッジ |
 
 ### bilateral.c
 
@@ -140,7 +140,7 @@
 | pixFillMapHoles | ✅ 同等 | adaptmap.rs fill_map_holes() | マップの穴埋め |
 | pixExtendByReplication | ✅ 同等 | adaptmap.rs extend_by_replication() | 複製による拡張 |
 | pixSmoothConnectedRegions | ✅ 同等 | adaptmap.rs smooth_connected_regions() | 連結領域の平滑化 |
-| pixGetForegroundGrayMap | ❌ 未実装 | - | グレー前景マップ取得 (returns l_int32) |
+| pixGetForegroundGrayMap | ✅ 同等 | `get_foreground_gray_map` | グレー前景マップ取得 (returns l_int32) |
 | pixGetInvBackgroundMap | ✅ 同等 | adaptmap.rs get_inv_background_map() | 逆背景マップ取得 |
 | pixApplyInvBackgroundGrayMap | ✅ 同等 | adaptmap.rs apply_inv_background_gray_map() | グレー逆背景マップ適用 |
 | pixApplyInvBackgroundRGBMap | ✅ 同等 | adaptmap.rs apply_inv_background_rgb_map() | RGB逆背景マップ適用 |
@@ -165,7 +165,7 @@
 | pixRankFilterRGB | ✅ 同等 | rank_filter_color() | RGBランクフィルタ |
 | pixRankFilterGray | ✅ 同等 | rank_filter_gray() | グレースケールランクフィルタ |
 | pixMedianFilter | ✅ 同等 | median_filter() | メディアンフィルタ |
-| pixRankFilterWithScaling | ❌ 未実装 | - | スケーリング加速付きランクフィルタ |
+| pixRankFilterWithScaling | ✅ 同等 | `rank_filter_with_scaling` | スケーリング加速付きランクフィルタ |
 
 ## 実装状況分析
 
@@ -182,15 +182,13 @@
 9. **適応マッピング**: background_norm(), background_norm_simple(), contrast_norm(), contrast_norm_simple()
 10. **その他**: blockrank(), blocksum(), census_transform(), add_gaussian_noise()
 
-### 主要な未実装機能
+### 実装完了した機能（元未実装 → 全て実装済み）
 
-#### 中優先度
-1. **エッジ検出**: pixTwoSidedEdgeFilter, pixHalfEdgeByBandpass
-2. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile
-3. **適応マップ**: pixGetForegroundGrayMap
-
-#### 低優先度
-4. **ランクフィルタ**: pixRankFilterWithScaling（スケーリング加速付き）
+全ての未実装関数が実装された:
+1. **エッジ検出**: pixTwoSidedEdgeFilter, pixHalfEdgeByBandpass — 実装済み
+2. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile — 実装済み
+3. **適応マップ**: pixGetForegroundGrayMap — 実装済み
+4. **ランクフィルタ**: pixRankFilterWithScaling — 実装済み
 
 ### 不要と判断した機能（🚫 不要: 11件）
 
@@ -208,7 +206,6 @@
 - エラー処理は`FilterResult<T>`で統一
 - カーネルは独自の`Kernel`型を使用(L_KERNELとは非互換)
 - 一部関数はRust慣用的な名前に変更(例: pixSobelEdgeFilter → sobel_edge)
-- 高速化のための低レベル実装は未実装(ブロック畳み込み、分離可能畳み込み等)
 
 ### C版の戦略
 - ブロック畳み込みによる高速化を多用
@@ -216,8 +213,5 @@
 - タイル化による大画像処理対応
 - 分離可能畳み込みによる計算量削減
 
-### 今後の実装推奨順序
-1. エッジ検出バリエーション（pixTwoSidedEdgeFilter, pixHalfEdgeByBandpass）
-2. エッジ測定関数（pixMeasureEdgeSmoothness, pixGetEdgeProfile）
-3. 適応マップ（pixGetForegroundGrayMap）
-4. スケーリング付きランクフィルタ（pixRankFilterWithScaling）
+### 実装完了
+全関数の実装が完了。🚫不要を除く実カバレッジは100%に達した。

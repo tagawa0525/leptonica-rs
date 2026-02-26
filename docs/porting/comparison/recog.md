@@ -8,25 +8,23 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 94 |
+| ✅ 同等 | 129 |
 | 🔄 異なる | 26 |
-| ❌ 未実装 | 35 |
+| ❌ 未実装 | 0 |
 | 🚫 不要 | 18 |
 | 合計 | 173 |
 
-> **注記**: Phase 1-13（2026-02-22完了）により、シリアライゼーション・Dewarpa管理・
-> Bootstrap・Skew拡張・Baseline拡張・Barcode拡張など約55関数を新たに実装。
-> 残り未実装28関数はページセグメンテーション詳細・訓練ユーティリティ・高レベルAPI等。
-> 🚫不要14関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。
+> **注記**: 全関数の実装が完了。Phase 1-13に加え、カバレッジ向上により全155関数（🚫不要18関数を除く）が実装済み。
+> 🚫不要18関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。
 
 ## 詳細
 
 ### recogbasic.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| recogCreateFromRecog | ❌ 未実装 | - | 既存recogから新しいrecog生成 |
+| recogCreateFromRecog | ✅ 同等 | `Recog::create_from_recog` | 既存recogから新しいrecog生成 |
 | recogCreateFromPixa | ✅ 同等 | `recog::train::create_from_pixa` | ラベル付きPixaから認識器を作成 |
-| recogCreateFromPixaNoFinish | ❌ 未実装 | - | 訓練未完了のrecog作成 |
+| recogCreateFromPixaNoFinish | ✅ 同等 | `Recog::create_from_pixa_no_finish` | 訓練未完了のrecog作成 |
 | recogCreate | ✅ 同等 | `recog::train::create` | 基本的なrecog作成 |
 | recogDestroy | ✅ 同等 | `Drop` trait | Rustでは自動メモリ管理 |
 | recogGetCount | ✅ 同等 | `Recog.get_class_labels().len()` | クラス数取得 |
@@ -62,31 +60,31 @@
 | recogCorrelationBestChar | ✅ 同等 | `Recog::correlation_best_char` | 最良相関文字の検索 |
 | recogIdentifyPixa | ✅ 同等 | `Recog::identify_pixa` | Pixa内の各画像を認識 |
 | recogIdentifyPix | ✅ 同等 | `Recog::identify_pix` | 単一画像の認識 |
-| recogSkipIdentify | ❌ 未実装 | - | 認識をスキップ |
-| recogProcessToIdentify | ❌ 未実装 | - | 認識前の画像処理 |
-| recogExtractNumbers | ❌ 未実装 | - | 数字列の抽出 |
+| recogSkipIdentify | ✅ 同等 | `Recog::skip_identify` | 認識をスキップ |
+| recogProcessToIdentify | ✅ 同等 | `Recog::process_to_identify` | 認識前の画像処理 |
+| recogExtractNumbers | ✅ 同等 | `Recog::extract_numbers` | 数字列の抽出 |
 | showExtractNumbers | 🚫 不要 | - | 数字列抽出のデバッグ表示 |
 | rchaDestroy | ✅ 同等 | `Drop` trait | Rcha構造体の自動破棄 |
 | rchDestroy | ✅ 同等 | `Drop` trait | Rch構造体の自動破棄 |
-| rchaExtract | ❌ 未実装 | - | Rcha配列からデータ抽出 |
-| rchExtract | ❌ 未実装 | - | Rch構造体からデータ抽出 |
+| rchaExtract | ✅ 同等 | `rcha_extract` | Rcha配列からデータ抽出 |
+| rchExtract | ✅ 同等 | `rch_extract` | Rch構造体からデータ抽出 |
 
 ### recogtrain.c (Training)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | recogTrainLabeled | ✅ 同等 | `Recog::train_labeled` | ラベル付きサンプルで訓練 |
-| recogProcessLabeled | ❌ 未実装 | - | ラベル付きサンプルの処理 |
-| recogAddSample | ❌ 未実装 | - | サンプルの追加 |
+| recogProcessLabeled | ✅ 同等 | `Recog::process_labeled` | ラベル付きサンプルの処理 |
+| recogAddSample | ✅ 同等 | `Recog::add_sample` | サンプルの追加 |
 | recogModifyTemplate | ✅ 同等 | `Recog::modify_template` | テンプレートの変換（スケール/線幅正規化） |
 | recogAverageSamples | ✅ 同等 | `Recog::average_samples` | サンプルの平均化 |
-| pixaAccumulateSamples | ❌ 未実装 | - | サンプルの累積 |
+| pixaAccumulateSamples | ✅ 同等 | `Pixa::accumulate_samples` | サンプルの累積 |
 | recogTrainingFinished | ✅ 同等 | `Recog::finish_training` | 訓練の完了処理 |
-| recogFilterPixaBySize | ❌ 未実装 | - | サイズによるPixaフィルタリング |
-| recogSortPixaByClass | ❌ 未実装 | - | クラスごとにPixaをソート |
+| recogFilterPixaBySize | ✅ 同等 | `Recog::filter_pixa_by_size` | サイズによるPixaフィルタリング |
+| recogSortPixaByClass | ✅ 同等 | `Recog::sort_pixa_by_class` | クラスごとにPixaをソート |
 | recogRemoveOutliers1 | ✅ 同等 | `Recog::remove_outliers1` | 外れ値除去（方法1） |
-| pixaRemoveOutliers1 | ❌ 未実装 | - | Pixaから外れ値除去（方法1） |
+| pixaRemoveOutliers1 | ✅ 同等 | `Pixa::remove_outliers1` | Pixaから外れ値除去（方法1） |
 | recogRemoveOutliers2 | ✅ 同等 | `Recog::remove_outliers2` | 外れ値除去（方法2） |
-| pixaRemoveOutliers2 | ❌ 未実装 | - | Pixaから外れ値除去（方法2） |
+| pixaRemoveOutliers2 | ✅ 同等 | `Pixa::remove_outliers2` | Pixaから外れ値除去（方法2） |
 | recogTrainFromBoot | ✅ 同等 | `recog::bootstrap::train_from_boot` | ブートストラップ認識器から訓練 |
 | recogPadDigitTrainingSet | ✅ 同等 | `recog::bootstrap::pad_digit_training_set` | 数字訓練セットのパディング |
 | recogIsPaddingNeeded | ✅ 同等 | `recog::bootstrap::is_padding_needed` | パディングが必要かチェック |
@@ -103,22 +101,22 @@
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixGetRegionsBinary | ✅ 同等 | `pageseg::segment_regions` | 2値画像から領域抽出 |
-| pixFindPageForeground | ❌ 未実装 | - | ページ前景の検出 |
-| pixSplitIntoCharacters | ❌ 未実装 | - | 文字への分割 |
-| pixSplitComponentWithProfile | ❌ 未実装 | - | プロファイルを使った分割 |
-| pixGetWordsInTextlines | ❌ 未実装 | - | テキストライン内の単語取得 |
-| pixGetWordBoxesInTextlines | ❌ 未実装 | - | テキストライン内の単語ボックス取得 |
+| pixFindPageForeground | ✅ 同等 | `find_page_foreground` | ページ前景の検出 |
+| pixSplitIntoCharacters | ✅ 同等 | `split_into_characters` | 文字への分割 |
+| pixSplitComponentWithProfile | ✅ 同等 | `split_component_with_profile` | プロファイルを使った分割 |
+| pixGetWordsInTextlines | ✅ 同等 | `get_words_in_textlines` | テキストライン内の単語取得 |
+| pixGetWordBoxesInTextlines | ✅ 同等 | `get_word_boxes_in_textlines` | テキストライン内の単語ボックス取得 |
 
 ### skew.c (Skew Detection)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixFindSkewAndDeskew | ✅ 同等 | `skew::find_skew_and_deskew` | 傾き検出と補正 |
 | pixFindSkew | ✅ 同等 | `skew::find_skew` | 傾き検出 |
-| pixFindSkewSweep | ❌ 未実装 | - | スイープによる傾き検出 |
+| pixFindSkewSweep | ✅ 同等 | `find_skew_sweep` | スイープによる傾き検出 |
 | pixFindSkewSweepAndSearch | 🔄 異なる | `skew::find_skew` (内部実装) | スイープ+探索（オプション指定で実現） |
 | pixFindSkewSweepAndSearchScore | ✅ 同等 | `skew::find_skew_sweep_and_search_score` | スイープ+探索（スコア付き） |
 | pixFindSkewSweepAndSearchScorePivot | ✅ 同等 | `skew::find_skew_sweep_and_search_score_pivot` | スイープ+探索（ピボット指定） |
-| pixFindSkewOrthogonalRange | ❌ 未実装 | - | 直交範囲での傾き検出 |
+| pixFindSkewOrthogonalRange | ✅ 同等 | `find_skew_orthogonal_range` | 直交範囲での傾き検出 |
 
 ### dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c (Dewarping)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -127,7 +125,7 @@
 | dewarpCreateRef | ✅ 同等 | `Dewarp::new_ref` | 参照ページ指定のDewarp作成 |
 | dewarpDestroy | ✅ 同等 | `Drop` trait | 自動破棄 |
 | dewarpaCreate | ✅ 同等 | `Dewarpa::new` | Dewarpa（複数ページ）作成 |
-| dewarpaCreateFromPixacomp | ❌ 未実装 | - | Pixacompから作成 |
+| dewarpaCreateFromPixacomp | ✅ 同等 | `Dewarpa::create_from_pixacomp` | Pixacompから作成 |
 | dewarpaDestroy | ✅ 同等 | `Drop` trait | 自動破棄 |
 | dewarpaDestroyDewarp | 🔄 異なる | `Dewarpa::insert` (None挿入) | Dewarpa内の特定Dewarp破棄 |
 | dewarpaInsertDewarp | ✅ 同等 | `Dewarpa::insert` | DewarpaへDewarp挿入 |
@@ -167,7 +165,7 @@
 | dewarpaSetValidModels | 🔄 異なる | `Dewarpa::insert_ref_models` 等 | 有効モデル設定 |
 | dewarpaInsertRefModels | ✅ 同等 | `Dewarpa::insert_ref_models` | 参照モデル挿入 |
 | dewarpaStripRefModels | ✅ 同等 | `Dewarpa::strip_ref_models` | 参照モデル削除 |
-| dewarpaRestoreModels | ❌ 未実装 | - | モデル復元 |
+| dewarpaRestoreModels | ✅ 同等 | `Dewarpa::restore_models` | モデル復元 |
 | dewarpaInfo | 🚫 不要 | - | Dewarpa情報表示（デバッグ/可視化） |
 | dewarpaModelStats | 🚫 不要 | - | モデル統計取得（デバッグ/可視化） |
 | dewarpaShowArrays | 🚫 不要 | - | 配列の表示（デバッグ/可視化） |
@@ -188,10 +186,10 @@
 |-------|------|----------|------|
 | jbRankHausInit | ✅ 同等 | `jbclass::rank_haus_init` | Rank Hausdorff分類器初期化 |
 | jbCorrelationInit | ✅ 同等 | `jbclass::correlation_init` | 相関ベース分類器初期化 |
-| jbCorrelationInitWithoutComponents | ❌ 未実装 | - | コンポーネントなし相関分類器初期化 |
+| jbCorrelationInitWithoutComponents | ✅ 同等 | `jbclass::correlation_init_without_components` | コンポーネントなし相関分類器初期化 |
 | jbAddPages | ✅ 同等 | `JbClasser::add_pages` | 複数ページ追加 |
 | jbAddPage | ✅ 同等 | `JbClasser::add_page` | ページ追加 |
-| jbAddPageComponents | ❌ 未実装 | - | ページコンポーネント追加（内部ロジック未実装） |
+| jbAddPageComponents | ✅ 同等 | `jbclass::add_page_components` |  |
 | jbClassifyRankHaus | 🔄 異なる | `JbClasser` (内部実装) | Rank Hausdorff分類（内部で自動実行） |
 | jbClassifyCorrelation | 🔄 異なる | `JbClasser` (内部実装) | 相関ベース分類（内部で自動実行） |
 | jbClasserCreate | 🔄 異なる | `rank_haus_init` / `correlation_init` | 分類器作成（専用関数に分割） |
@@ -201,20 +199,20 @@
 | jbDataWrite | ✅ 同等 | `JbData::write` | データ書き込み（I/O追加） |
 | jbGetULCorners | 🔄 異なる | `JbData` フィールド直接参照 | 左上コーナー取得 |
 | jbGetLLCorners | 🔄 異なる | `JbData` フィールド直接参照 | 左下コーナー取得 |
-| jbCorrelation | ❌ 未実装 | - | 相関ベース高レベルAPI |
-| jbRankHaus | ❌ 未実装 | - | Rank Hausdorff高レベルAPI |
+| jbCorrelation | ✅ 同等 | `jbclass::correlation` | 相関ベース高レベルAPI |
+| jbRankHaus | ✅ 同等 | `jbclass::rank_haus` | Rank Hausdorff高レベルAPI |
 | jbWordsInTextlines | ✅ 同等 | `jbclass::classify::pix_word_mask_by_dilation` | テキストライン内の単語分類 |
 
 ### classapp.c (JBIG2分類応用)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| jbCorrelation | ❌ 未実装 | - | 相関ベース分類高レベルAPI（ファイル I/O統合） |
-| jbRankHaus | ❌ 未実装 | - | Rank Hausdorff分類高レベルAPI（ファイル I/O統合） |
-| pixGetWordsInTextlines | ❌ 未実装 | - | テキストライン内の単語取得 |
-| pixGetWordBoxesInTextlines | ❌ 未実装 | - | テキストライン内の単語ボックス取得 |
-| pixFindWordAndCharacterBoxes | ❌ 未実装 | - | 単語および文字ボックスの検出 |
-| boxaExtractSortedPattern | ❌ 未実装 | - | パターンに基づくBoxa抽出 |
-| numaaCompareImagesByBoxes | ❌ 未実装 | - | ボックスベースの画像比較 |
+| jbCorrelation | ✅ 同等 | `jbclass::correlation` | 相関ベース分類高レベルAPI（ファイル I/O統合） |
+| jbRankHaus | ✅ 同等 | `jbclass::rank_haus` | Rank Hausdorff分類高レベルAPI（ファイル I/O統合） |
+| pixGetWordsInTextlines | ✅ 同等 | `get_words_in_textlines` | テキストライン内の単語取得 |
+| pixGetWordBoxesInTextlines | ✅ 同等 | `get_word_boxes_in_textlines` | テキストライン内の単語ボックス取得 |
+| pixFindWordAndCharacterBoxes | ✅ 同等 | `find_word_and_character_boxes` | 単語および文字ボックスの検出 |
+| boxaExtractSortedPattern | ✅ 同等 | `Boxa::extract_sorted_pattern` | パターンに基づくBoxa抽出 |
+| numaaCompareImagesByBoxes | ✅ 同等 | `Numaa::compare_images_by_boxes` | ボックスベースの画像比較 |
 
 ### bootnumgen1.c, bootnumgen2.c, bootnumgen3.c, bootnumgen4.c (Bootstrap数字生成データ)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -235,7 +233,7 @@
 |-------|------|----------|------|
 | pixProcessBarcodes | ✅ 同等 | `barcode::process_barcodes` | バーコード処理 |
 | pixExtractBarcodes | ✅ 同等 | `barcode::detect::extract_barcodes` | バーコード抽出 |
-| pixReadBarcodes | ❌ 未実装 | - | Pixaからバーコード読み取り |
+| pixReadBarcodes | ✅ 同等 | `read_barcodes` | Pixaからバーコード読み取り |
 | pixReadBarcodeWidths | 🔄 異なる | `barcode::signal::extract_barcode_widths` | バーコード幅読み取り（Direction対応） |
 | pixLocateBarcodes | ✅ 同等 | `barcode::detect::locate_barcodes` | バーコード位置検出 |
 | pixLocateBarcodesMoreAccurate | ✅ 同等 | `barcode::detect::locate_barcodes_morphological` | 形態学的バーコード位置検出 |
@@ -266,14 +264,14 @@
 2. **C固有getter（1関数）**: recogGetDid — RustではOption型で直接管理
 3. **C固有setter（1関数）**: recogSetChannelParams — Rustでは構造体フィールド直接設定
 
-### 未実装領域（実装価値あり）
-1. **ページセグメンテーション詳細**: pixFindPageForeground, pixSplitIntoCharacters, pixSplitComponentWithProfile, pixGetWordsInTextlines, pixGetWordBoxesInTextlines
-2. **JBIG2高レベルAPI**: jbCorrelation, jbRankHaus, jbCorrelationInitWithoutComponents, jbAddPageComponents
-3. **Recog訓練ユーティリティ**: recogProcessLabeled, recogAddSample, pixaAccumulateSamples, recogFilterPixaBySize, recogSortPixaByClass, pixaRemoveOutliers1, pixaRemoveOutliers2
-4. **Recog作成・識別**: recogCreateFromRecog, recogCreateFromPixaNoFinish, recogSkipIdentify, recogProcessToIdentify, recogExtractNumbers, rchaExtract, rchExtract
-5. **Skew検出拡張**: pixFindSkewSweep, pixFindSkewOrthogonalRange
-6. **Dewarpa管理**: dewarpaCreateFromPixacomp, dewarpaRestoreModels
-7. **バーコード**: pixReadBarcodes
+### 実装完了領域（元未実装 → 全て実装済み）
+1. **ページセグメンテーション詳細**: pixFindPageForeground, pixSplitIntoCharacters等 — 実装済み
+2. **JBIG2高レベルAPI**: jbCorrelation, jbRankHaus等 — 実装済み
+3. **Recog訓練ユーティリティ**: recogProcessLabeled, recogAddSample等 — 実装済み
+4. **Recog作成・識別**: recogCreateFromRecog, recogExtractNumbers等 — 実装済み
+5. **Skew検出拡張**: pixFindSkewSweep, pixFindSkewOrthogonalRange — 実装済み
+6. **Dewarpa管理**: dewarpaCreateFromPixacomp, dewarpaRestoreModels — 実装済み
+7. **バーコード**: pixReadBarcodes — 実装済み
 
 ### 設計の違い
 1. **メモリ管理**: C版のcreate/destroy → Rust版のDrop trait
@@ -283,11 +281,11 @@
 
 ## 備考
 
-- C版の関数総数: 162関数（recog関連全体、この表の範囲）
-- Rust版実装済み: 120関数（✅94 + 🔄26）
-- 🚫不要: 14関数（デバッグ/可視化12 + C固有getter/setter 2）
-- ❌未実装: 28関数（実装価値あり）
-- 実装率: 74%（全体）、81%（🚫不要除外ベース）
+- C版の関数総数: 173関数（recog関連全体、この表の範囲）
+- Rust版実装済み: 155関数（✅129 + 🔄26）
+- 🚫不要: 18関数（デバッグ/可視化系・C固有getter/setter）
+- ❌未実装: 0関数（全関数実装済み）
+- 実装率: 89.6%（全体）、100%（🚫不要除外ベース）
 
 C版の全機能を網羅することは目標ではなく、Rustの慣用的な設計で同等の機能を提供することを重視しています。特に以下の点で設計が異なります：
 

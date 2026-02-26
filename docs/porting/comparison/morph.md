@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 82 |
+| ✅ 同等 | 92 |
 | 🔄 異なる | 16 |
-| ❌ 未実装 | 10 |
+| ❌ 未実装 | 0 |
 | 🚫 不要 | 27 |
 | 合計 | 135 |
 
@@ -46,8 +46,8 @@
 | pixUnionOfMorphOps | ✅ 同等 | morphapp::union_of_morph_ops | Phase 2で実装 |
 | pixIntersectionOfMorphOps | ✅ 同等 | morphapp::intersection_of_morph_ops | Phase 2で実装 |
 | pixSeedfillMorph | ✅ 同等 | morphapp::seedfill_morph | Phase 2で実装 |
-| pixMorphSequenceByComponent | ❌ 未実装 | - | 連結成分ごとの処理 |
-| pixMorphSequenceByRegion | ❌ 未実装 | - | 領域ごとの処理 |
+| pixMorphSequenceByComponent | ✅ 同等 | `morph_sequence_by_component` | 連結成分ごとの処理 |
+| pixMorphSequenceByRegion | ✅ 同等 | `morph_sequence_by_region` | 領域ごとの処理 |
 | pixTophat | ✅ 同等 | binary::top_hat | |
 | pixHMT | ✅ 同等 | binary::hit_miss_transform | |
 | pixMorphCompSequence | ✅ 同等 | sequence::morph_comp_sequence | |
@@ -157,7 +157,7 @@
 | selCreateFromPix | ✅ 同等 | sel::Sel::from_pix | Phase 3で実装 |
 | selReadFromColorImage | ✅ 同等 | sel::Sel::from_color_image | Phase 3で実装 |
 | selCreateFromColorPix | ✅ 同等 | sel::Sel::from_color_image | Phase 3で実装 |
-| selaCreateFromColorPixa | ❌ 未実装 | - | Pixa操作はアプリケーション層 |
+| selaCreateFromColorPixa | ✅ 同等 | `Sela::create_from_color_pixa` | Pixa操作はアプリケーション層 |
 | selDisplayInPix | 🚫 不要 | - | 可視化専用 |
 | selaDisplayInPix | 🚫 不要 | - | 可視化専用 |
 
@@ -177,19 +177,19 @@
 ### selgen.c (Sel自動生成)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixGenerateSelBoundary | ❌ 未実装 | - | |
-| pixGenerateSelWithRuns | ❌ 未実装 | - | |
-| pixGenerateSelRandom | ❌ 未実装 | - | |
-| pixGetRunCentersOnLine | ❌ 未実装 | - | |
-| pixGetRunsOnLine | ❌ 未実装 | - | |
-| pixSubsampleBoundaryPixels | ❌ 未実装 | - | |
+| pixGenerateSelBoundary | ✅ 同等 | `generate_sel_boundary` |  |
+| pixGenerateSelWithRuns | ✅ 同等 | `generate_sel_with_runs` |  |
+| pixGenerateSelRandom | ✅ 同等 | `generate_sel_random` |  |
+| pixGetRunCentersOnLine | ✅ 同等 | `get_run_centers_on_line` |  |
+| pixGetRunsOnLine | ✅ 同等 | `get_runs_on_line` |  |
+| pixSubsampleBoundaryPixels | ✅ 同等 | `subsample_boundary_pixels` |  |
 | adjacentOnPixelInRaster | 🚫 不要 | - | 低レベル内部ヘルパー（pixSubsampleBoundaryPixels内部で使用） |
 | pixDisplayHitMissSel | 🚫 不要 | - | 可視化専用 |
 
 ### ccthin.c (連結成分保存細線化)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixaThinConnected | ❌ 未実装 | - | PIXA版は未実装 |
+| pixaThinConnected | ✅ 同等 | `Pixa::thin_connected` |  |
 | pixThinConnected | ✅ 同等 | thin::thin_connected | |
 | pixThinConnectedBySet | ✅ 同等 | thin::thin_connected_by_set | |
 | selaMakeThinSets | ✅ 同等 | thin_sels::make_thin_sels | |
@@ -225,11 +225,11 @@
 11. **Sel/Sela管理**: 構造体、I/O、生成、検索
 12. **SEL定義済みセット**: basic、hit-miss、DWA linear/combs、cross/T junctions
 
-### 未実装領域
-1. **Sel自動生成**: pixGenerateSelBoundary等（selgen.c）
-2. **一部のmorphapp関数**: by-component/by-region処理
-3. **selaCreateFromColorPixa**: Pixa→Sela一括変換
-4. **pixaThinConnected**: PIXA版の細線化
+### 実装完了領域（元未実装 → 全て実装済み）
+1. **Sel自動生成**: pixGenerateSelBoundary等（selgen.c）— 実装済み
+2. **morphapp関数**: by-component/by-region処理 — 実装済み
+3. **selaCreateFromColorPixa**: Pixa→Sela一括変換 — 実装済み
+4. **pixaThinConnected**: PIXA版の細線化 — 実装済み
 
 ### 不要（Rustでは対応不要）
 1. **DWAコード生成機能**: fmorphautogen等（Rustでは手書き実装で対応）
