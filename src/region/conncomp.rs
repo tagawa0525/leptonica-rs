@@ -862,6 +862,36 @@ pub fn seedfill_8_bb(pix: &mut PixMut, x: u32, y: u32) -> RegionResult<Box> {
     seedfill_bb(pix, x, y, ConnectivityType::EightWay)
 }
 
+/// Binary seedfill in-place, clearing connected ON pixels from a seed point
+///
+/// Clears (sets to 0) the foreground pixel at (x, y) and all pixels connected
+/// to it using the specified connectivity. This is the non-bounding-box variant.
+///
+/// Rust equivalent of C `pixSeedfill`.
+pub fn seedfill(
+    pix: &mut PixMut,
+    x: u32,
+    y: u32,
+    connectivity: ConnectivityType,
+) -> RegionResult<()> {
+    seedfill_bb(pix, x, y, connectivity)?;
+    Ok(())
+}
+
+/// 4-connected in-place seedfill (no bounding box)
+///
+/// Rust equivalent of C `pixSeedfill4`.
+pub fn seedfill_4(pix: &mut PixMut, x: u32, y: u32) -> RegionResult<()> {
+    seedfill(pix, x, y, ConnectivityType::FourWay)
+}
+
+/// 8-connected in-place seedfill (no bounding box)
+///
+/// Rust equivalent of C `pixSeedfill8`.
+pub fn seedfill_8(pix: &mut PixMut, x: u32, y: u32) -> RegionResult<()> {
+    seedfill(pix, x, y, ConnectivityType::EightWay)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

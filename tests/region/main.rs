@@ -10,6 +10,7 @@ mod label_reg;
 mod maze_reg;
 mod quadtree_reg;
 mod rectangle_reg;
+mod region_coverage_reg;
 mod seedfill_ext_reg;
 mod seedspread_reg;
 mod speckle_reg;
