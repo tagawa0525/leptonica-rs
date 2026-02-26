@@ -755,6 +755,80 @@ pub fn scale_gray_rank_cascade(
     scale_gray_rank2(&pix3, level4)
 }
 
+/// Accelerated rank filtering by downscaling first
+///
+/// Downscales the image, applies rank filter with adjusted kernel size,
+/// then upscales back to original dimensions.  Execution time is reduced
+/// by approximately the square of the scale factor.
+///
+/// # Arguments
+/// * `pix` - Input 8 or 32bpp image (no colormap)
+/// * `wf`, `hf` - Filter dimensions (each >= 1)
+/// * `rank` - Rank value in \[0.0, 1.0\]: 0.0 = min, 0.5 = median, 1.0 = max
+/// * `scalefactor` - Downscale factor in \[0.2, 0.7\]
+///
+/// # See also
+///
+/// C Leptonica: `pixRankFilterWithScaling()` in `rank.c`
+pub fn rank_filter_with_scaling(
+    pix: &Pix,
+    wf: u32,
+    hf: u32,
+    rank: f32,
+    scalefactor: f32,
+) -> FilterResult<Pix> {
+    if pix.has_colormap() {
+        return Err(FilterError::InvalidParameters(
+            "input must not have a colormap".to_string(),
+        ));
+    }
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    if wf < 1 || hf < 1 {
+        return Err(FilterError::InvalidParameters(
+            "filter dimensions must be >= 1".to_string(),
+        ));
+    }
+    if !(0.0..=1.0).contains(&rank) {
+        return Err(FilterError::InvalidParameters(
+            "rank must be in [0.0, 1.0]".to_string(),
+        ));
+    }
+    if wf == 1 && hf == 1 {
+        return Ok(pix.deep_clone());
+    }
+
+    // If scalefactor is out of range, fall back to unscaled rank filter
+    if !(0.2..=0.7).contains(&scalefactor) {
+        return rank_filter(pix, wf, hf, rank);
+    }
+
+    use crate::transform::{ScaleMethod, scale, scale_to_size};
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Downscale
+    let pix1 = scale(pix, scalefactor, scalefactor, ScaleMethod::AreaMap)?;
+
+    // Adjust filter dimensions
+    let wfs = 1u32.max((scalefactor * wf as f32 + 0.5) as u32);
+    let hfs = 1u32.max((scalefactor * hf as f32 + 0.5) as u32);
+
+    // Rank filter on smaller image
+    let pix2 = rank_filter(&pix1, wfs, hfs, rank)?;
+
+    // Upscale back to original size
+    let pixd = scale_to_size(&pix2, w, h)?;
+
+    Ok(pixd)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

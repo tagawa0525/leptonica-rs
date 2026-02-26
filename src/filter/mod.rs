@@ -46,19 +46,21 @@ pub use convolve::{
     convolve_gray, gaussian_blur,
 };
 pub use edge::{
-    EdgeOrientation, emboss, laplacian_edge, sharpen, sobel_edge, unsharp_mask,
-    unsharp_masking_fast, unsharp_masking_gray_fast,
+    EdgeOrientation, EdgeSide, emboss, get_edge_profile, laplacian_edge, measure_edge_smoothness,
+    sharpen, sobel_edge, two_sided_edge_filter, unsharp_mask, unsharp_masking_fast,
+    unsharp_masking_gray_fast,
 };
 pub use enhance::{
     TrcLut, color_shift_rgb, contrast_trc, contrast_trc_masked, contrast_trc_pix, darken_gray,
     equalize_trc, equalize_trc_pix, gamma_trc, gamma_trc_masked, gamma_trc_pix,
-    gamma_trc_with_alpha, measure_saturation, modify_brightness, modify_hue, modify_saturation,
-    mult_constant_color, mult_matrix_color, trc_map, trc_map_general, unsharp_masking,
-    unsharp_masking_gray,
+    gamma_trc_with_alpha, half_edge_by_bandpass, measure_saturation, modify_brightness, modify_hue,
+    modify_saturation, mult_constant_color, mult_matrix_color, trc_map, trc_map_general,
+    unsharp_masking, unsharp_masking_gray,
 };
 pub use rank::{
     MinMaxOp, max_filter, median_filter, min_filter, rank_filter, rank_filter_color,
-    rank_filter_gray, scale_gray_min_max, scale_gray_rank_cascade, scale_gray_rank2,
+    rank_filter_gray, rank_filter_with_scaling, scale_gray_min_max, scale_gray_rank_cascade,
+    scale_gray_rank2,
 };
 pub use windowed::{
     WindowedStatsResult, mean_square_accum, windowed_mean, windowed_mean_square, windowed_stats,

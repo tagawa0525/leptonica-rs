@@ -20,3 +20,7 @@ mod lowsat_reg;
 mod rank_reg;
 mod rankbin_reg;
 mod rankhisto_reg;
+
+mod edge_smoothness_reg;
+mod half_edge_reg;
+mod rank_scaling_reg;
