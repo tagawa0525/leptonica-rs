@@ -736,6 +736,136 @@ pub fn pix_map_with_invariant_hue(pix: &Pix, src_color: u32, fract: f32) -> Colo
     pix_linear_map_to_target_color(pix, src_color, dst_color)
 }
 
+/// Colorize gray regions of an RGB image with specified color.
+///
+/// Only near-gray pixels (where max component difference < `thresh`) that fall
+/// within the brightness range `[min_val, max_val]` are tinted toward the
+/// target color.
+///
+/// # Arguments
+///
+/// * `pix` - 32-bpp RGB input image
+/// * `mask` - Optional 1-bpp mask (only fg pixels are processed)
+/// * `thresh` - Max component difference to consider a pixel "gray"
+/// * `min_val` - Minimum average brightness for colorization
+/// * `max_val` - Maximum average brightness for colorization
+/// * `target` - Target (R, G, B) color for tinting
+///
+/// # See also
+///
+/// C Leptonica: `pixColorGrayRegions()` in `coloring.c`
+pub fn color_gray_regions(
+    pix: &Pix,
+    mask: Option<&Pix>,
+    thresh: u32,
+    min_val: u32,
+    max_val: u32,
+    target: (u8, u8, u8),
+) -> ColorResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if min_val > max_val {
+        return Err(ColorError::InvalidParameters(
+            "min_val must be <= max_val".into(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let out = pix.deep_clone();
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let (target_r, target_g, target_b) = target;
+    let tr = target_r as f64;
+    let tg = target_g as f64;
+    let tb = target_b as f64;
+
+    for y in 0..h {
+        for x in 0..w {
+            if let Some(m) = mask
+                && (x >= m.width() || y >= m.height() || m.get_pixel_unchecked(x, y) == 0)
+            {
+                continue;
+            }
+
+            let px = pix.get_pixel_unchecked(x, y);
+            let (r, g, b) = pixel::extract_rgb(px);
+
+            let max_c = r.max(g).max(b) as u32;
+            let min_c = r.min(g).min(b) as u32;
+            let diff = max_c - min_c;
+
+            if diff >= thresh {
+                continue;
+            }
+
+            let avg = (r as u32 + g as u32 + b as u32) / 3;
+            if avg < min_val || avg > max_val {
+                continue;
+            }
+
+            // Blend: fraction is how "gray" the pixel is (lower diff = stronger tint)
+            let fract = 1.0 - (diff as f64 / thresh.max(1) as f64);
+            let fract = fract * (avg as f64 / 255.0);
+            let nr = (r as f64 + fract * (tr - r as f64)).clamp(0.0, 255.0) as u8;
+            let ng = (g as f64 + fract * (tg - g as f64)).clamp(0.0, 255.0) as u8;
+            let nb = (b as f64 + fract * (tb - b as f64)).clamp(0.0, 255.0) as u8;
+
+            out_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Snap colormap colors within `diff` distance to `target_color`.
+///
+/// For each colormap entry, if the absolute difference for every component
+/// (R, G, B) is within `diff`, replace the entry with `target_color`.
+///
+/// # Arguments
+///
+/// * `pix` - Colormapped input image
+/// * `target_color` - Target color in 0xRRGGBB00 format
+/// * `diff` - Max per-component absolute difference for snapping
+///
+/// # See also
+///
+/// C Leptonica: `pixSnapColorCmap()` in `coloring.c`
+pub fn snap_color_cmap(pix: &Pix, target_color: u32, diff: u32) -> ColorResult<Pix> {
+    let cmap = pix
+        .colormap()
+        .ok_or_else(|| ColorError::InvalidParameters("image has no colormap".into()))?;
+
+    let (tr, tg, tb) = extract_rgb_from_color(target_color);
+    let mut new_cmap = cmap.clone();
+
+    for i in 0..cmap.len() {
+        if let Some((r, g, b)) = cmap.get_rgb(i) {
+            let dr = (r as i32 - tr as i32).unsigned_abs();
+            let dg = (g as i32 - tg as i32).unsigned_abs();
+            let db = (b as i32 - tb as i32).unsigned_abs();
+
+            if dr <= diff && dg <= diff && db <= diff {
+                new_cmap
+                    .reset_color(i, tr, tg, tb)
+                    .map_err(|e| ColorError::InvalidParameters(format!("{e}")))?;
+            }
+        }
+    }
+
+    let out = pix.deep_clone();
+    let mut out_mut = out.try_into_mut().unwrap();
+    out_mut
+        .set_colormap(Some(new_cmap))
+        .map_err(|e| ColorError::InvalidParameters(format!("{e}")))?;
+    Ok(out_mut.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
