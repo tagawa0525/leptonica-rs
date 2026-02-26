@@ -13,7 +13,6 @@ use leptonica::{Pix, PixelDepth};
 
 /// Test half-edge bandpass filter on 8bpp and 32bpp images.
 #[test]
-#[ignore = "not yet implemented"]
 fn half_edge_reg() {
     let mut rp = RegParams::new("half_edge");
 

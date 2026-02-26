@@ -19,7 +19,6 @@ use leptonica::{Pix, PixelDepth};
 
 /// Test two-sided edge filter on 8bpp grayscale image.
 #[test]
-#[ignore = "not yet implemented"]
 fn edge_smoothness_reg_two_sided() {
     let mut rp = RegParams::new("edge_smoothness");
 
@@ -56,7 +55,6 @@ fn edge_smoothness_reg_two_sided() {
 
 /// Test edge profile extraction from binary image.
 #[test]
-#[ignore = "not yet implemented"]
 fn edge_smoothness_reg_profile() {
     let mut rp = RegParams::new("edge_profile");
 
@@ -96,7 +94,6 @@ fn edge_smoothness_reg_profile() {
 
 /// Test edge smoothness measurement.
 #[test]
-#[ignore = "not yet implemented"]
 fn edge_smoothness_reg_measure() {
     let mut rp = RegParams::new("edge_measure");
 

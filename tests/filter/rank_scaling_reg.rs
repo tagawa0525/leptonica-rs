@@ -13,11 +13,11 @@ use leptonica::{Pix, PixelDepth};
 
 /// Test rank filter with scaling on 8bpp and 32bpp images.
 #[test]
-#[ignore = "not yet implemented"]
 fn rank_scaling_reg() {
     let mut rp = RegParams::new("rank_scaling");
 
-    let pixs = load_test_image("dreyfus8.png").expect("load dreyfus8.png");
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let pixs = pixs.convert_to_8().expect("convert to 8bpp");
     let w = pixs.width();
     let h = pixs.height();
 
