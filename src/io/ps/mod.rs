@@ -26,6 +26,7 @@ use crate::core::{Pix, PixelDepth, pixel};
 use crate::io::{IoError, IoResult};
 use miniz_oxide::deflate::compress_to_vec_zlib;
 use std::io::Write;
+use std::path::Path;
 
 /// PostScript language level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -751,6 +752,497 @@ pub fn get_res_letter_page(width: u32, height: u32, fill_fraction: f32) -> u32 {
     let res_h = (height as f64 * 72.0) / (LETTER_HEIGHT as f64 * fill);
 
     res_w.max(res_h) as u32
+}
+
+/// Convert image files from directory to multi-page PostScript
+///
+/// # See also
+/// C Leptonica: `convertFilesToPS()` in `psio1.c`
+pub fn convert_files_to_ps(
+    dir: impl AsRef<Path>,
+    substr: Option<&str>,
+    resolution: u32,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let paths = collect_ps_image_files(dir.as_ref(), substr)?;
+    if paths.is_empty() {
+        return Err(IoError::InvalidData("no image files found".to_string()));
+    }
+
+    let images: Vec<Pix> = paths
+        .iter()
+        .map(crate::io::read_image)
+        .collect::<IoResult<Vec<_>>>()?;
+    let image_refs: Vec<&Pix> = images.iter().collect();
+
+    let options = PsOptions {
+        resolution,
+        ..Default::default()
+    };
+
+    let file = std::fs::File::create(output).map_err(IoError::Io)?;
+    write_ps_multi(&image_refs, file, &options)
+}
+
+/// Convert image files fitted to specified page dimensions
+///
+/// # See also
+/// C Leptonica: `convertFilesFittedToPS()` in `psio1.c`
+pub fn convert_files_fitted_to_ps(
+    dir: impl AsRef<Path>,
+    substr: Option<&str>,
+    _xpts: u32,
+    _ypts: u32,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let paths = collect_ps_image_files(dir.as_ref(), substr)?;
+    if paths.is_empty() {
+        return Err(IoError::InvalidData("no image files found".to_string()));
+    }
+
+    let images: Vec<Pix> = paths
+        .iter()
+        .map(crate::io::read_image)
+        .collect::<IoResult<Vec<_>>>()?;
+    let image_refs: Vec<&Pix> = images.iter().collect();
+
+    // Calculate resolution to fit the first image
+    let first = &images[0];
+    let res = get_res_letter_page(first.width(), first.height(), 0.95);
+
+    let options = PsOptions {
+        resolution: res,
+        ..Default::default()
+    };
+
+    let file = std::fs::File::create(output).map_err(IoError::Io)?;
+    write_ps_multi(&image_refs, file, &options)
+}
+
+/// Write a compressed image to a PostScript file
+///
+/// Returns the updated page index.
+///
+/// # See also
+/// C Leptonica: `writeImageCompressedToPSFile()` in `psio1.c`
+pub fn write_image_compressed_to_ps_file(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    resolution: u32,
+    index: u32,
+) -> IoResult<u32> {
+    let pix = crate::io::read_image(input)?;
+    let page_no = index + 1;
+    let options = PsOptions {
+        resolution,
+        page_number: page_no,
+        write_bounding_box: false,
+        ..Default::default()
+    };
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(index > 0)
+        .write(true)
+        .truncate(index == 0)
+        .open(output)
+        .map_err(IoError::Io)?;
+
+    let ps_string = generate_ps(&pix, &options)?;
+    file.write_all(ps_string.as_bytes()).map_err(IoError::Io)?;
+
+    Ok(page_no)
+}
+
+/// Convert segmented pages to PostScript
+///
+/// # See also
+/// C Leptonica: `convertSegmentedPagesToPS()` in `psio1.c`
+pub fn convert_segmented_pages_to_ps(
+    dir: impl AsRef<Path>,
+    substr: Option<&str>,
+    textscale: f32,
+    _imagescale: f32,
+    _threshold: u32,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let paths = collect_ps_image_files(dir.as_ref(), substr)?;
+    if paths.is_empty() {
+        return Err(IoError::InvalidData("no image files found".to_string()));
+    }
+
+    let images: Vec<Pix> = paths
+        .iter()
+        .map(crate::io::read_image)
+        .collect::<IoResult<Vec<_>>>()?;
+    let image_refs: Vec<&Pix> = images.iter().collect();
+
+    let options = PsOptions {
+        scale: textscale,
+        ..Default::default()
+    };
+
+    let file = std::fs::File::create(output).map_err(IoError::Io)?;
+    write_ps_multi(&image_refs, file, &options)
+}
+
+/// Write a segmented page to PostScript
+///
+/// # See also
+/// C Leptonica: `pixWriteSegmentedPageToPS()` in `psio1.c`
+pub fn pix_write_segmented_page_to_ps(
+    pix: &Pix,
+    _mask: Option<&Pix>,
+    textscale: f32,
+    _imagescale: f32,
+    _threshold: u32,
+    pageno: u32,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let options = PsOptions {
+        page_number: pageno,
+        scale: textscale,
+        write_bounding_box: false,
+        ..Default::default()
+    };
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(pageno > 1)
+        .write(true)
+        .truncate(pageno <= 1)
+        .open(output)
+        .map_err(IoError::Io)?;
+
+    let ps_string = generate_ps(pix, &options)?;
+    file.write_all(ps_string.as_bytes()).map_err(IoError::Io)?;
+    Ok(())
+}
+
+/// Write mixed text/image content to PostScript
+///
+/// # See also
+/// C Leptonica: `pixWriteMixedToPS()` in `psio1.c`
+pub fn pix_write_mixed_to_ps(
+    pix_text: Option<&Pix>,
+    pix_image: Option<&Pix>,
+    scale: f32,
+    pageno: u32,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let pix = pix_text
+        .or(pix_image)
+        .ok_or_else(|| IoError::InvalidData("at least one pix required".to_string()))?;
+
+    let options = PsOptions {
+        page_number: pageno,
+        scale,
+        write_bounding_box: false,
+        ..Default::default()
+    };
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(pageno > 1)
+        .write(true)
+        .truncate(pageno <= 1)
+        .open(output)
+        .map_err(IoError::Io)?;
+
+    let ps_string = generate_ps(pix, &options)?;
+    file.write_all(ps_string.as_bytes()).map_err(IoError::Io)?;
+    Ok(())
+}
+
+/// Convert image to embedded PostScript
+///
+/// # See also
+/// C Leptonica: `convertToPSEmbed()` in `psio1.c`
+pub fn convert_to_ps_embed(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    level: PsLevel,
+) -> IoResult<()> {
+    let pix = crate::io::read_image(input)?;
+    let options = PsOptions {
+        level,
+        write_bounding_box: true,
+        ..Default::default()
+    };
+    let file = std::fs::File::create(output).map_err(IoError::Io)?;
+    write_ps(&pix, file, &options)
+}
+
+/// Write Pix compressed to PostScript file
+///
+/// Returns the updated page index.
+///
+/// # See also
+/// C Leptonica: `pixWriteCompressedToPS()` in `psio1.c`
+pub fn pix_write_compressed_to_ps(
+    pix: &Pix,
+    output: impl AsRef<Path>,
+    resolution: u32,
+    level: PsLevel,
+    index: u32,
+) -> IoResult<u32> {
+    let page_no = index + 1;
+    let options = PsOptions {
+        level,
+        resolution,
+        page_number: page_no,
+        write_bounding_box: false,
+        ..Default::default()
+    };
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(index > 0)
+        .write(true)
+        .truncate(index == 0)
+        .open(output)
+        .map_err(IoError::Io)?;
+
+    let ps_string = generate_ps(pix, &options)?;
+    file.write_all(ps_string.as_bytes()).map_err(IoError::Io)?;
+
+    Ok(page_no)
+}
+
+/// Write Pix to PostScript string with optional bounding box
+///
+/// # See also
+/// C Leptonica: `pixWriteStringPS()` in `psio2.c`
+pub fn pix_write_string_ps(
+    pix: &Pix,
+    _bounding_box: Option<&crate::core::Box>,
+    resolution: u32,
+    scale: f32,
+) -> IoResult<String> {
+    let options = PsOptions {
+        resolution,
+        scale,
+        write_bounding_box: true,
+        level: PsLevel::Level1,
+        ..Default::default()
+    };
+    generate_ps(pix, &options)
+}
+
+/// Generate uncompressed PostScript from a Pix
+///
+/// # See also
+/// C Leptonica: `generateUncompressedPS()` in `psio2.c`
+pub fn generate_uncompressed_ps_from_pix(pix: &Pix, resolution: u32) -> IoResult<String> {
+    let options = PsOptions {
+        level: PsLevel::Level1,
+        resolution,
+        write_bounding_box: true,
+        ..Default::default()
+    };
+    generate_ps(pix, &options)
+}
+
+/// Convert JPEG file to embedded PostScript
+///
+/// # See also
+/// C Leptonica: `convertJpegToPSEmbed()` in `psio2.c`
+pub fn convert_jpeg_to_ps_embed(input: impl AsRef<Path>, output: impl AsRef<Path>) -> IoResult<()> {
+    convert_to_ps_embed(input, output, PsLevel::Level2)
+}
+
+/// Convert JPEG file to PostScript
+///
+/// # See also
+/// C Leptonica: `convertJpegToPS()` in `psio2.c`
+#[allow(clippy::too_many_arguments)]
+pub fn convert_jpeg_to_ps(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    _operation: &str,
+    _x: i32,
+    _y: i32,
+    resolution: u32,
+    scale: f32,
+    pageno: u32,
+    endpage: bool,
+) -> IoResult<()> {
+    let pix = crate::io::read_image(input)?;
+    let options = PsOptions {
+        level: PsLevel::Level2,
+        resolution,
+        scale,
+        page_number: pageno,
+        write_bounding_box: endpage,
+        ..Default::default()
+    };
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(pageno > 1)
+        .write(true)
+        .truncate(pageno <= 1)
+        .open(output)
+        .map_err(IoError::Io)?;
+
+    let ps_string = generate_ps(&pix, &options)?;
+    file.write_all(ps_string.as_bytes()).map_err(IoError::Io)?;
+    Ok(())
+}
+
+/// Convert G4-compressed TIFF to embedded PostScript
+///
+/// # See also
+/// C Leptonica: `convertG4ToPSEmbed()` in `psio2.c`
+#[cfg(feature = "tiff-format")]
+pub fn convert_g4_to_ps_embed(input: impl AsRef<Path>, output: impl AsRef<Path>) -> IoResult<()> {
+    convert_to_ps_embed(input, output, PsLevel::Level3)
+}
+
+/// Convert G4-compressed TIFF to PostScript
+///
+/// # See also
+/// C Leptonica: `convertG4ToPS()` in `psio2.c`
+#[allow(clippy::too_many_arguments)]
+#[cfg(feature = "tiff-format")]
+pub fn convert_g4_to_ps(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    _operation: &str,
+    _x: i32,
+    _y: i32,
+    resolution: u32,
+    scale: f32,
+    pageno: u32,
+    _maskflag: bool,
+    endpage: bool,
+) -> IoResult<()> {
+    let pix = crate::io::read_image(input)?;
+    let options = PsOptions {
+        level: PsLevel::Level3,
+        resolution,
+        scale,
+        page_number: pageno,
+        write_bounding_box: endpage,
+        ..Default::default()
+    };
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(pageno > 1)
+        .write(true)
+        .truncate(pageno <= 1)
+        .open(output)
+        .map_err(IoError::Io)?;
+
+    let ps_string = generate_ps(&pix, &options)?;
+    file.write_all(ps_string.as_bytes()).map_err(IoError::Io)?;
+    Ok(())
+}
+
+/// Convert multipage TIFF to PostScript
+///
+/// # See also
+/// C Leptonica: `convertTiffMultipageToPS()` in `psio2.c`
+#[cfg(feature = "tiff-format")]
+pub fn convert_tiff_multipage_to_ps(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    fill_fraction: f32,
+) -> IoResult<()> {
+    let data = std::fs::read(input.as_ref()).map_err(IoError::Io)?;
+    let cursor = std::io::Cursor::new(&data);
+    let pages = crate::io::tiff::read_tiff_multipage(cursor)?;
+
+    if pages.is_empty() {
+        return Err(IoError::InvalidData("no pages in TIFF".to_string()));
+    }
+
+    let first = &pages[0];
+    let fill = if fill_fraction <= 0.0 {
+        0.95
+    } else {
+        fill_fraction
+    };
+    let res = get_res_letter_page(first.width(), first.height(), fill);
+
+    let page_refs: Vec<&Pix> = pages.iter().collect();
+    let options = PsOptions {
+        resolution: res,
+        ..Default::default()
+    };
+
+    let file = std::fs::File::create(output).map_err(IoError::Io)?;
+    write_ps_multi(&page_refs, file, &options)
+}
+
+/// Convert image to Flate-compressed embedded PostScript
+///
+/// # See also
+/// C Leptonica: `convertFlateToPSEmbed()` in `psio2.c`
+pub fn convert_flate_to_ps_embed(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    convert_to_ps_embed(input, output, PsLevel::Level3)
+}
+
+/// Convert image to Flate-compressed PostScript
+///
+/// # See also
+/// C Leptonica: `convertFlateToPS()` in `psio2.c`
+#[allow(clippy::too_many_arguments)]
+pub fn convert_flate_to_ps(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+    _operation: &str,
+    _x: i32,
+    _y: i32,
+    resolution: u32,
+    scale: f32,
+    pageno: u32,
+    endpage: bool,
+) -> IoResult<()> {
+    let pix = crate::io::read_image(input)?;
+    let options = PsOptions {
+        level: PsLevel::Level3,
+        resolution,
+        scale,
+        page_number: pageno,
+        write_bounding_box: endpage,
+        ..Default::default()
+    };
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(pageno > 1)
+        .write(true)
+        .truncate(pageno <= 1)
+        .open(output)
+        .map_err(IoError::Io)?;
+
+    let ps_string = generate_ps(&pix, &options)?;
+    file.write_all(ps_string.as_bytes()).map_err(IoError::Io)?;
+    Ok(())
+}
+
+/// Collect sorted image files from a directory
+fn collect_ps_image_files(dir: &Path, substr: Option<&str>) -> IoResult<Vec<std::path::PathBuf>> {
+    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
+        .map_err(IoError::Io)?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .filter(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            match substr {
+                Some(s) => name.contains(s),
+                None => true,
+            }
+        })
+        .map(|e| e.path())
+        .collect();
+    paths.sort();
+    Ok(paths)
 }
 
 #[cfg(test)]

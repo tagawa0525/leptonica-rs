@@ -232,6 +232,69 @@ pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoRe
     Ok(())
 }
 
+/// Extract JPEG comment (COM marker) from data
+///
+/// Returns `None` if no comment marker is found.
+///
+/// # See also
+/// C Leptonica: `fgetJpegComment()` in `jpegio.c`
+pub fn get_jpeg_comment(data: &[u8]) -> IoResult<Option<String>> {
+    // Parse JPEG markers to find COM (0xFFFE)
+    if data.len() < 2 || data[0] != 0xFF || data[1] != 0xD8 {
+        return Err(IoError::InvalidData("not a JPEG file".to_string()));
+    }
+
+    let mut pos = 2;
+    while pos + 3 < data.len() {
+        if data[pos] != 0xFF {
+            pos += 1;
+            continue;
+        }
+
+        let marker = data[pos + 1];
+
+        // Skip padding FF bytes
+        if marker == 0xFF {
+            pos += 1;
+            continue;
+        }
+
+        // SOS marker (0xDA) - stop searching
+        if marker == 0xDA {
+            break;
+        }
+
+        // Markers without length
+        if marker == 0x00 || marker == 0x01 || (0xD0..=0xD7).contains(&marker) {
+            pos += 2;
+            continue;
+        }
+
+        // Read segment length
+        if pos + 4 > data.len() {
+            break;
+        }
+        let length = ((data[pos + 2] as usize) << 8) | (data[pos + 3] as usize);
+        if length < 2 {
+            break;
+        }
+
+        // COM marker (0xFE)
+        if marker == 0xFE {
+            let comment_start = pos + 4;
+            let comment_end = (pos + 2 + length).min(data.len());
+            if comment_start < comment_end {
+                let comment_bytes = &data[comment_start..comment_end];
+                return Ok(Some(String::from_utf8_lossy(comment_bytes).into_owned()));
+            }
+        }
+
+        pos += 2 + length;
+    }
+
+    Ok(None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

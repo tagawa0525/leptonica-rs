@@ -61,7 +61,6 @@ fn make_pixa(n: usize) -> leptonica::core::Pixa {
 // 1. isPngInterlaced → png::is_png_interlaced
 // ============================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn test_is_png_interlaced() {
     use leptonica::io::png;
 
@@ -77,7 +76,6 @@ fn test_is_png_interlaced() {
 // 2. fgetPngColormapInfo → png::get_png_colormap_info
 // ============================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_png_colormap_info() {
     use leptonica::core::PixColormap;
     use leptonica::io::png;
@@ -105,7 +103,6 @@ fn test_get_png_colormap_info() {
 // 3. fgetJpegComment → jpeg::get_jpeg_comment
 // ============================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_jpeg_comment() {
     use leptonica::io::jpeg;
 
@@ -122,7 +119,6 @@ fn test_get_jpeg_comment() {
 // ============================================================
 #[cfg(feature = "tiff-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_write_tiff_custom() {
     use leptonica::io::tiff;
 
@@ -149,7 +145,6 @@ fn test_write_tiff_custom() {
 // ============================================================
 #[cfg(feature = "tiff-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_extract_g4_data() {
     use leptonica::io::tiff;
 
@@ -174,7 +169,6 @@ fn test_extract_g4_data() {
 // ============================================================
 #[cfg(feature = "tiff-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_write_tiff_custom_mem() {
     use leptonica::io::tiff;
 
@@ -197,7 +191,6 @@ fn test_write_tiff_custom_mem() {
 // ============================================================
 #[cfg(feature = "webp-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_write_webp_anim_mem() {
     use leptonica::io::webp;
 
@@ -216,7 +209,6 @@ fn test_pixa_write_webp_anim_mem() {
 
 #[cfg(feature = "webp-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_write_webp_anim_stream() {
     use leptonica::io::webp;
 
@@ -234,7 +226,6 @@ fn test_pixa_write_webp_anim_stream() {
 
 #[cfg(feature = "webp-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_write_webp_anim_file() {
     use leptonica::io::webp;
 
@@ -260,7 +251,6 @@ fn test_pixa_write_webp_anim_file() {
 // ============================================================
 #[cfg(feature = "jp2k-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_write_jp2k_mem() {
     use leptonica::io::jp2k;
 
@@ -273,7 +263,6 @@ fn test_write_jp2k_mem() {
 
 #[cfg(feature = "jp2k-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_write_jp2k_stream() {
     use leptonica::io::jp2k;
 
@@ -287,7 +276,6 @@ fn test_write_jp2k_stream() {
 
 #[cfg(feature = "jp2k-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_write_jp2k_roundtrip() {
     use leptonica::io::jp2k;
 
@@ -303,7 +291,6 @@ fn test_write_jp2k_roundtrip() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_select_default_pdf_encoding() {
     use leptonica::io::pdf;
 
@@ -331,7 +318,6 @@ fn test_select_default_pdf_encoding() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_unscaled_files_to_pdf() {
     use leptonica::io::pdf;
 
@@ -355,7 +341,6 @@ fn test_convert_unscaled_files_to_pdf() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_unscaled_to_pdf_data() {
     use leptonica::io::pdf;
 
@@ -375,7 +360,6 @@ fn test_convert_unscaled_to_pdf_data() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_pdf() {
     use leptonica::io::pdf;
 
@@ -397,7 +381,6 @@ fn test_convert_to_pdf() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_image_data_to_pdf() {
     use leptonica::io::pdf;
 
@@ -419,7 +402,6 @@ fn test_convert_image_data_to_pdf() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_pdf_data() {
     use leptonica::io::pdf;
 
@@ -439,7 +421,6 @@ fn test_convert_to_pdf_data() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_image_data_to_pdf_data() {
     use leptonica::io::pdf;
 
@@ -457,7 +438,6 @@ fn test_convert_image_data_to_pdf_data() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_segmented_files_to_pdf() {
     use leptonica::io::pdf;
 
@@ -478,7 +458,6 @@ fn test_convert_segmented_files_to_pdf() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_numbered_masks_to_boxaa() {
     use leptonica::io::pdf;
 
@@ -498,7 +477,6 @@ fn test_convert_numbered_masks_to_boxaa() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_pdf_segmented() {
     use leptonica::io::pdf;
 
@@ -520,7 +498,6 @@ fn test_convert_to_pdf_segmented() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_convert_to_pdf_segmented() {
     use leptonica::io::pdf;
 
@@ -539,7 +516,6 @@ fn test_pix_convert_to_pdf_segmented() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_pdf_data_segmented() {
     use leptonica::io::pdf;
 
@@ -560,7 +536,6 @@ fn test_convert_to_pdf_data_segmented() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_convert_to_pdf_data_segmented() {
     use leptonica::io::pdf;
 
@@ -575,7 +550,6 @@ fn test_pix_convert_to_pdf_data_segmented() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_concatenate_pdf() {
     use leptonica::io::pdf;
 
@@ -602,7 +576,6 @@ fn test_concatenate_pdf() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_concatenate_pdf_to_data() {
     use leptonica::io::pdf;
 
@@ -624,7 +597,6 @@ fn test_concatenate_pdf_to_data() {
 // ============================================================
 #[cfg(all(feature = "pdf-format", feature = "tiff-format"))]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_tiff_multipage_to_pdf() {
     use leptonica::io::{pdf, tiff};
 
@@ -650,7 +622,6 @@ fn test_convert_tiff_multipage_to_pdf() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pdf_page_count() {
     use leptonica::io::pdf;
 
@@ -669,7 +640,6 @@ fn test_get_pdf_page_count() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pdf_page_sizes() {
     use leptonica::io::pdf;
 
@@ -687,7 +657,6 @@ fn test_get_pdf_page_sizes() {
 // ============================================================
 #[cfg(feature = "pdf-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_pdf_media_box_sizes() {
     use leptonica::io::pdf;
 
@@ -705,7 +674,6 @@ fn test_get_pdf_media_box_sizes() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_files_to_ps() {
     use leptonica::io::ps;
 
@@ -728,7 +696,6 @@ fn test_convert_files_to_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_files_fitted_to_ps() {
     use leptonica::io::ps;
 
@@ -750,7 +717,6 @@ fn test_convert_files_fitted_to_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_write_image_compressed_to_ps_file() {
     use leptonica::io::ps;
 
@@ -773,7 +739,6 @@ fn test_write_image_compressed_to_ps_file() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_segmented_pages_to_ps() {
     use leptonica::io::ps;
 
@@ -794,7 +759,6 @@ fn test_convert_segmented_pages_to_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_write_segmented_page_to_ps() {
     use leptonica::io::ps;
 
@@ -813,7 +777,6 @@ fn test_pix_write_segmented_page_to_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_write_mixed_to_ps() {
     use leptonica::io::ps;
 
@@ -833,7 +796,6 @@ fn test_pix_write_mixed_to_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_to_ps_embed() {
     use leptonica::io::ps;
 
@@ -856,7 +818,6 @@ fn test_convert_to_ps_embed() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_write_compressed_to_ps() {
     use leptonica::io::ps;
 
@@ -876,7 +837,6 @@ fn test_pix_write_compressed_to_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_write_string_ps() {
     use leptonica::io::ps;
 
@@ -891,7 +851,6 @@ fn test_pix_write_string_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_uncompressed_ps_public() {
     use leptonica::io::ps;
 
@@ -906,7 +865,6 @@ fn test_generate_uncompressed_ps_public() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_jpeg_to_ps_embed() {
     use leptonica::io::ps;
 
@@ -929,7 +887,6 @@ fn test_convert_jpeg_to_ps_embed() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_jpeg_to_ps() {
     use leptonica::io::ps;
 
@@ -951,7 +908,6 @@ fn test_convert_jpeg_to_ps() {
 // ============================================================
 #[cfg(all(feature = "ps-format", feature = "tiff-format"))]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_g4_to_ps_embed() {
     use leptonica::io::ps;
 
@@ -974,7 +930,6 @@ fn test_convert_g4_to_ps_embed() {
 // ============================================================
 #[cfg(all(feature = "ps-format", feature = "tiff-format"))]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_g4_to_ps() {
     use leptonica::io::ps;
 
@@ -996,7 +951,6 @@ fn test_convert_g4_to_ps() {
 // ============================================================
 #[cfg(all(feature = "ps-format", feature = "tiff-format"))]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_tiff_multipage_to_ps() {
     use leptonica::io::{ps, tiff};
 
@@ -1022,7 +976,6 @@ fn test_convert_tiff_multipage_to_ps() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_flate_to_ps_embed() {
     use leptonica::io::ps;
 
@@ -1045,7 +998,6 @@ fn test_convert_flate_to_ps_embed() {
 // ============================================================
 #[cfg(feature = "ps-format")]
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_flate_to_ps() {
     use leptonica::io::ps;
 
@@ -1066,7 +1018,6 @@ fn test_convert_flate_to_ps() {
 // 49. pixaReadFiles → io::pixa_read_files
 // ============================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_read_files() {
     let dir = std::env::temp_dir().join("leptonica_pixa_read");
     std::fs::create_dir_all(&dir).unwrap();
@@ -1083,7 +1034,6 @@ fn test_pixa_read_files() {
 // 50. pixaWriteFiles → io::pixa_write_files
 // ============================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_write_files() {
     let dir = std::env::temp_dir().join("leptonica_pixa_write");
     std::fs::create_dir_all(&dir).unwrap();
@@ -1101,7 +1051,6 @@ fn test_pixa_write_files() {
 // 51. getFormatExtension → io::get_format_extension
 // ============================================================
 #[test]
-#[ignore = "not yet implemented"]
 fn test_get_format_extension() {
     assert_eq!(leptonica::io::get_format_extension(ImageFormat::Png), "png");
     assert_eq!(

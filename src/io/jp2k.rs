@@ -344,6 +344,41 @@ fn compose_rgba(r: u8, g: u8, b: u8, a: u8) -> u32 {
     ((r as u32) << 24) | ((g as u32) << 16) | ((b as u32) << 8) | (a as u32)
 }
 
+/// Options for JPEG 2000 writing
+#[derive(Debug, Clone, Default)]
+pub struct Jp2kWriteOptions {
+    /// Quality factor (0 = default ~34 SNR, 100 = lossless)
+    pub quality: u32,
+}
+
+/// Write a Pix as JPEG 2000 to memory
+///
+/// # Note
+/// JPEG 2000 encoding is not currently supported. A pure-Rust JP2K encoder
+/// is not yet available. Returns `UnsupportedFormat` error.
+///
+/// # See also
+/// C Leptonica: `pixWriteMemJp2k()` in `jp2kio.c`
+pub fn write_jp2k_mem(_pix: &Pix, _options: &Jp2kWriteOptions) -> IoResult<Vec<u8>> {
+    Err(IoError::UnsupportedFormat(
+        "JP2K writing not yet supported: no pure-Rust encoder available".to_string(),
+    ))
+}
+
+/// Write a Pix as JPEG 2000 to a writer
+///
+/// # See also
+/// C Leptonica: `pixWriteStreamJp2k()` in `jp2kio.c`
+pub fn write_jp2k<W: std::io::Write>(
+    _pix: &Pix,
+    _writer: W,
+    _options: &Jp2kWriteOptions,
+) -> IoResult<()> {
+    Err(IoError::UnsupportedFormat(
+        "JP2K writing not yet supported: no pure-Rust encoder available".to_string(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
