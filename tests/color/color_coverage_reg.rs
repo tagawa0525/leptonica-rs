@@ -124,7 +124,6 @@ fn make_color_gradient(w: u32, h: u32) -> Pix {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_colormap_convert_rgb_to_hsv() {
     use leptonica::color::colorspace::pix_colormap_convert_rgb_to_hsv;
     use leptonica::core::PixColormap;
@@ -147,7 +146,6 @@ fn test_pix_colormap_convert_rgb_to_hsv() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_colormap_convert_hsv_to_rgb() {
     use leptonica::color::colorspace::{
         pix_colormap_convert_hsv_to_rgb, pix_colormap_convert_rgb_to_hsv,
@@ -173,7 +171,6 @@ fn test_pix_colormap_convert_hsv_to_rgb() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_histo_peaks_hsv() {
     use leptonica::color::colorspace::{HsvHistoType, find_histo_peaks_hsv, make_histo_hs};
 
@@ -191,7 +188,6 @@ fn test_find_histo_peaks_hsv() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_convert_rgb_to_xyz() {
     use leptonica::color::colorspace::pix_convert_rgb_to_xyz;
     use leptonica::core::FPix;
@@ -215,7 +211,6 @@ fn test_pix_convert_rgb_to_xyz() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fpixa_convert_xyz_to_rgb() {
     use leptonica::color::colorspace::{fpixa_convert_xyz_to_rgb, pix_convert_rgb_to_xyz};
 
@@ -238,7 +233,6 @@ fn test_fpixa_convert_xyz_to_rgb() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_convert_rgb_to_lab() {
     use leptonica::color::colorspace::pix_convert_rgb_to_lab;
 
@@ -261,7 +255,6 @@ fn test_pix_convert_rgb_to_lab() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fpixa_convert_lab_to_rgb() {
     use leptonica::color::colorspace::{fpixa_convert_lab_to_rgb, pix_convert_rgb_to_lab};
 
@@ -281,7 +274,6 @@ fn test_fpixa_convert_lab_to_rgb() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pix_colormap_convert_rgb_yuv_roundtrip() {
     use leptonica::color::colorspace::{
         pix_colormap_convert_rgb_to_yuv, pix_colormap_convert_yuv_to_rgb,
@@ -304,7 +296,6 @@ fn test_pix_colormap_convert_rgb_yuv_roundtrip() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fpixa_convert_xyz_lab_roundtrip() {
     use leptonica::color::colorspace::{
         fpixa_convert_lab_to_xyz, fpixa_convert_xyz_to_lab, pix_convert_rgb_to_xyz,
@@ -324,7 +315,6 @@ fn test_fpixa_convert_xyz_lab_roundtrip() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octcube_quant_mixed_with_gray() {
     use leptonica::color::quantize::octcube_quant_mixed_with_gray;
 
@@ -341,7 +331,6 @@ fn test_octcube_quant_mixed_with_gray() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_few_colors_octcube_quant1() {
     use leptonica::color::quantize::few_colors_octcube_quant1;
 
@@ -359,7 +348,6 @@ fn test_few_colors_octcube_quant1() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_few_colors_octcube_quant2() {
     use leptonica::color::quantize::few_colors_octcube_quant2;
 
@@ -375,7 +363,6 @@ fn test_few_colors_octcube_quant2() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_few_colors_octcube_quant_mixed() {
     use leptonica::color::quantize::few_colors_octcube_quant_mixed;
 
@@ -391,7 +378,6 @@ fn test_few_colors_octcube_quant_mixed() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_fixed_octcube_quant_gen_rgb() {
     use leptonica::color::quantize::fixed_octcube_quant_gen_rgb;
 
@@ -408,7 +394,6 @@ fn test_fixed_octcube_quant_gen_rgb() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octcube_quant_from_cmap() {
     use leptonica::color::quantize::octcube_quant_from_cmap;
     use leptonica::core::PixColormap;
@@ -429,7 +414,6 @@ fn test_octcube_quant_from_cmap() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octcube_quant_from_cmap_lut() {
     use leptonica::color::quantize::octcube_quant_from_cmap_lut;
     use leptonica::core::PixColormap;
@@ -448,7 +432,6 @@ fn test_octcube_quant_from_cmap_lut() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_octcube_tree() {
     use leptonica::color::quantize::octcube_tree;
 
@@ -465,7 +448,6 @@ fn test_octcube_tree() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_number_occupied_octcubes() {
     use leptonica::color::quantize::number_occupied_octcubes;
 
@@ -481,7 +463,6 @@ fn test_number_occupied_octcubes() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_few_colors_median_cut_quant_mixed() {
     use leptonica::color::quantize::few_colors_median_cut_quant_mixed;
 
@@ -497,7 +478,6 @@ fn test_few_colors_median_cut_quant_mixed() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_segment_clean() {
     use leptonica::color::segment::{color_segment_clean, color_segment_cluster};
 
@@ -521,7 +501,6 @@ fn test_color_segment_clean() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_shift_white_point() {
     use leptonica::color::analysis::color_shift_white_point;
 
@@ -542,7 +521,6 @@ fn test_color_shift_white_point() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_find_color_regions() {
     use leptonica::color::analysis::find_color_regions;
 
@@ -571,7 +549,6 @@ fn test_find_color_regions() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_rgb_to_cmap_lossless() {
     use leptonica::color::analysis::convert_rgb_to_cmap_lossless;
 
@@ -585,7 +562,6 @@ fn test_convert_rgb_to_cmap_lossless() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_convert_rgb_to_cmap_lossless_too_many_colors() {
     use leptonica::color::analysis::convert_rgb_to_cmap_lossless;
 
@@ -600,7 +576,6 @@ fn test_convert_rgb_to_cmap_lossless_too_many_colors() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_simple_color_quantize() {
     use leptonica::color::analysis::simple_color_quantize;
 
@@ -616,7 +591,6 @@ fn test_simple_color_quantize() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_has_highlight_red() {
     use leptonica::color::analysis::has_highlight_red;
 
@@ -643,7 +617,6 @@ fn test_has_highlight_red() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_content_by_location() {
     use leptonica::color::colorfill::color_content_by_location;
 
@@ -657,7 +630,6 @@ fn test_color_content_by_location() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_gray_regions() {
     use leptonica::color::coloring::color_gray_regions;
 
@@ -686,7 +658,6 @@ fn test_color_gray_regions() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_snap_color_cmap() {
     use leptonica::color::coloring::snap_color_cmap;
     use leptonica::core::PixColormap;
@@ -718,7 +689,6 @@ fn test_snap_color_cmap() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_otsu_thresh_on_background_norm() {
     use leptonica::color::threshold::otsu_thresh_on_background_norm;
 
@@ -734,7 +704,6 @@ fn test_otsu_thresh_on_background_norm() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_masked_thresh_on_background_norm() {
     use leptonica::color::threshold::masked_thresh_on_background_norm;
 
@@ -750,7 +719,6 @@ fn test_masked_thresh_on_background_norm() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_sauvola_on_contrast_norm() {
     use leptonica::color::threshold::sauvola_on_contrast_norm;
 
@@ -766,7 +734,6 @@ fn test_sauvola_on_contrast_norm() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_thresh_on_double_norm() {
     use leptonica::color::threshold::thresh_on_double_norm;
 
@@ -782,7 +749,6 @@ fn test_thresh_on_double_norm() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_by_conn_comp() {
     use leptonica::color::threshold::threshold_by_conn_comp;
 
@@ -799,7 +765,6 @@ fn test_threshold_by_conn_comp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_by_histo() {
     use leptonica::color::threshold::threshold_by_histo;
 
@@ -816,7 +781,6 @@ fn test_threshold_by_histo() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_adapt_threshold_to_binary_gen() {
     use leptonica::color::threshold::adapt_threshold_to_binary_gen;
 
@@ -834,7 +798,6 @@ fn test_adapt_threshold_to_binary_gen() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dither_to_2bpp() {
     use leptonica::color::threshold::dither_to_2bpp;
 
@@ -850,7 +813,6 @@ fn test_dither_to_2bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_dither_to_2bpp_spec() {
     use leptonica::color::threshold::dither_to_2bpp_spec;
 
@@ -866,7 +828,6 @@ fn test_dither_to_2bpp_spec() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_on_8bpp() {
     use leptonica::color::threshold::threshold_on_8bpp;
 
@@ -884,7 +845,6 @@ fn test_threshold_on_8bpp() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_gray_arb() {
     use leptonica::color::threshold::threshold_gray_arb;
 
@@ -905,7 +865,6 @@ fn test_threshold_gray_arb() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_mask_by_band_32() {
     use leptonica::color::threshold::generate_mask_by_band_32;
 
@@ -922,7 +881,6 @@ fn test_generate_mask_by_band_32() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_mask_by_discr_32() {
     use leptonica::color::threshold::generate_mask_by_discr_32;
 
@@ -951,7 +909,6 @@ fn test_generate_mask_by_discr_32() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_gray_quant_from_histo() {
     use leptonica::color::threshold::gray_quant_from_histo;
 
@@ -967,7 +924,6 @@ fn test_gray_quant_from_histo() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_gray_quant_from_cmap() {
     use leptonica::color::threshold::gray_quant_from_cmap;
     use leptonica::core::PixColormap;
