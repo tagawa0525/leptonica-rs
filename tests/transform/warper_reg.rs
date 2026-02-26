@@ -128,7 +128,6 @@ fn warper_reg_stretch_horizontal() {
 
 /// Test pixSimpleCaptcha.
 #[test]
-#[ignore = "not yet implemented"]
 fn warper_reg_captcha() {
     let pix = crate::common::load_test_image("weasel8.149g.png").expect("load test image");
 

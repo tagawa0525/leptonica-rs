@@ -10,7 +10,6 @@ use leptonica::core::{Pix, PixColormap, PixelDepth, RgbaQuad};
 
 /// Test pix_set_select_cmap: repaint a colormap entry.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_select() {
     use leptonica::color::paintcmap::pix_set_select_cmap;
 
@@ -32,7 +31,6 @@ fn paintcmap_set_select() {
 
 /// Test pix_color_gray_cmap: colorize gray entries.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_color_gray() {
     use leptonica::color::paintcmap::pix_color_gray_cmap;
 
@@ -52,7 +50,6 @@ fn paintcmap_color_gray() {
 
 /// Test pix_color_gray_regions_cmap with bounding boxes.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_color_gray_regions() {
     use leptonica::color::paintcmap::pix_color_gray_regions_cmap;
     use leptonica::core::Boxa;
@@ -72,7 +69,6 @@ fn paintcmap_color_gray_regions() {
 
 /// Test pix_color_gray_masked_cmap.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_color_gray_masked() {
     use leptonica::color::paintcmap::pix_color_gray_masked_cmap;
 
@@ -94,7 +90,6 @@ fn paintcmap_color_gray_masked() {
 
 /// Test add_colorized_gray_to_cmap.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_add_colorized_gray() {
     use leptonica::color::paintcmap::add_colorized_gray_to_cmap;
 
@@ -114,7 +109,6 @@ fn paintcmap_add_colorized_gray() {
 
 /// Test pix_set_select_masked_cmap.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_select_masked() {
     use leptonica::color::paintcmap::pix_set_select_masked_cmap;
 
@@ -135,7 +129,6 @@ fn paintcmap_set_select_masked() {
 
 /// Test pix_set_masked_cmap.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_masked() {
     use leptonica::color::paintcmap::pix_set_masked_cmap;
 

@@ -49,7 +49,6 @@ fn pixtile_reg_basic_clip() {
 
 /// Test PixTiling create and get_count/get_size.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixtile_reg_create_and_query() {
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
 
@@ -65,7 +64,6 @@ fn pixtile_reg_create_and_query() {
 
 /// Test PixTiling round-trip: extract tiles and paint back.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixtile_reg_tiling_roundtrip() {
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
     let w = pix.width();
@@ -91,7 +89,6 @@ fn pixtile_reg_tiling_roundtrip() {
 
 /// Test PixTiling with overlap.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixtile_reg_overlap() {
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
 
@@ -108,7 +105,6 @@ fn pixtile_reg_overlap() {
 
 /// Test PixTiling by tile size.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixtile_reg_by_size() {
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
 

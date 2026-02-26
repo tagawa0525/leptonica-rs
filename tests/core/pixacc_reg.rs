@@ -12,7 +12,6 @@ use leptonica::{Pix, PixelDepth};
 
 /// Test PixAcc creation and basic finalization.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_create() {
     let acc = PixAcc::create(10, 10, false).unwrap();
     let result = acc.finish(PixelDepth::Bit8).unwrap();
@@ -24,7 +23,6 @@ fn pixacc_create() {
 
 /// Test PixAcc creation from Pix.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_create_from_pix() {
     let mut pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap().to_mut();
     pix.set_pixel(5, 5, 128).unwrap();
@@ -38,7 +36,6 @@ fn pixacc_create_from_pix() {
 
 /// Test PixAcc add and subtract.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_add_subtract() {
     let mut acc = PixAcc::create(10, 10, false).unwrap();
 
@@ -63,7 +60,6 @@ fn pixacc_add_subtract() {
 
 /// Test PixAcc with negative flag.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_negative_flag() {
     let acc = PixAcc::create(10, 10, true).unwrap();
     assert!(acc.offset() > 0);
@@ -75,7 +71,6 @@ fn pixacc_negative_flag() {
 
 /// Test PixAcc mult_const.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_mult_const() {
     let mut acc = PixAcc::create(10, 10, false).unwrap();
 
@@ -92,7 +87,6 @@ fn pixacc_mult_const() {
 
 /// Test PixAcc mult_const_accumulate.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_mult_const_accumulate() {
     let mut acc = PixAcc::create(10, 10, false).unwrap();
 
@@ -108,7 +102,6 @@ fn pixacc_mult_const_accumulate() {
 
 /// Test PixAcc get_pix returns current state.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_get_pix() {
     let mut acc = PixAcc::create(10, 10, false).unwrap();
 
@@ -125,7 +118,6 @@ fn pixacc_get_pix() {
 
 /// Test PixAcc size mismatch error.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixacc_size_mismatch() {
     let mut acc = PixAcc::create(10, 10, false).unwrap();
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();

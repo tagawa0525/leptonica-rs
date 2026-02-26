@@ -11,7 +11,6 @@ use leptonica::recog::correlscore;
 
 /// Test correlation_score_simple with identical images.
 #[test]
-#[ignore = "not yet implemented"]
 fn correlscore_identical() {
     let mut pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap().to_mut();
     // Draw a small block
@@ -29,7 +28,6 @@ fn correlscore_identical() {
 
 /// Test correlation_score_simple with disjoint images.
 #[test]
-#[ignore = "not yet implemented"]
 fn correlscore_disjoint() {
     let mut pix1 = Pix::new(40, 20, PixelDepth::Bit1).unwrap().to_mut();
     let mut pix2 = Pix::new(40, 20, PixelDepth::Bit1).unwrap().to_mut();
@@ -58,7 +56,6 @@ fn correlscore_disjoint() {
 
 /// Test correlation_score with precomputed areas.
 #[test]
-#[ignore = "not yet implemented"]
 fn correlscore_with_areas() {
     let mut pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap().to_mut();
     for y in 5..15 {
@@ -75,7 +72,6 @@ fn correlscore_with_areas() {
 
 /// Test correlation_score_thresholded.
 #[test]
-#[ignore = "not yet implemented"]
 fn correlscore_thresholded() {
     let mut pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap().to_mut();
     for y in 5..15 {
@@ -96,7 +92,6 @@ fn correlscore_thresholded() {
 
 /// Test correlation_score_shifted.
 #[test]
-#[ignore = "not yet implemented"]
 fn correlscore_shifted() {
     let mut pix = Pix::new(30, 30, PixelDepth::Bit1).unwrap().to_mut();
     for y in 10..20 {

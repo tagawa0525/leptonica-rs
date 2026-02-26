@@ -39,7 +39,6 @@ fn pixcomp_reg_pixa_array() {
 
 /// Test PixComp creation and round-trip.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_create_roundtrip() {
     let pix = crate::common::load_test_image("marge.jpg").unwrap();
     let pixcomp = PixComp::create_from_pix(&pix, Some(ImageFormat::Png)).unwrap();
@@ -54,7 +53,6 @@ fn pixcomp_reg_create_roundtrip() {
 
 /// Test PixaComp creation from Pixa.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_pixacomp_from_pixa() {
     let mut pixa = Pixa::new();
     let pix1 = crate::common::load_test_image("marge.jpg").unwrap();
@@ -73,7 +71,6 @@ fn pixcomp_reg_pixacomp_from_pixa() {
 
 /// Test PixaComp add/replace/get_pix operations.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_pixacomp_operations() {
     let mut pixacomp = PixaComp::create(4);
     let pix = crate::common::load_test_image("marge.jpg").unwrap();
@@ -94,7 +91,6 @@ fn pixcomp_reg_pixacomp_operations() {
 
 /// Test PixaComp serialization round-trip.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_serialization() {
     let mut pixacomp = PixaComp::create(2);
     let pix = crate::common::load_test_image("marge.jpg").unwrap();
@@ -111,7 +107,6 @@ fn pixcomp_reg_serialization() {
 
 /// Test PixaComp join and interleave.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_join_interleave() {
     let mut pac1 = PixaComp::create(2);
     let mut pac2 = PixaComp::create(2);
@@ -132,7 +127,6 @@ fn pixcomp_reg_join_interleave() {
 
 /// Test PixComp string creation and parameters.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_from_string() {
     let data = vec![0u8; 100];
     let pixcomp =
@@ -148,7 +142,6 @@ fn pixcomp_reg_from_string() {
 
 /// Test PixaComp with init.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_create_with_init() {
     let pix = leptonica::Pix::new(20, 20, leptonica::PixelDepth::Bit8).unwrap();
     let pac = PixaComp::create_with_init(3, 0, Some(&pix), None).unwrap();
@@ -157,7 +150,6 @@ fn pixcomp_reg_create_with_init() {
 
 /// Test PixaComp write files and PixComp write file.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixcomp_reg_write_files() {
     let mut pac = PixaComp::create(2);
     let pix = leptonica::Pix::new(20, 20, leptonica::PixelDepth::Bit8).unwrap();

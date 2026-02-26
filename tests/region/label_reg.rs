@@ -89,7 +89,6 @@ fn label_reg() {
 
 /// Test pix_get_sorted_neighbor_values on a labeled image.
 #[test]
-#[ignore = "not yet implemented"]
 fn label_reg_sorted_neighbors() {
     let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
     let labeled =

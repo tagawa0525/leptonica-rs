@@ -107,7 +107,6 @@ fn expand_reg_32bpp() {
 
 /// Test binary power-of-2 expansion and reduce round-trip.
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_binary_power2() {
     use leptonica::transform::binexpand::{expand_binary_power2, expand_binary_replicate};
     use leptonica::transform::binreduce::reduce_rank_binary_2;
@@ -135,7 +134,6 @@ fn expand_reg_binary_power2() {
 
 /// Test make_subsample_tab_2x.
 #[test]
-#[ignore = "not yet implemented"]
 fn expand_reg_subsample_tab() {
     use leptonica::transform::binexpand::make_subsample_tab_2x;
 

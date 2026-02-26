@@ -41,7 +41,6 @@ fn encoding_reg_ps_ascii85() {
 
 /// Test Base64 encode/decode round-trip.
 #[test]
-#[ignore = "not yet implemented"]
 fn encoding_reg_base64_roundtrip() {
     let data = b"Hello, World! This is a test of Base64 encoding.";
     let encoded = encoding::encode_base64(data);
@@ -51,7 +50,6 @@ fn encoding_reg_base64_roundtrip() {
 
 /// Test Base64 with binary data.
 #[test]
-#[ignore = "not yet implemented"]
 fn encoding_reg_base64_binary() {
     let data: Vec<u8> = (0..=255).collect();
     let encoded = encoding::encode_base64(&data);
@@ -61,7 +59,6 @@ fn encoding_reg_base64_binary() {
 
 /// Test ASCII85 decode (C check 0).
 #[test]
-#[ignore = "not yet implemented"]
 fn encoding_reg_ascii85_decode() {
     // "Man " encodes to "9jqo^"
     let decoded = encoding::decode_ascii85(b"9jqo^~>").unwrap();
@@ -74,7 +71,6 @@ fn encoding_reg_ascii85_decode() {
 
 /// Test ASCII85 round-trip via PS module encoding then public decoding.
 #[test]
-#[ignore = "not yet implemented"]
 fn encoding_reg_ascii85_roundtrip() {
     // Encode some binary data, then decode
     let _original: Vec<u8> = (0..100).collect();
@@ -87,7 +83,6 @@ fn encoding_reg_ascii85_roundtrip() {
 
 /// Test Base64 padding variants.
 #[test]
-#[ignore = "not yet implemented"]
 fn encoding_reg_base64_padding() {
     // 0 bytes
     assert_eq!(encoding::encode_base64(&[]), "");
