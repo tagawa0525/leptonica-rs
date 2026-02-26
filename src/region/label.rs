@@ -447,12 +447,40 @@ pub fn conn_comp_transform(
 /// Incremental connected component labeler
 ///
 /// Allows components to be added sequentially with automatic label assignment.
+/// Union-find: find root with path halving
+fn uf_find(parent: &mut [u32], mut x: u32) -> u32 {
+    while parent[x as usize] != x {
+        parent[x as usize] = parent[parent[x as usize] as usize];
+        x = parent[x as usize];
+    }
+    x
+}
+
+/// Union-find: merge two sets by rank
+fn uf_union(parent: &mut [u32], rank: &mut [u8], x: u32, y: u32) {
+    let rx = uf_find(parent, x);
+    let ry = uf_find(parent, y);
+    if rx == ry {
+        return;
+    }
+    if rank[rx as usize] < rank[ry as usize] {
+        parent[rx as usize] = ry;
+    } else if rank[rx as usize] > rank[ry as usize] {
+        parent[ry as usize] = rx;
+    } else {
+        parent[ry as usize] = rx;
+        rank[rx as usize] += 1;
+    }
+}
+
 pub struct IncrementalLabeler {
     width: u32,
     height: u32,
     connectivity: ConnectivityType,
     labels: Vec<u32>,
     next_label: u32,
+    parent: Vec<u32>,
+    rank: Vec<u8>,
 }
 
 impl std::fmt::Debug for IncrementalLabeler {
@@ -484,6 +512,8 @@ impl IncrementalLabeler {
             connectivity,
             labels: vec![0; size],
             next_label: 1,
+            parent: vec![0],
+            rank: vec![0],
         }
     }
 
@@ -529,6 +559,8 @@ impl IncrementalLabeler {
 
         // BFS to find all connected pixels
         let label = self.next_label;
+        self.parent.push(label);
+        self.rank.push(0);
         let mut queue = std::collections::VecDeque::new();
         queue.push_back((x, y));
         self.labels[idx] = label;
@@ -589,16 +621,22 @@ impl IncrementalLabeler {
     }
 
     /// Get the resulting labeled image
-    pub fn finish(self) -> Pix {
+    pub fn finish(mut self) -> Pix {
         // Create a 32-bit image
         let pix =
             Pix::new(self.width, self.height, PixelDepth::Bit32).expect("Failed to allocate image");
         let mut pix_mut = pix.try_into_mut().unwrap_or_else(|p| p.to_mut());
 
-        for (idx, &label) in self.labels.iter().enumerate() {
+        for idx in 0..self.labels.len() {
+            let label = self.labels[idx];
+            let resolved = if label > 0 {
+                uf_find(&mut self.parent, label)
+            } else {
+                0
+            };
             let y = (idx as u32) / self.width;
             let x = (idx as u32) % self.width;
-            let _ = pix_mut.set_pixel(x, y, label);
+            let _ = pix_mut.set_pixel(x, y, resolved);
         }
 
         pix_mut.into()
@@ -747,6 +785,8 @@ pub fn pix_conn_comp_incr_init(
     }
 
     labeler.next_label = max_label + 1;
+    labeler.parent = (0..=max_label).collect();
+    labeler.rank = vec![0; (max_label + 1) as usize];
     Ok((labeler, max_label))
 }
 
@@ -806,8 +846,11 @@ pub fn pix_conn_comp_incr_add(
         if nx >= 0 && nx < labeler.width as i32 && ny >= 0 && ny < labeler.height as i32 {
             let n_idx = (ny as u32 * labeler.width + nx as u32) as usize;
             let val = labeler.labels[n_idx];
-            if val > 0 && !neighbor_labels.contains(&val) {
-                neighbor_labels.push(val);
+            if val > 0 {
+                let root = uf_find(&mut labeler.parent, val);
+                if !neighbor_labels.contains(&root) {
+                    neighbor_labels.push(root);
+                }
             }
         }
     }
@@ -817,6 +860,8 @@ pub fn pix_conn_comp_incr_add(
         // New isolated component
         let label = labeler.next_label;
         labeler.labels[idx] = label;
+        labeler.parent.push(label);
+        labeler.rank.push(0);
         labeler.next_label += 1;
         *ncc += 1;
     } else {
@@ -824,15 +869,15 @@ pub fn pix_conn_comp_incr_add(
         let first_label = neighbor_labels[0];
         labeler.labels[idx] = first_label;
 
-        // Merge other labels into first_label
+        // Union all neighbor labels via union-find
         if neighbor_labels.len() > 1 {
-            for &old_label in &neighbor_labels[1..] {
-                // Relabel all pixels with old_label to first_label
-                for lbl in labeler.labels.iter_mut() {
-                    if *lbl == old_label {
-                        *lbl = first_label;
-                    }
-                }
+            for &other_label in &neighbor_labels[1..] {
+                uf_union(
+                    &mut labeler.parent,
+                    &mut labeler.rank,
+                    first_label,
+                    other_label,
+                );
                 *ncc -= 1;
             }
         }
