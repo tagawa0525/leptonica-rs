@@ -1305,6 +1305,546 @@ impl Pix {
     }
 }
 
+// ============================================================================
+// Additional histogram and color distribution functions (Group 2)
+// ============================================================================
+
+impl Pix {
+    /// Count unique RGB colors using a hash table approach. For 32bpp only.
+    ///
+    /// Uses a `HashSet<u32>` to count unique (r,g,b) combinations ignoring alpha.
+    ///
+    /// C equivalent: `pixCountRGBColorsByHash()` in `pix4.c`
+    pub fn count_rgb_colors_by_hash(&self) -> Result<u32> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let mut colors = std::collections::HashSet::new();
+        for y in 0..h {
+            for x in 0..w {
+                let p = self.get_pixel_unchecked(x, y);
+                colors.insert(p & 0xFFFFFF00);
+            }
+        }
+        Ok(colors.len() as u32)
+    }
+
+    /// Get color association map histogram for colormapped images.
+    ///
+    /// Returns a `Numa` with count per colormap index, sampling by `factor`.
+    ///
+    /// C equivalent: `pixGetColorAmapHistogram()` in `pix4.c`
+    pub fn color_amap_histogram(&self, factor: u32) -> Result<Numa> {
+        if self.colormap().is_none() {
+            return Err(Error::InvalidParameter("image has no colormap".into()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let cmap = self.colormap().unwrap();
+        let nbins = cmap.len();
+        let mut histogram = vec![0.0f32; nbins];
+
+        let w = self.width();
+        let h = self.height();
+        let depth = self.depth();
+
+        let mut y = 0u32;
+        while y < h {
+            let line = self.row_data(y);
+            let mut x = 0u32;
+            while x < w {
+                let index = get_pixel_from_line(line, x, depth) as usize;
+                if index < nbins {
+                    histogram[index] += 1.0;
+                }
+                x += factor;
+            }
+            y += factor;
+        }
+
+        let mut result = Numa::from_vec(histogram);
+        result.set_parameters(0.0, 1.0);
+        Ok(result)
+    }
+
+    /// Get binned range of a color component for 32bpp images.
+    ///
+    /// Returns `(min_val, max_val)` for the specified component.
+    /// Samples every `factor`-th pixel, bins the component values into
+    /// `nbins` bins, and finds the min/max active bins.
+    ///
+    /// C equivalent: `pixGetBinnedComponentRange()` in `pix4.c`
+    pub fn get_binned_component_range(
+        &self,
+        nbins: u32,
+        factor: u32,
+        comp: crate::core::InColor,
+        min_hint: Option<i32>,
+        max_hint: Option<i32>,
+    ) -> Result<(i32, i32)> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if nbins == 0 || factor == 0 {
+            return Err(Error::InvalidParameter(
+                "nbins and factor must be >= 1".into(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let bin_size = 256_u32.div_ceil(nbins);
+        let mut bins = vec![0u32; nbins as usize];
+
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let p = self.get_pixel_unchecked(x, y);
+                let val = match comp {
+                    crate::core::InColor::White => pixel::red(p),
+                    crate::core::InColor::Black => pixel::green(p),
+                    // map InColor variants to components: White->R, Black->G
+                };
+                let bin = (val as u32) / bin_size;
+                let bin = bin.min(nbins - 1);
+                bins[bin as usize] += 1;
+                x += factor;
+            }
+            y += factor;
+        }
+
+        let min_val = if let Some(hint) = min_hint {
+            hint
+        } else {
+            let mut min_bin = 0i32;
+            for (i, &count) in bins.iter().enumerate() {
+                if count > 0 {
+                    min_bin = (i as u32 * bin_size) as i32;
+                    break;
+                }
+            }
+            min_bin
+        };
+
+        let max_val = if let Some(hint) = max_hint {
+            hint
+        } else {
+            let mut max_bin = 255i32;
+            for (i, &count) in bins.iter().enumerate().rev() {
+                if count > 0 {
+                    max_bin = ((i as u32 + 1) * bin_size).min(256) as i32 - 1;
+                    break;
+                }
+            }
+            max_bin
+        };
+
+        Ok((min_val, max_val))
+    }
+
+    /// Get array of sorted representative colors (as u32 packed RGB).
+    ///
+    /// Bins pixels by component, picks representative (average) color per bin.
+    ///
+    /// C equivalent: `pixGetRankColorArray()` in `pix4.c`
+    pub fn get_rank_color_array(
+        &self,
+        nbins: u32,
+        comp: crate::core::InColor,
+        factor: u32,
+        _n_colors: u32,
+    ) -> Result<Vec<u32>> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if nbins == 0 || factor == 0 {
+            return Err(Error::InvalidParameter(
+                "nbins and factor must be >= 1".into(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let bin_size = 256_u32.div_ceil(nbins);
+        let mut r_sum = vec![0u64; nbins as usize];
+        let mut g_sum = vec![0u64; nbins as usize];
+        let mut b_sum = vec![0u64; nbins as usize];
+        let mut counts = vec![0u64; nbins as usize];
+
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let p = self.get_pixel_unchecked(x, y);
+                let (r, g, b, _) = pixel::extract_rgba(p);
+                let key = match comp {
+                    crate::core::InColor::White => r,
+                    crate::core::InColor::Black => g,
+                };
+                let bin = ((key as u32) / bin_size).min(nbins - 1) as usize;
+                r_sum[bin] += r as u64;
+                g_sum[bin] += g as u64;
+                b_sum[bin] += b as u64;
+                counts[bin] += 1;
+                x += factor;
+            }
+            y += factor;
+        }
+
+        let mut colors = Vec::with_capacity(nbins as usize);
+        for i in 0..nbins as usize {
+            if counts[i] > 0 {
+                colors.push(pixel::compose_rgb(
+                    (r_sum[i] / counts[i]) as u8,
+                    (g_sum[i] / counts[i]) as u8,
+                    (b_sum[i] / counts[i]) as u8,
+                ));
+            } else {
+                colors.push(0);
+            }
+        }
+        Ok(colors)
+    }
+
+    /// Get binned color average for each bin.
+    ///
+    /// For 32bpp. For each component bin (provided via `pixa`), compute
+    /// average color and return as packed u32 array.
+    ///
+    /// C equivalent: `pixGetBinnedColor()` in `pix4.c`
+    pub fn get_binned_color(&self, pixa: &crate::core::Pixa, factor: u32) -> Result<Vec<u32>> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let nbins = pixa.len();
+        let mut r_sum = vec![0u64; nbins];
+        let mut g_sum = vec![0u64; nbins];
+        let mut b_sum = vec![0u64; nbins];
+        let mut counts = vec![0u64; nbins];
+
+        let w = self.width();
+        let h = self.height();
+
+        for (i, bin_pix) in pixa.iter().enumerate() {
+            if bin_pix.depth() != PixelDepth::Bit1 {
+                continue;
+            }
+            let bw = bin_pix.width().min(w);
+            let bh = bin_pix.height().min(h);
+            let mut y = 0u32;
+            while y < bh {
+                let mut x = 0u32;
+                while x < bw {
+                    if bin_pix.get_pixel_unchecked(x, y) != 0 {
+                        let p = self.get_pixel_unchecked(x, y);
+                        let (r, g, b, _) = pixel::extract_rgba(p);
+                        r_sum[i] += r as u64;
+                        g_sum[i] += g as u64;
+                        b_sum[i] += b as u64;
+                        counts[i] += 1;
+                    }
+                    x += factor;
+                }
+                y += factor;
+            }
+        }
+
+        let mut colors = Vec::with_capacity(nbins);
+        for i in 0..nbins {
+            if counts[i] > 0 {
+                colors.push(pixel::compose_rgb(
+                    (r_sum[i] / counts[i]) as u8,
+                    (g_sum[i] / counts[i]) as u8,
+                    (b_sum[i] / counts[i]) as u8,
+                ));
+            } else {
+                colors.push(0);
+            }
+        }
+        Ok(colors)
+    }
+
+    /// Create a Pix displaying an array of colors as colored squares.
+    ///
+    /// Each square is `side x side` pixels, arranged in a grid with
+    /// `n_per_row` squares per row.
+    ///
+    /// C equivalent: `pixDisplayColorArray()` in `pix4.c`
+    pub fn display_color_array(colors: &[u32], side: u32, n_per_row: u32) -> Result<Pix> {
+        if colors.is_empty() || side == 0 || n_per_row == 0 {
+            return Err(Error::InvalidParameter(
+                "colors, side, and n_per_row must be non-empty/non-zero".into(),
+            ));
+        }
+
+        let n = colors.len() as u32;
+        let nrows = n.div_ceil(n_per_row);
+        let w = n_per_row * side;
+        let h = nrows * side;
+
+        let pix = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut pm = pix.try_into_mut().unwrap();
+
+        for (i, &color) in colors.iter().enumerate() {
+            let col = (i as u32) % n_per_row;
+            let row = (i as u32) / n_per_row;
+            let x0 = col * side;
+            let y0 = row * side;
+            for dy in 0..side {
+                for dx in 0..side {
+                    if x0 + dx < w && y0 + dy < h {
+                        pm.set_pixel_unchecked(x0 + dx, y0 + dy, color);
+                    }
+                }
+            }
+        }
+
+        Ok(pm.into())
+    }
+
+    /// Compute rank-binned colors by vertical or horizontal strips.
+    ///
+    /// Splits the image into strips along `direction`, computes binned
+    /// colors per strip, and creates an output showing the color bins.
+    ///
+    /// C equivalent: `pixRankBinByStrip()` in `pix4.c`
+    pub fn rank_bin_by_strip(
+        &self,
+        direction: crate::core::DiffDirection,
+        size: u32,
+        nbins: u32,
+        comp: crate::core::InColor,
+    ) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if size == 0 || nbins == 0 {
+            return Err(Error::InvalidParameter(
+                "size and nbins must be >= 1".into(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        match direction {
+            crate::core::DiffDirection::Horizontal => {
+                let nstrips = h.div_ceil(size);
+                let out_h = nstrips * nbins;
+                let out = Pix::new(w, out_h, PixelDepth::Bit32)?;
+                let mut om = out.try_into_mut().unwrap();
+
+                for s in 0..nstrips {
+                    let y0 = s * size;
+                    let y1 = (y0 + size).min(h);
+                    // Collect colors for this strip
+                    let bin_size = 256_u32.div_ceil(nbins);
+                    let mut r_sum = vec![0u64; nbins as usize];
+                    let mut g_sum = vec![0u64; nbins as usize];
+                    let mut b_sum = vec![0u64; nbins as usize];
+                    let mut counts = vec![0u64; nbins as usize];
+
+                    for y in y0..y1 {
+                        for x in 0..w {
+                            let p = self.get_pixel_unchecked(x, y);
+                            let (r, g, b, _) = pixel::extract_rgba(p);
+                            let key = match comp {
+                                crate::core::InColor::White => r,
+                                crate::core::InColor::Black => g,
+                            };
+                            let bin = ((key as u32) / bin_size).min(nbins - 1) as usize;
+                            r_sum[bin] += r as u64;
+                            g_sum[bin] += g as u64;
+                            b_sum[bin] += b as u64;
+                            counts[bin] += 1;
+                        }
+                    }
+
+                    for b_idx in 0..nbins {
+                        let color = if counts[b_idx as usize] > 0 {
+                            pixel::compose_rgb(
+                                (r_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
+                                (g_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
+                                (b_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
+                            )
+                        } else {
+                            0
+                        };
+                        let out_y = s * nbins + b_idx;
+                        if out_y < out_h {
+                            for x in 0..w {
+                                om.set_pixel_unchecked(x, out_y, color);
+                            }
+                        }
+                    }
+                }
+                Ok(om.into())
+            }
+            crate::core::DiffDirection::Vertical => {
+                let nstrips = w.div_ceil(size);
+                let out_w = nstrips * nbins;
+                let out = Pix::new(out_w, h, PixelDepth::Bit32)?;
+                let mut om = out.try_into_mut().unwrap();
+
+                for s in 0..nstrips {
+                    let x0 = s * size;
+                    let x1 = (x0 + size).min(w);
+                    let bin_size = 256_u32.div_ceil(nbins);
+                    let mut r_sum = vec![0u64; nbins as usize];
+                    let mut g_sum = vec![0u64; nbins as usize];
+                    let mut b_sum = vec![0u64; nbins as usize];
+                    let mut counts = vec![0u64; nbins as usize];
+
+                    for y in 0..h {
+                        for x in x0..x1 {
+                            let p = self.get_pixel_unchecked(x, y);
+                            let (r, g, b, _) = pixel::extract_rgba(p);
+                            let key = match comp {
+                                crate::core::InColor::White => r,
+                                crate::core::InColor::Black => g,
+                            };
+                            let bin = ((key as u32) / bin_size).min(nbins - 1) as usize;
+                            r_sum[bin] += r as u64;
+                            g_sum[bin] += g as u64;
+                            b_sum[bin] += b as u64;
+                            counts[bin] += 1;
+                        }
+                    }
+
+                    for b_idx in 0..nbins {
+                        let color = if counts[b_idx as usize] > 0 {
+                            pixel::compose_rgb(
+                                (r_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
+                                (g_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
+                                (b_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
+                            )
+                        } else {
+                            0
+                        };
+                        let out_x = s * nbins + b_idx;
+                        if out_x < out_w {
+                            for y in 0..h {
+                                om.set_pixel_unchecked(out_x, y, color);
+                            }
+                        }
+                    }
+                }
+                Ok(om.into())
+            }
+        }
+    }
+
+    /// Find threshold that splits pixel distribution into fg and bg.
+    ///
+    /// Returns `(threshold, avg_fg, avg_bg)` analyzing the histogram.
+    /// Uses Otsu-like thresholding. For 8bpp only.
+    ///
+    /// C equivalent: `pixSplitDistributionFgBg()` in `pix4.c`
+    pub fn split_distribution_fg_bg(
+        &self,
+        score_fract: f32,
+        factor: u32,
+    ) -> Result<(u32, f32, f32)> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        let hist = self.gray_histogram(factor)?;
+        let n = hist.len();
+        if n == 0 {
+            return Err(Error::InvalidParameter("empty histogram".into()));
+        }
+
+        // Compute total pixel count and mean
+        let mut total = 0.0f64;
+        let mut total_mean = 0.0f64;
+        for i in 0..n {
+            let count = hist.get(i).unwrap_or(0.0) as f64;
+            total += count;
+            total_mean += i as f64 * count;
+        }
+        if total == 0.0 {
+            return Ok((128, 0.0, 0.0));
+        }
+        total_mean /= total;
+
+        // Otsu's method: maximize between-class variance
+        let mut best_thresh = 0u32;
+        let mut best_variance = 0.0f64;
+        let mut w0 = 0.0f64;
+        let mut sum0 = 0.0f64;
+
+        for i in 0..n {
+            let count = hist.get(i).unwrap_or(0.0) as f64;
+            w0 += count;
+            sum0 += i as f64 * count;
+
+            let w1 = total - w0;
+            if w0 == 0.0 || w1 == 0.0 {
+                continue;
+            }
+
+            let mean0 = sum0 / w0;
+            let mean1 = (total_mean * total - sum0) / w1;
+            let between_variance = w0 * w1 * (mean0 - mean1) * (mean0 - mean1);
+
+            if between_variance > best_variance {
+                best_variance = between_variance;
+                best_thresh = i as u32;
+            }
+        }
+
+        // Blend the pure Otsu threshold with the global mean.
+        // `score_fract` is the weight for the Otsu threshold;
+        // (1.0 - score_fract) is the weight for the mean.
+        let thresh =
+            (best_thresh as f32 * score_fract + (1.0 - score_fract) * total_mean as f32) as u32;
+        let thresh = thresh.min(255);
+
+        // Compute average fg (above thresh) and bg (below thresh)
+        let mut fg_sum = 0.0f64;
+        let mut fg_count = 0.0f64;
+        let mut bg_sum = 0.0f64;
+        let mut bg_count = 0.0f64;
+        for i in 0..n {
+            let count = hist.get(i).unwrap_or(0.0) as f64;
+            if (i as u32) <= thresh {
+                bg_sum += i as f64 * count;
+                bg_count += count;
+            } else {
+                fg_sum += i as f64 * count;
+                fg_count += count;
+            }
+        }
+
+        let avg_fg = if fg_count > 0.0 {
+            (fg_sum / fg_count) as f32
+        } else {
+            0.0
+        };
+        let avg_bg = if bg_count > 0.0 {
+            (bg_sum / bg_count) as f32
+        } else {
+            0.0
+        };
+
+        Ok((thresh, avg_fg, avg_bg))
+    }
+}
+
 /// Get pixel value from a line buffer
 #[inline]
 fn get_pixel_from_line(line: &[u32], x: u32, depth: PixelDepth) -> u32 {

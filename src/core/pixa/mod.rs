@@ -3,6 +3,8 @@
 //! These structures manage collections of images, optionally with
 //! associated bounding boxes for each image.
 
+mod serial;
+
 use crate::core::box_::{Box, Boxa, SizeRelation};
 use crate::core::error::{Error, Result};
 use crate::core::numa::{Numa, SortOrder};
@@ -157,6 +159,34 @@ impl Pixa {
             let _ = self.boxa.remove(index);
         }
         Ok(self.pix.remove(index))
+    }
+
+    /// Remove the Pix (and its box) at index, discarding the value.
+    ///
+    /// C Leptonica equivalent: `pixaRemovePix`
+    pub fn remove_pix(&mut self, index: usize) -> Result<()> {
+        self.remove(index)?;
+        Ok(())
+    }
+
+    /// Remove and return the Pix at index.
+    ///
+    /// C Leptonica equivalent: `pixaRemovePixAndSave`
+    pub fn remove_pix_and_save(&mut self, index: usize) -> Result<Pix> {
+        self.remove(index)
+    }
+
+    /// Read a Pixa from a PNG image file and a boxa file.
+    ///
+    /// Reads the image, reads the boxa, then clips the image by each box
+    /// to produce the Pixa.
+    ///
+    /// C Leptonica equivalent: `pixaReadBoth`
+    pub fn read_both(image_path: &std::path::Path, boxa_path: &std::path::Path) -> Result<Pixa> {
+        let pix = crate::io::read_image(image_path)
+            .map_err(|e| Error::InvalidParameter(format!("failed to read image: {}", e)))?;
+        let boxa = Boxa::read_from_file(boxa_path)?;
+        pix.clip_rectangles(&boxa)
     }
 
     /// Insert a Pix at index
@@ -1156,6 +1186,61 @@ impl Pixa {
     /// Create a mutable iterator over Pix references
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Pix> {
         self.pix.iter_mut()
+    }
+
+    /// Compute perimeter/sqrt(area) ratio for each Pix in the collection.
+    ///
+    /// Each Pix must be 1bpp.
+    ///
+    /// C equivalent: `pixaFindPerimSizeRatio()` in `pix5.c`
+    pub fn find_perim_size_ratio(&self) -> Result<Numa> {
+        let mut na = Numa::with_capacity(self.len());
+        for pix in self.pix.iter() {
+            let ratio = pix.find_perim_size_ratio()?;
+            na.push(ratio);
+        }
+        Ok(na)
+    }
+
+    /// Compute fraction of 1-pixels in each Pix that are under `mask`.
+    ///
+    /// Each Pix and mask must be 1bpp.
+    ///
+    /// C equivalent: `pixaFindAreaFractionMasked()` in `pix5.c`
+    pub fn find_area_fraction_masked(&self, mask: &Pix) -> Result<Numa> {
+        let mut na = Numa::with_capacity(self.len());
+        for pix in self.pix.iter() {
+            let frac = pix.find_area_fraction_masked(mask)?;
+            na.push(frac);
+        }
+        Ok(na)
+    }
+
+    /// Width/height ratio for each Pix in the collection.
+    ///
+    /// C equivalent: `pixaFindWidthHeightRatio()` in `pix5.c`
+    pub fn find_width_height_ratio(&self) -> Result<Numa> {
+        let mut na = Numa::with_capacity(self.len());
+        for pix in self.pix.iter() {
+            let h = pix.height();
+            if h == 0 {
+                na.push(0.0);
+            } else {
+                na.push(pix.width() as f32 / h as f32);
+            }
+        }
+        Ok(na)
+    }
+
+    /// Width * height product for each Pix in the collection.
+    ///
+    /// C equivalent: `pixaFindWidthHeightProduct()` in `pix5.c`
+    pub fn find_width_height_product(&self) -> Result<Numa> {
+        let mut na = Numa::with_capacity(self.len());
+        for pix in self.pix.iter() {
+            na.push((pix.width() as f32) * (pix.height() as f32));
+        }
+        Ok(na)
     }
 }
 

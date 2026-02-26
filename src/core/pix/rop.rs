@@ -337,6 +337,60 @@ impl Pix {
 
         pm.into()
     }
+
+    /// In-place rasterop: shift image by `(dx, dy)`, filling exposed region
+    /// with zeros.
+    ///
+    /// The C version modifies in-place; this returns a new `Pix`.
+    ///
+    /// C equivalent: `pixRasteropIP()` in `rop.c`
+    pub fn rasterop_ip(&self, dx: i32, dy: i32) -> Result<Pix> {
+        let result = self.deep_clone();
+        let mut pm = result.try_into_mut().unwrap();
+        let h = pm.height() as i32;
+        let w = pm.width() as i32;
+        pm.rasterop_hip(0, h, dx, InColor::White);
+        pm.rasterop_vip(0, w, dy, InColor::White);
+        Ok(pm.into())
+    }
+
+    /// Apply a rasterop between `self` and `src` across their full extents,
+    /// aligned at top-left corner.
+    ///
+    /// The operation clips to the smaller of the two images; pixels in `self`
+    /// outside the overlap region are unchanged.
+    ///
+    /// C equivalent: `pixRasteropFullImage()` in `rop.c`
+    pub fn rasterop_full_image(&self, src: &Pix, op: RopOp) -> Result<Pix> {
+        if self.depth() != src.depth() {
+            return Err(Error::IncompatibleDepths(
+                self.depth().bits(),
+                src.depth().bits(),
+            ));
+        }
+
+        let dw = self.width();
+        let dh = self.height();
+        let sw = src.width();
+        let sh = src.height();
+        let w = dw.min(sw);
+        let h = dh.min(sh);
+
+        let result = self.deep_clone();
+        let mut result_mut = result.try_into_mut().unwrap();
+        let max_val = self.depth().max_value();
+
+        for y in 0..h {
+            for x in 0..w {
+                let d = result_mut.get_pixel(x, y).unwrap_or(0);
+                let s = src.get_pixel(x, y).unwrap_or(0);
+                let val = apply_rop_value(d, s, op, max_val);
+                result_mut.set_pixel_unchecked(x, y, val);
+            }
+        }
+
+        Ok(result_mut.into())
+    }
 }
 
 impl PixMut {

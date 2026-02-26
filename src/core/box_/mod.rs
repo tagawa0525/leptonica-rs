@@ -229,6 +229,55 @@ impl Box {
         self.overlap_area(other) as f64 / self_area as f64
     }
 
+    /// Create a new Box with updated geometry.
+    ///
+    /// Fields set to a negative value are left unchanged.
+    ///
+    /// C Leptonica equivalent: `boxSetGeometry`
+    pub fn set_geometry(self, x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self {
+            x: if x < 0 { self.x } else { x },
+            y: if y < 0 { self.y } else { y },
+            w: if w < 0 { self.w } else { w },
+            h: if h < 0 { self.h } else { h },
+        }
+    }
+
+    /// Get the four side locations (left, right, top, bottom).
+    ///
+    /// Returns `(left, right, top, bottom)` where:
+    /// - left = x
+    /// - right = x + w - 1  (or x if w == 0)
+    /// - top = y
+    /// - bottom = y + h - 1  (or y if h == 0)
+    ///
+    /// C Leptonica equivalent: `boxGetSideLocations`
+    pub fn side_locations(&self) -> (i32, i32, i32, i32) {
+        let right = if self.w == 0 {
+            self.x
+        } else {
+            self.x + self.w - 1
+        };
+        let bottom = if self.h == 0 {
+            self.y
+        } else {
+            self.y + self.h - 1
+        };
+        (self.x, right, self.y, bottom)
+    }
+
+    /// Create a Box from side locations (left, right, top, bottom).
+    ///
+    /// C Leptonica equivalent: `boxSetSideLocations`
+    pub fn from_side_locations(left: i32, right: i32, top: i32, bottom: i32) -> Self {
+        Self {
+            x: left,
+            y: top,
+            w: right - left + 1,
+            h: bottom - top + 1,
+        }
+    }
+
     /// Clip the box to fit within bounds
     pub fn clip(&self, width: i32, height: i32) -> Option<Box> {
         let x = self.x.max(0);
@@ -637,6 +686,78 @@ impl Boxa {
         })
     }
 
+    /// Get geometry (x, y, w, h) of the box at index.
+    ///
+    /// C Leptonica equivalent: `boxaGetBoxGeometry`
+    pub fn get_box_geometry(&self, index: usize) -> Option<(i32, i32, i32, i32)> {
+        self.boxes.get(index).map(|b| (b.x, b.y, b.w, b.h))
+    }
+
+    /// Remove a box at index and return it.
+    ///
+    /// C Leptonica equivalent: `boxaRemoveBoxAndSave`
+    pub fn remove_and_save(&mut self, index: usize) -> Option<Box> {
+        if index >= self.boxes.len() {
+            return None;
+        }
+        Some(self.boxes.remove(index))
+    }
+
+    /// Create a pseudorandom permutation of the boxa.
+    ///
+    /// Uses `Numa::pseudorandom_sequence` to generate a permutation index
+    /// and reorders boxes accordingly.
+    ///
+    /// C Leptonica equivalent: `boxaPermutePseudorandom`
+    pub fn permute_pseudorandom(&self) -> Self {
+        let n = self.boxes.len();
+        if n == 0 {
+            return Self::new();
+        }
+        let na = crate::core::numa::Numa::pseudorandom_sequence(n, 0);
+        let mut result = Self::with_capacity(n);
+        for i in 0..n {
+            let idx = na.get_i32(i).unwrap_or(0) as usize;
+            if let Some(b) = self.boxes.get(idx) {
+                result.push(*b);
+            }
+        }
+        result
+    }
+
+    /// Create a random permutation of the boxa using a simple PRNG.
+    ///
+    /// Uses a Fisher-Yates shuffle with a seeded LCG.
+    ///
+    /// C Leptonica equivalent: `boxaPermuteRandom`
+    pub fn permute_random(&self, seed: u32) -> Self {
+        let n = self.boxes.len();
+        if n == 0 {
+            return Self::new();
+        }
+        let mut boxes = self.boxes.clone();
+        let mut rng = seed as u64;
+        // Fisher-Yates shuffle (same as C version's swap approach)
+        if n > 1 {
+            rng = rng
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let index = ((rng as usize) % n).max(1);
+            boxes.swap(0, index);
+            for i in 1..n {
+                rng = rng
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                let mut j = (rng as usize) % n;
+                if j == i {
+                    j = if j > 0 { j - 1 } else { j + 1 };
+                }
+                boxes.swap(i, j);
+            }
+        }
+        Self { boxes }
+    }
+
     /// Append boxes from another Boxa
     ///
     /// Appends boxes from `other` in the range `[start, end)`.
@@ -930,6 +1051,67 @@ impl Boxaa {
             }
         }
         result
+    }
+
+    /// Get a box from nested indices.
+    ///
+    /// C Leptonica equivalent: `boxaaGetBox`
+    pub fn get_box(&self, outer: usize, inner: usize) -> Option<Box> {
+        self.boxas.get(outer)?.get(inner).copied()
+    }
+
+    /// Replace the Boxa at index.
+    ///
+    /// C Leptonica equivalent: `boxaaReplaceBoxa`
+    pub fn replace(&mut self, index: usize, boxa: Boxa) -> Result<()> {
+        if index >= self.boxas.len() {
+            return Err(Error::IndexOutOfBounds {
+                index,
+                len: self.boxas.len(),
+            });
+        }
+        self.boxas[index] = boxa;
+        Ok(())
+    }
+
+    /// Insert a Boxa at index, shifting others right.
+    ///
+    /// C Leptonica equivalent: `boxaaInsertBoxa`
+    pub fn insert(&mut self, index: usize, boxa: Boxa) -> Result<()> {
+        if index > self.boxas.len() {
+            return Err(Error::IndexOutOfBounds {
+                index,
+                len: self.boxas.len(),
+            });
+        }
+        self.boxas.insert(index, boxa);
+        Ok(())
+    }
+
+    /// Remove and return the Boxa at index.
+    ///
+    /// C Leptonica equivalent: `boxaaRemoveBoxa`
+    pub fn remove(&mut self, index: usize) -> Result<Boxa> {
+        if index >= self.boxas.len() {
+            return Err(Error::IndexOutOfBounds {
+                index,
+                len: self.boxas.len(),
+            });
+        }
+        Ok(self.boxas.remove(index))
+    }
+
+    /// Add a box to the Boxa at the given outer index.
+    ///
+    /// C Leptonica equivalent: `boxaaAddBox`
+    pub fn add_box(&mut self, outer: usize, b: Box) -> Result<()> {
+        let len = self.boxas.len();
+        let boxa = self
+            .boxas
+            .get_mut(outer)
+            .ok_or(Error::IndexOutOfBounds { index: outer, len })?;
+        boxa.push(b);
+        Ok(())
     }
 }
 

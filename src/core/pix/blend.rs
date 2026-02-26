@@ -998,14 +998,131 @@ impl Pix {
         }
         Ok(result_mut.into())
     }
+
+    /// Blend a color into pixels within a rectangle region.
+    ///
+    /// `fract` is blend fraction (0.0-1.0). Only for 32bpp images.
+    /// If `rect` is None, blends over the entire image.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixBlendInRect()` in `pix2.c`
+    pub fn blend_in_rect(
+        &self,
+        rect: Option<crate::core::Box>,
+        val: u32,
+        fract: f32,
+    ) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let (rval, gval, bval) = pixel::extract_rgb(val);
+
+        let mut result_mut = self.to_mut();
+
+        let (x0, y0, x1, y1) = if let Some(ref r) = rect {
+            let x0 = r.x.max(0) as u32;
+            let y0 = r.y.max(0) as u32;
+            let x1 = ((r.x + r.w).max(0) as u32).min(w);
+            let y1 = ((r.y + r.h).max(0) as u32).min(h);
+            (x0, y0, x1, y1)
+        } else {
+            (0, 0, w, h)
+        };
+
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let pix_val = self.get_pixel_unchecked(x, y);
+                let (pr, pg, pb) = pixel::extract_rgb(pix_val);
+                let nr = ((1.0 - fract) * pr as f32 + fract * rval as f32) as u8;
+                let ng = ((1.0 - fract) * pg as f32 + fract * gval as f32) as u8;
+                let nb = ((1.0 - fract) * pb as f32 + fract * bval as f32) as u8;
+                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
+            }
+        }
+
+        Ok(result_mut.into())
+    }
+
+    /// Blend image pixels toward a target background color based on alpha.
+    ///
+    /// For each pixel, blends the RGB toward `bg_color` by `(255 - alpha) / 255`.
+    /// Used to flatten alpha over a background.
+    ///
+    /// Requires 32bpp input. Returns a 32bpp RGB image.
+    ///
+    /// C equivalent: `pixBlendBackgroundToColor()` in `blend.c`
+    pub fn blend_background_to_color(&self, bg_color: u32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let (bg_r, bg_g, bg_b) = pixel::extract_rgb(bg_color);
+
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                let pval = self.get_pixel_unchecked(x, y);
+                let (r, g, b, a) = pixel::extract_rgba(pval);
+                let alpha = a as f32 / 255.0;
+                let nr = (alpha * r as f32 + (1.0 - alpha) * bg_r as f32)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                let ng = (alpha * g as f32 + (1.0 - alpha) * bg_g as f32)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                let nb = (alpha * b as f32 + (1.0 - alpha) * bg_b as f32)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
+            }
+        }
+
+        Ok(result_mut.into())
+    }
+
+    /// Set alpha channel based on pixel distance from white.
+    ///
+    /// Whiter pixels get more transparent alpha. Converts the image to
+    /// grayscale to get luminance, then sets alpha = 255 - luminance.
+    ///
+    /// Requires 32bpp input.
+    ///
+    /// C equivalent: `pixSetAlphaOverWhite()` in `blend.c`
+    pub fn set_alpha_over_white(&self) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut result_mut = result.try_into_mut().unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                let pval = self.get_pixel_unchecked(x, y);
+                let (r, g, b, _) = pixel::extract_rgba(pval);
+                // Simple luminance as average of components
+                let gray = ((r as u32 + g as u32 + b as u32) / 3) as u8;
+                let alpha = 255u8.saturating_sub(gray);
+                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgba(r, g, b, alpha));
+            }
+        }
+
+        Ok(result_mut.into())
+    }
 }
 
 impl PixMut {
     /// Blend a colormapped source image onto this colormapped image in-place.
-    ///
-    /// Both images must have colormaps. The source colormap entries are merged
-    /// into the destination colormap, and a lookup table (LUT) is built to map
-    /// source indices to destination indices.
     ///
     /// The `x` and `y` parameters specify the top-left position (in destination
     /// coordinates) where the source image is placed on the destination image.

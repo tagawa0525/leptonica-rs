@@ -8,6 +8,7 @@ mod boxa4_reg;
 mod boxfunc_reg;
 mod compare_reg;
 mod conversion_reg;
+mod core_coverage_reg;
 mod equal_reg;
 mod extrema_reg;
 mod fpix1_reg;

@@ -423,6 +423,15 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
     Ok(())
 }
 
+/// Write a PNG image to a Vec<u8>.
+///
+/// Convenience wrapper around [`write_png`] for use in serialization.
+pub fn write_png_to_vec(pix: &Pix) -> IoResult<Vec<u8>> {
+    let mut buf = Vec::new();
+    write_png(pix, &mut buf)?;
+    Ok(buf)
+}
+
 /// Check if PNG data uses interlacing
 ///
 /// # See also

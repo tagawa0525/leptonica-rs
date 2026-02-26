@@ -533,6 +533,32 @@ impl Sarray {
         result
     }
 
+    /// Join words into lines with given line width.
+    ///
+    /// This is an alias for [`words_to_lines`](Sarray::words_to_lines)
+    /// for C compatibility.
+    ///
+    /// C Leptonica equivalent: `sarrayConvertWordsToLines`
+    pub fn convert_words_to_lines(&self, line_width: usize) -> Sarray {
+        self.words_to_lines(line_width)
+    }
+
+    /// Append strings from `other` in range `[first..=last]`.
+    ///
+    /// C Leptonica equivalent: `sarrayAppendRange`
+    pub fn append_range(&mut self, other: &Sarray, first: usize, last: usize) {
+        self.extend_from_range(other, first, Some(last + 1));
+    }
+
+    /// Append a string.
+    ///
+    /// This is an alias for [`push`](Sarray::push) for C compatibility.
+    ///
+    /// C Leptonica equivalent: `sarrayAppend`
+    pub fn append(&mut self, s: &str) {
+        self.push(s);
+    }
+
     // ========================================================================
     // Filter/Select
     // ========================================================================
