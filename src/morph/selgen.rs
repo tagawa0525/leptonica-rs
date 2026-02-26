@@ -329,11 +329,12 @@ pub fn get_run_centers_on_line(pix: &Pix, x: i32, y: i32, min_length: u32) -> Mo
     // Runs alternate: bg, fg, bg, fg, ...
     // First run is always background
     let mut pos: f32 = 0.0;
+    let min_length_f = min_length as f32;
     for i in 0..runs.len() {
         let run_len = runs.get(i).unwrap();
         if i % 2 == 1 {
             // Foreground run
-            if run_len as u32 >= min_length {
+            if run_len >= min_length_f {
                 let center = pos + run_len / 2.0;
                 centers.push(center);
             }
@@ -524,11 +525,12 @@ fn get_bg_run_centers(pix: &Pix, x: i32, y: i32, min_length: u32) -> MorphResult
 
     let mut centers = Numa::new();
     let mut pos: f32 = 0.0;
+    let min_length_f = min_length as f32;
     for i in 0..runs.len() {
         let run_len = runs.get(i).unwrap();
         if i % 2 == 0 {
             // Background run
-            if run_len as u32 >= min_length {
+            if run_len >= min_length_f {
                 let center = pos + run_len / 2.0;
                 centers.push(center);
             }

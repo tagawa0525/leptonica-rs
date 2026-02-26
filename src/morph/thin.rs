@@ -359,10 +359,11 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
     Ok(())
 }
 
-/// Apply thinning to each component in a Pixa.
+/// Apply thinning to each independent Pix image in a Pixa collection.
 ///
 /// Each Pix in the input Pixa must be 1-bpp. Returns a new Pixa with
-/// the thinned versions of each component.
+/// the thinned version of each image. The Pix images are processed
+/// independently — they need not represent connected components.
 ///
 /// # Arguments
 ///
