@@ -30,13 +30,14 @@ pub mod pixtiling;
 pub mod pta;
 pub mod sarray;
 
+pub use box_::draw::make_mosaic_strips;
 pub use box_::{Box, Boxa, Boxaa, SizeRelation};
 pub use colormap::convert::{ColormapArrays, ComponentsPerColor};
 pub use colormap::query::{NonOpaqueInfo, RangeComponent, RangeValues};
 pub use colormap::{PixColormap, RgbaQuad};
 pub use encoding::{decode_ascii85, decode_base64, encode_base64};
 pub use error::{Error, Result};
-pub use fpix::{DPix, FPix, NegativeHandling};
+pub use fpix::{DPix, FPix, FPixa, NegativeHandling};
 pub use numa::{
     CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
     SortOrder, ThresholdComparison, WindowedStats,

@@ -1147,6 +1147,92 @@ impl DPix {
 }
 
 // ============================================================================
+// FPixa - Array of floating-point images
+// ============================================================================
+
+/// Array of FPix floating-point images.
+///
+/// # See also
+///
+/// C Leptonica: `fpixaCreate()`, `fpixaDestroy()`, etc.
+#[derive(Debug, Clone)]
+pub struct FPixa {
+    /// Collection of FPix
+    fpix_vec: Vec<FPix>,
+}
+
+impl FPixa {
+    /// Create a new empty FPixa.
+    pub fn new() -> Self {
+        Self {
+            fpix_vec: Vec::new(),
+        }
+    }
+
+    /// Create with capacity.
+    pub fn with_capacity(n: usize) -> Self {
+        Self {
+            fpix_vec: Vec::with_capacity(n),
+        }
+    }
+
+    /// Get count.
+    pub fn len(&self) -> usize {
+        self.fpix_vec.len()
+    }
+
+    /// Check if empty.
+    pub fn is_empty(&self) -> bool {
+        self.fpix_vec.is_empty()
+    }
+
+    /// Add an FPix.
+    pub fn push(&mut self, fpix: FPix) {
+        self.fpix_vec.push(fpix);
+    }
+
+    /// Get FPix by index.
+    pub fn get(&self, index: usize) -> Option<&FPix> {
+        self.fpix_vec.get(index)
+    }
+
+    /// Get FPix dimensions at index.
+    pub fn get_dimensions(&self, index: usize) -> Option<(u32, u32)> {
+        self.fpix_vec.get(index).map(|f| (f.width(), f.height()))
+    }
+
+    /// Get pixel value at (fpix_index, x, y).
+    pub fn get_pixel(&self, index: usize, x: u32, y: u32) -> Result<f32> {
+        let fpix = self.fpix_vec.get(index).ok_or(Error::IndexOutOfBounds {
+            index,
+            len: self.len(),
+        })?;
+        fpix.get_pixel(x, y)
+    }
+
+    /// Set pixel value at (fpix_index, x, y).
+    pub fn set_pixel(&mut self, index: usize, x: u32, y: u32, val: f32) -> Result<()> {
+        let len = self.len();
+        let fpix = self
+            .fpix_vec
+            .get_mut(index)
+            .ok_or(Error::IndexOutOfBounds { index, len })?;
+        fpix.set_pixel(x, y, val)
+    }
+
+    /// Get data slice for FPix at index.
+    pub fn get_data(&self, index: usize) -> Option<&[f32]> {
+        self.fpix_vec.get(index).map(|f| f.data())
+    }
+}
+
+impl Default for FPixa {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

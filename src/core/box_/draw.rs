@@ -5,10 +5,11 @@
 //!
 //! C Leptonica equivalents: boxfunc3.c
 
-use crate::core::box_::{Box, Boxa};
+use crate::core::box_::{Box, Boxa, Boxaa};
 use crate::core::error::{Error, Result};
-use crate::core::pix::PixMut;
 use crate::core::pix::graphics::{Color, PixelOp};
+use crate::core::pix::{Pix, PixMut, PixelDepth};
+use crate::core::pixa::Pixa;
 
 // ---- Types ----
 
@@ -282,6 +283,394 @@ impl Boxa {
             }
         }
         Some(eligible[select])
+    }
+}
+
+// ---- Pix methods for box operations ----
+
+impl Pix {
+    /// Create a 1bpp mask from connected components, returning (mask, boxa).
+    ///
+    /// For 1bpp input. Finds connected components using flood-fill labeling
+    /// and returns the bounding boxes. The mask is a copy of the input since
+    /// every foreground pixel already belongs to some component.
+    ///
+    /// C Leptonica equivalent: `pixMaskConnComp`
+    pub fn mask_conn_comp(&self, connectivity: u32) -> Result<(Pix, Boxa)> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let conn = match connectivity {
+            4 => crate::region::ConnectivityType::FourWay,
+            8 => crate::region::ConnectivityType::EightWay,
+            _ => {
+                return Err(Error::InvalidParameter(format!(
+                    "connectivity must be 4 or 8, got {connectivity}"
+                )));
+            }
+        };
+        let (boxa, _pixa) = crate::region::conncomp_pixa(self, conn)
+            .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+        // The mask is the same as the input for 1bpp
+        let mask = self.deep_clone();
+        Ok((mask, boxa))
+    }
+
+    /// Split a 1bpp image into rectangular regions (Boxa).
+    ///
+    /// For each connected component, greedily partitions it into rectangular
+    /// sub-regions by projecting foreground pixels onto rows and columns.
+    ///
+    /// * `min_sum` - minimum foreground pixels in a row/column to start a region.
+    /// * `skip_dist` - minimum gap (in pixels) between regions.
+    /// * `delta` - tolerance for boundary detection.
+    /// * `max_bg_comp` - max background component fraction to include in region.
+    ///
+    /// C Leptonica equivalent: `pixSplitIntoBoxa`
+    pub fn split_into_boxa(
+        &self,
+        min_sum: u32,
+        skip_dist: u32,
+        delta: u32,
+        max_bg_comp: u32,
+    ) -> Result<Boxa> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        // Get connected components
+        let (cc_boxa, cc_pixa) =
+            crate::region::conncomp_pixa(self, crate::region::ConnectivityType::EightWay)
+                .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+
+        let mut result = Boxa::new();
+        for i in 0..cc_pixa.len() {
+            let comp = &cc_pixa[i];
+            let comp_box = cc_boxa.get(i).copied().unwrap_or_default();
+            let sub_boxes =
+                comp.split_component_into_boxa(min_sum, skip_dist, delta, max_bg_comp)?;
+            // Offset sub-boxes by the component's origin
+            for sb in sub_boxes.boxes() {
+                if let Ok(b) = Box::new(sb.x + comp_box.x, sb.y + comp_box.y, sb.w, sb.h) {
+                    result.push(b);
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Split a single 1bpp connected component into rectangular sub-regions.
+    ///
+    /// Greedily extracts rectangles by scanning rows and columns from all four
+    /// sides, choosing the side that captures the most foreground pixels.
+    ///
+    /// C Leptonica equivalent: `pixSplitComponentIntoBoxa`
+    pub fn split_component_into_boxa(
+        &self,
+        min_sum: u32,
+        skip_dist: u32,
+        _delta: u32,
+        _max_bg_comp: u32,
+    ) -> Result<Boxa> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+        if w == 0 || h == 0 {
+            return Ok(Boxa::new());
+        }
+
+        let mut result = Boxa::new();
+        // Work on a mutable copy of pixel data
+        let mut mask: Vec<bool> = Vec::with_capacity((w * h) as usize);
+        for y in 0..h {
+            for x in 0..w {
+                mask.push(self.get_pixel_unchecked(x, y) != 0);
+            }
+        }
+
+        let skip = skip_dist.max(1) as usize;
+        let min_s = min_sum.max(1) as usize;
+
+        // Iterate: find rectangular sub-regions greedily
+        let max_iter = 256;
+        for _ in 0..max_iter {
+            // Find bounding box of remaining foreground
+            let mut min_x = w as usize;
+            let mut min_y = h as usize;
+            let mut max_x: usize = 0;
+            let mut max_y: usize = 0;
+            let mut has_fg = false;
+            for y in 0..h as usize {
+                for x in 0..w as usize {
+                    if mask[y * w as usize + x] {
+                        min_x = min_x.min(x);
+                        min_y = min_y.min(y);
+                        max_x = max_x.max(x);
+                        max_y = max_y.max(y);
+                        has_fg = true;
+                    }
+                }
+            }
+            if !has_fg {
+                break;
+            }
+
+            let bx = min_x;
+            let by = min_y;
+            let bw = max_x - min_x + 1;
+            let bh = max_y - min_y + 1;
+
+            // Sweep from left: find contiguous columns with enough foreground
+            let mut best_right = bx;
+            for x in bx..bx + bw {
+                let col_sum: usize = (by..by + bh).filter(|&y| mask[y * w as usize + x]).count();
+                if col_sum >= min_s {
+                    best_right = x;
+                } else {
+                    // Check if we've had enough columns already
+                    if best_right >= bx + skip {
+                        break;
+                    }
+                    // Keep searching
+                    best_right = x;
+                }
+            }
+
+            // Sweep from top: find contiguous rows
+            let mut best_bottom = by;
+            for y in by..by + bh {
+                let row_sum: usize = (bx..=best_right)
+                    .filter(|&x| mask[y * w as usize + x])
+                    .count();
+                if row_sum >= min_s {
+                    best_bottom = y;
+                } else if best_bottom >= by + skip {
+                    break;
+                } else {
+                    best_bottom = y;
+                }
+            }
+
+            let rect_w = (best_right - bx + 1) as i32;
+            let rect_h = (best_bottom - by + 1) as i32;
+            if rect_w > 0
+                && rect_h > 0
+                && let Ok(b) = Box::new(bx as i32, by as i32, rect_w, rect_h)
+            {
+                result.push(b);
+            }
+
+            // Clear the extracted region from mask
+            for y in by..=best_bottom {
+                for x in bx..=best_right {
+                    if y < h as usize && x < w as usize {
+                        mask[y * w as usize + x] = false;
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Select the largest connected component nearest to the upper-left.
+    ///
+    /// Finds connected components, selects those with area >= `area_fract` *
+    /// largest area, then picks the one closest to (0,0).
+    ///
+    /// C Leptonica equivalent: `pixSelectLargeULComp`
+    pub fn select_large_ul_comp(&self, area_fract: f32) -> Result<Box> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let (boxa, _pixa) =
+            crate::region::conncomp_pixa(self, crate::region::ConnectivityType::EightWay)
+                .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+
+        if boxa.is_empty() {
+            return Err(Error::InvalidParameter(
+                "no connected components found".to_string(),
+            ));
+        }
+
+        boxa.select_large_ul_box(area_fract as f64, 5)
+            .ok_or_else(|| Error::InvalidParameter("no eligible box found".to_string()))
+    }
+}
+
+// ---- Free functions ----
+
+/// Create an array of boxes representing vertical or horizontal strips.
+///
+/// * `direction`: 0 = vertical strips, 1 = horizontal strips.
+/// * `size`: strip size in pixels.
+///
+/// C Leptonica equivalent: `makeMosaicStrips`
+pub fn make_mosaic_strips(w: u32, h: u32, direction: u32, size: u32) -> Result<Boxa> {
+    if w == 0 || h == 0 {
+        return Err(Error::InvalidDimension {
+            width: w,
+            height: h,
+        });
+    }
+    if size == 0 {
+        return Err(Error::InvalidParameter(
+            "strip size must be > 0".to_string(),
+        ));
+    }
+    let mut boxa = Boxa::new();
+    match direction {
+        0 => {
+            // Vertical strips (columns)
+            let mut x = 0u32;
+            while x < w {
+                let strip_w = size.min(w - x);
+                boxa.push(Box::new_unchecked(x as i32, 0, strip_w as i32, h as i32));
+                x += size;
+            }
+        }
+        1 => {
+            // Horizontal strips (rows)
+            let mut y = 0u32;
+            while y < h {
+                let strip_h = size.min(h - y);
+                boxa.push(Box::new_unchecked(0, y as i32, w as i32, strip_h as i32));
+                y += size;
+            }
+        }
+        _ => {
+            return Err(Error::InvalidParameter(format!(
+                "direction must be 0 (vertical) or 1 (horizontal), got {direction}"
+            )));
+        }
+    }
+    Ok(boxa)
+}
+
+// ---- Boxaa display functions ----
+
+impl Boxaa {
+    /// Create an image displaying all boxes in a Boxaa, each Boxa in a different color.
+    ///
+    /// Creates a 32bpp image and draws each Boxa's boxes with a unique color.
+    ///
+    /// C Leptonica equivalent: `boxaaDisplay`
+    pub fn display(&self, w: u32, h: u32) -> Result<Pix> {
+        if w == 0 || h == 0 {
+            return Err(Error::InvalidDimension {
+                width: w,
+                height: h,
+            });
+        }
+        let white = crate::core::pixel::compose_rgb(255, 255, 255);
+        let pix = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut pix_mut = pix.try_into_mut().unwrap_or_else(|p| p.to_mut());
+        // Fill white background
+        for y in 0..h {
+            for x in 0..w {
+                pix_mut.set_pixel_unchecked(x, y, white);
+            }
+        }
+        for (i, boxa) in self.boxas().iter().enumerate() {
+            let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
+            pix_mut.draw_boxa(boxa, 2, color)?;
+        }
+        Ok(pix_mut.into())
+    }
+}
+
+// ---- Boxa display functions ----
+
+impl Boxa {
+    /// Create a tiled display of 1bpp images of boxes.
+    ///
+    /// Creates small images showing each box, tiles them into a single output.
+    ///
+    /// C Leptonica equivalent: `boxaDisplayTiled`
+    pub fn display_tiled(&self, pixa: Option<&Pixa>, max_width: u32) -> Result<Pix> {
+        if self.is_empty() {
+            return Err(Error::InvalidParameter("boxa is empty".to_string()));
+        }
+        let max_width = max_width.max(100);
+        let line_width = 2u32;
+        let mut tile_pixa = Pixa::new();
+
+        for (i, b) in self.boxes().iter().enumerate() {
+            let bw = b.w.unsigned_abs().max(1);
+            let bh = b.h.unsigned_abs().max(1);
+            // If pixa provided and has this index, use it; otherwise create blank
+            let canvas = if let Some(pa) = pixa {
+                if i < pa.len() {
+                    pa[i].convert_to_32()?
+                } else {
+                    let p = Pix::new(bw, bh, PixelDepth::Bit32)?;
+                    let mut pm = p.try_into_mut().unwrap_or_else(|p| p.to_mut());
+                    let white = crate::core::pixel::compose_rgb(255, 255, 255);
+                    for y in 0..bh {
+                        for x in 0..bw {
+                            pm.set_pixel_unchecked(x, y, white);
+                        }
+                    }
+                    Pix::from(pm)
+                }
+            } else {
+                let p = Pix::new(bw, bh, PixelDepth::Bit32)?;
+                let mut pm = p.try_into_mut().unwrap_or_else(|p| p.to_mut());
+                let white = crate::core::pixel::compose_rgb(255, 255, 255);
+                for y in 0..bh {
+                    for x in 0..bw {
+                        pm.set_pixel_unchecked(x, y, white);
+                    }
+                }
+                Pix::from(pm)
+            };
+            // Draw box outline on canvas
+            let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p| p.to_mut());
+            let draw_box = Box::new_unchecked(0, 0, bw as i32, bh as i32);
+            let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
+            let _ = canvas_mut.render_box_color(&draw_box, line_width, color);
+            tile_pixa.push(canvas_mut.into());
+        }
+
+        tile_pixa.display_tiled(max_width, 0, 4)
+    }
+}
+
+// ---- Pixa display with Boxaa ----
+
+impl Pixa {
+    /// Display pixa images with boxaa annotations drawn on them.
+    ///
+    /// For each Pixa image, draws the corresponding Boxa boxes from Boxaa
+    /// using colors from `color_table`. Returns new Pixa with boxes drawn.
+    ///
+    /// C Leptonica equivalent: `pixaDisplayBoxaa`
+    pub fn display_boxaa(pixa: &Pixa, boxaa: &Boxaa, color_table: &[u32]) -> Result<Pixa> {
+        if pixa.is_empty() {
+            return Ok(Pixa::new());
+        }
+        let n = pixa.len().min(boxaa.len());
+        let mut result = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = pixa[i].convert_to_32()?;
+            let mut pix_mut = pix.try_into_mut().unwrap_or_else(|p| p.to_mut());
+            if let Some(boxa) = boxaa.get(i) {
+                for (j, b) in boxa.boxes().iter().enumerate() {
+                    let pixel_val = if color_table.is_empty() {
+                        let c = CYCLING_COLORS[j % CYCLING_COLORS.len()];
+                        crate::core::pixel::compose_rgb(c.r, c.g, c.b)
+                    } else {
+                        color_table[j % color_table.len()]
+                    };
+                    let (r, g, b_ch, _) = crate::core::pixel::extract_rgba(pixel_val);
+                    let color = Color::new(r, g, b_ch);
+                    let _ = pix_mut.render_box_color(b, 2, color);
+                }
+            }
+            result.push(pix_mut.into());
+        }
+        Ok(result)
     }
 }
 

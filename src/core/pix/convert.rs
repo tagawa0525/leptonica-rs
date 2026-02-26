@@ -7,6 +7,7 @@
 //! C Leptonica: `pixconv.c` (`pixConvertTo8`, `pixConvertTo32`, etc.)
 
 use super::{Pix, PixelDepth};
+use crate::core::colormap::PixColormap;
 use crate::core::error::{Error, Result};
 use crate::core::pixel;
 
@@ -1986,6 +1987,795 @@ impl Pix {
             PixelDepth::Bit8 => self.remove_colormap(RemoveColormapTarget::BasedOnSrc),
             PixelDepth::Bit16 => self.convert_16_to_8(Convert16To8Type::MsByte),
         }
+    }
+
+    // =========================================================================
+    // Threshold / quantize / adaptive / sampling conversions
+    // =========================================================================
+
+    /// Threshold 8 bpp image to 1, 2, 4, or 8 bpp.
+    ///
+    /// `depth` – output depth (1, 2, 4 or 8).
+    /// `n_levels` – number of output levels.
+    /// `cmap_flag` – if true, add a colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixThreshold8()` in `pixconv.c`
+    pub fn threshold_8(&self, depth: u32, n_levels: u32, cmap_flag: bool) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if cmap_flag && n_levels < 2 {
+            return Err(Error::InvalidParameter("nlevels must be at least 2".into()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        match depth {
+            1 => {
+                // Simple threshold at 128
+                let result = Pix::new(w, h, PixelDepth::Bit1)?;
+                let mut rm = result.try_into_mut().unwrap();
+                rm.set_resolution(self.xres(), self.yres());
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y);
+                        // In 1bpp: 1 = black (foreground), 0 = white (background)
+                        let bit = if val < 128 { 1u32 } else { 0u32 };
+                        rm.set_pixel_unchecked(x, y, bit);
+                    }
+                }
+                if cmap_flag {
+                    let cmap = PixColormap::create_linear(1, true)?;
+                    rm.set_colormap(Some(cmap))?;
+                }
+                Ok(rm.into())
+            }
+            2 => {
+                let nl = n_levels.clamp(2, 4);
+                let result = Pix::new(w, h, PixelDepth::Bit2)?;
+                let mut rm = result.try_into_mut().unwrap();
+                rm.set_resolution(self.xres(), self.yres());
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y);
+                        let idx = (val * (nl - 1) + 127) / 255;
+                        rm.set_pixel_unchecked(x, y, idx.min(3));
+                    }
+                }
+                if cmap_flag {
+                    let mut cmap = PixColormap::new(2)?;
+                    for i in 0..nl {
+                        let g = (i * 255 / (nl - 1)) as u8;
+                        cmap.add_rgb(g, g, g)?;
+                    }
+                    rm.set_colormap(Some(cmap))?;
+                }
+                Ok(rm.into())
+            }
+            4 => {
+                let nl = n_levels.clamp(2, 16);
+                let result = Pix::new(w, h, PixelDepth::Bit4)?;
+                let mut rm = result.try_into_mut().unwrap();
+                rm.set_resolution(self.xres(), self.yres());
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y);
+                        let idx = (val * (nl - 1) + 127) / 255;
+                        rm.set_pixel_unchecked(x, y, idx.min(15));
+                    }
+                }
+                if cmap_flag {
+                    let mut cmap = PixColormap::new(4)?;
+                    for i in 0..nl {
+                        let g = (i * 255 / (nl - 1)) as u8;
+                        cmap.add_rgb(g, g, g)?;
+                    }
+                    rm.set_colormap(Some(cmap))?;
+                }
+                Ok(rm.into())
+            }
+            8 => {
+                let nl = n_levels.clamp(2, 256);
+                let result = Pix::new(w, h, PixelDepth::Bit8)?;
+                let mut rm = result.try_into_mut().unwrap();
+                rm.set_resolution(self.xres(), self.yres());
+                for y in 0..h {
+                    for x in 0..w {
+                        let val = self.get_pixel_unchecked(x, y);
+                        let idx = (val * (nl - 1) + 127) / 255;
+                        let quantized = idx * 255 / (nl - 1);
+                        if cmap_flag {
+                            rm.set_pixel_unchecked(x, y, idx.min(255));
+                        } else {
+                            rm.set_pixel_unchecked(x, y, quantized.min(255));
+                        }
+                    }
+                }
+                if cmap_flag {
+                    let mut cmap = PixColormap::new(8)?;
+                    for i in 0..nl {
+                        let g = (i * 255 / (nl - 1)) as u8;
+                        cmap.add_rgb(g, g, g)?;
+                    }
+                    rm.set_colormap(Some(cmap))?;
+                }
+                Ok(rm.into())
+            }
+            _ => Err(Error::InvalidParameter("depth must be 1, 2, 4 or 8".into())),
+        }
+    }
+
+    /// Convert RGB to 1 bpp using a weighted threshold.
+    ///
+    /// Computes `red_wt * R + green_wt * G + blue_wt * B` for each pixel,
+    /// then thresholds. Pixels with weighted sum < threshold become foreground (1).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertRGBToBinaryArb()` in `pixconv.c`
+    pub fn convert_rgb_to_binary_arb(
+        &self,
+        red_wt: f32,
+        green_wt: f32,
+        blue_wt: f32,
+        threshold: u32,
+    ) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        // Use the existing convert_rgb_to_gray_arb, then threshold
+        let gray = self.convert_rgb_to_gray_arb(red_wt, green_wt, blue_wt)?;
+        let w = gray.width();
+        let h = gray.height();
+        let result = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = gray.get_pixel_unchecked(x, y);
+                // foreground (1 = black) if below threshold
+                let bit = if val < threshold { 1u32 } else { 0u32 };
+                rm.set_pixel_unchecked(x, y, bit);
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert 32 bpp RGB to 8 bpp colormapped using octree quantization.
+    ///
+    /// Simple median-cut approach: count unique colors at octcube level 4.
+    /// If ≤ 256, map directly; otherwise fall back to fixed 256-color quantization.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertRGBToColormap()` in `pixconv.c`
+    pub fn convert_rgb_to_colormap(&self, _dither: bool) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        // Collect unique colors (up to 257 to detect overflow)
+        let mut unique_colors: Vec<(u8, u8, u8)> = Vec::new();
+        let mut color_set = std::collections::HashMap::new();
+        let mut too_many = false;
+
+        for y in 0..h {
+            for x in 0..w {
+                let px = self.get_pixel_unchecked(x, y);
+                let (r, g, b) = pixel::extract_rgb(px);
+                let key = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+                if let std::collections::hash_map::Entry::Vacant(e) = color_set.entry(key) {
+                    if unique_colors.len() >= 256 {
+                        too_many = true;
+                        break;
+                    }
+                    let idx = unique_colors.len();
+                    e.insert(idx);
+                    unique_colors.push((r, g, b));
+                }
+            }
+            if too_many {
+                break;
+            }
+        }
+
+        if !too_many {
+            // Direct mapping
+            let mut cmap = PixColormap::new(8)?;
+            for &(r, g, b) in &unique_colors {
+                cmap.add_rgb(r, g, b)?;
+            }
+            let result = Pix::new(w, h, PixelDepth::Bit8)?;
+            let mut rm = result.try_into_mut().unwrap();
+            rm.set_resolution(self.xres(), self.yres());
+            for y in 0..h {
+                for x in 0..w {
+                    let px = self.get_pixel_unchecked(x, y);
+                    let (r, g, b) = pixel::extract_rgb(px);
+                    let key = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+                    let idx = color_set[&key] as u32;
+                    rm.set_pixel_unchecked(x, y, idx);
+                }
+            }
+            rm.set_colormap(Some(cmap))?;
+            Ok(rm.into())
+        } else {
+            // Fall back to simple quantization: map each pixel to nearest
+            // among 256 uniformly distributed colors in RGB space (6×6×6 cube + extras).
+            let mut cmap = PixColormap::new(8)?;
+            // Build a 6×6×6 = 216 color cube
+            for ri in 0..6u8 {
+                for gi in 0..6u8 {
+                    for bi in 0..6u8 {
+                        let r = ri * 51;
+                        let g = gi * 51;
+                        let b = bi * 51;
+                        cmap.add_rgb(r, g, b)?;
+                    }
+                }
+            }
+            let result = Pix::new(w, h, PixelDepth::Bit8)?;
+            let mut rm = result.try_into_mut().unwrap();
+            rm.set_resolution(self.xres(), self.yres());
+            for y in 0..h {
+                for x in 0..w {
+                    let px = self.get_pixel_unchecked(x, y);
+                    let (r, g, b) = pixel::extract_rgb(px);
+                    // Map to 6×6×6 cube index
+                    let ri = ((r as u32 + 25) / 51).min(5);
+                    let gi = ((g as u32 + 25) / 51).min(5);
+                    let bi = ((b as u32 + 25) / 51).min(5);
+                    let idx = ri * 36 + gi * 6 + bi;
+                    rm.set_pixel_unchecked(x, y, idx);
+                }
+            }
+            rm.set_colormap(Some(cmap))?;
+            Ok(rm.into())
+        }
+    }
+
+    /// If the image has few enough colors to fit in given depth, quantize.
+    ///
+    /// Returns `None` if too many colors. For 8 bpp or 32 bpp input.
+    /// `max_colors` – maximum number of unique colors allowed.
+    /// `min_fract` – minimum fraction of pixels required (unused, kept for API compatibility).
+    /// `depth_target` – target depth for output (currently always produces 8 bpp).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixQuantizeIfFewColors()` in `pixconv.c`
+    pub fn quantize_if_few_colors(
+        &self,
+        max_colors: u32,
+        _min_fract: f32,
+        _depth_target: u32,
+    ) -> Result<Option<Pix>> {
+        let d = self.depth();
+        if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+
+        // If already colormapped, return clone
+        if self.has_colormap() {
+            return Ok(Some(self.clone()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        // Count unique colors
+        let mut color_set = std::collections::HashMap::new();
+        let mut unique_colors: Vec<u32> = Vec::new();
+
+        for y in 0..h {
+            for x in 0..w {
+                let px = self.get_pixel_unchecked(x, y);
+                let key = if d == PixelDepth::Bit32 {
+                    px & 0xFFFFFF00 // ignore alpha
+                } else {
+                    px
+                };
+                if let std::collections::hash_map::Entry::Vacant(e) = color_set.entry(key) {
+                    if unique_colors.len() as u32 > max_colors {
+                        return Ok(None); // too many colors
+                    }
+                    let idx = unique_colors.len();
+                    e.insert(idx);
+                    unique_colors.push(key);
+                }
+            }
+        }
+
+        if unique_colors.len() as u32 > max_colors {
+            return Ok(None);
+        }
+
+        // Build colormapped 8bpp image
+        let mut cmap = PixColormap::new(8)?;
+        for &key in &unique_colors {
+            if d == PixelDepth::Bit32 {
+                let (r, g, b) = pixel::extract_rgb(key);
+                cmap.add_rgb(r, g, b)?;
+            } else {
+                let g = (key & 0xFF) as u8;
+                cmap.add_rgb(g, g, g)?;
+            }
+        }
+
+        let result = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let px = self.get_pixel_unchecked(x, y);
+                let key = if d == PixelDepth::Bit32 {
+                    px & 0xFFFFFF00
+                } else {
+                    px
+                };
+                let idx = color_set[&key] as u32;
+                rm.set_pixel_unchecked(x, y, idx);
+            }
+        }
+        rm.set_colormap(Some(cmap))?;
+        Ok(Some(rm.into()))
+    }
+
+    /// Convert to 1 bpp using adaptive thresholding.
+    ///
+    /// Converts to 8 bpp gray first if needed, then computes global mean
+    /// and thresholds at that value. For better results, use the dedicated
+    /// Sauvola/Otsu functions in `color::threshold`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo1Adaptive()` in `pixconv.c`
+    pub fn convert_to_1_adaptive(&self) -> Result<Pix> {
+        // Handle 1bpp
+        if self.depth() == PixelDepth::Bit1 {
+            if !self.has_colormap() {
+                return Ok(self.deep_clone());
+            }
+            // 1bpp with colormap: strip it and maybe invert
+            let cmap = self.colormap().unwrap();
+            let (r0, g0, b0) = cmap.get_rgb(0).unwrap_or((0, 0, 0));
+            let (r1, g1, b1) = cmap.get_rgb(1).unwrap_or((255, 255, 255));
+            let color0 = r0 as u32 + g0 as u32 + b0 as u32;
+            let color1 = r1 as u32 + g1 as u32 + b1 as u32;
+            let mut result = self.deep_clone();
+            let mut rm = result.try_into_mut().unwrap();
+            rm.set_colormap(None)?;
+            result = rm.into();
+            if color1 > color0 {
+                result = result.invert();
+            }
+            return Ok(result);
+        }
+
+        // Convert to 8bpp gray
+        let gray = self.convert_to_8()?;
+        let w = gray.width();
+        let h = gray.height();
+
+        // Compute mean gray value
+        let mut sum: u64 = 0;
+        let total = (w as u64) * (h as u64);
+        for y in 0..h {
+            for x in 0..w {
+                sum += gray.get_pixel_unchecked(x, y) as u64;
+            }
+        }
+        let threshold = if total > 0 {
+            // Use mean as threshold, biased slightly toward binarization quality
+            let mean = sum / total;
+            mean.clamp(1, 254) as u32
+        } else {
+            128
+        };
+
+        let result = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for y in 0..h {
+            for x in 0..w {
+                let val = gray.get_pixel_unchecked(x, y);
+                let bit = if val < threshold { 1u32 } else { 0u32 };
+                rm.set_pixel_unchecked(x, y, bit);
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert to 1 bpp using sampling (fast, no dithering).
+    ///
+    /// `factor` – subsampling factor (≥ 1).
+    /// `threshold` – binarization threshold relative to 8 bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo1BySampling()` in `pixconv.c`
+    pub fn convert_to_1_by_sampling(&self, factor: u32, threshold: u32) -> Result<Pix> {
+        if factor < 1 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        // Convert to 8bpp gray first
+        let gray = self.convert_to_8()?;
+        let w = gray.width();
+        let h = gray.height();
+
+        let new_w = w.div_ceil(factor);
+        let new_h = h.div_ceil(factor);
+        if new_w == 0 || new_h == 0 {
+            return Err(Error::InvalidDimension {
+                width: new_w,
+                height: new_h,
+            });
+        }
+
+        let result = Pix::new(new_w, new_h, PixelDepth::Bit1)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for dy in 0..new_h {
+            let sy = dy * factor;
+            for dx in 0..new_w {
+                let sx = dx * factor;
+                let val = gray.get_pixel_unchecked(sx.min(w - 1), sy.min(h - 1));
+                let bit = if val < threshold { 1u32 } else { 0u32 };
+                rm.set_pixel_unchecked(dx, dy, bit);
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert to 8 bpp by subsampling.
+    ///
+    /// `factor` – subsampling factor (≥ 1).
+    /// `cmap_flag` – if true, add gray colormap.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo8BySampling()` in `pixconv.c`
+    pub fn convert_to_8_by_sampling(&self, factor: u32, cmap_flag: bool) -> Result<Pix> {
+        if factor < 1 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        // Convert to 8bpp first
+        let gray = self.convert_to_8()?;
+        let w = gray.width();
+        let h = gray.height();
+
+        let new_w = w.div_ceil(factor);
+        let new_h = h.div_ceil(factor);
+        if new_w == 0 || new_h == 0 {
+            return Err(Error::InvalidDimension {
+                width: new_w,
+                height: new_h,
+            });
+        }
+
+        let result = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for dy in 0..new_h {
+            let sy = dy * factor;
+            for dx in 0..new_w {
+                let sx = dx * factor;
+                let val = gray.get_pixel_unchecked(sx.min(w - 1), sy.min(h - 1));
+                rm.set_pixel_unchecked(dx, dy, val);
+            }
+        }
+        if cmap_flag {
+            let cmap = PixColormap::create_linear(8, true)?;
+            rm.set_colormap(Some(cmap))?;
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert any image to 8 bpp with a colormap.
+    ///
+    /// If already 8 bpp with cmap, clone. Otherwise, convert to 8 bpp gray
+    /// and add cmap. For 32 bpp with `dither` true, uses octree quantization.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo8Colormap()` in `pixconv.c`
+    pub fn convert_to_8_colormap(&self, dither: bool) -> Result<Pix> {
+        let d = self.depth();
+
+        if d != PixelDepth::Bit32 {
+            // For non-32bpp, convert to 8bpp with colormap
+            let pix8 = self.convert_to_8()?;
+            if pix8.has_colormap() {
+                return Ok(pix8);
+            }
+            return pix8.add_gray_colormap_8();
+        }
+
+        // For 32bpp, use convert_rgb_to_colormap
+        self.convert_rgb_to_colormap(dither)
+    }
+
+    /// Convert to 32 bpp by subsampling.
+    ///
+    /// `factor` – subsampling factor (≥ 1).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo32BySampling()` in `pixconv.c`
+    pub fn convert_to_32_by_sampling(&self, factor: u32) -> Result<Pix> {
+        if factor < 1 {
+            return Err(Error::InvalidParameter("factor must be >= 1".into()));
+        }
+
+        // Convert to 32bpp first
+        let rgb = self.convert_to_32()?;
+        let w = rgb.width();
+        let h = rgb.height();
+
+        let new_w = w.div_ceil(factor);
+        let new_h = h.div_ceil(factor);
+        if new_w == 0 || new_h == 0 {
+            return Err(Error::InvalidDimension {
+                width: new_w,
+                height: new_h,
+            });
+        }
+
+        let result = Pix::new(new_w, new_h, PixelDepth::Bit32)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for dy in 0..new_h {
+            let sy = dy * factor;
+            for dx in 0..new_w {
+                let sx = dx * factor;
+                let val = rgb.get_pixel_unchecked(sx.min(w - 1), sy.min(h - 1));
+                rm.set_pixel_unchecked(dx, dy, val);
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert "24bpp" (stored as 32bpp with spp=3) to 32bpp with alpha=255.
+    ///
+    /// Sets alpha channel to 255 for each pixel and spp to 4.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert24To32()` in `pixconv.c`
+    pub fn convert_24_to_32(&self) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+        rm.set_spp(4);
+
+        for y in 0..h {
+            for x in 0..w {
+                let px = self.get_pixel_unchecked(x, y);
+                let (r, g, b) = pixel::extract_rgb(px);
+                rm.set_pixel_unchecked(x, y, pixel::compose_rgba(r, g, b, 255));
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert 32bpp (spp=4) to "24bpp" (stored as 32bpp with spp=3, alpha=0).
+    ///
+    /// Strips alpha channel, sets spp to 3.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvert32To24()` in `pixconv.c`
+    pub fn convert_32_to_24(&self) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let result = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+        rm.set_spp(3);
+
+        for y in 0..h {
+            for x in 0..w {
+                let px = self.get_pixel_unchecked(x, y);
+                let (r, g, b) = pixel::extract_rgb(px);
+                rm.set_pixel_unchecked(x, y, pixel::compose_rgba(r, g, b, 0));
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert to subpixel RGB rendering.
+    ///
+    /// For 8 bpp grayscale or 32 bpp. Dispatches to the appropriate
+    /// gray or color subpixel conversion.
+    ///
+    /// `scale_factor` – scale factor for width (1, 2, or 4).
+    /// `order` – 0 = RGB, 1 = BGR.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertToSubpixelRGB()` in `pixconv.c`
+    pub fn convert_to_subpixel_rgb(&self, scale_factor: u32, order: u32) -> Result<Pix> {
+        match self.depth() {
+            PixelDepth::Bit8 => self.convert_gray_to_subpixel_rgb(scale_factor, order),
+            PixelDepth::Bit32 => self.convert_color_to_subpixel_rgb(scale_factor, order),
+            _ => {
+                // Try converting to 8bpp gray first
+                let gray = self.convert_to_8()?;
+                gray.convert_gray_to_subpixel_rgb(scale_factor, order)
+            }
+        }
+    }
+
+    /// Convert 8 bpp grayscale to 32 bpp using LCD subpixel rendering.
+    ///
+    /// The width is scaled by `scale_factor`, and each group of 3 consecutive
+    /// pixels in the scaled image is mapped to R, G, B channels.
+    ///
+    /// `scale_factor` – scale factor (≥ 1).
+    /// `order` – 0 = RGB, 1 = BGR.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertGrayToSubpixelRGB()` in `pixconv.c`
+    pub fn convert_gray_to_subpixel_rgb(&self, scale_factor: u32, order: u32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if scale_factor < 1 {
+            return Err(Error::InvalidParameter("scale_factor must be >= 1".into()));
+        }
+        if order > 1 {
+            return Err(Error::InvalidParameter(
+                "order must be 0 (RGB) or 1 (BGR)".into(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        // Scale width by 3 × scale_factor, height by scale_factor
+        let scaled_w = w * 3 * scale_factor;
+        let scaled_h = h * scale_factor;
+
+        // Output dimensions: width / 3 (each triplet → one pixel)
+        let out_w = scaled_w / 3;
+        let out_h = scaled_h;
+
+        if out_w == 0 || out_h == 0 {
+            return Err(Error::InvalidDimension {
+                width: out_w,
+                height: out_h,
+            });
+        }
+
+        let result = Pix::new(out_w, out_h, PixelDepth::Bit32)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for dy in 0..out_h {
+            // Source y via nearest-neighbor sampling
+            let sy = dy / scale_factor;
+            let sy = sy.min(h - 1);
+
+            for dx in 0..out_w {
+                // For each output pixel, sample 3 source positions
+                let base_sx = dx * 3;
+                let sx0 = (base_sx / (3 * scale_factor)).min(w - 1);
+                let sx1 = ((base_sx + 1) / (3 * scale_factor)).min(w - 1);
+                let sx2 = ((base_sx + 2) / (3 * scale_factor)).min(w - 1);
+
+                let v0 = self.get_pixel_unchecked(sx0, sy) as u8;
+                let v1 = self.get_pixel_unchecked(sx1, sy) as u8;
+                let v2 = self.get_pixel_unchecked(sx2, sy) as u8;
+
+                let (r, g, b) = if order == 0 {
+                    (v0, v1, v2) // RGB
+                } else {
+                    (v2, v1, v0) // BGR
+                };
+
+                rm.set_pixel_unchecked(dx, dy, pixel::compose_rgba(r, g, b, 0));
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Convert 32 bpp color to subpixel RGB rendering.
+    ///
+    /// Extract luminance from each pixel, then apply subpixel rendering.
+    ///
+    /// `scale_factor` – scale factor (≥ 1).
+    /// `order` – 0 = RGB, 1 = BGR.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertColorToSubpixelRGB()` in `pixconv.c`
+    pub fn convert_color_to_subpixel_rgb(&self, scale_factor: u32, order: u32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if scale_factor < 1 {
+            return Err(Error::InvalidParameter("scale_factor must be >= 1".into()));
+        }
+        if order > 1 {
+            return Err(Error::InvalidParameter(
+                "order must be 0 (RGB) or 1 (BGR)".into(),
+            ));
+        }
+
+        let w = self.width();
+        let h = self.height();
+
+        // Scale width by 3 × scale_factor, height by scale_factor
+        let scaled_w = w * 3 * scale_factor;
+        let scaled_h = h * scale_factor;
+
+        // Output: each horizontal triplet becomes one pixel
+        let out_w = scaled_w / 3;
+        let out_h = scaled_h;
+
+        if out_w == 0 || out_h == 0 {
+            return Err(Error::InvalidDimension {
+                width: out_w,
+                height: out_h,
+            });
+        }
+
+        let result = Pix::new(out_w, out_h, PixelDepth::Bit32)?;
+        let mut rm = result.try_into_mut().unwrap();
+        rm.set_resolution(self.xres(), self.yres());
+
+        for dy in 0..out_h {
+            let sy = (dy / scale_factor).min(h - 1);
+
+            for dx in 0..out_w {
+                let base_sx = dx * 3;
+                let sx0 = (base_sx / (3 * scale_factor)).min(w - 1);
+                let sx1 = ((base_sx + 1) / (3 * scale_factor)).min(w - 1);
+                let sx2 = ((base_sx + 2) / (3 * scale_factor)).min(w - 1);
+
+                // For color subpixel: extract the appropriate channel from each position
+                let px0 = self.get_pixel_unchecked(sx0, sy);
+                let px1 = self.get_pixel_unchecked(sx1, sy);
+                let px2 = self.get_pixel_unchecked(sx2, sy);
+
+                let (r, g, b) = if order == 0 {
+                    // RGB: R from first pixel, G from second, B from third
+                    (pixel::red(px0), pixel::green(px1), pixel::blue(px2))
+                } else {
+                    // BGR: B from first pixel, G from second, R from third
+                    (pixel::red(px2), pixel::green(px1), pixel::blue(px0))
+                };
+
+                rm.set_pixel_unchecked(dx, dy, pixel::compose_rgba(r, g, b, 0));
+            }
+        }
+        Ok(rm.into())
     }
 }
 

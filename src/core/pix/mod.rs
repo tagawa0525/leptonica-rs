@@ -539,6 +539,54 @@ impl Pix {
         Ok(pix_mut.into())
     }
 
+    /// Create a Pix with a colormap (2, 4, or 8 bpp).
+    ///
+    /// Adds initial black or white color entry based on `init_color`.
+    /// This is an alias for [`Pix::new_with_colormap`].
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCreateWithCmap()` in `pix1.c`
+    pub fn create_with_cmap(
+        width: u32,
+        height: u32,
+        depth: PixelDepth,
+        init_color: InitColor,
+    ) -> Result<Self> {
+        Self::new_with_colormap(width, height, depth, init_color)
+    }
+
+    /// Get compressed text data (decode base64 text to bytes).
+    ///
+    /// The text field is expected to contain base64-encoded data,
+    /// previously stored using [`PixMut::set_text_comp_new`].
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetTextCompNew()` in `pix1.c`
+    pub fn get_text_comp_new(&self) -> Result<Vec<u8>> {
+        let text = self.text().unwrap_or("");
+        crate::core::decode_base64(text)
+    }
+
+    /// Get pixel value at a pseudo-random location.
+    ///
+    /// Returns `(pixel_value, x, y)` using a deterministic pseudo-random
+    /// location based on image dimensions.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixGetRandomPixel()` in `pix2.c`
+    pub fn get_random_pixel(&self) -> (u32, u32, u32) {
+        let w = self.width();
+        let h = self.height();
+        // Simple deterministic pseudo-random based on dimensions
+        let x = (w.wrapping_mul(2654435761)) % w;
+        let y = (h.wrapping_mul(2246822519)) % h;
+        let val = self.get_pixel_unchecked(x, y);
+        (val, x, y)
+    }
+
     /// Check if two PIX have the same width, height, and depth.
     ///
     /// # See also
@@ -895,6 +943,42 @@ impl PixMut {
     /// C Leptonica: `pixCopyText()` in `pix1.c`
     pub fn copy_text_from(&mut self, src: &Pix) {
         self.inner.text = src.inner.text.clone();
+    }
+
+    /// Set text from compressed data (encode bytes to base64 and store as text).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetTextCompNew()` in `pix1.c`
+    pub fn set_text_comp_new(pix: &mut PixMut, data: &[u8]) -> Result<()> {
+        let encoded = crate::core::encode_base64(data);
+        pix.set_text(Some(encoded));
+        Ok(())
+    }
+
+    /// Set one color component of all pixels to `val`.
+    ///
+    /// `comp` is 0=red, 1=green, 2=blue, 3=alpha. Only for 32bpp images.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetComponentArbitrary()` in `pix2.c`
+    pub fn set_component_arbitrary(&mut self, comp: u32, val: u8) -> Result<()> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if comp > 3 {
+            return Err(Error::InvalidParameter(format!(
+                "invalid component: {comp}, must be 0-3"
+            )));
+        }
+        let shift = 8 * (3 - comp);
+        let mask1 = !(0xFFu32 << shift);
+        let mask2 = (val as u32) << shift;
+        for word in self.inner.data.iter_mut() {
+            *word = (*word & mask1) | mask2;
+        }
+        Ok(())
     }
 
     /// Set all pixels to a gray value (0-255).

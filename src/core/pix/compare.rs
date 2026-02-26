@@ -1256,6 +1256,168 @@ impl Pix {
         let psnr = -4.3429448f64 * (mse / (255.0 * 255.0)).ln();
         Ok(psnr as f32)
     }
+
+    /// Compare two images by tiling and computing per-tile statistics.
+    ///
+    /// Divides the image into tiles of `tile_w × tile_h` and computes
+    /// the mean absolute difference per tile.
+    /// Returns (count of tiles exceeding threshold, 8bpp difference image).
+    ///
+    /// C equivalent: `pixCompareTiled()` in `compare.c`
+    pub fn compare_tiled(
+        &self,
+        other: &Pix,
+        tile_w: u32,
+        tile_h: u32,
+        threshold: u32,
+    ) -> Result<(u32, Pix)> {
+        if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.depth() != other.depth() {
+            return Err(Error::IncompatibleDepths(
+                self.depth().bits(),
+                other.depth().bits(),
+            ));
+        }
+        if tile_w < 2 || tile_h < 2 {
+            return Err(Error::InvalidParameter(
+                "tile_w and tile_h must be > 1".into(),
+            ));
+        }
+
+        let w = self.width().min(other.width());
+        let h = self.height().min(other.height());
+        let nx = w.div_ceil(tile_w);
+        let ny = h.div_ceil(tile_h);
+
+        let diff_pix = Pix::new(nx, ny, PixelDepth::Bit8)?;
+        let mut diff_mut = diff_pix.try_into_mut().unwrap();
+        let mut exceed_count = 0u32;
+
+        for ty in 0..ny {
+            for tx in 0..nx {
+                let x0 = tx * tile_w;
+                let y0 = ty * tile_h;
+                let x1 = (x0 + tile_w).min(w);
+                let y1 = (y0 + tile_h).min(h);
+                let npix = ((x1 - x0) * (y1 - y0)) as u64;
+                if npix == 0 {
+                    continue;
+                }
+
+                let mut sum_diff = 0u64;
+                for y in y0..y1 {
+                    for x in x0..x1 {
+                        let v1 = self.get_pixel_unchecked(x, y);
+                        let v2 = other.get_pixel_unchecked(x, y);
+                        if self.depth() == PixelDepth::Bit8 {
+                            sum_diff += v1.abs_diff(v2) as u64;
+                        } else {
+                            let (r1, g1, b1) = pixel::extract_rgb(v1);
+                            let (r2, g2, b2) = pixel::extract_rgb(v2);
+                            let dr = (r1 as i32 - r2 as i32).unsigned_abs() as u64;
+                            let dg = (g1 as i32 - g2 as i32).unsigned_abs() as u64;
+                            let db = (b1 as i32 - b2 as i32).unsigned_abs() as u64;
+                            sum_diff += (dr + dg + db) / 3;
+                        }
+                    }
+                }
+                let avg = (sum_diff / npix) as u32;
+                let clamped = avg.min(255);
+                diff_mut.set_pixel_unchecked(tx, ty, clamped);
+                if avg > threshold {
+                    exceed_count += 1;
+                }
+            }
+        }
+
+        Ok((exceed_count, diff_mut.into()))
+    }
+
+    /// Compute perceptual difference between two images.
+    ///
+    /// Returns `(fract_diff, avg_diff, exceeds_threshold)`.
+    ///
+    /// `sampling`: subsampling factor (>= 1).
+    /// `dilation`: size parameter (unused in simplified version).
+    /// `min_diff`: minimum pixel difference to count.
+    /// `fract_threshold`: fraction threshold for `exceeds_threshold`.
+    /// `factor`: additional subsampling.
+    ///
+    /// C equivalent: `pixGetPerceptualDiff()` in `compare.c`
+    pub fn get_perceptual_diff(
+        &self,
+        other: &Pix,
+        sampling: u32,
+        _dilation: u32,
+        min_diff: u32,
+        fract_threshold: f32,
+        factor: u32,
+    ) -> Result<(f32, f32, bool)> {
+        if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.depth() != other.depth() {
+            return Err(Error::IncompatibleDepths(
+                self.depth().bits(),
+                other.depth().bits(),
+            ));
+        }
+
+        let sampling = sampling.max(1);
+        let factor = factor.max(1);
+        let step = sampling * factor;
+        let w = self.width().min(other.width());
+        let h = self.height().min(other.height());
+
+        let mut total = 0u64;
+        let mut diff_count = 0u64;
+        let mut sum_diff = 0f64;
+
+        let mut y = 0u32;
+        while y < h {
+            let mut x = 0u32;
+            while x < w {
+                let v1 = self.get_pixel_unchecked(x, y);
+                let v2 = other.get_pixel_unchecked(x, y);
+                total += 1;
+
+                let max_component_diff = if self.depth() == PixelDepth::Bit8 {
+                    v1.abs_diff(v2)
+                } else {
+                    let (r1, g1, b1) = pixel::extract_rgb(v1);
+                    let (r2, g2, b2) = pixel::extract_rgb(v2);
+                    let dr = (r1 as i32 - r2 as i32).unsigned_abs();
+                    let dg = (g1 as i32 - g2 as i32).unsigned_abs();
+                    let db = (b1 as i32 - b2 as i32).unsigned_abs();
+                    dr.max(dg).max(db)
+                };
+
+                if max_component_diff >= min_diff {
+                    diff_count += 1;
+                    sum_diff += max_component_diff as f64;
+                }
+
+                x += step;
+            }
+            y += step;
+        }
+
+        if total == 0 {
+            return Ok((0.0, 0.0, false));
+        }
+
+        let fract_diff = diff_count as f32 / total as f32;
+        let avg_diff = if diff_count > 0 {
+            (sum_diff / diff_count as f64) as f32
+        } else {
+            0.0
+        };
+        let exceeds = fract_diff > fract_threshold;
+
+        Ok((fract_diff, avg_diff, exceeds))
+    }
 }
 
 /// Compute binary correlation between two 1-bit images.

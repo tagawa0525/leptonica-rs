@@ -1873,9 +1873,46 @@ impl Numa {
         }
         Ok(count)
     }
+
+    /// Sort with explicit ascending/descending option.
+    ///
+    /// Returns `(sorted_numa, sort_index)` where `sort_index` contains
+    /// the permutation indices that produce the sorted order.
+    ///
+    /// C Leptonica equivalent: `numaSortGeneral`
+    pub fn sort_general(&self, sort_order: SortOrder) -> (Numa, Vec<usize>) {
+        let naindex = self.sort_index(sort_order);
+        let n = naindex.len();
+        let mut indices = Vec::with_capacity(n);
+        let mut sorted = Numa::with_capacity(n);
+        let array = self.as_slice();
+        for i in 0..n {
+            let idx = naindex[i] as usize;
+            indices.push(idx);
+            sorted.push(array[idx]);
+        }
+        (sorted, indices)
+    }
+
+    /// Choose optimal sort type (shell vs bin) based on data.
+    ///
+    /// Returns `true` for bin sort, `false` for shell sort.
+    /// Bin sort is preferred when `max_val < n * 8` and `max_val < 100_000`.
+    ///
+    /// C Leptonica equivalent: `numaChooseSortType`
+    pub fn choose_sort_type(n: usize, max_val: f32) -> bool {
+        (max_val as usize) < n * 8 && max_val < 100_000.0
+    }
 }
 
 impl Numaa {
+    /// Append all Numa arrays from `other` to self.
+    ///
+    /// C equivalent: `numaaJoin()` (full range variant)
+    pub fn join(&mut self, other: &Numaa) {
+        self.join_range(other, 0, None);
+    }
+
     /// Append Numa arrays from `other` in the range `[istart, iend]`.
     ///
     /// `iend = None` means append through the last element.

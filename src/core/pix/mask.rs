@@ -363,6 +363,222 @@ impl Pix {
         Ok(mm.into())
     }
 
+    /// Replace all pixels under the 1-pixels of mask, at offset (x, y),
+    /// with the average value of surrounding non-masked pixels.
+    ///
+    /// `search_dir`: 0 = 8-connected neighborhood, 1 = 4-connected.
+    /// Must be 8 or 32 bpp.
+    ///
+    /// C equivalent: `pixPaintSelfThroughMask()` in `pix3.c`
+    pub fn paint_self_through_mask(
+        &self,
+        mask: &Pix,
+        x: u32,
+        y: u32,
+        search_dir: u32,
+    ) -> Result<Pix> {
+        let d = self.depth();
+        if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let mw = mask.width();
+        let mh = mask.height();
+        let result = self.deep_clone();
+        let mut rm = result.try_into_mut().unwrap();
+
+        let neighbors_8: [(i32, i32); 8] = [
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (0, 1),
+            (1, 1),
+        ];
+        let neighbors_4: [(i32, i32); 4] = [(0, -1), (-1, 0), (1, 0), (0, 1)];
+
+        for my in 0..mh {
+            let dy = y + my;
+            if dy >= h {
+                continue;
+            }
+            for mx in 0..mw {
+                let dx = x + mx;
+                if dx >= w {
+                    continue;
+                }
+                if mask.get_pixel_unchecked(mx, my) == 0 {
+                    continue;
+                }
+
+                if d == PixelDepth::Bit32 {
+                    let mut r_sum = 0u32;
+                    let mut g_sum = 0u32;
+                    let mut b_sum = 0u32;
+                    let mut count = 0u32;
+                    let neighbors: &[(i32, i32)] = if search_dir == 1 {
+                        &neighbors_4
+                    } else {
+                        &neighbors_8
+                    };
+                    for &(ox, oy) in neighbors {
+                        let nx = dx as i32 + ox;
+                        let ny = dy as i32 + oy;
+                        if nx < 0 || ny < 0 || nx >= w as i32 || ny >= h as i32 {
+                            continue;
+                        }
+                        let nxu = nx as u32;
+                        let nyu = ny as u32;
+                        // Check if this neighbor is masked
+                        let in_mask = nxu >= x
+                            && nyu >= y
+                            && nxu - x < mw
+                            && nyu - y < mh
+                            && mask.get_pixel_unchecked(nxu - x, nyu - y) != 0;
+                        if !in_mask {
+                            let p = self.get_pixel_unchecked(nxu, nyu);
+                            let (r, g, b, _) = crate::core::pixel::extract_rgba(p);
+                            r_sum += r as u32;
+                            g_sum += g as u32;
+                            b_sum += b as u32;
+                            count += 1;
+                        }
+                    }
+                    if count > 0 {
+                        let avg = crate::core::pixel::compose_rgb(
+                            (r_sum / count) as u8,
+                            (g_sum / count) as u8,
+                            (b_sum / count) as u8,
+                        );
+                        rm.set_pixel_unchecked(dx, dy, avg);
+                    }
+                } else {
+                    // 8bpp
+                    let mut sum = 0u32;
+                    let mut count = 0u32;
+                    let neighbors: &[(i32, i32)] = if search_dir == 1 {
+                        &neighbors_4
+                    } else {
+                        &neighbors_8
+                    };
+                    for &(ox, oy) in neighbors {
+                        let nx = dx as i32 + ox;
+                        let ny = dy as i32 + oy;
+                        if nx < 0 || ny < 0 || nx >= w as i32 || ny >= h as i32 {
+                            continue;
+                        }
+                        let nxu = nx as u32;
+                        let nyu = ny as u32;
+                        let in_mask = nxu >= x
+                            && nyu >= y
+                            && nxu - x < mw
+                            && nyu - y < mh
+                            && mask.get_pixel_unchecked(nxu - x, nyu - y) != 0;
+                        if !in_mask {
+                            sum += self.get_pixel_unchecked(nxu, nyu);
+                            count += 1;
+                        }
+                    }
+                    if count > 0 {
+                        rm.set_pixel_unchecked(dx, dy, sum / count);
+                    }
+                }
+            }
+        }
+        Ok(rm.into())
+    }
+
+    /// Create 8bpp alpha image from 1bpp mask.
+    ///
+    /// Pixels in mask get `val` alpha, others get 0.
+    ///
+    /// C equivalent: `pixMakeAlphaFromMask()` in `pix3.c`
+    pub fn make_alpha_from_mask(&self, val: u8) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let w = self.width();
+        let h = self.height();
+        let alpha = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut am = alpha.try_into_mut().unwrap();
+
+        for y in 0..h {
+            for x in 0..w {
+                if self.get_pixel_unchecked(x, y) != 0 {
+                    am.set_pixel_unchecked(x, y, val as u32);
+                }
+            }
+        }
+        Ok(am.into())
+    }
+
+    /// Get average color of pixels near boundary of mask, within distance `dist`.
+    ///
+    /// For 32bpp source and 1bpp mask. Erode mask by `dist`, XOR with original
+    /// to get boundary ring. Average the colors of source pixels in that ring.
+    ///
+    /// C equivalent: `pixGetColorNearMaskBoundary()` in `pix3.c`
+    pub fn get_color_near_mask_boundary(&self, mask: &Pix, dist: u32) -> Result<u32> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+        if dist == 0 {
+            return Err(Error::InvalidParameter("dist must be >= 1".into()));
+        }
+
+        let w = self.width().min(mask.width());
+        let h = self.height().min(mask.height());
+
+        // Erode the mask by `dist` to get inner region
+        let size = 2 * dist + 1;
+        let eroded = crate::morph::erode_brick(mask, size, size)
+            .map_err(|e| Error::InvalidParameter(format!("erode failed: {e}")))?;
+
+        // XOR original mask with eroded to get the boundary ring
+        let boundary = mask
+            .xor(&eroded)
+            .map_err(|e| Error::InvalidParameter(format!("xor failed: {e}")))?;
+
+        let mut r_sum = 0u64;
+        let mut g_sum = 0u64;
+        let mut b_sum = 0u64;
+        let mut count = 0u64;
+
+        for y in 0..h {
+            for x in 0..w {
+                if boundary.get_pixel_unchecked(x, y) != 0 {
+                    let p = self.get_pixel_unchecked(x, y);
+                    let (r, g, b, _) = crate::core::pixel::extract_rgba(p);
+                    r_sum += r as u64;
+                    g_sum += g as u64;
+                    b_sum += b as u64;
+                    count += 1;
+                }
+            }
+        }
+
+        if count == 0 {
+            return Ok(0);
+        }
+
+        Ok(crate::core::pixel::compose_rgb(
+            (r_sum / count) as u8,
+            (g_sum / count) as u8,
+            (b_sum / count) as u8,
+        ))
+    }
+
     /// Set RGB values under fully transparent (alpha == 0) pixels.
     ///
     /// Returns a new 32 bpp image with RGB replaced where alpha is 0.

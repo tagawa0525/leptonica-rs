@@ -4,7 +4,9 @@
 //! Corresponds to functions in C Leptonica's `pix5.c`.
 
 use super::{Pix, PixelDepth};
+use crate::core::box_::{Boxa, SizeRelation};
 use crate::core::error::{Error, Result};
+use crate::core::pixa::Pixa;
 
 impl Pix {
     /// Compute the fraction of foreground pixels in a 1bpp image.
@@ -136,6 +138,360 @@ impl Pix {
             return Ok((0.0, 0));
         }
         Ok((nintersect as f32 / nunion as f32, nintersect))
+    }
+
+    /// Find ratio of area to perimeter for a 1bpp connected component.
+    ///
+    /// Counts foreground pixels (area) and boundary pixels (perimeter).
+    /// Returns area / perimeter.
+    ///
+    /// C equivalent: `pixFindAreaPerimRatio()` in `pix5.c`
+    pub fn find_area_perim_ratio(&self) -> Result<f32> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let mut nfg = 0u64;
+        let mut nboundary = 0u64;
+
+        for y in 0..h {
+            for x in 0..w {
+                if self.get_pixel_unchecked(x as u32, y as u32) != 0 {
+                    nfg += 1;
+                    let is_interior = [
+                        (x - 1, y - 1),
+                        (x, y - 1),
+                        (x + 1, y - 1),
+                        (x - 1, y),
+                        (x + 1, y),
+                        (x - 1, y + 1),
+                        (x, y + 1),
+                        (x + 1, y + 1),
+                    ]
+                    .iter()
+                    .all(|&(nx, ny)| {
+                        nx >= 0
+                            && ny >= 0
+                            && nx < w
+                            && ny < h
+                            && self.get_pixel_unchecked(nx as u32, ny as u32) != 0
+                    });
+                    if !is_interior {
+                        nboundary += 1;
+                    }
+                }
+            }
+        }
+        if nboundary == 0 {
+            return Ok(0.0);
+        }
+        Ok(nfg as f32 / nboundary as f32)
+    }
+
+    /// Find ratio of perimeter to sqrt(area) for a 1bpp connected component.
+    ///
+    /// C equivalent: `pixFindPerimSizeRatio()` in `pix5.c`
+    pub fn find_perim_size_ratio(&self) -> Result<f32> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let mut nfg = 0u64;
+        let mut nboundary = 0u64;
+
+        for y in 0..h {
+            for x in 0..w {
+                if self.get_pixel_unchecked(x as u32, y as u32) != 0 {
+                    nfg += 1;
+                    let is_interior = [
+                        (x - 1, y - 1),
+                        (x, y - 1),
+                        (x + 1, y - 1),
+                        (x - 1, y),
+                        (x + 1, y),
+                        (x - 1, y + 1),
+                        (x, y + 1),
+                        (x + 1, y + 1),
+                    ]
+                    .iter()
+                    .all(|&(nx, ny)| {
+                        nx >= 0
+                            && ny >= 0
+                            && nx < w
+                            && ny < h
+                            && self.get_pixel_unchecked(nx as u32, ny as u32) != 0
+                    });
+                    if !is_interior {
+                        nboundary += 1;
+                    }
+                }
+            }
+        }
+        if nfg == 0 {
+            return Ok(0.0);
+        }
+        Ok(nboundary as f32 / (nfg as f32).sqrt())
+    }
+
+    /// Find fraction of 1-pixels in `self` that are under `mask`.
+    ///
+    /// Both must be 1bpp. Counts pixels in self AND mask, divides by
+    /// count in self.
+    ///
+    /// C equivalent: `pixFindAreaFractionMasked()` in `pix5.c`
+    pub fn find_area_fraction_masked(&self, mask: &Pix) -> Result<f32> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+
+        let w = self.width().min(mask.width());
+        let h = self.height().min(mask.height());
+        let mut nself = 0u64;
+        let mut nboth = 0u64;
+
+        for y in 0..h {
+            for x in 0..w {
+                if self.get_pixel_unchecked(x, y) != 0 {
+                    nself += 1;
+                    if mask.get_pixel_unchecked(x, y) != 0 {
+                        nboth += 1;
+                    }
+                }
+            }
+        }
+        // Also count self pixels outside the mask overlap region
+        for y in 0..self.height() {
+            for x in 0..self.width() {
+                if (x >= w || y >= h) && self.get_pixel_unchecked(x, y) != 0 {
+                    nself += 1;
+                }
+            }
+        }
+        if nself == 0 {
+            return Ok(0.0);
+        }
+        Ok(nboth as f32 / nself as f32)
+    }
+
+    /// Check if a 1bpp connected component is roughly rectangular.
+    ///
+    /// Returns true if the fraction of foreground pixels exceeds `min_fract`.
+    ///
+    /// C equivalent: `pixConformsToRectangle()` in `pix5.c`
+    pub fn conforms_to_rectangle(&self, min_fract: f32) -> Result<bool> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let frac = self.find_area_fraction()?;
+        Ok(frac >= min_fract)
+    }
+
+    /// Find connected components that are approximately rectangular.
+    ///
+    /// For 1bpp. Finds CCs, tests each for rectangularity using
+    /// `conforms_to_rectangle`, returns bounding boxes of those passing.
+    ///
+    /// C equivalent: `pixFindRectangleComps()` in `pix5.c`
+    pub fn find_rectangle_comps(&self, min_fract: f32) -> Result<Boxa> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let (cc_boxa, cc_pixa) =
+            crate::region::conncomp_pixa(self, crate::region::ConnectivityType::EightWay)
+                .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+
+        let mut result = Boxa::new();
+        for i in 0..cc_pixa.len() {
+            let comp = &cc_pixa[i];
+            if comp.conforms_to_rectangle(min_fract)?
+                && let Some(b) = cc_boxa.get(i)
+            {
+                result.push(*b);
+            }
+        }
+        Ok(result)
+    }
+
+    /// Extract all near-rectangular connected components as a Pixa.
+    ///
+    /// For 1bpp. Finds CCs, returns those that conform to a rectangle
+    /// (area fraction >= `min_fract` of bounding box).
+    ///
+    /// C equivalent: `pixExtractRectangularRegions()` in `pix5.c`
+    pub fn extract_rectangular_regions(&self, min_fract: f32) -> Result<Pixa> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let (cc_boxa, cc_pixa) =
+            crate::region::conncomp_pixa(self, crate::region::ConnectivityType::EightWay)
+                .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+
+        let mut result = Pixa::new();
+        for i in 0..cc_pixa.len() {
+            let comp = &cc_pixa[i];
+            if comp.conforms_to_rectangle(min_fract)? {
+                let b = cc_boxa.get(i).copied().unwrap_or_default();
+                result.push_with_box(comp.deep_clone(), b);
+            }
+        }
+        Ok(result)
+    }
+
+    /// Select connected components by size criterion.
+    ///
+    /// Returns (mask, boxa) where only components matching the size criterion
+    /// are included.
+    ///
+    /// * `width` - target width threshold
+    /// * `height` - target height threshold
+    /// * `connectivity` - 4 or 8
+    /// * `relation` - size comparison relation
+    ///
+    /// C equivalent: `pixSelectComponentBySize()` in `pix5.c`
+    pub fn select_component_by_size(
+        &self,
+        width: u32,
+        height: u32,
+        connectivity: u32,
+        relation: SizeRelation,
+    ) -> Result<(Pix, Boxa)> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let conn = match connectivity {
+            4 => crate::region::ConnectivityType::FourWay,
+            8 => crate::region::ConnectivityType::EightWay,
+            _ => {
+                return Err(Error::InvalidParameter(format!(
+                    "connectivity must be 4 or 8, got {connectivity}"
+                )));
+            }
+        };
+        let (cc_boxa, cc_pixa) = crate::region::conncomp_pixa(self, conn)
+            .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+
+        let w = self.width();
+        let h = self.height();
+        let pixd = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut pixd_mut = pixd.try_into_mut().unwrap_or_else(|p| p.to_mut());
+        let mut result_boxa = Boxa::new();
+
+        for i in 0..cc_pixa.len() {
+            let b = cc_boxa.get(i).copied().unwrap_or_default();
+            let bw = b.w as u32;
+            let bh = b.h as u32;
+            let matches = match relation {
+                SizeRelation::LessThan => bw < width && bh < height,
+                SizeRelation::LessThanOrEqual => bw <= width && bh <= height,
+                SizeRelation::GreaterThan => bw > width || bh > height,
+                SizeRelation::GreaterThanOrEqual => bw >= width || bh >= height,
+            };
+            if matches {
+                // Copy component pixels into output at original position
+                let comp = &cc_pixa[i];
+                let ox = b.x.max(0) as u32;
+                let oy = b.y.max(0) as u32;
+                let cw = comp.width();
+                let ch = comp.height();
+                for cy in 0..ch {
+                    for cx in 0..cw {
+                        if comp.get_pixel_unchecked(cx, cy) != 0 {
+                            let dx = ox + cx;
+                            let dy = oy + cy;
+                            if dx < w && dy < h {
+                                pixd_mut.set_pixel_unchecked(dx, dy, 1);
+                            }
+                        }
+                    }
+                }
+                result_boxa.push(b);
+            }
+        }
+
+        Ok((pixd_mut.into(), result_boxa))
+    }
+
+    /// Filter connected components, keeping only those matching size criteria.
+    ///
+    /// Returns a new 1bpp image with only matching components.
+    ///
+    /// C equivalent: `pixFilterComponentBySize()` in `pix5.c`
+    pub fn filter_component_by_size(
+        &self,
+        width: u32,
+        height: u32,
+        connectivity: u32,
+        relation: SizeRelation,
+    ) -> Result<Pix> {
+        let (pix, _boxa) = self.select_component_by_size(width, height, connectivity, relation)?;
+        Ok(pix)
+    }
+
+    /// Create a set of non-overlapping rectangles that cover all foreground.
+    ///
+    /// For 1bpp. Iteratively expands bounding boxes of connected components
+    /// until convergence, grouping nearby foreground into covering rectangles.
+    ///
+    /// * `distance` - expansion distance per iteration for merging nearby components.
+    ///
+    /// C equivalent: `pixMakeCoveringOfRectangles()` in `pix5.c`
+    pub fn make_covering_of_rectangles(&self, distance: u32) -> Result<Boxa> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+
+        // Start with CC bounding boxes
+        let (initial_boxa, _pixa) =
+            crate::region::conncomp_pixa(self, crate::region::ConnectivityType::EightWay)
+                .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+
+        if initial_boxa.is_empty() {
+            return Ok(Boxa::new());
+        }
+
+        let dist = distance as i32;
+        let max_iters = 20;
+        let mut current_boxa = initial_boxa;
+
+        for _ in 0..max_iters {
+            // Paint expanded bounding boxes into a mask
+            let canvas = Pix::new(w, h, PixelDepth::Bit1)?;
+            let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p| p.to_mut());
+            for b in current_boxa.boxes() {
+                let x0 = (b.x - dist).max(0) as u32;
+                let y0 = (b.y - dist).max(0) as u32;
+                let x1 = ((b.x + b.w + dist) as u32).min(w);
+                let y1 = ((b.y + b.h + dist) as u32).min(h);
+                for y in y0..y1 {
+                    for x in x0..x1 {
+                        canvas_mut.set_pixel_unchecked(x, y, 1);
+                    }
+                }
+            }
+            let canvas_pix: Pix = canvas_mut.into();
+
+            // Extract new CCs from the expanded mask
+            let (new_boxa, _) = crate::region::conncomp_pixa(
+                &canvas_pix,
+                crate::region::ConnectivityType::EightWay,
+            )
+            .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+
+            // Check convergence
+            if new_boxa.len() == current_boxa.len() {
+                return Ok(new_boxa);
+            }
+            current_boxa = new_boxa;
+        }
+
+        Ok(current_boxa)
     }
 }
 

@@ -1552,6 +1552,41 @@ impl Pix {
         }
         Ok(pixd.into())
     }
+
+    /// Generate Pta of boundary points for a 1bpp connected component.
+    ///
+    /// Boundary pixels are foreground pixels that have at least one background
+    /// (4-connected) neighbor. For `width > 1`, the boundary region is expanded
+    /// by eroding the source and XOR-ing with it (matching the C implementation).
+    ///
+    /// C equivalent: `pixGeneratePtaBoundary()` in `graphics.c`
+    pub fn generate_pta_boundary(&self, width: u32) -> Result<Pta> {
+        if self.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+
+        let width = width.max(1);
+        let w = self.width();
+        let h = self.height();
+
+        // Erode by (2*width+1) x (2*width+1), then XOR with original to get boundary
+        let sel_size = 2 * width + 1;
+        let eroded = crate::morph::binary::erode_brick(self, sel_size, sel_size)
+            .map_err(|e| Error::InvalidParameter(format!("erode failed: {e}")))?;
+        let boundary = eroded.xor(self)?;
+
+        // Collect foreground pixels from boundary image
+        let mut pta = Pta::new();
+        for y in 0..h {
+            for x in 0..w {
+                if boundary.get_pixel_unchecked(x, y) == 1 {
+                    pta.push(x as f32, y as f32);
+                }
+            }
+        }
+
+        Ok(pta)
+    }
 }
 
 /// Render a polygon outline as a minimum-sized 1 bpp `Pix`.

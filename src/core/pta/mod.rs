@@ -13,6 +13,7 @@ pub use transform::{SelectCoord, SelectRelation};
 
 use crate::core::error::{Error, Result};
 use crate::core::numa::Numa;
+use crate::core::pix::Pix;
 
 /// Array of points
 #[derive(Debug, Clone, Default)]
@@ -307,6 +308,48 @@ impl Pta {
             pta: self,
             index: 0,
         }
+    }
+
+    /// Remove the point at index, shifting others left.
+    ///
+    /// This is an alias for [`remove`](Pta::remove) for C compatibility.
+    ///
+    /// C Leptonica equivalent: `ptaRemovePt`
+    pub fn remove_pt(&mut self, index: usize) -> Result<(f32, f32)> {
+        self.remove(index)
+    }
+
+    /// Keep only points that fall on foreground pixels of the 1bpp mask.
+    ///
+    /// For each point, checks if the corresponding pixel in the mask is
+    /// foreground (value 1). If so, the point is included in the result.
+    ///
+    /// C Leptonica equivalent: `ptaCropToMask`
+    pub fn crop_to_mask(&self, mask: &Pix) -> Result<Pta> {
+        use crate::core::pix::PixelDepth;
+        if mask.depth() != PixelDepth::Bit1 {
+            return Err(Error::UnsupportedDepth(mask.depth().bits()));
+        }
+        let w = mask.width();
+        let h = mask.height();
+        let mut result = Pta::new();
+        for i in 0..self.len() {
+            let (px, py) = self.get(i).ok_or(Error::IndexOutOfBounds {
+                index: i,
+                len: self.len(),
+            })?;
+            let ix = px as i32;
+            let iy = py as i32;
+            if ix < 0 || iy < 0 || ix >= w as i32 || iy >= h as i32 {
+                continue;
+            }
+            if let Some(val) = mask.get_pixel(ix as u32, iy as u32)
+                && val != 0
+            {
+                result.push(px, py);
+            }
+        }
+        Ok(result)
     }
 }
 

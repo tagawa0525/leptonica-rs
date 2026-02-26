@@ -295,6 +295,312 @@ impl Pix {
         }
         Ok(nad)
     }
+
+    /// Compute reversal profile along rows or columns for 1bpp images.
+    ///
+    /// A "reversal" is a transition from 0→1 or 1→0 that spans at least
+    /// `min_reversal` pixels of consistent value on both sides.
+    ///
+    /// For `direction = 0` (horizontal): count reversals along each row in
+    /// `[first..=last]`, over the central `fract` of the image width.
+    /// For `direction = 1` (vertical): count reversals along each column in
+    /// `[first..=last]`, over the central `fract` of the image height.
+    ///
+    /// C equivalent: `pixReversalProfile()` in `pix5.c`
+    pub fn reversal_profile(
+        &self,
+        fract: f32,
+        direction: u32,
+        first: u32,
+        last: u32,
+        min_reversal: u32,
+    ) -> Result<Numa> {
+        if !(0.0..=1.0).contains(&fract) {
+            return Err(Error::InvalidParameter(
+                "fract must be in [0.0, 1.0]".into(),
+            ));
+        }
+        if last < first {
+            return Err(Error::InvalidParameter("last must be >= first".into()));
+        }
+        if direction > 1 {
+            return Err(Error::InvalidParameter(
+                "direction must be 0 (horizontal) or 1 (vertical)".into(),
+            ));
+        }
+
+        // For 1bpp, enforce min_reversal = 1
+        let d = self.depth();
+        let (pix_work, min_rev) = if d == PixelDepth::Bit1 {
+            (None, 1u32)
+        } else {
+            // Convert to 8bpp for non-1bpp images
+            let p8 = self.convert_to_8()?;
+            (Some(p8), min_reversal.max(1))
+        };
+        let source = pix_work.as_ref().unwrap_or(self);
+
+        let w = source.width();
+        let h = source.height();
+        let mut nad = Numa::new();
+
+        if direction == 0 {
+            // Horizontal: scan rows
+            let start = (0.5 * (1.0 - fract) * w as f32) as i32;
+            let end = w as i32 - start;
+            let last_clamped = last.min(h - 1);
+            let mut i = first;
+            while i <= last_clamped {
+                let naline = source.extract_on_line(start, i as i32, end, i as i32, 1)?;
+                let nr = count_reversals_numa(&naline, min_rev);
+                nad.push(nr as f32);
+                i += 1;
+            }
+        } else {
+            // Vertical: scan columns
+            let start = (0.5 * (1.0 - fract) * h as f32) as i32;
+            let end = h as i32 - start;
+            let last_clamped = last.min(w - 1);
+            let mut j = first;
+            while j <= last_clamped {
+                let naline = source.extract_on_line(j as i32, start, j as i32, end, 1)?;
+                let nr = count_reversals_numa(&naline, min_rev);
+                nad.push(nr as f32);
+                j += 1;
+            }
+        }
+
+        Ok(nad)
+    }
+
+    /// Compute windowed root-variance along a single line (row or column).
+    ///
+    /// `direction`: 0 = horizontal line (row), 1 = vertical line (column).
+    /// `loc`: row or column number.
+    /// `c1`, `c2`: endpoint coordinates along the line.
+    /// `size`: window size (must be > 1).
+    ///
+    /// Returns a Numa of root-variance values (RMS deviation from mean)
+    /// for each window position.
+    ///
+    /// C equivalent: `pixWindowedVarianceOnLine()` in `pix5.c`
+    pub fn windowed_variance_on_line(
+        &self,
+        direction: u32,
+        loc: u32,
+        c1: u32,
+        c2: u32,
+        size: u32,
+    ) -> Result<Numa> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.has_colormap() {
+            return Err(Error::NotSupported(
+                "windowed_variance_on_line does not support colormapped images".into(),
+            ));
+        }
+        if size < 2 {
+            return Err(Error::InvalidParameter("window size must be > 1".into()));
+        }
+        if direction > 1 {
+            return Err(Error::InvalidParameter(
+                "direction must be 0 (horizontal) or 1 (vertical)".into(),
+            ));
+        }
+        let w = self.width();
+        let h = self.height();
+        let max_loc = if direction == 0 { h - 1 } else { w - 1 };
+        if loc > max_loc {
+            return Err(Error::InvalidParameter(format!(
+                "loc {} exceeds max {}",
+                loc, max_loc
+            )));
+        }
+
+        // Clip line endpoints
+        let cmin = c1.min(c2);
+        let cmax = c1.max(c2);
+        let max_coord = if direction == 0 { w - 1 } else { h - 1 };
+        let cmin = cmin.min(max_coord);
+        let cmax = cmax.min(max_coord);
+        let n = (cmax - cmin + 1) as usize;
+
+        // Collect pixel values along line
+        let mut values = Vec::with_capacity(n);
+        for i in cmin..=cmax {
+            let val = if direction == 0 {
+                self.get_pixel_unchecked(i, loc)
+            } else {
+                self.get_pixel_unchecked(loc, i)
+            };
+            values.push(val as f32);
+        }
+
+        // Compute windowed root variance
+        let size_usize = size as usize;
+        let mut nad = Numa::new();
+        nad.set_parameters(cmin as f32 + size as f32 / 2.0, 1.0);
+        let norm = 1.0 / size as f64;
+        for i in 0..n.saturating_sub(size_usize) {
+            let mut sum1 = 0.0f64;
+            let mut sum2 = 0.0f64;
+            for j in 0..size_usize {
+                let v = values[i + j] as f64;
+                sum1 += v;
+                sum2 += v * v;
+            }
+            let ave = norm * sum1;
+            let var = (norm * sum2 - ave * ave).max(0.0);
+            nad.push(var.sqrt() as f32);
+        }
+
+        Ok(nad)
+    }
+
+    /// Get the min and max pixel values near a line between two points.
+    ///
+    /// Walks along the line from `(x1, y1)` to `(x2, y2)`. At each point,
+    /// searches `dist` pixels perpendicular to the line for min/max values.
+    /// If the line is more horizontal, searches vertically; otherwise horizontally.
+    ///
+    /// Returns `(min_values, max_values)` as Numa arrays along the line.
+    ///
+    /// C equivalent: `pixMinMaxNearLine()` in `pix5.c`
+    pub fn min_max_near_line(
+        &self,
+        x1: u32,
+        y1: u32,
+        x2: u32,
+        y2: u32,
+        dist: u32,
+    ) -> Result<(Numa, Numa)> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if self.has_colormap() {
+            return Err(Error::NotSupported(
+                "min_max_near_line does not support colormapped images".into(),
+            ));
+        }
+
+        let w = self.width() as i32;
+        let h = self.height() as i32;
+        let dist = dist as i32;
+
+        // Generate points along the line
+        let pta = super::graphics::generate_line_pta(x1 as i32, y1 as i32, x2 as i32, y2 as i32);
+        let n = pta.len();
+
+        // Determine if the line is more horizontal or vertical
+        let dx = (x2 as i32 - x1 as i32).abs();
+        let is_horiz = dx == (n as i32 - 1);
+
+        let mut namin = Numa::with_capacity(n);
+        let mut namax = Numa::with_capacity(n);
+
+        for i in 0..n {
+            let (fx, fy) = pta.get(i).unwrap();
+            let x = fx as i32;
+            let y = fy as i32;
+            let mut minval = 255u32;
+            let mut maxval = 0u32;
+            let mut found = false;
+
+            if is_horiz {
+                if x < 0 || x >= w {
+                    continue;
+                }
+                for j in -dist..=dist {
+                    let yy = y + j;
+                    if yy < 0 || yy >= h {
+                        continue;
+                    }
+                    let val = self.get_pixel_unchecked(x as u32, yy as u32);
+                    found = true;
+                    minval = minval.min(val);
+                    maxval = maxval.max(val);
+                }
+            } else {
+                if y < 0 || y >= h {
+                    continue;
+                }
+                for j in -dist..=dist {
+                    let xx = x + j;
+                    if xx < 0 || xx >= w {
+                        continue;
+                    }
+                    let val = self.get_pixel_unchecked(xx as u32, y as u32);
+                    found = true;
+                    minval = minval.min(val);
+                    maxval = maxval.max(val);
+                }
+            }
+
+            if found {
+                namin.push(minval as f32);
+                namax.push(maxval as f32);
+            }
+        }
+
+        if namin.is_empty() {
+            return Err(Error::InvalidParameter(
+                "no valid pixels found along this line".into(),
+            ));
+        }
+
+        Ok((namin, namax))
+    }
+}
+
+/// Count the number of reversals in a Numa of pixel values.
+///
+/// A reversal is when the value changes direction (from increasing to
+/// decreasing or vice versa) by at least `min_reversal`.
+fn count_reversals_numa(na: &Numa, min_reversal: u32) -> u32 {
+    let n = na.len();
+    if n < 2 {
+        return 0;
+    }
+
+    let min_rev = min_reversal as f32;
+    let mut reversals = 0u32;
+    let mut last_val = na.get(0).unwrap_or(0.0);
+
+    // Track the last extremum value
+    let mut extremum = last_val;
+    let mut increasing = false;
+    let mut decreasing = false;
+
+    for i in 1..n {
+        let val = na.get(i).unwrap_or(0.0);
+        if val > last_val {
+            if decreasing && (extremum - last_val) >= min_rev {
+                // Was going down, now going up → reversal
+                reversals += 1;
+                extremum = last_val;
+            }
+            if !increasing {
+                increasing = true;
+                decreasing = false;
+                extremum = last_val;
+            }
+        } else if val < last_val {
+            if increasing && (last_val - extremum) >= min_rev {
+                // Was going up, now going down → reversal
+                reversals += 1;
+                extremum = last_val;
+            }
+            if !decreasing {
+                decreasing = true;
+                increasing = false;
+                extremum = last_val;
+            }
+        }
+        last_val = val;
+    }
+
+    reversals
 }
 
 #[cfg(test)]

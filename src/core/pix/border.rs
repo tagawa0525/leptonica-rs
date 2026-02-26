@@ -5,6 +5,7 @@
 
 use super::{Pix, PixMut, PixelDepth};
 use crate::core::error::{Error, Result};
+use crate::core::pixel;
 
 impl Pix {
     /// Add a uniform border of `npix` pixels on all sides.
@@ -458,6 +459,394 @@ impl PixMut {
         }
 
         Ok(())
+    }
+
+    /// Set all pixels at distance `dist` from the border to `val`.
+    ///
+    /// The rings are single-pixel-wide rectangular sets of pixels at a given
+    /// distance from the edge. `dist` must be >= 1 (first ring is 1).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetBorderRingVal()` in `pix2.c`
+    pub fn set_border_ring_val(&mut self, dist: u32, val: u32) -> Result<()> {
+        if dist < 1 {
+            return Err(Error::InvalidParameter("dist must be >= 1".into()));
+        }
+        let w = self.width();
+        let h = self.height();
+        if w < 2 * dist + 1 || h < 2 * dist + 1 {
+            return Err(Error::InvalidParameter(
+                "ring doesn't exist for this image size".into(),
+            ));
+        }
+
+        let d = dist - 1;
+        let xend = w - dist;
+        let yend = h - dist;
+
+        // Top edge of ring
+        for x in d..=xend {
+            self.set_pixel_unchecked(x, d, val);
+        }
+        // Bottom edge of ring
+        for x in d..=xend {
+            self.set_pixel_unchecked(x, yend, val);
+        }
+        // Left edge of ring
+        for y in d..=yend {
+            self.set_pixel_unchecked(d, y, val);
+        }
+        // Right edge of ring
+        for y in d..=yend {
+            self.set_pixel_unchecked(xend, y, val);
+        }
+
+        Ok(())
+    }
+
+    /// Set the border pixels by mirroring interior pixels in-place.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetMirroredBorder()` in `pix2.c`
+    pub fn set_mirrored_border(&mut self, left: u32, right: u32, top: u32, bot: u32) {
+        let w = self.width();
+        let h = self.height();
+
+        // Mirror left columns (within interior rows)
+        for j in 0..left {
+            for y in top..(h - bot) {
+                let val = self.get_pixel_unchecked(left + j, y);
+                self.set_pixel_unchecked(left - 1 - j, y, val);
+            }
+        }
+        // Mirror right columns
+        for j in 0..right {
+            for y in top..(h - bot) {
+                let val = self.get_pixel_unchecked(w - right - 1 - j, y);
+                self.set_pixel_unchecked(w - right + j, y, val);
+            }
+        }
+        // Mirror top rows (full width)
+        for i in 0..top {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, top + i);
+                self.set_pixel_unchecked(x, top - 1 - i, val);
+            }
+        }
+        // Mirror bottom rows (full width)
+        for i in 0..bot {
+            for x in 0..w {
+                let val = self.get_pixel_unchecked(x, h - bot - 1 - i);
+                self.set_pixel_unchecked(x, h - bot + i, val);
+            }
+        }
+    }
+}
+
+impl Pix {
+    /// Set all pixels at distance `dist` from the border to `val`.
+    ///
+    /// Returns a new image with the ring set.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetBorderRingVal()` in `pix2.c`
+    pub fn set_border_ring_val(&self, dist: u32, val: u32) -> Result<Pix> {
+        let mut result = self.to_mut();
+        result.set_border_ring_val(dist, val)?;
+        Ok(result.into())
+    }
+
+    /// Set the border pixels by mirroring interior pixels.
+    ///
+    /// Returns a new image with mirrored borders.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixSetMirroredBorder()` in `pix2.c`
+    pub fn set_mirrored_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
+        let mut result = self.to_mut();
+        result.set_mirrored_border(left, right, top, bot);
+        Ok(result.into())
+    }
+
+    /// Copy border pixels from `src` to a new image, keeping interior unchanged.
+    ///
+    /// Creates a template of `self` and copies border pixels from `src`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixCopyBorder()` in `pix2.c`
+    pub fn copy_border(&self, src: &Pix, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
+        if !self.sizes_equal(src) {
+            return Err(Error::InvalidParameter(
+                "source and destination sizes differ".into(),
+            ));
+        }
+        let w = self.width();
+        let h = self.height();
+        let mut result = self.to_mut();
+
+        // Copy left border
+        for y in 0..h {
+            for x in 0..left.min(w) {
+                result.set_pixel_unchecked(x, y, src.get_pixel_unchecked(x, y));
+            }
+        }
+        // Copy right border
+        let right_start = w.saturating_sub(right);
+        for y in 0..h {
+            for x in right_start..w {
+                result.set_pixel_unchecked(x, y, src.get_pixel_unchecked(x, y));
+            }
+        }
+        // Copy top border
+        for y in 0..top.min(h) {
+            for x in 0..w {
+                result.set_pixel_unchecked(x, y, src.get_pixel_unchecked(x, y));
+            }
+        }
+        // Copy bottom border
+        let bot_start = h.saturating_sub(bot);
+        for y in bot_start..h {
+            for x in 0..w {
+                result.set_pixel_unchecked(x, y, src.get_pixel_unchecked(x, y));
+            }
+        }
+
+        Ok(result.into())
+    }
+
+    /// Add multiple alternating black and white borders.
+    ///
+    /// First adds `n_white_border` pixels of white border, then adds
+    /// `n_black_white_pairs` pairs of (black, white) borders with the
+    /// specified widths.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddMultipleBlackWhiteBorders()` in `pix2.c`
+    pub fn add_multiple_black_white_borders(
+        &self,
+        n_white_border: u32,
+        width_white_border: u32,
+        width_black_border: u32,
+        n_black_white_pairs: u32,
+    ) -> Result<Pix> {
+        let mut result = if n_white_border > 0 {
+            self.add_black_or_white_border(
+                n_white_border,
+                n_white_border,
+                n_white_border,
+                n_white_border,
+                super::InitColor::White,
+            )?
+        } else {
+            self.deep_clone()
+        };
+
+        for _ in 0..n_black_white_pairs {
+            if width_black_border > 0 {
+                result = result.add_black_or_white_border(
+                    width_black_border,
+                    width_black_border,
+                    width_black_border,
+                    width_black_border,
+                    super::InitColor::Black,
+                )?;
+            }
+            if width_white_border > 0 {
+                result = result.add_black_or_white_border(
+                    width_white_border,
+                    width_white_border,
+                    width_white_border,
+                    width_white_border,
+                    super::InitColor::White,
+                )?;
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Remove border pixels to reduce image to target width/height.
+    ///
+    /// Removes pixels as evenly as possible from the sides of the image,
+    /// leaving the central part. Returns a clone if no pixels need removing
+    /// or if target sizes are larger than the image.
+    ///
+    /// Use `target_w == 0` if only removing from height, and
+    /// `target_h == 0` if only removing from width.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRemoveBorderToSize()` in `pix2.c`
+    pub fn remove_border_to_size(&self, target_w: u32, target_h: u32) -> Result<Pix> {
+        let w = self.width();
+        let h = self.height();
+
+        if (target_w == 0 || target_w >= w) && (target_h == 0 || target_h >= h) {
+            return Ok(self.deep_clone());
+        }
+
+        let (left, right) = if target_w > 0 && target_w < w {
+            let l = (w - target_w) / 2;
+            let delta = w - target_w - 2 * l;
+            (l, l + delta)
+        } else {
+            (0, 0)
+        };
+
+        let (top, bot) = if target_h > 0 && target_h < h {
+            let t = (h - target_h) / 2;
+            let delta = h - target_h - 2 * t;
+            (t, t + delta)
+        } else {
+            (0, 0)
+        };
+
+        self.remove_border_general(left, right, top, bot)
+    }
+
+    /// Add mixed border: mirrored on left/right, repeated on top/bottom.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddMixedBorder()` in `pix2.c`
+    pub fn add_mixed_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
+        let w = self.width();
+        let h = self.height();
+        if left > w || right > w || top > h || bot > h {
+            return Err(Error::InvalidParameter(
+                "border size exceeds image dimension".into(),
+            ));
+        }
+
+        let bordered = self.add_border_general(left, right, top, bot, 0)?;
+        let mut bm = bordered.try_into_mut().unwrap();
+        let wd = w + left + right;
+
+        // Mirror left columns (within interior rows)
+        for j in 0..left {
+            for y in top..(top + h) {
+                let src_x = left + j;
+                let dst_x = left - 1 - j;
+                bm.set_pixel_unchecked(dst_x, y, bm.get_pixel_unchecked(src_x, y));
+            }
+        }
+        // Mirror right columns (within interior rows)
+        for j in 0..right {
+            for y in top..(top + h) {
+                let src_x = left + w - 1 - j;
+                let dst_x = left + w + j;
+                bm.set_pixel_unchecked(dst_x, y, bm.get_pixel_unchecked(src_x, y));
+            }
+        }
+        // Repeated top border (full width including side borders)
+        for j in 0..top {
+            for x in 0..wd {
+                let src_y = top + h - top + j;
+                let dst_y = j;
+                bm.set_pixel_unchecked(x, dst_y, bm.get_pixel_unchecked(x, src_y));
+            }
+        }
+        // Repeated bottom border (full width including side borders)
+        for j in 0..bot {
+            for x in 0..wd {
+                let src_y = top + j;
+                let dst_y = top + h + j;
+                bm.set_pixel_unchecked(x, dst_y, bm.get_pixel_unchecked(x, src_y));
+            }
+        }
+
+        Ok(bm.into())
+    }
+
+    /// Add border by extending edge pixels outward.
+    ///
+    /// Each border pixel is set to the value of the closest edge pixel.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddContinuedBorder()` in `pix2.c`
+    pub fn add_continued_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<Pix> {
+        let w = self.width();
+        let h = self.height();
+
+        let bordered = self.add_border_general(left, right, top, bot, 0)?;
+        let mut bm = bordered.try_into_mut().unwrap();
+        let wd = w + left + right;
+
+        // Left: copy leftmost column of original image
+        for j in 0..left {
+            for y in top..(top + h) {
+                bm.set_pixel_unchecked(j, y, bm.get_pixel_unchecked(left, y));
+            }
+        }
+        // Right: copy rightmost column of original image
+        for j in 0..right {
+            for y in top..(top + h) {
+                bm.set_pixel_unchecked(left + w + j, y, bm.get_pixel_unchecked(left + w - 1, y));
+            }
+        }
+        // Top: copy top row (full width including side borders)
+        for i in 0..top {
+            for x in 0..wd {
+                bm.set_pixel_unchecked(x, i, bm.get_pixel_unchecked(x, top));
+            }
+        }
+        // Bottom: copy bottom row (full width including side borders)
+        for i in 0..bot {
+            for x in 0..wd {
+                bm.set_pixel_unchecked(x, top + h + i, bm.get_pixel_unchecked(x, top + h - 1));
+            }
+        }
+
+        Ok(bm.into())
+    }
+
+    /// Transfer alpha channel from `src` to result with (dx, dy) offset.
+    ///
+    /// Both images must be 32bpp.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixShiftAndTransferAlpha()` in `pix2.c`
+    pub fn shift_and_transfer_alpha(&self, src: &Pix, dx: i32, dy: i32) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if src.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(src.depth().bits()));
+        }
+
+        let wd = self.width();
+        let hd = self.height();
+        let ws = src.width();
+        let hs = src.height();
+        let mut result = self.to_mut();
+
+        for yd in 0..hd {
+            let ys = yd as i32 - dy;
+            if ys < 0 || ys >= hs as i32 {
+                continue;
+            }
+            for xd in 0..wd {
+                let xs = xd as i32 - dx;
+                if xs < 0 || xs >= ws as i32 {
+                    continue;
+                }
+                let src_pixel = src.get_pixel_unchecked(xs as u32, ys as u32);
+                let src_alpha = pixel::alpha(src_pixel);
+                let dst_pixel = result.get_pixel_unchecked(xd, yd);
+                let (r, g, b) = pixel::extract_rgb(dst_pixel);
+                result.set_pixel_unchecked(xd, yd, pixel::compose_rgba(r, g, b, src_alpha));
+            }
+        }
+
+        Ok(result.into())
     }
 }
 

@@ -17,7 +17,7 @@ use leptonica::*;
 /// Test `Pix::create_with_cmap` – create Pix with colormap, verify depth and
 /// that a colormap exists.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn create_with_cmap() {
     let pix = Pix::create_with_cmap(20, 20, PixelDepth::Bit8, InitColor::Black).unwrap();
     assert_eq!(pix.width(), 20);
@@ -29,7 +29,7 @@ fn create_with_cmap() {
 /// Test `Pix::get_text_comp_new` / `PixMut::set_text_comp_new` – round-trip
 /// compressed text through base64 encoding.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn text_comp_new_roundtrip() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -43,7 +43,7 @@ fn text_comp_new_roundtrip() {
 /// Test `Pix::get_random_pixel` – returns a pixel value and coordinates
 /// within bounds.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn get_random_pixel() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let (val, x, y) = pix.get_random_pixel();
@@ -60,7 +60,7 @@ fn get_random_pixel() {
 /// Test `PixMut::set_component_arbitrary` – set one color component of a
 /// 32bpp image.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn set_component_arbitrary() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
@@ -74,7 +74,7 @@ fn set_component_arbitrary() {
 
 /// Test `Pix::blend_in_rect` – blend color in a rectangle region.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn blend_in_rect() {
     let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     let rect = Box::new(2, 2, 10, 10).unwrap();
@@ -86,7 +86,7 @@ fn blend_in_rect() {
 /// Test `Pix::set_border_ring_val` – set border ring pixels at a given
 /// distance.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn set_border_ring_val() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let result = pix.set_border_ring_val(1, 255).unwrap();
@@ -98,7 +98,7 @@ fn set_border_ring_val() {
 
 /// Test `Pix::set_mirrored_border` – set mirrored border pixels.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn set_mirrored_border() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let result = pix.set_mirrored_border(2, 2, 2, 2).unwrap();
@@ -107,7 +107,7 @@ fn set_mirrored_border() {
 
 /// Test `Pix::copy_border` – copy border pixels from another image.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn copy_border() {
     let pix1 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let pix2 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -117,7 +117,7 @@ fn copy_border() {
 
 /// Test `Pix::add_multiple_black_white_borders` – alternating borders.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn add_multiple_black_white_borders() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     // n_white_border=2, width_white_border=2, width_black_border=2, n_pairs=3
@@ -129,7 +129,7 @@ fn add_multiple_black_white_borders() {
 
 /// Test `Pix::remove_border_to_size` – remove border to target size.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn remove_border_to_size() {
     let pix = Pix::new(30, 30, PixelDepth::Bit8).unwrap();
     let result = pix.remove_border_to_size(20, 20).unwrap();
@@ -139,7 +139,7 @@ fn remove_border_to_size() {
 
 /// Test `Pix::add_mixed_border` – add mixed border.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn add_mixed_border() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let result = pix.add_mixed_border(3, 3, 3, 3).unwrap();
@@ -149,7 +149,7 @@ fn add_mixed_border() {
 
 /// Test `Pix::add_continued_border` – add continued border.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn add_continued_border() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let result = pix.add_continued_border(3, 3, 3, 3).unwrap();
@@ -159,7 +159,7 @@ fn add_continued_border() {
 
 /// Test `Pix::shift_and_transfer_alpha` – alpha transfer with shift.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn shift_and_transfer_alpha() {
     let pix1 = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     let pix2 = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
@@ -173,7 +173,7 @@ fn shift_and_transfer_alpha() {
 
 /// Test `Pix::paint_self_through_mask` – paint image through a 1bpp mask.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn paint_self_through_mask() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let mask = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
@@ -183,7 +183,7 @@ fn paint_self_through_mask() {
 
 /// Test `Pix::make_alpha_from_mask` – create alpha channel from 1bpp mask.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn make_alpha_from_mask() {
     let mask = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let alpha = mask.make_alpha_from_mask(200).unwrap();
@@ -193,7 +193,7 @@ fn make_alpha_from_mask() {
 
 /// Test `Pix::get_color_near_mask_boundary` – color near mask boundary.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn get_color_near_mask_boundary() {
     let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     let mask = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
@@ -208,7 +208,7 @@ fn get_color_near_mask_boundary() {
 
 /// Test `Pix::count_rgb_colors_by_hash` – count unique RGB colors.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn count_rgb_colors_by_hash() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     // All-zero image → 1 unique color
@@ -218,16 +218,17 @@ fn count_rgb_colors_by_hash() {
 
 /// Test `Pix::color_amap_histogram` – colormap histogram via associative map.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn color_amap_histogram() {
-    let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
+    // color_amap_histogram requires a colormapped image
+    let pix = Pix::create_with_cmap(10, 10, PixelDepth::Bit8, InitColor::Black).unwrap();
     let hist = pix.color_amap_histogram(1).unwrap();
-    assert!(hist.len() > 0);
+    assert!(!hist.is_empty());
 }
 
 /// Test `Pix::get_binned_component_range` – get min/max of binned component.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn get_binned_component_range() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let (min_val, max_val) = pix
@@ -238,7 +239,7 @@ fn get_binned_component_range() {
 
 /// Test `Pix::get_rank_color_array` – sorted representative colors.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn get_rank_color_array() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let colors = pix.get_rank_color_array(4, InColor::White, 1, 256).unwrap();
@@ -247,7 +248,7 @@ fn get_rank_color_array() {
 
 /// Test `Pix::get_binned_color` – binned average color per bin.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn get_binned_color() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let pixa = Pixa::new();
@@ -258,7 +259,7 @@ fn get_binned_color() {
 
 /// Test `Pix::display_color_array` – display array of colors as image.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn display_color_array() {
     let colors = vec![0xFF000000u32, 0x00FF0000, 0x0000FF00, 0x00000000];
     let result = Pix::display_color_array(&colors, 20, 2).unwrap();
@@ -269,7 +270,7 @@ fn display_color_array() {
 
 /// Test `Pix::rank_bin_by_strip` – rank binning by horizontal/vertical strip.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn rank_bin_by_strip() {
     let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     let result = pix
@@ -281,7 +282,7 @@ fn rank_bin_by_strip() {
 
 /// Test `Pix::split_distribution_fg_bg` – Otsu-like fg/bg threshold split.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn split_distribution_fg_bg() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let (threshold, avg_fg, avg_bg) = pix.split_distribution_fg_bg(0.0, 1).unwrap();
@@ -296,7 +297,7 @@ fn split_distribution_fg_bg() {
 
 /// Test `Pix::find_area_perim_ratio` – area/perimeter ratio of 1bpp CC.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn find_area_perim_ratio() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let ratio = pix.find_area_perim_ratio().unwrap();
@@ -305,7 +306,7 @@ fn find_area_perim_ratio() {
 
 /// Test `Pix::find_perim_size_ratio` – perimeter/size ratio.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn find_perim_size_ratio() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let ratio = pix.find_perim_size_ratio().unwrap();
@@ -314,27 +315,27 @@ fn find_perim_size_ratio() {
 
 /// Test `Pix::find_area_fraction_masked` – area fraction under mask.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn find_area_fraction_masked() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let mask = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let fract = pix.find_area_fraction_masked(&mask).unwrap();
-    assert!(fract >= 0.0 && fract <= 1.0);
+    assert!((0.0..=1.0).contains(&fract));
 }
 
 /// Test `Pix::conforms_to_rectangle` – check rectangularity of 1bpp CC.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn conforms_to_rectangle() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let result = pix.conforms_to_rectangle(0.9).unwrap();
-    // Empty image may be trivially rectangular
-    assert!(!result || result);
+    // Empty image may be trivially rectangular - any bool is fine
+    let _ = result;
 }
 
 /// Test `Pixa::find_perim_size_ratio` – collection version.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_find_perim_size_ratio() {
     let pixa = Pixa::new();
     let result = pixa.find_perim_size_ratio();
@@ -344,7 +345,7 @@ fn pixa_find_perim_size_ratio() {
 
 /// Test `Pixa::find_area_fraction_masked` – collection version.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_find_area_fraction_masked() {
     let mask = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let pixa = Pixa::new();
@@ -354,7 +355,7 @@ fn pixa_find_area_fraction_masked() {
 
 /// Test `Pixa::find_width_height_ratio` – width/height ratio collection.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_find_width_height_ratio() {
     let pixa = Pixa::new();
     let result = pixa.find_width_height_ratio();
@@ -363,7 +364,7 @@ fn pixa_find_width_height_ratio() {
 
 /// Test `Pixa::find_width_height_product` – width*height product collection.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_find_width_height_product() {
     let pixa = Pixa::new();
     let result = pixa.find_width_height_product();
@@ -372,28 +373,28 @@ fn pixa_find_width_height_product() {
 
 /// Test `Pix::find_rectangle_comps` – find rectangular connected components.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn find_rectangle_comps() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let boxa = pix.find_rectangle_comps(0.9).unwrap();
-    assert!(boxa.len() == 0); // empty image has no CCs
+    assert!(boxa.is_empty()); // empty image has no CCs
 }
 
 /// Test `Pix::conforms_to_rectangle_detail` – detailed rectangularity check.
 ///
 /// Note: if not implemented, this test documents the expected API.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn conforms_to_rectangle_detail() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     // conforms_to_rectangle as proxy for the detailed version
     let result = pix.conforms_to_rectangle(0.8).unwrap();
-    assert!(!result || result);
+    let _ = result;
 }
 
 /// Test `Pix::extract_rectangular_regions` – extract rectangular regions.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn extract_rectangular_regions() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let pixa = pix.extract_rectangular_regions(0.9).unwrap();
@@ -402,7 +403,7 @@ fn extract_rectangular_regions() {
 
 /// Test `Pix::select_component_by_size` – select CCs by size threshold.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn select_component_by_size() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let (result_pix, boxa) = pix
@@ -414,7 +415,7 @@ fn select_component_by_size() {
 
 /// Test `Pix::filter_component_by_size` – filter CCs by size.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn filter_component_by_size() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let result = pix
@@ -425,7 +426,7 @@ fn filter_component_by_size() {
 
 /// Test `Pix::make_covering_of_rectangles` – create covering rectangles.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn make_covering_of_rectangles() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let boxa = pix.make_covering_of_rectangles(2).unwrap();
@@ -435,7 +436,7 @@ fn make_covering_of_rectangles() {
 
 /// Test `Pix::reversal_profile` – count reversals along rows/columns.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn reversal_profile() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let na = pix.reversal_profile(0.5, 0, 0, 19, 1).unwrap();
@@ -444,21 +445,21 @@ fn reversal_profile() {
 
 /// Test `Pix::windowed_variance_on_line` – windowed variance computation.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn windowed_variance_on_line() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let na = pix.windowed_variance_on_line(0, 10, 0, 19, 5).unwrap();
-    assert!(na.len() > 0);
+    assert!(!na.is_empty());
 }
 
 /// Test `Pix::min_max_near_line` – min/max values near a line.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn min_max_near_line() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let (namin, namax) = pix.min_max_near_line(0, 10, 19, 10, 2).unwrap();
-    assert!(namin.len() > 0);
-    assert!(namax.len() > 0);
+    assert!(!namin.is_empty());
+    assert!(!namax.is_empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -467,7 +468,7 @@ fn min_max_near_line() {
 
 /// Test `Box::set_geometry` – set box geometry.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn box_set_geometry() {
     let b = Box::new(0, 0, 10, 10).unwrap();
     let b2 = b.set_geometry(5, 5, 20, 20);
@@ -479,7 +480,7 @@ fn box_set_geometry() {
 
 /// Test `Box::side_locations` – get left/right/top/bottom.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn box_side_locations() {
     let b = Box::new(10, 20, 30, 40).unwrap();
     let (left, right, top, bottom) = b.side_locations();
@@ -491,7 +492,7 @@ fn box_side_locations() {
 
 /// Test `Box::from_side_locations` – create box from side locations.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn box_from_side_locations() {
     let b = Box::from_side_locations(10, 39, 20, 59);
     assert_eq!(b.x, 10);
@@ -502,7 +503,7 @@ fn box_from_side_locations() {
 
 /// Test `Boxa::get_box_geometry` – get geometry of nth box.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxa_get_box_geometry() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(5, 10, 15, 20).unwrap());
@@ -512,7 +513,7 @@ fn boxa_get_box_geometry() {
 
 /// Test `Boxa::remove_and_save` – remove box and return it.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxa_remove_and_save() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(1, 2, 3, 4).unwrap());
@@ -524,7 +525,7 @@ fn boxa_remove_and_save() {
 
 /// Test `Boxa::permute_pseudorandom` – pseudorandom permutation.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxa_permute_pseudorandom() {
     let mut boxa = Boxa::new();
     for i in 0..10 {
@@ -536,7 +537,7 @@ fn boxa_permute_pseudorandom() {
 
 /// Test `Boxa::permute_random` – random permutation with seed.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxa_permute_random() {
     let mut boxa = Boxa::new();
     for i in 0..10 {
@@ -548,7 +549,7 @@ fn boxa_permute_random() {
 
 /// Test `Boxaa::get_box` – nested index access.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxaa_get_box() {
     let mut boxaa = Boxaa::new();
     let mut boxa = Boxa::new();
@@ -560,7 +561,7 @@ fn boxaa_get_box() {
 
 /// Test `Boxaa::replace` – replace boxa at index.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxaa_replace() {
     let mut boxaa = Boxaa::new();
     boxaa.push(Boxa::new());
@@ -573,7 +574,7 @@ fn boxaa_replace() {
 
 /// Test `Boxaa::insert` – insert boxa at index.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxaa_insert() {
     let mut boxaa = Boxaa::new();
     boxaa.push(Boxa::new());
@@ -587,7 +588,7 @@ fn boxaa_insert() {
 
 /// Test `Boxaa::remove` – remove boxa at index.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxaa_remove() {
     let mut boxaa = Boxaa::new();
     boxaa.push(Boxa::new());
@@ -599,7 +600,7 @@ fn boxaa_remove() {
 
 /// Test `Boxaa::add_box` – add single box to nested boxa.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxaa_add_box() {
     let mut boxaa = Boxaa::new();
     boxaa.push(Boxa::new());
@@ -614,7 +615,7 @@ fn boxaa_add_box() {
 
 /// Test `Pix::mask_conn_comp` – mask connected components.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn mask_conn_comp() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let (mask, boxa) = pix.mask_conn_comp(8).unwrap();
@@ -624,7 +625,7 @@ fn mask_conn_comp() {
 
 /// Test `Pixa::display_boxaa` – display pixa images with boxaa annotations.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn display_boxaa() {
     let mut pixa = Pixa::new();
     pixa.push(Pix::new(20, 20, PixelDepth::Bit32).unwrap());
@@ -639,7 +640,7 @@ fn display_boxaa() {
 
 /// Test `Pix::split_into_boxa` – split 1bpp image into boxes.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn split_into_boxa() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let boxa = pix.split_into_boxa(1, 1, 1, 0).unwrap();
@@ -648,7 +649,7 @@ fn split_into_boxa() {
 
 /// Test `Pix::split_component_into_boxa` – split single component into boxes.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn split_component_into_boxa() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let boxa = pix.split_component_into_boxa(1, 1, 1, 0).unwrap();
@@ -657,16 +658,16 @@ fn split_component_into_boxa() {
 
 /// Test `make_mosaic_strips` – create mosaic strip layout.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn test_make_mosaic_strips() {
     let boxa = make_mosaic_strips(100, 100, 0, 25).unwrap();
-    assert!(boxa.len() > 0);
+    assert!(!boxa.is_empty());
 }
 
 /// Test `Pix::select_large_ul_comp` – select largest upper-left component
 /// from a 1bpp image.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn select_large_ul_comp() {
     // Create a 1bpp image with a foreground rectangle
     let pix = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
@@ -684,7 +685,7 @@ fn select_large_ul_comp() {
 
 /// Test `Boxa::display_tiled` – tiled box display.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn boxa_display_tiled() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 20, 20).unwrap());
@@ -699,7 +700,7 @@ fn boxa_display_tiled() {
 
 /// Test `Pta::remove_pt` – remove point at index.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pta_remove_pt() {
     let mut pta = Pta::new();
     pta.push(1.0, 2.0);
@@ -712,7 +713,7 @@ fn pta_remove_pt() {
 
 /// Test `Pta::crop_to_mask` – crop points to 1bpp mask.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pta_crop_to_mask() {
     let mut pta = Pta::new();
     pta.push(5.0, 5.0);
@@ -729,7 +730,7 @@ fn pta_crop_to_mask() {
 
 /// Test `Pixa::remove_pix` – remove pix at index.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_remove_pix() {
     let mut pixa = Pixa::new();
     pixa.push(Pix::new(10, 10, PixelDepth::Bit8).unwrap());
@@ -740,7 +741,7 @@ fn pixa_remove_pix() {
 
 /// Test `Pixa::remove_pix_and_save` – remove and return pix.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_remove_pix_and_save() {
     let mut pixa = Pixa::new();
     pixa.push(Pix::new(10, 10, PixelDepth::Bit8).unwrap());
@@ -751,7 +752,7 @@ fn pixa_remove_pix_and_save() {
 
 /// Test `Pixa::read_both` – read images and boxes from files.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_read_both() {
     use std::path::Path;
     // Use non-existent paths; the function should return an error gracefully.
@@ -765,7 +766,7 @@ fn pixa_read_both() {
 
 /// Test `Numa::sort_general` – general sort returning sorted array and index map.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa_sort_general() {
     let mut na = Numa::new();
     na.push(3.0);
@@ -780,17 +781,17 @@ fn numa_sort_general() {
 
 /// Test `Numa::choose_sort_type` – heuristic for sort algorithm.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numa_choose_sort_type() {
     // Small n with small max_val
     let use_bin = Numa::choose_sort_type(100, 50.0);
     // Just verify it returns a bool
-    assert!(use_bin || !use_bin);
+    let _ = use_bin;
 }
 
 /// Test `Numaa::join` – join two Numaa collections.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn numaa_join() {
     let mut naa1 = Numaa::new();
     naa1.push(Numa::new());
@@ -807,19 +808,19 @@ fn numaa_join() {
 
 /// Test `Sarray::convert_words_to_lines` – convert words to lines.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn sarray_convert_words_to_lines() {
     let mut sa = Sarray::new();
     sa.push("hello");
     sa.push("world");
     sa.push("foo");
     let lines = sa.convert_words_to_lines(12);
-    assert!(lines.len() >= 1);
+    assert!(!lines.is_empty());
 }
 
 /// Test `Sarray::append_range` – append range from another Sarray.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn sarray_append_range() {
     let mut sa1 = Sarray::new();
     sa1.push("a");
@@ -833,7 +834,7 @@ fn sarray_append_range() {
 
 /// Test `Sarray::append` – append a string.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn sarray_append() {
     let mut sa = Sarray::new();
     sa.append("test");
@@ -847,7 +848,7 @@ fn sarray_append() {
 
 /// Test FPixa basic operations: create, push, get, len.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpixa_basic() {
     let mut fpixa = FPixa::new();
     assert_eq!(fpixa.len(), 0);
@@ -864,7 +865,7 @@ fn fpixa_basic() {
 
 /// Test FPixa pixel access: get_pixel / set_pixel.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpixa_pixel_access() {
     let mut fpixa = FPixa::new();
     let fpix = FPix::new(5, 5).unwrap();
@@ -877,7 +878,7 @@ fn fpixa_pixel_access() {
 
 /// Test FPixa dimension/data access: get_dimensions, get_data.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn fpixa_get_dimensions_and_data() {
     let mut fpixa = FPixa::new();
     let fpix = FPix::new(8, 6).unwrap();
@@ -897,7 +898,7 @@ fn fpixa_get_dimensions_and_data() {
 
 /// Test `Pix::threshold_8` – threshold 8bpp to lower depth.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn threshold_8() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let result = pix.threshold_8(4, 4, false).unwrap();
@@ -906,7 +907,7 @@ fn threshold_8() {
 
 /// Test `Pix::convert_rgb_to_binary_arb` – RGB to binary with weights.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_rgb_to_binary_arb() {
     let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     let result = pix.convert_rgb_to_binary_arb(0.3, 0.5, 0.2, 128).unwrap();
@@ -915,7 +916,7 @@ fn convert_rgb_to_binary_arb() {
 
 /// Test `Pix::convert_rgb_to_colormap` – RGB to 8bpp colormap.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_rgb_to_colormap() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let result = pix.convert_rgb_to_colormap(false).unwrap();
@@ -924,7 +925,7 @@ fn convert_rgb_to_colormap() {
 
 /// Test `Pix::quantize_if_few_colors` – quantize only if few unique colors.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn quantize_if_few_colors() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let result = pix.quantize_if_few_colors(256, 0.0, 8).unwrap();
@@ -934,7 +935,7 @@ fn quantize_if_few_colors() {
 
 /// Test `Pix::convert_to_1_adaptive` – adaptive binarization.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_1_adaptive() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let result = pix.convert_to_1_adaptive().unwrap();
@@ -943,7 +944,7 @@ fn convert_to_1_adaptive() {
 
 /// Test `Pix::convert_to_1_by_sampling` – binary by sampling.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_1_by_sampling() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let result = pix.convert_to_1_by_sampling(2, 128).unwrap();
@@ -952,7 +953,7 @@ fn convert_to_1_by_sampling() {
 
 /// Test `Pix::convert_to_8_by_sampling` – 8bpp by sampling.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_8_by_sampling() {
     let pix = Pix::new(20, 20, PixelDepth::Bit32).unwrap();
     let result = pix.convert_to_8_by_sampling(1, false).unwrap();
@@ -961,7 +962,7 @@ fn convert_to_8_by_sampling() {
 
 /// Test `Pix::convert_to_8_colormap` – 8bpp with colormap.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_8_colormap() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let result = pix.convert_to_8_colormap(false).unwrap();
@@ -970,7 +971,7 @@ fn convert_to_8_colormap() {
 
 /// Test `Pix::convert_to_32_by_sampling` – 32bpp by sampling.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_32_by_sampling() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let result = pix.convert_to_32_by_sampling(1).unwrap();
@@ -979,7 +980,7 @@ fn convert_to_32_by_sampling() {
 
 /// Test `Pix::convert_24_to_32` – 24bpp to 32bpp conversion.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_24_to_32() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     // convert_32_to_24 first, then back
@@ -990,7 +991,7 @@ fn convert_24_to_32() {
 
 /// Test `Pix::convert_32_to_24` – 32bpp to 24bpp conversion.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_32_to_24() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let result = pix.convert_32_to_24().unwrap();
@@ -999,7 +1000,7 @@ fn convert_32_to_24() {
 
 /// Test `Pix::convert_to_subpixel_rgb` – subpixel rendering.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_subpixel_rgb() {
     let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     let result = pix.convert_to_subpixel_rgb(1, 0).unwrap();
@@ -1012,7 +1013,7 @@ fn convert_to_subpixel_rgb() {
 
 /// Test `Pix::rasterop_ip` – in-place rasterop (shift with zero fill).
 #[test]
-#[ignore = "not yet implemented"]
+
 fn rasterop_ip() {
     let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let result = pix.rasterop_ip(5, 3).unwrap();
@@ -1022,7 +1023,7 @@ fn rasterop_ip() {
 
 /// Test `Pix::rasterop_full_image` – full image rasterop between two images.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn rasterop_full_image() {
     let pix1 = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let pix2 = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
@@ -1036,7 +1037,7 @@ fn rasterop_full_image() {
 
 /// Test `Pix::compare_tiled` – tiled comparison of two images.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn compare_tiled() {
     let pix1 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let pix2 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -1047,7 +1048,7 @@ fn compare_tiled() {
 
 /// Test `Pix::get_perceptual_diff` – perceptual difference between images.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn get_perceptual_diff() {
     let pix1 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
     let pix2 = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
@@ -1063,7 +1064,7 @@ fn get_perceptual_diff() {
 
 /// Test `Pix::blend_background_to_color` – blend toward background color.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn blend_background_to_color() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let result = pix.blend_background_to_color(0xFFFFFF00).unwrap();
@@ -1073,7 +1074,7 @@ fn blend_background_to_color() {
 
 /// Test `Pix::set_alpha_over_white` – composite alpha over white.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn set_alpha_over_white() {
     let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
     let result = pix.set_alpha_over_white().unwrap();
@@ -1087,7 +1088,7 @@ fn set_alpha_over_white() {
 
 /// Test `Pix::generate_pta_boundary` – generate boundary PTA from 1bpp image.
 #[test]
-#[ignore = "not yet implemented"]
+
 fn generate_pta_boundary() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let pta = pix.generate_pta_boundary(1).unwrap();
