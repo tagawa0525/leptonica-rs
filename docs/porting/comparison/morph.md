@@ -9,8 +9,8 @@
 | ✅ 同等 | 82 |
 | 🔄 異なる | 16 |
 | ❌ 未実装 | 10 |
-| 🚫 不要 | 21 |
-| 合計 | 129 |
+| 🚫 不要 | 27 |
+| 合計 | 135 |
 
 ## 詳細
 
@@ -194,14 +194,19 @@
 | pixThinConnectedBySet | ✅ 同等 | thin::thin_connected_by_set | |
 | selaMakeThinSets | ✅ 同等 | thin_sels::make_thin_sels | |
 
-### dwacomb.2.c / fmorphauto.c / fmorphgen.1.c / fmorphgenlow.1.c (DWAコード生成)
+### dwacomb.2.c / dwacomblow.2.c / fmorphauto.c / fmorphgen.1.c / fmorphgenlow.1.c / fhmtauto.c / fhmtgen.1.c / fhmtgenlow.1.c (DWAコード生成・自動生成)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | fmorphopgen_low_2 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
-| fmorphautogen | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
-| fmorphautogen1 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
-| fmorphautogen2 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| dwacomblow_low_2 | 🚫 不要 | - | DWA合成低レベル生成（Rustでは不要） |
+| fmorphautogen | 🚫 不要 | - | DWAコード自動生成（Rustでは不要） |
+| fmorphautogen1 | 🚫 不要 | - | DWAコード自動生成（Rustでは不要） |
+| fmorphautogen2 | 🚫 不要 | - | DWAコード自動生成（Rustでは不要） |
 | fmorphopgen_low_1 | 🚫 不要 | - | DWAコード生成（Rustでは不要） |
+| fhmtautogen | 🚫 不要 | - | HMT DWA自動生成（Rustでは不要） |
+| fhmtautogen1 | 🚫 不要 | - | HMT DWA自動生成（Rustでは不要） |
+| fhmtautogen2 | 🚫 不要 | - | HMT DWA自動生成（Rustでは不要） |
+| fhmtgen_low_1 | 🚫 不要 | - | HMT低レベル生成（Rustでは不要） |
 | (低レベル関数群) | 🚫 不要 | - | DWA内部実装（Rustでは手書き実装） |
 
 ## 実装状況の分析

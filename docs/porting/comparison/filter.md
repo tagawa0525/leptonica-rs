@@ -6,11 +6,11 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 82 |
+| ✅ 同等 | 100 |
 | 🔄 異なる | 0 |
 | ❌ 未実装 | 6 |
 | 🚫 不要 | 11 |
-| 合計 | 99 |
+| 合計 | 118 |
 
 ## 詳細
 
@@ -42,6 +42,30 @@
 | l_setConvolveSampling | 🚫 不要 | - | グローバル変数セッター（C固有パターン） |
 | pixAddGaussianNoise | ✅ 同等 | convolve.rs add_gaussian_noise() | ガウシアンノイズ追加 |
 | gaussDistribSampling | 🚫 不要 | - | Box-Muller法ヘルパー; add_gaussian_noise()内で実装済み |
+
+### kernel.c
+
+| C関数 | 状態 | Rust対応 | 備考 |
+|-------|------|----------|------|
+| kernelCreate | ✅ 同等 | kernel.rs Kernel::new() | カーネル生成（初期値ゼロ） |
+| kernelDestroy | ✅ 同等 | - | Rust自動Drop（メモリ管理） |
+| kernelCopy | ✅ 同等 | Kernel::clone() | カーネルクローン（Copy/Clone) |
+| kernelGetElement | ✅ 同等 | kernel.rs Kernel::get() | 要素読み込み |
+| kernelSetElement | ✅ 同等 | kernel.rs Kernel::set() | 要素書き込み |
+| kernelGetParameters | ✅ 同等 | kernel.rs Kernel::width/height/cx/cy() | パラメータゲッター |
+| kernelSetOrigin | ✅ 同等 | kernel.rs Kernel::set_origin() | カーネル原点設定 |
+| kernelGetSum | ✅ 同等 | kernel.rs Kernel::sum() | カーネル合計値 |
+| kernelGetMinMax | ✅ 同等 | kernel.rs Kernel::min_max() | カーネルMin/Max値 |
+| kernelNormalize | ✅ 同等 | kernel.rs Kernel::normalize() | カーネル正規化 |
+| kernelInvert | ✅ 同等 | kernel.rs Kernel::invert() | カーネル反転 |
+| kernelRead | ✅ 同等 | kernel.rs Kernel::read() | ファイルからカーネル読み込み |
+| kernelReadStream | ✅ 同等 | kernel.rs (read()に統合) | ストリーム読み込み（Rust版では統合） |
+| kernelWrite | ✅ 同等 | kernel.rs Kernel::write() | ファイルにカーネル書き込み |
+| kernelWriteStream | ✅ 同等 | kernel.rs (write()に統合) | ストリーム書き込み（Rust版では統合） |
+| kernelCreateFromString | ✅ 同等 | kernel.rs Kernel::from_string() | 文字列パースからカーネル生成 |
+| kernelCreateFromFile | ✅ 同等 | kernel.rs Kernel::from_file() | ファイルからカーネル生成 |
+| kernelCreateFromPix | ✅ 同等 | kernel.rs Kernel::from_pix() | Pixからカーネル生成 |
+| kernelDisplayInPix | ✅ 同等 | kernel.rs Kernel::display_in_pix() | Pix内にカーネル可視化 |
 
 ### edge.c
 

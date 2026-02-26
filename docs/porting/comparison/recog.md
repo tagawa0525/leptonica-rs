@@ -10,9 +10,9 @@
 |------|-----|
 | ✅ 同等 | 94 |
 | 🔄 異なる | 26 |
-| ❌ 未実装 | 28 |
-| 🚫 不要 | 14 |
-| 合計 | 162 |
+| ❌ 未実装 | 35 |
+| 🚫 不要 | 18 |
+| 合計 | 173 |
 
 > **注記**: Phase 1-13（2026-02-22完了）により、シリアライゼーション・Dewarpa管理・
 > Bootstrap・Skew拡張・Baseline拡張・Barcode拡張など約55関数を新たに実装。
@@ -204,6 +204,25 @@
 | jbCorrelation | ❌ 未実装 | - | 相関ベース高レベルAPI |
 | jbRankHaus | ❌ 未実装 | - | Rank Hausdorff高レベルAPI |
 | jbWordsInTextlines | ✅ 同等 | `jbclass::classify::pix_word_mask_by_dilation` | テキストライン内の単語分類 |
+
+### classapp.c (JBIG2分類応用)
+| C関数 | 状態 | Rust対応 | 備考 |
+|-------|------|----------|------|
+| jbCorrelation | ❌ 未実装 | - | 相関ベース分類高レベルAPI（ファイル I/O統合） |
+| jbRankHaus | ❌ 未実装 | - | Rank Hausdorff分類高レベルAPI（ファイル I/O統合） |
+| pixGetWordsInTextlines | ❌ 未実装 | - | テキストライン内の単語取得 |
+| pixGetWordBoxesInTextlines | ❌ 未実装 | - | テキストライン内の単語ボックス取得 |
+| pixFindWordAndCharacterBoxes | ❌ 未実装 | - | 単語および文字ボックスの検出 |
+| boxaExtractSortedPattern | ❌ 未実装 | - | パターンに基づくBoxa抽出 |
+| numaaCompareImagesByBoxes | ❌ 未実装 | - | ボックスベースの画像比較 |
+
+### bootnumgen.c (Bootstrap数字生成データ)
+| C関数 | 状態 | Rust対応 | 備考 |
+|-------|------|----------|------|
+| l_bootnum_gen1 | 🚫 不要 | - | ブートストラップ数字セット1（組み込みデータジェネレータ） |
+| l_bootnum_gen2 | 🚫 不要 | - | ブートストラップ数字セット2（組み込みデータジェネレータ） |
+| l_bootnum_gen3 | 🚫 不要 | - | ブートストラップ数字セット3（組み込みデータジェネレータ） |
+| l_bootnum_gen4 | 🚫 不要 | - | ブートストラップ数字セット4（組み込みデータジェネレータ） |
 
 ### bardecode.c (Barcode Decoding)
 | C関数 | 状態 | Rust対応 | 備考 |
