@@ -1043,6 +1043,55 @@ pub fn boxa_affine_transform(boxa: &crate::core::Boxa, matrix: &AffineMatrix) ->
 }
 
 // ============================================================================
+// affinecompose.c wrappers: ptaTranslate, ptaScale, boxaTranslate, boxaScale, boxaRotate
+// ============================================================================
+
+/// Translate all points in a Pta by (transx, transy).
+///
+/// Returns a new Pta with each point shifted.
+///
+/// C equivalent: `ptaTranslate` in `affinecompose.c`
+pub fn pta_translate(pta: &crate::core::Pta, transx: f32, transy: f32) -> crate::core::Pta {
+    pta.translated_by(transx, transy)
+}
+
+/// Scale all points in a Pta by (scalex, scaley) relative to origin.
+///
+/// Returns a new Pta with each point scaled.
+///
+/// C equivalent: `ptaScale` in `affinecompose.c`
+pub fn pta_scale(pta: &crate::core::Pta, scalex: f32, scaley: f32) -> crate::core::Pta {
+    pta.scaled_by(scalex, scaley)
+}
+
+/// Translate all boxes in a Boxa by (transx, transy).
+///
+/// Returns a new Boxa with each box shifted.
+///
+/// C equivalent: `boxaTranslate` in `affinecompose.c`
+pub fn boxa_translate(boxa: &crate::core::Boxa, transx: f32, transy: f32) -> crate::core::Boxa {
+    boxa.translate(transx, transy)
+}
+
+/// Scale all boxes in a Boxa by (scalex, scaley) relative to origin.
+///
+/// Returns a new Boxa with each box scaled.
+///
+/// C equivalent: `boxaScale` in `affinecompose.c`
+pub fn boxa_scale(boxa: &crate::core::Boxa, scalex: f32, scaley: f32) -> crate::core::Boxa {
+    boxa.scale(scalex, scaley)
+}
+
+/// Rotate all boxes in a Boxa about a point (xc, yc) by angle (radians).
+///
+/// Returns a new Boxa with each box's corners rotated and bounding boxes recomputed.
+///
+/// C equivalent: `boxaRotate` in `affinecompose.c`
+pub fn boxa_rotate(boxa: &crate::core::Boxa, xc: f32, yc: f32, angle: f32) -> crate::core::Boxa {
+    boxa.rotate(xc, yc, angle)
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

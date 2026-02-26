@@ -108,6 +108,370 @@ pub fn scale_to_size(pix: &Pix, width: u32, height: u32) -> TransformResult<Pix>
     scale(pix, scale_x, scale_y, ScaleMethod::Auto)
 }
 
+/// Scale maintaining aspect ratio, with size specified as deltas from current dimensions.
+///
+/// `del_w` and `del_h` are added to the current width/height to form the target.
+/// If both are 0, returns a copy. Returns an error if the resulting dimension is <= 0.
+///
+/// C equivalent: `pixScaleToSizeRel`
+pub fn scale_to_size_rel(pix: &Pix, del_w: i32, del_h: i32) -> TransformResult<Pix> {
+    if del_w == 0 && del_h == 0 {
+        return Ok(pix.deep_clone());
+    }
+    let w = pix.width() as i32;
+    let h = pix.height() as i32;
+    let wd = w + del_w;
+    let hd = h + del_h;
+    if wd <= 0 || hd <= 0 {
+        return Err(TransformError::InvalidParameters(format!(
+            "resulting dimensions must be positive: {}x{}",
+            wd, hd
+        )));
+    }
+    scale_to_size(pix, wd as u32, hd as u32)
+}
+
+/// Scale by sampling (nearest-neighbor) to a target width/height.
+///
+/// If `wd == 0`, the width is computed to preserve aspect ratio.
+/// If `hd == 0`, the height is computed to preserve aspect ratio.
+/// Both being 0 returns an error.
+///
+/// C equivalent: `pixScaleBySamplingToSize`
+pub fn scale_by_sampling_to_size(pix: &Pix, wd: u32, hd: u32) -> TransformResult<Pix> {
+    if wd == 0 && hd == 0 {
+        return Err(TransformError::InvalidParameters(
+            "neither wd nor hd > 0".to_string(),
+        ));
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let (scale_x, scale_y) = if wd == 0 {
+        let sy = hd as f32 / h as f32;
+        (sy, sy)
+    } else if hd == 0 {
+        let sx = wd as f32 / w as f32;
+        (sx, sx)
+    } else {
+        (wd as f32 / w as f32, hd as f32 / h as f32)
+    };
+    scale_by_sampling(pix, scale_x, scale_y)
+}
+
+/// Scale using smooth (area mapping) to a target width/height.
+///
+/// If `wd == 0`, the width is computed to preserve aspect ratio.
+/// If `hd == 0`, the height is computed to preserve aspect ratio.
+/// Both being 0 returns an error.
+///
+/// C equivalent: `pixScaleSmoothToSize`
+pub fn scale_smooth_to_size(pix: &Pix, wd: u32, hd: u32) -> TransformResult<Pix> {
+    if wd == 0 && hd == 0 {
+        return Err(TransformError::InvalidParameters(
+            "neither wd nor hd > 0".to_string(),
+        ));
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let (scale_x, scale_y) = if wd == 0 {
+        let sy = hd as f32 / h as f32;
+        (sy, sy)
+    } else if hd == 0 {
+        let sx = wd as f32 / w as f32;
+        (sx, sx)
+    } else {
+        (wd as f32 / w as f32, hd as f32 / h as f32)
+    };
+    scale_smooth(pix, scale_x, scale_y)
+}
+
+/// Scale using area mapping to a target width/height.
+///
+/// If `wd == 0`, the width is computed to preserve aspect ratio.
+/// If `hd == 0`, the height is computed to preserve aspect ratio.
+/// Both being 0 returns an error.
+///
+/// C equivalent: `pixScaleAreaMapToSize`
+pub fn scale_area_map_to_size(pix: &Pix, wd: u32, hd: u32) -> TransformResult<Pix> {
+    if wd == 0 && hd == 0 {
+        return Err(TransformError::InvalidParameters(
+            "neither wd nor hd > 0".to_string(),
+        ));
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let (sx, sy) = if wd == 0 {
+        let s = hd as f32 / h as f32;
+        (s, s)
+    } else if hd == 0 {
+        let s = wd as f32 / w as f32;
+        (s, s)
+    } else {
+        (wd as f32 / w as f32, hd as f32 / h as f32)
+    };
+    let new_w = ((w as f32) * sx).round() as u32;
+    let new_h = ((h as f32) * sy).round() as u32;
+    scale_area_map(pix, sx, sy, new_w.max(1), new_h.max(1))
+}
+
+/// Fast 2× area mapping downscale.
+///
+/// Computes each output pixel as the average of the corresponding 2×2 block.
+/// Works for 8bpp (grayscale) and 32bpp (color) images.
+/// 2bpp/4bpp are converted to 8bpp first.
+///
+/// C equivalent: `pixScaleAreaMap2`
+pub fn scale_area_map_2(pix: &Pix) -> TransformResult<Pix> {
+    let d = pix.depth();
+    if d == PixelDepth::Bit1 || d == PixelDepth::Bit16 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "scale_area_map_2 does not support {:?}",
+            d
+        )));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+    let wd = ws / 2;
+    let hd = hs / 2;
+    if wd == 0 || hd == 0 {
+        return Err(TransformError::InvalidParameters(
+            "image too small for 2x downscale".to_string(),
+        ));
+    }
+
+    match d {
+        PixelDepth::Bit8 if pix.colormap().is_none() => {
+            let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+            let mut out_mut = out.try_into_mut().unwrap();
+            for i in 0..hd {
+                for j in 0..wd {
+                    let v00 = pix.get_pixel_unchecked(2 * j, 2 * i);
+                    let v10 = pix.get_pixel_unchecked(2 * j + 1, 2 * i);
+                    let v01 = pix.get_pixel_unchecked(2 * j, 2 * i + 1);
+                    let v11 = pix.get_pixel_unchecked(2 * j + 1, 2 * i + 1);
+                    let avg = (v00 + v10 + v01 + v11 + 2) / 4;
+                    out_mut.set_pixel_unchecked(j, i, avg);
+                }
+            }
+            Ok(out_mut.into())
+        }
+        PixelDepth::Bit32 => {
+            let out = Pix::new(wd, hd, PixelDepth::Bit32)?;
+            let mut out_mut = out.try_into_mut().unwrap();
+            out_mut.set_spp(pix.spp());
+            for i in 0..hd {
+                for j in 0..wd {
+                    let p00 = pix.get_pixel_unchecked(2 * j, 2 * i);
+                    let p10 = pix.get_pixel_unchecked(2 * j + 1, 2 * i);
+                    let p01 = pix.get_pixel_unchecked(2 * j, 2 * i + 1);
+                    let p11 = pix.get_pixel_unchecked(2 * j + 1, 2 * i + 1);
+                    let (r0, g0, b0, a0) = pixel::extract_rgba(p00);
+                    let (r1, g1, b1, a1) = pixel::extract_rgba(p10);
+                    let (r2, g2, b2, a2) = pixel::extract_rgba(p01);
+                    let (r3, g3, b3, a3) = pixel::extract_rgba(p11);
+                    let r = ((r0 as u32 + r1 as u32 + r2 as u32 + r3 as u32 + 2) / 4) as u8;
+                    let g = ((g0 as u32 + g1 as u32 + g2 as u32 + g3 as u32 + 2) / 4) as u8;
+                    let b = ((b0 as u32 + b1 as u32 + b2 as u32 + b3 as u32 + 2) / 4) as u8;
+                    let a = ((a0 as u32 + a1 as u32 + a2 as u32 + a3 as u32 + 2) / 4) as u8;
+                    out_mut.set_pixel_unchecked(j, i, pixel::compose_rgba(r, g, b, a));
+                }
+            }
+            Ok(out_mut.into())
+        }
+        // 2bpp/4bpp: convert to 8bpp first, then recurse
+        PixelDepth::Bit2 | PixelDepth::Bit4 => {
+            let pix8 = convert_to_8bpp(pix)?;
+            scale_area_map_2(&pix8)
+        }
+        _ => Err(TransformError::UnsupportedDepth(format!(
+            "scale_area_map_2 does not support {:?}",
+            d
+        ))),
+    }
+}
+
+/// Scale a 1bpp binary image with configurable sub-pixel shift.
+///
+/// `shift_x` and `shift_y` must be either 0.0 or 0.5.
+/// Identity (scale 1.0) returns a copy.
+///
+/// C equivalent: `pixScaleBinaryWithShift`
+pub fn scale_binary_with_shift(
+    pix: &Pix,
+    scale_x: f32,
+    scale_y: f32,
+    shift_x: f32,
+    shift_y: f32,
+) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::UnsupportedDepth(
+            "scale_binary_with_shift requires 1bpp input".to_string(),
+        ));
+    }
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(
+            "scale factors must be positive".to_string(),
+        ));
+    }
+    if (shift_x != 0.0 && shift_x != 0.5) || (shift_y != 0.0 && shift_y != 0.5) {
+        return Err(TransformError::InvalidParameters(
+            "shift must be 0.0 or 0.5".to_string(),
+        ));
+    }
+    if scale_x == 1.0 && scale_y == 1.0 {
+        return Ok(pix.deep_clone());
+    }
+    scale_by_sampling_with_shift(pix, scale_x, scale_y, shift_x, shift_y)
+}
+
+/// 2× downscale of an 8bpp grayscale image using min, max, or maxdiff of 2×2 blocks.
+///
+/// C equivalent: `pixScaleGrayMinMax2`
+pub fn scale_gray_min_max_2(pix: &Pix, mode: GrayMinMaxMode) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 || pix.colormap().is_some() {
+        return Err(TransformError::UnsupportedDepth(
+            "scale_gray_min_max_2 requires 8bpp grayscale without colormap".to_string(),
+        ));
+    }
+    let ws = pix.width();
+    let hs = pix.height();
+    if ws < 2 || hs < 2 {
+        return Err(TransformError::InvalidParameters(
+            "image too small for 2x downscale".to_string(),
+        ));
+    }
+    // Delegate to existing scale_gray_min_max with 2x2 factor
+    scale_gray_min_max(pix, 2, 2, mode)
+}
+
+/// 2× downscale of an 8bpp grayscale image using rank selection in 2×2 blocks.
+///
+/// `rank` must be in [1, 4]: 1=darkest, 4=lightest, 2/3=middle values.
+///
+/// C equivalent: `pixScaleGrayRank2`
+pub fn scale_gray_rank_2(pix: &Pix, rank: i32) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 || pix.colormap().is_some() {
+        return Err(TransformError::UnsupportedDepth(
+            "scale_gray_rank_2 requires 8bpp grayscale without colormap".to_string(),
+        ));
+    }
+    if !(1..=4).contains(&rank) {
+        return Err(TransformError::InvalidParameters(format!(
+            "rank must be in [1, 4], got {}",
+            rank
+        )));
+    }
+    scale_gray_rank2(pix, rank)
+}
+
+/// Scale a 32bpp (or colormapped) RGB image, preserving the alpha channel.
+///
+/// If `alpha_pix` is `Some`, it provides an 8bpp alpha mask to use.
+/// If `None`, a uniform alpha of `fract` (0.0–1.0) is applied.
+///
+/// C equivalent: `pixScaleWithAlpha`
+pub fn scale_with_alpha(
+    pix: &Pix,
+    scale_x: f32,
+    scale_y: f32,
+    alpha_pix: Option<&Pix>,
+    fract: f32,
+) -> TransformResult<Pix> {
+    let d = pix.depth();
+    if d != PixelDepth::Bit32 && pix.colormap().is_none() {
+        return Err(TransformError::UnsupportedDepth(
+            "scale_with_alpha requires 32bpp or colormapped input".to_string(),
+        ));
+    }
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(
+            "scale factors must be positive".to_string(),
+        ));
+    }
+
+    let ws = pix.width();
+    let hs = pix.height();
+
+    // Scale the RGB channels (ignore alpha during scaling)
+    let scaled_rgb = scale(pix, scale_x, scale_y, ScaleMethod::Auto)?;
+
+    // Create or adapt the alpha layer
+    let fract = fract.clamp(0.0, 1.0);
+    let alpha_val = (255.0 * fract + 0.5) as u32;
+
+    let alpha_8: Pix = if let Some(a) = alpha_pix {
+        if a.depth() != PixelDepth::Bit8 {
+            // Fall back to uniform alpha
+            make_uniform_8bpp(ws, hs, alpha_val)?
+        } else {
+            a.deep_clone()
+        }
+    } else {
+        make_uniform_8bpp(ws, hs, alpha_val)?
+    };
+
+    // Scale the alpha channel separately using the same factors
+    let scaled_alpha = scale_general(&alpha_8, scale_x, scale_y, 0.0, 0)?;
+
+    // Combine: set alpha channel in the scaled RGB result
+    let out_w = scaled_rgb.width();
+    let out_h = scaled_rgb.height();
+    let mut out_mut = scaled_rgb.try_into_mut().unwrap();
+    out_mut.set_spp(4);
+
+    let alpha_w = scaled_alpha.width();
+    let alpha_h = scaled_alpha.height();
+    for y in 0..out_h {
+        for x in 0..out_w {
+            let px = out_mut.get_pixel_unchecked(x, y);
+            let a = if x < alpha_w && y < alpha_h {
+                scaled_alpha.get_pixel_unchecked(x, y) & 0xFF
+            } else {
+                0
+            };
+            out_mut.set_pixel_unchecked(x, y, (px & 0xFFFFFF00) | a);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Create a uniform 8bpp image filled with a single value.
+fn make_uniform_8bpp(w: u32, h: u32, val: u32) -> TransformResult<Pix> {
+    let p = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut pm = p.try_into_mut().unwrap();
+    let v = val.min(255);
+    for y in 0..h {
+        for x in 0..w {
+            pm.set_pixel_unchecked(x, y, v);
+        }
+    }
+    Ok(pm.into())
+}
+
+/// Convert a low-depth (2bpp/4bpp) image to 8bpp.
+fn convert_to_8bpp(pix: &Pix) -> TransformResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let d = pix.depth();
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    let max_val = match d {
+        PixelDepth::Bit2 => 3u32,
+        PixelDepth::Bit4 => 15u32,
+        _ => 255u32,
+    };
+    let scale_factor = if max_val > 0 { 255 / max_val } else { 1 };
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            out_mut.set_pixel_unchecked(x, y, (val * scale_factor).min(255));
+        }
+    }
+    Ok(out_mut.into())
+}
+
 /// Scale an image using nearest-neighbor sampling
 pub fn scale_by_sampling(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
     scale(pix, scale_x, scale_y, ScaleMethod::Sampling)
