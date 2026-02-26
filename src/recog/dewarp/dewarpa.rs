@@ -405,6 +405,58 @@ impl Dewarpa {
             }
         }
     }
+
+    /// Creates a `Dewarpa` from a slice of page images.
+    ///
+    /// For each image a `Dewarp` placeholder is created and inserted.
+    /// No actual disparity models are built (since that requires text
+    /// line detection); this simply establishes the multi-page container.
+    ///
+    /// Corresponds to `dewarpaCreateFromPixacomp` in C Leptonica.
+    pub fn create_from_pixacomp(
+        pages: &[crate::core::Pix],
+        use_both: bool,
+        sampling: u32,
+        min_lines: u32,
+        max_dist: u32,
+    ) -> RecogResult<Self> {
+        let n = pages.len();
+        if n == 0 {
+            return Err(RecogError::InvalidParameter(
+                "pages slice is empty".to_string(),
+            ));
+        }
+
+        let sampling = sampling.max(8);
+        let reduction_factor = 1u32;
+        let mut dewa = Dewarpa::new(n, sampling, reduction_factor, min_lines, max_dist);
+        dewa.use_both = use_both;
+
+        for (i, pix) in pages.iter().enumerate() {
+            let opts = DewarpOptions {
+                sampling,
+                reduction_factor,
+                min_lines,
+                ..DewarpOptions::default()
+            };
+            let dw = Dewarp::new(pix.width(), pix.height(), i as u32, &opts);
+            dewa.insert(dw)?;
+        }
+
+        Ok(dewa)
+    }
+
+    /// Restores models by re-inserting reference models after stripping.
+    ///
+    /// Strips existing reference models then re-inserts them for pages
+    /// that lack a direct model.
+    ///
+    /// Corresponds to `dewarpaRestoreModels` in C Leptonica.
+    pub fn restore_models(&mut self) -> RecogResult<()> {
+        self.strip_ref_models();
+        self.insert_ref_models(self.use_both)?;
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------

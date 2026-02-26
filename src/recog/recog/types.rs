@@ -227,6 +227,23 @@ impl Default for Rch {
     }
 }
 
+impl Rch {
+    /// Extracts all fields from the recognition result.
+    ///
+    /// Corresponds to `rchExtract` in C Leptonica.
+    pub fn extract(&self) -> (i32, f32, String, i32, i32, i32, i32) {
+        (
+            self.index,
+            self.score,
+            self.text.clone(),
+            self.sample,
+            self.xloc,
+            self.yloc,
+            self.width,
+        )
+    }
+}
+
 /// Recognition results for an array of characters
 #[derive(Debug, Clone, Default)]
 pub struct Rcha {
@@ -287,6 +304,32 @@ impl Rcha {
             yloc: self.ylocs[i],
             width: self.widths[i],
         })
+    }
+
+    /// Extracts all fields as separate vectors (cloned).
+    ///
+    /// Corresponds to `rchaExtract` in C Leptonica.
+    #[allow(clippy::type_complexity)]
+    pub fn extract(
+        &self,
+    ) -> (
+        Vec<i32>,
+        Vec<f32>,
+        Vec<String>,
+        Vec<i32>,
+        Vec<i32>,
+        Vec<i32>,
+        Vec<i32>,
+    ) {
+        (
+            self.indices.clone(),
+            self.scores.clone(),
+            self.texts.clone(),
+            self.samples.clone(),
+            self.xlocs.clone(),
+            self.ylocs.clone(),
+            self.widths.clone(),
+        )
     }
 }
 

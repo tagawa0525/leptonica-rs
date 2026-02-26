@@ -642,6 +642,124 @@ impl Recog {
         // Clip to foreground
         clip_to_foreground(&pix1)
     }
+
+    /// Sets a placeholder result, skipping actual identification.
+    ///
+    /// Used for whitespace or other characters that should not be identified.
+    ///
+    /// Corresponds to `recogSkipIdentify` in C Leptonica.
+    pub fn skip_identify(&mut self) {
+        self.rch = Some(Rch {
+            index: 0,
+            score: 0.0,
+            text: String::new(),
+            sample: 0,
+            xloc: 0,
+            yloc: 0,
+            width: 0,
+        });
+    }
+
+    /// Processes an image for identification: binarize, clip, and pad.
+    ///
+    /// Corresponds to `recogProcessToIdentify` in C Leptonica.
+    pub fn process_to_identify(&self, pix: &Pix, pad: u32) -> RecogResult<Pix> {
+        // Binarize if needed
+        let pix1 = binarize_pix(pix, self.threshold as u8)?;
+
+        // Clip to foreground
+        let pix2 = clip_to_foreground(&pix1)?;
+
+        // Add horizontal padding
+        if pad == 0 {
+            return Ok(pix2);
+        }
+        let new_w = pix2.width() + 2 * pad;
+        let new_h = pix2.height();
+        let result = Pix::new(new_w, new_h, PixelDepth::Bit1).map_err(RecogError::Core)?;
+        let mut result_mut = result.try_into_mut().unwrap_or_else(|p| p.to_mut());
+        for y in 0..pix2.height() {
+            for x in 0..pix2.width() {
+                if let Some(v) = pix2.get_pixel(x, y) {
+                    let _ = result_mut.set_pixel(x + pad, y, v);
+                }
+            }
+        }
+        Ok(result_mut.into())
+    }
+
+    /// Extracts number strings from recognition results.
+    ///
+    /// Uses the stored `rcha` results and bounding boxes to group consecutive
+    /// high-scoring digit-like characters into number strings.
+    ///
+    /// Corresponds to `recogExtractNumbers` in C Leptonica.
+    pub fn extract_numbers(
+        &self,
+        boxes: &[PixBox],
+        score_thresh: f32,
+        space_thresh: i32,
+    ) -> RecogResult<Vec<String>> {
+        let rcha = self
+            .rcha
+            .as_ref()
+            .ok_or_else(|| RecogError::IdentificationError("rcha not defined".to_string()))?;
+
+        let space_thresh = if space_thresh < 0 {
+            self.maxheight_u.max(20)
+        } else {
+            space_thresh
+        };
+
+        let n = rcha.len().min(boxes.len());
+        let mut result = Vec::new();
+        let mut current: Option<String> = None;
+        let mut prev_box: Option<&PixBox> = None;
+
+        for (score, text, bx) in rcha.scores[..n]
+            .iter()
+            .zip(rcha.texts[..n].iter())
+            .zip(boxes[..n].iter())
+            .map(|((s, t), b)| (*s, t, b))
+        {
+            match (&mut current, prev_box) {
+                (None, _) => {
+                    if score >= score_thresh {
+                        current = Some(text.clone());
+                        prev_box = Some(bx);
+                    }
+                }
+                (Some(cur), Some(pb)) => {
+                    let h_sep = bx.x - (pb.x + pb.w);
+                    if pb.x < bx.x && h_sep <= space_thresh && score >= score_thresh {
+                        cur.push_str(text);
+                        prev_box = Some(bx);
+                    } else {
+                        result.push(cur.clone());
+                        if score >= score_thresh {
+                            current = Some(text.clone());
+                            prev_box = Some(bx);
+                        } else {
+                            current = None;
+                            prev_box = None;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(cur) = current {
+            result.push(cur);
+        }
+
+        if result.is_empty() {
+            return Err(RecogError::IdentificationError(
+                "no identified numbers".to_string(),
+            ));
+        }
+        Ok(result)
+    }
 }
 
 /// Computes correlation score between two images

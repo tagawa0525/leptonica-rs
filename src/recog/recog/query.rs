@@ -56,6 +56,16 @@ impl Recog {
         self.threshold = params.threshold;
         self.max_y_shift = params.max_y_shift;
     }
+
+    /// Returns a reference to the current single-character result, if any.
+    pub fn get_rch(&self) -> Option<&super::types::Rch> {
+        self.rch.as_ref()
+    }
+
+    /// Sets the array of character results.
+    pub fn set_rcha(&mut self, rcha: super::types::Rcha) {
+        self.rcha = Some(rcha);
+    }
 }
 
 #[cfg(test)]

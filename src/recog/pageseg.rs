@@ -324,6 +324,377 @@ pub fn is_text_region(pix: &Pix) -> RecogResult<bool> {
     Ok(is_text_density && has_text_pattern && has_directional_pattern)
 }
 
+/// Finds the bounding box of the foreground region of a scanned page.
+///
+/// Uses morphological operations to detect the main content area, removing
+/// border noise based on `mindist` and `erasedist`.
+///
+/// Corresponds to `pixFindPageForeground` in C Leptonica.
+pub fn find_page_foreground(
+    pix: &Pix,
+    threshold: u32,
+    mindist: i32,
+    erasedist: i32,
+) -> RecogResult<crate::core::Box> {
+    let binary = ensure_binary_with_threshold(pix, threshold)?;
+    let w = binary.width();
+    let h = binary.height();
+
+    // Find foreground bounding box
+    let mut min_x = w;
+    let mut min_y = h;
+    let mut max_x = 0u32;
+    let mut max_y = 0u32;
+
+    for y in 0..h {
+        for x in 0..w {
+            if binary.get_pixel_unchecked(x, y) != 0 {
+                min_x = min_x.min(x);
+                min_y = min_y.min(y);
+                max_x = max_x.max(x);
+                max_y = max_y.max(y);
+            }
+        }
+    }
+
+    if max_x < min_x || max_y < min_y {
+        return Err(RecogError::NoContent(
+            "no foreground pixels found".to_string(),
+        ));
+    }
+
+    // Apply mindist: shrink from edges
+    let md = mindist.max(0) as u32;
+    let ed = erasedist.max(0) as u32;
+    let inset = md + ed;
+    let fx = if min_x < inset { 0 } else { min_x };
+    let fy = if min_y < inset { 0 } else { min_y };
+    let fw = (max_x + 1).min(w) - fx;
+    let fh = (max_y + 1).min(h) - fy;
+
+    if fw == 0 || fh == 0 {
+        return Err(RecogError::NoContent(
+            "foreground region too small after edge removal".to_string(),
+        ));
+    }
+
+    Ok(crate::core::Box::new_unchecked(
+        fx as i32, fy as i32, fw as i32, fh as i32,
+    ))
+}
+
+/// Splits a text line image into individual character bounding boxes.
+///
+/// Filters small components, consolidates with vertical closing, then
+/// extracts 8-connected components and optionally splits wide components
+/// using projection profiles.
+///
+/// Corresponds to `pixSplitIntoCharacters` in C Leptonica.
+pub fn pix_split_into_characters(
+    pix: &Pix,
+    minw: u32,
+    minh: u32,
+) -> RecogResult<(Vec<crate::core::Box>, Option<Vec<Pix>>)> {
+    let binary = ensure_binary(pix)?;
+
+    // Vertical close for consolidation
+    let closed = morphological_close(&binary, 1, 10)?;
+
+    // Find connected components
+    let components = find_connected_components(&closed)?;
+
+    let mut boxes = Vec::new();
+    let mut images = Vec::new();
+
+    for (cx, cy, cw, ch) in &components {
+        if *cw < minw || *ch < minh {
+            continue;
+        }
+        boxes.push(crate::core::Box::new_unchecked(
+            *cx as i32, *cy as i32, *cw as i32, *ch as i32,
+        ));
+        let region = extract_region(&binary, *cx, *cy, *cw, *ch)?;
+        images.push(region);
+    }
+
+    // Sort by x coordinate
+    let mut indexed: Vec<(crate::core::Box, Pix)> = boxes.into_iter().zip(images).collect();
+    indexed.sort_by_key(|(b, _)| b.x);
+    let (sorted_boxes, sorted_images): (Vec<_>, Vec<_>) = indexed.into_iter().unzip();
+
+    if sorted_boxes.is_empty() {
+        return Err(RecogError::NoContent(
+            "no character components found".to_string(),
+        ));
+    }
+
+    Ok((sorted_boxes, Some(sorted_images)))
+}
+
+/// Splits a single connected component using its vertical projection profile.
+///
+/// Finds minima in the column-sum projection and uses them as split points.
+///
+/// Corresponds to `pixSplitComponentWithProfile` in C Leptonica.
+pub fn split_component_with_profile(
+    pix: &Pix,
+    delta: i32,
+    mindel: i32,
+) -> RecogResult<Vec<crate::core::Box>> {
+    let binary = ensure_binary(pix)?;
+    let w = binary.width();
+    let h = binary.height();
+
+    if w < 4 || h < 4 {
+        return Ok(vec![crate::core::Box::new_unchecked(
+            0, 0, w as i32, h as i32,
+        )]);
+    }
+
+    // Compute column projection
+    let mut col_sums = vec![0u32; w as usize];
+    for y in 0..h {
+        for x in 0..w {
+            if binary.get_pixel_unchecked(x, y) != 0 {
+                col_sums[x as usize] += 1;
+            }
+        }
+    }
+
+    // Find split points: look for valleys in the projection
+    let delta = delta.max(1) as usize;
+    let mindel = mindel.max(1) as u32;
+    let mut split_points = Vec::new();
+
+    // Find gaps (runs of columns below a threshold)
+    let max_sum = col_sums.iter().copied().max().unwrap_or(0);
+    let gap_thresh = (max_sum as f32 * 0.1) as u32;
+
+    let mut in_gap = false;
+    let mut gap_start = 0usize;
+
+    for (x, &sum) in col_sums.iter().enumerate() {
+        if sum <= gap_thresh {
+            if !in_gap {
+                in_gap = true;
+                gap_start = x;
+            }
+        } else if in_gap {
+            in_gap = false;
+            let left_max = if gap_start >= delta {
+                col_sums[gap_start.saturating_sub(delta)..gap_start]
+                    .iter()
+                    .copied()
+                    .max()
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+            let right_max = col_sums[x..(x + delta).min(col_sums.len())]
+                .iter()
+                .copied()
+                .max()
+                .unwrap_or(0);
+            if left_max >= mindel && right_max >= mindel {
+                split_points.push(((gap_start + x) / 2) as u32);
+            }
+        }
+    }
+
+    // Build boxes from split points
+    let mut boxes = Vec::new();
+    let mut start_x = 0u32;
+    for &sp in &split_points {
+        if sp > start_x {
+            boxes.push(crate::core::Box::new_unchecked(
+                start_x as i32,
+                0,
+                (sp - start_x) as i32,
+                h as i32,
+            ));
+        }
+        start_x = sp;
+    }
+    if start_x < w {
+        boxes.push(crate::core::Box::new_unchecked(
+            start_x as i32,
+            0,
+            (w - start_x) as i32,
+            h as i32,
+        ));
+    }
+
+    if boxes.is_empty() {
+        boxes.push(crate::core::Box::new_unchecked(0, 0, w as i32, h as i32));
+    }
+
+    Ok(boxes)
+}
+
+/// Gets word bounding boxes and images from text lines.
+///
+/// Detects words using dilation-based masking, filters by size, sorts into
+/// textline order, and returns images, boxes, and textline indices.
+///
+/// Corresponds to `pixGetWordsInTextlines` in C Leptonica.
+#[allow(clippy::type_complexity)]
+pub fn get_words_in_textlines(
+    pix: &Pix,
+    minwidth: u32,
+    minheight: u32,
+    maxwidth: u32,
+    maxheight: u32,
+) -> RecogResult<(Vec<crate::core::Box>, Option<Vec<Pix>>, Vec<usize>)> {
+    let binary = ensure_binary(pix)?;
+    let w = binary.width();
+    let h = binary.height();
+
+    // Generate word mask by dilation
+    let dilated = morphological_dilate(&binary, 7, 3)?;
+
+    // Extract components from word mask
+    let components = find_connected_components(&dilated)?;
+
+    let mut word_boxes = Vec::new();
+    let mut word_images = Vec::new();
+
+    for (cx, cy, cw, ch) in &components {
+        if *cw < minwidth || *ch < minheight || *cw > maxwidth || *ch > maxheight {
+            continue;
+        }
+        word_boxes.push(crate::core::Box::new_unchecked(
+            *cx as i32, *cy as i32, *cw as i32, *ch as i32,
+        ));
+        let region = extract_region(&binary, *cx, *cy, (*cw).min(w - *cx), (*ch).min(h - *cy))?;
+        word_images.push(region);
+    }
+
+    if word_boxes.is_empty() {
+        return Err(RecogError::NoContent("no words found".to_string()));
+    }
+
+    // Sort by y then x (textline order)
+    let mut indexed: Vec<(usize, crate::core::Box, Pix)> = word_boxes
+        .into_iter()
+        .zip(word_images)
+        .enumerate()
+        .map(|(i, (b, p))| (i, b, p))
+        .collect();
+    indexed.sort_by(|a, b| {
+        let ay = a.1.y;
+        let by = b.1.y;
+        // Same textline if y-centers are within half avg height
+        let ah = a.1.h;
+        let bh = b.1.h;
+        let a_center = ay + ah / 2;
+        let b_center = by + bh / 2;
+        let tolerance = (ah + bh) / 4;
+        if (a_center - b_center).abs() <= tolerance {
+            a.1.x.cmp(&b.1.x)
+        } else {
+            ay.cmp(&by)
+        }
+    });
+
+    // Assign textline indices
+    let mut nai = Vec::new();
+    let mut sorted_boxes = Vec::new();
+    let mut sorted_images = Vec::new();
+    let mut current_line = 0usize;
+    let mut prev_y_center = i32::MIN;
+
+    for (_, b, p) in indexed {
+        let y_center = b.y + b.h / 2;
+        let tolerance = b.h / 2;
+        if prev_y_center != i32::MIN && (y_center - prev_y_center).abs() > tolerance {
+            current_line += 1;
+        }
+        prev_y_center = y_center;
+        nai.push(current_line);
+        sorted_boxes.push(b);
+        sorted_images.push(p);
+    }
+
+    Ok((sorted_boxes, Some(sorted_images), nai))
+}
+
+/// Gets word bounding boxes from text lines (boxes only, no images).
+///
+/// Simpler version of [`get_words_in_textlines`] that returns only boxes
+/// and textline indices.
+///
+/// Corresponds to `pixGetWordBoxesInTextlines` in C Leptonica.
+pub fn get_word_boxes_in_textlines(
+    pix: &Pix,
+    minwidth: u32,
+    minheight: u32,
+    maxwidth: u32,
+    maxheight: u32,
+) -> RecogResult<(Vec<crate::core::Box>, Vec<usize>)> {
+    let (boxes, _, nai) = get_words_in_textlines(pix, minwidth, minheight, maxwidth, maxheight)?;
+    Ok((boxes, nai))
+}
+
+/// Ensures binary with optional threshold for grayscale input
+fn ensure_binary_with_threshold(pix: &Pix, threshold: u32) -> RecogResult<Pix> {
+    match pix.depth() {
+        PixelDepth::Bit1 => Ok(pix.deep_clone()),
+        PixelDepth::Bit8 => {
+            let w = pix.width();
+            let h = pix.height();
+            let binary = Pix::new(w, h, PixelDepth::Bit1)?;
+            let mut binary_mut = binary.try_into_mut().unwrap();
+            for y in 0..h {
+                for x in 0..w {
+                    let val = pix.get_pixel_unchecked(x, y);
+                    let bit = if val < threshold { 1 } else { 0 };
+                    binary_mut.set_pixel_unchecked(x, y, bit);
+                }
+            }
+            Ok(binary_mut.into())
+        }
+        _ => {
+            // Convert to grayscale first, then threshold
+            let w = pix.width();
+            let h = pix.height();
+            let binary = Pix::new(w, h, PixelDepth::Bit1)?;
+            let mut binary_mut = binary.try_into_mut().unwrap();
+            for y in 0..h {
+                for x in 0..w {
+                    let val = pix.get_pixel_unchecked(x, y);
+                    let r = (val >> 24) & 0xff;
+                    let g = (val >> 16) & 0xff;
+                    let b = (val >> 8) & 0xff;
+                    let lum = (r * 77 + g * 150 + b * 29) >> 8;
+                    let bit = if lum < threshold { 1 } else { 0 };
+                    binary_mut.set_pixel_unchecked(x, y, bit);
+                }
+            }
+            Ok(binary_mut.into())
+        }
+    }
+}
+
+/// Converts an RGB image to grayscale (using luminance)
+#[allow(dead_code)]
+fn rgb_to_grayscale_pageseg(pix: &Pix) -> RecogResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let gray = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut gray_mut = gray.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            let r = (val >> 24) & 0xff;
+            let g = (val >> 16) & 0xff;
+            let b = (val >> 8) & 0xff;
+            let lum = (r * 77 + g * 150 + b * 29) >> 8;
+            gray_mut.set_pixel_unchecked(x, y, lum);
+        }
+    }
+    Ok(gray_mut.into())
+}
+
 // ============================================================================
 // Internal functions
 // ============================================================================
