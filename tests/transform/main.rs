@@ -19,6 +19,7 @@ mod shear1_reg;
 mod shear2_reg;
 mod smallpix_reg;
 mod subpixel_reg;
+mod transform_coverage_reg;
 mod translate_reg;
 mod warper_reg;
 mod xformbox_reg;

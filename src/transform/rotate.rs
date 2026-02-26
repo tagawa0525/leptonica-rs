@@ -1513,6 +1513,166 @@ pub fn rotate_with_alpha(
     Ok(out_mut.into())
 }
 
+/// Embed a Pix in a larger image for rotation without cropping.
+///
+/// Calculates the minimum dimensions needed to fit the rotated image,
+/// creates a larger canvas filled with the background color, and places
+/// the source image centered in it.
+///
+/// If the angle is tiny (< MIN_ANGLE_TO_ROTATE), returns a clone.
+///
+/// C equivalent: `pixEmbedForRotation`
+pub fn embed_for_rotation(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let depth = pix.depth();
+
+    // Check if already big enough (diagonal test)
+    let diag = ((w as f64 * w as f64 + h as f64 * h as f64).sqrt() + 0.5) as u32;
+    if w >= diag && h >= diag {
+        return Ok(pix.deep_clone());
+    }
+
+    // Calculate dimensions needed after rotation
+    let cosa = (angle as f64).cos();
+    let sina = (angle as f64).sin();
+    let fw = w as f64;
+    let fh = h as f64;
+    let w1 = (fw * cosa - fh * sina).abs() + 0.5;
+    let w2 = (-fw * cosa - fh * sina).abs() + 0.5;
+    let h1 = (fw * sina + fh * cosa).abs() + 0.5;
+    let h2 = (-fw * sina + fh * cosa).abs() + 0.5;
+    let wnew = (w as f64).max(w1.max(w2)) as u32;
+    let hnew = (h as f64).max(h1.max(h2)) as u32;
+
+    let out_pix = Pix::new(wnew, hnew, depth)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    if let Some(cmap) = pix.colormap() {
+        let _ = out_mut.set_colormap(Some(cmap.clone()));
+    }
+
+    // Fill with background color
+    let fill_val = fill.to_value(depth);
+    fill_image(&mut out_mut, fill_val);
+
+    // Center the source image in the output
+    let xoff = (wnew - w) / 2;
+    let yoff = (hnew - h) / 2;
+    for y in 0..h {
+        for x in 0..w {
+            out_mut.set_pixel_unchecked(x + xoff, y + yoff, pix.get_pixel_unchecked(x, y));
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Rotate a 1bpp binary image with anti-aliased edges.
+///
+/// Converts to 8bpp, applies a small blur, rotates with area mapping,
+/// and thresholds back to 1bpp.
+///
+/// C equivalent: `pixRotateBinaryNice`
+pub fn rotate_binary_nice(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(TransformError::UnsupportedDepth(
+            "rotate_binary_nice requires 1bpp input".to_string(),
+        ));
+    }
+
+    // Step 1: Convert 1bpp to 8bpp (0->255 for white, 1->0 for black in binary)
+    let w = pix.width();
+    let h = pix.height();
+    let pix8 = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut pix8_mut = pix8.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            // Binary: 0=white, 1=black → 8bpp: 255=white, 0=black
+            let val = if pix.get_pixel_unchecked(x, y) == 0 {
+                255u32
+            } else {
+                0u32
+            };
+            pix8_mut.set_pixel_unchecked(x, y, val);
+        }
+    }
+    let pix8: Pix = pix8_mut.into();
+
+    // Step 2: Small box blur (3x3)
+    let blurred = box_blur_gray(&pix8, 1)?;
+
+    // Step 3: Rotate with area mapping (same size, no expand)
+    let fill_8 = match fill {
+        RotateFill::White => 255u8,
+        RotateFill::Black => 0u8,
+        RotateFill::Color(v) => (v & 0xFF) as u8,
+    };
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    let cx = w as f32 / 2.0;
+    let cy = h as f32 / 2.0;
+    let rot_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut rot_mut = rot_pix.try_into_mut().unwrap();
+    rotate_area_map_gray(&blurred, &mut rot_mut, cos_a, sin_a, cx, cy, cx, cy, fill_8);
+    let rotated: Pix = rot_mut.into();
+
+    // Step 4: Threshold back to 1bpp (threshold at 128)
+    let out = Pix::new(w, h, PixelDepth::Bit1)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let val = rotated.get_pixel_unchecked(x, y);
+            // 8bpp: values < 128 -> black (1), >= 128 -> white (0)
+            let bit = if val < 128 { 1u32 } else { 0u32 };
+            out_mut.set_pixel_unchecked(x, y, bit);
+        }
+    }
+    Ok(out_mut.into())
+}
+
+/// Simple 3×3 box blur for 8bpp grayscale (helper for rotate_binary_nice).
+fn box_blur_gray(pix: &Pix, half_size: u32) -> TransformResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    let size = (2 * half_size + 1) as i32;
+
+    for y in 0..h {
+        for x in 0..w {
+            let mut sum = 0u32;
+            let mut count = 0u32;
+            for dy in -(half_size as i32)..=half_size as i32 {
+                let sy = y as i32 + dy;
+                if sy < 0 || sy >= h as i32 {
+                    continue;
+                }
+                for dx in -(half_size as i32)..=half_size as i32 {
+                    let sx = x as i32 + dx;
+                    if sx < 0 || sx >= w as i32 {
+                        continue;
+                    }
+                    sum += pix.get_pixel_unchecked(sx as u32, sy as u32);
+                    count += 1;
+                }
+            }
+            let val = if count > 0 {
+                (sum + count / 2) / count
+            } else {
+                0
+            };
+            out_mut.set_pixel_unchecked(x, y, val.min(255));
+        }
+    }
+    let _ = size; // suppress unused warning
+    Ok(out_mut.into())
+}
+
 /// 3-shear rotation (Paeth's algorithm)
 ///
 /// y' = y + tan(angle/2) * (x - xcen)  [first V-shear]
