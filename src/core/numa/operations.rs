@@ -543,6 +543,68 @@ impl Numa {
         }
     }
 
+    /// Compute simple statistics (mean, variance, rms) over a range.
+    ///
+    /// Returns `(mean, variance, rms_deviation)` over elements `[first..=last]`.
+    /// If `last` is negative, uses the last element.
+    ///
+    /// C equivalent: `numaSimpleStats(na, first, last, &mean, &var, &rvar)`
+    pub fn simple_stats(&self, first: i32, last: i32) -> Result<(f32, f32, f32)> {
+        let n = self.len();
+        if n == 0 {
+            return Err(Error::NullInput("empty Numa"));
+        }
+        let first = first.max(0) as usize;
+        let last = if last < 0 {
+            n - 1
+        } else {
+            (last as usize).min(n - 1)
+        };
+        if first > last {
+            return Err(Error::InvalidParameter(format!(
+                "first ({first}) > last ({last})"
+            )));
+        }
+        let ni = (last - first + 1) as f32;
+        let mut sum = 0.0f32;
+        let mut sumsq = 0.0f32;
+        for i in first..=last {
+            let val = self.get(i).unwrap_or(0.0);
+            sum += val;
+            sumsq += val * val;
+        }
+        let mean = sum / ni;
+        let var = sumsq / ni - mean * mean;
+        let rvar = if var > 0.0 { var.sqrt() } else { 0.0 };
+        Ok((mean, var, rvar))
+    }
+
+    /// Compute the windowed median for each position using a mirrored border.
+    ///
+    /// For each position `i`, computes the median of values in a window of
+    /// width `2 * halfwin + 1` centered at `i`. Uses mirrored border extension.
+    ///
+    /// C equivalent: `numaWindowedMedian(nas, halfwin)`
+    ///
+    /// # Arguments
+    ///
+    /// * `halfwin` - Half-width of the sliding window.
+    pub fn windowed_median(&self, halfwin: usize) -> Numa {
+        let n = self.len();
+        if n == 0 {
+            return Numa::new();
+        }
+        let bordered = add_mirrored_border(self, halfwin, halfwin);
+        let width = 2 * halfwin + 1;
+        let mut result = Numa::with_capacity(n);
+        for i in 0..n {
+            let mut window: Vec<f32> = bordered.as_slice()[i..i + width].to_vec();
+            window.sort_by(|a, b| a.total_cmp(b));
+            result.push(window[halfwin]);
+        }
+        result
+    }
+
     // ====================================================================
     // Morphological operations
     // ====================================================================

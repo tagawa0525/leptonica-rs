@@ -4,9 +4,13 @@
 
 pub mod adjust;
 pub mod draw;
+pub mod extract;
 pub mod geometry;
 pub mod select;
 pub mod serial;
+pub mod smooth;
+pub mod sort;
+pub mod transform;
 
 use crate::core::error::{Error, Result};
 
@@ -1112,6 +1116,143 @@ impl Boxaa {
             .ok_or(Error::IndexOutOfBounds { index: outer, len })?;
         boxa.push(b);
         Ok(())
+    }
+
+    /// Get mutable access to the internal Boxa slice.
+    pub fn boxas_mut(&mut self) -> &mut [Boxa] {
+        &mut self.boxas
+    }
+
+    /// Get the bounding extent of all boxes in the Boxaa.
+    ///
+    /// Returns `(width, height, bounding_box, per_boxa_extents)`.
+    /// Width and height are the extent from origin to the furthest edge.
+    /// The per_boxa_extents Boxa contains one bounding box per Boxa.
+    ///
+    /// C Leptonica equivalent: `boxaaGetExtent`
+    pub fn get_extent(&self) -> Result<(i32, i32, Box, Boxa)> {
+        if self.boxas.is_empty() {
+            return Err(Error::InvalidParameter("boxaa is empty".into()));
+        }
+
+        let mut extents = Boxa::with_capacity(self.boxas.len());
+        let mut xmax = 0i32;
+        let mut ymax = 0i32;
+        let mut xmin = i32::MAX;
+        let mut ymin = i32::MAX;
+        let mut found = false;
+
+        for boxa in &self.boxas {
+            if let Some(bb) = boxa.bounding_box() {
+                if bb.w > 0 && bb.h > 0 {
+                    found = true;
+                    xmin = xmin.min(bb.x);
+                    ymin = ymin.min(bb.y);
+                    xmax = xmax.max(bb.x + bb.w);
+                    ymax = ymax.max(bb.y + bb.h);
+                }
+                extents.push(bb);
+            } else {
+                extents.push(Box::new_unchecked(0, 0, 0, 0));
+            }
+        }
+
+        if !found {
+            xmin = 0;
+            ymin = 0;
+        }
+
+        let bbox = Box::new_unchecked(xmin, ymin, xmax - xmin, ymax - ymin);
+        Ok((xmax, ymax, bbox, extents))
+    }
+
+    /// Flatten taking the first `num` boxes from each Boxa.
+    ///
+    /// If a Boxa has fewer than `num` boxes, filler boxes are inserted.
+    /// If `filler` is `None`, invalid placeholder boxes (0,0,0,0) are used.
+    ///
+    /// C Leptonica equivalent: `boxaaFlattenAligned`
+    pub fn flatten_aligned(&self, num: usize, filler: Option<Box>) -> Boxa {
+        let filler_box = filler.unwrap_or(Box::new_unchecked(0, 0, 0, 0));
+        let mut result = Boxa::with_capacity(self.boxas.len() * num);
+        for boxa in &self.boxas {
+            let m = boxa.len().min(num);
+            for j in 0..m {
+                result.push(*boxa.get(j).unwrap());
+            }
+            for _ in m..num {
+                result.push(filler_box);
+            }
+        }
+        result
+    }
+
+    /// Transpose the 2D array of boxes.
+    ///
+    /// If the Boxaa has `ny` rows of `nbox` boxes each, the result has
+    /// `nbox` rows of `ny` boxes each. All rows must have the same length.
+    ///
+    /// C Leptonica equivalent: `boxaaTranspose`
+    pub fn transpose(&self) -> Result<Boxaa> {
+        let ny = self.boxas.len();
+        if ny == 0 {
+            return Err(Error::InvalidParameter("boxaa is empty".into()));
+        }
+
+        let nbox = self.boxas[0].len();
+        for (i, boxa) in self.boxas.iter().enumerate() {
+            if boxa.len() != nbox {
+                return Err(Error::InvalidParameter(format!(
+                    "boxa[{}] has {} boxes, expected {}",
+                    i,
+                    boxa.len(),
+                    nbox
+                )));
+            }
+        }
+
+        let mut result = Boxaa::with_capacity(nbox);
+        for i in 0..nbox {
+            let mut boxa = Boxa::with_capacity(ny);
+            for j in 0..ny {
+                boxa.push(*self.boxas[j].get(i).unwrap());
+            }
+            result.push(boxa);
+        }
+        Ok(result)
+    }
+
+    /// Find the best-matching row for a box based on vertical overlap.
+    ///
+    /// Returns the index of the row with the best vertical overlap.
+    /// If no row overlaps within `delta`, returns `self.len()` (one past end).
+    ///
+    /// C Leptonica equivalent: `boxaaAlignBox`
+    pub fn align_box(&self, b: &Box, delta: i32) -> usize {
+        let n = self.boxas.len();
+        let (by, bh) = (b.y, b.h);
+        let mut max_ovlp = i32::MIN;
+        let mut max_index = n;
+
+        for (i, boxa) in self.boxas.iter().enumerate() {
+            if boxa.is_empty() {
+                continue;
+            }
+            if let Some(ext) = boxa.bounding_box() {
+                let (yt, ht) = (ext.y, ext.h);
+                let ovlp = if yt >= by {
+                    by + bh - 1 - yt
+                } else {
+                    yt + ht - 1 - by
+                };
+                if ovlp > max_ovlp {
+                    max_ovlp = ovlp;
+                    max_index = i;
+                }
+            }
+        }
+
+        if max_ovlp + delta >= 0 { max_index } else { n }
     }
 }
 
