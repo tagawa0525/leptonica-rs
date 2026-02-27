@@ -308,14 +308,24 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
         && let Some(cmap) = pix.colormap()
     {
         let mut palette = Vec::with_capacity(cmap.len() * 3);
+        let mut trns = Vec::with_capacity(cmap.len());
+        let mut has_transparency = false;
         for i in 0..cmap.len() {
-            if let Some((r, g, b)) = cmap.get_rgb(i) {
+            if let Some(rgba32) = cmap.get_rgba32(i) {
+                let (r, g, b, a) = pixel::extract_rgba(rgba32);
                 palette.push(r);
                 palette.push(g);
                 palette.push(b);
+                trns.push(a);
+                if a < 255 {
+                    has_transparency = true;
+                }
             }
         }
         encoder.set_palette(palette);
+        if has_transparency {
+            encoder.set_trns(trns);
+        }
     }
 
     let mut writer = encoder
@@ -480,11 +490,20 @@ pub fn get_png_colormap_info(data: &[u8]) -> IoResult<Option<(PixColormap, bool)
         }
     }
 
-    // Check for transparency via tRNS chunk
-    let has_transparency = info.trns.as_ref().is_some_and(|trns| {
+    // Apply transparency from tRNS chunk to colormap entries
+    let has_transparency = if let Some(trns) = info.trns.as_ref() {
         let trns_bytes: &[u8] = trns;
-        trns_bytes.iter().any(|&v| v < 255)
-    });
+        let mut found = false;
+        for (i, &alpha) in trns_bytes.iter().enumerate() {
+            if alpha < 255 {
+                found = true;
+                let _ = cmap.set_alpha(i, alpha);
+            }
+        }
+        found
+    } else {
+        false
+    };
 
     Ok(Some((cmap, has_transparency)))
 }

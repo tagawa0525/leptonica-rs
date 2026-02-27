@@ -99,6 +99,54 @@ fn test_get_png_colormap_info() {
     assert!(!has_transparency);
 }
 
+#[test]
+fn test_get_png_colormap_info_non_indexed() {
+    use leptonica::io::png;
+
+    // Non-colormapped image should return None
+    let pix = make_gray(10, 10);
+    let mut buf = Vec::new();
+    png::write_png(&pix, &mut buf).unwrap();
+
+    let info = png::get_png_colormap_info(&buf).unwrap();
+    assert!(info.is_none(), "non-indexed PNG should return None");
+}
+
+#[test]
+fn test_get_png_colormap_info_transparency() {
+    use leptonica::core::PixColormap;
+    use leptonica::io::png;
+
+    // Create a colormapped image with transparency via tRNS
+    let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    let mut cmap = PixColormap::new(8).unwrap();
+    cmap.add_rgba(255, 0, 0, 255).unwrap(); // opaque red
+    cmap.add_rgba(0, 255, 0, 128).unwrap(); // semi-transparent green
+    cmap.add_rgba(0, 0, 255, 0).unwrap(); // fully transparent blue
+    pm.set_colormap(Some(cmap)).unwrap();
+    let pix: Pix = pm.into();
+
+    let mut buf = Vec::new();
+    png::write_png(&pix, &mut buf).unwrap();
+
+    let info = png::get_png_colormap_info(&buf).unwrap();
+    assert!(info.is_some(), "should have colormap info");
+    let (cmap_out, has_transparency) = info.unwrap();
+    assert_eq!(cmap_out.len(), 3);
+    assert!(has_transparency, "should detect transparency from tRNS");
+
+    // Verify alpha was applied to colormap entries
+    let rgba0 = pixel::extract_rgba(cmap_out.get_rgba32(0).unwrap());
+    assert_eq!(rgba0, (255, 0, 0, 255));
+    let rgba1 = pixel::extract_rgba(cmap_out.get_rgba32(1).unwrap());
+    assert_eq!((rgba1.0, rgba1.1, rgba1.2), (0, 255, 0));
+    assert!(rgba1.3 < 255, "entry 1 should have alpha applied");
+    let rgba2 = pixel::extract_rgba(cmap_out.get_rgba32(2).unwrap());
+    assert_eq!((rgba2.0, rgba2.1, rgba2.2), (0, 0, 255));
+    assert_eq!(rgba2.3, 0, "entry 2 should be fully transparent");
+}
+
 // ============================================================
 // 3. fgetJpegComment → jpeg::get_jpeg_comment
 // ============================================================
@@ -112,6 +160,41 @@ fn test_get_jpeg_comment() {
     jpeg::write_jpeg(&pix, &mut buf, &jpeg::JpegOptions::default()).unwrap();
     let comment = jpeg::get_jpeg_comment(&buf).unwrap();
     assert!(comment.is_none(), "default JPEG should have no comment");
+}
+
+#[test]
+fn test_get_jpeg_comment_with_comment() {
+    use leptonica::io::jpeg;
+
+    // Create a JPEG then inject a COM marker
+    let pix = make_gray(30, 30);
+    let mut jpeg_data = Vec::new();
+    jpeg::write_jpeg(&pix, &mut jpeg_data, &jpeg::JpegOptions::default()).unwrap();
+
+    // Insert COM marker (0xFF 0xFE) right after SOI (0xFF 0xD8)
+    let comment_text = b"Hello from leptonica-rs!";
+    let com_len = (comment_text.len() + 2) as u16; // length includes 2-byte length field
+    let mut data_with_comment = Vec::new();
+    data_with_comment.extend_from_slice(&jpeg_data[..2]); // SOI
+    data_with_comment.push(0xFF);
+    data_with_comment.push(0xFE); // COM marker
+    data_with_comment.push((com_len >> 8) as u8);
+    data_with_comment.push((com_len & 0xFF) as u8);
+    data_with_comment.extend_from_slice(comment_text);
+    data_with_comment.extend_from_slice(&jpeg_data[2..]); // rest of JPEG
+
+    let comment = jpeg::get_jpeg_comment(&data_with_comment).unwrap();
+    assert!(comment.is_some(), "should find COM marker");
+    assert_eq!(comment.unwrap(), "Hello from leptonica-rs!");
+}
+
+#[test]
+fn test_get_jpeg_comment_invalid_data() {
+    use leptonica::io::jpeg;
+
+    // Not a JPEG
+    let result = jpeg::get_jpeg_comment(b"not a jpeg");
+    assert!(result.is_err());
 }
 
 // ============================================================
