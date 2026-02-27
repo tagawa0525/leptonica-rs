@@ -22,6 +22,7 @@ pub mod colormap;
 pub mod encoding;
 pub mod error;
 pub mod fpix;
+pub mod gplot;
 pub mod numa;
 pub mod pix;
 pub mod pixa;
@@ -43,6 +44,10 @@ pub use colormap::{PixColormap, RgbaQuad};
 pub use encoding::{decode_ascii85, decode_base64, encode_base64};
 pub use error::{Error, Result};
 pub use fpix::{DPix, FPix, FPixa, NegativeHandling};
+pub use gplot::{
+    GPlot, GPlotOutput, GPlotScaling, PlotStyle, gplot_simple_1, gplot_simple_2, gplot_simple_n,
+    gplot_simple_pix_1, gplot_simple_pix_2, gplot_simple_pix_n,
+};
 pub use numa::{
     CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
     SortOrder, ThresholdComparison, WindowedStats,
