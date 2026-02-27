@@ -497,7 +497,7 @@ pub fn get_png_colormap_info(data: &[u8]) -> IoResult<Option<(PixColormap, bool)
         for (i, &alpha) in trns_bytes.iter().enumerate() {
             if alpha < 255 {
                 found = true;
-                let _ = cmap.set_alpha(i, alpha);
+                cmap.set_alpha(i, alpha).map_err(IoError::Core)?;
             }
         }
         found

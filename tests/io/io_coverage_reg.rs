@@ -141,7 +141,7 @@ fn test_get_png_colormap_info_transparency() {
     assert_eq!(rgba0, (255, 0, 0, 255));
     let rgba1 = pixel::extract_rgba(cmap_out.get_rgba32(1).unwrap());
     assert_eq!((rgba1.0, rgba1.1, rgba1.2), (0, 255, 0));
-    assert!(rgba1.3 < 255, "entry 1 should have alpha applied");
+    assert_eq!(rgba1.3, 128, "entry 1 should have alpha 128");
     let rgba2 = pixel::extract_rgba(cmap_out.get_rgba32(2).unwrap());
     assert_eq!((rgba2.0, rgba2.1, rgba2.2), (0, 0, 255));
     assert_eq!(rgba2.3, 0, "entry 2 should be fully transparent");
