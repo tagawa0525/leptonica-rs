@@ -14,6 +14,7 @@ mod equal_reg;
 mod extrema_reg;
 mod fpix1_reg;
 mod fpix2_reg;
+mod gplot_reg;
 mod insert_reg;
 mod logicops_reg;
 mod lowaccess_reg;
