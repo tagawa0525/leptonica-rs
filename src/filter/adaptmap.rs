@@ -450,6 +450,14 @@ pub fn get_foreground_gray_map(
     // Min downscaling; total reduction (2 * sx, 2 * sy) → output is roughly (w/(2*sx), h/(2*sy))
     let pixt1 = scale_gray_min_max(&pixs2, sx, sy, MinMaxOp::Min)?;
 
+    // Validate thresh fits in u8
+    if thresh > u8::MAX as u32 {
+        return Err(FilterError::InvalidParameters(format!(
+            "thresh value {} exceeds maximum of 255",
+            thresh
+        )));
+    }
+
     // Threshold to identify fg; paint bg pixels white
     let pixb = threshold_to_binary(&pixt1, thresh as u8)
         .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
@@ -464,7 +472,9 @@ pub fn get_foreground_gray_map(
     let pixt2 = expand_replicate(&pixt1_mut_pix, 2)?;
 
     // Fill holes in fg by propagation
-    let pixt2_filled = fill_map_holes(&pixt2, w / sx, h / sy)?;
+    let valid_x = (w / sx).min(pixt2.width());
+    let valid_y = (h / sy).min(pixt2.height());
+    let pixt2_filled = fill_map_holes(&pixt2, valid_x, valid_y)?;
 
     // Smooth with 17x17 kernel (blockconv half-width 8)
     let pixt3 = blockconv(&pixt2_filled, 8, 8)?;

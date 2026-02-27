@@ -169,7 +169,11 @@ fn kernel_reg_from_file() {
     let mut rp = RegParams::new("kernel_from_file");
 
     let dir = std::env::temp_dir();
-    let path = dir.join("kernel_reg_test.txt");
+    let path = dir.join(format!(
+        "kernel_reg_test_{}_{:?}_.txt",
+        std::process::id(),
+        std::thread::current().id()
+    ));
     {
         let mut f = std::fs::File::create(&path).expect("create temp file");
         writeln!(f, "# test kernel for regression").unwrap();

@@ -473,14 +473,20 @@ impl Kernel {
 
         let lines: Vec<&str> = content.lines().collect();
 
-        // Find first non-comment line
-        let mut first = 0;
+        // Find first non-comment, non-blank line
+        let mut first = None;
         for (i, line) in lines.iter().enumerate() {
-            if !line.starts_with('#') {
-                first = i;
+            let trimmed = line.trim();
+            if !trimmed.is_empty() && !trimmed.starts_with('#') {
+                first = Some(i);
                 break;
             }
         }
+        let first = first.ok_or_else(|| {
+            FilterError::InvalidKernel(
+                "no header line found (blank or comment-only file)".to_string(),
+            )
+        })?;
 
         // Parse dimensions
         let dim_parts: Vec<&str> = lines[first].split_whitespace().collect();
@@ -516,10 +522,11 @@ impl Kernel {
         // Parse data values
         let mut data = Vec::new();
         for &line in &lines[first + 2..] {
-            if line.is_empty() || line.starts_with('#') || line.starts_with('\n') {
-                break;
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
             }
-            for token in line.split_whitespace() {
+            for token in trimmed.split_whitespace() {
                 let val: f32 = token
                     .parse()
                     .map_err(|_| FilterError::InvalidKernel(format!("invalid number: {token}")))?;
@@ -639,13 +646,13 @@ impl Kernel {
             let y = (gthick / 2 + i * (size + gthick)) as i32;
             pix_mut
                 .render_line(0, y, w as i32 - 1, y, gthick, PixelOp::Set)
-                .ok();
+                .map_err(FilterError::Core)?;
         }
         for j in 0..=sx {
             let x = (gthick / 2 + j * (size + gthick)) as i32;
             pix_mut
                 .render_line(x, 0, x, h as i32 - 1, gthick, PixelOp::Set)
-                .ok();
+                .map_err(FilterError::Core)?;
         }
 
         // Fill cells
@@ -895,7 +902,11 @@ mod tests {
     fn test_from_file() {
         use std::io::Write;
         let dir = std::env::temp_dir();
-        let path = dir.join("test_kernel.txt");
+        let path = dir.join(format!(
+            "test_kernel_{}_{:?}_.txt",
+            std::process::id(),
+            std::thread::current().id()
+        ));
         {
             let mut f = std::fs::File::create(&path).unwrap();
             writeln!(f, "# test kernel").unwrap();
