@@ -33,8 +33,9 @@ pub use adaptmap::{
     background_norm_rgb_arrays_morph, background_norm_simple, background_norm_to_1_min_max,
     clean_background_to_white, contrast_norm, contrast_norm_simple, convert_to_8_min_max,
     extend_by_replication, fill_map_holes, get_background_gray_map, get_background_gray_map_morph,
-    get_background_rgb_map, get_background_rgb_map_morph, get_inv_background_map,
-    global_norm_no_sat_rgb, global_norm_rgb, smooth_connected_regions, threshold_spread_norm,
+    get_background_rgb_map, get_background_rgb_map_morph, get_foreground_gray_map,
+    get_inv_background_map, global_norm_no_sat_rgb, global_norm_rgb, smooth_connected_regions,
+    threshold_spread_norm,
 };
 pub use bilateral::{
     bilateral, bilateral_exact, bilateral_gray, bilateral_gray_exact, block_bilateral_exact,
