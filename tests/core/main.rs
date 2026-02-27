@@ -1,6 +1,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod bmf_reg;
 mod boxa1_reg;
 mod boxa2_reg;
 mod boxa3_reg;
