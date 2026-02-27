@@ -70,6 +70,7 @@
 
 pub mod barcode;
 pub mod baseline;
+pub mod classapp;
 pub mod correlscore;
 pub mod dewarp;
 mod error;
@@ -81,6 +82,11 @@ pub mod recog;
 pub mod skew;
 
 pub use error::{RecogError, RecogResult};
+
+// Re-export classapp functions
+pub use classapp::{
+    boxa_extract_sorted_pattern, find_word_and_character_boxes, numaa_compare_images_by_boxes,
+};
 
 // Re-export commonly used types from Phase 1
 pub use baseline::{BaselineOptions, BaselineResult};
