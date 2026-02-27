@@ -7,9 +7,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 139 |
+| ✅ 同等 | 137 |
 | 🔄 異なる | 18 |
-| ❌ 未実装 | 0 |
+| ❌ 未実装 | 2 |
 | 🚫 不要 | 45 |
 | 合計 | 202 |
 
@@ -32,7 +32,7 @@
 | readHeaderMemPng | ✅ 同等 | `png::read_header_png` | Unified with stream |
 | fgetPngResolution | ✅ 同等 | `png::read_header_png` | ImageHeader.x/y_resolution |
 | isPngInterlaced | ✅ 同等 | `is_png_interlaced` |  |
-| fgetPngColormapInfo | ✅ 同等 | `fget_png_colormap_info` |  |
+| fgetPngColormapInfo | ❌ 未実装 | - |  |
 | pixWritePng | ✅ 同等 | `png::write_png` | Top level wrapper |
 | pixWriteStreamPng | ✅ 同等 | `png::write_png` | Uses png crate |
 | pixSetZlibCompression | 🚫 不要 | - | RustではPngOptions.compression_levelで対応 |
@@ -48,7 +48,7 @@
 | readHeaderJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | jpeg-decoderでinfo取得 |
 | freadHeaderJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | Unified with stream |
 | fgetJpegResolution | ✅ 同等 | `jpeg::read_header_jpeg` | ImageHeader.x/y_resolution |
-| fgetJpegComment | ✅ 同等 | `fget_jpeg_comment` |  |
+| fgetJpegComment | ❌ 未実装 | - |  |
 | pixWriteJpeg | 🔄 異なる | `jpeg::write_jpeg` | jpeg-encoder使用、C版はlibjpeg |
 | pixWriteStreamJpeg | 🔄 異なる | `jpeg::write_jpeg` | jpeg-encoder使用 |
 | pixReadMemJpeg | ✅ 同等 | `jpeg::read_jpeg` | Unified with stream |
@@ -92,13 +92,13 @@
 | freadHeaderTiff | ✅ 同等 | `tiff::read_header_tiff` | Unified with stream |
 | readHeaderMemTiff | ✅ 同等 | `tiff::read_header_tiff` | Unified with stream |
 | findTiffCompression | ✅ 同等 | `tiff::tiff_compression` | 圧縮形式検出 |
-| extractG4DataFromFile | ✅ 同等 | `extract_g4_data_from_file` |  |
+| extractG4DataFromFile | ✅ 同等 | `extract_g4_data` |  |
 | pixReadMemTiff | ✅ 同等 | `tiff::read_tiff` | Unified with stream |
 | pixReadMemFromMultipageTiff | ✅ 同等 | `tiff::read_tiff_page` | Memory版ページ読み取り |
 | pixaReadMemMultipageTiff | ✅ 同等 | `tiff::read_tiff_multipage` | Memory版全ページ読み取り |
 | pixaWriteMemMultipageTiff | ✅ 同等 | `tiff::write_tiff_multipage` | Memory版複数ページ書き込み |
 | pixWriteMemTiff | ✅ 同等 | `tiff::write_tiff` | Memory版書き込み |
-| pixWriteMemTiffCustom | ✅ 同等 | `write_mem_tiff_custom` |  |
+| pixWriteMemTiffCustom | ✅ 同等 | `write_tiff_custom_mem` |  |
 
 ### gifio.c (GIF I/O)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -122,19 +122,19 @@
 ### webpanimio.c (WebP Animation I/O)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixaWriteWebPAnim | ✅ 同等 | `Pixa::write_web_p_anim` |  |
-| pixaWriteStreamWebPAnim | ✅ 同等 | `Pixa::write_stream_web_p_anim` |  |
-| pixaWriteMemWebPAnim | ✅ 同等 | `Pixa::write_mem_web_p_anim` |  |
+| pixaWriteWebPAnim | ✅ 同等 | `write_webp_anim_file()` | フリー関数（webp.rs） |
+| pixaWriteStreamWebPAnim | ✅ 同等 | `write_webp_anim()` | フリー関数（webp.rs） |
+| pixaWriteMemWebPAnim | ✅ 同等 | `write_webp_anim_mem()` | フリー関数（webp.rs） |
 
 ### jp2kio.c (JPEG 2000 I/O)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixReadJp2k | ✅ 同等 | `jp2k::read_jp2k` | Top level wrapper |
 | pixReadStreamJp2k | ✅ 同等 | `jp2k::read_jp2k` | Uses jpeg2000 crate |
-| pixWriteJp2k | ✅ 同等 | `write_jp2k` |  |
-| pixWriteStreamJp2k | ✅ 同等 | `write_stream_jp2k` |  |
+| pixWriteJp2k | ✅ 同等 | `write_jp2k` | スタブ実装（`Err(UnsupportedFormat)`を返す） |
+| pixWriteStreamJp2k | ✅ 同等 | `write_jp2k` | ファイル版と統合。スタブ実装 |
 | pixReadMemJp2k | ✅ 同等 | `jp2k::read_jp2k_mem` | Memory版読み取り |
-| pixWriteMemJp2k | ✅ 同等 | `write_mem_jp2k` |  |
+| pixWriteMemJp2k | ✅ 同等 | `write_jp2k_mem` | スタブ実装（`Err(UnsupportedFormat)`を返す） |
 
 ### pdfio1.c (PDF I/O - High Level)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -142,7 +142,7 @@
 | convertFilesToPdf | 🔄 異なる | `pdf::write_pdf_from_files` | パス群→PDF、異なるAPI |
 | saConvertFilesToPdf | 🚫 不要 | - | SARRAY版（write_pdf_from_filesで代替可） |
 | saConvertFilesToPdfData | 🚫 不要 | - | SARRAY版（直接APIで代替可） |
-| selectDefaultPdfEncoding | ✅ 同等 | `select_default_pdf_encoding` |  |
+| selectDefaultPdfEncoding | ✅ 同等 | `select_default_encoding` |  |
 | convertUnscaledFilesToPdf | ✅ 同等 | `convert_unscaled_files_to_pdf` |  |
 | saConvertUnscaledFilesToPdf | 🚫 不要 | - | SARRAY版（直接APIで代替可） |
 | saConvertUnscaledFilesToPdfData | 🚫 不要 | - | SARRAY版（直接APIで代替可） |
@@ -200,19 +200,19 @@
 | sarrayConvertFilesFittedToPS | 🚫 不要 | - | SARRAY版（convertFilesFittedToPSで代替可） |
 | writeImageCompressedToPSFile | ✅ 同等 | `write_image_compressed_to_ps_file` |  |
 | convertSegmentedPagesToPS | ✅ 同等 | `convert_segmented_pages_to_ps` |  |
-| pixWriteSegmentedPageToPS | ✅ 同等 | `write_segmented_page_to_ps` |  |
-| pixWriteMixedToPS | ✅ 同等 | `write_mixed_to_ps` |  |
+| pixWriteSegmentedPageToPS | ✅ 同等 | `pix_write_segmented_page_to_ps` |  |
+| pixWriteMixedToPS | ✅ 同等 | `pix_write_mixed_to_ps` |  |
 | convertToPSEmbed | ✅ 同等 | `convert_to_ps_embed` |  |
 | pixaWriteCompressedToPS | 🔄 異なる | `ps::write_ps_multi` | マルチページPS、異なるAPI |
-| pixWriteCompressedToPS | ✅ 同等 | `write_compressed_to_ps` |  |
+| pixWriteCompressedToPS | ✅ 同等 | `pix_write_compressed_to_ps` |  |
 
 ### psio2.c (PostScript I/O - Low Level)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | pixWritePSEmbed | 🔄 異なる | `ps::write_ps` | 埋め込みPS、異なるAPI |
 | pixWriteStreamPS | 🔄 異なる | `ps::write_ps` | Stream版、異なるAPI |
-| pixWriteStringPS | ✅ 同等 | `write_string_ps` |  |
-| generateUncompressedPS | ✅ 同等 | `generate_uncompressed_ps` |  |
+| pixWriteStringPS | ✅ 同等 | `pix_write_string_ps` |  |
+| generateUncompressedPS | ✅ 同等 | `generate_uncompressed_ps_from_pix` |  |
 | convertJpegToPSEmbed | ✅ 同等 | `convert_jpeg_to_ps_embed` |  |
 | convertJpegToPS | ✅ 同等 | `convert_jpeg_to_ps` |  |
 | convertG4ToPSEmbed | ✅ 同等 | `convert_g4_to_ps_embed` |  |
@@ -227,7 +227,7 @@
 ### readfile.c (汎用読み取り)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixaReadFiles | ✅ 同等 | `Pixa::read_files` |  |
+| pixaReadFiles | ✅ 同等 | `pixa_read_files()` | フリー関数（io/mod.rs） |
 | pixaReadFilesSA | 🚫 不要 | - | SARRAY版（pixaReadFilesで代替可） |
 | pixRead | ✅ 同等 | `read_image` | ファイルパスから読み取り |
 | pixReadWithHint | 🚫 不要 | - | C/libjpeg固有のデコードヒント |
@@ -248,7 +248,7 @@
 |-------|------|----------|------|
 | l_jpegSetQuality | 🚫 不要 | - | RustではJpegOptions.qualityで対応 |
 | setLeptDebugOK | 🚫 不要 | - | C固有のグローバルデバッグフラグ |
-| pixaWriteFiles | ✅ 同等 | `Pixa::write_files` |  |
+| pixaWriteFiles | ✅ 同等 | `pixa_write_files()` | フリー関数（io/mod.rs） |
 | pixWriteDebug | 🚫 不要 | - | デバッグ専用書き込み |
 | pixWrite | ✅ 同等 | `write_image` | ファイルパスへ書き込み |
 | pixWriteAutoFormat | ✅ 同等 | `write_image_auto` | 拡張子推定による書き込み |
@@ -351,7 +351,7 @@
 
 ## まとめ
 
-Rust版leptonica-ioは、全移植計画の完了により、C版202関数のうち157関数（77.7%）が同等または類似の機能を提供している。45関数（22.3%）はRust固有の設計（Options構造体、feature gate、Drop trait等）により不要と判定した。🚫不要を除く実カバレッジは100%に達した。
+Rust版leptonica-ioは、全移植計画の完了により、C版202関数のうち155関数（76.7%）が同等または類似の機能を提供している。45関数（22.3%）はRust固有の設計（Options構造体、feature gate、Drop trait等）により不要と判定した。🚫不要を除く実カバレッジは98.7%に達している。
 
 主な追加機能:
 - JPEG書き込み（Phase 1）
@@ -362,4 +362,4 @@ Rust版leptonica-ioは、全移植計画の完了により、C版202関数のう
 - PDF DCT（JPEG）圧縮（Phase 6）
 - PS マルチページ + Level 2 DCT圧縮（Phase 7）
 
-全関数の実装が完了し、未実装関数は0件となった。
+未実装関数は2件（`fgetPngColormapInfo`、`fgetJpegComment`）。JP2K書き込み（`write_jp2k`、`write_jp2k_mem`）はスタブ実装で`Err(UnsupportedFormat)`を返す。

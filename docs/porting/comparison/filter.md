@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 107 |
+| ✅ 同等 | 96 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 0 |
+| ❌ 未実装 | 11 |
 | 🚫 不要 | 11 |
 | 合計 | 118 |
 
@@ -52,20 +52,20 @@
 | kernelCopy | ✅ 同等 | Kernel::clone() | カーネルクローン（Copy/Clone) |
 | kernelGetElement | ✅ 同等 | kernel.rs Kernel::get() | 要素読み込み |
 | kernelSetElement | ✅ 同等 | kernel.rs Kernel::set() | 要素書き込み |
-| kernelGetParameters | ✅ 同等 | kernel.rs Kernel::width/height/cx/cy() | パラメータゲッター |
-| kernelSetOrigin | ✅ 同等 | kernel.rs Kernel::set_origin() | カーネル原点設定 |
+| kernelGetParameters | ✅ 同等 | kernel.rs Kernel::width/height/center_x/center_y() | パラメータゲッター |
+| kernelSetOrigin | ✅ 同等 | kernel.rs Kernel::set_center() | カーネル原点設定 |
 | kernelGetSum | ✅ 同等 | kernel.rs Kernel::sum() | カーネル合計値 |
-| kernelGetMinMax | ✅ 同等 | kernel.rs Kernel::min_max() | カーネルMin/Max値 |
+| kernelGetMinMax | ❌ 未実装 | - | カーネルMin/Max値 |
 | kernelNormalize | ✅ 同等 | kernel.rs Kernel::normalize() | カーネル正規化 |
-| kernelInvert | ✅ 同等 | kernel.rs Kernel::invert() | カーネル反転 |
-| kernelRead | ✅ 同等 | kernel.rs Kernel::read() | ファイルからカーネル読み込み |
-| kernelReadStream | ✅ 同等 | kernel.rs (read()に統合) | ストリーム読み込み（Rust版では統合） |
-| kernelWrite | ✅ 同等 | kernel.rs Kernel::write() | ファイルにカーネル書き込み |
-| kernelWriteStream | ✅ 同等 | kernel.rs (write()に統合) | ストリーム書き込み（Rust版では統合） |
-| kernelCreateFromString | ✅ 同等 | kernel.rs Kernel::from_string() | 文字列パースからカーネル生成 |
-| kernelCreateFromFile | ✅ 同等 | kernel.rs Kernel::from_file() | ファイルからカーネル生成 |
-| kernelCreateFromPix | ✅ 同等 | kernel.rs Kernel::from_pix() | Pixからカーネル生成 |
-| kernelDisplayInPix | ✅ 同等 | kernel.rs Kernel::display_in_pix() | Pix内にカーネル可視化 |
+| kernelInvert | ❌ 未実装 | - | カーネル反転 |
+| kernelRead | ❌ 未実装 | - | ファイルからカーネル読み込み |
+| kernelReadStream | ❌ 未実装 | - | ストリーム読み込み |
+| kernelWrite | ❌ 未実装 | - | ファイルにカーネル書き込み |
+| kernelWriteStream | ❌ 未実装 | - | ストリーム書き込み |
+| kernelCreateFromString | ❌ 未実装 | - | 文字列パースからカーネル生成 |
+| kernelCreateFromFile | ❌ 未実装 | - | ファイルからカーネル生成 |
+| kernelCreateFromPix | ❌ 未実装 | - | Pixからカーネル生成 |
+| kernelDisplayInPix | ❌ 未実装 | - | Pix内にカーネル可視化 |
 
 ### edge.c
 
@@ -140,7 +140,7 @@
 | pixFillMapHoles | ✅ 同等 | adaptmap.rs fill_map_holes() | マップの穴埋め |
 | pixExtendByReplication | ✅ 同等 | adaptmap.rs extend_by_replication() | 複製による拡張 |
 | pixSmoothConnectedRegions | ✅ 同等 | adaptmap.rs smooth_connected_regions() | 連結領域の平滑化 |
-| pixGetForegroundGrayMap | ✅ 同等 | `get_foreground_gray_map` | グレー前景マップ取得 (returns l_int32) |
+| pixGetForegroundGrayMap | ❌ 未実装 | - | グレー前景マップ取得 |
 | pixGetInvBackgroundMap | ✅ 同等 | adaptmap.rs get_inv_background_map() | 逆背景マップ取得 |
 | pixApplyInvBackgroundGrayMap | ✅ 同等 | adaptmap.rs apply_inv_background_gray_map() | グレー逆背景マップ適用 |
 | pixApplyInvBackgroundRGBMap | ✅ 同等 | adaptmap.rs apply_inv_background_rgb_map() | RGB逆背景マップ適用 |
@@ -150,9 +150,9 @@
 | pixThresholdSpreadNorm | ✅ 同等 | adaptmap.rs threshold_spread_norm() | 閾値スプレッド正規化 |
 | pixBackgroundNormFlex | ✅ 同等 | adaptmap.rs background_norm_flex() | フレキシブル背景正規化 |
 | pixContrastNorm | ✅ 同等 | contrast_norm() | コントラスト正規化 |
-| pixMinMaxTiles | 🚫 不要 | - | static内部ヘルパー（contrast_norm内で実装済み） |
-| pixSetLowContrast | 🚫 不要 | - | static内部ヘルパー（contrast_norm内で実装済み） |
-| pixLinearTRCTiled | 🚫 不要 | - | static内部ヘルパー（contrast_norm内で実装済み） |
+| pixMinMaxTiles | 🚫 不要 | - | プライベート関数 `min_max_tiles` として存在 |
+| pixSetLowContrast | 🚫 不要 | - | プライベート関数 `set_low_contrast` として存在 |
+| pixLinearTRCTiled | 🚫 不要 | - | プライベート関数 `linear_trc_tiled` として存在 |
 | pixBackgroundNormTo1MinMax | ✅ 同等 | adaptmap.rs background_norm_to_1_min_max() | 背景正規化→1 bpp MinMax |
 | pixConvertTo8MinMax | ✅ 同等 | adaptmap.rs convert_to_8_min_max() | 8 bpp MinMax変換 |
 | pixSelectiveContrastMod | 🚫 不要 | - | static内部ヘルパー |
@@ -184,11 +184,10 @@
 
 ### 実装完了した機能（元未実装 → 全て実装済み）
 
-全ての未実装関数が実装された:
+以下の関数が実装された:
 1. **エッジ検出**: pixTwoSidedEdgeFilter, pixHalfEdgeByBandpass — 実装済み
 2. **エッジ測定**: pixMeasureEdgeSmoothness, pixGetEdgeProfile — 実装済み
-3. **適応マップ**: pixGetForegroundGrayMap — 実装済み
-4. **ランクフィルタ**: pixRankFilterWithScaling — 実装済み
+3. **ランクフィルタ**: pixRankFilterWithScaling — 実装済み
 
 ### 不要と判断した機能（🚫 不要: 11件）
 
@@ -213,5 +212,6 @@
 - タイル化による大画像処理対応
 - 分離可能畳み込みによる計算量削減
 
-### 実装完了
-全関数の実装が完了。🚫不要を除く実カバレッジは100%に達した。
+### 未実装（❌ 11件）
+1. **カーネルI/O・変換**: kernelGetMinMax, kernelInvert, kernelRead/ReadStream, kernelWrite/WriteStream, kernelCreateFromString/FromFile/FromPix, kernelDisplayInPix
+2. **適応マップ**: pixGetForegroundGrayMap
