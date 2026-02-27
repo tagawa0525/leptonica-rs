@@ -13,6 +13,7 @@
 //! - Morphological sequence operations for chaining multiple operations
 
 pub mod binary;
+pub mod binreduce;
 pub mod color;
 pub mod dwa;
 mod error;
@@ -33,6 +34,9 @@ pub use binary::{
     close_safe_comp_brick, dilate, dilate_brick, erode, erode_brick, extract_boundary, gradient,
     hit_miss_transform, open, open_brick, open_generalized, top_hat,
 };
+
+// Re-export binary reduction functions
+pub use binreduce::{make_subsample_tab_2x, reduce_binary_2};
 
 // Re-export commonly used grayscale morphology functions
 pub use grayscale::{

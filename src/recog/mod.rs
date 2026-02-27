@@ -74,12 +74,14 @@ pub mod classapp;
 pub mod correlscore;
 pub mod dewarp;
 mod error;
+pub mod finditalic;
 pub mod flipdetect;
 pub mod jbclass;
 pub mod pageseg;
 #[allow(clippy::module_inception)]
 pub mod recog;
 pub mod skew;
+pub mod strokes;
 
 pub use error::{RecogError, RecogResult};
 

@@ -57,10 +57,12 @@
 //! ```
 
 pub mod ccbord;
+pub mod checkerboard;
 pub mod conncomp;
 pub mod error;
 pub mod label;
 pub mod maze;
+pub mod partition;
 pub mod quadtree;
 pub mod seedfill;
 pub mod select;
@@ -122,6 +124,12 @@ pub use quadtree::{
     quadtree_mean, quadtree_mean_with_integral, quadtree_regions, quadtree_variance,
     quadtree_variance_with_integral, variance_in_rectangle,
 };
+
+// Re-export checkerboard types and functions
+pub use checkerboard::find_checkerboard_corners;
+
+// Re-export partition types and functions
+pub use partition::{WhiteblockSort, boxa_get_whiteblocks, boxa_prune_sorted_on_overlap};
 
 // Re-export maze types and functions
 pub use maze::{

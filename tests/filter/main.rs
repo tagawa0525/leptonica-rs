@@ -24,3 +24,4 @@ mod rankhisto_reg;
 mod edge_smoothness_reg;
 mod half_edge_reg;
 mod rank_scaling_reg;
+mod runlength_reg;

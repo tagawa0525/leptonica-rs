@@ -27,4 +27,6 @@ mod spixio_reg;
 #[cfg(feature = "webp-format")]
 mod webpio_reg;
 
+mod convertfiles_reg;
 mod io_coverage_reg;
+mod partify_reg;

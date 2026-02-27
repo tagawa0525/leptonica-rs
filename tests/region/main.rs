@@ -2,12 +2,14 @@
 mod common;
 
 mod ccbord_reg;
+mod checkerboard_reg;
 mod conncomp_ext_reg;
 mod conncomp_reg;
 mod distance_reg;
 mod grayfill_reg;
 mod label_reg;
 mod maze_reg;
+mod partition_whitespace_reg;
 mod quadtree_reg;
 mod rectangle_reg;
 mod region_coverage_reg;

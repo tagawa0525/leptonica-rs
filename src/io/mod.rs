@@ -38,6 +38,9 @@ pub mod ps;
 pub mod header;
 pub mod spix;
 
+pub mod convertfiles;
+pub mod partify;
+
 pub use crate::core::{ImageFormat, Pix, PixMut, PixelDepth};
 pub use error::{IoError, IoResult};
 pub use format::{detect_format, detect_format_from_bytes};
