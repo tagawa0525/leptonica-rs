@@ -49,20 +49,20 @@ pub fn find_word_and_character_boxes(
     }
 
     // Clip to sub-region if specified
-    let (pix1, xs, ys) = if let Some(bs) = box_s {
-        let clipped = pix_s.clip_rectangle(
+    let (clipped, xs, ys) = if let Some(bs) = box_s {
+        let c = pix_s.clip_rectangle(
             bs.x.max(0) as u32,
             bs.y.max(0) as u32,
             bs.w.max(1) as u32,
             bs.h.max(1) as u32,
         )?;
-        (clipped, bs.x, bs.y)
+        (Some(c), bs.x, bs.y)
     } else {
-        (pix_s.deep_clone(), 0, 0)
+        (None, 0, 0)
     };
 
     // Convert to 8 bpp grayscale
-    let pix2 = pix1.convert_to_8()?;
+    let pix2 = clipped.as_ref().unwrap_or(pix_s).convert_to_8()?;
 
     // Binarize with low threshold to reduce touching characters
     let pix3 = ensure_binary_with_threshold(&pix2, thresh)?;
@@ -128,9 +128,9 @@ pub fn find_word_and_character_boxes(
         // Transform to coordinates relative to full input image
         let boxa5: Boxa = boxa4
             .iter()
-            .map(|b| Box::new_unchecked(b.x + xs + xb, b.y + ys + yb, b.w, b.h))
+            .map(|b| Box::new_unchecked((b.x + xs + xb).max(0), (b.y + ys + yb).max(0), b.w, b.h))
             .collect();
-        let box2 = Box::new_unchecked(box1.x + xs, box1.y + ys, box1.w, box1.h);
+        let box2 = Box::new_unchecked((box1.x + xs).max(0), (box1.y + ys).max(0), box1.w, box1.h);
 
         // Only include words that have characters after filtering
         if !boxa5.is_empty() {
@@ -335,7 +335,7 @@ pub fn numaa_compare_images_by_boxes(
 ///
 /// Each Numa contains: [y_center, xl_0, xr_0, xl_1, xr_1, ...]
 /// Checks that left and right edges of boxes 0..nperline match within `delx`
-/// after applying the horizontal `shiftx`.
+/// after compensating for the horizontal offset `shiftx` (image1 − image2).
 fn test_line_alignment_x(na1: &Numa, na2: &Numa, shiftx: i32, delx: i32, nperline: usize) -> bool {
     for i in 0..nperline {
         // Box edges are at indices: 1 + 2*i (left), 2 + 2*i (right)
@@ -432,6 +432,7 @@ fn count_aligned_matches(
 }
 
 /// Ensures binary with optional threshold for grayscale input.
+// TODO: Extract to shared module (duplicated in pageseg.rs)
 fn ensure_binary_with_threshold(pix: &Pix, threshold: u32) -> RecogResult<Pix> {
     match pix.depth() {
         PixelDepth::Bit1 => Ok(pix.deep_clone()),
