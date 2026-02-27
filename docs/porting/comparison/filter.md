@@ -6,9 +6,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 96 |
+| ✅ 同等 | 107 |
 | 🔄 異なる | 0 |
-| ❌ 未実装 | 11 |
+| ❌ 未実装 | 0 |
 | 🚫 不要 | 11 |
 | 合計 | 118 |
 
@@ -55,17 +55,17 @@
 | kernelGetParameters | ✅ 同等 | kernel.rs Kernel::width/height/center_x/center_y() | パラメータゲッター |
 | kernelSetOrigin | ✅ 同等 | kernel.rs Kernel::set_center() | カーネル原点設定 |
 | kernelGetSum | ✅ 同等 | kernel.rs Kernel::sum() | カーネル合計値 |
-| kernelGetMinMax | ❌ 未実装 | - | カーネルMin/Max値 |
+| kernelGetMinMax | ✅ 同等 | `Kernel::get_min_max` | カーネルMin/Max値 |
 | kernelNormalize | ✅ 同等 | kernel.rs Kernel::normalize() | カーネル正規化 |
-| kernelInvert | ❌ 未実装 | - | カーネル反転 |
-| kernelRead | ❌ 未実装 | - | ファイルからカーネル読み込み |
-| kernelReadStream | ❌ 未実装 | - | ストリーム読み込み |
-| kernelWrite | ❌ 未実装 | - | ファイルにカーネル書き込み |
-| kernelWriteStream | ❌ 未実装 | - | ストリーム書き込み |
-| kernelCreateFromString | ❌ 未実装 | - | 文字列パースからカーネル生成 |
-| kernelCreateFromFile | ❌ 未実装 | - | ファイルからカーネル生成 |
-| kernelCreateFromPix | ❌ 未実装 | - | Pixからカーネル生成 |
-| kernelDisplayInPix | ❌ 未実装 | - | Pix内にカーネル可視化 |
+| kernelInvert | ✅ 同等 | `Kernel::invert` | カーネル反転 |
+| kernelRead | ✅ 同等 | `Kernel::read` | ファイルからカーネル読み込み |
+| kernelReadStream | ✅ 同等 | `Kernel::read` | ストリーム読み込み |
+| kernelWrite | ✅ 同等 | `Kernel::write` | ファイルにカーネル書き込み |
+| kernelWriteStream | ✅ 同等 | `Kernel::write` | ストリーム書き込み |
+| kernelCreateFromString | ✅ 同等 | `Kernel::from_string` | 文字列パースからカーネル生成 |
+| kernelCreateFromFile | ✅ 同等 | `Kernel::from_file` | ファイルからカーネル生成 |
+| kernelCreateFromPix | ✅ 同等 | `Kernel::from_pix` | Pixからカーネル生成 |
+| kernelDisplayInPix | ✅ 同等 | `Kernel::display_in_pix` | Pix内にカーネル可視化 |
 
 ### edge.c
 
@@ -140,7 +140,7 @@
 | pixFillMapHoles | ✅ 同等 | adaptmap.rs fill_map_holes() | マップの穴埋め |
 | pixExtendByReplication | ✅ 同等 | adaptmap.rs extend_by_replication() | 複製による拡張 |
 | pixSmoothConnectedRegions | ✅ 同等 | adaptmap.rs smooth_connected_regions() | 連結領域の平滑化 |
-| pixGetForegroundGrayMap | ❌ 未実装 | - | グレー前景マップ取得 |
+| pixGetForegroundGrayMap | ✅ 同等 | `adaptmap::get_foreground_gray_map` | グレー前景マップ取得 |
 | pixGetInvBackgroundMap | ✅ 同等 | adaptmap.rs get_inv_background_map() | 逆背景マップ取得 |
 | pixApplyInvBackgroundGrayMap | ✅ 同等 | adaptmap.rs apply_inv_background_gray_map() | グレー逆背景マップ適用 |
 | pixApplyInvBackgroundRGBMap | ✅ 同等 | adaptmap.rs apply_inv_background_rgb_map() | RGB逆背景マップ適用 |
@@ -212,6 +212,6 @@
 - タイル化による大画像処理対応
 - 分離可能畳み込みによる計算量削減
 
-### 未実装（❌ 11件）
-1. **カーネルI/O・変換**: kernelGetMinMax, kernelInvert, kernelRead/ReadStream, kernelWrite/WriteStream, kernelCreateFromString/FromFile/FromPix, kernelDisplayInPix
-2. **適応マップ**: pixGetForegroundGrayMap
+### 未実装（❌ 0件）
+
+全関数が実装済み。

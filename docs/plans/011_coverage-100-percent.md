@@ -1,6 +1,6 @@
 # 未実装関数の実装（カバレッジ100%達成）
 
-**Status: PLANNED**
+**Status: IMPLEMENTED**
 
 ## 概要
 

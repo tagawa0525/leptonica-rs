@@ -8,14 +8,14 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 122 |
+| ✅ 同等 | 125 |
 | 🔄 異なる | 26 |
-| ❌ 未実装 | 3 |
+| ❌ 未実装 | 0 |
 | 🚫 不要 | 18 |
 | 合計 | 169 |
 
-> **注記**: Phase 1-13に加え、カバレッジ向上により148関数（🚫不要18関数を除く151関数中）が実装済み。
-> 🚫不要18関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。❌未実装3関数はclassapp.c由来。
+> **注記**: Phase 1-13に加え、カバレッジ向上により151関数（🚫不要18関数を除く151関数中）が実装済み。
+> 🚫不要18関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。
 
 ## 詳細
 
@@ -206,9 +206,9 @@
 ### classapp.c (JBIG2分類応用)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixFindWordAndCharacterBoxes | ❌ 未実装 | - | 単語および文字ボックスの検出 |
-| boxaExtractSortedPattern | ❌ 未実装 | - | パターンに基づくBoxa抽出 |
-| numaaCompareImagesByBoxes | ❌ 未実装 | - | ボックスベースの画像比較 |
+| pixFindWordAndCharacterBoxes | ✅ 同等 | `classapp::find_word_and_character_boxes` | 単語および文字ボックスの検出 |
+| boxaExtractSortedPattern | ✅ 同等 | `classapp::extract_sorted_pattern` | パターンに基づくBoxa抽出 |
+| numaaCompareImagesByBoxes | ✅ 同等 | `classapp::compare_images_by_boxes` | ボックスベースの画像比較 |
 
 ### bootnumgen1.c, bootnumgen2.c, bootnumgen3.c, bootnumgen4.c (Bootstrap数字生成データ)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -278,10 +278,10 @@
 ## 備考
 
 - C版の関数総数: 169関数（recog関連全体、この表の範囲）
-- Rust版実装済み: 148関数（✅122 + 🔄26）
+- Rust版実装済み: 151関数（✅125 + 🔄26）
 - 🚫不要: 18関数（デバッグ/可視化系・C固有getter/setter）
-- ❌未実装: 3関数（classapp.c由来）
-- 実装率: 87.6%（全体）、98.0%（🚫不要除外ベース）
+- ❌未実装: 0関数
+- 実装率: 89.3%（全体）、100.0%（🚫不要除外ベース）
 
 C版の全機能を網羅することは目標ではなく、Rustの慣用的な設計で同等の機能を提供することを重視しています。特に以下の点で設計が異なります：
 

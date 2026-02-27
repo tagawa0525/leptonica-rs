@@ -7,9 +7,9 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 137 |
+| ✅ 同等 | 139 |
 | 🔄 異なる | 18 |
-| ❌ 未実装 | 2 |
+| ❌ 未実装 | 0 |
 | 🚫 不要 | 45 |
 | 合計 | 202 |
 
@@ -32,7 +32,7 @@
 | readHeaderMemPng | ✅ 同等 | `png::read_header_png` | Unified with stream |
 | fgetPngResolution | ✅ 同等 | `png::read_header_png` | ImageHeader.x/y_resolution |
 | isPngInterlaced | ✅ 同等 | `is_png_interlaced` |  |
-| fgetPngColormapInfo | ❌ 未実装 | - |  |
+| fgetPngColormapInfo | ✅ 同等 | `png::get_colormap_info` |  |
 | pixWritePng | ✅ 同等 | `png::write_png` | Top level wrapper |
 | pixWriteStreamPng | ✅ 同等 | `png::write_png` | Uses png crate |
 | pixSetZlibCompression | 🚫 不要 | - | RustではPngOptions.compression_levelで対応 |
@@ -48,7 +48,7 @@
 | readHeaderJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | jpeg-decoderでinfo取得 |
 | freadHeaderJpeg | ✅ 同等 | `jpeg::read_header_jpeg` | Unified with stream |
 | fgetJpegResolution | ✅ 同等 | `jpeg::read_header_jpeg` | ImageHeader.x/y_resolution |
-| fgetJpegComment | ❌ 未実装 | - |  |
+| fgetJpegComment | ✅ 同等 | `jpeg::get_jpeg_comment` |  |
 | pixWriteJpeg | 🔄 異なる | `jpeg::write_jpeg` | jpeg-encoder使用、C版はlibjpeg |
 | pixWriteStreamJpeg | 🔄 異なる | `jpeg::write_jpeg` | jpeg-encoder使用 |
 | pixReadMemJpeg | ✅ 同等 | `jpeg::read_jpeg` | Unified with stream |
@@ -351,7 +351,7 @@
 
 ## まとめ
 
-Rust版leptonica-ioは、全移植計画の完了により、C版202関数のうち155関数（76.7%）が同等または類似の機能を提供している。45関数（22.3%）はRust固有の設計（Options構造体、feature gate、Drop trait等）により不要と判定した。🚫不要を除く実カバレッジは98.7%に達している。
+Rust版leptonica-ioは、全移植計画の完了により、C版202関数のうち157関数（77.7%）が同等または類似の機能を提供している。45関数（22.3%）はRust固有の設計（Options構造体、feature gate、Drop trait等）により不要と判定した。🚫不要を除く実カバレッジは100.0%に達している。
 
 主な追加機能:
 - JPEG書き込み（Phase 1）
@@ -362,4 +362,4 @@ Rust版leptonica-ioは、全移植計画の完了により、C版202関数のう
 - PDF DCT（JPEG）圧縮（Phase 6）
 - PS マルチページ + Level 2 DCT圧縮（Phase 7）
 
-未実装関数は2件（`fgetPngColormapInfo`、`fgetJpegComment`）。JP2K書き込み（`write_jp2k`、`write_jp2k_mem`）はスタブ実装で`Err(UnsupportedFormat)`を返す。
+未実装関数は0件。JP2K書き込み（`write_jp2k`、`write_jp2k_mem`）はスタブ実装で`Err(UnsupportedFormat)`を返す。
