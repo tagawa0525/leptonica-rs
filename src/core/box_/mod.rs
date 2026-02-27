@@ -1240,11 +1240,7 @@ impl Boxaa {
             }
             if let Some(ext) = boxa.bounding_box() {
                 let (yt, ht) = (ext.y, ext.h);
-                let ovlp = if yt >= by {
-                    by + bh - 1 - yt
-                } else {
-                    yt + ht - 1 - by
-                };
+                let ovlp = (by + bh).min(yt + ht) - by.max(yt);
                 if ovlp > max_ovlp {
                     max_ovlp = ovlp;
                     max_index = i;

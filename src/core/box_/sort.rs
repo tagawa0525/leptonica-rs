@@ -88,6 +88,14 @@ impl Boxa {
 
         let na: Numa = self.iter().map(|b| Self::sort_key(b, sort_type)).collect();
 
+        // Shift all values to be non-negative so they can be used as bucket indices
+        let min_val = na.min_value().unwrap_or(0.0);
+        let na = if min_val < 0.0 {
+            na.iter().map(|v| v - min_val).collect()
+        } else {
+            na
+        };
+
         let naindex = na.bin_sort_index(order)?;
         let boxad = self.sort_by_index(&naindex)?;
         Ok((boxad, naindex))
@@ -229,6 +237,9 @@ impl Boxa {
     /// C Leptonica equivalent: `boxaEncapsulateAligned`
     pub fn encapsulate_aligned(&self, num: usize) -> Boxaa {
         let n = self.len();
+        if num == 0 || n == 0 {
+            return Boxaa::new();
+        }
         let nbaa = n / num;
         let mut baa = Boxaa::with_capacity(nbaa);
         let mut index = 0;
