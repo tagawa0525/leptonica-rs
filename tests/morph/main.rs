@@ -7,6 +7,7 @@ mod binmorph3_reg;
 mod binmorph4_reg;
 mod binmorph5_reg;
 mod binmorph6_reg;
+mod binreduce_reg;
 mod ccthin1_reg;
 mod ccthin2_reg;
 mod colormorph_reg;
