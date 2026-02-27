@@ -367,6 +367,139 @@ pub fn get_background_rgb_map(
 ///
 /// C版: `pixFillMapHoles()` in `adaptmap.c`
 ///
+/// Get a grayscale foreground map from an 8bpp image.
+///
+/// C equivalent: `pixGetForegroundGrayMap` in `adaptmap.c`
+///
+/// Each (sx, sy) tile of the source gets mapped to one pixel in the output,
+/// estimating the darkest (foreground) value within each tile. Pixels in
+/// 'image' regions (specified by `mask`) are set to 0.
+///
+/// The procedure is:
+/// 1. Reduce 2x by sampling
+/// 2. Paint 'image' mask pixels white
+/// 3. Min reduction downscaling by (sx, sy)
+/// 4. Threshold to identify fg; paint bg to 255
+/// 5. Expand replicate 2x
+/// 6. Fill holes by propagation
+/// 7. Smooth with blockconv (half-width 8)
+/// 8. Paint 'image' regions black
+pub fn get_foreground_gray_map(
+    pix: &Pix,
+    mask: Option<&Pix>,
+    sx: u32,
+    sy: u32,
+    thresh: u32,
+) -> FilterResult<Pix> {
+    use crate::color::threshold::threshold_to_binary;
+    use crate::filter::block_conv::blockconv;
+    use crate::filter::rank::{MinMaxOp, scale_gray_min_max};
+    use crate::transform::binreduce::reduce_rank_binary_2;
+    use crate::transform::scale::{expand_replicate, scale_by_sampling};
+
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if let Some(m) = mask
+        && m.depth() != PixelDepth::Bit1
+    {
+        return Err(FilterError::InvalidParameters(
+            "mask must be 1 bpp".to_string(),
+        ));
+    }
+    if sx < 2 || sy < 2 {
+        return Err(FilterError::InvalidParameters(
+            "sx and sy must be >= 2".to_string(),
+        ));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+    let wd = w.div_ceil(sx);
+    let hd = h.div_ceil(sy);
+
+    // Check if mask covers everything (all image pixels → return zeros)
+    let fg_pixels;
+    if let Some(m) = mask {
+        let inverted = m.invert();
+        if inverted.is_zero() {
+            // Entire image is masked → return all-zero output
+            return Ok(Pix::new(wd, hd, PixelDepth::Bit8)?);
+        }
+        fg_pixels = !m.is_zero();
+    } else {
+        fg_pixels = false;
+    }
+
+    // 2x subsampling
+    let mut pixs2 = scale_by_sampling(pix, 0.5, 0.5)?;
+
+    // Paint white through 'image' mask
+    if let Some(m) = mask
+        && fg_pixels
+    {
+        let pixim2 = reduce_rank_binary_2(m, 1)?;
+        let mut pixs2_mut = pixs2.try_into_mut().unwrap();
+        pixs2_mut.paint_through_mask(&pixim2, 0, 0, 255)?;
+        pixs2 = pixs2_mut.into();
+    }
+
+    // Min downscaling; total reduction (2 * sx, 2 * sy) → output is roughly (w/(2*sx), h/(2*sy))
+    let pixt1 = scale_gray_min_max(&pixs2, sx, sy, MinMaxOp::Min)?;
+
+    // Validate thresh fits in u8
+    if thresh > u8::MAX as u32 {
+        return Err(FilterError::InvalidParameters(format!(
+            "thresh value {} exceeds maximum of 255",
+            thresh
+        )));
+    }
+
+    // Threshold to identify fg; paint bg pixels white
+    let pixb = threshold_to_binary(&pixt1, thresh as u8)
+        .map_err(|e| FilterError::InvalidParameters(e.to_string()))?;
+    let pixb_inv = pixb.invert();
+    let pixt1_mut_pix: Pix = {
+        let mut pixt1_mut = pixt1.try_into_mut().unwrap();
+        pixt1_mut.paint_through_mask(&pixb_inv, 0, 0, 255)?;
+        pixt1_mut.into()
+    };
+
+    // Replicative expansion by 2x
+    let pixt2 = expand_replicate(&pixt1_mut_pix, 2)?;
+
+    // Fill holes in fg by propagation
+    let valid_x = (w / sx).min(pixt2.width());
+    let valid_y = (h / sy).min(pixt2.height());
+    let pixt2_filled = fill_map_holes(&pixt2, valid_x, valid_y)?;
+
+    // Smooth with 17x17 kernel (blockconv half-width 8)
+    let pixt3 = blockconv(&pixt2_filled, 8, 8)?;
+
+    // Copy to output dimensions
+    let pixd = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+    let copy_w = wd.min(pixt3.width());
+    let copy_h = hd.min(pixt3.height());
+    for y in 0..copy_h {
+        for x in 0..copy_w {
+            let val = pixt3.get_pixel(x, y).unwrap_or(0);
+            pixd_mut.set_pixel_unchecked(x, y, val);
+        }
+    }
+
+    // Paint 'image' regions black
+    if let Some(m) = mask {
+        let pixims = scale_by_sampling(m, 1.0 / sx as f32, 1.0 / sy as f32)?;
+        pixd_mut.paint_through_mask(&pixims, 0, 0, 0)?;
+    }
+
+    Ok(pixd_mut.into())
+}
+
 /// Propagates non-zero values into zero-valued tiles using two passes:
 /// 1. Forward pass (left-to-right, top-to-bottom)
 /// 2. Reverse pass (right-to-left, bottom-to-top)

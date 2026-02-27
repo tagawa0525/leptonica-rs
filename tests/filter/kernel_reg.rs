@@ -49,6 +49,151 @@ fn kernel_reg_creation() {
     assert!(rp.cleanup(), "kernel creation test failed");
 }
 
+/// Test kernelCreateFromString equivalent.
+#[test]
+fn kernel_reg_from_string() {
+    let mut rp = RegParams::new("kernel_from_string");
+
+    let kdata = " 2   4   5   4   2 \
+                  4   9  12   9   4 \
+                  5  12  15  12   5 \
+                  4   9  12   9   4 \
+                  2   4   5   4   2";
+    let kernel = Kernel::from_string(5, 5, 2, 2, kdata).expect("from_string 5x5");
+    rp.compare_values(5.0, kernel.width() as f64, 0.0);
+    rp.compare_values(5.0, kernel.height() as f64, 0.0);
+    rp.compare_values(2.0, kernel.center_x() as f64, 0.0);
+    rp.compare_values(2.0, kernel.center_y() as f64, 0.0);
+    rp.compare_values(15.0, kernel.get(2, 2).unwrap() as f64, 0.0);
+
+    assert!(rp.cleanup(), "kernel from_string test failed");
+}
+
+/// Test kernel I/O (write/read roundtrip).
+#[test]
+fn kernel_reg_io() {
+    let mut rp = RegParams::new("kernel_io");
+
+    let data: Vec<f32> = vec![
+        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0, 4.0, 2.0, 1.0, 0.0, 1.0, 2.0,
+        1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+    ];
+    let kernel = Kernel::from_slice(5, 5, &data).expect("from_slice 5x5");
+
+    // Write to buffer and read back
+    let mut buf = Vec::new();
+    kernel.write(&mut buf).expect("write kernel");
+    let kernel2 = Kernel::read(buf.as_slice()).expect("read kernel");
+
+    rp.compare_values(kernel.width() as f64, kernel2.width() as f64, 0.0);
+    rp.compare_values(kernel.height() as f64, kernel2.height() as f64, 0.0);
+    rp.compare_values(kernel.center_x() as f64, kernel2.center_x() as f64, 0.0);
+    rp.compare_values(kernel.center_y() as f64, kernel2.center_y() as f64, 0.0);
+    rp.compare_values(kernel.sum() as f64, kernel2.sum() as f64, 0.1);
+
+    assert!(rp.cleanup(), "kernel io test failed");
+}
+
+/// Test kernel get_min_max and invert.
+#[test]
+fn kernel_reg_min_max_invert() {
+    let mut rp = RegParams::new("kernel_minmax_inv");
+
+    let data: Vec<f32> = vec![-1.0, 0.0, 1.0, 0.0, 5.0, 0.0, -1.0, 0.0, 1.0];
+    let kernel = Kernel::from_slice(3, 3, &data).expect("from_slice 3x3");
+
+    // get_min_max
+    let (min, max) = kernel.get_min_max();
+    rp.compare_values(-1.0, min as f64, 0.0);
+    rp.compare_values(5.0, max as f64, 0.0);
+
+    // invert (spatial flip)
+    let inv = kernel.invert();
+    rp.compare_values(1.0, inv.get(0, 0).unwrap() as f64, 0.0);
+    rp.compare_values(5.0, inv.get(1, 1).unwrap() as f64, 0.0);
+    rp.compare_values(-1.0, inv.get(2, 2).unwrap() as f64, 0.0);
+
+    assert!(rp.cleanup(), "kernel min_max/invert test failed");
+}
+
+/// Test kernelCreateFromPix equivalent.
+#[test]
+fn kernel_reg_from_pix() {
+    use leptonica::core::{Pix, PixelDepth};
+
+    let mut rp = RegParams::new("kernel_from_pix");
+
+    let pix = Pix::new(5, 5, PixelDepth::Bit8).expect("create 5x5 pix");
+    let mut pix_mut = pix.try_into_mut().unwrap();
+    pix_mut.set_pixel_unchecked(2, 2, 200);
+    pix_mut.set_pixel_unchecked(0, 0, 50);
+    let pix: Pix = pix_mut.into();
+
+    let kernel = Kernel::from_pix(&pix, 2, 2).expect("from_pix");
+    rp.compare_values(5.0, kernel.width() as f64, 0.0);
+    rp.compare_values(5.0, kernel.height() as f64, 0.0);
+    rp.compare_values(200.0, kernel.get(2, 2).unwrap() as f64, 0.0);
+    rp.compare_values(50.0, kernel.get(0, 0).unwrap() as f64, 0.0);
+
+    assert!(rp.cleanup(), "kernel from_pix test failed");
+}
+
+/// Test kernelDisplayInPix equivalent.
+#[test]
+fn kernel_reg_display() {
+    let mut rp = RegParams::new("kernel_display");
+
+    let data: Vec<f32> = vec![0.0, 1.0, 0.0, 1.0, 4.0, 1.0, 0.0, 1.0, 0.0];
+    let kernel = Kernel::from_slice(3, 3, &data).expect("from_slice 3x3");
+
+    // Simple 1-pixel-per-element mode
+    let pix1 = kernel.display_in_pix(1, false).expect("display size=1");
+    rp.compare_values(3.0, pix1.width() as f64, 0.0);
+    rp.compare_values(3.0, pix1.height() as f64, 0.0);
+    rp.compare_values(8.0, pix1.depth().bits() as f64, 0.0);
+
+    // Grid mode
+    let pix2 = kernel.display_in_pix(17, true).expect("display size=17");
+    rp.compare_values(8.0, pix2.depth().bits() as f64, 0.0);
+    // width = 17*3 + 2*(3+1) = 51 + 8 = 59
+    rp.compare_values(59.0, pix2.width() as f64, 0.0);
+
+    assert!(rp.cleanup(), "kernel display test failed");
+}
+
+/// Test kernelCreateFromFile equivalent.
+#[test]
+fn kernel_reg_from_file() {
+    use std::io::Write;
+
+    let mut rp = RegParams::new("kernel_from_file");
+
+    let dir = std::env::temp_dir();
+    let path = dir.join(format!(
+        "kernel_reg_test_{}_{:?}_.txt",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    {
+        let mut f = std::fs::File::create(&path).expect("create temp file");
+        writeln!(f, "# test kernel for regression").unwrap();
+        writeln!(f, "3 3").unwrap();
+        writeln!(f, "1 1").unwrap();
+        writeln!(f, "1.0 2.0 1.0").unwrap();
+        writeln!(f, "2.0 4.0 2.0").unwrap();
+        writeln!(f, "1.0 2.0 1.0").unwrap();
+    }
+    let kernel = Kernel::from_file(&path).expect("from_file");
+    rp.compare_values(3.0, kernel.width() as f64, 0.0);
+    rp.compare_values(3.0, kernel.height() as f64, 0.0);
+    rp.compare_values(4.0, kernel.get(1, 1).unwrap() as f64, 0.0);
+    rp.compare_values(16.0, kernel.sum() as f64, 0.01);
+
+    std::fs::remove_file(&path).ok();
+
+    assert!(rp.cleanup(), "kernel from_file test failed");
+}
+
 /// Test pixConvolve with custom kernel (C checks 6-7).
 ///
 /// Verifies convolve and convolve_gray preserve dimensions.
