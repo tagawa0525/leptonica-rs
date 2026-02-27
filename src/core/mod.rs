@@ -16,6 +16,7 @@
 //!
 //! C Leptonica: `pix.h`, `box.h`, `pts.h`, `environ.h` (struct definitions)
 
+pub mod bmf;
 pub mod box_;
 pub mod colormap;
 pub mod encoding;
@@ -30,6 +31,7 @@ pub mod pixtiling;
 pub mod pta;
 pub mod sarray;
 
+pub use bmf::{Bmf, TextLocation, bmf_get_line_strings, bmf_get_string_width, bmf_get_word_widths};
 pub use box_::draw::make_mosaic_strips;
 pub use box_::extract::{BoxField, CornerLocation};
 pub use box_::sort::BoxSortType;
