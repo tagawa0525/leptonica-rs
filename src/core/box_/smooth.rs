@@ -374,7 +374,9 @@ impl Boxa {
                 ),
             };
 
-            boxad.push(Box::new_unchecked(ld, td, rd - ld + 1, bd - td + 1));
+            let wd = (rd - ld + 1).max(0);
+            let hd = (bd - td + 1).max(0);
+            boxad.push(Box::new_unchecked(ld, td, wd, hd));
         }
 
         Ok(boxad)
