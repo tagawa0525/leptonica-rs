@@ -38,8 +38,8 @@ pub mod transform;
 
 // Re-export core types at root level (maintaining public API)
 pub use core::{
-    BlendMode, Bmf, Box, BoxField, BoxSortType, Boxa, Boxaa, Color, ColorHistogram,
-    ColormapArrays, CompareResult, CompareType, ComponentsPerColor, ContourOutput, CornerLocation,
+    BlendMode, Bmf, Box, BoxField, BoxSortType, Boxa, Boxaa, Color, ColorHistogram, ColormapArrays,
+    CompareResult, CompareType, ComponentsPerColor, ContourOutput, CornerLocation,
     CountRelativeToZero, DPix, DiffDirection, Error, ExtremeResult, ExtremeType, FPix, FPixa,
     GPlot, GPlotOutput, GPlotScaling, GrayBlendType, HistogramResult, HistogramStats, ImageFormat,
     InColor, InitColor, InterpolationType, MaskBlendType, MaxValueResult, NegativeHandling,

@@ -8,6 +8,7 @@
 
 use crate::common::RegParams;
 use leptonica::core::bmf;
+use leptonica::core::pixel;
 use leptonica::{Bmf, Pix, Pixa, PixelDepth, TextLocation};
 
 // ==========================================================================
@@ -196,7 +197,7 @@ fn bmf_set_textline() {
     // 32bpp image
     let pix32 = Pix::new(200, 50, PixelDepth::Bit32).unwrap();
     let (result32, _) = bmf
-        .set_textline(&pix32, "Test", 10, 20, 0xFF000000)
+        .set_textline(&pix32, "Test", 10, 20, pixel::compose_rgba(0, 0, 0, 255))
         .unwrap();
     assert_eq!(result32.width(), 200);
 }

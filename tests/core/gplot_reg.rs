@@ -65,6 +65,7 @@ fn gplot_with_custom_x_data() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn gplot_set_scaling() {
     let mut gp = GPlot::new(None, GPlotOutput::Svg, "Scaled", "", "");
     gp.set_scaling(GPlotScaling::LogX);

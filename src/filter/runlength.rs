@@ -171,6 +171,7 @@ pub fn make_msbit_loc_tab(bitval: u32) -> Vec<i32> {
 /// C Leptonica: `pixFindHorizontalRuns()` in `runlength.c`
 pub fn find_horizontal_runs(pix: &Pix, y: u32, start: &mut [i32], end: &mut [i32]) -> usize {
     let w = pix.width();
+    let max_runs = start.len().min(end.len());
     let mut in_run = false;
     let mut index = 0;
 
@@ -178,6 +179,9 @@ pub fn find_horizontal_runs(pix: &Pix, y: u32, start: &mut [i32], end: &mut [i32
         let val = pix.get_pixel(j, y).unwrap_or(0);
         if !in_run {
             if val != 0 {
+                if index >= max_runs {
+                    break;
+                }
                 start[index] = j as i32;
                 in_run = true;
             }
@@ -185,10 +189,13 @@ pub fn find_horizontal_runs(pix: &Pix, y: u32, start: &mut [i32], end: &mut [i32
             end[index] = j as i32 - 1;
             index += 1;
             in_run = false;
+            if index >= max_runs {
+                break;
+            }
         }
     }
 
-    if in_run {
+    if in_run && index < max_runs {
         end[index] = w as i32 - 1;
         index += 1;
     }
@@ -204,6 +211,7 @@ pub fn find_horizontal_runs(pix: &Pix, y: u32, start: &mut [i32], end: &mut [i32
 /// C Leptonica: `pixFindVerticalRuns()` in `runlength.c`
 pub fn find_vertical_runs(pix: &Pix, x: u32, start: &mut [i32], end: &mut [i32]) -> usize {
     let h = pix.height();
+    let max_runs = start.len().min(end.len());
     let mut in_run = false;
     let mut index = 0;
 
@@ -211,6 +219,9 @@ pub fn find_vertical_runs(pix: &Pix, x: u32, start: &mut [i32], end: &mut [i32])
         let val = pix.get_pixel(x, i).unwrap_or(0);
         if !in_run {
             if val != 0 {
+                if index >= max_runs {
+                    break;
+                }
                 start[index] = i as i32;
                 in_run = true;
             }
@@ -218,10 +229,13 @@ pub fn find_vertical_runs(pix: &Pix, x: u32, start: &mut [i32], end: &mut [i32])
             end[index] = i as i32 - 1;
             index += 1;
             in_run = false;
+            if index >= max_runs {
+                break;
+            }
         }
     }
 
-    if in_run {
+    if in_run && index < max_runs {
         end[index] = h as i32 - 1;
         index += 1;
     }
