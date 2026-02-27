@@ -6,11 +6,11 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 92 |
+| ✅ 同等 | 108 |
 | 🔄 異なる | 16 |
 | ❌ 未実装 | 0 |
-| 🚫 不要 | 27 |
-| 合計 | 135 |
+| 🚫 不要 | 26 |
+| 合計 | 150 |
 
 ## 詳細
 
@@ -48,9 +48,8 @@
 | pixSeedfillMorph | ✅ 同等 | morphapp::seedfill_morph | Phase 2で実装 |
 | pixMorphSequenceByComponent | ✅ 同等 | `morph_sequence_by_component` | 連結成分ごとの処理 |
 | pixMorphSequenceByRegion | ✅ 同等 | `morph_sequence_by_region` | 領域ごとの処理 |
-| pixTophat | ✅ 同等 | binary::top_hat | |
+| pixTophat | ✅ 同等 | binary::top_hat | バイナリ版top-hat（graymorph.cのpixTophatとは別関数） |
 | pixHMT | ✅ 同等 | binary::hit_miss_transform | |
-| pixMorphCompSequence | ✅ 同等 | sequence::morph_comp_sequence | |
 | pixGrayscaleMorphSum | 🚫 不要 | - | C版leptonicaに存在しない関数 |
 | pixMultiplyByColor | 🚫 不要 | - | blend.c所属（morph領域外） |
 | pixHMTDwa | 🚫 不要 | - | DWA自動生成コード |
@@ -100,7 +99,7 @@
 | pixCloseGray3 | 🔄 異なる | grayscale::close_gray | close_gray() が 3x3 で fast path にディスパッチ |
 | dilateGrayLow | 🚫 不要 | - | 低レベル内部関数（高レベルAPIで対応済み） |
 | erodeGrayLow | 🚫 不要 | - | 低レベル内部関数（高レベルAPIで対応済み） |
-| pixTophat | ✅ 同等 | grayscale::top_hat_gray | white/black両対応 |
+| pixTophat | ✅ 同等 | grayscale::top_hat_gray | グレースケール版top-hat（morphapp.cのpixTophatとは別関数） |
 
 ### colormorph.c (カラー形態学)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -157,7 +156,7 @@
 | selCreateFromPix | ✅ 同等 | sel::Sel::from_pix | Phase 3で実装 |
 | selReadFromColorImage | ✅ 同等 | sel::Sel::from_color_image | Phase 3で実装 |
 | selCreateFromColorPix | ✅ 同等 | sel::Sel::from_color_image | Phase 3で実装 |
-| selaCreateFromColorPixa | ✅ 同等 | `Sela::create_from_color_pixa` | Pixa操作はアプリケーション層 |
+| selaCreateFromColorPixa | ✅ 同等 | `sela_create_from_color_pixa` | Pixa操作はアプリケーション層 |
 | selDisplayInPix | 🚫 不要 | - | 可視化専用 |
 | selaDisplayInPix | 🚫 不要 | - | 可視化専用 |
 
@@ -166,7 +165,7 @@
 |-------|------|----------|------|
 | sel4ccThin系 (16関数) | 🔄 異なる | thin_sels::sels_4cc_thin | 一括生成で対応 |
 | sel8ccThin系 (16関数) | 🔄 異なる | thin_sels::sels_8cc_thin | 一括生成で対応 |
-| selMakeThinSets | ✅ 同等 | thin_sels::make_thin_sels | |
+| selaMakeThinSets | ✅ 同等 | thin_sels::make_thin_sels | |
 | selaAddBasic | ✅ 同等 | sel::sela_add_basic | Phase 4で実装 |
 | selaAddHitMiss | ✅ 同等 | sel::sela_add_hit_miss | Phase 4で実装 |
 | selaAddDwaLinear | ✅ 同等 | sel::sela_add_dwa_linear | Phase 4で実装 |
@@ -189,7 +188,7 @@
 ### ccthin.c (連結成分保存細線化)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixaThinConnected | ✅ 同等 | `Pixa::thin_connected` |  |
+| pixaThinConnected | ✅ 同等 | `pixa_thin_connected` |  |
 | pixThinConnected | ✅ 同等 | thin::thin_connected | |
 | pixThinConnectedBySet | ✅ 同等 | thin::thin_connected_by_set | |
 | selaMakeThinSets | ✅ 同等 | thin_sels::make_thin_sels | |

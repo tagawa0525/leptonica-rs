@@ -85,7 +85,7 @@
 | pixScaleSmoothToSize | ✅ 同等 | `scale_smooth_to_size` |  |
 | pixScaleRGBToGray2 | 🚫 | - | 不要 (スコープ除外) |
 | pixScaleAreaMap | 🔄 | scale::scale_area_map | 内部実装として存在 |
-| pixScaleAreaMap2 | ✅ 同等 | `scale_area_map2` |  |
+| pixScaleAreaMap2 | ✅ 同等 | `scale_area_map_2` |  |
 | pixScaleAreaMapToSize | ✅ 同等 | `scale_area_map_to_size` |  |
 | pixScaleBinary | ✅ | scale::scale_binary | 同等 |
 | pixScaleBinaryWithShift | ✅ 同等 | `scale_binary_with_shift` |  |
@@ -102,10 +102,10 @@
 | pixScaleToGray8 | ✅ | scale::scale_to_gray_8 | 同等 |
 | pixScaleToGray16 | ✅ | scale::scale_to_gray_16 | 同等 |
 | pixScaleToGrayMipmap | ✅ | scale::scale_to_gray_mipmap | 同等 |
-| pixScaleMipmap | 🚫 | - | 不要 (内部ヘルパー、pixScaleToGrayMipmap内で処理) |
+| pixScaleMipmap | 🚫 | - | プライベート関数 `scale_mipmap` として存在するが非公開API |
 | pixExpandReplicate | ✅ | scale::expand_replicate | 同等 |
 | pixScaleGrayMinMax | ✅ | scale::scale_gray_min_max | 同等 |
-| pixScaleGrayMinMax2 | ✅ 同等 | `scale_gray_min_max2` |  |
+| pixScaleGrayMinMax2 | ✅ 同等 | `scale_gray_min_max_2` |  |
 | pixScaleGrayRankCascade | ✅ | scale::scale_gray_rank_cascade | 同等 |
 | pixScaleGrayRank2 | ✅ 同等 | `scale_gray_rank2` |  |
 | pixScaleAndTransferAlpha | 🚫 | - | 不要 (内部ヘルパー、pixScaleWithAlpha内で処理) |
@@ -124,7 +124,7 @@
 | pixAffineGray | 🔄 | affine::affine_gray | 内部実装として存在 |
 | pixAffinePtaWithAlpha | ✅ | affine::affine_pta_with_alpha | 同等 |
 | getAffineXformCoeffs | ✅ | AffineMatrix::from_three_points | 同等 (メソッドとして実装) |
-| affineInvertXform | ✅ | AffineMatrix::invert | 同等 (メソッドとして実装) |
+| affineInvertXform | ✅ | AffineMatrix::inverse | 同等 (メソッドとして実装) |
 | affineXformSampledPt | ✅ | AffineMatrix::transform_point_sampled | 同等 (メソッドとして実装) |
 | affineXformPt | ✅ | AffineMatrix::transform_point | 同等 (メソッドとして実装) |
 | linearInterpolatePixelGray | 🚫 | - | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
@@ -135,9 +135,9 @@
 ### affinecompose.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| createMatrix2dTranslate | ✅ | AffineMatrix::translate | 同等 (コンストラクタ) |
+| createMatrix2dTranslate | ✅ | AffineMatrix::translation | 同等 (コンストラクタ) |
 | createMatrix2dScale | ✅ | AffineMatrix::scale | 同等 (コンストラクタ) |
-| createMatrix2dRotate | ✅ | AffineMatrix::rotate | 同等 (コンストラクタ) |
+| createMatrix2dRotate | ✅ | AffineMatrix::rotation | 同等 (コンストラクタ) |
 | ptaTranslate | ✅ 同等 | `Pta::translate` |  |
 | ptaScale | ✅ 同等 | `Pta::scale` |  |
 | ptaRotate | ✅ | Pta::rotate_around | 同等 (rotated_about に委譲) |

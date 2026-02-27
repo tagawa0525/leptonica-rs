@@ -8,23 +8,23 @@
 
 | 項目 | 数 |
 |------|-----|
-| ✅ 同等 | 129 |
+| ✅ 同等 | 122 |
 | 🔄 異なる | 26 |
-| ❌ 未実装 | 0 |
+| ❌ 未実装 | 3 |
 | 🚫 不要 | 18 |
-| 合計 | 173 |
+| 合計 | 169 |
 
-> **注記**: 全関数の実装が完了。Phase 1-13に加え、カバレッジ向上により全155関数（🚫不要18関数を除く）が実装済み。
-> 🚫不要18関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。
+> **注記**: Phase 1-13に加え、カバレッジ向上により148関数（🚫不要18関数を除く151関数中）が実装済み。
+> 🚫不要18関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。❌未実装3関数はclassapp.c由来。
 
 ## 詳細
 
 ### recogbasic.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| recogCreateFromRecog | ✅ 同等 | `Recog::create_from_recog` | 既存recogから新しいrecog生成 |
+| recogCreateFromRecog | ✅ 同等 | `recog::train::create_from_recog()` | 既存recogから新しいrecog生成（free fn） |
 | recogCreateFromPixa | ✅ 同等 | `recog::train::create_from_pixa` | ラベル付きPixaから認識器を作成 |
-| recogCreateFromPixaNoFinish | ✅ 同等 | `Recog::create_from_pixa_no_finish` | 訓練未完了のrecog作成 |
+| recogCreateFromPixaNoFinish | ✅ 同等 | `recog::train::create_from_pixa_no_finish()` | 訓練未完了のrecog作成（free fn） |
 | recogCreate | ✅ 同等 | `recog::train::create` | 基本的なrecog作成 |
 | recogDestroy | ✅ 同等 | `Drop` trait | Rustでは自動メモリ管理 |
 | recogGetCount | ✅ 同等 | `Recog.get_class_labels().len()` | クラス数取得 |
@@ -77,14 +77,14 @@
 | recogAddSample | ✅ 同等 | `Recog::add_sample` | サンプルの追加 |
 | recogModifyTemplate | ✅ 同等 | `Recog::modify_template` | テンプレートの変換（スケール/線幅正規化） |
 | recogAverageSamples | ✅ 同等 | `Recog::average_samples` | サンプルの平均化 |
-| pixaAccumulateSamples | ✅ 同等 | `Pixa::accumulate_samples` | サンプルの累積 |
+| pixaAccumulateSamples | ✅ 同等 | `recog::train::pixa_accumulate_samples()` | サンプルの累積（free fn） |
 | recogTrainingFinished | ✅ 同等 | `Recog::finish_training` | 訓練の完了処理 |
 | recogFilterPixaBySize | ✅ 同等 | `Recog::filter_pixa_by_size` | サイズによるPixaフィルタリング |
 | recogSortPixaByClass | ✅ 同等 | `Recog::sort_pixa_by_class` | クラスごとにPixaをソート |
 | recogRemoveOutliers1 | ✅ 同等 | `Recog::remove_outliers1` | 外れ値除去（方法1） |
-| pixaRemoveOutliers1 | ✅ 同等 | `Pixa::remove_outliers1` | Pixaから外れ値除去（方法1） |
+| pixaRemoveOutliers1 | ✅ 同等 | `recog::train::pixa_remove_outliers1()` | Pixaから外れ値除去（方法1、free fn） |
 | recogRemoveOutliers2 | ✅ 同等 | `Recog::remove_outliers2` | 外れ値除去（方法2） |
-| pixaRemoveOutliers2 | ✅ 同等 | `Pixa::remove_outliers2` | Pixaから外れ値除去（方法2） |
+| pixaRemoveOutliers2 | ✅ 同等 | `recog::train::pixa_remove_outliers2()` | Pixaから外れ値除去（方法2、free fn） |
 | recogTrainFromBoot | ✅ 同等 | `recog::bootstrap::train_from_boot` | ブートストラップ認識器から訓練 |
 | recogPadDigitTrainingSet | ✅ 同等 | `recog::bootstrap::pad_digit_training_set` | 数字訓練セットのパディング |
 | recogIsPaddingNeeded | ✅ 同等 | `recog::bootstrap::is_padding_needed` | パディングが必要かチェック |
@@ -122,7 +122,7 @@
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
 | dewarpCreate | ✅ 同等 | `Dewarp::new` | Dewarp構造体作成 |
-| dewarpCreateRef | ✅ 同等 | `Dewarp::new_ref` | 参照ページ指定のDewarp作成 |
+| dewarpCreateRef | ✅ 同等 | `Dewarp::create_ref` | 参照ページ指定のDewarp作成 |
 | dewarpDestroy | ✅ 同等 | `Drop` trait | 自動破棄 |
 | dewarpaCreate | ✅ 同等 | `Dewarpa::new` | Dewarpa（複数ページ）作成 |
 | dewarpaCreateFromPixacomp | ✅ 同等 | `Dewarpa::create_from_pixacomp` | Pixacompから作成 |
@@ -199,20 +199,16 @@
 | jbDataWrite | ✅ 同等 | `JbData::write` | データ書き込み（I/O追加） |
 | jbGetULCorners | 🔄 異なる | `JbData` フィールド直接参照 | 左上コーナー取得 |
 | jbGetLLCorners | 🔄 異なる | `JbData` フィールド直接参照 | 左下コーナー取得 |
-| jbCorrelation | ✅ 同等 | `jbclass::correlation` | 相関ベース高レベルAPI |
-| jbRankHaus | ✅ 同等 | `jbclass::rank_haus` | Rank Hausdorff高レベルAPI |
+| jbCorrelation | ✅ 同等 | `jbclass::classify::jb_correlation` | 相関ベース高レベルAPI |
+| jbRankHaus | ✅ 同等 | `jbclass::classify::jb_rank_haus` | Rank Hausdorff高レベルAPI |
 | jbWordsInTextlines | ✅ 同等 | `jbclass::classify::pix_word_mask_by_dilation` | テキストライン内の単語分類 |
 
 ### classapp.c (JBIG2分類応用)
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| jbCorrelation | ✅ 同等 | `jbclass::correlation` | 相関ベース分類高レベルAPI（ファイル I/O統合） |
-| jbRankHaus | ✅ 同等 | `jbclass::rank_haus` | Rank Hausdorff分類高レベルAPI（ファイル I/O統合） |
-| pixGetWordsInTextlines | ✅ 同等 | `get_words_in_textlines` | テキストライン内の単語取得 |
-| pixGetWordBoxesInTextlines | ✅ 同等 | `get_word_boxes_in_textlines` | テキストライン内の単語ボックス取得 |
-| pixFindWordAndCharacterBoxes | ✅ 同等 | `find_word_and_character_boxes` | 単語および文字ボックスの検出 |
-| boxaExtractSortedPattern | ✅ 同等 | `Boxa::extract_sorted_pattern` | パターンに基づくBoxa抽出 |
-| numaaCompareImagesByBoxes | ✅ 同等 | `Numaa::compare_images_by_boxes` | ボックスベースの画像比較 |
+| pixFindWordAndCharacterBoxes | ❌ 未実装 | - | 単語および文字ボックスの検出 |
+| boxaExtractSortedPattern | ❌ 未実装 | - | パターンに基づくBoxa抽出 |
+| numaaCompareImagesByBoxes | ❌ 未実装 | - | ボックスベースの画像比較 |
 
 ### bootnumgen1.c, bootnumgen2.c, bootnumgen3.c, bootnumgen4.c (Bootstrap数字生成データ)
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -281,11 +277,11 @@
 
 ## 備考
 
-- C版の関数総数: 173関数（recog関連全体、この表の範囲）
-- Rust版実装済み: 155関数（✅129 + 🔄26）
+- C版の関数総数: 169関数（recog関連全体、この表の範囲）
+- Rust版実装済み: 148関数（✅122 + 🔄26）
 - 🚫不要: 18関数（デバッグ/可視化系・C固有getter/setter）
-- ❌未実装: 0関数（全関数実装済み）
-- 実装率: 89.6%（全体）、100%（🚫不要除外ベース）
+- ❌未実装: 3関数（classapp.c由来）
+- 実装率: 87.6%（全体）、98.0%（🚫不要除外ベース）
 
 C版の全機能を網羅することは目標ではなく、Rustの慣用的な設計で同等の機能を提供することを重視しています。特に以下の点で設計が異なります：
 

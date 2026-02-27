@@ -41,11 +41,11 @@
 | ccbaGetCount | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
 | ccbaGetCcb | 🚫 不要 | - | Cデータ構造管理: Rustでは不要 |
 | pixGetAllCCBorders | 🔄 異なる | get_all_borders | 異なるAPI: ImageBordersを返す |
-| pixGetCCBorders | ✅ 同等 | `get_cc_borders` |  |
+| pixGetCCBorders | ✅ 同等 | `get_component_borders` |  |
 | pixGetOuterBordersPtaa | 🔄 異なる | get_outer_borders | 異なるAPI: Vec<Border>を返す |
 | pixGetOuterBorderPta | 🔄 異なる | get_outer_border | 異なるAPI: Borderを返す |
 | pixGetOuterBorder | ✅ 同等 | `get_outer_border` |  |
-| pixGetHoleBorder | ✅ 同等 | `get_hole_border` |  |
+| pixGetHoleBorder | ✅ 同等 | `pix_get_hole_border` |  |
 | findNextBorderPixel | ✅ 同等 | find_next_border_pixel (private) | - |
 | locateOutsideSeedPixel | ✅ 同等 | `locate_outside_seed_pixel` |  |
 | ccbaGenerateGlobalLocs | ✅ 同等 | `ccbord::generate_global_locs` |  |
@@ -58,12 +58,12 @@
 | ccbaDisplaySPBorder | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
 | ccbaDisplayImage1 | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
 | ccbaDisplayImage2 | 🚫 不要 | - | 表示/可視化関数: Rustでは不要 |
-| ccbaWrite | ✅ 同等 | `ccbord::write` |  |
-| ccbaWriteStream | ✅ 同等 | `ccbord::write_stream` |  |
-| ccbaRead | ✅ 同等 | `ccbord::read` |  |
-| ccbaReadStream | ✅ 同等 | `ccbord::read_stream` |  |
+| ccbaWrite | ✅ 同等 | `ccbord::write_to_file` |  |
+| ccbaWriteStream | ✅ 同等 | `ccbord::write<W: Write>` |  |
+| ccbaRead | ✅ 同等 | `ccbord::read_from_file` |  |
+| ccbaReadStream | ✅ 同等 | `ccbord::read_from<R: Read>` |  |
 | ccbaWriteSVG | ✅ 同等 | `ccbord::write_svg` |  |
-| ccbaWriteSVGString | ✅ 同等 | `ccbord::write_svg_string` |  |
+| ccbaWriteSVGString | ✅ 同等 | `ccbord::to_svg_string` |  |
 
 ### seedfill.c
 | C関数 | 状態 | Rust対応 | 備考 |
@@ -110,12 +110,12 @@
 ### pixlabel.c
 | C関数 | 状態 | Rust対応 | 備考 |
 |-------|------|----------|------|
-| pixConnCompTransform | ✅ 同等 | label_connected_components | - |
+| pixConnCompTransform | ✅ 同等 | conn_comp_transform | - |
 | pixConnCompAreaTransform | ✅ 同等 | component_area_transform | - |
-| pixConnCompIncrInit | ✅ 同等 | `conn_comp_incr_init` |  |
-| pixConnCompIncrAdd | ✅ 同等 | `conn_comp_incr_add` |  |
-| pixGetSortedNeighborValues | ✅ 同等 | get_sorted_neighbor_values() | - |
-| pixLocToColorTransform | ✅ 同等 | `loc_to_color_transform` |  |
+| pixConnCompIncrInit | ✅ 同等 | `pix_conn_comp_incr_init` |  |
+| pixConnCompIncrAdd | ✅ 同等 | `pix_conn_comp_incr_add` |  |
+| pixGetSortedNeighborValues | ✅ 同等 | pix_get_sorted_neighbor_values() | - |
+| pixLocToColorTransform | ✅ 同等 | `pix_loc_to_color_transform` |  |
 
 ### quadtree.c
 | C関数 | 状態 | Rust対応 | 備考 |
