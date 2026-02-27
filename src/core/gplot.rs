@@ -197,6 +197,9 @@ impl GPlot {
     }
 
     /// Set axis scaling (corresponds to C `gplotSetScaling`).
+    ///
+    /// Note: Axis scaling is not yet implemented in the renderers.
+    #[deprecated(note = "GPlotScaling is not yet implemented in rendering")]
     pub fn set_scaling(&mut self, scaling: GPlotScaling) {
         self.scaling = scaling;
     }
@@ -207,8 +210,8 @@ impl GPlot {
     /// `gplotMakeOutput`).
     ///
     /// For [`GPlotOutput::Svg`] the SVG is written to `output_path`.
-    /// For [`GPlotOutput::Pix`] a raster image is written as BMP to
-    /// `output_path` (if any). Returns `Ok(())`.
+    /// For [`GPlotOutput::Pix`] output, use [`render_pix()`] directly to get
+    /// the [`Pix`] object. Returns `Ok(())`.
     pub fn make_output(&self) -> Result<()> {
         match self.output_type {
             GPlotOutput::Svg => {
@@ -935,7 +938,13 @@ fn render_pix(gplot: &GPlot) -> Result<Pix> {
             let mut pm2 = pix.to_mut();
             pm2.render_line_color(lx, ly + 5, lx + 18, ly + 5, 2, color)?;
             pix = pm2.into();
-            let (new_pix, _) = font.set_textline(&pix, label, lx + 22, ly, 0x00000000)?;
+            let (new_pix, _) = font.set_textline(
+                &pix,
+                label,
+                lx + 22,
+                ly,
+                super::pixel::compose_rgba(0, 0, 0, 255),
+            )?;
             pix = new_pix;
             ly += 14;
         }
@@ -947,7 +956,13 @@ fn render_pix(gplot: &GPlot) -> Result<Pix> {
     {
         let tw = font.get_string_width(&gplot.title) as i32;
         let tx = ((cw as i32 - tw) / 2).max(5);
-        let (new_pix, _) = font.set_textline(&pix, &gplot.title, tx, 10, 0x00000000)?;
+        let (new_pix, _) = font.set_textline(
+            &pix,
+            &gplot.title,
+            tx,
+            10,
+            super::pixel::compose_rgba(0, 0, 0, 255),
+        )?;
         pix = new_pix;
     }
 
@@ -957,8 +972,13 @@ fn render_pix(gplot: &GPlot) -> Result<Pix> {
     {
         let tw = font.get_string_width(&gplot.xlabel) as i32;
         let tx = (((plot_left + plot_right) - tw) / 2).max(5);
-        let (new_pix, _) =
-            font.set_textline(&pix, &gplot.xlabel, tx, ch as i32 - 20, 0x00000000)?;
+        let (new_pix, _) = font.set_textline(
+            &pix,
+            &gplot.xlabel,
+            tx,
+            ch as i32 - 20,
+            super::pixel::compose_rgba(0, 0, 0, 255),
+        )?;
         pix = new_pix;
     }
 

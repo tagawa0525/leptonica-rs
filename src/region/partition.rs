@@ -156,7 +156,7 @@ fn box_check_if_overlap_is_big(boxx: &Box, boxa: &Boxa, max_overlap: f32) -> boo
 
     for i in 0..boxa.len() {
         if let Some(bt) = boxa.get(i) {
-            let fract = bt.overlap_fraction(boxx);
+            let fract = boxx.overlap_fraction(bt);
             if fract > max_overlap as f64 {
                 return true;
             }
@@ -299,7 +299,7 @@ pub fn boxa_prune_sorted_on_overlap(boxas: &Boxa, max_overlap: f32) -> RegionRes
             let mut remove = false;
             for i in 0..j {
                 if let Some(box1) = boxas.get(i) {
-                    let fract = box1.overlap_fraction(box2);
+                    let fract = box2.overlap_fraction(box1);
                     if fract > max_overlap as f64 {
                         remove = true;
                         break;
