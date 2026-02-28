@@ -6,9 +6,9 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 106 |
+| ✅ 同等   | 107 |
 | 🔄 異なる | 0   |
-| ❌ 未実装 | 1   |
+| ❌ 未実装 | 0   |
 | 🚫 不要   | 13  |
 | 合計      | 120 |
 
@@ -70,7 +70,7 @@
 | kernelNormalize        | ✅   | Kernel::normalize()                      | カーネル正規化                |
 | kernelDestroy          | ✅   | -                                        | Rust自動Drop（メモリ管理）    |
 | create2dFloatArray     | 🚫   | -                                        | C配列確保用内部ヘルパー       |
-| kernelCopy             | ❌   | -                                        | カーネルクローン（Copy/Clone) |
+| kernelCopy             | ✅   | Kernel::copy()                           | カーネルクローン（Copy/Clone) |
 | kernelGetMinMax        | ✅   | Kernel::get_min_max                      | カーネルMin/Max値             |
 | kernelInvert           | ✅   | Kernel::invert                           | カーネル反転                  |
 | kernelRead             | ✅   | Kernel::read                             | ファイルからカーネル読み込み  |

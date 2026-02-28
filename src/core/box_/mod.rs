@@ -392,6 +392,16 @@ impl Boxa {
         self.boxes.clear();
     }
 
+    /// Initialize this Boxa with `count` copies of `template`.
+    ///
+    /// Existing contents are replaced.
+    ///
+    /// C Leptonica equivalent: `boxaInitFull`
+    pub fn init_full(&mut self, count: usize, template: Box) {
+        self.boxes.clear();
+        self.boxes.resize(count, template);
+    }
+
     /// Get all boxes as a slice
     pub fn boxes(&self) -> &[Box] {
         &self.boxes
@@ -1328,6 +1338,20 @@ mod tests {
         assert_eq!(bb.y, 0);
         assert_eq!(bb.w, 30);
         assert_eq!(bb.h, 30);
+    }
+
+    #[test]
+    fn test_boxa_init_full() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new(0, 0, 10, 10).unwrap());
+
+        let template = Box::new(5, 6, 7, 8).unwrap();
+        boxa.init_full(3, template);
+
+        assert_eq!(boxa.len(), 3);
+        for i in 0..boxa.len() {
+            assert_eq!(boxa.get(i), Some(&template));
+        }
     }
 
     #[test]

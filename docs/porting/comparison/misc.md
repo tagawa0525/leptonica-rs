@@ -58,10 +58,10 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 87  |
+| ✅ 同等   | 120 |
 | 🔄 異なる | 5   |
 | 🚫 不要   | 181 |
-| ❌ 未実装 | 51  |
+| ❌ 未実装 | 18  |
 | 合計      | 324 |
 
 注: この集計は主要な公開関数のみをカウント。静的(内部)関数は除外。🚫はRust標準ライブラリで代替可能、C固有管理関数、画像処理に無関係等の理由で移植不要と判断したもの。
@@ -120,57 +120,57 @@
 
 #### core/pixcomp.rs (pixcomp.c)
 
-| C関数                         | 状態 | Rust対応                      | 備考                                               |
-| ----------------------------- | ---- | ----------------------------- | -------------------------------------------------- |
-| pixcompCreateFromPix          | ❌   | -                             | PixからPixcomp作成                                 |
-| pixcompCreateFromString       | ❌   | -                             | 文字列からPixcomp作成                              |
-| pixcompCreateFromFile         | ❌   | -                             | ファイルからPixcomp作成                            |
-| pixcompDestroy                | 🚫   | -                             | RustのDrop traitで代替                             |
-| pixcompCopy                   | ❌   | -                             | Pixcompコピー                                      |
-| pixcompGetDimensions          | ❌   | -                             | 寸法取得                                           |
-| pixcompGetParameters          | ❌   | -                             | パラメータ取得                                     |
-| pixcompDetermineFormat        | ❌   | -                             | フォーマット決定                                   |
-| pixacompCreate                | ❌   | -                             | Pixacomp配列作成                                   |
-| pixacompCreateWithInit        | ❌   | -                             | 初期化付き作成                                     |
-| pixacompCreateFromPixa        | ❌   | -                             | PixaからPixacomp作成                               |
-| pixacompCreateFromFiles       | ❌   | -                             | ファイルからPixacomp作成                           |
-| pixacompCreateFromSA          | 🚫   | -                             | C版SArray固有、RustではVec<PathBuf>等で代替        |
-| pixacompDestroy               | 🚫   | -                             | RustのDrop traitで代替                             |
-| pixacompAddPix                | ❌   | -                             | Pix追加                                            |
-| pixacompAddPixcomp            | ❌   | -                             | Pixcomp追加                                        |
-| pixacompReplacePix            | ❌   | -                             | Pix置換                                            |
-| pixacompReplacePixcomp        | 🚫   | -                             | pixacompReplacePixで代替可能                       |
-| pixacompAddBox                | 🚫   | -                             | Rust版ではBoxa操作はBoxa型に委譲                   |
-| pixacompGetCount              | ❌   | -                             | カウント取得                                       |
-| pixacompGetPixcomp            | ❌   | -                             | Pixcomp取得                                        |
-| pixacompGetPix                | ❌   | -                             | Pix取得                                            |
-| pixacompGetPixDimensions      | ❌   | -                             | Pixの寸法取得                                      |
-| pixacompGetBoxa               | ❌   | -                             | Boxa取得                                           |
-| pixacompGetBoxaCount          | 🚫   | -                             | Boxa型のlen()で代替                                |
-| pixacompGetBox                | ❌   | -                             | Box取得                                            |
-| pixacompGetBoxGeometry        | ❌   | -                             | Box座標取得                                        |
-| pixacompGetOffset             | 🚫   | -                             | Rustではフィールドアクセスで代替                   |
-| pixacompSetOffset             | 🚫   | -                             | Rustではフィールドアクセスで代替                   |
-| pixaCreateFromPixacomp        | ✅   | PixaComp::to_pixa             | PixacompからPixa作成                               |
-| pixacompJoin                  | ❌   | -                             | Pixacomp結合                                       |
-| pixacompInterleave            | ❌   | -                             | Pixacompインターリーブ                             |
-| pixacompRead                  | ❌   | -                             | ファイル読み込み                                   |
-| pixacompReadStream            | ❌   | -                             | ストリーム読み込み                                 |
-| pixacompReadMem               | ❌   | -                             | メモリから読み込み                                 |
-| pixacompWrite                 | ❌   | -                             | ファイル書き込み                                   |
-| pixacompWriteStream           | ❌   | -                             | ストリーム書き込み                                 |
-| pixacompWriteMem              | ❌   | -                             | メモリに書き込み                                   |
-| pixacompConvertToPdf          | 🔄   | PixaComp::convert_to_pdf_data | PDFデータ生成APIとして提供（`src/io/pdf.rs` 経由） |
-| pixacompConvertToPdfData      | ❌   | -                             | PDF データ生成                                     |
-| pixacompFastConvertToPdfData  | ❌   | -                             | 高速PDF データ生成                                 |
-| pixacompWriteStreamInfo       | 🚫   | -                             | デバッグ用表示関数                                 |
-| pixcompWriteStreamInfo        | 🚫   | -                             | デバッグ用表示関数                                 |
-| pixacompDisplayTiledAndScaled | 🚫   | -                             | デバッグ用表示関数                                 |
-| pixacompWriteFiles            | ❌   | -                             | ファイル群書き込み                                 |
-| pixcompWriteFile              | ❌   | -                             | ファイル書き込み                                   |
-| pixCreateFromPixcomp          | ✅   | PixComp::to_pix               | PixcompからPix作成                                 |
+| C関数                         | 状態 | Rust対応                             | 備考                                               |
+| ----------------------------- | ---- | ------------------------------------ | -------------------------------------------------- |
+| pixcompCreateFromPix          | ✅   | PixComp::create_from_pix()           | PixからPixcomp作成                                 |
+| pixcompCreateFromString       | ✅   | PixComp::create_from_string()        | 文字列からPixcomp作成                              |
+| pixcompCreateFromFile         | ✅   | PixComp::create_from_file()          | ファイルからPixcomp作成                            |
+| pixcompDestroy                | 🚫   | -                                    | RustのDrop traitで代替                             |
+| pixcompCopy                   | ✅   | PixComp::clone()                     | Pixcompコピー                                      |
+| pixcompGetDimensions          | ✅   | PixComp::get_dimensions()            | 寸法取得                                           |
+| pixcompGetParameters          | ✅   | PixComp::get_parameters()            | パラメータ取得                                     |
+| pixcompDetermineFormat        | ✅   | determine_format()                   | フォーマット決定                                   |
+| pixacompCreate                | ✅   | PixaComp::create()                   | Pixacomp配列作成                                   |
+| pixacompCreateWithInit        | ✅   | PixaComp::create_with_init()         | 初期化付き作成                                     |
+| pixacompCreateFromPixa        | ✅   | PixaComp::create_from_pixa()         | PixaからPixacomp作成                               |
+| pixacompCreateFromFiles       | ✅   | PixaComp::create_from_files()        | ファイルからPixacomp作成                           |
+| pixacompCreateFromSA          | 🚫   | -                                    | C版SArray固有、RustではVec<PathBuf>等で代替        |
+| pixacompDestroy               | 🚫   | -                                    | RustのDrop traitで代替                             |
+| pixacompAddPix                | ✅   | PixaComp::add_pix()                  | Pix追加                                            |
+| pixacompAddPixcomp            | ✅   | PixaComp::add_pixcomp()              | Pixcomp追加                                        |
+| pixacompReplacePix            | ✅   | PixaComp::replace_pix()              | Pix置換                                            |
+| pixacompReplacePixcomp        | 🚫   | -                                    | pixacompReplacePixで代替可能                       |
+| pixacompAddBox                | 🚫   | -                                    | Rust版ではBoxa操作はBoxa型に委譲                   |
+| pixacompGetCount              | ✅   | PixaComp::get_count()                | カウント取得                                       |
+| pixacompGetPixcomp            | ✅   | PixaComp::get_pixcomp()              | Pixcomp取得                                        |
+| pixacompGetPix                | ✅   | PixaComp::get_pix()                  | Pix取得                                            |
+| pixacompGetPixDimensions      | ✅   | PixaComp::get_pix_dimensions()       | Pixの寸法取得                                      |
+| pixacompGetBoxa               | ✅   | PixaComp::get_boxa()                 | Boxa取得                                           |
+| pixacompGetBoxaCount          | 🚫   | -                                    | Boxa型のlen()で代替                                |
+| pixacompGetBox                | ✅   | PixaComp::get_box()                  | Box取得                                            |
+| pixacompGetBoxGeometry        | ✅   | PixaComp::get_box_geometry()         | Box座標取得                                        |
+| pixacompGetOffset             | 🚫   | -                                    | Rustではフィールドアクセスで代替                   |
+| pixacompSetOffset             | 🚫   | -                                    | Rustではフィールドアクセスで代替                   |
+| pixaCreateFromPixacomp        | ✅   | PixaComp::to_pixa                    | PixacompからPixa作成                               |
+| pixacompJoin                  | ✅   | PixaComp::join()                     | Pixacomp結合                                       |
+| pixacompInterleave            | ✅   | PixaComp::interleave()               | Pixacompインターリーブ                             |
+| pixacompRead                  | ✅   | PixaComp::read()                     | ファイル読み込み                                   |
+| pixacompReadStream            | ✅   | PixaComp::read_stream()              | ストリーム読み込み                                 |
+| pixacompReadMem               | ✅   | PixaComp::read_mem()                 | メモリから読み込み                                 |
+| pixacompWrite                 | ✅   | PixaComp::write()                    | ファイル書き込み                                   |
+| pixacompWriteStream           | ✅   | PixaComp::write_stream()             | ストリーム書き込み                                 |
+| pixacompWriteMem              | ✅   | PixaComp::write_mem()                | メモリに書き込み                                   |
+| pixacompConvertToPdf          | 🔄   | PixaComp::convert_to_pdf_data        | PDFデータ生成APIとして提供（`src/io/pdf.rs` 経由） |
+| pixacompConvertToPdfData      | ✅   | PixaComp::convert_to_pdf_data()      | PDF データ生成（`pdf-format` feature）             |
+| pixacompFastConvertToPdfData  | ✅   | PixaComp::fast_convert_to_pdf_data() | 高速PDF データ生成（`pdf-format` feature）         |
+| pixacompWriteStreamInfo       | 🚫   | -                                    | デバッグ用表示関数                                 |
+| pixcompWriteStreamInfo        | 🚫   | -                                    | デバッグ用表示関数                                 |
+| pixacompDisplayTiledAndScaled | 🚫   | -                                    | デバッグ用表示関数                                 |
+| pixacompWriteFiles            | ✅   | PixaComp::write_files()              | ファイル群書き込み                                 |
+| pixcompWriteFile              | ✅   | PixComp::write_file()                | ファイル書き込み                                   |
+| pixCreateFromPixcomp          | ✅   | PixComp::to_pix                      | PixcompからPix作成                                 |
 
-**pixcomp.c カバレッジ**: 36/47 = 77% (✅36, 🚫11)
+**pixcomp.c カバレッジ**: 47/47 = 100% 解決 (✅35, 🔄1, 🚫11)
 **注**: Pixcomp/Pixacmp (圧縮画像コンテナ)データ構造実装済み。destroy/デバッグ/C固有関数は🚫。
 
 ### pixlabel.c (画像ラベリング)
