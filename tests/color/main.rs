@@ -24,6 +24,7 @@ mod colorseg_reg;
 mod colorspace_hsv_reg;
 mod colorspace_reg;
 mod dither_reg;
+mod falsecolor_reg;
 mod grayquant_reg;
 mod hardlight_reg;
 mod paint_reg;

@@ -1,6 +1,6 @@
 # C版 vs Rust版 回帰テスト比較
 
-調査日: 2026-02-23（全クレートの実ファイル配置に基づく正確な状態を反映）
+調査日: 2026-03-01（全C版回帰テスト159個の移植完了）
 
 ## 概要
 
@@ -8,8 +8,8 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
 | 項目           | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
 | -------------- | ------------------------- | -------------------------- |
-| テスト総数     | **305個** (.c)            | **186ファイル** (*_reg.rs) |
-| 回帰テスト     | **160個** (*_reg.c)       | **140個** (*_reg.rs)       |
+| テスト総数     | **305個** (.c)            | **205ファイル** (*_reg.rs) |
+| 回帰テスト     | **160個** (*_reg.c)       | **159個** (*_reg.rs)       |
 | 個別テスト関数 | 多数                      | **3,270個**                |
 | テストランナー | alltests_reg.c            | `cargo test`               |
 
@@ -33,16 +33,16 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 | boxa2      | boxa2_reg.rs      | ✅   |
 | boxa3      | boxa3_reg.rs      | ✅   |
 | boxa4      | boxa4_reg.rs      | ✅   |
-| bytea      | -                 | ❌   |
+| bytea      | bytea_reg.rs      | ✅   |
 | compare    | compare_reg.rs    | ✅   |
 | conversion | conversion_reg.rs | ✅   |
-| dna        | -                 | ❌   |
+| dna        | dna_reg.rs        | ✅   |
 | equal      | equal_reg.rs      | ✅   |
 | extrema    | extrema_reg.rs    | ✅   |
 | fpix1      | fpix1_reg.rs      | ✅   |
 | fpix2      | fpix2_reg.rs      | ✅   |
-| hash       | -                 | ❌   |
-| heap       | -                 | ❌   |
+| hash       | hash_reg.rs       | ✅   |
+| heap       | heap_reg.rs       | ✅   |
 | insert     | insert_reg.rs     | ✅   |
 | logicops   | logicops_reg.rs   | ✅   |
 | lowaccess  | lowaccess_reg.rs  | ✅   |
@@ -52,50 +52,50 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 | overlap    | overlap_reg.rs    | ✅   |
 | pixa1      | pixa1_reg.rs      | ✅   |
 | pixa2      | pixa2_reg.rs      | ✅   |
-| pixalloc   | -                 | ❌   |
+| pixalloc   | pixalloc_reg.rs   | ✅   |
 | pixcomp    | pixcomp_reg.rs    | ✅   |
-| pixmem     | -                 | ❌   |
+| pixmem     | pixmem_reg.rs     | ✅   |
 | pixserial  | pixserial_reg.rs  | ✅   |
 | pta        | pta_reg.rs        | ✅   |
-| ptra1      | -                 | ❌   |
-| ptra2      | -                 | ❌   |
+| ptra1      | ptra1_reg.rs      | ✅   |
+| ptra2      | ptra2_reg.rs      | ✅   |
 | rasterop   | rasterop_reg.rs   | ✅   |
 | rasteropip | rasteropip_reg.rs | ✅   |
-| string     | -                 | ❌   |
+| string     | string_reg.rs     | ✅   |
 
 Rust独自: boxfunc, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixafunc
 
-✅ 24 / ❌ 9（C版33個中）
+✅ 33 / ❌ 0（C版33個中）
 
 ### leptonica (src/io/)（画像I/O）
 
 ※ encoding←coreから移動。
 
-| C版テスト  | Rust対応         | 状態 |
-| ---------- | ---------------- | ---- |
-| encoding   | encoding_reg.rs  | ✅   |
-| files      | -                | ❌   |
-| gifio      | gifio_reg.rs     | ✅   |
-| ioformats  | ioformats_reg.rs | ✅   |
-| iomisc     | iomisc_reg.rs    | ✅   |
-| jp2kio     | jp2kio_reg.rs    | ✅   |
-| jpegio     | jpegio_reg.rs    | ✅   |
-| mtiff      | mtiff_reg.rs     | ✅   |
-| pdfio1     | pdfio1_reg.rs    | ✅   |
-| pdfio2     | pdfio2_reg.rs    | ✅   |
-| pdfseg     | pdfseg_reg.rs    | ✅   |
-| pixtile    | pixtile_reg.rs   | ✅   |
-| pngio      | pngio_reg.rs     | ✅   |
-| pnmio      | pnmio_reg.rs     | ✅   |
-| psio       | psio_reg.rs      | ✅   |
-| psioseg    | psioseg_reg.rs   | ✅   |
-| webpanimio | -                | ❌   |
-| webpio     | webpio_reg.rs    | ✅   |
-| writetext  | -                | ❌   |
+| C版テスト  | Rust対応          | 状態 |
+| ---------- | ----------------- | ---- |
+| encoding   | encoding_reg.rs   | ✅   |
+| files      | files_reg.rs      | ✅   |
+| gifio      | gifio_reg.rs      | ✅   |
+| ioformats  | ioformats_reg.rs  | ✅   |
+| iomisc     | iomisc_reg.rs     | ✅   |
+| jp2kio     | jp2kio_reg.rs     | ✅   |
+| jpegio     | jpegio_reg.rs     | ✅   |
+| mtiff      | mtiff_reg.rs      | ✅   |
+| pdfio1     | pdfio1_reg.rs     | ✅   |
+| pdfio2     | pdfio2_reg.rs     | ✅   |
+| pdfseg     | pdfseg_reg.rs     | ✅   |
+| pixtile    | pixtile_reg.rs    | ✅   |
+| pngio      | pngio_reg.rs      | ✅   |
+| pnmio      | pnmio_reg.rs      | ✅   |
+| psio       | psio_reg.rs       | ✅   |
+| psioseg    | psioseg_reg.rs    | ✅   |
+| webpanimio | webpanimio_reg.rs | ✅   |
+| webpio     | webpio_reg.rs     | ✅   |
+| writetext  | writetext_reg.rs  | ✅   |
 
 Rust独自: spixio
 
-✅ 16 / ❌ 3（C版19個中）
+✅ 19 / ❌ 0（C版19個中）
 
 ### leptonica (src/morph/)（形態学演算）
 
@@ -202,7 +202,7 @@ Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exte
 | colorseg     | colorseg_reg.rs     | ✅   |
 | colorspace   | colorspace_reg.rs   | ✅   |
 | dither       | dither_reg.rs       | ✅   |
-| falsecolor   | -                   | ❌   |
+| falsecolor   | falsecolor_reg.rs   | ✅   |
 | grayquant    | grayquant_reg.rs    | ✅   |
 | hardlight    | hardlight_reg.rs    | ✅   |
 | paint        | paint_reg.rs        | ✅   |
@@ -211,32 +211,32 @@ Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exte
 
 Rust独自: binarize_advanced, color_magnitude, colorcontent_advanced, colorspace_hsv, quantize_ext
 
-✅ 23 / ❌ 1（C版24個中）
+✅ 24 / ❌ 0（C版24個中）
 
 ### leptonica (src/region/)（領域解析）
 
 ※ overlap→coreへ移動。rectangle←coreから移動。
 
-| C版テスト   | Rust対応          | 状態 |
-| ----------- | ----------------- | ---- |
-| ccbord      | ccbord_reg.rs     | ✅   |
-| conncomp    | conncomp_reg.rs   | ✅   |
-| distance    | distance_reg.rs   | ✅   |
-| grayfill    | grayfill_reg.rs   | ✅   |
-| label       | label_reg.rs      | ✅   |
-| maze        | maze_reg.rs       | ✅   |
-| quadtree    | quadtree_reg.rs   | ✅   |
-| rectangle   | rectangle_reg.rs  | ✅   |
-| seedspread  | seedspread_reg.rs | ✅   |
-| smoothedge  | -                 | ❌   |
-| speckle     | speckle_reg.rs    | ✅   |
-| splitcomp   | -                 | ❌   |
-| texturefill | -                 | ❌   |
-| watershed   | watershed_reg.rs  | ✅   |
+| C版テスト   | Rust対応           | 状態 |
+| ----------- | ------------------ | ---- |
+| ccbord      | ccbord_reg.rs      | ✅   |
+| conncomp    | conncomp_reg.rs    | ✅   |
+| distance    | distance_reg.rs    | ✅   |
+| grayfill    | grayfill_reg.rs    | ✅   |
+| label       | label_reg.rs       | ✅   |
+| maze        | maze_reg.rs        | ✅   |
+| quadtree    | quadtree_reg.rs    | ✅   |
+| rectangle   | rectangle_reg.rs   | ✅   |
+| seedspread  | seedspread_reg.rs  | ✅   |
+| smoothedge  | smoothedge_reg.rs  | ✅   |
+| speckle     | speckle_reg.rs     | ✅   |
+| splitcomp   | splitcomp_reg.rs   | ✅   |
+| texturefill | texturefill_reg.rs | ✅   |
+| watershed   | watershed_reg.rs   | ✅   |
 
 Rust独自: conncomp_ext, seedfill_ext
 
-✅ 11 / ❌ 3（C版14個中）
+✅ 14 / ❌ 0（C版14個中）
 
 ### leptonica (src/recog/)（認識・ページ解析）
 
@@ -244,15 +244,15 @@ Rust独自: conncomp_ext, seedfill_ext
 | ------------ | ------------------- | ---- |
 | baseline     | baseline_reg.rs     | ✅   |
 | dewarp       | dewarp_reg.rs       | ✅   |
-| findcorners  | -                   | ❌   |
+| findcorners  | findcorners_reg.rs  | ✅   |
 | findpattern1 | findpattern1_reg.rs | ✅   |
 | findpattern2 | findpattern2_reg.rs | ✅   |
 | flipdetect   | flipdetect_reg.rs   | ✅   |
-| genfonts     | -                   | ❌   |
+| genfonts     | genfonts_reg.rs     | ✅   |
 | italic       | italic_reg.rs       | ✅   |
 | jbclass      | jbclass_reg.rs      | ✅   |
 | lineremoval  | lineremoval_reg.rs  | ✅   |
-| nearline     | -                   | ❌   |
+| nearline     | nearline_reg.rs     | ✅   |
 | newspaper    | newspaper_reg.rs    | ✅   |
 | pageseg      | pageseg_reg.rs      | ✅   |
 | partition    | partition_reg.rs    | ✅   |
@@ -260,53 +260,45 @@ Rust独自: conncomp_ext, seedfill_ext
 | skew         | skew_reg.rs         | ✅   |
 | wordboxes    | wordboxes_reg.rs    | ✅   |
 
-✅ 14 / ❌ 3（C版17個中）
+✅ 17 / ❌ 0（C版17個中）
 
 ## サマリ
 
 ### クレート別カバレッジ
 
-| クレート                   | C版     | ✅      | ❌     | Rust独自 | カバレッジ |
-| -------------------------- | ------- | ------- | ------ | -------- | ---------- |
-| leptonica (src/core/)      | 33      | 24      | 9      | 8        | 72.7%      |
-| leptonica (src/io/)        | 19      | 16      | 3      | 1        | 84.2%      |
-| leptonica (src/morph/)     | 17      | 17      | 0      | 1        | 100.0%     |
-| leptonica (src/transform/) | 21      | 21      | 0      | 0        | 100.0%     |
-| leptonica (src/filter/)    | 14      | 14      | 0      | 5        | 100.0%     |
-| leptonica (src/color/)     | 24      | 23      | 1      | 5        | 95.8%      |
-| leptonica (src/region/)    | 14      | 11      | 3      | 2        | 78.6%      |
-| leptonica (src/recog/)     | 17      | 14      | 3      | 0        | 82.4%      |
-| **合計**                   | **159** | **140** | **19** | **22**   | **88.1%**  |
+| クレート                   | C版     | ✅      | ❌    | Rust独自 | カバレッジ |
+| -------------------------- | ------- | ------- | ----- | -------- | ---------- |
+| leptonica (src/core/)      | 33      | 33      | 0     | 8        | 100.0%     |
+| leptonica (src/io/)        | 19      | 19      | 0     | 1        | 100.0%     |
+| leptonica (src/morph/)     | 17      | 17      | 0     | 1        | 100.0%     |
+| leptonica (src/transform/) | 21      | 21      | 0     | 0        | 100.0%     |
+| leptonica (src/filter/)    | 14      | 14      | 0     | 5        | 100.0%     |
+| leptonica (src/color/)     | 24      | 24      | 0     | 5        | 100.0%     |
+| leptonica (src/region/)    | 14      | 14      | 0     | 2        | 100.0%     |
+| leptonica (src/recog/)     | 17      | 17      | 0     | 0        | 100.0%     |
+| **合計**                   | **159** | **159** | **0** | **22**   | **100.0%** |
 
-### 未移植テスト一覧（19個）
-
-| クレート | テスト                                                         | 備考                           |
-| -------- | -------------------------------------------------------------- | ------------------------------ |
-| core     | bytea, dna, hash, heap, pixalloc, pixmem, ptra1, ptra2, string | データ構造・ユーティリティ     |
-| io       | files, webpanimio, writetext                                   | ファイル操作・アニメーション   |
-| color    | falsecolor                                                     | 疑似カラー                     |
-| region   | smoothedge, splitcomp, texturefill                             | エッジ・分割・テクスチャ       |
-| recog    | findcorners, genfonts, nearline                                | コーナー検出・フォント・近傍線 |
+全C版回帰テスト（159個）の移植が完了。未移植テストなし。
 
 ## Rust版テストの現状
 
 ### 構造（Rust版）
 
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
-- `tests/`配下に統合テスト（186個の`*_reg.rs`、C版`*_reg.c`に対応）
+- `tests/`配下に統合テスト（205個の`*_reg.rs`、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
 - テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
 ## 品質比較
 
-| 観点             | C版                    | Rust版                           |
-| ---------------- | ---------------------- | -------------------------------- |
-| **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル    |
-| **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応       |
-| **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応            |
-| **統合テスト**   | alltests_reg.c         | 186ファイル（全crate *_reg.rs）  |
-| **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像       |
-| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数       |
+| 観点             | C版                    | Rust版                          |
+| ---------------- | ---------------------- | ------------------------------- |
+| **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル   |
+| **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応      |
+| **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応           |
+| **統合テスト**   | alltests_reg.c         | 205ファイル（全crate *_reg.rs） |
+| **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像      |
+| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数      |
 
 ## 参考
 
