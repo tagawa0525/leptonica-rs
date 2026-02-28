@@ -15,5 +15,8 @@ mod rectangle_reg;
 mod region_coverage_reg;
 mod seedfill_ext_reg;
 mod seedspread_reg;
+mod smoothedge_reg;
 mod speckle_reg;
+mod splitcomp_reg;
+mod texturefill_reg;
 mod watershed_reg;
