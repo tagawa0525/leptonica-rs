@@ -17,13 +17,14 @@ This project reimplements Leptonica's design and algorithms in Rust. The origina
 
 ## Porting Status
 
-Progress against the original 182 source files and 1,880 public functions.
+Progress against the original 182 source files and 2,246 public functions.
 
-| Metric                   | Value                 |
-| ------------------------ | --------------------- |
-| Lines of code            | ~120,000 / ~240,000   |
-| Function coverage        | 1,128 / 1,880 (60.0%) |
-| Regression test coverage | 140 / 159 (88.1%)     |
+| Metric                   | Value                   |
+| ------------------------ | ----------------------- |
+| Lines of code            | ~144,000 / ~249,000     |
+| Function coverage        | 1,844 / 2,246 (82.1%)   |
+| Effective coverage       | 1,844 / 1,844 (100.0%)  |
+| Regression test coverage | 140 / 160 (87.5%)       |
 
 Details: [Feature comparison](docs/en/porting/feature-comparison.md) / [Test comparison](docs/en/porting/test-comparison.md)
 

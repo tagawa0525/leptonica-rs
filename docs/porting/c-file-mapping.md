@@ -5,7 +5,7 @@ C版ソースファイル・回帰テストファイルとRust版の対応。
 
 ## ソースファイル（182件）
 
-対応あり 151件、🚫不要 30件、❌未実装 1件。
+対応あり 151件、🚫不要 31件、❌未実装 0件。
 
 | C                  | Rust                                                                                                            |
 | ------------------ | --------------------------------------------------------------------------------------------------------------- |
@@ -154,7 +154,7 @@ C版ソースファイル・回帰テストファイルとRust版の対応。
 | `recogident.c`     | src/recog/recog/ident.rs                                                                                        |
 | `recogtrain.c`     | src/recog/recog/train.rs                                                                                        |
 | `regutils.c`       | 🚫                                                                                                              |
-| `renderpdf.c`      | ❌                                                                                                              |
+| `renderpdf.c`      | 🚫                                                                                                              |
 | `rop.c`            | src/core/pix/rop.rs                                                                                             |
 | `roplow.c`         | src/core/pix/rop.rs                                                                                             |
 | `rotate.c`         | src/transform/rotate.rs                                                                                         |
