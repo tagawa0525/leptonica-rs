@@ -24,7 +24,7 @@ C版ソースファイル・回帰テストファイルとRust版の対応。
 | ------------------ | --------------------------------------------------------------------------------------------------------------- |
 | `adaptmap.c`       | src/filter/adaptmap.rs                                                                                          |
 | `affine.c`         | src/transform/affine.rs                                                                                         |
-| `affinecompose.c`  | src/transform/affine.rs                                                                                         |
+| `affinecompose.c`  | src/transform/affine.rs, src/core/pta/transform.rs, src/core/box_/transform.rs                                  |
 | `arrayaccess.c`    | src/core/pix/mod.rs                                                                                             |
 | `bardecode.c`      | src/recog/barcode/decode.rs                                                                                     |
 | `baseline.c`       | src/recog/baseline.rs                                                                                           |
@@ -141,7 +141,7 @@ C版ソースファイル・回帰テストファイルとRust版の対応。
 | `pixarith.c`       | src/core/pix/arith.rs                                                                                           |
 | `pixcomp.c`        | src/core/pixcomp.rs                                                                                             |
 | `pixconv.c`        | src/core/pix/convert.rs                                                                                         |
-| `pixlabel.c`       | src/region/label.rs                                                                                             |
+| `pixlabel.c`       | src/region/label.rs, src/region/conncomp.rs                                                                     |
 | `pixtiling.c`      | src/core/pixtiling.rs                                                                                           |
 | `pngio.c`          | src/io/png.rs                                                                                                   |
 | `pngiostub.c`      | src/io/png.rs                                                                                                   |
