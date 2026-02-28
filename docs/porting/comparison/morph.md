@@ -16,6 +16,8 @@
 
 ### morph.c (基本形態学演算)
 
+#### morph/binary.rs (morph.c)
+
 | C関数                       | 状態 | Rust対応                        | 備考                                                |
 | --------------------------- | ---- | ------------------------------- | --------------------------------------------------- |
 | pixDilate                   | ✅   | binary::dilate                  |                                                     |
@@ -36,42 +38,51 @@
 | pixCloseCompBrick           | 🔄   | binary::close_brick             | Rust版は分離可能分解を自動選択                      |
 | pixCloseSafeCompBrick       | ✅   | binary::close_safe_comp_brick   | Phase 1で実装                                       |
 | pixHMT                      | ✅   | binary::hit_miss_transform      |                                                     |
-| selectComposableSels        | 🔄   | Sel::create_comb_*              | Rust版はSEL生成APIとして分離                        |
 | selectComposableSizes       | ✅   | binary::select_composable_sizes |                                                     |
 | resetMorphBoundaryCondition | 🚫   | -                               | C版グローバル変数setter（Rustでは引数で明示指定）   |
 | getMorphBorderPixelColor    | 🚫   | -                               | C版グローバル状態アクセサ（Rustでは引数で明示指定） |
+| selectComposableSels        | ❌   | -                               | Rust版はSEL生成APIとして分離                        |
 
 ### morphapp.c (応用演算)
 
-| C関数                        | 状態 | Rust対応                              | 備考                                   |
-| ---------------------------- | ---- | ------------------------------------- | -------------------------------------- |
-| pixMorphGradient             | ✅   | morphapp::morph_gradient              | Phase 2で実装                          |
-| pixExtractBoundary           | ✅   | binary::extract_boundary              | Phase 2で実装                          |
-| pixMorphSequenceMasked       | ✅   | morphapp::morph_sequence_masked       | Phase 2で実装                          |
-| pixUnionOfMorphOps           | ✅   | morphapp::union_of_morph_ops          | Phase 2で実装                          |
-| pixIntersectionOfMorphOps    | ✅   | morphapp::intersection_of_morph_ops   | Phase 2で実装                          |
-| pixSeedfillMorph             | ✅   | morphapp::seedfill_morph              | Phase 2で実装                          |
-| pixMorphSequenceByComponent  | ✅   | morph_sequence_by_component           | 連結成分ごとの処理                     |
-| pixMorphSequenceByRegion     | ✅   | morph_sequence_by_region              | 領域ごとの処理                         |
-| pixaMorphSequenceByComponent | 🔄   | morphapp::morph_sequence_by_component | Rust版はPIXAではなく合成済みPixを返す  |
-| pixaMorphSequenceByRegion    | 🔄   | morphapp::morph_sequence_by_region    | Rust版はPIXAではなく合成済みPixを返す  |
-| pixSelectiveConnCompFill     | ❌   | -                                     |                                        |
-| pixRemoveMatchedPattern      | ❌   | -                                     |                                        |
-| pixDisplayMatchedPattern     | ❌   | -                                     |                                        |
-| pixaExtendByMorph            | ❌   | -                                     |                                        |
-| pixaExtendByScaling          | ❌   | -                                     |                                        |
-| pixRunHistogramMorph         | ❌   | -                                     |                                        |
-| pixTophat                    | 🔄   | binary::top_hat                       | C版は8bpp演算。Rust版は1bpp二値top-hat |
-| pixHDome                     | ❌   | -                                     |                                        |
-| pixFastTophat                | ❌   | -                                     |                                        |
-| pixaCentroids                | ❌   | -                                     |                                        |
-| pixCentroid                  | ❌   | -                                     |                                        |
-| pixGrayscaleMorphSum         | 🚫   | -                                     | C版leptonicaに存在しない関数           |
-| pixMultiplyByColor           | 🚫   | -                                     | blend.c所属（morph領域外）             |
-| pixHMTDwa                    | 🚫   | -                                     | DWA自動生成コード                      |
-| pixFHMTGen                   | 🚫   | -                                     | DWAコード生成                          |
+#### morph/morphapp.rs (morphapp.c)
+
+| C関数                        | 状態 | Rust対応                              | 備考                                  |
+| ---------------------------- | ---- | ------------------------------------- | ------------------------------------- |
+| pixMorphGradient             | ✅   | morphapp::morph_gradient              | Phase 2で実装                         |
+| pixMorphSequenceMasked       | ✅   | morphapp::morph_sequence_masked       | Phase 2で実装                         |
+| pixUnionOfMorphOps           | ✅   | morphapp::union_of_morph_ops          | Phase 2で実装                         |
+| pixIntersectionOfMorphOps    | ✅   | morphapp::intersection_of_morph_ops   | Phase 2で実装                         |
+| pixSeedfillMorph             | ✅   | morphapp::seedfill_morph              | Phase 2で実装                         |
+| pixMorphSequenceByComponent  | ✅   | morph_sequence_by_component           | 連結成分ごとの処理                    |
+| pixMorphSequenceByRegion     | ✅   | morph_sequence_by_region              | 領域ごとの処理                        |
+| pixaMorphSequenceByComponent | 🔄   | morphapp::morph_sequence_by_component | Rust版はPIXAではなく合成済みPixを返す |
+| pixaMorphSequenceByRegion    | 🔄   | morphapp::morph_sequence_by_region    | Rust版はPIXAではなく合成済みPixを返す |
+| pixSelectiveConnCompFill     | ❌   | -                                     |                                       |
+| pixRemoveMatchedPattern      | ❌   | -                                     |                                       |
+| pixDisplayMatchedPattern     | ❌   | -                                     |                                       |
+| pixaExtendByMorph            | ❌   | -                                     |                                       |
+| pixaExtendByScaling          | ❌   | -                                     |                                       |
+| pixRunHistogramMorph         | ❌   | -                                     |                                       |
+| pixHDome                     | ❌   | -                                     |                                       |
+| pixFastTophat                | ❌   | -                                     |                                       |
+| pixaCentroids                | ❌   | -                                     |                                       |
+| pixCentroid                  | ❌   | -                                     |                                       |
+| pixGrayscaleMorphSum         | 🚫   | -                                     | C版leptonicaに存在しない関数          |
+| pixMultiplyByColor           | 🚫   | -                                     | blend.c所属（morph領域外）            |
+| pixHMTDwa                    | 🚫   | -                                     | DWA自動生成コード                     |
+| pixFHMTGen                   | 🚫   | -                                     | DWAコード生成                         |
+
+#### morph/binary.rs (morphapp.c)
+
+| C関数              | 状態 | Rust対応                 | 備考                                   |
+| ------------------ | ---- | ------------------------ | -------------------------------------- |
+| pixExtractBoundary | ✅   | binary::extract_boundary | Phase 2で実装                          |
+| pixTophat          | 🔄   | binary::top_hat          | C版は8bpp演算。Rust版は1bpp二値top-hat |
 
 ### morphdwa.c (DWA実装)
+
+#### morph/dwa.rs (morphdwa.c)
 
 | C関数                          | 状態 | Rust対応                               | 備考                                  |
 | ------------------------------ | ---- | -------------------------------------- | ------------------------------------- |
@@ -92,6 +103,8 @@
 
 ### morphseq.c (シーケンス処理)
 
+#### morph/sequence.rs (morphseq.c)
+
 | C関数                   | 状態 | Rust対応                          | 備考                  |
 | ----------------------- | ---- | --------------------------------- | --------------------- |
 | pixMorphSequence        | ✅   | sequence::morph_sequence          |                       |
@@ -103,6 +116,8 @@
 | pixColorMorphSequence   | ✅   | sequence::color_morph_sequence    | Phase 5で実装         |
 
 ### graymorph.c (グレースケール形態学)
+
+#### morph/grayscale.rs (graymorph.c)
 
 | C関数          | 状態 | Rust対応               | 備考                                             |
 | -------------- | ---- | ---------------------- | ------------------------------------------------ |
@@ -120,6 +135,8 @@
 
 ### colormorph.c (カラー形態学)
 
+#### morph/color.rs (colormorph.c)
+
 | C関数         | 状態 | Rust対応                | 備考                         |
 | ------------- | ---- | ----------------------- | ---------------------------- |
 | pixColorMorph | 🔄   | color::dilate_color等   | C版は1関数、Rust版は個別関数 |
@@ -132,6 +149,8 @@
 | -             | ✅   | color::bottom_hat_color | Rust版で追加                 |
 
 ### sel1.c (Sel基本操作)
+
+#### morph/sel.rs (sel1.c)
 
 | C関数                   | 状態 | Rust対応                                                | 備考                         |
 | ----------------------- | ---- | ------------------------------------------------------- | ---------------------------- |
@@ -154,9 +173,6 @@
 | selGetParameters        | ✅   | sel::Sel::get_parameters                                | Phase 3で実装                |
 | selSetOrigin            | ✅   | sel::Sel::set_origin                                    |                              |
 | selGetTypeAtOrigin      | ✅   | get_elementでorigin参照                                 |                              |
-| selaGetBrickName        | 🔄   | Sela::find_by_name                                      | 命名規則で検索               |
-| selaGetCombName         | 🔄   | Sela::find_by_name                                      | 命名規則で検索               |
-| getCompositeParameters  | ✅   | dwa内部 + get_extended_composite_parameters             |                              |
 | selaGetSelnames         | 🔄   | iterate + name()                                        |                              |
 | selFindMaxTranslations  | ✅   | sel::Sel::find_max_translations                         |                              |
 | selRotateOrth           | ✅   | sel::Sel::rotate_orth                                   |                              |
@@ -178,23 +194,40 @@
 | selaCreateFromColorPixa | ✅   | sela_create_from_color_pixa                             | Pixa操作はアプリケーション層 |
 | selDisplayInPix         | 🚫   | -                                                       | 可視化専用                   |
 | selaDisplayInPix        | 🚫   | -                                                       | 可視化専用                   |
+| selaGetBrickName        | 🔄   | Sela::find_by_name                                      | 命名規則で検索               |
+| selaGetCombName         | 🔄   | Sela::find_by_name                                      | 命名規則で検索               |
+
+#### morph/dwa.rs (sel1.c)
+
+| C関数                  | 状態 | Rust対応                                    | 備考 |
+| ---------------------- | ---- | ------------------------------------------- | ---- |
+| getCompositeParameters | ✅   | dwa内部 + get_extended_composite_parameters |      |
 
 ### sel2.c (Sel定義済みセット)
 
-| C関数                 | 状態 | Rust対応                      | 備考           |
-| --------------------- | ---- | ----------------------------- | -------------- |
-| sel4ccThin系 (16関数) | 🔄   | thin_sels::sels_4cc_thin      | 一括生成で対応 |
-| sel8ccThin系 (16関数) | 🔄   | thin_sels::sels_8cc_thin      | 一括生成で対応 |
-| sela4and8ccThin       | ✅   | thin_sels::make_thin_sels     |                |
-| selMakePlusSign       | ✅   | sel::sel_make_plus_sign       |                |
-| selaAddBasic          | ✅   | sel::sela_add_basic           | Phase 4で実装  |
-| selaAddHitMiss        | ✅   | sel::sela_add_hit_miss        | Phase 4で実装  |
-| selaAddDwaLinear      | ✅   | sel::sela_add_dwa_linear      | Phase 4で実装  |
-| selaAddDwaCombs       | ✅   | sel::sela_add_dwa_combs       | Phase 4で実装  |
-| selaAddCrossJunctions | ✅   | sel::sela_add_cross_junctions | Phase 4で実装  |
-| selaAddTJunctions     | ✅   | sel::sela_add_t_junctions     | Phase 4で実装  |
+#### morph/thin_sels.rs (sel2.c)
+
+| C関数                 | 状態 | Rust対応                  | 備考           |
+| --------------------- | ---- | ------------------------- | -------------- |
+| sel4ccThin系 (16関数) | 🔄   | thin_sels::sels_4cc_thin  | 一括生成で対応 |
+| sel8ccThin系 (16関数) | 🔄   | thin_sels::sels_8cc_thin  | 一括生成で対応 |
+| sela4and8ccThin       | ✅   | thin_sels::make_thin_sels |                |
+
+#### morph/sel.rs (sel2.c)
+
+| C関数                 | 状態 | Rust対応                      | 備考          |
+| --------------------- | ---- | ----------------------------- | ------------- |
+| selMakePlusSign       | ✅   | sel::sel_make_plus_sign       |               |
+| selaAddBasic          | ✅   | sel::sela_add_basic           | Phase 4で実装 |
+| selaAddHitMiss        | ✅   | sel::sela_add_hit_miss        | Phase 4で実装 |
+| selaAddDwaLinear      | ✅   | sel::sela_add_dwa_linear      | Phase 4で実装 |
+| selaAddDwaCombs       | ✅   | sel::sela_add_dwa_combs       | Phase 4で実装 |
+| selaAddCrossJunctions | ✅   | sel::sela_add_cross_junctions | Phase 4で実装 |
+| selaAddTJunctions     | ✅   | sel::sela_add_t_junctions     | Phase 4で実装 |
 
 ### selgen.c (Sel自動生成)
+
+#### morph/selgen.rs (selgen.c)
 
 | C関数                      | 状態 | Rust対応                  | 備考                                                         |
 | -------------------------- | ---- | ------------------------- | ------------------------------------------------------------ |
@@ -209,14 +242,23 @@
 
 ### ccthin.c (連結成分保存細線化)
 
+#### morph/thin.rs (ccthin.c)
+
 | C関数                 | 状態 | Rust対応                    | 備考 |
 | --------------------- | ---- | --------------------------- | ---- |
 | pixaThinConnected     | ✅   | pixa_thin_connected         |      |
 | pixThinConnected      | ✅   | thin::thin_connected        |      |
 | pixThinConnectedBySet | ✅   | thin::thin_connected_by_set |      |
-| selaMakeThinSets      | ✅   | thin_sels::make_thin_sels   |      |
+
+#### morph/thin_sels.rs (ccthin.c)
+
+| C関数            | 状態 | Rust対応                  | 備考 |
+| ---------------- | ---- | ------------------------- | ---- |
+| selaMakeThinSets | ✅   | thin_sels::make_thin_sels |      |
 
 ### dwacomb.2.c / dwacomblow.2.c / fmorphauto.c / fmorphgen.1.c / fmorphgenlow.1.c / fhmtauto.c / fhmtgen.1.c / fhmtgenlow.1.c (DWAコード生成・自動生成)
+
+#### morph/mod.rs (dwacomb.2.c)
 
 | C関数             | 状態 | Rust対応 | 備考                                |
 | ----------------- | ---- | -------- | ----------------------------------- |

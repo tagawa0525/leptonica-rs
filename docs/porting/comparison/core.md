@@ -30,162 +30,147 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 
 ### pix1.c (基本的なPix操作)
 
-#### その他
+#### core/pix/mod.rs (pix1.c)
 
-| C関数             | 状態 | Rust対応                 | 備考                      |
-| ----------------- | ---- | ------------------------ | ------------------------- |
-| pixCreate         | ✅   | Pix::new()               |                           |
-| pixCreateTemplate | ✅   | Pix::create_template     |                           |
-| pixCreateWithCmap | ✅   | Pix::new_with_colormap   |                           |
-| pixClone          | 🔄   | Pix::clone()             | Arc参照カウントで自動実装 |
-| pixDestroy        | 🔄   | drop()                   | Rustのデストラクタで自動  |
-| pixCopy           | 🔄   | Pix::deep_clone()        | deep_cloneが完全コピー    |
-| pixGetWidth       | ✅   | Pix::width()             |                           |
-| pixGetHeight      | ✅   | Pix::height()            |                           |
-| pixGetDepth       | ✅   | Pix::depth()             |                           |
-| pixGetDimensions  | ✅   | width()/height()/depth() | 個別メソッドで取得        |
-| pixGetSpp         | ✅   | Pix::spp()               |                           |
-| pixSetSpp         | 🔄   | PixMut::set_spp()        | PixMutで可変              |
-| pixGetWpl         | ✅   | Pix::wpl()               |                           |
-| pixGetXRes        | ✅   | Pix::xres()              |                           |
-| pixSetXRes        | 🔄   | PixMut::set_xres()       |                           |
-| pixGetYRes        | ✅   | Pix::yres()              |                           |
-| pixSetYRes        | 🔄   | PixMut::set_yres()       |                           |
-| pixGetResolution  | ✅   | xres()/yres()            |                           |
-| pixSetResolution  | 🔄   | PixMut::set_resolution() |                           |
-| pixGetInputFormat | ✅   | Pix::informat()          |                           |
-| pixSetInputFormat | 🔄   | PixMut::set_informat()   |                           |
-| pixSetSpecial     | 🔄   | PixMut::set_special()    |                           |
-| pixGetText        | ✅   | Pix::text()              |                           |
-| pixSetText        | 🔄   | PixMut::set_text()       |                           |
-| pixGetTextCompNew | ✅   | get_text_comp_new        |                           |
-| pixSetTextCompNew | ✅   | set_text_comp_new        |                           |
-| pixGetColormap    | ✅   | Pix::colormap()          |                           |
-| pixSetColormap    | 🔄   | PixMut::set_colormap()   |                           |
-| pixGetData        | ✅   | Pix::data()              |                           |
-
-#### 対応なし
-
-| C関数                   | 状態 | Rust対応 | 備考                       |
-| ----------------------- | ---- | -------- | -------------------------- |
-| pixCreateNoInit         | 🚫   | -        | Rustは常に初期化する       |
-| pixCreateTemplateNoInit | 🚫   | -        | Rustは常に初期化する       |
-| pixCreateHeader         | 🚫   | -        | Rustは常に初期化する       |
-| pixResizeImageData      | 🚫   | -        | Rustの所有権モデルで不要   |
-| pixTransferAllData      | 🚫   | -        | Rustの所有権モデルで不要   |
-| pixSwapAndDestroy       | 🚫   | -        | Rustの所有権モデルで不要   |
-| pixSetWidth             | 🚫   | -        | Pixは不変                  |
-| pixSetHeight            | 🚫   | -        | Pixは不変                  |
-| pixSetDepth             | 🚫   | -        | Pixは不変                  |
-| pixSetDimensions        | 🚫   | -        | Pixは不変                  |
-| pixCopyDimensions       | 🚫   | -        | Pixは不変                  |
-| pixCopySpp              | 🚫   | -        | Pixは不変                  |
-| pixSetWpl               | 🚫   | -        | 自動計算のため不要         |
-| pixDestroyColormap      | 🚫   | -        | set_colormap(None)で実現可 |
-| pixFreeAndSetData       | 🚫   | -        | Cメモリ管理                |
-| pixSetData              | 🚫   | -        | Cメモリ管理                |
-| pixFreeData             | 🚫   | -        | Cメモリ管理                |
-| pixExtractData          | 🚫   | -        | Cメモリ管理                |
-| pixGetLinePtrs          | 🚫   | -        | Cポインタ配列              |
-| pixPrintStreamInfo      | 🚫   | -        | Debug traitで対応          |
-
-#### pix/mod.rs
-
-| C関数              | 状態 | Rust対応                 | 備考 |
-| ------------------ | ---- | ------------------------ | ---- |
-| pixCopyColormap    | ✅   | copy_colormap_from()     |      |
-| pixCopyResolution  | ✅   | copy_resolution_from()   |      |
-| pixScaleResolution | ✅   | scale_resolution()       |      |
-| pixCopyInputFormat | ✅   | copy_input_format_from() |      |
-| pixAddText         | ✅   | add_text()               |      |
-| pixCopyText        | ✅   | copy_text_from()         |      |
-| pixSizesEqual      | ✅   | sizes_equal()            |      |
-| pixMaxAspectRatio  | ✅   | max_aspect_ratio()       |      |
+| C関数                   | 状態 | Rust対応                         | 備考                       |
+| ----------------------- | ---- | -------------------------------- | -------------------------- |
+| pixCreate               | ✅   | Pix::new()                       |                            |
+| pixCreateTemplate       | ✅   | Pix::create_template             |                            |
+| pixCreateWithCmap       | ✅   | Pix::new_with_colormap           |                            |
+| pixClone                | 🔄   | Pix::clone()                     | Arc参照カウントで自動実装  |
+| pixCopy                 | 🔄   | Pix::deep_clone()                | deep_cloneが完全コピー     |
+| pixGetWidth             | ✅   | Pix::width()                     |                            |
+| pixGetHeight            | ✅   | Pix::height()                    |                            |
+| pixGetDepth             | ✅   | Pix::depth()                     |                            |
+| pixGetSpp               | ✅   | Pix::spp()                       |                            |
+| pixGetWpl               | ✅   | Pix::wpl()                       |                            |
+| pixGetXRes              | ✅   | Pix::xres()                      |                            |
+| pixGetYRes              | ✅   | Pix::yres()                      |                            |
+| pixGetInputFormat       | ✅   | Pix::informat()                  |                            |
+| pixGetText              | ✅   | Pix::text()                      |                            |
+| pixGetColormap          | ✅   | Pix::colormap()                  |                            |
+| pixGetData              | ✅   | Pix::data()                      |                            |
+| pixDestroy              | 🔄   | drop()                           | Rustのデストラクタで自動   |
+| pixGetTextCompNew       | ✅   | Pix::get_text_comp_new           |                            |
+| pixSetTextCompNew       | ✅   | PixMut::set_text_comp_new        |                            |
+| pixSetSpp               | 🔄   | PixMut::set_spp()                | PixMutで可変               |
+| pixSetXRes              | 🔄   | PixMut::set_xres()               |                            |
+| pixSetYRes              | 🔄   | PixMut::set_yres()               |                            |
+| pixSetResolution        | 🔄   | PixMut::set_resolution()         |                            |
+| pixSetInputFormat       | 🔄   | PixMut::set_informat()           |                            |
+| pixSetSpecial           | 🔄   | PixMut::set_special()            |                            |
+| pixSetText              | 🔄   | PixMut::set_text()               |                            |
+| pixSetColormap          | 🔄   | PixMut::set_colormap()           |                            |
+| pixGetDimensions        | ✅   | width()/height()/depth()         | 個別メソッドで取得         |
+| pixGetResolution        | ✅   | xres()/yres()                    |                            |
+| pixCreateNoInit         | 🚫   | -                                | Rustは常に初期化する       |
+| pixCreateTemplateNoInit | 🚫   | -                                | Rustは常に初期化する       |
+| pixCreateHeader         | 🚫   | -                                | Rustは常に初期化する       |
+| pixResizeImageData      | 🚫   | -                                | Rustの所有権モデルで不要   |
+| pixTransferAllData      | 🚫   | -                                | Rustの所有権モデルで不要   |
+| pixSwapAndDestroy       | 🚫   | -                                | Rustの所有権モデルで不要   |
+| pixSetWidth             | 🚫   | -                                | Pixは不変                  |
+| pixSetHeight            | 🚫   | -                                | Pixは不変                  |
+| pixSetDepth             | 🚫   | -                                | Pixは不変                  |
+| pixSetDimensions        | 🚫   | -                                | Pixは不変                  |
+| pixCopyDimensions       | 🚫   | -                                | Pixは不変                  |
+| pixCopySpp              | 🚫   | -                                | Pixは不変                  |
+| pixSetWpl               | 🚫   | -                                | 自動計算のため不要         |
+| pixDestroyColormap      | 🚫   | -                                | set_colormap(None)で実現可 |
+| pixFreeAndSetData       | 🚫   | -                                | Cメモリ管理                |
+| pixSetData              | 🚫   | -                                | Cメモリ管理                |
+| pixFreeData             | 🚫   | -                                | Cメモリ管理                |
+| pixExtractData          | 🚫   | -                                | Cメモリ管理                |
+| pixGetLinePtrs          | 🚫   | -                                | Cポインタ配列              |
+| pixPrintStreamInfo      | 🚫   | -                                | Debug traitで対応          |
+| pixCopyColormap         | ✅   | PixMut::copy_colormap_from()     |                            |
+| pixCopyResolution       | ✅   | PixMut::copy_resolution_from()   |                            |
+| pixScaleResolution      | ✅   | PixMut::scale_resolution()       |                            |
+| pixCopyInputFormat      | ✅   | PixMut::copy_input_format_from() |                            |
+| pixAddText              | ✅   | PixMut::add_text()               |                            |
+| pixCopyText             | ✅   | PixMut::copy_text_from()         |                            |
+| pixSizesEqual           | ✅   | Pix::sizes_equal()               |                            |
+| pixMaxAspectRatio       | ✅   | Pix::max_aspect_ratio()          |                            |
 
 ### pix2.c (ピクセルアクセス・設定)
 
-#### その他
+#### core/pix/access.rs (pix2.c)
 
-| C関数                           | 状態 | Rust対応                         | 備考 |
-| ------------------------------- | ---- | -------------------------------- | ---- |
-| pixGetPixel                     | ✅   | Pix::get_pixel()                 |      |
-| pixSetPixel                     | ✅   | PixMut::set_pixel()              |      |
-| pixGetRandomPixel               | ✅   | get_random_pixel                 |      |
-| pixClearAll                     | 🔄   | PixMut::clear()                  |      |
-| pixSetAll                       | 🔄   | PixMut::set_all()                |      |
-| pixSetComponentArbitrary        | ✅   | set_component_arbitrary          |      |
-| pixBlendInRect                  | ✅   | blend_in_rect                    |      |
-| pixSetBorderRingVal             | ✅   | set_border_ring_val              |      |
-| pixSetMirroredBorder            | ✅   | set_mirrored_border              |      |
-| pixCopyBorder                   | ✅   | copy_border                      |      |
-| pixAddMultipleBlackWhiteBorders | ✅   | add_multiple_black_white_borders |      |
-| pixRemoveBorderToSize           | ✅   | remove_border_to_size            |      |
-| pixAddMixedBorder               | ✅   | add_mixed_border                 |      |
-| pixAddContinuedBorder           | ✅   | add_continued_border             |      |
-| pixShiftAndTransferAlpha        | ✅   | shift_and_transfer_alpha         |      |
-| pixGetRGBComponentCmap          | ✅   | get_rgb_component_cmap           |      |
-| pixCopyRGBComponent             | ✅   | copy_rgb_component               |      |
-| pixGetRGBLine                   | ✅   | get_rgb_line                     |      |
-| pixEndianByteSwapNew            | ✅   | Pix::endian_byte_swap_new        |      |
-| pixEndianByteSwap               | ✅   | PixMut::endian_byte_swap         |      |
-| pixEndianTwoByteSwap            | ✅   | PixMut::endian_two_byte_swap     |      |
-| pixInferResolution              | ✅   | infer_resolution                 |      |
-| pixAlphaIsOpaque                | ✅   | alpha_is_opaque                  |      |
+| C関数       | 状態 | Rust対応            | 備考 |
+| ----------- | ---- | ------------------- | ---- |
+| pixGetPixel | ✅   | Pix::get_pixel()    |      |
+| pixSetPixel | ✅   | PixMut::set_pixel() |      |
 
-#### rgb.rs
+#### core/pix/rgb.rs (pix2.c)
 
-| C関数              | 状態 | Rust対応            | 備考 |
-| ------------------ | ---- | ------------------- | ---- |
-| pixGetRGBPixel     | ✅   | get_rgb_pixel()     |      |
-| pixSetRGBPixel     | ✅   | set_rgb_pixel()     |      |
-| pixCreateRGBImage  | ✅   | create_rgb_image()  |      |
-| pixGetRGBComponent | ✅   | get_rgb_component() |      |
-| pixSetRGBComponent | ✅   | set_rgb_component() |      |
+| C関数                  | 状態 | Rust対応                     | 備考 |
+| ---------------------- | ---- | ---------------------------- | ---- |
+| pixEndianByteSwapNew   | ✅   | Pix::endian_byte_swap_new    |      |
+| pixEndianByteSwap      | ✅   | PixMut::endian_byte_swap     |      |
+| pixEndianTwoByteSwap   | ✅   | PixMut::endian_two_byte_swap |      |
+| pixGetRGBComponentCmap | ✅   | Pix::get_rgb_component_cmap  |      |
+| pixCopyRGBComponent    | ✅   | PixMut::copy_rgb_component   |      |
+| pixGetRGBLine          | ✅   | Pix::get_rgb_line            |      |
+| pixInferResolution     | ✅   | Pix::infer_resolution        |      |
+| pixAlphaIsOpaque       | ✅   | Pix::alpha_is_opaque         |      |
+| pixGetRGBPixel         | ✅   | Pix::get_rgb_pixel()         |      |
+| pixSetRGBPixel         | ✅   | PixMut::set_rgb_pixel()      |      |
+| pixCreateRGBImage      | ✅   | Pix::create_rgb_image()      |      |
+| pixGetRGBComponent     | ✅   | Pix::get_rgb_component()     |      |
+| pixSetRGBComponent     | ✅   | PixMut::set_rgb_component()  |      |
+| pixSetCmapPixel        | ✅   | PixMut::set_cmap_pixel()     |      |
 
-#### pix/rgb.rs
+#### core/pix/mod.rs (pix2.c)
 
-| C関数           | 状態 | Rust対応         | 備考 |
-| --------------- | ---- | ---------------- | ---- |
-| pixSetCmapPixel | ✅   | set_cmap_pixel() |      |
+| C関数                    | 状態 | Rust対応                         | 備考 |
+| ------------------------ | ---- | -------------------------------- | ---- |
+| pixGetRandomPixel        | ✅   | Pix::get_random_pixel            |      |
+| pixSetComponentArbitrary | ✅   | PixMut::set_component_arbitrary  |      |
+| pixClearAll              | 🔄   | PixMut::clear()                  |      |
+| pixSetAll                | 🔄   | PixMut::set_all()                |      |
+| pixClearPixel            | ✅   | PixMut::clear_pixel()            |      |
+| pixFlipPixel             | ✅   | PixMut::flip_pixel()             |      |
+| pixGetBlackOrWhiteVal    | ✅   | PixMut::get_black_or_white_val() |      |
+| pixSetAllGray            | ✅   | PixMut::set_all_gray()           |      |
+| pixSetAllArbitrary       | ✅   | PixMut::set_all_arbitrary()      |      |
+| pixSetBlackOrWhite       | ✅   | PixMut::set_black_or_white()     |      |
+| pixClearInRect           | ✅   | PixMut::clear_in_rect()          |      |
+| pixSetInRect             | ✅   | PixMut::set_in_rect()            |      |
+| pixSetInRectArbitrary    | ✅   | PixMut::set_in_rect_arbitrary()  |      |
+| pixSetPadBits            | ✅   | PixMut::set_pad_bits()           |      |
+| pixSetPadBitsBand        | ✅   | PixMut::set_pad_bits_band()      |      |
+| pixSetOrClearBorder      | ✅   | PixMut::set_or_clear_border()    |      |
 
-#### pix/mod.rs
+#### core/pix/blend.rs (pix2.c)
 
-| C関数                 | 状態 | Rust対応                 | 備考 |
-| --------------------- | ---- | ------------------------ | ---- |
-| pixClearPixel         | ✅   | clear_pixel()            |      |
-| pixFlipPixel          | ✅   | flip_pixel()             |      |
-| pixGetBlackOrWhiteVal | ✅   | get_black_or_white_val() |      |
-| pixSetAllGray         | ✅   | set_all_gray()           |      |
-| pixSetAllArbitrary    | ✅   | set_all_arbitrary()      |      |
-| pixSetBlackOrWhite    | ✅   | set_black_or_white()     |      |
-| pixClearInRect        | ✅   | clear_in_rect()          |      |
-| pixSetInRect          | ✅   | set_in_rect()            |      |
-| pixSetInRectArbitrary | ✅   | set_in_rect_arbitrary()  |      |
-| pixSetPadBits         | ✅   | set_pad_bits()           |      |
-| pixSetPadBitsBand     | ✅   | set_pad_bits_band()      |      |
-| pixSetOrClearBorder   | ✅   | set_or_clear_border()    |      |
+| C関数          | 状態 | Rust対応           | 備考 |
+| -------------- | ---- | ------------------ | ---- |
+| pixBlendInRect | ✅   | Pix::blend_in_rect |      |
 
-#### border.rs
+#### core/pix/border.rs (pix2.c)
 
-| C関数                    | 状態 | Rust対応                    | 備考 |
-| ------------------------ | ---- | --------------------------- | ---- |
-| pixSetBorderVal          | ✅   | set_border_val()            |      |
-| pixAddBorder             | ✅   | add_border()                |      |
-| pixAddBlackOrWhiteBorder | ✅   | add_black_or_white_border() |      |
-| pixAddBorderGeneral      | ✅   | add_border_general()        |      |
-| pixRemoveBorder          | ✅   | remove_border()             |      |
-| pixRemoveBorderGeneral   | ✅   | remove_border_general()     |      |
-| pixAddMirroredBorder     | ✅   | add_mirrored_border()       |      |
-| pixAddRepeatedBorder     | ✅   | add_repeated_border()       |      |
+| C関数                           | 状態 | Rust対応                              | 備考             |
+| ------------------------------- | ---- | ------------------------------------- | ---------------- |
+| pixSetBorderRingVal             | ✅   | PixMut::set_border_ring_val           |                  |
+| pixSetMirroredBorder            | ✅   | PixMut::set_mirrored_border           |                  |
+| pixCopyBorder                   | ✅   | Pix::copy_border                      |                  |
+| pixAddMultipleBlackWhiteBorders | ✅   | Pix::add_multiple_black_white_borders |                  |
+| pixRemoveBorderToSize           | ✅   | Pix::remove_border_to_size            |                  |
+| pixAddMixedBorder               | ✅   | Pix::add_mixed_border                 |                  |
+| pixAddContinuedBorder           | ✅   | Pix::add_continued_border             |                  |
+| pixShiftAndTransferAlpha        | ✅   | Pix::shift_and_transfer_alpha         |                  |
+| pixSetBorderVal                 | ✅   | PixMut::set_border_val()              |                  |
+| pixAddBlackOrWhiteBorder        | ✅   | Pix::add_black_or_white_border()      |                  |
+| pixAddBorderGeneral             | ✅   | Pix::add_border_general()             |                  |
+| pixRemoveBorderGeneral          | ✅   | Pix::remove_border_general()          |                  |
+| pixAddRepeatedBorder            | ✅   | Pix::add_repeated_border()            |                  |
+| pixAddBorder                    | ✅   | Pix::add_border()                     |                  |
+| pixRemoveBorder                 | ✅   | Pix::remove_border()                  |                  |
+| pixAddMirroredBorder            | ✅   | Pix::add_mirrored_border()            |                  |
+| pixDisplayLayersRGBA            | 🚫   | -                                     | デバッグ表示関数 |
+| pixGetRasterData                | 🚫   | -                                     | Cポインタ取得    |
 
-#### 対応なし
-
-| C関数                | 状態 | Rust対応 | 備考             |
-| -------------------- | ---- | -------- | ---------------- |
-| pixDisplayLayersRGBA | 🚫   | -        | デバッグ表示関数 |
-| pixGetRasterData     | 🚫   | -        | Cポインタ取得    |
-
-#### core/pixel.rs
+#### core/pixel.rs (pix2.c)
 
 | C関数                  | 状態 | Rust対応                                        | 備考 |
 | ---------------------- | ---- | ----------------------------------------------- | ---- |
@@ -197,433 +182,464 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 
 ### pix3.c (マスク・ブール演算)
 
-#### mask.rs
+#### core/pix/mask.rs (pix3.c)
 
-| C関数                   | 状態 | Rust対応                 | 備考 |
-| ----------------------- | ---- | ------------------------ | ---- |
-| pixSetMasked            | ✅   | set_masked()             |      |
-| pixSetMaskedGeneral     | ✅   | set_masked_general()     |      |
-| pixCombineMasked        | ✅   | combine_masked()         |      |
-| pixCombineMaskedGeneral | ✅   | combine_masked_general() |      |
-| pixPaintThroughMask     | ✅   | paint_through_mask()     |      |
-| pixCopyWithBoxa         | ✅   | copy_with_boxa()         |      |
-| pixMakeMaskFromVal      | ✅   | make_mask_from_val()     |      |
-| pixMakeMaskFromLUT      | ✅   | make_mask_from_lut()     |      |
-| pixMakeArbMaskFromRGB   | ✅   | make_arb_mask_from_rgb() |      |
-| pixSetUnderTransparency | ✅   | set_under_transparency() |      |
+| C関数                       | 状態 | Rust対応                          | 備考      |
+| --------------------------- | ---- | --------------------------------- | --------- |
+| pixSetMasked                | ✅   | PixMut::set_masked()              |           |
+| pixSetMaskedGeneral         | ✅   | PixMut::set_masked_general()      |           |
+| pixCombineMasked            | ✅   | PixMut::combine_masked()          |           |
+| pixCombineMaskedGeneral     | ✅   | PixMut::combine_masked_general()  |           |
+| pixPaintThroughMask         | ✅   | PixMut::paint_through_mask()      |           |
+| pixCopyWithBoxa             | ✅   | Pix::copy_with_boxa()             |           |
+| pixMakeMaskFromVal          | ✅   | Pix::make_mask_from_val()         |           |
+| pixMakeMaskFromLUT          | ✅   | Pix::make_mask_from_lut()         |           |
+| pixMakeArbMaskFromRGB       | ✅   | Pix::make_arb_mask_from_rgb()     |           |
+| pixSetUnderTransparency     | ✅   | Pix::set_under_transparency()     |           |
+| pixPaintSelfThroughMask     | ✅   | Pix::paint_self_through_mask      | 後続Phase |
+| pixMakeAlphaFromMask        | ✅   | Pix::make_alpha_from_mask         |           |
+| pixGetColorNearMaskBoundary | ✅   | Pix::get_color_near_mask_boundary |           |
 
-#### その他
+#### core/pix/rop.rs (pix3.c)
 
-| C関数                       | 状態 | Rust対応                     | 備考      |
-| --------------------------- | ---- | ---------------------------- | --------- |
-| pixPaintSelfThroughMask     | ✅   | paint_self_through_mask      | 後続Phase |
-| pixMakeAlphaFromMask        | ✅   | make_alpha_from_mask         |           |
-| pixGetColorNearMaskBoundary | ✅   | get_color_near_mask_boundary |           |
-| pixInvert                   | ✅   | ops.rsに実装                 |           |
-| pixOr                       | ✅   | ops.rsに実装                 |           |
-| pixAnd                      | ✅   | ops.rsに実装                 |           |
-| pixXor                      | ✅   | ops.rsに実装                 |           |
-| pixSubtract                 | ✅   | ops.rsに実装                 |           |
-| pixaCountPixels             | ✅   | pixa count_pixels()          |           |
+| C関数                    | 状態 | Rust対応      | 備考               |
+| ------------------------ | ---- | ------------- | ------------------ |
+| pixInvert                | ✅   | Pix::invert() |                    |
+| pixOr                    | ✅   | Pix::or()     |                    |
+| pixAnd                   | ✅   | Pix::and()    |                    |
+| pixXor                   | ✅   | Pix::xor()    |                    |
+| pixDisplaySelectedPixels | 🚫   | -             | デバッグ表示関数   |
+| pixMirroredTiling        | 🚫   | -             | デバッグ表示関数   |
+| pixFindRepCloseTile      | 🚫   | -             | タイリングヘルパー |
 
-#### 対応なし
+#### core/pix/compare.rs (pix3.c)
 
-| C関数                    | 状態 | Rust対応 | 備考               |
-| ------------------------ | ---- | -------- | ------------------ |
-| pixDisplaySelectedPixels | 🚫   | -        | デバッグ表示関数   |
-| pixMirroredTiling        | 🚫   | -        | デバッグ表示関数   |
-| pixFindRepCloseTile      | 🚫   | -        | タイリングヘルパー |
+| C関数       | 状態 | Rust対応        | 備考 |
+| ----------- | ---- | --------------- | ---- |
+| pixSubtract | ✅   | Pix::subtract() |      |
 
-#### statistics.rs
+#### core/pix/statistics.rs (pix3.c)
 
-| C関数                  | 状態 | Rust対応                 | 備考       |
-| ---------------------- | ---- | ------------------------ | ---------- |
-| pixZero                | ✅   | is_zero()                |            |
-| pixForegroundFraction  | ✅   | foreground_fraction()    |            |
-| pixCountPixels         | ✅   | count_pixels()           |            |
-| pixCountPixelsInRect   | ✅   | count_pixels_in_rect()   |            |
-| pixCountByRow          | ✅   | count_by_row()           |            |
-| pixCountByColumn       | ✅   | count_by_column()        |            |
-| pixCountPixelsByRow    | ✅   | count_pixels_by_row()    | Numa返却版 |
-| pixCountPixelsByColumn | ✅   | count_pixels_by_column() | Numa返却版 |
-| pixCountPixelsInRow    | ✅   | count_pixels_in_row()    |            |
-| pixGetMomentByColumn   | ✅   | get_moment_by_column()   |            |
-| pixThresholdPixelSum   | ✅   | threshold_pixel_sum()    |            |
-| pixAverageByRow        | ✅   | average_by_row()         |            |
-| pixAverageByColumn     | ✅   | average_by_column()      |            |
-| pixAverageInRect       | ✅   | average_in_rect()        |            |
-| pixAverageInRectRGB    | ✅   | average_in_rect_rgb()    |            |
-| pixVarianceByRow       | ✅   | variance_by_row()        |            |
-| pixVarianceByColumn    | ✅   | variance_by_column()     |            |
-| pixVarianceInRect      | ✅   | variance_in_rect()       |            |
-| pixAbsDiffByRow        | ✅   | abs_diff_by_row()        |            |
-| pixAbsDiffByColumn     | ✅   | abs_diff_by_column()     |            |
-| pixAbsDiffInRect       | ✅   | abs_diff_in_rect()       |            |
-| pixAbsDiffOnLine       | ✅   | abs_diff_on_line()       |            |
-| pixCountArbInRect      | ✅   | count_arb_in_rect()      |            |
+| C関数                  | 状態 | Rust対応                    | 備考       |
+| ---------------------- | ---- | --------------------------- | ---------- |
+| pixZero                | ✅   | Pix::is_zero()              |            |
+| pixForegroundFraction  | ✅   | Pix::foreground_fraction()  |            |
+| pixCountPixels         | ✅   | Pix::count_pixels()         |            |
+| pixCountPixelsInRect   | ✅   | Pix::count_pixels_in_rect() |            |
+| pixCountByRow          | ✅   | Pix::count_by_row()         |            |
+| pixCountByColumn       | ✅   | Pix::count_by_column()      |            |
+| pixCountPixelsByRow    | ❌   | -                           | Numa返却版 |
+| pixCountPixelsByColumn | ❌   | -                           | Numa返却版 |
+| pixCountPixelsInRow    | ✅   | Pix::count_pixels_in_row()  |            |
+| pixGetMomentByColumn   | ✅   | Pix::get_moment_by_column() |            |
+| pixThresholdPixelSum   | ✅   | Pix::threshold_pixel_sum()  |            |
+| pixAverageByRow        | ✅   | Pix::average_by_row()       |            |
+| pixAverageByColumn     | ✅   | Pix::average_by_column()    |            |
+| pixAverageInRect       | ✅   | Pix::average_in_rect()      |            |
+| pixAverageInRectRGB    | ✅   | Pix::average_in_rect_rgb()  |            |
+| pixVarianceByRow       | ✅   | Pix::variance_by_row()      |            |
+| pixVarianceByColumn    | ✅   | Pix::variance_by_column()   |            |
+| pixVarianceInRect      | ✅   | Pix::variance_in_rect()     |            |
+| pixAbsDiffByRow        | ✅   | Pix::abs_diff_by_row()      |            |
+| pixAbsDiffByColumn     | ✅   | Pix::abs_diff_by_column()   |            |
+| pixAbsDiffInRect       | ✅   | Pix::abs_diff_in_rect()     |            |
+| pixAbsDiffOnLine       | ✅   | Pix::abs_diff_on_line()     |            |
+| pixCountArbInRect      | ✅   | Pix::count_arb_in_rect()    |            |
+
+#### core/pixa/mod.rs (pix3.c)
+
+| C関数           | 状態 | Rust対応             | 備考 |
+| --------------- | ---- | -------------------- | ---- |
+| pixaCountPixels | 🔄   | Pixa::count_pixels() |      |
 
 ### pix4.c (ヒストグラム・統計)
 
-#### その他
+#### core/pix/histogram.rs (pix4.c)
+
+| C関数                      | 状態 | Rust対応                        | 備考 |
+| -------------------------- | ---- | ------------------------------- | ---- |
+| pixGetGrayHistogram        | ✅   | Pix::gray_histogram()           |      |
+| pixGetColorHistogram       | ✅   | Pix::color_histogram()          |      |
+| pixCountRGBColorsByHash    | ✅   | Pix::count_rgb_colors_by_hash   |      |
+| pixGetColorAmapHistogram   | ❌   | -                               |      |
+| pixGetBinnedComponentRange | ✅   | Pix::get_binned_component_range |      |
+| pixGetRankColorArray       | ✅   | Pix::get_rank_color_array       |      |
+| pixGetBinnedColor          | ✅   | Pix::get_binned_color           |      |
+| pixDisplayColorArray       | ✅   | Pix::display_color_array        |      |
+| pixRankBinByStrip          | ✅   | Pix::rank_bin_by_strip          |      |
+| pixSplitDistributionFgBg   | ✅   | Pix::split_distribution_fg_bg   |      |
+| pixGetGrayHistogramMasked  | ✅   | Pix::gray_histogram_masked()    |      |
+| pixGetGrayHistogramInRect  | ✅   | Pix::gray_histogram_in_rect()   |      |
+| pixGetGrayHistogramTiled   | ✅   | Pix::gray_histogram_tiled()     |      |
+| pixGetColorHistogramMasked | ✅   | Pix::color_histogram_masked()   |      |
+| pixGetCmapHistogram        | ✅   | Pix::cmap_histogram()           |      |
+| pixGetCmapHistogramMasked  | ✅   | Pix::cmap_histogram_masked()    |      |
+| pixGetCmapHistogramInRect  | ✅   | Pix::cmap_histogram_in_rect()   |      |
+| pixCountRGBColors          | ✅   | Pix::count_rgb_colors()         |      |
+| pixGetRankValueMaskedRGB   | ✅   | Pix::rank_value_masked_rgb()    |      |
+| pixGetRankValueMasked      | ✅   | Pix::rank_value_masked()        |      |
+| pixGetAverageMaskedRGB     | ✅   | Pix::average_masked_rgb()       |      |
+| pixGetAverageMasked        | ✅   | Pix::average_masked()           |      |
+| pixGetAverageTiledRGB      | ✅   | Pix::average_tiled_rgb()        |      |
+| pixGetAverageTiled         | ✅   | Pix::average_tiled()            |      |
+| pixGetMaxColorIndex        | ✅   | Pix::max_color_index()          |      |
+
+#### core/pixa/mod.rs (pix4.c)
 
 | C関数                        | 状態 | Rust対応                        | 備考 |
 | ---------------------------- | ---- | ------------------------------- | ---- |
-| pixGetGrayHistogram          | ✅   | histogram.rsに実装              |      |
-| pixGetColorHistogram         | ✅   | histogram.rsに実装              |      |
-| pixCountRGBColorsByHash      | ✅   | count_rgb_colors_by_hash        |      |
-| pixGetColorAmapHistogram     | ✅   | get_color_amap_histogram        |      |
-| pixGetBinnedComponentRange   | ✅   | get_binned_component_range      |      |
-| pixGetRankColorArray         | ✅   | get_rank_color_array            |      |
-| pixGetBinnedColor            | ✅   | get_binned_color                |      |
-| pixDisplayColorArray         | ✅   | display_color_array             |      |
-| pixRankBinByStrip            | ✅   | rank_bin_by_strip               |      |
 | pixaGetAlignedStats          | ✅   | pixa aligned_stats()            |      |
 | pixaExtractColumnFromEachPix | ✅   | pixa extract_column_from_each() |      |
-| pixSplitDistributionFgBg     | ✅   | split_distribution_fg_bg        |      |
 
-#### histogram.rs
+#### core/pix/statistics.rs (pix4.c)
 
-| C関数                      | 状態 | Rust対応                 | 備考 |
-| -------------------------- | ---- | ------------------------ | ---- |
-| pixGetGrayHistogramMasked  | ✅   | gray_histogram_masked()  |      |
-| pixGetGrayHistogramInRect  | ✅   | gray_histogram_in_rect() |      |
-| pixGetGrayHistogramTiled   | ✅   | gray_histogram_tiled()   |      |
-| pixGetColorHistogramMasked | ✅   | color_histogram_masked() |      |
-| pixGetCmapHistogram        | ✅   | cmap_histogram()         |      |
-| pixGetCmapHistogramMasked  | ✅   | cmap_histogram_masked()  |      |
-| pixGetCmapHistogramInRect  | ✅   | cmap_histogram_in_rect() |      |
-| pixCountRGBColors          | ✅   | count_rgb_colors()       |      |
-| pixGetRankValue            | ✅   | pixel_rank_value()       |      |
-| pixGetRankValueMaskedRGB   | ✅   | rank_value_masked_rgb()  |      |
-| pixGetRankValueMasked      | ✅   | rank_value_masked()      |      |
-| pixGetAverageMaskedRGB     | ✅   | average_masked_rgb()     |      |
-| pixGetAverageMasked        | ✅   | average_masked()         |      |
-| pixGetAverageTiledRGB      | ✅   | average_tiled_rgb()      |      |
-| pixGetAverageTiled         | ✅   | average_tiled()          |      |
-| pixGetMaxColorIndex        | ✅   | max_color_index()        |      |
+| C関数                | 状態 | Rust対応                 | 備考 |
+| -------------------- | ---- | ------------------------ | ---- |
+| pixGetRankValue      | ✅   | Pix::pixel_rank_value()  |      |
+| pixGetPixelAverage   | ✅   | Pix::get_pixel_average() |      |
+| pixGetPixelStats     | ✅   | Pix::get_pixel_stats()   |      |
+| pixRowStats          | ✅   | Pix::row_stats()         |      |
+| pixColumnStats       | ✅   | Pix::column_stats()      |      |
+| pixGetRangeValues    | ✅   | Pix::range_values()      |      |
+| pixGetExtremeValue   | ✅   | Pix::extreme_value()     |      |
+| pixGetMaxValueInRect | ✅   | Pix::max_value_in_rect() |      |
+| pixGetRowStats       | ✅   | Pix::get_row_stats()     |      |
+| pixGetColumnStats    | ✅   | Pix::get_column_stats()  |      |
 
-#### statistics.rs
+#### core/pix/access.rs (pix4.c)
 
-| C関数                | 状態 | Rust対応            | 備考 |
-| -------------------- | ---- | ------------------- | ---- |
-| pixGetPixelAverage   | ✅   | get_pixel_average() |      |
-| pixGetPixelStats     | ✅   | get_pixel_stats()   |      |
-| pixRowStats          | ✅   | row_stats()         |      |
-| pixColumnStats       | ✅   | column_stats()      |      |
-| pixGetRangeValues    | ✅   | range_values()      |      |
-| pixGetExtremeValue   | ✅   | extreme_value()     |      |
-| pixGetMaxValueInRect | ✅   | max_value_in_rect() |      |
-| pixGetRowStats       | ✅   | get_row_stats()     |      |
-| pixGetColumnStats    | ✅   | get_column_stats()  |      |
-| pixSetPixelColumn    | ✅   | set_pixel_column()  |      |
+| C関数             | 状態 | Rust対応                   | 備考 |
+| ----------------- | ---- | -------------------------- | ---- |
+| pixSetPixelColumn | ✅   | PixMut::set_pixel_column() |      |
 
-#### clip.rs
+#### core/pix/clip.rs (pix4.c)
 
-| C関数               | 状態 | Rust対応              | 備考 |
-| ------------------- | ---- | --------------------- | ---- |
-| pixThresholdForFgBg | ✅   | threshold_for_fg_bg() |      |
+| C関数               | 状態 | Rust対応                   | 備考 |
+| ------------------- | ---- | -------------------------- | ---- |
+| pixThresholdForFgBg | ✅   | Pix::threshold_for_fg_bg() |      |
 
 ### pix5.c (選択・測定)
 
-#### その他
+#### core/pixa/mod.rs (pix5.c)
 
-| C関数                        | 状態 | Rust対応                        | 備考 |
-| ---------------------------- | ---- | ------------------------------- | ---- |
-| pixaFindDimensions           | ✅   | pixa find_dimensions()          |      |
-| pixFindAreaPerimRatio        | ✅   | find_area_perim_ratio           |      |
-| pixaFindPerimToAreaRatio     | ✅   | Pixa::find_perim_to_area_ratio  |      |
-| pixaFindPerimSizeRatio       | ✅   | Pixa::find_perim_size_ratio     |      |
-| pixFindPerimSizeRatio        | ✅   | find_perim_size_ratio           |      |
-| pixaFindAreaFraction         | ✅   | Pixa::find_area_fraction        |      |
-| pixFindAreaFraction          | ✅   | find_area_fraction              |      |
-| pixaFindAreaFractionMasked   | ✅   | Pixa::find_area_fraction_masked |      |
-| pixFindAreaFractionMasked    | ✅   | find_area_fraction_masked       |      |
-| pixaFindWidthHeightRatio     | ✅   | Pixa::find_width_height_ratio   |      |
-| pixaFindWidthHeightProduct   | ✅   | Pixa::find_width_height_product |      |
-| pixFindRectangleComps        | ✅   | find_rectangle_comps            |      |
-| pixConformsToRectangle       | ✅   | conforms_to_rectangle           |      |
-| pixExtractRectangularRegions | ✅   | extract_rectangular_regions     |      |
-| pixSelectComponentBySize     | ✅   | select_component_by_size        |      |
-| pixFilterComponentBySize     | ✅   | filter_component_by_size        |      |
-| pixMakeCoveringOfRectangles  | ✅   | make_covering_of_rectangles     |      |
-| pixReversalProfile           | ✅   | reversal_profile                |      |
-| pixWindowedVarianceOnLine    | ✅   | windowed_variance_on_line       |      |
-| pixMinMaxNearLine            | ✅   | min_max_near_line               |      |
+| C関数                      | 状態 | Rust対応                        | 備考 |
+| -------------------------- | ---- | ------------------------------- | ---- |
+| pixaFindDimensions         | ✅   | pixa find_dimensions()          |      |
+| pixaFindPerimSizeRatio     | ✅   | Pixa::find_perim_size_ratio     |      |
+| pixaFindAreaFractionMasked | ✅   | Pixa::find_area_fraction_masked |      |
+| pixaFindWidthHeightRatio   | ✅   | Pixa::find_width_height_ratio   |      |
+| pixaFindWidthHeightProduct | ✅   | Pixa::find_width_height_product |      |
 
-#### measurement.rs
+#### core/pix/measurement.rs (pix5.c)
 
-| C関数                   | 状態 | Rust対応                   | 備考 |
-| ----------------------- | ---- | -------------------------- | ---- |
-| pixFindPerimToAreaRatio | ✅   | find_perim_to_area_ratio() |      |
-| pixFindOverlapFraction  | ✅   | find_overlap_fraction()    |      |
+| C関数                        | 状態 | Rust対応                         | 備考 |
+| ---------------------------- | ---- | -------------------------------- | ---- |
+| pixFindAreaPerimRatio        | ✅   | Pix::find_area_perim_ratio       |      |
+| pixFindPerimSizeRatio        | ✅   | Pix::find_perim_size_ratio       |      |
+| pixFindAreaFraction          | ✅   | Pix::find_area_fraction          |      |
+| pixFindAreaFractionMasked    | ✅   | Pix::find_area_fraction_masked   |      |
+| pixFindRectangleComps        | ✅   | Pix::find_rectangle_comps        |      |
+| pixConformsToRectangle       | ✅   | Pix::conforms_to_rectangle       |      |
+| pixExtractRectangularRegions | ✅   | Pix::extract_rectangular_regions |      |
+| pixSelectComponentBySize     | ✅   | Pix::select_component_by_size    |      |
+| pixFilterComponentBySize     | ✅   | Pix::filter_component_by_size    |      |
+| pixMakeCoveringOfRectangles  | ✅   | Pix::make_covering_of_rectangles |      |
+| pixaFindPerimToAreaRatio     | ✅   | Pixa::find_perim_to_area_ratio   |      |
+| pixaFindAreaFraction         | ✅   | Pixa::find_area_fraction         |      |
+| pixFindPerimToAreaRatio      | ✅   | Pix::find_perim_to_area_ratio()  |      |
+| pixFindOverlapFraction       | ✅   | Pix::find_overlap_fraction()     |      |
 
-#### clip.rs
+#### core/pix/extract.rs (pix5.c)
 
-| C関数                      | 状態 | Rust対応                     | 備考       |
-| -------------------------- | ---- | ---------------------------- | ---------- |
-| pixClipRectangles          | ✅   | clip_rectangles()            |            |
-| pixClipRectangle           | ✅   | clip_rectangle()             |            |
-| pixClipRectangleWithBorder | ✅   | clip_rectangle_with_border() |            |
-| pixClipMasked              | ✅   | clip_masked()                |            |
-| pixCropToMatch             | ✅   | crop_to_match()              |            |
-| pixCropToSize              | ✅   | crop_to_size()               |            |
-| pixResizeToMatch           | ✅   | resize_to_match()            |            |
-| pixMakeSymmetricMask       | ✅   | make_symmetric_mask()        |            |
-| pixMakeFrameMask           | ✅   | make_frame_mask()            |            |
-| pixFractionFgInMask        | ✅   | fraction_fg_in_mask()        |            |
-| pixClipToForeground        | ✅   | clip_to_foreground()         |            |
-| pixTestClipToForeground    | ✅   | test_clip_to_foreground()    |            |
-| pixClipBoxToForeground     | ✅   | clip_box_to_foreground()     |            |
-| pixScanForForeground       | ✅   | scan_for_foreground()        |            |
-| pixClipBoxToEdges          | ✅   | clip_box_to_edges()          |            |
-| pixScanForEdge             | ✅   | scan_for_edge()              | 8bpp適応版 |
-| pixAverageOnLine           | ✅   | average_on_line()            |            |
+| C関数                      | 状態 | Rust対応                         | 備考 |
+| -------------------------- | ---- | -------------------------------- | ---- |
+| pixReversalProfile         | ✅   | Pix::reversal_profile            |      |
+| pixWindowedVarianceOnLine  | ✅   | Pix::windowed_variance_on_line   |      |
+| pixMinMaxNearLine          | ✅   | Pix::min_max_near_line           |      |
+| pixExtractOnLine           | ✅   | Pix::extract_on_line()           |      |
+| pixAverageIntensityProfile | ✅   | Pix::average_intensity_profile() |      |
+| pixRankRowTransform        | ✅   | Pix::rank_row_transform()        |      |
+| pixRankColumnTransform     | ✅   | Pix::rank_column_transform()     |      |
 
-#### extract.rs
+#### core/pix/clip.rs (pix5.c)
 
-| C関数                      | 状態 | Rust対応                    | 備考 |
-| -------------------------- | ---- | --------------------------- | ---- |
-| pixExtractOnLine           | ✅   | extract_on_line()           |      |
-| pixAverageIntensityProfile | ✅   | average_intensity_profile() |      |
-| pixRankRowTransform        | ✅   | rank_row_transform()        |      |
-| pixRankColumnTransform     | ✅   | rank_column_transform()     |      |
+| C関数                      | 状態 | Rust対応                          | 備考       |
+| -------------------------- | ---- | --------------------------------- | ---------- |
+| pixClipRectangles          | ✅   | Pix::clip_rectangles()            |            |
+| pixClipRectangle           | ✅   | Pix::clip_rectangle()             |            |
+| pixClipRectangleWithBorder | ✅   | Pix::clip_rectangle_with_border() |            |
+| pixClipMasked              | ✅   | Pix::clip_masked()                |            |
+| pixCropToMatch             | ✅   | Pix::crop_to_match()              |            |
+| pixCropToSize              | ✅   | Pix::crop_to_size()               |            |
+| pixResizeToMatch           | ✅   | Pix::resize_to_match()            |            |
+| pixMakeSymmetricMask       | ✅   | Pix::make_symmetric_mask()        |            |
+| pixMakeFrameMask           | ✅   | Pix::make_frame_mask()            |            |
+| pixFractionFgInMask        | ✅   | Pix::fraction_fg_in_mask()        |            |
+| pixClipToForeground        | ✅   | Pix::clip_to_foreground()         |            |
+| pixTestClipToForeground    | ✅   | Pix::test_clip_to_foreground()    |            |
+| pixClipBoxToForeground     | ✅   | Pix::clip_box_to_foreground()     |            |
+| pixScanForForeground       | ✅   | Pix::scan_for_foreground()        |            |
+| pixClipBoxToEdges          | ✅   | Pix::clip_box_to_edges()          |            |
+| pixScanForEdge             | ✅   | Pix::scan_for_edge()              | 8bpp適応版 |
+| pixAverageOnLine           | ✅   | Pix::average_on_line()            |            |
 
 ### boxbasic.c (Box基本操作)
 
-| C関数                  | 状態 | Rust対応                  | 備考                       |
-| ---------------------- | ---- | ------------------------- | -------------------------- |
-| boxCreate              | ✅   | Box::new()                |                            |
-| boxCreateValid         | 🚫   | -                         | new()でバリデーション実施  |
-| boxCopy                | 🔄   | Box自体がCopyトレイト     |                            |
-| boxClone               | 🔄   | Box自体がCopyトレイト     |                            |
-| boxDestroy             | 🔄   | drop()                    | 自動                       |
-| boxGetGeometry         | ✅   | フィールドアクセス        |                            |
-| boxSetGeometry         | ✅   | box_set_geometry          |                            |
-| boxGetSideLocations    | ✅   | box_get_side_locations    | right()/bottom()で部分対応 |
-| boxSetSideLocations    | ✅   | box_set_side_locations    |                            |
-| boxIsValid             | ✅   | Box::is_valid()           |                            |
-| boxaCreate             | ✅   | Boxa::new()               |                            |
-| boxaCopy               | ✅   | Boxa::clone()             |                            |
-| boxaDestroy            | 🔄   | drop()                    | 自動                       |
-| boxaAddBox             | ✅   | Boxa::push()              |                            |
-| boxaExtendArray        | 🚫   | -                         | Vec自動拡張                |
-| boxaExtendArrayToSize  | 🚫   | -                         | Vec自動拡張                |
-| boxaGetCount           | ✅   | Boxa::len()               |                            |
-| boxaGetValidCount      | 🚫   | -                         | Rustの型システムで不要     |
-| boxaGetBox             | ✅   | Boxa::get()               |                            |
-| boxaGetValidBox        | 🚫   | -                         | Rustの型システムで不要     |
-| boxaFindInvalidBoxes   | 🚫   | -                         | Rustの型システムで不要     |
-| boxaGetBoxGeometry     | ✅   | Boxa::get_box_geometry    |                            |
-| boxaIsFull             | 🚫   | -                         | Rustの型システムで不要     |
-| boxaReplaceBox         | ✅   | Boxa::replace()           |                            |
-| boxaInsertBox          | ✅   | Boxa::insert()            |                            |
-| boxaRemoveBox          | ✅   | Boxa::remove()            |                            |
-| boxaRemoveBoxAndSave   | ✅   | Boxa::remove_box_and_save |                            |
-| boxaSaveValid          | 🚫   | -                         | Rustの型システムで不要     |
-| boxaInitFull           | ✅   | Boxa::init_full           |                            |
-| boxaClear              | ✅   | Boxa::clear()             |                            |
-| boxaaCreate            | ✅   | Boxaa::new()              |                            |
-| boxaaCopy              | ✅   | Boxaa::copy               |                            |
-| boxaaDestroy           | 🔄   | drop()                    | 自動                       |
-| boxaaAddBoxa           | ✅   | Boxaa::push()             |                            |
-| boxaaExtendArray       | 🚫   | -                         | Vec自動拡張                |
-| boxaaExtendArrayToSize | 🚫   | -                         | Vec自動拡張                |
-| boxaaGetCount          | ✅   | Boxaa::len()              |                            |
-| boxaaGetBoxCount       | ✅   | Boxaa::total_boxes()      |                            |
-| boxaaGetBoxa           | ✅   | Boxaa::get()              |                            |
-| boxaaGetBox            | ✅   | Boxaa::get_box            |                            |
-| boxaaInitFull          | 🚫   | -                         | Rustの型システムで不要     |
-| boxaaExtendWithInit    | 🚫   | -                         | Rustの型システムで不要     |
-| boxaaReplaceBoxa       | ✅   | Boxaa::replace_boxa       |                            |
-| boxaaInsertBoxa        | ✅   | Boxaa::insert_boxa        |                            |
-| boxaaRemoveBoxa        | ✅   | Boxaa::remove_boxa        |                            |
-| boxaaAddBox            | ✅   | Boxaa::add_box            |                            |
-| boxaaReadFromFiles     | ✅   | Boxaa::read_from_files    |                            |
-| boxaaRead              | ✅   | Boxaa::read_from_file     |                            |
-| boxaaReadStream        | ✅   | Boxaa::read_from_reader   |                            |
-| boxaaReadMem           | ✅   | Boxaa::read_from_bytes    |                            |
-| boxaaWrite             | ✅   | Boxaa::write_to_file      |                            |
-| boxaaWriteStream       | ✅   | Boxaa::write_to_writer    |                            |
-| boxaaWriteMem          | ✅   | Boxaa::write_to_bytes     |                            |
-| boxaRead               | ✅   | Boxa::read_from_file      |                            |
-| boxaReadStream         | ✅   | Boxa::read_from_reader    |                            |
-| boxaReadMem            | ✅   | Boxa::read_from_bytes     |                            |
-| boxaWriteDebug         | 🚫   | -                         | デバッグ出力関数           |
-| boxaWrite              | ✅   | Boxa::write_to_file       |                            |
-| boxaWriteStream        | ✅   | Boxa::write_to_writer     |                            |
-| boxaWriteStderr        | 🚫   | -                         | デバッグ出力関数           |
-| boxaWriteMem           | ✅   | Boxa::write_to_bytes      |                            |
-| boxPrintStreamInfo     | 🚫   | -                         | デバッグ出力関数           |
+#### core/box_/mod.rs (boxbasic.c)
+
+| C関数                  | 状態 | Rust対応               | 備考                       |
+| ---------------------- | ---- | ---------------------- | -------------------------- |
+| boxCreate              | ✅   | Box::new()             |                            |
+| boxIsValid             | ✅   | Box::is_valid()        |                            |
+| boxCreateValid         | 🚫   | -                      | new()でバリデーション実施  |
+| boxCopy                | 🔄   | Box自体がCopyトレイト  |                            |
+| boxClone               | 🔄   | Box自体がCopyトレイト  |                            |
+| boxDestroy             | 🔄   | drop()                 | 自動                       |
+| boxGetGeometry         | ✅   | フィールドアクセス     |                            |
+| boxSetGeometry         | ❌   | -                      |                            |
+| boxGetSideLocations    | ❌   | -                      | right()/bottom()で部分対応 |
+| boxSetSideLocations    | ❌   | -                      |                            |
+| boxaDestroy            | 🔄   | drop()                 | 自動                       |
+| boxaExtendArray        | 🚫   | -                      | Vec自動拡張                |
+| boxaExtendArrayToSize  | 🚫   | -                      | Vec自動拡張                |
+| boxaGetValidCount      | 🚫   | -                      | Rustの型システムで不要     |
+| boxaGetValidBox        | 🚫   | -                      | Rustの型システムで不要     |
+| boxaFindInvalidBoxes   | 🚫   | -                      | Rustの型システムで不要     |
+| boxaIsFull             | 🚫   | -                      | Rustの型システムで不要     |
+| boxaSaveValid          | 🚫   | -                      | Rustの型システムで不要     |
+| boxaaDestroy           | 🔄   | drop()                 | 自動                       |
+| boxaaExtendArray       | 🚫   | -                      | Vec自動拡張                |
+| boxaaExtendArrayToSize | 🚫   | -                      | Vec自動拡張                |
+| boxaaInitFull          | 🚫   | -                      | Rustの型システムで不要     |
+| boxaaExtendWithInit    | 🚫   | -                      | Rustの型システムで不要     |
+| boxaWriteDebug         | 🚫   | -                      | デバッグ出力関数           |
+| boxaWriteStderr        | 🚫   | -                      | デバッグ出力関数           |
+| boxPrintStreamInfo     | 🚫   | -                      | デバッグ出力関数           |
+| boxaCreate             | ✅   | Boxa::new()            |                            |
+| boxaCopy               | ✅   | Boxa::clone()          |                            |
+| boxaAddBox             | ✅   | Boxa::push()           |                            |
+| boxaGetCount           | ✅   | Boxa::len()            |                            |
+| boxaGetBox             | ✅   | Boxa::get()            |                            |
+| boxaGetBoxGeometry     | ✅   | Boxa::get_box_geometry |                            |
+| boxaReplaceBox         | ✅   | Boxa::replace()        |                            |
+| boxaInsertBox          | ✅   | Boxa::insert()         |                            |
+| boxaRemoveBox          | ✅   | Boxa::remove()         |                            |
+| boxaRemoveBoxAndSave   | ❌   | -                      |                            |
+| boxaClear              | ✅   | Boxa::clear()          |                            |
+| boxaaCreate            | ✅   | Boxaa::new()           |                            |
+| boxaaCopy              | ❌   | -                      |                            |
+| boxaaAddBoxa           | ✅   | Boxaa::push()          |                            |
+| boxaaGetCount          | ✅   | Boxaa::len()           |                            |
+| boxaaGetBoxCount       | ✅   | Boxaa::total_boxes()   |                            |
+| boxaaGetBoxa           | ✅   | Boxaa::get()           |                            |
+| boxaaGetBox            | ✅   | Boxaa::get_box         |                            |
+| boxaaReplaceBoxa       | ❌   | -                      |                            |
+| boxaaInsertBoxa        | ❌   | -                      |                            |
+| boxaaRemoveBoxa        | ❌   | -                      |                            |
+| boxaaAddBox            | ✅   | Boxaa::add_box         |                            |
+| boxaInitFull           | ❌   | -                      |                            |
+
+#### core/box_/serial.rs (boxbasic.c)
+
+| C関数              | 状態 | Rust対応                | 備考 |
+| ------------------ | ---- | ----------------------- | ---- |
+| boxaRead           | ✅   | Boxa::read_from_file    |      |
+| boxaReadStream     | ✅   | Boxa::read_from_reader  |      |
+| boxaReadMem        | ✅   | Boxa::read_from_bytes   |      |
+| boxaWrite          | ✅   | Boxa::write_to_file     |      |
+| boxaWriteStream    | ✅   | Boxa::write_to_writer   |      |
+| boxaWriteMem       | ✅   | Boxa::write_to_bytes    |      |
+| boxaaReadFromFiles | ✅   | Boxaa::read_from_files  |      |
+| boxaaRead          | ✅   | Boxaa::read_from_file   |      |
+| boxaaReadStream    | ✅   | Boxaa::read_from_reader |      |
+| boxaaReadMem       | ✅   | Boxaa::read_from_bytes  |      |
+| boxaaWrite         | ✅   | Boxaa::write_to_file    |      |
+| boxaaWriteStream   | ✅   | Boxaa::write_to_writer  |      |
+| boxaaWriteMem      | ✅   | Boxaa::write_to_bytes   |      |
 
 ### boxfunc1.c (Box関係・幾何演算)
 
-#### その他
+#### core/box_/mod.rs (boxfunc1.c)
 
-| C関数             | 状態 | Rust対応              | 備考 |
-| ----------------- | ---- | --------------------- | ---- |
-| boxContains       | ✅   | Box::contains_box()   |      |
-| boxIntersects     | ✅   | Box::overlaps()       |      |
-| boxOverlapRegion  | ✅   | Box::intersect()      |      |
-| boxBoundingRegion | ✅   | Box::union()          |      |
-| boxContainsPt     | ✅   | Box::contains_point() |      |
-| boxEqual          | ✅   | PartialEq trait       |      |
+| C関数               | 状態 | Rust対応                 | 備考 |
+| ------------------- | ---- | ------------------------ | ---- |
+| boxContains         | ✅   | Box::contains_box()      |      |
+| boxIntersects       | ✅   | Box::overlaps()          |      |
+| boxOverlapRegion    | ✅   | Box::intersect()         |      |
+| boxBoundingRegion   | ✅   | Box::union()             |      |
+| boxContainsPt       | ✅   | Box::contains_point()    |      |
+| boxEqual            | ✅   | PartialEq trait          |      |
+| boxaContainedInBox  | ✅   | Boxa::contained_in_box() |      |
+| boxaIntersectsBox   | ✅   | Boxa::intersects_box()   |      |
+| boxaClipToBox       | ✅   | Boxa::clip_to_box()      |      |
+| boxaCombineOverlaps | ✅   | Boxa::combine_overlaps() |      |
+| boxOverlapFraction  | ✅   | Box::overlap_fraction()  |      |
+| boxOverlapArea      | ✅   | Box::overlap_area()      |      |
+| boxClipToRectangle  | ✅   | Box::clip()              |      |
+| boxaSimilar         | 🔄   | Boxa::similar()          |      |
+| boxaJoin            | 🔄   | Boxa::join()             |      |
 
-#### mod.rs
+#### transform/rotate.rs (boxfunc1.c)
 
-| C関数               | 状態 | Rust対応           | 備考 |
-| ------------------- | ---- | ------------------ | ---- |
-| boxaContainedInBox  | ✅   | contained_in_box() |      |
-| boxaIntersectsBox   | ✅   | intersects_box()   |      |
-| boxaClipToBox       | ✅   | clip_to_box()      |      |
-| boxaCombineOverlaps | ✅   | combine_overlaps() |      |
-| boxOverlapFraction  | ✅   | overlap_fraction() |      |
-| boxOverlapArea      | ✅   | overlap_area()     |      |
-| boxGetCenter        | ✅   | center()           |      |
-| boxClipToRectangle  | ✅   | clip()             |      |
-| boxaSimilar         | ✅   | similar()          |      |
-| boxaJoin            | ✅   | join()             |      |
+| C関数        | 状態 | Rust対応                | 備考 |
+| ------------ | ---- | ----------------------- | ---- |
+| boxGetCenter | ✅   | RotateOptions::center() |      |
 
-#### geometry.rs
+#### core/box_/geometry.rs (boxfunc1.c)
 
-| C関数                     | 状態 | Rust対応                   | 備考 |
-| ------------------------- | ---- | -------------------------- | ---- |
-| boxaContainedInBoxCount   | ✅   | contained_in_box_count()   |      |
-| boxaContainedInBoxa       | ✅   | all_contained_in()         |      |
-| boxaIntersectsBoxCount    | ✅   | intersects_box_count()     |      |
-| boxaCombineOverlapsInPair | ✅   | combine_overlaps_in_pair() |      |
-| boxaHandleOverlaps        | ✅   | handle_overlaps()          |      |
-| boxOverlapDistance        | ✅   | overlap_distance()         |      |
-| boxSeparationDistance     | ✅   | separation_distance()      |      |
-| boxCompareSize            | ✅   | compare_size()             |      |
-| boxaGetNearestToPt        | ✅   | nearest_to_point()         |      |
-| boxaGetNearestToLine      | ✅   | nearest_to_line()          |      |
-| boxaFindNearestBoxes      | ✅   | find_nearest_boxes()       |      |
-| boxaGetNearestByDirection | ✅   | nearest_by_direction()     |      |
-| boxIntersectByLine        | ✅   | intersect_by_line()        |      |
-| boxClipToRectangleParams  | ✅   | clip_to_rectangle_params() |      |
+| C関数                     | 状態 | Rust対応                         | 備考 |
+| ------------------------- | ---- | -------------------------------- | ---- |
+| boxaContainedInBoxCount   | ✅   | Boxa::contained_in_box_count()   |      |
+| boxaContainedInBoxa       | ✅   | Boxa::all_contained_in()         |      |
+| boxaIntersectsBoxCount    | ✅   | Boxa::intersects_box_count()     |      |
+| boxaCombineOverlapsInPair | ✅   | Boxa::combine_overlaps_in_pair() |      |
+| boxaHandleOverlaps        | ✅   | Boxa::handle_overlaps()          |      |
+| boxOverlapDistance        | ✅   | Box::overlap_distance()          |      |
+| boxSeparationDistance     | ✅   | Box::separation_distance()       |      |
+| boxCompareSize            | ✅   | Box::compare_size()              |      |
+| boxaGetNearestToPt        | ✅   | Boxa::nearest_to_point()         |      |
+| boxaGetNearestToLine      | ✅   | Boxa::nearest_to_line()          |      |
+| boxaFindNearestBoxes      | ✅   | Boxa::find_nearest_boxes()       |      |
+| boxaGetNearestByDirection | ✅   | Boxa::nearest_by_direction()     |      |
+| boxIntersectByLine        | ✅   | Box::intersect_by_line()         |      |
+| boxClipToRectangleParams  | ✅   | Box::clip_to_rectangle_params()  |      |
 
-#### adjust.rs
+#### core/box_/adjust.rs (boxfunc1.c)
 
-| C関数                    | 状態 | Rust対応                  | 備考 |
-| ------------------------ | ---- | ------------------------- | ---- |
-| boxRelocateOneSide       | ✅   | relocate_one_side()       |      |
-| boxaAdjustSides          | ✅   | adjust_all_sides()        |      |
-| boxaAdjustBoxSides       | ✅   | adjust_box_sides()        |      |
-| boxAdjustSides           | ✅   | adjust_sides()            |      |
-| boxaSetSide              | ✅   | set_all_sides()           |      |
-| boxSetSide               | ✅   | set_side()                |      |
-| boxaAdjustWidthToTarget  | ✅   | adjust_width_to_target()  |      |
-| boxaAdjustHeightToTarget | ✅   | adjust_height_to_target() |      |
-| boxaEqual                | ✅   | equal_ordered()           |      |
-| boxSimilar               | ✅   | similar_per_side()        |      |
-| boxaaJoin                | ✅   | join() (Boxaa)            |      |
-| boxaSplitEvenOdd         | ✅   | split_even_odd()          |      |
-| boxaMergeEvenOdd         | ✅   | merge_even_odd()          |      |
+| C関数                    | 状態 | Rust対応                        | 備考 |
+| ------------------------ | ---- | ------------------------------- | ---- |
+| boxRelocateOneSide       | ✅   | Box::relocate_one_side()        |      |
+| boxaAdjustSides          | ✅   | Boxa::adjust_all_sides()        |      |
+| boxaAdjustBoxSides       | ✅   | Boxa::adjust_box_sides()        |      |
+| boxAdjustSides           | ✅   | Box::adjust_sides()             |      |
+| boxaSetSide              | ✅   | Boxa::set_all_sides()           |      |
+| boxSetSide               | ✅   | Box::set_side()                 |      |
+| boxaAdjustWidthToTarget  | ✅   | Boxa::adjust_width_to_target()  |      |
+| boxaAdjustHeightToTarget | ✅   | Boxa::adjust_height_to_target() |      |
+| boxaEqual                | ✅   | Boxa::equal_ordered()           |      |
+| boxSimilar               | ✅   | Box::similar_per_side()         |      |
+| boxaaJoin                | ✅   | join() (Boxaa)                  |      |
+| boxaSplitEvenOdd         | ✅   | Boxa::split_even_odd()          |      |
+| boxaMergeEvenOdd         | ✅   | Boxa::merge_even_odd()          |      |
 
 ### boxfunc2.c (Box変換ユーティリティ)
 
-| C関数                  | 状態 | Rust対応                                  | 備考                            |
-| ---------------------- | ---- | ----------------------------------------- | ------------------------------- |
-| boxaTransform          | 🔄   | Boxa::translate() + Boxa::scale()         | shift/scaleを個別メソッドに分離 |
-| boxTransform           | 🔄   | Box::translate() + Box::scale()           | shift/scaleを個別メソッドに分離 |
-| boxaTransformOrdered   | ✅   | Boxa::transform_ordered                   |                                 |
-| boxTransformOrdered    | ✅   | Box::transform_ordered                    |                                 |
-| boxaRotateOrth         | ✅   | Boxa::rotate_orth                         |                                 |
-| boxRotateOrth          | ✅   | Box::rotate_orth                          |                                 |
-| boxaShiftWithPta       | ✅   | Boxa::shift_with_pta                      |                                 |
-| boxaSort               | 🔄   | Boxa::sort_by_position() / sort_by_area() | ソートタイプ別に個別メソッド化  |
-| boxaBinSort            | ✅   | Boxa::bin_sort                            |                                 |
-| boxaSortByIndex        | ✅   | Boxa::sort_by_index                       |                                 |
-| boxaSort2d             | ✅   | Boxa::sort_2d                             |                                 |
-| boxaSort2dByIndex      | ✅   | Boxa::sort_2d_by_index                    |                                 |
-| boxaExtractAsNuma      | ✅   | Boxa::extract_as_numa                     |                                 |
-| boxaExtractAsPta       | ✅   | Boxa::extract_as_pta                      |                                 |
-| boxaExtractCorners     | ✅   | Boxa::extract_corners                     |                                 |
-| boxaGetRankVals        | ✅   | Boxa::get_rank_vals                       |                                 |
-| boxaGetMedianVals      | ✅   | Boxa::get_median_vals                     |                                 |
-| boxaGetAverageSize     | ✅   | Boxa::get_average_size                    |                                 |
-| boxaaGetExtent         | ✅   | Boxaa::get_extent                         |                                 |
-| boxaaFlattenToBoxa     | ✅   | Boxaa::flatten()                          |                                 |
-| boxaaFlattenAligned    | ✅   | Boxaa::flatten_aligned                    |                                 |
-| boxaEncapsulateAligned | ✅   | Boxa::encapsulate_aligned                 |                                 |
-| boxaaTranspose         | ✅   | Boxaa::transpose                          |                                 |
-| boxaaAlignBox          | ✅   | Boxaa::align_box                          |                                 |
+#### core/box_/mod.rs (boxfunc2.c)
+
+| C関数               | 状態 | Rust対応                                  | 備考                            |
+| ------------------- | ---- | ----------------------------------------- | ------------------------------- |
+| boxaTransform       | 🔄   | Boxa::translate() + Boxa::scale()         | shift/scaleを個別メソッドに分離 |
+| boxaSort            | 🔄   | Boxa::sort_by_position() / sort_by_area() | ソートタイプ別に個別メソッド化  |
+| boxTransform        | 🔄   | Box::translate() + Box::scale()           | shift/scaleを個別メソッドに分離 |
+| boxaaGetExtent      | ✅   | Boxaa::get_extent                         |                                 |
+| boxaaFlattenToBoxa  | ✅   | Boxaa::flatten()                          |                                 |
+| boxaaFlattenAligned | ✅   | Boxaa::flatten_aligned                    |                                 |
+| boxaaTranspose      | ✅   | Boxaa::transpose                          |                                 |
+| boxaaAlignBox       | ✅   | Boxaa::align_box                          |                                 |
+
+#### core/box_/transform.rs (boxfunc2.c)
+
+| C関数                | 状態 | Rust対応                | 備考 |
+| -------------------- | ---- | ----------------------- | ---- |
+| boxaTransformOrdered | ✅   | Boxa::transform_ordered |      |
+| boxaRotateOrth       | ✅   | Boxa::rotate_orth       |      |
+| boxaShiftWithPta     | ✅   | Boxa::shift_with_pta    |      |
+| boxTransformOrdered  | ✅   | Box::transform_ordered  |      |
+| boxRotateOrth        | ✅   | Box::rotate_orth        |      |
+
+#### core/box_/sort.rs (boxfunc2.c)
+
+| C関数                  | 状態 | Rust対応                  | 備考 |
+| ---------------------- | ---- | ------------------------- | ---- |
+| boxaBinSort            | ✅   | Boxa::bin_sort            |      |
+| boxaSortByIndex        | ✅   | Boxa::sort_by_index       |      |
+| boxaSort2d             | ✅   | Boxa::sort_2d             |      |
+| boxaSort2dByIndex      | ✅   | Boxa::sort_2d_by_index    |      |
+| boxaEncapsulateAligned | ✅   | Boxa::encapsulate_aligned |      |
+
+#### core/box_/extract.rs (boxfunc2.c)
+
+| C関数              | 状態 | Rust対応               | 備考 |
+| ------------------ | ---- | ---------------------- | ---- |
+| boxaExtractAsNuma  | ✅   | Boxa::extract_as_numa  |      |
+| boxaExtractAsPta   | ✅   | Boxa::extract_as_pta   |      |
+| boxaExtractCorners | ✅   | Boxa::extract_corners  |      |
+| boxaGetRankVals    | ✅   | Boxa::get_rank_vals    |      |
+| boxaGetMedianVals  | ✅   | Boxa::get_median_vals  |      |
+| boxaGetAverageSize | ✅   | Boxa::get_average_size |      |
 
 ### boxfunc3.c (Box描画・マスク)
 
-#### その他
+#### core/box_/draw.rs (boxfunc3.c)
 
-| C関数                     | 状態 | Rust対応                  | 備考         |
-| ------------------------- | ---- | ------------------------- | ------------ |
-| pixMaskConnComp           | ✅   | mask_conn_comp            | conncomp依存 |
-| boxaaDisplay              | ✅   | Boxaa::display            |              |
-| pixaDisplayBoxaa          | ✅   | Pixa::display_boxaa       |              |
-| pixSplitIntoBoxa          | ✅   | split_into_boxa           |              |
-| pixSplitComponentIntoBoxa | ✅   | split_component_into_boxa |              |
-| makeMosaicStrips          | ✅   | make_mosaic_strips        |              |
-| pixSelectLargeULComp      | ✅   | select_large_ul_comp      | conncomp依存 |
-
-#### draw.rs
-
-| C関数                  | 状態 | Rust対応              | 備考 |
-| ---------------------- | ---- | --------------------- | ---- |
-| pixMaskBoxa            | ✅   | mask_boxa()           |      |
-| pixPaintBoxa           | ✅   | paint_boxa()          |      |
-| pixSetBlackOrWhiteBoxa | ✅   | set_bw_boxa()         |      |
-| pixPaintBoxaRandom     | ✅   | paint_boxa_random()   |      |
-| pixBlendBoxaRandom     | ✅   | blend_boxa_random()   |      |
-| pixDrawBoxa            | ✅   | draw_boxa()           |      |
-| pixDrawBoxaRandom      | ✅   | draw_boxa_random()    |      |
-| boxaCompareRegions     | ✅   | compare_regions()     |      |
-| boxaSelectLargeULBox   | ✅   | select_large_ul_box() |      |
+| C関数                     | 状態 | Rust対応                       | 備考         |
+| ------------------------- | ---- | ------------------------------ | ------------ |
+| pixMaskConnComp           | ✅   | Pix::mask_conn_comp            | conncomp依存 |
+| boxaaDisplay              | ✅   | Boxaa::display                 |              |
+| pixSplitIntoBoxa          | ✅   | Pix::split_into_boxa           |              |
+| pixSplitComponentIntoBoxa | ✅   | Pix::split_component_into_boxa |              |
+| makeMosaicStrips          | ✅   | make_mosaic_strips             |              |
+| pixSelectLargeULComp      | ✅   | Pix::select_large_ul_comp      | conncomp依存 |
+| pixaDisplayBoxaa          | ✅   | Pixa::display_boxaa            |              |
+| pixMaskBoxa               | ✅   | PixMut::mask_boxa()            |              |
+| pixPaintBoxa              | ✅   | PixMut::paint_boxa()           |              |
+| pixSetBlackOrWhiteBoxa    | ✅   | PixMut::set_bw_boxa()          |              |
+| pixPaintBoxaRandom        | ✅   | PixMut::paint_boxa_random()    |              |
+| pixBlendBoxaRandom        | ✅   | PixMut::blend_boxa_random()    |              |
+| pixDrawBoxa               | ✅   | PixMut::draw_boxa()            |              |
+| pixDrawBoxaRandom         | ✅   | PixMut::draw_boxa_random()     |              |
+| boxaCompareRegions        | ✅   | Boxa::compare_regions()        |              |
+| boxaSelectLargeULBox      | ✅   | Boxa::select_large_ul_box()    |              |
 
 ### boxfunc4.c (Box選択・変換)
 
-#### select.rs
+#### core/box_/select.rs (boxfunc4.c)
 
-| C関数                    | 状態 | Rust対応                  | 備考 |
-| ------------------------ | ---- | ------------------------- | ---- |
-| boxaSelectRange          | ✅   | select_range()            |      |
-| boxaaSelectRange         | ✅   | select_range() (Boxaa)    |      |
-| boxaMakeSizeIndicator    | ✅   | make_size_indicator()     |      |
-| boxaMakeAreaIndicator    | ✅   | make_area_indicator()     |      |
-| boxaMakeWHRatioIndicator | ✅   | make_wh_ratio_indicator() |      |
-| boxaSelectWithIndicator  | ✅   | select_with_indicator()   |      |
-| boxaSwapBoxes            | ✅   | swap_boxes()              |      |
-| boxaaSizeRange           | ✅   | size_range() (Boxaa)      |      |
-| boxaLocationRange        | ✅   | location_range()          |      |
-| boxaGetSizes             | ✅   | get_sizes()               |      |
-| boxaGetArea              | ✅   | get_total_area()          |      |
+| C関数                    | 状態 | Rust対応                        | 備考 |
+| ------------------------ | ---- | ------------------------------- | ---- |
+| boxaSelectRange          | ✅   | Boxa::select_range()            |      |
+| boxaaSelectRange         | ✅   | select_range() (Boxaa)          |      |
+| boxaMakeSizeIndicator    | ✅   | Boxa::make_size_indicator()     |      |
+| boxaMakeAreaIndicator    | ✅   | Boxa::make_area_indicator()     |      |
+| boxaMakeWHRatioIndicator | ✅   | Boxa::make_wh_ratio_indicator() |      |
+| boxaSelectWithIndicator  | ✅   | Boxa::select_with_indicator()   |      |
+| boxaSwapBoxes            | ✅   | Boxa::swap_boxes()              |      |
+| boxaaSizeRange           | ✅   | size_range() (Boxaa)            |      |
+| boxaLocationRange        | ✅   | Boxa::location_range()          |      |
+| boxaGetSizes             | ✅   | Boxa::get_sizes()               |      |
+| boxaGetArea              | ✅   | Boxa::get_total_area()          |      |
 
-#### mod.rs
-
-| C関数               | 状態 | Rust対応             | 備考 |
-| ------------------- | ---- | -------------------- | ---- |
-| boxaSelectBySize    | ✅   | select_by_size()     |      |
-| boxaSelectByArea    | ✅   | select_by_area()     |      |
-| boxaSelectByWHRatio | ✅   | select_by_wh_ratio() |      |
-| boxaGetExtent       | ✅   | get_extent()         |      |
-| boxaGetCoverage     | ✅   | get_coverage()       |      |
-| boxaSizeRange       | ✅   | size_range()         |      |
-
-#### その他
+#### core/box_/mod.rs (boxfunc4.c)
 
 | C関数                   | 状態 | Rust対応                   | 備考 |
 | ----------------------- | ---- | -------------------------- | ---- |
+| boxaSelectBySize        | ✅   | Boxa::select_by_size()     |      |
+| boxaSelectByArea        | ✅   | Boxa::select_by_area()     |      |
+| boxaSelectByWHRatio     | ✅   | Boxa::select_by_wh_ratio() |      |
+| boxaGetExtent           | ✅   | Boxa::get_extent()         |      |
+| boxaGetCoverage         | ✅   | Boxa::get_coverage()       |      |
+| boxaSizeRange           | ✅   | Boxa::size_range()         |      |
 | boxaPermutePseudorandom | ✅   | Boxa::permute_pseudorandom |      |
 | boxaPermuteRandom       | ✅   | Boxa::permute_random       |      |
-| boxaDisplayTiled        | ✅   | Boxa::display_tiled        |      |
 
-#### adjust.rs
+#### core/box_/draw.rs (boxfunc4.c)
+
+| C関数            | 状態 | Rust対応            | 備考 |
+| ---------------- | ---- | ------------------- | ---- |
+| boxaDisplayTiled | ✅   | Boxa::display_tiled |      |
+
+#### core/box_/adjust.rs (boxfunc4.c)
 
 | C関数            | 状態 | Rust対応        | 備考 |
 | ---------------- | ---- | --------------- | ---- |
 | boxaConvertToPta | ✅   | to_pta() (Boxa) |      |
-| ptaConvertToBoxa | ✅   | to_boxa()       |      |
+| ptaConvertToBoxa | ✅   | Pta::to_boxa()  |      |
 | boxConvertToPta  | ✅   | to_pta() (Box)  |      |
-| ptaConvertToBox  | ✅   | to_box()        |      |
+| ptaConvertToBox  | ✅   | Pta::to_box()   |      |
 
 ### boxfunc5.c (Boxスムージング・調整)
+
+#### core/box_/smooth.rs (boxfunc5.c)
 
 | C関数                      | 状態 | Rust対応                        | 備考 |
 | -------------------------- | ---- | ------------------------------- | ---- |
@@ -643,100 +659,114 @@ Rust版は**Pix/PixMut二層モデル**を採用しているため、C版の一�
 
 ### ptabasic.c (Pta基本操作)
 
-| C関数             | 状態 | Rust対応                 | 備考                 |
-| ----------------- | ---- | ------------------------ | -------------------- |
-| ptaCreate         | ✅   | Pta::new()               |                      |
-| ptaCreateFromNuma | ✅   | Pta::create_from_numa    |                      |
-| ptaDestroy        | 🔄   | drop()                   | 自動                 |
-| ptaCopy           | ✅   | Pta::clone()             |                      |
-| ptaCopyRange      | ✅   | Pta::copy_range          |                      |
-| ptaClone          | ✅   | Pta::clone()             |                      |
-| ptaEmpty          | 🚫   | -                        | Pta::clear()で対応   |
-| ptaAddPt          | ✅   | Pta::push()              |                      |
-| ptaInsertPt       | ✅   | Pta::insert              |                      |
-| ptaRemovePt       | ✅   | Pta::remove_pt           |                      |
-| ptaGetCount       | ✅   | Pta::len()               |                      |
-| ptaGetPt          | ✅   | Pta::get()               |                      |
-| ptaGetIPt         | ✅   | Pta::get_i_pt            |                      |
-| ptaSetPt          | ✅   | Pta::set()               |                      |
-| ptaGetArrays      | 🚫   | -                        | Cポインタ配列        |
-| ptaRead           | ✅   | Pta::read_from_file      |                      |
-| ptaReadStream     | ✅   | Pta::read_from_reader    |                      |
-| ptaReadMem        | ✅   | Pta::read_from_bytes     |                      |
-| ptaWriteDebug     | 🚫   | -                        | デバッグ出力関数     |
-| ptaWrite          | ✅   | Pta::write_to_file       |                      |
-| ptaWriteStream    | ✅   | Pta::write_to_writer     |                      |
-| ptaWriteMem       | ✅   | Pta::write_to_bytes      |                      |
-| ptaaCreate        | ✅   | Ptaa::new()              | Ptaa構造体として実装 |
-| ptaaDestroy       | 🔄   | drop()                   | Drop traitで自動     |
-| ptaaAddPta        | ✅   | Ptaa::push()             |                      |
-| ptaaGetCount      | ✅   | Ptaa::len()              |                      |
-| ptaaGetPta        | ✅   | Ptaa::get()              |                      |
-| ptaaGetPt         | 🚫   | -                        | Vec<Pta>で代替       |
-| ptaaInitFull      | ✅   | Ptaa::init_full()        |                      |
-| ptaaReplacePta    | ✅   | Ptaa::replace()          |                      |
-| ptaaAddPt         | ✅   | Ptaa::add_pt()           |                      |
-| ptaaTruncate      | ✅   | Ptaa::truncate()         |                      |
-| ptaaRead          | ✅   | Ptaa::read_from_file()   |                      |
-| ptaaReadStream    | ✅   | Ptaa::read_from_reader() |                      |
-| ptaaReadMem       | ✅   | Ptaa::read_from_bytes()  |                      |
-| ptaaWriteDebug    | 🚫   | -                        | Vec<Pta>で代替       |
-| ptaaWrite         | ✅   | Ptaa::write_to_file()    |                      |
-| ptaaWriteStream   | ✅   | Ptaa::write_to_writer()  |                      |
-| ptaaWriteMem      | ✅   | Ptaa::write_to_bytes()   |                      |
+#### core/pta/mod.rs (ptabasic.c)
+
+| C関数             | 状態 | Rust対応              | 備考                 |
+| ----------------- | ---- | --------------------- | -------------------- |
+| ptaCreate         | ✅   | Pta::new()            |                      |
+| ptaCreateFromNuma | ✅   | Pta::create_from_numa |                      |
+| ptaCopy           | ✅   | Pta::clone()          |                      |
+| ptaCopyRange      | ✅   | Pta::copy_range       |                      |
+| ptaClone          | ✅   | Pta::clone()          |                      |
+| ptaAddPt          | ✅   | Pta::push()           |                      |
+| ptaInsertPt       | ✅   | Pta::insert           |                      |
+| ptaRemovePt       | ✅   | Pta::remove_pt        |                      |
+| ptaGetCount       | ✅   | Pta::len()            |                      |
+| ptaGetPt          | ✅   | Pta::get()            |                      |
+| ptaGetIPt         | ✅   | Pta::get_i_pt         |                      |
+| ptaSetPt          | ✅   | Pta::set()            |                      |
+| ptaDestroy        | 🔄   | drop()                | 自動                 |
+| ptaEmpty          | 🚫   | -                     | Pta::clear()で対応   |
+| ptaGetArrays      | 🚫   | -                     | Cポインタ配列        |
+| ptaWriteDebug     | 🚫   | -                     | デバッグ出力関数     |
+| ptaaDestroy       | 🔄   | drop()                | Drop traitで自動     |
+| ptaaGetPt         | 🚫   | -                     | Vec<Pta>で代替       |
+| ptaaWriteDebug    | 🚫   | -                     | Vec<Pta>で代替       |
+| ptaaCreate        | ✅   | Ptaa::new()           | Ptaa構造体として実装 |
+| ptaaAddPta        | ✅   | Ptaa::push()          |                      |
+| ptaaGetCount      | ✅   | Ptaa::len()           |                      |
+| ptaaGetPta        | ✅   | Ptaa::get()           |                      |
+| ptaaInitFull      | ✅   | Ptaa::init_full()     |                      |
+| ptaaReplacePta    | ✅   | Ptaa::replace()       |                      |
+| ptaaAddPt         | ✅   | Ptaa::add_pt()        |                      |
+| ptaaTruncate      | ✅   | Ptaa::truncate()      |                      |
+
+#### core/pta/serial.rs (ptabasic.c)
+
+| C関数           | 状態 | Rust対応                 | 備考 |
+| --------------- | ---- | ------------------------ | ---- |
+| ptaRead         | ✅   | Pta::read_from_file      |      |
+| ptaReadStream   | ✅   | Pta::read_from_reader    |      |
+| ptaReadMem      | ✅   | Pta::read_from_bytes     |      |
+| ptaWrite        | ✅   | Pta::write_to_file       |      |
+| ptaWriteStream  | ✅   | Pta::write_to_writer     |      |
+| ptaWriteMem     | ✅   | Pta::write_to_bytes      |      |
+| ptaaRead        | ✅   | Ptaa::read_from_file()   |      |
+| ptaaReadStream  | ✅   | Ptaa::read_from_reader() |      |
+| ptaaReadMem     | ✅   | Ptaa::read_from_bytes()  |      |
+| ptaaWrite       | ✅   | Ptaa::write_to_file()    |      |
+| ptaaWriteStream | ✅   | Ptaa::write_to_writer()  |      |
+| ptaaWriteMem    | ✅   | Ptaa::write_to_bytes()   |      |
 
 ### ptafunc1.c, ptafunc2.c (Pta変換・演算)
 
 Phase 16で大部分を実装済み。
 
-#### transform.rs
+#### core/mod.rs (ptafunc1.c, ptafunc2.c)
 
-| C関数               | 状態 | Rust対応            | 備考 |
-| ------------------- | ---- | ------------------- | ---- |
-| ptaSubsample        | ✅   | subsample()         |      |
-| ptaJoin             | ✅   | join()              |      |
-| ptaReverse          | ✅   | reverse()           |      |
-| ptaTranspose        | ✅   | transpose()         |      |
-| ptaCyclicPerm       | ✅   | cyclic_perm()       |      |
-| ptaSelectRange      | ✅   | select_range()      |      |
-| ptaGetRange         | ✅   | get_range()         |      |
-| ptaGetInsideBox     | ✅   | get_inside_box()    |      |
-| ptaContainsPt       | ✅   | contains_pt()       |      |
-| ptaTestIntersection | ✅   | test_intersection() |      |
-| ptaTransform        | ✅   | transform_pts()     |      |
-| ptaPtInsidePolygon  | ✅   | pt_inside_polygon() |      |
-| ptaPolygonIsConvex  | ✅   | polygon_is_convex() |      |
-| ptaGetMinMax        | ✅   | get_min_max()       |      |
-| ptaSelectByValue    | ✅   | select_by_value()   |      |
+| C関数 | 状態 | Rust対応 | 備考 |
+| ----- | ---- | -------- | ---- |
 
-#### その他
+#### core/pta/transform.rs (ptafunc1.c, ptafunc2.c)
+
+| C関数               | 状態 | Rust対応                 | 備考 |
+| ------------------- | ---- | ------------------------ | ---- |
+| ptaTranspose        | ✅   | Pta::transpose()         |      |
+| ptaCyclicPerm       | ✅   | Pta::cyclic_perm()       |      |
+| ptaGetRange         | ✅   | Pta::get_range()         |      |
+| ptaGetInsideBox     | ✅   | Pta::get_inside_box()    |      |
+| ptaContainsPt       | ✅   | Pta::contains_pt()       |      |
+| ptaTestIntersection | ✅   | Pta::test_intersection() |      |
+| ptaTransform        | ✅   | Pta::transform_pts()     |      |
+| ptaPtInsidePolygon  | ✅   | Pta::pt_inside_polygon() |      |
+| ptaPolygonIsConvex  | ✅   | Pta::polygon_is_convex() |      |
+| ptaGetMinMax        | ✅   | Pta::get_min_max()       |      |
+| ptaSelectByValue    | ✅   | Pta::select_by_value()   |      |
+| ptaSelectRange      | ✅   | Pta::select_range()      |      |
+| ptaaJoin            | ✅   | Ptaa::join()             |      |
+| ptaSubsample        | 🔄   | Pta::subsample()         |      |
+| ptaReverse          | 🔄   | Pta::reverse()           |      |
+| ptaJoin             | 🔄   | Pta::join()              |      |
+
+#### core/pta/mod.rs (ptafunc1.c, ptafunc2.c)
 
 | C関数         | 状態 | Rust対応          | 備考 |
 | ------------- | ---- | ----------------- | ---- |
-| ptaaJoin      | ✅   | Ptaa::join()      |      |
 | ptaCropToMask | ✅   | Pta::crop_to_mask |      |
 
-#### lsf.rs
+#### core/pta/lsf.rs (ptafunc1.c, ptafunc2.c)
 
-| C関数              | 状態 | Rust対応            | 備考 |
-| ------------------ | ---- | ------------------- | ---- |
-| ptaGetLinearLSF    | ✅   | get_linear_lsf()    |      |
-| ptaGetQuadraticLSF | ✅   | get_quadratic_lsf() |      |
-| ptaGetCubicLSF     | ✅   | get_cubic_lsf()     |      |
-| ptaGetQuarticLSF   | ✅   | get_quartic_lsf()   |      |
+| C関数              | 状態 | Rust対応                 | 備考 |
+| ------------------ | ---- | ------------------------ | ---- |
+| ptaGetLinearLSF    | ✅   | Pta::get_linear_lsf()    |      |
+| ptaGetQuadraticLSF | ✅   | Pta::get_quadratic_lsf() |      |
+| ptaGetCubicLSF     | ✅   | Pta::get_cubic_lsf()     |      |
+| ptaGetQuarticLSF   | ✅   | Pta::get_quartic_lsf()   |      |
 
-#### sort.rs
+#### core/pta/sort.rs (ptafunc1.c, ptafunc2.c)
 
-| C関数           | 状態 | Rust対応         | 備考 |
-| --------------- | ---- | ---------------- | ---- |
-| ptaSortByIndex  | ✅   | sort_by_index()  |      |
-| ptaGetSortIndex | ✅   | get_sort_index() |      |
-| ptaSort         | ✅   | sort_pta()       |      |
-| ptaGetRankValue | ✅   | get_rank_value() |      |
-| ptaSort2d       | ✅   | sort_2d()        |      |
-| ptaEqual        | ✅   | equal()          |      |
+| C関数           | 状態 | Rust対応              | 備考 |
+| --------------- | ---- | --------------------- | ---- |
+| ptaGetSortIndex | ✅   | Pta::get_sort_index() |      |
+| ptaSort         | ✅   | Pta::sort_pta()       |      |
+| ptaGetRankValue | ✅   | Pta::get_rank_value() |      |
+| ptaEqual        | ✅   | Pta::equal()          |      |
+| ptaSortByIndex  | 🔄   | Pta::sort_by_index()  |      |
+| ptaSort2d       | 🔄   | Pta::sort_2d()        |      |
 
 ### pixabasic.c (Pixa基本操作)
+
+#### core/pixa/mod.rs (pixabasic.c)
 
 | C関数                 | 状態 | Rust対応                  | 備考                   |
 | --------------------- | ---- | ------------------------- | ---------------------- |
@@ -744,30 +774,19 @@ Phase 16で大部分を実装済み。
 | pixaCreateFromPix     | ✅   | Pixa::create_from_pix     |                        |
 | pixaCreateFromBoxa    | ✅   | Pixa::create_from_boxa    |                        |
 | pixaSplitPix          | ✅   | Pixa::split_pix           |                        |
-| pixaDestroy           | 🔄   | drop()                    | 自動                   |
 | pixaCopy              | ✅   | Pixa::clone()             |                        |
 | pixaAddPix            | ✅   | Pixa::push()              |                        |
 | pixaAddBox            | ✅   | Pixa::push_with_box()     |                        |
-| pixaExtendArray       | 🚫   | -                         | Vec自動拡張            |
-| pixaExtendArrayToSize | 🚫   | -                         | Vec自動拡張            |
 | pixaGetCount          | ✅   | Pixa::len()               |                        |
 | pixaGetPix            | ✅   | Pixa::get_cloned()        |                        |
 | pixaGetPixDimensions  | ✅   | Pixa::get_dimensions()    |                        |
-| pixaGetBoxa           | ✅   | Pixa::get_boxa            |                        |
-| pixaGetBoxaCount      | ✅   | Pixa::get_boxa_count      |                        |
+| pixaGetBoxaCount      | ❌   | -                         |                        |
 | pixaGetBox            | ✅   | Pixa::get_box             |                        |
 | pixaGetBoxGeometry    | ✅   | Pixa::get_box_geometry    |                        |
 | pixaSetBoxa           | ✅   | Pixa::set_boxa            |                        |
-| pixaGetPixArray       | 🚫   | -                         | Cポインタ配列          |
-| pixaVerifyDepth       | 🚫   | -                         | Rustの型システムで不要 |
-| pixaVerifyDimensions  | 🚫   | -                         | Rustの型システムで不要 |
-| pixaIsFull            | 🚫   | -                         | Rustの型システムで不要 |
 | pixaCountText         | ✅   | Pixa::count_text          |                        |
 | pixaSetText           | ✅   | Pixa::set_text            |                        |
-| pixaGetLinePtrs       | 🚫   | -                         | Cポインタ配列          |
-| pixaWriteStreamInfo   | 🚫   | -                         | デバッグ出力関数       |
-| pixaReplacePix        | ✅   | Pixa::replace_pix         |                        |
-| pixaInsertPix         | ✅   | Pixa::insert_pix          |                        |
+| pixaInsertPix         | ❌   | -                         |                        |
 | pixaRemovePix         | ✅   | Pixa::remove_pix          |                        |
 | pixaRemovePixAndSave  | ✅   | Pixa::remove_pix_and_save |                        |
 | pixaRemoveSelected    | ✅   | Pixa::remove_selected     |                        |
@@ -775,33 +794,26 @@ Phase 16で大部分を実装済み。
 | pixaClear             | ✅   | Pixa::clear()             |                        |
 | pixaJoin              | ✅   | Pixa::join                |                        |
 | pixaInterleave        | ✅   | Pixa::interleave          |                        |
-| pixaaJoin             | ✅   | Pixaa::join()             |                        |
-| pixaaCreate           | ✅   | Pixaa::new()              | Pixaa構造体として実装  |
+| pixaReadBoth          | ✅   | Pixa::read_both           |                        |
+| pixaDestroy           | 🔄   | drop()                    | 自動                   |
+| pixaExtendArray       | 🚫   | -                         | Vec自動拡張            |
+| pixaExtendArrayToSize | 🚫   | -                         | Vec自動拡張            |
+| pixaGetPixArray       | 🚫   | -                         | Cポインタ配列          |
+| pixaVerifyDepth       | 🚫   | -                         | Rustの型システムで不要 |
+| pixaVerifyDimensions  | 🚫   | -                         | Rustの型システムで不要 |
+| pixaIsFull            | 🚫   | -                         | Rustの型システムで不要 |
+| pixaGetLinePtrs       | 🚫   | -                         | Cポインタ配列          |
+| pixaWriteStreamInfo   | 🚫   | -                         | デバッグ出力関数       |
 | pixaaCreateFromPixa   | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaDestroy          | 🔄   | drop()                    | Drop traitで自動       |
-| pixaaAddPixa          | ✅   | Pixaa::push()             |                        |
 | pixaaExtendArray      | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaAddPix           | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaAddBox           | 🚫   | -                         | Vec<Pixa>で代替        |
-| pixaaGetCount         | ✅   | Pixaa::len()              |                        |
-| pixaaGetPixa          | ✅   | Pixaa::get()              |                        |
 | pixaaGetBoxa          | 🚫   | -                         | Vec<Pixa>で代替        |
-| pixaaGetPix           | ✅   | Pixaa::get_pix()          |                        |
 | pixaaVerifyDepth      | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaVerifyDimensions | 🚫   | -                         | Vec<Pixa>で代替        |
-| pixaaIsFull           | ✅   | Pixaa::is_full()          |                        |
-| pixaaInitFull         | ✅   | Pixaa::init_full()        |                        |
-| pixaaReplacePixa      | ✅   | Pixaa::replace()          |                        |
-| pixaaClear            | ✅   | Pixaa::clear()            |                        |
 | pixaaTruncate         | 🚫   | -                         | Vec<Pixa>で代替        |
-| pixaRead              | ✅   | Pixa::read_from_file      |                        |
-| pixaReadStream        | ✅   | Pixa::read_from_reader    |                        |
-| pixaReadMem           | ✅   | Pixa::read_from_bytes     |                        |
 | pixaWriteDebug        | 🚫   | -                         | デバッグ出力関数       |
-| pixaWrite             | ✅   | Pixa::write_to_file       |                        |
-| pixaWriteStream       | ✅   | Pixa::write_to_writer     |                        |
-| pixaWriteMem          | ✅   | Pixa::write_to_bytes      |                        |
-| pixaReadBoth          | ✅   | Pixa::read_both           |                        |
 | pixaaReadFromFiles    | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaRead             | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaReadStream       | 🚫   | -                         | Vec<Pixa>で代替        |
@@ -809,26 +821,61 @@ Phase 16で大部分を実装済み。
 | pixaaWrite            | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaWriteStream      | 🚫   | -                         | Vec<Pixa>で代替        |
 | pixaaWriteMem         | 🚫   | -                         | Vec<Pixa>で代替        |
+| pixaaJoin             | ✅   | Pixaa::join()             |                        |
+| pixaaCreate           | ✅   | Pixaa::new()              | Pixaa構造体として実装  |
+| pixaaAddPixa          | ✅   | Pixaa::push()             |                        |
+| pixaaGetCount         | ✅   | Pixaa::len()              |                        |
+| pixaaGetPixa          | ✅   | Pixaa::get()              |                        |
+| pixaaGetPix           | ✅   | Pixaa::get_pix()          |                        |
+| pixaaIsFull           | ✅   | Pixaa::is_full()          |                        |
+| pixaaInitFull         | ✅   | Pixaa::init_full()        |                        |
+| pixaaReplacePixa      | ✅   | Pixaa::replace()          |                        |
+| pixaaClear            | ✅   | Pixaa::clear()            |                        |
+
+#### core/pixcomp.rs (pixabasic.c)
+
+| C関数          | 状態 | Rust対応          | 備考 |
+| -------------- | ---- | ----------------- | ---- |
+| pixaGetBoxa    | ✅   | Pixa::get_boxa    |      |
+| pixaReplacePix | ✅   | Pixa::replace_pix |      |
+
+#### core/pixa/serial.rs (pixabasic.c)
+
+| C関数           | 状態 | Rust対応               | 備考 |
+| --------------- | ---- | ---------------------- | ---- |
+| pixaRead        | ✅   | Pixa::read_from_file   |      |
+| pixaReadStream  | ✅   | Pixa::read_from_reader |      |
+| pixaReadMem     | ✅   | Pixa::read_from_bytes  |      |
+| pixaWrite       | ✅   | Pixa::write_to_file    |      |
+| pixaWriteStream | ✅   | Pixa::write_to_writer  |      |
+| pixaWriteMem    | ✅   | Pixa::write_to_bytes   |      |
 
 ### pixafunc1.c, pixafunc2.c (Pixa選択・変換・表示)
 
 Phase 16で主要機能を実装済み。
 
+#### core/mod.rs (pixafunc1.c, pixafunc2.c)
+
+| C関数    | 状態 | Rust対応    | 備考 |
+| -------- | ---- | ----------- | ---- |
+| pixaSort | ✅   | pixa sort() |      |
+
+#### core/pixa/mod.rs (pixafunc1.c, pixafunc2.c)
+
 | C関数                        | 状態 | Rust対応                        | 備考 |
 | ---------------------------- | ---- | ------------------------------- | ---- |
-| pixaSelectBySize             | ✅   | pixa select_by_size()           |      |
-| pixaSelectByArea             | ✅   | pixa select_by_area()           |      |
-| pixaSort                     | ✅   | pixa sort()                     |      |
-| pixaSortByIndex              | ✅   | pixa sort_by_index()            |      |
 | pixaScaleToSize              | ✅   | pixa scale_to_size()            |      |
 | pixaScaleToSizeRel           | ✅   | pixa scale_to_size_rel()        |      |
-| pixaDisplay                  | ✅   | pixa display()                  |      |
-| pixaDisplayTiled             | ✅   | pixa display_tiled()            |      |
 | pixaDisplayTiledAndScaled    | ✅   | pixa display_tiled_and_scaled() |      |
 | pixaGetAlignedStats          | ✅   | pixa aligned_stats()            |      |
 | pixaExtractColumnFromEachPix | ✅   | pixa extract_column_from_each() |      |
 | pixaFindDimensions           | ✅   | pixa find_dimensions()          |      |
+| pixaDisplay                  | ✅   | pixa display()                  |      |
+| pixaDisplayTiled             | ✅   | pixa display_tiled()            |      |
 | pixaCountPixels              | ✅   | pixa count_pixels()             |      |
+| pixaSelectBySize             | 🔄   | Pixa::select_by_size()          |      |
+| pixaSelectByArea             | 🔄   | Pixa::select_by_area()          |      |
+| pixaSortByIndex              | 🔄   | Pixa::sort_by_index()           |      |
 
 ### numabasic.c (Numa基本操作)
 
@@ -837,94 +884,96 @@ numa/mod.rs, numa/operations.rs に基本統計関数は実装済み。
 
 ### numafunc1.c, numafunc2.c (Numa演算・統計)
 
-#### operations.rs
+#### core/numa/operations.rs (numafunc1.c, numafunc2.c)
 
-| C関数                      | 状態 | Rust対応                     | 備考 |
-| -------------------------- | ---- | ---------------------------- | ---- |
-| numaArithOp                | ✅   | arith_op()                   |      |
-| numaLogicalOp              | ✅   | logical_op()                 |      |
-| numaInvert                 | ✅   | invert()                     |      |
-| numaSimilar                | ✅   | similar()                    |      |
-| numaAddToNumber            | ✅   | add_to_element()             |      |
-| numaGetPartialSums         | ✅   | partial_sums()               |      |
-| numaSubsample              | ✅   | subsample()                  |      |
-| numaMakeDelta              | ✅   | make_delta()                 |      |
-| numaMakeSequence           | ✅   | make_sequence()              |      |
-| numaMakeAbsval             | ✅   | abs_val()                    |      |
-| numaAddBorder              | ✅   | add_border()                 |      |
-| numaAddSpecifiedBorder     | ✅   | add_specified_border()       |      |
-| numaRemoveBorder           | ✅   | remove_border()              |      |
-| numaCountNonzeroRuns       | ✅   | count_nonzero_runs()         |      |
-| numaGetNonzeroRange        | ✅   | get_nonzero_range()          |      |
-| numaGetCountRelativeToZero | ✅   | get_count_relative_to_zero() |      |
-| numaClipToInterval         | ✅   | clip_to_interval()           |      |
-| numaMakeThresholdIndicator | ✅   | make_threshold_indicator()   |      |
-| numaInterpolateEqxVal      | ✅   | interpolate_eqx_val()        |      |
-| numaInterpolateArbxVal     | ✅   | interpolate_arbx_val()       |      |
-| numaSortAutoSelect         | ✅   | sort_auto_select()           |      |
-| numaSortIndexAutoSelect    | ✅   | sort_index_auto_select()     |      |
-| numaGetSortIndex           | ✅   | sort_index()                 |      |
-| numaSortByIndex            | ✅   | sort_by_index()              |      |
-| numaIsSorted               | ✅   | is_sorted()                  |      |
-| numaJoin                   | ✅   | join()                       |      |
+| C関数                      | 状態 | Rust対応                           | 備考                   |
+| -------------------------- | ---- | ---------------------------------- | ---------------------- |
+| numaArithOp                | ✅   | Numa::arith_op()                   |                        |
+| numaLogicalOp              | ✅   | Numa::logical_op()                 |                        |
+| numaInvert                 | ✅   | Numa::invert()                     |                        |
+| numaSimilar                | ✅   | Numa::similar()                    |                        |
+| numaAddToNumber            | ✅   | Numa::add_to_element()             |                        |
+| numaGetPartialSums         | ✅   | Numa::partial_sums()               |                        |
+| numaSubsample              | ✅   | Numa::subsample()                  |                        |
+| numaMakeDelta              | ✅   | Numa::make_delta()                 |                        |
+| numaMakeSequence           | ✅   | Numa::make_sequence()              |                        |
+| numaMakeAbsval             | ✅   | Numa::abs_val()                    |                        |
+| numaAddBorder              | ✅   | Numa::add_border()                 |                        |
+| numaAddSpecifiedBorder     | ✅   | Numa::add_specified_border()       |                        |
+| numaRemoveBorder           | ✅   | Numa::remove_border()              |                        |
+| numaCountNonzeroRuns       | ✅   | Numa::count_nonzero_runs()         |                        |
+| numaGetNonzeroRange        | ✅   | Numa::get_nonzero_range()          |                        |
+| numaGetCountRelativeToZero | ✅   | Numa::get_count_relative_to_zero() |                        |
+| numaClipToInterval         | ✅   | Numa::clip_to_interval()           |                        |
+| numaMakeThresholdIndicator | ✅   | Numa::make_threshold_indicator()   |                        |
+| numaInterpolateEqxVal      | ✅   | Numa::interpolate_eqx_val()        |                        |
+| numaInterpolateArbxVal     | ✅   | Numa::interpolate_arbx_val()       |                        |
+| numaSortAutoSelect         | ✅   | Numa::sort_auto_select()           |                        |
+| numaSortIndexAutoSelect    | ✅   | Numa::sort_index_auto_select()     |                        |
+| numaGetSortIndex           | ✅   | Numa::sort_index()                 |                        |
+| numaIsSorted               | ✅   | Numa::is_sorted()                  |                        |
+| numaSortByIndex            | ✅   | Numa::sort_by_index()              |                        |
+| numaJoin                   | ✅   | Numa::join()                       |                        |
+| numaMakeConstant           | ✅   | Numa::make_constant()              |                        |
+| numaReverse                | ✅   | Numa::reversed() / Numa::reverse() |                        |
+| numaSortGeneral            | ✅   | Numa::sort_general                 | sort_auto_selectで統合 |
+| numaChooseSortType         | ✅   | Numa::choose_sort_type             | 内部関数               |
+| numaSort                   | ✅   | Numa::sorted() / Numa::sort()      |                        |
+| numaGetRankValue           | ✅   | Numa::rank_value()                 |                        |
+| numaGetMedian              | ✅   | Numa::median()                     |                        |
+| numaGetMode                | ✅   | Numa::mode()                       |                        |
+| numaaJoin                  | ✅   | Numaa::join                        |                        |
 
-#### その他
+#### core/numa/mod.rs (numafunc1.c, numafunc2.c)
 
-| C関数                | 状態 | Rust対応                           | 備考                   |
-| -------------------- | ---- | ---------------------------------- | ---------------------- |
-| numaGetMin           | ✅   | Numa::min()                        |                        |
-| numaGetMax           | ✅   | Numa::max()                        |                        |
-| numaGetSum           | ✅   | Numa::sum()                        |                        |
-| numaGetSumOnInterval | ✅   | Numa::sum_on_interval()            |                        |
-| numaHasOnlyIntegers  | ✅   | Numa::has_only_integers()          |                        |
-| numaGetMean          | ✅   | Numa::mean()                       |                        |
-| numaGetMeanAbsval    | ✅   | Numa::mean_absval()                |                        |
-| numaMakeConstant     | ✅   | Numa::make_constant()              |                        |
-| numaReverse          | ✅   | Numa::reversed() / Numa::reverse() |                        |
-| numaSortGeneral      | ✅   | Numa::sort_general                 | sort_auto_selectで統合 |
-| numaChooseSortType   | ✅   | Numa::choose_sort_type             | 内部関数               |
-| numaSort             | ✅   | Numa::sorted() / Numa::sort()      |                        |
-| numaGetRankValue     | ✅   | Numa::rank_value()                 |                        |
-| numaGetMedian        | ✅   | Numa::median()                     |                        |
-| numaGetMode          | ✅   | Numa::mode()                       |                        |
-| numaaJoin            | ✅   | Numaa::join                        |                        |
-| numaaFlattenToNuma   | ✅   | Numaa::flatten()                   |                        |
+| C関数                | 状態 | Rust対応                  | 備考 |
+| -------------------- | ---- | ------------------------- | ---- |
+| numaGetMin           | ✅   | Numa::min()               |      |
+| numaGetMax           | ✅   | Numa::max()               |      |
+| numaGetSum           | ✅   | Numa::sum()               |      |
+| numaGetSumOnInterval | ✅   | Numa::sum_on_interval()   |      |
+| numaHasOnlyIntegers  | ✅   | Numa::has_only_integers() |      |
+| numaGetMean          | ✅   | Numa::mean()              |      |
+| numaGetMeanAbsval    | ✅   | Numa::mean_absval()       |      |
+| numaaFlattenToNuma   | ✅   | Numaa::flatten()          |      |
 
-#### interpolation.rs
+#### core/numa/interpolation.rs (numafunc1.c, numafunc2.c)
 
-| C関数                       | 状態 | Rust対応                    | 備考 |
-| --------------------------- | ---- | --------------------------- | ---- |
-| numaUniformSampling         | ✅   | uniform_sampling()          |      |
-| numaLowPassIntervals        | ✅   | low_pass_intervals()        |      |
-| numaThresholdEdges          | ✅   | threshold_edges()           |      |
-| numaGetSpanValues           | ✅   | get_span_values()           |      |
-| numaGetEdgeValues           | ✅   | get_edge_values()           |      |
-| numaInterpolateEqxInterval  | ✅   | interpolate_eqx_interval()  |      |
-| numaInterpolateArbxInterval | ✅   | interpolate_arbx_interval() |      |
-| numaFitMax                  | ✅   | fit_max()                   |      |
-| numaDifferentiateInterval   | ✅   | differentiate_interval()    |      |
-| numaIntegrateInterval       | ✅   | integrate_interval()        |      |
+| C関数                       | 状態 | Rust対応                          | 備考 |
+| --------------------------- | ---- | --------------------------------- | ---- |
+| numaUniformSampling         | ✅   | Numa::uniform_sampling()          |      |
+| numaLowPassIntervals        | ✅   | Numa::low_pass_intervals()        |      |
+| numaThresholdEdges          | ✅   | Numa::threshold_edges()           |      |
+| numaGetSpanValues           | ✅   | Numa::get_span_values()           |      |
+| numaGetEdgeValues           | ✅   | Numa::get_edge_values()           |      |
+| numaInterpolateEqxInterval  | ✅   | Numa::interpolate_eqx_interval()  |      |
+| numaInterpolateArbxInterval | ✅   | Numa::interpolate_arbx_interval() |      |
+| numaFitMax                  | ✅   | Numa::fit_max()                   |      |
+| numaDifferentiateInterval   | ✅   | Numa::differentiate_interval()    |      |
+| numaIntegrateInterval       | ✅   | Numa::integrate_interval()        |      |
 
-#### sort.rs
+#### core/numa/sort.rs (numafunc1.c, numafunc2.c)
 
-| C関数                      | 状態 | Rust対応                 | 備考 |
-| -------------------------- | ---- | ------------------------ | ---- |
-| numaBinSort                | ✅   | bin_sort()               |      |
-| numaGetBinSortIndex        | ✅   | bin_sort_index()         |      |
-| numaSortPair               | ✅   | sort_pair()              |      |
-| numaInvertMap              | ✅   | invert_map()             |      |
-| numaAddSorted              | ✅   | add_sorted()             |      |
-| numaFindSortedLoc          | ✅   | find_sorted_loc()        |      |
-| numaPseudorandomSequence   | ✅   | pseudorandom_sequence()  |      |
-| numaRandomPermutation      | ✅   | random_permutation()     |      |
-| numaGetBinnedMedian        | ✅   | binned_median()          |      |
-| numaGetMeanDevFromMedian   | ✅   | mean_dev_from_median()   |      |
-| numaGetMedianDevFromMedian | ✅   | median_dev_from_median() |      |
+| C関数                      | 状態 | Rust対応                       | 備考 |
+| -------------------------- | ---- | ------------------------------ | ---- |
+| numaGetBinSortIndex        | ✅   | Numa::bin_sort_index()         |      |
+| numaSortPair               | ✅   | Numa::sort_pair()              |      |
+| numaInvertMap              | ✅   | Numa::invert_map()             |      |
+| numaAddSorted              | ✅   | Numa::add_sorted()             |      |
+| numaFindSortedLoc          | ✅   | Numa::find_sorted_loc()        |      |
+| numaPseudorandomSequence   | ✅   | Numa::pseudorandom_sequence()  |      |
+| numaRandomPermutation      | ✅   | Numa::random_permutation()     |      |
+| numaGetBinnedMedian        | ✅   | Numa::binned_median()          |      |
+| numaGetMeanDevFromMedian   | ✅   | Numa::mean_dev_from_median()   |      |
+| numaGetMedianDevFromMedian | ✅   | Numa::median_dev_from_median() |      |
+| numaBinSort                | 🔄   | Numa::bin_sort()               |      |
 
 numafunc2.c (ヒストグラム・統計)の関数も実装済み。
 一部ヒストグラム関数はnuma/histogram.rsに実装あり。
 
 ### sarray1.c, sarray2.c (Sarray文字列配列)
+
+#### core/sarray/mod.rs (sarray1.c, sarray2.c)
 
 | C関数                       | 状態 | Rust対応                       | 備考             |
 | --------------------------- | ---- | ------------------------------ | ---------------- |
@@ -953,360 +1002,364 @@ numafunc2.c (ヒストグラム・統計)の関数も実装済み。
 | sarraySelectBySubstring     | ✅   | Sarray::filter_by_substring()  |                  |
 | sarraySelectRange           | ✅   | Sarray::select_range           |                  |
 | sarrayParseRange            | ✅   | Sarray::parse_range            |                  |
-| sarrayRead                  | ✅   | Sarray::read_from_file         |                  |
-| sarrayReadStream            | ✅   | Sarray::read_from_reader       |                  |
-| sarrayReadMem               | ✅   | Sarray::read_from_bytes        |                  |
-| sarrayWrite                 | ✅   | Sarray::write_to_file          |                  |
-| sarrayWriteStream           | ✅   | Sarray::write_to_writer        |                  |
 | sarrayWriteStderr           | 🚫   | -                              | デバッグ出力関数 |
-| sarrayWriteMem              | ✅   | Sarray::write_to_bytes         |                  |
 | sarrayAppend                | ✅   | Sarray::append                 |                  |
 | sarraySort                  | ✅   | Sarray::sort()                 |                  |
 | sarraySortByIndex           | ✅   | Sarray::sort_by_index          |                  |
+
+#### core/sarray/serial.rs (sarray1.c, sarray2.c)
+
+| C関数             | 状態 | Rust対応                 | 備考 |
+| ----------------- | ---- | ------------------------ | ---- |
+| sarrayRead        | ✅   | Sarray::read_from_file   |      |
+| sarrayReadStream  | ✅   | Sarray::read_from_reader |      |
+| sarrayReadMem     | ✅   | Sarray::read_from_bytes  |      |
+| sarrayWrite       | ✅   | Sarray::write_to_file    |      |
+| sarrayWriteStream | ✅   | Sarray::write_to_writer  |      |
+| sarrayWriteMem    | ✅   | Sarray::write_to_bytes   |      |
 
 その他のsarray2.c関数（セット演算、整数生成など）も実装済み。
 
 ### fpix1.c, fpix2.c (FPix浮動小数点画像)
 
-| C関数                  | 状態 | Rust対応                | 備考                   |
-| ---------------------- | ---- | ----------------------- | ---------------------- |
-| fpixCreate             | ✅   | FPix::new()             |                        |
-| fpixCreateTemplate     | ✅   | FPix::create_template() |                        |
-| fpixClone              | ✅   | FPix::clone()           |                        |
-| fpixCopy               | ✅   | FPix::clone()           |                        |
-| fpixDestroy            | 🔄   | drop()                  | 自動                   |
-| fpixGetDimensions      | ✅   | width()/height()        |                        |
-| fpixSetDimensions      | 🚫   | -                       | FPixは不変             |
-| fpixGetWpl             | 🚫   | -                       | FPixはwpl概念なし      |
-| fpixSetWpl             | 🚫   | -                       | FPixはwpl概念なし      |
-| fpixGetResolution      | ✅   | xres()/yres()           |                        |
-| fpixSetResolution      | ✅   | set_resolution()        |                        |
-| fpixCopyResolution     | 🚫   | -                       | set_resolution()で対応 |
-| fpixGetData            | ✅   | FPix::data()            |                        |
-| fpixSetData            | 🚫   | -                       | Cメモリ管理            |
-| fpixGetPixel           | ✅   | FPix::get_pixel()       |                        |
-| fpixSetPixel           | ✅   | FPix::set_pixel()       |                        |
-| fpixaCreate            | ✅   | FPixa::new()            |                        |
-| fpixaCopy              | ✅   | FPixa::clone()          |                        |
-| fpixaDestroy           | 🚫   | -                       | drop()で自動           |
-| fpixaAddFPix           | ✅   | FPixa::push()           |                        |
-| fpixaGetCount          | ✅   | FPixa::len()            |                        |
-| fpixaGetFPix           | ✅   | FPixa::get()            |                        |
-| fpixaGetFPixDimensions | ✅   | FPixa::get_dimensions() |                        |
-| fpixaGetData           | ✅   | FPixa::get_data()       |                        |
-| fpixaGetPixel          | ✅   | FPixa::get_pixel()      |                        |
-| fpixaSetPixel          | ✅   | FPixa::set_pixel()      |                        |
-| dpixCreate             | ✅   | DPix::new()             |                        |
-| dpixClone              | ✅   | DPix::clone()           |                        |
-| dpixCopy               | ✅   | DPix::clone()           |                        |
-| dpixDestroy            | 🔄   | drop()                  | 自動                   |
-| fpixRead               | ✅   | FPix::read_from_file    |                        |
-| fpixReadStream         | ✅   | FPix::read_from_reader  |                        |
-| fpixReadMem            | ✅   | FPix::read_from_bytes   |                        |
-| fpixWrite              | ✅   | FPix::write_to_file     |                        |
-| fpixWriteStream        | ✅   | FPix::write_to_writer   |                        |
-| fpixWriteMem           | ✅   | FPix::write_to_bytes    |                        |
-| dpixRead               | ✅   | dpix_read               |                        |
-| dpixWrite              | ✅   | dpix_write              |                        |
+#### core/fpix/mod.rs (fpix1.c, fpix2.c)
 
-fpix2.c (FPix変換・演算):
+| C関数                  | 状態 | Rust対応                                    | 備考                   |
+| ---------------------- | ---- | ------------------------------------------- | ---------------------- |
+| fpixCreate             | ✅   | FPix::new()                                 |                        |
+| fpixCreateTemplate     | ✅   | FPix::create_template()                     |                        |
+| fpixClone              | ✅   | FPix::clone()                               |                        |
+| fpixCopy               | ✅   | FPix::clone()                               |                        |
+| fpixDestroy            | 🔄   | drop()                                      | 自動                   |
+| fpixGetDimensions      | ✅   | width()/height()                            |                        |
+| fpixSetDimensions      | 🚫   | -                                           | FPixは不変             |
+| fpixGetWpl             | 🚫   | -                                           | FPixはwpl概念なし      |
+| fpixSetWpl             | 🚫   | -                                           | FPixはwpl概念なし      |
+| fpixGetResolution      | ✅   | xres()/yres()                               |                        |
+| fpixSetResolution      | ✅   | FPix::set_resolution()                      |                        |
+| fpixCopyResolution     | 🚫   | -                                           | set_resolution()で対応 |
+| fpixGetData            | ✅   | FPix::data()                                |                        |
+| fpixSetData            | 🚫   | -                                           | Cメモリ管理            |
+| fpixGetPixel           | ✅   | FPix::get_pixel()                           |                        |
+| fpixSetPixel           | ✅   | FPix::set_pixel()                           |                        |
+| fpixaDestroy           | 🚫   | -                                           | drop()で自動           |
+| dpixCreate             | ✅   | DPix::new()                                 |                        |
+| dpixClone              | ✅   | DPix::clone()                               |                        |
+| dpixCopy               | ✅   | DPix::clone()                               |                        |
+| dpixDestroy            | 🔄   | drop()                                      | 自動                   |
+| dpixRead               | ❌   | -                                           |                        |
+| dpixWrite              | ❌   | -                                           |                        |
+| fpixaCreate            | ✅   | FPixa::new()                                |                        |
+| fpixaCopy              | ✅   | FPixa::clone()                              |                        |
+| fpixaAddFPix           | ✅   | FPixa::push()                               |                        |
+| fpixaGetCount          | ✅   | FPixa::len()                                |                        |
+| fpixaGetFPix           | ✅   | FPixa::get()                                |                        |
+| fpixaGetFPixDimensions | ✅   | FPixa::get_dimensions()                     |                        |
+| fpixaGetData           | ✅   | FPixa::get_data()                           |                        |
+| fpixaGetPixel          | ✅   | FPixa::get_pixel()                          |                        |
+| fpixaSetPixel          | ✅   | FPixa::set_pixel()                          |                        |
+| fpixConvertToPix       | ✅   | FPix::to_pix()                              |                        |
+| pixConvertToFPix       | ✅   | FPix::from_pix()                            |                        |
+| fpixAddMultConstant    | 🔄   | FPix::add_constant() + FPix::mul_constant() | 2段階呼び出し          |
+| fpixLinearCombination  | ✅   | FPix::linear_combination()                  |                        |
+| dpixConvertToPix       | ✅   | DPix::to_pix()                              |                        |
+| dpixConvertToFPix      | ✅   | DPix::to_fpix()                             |                        |
 
-| C関数                 | 状態 | Rust対応                                    | 備考          |
-| --------------------- | ---- | ------------------------------------------- | ------------- |
-| fpixConvertToPix      | ✅   | FPix::to_pix()                              |               |
-| pixConvertToFPix      | ✅   | FPix::from_pix()                            |               |
-| fpixAddMultConstant   | 🔄   | FPix::add_constant() + FPix::mul_constant() | 2段階呼び出し |
-| fpixLinearCombination | ✅   | FPix::linear_combination()                  |               |
-| dpixConvertToPix      | ✅   | DPix::to_pix()                              |               |
-| dpixConvertToFPix     | ✅   | DPix::to_fpix()                             |               |
+#### core/fpix/serial.rs (fpix1.c, fpix2.c)
+
+| C関数           | 状態 | Rust対応               | 備考 |
+| --------------- | ---- | ---------------------- | ---- |
+| fpixRead        | ✅   | FPix::read_from_file   |      |
+| fpixReadStream  | ✅   | FPix::read_from_reader |      |
+| fpixReadMem     | ✅   | FPix::read_from_bytes  |      |
+| fpixWrite       | ✅   | FPix::write_to_file    |      |
+| fpixWriteStream | ✅   | FPix::write_to_writer  |      |
+| fpixWriteMem    | ✅   | FPix::write_to_bytes   |      |
 
 その他のfpix2.c変換関数は一部convert.rsに実装あり。
 
 ### colormap.c (カラーマップ)
 
-| C関数                        | 状態 | Rust対応                             | 備考                |
-| ---------------------------- | ---- | ------------------------------------ | ------------------- |
-| pixcmapCreate                | ✅   | PixColormap::new()                   |                     |
-| pixcmapCreateRandom          | ✅   | PixColormap::create_random           |                     |
-| pixcmapCreateLinear          | ✅   | PixColormap::create_linear()         |                     |
-| pixcmapCopy                  | ✅   | PixColormap::clone()                 |                     |
-| pixcmapDestroy               | 🔄   | drop()                               | 自動                |
-| pixcmapIsValid               | ✅   | PixColormap::is_valid                |                     |
-| pixcmapAddColor              | ✅   | PixColormap::add_color()             |                     |
-| pixcmapAddRGBA               | ✅   | PixColormap::add_rgba                | add_colorがRGBA対応 |
-| pixcmapAddNewColor           | ✅   | PixColormap::add_new_color           |                     |
-| pixcmapAddNearestColor       | ✅   | PixColormap::add_nearest_color       |                     |
-| pixcmapUsableColor           | ✅   | PixColormap::is_usable_color         |                     |
-| pixcmapAddBlackOrWhite       | ✅   | PixColormap::add_black_or_white      |                     |
-| pixcmapSetBlackAndWhite      | ✅   | PixColormap::set_black_and_white     |                     |
-| pixcmapGetCount              | ✅   | PixColormap::len()                   |                     |
-| pixcmapGetFreeCount          | ✅   | PixColormap::free_count              |                     |
-| pixcmapGetDepth              | ✅   | PixColormap::depth()                 |                     |
-| pixcmapGetMinDepth           | ✅   | PixColormap::min_depth               |                     |
-| pixcmapClear                 | ✅   | PixColormap::clear()                 |                     |
-| pixcmapGetColor              | ✅   | PixColormap::get_rgb()               |                     |
-| pixcmapGetColor32            | ✅   | PixColormap::get_color32             |                     |
-| pixcmapGetRGBA               | ✅   | PixColormap::get_rgba                |                     |
-| pixcmapGetRGBA32             | ✅   | PixColormap::get_rgba32              |                     |
-| pixcmapResetColor            | ✅   | PixColormap::reset_color             |                     |
-| pixcmapSetAlpha              | ✅   | PixColormap::set_alpha               |                     |
-| pixcmapGetIndex              | ✅   | PixColormap::get_index               |                     |
-| pixcmapHasColor              | ✅   | PixColormap::has_color               |                     |
-| pixcmapIsOpaque              | ✅   | PixColormap::is_opaque               |                     |
-| pixcmapNonOpaqueColorsInfo   | ✅   | PixColormap::non_opaque_info         |                     |
-| pixcmapIsBlackAndWhite       | ✅   | PixColormap::is_black_and_white      |                     |
-| pixcmapCountGrayColors       | ✅   | PixColormap::count_gray_colors       |                     |
-| pixcmapGetRankIntensity      | ✅   | PixColormap::get_rank_intensity      |                     |
-| pixcmapGetNearestIndex       | ✅   | PixColormap::find_nearest            |                     |
-| pixcmapGetNearestGrayIndex   | ✅   | PixColormap::find_nearest_gray       |                     |
-| pixcmapGetDistanceToColor    | ✅   | PixColormap::distance_to_color       |                     |
-| pixcmapGetRangeValues        | ✅   | PixColormap::get_range_values        |                     |
-| pixcmapGrayToFalseColor      | ✅   | PixColormap::gray_to_false_color     |                     |
-| pixcmapGrayToColor           | ✅   | PixColormap::gray_to_color           |                     |
-| pixcmapColorToGray           | ✅   | PixColormap::color_to_gray           |                     |
-| pixcmapConvertTo4            | ✅   | PixColormap::convert_to4             |                     |
-| pixcmapConvertTo8            | ✅   | PixColormap::convert_to8             |                     |
-| pixcmapRead                  | ✅   | PixColormap::read_from_file          |                     |
-| pixcmapReadStream            | ✅   | PixColormap::read_from_reader        |                     |
-| pixcmapReadMem               | ✅   | PixColormap::read_from_bytes         |                     |
-| pixcmapWrite                 | ✅   | PixColormap::write_to_file           |                     |
-| pixcmapWriteStream           | ✅   | PixColormap::write_to_writer         |                     |
-| pixcmapWriteMem              | ✅   | PixColormap::write_to_bytes          |                     |
-| pixcmapToArrays              | ✅   | PixColormap::to_arrays               |                     |
-| pixcmapToRGBTable            | ✅   | PixColormap::to_rgb_table            |                     |
-| pixcmapSerializeToMemory     | ✅   | PixColormap::serialize_to_memory     |                     |
-| pixcmapDeserializeFromMemory | ✅   | PixColormap::deserialize_from_memory |                     |
-| pixcmapConvertToHex          | ✅   | PixColormap::convert_to_hex          |                     |
-| pixcmapGammaTRC              | ✅   | PixColormap::gamma_trc               |                     |
-| pixcmapContrastTRC           | ✅   | PixColormap::contrast_trc            |                     |
-| pixcmapShiftIntensity        | ✅   | PixColormap::shift_intensity         |                     |
-| pixcmapShiftByComponent      | ✅   | PixColormap::shift_by_component      |                     |
+#### core/colormap/mod.rs (colormap.c)
+
+| C関数                  | 状態 | Rust対応                        | 備考                |
+| ---------------------- | ---- | ------------------------------- | ------------------- |
+| pixcmapCreate          | ✅   | PixColormap::new()              |                     |
+| pixcmapCreateLinear    | ✅   | PixColormap::create_linear()    |                     |
+| pixcmapAddColor        | ✅   | PixColormap::add_color()        |                     |
+| pixcmapAddRGBA         | ✅   | PixColormap::add_rgba           | add_colorがRGBA対応 |
+| pixcmapGetCount        | ✅   | PixColormap::len()              |                     |
+| pixcmapGetDepth        | ✅   | PixColormap::depth()            |                     |
+| pixcmapGetColor        | ✅   | PixColormap::get_rgb()          |                     |
+| pixcmapGetRGBA         | ✅   | PixColormap::get_rgba           |                     |
+| pixcmapHasColor        | ✅   | PixColormap::has_color          |                     |
+| pixcmapIsOpaque        | ✅   | PixColormap::is_opaque          |                     |
+| pixcmapIsBlackAndWhite | ✅   | PixColormap::is_black_and_white |                     |
+| pixcmapGetNearestIndex | ✅   | PixColormap::find_nearest       |                     |
+
+#### core/colormap/query.rs (colormap.c)
+
+| C関数                      | 状態 | Rust対応                         | 備考 |
+| -------------------------- | ---- | -------------------------------- | ---- |
+| pixcmapCreateRandom        | ✅   | PixColormap::create_random       |      |
+| pixcmapCopy                | ❌   | -                                |      |
+| pixcmapDestroy             | 🔄   | drop()                           | 自動 |
+| pixcmapIsValid             | ✅   | PixColormap::is_valid            |      |
+| pixcmapAddNewColor         | ✅   | PixColormap::add_new_color       |      |
+| pixcmapAddNearestColor     | ✅   | PixColormap::add_nearest_color   |      |
+| pixcmapUsableColor         | ✅   | PixColormap::is_usable_color     |      |
+| pixcmapAddBlackOrWhite     | ✅   | PixColormap::add_black_or_white  |      |
+| pixcmapSetBlackAndWhite    | ✅   | PixColormap::set_black_and_white |      |
+| pixcmapGetFreeCount        | ✅   | PixColormap::free_count          |      |
+| pixcmapGetMinDepth         | ✅   | PixColormap::min_depth           |      |
+| pixcmapClear               | ✅   | PixColormap::clear()             |      |
+| pixcmapGetColor32          | ✅   | PixColormap::get_color32         |      |
+| pixcmapGetRGBA32           | ✅   | PixColormap::get_rgba32          |      |
+| pixcmapResetColor          | ✅   | PixColormap::reset_color         |      |
+| pixcmapSetAlpha            | ✅   | PixColormap::set_alpha           |      |
+| pixcmapGetIndex            | ✅   | PixColormap::get_index           |      |
+| pixcmapNonOpaqueColorsInfo | ✅   | PixColormap::non_opaque_info     |      |
+| pixcmapCountGrayColors     | ✅   | PixColormap::count_gray_colors   |      |
+| pixcmapGetRankIntensity    | ✅   | PixColormap::get_rank_intensity  |      |
+| pixcmapGetNearestGrayIndex | ✅   | PixColormap::find_nearest_gray   |      |
+| pixcmapGetDistanceToColor  | ✅   | PixColormap::distance_to_color   |      |
+| pixcmapGetRangeValues      | ✅   | PixColormap::get_range_values    |      |
+| pixcmapConvertTo4          | ❌   | -                                |      |
+| pixcmapConvertTo8          | ❌   | -                                |      |
+
+#### core/colormap/convert.rs (colormap.c)
+
+| C関数                        | 状態 | Rust対応                             | 備考 |
+| ---------------------------- | ---- | ------------------------------------ | ---- |
+| pixcmapGrayToFalseColor      | ✅   | PixColormap::gray_to_false_color     |      |
+| pixcmapGrayToColor           | ✅   | PixColormap::gray_to_color           |      |
+| pixcmapColorToGray           | ✅   | PixColormap::color_to_gray           |      |
+| pixcmapToArrays              | ✅   | PixColormap::to_arrays               |      |
+| pixcmapToRGBTable            | ✅   | PixColormap::to_rgb_table            |      |
+| pixcmapSerializeToMemory     | ✅   | PixColormap::serialize_to_memory     |      |
+| pixcmapDeserializeFromMemory | ✅   | PixColormap::deserialize_from_memory |      |
+| pixcmapConvertToHex          | ✅   | PixColormap::convert_to_hex          |      |
+| pixcmapGammaTRC              | ✅   | PixColormap::gamma_trc               |      |
+| pixcmapContrastTRC           | ✅   | PixColormap::contrast_trc            |      |
+| pixcmapShiftIntensity        | ✅   | PixColormap::shift_intensity         |      |
+| pixcmapShiftByComponent      | ✅   | PixColormap::shift_by_component      |      |
+
+#### core/colormap/serial.rs (colormap.c)
+
+| C関数              | 状態 | Rust対応                      | 備考 |
+| ------------------ | ---- | ----------------------------- | ---- |
+| pixcmapRead        | ✅   | PixColormap::read_from_file   |      |
+| pixcmapReadStream  | ✅   | PixColormap::read_from_reader |      |
+| pixcmapReadMem     | ✅   | PixColormap::read_from_bytes  |      |
+| pixcmapWrite       | ✅   | PixColormap::write_to_file    |      |
+| pixcmapWriteStream | ✅   | PixColormap::write_to_writer  |      |
+| pixcmapWriteMem    | ✅   | PixColormap::write_to_bytes   |      |
 
 ### pixconv.c (ピクセル深度変換)
 
 convert.rsに実装済み。全関数が実装されている。
 
-#### その他
+#### core/pix/convert.rs (pixconv.c)
 
 | C関数                        | 状態 | Rust対応                                             | 備考                                    |
 | ---------------------------- | ---- | ---------------------------------------------------- | --------------------------------------- |
-| pixThreshold8                | ✅   | threshold_8                                          |                                         |
-| pixConvertRGBToBinaryArb     | ✅   | convert_rgb_to_binary_arb                            | color crate依存                         |
-| pixConvertRGBToColormap      | ✅   | convert_rgb_to_colormap                              | color crate依存                         |
-| pixQuantizeIfFewColors       | ✅   | quantize_if_few_colors                               | color crate依存                         |
-| pixConvertTo1Adaptive        | ✅   | convert_to1_adaptive                                 |                                         |
+| pixThreshold8                | ✅   | Pix::threshold_8                                     |                                         |
+| pixConvertRGBToBinaryArb     | ✅   | Pix::convert_rgb_to_binary_arb                       | color crate依存                         |
+| pixConvertRGBToColormap      | ✅   | Pix::convert_rgb_to_colormap                         | color crate依存                         |
+| pixQuantizeIfFewColors       | ✅   | Pix::quantize_if_few_colors                          | color crate依存                         |
+| pixConvertTo1Adaptive        | ❌   | -                                                    |                                         |
 | pixConvertTo1                | 🔄   | convert_to_1_adaptive() / convert_to_1_by_sampling() | 汎用ディスパッチャを2つの専用関数に分割 |
-| pixConvertTo1BySampling      | ✅   | convert_to1_by_sampling                              |                                         |
-| pixConvertTo8BySampling      | ✅   | convert_to8_by_sampling                              | transform crate依存                     |
-| pixConvertTo8Colormap        | ✅   | convert_to8_colormap                                 | 32bpp部分は後続                         |
-| pixConvertTo32BySampling     | ✅   | convert_to32_by_sampling                             | transform crate依存                     |
-| pixConvert24To32             | ✅   | convert24_to32                                       |                                         |
-| pixConvert32To24             | ✅   | convert32_to24                                       |                                         |
-| pixConvertToSubpixelRGB      | ✅   | convert_to_subpixel_rgb                              |                                         |
-| pixConvertGrayToSubpixelRGB  | ✅   | convert_gray_to_subpixel_rgb                         |                                         |
-| pixConvertColorToSubpixelRGB | ✅   | convert_color_to_subpixel_rgb                        |                                         |
-
-#### convert.rs
-
-| C関数                       | 状態 | Rust対応                        | 備考                            |
-| --------------------------- | ---- | ------------------------------- | ------------------------------- |
-| pixRemoveColormapGeneral    | ✅   | remove_colormap()               | pixRemoveColormapと同一メソッド |
-| pixRemoveColormap           | ✅   | remove_colormap()               |                                 |
-| pixAddGrayColormap8         | ✅   | add_gray_colormap8()            |                                 |
-| pixAddMinimalGrayColormap8  | ✅   | add_minimal_gray_colormap8()    |                                 |
-| pixConvertRGBToLuminance    | ✅   | convert_rgb_to_luminance()      |                                 |
-| pixConvertRGBToGrayGeneral  | ✅   | convert_rgb_to_gray_general()   |                                 |
-| pixConvertRGBToGray         | ✅   | convert_rgb_to_gray()           |                                 |
-| pixConvertRGBToGrayFast     | ✅   | convert_rgb_to_gray_fast()      |                                 |
-| pixConvertRGBToGrayMinMax   | ✅   | convert_rgb_to_gray_min_max()   |                                 |
-| pixConvertRGBToGraySatBoost | ✅   | convert_rgb_to_gray_sat_boost() |                                 |
-| pixConvertRGBToGrayArb      | ✅   | convert_rgb_to_gray_arb()       |                                 |
-| pixConvertGrayToColormap    | ✅   | convert_gray_to_colormap()      |                                 |
-| pixConvertGrayToColormap8   | ✅   | convert_gray_to_colormap_8()    |                                 |
-| pixColorizeGray             | ✅   | colorize_gray()                 |                                 |
-| pixConvertCmapTo1           | ✅   | convert_cmap_to_1()             |                                 |
-| pixConvert16To8             | ✅   | convert_16_to_8()               |                                 |
-| pixConvertGrayToFalseColor  | ✅   | convert_gray_to_false_color()   |                                 |
-| pixUnpackBinary             | ✅   | unpack_binary()                 |                                 |
-| pixConvert1To16             | ✅   | convert_1_to_16()               |                                 |
-| pixConvert1To32             | ✅   | convert_1_to_32()               |                                 |
-| pixConvert1To2Cmap          | ✅   | convert_1_to_2_cmap()           |                                 |
-| pixConvert1To2              | ✅   | convert_1_to_2()                |                                 |
-| pixConvert1To4Cmap          | ✅   | convert_1_to_4_cmap()           |                                 |
-| pixConvert1To4              | ✅   | convert_1_to_4()                |                                 |
-| pixConvert1To8Cmap          | ✅   | convert_1_to_8_cmap()           |                                 |
-| pixConvert1To8              | ✅   | convert_1_to_8()                |                                 |
-| pixConvert2To8              | ✅   | convert_2_to_8()                |                                 |
-| pixConvert4To8              | ✅   | convert_4_to_8()                |                                 |
-| pixConvert8To16             | ✅   | convert_8_to_16()               |                                 |
-| pixConvertTo2               | ✅   | convert_to_2()                  |                                 |
-| pixConvert8To2              | ✅   | convert_8_to_2()                |                                 |
-| pixConvertTo4               | ✅   | convert_to_4()                  |                                 |
-| pixConvert8To4              | ✅   | convert_8_to_4()                |                                 |
-| pixConvertTo8               | ✅   | convert_to_8()                  |                                 |
-| pixConvertTo16              | ✅   | convert_to_16()                 |                                 |
-| pixConvertTo32              | ✅   | convert_to_32()                 |                                 |
-| pixConvert8To32             | ✅   | convert_8_to_32()               |                                 |
-| pixConvertTo8Or32           | ✅   | convert_to_8_or_32()            |                                 |
-| pixConvert32To16            | ✅   | convert_32_to_16()              |                                 |
-| pixConvert32To8             | ✅   | convert_32_to_8()               |                                 |
-| pixRemoveAlpha              | ✅   | remove_alpha()                  |                                 |
-| pixAddAlphaTo1bpp           | ✅   | add_alpha_to_1bpp()             |                                 |
-| pixConvertLossless          | ✅   | convert_lossless()              |                                 |
-| pixConvertForPSWrap         | ✅   | convert_for_ps_wrap()           |                                 |
+| pixConvertTo1BySampling      | ❌   | -                                                    |                                         |
+| pixConvertTo8BySampling      | ❌   | -                                                    | transform crate依存                     |
+| pixConvertTo8Colormap        | ❌   | -                                                    | 32bpp部分は後続                         |
+| pixConvertTo32BySampling     | ❌   | -                                                    | transform crate依存                     |
+| pixConvert24To32             | ❌   | -                                                    |                                         |
+| pixConvert32To24             | ❌   | -                                                    |                                         |
+| pixConvertToSubpixelRGB      | ✅   | Pix::convert_to_subpixel_rgb                         |                                         |
+| pixConvertGrayToSubpixelRGB  | ✅   | Pix::convert_gray_to_subpixel_rgb                    |                                         |
+| pixConvertColorToSubpixelRGB | ✅   | Pix::convert_color_to_subpixel_rgb                   |                                         |
+| pixRemoveColormapGeneral     | ✅   | Pix::remove_colormap()                               | pixRemoveColormapと同一メソッド         |
+| pixRemoveColormap            | ✅   | Pix::remove_colormap()                               |                                         |
+| pixAddGrayColormap8          | ❌   | -                                                    |                                         |
+| pixAddMinimalGrayColormap8   | ❌   | -                                                    |                                         |
+| pixConvertRGBToLuminance     | ✅   | Pix::convert_rgb_to_luminance()                      |                                         |
+| pixConvertRGBToGrayGeneral   | ✅   | Pix::convert_rgb_to_gray_general()                   |                                         |
+| pixConvertRGBToGray          | ✅   | Pix::convert_rgb_to_gray()                           |                                         |
+| pixConvertRGBToGrayFast      | ✅   | Pix::convert_rgb_to_gray_fast()                      |                                         |
+| pixConvertRGBToGrayMinMax    | ✅   | Pix::convert_rgb_to_gray_min_max()                   |                                         |
+| pixConvertRGBToGraySatBoost  | ✅   | Pix::convert_rgb_to_gray_sat_boost()                 |                                         |
+| pixConvertRGBToGrayArb       | ✅   | Pix::convert_rgb_to_gray_arb()                       |                                         |
+| pixConvertGrayToColormap     | ✅   | Pix::convert_gray_to_colormap()                      |                                         |
+| pixConvertGrayToColormap8    | ✅   | Pix::convert_gray_to_colormap_8()                    |                                         |
+| pixColorizeGray              | ✅   | Pix::colorize_gray()                                 |                                         |
+| pixConvertCmapTo1            | ✅   | Pix::convert_cmap_to_1()                             |                                         |
+| pixConvert16To8              | ✅   | Pix::convert_16_to_8()                               |                                         |
+| pixConvertGrayToFalseColor   | ✅   | Pix::convert_gray_to_false_color()                   |                                         |
+| pixUnpackBinary              | ✅   | Pix::unpack_binary()                                 |                                         |
+| pixConvert1To16              | ✅   | Pix::convert_1_to_16()                               |                                         |
+| pixConvert1To32              | ✅   | Pix::convert_1_to_32()                               |                                         |
+| pixConvert1To2Cmap           | ✅   | Pix::convert_1_to_2_cmap()                           |                                         |
+| pixConvert1To2               | ✅   | Pix::convert_1_to_2()                                |                                         |
+| pixConvert1To4Cmap           | ✅   | Pix::convert_1_to_4_cmap()                           |                                         |
+| pixConvert1To4               | ✅   | Pix::convert_1_to_4()                                |                                         |
+| pixConvert1To8Cmap           | ✅   | Pix::convert_1_to_8_cmap()                           |                                         |
+| pixConvert1To8               | ✅   | Pix::convert_1_to_8()                                |                                         |
+| pixConvert2To8               | ✅   | Pix::convert_2_to_8()                                |                                         |
+| pixConvert4To8               | ✅   | Pix::convert_4_to_8()                                |                                         |
+| pixConvert8To16              | ✅   | Pix::convert_8_to_16()                               |                                         |
+| pixConvertTo2                | ✅   | Pix::convert_to_2()                                  |                                         |
+| pixConvert8To2               | ✅   | Pix::convert_8_to_2()                                |                                         |
+| pixConvert8To4               | ✅   | Pix::convert_8_to_4()                                |                                         |
+| pixConvertTo16               | ✅   | Pix::convert_to_16()                                 |                                         |
+| pixConvertTo32               | ✅   | Pix::convert_to_32()                                 |                                         |
+| pixConvert8To32              | ✅   | Pix::convert_8_to_32()                               |                                         |
+| pixConvertTo8Or32            | ✅   | Pix::convert_to_8_or_32()                            |                                         |
+| pixConvert32To16             | ✅   | Pix::convert_32_to_16()                              |                                         |
+| pixConvert32To8              | ✅   | Pix::convert_32_to_8()                               |                                         |
+| pixRemoveAlpha               | ✅   | Pix::remove_alpha()                                  |                                         |
+| pixAddAlphaTo1bpp            | ✅   | Pix::add_alpha_to_1bpp()                             |                                         |
+| pixConvertLossless           | ✅   | Pix::convert_lossless()                              |                                         |
+| pixConvertForPSWrap          | ✅   | Pix::convert_for_ps_wrap()                           |                                         |
+| pixConvertTo4                | ✅   | Pix::convert_to_4()                                  |                                         |
+| pixConvertTo8                | ✅   | Pix::convert_to_8()                                  |                                         |
 
 ### pixarith.c (ピクセル算術演算)
 
-#### arith.rs
+#### core/pix/arith.rs (pixarith.c)
 
-| C関数                  | 状態 | Rust対応                | 備考      |
-| ---------------------- | ---- | ----------------------- | --------- |
-| pixAddGray             | ✅   | arith_add()             |           |
-| pixSubtractGray        | ✅   | arith_subtract()        |           |
-| pixMultConstantGray    | ✅   | multiply_constant()     |           |
-| pixAddConstantGray     | ✅   | add_constant()          |           |
-| pixMultConstAccumulate | ✅   | mult_const_accumulate() | 32bpp専用 |
-| pixAbsDifference       | ✅   | abs_difference()        |           |
-| pixMinOrMax            | ✅   | min_or_max()            |           |
+| C関数                  | 状態 | Rust対応                        | 備考      |
+| ---------------------- | ---- | ------------------------------- | --------- |
+| pixAddGray             | ✅   | Pix::arith_add()                |           |
+| pixSubtractGray        | ✅   | Pix::arith_subtract()           |           |
+| pixMultConstantGray    | ✅   | Pix::multiply_constant()        |           |
+| pixAddConstantGray     | ✅   | Pix::add_constant()             |           |
+| pixMultConstAccumulate | ✅   | PixMut::mult_const_accumulate() | 32bpp専用 |
+| pixAbsDifference       | ✅   | abs_difference()                |           |
+| pixMinOrMax            | ❌   | -                               |           |
 
 その他のpixarith.c関数も実装済み。
 
 ### rop.c, roplow.c (ラスターオペレーション)
 
-#### その他
+#### core/pix/rop.rs (rop.c, roplow.c)
 
-| C関数                | 状態 | Rust対応            | 備考 |
-| -------------------- | ---- | ------------------- | ---- |
-| pixRasterop          | ✅   | rop.rsに実装        |      |
-| pixRasteropIP        | ✅   | rasterop_ip         |      |
-| pixRasteropFullImage | ✅   | rasterop_full_image |      |
-
-#### rop.rs
-
-| C関数          | 状態 | Rust対応       | 備考 |
-| -------------- | ---- | -------------- | ---- |
-| pixRasteropVip | ✅   | rasterop_vip() |      |
-| pixRasteropHip | ✅   | rasterop_hip() |      |
-| pixTranslate   | ✅   | translate()    |      |
+| C関数                | 状態 | Rust対応                 | 備考 |
+| -------------------- | ---- | ------------------------ | ---- |
+| pixRasterop          | ✅   | Pix::rasterop_full_image |      |
+| pixRasteropIP        | ✅   | Pix::rasterop_ip         |      |
+| pixRasteropFullImage | ✅   | Pix::rasterop_full_image |      |
+| pixRasteropVip       | ✅   | PixMut::rasterop_vip()   |      |
+| pixRasteropHip       | ✅   | PixMut::rasterop_hip()   |      |
+| pixTranslate         | ✅   | Pix::translate()         |      |
 
 roplow.c (低レベルラスターOP) 全関数 🚫 不要 (高レベルrop.rs APIでカバー済み)
 
 ### compare.c (画像比較)
 
-#### その他
+#### core/pix/compare.rs (compare.c)
 
-| C関数                | 状態 | Rust対応                      | 備考 |
-| -------------------- | ---- | ----------------------------- | ---- |
-| pixEqual             | ✅   | compare.rsに実装              |      |
-| pixCorrelationBinary | ✅   | compare::correlation_binary() |      |
-| pixCompareBinary     | ✅   | compare::compare_binary()     |      |
-| pixCompareTiled      | ✅   | compare_tiled                 |      |
-| pixGetPerceptualDiff | ✅   | get_perceptual_diff           |      |
-
-#### compare.rs
-
-| C関数                     | 状態 | Rust対応                   | 備考 |
-| ------------------------- | ---- | -------------------------- | ---- |
-| pixEqualWithAlpha         | ✅   | equals_with_alpha()        |      |
-| pixEqualWithCmap          | ✅   | equals_with_cmap()         |      |
-| pixDisplayDiff            | ✅   | display_diff()             |      |
-| pixDisplayDiffBinary      | ✅   | display_diff_binary()      |      |
-| pixCompareGrayOrRGB       | ✅   | compare_gray_or_rgb()      |      |
-| pixCompareGray            | ✅   | compare_gray()             |      |
-| pixCompareRGB             | ✅   | compare_rgb()              |      |
-| pixCompareRankDifference  | ✅   | compare_rank_difference()  |      |
-| pixTestForSimilarity      | ✅   | test_for_similarity()      |      |
-| pixGetDifferenceStats     | ✅   | get_difference_stats()     |      |
-| pixGetDifferenceHistogram | ✅   | get_difference_histogram() |      |
-| pixGetPSNR                | ✅   | get_psnr()                 |      |
+| C関数                     | 状態 | Rust対応                        | 備考 |
+| ------------------------- | ---- | ------------------------------- | ---- |
+| pixEqual                  | ✅   | Pix::equals()                   |      |
+| pixCorrelationBinary      | ✅   | compare::correlation_binary()   |      |
+| pixCompareBinary          | ❌   | -                               |      |
+| pixCompareTiled           | ✅   | Pix::compare_tiled              |      |
+| pixGetPerceptualDiff      | ✅   | Pix::get_perceptual_diff        |      |
+| pixEqualWithAlpha         | ✅   | Pix::equals_with_alpha()        |      |
+| pixEqualWithCmap          | ✅   | Pix::equals_with_cmap()         |      |
+| pixDisplayDiff            | ✅   | Pix::display_diff()             |      |
+| pixDisplayDiffBinary      | ✅   | Pix::display_diff_binary()      |      |
+| pixCompareGrayOrRGB       | ✅   | Pix::compare_gray_or_rgb()      |      |
+| pixCompareGray            | ✅   | Pix::compare_gray()             |      |
+| pixCompareRGB             | ✅   | Pix::compare_rgb()              |      |
+| pixCompareRankDifference  | ✅   | Pix::compare_rank_difference()  |      |
+| pixTestForSimilarity      | ✅   | Pix::test_for_similarity()      |      |
+| pixGetDifferenceStats     | ✅   | Pix::get_difference_stats()     |      |
+| pixGetDifferenceHistogram | ✅   | Pix::get_difference_histogram() |      |
+| pixGetPSNR                | ✅   | Pix::get_psnr()                 |      |
 
 その他の比較関数も実装済み。
 
 ### blend.c (ブレンド・合成)
 
-#### その他
+#### core/pix/blend.rs (blend.c)
 
-| C関数                     | 状態 | Rust対応                      | 備考 |
-| ------------------------- | ---- | ----------------------------- | ---- |
-| pixBlend                  | ✅   | blend.rsに実装                |      |
-| pixBlendMask              | ✅   | blend::blend_mask()           |      |
-| pixBlendGray              | ✅   | blend::blend_gray()           |      |
-| pixBlendColor             | ✅   | blend::blend_color()          |      |
-| pixBlendWithGrayMask      | ✅   | blend::blend_with_gray_mask() |      |
-| pixBlendBackgroundToColor | ✅   | blend_background_to_color     |      |
-| pixSetAlphaOverWhite      | ✅   | set_alpha_over_white          |      |
-
-#### blend.rs
-
-| C関数                  | 状態 | Rust対応                 | 備考 |
-| ---------------------- | ---- | ------------------------ | ---- |
-| pixBlendGrayInverse    | ✅   | blend_gray_inverse()     |      |
-| pixBlendColorByChannel | ✅   | blend_color_by_channel() |      |
-| pixBlendGrayAdapt      | ✅   | blend_gray_adapt()       |      |
-| pixFadeWithGray        | ✅   | fade_with_gray()         |      |
-| pixBlendHardLight      | ✅   | blend_hard_light()       |      |
-| pixBlendCmap           | ✅   | blend_cmap()             |      |
-| pixMultiplyByColor     | ✅   | multiply_by_color()      |      |
-| pixAlphaBlendUniform   | ✅   | alpha_blend_uniform()    |      |
-| pixAddAlphaToBlend     | ✅   | add_alpha_to_blend()     |      |
-| pixLinearEdgeFade      | ✅   | linear_edge_fade()       |      |
+| C関数                     | 状態 | Rust対応                       | 備考 |
+| ------------------------- | ---- | ------------------------------ | ---- |
+| pixBlend                  | ✅   | Pix::blend()                   |      |
+| pixBlendMask              | ✅   | blend::blend_mask()            |      |
+| pixBlendGray              | ✅   | blend::blend_gray()            |      |
+| pixBlendColor             | ✅   | blend::blend_color()           |      |
+| pixBlendWithGrayMask      | ✅   | blend::blend_with_gray_mask()  |      |
+| pixBlendBackgroundToColor | ✅   | Pix::blend_background_to_color |      |
+| pixSetAlphaOverWhite      | ✅   | Pix::set_alpha_over_white      |      |
+| pixBlendGrayInverse       | ✅   | Pix::blend_gray_inverse()      |      |
+| pixBlendColorByChannel    | ✅   | Pix::blend_color_by_channel()  |      |
+| pixBlendGrayAdapt         | ✅   | Pix::blend_gray_adapt()        |      |
+| pixFadeWithGray           | ✅   | Pix::fade_with_gray()          |      |
+| pixBlendHardLight         | ✅   | Pix::blend_hard_light()        |      |
+| pixBlendCmap              | ✅   | PixMut::blend_cmap()           |      |
+| pixMultiplyByColor        | ✅   | Pix::multiply_by_color()       |      |
+| pixAlphaBlendUniform      | ✅   | Pix::alpha_blend_uniform()     |      |
+| pixAddAlphaToBlend        | ✅   | Pix::add_alpha_to_blend()      |      |
+| pixLinearEdgeFade         | ✅   | PixMut::linear_edge_fade()     |      |
 
 ### graphics.c (描画・レンダリング)
 
-#### graphics.rs
+#### core/pix/graphics.rs (graphics.c)
 
-| C関数                    | 状態 | Rust対応                     | 備考 |
-| ------------------------ | ---- | ---------------------------- | ---- |
-| generatePtaLine          | ✅   | generate_line_pta()          |      |
-| generatePtaWideLine      | ✅   | generate_wide_line_pta()     |      |
-| generatePtaBox           | ✅   | generate_box_pta()           |      |
-| generatePtaBoxa          | ✅   | generate_boxa_pta()          |      |
-| generatePtaHashBox       | ✅   | generate_hash_box_pta()      |      |
-| generatePtaHashBoxa      | ✅   | generate_hash_boxa_pta()     |      |
-| generatePtaaBoxa         | ✅   | generate_ptaa_boxa()         |      |
-| generatePtaaHashBoxa     | ✅   | generate_ptaa_hash_boxa()    |      |
-| generatePtaPolyline      | ✅   | generate_polyline_pta()      |      |
-| generatePtaGrid          | ✅   | generate_grid_pta()          |      |
-| convertPtaLineTo4cc      | ✅   | convert_line_to_4cc()        |      |
-| generatePtaFilledCircle  | ✅   | generate_filled_circle_pta() |      |
-| generatePtaFilledSquare  | ✅   | generate_filled_square_pta() |      |
-| pixRenderPlotFromNuma    | ✅   | render_plot_from_numa()      |      |
-| pixRenderPlotFromNumaGen | ✅   | render_plot_from_numa_gen()  |      |
-| pixRenderPtaArb          | ✅   | render_pta_color()           |      |
-| pixRenderPtaBlend        | ✅   | render_pta_blend()           |      |
-| pixRenderLineArb         | ✅   | render_line_color()          |      |
-| pixRenderLineBlend       | ✅   | render_line_blend()          |      |
-| pixRenderBoxArb          | ✅   | render_box_color()           |      |
-| pixRenderBoxBlend        | ✅   | render_box_blend()           |      |
-| pixRenderBoxa            | ✅   | render_boxa()                |      |
-| pixRenderBoxaArb         | ✅   | render_boxa_color()          |      |
-| pixRenderBoxaBlend       | ✅   | render_boxa_blend()          |      |
-| pixRenderHashBox         | ✅   | render_hash_box()            |      |
-| pixRenderHashBoxArb      | ✅   | render_hash_box_color()      |      |
-| pixRenderHashBoxBlend    | ✅   | render_hash_box_blend()      |      |
-| pixRenderHashMaskArb     | ✅   | render_hash_mask_color()     |      |
-| pixRenderHashBoxa        | ✅   | render_hash_boxa()           |      |
-| pixRenderHashBoxaArb     | ✅   | render_hash_boxa_color()     |      |
-| pixRenderHashBoxaBlend   | ✅   | render_hash_boxa_blend()     |      |
-| pixRenderPolyline        | ✅   | render_polyline()            |      |
-| pixRenderPolylineArb     | ✅   | render_polyline_color()      |      |
-| pixRenderPolylineBlend   | ✅   | render_polyline_blend()      |      |
-| pixRenderGridArb         | ✅   | render_grid_color()          |      |
-| pixRenderRandomCmapPtaa  | ✅   | render_random_cmap_ptaa()    |      |
-| pixRenderPolygon         | ✅   | render_polygon()             |      |
-| pixFillPolygon           | ✅   | fill_polygon()               |      |
-| pixRenderContours        | ✅   | render_contours()            |      |
+| C関数                    | 状態 | Rust対応                            | 備考      |
+| ------------------------ | ---- | ----------------------------------- | --------- |
+| generatePtaLine          | ✅   | generate_line_pta()                 |           |
+| generatePtaWideLine      | ✅   | generate_wide_line_pta()            |           |
+| generatePtaBox           | ✅   | generate_box_pta()                  |           |
+| generatePtaBoxa          | ✅   | generate_boxa_pta()                 |           |
+| generatePtaHashBox       | ✅   | generate_hash_box_pta()             |           |
+| generatePtaHashBoxa      | ✅   | generate_hash_boxa_pta()            |           |
+| generatePtaaBoxa         | ✅   | generate_ptaa_boxa()                |           |
+| generatePtaaHashBoxa     | ✅   | generate_ptaa_hash_boxa()           |           |
+| generatePtaPolyline      | ✅   | generate_polyline_pta()             |           |
+| generatePtaGrid          | ✅   | generate_grid_pta()                 |           |
+| convertPtaLineTo4cc      | ✅   | convert_line_to_4cc()               |           |
+| generatePtaFilledCircle  | ✅   | generate_filled_circle_pta()        |           |
+| generatePtaFilledSquare  | ✅   | generate_filled_square_pta()        |           |
+| pixRenderPlotFromNuma    | ✅   | PixMut::render_plot_from_numa()     |           |
+| pixRenderPlotFromNumaGen | ✅   | PixMut::render_plot_from_numa_gen() |           |
+| pixRenderPtaArb          | ✅   | PixMut::render_pta_color()          |           |
+| pixRenderPtaBlend        | ✅   | PixMut::render_pta_blend()          |           |
+| pixRenderLineArb         | ✅   | PixMut::render_line_color()         |           |
+| pixRenderLineBlend       | ✅   | PixMut::render_line_blend()         |           |
+| pixRenderBoxArb          | ✅   | PixMut::render_box_color()          |           |
+| pixRenderBoxBlend        | ✅   | PixMut::render_box_blend()          |           |
+| pixRenderBoxa            | ✅   | PixMut::render_boxa()               |           |
+| pixRenderBoxaArb         | ✅   | PixMut::render_boxa_color()         |           |
+| pixRenderBoxaBlend       | ✅   | PixMut::render_boxa_blend()         |           |
+| pixRenderHashBox         | ✅   | PixMut::render_hash_box()           |           |
+| pixRenderHashBoxArb      | ✅   | PixMut::render_hash_box_color()     |           |
+| pixRenderHashBoxBlend    | ✅   | PixMut::render_hash_box_blend()     |           |
+| pixRenderHashMaskArb     | ✅   | PixMut::render_hash_mask_color()    |           |
+| pixRenderHashBoxa        | ✅   | PixMut::render_hash_boxa()          |           |
+| pixRenderHashBoxaArb     | ✅   | PixMut::render_hash_boxa_color()    |           |
+| pixRenderHashBoxaBlend   | ✅   | PixMut::render_hash_boxa_blend()    |           |
+| pixRenderPolyline        | ✅   | PixMut::render_polyline()           |           |
+| pixRenderPolylineArb     | ✅   | PixMut::render_polyline_color()     |           |
+| pixRenderPolylineBlend   | ✅   | PixMut::render_polyline_blend()     |           |
+| pixRenderGridArb         | ✅   | PixMut::render_grid_color()         |           |
+| pixRenderRandomCmapPtaa  | ✅   | Pix::render_random_cmap_ptaa()      |           |
+| pixRenderPolygon         | ✅   | render_polygon()                    |           |
+| pixFillPolygon           | ✅   | fill_polygon()                      |           |
+| pixRenderContours        | ✅   | Pix::render_contours()              |           |
+| pixRenderPta             | ✅   | graphics.rsに部分実装               |           |
+| pixRenderLine            | ✅   | graphics::render_line()             |           |
+| pixRenderBox             | ✅   | graphics::render_box()              |           |
+| pixGeneratePtaBoundary   | ✅   | Pix::generate_pta_boundary          | 後続Phase |
 
-#### その他
+#### core/fpix/mod.rs (graphics.c)
 
 | C関数                  | 状態 | Rust対応                   | 備考           |
 | ---------------------- | ---- | -------------------------- | -------------- |
-| pixRenderPta           | ✅   | graphics.rsに部分実装      |                |
-| pixRenderLine          | ✅   | graphics::render_line()    |                |
-| pixRenderBox           | ✅   | graphics::render_box()     |                |
 | fpixAutoRenderContours | ✅   | FPix::auto_render_contours | FPix関連は後続 |
 | fpixRenderContours     | ✅   | FPix::render_contours      | FPix関連は後続 |
-| pixGeneratePtaBoundary | ✅   | generate_pta_boundary      | 後続Phase      |
 
 ## 結論
 

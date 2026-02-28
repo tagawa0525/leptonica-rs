@@ -17,6 +17,8 @@
 
 ### bmpio.c (BMP I/O)
 
+#### io/bmp.rs (bmpio.c)
+
 | C関数             | 状態 | Rust対応       | 備考                       |
 | ----------------- | ---- | -------------- | -------------------------- |
 | pixReadStreamBmp  | ✅   | bmp::read_bmp  | Stream from reader         |
@@ -25,6 +27,8 @@
 | pixWriteMemBmp    | ✅   | bmp::write_bmp | Unified with stream writer |
 
 ### pngio.c (PNG I/O)
+
+#### io/png.rs (pngio.c)
 
 | C関数                  | 状態 | Rust対応                   | 備考                                         |
 | ---------------------- | ---- | -------------------------- | -------------------------------------------- |
@@ -44,6 +48,8 @@
 
 ### jpegio.c (JPEG I/O)
 
+#### io/jpeg.rs (jpegio.c)
+
 | C関数                 | 状態 | Rust対応                           | 備考                                                      |
 | --------------------- | ---- | ---------------------------------- | --------------------------------------------------------- |
 | pixReadJpeg           | ✅   | jpeg::read_jpeg                    | Top level wrapper                                         |
@@ -62,6 +68,8 @@
 
 ### pnmio.c (PNM/PBM/PGM/PPM/PAM I/O)
 
+#### io/pnm.rs (pnmio.c)
+
 | C関数                  | 状態 | Rust対応             | 備考                |
 | ---------------------- | ---- | -------------------- | ------------------- |
 | pixReadStreamPnm       | ✅   | pnm::read_pnm        | PBM/PGM/PPM/PAM対応 |
@@ -76,6 +84,8 @@
 | pixWriteMemPam         | ✅   | pnm::write_pam       | Unified with stream |
 
 ### tiffio.c (TIFF I/O)
+
+#### io/tiff.rs (tiffio.c)
 
 | C関数                       | 状態 | Rust対応                   | 備考                                     |
 | --------------------------- | ---- | -------------------------- | ---------------------------------------- |
@@ -107,6 +117,8 @@
 
 ### gifio.c (GIF I/O)
 
+#### io/gif.rs (gifio.c)
+
 | C関数             | 状態 | Rust対応       | 備考                |
 | ----------------- | ---- | -------------- | ------------------- |
 | pixReadStreamGif  | ✅   | gif::read_gif  | Uses gif crate      |
@@ -115,6 +127,8 @@
 | pixWriteMemGif    | ✅   | gif::write_gif | Unified with stream |
 
 ### webpio.c (WebP I/O)
+
+#### io/webp.rs (webpio.c)
 
 | C関数              | 状態 | Rust対応               | 備考                      |
 | ------------------ | ---- | ---------------------- | ------------------------- |
@@ -128,6 +142,8 @@
 
 ### webpanimio.c (WebP Animation I/O)
 
+#### io/webp.rs (webpanimio.c)
+
 | C関数                   | 状態 | Rust対応               | 備考                  |
 | ----------------------- | ---- | ---------------------- | --------------------- |
 | pixaWriteWebPAnim       | ✅   | write_webp_anim_file() | フリー関数（webp.rs） |
@@ -135,6 +151,8 @@
 | pixaWriteMemWebPAnim    | ✅   | write_webp_anim_mem()  | フリー関数（webp.rs） |
 
 ### jp2kio.c (JPEG 2000 I/O)
+
+#### io/jp2k.rs (jp2kio.c)
 
 | C関数              | 状態 | Rust対応            | 備考                                         |
 | ------------------ | ---- | ------------------- | -------------------------------------------- |
@@ -146,6 +164,8 @@
 | pixWriteMemJp2k    | ✅   | write_jp2k_mem      | スタブ実装（`Err(UnsupportedFormat)`を返す） |
 
 ### pdfio1.c (PDF I/O - High Level)
+
+#### io/pdf.rs (pdfio1.c)
 
 | C関数                           | 状態 | Rust対応                        | 備考                                     |
 | ------------------------------- | ---- | ------------------------------- | ---------------------------------------- |
@@ -180,6 +200,8 @@
 
 ### pdfio2.c (PDF I/O - Low Level)
 
+#### io/pdf.rs (pdfio2.c)
+
 | C関数                     | 状態 | Rust対応                      | 備考                                        |
 | ------------------------- | ---- | ----------------------------- | ------------------------------------------- |
 | pixConvertToPdfData       | 🔄   | pdf::write_pdf_mem            | 内部実装、異なるAPI                         |
@@ -204,6 +226,8 @@
 
 ### psio1.c (PostScript I/O - High Level)
 
+#### io/ps/mod.rs (psio1.c)
+
 | C関数                        | 状態 | Rust対応                          | 備考                                       |
 | ---------------------------- | ---- | --------------------------------- | ------------------------------------------ |
 | convertFilesToPS             | ✅   | convert_files_to_ps               |                                            |
@@ -219,6 +243,8 @@
 | pixWriteCompressedToPS       | ✅   | pix_write_compressed_to_ps        |                                            |
 
 ### psio2.c (PostScript I/O - Low Level)
+
+#### io/ps/mod.rs (psio2.c)
 
 | C関数                    | 状態 | Rust対応                          | 備考                                        |
 | ------------------------ | ---- | --------------------------------- | ------------------------------------------- |
@@ -239,51 +265,77 @@
 
 ### readfile.c (汎用読み取り)
 
-| C関数                | 状態 | Rust対応                 | 備考                                               |
-| -------------------- | ---- | ------------------------ | -------------------------------------------------- |
-| pixaReadFiles        | ✅   | pixa_read_files()        | フリー関数（io/mod.rs）                            |
-| pixaReadFilesSA      | 🚫   | -                        | SARRAY版（pixaReadFilesで代替可）                  |
-| pixRead              | ✅   | read_image               | ファイルパスから読み取り                           |
-| pixReadWithHint      | 🚫   | -                        | C/libjpeg固有のデコードヒント                      |
-| pixReadIndexed       | 🚫   | -                        | SARRAY依存（Rustではread_image(paths[i])で代替可） |
-| pixReadStream        | ✅   | read_image_format        | Stream読み取り                                     |
-| pixReadHeader        | ✅   | read_image_header        | ユニバーサルヘッダー読み取り                       |
-| findFileFormat       | 🔄   | detect_format            | ファイルフォーマット検出                           |
-| findFileFormatStream | 🔄   | detect_format_from_bytes | Stream版フォーマット検出                           |
-| findFileFormatBuffer | 🔄   | detect_format_from_bytes | Buffer版フォーマット検出                           |
-| fileFormatIsTiff     | 🚫   | -                        | detect_formatで代替可                              |
-| pixReadMem           | ✅   | read_image_mem           | Memory読み取り                                     |
-| pixReadHeaderMem     | ✅   | read_image_header_mem    | Memory版header読み取り                             |
-| writeImageFileInfo   | 🚫   | -                        | デバッグ表示専用                                   |
-| ioFormatTest         | 🚫   | -                        | デバッグ・テスト専用                               |
+#### io/mod.rs (readfile.c)
+
+| C関数              | 状態 | Rust対応          | 備考                                               |
+| ------------------ | ---- | ----------------- | -------------------------------------------------- |
+| pixaReadFiles      | ✅   | pixa_read_files() | フリー関数（io/mod.rs）                            |
+| pixaReadFilesSA    | 🚫   | -                 | SARRAY版（pixaReadFilesで代替可）                  |
+| pixRead            | ✅   | read_image        | ファイルパスから読み取り                           |
+| pixReadWithHint    | 🚫   | -                 | C/libjpeg固有のデコードヒント                      |
+| pixReadIndexed     | 🚫   | -                 | SARRAY依存（Rustではread_image(paths[i])で代替可） |
+| pixReadStream      | ✅   | read_image_format | Stream読み取り                                     |
+| pixReadHeader      | ✅   | read_image_header | ユニバーサルヘッダー読み取り                       |
+| findFileFormat     | 🔄   | detect_format     | ファイルフォーマット検出                           |
+| fileFormatIsTiff   | 🚫   | -                 | detect_formatで代替可                              |
+| pixReadMem         | ✅   | read_image_mem    | Memory読み取り                                     |
+| writeImageFileInfo | 🚫   | -                 | デバッグ表示専用                                   |
+| ioFormatTest       | 🚫   | -                 | デバッグ・テスト専用                               |
+
+#### io/format.rs (readfile.c)
+
+| C関数                | 状態 | Rust対応                 | 備考                     |
+| -------------------- | ---- | ------------------------ | ------------------------ |
+| findFileFormatStream | 🔄   | detect_format_from_bytes | Stream版フォーマット検出 |
+| findFileFormatBuffer | 🔄   | detect_format_from_bytes | Buffer版フォーマット検出 |
+
+#### io/header.rs (readfile.c)
+
+| C関数            | 状態 | Rust対応              | 備考                   |
+| ---------------- | ---- | --------------------- | ---------------------- |
+| pixReadHeaderMem | ✅   | read_image_header_mem | Memory版header読み取り |
 
 ### writefile.c (汎用書き込み)
 
-| C関数                     | 状態 | Rust対応                    | 備考                                      |
-| ------------------------- | ---- | --------------------------- | ----------------------------------------- |
-| l_jpegSetQuality          | 🚫   | -                           | RustではJpegOptions.qualityで対応         |
-| setLeptDebugOK            | 🚫   | -                           | C固有のグローバルデバッグフラグ           |
-| pixaWriteFiles            | ✅   | pixa_write_files()          | フリー関数（io/mod.rs）                   |
-| pixWriteDebug             | 🚫   | -                           | デバッグ専用書き込み                      |
-| pixWrite                  | ✅   | write_image                 | ファイルパスへ書き込み                    |
-| pixWriteAutoFormat        | ✅   | write_image_auto            | 拡張子推定による書き込み                  |
-| pixWriteStream            | ✅   | write_image_format          | Stream書き込み                            |
-| pixWriteImpliedFormat     | ✅   | write_image_auto            | 拡張子から判定書き込み                    |
-| pixChooseOutputFormat     | ✅   | choose_output_format        | 深度/colormapに基づく自動選択             |
-| getImpliedFileFormat      | ✅   | ImageFormat::from_path      | パスからフォーマット取得                  |
-| getFormatFromExtension    | ✅   | ImageFormat::from_extension | 拡張子判定                                |
-| pixGetAutoFormat          | ✅   | choose_output_format        | 自動フォーマット取得                      |
-| getFormatExtension        | ✅   | get_format_extension        |                                           |
-| pixWriteMem               | ✅   | write_image_mem             | Memory書き込み                            |
-| l_fileDisplay             | 🚫   | -                           | GUI表示機能（Rust CLIでは不要）           |
-| pixDisplay                | 🚫   | -                           | GUI表示機能（Rust CLIでは不要）           |
-| pixDisplayWithTitle       | 🚫   | -                           | GUI表示機能（Rust CLIでは不要）           |
-| pixMakeColorSquare        | 🚫   | -                           | デバッグ表示用ユーティリティ              |
-| l_chooseDisplayProg       | 🚫   | -                           | GUI表示プログラム選択（Rust CLIでは不要） |
-| changeFormatForMissingLib | 🚫   | -                           | Rustではfeature gateで対応                |
-| pixDisplayWrite           | 🚫   | -                           | GUI表示用書き込み（Rust CLIでは不要）     |
+#### io/header.rs (writefile.c)
+
+| C関数                     | 状態 | Rust対応             | 備考                                      |
+| ------------------------- | ---- | -------------------- | ----------------------------------------- |
+| l_jpegSetQuality          | 🚫   | -                    | RustではJpegOptions.qualityで対応         |
+| setLeptDebugOK            | 🚫   | -                    | C固有のグローバルデバッグフラグ           |
+| pixWriteDebug             | 🚫   | -                    | デバッグ専用書き込み                      |
+| pixWrite                  | ✅   | write_image          | ファイルパスへ書き込み                    |
+| pixWriteAutoFormat        | ✅   | write_image_auto     | 拡張子推定による書き込み                  |
+| pixWriteImpliedFormat     | ✅   | write_image_auto     | 拡張子から判定書き込み                    |
+| pixChooseOutputFormat     | ✅   | choose_output_format | 深度/colormapに基づく自動選択             |
+| pixGetAutoFormat          | ✅   | choose_output_format | 自動フォーマット取得                      |
+| l_fileDisplay             | 🚫   | -                    | GUI表示機能（Rust CLIでは不要）           |
+| pixDisplay                | 🚫   | -                    | GUI表示機能（Rust CLIでは不要）           |
+| pixDisplayWithTitle       | 🚫   | -                    | GUI表示機能（Rust CLIでは不要）           |
+| pixMakeColorSquare        | 🚫   | -                    | デバッグ表示用ユーティリティ              |
+| l_chooseDisplayProg       | 🚫   | -                    | GUI表示プログラム選択（Rust CLIでは不要） |
+| changeFormatForMissingLib | 🚫   | -                    | Rustではfeature gateで対応                |
+| pixDisplayWrite           | 🚫   | -                    | GUI表示用書き込み（Rust CLIでは不要）     |
+
+#### core/pix/mod.rs (writefile.c)
+
+| C関数                  | 状態 | Rust対応                    | 備考                     |
+| ---------------------- | ---- | --------------------------- | ------------------------ |
+| getImpliedFileFormat   | ✅   | ImageFormat::from_path      | パスからフォーマット取得 |
+| getFormatFromExtension | ✅   | ImageFormat::from_extension | 拡張子判定               |
+
+#### io/mod.rs (writefile.c)
+
+| C関数              | 状態 | Rust対応             | 備考                    |
+| ------------------ | ---- | -------------------- | ----------------------- |
+| getFormatExtension | ✅   | get_format_extension |                         |
+| pixWriteMem        | ✅   | write_image_mem      | Memory書き込み          |
+| pixaWriteFiles     | ✅   | pixa_write_files()   | フリー関数（io/mod.rs） |
+| pixWriteStream     | 🔄   | write_image_format() | Stream書き込み          |
 
 ### spixio.c (SPIX serialization)
+
+#### io/spix.rs (spixio.c)
 
 | C関数                    | 状態 | Rust対応               | 備考                |
 | ------------------------ | ---- | ---------------------- | ------------------- |

@@ -16,6 +16,8 @@
 
 ### colorspace.c
 
+#### color/colorspace.rs (colorspace.c)
+
 | C関数                     | 状態 | Rust対応                                      | 備考                           |
 | ------------------------- | ---- | --------------------------------------------- | ------------------------------ |
 | pixConvertRGBToHSV        | ✅   | pix_convert_rgb_to_hsv                        |                                |
@@ -57,6 +59,8 @@
 
 ### colorquant1.c
 
+#### color/quantize.rs (colorquant1.c)
+
 | C関数                         | 状態 | Rust対応                       | 備考                                            |
 | ----------------------------- | ---- | ------------------------------ | ----------------------------------------------- |
 | pixOctreeColorQuant           | 🔄   | octree_quant                   | Rust版は `OctreeOptions` ベース                 |
@@ -82,6 +86,8 @@
 
 ### colorquant2.c
 
+#### color/quantize.rs (colorquant2.c)
+
 | C関数                           | 状態 | Rust対応                          | 備考                           |
 | ------------------------------- | ---- | --------------------------------- | ------------------------------ |
 | pixMedianCutQuant               | 🔄   | median_cut_quant_simple           | アルゴリズムの詳細が異なる     |
@@ -92,6 +98,8 @@
 
 ### colorseg.c
 
+#### color/segment.rs (colorseg.c)
+
 | C関数                       | 状態 | Rust対応                    | 備考                         |
 | --------------------------- | ---- | --------------------------- | ---------------------------- |
 | pixColorSegment             | 🔄   | color_segment               | Phase 3が未実装              |
@@ -101,6 +109,8 @@
 | pixColorSegmentRemoveColors | 🔄   | color_segment_remove_colors | 内部関数として実装           |
 
 ### colorcontent.c
+
+#### color/analysis.rs (colorcontent.c)
 
 | C関数                       | 状態 | Rust対応                     | 備考                                                               |
 | --------------------------- | ---- | ---------------------------- | ------------------------------------------------------------------ |
@@ -125,6 +135,8 @@
 
 ### colorfill.c
 
+#### color/colorfill.rs (colorfill.c)
+
 | C関数                     | 状態 | Rust対応                  | 備考                                |
 | ------------------------- | ---- | ------------------------- | ----------------------------------- |
 | l_colorfillCreate         | 🚫   | -                         | C版構造体管理（Rustでは異なる設計） |
@@ -135,28 +147,25 @@
 
 ### coloring.c
 
-#### その他
+#### color/coloring.rs (coloring.c)
 
-| C関数                       | 状態 | Rust対応                         | 備考            |
-| --------------------------- | ---- | -------------------------------- | --------------- |
-| pixColorGrayRegions         | ✅   | color_gray_regions               | Region coloring |
-| pixColorGray                | 🔄   | pix_color_gray                   |                 |
-| pixColorGrayMasked          | ✅   | pix_color_gray_masked            |                 |
-| pixSnapColor                | 🔄   | pix_snap_color                   |                 |
-| pixSnapColorCmap            | ✅   | snap_color_cmap                  | カラーマップ版  |
-| pixLinearMapToTargetColor   | ✅   | pix_linear_map_to_target_color   |                 |
-| pixelLinearMapToTargetColor | ✅   | pixel_linear_map_to_target_color |                 |
-| pixShiftByComponent         | ✅   | pix_shift_by_component           |                 |
-| pixelShiftByComponent       | ✅   | pixel_shift_by_component         |                 |
-| pixelFractionalShift        | ✅   | pixel_fractional_shift           |                 |
-
-#### coloring.rs
-
-| C関数                  | 状態 | Rust対応                     | 備考                |
-| ---------------------- | ---- | ---------------------------- | ------------------- |
-| pixMapWithInvariantHue | ✅   | pix_map_with_invariant_hue() | Hue-invariant shift |
+| C関数                       | 状態 | Rust対応                         | 備考                |
+| --------------------------- | ---- | -------------------------------- | ------------------- |
+| pixColorGrayRegions         | ✅   | color_gray_regions               | Region coloring     |
+| pixColorGray                | 🔄   | pix_color_gray                   |                     |
+| pixColorGrayMasked          | ✅   | pix_color_gray_masked            |                     |
+| pixSnapColor                | 🔄   | pix_snap_color                   |                     |
+| pixSnapColorCmap            | ✅   | snap_color_cmap                  | カラーマップ版      |
+| pixLinearMapToTargetColor   | ✅   | pix_linear_map_to_target_color   |                     |
+| pixelLinearMapToTargetColor | ✅   | pixel_linear_map_to_target_color |                     |
+| pixShiftByComponent         | ✅   | pix_shift_by_component           |                     |
+| pixelShiftByComponent       | ✅   | pixel_shift_by_component         |                     |
+| pixelFractionalShift        | ✅   | pixel_fractional_shift           |                     |
+| pixMapWithInvariantHue      | ✅   | pix_map_with_invariant_hue()     | Hue-invariant shift |
 
 ### binarize.c
+
+#### color/threshold.rs (binarize.c)
 
 | C関数                           | 状態 | Rust対応                         | 備考               |
 | ------------------------------- | ---- | -------------------------------- | ------------------ |
@@ -172,6 +181,8 @@
 
 ### paintcmap.c
 
+#### color/paintcmap.rs (paintcmap.c)
+
 | C関数                   | 状態 | Rust対応                    | 備考         |
 | ----------------------- | ---- | --------------------------- | ------------ |
 | pixSetSelectCmap        | ✅   | pix_set_select_cmap         | paintcmap.rs |
@@ -183,6 +194,8 @@
 | pixSetMaskedCmap        | ✅   | pix_set_masked_cmap         | paintcmap.rs |
 
 ### grayquant.c
+
+#### color/threshold.rs (grayquant.c)
 
 | C関数                        | 状態 | Rust対応                        | 備考                          |
 | ---------------------------- | ---- | ------------------------------- | ----------------------------- |

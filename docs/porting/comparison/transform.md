@@ -18,6 +18,8 @@
 
 ### rotate.c (general rotation)
 
+#### transform/rotate.rs (rotate.c)
+
 | C関数               | 状態 | Rust対応                        | 備考                     |
 | ------------------- | ---- | ------------------------------- | ------------------------ |
 | pixRotate           | 🔄   | rotate::rotate                  | 異なるインタフェース設計 |
@@ -27,6 +29,8 @@
 | pixRotateWithAlpha  | ✅   | rotate::rotate_with_alpha       | 同等                     |
 
 ### rotateam.c (area mapping rotation)
+
+#### transform/rotate.rs (rotateam.c)
 
 | C関数                  | 状態 | Rust対応                       | 備考                            |
 | ---------------------- | ---- | ------------------------------ | ------------------------------- |
@@ -40,6 +44,8 @@
 
 ### rotateorth.c (orthogonal rotation)
 
+#### transform/rotate.rs (rotateorth.c)
+
 | C関数         | 状態 | Rust対応            | 備考 |
 | ------------- | ---- | ------------------- | ---- |
 | pixRotateOrth | ✅   | rotate::rotate_orth | 同等 |
@@ -49,6 +55,8 @@
 | pixFlipTB     | ✅   | rotate::flip_tb     | 同等 |
 
 ### rotateshear.c (shear-based rotation)
+
+#### transform/rotate.rs (rotateshear.c)
 
 | C関数                  | 状態 | Rust対応                       | 備考              |
 | ---------------------- | ---- | ------------------------------ | ----------------- |
@@ -60,6 +68,8 @@
 | pixRotateShearCenterIP | ✅   | rotate::rotate_shear_center_ip | 同等 (in-place版) |
 
 ### scale1.c (general scaling)
+
+#### transform/scale.rs (scale1.c)
 
 | C関数                       | 状態 | Rust対応                            | 備考                      |
 | --------------------------- | ---- | ----------------------------------- | ------------------------- |
@@ -97,6 +107,8 @@
 
 ### scale2.c (specialized scaling)
 
+#### transform/scale.rs (scale2.c)
+
 | C関数                    | 状態 | Rust対応                       | 備考                                                      |
 | ------------------------ | ---- | ------------------------------ | --------------------------------------------------------- |
 | pixScaleToGray           | ✅   | scale::scale_to_gray           | 同等                                                      |
@@ -119,6 +131,8 @@
 
 ### affine.c
 
+#### transform/affine.rs (affine.c)
+
 | C関数                       | 状態 | Rust対応                              | 備考                                                              |
 | --------------------------- | ---- | ------------------------------------- | ----------------------------------------------------------------- |
 | pixAffineSampledPta         | ✅   | affine::affine_sampled_pta            | 同等                                                              |
@@ -130,36 +144,55 @@
 | pixAffinePtaGray            | 🔄   | affine::affine_gray                   | 内部実装として存在                                                |
 | pixAffineGray               | 🔄   | affine::affine_gray                   | 内部実装として存在                                                |
 | pixAffinePtaWithAlpha       | ✅   | affine::affine_pta_with_alpha         | 同等                                                              |
-| getAffineXformCoeffs        | ✅   | AffineMatrix::from_three_points       | 同等 (メソッドとして実装)                                         |
-| affineInvertXform           | ✅   | AffineMatrix::inverse                 | 同等 (メソッドとして実装)                                         |
-| affineXformSampledPt        | ✅   | AffineMatrix::transform_point_sampled | 同等 (メソッドとして実装)                                         |
-| affineXformPt               | ✅   | AffineMatrix::transform_point         | 同等 (メソッドとして実装)                                         |
 | linearInterpolatePixelGray  | 🚫   | -                                     | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
 | linearInterpolatePixelColor | 🚫   | -                                     | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
 | gaussjordan                 | 🔄   | affine::gauss_jordan                  | 内部実装として存在                                                |
 | pixAffineSequential         | 🚫   | -                                     | 不要 (スコープ除外: AffineMatrix::compose で対応)                 |
+| getAffineXformCoeffs        | ✅   | AffineMatrix::from_three_points       | 同等 (メソッドとして実装)                                         |
+| affineInvertXform           | ✅   | AffineMatrix::inverse                 | 同等 (メソッドとして実装)                                         |
+| affineXformSampledPt        | ✅   | AffineMatrix::transform_point_sampled | 同等 (メソッドとして実装)                                         |
+| affineXformPt               | ✅   | AffineMatrix::transform_point         | 同等 (メソッドとして実装)                                         |
 
 ### affinecompose.c
 
-| C関数                   | 状態 | Rust対応                  | 備考                                        |
-| ----------------------- | ---- | ------------------------- | ------------------------------------------- |
-| createMatrix2dTranslate | ✅   | AffineMatrix::translation | 同等 (コンストラクタ)                       |
-| createMatrix2dScale     | ✅   | AffineMatrix::scale       | 同等 (コンストラクタ)                       |
-| createMatrix2dRotate    | ✅   | AffineMatrix::rotation    | 同等 (コンストラクタ)                       |
-| ptaTranslate            | ✅   | Pta::translate            |                                             |
-| ptaScale                | ✅   | Pta::scale                |                                             |
-| ptaRotate               | ✅   | Pta::rotate_around        | 同等 (rotated_about に委譲)                 |
-| boxaTranslate           | ✅   | Boxa::translate           |                                             |
-| boxaScale               | ✅   | Boxa::scale               |                                             |
-| boxaRotate              | ✅   | Boxa::rotate              |                                             |
-| ptaAffineTransform      | ✅   | Pta::affine_transform     | 同等                                        |
-| boxaAffineTransform     | ✅   | Boxa::affine_transform    | 同等                                        |
-| l_productMatVec         | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
-| l_productMat2           | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
-| l_productMat3           | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
-| l_productMat4           | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
+#### transform/affine.rs (affinecompose.c)
+
+| C関数                   | 状態 | Rust対応                  | 備考                  |
+| ----------------------- | ---- | ------------------------- | --------------------- |
+| createMatrix2dTranslate | ✅   | AffineMatrix::translation | 同等 (コンストラクタ) |
+| createMatrix2dScale     | ✅   | AffineMatrix::scale       | 同等 (コンストラクタ) |
+| createMatrix2dRotate    | ✅   | AffineMatrix::rotation    | 同等 (コンストラクタ) |
+
+#### core/pta/mod.rs (affinecompose.c)
+
+| C関数           | 状態 | Rust対応       | 備考                                        |
+| --------------- | ---- | -------------- | ------------------------------------------- |
+| ptaTranslate    | ✅   | Pta::translate |                                             |
+| ptaScale        | ✅   | Pta::scale     |                                             |
+| l_productMatVec | 🚫   | -              | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat2   | 🚫   | -              | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat3   | 🚫   | -              | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat4   | 🚫   | -              | 不要 (スコープ除外、AffineMatrix演算で代替) |
+
+#### core/pta/transform.rs (affinecompose.c)
+
+| C関数              | 状態 | Rust対応              | 備考                        |
+| ------------------ | ---- | --------------------- | --------------------------- |
+| ptaRotate          | ✅   | Pta::rotate_around    | 同等 (rotated_about に委譲) |
+| ptaAffineTransform | ✅   | Pta::affine_transform | 同等                        |
+
+#### core/box_/mod.rs (affinecompose.c)
+
+| C関数               | 状態 | Rust対応               | 備考 |
+| ------------------- | ---- | ---------------------- | ---- |
+| boxaTranslate       | ✅   | Boxa::translate        |      |
+| boxaScale           | ✅   | Boxa::scale            |      |
+| boxaRotate          | ✅   | Boxa::rotate           |      |
+| boxaAffineTransform | ✅   | Boxa::affine_transform | 同等 |
 
 ### bilinear.c
+
+#### transform/bilinear.rs (bilinear.c)
 
 | C関数                   | 状態 | Rust対応                                | 備考                      |
 | ----------------------- | ---- | --------------------------------------- | ------------------------- |
@@ -178,6 +211,8 @@
 
 ### projective.c
 
+#### transform/projective.rs (projective.c)
+
 | C関数                     | 状態 | Rust対応                                  | 備考                      |
 | ------------------------- | ---- | ----------------------------------------- | ------------------------- |
 | pixProjectiveSampledPta   | ✅   | projective::projective_sampled_pta        | 同等                      |
@@ -195,6 +230,8 @@
 
 ### shear.c
 
+#### transform/shear.rs (shear.c)
+
 | C関数           | 状態 | Rust対応              | 備考 |
 | --------------- | ---- | --------------------- | ---- |
 | pixHShear       | ✅   | shear::h_shear        | 同等 |
@@ -209,6 +246,8 @@
 | pixVShearLI     | ✅   | shear::v_shear_li     | 同等 |
 
 ### flipdetect.c (leptonica (src/recog/) に実装)
+
+#### recog/flipdetect.rs (flipdetect.c)
 
 | C関数              | 状態 | Rust対応                                | 備考                          |
 | ------------------ | ---- | --------------------------------------- | ----------------------------- |
