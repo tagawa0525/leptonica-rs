@@ -4,8 +4,8 @@
 //! (essentially gray pixels). The C version darkens gray pixels and generates
 //! masks over gray regions.
 //!
-//! Partial migration: darken_gray, modify_saturation, and measure_saturation
-//! are tested. mask_over_gray_pixels is in leptonica-color and not tested here.
+//! Partial migration: darken_gray, modify_saturation, measure_saturation,
+//! and mask_over_gray_pixels are tested.
 //! Test image zier.jpg is not available; marge.jpg is used instead.
 //!
 //! # See also
@@ -14,7 +14,9 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::color::mask_over_gray_pixels;
 use leptonica::filter::{darken_gray, measure_saturation, modify_saturation};
+use leptonica::morph::morph_sequence;
 
 /// Test darken_gray (C check 2: pixDarkenGray).
 ///
@@ -78,12 +80,27 @@ fn lowsat_reg_saturation() {
 
 /// Test mask_over_gray_pixels (C check 3: pixMaskOverGrayPixels).
 ///
-/// This function is in leptonica-color crate (mask_over_gray_pixels) and
-/// cannot be tested from leptonica-filter tests.
+/// Generates a 1bpp mask of gray pixels and applies morphological opening.
 #[test]
-#[ignore = "not yet implemented: mask_over_gray_pixels is in leptonica-color crate"]
 fn lowsat_reg_mask_gray() {
-    // C version:
-    // pix4 = pixMaskOverGrayPixels(pix2, 220, 10);
-    // pix5 = pixMorphSequence(pix4, "o20.20", 0);
+    let mut rp = RegParams::new("lowsat_mask");
+
+    let pix = crate::common::load_test_image("marge.jpg").expect("load marge.jpg");
+    assert_eq!(pix.depth(), PixelDepth::Bit32);
+    let w = pix.width();
+    let h = pix.height();
+
+    // C: pix4 = pixMaskOverGrayPixels(pix2, 220, 10)
+    let pix4 = mask_over_gray_pixels(&pix, 220, 10).expect("mask_over_gray_pixels");
+    rp.compare_values(w as f64, pix4.width() as f64, 0.0);
+    rp.compare_values(h as f64, pix4.height() as f64, 0.0);
+    assert_eq!(pix4.depth(), PixelDepth::Bit1);
+
+    // C: pix5 = pixMorphSequence(pix4, "o20.20", 0)
+    let pix5 = morph_sequence(&pix4, "o20.20").expect("morph_sequence o20.20");
+    rp.compare_values(w as f64, pix5.width() as f64, 0.0);
+    rp.compare_values(h as f64, pix5.height() as f64, 0.0);
+    assert_eq!(pix5.depth(), PixelDepth::Bit1);
+
+    assert!(rp.cleanup(), "lowsat mask_gray test failed");
 }

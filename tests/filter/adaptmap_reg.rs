@@ -307,10 +307,32 @@ fn adaptmap_reg_foreground_gray_map() {
     assert!(rp.cleanup(), "foreground gray map test failed");
 }
 
-/// C test 3, 11, 13: pixGammaTRCMasked -- leptonica-enhance not yet implemented
+/// C test 3, 11, 13: pixGammaTRCMasked
 #[test]
-#[ignore = "C: pixGammaTRCMasked() -- leptonica-enhance not yet implemented"]
-fn adaptmap_reg_gamma_trc_masked() {}
+fn adaptmap_reg_gamma_trc_masked() {
+    let mut rp = RegParams::new("adaptmap_gamma_trc_masked");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+
+    // Convert to 8bpp grayscale if needed
+    let pix8 = if pixs.depth() == leptonica::PixelDepth::Bit8 {
+        pixs.clone()
+    } else {
+        pixs.convert_rgb_to_gray_fast().expect("convert to 8bpp")
+    };
+
+    let result =
+        leptonica::filter::gamma_trc_masked(&pix8, None, 1.5, 30, 230).expect("gamma_trc_masked");
+    rp.compare_values(pix8.width() as f64, result.width() as f64, 0.0);
+    rp.compare_values(pix8.height() as f64, result.height() as f64, 0.0);
+    rp.compare_values(
+        pix8.depth().bits() as f64,
+        result.depth().bits() as f64,
+        0.0,
+    );
+
+    assert!(rp.cleanup(), "gamma_trc_masked test failed");
+}
 
 /// Helper: sample min and max pixel values from an 8bpp image
 fn sample_min_max(pix: &leptonica::Pix) -> (u32, u32) {

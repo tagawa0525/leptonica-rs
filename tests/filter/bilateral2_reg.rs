@@ -149,7 +149,24 @@ fn bilateral2_reg_range_effect() {
     assert!(rp.cleanup(), "bilateral2_range regression test failed");
 }
 
-/// C: pixBilateral(reduction=4) full sweep on test24.jpg -- not implemented
+/// C: pixBilateral(reduction=4) full sweep on test24.jpg
 #[test]
-#[ignore = "C: pixBilateral(reduction=4) -- not implemented in Rust"]
-fn bilateral2_reg_full_sweep_test24() {}
+fn bilateral2_reg_full_sweep_test24() {
+    use leptonica::filter::bilateral;
+
+    let mut rp = RegParams::new("bilateral2_full_sweep");
+
+    let pixs = load_test_image("test24.jpg").expect("load test24.jpg");
+    let w = pixs.width();
+    let h = pixs.height();
+
+    // C: spatial_stdev=10.0, range_stdev in {20, 40, 60}, reduction=4
+    for &range_stdev in &[20.0_f32, 40.0, 60.0] {
+        let result = bilateral(&pixs, 10.0, range_stdev, 6, 4).expect("bilateral on test24");
+        rp.compare_values(w as f64, result.width() as f64, 0.0);
+        rp.compare_values(h as f64, result.height() as f64, 0.0);
+        rp.compare_values(32.0, result.depth().bits() as f64, 0.0);
+    }
+
+    assert!(rp.cleanup(), "bilateral2_full_sweep regression test failed");
+}

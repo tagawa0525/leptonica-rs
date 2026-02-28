@@ -120,7 +120,27 @@ fn bilateral1_reg_gray_exact() {
     assert!(rp.cleanup(), "bilateral1_gray regression test failed");
 }
 
-/// C: pixBilateral() (separable approximate bilateral) -- Rust unimplemented
+/// C: pixBilateral() (separable approximate bilateral)
 #[test]
-#[ignore = "C: pixBilateral() (separable approximate) -- not implemented in Rust"]
-fn bilateral1_reg_separable() {}
+fn bilateral1_reg_separable() {
+    use leptonica::filter::bilateral;
+
+    let mut rp = RegParams::new("bilateral1_separable");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    // bilateral requires 8bpp without colormap
+    let pix8 = if pixs.depth() == leptonica::PixelDepth::Bit8 {
+        pixs.clone()
+    } else {
+        pixs.convert_rgb_to_gray_fast().expect("convert to 8bpp")
+    };
+    let w = pix8.width();
+    let h = pix8.height();
+
+    let result = bilateral(&pix8, 10.0, 50.0, 6, 1).expect("bilateral");
+    rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.compare_values(h as f64, result.height() as f64, 0.0);
+    rp.compare_values(8.0, result.depth().bits() as f64, 0.0);
+
+    assert!(rp.cleanup(), "bilateral1_separable regression test failed");
+}

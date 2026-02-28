@@ -68,10 +68,41 @@ fn rank_reg_gray_extremes() {
 /// Test: Compare grayscale rank filter with morphological operations.
 ///
 /// C test 1-4: dilation == rank~1.0, erosion == rank~0.0
-/// Requires leptonica-morph which is not yet implemented.
 #[test]
-#[ignore = "requires leptonica-morph (not yet implemented)"]
-fn rank_reg_gray_morph_comparison() {}
+fn rank_reg_gray_morph_comparison() {
+    use leptonica::morph::{dilate_gray, erode_gray};
+
+    let mut rp = RegParams::new("rank_gray_morph");
+
+    let pixs = load_test_image("lucasta.150.jpg").expect("load lucasta.150.jpg");
+    let pix8 = if pixs.depth() == PixelDepth::Bit8 {
+        pixs.clone()
+    } else {
+        pixs.convert_rgb_to_gray_fast().expect("convert to 8bpp")
+    };
+    let w = pix8.width();
+    let h = pix8.height();
+
+    // Dilation should equal rank ~1.0
+    let dilated = dilate_gray(&pix8, 5, 5).expect("dilate_gray");
+    let rank_max = rank_filter_gray(&pix8, 5, 5, 1.0).expect("rank_filter_gray 1.0");
+    rp.compare_values(w as f64, dilated.width() as f64, 0.0);
+    rp.compare_values(h as f64, dilated.height() as f64, 0.0);
+    rp.compare_values(w as f64, rank_max.width() as f64, 0.0);
+    rp.compare_values(h as f64, rank_max.height() as f64, 0.0);
+    rp.compare_pix(&dilated, &rank_max);
+
+    // Erosion should equal rank ~0.0
+    let eroded = erode_gray(&pix8, 5, 5).expect("erode_gray");
+    let rank_min = rank_filter_gray(&pix8, 5, 5, 0.0).expect("rank_filter_gray 0.0");
+    rp.compare_values(w as f64, eroded.width() as f64, 0.0);
+    rp.compare_values(h as f64, eroded.height() as f64, 0.0);
+    rp.compare_values(w as f64, rank_min.width() as f64, 0.0);
+    rp.compare_values(h as f64, rank_min.height() as f64, 0.0);
+    rp.compare_pix(&eroded, &rank_min);
+
+    assert!(rp.cleanup(), "rank_gray_morph regression test failed");
+}
 
 /// Test: Rank filter with varying filter sizes.
 ///
@@ -128,10 +159,38 @@ fn rank_reg_gray_varying_sizes() {
 
 /// Test: Compare color rank filter with morphological operations.
 ///
-/// C test 7-10: color morph vs rank filter. Requires leptonica-morph.
+/// C test 7-10: color morph vs rank filter.
 #[test]
-#[ignore = "requires leptonica-morph (not yet implemented)"]
-fn rank_reg_color_morph_comparison() {}
+fn rank_reg_color_morph_comparison() {
+    use leptonica::filter::rank_filter_color;
+    use leptonica::morph::{dilate_color, erode_color};
+
+    let mut rp = RegParams::new("rank_color_morph");
+
+    let pixs = load_test_image("test24.jpg").expect("load test24.jpg");
+    let w = pixs.width();
+    let h = pixs.height();
+
+    // Dilation should equal rank ~1.0
+    let dilated = dilate_color(&pixs, 5, 5).expect("dilate_color");
+    let rank_max = rank_filter_color(&pixs, 5, 5, 1.0).expect("rank_filter_color 1.0");
+    rp.compare_values(w as f64, dilated.width() as f64, 0.0);
+    rp.compare_values(h as f64, dilated.height() as f64, 0.0);
+    rp.compare_values(w as f64, rank_max.width() as f64, 0.0);
+    rp.compare_values(h as f64, rank_max.height() as f64, 0.0);
+    rp.compare_pix(&dilated, &rank_max);
+
+    // Erosion should equal rank ~0.0
+    let eroded = erode_color(&pixs, 5, 5).expect("erode_color");
+    let rank_min = rank_filter_color(&pixs, 5, 5, 0.0).expect("rank_filter_color 0.0");
+    rp.compare_values(w as f64, eroded.width() as f64, 0.0);
+    rp.compare_values(h as f64, eroded.height() as f64, 0.0);
+    rp.compare_values(w as f64, rank_min.width() as f64, 0.0);
+    rp.compare_values(h as f64, rank_min.height() as f64, 0.0);
+    rp.compare_pix(&eroded, &rank_min);
+
+    assert!(rp.cleanup(), "rank_color_morph regression test failed");
+}
 
 /// Test: Color rank filter with varying rank values.
 ///
