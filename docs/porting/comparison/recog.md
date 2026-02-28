@@ -243,10 +243,10 @@
 
 #### recog/dewarp/single_page.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
-| C関数                | 状態 | Rust対応                         | 備考                       |
-| -------------------- | ---- | -------------------------------- | -------------------------- |
-| dewarpSinglePageInit | ✅   | dewarp::dewarp_single_page_init  | 単一ページ歪み補正の初期化 |
-| dewarpSinglePageRun  | ✅   | dewarp::dewarp_single_page_run   | 単一ページ歪み補正の実行   |
+| C関数                | 状態 | Rust対応                        | 備考                       |
+| -------------------- | ---- | ------------------------------- | -------------------------- |
+| dewarpSinglePageInit | ✅   | dewarp::dewarp_single_page_init | 単一ページ歪み補正の初期化 |
+| dewarpSinglePageRun  | ✅   | dewarp::dewarp_single_page_run  | 単一ページ歪み補正の実行   |
 
 ### baseline.c (Baseline Detection)
 
@@ -355,12 +355,12 @@
 
 #### recog/barcode/detect.rs (readbarcode.c)
 
-| C関数                  | 状態 | Rust対応                 | 備考               |
-| ---------------------- | ---- | ------------------------ | ------------------ |
-| pixExtractBarcodes     | ✅   | extract_barcodes         | バーコード抽出     |
-| pixLocateBarcodes      | ✅   | locate_barcodes          | バーコード位置検出 |
-| pixDeskewBarcode       | ✅   | deskew_barcode           | バーコード傾き補正 |
-| pixGenerateBarcodeMask | 🔄   | barcode_gen_mask         | C版はstatic関数    |
+| C関数                  | 状態 | Rust対応         | 備考               |
+| ---------------------- | ---- | ---------------- | ------------------ |
+| pixExtractBarcodes     | ✅   | extract_barcodes | バーコード抽出     |
+| pixLocateBarcodes      | ✅   | locate_barcodes  | バーコード位置検出 |
+| pixDeskewBarcode       | ✅   | deskew_barcode   | バーコード傾き補正 |
+| pixGenerateBarcodeMask | 🔄   | barcode_gen_mask | C版はstatic関数    |
 
 #### recog/barcode/signal.rs (readbarcode.c)
 

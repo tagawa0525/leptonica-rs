@@ -342,6 +342,7 @@ impl JbClasser {
     pub fn classify_rank_haus(&mut self, pix: &Pix) -> RecogResult<usize> {
         let w = pix.width() as i32;
         let h = pix.height() as i32;
+        let key = (w, h);
 
         // Add border for processing
         let bordered = add_border(pix, TEMPLATE_BORDER as u32)?;
@@ -350,31 +351,44 @@ impl JbClasser {
         let dilated =
             morph_binary::dilate_brick(&bordered, self.size_haus as u32, self.size_haus as u32)
                 .map_err(RecogError::Morph)?;
+        let bordered_area = if self.rank_haus < 1.0 {
+            Some(count_fg_pixels(&bordered)?)
+        } else {
+            None
+        };
 
         // Look for matching template
-        for (class_idx, template) in self.pixat.iter().enumerate() {
-            let tw = template.width() as i32 - 2 * TEMPLATE_BORDER;
-            let th = template.height() as i32 - 2 * TEMPLATE_BORDER;
-
-            // Size must be similar
-            if (tw - w).abs() > MAX_DIFF_WIDTH || (th - h).abs() > MAX_DIFF_HEIGHT {
-                continue;
-            }
-
-            // Check Hausdorff match
-            let template_dilated = &self.pixatd[class_idx];
-            if hausdorff_match(
-                &bordered,
-                &dilated,
-                template,
-                template_dilated,
-                self.rank_haus,
-            )? {
-                // Match found - add to existing class
-                if self.keep_pixaa {
-                    self.pixaa[class_idx].push(pix.clone());
+        for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
+            for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
+                if let Some(candidates) = self.dahash.get(&(key.0 + dw, key.1 + dh)) {
+                    for &class_idx in candidates {
+                        if class_idx >= self.pixat.len() || class_idx >= self.pixatd.len() {
+                            continue;
+                        }
+                        let template = &self.pixat[class_idx];
+                        let template_dilated = &self.pixatd[class_idx];
+                        let template_area = if self.rank_haus < 1.0 {
+                            self.nafgt.get(class_idx).copied()
+                        } else {
+                            None
+                        };
+                        if hausdorff_match_with_areas(
+                            &bordered,
+                            &dilated,
+                            template,
+                            template_dilated,
+                            self.rank_haus,
+                            bordered_area,
+                            template_area,
+                        )? {
+                            // Match found - add to existing class
+                            if self.keep_pixaa {
+                                self.pixaa[class_idx].push(pix.clone());
+                            }
+                            return Ok(class_idx);
+                        }
+                    }
                 }
-                return Ok(class_idx);
             }
         }
 
@@ -412,6 +426,7 @@ impl JbClasser {
     pub fn classify_correlation(&mut self, pix: &Pix) -> RecogResult<usize> {
         let w = pix.width() as i32;
         let h = pix.height() as i32;
+        let key = (w, h);
 
         // Add border for alignment
         let bordered = add_border(pix, TEMPLATE_BORDER as u32)?;
@@ -424,35 +439,37 @@ impl JbClasser {
             pix_area as f32 / ((w + 2 * TEMPLATE_BORDER) * (h + 2 * TEMPLATE_BORDER)) as f32;
         let effective_thresh = self.thresh + self.weight_factor * fill_factor;
 
-        // Look for matching template
-        for (class_idx, template) in self.pixat.iter().enumerate() {
-            let tw = template.width() as i32 - 2 * TEMPLATE_BORDER;
-            let th = template.height() as i32 - 2 * TEMPLATE_BORDER;
+        // Look for matching template (hashed by similar sizes)
+        for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
+            for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
+                if let Some(candidates) = self.dahash.get(&(key.0 + dw, key.1 + dh)) {
+                    for &class_idx in candidates {
+                        if class_idx >= self.pixat.len() || class_idx >= self.ptact.len() {
+                            continue;
+                        }
+                        let template = &self.pixat[class_idx];
+                        let templ_area = self.naarea[class_idx];
+                        let templ_centroid = self.ptact[class_idx];
 
-            // Size must be similar
-            if (tw - w).abs() > MAX_DIFF_WIDTH || (th - h).abs() > MAX_DIFF_HEIGHT {
-                continue;
-            }
+                        // Compute correlation score
+                        let score = correlation_score_aligned(
+                            &bordered,
+                            template,
+                            pix_centroid,
+                            templ_centroid,
+                            pix_area,
+                            templ_area,
+                        )?;
 
-            let templ_area = self.naarea[class_idx];
-            let templ_centroid = self.ptact[class_idx];
-
-            // Compute correlation score
-            let score = correlation_score_aligned(
-                &bordered,
-                template,
-                pix_centroid,
-                templ_centroid,
-                pix_area,
-                templ_area,
-            )?;
-
-            if score >= effective_thresh {
-                // Match found
-                if self.keep_pixaa {
-                    self.pixaa[class_idx].push(pix.clone());
+                        if score >= effective_thresh {
+                            // Match found
+                            if self.keep_pixaa {
+                                self.pixaa[class_idx].push(pix.clone());
+                            }
+                            return Ok(class_idx);
+                        }
+                    }
                 }
-                return Ok(class_idx);
             }
         }
 
@@ -665,8 +682,20 @@ pub fn hausdorff_distance(pix1: &Pix, pix2: &Pix, size: i32, rank: f32) -> Recog
 
 /// Checks if two images match using Hausdorff criterion
 fn hausdorff_match(pix1: &Pix, dil1: &Pix, pix2: &Pix, dil2: &Pix, rank: f32) -> RecogResult<bool> {
+    hausdorff_match_with_areas(pix1, dil1, pix2, dil2, rank, None, None)
+}
+
+fn hausdorff_match_with_areas(
+    pix1: &Pix,
+    dil1: &Pix,
+    pix2: &Pix,
+    dil2: &Pix,
+    rank: f32,
+    area1: Option<i32>,
+    area2: Option<i32>,
+) -> RecogResult<bool> {
     // Forward direction: pix1 fg must be covered by dil2
-    let fg1 = count_fg_pixels(pix1)?;
+    let fg1 = area1.unwrap_or(count_fg_pixels(pix1)?);
     let covered1 = count_and_pixels(pix1, dil2)?;
     let ratio1 = covered1 as f32 / fg1.max(1) as f32;
 
@@ -675,7 +704,7 @@ fn hausdorff_match(pix1: &Pix, dil1: &Pix, pix2: &Pix, dil2: &Pix, rank: f32) ->
     }
 
     // Reverse direction: pix2 fg must be covered by dil1
-    let fg2 = count_fg_pixels(pix2)?;
+    let fg2 = area2.unwrap_or(count_fg_pixels(pix2)?);
     let covered2 = count_and_pixels(pix2, dil1)?;
     let ratio2 = covered2 as f32 / fg2.max(1) as f32;
 
@@ -946,35 +975,33 @@ pub fn add_page_components(
 /// Try to match a component to an existing RankHaus template
 fn try_match_rank_haus(classer: &JbClasser, bordered: &Pix) -> Option<usize> {
     let key = (bordered.width() as i32, bordered.height() as i32);
-    let candidates = classer.dahash.get(&key)?;
-    for &id in candidates {
-        if id < classer.pixatd.len()
-            && hausdorff_distance(
-                bordered,
-                &classer.pixat[id],
-                classer.size_haus,
-                classer.rank_haus,
-            )
-            .unwrap_or(false)
-        {
-            return Some(id);
-        }
-    }
-    // Also check nearby sizes
+    let bordered_dilated =
+        morph_binary::dilate_brick(bordered, classer.size_haus as u32, classer.size_haus as u32)
+            .ok()?;
+    let bordered_area = if classer.rank_haus < 1.0 {
+        count_fg_pixels(bordered).ok()
+    } else {
+        None
+    };
     for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
         for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
-            if dw == 0 && dh == 0 {
-                continue;
-            }
             let key2 = (key.0 + dw, key.1 + dh);
             if let Some(candidates) = classer.dahash.get(&key2) {
                 for &id in candidates {
                     if id < classer.pixatd.len()
-                        && hausdorff_distance(
+                        && id < classer.pixat.len()
+                        && hausdorff_match_with_areas(
                             bordered,
+                            &bordered_dilated,
                             &classer.pixat[id],
-                            classer.size_haus,
+                            &classer.pixatd[id],
                             classer.rank_haus,
+                            bordered_area,
+                            if classer.rank_haus < 1.0 {
+                                classer.nafgt.get(id).copied()
+                            } else {
+                                None
+                            },
                         )
                         .unwrap_or(false)
                     {

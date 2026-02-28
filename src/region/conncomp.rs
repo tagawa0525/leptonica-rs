@@ -167,65 +167,59 @@ pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> 
     // First pass: assign provisional labels and record equivalences
     for y in 0..height {
         for x in 0..width {
-            // Skip background pixels
-            if pix.get_pixel(x, y).unwrap_or(0) == 0 {
+            if pix.get_pixel_unchecked(x, y) == 0 {
                 continue;
             }
 
-            let mut neighbors = Vec::with_capacity(4);
+            let mut neighbors = [0u32; 4];
+            let mut n_neighbors = 0usize;
 
-            // Check neighbors that have already been processed (above and left)
-            // For 4-way: check left and top
-            // For 8-way: check left, top-left, top, top-right
-
-            // Left neighbor
-            if x > 0
-                && let Some(label) = output.get_pixel(x - 1, y)
-                && label > 0
-            {
-                neighbors.push(label);
+            if x > 0 {
+                let label = output.get_pixel_unchecked(x - 1, y);
+                if label > 0 {
+                    neighbors[n_neighbors] = label;
+                    n_neighbors += 1;
+                }
             }
-
-            // Top neighbor
-            if y > 0
-                && let Some(label) = output.get_pixel(x, y - 1)
-                && label > 0
-            {
-                neighbors.push(label);
+            if y > 0 {
+                let label = output.get_pixel_unchecked(x, y - 1);
+                if label > 0 {
+                    neighbors[n_neighbors] = label;
+                    n_neighbors += 1;
+                }
             }
-
             if connectivity == ConnectivityType::EightWay {
-                // Top-left neighbor
-                if x > 0
-                    && y > 0
-                    && let Some(label) = output.get_pixel(x - 1, y - 1)
-                    && label > 0
-                {
-                    neighbors.push(label);
+                if x > 0 && y > 0 {
+                    let label = output.get_pixel_unchecked(x - 1, y - 1);
+                    if label > 0 {
+                        neighbors[n_neighbors] = label;
+                        n_neighbors += 1;
+                    }
                 }
-
-                // Top-right neighbor
-                if x + 1 < width
-                    && y > 0
-                    && let Some(label) = output.get_pixel(x + 1, y - 1)
-                    && label > 0
-                {
-                    neighbors.push(label);
+                if x + 1 < width && y > 0 {
+                    let label = output.get_pixel_unchecked(x + 1, y - 1);
+                    if label > 0 {
+                        neighbors[n_neighbors] = label;
+                        n_neighbors += 1;
+                    }
                 }
             }
 
-            if neighbors.is_empty() {
-                // New component
-                let _ = output.set_pixel(x, y, next_label);
+            if n_neighbors == 0 {
+                output.set_pixel_unchecked(x, y, next_label);
                 next_label += 1;
             } else {
-                // Find minimum label among neighbors
-                let min_label = *neighbors.iter().min().unwrap();
-                let _ = output.set_pixel(x, y, min_label);
-
-                // Union all neighbor labels
-                for &label in &neighbors {
-                    uf.union(min_label, label);
+                let mut min_label = neighbors[0];
+                for &label in neighbors.iter().take(n_neighbors).skip(1) {
+                    if label < min_label {
+                        min_label = label;
+                    }
+                }
+                output.set_pixel_unchecked(x, y, min_label);
+                for &label in neighbors.iter().take(n_neighbors) {
+                    if label != min_label {
+                        uf.union(min_label, label);
+                    }
                 }
             }
         }
@@ -233,21 +227,20 @@ pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> 
 
     // Second pass: resolve labels using union-find
     // Create a mapping from root labels to sequential labels
-    let mut label_map = std::collections::HashMap::new();
+    let mut label_map = std::collections::HashMap::with_capacity(next_label as usize);
     let mut final_label: u32 = 1;
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = output.get_pixel(x, y)
-                && label > 0
-            {
+            let label = output.get_pixel_unchecked(x, y);
+            if label > 0 {
                 let root = uf.find(label);
                 let mapped = *label_map.entry(root).or_insert_with(|| {
                     let l = final_label;
                     final_label += 1;
                     l
                 });
-                let _ = output.set_pixel(x, y, mapped);
+                output.set_pixel_unchecked(x, y, mapped);
             }
         }
     }
@@ -266,9 +259,8 @@ fn extract_components_from_labels(labeled: &Pix) -> RegionResult<Vec<ConnectedCo
 
     for y in 0..height {
         for x in 0..width {
-            if let Some(label) = labeled.get_pixel(x, y)
-                && label > 0
-            {
+            let label = labeled.get_pixel_unchecked(x, y);
+            if label > 0 {
                 let entry = stats
                     .entry(label)
                     .or_insert((0, x as i32, y as i32, x as i32, y as i32));

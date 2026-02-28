@@ -80,6 +80,7 @@ pub fn bilateral_gray_exact(
     let kh = spatial_kernel.height();
     let kcx = spatial_kernel.center_x() as i32;
     let kcy = spatial_kernel.center_y() as i32;
+    let spatial_data = spatial_kernel.data();
 
     // Check if image is large enough
     if w < kw || h < kh {
@@ -112,7 +113,7 @@ pub fn bilateral_gray_exact(
                     let sy = sy.clamp(0, h as i32 - 1) as u32;
 
                     let neighbor_val = pix.get_pixel_unchecked(sx, sy) as i32;
-                    let spatial_weight = spatial_kernel.get(kx, ky).unwrap_or(0.0);
+                    let spatial_weight = spatial_data[(ky * kw + kx) as usize];
                     let intensity_diff = (center_val - neighbor_val).unsigned_abs() as usize;
                     let range_weight = range[intensity_diff.min(255)];
 
@@ -197,6 +198,7 @@ fn bilateral_color_exact(
     let kh = spatial_kernel.height();
     let kcx = spatial_kernel.center_x() as i32;
     let kcy = spatial_kernel.center_y() as i32;
+    let spatial_data = spatial_kernel.data();
 
     // Check if image is large enough
     if w < kw || h < kh {
@@ -232,7 +234,7 @@ fn bilateral_color_exact(
                     let neighbor_pixel = pix.get_pixel_unchecked(sx, sy);
                     let (nr, ng, nb, na) = pixel::extract_rgba(neighbor_pixel);
 
-                    let spatial_weight = spatial_kernel.get(kx, ky).unwrap_or(0.0);
+                    let spatial_weight = spatial_data[(ky * kw + kx) as usize];
 
                     // Process each channel independently
                     let diff_r = (center_r as i32 - nr as i32).unsigned_abs() as usize;

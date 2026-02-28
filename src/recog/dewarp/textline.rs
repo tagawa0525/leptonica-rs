@@ -7,6 +7,7 @@ use crate::core::{Pix, PixelDepth};
 use crate::morph::{close_brick, erode_brick, open_brick};
 use crate::recog::{RecogError, RecogResult};
 use crate::region::{ConnectivityType, find_connected_components};
+use std::collections::VecDeque;
 
 use super::types::TextLine;
 
@@ -142,54 +143,39 @@ fn seed_fill_binary(seed: &Pix, mask: &Pix) -> RecogResult<Pix> {
         ));
     }
 
-    // Clone seed as starting point
+    // Clone seed as starting point and use queue-based constrained flood fill.
     let result = seed.deep_clone();
     let mut result_mut = result.try_into_mut().unwrap();
+    let mut queue = VecDeque::new();
 
-    // Iterate until no changes
-    let max_iterations = (w + h) as usize; // Maximum iterations needed
-    for _ in 0..max_iterations {
-        let mut changed = false;
-
-        // Dilate and AND with mask
-        for y in 0..h {
-            for x in 0..w {
-                if result_mut.get_pixel_unchecked(x, y) == 0 {
-                    // Check if any 8-connected neighbor is set
-                    let mut has_neighbor = false;
-                    for dy in -1i32..=1 {
-                        for dx in -1i32..=1 {
-                            if dx == 0 && dy == 0 {
-                                continue;
-                            }
-                            let nx = x as i32 + dx;
-                            let ny = y as i32 + dy;
-                            if nx >= 0
-                                && nx < w as i32
-                                && ny >= 0
-                                && ny < h as i32
-                                && result_mut.get_pixel_unchecked(nx as u32, ny as u32) != 0
-                            {
-                                has_neighbor = true;
-                                break;
-                            }
-                        }
-                        if has_neighbor {
-                            break;
-                        }
-                    }
-
-                    // If has neighbor and mask is set, fill
-                    if has_neighbor && mask.get_pixel_unchecked(x, y) != 0 {
-                        result_mut.set_pixel_unchecked(x, y, 1);
-                        changed = true;
-                    }
-                }
+    for y in 0..h {
+        for x in 0..w {
+            if result_mut.get_pixel_unchecked(x, y) != 0 {
+                queue.push_back((x, y));
             }
         }
+    }
 
-        if !changed {
-            break;
+    while let Some((x, y)) = queue.pop_front() {
+        for dy in -1i32..=1 {
+            for dx in -1i32..=1 {
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+                let nx = x as i32 + dx;
+                let ny = y as i32 + dy;
+                if nx < 0 || nx >= w as i32 || ny < 0 || ny >= h as i32 {
+                    continue;
+                }
+                let nx = nx as u32;
+                let ny = ny as u32;
+                if result_mut.get_pixel_unchecked(nx, ny) == 0
+                    && mask.get_pixel_unchecked(nx, ny) != 0
+                {
+                    result_mut.set_pixel_unchecked(nx, ny, 1);
+                    queue.push_back((nx, ny));
+                }
+            }
         }
     }
 
@@ -207,18 +193,7 @@ fn xor_pix(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
         ));
     }
 
-    let result = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut result_mut = result.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let v1 = pix1.get_pixel_unchecked(x, y);
-            let v2 = pix2.get_pixel_unchecked(x, y);
-            result_mut.set_pixel_unchecked(x, y, v1 ^ v2);
-        }
-    }
-
-    Ok(result_mut.into())
+    Ok(pix1.xor(pix2)?)
 }
 
 /// Remove short lines from the list
