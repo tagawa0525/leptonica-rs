@@ -6,6 +6,7 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 次のステップとして、残る5つの計算処理crateの未実装部分を移植する。
 
 現状カバレッジ:
+
 - leptonica-transform: 33.6% (51/152)
 - leptonica-morph: 38.3% (46/120)
 - leptonica-filter: 50.5% (50/99)
@@ -34,12 +35,12 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 全crateに共通して以下を除外:
 
-| 除外対象 | 理由 |
-|----------|------|
-| `*Display*`, `*Show*`, `*Debug*` 関数 | デバッグ/可視化専用 |
-| `*Low` 接尾辞の関数 | C実装固有の低レベルヘルパー（Rust版は内部実装で対応済み） |
-| `make*Tab*` 系関数 | Cルックアップテーブル生成（Rustでは不要） |
-| グローバル状態設定関数 (`reset*`, `l_set*`) | Rustではオプション構造体で対応 |
+| 除外対象                                    | 理由                                                      |
+| ------------------------------------------- | --------------------------------------------------------- |
+| `*Display*`, `*Show*`, `*Debug*` 関数       | デバッグ/可視化専用                                       |
+| `*Low` 接尾辞の関数                         | C実装固有の低レベルヘルパー（Rust版は内部実装で対応済み） |
+| `make*Tab*` 系関数                          | Cルックアップテーブル生成（Rustでは不要）                 |
+| グローバル状態設定関数 (`reset*`, `l_set*`) | Rustではオプション構造体で対応                            |
 
 ---
 
@@ -47,24 +48,24 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 実装対象（スコープ除外後: ~51関数）
 
-| Phase | 対象 | PR数 | 関数数 |
-|-------|------|------|--------|
-| 1 | Alpha変換サポート | 1 | 3 (affine/bilinear/projective WithAlpha) |
-| 2 | PTA/BOXA変換ユーティリティ | 1 | 8 (translate/scale/rotate/affineTransform × PTA+BOXA) |
-| 3 | Scale拡張 - 基本 | 1 | ~8 (pixScaleLI, pixScaleGeneral, ToSize系, BySampling系) |
-| 4 | Scale拡張 - 1bpp→8bpp変換 | 1 | ~10 (pixScaleToGray系、pixExpandReplicate) |
-| 5 | Scale拡張 - 特殊 | 1 | ~11 (2x/4xLI, MinMax, Rank, Mipmap, threshold/dither) |
-| 6 | Rotation拡張 | 1 | ~8 (Corner系、Center系、IP系、pixRotateWithAlpha) |
-| 7 | Flip検出 | 1 | 3 (pixOrientDetect, pixOrientCorrect, pixMirrorDetect) |
+| Phase | 対象                       | PR数 | 関数数                                                   |
+| ----- | -------------------------- | ---- | -------------------------------------------------------- |
+| 1     | Alpha変換サポート          | 1    | 3 (affine/bilinear/projective WithAlpha)                 |
+| 2     | PTA/BOXA変換ユーティリティ | 1    | 8 (translate/scale/rotate/affineTransform × PTA+BOXA)    |
+| 3     | Scale拡張 - 基本           | 1    | ~8 (pixScaleLI, pixScaleGeneral, ToSize系, BySampling系) |
+| 4     | Scale拡張 - 1bpp→8bpp変換  | 1    | ~10 (pixScaleToGray系、pixExpandReplicate)               |
+| 5     | Scale拡張 - 特殊           | 1    | ~11 (2x/4xLI, MinMax, Rank, Mipmap, threshold/dither)    |
+| 6     | Rotation拡張               | 1    | ~8 (Corner系、Center系、IP系、pixRotateWithAlpha)        |
+| 7     | Flip検出                   | 1    | 3 (pixOrientDetect, pixOrientCorrect, pixMirrorDetect)   |
 
 ### スコープ除外
 
-| 除外対象 | 理由 |
-|----------|------|
+| 除外対象                                              | 理由                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------- |
 | `pixScaleRGBToGrayFast`, `pixScaleRGBToBinaryFast` 等 | 変換はcore側の深度変換 + scale の組み合わせで対応可能 |
-| `pixRotateAMColorFast` | 精度が低い近似実装、通常のAreaMapで十分 |
-| `l_productMat*` | 汎用行列乗算ユーティリティ（nalgebra等を使えば良い） |
-| `pixAffineSequential` | 行列合成で対応可能 |
+| `pixRotateAMColorFast`                                | 精度が低い近似実装、通常のAreaMapで十分               |
+| `l_productMat*`                                       | 汎用行列乗算ユーティリティ（nalgebra等を使えば良い）  |
+| `pixAffineSequential`                                 | 行列合成で対応可能                                    |
 
 ### 修正ファイル
 
@@ -83,25 +84,25 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 実装対象（スコープ除外後: ~48関数）
 
-| Phase | 対象 | PR数 | 関数数 |
-|-------|------|------|--------|
-| 1 | Safe closing + Generalized ops | 1 | 5 (closeSafe系, openGeneralized, closeGeneralized) |
-| 2 | Morphological applications | 1 | ~11 (masked sequence, by-component, union/intersection, HDome, FastTophat, gradient, seedfill) |
-| 3 | SEL管理拡張 | 1 | ~7 (Sel I/O, createFromColorImage, createFromPta, printToString, getParameters, copy) |
-| 4 | SEL生成 | 1 | ~7 (cross/T junction, plus sign, basic/hitMiss/dwaLinear/dwaComb sets) |
-| 5 | DWA拡張 + シーケンス拡張 | 1 | ~11 (composite DWA, extended DWA, DWA/color sequence) |
-| 6 | Sela配列管理 | 1 | ~7 (Sela struct, add, get, findByName, count, read, write) |
+| Phase | 対象                           | PR数 | 関数数                                                                                         |
+| ----- | ------------------------------ | ---- | ---------------------------------------------------------------------------------------------- |
+| 1     | Safe closing + Generalized ops | 1    | 5 (closeSafe系, openGeneralized, closeGeneralized)                                             |
+| 2     | Morphological applications     | 1    | ~11 (masked sequence, by-component, union/intersection, HDome, FastTophat, gradient, seedfill) |
+| 3     | SEL管理拡張                    | 1    | ~7 (Sel I/O, createFromColorImage, createFromPta, printToString, getParameters, copy)          |
+| 4     | SEL生成                        | 1    | ~7 (cross/T junction, plus sign, basic/hitMiss/dwaLinear/dwaComb sets)                         |
+| 5     | DWA拡張 + シーケンス拡張       | 1    | ~11 (composite DWA, extended DWA, DWA/color sequence)                                          |
+| 6     | Sela配列管理                   | 1    | ~7 (Sela struct, add, get, findByName, count, read, write)                                     |
 
 ### スコープ除外
 
-| 除外対象 | 理由 |
-|----------|------|
-| `fmorphautogen*`, `fmorphgen*` | DWAコード生成はRustでは不要（手書き実装済み） |
-| `selDisplayInPix`, `selaDisplayInPix` | 可視化専用 |
+| 除外対象                                                  | 理由                                             |
+| --------------------------------------------------------- | ------------------------------------------------ |
+| `fmorphautogen*`, `fmorphgen*`                            | DWAコード生成はRustでは不要（手書き実装済み）    |
+| `selDisplayInPix`, `selaDisplayInPix`                     | 可視化専用                                       |
 | `resetMorphBoundaryCondition`, `getMorphBorderPixelColor` | グローバル状態（Rustではオプション構造体で対応） |
-| `pixaThinConnected` | Pixa操作はアプリケーション層でループ |
-| `pixDisplayHitMissSel` | デバッグ可視化 |
-| `pixRemoveMatchedPattern`, `pixDisplayMatchedPattern` | パターン可視化 |
+| `pixaThinConnected`                                       | Pixa操作はアプリケーション層でループ             |
+| `pixDisplayHitMissSel`                                    | デバッグ可視化                                   |
+| `pixRemoveMatchedPattern`, `pixDisplayMatchedPattern`     | パターン可視化                                   |
 
 ### 修正ファイル
 
@@ -117,19 +118,19 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 実装対象（スコープ除外後: ~14関数）
 
-| Phase | 対象 | PR数 | 関数数 |
-|-------|------|------|--------|
-| 1 | FPix畳み込み | 1 | 3 (fpixConvolve, fpixConvolveSep, pixConvolveWithBias) |
-| 2 | Tiled block畳み込み | 1 | 2 (pixBlockconvTiled, pixBlockconvGrayTile) |
-| 3 | Adaptmap拡張 | 1 | 5 (foreground map, threshold spread, flex norm, smoothConnected, minmax) |
-| 4 | Block bilateral + 追加 | 1 | 4 (pixBlockBilateralExact, pixGlobalNormNoSatRGB, unsharpMasking, unsharpMaskingGray) |
+| Phase | 対象                   | PR数 | 関数数                                                                                |
+| ----- | ---------------------- | ---- | ------------------------------------------------------------------------------------- |
+| 1     | FPix畳み込み           | 1    | 3 (fpixConvolve, fpixConvolveSep, pixConvolveWithBias)                                |
+| 2     | Tiled block畳み込み    | 1    | 2 (pixBlockconvTiled, pixBlockconvGrayTile)                                           |
+| 3     | Adaptmap拡張           | 1    | 5 (foreground map, threshold spread, flex norm, smoothConnected, minmax)              |
+| 4     | Block bilateral + 追加 | 1    | 4 (pixBlockBilateralExact, pixGlobalNormNoSatRGB, unsharpMasking, unsharpMaskingGray) |
 
 ### スコープ除外
 
-| 除外対象 | 理由 |
-|----------|------|
+| 除外対象                | 理由                                             |
+| ----------------------- | ------------------------------------------------ |
 | `l_setConvolveSampling` | グローバル状態設定（オプション構造体で対応済み） |
-| `gaussDistribSampling` | 統計ユーティリティ（randクレートで対応可） |
+| `gaussDistribSampling`  | 統計ユーティリティ（randクレートで対応可）       |
 
 ### 修正ファイル
 
@@ -143,23 +144,23 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 実装対象（スコープ除外後: ~32関数）
 
-| Phase | 対象 | PR数 | 関数数 |
-|-------|------|------|--------|
-| 1 | Seedfill拡張 | 1 | 7 (border comp, hole filling variants, simple gray seedfill, basin) |
-| 2 | Local extrema | 1 | 3 (pixLocalExtrema, pixQualifyLocalMinima, pixSelectedLocalExtrema) |
-| 3 | ConnComp拡張 | 1 | 5 (pixCountConnComp, nextOnPixelInRaster, seedfillBB系) |
-| 4 | Label拡張 | 1 | 5 (connCompTransform, connCompAreaTransform, IncrementalLabeler, locToColor) |
-| 5 | CCBord拡張 | 1 | 7 (step chains, single path, I/O, SVG export) |
-| 6 | Watershed拡張 | 1 | 4 (basins, num_basins, render fill/colors) |
-| 7 | Gray maze | 1 | 1 (pixSearchGrayMaze) |
+| Phase | 対象          | PR数 | 関数数                                                                       |
+| ----- | ------------- | ---- | ---------------------------------------------------------------------------- |
+| 1     | Seedfill拡張  | 1    | 7 (border comp, hole filling variants, simple gray seedfill, basin)          |
+| 2     | Local extrema | 1    | 3 (pixLocalExtrema, pixQualifyLocalMinima, pixSelectedLocalExtrema)          |
+| 3     | ConnComp拡張  | 1    | 5 (pixCountConnComp, nextOnPixelInRaster, seedfillBB系)                      |
+| 4     | Label拡張     | 1    | 5 (connCompTransform, connCompAreaTransform, IncrementalLabeler, locToColor) |
+| 5     | CCBord拡張    | 1    | 7 (step chains, single path, I/O, SVG export)                                |
+| 6     | Watershed拡張 | 1    | 4 (basins, num_basins, render fill/colors)                                   |
+| 7     | Gray maze     | 1    | 1 (pixSearchGrayMaze)                                                        |
 
 ### スコープ除外
 
-| 除外対象 | 理由 |
-|----------|------|
-| `ccbaDisplayImage1/2`, `ccbaDisplayBorder/SPBorder` | 可視化専用 |
-| `pageseg.c` 全体 | leptonica-recogのpageseg.rsで既に基本実装あり |
-| `classapp.c` 全体 | leptonica-recogのjbclass.rsで既にカバー |
+| 除外対象                                            | 理由                                          |
+| --------------------------------------------------- | --------------------------------------------- |
+| `ccbaDisplayImage1/2`, `ccbaDisplayBorder/SPBorder` | 可視化専用                                    |
+| `pageseg.c` 全体                                    | leptonica-recogのpageseg.rsで既に基本実装あり |
+| `classapp.c` 全体                                   | leptonica-recogのjbclass.rsで既にカバー       |
 
 ### 修正ファイル
 
@@ -176,33 +177,33 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ### 実装対象（スコープ除外後: ~70関数）
 
-| Phase | 対象 | PR数 | 関数数 |
-|-------|------|------|--------|
-| 1 | Recog シリアライゼーション | 1 | 6 (read/write/readFromFile/writeToFile/extractPixa/createFromPixa) |
-| 2 | Recog query/inspection | 1 | 6 (getCount, getClassCount, getClassIndex, getClassString, stringToIndex, setParams) |
-| 3 | Bootstrap digit recognizer | 1 | 4 (makeBootDigitRecog, trainFromBoot, padDigitTrainingSet, isPaddingNeeded) |
-| 4 | 高度な識別・フィルタリング | 1 | 5 (preSplittingFilter, splittingFilter, extractNumbers, removeOutliers, filterPixaBySize) |
-| 5 | Dewarp シリアライゼーション | 1 | 4 (dewarpRead/Write/readFromFile/writeToFile) |
-| 6 | Dewarpa コンテナ管理 | 1 | 10 (new, insert, get, destroy, setCurvatures, useBothArrays, setCheckColumns, setMaxDistance, read, write) |
-| 7 | Dewarpa モデル管理 | 1 | 6 (insertRefModels, useSingleModel, swapPages, createRef, minimize, stripRefModels) |
-| 8 | Dewarp2 高度なモデル構築 | 1 | 5 (buildPageModel, findVertDisparity, findHorizDisparity, findTextlineFlowDirection, populateFullRes) |
-| 9 | Dewarp3/4 拡張適用 | 1 | 4 (dewarpaApplyDisparity, applyDisparityBoxa, singlePageInit, singlePageRun) |
-| 10 | JbClass シリアライゼーション + 拡張 | 1 | 6 (jbDataWrite/Read/writeToFile/readFromFile, wordMaskByDilation, wordBoxesByDilation) |
-| 11 | Skew拡張 | 1 | 6 (deskew, deskewBoth, deskewGeneral, findSkewSweepAndSearch, ...Score, ...ScorePivot) |
-| 12 | Baseline拡張 | 1 | 3 (deskewLocal, getLocalSkewTransform, getLocalSkewAngles) |
-| 13 | Barcode拡張 | 1 | ~5 (locateBarcodesMorphological, extractBarcodeWidths, findBarcodePeaks, barcodeMask) |
+| Phase | 対象                                | PR数 | 関数数                                                                                                     |
+| ----- | ----------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------- |
+| 1     | Recog シリアライゼーション          | 1    | 6 (read/write/readFromFile/writeToFile/extractPixa/createFromPixa)                                         |
+| 2     | Recog query/inspection              | 1    | 6 (getCount, getClassCount, getClassIndex, getClassString, stringToIndex, setParams)                       |
+| 3     | Bootstrap digit recognizer          | 1    | 4 (makeBootDigitRecog, trainFromBoot, padDigitTrainingSet, isPaddingNeeded)                                |
+| 4     | 高度な識別・フィルタリング          | 1    | 5 (preSplittingFilter, splittingFilter, extractNumbers, removeOutliers, filterPixaBySize)                  |
+| 5     | Dewarp シリアライゼーション         | 1    | 4 (dewarpRead/Write/readFromFile/writeToFile)                                                              |
+| 6     | Dewarpa コンテナ管理                | 1    | 10 (new, insert, get, destroy, setCurvatures, useBothArrays, setCheckColumns, setMaxDistance, read, write) |
+| 7     | Dewarpa モデル管理                  | 1    | 6 (insertRefModels, useSingleModel, swapPages, createRef, minimize, stripRefModels)                        |
+| 8     | Dewarp2 高度なモデル構築            | 1    | 5 (buildPageModel, findVertDisparity, findHorizDisparity, findTextlineFlowDirection, populateFullRes)      |
+| 9     | Dewarp3/4 拡張適用                  | 1    | 4 (dewarpaApplyDisparity, applyDisparityBoxa, singlePageInit, singlePageRun)                               |
+| 10    | JbClass シリアライゼーション + 拡張 | 1    | 6 (jbDataWrite/Read/writeToFile/readFromFile, wordMaskByDilation, wordBoxesByDilation)                     |
+| 11    | Skew拡張                            | 1    | 6 (deskew, deskewBoth, deskewGeneral, findSkewSweepAndSearch, ...Score, ...ScorePivot)                     |
+| 12    | Baseline拡張                        | 1    | 3 (deskewLocal, getLocalSkewTransform, getLocalSkewAngles)                                                 |
+| 13    | Barcode拡張                         | 1    | ~5 (locateBarcodesMorphological, extractBarcodeWidths, findBarcodePeaks, barcodeMask)                      |
 
 ### スコープ除外
 
-| 除外対象 | 理由 |
-|----------|------|
+| 除外対象                                                             | 理由           |
+| -------------------------------------------------------------------- | -------------- |
 | `recogShowAverageTemplates`, `recogShowContent`, `recogShowMatch` 等 | デバッグ可視化 |
-| `dewarpShowResults`, `dewarpDebug`, `dewarpaShowArrays` | デバッグ可視化 |
-| `pixDisplayOutliers`, `recogDisplayOutlier` | デバッグ可視化 |
-| `recogShowPath` | デバッグ可視化 |
-| `showExtractNumbers`, `l_showIndicatorSplitValues` | デバッグ可視化 |
-| `jbDataRender` | 可視化 |
-| `pixRenderHorizEndPoints`, `pixRenderMidYs` | 可視化 |
+| `dewarpShowResults`, `dewarpDebug`, `dewarpaShowArrays`              | デバッグ可視化 |
+| `pixDisplayOutliers`, `recogDisplayOutlier`                          | デバッグ可視化 |
+| `recogShowPath`                                                      | デバッグ可視化 |
+| `showExtractNumbers`, `l_showIndicatorSplitValues`                   | デバッグ可視化 |
+| `jbDataRender`                                                       | 可視化         |
+| `pixRenderHorizEndPoints`, `pixRenderMidYs`                          | 可視化         |
 
 ### 修正ファイル
 
@@ -224,7 +225,7 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 5つの計画書は依存関係に基づいて以下の順序で実装する:
 
-```
+```bash
 1. 300_transform (依存なし、他crateの基盤)
 2. 301_morph (依存なし、他crateの基盤)
 3. 401_filter (transform/morphに軽く依存)
@@ -238,14 +239,14 @@ IO全移植計画（102）が完了し、IO crateのカバレッジが~58%に到
 
 ## 全体サマリー
 
-| 計画書 | crate | Phase数 | PR数 | 推定関数数 |
-|--------|-------|---------|------|-----------|
-| 300 | transform | 7 | 7 | ~51 |
-| 301 | morph | 6 | 6 | ~48 |
-| 401 | filter | 4 | 4 | ~14 |
-| 500 | region | 7 | 7 | ~32 |
-| 700 | recog | 13 | 13 | ~70 |
-| **合計** | | **37** | **37** | **~215** |
+| 計画書   | crate     | Phase数 | PR数   | 推定関数数 |
+| -------- | --------- | ------- | ------ | ---------- |
+| 300      | transform | 7       | 7      | ~51        |
+| 301      | morph     | 6       | 6      | ~48        |
+| 401      | filter    | 4       | 4      | ~14        |
+| 500      | region    | 7       | 7      | ~32        |
+| 700      | recog     | 13      | 13     | ~70        |
+| **合計** |           | **37**  | **37** | **~215**   |
 
 ## ワークフロー
 
@@ -270,6 +271,7 @@ IO計画(102)と同じワークフローを踏襲する。
 5. 上記全てが完了して初めて `/gh-pr-merge --merge` を実行する
 
 **以下は明確な違反であり、絶対に行わない:**
+
 - 「Copilotレビューが来ないので先にマージする」
 - 「変更が小さいのでレビュー不要」
 - 「前のPRと似ているのでレビューを省略する」

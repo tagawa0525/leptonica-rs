@@ -12,7 +12,7 @@ Phase 1-4 の大部分は 100_core-full-porting.md (Phase 10-17) および個別
 
 ## エージェント構成
 
-```
+```text
 メインエージェント [Opus]（進捗管理）
 ├── サブエージェント [Opus]: leptonica-core（クレート進捗管理・指示出し）
 │   ├── サブサブ [Sonnet]: pixconv-rgb2gray（実装）
@@ -31,7 +31,7 @@ Phase 1-4 の大部分は 100_core-full-porting.md (Phase 10-17) および個別
 
 ## ブランチ戦略
 
-```
+```text
 main
 └── feat/core-pixconv          ← クレートブランチ（PRターゲット）
     ├── feat/core-pixconv-rgb2gray  ← ファイルブランチ（作業単位）
@@ -56,6 +56,7 @@ main
 ## ドキュメント更新
 
 各クレートのサブエージェントは実装完了時に以下のドキュメントも更新する:
+
 - `docs/porting/comparison/<crate>.md` — 実装した関数の状態を ❌→✅ に更新
 - `docs/porting/feature-comparison.md` — カバレッジ数値を更新
 
@@ -66,6 +67,7 @@ main
 3. **REFACTOR**: 必要に応じてリファクタリングコミット
 
 各コミット前チェック:
+
 ```bash
 cargo fmt --check -p <crate>
 cargo clippy -p <crate> -- -D warnings
@@ -88,54 +90,54 @@ cargo test -p <crate>
 
 実装場所: `src/core/src/pix/rgb.rs`
 
-| 関数 | 状態 |
-|------|------|
-| `pixGetRGBComponent` | ✅ `get_rgb_component` (rgb.rs:37) |
+| 関数                 | 状態                                |
+| -------------------- | ----------------------------------- |
+| `pixGetRGBComponent` | ✅ `get_rgb_component` (rgb.rs:37)  |
 | `pixSetRGBComponent` | ✅ `set_rgb_component` (rgb.rs:443) |
-| `pixCreateRGBImage` | ✅ `create_rgb_image` (rgb.rs:71) |
-| `pixGetRGBPixel` | ✅ `get_rgb_pixel` (rgb.rs:340) |
-| `pixSetRGBPixel` | ✅ `set_rgb_pixel` (rgb.rs:465) |
+| `pixCreateRGBImage`  | ✅ `create_rgb_image` (rgb.rs:71)   |
+| `pixGetRGBPixel`     | ✅ `get_rgb_pixel` (rgb.rs:340)     |
+| `pixSetRGBPixel`     | ✅ `set_rgb_pixel` (rgb.rs:465)     |
 
 #### 1.3 カラーマップ除去 — ✅ 4/4実装済み
 
 実装場所: `src/core/src/pix/convert.rs:560-778`
 
-| 関数 | 状態 |
-|------|------|
-| `pixRemoveColormap` | ✅ `remove_colormap` (convert.rs:560) |
-| `pixRemoveColormapGeneral` | ✅ 不要（`remove_colormap` + `RemoveColormapTarget` で同等機能をカバー） |
-| `pixAddGrayColormap8` | ✅ `add_gray_colormap_8` (convert.rs:700) |
-| `pixAddMinimalGrayColormap8` | ✅ `add_minimal_gray_colormap_8` (convert.rs:725) |
+| 関数                         | 状態                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `pixRemoveColormap`          | ✅ `remove_colormap` (convert.rs:560)                                    |
+| `pixRemoveColormapGeneral`   | ✅ 不要（`remove_colormap` + `RemoveColormapTarget` で同等機能をカバー） |
+| `pixAddGrayColormap8`        | ✅ `add_gray_colormap_8` (convert.rs:700)                                |
+| `pixAddMinimalGrayColormap8` | ✅ `add_minimal_gray_colormap_8` (convert.rs:725)                        |
 
 #### 1.4 深度変換（トップレベル） — ⚠️ 8/10実装済み、残り2関数（外部依存）
 
 実装場所: `src/core/src/pix/convert.rs`
 
-| 関数 | 状態 |
-|------|------|
-| `pixConvertTo1` | ❌ 未実装（二値化/閾値処理が必要） |
-| `pixConvertTo1Adaptive` | ❌ 未実装（適応的閾値が必要） |
-| `pixConvertTo16` | ✅ `convert_to_16` (convert.rs:779) |
-| `pixConvert8To32` | ✅ `convert_8_to_32` (convert.rs:810) |
-| `pixConvert8To16` | ✅ `convert_8_to_16` (convert.rs:854) |
-| `pixConvert16To8` | ✅ `convert_16_to_8` (convert.rs:897) |
-| `pixConvert32To8` | ✅ `convert_32_to_8` (convert.rs:1276) |
-| `pixConvertTo8Or32` | ✅ `convert_to_8_or_32` (convert.rs:956) |
-| `pixConvertLossless` | ✅ `convert_lossless` (convert.rs:984) |
-| `pixRemoveAlpha` | ✅ `remove_alpha` (convert.rs:1041) |
+| 関数                    | 状態                                     |
+| ----------------------- | ---------------------------------------- |
+| `pixConvertTo1`         | ❌ 未実装（二値化/閾値処理が必要）       |
+| `pixConvertTo1Adaptive` | ❌ 未実装（適応的閾値が必要）            |
+| `pixConvertTo16`        | ✅ `convert_to_16` (convert.rs:779)      |
+| `pixConvert8To32`       | ✅ `convert_8_to_32` (convert.rs:810)    |
+| `pixConvert8To16`       | ✅ `convert_8_to_16` (convert.rs:854)    |
+| `pixConvert16To8`       | ✅ `convert_16_to_8` (convert.rs:897)    |
+| `pixConvert32To8`       | ✅ `convert_32_to_8` (convert.rs:1276)   |
+| `pixConvertTo8Or32`     | ✅ `convert_to_8_or_32` (convert.rs:956) |
+| `pixConvertLossless`    | ✅ `convert_lossless` (convert.rs:984)   |
+| `pixRemoveAlpha`        | ✅ `remove_alpha` (convert.rs:1041)      |
 
 #### 1.5 バイナリ展開 — ✅ 9/9実装済み
 
 実装場所: `src/core/src/pix/convert.rs:1084-1202`
 
-| 関数 | 状態 |
-|------|------|
-| `pixUnpackBinary` | ✅ `unpack_binary` (convert.rs:1084) |
-| `pixConvert1To2` | ✅ (convert.rs:1155) |
-| `pixConvert1To4` | ✅ (convert.rs:1167) |
-| `pixConvert1To8` | ✅ (convert.rs:1179) |
-| `pixConvert1To16` | ✅ (convert.rs:1190) |
-| `pixConvert1To32` | ✅ (convert.rs:1201) |
+| 関数                 | 状態                                       |
+| -------------------- | ------------------------------------------ |
+| `pixUnpackBinary`    | ✅ `unpack_binary` (convert.rs:1084)       |
+| `pixConvert1To2`     | ✅ (convert.rs:1155)                       |
+| `pixConvert1To4`     | ✅ (convert.rs:1167)                       |
+| `pixConvert1To8`     | ✅ (convert.rs:1179)                       |
+| `pixConvert1To16`    | ✅ (convert.rs:1190)                       |
+| `pixConvert1To32`    | ✅ (convert.rs:1201)                       |
 | `pixConvert1To2Cmap` | ✅ `convert_1_to_2_cmap` (convert.rs:1210) |
 | `pixConvert1To4Cmap` | ✅ `convert_1_to_4_cmap` (convert.rs:1231) |
 | `pixConvert1To8Cmap` | ✅ `convert_1_to_8_cmap` (convert.rs:1252) |
@@ -144,16 +146,16 @@ cargo test -p <crate>
 
 実装場所: `src/core/src/pix/border.rs`
 
-| 関数 | 状態 |
-|------|------|
-| `pixAddBorder` | ✅ `add_border` (border.rs:45) |
-| `pixAddBorderGeneral` | ✅ `add_border_general` (border.rs:86) |
-| `pixRemoveBorder` | ✅ `remove_border` (border.rs:156) |
-| `pixRemoveBorderGeneral` | ✅ `remove_border_general` (border.rs:196) |
+| 関数                       | 状態                                           |
+| -------------------------- | ---------------------------------------------- |
+| `pixAddBorder`             | ✅ `add_border` (border.rs:45)                 |
+| `pixAddBorderGeneral`      | ✅ `add_border_general` (border.rs:86)         |
+| `pixRemoveBorder`          | ✅ `remove_border` (border.rs:156)             |
+| `pixRemoveBorderGeneral`   | ✅ `remove_border_general` (border.rs:196)     |
 | `pixAddBlackOrWhiteBorder` | ✅ `add_black_or_white_border` (border.rs:378) |
-| `pixSetBorderVal` | ✅ `set_border_val` (border.rs:389) |
-| `pixAddMirroredBorder` | ✅ `add_mirrored_border` (border.rs:251) |
-| `pixAddRepeatedBorder` | ✅ `add_repeated_border` (border.rs:318) |
+| `pixSetBorderVal`          | ✅ `set_border_val` (border.rs:389)            |
+| `pixAddMirroredBorder`     | ✅ `add_mirrored_border` (border.rs:251)       |
+| `pixAddRepeatedBorder`     | ✅ `add_repeated_border` (border.rs:318)       |
 
 #### 1.7 マスク操作 — ✅ 全5関数実装済み
 
@@ -185,14 +187,14 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 実装場所: `src/filter/src/enhance.rs:696-860`
 
-| 関数 | 状態 |
-|------|------|
-| `pixColorShiftRGB` | ✅ `color_shift_rgb` (enhance.rs:696) |
-| `pixMosaicColorShiftRGB` | ❌ 未実装（タイル別カラーシフト） |
-| `pixDarkenGray` | ✅ `darken_gray` (enhance.rs:760) |
-| `pixMultConstantColor` | ✅ `mult_constant_color` (enhance.rs:817) |
-| `pixMultMatrixColor` | ✅ `mult_matrix_color` (enhance.rs:860) |
-| `pixHalfEdgeByBandpass` | ❌ 未実装（バンドパスエッジ検出） |
+| 関数                     | 状態                                      |
+| ------------------------ | ----------------------------------------- |
+| `pixColorShiftRGB`       | ✅ `color_shift_rgb` (enhance.rs:696)     |
+| `pixMosaicColorShiftRGB` | ❌ 未実装（タイル別カラーシフト）         |
+| `pixDarkenGray`          | ✅ `darken_gray` (enhance.rs:760)         |
+| `pixMultConstantColor`   | ✅ `mult_constant_color` (enhance.rs:817) |
+| `pixMultMatrixColor`     | ✅ `mult_matrix_color` (enhance.rs:860)   |
+| `pixHalfEdgeByBandpass`  | ❌ 未実装（バンドパスエッジ検出）         |
 
 ---
 
@@ -202,14 +204,14 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 実装場所: `src/filter/src/block_conv.rs`
 
-| 関数 | 状態 |
-|------|------|
-| `pixBlockconvAccum` | ✅ `blockconv_accum` (block_conv.rs:36) |
-| `pixBlockconvGray` | ✅ `blockconv_gray` (block_conv.rs:91) |
-| `pixBlockconv` | ✅ `blockconv` (block_conv.rs:179) |
+| 関数                           | 状態                                                 |
+| ------------------------------ | ---------------------------------------------------- |
+| `pixBlockconvAccum`            | ✅ `blockconv_accum` (block_conv.rs:36)              |
+| `pixBlockconvGray`             | ✅ `blockconv_gray` (block_conv.rs:91)               |
+| `pixBlockconv`                 | ✅ `blockconv` (block_conv.rs:179)                   |
 | `pixBlockconvGrayUnnormalized` | ✅ `blockconv_gray_unnormalized` (block_conv.rs:215) |
-| `pixBlockconvTiled` | ❌ 未実装（タイル化大画像対応） |
-| `pixBlockconvGrayTile` | ❌ 未実装（Grayタイル化版） |
+| `pixBlockconvTiled`            | ❌ 未実装（タイル化大画像対応）                      |
+| `pixBlockconvGrayTile`         | ❌ 未実装（Grayタイル化版）                          |
 
 #### 3.2 ウィンドウ統計 — ✅ 全5関数実装済み
 
@@ -223,25 +225,25 @@ Phase 1のcore関数（特にpixconv, RGB操作, マスク）に依存。
 
 実装場所: `src/filter/src/edge.rs`
 
-| 関数 | 状態 |
-|------|------|
-| `pixUnsharpMasking` | ✅ `unsharp_mask` (edge.rs:143) |
-| `pixUnsharpMaskingFast` | ✅ `unsharp_masking_fast` (edge.rs:183) |
+| 関数                        | 状態                                         |
+| --------------------------- | -------------------------------------------- |
+| `pixUnsharpMasking`         | ✅ `unsharp_mask` (edge.rs:143)              |
+| `pixUnsharpMaskingFast`     | ✅ `unsharp_masking_fast` (edge.rs:183)      |
 | `pixUnsharpMaskingGrayFast` | ✅ `unsharp_masking_gray_fast` (edge.rs:224) |
-| `pixUnsharpMaskingGray1D` | ❌ 未実装 |
-| `pixUnsharpMaskingGray2D` | ❌ 未実装 |
+| `pixUnsharpMaskingGray1D`   | ❌ 未実装                                    |
+| `pixUnsharpMaskingGray2D`   | ❌ 未実装                                    |
 
 #### 3.5 その他 — ⚠️ 4/5実装済み、残り1関数
 
 実装場所: `src/filter/src/convolve.rs`
 
-| 関数 | 状態 |
-|------|------|
-| `pixCensusTransform` | ✅ `census_transform` (convolve.rs:252) |
+| 関数                  | 状態                                      |
+| --------------------- | ----------------------------------------- |
+| `pixCensusTransform`  | ✅ `census_transform` (convolve.rs:252)   |
 | `pixAddGaussianNoise` | ✅ `add_gaussian_noise` (convolve.rs:300) |
-| `pixConvolveWithBias` | ❌ 未実装（バイアス付き畳み込み） |
-| `pixBlockrank` | ✅ `blockrank` (convolve.rs:522) |
-| `pixBlocksum` | ✅ `blocksum` (convolve.rs:422) |
+| `pixConvolveWithBias` | ❌ 未実装（バイアス付き畳み込み）         |
+| `pixBlockrank`        | ✅ `blockrank` (convolve.rs:522)          |
+| `pixBlocksum`         | ✅ `blocksum` (convolve.rs:422)           |
 
 ---
 
@@ -271,25 +273,28 @@ Phase 1-4完了後に計画策定:
 
 ## 対象関数数サマリー
 
-| Phase | 総関数数 | 実装済み | 未実装 | 進捗率 |
-|-------|---------|---------|--------|--------|
-| 1 (core基盤) | 53 | 51 | 2 | 96% |
-| 2 (filter enhance) | 21 | 19 | 2 | 90% |
-| 3 (filter convolve) | 24 | 19 | 5 | 79% |
-| 4 (core統計/Numa) | 15 | 15 | 0 | 100% |
-| **合計 (Phase 1-4)** | **113** | **104** | **9** | **92%** |
+| Phase                | 総関数数 | 実装済み | 未実装 | 進捗率  |
+| -------------------- | -------- | -------- | ------ | ------- |
+| 1 (core基盤)         | 53       | 51       | 2      | 96%     |
+| 2 (filter enhance)   | 21       | 19       | 2      | 90%     |
+| 3 (filter convolve)  | 24       | 19       | 5      | 79%     |
+| 4 (core統計/Numa)    | 15       | 15       | 0      | 100%    |
+| **合計 (Phase 1-4)** | **113**  | **104**  | **9**  | **92%** |
 
 ### 残り未実装関数一覧
 
 **Phase 1 (2個、外部依存)**:
+
 - `pixConvertTo1` (1.4) — filter crateの二値化/閾値処理が必要
 - `pixConvertTo1Adaptive` (1.4) — filter crateの適応的閾値が必要
 
 **Phase 2 (2個)**:
+
 - `pixMosaicColorShiftRGB` (2.4) — BMF/Pixa display/scaling依存
 - `pixHalfEdgeByBandpass` (2.4)
 
 **Phase 3 (5個)**:
+
 - `pixBlockconvTiled`, `pixBlockconvGrayTile` (3.1)
 - `pixUnsharpMaskingGray1D`, `pixUnsharpMaskingGray2D` (3.4)
 - `pixConvolveWithBias` (3.5)
@@ -297,6 +302,7 @@ Phase 1-4完了後に計画策定:
 ## 検証方法
 
 各コミットで以下を確認:
+
 ```bash
 cargo fmt --check -p <crate>
 cargo clippy -p <crate> -- -D warnings
@@ -304,6 +310,7 @@ cargo test -p <crate>
 ```
 
 各PR作成後:
+
 ```bash
 cargo test --all-features           # 全クレートテスト
 cargo clippy --all-features --all-targets -- -D warnings  # 全体lint

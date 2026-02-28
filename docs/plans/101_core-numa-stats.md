@@ -18,11 +18,11 @@ Phase 4 は以下の2つのサブフェーズから成る：
 
 ### 対象ファイル
 
-| ファイル | 変更種別 |
-|---------|---------|
-| `src/core/src/numa/operations.rs` | 既存拡張 |
-| `src/core/src/numa/mod.rs` | re-export追加 |
-| `src/core/src/lib.rs` | re-export追加 |
+| ファイル                          | 変更種別      |
+| --------------------------------- | ------------- |
+| `src/core/src/numa/operations.rs` | 既存拡張      |
+| `src/core/src/numa/mod.rs`        | re-export追加 |
+| `src/core/src/lib.rs`             | re-export追加 |
 
 ### C参照コード
 
@@ -74,7 +74,7 @@ Phase 4 は以下の2つのサブフェーズから成る：
 
 ### 実装順序（依存関係順）
 
-```
+```text
 make_constant  ← standalone
 reverse        ← standalone
 sort           ← standalone
@@ -101,12 +101,12 @@ mode           ← sort に依存
 
 ### 対象ファイル
 
-| ファイル | 変更種別 |
-|---------|---------|
-| `src/core/src/pix/histogram.rs` | 既存拡張（masked/rect histogram追加） |
-| `src/core/src/pix/statistics.rs` | 既存拡張（extreme/rank/max関数追加） |
-| `src/core/src/pix/mod.rs` | re-export追加、`clip_box_to_rect` を `pub(crate)` 化 |
-| `src/core/src/lib.rs` | re-export追加 |
+| ファイル                         | 変更種別                                             |
+| -------------------------------- | ---------------------------------------------------- |
+| `src/core/src/pix/histogram.rs`  | 既存拡張（masked/rect histogram追加）                |
+| `src/core/src/pix/statistics.rs` | 既存拡張（extreme/rank/max関数追加）                 |
+| `src/core/src/pix/mod.rs`        | re-export追加、`clip_box_to_rect` を `pub(crate)` 化 |
+| `src/core/src/lib.rs`            | re-export追加                                        |
 
 ### C参照コード
 
@@ -184,7 +184,7 @@ pub struct MaxValueResult { pub max_val: u32, pub x: u32, pub y: u32 }
 
 ### 実装順序
 
-```
+```text
 [準備] clip_box_to_rect pub(crate)化
 gray_histogram_in_rect     ← clip_box_to_rect に依存
 gray_histogram_masked      ← standalone
@@ -213,12 +213,14 @@ pixel_rank_value           ← gray_histogram / color_histogram + histogram_val_
 ## ドキュメント更新
 
 各PRマージ後に更新:
+
 - `docs/porting/comparison/core.md` — 実装した関数の ❌→✅
 - `docs/porting/feature-comparison.md` — カバレッジ数値更新
 
 ## 検証
 
 各コミット前:
+
 ```bash
 cargo fmt --all -- --check
 cargo clippy --all-features -- -D warnings
@@ -226,6 +228,7 @@ cargo test --test core
 ```
 
 各PR作成前:
+
 ```bash
 cargo test --all-features
 cargo clippy --all-features --all-targets -- -D warnings
@@ -234,8 +237,8 @@ cargo fmt --all -- --check
 
 ## 対象関数サマリー
 
-| Phase | 関数数 | ブランチ |
-|-------|--------|---------|
-| 4.2 Numa ops | 6 | `feat/core-numa-ops` |
-| 4.1 Histogram/Stats | 7 | `feat/core-stats-histogram` |
-| **合計** | **13** | 2 PR |
+| Phase               | 関数数 | ブランチ                    |
+| ------------------- | ------ | --------------------------- |
+| 4.2 Numa ops        | 6      | `feat/core-numa-ops`        |
+| 4.1 Histogram/Stats | 7      | `feat/core-stats-histogram` |
+| **合計**            | **13** | 2 PR                        |

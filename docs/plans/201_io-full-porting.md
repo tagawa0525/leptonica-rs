@@ -17,20 +17,20 @@ C版leptonicaの I/O関数（約146関数）に対して以下の重要な機能
 
 ### スコープ除外（Rust移植に不適切なもの）
 
-| 除外対象 | 理由 |
-|----------|------|
-| `pixDisplay`, `l_fileDisplay`, `l_chooseDisplayProg` | システム依存の表示機能 |
-| `l_jpegSetQuality`, `pixSetZlibCompression` 等 | Rustではオプション構造体で対応済み |
-| C版の file/stream/mem 3パターン分離 | Rustでは `Read`/`Write` トレイトで統一済み |
-| `getPdfPageCount`, `getPdfPageSizes` | PDF解析ライブラリが必要（pdf-writerは書き込み専用） |
-| `concatenatePdf`, `saConcatenatePdfToData` | 同上 |
-| JP2K書き込み | `hayro-jpeg2000` はデコーダ専用、pure Rustエンコーダなし |
-| WebPアニメーション | `image-webp` はアニメーション書き込み非対応 |
-| `convertSegmentedPagesToPS`, `pixWriteSegmentedPageToPS` | 複雑なセグメント描画 |
-| `convertJpegToPSEmbed`, `convertG4ToPSEmbed` | 生フォーマットデータの直接埋め込み |
-| `pixaReadFiles`, `pixaWriteFiles` | アプリケーション層で `read_image`/`write_image` をループするだけ |
-| `ioFormatTest`, `writeImageFileInfo`, `pixWriteDebug` | テスト/デバッグ用ユーティリティ |
-| `pixUninterlaceGIF` | `gif` crateが内部で脱インターレース済み |
+| 除外対象                                                 | 理由                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------- |
+| `pixDisplay`, `l_fileDisplay`, `l_chooseDisplayProg`     | システム依存の表示機能                                           |
+| `l_jpegSetQuality`, `pixSetZlibCompression` 等           | Rustではオプション構造体で対応済み                               |
+| C版の file/stream/mem 3パターン分離                      | Rustでは `Read`/`Write` トレイトで統一済み                       |
+| `getPdfPageCount`, `getPdfPageSizes`                     | PDF解析ライブラリが必要（pdf-writerは書き込み専用）              |
+| `concatenatePdf`, `saConcatenatePdfToData`               | 同上                                                             |
+| JP2K書き込み                                             | `hayro-jpeg2000` はデコーダ専用、pure Rustエンコーダなし         |
+| WebPアニメーション                                       | `image-webp` はアニメーション書き込み非対応                      |
+| `convertSegmentedPagesToPS`, `pixWriteSegmentedPageToPS` | 複雑なセグメント描画                                             |
+| `convertJpegToPSEmbed`, `convertG4ToPSEmbed`             | 生フォーマットデータの直接埋め込み                               |
+| `pixaReadFiles`, `pixaWriteFiles`                        | アプリケーション層で `read_image`/`write_image` をループするだけ |
+| `ioFormatTest`, `writeImageFileInfo`, `pixWriteDebug`    | テスト/デバッグ用ユーティリティ                                  |
+| `pixUninterlaceGIF`                                      | `gif` crateが内部で脱インターレース済み                          |
 
 ---
 
@@ -38,7 +38,7 @@ C版leptonicaの I/O関数（約146関数）に対して以下の重要な機能
 
 Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の順に直列で実行する。
 
-```
+```text
 Phase 1 (JPEG書き込み) ← 最重要、Phase 6/7のJPEG圧縮を可能にする
   → Phase 2 (SPIX形式)
     → Phase 3 (ヘッダー読み取り + フォーマットユーティリティ)
@@ -50,8 +50,8 @@ Phase 1 (JPEG書き込み) ← 最重要、Phase 6/7のJPEG圧縮を可能にす
 
 ## 新規依存
 
-| crate | version | feature | 用途 |
-|-------|---------|---------|------|
+| crate          | version       | feature        | 用途            |
+| -------------- | ------------- | -------------- | --------------- |
 | `jpeg-encoder` | latest stable | `jpeg` feature | JPEG エンコード |
 
 ---
@@ -69,14 +69,14 @@ Phase 1 (JPEG書き込み) ← 最重要、Phase 6/7のJPEG圧縮を可能にす
 
 ### 変換ルール
 
-| 入力深度 | 出力 |
-|----------|------|
-| 1bpp | 8bpp grayscale に変換 |
-| 2bpp/4bpp | 8bpp grayscale に変換 |
-| 8bpp (colormap有) | RGB に展開 |
-| 8bpp (grayscale) | そのまま L8 |
-| 16bpp | 8bpp に変換（上位バイト） |
-| 32bpp (spp=3/4) | RGB24 (alpha無視) |
+| 入力深度          | 出力                      |
+| ----------------- | ------------------------- |
+| 1bpp              | 8bpp grayscale に変換     |
+| 2bpp/4bpp         | 8bpp grayscale に変換     |
+| 8bpp (colormap有) | RGB に展開                |
+| 8bpp (grayscale)  | そのまま L8               |
+| 16bpp             | 8bpp に変換（上位バイト） |
+| 32bpp (spp=3/4)   | RGB24 (alpha無視)         |
 
 ### 修正ファイル
 
@@ -102,7 +102,7 @@ Phase 1 (JPEG書き込み) ← 最重要、Phase 6/7のJPEG圧縮を可能にす
 
 ### バイナリフォーマット
 
-```
+```text
 "spix"    (4 bytes) -- マジックID
 w         (4 bytes) -- 幅
 h         (4 bytes) -- 高さ
@@ -185,7 +185,7 @@ pub struct ImageHeader {
 
 #### 拡張子マッピング（C版 writefile.c L153-170 準拠）
 
-```
+```text
 .bmp → Bmp, .jpg/.jpeg → Jpeg, .png → Png,
 .tif/.tiff → Tiff, .pbm/.pgm/.pnm/.ppm → Pnm,
 .gif → Gif, .jp2/.j2k → Jp2, .ps → Ps, .pdf → Lpdf,
@@ -221,7 +221,7 @@ pub struct ImageHeader {
 
 ### PAMヘッダー形式
 
-```
+```text
 P7
 WIDTH <int>
 HEIGHT <int>
@@ -326,18 +326,19 @@ ENDHDR
 
 ## サマリー
 
-| Phase | 対象 | PR数 | 関数数 |
-|-------|------|------|--------|
-| 1 | JPEG書き込み | 1 | 2 (write_jpeg + JpegOptions) |
-| 2 | SPIX形式 | 1 | 2 (read_spix + write_spix) |
-| 3 | ヘッダー + ユーティリティ | 1 | ~14 (ImageHeader + 9 format headers + 4 utils) |
-| 4 | PNM拡張 | 1 | 3 (ascii write + pam read/write) |
-| 5 | TIFF拡張 | 1 | 4 (page_count + resolution + compression + append) |
-| 6 | PDF DCT圧縮 | 1 | 2 (Jpeg compression + from_files) |
-| 7 | PS拡張 | 1 | 2 (multi-page + Level2) |
-| **合計** | | **7** | **~29** |
+| Phase    | 対象                      | PR数  | 関数数                                             |
+| -------- | ------------------------- | ----- | -------------------------------------------------- |
+| 1        | JPEG書き込み              | 1     | 2 (write_jpeg + JpegOptions)                       |
+| 2        | SPIX形式                  | 1     | 2 (read_spix + write_spix)                         |
+| 3        | ヘッダー + ユーティリティ | 1     | ~14 (ImageHeader + 9 format headers + 4 utils)     |
+| 4        | PNM拡張                   | 1     | 3 (ascii write + pam read/write)                   |
+| 5        | TIFF拡張                  | 1     | 4 (page_count + resolution + compression + append) |
+| 6        | PDF DCT圧縮               | 1     | 2 (Jpeg compression + from_files)                  |
+| 7        | PS拡張                    | 1     | 2 (multi-page + Level2)                            |
+| **合計** |                           | **7** | **~29**                                            |
 
 C版の約146関数のうち:
+
 - 既存実装でカバー済み: ~97関数（trait統一により少数のRust関数で対応）
 - 本計画で追加: ~29関数
 - スコープ除外(N/A): ~20関数（display, global state, PDF parsing, segmented等）
@@ -362,7 +363,7 @@ C版の約146関数のうち:
 
 ### ブランチ命名
 
-```
+```bash
 main
 └── feat/io-jpeg-write        ← Phase 1
 └── feat/io-spix               ← Phase 2
