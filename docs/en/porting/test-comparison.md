@@ -1,6 +1,6 @@
 # C vs Rust Regression Test Comparison
 
-Survey date: 2026-02-23 (based on actual file placement across all modules)
+Survey date: 2026-03-01 (all 159 C regression tests ported — 100% coverage)
 
 ## Overview
 
@@ -8,8 +8,8 @@ C version's `prog/*_reg.c` and Rust version's `tests/*_reg.rs` correspondence.
 
 | Item                      | C version (reference/leptonica) | Rust version (leptonica-rs) |
 | ------------------------- | ------------------------------- | --------------------------- |
-| Total tests               | **305** (.c)                    | **162 files**               |
-| Regression tests          | **160** (*_reg.c)               | **140** (*_reg.rs)          |
+| Total tests               | **305** (.c)                    | **205 files**               |
+| Regression tests          | **160** (*_reg.c)               | **159** (*_reg.rs)          |
 | Individual test functions | Many                            | **3,270**                   |
 | Test runner               | alltests_reg.c                  | `cargo test`                |
 
@@ -33,16 +33,16 @@ Legend:
 | boxa2      | boxa2_reg.rs      | ✅     |
 | boxa3      | boxa3_reg.rs      | ✅     |
 | boxa4      | boxa4_reg.rs      | ✅     |
-| bytea      | -                 | ❌     |
+| bytea      | bytea_reg.rs      | ✅     |
 | compare    | compare_reg.rs    | ✅     |
 | conversion | conversion_reg.rs | ✅     |
-| dna        | -                 | ❌     |
+| dna        | dna_reg.rs        | ✅     |
 | equal      | equal_reg.rs      | ✅     |
 | extrema    | extrema_reg.rs    | ✅     |
 | fpix1      | fpix1_reg.rs      | ✅     |
 | fpix2      | fpix2_reg.rs      | ✅     |
-| hash       | -                 | ❌     |
-| heap       | -                 | ❌     |
+| hash       | hash_reg.rs       | ✅     |
+| heap       | heap_reg.rs       | ✅     |
 | insert     | insert_reg.rs     | ✅     |
 | logicops   | logicops_reg.rs   | ✅     |
 | lowaccess  | lowaccess_reg.rs  | ✅     |
@@ -52,50 +52,50 @@ Legend:
 | overlap    | overlap_reg.rs    | ✅     |
 | pixa1      | pixa1_reg.rs      | ✅     |
 | pixa2      | pixa2_reg.rs      | ✅     |
-| pixalloc   | -                 | ❌     |
+| pixalloc   | pixalloc_reg.rs   | ✅     |
 | pixcomp    | pixcomp_reg.rs    | ✅     |
-| pixmem     | -                 | ❌     |
+| pixmem     | pixmem_reg.rs     | ✅     |
 | pixserial  | pixserial_reg.rs  | ✅     |
 | pta        | pta_reg.rs        | ✅     |
-| ptra1      | -                 | ❌     |
-| ptra2      | -                 | ❌     |
+| ptra1      | ptra1_reg.rs      | ✅     |
+| ptra2      | ptra2_reg.rs      | ✅     |
 | rasterop   | rasterop_reg.rs   | ✅     |
 | rasteropip | rasteropip_reg.rs | ✅     |
-| string     | -                 | ❌     |
+| string     | string_reg.rs     | ✅     |
 
 Rust-only: boxfunc, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixafunc
 
-✅ 24 / ❌ 9 (out of 33 C tests)
+✅ 33 / ❌ 0 (out of 33 C tests)
 
 ### leptonica (src/io/) (Image I/O)
 
 ※ encoding←moved from core.
 
-| C test     | Rust equivalent  | Status |
-| ---------- | ---------------- | ------ |
-| encoding   | encoding_reg.rs  | ✅     |
-| files      | -                | ❌     |
-| gifio      | gifio_reg.rs     | ✅     |
-| ioformats  | ioformats_reg.rs | ✅     |
-| iomisc     | iomisc_reg.rs    | ✅     |
-| jp2kio     | jp2kio_reg.rs    | ✅     |
-| jpegio     | jpegio_reg.rs    | ✅     |
-| mtiff      | mtiff_reg.rs     | ✅     |
-| pdfio1     | pdfio1_reg.rs    | ✅     |
-| pdfio2     | pdfio2_reg.rs    | ✅     |
-| pdfseg     | pdfseg_reg.rs    | ✅     |
-| pixtile    | pixtile_reg.rs   | ✅     |
-| pngio      | pngio_reg.rs     | ✅     |
-| pnmio      | pnmio_reg.rs     | ✅     |
-| psio       | psio_reg.rs      | ✅     |
-| psioseg    | psioseg_reg.rs   | ✅     |
-| webpanimio | -                | ❌     |
-| webpio     | webpio_reg.rs    | ✅     |
-| writetext  | -                | ❌     |
+| C test     | Rust equivalent   | Status |
+| ---------- | ----------------- | ------ |
+| encoding   | encoding_reg.rs   | ✅     |
+| files      | files_reg.rs      | ✅     |
+| gifio      | gifio_reg.rs      | ✅     |
+| ioformats  | ioformats_reg.rs  | ✅     |
+| iomisc     | iomisc_reg.rs     | ✅     |
+| jp2kio     | jp2kio_reg.rs     | ✅     |
+| jpegio     | jpegio_reg.rs     | ✅     |
+| mtiff      | mtiff_reg.rs      | ✅     |
+| pdfio1     | pdfio1_reg.rs     | ✅     |
+| pdfio2     | pdfio2_reg.rs     | ✅     |
+| pdfseg     | pdfseg_reg.rs     | ✅     |
+| pixtile    | pixtile_reg.rs    | ✅     |
+| pngio      | pngio_reg.rs      | ✅     |
+| pnmio      | pnmio_reg.rs      | ✅     |
+| psio       | psio_reg.rs       | ✅     |
+| psioseg    | psioseg_reg.rs    | ✅     |
+| webpanimio | webpanimio_reg.rs | ✅     |
+| webpio     | webpio_reg.rs     | ✅     |
+| writetext  | writetext_reg.rs  | ✅     |
 
 Rust-only: spixio
 
-✅ 16 / ❌ 3 (out of 19 C tests)
+✅ 19 / ❌ 0 (out of 19 C tests)
 
 ### leptonica (src/morph/) (Morphological operations)
 
@@ -202,7 +202,7 @@ Rust-only: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exten
 | colorseg     | colorseg_reg.rs     | ✅     |
 | colorspace   | colorspace_reg.rs   | ✅     |
 | dither       | dither_reg.rs       | ✅     |
-| falsecolor   | -                   | ❌     |
+| falsecolor   | falsecolor_reg.rs   | ✅     |
 | grayquant    | grayquant_reg.rs    | ✅     |
 | hardlight    | hardlight_reg.rs    | ✅     |
 | paint        | paint_reg.rs        | ✅     |
@@ -211,32 +211,32 @@ Rust-only: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exten
 
 Rust-only: binarize_advanced, color_magnitude, colorcontent_advanced, colorspace_hsv, quantize_ext
 
-✅ 23 / ❌ 1 (out of 24 C tests)
+✅ 24 / ❌ 0 (out of 24 C tests)
 
 ### leptonica (src/region/) (Region analysis)
 
 ※ overlap→moved to core. rectangle←moved from core.
 
-| C test      | Rust equivalent   | Status |
-| ----------- | ----------------- | ------ |
-| ccbord      | ccbord_reg.rs     | ✅     |
-| conncomp    | conncomp_reg.rs   | ✅     |
-| distance    | distance_reg.rs   | ✅     |
-| grayfill    | grayfill_reg.rs   | ✅     |
-| label       | label_reg.rs      | ✅     |
-| maze        | maze_reg.rs       | ✅     |
-| quadtree    | quadtree_reg.rs   | ✅     |
-| rectangle   | rectangle_reg.rs  | ✅     |
-| seedspread  | seedspread_reg.rs | ✅     |
-| smoothedge  | -                 | ❌     |
-| speckle     | speckle_reg.rs    | ✅     |
-| splitcomp   | -                 | ❌     |
-| texturefill | -                 | ❌     |
-| watershed   | watershed_reg.rs  | ✅     |
+| C test      | Rust equivalent    | Status |
+| ----------- | ------------------ | ------ |
+| ccbord      | ccbord_reg.rs      | ✅     |
+| conncomp    | conncomp_reg.rs    | ✅     |
+| distance    | distance_reg.rs    | ✅     |
+| grayfill    | grayfill_reg.rs    | ✅     |
+| label       | label_reg.rs       | ✅     |
+| maze        | maze_reg.rs        | ✅     |
+| quadtree    | quadtree_reg.rs    | ✅     |
+| rectangle   | rectangle_reg.rs   | ✅     |
+| seedspread  | seedspread_reg.rs  | ✅     |
+| smoothedge  | smoothedge_reg.rs  | ✅     |
+| speckle     | speckle_reg.rs     | ✅     |
+| splitcomp   | splitcomp_reg.rs   | ✅     |
+| texturefill | texturefill_reg.rs | ✅     |
+| watershed   | watershed_reg.rs   | ✅     |
 
 Rust-only: conncomp_ext, seedfill_ext
 
-✅ 11 / ❌ 3 (out of 14 C tests)
+✅ 14 / ❌ 0 (out of 14 C tests)
 
 ### leptonica (src/recog/) (Recognition, page analysis)
 
@@ -244,15 +244,15 @@ Rust-only: conncomp_ext, seedfill_ext
 | ------------ | ------------------- | ------ |
 | baseline     | baseline_reg.rs     | ✅     |
 | dewarp       | dewarp_reg.rs       | ✅     |
-| findcorners  | -                   | ❌     |
+| findcorners  | findcorners_reg.rs  | ✅     |
 | findpattern1 | findpattern1_reg.rs | ✅     |
 | findpattern2 | findpattern2_reg.rs | ✅     |
 | flipdetect   | flipdetect_reg.rs   | ✅     |
-| genfonts     | -                   | ❌     |
+| genfonts     | genfonts_reg.rs     | ✅     |
 | italic       | italic_reg.rs       | ✅     |
 | jbclass      | jbclass_reg.rs      | ✅     |
 | lineremoval  | lineremoval_reg.rs  | ✅     |
-| nearline     | -                   | ❌     |
+| nearline     | nearline_reg.rs     | ✅     |
 | newspaper    | newspaper_reg.rs    | ✅     |
 | pageseg      | pageseg_reg.rs      | ✅     |
 | partition    | partition_reg.rs    | ✅     |
@@ -260,40 +260,32 @@ Rust-only: conncomp_ext, seedfill_ext
 | skew         | skew_reg.rs         | ✅     |
 | wordboxes    | wordboxes_reg.rs    | ✅     |
 
-✅ 14 / ❌ 3 (out of 17 C tests)
+✅ 17 / ❌ 0 (out of 17 C tests)
 
 ## Summary
 
 ### Coverage by Module
 
-| Module                     | C       | ✅      | ❌     | Rust-only | Coverage  |
-| -------------------------- | ------- | ------- | ------ | --------- | --------- |
-| leptonica (src/core/)      | 33      | 24      | 9      | 8         | 72.7%     |
-| leptonica (src/io/)        | 19      | 16      | 3      | 1         | 84.2%     |
-| leptonica (src/morph/)     | 17      | 17      | 0      | 1         | 100.0%    |
-| leptonica (src/transform/) | 21      | 21      | 0      | 0         | 100.0%    |
-| leptonica (src/filter/)    | 14      | 14      | 0      | 5         | 100.0%    |
-| leptonica (src/color/)     | 24      | 23      | 1      | 5         | 95.8%     |
-| leptonica (src/region/)    | 14      | 11      | 3      | 2         | 78.6%     |
-| leptonica (src/recog/)     | 17      | 14      | 3      | 0         | 82.4%     |
-| **Total**                  | **159** | **140** | **19** | **22**    | **88.1%** |
+| Module                     | C       | ✅      | ❌    | Rust-only | Coverage   |
+| -------------------------- | ------- | ------- | ----- | --------- | ---------- |
+| leptonica (src/core/)      | 33      | 33      | 0     | 8         | 100.0%     |
+| leptonica (src/io/)        | 19      | 19      | 0     | 1         | 100.0%     |
+| leptonica (src/morph/)     | 17      | 17      | 0     | 1         | 100.0%     |
+| leptonica (src/transform/) | 21      | 21      | 0     | 0         | 100.0%     |
+| leptonica (src/filter/)    | 14      | 14      | 0     | 5         | 100.0%     |
+| leptonica (src/color/)     | 24      | 24      | 0     | 5         | 100.0%     |
+| leptonica (src/region/)    | 14      | 14      | 0     | 2         | 100.0%     |
+| leptonica (src/recog/)     | 17      | 17      | 0     | 0         | 100.0%     |
+| **Total**                  | **159** | **159** | **0** | **22**    | **100.0%** |
 
-### Unported Tests (19)
-
-| Module | Test                                                           | Notes                                 |
-| ------ | -------------------------------------------------------------- | ------------------------------------- |
-| core   | bytea, dna, hash, heap, pixalloc, pixmem, ptra1, ptra2, string | Data structures / utilities           |
-| io     | files, webpanimio, writetext                                   | File ops / animation                  |
-| color  | falsecolor                                                     | Pseudocolor                           |
-| region | smoothedge, splitcomp, texturefill                             | Edge / split / texture                |
-| recog  | findcorners, genfonts, nearline                                | Corner detection / fonts / near lines |
+All 159 C regression tests have Rust counterparts — no unported tests remain.
 
 ## Rust Test Status
 
 ### Structure (Rust version)
 
 - `#[cfg(test)]` modules within each `src/*.rs` (unit tests)
-- Integration tests under `tests/` (162 files, corresponding to C's `*_reg.c`)
+- Integration tests under `tests/` (205 files, corresponding to C's `*_reg.c`)
 - Test data: `tests/data/images/` (real images)
 - Test output: `tests/regout/` (.gitignore target, generated with REGTEST_MODE=generate)
 
@@ -304,7 +296,7 @@ Rust-only: conncomp_ext, seedfill_ext
 | **Regression tests**  | Golden file comparison           | ✅ RegParams + golden files       |
 | **Visual tests**      | Image output / visual inspection | REGTEST_MODE=display support      |
 | **I/O tests**         | All formats covered              | ✅ All formats supported          |
-| **Integration tests** | alltests_reg.c                   | 162 files (full regression tests) |
+| **Integration tests** | alltests_reg.c                   | 205 files (full regression tests) |
 | **Test data**         | Extensive (images, PDFs, etc.)   | Real images in tests/data/images/ |
 | **Coverage**          | 159 areas                        | 8 modules, 3,270 test functions   |
 
