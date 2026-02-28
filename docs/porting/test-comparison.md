@@ -4,7 +4,7 @@
 
 ## 概要
 
-C版の `prog/*_reg.c` とRust版の `crates/*/tests/*_reg.rs` の対応関係。
+C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
 | 項目           | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
 | -------------- | ------------------------- | --------------------- |
@@ -293,7 +293,7 @@ Rust独自: conncomp_ext, seedfill_ext
 ### 構造（Rust版）
 
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
-- `crates/*/tests/`に統合テスト（162ファイル、C版`*_reg.c`に対応）
+- `tests/`配下に統合テスト（186ファイル、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
 - テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
@@ -311,7 +311,7 @@ Rust独自: conncomp_ext, seedfill_ext
 ## 参考
 
 - C版ソース: `reference/leptonica/prog/*_reg.c`
-- Rust版回帰テスト: `crates/*/tests/*_reg.rs`
+- Rust版回帰テスト: `tests/**/*_reg.rs`
 - 回帰テストモード: `REGTEST_MODE={generate,compare,display}`
 - goldenファイル: `tests/golden/`（コミット対象）
 - テスト出力: `tests/regout/`（.gitignore対象）
