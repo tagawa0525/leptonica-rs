@@ -807,9 +807,9 @@ pub fn run_histogram_morph(
     let max_size = max_size.max(1);
 
     let sel = if direction == RunDirection::Horizontal {
-        Sel::create_brick(1, 2)?
+        Sel::create_horizontal(2)?
     } else {
-        Sel::create_brick(2, 1)?
+        Sel::create_vertical(2)?
     };
     let pix1 = if run_type == RunType::Off {
         pix.invert()
