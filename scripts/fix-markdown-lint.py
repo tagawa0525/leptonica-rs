@@ -135,13 +135,21 @@ def format_table(table_lines: list[str]) -> list[str]:
 
 
 def guess_language(content_lines: list[str]) -> str:
-    """Guess the language of a fenced code block from its content."""
+    """Guess the language of a fenced code block from its content.
+
+    Uses conservative patterns to avoid false positives:
+    - Rust: requires context that is unlikely to appear in prose or diagrams
+      (function signatures, typed let bindings, qualified use paths, etc.)
+    - Bash: requires the command keyword to appear at the start of a line
+    """
     sample = "\n".join(content_lines)
     if re.search(
-        r"(cargo |fn |let |use |pub |mod |impl |struct |enum |trait |#\[)", sample
+        r"(cargo |fn \w+\(|let \w+\s*[=:]|use \w+::\w+|pub |impl \w|struct \w|enum \w|trait \w"
+        r"|#\[(derive|cfg|test|allow|deny|warn|must_use|inline))",
+        sample,
     ):
         return "rust"
-    if re.search(r"(git |gh |npm |pip |mkdir |cd |ls |rm |cp |mv )", sample):
+    if re.search(r"(?m)^(git |gh |npm |pip |mkdir |cd |ls |rm |cp |mv |\$ )", sample):
         return "bash"
     return "text"
 
