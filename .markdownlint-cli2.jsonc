@@ -1,0 +1,13 @@
+// markdownlint configuration for leptonica-rs
+// https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+{
+  "config": {
+    "default": true,
+    // Line length - disabled for tables and CJK content
+    "MD013": false,
+    // Allow multiple headings with same content (e.g. "備考" in different sections)
+    "MD024": { "siblings_only": true },
+    // Allow inline HTML (used in some documentation)
+    "MD033": false
+  }
+}
