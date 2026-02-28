@@ -238,3 +238,4 @@ JBIG2:        jbclass
 
 - C版ソース: `reference/leptonica/src/`
 - Rust版ソース: `src/` 配下のモジュールディレクトリ
+- C→Rustファイル対応表: [`c-file-mapping.md`](c-file-mapping.md)
