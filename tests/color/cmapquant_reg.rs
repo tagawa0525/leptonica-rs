@@ -4,11 +4,12 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::color::{
-    MedianCutOptions, OctreeOptions, median_cut_quant, median_cut_quant_simple, octree_quant,
-    octree_quant_256,
+    MedianCutOptions, OctreeOptions, few_colors_median_cut_quant_mixed, median_cut_quant,
+    median_cut_quant_simple, octcube_quant_from_cmap, octcube_quant_mixed_with_gray, octree_quant,
+    octree_quant_256, remove_unused_colors, threshold_to_4bpp,
 };
 use leptonica::core::pixel;
-use leptonica::{Pix, PixelDepth};
+use leptonica::{Pix, PixColormap, PixelDepth};
 
 fn load_source_image() -> Pix {
     if let Ok(pix) = load_test_image("lucasta.150.jpg") {
@@ -317,33 +318,143 @@ fn cmapquant_algorithm_comparison() {
 }
 
 #[test]
-#[ignore = "pixThresholdTo4bpp -- not implemented in Rust"]
 fn cmapquant_threshold_to_4bpp() {
-    unimplemented!("pixThresholdTo4bpp is not implemented in Rust");
+    let mut rp = RegParams::new("cmapquant_thresh4");
+
+    // threshold_to_4bpp accepts 8bpp or 32bpp (internally converts via ensure_grayscale)
+    let pixs = load_source_image(); // 32bpp
+    let result = threshold_to_4bpp(&pixs, 8, true).expect("threshold_to_4bpp failed");
+    rp.compare_values(4.0, result.depth().bits() as f64, 0.0);
+    rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, result.height() as f64, 0.0);
+    eprintln!(
+        "  threshold_to_4bpp: {}x{} depth={}",
+        result.width(),
+        result.height(),
+        result.depth().bits()
+    );
+
+    assert!(
+        rp.cleanup(),
+        "cmapquant_threshold_to_4bpp regression test failed"
+    );
 }
 
 #[test]
-#[ignore = "pixOctcubeQuantFromCmap -- not implemented in Rust"]
 fn cmapquant_octcube_from_cmap() {
-    unimplemented!("pixOctcubeQuantFromCmap is not implemented in Rust");
+    let mut rp = RegParams::new("cmapquant_octfromcmap");
+
+    let pixs = load_source_image(); // 32bpp
+    // Build a small colormap with a few representative colors
+    let mut cmap = PixColormap::new(8).expect("colormap creation failed");
+    cmap.add_rgba(255, 0, 0, 255).unwrap();
+    cmap.add_rgba(0, 255, 0, 255).unwrap();
+    cmap.add_rgba(0, 0, 255, 255).unwrap();
+    cmap.add_rgba(128, 128, 128, 255).unwrap();
+    cmap.add_rgba(255, 255, 255, 255).unwrap();
+
+    let result = octcube_quant_from_cmap(&pixs, &cmap, 4).expect("octcube_quant_from_cmap failed");
+    let has_cmap = result.colormap().is_some();
+    rp.compare_values(1.0, if has_cmap { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, result.height() as f64, 0.0);
+    eprintln!(
+        "  octcube_quant_from_cmap: depth={} cmap={}",
+        result.depth().bits(),
+        has_cmap
+    );
+
+    assert!(
+        rp.cleanup(),
+        "cmapquant_octcube_from_cmap regression test failed"
+    );
 }
 
 #[test]
-#[ignore = "pixFewColorsMedianCutQuantMixed -- not implemented in Rust"]
 fn cmapquant_few_colors_mixed() {
-    unimplemented!("pixFewColorsMedianCutQuantMixed is not implemented in Rust");
+    let mut rp = RegParams::new("cmapquant_fewmixed");
+
+    let pixs = load_source_image(); // 32bpp
+    let result = few_colors_median_cut_quant_mixed(&pixs, 10, 4)
+        .expect("few_colors_median_cut_quant_mixed failed");
+    rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, result.height() as f64, 0.0);
+    // Result should have a colormap
+    let has_cmap = result.colormap().is_some();
+    rp.compare_values(1.0, if has_cmap { 1.0 } else { 0.0 }, 0.0);
+    eprintln!(
+        "  few_colors_median_cut_quant_mixed: depth={} cmap={}",
+        result.depth().bits(),
+        has_cmap
+    );
+
+    assert!(
+        rp.cleanup(),
+        "cmapquant_few_colors_mixed regression test failed"
+    );
 }
 
 #[test]
-#[ignore = "pixOctcubeQuantMixedWithGray -- not implemented in Rust"]
 fn cmapquant_octcube_mixed_gray() {
-    unimplemented!("pixOctcubeQuantMixedWithGray is not implemented in Rust");
+    let mut rp = RegParams::new("cmapquant_octmixgray");
+
+    let pixs = load_source_image(); // 32bpp
+    let result = octcube_quant_mixed_with_gray(&pixs, 8, 4, 10)
+        .expect("octcube_quant_mixed_with_gray failed");
+    rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, result.height() as f64, 0.0);
+    let has_cmap = result.colormap().is_some();
+    rp.compare_values(1.0, if has_cmap { 1.0 } else { 0.0 }, 0.0);
+    eprintln!(
+        "  octcube_quant_mixed_with_gray: depth={} cmap={}",
+        result.depth().bits(),
+        has_cmap
+    );
+
+    assert!(
+        rp.cleanup(),
+        "cmapquant_octcube_mixed_gray regression test failed"
+    );
 }
 
 #[test]
-#[ignore = "pixRemoveUnusedColors -- not implemented in Rust"]
 fn cmapquant_remove_unused_colors() {
-    unimplemented!("pixRemoveUnusedColors is not implemented in Rust");
+    let mut rp = RegParams::new("cmapquant_rmunused");
+
+    // Create a colormapped image that doesn't use all colormap entries
+    let pixs = load_source_image();
+    let quantized = octcube_quant_mixed_with_gray(&pixs, 8, 4, 10)
+        .expect("octcube_quant_mixed_with_gray failed for remove test");
+    let cmap_before = quantized
+        .colormap()
+        .expect("quantized should have colormap");
+    let count_before = cmap_before.len();
+
+    let result = remove_unused_colors(&quantized).expect("remove_unused_colors failed");
+    let cmap_after = result.colormap().expect("result should have colormap");
+    let count_after = cmap_after.len();
+
+    // After removal, color count should be <= original
+    rp.compare_values(
+        1.0,
+        if count_after <= count_before {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+    rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, result.height() as f64, 0.0);
+    eprintln!(
+        "  remove_unused_colors: {} -> {} colors",
+        count_before, count_after
+    );
+
+    assert!(
+        rp.cleanup(),
+        "cmapquant_remove_unused_colors regression test failed"
+    );
 }
 
 fn create_3color_image(w: u32, h: u32) -> Pix {

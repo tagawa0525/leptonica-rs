@@ -4,9 +4,9 @@
 //! The C version creates masks and uses pixClipMasked to clip and paint
 //! onto images of depths from 1bpp to 32bpp.
 //!
-//! Partial migration: paint_through_mask on 32bpp with a clipped mask
-//! and median_cut_quant for quantization are tested. pixClipMasked and
-//! multi-depth painting operations are not available.
+//! Partial migration: paint_through_mask on 32bpp with a clipped mask,
+//! median_cut_quant for quantization, and clip_masked on 32bpp/8bpp
+//! are tested.
 //!
 //! # See also
 //!
@@ -82,18 +82,41 @@ fn paintmask_reg_quant_clip() {
     assert!(rp.cleanup(), "paintmask quant+clip test failed");
 }
 
-/// Test pixClipMasked on multiple depths (C checks 1-21).
+/// Test pixClipMasked on 32bpp and 8bpp (C checks 1-21 partial).
 ///
-/// Requires pixClipMasked which is not available in the Rust API.
-/// Also requires pixOctreeQuantNumColors, pixConvertRGBToLuminance,
-/// and multi-depth threshold/paint operations.
+/// Tests clip_masked with a 1bpp mask on 32bpp and 8bpp images.
 #[test]
-#[ignore = "not yet implemented: pixClipMasked not available"]
 fn paintmask_reg_clip_masked() {
-    // C version:
-    // pixd = pixClipMasked(pixs, pixm, 100, 100, 0x03c08000);  -- 32bpp
-    // pixd = pixClipMasked(pixt1, pixm, 100, 100, 0x03c08000);  -- 8bpp cmap
-    // pixd = pixClipMasked(pixt1, pixm, 100, 100, 0x03c08000);  -- 4bpp cmap
-    // pixd = pixClipMasked(pixs8, pixm, 100, 100, 90);          -- 8bpp gray
-    // etc.
+    let mut rp = RegParams::new("pmask_clip");
+
+    // 32bpp source
+    let pixs = crate::common::load_test_image("test24.jpg").expect("load test24.jpg");
+    assert_eq!(pixs.depth(), PixelDepth::Bit32);
+
+    // Create a 1bpp mask from rabi.png
+    let rabi = crate::common::load_test_image("rabi.png").expect("load rabi.png");
+    let mask = rabi.clip_rectangle(303, 1983, 800, 500).expect("clip mask");
+    let mask = mask.invert();
+    assert_eq!(mask.depth(), PixelDepth::Bit1);
+
+    // C: pixd = pixClipMasked(pixs, pixm, 100, 100, 0x03c08000);
+    let result = pixs
+        .clip_masked(&mask, 100, 100, 0x03c0_8000)
+        .expect("clip_masked 32bpp");
+    assert_eq!(result.depth(), PixelDepth::Bit32);
+    assert!(result.width() > 0);
+    assert!(result.height() > 0);
+    rp.compare_values(mask.width() as f64, result.width() as f64, 0.0);
+    rp.compare_values(mask.height() as f64, result.height() as f64, 0.0);
+
+    // 8bpp grayscale
+    let pix8 = pixs.convert_to_8().expect("convert to 8bpp");
+    let result8 = pix8
+        .clip_masked(&mask, 100, 100, 90)
+        .expect("clip_masked 8bpp");
+    assert_eq!(result8.depth(), PixelDepth::Bit8);
+    assert!(result8.width() > 0);
+    assert!(result8.height() > 0);
+
+    assert!(rp.cleanup(), "paintmask clip_masked test failed");
 }

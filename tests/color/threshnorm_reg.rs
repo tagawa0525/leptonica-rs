@@ -4,9 +4,8 @@
 //! The C version uses pixThresholdSpreadNorm to normalize illumination
 //! then applies pixThresholdToBinary at various thresholds.
 //!
-//! Partial migration: threshold_to_binary at various thresholds is tested
-//! as the inner loop of the C test. pixThresholdSpreadNorm is not available.
-//! Test image stampede2.jpg is not available; test8.jpg is used instead.
+//! Partial migration: threshold_to_binary at various thresholds and
+//! threshold_spread_norm on stampede2.jpg are tested.
 //!
 //! # See also
 //!
@@ -15,6 +14,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
+use leptonica::filter::{EdgeFilterType, threshold_spread_norm};
 
 /// Test threshold_to_binary at multiple thresholds (partial C AddTestSet).
 ///
@@ -45,13 +45,28 @@ fn threshnorm_reg_threshold_sweep() {
 
 /// Test pixThresholdSpreadNorm (C checks 0: full normalization pipeline).
 ///
-/// Requires pixThresholdSpreadNorm which is not available in the Rust API.
-/// Test image stampede2.jpg is also not available.
+/// Applies threshold_spread_norm to stampede2.jpg then binarizes the result.
 #[test]
-#[ignore = "not yet implemented: pixThresholdSpreadNorm not available"]
 fn threshnorm_reg_spread_norm() {
-    // C version:
-    // pixThresholdSpreadNorm(pixs, L_SOBEL_EDGE, 18, 40, 40, 0.7, -25, 280, 128,
-    //                        &pix1, NULL, &pix2);
-    // pix3 = pixThresholdToBinary(pix2, targetthresh);
+    let mut rp = RegParams::new("threshnorm_spread");
+
+    let pix = crate::common::load_test_image("stampede2.jpg").expect("load stampede2.jpg");
+    let pix8 = pix.convert_to_8().expect("convert to 8bpp");
+    let w = pix8.width();
+    let h = pix8.height();
+
+    // C: pixThresholdSpreadNorm(pixs, L_SOBEL_EDGE, 18, 40, 40, 0.7, ...)
+    let norm = threshold_spread_norm(&pix8, EdgeFilterType::Sobel, 18, 40, 40, 0.7)
+        .expect("threshold_spread_norm");
+    rp.compare_values(w as f64, norm.width() as f64, 0.0);
+    rp.compare_values(h as f64, norm.height() as f64, 0.0);
+    assert_eq!(norm.depth(), PixelDepth::Bit8);
+
+    // C: pix3 = pixThresholdToBinary(pix2, targetthresh=128);
+    let binary = threshold_to_binary(&norm, 128).expect("threshold_to_binary");
+    rp.compare_values(w as f64, binary.width() as f64, 0.0);
+    rp.compare_values(h as f64, binary.height() as f64, 0.0);
+    assert_eq!(binary.depth(), PixelDepth::Bit1);
+
+    assert!(rp.cleanup(), "threshnorm spread_norm test failed");
 }
