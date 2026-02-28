@@ -70,9 +70,11 @@ pub use dwa::{
 
 // Re-export morphological application functions
 pub use morphapp::{
-    MorphOpType, intersection_of_morph_ops, morph_gradient, morph_sequence_by_component,
-    morph_sequence_by_region, morph_sequence_masked, pix_centroid, pixa_centroids, seedfill_morph,
-    union_of_morph_ops,
+    MorphOpType, RunDirection, RunType, ScaleDirection, TophatType, display_matched_pattern,
+    fast_tophat, h_dome, intersection_of_morph_ops, morph_gradient, morph_sequence_by_component,
+    morph_sequence_by_region, morph_sequence_masked, pix_centroid, pixa_centroids,
+    pixa_extend_by_morph, pixa_extend_by_scaling, remove_matched_pattern, run_histogram_morph,
+    seedfill_morph, selective_conn_comp_fill, union_of_morph_ops,
 };
 
 // Re-export SEL set generation functions

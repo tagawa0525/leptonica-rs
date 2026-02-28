@@ -7,12 +7,16 @@
 //! - Seedfill via dilation (binary reconstruction)
 //! - Grayscale morphological gradient
 
-use crate::core::{Pix, Pixa, PixelDepth, Pta};
+use crate::core::{Numa, Pix, Pixa, PixelDepth, Pta};
+use crate::filter::blockconv;
 use crate::morph::{
     MorphError, MorphResult, Sel, close, dilate, erode, gradient_gray, hit_miss_transform,
     morph_sequence, open,
 };
-use crate::region::{ConnectivityType, conncomp_pixa};
+use crate::region::{ConnectivityType, conncomp_pixa, fill_holes, seedfill_gray};
+use crate::transform::{
+    GrayMinMaxMode, scale_by_sampling, scale_by_sampling_to_size, scale_gray_min_max, scale_to_size,
+};
 
 /// Type of morphological operation for union/intersection functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +31,35 @@ pub enum MorphOpType {
     Close,
     /// Hit-Miss Transform
     HitMiss,
+}
+
+/// Scaling direction for [`pixa_extend_by_scaling`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScaleDirection {
+    Horizontal,
+    Vertical,
+    BothDirections,
+}
+
+/// Run polarity for [`run_histogram_morph`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunType {
+    Off,
+    On,
+}
+
+/// Run direction for [`run_histogram_morph`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunDirection {
+    Horizontal,
+    Vertical,
+}
+
+/// Polarity for [`fast_tophat`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TophatType {
+    White,
+    Black,
 }
 
 /// Apply a morphological sequence to an image, then restore source pixels
@@ -411,6 +444,472 @@ pub fn morph_sequence_by_region(
     Ok(out_mut.into())
 }
 
+/// Fill holes only in selected connected components.
+///
+/// Components are selected by width/height thresholds.
+/// Based on C leptonica `pixSelectiveConnCompFill`.
+pub fn selective_conn_comp_fill(
+    pix: &Pix,
+    connectivity: u8,
+    min_w: u32,
+    min_h: u32,
+) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    let conn = match connectivity {
+        4 => ConnectivityType::FourWay,
+        8 => ConnectivityType::EightWay,
+        _ => {
+            return Err(MorphError::InvalidParameters(
+                "connectivity must be 4 or 8".into(),
+            ));
+        }
+    };
+    let hole_conn = if conn == ConnectivityType::FourWay {
+        ConnectivityType::EightWay
+    } else {
+        ConnectivityType::FourWay
+    };
+    let min_w = min_w.max(1);
+    let min_h = min_h.max(1);
+
+    let (boxa, pixa) = conncomp_pixa(pix, conn)
+        .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {e}")))?;
+
+    let out = pix.clone();
+    let mut out_mut = match out.try_into_mut() {
+        Ok(pm) => pm,
+        Err(p) => p.to_mut(),
+    };
+    let ow = out_mut.width();
+    let oh = out_mut.height();
+
+    for i in 0..pixa.len() {
+        let comp = pixa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing pix at index {i}")))?;
+        let b = boxa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing box at index {i}")))?;
+        if b.w < min_w as i32 || b.h < min_h as i32 {
+            continue;
+        }
+
+        let filled = fill_holes(comp, hole_conn)
+            .map_err(|e| MorphError::InvalidParameters(format!("fill_holes error: {e}")))?;
+        for y in 0..filled.height() {
+            let dy = b.y + y as i32;
+            if dy < 0 || dy as u32 >= oh {
+                continue;
+            }
+            for x in 0..filled.width() {
+                if filled.get_pixel_unchecked(x, y) == 0 {
+                    continue;
+                }
+                let dx = b.x + x as i32;
+                if dx >= 0 && (dx as u32) < ow {
+                    out_mut.set_pixel_unchecked(dx as u32, dy as u32, 1);
+                }
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Remove matched binary patterns from an image.
+///
+/// Returns a modified copy of `pix`.
+/// Based on C leptonica `pixRemoveMatchedPattern`.
+pub fn remove_matched_pattern(
+    pix: &Pix,
+    pattern: &Pix,
+    eroded_matches: &Pix,
+    x0: i32,
+    y0: i32,
+    dsize: u32,
+) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1
+        || pattern.depth() != PixelDepth::Bit1
+        || eroded_matches.depth() != PixelDepth::Bit1
+    {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    if dsize > 4 {
+        return Err(MorphError::InvalidParameters(
+            "dsize must be in [0, 4]".into(),
+        ));
+    }
+
+    let (boxa, pixa) = conncomp_pixa(eroded_matches, ConnectivityType::EightWay)
+        .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {e}")))?;
+    if boxa.is_empty() {
+        return Ok(pix.clone());
+    }
+    let centroids = pixa_centroids(&pixa)?;
+
+    let pattern_expanded = if dsize > 0 {
+        let bordered = pattern.add_border(dsize, 0)?;
+        let sel = Sel::create_brick(2 * dsize + 1, 2 * dsize + 1)?;
+        dilate(&bordered, &sel)?
+    } else {
+        pattern.clone()
+    };
+
+    let out = pix.clone();
+    let mut out_mut = match out.try_into_mut() {
+        Ok(pm) => pm,
+        Err(p) => p.to_mut(),
+    };
+    let ow = out_mut.width();
+    let oh = out_mut.height();
+    let pw = pattern_expanded.width();
+    let ph = pattern_expanded.height();
+
+    for i in 0..boxa.len() {
+        let b = boxa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing box at index {i}")))?;
+        let (cx, cy) = centroids.get(i).unwrap_or((0.0, 0.0));
+        let ox = b.x + cx.round() as i32 - x0 - dsize as i32;
+        let oy = b.y + cy.round() as i32 - y0 - dsize as i32;
+
+        for y in 0..ph {
+            let dy = oy + y as i32;
+            if dy < 0 || dy as u32 >= oh {
+                continue;
+            }
+            for x in 0..pw {
+                if pattern_expanded.get_pixel_unchecked(x, y) == 0 {
+                    continue;
+                }
+                let dx = ox + x as i32;
+                if dx >= 0 && (dx as u32) < ow {
+                    out_mut.set_pixel_unchecked(dx as u32, dy as u32, 0);
+                }
+            }
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Display matched pattern locations by painting a binary stencil in color.
+///
+/// Returns a 32 bpp image.
+/// Based on C leptonica `pixDisplayMatchedPattern`.
+pub fn display_matched_pattern(
+    pix: &Pix,
+    pattern: &Pix,
+    eroded_matches: &Pix,
+    x0: i32,
+    y0: i32,
+    color: u32,
+    scale: f32,
+) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit1
+        || pattern.depth() != PixelDepth::Bit1
+        || eroded_matches.depth() != PixelDepth::Bit1
+    {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    if !scale.is_finite() || scale <= 0.0 {
+        return Err(MorphError::InvalidParameters("scale must be > 0".into()));
+    }
+    let scale = scale.min(1.0);
+
+    let (boxa, pixa) = conncomp_pixa(eroded_matches, ConnectivityType::EightWay)
+        .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {e}")))?;
+    let centroids = if pixa.is_empty() {
+        Pta::new()
+    } else {
+        pixa_centroids(&pixa)?
+    };
+
+    let (base, pattern_scaled) = if (scale - 1.0).abs() <= f32::EPSILON {
+        (pix.convert_to_32()?, pattern.clone())
+    } else {
+        let pixs = scale_by_sampling(pix, scale, scale)
+            .map_err(|e| MorphError::InvalidParameters(format!("scale_by_sampling error: {e}")))?;
+        let pats = scale_by_sampling(pattern, scale, scale)
+            .map_err(|e| MorphError::InvalidParameters(format!("scale_by_sampling error: {e}")))?;
+        (pixs.convert_to_32()?, pats)
+    };
+
+    let mut out_mut = match base.try_into_mut() {
+        Ok(pm) => pm,
+        Err(p) => p.to_mut(),
+    };
+    let paint = if (color & 0xff) == 0 {
+        color | 0xff
+    } else {
+        color
+    };
+
+    for i in 0..boxa.len() {
+        let b = boxa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing box at index {i}")))?;
+        let (cx, cy) = centroids.get(i).unwrap_or((0.0, 0.0));
+        let mut ox = b.x as f32 + cx - x0 as f32;
+        let mut oy = b.y as f32 + cy - y0 as f32;
+        if scale < 1.0 {
+            ox *= scale;
+            oy *= scale;
+        }
+        out_mut.set_masked_general(&pattern_scaled, paint, ox.round() as i32, oy.round() as i32)?;
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Extend a pixa by iterative erosion or dilation.
+///
+/// Based on C leptonica `pixaExtendByMorph`.
+pub fn pixa_extend_by_morph(
+    pixa: &Pixa,
+    op: MorphOpType,
+    niters: u32,
+    sel: Option<&Sel>,
+    include: bool,
+) -> MorphResult<Pixa> {
+    if niters == 0 {
+        return Ok(pixa.clone());
+    }
+    if op != MorphOpType::Dilate && op != MorphOpType::Erode {
+        return Err(MorphError::InvalidParameters(
+            "op must be Dilate or Erode".into(),
+        ));
+    }
+    for i in 0..pixa.len() {
+        let pix = pixa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing pix at index {i}")))?;
+        if pix.depth() != PixelDepth::Bit1 {
+            return Err(MorphError::UnsupportedDepth {
+                expected: "1-bpp binary",
+                actual: pix.depth().bits(),
+            });
+        }
+    }
+
+    let default_sel;
+    let sel = if let Some(s) = sel {
+        s
+    } else {
+        default_sel = Sel::create_brick(2, 2)?;
+        &default_sel
+    };
+
+    let extra = if include { 1 } else { 0 };
+    let mut out = Pixa::with_capacity(pixa.len() * (niters as usize + extra));
+    for i in 0..pixa.len() {
+        let mut current = pixa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing pix at index {i}")))?
+            .clone();
+        if include {
+            out.push(current.clone());
+        }
+        for _ in 0..niters {
+            current = if op == MorphOpType::Dilate {
+                dilate(&current, sel)?
+            } else {
+                erode(&current, sel)?
+            };
+            out.push(current.clone());
+        }
+    }
+
+    Ok(out)
+}
+
+/// Extend a pixa by scaling each image using all provided factors.
+///
+/// Based on C leptonica `pixaExtendByScaling`.
+pub fn pixa_extend_by_scaling(
+    pixa: &Pixa,
+    scales: &[f32],
+    direction: ScaleDirection,
+    include: bool,
+) -> MorphResult<Pixa> {
+    if scales.is_empty() {
+        return Err(MorphError::InvalidParameters(
+            "scales must not be empty".into(),
+        ));
+    }
+    if scales.iter().any(|s| !s.is_finite() || *s <= 0.0) {
+        return Err(MorphError::InvalidParameters(
+            "all scales must be finite and > 0".into(),
+        ));
+    }
+
+    let extra = if include { 1 } else { 0 };
+    let mut out = Pixa::with_capacity(pixa.len() * (scales.len() + extra));
+    for i in 0..pixa.len() {
+        let pix = pixa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing pix at index {i}")))?;
+        let w = pix.width() as f32;
+        let h = pix.height() as f32;
+        if include {
+            out.push(pix.clone());
+        }
+
+        for &scale in scales {
+            let mut new_w = w;
+            let mut new_h = h;
+            if direction == ScaleDirection::Horizontal
+                || direction == ScaleDirection::BothDirections
+            {
+                new_w = (w * scale).round();
+            }
+            if direction == ScaleDirection::Vertical || direction == ScaleDirection::BothDirections
+            {
+                new_h = (h * scale).round();
+            }
+            let new_w = (new_w as i32).max(1) as u32;
+            let new_h = (new_h as i32).max(1) as u32;
+            let scaled = scale_to_size(pix, new_w, new_h)
+                .map_err(|e| MorphError::InvalidParameters(format!("scale_to_size error: {e}")))?;
+            out.push(scaled);
+        }
+    }
+
+    Ok(out)
+}
+
+/// Run-length histogram via iterative binary erosion.
+///
+/// Based on C leptonica `pixRunHistogramMorph`.
+pub fn run_histogram_morph(
+    pix: &Pix,
+    run_type: RunType,
+    direction: RunDirection,
+    max_size: u32,
+) -> MorphResult<Numa> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pix.depth().bits(),
+        });
+    }
+    let max_size = max_size.max(1);
+
+    let sel = if direction == RunDirection::Horizontal {
+        Sel::create_brick(1, 2)?
+    } else {
+        Sel::create_brick(2, 1)?
+    };
+    let pix1 = if run_type == RunType::Off {
+        pix.invert()
+    } else {
+        pix.clone()
+    };
+
+    let mut counts = Vec::new();
+    counts.push(pix1.count_pixels() as f32);
+    let mut pix2 = erode(&pix1, &sel)?;
+    counts.push(pix2.count_pixels() as f32);
+
+    for _ in 0..(max_size / 2) {
+        let pix3 = erode(&pix2, &sel)?;
+        counts.push(pix3.count_pixels() as f32);
+        pix2 = erode(&pix3, &sel)?;
+        counts.push(pix2.count_pixels() as f32);
+    }
+
+    let mut hist = Vec::with_capacity(counts.len().saturating_sub(1));
+    hist.push(0.0);
+    for i in 1..counts.len().saturating_sub(1) {
+        let val = counts[i + 1] - 2.0 * counts[i] + counts[i - 1];
+        hist.push(val);
+    }
+
+    Ok(Numa::from_vec(hist))
+}
+
+/// HDome extraction on grayscale images.
+///
+/// Based on C leptonica `pixHDome`.
+pub fn h_dome(pix: &Pix, height: i32, connectivity: u8) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if height < 0 {
+        return Err(MorphError::InvalidParameters("height must be >= 0".into()));
+    }
+    if height == 0 {
+        return Ok(pix.create_template());
+    }
+    let conn = match connectivity {
+        4 => ConnectivityType::FourWay,
+        8 => ConnectivityType::EightWay,
+        _ => {
+            return Err(MorphError::InvalidParameters(
+                "connectivity must be 4 or 8".into(),
+            ));
+        }
+    };
+
+    let seed = pix.add_constant(-height)?;
+    let filled = seedfill_gray(&seed, pix, conn)
+        .map_err(|e| MorphError::InvalidParameters(format!("seedfill_gray error: {e}")))?;
+    pix.arith_subtract(&filled).map_err(MorphError::Core)
+}
+
+/// Fast tophat-like background removal.
+///
+/// Based on C leptonica `pixFastTophat`.
+pub fn fast_tophat(pix: &Pix, xsize: u32, ysize: u32, top_type: TophatType) -> MorphResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "8-bpp grayscale",
+            actual: pix.depth().bits(),
+        });
+    }
+    if xsize == 0 || ysize == 0 {
+        return Err(MorphError::InvalidParameters(
+            "xsize and ysize must be >= 1".into(),
+        ));
+    }
+    if xsize == 1 && ysize == 1 {
+        return Ok(pix.create_template());
+    }
+
+    let mode = if top_type == TophatType::White {
+        GrayMinMaxMode::Min
+    } else {
+        GrayMinMaxMode::Max
+    };
+    let reduced = scale_gray_min_max(pix, xsize, ysize, mode)
+        .map_err(|e| MorphError::InvalidParameters(format!("scale_gray_min_max error: {e}")))?;
+    let smooth = blockconv(&reduced, 1, 1)
+        .map_err(|e| MorphError::InvalidParameters(format!("blockconv error: {e}")))?;
+    let expanded = scale_by_sampling_to_size(&smooth, pix.width(), pix.height()).map_err(|e| {
+        MorphError::InvalidParameters(format!("scale_by_sampling_to_size error: {e}"))
+    })?;
+
+    if top_type == TophatType::White {
+        pix.arith_subtract(&expanded).map_err(MorphError::Core)
+    } else {
+        expanded.arith_subtract(pix).map_err(MorphError::Core)
+    }
+}
+
 /// Compute the centroid of foreground content in a 1 bpp or 8 bpp image.
 ///
 /// For 1 bpp images, foreground pixels (value != 0) are weighted uniformly.
@@ -722,6 +1221,144 @@ mod tests {
                 assert_eq!(result.get_pixel_unchecked(x, y), 0);
             }
         }
+    }
+
+    #[test]
+    fn test_selective_conn_comp_fill_fills_hole() {
+        let pix = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 2..14u32 {
+            for x in 2..14u32 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        for y in 6..10u32 {
+            for x in 6..10u32 {
+                pm.set_pixel_unchecked(x, y, 0);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let out = selective_conn_comp_fill(&pix, 8, 1, 1).unwrap();
+        assert_eq!(out.get_pixel_unchecked(7, 7), 1);
+    }
+
+    #[test]
+    fn test_remove_matched_pattern_simple() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(4, 4, 1);
+        let pix: Pix = pm.into();
+
+        let pattern = Pix::new(1, 1, PixelDepth::Bit1).unwrap();
+        let mut patm = pattern.try_into_mut().unwrap();
+        patm.set_pixel_unchecked(0, 0, 1);
+        let pattern: Pix = patm.into();
+
+        let matches = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+        let mut mm = matches.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(4, 4, 1);
+        let matches: Pix = mm.into();
+
+        let out = remove_matched_pattern(&pix, &pattern, &matches, 0, 0, 0).unwrap();
+        assert_eq!(out.get_pixel_unchecked(4, 4), 0);
+    }
+
+    #[test]
+    fn test_display_matched_pattern_paints_color() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+
+        let pattern = Pix::new(1, 1, PixelDepth::Bit1).unwrap();
+        let mut patm = pattern.try_into_mut().unwrap();
+        patm.set_pixel_unchecked(0, 0, 1);
+        let pattern: Pix = patm.into();
+
+        let matches = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+        let mut mm = matches.try_into_mut().unwrap();
+        mm.set_pixel_unchecked(3, 2, 1);
+        let matches: Pix = mm.into();
+
+        let color = 0xff0000ff;
+        let out = display_matched_pattern(&pix, &pattern, &matches, 0, 0, color, 1.0).unwrap();
+        assert_eq!(out.depth(), PixelDepth::Bit32);
+        assert_eq!(out.get_pixel_unchecked(3, 2), color);
+    }
+
+    #[test]
+    fn test_pixa_extend_by_morph_dilate_iters() {
+        let src = Pix::new(9, 9, PixelDepth::Bit1).unwrap();
+        let mut sm = src.try_into_mut().unwrap();
+        sm.set_pixel_unchecked(4, 4, 1);
+        let mut pixa = Pixa::new();
+        pixa.push(sm.into());
+
+        let out = pixa_extend_by_morph(&pixa, MorphOpType::Dilate, 2, None, false).unwrap();
+        assert_eq!(out.len(), 2);
+        let p0 = out.get(0).unwrap();
+        let p1 = out.get(1).unwrap();
+        assert!(p1.count_pixels() >= p0.count_pixels());
+    }
+
+    #[test]
+    fn test_pixa_extend_by_scaling_both() {
+        let mut pixa = Pixa::new();
+        pixa.push(Pix::new(10, 6, PixelDepth::Bit1).unwrap());
+
+        let out = pixa_extend_by_scaling(&pixa, &[0.5, 2.0], ScaleDirection::BothDirections, false)
+            .unwrap();
+        assert_eq!(out.len(), 2);
+        assert_eq!(out.get(0).unwrap().width(), 5);
+        assert_eq!(out.get(0).unwrap().height(), 3);
+        assert_eq!(out.get(1).unwrap().width(), 20);
+        assert_eq!(out.get(1).unwrap().height(), 12);
+    }
+
+    #[test]
+    fn test_run_histogram_morph_basic() {
+        let pix = Pix::new(8, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in 2..6u32 {
+            pm.set_pixel_unchecked(x, 0, 1);
+        }
+        let pix: Pix = pm.into();
+
+        let na = run_histogram_morph(&pix, RunType::On, RunDirection::Horizontal, 4).unwrap();
+        assert!(!na.is_empty());
+        assert_eq!(na.get(0), Some(0.0));
+    }
+
+    #[test]
+    fn test_h_dome_extracts_peak() {
+        let pix = Pix::new(7, 7, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..7u32 {
+            for x in 0..7u32 {
+                pm.set_pixel_unchecked(x, y, 10);
+            }
+        }
+        pm.set_pixel_unchecked(3, 3, 40);
+        let pix: Pix = pm.into();
+
+        let out = h_dome(&pix, 15, 4).unwrap();
+        assert_eq!(out.get_pixel_unchecked(0, 0), 0);
+        assert!(out.get_pixel_unchecked(3, 3) > 0);
+    }
+
+    #[test]
+    fn test_fast_tophat_uniform_zero() {
+        let pix = Pix::new(12, 12, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..12u32 {
+            for x in 0..12u32 {
+                pm.set_pixel_unchecked(x, y, 100);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let white = fast_tophat(&pix, 3, 3, TophatType::White).unwrap();
+        let black = fast_tophat(&pix, 3, 3, TophatType::Black).unwrap();
+        assert_eq!(white.get_pixel_unchecked(6, 6), 0);
+        assert_eq!(black.get_pixel_unchecked(6, 6), 0);
     }
 
     #[test]

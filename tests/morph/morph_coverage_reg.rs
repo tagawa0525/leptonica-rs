@@ -11,7 +11,12 @@
 //!
 //! C Leptonica: `morphapp.c`, `selgen.c`, `sel1.c`, `ccthin.c`
 
-use leptonica::morph::morphapp::{morph_sequence_by_component, morph_sequence_by_region};
+use leptonica::morph::MorphOpType;
+use leptonica::morph::morphapp::{
+    RunDirection, RunType, ScaleDirection, TophatType, display_matched_pattern, fast_tophat,
+    h_dome, morph_sequence_by_component, morph_sequence_by_region, pixa_extend_by_morph,
+    pixa_extend_by_scaling, remove_matched_pattern, run_histogram_morph, selective_conn_comp_fill,
+};
 use leptonica::morph::sel::SelElement;
 use leptonica::morph::selgen::{
     generate_sel_boundary, generate_sel_random, generate_sel_with_runs, get_run_centers_on_line,
@@ -123,6 +128,100 @@ fn test_morph_sequence_by_region_requires_1bpp() {
     let pix = Pix::new(40, 40, PixelDepth::Bit8).unwrap();
     let mask = make_two_rects(40, 40);
     assert!(morph_sequence_by_region(&pix, &mask, "d3.3", 4, 0, 0).is_err());
+}
+
+#[test]
+fn test_selective_conn_comp_fill_fills_hole() {
+    let pix = Pix::new(24, 24, PixelDepth::Bit1).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    for y in 4..20u32 {
+        for x in 4..20u32 {
+            pm.set_pixel_unchecked(x, y, 1);
+        }
+    }
+    for y in 10..14u32 {
+        for x in 10..14u32 {
+            pm.set_pixel_unchecked(x, y, 0);
+        }
+    }
+    let pix: Pix = pm.into();
+
+    let out = selective_conn_comp_fill(&pix, 8, 1, 1).unwrap();
+    assert_eq!(out.get_pixel_unchecked(12, 12), 1);
+}
+
+#[test]
+fn test_remove_and_display_matched_pattern() {
+    let pix = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
+    let mut sm = pix.try_into_mut().unwrap();
+    sm.set_pixel_unchecked(6, 7, 1);
+    let src: Pix = sm.into();
+
+    let pattern = Pix::new(1, 1, PixelDepth::Bit1).unwrap();
+    let mut pm = pattern.try_into_mut().unwrap();
+    pm.set_pixel_unchecked(0, 0, 1);
+    let pattern: Pix = pm.into();
+
+    let matches = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
+    let mut mm = matches.try_into_mut().unwrap();
+    mm.set_pixel_unchecked(6, 7, 1);
+    let matches: Pix = mm.into();
+
+    let removed = remove_matched_pattern(&src, &pattern, &matches, 0, 0, 0).unwrap();
+    assert_eq!(removed.get_pixel_unchecked(6, 7), 0);
+
+    let color = 0x00ff00ff;
+    let shown = display_matched_pattern(&src, &pattern, &matches, 0, 0, color, 1.0).unwrap();
+    assert_eq!(shown.depth(), PixelDepth::Bit32);
+    assert_eq!(shown.get_pixel_unchecked(6, 7), color);
+}
+
+#[test]
+fn test_pixa_extend_by_morph_and_scaling() {
+    let pix = Pix::new(10, 6, PixelDepth::Bit1).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    pm.set_pixel_unchecked(5, 3, 1);
+    let mut pixa = Pixa::new();
+    pixa.push(pm.into());
+
+    let extm = pixa_extend_by_morph(&pixa, MorphOpType::Dilate, 2, None, true).unwrap();
+    assert_eq!(extm.len(), 3);
+    assert!(extm.get(2).unwrap().count_pixels() >= extm.get(1).unwrap().count_pixels());
+
+    let exts =
+        pixa_extend_by_scaling(&pixa, &[0.5, 2.0], ScaleDirection::BothDirections, false).unwrap();
+    assert_eq!(exts.len(), 2);
+    assert_eq!(exts.get(0).unwrap().width(), 5);
+    assert_eq!(exts.get(1).unwrap().height(), 12);
+}
+
+#[test]
+fn test_run_histogram_morph_and_gray_ops() {
+    let pix = Pix::new(8, 1, PixelDepth::Bit1).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    for x in 2..6u32 {
+        pm.set_pixel_unchecked(x, 0, 1);
+    }
+    let pix: Pix = pm.into();
+
+    let na = run_histogram_morph(&pix, RunType::On, RunDirection::Horizontal, 4).unwrap();
+    assert!(!na.is_empty());
+    assert_eq!(na.get(0), Some(0.0));
+
+    let gray = Pix::new(16, 16, PixelDepth::Bit8).unwrap();
+    let mut gm = gray.try_into_mut().unwrap();
+    for y in 0..16u32 {
+        for x in 0..16u32 {
+            gm.set_pixel_unchecked(x, y, 80);
+        }
+    }
+    gm.set_pixel_unchecked(8, 8, 130);
+    let gray: Pix = gm.into();
+
+    let dome = h_dome(&gray, 20, 4).unwrap();
+    assert!(dome.get_pixel_unchecked(8, 8) > 0);
+    let tophat = fast_tophat(&gray, 3, 3, TophatType::White).unwrap();
+    assert_eq!(tophat.depth(), PixelDepth::Bit8);
 }
 
 // ============================================================================
