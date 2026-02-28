@@ -8,8 +8,8 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
 | 項目           | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
 | -------------- | ------------------------- | -------------------------- |
-| テスト総数     | **305個** (.c)            | **198ファイル** (*_reg.rs) |
-| 回帰テスト     | **160個** (*_reg.c)       | **152個** (*_reg.rs)       |
+| テスト総数     | **305個** (.c)            | **199ファイル** (*_reg.rs) |
+| 回帰テスト     | **160個** (*_reg.c)       | **153個** (*_reg.rs)       |
 | 個別テスト関数 | 多数                      | **3,270個**                |
 | テストランナー | alltests_reg.c            | `cargo test`               |
 
@@ -202,7 +202,7 @@ Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exte
 | colorseg     | colorseg_reg.rs     | ✅   |
 | colorspace   | colorspace_reg.rs   | ✅   |
 | dither       | dither_reg.rs       | ✅   |
-| falsecolor   | -                   | ❌   |
+| falsecolor   | falsecolor_reg.rs   | ✅   |
 | grayquant    | grayquant_reg.rs    | ✅   |
 | hardlight    | hardlight_reg.rs    | ✅   |
 | paint        | paint_reg.rs        | ✅   |
@@ -211,7 +211,7 @@ Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exte
 
 Rust独自: binarize_advanced, color_magnitude, colorcontent_advanced, colorspace_hsv, quantize_ext
 
-✅ 23 / ❌ 1（C版24個中）
+✅ 24 / ❌ 0（C版24個中）
 
 ### leptonica (src/region/)（領域解析）
 
@@ -273,16 +273,15 @@ Rust独自: conncomp_ext, seedfill_ext
 | leptonica (src/morph/)     | 17      | 17      | 0      | 1        | 100.0%     |
 | leptonica (src/transform/) | 21      | 21      | 0      | 0        | 100.0%     |
 | leptonica (src/filter/)    | 14      | 14      | 0      | 5        | 100.0%     |
-| leptonica (src/color/)     | 24      | 23      | 1      | 5        | 95.8%      |
+| leptonica (src/color/)     | 24      | 24      | 0      | 5        | 100.0%     |
 | leptonica (src/region/)    | 14      | 11      | 3      | 2        | 78.6%      |
 | leptonica (src/recog/)     | 17      | 14      | 3      | 0        | 82.4%      |
-| **合計**                   | **159** | **152** | **7**  | **22**   | **95.6%**  |
+| **合計**                   | **159** | **153** | **6**  | **22**   | **96.2%**  |
 
-### 未移植テスト一覧（7個）
+### 未移植テスト一覧（6個）
 
 | クレート | テスト                             | 備考                           |
 | -------- | ---------------------------------- | ------------------------------ |
-| color    | falsecolor                         | 疑似カラー                     |
 | region   | smoothedge, splitcomp, texturefill | エッジ・分割・テクスチャ       |
 | recog    | findcorners, genfonts, nearline    | コーナー検出・フォント・近傍線 |
 
@@ -291,7 +290,7 @@ Rust独自: conncomp_ext, seedfill_ext
 ### 構造（Rust版）
 
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
-- `tests/`配下に統合テスト（198個の`*_reg.rs`、C版`*_reg.c`に対応）
+- `tests/`配下に統合テスト（199個の`*_reg.rs`、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
 - テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
@@ -302,7 +301,7 @@ Rust独自: conncomp_ext, seedfill_ext
 | **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル    |
 | **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応       |
 | **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応            |
-| **統合テスト**   | alltests_reg.c         | 198ファイル（全crate *_reg.rs）  |
+| **統合テスト**   | alltests_reg.c         | 199ファイル（全crate *_reg.rs）  |
 | **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像       |
 | **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数       |
 
