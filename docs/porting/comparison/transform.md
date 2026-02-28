@@ -6,25 +6,25 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 107 |
+| ✅ 同等   | 109 |
 | 🔄 異なる | 19  |
 | 🚫 不要   | 14  |
 | ❌ 未実装 | 0   |
-| 合計      | 140 |
+| 合計      | 142 |
 
-**カバレッジ**: 90.0% (126/140 関数が実装済み、🚫 不要 14 関数を除くと実質 126/126 = 100.0% 解決済み)
+**カバレッジ**: 90.1% (128/142 関数が実装済み、🚫 不要 14 関数を除くと実質 128/128 = 100.0% 解決済み)
 
 ## 詳細
 
 ### rotate.c (general rotation)
 
-| C関数               | 状態    | Rust対応                        | 備考                     |
-| ------------------- | ------- | ------------------------------- | ------------------------ |
-| pixRotate           | 🔄      | rotate::rotate                  | 異なるインタフェース設計 |
-| pixEmbedForRotation | ✅ 同等 | `embed_for_rotation`            |                          |
-| pixRotateBySampling | 🔄      | rotate::rotate_by_sampling_impl | 内部実装として存在       |
-| pixRotateBinaryNice | ✅ 同等 | `rotate_binary_nice`            |                          |
-| pixRotateWithAlpha  | ✅      | rotate::rotate_with_alpha       | 同等                     |
+| C関数               | 状態 | Rust対応                        | 備考                     |
+| ------------------- | ---- | ------------------------------- | ------------------------ |
+| pixRotate           | 🔄   | rotate::rotate                  | 異なるインタフェース設計 |
+| pixEmbedForRotation | ✅   | embed_for_rotation              |                          |
+| pixRotateBySampling | 🔄   | rotate::rotate_by_sampling_impl | 内部実装として存在       |
+| pixRotateBinaryNice | ✅   | rotate_binary_nice              |                          |
+| pixRotateWithAlpha  | ✅   | rotate::rotate_with_alpha       | 同等                     |
 
 ### rotateam.c (area mapping rotation)
 
@@ -61,61 +61,61 @@
 
 ### scale1.c (general scaling)
 
-| C関数                       | 状態    | Rust対応                            | 備考                      |
-| --------------------------- | ------- | ----------------------------------- | ------------------------- |
-| pixScale                    | ✅      | scale::scale                        | 同等                      |
-| pixScaleToSizeRel           | ✅ 同等 | `scale_to_size_rel`                 |                           |
-| pixScaleToSize              | ✅      | scale::scale_to_size                | 同等                      |
-| pixScaleToResolution        | ✅      | scale::scale_to_resolution          | 同等                      |
-| pixScaleGeneral             | ✅      | scale::scale_general                | 同等                      |
-| pixScaleLI                  | ✅      | scale::scale_li                     | 同等                      |
-| pixScaleColorLI             | ✅      | scale::scale_color_li               | 同等                      |
-| pixScaleColor2xLI           | ✅      | scale::scale_color_2x_li            | 同等                      |
-| pixScaleColor4xLI           | ✅      | scale::scale_color_4x_li            | 同等                      |
-| pixScaleGrayLI              | ✅      | scale::scale_gray_li                | 同等                      |
-| pixScaleGray2xLI            | ✅      | scale::scale_gray_2x_li             | 同等                      |
-| pixScaleGray4xLI            | ✅      | scale::scale_gray_4x_li             | 同等                      |
-| pixScaleGray2xLIThresh      | ✅      | scale::scale_gray_2x_li_thresh      | 同等                      |
-| pixScaleGray2xLIDither      | ✅      | scale::scale_gray_2x_li_dither      | 同等                      |
-| pixScaleGray4xLIThresh      | ✅      | scale::scale_gray_4x_li_thresh      | 同等                      |
-| pixScaleGray4xLIDither      | ✅      | scale::scale_gray_4x_li_dither      | 同等                      |
-| pixScaleBySampling          | ✅      | scale::scale_by_sampling            | 同等                      |
-| pixScaleBySamplingWithShift | ✅      | scale::scale_by_sampling_with_shift | 同等                      |
-| pixScaleBySamplingToSize    | ✅ 同等 | `scale_by_sampling_to_size`         |                           |
-| pixScaleByIntSampling       | ✅      | scale::scale_by_int_sampling        | 同等                      |
-| pixScaleRGBToGrayFast       | 🚫      | -                                   | 不要 (Fast系スコープ除外) |
-| pixScaleRGBToBinaryFast     | 🚫      | -                                   | 不要 (Fast系スコープ除外) |
-| pixScaleGrayToBinaryFast    | 🚫      | -                                   | 不要 (Fast系スコープ除外) |
-| pixScaleSmooth              | ✅      | scale::scale_smooth                 | 同等                      |
-| pixScaleSmoothToSize        | ✅ 同等 | `scale_smooth_to_size`              |                           |
-| pixScaleRGBToGray2          | 🚫      | -                                   | 不要 (スコープ除外)       |
-| pixScaleAreaMap             | 🔄      | scale::scale_area_map               | 内部実装として存在        |
-| pixScaleAreaMap2            | ✅ 同等 | `scale_area_map_2`                  |                           |
-| pixScaleAreaMapToSize       | ✅ 同等 | `scale_area_map_to_size`            |                           |
-| pixScaleBinary              | ✅      | scale::scale_binary                 | 同等                      |
-| pixScaleBinaryWithShift     | ✅ 同等 | `scale_binary_with_shift`           |                           |
+| C関数                       | 状態 | Rust対応                            | 備考                      |
+| --------------------------- | ---- | ----------------------------------- | ------------------------- |
+| pixScale                    | ✅   | scale::scale                        | 同等                      |
+| pixScaleToSizeRel           | ✅   | scale_to_size_rel                   |                           |
+| pixScaleToSize              | ✅   | scale::scale_to_size                | 同等                      |
+| pixScaleToResolution        | ✅   | scale::scale_to_resolution          | 同等                      |
+| pixScaleGeneral             | ✅   | scale::scale_general                | 同等                      |
+| pixScaleLI                  | ✅   | scale::scale_li                     | 同等                      |
+| pixScaleColorLI             | ✅   | scale::scale_color_li               | 同等                      |
+| pixScaleColor2xLI           | ✅   | scale::scale_color_2x_li            | 同等                      |
+| pixScaleColor4xLI           | ✅   | scale::scale_color_4x_li            | 同等                      |
+| pixScaleGrayLI              | ✅   | scale::scale_gray_li                | 同等                      |
+| pixScaleGray2xLI            | ✅   | scale::scale_gray_2x_li             | 同等                      |
+| pixScaleGray4xLI            | ✅   | scale::scale_gray_4x_li             | 同等                      |
+| pixScaleGray2xLIThresh      | ✅   | scale::scale_gray_2x_li_thresh      | 同等                      |
+| pixScaleGray2xLIDither      | ✅   | scale::scale_gray_2x_li_dither      | 同等                      |
+| pixScaleGray4xLIThresh      | ✅   | scale::scale_gray_4x_li_thresh      | 同等                      |
+| pixScaleGray4xLIDither      | ✅   | scale::scale_gray_4x_li_dither      | 同等                      |
+| pixScaleBySampling          | ✅   | scale::scale_by_sampling            | 同等                      |
+| pixScaleBySamplingWithShift | ✅   | scale::scale_by_sampling_with_shift | 同等                      |
+| pixScaleBySamplingToSize    | ✅   | scale_by_sampling_to_size           |                           |
+| pixScaleByIntSampling       | ✅   | scale::scale_by_int_sampling        | 同等                      |
+| pixScaleRGBToGrayFast       | 🚫   | -                                   | 不要 (Fast系スコープ除外) |
+| pixScaleRGBToBinaryFast     | 🚫   | -                                   | 不要 (Fast系スコープ除外) |
+| pixScaleGrayToBinaryFast    | 🚫   | -                                   | 不要 (Fast系スコープ除外) |
+| pixScaleSmooth              | ✅   | scale::scale_smooth                 | 同等                      |
+| pixScaleSmoothToSize        | ✅   | scale_smooth_to_size                |                           |
+| pixScaleRGBToGray2          | 🚫   | -                                   | 不要 (スコープ除外)       |
+| pixScaleAreaMap             | 🔄   | scale::scale_area_map               | 内部実装として存在        |
+| pixScaleAreaMap2            | ✅   | scale_area_map_2                    |                           |
+| pixScaleAreaMapToSize       | ✅   | scale_area_map_to_size              |                           |
+| pixScaleBinary              | ✅   | scale::scale_binary                 | 同等                      |
+| pixScaleBinaryWithShift     | ✅   | scale_binary_with_shift             |                           |
 
 ### scale2.c (specialized scaling)
 
-| C関数                    | 状態    | Rust対応                       | 備考                                                      |
-| ------------------------ | ------- | ------------------------------ | --------------------------------------------------------- |
-| pixScaleToGray           | ✅      | scale::scale_to_gray           | 同等                                                      |
-| pixScaleToGrayFast       | ✅      | scale::scale_to_gray_fast      | 同等                                                      |
-| pixScaleToGray2          | ✅      | scale::scale_to_gray_2         | 同等                                                      |
-| pixScaleToGray3          | ✅      | scale::scale_to_gray_3         | 同等                                                      |
-| pixScaleToGray4          | ✅      | scale::scale_to_gray_4         | 同等                                                      |
-| pixScaleToGray6          | ✅      | scale::scale_to_gray_6         | 同等                                                      |
-| pixScaleToGray8          | ✅      | scale::scale_to_gray_8         | 同等                                                      |
-| pixScaleToGray16         | ✅      | scale::scale_to_gray_16        | 同等                                                      |
-| pixScaleToGrayMipmap     | ✅      | scale::scale_to_gray_mipmap    | 同等                                                      |
-| pixScaleMipmap           | 🚫      | -                              | プライベート関数 `scale_mipmap` として存在するが非公開API |
-| pixExpandReplicate       | ✅      | scale::expand_replicate        | 同等                                                      |
-| pixScaleGrayMinMax       | ✅      | scale::scale_gray_min_max      | 同等                                                      |
-| pixScaleGrayMinMax2      | ✅ 同等 | `scale_gray_min_max_2`         |                                                           |
-| pixScaleGrayRankCascade  | ✅      | scale::scale_gray_rank_cascade | 同等                                                      |
-| pixScaleGrayRank2        | ✅ 同等 | `scale_gray_rank2`             |                                                           |
-| pixScaleAndTransferAlpha | 🚫      | -                              | 不要 (内部ヘルパー、pixScaleWithAlpha内で処理)            |
-| pixScaleWithAlpha        | ✅ 同等 | `scale_with_alpha`             |                                                           |
+| C関数                    | 状態 | Rust対応                       | 備考                                                      |
+| ------------------------ | ---- | ------------------------------ | --------------------------------------------------------- |
+| pixScaleToGray           | ✅   | scale::scale_to_gray           | 同等                                                      |
+| pixScaleToGrayFast       | ✅   | scale::scale_to_gray_fast      | 同等                                                      |
+| pixScaleToGray2          | ✅   | scale::scale_to_gray_2         | 同等                                                      |
+| pixScaleToGray3          | ✅   | scale::scale_to_gray_3         | 同等                                                      |
+| pixScaleToGray4          | ✅   | scale::scale_to_gray_4         | 同等                                                      |
+| pixScaleToGray6          | ✅   | scale::scale_to_gray_6         | 同等                                                      |
+| pixScaleToGray8          | ✅   | scale::scale_to_gray_8         | 同等                                                      |
+| pixScaleToGray16         | ✅   | scale::scale_to_gray_16        | 同等                                                      |
+| pixScaleToGrayMipmap     | ✅   | scale::scale_to_gray_mipmap    | 同等                                                      |
+| pixScaleMipmap           | 🚫   | -                              | プライベート関数 `scale_mipmap` として存在するが非公開API |
+| pixExpandReplicate       | ✅   | scale::expand_replicate        | 同等                                                      |
+| pixScaleGrayMinMax       | ✅   | scale::scale_gray_min_max      | 同等                                                      |
+| pixScaleGrayMinMax2      | ✅   | scale_gray_min_max_2           |                                                           |
+| pixScaleGrayRankCascade  | ✅   | scale::scale_gray_rank_cascade | 同等                                                      |
+| pixScaleGrayRank2        | ✅   | scale_gray_rank_2              |                                                           |
+| pixScaleAndTransferAlpha | 🚫   | -                              | 不要 (内部ヘルパー、pixScaleWithAlpha内で処理)            |
+| pixScaleWithAlpha        | ✅   | scale_with_alpha               |                                                           |
 
 ### affine.c
 
@@ -141,23 +141,23 @@
 
 ### affinecompose.c
 
-| C関数                   | 状態    | Rust対応                  | 備考                                        |
-| ----------------------- | ------- | ------------------------- | ------------------------------------------- |
-| createMatrix2dTranslate | ✅      | AffineMatrix::translation | 同等 (コンストラクタ)                       |
-| createMatrix2dScale     | ✅      | AffineMatrix::scale       | 同等 (コンストラクタ)                       |
-| createMatrix2dRotate    | ✅      | AffineMatrix::rotation    | 同等 (コンストラクタ)                       |
-| ptaTranslate            | ✅ 同等 | `Pta::translate`          |                                             |
-| ptaScale                | ✅ 同等 | `Pta::scale`              |                                             |
-| ptaRotate               | ✅      | Pta::rotate_around        | 同等 (rotated_about に委譲)                 |
-| boxaTranslate           | ✅ 同等 | `Boxa::translate`         |                                             |
-| boxaScale               | ✅ 同等 | `Boxa::scale`             |                                             |
-| boxaRotate              | ✅ 同等 | `Boxa::rotate`            |                                             |
-| ptaAffineTransform      | ✅      | Pta::affine_transform     | 同等                                        |
-| boxaAffineTransform     | ✅      | Boxa::affine_transform    | 同等                                        |
-| l_productMatVec         | 🚫      | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
-| l_productMat2           | 🚫      | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
-| l_productMat3           | 🚫      | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
-| l_productMat4           | 🚫      | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| C関数                   | 状態 | Rust対応                  | 備考                                        |
+| ----------------------- | ---- | ------------------------- | ------------------------------------------- |
+| createMatrix2dTranslate | ✅   | AffineMatrix::translation | 同等 (コンストラクタ)                       |
+| createMatrix2dScale     | ✅   | AffineMatrix::scale       | 同等 (コンストラクタ)                       |
+| createMatrix2dRotate    | ✅   | AffineMatrix::rotation    | 同等 (コンストラクタ)                       |
+| ptaTranslate            | ✅   | Pta::translate            |                                             |
+| ptaScale                | ✅   | Pta::scale                |                                             |
+| ptaRotate               | ✅   | Pta::rotate_around        | 同等 (rotated_about に委譲)                 |
+| boxaTranslate           | ✅   | Boxa::translate           |                                             |
+| boxaScale               | ✅   | Boxa::scale               |                                             |
+| boxaRotate              | ✅   | Boxa::rotate              |                                             |
+| ptaAffineTransform      | ✅   | Pta::affine_transform     | 同等                                        |
+| boxaAffineTransform     | ✅   | Boxa::affine_transform    | 同等                                        |
+| l_productMatVec         | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat2           | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat3           | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
+| l_productMat4           | 🚫   | -                         | 不要 (スコープ除外、AffineMatrix演算で代替) |
 
 ### bilinear.c
 
@@ -210,13 +210,15 @@
 
 ### flipdetect.c (leptonica (src/recog/) に実装)
 
-| C関数            | 状態 | Rust対応                          | 備考                          |
-| ---------------- | ---- | --------------------------------- | ----------------------------- |
-| pixOrientDetect  | ✅   | recog::flipdetect::orient_detect  | leptonica (src/recog/) に実装 |
-| pixOrientCorrect | ✅   | recog::flipdetect::orient_correct | leptonica (src/recog/) に実装 |
-| pixMirrorDetect  | ✅   | recog::flipdetect::mirror_detect  | leptonica (src/recog/) に実装 |
+| C関数              | 状態 | Rust対応                                | 備考                          |
+| ------------------ | ---- | --------------------------------------- | ----------------------------- |
+| makeOrientDecision | ✅   | recog::flipdetect::make_orient_decision | leptonica (src/recog/) に実装 |
+| pixUpDownDetect    | ✅   | recog::flipdetect::up_down_detect       | leptonica (src/recog/) に実装 |
+| pixOrientDetect    | ✅   | recog::flipdetect::orient_detect        | leptonica (src/recog/) に実装 |
+| pixOrientCorrect   | ✅   | recog::flipdetect::orient_correct       | leptonica (src/recog/) に実装 |
+| pixMirrorDetect    | ✅   | recog::flipdetect::mirror_detect        | leptonica (src/recog/) に実装 |
 
-*注: flipdetect.c の3関数はleptonica (src/recog/) で実装済み。上記152関数カウントには含まれない。*
+*注: flipdetect.c の5関数は leptonica (src/recog/) に実装済みで、上記142関数カウントに含めている。*
 
 ## 追加機能 (Rust版のみ)
 

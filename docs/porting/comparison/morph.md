@@ -16,208 +16,221 @@
 
 ### morph.c (基本形態学演算)
 
-| C関数                       | 状態      | Rust対応                      | 備考                                                |
-| --------------------------- | --------- | ----------------------------- | --------------------------------------------------- |
-| pixDilate                   | ✅ 同等   | binary::dilate                |                                                     |
-| pixErode                    | ✅ 同等   | binary::erode                 |                                                     |
-| pixOpen                     | ✅ 同等   | binary::open                  |                                                     |
-| pixClose                    | ✅ 同等   | binary::close                 |                                                     |
-| pixCloseSafe                | ✅ 同等   | binary::close_safe            | Phase 1で実装                                       |
-| pixOpenGeneralized          | ✅ 同等   | binary::open_generalized      | Phase 1で実装                                       |
-| pixCloseGeneralized         | ✅ 同等   | binary::close_generalized     | Phase 1で実装                                       |
-| pixDilateBrick              | ✅ 同等   | binary::dilate_brick          |                                                     |
-| pixErodeBrick               | ✅ 同等   | binary::erode_brick           |                                                     |
-| pixOpenBrick                | ✅ 同等   | binary::open_brick            |                                                     |
-| pixCloseBrick               | ✅ 同等   | binary::close_brick           |                                                     |
-| pixCloseSafeBrick           | ✅ 同等   | binary::close_safe_brick      | Phase 1で実装                                       |
-| pixDilateCompBrick          | 🔄 異なる | binary::dilate_brick          | Rust版は分離可能分解を自動選択                      |
-| pixErodeCompBrick           | 🔄 異なる | binary::erode_brick           | Rust版は分離可能分解を自動選択                      |
-| pixOpenCompBrick            | 🔄 異なる | binary::open_brick            | Rust版は分離可能分解を自動選択                      |
-| pixCloseCompBrick           | 🔄 異なる | binary::close_brick           | Rust版は分離可能分解を自動選択                      |
-| pixCloseSafeCompBrick       | ✅ 同等   | binary::close_safe_comp_brick | Phase 1で実装                                       |
-| resetMorphBoundaryCondition | 🚫 不要   | -                             | C版グローバル変数setter（Rustでは引数で明示指定）   |
-| getMorphBorderPixelColor    | 🚫 不要   | -                             | C版グローバル状態アクセサ（Rustでは引数で明示指定） |
+| C関数                       | 状態 | Rust対応                        | 備考                                                |
+| --------------------------- | ---- | ------------------------------- | --------------------------------------------------- |
+| pixDilate                   | ✅   | binary::dilate                  |                                                     |
+| pixErode                    | ✅   | binary::erode                   |                                                     |
+| pixOpen                     | ✅   | binary::open                    |                                                     |
+| pixClose                    | ✅   | binary::close                   |                                                     |
+| pixCloseSafe                | ✅   | binary::close_safe              | Phase 1で実装                                       |
+| pixOpenGeneralized          | ✅   | binary::open_generalized        | Phase 1で実装                                       |
+| pixCloseGeneralized         | ✅   | binary::close_generalized       | Phase 1で実装                                       |
+| pixDilateBrick              | ✅   | binary::dilate_brick            |                                                     |
+| pixErodeBrick               | ✅   | binary::erode_brick             |                                                     |
+| pixOpenBrick                | ✅   | binary::open_brick              |                                                     |
+| pixCloseBrick               | ✅   | binary::close_brick             |                                                     |
+| pixCloseSafeBrick           | ✅   | binary::close_safe_brick        | Phase 1で実装                                       |
+| pixDilateCompBrick          | 🔄   | binary::dilate_brick            | Rust版は分離可能分解を自動選択                      |
+| pixErodeCompBrick           | 🔄   | binary::erode_brick             | Rust版は分離可能分解を自動選択                      |
+| pixOpenCompBrick            | 🔄   | binary::open_brick              | Rust版は分離可能分解を自動選択                      |
+| pixCloseCompBrick           | 🔄   | binary::close_brick             | Rust版は分離可能分解を自動選択                      |
+| pixCloseSafeCompBrick       | ✅   | binary::close_safe_comp_brick   | Phase 1で実装                                       |
+| pixHMT                      | ✅   | binary::hit_miss_transform      |                                                     |
+| selectComposableSels        | 🔄   | Sel::create_comb_*              | Rust版はSEL生成APIとして分離                        |
+| selectComposableSizes       | ✅   | binary::select_composable_sizes |                                                     |
+| resetMorphBoundaryCondition | 🚫   | -                               | C版グローバル変数setter（Rustでは引数で明示指定）   |
+| getMorphBorderPixelColor    | 🚫   | -                               | C版グローバル状態アクセサ（Rustでは引数で明示指定） |
 
 ### morphapp.c (応用演算)
 
-| C関数                       | 状態    | Rust対応                            | 備考                                                  |
-| --------------------------- | ------- | ----------------------------------- | ----------------------------------------------------- |
-| pixMorphGradient            | ✅ 同等 | morphapp::morph_gradient            | Phase 2で実装                                         |
-| pixExtractBoundary          | ✅ 同等 | binary::extract_boundary            | Phase 2で実装                                         |
-| pixMorphSequenceMasked      | ✅ 同等 | morphapp::morph_sequence_masked     | Phase 2で実装                                         |
-| pixUnionOfMorphOps          | ✅ 同等 | morphapp::union_of_morph_ops        | Phase 2で実装                                         |
-| pixIntersectionOfMorphOps   | ✅ 同等 | morphapp::intersection_of_morph_ops | Phase 2で実装                                         |
-| pixSeedfillMorph            | ✅ 同等 | morphapp::seedfill_morph            | Phase 2で実装                                         |
-| pixMorphSequenceByComponent | ✅ 同等 | `morph_sequence_by_component`       | 連結成分ごとの処理                                    |
-| pixMorphSequenceByRegion    | ✅ 同等 | `morph_sequence_by_region`          | 領域ごとの処理                                        |
-| pixTophat                   | ✅ 同等 | binary::top_hat                     | バイナリ版top-hat（graymorph.cのpixTophatとは別関数） |
-| pixHMT                      | ✅ 同等 | binary::hit_miss_transform          |                                                       |
-| pixGrayscaleMorphSum        | 🚫 不要 | -                                   | C版leptonicaに存在しない関数                          |
-| pixMultiplyByColor          | 🚫 不要 | -                                   | blend.c所属（morph領域外）                            |
-| pixHMTDwa                   | 🚫 不要 | -                                   | DWA自動生成コード                                     |
-| pixFHMTGen                  | 🚫 不要 | -                                   | DWAコード生成                                         |
+| C関数                        | 状態 | Rust対応                              | 備考                                   |
+| ---------------------------- | ---- | ------------------------------------- | -------------------------------------- |
+| pixMorphGradient             | ✅   | morphapp::morph_gradient              | Phase 2で実装                          |
+| pixExtractBoundary           | ✅   | binary::extract_boundary              | Phase 2で実装                          |
+| pixMorphSequenceMasked       | ✅   | morphapp::morph_sequence_masked       | Phase 2で実装                          |
+| pixUnionOfMorphOps           | ✅   | morphapp::union_of_morph_ops          | Phase 2で実装                          |
+| pixIntersectionOfMorphOps    | ✅   | morphapp::intersection_of_morph_ops   | Phase 2で実装                          |
+| pixSeedfillMorph             | ✅   | morphapp::seedfill_morph              | Phase 2で実装                          |
+| pixMorphSequenceByComponent  | ✅   | morph_sequence_by_component           | 連結成分ごとの処理                     |
+| pixMorphSequenceByRegion     | ✅   | morph_sequence_by_region              | 領域ごとの処理                         |
+| pixaMorphSequenceByComponent | 🔄   | morphapp::morph_sequence_by_component | Rust版はPIXAではなく合成済みPixを返す  |
+| pixaMorphSequenceByRegion    | 🔄   | morphapp::morph_sequence_by_region    | Rust版はPIXAではなく合成済みPixを返す  |
+| pixSelectiveConnCompFill     | ❌   | -                                     |                                        |
+| pixRemoveMatchedPattern      | ❌   | -                                     |                                        |
+| pixDisplayMatchedPattern     | ❌   | -                                     |                                        |
+| pixaExtendByMorph            | ❌   | -                                     |                                        |
+| pixaExtendByScaling          | ❌   | -                                     |                                        |
+| pixRunHistogramMorph         | ❌   | -                                     |                                        |
+| pixTophat                    | 🔄   | binary::top_hat                       | C版は8bpp演算。Rust版は1bpp二値top-hat |
+| pixHDome                     | ❌   | -                                     |                                        |
+| pixFastTophat                | ❌   | -                                     |                                        |
+| pixaCentroids                | ❌   | -                                     |                                        |
+| pixCentroid                  | ❌   | -                                     |                                        |
+| pixGrayscaleMorphSum         | 🚫   | -                                     | C版leptonicaに存在しない関数           |
+| pixMultiplyByColor           | 🚫   | -                                     | blend.c所属（morph領域外）             |
+| pixHMTDwa                    | 🚫   | -                                     | DWA自動生成コード                      |
+| pixFHMTGen                   | 🚫   | -                                     | DWAコード生成                          |
 
 ### morphdwa.c (DWA実装)
 
-| C関数                          | 状態    | Rust対応                               | 備考                                  |
-| ------------------------------ | ------- | -------------------------------------- | ------------------------------------- |
-| pixDilateBrickDwa              | ✅ 同等 | dwa::dilate_brick_dwa                  |                                       |
-| pixErodeBrickDwa               | ✅ 同等 | dwa::erode_brick_dwa                   |                                       |
-| pixOpenBrickDwa                | ✅ 同等 | dwa::open_brick_dwa                    |                                       |
-| pixCloseBrickDwa               | ✅ 同等 | dwa::close_brick_dwa                   |                                       |
-| pixDilateCompBrickDwa          | ✅ 同等 | dwa::dilate_comp_brick_dwa             | Phase 5で実装                         |
-| pixErodeCompBrickDwa           | ✅ 同等 | dwa::erode_comp_brick_dwa              | Phase 5で実装                         |
-| pixOpenCompBrickDwa            | ✅ 同等 | dwa::open_comp_brick_dwa               | Phase 5で実装                         |
-| pixCloseCompBrickDwa           | ✅ 同等 | dwa::close_comp_brick_dwa              | Phase 5で実装                         |
-| pixDilateCompBrickExtendDwa    | ✅ 同等 | dwa::dilate_comp_brick_extend_dwa      | Phase 5で実装                         |
-| pixErodeCompBrickExtendDwa     | ✅ 同等 | dwa::erode_comp_brick_extend_dwa       | Phase 5で実装                         |
-| pixOpenCompBrickExtendDwa      | ✅ 同等 | dwa::open_comp_brick_extend_dwa        | Phase 5で実装                         |
-| pixCloseCompBrickExtendDwa     | ✅ 同等 | dwa::close_comp_brick_extend_dwa       | Phase 5で実装                         |
-| getExtendedCompositeParameters | ✅ 同等 | dwa::get_extended_composite_parameters | Phase 5で実装                         |
-| makeLinearBrickDwaGen          | 🚫 不要 | -                                      | DWAコード生成（Rustでは不要）         |
-| makeLinearBrickDwa             | 🚫 不要 | -                                      | DWAコード生成（Rustでは不要）         |
-| pixMorphDwa_*系                | 🚫 不要 | -                                      | DWA自動生成関数（Rustでは手書き実装） |
+| C関数                          | 状態 | Rust対応                               | 備考                                  |
+| ------------------------------ | ---- | -------------------------------------- | ------------------------------------- |
+| pixDilateBrickDwa              | ✅   | dwa::dilate_brick_dwa                  |                                       |
+| pixErodeBrickDwa               | ✅   | dwa::erode_brick_dwa                   |                                       |
+| pixOpenBrickDwa                | ✅   | dwa::open_brick_dwa                    |                                       |
+| pixCloseBrickDwa               | ✅   | dwa::close_brick_dwa                   |                                       |
+| pixDilateCompBrickDwa          | ✅   | dwa::dilate_comp_brick_dwa             | Phase 5で実装                         |
+| pixErodeCompBrickDwa           | ✅   | dwa::erode_comp_brick_dwa              | Phase 5で実装                         |
+| pixOpenCompBrickDwa            | ✅   | dwa::open_comp_brick_dwa               | Phase 5で実装                         |
+| pixCloseCompBrickDwa           | ✅   | dwa::close_comp_brick_dwa              | Phase 5で実装                         |
+| pixDilateCompBrickExtendDwa    | ✅   | dwa::dilate_comp_brick_extend_dwa      | Phase 5で実装                         |
+| pixErodeCompBrickExtendDwa     | ✅   | dwa::erode_comp_brick_extend_dwa       | Phase 5で実装                         |
+| pixOpenCompBrickExtendDwa      | ✅   | dwa::open_comp_brick_extend_dwa        | Phase 5で実装                         |
+| pixCloseCompBrickExtendDwa     | ✅   | dwa::close_comp_brick_extend_dwa       | Phase 5で実装                         |
+| getExtendedCompositeParameters | ✅   | dwa::get_extended_composite_parameters | Phase 5で実装                         |
+| pixMorphDwa_*系                | 🚫   | -                                      | DWA自動生成関数（Rustでは手書き実装） |
 
 ### morphseq.c (シーケンス処理)
 
-| C関数                   | 状態      | Rust対応                          | 備考                  |
-| ----------------------- | --------- | --------------------------------- | --------------------- |
-| pixMorphSequence        | ✅ 同等   | sequence::morph_sequence          |                       |
-| pixMorphCompSequence    | ✅ 同等   | sequence::morph_comp_sequence     |                       |
-| pixMorphSequenceDwa     | ✅ 同等   | sequence::morph_sequence_dwa      | Phase 5で実装         |
-| pixMorphCompSequenceDwa | ✅ 同等   | sequence::morph_comp_sequence_dwa | Phase 5で実装         |
-| morphSequenceVerify     | 🔄 異なる | sequence内部で検証                | 公開APIとしては未実装 |
-| pixGrayMorphSequence    | ✅ 同等   | sequence::gray_morph_sequence     |                       |
-| pixColorMorphSequence   | ✅ 同等   | sequence::color_morph_sequence    | Phase 5で実装         |
+| C関数                   | 状態 | Rust対応                          | 備考                  |
+| ----------------------- | ---- | --------------------------------- | --------------------- |
+| pixMorphSequence        | ✅   | sequence::morph_sequence          |                       |
+| pixMorphCompSequence    | ✅   | sequence::morph_comp_sequence     |                       |
+| pixMorphSequenceDwa     | ✅   | sequence::morph_sequence_dwa      | Phase 5で実装         |
+| pixMorphCompSequenceDwa | ✅   | sequence::morph_comp_sequence_dwa | Phase 5で実装         |
+| morphSequenceVerify     | 🔄   | sequence内部で検証                | 公開APIとしては未実装 |
+| pixGrayMorphSequence    | ✅   | sequence::gray_morph_sequence     |                       |
+| pixColorMorphSequence   | ✅   | sequence::color_morph_sequence    | Phase 5で実装         |
 
 ### graymorph.c (グレースケール形態学)
 
-| C関数          | 状態      | Rust対応                | 備考                                                       |
-| -------------- | --------- | ----------------------- | ---------------------------------------------------------- |
-| pixErodeGray   | ✅ 同等   | grayscale::erode_gray   |                                                            |
-| pixDilateGray  | ✅ 同等   | grayscale::dilate_gray  |                                                            |
-| pixOpenGray    | ✅ 同等   | grayscale::open_gray    |                                                            |
-| pixCloseGray   | ✅ 同等   | grayscale::close_gray   |                                                            |
-| pixErodeGray3  | 🔄 異なる | grayscale::erode_gray   | erode_gray() が 3x3 で fast path にディスパッチ            |
-| pixDilateGray3 | 🔄 異なる | grayscale::dilate_gray  | dilate_gray() が 3x3 で fast path にディスパッチ           |
-| pixOpenGray3   | 🔄 異なる | grayscale::open_gray    | open_gray() が 3x3 で fast path にディスパッチ             |
-| pixCloseGray3  | 🔄 異なる | grayscale::close_gray   | close_gray() が 3x3 で fast path にディスパッチ            |
-| dilateGrayLow  | 🚫 不要   | -                       | 低レベル内部関数（高レベルAPIで対応済み）                  |
-| erodeGrayLow   | 🚫 不要   | -                       | 低レベル内部関数（高レベルAPIで対応済み）                  |
-| pixTophat      | ✅ 同等   | grayscale::top_hat_gray | グレースケール版top-hat（morphapp.cのpixTophatとは別関数） |
+| C関数          | 状態 | Rust対応               | 備考                                             |
+| -------------- | ---- | ---------------------- | ------------------------------------------------ |
+| pixErodeGray   | ✅   | grayscale::erode_gray  |                                                  |
+| pixDilateGray  | ✅   | grayscale::dilate_gray |                                                  |
+| pixOpenGray    | ✅   | grayscale::open_gray   |                                                  |
+| pixCloseGray   | ✅   | grayscale::close_gray  |                                                  |
+| pixErodeGray3  | 🔄   | grayscale::erode_gray  | erode_gray() が 3x3 で fast path にディスパッチ  |
+| pixDilateGray3 | 🔄   | grayscale::dilate_gray | dilate_gray() が 3x3 で fast path にディスパッチ |
+| pixOpenGray3   | 🔄   | grayscale::open_gray   | open_gray() が 3x3 で fast path にディスパッチ   |
+| pixCloseGray3  | 🔄   | grayscale::close_gray  | close_gray() が 3x3 で fast path にディスパッチ  |
+| dilateGrayLow  | 🚫   | -                      | 低レベル内部関数（高レベルAPIで対応済み）        |
+| erodeGrayLow   | 🚫   | -                      | 低レベル内部関数（高レベルAPIで対応済み）        |
+| pixTophat      | 🚫   | -                      | graymorph.cには定義なし（morphapp.cを参照）      |
 
 ### colormorph.c (カラー形態学)
 
-| C関数         | 状態      | Rust対応                | 備考                         |
-| ------------- | --------- | ----------------------- | ---------------------------- |
-| pixColorMorph | 🔄 異なる | color::dilate_color等   | C版は1関数、Rust版は個別関数 |
-| -             | ✅ 同等   | color::dilate_color     | Rust版で追加                 |
-| -             | ✅ 同等   | color::erode_color      | Rust版で追加                 |
-| -             | ✅ 同等   | color::open_color       | Rust版で追加                 |
-| -             | ✅ 同等   | color::close_color      | Rust版で追加                 |
-| -             | ✅ 同等   | color::gradient_color   | Rust版で追加                 |
-| -             | ✅ 同等   | color::top_hat_color    | Rust版で追加                 |
-| -             | ✅ 同等   | color::bottom_hat_color | Rust版で追加                 |
+| C関数         | 状態 | Rust対応                | 備考                         |
+| ------------- | ---- | ----------------------- | ---------------------------- |
+| pixColorMorph | 🔄   | color::dilate_color等   | C版は1関数、Rust版は個別関数 |
+| -             | ✅   | color::dilate_color     | Rust版で追加                 |
+| -             | ✅   | color::erode_color      | Rust版で追加                 |
+| -             | ✅   | color::open_color       | Rust版で追加                 |
+| -             | ✅   | color::close_color      | Rust版で追加                 |
+| -             | ✅   | color::gradient_color   | Rust版で追加                 |
+| -             | ✅   | color::top_hat_color    | Rust版で追加                 |
+| -             | ✅   | color::bottom_hat_color | Rust版で追加                 |
 
 ### sel1.c (Sel基本操作)
 
-| C関数                   | 状態      | Rust対応                                    | 備考                         |
-| ----------------------- | --------- | ------------------------------------------- | ---------------------------- |
-| selaCreate              | ✅ 同等   | sel::Sela::new                              | Phase 6で実装                |
-| selaDestroy             | ✅ 同等   | Drop trait                                  | Rust自動メモリ管理           |
-| selCreate               | ✅ 同等   | sel::Sel::new                               |                              |
-| selDestroy              | ✅ 同等   | Drop trait                                  |                              |
-| selCopy                 | ✅ 同等   | Clone trait                                 |                              |
-| selCreateBrick          | ✅ 同等   | sel::Sel::create_brick                      |                              |
-| selCreateComb           | ✅ 同等   | DWA内部で使用                               |                              |
-| create2dIntArray        | 🔄 異なる | Vec<Vec<>>                                  | Rustでは不要                 |
-| selaAddSel              | ✅ 同等   | sel::Sela::add                              | Phase 6で実装                |
-| selaGetCount            | ✅ 同等   | sel::Sela::count                            | Phase 6で実装                |
-| selaGetSel              | ✅ 同等   | sel::Sela::get                              | Phase 6で実装                |
-| selGetName              | ✅ 同等   | sel::Sel::name()                            |                              |
-| selSetName              | ✅ 同等   | sel::Sel::set_name()                        |                              |
-| selaFindSelByName       | ✅ 同等   | sel::Sela::find_by_name                     | Phase 6で実装                |
-| selGetElement           | ✅ 同等   | sel::Sel::get_element                       |                              |
-| selSetElement           | ✅ 同等   | sel::Sel::set_element                       |                              |
-| selGetParameters        | ✅ 同等   | sel::Sel::get_parameters                    | Phase 3で実装                |
-| selSetOrigin            | ✅ 同等   | sel::Sel::set_origin                        |                              |
-| selGetTypeAtOrigin      | ✅ 同等   | get_elementでorigin参照                     |                              |
-| selaGetBrickName        | 🔄 異なる | Sela::find_by_name                          | 命名規則で検索               |
-| selaGetCombName         | 🔄 異なる | Sela::find_by_name                          | 命名規則で検索               |
-| getCompositeParameters  | ✅ 同等   | dwa内部 + get_extended_composite_parameters |                              |
-| selaGetSelnames         | 🔄 異なる | iterate + name()                            |                              |
-| selFindMaxTranslations  | ✅ 同等   | sel::Sel::find_max_translations             |                              |
-| selRotateOrth           | ✅ 同等   | sel::Sel::rotate_orth                       |                              |
-| selaRead                | ✅ 同等   | sel::Sela::read                             | Phase 6で実装                |
-| selaReadStream          | ✅ 同等   | sel::Sela::read_from_reader                 | Phase 6で実装                |
-| selRead                 | ✅ 同等   | sel::Sel::read                              | Phase 3で実装                |
-| selReadStream           | ✅ 同等   | sel::Sel::read_from_reader                  | Phase 3で実装                |
-| selaWrite               | ✅ 同等   | sel::Sela::write                            | Phase 6で実装                |
-| selaWriteStream         | ✅ 同等   | sel::Sela::write_to_writer                  | Phase 6で実装                |
-| selWrite                | ✅ 同等   | sel::Sel::write                             | Phase 3で実装                |
-| selWriteStream          | ✅ 同等   | sel::Sel::write_to_writer                   | Phase 3で実装                |
-| selCreateFromString     | ✅ 同等   | sel::Sel::from_string                       |                              |
-| selPrintToString        | ✅ 同等   | sel::Sel::print_to_string                   | Phase 3で実装                |
-| selaCreateFromFile      | ✅ 同等   | sel::Sela::read                             | Phase 6で実装                |
-| selCreateFromPta        | ✅ 同等   | sel::Sel::from_pta                          | Phase 3で実装                |
-| selCreateFromPix        | ✅ 同等   | sel::Sel::from_pix                          | Phase 3で実装                |
-| selReadFromColorImage   | ✅ 同等   | sel::Sel::from_color_image                  | Phase 3で実装                |
-| selCreateFromColorPix   | ✅ 同等   | sel::Sel::from_color_image                  | Phase 3で実装                |
-| selaCreateFromColorPixa | ✅ 同等   | `sela_create_from_color_pixa`               | Pixa操作はアプリケーション層 |
-| selDisplayInPix         | 🚫 不要   | -                                           | 可視化専用                   |
-| selaDisplayInPix        | 🚫 不要   | -                                           | 可視化専用                   |
+| C関数                   | 状態 | Rust対応                                                | 備考                         |
+| ----------------------- | ---- | ------------------------------------------------------- | ---------------------------- |
+| selaCreate              | ✅   | sel::Sela::new                                          | Phase 6で実装                |
+| selaDestroy             | ✅   | Drop trait                                              | Rust自動メモリ管理           |
+| selCreate               | ✅   | sel::Sel::new                                           |                              |
+| selDestroy              | ✅   | Drop trait                                              |                              |
+| selCopy                 | ✅   | Clone trait                                             |                              |
+| selCreateBrick          | ✅   | sel::Sel::create_brick                                  |                              |
+| selCreateComb           | ✅   | sel::Sel::create_comb_horizontal / create_comb_vertical |                              |
+| create2dIntArray        | 🔄   | Vec<Vec<>>                                              | Rustでは不要                 |
+| selaAddSel              | ✅   | sel::Sela::add                                          | Phase 6で実装                |
+| selaGetCount            | ✅   | sel::Sela::count                                        | Phase 6で実装                |
+| selaGetSel              | ✅   | sel::Sela::get                                          | Phase 6で実装                |
+| selGetName              | ✅   | sel::Sel::name()                                        |                              |
+| selSetName              | ✅   | sel::Sel::set_name()                                    |                              |
+| selaFindSelByName       | ✅   | sel::Sela::find_by_name                                 | Phase 6で実装                |
+| selGetElement           | ✅   | sel::Sel::get_element                                   |                              |
+| selSetElement           | ✅   | sel::Sel::set_element                                   |                              |
+| selGetParameters        | ✅   | sel::Sel::get_parameters                                | Phase 3で実装                |
+| selSetOrigin            | ✅   | sel::Sel::set_origin                                    |                              |
+| selGetTypeAtOrigin      | ✅   | get_elementでorigin参照                                 |                              |
+| selaGetBrickName        | 🔄   | Sela::find_by_name                                      | 命名規則で検索               |
+| selaGetCombName         | 🔄   | Sela::find_by_name                                      | 命名規則で検索               |
+| getCompositeParameters  | ✅   | dwa内部 + get_extended_composite_parameters             |                              |
+| selaGetSelnames         | 🔄   | iterate + name()                                        |                              |
+| selFindMaxTranslations  | ✅   | sel::Sel::find_max_translations                         |                              |
+| selRotateOrth           | ✅   | sel::Sel::rotate_orth                                   |                              |
+| selaRead                | ✅   | sel::Sela::read                                         | Phase 6で実装                |
+| selaReadStream          | ✅   | sel::Sela::read_from_reader                             | Phase 6で実装                |
+| selRead                 | ✅   | sel::Sel::read                                          | Phase 3で実装                |
+| selReadStream           | ✅   | sel::Sel::read_from_reader                              | Phase 3で実装                |
+| selaWrite               | ✅   | sel::Sela::write                                        | Phase 6で実装                |
+| selaWriteStream         | ✅   | sel::Sela::write_to_writer                              | Phase 6で実装                |
+| selWrite                | ✅   | sel::Sel::write                                         | Phase 3で実装                |
+| selWriteStream          | ✅   | sel::Sel::write_to_writer                               | Phase 3で実装                |
+| selCreateFromString     | ✅   | sel::Sel::from_string                                   |                              |
+| selPrintToString        | ✅   | sel::Sel::print_to_string                               | Phase 3で実装                |
+| selaCreateFromFile      | ✅   | sel::Sela::read                                         | Phase 6で実装                |
+| selCreateFromPta        | ✅   | sel::Sel::from_pta                                      | Phase 3で実装                |
+| selCreateFromPix        | ✅   | sel::Sel::from_pix                                      | Phase 3で実装                |
+| selReadFromColorImage   | ✅   | sel::Sel::from_color_image                              | Phase 3で実装                |
+| selCreateFromColorPix   | ✅   | sel::Sel::from_color_image                              | Phase 3で実装                |
+| selaCreateFromColorPixa | ✅   | sela_create_from_color_pixa                             | Pixa操作はアプリケーション層 |
+| selDisplayInPix         | 🚫   | -                                                       | 可視化専用                   |
+| selaDisplayInPix        | 🚫   | -                                                       | 可視化専用                   |
 
 ### sel2.c (Sel定義済みセット)
 
-| C関数                 | 状態      | Rust対応                      | 備考           |
-| --------------------- | --------- | ----------------------------- | -------------- |
-| sel4ccThin系 (16関数) | 🔄 異なる | thin_sels::sels_4cc_thin      | 一括生成で対応 |
-| sel8ccThin系 (16関数) | 🔄 異なる | thin_sels::sels_8cc_thin      | 一括生成で対応 |
-| selaMakeThinSets      | ✅ 同等   | thin_sels::make_thin_sels     |                |
-| selaAddBasic          | ✅ 同等   | sel::sela_add_basic           | Phase 4で実装  |
-| selaAddHitMiss        | ✅ 同等   | sel::sela_add_hit_miss        | Phase 4で実装  |
-| selaAddDwaLinear      | ✅ 同等   | sel::sela_add_dwa_linear      | Phase 4で実装  |
-| selaAddDwaCombs       | ✅ 同等   | sel::sela_add_dwa_combs       | Phase 4で実装  |
-| selaAddCrossJunctions | ✅ 同等   | sel::sela_add_cross_junctions | Phase 4で実装  |
-| selaAddTJunctions     | ✅ 同等   | sel::sela_add_t_junctions     | Phase 4で実装  |
+| C関数                 | 状態 | Rust対応                      | 備考           |
+| --------------------- | ---- | ----------------------------- | -------------- |
+| sel4ccThin系 (16関数) | 🔄   | thin_sels::sels_4cc_thin      | 一括生成で対応 |
+| sel8ccThin系 (16関数) | 🔄   | thin_sels::sels_8cc_thin      | 一括生成で対応 |
+| sela4and8ccThin       | ✅   | thin_sels::make_thin_sels     |                |
+| selMakePlusSign       | ✅   | sel::sel_make_plus_sign       |                |
+| selaAddBasic          | ✅   | sel::sela_add_basic           | Phase 4で実装  |
+| selaAddHitMiss        | ✅   | sel::sela_add_hit_miss        | Phase 4で実装  |
+| selaAddDwaLinear      | ✅   | sel::sela_add_dwa_linear      | Phase 4で実装  |
+| selaAddDwaCombs       | ✅   | sel::sela_add_dwa_combs       | Phase 4で実装  |
+| selaAddCrossJunctions | ✅   | sel::sela_add_cross_junctions | Phase 4で実装  |
+| selaAddTJunctions     | ✅   | sel::sela_add_t_junctions     | Phase 4で実装  |
 
 ### selgen.c (Sel自動生成)
 
-| C関数                      | 状態    | Rust対応                    | 備考                                                         |
-| -------------------------- | ------- | --------------------------- | ------------------------------------------------------------ |
-| pixGenerateSelBoundary     | ✅ 同等 | `generate_sel_boundary`     |                                                              |
-| pixGenerateSelWithRuns     | ✅ 同等 | `generate_sel_with_runs`    |                                                              |
-| pixGenerateSelRandom       | ✅ 同等 | `generate_sel_random`       |                                                              |
-| pixGetRunCentersOnLine     | ✅ 同等 | `get_run_centers_on_line`   |                                                              |
-| pixGetRunsOnLine           | ✅ 同等 | `get_runs_on_line`          |                                                              |
-| pixSubsampleBoundaryPixels | ✅ 同等 | `subsample_boundary_pixels` |                                                              |
-| adjacentOnPixelInRaster    | 🚫 不要 | -                           | 低レベル内部ヘルパー（pixSubsampleBoundaryPixels内部で使用） |
-| pixDisplayHitMissSel       | 🚫 不要 | -                           | 可視化専用                                                   |
+| C関数                      | 状態 | Rust対応                  | 備考                                                         |
+| -------------------------- | ---- | ------------------------- | ------------------------------------------------------------ |
+| pixGenerateSelBoundary     | ✅   | generate_sel_boundary     |                                                              |
+| pixGenerateSelWithRuns     | ✅   | generate_sel_with_runs    |                                                              |
+| pixGenerateSelRandom       | ✅   | generate_sel_random       |                                                              |
+| pixGetRunCentersOnLine     | ✅   | get_run_centers_on_line   |                                                              |
+| pixGetRunsOnLine           | ✅   | get_runs_on_line          |                                                              |
+| pixSubsampleBoundaryPixels | ✅   | subsample_boundary_pixels |                                                              |
+| adjacentOnPixelInRaster    | 🚫   | -                         | 低レベル内部ヘルパー（pixSubsampleBoundaryPixels内部で使用） |
+| pixDisplayHitMissSel       | 🚫   | -                         | 可視化専用                                                   |
 
 ### ccthin.c (連結成分保存細線化)
 
-| C関数                 | 状態    | Rust対応                    | 備考 |
-| --------------------- | ------- | --------------------------- | ---- |
-| pixaThinConnected     | ✅ 同等 | `pixa_thin_connected`       |      |
-| pixThinConnected      | ✅ 同等 | thin::thin_connected        |      |
-| pixThinConnectedBySet | ✅ 同等 | thin::thin_connected_by_set |      |
-| selaMakeThinSets      | ✅ 同等 | thin_sels::make_thin_sels   |      |
+| C関数                 | 状態 | Rust対応                    | 備考 |
+| --------------------- | ---- | --------------------------- | ---- |
+| pixaThinConnected     | ✅   | pixa_thin_connected         |      |
+| pixThinConnected      | ✅   | thin::thin_connected        |      |
+| pixThinConnectedBySet | ✅   | thin::thin_connected_by_set |      |
+| selaMakeThinSets      | ✅   | thin_sels::make_thin_sels   |      |
 
 ### dwacomb.2.c / dwacomblow.2.c / fmorphauto.c / fmorphgen.1.c / fmorphgenlow.1.c / fhmtauto.c / fhmtgen.1.c / fhmtgenlow.1.c (DWAコード生成・自動生成)
 
-| C関数             | 状態    | Rust対応 | 備考                                |
-| ----------------- | ------- | -------- | ----------------------------------- |
-| fmorphopgen_low_2 | 🚫 不要 | -        | DWAコード生成（Rustでは不要）       |
-| dwacomblow_low_2  | 🚫 不要 | -        | DWA合成低レベル生成（Rustでは不要） |
-| fmorphautogen     | 🚫 不要 | -        | DWAコード自動生成（Rustでは不要）   |
-| fmorphautogen1    | 🚫 不要 | -        | DWAコード自動生成（Rustでは不要）   |
-| fmorphautogen2    | 🚫 不要 | -        | DWAコード自動生成（Rustでは不要）   |
-| fmorphopgen_low_1 | 🚫 不要 | -        | DWAコード生成（Rustでは不要）       |
-| fhmtautogen       | 🚫 不要 | -        | HMT DWA自動生成（Rustでは不要）     |
-| fhmtautogen1      | 🚫 不要 | -        | HMT DWA自動生成（Rustでは不要）     |
-| fhmtautogen2      | 🚫 不要 | -        | HMT DWA自動生成（Rustでは不要）     |
-| fhmtgen_low_1     | 🚫 不要 | -        | HMT低レベル生成（Rustでは不要）     |
-| (低レベル関数群)  | 🚫 不要 | -        | DWA内部実装（Rustでは手書き実装）   |
+| C関数             | 状態 | Rust対応 | 備考                                |
+| ----------------- | ---- | -------- | ----------------------------------- |
+| fmorphopgen_low_2 | 🚫   | -        | DWAコード生成（Rustでは不要）       |
+| dwacomblow_low_2  | 🚫   | -        | DWA合成低レベル生成（Rustでは不要） |
+| fmorphautogen     | 🚫   | -        | DWAコード自動生成（Rustでは不要）   |
+| fmorphautogen1    | 🚫   | -        | DWAコード自動生成（Rustでは不要）   |
+| fmorphautogen2    | 🚫   | -        | DWAコード自動生成（Rustでは不要）   |
+| fmorphopgen_low_1 | 🚫   | -        | DWAコード生成（Rustでは不要）       |
+| fhmtautogen       | 🚫   | -        | HMT DWA自動生成（Rustでは不要）     |
+| fhmtautogen1      | 🚫   | -        | HMT DWA自動生成（Rustでは不要）     |
+| fhmtautogen2      | 🚫   | -        | HMT DWA自動生成（Rustでは不要）     |
+| fhmtgen_low_1     | 🚫   | -        | HMT低レベル生成（Rustでは不要）     |
+| (低レベル関数群)  | 🚫   | -        | DWA内部実装（Rustでは手書き実装）   |
 
 ## 実装状況の分析
 

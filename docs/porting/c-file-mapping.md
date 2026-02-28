@@ -7,6 +7,19 @@ C版ソースファイル・回帰テストファイルとRust版の対応。
 
 対応あり 151件、🚫不要 31件、❌未実装 0件。
 
+## 補足: C 1:1 対応外のRust補助ファイル
+
+以下はCファイルとの1:1対応表には載せていないが、実装上重要なRust側ファイル:
+
+- `src/lib.rs`
+- `src/{color,core,filter,io,morph,recog,region,transform}/error.rs`
+- `src/core/pixel.rs`, `src/core/pix/serial.rs`
+- `src/recog/barcode/formats/{codabar,code2of5,code39,code93,codei2of5,ean13,upca}.rs`
+- `src/recog/barcode/types.rs`
+- `src/recog/recog/io.rs`, `src/recog/recog/query.rs`
+
+※ `src/io/ps/ascii85.rs` は `psio2.c` の対応先として本表に記載済み。
+
 | C                  | Rust                                                                                                            |
 | ------------------ | --------------------------------------------------------------------------------------------------------------- |
 | `adaptmap.c`       | src/filter/adaptmap.rs                                                                                          |
