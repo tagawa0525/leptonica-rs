@@ -110,11 +110,11 @@ def format_table(table_lines: list[str]) -> list[str]:
 
             if ri == 1:  # separator
                 if alignments[i] == "center":
-                    parts.append(" :" + "-" * (cw - 2) + ": ")
+                    parts.append(" :" + "-" * max(1, cw - 2) + ": ")
                 elif alignments[i] == "right":
-                    parts.append(" " + "-" * (cw - 1) + ": ")
+                    parts.append(" " + "-" * max(1, cw - 1) + ": ")
                 else:
-                    parts.append(" " + "-" * cw + " ")
+                    parts.append(" " + "-" * max(1, cw) + " ")
                 continue
 
             dw = display_width(cell)
