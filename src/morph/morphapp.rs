@@ -533,13 +533,22 @@ pub fn remove_matched_pattern(
     y0: i32,
     dsize: u32,
 ) -> MorphResult<Pix> {
-    if pix.depth() != PixelDepth::Bit1
-        || pattern.depth() != PixelDepth::Bit1
-        || eroded_matches.depth() != PixelDepth::Bit1
-    {
+    if pix.depth() != PixelDepth::Bit1 {
         return Err(MorphError::UnsupportedDepth {
             expected: "1-bpp binary",
             actual: pix.depth().bits(),
+        });
+    }
+    if pattern.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pattern.depth().bits(),
+        });
+    }
+    if eroded_matches.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: eroded_matches.depth().bits(),
         });
     }
     if dsize > 4 {
@@ -614,19 +623,29 @@ pub fn display_matched_pattern(
     color: u32,
     scale: f32,
 ) -> MorphResult<Pix> {
-    if pix.depth() != PixelDepth::Bit1
-        || pattern.depth() != PixelDepth::Bit1
-        || eroded_matches.depth() != PixelDepth::Bit1
-    {
+    if pix.depth() != PixelDepth::Bit1 {
         return Err(MorphError::UnsupportedDepth {
             expected: "1-bpp binary",
             actual: pix.depth().bits(),
         });
     }
-    if !scale.is_finite() || scale <= 0.0 {
-        return Err(MorphError::InvalidParameters("scale must be > 0".into()));
+    if pattern.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: pattern.depth().bits(),
+        });
     }
-    let scale = scale.min(1.0);
+    if eroded_matches.depth() != PixelDepth::Bit1 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1-bpp binary",
+            actual: eroded_matches.depth().bits(),
+        });
+    }
+    if !scale.is_finite() || scale <= 0.0 || scale > 1.0 {
+        return Err(MorphError::InvalidParameters(
+            "scale must be in (0.0, 1.0]".into(),
+        ));
+    }
 
     let (boxa, pixa) = conncomp_pixa(eroded_matches, ConnectivityType::EightWay)
         .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {e}")))?;
@@ -963,7 +982,7 @@ pub fn pix_centroid(pix: &Pix) -> MorphResult<(f32, f32)> {
 /// Based on C leptonica `pixaCentroids`.
 pub fn pixa_centroids(pixa: &Pixa) -> MorphResult<Pta> {
     if pixa.is_empty() {
-        return Err(MorphError::InvalidParameters("no pix in pixa".into()));
+        return Ok(Pta::new());
     }
 
     let mut pta = Pta::with_capacity(pixa.len());
