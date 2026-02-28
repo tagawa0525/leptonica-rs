@@ -7,7 +7,7 @@
 //! - Seedfill via dilation (binary reconstruction)
 //! - Grayscale morphological gradient
 
-use crate::core::{Pix, PixelDepth};
+use crate::core::{Pix, Pixa, PixelDepth, Pta};
 use crate::morph::{
     MorphError, MorphResult, Sel, close, dilate, erode, gradient_gray, hit_miss_transform,
     morph_sequence, open,
@@ -411,10 +411,81 @@ pub fn morph_sequence_by_region(
     Ok(out_mut.into())
 }
 
+/// Compute the centroid of foreground content in a 1 bpp or 8 bpp image.
+///
+/// For 1 bpp images, foreground pixels (value != 0) are weighted uniformly.
+/// For 8 bpp images, pixel values are used as weights.
+///
+/// Returns `(0.0, 0.0)` when the image has no foreground/weight.
+///
+/// Based on C leptonica `pixCentroid`.
+pub fn pix_centroid(pix: &Pix) -> MorphResult<(f32, f32)> {
+    let depth = pix.depth();
+    if depth != PixelDepth::Bit1 && depth != PixelDepth::Bit8 {
+        return Err(MorphError::UnsupportedDepth {
+            expected: "1 or 8-bpp",
+            actual: depth.bits(),
+        });
+    }
+
+    let mut xsum = 0.0f64;
+    let mut ysum = 0.0f64;
+    let mut wsum = 0.0f64;
+
+    let w = pix.width();
+    let h = pix.height();
+    for y in 0..h {
+        for x in 0..w {
+            let val = pix.get_pixel_unchecked(x, y);
+            let weight = if depth == PixelDepth::Bit1 {
+                if val != 0 { 1.0 } else { 0.0 }
+            } else {
+                val as f64
+            };
+            if weight > 0.0 {
+                xsum += weight * x as f64;
+                ysum += weight * y as f64;
+                wsum += weight;
+            }
+        }
+    }
+
+    if wsum <= f64::EPSILON {
+        return Ok((0.0, 0.0));
+    }
+    Ok(((xsum / wsum) as f32, (ysum / wsum) as f32))
+}
+
+/// Compute centroids for each Pix in a Pixa.
+///
+/// Centroids are relative to each Pix origin.
+/// If a Pix has an unsupported depth, `(0.0, 0.0)` is stored for that entry.
+///
+/// Based on C leptonica `pixaCentroids`.
+pub fn pixa_centroids(pixa: &Pixa) -> MorphResult<Pta> {
+    if pixa.is_empty() {
+        return Err(MorphError::InvalidParameters("no pix in pixa".into()));
+    }
+
+    let mut pta = Pta::with_capacity(pixa.len());
+    for i in 0..pixa.len() {
+        let pix = pixa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing pix at index {i}")))?;
+        match pix_centroid(pix) {
+            Ok((x, y)) => pta.push(x, y),
+            Err(MorphError::UnsupportedDepth { .. }) => pta.push(0.0, 0.0),
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(pta)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{Pix, PixelDepth};
+    use crate::core::{Pix, Pixa, PixelDepth};
 
     fn create_1bpp_test() -> Pix {
         let pix = Pix::new(32, 32, PixelDepth::Bit1).unwrap();
@@ -651,5 +722,56 @@ mod tests {
                 assert_eq!(result.get_pixel_unchecked(x, y), 0);
             }
         }
+    }
+
+    #[test]
+    fn test_pix_centroid_binary() {
+        let pix = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(1, 1, 1);
+        pm.set_pixel_unchecked(3, 3, 1);
+        let pix: Pix = pm.into();
+
+        let (cx, cy) = pix_centroid(&pix).unwrap();
+        assert!((cx - 2.0).abs() < 1e-6);
+        assert!((cy - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_pix_centroid_gray_weighted() {
+        let pix = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 1);
+        pm.set_pixel_unchecked(2, 0, 3);
+        let pix: Pix = pm.into();
+
+        let (cx, cy) = pix_centroid(&pix).unwrap();
+        assert!((cx - 1.5).abs() < 1e-6);
+        assert!(cy.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_pixa_centroids() {
+        let mut pixa = Pixa::new();
+
+        let pix1 = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        let mut p1m = pix1.try_into_mut().unwrap();
+        p1m.set_pixel_unchecked(2, 1, 1);
+        pixa.push(p1m.into());
+
+        let pix2 = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        let mut p2m = pix2.try_into_mut().unwrap();
+        p2m.set_pixel_unchecked(0, 0, 1);
+        p2m.set_pixel_unchecked(0, 2, 1);
+        pixa.push(p2m.into());
+
+        let pta = pixa_centroids(&pixa).unwrap();
+        assert_eq!(pta.len(), 2);
+        let (x0, y0) = pta.get(0).unwrap();
+        let (x1, y1) = pta.get(1).unwrap();
+        assert!((x0 - 2.0).abs() < 1e-6);
+        assert!((y0 - 1.0).abs() < 1e-6);
+        assert!(x1.abs() < 1e-6);
+        assert!((y1 - 1.0).abs() < 1e-6);
     }
 }

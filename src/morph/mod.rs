@@ -71,7 +71,8 @@ pub use dwa::{
 // Re-export morphological application functions
 pub use morphapp::{
     MorphOpType, intersection_of_morph_ops, morph_gradient, morph_sequence_by_component,
-    morph_sequence_by_region, morph_sequence_masked, seedfill_morph, union_of_morph_ops,
+    morph_sequence_by_region, morph_sequence_masked, pix_centroid, pixa_centroids, seedfill_morph,
+    union_of_morph_ops,
 };
 
 // Re-export SEL set generation functions

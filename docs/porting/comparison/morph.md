@@ -6,9 +6,9 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 108 |
+| ✅ 同等   | 110 |
 | 🔄 異なる | 19  |
-| ❌ 未実装 | 11  |
+| ❌ 未実装 | 9   |
 | 🚫 不要   | 25  |
 | 合計      | 163 |
 
@@ -66,8 +66,8 @@
 | pixRunHistogramMorph         | ❌   | -                                     |                                       |
 | pixHDome                     | ❌   | -                                     |                                       |
 | pixFastTophat                | ❌   | -                                     |                                       |
-| pixaCentroids                | ❌   | -                                     |                                       |
-| pixCentroid                  | ❌   | -                                     |                                       |
+| pixaCentroids                | ✅   | morphapp::pixa_centroids              | 各Pixの重心(UL基準)をPTAで返す        |
+| pixCentroid                  | ✅   | morphapp::pix_centroid                | 1/8bppの重み付き重心を返す            |
 | pixGrayscaleMorphSum         | 🚫   | -                                     | C版leptonicaに存在しない関数          |
 | pixMultiplyByColor           | 🚫   | -                                     | blend.c所属（morph領域外）            |
 | pixHMTDwa                    | 🚫   | -                                     | DWA自動生成コード                     |
