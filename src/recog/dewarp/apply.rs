@@ -85,7 +85,7 @@ pub fn apply_vertical_disparity(pix: &Pix, v_disparity: &FPix, gray_in: u8) -> R
     for y in 0..h {
         for x in 0..w {
             // Get disparity at this position
-            let disparity = v_disparity.get_pixel(x, y).unwrap_or(0.0);
+            let disparity = v_disparity.get_pixel_unchecked(x, y);
 
             // Source y position (shift in opposite direction)
             let src_y_f = y as f32 - disparity;
@@ -175,7 +175,7 @@ pub fn apply_horizontal_disparity(pix: &Pix, h_disparity: &FPix, gray_in: u8) ->
     for y in 0..h {
         for x in 0..w {
             // Get disparity at this position
-            let disparity = h_disparity.get_pixel(x, y).unwrap_or(0.0);
+            let disparity = h_disparity.get_pixel_unchecked(x, y);
 
             // Source x position (shift in opposite direction)
             let src_x_f = x as f32 - disparity;

@@ -539,9 +539,7 @@ impl JbClasser {
                 for inst in instances {
                     for y in 0..inst.height().min(max_h) {
                         for x in 0..inst.width().min(max_w) {
-                            if let Some(val) = inst.get_pixel(x, y)
-                                && val == 1
-                            {
+                            if inst.get_pixel_unchecked(x, y) == 1 {
                                 accum[(y * max_w + x) as usize] += 1;
                             }
                         }
@@ -555,7 +553,7 @@ impl JbClasser {
                 for y in 0..max_h {
                     for x in 0..max_w {
                         if accum[(y * max_w + x) as usize] > threshold {
-                            let _ = template_mut.set_pixel(x, y, 1);
+                            template_mut.set_pixel_unchecked(x, y, 1);
                         }
                     }
                 }
@@ -706,17 +704,14 @@ fn correlation_score_aligned(
 
     for y1 in 0..h1 {
         for x1 in 0..w1 {
-            if let Some(v1) = pix1.get_pixel(x1 as u32, y1 as u32)
-                && v1 == 1
-            {
+            if pix1.get_pixel_unchecked(x1 as u32, y1 as u32) == 1 {
                 let x2 = x1 + dx;
                 let y2 = y1 + dy;
                 if x2 >= 0
                     && x2 < w2
                     && y2 >= 0
                     && y2 < h2
-                    && let Some(v2) = pix2.get_pixel(x2 as u32, y2 as u32)
-                    && v2 == 1
+                    && pix2.get_pixel_unchecked(x2 as u32, y2 as u32) == 1
                 {
                     and_count += 1;
                 }
@@ -739,13 +734,12 @@ fn extract_rect(pix: &Pix, pix_box: &PixBox) -> RecogResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let src_x = pix_box.x as u32 + x;
-            let src_y = pix_box.y as u32 + y;
-            if src_x < pix.width()
-                && src_y < pix.height()
-                && let Some(val) = pix.get_pixel(src_x, src_y)
+            let src_x = pix_box.x + x as i32;
+            let src_y = pix_box.y + y as i32;
+            if src_x >= 0 && src_x < pix.width() as i32 && src_y >= 0 && src_y < pix.height() as i32
             {
-                let _ = result_mut.set_pixel(x, y, val);
+                let val = pix.get_pixel_unchecked(src_x as u32, src_y as u32);
+                result_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -763,9 +757,8 @@ fn add_border(pix: &Pix, border: u32) -> RecogResult<Pix> {
 
     for y in 0..pix.height() {
         for x in 0..pix.width() {
-            if let Some(val) = pix.get_pixel(x, y) {
-                let _ = result_mut.set_pixel(x + border, y + border, val);
-            }
+            let val = pix.get_pixel_unchecked(x, y);
+            result_mut.set_pixel_unchecked(x + border, y + border, val);
         }
     }
 
@@ -776,13 +769,11 @@ fn add_border(pix: &Pix, border: u32) -> RecogResult<Pix> {
 fn copy_to(dst: &mut crate::core::PixMut, src: &Pix, x: i32, y: i32) -> RecogResult<()> {
     for sy in 0..src.height() {
         for sx in 0..src.width() {
-            if let Some(val) = src.get_pixel(sx, sy)
-                && val == 1
-            {
+            if src.get_pixel_unchecked(sx, sy) == 1 {
                 let dx = x + sx as i32;
                 let dy = y + sy as i32;
                 if dx >= 0 && (dx as u32) < dst.width() && dy >= 0 && (dy as u32) < dst.height() {
-                    let _ = dst.set_pixel(dx as u32, dy as u32, 1);
+                    dst.set_pixel_unchecked(dx as u32, dy as u32, 1);
                 }
             }
         }
@@ -800,9 +791,7 @@ fn compute_centroid(pix: &Pix) -> RecogResult<(f32, f32)> {
 
     for y in 0..h {
         for x in 0..w {
-            if let Some(val) = pix.get_pixel(x, y)
-                && val == 1
-            {
+            if pix.get_pixel_unchecked(x, y) == 1 {
                 sum_x += x as i64;
                 sum_y += y as i64;
                 count += 1;
@@ -822,9 +811,7 @@ fn count_fg_pixels(pix: &Pix) -> RecogResult<i32> {
     let mut count = 0i32;
     for y in 0..pix.height() {
         for x in 0..pix.width() {
-            if let Some(val) = pix.get_pixel(x, y)
-                && val == 1
-            {
+            if pix.get_pixel_unchecked(x, y) == 1 {
                 count += 1;
             }
         }
@@ -839,8 +826,8 @@ fn count_and_pixels(pix1: &Pix, pix2: &Pix) -> RecogResult<i32> {
 
     for y in 0..h {
         for x in 0..w {
-            let v1 = pix1.get_pixel(x, y).unwrap_or(0);
-            let v2 = pix2.get_pixel(x, y).unwrap_or(0);
+            let v1 = pix1.get_pixel_unchecked(x, y);
+            let v2 = pix2.get_pixel_unchecked(x, y);
             if v1 == 1 && v2 == 1 {
                 count += 1;
             }

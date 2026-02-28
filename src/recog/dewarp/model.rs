@@ -613,19 +613,17 @@ fn scale_fpix_by_sampling(
             let fx = sx - x0 as f32;
             let fy = sy - y0 as f32;
 
-            let v00 = sampled
-                .get_pixel(x0.min(sw - 1), y0.min(sh - 1))
-                .unwrap_or(0.0);
-            let v10 = sampled.get_pixel(x1, y0.min(sh - 1)).unwrap_or(0.0);
-            let v01 = sampled.get_pixel(x0.min(sw - 1), y1).unwrap_or(0.0);
-            let v11 = sampled.get_pixel(x1, y1).unwrap_or(0.0);
+            let v00 = sampled.get_pixel_unchecked(x0.min(sw - 1), y0.min(sh - 1));
+            let v10 = sampled.get_pixel_unchecked(x1, y0.min(sh - 1));
+            let v01 = sampled.get_pixel_unchecked(x0.min(sw - 1), y1);
+            let v11 = sampled.get_pixel_unchecked(x1, y1);
 
             let value = v00 * (1.0 - fx) * (1.0 - fy)
                 + v10 * fx * (1.0 - fy)
                 + v01 * (1.0 - fx) * fy
                 + v11 * fx * fy;
 
-            result.set_pixel(x, y, value)?;
+            result.set_pixel_unchecked(x, y, value);
         }
     }
 

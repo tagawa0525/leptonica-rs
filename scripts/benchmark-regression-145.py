@@ -535,6 +535,15 @@ def write_summary(
     for test in tests:
         c_stats = calc_stats(c_data["times_by_test"].get(test, []))
         r_stats = calc_stats(rust_data["times_by_test"].get(test, []))
+        c_mean = c_stats["trimmed_mean_6"]
+        r_mean = r_stats["trimmed_mean_6"]
+        ratio = None
+        if (
+            isinstance(c_mean, (int, float))
+            and isinstance(r_mean, (int, float))
+            and c_mean != 0
+        ):
+            ratio = float(r_mean) / float(c_mean)
         rows.append(
             {
                 "test": test,
@@ -548,6 +557,7 @@ def write_summary(
                 "rust_max_10": fmt_num(r_stats["max_10"]),
                 "rust_trimmed_mean_6": fmt_num(r_stats["trimmed_mean_6"]),
                 "rust_trimmed_variance_6": fmt_num(r_stats["trimmed_variance_6"]),
+                "rust_over_c_mean_6": fmt_num(ratio),
             }
         )
 
@@ -569,16 +579,18 @@ def write_summary(
         f.write("- variance is population variance over the trimmed 6 samples\n\n")
         f.write(
             "| test | C mean(6) | C var(6) | C min(10) | C max(10) | "
-            "Rust mean(6) | Rust var(6) | Rust min(10) | Rust max(10) |\n"
+            "Rust mean(6) | Rust var(6) | Rust min(10) | Rust max(10) | Rust mean / C mean |\n"
         )
-        f.write("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+        f.write(
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n"
+        )
         for row in rows:
             f.write(
                 "| "
                 f"{row['test']} | {row['c_trimmed_mean_6']} | {row['c_trimmed_variance_6']} | "
                 f"{row['c_min_10']} | {row['c_max_10']} | "
                 f"{row['rust_trimmed_mean_6']} | {row['rust_trimmed_variance_6']} | "
-                f"{row['rust_min_10']} | {row['rust_max_10']} |\n"
+                f"{row['rust_min_10']} | {row['rust_max_10']} | {row['rust_over_c_mean_6']} |\n"
             )
 
     print(f"[Compare] wrote {csv_path}")
