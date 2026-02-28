@@ -8,8 +8,8 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
 | 項目           | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
 | -------------- | ------------------------- | -------------------------- |
-| テスト総数     | **305個** (.c)            | **199ファイル** (*_reg.rs) |
-| 回帰テスト     | **160個** (*_reg.c)       | **153個** (*_reg.rs)       |
+| テスト総数     | **305個** (.c)            | **202ファイル** (*_reg.rs) |
+| 回帰テスト     | **160個** (*_reg.c)       | **156個** (*_reg.rs)       |
 | 個別テスト関数 | 多数                      | **3,270個**                |
 | テストランナー | alltests_reg.c            | `cargo test`               |
 
@@ -217,26 +217,26 @@ Rust独自: binarize_advanced, color_magnitude, colorcontent_advanced, colorspac
 
 ※ overlap→coreへ移動。rectangle←coreから移動。
 
-| C版テスト   | Rust対応          | 状態 |
-| ----------- | ----------------- | ---- |
-| ccbord      | ccbord_reg.rs     | ✅   |
-| conncomp    | conncomp_reg.rs   | ✅   |
-| distance    | distance_reg.rs   | ✅   |
-| grayfill    | grayfill_reg.rs   | ✅   |
-| label       | label_reg.rs      | ✅   |
-| maze        | maze_reg.rs       | ✅   |
-| quadtree    | quadtree_reg.rs   | ✅   |
-| rectangle   | rectangle_reg.rs  | ✅   |
-| seedspread  | seedspread_reg.rs | ✅   |
-| smoothedge  | -                 | ❌   |
-| speckle     | speckle_reg.rs    | ✅   |
-| splitcomp   | -                 | ❌   |
-| texturefill | -                 | ❌   |
-| watershed   | watershed_reg.rs  | ✅   |
+| C版テスト   | Rust対応           | 状態 |
+| ----------- | ------------------ | ---- |
+| ccbord      | ccbord_reg.rs      | ✅   |
+| conncomp    | conncomp_reg.rs    | ✅   |
+| distance    | distance_reg.rs    | ✅   |
+| grayfill    | grayfill_reg.rs    | ✅   |
+| label       | label_reg.rs       | ✅   |
+| maze        | maze_reg.rs        | ✅   |
+| quadtree    | quadtree_reg.rs    | ✅   |
+| rectangle   | rectangle_reg.rs   | ✅   |
+| seedspread  | seedspread_reg.rs  | ✅   |
+| smoothedge  | smoothedge_reg.rs  | ✅   |
+| speckle     | speckle_reg.rs     | ✅   |
+| splitcomp   | splitcomp_reg.rs   | ✅   |
+| texturefill | texturefill_reg.rs | ✅   |
+| watershed   | watershed_reg.rs   | ✅   |
 
 Rust独自: conncomp_ext, seedfill_ext
 
-✅ 11 / ❌ 3（C版14個中）
+✅ 14 / ❌ 0（C版14個中）
 
 ### leptonica (src/recog/)（認識・ページ解析）
 
@@ -266,44 +266,43 @@ Rust独自: conncomp_ext, seedfill_ext
 
 ### クレート別カバレッジ
 
-| クレート                   | C版     | ✅      | ❌     | Rust独自 | カバレッジ |
-| -------------------------- | ------- | ------- | ------ | -------- | ---------- |
-| leptonica (src/core/)      | 33      | 33      | 0      | 8        | 100.0%     |
-| leptonica (src/io/)        | 19      | 19      | 0      | 1        | 100.0%     |
-| leptonica (src/morph/)     | 17      | 17      | 0      | 1        | 100.0%     |
-| leptonica (src/transform/) | 21      | 21      | 0      | 0        | 100.0%     |
-| leptonica (src/filter/)    | 14      | 14      | 0      | 5        | 100.0%     |
-| leptonica (src/color/)     | 24      | 24      | 0      | 5        | 100.0%     |
-| leptonica (src/region/)    | 14      | 11      | 3      | 2        | 78.6%      |
-| leptonica (src/recog/)     | 17      | 14      | 3      | 0        | 82.4%      |
-| **合計**                   | **159** | **153** | **6**  | **22**   | **96.2%**  |
+| クレート                   | C版     | ✅      | ❌    | Rust独自 | カバレッジ |
+| -------------------------- | ------- | ------- | ----- | -------- | ---------- |
+| leptonica (src/core/)      | 33      | 33      | 0     | 8        | 100.0%     |
+| leptonica (src/io/)        | 19      | 19      | 0     | 1        | 100.0%     |
+| leptonica (src/morph/)     | 17      | 17      | 0     | 1        | 100.0%     |
+| leptonica (src/transform/) | 21      | 21      | 0     | 0        | 100.0%     |
+| leptonica (src/filter/)    | 14      | 14      | 0     | 5        | 100.0%     |
+| leptonica (src/color/)     | 24      | 24      | 0     | 5        | 100.0%     |
+| leptonica (src/region/)    | 14      | 14      | 0     | 2        | 100.0%     |
+| leptonica (src/recog/)     | 17      | 14      | 3     | 0        | 82.4%      |
+| **合計**                   | **159** | **156** | **3** | **22**   | **98.1%**  |
 
-### 未移植テスト一覧（6個）
+### 未移植テスト一覧（3個）
 
-| クレート | テスト                             | 備考                           |
-| -------- | ---------------------------------- | ------------------------------ |
-| region   | smoothedge, splitcomp, texturefill | エッジ・分割・テクスチャ       |
-| recog    | findcorners, genfonts, nearline    | コーナー検出・フォント・近傍線 |
+| クレート | テスト                          | 備考                           |
+| -------- | ------------------------------- | ------------------------------ |
+| recog    | findcorners, genfonts, nearline | コーナー検出・フォント・近傍線 |
 
 ## Rust版テストの現状
 
 ### 構造（Rust版）
 
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
-- `tests/`配下に統合テスト（199個の`*_reg.rs`、C版`*_reg.c`に対応）
+- `tests/`配下に統合テスト（202個の`*_reg.rs`、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
 - テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
 ## 品質比較
 
-| 観点             | C版                    | Rust版                           |
-| ---------------- | ---------------------- | -------------------------------- |
-| **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル    |
-| **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応       |
-| **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応            |
-| **統合テスト**   | alltests_reg.c         | 199ファイル（全crate *_reg.rs）  |
-| **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像       |
-| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数       |
+| 観点             | C版                    | Rust版                          |
+| ---------------- | ---------------------- | ------------------------------- |
+| **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル   |
+| **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応      |
+| **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応           |
+| **統合テスト**   | alltests_reg.c         | 202ファイル（全crate *_reg.rs） |
+| **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像      |
+| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数      |
 
 ## 参考
 
