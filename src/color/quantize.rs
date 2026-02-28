@@ -383,7 +383,7 @@ impl OctreeNode {
 struct Octree {
     root: OctreeNode,
     leaf_count: usize,
-    reducible_nodes: [Vec<*mut OctreeNode>; 8],
+    reducible_nodes: [Vec<u32>; 8],
 }
 
 impl Octree {
@@ -396,13 +396,28 @@ impl Octree {
     }
 
     fn add_color(&mut self, r: u8, g: u8, b: u8) {
-        let root = &mut self.root as *mut OctreeNode;
-        self.add_color_impl(root, r, g, b, 0);
+        Self::add_color_impl(
+            &mut self.root,
+            r,
+            g,
+            b,
+            0,
+            0,
+            &mut self.leaf_count,
+            &mut self.reducible_nodes,
+        );
     }
 
-    fn add_color_impl(&mut self, node_ptr: *mut OctreeNode, r: u8, g: u8, b: u8, level: usize) {
-        let node = unsafe { &mut *node_ptr };
-
+    fn add_color_impl(
+        node: &mut OctreeNode,
+        r: u8,
+        g: u8,
+        b: u8,
+        level: usize,
+        path: u32,
+        leaf_count: &mut usize,
+        reducible_nodes: &mut [Vec<u32>; 8],
+    ) {
         if level == 8 || node.is_leaf {
             node.red += r as u64;
             node.green += g as u64;
@@ -410,7 +425,7 @@ impl Octree {
             node.pixel_count += 1;
             if !node.is_leaf {
                 node.is_leaf = true;
-                self.leaf_count += 1;
+                *leaf_count += 1;
             }
             return;
         }
@@ -419,14 +434,20 @@ impl Octree {
 
         if node.children[idx].is_none() {
             node.children[idx] = Some(Box::new(OctreeNode::new()));
-
-            // Add to reducible list
-            self.reducible_nodes[level].push(node_ptr);
+            reducible_nodes[level].push(path);
         }
 
-        if let Some(ref mut child) = node.children[idx] {
-            let child_ptr = child.as_mut() as *mut OctreeNode;
-            self.add_color_impl(child_ptr, r, g, b, level + 1);
+        if let Some(child) = node.children[idx].as_deref_mut() {
+            Self::add_color_impl(
+                child,
+                r,
+                g,
+                b,
+                level + 1,
+                (path << 3) | idx as u32,
+                leaf_count,
+                reducible_nodes,
+            );
         }
     }
 
@@ -441,8 +462,10 @@ impl Octree {
     fn reduce(&mut self) {
         // Find the deepest level with reducible nodes
         for level in (0..8).rev() {
-            while let Some(node_ptr) = self.reducible_nodes[level].pop() {
-                let node = unsafe { &mut *node_ptr };
+            while let Some(path) = self.reducible_nodes[level].pop() {
+                let Some(node) = Self::node_mut_at_path(&mut self.root, level, path) else {
+                    continue;
+                };
 
                 if node.is_leaf || !node.children.iter().any(|c| c.is_some()) {
                     continue;
@@ -470,14 +493,21 @@ impl Octree {
         }
     }
 
-    fn build_palette(&mut self, palette: &mut Vec<(u8, u8, u8)>) {
-        let root = &mut self.root as *mut OctreeNode;
-        self.build_palette_impl(root, palette);
+    fn node_mut_at_path(root: &mut OctreeNode, level: usize, path: u32) -> Option<&mut OctreeNode> {
+        let mut node = root;
+        for depth in 0..level {
+            let shift = (level - depth - 1) * 3;
+            let idx = ((path >> shift) & 0x07) as usize;
+            node = node.children[idx].as_deref_mut()?;
+        }
+        Some(node)
     }
 
-    fn build_palette_impl(&mut self, node_ptr: *mut OctreeNode, palette: &mut Vec<(u8, u8, u8)>) {
-        let node = unsafe { &mut *node_ptr };
+    fn build_palette(&mut self, palette: &mut Vec<(u8, u8, u8)>) {
+        Self::build_palette_impl(&mut self.root, palette);
+    }
 
+    fn build_palette_impl(node: &mut OctreeNode, palette: &mut Vec<(u8, u8, u8)>) {
         if node.is_leaf {
             if node.pixel_count > 0 {
                 let r = (node.red / node.pixel_count) as u8;
@@ -490,8 +520,7 @@ impl Octree {
         }
 
         for child in node.children.iter_mut().flatten() {
-            let child_ptr = child.as_mut() as *mut OctreeNode;
-            self.build_palette_impl(child_ptr, palette);
+            Self::build_palette_impl(child, palette);
         }
     }
 
