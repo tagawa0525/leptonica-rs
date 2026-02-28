@@ -6,12 +6,12 @@
 
 C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
-| 項目           | C版 (reference/leptonica) | Rust版 (leptonica-rs) |
-| -------------- | ------------------------- | --------------------- |
-| テスト総数     | **305個** (.c)            | **162ファイル**       |
-| 回帰テスト     | **160個** (*_reg.c)       | **140個** (*_reg.rs)  |
-| 個別テスト関数 | 多数                      | **3,270個**           |
-| テストランナー | alltests_reg.c            | `cargo test`          |
+| 項目           | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
+| -------------- | ------------------------- | -------------------------- |
+| テスト総数     | **305個** (.c)            | **186ファイル** (*_reg.rs) |
+| 回帰テスト     | **160個** (*_reg.c)       | **140個** (*_reg.rs)       |
+| 個別テスト関数 | 多数                      | **3,270個**                |
+| テストランナー | alltests_reg.c            | `cargo test`               |
 
 ※ C版160個のうち `alltests_reg.c` はテストランナーのため集計から除外（159個が対象）。
 ※ C版テストの分類は、Rust側のテストファイルの実際の配置先クレートに基づく。
@@ -293,7 +293,7 @@ Rust独自: conncomp_ext, seedfill_ext
 ### 構造（Rust版）
 
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
-- `tests/`配下に統合テスト（186ファイル、C版`*_reg.c`に対応）
+- `tests/`配下に統合テスト（186個の`*_reg.rs`、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
 - テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
@@ -304,7 +304,7 @@ Rust独自: conncomp_ext, seedfill_ext
 | **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル    |
 | **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応       |
 | **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応            |
-| **統合テスト**   | alltests_reg.c         | 162ファイル（全crate回帰テスト） |
+| **統合テスト**   | alltests_reg.c         | 186ファイル（全crate *_reg.rs）  |
 | **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像       |
 | **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数       |
 
