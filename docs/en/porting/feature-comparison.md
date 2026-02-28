@@ -1,38 +1,43 @@
 # C vs Rust Feature Comparison
 
-Survey date: 2026-02-23 (Phase 10-1 blend regression tests complete, all 10 phases reflected)
+> 🇯🇵 [日本語版](../../porting/feature-comparison.md)
+
+Survey date: 2026-02-28 (verify-comparison-counts results reflected)
 
 ## Overview
 
 | Item                             | C version (reference/leptonica) | Rust version (leptonica-rs) |
 | -------------------------------- | ------------------------------- | --------------------------- |
 | Source files                     | **182** (.c)                    | **151** (.rs)               |
-| Lines of code                    | **~240,000**                    | **~119,500**                |
+| Lines of code                    | **~249,000**                    | **~144,000**                |
 | Implementation rate (line-based) | 100%                            | **~50%**                    |
 
 ## Function-level Comparison Summary
 
-All public functions from the C version were extracted and classified into 3 categories by implementation status in the Rust version.
+All public functions from the C version were extracted and classified into 4 categories by implementation status in the Rust version.
 See files under `docs/porting/comparison/` for details (currently only available in Japanese).
 
-| Module                                                              | ✅ Equivalent | 🔄 Different | ❌ Unimplemented | Total     | Coverage  |
-| ------------------------------------------------------------------- | ------------- | ------------ | ---------------- | --------- | --------- |
-| [leptonica (src/core/)](../../porting/comparison/core.md)           | 521           | 24           | 337              | 882       | 61.8%     |
-| [leptonica (src/io/)](../../porting/comparison/io.md)               | 68            | 17           | 61               | 146       | 58.2%     |
-| [leptonica (src/transform/)](../../porting/comparison/transform.md) | 82            | 9            | 61               | 152       | 59.9%     |
-| [leptonica (src/morph/)](../../porting/comparison/morph.md)         | 82            | 16           | 22               | 120       | 81.7%     |
-| [leptonica (src/filter/)](../../porting/comparison/filter.md)       | 82            | 0            | 17               | 99        | 82.8%     |
-| [leptonica (src/color/)](../../porting/comparison/color.md)         | 52            | 16           | 58               | 126       | 54.0%     |
-| [leptonica (src/region/)](../../porting/comparison/region.md)       | 40            | 8            | 47               | 95        | 50.5%     |
-| [leptonica (src/recog/)](../../porting/comparison/recog.md)         | 83            | 16           | 45               | 144       | 68.8%     |
-| [Other](../../porting/comparison/misc.md)                           | 12            | 0            | 104              | 116       | 10.3%     |
-| **Total**                                                           | **1,022**     | **106**      | **752**          | **1,880** | **60.0%** |
+| Module                                                              | ✅ Equivalent | 🔄 Different | ❌ Unimplemented | 🚫 Not needed | Total     | Coverage  | Effective Coverage |
+| ------------------------------------------------------------------- | ------------- | ------------ | ---------------- | ------------- | --------- | --------- | ------------------ |
+| [leptonica (src/core/)](../../porting/comparison/core.md)           | 796           | 46           | 0                | 77            | 919       | 91.6%     | 100.0%             |
+| [leptonica (src/io/)](../../porting/comparison/io.md)               | 138           | 19           | 0                | 45            | 202       | 77.7%     | 100.0%             |
+| [leptonica (src/transform/)](../../porting/comparison/transform.md) | 109           | 19           | 0                | 14            | 142       | 90.1%     | 100.0%             |
+| [leptonica (src/morph/)](../../porting/comparison/morph.md)         | 116           | 22           | 0                | 25            | 163       | 84.7%     | 100.0%             |
+| [leptonica (src/filter/)](../../porting/comparison/filter.md)       | 107           | 0            | 0                | 13            | 120       | 89.2%     | 100.0%             |
+| [leptonica (src/color/)](../../porting/comparison/color.md)         | 102           | 20           | 0                | 17            | 139       | 87.8%     | 100.0%             |
+| [leptonica (src/region/)](../../porting/comparison/region.md)       | 65            | 8            | 0                | 22            | 95        | 76.8%     | 100.0%             |
+| [leptonica (src/recog/)](../../porting/comparison/recog.md)         | 119           | 45           | 0                | 18            | 182       | 90.1%     | 100.0%             |
+| [Other](../../porting/comparison/misc.md)                           | 138           | 5            | 0                | 181           | 324       | 44.1%     | 100.0%             |
+| **Total**                                                           | **1,690**     | **184**      | **0**            | **412**       | **2,286** | **82.0%** | **100.0%**         |
 
 ### Classification Criteria
 
 - **✅ Equivalent**: Same algorithm and functionality exists in Rust version as in C version
 - **🔄 Different**: Equivalent functionality exists, but API design or algorithm differs
-- **❌ Unimplemented**: No corresponding functionality exists in Rust version
+- **❌ Unimplemented**: No corresponding functionality exists in Rust version (implementation target)
+- **🚫 Not needed**: Not required in the Rust version (covered by Rust standard library, C-specific design, debug-only, low-level internal functions, etc.)
+
+**Effective Coverage** = (✅ + 🔄) / (Total − 🚫) — practical coverage excluding unnecessary functions
 
 ### Major Design Differences
 
@@ -177,42 +182,23 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 ## Rust Module Implementation Status
 
-| Module                     | Lines        | Function Coverage       | Key Features                                                                    |
-| -------------------------- | ------------ | ----------------------- | ------------------------------------------------------------------------------- |
-| leptonica (src/core/)      | ~47,100      | 545/882 (61.8%)         | Pix, Box, Pta, Colormap, arithmetic, compare, blend, graphics, stats, histogram |
-| leptonica (src/io/)        | ~7,900       | 85/146 (58.2%)          | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS/SPIX + header reading                |
-| leptonica (src/transform/) | ~11,200      | 91/152 (59.9%)          | Rotate, scale, affine, projective, shear                                        |
-| leptonica (src/morph/)     | ~9,400       | 98/120 (81.7%)          | Binary/grayscale/color morphology, DWA, thinning                                |
-| leptonica (src/filter/)    | ~9,800       | 82/99 (82.8%)           | Convolution, edge detection, bilateral, rank, adaptive mapping                  |
-| leptonica (src/color/)     | ~7,400       | 68/126 (54.0%)          | Colorspace conversion, quantization, segmentation, binarization, color analysis |
-| leptonica (src/region/)    | ~10,600      | 48/95 (50.5%)           | Connected components, seed fill, watershed, quadtree, maze                      |
-| leptonica (src/recog/)     | ~16,000      | 99/144 (68.8%)          | Skew correction, dewarping, character recognition, barcode                      |
-| Other                      | -            | 12/116 (10.3%)          | Warper, encoding                                                                |
-| **Total**                  | **~119,500** | **1,128/1,880 (60.0%)** |                                                                                 |
+| Module                     | Lines        | Function Coverage       | Effective Coverage       | Key Features                                                                                       |
+| -------------------------- | ------------ | ----------------------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
+| leptonica (src/core/)      | ~47,100      | 842/919 (91.6%)         | 842/842 (100.0%)         | Pix, Box, Pta, Ptaa, Pixaa, Colormap, arithmetic, compare, blend, graphics, stats, histogram       |
+| leptonica (src/io/)        | ~7,900       | 157/202 (77.7%)         | 157/157 (100.0%)         | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS/SPIX + header reading                                   |
+| leptonica (src/transform/) | ~11,200      | 128/142 (90.1%)         | 128/128 (100.0%)         | Rotate, scale, affine, projective, shear                                                           |
+| leptonica (src/morph/)     | ~9,400       | 138/163 (84.7%)         | 138/138 (100.0%)         | Binary/grayscale/color morphology, DWA, thinning                                                   |
+| leptonica (src/filter/)    | ~9,800       | 107/120 (89.2%)         | 107/107 (100.0%)         | Convolution, edge detection, bilateral, rank, adaptive mapping                                     |
+| leptonica (src/color/)     | ~7,400       | 122/139 (87.8%)         | 122/122 (100.0%)         | Colorspace conversion, quantization, segmentation, binarization, color analysis, colormap painting |
+| leptonica (src/region/)    | ~10,600      | 73/95 (76.8%)           | 73/73 (100.0%)           | Connected components, seed fill, watershed, quadtree, maze                                         |
+| leptonica (src/recog/)     | ~16,000      | 164/182 (90.1%)         | 164/164 (100.0%)         | Skew correction, dewarping, character recognition, barcode                                         |
+| Other                      | -            | 143/324 (44.1%)         | 143/143 (100.0%)         | Warper, encoding                                                                                   |
+| **Total**                  | **~144,000** | **1,874/2,286 (82.0%)** | **1,874/1,874 (100.0%)** |                                                                                                    |
 
-## Major Unimplemented Areas
+## Unimplemented Function Status
 
-### leptonica (src/core/) (remaining unimplemented: ~337 functions)
-
-Significantly improved in Phases 13–17 (26.7% → 61.8%). Main unimplemented areas:
-
-- **I/O helper functions**: Pix/Boxa/Pixa/Numa Read/Write/Serialize (planned for Phase 10)
-- **Advanced colormap ops**: Search/conversion/effects (planned for Phase 12)
-- **roplow.c**: Low-level bit operations (covered by high-level API in Rust rop.rs, skip candidate)
-- **boxfunc2.c/5.c**: Box conversion utilities, smoothing
-
-### leptonica (src/filter/) (coverage: 82.8%)
-
-- **Fast bilateral approximation** (pixBilateral)
-- **adaptmap.c detailed features**: Morphology-based background normalization, map utilities
-- **Tiled convolution**: pixBlockconvTiled etc.
-
-### Other (coverage: 10.3%)
-
-- **Compressed image container** (pixcomp.c): Pixcomp/Pixacomp
-- **Tiling** (pixtiling.c): Large image split processing
-- **Advanced labeling** (pixlabel.c): Distance functions, local extrema
-- **Data structures**: Replaceable with Rust standard library (heap→BinaryHeap etc.)
+All 1,874 functions are implemented (✅ 1,690 + 🔄 184, ❌ 0), excluding 412 functions classified as 🚫 Not needed.
+Effective coverage is 100.0%.
 
 ## C Version Feature Categories (182 files)
 
@@ -241,17 +227,18 @@ Other:            compare, blend, pixarith, rop, bardecode, graphics, maze, warp
 Function-level comparison per module (list of all public functions and their implementation status).
 Note: these per-module files are currently only available in Japanese.
 
-- [leptonica (src/core/)](../../porting/comparison/core.md) — 882 functions
-- [leptonica (src/io/)](../../porting/comparison/io.md) — 146 functions
-- [leptonica (src/transform/)](../../porting/comparison/transform.md) — 152 functions
-- [leptonica (src/morph/)](../../porting/comparison/morph.md) — 120 functions
-- [leptonica (src/filter/)](../../porting/comparison/filter.md) — 99 functions
-- [leptonica (src/color/)](../../porting/comparison/color.md) — 126 functions
-- [leptonica (src/region/)](../../porting/comparison/region.md) — 95 functions
-- [leptonica (src/recog/)](../../porting/comparison/recog.md) — 144 functions
-- [Other](../../porting/comparison/misc.md) — 116 functions
+- [leptonica (src/core/)](../../porting/comparison/core.md) — 919 functions (🚫 77 not needed)
+- [leptonica (src/io/)](../../porting/comparison/io.md) — 202 functions (🚫 45 not needed)
+- [leptonica (src/transform/)](../../porting/comparison/transform.md) — 142 functions (🚫 14 not needed)
+- [leptonica (src/morph/)](../../porting/comparison/morph.md) — 163 functions (🚫 25 not needed)
+- [leptonica (src/filter/)](../../porting/comparison/filter.md) — 120 functions (🚫 13 not needed)
+- [leptonica (src/color/)](../../porting/comparison/color.md) — 139 functions (🚫 17 not needed)
+- [leptonica (src/region/)](../../porting/comparison/region.md) — 95 functions (🚫 22 not needed)
+- [leptonica (src/recog/)](../../porting/comparison/recog.md) — 182 functions (🚫 18 not needed)
+- [Other](../../porting/comparison/misc.md) — 324 functions (🚫 181 not needed)
 
 ## References
 
 - C source: `reference/leptonica/src/`
-- Rust source: `src/`
+- Rust source: module directories under `src/`
+- C→Rust file mapping: [`c-file-mapping.md`](../../porting/c-file-mapping.md)

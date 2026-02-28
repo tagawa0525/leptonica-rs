@@ -1,5 +1,7 @@
 # C vs Rust Regression Test Comparison
 
+> 🇯🇵 [日本語版](../../porting/test-comparison.md)
+
 Survey date: 2026-03-01 (all 159 C regression tests ported — 100% coverage)
 
 ## Overview
