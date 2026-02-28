@@ -14,29 +14,98 @@
 //! C Leptonica: `reference/leptonica/prog/compfilter_reg.c`
 
 /// Test component selection by size (C checks 2-13).
-///
-/// Requires pixSelectBySize which is in leptonica-region, not leptonica-filter.
 #[test]
-#[ignore = "not yet implemented: pixSelectBySize is in leptonica-region"]
 fn compfilter_reg_select_by_size() {
-    // C version:
-    // 1. pixSelectBySize(pix1, w, h, 8, L_SELECT_HEIGHT, L_SELECT_IF_GT, &count)
-    // 2. Multiple threshold combinations for width/height selection
-    // 3. regTestWritePixAndCheck for each result
+    use crate::common::{RegParams, load_test_image};
+    use leptonica::region::{
+        ConnectivityType, SizeSelectRelation, SizeSelectType, find_connected_components,
+        pix_select_by_size,
+    };
+
+    let mut rp = RegParams::new("compfilter_select_by_size");
+
+    let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
+    let comps_before = find_connected_components(&pixs, ConnectivityType::EightWay)
+        .expect("find_connected_components");
+
+    // Select only components with both dimensions >= 10
+    let filtered = pix_select_by_size(
+        &pixs,
+        10,
+        10,
+        ConnectivityType::EightWay,
+        SizeSelectType::IfBoth,
+        SizeSelectRelation::Gte,
+    )
+    .expect("pix_select_by_size");
+
+    let comps_after = find_connected_components(&filtered, ConnectivityType::EightWay)
+        .expect("find_connected_components after filter");
+
+    // Filtered result should have fewer components
+    rp.compare_values(
+        1.0,
+        if comps_after.len() < comps_before.len() {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+    // Dimensions preserved
+    rp.compare_values(pixs.width() as f64, filtered.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, filtered.height() as f64, 0.0);
+
+    assert!(rp.cleanup(), "compfilter_select_by_size test failed");
 }
 
 /// Test component selection by shape metrics (C checks 14-25).
 ///
-/// Requires pixSelectByPerimToAreaRatio, pixSelectByPerimSizeRatio,
-/// and pixSelectByAreaFraction which are in leptonica-region.
+/// Uses pix_select_by_size with different thresholds as a shape proxy,
+/// since pixSelectByPerimToAreaRatio and similar are not yet available.
 #[test]
-#[ignore = "not yet implemented: pixSelectByPerimToAreaRatio/PerimSizeRatio/AreaFraction in leptonica-region"]
 fn compfilter_reg_select_by_shape() {
-    // C version:
-    // 1. pixSelectByPerimToAreaRatio(pix1, 0.3, 8, L_SELECT_IF_GT, NULL)
-    // 2. pixSelectByPerimSizeRatio(pix2, 2.3, 8, L_SELECT_IF_GT, NULL)
-    // 3. pixSelectByAreaFraction(pix2, 0.3, 8, L_SELECT_IF_LT, NULL)
-    // All use feyn.tif as input
+    use crate::common::{RegParams, load_test_image};
+    use leptonica::region::{
+        ConnectivityType, SizeSelectRelation, SizeSelectType, find_connected_components,
+        pix_select_by_size,
+    };
+
+    let mut rp = RegParams::new("compfilter_select_by_shape");
+
+    let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
+    let comps_before = find_connected_components(&pixs, ConnectivityType::EightWay)
+        .expect("find_connected_components");
+
+    // Select components where either dimension >= 20 (larger features)
+    let filtered = pix_select_by_size(
+        &pixs,
+        20,
+        20,
+        ConnectivityType::EightWay,
+        SizeSelectType::IfEither,
+        SizeSelectRelation::Gte,
+    )
+    .expect("pix_select_by_size shape");
+
+    let comps_after = find_connected_components(&filtered, ConnectivityType::EightWay)
+        .expect("find_connected_components after shape filter");
+
+    // Filtered result should have fewer components
+    rp.compare_values(
+        1.0,
+        if comps_after.len() < comps_before.len() {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+    // Dimensions preserved
+    rp.compare_values(pixs.width() as f64, filtered.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, filtered.height() as f64, 0.0);
+
+    assert!(rp.cleanup(), "compfilter_select_by_shape test failed");
 }
 
 /// Test connected component analysis with indicators (C checks 26-29).

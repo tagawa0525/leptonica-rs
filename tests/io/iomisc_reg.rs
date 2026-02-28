@@ -123,9 +123,47 @@ fn iomisc_reg_png_alpha() {
 }
 
 #[test]
-#[ignore = "pixGetRGBComponent(), pixAlphaBlendUniform(), pixSetAlphaOverWhite() not implemented"]
 fn iomisc_reg_alpha_blend_operations() {
-    eprintln!("SKIP: Alpha blending operations not yet implemented");
+    use leptonica::core::pix::RgbComponent;
+
+    let mut rp = RegParams::new("iomisc_alpha_blend");
+
+    eprintln!("=== Alpha blend operations ===");
+
+    let pixs = load_test_image("test32-alpha.png").expect("load test32-alpha.png");
+    eprintln!(
+        "  test32-alpha.png: {}x{}, depth={}, spp={}",
+        pixs.width(),
+        pixs.height(),
+        pixs.depth().bits(),
+        pixs.spp()
+    );
+
+    // Extract red channel
+    let pix_red = pixs
+        .get_rgb_component(RgbComponent::Red)
+        .expect("get_rgb_component Red");
+    rp.compare_values(pixs.width() as f64, pix_red.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, pix_red.height() as f64, 0.0);
+    rp.compare_values(8.0, pix_red.depth().bits() as f64, 0.0);
+
+    // Alpha blend over white
+    let pix_blend = pixs
+        .alpha_blend_uniform(0xFFFFFF00)
+        .expect("alpha_blend_uniform");
+    rp.compare_values(pixs.width() as f64, pix_blend.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, pix_blend.height() as f64, 0.0);
+    rp.compare_values(32.0, pix_blend.depth().bits() as f64, 0.0);
+
+    // Set alpha over white
+    let pix_alpha = pix_blend
+        .set_alpha_over_white()
+        .expect("set_alpha_over_white");
+    rp.compare_values(pix_blend.width() as f64, pix_alpha.width() as f64, 0.0);
+    rp.compare_values(pix_blend.height() as f64, pix_alpha.height() as f64, 0.0);
+    rp.compare_values(32.0, pix_alpha.depth().bits() as f64, 0.0);
+
+    assert!(rp.cleanup(), "iomisc alpha blend operations test failed");
 }
 
 // ============================================================================
@@ -174,15 +212,59 @@ fn iomisc_reg_colormap() {
 }
 
 #[test]
-#[ignore = "pixRemoveColormap() and pixConvertRGBToColormap() not implemented"]
 fn iomisc_reg_remove_regen_rgb_colormap() {
-    eprintln!("SKIP: pixRemoveColormap and pixConvertRGBToColormap not yet implemented");
+    use leptonica::core::pix::RemoveColormapTarget;
+
+    let mut rp = RegParams::new("iomisc_regen_rgb_cmap");
+
+    eprintln!("=== Remove/regen RGB colormap ===");
+
+    let pixs = load_test_image("weasel4.11c.png").expect("load weasel4.11c.png");
+    rp.compare_values(1.0, if pixs.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+
+    // Remove colormap to full color
+    let pix_rgb = pixs
+        .remove_colormap(RemoveColormapTarget::ToFullColor)
+        .expect("remove_colormap ToFullColor");
+    rp.compare_values(0.0, if pix_rgb.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+    rp.compare_values(32.0, pix_rgb.depth().bits() as f64, 0.0);
+
+    // Re-add colormap
+    let pix_cmap = pix_rgb
+        .convert_rgb_to_colormap(false)
+        .expect("convert_rgb_to_colormap");
+    rp.compare_values(1.0, if pix_cmap.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+
+    assert!(rp.cleanup(), "iomisc remove/regen RGB colormap test failed");
 }
 
 #[test]
-#[ignore = "pixRemoveColormap() and pixConvertGrayToColormap() not implemented"]
 fn iomisc_reg_remove_regen_gray_colormap() {
-    eprintln!("SKIP: pixRemoveColormap and pixConvertGrayToColormap not yet implemented");
+    use leptonica::core::pix::RemoveColormapTarget;
+
+    let mut rp = RegParams::new("iomisc_regen_gray_cmap");
+
+    eprintln!("=== Remove/regen gray colormap ===");
+
+    let pixs = load_test_image("weasel8.png").expect("load weasel8.png");
+    rp.compare_values(0.0, if pixs.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+
+    // Add colormap
+    let pix_cmap = pixs
+        .convert_gray_to_colormap()
+        .expect("convert_gray_to_colormap");
+    rp.compare_values(1.0, if pix_cmap.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+
+    // Remove colormap
+    let pix_gray = pix_cmap
+        .remove_colormap(RemoveColormapTarget::BasedOnSrc)
+        .expect("remove_colormap BasedOnSrc");
+    rp.compare_values(0.0, if pix_gray.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+
+    assert!(
+        rp.cleanup(),
+        "iomisc remove/regen gray colormap test failed"
+    );
 }
 
 // ============================================================================

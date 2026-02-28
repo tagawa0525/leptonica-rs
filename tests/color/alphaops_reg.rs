@@ -4,9 +4,9 @@
 //! alpha channel generation. The C version tests pixAlphaBlendUniform,
 //! pixSetAlphaOverWhite, pixBlendWithGrayMask, and pixMultiplyByColor.
 //!
-//! Partial migration: alpha_blend_uniform, remove_alpha, multiply_by_color,
-//! and blend_with_gray_mask are tested. pixSetAlphaOverWhite and
-//! pixBlendBackgroundToColor are not available.
+//! Full migration: alpha_blend_uniform, remove_alpha, multiply_by_color,
+//! blend_with_gray_mask, set_alpha_over_white, and blend_background_to_color
+//! are all tested.
 //!
 //! # See also
 //!
@@ -119,13 +119,61 @@ fn alphaops_reg_blend_with_mask() {
 
 /// Test pixSetAlphaOverWhite and pixBlendBackgroundToColor (C checks 2-3).
 ///
-/// Requires pixSetAlphaOverWhite and pixBlendBackgroundToColor which are
-/// not available in the Rust API.
+/// Loads blend-green1.jpg, applies set_alpha_over_white to generate alpha
+/// from white background, then blends back to a color with
+/// blend_background_to_color.
 #[test]
-#[ignore = "not yet implemented: pixSetAlphaOverWhite/pixBlendBackgroundToColor not available"]
 fn alphaops_reg_set_alpha_over_white() {
-    // C version:
-    // 1. pixSetAlphaOverWhite(pix2) – generate alpha from white background
-    // 2. pixBlendBackgroundToColor(NULL, pix, box, color, gamma, minval, maxval)
-    // 3. Blend test images (blend-green*.jpg/png, blend-orange.jpg, etc.)
+    let mut rp = RegParams::new("alphaops_alpha_white");
+
+    // Load a 32bpp image (blend-green1.jpg)
+    let pix = crate::common::load_test_image("blend-green1.jpg").expect("load blend-green1.jpg");
+    let w = pix.width();
+    let h = pix.height();
+
+    // Ensure 32bpp for set_alpha_over_white
+    let pix32 = if pix.depth() != PixelDepth::Bit32 {
+        pix.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix
+    };
+
+    // C: pixSetAlphaOverWhite(pix2) — generate alpha from white background
+    let with_alpha = pix32.set_alpha_over_white().expect("set_alpha_over_white");
+    rp.compare_values(w as f64, with_alpha.width() as f64, 0.0);
+    rp.compare_values(h as f64, with_alpha.height() as f64, 0.0);
+    assert_eq!(with_alpha.depth(), PixelDepth::Bit32);
+
+    // C: pixBlendBackgroundToColor(NULL, pix, ..., color, ...)
+    // Blend the alpha image back toward a light yellow background
+    let blended = with_alpha
+        .blend_background_to_color(0xffffe000)
+        .expect("blend_background_to_color");
+    rp.compare_values(w as f64, blended.width() as f64, 0.0);
+    rp.compare_values(h as f64, blended.height() as f64, 0.0);
+    assert_eq!(blended.depth(), PixelDepth::Bit32);
+
+    // Also test with blend-orange.jpg
+    let pix_orange =
+        crate::common::load_test_image("blend-orange.jpg").expect("load blend-orange.jpg");
+    let pix_orange32 = if pix_orange.depth() != PixelDepth::Bit32 {
+        pix_orange.convert_to_32().expect("convert orange to 32bpp")
+    } else {
+        pix_orange
+    };
+    let orange_alpha = pix_orange32
+        .set_alpha_over_white()
+        .expect("set_alpha_over_white orange");
+    rp.compare_values(
+        pix_orange32.width() as f64,
+        orange_alpha.width() as f64,
+        0.0,
+    );
+    rp.compare_values(
+        pix_orange32.height() as f64,
+        orange_alpha.height() as f64,
+        0.0,
+    );
+
+    assert!(rp.cleanup(), "alphaops set_alpha_over_white test failed");
 }

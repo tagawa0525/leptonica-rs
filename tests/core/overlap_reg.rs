@@ -11,7 +11,7 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/overlap_reg.c`
 
-use crate::common::RegParams;
+use crate::common::{RegParams, load_test_image};
 use leptonica::{Box, Boxa};
 
 /// Test combine_overlaps: boxes that overlap are merged into bounding regions.
@@ -172,12 +172,23 @@ fn overlap_reg_idempotent() {
 
 /// Test splitcomp (pixSplitIntoBoxa, pixSplitComponentIntoBoxa).
 ///
-/// These functions are not yet implemented in leptonica-region.
+/// C: boxa = pixSplitIntoBoxa(pixs, minsum, skipdist, delta, maxbg, 0);
 #[test]
-#[ignore = "not yet implemented: pixSplitIntoBoxa/pixSplitComponentIntoBoxa not available"]
 fn splitcomp_reg_split_into_boxa() {
-    // C: boxa = pixSplitIntoBoxa(pixs, minsum, skipdist, delta, maxbg, 0);
-    //    boxa = pixSplitComponentIntoBoxa(pixt, NULL, minsum, skipdist, delta, maxbg, 0, 1);
+    let mut rp = RegParams::new("splitcomp");
+
+    let pix = load_test_image("feyn.tif").expect("load feyn.tif");
+    let boxa = pix.split_into_boxa(10, 5, 2, 5).expect("split_into_boxa");
+
+    // The result should contain rectangular sub-regions
+    rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
+
+    // Each box should have valid dimensions
+    for b in boxa.boxes() {
+        assert!(b.w > 0 && b.h > 0, "box must have positive dimensions");
+    }
+
+    assert!(rp.cleanup(), "splitcomp_reg test failed");
 }
 
 /// Test smoothedge (pixGetEdgeProfile, edge smoothness analysis).

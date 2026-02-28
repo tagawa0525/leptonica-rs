@@ -16,15 +16,16 @@
 //!   - pixBackgroundNormFlex(pixs, 7, 7, 1, 1, 10)   -> background_norm() (closest)
 //!
 //! C APIs not yet implemented (skipped):
-//!   - pixGammaTRC, pixGammaTRCMasked, pixDitherTo2bpp, pixThresholdTo4bpp
-//!   - pixThresholdToBinary, pixLocalExtrema, pixSeedfillGrayBasin, pixScaleSmooth
+//!   - pixSeedfillGrayBasin, pixScaleSmooth
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::Pix;
+use leptonica::color::{dither_to_2bpp, threshold_to_4bpp, threshold_to_binary};
 use leptonica::filter::{
     BackgroundNormOptions, ContrastNormOptions, background_norm, background_norm_simple,
-    contrast_norm, contrast_norm_simple,
+    contrast_norm, contrast_norm_simple, gamma_trc_masked, gamma_trc_pix,
 };
+use leptonica::region::local_extrema;
 
 /// Helper: sample min and max pixel values from an 8bpp image
 fn sample_min_max(pix: &Pix) -> (u32, u32) {
@@ -409,27 +410,104 @@ fn adaptnorm_reg_contrast_norm_simple_lighttext() {
 // Skipped tests for unimplemented C APIs
 // ============================================================================
 
-/// C: pixGammaTRC() -- leptonica-enhance not yet implemented
+/// C: pixGammaTRC() -- gamma correction on 8bpp image
 #[test]
-#[ignore = "C: pixGammaTRC() -- leptonica-enhance not yet implemented"]
-fn adaptnorm_reg_gamma_trc() {}
+fn adaptnorm_reg_gamma_trc() {
+    let mut rp = RegParams::new("adaptnorm_gamma_trc");
 
-/// C: pixDitherTo2bpp(), pixThresholdTo4bpp() -- not yet implemented
-#[test]
-#[ignore = "C: pixDitherTo2bpp(), pixThresholdTo4bpp() -- not yet implemented"]
-fn adaptnorm_reg_quantization() {}
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let gray = pixs.convert_to_8().expect("convert to 8bpp");
+    let w = gray.width();
+    let h = gray.height();
 
-/// C: pixThresholdToBinary() -- leptonica-binarize not yet implemented
-#[test]
-#[ignore = "C: pixThresholdToBinary() -- leptonica-binarize not yet implemented"]
-fn adaptnorm_reg_binarization() {}
+    let result = gamma_trc_pix(&gray, 1.5, 30, 230).expect("gamma_trc_pix");
+    rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.compare_values(h as f64, result.height() as f64, 0.0);
+    rp.compare_values(8.0, result.depth().bits() as f64, 0.0);
 
-/// C: pixLocalExtrema(), pixSeedfillGrayBasin() -- not implemented in Rust
-#[test]
-#[ignore = "C: pixLocalExtrema(), pixSeedfillGrayBasin() -- not implemented in Rust"]
-fn adaptnorm_reg_local_extrema_pipeline() {}
+    assert!(rp.cleanup(), "adaptnorm_gamma_trc regression test failed");
+}
 
-/// C: pixGammaTRCMasked() -- leptonica-enhance not yet implemented
+/// C: pixDitherTo2bpp(), pixThresholdTo4bpp() -- quantization
 #[test]
-#[ignore = "C: pixGammaTRCMasked() -- leptonica-enhance not yet implemented"]
-fn adaptnorm_reg_gamma_trc_masked() {}
+fn adaptnorm_reg_quantization() {
+    let mut rp = RegParams::new("adaptnorm_quantization");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let gray = pixs.convert_to_8().expect("convert to 8bpp");
+
+    let pix2 = dither_to_2bpp(&gray).expect("dither_to_2bpp");
+    rp.compare_values(2.0, pix2.depth().bits() as f64, 0.0);
+
+    let pix4 = threshold_to_4bpp(&gray, 16, false).expect("threshold_to_4bpp");
+    rp.compare_values(4.0, pix4.depth().bits() as f64, 0.0);
+
+    assert!(
+        rp.cleanup(),
+        "adaptnorm_quantization regression test failed"
+    );
+}
+
+/// C: pixThresholdToBinary() -- binarization at threshold 128
+#[test]
+fn adaptnorm_reg_binarization() {
+    let mut rp = RegParams::new("adaptnorm_binarization");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let gray = pixs.convert_to_8().expect("convert to 8bpp");
+
+    let pix1 = threshold_to_binary(&gray, 128).expect("threshold_to_binary");
+    rp.compare_values(1.0, pix1.depth().bits() as f64, 0.0);
+    rp.compare_values(gray.width() as f64, pix1.width() as f64, 0.0);
+    rp.compare_values(gray.height() as f64, pix1.height() as f64, 0.0);
+
+    assert!(
+        rp.cleanup(),
+        "adaptnorm_binarization regression test failed"
+    );
+}
+
+/// C: pixLocalExtrema() -- local min/max masks
+#[test]
+fn adaptnorm_reg_local_extrema_pipeline() {
+    let mut rp = RegParams::new("adaptnorm_local_extrema");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let gray = pixs.convert_to_8().expect("convert to 8bpp");
+    let w = gray.width();
+    let h = gray.height();
+
+    let (min_mask, max_mask) = local_extrema(&gray, 3, 5).expect("local_extrema");
+    rp.compare_values(w as f64, min_mask.width() as f64, 0.0);
+    rp.compare_values(h as f64, min_mask.height() as f64, 0.0);
+    rp.compare_values(1.0, min_mask.depth().bits() as f64, 0.0);
+    rp.compare_values(w as f64, max_mask.width() as f64, 0.0);
+    rp.compare_values(h as f64, max_mask.height() as f64, 0.0);
+    rp.compare_values(1.0, max_mask.depth().bits() as f64, 0.0);
+
+    assert!(
+        rp.cleanup(),
+        "adaptnorm_local_extrema regression test failed"
+    );
+}
+
+/// C: pixGammaTRCMasked() -- masked gamma correction
+#[test]
+fn adaptnorm_reg_gamma_trc_masked() {
+    let mut rp = RegParams::new("adaptnorm_gamma_trc_masked");
+
+    let pixs = load_test_image("test8.jpg").expect("load test8.jpg");
+    let gray = pixs.convert_to_8().expect("convert to 8bpp");
+    let w = gray.width();
+    let h = gray.height();
+
+    let result = gamma_trc_masked(&gray, None, 1.5, 30, 230).expect("gamma_trc_masked");
+    rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.compare_values(h as f64, result.height() as f64, 0.0);
+    rp.compare_values(8.0, result.depth().bits() as f64, 0.0);
+
+    assert!(
+        rp.cleanup(),
+        "adaptnorm_gamma_trc_masked regression test failed"
+    );
+}

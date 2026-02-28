@@ -39,15 +39,36 @@ fn locminmax_reg_blockconv_smooth() {
 }
 
 /// Test pixLocalExtrema for local minima/maxima detection (C checks 1-2).
-///
-/// Requires pixLocalExtrema which is in leptonica-region, not leptonica-filter.
 #[test]
-#[ignore = "not yet implemented: pixLocalExtrema is in leptonica-region"]
 fn locminmax_reg_extrema() {
-    // C version:
-    // 1. Smooth image with pixBlockconv(pix2, 10, 10)
-    // 2. pixLocalExtrema(pixs, minmax=50, maxmin=50, &pix1, &pix2)
-    //    pix1 = local minima mask, pix2 = local maxima mask
-    // 3. pixPaintThroughMask to overlay extrema on smoothed image
-    // 4. regTestWritePixAndCheck for result
+    use leptonica::region::local_extrema;
+
+    let mut rp = RegParams::new("locminmax_extrema");
+
+    let pix8 = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    // Convert to 8bpp if needed
+    let pix8 = if pix8.depth() == leptonica::PixelDepth::Bit8 {
+        pix8
+    } else {
+        pix8.convert_rgb_to_gray_fast().expect("convert to 8bpp")
+    };
+
+    // Smooth with blockconv before extrema detection (C: pixBlockconv(pix2, 10, 10))
+    let smoothed = blockconv_gray(&pix8, None, 10, 10).expect("blockconv_gray 10x10");
+
+    // C: pixLocalExtrema(pixs, 50, 50, &pix_min, &pix_max)
+    // min_max_size must be odd
+    let (pix_min, pix_max) = local_extrema(&smoothed, 51, 50).expect("local_extrema");
+
+    // Both masks should be 1bpp
+    rp.compare_values(1.0, pix_min.depth().bits() as f64, 0.0);
+    rp.compare_values(1.0, pix_max.depth().bits() as f64, 0.0);
+
+    // Masks should have same dimensions as smoothed image
+    rp.compare_values(smoothed.width() as f64, pix_min.width() as f64, 0.0);
+    rp.compare_values(smoothed.height() as f64, pix_min.height() as f64, 0.0);
+    rp.compare_values(smoothed.width() as f64, pix_max.width() as f64, 0.0);
+    rp.compare_values(smoothed.height() as f64, pix_max.height() as f64, 0.0);
+
+    assert!(rp.cleanup(), "locminmax_extrema test failed");
 }

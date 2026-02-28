@@ -810,13 +810,19 @@ impl Pix {
                 let v2 = other.get_pixel_unchecked(x, y);
                 let (r1, g1, b1) = if let Some(cmap) = self.colormap() {
                     cmap.get_rgb(v1 as usize).unwrap_or((0, 0, 0))
-                } else {
+                } else if self.depth() == PixelDepth::Bit32 {
                     pixel::extract_rgb(v1)
+                } else {
+                    let g = v1 as u8;
+                    (g, g, g)
                 };
                 let (r2, g2, b2) = if let Some(cmap) = other.colormap() {
                     cmap.get_rgb(v2 as usize).unwrap_or((0, 0, 0))
-                } else {
+                } else if other.depth() == PixelDepth::Bit32 {
                     pixel::extract_rgb(v2)
+                } else {
+                    let g = v2 as u8;
+                    (g, g, g)
                 };
                 if r1 != r2 || g1 != g2 || b1 != b2 {
                     return false;

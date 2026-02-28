@@ -4,10 +4,9 @@
 //! The C version tests various threshold levels with and without colormaps.
 //!
 //! Partial migration: threshold_to_binary, threshold_to_2bpp, threshold_to_4bpp,
-//! median_cut_quant, octree_quant_256, fixed_octcube_quant_256, and
-//! octree_quant_by_population are tested. pixThresholdOn8bpp, pixThreshold8,
-//! pixThresholdGrayArb, and colormap highlight operations are not available.
-//! Test image stampede2.jpg is not available; test8.jpg is used instead.
+//! median_cut_quant, octree_quant_256, fixed_octcube_quant_256,
+//! octree_quant_by_population, threshold_on_8bpp, threshold_8, and
+//! threshold_gray_arb are tested.
 //!
 //! # See also
 //!
@@ -17,7 +16,8 @@ use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::{
     MedianCutOptions, fixed_octcube_quant_256, median_cut_quant, octree_quant_256,
-    octree_quant_by_population, threshold_to_2bpp, threshold_to_4bpp, threshold_to_binary,
+    octree_quant_by_population, threshold_gray_arb, threshold_on_8bpp, threshold_to_2bpp,
+    threshold_to_4bpp, threshold_to_binary,
 };
 
 /// Test threshold_to_binary (C check 0: pixThresholdToBinary).
@@ -117,14 +117,36 @@ fn grayquant_reg_color_quant() {
 
 /// Test pixThresholdOn8bpp, pixThreshold8, pixThresholdGrayArb (C checks 14-49).
 ///
-/// Requires pixThresholdOn8bpp, pixThreshold8, pixThresholdGrayArb,
-/// pixSetSelectCmap, pixConvertGrayToColormap which are not available.
-/// Test image stampede2.jpg is also not available.
+/// Tests threshold_on_8bpp, threshold_8 (on Pix), and threshold_gray_arb.
 #[test]
-#[ignore = "not yet implemented: pixThresholdOn8bpp/pixThreshold8/pixThresholdGrayArb not available"]
 fn grayquant_reg_advanced_threshold() {
-    // C version:
-    // pix1 = pixThresholdOn8bpp(pixs, 9, 1);
-    // pix1 = pixThreshold8(pixs, 1, 2, 1);
-    // pix1 = pixThresholdGrayArb(pixs, "45 75 115 185", 8, 0, 0, 0);
+    let mut rp = RegParams::new("gquant_adv");
+
+    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix8 = pix.convert_to_8().expect("convert to 8bpp");
+    let w = pix8.width();
+    let h = pix8.height();
+
+    // C: pix1 = pixThresholdOn8bpp(pixs, 9, 1);
+    let result = threshold_on_8bpp(&pix8, 9, true).expect("threshold_on_8bpp 9 cmap");
+    rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.compare_values(h as f64, result.height() as f64, 0.0);
+    assert_eq!(result.depth(), PixelDepth::Bit8);
+
+    // Without colormap
+    let result2 = threshold_on_8bpp(&pix8, 9, false).expect("threshold_on_8bpp 9 no cmap");
+    rp.compare_values(w as f64, result2.width() as f64, 0.0);
+    assert_eq!(result2.depth(), PixelDepth::Bit8);
+
+    // C: pix1 = pixThreshold8(pixs, 1, 2, 1);
+    let result3 = pix8.threshold_8(1, 2, true).expect("threshold_8 depth=1");
+    rp.compare_values(w as f64, result3.width() as f64, 0.0);
+    assert_eq!(result3.depth(), PixelDepth::Bit1);
+
+    // C: pix1 = pixThresholdGrayArb(pixs, "45 75 115 185", ...);
+    let result4 = threshold_gray_arb(&pix8, "45 75 115 185").expect("threshold_gray_arb");
+    rp.compare_values(w as f64, result4.width() as f64, 0.0);
+    rp.compare_values(h as f64, result4.height() as f64, 0.0);
+
+    assert!(rp.cleanup(), "grayquant advanced threshold test failed");
 }

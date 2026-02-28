@@ -5,8 +5,8 @@
 //! scaled dithering.
 //!
 //! Partial migration: dither_to_binary, dither_to_binary_with_threshold,
-//! and ordered_dither are tested. pixDitherTo2bpp and scaled dither
-//! (pixScaleGray2x/4xLIDither) are not available.
+//! ordered_dither, dither_to_2bpp, scale_gray_2x_li_dither, and
+//! scale_gray_4x_li_dither are tested.
 //!
 //! # See also
 //!
@@ -14,7 +14,10 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
-use leptonica::color::{dither_to_binary, dither_to_binary_with_threshold, ordered_dither};
+use leptonica::color::{
+    dither_to_2bpp, dither_to_binary, dither_to_binary_with_threshold, ordered_dither,
+};
+use leptonica::transform::{scale_gray_2x_li_dither, scale_gray_4x_li_dither};
 
 /// Test dither_to_binary (C check 0: pixDitherToBinary).
 ///
@@ -75,14 +78,33 @@ fn dither_reg_ordered() {
 
 /// Test pixDitherTo2bpp and scaled dither (C checks 1-5).
 ///
-/// Requires pixDitherTo2bpp and pixScaleGray2xLIDither/pixScaleGray4xLIDither
-/// which are not available in the Rust API.
+/// Tests dither_to_2bpp, scale_gray_2x_li_dither and scale_gray_4x_li_dither.
 #[test]
-#[ignore = "not yet implemented: pixDitherTo2bpp/pixScaleGray2x/4xLIDither not available"]
 fn dither_reg_2bpp_and_scaled() {
-    // C version:
-    // pix1 = pixDitherTo2bpp(pixs, 1);  -- with colormap
-    // pix2 = pixDitherTo2bpp(pixs, 0);  -- without colormap
-    // pix1 = pixScaleGray2xLIDither(pixs);
-    // pix1 = pixScaleGray4xLIDither(pixs);
+    let mut rp = RegParams::new("dither_2bpp");
+
+    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix8 = pix.convert_to_8().expect("convert to 8bpp");
+    let w = pix8.width();
+    let h = pix8.height();
+
+    // C: pix1 = pixDitherTo2bpp(pixs, 1);
+    let result = dither_to_2bpp(&pix8).expect("dither_to_2bpp");
+    rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.compare_values(h as f64, result.height() as f64, 0.0);
+    assert_eq!(result.depth(), PixelDepth::Bit2);
+
+    // C: pix1 = pixScaleGray2xLIDither(pixs);
+    let scaled2 = scale_gray_2x_li_dither(&pix8).expect("scale_gray_2x_li_dither");
+    rp.compare_values((w * 2) as f64, scaled2.width() as f64, 0.0);
+    rp.compare_values((h * 2) as f64, scaled2.height() as f64, 0.0);
+    assert_eq!(scaled2.depth(), PixelDepth::Bit1);
+
+    // C: pix1 = pixScaleGray4xLIDither(pixs);
+    let scaled4 = scale_gray_4x_li_dither(&pix8).expect("scale_gray_4x_li_dither");
+    rp.compare_values((w * 4) as f64, scaled4.width() as f64, 0.0);
+    rp.compare_values((h * 4) as f64, scaled4.height() as f64, 0.0);
+    assert_eq!(scaled4.depth(), PixelDepth::Bit1);
+
+    assert!(rp.cleanup(), "dither 2bpp and scaled test failed");
 }
