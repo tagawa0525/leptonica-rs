@@ -4,145 +4,170 @@
 
 ## サマリー
 
-| 項目      | 数 |
-| --------- | -- |
-| ✅ 同等   | 65 |
-| 🔄 異なる | 8  |
-| ❌ 未実装 | 0  |
-| 🚫 不要   | 22 |
-| 合計      | 95 |
+| 項目            | 数 |
+| --------------- | -- |
+| ✅ 同等         | 65 |
+| 🔄 異なる       | 8  |
+| 実装済（✅+🔄） | 73 |
+| ❌ 未実装       | 0  |
+| 🚫 不要         | 22 |
+| 合計            | 95 |
 
 ## 詳細
 
 ### conncomp.c
 
-| C関数               | 状態      | Rust対応                              | 備考                                                      |
-| ------------------- | --------- | ------------------------------------- | --------------------------------------------------------- |
-| pixConnComp         | 🔄 異なる | find_connected_components             | 異なるAPI: Rust版はVec<ConnectedComponent>を返す          |
-| pixConnCompPixa     | ✅ 同等   | conncomp_pixa()                       | -                                                         |
-| pixConnCompBB       | 🔄 異なる | find_connected_components             | 異なるAPI: bounding box情報はConnectedComponentに含まれる |
-| pixCountConnComp    | ✅ 同等   | pix_count_components (label.rs)       | -                                                         |
-| nextOnPixelInRaster | ✅ 同等   | conncomp.rs next_on_pixel_in_raster() | -                                                         |
-| pixSeedfillBB       | ✅ 同等   | `conncomp::seedfill_bb`               |                                                           |
-| pixSeedfill4BB      | ✅ 同等   | `conncomp::seedfill_4_bb`             |                                                           |
-| pixSeedfill8BB      | ✅ 同等   | `conncomp::seedfill_8_bb`             |                                                           |
-| pixSeedfill         | ✅ 同等   | `conncomp::seedfill`                  |                                                           |
-| pixSeedfill4        | ✅ 同等   | `conncomp::seedfill_4`                |                                                           |
-| pixSeedfill8        | ✅ 同等   | `conncomp::seedfill_8`                |                                                           |
+#### region/conncomp.rs (conncomp.c)
+
+| C関数               | 状態 | Rust対応                  | 備考                                                      |
+| ------------------- | ---- | ------------------------- | --------------------------------------------------------- |
+| pixConnComp         | 🔄   | find_connected_components | 異なるAPI: Rust版はVec<ConnectedComponent>を返す          |
+| pixConnCompPixa     | ✅   | conncomp_pixa()           | -                                                         |
+| pixConnCompBB       | 🔄   | find_connected_components | 異なるAPI: bounding box情報はConnectedComponentに含まれる |
+| pixSeedfillBB       | ✅   | conncomp::seedfill_bb     |                                                           |
+| pixSeedfill4BB      | ✅   | conncomp::seedfill_4_bb   |                                                           |
+| pixSeedfill8BB      | ✅   | conncomp::seedfill_8_bb   |                                                           |
+| pixSeedfill         | ✅   | conncomp::seedfill        |                                                           |
+| pixSeedfill4        | ✅   | conncomp::seedfill_4      |                                                           |
+| pixSeedfill8        | ✅   | conncomp::seedfill_8      |                                                           |
+| nextOnPixelInRaster | ✅   | next_on_pixel_in_raster() | -                                                         |
+
+#### region/label.rs (conncomp.c)
+
+| C関数            | 状態 | Rust対応                        | 備考 |
+| ---------------- | ---- | ------------------------------- | ---- |
+| pixCountConnComp | ✅   | pix_count_components (label.rs) | -    |
 
 ### ccbord.c
 
-| C関数                     | 状態      | Rust対応                            | 備考                          |
-| ------------------------- | --------- | ----------------------------------- | ----------------------------- |
-| ccbaCreate                | 🚫 不要   | -                                   | Cメモリ管理: Rustでは不要     |
-| ccbaDestroy               | 🚫 不要   | -                                   | Cメモリ管理: Rustでは不要     |
-| ccbCreate                 | 🚫 不要   | -                                   | Cメモリ管理: Rustでは不要     |
-| ccbDestroy                | 🚫 不要   | -                                   | Cメモリ管理: Rustでは不要     |
-| ccbaAddCcb                | 🚫 不要   | -                                   | Cデータ構造管理: Rustでは不要 |
-| ccbaExtendArray           | 🚫 不要   | -                                   | Cデータ構造管理: Rustでは不要 |
-| ccbaGetCount              | 🚫 不要   | -                                   | Cデータ構造管理: Rustでは不要 |
-| ccbaGetCcb                | 🚫 不要   | -                                   | Cデータ構造管理: Rustでは不要 |
-| pixGetAllCCBorders        | 🔄 異なる | get_all_borders                     | 異なるAPI: ImageBordersを返す |
-| pixGetCCBorders           | ✅ 同等   | `get_component_borders`             |                               |
-| pixGetOuterBordersPtaa    | 🔄 異なる | get_outer_borders                   | 異なるAPI: Vec<Border>を返す  |
-| pixGetOuterBorderPta      | 🔄 異なる | get_outer_border                    | 異なるAPI: Borderを返す       |
-| pixGetOuterBorder         | ✅ 同等   | `get_outer_border`                  |                               |
-| pixGetHoleBorder          | ✅ 同等   | `pix_get_hole_border`               |                               |
-| findNextBorderPixel       | ✅ 同等   | find_next_border_pixel (private)    | -                             |
-| locateOutsideSeedPixel    | ✅ 同等   | `locate_outside_seed_pixel`         |                               |
-| ccbaGenerateGlobalLocs    | ✅ 同等   | `ccbord::generate_global_locs`      |                               |
-| ccbaGenerateStepChains    | ✅ 同等   | `ccbord::generate_step_chains`      |                               |
-| ccbaStepChainsToPixCoords | ✅ 同等   | `ccbord::step_chains_to_pix_coords` |                               |
-| ccbaGenerateSPGlobalLocs  | ✅ 同等   | `ccbord::generate_sp_global_locs`   |                               |
-| ccbaGenerateSinglePath    | ✅ 同等   | `ccbord::generate_single_path`      |                               |
-| getCutPathForHole         | ✅ 同等   | `get_cut_path_for_hole`             |                               |
-| ccbaDisplayBorder         | 🚫 不要   | -                                   | 表示/可視化関数: Rustでは不要 |
-| ccbaDisplaySPBorder       | 🚫 不要   | -                                   | 表示/可視化関数: Rustでは不要 |
-| ccbaDisplayImage1         | 🚫 不要   | -                                   | 表示/可視化関数: Rustでは不要 |
-| ccbaDisplayImage2         | 🚫 不要   | -                                   | 表示/可視化関数: Rustでは不要 |
-| ccbaWrite                 | ✅ 同等   | `ccbord::write_to_file`             |                               |
-| ccbaWriteStream           | ✅ 同等   | `ccbord::write<W: Write>`           |                               |
-| ccbaRead                  | ✅ 同等   | `ccbord::read_from_file`            |                               |
-| ccbaReadStream            | ✅ 同等   | `ccbord::read_from<R: Read>`        |                               |
-| ccbaWriteSVG              | ✅ 同等   | `ccbord::write_svg`                 |                               |
-| ccbaWriteSVGString        | ✅ 同等   | `ccbord::to_svg_string`             |                               |
+#### region/ccbord.rs (ccbord.c)
+
+| C関数                     | 状態 | Rust対応                          | 備考                                    |
+| ------------------------- | ---- | --------------------------------- | --------------------------------------- |
+| ccbaCreate                | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
+| ccbaDestroy               | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
+| ccbCreate                 | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
+| ccbDestroy                | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
+| ccbaAddCcb                | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
+| ccbaExtendArray           | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
+| ccbaGetCount              | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
+| ccbaGetCcb                | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
+| pixGetAllCCBorders        | 🔄   | get_all_borders                   | 異なるAPI: ImageBordersを返す           |
+| pixGetCCBorders           | ✅   | get_component_borders             |                                         |
+| pixGetOuterBordersPtaa    | 🔄   | get_outer_borders                 | 異なるAPI: Vec<Border>を返す            |
+| pixGetOuterBorderPta      | 🔄   | get_outer_border                  | 異なるAPI: Borderを返す                 |
+| pixGetOuterBorder         | ✅   | get_outer_border                  |                                         |
+| pixGetHoleBorder          | ✅   | pix_get_hole_border               |                                         |
+| findNextBorderPixel       | ✅   | find_next_border_pixel (private)  | -                                       |
+| locateOutsideSeedPixel    | ✅   | locate_outside_seed_pixel         |                                         |
+| ccbaGenerateGlobalLocs    | ✅   | ccbord::generate_global_locs      |                                         |
+| ccbaGenerateStepChains    | ✅   | ccbord::generate_step_chains      |                                         |
+| ccbaStepChainsToPixCoords | ✅   | ccbord::step_chains_to_pix_coords |                                         |
+| ccbaGenerateSPGlobalLocs  | ✅   | ccbord::generate_sp_global_locs   |                                         |
+| ccbaGenerateSinglePath    | ✅   | ccbord::generate_single_path      |                                         |
+| getCutPathForHole         | ✅   | get_cut_path_for_hole             |                                         |
+| ccbaDisplayBorder         | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
+| ccbaDisplaySPBorder       | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
+| ccbaDisplayImage1         | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
+| ccbaDisplayImage2         | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
+| ccbaWrite                 | ✅   | ccbord::write_to_file             |                                         |
+| ccbaWriteStream           | ✅   | ccbord::write<W: Write>           |                                         |
+| ccbaRead                  | ✅   | ccbord::read_from_file            |                                         |
+| ccbaReadStream            | ✅   | ccbord::read_from<R: Read>        |                                         |
+| ccbaWriteSVG              | ✅   | ccbord::write_svg                 |                                         |
+| ccbaWriteSVGString        | ✅   | ccbord::to_svg_string             |                                         |
 
 ### seedfill.c
 
-| C関数                       | 状態      | Rust対応                                  | 備考                                   |
-| --------------------------- | --------- | ----------------------------------------- | -------------------------------------- |
-| pixSeedfillBinary           | 🔄 異なる | seedfill_binary                           | 異なるAPI: SeedFillOptionsを使用       |
-| pixSeedfillBinaryRestricted | ✅ 同等   | seedfill_binary_restricted()              | -                                      |
-| seedfillBinaryLow           | 🚫 不要   | -                                         | Low-level内部関数: 高レベルAPIでカバー |
-| pixHolesByFilling           | ✅ 同等   | fill_holes                                | -                                      |
-| pixFillClosedBorders        | ✅ 同等   | fill_closed_borders()                     | -                                      |
-| pixExtractBorderConnComps   | ✅ 同等   | seedfill.rs extract_border_conn_comps()   | -                                      |
-| pixRemoveBorderConnComps    | ✅ 同等   | clear_border                              | -                                      |
-| pixFillBgFromBorder         | ✅ 同等   | seedfill.rs fill_bg_from_border()         | -                                      |
-| pixFillHolesToBoundingRect  | ✅ 同等   | seedfill.rs fill_holes_to_bounding_rect() | -                                      |
-| pixSeedfillGray             | ✅ 同等   | seedfill_gray                             | -                                      |
-| pixSeedfillGrayInv          | ✅ 同等   | seedfill_gray_inv()                       | -                                      |
-| seedfillGrayLow             | 🚫 不要   | -                                         | Low-level内部関数: 高レベルAPIでカバー |
-| seedfillGrayInvLow          | 🚫 不要   | -                                         | Low-level内部関数: 高レベルAPIでカバー |
-| pixSeedfillGraySimple       | ✅ 同等   | seedfill.rs seedfill_gray_simple()        | -                                      |
-| pixSeedfillGrayInvSimple    | ✅ 同等   | seedfill.rs seedfill_gray_inv_simple()    | -                                      |
-| seedfillGrayLowSimple       | 🚫 不要   | -                                         | Low-level内部関数: 高レベルAPIでカバー |
-| seedfillGrayInvLowSimple    | 🚫 不要   | -                                         | Low-level内部関数: 高レベルAPIでカバー |
-| pixSeedfillGrayBasin        | ✅ 同等   | seedfill.rs seedfill_gray_basin()         | -                                      |
-| pixDistanceFunction         | ✅ 同等   | distance_function()                       | Chamfer距離変換                        |
-| distanceFunctionLow         | 🚫 不要   | -                                         | Low-level内部関数: 高レベルAPIでカバー |
-| pixSeedspread               | ✅ 同等   | seedfill::seedspread()                    | Voronoiライクなシード拡散              |
-| seedspreadLow               | 🚫 不要   | -                                         | Low-level内部関数: 高レベルAPIでカバー |
-| pixLocalExtrema             | ✅ 同等   | seedfill.rs local_extrema()               | -                                      |
-| pixQualifyLocalMinima       | ✅ 同等   | seedfill.rs qualify_local_minima()        | -                                      |
-| pixSelectedLocalExtrema     | ✅ 同等   | seedfill.rs selected_local_extrema()      | -                                      |
-| pixFindEqualValues          | ✅ 同等   | find_equal_values()                       | -                                      |
-| pixSelectMinInConnComp      | ✅ 同等   | seedfill::select_min_in_conncomp()        | 連結成分内最小値検出                   |
-| pixRemoveSeededComponents   | ✅ 同等   | remove_seeded_components()                | -                                      |
+#### region/seedfill.rs (seedfill.c)
+
+| C関数                       | 状態 | Rust対応                           | 備考                                                      |
+| --------------------------- | ---- | ---------------------------------- | --------------------------------------------------------- |
+| pixSeedfillBinary           | 🔄   | seedfill_binary                    | C版の形態学的再構成と異なり、Rust版は座標ベースflood fill |
+| pixSeedfillBinaryRestricted | ✅   | seedfill_binary_restricted()       | -                                                         |
+| pixHolesByFilling           | ✅   | fill_holes                         | -                                                         |
+| pixFillClosedBorders        | ✅   | fill_closed_borders()              | -                                                         |
+| pixRemoveBorderConnComps    | ✅   | clear_border                       | -                                                         |
+| pixSeedfillGray             | ✅   | seedfill_gray                      | -                                                         |
+| pixSeedfillGrayInv          | ✅   | seedfill_gray_inv()                | -                                                         |
+| pixDistanceFunction         | ✅   | distance_function()                | Chamfer距離変換                                           |
+| pixSeedspread               | ✅   | seedfill::seedspread()             | Voronoiライクなシード拡散                                 |
+| pixFindEqualValues          | ✅   | find_equal_values()                | -                                                         |
+| pixSelectMinInConnComp      | ✅   | seedfill::select_min_in_conncomp() | 連結成分内最小値検出                                      |
+| pixRemoveSeededComponents   | ✅   | remove_seeded_components()         | -                                                         |
+| seedfillBinaryLow           | 🚫   | -                                  | Low-level内部関数: 高レベルAPIでカバー                    |
+| seedfillGrayLow             | 🚫   | -                                  | Low-level内部関数: 高レベルAPIでカバー                    |
+| seedfillGrayInvLow          | 🚫   | -                                  | Low-level内部関数: 高レベルAPIでカバー                    |
+| seedfillGrayLowSimple       | 🚫   | -                                  | Low-level内部関数: 高レベルAPIでカバー                    |
+| seedfillGrayInvLowSimple    | 🚫   | -                                  | Low-level内部関数: 高レベルAPIでカバー                    |
+| distanceFunctionLow         | 🚫   | -                                  | Low-level内部関数: 高レベルAPIでカバー                    |
+| seedspreadLow               | 🚫   | -                                  | Low-level内部関数: 高レベルAPIでカバー                    |
+| pixExtractBorderConnComps   | ✅   | extract_border_conn_comps()        | -                                                         |
+| pixFillBgFromBorder         | ✅   | fill_bg_from_border()              | -                                                         |
+| pixFillHolesToBoundingRect  | ✅   | fill_holes_to_bounding_rect()      | -                                                         |
+| pixSeedfillGraySimple       | ✅   | seedfill_gray_simple()             | -                                                         |
+| pixSeedfillGrayInvSimple    | ✅   | seedfill_gray_inv_simple()         | -                                                         |
+| pixSeedfillGrayBasin        | ✅   | seedfill_gray_basin()              | -                                                         |
+| pixLocalExtrema             | ✅   | local_extrema()                    | -                                                         |
+| pixQualifyLocalMinima       | ✅   | qualify_local_minima()             | -                                                         |
+| pixSelectedLocalExtrema     | ✅   | selected_local_extrema()           | -                                                         |
 
 ### watershed.c
 
-| C関数             | 状態      | Rust対応                               | 備考                                        |
-| ----------------- | --------- | -------------------------------------- | ------------------------------------------- |
-| wshedCreate       | 🚫 不要   | -                                      | C構造体管理: RustではWatershedOptionsを使用 |
-| wshedDestroy      | 🚫 不要   | -                                      | C構造体管理: RustではDropで自動解放         |
-| wshedApply        | 🔄 異なる | watershed_segmentation                 | 異なるAPI: WatershedOptionsを使用           |
-| wshedBasins       | 🔄 異なる | find_basins                            | 異なるアルゴリズム                          |
-| wshedRenderFill   | ✅ 同等   | watershed.rs watershed_render_fill()   | -                                           |
-| wshedRenderColors | ✅ 同等   | watershed.rs watershed_render_colors() | -                                           |
+#### region/watershed.rs (watershed.c)
+
+| C関数             | 状態 | Rust対応                  | 備考                                        |
+| ----------------- | ---- | ------------------------- | ------------------------------------------- |
+| wshedCreate       | 🚫   | -                         | C構造体管理: RustではWatershedOptionsを使用 |
+| wshedDestroy      | 🚫   | -                         | C構造体管理: RustではDropで自動解放         |
+| wshedApply        | 🔄   | watershed_segmentation    | 異なるAPI: WatershedOptionsを使用           |
+| wshedBasins       | 🔄   | find_basins               | 異なるアルゴリズム                          |
+| wshedRenderFill   | ✅   | watershed_render_fill()   | -                                           |
+| wshedRenderColors | ✅   | watershed_render_colors() | -                                           |
 
 ### pixlabel.c
 
-| C関数                      | 状態    | Rust対応                         | 備考 |
-| -------------------------- | ------- | -------------------------------- | ---- |
-| pixConnCompTransform       | ✅ 同等 | conn_comp_transform              | -    |
-| pixConnCompAreaTransform   | ✅ 同等 | component_area_transform         | -    |
-| pixConnCompIncrInit        | ✅ 同等 | `pix_conn_comp_incr_init`        |      |
-| pixConnCompIncrAdd         | ✅ 同等 | `pix_conn_comp_incr_add`         |      |
-| pixGetSortedNeighborValues | ✅ 同等 | pix_get_sorted_neighbor_values() | -    |
-| pixLocToColorTransform     | ✅ 同等 | `pix_loc_to_color_transform`     |      |
+#### region/label.rs (pixlabel.c)
+
+| C関数                      | 状態 | Rust対応                         | 備考 |
+| -------------------------- | ---- | -------------------------------- | ---- |
+| pixConnCompTransform       | ✅   | conn_comp_transform              | -    |
+| pixConnCompIncrInit        | ✅   | pix_conn_comp_incr_init          |      |
+| pixConnCompIncrAdd         | ✅   | pix_conn_comp_incr_add           |      |
+| pixGetSortedNeighborValues | ✅   | pix_get_sorted_neighbor_values() | -    |
+| pixLocToColorTransform     | ✅   | pix_loc_to_color_transform       |      |
+
+#### region/conncomp.rs (pixlabel.c)
+
+| C関数                    | 状態 | Rust対応                 | 備考 |
+| ------------------------ | ---- | ------------------------ | ---- |
+| pixConnCompAreaTransform | ✅   | component_area_transform | -    |
 
 ### quadtree.c
 
-| C関数                  | 状態    | Rust対応                     | 備考                          |
-| ---------------------- | ------- | ---------------------------- | ----------------------------- |
-| pixQuadtreeMean        | ✅ 同等 | quadtree_mean                | -                             |
-| pixQuadtreeVariance    | ✅ 同等 | quadtree_variance            | -                             |
-| pixMeanInRectangle     | ✅ 同等 | mean_in_rectangle            | -                             |
-| pixVarianceInRectangle | ✅ 同等 | variance_in_rectangle        | -                             |
-| boxaaQuadtreeRegions   | ✅ 同等 | quadtree_regions             | -                             |
-| quadtreeGetParent      | ✅ 同等 | QuadtreeResult::get_parent   | -                             |
-| quadtreeGetChildren    | ✅ 同等 | QuadtreeResult::get_children | -                             |
-| quadtreeMaxLevels      | ✅ 同等 | quadtree_max_levels          | -                             |
-| fpixaDisplayQuadtree   | 🚫 不要 | -                            | 表示/可視化関数: Rustでは不要 |
+#### region/quadtree.rs (quadtree.c)
+
+| C関数                  | 状態 | Rust対応                     | 備考                          |
+| ---------------------- | ---- | ---------------------------- | ----------------------------- |
+| pixQuadtreeMean        | ✅   | quadtree_mean                | -                             |
+| pixQuadtreeVariance    | ✅   | quadtree_variance            | -                             |
+| pixMeanInRectangle     | ✅   | mean_in_rectangle            | -                             |
+| pixVarianceInRectangle | ✅   | variance_in_rectangle        | -                             |
+| boxaaQuadtreeRegions   | ✅   | quadtree_regions             | -                             |
+| quadtreeMaxLevels      | ✅   | quadtree_max_levels          | -                             |
+| fpixaDisplayQuadtree   | 🚫   | -                            | 表示/可視化関数: Rustでは不要 |
+| quadtreeGetParent      | ✅   | QuadtreeResult::get_parent   | -                             |
+| quadtreeGetChildren    | ✅   | QuadtreeResult::get_children | -                             |
 
 ### maze.c
 
-| C関数               | 状態    | Rust対応                   | 備考 |
-| ------------------- | ------- | -------------------------- | ---- |
-| generateBinaryMaze  | ✅ 同等 | generate_binary_maze       | -    |
-| pixSearchBinaryMaze | ✅ 同等 | search_binary_maze         | -    |
-| pixSearchGrayMaze   | ✅ 同等 | maze.rs search_gray_maze() | -    |
+#### region/maze.rs (maze.c)
+
+| C関数               | 状態 | Rust対応             | 備考 |
+| ------------------- | ---- | -------------------- | ---- |
+| generateBinaryMaze  | ✅   | generate_binary_maze | -    |
+| pixSearchBinaryMaze | ✅   | search_binary_maze   | -    |
+| pixSearchGrayMaze   | ✅   | search_gray_maze()   | -    |
 
 ## 注記
 
@@ -157,8 +182,8 @@
    - Rust版: 単純化されたBorder/ImageBorders構造体、チェインコードは部分的に実装
 
 3. **Seedfill (seedfill.c)**
-   - C版: Heckbertのstack-basedアルゴリズム
-   - Rust版: Queue-based BFSアルゴリズム、より直感的な実装
+   - C版: seed画像+maskを使った形態学的再構成（`pixSeedfillBinary`）
+   - Rust版: Queue-based BFSの座標伝播（API/アルゴリズムともに差異あり）
 
 4. **Watershed (watershed.c)**
    - C版: 複雑なマーカー管理とLUT
@@ -207,8 +232,9 @@
 
 ### 全体
 
-- 実装済: 65関数 (68.4%)
-- 部分実装/異なるAPI: 8関数 (8.4%)
+- ✅ 同等: 65関数 (68.4%)
+- 🔄 異なるAPI/アルゴリズム: 8関数 (8.4%)
+- 実装済（✅+🔄）: 73関数 (76.8%)
 - 未実装: 0関数 (0%)
 - 不要: 22関数 (23.2%)
 

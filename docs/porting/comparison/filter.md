@@ -6,166 +6,197 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 107 |
+| ✅ 同等   | 106 |
 | 🔄 異なる | 0   |
-| ❌ 未実装 | 0   |
-| 🚫 不要   | 11  |
-| 合計      | 118 |
+| ❌ 未実装 | 1   |
+| 🚫 不要   | 13  |
+| 合計      | 120 |
 
 ## 詳細
 
 ### convolve.c
 
-| C関数                        | 状態    | Rust対応                                    | 備考                                                   |
-| ---------------------------- | ------- | ------------------------------------------- | ------------------------------------------------------ |
-| pixBlockconv                 | ✅ 同等 | block_conv.rs blockconv()                   | ブロック畳み込み(自動でgray/color判定)                 |
-| pixBlockconvGray             | ✅ 同等 | block_conv.rs blockconv_gray()              | グレースケールブロック畳み込み                         |
-| pixBlockconvAccum            | ✅ 同等 | block_conv.rs blockconv_accum()             | 畳み込み用アキュムレータ                               |
-| pixBlockconvGrayUnnormalized | ✅ 同等 | block_conv.rs blockconv_gray_unnormalized() | 正規化なしブロック畳み込み                             |
-| pixBlockconvTiled            | ✅ 同等 | block_conv.rs blockconv_tiled()             | タイル化ブロック畳み込み                               |
-| pixBlockconvGrayTile         | ✅ 同等 | block_conv.rs blockconv_gray_tile()         | グレースケールタイル化ブロック畳み込み                 |
-| pixWindowedStats             | ✅ 同等 | windowed.rs windowed_stats()                | ウィンドウ統計量(mean, mean-square, variance, RMS)     |
-| pixWindowedMean              | ✅ 同等 | windowed.rs windowed_mean()                 | ウィンドウ平均                                         |
-| pixWindowedMeanSquare        | ✅ 同等 | windowed.rs windowed_mean_square()          | ウィンドウ平均二乗                                     |
-| pixWindowedVariance          | ✅ 同等 | windowed.rs windowed_variance()             | ウィンドウ分散                                         |
-| pixMeanSquareAccum           | ✅ 同等 | windowed.rs mean_square_accum()             | 平均二乗アキュムレータ (returns DPIX*)                 |
-| pixBlockrank                 | ✅ 同等 | convolve.rs blockrank()                     | バイナリブロックランクフィルタ                         |
-| pixBlocksum                  | ✅ 同等 | convolve.rs blocksum()                      | バイナリブロック和                                     |
-| pixCensusTransform           | ✅ 同等 | convolve.rs census_transform()              | センサス変換                                           |
-| pixConvolve                  | ✅ 同等 | convolve()                                  | 汎用畳み込み                                           |
-| pixConvolveSep               | ✅ 同等 | convolve.rs convolve_sep()                  | 分離可能畳み込み                                       |
-| pixConvolveRGB               | ✅ 同等 | convolve_color()                            | RGB畳み込み                                            |
-| pixConvolveRGBSep            | ✅ 同等 | convolve.rs convolve_rgb_sep()              | RGB分離可能畳み込み                                    |
-| fpixConvolve                 | ✅ 同等 | convolve.rs fpix_convolve()                 | 浮動小数点畳み込み (FPix対応)                          |
-| fpixConvolveSep              | ✅ 同等 | convolve.rs fpix_convolve_sep()             | 浮動小数点分離可能畳み込み (FPix対応)                  |
-| pixConvolveWithBias          | ✅ 同等 | convolve.rs convolve_with_bias()            | バイアス付き畳み込み                                   |
-| l_setConvolveSampling        | 🚫 不要 | -                                           | グローバル変数セッター（C固有パターン）                |
-| pixAddGaussianNoise          | ✅ 同等 | convolve.rs add_gaussian_noise()            | ガウシアンノイズ追加                                   |
-| gaussDistribSampling         | 🚫 不要 | -                                           | Box-Muller法ヘルパー; add_gaussian_noise()内で実装済み |
+#### filter/block_conv.rs (convolve.c)
+
+| C関数                        | 状態 | Rust対応                      | 備考                                   |
+| ---------------------------- | ---- | ----------------------------- | -------------------------------------- |
+| pixBlockconv                 | ✅   | blockconv()                   | ブロック畳み込み(自動でgray/color判定) |
+| pixBlockconvGray             | ✅   | blockconv_gray()              | グレースケールブロック畳み込み         |
+| pixBlockconvAccum            | ✅   | blockconv_accum()             | 畳み込み用アキュムレータ               |
+| pixBlockconvGrayUnnormalized | ✅   | blockconv_gray_unnormalized() | 正規化なしブロック畳み込み             |
+| pixBlockconvTiled            | ✅   | blockconv_tiled()             | タイル化ブロック畳み込み               |
+| pixBlockconvGrayTile         | ✅   | blockconv_gray_tile()         | グレースケールタイル化ブロック畳み込み |
+
+#### filter/windowed.rs (convolve.c)
+
+| C関数                 | 状態 | Rust対応               | 備考                                               |
+| --------------------- | ---- | ---------------------- | -------------------------------------------------- |
+| pixWindowedStats      | ✅   | windowed_stats()       | ウィンドウ統計量(mean, mean-square, variance, RMS) |
+| pixWindowedMean       | ✅   | windowed_mean()        | ウィンドウ平均                                     |
+| pixWindowedMeanSquare | ✅   | windowed_mean_square() | ウィンドウ平均二乗                                 |
+| pixWindowedVariance   | ✅   | windowed_variance()    | ウィンドウ分散                                     |
+| pixMeanSquareAccum    | ✅   | mean_square_accum()    | 平均二乗アキュムレータ (returns DPIX*)             |
+
+#### filter/convolve.rs (convolve.c)
+
+| C関数                 | 状態 | Rust対応             | 備考                                                   |
+| --------------------- | ---- | -------------------- | ------------------------------------------------------ |
+| pixBlockrank          | ✅   | blockrank()          | バイナリブロックランクフィルタ                         |
+| pixBlocksum           | ✅   | blocksum()           | バイナリブロック和                                     |
+| pixCensusTransform    | ✅   | census_transform()   | センサス変換                                           |
+| pixConvolveSep        | ✅   | convolve_sep()       | 分離可能畳み込み                                       |
+| pixConvolveRGBSep     | ✅   | convolve_rgb_sep()   | RGB分離可能畳み込み                                    |
+| fpixConvolve          | ✅   | fpix_convolve()      | 浮動小数点畳み込み (FPix対応)                          |
+| fpixConvolveSep       | ✅   | fpix_convolve_sep()  | 浮動小数点分離可能畳み込み (FPix対応)                  |
+| pixConvolveWithBias   | ✅   | convolve_with_bias() | バイアス付き畳み込み                                   |
+| pixAddGaussianNoise   | ✅   | add_gaussian_noise() | ガウシアンノイズ追加                                   |
+| pixConvolve           | ✅   | convolve()           | 汎用畳み込み                                           |
+| pixConvolveRGB        | ✅   | convolve_color()     | RGB畳み込み                                            |
+| l_setConvolveSampling | 🚫   | -                    | グローバル変数セッター（C固有パターン）                |
+| gaussDistribSampling  | 🚫   | -                    | Box-Muller法ヘルパー; add_gaussian_noise()内で実装済み |
 
 ### kernel.c
 
-| C関数                  | 状態    | Rust対応                                           | 備考                          |
-| ---------------------- | ------- | -------------------------------------------------- | ----------------------------- |
-| kernelCreate           | ✅ 同等 | kernel.rs Kernel::new()                            | カーネル生成（初期値ゼロ）    |
-| kernelDestroy          | ✅ 同等 | -                                                  | Rust自動Drop（メモリ管理）    |
-| kernelCopy             | ✅ 同等 | Kernel::clone()                                    | カーネルクローン（Copy/Clone) |
-| kernelGetElement       | ✅ 同等 | kernel.rs Kernel::get()                            | 要素読み込み                  |
-| kernelSetElement       | ✅ 同等 | kernel.rs Kernel::set()                            | 要素書き込み                  |
-| kernelGetParameters    | ✅ 同等 | kernel.rs Kernel::width/height/center_x/center_y() | パラメータゲッター            |
-| kernelSetOrigin        | ✅ 同等 | kernel.rs Kernel::set_center()                     | カーネル原点設定              |
-| kernelGetSum           | ✅ 同等 | kernel.rs Kernel::sum()                            | カーネル合計値                |
-| kernelGetMinMax        | ✅ 同等 | `Kernel::get_min_max`                              | カーネルMin/Max値             |
-| kernelNormalize        | ✅ 同等 | kernel.rs Kernel::normalize()                      | カーネル正規化                |
-| kernelInvert           | ✅ 同等 | `Kernel::invert`                                   | カーネル反転                  |
-| kernelRead             | ✅ 同等 | `Kernel::read`                                     | ファイルからカーネル読み込み  |
-| kernelReadStream       | ✅ 同等 | `Kernel::read`                                     | ストリーム読み込み            |
-| kernelWrite            | ✅ 同等 | `Kernel::write`                                    | ファイルにカーネル書き込み    |
-| kernelWriteStream      | ✅ 同等 | `Kernel::write`                                    | ストリーム書き込み            |
-| kernelCreateFromString | ✅ 同等 | `Kernel::from_string`                              | 文字列パースからカーネル生成  |
-| kernelCreateFromFile   | ✅ 同等 | `Kernel::from_file`                                | ファイルからカーネル生成      |
-| kernelCreateFromPix    | ✅ 同等 | `Kernel::from_pix`                                 | Pixからカーネル生成           |
-| kernelDisplayInPix     | ✅ 同等 | `Kernel::display_in_pix`                           | Pix内にカーネル可視化         |
+#### filter/kernel.rs (kernel.c)
+
+| C関数                  | 状態 | Rust対応                                 | 備考                          |
+| ---------------------- | ---- | ---------------------------------------- | ----------------------------- |
+| kernelCreate           | ✅   | Kernel::new()                            | カーネル生成（初期値ゼロ）    |
+| kernelGetElement       | ✅   | Kernel::get()                            | 要素読み込み                  |
+| kernelSetElement       | ✅   | Kernel::set()                            | 要素書き込み                  |
+| kernelGetParameters    | ✅   | Kernel::width/height/center_x/center_y() | パラメータゲッター            |
+| kernelSetOrigin        | ✅   | Kernel::set_center()                     | カーネル原点設定              |
+| kernelGetSum           | ✅   | Kernel::sum()                            | カーネル合計値                |
+| kernelNormalize        | ✅   | Kernel::normalize()                      | カーネル正規化                |
+| kernelDestroy          | ✅   | -                                        | Rust自動Drop（メモリ管理）    |
+| create2dFloatArray     | 🚫   | -                                        | C配列確保用内部ヘルパー       |
+| kernelCopy             | ❌   | -                                        | カーネルクローン（Copy/Clone) |
+| kernelGetMinMax        | ✅   | Kernel::get_min_max                      | カーネルMin/Max値             |
+| kernelInvert           | ✅   | Kernel::invert                           | カーネル反転                  |
+| kernelRead             | ✅   | Kernel::read                             | ファイルからカーネル読み込み  |
+| kernelReadStream       | ✅   | Kernel::read                             | ストリーム読み込み            |
+| kernelWrite            | ✅   | Kernel::write                            | ファイルにカーネル書き込み    |
+| kernelWriteStream      | ✅   | Kernel::write                            | ストリーム書き込み            |
+| kernelCreateFromString | ✅   | Kernel::from_string                      | 文字列パースからカーネル生成  |
+| kernelCreateFromFile   | ✅   | Kernel::from_file                        | ファイルからカーネル生成      |
+| kernelCreateFromPix    | ✅   | Kernel::from_pix                         | Pixからカーネル生成           |
+| kernelDisplayInPix     | ✅   | Kernel::display_in_pix                   | Pix内にカーネル可視化         |
 
 ### edge.c
 
-| C関数                    | 状態    | Rust対応                  | 備考                                     |
-| ------------------------ | ------- | ------------------------- | ---------------------------------------- |
-| pixSobelEdgeFilter       | ✅ 同等 | sobel_edge()              | Sobelエッジ検出                          |
-| pixTwoSidedEdgeFilter    | ✅ 同等 | `two_sided_edge_filter`   | 両側エッジ勾配フィルタ                   |
-| pixMeasureEdgeSmoothness | ✅ 同等 | `measure_edge_smoothness` | エッジ滑らかさ測定 (returns l_ok)        |
-| pixGetEdgeProfile        | ✅ 同等 | `get_edge_profile`        | エッジプロファイル取得 (returns NUMA*)   |
-| pixGetLastOffPixelInRun  | 🚫 不要 | -                         | エッジプロファイル用低レベル内部ヘルパー |
-| pixGetLastOnPixelInRun   | 🚫 不要 | -                         | エッジプロファイル用低レベル内部ヘルパー |
+#### filter/edge.rs (edge.c)
+
+| C関数                    | 状態 | Rust対応                | 備考                                     |
+| ------------------------ | ---- | ----------------------- | ---------------------------------------- |
+| pixSobelEdgeFilter       | ✅   | sobel_edge()            | Sobelエッジ検出                          |
+| pixTwoSidedEdgeFilter    | ✅   | two_sided_edge_filter   | 両側エッジ勾配フィルタ                   |
+| pixMeasureEdgeSmoothness | ✅   | measure_edge_smoothness | エッジ滑らかさ測定 (returns l_ok)        |
+| pixGetEdgeProfile        | ✅   | get_edge_profile        | エッジプロファイル取得 (returns NUMA*)   |
+| pixGetLastOffPixelInRun  | 🚫   | -                       | エッジプロファイル用低レベル内部ヘルパー |
+| pixGetLastOnPixelInRun   | 🚫   | -                       | エッジプロファイル用低レベル内部ヘルパー |
 
 ### enhance.c
 
-| C関数                     | 状態    | Rust対応                            | 備考                                                  |
-| ------------------------- | ------- | ----------------------------------- | ----------------------------------------------------- |
-| pixGammaTRC               | ✅ 同等 | gamma_trc_pix()                     | ガンマTRCマッピング                                   |
-| pixGammaTRCMasked         | ✅ 同等 | gamma_trc_masked()                  | マスク付きガンマTRC                                   |
-| pixGammaTRCWithAlpha      | ✅ 同等 | gamma_trc_with_alpha()              | アルファチャンネル付きガンマTRC                       |
-| numaGammaTRC              | ✅ 同等 | gamma_trc()                         | TrcLut([u8;256])を返す                                |
-| pixContrastTRC            | ✅ 同等 | contrast_trc_pix()                  | コントラストTRC                                       |
-| pixContrastTRCMasked      | ✅ 同等 | contrast_trc_masked()               | マスク付きコントラストTRC                             |
-| numaContrastTRC           | ✅ 同等 | contrast_trc()                      | TrcLut([u8;256])を返す                                |
-| pixEqualizeTRC            | ✅ 同等 | equalize_trc_pix()                  | ヒストグラム均等化TRC                                 |
-| numaEqualizeTRC           | ✅ 同等 | equalize_trc()                      | TrcLut([u8;256])を返す                                |
-| pixTRCMap                 | ✅ 同等 | trc_map()                           | 汎用TRCマッパー                                       |
-| pixTRCMapGeneral          | ✅ 同等 | trc_map_general()                   | R,G,B個別LUT適用                                      |
-| pixUnsharpMasking         | ✅ 同等 | enhance.rs unsharp_masking()        | アンシャープマスキング(カラー対応)                    |
-| pixUnsharpMaskingGray     | ✅ 同等 | unsharp_mask()                      | グレースケールアンシャープマスキング                  |
-| pixUnsharpMaskingFast     | ✅ 同等 | edge.rs unsharp_masking_fast()      | 高速アンシャープマスキング(カラー対応)                |
-| pixUnsharpMaskingGrayFast | ✅ 同等 | edge.rs unsharp_masking_gray_fast() | 高速グレースケールアンシャープマスキング              |
-| pixUnsharpMaskingGray1D   | 🚫 不要 | -                                   | unsharp_masking_gray_fast()の内部ヘルパー（実装済み） |
-| pixUnsharpMaskingGray2D   | 🚫 不要 | -                                   | unsharp_masking_gray_fast()の内部ヘルパー（実装済み） |
-| pixModifyHue              | ✅ 同等 | modify_hue()                        | 色相変更                                              |
-| pixModifySaturation       | ✅ 同等 | modify_saturation()                 | 彩度変更                                              |
-| pixMeasureSaturation      | ✅ 同等 | measure_saturation()                | 彩度測定                                              |
-| pixModifyBrightness       | ✅ 同等 | modify_brightness()                 | 明度変更                                              |
-| pixMosaicColorShiftRGB    | 🚫 不要 | -                                   | デバッグ/表示用モザイク可視化関数                     |
-| pixColorShiftRGB          | ✅ 同等 | color_shift_rgb()                   | 色シフト                                              |
-| pixDarkenGray             | ✅ 同等 | darken_gray()                       | グレーピクセル暗色化                                  |
-| pixMultConstantColor      | ✅ 同等 | mult_constant_color()               | 定数乗算カラー変換                                    |
-| pixMultMatrixColor        | ✅ 同等 | mult_matrix_color()                 | 行列乗算カラー変換                                    |
-| pixHalfEdgeByBandpass     | ✅ 同等 | `half_edge_by_bandpass`             | バンドパスによるハーフエッジ                          |
+#### filter/enhance.rs (enhance.c)
+
+| C関数                 | 状態 | Rust対応               | 備考                                 |
+| --------------------- | ---- | ---------------------- | ------------------------------------ |
+| pixGammaTRC           | ✅   | gamma_trc_pix()        | ガンマTRCマッピング                  |
+| pixGammaTRCMasked     | ✅   | gamma_trc_masked()     | マスク付きガンマTRC                  |
+| pixGammaTRCWithAlpha  | ✅   | gamma_trc_with_alpha() | アルファチャンネル付きガンマTRC      |
+| numaGammaTRC          | ✅   | gamma_trc()            | TrcLut([u8;256])を返す               |
+| pixContrastTRC        | ✅   | contrast_trc_pix()     | コントラストTRC                      |
+| pixContrastTRCMasked  | ✅   | contrast_trc_masked()  | マスク付きコントラストTRC            |
+| numaContrastTRC       | ✅   | contrast_trc()         | TrcLut([u8;256])を返す               |
+| pixEqualizeTRC        | ✅   | equalize_trc_pix()     | ヒストグラム均等化TRC                |
+| numaEqualizeTRC       | ✅   | equalize_trc()         | TrcLut([u8;256])を返す               |
+| pixTRCMap             | ✅   | trc_map()              | 汎用TRCマッパー                      |
+| pixTRCMapGeneral      | ✅   | trc_map_general()      | R,G,B個別LUT適用                     |
+| pixModifyHue          | ✅   | modify_hue()           | 色相変更                             |
+| pixModifySaturation   | ✅   | modify_saturation()    | 彩度変更                             |
+| pixMeasureSaturation  | ✅   | measure_saturation()   | 彩度測定                             |
+| pixModifyBrightness   | ✅   | modify_brightness()    | 明度変更                             |
+| pixColorShiftRGB      | ✅   | color_shift_rgb()      | 色シフト                             |
+| pixDarkenGray         | ✅   | darken_gray()          | グレーピクセル暗色化                 |
+| pixMultConstantColor  | ✅   | mult_constant_color()  | 定数乗算カラー変換                   |
+| pixMultMatrixColor    | ✅   | mult_matrix_color()    | 行列乗算カラー変換                   |
+| pixHalfEdgeByBandpass | ✅   | half_edge_by_bandpass  | バンドパスによるハーフエッジ         |
+| pixUnsharpMasking     | ✅   | unsharp_masking()      | アンシャープマスキング(カラー対応)   |
+| pixUnsharpMaskingGray | ✅   | unsharp_masking_gray() | グレースケールアンシャープマスキング |
+
+#### filter/edge.rs (enhance.c)
+
+| C関数                     | 状態 | Rust対応                    | 備考                                                  |
+| ------------------------- | ---- | --------------------------- | ----------------------------------------------------- |
+| pixUnsharpMaskingFast     | ✅   | unsharp_masking_fast()      | 高速アンシャープマスキング(カラー対応)                |
+| pixUnsharpMaskingGrayFast | ✅   | unsharp_masking_gray_fast() | 高速グレースケールアンシャープマスキング              |
+| pixUnsharpMaskingGray1D   | 🚫   | -                           | unsharp_masking_gray_fast()の内部ヘルパー（実装済み） |
+| pixUnsharpMaskingGray2D   | 🚫   | -                           | unsharp_masking_gray_fast()の内部ヘルパー（実装済み） |
+| pixMosaicColorShiftRGB    | 🚫   | -                           | デバッグ/表示用モザイク可視化関数                     |
 
 ### bilateral.c
 
-| C関数                  | 状態    | Rust対応                             | 備考                                                    |
-| ---------------------- | ------- | ------------------------------------ | ------------------------------------------------------- |
-| pixBilateral           | ✅ 同等 | bilateral.rs bilateral()             | 高速分離可能バイラテラルフィルタ(カラー/グレー自動判定) |
-| pixBilateralGray       | ✅ 同等 | bilateral.rs bilateral_gray()        | 高速分離可能バイラテラルフィルタ(グレースケール)        |
-| pixBilateralExact      | ✅ 同等 | bilateral_exact()                    | 厳密バイラテラルフィルタ(カラー/グレー自動判定)         |
-| pixBilateralGrayExact  | ✅ 同等 | bilateral_gray_exact()               | 厳密バイラテラルフィルタ(グレースケール)                |
-| pixBlockBilateralExact | ✅ 同等 | bilateral.rs block_bilateral_exact() | ブロックベース厳密バイラテラルフィルタ                  |
-| makeRangeKernel        | ✅ 同等 | make_range_kernel()                  | レンジカーネル生成 (returns L_KERNEL*)                  |
+#### filter/bilateral.rs (bilateral.c)
+
+| C関数                  | 状態 | Rust対応                | 備考                                                    |
+| ---------------------- | ---- | ----------------------- | ------------------------------------------------------- |
+| pixBilateral           | ✅   | bilateral()             | 高速分離可能バイラテラルフィルタ(カラー/グレー自動判定) |
+| pixBilateralGray       | ✅   | bilateral_gray()        | 高速分離可能バイラテラルフィルタ(グレースケール)        |
+| pixBlockBilateralExact | ✅   | block_bilateral_exact() | ブロックベース厳密バイラテラルフィルタ                  |
+| pixBilateralExact      | ✅   | bilateral_exact()       | 厳密バイラテラルフィルタ(カラー/グレー自動判定)         |
+| pixBilateralGrayExact  | ✅   | bilateral_gray_exact()  | 厳密バイラテラルフィルタ(グレースケール)                |
+| makeRangeKernel        | ✅   | make_range_kernel()     | レンジカーネル生成 (returns L_KERNEL*)                  |
 
 ### adaptmap.c
 
-| C関数                           | 状態    | Rust対応                                       | 備考                                           |
-| ------------------------------- | ------- | ---------------------------------------------- | ---------------------------------------------- |
-| pixCleanBackgroundToWhite       | ✅ 同等 | adaptmap.rs clean_background_to_white()        | 背景を白にクリーン化                           |
-| pixBackgroundNormSimple         | ✅ 同等 | background_norm_simple()                       | シンプル背景正規化                             |
-| pixBackgroundNorm               | ✅ 同等 | background_norm()                              | 背景正規化                                     |
-| pixBackgroundNormMorph          | ✅ 同等 | adaptmap.rs background_norm_morph()            | モルフォロジーベース背景正規化                 |
-| pixBackgroundNormGrayArray      | ✅ 同等 | adaptmap.rs background_norm_gray_array()       | グレー背景正規化配列                           |
-| pixBackgroundNormRGBArrays      | ✅ 同等 | adaptmap.rs background_norm_rgb_arrays()       | RGB背景正規化配列                              |
-| pixBackgroundNormGrayArrayMorph | ✅ 同等 | adaptmap.rs background_norm_gray_array_morph() | モルフォロジーベースグレー背景正規化配列       |
-| pixBackgroundNormRGBArraysMorph | ✅ 同等 | adaptmap.rs background_norm_rgb_arrays_morph() | モルフォロジーベースRGB背景正規化配列          |
-| pixGetBackgroundGrayMap         | ✅ 同等 | adaptmap.rs get_background_gray_map()          | グレー背景マップ取得                           |
-| pixGetBackgroundRGBMap          | ✅ 同等 | adaptmap.rs get_background_rgb_map()           | RGB背景マップ取得                              |
-| pixGetBackgroundGrayMapMorph    | ✅ 同等 | adaptmap.rs get_background_gray_map_morph()    | モルフォロジーベースグレー背景マップ取得       |
-| pixGetBackgroundRGBMapMorph     | ✅ 同等 | adaptmap.rs get_background_rgb_map_morph()     | モルフォロジーベースRGB背景マップ取得          |
-| pixFillMapHoles                 | ✅ 同等 | adaptmap.rs fill_map_holes()                   | マップの穴埋め                                 |
-| pixExtendByReplication          | ✅ 同等 | adaptmap.rs extend_by_replication()            | 複製による拡張                                 |
-| pixSmoothConnectedRegions       | ✅ 同等 | adaptmap.rs smooth_connected_regions()         | 連結領域の平滑化                               |
-| pixGetForegroundGrayMap         | ✅ 同等 | `adaptmap::get_foreground_gray_map`            | グレー前景マップ取得                           |
-| pixGetInvBackgroundMap          | ✅ 同等 | adaptmap.rs get_inv_background_map()           | 逆背景マップ取得                               |
-| pixApplyInvBackgroundGrayMap    | ✅ 同等 | adaptmap.rs apply_inv_background_gray_map()    | グレー逆背景マップ適用                         |
-| pixApplyInvBackgroundRGBMap     | ✅ 同等 | adaptmap.rs apply_inv_background_rgb_map()     | RGB逆背景マップ適用                            |
-| pixApplyVariableGrayMap         | ✅ 同等 | adaptmap.rs apply_variable_gray_map()          | 可変グレーマップ適用                           |
-| pixGlobalNormRGB                | ✅ 同等 | adaptmap.rs global_norm_rgb()                  | グローバルRGB正規化                            |
-| pixGlobalNormNoSatRGB           | ✅ 同等 | adaptmap.rs global_norm_no_sat_rgb()           | 彩度保持グローバルRGB正規化                    |
-| pixThresholdSpreadNorm          | ✅ 同等 | adaptmap.rs threshold_spread_norm()            | 閾値スプレッド正規化                           |
-| pixBackgroundNormFlex           | ✅ 同等 | adaptmap.rs background_norm_flex()             | フレキシブル背景正規化                         |
-| pixContrastNorm                 | ✅ 同等 | contrast_norm()                                | コントラスト正規化                             |
-| pixMinMaxTiles                  | 🚫 不要 | -                                              | プライベート関数 `min_max_tiles` として存在    |
-| pixSetLowContrast               | 🚫 不要 | -                                              | プライベート関数 `set_low_contrast` として存在 |
-| pixLinearTRCTiled               | 🚫 不要 | -                                              | プライベート関数 `linear_trc_tiled` として存在 |
-| pixBackgroundNormTo1MinMax      | ✅ 同等 | adaptmap.rs background_norm_to_1_min_max()     | 背景正規化→1 bpp MinMax                        |
-| pixConvertTo8MinMax             | ✅ 同等 | adaptmap.rs convert_to_8_min_max()             | 8 bpp MinMax変換                               |
-| pixSelectiveContrastMod         | 🚫 不要 | -                                              | static内部ヘルパー                             |
+#### filter/adaptmap.rs (adaptmap.c)
+
+| C関数                           | 状態 | Rust対応                           | 備考                                           |
+| ------------------------------- | ---- | ---------------------------------- | ---------------------------------------------- |
+| pixCleanBackgroundToWhite       | ✅   | clean_background_to_white()        | 背景を白にクリーン化                           |
+| pixBackgroundNormMorph          | ✅   | background_norm_morph()            | モルフォロジーベース背景正規化                 |
+| pixBackgroundNormGrayArray      | ✅   | background_norm_gray_array()       | グレー背景正規化配列                           |
+| pixBackgroundNormRGBArrays      | ✅   | background_norm_rgb_arrays()       | RGB背景正規化配列                              |
+| pixBackgroundNormGrayArrayMorph | ✅   | background_norm_gray_array_morph() | モルフォロジーベースグレー背景正規化配列       |
+| pixBackgroundNormRGBArraysMorph | ✅   | background_norm_rgb_arrays_morph() | モルフォロジーベースRGB背景正規化配列          |
+| pixGetBackgroundGrayMap         | ✅   | get_background_gray_map()          | グレー背景マップ取得                           |
+| pixGetBackgroundRGBMap          | ✅   | get_background_rgb_map()           | RGB背景マップ取得                              |
+| pixGetBackgroundGrayMapMorph    | ✅   | get_background_gray_map_morph()    | モルフォロジーベースグレー背景マップ取得       |
+| pixGetBackgroundRGBMapMorph     | ✅   | get_background_rgb_map_morph()     | モルフォロジーベースRGB背景マップ取得          |
+| pixFillMapHoles                 | ✅   | fill_map_holes()                   | マップの穴埋め                                 |
+| pixExtendByReplication          | ✅   | extend_by_replication()            | 複製による拡張                                 |
+| pixSmoothConnectedRegions       | ✅   | smooth_connected_regions()         | 連結領域の平滑化                               |
+| pixGetInvBackgroundMap          | ✅   | get_inv_background_map()           | 逆背景マップ取得                               |
+| pixApplyInvBackgroundGrayMap    | ✅   | apply_inv_background_gray_map()    | グレー逆背景マップ適用                         |
+| pixApplyInvBackgroundRGBMap     | ✅   | apply_inv_background_rgb_map()     | RGB逆背景マップ適用                            |
+| pixApplyVariableGrayMap         | ✅   | apply_variable_gray_map()          | 可変グレーマップ適用                           |
+| pixGlobalNormRGB                | ✅   | global_norm_rgb()                  | グローバルRGB正規化                            |
+| pixGlobalNormNoSatRGB           | ✅   | global_norm_no_sat_rgb()           | 彩度保持グローバルRGB正規化                    |
+| pixThresholdSpreadNorm          | ✅   | threshold_spread_norm()            | 閾値スプレッド正規化                           |
+| pixBackgroundNormFlex           | ✅   | background_norm_flex()             | フレキシブル背景正規化                         |
+| pixBackgroundNormTo1MinMax      | ✅   | background_norm_to_1_min_max()     | 背景正規化→1 bpp MinMax                        |
+| pixConvertTo8MinMax             | ✅   | convert_to_8_min_max()             | 8 bpp MinMax変換                               |
+| pixBackgroundNormSimple         | ✅   | background_norm_simple()           | シンプル背景正規化                             |
+| pixBackgroundNorm               | ✅   | background_norm()                  | 背景正規化                                     |
+| pixGetForegroundGrayMap         | ✅   | adaptmap::get_foreground_gray_map  | グレー前景マップ取得                           |
+| pixContrastNorm                 | ✅   | contrast_norm()                    | コントラスト正規化                             |
+| pixMinMaxTiles                  | 🚫   | -                                  | プライベート関数 `min_max_tiles` として存在    |
+| pixSetLowContrast               | 🚫   | -                                  | プライベート関数 `set_low_contrast` として存在 |
+| pixLinearTRCTiled               | 🚫   | -                                  | プライベート関数 `linear_trc_tiled` として存在 |
+| iaaGetLinearTRC                 | 🚫   | -                                  | static内部ヘルパー                             |
+| pixSelectiveContrastMod         | 🚫   | -                                  | static内部ヘルパー                             |
 
 ### rank.c
 
-| C関数                    | 状態    | Rust対応                   | 備考                                  |
-| ------------------------ | ------- | -------------------------- | ------------------------------------- |
-| pixRankFilter            | ✅ 同等 | rank_filter()              | ランクフィルタ(グレー/カラー自動判定) |
-| pixRankFilterRGB         | ✅ 同等 | rank_filter_color()        | RGBランクフィルタ                     |
-| pixRankFilterGray        | ✅ 同等 | rank_filter_gray()         | グレースケールランクフィルタ          |
-| pixMedianFilter          | ✅ 同等 | median_filter()            | メディアンフィルタ                    |
-| pixRankFilterWithScaling | ✅ 同等 | `rank_filter_with_scaling` | スケーリング加速付きランクフィルタ    |
+#### filter/rank.rs (rank.c)
+
+| C関数                    | 状態 | Rust対応                 | 備考                                  |
+| ------------------------ | ---- | ------------------------ | ------------------------------------- |
+| pixRankFilter            | ✅   | rank_filter()            | ランクフィルタ(グレー/カラー自動判定) |
+| pixRankFilterRGB         | ✅   | rank_filter_color()      | RGBランクフィルタ                     |
+| pixRankFilterGray        | ✅   | rank_filter_gray()       | グレースケールランクフィルタ          |
+| pixMedianFilter          | ✅   | median_filter()          | メディアンフィルタ                    |
+| pixRankFilterWithScaling | ✅   | rank_filter_with_scaling | スケーリング加速付きランクフィルタ    |
 
 ## 実装状況分析
 
