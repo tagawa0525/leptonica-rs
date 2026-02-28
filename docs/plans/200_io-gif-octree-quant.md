@@ -15,20 +15,20 @@ backup のほうが優れたアプローチを採っている。
 
 ### HEAD が既に優位な領域（変更不要）
 
-| 領域 | HEAD | backup |
-|------|------|--------|
-| ファサードcrate | 全8ドメインcrateを依存・再エクスポート済 | leptonica-coreのみ |
-| Core公開エクスポート | BlendMode, CompareResult等すべてエクスポート済 | 一部欠落 |
-| ドキュメント | 詳細（ピクセルレイアウト、所有権モデル、C参照） | 簡略 |
-| Bresenham線描画 | 整数アルゴリズム（正確） | 浮動小数点（丸め誤差） |
-| PNM I/O | 複数空白/コメント対応、カラーマップ展開あり | 単バイト読み飛ばし、カラーマップ未対応 |
-| WebP I/O | core color モジュール関数を使用 | ローカル関数 |
-| Morph | rasterop + composite decomposition最適化 | ピクセル単位 |
-| PS形式 | サポート済 | なし |
-| ライセンス | BSD-2-Clause（意図的変更） | Apache-2.0 |
-| エラー処理 | set_pixel で x/y 個別エラー情報 | 統合 |
-| SEL origin検証 | 境界チェックあり | なし |
-| テスト基盤 | ディレクトリ作成エラーをログ出力 | 無視 |
+| 領域                 | HEAD                                            | backup                                 |
+| -------------------- | ----------------------------------------------- | -------------------------------------- |
+| ファサードcrate      | 全8ドメインcrateを依存・再エクスポート済        | leptonica-coreのみ                     |
+| Core公開エクスポート | BlendMode, CompareResult等すべてエクスポート済  | 一部欠落                               |
+| ドキュメント         | 詳細（ピクセルレイアウト、所有権モデル、C参照） | 簡略                                   |
+| Bresenham線描画      | 整数アルゴリズム（正確）                        | 浮動小数点（丸め誤差）                 |
+| PNM I/O              | 複数空白/コメント対応、カラーマップ展開あり     | 単バイト読み飛ばし、カラーマップ未対応 |
+| WebP I/O             | core color モジュール関数を使用                 | ローカル関数                           |
+| Morph                | rasterop + composite decomposition最適化        | ピクセル単位                           |
+| PS形式               | サポート済                                      | なし                                   |
+| ライセンス           | BSD-2-Clause（意図的変更）                      | Apache-2.0                             |
+| エラー処理           | set_pixel で x/y 個別エラー情報                 | 統合                                   |
+| SEL origin検証       | 境界チェックあり                                | なし                                   |
+| テスト基盤           | ディレクトリ作成エラーをログ出力                | 無視                                   |
 
 ### 取り込むべき変更: GIF エンコードのカラー量子化
 
@@ -36,6 +36,7 @@ HEAD の `gif.rs` は 32bpp → 8bpp 変換に独自の median-cut 実装（約1
 backup は `leptonica-color::quantize::octree_quant` を利用（約5行）。
 
 backup のアプローチが優れている理由:
+
 - `gif-format` feature は既に `leptonica-color` を依存に含む
 - `octree_quant` は leptonica-color で十分にテスト済み
 - 190行の重複コードを削除できる
@@ -50,6 +51,7 @@ backup のアプローチが優れている理由:
 ### 具体的な変更
 
 1. **import 変更** (L8):
+
    ```rust
    // Before
    use leptonica_core::{Pix, PixColormap, PixelDepth, color};
@@ -57,9 +59,11 @@ backup のアプローチが優れている理由:
    use leptonica_color::quantize::{OctreeOptions, octree_quant};
    use leptonica_core::{Pix, PixColormap, PixelDepth};
    ```
+
    `color` import はテストモジュール内でのみ使用されるため、プロダクションコードからは不要。
 
 2. **`prepare_pix_for_gif()` の Bit32 分岐** (L187-191):
+
    ```rust
    // Before
    PixelDepth::Bit32 => {
@@ -106,6 +110,7 @@ cargo test --test io --features gif-format -- gif
 ```
 
 重要テスト:
+
 - `test_gif_32bpp_quantization` — 変更されるコードパスを直接テスト
 - `test_gif_roundtrip_paletted` — 既存パレットの保持
 - `gifio_reg` — 統合テスト（存在する場合）

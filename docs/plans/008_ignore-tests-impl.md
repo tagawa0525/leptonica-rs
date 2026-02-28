@@ -19,14 +19,14 @@ Rust 移植の品質と完成度を高める。
 
 ## PR 一覧と順序
 
-| PR | ブランチ | 対象テスト | 分類 | 依存 |
-|---|---|---|---|---|
-| 1 | `feat/region-grayfill-hybrid-test` | `grayfill_reg_hybrid_comparison` | テスト本体のみ | なし |
-| 2 | `feat/core-rasteropip-mirrored-border` | `rasteropip_reg_mirrored_border` | テスト本体のみ | なし |
-| 3 | `feat/core-numa-morphology` | `numa3_reg_morphology` | 新規実装 | なし |
-| 4 | `feat/core-numa-find-extrema` | `extrema_reg_find_extrema` | 新規実装 | なし |
-| 5 | `feat/core-numa-threshold` | `numa3_reg_threshold_finding` | 新規実装 | PR3 |
-| 6 | `feat/filter-scale-gray-rank` | `rank_reg_scale_gray_rank2/cascade/minmax` | 新規実装 | なし |
+| PR | ブランチ                               | 対象テスト                                 | 分類           | 依存 |
+| -- | -------------------------------------- | ------------------------------------------ | -------------- | ---- |
+| 1  | `feat/region-grayfill-hybrid-test`     | `grayfill_reg_hybrid_comparison`           | テスト本体のみ | なし |
+| 2  | `feat/core-rasteropip-mirrored-border` | `rasteropip_reg_mirrored_border`           | テスト本体のみ | なし |
+| 3  | `feat/core-numa-morphology`            | `numa3_reg_morphology`                     | 新規実装       | なし |
+| 4  | `feat/core-numa-find-extrema`          | `extrema_reg_find_extrema`                 | 新規実装       | なし |
+| 5  | `feat/core-numa-threshold`             | `numa3_reg_threshold_finding`              | 新規実装       | PR3  |
+| 6  | `feat/filter-scale-gray-rank`          | `rank_reg_scale_gray_rank2/cascade/minmax` | 新規実装       | なし |
 
 PR1〜4 は互いに独立。PR5 は PR3 に依存（`Numa::transform` が必要）。
 同一 worktree 内では 1 PR ずつ順次進める。
@@ -46,6 +46,7 @@ PR1〜4 は互いに独立。PR5 は PR3 に依存（`Numa::transform` が必要
 `grayfill_reg_hybrid_comparison` の空の本体に、C 版 `grayfill_reg.c` の checks 19–34 相当を実装する。
 
 使用する既存 API（プロダクションコード変更なし）:
+
 - `PixMut::add_constant_inplace(i32)` — `src/core/src/pix/arith.rs:434`
 - `seedfill_gray(&seed, &mask, connectivity)` — `leptonica-region`（公開済み）
 - `seedfill_gray_simple(&seed, &mask, connectivity)` — `leptonica-region`（公開済み）
@@ -107,6 +108,7 @@ fn grayfill_reg_hybrid_comparison() {
 ### 実装内容
 
 使用する既存 API（プロダクションコード変更なし）:
+
 - `Pix::remove_border(npix: u32)` — `src/core/src/pix/border.rs:156`
 - `Pix::add_mirrored_border(left, right, top, bot: u32)` — `src/core/src/pix/border.rs:251`
 
@@ -173,7 +175,7 @@ impl Numa {
 
 ### アルゴリズム（erode/dilate 共通構造）
 
-```
+```text
 1. size が偶数なら size += 1
 2. if size == 1 { return self.clone() }
 3. hsize = size / 2
@@ -250,7 +252,7 @@ impl Numa {
 
 ### アルゴリズム（C 版 numaFindExtrema 参照）
 
-```
+```text
 1. startval = self[0]
 2. delta 以上離れた最初の点を検索
 3. val > startval なら direction = Peak(+1), else direction = Valley(-1)
@@ -351,7 +353,9 @@ fn numa3_reg_threshold_finding() {
 ### 変更ファイル
 
 - `src/filter/src/rank.rs`（実装追加）
+
   ※ scale 操作だが `pixScaleGrayRank2` は rank 操作に近く、filter crate に追加する
+
 - `src/filter/src/lib.rs`（pub use 追加）
 - `src/filter/tests/rank_reg.rs`（3 テストの本体記述）
 
@@ -383,7 +387,7 @@ pub fn scale_gray_rank_cascade(
 
 ### アルゴリズム（scale_gray_rank2）
 
-```
+```text
 入力: 8bpp 画像、rank ∈ {1,2,3,4}
 出力: w/2 × h/2 の 8bpp 画像
 
@@ -444,6 +448,7 @@ cargo fmt --all -- --check
 ```
 
 golden ファイル生成（初回）:
+
 ```bash
 REGTEST_MODE=generate cargo test --package <crate> <test_name>
 ```
@@ -452,17 +457,17 @@ REGTEST_MODE=generate cargo test --package <crate> <test_name>
 
 ## 重要ファイル一覧
 
-| ファイル | 用途 |
-|---|---|
-| `src/region/tests/grayfill_reg.rs` | PR1 テスト |
-| `src/core/src/pix/arith.rs` | PR1 使用: `add_constant_inplace` (行 434) |
-| `src/region/src/seedfill.rs` | PR1 使用: `seedfill_gray_simple` (行 1840) |
-| `src/core/tests/rasteropip_reg.rs` | PR2 テスト |
-| `src/core/src/pix/border.rs` | PR2 使用: `remove_border` (行 156), `add_mirrored_border` (行 251) |
-| `src/core/src/numa/operations.rs` | PR3/4/5 実装場所 |
-| `src/core/tests/numa3_reg.rs` | PR3/5 テスト |
-| `src/core/tests/extrema_reg.rs` | PR4 テスト |
-| `src/filter/src/rank.rs` | PR6 実装場所 |
-| `src/filter/tests/rank_reg.rs` | PR6 テスト |
+| ファイル                              | 用途                                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/region/tests/grayfill_reg.rs`    | PR1 テスト                                                                    |
+| `src/core/src/pix/arith.rs`           | PR1 使用: `add_constant_inplace` (行 434)                                     |
+| `src/region/src/seedfill.rs`          | PR1 使用: `seedfill_gray_simple` (行 1840)                                    |
+| `src/core/tests/rasteropip_reg.rs`    | PR2 テスト                                                                    |
+| `src/core/src/pix/border.rs`          | PR2 使用: `remove_border` (行 156), `add_mirrored_border` (行 251)            |
+| `src/core/src/numa/operations.rs`     | PR3/4/5 実装場所                                                              |
+| `src/core/tests/numa3_reg.rs`         | PR3/5 テスト                                                                  |
+| `src/core/tests/extrema_reg.rs`       | PR4 テスト                                                                    |
+| `src/filter/src/rank.rs`              | PR6 実装場所                                                                  |
+| `src/filter/tests/rank_reg.rs`        | PR6 テスト                                                                    |
 | `reference/leptonica/src/numafunc2.c` | PR3/4/5 C版参照 (erode:162, transform:407, find_extrema:2491, threshold:2597) |
-| `reference/leptonica/src/scale2.c` | PR6 C版参照 (ScaleGrayMinMax:997, Rank2:1245, Cascade:1183) |
+| `reference/leptonica/src/scale2.c`    | PR6 C版参照 (ScaleGrayMinMax:997, Rank2:1245, Cascade:1183)                   |

@@ -1,5 +1,3 @@
-# CLAUDE.md
-
 # leptonica-rs
 
 C版leptonicaのRust移植。単一クレート `leptonica` で公開。Rust edition 2024。

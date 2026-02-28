@@ -26,7 +26,7 @@ leptonica-core クレートの実装率は 26.7%（226/845 関数）でワーク
 Phase 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 の順に**直列で**実行する。
 1つのPRがマージされるまで次のPRの実装を開始しない。
 
-```
+```text
 Phase 10 (Serialization)
   → Phase 11 (Pix utilities)
     → Phase 12 (Colormap)
@@ -64,6 +64,7 @@ Phase 10 (Serialization)
 8. ブランチ削除
 
 **禁止事項（再掲）**:
+
 - レビュー到着前のマージ（最重要）
 - レビュー指摘を確認せずにマージ
 - PRコメントに返信せずにマージ
@@ -71,7 +72,7 @@ Phase 10 (Serialization)
 
 ### ブランチ戦略
 
-```
+```text
 main
 └── feat/core-<feature>           ← PR対象ブランチ
     ├── feat/core-<feature>-<sub>    ← 作業単位
@@ -128,6 +129,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 対象: ptaRead/Write系 + ptaaRead/Write系 + pixaRead/Write系 + pixaaRead/Write系
 
 修正ファイル:
+
 - `src/core/src/pta/serial.rs`（新規）
 - `src/core/src/pixa/serial.rs`（新規）
 
@@ -136,6 +138,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 対象: fpixRead/Write系 + dpixRead/Write系 + sarrayRead/Write系 + pixcmapRead/Write系 + pixcmapSerialize/Deserialize
 
 修正ファイル:
+
 - `src/core/src/fpix/serial.rs`（新規）
 - `src/core/src/sarray/serial.rs`（新規）
 - `src/core/src/colormap/serial.rs`（新規）
@@ -147,6 +150,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 ### 11.1 Pix 生成・テンプレート (`feat/core-pix-create`)
 
 対象（pix1.c）:
+
 - pixCreateTemplate, pixCreateTemplateNoInit, pixCreateWithCmap
 - pixCopyColormap, pixSizesEqual, pixMaxAspectRatio
 - pixCopyResolution, pixScaleResolution, pixCopyInputFormat
@@ -157,6 +161,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 ### 11.2 ピクセル設定・ボーダー拡張 (`feat/core-pix-setters`)
 
 対象（pix2.c）:
+
 - pixSetAllGray, pixSetAllArbitrary, pixSetBlackOrWhite, pixSetComponentArbitrary
 - pixClearInRect, pixSetInRect, pixSetInRectArbitrary, pixBlendInRect
 - pixSetPadBits, pixSetPadBitsBand
@@ -170,6 +175,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 ### 11.3 RGB成分・アルファ操作 (`feat/core-pix-rgb`)
 
 対象（pix2.c）:
+
 - pixGetRGBComponentCmap, pixCopyRGBComponent, pixGetRGBLine
 - composeRGBPixel, composeRGBAPixel, extractRGBValues, extractRGBAValues
 - extractMinMaxComponent
@@ -187,6 +193,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 ### 12.1 カラーマップ検索・情報 (`feat/core-cmap-query`)
 
 対象（colormap.c）:
+
 - pixcmapCreateRandom, pixcmapIsValid
 - pixcmapAddRGBA, pixcmapAddNewColor, pixcmapAddNearestColor
 - pixcmapUsableColor, pixcmapAddBlackOrWhite, pixcmapSetBlackAndWhite
@@ -203,6 +210,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 ### 12.2 カラーマップ変換・効果 (`feat/core-cmap-convert`)
 
 対象（colormap.c）:
+
 - pixcmapGrayToFalseColor, pixcmapGrayToColor, pixcmapColorToGray
 - pixcmapConvertTo4, pixcmapConvertTo8
 - pixcmapToArrays, pixcmapToRGBTable, pixcmapConvertToHex
@@ -218,6 +226,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 ### 13.1 低ビット深度変換 (`feat/core-conv-low`) ✅ 完了 (PR #93)
 
 対象（pixconv.c）:
+
 - ✅ pixConvert2To8 - 実装済み
 - ✅ pixConvert4To8 - 実装済み
 - ✅ pixConvertTo2 - 実装済み
@@ -239,6 +248,7 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 ### 13.2 高ビット・特殊変換 (`feat/core-conv-high`) ✅ IMPLEMENTED
 
 対象（pixconv.c）:
+
 - pixConvertTo32（既実装）, pixConvertTo32BySampling（→transform延期）
 - pixConvert24To32（スキップ・24bpp非対応）, pixConvert32To24（スキップ）, pixConvert32To16 ✅
 - pixAddAlphaTo1bpp ✅
@@ -250,7 +260,8 @@ pub fn read_from_bytes(data: &[u8]) -> Result<Self> {
 
 実装内容: 7関数（convert_32_to_16, add_alpha_to_1bpp, convert_rgb_to_gray_arb,
 colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wrap）
-+ Convert32To16Type enum + 25テスト
+
+- Convert32To16Type enum + 25テスト
 
 修正ファイル: `src/core/src/pix/convert.rs`
 
@@ -261,6 +272,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 14.1 Box 幾何・関係演算 (`feat/core-box-geometry`)
 
 対象（boxfunc1.c）:
+
 - boxaContainedInBox, boxaContainedInBoxCount, boxaContainedInBoxa
 - boxaIntersectsBox, boxaIntersectsBoxCount
 - boxaClipToBox, boxaCombineOverlaps, boxaCombineOverlapsInPair
@@ -276,6 +288,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 14.2 Box 調整・変換 (`feat/core-box-adjust`)
 
 対象（boxfunc1.c, boxfunc4.c）:
+
 - boxRelocateOneSide, boxaAdjustSides, boxaAdjustBoxSides, boxAdjustSides
 - boxaSetSide, boxSetSide, boxaAdjustWidthToTarget, boxaAdjustHeightToTarget
 - boxEqual, boxaEqual, boxSimilar, boxaSimilar
@@ -287,6 +300,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 14.3 Box 選択・統計 (`feat/core-box-select`)
 
 対象（boxfunc4.c, boxfunc5.c）:
+
 - boxaSelectRange, boxaaSelectRange
 - boxaSelectBySize, boxaMakeSizeIndicator
 - boxaSelectByArea, boxaMakeAreaIndicator
@@ -303,6 +317,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 14.4 Box 描画・マスク (`feat/core-box-draw`)
 
 対象（boxfunc3.c）:
+
 - pixMaskConnComp, pixMaskBoxa, pixPaintBoxa, pixSetBlackOrWhiteBoxa
 - pixPaintBoxaRandom, pixBlendBoxaRandom
 - pixDrawBoxa, pixDrawBoxaRandom
@@ -320,6 +335,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 15.1 マスク拡張 (`feat/core-pix-mask-ext`)
 
 対象（pix3.c）:
+
 - pixSetMaskedGeneral, pixCombineMaskedGeneral
 - pixCopyWithBoxa, pixPaintSelfThroughMask
 - pixMakeArbMaskFromRGB, pixSetUnderTransparency
@@ -334,6 +350,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 15.2 行列統計・差分 (`feat/core-pix-rowcol-stats`)
 
 対象（pix3.c, pix4.c）:
+
 - pixAverageByRow, pixAverageByColumn, pixAverageInRect, pixAverageInRectRGB
 - pixVarianceByRow, pixVarianceByColumn, pixVarianceInRect
 - pixAbsDiffByRow, pixAbsDiffByColumn, pixAbsDiffInRect, pixAbsDiffOnLine
@@ -347,6 +364,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 15.3 ヒストグラム拡張 (`feat/core-pix-hist-ext`)
 
 対象（pix4.c）:
+
 - pixGetGrayHistogramTiled
 - pixGetCmapHistogram, pixGetCmapHistogramMasked, pixGetCmapHistogramInRect
 - pixCountRGBColorsByHash, pixCountRGBColors, pixGetColorAmapHistogram
@@ -364,6 +382,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 15.4 クリッピング・測定 (`feat/core-pix-clip-ext`) ✅ IMPLEMENTED
 
 対象（pix5.c）:
+
 - pixClipRectangle, pixClipRectangleWithBorder, pixClipRectangles
 - pixCropToMatch, pixCropToSize, pixResizeToMatch
 - pixClipToForeground, pixTestClipToForeground, pixClipBoxToForeground
@@ -384,6 +403,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 16.1 Numa 算術・変換 (`feat/core-numa-arith`)
 
 対象（numafunc1.c）:
+
 - numaArithOp, numaLogicalOp, numaInvert, numaSimilar, numaAddToNumber
 - numaGetPartialSums, numaMakeDelta, numaMakeSequence, numaMakeAbsval
 - numaAddBorder, numaAddSpecifiedBorder, numaRemoveBorder
@@ -395,6 +415,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 16.2 Numa ソート・補間 (`feat/core-numa-sort`)
 
 対象（numafunc1.c）:
+
 - numaSortGeneral, numaSortAutoSelect, numaSortIndexAutoSelect
 - numaChooseSortType, numaBinSort, numaGetSortIndex, numaGetBinSortIndex
 - numaSortByIndex, numaIsSorted, numaSortPair
@@ -414,6 +435,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 16.3 Pta/Ptaa 基本・変換 (`feat/core-pta-ext`)
 
 対象（ptabasic.c, ptafunc1.c, ptafunc2.c）:
+
 - ptaCreateFromNuma, ptaCopyRange, ptaEmpty, ptaInsertPt, ptaRemovePt
 - ptaGetIPt, ptaGetArrays
 - Ptaa型の全実装（ptaaCreate, ptaaDestroy, ptaaAddPta, ptaaGetCount, ptaaGetPta, ptaaGetPt, ptaaInitFull, ptaaReplacePta, ptaaAddPt, ptaaTruncate）
@@ -421,12 +443,14 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - ptafunc2: 最小二乗法、ソート、統計
 
 修正ファイル:
+
 - `src/core/src/pta/mod.rs`（拡張）
 - `src/core/src/pta/transform.rs`（新規）
 
 ### 16.4 Pixa 基本拡張 (`feat/core-pixa-basic`)
 
 対象（pixabasic.c）:
+
 - pixaCreateFromPix, pixaCreateFromBoxa, pixaSplitPix
 - pixaGetBoxa, pixaGetBoxaCount, pixaGetBox, pixaGetBoxGeometry, pixaSetBoxa
 - pixaGetPixArray, pixaVerifyDepth, pixaVerifyDimensions, pixaIsFull
@@ -440,6 +464,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 16.5 Pixa/Sarray 高度操作 (`feat/core-pixa-advanced`)
 
 対象（pixafunc1.c, pixafunc2.c, sarray2.c）:
+
 - pixaSelectBySize, pixaSelectByArea, pixaSort, pixaSortByIndex
 - pixaScaleToSize, pixaScaleToSizeRel
 - pixaDisplay, pixaDisplayTiled, pixaDisplayTiledAndScaled
@@ -449,6 +474,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 - sarraySelectRange, sarrayParseRange, sarraySortByIndex, sarrayAppend
 
 修正ファイル:
+
 - `src/core/src/pixa/display.rs`（新規）
 - `src/core/src/sarray/operations.rs`（新規）
 
@@ -459,6 +485,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 17.1 PTA生成関数 (`feat/core-graphics-pta`)
 
 対象（graphics.c）:
+
 - generatePtaLine, generatePtaWideLine
 - generatePtaBox, generatePtaBoxa, generatePtaHashBox, generatePtaHashBoxa
 - generatePtaaBoxa, generatePtaaHashBoxa
@@ -472,6 +499,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 17.2 レンダリング拡張 (`feat/core-graphics-render`)
 
 対象（graphics.c）:
+
 - pixRenderPtaArb, pixRenderPtaBlend
 - pixRenderLineArb, pixRenderLineBlend
 - pixRenderBoxArb, pixRenderBoxBlend
@@ -490,6 +518,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ### 17.3 Compare/Blend 拡張 (`feat/core-compare-blend`)
 
 対象（compare.c, blend.c）:
+
 - pixEqualWithAlpha, pixEqualWithCmap
 - pixDisplayDiff, pixDisplayDiffBinary
 - pixCompareGrayOrRGB, pixCompareGray, pixCompareRGB
@@ -509,6 +538,7 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 ## FPix/DPix 拡張（Phase 16 に含む）
 
 以下の関数は各Phaseの適切な場所で実装:
+
 - FPixa型: Phase 16.4 (Pixa基本拡張と同時)
 - fpixSetDimensions, fpixCopyResolution: Phase 11.1
 - fpixConvolveSep, fpixConvolve: leptonica-filter の責務（スコープ外）
@@ -519,17 +549,17 @@ colorize_gray, convert_gray_to_false_color, convert_cmap_to_1, convert_for_ps_wr
 
 ## サマリー
 
-| Phase | 対象 | PR数 | 関数数 |
-|-------|------|------|--------|
-| 10 | シリアライゼーション基盤 | 5 | ~90 |
-| 11 | Pix ユーティリティ | 3 | ~45 |
-| 12 | カラーマップ操作 | 2 | ~35 |
-| 13 | 深度変換 | 2 | ~25 |
-| 14 | Box 操作 | 4 | ~80 |
-| 15 | Pix マスク・統計・クリッピング | 4 | ~75 |
-| 16 | Numa/Pta/Pixa 拡張 | 5 | ~100 |
-| 17 | Graphics/Compare/Blend | 3 | ~55 |
-| **合計** | | **28** | **~505** |
+| Phase    | 対象                           | PR数   | 関数数   |
+| -------- | ------------------------------ | ------ | -------- |
+| 10       | シリアライゼーション基盤       | 5      | ~90      |
+| 11       | Pix ユーティリティ             | 3      | ~45      |
+| 12       | カラーマップ操作               | 2      | ~35      |
+| 13       | 深度変換                       | 2      | ~25      |
+| 14       | Box 操作                       | 4      | ~80      |
+| 15       | Pix マスク・統計・クリッピング | 4      | ~75      |
+| 16       | Numa/Pta/Pixa 拡張             | 5      | ~100     |
+| 17       | Graphics/Compare/Blend         | 3      | ~55      |
+| **合計** |                                | **28** | **~505** |
 
 完了後の推定カバレッジ: (226+505) / 845 ≈ **86.5%**
 （残りはroplow.c スキップ分 + Rust設計上N/Aの関数）
@@ -546,6 +576,7 @@ cargo test --all-features  # PR前に全ワークスペーステスト
 ```
 
 シリアライゼーション（Phase 10）はラウンドトリップテストを重点的に:
+
 ```rust
 // write → read → compare のパターン
 let original = Boxa::from(vec![Box::new(10, 20, 30, 40)]);
