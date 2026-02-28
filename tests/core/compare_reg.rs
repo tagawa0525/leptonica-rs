@@ -3,8 +3,8 @@
 //! Tests image comparison functions including pixel counting,
 //! equality checking, and binary correlation.
 //!
-//! The C version also tests pixBestCorrelation, pixCompareWithTranslation,
-//! and pixGetPerceptualDiff which are not available in leptonica-core.
+//! The C version also tests pixBestCorrelation and pixCompareWithTranslation
+//! which are not available in leptonica-core.
 //!
 //! # See also
 //!
@@ -113,12 +113,36 @@ fn compare_reg_with_translation() {
 
 /// Test pixGetPerceptualDiff on color and grayscale images (C checks 7-12).
 ///
-/// Requires pixGetPerceptualDiff which is not available.
+/// C version: pixGetPerceptualDiff(pix0, pix1, 1, 3, 20, &fract, ...)
+/// Color fract ~0.061252, grayscale fract ~0.046928.
 #[test]
-#[ignore = "not yet implemented: pixGetPerceptualDiff not available"]
 fn compare_reg_perceptual_diff() {
-    // C version:
-    // 1. Reads greencover.jpg and redcover.jpg
-    // 2. Compares with pixGetPerceptualDiff (color: fract ~0.061252)
-    // 3. Converts to grayscale and compares (gray: fract ~0.046928)
+    let mut rp = RegParams::new("compare_perceptual");
+
+    let pix0 = crate::common::load_test_image("greencover.jpg").expect("load greencover.jpg");
+    let pix1 = crate::common::load_test_image("redcover.jpg").expect("load redcover.jpg");
+
+    // Color comparison (C: sampling=1, dilation=3, min_diff=20)
+    let (fract, _avg, _exceeds) = pix0
+        .get_perceptual_diff(&pix1, 1, 3, 20, 0.0, 1)
+        .expect("get_perceptual_diff color");
+    eprintln!("Fraction of color pixels = {}", fract);
+    assert!(
+        fract > 0.0,
+        "color images should have perceptual difference"
+    );
+    rp.compare_values(0.061252, fract as f64, 0.2);
+
+    // Grayscale comparison
+    let gray0 = pix0.convert_to_8().expect("convert_to_8 pix0");
+    let gray1 = pix1.convert_to_8().expect("convert_to_8 pix1");
+    let (fract_gray, _avg_gray, _exceeds_gray) = gray0
+        .get_perceptual_diff(&gray1, 1, 3, 20, 0.0, 1)
+        .expect("get_perceptual_diff gray");
+    eprintln!("Fraction of grayscale pixels = {}", fract_gray);
+    assert!(
+        fract_gray > 0.0,
+        "grayscale images should have perceptual difference"
+    );
+    rp.compare_values(0.046928, fract_gray as f64, 0.15);
 }

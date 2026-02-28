@@ -7,7 +7,7 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/insert_reg.c`
 
-use crate::common::RegParams;
+use crate::common::{RegParams, load_test_image};
 use leptonica::{Box, Boxa, Numa};
 
 /// Test Numa insert/remove cycle preserves data (C test checks 0–2)
@@ -74,14 +74,29 @@ fn insert_reg_boxa() {
 
 /// Test Pixa insert/remove cycle preserves data (C test checks 6–11)
 ///
-/// Requires connected component extraction from leptonica-region,
-/// so this test covers only the core Pixa operations available.
+/// Uses connected component extraction to build a Pixa, then verifies
+/// that remove+insert cycles preserve the element count.
 #[test]
-#[ignore = "not yet implemented: requires leptonica-region conncomp"]
 fn insert_reg_pixa() {
-    // The C version tests pixaRemovePixAndSave + pixaInsertPix
-    // and rotation cycles (move last→first, first→last).
-    // This requires pixConnComp from leptonica-region which is not
-    // available from leptonica-core. A separate test in leptonica-region
-    // can cover the full pixa insert/remove cycle.
+    let mut rp = RegParams::new("insert_pixa");
+
+    let pix = load_test_image("feyn.tif").expect("load feyn.tif");
+    let (_boxa, pixa) =
+        leptonica::region::conncomp_pixa(&pix, leptonica::region::ConnectivityType::FourWay)
+            .expect("conncomp_pixa");
+
+    let n = pixa.len();
+    assert!(n > 0, "expected non-empty pixa from feyn.tif");
+
+    // Remove and re-insert each element in order
+    let mut pixa2 = pixa.clone();
+    for i in 0..n {
+        let p = pixa2.remove(i).expect("remove pix");
+        pixa2.insert(i, p).expect("insert pix");
+    }
+
+    // Count should be preserved after remove+insert cycle
+    rp.compare_values(n as f64, pixa2.len() as f64, 0.0);
+
+    assert!(rp.cleanup(), "insert_reg pixa test failed");
 }

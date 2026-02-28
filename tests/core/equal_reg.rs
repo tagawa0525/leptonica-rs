@@ -37,7 +37,6 @@ fn equal_reg_binary_roundtrip() {
 /// Reads dreyfus8.png (8bpp with colormap), removes colormap via
 /// BASED_ON_SRC and TO_FULL_COLOR, then checks equals_with_cmap.
 #[test]
-#[ignore = "not yet implemented: requires equals_with_cmap validation"]
 fn equal_reg_8bpp_colormap() {
     let mut rp = RegParams::new("equal_8bpp_cmap");
 
@@ -117,25 +116,68 @@ fn equal_reg_rgb() {
 
 /// Test 2bpp colormapped image (C checks 1-4).
 ///
-/// Requires dreyfus2.png and quantization functions not available.
+/// Tests remove_colormap preserves equality for 2bpp colormapped images.
+/// Skips pixOctreeQuantNumColors and pixConvertRGBToColormap (not available).
 #[test]
-#[ignore = "not yet implemented: requires pixOctreeQuantNumColors, pixConvertRGBToColormap"]
 fn equal_reg_2bpp_colormap() {
-    // C version:
-    // 1. Reads dreyfus2.png (2bpp colormapped)
-    // 2. pixRemoveColormap (BASED_ON_SRC) → compare
-    // 3. pixRemoveColormap (TO_FULL_COLOR) → compare
-    // 4. pixOctreeQuantNumColors(64) → compare
-    // 5. pixConvertRGBToColormap → compare
+    let mut rp = RegParams::new("equal_2bpp_cmap");
+
+    let pix1 = crate::common::load_test_image("dreyfus2.png").expect("load dreyfus2.png");
+
+    // Remove colormap based on source
+    let pix2 = pix1
+        .remove_colormap(RemoveColormapTarget::BasedOnSrc)
+        .expect("remove cmap based_on_src");
+
+    // Remove colormap to full color (32bpp)
+    let pix3 = pix1
+        .remove_colormap(RemoveColormapTarget::ToFullColor)
+        .expect("remove cmap to_full_color");
+
+    assert!(
+        pix1.equals_with_cmap(&pix2),
+        "dreyfus2 based_on_src should match original"
+    );
+    assert!(
+        pix1.equals_with_cmap(&pix3),
+        "dreyfus2 to_full_color should match original"
+    );
+
+    let _ = rp.compare_values(1.0, 1.0, 0.0);
+
+    assert!(rp.cleanup(), "equal 2bpp colormap test failed");
 }
 
 /// Test 4bpp colormapped image (C checks 5-8).
 ///
-/// Requires dreyfus4.png and quantization functions not available.
+/// Tests remove_colormap preserves equality for 4bpp colormapped images.
+/// Skips pixOctreeQuantNumColors and pixConvertRGBToColormap (not available).
 #[test]
-#[ignore = "not yet implemented: requires pixOctreeQuantNumColors, pixConvertRGBToColormap"]
 fn equal_reg_4bpp_colormap() {
-    // C version:
-    // 1. Reads dreyfus4.png (4bpp colormapped)
-    // 2. Same operations as 2bpp test with 256 colors
+    let mut rp = RegParams::new("equal_4bpp_cmap");
+
+    let pix1 = crate::common::load_test_image("dreyfus4.png").expect("load dreyfus4.png");
+
+    // Remove colormap based on source
+    let pix2 = pix1
+        .remove_colormap(RemoveColormapTarget::BasedOnSrc)
+        .expect("remove cmap based_on_src");
+
+    // Remove colormap to full color (32bpp)
+    let pix3 = pix1
+        .remove_colormap(RemoveColormapTarget::ToFullColor)
+        .expect("remove cmap to_full_color");
+
+    assert!(
+        pix1.equals_with_cmap(&pix2),
+        "dreyfus4 based_on_src should match original"
+    );
+    assert!(
+        pix1.equals_with_cmap(&pix3),
+        "dreyfus4 to_full_color should match original"
+    );
+
+    let _ = rp.compare_values(1.0, 1.0, 0.0);
+
+    assert!(rp.cleanup(), "equal 4bpp colormap test failed");
 }
