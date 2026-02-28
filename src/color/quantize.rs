@@ -408,6 +408,7 @@ impl Octree {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_color_impl(
         node: &mut OctreeNode,
         r: u8,
