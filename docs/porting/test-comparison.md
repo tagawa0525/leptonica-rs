@@ -1,6 +1,6 @@
 # C版 vs Rust版 回帰テスト比較
 
-調査日: 2026-02-23（全クレートの実ファイル配置に基づく正確な状態を反映）
+調査日: 2026-03-01（全C版回帰テスト159個の移植完了）
 
 ## 概要
 
@@ -8,8 +8,8 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
 | 項目           | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
 | -------------- | ------------------------- | -------------------------- |
-| テスト総数     | **305個** (.c)            | **202ファイル** (*_reg.rs) |
-| 回帰テスト     | **160個** (*_reg.c)       | **156個** (*_reg.rs)       |
+| テスト総数     | **305個** (.c)            | **205ファイル** (*_reg.rs) |
+| 回帰テスト     | **160個** (*_reg.c)       | **159個** (*_reg.rs)       |
 | 個別テスト関数 | 多数                      | **3,270個**                |
 | テストランナー | alltests_reg.c            | `cargo test`               |
 
@@ -244,15 +244,15 @@ Rust独自: conncomp_ext, seedfill_ext
 | ------------ | ------------------- | ---- |
 | baseline     | baseline_reg.rs     | ✅   |
 | dewarp       | dewarp_reg.rs       | ✅   |
-| findcorners  | -                   | ❌   |
+| findcorners  | findcorners_reg.rs  | ✅   |
 | findpattern1 | findpattern1_reg.rs | ✅   |
 | findpattern2 | findpattern2_reg.rs | ✅   |
 | flipdetect   | flipdetect_reg.rs   | ✅   |
-| genfonts     | -                   | ❌   |
+| genfonts     | genfonts_reg.rs     | ✅   |
 | italic       | italic_reg.rs       | ✅   |
 | jbclass      | jbclass_reg.rs      | ✅   |
 | lineremoval  | lineremoval_reg.rs  | ✅   |
-| nearline     | -                   | ❌   |
+| nearline     | nearline_reg.rs     | ✅   |
 | newspaper    | newspaper_reg.rs    | ✅   |
 | pageseg      | pageseg_reg.rs      | ✅   |
 | partition    | partition_reg.rs    | ✅   |
@@ -260,7 +260,7 @@ Rust独自: conncomp_ext, seedfill_ext
 | skew         | skew_reg.rs         | ✅   |
 | wordboxes    | wordboxes_reg.rs    | ✅   |
 
-✅ 14 / ❌ 3（C版17個中）
+✅ 17 / ❌ 0（C版17個中）
 
 ## サマリ
 
@@ -275,21 +275,17 @@ Rust独自: conncomp_ext, seedfill_ext
 | leptonica (src/filter/)    | 14      | 14      | 0     | 5        | 100.0%     |
 | leptonica (src/color/)     | 24      | 24      | 0     | 5        | 100.0%     |
 | leptonica (src/region/)    | 14      | 14      | 0     | 2        | 100.0%     |
-| leptonica (src/recog/)     | 17      | 14      | 3     | 0        | 82.4%      |
-| **合計**                   | **159** | **156** | **3** | **22**   | **98.1%**  |
+| leptonica (src/recog/)     | 17      | 17      | 0     | 0        | 100.0%     |
+| **合計**                   | **159** | **159** | **0** | **22**   | **100.0%** |
 
-### 未移植テスト一覧（3個）
-
-| クレート | テスト                          | 備考                           |
-| -------- | ------------------------------- | ------------------------------ |
-| recog    | findcorners, genfonts, nearline | コーナー検出・フォント・近傍線 |
+全C版回帰テスト（159個）の移植が完了。未移植テストなし。
 
 ## Rust版テストの現状
 
 ### 構造（Rust版）
 
 - 各クレートの`src/*.rs`内に`#[cfg(test)]`モジュール（単体テスト）
-- `tests/`配下に統合テスト（202個の`*_reg.rs`、C版`*_reg.c`に対応）
+- `tests/`配下に統合テスト（205個の`*_reg.rs`、C版`*_reg.c`に対応）
 - テストデータ: `tests/data/images/`（実画像使用）
 - テスト出力: `tests/regout/`（`.gitignore`対象、REGTEST_MODE=generateで生成）
 
@@ -300,7 +296,7 @@ Rust独自: conncomp_ext, seedfill_ext
 | **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル   |
 | **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応      |
 | **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応           |
-| **統合テスト**   | alltests_reg.c         | 202ファイル（全crate *_reg.rs） |
+| **統合テスト**   | alltests_reg.c         | 205ファイル（全crate *_reg.rs） |
 | **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像      |
 | **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数      |
 
