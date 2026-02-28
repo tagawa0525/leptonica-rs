@@ -2,6 +2,7 @@
 mod common;
 
 mod encoding_reg;
+mod files_reg;
 #[cfg(feature = "gif-format")]
 mod gifio_reg;
 mod ioformats_reg;
@@ -25,7 +26,10 @@ mod psio_reg;
 mod psioseg_reg;
 mod spixio_reg;
 #[cfg(feature = "webp-format")]
+mod webpanimio_reg;
+#[cfg(feature = "webp-format")]
 mod webpio_reg;
+mod writetext_reg;
 
 mod convertfiles_reg;
 mod io_coverage_reg;
