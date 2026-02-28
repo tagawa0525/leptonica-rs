@@ -1,6 +1,6 @@
 # 012: 無視テストの復活
 
-## Status: IN_PROGRESS
+## Status: IMPLEMENTED
 
 ## 概要
 
