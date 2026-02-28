@@ -285,6 +285,28 @@ fn adaptmap_reg_param_validation() {
 #[ignore = "C: pixFillMapHoles() -- internal function, not exposed in Rust"]
 fn adaptmap_reg_fill_map_holes() {}
 
+/// Test pixGetForegroundGrayMap equivalent.
+#[test]
+fn adaptmap_reg_foreground_gray_map() {
+    let mut rp = RegParams::new("adaptmap_fg_gray_map");
+
+    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let w = pix.width();
+    let h = pix.height();
+
+    let fg_map =
+        leptonica::filter::get_foreground_gray_map(&pix, None, 10, 15, 60).expect("fg gray map");
+
+    // Output dimensions should be ceil(w/sx) x ceil(h/sy)
+    let expected_w = w.div_ceil(10);
+    let expected_h = h.div_ceil(15);
+    rp.compare_values(expected_w as f64, fg_map.width() as f64, 1.0);
+    rp.compare_values(expected_h as f64, fg_map.height() as f64, 1.0);
+    rp.compare_values(8.0, fg_map.depth().bits() as f64, 0.0);
+
+    assert!(rp.cleanup(), "foreground gray map test failed");
+}
+
 /// C test 3, 11, 13: pixGammaTRCMasked -- leptonica-enhance not yet implemented
 #[test]
 #[ignore = "C: pixGammaTRCMasked() -- leptonica-enhance not yet implemented"]
