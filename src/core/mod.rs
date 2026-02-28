@@ -16,11 +16,13 @@
 //!
 //! C Leptonica: `pix.h`, `box.h`, `pts.h`, `environ.h` (struct definitions)
 
+pub mod bmf;
 pub mod box_;
 pub mod colormap;
 pub mod encoding;
 pub mod error;
 pub mod fpix;
+pub mod gplot;
 pub mod numa;
 pub mod pix;
 pub mod pixa;
@@ -30,6 +32,7 @@ pub mod pixtiling;
 pub mod pta;
 pub mod sarray;
 
+pub use bmf::{Bmf, TextLocation, bmf_get_line_strings, bmf_get_string_width, bmf_get_word_widths};
 pub use box_::draw::make_mosaic_strips;
 pub use box_::extract::{BoxField, CornerLocation};
 pub use box_::sort::BoxSortType;
@@ -41,6 +44,10 @@ pub use colormap::{PixColormap, RgbaQuad};
 pub use encoding::{decode_ascii85, decode_base64, encode_base64};
 pub use error::{Error, Result};
 pub use fpix::{DPix, FPix, FPixa, NegativeHandling};
+pub use gplot::{
+    GPlot, GPlotOutput, GPlotScaling, PlotStyle, gplot_simple_1, gplot_simple_2, gplot_simple_n,
+    gplot_simple_pix_1, gplot_simple_pix_2, gplot_simple_pix_n,
+};
 pub use numa::{
     CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
     SortOrder, ThresholdComparison, WindowedStats,

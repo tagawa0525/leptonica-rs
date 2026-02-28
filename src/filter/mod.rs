@@ -19,6 +19,7 @@ pub mod enhance;
 mod error;
 pub mod kernel;
 pub mod rank;
+pub mod runlength;
 pub mod windowed;
 
 pub use error::{FilterError, FilterResult};
@@ -62,6 +63,11 @@ pub use rank::{
     MinMaxOp, max_filter, median_filter, min_filter, rank_filter, rank_filter_color,
     rank_filter_gray, rank_filter_with_scaling, scale_gray_min_max, scale_gray_rank_cascade,
     scale_gray_rank2,
+};
+pub use runlength::{
+    RunDirection, find_horizontal_runs, find_max_horizontal_run_on_line, find_max_runs,
+    find_max_vertical_run_on_line, find_vertical_runs, make_msbit_loc_tab,
+    runlength_membership_on_line, runlength_transform,
 };
 pub use windowed::{
     WindowedStatsResult, mean_square_accum, windowed_mean, windowed_mean_square, windowed_stats,

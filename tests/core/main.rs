@@ -1,6 +1,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod bmf_reg;
 mod boxa1_reg;
 mod boxa2_reg;
 mod boxa3_reg;
@@ -13,6 +14,7 @@ mod equal_reg;
 mod extrema_reg;
 mod fpix1_reg;
 mod fpix2_reg;
+mod gplot_reg;
 mod insert_reg;
 mod logicops_reg;
 mod lowaccess_reg;

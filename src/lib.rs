@@ -38,15 +38,18 @@ pub mod transform;
 
 // Re-export core types at root level (maintaining public API)
 pub use core::{
-    BlendMode, Box, BoxField, BoxSortType, Boxa, Boxaa, Color, ColorHistogram, ColormapArrays,
+    BlendMode, Bmf, Box, BoxField, BoxSortType, Boxa, Boxaa, Color, ColorHistogram, ColormapArrays,
     CompareResult, CompareType, ComponentsPerColor, ContourOutput, CornerLocation,
     CountRelativeToZero, DPix, DiffDirection, Error, ExtremeResult, ExtremeType, FPix, FPixa,
-    GrayBlendType, HistogramResult, HistogramStats, ImageFormat, InColor, InitColor,
-    InterpolationType, MaskBlendType, MaxValueResult, NegativeHandling, NonOpaqueInfo, Numa, Numaa,
-    Pix, PixAcc, PixColormap, PixComp, PixMut, PixTiling, Pixa, PixaComp, PixaSortType, Pixaa,
-    PixelDepth, PixelDiffResult, PixelMaxType, PixelOp, PixelStatType, Pta, Ptaa, RangeComponent,
-    RangeValues, Result, RgbaQuad, RopOp, RowColumnStats, Sarray, Sarraya, ScanDirection,
-    SizeRelation, SortOrder, SpixHeader, StatsRequest, ThresholdComparison, TransformOrder,
-    WindowedStats, blend_with_gray_mask, correlation_binary, decode_ascii85, decode_base64,
-    encode_base64, make_mosaic_strips,
+    GPlot, GPlotOutput, GPlotScaling, GrayBlendType, HistogramResult, HistogramStats, ImageFormat,
+    InColor, InitColor, InterpolationType, MaskBlendType, MaxValueResult, NegativeHandling,
+    NonOpaqueInfo, Numa, Numaa, Pix, PixAcc, PixColormap, PixComp, PixMut, PixTiling, Pixa,
+    PixaComp, PixaSortType, Pixaa, PixelDepth, PixelDiffResult, PixelMaxType, PixelOp,
+    PixelStatType, PlotStyle, Pta, Ptaa, RangeComponent, RangeValues, Result, RgbaQuad, RopOp,
+    RowColumnStats, Sarray, Sarraya, ScanDirection, SizeRelation, SortOrder, SpixHeader,
+    StatsRequest, TextLocation, ThresholdComparison, TransformOrder, WindowedStats,
+    blend_with_gray_mask, bmf_get_line_strings, bmf_get_string_width, bmf_get_word_widths,
+    correlation_binary, decode_ascii85, decode_base64, encode_base64, gplot_simple_1,
+    gplot_simple_2, gplot_simple_n, gplot_simple_pix_1, gplot_simple_pix_2, gplot_simple_pix_n,
+    make_mosaic_strips,
 };
