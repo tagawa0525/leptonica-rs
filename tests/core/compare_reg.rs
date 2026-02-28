@@ -145,4 +145,6 @@ fn compare_reg_perceptual_diff() {
         "grayscale images should have perceptual difference"
     );
     rp.compare_values(0.046928, fract_gray as f64, 0.15);
+
+    assert!(rp.cleanup(), "compare perceptual diff test failed");
 }
