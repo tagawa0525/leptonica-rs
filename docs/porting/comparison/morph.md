@@ -6,9 +6,9 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 108 |
-| 🔄 異なる | 19  |
-| ❌ 未実装 | 11  |
+| ✅ 同等   | 116 |
+| 🔄 異なる | 22  |
+| ❌ 未実装 | 0   |
 | 🚫 不要   | 25  |
 | 合計      | 163 |
 
@@ -41,7 +41,7 @@
 | selectComposableSizes       | ✅   | binary::select_composable_sizes |                                                     |
 | resetMorphBoundaryCondition | 🚫   | -                               | C版グローバル変数setter（Rustでは引数で明示指定）   |
 | getMorphBorderPixelColor    | 🚫   | -                               | C版グローバル状態アクセサ（Rustでは引数で明示指定） |
-| selectComposableSels        | ❌   | -                               | Rust版はSEL生成APIとして分離                        |
+| selectComposableSels        | 🔄   | binary::select_composable_sizes | Sel作成を分離APIで提供                              |
 
 ### morphapp.c (応用演算)
 
@@ -58,16 +58,16 @@
 | pixMorphSequenceByRegion     | ✅   | morph_sequence_by_region              | 領域ごとの処理                        |
 | pixaMorphSequenceByComponent | 🔄   | morphapp::morph_sequence_by_component | Rust版はPIXAではなく合成済みPixを返す |
 | pixaMorphSequenceByRegion    | 🔄   | morphapp::morph_sequence_by_region    | Rust版はPIXAではなく合成済みPixを返す |
-| pixSelectiveConnCompFill     | ❌   | -                                     |                                       |
-| pixRemoveMatchedPattern      | ❌   | -                                     |                                       |
-| pixDisplayMatchedPattern     | ❌   | -                                     |                                       |
-| pixaExtendByMorph            | ❌   | -                                     |                                       |
-| pixaExtendByScaling          | ❌   | -                                     |                                       |
-| pixRunHistogramMorph         | ❌   | -                                     |                                       |
-| pixHDome                     | ❌   | -                                     |                                       |
-| pixFastTophat                | ❌   | -                                     |                                       |
-| pixaCentroids                | ❌   | -                                     |                                       |
-| pixCentroid                  | ❌   | -                                     |                                       |
+| pixSelectiveConnCompFill     | ✅   | morphapp::selective_conn_comp_fill    |                                       |
+| pixRemoveMatchedPattern      | 🔄   | morphapp::remove_matched_pattern      |                                       |
+| pixDisplayMatchedPattern     | 🔄   | morphapp::display_matched_pattern     |                                       |
+| pixaExtendByMorph            | ✅   | morphapp::pixa_extend_by_morph        |                                       |
+| pixaExtendByScaling          | ✅   | morphapp::pixa_extend_by_scaling      |                                       |
+| pixRunHistogramMorph         | ✅   | morphapp::run_histogram_morph         |                                       |
+| pixHDome                     | ✅   | morphapp::h_dome                      |                                       |
+| pixFastTophat                | ✅   | morphapp::fast_tophat                 |                                       |
+| pixaCentroids                | ✅   | morphapp::pixa_centroids              | 各Pixの重心(UL基準)をPTAで返す        |
+| pixCentroid                  | ✅   | morphapp::pix_centroid                | 1/8bppの重み付き重心を返す            |
 | pixGrayscaleMorphSum         | 🚫   | -                                     | C版leptonicaに存在しない関数          |
 | pixMultiplyByColor           | 🚫   | -                                     | blend.c所属（morph領域外）            |
 | pixHMTDwa                    | 🚫   | -                                     | DWA自動生成コード                     |

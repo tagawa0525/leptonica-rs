@@ -244,6 +244,13 @@ impl Kernel {
         &self.data
     }
 
+    /// Create a deep copy of this kernel.
+    ///
+    /// C equivalent: `kernelCopy`
+    pub fn copy(&self) -> Kernel {
+        self.clone()
+    }
+
     /// Get a value at (x, y)
     #[inline]
     pub fn get(&self, x: u32, y: u32) -> Option<f32> {
@@ -803,6 +810,19 @@ mod tests {
 
         assert_eq!(k.get(0, 0), Some(1.0));
         assert_eq!(k.get(2, 2), Some(9.0));
+    }
+
+    #[test]
+    fn test_copy() {
+        let mut k = Kernel::from_slice(2, 2, &[1.0, 2.0, 3.0, 4.0]).unwrap();
+        k.set_center(0, 1).unwrap();
+        let copied = k.copy();
+
+        assert_eq!(copied.width(), 2);
+        assert_eq!(copied.height(), 2);
+        assert_eq!(copied.center_x(), 0);
+        assert_eq!(copied.center_y(), 1);
+        assert_eq!(copied.data(), &[1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]

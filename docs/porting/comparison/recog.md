@@ -8,13 +8,13 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 103 |
-| 🔄 異なる | 41  |
-| ❌ 未実装 | 20  |
+| ✅ 同等   | 119 |
+| 🔄 異なる | 45  |
+| ❌ 未実装 | 0   |
 | 🚫 不要   | 18  |
 | 合計      | 182 |
 
-> **注記**: Phase 1-13に加え、カバレッジ向上により144関数（🚫不要18関数を除く164関数中）が実装済み。
+> **注記**: Phase 1-13に加え、カバレッジ向上により164関数（🚫不要18関数を除く164関数中）が実装済み。
 > 🚫不要18関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。
 
 ## 詳細
@@ -26,9 +26,9 @@
 | C関数                       | 状態 | Rust対応                                   | 備考                                    |
 | --------------------------- | ---- | ------------------------------------------ | --------------------------------------- |
 | recogCreateFromRecog        | ✅   | recog::train::create_from_recog()          | 既存recogから新しいrecog生成（free fn） |
-| recogCreateFromPixa         | ❌   | -                                          | ラベル付きPixaから認識器を作成          |
+| recogCreateFromPixa         | ✅   | recog::create_from_pixa                    | ラベル付きPixaから認識器を作成          |
 | recogCreateFromPixaNoFinish | ✅   | recog::train::create_from_pixa_no_finish() | 訓練未完了のrecog作成（free fn）        |
-| recogCreate                 | ❌   | -                                          | 基本的なrecog作成                       |
+| recogCreate                 | ✅   | recog::create                              | 基本的なrecog作成                       |
 | recogDestroy                | ✅   | Drop trait                                 | Rustでは自動メモリ管理                  |
 | recogGetCount               | ✅   | Recog.get_class_labels().len()             | クラス数取得                            |
 | recogSetParams              | 🔄   | Recogフィールド直接設定                    | パラメータは構造体フィールドとして保持  |
@@ -224,10 +224,10 @@
 
 #### recog/dewarp/textline.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
-| C関数                    | 状態 | Rust対応 | 備考                   |
-| ------------------------ | ---- | -------- | ---------------------- |
-| dewarpGetTextlineCenters | ❌   | -        | テキストライン中心検出 |
-| dewarpRemoveShortLines   | ❌   | -        | 短い線の除去           |
+| C関数                    | 状態 | Rust対応                      | 備考                   |
+| ------------------------ | ---- | ----------------------------- | ---------------------- |
+| dewarpGetTextlineCenters | ✅   | dewarp::find_textline_centers | テキストライン中心検出 |
+| dewarpRemoveShortLines   | ✅   | dewarp::remove_short_lines    | 短い線の除去           |
 
 #### recog/dewarp/apply.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
@@ -243,10 +243,10 @@
 
 #### recog/dewarp/single_page.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
-| C関数                | 状態 | Rust対応 | 備考                       |
-| -------------------- | ---- | -------- | -------------------------- |
-| dewarpSinglePageInit | ❌   | -        | 単一ページ歪み補正の初期化 |
-| dewarpSinglePageRun  | ❌   | -        | 単一ページ歪み補正の実行   |
+| C関数                | 状態 | Rust対応                         | 備考                       |
+| -------------------- | ---- | -------------------------------- | -------------------------- |
+| dewarpSinglePageInit | ✅   | dewarp::dewarp_single_page_init  | 単一ページ歪み補正の初期化 |
+| dewarpSinglePageRun  | ✅   | dewarp::dewarp_single_page_run   | 単一ページ歪み補正の実行   |
 
 ### baseline.c (Baseline Detection)
 
@@ -276,21 +276,21 @@
 | jbClasserDestroy                   | ✅   | Drop trait                                   | 自動破棄                             |
 | jbGetULCorners                     | 🔄   | JbData フィールド直接参照                    | 左上コーナー取得                     |
 | jbGetLLCorners                     | 🔄   | JbData フィールド直接参照                    | 左下コーナー取得                     |
-| pixHaustest                        | ❌   | -                                            |                                      |
-| pixRankHaustest                    | ❌   | -                                            |                                      |
-| jbGetComponents                    | ❌   | -                                            |                                      |
-| jbAccumulateComposites             | ❌   | -                                            |                                      |
-| jbTemplatesFromComposites          | ❌   | -                                            |                                      |
+| pixHaustest                        | 🔄   | jbclass::hausdorff_distance                  | rank=1.0で相当                       |
+| pixRankHaustest                    | ✅   | jbclass::hausdorff_distance                  | size/rank引数で対応                  |
+| jbGetComponents                    | ✅   | JbClasser::get_components                    |                                      |
+| jbAccumulateComposites             | 🔄   | JbClasser::get_data                          | 合成処理は内部実装                   |
+| jbTemplatesFromComposites          | ✅   | JbClasser::templates_from_composites         |                                      |
 | jbDataDestroy                      | 🔄   | Drop trait                                   | Rustでは所有権で自動破棄             |
-| jbDataRender                       | ❌   | -                                            |                                      |
+| jbDataRender                       | 🔄   | JbData::render_page / JbData::render_all     | 単一/全ページに分離                  |
 | jbCorrelation                      | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属                |
 | jbRankHaus                         | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属                |
 | jbWordsInTextlines                 | 🔄   | classapp.c セクション参照                    | `pixWordMaskByDilation` とは別関数   |
 | jbAddPages                         | ✅   | JbClasser::add_pages                         | 複数ページ追加                       |
 | jbAddPage                          | ✅   | JbClasser::add_page                          | ページ追加                           |
 | jbDataSave                         | ✅   | JbClasser::get_data                          | データ取得                           |
-| pixWordMaskByDilation              | ❌   | -                                            |                                      |
-| pixWordBoxesByDilation             | ❌   | -                                            |                                      |
+| pixWordMaskByDilation              | ✅   | jbclass::pix_word_mask_by_dilation           |                                      |
+| pixWordBoxesByDilation             | ✅   | jbclass::pix_word_boxes_by_dilation          |                                      |
 
 #### recog/jbclass/io.rs (jbclass.c)
 
@@ -303,10 +303,10 @@
 
 #### recog/jbclass/classify.rs (classapp.c)
 
-| C関数         | 状態 | Rust対応 | 備考                      |
-| ------------- | ---- | -------- | ------------------------- |
-| jbCorrelation | ❌   | -        | 相関ベース高レベルAPI     |
-| jbRankHaus    | ❌   | -        | Rank Hausdorff高レベルAPI |
+| C関数         | 状態 | Rust対応                | 備考                      |
+| ------------- | ---- | ----------------------- | ------------------------- |
+| jbCorrelation | ✅   | jbclass::jb_correlation | 相関ベース高レベルAPI     |
+| jbRankHaus    | ✅   | jbclass::jb_rank_haus   | Rank Hausdorff高レベルAPI |
 
 #### recog/pageseg.rs (classapp.c)
 
@@ -355,12 +355,12 @@
 
 #### recog/barcode/detect.rs (readbarcode.c)
 
-| C関数                  | 状態 | Rust対応 | 備考               |
-| ---------------------- | ---- | -------- | ------------------ |
-| pixExtractBarcodes     | ❌   | -        | バーコード抽出     |
-| pixLocateBarcodes      | ❌   | -        | バーコード位置検出 |
-| pixDeskewBarcode       | ❌   | -        | バーコード傾き補正 |
-| pixGenerateBarcodeMask | ❌   | -        | C版はstatic関数    |
+| C関数                  | 状態 | Rust対応                 | 備考               |
+| ---------------------- | ---- | ------------------------ | ------------------ |
+| pixExtractBarcodes     | ✅   | extract_barcodes         | バーコード抽出     |
+| pixLocateBarcodes      | ✅   | locate_barcodes          | バーコード位置検出 |
+| pixDeskewBarcode       | ✅   | deskew_barcode           | バーコード傾き補正 |
+| pixGenerateBarcodeMask | 🔄   | barcode_gen_mask         | C版はstatic関数    |
 
 #### recog/barcode/signal.rs (readbarcode.c)
 
