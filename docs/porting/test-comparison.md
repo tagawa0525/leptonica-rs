@@ -1,5 +1,7 @@
 # C版 vs Rust版 回帰テスト比較
 
+> 🇺🇸 [English version](../en/porting/test-comparison.md)
+
 調査日: 2026-03-01（全C版回帰テスト159個の移植完了）
 
 ## 概要

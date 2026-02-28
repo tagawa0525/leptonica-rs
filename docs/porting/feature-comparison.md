@@ -1,5 +1,7 @@
 # C版 vs Rust版 機能比較
 
+> 🇺🇸 [English version](../en/porting/feature-comparison.md)
+
 調査日: 2026-02-28（verify-comparison-counts実行結果を反映）
 
 ## 概要

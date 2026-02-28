@@ -1,5 +1,7 @@
 # C vs Rust Feature Comparison
 
+> 🇯🇵 [日本語版](../../porting/feature-comparison.md)
+
 Survey date: 2026-02-28 (verify-comparison-counts results reflected)
 
 ## Overview
