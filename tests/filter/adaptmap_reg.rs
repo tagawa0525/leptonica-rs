@@ -247,50 +247,50 @@ fn adaptmap_reg_fill_map_holes_weasel() {
     // C: pixGammaTRC(pix1, pix1, 1.0, 0, 270) darkens pixels by clamping at 270
     let pix_darkened = gamma_trc_masked(&pix_orig, None, 1.0, 0, 200).expect("darken weasel8");
 
-    // Simulate white holes by writing 255 into column/row strips
+    // Simulate holes by writing 0 into column/row strips.
+    // C uses PIX_SET (255) with L_FILL_WHITE; Rust fill_map_holes treats 0-valued
+    // pixels as holes, so we use 0 here to match the Rust API semantics.
     let mut pix_holes = pix_darkened.to_mut();
     // C: pixRasterop(pix1, 0, 0, 5, h, PIX_SET, NULL, 0, 0)  -- columns 0-4
     for y in 0..h {
         for x in 0..5u32.min(w) {
-            pix_holes.set_pixel_unchecked(x, y, 255);
+            pix_holes.set_pixel_unchecked(x, y, 0);
         }
     }
     // C: pixRasterop(pix1, 20, 0, 2, h, PIX_SET, NULL, 0, 0) -- columns 20-21
     for y in 0..h {
         for x in 20u32..22u32.min(w) {
-            pix_holes.set_pixel_unchecked(x, y, 255);
+            pix_holes.set_pixel_unchecked(x, y, 0);
         }
     }
     // C: pixRasterop(pix1, 40, 0, 3, h, PIX_SET, NULL, 0, 0) -- columns 40-42
     for y in 0..h {
         for x in 40u32..43u32.min(w) {
-            pix_holes.set_pixel_unchecked(x, y, 255);
+            pix_holes.set_pixel_unchecked(x, y, 0);
         }
     }
     // C: pixRasterop(pix1, 0, 0, w, 3, PIX_SET, NULL, 0, 0)  -- rows 0-2
     for y in 0..3u32.min(h) {
         for x in 0..w {
-            pix_holes.set_pixel_unchecked(x, y, 255);
+            pix_holes.set_pixel_unchecked(x, y, 0);
         }
     }
     // C: pixRasterop(pix1, 0, 15, w, 3, PIX_SET, NULL, 0, 0) -- rows 15-17
     for y in 15u32..18u32.min(h) {
         for x in 0..w {
-            pix_holes.set_pixel_unchecked(x, y, 255);
+            pix_holes.set_pixel_unchecked(x, y, 0);
         }
     }
     // C: pixRasterop(pix1, 0, 35, w, 2, PIX_SET, NULL, 0, 0) -- rows 35-36
     for y in 35u32..37u32.min(h) {
         for x in 0..w {
-            pix_holes.set_pixel_unchecked(x, y, 255);
+            pix_holes.set_pixel_unchecked(x, y, 0);
         }
     }
 
     let pix_with_holes: leptonica::Pix = pix_holes.into();
 
-    // Apply fill_map_holes (L_FILL_WHITE: fills 255 "holes" -- in Rust, zero-value holes)
-    // The C version treats 255 as holes for the white fill case. Our Rust API fills zero-value holes.
-    // We test that fill_map_holes produces a valid output with same dimensions.
+    // Apply fill_map_holes: Rust fills 0-valued holes by propagating non-zero neighbors.
     let filled = fill_map_holes(&pix_with_holes, w, h).expect("fill_map_holes weasel");
     rp.compare_values(w as f64, filled.width() as f64, 0.0);
     rp.compare_values(h as f64, filled.height() as f64, 0.0);
