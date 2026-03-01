@@ -149,10 +149,10 @@ fn load_mappings(path: &str, module_filter: Option<&str>) -> Vec<Mapping> {
             continue;
         }
         let module = fields[0].trim().to_string();
-        if let Some(filter) = module_filter {
-            if module != filter {
-                continue;
-            }
+        if let Some(filter) = module_filter
+            && module != filter
+        {
+            continue;
         }
         mappings.push(Mapping {
             module,
@@ -254,8 +254,8 @@ fn main() {
     }
     println!();
     println!(
-        "{:<55} {:>12} {:>8} {:>8} {}",
-        "Comparison", "Diff/Total", "MaxDiff", "%Diff", "Status"
+        "{:<55} {:>12} {:>8} {:>8} Status",
+        "Comparison", "Diff/Total", "MaxDiff", "%Diff"
     );
     println!("{}", "─".repeat(100));
 

@@ -219,7 +219,7 @@ fn enhance_reg_mult_color() {
 #[test]
 #[ignore = "map_with_invariant_hue not implemented"]
 fn enhance_reg_invariant_hue() {
-    let mut rp = RegParams::new("enhance_invariant_hue");
+    let rp = RegParams::new("enhance_invariant_hue");
     // C: pixMapWithInvariantHue(NULL, pix0, srcval, fract)
     // Creates lighter/darker versions with constant hue
     assert!(rp.cleanup(), "enhance invariant_hue test failed");
@@ -229,7 +229,7 @@ fn enhance_reg_invariant_hue() {
 #[test]
 #[ignore = "mosaic_color_shift_rgb not implemented"]
 fn enhance_reg_mosaic_color_shift() {
-    let mut rp = RegParams::new("enhance_mosaic_shift");
+    let rp = RegParams::new("enhance_mosaic_shift");
     // C: pixMosaicColorShiftRGB(pixs, -0.1, 0.0, 0.0, 0.0999, 1)
     // Applies spatially-varying color shift across image tiles
     assert!(rp.cleanup(), "enhance mosaic_color_shift test failed");
