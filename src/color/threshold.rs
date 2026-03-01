@@ -368,8 +368,9 @@ pub fn dither_to_binary_with_threshold(pix: &Pix, threshold: u8) -> ColorResult<
 
             // Quantize: dark pixels (< threshold) become foreground (1),
             // bright pixels (>= threshold) become background (0).
-            let new_pixel = if old_pixel < threshold { 0.0 } else { 255.0 };
-            let binary = if old_pixel < threshold { 1 } else { 0 };
+            let is_fg = old_pixel < threshold;
+            let new_pixel = if is_fg { 0.0 } else { 255.0 };
+            let binary = if is_fg { 1 } else { 0 };
             out_mut.set_pixel_unchecked(x, y, binary);
 
             // Compute error
