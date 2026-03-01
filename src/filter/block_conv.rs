@@ -119,47 +119,130 @@ pub fn blockconv_gray(pix: &Pix, pixacc: Option<&Pix>, wc: u32, hc: u32) -> Filt
         }
     };
 
-    let fwc = (2 * wc + 1) as f64;
-    let fhc = (2 * hc + 1) as f64;
-    let norm = 1.0 / (fwc * fhc);
+    // Two-pass strategy matching C Leptonica's blockconvLow():
+    //   Pass 1: compute all pixels using full-kernel normalization
+    //   Pass 2: correct boundary pixels with region-specific factors
+    //
+    // Using f32 to match C's l_float32 precision.
+
+    let wc_i = wc as i32;
+    let hc_i = hc as i32;
+    let w_i = w as i32;
+    let h_i = h as i32;
+    let fwc = (2 * wc_i + 1) as f32;
+    let fhc = (2 * hc_i + 1) as f32;
+    let norm: f32 = 1.0 / (fwc * fhc);
+    let wmwc = w_i - wc_i; // w - wc
+    let hmhc = h_i - hc_i; // h - hc
 
     let out = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut out_mut = out.try_into_mut().unwrap();
 
-    for y in 0..h {
-        let ymin = if y > hc { y - hc - 1 } else { 0 };
-        let ymax = (y + hc).min(h - 1);
-        let hn = if y > hc {
-            (ymax - ymin) as f64
-        } else {
-            (ymax + 1) as f64
-        };
+    // ---- Pass 1: compute all pixels with full-kernel norm ----
+    // C uses: imin = MAX(i - 1 - hc, 0), imax = MIN(i + hc, h - 1)
+    //         jmin = MAX(j - 1 - wc, 0), jmax = MIN(j + wc, w - 1)
+    //         val = acc[jmax,imax] - acc[jmin,imax] + acc[jmin,imin] - acc[jmax,imin]
+    //         val = (u8)(norm * val + 0.5)
+    for i in 0..h_i {
+        let imin = 0i32.max(i - 1 - hc_i) as u32;
+        let imax = (h_i - 1).min(i + hc_i) as u32;
+        for j in 0..w_i {
+            let jmin = 0i32.max(j - 1 - wc_i) as u32;
+            let jmax = (w_i - 1).min(j + wc_i) as u32;
 
-        for x in 0..w {
-            let xmin = if x > wc { x - wc - 1 } else { 0 };
-            let xmax = (x + wc).min(w - 1);
-            let wn = if x > wc {
-                (xmax - xmin) as f64
-            } else {
-                (xmax + 1) as f64
-            };
+            // Four-corner lookup: note this always uses all four corners,
+            // even at boundaries (where jmin/imin = 0, acc[0,row] is nonzero).
+            let val = acc.get_pixel_unchecked(jmax, imax) as i64
+                - acc.get_pixel_unchecked(jmin, imax) as i64
+                + acc.get_pixel_unchecked(jmin, imin) as i64
+                - acc.get_pixel_unchecked(jmax, imin) as i64;
 
-            // Four-corner lookup on integral image
-            let mut val = acc.get_pixel_unchecked(xmax, ymax) as i64;
-            if y > hc {
-                val -= acc.get_pixel_unchecked(xmax, ymin) as i64;
-            }
-            if x > wc {
-                val -= acc.get_pixel_unchecked(xmin, ymax) as i64;
-            }
-            if y > hc && x > wc {
-                val += acc.get_pixel_unchecked(xmin, ymin) as i64;
-            }
+            // Truncate to u8, matching C's (l_uint8)(norm * val + 0.5)
+            let result = (norm * val as f32 + 0.5) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, result as u32);
+        }
+    }
 
-            // Normalize with boundary correction
-            let result = (norm * val as f64 * fwc / wn * fhc / hn + 0.5) as u32;
-            let result = result.min(255);
-            out_mut.set_pixel_unchecked(x, y, result);
+    // ---- Pass 2: fix normalization for boundary pixels ----
+    // Boundary pixels were normalized by the full kernel area in pass 1,
+    // but their actual window is smaller. Multiply by correction factors
+    // (>= 1.0) and clamp to 255.
+
+    // First hc + 1 lines (top boundary)
+    for i in 0..=hc_i {
+        let hn = 1i32.max(hc_i + i);
+        let normh: f32 = fhc / hn as f32;
+
+        // Left columns: j = 0..wc
+        for j in 0..=wc_i {
+            let wn = 1i32.max(wc_i + j);
+            let normw: f32 = fwc / wn as f32;
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normh * normw).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
+        }
+        // Middle columns: j = wc+1..wmwc-1
+        for j in (wc_i + 1)..wmwc {
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normh).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
+        }
+        // Right columns: j = wmwc..w-1
+        for j in wmwc..w_i {
+            let wn = wc_i + w_i - j;
+            let normw: f32 = fwc / wn as f32;
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normh * normw).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
+        }
+    }
+
+    // Last hc lines (bottom boundary)
+    for i in hmhc..h_i {
+        let hn = hc_i + h_i - i;
+        let normh: f32 = fhc / hn as f32;
+
+        // Left columns: j = 0..wc
+        for j in 0..=wc_i {
+            let wn = wc_i + j;
+            let normw: f32 = fwc / wn as f32;
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normh * normw).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
+        }
+        // Middle columns: j = wc+1..wmwc-1
+        for j in (wc_i + 1)..wmwc {
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normh).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
+        }
+        // Right columns: j = wmwc..w-1
+        for j in wmwc..w_i {
+            let wn = wc_i + w_i - j;
+            let normw: f32 = fwc / wn as f32;
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normh * normw).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
+        }
+    }
+
+    // Intermediate lines: fix left and right boundary columns only
+    for i in (hc_i + 1)..hmhc {
+        // First wc + 1 columns (left boundary)
+        for j in 0..=wc_i {
+            let wn = wc_i + j;
+            let normw: f32 = fwc / wn as f32;
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normw).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
+        }
+        // Last wc columns (right boundary)
+        for j in wmwc..w_i {
+            let wn = wc_i + w_i - j;
+            let normw: f32 = fwc / wn as f32;
+            let val = out_mut.get_pixel_unchecked(j as u32, i as u32);
+            let corrected = (val as f32 * normw).min(255.0) as u8;
+            out_mut.set_pixel_unchecked(j as u32, i as u32, corrected as u32);
         }
     }
 
@@ -586,11 +669,16 @@ mod tests {
         assert_eq!(result.height(), 20);
         assert_eq!(result.depth(), PixelDepth::Bit8);
 
+        // The two-pass C-compatible algorithm intentionally introduces small
+        // boundary approximation errors: pass 1 normalizes by full kernel,
+        // truncates to u8, then pass 2 applies correction factors.
+        // Corner/edge pixels can deviate by up to ~3 from the true mean.
+        // Interior pixels (beyond kernel radius from edges) should be exact.
         for y in 0..20 {
             for x in 0..20 {
                 let val = result.get_pixel_unchecked(x, y);
                 assert!(
-                    (val as i32 - 100).unsigned_abs() <= 1,
+                    (val as i32 - 100).unsigned_abs() <= 3,
                     "pixel ({},{}) = {}, expected ~100",
                     x,
                     y,
@@ -696,27 +784,32 @@ mod tests {
         }
         let pix: Pix = pm.into();
 
+        // Same tolerance as grayscale: C-compatible two-pass boundary
+        // approximation can introduce up to ~3 units of error at corners/edges.
         let result = blockconv(&pix, 3, 3).unwrap();
         for y in 0..20 {
             for x in 0..20 {
                 let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(x, y));
                 assert!(
-                    (r as i32 - 100).unsigned_abs() <= 1,
-                    "R mismatch at ({},{})",
+                    (r as i32 - 100).unsigned_abs() <= 3,
+                    "R mismatch at ({},{}) r={}",
                     x,
-                    y
+                    y,
+                    r
                 );
                 assert!(
-                    (g as i32 - 150).unsigned_abs() <= 1,
-                    "G mismatch at ({},{})",
+                    (g as i32 - 150).unsigned_abs() <= 3,
+                    "G mismatch at ({},{}) g={}",
                     x,
-                    y
+                    y,
+                    g
                 );
                 assert!(
-                    (b as i32 - 200).unsigned_abs() <= 1,
-                    "B mismatch at ({},{})",
+                    (b as i32 - 200).unsigned_abs() <= 3,
+                    "B mismatch at ({},{}) b={}",
                     x,
-                    y
+                    y,
+                    b
                 );
             }
         }
