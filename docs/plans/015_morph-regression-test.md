@@ -1,6 +1,6 @@
 # Phase 3 PR 2/8: morph モジュール回帰テスト強化
 
-Status: PLANNED
+Status: IMPLEMENTED
 
 ## Context
 
@@ -48,8 +48,8 @@ B分類テスト8件を強化する。filter で確立したパターン（RegPa
 - **C**: 8チェック（4 write_pix_and_check + 4 compare_pix）
 - **Rust現状**: 1テスト関数、8 compare_values（チャネル単調性）
 - **方針**: dilate/erode/open/close_color の結果を write_pix_and_check。
-  C版の compare_pix は `pixColorMorphSequence` との比較だが、Rust未実装 → #[ignore] スタブ。
-  直接操作4種のgolden化 + compare_pix 不可分を明示。
+  C版の compare_pix は `pixColorMorphSequence` との比較 → `color_morph_sequence` がRust実装済みと
+  判明したため、4つの compare_pix チェックも追加（C版と同一構造）。
 
 ### 6. fhmtauto_reg（難易度: 中）
 
