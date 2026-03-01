@@ -21,7 +21,9 @@ use crate::region::conncomp::{ConnectivityType, count_conn_comp};
 
 /// Convert a grayscale image to binary using a fixed threshold
 ///
-/// Pixels >= threshold become white (1), pixels < threshold become black (0).
+/// Pixels < threshold become foreground (1), pixels >= threshold become
+/// background (0).  This matches the C leptonica `pixThresholdToBinary()`
+/// convention where dark pixels are foreground.
 pub fn threshold_to_binary(pix: &Pix, threshold: u8) -> ColorResult<Pix> {
     let gray_pix = ensure_grayscale(pix)?;
 
@@ -33,7 +35,7 @@ pub fn threshold_to_binary(pix: &Pix, threshold: u8) -> ColorResult<Pix> {
     for y in 0..h {
         for x in 0..w {
             let pixel = gray_pix.get_pixel_unchecked(x, y) as u8;
-            let binary = if pixel >= threshold { 1 } else { 0 };
+            let binary = if pixel < threshold { 1 } else { 0 };
             out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
@@ -187,7 +189,7 @@ pub fn adaptive_threshold(pix: &Pix, options: &AdaptiveThresholdOptions) -> Colo
             let threshold = (local_mean - options.c).max(0.0);
 
             let pixel = gray_pix.get_pixel_unchecked(x, y) as f32;
-            let binary = if pixel >= threshold { 1 } else { 0 };
+            let binary = if pixel < threshold { 1 } else { 0 };
             out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
@@ -276,7 +278,7 @@ pub fn sauvola_threshold(pix: &Pix, window_size: u32, k: f32, r: f32) -> ColorRe
             let threshold = mean * (1.0 + k * (std_dev / r - 1.0));
 
             let pixel = gray_pix.get_pixel_unchecked(x, y) as f32;
-            let binary = if pixel >= threshold { 1 } else { 0 };
+            let binary = if pixel < threshold { 1 } else { 0 };
             out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
@@ -364,9 +366,10 @@ pub fn dither_to_binary_with_threshold(pix: &Pix, threshold: u8) -> ColorResult<
             let idx = (y * w + x) as usize;
             let old_pixel = buffer[idx];
 
-            // Quantize
-            let new_pixel = if old_pixel >= threshold { 255.0 } else { 0.0 };
-            let binary = if new_pixel > 0.0 { 1 } else { 0 };
+            // Quantize: dark pixels (< threshold) become foreground (1),
+            // bright pixels (>= threshold) become background (0).
+            let new_pixel = if old_pixel < threshold { 0.0 } else { 255.0 };
+            let binary = if old_pixel < threshold { 1 } else { 0 };
             out_mut.set_pixel_unchecked(x, y, binary);
 
             // Compute error
@@ -433,7 +436,7 @@ pub fn ordered_dither(pix: &Pix, matrix_size: u32) -> ColorResult<Pix> {
             let my = (y as usize) % n;
             let threshold = matrix[my * n + mx] as f32 * scale;
 
-            let binary = if pixel >= threshold { 1 } else { 0 };
+            let binary = if pixel < threshold { 1 } else { 0 };
             out_mut.set_pixel_unchecked(x, y, binary);
         }
     }
@@ -1792,11 +1795,11 @@ mod tests {
         assert_eq!(binary.depth(), PixelDepth::Bit1);
         assert_eq!(binary.width(), 256);
 
-        // Pixels 0-127 should be 0 (black), 128-255 should be 1 (white)
-        assert_eq!(binary.get_pixel_unchecked(0, 0), 0);
-        assert_eq!(binary.get_pixel_unchecked(127, 0), 0);
-        assert_eq!(binary.get_pixel_unchecked(128, 0), 1);
-        assert_eq!(binary.get_pixel_unchecked(255, 0), 1);
+        // C convention: pixels < threshold → 1 (foreground), >= threshold → 0 (background)
+        assert_eq!(binary.get_pixel_unchecked(0, 0), 1); // 0 < 128 → foreground
+        assert_eq!(binary.get_pixel_unchecked(127, 0), 1); // 127 < 128 → foreground
+        assert_eq!(binary.get_pixel_unchecked(128, 0), 0); // 128 >= 128 → background
+        assert_eq!(binary.get_pixel_unchecked(255, 0), 0); // 255 >= 128 → background
     }
 
     #[test]
@@ -1821,23 +1824,20 @@ mod tests {
 
         assert_eq!(binary.depth(), PixelDepth::Bit1);
 
-        // Since left half has value 50 and threshold is > 50,
-        // pixels with value 50 should be black (0)
-        // Since right half has value 200 and threshold is < 200,
-        // pixels with value 200 should be white (1)
+        // C convention: pixel < threshold → 1 (foreground), >= threshold → 0 (background)
+        // Left half has value 50, threshold > 50 → 50 < threshold → foreground (1)
+        // Right half has value 200, threshold < 200 → 200 >= threshold → background (0)
         let left_val = binary.get_pixel_unchecked(25, 50);
         let right_val = binary.get_pixel_unchecked(75, 50);
 
-        // Left (value 50) should be black if threshold > 50
         assert_eq!(
-            left_val, 0,
-            "Left half (value 50) should be black when threshold is {}",
+            left_val, 1,
+            "Left half (value 50) should be foreground (1) when threshold is {}",
             threshold
         );
-        // Right (value 200) should be white if threshold <= 200
         assert_eq!(
-            right_val, 1,
-            "Right half (value 200) should be white when threshold is {}",
+            right_val, 0,
+            "Right half (value 200) should be background (0) when threshold is {}",
             threshold
         );
     }
