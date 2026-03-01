@@ -16,7 +16,7 @@ pub enum EdgeOrientation {
 
 /// Apply Sobel edge detection
 ///
-/// Applies a 3x3 Sobel gradient filter and normalises by dividing
+/// Applies a 3x3 Sobel gradient filter and normalizes by dividing
 /// by 8 (the sum of the absolute kernel weights), matching C
 /// Leptonica `pixSobelEdgeFilter()`.
 ///
@@ -54,7 +54,7 @@ pub fn laplacian_edge(pix: &Pix) -> FilterResult<Pix> {
 }
 
 /// Sobel-specific convolution: convolve bordered image, take absolute
-/// value, and normalise by >>3 (divide by 8).
+/// value, and normalize by >>3 (divide by 8).
 ///
 /// `bordered` is the source image with 1-pixel mirrored border already added.
 /// `out_w` / `out_h` are the dimensions of the original (unbordered) image.
@@ -175,7 +175,7 @@ fn sobel_combined(
                 }
             }
 
-            // Normalise each component by >>3, then sum with L_MIN(255, gx+gy)
+            // Normalize each component by >>3, then sum with L_MIN(255, gx+gy)
             let gx = sum_v.abs() >> 3;
             let gy = sum_h.abs() >> 3;
             let result = (gx + gy).min(255) as u32;
