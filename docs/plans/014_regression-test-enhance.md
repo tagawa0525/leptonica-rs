@@ -146,15 +146,20 @@ fn testname_reg() {
 
 ### 比較可能なチェックポイント
 
-| テスト | C idx | 差異率 | MaxDiff | 分類 | Issue |
-| ------ | ----- | ------ | ------- | ---- | ----- |
-| edge Sobel H (1bpp) | 0 | 0.00% | 1 | fp差異 | #255 ✅修正済 |
-| edge Sobel V (1bpp) | 1 | 0.00% | 1 | fp差異 | #255 ✅修正済 |
-| edge OR combined | 2 | 0.00% | 1 | fp差異 | #255 ✅修正済 |
-| edge 8bpp max(H,V) | 3 | 11.1% | 23 | JPEG codec差 | #255 ✅修正済(残差はcodec由来) |
-| convolve blockconv gray | 0 | 6.16%(JPEG) / 0.83%(PNG) | 5/2 | JPEG codec差 | #257 ✅修正済(PR #262) |
-| compfilter fill_closed_borders | 0 | 0.00% | 0 | 完全一致 | #256 ✅修正済 |
-| compfilter render_hash_box | 1 | 0.00% | 0 | 完全一致 | #256 ✅修正済 |
+`compare_golden` デフォルト条件（`--threshold 5.0 --max-channel 3`）での結果。
+
+| テスト | C idx | 差異ピクセル/総数 | MaxDiff | compare_golden分類 | Issue |
+| ------ | ----- | ----------------- | ------- | ------------------- | ----- |
+| edge Sobel H (1bpp) | 0 | 10/234300 (0.004%) | 1 | diff(fp) | #255 ✅修正済(PR #259) |
+| edge Sobel V (1bpp) | 1 | 4/234300 (0.002%) | 1 | diff(fp) | #255 ✅修正済(PR #259) |
+| edge OR combined | 2 | 11/234300 (0.005%) | 1 | diff(fp) | #255 ✅修正済(PR #259) |
+| edge 8bpp max(H,V) | 3 | 25912/234300 (11.06%) | 23 | DIFF(alg) ※1 | #255 ✅修正済(PR #259) |
+| convolve blockconv gray (JPEG比較) | 0 | 14429/234300 (6.16%) | 5 | DIFF(alg) ※2 | #257 ✅修正済(PR #262) |
+| compfilter fill_closed_borders | 0 | 0/40000 (0.000%) | 0 | IDENTICAL | #256 ✅修正済(PR #261) |
+| compfilter render_hash_box | 1 | 0/40000 (0.000%) | 0 | IDENTICAL | #256 ✅修正済(PR #261) |
+
+※1: 出力形式がJPEG（`edge.03.jpg`）のため codec 差が混入。アルゴリズム差かcodec差かは未確認。
+※2: 出力形式がJPEG。PNG lossless比較（C出力をPNG書き出し vs Rust raw）では 1945/234300 (0.83%)・MaxDiff=2 であり、JPEG入力デコーダ差（libjpeg-turbo vs Rust jpeg-decoder）に起因。
 
 ### 比較不可能（DIM_MISMATCH）
 
@@ -163,6 +168,6 @@ fn testname_reg() {
 
 ### 根本原因と修正状況
 
-- **edge (#255)** ✅: Rust版 `sobel_edge` の `>> 3` 正規化欠如 + ボーダー処理差異 → 1bpp極性修正(PR #256)で解決。1bppは完全一致、8bppの残差11%はJPEG codec差のみ
-- **compfilter (#256)** ✅: `fill_closed_borders` / `render_hash_box` の1bpp極性反転 → PR #256で解決。完全一致(IDENTICAL)
+- **edge (#255)** ✅: Rust版 `sobel_edge` の `>> 3` 正規化欠如 + ボーダー処理差異 → PR #259（`edge.rs` 修正）で解決。1bppは diff(fp) 0.004%以下、8bppは JPEG 出力のため DIFF(alg) 11.06% が残存（codec差か算法差かは未確認）
+- **compfilter (#256)** ✅: `fill_closed_borders` / `render_hash_box` の1bpp極性反転 → PR #261（1bpp極性修正）で解決。完全一致(IDENTICAL)
 - **convolve (#257)** ✅: `blockconv_gray` のボーダー正規化方式がC版と異なっていた → PR #262でC版 `blockconvLow()` の two-pass 方式に書き直し。PNG lossless比較でMaxDiff=2/0.83%（JPEG入力デコーダ差のみ）
