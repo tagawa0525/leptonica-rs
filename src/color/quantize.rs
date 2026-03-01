@@ -434,8 +434,12 @@ impl Octree {
         let idx = Self::get_color_index(r, g, b, level);
 
         if node.children[idx].is_none() {
+            // Only register as reducible when the node gets its first child
+            let is_first_child = node.children.iter().all(|c| c.is_none());
             node.children[idx] = Some(Box::new(OctreeNode::new()));
-            reducible_nodes[level].push(path);
+            if is_first_child {
+                reducible_nodes[level].push(path);
+            }
         }
 
         if let Some(child) = node.children[idx].as_deref_mut() {
