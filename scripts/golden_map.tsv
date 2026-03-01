@@ -10,7 +10,7 @@
 # === edge_reg ===
 # C: test8.jpg → pixSobelEdgeFilter → pixThresholdToBinary(60) → pixInvert
 # Rust: test8.jpg → sobel_edge → threshold_to_binary(60) → invert
-# Note: entries 0-2 are 1bpp — affected by PNG polarity bug (see ccthin1 note)
+# Note: entries 0-2 are 1bpp
 edge	edge	0	edge	1	Sobel horizontal (1bpp inverted)
 edge	edge	1	edge	2	Sobel vertical (1bpp inverted)
 edge	edge	2	edge	3	OR combined H+V edges
@@ -41,10 +41,8 @@ colormorph	colormorph	6	colormorph	7	close_color 7x7
 # C: feyn.tif clipped(683,799,970,479) → pixThinConnected(FG/BG, 4/8, 0)
 # Rust: feyn.tif clipped(683,799,970,479) → thin_connected(FG/BG, 4/8, 0)
 # Note: C check 5 is the clipped region itself (not thinned), Rust skips it
-# KNOWN: 1bpp PNG polarity bug — Rust PNG I/O doesn't invert 1bpp pixels.
-# C: Pix fg=1 → PNG 0=black (inverted). Rust: Pix fg=1 → PNG 1 (no inversion).
-# Algorithm is correct (bit-inversion gives 100% match). Fix tracked in I/O module.
-# Diagnosis: scripts/diagnose_1bpp_polarity.py
+# Verified: Rust golden now matches C golden exactly (0 pixel diff).
+# See scripts/compare_committed_vs_current.py for verification.
 ccthin1	ccthin1	6	cthin1_thin	1	thin_connected FG 4-cc
 ccthin1	ccthin1	7	cthin1_thin	2	thin_connected BG 4-cc
 ccthin1	ccthin1	8	cthin1_thin	3	thin_connected FG 8-cc
@@ -53,7 +51,7 @@ ccthin1	ccthin1	9	cthin1_thin	4	thin_connected BG 8-cc
 # === ccthin2_reg ===
 # C: feyn.tif clipped → pixThinConnectedBySet(FG, sets 1-9, 0)
 # Rust: feyn.tif clipped → thin_connected_by_set(FG, sets 1-9, 0)
-# KNOWN: same 1bpp PNG polarity bug as ccthin1 (see above).
+# Verified: Rust golden now matches C golden exactly (0 pixel diff).
 ccthin2	ccthin2	0	cthin2_set	1	thin_by_set FG set 1 (Set4cc1)
 ccthin2	ccthin2	1	cthin2_set	2	thin_by_set FG set 2 (Set4cc2)
 ccthin2	ccthin2	2	cthin2_set	3	thin_by_set FG set 3 (Set4cc3)
