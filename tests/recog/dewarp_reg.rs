@@ -105,15 +105,15 @@ fn dewarp_reg_line_coverage() {
 
     eprintln!("  Lines after filtering: {}", filtered.len());
 
-    // Coverage requires ≥3 lines in each half (top/bottom) of the image.
+    // is_line_coverage_valid requires ≥min_lines total AND ≥3 lines in each half.
     // With proper binarization (background normalization), enough text lines
-    // are found for valid coverage at low thresholds.
-    let valid_low = is_line_coverage_valid(&filtered, pix_bin.height(), 1);
+    // are found to satisfy both conditions at min_lines=3.
+    let valid_low = is_line_coverage_valid(&filtered, pix_bin.height(), 3);
     let valid_high = is_line_coverage_valid(&filtered, pix_bin.height(), 1000);
-    eprintln!("  Coverage valid (min_lines=1): {}", valid_low);
+    eprintln!("  Coverage valid (min_lines=3): {}", valid_low);
     eprintln!("  Coverage valid (min_lines=1000): {}", valid_high);
 
-    // With min_lines=1: valid (enough lines covering both halves)
+    // With min_lines=3: valid (≥3 lines in each half found with background normalization)
     rp.compare_values(1.0, if valid_low { 1.0 } else { 0.0 }, 0.0);
     // With min_lines=1000: invalid (not that many lines)
     rp.compare_values(1.0, if !valid_high { 1.0 } else { 0.0 }, 0.0);
