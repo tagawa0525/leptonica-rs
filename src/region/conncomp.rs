@@ -227,7 +227,7 @@ pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> 
 
     // Second pass: resolve labels using union-find
     // Create a mapping from root labels to sequential labels
-    let mut label_map = std::collections::HashMap::with_capacity(next_label as usize);
+    let mut label_map = std::collections::HashMap::new();
     let mut final_label: u32 = 1;
 
     for y in 0..height {
