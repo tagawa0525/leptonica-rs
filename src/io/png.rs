@@ -146,11 +146,10 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
 
     match (color_type, bit_depth) {
         (ColorType::Grayscale, BitDepth::One) => {
-            // C Leptonica convention: 1bpp grayscale PNG uses 0=black, 1=white,
-            // but leptonica uses 1=foreground(black), 0=background(white).
-            // Invert on read to maintain internal convention (matching the
-            // inversion done on write).  C leptonica does NOT invert on read,
-            // but we do to keep write→read roundtrip identity for 1bpp.
+            // In PNG 1bpp grayscale, bit value 0 represents black and 1 represents white.
+            // This implementation uses the Leptonica convention 1=foreground(black),
+            // 0=background(white), so we invert on read to maintain that internal
+            // convention and to keep write→read roundtrip identity for 1bpp images.
             for y in 0..height {
                 let row_start = y as usize * bytes_per_row;
                 for x in 0..width {
