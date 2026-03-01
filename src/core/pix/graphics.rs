@@ -165,9 +165,10 @@ pub fn generate_wide_line_pta(x1: i32, y1: i32, x2: i32, y2: i32, width: u32) ->
     let dy = (y2 - y1).abs();
     let is_horizontal = dx > dy;
 
-    // Add parallel lines
+    // Add parallel lines (matching C leptonica generatePtaWideLine offset logic:
+    // C uses (i + 1) / 2 which equals i.div_ceil(2) for positive i)
     for i in 1..width {
-        let offset = (i + 1).div_ceil(2) as i32;
+        let offset = i.div_ceil(2) as i32;
         let sign = if i % 2 == 1 { -1 } else { 1 };
         let actual_offset = offset * sign;
 
@@ -189,6 +190,8 @@ pub fn generate_wide_line_pta(x1: i32, y1: i32, x2: i32, y2: i32, width: u32) ->
 }
 
 /// Generate a point array for a box outline.
+///
+/// C equivalent: `generatePtaBox()` in `graphics.c`
 pub fn generate_box_pta(b: &Box, width: u32) -> Pta {
     let width = width.max(1);
     let x = b.x;
@@ -202,38 +205,55 @@ pub fn generate_box_pta(b: &Box, width: u32) -> Pta {
 
     let half_w = (width / 2) as i32;
 
-    // Four sides of the box
     let mut result = Pta::with_capacity((2 * (w + h) * width as i32) as usize);
 
-    // Top edge
-    let top = generate_wide_line_pta(x - half_w, y, x + w - 1 + half_w, y, width);
-    for (px, py) in top.iter() {
-        result.push(px, py);
-    }
-
-    // Bottom edge
-    let bottom =
-        generate_wide_line_pta(x - half_w, y + h - 1, x + w - 1 + half_w, y + h - 1, width);
-    for (px, py) in bottom.iter() {
-        result.push(px, py);
-    }
-
-    // Left edge (excluding corners already covered)
-    let left = generate_wide_line_pta(x, y + 1 + half_w, x, y + h - 2 - half_w, width);
-    for (px, py) in left.iter() {
-        result.push(px, py);
-    }
-
-    // Right edge (excluding corners already covered)
-    let right = generate_wide_line_pta(
-        x + w - 1,
-        y + 1 + half_w,
-        x + w - 1,
-        y + h - 2 - half_w,
-        width,
-    );
-    for (px, py) in right.iter() {
-        result.push(px, py);
+    // C leptonica uses different corner geometry for odd vs even widths
+    // to avoid overlapping lines at corners.
+    if width & 1 == 1 {
+        // Odd width
+        let top = generate_wide_line_pta(x - half_w, y, x + w - 1 + half_w, y, width);
+        for (px, py) in top.iter() {
+            result.push(px, py);
+        }
+        let right = generate_wide_line_pta(
+            x + w - 1,
+            y + 1 + half_w,
+            x + w - 1,
+            y + h - 2 - half_w,
+            width,
+        );
+        for (px, py) in right.iter() {
+            result.push(px, py);
+        }
+        let bottom =
+            generate_wide_line_pta(x + w - 1 + half_w, y + h - 1, x - half_w, y + h - 1, width);
+        for (px, py) in bottom.iter() {
+            result.push(px, py);
+        }
+        let left = generate_wide_line_pta(x, y + h - 2 - half_w, x, y + 1 + half_w, width);
+        for (px, py) in left.iter() {
+            result.push(px, py);
+        }
+    } else {
+        // Even width
+        let top = generate_wide_line_pta(x - half_w, y, x + w - 2 + half_w, y, width);
+        for (px, py) in top.iter() {
+            result.push(px, py);
+        }
+        let right =
+            generate_wide_line_pta(x + w - 1, y + half_w, x + w - 1, y + h - 2 - half_w, width);
+        for (px, py) in right.iter() {
+            result.push(px, py);
+        }
+        let bottom =
+            generate_wide_line_pta(x + w - 2 + half_w, y + h - 1, x - half_w, y + h - 1, width);
+        for (px, py) in bottom.iter() {
+            result.push(px, py);
+        }
+        let left = generate_wide_line_pta(x, y + h - 2 - half_w, x, y + half_w, width);
+        for (px, py) in left.iter() {
+            result.push(px, py);
+        }
     }
 
     result
