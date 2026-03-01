@@ -54,7 +54,7 @@ pub fn load_test_image(name: &str) -> TestResult<leptonica::Pix> {
     if let Ok(cache) = image_cache().read()
         && let Some(pix) = cache.get(&path)
     {
-        return Ok(pix.clone());
+        return Ok(pix.deep_clone());
     }
 
     let pix = leptonica::io::read_image(&path).map_err(|e| TestError::ImageLoad {
