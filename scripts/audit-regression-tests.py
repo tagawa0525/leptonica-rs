@@ -23,8 +23,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 C_PROG_DIR = REPO_ROOT / "reference" / "leptonica" / "prog"
 RUST_TEST_DIR = REPO_ROOT / "tests"
 
-# The 145 tests from alltests_reg (excluding optional jp2kio, webpanimio, webpio
-# which may or may not be present depending on build config).
+# alltests_reg.c typically lists 149 tests (including optional jp2kio, webpanimio,
+# webpio which may not build if the corresponding libraries are absent). The C
+# benchmark script normalises this down to 145 by stripping those three when they
+# are present, but this audit script intentionally includes all of them so that
+# every entry in alltests_reg.c has a corresponding row in the CSV.
 ALLTESTS_REG = C_PROG_DIR / "alltests_reg.c"
 
 # C-side verification function patterns
@@ -96,6 +99,13 @@ class RustTestStats:
 
 def get_alltests_names() -> list[str]:
     """Parse alltests_reg.c to get the canonical test list."""
+    if not ALLTESTS_REG.exists():
+        raise FileNotFoundError(
+            f"Missing required file: {ALLTESTS_REG}\n"
+            "The leptonica reference submodule may not be checked out.\n"
+            "Please run:\n"
+            "    git submodule update --init --recursive"
+        )
     content = ALLTESTS_REG.read_text(encoding="utf-8")
     names = re.findall(r'"([a-z0-9_]+)_reg"', content)
     return names
@@ -165,18 +175,40 @@ def scan_rust_test(test_name: str) -> RustTestStats:
 
 
 def divergence_score(c: CTestStats | None, r: RustTestStats) -> float:
-    """Calculate divergence score. Higher = more divergent from C version."""
+    """Calculate divergence score. Higher = more divergent from C version.
+
+    The score is composed of:
+    - missing_ratio: fraction of total C checks absent from Rust (0-1)
+    - pixel_gap: fraction of C pixel/file checks (writePixAndCheck + checkFile)
+      not covered by Rust pixel checks (write_pix_and_check + compare_pix).
+      Weighted 0.5 because these represent verification *quality*, not just
+      quantity – a test that replaces all pixel checks with value-only checks
+      appears equivalent by count but is actually much weaker.
+    - no_image_penalty: 0.2 if Rust test never loads a real image
+    - no_regparams_penalty: 0.1 if Rust test never instantiates RegParams
+    - all_ignored_penalty: 0.3 if every Rust #[test] fn is #[ignore]
+    - no_file_penalty: 1.0 if no Rust file exists at all
+    """
     if c is None:
         return 0.0  # No C test to compare against
 
     c_total = c.total_checks
-    r_total = r.total_checks
 
     if c_total == 0:
         return 0.0
 
-    # Base: ratio of missing checks
+    r_total = r.total_checks
+
+    # Base: ratio of missing checks (quantity gap)
     missing_ratio = max(0, c_total - r_total) / c_total
+
+    # Quality gap: pixel/file checks in C not covered by pixel checks in Rust
+    c_pixel = c.write_pix_and_check + c.check_file
+    r_pixel = r.write_pix_and_check + r.compare_pix
+    if c_pixel > 0:
+        pixel_gap = max(0, c_pixel - r_pixel) / c_pixel * 0.5
+    else:
+        pixel_gap = 0.0
 
     # Penalty for no load_test_image when C test exists
     no_image_penalty = 0.2 if not r.has_load_test_image else 0.0
@@ -194,6 +226,7 @@ def divergence_score(c: CTestStats | None, r: RustTestStats) -> float:
 
     score = (
         missing_ratio
+        + pixel_gap
         + no_image_penalty
         + no_regparams_penalty
         + all_ignored_penalty
@@ -253,6 +286,11 @@ def main() -> None:
     out_dir = REPO_ROOT / "docs" / "porting"
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_path = out_dir / "regression-test-audit.csv"
+
+    if not rows:
+        raise RuntimeError(
+            "No tests found. Check that alltests_reg.c contains '\"*_reg\"' entries."
+        )
 
     fieldnames = list(rows[0].keys())
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
