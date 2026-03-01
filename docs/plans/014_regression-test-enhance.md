@@ -1,6 +1,6 @@
 # Phase 3: 回帰テスト修正計画
 
-Status: IN_PROGRESS (PR 1/8: filter 完了、後続バグ修正 #255/#256/#257 全完了)
+Status: IN_PROGRESS (PR 1/8: filter #258 完了, PR 2/8: morph #267 完了, PR 3/8: io 着手予定)
 
 ## Context
 
@@ -15,16 +15,16 @@ B分類 = 対応するRust関数は存在するが、テストのチェック数
 
 モジュール単位で8つのPRに分割:
 
-| 順序 | モジュール | B数 | 方針 |
-| ---- | ---------- | --- | ---- |
-| 1 | filter | 8 | 関数の大半が実装済み。最初に着手してパターンを確立 |
-| 2 | morph | 8 | div=0.0が4件。修正量が少ない可能性 |
-| 3 | io | 6 | 最少テスト数 |
-| 4 | transform | 9 | 中程度 |
-| 5 | color | 15 | 件数多いが多くがdiv=0.5 |
-| 6 | region | 9 | 高divergenceあり（seedspread 1.8） |
-| 7 | recog | 10 | 中程度 |
-| 8 | core | 19 | 最多。string/ptra等で高divergence |
+| 順序 | モジュール | B数 | 方針                                               |
+| ---- | ---------- | --- | -------------------------------------------------- |
+| 1    | filter     | 8   | 関数の大半が実装済み。最初に着手してパターンを確立 |
+| 2    | morph      | 8   | div=0.0が4件。修正量が少ない可能性                 |
+| 3    | io         | 6   | 最少テスト数                                       |
+| 4    | transform  | 9   | 中程度                                             |
+| 5    | color      | 15  | 件数多いが多くがdiv=0.5                            |
+| 6    | region     | 9   | 高divergenceあり（seedspread 1.8）                 |
+| 7    | recog      | 10  | 中程度                                             |
+| 8    | core       | 19  | 最多。string/ptra等で高divergence                  |
 
 ### 修正原則（013_regression-test-audit.md Phase 3より）
 
@@ -148,15 +148,15 @@ fn testname_reg() {
 
 `compare_golden` デフォルト条件（`--threshold 5.0 --max-channel 3`）での結果。
 
-| テスト | C idx | 差異ピクセル/総数 | MaxDiff | compare_golden分類 | Issue |
-| ------ | ----- | ----------------- | ------- | ------------------- | ----- |
-| edge Sobel H (1bpp) | 0 | 10/234300 (0.004%) | 1 | diff(fp) | #255 ✅修正済(PR #259) |
-| edge Sobel V (1bpp) | 1 | 4/234300 (0.002%) | 1 | diff(fp) | #255 ✅修正済(PR #259) |
-| edge OR combined | 2 | 11/234300 (0.005%) | 1 | diff(fp) | #255 ✅修正済(PR #259) |
-| edge 8bpp max(H,V) | 3 | 25912/234300 (11.06%) | 23 | DIFF(alg) ※1 | #255 ✅修正済(PR #259) |
-| convolve blockconv gray (JPEG比較) | 0 | 14429/234300 (6.16%) | 5 | DIFF(alg) ※2 | #257 ✅修正済(PR #262) |
-| compfilter fill_closed_borders | 0 | 0/40000 (0.000%) | 0 | IDENTICAL | #256 ✅修正済(PR #261) |
-| compfilter render_hash_box | 1 | 0/40000 (0.000%) | 0 | IDENTICAL | #256 ✅修正済(PR #261) |
+| テスト                             | C idx | 差異ピクセル/総数     | MaxDiff | compare_golden分類 | Issue                  |
+| ---------------------------------- | ----- | --------------------- | ------- | ------------------ | ---------------------- |
+| edge Sobel H (1bpp)                | 0     | 10/234300 (0.004%)    | 1       | diff(fp)           | #255 ✅修正済(PR #259) |
+| edge Sobel V (1bpp)                | 1     | 4/234300 (0.002%)     | 1       | diff(fp)           | #255 ✅修正済(PR #259) |
+| edge OR combined                   | 2     | 11/234300 (0.005%)    | 1       | diff(fp)           | #255 ✅修正済(PR #259) |
+| edge 8bpp max(H,V)                 | 3     | 25912/234300 (11.06%) | 23      | DIFF(alg) ※1       | #255 ✅修正済(PR #259) |
+| convolve blockconv gray (JPEG比較) | 0     | 14429/234300 (6.16%)  | 5       | DIFF(alg) ※2       | #257 ✅修正済(PR #262) |
+| compfilter fill_closed_borders     | 0     | 0/40000 (0.000%)      | 0       | IDENTICAL          | #256 ✅修正済(PR #261) |
+| compfilter render_hash_box         | 1     | 0/40000 (0.000%)      | 0       | IDENTICAL          | #256 ✅修正済(PR #261) |
 
 ※1: 出力形式がJPEG（`edge.03.jpg`）のため codec 差が混入。アルゴリズム差かcodec差かは未確認。
 ※2: 出力形式がJPEG。PNG lossless比較（C出力をPNG書き出し vs Rust raw）では 1945/234300 (0.83%)・MaxDiff=2 であり、JPEG入力デコーダ差（libjpeg-turbo vs Rust jpeg-decoder）に起因。
