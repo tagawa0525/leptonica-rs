@@ -87,10 +87,20 @@ fn parse_args() -> Config {
         fp_max_channel: 3,
     };
 
+    let usage = "Usage: compare_golden [--c-dir DIR] [--rust-dir DIR] [--map FILE] [--module NAME] [--threshold PCT] [--max-channel N]";
     let args: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i < args.len() {
-        match args[i].as_str() {
+        let flag = args[i].as_str();
+        let needs_value = matches!(
+            flag,
+            "--c-dir" | "--rust-dir" | "--map" | "--module" | "--threshold" | "--max-channel"
+        );
+        if needs_value && i + 1 >= args.len() {
+            eprintln!("Missing value for {}\n{}", flag, usage);
+            std::process::exit(1);
+        }
+        match flag {
             "--c-dir" => {
                 i += 1;
                 cfg.c_dir = args[i].clone();
@@ -211,6 +221,14 @@ fn compare_one(c_path: &str, r_path: &str) -> Result<(u64, u32, u64), String> {
             c_pix.height(),
             r_pix.width(),
             r_pix.height()
+        ));
+    }
+
+    if c_pix.depth().bits() != r_pix.depth().bits() {
+        return Err(format!(
+            "DEPTH C={} R={}",
+            c_pix.depth().bits(),
+            r_pix.depth().bits()
         ));
     }
 
