@@ -14,10 +14,15 @@
 
 use crate::common::RegParams;
 use leptonica::filter::{gamma_trc_pix, rank_filter, rank_filter_color};
+use leptonica::io::ImageFormat;
 
 /// Test rank_filter on 32bpp color image (C rank filter portion).
 ///
-/// Verifies rank_filter works on 32bpp image and produces valid output.
+/// Corresponds to the pixRankFilter calls in rankhisto_reg.c that operate on
+/// the color image before pixGetRankColorArray is called. Verifies rank_filter
+/// works on 32bpp image and produces valid output, and writes golden images.
+///
+/// C checks (partial): regTestWritePixAndCheck /* 0 */ uses rank-filtered pix.
 #[test]
 fn rankhisto_reg_rank_filter_color() {
     let mut rp = RegParams::new("rankhisto_color");
@@ -26,26 +31,35 @@ fn rankhisto_reg_rank_filter_color() {
     let w = pix.width();
     let h = pix.height();
 
-    // Median filter on color image
+    // Median filter on color image (C: equivalent to rank=0.5 on pixs)
     let median_color = rank_filter_color(&pix, 5, 5, 0.5).expect("rank_filter_color median");
     rp.compare_values(w as f64, median_color.width() as f64, 0.0);
     rp.compare_values(h as f64, median_color.height() as f64, 0.0);
     assert_eq!(median_color.depth(), leptonica::PixelDepth::Bit32);
+    rp.write_pix_and_check(&median_color, ImageFormat::Png)
+        .expect("write median_color"); // check 1
 
-    // Min filter on color image
+    // Min filter on color image (rank near 0 -> minimum-like result)
     let min_color = rank_filter_color(&pix, 5, 5, 0.0001).expect("rank_filter_color min");
     rp.compare_values(w as f64, min_color.width() as f64, 0.0);
+    rp.write_pix_and_check(&min_color, ImageFormat::Png)
+        .expect("write min_color"); // check 2
 
     // General rank_filter dispatch (auto-selects color or gray)
     let rank_result = rank_filter(&pix, 3, 3, 0.5).expect("rank_filter color dispatch");
     rp.compare_values(w as f64, rank_result.width() as f64, 0.0);
+    rp.write_pix_and_check(&rank_result, ImageFormat::Png)
+        .expect("write rank_result"); // check 3
 
     assert!(rp.cleanup(), "rankhisto rank_filter_color test failed");
 }
 
 /// Test gamma_trc_pix on a rank-filtered result (C check 3 gamma step).
 ///
-/// Verifies that gamma correction can be applied after rank filtering.
+/// Verifies that gamma correction can be applied after rank filtering,
+/// mirroring the pixGammaTRC(NULL, pix1, 1.0, 0, 240) call in rankhisto_reg.c.
+///
+/// C check: regTestWritePixAndCheck(rp, pix2, IFF_PNG) /* 3 */
 #[test]
 fn rankhisto_reg_gamma_on_filtered() {
     let mut rp = RegParams::new("rankhisto_gamma");
@@ -56,10 +70,21 @@ fn rankhisto_reg_gamma_on_filtered() {
 
     // Apply median rank filter, then gamma correction (C: gamma=1.0, range 0..240)
     let filtered = rank_filter_color(&pix, 7, 7, 0.5).expect("rank_filter_color 7x7");
+    rp.write_pix_and_check(&filtered, ImageFormat::Png)
+        .expect("write filtered"); // check 1
+
     let corrected = gamma_trc_pix(&filtered, 1.0, 0, 240).expect("gamma_trc 0..240");
     rp.compare_values(w as f64, corrected.width() as f64, 0.0);
     rp.compare_values(h as f64, corrected.height() as f64, 0.0);
     assert_eq!(corrected.depth(), leptonica::PixelDepth::Bit32);
+    rp.write_pix_and_check(&corrected, ImageFormat::Png)
+        .expect("write corrected"); // check 2
+
+    // Additional gamma variants to mirror C check variety
+    let corrected_bright = gamma_trc_pix(&filtered, 2.0, 0, 255).expect("gamma_trc bright");
+    rp.compare_values(w as f64, corrected_bright.width() as f64, 0.0);
+    rp.write_pix_and_check(&corrected_bright, ImageFormat::Png)
+        .expect("write corrected_bright"); // check 3
 
     assert!(rp.cleanup(), "rankhisto gamma on filtered test failed");
 }
@@ -68,6 +93,14 @@ fn rankhisto_reg_gamma_on_filtered() {
 ///
 /// Requires pixGetRankColorArray and pixLinearMapToTargetColor which are
 /// not available in leptonica-filter.
+///
+/// C version:
+/// 1. pixGetRankColorArray(pixs, nbins=20, L_SELECT_MIN, factor=2, &array, pixa, 6)
+/// 2. pixDisplayColorArray to visualize rank colors  /* 0, 1 */
+/// 3. pixelLinearMapToTargetColor to map each bin    /* 2 */
+/// 4. pixLinearMapToTargetColor to lighten image background
+/// 5. pixGammaTRC(NULL, pix1, 1.0, 0, 240) for gamma correction /* 3 */
+/// 6. numaDiscretizeHistoInBins edge cases           /* 4 */
 #[test]
 #[ignore = "not yet implemented: pixGetRankColorArray/pixLinearMapToTargetColor not available"]
 fn rankhisto_reg_rank_color_array() {
