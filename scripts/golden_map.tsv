@@ -16,9 +16,9 @@ edge	edge	2	edge	3	OR combined H+V edges
 edge	edge	3	edge	4	8bpp max(H,V) inverted
 
 # === convolve_reg ===
-# C: test8.jpg → pixBlockconvGray(NULL, 1, 1)
-# Rust: test8.jpg → blockconv_gray(1, 1)
-convolve	convolve	0	convolve_blockconv_gray	1	blockconv gray (wc=1 hc=1)
+# C: test8.jpg → pixBlockconvGray(pixacc, 3, 5)
+# Rust: test8.jpg → blockconv_gray(3, 5)
+convolve	convolve	0	convolve_blockconv_gray	1	blockconv gray (wc=3 hc=5)
 
 # === compfilter_reg ===
 # C: 200x200 synthetic → pixFillClosedBorders
