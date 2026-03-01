@@ -444,7 +444,10 @@ impl JbClasser {
             for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
                 if let Some(candidates) = self.dahash.get(&(key.0 + dw, key.1 + dh)) {
                     for &class_idx in candidates {
-                        if class_idx >= self.pixat.len() || class_idx >= self.ptact.len() {
+                        if class_idx >= self.pixat.len()
+                            || class_idx >= self.ptact.len()
+                            || class_idx >= self.naarea.len()
+                        {
                             continue;
                         }
                         let template = &self.pixat[class_idx];
