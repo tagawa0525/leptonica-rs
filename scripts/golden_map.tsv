@@ -10,6 +10,7 @@
 # === edge_reg ===
 # C: test8.jpg → pixSobelEdgeFilter → pixThresholdToBinary(60) → pixInvert
 # Rust: test8.jpg → sobel_edge → threshold_to_binary(60) → invert
+# Note: entries 0-2 are 1bpp
 edge	edge	0	edge	1	Sobel horizontal (1bpp inverted)
 edge	edge	1	edge	2	Sobel vertical (1bpp inverted)
 edge	edge	2	edge	3	OR combined H+V edges
@@ -25,3 +26,97 @@ convolve	convolve	0	convolve_blockconv_gray	1	blockconv gray (wc=3 hc=5)
 # Rust: 200x200 synthetic → fill_closed_borders
 compfilter	compfilter	0	compfilter_write_synthetic	1	fill_closed_borders synthetic
 compfilter	compfilter	1	compfilter_write_synthetic	2	render_hash_box synthetic
+
+# === colormorph_reg ===
+# C: wyom.jpg → pixColorMorph(dilate/erode/open/close, 7, 7)
+# Rust: wyom.jpg → dilate_color/erode_color/open_color/close_color(7, 7)
+# KNOWN: JPEG codec diff (libjpeg vs jpeg-encoder). Algorithm verified correct
+# via compare_pix (dilate_color == color_morph_sequence("d7.7") etc).
+colormorph	colormorph	0	colormorph	1	dilate_color 7x7
+colormorph	colormorph	2	colormorph	3	erode_color 7x7
+colormorph	colormorph	4	colormorph	5	open_color 7x7
+colormorph	colormorph	6	colormorph	7	close_color 7x7
+
+# === ccthin1_reg ===
+# C: feyn.tif clipped(683,799,970,479) → pixThinConnected(FG/BG, 4/8, 0)
+# Rust: feyn.tif clipped(683,799,970,479) → thin_connected(FG/BG, 4/8, 0)
+# Note: C check 5 is the clipped region itself (not thinned), Rust skips it
+# Verified: Rust golden now matches C golden exactly (0 pixel diff).
+# See scripts/compare_committed_vs_current.py for verification.
+ccthin1	ccthin1	6	cthin1_thin	1	thin_connected FG 4-cc
+ccthin1	ccthin1	7	cthin1_thin	2	thin_connected BG 4-cc
+ccthin1	ccthin1	8	cthin1_thin	3	thin_connected FG 8-cc
+ccthin1	ccthin1	9	cthin1_thin	4	thin_connected BG 8-cc
+
+# === ccthin2_reg ===
+# C: feyn.tif clipped → pixThinConnectedBySet(FG, sets 1-9, 0)
+# Rust: feyn.tif clipped → thin_connected_by_set(FG, sets 1-9, 0)
+# Verified: Rust golden now matches C golden exactly (0 pixel diff).
+ccthin2	ccthin2	0	cthin2_set	1	thin_by_set FG set 1 (Set4cc1)
+ccthin2	ccthin2	1	cthin2_set	2	thin_by_set FG set 2 (Set4cc2)
+ccthin2	ccthin2	2	cthin2_set	3	thin_by_set FG set 3 (Set4cc3)
+ccthin2	ccthin2	3	cthin2_set	4	thin_by_set FG set 4 (Set48)
+ccthin2	ccthin2	4	cthin2_set	5	thin_by_set FG set 5 (Set8cc1)
+ccthin2	ccthin2	5	cthin2_set	6	thin_by_set FG set 6 (Set8cc2)
+ccthin2	ccthin2	6	cthin2_set	7	thin_by_set FG set 7 (Set8cc3)
+ccthin2	ccthin2	7	cthin2_set	8	thin_by_set FG set 8 (Set8cc4)
+ccthin2	ccthin2	8	cthin2_set	9	thin_by_set FG set 9 (Set8cc5)
+ccthin2	ccthin2	9	cthin2_set	10	thin_by_set BG set 10 (Thicken4cc)
+ccthin2	ccthin2	10	cthin2_set	11	thin_by_set BG set 11 (Thicken8cc)
+
+# === binmorph1_reg ===
+# C: feyn-fract.tif → pixDilate/Erode/Open/CloseBrick(21, 15)
+# Rust: feyn-fract.tif → dilate/erode/open/close_brick(21, 15)
+# Note: C test has NO regTestWritePixAndCheck (values only).
+# Verified via scripts/verify_binmorph.c: all 4 pairs IDENTICAL (0 pixel diff).
+# C index is synthetic (not from reg output).
+binmorph1	binmorph1_verify	0	binmorph1	9	dilate_brick 21x15
+binmorph1	binmorph1_verify	1	binmorph1	10	erode_brick 21x15
+binmorph1	binmorph1_verify	2	binmorph1	11	open_brick 21x15
+binmorph1	binmorph1_verify	3	binmorph1	12	close_brick 21x15
+
+# === binmorph3_reg ===
+# C: feyn-fract.tif → separable dilate(11,1)+(1,7), direct dilate(11,7), dilate(21,1)
+# Rust: feyn-fract.tif → same operations
+# Note: C test has NO regTestWritePixAndCheck (values only).
+# Verified via scripts/verify_binmorph.c: all 3 pairs IDENTICAL (0 pixel diff).
+# Also verified C separability: sep(11,1)+(1,7) == dir(11,7).
+binmorph3	binmorph3_verify	0	binmorph3	14	sep dilate(11,1)+(1,7)
+binmorph3	binmorph3_verify	1	binmorph3	15	dir dilate(11,7)
+binmorph3	binmorph3_verify	2	binmorph3	16	dilate(21,1)
+
+# === fhmtauto_reg ===
+# C: feyn-fract.tif → pixHMT with thinning SELs (selaMakeThinSets)
+# Rust: feyn-fract.tif → hit_miss_transform with make_thin_sels
+# Note: C test has NO regTestWritePixAndCheck (compare_pix only).
+# Verified via scripts/verify_fhmtauto.c: all 8 pairs IDENTICAL (0 pixel diff).
+# Set4cc1 = selaMakeThinSets(1,0): sel_4_1, sel_4_2, sel_4_3
+# Set8cc1 = selaMakeThinSets(5,0): sel_8_2, sel_8_3, sel_8_5, sel_8_6
+fhmtauto	fhmtauto_verify	0	fhmtauto_hmt	2	HMT sel_4_1 (Set4cc1)
+fhmtauto	fhmtauto_verify	1	fhmtauto_hmt	4	HMT sel_4_2 (Set4cc1)
+fhmtauto	fhmtauto_verify	2	fhmtauto_hmt	6	HMT sel_4_3 (Set4cc1)
+fhmtauto	fhmtauto_verify	3	fhmtauto_hmt	8	HMT sel_8_2 (Set8cc1)
+fhmtauto	fhmtauto_verify	4	fhmtauto_hmt	10	HMT sel_8_3 (Set8cc1)
+fhmtauto	fhmtauto_verify	5	fhmtauto_hmt	12	HMT sel_8_5 (Set8cc1)
+fhmtauto	fhmtauto_verify	6	fhmtauto_hmt	14	HMT sel_8_6 (Set8cc1)
+fhmtauto	fhmtauto_verify	7	fhmtauto_id	1	HMT identity 1x1 brick
+
+# === graymorph2_reg ===
+# C: test8.jpg → pixDilate/Erode/Open/CloseGray(3x1, 1x3, 3x3)
+# Rust: test8.jpg → dilate/erode/open/close_gray(3x1, 1x3, 3x3)
+# Note: C test has NO regTestWritePixAndCheck (compare_pix only).
+# KNOWN: JPEG codec diff (libjpeg vs jpeg-encoder), quality=75.
+# Verified via scripts/verify_graymorph2.c + compare_graymorph2.c:
+# MaxDiff ≤ 22, size diff ≤ 0.20%. Algorithm correct.
+graymorph2	graymorph2_verify	0	gmorph2_dilate_erode	2	dilate_gray 3x1
+graymorph2	graymorph2_verify	1	gmorph2_dilate_erode	4	erode_gray 3x1
+graymorph2	graymorph2_verify	2	gmorph2_dilate_erode	6	dilate_gray 1x3
+graymorph2	graymorph2_verify	3	gmorph2_dilate_erode	8	erode_gray 1x3
+graymorph2	graymorph2_verify	4	gmorph2_dilate_erode	10	dilate_gray 3x3
+graymorph2	graymorph2_verify	5	gmorph2_dilate_erode	12	erode_gray 3x3
+graymorph2	graymorph2_verify	6	gmorph2_open_close	2	open_gray 3x1
+graymorph2	graymorph2_verify	7	gmorph2_open_close	4	close_gray 3x1
+graymorph2	graymorph2_verify	8	gmorph2_open_close	6	open_gray 1x3
+graymorph2	graymorph2_verify	9	gmorph2_open_close	8	close_gray 1x3
+graymorph2	graymorph2_verify	10	gmorph2_open_close	10	open_gray 3x3
+graymorph2	graymorph2_verify	11	gmorph2_open_close	12	close_gray 3x3
