@@ -42,7 +42,7 @@ fn paintmask_reg_32bpp() {
 
     // C: pixPaintThroughMask(pixt, pixb, box->x, box->y, val32);
     let val = leptonica::core::pixel::compose_rgb(3, 192, 128);
-    let mut pixmut = pixs.try_into_mut().expect("try_into_mut");
+    let mut pixmut = pixs.to_mut();
     pixmut
         .paint_through_mask(&mask, 100, 100, val)
         .expect("paint_through_mask on 32bpp");

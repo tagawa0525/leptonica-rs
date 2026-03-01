@@ -4,16 +4,16 @@
 //!
 //! Tests bilateral filtering with various spatial/range stdev combinations.
 //!
-//! C version uses pixBilateral(reduction=4) which is the separable approximate
-//! version. Since Rust only has bilateral_exact (= pixBlockBilateralExact),
-//! we test with bilateral_exact using equivalent parameter combinations.
-//!
-//! Rust API mapping:
-//!   - pixBilateral(reduction=4) -> NOT IMPLEMENTED (separable approximate)
-//!   - pixBlockBilateralExact -> bilateral_exact (used as substitute)
+//! C version uses pixBilateral(reduction=4), the separable approximate version.
+//! Rust has bilateral() now, so these tests use the same path for closer
+//! parity with C runtime behavior.
 
 use crate::common::{RegParams, load_test_image};
-use leptonica::filter::bilateral_exact;
+use leptonica::core::pix::RemoveColormapTarget;
+use leptonica::filter::bilateral;
+
+const NCOMPS: u32 = 10;
+const REDUCTION: u32 = 4;
 
 /// Parameter variation test on 8bpp grayscale image.
 ///
@@ -24,9 +24,16 @@ use leptonica::filter::bilateral_exact;
 /// Rust: dreyfus8.png (8bpp) for tractable runtime with exact version.
 #[test]
 fn bilateral2_reg_param_variations_gray() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("bilateral2_gray");
 
-    let pixs = load_test_image("dreyfus8.png").expect("load dreyfus8.png");
+    let pixs = load_test_image("dreyfus8.png")
+        .expect("load dreyfus8.png")
+        .remove_colormap(RemoveColormapTarget::ToGrayscale)
+        .expect("remove dreyfus8 colormap");
     let w = pixs.width();
     let h = pixs.height();
 
@@ -43,11 +50,11 @@ fn bilateral2_reg_param_variations_gray() {
 
     for (i, &(spatial_stdev, range_stdev)) in test_params.iter().enumerate() {
         eprintln!(
-            "  Test {}: bilateral_exact({}, {})",
+            "  Test {}: bilateral({}, {})",
             i, spatial_stdev, range_stdev
         );
 
-        let result = bilateral_exact(&pixs, spatial_stdev, range_stdev);
+        let result = bilateral(&pixs, spatial_stdev, range_stdev, NCOMPS, REDUCTION);
         match result {
             Ok(ref pix) => {
                 rp.compare_values(w as f64, pix.width() as f64, 0.0);
@@ -67,20 +74,23 @@ fn bilateral2_reg_param_variations_gray() {
 /// Parameter variation test on 32bpp color image (test24.jpg).
 ///
 /// C: pixBilateral(pixs, 5.0/10.0, 10.0-60.0, 10, 4) on test24.jpg
-/// Rust: bilateral_exact with smaller spatial_stdev for tractable runtime.
+/// Rust: bilateral with reduction=4 for parity.
 #[test]
 fn bilateral2_reg_color() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("bilateral2_color");
 
     let pixs = load_test_image("test24.jpg").expect("load test24.jpg");
     let w = pixs.width();
     let h = pixs.height();
 
-    // Use smaller spatial_stdev for tractable runtime on exact version
-    let spatial_stdev = 2.0_f32;
+    let spatial_stdev = 5.0_f32;
 
     for &range_stdev in &[10.0_f32, 20.0, 40.0, 60.0] {
-        let result = bilateral_exact(&pixs, spatial_stdev, range_stdev);
+        let result = bilateral(&pixs, spatial_stdev, range_stdev, NCOMPS, REDUCTION);
         match result {
             Ok(ref pix) => {
                 rp.compare_values(w as f64, pix.width() as f64, 0.0);
@@ -102,14 +112,22 @@ fn bilateral2_reg_color() {
 /// Key property: small range_stdev preserves edges, large range_stdev approaches Gaussian.
 #[test]
 fn bilateral2_reg_range_effect() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("bilateral2_range");
 
-    let pixs = load_test_image("dreyfus8.png").expect("load dreyfus8.png");
+    let pixs = load_test_image("dreyfus8.png")
+        .expect("load dreyfus8.png")
+        .remove_colormap(RemoveColormapTarget::ToGrayscale)
+        .expect("remove dreyfus8 colormap");
     let w = pixs.width();
     let h = pixs.height();
 
-    let edge_preserved = bilateral_exact(&pixs, 5.0, 10.0).expect("bilateral small range");
-    let smoothed = bilateral_exact(&pixs, 5.0, 60.0).expect("bilateral large range");
+    let edge_preserved =
+        bilateral(&pixs, 5.0, 10.0, NCOMPS, REDUCTION).expect("bilateral small range");
+    let smoothed = bilateral(&pixs, 5.0, 60.0, NCOMPS, REDUCTION).expect("bilateral large range");
 
     rp.compare_values(w as f64, edge_preserved.width() as f64, 0.0);
     rp.compare_values(w as f64, smoothed.width() as f64, 0.0);
@@ -129,8 +147,10 @@ fn bilateral2_reg_range_effect() {
     rp.compare_values(1.0, if different_count > 0 { 1.0 } else { 0.0 }, 0.0);
 
     // Stronger spatial smoothing produces more change from original
-    let mild = bilateral_exact(&pixs, 2.0, 30.0).expect("mild bilateral");
-    let strong = bilateral_exact(&pixs, 5.0, 30.0).expect("strong bilateral");
+    // Use full-resolution intermediates here to keep monotonicity for this
+    // property check (reduction can introduce small approximation inversions).
+    let mild = bilateral(&pixs, 2.0, 30.0, NCOMPS, 1).expect("mild bilateral");
+    let strong = bilateral(&pixs, 5.0, 30.0, NCOMPS, 1).expect("strong bilateral");
 
     let mut mild_diff_sum = 0u64;
     let mut strong_diff_sum = 0u64;
@@ -152,8 +172,6 @@ fn bilateral2_reg_range_effect() {
 /// C: pixBilateral(reduction=4) full sweep on test24.jpg
 #[test]
 fn bilateral2_reg_full_sweep_test24() {
-    use leptonica::filter::bilateral;
-
     let mut rp = RegParams::new("bilateral2_full_sweep");
 
     let pixs = load_test_image("test24.jpg").expect("load test24.jpg");

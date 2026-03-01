@@ -18,6 +18,10 @@ use leptonica::core::pix::RemoveColormapTarget;
 /// Test 1bpp binary image: write/read round-trip preserves equality (C check 0).
 #[test]
 fn equal_reg_binary_roundtrip() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("equal_binary");
 
     let pix1 = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");

@@ -560,7 +560,7 @@ impl BilateralData {
                     }
                     if norm > 0.0 {
                         let dval = (sum / norm + 0.5) as u32;
-                        pixt_mut.set_pixel_unchecked(border + j, i, dval.min(255));
+                        pixt_mut.set_pixel_unchecked(border + j, i, dval);
                     }
                 }
             }
@@ -589,7 +589,7 @@ impl BilateralData {
                     } else {
                         pixt.get_pixel_unchecked(border + j, border + i)
                     };
-                    pixd_mut.set_pixel_unchecked(j, i, dval.min(255));
+                    pixd_mut.set_pixel_unchecked(j, i, dval);
                 }
             }
 
@@ -627,7 +627,7 @@ fn bilateral_apply(bil: &BilateralData, pix: &Pix) -> FilterResult<Pix> {
             let hival = bil.pbc_images[k + 1].get_pixel_unchecked(jred, ired) as f32;
             let fract = bil.kfract[vals as usize];
             let vald = ((1.0 - fract) * lowval + fract * hival + 0.5) as u32;
-            pixd_mut.set_pixel_unchecked(j, i, vald.min(255));
+            pixd_mut.set_pixel_unchecked(j, i, vald);
         }
     }
 

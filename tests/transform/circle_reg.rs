@@ -12,6 +12,32 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/circle_reg.c`
 
+use leptonica::morph::erode_brick;
+use leptonica::region::{ConnectivityType, conncomp::count_conn_comp};
+use leptonica::{Pix, PixelDepth};
+
+/// Circle-like extraction smoke test for benchmark mapping.
+#[test]
+fn circle_reg_smoke() {
+    let pix = Pix::new(64, 64, PixelDepth::Bit1).expect("create image");
+    let mut pm = pix.try_into_mut().expect("mutable image");
+
+    for y in 0..64u32 {
+        for x in 0..64u32 {
+            let dx = x as i32 - 32;
+            let dy = y as i32 - 32;
+            if dx * dx + dy * dy <= 20 * 20 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+    }
+    let pix = pm.into();
+
+    let eroded = erode_brick(&pix, 3, 3).expect("erode_brick");
+    let n = count_conn_comp(&eroded, ConnectivityType::EightWay).expect("count_conn_comp");
+    assert!(n >= 1);
+}
+
 /// Test circle extraction using erosion and connected components (C checks 0-1).
 ///
 /// Requires circles.pa Pixa archive which is not present in test data.

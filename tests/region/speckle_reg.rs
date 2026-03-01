@@ -54,6 +54,10 @@ fn speckle_reg_clear_border() {
 /// Counts and finds connected components in feyn.tif (already 1bpp).
 #[test]
 fn speckle_reg_count_components() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("speckle_count");
 
     // feyn.tif is already 1bpp — no threshold needed
@@ -80,6 +84,10 @@ fn speckle_reg_count_components() {
 /// simulate speckle noise removal.
 #[test]
 fn speckle_reg_select_by_size() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("speckle_size");
 
     // feyn.tif is already 1bpp

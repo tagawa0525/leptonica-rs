@@ -273,6 +273,64 @@ def normalize_c_tests(tests: list[str]) -> list[str]:
     return tests
 
 
+def rebuild_c_json_from_logs(out_dir: Path) -> dict | None:
+    """Rebuild c_raw.json from existing log files."""
+    logs_dir = out_dir / "c" / "logs"
+    if not logs_dir.exists():
+        return None
+
+    main_logs = sorted(logs_dir.glob("run_[0-9][0-9].log"))
+    if not main_logs:
+        return None
+
+    tests: list[str] = []
+    times_by_test: dict[str, list[float | None]] = {}
+    run_failures: list[list[str]] = []
+    suite_seconds: list[float] = []
+    fallback_counts: dict[str, int] = {}
+
+    for log_path in main_logs:
+        run_idx = log_path.stem  # e.g. "run_01"
+        output = log_path.read_text(encoding="utf-8")
+        parsed_tests, parsed_times, failed = parse_c_log(output)
+        run_failures.append(failed)
+
+        if not tests:
+            tests = normalize_c_tests(parsed_tests)
+            times_by_test = {t: [] for t in tests}
+            fallback_counts = {t: 0 for t in tests}
+
+        for t in tests:
+            v = parsed_times.get(t)
+            if v is None:
+                fallback_log = logs_dir / f"{run_idx}_missing_{t}.log"
+                if fallback_log.exists():
+                    fb_output = fallback_log.read_text(encoding="utf-8")
+                    _, fb_times, _ = parse_c_log(fb_output)
+                    v = fb_times.get(t)
+                    fallback_counts[t] = fallback_counts.get(t, 0) + 1
+            times_by_test[t].append(v)
+
+        # suite elapsed is not recoverable from log content; use sum of test times
+        test_total = sum(v for v in parsed_times.values() if v is not None)
+        suite_seconds.append(test_total)
+
+    data = {
+        "runs": len(main_logs),
+        "tests": tests,
+        "times_by_test": times_by_test,
+        "suite_seconds": suite_seconds,
+        "run_failures": run_failures,
+        "fallback_counts": fallback_counts,
+    }
+    raw_path = out_dir / "c_raw.json"
+    raw_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"[C] rebuilt {raw_path} from {len(main_logs)} logs")
+    return data
+
+
 def run_c_benchmark(repo_root: Path, out_dir: Path, runs: int, rebuild: bool) -> dict:
     leptonica_dir = repo_root / "reference" / "leptonica"
     build_dir = leptonica_dir / "build-bench-145"
@@ -288,13 +346,15 @@ def run_c_benchmark(repo_root: Path, out_dir: Path, runs: int, rebuild: bool) ->
     if not alltests.exists():
         raise RuntimeError(f"Missing C test runner: {alltests}")
 
+    prev_runs = len(sorted(logs_dir.glob("run_[0-9][0-9].log")))
+
     tests: list[str] = []
     times_by_test: dict[str, list[float | None]] = {}
     run_failures: list[list[str]] = []
     suite_seconds: list[float] = []
     fallback_counts: dict[str, int] = {}
 
-    for run_idx in range(1, runs + 1):
+    for run_idx in range(prev_runs + 1, prev_runs + runs + 1):
         regout = Path("/tmp/lept/regout")
         if regout.exists():
             shutil.rmtree(regout)
@@ -324,47 +384,54 @@ def run_c_benchmark(repo_root: Path, out_dir: Path, runs: int, rebuild: bool) ->
             times_by_test[t].append(v)
 
         print(
-            f"[C] run {run_idx:02d}/{runs}: "
+            f"[C] run {run_idx:02d}/{prev_runs + runs}: "
             f"suite={result.elapsed:.3f}s, failed={len(failed)}"
         )
 
-    data = {
-        "runs": runs,
-        "tests": tests,
-        "times_by_test": times_by_test,
-        "suite_seconds": suite_seconds,
-        "run_failures": run_failures,
-        "fallback_counts": fallback_counts,
-        "build_dir": str(build_dir),
-    }
-    (out_dir / "c_raw.json").write_text(
-        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    print(f"[C] wrote {out_dir / 'c_raw.json'}")
-    return data
+    # Rebuild JSON from ALL logs (existing + new)
+    data = rebuild_c_json_from_logs(out_dir)
+    if data:
+        data["build_dir"] = str(build_dir)
+        (out_dir / "c_raw.json").write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    return data or {}
 
 
-def parse_rust_report_time_log(output: str) -> dict[str, float]:
-    # Example:
-    # test boxa1_reg::boxa1_reg ... ok <0.000s>
-    line_re = re.compile(
-        r"^test\s+(\S+)\s+\.\.\.\s+(ok|FAILED|ignored)(?:,\s+|\s+)<([0-9]*\.?[0-9]+)s>$"
+def parse_rust_report_time_log(output: str) -> tuple[dict[str, float], set[str]]:
+    """Parse cargo test --report-time output.
+
+    Returns (times, ignored) where times maps test name -> seconds for
+    passed tests, and ignored is the set of ignored test names.
+    """
+    # Matches: test name ... ok <0.123s>
+    ok_re = re.compile(
+        r"^test\s+(\S+)\s+\.\.\.\s+(ok|FAILED)(?:,\s+|\s+)<([0-9]*\.?[0-9]+)s>$"
     )
+    # Matches: test name ... ignored, reason (no timestamp)
+    ignored_re = re.compile(r"^test\s+(\S+)\s+\.\.\.\s+ignored")
     times: dict[str, float] = {}
+    ignored: set[str] = set()
     for raw in output.splitlines():
-        m = line_re.match(raw.strip())
-        if not m:
+        line = raw.strip()
+        m = ok_re.match(line)
+        if m:
+            name, status, sec = m.groups()
+            if status == "ok":
+                times[name] = float(sec)
             continue
-        name, status, sec = m.groups()
-        if status == "ok":
-            times[name] = float(sec)
-    return times
+        m = ignored_re.match(line)
+        if m:
+            ignored.add(m.group(1))
+    return times, ignored
 
 
 def build_rust_mapping(
-    c_tests: list[str], rust_test_times: dict[str, float]
+    c_tests: list[str],
+    rust_test_times: dict[str, float],
+    rust_ignored: set[str],
 ) -> dict[str, list[str]]:
-    all_names = sorted(rust_test_times.keys())
+    all_names = sorted(set(rust_test_times.keys()) | rust_ignored)
     mapping: dict[str, list[str]] = {}
     for c_test in c_tests:
         pat = re.compile(rf"(?:^|::){re.escape(c_test)}(?:$|::)")
@@ -407,6 +474,59 @@ def run_rust_single_filter(
     return None
 
 
+def rebuild_rust_json_from_logs(out_dir: Path, c_tests: list[str]) -> dict | None:
+    """Rebuild rust_raw.json from existing log files."""
+    logs_dir = out_dir / "rust" / "logs"
+    if not logs_dir.exists():
+        return None
+
+    main_logs = sorted(logs_dir.glob("run_[0-9][0-9].log"))
+    if not main_logs:
+        return None
+
+    times_by_test: dict[str, list[float | None]] = {t: [] for t in c_tests}
+    suite_seconds: list[float] = []
+    mapping: dict[str, list[str]] | None = None
+    missing_mapping: list[str] = []
+    fallback_counts: dict[str, int] = {}
+
+    for log_path in main_logs:
+        output = log_path.read_text(encoding="utf-8")
+        per_test_times, per_test_ignored = parse_rust_report_time_log(output)
+
+        if mapping is None:
+            mapping = build_rust_mapping(c_tests, per_test_times, per_test_ignored)
+            missing_mapping = [k for k, v in mapping.items() if not v]
+            fallback_counts = {k: 0 for k in missing_mapping}
+
+        for c_test in c_tests:
+            rust_tests = mapping.get(c_test, [])
+            if not rust_tests:
+                times_by_test[c_test].append(None)
+                continue
+            total = sum(per_test_times.get(name, 0.0) for name in rust_tests)
+            times_by_test[c_test].append(total)
+
+        test_total = sum(per_test_times.values())
+        suite_seconds.append(test_total)
+
+    data = {
+        "runs": len(main_logs),
+        "tests": c_tests,
+        "times_by_test": times_by_test,
+        "suite_seconds": suite_seconds,
+        "mapping": mapping or {},
+        "mapping_missing": missing_mapping,
+        "fallback_counts": fallback_counts,
+    }
+    raw_path = out_dir / "rust_raw.json"
+    raw_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"[Rust] rebuilt {raw_path} from {len(main_logs)} logs")
+    return data
+
+
 def run_rust_benchmark(
     repo_root: Path, out_dir: Path, runs: int, c_tests: list[str]
 ) -> dict:
@@ -425,13 +545,12 @@ def run_rust_benchmark(
     ]
     run_command([*base_cmd, "--no-run"], cwd=repo_root, env=env)
 
-    times_by_test: dict[str, list[float | None]] = {t: [] for t in c_tests}
-    suite_seconds: list[float] = []
+    prev_runs = len(sorted(logs_dir.glob("run_[0-9][0-9].log")))
+
     mapping: dict[str, list[str]] | None = None
     missing_mapping: list[str] = []
-    fallback_counts: dict[str, int] = {}
 
-    for run_idx in range(1, runs + 1):
+    for run_idx in range(prev_runs + 1, prev_runs + runs + 1):
         regout = repo_root / "tests" / "regout"
         if regout.exists():
             shutil.rmtree(regout)
@@ -448,46 +567,25 @@ def run_rust_benchmark(
         result = run_command(cmd, cwd=repo_root, env=env)
         log_path = logs_dir / f"run_{run_idx:02d}.log"
         log_path.write_text(result.output, encoding="utf-8")
-        suite_seconds.append(result.elapsed)
 
-        per_test_times = parse_rust_report_time_log(result.output)
+        per_test_times, per_test_ignored = parse_rust_report_time_log(result.output)
         if mapping is None:
-            mapping = build_rust_mapping(c_tests, per_test_times)
+            mapping = build_rust_mapping(c_tests, per_test_times, per_test_ignored)
             missing_mapping = [k for k, v in mapping.items() if not v]
-            fallback_counts = {k: 0 for k in missing_mapping}
 
         for c_test in c_tests:
             rust_tests = mapping.get(c_test, [])
             if not rust_tests:
-                fallback_elapsed = run_rust_single_filter(
-                    repo_root, env, c_test, logs_dir, run_idx
-                )
-                if fallback_elapsed is not None:
-                    fallback_counts[c_test] = fallback_counts.get(c_test, 0) + 1
-                times_by_test[c_test].append(fallback_elapsed)
-                continue
-            total = sum(per_test_times.get(name, 0.0) for name in rust_tests)
-            times_by_test[c_test].append(total)
+                run_rust_single_filter(repo_root, env, c_test, logs_dir, run_idx)
 
         print(
-            f"[Rust] run {run_idx:02d}/{runs}: "
+            f"[Rust] run {run_idx:02d}/{prev_runs + runs}: "
             f"suite={result.elapsed:.3f}s, mapped_missing={len(missing_mapping)}"
         )
 
-    data = {
-        "runs": runs,
-        "tests": c_tests,
-        "times_by_test": times_by_test,
-        "suite_seconds": suite_seconds,
-        "mapping": mapping or {},
-        "mapping_missing": missing_mapping,
-        "fallback_counts": fallback_counts,
-    }
-    (out_dir / "rust_raw.json").write_text(
-        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    print(f"[Rust] wrote {out_dir / 'rust_raw.json'}")
-    return data
+    # Rebuild JSON from ALL logs (existing + new)
+    data = rebuild_rust_json_from_logs(out_dir, c_tests)
+    return data or {}
 
 
 def calc_stats(samples: list[float | None]) -> dict[str, float | int | None]:
@@ -528,7 +626,7 @@ def fmt_num(v: float | int | None) -> str:
 
 
 def write_summary(
-    out_dir: Path, runs: int, c_data: dict, rust_data: dict, markdown_path: Path | None
+    out_dir: Path, c_data: dict, rust_data: dict, markdown_path: Path | None
 ) -> None:
     tests = c_data["tests"]
     rows: list[dict[str, str]] = []
@@ -572,7 +670,7 @@ def write_summary(
     md_path.parent.mkdir(parents=True, exist_ok=True)
     with md_path.open("w", encoding="utf-8") as f:
         f.write("# C/Rust Regression Benchmark (145 tests)\n\n")
-        f.write(f"- runs per side: {runs}\n")
+        f.write(f"- C runs: {c_data['runs']}, Rust runs: {rust_data['runs']}\n")
         f.write(
             "- rule: remove 2 smallest + 2 largest, then compute mean/variance on remaining 6\n"
         )
@@ -640,16 +738,19 @@ def main() -> int:
     if args.mode in {"all", "c"}:
         c_data = run_c_benchmark(repo_root, out_dir, args.runs, rebuild=args.rebuild_c)
     else:
+        rebuild_c_json_from_logs(out_dir)
         c_data = load_json(out_dir / "c_raw.json")
 
     if args.mode in {"all", "rust"}:
         c_tests = c_data["tests"]
         rust_data = run_rust_benchmark(repo_root, out_dir, args.runs, c_tests)
     else:
+        c_tests = c_data["tests"]
+        rebuild_rust_json_from_logs(out_dir, c_tests)
         rust_data = load_json(out_dir / "rust_raw.json")
 
     if args.mode in {"all", "compare"}:
-        write_summary(out_dir, args.runs, c_data, rust_data, args.markdown_path)
+        write_summary(out_dir, c_data, rust_data, args.markdown_path)
 
     return 0
 

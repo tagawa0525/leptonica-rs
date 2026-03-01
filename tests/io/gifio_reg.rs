@@ -27,20 +27,25 @@ const FILE_32BPP: &str = "marge.jpg";
 #[test]
 fn gifio_reg() {
     let mut rp = RegParams::new("gifio");
+    let display_mode = crate::common::is_display_mode();
 
     let outdir = regout_dir();
     fs::create_dir_all(&outdir).expect("Failed to create output directory");
 
-    let test_files: &[(&str, bool)] = &[
-        (FILE_1BPP, true),   // lossless
-        (FILE_2BPP, true),   // lossless
-        (FILE_4BPP, true),   // lossless
-        (FILE_8BPP_1, true), // lossless
-        (FILE_8BPP_2, true), // lossless
-        (FILE_8BPP_3, true), // lossless (8bpp from JPEG)
-        (FILE_16BPP, false), // lossy (16bpp -> 8bpp)
-        (FILE_32BPP, false), // lossy (32bpp -> quantized)
-    ];
+    let test_files: Vec<(&str, bool)> = if display_mode {
+        vec![(FILE_1BPP, true), (FILE_8BPP_1, true), (FILE_32BPP, false)]
+    } else {
+        vec![
+            (FILE_1BPP, true),   // lossless
+            (FILE_2BPP, true),   // lossless
+            (FILE_4BPP, true),   // lossless
+            (FILE_8BPP_1, true), // lossless
+            (FILE_8BPP_2, true), // lossless
+            (FILE_8BPP_3, true), // lossless (8bpp from JPEG)
+            (FILE_16BPP, false), // lossy (16bpp -> 8bpp)
+            (FILE_32BPP, false), // lossy (32bpp -> quantized)
+        ]
+    };
 
     // Part 1: File-based roundtrip
     eprintln!("\n=== Part 1: Test lossless r/w to file ===");
@@ -106,6 +111,11 @@ fn gifio_reg() {
             let same = pix1.equals(&pix2);
             rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         }
+    }
+
+    if display_mode {
+        assert!(rp.cleanup(), "gifio regression test failed");
+        return;
     }
 
     // Part 2: Memory-based roundtrip

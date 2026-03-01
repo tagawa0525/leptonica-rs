@@ -75,6 +75,10 @@ fn psio_reg_level2() {
 /// Writes images at various depths to PS at Level 3, verifies Flate encoding.
 #[test]
 fn psio_reg_level3() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("psio_level3");
 
     let images = [
@@ -130,6 +134,10 @@ fn psio_reg_eps() {
 /// Writes multiple images to a single PS document, verifies page markers.
 #[test]
 fn psio_reg_multipage() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("psio_multipage");
 
     let pix1 = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");

@@ -14,11 +14,23 @@
 //! C Leptonica: `reference/leptonica/prog/jbclass_reg.c`
 
 use crate::common::RegParams;
-use leptonica::PixelDepth;
 use leptonica::recog::jbclass::{
     JbComponent, correlation_init, pix_word_boxes_by_dilation, pix_word_mask_by_dilation,
     rank_haus_init,
 };
+use leptonica::{Pix, PixelDepth};
+
+fn clip_top_half(pix: &Pix) -> Pix {
+    pix.clip_rectangle(0, 0, pix.width(), pix.height() / 2)
+        .expect("clip top half")
+}
+
+fn clip_display_fast(pix: &Pix) -> Pix {
+    let w = (pix.width() / 2).max(64);
+    let h = (pix.height() / 4).max(64);
+    pix.clip_rectangle(0, 0, w, h)
+        .expect("clip display fast region")
+}
 
 /// Test rank_haus_init classification on pageseg images (C checks 0-3).
 ///
@@ -30,18 +42,31 @@ use leptonica::recog::jbclass::{
 #[test]
 fn jbclass_reg_rank_haus() {
     let mut rp = RegParams::new("jbclass_haus");
+    let display_mode = crate::common::is_display_mode();
 
     let pix1 = crate::common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
     let pix4 = crate::common::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
     assert_eq!(pix1.depth(), PixelDepth::Bit1);
     assert_eq!(pix4.depth(), PixelDepth::Bit1);
 
-    // C version clips to top half; we use the full image for simplicity
+    let pix1 = if display_mode {
+        clip_display_fast(&pix1)
+    } else {
+        clip_top_half(&pix1)
+    };
+    let pix4 = if display_mode {
+        clip_display_fast(&pix4)
+    } else {
+        clip_top_half(&pix4)
+    };
+
     let mut classer =
         rank_haus_init(JbComponent::ConnComps, 0, 0, 2, 0.97).expect("rank_haus_init");
 
     classer.add_page(&pix1).expect("add_page pageseg1");
-    classer.add_page(&pix4).expect("add_page pageseg4");
+    if !display_mode {
+        classer.add_page(&pix4).expect("add_page pageseg4");
+    }
 
     // Should have classified some components
     let n_comps = classer.total_components();
@@ -67,16 +92,18 @@ fn jbclass_reg_rank_haus() {
         0.0,
     );
 
-    let rendered1 = data.render_page(1).expect("render page 1");
-    rp.compare_values(
-        1.0,
-        if rendered1.width() > 0 && rendered1.height() > 0 {
-            1.0
-        } else {
-            0.0
-        },
-        0.0,
-    );
+    if !display_mode {
+        let rendered1 = data.render_page(1).expect("render page 1");
+        rp.compare_values(
+            1.0,
+            if rendered1.width() > 0 && rendered1.height() > 0 {
+                1.0
+            } else {
+                0.0
+            },
+            0.0,
+        );
+    }
 
     assert!(rp.cleanup(), "jbclass rank_haus test failed");
 }
@@ -89,12 +116,18 @@ fn jbclass_reg_rank_haus() {
 ///    pixr = jbDataRender(data, 0)
 #[test]
 fn jbclass_reg_correlation() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("jbclass_corr");
 
     let pix1 = crate::common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
     let pix4 = crate::common::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
     assert_eq!(pix1.depth(), PixelDepth::Bit1);
     assert_eq!(pix4.depth(), PixelDepth::Bit1);
+    let pix1 = clip_top_half(&pix1);
+    let pix4 = clip_top_half(&pix4);
 
     let mut classer =
         correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).expect("correlation_init");
@@ -133,6 +166,10 @@ fn jbclass_reg_correlation() {
 ///    Returns a mask where words are connected blobs.
 #[test]
 fn jbclass_reg_word_mask() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("jbclass_wordmask");
 
     let pix = crate::common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
@@ -165,6 +202,10 @@ fn jbclass_reg_word_mask() {
 ///    Returns bounding boxes of word regions.
 #[test]
 fn jbclass_reg_word_boxes() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("jbclass_wordboxes");
 
     let pix = crate::common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");

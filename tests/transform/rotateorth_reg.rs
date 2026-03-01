@@ -23,6 +23,14 @@ use leptonica::transform::{rotate_90, rotate_180, rotate_orth};
 #[test]
 fn rotateorth_reg() {
     let mut rp = RegParams::new("rotateorth");
+    if crate::common::is_display_mode() {
+        let pix1 = load_test_image("feyn-fract.tif").expect("load binary image");
+        let r1 = rotate_orth(&pix1, 1).expect("rotate_orth 1");
+        rp.compare_values(pix1.height() as f64, r1.width() as f64, 0.0);
+        rp.compare_values(pix1.width() as f64, r1.height() as f64, 0.0);
+        assert!(rp.cleanup(), "rotateorth regression test failed");
+        return;
+    }
 
     // C version: pixRead(BINARY_IMAGE) — test1.png
     let pix1 = load_test_image("feyn-fract.tif").expect("load binary image");

@@ -155,6 +155,10 @@ fn newspaper_reg_seedfill() {
 /// Rust: segment_regions + conncomp_pixa for region detection.
 #[test]
 fn newspaper_reg_article_regions() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("newspaper_regions");
 
     let pix = crate::common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
@@ -197,6 +201,10 @@ fn newspaper_reg_article_regions() {
 /// Rust: Combine morph_sequence, XOR, and conncomp for text block extraction.
 #[test]
 fn newspaper_reg_full_pipeline() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("newspaper_pipeline");
 
     let pix = crate::common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");

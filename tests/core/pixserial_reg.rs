@@ -34,6 +34,10 @@ const IMAGES: &[&str] = &[
 /// For each image: serialize to bytes, deserialize, compare pixels.
 #[test]
 fn pixserial_reg_memory_roundtrip() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("pixserial_memory");
 
     for img in IMAGES {
@@ -63,6 +67,10 @@ fn pixserial_reg_memory_roundtrip() {
 /// For each image: clip a 150×150 region, write to SPIX file, read back, compare.
 #[test]
 fn pixserial_reg_file_roundtrip() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("pixserial_file");
 
     let tmpdir = std::env::temp_dir().join(format!("lept_pixserial_{}", std::process::id()));

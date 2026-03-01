@@ -480,6 +480,10 @@ fn iomisc_reg_format_detection() {
 // ============================================================================
 #[test]
 fn iomisc_reg_memory_io() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("iomisc_memio");
 
     // PNG memory roundtrip (8bpp)
