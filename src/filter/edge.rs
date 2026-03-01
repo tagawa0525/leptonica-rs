@@ -16,25 +16,32 @@ pub enum EdgeOrientation {
 
 /// Apply Sobel edge detection
 ///
+/// Applies a 3x3 Sobel gradient filter and normalises by dividing
+/// by 8 (the sum of the absolute kernel weights), matching C
+/// Leptonica `pixSobelEdgeFilter()`.
+///
 /// # Arguments
 /// * `pix` - Input 8-bit grayscale image
 /// * `orientation` - Which edges to detect
 pub fn sobel_edge(pix: &Pix, orientation: EdgeOrientation) -> FilterResult<Pix> {
     check_grayscale(pix)?;
 
+    // Add 1-pixel mirrored border, matching C pixAddMirroredBorder(pixs,1,1,1,1)
+    let bordered = pix.add_mirrored_border(1, 1, 1, 1)?;
+
     match orientation {
         EdgeOrientation::Horizontal => {
             let kernel = Kernel::sobel_horizontal();
-            convolve_and_abs(pix, &kernel)
+            sobel_convolve_and_abs(&bordered, pix.width(), pix.height(), &kernel)
         }
         EdgeOrientation::Vertical => {
             let kernel = Kernel::sobel_vertical();
-            convolve_and_abs(pix, &kernel)
+            sobel_convolve_and_abs(&bordered, pix.width(), pix.height(), &kernel)
         }
         EdgeOrientation::All => {
             let h_kernel = Kernel::sobel_horizontal();
             let v_kernel = Kernel::sobel_vertical();
-            sobel_combined(pix, &h_kernel, &v_kernel)
+            sobel_combined(&bordered, pix.width(), pix.height(), &h_kernel, &v_kernel)
         }
     }
 }
@@ -46,7 +53,54 @@ pub fn laplacian_edge(pix: &Pix) -> FilterResult<Pix> {
     convolve_and_abs(pix, &kernel)
 }
 
-/// Convolve and take absolute value (for edge detection)
+/// Sobel-specific convolution: convolve bordered image, take absolute
+/// value, and normalise by >>3 (divide by 8).
+///
+/// `bordered` is the source image with 1-pixel mirrored border already added.
+/// `out_w` / `out_h` are the dimensions of the original (unbordered) image.
+fn sobel_convolve_and_abs(
+    bordered: &Pix,
+    out_w: u32,
+    out_h: u32,
+    kernel: &Kernel,
+) -> FilterResult<Pix> {
+    let kw = kernel.width();
+    let kh = kernel.height();
+    let kcx = kernel.center_x() as i32;
+    let kcy = kernel.center_y() as i32;
+
+    let out_pix = Pix::new(out_w, out_h, PixelDepth::Bit8)?;
+    let mut out_mut = out_pix.try_into_mut().unwrap();
+
+    // The bordered image has 1-pixel padding on each side, so pixel (x, y)
+    // of the original maps to (x + 1, y + 1) in bordered.
+    for y in 0..out_h {
+        for x in 0..out_w {
+            let mut sum = 0i32;
+
+            for ky in 0..kh {
+                for kx in 0..kw {
+                    // In the bordered image, pixel (x+1, y+1) is the centre.
+                    // Kernel offset from centre is (kx - kcx, ky - kcy).
+                    let bx = (x as i32 + 1 + kx as i32 - kcx) as u32;
+                    let by = (y as i32 + 1 + ky as i32 - kcy) as u32;
+
+                    let pixel = bordered.get_pixel_unchecked(bx, by) as i32;
+                    let k = kernel.get(kx, ky).unwrap_or(0.0) as i32;
+                    sum += pixel * k;
+                }
+            }
+
+            // Normalise: >>3 (divide by 8), matching C leptonica
+            let result = (sum.abs() >> 3) as u32;
+            out_mut.set_pixel_unchecked(x, y, result);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
+/// Convolve and take absolute value (for non-Sobel edge detection, e.g. Laplacian)
 fn convolve_and_abs(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
     let w = pix.width();
     let h = pix.height();
@@ -84,42 +138,47 @@ fn convolve_and_abs(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
     Ok(out_mut.into())
 }
 
-/// Combined Sobel (magnitude of both directions)
-fn sobel_combined(pix: &Pix, h_kernel: &Kernel, v_kernel: &Kernel) -> FilterResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
+/// Combined Sobel: magnitude of both gradient directions, with >>3
+/// normalization on each component before summing, matching C
+/// `pixSobelEdgeFilter(pixs, L_ALL_EDGES)`.
+///
+/// `bordered` is the source image with 1-pixel mirrored border.
+/// `out_w` / `out_h` are the original (unbordered) dimensions.
+fn sobel_combined(
+    bordered: &Pix,
+    out_w: u32,
+    out_h: u32,
+    h_kernel: &Kernel,
+    v_kernel: &Kernel,
+) -> FilterResult<Pix> {
     let kw = h_kernel.width();
     let kh = h_kernel.height();
     let kcx = h_kernel.center_x() as i32;
     let kcy = h_kernel.center_y() as i32;
 
-    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
+    let out_pix = Pix::new(out_w, out_h, PixelDepth::Bit8)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    for y in 0..h {
-        for x in 0..w {
-            let mut sum_h = 0.0f32;
-            let mut sum_v = 0.0f32;
+    for y in 0..out_h {
+        for x in 0..out_w {
+            let mut sum_h = 0i32;
+            let mut sum_v = 0i32;
 
             for ky in 0..kh {
                 for kx in 0..kw {
-                    let sx = x as i32 + (kx as i32 - kcx);
-                    let sy = y as i32 + (ky as i32 - kcy);
+                    let bx = (x as i32 + 1 + kx as i32 - kcx) as u32;
+                    let by = (y as i32 + 1 + ky as i32 - kcy) as u32;
 
-                    let sx = sx.clamp(0, w as i32 - 1) as u32;
-                    let sy = sy.clamp(0, h as i32 - 1) as u32;
-
-                    let pixel = pix.get_pixel_unchecked(sx, sy) as f32;
-                    sum_h += pixel * h_kernel.get(kx, ky).unwrap_or(0.0);
-                    sum_v += pixel * v_kernel.get(kx, ky).unwrap_or(0.0);
+                    let pixel = bordered.get_pixel_unchecked(bx, by) as i32;
+                    sum_h += pixel * h_kernel.get(kx, ky).unwrap_or(0.0) as i32;
+                    sum_v += pixel * v_kernel.get(kx, ky).unwrap_or(0.0) as i32;
                 }
             }
 
-            // Magnitude using fast L1 (Manhattan) norm |h| + |v|.
-            // For a more standard Sobel magnitude, use Euclidean sqrt(h*h + v*v)
-            // instead, at the cost of an extra sqrt per pixel.
-            let magnitude = sum_h.abs() + sum_v.abs();
-            let result = magnitude.clamp(0.0, 255.0) as u32;
+            // Normalise each component by >>3, then sum with L_MIN(255, gx+gy)
+            let gx = sum_v.abs() >> 3;
+            let gy = sum_h.abs() >> 3;
+            let result = (gx + gy).min(255) as u32;
             out_mut.set_pixel_unchecked(x, y, result);
         }
     }
