@@ -28,6 +28,17 @@ mod params;
 
 pub use error::{TestError, TestResult};
 pub use params::{RegParams, RegTestMode};
+use std::collections::HashMap;
+use std::sync::{OnceLock, RwLock};
+
+fn image_cache() -> &'static RwLock<HashMap<String, leptonica::Pix>> {
+    static CACHE: OnceLock<RwLock<HashMap<String, leptonica::Pix>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+pub fn is_display_mode() -> bool {
+    matches!(RegTestMode::from_env(), RegTestMode::Display)
+}
 
 /// Load a test image from the test data directory
 ///
@@ -40,10 +51,21 @@ pub use params::{RegParams, RegTestMode};
 /// The loaded image, or an error if loading fails.
 pub fn load_test_image(name: &str) -> TestResult<leptonica::Pix> {
     let path = test_data_path(name);
-    leptonica::io::read_image(&path).map_err(|e| TestError::ImageLoad {
+    if let Ok(cache) = image_cache().read()
+        && let Some(pix) = cache.get(&path)
+    {
+        return Ok(pix.deep_clone());
+    }
+
+    let pix = leptonica::io::read_image(&path).map_err(|e| TestError::ImageLoad {
         path: path.clone(),
         message: e.to_string(),
-    })
+    })?;
+
+    if let Ok(mut cache) = image_cache().write() {
+        cache.insert(path, pix.clone());
+    }
+    Ok(pix)
 }
 
 /// Get the path to the workspace root

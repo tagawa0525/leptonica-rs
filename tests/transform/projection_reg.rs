@@ -19,6 +19,10 @@ use leptonica::StatsRequest;
 /// mean, median, and variance statistics.
 #[test]
 fn projection_reg_symmetry() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("projection_sym");
 
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");

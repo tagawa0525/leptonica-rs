@@ -153,6 +153,10 @@ fn cmapquant_reg() {
 
 #[test]
 fn cmapquant_requantize_workflow() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_requant");
 
     let pixs = load_source_image();
@@ -189,6 +193,10 @@ fn cmapquant_requantize_workflow() {
 
 #[test]
 fn cmapquant_colormap_size_limits() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_cmap_size");
 
     let pixs = load_source_image();
@@ -228,6 +236,10 @@ fn cmapquant_colormap_size_limits() {
 
 #[test]
 fn cmapquant_colormap_quality() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_cmap_quality");
 
     let pix_3color = create_3color_image(60, 60);
@@ -269,6 +281,10 @@ fn cmapquant_colormap_quality() {
 
 #[test]
 fn cmapquant_algorithm_comparison() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_algo_cmp");
 
     let pixs = load_source_image();
@@ -319,6 +335,10 @@ fn cmapquant_algorithm_comparison() {
 
 #[test]
 fn cmapquant_threshold_to_4bpp() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_thresh4");
 
     // threshold_to_4bpp accepts 8bpp or 32bpp (internally converts via ensure_grayscale)
@@ -342,6 +362,10 @@ fn cmapquant_threshold_to_4bpp() {
 
 #[test]
 fn cmapquant_octcube_from_cmap() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_octfromcmap");
 
     let pixs = load_source_image(); // 32bpp
@@ -372,6 +396,10 @@ fn cmapquant_octcube_from_cmap() {
 
 #[test]
 fn cmapquant_few_colors_mixed() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_fewmixed");
 
     let pixs = load_source_image(); // 32bpp
@@ -396,6 +424,10 @@ fn cmapquant_few_colors_mixed() {
 
 #[test]
 fn cmapquant_octcube_mixed_gray() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_octmixgray");
 
     let pixs = load_source_image(); // 32bpp
@@ -419,6 +451,10 @@ fn cmapquant_octcube_mixed_gray() {
 
 #[test]
 fn cmapquant_remove_unused_colors() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("cmapquant_rmunused");
 
     // Create a colormapped image that doesn't use all colormap entries

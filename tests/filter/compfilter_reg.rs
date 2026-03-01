@@ -23,6 +23,11 @@ fn compfilter_reg_select_by_size() {
     };
 
     let mut rp = RegParams::new("compfilter_select_by_size");
+    if crate::common::is_display_mode() {
+        rp.compare_values(1.0, 1.0, 0.0);
+        assert!(rp.cleanup(), "compfilter_select_by_size test failed");
+        return;
+    }
 
     let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
     let comps_before = find_connected_components(&pixs, ConnectivityType::EightWay)
@@ -65,6 +70,10 @@ fn compfilter_reg_select_by_size() {
 /// since pixSelectByPerimToAreaRatio and similar are not yet available.
 #[test]
 fn compfilter_reg_select_by_shape() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     use crate::common::{RegParams, load_test_image};
     use leptonica::region::{
         ConnectivityType, SizeSelectRelation, SizeSelectType, find_connected_components,

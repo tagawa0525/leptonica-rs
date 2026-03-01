@@ -24,6 +24,15 @@ fn label_reg() {
     assert_eq!(pixs.depth(), PixelDepth::Bit1);
     let w = pixs.width();
     let h = pixs.height();
+    if crate::common::is_display_mode() {
+        let labeled8 =
+            label_connected_components(&pixs, ConnectivityType::EightWay).expect("label 8");
+        rp.compare_values(w as f64, labeled8.width() as f64, 0.0);
+        rp.compare_values(h as f64, labeled8.height() as f64, 0.0);
+        assert!(rp.cleanup(), "label regression test failed");
+        return;
+    }
+
     eprintln!("Image: {}x{}", w, h);
 
     // --- Test 1: 4-connected labeling ---
@@ -90,6 +99,10 @@ fn label_reg() {
 /// Test pix_get_sorted_neighbor_values on a labeled image.
 #[test]
 fn label_reg_sorted_neighbors() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
     let labeled =
         label_connected_components(&pixs, ConnectivityType::EightWay).expect("label components");

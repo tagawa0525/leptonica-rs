@@ -10,8 +10,8 @@
 //! 5. Chain code encode/decode roundtrip preserves border points
 
 use crate::common::{RegParams, load_test_image};
-use leptonica::PixelDepth;
 use leptonica::region::{from_chain_code, get_all_borders, render_borders, to_chain_code};
+use leptonica::{Pix, PixelDepth};
 
 /// Equivalent of the C version's RunCCBordTest function.
 fn run_ccbord_test(fname: &str, rp: &mut RegParams) {
@@ -127,4 +127,42 @@ fn ccbord_reg_feyn_fract() {
         rp.cleanup(),
         "ccbord regression test (feyn-fract.tif) failed"
     );
+}
+
+/// Fast smoke test for benchmark mapping parity.
+///
+/// C version also runs dreyfus1.png in addition to feyn-fract.tif.
+#[test]
+fn ccbord_reg_dreyfus1_smoke() {
+    let mut rp = RegParams::new("ccbord_dreyfus1");
+
+    let pix = Pix::new(96, 96, PixelDepth::Bit1).expect("create image");
+    let mut pm = pix.try_into_mut().expect("mutable image");
+    for y in 10..30u32 {
+        for x in 10..28u32 {
+            pm.set_pixel_unchecked(x, y, 1);
+        }
+    }
+    for y in 40..80u32 {
+        for x in 50..85u32 {
+            pm.set_pixel_unchecked(x, y, 1);
+        }
+    }
+    let pixs: Pix = pm.into();
+    let all_borders = get_all_borders(&pixs).expect("get_all_borders");
+    rp.compare_values(
+        1.0,
+        if all_borders.components.is_empty() {
+            0.0
+        } else {
+            1.0
+        },
+        0.0,
+    );
+
+    let rendered = render_borders(&all_borders).expect("render_borders");
+    rp.compare_values(pixs.width() as f64, rendered.width() as f64, 0.0);
+    rp.compare_values(pixs.height() as f64, rendered.height() as f64, 0.0);
+
+    assert!(rp.cleanup(), "ccbord dreyfus1 smoke test failed");
 }

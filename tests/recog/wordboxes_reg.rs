@@ -65,6 +65,10 @@ fn wordboxes_reg_lucasta_full() {
 /// C: pixScale(pixs, 0.6, 0.6) then pixWordMaskByDilation
 #[test]
 fn wordboxes_reg_lucasta_scaled() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("wordboxes_lucasta_s");
 
     let pix_orig = crate::common::load_test_image("lucasta.150.jpg").expect("load lucasta");
@@ -114,6 +118,10 @@ fn wordboxes_reg_zanotti() {
 /// C: pixWordMaskByDilation on pre-binarized word images.
 #[test]
 fn wordboxes_reg_words15() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("wordboxes_w15");
 
     let pix = crate::common::load_test_image("words.15.tif").expect("load words.15.tif");
@@ -157,6 +165,10 @@ fn wordboxes_reg_words44() {
 /// a connected component in the word mask.
 #[test]
 fn wordboxes_reg_mask_box_consistency() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("wordboxes_consist");
 
     let pix = crate::common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");

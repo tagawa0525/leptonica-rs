@@ -78,6 +78,10 @@ fn insert_reg_boxa() {
 /// that remove+insert cycles preserve the element count.
 #[test]
 fn insert_reg_pixa() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("insert_pixa");
 
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");

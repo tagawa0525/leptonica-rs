@@ -6,6 +6,7 @@ use leptonica::Pix;
 use leptonica::io::ImageFormat;
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
 
 /// Regression test mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -52,6 +53,18 @@ pub struct RegParams {
 }
 
 impl RegParams {
+    fn ensure_dirs() {
+        static DIRS_READY: OnceLock<()> = OnceLock::new();
+        DIRS_READY.get_or_init(|| {
+            if let Err(e) = fs::create_dir_all(golden_dir()) {
+                eprintln!("Warning: failed to create golden directory: {e}");
+            }
+            if let Err(e) = fs::create_dir_all(regout_dir()) {
+                eprintln!("Warning: failed to create regout directory: {e}");
+            }
+        });
+    }
+
     /// Create new regression test parameters
     ///
     /// # Arguments
@@ -65,19 +78,14 @@ impl RegParams {
     pub fn new(test_name: &str) -> Self {
         let mode = RegTestMode::from_env();
 
-        // Ensure directories exist
-        if let Err(e) = fs::create_dir_all(golden_dir()) {
-            eprintln!("Warning: failed to create golden directory: {e}");
+        Self::ensure_dirs();
+        if mode != RegTestMode::Display {
+            eprintln!();
+            eprintln!("////////////////////////////////////////////////");
+            eprintln!("////////////////   {}_reg   ///////////////", test_name);
+            eprintln!("////////////////////////////////////////////////");
+            eprintln!("Mode: {:?}", mode);
         }
-        if let Err(e) = fs::create_dir_all(regout_dir()) {
-            eprintln!("Warning: failed to create regout directory: {e}");
-        }
-
-        eprintln!();
-        eprintln!("////////////////////////////////////////////////");
-        eprintln!("////////////////   {}_reg   ///////////////", test_name);
-        eprintln!("////////////////////////////////////////////////");
-        eprintln!("Mode: {:?}", mode);
 
         Self {
             test_name: test_name.to_string(),
@@ -374,14 +382,17 @@ impl RegParams {
     /// `true` if all tests passed, `false` if any failed.
     pub fn cleanup(self) -> bool {
         if self.success {
-            eprintln!("SUCCESS: {}_reg", self.test_name);
+            if self.mode != RegTestMode::Display {
+                eprintln!("SUCCESS: {}_reg", self.test_name);
+                eprintln!();
+            }
         } else {
             eprintln!("FAILURE: {}_reg", self.test_name);
             for failure in &self.failures {
                 eprintln!("  {}", failure);
             }
+            eprintln!();
         }
-        eprintln!();
 
         self.success
     }

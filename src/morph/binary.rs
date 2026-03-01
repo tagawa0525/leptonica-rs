@@ -155,43 +155,71 @@ pub fn hit_miss_transform(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 
     let w = pix.width();
     let h = pix.height();
+    let wpl = pix.wpl() as usize;
 
     let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
+    // Initialize output to all 1s (for AND accumulation).
+    for word in out_mut.data_mut().iter_mut() {
+        *word = 0xFFFF_FFFF;
+    }
+
     let hit_offsets: Vec<_> = sel.hit_offsets().collect();
     let miss_offsets: Vec<_> = sel.miss_offsets().collect();
 
-    for y in 0..h {
-        for x in 0..w {
-            // Check if all hits match foreground
-            let hits_match = hit_offsets.iter().all(|&(dx, dy)| {
-                let sx = x as i32 + dx;
-                let sy = y as i32 + dy;
-                if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    pix.get_pixel_unchecked(sx as u32, sy as u32) != 0
-                } else {
-                    false
-                }
-            });
+    {
+        // Clear unused padding bits in source to prevent them from shifting
+        // into the valid region during horizontal bit shifts.
+        let mut src_owned = pix.data().to_vec();
+        clear_unused_bits(&mut src_owned, w, wpl);
+        let src_data = &src_owned;
+        let dst_data = out_mut.data_mut();
 
-            // Check if all misses match background
-            let misses_match = miss_offsets.iter().all(|&(dx, dy)| {
-                let sx = x as i32 + dx;
-                let sy = y as i32 + dy;
-                if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-                    pix.get_pixel_unchecked(sx as u32, sy as u32) == 0
-                } else {
-                    true // Outside is background
-                }
-            });
+        // Hits: out &= shifted(src), with outside treated as 0.
+        for &(dx, dy) in &hit_offsets {
+            for y in 0..h as i32 {
+                let src_y = y + dy;
+                let dst_start = y as usize * wpl;
 
-            if hits_match && misses_match {
-                out_mut.set_pixel_unchecked(x, y, 1);
+                if src_y < 0 || src_y >= h as i32 {
+                    // Outside rows are 0 => clear destination row.
+                    for w in 0..wpl {
+                        dst_data[dst_start + w] = 0;
+                    }
+                    continue;
+                }
+
+                let src_start = src_y as usize * wpl;
+                shift_and_row(
+                    &mut dst_data[dst_start..dst_start + wpl],
+                    &src_data[src_start..src_start + wpl],
+                    -dx,
+                );
+            }
+        }
+
+        // Misses: out &= !shifted(src), with outside treated as 1.
+        for &(dx, dy) in &miss_offsets {
+            for y in 0..h as i32 {
+                let src_y = y + dy;
+                if src_y < 0 || src_y >= h as i32 {
+                    // Outside rows are 1 => no-op for AND.
+                    continue;
+                }
+
+                let dst_start = y as usize * wpl;
+                let src_start = src_y as usize * wpl;
+                shift_and_not_row(
+                    &mut dst_data[dst_start..dst_start + wpl],
+                    &src_data[src_start..src_start + wpl],
+                    -dx,
+                );
             }
         }
     }
 
+    clear_unused_bits(out_mut.data_mut(), w, wpl);
     Ok(out_mut.into())
 }
 
@@ -681,6 +709,64 @@ fn shift_and_row(dst: &mut [u32], src: &[u32], shift: i32) {
         // Clear words after the valid range (AND with 0)
         for i in end..wpl {
             dst[i] = 0;
+        }
+    }
+}
+
+/// Shift src row by `shift` pixels, bitwise-NOT it, and AND into dst.
+///
+/// Out-of-bounds positions are treated as 1 (background for miss conditions),
+/// so words fully outside the valid shifted range are left unchanged.
+#[allow(clippy::needless_range_loop)]
+fn shift_and_not_row(dst: &mut [u32], src: &[u32], shift: i32) {
+    let wpl = dst.len();
+
+    if shift == 0 {
+        for i in 0..wpl {
+            dst[i] &= !src[i];
+        }
+        return;
+    }
+
+    let abs_shift = shift.unsigned_abs() as usize;
+    let word_shift = abs_shift / 32;
+    let bit_shift = (abs_shift % 32) as u32;
+
+    if word_shift >= wpl {
+        // Entire row shifts out of bounds; miss condition is true everywhere.
+        return;
+    }
+
+    if shift > 0 {
+        // Valid range: dst[word_shift..wpl]
+        if bit_shift == 0 {
+            for i in word_shift..wpl {
+                dst[i] &= !src[i - word_shift];
+            }
+        } else {
+            dst[word_shift] &= !(src[0] >> bit_shift);
+            for i in (word_shift + 1)..wpl {
+                let si = i - word_shift;
+                let shifted = (src[si] >> bit_shift) | (src[si - 1] << (32 - bit_shift));
+                dst[i] &= !shifted;
+            }
+        }
+    } else {
+        // Valid range: dst[0..wpl-word_shift]
+        let end = wpl - word_shift;
+        if bit_shift == 0 {
+            for i in 0..end {
+                dst[i] &= !src[i + word_shift];
+            }
+        } else {
+            for i in 0..end.saturating_sub(1) {
+                let si = i + word_shift;
+                let shifted = (src[si] << bit_shift) | (src[si + 1] >> (32 - bit_shift));
+                dst[i] &= !shifted;
+            }
+            if end > 0 {
+                dst[end - 1] &= !(src[wpl - 1] << bit_shift);
+            }
         }
     }
 }

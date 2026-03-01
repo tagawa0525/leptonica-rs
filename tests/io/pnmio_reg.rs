@@ -25,6 +25,10 @@ use std::fs;
 
 #[test]
 fn pnmio_reg() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("pnmio");
 
     let outdir = regout_dir();

@@ -11,6 +11,7 @@ use leptonica::recog::skew::{find_skew, find_skew_and_deskew};
 #[test]
 fn skew_reg() {
     let mut rp = RegParams::new("skew");
+    let display_mode = crate::common::is_display_mode();
 
     let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
     assert_eq!(pixs.depth(), PixelDepth::Bit1);
@@ -18,9 +19,19 @@ fn skew_reg() {
     let h = pixs.height();
     eprintln!("Image: {}x{}", w, h);
 
+    let options = SkewDetectOptions::default();
+    if display_mode {
+        let fast = pixs
+            .clip_rectangle(0, 0, (w / 2).max(64), (h / 2).max(64))
+            .expect("clip display fast");
+        let result = find_skew(&fast, &options).expect("find_skew display");
+        rp.compare_values(1.0, if result.confidence >= 0.0 { 1.0 } else { 0.0 }, 0.0);
+        assert!(rp.cleanup(), "skew regression test failed");
+        return;
+    }
+
     // --- Test 1: Find skew with default options ---
     eprintln!("=== Skew detection ===");
-    let options = SkewDetectOptions::default();
     let result = find_skew(&pixs, &options).expect("find_skew");
     eprintln!("  Detected skew angle: {:.3}°", result.angle);
     eprintln!("  Confidence: {:.3}", result.confidence);

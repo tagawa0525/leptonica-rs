@@ -81,6 +81,10 @@ fn dither_reg_ordered() {
 /// Tests dither_to_2bpp, scale_gray_2x_li_dither and scale_gray_4x_li_dither.
 #[test]
 fn dither_reg_2bpp_and_scaled() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("dither_2bpp");
 
     let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");

@@ -342,6 +342,7 @@ impl JbClasser {
     pub fn classify_rank_haus(&mut self, pix: &Pix) -> RecogResult<usize> {
         let w = pix.width() as i32;
         let h = pix.height() as i32;
+        let key = (w, h);
 
         // Add border for processing
         let bordered = add_border(pix, TEMPLATE_BORDER as u32)?;
@@ -350,31 +351,44 @@ impl JbClasser {
         let dilated =
             morph_binary::dilate_brick(&bordered, self.size_haus as u32, self.size_haus as u32)
                 .map_err(RecogError::Morph)?;
+        let bordered_area = if self.rank_haus < 1.0 {
+            Some(count_fg_pixels(&bordered)?)
+        } else {
+            None
+        };
 
         // Look for matching template
-        for (class_idx, template) in self.pixat.iter().enumerate() {
-            let tw = template.width() as i32 - 2 * TEMPLATE_BORDER;
-            let th = template.height() as i32 - 2 * TEMPLATE_BORDER;
-
-            // Size must be similar
-            if (tw - w).abs() > MAX_DIFF_WIDTH || (th - h).abs() > MAX_DIFF_HEIGHT {
-                continue;
-            }
-
-            // Check Hausdorff match
-            let template_dilated = &self.pixatd[class_idx];
-            if hausdorff_match(
-                &bordered,
-                &dilated,
-                template,
-                template_dilated,
-                self.rank_haus,
-            )? {
-                // Match found - add to existing class
-                if self.keep_pixaa {
-                    self.pixaa[class_idx].push(pix.clone());
+        for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
+            for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
+                if let Some(candidates) = self.dahash.get(&(key.0 + dw, key.1 + dh)) {
+                    for &class_idx in candidates {
+                        if class_idx >= self.pixat.len() || class_idx >= self.pixatd.len() {
+                            continue;
+                        }
+                        let template = &self.pixat[class_idx];
+                        let template_dilated = &self.pixatd[class_idx];
+                        let template_area = if self.rank_haus < 1.0 {
+                            self.nafgt.get(class_idx).copied()
+                        } else {
+                            None
+                        };
+                        if hausdorff_match_with_areas(
+                            &bordered,
+                            &dilated,
+                            template,
+                            template_dilated,
+                            self.rank_haus,
+                            bordered_area,
+                            template_area,
+                        )? {
+                            // Match found - add to existing class
+                            if self.keep_pixaa {
+                                self.pixaa[class_idx].push(pix.clone());
+                            }
+                            return Ok(class_idx);
+                        }
+                    }
                 }
-                return Ok(class_idx);
             }
         }
 
@@ -412,6 +426,7 @@ impl JbClasser {
     pub fn classify_correlation(&mut self, pix: &Pix) -> RecogResult<usize> {
         let w = pix.width() as i32;
         let h = pix.height() as i32;
+        let key = (w, h);
 
         // Add border for alignment
         let bordered = add_border(pix, TEMPLATE_BORDER as u32)?;
@@ -424,35 +439,40 @@ impl JbClasser {
             pix_area as f32 / ((w + 2 * TEMPLATE_BORDER) * (h + 2 * TEMPLATE_BORDER)) as f32;
         let effective_thresh = self.thresh + self.weight_factor * fill_factor;
 
-        // Look for matching template
-        for (class_idx, template) in self.pixat.iter().enumerate() {
-            let tw = template.width() as i32 - 2 * TEMPLATE_BORDER;
-            let th = template.height() as i32 - 2 * TEMPLATE_BORDER;
+        // Look for matching template (hashed by similar sizes)
+        for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
+            for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
+                if let Some(candidates) = self.dahash.get(&(key.0 + dw, key.1 + dh)) {
+                    for &class_idx in candidates {
+                        if class_idx >= self.pixat.len()
+                            || class_idx >= self.ptact.len()
+                            || class_idx >= self.naarea.len()
+                        {
+                            continue;
+                        }
+                        let template = &self.pixat[class_idx];
+                        let templ_area = self.naarea[class_idx];
+                        let templ_centroid = self.ptact[class_idx];
 
-            // Size must be similar
-            if (tw - w).abs() > MAX_DIFF_WIDTH || (th - h).abs() > MAX_DIFF_HEIGHT {
-                continue;
-            }
+                        // Compute correlation score
+                        let score = correlation_score_aligned(
+                            &bordered,
+                            template,
+                            pix_centroid,
+                            templ_centroid,
+                            pix_area,
+                            templ_area,
+                        )?;
 
-            let templ_area = self.naarea[class_idx];
-            let templ_centroid = self.ptact[class_idx];
-
-            // Compute correlation score
-            let score = correlation_score_aligned(
-                &bordered,
-                template,
-                pix_centroid,
-                templ_centroid,
-                pix_area,
-                templ_area,
-            )?;
-
-            if score >= effective_thresh {
-                // Match found
-                if self.keep_pixaa {
-                    self.pixaa[class_idx].push(pix.clone());
+                        if score >= effective_thresh {
+                            // Match found
+                            if self.keep_pixaa {
+                                self.pixaa[class_idx].push(pix.clone());
+                            }
+                            return Ok(class_idx);
+                        }
+                    }
                 }
-                return Ok(class_idx);
             }
         }
 
@@ -539,9 +559,7 @@ impl JbClasser {
                 for inst in instances {
                     for y in 0..inst.height().min(max_h) {
                         for x in 0..inst.width().min(max_w) {
-                            if let Some(val) = inst.get_pixel(x, y)
-                                && val == 1
-                            {
+                            if inst.get_pixel_unchecked(x, y) == 1 {
                                 accum[(y * max_w + x) as usize] += 1;
                             }
                         }
@@ -555,7 +573,7 @@ impl JbClasser {
                 for y in 0..max_h {
                     for x in 0..max_w {
                         if accum[(y * max_w + x) as usize] > threshold {
-                            let _ = template_mut.set_pixel(x, y, 1);
+                            template_mut.set_pixel_unchecked(x, y, 1);
                         }
                     }
                 }
@@ -667,8 +685,20 @@ pub fn hausdorff_distance(pix1: &Pix, pix2: &Pix, size: i32, rank: f32) -> Recog
 
 /// Checks if two images match using Hausdorff criterion
 fn hausdorff_match(pix1: &Pix, dil1: &Pix, pix2: &Pix, dil2: &Pix, rank: f32) -> RecogResult<bool> {
+    hausdorff_match_with_areas(pix1, dil1, pix2, dil2, rank, None, None)
+}
+
+fn hausdorff_match_with_areas(
+    pix1: &Pix,
+    dil1: &Pix,
+    pix2: &Pix,
+    dil2: &Pix,
+    rank: f32,
+    area1: Option<i32>,
+    area2: Option<i32>,
+) -> RecogResult<bool> {
     // Forward direction: pix1 fg must be covered by dil2
-    let fg1 = count_fg_pixels(pix1)?;
+    let fg1 = area1.unwrap_or(count_fg_pixels(pix1)?);
     let covered1 = count_and_pixels(pix1, dil2)?;
     let ratio1 = covered1 as f32 / fg1.max(1) as f32;
 
@@ -677,7 +707,7 @@ fn hausdorff_match(pix1: &Pix, dil1: &Pix, pix2: &Pix, dil2: &Pix, rank: f32) ->
     }
 
     // Reverse direction: pix2 fg must be covered by dil1
-    let fg2 = count_fg_pixels(pix2)?;
+    let fg2 = area2.unwrap_or(count_fg_pixels(pix2)?);
     let covered2 = count_and_pixels(pix2, dil1)?;
     let ratio2 = covered2 as f32 / fg2.max(1) as f32;
 
@@ -706,17 +736,14 @@ fn correlation_score_aligned(
 
     for y1 in 0..h1 {
         for x1 in 0..w1 {
-            if let Some(v1) = pix1.get_pixel(x1 as u32, y1 as u32)
-                && v1 == 1
-            {
+            if pix1.get_pixel_unchecked(x1 as u32, y1 as u32) == 1 {
                 let x2 = x1 + dx;
                 let y2 = y1 + dy;
                 if x2 >= 0
                     && x2 < w2
                     && y2 >= 0
                     && y2 < h2
-                    && let Some(v2) = pix2.get_pixel(x2 as u32, y2 as u32)
-                    && v2 == 1
+                    && pix2.get_pixel_unchecked(x2 as u32, y2 as u32) == 1
                 {
                     and_count += 1;
                 }
@@ -739,13 +766,12 @@ fn extract_rect(pix: &Pix, pix_box: &PixBox) -> RecogResult<Pix> {
 
     for y in 0..h {
         for x in 0..w {
-            let src_x = pix_box.x as u32 + x;
-            let src_y = pix_box.y as u32 + y;
-            if src_x < pix.width()
-                && src_y < pix.height()
-                && let Some(val) = pix.get_pixel(src_x, src_y)
+            let src_x = pix_box.x + x as i32;
+            let src_y = pix_box.y + y as i32;
+            if src_x >= 0 && src_x < pix.width() as i32 && src_y >= 0 && src_y < pix.height() as i32
             {
-                let _ = result_mut.set_pixel(x, y, val);
+                let val = pix.get_pixel_unchecked(src_x as u32, src_y as u32);
+                result_mut.set_pixel_unchecked(x, y, val);
             }
         }
     }
@@ -763,9 +789,8 @@ fn add_border(pix: &Pix, border: u32) -> RecogResult<Pix> {
 
     for y in 0..pix.height() {
         for x in 0..pix.width() {
-            if let Some(val) = pix.get_pixel(x, y) {
-                let _ = result_mut.set_pixel(x + border, y + border, val);
-            }
+            let val = pix.get_pixel_unchecked(x, y);
+            result_mut.set_pixel_unchecked(x + border, y + border, val);
         }
     }
 
@@ -776,13 +801,11 @@ fn add_border(pix: &Pix, border: u32) -> RecogResult<Pix> {
 fn copy_to(dst: &mut crate::core::PixMut, src: &Pix, x: i32, y: i32) -> RecogResult<()> {
     for sy in 0..src.height() {
         for sx in 0..src.width() {
-            if let Some(val) = src.get_pixel(sx, sy)
-                && val == 1
-            {
+            if src.get_pixel_unchecked(sx, sy) == 1 {
                 let dx = x + sx as i32;
                 let dy = y + sy as i32;
                 if dx >= 0 && (dx as u32) < dst.width() && dy >= 0 && (dy as u32) < dst.height() {
-                    let _ = dst.set_pixel(dx as u32, dy as u32, 1);
+                    dst.set_pixel_unchecked(dx as u32, dy as u32, 1);
                 }
             }
         }
@@ -800,9 +823,7 @@ fn compute_centroid(pix: &Pix) -> RecogResult<(f32, f32)> {
 
     for y in 0..h {
         for x in 0..w {
-            if let Some(val) = pix.get_pixel(x, y)
-                && val == 1
-            {
+            if pix.get_pixel_unchecked(x, y) == 1 {
                 sum_x += x as i64;
                 sum_y += y as i64;
                 count += 1;
@@ -822,9 +843,7 @@ fn count_fg_pixels(pix: &Pix) -> RecogResult<i32> {
     let mut count = 0i32;
     for y in 0..pix.height() {
         for x in 0..pix.width() {
-            if let Some(val) = pix.get_pixel(x, y)
-                && val == 1
-            {
+            if pix.get_pixel_unchecked(x, y) == 1 {
                 count += 1;
             }
         }
@@ -839,8 +858,8 @@ fn count_and_pixels(pix1: &Pix, pix2: &Pix) -> RecogResult<i32> {
 
     for y in 0..h {
         for x in 0..w {
-            let v1 = pix1.get_pixel(x, y).unwrap_or(0);
-            let v2 = pix2.get_pixel(x, y).unwrap_or(0);
+            let v1 = pix1.get_pixel_unchecked(x, y);
+            let v2 = pix2.get_pixel_unchecked(x, y);
             if v1 == 1 && v2 == 1 {
                 count += 1;
             }
@@ -959,35 +978,33 @@ pub fn add_page_components(
 /// Try to match a component to an existing RankHaus template
 fn try_match_rank_haus(classer: &JbClasser, bordered: &Pix) -> Option<usize> {
     let key = (bordered.width() as i32, bordered.height() as i32);
-    let candidates = classer.dahash.get(&key)?;
-    for &id in candidates {
-        if id < classer.pixatd.len()
-            && hausdorff_distance(
-                bordered,
-                &classer.pixat[id],
-                classer.size_haus,
-                classer.rank_haus,
-            )
-            .unwrap_or(false)
-        {
-            return Some(id);
-        }
-    }
-    // Also check nearby sizes
+    let bordered_dilated =
+        morph_binary::dilate_brick(bordered, classer.size_haus as u32, classer.size_haus as u32)
+            .ok()?;
+    let bordered_area = if classer.rank_haus < 1.0 {
+        count_fg_pixels(bordered).ok()
+    } else {
+        None
+    };
     for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
         for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
-            if dw == 0 && dh == 0 {
-                continue;
-            }
             let key2 = (key.0 + dw, key.1 + dh);
             if let Some(candidates) = classer.dahash.get(&key2) {
                 for &id in candidates {
                     if id < classer.pixatd.len()
-                        && hausdorff_distance(
+                        && id < classer.pixat.len()
+                        && hausdorff_match_with_areas(
                             bordered,
+                            &bordered_dilated,
                             &classer.pixat[id],
-                            classer.size_haus,
+                            &classer.pixatd[id],
                             classer.rank_haus,
+                            bordered_area,
+                            if classer.rank_haus < 1.0 {
+                                classer.nafgt.get(id).copied()
+                            } else {
+                                None
+                            },
                         )
                         .unwrap_or(false)
                     {

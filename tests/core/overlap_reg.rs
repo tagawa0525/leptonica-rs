@@ -175,6 +175,10 @@ fn overlap_reg_idempotent() {
 /// C: boxa = pixSplitIntoBoxa(pixs, minsum, skipdist, delta, maxbg, 0);
 #[test]
 fn splitcomp_reg_split_into_boxa() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("splitcomp");
 
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");

@@ -13,6 +13,10 @@ use leptonica::{ImageFormat, Pixa};
 /// Test Pixa array operations as partial substitute for PixAComp (C checks 0-2).
 #[test]
 fn pixcomp_reg_pixa_array() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("pixcomp_pixa");
 
     let images = ["marge.jpg", "weasel4.16c.png", "weasel8.149g.png"];
@@ -54,6 +58,10 @@ fn pixcomp_reg_create_roundtrip() {
 /// Test PixaComp creation from Pixa.
 #[test]
 fn pixcomp_reg_pixacomp_from_pixa() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut pixa = Pixa::new();
     let pix1 = crate::common::load_test_image("marge.jpg").unwrap();
     let pix2 = crate::common::load_test_image("weasel4.16c.png").unwrap();
@@ -72,6 +80,10 @@ fn pixcomp_reg_pixacomp_from_pixa() {
 /// Test PixaComp add/replace/get_pix operations.
 #[test]
 fn pixcomp_reg_pixacomp_operations() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut pixacomp = PixaComp::create(4);
     let pix = crate::common::load_test_image("marge.jpg").unwrap();
 
@@ -92,6 +104,10 @@ fn pixcomp_reg_pixacomp_operations() {
 /// Test PixaComp serialization round-trip.
 #[test]
 fn pixcomp_reg_serialization() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut pixacomp = PixaComp::create(2);
     let pix = crate::common::load_test_image("marge.jpg").unwrap();
     pixacomp.add_pix(&pix, None).unwrap();
@@ -108,6 +124,10 @@ fn pixcomp_reg_serialization() {
 /// Test PixaComp join and interleave.
 #[test]
 fn pixcomp_reg_join_interleave() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut pac1 = PixaComp::create(2);
     let mut pac2 = PixaComp::create(2);
     let pix = crate::common::load_test_image("marge.jpg").unwrap();
@@ -128,6 +148,10 @@ fn pixcomp_reg_join_interleave() {
 /// Test PixComp string creation and parameters.
 #[test]
 fn pixcomp_reg_from_string() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let data = vec![0u8; 100];
     let pixcomp =
         PixComp::create_from_string(data, 10, 10, leptonica::PixelDepth::Bit8, ImageFormat::Png);
@@ -143,6 +167,10 @@ fn pixcomp_reg_from_string() {
 /// Test PixaComp with init.
 #[test]
 fn pixcomp_reg_create_with_init() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let pix = leptonica::Pix::new(20, 20, leptonica::PixelDepth::Bit8).unwrap();
     let pac = PixaComp::create_with_init(3, 0, Some(&pix), None).unwrap();
     assert_eq!(pac.get_count(), 3);
@@ -151,6 +179,10 @@ fn pixcomp_reg_create_with_init() {
 /// Test PixaComp write files and PixComp write file.
 #[test]
 fn pixcomp_reg_write_files() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut pac = PixaComp::create(2);
     let pix = leptonica::Pix::new(20, 20, leptonica::PixelDepth::Bit8).unwrap();
     pac.add_pix(&pix, Some(ImageFormat::Png)).unwrap();

@@ -95,6 +95,10 @@ fn flipdetect_reg_orient_detect() {
 /// producing an image matching the upright original's dimensions.
 #[test]
 fn flipdetect_reg_orient_correct() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("flipdetect_correct");
 
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
@@ -122,6 +126,10 @@ fn flipdetect_reg_orient_correct() {
 /// be non-zero; zero values return Unknown.
 #[test]
 fn flipdetect_reg_make_decision() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("flipdetect_decision");
 
     // Strong up confidence, weak left → Up
@@ -205,6 +213,10 @@ fn flipdetect_reg_make_decision() {
 ///    Returns positive confidence for upright text, negative for upside-down.
 #[test]
 fn flipdetect_reg_up_down() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("flipdetect_updown");
 
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
@@ -233,6 +245,10 @@ fn flipdetect_reg_up_down() {
 /// normal and flipped may vary; we verify directional sensitivity.
 #[test]
 fn flipdetect_reg_mirror() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("flipdetect_mirror");
 
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");

@@ -20,7 +20,7 @@
 //!
 //! Based on Leptonica's `ccthin.c` implementation.
 
-use crate::core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth, RopOp};
 use crate::morph::thin_sels::{ThinSelSet, make_thin_sels};
 use crate::morph::{MorphError, MorphResult, Sel, hit_miss_transform};
 
@@ -160,29 +160,31 @@ pub fn thin_connected_by_set(
         invert(pix)?
     };
 
+    // Precompute all 4 orthogonal rotations once, like C's per-rotation SEL usage.
+    let rotated_sels_by_rotation: Vec<Vec<Sel>> = (0..4)
+        .map(|rotation| sels.iter().map(|sel| sel.rotate_orth(rotation)).collect())
+        .collect();
+
     // Thin the foreground with up to max_iters iterations
     for _iter in 0..max_iters {
         let pix_prev = pixd.clone();
 
         // For each of 4 rotations
-        for rotation in 0..4 {
-            // Compute HMT for each SEL and accumulate
-            let mut accumulated: Option<Pix> = None;
+        for rotation_sels in &rotated_sels_by_rotation {
+            let mut hmt_iter = rotation_sels.iter();
+            let first_sel = hmt_iter
+                .next()
+                .expect("thin_connected_by_set requires non-empty SEL set");
 
-            for sel in sels {
-                let rotated_sel = sel.rotate_orth(rotation);
-                let hmt_result = hit_miss_transform(&pixd, &rotated_sel)?;
-
-                accumulated = Some(match accumulated {
-                    None => hmt_result,
-                    Some(acc) => or_images(&acc, &hmt_result)?,
-                });
+            // Accumulate HMT results in place to avoid repeated image allocations.
+            let accumulated = hit_miss_transform(&pixd, first_sel)?;
+            let mut accumulated_mut = accumulated.try_into_mut().unwrap();
+            for sel in hmt_iter {
+                let hmt_result = hit_miss_transform(&pixd, sel)?;
+                accumulated_mut.or_inplace(&hmt_result)?;
             }
-
-            // Subtract accumulated result from image
-            if let Some(acc) = accumulated {
-                pixd = subtract_images(&pixd, &acc)?;
-            }
+            let accumulated: Pix = accumulated_mut.into();
+            pixd = subtract_images(&pixd, &accumulated)?;
         }
 
         // Check for convergence
@@ -205,80 +207,23 @@ pub fn thin_connected_by_set(
 
 /// Invert a binary image
 fn invert(pix: &Pix) -> MorphResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel_unchecked(x, y);
-            let inverted = if val == 0 { 1 } else { 0 };
-            out_mut.set_pixel_unchecked(x, y, inverted);
-        }
-    }
-
-    Ok(out_mut.into())
+    Ok(pix.invert())
 }
 
 /// OR two binary images
+#[cfg(test)]
 fn or_images(a: &Pix, b: &Pix) -> MorphResult<Pix> {
-    let w = a.width();
-    let h = a.height();
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let va = a.get_pixel_unchecked(x, y);
-            let vb = b.get_pixel_unchecked(x, y);
-            let result = if va != 0 || vb != 0 { 1 } else { 0 };
-            out_mut.set_pixel_unchecked(x, y, result);
-        }
-    }
-
-    Ok(out_mut.into())
+    Ok(a.or(b)?)
 }
 
 /// Subtract two binary images (a AND NOT b)
 fn subtract_images(a: &Pix, b: &Pix) -> MorphResult<Pix> {
-    let w = a.width();
-    let h = a.height();
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let va = a.get_pixel_unchecked(x, y);
-            let vb = b.get_pixel_unchecked(x, y);
-            let result = if va != 0 && vb == 0 { 1 } else { 0 };
-            out_mut.set_pixel_unchecked(x, y, result);
-        }
-    }
-
-    Ok(out_mut.into())
+    Ok(a.rop(b, RopOp::AndNotSrc)?)
 }
 
 /// Check if two binary images are equal
 fn images_equal(a: &Pix, b: &Pix) -> bool {
-    if a.width() != b.width() || a.height() != b.height() {
-        return false;
-    }
-
-    for y in 0..a.height() {
-        for x in 0..a.width() {
-            let va = a.get_pixel_unchecked(x, y);
-            let vb = b.get_pixel_unchecked(x, y);
-            if va != vb {
-                return false;
-            }
-        }
-    }
-
-    true
+    a.equals(b)
 }
 
 /// Extract connected components that touch the border

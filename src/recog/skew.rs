@@ -533,13 +533,31 @@ fn threshold_to_binary(pix: &Pix, threshold: u32) -> RecogResult<Pix> {
 
 /// Check if image is empty (all white/zero pixels)
 fn is_image_empty(pix: &Pix) -> bool {
-    let w = pix.width();
-    let h = pix.height();
+    if pix.depth() == PixelDepth::Bit1 {
+        let w = pix.width();
+        let wpl = pix.wpl() as usize;
+        let bits_used = w % 32;
+        let full_words = (w / 32) as usize;
+        let end_mask = if bits_used == 0 {
+            0xFFFF_FFFF
+        } else {
+            !((1u32 << (32 - bits_used)) - 1)
+        };
+        for y in 0..pix.height() {
+            let line = pix.row_data(y);
+            if line[..full_words].iter().any(|&word| word != 0) {
+                return false;
+            }
+            if bits_used != 0 && full_words < wpl && (line[full_words] & end_mask) != 0 {
+                return false;
+            }
+        }
+        return true;
+    }
 
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel_unchecked(x, y);
-            if val != 0 {
+    for y in 0..pix.height() {
+        for x in 0..pix.width() {
+            if pix.get_pixel_unchecked(x, y) != 0 {
                 return false;
             }
         }
@@ -708,13 +726,6 @@ fn vertical_shear(pix: &Pix, angle_deg: f32) -> RecogResult<Pix> {
     let sheared = Pix::new(w, new_h, pix.depth())?;
     let mut sheared_mut = sheared.try_into_mut().unwrap();
 
-    // Fill with white (0 for binary)
-    for y in 0..new_h {
-        for x in 0..w {
-            sheared_mut.set_pixel_unchecked(x, y, 0);
-        }
-    }
-
     // Apply vertical shear: y' = y + x * tan(angle)
     let y_offset = if tan_a < 0.0 { max_shear } else { 0 };
 
@@ -737,23 +748,46 @@ fn vertical_shear(pix: &Pix, angle_deg: f32) -> RecogResult<Pix> {
 /// Compute differential square sum score
 /// This measures how well text lines are aligned horizontally
 fn compute_differential_square_sum(pix: &Pix) -> f64 {
-    let w = pix.width();
     let h = pix.height();
 
     // Count pixels per row
     let mut row_sums: Vec<u32> = Vec::with_capacity(h as usize);
-    for y in 0..h {
-        let mut sum = 0u32;
-        for x in 0..w {
-            let val = pix.get_pixel_unchecked(x, y);
-            if val != 0 {
-                sum += 1;
+    if pix.depth() == PixelDepth::Bit1 {
+        let w = pix.width();
+        let wpl = pix.wpl() as usize;
+        let bits_used = w % 32;
+        let full_words = (w / 32) as usize;
+        let end_mask = if bits_used == 0 {
+            0xFFFF_FFFF
+        } else {
+            !((1u32 << (32 - bits_used)) - 1)
+        };
+        for y in 0..h {
+            let line = pix.row_data(y);
+            let mut sum = 0u32;
+            for &word in &line[..full_words] {
+                sum += word.count_ones();
             }
+            if bits_used != 0 && full_words < wpl {
+                sum += (line[full_words] & end_mask).count_ones();
+            }
+            row_sums.push(sum);
         }
-        row_sums.push(sum);
+    } else {
+        let w = pix.width();
+        for y in 0..h {
+            let mut sum = 0u32;
+            for x in 0..w {
+                if pix.get_pixel_unchecked(x, y) != 0 {
+                    sum += 1;
+                }
+            }
+            row_sums.push(sum);
+        }
     }
 
     // Skip some rows at top and bottom to avoid edge effects
+    let w = pix.width();
     let skip_h = ((w as f32 * 0.05) as u32).max(1);
     let skip = (h / 10).min(skip_h);
     let n_skip = (skip / 2).max(1) as usize;
