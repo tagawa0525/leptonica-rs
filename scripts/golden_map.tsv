@@ -25,3 +25,35 @@ convolve	convolve	0	convolve_blockconv_gray	1	blockconv gray (wc=3 hc=5)
 # Rust: 200x200 synthetic → fill_closed_borders
 compfilter	compfilter	0	compfilter_write_synthetic	1	fill_closed_borders synthetic
 compfilter	compfilter	1	compfilter_write_synthetic	2	render_hash_box synthetic
+
+# === colormorph_reg ===
+# C: wyom.jpg → pixColorMorph(dilate/erode/open/close, 7, 7)
+# Rust: wyom.jpg → dilate_color/erode_color/open_color/close_color(7, 7)
+colormorph	colormorph	0	colormorph	1	dilate_color 7x7
+colormorph	colormorph	2	colormorph	3	erode_color 7x7
+colormorph	colormorph	4	colormorph	5	open_color 7x7
+colormorph	colormorph	6	colormorph	7	close_color 7x7
+
+# === ccthin1_reg ===
+# C: feyn.tif clipped(683,799,970,479) → pixThinConnected(FG/BG, 4/8, 0)
+# Rust: feyn.tif clipped(683,799,970,479) → thin_connected(FG/BG, 4/8, 0)
+# Note: C check 5 is the clipped region itself (not thinned), Rust skips it
+ccthin1	ccthin1	6	cthin1_thin	1	thin_connected FG 4-cc
+ccthin1	ccthin1	7	cthin1_thin	2	thin_connected BG 4-cc
+ccthin1	ccthin1	8	cthin1_thin	3	thin_connected FG 8-cc
+ccthin1	ccthin1	9	cthin1_thin	4	thin_connected BG 8-cc
+
+# === ccthin2_reg ===
+# C: feyn.tif clipped → pixThinConnectedBySet(FG, sets 1-9, 0)
+# Rust: feyn.tif clipped → thin_connected_by_set(FG, sets 1-9, 0)
+ccthin2	ccthin2	0	cthin2_set	1	thin_by_set FG set 1 (Set4cc1)
+ccthin2	ccthin2	1	cthin2_set	2	thin_by_set FG set 2 (Set4cc2)
+ccthin2	ccthin2	2	cthin2_set	3	thin_by_set FG set 3 (Set4cc3)
+ccthin2	ccthin2	3	cthin2_set	4	thin_by_set FG set 4 (Set48)
+ccthin2	ccthin2	4	cthin2_set	5	thin_by_set FG set 5 (Set8cc1)
+ccthin2	ccthin2	5	cthin2_set	6	thin_by_set FG set 6 (Set8cc2)
+ccthin2	ccthin2	6	cthin2_set	7	thin_by_set FG set 7 (Set8cc3)
+ccthin2	ccthin2	7	cthin2_set	8	thin_by_set FG set 8 (Set8cc4)
+ccthin2	ccthin2	8	cthin2_set	9	thin_by_set FG set 9 (Set8cc5)
+ccthin2	ccthin2	9	cthin2_set	10	thin_by_set BG set 10 (Thicken4cc)
+ccthin2	ccthin2	10	cthin2_set	11	thin_by_set BG set 11 (Thicken8cc)
