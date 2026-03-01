@@ -72,15 +72,22 @@ def run_command(
     return result
 
 
+_nix_store_cache: dict[str, Path | None] = {}
+
+
 def find_first_in_nix_store(filename: str) -> Path | None:
+    if filename in _nix_store_cache:
+        return _nix_store_cache[filename]
     cmd = [
         "bash",
         "-lc",
-        f"find /nix/store -type f -name '{filename}' 2>/dev/null | head -n1",
+        f"find /nix/store -maxdepth 5 -type f -name '{filename}' 2>/dev/null | head -n1",
     ]
     result = run_command(cmd, check=False)
     found = result.output.strip()
-    return Path(found) if found else None
+    path = Path(found) if found else None
+    _nix_store_cache[filename] = path
+    return path
 
 
 def parse_pkg_include(cflags: str) -> str | None:
