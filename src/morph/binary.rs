@@ -169,7 +169,11 @@ pub fn hit_miss_transform(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
     let miss_offsets: Vec<_> = sel.miss_offsets().collect();
 
     {
-        let src_data = pix.data();
+        // Clear unused padding bits in source to prevent them from shifting
+        // into the valid region during horizontal bit shifts.
+        let mut src_owned = pix.data().to_vec();
+        clear_unused_bits(&mut src_owned, w, wpl);
+        let src_data = &src_owned;
         let dst_data = out_mut.data_mut();
 
         // Hits: out &= shifted(src), with outside treated as 0.
