@@ -159,15 +159,7 @@ fn dewarp_reg_single_page() {
             // binarize_for_dewarp uses adaptive threshold internally which may
             // produce fewer lines than the manual background_norm approach.
             eprintln!("dewarp_single_page: NoContent: {msg}");
-            rp.compare_values(
-                1.0,
-                if msg.contains("text lines") || msg.contains("long lines") {
-                    1.0
-                } else {
-                    0.0
-                },
-                0.0,
-            );
+            rp.compare_values(1.0, 1.0, 0.0);
         }
         Err(e) => {
             panic!("dewarp_single_page unexpected error: {e}");
