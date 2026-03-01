@@ -14,6 +14,12 @@
 
 ## 全テスト一覧
 
+> **注**: "C checks" / "Rust checks" 列の数値はLLMによる意味的解析結果であり、
+> `scripts/audit-regression-tests.py` が生成するCSVの機械的カウント（正規表現による
+> 呼び出し数）とは異なる場合があります。LLM解析は関数の意味（例: ループ内の複数
+> 呼び出し、暗黙の検証）も考慮するため、CSVとの差異は設計上の意図によるものです。
+> 機械的カウントは `docs/porting/regression-test-audit.csv` を参照してください。
+
 | test         | 分類 | C checks | Rust checks | Rust ignored | bit一致 | 欠落チェック                         | 未実装関数                                          | 備考                                         |
 | ------------ | ---- | -------- | ----------- | ------------ | ------- | ------------------------------------ | --------------------------------------------------- | -------------------------------------------- |
 | adaptmap     | B    | 16       | 18          | 1            | 未検証  | golden image比較なし                 | pixGetBackgroundGrayMap, pixFillMapHoles            | compare_valuesのみで画像出力検証なし         |
