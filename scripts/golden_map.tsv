@@ -63,3 +63,60 @@ ccthin2	ccthin2	7	cthin2_set	8	thin_by_set FG set 8 (Set8cc4)
 ccthin2	ccthin2	8	cthin2_set	9	thin_by_set FG set 9 (Set8cc5)
 ccthin2	ccthin2	9	cthin2_set	10	thin_by_set BG set 10 (Thicken4cc)
 ccthin2	ccthin2	10	cthin2_set	11	thin_by_set BG set 11 (Thicken8cc)
+
+# === binmorph1_reg ===
+# C: feyn-fract.tif → pixDilate/Erode/Open/CloseBrick(21, 15)
+# Rust: feyn-fract.tif → dilate/erode/open/close_brick(21, 15)
+# Note: C test has NO regTestWritePixAndCheck (values only).
+# Verified via scripts/verify_binmorph.c: all 4 pairs IDENTICAL (0 pixel diff).
+# C index is synthetic (not from reg output).
+binmorph1	binmorph1_verify	0	binmorph1	9	dilate_brick 21x15
+binmorph1	binmorph1_verify	1	binmorph1	10	erode_brick 21x15
+binmorph1	binmorph1_verify	2	binmorph1	11	open_brick 21x15
+binmorph1	binmorph1_verify	3	binmorph1	12	close_brick 21x15
+
+# === binmorph3_reg ===
+# C: feyn-fract.tif → separable dilate(11,1)+(1,7), direct dilate(11,7), dilate(21,1)
+# Rust: feyn-fract.tif → same operations
+# Note: C test has NO regTestWritePixAndCheck (values only).
+# Verified via scripts/verify_binmorph.c: all 3 pairs IDENTICAL (0 pixel diff).
+# Also verified C separability: sep(11,1)+(1,7) == dir(11,7).
+binmorph3	binmorph3_verify	0	binmorph3	14	sep dilate(11,1)+(1,7)
+binmorph3	binmorph3_verify	1	binmorph3	15	dir dilate(11,7)
+binmorph3	binmorph3_verify	2	binmorph3	16	dilate(21,1)
+
+# === fhmtauto_reg ===
+# C: feyn-fract.tif → pixHMT with thinning SELs (selaMakeThinSets)
+# Rust: feyn-fract.tif → hit_miss_transform with make_thin_sels
+# Note: C test has NO regTestWritePixAndCheck (compare_pix only).
+# Verified via scripts/verify_fhmtauto.c: all 8 pairs IDENTICAL (0 pixel diff).
+# Set4cc1 = selaMakeThinSets(1,0): sel_4_1, sel_4_2, sel_4_3
+# Set8cc1 = selaMakeThinSets(5,0): sel_8_2, sel_8_3, sel_8_5, sel_8_6
+fhmtauto	fhmtauto_verify	0	fhmtauto_hmt	2	HMT sel_4_1 (Set4cc1)
+fhmtauto	fhmtauto_verify	1	fhmtauto_hmt	4	HMT sel_4_2 (Set4cc1)
+fhmtauto	fhmtauto_verify	2	fhmtauto_hmt	6	HMT sel_4_3 (Set4cc1)
+fhmtauto	fhmtauto_verify	3	fhmtauto_hmt	8	HMT sel_8_2 (Set8cc1)
+fhmtauto	fhmtauto_verify	4	fhmtauto_hmt	10	HMT sel_8_3 (Set8cc1)
+fhmtauto	fhmtauto_verify	5	fhmtauto_hmt	12	HMT sel_8_5 (Set8cc1)
+fhmtauto	fhmtauto_verify	6	fhmtauto_hmt	14	HMT sel_8_6 (Set8cc1)
+fhmtauto	fhmtauto_verify	7	fhmtauto_id	1	HMT identity 1x1 brick
+
+# === graymorph2_reg ===
+# C: test8.jpg → pixDilate/Erode/Open/CloseGray(3x1, 1x3, 3x3)
+# Rust: test8.jpg → dilate/erode/open/close_gray(3x1, 1x3, 3x3)
+# Note: C test has NO regTestWritePixAndCheck (compare_pix only).
+# KNOWN: JPEG codec diff (libjpeg vs jpeg-encoder), quality=75.
+# Verified via scripts/verify_graymorph2.c + compare_graymorph2.c:
+# MaxDiff ≤ 22, size diff ≤ 0.20%. Algorithm correct.
+graymorph2	graymorph2_verify	0	gmorph2_dilate_erode	2	dilate_gray 3x1
+graymorph2	graymorph2_verify	1	gmorph2_dilate_erode	4	erode_gray 3x1
+graymorph2	graymorph2_verify	2	gmorph2_dilate_erode	6	dilate_gray 1x3
+graymorph2	graymorph2_verify	3	gmorph2_dilate_erode	8	erode_gray 1x3
+graymorph2	graymorph2_verify	4	gmorph2_dilate_erode	10	dilate_gray 3x3
+graymorph2	graymorph2_verify	5	gmorph2_dilate_erode	12	erode_gray 3x3
+graymorph2	graymorph2_verify	6	gmorph2_open_close	2	open_gray 3x1
+graymorph2	graymorph2_verify	7	gmorph2_open_close	4	close_gray 3x1
+graymorph2	graymorph2_verify	8	gmorph2_open_close	6	open_gray 1x3
+graymorph2	graymorph2_verify	9	gmorph2_open_close	8	close_gray 1x3
+graymorph2	graymorph2_verify	10	gmorph2_open_close	10	open_gray 3x3
+graymorph2	graymorph2_verify	11	gmorph2_open_close	12	close_gray 3x3
