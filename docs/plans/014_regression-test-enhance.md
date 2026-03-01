@@ -1,6 +1,6 @@
 # Phase 3: 回帰テスト修正計画
 
-Status: IN_PROGRESS (PR 1/8: filter 完了)
+Status: IN_PROGRESS (PR 1/8: filter 完了、後続バグ修正 #255/#256/#257 全完了)
 
 ## Context
 
@@ -148,21 +148,21 @@ fn testname_reg() {
 
 | テスト | C idx | 差異率 | MaxDiff | 分類 | Issue |
 | ------ | ----- | ------ | ------- | ---- | ----- |
-| edge Sobel H (1bpp) | 0 | 28.6% | 1 | 差異(bug) | #255 |
-| edge Sobel V (1bpp) | 1 | 29.1% | 1 | 差異(bug) | #255 |
-| edge OR combined | 2 | 20.4% | 1 | 差異(bug) | #255 |
-| edge 8bpp max(H,V) | 3 | 71.8% | 251 | 差異(bug) | #255 |
-| convolve blockconv gray | 0 | 9.3% | 30 | 差異(bug) | #257 |
-| compfilter fill_closed_borders | 0 | 100% | 1 | 差異(bug) | #256 |
-| compfilter render_hash_box | 1 | 98.7% | 1 | 差異(bug) | #256 |
+| edge Sobel H (1bpp) | 0 | 0.00% | 1 | fp差異 | #255 ✅修正済 |
+| edge Sobel V (1bpp) | 1 | 0.00% | 1 | fp差異 | #255 ✅修正済 |
+| edge OR combined | 2 | 0.00% | 1 | fp差異 | #255 ✅修正済 |
+| edge 8bpp max(H,V) | 3 | 11.1% | 23 | JPEG codec差 | #255 ✅修正済(残差はcodec由来) |
+| convolve blockconv gray | 0 | 6.16%(JPEG) / 0.83%(PNG) | 5/2 | JPEG codec差 | #257 ✅修正済(PR #262) |
+| compfilter fill_closed_borders | 0 | 0.00% | 0 | 完全一致 | #256 ✅修正済 |
+| compfilter render_hash_box | 1 | 0.00% | 0 | 完全一致 | #256 ✅修正済 |
 
 ### 比較不可能（DIM_MISMATCH）
 
 - enhance: C版は20変異をタイル表示→1画像。Rust版は個別画像。直接比較不可
 - adaptmap: C版とRust版でテスト構造が異なる（サブ画像抽出等）
 
-### 根本原因（特定済み）
+### 根本原因と修正状況
 
-- **edge (#255)**: Rust版 `sobel_edge` に `>> 3` 正規化欠如 + ボーダー処理差異（clamp vs mirror）
-- **compfilter (#256)**: `fill_closed_borders` / `render_hash_box` の1bpp前景/背景極性反転
-- **convolve (#257)**: `blockconv_gray` の丸め/ボーダー処理差異
+- **edge (#255)** ✅: Rust版 `sobel_edge` の `>> 3` 正規化欠如 + ボーダー処理差異 → 1bpp極性修正(PR #256)で解決。1bppは完全一致、8bppの残差11%はJPEG codec差のみ
+- **compfilter (#256)** ✅: `fill_closed_borders` / `render_hash_box` の1bpp極性反転 → PR #256で解決。完全一致(IDENTICAL)
+- **convolve (#257)** ✅: `blockconv_gray` のボーダー正規化方式がC版と異なっていた → PR #262でC版 `blockconvLow()` の two-pass 方式に書き直し。PNG lossless比較でMaxDiff=2/0.83%（JPEG入力デコーダ差のみ）
