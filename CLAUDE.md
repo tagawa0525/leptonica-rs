@@ -15,7 +15,30 @@ cargo test convolve_reg  # 特定テスト
 
 ### 回帰テストモード
 
-`REGTEST_MODE` 環境変数: `generate`（golden生成） / `compare`（比較、デフォルト） / `display`（比較なし）
+`REGTEST_MODE` 環境変数で動作を切り替える:
+
+| モード                  | 動作                                         | 用途                         |
+| ----------------------- | -------------------------------------------- | ---------------------------- |
+| `compare`（デフォルト） | `tests/golden_manifest.tsv` のハッシュと比較 | CI・通常テスト               |
+| `generate`              | golden ファイル生成 + manifest 更新          | 出力変更後の manifest 再生成 |
+| `display`               | 比較なし（実行のみ）                         | デバッグ・目視確認           |
+
+```bash
+REGTEST_MODE=generate cargo test --test filter   # filter の manifest 再生成
+REGTEST_MODE=compare  cargo test --test filter   # manifest と比較（デフォルト）
+```
+
+### Golden manifest
+
+- `tests/golden_manifest.tsv`（テキスト、git 管理）: FNV-1a ピクセルハッシュ
+- `tests/golden/`（.gitignore）: ローカルのみ。generate モードで生成、デバッグ用
+- `tests/regout/`（.gitignore）: テスト実行時の出力
+
+**テスト出力が変わったとき**:
+
+1. `REGTEST_MODE=generate cargo test --test <module>` で manifest を再生成
+2. `git diff tests/golden_manifest.tsv` で変更を確認
+3. 意図した変更なら manifest をコミット
 
 ## モジュール構成
 
@@ -70,8 +93,12 @@ src/
 ## テスト
 
 - 回帰テスト: C版 `reference/leptonica/prog/*_reg.c` に対応
-- テストデータ: `tests/data/images/`, golden: `tests/golden/`, 出力: `tests/regout/`
-- インフラ: `tests/common/`（`RegParams`, `compare_values()`, `compare_pix()` 等）
+- テストデータ: `tests/data/images/`
+- ハッシュ manifest: `tests/golden_manifest.tsv`（git 管理、CI で出力変化を検出）
+- ローカル golden: `tests/golden/`（.gitignore、デバッグ用）
+- テスト出力: `tests/regout/`（.gitignore）
+- インフラ: `tests/common/`（`RegParams`, `compare_values()`, `compare_pix()`, `load_test_image()` 等）
+- C版比較: `examples/compare_golden.rs` + `scripts/golden_map.tsv`
 
 ### テストのディレクトリ構造
 
