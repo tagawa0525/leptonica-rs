@@ -102,8 +102,12 @@ fn gifio_reg() {
         );
 
         // Golden manifest: record GIF read-back result
-        rp.write_pix_and_check(&pix1, ImageFormat::Png)
-            .expect("write_pix_and_check");
+        if let Err(e) = rp.write_pix_and_check(&pix1, ImageFormat::Png) {
+            panic!(
+                "write_pix_and_check failed for test {} ({}): {}",
+                i, fname, e
+            );
+        }
 
         if expect_lossless {
             let same = pix1.equals(&pix2);
