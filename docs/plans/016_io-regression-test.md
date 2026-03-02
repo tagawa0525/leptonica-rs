@@ -1,6 +1,6 @@
 # Phase 3 PR 3/8: io モジュール回帰テスト強化
 
-Status: PLANNED
+Status: IMPLEMENTED
 
 ## Context
 

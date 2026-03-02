@@ -1,6 +1,6 @@
 # Phase 3: 回帰テスト修正計画
 
-Status: IN_PROGRESS (PR 1/8: filter #258 完了, PR 2/8: morph #267 完了, PR 3/8: io 着手予定)
+Status: IN_PROGRESS (PR 1/8: filter #258 完了, PR 2/8: morph #267 完了, PR 3/8: io 実装完了→PR予定)
 
 ## Context
 
