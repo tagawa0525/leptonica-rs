@@ -97,7 +97,7 @@ src/
 - ハッシュ manifest: `tests/golden_manifest.tsv`（git 管理、CI で出力変化を検出）
 - ローカル golden: `tests/golden/`（.gitignore、デバッグ用）
 - テスト出力: `tests/regout/`（.gitignore）
-- インフラ: `tests/common/`（`RegParams`, `compare_values()`, `compare_pix()`, `pixel_content_hash()` 等）
+- インフラ: `tests/common/`（`RegParams`, `compare_values()`, `compare_pix()`, `load_test_image()` 等）
 - C版比較: `examples/compare_golden.rs` + `scripts/golden_map.tsv`
 
 ### テストのディレクトリ構造
