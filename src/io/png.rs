@@ -145,7 +145,23 @@ pub fn read_png<R: BufRead + Seek>(reader: R) -> IoResult<Pix> {
     let data = &buf[..output_info.buffer_size()];
 
     match (color_type, bit_depth) {
-        (ColorType::Grayscale, BitDepth::One) | (ColorType::Indexed, BitDepth::One) => {
+        (ColorType::Grayscale, BitDepth::One) => {
+            // In PNG 1bpp grayscale, bit value 0 represents black and 1 represents white.
+            // This implementation uses the Leptonica convention 1=foreground(black),
+            // 0=background(white), so we invert on read to maintain that internal
+            // convention and to keep write→read roundtrip identity for 1bpp images.
+            for y in 0..height {
+                let row_start = y as usize * bytes_per_row;
+                for x in 0..width {
+                    let byte_idx = row_start + (x / 8) as usize;
+                    let bit_idx = 7 - (x % 8);
+                    let val = (data[byte_idx] >> bit_idx) & 1;
+                    // Invert: PNG 0 (black) → Pix 1 (foreground)
+                    pix_mut.set_pixel_unchecked(x, y, (1 - val) as u32);
+                }
+            }
+        }
+        (ColorType::Indexed, BitDepth::One) => {
             for y in 0..height {
                 let row_start = y as usize * bytes_per_row;
                 for x in 0..width {
@@ -356,7 +372,22 @@ pub fn write_png<W: Write>(pix: &Pix, writer: W) -> IoResult<()> {
         let row_start = y as usize * bytes_per_row;
 
         match (color_type, bit_depth) {
-            (ColorType::Grayscale, BitDepth::One) | (ColorType::Indexed, BitDepth::One) => {
+            (ColorType::Grayscale, BitDepth::One) => {
+                // C Leptonica convention: 1bpp grayscale (no colormap) is inverted
+                // when writing to PNG because PNG uses 0=black, 1=white, while
+                // leptonica uses 1=foreground(black), 0=background(white).
+                // See pixWriteStreamPng() in C leptonica: "invert the data,
+                // because png writes black as 0".
+                for x in 0..width {
+                    let val = pix.get_pixel(x, y).unwrap_or(0);
+                    if val == 0 {
+                        let byte_idx = row_start + (x / 8) as usize;
+                        let bit_idx = 7 - (x % 8);
+                        data[byte_idx] |= 1 << bit_idx;
+                    }
+                }
+            }
+            (ColorType::Indexed, BitDepth::One) => {
                 for x in 0..width {
                     if let Some(val) = pix.get_pixel(x, y)
                         && val != 0

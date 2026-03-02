@@ -170,14 +170,16 @@ impl Box {
         let bw = self.w;
         let bh = self.h;
 
-        let mut points: Vec<(i32, i32)> = Vec::with_capacity(4);
+        // Slope convention (matching C leptonica):
+        //   slope = -dy/dx in image coordinates (y-down).
+        //   A positive slope gives a "/" shaped line (going up-right in image).
 
-        if slope.abs() < f32::EPSILON {
+        if slope == 0.0 {
             // Horizontal line: y = y
             if y >= by && y < by + bh {
                 return Ok(LineIntersection {
                     p1: Some((bx, y)),
-                    p2: Some((bx + bw, y)),
+                    p2: Some((bx + bw - 1, y)),
                     count: 2,
                 });
             }
@@ -188,12 +190,12 @@ impl Box {
             });
         }
 
-        if slope.abs() > 1_000_000.0 {
+        if slope > 1_000_000.0 {
             // Vertical line: x = x
             if x >= bx && x < bx + bw {
                 return Ok(LineIntersection {
                     p1: Some((x, by)),
-                    p2: Some((x, by + bh)),
+                    p2: Some((x, by + bh - 1)),
                     count: 2,
                 });
             }
@@ -204,53 +206,53 @@ impl Box {
             });
         }
 
-        // General case: check all 4 edges (using inclusive bounds like C version)
-        let inv_slope = 1.0 / slope as f64;
-        let slope_d = slope as f64;
+        // General case: check all 4 edges
+        // C uses invslope = 1.0 / slope (f32 arithmetic), then computes
+        // intersections with truncation toward zero.
+        let inv_slope = 1.0f32 / slope;
+        let mut points: Vec<(i32, i32)> = Vec::with_capacity(4);
 
-        // Top edge (y = by): x_intersect = x + (1/slope) * (by - y)
-        let xp = x as f64 + inv_slope * (by as f64 - y as f64);
-        if xp >= bx as f64 && xp <= (bx + bw) as f64 {
-            points.push(((xp + 0.5) as i32, by));
+        // Top edge (y = by)
+        let xp = (x as f32 + inv_slope * (y - by) as f32) as i32;
+        if xp >= bx && xp < bx + bw {
+            points.push((xp, by));
         }
 
-        // Bottom edge (y = by + bh): x_intersect = x + (1/slope) * (by + bh - y)
-        let xp = x as f64 + inv_slope * ((by + bh) as f64 - y as f64);
-        if xp >= bx as f64 && xp <= (bx + bw) as f64 {
-            points.push(((xp + 0.5) as i32, by + bh));
+        // Bottom edge (y = by + bh - 1)
+        let xp = (x as f32 + inv_slope * (y - by - bh + 1) as f32) as i32;
+        if xp >= bx && xp < bx + bw {
+            points.push((xp, by + bh - 1));
         }
 
-        // Left edge (x = bx): y_intersect = y + slope * (bx - x)
-        let yp = y as f64 + slope_d * (bx as f64 - x as f64);
-        if yp >= by as f64 && yp <= (by + bh) as f64 {
-            let pt = (bx, (yp + 0.5) as i32);
-            if !points.contains(&pt) {
-                points.push(pt);
+        // Left edge (x = bx)
+        let yp = (y as f32 + slope * (x - bx) as f32) as i32;
+        if yp >= by && yp < by + bh {
+            points.push((bx, yp));
+        }
+
+        // Right edge (x = bx + bw - 1)
+        let yp = (y as f32 + slope * (x - bx - bw + 1) as f32) as i32;
+        if yp >= by && yp < by + bh {
+            points.push((bx + bw - 1, yp));
+        }
+
+        // Deduplicate: keep first unique point, then first point different from it
+        let mut p1 = None;
+        let mut p2 = None;
+        let mut count = 0;
+        if let Some(&first) = points.first() {
+            p1 = Some(first);
+            count = 1;
+            for &pt in &points[1..] {
+                if pt != first {
+                    p2 = Some(pt);
+                    count = 2;
+                    break;
+                }
             }
         }
 
-        // Right edge (x = bx + bw): y_intersect = y + slope * (bx + bw - x)
-        let yp = y as f64 + slope_d * ((bx + bw) as f64 - x as f64);
-        if yp >= by as f64 && yp <= (by + bh) as f64 {
-            let pt = (bx + bw, (yp + 0.5) as i32);
-            if !points.contains(&pt) {
-                points.push(pt);
-            }
-        }
-
-        // Deduplicate and limit to 2 points
-        points.dedup();
-        let count = points.len().min(2);
-
-        Ok(LineIntersection {
-            p1: points.first().copied(),
-            p2: if count >= 2 {
-                points.get(1).copied()
-            } else {
-                None
-            },
-            count,
-        })
+        Ok(LineIntersection { p1, p2, count })
     }
 
     /// Compute clipping parameters for this box within a rectangle `(0,0,w,h)`.
@@ -735,7 +737,8 @@ mod tests {
         let result = b.intersect_by_line(0, 40, 0.0).unwrap();
         assert_eq!(result.count, 2);
         assert_eq!(result.p1, Some((10, 40)));
-        assert_eq!(result.p2, Some((90, 40)));
+        // C uses bx + bw - 1 for the right endpoint (inclusive last pixel)
+        assert_eq!(result.p2, Some((89, 40)));
     }
 
     #[test]
@@ -744,7 +747,8 @@ mod tests {
         let result = b.intersect_by_line(50, 0, 2_000_000.0).unwrap();
         assert_eq!(result.count, 2);
         assert_eq!(result.p1, Some((50, 10)));
-        assert_eq!(result.p2, Some((50, 70)));
+        // C uses by + bh - 1 for the bottom endpoint (inclusive last pixel)
+        assert_eq!(result.p2, Some((50, 69)));
     }
 
     #[test]
@@ -757,9 +761,10 @@ mod tests {
 
     #[test]
     fn test_intersect_by_line_diagonal() {
+        // Line through (50, -1) with slope 1.0 (C convention: -dy/dx = 1).
+        // This line enters the box from the top and exits from the left or right.
         let b = Box::new(0, 0, 100, 100).unwrap();
-        // Line through (0,0) with slope 1.0: y = x
-        let result = b.intersect_by_line(0, 0, 1.0).unwrap();
+        let result = b.intersect_by_line(50, -1, 1.0).unwrap();
         assert_eq!(result.count, 2);
     }
 
