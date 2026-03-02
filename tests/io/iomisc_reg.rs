@@ -9,6 +9,9 @@
 //!   - Input format field (test 17)
 //!   - TIFF compression variants (tests 18-29)
 //!   - PNM alpha roundtrip (tests 30-31)
+//!
+//! Rust追加:
+//!   write_pix_and_check: alpha/colormap/TIFF圧縮/PNMラウンドトリップ結果
 
 use crate::common::{RegParams, load_test_image, regout_dir};
 use leptonica::io::{ImageFormat, read_image, write_image, write_image_mem};
@@ -45,6 +48,10 @@ fn iomisc_reg_16bit_png() {
     let d = pix1.depth().bits();
     rp.compare_values(16.0, d as f64, 0.0);
     eprintln!("  Test 1 (read PNG depth): depth={} (expected 16)", d);
+
+    // Golden check: 16-bit PNG roundtrip
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("write 16bit PNG roundtrip");
 
     let pix2 = read_image(&png_path).expect("read test16.png again");
     let d2 = pix2.depth().bits();
@@ -95,12 +102,20 @@ fn iomisc_reg_png_alpha() {
     let alpha_path = format!("{}/iomisc_alpha_roundtrip.png", outdir);
     write_image(&pixs, &alpha_path, ImageFormat::Png).expect("write RGBA PNG");
 
+    // Golden check: original RGBA image
+    rp.write_pix_and_check(&pixs, ImageFormat::Png)
+        .expect("write original RGBA");
+
     let pix_back = read_image(&alpha_path).expect("read RGBA PNG back");
     rp.compare_values(32.0, pix_back.depth().bits() as f64, 0.0);
     rp.compare_values(4.0, pix_back.spp() as f64, 0.0);
 
     let same = pixs.equals_with_alpha(&pix_back, true);
     rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
+
+    // Golden check: RGBA roundtrip result
+    rp.write_pix_and_check(&pix_back, ImageFormat::Png)
+        .expect("write RGBA roundtrip");
 
     let mut has_transparent = false;
     let mut has_opaque = false;
@@ -147,6 +162,10 @@ fn iomisc_reg_alpha_blend_operations() {
     rp.compare_values(pixs.height() as f64, pix_red.height() as f64, 0.0);
     rp.compare_values(8.0, pix_red.depth().bits() as f64, 0.0);
 
+    // Golden check: red channel extraction
+    rp.write_pix_and_check(&pix_red, ImageFormat::Png)
+        .expect("write red channel");
+
     // Alpha blend over white
     let pix_blend = pixs
         .alpha_blend_uniform(0xFFFFFF00)
@@ -154,6 +173,9 @@ fn iomisc_reg_alpha_blend_operations() {
     rp.compare_values(pixs.width() as f64, pix_blend.width() as f64, 0.0);
     rp.compare_values(pixs.height() as f64, pix_blend.height() as f64, 0.0);
     rp.compare_values(32.0, pix_blend.depth().bits() as f64, 0.0);
+    // Golden check: alpha blend over white
+    rp.write_pix_and_check(&pix_blend, ImageFormat::Png)
+        .expect("write alpha blend over white");
 
     // Set alpha over white
     let pix_alpha = pix_blend
@@ -162,6 +184,9 @@ fn iomisc_reg_alpha_blend_operations() {
     rp.compare_values(pix_blend.width() as f64, pix_alpha.width() as f64, 0.0);
     rp.compare_values(pix_blend.height() as f64, pix_alpha.height() as f64, 0.0);
     rp.compare_values(32.0, pix_alpha.depth().bits() as f64, 0.0);
+    // Golden check: set alpha over white
+    rp.write_pix_and_check(&pix_alpha, ImageFormat::Png)
+        .expect("write set_alpha_over_white");
 
     assert!(rp.cleanup(), "iomisc alpha blend operations test failed");
 }
@@ -177,6 +202,9 @@ fn iomisc_reg_colormap() {
 
     let pixs = load_test_image("weasel4.11c.png").expect("load weasel4.11c.png");
     rp.compare_values(1.0, if pixs.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+    // Golden check: original colormapped image
+    rp.write_pix_and_check(&pixs, ImageFormat::Png)
+        .expect("write weasel4.11c.png");
 
     let cmap = pixs
         .colormap()
@@ -196,6 +224,9 @@ fn iomisc_reg_colormap() {
         .colormap()
         .expect("roundtrip should preserve colormap");
     rp.compare_values(cmap.len() as f64, back_cmap.len() as f64, 0.0);
+    // Golden check: colormap roundtrip
+    rp.write_pix_and_check(&pix_back, ImageFormat::Png)
+        .expect("write colormap roundtrip");
 
     let pixsg = load_test_image("weasel4.5g.png").expect("load weasel4.5g.png");
     rp.compare_values(1.0, if pixsg.has_colormap() { 1.0 } else { 0.0 }, 0.0);
@@ -228,12 +259,18 @@ fn iomisc_reg_remove_regen_rgb_colormap() {
         .expect("remove_colormap ToFullColor");
     rp.compare_values(0.0, if pix_rgb.has_colormap() { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(32.0, pix_rgb.depth().bits() as f64, 0.0);
+    // Golden check: colormap removed → RGB
+    rp.write_pix_and_check(&pix_rgb, ImageFormat::Png)
+        .expect("write colormap removed RGB");
 
     // Re-add colormap
     let pix_cmap = pix_rgb
         .convert_rgb_to_colormap(false)
         .expect("convert_rgb_to_colormap");
     rp.compare_values(1.0, if pix_cmap.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+    // Golden check: RGB → colormap regenerated
+    rp.write_pix_and_check(&pix_cmap, ImageFormat::Png)
+        .expect("write RGB to colormap");
 
     assert!(rp.cleanup(), "iomisc remove/regen RGB colormap test failed");
 }
@@ -254,12 +291,18 @@ fn iomisc_reg_remove_regen_gray_colormap() {
         .convert_gray_to_colormap()
         .expect("convert_gray_to_colormap");
     rp.compare_values(1.0, if pix_cmap.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+    // Golden check: gray with added colormap
+    rp.write_pix_and_check(&pix_cmap, ImageFormat::Png)
+        .expect("write gray+colormap");
 
     // Remove colormap
     let pix_gray = pix_cmap
         .remove_colormap(RemoveColormapTarget::BasedOnSrc)
         .expect("remove_colormap BasedOnSrc");
     rp.compare_values(0.0, if pix_gray.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+    // Golden check: colormap removed → gray
+    rp.write_pix_and_check(&pix_gray, ImageFormat::Png)
+        .expect("write gray colormap removed");
 
     assert!(
         rp.cleanup(),
@@ -337,6 +380,9 @@ fn iomisc_reg_tiff_compression() {
                         let dims_ok =
                             pix_back.width() == pixs.width() && pix_back.height() == pixs.height();
                         rp.compare_values(1.0, if dims_ok { 1.0 } else { 0.0 }, 0.0);
+                        // Golden check: TIFF compression roundtrip
+                        rp.write_pix_and_check(&pix_back, ImageFormat::Tiff)
+                            .expect("write TIFF compression roundtrip");
                         eprintln!("OK (size={})", metadata.len());
                     }
                     Err(e) => {
@@ -425,6 +471,9 @@ fn iomisc_reg_pnm_alpha() {
     }
 
     rp.compare_values(1.0, if rgb_match { 1.0 } else { 0.0 }, 0.0);
+    // Golden check: PNM alpha roundtrip
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("write PNM alpha roundtrip");
 
     assert!(
         rp.cleanup(),

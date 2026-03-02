@@ -7,6 +7,13 @@
 //! - Part 1: Lossless r/w to file for 1/2/4/8/16/32 bpp images
 //! - Part 2: Lossless r/w to memory for the same images
 //!
+//! C checkpoint mapping:
+//!   0: regTestWritePixAndCheck (file roundtrip pix2)
+//!   1-7: regTestCompareValues (double roundtrip equality)
+//!
+//! Rust追加:
+//!   write_pix_and_check: ファイル・メモリ各ラウンドトリップ結果
+//!
 //! For depths <= 8 bpp with colormap, GIF roundtrip is lossless.
 //! For 16 bpp, conversion to 8 bpp occurs (lossy).
 //! For 32 bpp, octree quantization occurs (lossy).
@@ -101,16 +108,18 @@ fn gifio_reg() {
             pix2.depth().bits()
         );
 
+        let same = pix1.equals(&pix2);
         if expect_lossless {
-            let same = pix1.equals(&pix2);
             let ok = rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
             if !ok {
                 eprintln!("    ERROR: GIF double-roundtrip mismatch for {}", fname);
             }
         } else {
-            let same = pix1.equals(&pix2);
             rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         }
+        // Golden check: file double-roundtrip result
+        rp.write_pix_and_check(&pix2, ImageFormat::Gif)
+            .expect("write GIF file roundtrip result");
     }
 
     if display_mode {
@@ -176,16 +185,18 @@ fn gifio_reg() {
             pixd.depth().bits()
         );
 
+        let same = pixd.equals(&pixd2);
         if expect_lossless {
-            let same = pixd.equals(&pixd2);
             let ok = rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
             if !ok {
                 eprintln!("    ERROR: Mem GIF double-roundtrip mismatch for {}", fname);
             }
         } else {
-            let same = pixd.equals(&pixd2);
             rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         }
+        // Golden check: memory double-roundtrip result
+        rp.write_pix_and_check(&pixd2, ImageFormat::Gif)
+            .expect("write GIF memory roundtrip result");
     }
 
     assert!(rp.cleanup(), "gifio regression test failed");

@@ -6,11 +6,15 @@
 //! The C version also tests segmented images, low-level CI data,
 //! G4 image masking, and colormap handling which are not available.
 //!
+//! Rust追加:
+//!   write_pix_and_check: PDF変換前の入力画像を golden 化
+//!
 //! # See also
 //!
 //! C Leptonica: `reference/leptonica/prog/pdfio1_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::io::pdf::{PdfCompression, PdfOptions};
 
 /// Test basic PDF output with auto compression (C checks 0-2).
@@ -28,6 +32,16 @@ fn pdfio1_reg_auto_compression() {
 
     for (img, _label) in &images {
         let pix = crate::common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
+
+        // Golden check: input image before PDF conversion
+        let golden_fmt = if pix.depth().bits() == 1 {
+            ImageFormat::Tiff
+        } else {
+            ImageFormat::Png
+        };
+        rp.write_pix_and_check(&pix, golden_fmt)
+            .expect("write PDF input image");
+
         let opts = PdfOptions::default();
         let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
         let header = String::from_utf8_lossy(&data[..8.min(data.len())]);

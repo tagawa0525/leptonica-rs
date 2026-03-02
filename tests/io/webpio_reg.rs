@@ -70,6 +70,9 @@ fn do_webp_test1(rp: &mut RegParams, fname: &str, outdir: &str) {
             pix1.height()
         );
     }
+    // Golden check: WebP roundtrip result
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("write WebP roundtrip result");
 }
 
 #[test]
@@ -152,6 +155,9 @@ fn webpio_reg() {
             if !ok {
                 eprintln!("    ERROR: lossless WebP roundtrip not exact for 32bpp");
             }
+            // Golden check: lossless exact roundtrip
+            rp.write_pix_and_check(&pixd, ImageFormat::Png)
+                .expect("write WebP lossless exact roundtrip");
         } else {
             eprintln!("SKIP");
             rp.compare_values(1.0, 1.0, 0.0);

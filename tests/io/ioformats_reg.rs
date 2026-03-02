@@ -7,6 +7,9 @@
 //! - Format detection from file path and from bytes
 //! - Read various formats and verify properties (depth, colormap)
 //! - Memory write/read roundtrip for PNG and BMP
+//!
+//! Rust追加:
+//!   write_pix_and_check: 各フォーマット読み込み結果・ラウンドトリップ結果
 
 use crate::common::{RegParams, load_test_image, test_data_path};
 use leptonica::io::{
@@ -39,6 +42,8 @@ fn ioformats_reg() {
     let pix = load_test_image("rabi.png").expect("load rabi.png");
     rp.compare_values(1.0, pix.depth().bits() as f64, 0.0);
     rp.compare_values(1.0, if pix.width() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&pix, ImageFormat::Png)
+        .expect("write rabi.png loaded");
     eprintln!(
         "  rabi.png: {}x{} d={}",
         pix.width(),
@@ -49,6 +54,8 @@ fn ioformats_reg() {
     // PNG 32bpp
     let pix32 = load_test_image("weasel32.png").expect("load weasel32.png");
     rp.compare_values(32.0, pix32.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&pix32, ImageFormat::Png)
+        .expect("write weasel32.png loaded");
     eprintln!(
         "  weasel32.png: {}x{} d={}",
         pix32.width(),
@@ -60,6 +67,8 @@ fn ioformats_reg() {
     let pix8c = load_test_image("weasel8.240c.png").expect("load weasel8.240c.png");
     rp.compare_values(8.0, pix8c.depth().bits() as f64, 0.0);
     rp.compare_values(1.0, if pix8c.has_colormap() { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&pix8c, ImageFormat::Png)
+        .expect("write weasel8.240c.png loaded");
     eprintln!(
         "  weasel8.240c.png: {}x{} d={} cmap={}",
         pix8c.width(),
@@ -71,6 +80,8 @@ fn ioformats_reg() {
     // JPEG 8bpp grayscale
     let pix8j = load_test_image("test8.jpg").expect("load test8.jpg");
     rp.compare_values(8.0, pix8j.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&pix8j, ImageFormat::Png)
+        .expect("write test8.jpg loaded");
     eprintln!(
         "  test8.jpg: {}x{} d={}",
         pix8j.width(),
@@ -91,6 +102,8 @@ fn ioformats_reg() {
     let pix_bmp = read_image_mem(&bmp_data).expect("read BMP");
     rp.compare_values(pix8j.width() as f64, pix_bmp.width() as f64, 0.0);
     rp.compare_values(pix8j.height() as f64, pix_bmp.height() as f64, 0.0);
+    rp.write_pix_and_check(&pix_bmp, ImageFormat::Bmp)
+        .expect("write BMP roundtrip result");
 
     assert!(rp.cleanup(), "ioformats regression test failed");
 }
