@@ -235,14 +235,14 @@ test(io): generate golden manifest for io regression tests
 
 ## 新規 golden manifest エントリ見込み
 
-| テスト        | write_pix_and_check | write_data_and_check |    合計 |
-| ------------- | ------------------: | -------------------: | ------: |
-| gifio_reg     |                   8 |                    0 |       8 |
-| webpio_reg    |                   4 |                    0 |       4 |
-| ioformats_reg |                   7 |                    0 |       7 |
-| iomisc_reg    |                 ~15 |                    0 |     ~15 |
-| pdfio1_reg    |                   0 |                   ~6 |      ~6 |
-| writetext_reg |                  ~3 |                    0 |      ~3 |
-| **合計**      |             **~37** |               **~6** | **~43** |
+| テスト        | write_pix_and_check | write_data_and_check |   合計 |
+| ------------- | ------------------: | -------------------: | -----: |
+| gifio_reg     |                   8 |                    0 |      8 |
+| webpio_reg    |                   4 |                    0 |      4 |
+| ioformats_reg |                   7 |                    0 |      7 |
+| iomisc_reg    |                  18 |                    0 |     18 |
+| pdfio1_reg    |                   0 |                    8 |      8 |
+| writetext_reg |                   3 |                    0 |      3 |
+| **合計**      |              **40** |                **8** | **48** |
 
-PR後の manifest 合計: ~153 + ~43 = ~196 エントリ
+PR後の manifest 合計: 153 + 48 = 201 エントリ（ヘッダ1行含む）
