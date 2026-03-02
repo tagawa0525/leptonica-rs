@@ -4,9 +4,10 @@ use super::error::{TestError, TestResult};
 use super::{golden_dir, regout_dir};
 use leptonica::Pix;
 use leptonica::io::ImageFormat;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 /// Regression test mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -33,6 +34,94 @@ impl RegTestMode {
             _ => Self::Compare,
         }
     }
+}
+
+// --- Content hash functions (FNV-1a, no external dependencies) ---
+
+const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+const FNV_PRIME: u64 = 0x100000001b3;
+
+/// Hash pixel content of a Pix (format-independent)
+fn pixel_content_hash(pix: &Pix) -> u64 {
+    let mut h = FNV_OFFSET_BASIS;
+    for b in pix.width().to_le_bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    }
+    for b in pix.height().to_le_bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    }
+    for b in (pix.depth() as u32).to_le_bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    }
+    for y in 0..pix.height() {
+        for x in 0..pix.width() {
+            let px = pix.get_pixel(x, y).unwrap_or(0);
+            for b in px.to_le_bytes() {
+                h ^= b as u64;
+                h = h.wrapping_mul(FNV_PRIME);
+            }
+        }
+    }
+    h
+}
+
+/// Hash raw byte data
+fn data_content_hash(data: &[u8]) -> u64 {
+    let mut h = FNV_OFFSET_BASIS;
+    for &b in data {
+        h ^= b as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    }
+    h
+}
+
+// --- Manifest management ---
+
+fn manifest_path() -> String {
+    format!("{}/tests/golden_manifest.tsv", env!("CARGO_MANIFEST_DIR"))
+}
+
+fn manifest() -> &'static Mutex<HashMap<String, u64>> {
+    static MANIFEST: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
+    MANIFEST.get_or_init(|| Mutex::new(load_manifest_from_file()))
+}
+
+fn load_manifest_from_file() -> HashMap<String, u64> {
+    let path = manifest_path();
+    let content = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return HashMap::new(),
+    };
+    let mut map = HashMap::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some((name, hash_str)) = line.split_once('\t')
+            && let Ok(hash) = u64::from_str_radix(hash_str, 16)
+        {
+            map.insert(name.to_string(), hash);
+        }
+    }
+    map
+}
+
+fn update_manifest_and_save(name: &str, hash: u64) {
+    let mut map = manifest().lock().unwrap();
+    map.insert(name.to_string(), hash);
+    let mut entries: Vec<_> = map.iter().map(|(k, v)| (k.clone(), *v)).collect();
+    entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+    let mut content =
+        String::from("# Golden manifest - content hashes for regression test outputs\n");
+    content.push_str("# Format: name<TAB>hash (FNV-1a hex)\n");
+    for (name, hash) in &entries {
+        content.push_str(&format!("{}\t{:016x}\n", name, hash));
+    }
+    fs::write(manifest_path(), &content).expect("Failed to write manifest");
 }
 
 /// Regression test parameters
@@ -219,104 +308,60 @@ impl RegParams {
             }
         })?;
 
-        // Check based on mode
-        self.check_file(&local_path)
+        let hash = pixel_content_hash(pix);
+        self.check_hash(&local_path, hash)
     }
 
-    /// Check a file against its golden counterpart
+    /// Check content hash against the golden manifest.
     ///
-    /// In generate mode, copies the file to golden.
-    /// In compare mode, compares with golden file.
+    /// In generate mode, copies the file to golden and updates the manifest.
+    /// In compare mode, compares the hash against the manifest entry.
     /// In display mode, does nothing.
-    fn check_file(&mut self, local_path: &str) -> TestResult<()> {
+    fn check_hash(&mut self, local_path: &str, hash: u64) -> TestResult<()> {
         let ext = Path::new(local_path)
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("");
 
-        let golden_path = format!(
-            "{}/{}_golden.{:02}.{}",
-            golden_dir(),
-            self.test_name,
-            self.index,
-            ext
-        );
+        let manifest_key = format!("{}.{:02}.{}", self.test_name, self.index, ext);
 
         match self.mode {
             RegTestMode::Generate => {
-                // Copy local to golden
+                let golden_path = format!(
+                    "{}/{}_golden.{:02}.{}",
+                    golden_dir(),
+                    self.test_name,
+                    self.index,
+                    ext
+                );
                 fs::copy(local_path, &golden_path)?;
-                eprintln!("Generated: {}", golden_path);
+                update_manifest_and_save(&manifest_key, hash);
+                eprintln!("Generated: {} (hash: {:016x})", manifest_key, hash);
             }
             RegTestMode::Compare => {
-                // Compare files
-                if !Path::new(&golden_path).exists() {
-                    let msg = format!(
-                        "Failure in {}_reg: golden file not found: {}",
-                        self.test_name, golden_path
-                    );
-                    eprintln!("{}", msg);
-                    self.failures.push(msg);
-                    self.success = false;
-                    return Ok(());
-                }
-
-                let local_data = fs::read(local_path)?;
-                let golden_data = fs::read(&golden_path)?;
-
-                if local_data != golden_data {
-                    // For images, try pixel-by-pixel comparison
-                    let same = self.compare_image_files(local_path, &golden_path);
-
-                    if !same {
+                let map = manifest().lock().unwrap();
+                match map.get(&manifest_key) {
+                    Some(&expected) if expected == hash => {}
+                    Some(&expected) => {
                         let msg = format!(
-                            "Failure in {}_reg, index {}: comparing {} with {}",
-                            self.test_name, self.index, local_path, golden_path
+                            "Failure in {}_reg, index {}: hash mismatch for {}\n\
+                             \x20 expected: {:016x}\n\
+                             \x20 actual:   {:016x}",
+                            self.test_name, self.index, manifest_key, expected, hash
                         );
                         eprintln!("{}", msg);
                         self.failures.push(msg);
                         self.success = false;
                     }
+                    None => {
+                        eprintln!("Warning: no manifest entry for {manifest_key}, skipping");
+                    }
                 }
             }
-            RegTestMode::Display => {
-                // Nothing to do in display mode
-            }
+            RegTestMode::Display => {}
         }
 
         Ok(())
-    }
-
-    /// Compare two image files pixel-by-pixel
-    fn compare_image_files(&self, path1: &str, path2: &str) -> bool {
-        let pix1 = match leptonica::io::read_image(path1) {
-            Ok(p) => p,
-            Err(_) => return false,
-        };
-        let pix2 = match leptonica::io::read_image(path2) {
-            Ok(p) => p,
-            Err(_) => return false,
-        };
-
-        if pix1.width() != pix2.width()
-            || pix1.height() != pix2.height()
-            || pix1.depth() != pix2.depth()
-        {
-            return false;
-        }
-
-        let width = pix1.width();
-        let height = pix1.height();
-
-        for y in 0..height {
-            for x in 0..width {
-                if pix1.get_pixel(x, y) != pix2.get_pixel(x, y) {
-                    return false;
-                }
-            }
-        }
-
-        true
     }
 
     /// Compare two binary data arrays
@@ -372,7 +417,8 @@ impl RegParams {
         );
 
         fs::write(&local_path, data)?;
-        self.check_file(&local_path)
+        let hash = data_content_hash(data);
+        self.check_hash(&local_path, hash)
     }
 
     /// Clean up and report results

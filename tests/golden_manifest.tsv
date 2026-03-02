@@ -1,0 +1,5 @@
+# Golden manifest - content hashes for regression test outputs
+# Format: name<TAB>hash (FNV-1a hex)
+boxa3.01.ba	1709aef2bcb6914d
+boxa3.02.ba	c3ac5080544cf695
+boxa3.03.ba	9fe421bc638a76e7
