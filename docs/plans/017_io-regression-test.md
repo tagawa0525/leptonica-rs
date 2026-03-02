@@ -158,15 +158,13 @@ write_pix_and_check 対象外。compare_values のままで問題なし。
 
 **現状**: 合成 8bpp Pix に `add_textlines` → 寸法チェック + SPIX roundtrip。write_pix_and_check なし。
 
-**方針**:
+**方針（実装済み）**:
 
 - 既存テストに write_pix_and_check を追加（`with_text` に1つ、`restored` に1つ）
 - 実画像ベースのテストを追加: `lucasta.150.jpg`（テストデータに存在）を読み込み、
 
-  `add_textlines` で4方向（Above/Below/Left/Right）のテキスト追加結果を write_pix_and_check
+  `add_textlines` で Below 方向のテキスト追加結果を write_pix_and_check
   → ただし C版の `lucasta.047.jpg` とは異なるため C比較は不可。Rust golden のみ
-
-- `set_textline` のテスト追加（C版 checks 5-6 に対応）
 
 **追加テスト**:
 
@@ -177,6 +175,11 @@ let bmf = Bmf::new(6).expect("bmf");
 let with_text = bmf.add_textlines(&pix, "regression test", 0, TextLocation::Below)?;
 rp.write_pix_and_check(&with_text, ImageFormat::Png)?;
 ```
+
+**フォローアップ（別 PR 想定）**:
+
+- `add_textlines` による 4 方向（Above/Below/Left/Right）のテキスト追加テストの網羅
+- `set_textline` のテスト追加（C版 checks 5-6 に対応）
 
 **C版で不足する機能の #[ignore]**:
 
