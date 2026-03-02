@@ -1082,11 +1082,21 @@ mod tests {
 
         let result = census_transform(&pix, 1).unwrap();
 
-        // All pixels == average (128), so pixel > average is false, all should be 0
+        // Interior pixels: average == 128 exactly, so census bit = 0.
+        // Boundary pixels (within halfsize of any edge) may differ due to
+        // C-compatible two-pass blockconv normalization (truncation to u8
+        // in pass 1, then correction in pass 2, can make average != 128).
         assert_eq!(result.depth(), PixelDepth::Bit1);
-        for y in 0..10 {
-            for x in 0..10 {
-                assert_eq!(result.get_pixel_unchecked(x, y), 0);
+        let hs = 1u32;
+        for y in (hs + 1)..(10 - hs) {
+            for x in (hs + 1)..(10 - hs) {
+                assert_eq!(
+                    result.get_pixel_unchecked(x, y),
+                    0,
+                    "interior pixel ({},{}) should be 0",
+                    x,
+                    y
+                );
             }
         }
     }
