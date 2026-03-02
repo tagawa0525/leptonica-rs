@@ -101,6 +101,10 @@ fn gifio_reg() {
             pix2.depth().bits()
         );
 
+        // Golden manifest: record GIF read-back result
+        rp.write_pix_and_check(&pix1, ImageFormat::Png)
+            .expect("write_pix_and_check");
+
         if expect_lossless {
             let same = pix1.equals(&pix2);
             let ok = rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
