@@ -120,3 +120,37 @@ graymorph2	graymorph2_verify	8	gmorph2_open_close	6	open_gray 1x3
 graymorph2	graymorph2_verify	9	gmorph2_open_close	8	close_gray 1x3
 graymorph2	graymorph2_verify	10	gmorph2_open_close	10	open_gray 3x3
 graymorph2	graymorph2_verify	11	gmorph2_open_close	12	close_gray 3x3
+
+# === gifio_reg ===
+# C: 8 files → write GIF → read → write GIF → read → regTestWritePixAndCheck(pix2, IFF_GIF)
+# Rust: same 8 files → write GIF → read → write GIF → read → write_pix_and_check(pix2, GIF)
+# Verified via scripts/verify_gifio.c: all 8 pairs pixel-identical.
+# 5/8 pixEqual=1 (IDENTICAL), 3/8 pixEqual=0 but XOR=0 (metadata-only diff).
+gifio	gifio	0	gifio	2	double roundtrip feyn.tif (1bpp)
+gifio	gifio	1	gifio	4	double roundtrip weasel2.4g.png (2bpp)
+gifio	gifio	2	gifio	6	double roundtrip weasel4.16c.png (4bpp)
+gifio	gifio	3	gifio	8	double roundtrip dreyfus8.png (8bpp gray)
+gifio	gifio	4	gifio	10	double roundtrip weasel8.240c.png (8bpp cmap)
+gifio	gifio	5	gifio	12	double roundtrip test8.jpg (8bpp from JPEG)
+gifio	gifio	6	gifio	14	double roundtrip test16.tif (16bpp)
+gifio	gifio	7	gifio	16	double roundtrip marge.jpg (32bpp)
+
+# === iomisc_reg (partial) ===
+# C: weasel4.11c.png → pixRemoveColormap → pixConvertRGBToColormap
+# Rust: weasel4.11c.png → remove_colormap → convert_rgb_to_colormap
+# Verified via scripts/verify_iomisc.c: both pairs IDENTICAL.
+# C checkpoints 15-16 (gray colormap) use different input/operations than Rust → not compared.
+iomisc	iomisc	13	iomisc_regen_rgb_cmap	4	pixRemoveColormap(weasel4.11c.png)
+iomisc	iomisc	14	iomisc_regen_rgb_cmap	6	pixConvertRGBToColormap
+
+# === ioformats_reg ===
+# C uses pixDisplayDiff (not available in Rust). No direct golden comparison.
+# Rust golden files are loaded input images — serve as regression anchors.
+
+# === pdfio1_reg ===
+# C has NO regTestWritePixAndCheck calls. No golden comparison possible.
+# Rust golden files are input images before PDF conversion — regression anchors.
+
+# === webpio_reg ===
+# C has NO regTestWritePixAndCheck calls. No golden comparison possible.
+# Rust golden files are lossless WebP roundtrip results — regression anchors.
