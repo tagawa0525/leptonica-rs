@@ -183,7 +183,7 @@ fn load_mappings(path: &str, module_filter: Option<&str>) -> Vec<Mapping> {
 }
 
 fn find_file(dir: &str, prefix: &str, idx: u32) -> Option<(String, String)> {
-    for ext in &["png", "jpg", "tif", "bmp"] {
+    for ext in &["png", "jpg", "tif", "bmp", "gif", "webp"] {
         let path = format!("{}/{}.{:02}.{}", dir, prefix, idx, ext);
         if Path::new(&path).exists() {
             return Some((path, ext.to_string()));
