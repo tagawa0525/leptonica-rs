@@ -1,0 +1,27 @@
+# C vs Rust golden image mapping for bit-match verification
+# Format: module<TAB>c_prefix<TAB>c_index<TAB>rust_prefix<TAB>rust_index<TAB>description
+#
+# C indices are 0-based (regTestWritePixAndCheck ordering).
+# Rust indices are 1-based (RegParams::write_pix_and_check ordering).
+#
+# Only list pairs where C and Rust perform the SAME operation on the SAME input.
+# Exclude tiled displays, gplot outputs, and format-incompatible comparisons.
+
+# === edge_reg ===
+# C: test8.jpg → pixSobelEdgeFilter → pixThresholdToBinary(60) → pixInvert
+# Rust: test8.jpg → sobel_edge → threshold_to_binary(60) → invert
+edge	edge	0	edge	1	Sobel horizontal (1bpp inverted)
+edge	edge	1	edge	2	Sobel vertical (1bpp inverted)
+edge	edge	2	edge	3	OR combined H+V edges
+edge	edge	3	edge	4	8bpp max(H,V) inverted
+
+# === convolve_reg ===
+# C: test8.jpg → pixBlockconvGray(pixacc, 3, 5)
+# Rust: test8.jpg → blockconv_gray(3, 5)
+convolve	convolve	0	convolve_blockconv_gray	1	blockconv gray (wc=3 hc=5)
+
+# === compfilter_reg ===
+# C: 200x200 synthetic → pixFillClosedBorders
+# Rust: 200x200 synthetic → fill_closed_borders
+compfilter	compfilter	0	compfilter_write_synthetic	1	fill_closed_borders synthetic
+compfilter	compfilter	1	compfilter_write_synthetic	2	render_hash_box synthetic
