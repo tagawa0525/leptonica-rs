@@ -69,15 +69,13 @@ fn pdfio1_reg_flate() {
 
     let opts = PdfOptions::default().compression(PdfCompression::Flate);
 
-    for (i, img) in images.iter().enumerate() {
+    for img in &images {
         let pix = crate::common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem flate");
 
-        // Golden check for representative (first image)
-        if i == 0 {
-            rp.write_data_and_check(&data, "pdf")
-                .expect("check flate PDF");
-        }
+        // Golden check for all representative images (1bpp / 8bpp / 32bpp)
+        rp.write_data_and_check(&data, "pdf")
+            .expect("check flate PDF");
 
         // PDF header
         let header = String::from_utf8_lossy(&data[..8.min(data.len())]);
