@@ -16,6 +16,7 @@ use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::MedianCutOptions;
 use leptonica::color::median_cut_quant;
+use leptonica::io::ImageFormat;
 
 /// Test paint_through_mask on 32bpp with clipped mask (C check 1 setup).
 ///
@@ -50,6 +51,8 @@ fn paintmask_reg_32bpp() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write painted paint_32bpp");
 
     assert!(rp.cleanup(), "paintmask 32bpp test failed");
 }
@@ -78,6 +81,8 @@ fn paintmask_reg_quant_clip() {
         .expect("clip quantized");
     rp.compare_values(400.0, clipped.width() as f64, 0.0);
     rp.compare_values(300.0, clipped.height() as f64, 0.0);
+    rp.write_pix_and_check(&clipped, ImageFormat::Png)
+        .expect("write clipped quant_clip");
 
     assert!(rp.cleanup(), "paintmask quant+clip test failed");
 }
@@ -108,6 +113,8 @@ fn paintmask_reg_clip_masked() {
     assert!(result.height() > 0);
     rp.compare_values(mask.width() as f64, result.width() as f64, 0.0);
     rp.compare_values(mask.height() as f64, result.height() as f64, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write clipped clip_masked");
 
     // 8bpp grayscale
     let pix8 = pixs.convert_to_8().expect("convert to 8bpp");

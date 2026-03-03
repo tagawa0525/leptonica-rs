@@ -8,6 +8,7 @@ use leptonica::color::{
     hsv_to_rgb, lab_to_rgb, pix_convert_hsv_to_rgb, pix_convert_rgb_to_hsv, pix_convert_to_gray,
     rgb_to_gray, rgb_to_hsv, rgb_to_lab, rgb_to_xyz, rgb_to_yuv, xyz_to_rgb, yuv_to_rgb,
 };
+use leptonica::io::ImageFormat;
 
 #[test]
 fn colorspace_reg() {
@@ -83,6 +84,8 @@ fn colorspace_reg() {
     rp.compare_values(w as f64, gray_img.width() as f64, 0.0);
     rp.compare_values(h as f64, gray_img.height() as f64, 0.0);
     rp.compare_values(8.0, gray_img.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&gray_img, ImageFormat::Png)
+        .expect("write gray_img colorspace");
 
     // RGB -> HSV -> RGB roundtrip
     let hsv_img = pix_convert_rgb_to_hsv(&pix32).expect("pix_convert_rgb_to_hsv");

@@ -15,6 +15,7 @@ use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
 use leptonica::filter::{EdgeFilterType, threshold_spread_norm};
+use leptonica::io::ImageFormat;
 
 /// Test threshold_to_binary at multiple thresholds (partial C AddTestSet).
 ///
@@ -38,6 +39,10 @@ fn threshnorm_reg_threshold_sweep() {
         rp.compare_values(w as f64, result.width() as f64, 0.0);
         rp.compare_values(h as f64, result.height() as f64, 0.0);
         assert_eq!(result.depth(), PixelDepth::Bit1);
+        if thresh == 128 {
+            rp.write_pix_and_check(&result, ImageFormat::Tiff)
+                .expect("write result threshold_sweep");
+        }
     }
 
     assert!(rp.cleanup(), "threshnorm threshold sweep test failed");
@@ -61,6 +66,8 @@ fn threshnorm_reg_spread_norm() {
     rp.compare_values(w as f64, norm.width() as f64, 0.0);
     rp.compare_values(h as f64, norm.height() as f64, 0.0);
     assert_eq!(norm.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&norm, ImageFormat::Png)
+        .expect("write normed spread_norm");
 
     // C: pix3 = pixThresholdToBinary(pix2, targetthresh=128);
     let binary = threshold_to_binary(&norm, 128).expect("threshold_to_binary");

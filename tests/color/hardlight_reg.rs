@@ -13,6 +13,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 
 /// Test blend_hard_light on 32bpp color images (C checks 0-1).
 ///
@@ -35,6 +36,8 @@ fn hardlight_reg_color() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result hardlight_color");
 
     // Partial fraction
     let partial = pix
@@ -70,6 +73,8 @@ fn hardlight_reg_gray() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result hardlight_gray");
 
     assert!(rp.cleanup(), "hardlight gray test failed");
 }
@@ -88,7 +93,7 @@ fn hardlight_reg_original_images() {
         ("hardlight2_1.jpg", "hardlight2_2.jpg"),
     ];
 
-    for (file1, file2) in &pairs {
+    for (i, (file1, file2)) in pairs.iter().enumerate() {
         let pix1 = crate::common::load_test_image(file1).expect(file1);
         let pix2 = crate::common::load_test_image(file2).expect(file2);
 
@@ -115,6 +120,10 @@ fn hardlight_reg_original_images() {
         rp.compare_values(w as f64, result.width() as f64, 0.0);
         rp.compare_values(h as f64, result.height() as f64, 0.0);
         assert_eq!(result.depth(), PixelDepth::Bit32);
+        if i == 0 {
+            rp.write_pix_and_check(&result, ImageFormat::Png)
+                .expect("write result hardlight_original_images");
+        }
 
         // Reverse blend: pix2 base, pix1 blend (C check 2/11)
         let result_rev = p2.blend_hard_light(&p1, 1.0).expect("blend p2 over p1");

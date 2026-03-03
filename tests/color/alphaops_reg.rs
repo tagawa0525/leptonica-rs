@@ -13,6 +13,7 @@
 //! C Leptonica: `reference/leptonica/prog/alphaops_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::{PixelDepth, blend_with_gray_mask};
 
 /// Test alpha_blend_uniform (C checks 0-1, 4).
@@ -34,6 +35,8 @@ fn alphaops_reg_blend_uniform() {
     rp.compare_values(w as f64, blended_white.width() as f64, 0.0);
     rp.compare_values(h as f64, blended_white.height() as f64, 0.0);
     assert_eq!(blended_white.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&blended_white, ImageFormat::Png)
+        .expect("write blended blend_uniform");
 
     // Blend with light yellow background (C: pixAlphaBlendUniform(pix3, 0xffffe000))
     let blended_yellow = pix
@@ -69,6 +72,8 @@ fn alphaops_reg_remove_add_alpha() {
         .expect("add_alpha_to_blend");
     rp.compare_values(w as f64, with_alpha.width() as f64, 0.0);
     rp.compare_values(h as f64, with_alpha.height() as f64, 0.0);
+    rp.write_pix_and_check(&with_alpha, ImageFormat::Png)
+        .expect("write readded remove_add_alpha");
 
     assert!(rp.cleanup(), "alphaops remove/add alpha test failed");
 }
@@ -90,6 +95,8 @@ fn alphaops_reg_multiply_by_color() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write multiplied multiply_by_color");
 
     assert!(rp.cleanup(), "alphaops multiply_by_color test failed");
 }
@@ -113,6 +120,8 @@ fn alphaops_reg_blend_with_mask() {
     rp.compare_values(w as f64, blended.width() as f64, 0.0);
     rp.compare_values(h as f64, blended.height() as f64, 0.0);
     assert_eq!(blended.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&blended, ImageFormat::Png)
+        .expect("write blended blend_with_mask");
 
     assert!(rp.cleanup(), "alphaops blend_with_mask test failed");
 }
@@ -143,6 +152,8 @@ fn alphaops_reg_set_alpha_over_white() {
     rp.compare_values(w as f64, with_alpha.width() as f64, 0.0);
     rp.compare_values(h as f64, with_alpha.height() as f64, 0.0);
     assert_eq!(with_alpha.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&with_alpha, ImageFormat::Png)
+        .expect("write over_white set_alpha_over_white");
 
     // C: pixBlendBackgroundToColor(NULL, pix, ..., color, ...)
     // Blend the alpha image back toward a light yellow background

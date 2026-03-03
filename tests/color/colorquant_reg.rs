@@ -9,6 +9,7 @@ use leptonica::color::{
     octree_quant_256,
 };
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::{Pix, PixelDepth};
 
 fn scale_to_max_width(pix: &Pix, max_width: u32) -> Pix {
@@ -76,6 +77,10 @@ fn test_image(pix: &Pix, name: &str, rp: &mut RegParams) {
                 );
                 rp.compare_values(w as f64, quantized.width() as f64, 0.0);
                 rp.compare_values(h as f64, quantized.height() as f64, 0.0);
+                if name == "marge.jpg" && max_colors == 16 {
+                    rp.write_pix_and_check(&quantized, ImageFormat::Png)
+                        .expect("write result colorquant");
+                }
             }
             Err(e) => {
                 eprintln!("    median_cut(max_colors={}) FAILED: {}", max_colors, e);

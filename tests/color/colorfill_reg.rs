@@ -8,6 +8,7 @@ use leptonica::color::colorfill::{
     ColorFillOptions, Connectivity, color_fill, color_fill_from_seed, pixel_is_on_color_boundary,
 };
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::{Pix, PixelDepth};
 
 fn make_small_test_pix(c1: u32, c2: u32) -> Pix {
@@ -105,6 +106,8 @@ fn colorfill_reg() {
     match color_fill_from_seed(&pix1, 8, 8, &opts_small) {
         Ok(Some(r)) => {
             rp.compare_values(1.0, if r.pixel_count > 0 { 1.0 } else { 0.0 }, 0.0);
+            rp.write_pix_and_check(&r.mask, ImageFormat::Tiff)
+                .expect("write colorfill mask");
         }
         Ok(None) => {
             rp.compare_values(1.0, 1.0, 0.0);

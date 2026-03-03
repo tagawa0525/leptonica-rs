@@ -9,6 +9,7 @@ use leptonica::color::{
     octree_quant_256, remove_unused_colors, threshold_to_4bpp,
 };
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::{Pix, PixColormap, PixelDepth};
 
 fn load_source_image() -> Pix {
@@ -118,6 +119,8 @@ fn cmapquant_reg() {
                 }
                 rp.compare_values(pix_rgb.width() as f64, pix_mc.width() as f64, 0.0);
                 rp.compare_values(pix_rgb.height() as f64, pix_mc.height() as f64, 0.0);
+                rp.write_pix_and_check(&pix_mc, ImageFormat::Png)
+                    .expect("write pix_mc main_median_cut_quant");
             }
             Err(e) => {
                 eprintln!("  MedianCutQuant FAILED: {}", e);
@@ -324,6 +327,8 @@ fn cmapquant_algorithm_comparison() {
 
     rp.compare_values(8.0, mc_result.depth().bits() as f64, 0.0);
     rp.compare_values(8.0, oct_result.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&mc_result, ImageFormat::Png)
+        .expect("write mc_result algo_comparison");
 
     let mc_valid = verify_pixel_indices(&mc_result, mc_colors);
     let oct_valid = verify_pixel_indices(&oct_result, oct_colors);

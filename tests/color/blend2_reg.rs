@@ -11,6 +11,7 @@
 //! C Leptonica: `reference/leptonica/prog/blend2_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::{PixelDepth, blend_with_gray_mask};
 
 /// Test blend_with_gray_mask on two RGB images (C checks 0-3).
@@ -35,6 +36,8 @@ fn blend2_reg_rgb() {
     rp.compare_values(pix1.width() as f64, blended.width() as f64, 0.0);
     rp.compare_values(pix1.height() as f64, blended.height() as f64, 0.0);
     assert_eq!(blended.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&blended, ImageFormat::Png)
+        .expect("write blended rgb");
 
     // Blend at origin
     let blended_origin = blend_with_gray_mask(&pix1, &pix2, &mask, 0, 0).expect("blend rgb 0,0");
@@ -62,6 +65,8 @@ fn blend2_reg_gray() {
     rp.compare_values(pix1.width() as f64, blended.width() as f64, 0.0);
     rp.compare_values(pix1.height() as f64, blended.height() as f64, 0.0);
     assert_eq!(blended.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&blended, ImageFormat::Png)
+        .expect("write blended gray");
 
     assert!(rp.cleanup(), "blend2 gray test failed");
 }
@@ -82,6 +87,8 @@ fn blend2_reg_negative_offset() {
         blend_with_gray_mask(&pix1, &pix2, &mask, -100, -100).expect("blend negative offset");
     rp.compare_values(pix1.width() as f64, blended.width() as f64, 0.0);
     rp.compare_values(pix1.height() as f64, blended.height() as f64, 0.0);
+    rp.write_pix_and_check(&blended, ImageFormat::Png)
+        .expect("write blended negative_offset");
 
     assert!(rp.cleanup(), "blend2 negative offset test failed");
 }
