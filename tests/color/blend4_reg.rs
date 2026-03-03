@@ -15,6 +15,7 @@
 //! C Leptonica: `reference/leptonica/prog/blend4_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::transform::scale_by_sampling;
 use leptonica::{Pix, PixelDepth, blend_with_gray_mask};
 
@@ -40,6 +41,8 @@ fn blend4_reg_add_alpha() {
     assert_eq!(feyn_alpha.depth(), PixelDepth::Bit32);
     rp.compare_values(feyn.width() as f64, feyn_alpha.width() as f64, 0.0);
     rp.compare_values(feyn.height() as f64, feyn_alpha.height() as f64, 0.0);
+    rp.write_pix_and_check(&feyn_alpha, ImageFormat::Png)
+        .expect("write with_alpha add_alpha");
 
     let weasel_alpha = weasel.add_alpha_to_blend(0.3, false).expect("weasel alpha");
     assert_eq!(weasel_alpha.depth(), PixelDepth::Bit32);
@@ -78,6 +81,8 @@ fn blend4_reg_alpha_composite() {
     assert_eq!(composited.depth(), PixelDepth::Bit32);
     rp.compare_values(karen.width() as f64, composited.width() as f64, 0.0);
     rp.compare_values(karen.height() as f64, composited.height() as f64, 0.0);
+    rp.write_pix_and_check(&composited, ImageFormat::Png)
+        .expect("write composited alpha_composite");
 
     // Composite on black background
     let composited_black = rgba
@@ -125,6 +130,8 @@ fn blend4_reg_gray_mask_blend() {
     rp.compare_values(w as f64, blended.width() as f64, 0.0);
     rp.compare_values(h as f64, blended.height() as f64, 0.0);
     assert_eq!(blended.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&blended, ImageFormat::Png)
+        .expect("write blended gray_mask_blend");
 
     assert!(rp.cleanup(), "blend4 gray_mask_blend test failed");
 }
@@ -157,6 +164,8 @@ fn blend4_reg_mask_offset() {
     let blended = blend_with_gray_mask(&fish, &karen_rgb, &mask, 50, 50).expect("offset blend");
     rp.compare_values(fish.width() as f64, blended.width() as f64, 0.0);
     rp.compare_values(fish.height() as f64, blended.height() as f64, 0.0);
+    rp.write_pix_and_check(&blended, ImageFormat::Png)
+        .expect("write blended mask_offset");
 
     assert!(rp.cleanup(), "blend4 mask_offset test failed");
 }

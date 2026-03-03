@@ -17,6 +17,7 @@ use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::pix_snap_color;
 use leptonica::core::pix::blend::{FadeDirection, FadeTarget};
+use leptonica::io::ImageFormat;
 
 /// Test pix_snap_color on 32bpp RGB images (C checks 0-3).
 ///
@@ -35,6 +36,8 @@ fn blend5_reg_snap_color_rgb() {
     rp.compare_values(pix32.width() as f64, snapped.width() as f64, 0.0);
     rp.compare_values(pix32.height() as f64, snapped.height() as f64, 0.0);
     assert_eq!(snapped.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&snapped, ImageFormat::Png)
+        .expect("write snapped snap_white");
 
     // Snap black → blue with tolerance 40
     let snapped2 = pix_snap_color(&pix32, 0x00000000, 0x0000FF00, 40).expect("snap black→blue");
@@ -62,6 +65,8 @@ fn blend5_reg_snap_color_gray() {
     rp.compare_values(pix8.width() as f64, snapped.width() as f64, 0.0);
     rp.compare_values(pix8.height() as f64, snapped.height() as f64, 0.0);
     assert_eq!(snapped.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&snapped, ImageFormat::Png)
+        .expect("write snapped snap_black");
 
     // Snap near-black (0) → mid-gray (128) with tolerance 15
     let snapped2 = pix_snap_color(&pix8, 0x00000000, 0x80000000, 15).expect("snap black→gray");
@@ -93,6 +98,8 @@ fn blend5_reg_edge_fade_rgb() {
     let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result fade_left");
 
     // Fade from right to black
     let mut pix_mut = pix32.to_mut();
@@ -109,6 +116,8 @@ fn blend5_reg_edge_fade_rgb() {
         .expect("fade top white");
     let result: leptonica::Pix = pix_mut.into();
     rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result fade_top");
 
     // Fade from bottom to black
     let mut pix_mut = pix32.to_mut();
