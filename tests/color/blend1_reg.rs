@@ -12,6 +12,7 @@
 //! C Leptonica: `reference/leptonica/prog/blend1_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::{GrayBlendType, PixelDepth};
 
 /// Test blend_gray with GrayBlendType::Gray (C checks 0-2).
@@ -36,6 +37,8 @@ fn blend1_reg_gray_straight() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write blended gray_straight");
 
     // Blend with different fraction
     let result2 = pix
@@ -65,6 +68,8 @@ fn blend1_reg_gray_inverse() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write blended gray_inverse");
 
     assert!(rp.cleanup(), "blend1 gray inverse test failed");
 }
@@ -92,6 +97,8 @@ fn blend1_reg_adapt() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write blended adapt");
 
     // Different fraction and shift
     let result2 = pix
@@ -122,6 +129,8 @@ fn blend1_reg_color() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write blended color");
 
     // Different fraction
     let result2 = pix

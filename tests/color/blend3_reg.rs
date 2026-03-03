@@ -13,6 +13,7 @@
 //! C Leptonica: `reference/leptonica/prog/blend3_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::{Color, PixelDepth};
 
 /// Test blend_gray_inverse (C checks: BlendTest pixBlendGrayInverse portion).
@@ -38,6 +39,8 @@ fn blend3_reg_gray_inverse() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write blended gray_inverse");
 
     // Different position and fraction
     let result2 = pix
@@ -79,6 +82,8 @@ fn blend3_reg_color_by_channel() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write blended color_by_channel");
 
     // Uniform channels
     let result2 = pix
@@ -109,6 +114,8 @@ fn blend3_reg_gray_base() {
         .expect("blend_gray_inverse 8bpp");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write blended gray_base");
 
     // blend_gray_adapt on 8bpp base
     let result2 = pix
