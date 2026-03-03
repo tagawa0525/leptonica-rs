@@ -14,6 +14,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::transform::{
     StereoscopicParams, WarpDirection, WarpFill, WarpOperation, WarpType, random_harmonic_warp,
     stretch_horizontal, warp_stereoscopic,
@@ -38,6 +39,8 @@ fn warper_reg_random_harmonic() {
         .expect("random_harmonic_warp set0 seed0");
     rp.compare_values(w as f64, warped1.width() as f64, 0.0);
     rp.compare_values(h as f64, warped1.height() as f64, 0.0);
+    rp.write_pix_and_check(&warped1, ImageFormat::Png)
+        .expect("write warped1");
 
     let warped2 = random_harmonic_warp(&pix, 4.0, 6.0, 0.10, 0.13, 3, 3, 7, 255)
         .expect("random_harmonic_warp set1 seed7");
@@ -69,6 +72,8 @@ fn warper_reg_stereoscopic() {
         warp_stereoscopic(&pix, StereoscopicParams::default()).expect("warp_stereoscopic default");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result warper_stereo");
     assert_eq!(result.depth(), PixelDepth::Bit32);
 
     // Flat params: only horizontal shift, no vertical bending
@@ -110,6 +115,8 @@ fn warper_reg_stretch_horizontal() {
     .expect("stretch_horizontal quadratic left LI");
     rp.compare_values(h as f64, stretched_q.height() as f64, 0.0);
     rp.compare_values(1.0, if stretched_q.width() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&stretched_q, ImageFormat::Png)
+        .expect("write stretched_q");
 
     // Linear right stretch with sampling
     let stretched_l = stretch_horizontal(
