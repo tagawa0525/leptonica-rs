@@ -10,6 +10,7 @@
 //! 5. Chain code encode/decode roundtrip preserves border points
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::io::ImageFormat;
 use leptonica::region::{from_chain_code, get_all_borders, render_borders, to_chain_code};
 use leptonica::{Pix, PixelDepth};
 
@@ -163,6 +164,8 @@ fn ccbord_reg_dreyfus1_smoke() {
     let rendered = render_borders(&all_borders).expect("render_borders");
     rp.compare_values(pixs.width() as f64, rendered.width() as f64, 0.0);
     rp.compare_values(pixs.height() as f64, rendered.height() as f64, 0.0);
+    rp.write_pix_and_check(&rendered, ImageFormat::Tiff)
+        .expect("write rendered ccbord_dreyfus1");
 
     assert!(rp.cleanup(), "ccbord dreyfus1 smoke test failed");
 }
