@@ -13,6 +13,7 @@
 //!   3. Rotation by ANGLE2 with area-map method (requires >= 8bpp)
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::io::ImageFormat;
 use leptonica::transform::{rotate_by_angle, rotate_by_radians};
 
 /// Test arbitrary-angle rotation methods
@@ -42,6 +43,8 @@ fn rotate2_reg() {
         },
         0.0,
     );
+    rp.write_pix_and_check(&rotated, ImageFormat::Png)
+        .expect("write rotated 5deg");
     eprintln!("  rotate 5 deg: {}x{}", rotated.width(), rotated.height());
 
     // --- Test 2: Rotation by 0 degrees should preserve image ---
@@ -54,6 +57,8 @@ fn rotate2_reg() {
     let radians = std::f32::consts::PI / 6.0;
     let rot_rad = rotate_by_radians(&pixs, radians).expect("rotate_by_radians pi/6");
     rp.compare_values(1.0, if rot_rad.width() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&rot_rad, ImageFormat::Png)
+        .expect("write rot_rad");
     eprintln!(
         "  rotate pi/6 rad: {}x{}",
         rot_rad.width(),
@@ -88,6 +93,8 @@ fn rotate2_reg() {
     let back = rotate_by_angle(&fwd, -10.0).expect("rotate -10 deg");
     let valid = back.width() >= w && back.height() >= h;
     rp.compare_values(1.0, if valid { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&back, ImageFormat::Png)
+        .expect("write back");
     eprintln!(
         "  rotate +10 then -10: {}x{} (orig {}x{})",
         back.width(),

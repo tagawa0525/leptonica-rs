@@ -13,6 +13,7 @@
 //! sampling, area-map) on multiple image depths, which is covered in rotate2_reg.
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::io::ImageFormat;
 use leptonica::transform::{flip_lr, flip_tb, rotate_90, rotate_180};
 
 /// Test basic orthogonal rotations and flips on a 1bpp image
@@ -32,6 +33,8 @@ fn rotate1_reg() {
     let r90 = rotate_90(&pixs, true).expect("rotate_90 cw");
     rp.compare_values(h as f64, r90.width() as f64, 0.0);
     rp.compare_values(w as f64, r90.height() as f64, 0.0);
+    rp.write_pix_and_check(&r90, ImageFormat::Tiff)
+        .expect("write r90");
     eprintln!("  rotate_90 cw: {}x{}", r90.width(), r90.height());
 
     // --- Test 2: Rotate 90 counter-clockwise ---
@@ -43,6 +46,8 @@ fn rotate1_reg() {
     let r180 = rotate_180(&pixs).expect("rotate_180");
     rp.compare_values(w as f64, r180.width() as f64, 0.0);
     rp.compare_values(h as f64, r180.height() as f64, 0.0);
+    rp.write_pix_and_check(&r180, ImageFormat::Tiff)
+        .expect("write r180");
 
     // --- Test 4: Rotate 360 should return to original ---
     // C version: pixRotate180(pixt, pixs); pixRotate180(pixt, pixt); regTestComparePix
@@ -66,6 +71,8 @@ fn rotate1_reg() {
     let flr = flip_lr(&pixs).expect("flip_lr");
     rp.compare_values(w as f64, flr.width() as f64, 0.0);
     rp.compare_values(h as f64, flr.height() as f64, 0.0);
+    rp.write_pix_and_check(&flr, ImageFormat::Tiff)
+        .expect("write flr");
 
     let flr2 = flip_lr(&flr).expect("flip_lr twice");
     let same = pixs.equals(&flr2);
@@ -77,6 +84,8 @@ fn rotate1_reg() {
     let ftb = flip_tb(&pixs).expect("flip_tb");
     rp.compare_values(w as f64, ftb.width() as f64, 0.0);
     rp.compare_values(h as f64, ftb.height() as f64, 0.0);
+    rp.write_pix_and_check(&ftb, ImageFormat::Tiff)
+        .expect("write ftb");
 
     let ftb2 = flip_tb(&ftb).expect("flip_tb twice");
     let same = pixs.equals(&ftb2);

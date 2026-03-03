@@ -14,6 +14,8 @@
 //! grayscale (test8.jpg), colormap (dreyfus8.png), RGB (marge.jpg).
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::transform::{rotate_90, rotate_180, rotate_orth};
 
 /// Test orthogonal rotations on multiple depths
@@ -63,6 +65,12 @@ fn test_orth_rotation(rp: &mut RegParams, pixs: &leptonica::Pix, label: &str) {
     let r1 = rotate_orth(pixs, 1).expect("rotate_orth 1");
     rp.compare_values(h as f64, r1.width() as f64, 0.0);
     rp.compare_values(w as f64, r1.height() as f64, 0.0);
+    let fmt = if pixs.depth() == PixelDepth::Bit1 {
+        ImageFormat::Tiff
+    } else {
+        ImageFormat::Png
+    };
+    rp.write_pix_and_check(&r1, fmt).expect("write r1");
 
     let r90 = rotate_90(pixs, true).expect("rotate_90 cw");
     let same = r1.equals(&r90);
