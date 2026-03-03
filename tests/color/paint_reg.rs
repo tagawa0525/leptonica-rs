@@ -17,6 +17,7 @@
 
 use crate::common::RegParams;
 use leptonica::color::{ColorGrayOptions, PaintType, pix_color_gray, threshold_to_binary};
+use leptonica::io::ImageFormat;
 use leptonica::{Color, PixelDepth};
 
 /// Test pix_color_gray on 32bpp RGB (C checks 0-1, 4-5).
@@ -44,6 +45,8 @@ fn paint_reg_color_gray() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result paint_color_gray");
 
     // C: pixColorGray(pixt, NULL, L_PAINT_DARK, 220, 255, 100, 100) — red on dark
     let dark_full = ColorGrayOptions {
@@ -94,6 +97,8 @@ fn paint_reg_through_mask() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result through_mask");
 
     assert!(rp.cleanup(), "paint through mask test failed");
 }
@@ -135,6 +140,8 @@ fn paint_reg_render_color() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result render_color");
 
     assert!(rp.cleanup(), "paint render color test failed");
 }
@@ -170,6 +177,8 @@ fn paint_reg_render_blend() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result render_blend");
 
     assert!(rp.cleanup(), "paint render blend test failed");
 }

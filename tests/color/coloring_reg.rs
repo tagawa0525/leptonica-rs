@@ -14,6 +14,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::pix_shift_by_component;
+use leptonica::io::ImageFormat;
 
 /// Test pix_shift_by_component for background coloring (C checks 4-7).
 ///
@@ -33,6 +34,8 @@ fn coloring_reg_background_shift() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result background_shift");
 
     // Shift to light pink: (255, 245, 235) = 0xfff5eb00
     let result2 =
@@ -64,6 +67,8 @@ fn coloring_reg_foreground_shift() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result foreground_shift");
 
     assert!(rp.cleanup(), "coloring foreground shift test failed");
 }

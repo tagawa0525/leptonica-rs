@@ -18,6 +18,7 @@ use leptonica::color::{
     ColorGrayOptions, PaintType, color_gray_regions, has_highlight_red, pix_color_gray,
     pix_color_gray_masked,
 };
+use leptonica::io::ImageFormat;
 
 /// Test pix_color_gray with region and full-image (C checks 12: pixColorGray).
 ///
@@ -43,6 +44,8 @@ fn colorize_reg_color_gray() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write colored color_gray");
 
     // Full-image colorization with PaintType::Light
     let light_options = ColorGrayOptions {
@@ -82,6 +85,8 @@ fn colorize_reg_color_gray_masked() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write colored color_gray_masked");
 
     assert!(rp.cleanup(), "colorize color_gray_masked test failed");
 }
@@ -116,6 +121,8 @@ fn colorize_reg_highlight_detect() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write regions highlight_detect");
 
     assert!(rp.cleanup(), "colorize highlight detect test failed");
 }
