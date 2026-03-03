@@ -15,6 +15,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::transform::{
     Point, affine_pta_with_alpha, bilinear_pta_with_alpha, projective_pta_with_alpha,
     rotate_with_alpha,
@@ -37,6 +38,8 @@ fn alphaxform_reg_rotate_with_alpha() {
     let rot_full = rotate_with_alpha(&pix, 0.3, None, 1.0).expect("rotate_with_alpha full opacity");
     rp.compare_values(w as f64, rot_full.width() as f64, 0.0);
     rp.compare_values(h as f64, rot_full.height() as f64, 0.0);
+    rp.write_pix_and_check(&rot_full, ImageFormat::Png)
+        .expect("write rot_full");
     assert_eq!(rot_full.depth(), PixelDepth::Bit32);
 
     // Rotate by -0.3 radians with partial opacity
@@ -78,6 +81,8 @@ fn alphaxform_reg_affine_pta_with_alpha() {
         .expect("affine_pta_with_alpha");
     rp.compare_values(1.0, if result.width() > 0 { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(1.0, if result.height() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result alphaxform_affine");
     assert_eq!(result.depth(), PixelDepth::Bit32);
 
     // Identity affine (src == dst) should preserve dimensions
@@ -117,6 +122,8 @@ fn alphaxform_reg_projective_pta_with_alpha() {
         .expect("projective_pta_with_alpha");
     rp.compare_values(1.0, if result.width() > 0 { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(1.0, if result.height() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result alphaxform_proj");
     assert_eq!(result.depth(), PixelDepth::Bit32);
 
     assert!(rp.cleanup(), "alphaxform projective with alpha test failed");

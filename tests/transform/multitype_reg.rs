@@ -14,6 +14,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::transform::{
     AffineFill, AffineMatrix, BilinearCoeffs, Point, ProjectiveCoeffs, RotateFill, RotateOptions,
     affine, affine_sampled, bilinear, bilinear_sampled, expand_replicate, projective,
@@ -59,6 +60,10 @@ fn multitype_reg_rotate() {
         // so we only verify the operation succeeds and produces non-empty output.
         rp.compare_values(1.0, if rotated.width() > 0 { 1.0 } else { 0.0 }, 0.0);
         rp.compare_values(1.0, if rotated.height() > 0 { 1.0 } else { 0.0 }, 0.0);
+        if *img == "marge.jpg" {
+            rp.write_pix_and_check(&rotated, ImageFormat::Png)
+                .expect("write rotated multitype_rotate");
+        }
     }
 
     assert!(rp.cleanup(), "multitype rotate test failed");
@@ -90,6 +95,10 @@ fn multitype_reg_affine() {
         let result2 = affine(&pix_scaled, &matrix, AffineFill::White).expect("affine");
         rp.compare_values(TARGET_W as f64, result2.width() as f64, 0.0);
         rp.compare_values(TARGET_H as f64, result2.height() as f64, 0.0);
+        if *img == "marge.jpg" {
+            rp.write_pix_and_check(&result2, ImageFormat::Png)
+                .expect("write result2 multitype_affine");
+        }
     }
 
     assert!(rp.cleanup(), "multitype affine test failed");
@@ -131,6 +140,10 @@ fn multitype_reg_projective() {
         let result2 = projective(&pix_scaled, &coeffs, AffineFill::White).expect("projective");
         rp.compare_values(TARGET_W as f64, result2.width() as f64, 0.0);
         rp.compare_values(TARGET_H as f64, result2.height() as f64, 0.0);
+        if *img == "marge.jpg" {
+            rp.write_pix_and_check(&result2, ImageFormat::Png)
+                .expect("write result2 multitype_projective");
+        }
     }
 
     assert!(rp.cleanup(), "multitype projective test failed");
@@ -172,6 +185,10 @@ fn multitype_reg_bilinear() {
         let result2 = bilinear(&pix_scaled, &coeffs, AffineFill::White).expect("bilinear");
         rp.compare_values(TARGET_W as f64, result2.width() as f64, 0.0);
         rp.compare_values(TARGET_H as f64, result2.height() as f64, 0.0);
+        if *img == "marge.jpg" {
+            rp.write_pix_and_check(&result2, ImageFormat::Png)
+                .expect("write result2 multitype_bilinear");
+        }
     }
 
     assert!(rp.cleanup(), "multitype bilinear test failed");
@@ -196,6 +213,10 @@ fn multitype_reg_scale() {
         let scaled = scale_to_size(&pix, TARGET_W, TARGET_H).expect("scale_to_size");
         rp.compare_values(TARGET_W as f64, scaled.width() as f64, 0.0);
         rp.compare_values(TARGET_H as f64, scaled.height() as f64, 0.0);
+        if *img == "marge.jpg" {
+            rp.write_pix_and_check(&scaled, ImageFormat::Png)
+                .expect("write scaled multitype_scale");
+        }
 
         // expand_replicate factor 1 = identity
         let identity = expand_replicate(&pix, 1).expect("expand 1x");
