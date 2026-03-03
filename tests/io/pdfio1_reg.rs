@@ -30,6 +30,10 @@ fn pdfio1_reg_auto_compression() {
         let pix = crate::common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let opts = PdfOptions::default();
         let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem");
+
+        rp.write_data_and_check(&data, "pdf")
+            .expect("check auto-compression PDF");
+
         let header = String::from_utf8_lossy(&data[..8.min(data.len())]);
 
         // PDF should start with %PDF-
@@ -69,6 +73,10 @@ fn pdfio1_reg_flate() {
         let pix = crate::common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
         let data = leptonica::io::pdf::write_pdf_mem(&pix, &opts).expect("write_pdf_mem flate");
 
+        // Golden check for all representative images (1bpp / 8bpp / 32bpp)
+        rp.write_data_and_check(&data, "pdf")
+            .expect("check flate PDF");
+
         // PDF header
         let header = String::from_utf8_lossy(&data[..8.min(data.len())]);
         rp.compare_values(
@@ -103,6 +111,8 @@ fn pdfio1_reg_jpeg() {
     // 8bpp grayscale
     let pix8 = crate::common::load_test_image("karen8.jpg").expect("load karen8.jpg");
     let data8 = leptonica::io::pdf::write_pdf_mem(&pix8, &opts).expect("write_pdf_mem jpeg 8bpp");
+    rp.write_data_and_check(&data8, "pdf")
+        .expect("check jpeg PDF");
     let pdf_str8 = String::from_utf8_lossy(&data8);
 
     rp.compare_values(
@@ -153,6 +163,9 @@ fn pdfio1_reg_multipage() {
 
     let mut buf = Vec::new();
     leptonica::io::pdf::write_pdf_multi(&images, &mut buf, &opts).expect("write_pdf_multi");
+
+    rp.write_data_and_check(&buf, "pdf")
+        .expect("check multipage PDF");
 
     // Should start with PDF header
     let header = String::from_utf8_lossy(&buf[..8.min(buf.len())]);

@@ -37,6 +37,8 @@ fn ioformats_reg() {
 
     // PNG 1bpp
     let pix = load_test_image("rabi.png").expect("load rabi.png");
+    rp.write_pix_and_check(&pix, ImageFormat::Png)
+        .expect("check rabi.png");
     rp.compare_values(1.0, pix.depth().bits() as f64, 0.0);
     rp.compare_values(1.0, if pix.width() > 0 { 1.0 } else { 0.0 }, 0.0);
     eprintln!(
@@ -48,6 +50,8 @@ fn ioformats_reg() {
 
     // PNG 32bpp
     let pix32 = load_test_image("weasel32.png").expect("load weasel32.png");
+    rp.write_pix_and_check(&pix32, ImageFormat::Png)
+        .expect("check weasel32.png");
     rp.compare_values(32.0, pix32.depth().bits() as f64, 0.0);
     eprintln!(
         "  weasel32.png: {}x{} d={}",
@@ -58,6 +62,8 @@ fn ioformats_reg() {
 
     // PNG 8bpp with colormap
     let pix8c = load_test_image("weasel8.240c.png").expect("load weasel8.240c.png");
+    rp.write_pix_and_check(&pix8c, ImageFormat::Png)
+        .expect("check weasel8.240c.png");
     rp.compare_values(8.0, pix8c.depth().bits() as f64, 0.0);
     rp.compare_values(1.0, if pix8c.has_colormap() { 1.0 } else { 0.0 }, 0.0);
     eprintln!(
@@ -70,6 +76,8 @@ fn ioformats_reg() {
 
     // JPEG 8bpp grayscale
     let pix8j = load_test_image("test8.jpg").expect("load test8.jpg");
+    rp.write_pix_and_check(&pix8j, ImageFormat::Png)
+        .expect("check test8.jpg");
     rp.compare_values(8.0, pix8j.depth().bits() as f64, 0.0);
     eprintln!(
         "  test8.jpg: {}x{} d={}",
@@ -133,6 +141,8 @@ fn test_format_detect_bytes(rp: &mut RegParams, fname: &str, expected: ImageForm
 fn test_png_roundtrip(rp: &mut RegParams, pix: &leptonica::Pix, label: &str) {
     let png_data = write_image_mem(pix, ImageFormat::Png).expect("write PNG");
     let pix2 = read_image_mem(&png_data).expect("read PNG");
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check roundtrip");
     let same_dims = pix.width() == pix2.width() && pix.height() == pix2.height();
     rp.compare_values(1.0, if same_dims { 1.0 } else { 0.0 }, 0.0);
     eprintln!(

@@ -42,6 +42,8 @@ fn iomisc_reg_16bit_png() {
     rp.compare_values(1.0, if ok { 1.0 } else { 0.0 }, 0.0);
 
     let pix1 = read_image(&png_path).expect("read test16.png");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check 16-bit PNG readback");
     let d = pix1.depth().bits();
     rp.compare_values(16.0, d as f64, 0.0);
     eprintln!("  Test 1 (read PNG depth): depth={} (expected 16)", d);
@@ -86,6 +88,8 @@ fn iomisc_reg_png_alpha() {
     eprintln!("=== Tests 6-10: PNG alpha channel ===");
 
     let pixs = load_test_image("books_logo.png").expect("load books_logo.png");
+    rp.write_pix_and_check(&pixs, ImageFormat::Png)
+        .expect("check books_logo.png");
 
     rp.compare_values(32.0, pixs.depth().bits() as f64, 0.0);
     rp.compare_values(4.0, pixs.spp() as f64, 0.0);
@@ -96,6 +100,8 @@ fn iomisc_reg_png_alpha() {
     write_image(&pixs, &alpha_path, ImageFormat::Png).expect("write RGBA PNG");
 
     let pix_back = read_image(&alpha_path).expect("read RGBA PNG back");
+    rp.write_pix_and_check(&pix_back, ImageFormat::Png)
+        .expect("check alpha roundtrip");
     rp.compare_values(32.0, pix_back.depth().bits() as f64, 0.0);
     rp.compare_values(4.0, pix_back.spp() as f64, 0.0);
 
@@ -143,6 +149,8 @@ fn iomisc_reg_alpha_blend_operations() {
     let pix_red = pixs
         .get_rgb_component(RgbComponent::Red)
         .expect("get_rgb_component Red");
+    rp.write_pix_and_check(&pix_red, ImageFormat::Png)
+        .expect("check red channel");
     rp.compare_values(pixs.width() as f64, pix_red.width() as f64, 0.0);
     rp.compare_values(pixs.height() as f64, pix_red.height() as f64, 0.0);
     rp.compare_values(8.0, pix_red.depth().bits() as f64, 0.0);
@@ -151,6 +159,8 @@ fn iomisc_reg_alpha_blend_operations() {
     let pix_blend = pixs
         .alpha_blend_uniform(0xFFFFFF00)
         .expect("alpha_blend_uniform");
+    rp.write_pix_and_check(&pix_blend, ImageFormat::Png)
+        .expect("check alpha blend");
     rp.compare_values(pixs.width() as f64, pix_blend.width() as f64, 0.0);
     rp.compare_values(pixs.height() as f64, pix_blend.height() as f64, 0.0);
     rp.compare_values(32.0, pix_blend.depth().bits() as f64, 0.0);
@@ -159,6 +169,8 @@ fn iomisc_reg_alpha_blend_operations() {
     let pix_alpha = pix_blend
         .set_alpha_over_white()
         .expect("set_alpha_over_white");
+    rp.write_pix_and_check(&pix_alpha, ImageFormat::Png)
+        .expect("check set_alpha_over_white");
     rp.compare_values(pix_blend.width() as f64, pix_alpha.width() as f64, 0.0);
     rp.compare_values(pix_blend.height() as f64, pix_alpha.height() as f64, 0.0);
     rp.compare_values(32.0, pix_alpha.depth().bits() as f64, 0.0);
@@ -176,6 +188,8 @@ fn iomisc_reg_colormap() {
     eprintln!("=== Tests 11-16: Colormap operations ===");
 
     let pixs = load_test_image("weasel4.11c.png").expect("load weasel4.11c.png");
+    rp.write_pix_and_check(&pixs, ImageFormat::Png)
+        .expect("check weasel4.11c.png");
     rp.compare_values(1.0, if pixs.has_colormap() { 1.0 } else { 0.0 }, 0.0);
 
     let cmap = pixs
@@ -191,6 +205,8 @@ fn iomisc_reg_colormap() {
     let cmap_path = format!("{}/iomisc_weasel4_11c.png", outdir);
     write_image(&pixs, &cmap_path, ImageFormat::Png).expect("write colormapped PNG");
     let pix_back = read_image(&cmap_path).expect("read colormapped PNG back");
+    rp.write_pix_and_check(&pix_back, ImageFormat::Png)
+        .expect("check colormap roundtrip");
 
     let back_cmap = pix_back
         .colormap()
@@ -226,6 +242,8 @@ fn iomisc_reg_remove_regen_rgb_colormap() {
     let pix_rgb = pixs
         .remove_colormap(RemoveColormapTarget::ToFullColor)
         .expect("remove_colormap ToFullColor");
+    rp.write_pix_and_check(&pix_rgb, ImageFormat::Png)
+        .expect("check remove_colormap RGB");
     rp.compare_values(0.0, if pix_rgb.has_colormap() { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(32.0, pix_rgb.depth().bits() as f64, 0.0);
 
@@ -233,6 +251,8 @@ fn iomisc_reg_remove_regen_rgb_colormap() {
     let pix_cmap = pix_rgb
         .convert_rgb_to_colormap(false)
         .expect("convert_rgb_to_colormap");
+    rp.write_pix_and_check(&pix_cmap, ImageFormat::Png)
+        .expect("check convert_rgb_to_colormap");
     rp.compare_values(1.0, if pix_cmap.has_colormap() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "iomisc remove/regen RGB colormap test failed");
@@ -253,12 +273,16 @@ fn iomisc_reg_remove_regen_gray_colormap() {
     let pix_cmap = pixs
         .convert_gray_to_colormap()
         .expect("convert_gray_to_colormap");
+    rp.write_pix_and_check(&pix_cmap, ImageFormat::Png)
+        .expect("check convert_gray_to_colormap");
     rp.compare_values(1.0, if pix_cmap.has_colormap() { 1.0 } else { 0.0 }, 0.0);
 
     // Remove colormap
     let pix_gray = pix_cmap
         .remove_colormap(RemoveColormapTarget::BasedOnSrc)
         .expect("remove_colormap BasedOnSrc");
+    rp.write_pix_and_check(&pix_gray, ImageFormat::Png)
+        .expect("check remove_colormap gray");
     rp.compare_values(0.0, if pix_gray.has_colormap() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(
@@ -334,6 +358,11 @@ fn iomisc_reg_tiff_compression() {
 
                 match read_image(&path) {
                     Ok(pix_back) => {
+                        // Golden check for first format only (all lossless, same result)
+                        if i == 0 {
+                            rp.write_pix_and_check(&pix_back, ImageFormat::Png)
+                                .expect("check TIFF 1bpp roundtrip");
+                        }
                         let dims_ok =
                             pix_back.width() == pixs.width() && pix_back.height() == pixs.height();
                         rp.compare_values(1.0, if dims_ok { 1.0 } else { 0.0 }, 0.0);
@@ -393,6 +422,8 @@ fn iomisc_reg_pnm_alpha() {
     rp.compare_values(1.0, if metadata.len() > 0 { 1.0 } else { 0.0 }, 0.0);
 
     let pix1 = read_image(&pnm_path).expect("read PNM back");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check PNM alpha readback");
 
     let w = pixs.width();
     let h = pixs.height();
@@ -491,6 +522,8 @@ fn iomisc_reg_memory_io() {
         let pix = load_test_image("weasel8.png").expect("load weasel8.png");
         let data = write_image_mem(&pix, ImageFormat::Png).expect("write 8bpp PNG to memory");
         let pix2 = leptonica::io::read_image_mem(&data).expect("read 8bpp PNG from memory");
+        rp.write_pix_and_check(&pix2, ImageFormat::Png)
+            .expect("check 8bpp PNG memio");
         let same = pix.equals(&pix2);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     }
@@ -500,6 +533,8 @@ fn iomisc_reg_memory_io() {
         let pix = load_test_image("marge.jpg").expect("load marge.jpg");
         let data = write_image_mem(&pix, ImageFormat::Png).expect("write 32bpp PNG to memory");
         let pix2 = leptonica::io::read_image_mem(&data).expect("read 32bpp PNG from memory");
+        rp.write_pix_and_check(&pix2, ImageFormat::Png)
+            .expect("check 32bpp PNG memio");
         let same = pix.equals(&pix2);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     }
@@ -510,6 +545,8 @@ fn iomisc_reg_memory_io() {
         let data =
             write_image_mem(&pix, ImageFormat::TiffLzw).expect("write 8bpp TIFF-LZW to memory");
         let pix2 = leptonica::io::read_image_mem(&data).expect("read 8bpp TIFF-LZW from memory");
+        rp.write_pix_and_check(&pix2, ImageFormat::Png)
+            .expect("check TIFF-LZW memio");
         let same = pix.equals(&pix2);
         rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
     }
@@ -520,6 +557,8 @@ fn iomisc_reg_memory_io() {
         if pix.depth().bits() == 16 {
             let data = write_image_mem(&pix, ImageFormat::Png).expect("write 16bpp PNG to memory");
             let pix2 = leptonica::io::read_image_mem(&data).expect("read 16bpp PNG from memory");
+            rp.write_pix_and_check(&pix2, ImageFormat::Png)
+                .expect("check 16bpp PNG memio");
             let same = pix.equals(&pix2);
             rp.compare_values(1.0, if same { 1.0 } else { 0.0 }, 0.0);
         } else {
