@@ -61,7 +61,7 @@ fn do_webp_test1(rp: &mut RegParams, fname: &str, outdir: &str) {
 
     // Golden manifest: record WebP read-back result
     rp.write_pix_and_check(&pix1, ImageFormat::Png)
-        .expect(&format!("write_pix_and_check: {fname}"));
+        .unwrap_or_else(|e| panic!("write_pix_and_check: {fname}: {e}"));
 
     let dims_ok = pix1.width() == pixs.width() && pix1.height() == pixs.height();
     let ok = rp.compare_values(1.0, if dims_ok { 1.0 } else { 0.0 }, 0.0);
