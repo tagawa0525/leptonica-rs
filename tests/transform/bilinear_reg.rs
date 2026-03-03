@@ -14,6 +14,7 @@
 //! Bilinear uses 4 point correspondences (vs 3 for affine).
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::io::ImageFormat;
 use leptonica::transform::{
     AffineFill, Point, ScaleMethod, bilinear_pta, bilinear_sampled_pta, scale,
 };
@@ -77,6 +78,10 @@ fn bilinear_reg_sampling_invertability() {
         let pix1 = bilinear_sampled_pta(&pixb, ptad, ptas, AffineFill::White)
             .expect("bilinear_sampled_pta forward");
         rp.compare_values(pixb.width() as f64, pix1.width() as f64, 0.0);
+        if i == 1 {
+            rp.write_pix_and_check(&pix1, ImageFormat::Png)
+                .expect("write pix1 bilinear_sampling");
+        }
 
         // C: pix2 = pixBilinearSampledPta(pix1, ptas, ptad, L_BRING_IN_WHITE);
         let pix2 = bilinear_sampled_pta(&pix1, ptas, ptad, AffineFill::White)
@@ -123,6 +128,10 @@ fn bilinear_reg_grayscale_interpolation_invertability() {
         let pix1 =
             bilinear_pta(&pixb, ptad, ptas, AffineFill::White).expect("bilinear_pta forward");
         rp.compare_values(8.0, pix1.depth().bits() as f64, 0.0);
+        if i == 1 {
+            rp.write_pix_and_check(&pix1, ImageFormat::Png)
+                .expect("write pix1 bilinear_gray_interp");
+        }
 
         // C: pix2 = pixBilinearPta(pix1, ptas, ptad, L_BRING_IN_WHITE);
         let pix2 =
@@ -175,6 +184,8 @@ fn bilinear_reg_compare_sampling_interpolated() {
 
     rp.compare_values(pixg.width() as f64, pix_sampled.width() as f64, 0.0);
     rp.compare_values(pixg.width() as f64, pix_interp.width() as f64, 0.0);
+    rp.write_pix_and_check(&pix_sampled, ImageFormat::Png)
+        .expect("write pix_sampled bilinear_compare");
 
     let sampled_nonzero = pix_sampled.count_pixels();
     let interp_nonzero = pix_interp.count_pixels();
@@ -219,6 +230,8 @@ fn bilinear_reg_large_distortion() {
     let pix1 = bilinear_sampled_pta(&pixg, ptas, ptad, AffineFill::White)
         .expect("bilinear_sampled_pta large distortion");
     rp.compare_values(pixg.width() as f64, pix1.width() as f64, 0.0);
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("write pix1 bilinear_large_distort");
 
     // C: pix2 = pixBilinearPta(pixg, ptas, ptad, L_BRING_IN_WHITE);
     let pix2 =
@@ -273,6 +286,8 @@ fn bilinear_reg_pta_basic() {
     rp.compare_values(100.0, out.width() as f64, 0.0);
     rp.compare_values(100.0, out.height() as f64, 0.0);
     rp.compare_values(8.0, out.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&out, ImageFormat::Png)
+        .expect("write out bilinear_pta_basic");
 
     let out =
         bilinear_sampled_pta(&pix, src, dst, AffineFill::White).expect("bilinear_sampled_pta");
