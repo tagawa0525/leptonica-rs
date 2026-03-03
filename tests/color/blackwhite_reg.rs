@@ -13,6 +13,7 @@
 //! C Leptonica: `reference/leptonica/prog/blackwhite_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::{InitColor, PixMut, PixelDepth};
 
 /// Test add_border_general with white border (C check 0: white boundary loop).
@@ -25,7 +26,7 @@ fn blackwhite_reg_white_border() {
     // Test with various depth images
     let images = ["marge.jpg", "test8.jpg", "dreyfus8.png"];
 
-    for name in &images {
+    for (i, name) in images.iter().enumerate() {
         let pix = crate::common::load_test_image(name).expect(name);
         let wval = PixMut::get_black_or_white_val(&pix, InitColor::White);
 
@@ -34,6 +35,10 @@ fn blackwhite_reg_white_border() {
             .expect("add white border");
         rp.compare_values((pix.width() + 60) as f64, bordered.width() as f64, 0.0);
         rp.compare_values((pix.height() + 40) as f64, bordered.height() as f64, 0.0);
+        if i == 0 {
+            rp.write_pix_and_check(&bordered, ImageFormat::Png)
+                .expect("write bordered white_border");
+        }
     }
 
     assert!(rp.cleanup(), "blackwhite white border test failed");
@@ -48,7 +53,7 @@ fn blackwhite_reg_black_border() {
 
     let images = ["marge.jpg", "test8.jpg", "dreyfus8.png"];
 
-    for name in &images {
+    for (i, name) in images.iter().enumerate() {
         let pix = crate::common::load_test_image(name).expect(name);
         let bval = PixMut::get_black_or_white_val(&pix, InitColor::Black);
 
@@ -57,6 +62,10 @@ fn blackwhite_reg_black_border() {
             .expect("add black border");
         rp.compare_values((pix.width() + 60) as f64, bordered.width() as f64, 0.0);
         rp.compare_values((pix.height() + 40) as f64, bordered.height() as f64, 0.0);
+        if i == 0 {
+            rp.write_pix_and_check(&bordered, ImageFormat::Png)
+                .expect("write bordered black_border");
+        }
     }
 
     assert!(rp.cleanup(), "blackwhite black border test failed");
@@ -77,6 +86,8 @@ fn blackwhite_reg_alpha_blend() {
     // C: pixAlphaBlendUniform(pixs, wval) — remove alpha over white
     let blended = pix.alpha_blend_uniform(wval).expect("alpha_blend_uniform");
     assert_eq!(blended.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&blended, ImageFormat::Png)
+        .expect("write blended alpha_blend");
 
     let bordered = blended
         .add_border_general(30, 30, 20, 20, wval)
