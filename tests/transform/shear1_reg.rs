@@ -12,6 +12,7 @@
 //! C Leptonica: `reference/leptonica/prog/shear1_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::transform::{
     ShearFill, h_shear, h_shear_center, h_shear_corner, v_shear, v_shear_center, v_shear_corner,
 };
@@ -32,6 +33,8 @@ fn shear1_reg_grayscale_8bpp() {
     // Horizontal shear about corner (y=0) with white fill
     let sheared = h_shear_corner(&pix, ANGLE1, ShearFill::White).expect("h_shear_corner white");
     rp.compare_values(h as f64, sheared.height() as f64, 0.0);
+    rp.write_pix_and_check(&sheared, ImageFormat::Png)
+        .expect("write sheared");
     assert!(sheared.width() > 0, "sheared width must be positive");
 
     // Horizontal shear about center with black fill
@@ -75,6 +78,8 @@ fn shear1_reg_binary() {
     let hb = h_shear_corner(&pix, ANGLE1, ShearFill::Black).expect("h_shear_corner black");
     rp.compare_values(h as f64, hw.height() as f64, 0.0);
     rp.compare_values(h as f64, hb.height() as f64, 0.0);
+    rp.write_pix_and_check(&hw, ImageFormat::Tiff)
+        .expect("write hw");
     assert_eq!(hw.depth(), leptonica::PixelDepth::Bit1);
 
     // Vertical shear
@@ -101,6 +106,8 @@ fn shear1_reg_in_place() {
 
     // Compare h_shear vs h_shear_ip at center
     let expected = h_shear(&pix, (h / 2) as i32, ANGLE1, ShearFill::White).expect("h_shear");
+    rp.write_pix_and_check(&expected, ImageFormat::Png)
+        .expect("write expected");
     let mut pix_mut = pix.to_mut();
     leptonica::transform::h_shear_ip(&mut pix_mut, (h / 2) as i32, ANGLE1, ShearFill::White)
         .expect("h_shear_ip");
@@ -130,6 +137,8 @@ fn shear1_reg_interpolated() {
     let hli = leptonica::transform::h_shear_li(&pix8, 0, ANGLE1, ShearFill::White)
         .expect("h_shear_li 8bpp");
     rp.compare_values(pix8.height() as f64, hli.height() as f64, 0.0);
+    rp.write_pix_and_check(&hli, ImageFormat::Png)
+        .expect("write hli");
     let vli = leptonica::transform::v_shear_li(&pix8, 0, ANGLE1, ShearFill::White)
         .expect("v_shear_li 8bpp");
     rp.compare_values(pix8.width() as f64, vli.width() as f64, 0.0);

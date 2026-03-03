@@ -14,6 +14,7 @@
 //! C Leptonica: `reference/leptonica/prog/translate_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 
 /// Test translation with positive offsets (C check 0).
 ///
@@ -31,6 +32,8 @@ fn translate_reg_positive_shift() {
     let shifted = leptonica::transform::translate(&pix, 30.0, 25.0).expect("translate +30,+25");
     rp.compare_values(w as f64, shifted.width() as f64, 0.0);
     rp.compare_values(h as f64, shifted.height() as f64, 0.0);
+    rp.write_pix_and_check(&shifted, ImageFormat::Png)
+        .expect("write shifted translate_pos");
 
     // The pixel at (30, 25) in the shifted image should match (0, 0) in original
     let p_orig = pix.get_pixel(0, 0).expect("get_pixel origin");
@@ -56,6 +59,8 @@ fn translate_reg_negative_shift() {
     let shifted = leptonica::transform::translate(&pix, -20.0, -15.0).expect("translate -20,-15");
     rp.compare_values(w as f64, shifted.width() as f64, 0.0);
     rp.compare_values(h as f64, shifted.height() as f64, 0.0);
+    rp.write_pix_and_check(&shifted, ImageFormat::Png)
+        .expect("write shifted translate_neg");
 
     // The pixel at (0, 0) in shifted should match (20, 15) in original
     let p_orig = pix.get_pixel(20, 15).expect("get_pixel (20,15)");
@@ -79,6 +84,8 @@ fn translate_reg_rgb() {
     let shifted = leptonica::transform::translate(&pix, 15.0, 20.0).expect("translate rgb");
     rp.compare_values(w as f64, shifted.width() as f64, 0.0);
     rp.compare_values(h as f64, shifted.height() as f64, 0.0);
+    rp.write_pix_and_check(&shifted, ImageFormat::Png)
+        .expect("write shifted translate_rgb");
 
     // Check pixel correspondence
     let p_orig = pix.get_pixel(10, 10).expect("get_pixel (10,10)");

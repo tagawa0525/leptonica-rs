@@ -16,6 +16,7 @@
 //! and also tests `pixScaleToGray*`, `pixScaleSmoothToSize`, etc.
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::io::ImageFormat;
 use leptonica::transform::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
 
 /// Test scaling operations on grayscale and binary images
@@ -36,6 +37,8 @@ fn scale_reg() {
     let up2 = scale(&pixs, 2.0, 2.0, ScaleMethod::Linear).expect("scale 2x");
     rp.compare_values((w * 2) as f64, up2.width() as f64, 1.0);
     rp.compare_values((h * 2) as f64, up2.height() as f64, 1.0);
+    rp.write_pix_and_check(&up2, ImageFormat::Png)
+        .expect("write up2");
     eprintln!("  scale 2x: {}x{}", up2.width(), up2.height());
 
     // --- Test 2: Scale down 0.5x ---
@@ -43,6 +46,8 @@ fn scale_reg() {
     let down2 = scale(&pixs, 0.5, 0.5, ScaleMethod::Linear).expect("scale 0.5x");
     rp.compare_values((w / 2) as f64, down2.width() as f64, 1.0);
     rp.compare_values((h / 2) as f64, down2.height() as f64, 1.0);
+    rp.write_pix_and_check(&down2, ImageFormat::Png)
+        .expect("write down2");
     eprintln!("  scale 0.5x: {}x{}", down2.width(), down2.height());
 
     // --- Test 3: Scale to specific size ---
@@ -51,6 +56,8 @@ fn scale_reg() {
     let sized = scale_to_size(&pixs, target_w, target_h).expect("scale_to_size");
     rp.compare_values(target_w as f64, sized.width() as f64, 0.0);
     rp.compare_values(target_h as f64, sized.height() as f64, 0.0);
+    rp.write_pix_and_check(&sized, ImageFormat::Png)
+        .expect("write sized");
     eprintln!(
         "  scale_to_size(200,150): {}x{}",
         sized.width(),
@@ -72,6 +79,8 @@ fn scale_reg() {
     let aniso = scale(&pixs, 2.0, 0.5, ScaleMethod::Linear).expect("aniso scale");
     rp.compare_values((w * 2) as f64, aniso.width() as f64, 1.0);
     rp.compare_values((h / 2) as f64, aniso.height() as f64, 1.0);
+    rp.write_pix_and_check(&aniso, ImageFormat::Png)
+        .expect("write aniso");
     eprintln!(
         "  aniso scale(2.0, 0.5): {}x{}",
         aniso.width(),

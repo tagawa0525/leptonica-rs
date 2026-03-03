@@ -14,6 +14,7 @@
 //! a perspective (homography) mapping.
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::io::ImageFormat;
 use leptonica::transform::{
     AffineFill, Point, ScaleMethod, projective_pta, projective_sampled_pta, scale,
 };
@@ -76,6 +77,15 @@ fn projective_reg_sampling_invertability() {
         let pix1 = projective_sampled_pta(&pixb, ptad, ptas, AffineFill::White)
             .expect("projective_sampled_pta forward");
         rp.compare_values(pixb.width() as f64, pix1.width() as f64, 0.0);
+        if i == 0 {
+            let fmt = if pix1.depth() == PixelDepth::Bit1 {
+                ImageFormat::Tiff
+            } else {
+                ImageFormat::Png
+            };
+            rp.write_pix_and_check(&pix1, fmt)
+                .expect("write pix1 projective_sampling");
+        }
 
         // C: pix2 = pixProjectiveSampledPta(pix1, ptas, ptad, L_BRING_IN_WHITE);
         let pix2 = projective_sampled_pta(&pix1, ptas, ptad, AffineFill::White)
@@ -125,6 +135,10 @@ fn projective_reg_grayscale_interpolation_invertability() {
         let pix1 =
             projective_pta(&pixb, ptad, ptas, AffineFill::White).expect("projective_pta forward");
         rp.compare_values(8.0, pix1.depth().bits() as f64, 0.0);
+        if i == 0 {
+            rp.write_pix_and_check(&pix1, ImageFormat::Png)
+                .expect("write pix1 projective_gray_interp");
+        }
 
         // C: pix2 = pixProjectivePta(pix1, ptas, ptad, L_BRING_IN_WHITE);
         let pix2 =
@@ -177,6 +191,8 @@ fn projective_reg_compare_sampling_interpolated() {
 
     rp.compare_values(pixg.width() as f64, pix_sampled.width() as f64, 0.0);
     rp.compare_values(pixg.width() as f64, pix_interp.width() as f64, 0.0);
+    rp.write_pix_and_check(&pix_sampled, ImageFormat::Png)
+        .expect("write pix_sampled projective_compare");
 
     let sampled_nonzero = pix_sampled.count_pixels();
     let interp_nonzero = pix_interp.count_pixels();
@@ -231,6 +247,8 @@ fn projective_reg_pta_basic() {
     rp.compare_values(100.0, out.width() as f64, 0.0);
     rp.compare_values(100.0, out.height() as f64, 0.0);
     rp.compare_values(8.0, out.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&out, ImageFormat::Png)
+        .expect("write out projective_pta_basic");
 
     let out =
         projective_sampled_pta(&pix, src, dst, AffineFill::White).expect("projective_sampled_pta");
@@ -266,6 +284,8 @@ fn projective_reg_color_interpolation() {
     rp.compare_values(pixc.width() as f64, out.width() as f64, 0.0);
     rp.compare_values(pixc.height() as f64, out.height() as f64, 0.0);
     rp.compare_values(32.0, out.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&out, ImageFormat::Png)
+        .expect("write out projective_color");
 
     let out = projective_sampled_pta(&pixc, src, dst, AffineFill::White)
         .expect("projective_sampled_pta 32bpp");

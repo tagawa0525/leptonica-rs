@@ -16,6 +16,7 @@
 //! Point data from `MakePtas()` function in C version.
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::io::ImageFormat;
 use leptonica::transform::{AffineFill, Point, ScaleMethod, affine_pta, affine_sampled_pta, scale};
 use leptonica::{Pix, PixelDepth};
 
@@ -71,6 +72,15 @@ fn affine_reg_sampling_invertability() {
         let pix1 = affine_sampled_pta(&pixb, ptad, ptas, AffineFill::White)
             .expect("affine_sampled_pta forward");
         rp.compare_values(pixb.width() as f64, pix1.width() as f64, 0.0);
+        if i == 0 {
+            let fmt = if pix1.depth() == PixelDepth::Bit1 {
+                ImageFormat::Tiff
+            } else {
+                ImageFormat::Png
+            };
+            rp.write_pix_and_check(&pix1, fmt)
+                .expect("write pix1 affine_sampling");
+        }
 
         // C: pix2 = pixAffineSampledPta(pix1, ptas, ptad, L_BRING_IN_WHITE);
         let pix2 = affine_sampled_pta(&pix1, ptas, ptad, AffineFill::White)
@@ -118,6 +128,10 @@ fn affine_reg_grayscale_interpolation_invertability() {
         // C: pix1 = pixAffinePta(pixb, ptad, ptas, L_BRING_IN_WHITE);
         let pix1 = affine_pta(&pixb, ptad, ptas, AffineFill::White).expect("affine_pta forward");
         rp.compare_values(8.0, pix1.depth().bits() as f64, 0.0);
+        if i == 0 {
+            rp.write_pix_and_check(&pix1, ImageFormat::Png)
+                .expect("write pix1 affine_gray_interp");
+        }
 
         // C: pix2 = pixAffinePta(pix1, ptas, ptad, L_BRING_IN_WHITE);
         let pix2 = affine_pta(&pix1, ptas, ptad, AffineFill::White).expect("affine_pta inverse");
@@ -173,12 +187,16 @@ fn affine_reg_large_distortion() {
         .expect("affine_sampled_pta large distortion");
     rp.compare_values(pixg.width() as f64, pix_sampled.width() as f64, 0.0);
     rp.compare_values(pixg.height() as f64, pix_sampled.height() as f64, 0.0);
+    rp.write_pix_and_check(&pix_sampled, ImageFormat::Png)
+        .expect("write pix_sampled");
 
     // C: pix3 = pixAffinePta(pixg, ptas, ptad, L_BRING_IN_WHITE);
     let pix_interp =
         affine_pta(&pixg, ptas, ptad, AffineFill::White).expect("affine_pta large distortion");
     rp.compare_values(pixg.width() as f64, pix_interp.width() as f64, 0.0);
     rp.compare_values(pixg.height() as f64, pix_interp.height() as f64, 0.0);
+    rp.write_pix_and_check(&pix_interp, ImageFormat::Png)
+        .expect("write pix_interp");
 
     // Both should have some content (not blank)
     let sampled_nonzero = pix_sampled.count_pixels();
@@ -230,6 +248,8 @@ fn affine_reg_pta_basic() {
     rp.compare_values(100.0, out.width() as f64, 0.0);
     rp.compare_values(100.0, out.height() as f64, 0.0);
     rp.compare_values(8.0, out.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&out, ImageFormat::Png)
+        .expect("write out affine_pta_basic");
 
     let out = affine_sampled_pta(&pix, src, dst, AffineFill::White).expect("affine_sampled_pta");
     rp.compare_values(100.0, out.width() as f64, 0.0);
@@ -290,6 +310,8 @@ fn affine_reg_color_interpolation() {
     rp.compare_values(pixc.width() as f64, out.width() as f64, 0.0);
     rp.compare_values(pixc.height() as f64, out.height() as f64, 0.0);
     rp.compare_values(32.0, out.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&out, ImageFormat::Png)
+        .expect("write out affine_color");
 
     let out =
         affine_sampled_pta(&pixc, src, dst, AffineFill::White).expect("affine_sampled_pta 32bpp");

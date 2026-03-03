@@ -12,6 +12,7 @@
 //! C Leptonica: `reference/leptonica/prog/shear2_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::transform::{WarpDirection, WarpFill, WarpOperation};
 
 /// Test quadratic vertical shear sampled on 32bpp color (C check 0).
@@ -36,6 +37,8 @@ fn shear2_reg_color_sampled() {
     .expect("quad_v_shear sampled left");
     assert!(left.width() > 0 && left.height() > 0);
     rp.compare_values(w as f64, left.width() as f64, 0.0);
+    rp.write_pix_and_check(&left, ImageFormat::Png)
+        .expect("write left");
 
     // Sampled, warp to right
     let right = leptonica::transform::quadratic_v_shear_sampled(
@@ -77,6 +80,8 @@ fn shear2_reg_gray_interpolated() {
     .expect("quad_v_shear li left");
     rp.compare_values(w as f64, left.width() as f64, 0.0);
     rp.compare_values(h as f64, left.height() as f64, 0.0);
+    rp.write_pix_and_check(&left, ImageFormat::Png)
+        .expect("write left");
 
     // Interpolated, warp to right
     let right = leptonica::transform::quadratic_v_shear_li(
@@ -114,6 +119,8 @@ fn shear2_reg_general() {
     )
     .expect("quad_v_shear general sampled");
     rp.compare_values(w as f64, sampled.width() as f64, 0.0);
+    rp.write_pix_and_check(&sampled, ImageFormat::Png)
+        .expect("write sampled");
 
     // General function with Interpolated operation
     let interp = leptonica::transform::quadratic_v_shear(
