@@ -19,6 +19,7 @@ use leptonica::color::{
     octree_quant_by_population, threshold_gray_arb, threshold_on_8bpp, threshold_to_2bpp,
     threshold_to_4bpp, threshold_to_binary,
 };
+use leptonica::io::ImageFormat;
 
 /// Test threshold_to_binary (C check 0: pixThresholdToBinary).
 ///
@@ -36,6 +37,8 @@ fn grayquant_reg_threshold_binary() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&result, ImageFormat::Tiff)
+        .expect("write result threshold_binary");
 
     assert!(rp.cleanup(), "grayquant threshold_to_binary test failed");
 }
@@ -56,6 +59,8 @@ fn grayquant_reg_threshold_multi() {
     rp.compare_values(w as f64, result_2bpp_cmap.width() as f64, 0.0);
     rp.compare_values(h as f64, result_2bpp_cmap.height() as f64, 0.0);
     assert_eq!(result_2bpp_cmap.depth(), PixelDepth::Bit2);
+    rp.write_pix_and_check(&result_2bpp_cmap, ImageFormat::Png)
+        .expect("write result threshold_multi");
 
     // C: pix2 = pixThresholdTo2bpp(pixs, 4, 0); -- without colormap
     let result_2bpp_no = threshold_to_2bpp(&pix, 4, false).expect("threshold_to_2bpp 4 no cmap");
@@ -99,6 +104,8 @@ fn grayquant_reg_color_quant() {
     let result = median_cut_quant(&pix, &options).expect("median_cut_quant");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result color_quant");
 
     // Octree quantization to 256 colors
     let result2 = octree_quant_256(&pix).expect("octree_quant_256");
@@ -142,6 +149,8 @@ fn grayquant_reg_advanced_threshold() {
     let result3 = pix8.threshold_8(1, 2, true).expect("threshold_8 depth=1");
     rp.compare_values(w as f64, result3.width() as f64, 0.0);
     assert_eq!(result3.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&result3, ImageFormat::Tiff)
+        .expect("write result advanced_threshold");
 
     // C: pix1 = pixThresholdGrayArb(pixs, "45 75 115 185", ...);
     let result4 = threshold_gray_arb(&pix8, "45 75 115 185").expect("threshold_gray_arb");
