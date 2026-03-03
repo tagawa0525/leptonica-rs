@@ -17,6 +17,7 @@ use leptonica::PixelDepth;
 use leptonica::color::{
     dither_to_2bpp, dither_to_binary, dither_to_binary_with_threshold, ordered_dither,
 };
+use leptonica::io::ImageFormat;
 use leptonica::transform::{scale_gray_2x_li_dither, scale_gray_4x_li_dither};
 
 /// Test dither_to_binary (C check 0: pixDitherToBinary).
@@ -35,6 +36,8 @@ fn dither_reg_to_binary() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&result, ImageFormat::Tiff)
+        .expect("write dithered to_binary");
 
     // Dither with explicit threshold
     let result2 =
@@ -62,6 +65,8 @@ fn dither_reg_ordered() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&result, ImageFormat::Tiff)
+        .expect("write dithered ordered");
 
     // Ordered dither with 4x4 matrix
     let result2 = ordered_dither(&pix, 4).expect("ordered_dither 4x4");
@@ -97,6 +102,8 @@ fn dither_reg_2bpp_and_scaled() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit2);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write dithered_2 2bpp_and_scaled");
 
     // C: pix1 = pixScaleGray2xLIDither(pixs);
     let scaled2 = scale_gray_2x_li_dither(&pix8).expect("scale_gray_2x_li_dither");

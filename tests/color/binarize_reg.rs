@@ -8,6 +8,7 @@ use leptonica::color::{
     AdaptiveThresholdOptions, adaptive_threshold, compute_otsu_threshold, dither_to_binary,
     sauvola_threshold, threshold_otsu, threshold_to_binary,
 };
+use leptonica::io::ImageFormat;
 
 #[test]
 fn binarize_reg() {
@@ -24,6 +25,8 @@ fn binarize_reg() {
     rp.compare_values(w as f64, bin128.width() as f64, 0.0);
     rp.compare_values(h as f64, bin128.height() as f64, 0.0);
     rp.compare_values(1.0, bin128.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&bin128, ImageFormat::Tiff)
+        .expect("write bin128");
     eprintln!(
         "  threshold(128): {}x{} d={}",
         bin128.width(),
@@ -59,6 +62,8 @@ fn binarize_reg() {
     rp.compare_values(w as f64, otsu_bin.width() as f64, 0.0);
     rp.compare_values(h as f64, otsu_bin.height() as f64, 0.0);
     rp.compare_values(1.0, otsu_bin.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&otsu_bin, ImageFormat::Tiff)
+        .expect("write otsu_bin");
 
     // --- Test 3: Adaptive threshold ---
     eprintln!("=== Adaptive threshold ===");
@@ -80,6 +85,8 @@ fn binarize_reg() {
     rp.compare_values(w as f64, sauvola.width() as f64, 0.0);
     rp.compare_values(h as f64, sauvola.height() as f64, 0.0);
     rp.compare_values(1.0, sauvola.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&sauvola, ImageFormat::Tiff)
+        .expect("write sauvola");
     eprintln!(
         "  sauvola: {}x{} d={}",
         sauvola.width(),
