@@ -8,6 +8,7 @@ use leptonica::color::{
     ColorSegmentOptions, color_segment, color_segment_cluster, color_segment_simple,
 };
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::{Pix, PixelDepth};
 
 fn create_test_image() -> Pix {
@@ -70,6 +71,7 @@ fn colorseg_reg() {
     let h = pixs.height();
 
     let configs = [(4u32, 4u32), (8, 8), (16, 16)];
+    let mut written_seg = false;
 
     for &(max_colors, final_colors) in &configs {
         let representative_params = [(40u32, 0u32), (100, 0), (60, 4), (180, 6)];
@@ -99,6 +101,11 @@ fn colorseg_reg() {
                     );
                     rp.compare_values(w as f64, result.width() as f64, 0.0);
                     rp.compare_values(h as f64, result.height() as f64, 0.0);
+                    if !written_seg {
+                        rp.write_pix_and_check(&result, ImageFormat::Png)
+                            .expect("write result colorseg");
+                        written_seg = true;
+                    }
                 }
                 Err(e) => {
                     eprintln!("    color_segment(maxdist={}) FAILED: {}", maxdist, e);

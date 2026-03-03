@@ -11,6 +11,7 @@ use leptonica::color::{
     pix_linear_map_to_target_color, pix_map_with_invariant_hue, pix_shift_by_component,
 };
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::{Pix, PixelDepth};
 
 fn make_gray_gradient(w: u32, h: u32) -> Pix {
@@ -34,6 +35,8 @@ fn falsecolor_reg() {
     let mapped = pix_linear_map_to_target_color(&pix, 0x80808000, 0xff400000).expect("linear map");
     rp.compare_values(16.0, mapped.width() as f64, 0.0);
     rp.compare_values(4.0, mapped.height() as f64, 0.0);
+    rp.write_pix_and_check(&mapped, ImageFormat::Png)
+        .expect("write mapped falsecolor");
 
     let p0 = mapped.get_pixel_unchecked(0, 0);
     let p1 = mapped.get_pixel_unchecked(15, 0);
