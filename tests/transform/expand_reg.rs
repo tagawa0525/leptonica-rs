@@ -11,6 +11,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::transform::expand_replicate;
 
 /// Test expand_replicate on 1bpp binary image (C checks 0-1).
@@ -27,6 +28,8 @@ fn expand_reg_1bpp() {
     let pix2x = expand_replicate(&pix1, 2).expect("expand 2x");
     rp.compare_values((pix1.width() * 2) as f64, pix2x.width() as f64, 0.0);
     rp.compare_values((pix1.height() * 2) as f64, pix2x.height() as f64, 0.0);
+    rp.write_pix_and_check(&pix2x, ImageFormat::Tiff)
+        .expect("write pix2x");
 
     // Expand 3×
     let pix3x = expand_replicate(&pix1, 3).expect("expand 3x");
@@ -48,6 +51,8 @@ fn expand_reg_2bpp() {
     let pix2x = expand_replicate(&pix2, 2).expect("expand 2x");
     rp.compare_values((pix2.width() * 2) as f64, pix2x.width() as f64, 0.0);
     rp.compare_values((pix2.height() * 2) as f64, pix2x.height() as f64, 0.0);
+    rp.write_pix_and_check(&pix2x, ImageFormat::Png)
+        .expect("write pix2x");
     assert_eq!(pix2x.depth(), PixelDepth::Bit2);
 
     assert!(rp.cleanup(), "expand 2bpp test failed");
@@ -64,6 +69,8 @@ fn expand_reg_4bpp() {
     let pix2x = expand_replicate(&pix4, 2).expect("expand 2x");
     rp.compare_values((pix4.width() * 2) as f64, pix2x.width() as f64, 0.0);
     rp.compare_values((pix4.height() * 2) as f64, pix2x.height() as f64, 0.0);
+    rp.write_pix_and_check(&pix2x, ImageFormat::Png)
+        .expect("write pix2x");
     assert_eq!(pix2x.depth(), PixelDepth::Bit4);
 
     assert!(rp.cleanup(), "expand 4bpp test failed");
@@ -80,6 +87,8 @@ fn expand_reg_8bpp() {
     let pix2x = expand_replicate(&pix8, 2).expect("expand 2x");
     rp.compare_values((pix8.width() * 2) as f64, pix2x.width() as f64, 0.0);
     rp.compare_values((pix8.height() * 2) as f64, pix2x.height() as f64, 0.0);
+    rp.write_pix_and_check(&pix2x, ImageFormat::Png)
+        .expect("write pix2x");
     assert_eq!(pix2x.depth(), PixelDepth::Bit8);
 
     assert!(rp.cleanup(), "expand 8bpp test failed");
