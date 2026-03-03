@@ -200,7 +200,7 @@ cargo test --test color
 
 # manifest 検証
 wc -l tests/golden_manifest.tsv  # ~321行 (260 + ~61)
-grep "^color/" tests/golden_manifest.tsv | wc -l  # 0 → ~61
+grep -E '^(alphaops|binarize|blend|bw|cmapquant|color|dither|falsecolor|gquant|hardlight|paint|pmask|threshnorm)' tests/golden_manifest.tsv | wc -l  # 0 → ~60
 
 # CI チェック
 cargo clippy --all-features --all-targets -- -D warnings
