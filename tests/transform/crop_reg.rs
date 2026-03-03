@@ -15,6 +15,7 @@
 
 use crate::common::RegParams;
 use leptonica::Box as LeptBox;
+use leptonica::io::ImageFormat;
 
 /// Test clip_rectangle_with_border fully contained (C check 6).
 ///
@@ -35,6 +36,8 @@ fn crop_reg_clip_with_border_contained() {
     // Result should be wider/taller than the requested box by up to 2*border
     rp.compare_values(1.0, if clipped.width() >= 180 { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(1.0, if clipped.height() >= 230 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&clipped, ImageFormat::Png)
+        .expect("write clipped crop_border_contained");
 
     // Result box should indicate the location of the original box within the clipped image
     rp.compare_values(1.0, if result_box.w > 0 { 1.0 } else { 0.0 }, 0.0);
@@ -83,6 +86,8 @@ fn crop_reg_basic_clip() {
     let clipped = pix.clip_rectangle(cx, cy, cw, ch).expect("clip_rectangle");
     rp.compare_values(cw as f64, clipped.width() as f64, 0.0);
     rp.compare_values(ch as f64, clipped.height() as f64, 0.0);
+    rp.write_pix_and_check(&clipped, ImageFormat::Png)
+        .expect("write clipped crop_basic_clip");
 
     // Pixel at (0,0) of clip should match (cx, cy) of original
     let p_orig = pix.get_pixel(cx, cy).expect("get_pixel original");
