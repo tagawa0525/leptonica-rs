@@ -13,6 +13,7 @@
 //! C Leptonica: `reference/leptonica/prog/grayfill_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::region::{
     ConnectivityType, local_extrema, seedfill_gray, seedfill_gray_basin, seedfill_gray_inv,
     seedfill_gray_inv_simple, seedfill_gray_simple,
@@ -63,6 +64,8 @@ fn grayfill_reg_inv() {
     rp.compare_values(w as f64, result4.width() as f64, 0.0);
     rp.compare_values(h as f64, result4.height() as f64, 0.0);
     assert_eq!(result4.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result4, ImageFormat::Png)
+        .expect("write result4 gfill_inv");
 
     // C: pixSeedfillGrayInv(pixs1_8, pixm, 8); -- 8-way
     let result8 = seedfill_gray_inv(&seed, &mask, ConnectivityType::EightWay)
@@ -100,6 +103,8 @@ fn grayfill_reg_standard() {
     rp.compare_values(w as f64, result4.width() as f64, 0.0);
     rp.compare_values(h as f64, result4.height() as f64, 0.0);
     assert_eq!(result4.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result4, ImageFormat::Png)
+        .expect("write result4 gfill_std");
 
     // C: pixSeedfillGray(pixs2_8, pixmi, 8); -- 8-way
     let result8 =
@@ -131,6 +136,8 @@ fn grayfill_reg_basin() {
     rp.compare_values(w as f64, result4.width() as f64, 0.0);
     rp.compare_values(h as f64, result4.height() as f64, 0.0);
     assert_eq!(result4.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result4, ImageFormat::Png)
+        .expect("write result4 gfill_basin");
 
     // C: pixs3_8 = pixSeedfillGrayBasin(pixmin, pixm, 30, 8);
     let result8 = seedfill_gray_basin(&pixmin, &mask, 30, ConnectivityType::EightWay)
@@ -187,6 +194,8 @@ fn grayfill_reg_hybrid_comparison() {
     let h4 = seedfill_gray(&s1, &mask_inv, ConnectivityType::FourWay).unwrap();
     let i4 = seedfill_gray_simple(&s1, &mask_inv, ConnectivityType::FourWay).unwrap();
     rp.compare_values(1.0, if h4.equals(&i4) { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&h4, ImageFormat::Png)
+        .expect("write h4 gfill_hybrid");
 
     let h8 = seedfill_gray(&s1, &mask_inv, ConnectivityType::EightWay).unwrap();
     let i8 = seedfill_gray_simple(&s1, &mask_inv, ConnectivityType::EightWay).unwrap();
