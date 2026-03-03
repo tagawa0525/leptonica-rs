@@ -112,6 +112,7 @@ boxa3.03.ba	9fe421bc638a76e7
 bw_alpha.01.png	c3addf40c3faa296
 bw_black.03.png	0333d6ff685a9425
 bw_white.03.png	f6995f80dec29e85
+ccbord_dreyfus1.04.tif	6eea4bcb33f79204
 cmapquant.06.png	ba9b70aafb2041b7
 cmapquant_algo_cmp.09.png	7c473800cea8e10c
 colorfill.05.tif	b88390dd68850945
@@ -160,6 +161,9 @@ cthin2_set.08.png	71d677ab73316017
 cthin2_set.09.png	f4aaa6e2239c4626
 cthin2_set.10.png	542550d0c9d59c97
 cthin2_set.11.png	ab73880d0a2ce716
+dist_combos.03.png	b51c5a64ecf6ecb8
+dist_seedfill.05.png	cfec7494c4aa4fde
+dist_seedfill.06.png	caa1bb88749dfb66
 dither_2bpp.03.png	b3e61ba960c6b789
 dither_bin.03.tif	0e0abc286fab8f38
 dither_ord.03.tif	70b1c5ce6c0f4ae9
@@ -193,6 +197,10 @@ fhmtauto_hmt.10.tif	125cfd7bafdf12df
 fhmtauto_hmt.12.tif	e1ebf33ba0ff69cf
 fhmtauto_hmt.14.tif	e34808f22028301f
 fhmtauto_id.01.tif	e128cfedc914d07e
+gfill_basin.03.png	2adac671711d1a33
+gfill_hybrid.02.png	b2730774e0ef631d
+gfill_inv.03.png	c50cb009e8c84c55
+gfill_std.03.png	e0cfb17725c56573
 gifio.01.png	063e405d5915679a
 gifio.03.png	3eed7e7bcbe015ad
 gifio.05.png	0a9588084225113e
@@ -245,6 +253,8 @@ iomisc_regen_gray_cmap.04.png	25d12b85fa3e168b
 iomisc_regen_rgb_cmap.02.png	22c5e6237b6b0968
 iomisc_regen_rgb_cmap.05.png	42ab7323ea5e8762
 iomisc_tiff.02.png	0955a39abd55c407
+label.03.png	f1362e3bc961f117
+label.06.png	0e80ca2116a970aa
 multitype_affine.13.png	7dffbf06e42b314a
 multitype_bilinear.13.png	fb8ae32dc802adb5
 multitype_projective.13.png	76c65b6d01e6adea
@@ -303,6 +313,13 @@ shear1_interp.02.png	b0e04c28ec1d8b6e
 shear2_color_samp.02.png	626bb2a2e1c2b0f8
 shear2_general.02.png	626bb2a2e1c2b0f8
 shear2_gray_interp.03.png	7366c9f9e594f1f2
+smoothedge.04.png	649a7207cd0e3395
+smoothedge.07.png	0966dfb5b0de8c3f
+speckle_border.03.tif	bbd9c9e04e503800
+speckle_size.03.tif	ca970751a7eaebf1
+texturefill.02.tif	fef2e57971d30863
+texturefill.04.tif	2e20e4a993fc7663
+texturefill.06.tif	78e2aad418a4d2d2
 threshnorm_spread.03.png	37098b8e48b64382
 threshnorm_sweep.05.tif	9e647d02eaee9e18
 translate_neg.03.png	ac10e8157f49a7ff
@@ -311,6 +328,9 @@ translate_rgb.03.png	44c7bde8439cab39
 warper_rhw.03.png	d5f8d3a79bb14e89
 warper_stereo.03.png	916162c316194de2
 warper_stretch.03.png	816b0445acaed99d
+watershed.10.png	bd7eb7ca50048395
+watershed.22.png	d9f6990bdd0bc435
+watershed_gradient.05.png	ecc0b15f4960923d
 webpio.01.png	f864019ccb0d0986
 webpio.03.png	34396ef54eddf107
 webpio.05.png	10def89838f9b696
