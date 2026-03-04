@@ -15,6 +15,7 @@
 //! C Leptonica: `reference/leptonica/prog/pixadisp_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::transform::scale_by_sampling;
 use leptonica::{Pixa, PixelDepth};
 
@@ -60,6 +61,9 @@ fn pixadisp_reg_display_tiled() {
 
     // Width should not exceed max_width + tolerance for the last element
     rp.compare_values(1.0, if tiled.width() <= 1200 { 1.0 } else { 0.0 }, 0.0);
+
+    rp.write_pix_and_check(&tiled, ImageFormat::Tiff)
+        .expect("write tiled pixadisp_tiled");
 
     assert!(rp.cleanup(), "pixadisp display_tiled test failed");
 }
@@ -113,6 +117,9 @@ fn pixadisp_reg_display_tiled_and_scaled() {
         },
         0.0,
     );
+
+    rp.write_pix_and_check(&scaled, ImageFormat::Png)
+        .expect("write scaled pixadisp_scaled");
 
     assert!(
         rp.cleanup(),
@@ -230,6 +237,9 @@ fn pixadisp_reg_display_1bpp() {
     assert_eq!(tiled.depth(), PixelDepth::Bit1);
     rp.compare_values(1.0, if tiled.width() > 0 { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(1.0, if tiled.height() > 0 { 1.0 } else { 0.0 }, 0.0);
+
+    rp.write_pix_and_check(&tiled, ImageFormat::Tiff)
+        .expect("write tiled pixadisp_1bpp");
 
     assert!(rp.cleanup(), "pixadisp 1bpp test failed");
 }

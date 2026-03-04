@@ -19,6 +19,7 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::recog::pageseg::{
     PageSegOptions, extract_textlines, generate_textblock_mask, generate_textline_mask,
     is_text_region, segment_regions,
@@ -89,6 +90,11 @@ fn test_0_segment_regions_pageseg1() {
             let tb_has_fg = has_foreground_pixels(&seg.textblock_mask);
             eprintln!("  textblock_mask has foreground: {}", tb_has_fg);
             rp.compare_values(1.0, if tb_has_fg { 1.0 } else { 0.0 }, 0.0);
+
+            rp.write_pix_and_check(&seg.textline_mask, ImageFormat::Tiff)
+                .expect("write textline_mask pageseg_0");
+            rp.write_pix_and_check(&seg.textblock_mask, ImageFormat::Tiff)
+                .expect("write textblock_mask pageseg_0");
         }
         Err(e) => {
             eprintln!("segment_regions failed: {}", e);
@@ -371,6 +377,9 @@ fn test_5_generate_textline_mask() {
             rp.compare_values(1.0, if tl_fg { 1.0 } else { 0.0 }, 0.0);
             eprintln!("  textline has fg: {}", tl_fg);
 
+            rp.write_pix_and_check(&textline_mask, ImageFormat::Tiff)
+                .expect("write textline_mask pageseg_5");
+
             // VWS should have foreground (feyn.tif has whitespace between lines)
             let vws_fg = has_foreground_pixels(&vws);
             eprintln!("  vws has fg: {}", vws_fg);
@@ -427,6 +436,9 @@ fn test_6_generate_textblock_mask() {
             let tb_fg = has_foreground_pixels(&textblock_mask);
             rp.compare_values(1.0, if tb_fg { 1.0 } else { 0.0 }, 0.0);
             eprintln!("  textblock has fg: {}", tb_fg);
+
+            rp.write_pix_and_check(&textblock_mask, ImageFormat::Tiff)
+                .expect("write textblock_mask pageseg_6");
         }
         Err(e) => {
             eprintln!("generate_textblock_mask failed: {}", e);

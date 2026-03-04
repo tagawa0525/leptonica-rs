@@ -15,6 +15,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
+use leptonica::io::ImageFormat;
 use leptonica::morph::morph_sequence;
 use leptonica::recog::jbclass::pix_word_mask_by_dilation;
 use leptonica::region::{ConnectivityType, conncomp_pixa};
@@ -53,6 +54,9 @@ fn italic_reg_word_mask() {
         0.0,
     );
 
+    rp.write_pix_and_check(&mask, ImageFormat::Tiff)
+        .expect("write mask italic_wordmask");
+
     assert!(rp.cleanup(), "italic word_mask test failed");
 }
 
@@ -80,6 +84,9 @@ fn italic_reg_morph_sequence() {
     rp.compare_values(mask.width() as f64, processed.width() as f64, 0.0);
     rp.compare_values(mask.height() as f64, processed.height() as f64, 0.0);
     assert_eq!(processed.depth(), PixelDepth::Bit1);
+
+    rp.write_pix_and_check(&processed, ImageFormat::Tiff)
+        .expect("write processed italic_morph");
 
     assert!(rp.cleanup(), "italic morph_sequence test failed");
 }
