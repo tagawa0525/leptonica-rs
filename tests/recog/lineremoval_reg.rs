@@ -17,6 +17,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
+use leptonica::io::ImageFormat;
 use leptonica::morph::{close_gray, erode_gray, open_gray};
 use leptonica::recog::skew::{SkewDetectOptions, find_skew};
 
@@ -71,10 +72,16 @@ fn lineremoval_reg_gray_morph() {
     rp.compare_values(pix_gray.height() as f64, closed.height() as f64, 0.0);
     assert_eq!(closed.depth(), PixelDepth::Bit8);
 
+    rp.write_pix_and_check(&closed, ImageFormat::Png)
+        .expect("write closed lineremoval_morph");
+
     // Horizontal erode: thin the detected lines
     let eroded = erode_gray(&closed, 51, 1).expect("erode_gray 51x1");
     rp.compare_values(pix_gray.width() as f64, eroded.width() as f64, 0.0);
     rp.compare_values(pix_gray.height() as f64, eroded.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&eroded, ImageFormat::Png)
+        .expect("write eroded lineremoval_morph");
 
     // Open: remove narrow features
     let opened = open_gray(&pix_gray, 1, 5).expect("open_gray 1x5");
@@ -123,6 +130,9 @@ fn lineremoval_reg_arith_combine() {
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
 
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result lineremoval_arith");
+
     assert!(rp.cleanup(), "lineremoval arith_combine test failed");
 }
 
@@ -160,6 +170,9 @@ fn lineremoval_reg_pipeline() {
     rp.compare_values(pix_gray.width() as f64, result.width() as f64, 0.0);
     rp.compare_values(pix_gray.height() as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit8);
+
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("write result lineremoval_pipe");
 
     assert!(rp.cleanup(), "lineremoval pipeline test failed");
 }
