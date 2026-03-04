@@ -14,6 +14,7 @@
 
 use crate::common::RegParams;
 use leptonica::Pix;
+use leptonica::io::ImageFormat;
 
 /// Test pixInvert: double-invert identity (C checks 0-2).
 ///
@@ -32,6 +33,9 @@ fn logicops_reg_invert() {
     // Double invert should yield original
     let pix3 = pix2.invert();
     rp.compare_pix(&pix1, &pix3);
+
+    rp.write_pix_and_check(&pix2, ImageFormat::Tiff)
+        .expect("write inverted logicops_invert");
 
     assert!(rp.cleanup(), "logicops invert test failed");
 }

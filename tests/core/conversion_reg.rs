@@ -15,6 +15,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::core::pix::RemoveColormapTarget;
+use leptonica::io::ImageFormat;
 
 /// Test 1bpp → various depth conversions (C checks 0-3).
 ///
@@ -51,6 +52,9 @@ fn conversion_reg_from_1bpp() {
     rp.compare_values(pix1.width() as f64, pix2.width() as f64, 0.0);
     rp.compare_values(pix1.height() as f64, pix2.height() as f64, 0.0);
 
+    rp.write_pix_and_check(&pix8, ImageFormat::Png)
+        .expect("write pix8 conversion_from_1bpp");
+
     assert!(rp.cleanup(), "conversion from 1bpp test failed");
 }
 
@@ -80,6 +84,11 @@ fn conversion_reg_from_2bpp() {
     rp.compare_values(pix2.width() as f64, pix8.width() as f64, 0.0);
     rp.compare_values(pix2.height() as f64, pix8.height() as f64, 0.0);
 
+    rp.write_pix_and_check(&pix8, ImageFormat::Png)
+        .expect("write pix8 conversion_from_2bpp");
+    rp.write_pix_and_check(&pix32, ImageFormat::Png)
+        .expect("write pix32 conversion_from_2bpp");
+
     assert!(rp.cleanup(), "conversion from 2bpp test failed");
 }
 
@@ -98,11 +107,17 @@ fn conversion_reg_from_4bpp() {
     rp.compare_values(pix4.width() as f64, pix8.width() as f64, 0.0);
     rp.compare_values(pix4.height() as f64, pix8.height() as f64, 0.0);
 
+    rp.write_pix_and_check(&pix8, ImageFormat::Png)
+        .expect("write pix8 conversion_from_4bpp");
+
     // Convert 4 bpp grayscale image
     let pix4g = crate::common::load_test_image("weasel4.16g.png").expect("load weasel4.16g.png");
     let pix8g = pix4g.convert_4_to_8(false).expect("convert_4_to_8 no cmap");
     assert_eq!(pix8g.depth(), PixelDepth::Bit8);
     rp.compare_values(8.0, pix8g.depth().bits() as f64, 0.0);
+
+    rp.write_pix_and_check(&pix8g, ImageFormat::Png)
+        .expect("write pix8g conversion_from_4bpp");
 
     assert!(rp.cleanup(), "conversion from 4bpp test failed");
 }
@@ -128,6 +143,11 @@ fn conversion_reg_from_8bpp() {
         .expect("remove to grayscale");
     assert_eq!(gray.depth(), PixelDepth::Bit8);
     rp.compare_values(8.0, gray.depth().bits() as f64, 0.0);
+
+    rp.write_pix_and_check(&converted, ImageFormat::Png)
+        .expect("write converted conversion_from_8bpp");
+    rp.write_pix_and_check(&gray, ImageFormat::Png)
+        .expect("write gray conversion_from_8bpp");
 
     assert!(rp.cleanup(), "conversion from 8bpp test failed");
 }
@@ -181,6 +201,11 @@ fn conversion_reg_from_16bpp() {
     // Dimensions preserved
     rp.compare_values(pix16.width() as f64, pix8_ls.width() as f64, 0.0);
     rp.compare_values(pix16.height() as f64, pix8_ls.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&pix8_ls, ImageFormat::Png)
+        .expect("write pix8_ls conversion_from_16bpp");
+    rp.write_pix_and_check(&pix8_ms, ImageFormat::Png)
+        .expect("write pix8_ms conversion_from_16bpp");
 
     assert!(rp.cleanup(), "conversion from 16bpp test failed");
 }
