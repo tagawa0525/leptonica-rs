@@ -130,6 +130,15 @@ colorseg.05.png	1544d222ba54aa32
 colorspace.23.png	a7622784a55dc974
 compfilter_write_synthetic.01.png	776f015732796ef4
 compfilter_write_synthetic.02.png	32bbb5fff34c2454
+conversion_from_16bpp.04.png	ff9aba5ee2aaace0
+conversion_from_16bpp.05.png	ff9aba5ee2aaace0
+conversion_from_1bpp.07.png	ff9aba5ee2aaace0
+conversion_from_2bpp.05.png	536739402d73641e
+conversion_from_2bpp.06.png	af7f58945e330afe
+conversion_from_4bpp.03.png	368eed4016fed93a
+conversion_from_4bpp.05.png	8f7b016c981b0817
+conversion_from_8bpp.04.png	34396ef54eddf107
+conversion_from_8bpp.05.png	8ef9102efc7e88f0
 convolve_blockconv_32bpp.01.jpg	d88bf13111d25d4e
 convolve_blockconv_8bpp.01.jpg	109a1bd29a030a27
 convolve_blockconv_gray.01.jpg	152b8dec435a055f
@@ -202,6 +211,7 @@ findpat1_brick.03.tif	03c19098398419ff
 findpat1_hmt.03.tif	a253d69b6fc1c3be
 findpat2_asterisk.03.tif	691ed904fa578a7b
 flipdetect_correct.03.tif	36b18174021bfd7d
+fpix1_pix.06.png	f2e933a99b05252b
 gfill_basin.03.png	2adac671711d1a33
 gfill_hybrid.02.png	b2730774e0ef631d
 gfill_inv.03.png	c50cb009e8c84c55
@@ -233,6 +243,7 @@ gquant_multi.03.png	08810b088ba999b8
 hardlight_color.03.png	281943cdfdbdf537
 hardlight_gray.03.png	3152a69afc6e4c40
 hardlight_orig.03.png	440823de285d4407
+hash.04.tif	5e6de61a46a887d8
 ioformats.08.png	ccbd13ca1df413ea
 ioformats.11.png	368eed4016fed93a
 ioformats.13.png	ae835cf4d3a91625
@@ -269,6 +280,7 @@ lineremoval_arith.07.png	8d99f24d54367565
 lineremoval_morph.03.png	75e5ba2f861cdc3e
 lineremoval_morph.06.png	fc8919170aa50eab
 lineremoval_pipe.03.png	c8d9ac4cf5a3e493
+logicops_invert.03.tif	2fd7502f5f315b39
 multitype_affine.13.png	7dffbf06e42b314a
 multitype_bilinear.13.png	fb8ae32dc802adb5
 multitype_projective.13.png	76c65b6d01e6adea

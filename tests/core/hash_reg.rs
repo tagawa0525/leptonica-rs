@@ -9,6 +9,7 @@
 use crate::common::RegParams;
 use leptonica::core::pix::HashOrientation;
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::{Box, Pix, PixelDepth, PixelOp};
 
 #[test]
@@ -39,6 +40,9 @@ fn hash_reg() {
     rp.compare_values(rendered.width() as f64, 40.0, 0.0);
     let on = rendered.count_pixels();
     rp.compare_values(1.0, if on > 0 { 1.0 } else { 0.0 }, 0.0);
+
+    rp.write_pix_and_check(&rendered, ImageFormat::Tiff)
+        .expect("write rendered hash");
 
     assert!(rp.cleanup(), "hash regression test failed");
 }

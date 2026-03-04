@@ -8,6 +8,7 @@
 //! C Leptonica: `reference/leptonica/prog/fpix1_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::{FPix, NegativeHandling, Pix, PixelDepth};
 
 // ==========================================================================
@@ -222,6 +223,9 @@ fn fpix1_reg_pix_conversion() {
 
     let pix2 = fpix2.to_pix(8, NegativeHandling::ClipToZero).unwrap();
     rp.compare_values(8.0, pix2.depth().bits() as f64, 0.0);
+
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("write pix2 fpix1_pix");
 
     // Negative handling: ClipToZero
     let mut fpix3 = FPix::new(2, 1).unwrap();
