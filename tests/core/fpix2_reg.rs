@@ -1,10 +1,66 @@
 //! Test FPix/DPix extension functions
 //!
+//! C version fpix2_reg.c tests:
+//! - Orthogonal rotation of FPix (checks 0-2): fpixRotateOrth 90/180/270
+//! - Border operations on FPix (checks 3-4): fpixAddMirroredBorder,
+//!   fpixAddContinuedBorder
+//!
 //! # See also
 //!
 //! C Leptonica: `fpix1.c`, `fpix2.c`
 
 use leptonica::{DPix, FPix, NegativeHandling};
+
+// ============================================================================
+// C-equivalent regression test skeletons (C checks 0–4)
+// ============================================================================
+
+/// FPix orthogonal rotation by 90 degrees (C check 0).
+///
+/// C: fpixRotateOrth(fpix1, 1) → compare with pixRotateOrth(pix2, 1)
+#[test]
+#[ignore = "fpix_rotate_orth not implemented"]
+fn fpix2_reg_rotate_orth_90() {
+    // fpixRotateOrth not available in Rust FPix API
+}
+
+/// FPix orthogonal rotation by 180 degrees (C check 1).
+///
+/// C: fpixRotateOrth(fpix1, 2) → compare with pixRotateOrth(pix2, 2)
+#[test]
+#[ignore = "fpix_rotate_orth not implemented"]
+fn fpix2_reg_rotate_orth_180() {
+    // fpixRotateOrth not available in Rust FPix API
+}
+
+/// FPix orthogonal rotation by 270 degrees (C check 2).
+///
+/// C: fpixRotateOrth(fpix1, 3) → compare with pixRotateOrth(pix2, 3)
+#[test]
+#[ignore = "fpix_rotate_orth not implemented"]
+fn fpix2_reg_rotate_orth_270() {
+    // fpixRotateOrth not available in Rust FPix API
+}
+
+/// FPix mirrored border addition (C check 3).
+///
+/// C: fpixAddMirroredBorder(fpix1, 21, 21, 25, 25) → compare with
+///    pixAddMirroredBorder(pix2, 21, 21, 25, 25)
+#[test]
+#[ignore = "fpix_add_mirrored_border not implemented"]
+fn fpix2_reg_add_mirrored_border() {
+    // fpixAddMirroredBorder not available in Rust FPix API
+}
+
+/// FPix continued border addition (C check 4).
+///
+/// C: fpixAddContinuedBorder(fpix1, 21, 21, 25, 25) → compare with
+///    pixAddContinuedBorder(pix2, 21, 21, 25, 25)
+#[test]
+#[ignore = "fpix_add_continued_border not implemented"]
+fn fpix2_reg_add_continued_border() {
+    // fpixAddContinuedBorder not available in Rust FPix API
+}
 
 // ============================================================================
 // FPix::create_template
