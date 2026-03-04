@@ -16,6 +16,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
+use leptonica::io::ImageFormat;
 use leptonica::morph::{Sel, SelElement, hit_miss_transform};
 
 /// Test hit-miss transform on tribune page (C test: pixHMT).
@@ -53,6 +54,9 @@ fn findpattern1_reg_hmt_basic() {
     rp.compare_values(pix_bin.width() as f64, hmt_result.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, hmt_result.height() as f64, 0.0);
     assert_eq!(hmt_result.depth(), PixelDepth::Bit1);
+
+    rp.write_pix_and_check(&hmt_result, ImageFormat::Tiff)
+        .expect("write hmt_result findpat1_hmt");
 
     assert!(rp.cleanup(), "findpattern1 hmt_basic test failed");
 }
@@ -158,6 +162,9 @@ fn findpattern1_reg_hmt_brick() {
     let result = hit_miss_transform(&pix_bin, &sel).expect("hmt brick");
     rp.compare_values(pix_bin.width() as f64, result.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, result.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&result, ImageFormat::Tiff)
+        .expect("write result findpat1_brick");
 
     assert!(rp.cleanup(), "findpattern1 hmt_brick test failed");
 }

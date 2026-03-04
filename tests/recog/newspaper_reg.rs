@@ -19,6 +19,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
+use leptonica::io::ImageFormat;
 use leptonica::morph::{morph_sequence, seedfill_morph};
 use leptonica::recog::pageseg::{PageSegOptions, segment_regions};
 use leptonica::region::{ConnectivityType, conncomp_pixa};
@@ -51,6 +52,9 @@ fn newspaper_reg_scale_reduce() {
     rp.compare_values(expected_w as f64, reduced.width() as f64, 1.0);
     rp.compare_values(expected_h as f64, reduced.height() as f64, 1.0);
 
+    rp.write_pix_and_check(&reduced, ImageFormat::Png)
+        .expect("write reduced newspaper_scale");
+
     assert!(rp.cleanup(), "newspaper scale_reduce test failed");
 }
 
@@ -74,6 +78,9 @@ fn newspaper_reg_line_detect() {
     let h_lines = morph_sequence(&pix_bin, "c80.1").expect("horizontal line detect");
     rp.compare_values(pix_bin.width() as f64, h_lines.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, h_lines.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&h_lines, ImageFormat::Tiff)
+        .expect("write h_lines newspaper_lines");
 
     // Detect vertical lines: close with tall vertical element
     let v_lines = morph_sequence(&pix_bin, "c1.80").expect("vertical line detect");
@@ -115,6 +122,9 @@ fn newspaper_reg_line_removal() {
     rp.compare_values(pix_bin.width() as f64, no_lines.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, no_lines.height() as f64, 0.0);
 
+    rp.write_pix_and_check(&no_lines, ImageFormat::Tiff)
+        .expect("write no_lines newspaper_removal");
+
     assert!(rp.cleanup(), "newspaper line_removal test failed");
 }
 
@@ -143,6 +153,9 @@ fn newspaper_reg_seedfill() {
     rp.compare_values(pix_bin.width() as f64, filled.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, filled.height() as f64, 0.0);
     assert_eq!(filled.depth(), PixelDepth::Bit1);
+
+    rp.write_pix_and_check(&filled, ImageFormat::Tiff)
+        .expect("write filled newspaper_seedfill");
 
     assert!(rp.cleanup(), "newspaper seedfill test failed");
 }

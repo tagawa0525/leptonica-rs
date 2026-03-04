@@ -14,6 +14,7 @@
 //! C Leptonica: `reference/leptonica/prog/jbclass_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::recog::jbclass::{
     JbComponent, correlation_init, pix_word_boxes_by_dilation, pix_word_mask_by_dilation,
     rank_haus_init,
@@ -92,6 +93,9 @@ fn jbclass_reg_rank_haus() {
         0.0,
     );
 
+    rp.write_pix_and_check(&rendered0, ImageFormat::Tiff)
+        .expect("write rendered0 jbclass_haus");
+
     if !display_mode {
         let rendered1 = data.render_page(1).expect("render page 1");
         rp.compare_values(
@@ -157,6 +161,9 @@ fn jbclass_reg_correlation() {
         0.0,
     );
 
+    rp.write_pix_and_check(&rendered, ImageFormat::Tiff)
+        .expect("write rendered jbclass_corr");
+
     assert!(rp.cleanup(), "jbclass correlation test failed");
 }
 
@@ -192,6 +199,9 @@ fn jbclass_reg_word_mask() {
         },
         0.0,
     );
+
+    rp.write_pix_and_check(&mask, ImageFormat::Tiff)
+        .expect("write mask jbclass_wordmask");
 
     assert!(rp.cleanup(), "jbclass word_mask test failed");
 }

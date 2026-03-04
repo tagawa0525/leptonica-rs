@@ -1,6 +1,6 @@
 # Phase 3: 回帰テスト修正計画
 
-Status: IN_PROGRESS (PR 1/8: filter 完了、後続バグ修正 #255/#256/#257 全完了)
+Status: IN_PROGRESS (PR 7/8: recog 完了)
 
 ## Context
 

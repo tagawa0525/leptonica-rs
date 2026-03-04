@@ -7,6 +7,7 @@
 //! C Leptonica: `reference/leptonica/prog/findcorners_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::region::find_checkerboard_corners;
 use leptonica::{Pix, PixelDepth};
 
@@ -38,6 +39,9 @@ fn findcorners_reg() {
     rp.compare_values(pix.width() as f64, corner_pix.width() as f64, 0.0);
     rp.compare_values(pix.height() as f64, corner_pix.height() as f64, 0.0);
     rp.compare_values(1.0, if pta.len() <= 400 { 1.0 } else { 0.0 }, 0.0);
+
+    rp.write_pix_and_check(&corner_pix, ImageFormat::Tiff)
+        .expect("write corner_pix findcorners");
 
     let empty = Pix::new(50, 50, PixelDepth::Bit1).expect("empty image");
     let (_empty_pix, empty_pta) =

@@ -15,6 +15,7 @@
 
 use crate::common::RegParams;
 use leptonica::color::threshold_to_binary;
+use leptonica::io::ImageFormat;
 use leptonica::morph::dilate_brick;
 use leptonica::region::{ConnectivityType, conncomp_pixa};
 use leptonica::{Pix, PixelDepth, SizeRelation};
@@ -63,6 +64,9 @@ fn partition_reg_dilate_conncomp() {
     let dilated = dilate_brick(&pix_bin, 5, 5).expect("dilate 5x5");
     rp.compare_values(pix_bin.width() as f64, dilated.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, dilated.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&dilated, ImageFormat::Tiff)
+        .expect("write dilated partition_dilate");
 
     // Extract block-level components
     let (boxa, _) = conncomp_pixa(&dilated, ConnectivityType::FourWay).expect("conncomp dilated");
@@ -167,6 +171,9 @@ fn partition_reg_draw_boxes() {
     rp.compare_values(pix_bin.height() as f64, drawn.height() as f64, 0.0);
     assert_eq!(drawn.depth(), PixelDepth::Bit32);
 
+    rp.write_pix_and_check(&drawn, ImageFormat::Png)
+        .expect("write drawn partition_draw");
+
     // Also test paint_boxa_random
     let canvas2 = Pix::new(pix_bin.width(), pix_bin.height(), PixelDepth::Bit32)
         .expect("create 32bpp canvas");
@@ -179,6 +186,9 @@ fn partition_reg_draw_boxes() {
 
     rp.compare_values(pix_bin.width() as f64, painted.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, painted.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&painted, ImageFormat::Png)
+        .expect("write painted partition_draw");
 
     assert!(rp.cleanup(), "partition draw_boxes test failed");
 }

@@ -5,6 +5,7 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::recog::SkewDetectOptions;
 use leptonica::recog::skew::{find_skew, find_skew_and_deskew};
 
@@ -47,6 +48,10 @@ fn skew_reg() {
     // Deskew may expand image dimensions due to rotation
     rp.compare_values(1.0, if deskewed.width() >= w { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(1.0, if deskewed.height() >= h { 1.0 } else { 0.0 }, 0.0);
+
+    rp.write_pix_and_check(&deskewed, ImageFormat::Tiff)
+        .expect("write deskewed skew");
+
     eprintln!(
         "  Deskewed: {}x{}, angle={:.3}°",
         deskewed.width(),
