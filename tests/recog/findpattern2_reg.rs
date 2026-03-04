@@ -16,6 +16,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
+use leptonica::io::ImageFormat;
 use leptonica::morph::{Sel, SelElement, dilate_brick, hit_miss_transform};
 use leptonica::region::{ConnectivityType, conncomp_pixa};
 
@@ -55,6 +56,9 @@ fn findpattern2_reg_asterisk_hmt() {
     let hmt_result = hit_miss_transform(&pix_bin, &sel).expect("hmt asterisk");
     rp.compare_values(pix_bin.width() as f64, hmt_result.width() as f64, 0.0);
     rp.compare_values(pix_bin.height() as f64, hmt_result.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&hmt_result, ImageFormat::Tiff)
+        .expect("write hmt_result findpat2_asterisk");
 
     assert!(rp.cleanup(), "findpattern2 asterisk_hmt test failed");
 }
