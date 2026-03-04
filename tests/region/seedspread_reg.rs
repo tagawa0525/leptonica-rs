@@ -48,7 +48,7 @@ fn seedspread_reg() {
     for i in 0u32..100 {
         let x = ((153u64 * (i as u64) * (i as u64) * (i as u64) + 59) % 299) as u32;
         let y = ((117u64 * (i as u64) * (i as u64) * (i as u64) + 241) % 299) as u32;
-        let val = ((97 * i + 74) % 256) as u32;
+        let val = (97 * i + 74) % 256;
         pm.set_pixel(x, y, val).unwrap();
         seeds_dense.push((x, y));
     }
@@ -82,7 +82,7 @@ fn seedspread_reg() {
     let mut seeds_lattice: Vec<(u32, u32)> = Vec::new();
     for i in (5u32..=195).step_by(10) {
         for j in (5u32..=195).step_by(10) {
-            pm.set_pixel(i, j, ((7 * i + 17 * j) % 255) as u32).unwrap();
+            pm.set_pixel(i, j, (7 * i + 17 * j) % 255).unwrap();
             seeds_lattice.push((i, j));
         }
     }
