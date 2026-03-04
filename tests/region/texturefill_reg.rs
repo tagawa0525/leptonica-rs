@@ -7,6 +7,7 @@
 //! C Leptonica: `reference/leptonica/prog/texturefill_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::region::{
     ConnectivityType, fill_closed_borders, fill_holes_to_bounding_rect, holes_by_filling,
 };
@@ -32,6 +33,8 @@ fn texturefill_reg() {
     let pix = make_ring(40, 30, 5, 4, 34, 25);
     let holes = holes_by_filling(&pix, ConnectivityType::FourWay).expect("holes_by_filling");
     rp.compare_values(1.0, if holes.count_pixels() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&holes, ImageFormat::Tiff)
+        .expect("write holes texturefill");
 
     let filled = fill_closed_borders(&pix, ConnectivityType::FourWay).expect("fill_closed_borders");
     rp.compare_values(
@@ -43,6 +46,8 @@ fn texturefill_reg() {
         },
         0.0,
     );
+    rp.write_pix_and_check(&filled, ImageFormat::Tiff)
+        .expect("write filled texturefill");
 
     let rect_filled =
         fill_holes_to_bounding_rect(&pix, 20, 0.9, 0.2).expect("fill_holes_to_bounding_rect");
@@ -55,6 +60,8 @@ fn texturefill_reg() {
         },
         0.0,
     );
+    rp.write_pix_and_check(&rect_filled, ImageFormat::Tiff)
+        .expect("write rect_filled texturefill");
 
     assert!(rp.cleanup(), "texturefill regression test failed");
 }

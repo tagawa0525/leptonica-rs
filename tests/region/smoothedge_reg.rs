@@ -7,6 +7,7 @@
 //! C Leptonica: `reference/leptonica/prog/smoothedge_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::region::{WatershedOptions, compute_gradient, watershed_segmentation};
 use leptonica::{Pix, PixelDepth};
 
@@ -34,10 +35,14 @@ fn smoothedge_reg() {
     let edge_val = grad.get_pixel_unchecked(24, 12);
     let flat_val = grad.get_pixel_unchecked(4, 12);
     rp.compare_values(1.0, if edge_val > flat_val { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&grad, ImageFormat::Png)
+        .expect("write grad smoothedge");
 
     let seg = watershed_segmentation(&pix, &WatershedOptions::default()).expect("watershed");
     rp.compare_values(pix.width() as f64, seg.width() as f64, 0.0);
     rp.compare_values(pix.height() as f64, seg.height() as f64, 0.0);
+    rp.write_pix_and_check(&seg, ImageFormat::Png)
+        .expect("write seg smoothedge");
 
     assert!(rp.cleanup(), "smoothedge regression test failed");
 }

@@ -11,6 +11,7 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::region::{
     ConnectivityType, find_connected_components, label_connected_components,
     pix_get_sorted_neighbor_values,
@@ -41,6 +42,8 @@ fn label_reg() {
         label_connected_components(&pixs, ConnectivityType::FourWay).expect("label 4-connected");
     rp.compare_values(w as f64, labeled4.width() as f64, 0.0);
     rp.compare_values(h as f64, labeled4.height() as f64, 0.0);
+    rp.write_pix_and_check(&labeled4, ImageFormat::Png)
+        .expect("write labeled4 label");
 
     // --- Test 2: 8-connected labeling ---
     eprintln!("=== 8-connected labeling ===");
@@ -48,6 +51,8 @@ fn label_reg() {
         label_connected_components(&pixs, ConnectivityType::EightWay).expect("label 8-connected");
     rp.compare_values(w as f64, labeled8.width() as f64, 0.0);
     rp.compare_values(h as f64, labeled8.height() as f64, 0.0);
+    rp.write_pix_and_check(&labeled8, ImageFormat::Png)
+        .expect("write labeled8 label");
 
     // --- Test 3: Component counting ---
     eprintln!("=== Component counting ===");

@@ -18,6 +18,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::region::{
     ConnectivityType, SizeSelectRelation, SizeSelectType, clear_border, find_connected_components,
     pix_count_components, pix_select_by_size,
@@ -41,6 +42,8 @@ fn speckle_reg_clear_border() {
     rp.compare_values(w as f64, cleared.width() as f64, 0.0);
     rp.compare_values(h as f64, cleared.height() as f64, 0.0);
     assert_eq!(cleared.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&cleared, ImageFormat::Tiff)
+        .expect("write cleared speckle_border");
 
     // 8-way connectivity clears more border pixels
     let cleared8 = clear_border(&region, ConnectivityType::EightWay).expect("clear_border 8-way");
@@ -114,6 +117,8 @@ fn speckle_reg_select_by_size() {
     rp.compare_values(w as f64, filtered.width() as f64, 0.0);
     rp.compare_values(h as f64, filtered.height() as f64, 0.0);
     assert_eq!(filtered.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&filtered, ImageFormat::Tiff)
+        .expect("write filtered speckle_size");
 
     // After filtering, there should be fewer or equal components
     let count_after =

@@ -14,6 +14,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::region::{BoundaryCondition, ConnectivityType, distance_function, seedfill_gray};
 
 /// Test distance_function with all connectivity/depth/boundary combinations (C checks 1-8).
@@ -36,6 +37,7 @@ fn distance_reg_all_combos() {
     let depths = [PixelDepth::Bit8, PixelDepth::Bit16];
     let boundaries = [BoundaryCondition::Background, BoundaryCondition::Foreground];
 
+    let mut combo_idx = 0usize;
     for &conn in &connectivities {
         for &depth in &depths {
             for &bc in &boundaries {
@@ -44,6 +46,11 @@ fn distance_reg_all_combos() {
                 rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);
                 rp.compare_values(pixs.height() as f64, result.height() as f64, 0.0);
                 assert_eq!(result.depth(), depth);
+                if combo_idx == 0 {
+                    rp.write_pix_and_check(&result, ImageFormat::Png)
+                        .expect("write result dist_combos");
+                }
+                combo_idx += 1;
             }
         }
     }
@@ -92,6 +99,10 @@ fn distance_reg_seedfill_labeling() {
     rp.compare_values(pixs.width() as f64, labeled.width() as f64, 0.0);
     rp.compare_values(pixs.height() as f64, labeled.height() as f64, 0.0);
     assert_eq!(labeled.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&dist, ImageFormat::Png)
+        .expect("write dist dist_seedfill");
+    rp.write_pix_and_check(&labeled, ImageFormat::Png)
+        .expect("write labeled dist_seedfill");
 
     assert!(rp.cleanup(), "distance seedfill labeling test failed");
 }

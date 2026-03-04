@@ -9,6 +9,7 @@
 //! 4. Error handling for invalid input depths
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
 use leptonica::region::{
     ConnectivityType, WatershedOptions, compute_gradient, find_local_maxima, find_local_minima,
     watershed_segmentation,
@@ -81,6 +82,8 @@ fn do_watershed(rp: &mut RegParams, pixs: &Pix) {
             rp.compare_values(w as f64, segmented.width() as f64, 0.0);
             rp.compare_values(h as f64, segmented.height() as f64, 0.0);
             rp.compare_values(32.0, segmented.depth().bits() as f64, 0.0);
+            rp.write_pix_and_check(&segmented, ImageFormat::Png)
+                .expect("write segmented watershed");
 
             let mut labels = std::collections::HashSet::new();
             for y in 0..h {
@@ -201,6 +204,8 @@ fn watershed_gradient() {
     let grad_flat = gradient.get_pixel(5, 10).unwrap_or(0);
     eprintln!("  Gradient at edge: {}, at flat: {}", grad_edge, grad_flat);
     rp.compare_values(1.0, if grad_edge > grad_flat { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&gradient, ImageFormat::Png)
+        .expect("write gradient watershed_gradient");
 
     assert!(rp.cleanup(), "watershed gradient test failed");
 }
