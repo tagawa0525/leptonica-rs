@@ -1,6 +1,6 @@
 # 021: recog モジュール回帰テスト golden manifest 強化
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 Phase 3 PR 7/8: `tests/recog/` 配下の回帰テストに `write_pix_and_check()` を追加し、
 golden manifest によるピクセルレベル回帰検出を有効化する。
