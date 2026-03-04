@@ -15,6 +15,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::recog::{
     TextOrientation, make_orient_decision, mirror_detect, orient_correct, orient_detect,
     up_down_detect,
@@ -114,6 +115,9 @@ fn flipdetect_reg_orient_correct() {
     // Corrected image should have same dimensions as upright original
     rp.compare_values(pix1.width() as f64, result.pix.width() as f64, 0.0);
     rp.compare_values(pix1.height() as f64, result.pix.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&result.pix, ImageFormat::Tiff)
+        .expect("write result flipdetect_correct");
 
     assert!(rp.cleanup(), "flipdetect orient_correct test failed");
 }
