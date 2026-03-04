@@ -17,6 +17,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
+use leptonica::io::ImageFormat;
 use leptonica::recog::jbclass::{pix_word_boxes_by_dilation, pix_word_mask_by_dilation};
 use leptonica::transform::scale_by_sampling;
 
@@ -133,6 +134,9 @@ fn wordboxes_reg_words15() {
     rp.compare_values(w as f64, mask.width() as f64, 0.0);
     rp.compare_values(h as f64, mask.height() as f64, 0.0);
 
+    rp.write_pix_and_check(&mask, ImageFormat::Tiff)
+        .expect("write mask wordboxes_w15");
+
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes words.15");
     rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
@@ -152,6 +156,9 @@ fn wordboxes_reg_words44() {
     let (mask, _) = pix_word_mask_by_dilation(&pix, 20).expect("word_mask words.44");
     rp.compare_values(w as f64, mask.width() as f64, 0.0);
     rp.compare_values(h as f64, mask.height() as f64, 0.0);
+
+    rp.write_pix_and_check(&mask, ImageFormat::Tiff)
+        .expect("write mask wordboxes_w44");
 
     let boxa = pix_word_boxes_by_dilation(&pix, 20).expect("word_boxes words.44");
     rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
