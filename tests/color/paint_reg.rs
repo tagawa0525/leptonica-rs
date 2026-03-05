@@ -48,7 +48,7 @@ fn paint_reg_color_gray() {
     rp.write_pix_and_check(&result, ImageFormat::Png)
         .expect("write result paint_color_gray");
 
-    // C: pixColorGray(pixt, NULL, L_PAINT_DARK, 220, 255, 100, 100) — red on dark
+    // C check 1: pixColorGray(pixt, NULL, L_PAINT_DARK, 220, 255, 100, 100) — red on dark
     let dark_full = ColorGrayOptions {
         paint_type: PaintType::Dark,
         threshold: 220,
@@ -56,8 +56,10 @@ fn paint_reg_color_gray() {
     };
     let result2 = pix_color_gray(&result, None, &dark_full).expect("color_gray dark full");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: color_gray dark full");
 
-    // C: pixColorGray(pixt, box, L_PAINT_LIGHT, 20, 0, 0, 255) — blue on light
+    // C check 4: pixColorGray(pixt, box, L_PAINT_LIGHT, 20, 0, 0, 255) — blue on light
     let light_options = ColorGrayOptions {
         paint_type: PaintType::Light,
         threshold: 20,
@@ -65,6 +67,19 @@ fn paint_reg_color_gray() {
     };
     let result3 = pix_color_gray(&pix, Some(&region), &light_options).expect("color_gray light");
     rp.compare_values(w as f64, result3.width() as f64, 0.0);
+    rp.write_pix_and_check(&result3, ImageFormat::Png)
+        .expect("check: color_gray light box");
+
+    // C check 5: pixColorGray(pixt, NULL, L_PAINT_LIGHT, 20, 255, 100, 100)
+    let light_full = ColorGrayOptions {
+        paint_type: PaintType::Light,
+        threshold: 20,
+        target_color: (255, 100, 100),
+    };
+    let result4 = pix_color_gray(&result3, None, &light_full).expect("color_gray light full");
+    rp.compare_values(w as f64, result4.width() as f64, 0.0);
+    rp.write_pix_and_check(&result4, ImageFormat::Png)
+        .expect("check: color_gray light full");
 
     assert!(rp.cleanup(), "paint color_gray test failed");
 }
