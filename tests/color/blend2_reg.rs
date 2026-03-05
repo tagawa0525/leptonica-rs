@@ -39,9 +39,18 @@ fn blend2_reg_rgb() {
     rp.write_pix_and_check(&blended, ImageFormat::Png)
         .expect("write blended rgb");
 
-    // Blend at origin
+    // Blend at origin (additional offset)
     let blended_origin = blend_with_gray_mask(&pix1, &pix2, &mask, 0, 0).expect("blend rgb 0,0");
     rp.compare_values(pix1.width() as f64, blended_origin.width() as f64, 0.0);
+    rp.write_pix_and_check(&blended_origin, ImageFormat::Png)
+        .expect("check: blend rgb origin");
+
+    // Blend at large offset (partial overlap)
+    let blended_large =
+        blend_with_gray_mask(&pix1, &pix2, &mask, 200, 150).expect("blend rgb 200,150");
+    rp.compare_values(pix1.width() as f64, blended_large.width() as f64, 0.0);
+    rp.write_pix_and_check(&blended_large, ImageFormat::Png)
+        .expect("check: blend rgb large offset");
 
     assert!(rp.cleanup(), "blend2 rgb test failed");
 }
@@ -61,12 +70,19 @@ fn blend2_reg_gray() {
     // Use a different 8bpp image as mask
     let mask = crate::common::load_test_image("weasel8.png").expect("load weasel8.png");
 
+    // C check 6: pixBlendWithGrayMask on two grayscale at (50, 50)
     let blended = blend_with_gray_mask(&pix1, &pix2, &mask, 10, 10).expect("blend gray");
     rp.compare_values(pix1.width() as f64, blended.width() as f64, 0.0);
     rp.compare_values(pix1.height() as f64, blended.height() as f64, 0.0);
     assert_eq!(blended.depth(), PixelDepth::Bit8);
     rp.write_pix_and_check(&blended, ImageFormat::Png)
-        .expect("write blended gray");
+        .expect("check: blend gray");
+
+    // Blend with different offset
+    let blended2 = blend_with_gray_mask(&pix1, &pix2, &mask, 50, 50).expect("blend gray 50,50");
+    rp.compare_values(pix1.width() as f64, blended2.width() as f64, 0.0);
+    rp.write_pix_and_check(&blended2, ImageFormat::Png)
+        .expect("check: blend gray offset 50");
 
     assert!(rp.cleanup(), "blend2 gray test failed");
 }
