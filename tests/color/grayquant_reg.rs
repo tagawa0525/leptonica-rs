@@ -15,9 +15,9 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::{
-    MedianCutOptions, fixed_octcube_quant_256, median_cut_quant, octree_quant_256,
-    octree_quant_by_population, threshold_gray_arb, threshold_on_8bpp, threshold_to_2bpp,
-    threshold_to_4bpp, threshold_to_binary,
+    MedianCutOptions, dither_to_2bpp, dither_to_2bpp_spec, fixed_octcube_quant_256,
+    median_cut_quant, octree_quant_256, octree_quant_by_population, threshold_gray_arb,
+    threshold_on_8bpp, threshold_to_2bpp, threshold_to_4bpp, threshold_to_binary,
 };
 use leptonica::io::ImageFormat;
 
@@ -43,6 +43,36 @@ fn grayquant_reg_threshold_binary() {
     assert!(rp.cleanup(), "grayquant threshold_to_binary test failed");
 }
 
+/// Test dither_to_2bpp (C checks 1-2).
+///
+/// C: pixDitherTo2bpp(pixs, 1/0) with and without colormap.
+#[test]
+fn grayquant_reg_dither_2bpp() {
+    let mut rp = RegParams::new("gquant_dither");
+
+    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let w = pix.width();
+    let h = pix.height();
+
+    // C check 1: pixDitherTo2bpp(pixs, 1) — with colormap (Rust doesn't have cmap variant)
+    let result = dither_to_2bpp(&pix).expect("dither_to_2bpp");
+    rp.compare_values(w as f64, result.width() as f64, 0.0);
+    rp.compare_values(h as f64, result.height() as f64, 0.0);
+    assert_eq!(result.depth(), PixelDepth::Bit2);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("check: dither_to_2bpp");
+
+    // C check 2: pixDitherTo2bpp(pixs, 0) — without colormap
+    // Rust dither_to_2bpp_spec with custom thresholds
+    let result2 = dither_to_2bpp_spec(&pix, 64, 128, 192).expect("dither_to_2bpp_spec");
+    rp.compare_values(w as f64, result2.width() as f64, 0.0);
+    assert_eq!(result2.depth(), PixelDepth::Bit2);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: dither_to_2bpp_spec");
+
+    assert!(rp.cleanup(), "grayquant dither_2bpp test failed");
+}
+
 /// Test threshold_to_2bpp and threshold_to_4bpp (C checks 5-12).
 ///
 /// Thresholds 8bpp gray to 2bpp and 4bpp with various levels.
@@ -54,34 +84,44 @@ fn grayquant_reg_threshold_multi() {
     let w = pix.width();
     let h = pix.height();
 
-    // C: pix1 = pixThresholdTo2bpp(pixs, 4, 1); -- with colormap
+    // C check 5: pixThresholdTo2bpp(pixs, 4, 1) — with colormap
     let result_2bpp_cmap = threshold_to_2bpp(&pix, 4, true).expect("threshold_to_2bpp 4 cmap");
     rp.compare_values(w as f64, result_2bpp_cmap.width() as f64, 0.0);
     rp.compare_values(h as f64, result_2bpp_cmap.height() as f64, 0.0);
     assert_eq!(result_2bpp_cmap.depth(), PixelDepth::Bit2);
     rp.write_pix_and_check(&result_2bpp_cmap, ImageFormat::Png)
-        .expect("write result threshold_multi");
+        .expect("check: threshold_to_2bpp 4 cmap");
 
-    // C: pix2 = pixThresholdTo2bpp(pixs, 4, 0); -- without colormap
+    // C check 6: pixThresholdTo2bpp(pixs, 4, 0) — without colormap
     let result_2bpp_no = threshold_to_2bpp(&pix, 4, false).expect("threshold_to_2bpp 4 no cmap");
     rp.compare_values(w as f64, result_2bpp_no.width() as f64, 0.0);
     assert_eq!(result_2bpp_no.depth(), PixelDepth::Bit2);
+    rp.write_pix_and_check(&result_2bpp_no, ImageFormat::Png)
+        .expect("check: threshold_to_2bpp 4 no cmap");
 
-    // C: pix1 = pixThresholdTo2bpp(pixs, 3, 1);
+    // C check 9: pixThresholdTo2bpp(pixs, 3, 1)
     let result_2bpp_3 = threshold_to_2bpp(&pix, 3, true).expect("threshold_to_2bpp 3 cmap");
     rp.compare_values(w as f64, result_2bpp_3.width() as f64, 0.0);
     assert_eq!(result_2bpp_3.depth(), PixelDepth::Bit2);
 
-    // C: pix1 = pixThresholdTo4bpp(pixs, 9, 1); -- with colormap
+    // C check 10: pixThresholdTo2bpp(pixs, 3, 0)
+    let result_2bpp_3n = threshold_to_2bpp(&pix, 3, false).expect("threshold_to_2bpp 3 no cmap");
+    rp.compare_values(w as f64, result_2bpp_3n.width() as f64, 0.0);
+
+    // C check 11: pixThresholdTo4bpp(pixs, 9, 1) — with colormap
     let result_4bpp_cmap = threshold_to_4bpp(&pix, 9, true).expect("threshold_to_4bpp 9 cmap");
     rp.compare_values(w as f64, result_4bpp_cmap.width() as f64, 0.0);
     rp.compare_values(h as f64, result_4bpp_cmap.height() as f64, 0.0);
     assert_eq!(result_4bpp_cmap.depth(), PixelDepth::Bit4);
+    rp.write_pix_and_check(&result_4bpp_cmap, ImageFormat::Png)
+        .expect("check: threshold_to_4bpp 9 cmap");
 
-    // C: pix2 = pixThresholdTo4bpp(pixs, 9, 0); -- without colormap
+    // C check 12: pixThresholdTo4bpp(pixs, 9, 0) — without colormap
     let result_4bpp_no = threshold_to_4bpp(&pix, 9, false).expect("threshold_to_4bpp 9 no cmap");
     rp.compare_values(w as f64, result_4bpp_no.width() as f64, 0.0);
     assert_eq!(result_4bpp_no.depth(), PixelDepth::Bit4);
+    rp.write_pix_and_check(&result_4bpp_no, ImageFormat::Png)
+        .expect("check: threshold_to_4bpp 9 no cmap");
 
     assert!(rp.cleanup(), "grayquant threshold multi test failed");
 }
@@ -134,28 +174,41 @@ fn grayquant_reg_advanced_threshold() {
     let w = pix8.width();
     let h = pix8.height();
 
-    // C: pix1 = pixThresholdOn8bpp(pixs, 9, 1);
+    // C check 14: pixThresholdOn8bpp(pixs, 9, 1) — with colormap
     let result = threshold_on_8bpp(&pix8, 9, true).expect("threshold_on_8bpp 9 cmap");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("check: threshold_on_8bpp 9 cmap");
 
-    // Without colormap
+    // C check 15: pixThresholdOn8bpp(pixs, 9, 0) — without colormap
     let result2 = threshold_on_8bpp(&pix8, 9, false).expect("threshold_on_8bpp 9 no cmap");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
     assert_eq!(result2.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: threshold_on_8bpp 9 no cmap");
 
-    // C: pix1 = pixThreshold8(pixs, 1, 2, 1);
+    // C check 20: pixThreshold8(pixs, 1, 2, 1)
     let result3 = pix8.threshold_8(1, 2, true).expect("threshold_8 depth=1");
     rp.compare_values(w as f64, result3.width() as f64, 0.0);
     assert_eq!(result3.depth(), PixelDepth::Bit1);
     rp.write_pix_and_check(&result3, ImageFormat::Tiff)
-        .expect("write result advanced_threshold");
+        .expect("check: threshold_8 1,2 cmap");
 
-    // C: pix1 = pixThresholdGrayArb(pixs, "45 75 115 185", ...);
-    let result4 = threshold_gray_arb(&pix8, "45 75 115 185").expect("threshold_gray_arb");
+    // C check 44: pixThresholdGrayArb(pixs, "45 75 115 185", 8, ...)
+    let result4 = threshold_gray_arb(&pix8, "45 75 115 185").expect("threshold_gray_arb 4 bounds");
     rp.compare_values(w as f64, result4.width() as f64, 0.0);
     rp.compare_values(h as f64, result4.height() as f64, 0.0);
+    rp.write_pix_and_check(&result4, ImageFormat::Png)
+        .expect("check: threshold_gray_arb 4 bounds");
+
+    // C check 45: pixThresholdGrayArb(pixs, "38 65 85 115 160 210", 8, ...)
+    let result5 =
+        threshold_gray_arb(&pix8, "38 65 85 115 160 210").expect("threshold_gray_arb 6 bounds");
+    rp.compare_values(w as f64, result5.width() as f64, 0.0);
+    rp.write_pix_and_check(&result5, ImageFormat::Png)
+        .expect("check: threshold_gray_arb 6 bounds");
 
     assert!(rp.cleanup(), "grayquant advanced threshold test failed");
 }
