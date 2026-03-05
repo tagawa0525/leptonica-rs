@@ -55,6 +55,19 @@ fn colorize_reg_color_gray() {
     };
     let result2 = pix_color_gray(&pix, None, &light_options).expect("color_gray full image");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: color_gray light full");
+
+    // Dark with green target (additional variant)
+    let green_options = ColorGrayOptions {
+        paint_type: PaintType::Dark,
+        threshold: 200,
+        target_color: (0, 200, 0),
+    };
+    let result3 = pix_color_gray(&pix, Some(&region), &green_options).expect("color_gray green");
+    rp.compare_values(w as f64, result3.width() as f64, 0.0);
+    rp.write_pix_and_check(&result3, ImageFormat::Png)
+        .expect("check: color_gray green");
 
     assert!(rp.cleanup(), "colorize color_gray test failed");
 }
@@ -122,7 +135,14 @@ fn colorize_reg_highlight_detect() {
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
     rp.write_pix_and_check(&result, ImageFormat::Png)
-        .expect("write regions highlight_detect");
+        .expect("check: color_gray_regions green");
+
+    // Additional: color_gray_regions with different color
+    let result2 =
+        color_gray_regions(&pix, None, 30, 0, 220, (255, 0, 128)).expect("color_gray_regions red");
+    rp.compare_values(w as f64, result2.width() as f64, 0.0);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: color_gray_regions red");
 
     assert!(rp.cleanup(), "colorize highlight detect test failed");
 }
