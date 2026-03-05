@@ -52,10 +52,20 @@ fn falsecolor_reg() {
         },
         0.0,
     );
+    rp.write_pix_and_check(&shifted, ImageFormat::Png)
+        .expect("check: shift by component");
 
     let inv_hue = pix_map_with_invariant_hue(&mapped, 0xff000000, 0.4).expect("invariant hue");
     rp.compare_values(mapped.width() as f64, inv_hue.width() as f64, 0.0);
     rp.compare_values(mapped.height() as f64, inv_hue.height() as f64, 0.0);
+    rp.write_pix_and_check(&inv_hue, ImageFormat::Png)
+        .expect("check: invariant hue");
+
+    // Additional: linear map with different target
+    let mapped2 =
+        pix_linear_map_to_target_color(&pix, 0x80808000, 0x0040ff00).expect("linear map blue");
+    rp.write_pix_and_check(&mapped2, ImageFormat::Png)
+        .expect("check: linear map blue target");
 
     let pix8 = Pix::new(8, 8, PixelDepth::Bit8).expect("create 8bpp");
     rp.compare_values(
