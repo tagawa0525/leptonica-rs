@@ -23,21 +23,6 @@ use leptonica::Boxa;
 fn boxa4_reg() {
     let mut rp = RegParams::new("boxa4");
 
-    // --- Test smoothing with capped max (C checks 0-1) ---
-    // boxa1.ba: fairly clean boxa
-    // boxa2.ba: unsmoothed and noisy boxa
-    // TODO: boxaSmoothSequenceMedian(boxa1, 10, L_USE_CAPPED_MAX, 50, 0, 0)
-    // TODO: boxaSmoothSequenceMedian(boxa2, 10, L_USE_CAPPED_MAX, 50, 0, 0)
-
-    // --- Test smoothing with loc/size diff (C checks 2-4) ---
-    // TODO: boxaSmoothSequenceMedian(boxa2, 10, L_SUB_ON_LOC_DIFF, 80, 20, 1)
-    // TODO: boxaSmoothSequenceMedian(boxa2, 10, L_SUB_ON_SIZE_DIFF, 80, 20, 1)
-    // TODO: boxaPlotSides (visualization)
-
-    // --- Test reconcile all by median (C checks 5-8) ---
-    // TODO: boxaReconcileAllByMedian(boxa5, L_ADJUST_LEFT_AND_RIGHT, L_ADJUST_TOP_AND_BOT, 50, 0)
-    // TODO: boxaReconcileAllByMedian(boxa5, L_ADJUST_SKIP, L_ADJUST_TOP_AND_BOT, 50, 0)
-
     // --- Test split even/odd + reconcile sides (C check 9) ---
     let boxa5_path = crate::common::test_data_path("boxa5.ba");
     assert!(
@@ -63,11 +48,39 @@ fn boxa4_reg() {
         );
     }
 
-    // --- Test smoothing with capped min (C check 10) ---
-    // TODO: boxaSmoothSequenceMedian(boxa3, 10, L_USE_CAPPED_MIN, 20, 0, 1)
-
-    // --- Test Boxaa transpose reversibility (C checks 11-13) ---
-    // TODO: boxaaTranspose + boxaEqual
-
     assert!(rp.cleanup(), "boxa4 regression test failed");
 }
+
+// ============================================================================
+// C-equivalent regression test skeletons
+// ============================================================================
+
+/// boxaSmoothSequenceMedian with L_USE_CAPPED_MAX (C checks 0-1).
+#[test]
+#[ignore = "boxaSmoothSequenceMedian visualization not available"]
+fn boxa4_reg_smooth_capped_max() {}
+
+/// boxaSmoothSequenceMedian with L_SUB_ON_LOC_DIFF / L_SUB_ON_SIZE_DIFF (C checks 2-4).
+#[test]
+#[ignore = "boxaPlotSides visualization not available"]
+fn boxa4_reg_smooth_loc_size_diff() {}
+
+/// boxaReconcileAllByMedian with L_ADJUST_LEFT_AND_RIGHT (C checks 5-6).
+#[test]
+#[ignore = "boxaReconcileAllByMedian visualization not available"]
+fn boxa4_reg_reconcile_all_lr() {}
+
+/// boxaReconcileAllByMedian with L_ADJUST_SKIP (C checks 7-8).
+#[test]
+#[ignore = "boxaReconcileAllByMedian L_ADJUST_SKIP visualization not available"]
+fn boxa4_reg_reconcile_all_skip() {}
+
+/// boxaSmoothSequenceMedian with L_USE_CAPPED_MIN (C check 10).
+#[test]
+#[ignore = "boxaSmoothSequenceMedian visualization not available"]
+fn boxa4_reg_smooth_capped_min() {}
+
+/// boxaaTranspose reversibility and pixaDisplayBoxaa (C checks 11-13).
+#[test]
+#[ignore = "boxaaTranspose not implemented"]
+fn boxa4_reg_boxaa_transpose() {}
