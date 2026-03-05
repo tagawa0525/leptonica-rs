@@ -37,6 +37,9 @@ fn insert_reg_numa() {
     // Serialized bytes should be identical after remove+insert cycle
     let _ = rp.compare_strings(&data1, &data2);
 
+    // Verify content integrity (write_data_and_check for golden)
+    rp.write_data_and_check(&data2, "na").unwrap();
+
     assert!(rp.cleanup(), "insert_reg numa test failed");
 }
 
@@ -68,6 +71,9 @@ fn insert_reg_boxa() {
 
     // Serialized bytes should be identical after remove+insert cycle
     let _ = rp.compare_strings(&data1, &data2);
+
+    // Verify content integrity
+    rp.write_data_and_check(&data2, "ba").unwrap();
 
     assert!(rp.cleanup(), "insert_reg boxa test failed");
 }
@@ -101,6 +107,20 @@ fn insert_reg_pixa() {
 
     // Count should be preserved after remove+insert cycle
     rp.compare_values(n as f64, pixa2.len() as f64, 0.0);
+
+    // Verify first and last element dimensions are preserved
+    let first = pixa2.get(0).expect("first element");
+    let last = pixa2.get(n - 1).expect("last element");
+    rp.compare_values(
+        pixa.get(0).unwrap().width() as f64,
+        first.width() as f64,
+        0.0,
+    );
+    rp.compare_values(
+        pixa.get(n - 1).unwrap().width() as f64,
+        last.width() as f64,
+        0.0,
+    );
 
     assert!(rp.cleanup(), "insert_reg pixa test failed");
 }
