@@ -5,9 +5,11 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::color::{
-    color_content, count_colors, grayscale_histogram, is_grayscale, is_grayscale_tolerant,
+    color_content, color_content_by_location, count_colors, grayscale_histogram, is_grayscale,
+    is_grayscale_tolerant,
 };
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::{Pix, PixelDepth};
 
 fn create_known_color_image() -> Pix {
@@ -79,11 +81,21 @@ fn colorcontent_reg() {
         rp.compare_values(0.0, b as f64, 0.0);
     }
 
+    // WPAC: known-color image
+    rp.write_pix_and_check(&pix_known, ImageFormat::Png)
+        .expect("check: known-color image");
+
     // Test 2: real image
     if let Ok(fish) = load_test_image("fish24.jpg") {
         let stats = color_content(&fish).expect("fish24 color_content");
         rp.compare_values(1.0, if stats.unique_colors > 100 { 1.0 } else { 0.0 }, 0.0);
         rp.compare_values(0.0, if stats.is_grayscale { 1.0 } else { 0.0 }, 0.0);
+
+        // WPAC: color_content_by_location on fish24
+        let loc_result =
+            color_content_by_location(&fish, 4, 10, 30).expect("color_content_by_location fish24");
+        rp.write_pix_and_check(&loc_result, ImageFormat::Png)
+            .expect("check: fish24 color by location");
     } else {
         rp.compare_values(1.0, 1.0, 0.0);
         rp.compare_values(1.0, 1.0, 0.0);
@@ -107,6 +119,12 @@ fn colorcontent_reg() {
     if let Ok(wyom) = load_test_image("wyom.jpg") {
         let count_wyom = count_colors(&wyom).unwrap();
         rp.compare_values(132165.0, count_wyom as f64, 15000.0);
+
+        // WPAC: color_content_by_location on wyom
+        let loc_wyom =
+            color_content_by_location(&wyom, 4, 10, 30).expect("color_content_by_location wyom");
+        rp.write_pix_and_check(&loc_wyom, ImageFormat::Png)
+            .expect("check: wyom color by location");
     } else {
         rp.compare_values(1.0, 1.0, 0.0);
     }
@@ -192,6 +210,12 @@ fn colorcontent_reg() {
     if let Ok(marge) = load_test_image("marge.jpg") {
         let sm = color_content(&marge).unwrap();
         rp.compare_values(1.0, if sm.unique_colors > 100 { 1.0 } else { 0.0 }, 0.0);
+
+        // WPAC: color_content_by_location on marge
+        let loc_marge =
+            color_content_by_location(&marge, 4, 10, 30).expect("color_content_by_location marge");
+        rp.write_pix_and_check(&loc_marge, ImageFormat::Png)
+            .expect("check: marge color by location");
     } else {
         rp.compare_values(1.0, 1.0, 0.0);
     }
