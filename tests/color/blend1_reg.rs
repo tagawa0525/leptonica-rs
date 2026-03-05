@@ -45,6 +45,8 @@ fn blend1_reg_gray_straight() {
         .blend_gray(&blend, 100, 100, 0.6, GrayBlendType::Gray)
         .expect("blend_gray 0.6");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: blend_gray 0.6");
 
     assert!(rp.cleanup(), "blend1 gray straight test failed");
 }
@@ -137,6 +139,8 @@ fn blend1_reg_color() {
         .blend_color(&blend, 100, 100, 0.15)
         .expect("blend_color 0.15");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: blend_color 0.15");
 
     assert!(rp.cleanup(), "blend1 color test failed");
 }
