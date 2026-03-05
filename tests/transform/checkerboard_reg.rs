@@ -4,37 +4,97 @@
 //! The C version uses pixFindCheckerboardCorners to locate corner points
 //! on two test images and verifies detection counts.
 //!
+//! C version has 6 checks (0-5), 3 per image:
+//! - Check 0/3: corner pix from find_checkerboard_corners (WPAC)
+//! - Check 1/4: pixaDisplayTiledInColumns of intermediate HMT images
+//! - Check 2/5: pixGenerateFromPta + dilate to visualize corners (WPAC)
+//!
 //! # See also
 //!
 //! C Leptonica: `reference/leptonica/prog/checkerboard_reg.c`
 
 use crate::common::RegParams;
+use leptonica::io::ImageFormat;
+use leptonica::morph::dilate_brick;
+use leptonica::{Pix, PixelDepth};
 
-/// Test checkerboard corner detection (C checks 0-3).
+/// Generate a 1bpp image from Pta coordinates.
 ///
-/// C version: pixFindCheckerboardCorners(pix, 15, 3, nsels) with
-/// nsels=2 for checkerboard1.tif and nsels=4 for checkerboard2.tif.
+/// Equivalent to C's `pixGenerateFromPta(pta, w, h)`.
+fn generate_pix_from_pta(pta: &leptonica::Pta, w: u32, h: u32) -> Pix {
+    let pix = Pix::new(w, h, PixelDepth::Bit1).expect("create pix for pta");
+    let mut pm = pix.try_into_mut().expect("mutable pix for pta");
+    for i in 0..pta.len() {
+        let (x, y) = pta.get(i).expect("get pta point");
+        let xi = x.round() as u32;
+        let yi = y.round() as u32;
+        if xi < w && yi < h {
+            pm.set_pixel_unchecked(xi, yi, 1);
+        }
+    }
+    pm.into()
+}
+
+/// Helper to run checkerboard corner detection and register results.
+///
+/// Mirrors C's `LocateCheckerboardCorners(rp, fname, nsels)`.
+fn locate_checkerboard_corners(rp: &mut RegParams, fname: &str, nsels: u32) {
+    let pix1 = crate::common::load_test_image(fname).unwrap_or_else(|_| {
+        panic!("load {fname}");
+    });
+
+    let (corner_pix, pta) = leptonica::region::find_checkerboard_corners(&pix1, 15, 3, nsels)
+        .unwrap_or_else(|_| {
+            panic!("find_checkerboard_corners {fname}");
+        });
+
+    assert!(!pta.is_empty(), "should detect corners in {fname}");
+    eprintln!("{fname}: {} corners detected", pta.len());
+
+    // C check 0/3: corner pix (WPAC)
+    rp.write_pix_and_check(&corner_pix, ImageFormat::Png)
+        .unwrap_or_else(|_| {
+            panic!("write corner_pix for {fname}");
+        });
+
+    // C check 2/5: generate image from Pta + dilate 5x5 (WPAC)
+    let (w, h) = (pix1.width(), pix1.height());
+    let pta_pix = generate_pix_from_pta(&pta, w, h);
+    let dilated = dilate_brick(&pta_pix, 5, 5).unwrap_or_else(|_| {
+        panic!("dilate pta_pix for {fname}");
+    });
+    rp.write_pix_and_check(&dilated, ImageFormat::Png)
+        .unwrap_or_else(|_| {
+            panic!("write dilated pta_pix for {fname}");
+        });
+}
+
 #[test]
-fn checkerboard_reg_find_corners() {
-    let _rp = RegParams::new("checkerboard");
+fn checkerboard_reg() {
+    let mut rp = RegParams::new("checkerboard");
 
-    // checkerboard1.tif with nsels=2
-    let pix1 = crate::common::load_test_image("checkerboard1.tif").expect("load checkerboard1.tif");
-    let (_corner_pix1, pta1) = leptonica::region::find_checkerboard_corners(&pix1, 15, 3, 2)
-        .expect("find_checkerboard_corners checkerboard1");
-    eprintln!("checkerboard1.tif corners: {}", pta1.len());
-    assert!(
-        !pta1.is_empty(),
-        "should detect corners in checkerboard1.tif"
-    );
+    locate_checkerboard_corners(&mut rp, "checkerboard1.tif", 2);
+    locate_checkerboard_corners(&mut rp, "checkerboard2.tif", 4);
 
-    // checkerboard2.tif with nsels=4
-    let pix2 = crate::common::load_test_image("checkerboard2.tif").expect("load checkerboard2.tif");
-    let (_corner_pix2, pta2) = leptonica::region::find_checkerboard_corners(&pix2, 15, 3, 4)
-        .expect("find_checkerboard_corners checkerboard2");
-    eprintln!("checkerboard2.tif corners: {}", pta2.len());
-    assert!(
-        !pta2.is_empty(),
-        "should detect corners in checkerboard2.tif"
-    );
+    assert!(rp.cleanup(), "checkerboard_reg regression test failed");
+}
+
+/// Intermediate HMT tiled display for checkerboard1.tif (C check 1).
+///
+/// C version collects intermediate pixa from pixFindCheckerboardCorners
+/// and displays them tiled. The Rust API does not return intermediate images.
+#[test]
+#[ignore = "pixFindCheckerboardCorners intermediate pixa not available in Rust API"]
+fn checkerboard_reg_intermediate_display_1() {
+    // C: pixaDisplayTiledInColumns(pixa1, 1, 1.0, 20, 2) for checkerboard1.tif
+}
+
+/// Intermediate HMT tiled display for checkerboard2.tif (C check 4).
+///
+/// C version collects intermediate pixa from pixFindCheckerboardCorners
+/// and displays them tiled. The Rust API does not return intermediate images.
+#[test]
+#[ignore = "pixFindCheckerboardCorners intermediate pixa not available in Rust API"]
+fn checkerboard_reg_intermediate_display_2() {
+    // C: pixaDisplayTiledInColumns(pixa1, 1, 1.0, 20, 2) for checkerboard2.tif
 }

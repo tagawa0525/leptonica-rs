@@ -4,11 +4,150 @@
 //!
 //! C Leptonica: `seedfill.c` — `pixSeedspread`, `pixSelectMinInConnComp`
 
+use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::region::ConnectivityType;
 use leptonica::{Pix, PixelDepth};
 
+use crate::common::RegParams;
+
 // ============================================================================
-// seedspread
+// seedspread — C-equivalent regression test (C checks 0–5)
+// ============================================================================
+
+/// Paint a 3x3 marker on a 32bpp mutable image at (cx, cy).
+///
+/// Replaces the C version's `pixRasterop(pixc, x-1, y-1, 3, 3, PIX_SRC, pixsq, 0, 0)`
+/// which copies a 3x3 solid-color square onto the destination.
+fn paint_marker_3x3(pm: &mut leptonica::PixMut, cx: u32, cy: u32, color: u32) {
+    let w = pm.width();
+    let h = pm.height();
+    let x0 = cx.saturating_sub(1);
+    let y0 = cy.saturating_sub(1);
+    for dy in 0..3u32 {
+        for dx in 0..3u32 {
+            let px = x0 + dx;
+            let py = y0 + dy;
+            if px < w && py < h {
+                pm.set_pixel_unchecked(px, py, color);
+            }
+        }
+    }
+}
+
+#[test]
+fn seedspread_reg() {
+    let mut rp = RegParams::new("seedspread");
+    // C uses 0x00ff0000 which in leptonica 32bpp RGBA is green
+    let marker_color = pixel::compose_rgba(0x00, 0xFF, 0x00, 0x00);
+
+    // --- Moderately dense seeds (100 points) ---
+    let pixs = Pix::new(300, 300, PixelDepth::Bit8).unwrap();
+    let mut pm = pixs.to_mut();
+    let mut seeds_dense: Vec<(u32, u32)> = Vec::new();
+    for i in 0u32..100 {
+        let x = ((153u64 * (i as u64) * (i as u64) * (i as u64) + 59) % 299) as u32;
+        let y = ((117u64 * (i as u64) * (i as u64) * (i as u64) + 241) % 299) as u32;
+        let val = (97 * i + 74) % 256;
+        pm.set_pixel(x, y, val).unwrap();
+        seeds_dense.push((x, y));
+    }
+    let pixs: Pix = pm.into();
+
+    // Check 0: 4-cc moderately dense
+    let pixd = leptonica::region::seedfill::seedspread(&pixs, ConnectivityType::FourWay).unwrap();
+    let pixc = pixd.convert_to_32().unwrap();
+    let mut pm = pixc.try_into_mut().unwrap();
+    for &(x, y) in &seeds_dense {
+        paint_marker_3x3(&mut pm, x, y, marker_color);
+    }
+    let pixc: Pix = pm.into();
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("check 0: 4-cc moderately dense");
+
+    // Check 1: 8-cc moderately dense
+    let pixd = leptonica::region::seedfill::seedspread(&pixs, ConnectivityType::EightWay).unwrap();
+    let pixc = pixd.convert_to_32().unwrap();
+    let mut pm = pixc.try_into_mut().unwrap();
+    for &(x, y) in &seeds_dense {
+        paint_marker_3x3(&mut pm, x, y, marker_color);
+    }
+    let pixc: Pix = pm.into();
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("check 1: 8-cc moderately dense");
+
+    // --- Regular lattice seeds ---
+    let pixs = Pix::new(200, 200, PixelDepth::Bit8).unwrap();
+    let mut pm = pixs.to_mut();
+    let mut seeds_lattice: Vec<(u32, u32)> = Vec::new();
+    for i in (5u32..=195).step_by(10) {
+        for j in (5u32..=195).step_by(10) {
+            pm.set_pixel(i, j, (7 * i + 17 * j) % 255).unwrap();
+            seeds_lattice.push((i, j));
+        }
+    }
+    let pixs: Pix = pm.into();
+
+    // Check 2: 4-cc lattice
+    // NOTE: C version uses pixRasterop(pixc, j-1, i-1, ...) meaning (x=j, y=i)
+    let pixd = leptonica::region::seedfill::seedspread(&pixs, ConnectivityType::FourWay).unwrap();
+    let pixc = pixd.convert_to_32().unwrap();
+    let mut pm = pixc.try_into_mut().unwrap();
+    for &(i, j) in &seeds_lattice {
+        paint_marker_3x3(&mut pm, j, i, marker_color);
+    }
+    let pixc: Pix = pm.into();
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("check 2: 4-cc lattice");
+
+    // Check 3: 8-cc lattice
+    let pixd = leptonica::region::seedfill::seedspread(&pixs, ConnectivityType::EightWay).unwrap();
+    let pixc = pixd.convert_to_32().unwrap();
+    let mut pm = pixc.try_into_mut().unwrap();
+    for &(i, j) in &seeds_lattice {
+        paint_marker_3x3(&mut pm, j, i, marker_color);
+    }
+    let pixc: Pix = pm.into();
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("check 3: 8-cc lattice");
+
+    // --- Very sparse seeds (4 points) ---
+    let pixs = Pix::new(200, 200, PixelDepth::Bit8).unwrap();
+    let mut pm = pixs.to_mut();
+    pm.set_pixel(60, 20, 90).unwrap();
+    pm.set_pixel(160, 40, 130).unwrap();
+    pm.set_pixel(80, 80, 205).unwrap();
+    pm.set_pixel(40, 160, 115).unwrap();
+    let pixs: Pix = pm.into();
+    let sparse_seeds = [(60u32, 20u32), (160, 40), (80, 80), (40, 160)];
+
+    // Check 4: 4-cc sparse
+    let pixd = leptonica::region::seedfill::seedspread(&pixs, ConnectivityType::FourWay).unwrap();
+    let pixc = pixd.convert_to_32().unwrap();
+    let mut pm = pixc.try_into_mut().unwrap();
+    for &(x, y) in &sparse_seeds {
+        paint_marker_3x3(&mut pm, x, y, marker_color);
+    }
+    let pixc: Pix = pm.into();
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("check 4: 4-cc sparse");
+
+    // Check 5: 8-cc sparse
+    let pixd = leptonica::region::seedfill::seedspread(&pixs, ConnectivityType::EightWay).unwrap();
+    let pixc = pixd.convert_to_32().unwrap();
+    let mut pm = pixc.try_into_mut().unwrap();
+    for &(x, y) in &sparse_seeds {
+        paint_marker_3x3(&mut pm, x, y, marker_color);
+    }
+    let pixc: Pix = pm.into();
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("check 5: 8-cc sparse");
+
+    assert!(rp.cleanup(), "seedspread_reg regression test failed");
+}
+
+// ============================================================================
+// seedspread — unit tests
 // ============================================================================
 
 #[test]

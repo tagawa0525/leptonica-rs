@@ -113,6 +113,10 @@ bw_alpha.01.png	c3addf40c3faa296
 bw_black.03.png	0333d6ff685a9425
 bw_white.03.png	f6995f80dec29e85
 ccbord_dreyfus1.04.tif	6eea4bcb33f79204
+checkerboard.01.png	9e8a973d0fda7951
+checkerboard.02.png	0bef68227b9fb2f0
+checkerboard.03.png	dc9fb606c6f0454e
+checkerboard.04.png	7e46993a0d79c3ff
 cmapquant.06.png	ba9b70aafb2041b7
 cmapquant_algo_cmp.09.png	7c473800cea8e10c
 colorfill.05.tif	b88390dd68850945
@@ -346,6 +350,12 @@ scale.03.png	6f29584fc6b18824
 scale.06.png	018b9de25103953d
 scale.09.png	659231111c5a8dcd
 scale.16.png	06dab1f73264af7d
+seedspread.01.png	f1fe8b0727797eb9
+seedspread.02.png	7c67d196cedb5d24
+seedspread.03.png	7f2824aa04c8b4f1
+seedspread.04.png	fff18377c11f6ba6
+seedspread.05.png	b5d3b5815aebf8fe
+seedspread.06.png	0237cde81f82b0de
 shear1_binary.03.tif	9c98ec01ad29a9c9
 shear1_gray8.02.png	4d415cec46e23e28
 shear1_inplace.01.png	320ef9e8c0e52f93
