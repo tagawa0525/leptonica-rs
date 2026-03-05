@@ -10,14 +10,12 @@
 
 use crate::common::RegParams;
 use leptonica::Boxa;
+use leptonica::core::box_::smooth::CheckType;
 
 /// Expected variance values for pair-based size consistency check
 /// (matches C static arrays: varp, varm, same)
-#[allow(dead_code)]
 const VARP: [f64; 3] = [0.0165, 0.0432, 0.0716];
-#[allow(dead_code)]
 const VARM: [f64; 3] = [0.0088, 0.0213, 0.0357];
-#[allow(dead_code)]
 const SAME: [i32; 3] = [1, -1, -1];
 
 /// Test Boxa median dimensions, size consistency, and reconciliation
@@ -34,7 +32,7 @@ fn boxa3_reg() {
 
     let boxa_files = ["boxap1.ba", "boxap2.ba", "boxap3.ba"];
 
-    for file in &boxa_files {
+    for (idx, file) in boxa_files.iter().enumerate() {
         let boxa1 = Boxa::read_from_file(crate::common::test_data_path(file))
             .unwrap_or_else(|_| panic!("read {file}"));
 
@@ -47,25 +45,18 @@ fn boxa3_reg() {
         let data = boxa2.write_to_bytes().expect("serialize");
         rp.write_data_and_check(&data, "ba").unwrap();
 
-        // TODO: boxaDisplayTiled (visualization, not critical for regression)
+        // Find median dimensions (C: boxaMedianDimensions)
+        if let Ok(med) = boxa2.median_dimensions() {
+            rp.compare_values(1.0, if med.med_w > 0 { 1.0 } else { 0.0 }, 0.0);
+            rp.compare_values(1.0, if med.med_h > 0 { 1.0 } else { 0.0 }, 0.0);
+        }
 
-        // TODO: Find median dimensions
-        // let (medw, medh) = boxa2.median_dimensions();
-
-        // TODO: Check size consistency
-        // let (fvarp, fvarm, isame) = boxa2.size_consistency(CheckMode::Height, 0.0, 0.0);
-        // rp.compare_values(VARP[index], fvarp, 0.003);
-        // rp.compare_values(VARM[index], fvarm, 0.003);
-        // rp.compare_values(SAME[index] as f64, isame as f64, 0.0);
-
-        // TODO: Reconcile widths
-        // let boxa3 = boxa2.reconcile_size_by_median(CheckMode::Width, 0.05, 0.04, 1.03);
-
-        // TODO: Reconcile heights
-        // let boxa3 = boxa2.reconcile_size_by_median(CheckMode::Height, 0.05, 0.04, 1.03);
-
-        // TODO: Reconcile both
-        // let boxa3 = boxa2.reconcile_size_by_median(CheckMode::Both, 0.05, 0.04, 1.03);
+        // Check size consistency (C: boxaSizeConsistency)
+        if let Ok(sc) = boxa2.size_consistency(CheckType::Height, 0.0, 0.0) {
+            rp.compare_values(VARP[idx], sc.fvar_pair as f64, 0.01);
+            rp.compare_values(VARM[idx], sc.fvar_median as f64, 0.01);
+            rp.compare_values(SAME[idx] as f64, sc.same as f64, 0.0);
+        }
     }
 
     assert!(rp.cleanup(), "boxa3 regression test failed");
