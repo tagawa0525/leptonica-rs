@@ -22,7 +22,7 @@ fn pixcomp_reg_roundtrip_wpac() {
 
     let mut rp = RegParams::new("pixcomp_rt");
 
-    // C check 0: JPEG round-trip
+    // C check 0: JPEG round-trip (dimension check only, no WPAC — JPEG is lossy)
     let pix1 = crate::common::load_test_image("marge.jpg").expect("load marge.jpg");
     let pc1 = PixComp::create_from_pix(&pix1, Some(ImageFormat::Jpeg)).unwrap();
     let recovered1 = pc1.to_pix().unwrap();
