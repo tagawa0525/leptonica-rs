@@ -93,7 +93,7 @@ fn hash_reg() {
         .expect("render_hash_box horizontal");
     let rendered: Pix = dm.into();
 
-    rp.compare_values(rendered.width() as f64, 40.0, 0.0);
+    rp.compare_values(40.0, rendered.width() as f64, 0.0);
     let on = rendered.count_pixels();
     rp.compare_values(1.0, if on > 0 { 1.0 } else { 0.0 }, 0.0);
 
