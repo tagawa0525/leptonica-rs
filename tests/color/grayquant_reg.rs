@@ -63,8 +63,8 @@ fn grayquant_reg_dither_2bpp() {
         .expect("check: dither_to_2bpp");
 
     // C check 2: pixDitherTo2bpp(pixs, 0) — without colormap
-    // Rust dither_to_2bpp_spec with custom thresholds
-    let result2 = dither_to_2bpp_spec(&pix, 64, 128, 192).expect("dither_to_2bpp_spec");
+    // Rust dither_to_2bpp_spec with distinct thresholds to exercise a different config
+    let result2 = dither_to_2bpp_spec(&pix, 51, 85, 170).expect("dither_to_2bpp_spec");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
     assert_eq!(result2.depth(), PixelDepth::Bit2);
     rp.write_pix_and_check(&result2, ImageFormat::Png)
