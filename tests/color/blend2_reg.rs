@@ -70,7 +70,7 @@ fn blend2_reg_gray() {
     // Use a different 8bpp image as mask
     let mask = crate::common::load_test_image("weasel8.png").expect("load weasel8.png");
 
-    // C check 6: pixBlendWithGrayMask on two grayscale at (50, 50)
+    // C check 6: pixBlendWithGrayMask on two grayscale at (10, 10)
     let blended = blend_with_gray_mask(&pix1, &pix2, &mask, 10, 10).expect("blend gray");
     rp.compare_values(pix1.width() as f64, blended.width() as f64, 0.0);
     rp.compare_values(pix1.height() as f64, blended.height() as f64, 0.0);
