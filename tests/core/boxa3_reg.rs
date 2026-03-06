@@ -46,17 +46,17 @@ fn boxa3_reg() {
         rp.write_data_and_check(&data, "ba").unwrap();
 
         // Find median dimensions (C: boxaMedianDimensions)
-        if let Ok(med) = boxa2.median_dimensions() {
-            rp.compare_values(1.0, if med.med_w > 0 { 1.0 } else { 0.0 }, 0.0);
-            rp.compare_values(1.0, if med.med_h > 0 { 1.0 } else { 0.0 }, 0.0);
-        }
+        let med = boxa2.median_dimensions().expect("median dimensions");
+        rp.compare_values(1.0, if med.med_w > 0 { 1.0 } else { 0.0 }, 0.0);
+        rp.compare_values(1.0, if med.med_h > 0 { 1.0 } else { 0.0 }, 0.0);
 
         // Check size consistency (C: boxaSizeConsistency)
-        if let Ok(sc) = boxa2.size_consistency(CheckType::Height, 0.0, 0.0) {
-            rp.compare_values(VARP[idx], sc.fvar_pair as f64, 0.01);
-            rp.compare_values(VARM[idx], sc.fvar_median as f64, 0.01);
-            rp.compare_values(SAME[idx] as f64, sc.same as f64, 0.0);
-        }
+        let sc = boxa2
+            .size_consistency(CheckType::Height, 0.0, 0.0)
+            .expect("size consistency");
+        rp.compare_values(VARP[idx], sc.fvar_pair as f64, 0.01);
+        rp.compare_values(VARM[idx], sc.fvar_median as f64, 0.01);
+        rp.compare_values(SAME[idx] as f64, sc.same as f64, 0.0);
     }
 
     assert!(rp.cleanup(), "boxa3 regression test failed");
