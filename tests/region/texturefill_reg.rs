@@ -63,5 +63,42 @@ fn texturefill_reg() {
     rp.write_pix_and_check(&rect_filled, ImageFormat::Tiff)
         .expect("write rect_filled texturefill");
 
+    // 8-way connectivity variant (C: pixFindSkewAndDeskew uses both)
+    let holes8 =
+        holes_by_filling(&pix, ConnectivityType::EightWay).expect("holes_by_filling 8-way");
+    rp.compare_values(1.0, if holes8.count_pixels() > 0 { 1.0 } else { 0.0 }, 0.0);
+    rp.write_pix_and_check(&holes8, ImageFormat::Tiff)
+        .expect("check: holes 8-way");
+
+    let filled8 =
+        fill_closed_borders(&pix, ConnectivityType::EightWay).expect("fill_closed_borders 8-way");
+    rp.compare_values(
+        1.0,
+        if filled8.count_pixels() > pix.count_pixels() {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+    rp.write_pix_and_check(&filled8, ImageFormat::Tiff)
+        .expect("check: filled 8-way");
+
+    // Larger ring with tighter threshold
+    let pix2 = make_ring(80, 60, 10, 8, 70, 52);
+    let rect_filled2 =
+        fill_holes_to_bounding_rect(&pix2, 10, 0.8, 0.3).expect("fill_holes_to_bounding_rect 2");
+    rp.compare_values(
+        1.0,
+        if rect_filled2.count_pixels() >= pix2.count_pixels() {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+    rp.write_pix_and_check(&rect_filled2, ImageFormat::Tiff)
+        .expect("check: rect_filled large ring");
+
     assert!(rp.cleanup(), "texturefill regression test failed");
 }
