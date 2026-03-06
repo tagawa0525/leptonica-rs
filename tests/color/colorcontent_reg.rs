@@ -99,6 +99,7 @@ fn colorcontent_reg() {
     } else {
         rp.compare_values(1.0, 1.0, 0.0);
         rp.compare_values(1.0, 1.0, 0.0);
+        rp.compare_values(1.0, 1.0, 0.0); // index sync for write_pix_and_check
     }
 
     // Test 3: count_colors
@@ -127,6 +128,7 @@ fn colorcontent_reg() {
             .expect("check: wyom color by location");
     } else {
         rp.compare_values(1.0, 1.0, 0.0);
+        rp.compare_values(1.0, 1.0, 0.0); // index sync for write_pix_and_check
     }
 
     // Test 4: grayscale detection
@@ -218,6 +220,7 @@ fn colorcontent_reg() {
             .expect("check: marge color by location");
     } else {
         rp.compare_values(1.0, 1.0, 0.0);
+        rp.compare_values(1.0, 1.0, 0.0); // index sync for write_pix_and_check
     }
 
     // Test 8: error cases
