@@ -14,8 +14,7 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
-use leptonica::color::MedianCutOptions;
-use leptonica::color::median_cut_quant;
+use leptonica::color::{MedianCutOptions, median_cut_quant};
 use leptonica::io::ImageFormat;
 
 /// Test paint_through_mask on 32bpp with clipped mask (C check 1 setup).
@@ -87,9 +86,9 @@ fn paintmask_reg_quant_clip() {
     assert!(rp.cleanup(), "paintmask quant+clip test failed");
 }
 
-/// Test pixClipMasked on 32bpp and 8bpp (C checks 1-21 partial).
+/// Test pixClipMasked on multiple depths (C checks 1, 3, 5, 7, 9, 11, 17, 20-21).
 ///
-/// Tests clip_masked with a 1bpp mask on 32bpp and 8bpp images.
+/// Tests clip_masked with a 1bpp mask on images of various depths.
 #[test]
 fn paintmask_reg_clip_masked() {
     let mut rp = RegParams::new("pmask_clip");
@@ -104,26 +103,54 @@ fn paintmask_reg_clip_masked() {
     let mask = mask.invert();
     assert_eq!(mask.depth(), PixelDepth::Bit1);
 
-    // C: pixd = pixClipMasked(pixs, pixm, 100, 100, 0x03c08000);
+    // C check 1: pixClipMasked(pixs, pixm, 100, 100, 0x03c08000) — 32bpp
     let result = pixs
         .clip_masked(&mask, 100, 100, 0x03c0_8000)
         .expect("clip_masked 32bpp");
     assert_eq!(result.depth(), PixelDepth::Bit32);
-    assert!(result.width() > 0);
-    assert!(result.height() > 0);
     rp.compare_values(mask.width() as f64, result.width() as f64, 0.0);
     rp.compare_values(mask.height() as f64, result.height() as f64, 0.0);
     rp.write_pix_and_check(&result, ImageFormat::Png)
-        .expect("write clipped clip_masked");
+        .expect("check: clip_masked 32bpp");
 
-    // 8bpp grayscale
+    // C check 9: pixClipMasked on 8bpp grayscale — outval=90
     let pix8 = pixs.convert_to_8().expect("convert to 8bpp");
     let result8 = pix8
         .clip_masked(&mask, 100, 100, 90)
         .expect("clip_masked 8bpp");
     assert_eq!(result8.depth(), PixelDepth::Bit8);
-    assert!(result8.width() > 0);
-    assert!(result8.height() > 0);
+    rp.compare_values(mask.width() as f64, result8.width() as f64, 0.0);
+    rp.write_pix_and_check(&result8, ImageFormat::Png)
+        .expect("check: clip_masked 8bpp gray");
+
+    // C check 11: pixClipMasked on 4bpp gray — outval=0
+    let pix4 =
+        leptonica::color::threshold_to_4bpp(&pix8, 9, false).expect("threshold_to_4bpp for clip");
+    let result4 = pix4
+        .clip_masked(&mask, 100, 100, 0)
+        .expect("clip_masked 4bpp");
+    assert_eq!(result4.depth(), PixelDepth::Bit4);
+    rp.write_pix_and_check(&result4, ImageFormat::Png)
+        .expect("check: clip_masked 4bpp gray");
+
+    // C check 17: pixClipMasked on 2bpp gray — outval=1
+    let pix2 =
+        leptonica::color::threshold_to_2bpp(&pix8, 4, false).expect("threshold_to_2bpp for clip");
+    let result2 = pix2
+        .clip_masked(&mask, 100, 100, 1)
+        .expect("clip_masked 2bpp");
+    assert_eq!(result2.depth(), PixelDepth::Bit2);
+    rp.write_pix_and_check(&result2, ImageFormat::Png)
+        .expect("check: clip_masked 2bpp gray");
+
+    // C check 21: pixClipMasked on 1bpp — outval=1
+    let pix1 = leptonica::color::threshold_to_binary(&pix8, 128).expect("threshold for 1bpp");
+    let result1 = pix1
+        .clip_masked(&mask, 100, 100, 1)
+        .expect("clip_masked 1bpp");
+    assert_eq!(result1.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&result1, ImageFormat::Png)
+        .expect("check: clip_masked 1bpp");
 
     assert!(rp.cleanup(), "paintmask clip_masked test failed");
 }

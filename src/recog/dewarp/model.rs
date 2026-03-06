@@ -346,7 +346,7 @@ fn compute_disparity_at_point(
 
     // Compute disparity by interpolation
     match (above_line, below_line) {
-        (Some((_, y_above)), Some((_, y_below))) if above_line == below_line => {
+        (Some((_, y_above)), Some((_, _y_below))) if above_line == below_line => {
             // On the line itself
             y_above - above_line.unwrap().0
         }
