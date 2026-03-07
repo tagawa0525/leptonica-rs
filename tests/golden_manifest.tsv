@@ -146,6 +146,9 @@ colormorph.07.jpg	d43778b203f038b5
 colorquant.05.png	ff5bbb2877d1b401
 colorseg.05.png	1544d222ba54aa32
 colorspace.23.png	a7622784a55dc974
+compare_equals.04.png	99de228f27e9c48c
+compare_perceptual.03.png	cbef06eb92ef8f00
+compare_perceptual.04.png	a382b7cc24806911
 compfilter_write_synthetic.01.png	776f015732796ef4
 compfilter_write_synthetic.02.png	32bbb5fff34c2454
 conncomp.04.png	eaaef6841ce031cb
@@ -213,6 +216,12 @@ enhance_mult.02.jpg	478fb17faf93c437
 enhance_sat.01.png	dff566a4e672d588
 enhance_sat.02.png	e81a57f2002d771b
 enhance_trc_general.02.png	fe8cce90831dbc0c
+equal_2bpp_cmap.02.png	536739402d73641e
+equal_2bpp_cmap.03.png	af7f58945e330afe
+equal_4bpp_cmap.02.png	cd34d6b1baac3e94
+equal_4bpp_cmap.03.png	6154f8fdeb266424
+equal_8bpp_cmap.02.png	76b9de133d57ab94
+equal_8bpp_cmap.03.png	b4b89fdb658d98dc
 expand_1bpp.03.tif	7d3831a84b195e51
 expand_2bpp.03.png	dfbc3460d7005de1
 expand_4bpp.03.png	c9eef43703f3af87
@@ -400,6 +409,11 @@ scale.03.png	6f29584fc6b18824
 scale.06.png	018b9de25103953d
 scale.09.png	659231111c5a8dcd
 scale.16.png	06dab1f73264af7d
+scale.22.png	eea6093819aad2b9
+scale.24.png	12e6ab89836cb4f4
+scale.26.png	c074def4c699e441
+scale.28.png	417aa510ea6ce039
+scale.30.png	d1d7c68cc444ea89
 seedspread.01.png	f1fe8b0727797eb9
 seedspread.02.png	7c67d196cedb5d24
 seedspread.03.png	7f2824aa04c8b4f1
@@ -414,6 +428,12 @@ shear2_color_samp.02.png	626bb2a2e1c2b0f8
 shear2_general.02.png	626bb2a2e1c2b0f8
 shear2_gray_interp.03.png	7366c9f9e594f1f2
 skew.05.tif	a82f76ea1682d511
+smallpix_color_li.01.png	468a00af983ffcfb
+smallpix_li.01.png	468a00af983ffcfb
+smallpix_rotate_am.01.png	aa588697190dc47b
+smallpix_rotate_color.01.png	aa588697190dc47b
+smallpix_sampling.01.png	3a9a46a7b224e11c
+smallpix_smooth.01.png	0e1bbbb1a0abf91c
 smoothedge.04.png	649a7207cd0e3395
 smoothedge.07.png	0966dfb5b0de8c3f
 speckle_border.03.tif	bbd9c9e04e503800

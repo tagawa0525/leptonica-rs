@@ -11,7 +11,8 @@
 //! C Leptonica: `reference/leptonica/prog/compare_reg.c`
 
 use crate::common::RegParams;
-use leptonica::Pix;
+use leptonica::io::ImageFormat;
+use leptonica::{Color, Pix};
 
 /// Test count_pixels and basic pixel statistics on binary images.
 ///
@@ -58,6 +59,15 @@ fn compare_reg_equals() {
     // Double-inverted should be equal to original
     let pix4 = pix3.invert();
     rp.compare_values(1.0, if pix1.equals(&pix4) { 1.0 } else { 0.0 }, 0.0);
+
+    // display_diff_binary: visualize pixel differences between original and inverted
+    if pix1.depth() == leptonica::PixelDepth::Bit1 {
+        let diff_vis = pix1
+            .display_diff_binary(&pix4)
+            .expect("display_diff_binary");
+        rp.write_pix_and_check(&diff_vis, ImageFormat::Png)
+            .expect("check: compare equals diff_binary");
+    }
 
     assert!(rp.cleanup(), "compare equals test failed");
 }
@@ -145,6 +155,20 @@ fn compare_reg_perceptual_diff() {
         "grayscale images should have perceptual difference"
     );
     rp.compare_values(0.046928, fract_gray as f64, 0.15);
+
+    // display_diff: visualize color difference map
+    let diff_vis = pix0
+        .display_diff(&pix1, 20, Color::RED)
+        .expect("display_diff color");
+    rp.write_pix_and_check(&diff_vis, ImageFormat::Png)
+        .expect("check: compare perceptual diff_vis color");
+
+    // display_diff: visualize grayscale difference map
+    let diff_vis_gray = gray0
+        .display_diff(&gray1, 20, Color::RED)
+        .expect("display_diff gray");
+    rp.write_pix_and_check(&diff_vis_gray, ImageFormat::Png)
+        .expect("check: compare perceptual diff_vis gray");
 
     assert!(rp.cleanup(), "compare perceptual diff test failed");
 }

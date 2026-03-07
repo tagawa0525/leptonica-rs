@@ -14,6 +14,7 @@
 
 use crate::common::RegParams;
 use leptonica::core::pix::RemoveColormapTarget;
+use leptonica::io::ImageFormat;
 
 /// Test 1bpp binary image: write/read round-trip preserves equality (C check 0).
 #[test]
@@ -67,7 +68,13 @@ fn equal_reg_8bpp_colormap() {
         "dreyfus8 to_full_color should match original"
     );
 
-    let _ = rp.compare_values(1.0, 1.0, 0.0); // placeholder check
+    rp.compare_values(1.0, 1.0, 0.0);
+
+    // WPAC for colormap removal results
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check: equal 8bpp remove_cmap based_on_src");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("check: equal 8bpp remove_cmap to_full_color");
 
     assert!(rp.cleanup(), "equal 8bpp colormap test failed");
 }
@@ -147,7 +154,13 @@ fn equal_reg_2bpp_colormap() {
         "dreyfus2 to_full_color should match original"
     );
 
-    let _ = rp.compare_values(1.0, 1.0, 0.0);
+    rp.compare_values(1.0, 1.0, 0.0);
+
+    // WPAC for colormap removal results
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check: equal 2bpp remove_cmap based_on_src");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("check: equal 2bpp remove_cmap to_full_color");
 
     assert!(rp.cleanup(), "equal 2bpp colormap test failed");
 }
@@ -181,7 +194,13 @@ fn equal_reg_4bpp_colormap() {
         "dreyfus4 to_full_color should match original"
     );
 
-    let _ = rp.compare_values(1.0, 1.0, 0.0);
+    rp.compare_values(1.0, 1.0, 0.0);
+
+    // WPAC for colormap removal results
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check: equal 4bpp remove_cmap based_on_src");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("check: equal 4bpp remove_cmap to_full_color");
 
     assert!(rp.cleanup(), "equal 4bpp colormap test failed");
 }

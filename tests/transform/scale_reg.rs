@@ -17,7 +17,10 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::io::ImageFormat;
-use leptonica::transform::{ScaleMethod, scale, scale_by_sampling, scale_to_size};
+use leptonica::transform::{
+    ScaleMethod, scale, scale_by_sampling, scale_to_gray_2, scale_to_gray_3, scale_to_gray_4,
+    scale_to_gray_6, scale_to_gray_8, scale_to_size,
+};
 
 /// Test scaling operations on grayscale and binary images
 ///
@@ -108,6 +111,33 @@ fn scale_reg() {
     let sb = scale(&pixb, 2.0, 2.0, ScaleMethod::Sampling).expect("scale binary");
     rp.compare_values((pixb.width() * 2) as f64, sb.width() as f64, 1.0);
     rp.compare_values((pixb.height() * 2) as f64, sb.height() as f64, 1.0);
+
+    // --- Test 9: pixScaleToGray at fixed reduction factors ---
+    // C version tests pixScaleToGray2/3/4/6/8 on 1bpp images
+    let stg2 = scale_to_gray_2(&pixb).expect("scale_to_gray_2");
+    rp.compare_values((pixb.width() / 2) as f64, stg2.width() as f64, 1.0);
+    rp.write_pix_and_check(&stg2, ImageFormat::Png)
+        .expect("check: scale_to_gray_2");
+
+    let stg3 = scale_to_gray_3(&pixb).expect("scale_to_gray_3");
+    rp.compare_values((pixb.width() / 3) as f64, stg3.width() as f64, 1.0);
+    rp.write_pix_and_check(&stg3, ImageFormat::Png)
+        .expect("check: scale_to_gray_3");
+
+    let stg4 = scale_to_gray_4(&pixb).expect("scale_to_gray_4");
+    rp.compare_values((pixb.width() / 4) as f64, stg4.width() as f64, 1.0);
+    rp.write_pix_and_check(&stg4, ImageFormat::Png)
+        .expect("check: scale_to_gray_4");
+
+    let stg6 = scale_to_gray_6(&pixb).expect("scale_to_gray_6");
+    rp.compare_values((pixb.width() / 6) as f64, stg6.width() as f64, 1.0);
+    rp.write_pix_and_check(&stg6, ImageFormat::Png)
+        .expect("check: scale_to_gray_6");
+
+    let stg8 = scale_to_gray_8(&pixb).expect("scale_to_gray_8");
+    rp.compare_values((pixb.width() / 8) as f64, stg8.width() as f64, 1.0);
+    rp.write_pix_and_check(&stg8, ImageFormat::Png)
+        .expect("check: scale_to_gray_8");
 
     assert!(rp.cleanup(), "scale regression test failed");
 }

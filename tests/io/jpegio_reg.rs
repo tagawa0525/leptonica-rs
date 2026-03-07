@@ -11,7 +11,7 @@
 //! - Header reading (resolution, comment) -- not ported
 
 use crate::common::{RegParams, load_test_image, test_data_path};
-use leptonica::io::{ImageFormat, read_image_mem, write_image_mem};
+use leptonica::io::{ImageFormat, read_image_header, read_image_mem, write_image_mem};
 
 #[test]
 fn jpegio_reg() {
@@ -59,6 +59,18 @@ fn jpegio_reg() {
     let fmt_bytes = leptonica::io::detect_format_from_bytes(&jpeg_bytes);
     let is_jpeg_bytes = matches!(fmt_bytes, Ok(ImageFormat::Jpeg));
     rp.compare_values(1.0, if is_jpeg_bytes { 1.0 } else { 0.0 }, 0.0);
+
+    // --- Test 6: Header reading ---
+    // C version: readHeaderJpeg / freadHeaderJpeg verifying dimensions
+    eprintln!("=== Test: JPEG header reading ===");
+    let header = read_image_header(test_data_path("test8.jpg")).expect("read header test8.jpg");
+    rp.compare_values(pix.width() as f64, header.width as f64, 0.0);
+    rp.compare_values(pix.height() as f64, header.height as f64, 0.0);
+
+    let header_rgb = read_image_header(test_data_path("marge.jpg")).expect("read header marge.jpg");
+    let pix_marge = load_test_image("marge.jpg").expect("load marge.jpg for header");
+    rp.compare_values(pix_marge.width() as f64, header_rgb.width as f64, 0.0);
+    rp.compare_values(pix_marge.height() as f64, header_rgb.height as f64, 0.0);
 
     assert!(rp.cleanup(), "jpegio regression test failed");
 }
