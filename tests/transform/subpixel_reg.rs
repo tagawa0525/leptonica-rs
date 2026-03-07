@@ -37,3 +37,18 @@ fn subpixel_reg_color_to_rgb() {
     //    orders: L_SUBPIXEL_ORDER_RGB, BGR, VRGB, VBGR
     // 3. regTestWritePixAndCheck() for each result
 }
+
+/// Test 1bpp subpixel with convolution filter (C checks 2-8).
+///
+/// Requires pixConvertToSubpixelRGB, makeGaussianKernelSep,
+/// pixConvolveSep, and makeGaussianKernel which are not available.
+#[test]
+#[ignore = "not yet implemented: pixConvertToSubpixelRGB / makeGaussianKernelSep not available"]
+fn subpixel_reg_bpp1_with_filter() {
+    // C version:
+    // 1. pixConvertTo8(pixs, FALSE) for 1bpp input
+    // 2. pixConvertToSubpixelRGB with separable Gaussian filter
+    // 3. pixConvolveSep / pixConvolve for post-processing
+    // 4. regTestWritePixAndCheck for checks 2-6
+    // 5. regTestComparePix for checks 4, 7
+}
