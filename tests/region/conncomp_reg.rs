@@ -34,7 +34,7 @@ fn conncomp_reg() {
     let (boxa4, pixa4) =
         conncomp_pixa(&pixs, ConnectivityType::FourWay).expect("conncomp_pixa 4-way");
     rp.compare_values(n1 as f64, pixa4.len() as f64, 0.0);
-    rp.compare_values(n1 as f64, n1 as f64, 0.0);
+    rp.compare_values(n1 as f64, boxa4.len() as f64, 0.0);
     // C check 2: absolute expected value
     rp.compare_values(4452.0, n1 as f64, 0.0);
 
@@ -55,10 +55,10 @@ fn conncomp_reg() {
     let n2 = comps_8.len();
 
     // C check 5-6: pixa count matches
-    let (_boxa8, pixa8) =
+    let (boxa8, pixa8) =
         conncomp_pixa(&pixs, ConnectivityType::EightWay).expect("conncomp_pixa 8-way");
     rp.compare_values(n2 as f64, pixa8.len() as f64, 0.0);
-    rp.compare_values(n2 as f64, n2 as f64, 0.0);
+    rp.compare_values(n2 as f64, boxa8.len() as f64, 0.0);
     // C check 7: absolute expected value
     rp.compare_values(4305.0, n2 as f64, 0.0);
 
@@ -84,6 +84,18 @@ fn conncomp_reg() {
 
     // 8-way should find fewer or equal components than 4-way
     assert!(n2 <= n1);
+
+    // Verify per-component invariants (pixel_count > 0, positive bounds)
+    for comp in &comps_4 {
+        assert!(
+            comp.pixel_count > 0,
+            "Component should have at least 1 pixel"
+        );
+        assert!(
+            comp.bounds.w > 0 && comp.bounds.h > 0,
+            "Bounds should be positive"
+        );
+    }
 
     assert!(rp.cleanup(), "conncomp regression test failed");
 }
