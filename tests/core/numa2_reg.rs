@@ -170,3 +170,58 @@ fn numa2_reg_windowed_edge_behavior() {
         "numa2_reg windowed edge behavior tests failed"
     );
 }
+
+// ============================================================================
+// C checks not yet available in Rust
+// ============================================================================
+
+/// C checks 0-4: Windowed stats with gplot visualization.
+///
+/// Requires gplot API (numaPlotWaveform, pixRenderPlotFromNuma) not available.
+#[test]
+#[ignore = "not yet implemented: gplot / pixRenderPlotFromNuma not available"]
+fn numa2_reg_windowed_plots() {
+    // C: numaWindowedStats(na, 5, &na_mean, &na_meansq, &na_var, &na_rms)
+    //    + gplotSimple1 / pixRenderPlotFromNuma for visualization
+}
+
+/// C checks 5-9: Pixel extraction along a line.
+///
+/// Requires pixExtractOnLine which is not available.
+#[test]
+#[ignore = "not yet implemented: pixExtractOnLine not available"]
+fn numa2_reg_extract_on_line() {
+    // C: pixExtractOnLine(pixs, x1, y1, x2, y2, 1) for horizontal/vertical/diagonal lines
+}
+
+/// C checks 10-18: Row/column pixel averages.
+///
+/// Requires pixAverageByRow, pixAverageByColumn which are not available.
+#[test]
+#[ignore = "not yet implemented: pixAverageByRow / pixAverageByColumn not available"]
+fn numa2_reg_pixel_averages() {
+    // C: pixAverageByRow(pixs, NULL, L_WHITE_IS_MAX)
+    //    pixAverageByColumn(pixs, NULL, L_WHITE_IS_MAX)
+    //    + pixRenderPlotFromNuma for visualization
+}
+
+/// C checks 19-24: Row/column variance calculations.
+///
+/// Requires pixVarianceByRow, pixVarianceByColumn which are not available.
+#[test]
+#[ignore = "not yet implemented: pixVarianceByRow / pixVarianceByColumn not available"]
+fn numa2_reg_variance_plots() {
+    // C: pixVarianceByRow(pixs, NULL)
+    //    pixVarianceByColumn(pixs, NULL)
+    //    + pixRenderPlotFromNuma for visualization
+}
+
+/// C checks 25-42: Average pixel value in rectangles.
+///
+/// Requires pixAverageInRect, pixAverageInRectRGB which are not available.
+#[test]
+#[ignore = "not yet implemented: pixAverageInRect / pixAverageInRectRGB not available"]
+fn numa2_reg_average_in_rect() {
+    // C: pixAverageInRect(pixs, box, &val) for grayscale
+    //    pixAverageInRectRGB(pixs, box, &rval, &gval, &bval) for color
+}
