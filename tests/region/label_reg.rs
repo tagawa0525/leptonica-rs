@@ -13,8 +13,8 @@ use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;
 use leptonica::io::ImageFormat;
 use leptonica::region::{
-    ConnectivityType, find_connected_components, label_connected_components,
-    pix_get_sorted_neighbor_values,
+    ConnectivityType, component_area_transform, find_connected_components,
+    label_connected_components, pix_get_sorted_neighbor_values, pix_loc_to_color_transform,
 };
 
 #[test]
@@ -97,6 +97,20 @@ fn label_reg() {
         .expect("find components feyn-fract");
     eprintln!("  feyn-fract 8-way components: {}", comps_fract.len());
     rp.compare_values(1.0, if comps_fract.len() > 100 { 1.0 } else { 0.0 }, 0.0);
+
+    // --- Test 6: component_area_transform (C check 4) ---
+    let area_img = component_area_transform(&labeled8).expect("component_area_transform");
+    rp.compare_values(w as f64, area_img.width() as f64, 0.0);
+    rp.compare_values(h as f64, area_img.height() as f64, 0.0);
+    rp.write_pix_and_check(&area_img, ImageFormat::Png)
+        .expect("check: area transform");
+
+    // --- Test 7: pix_loc_to_color_transform (C check 6) ---
+    let color_img = pix_loc_to_color_transform(&pixs).expect("pix_loc_to_color_transform");
+    rp.compare_values(w as f64, color_img.width() as f64, 0.0);
+    rp.compare_values(h as f64, color_img.height() as f64, 0.0);
+    rp.write_pix_and_check(&color_img, ImageFormat::Png)
+        .expect("check: loc-to-color transform");
 
     assert!(rp.cleanup(), "label regression test failed");
 }

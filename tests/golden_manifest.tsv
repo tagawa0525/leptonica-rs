@@ -148,6 +148,8 @@ colorseg.05.png	1544d222ba54aa32
 colorspace.23.png	a7622784a55dc974
 compfilter_write_synthetic.01.png	776f015732796ef4
 compfilter_write_synthetic.02.png	32bbb5fff34c2454
+conncomp.04.png	eaaef6841ce031cb
+conncomp.10.png	c58bc9627c1aa96a
 conversion_from_16bpp.04.png	ff9aba5ee2aaace0
 conversion_from_16bpp.05.png	ff9aba5ee2aaace0
 conversion_from_1bpp.07.png	ff9aba5ee2aaace0
@@ -234,9 +236,15 @@ findpat2_asterisk.03.tif	691ed904fa578a7b
 flipdetect_correct.03.tif	36b18174021bfd7d
 fpix1_pix.06.png	f2e933a99b05252b
 gfill_basin.03.png	2adac671711d1a33
+gfill_basin.05.png	2adac671711d1a33
+gfill_basin.06.png	2adac671711d1a33
 gfill_hybrid.02.png	b2730774e0ef631d
 gfill_inv.03.png	c50cb009e8c84c55
+gfill_inv.05.png	c50cb009e8c84c55
+gfill_inv.06.png	c50cb009e8c84c55
 gfill_std.03.png	e0cfb17725c56573
+gfill_std.05.png	e0cfb17725c56573
+gfill_std.06.png	e0cfb17725c56573
 gifio.01.png	063e405d5915679a
 gifio.03.png	3eed7e7bcbe015ad
 gifio.05.png	0a9588084225113e
@@ -310,6 +318,8 @@ jbclass_haus.05.tif	457c889536716512
 jbclass_wordmask.04.tif	c4c409acd4c0eec7
 label.03.png	f1362e3bc961f117
 label.06.png	0e80ca2116a970aa
+label.23.png	6f3da7f92ef179e0
+label.26.png	5dec830207429d71
 lineremoval_arith.07.png	8d99f24d54367565
 lineremoval_morph.03.png	75e5ba2f861cdc3e
 lineremoval_morph.06.png	fc8919170aa50eab
@@ -411,6 +421,9 @@ speckle_size.03.tif	ca970751a7eaebf1
 texturefill.02.tif	fef2e57971d30863
 texturefill.04.tif	2e20e4a993fc7663
 texturefill.06.tif	78e2aad418a4d2d2
+texturefill.08.tif	fef2e57971d30863
+texturefill.10.tif	2e20e4a993fc7663
+texturefill.12.tif	d9438c4b4fe4b9a8
 threshnorm_spread.03.png	37098b8e48b64382
 threshnorm_sweep.05.tif	9e647d02eaee9e18
 translate_neg.03.png	ac10e8157f49a7ff
@@ -422,6 +435,9 @@ warper_stretch.03.png	816b0445acaed99d
 watershed.10.png	bd7eb7ca50048395
 watershed.22.png	d9f6990bdd0bc435
 watershed_gradient.05.png	ecc0b15f4960923d
+watershed_gradient.07.png	4b250d323a25fd07
+watershed_gradient.09.png	4b250d323a25fd07
+watershed_gradient.13.png	c026c37462fd678d
 webpio.01.png	f864019ccb0d0986
 webpio.03.png	34396ef54eddf107
 webpio.05.png	10def89838f9b696
