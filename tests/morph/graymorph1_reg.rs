@@ -6,8 +6,8 @@
 //!   (2) Composite operations: tophat
 //!   (3) Duality for grayscale erode/dilate, open/close, and tophat
 //!   (4) Closing plus white tophat
-//!   (5) Contrast enhancement (not tested: requires pixInitAccumulate, Pixacc -- Rust未実装)
-//!   (6) Feynman stamp tophat extraction (not tested: requires pixRemoveColormap etc.)
+//!   (5) Contrast enhancement (#[ignore]: requires pixInitAccumulate, Pixacc -- Rust未実装)
+//!   (6) Feynman stamp tophat extraction (#[ignore]: requires pixRemoveColormap etc.)
 //!
 //! Run with:
 //! ```
@@ -16,8 +16,9 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;
+use leptonica::io::ImageFormat;
 use leptonica::morph::{
-    bottom_hat_gray, close_gray, dilate_gray, erode_gray, gray_morph_sequence, open_gray,
+    bottom_hat_gray, close_gray, dilate_gray, erode_gray, gray_morph_sequence, h_dome, open_gray,
     top_hat_gray,
 };
 
@@ -42,6 +43,8 @@ fn graymorph1_reg() {
     // C版: Test 0,1 -- Dilation
     eprintln!("  Testing gray dilation vs sequence");
     let pix1 = dilate_gray(&pixs, WSIZE, HSIZE).expect("dilate_gray");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: dilate_gray");
     let seq = format!("D{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence D");
     let same = pix1.equals(&pix2);
@@ -56,6 +59,8 @@ fn graymorph1_reg() {
     // C版: Test 2,3 -- Erosion
     eprintln!("  Testing gray erosion vs sequence");
     let pix1 = erode_gray(&pixs, WSIZE, HSIZE).expect("erode_gray");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: erode_gray");
     let seq = format!("E{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence E");
     let same = pix1.equals(&pix2);
@@ -67,6 +72,8 @@ fn graymorph1_reg() {
     // C版: Test 4,5 -- Opening
     eprintln!("  Testing gray opening vs sequence");
     let pix1 = open_gray(&pixs, WSIZE, HSIZE).expect("open_gray");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: open_gray");
     let seq = format!("O{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence O");
     let same = pix1.equals(&pix2);
@@ -78,6 +85,8 @@ fn graymorph1_reg() {
     // C版: Test 6,7 -- Closing
     eprintln!("  Testing gray closing vs sequence");
     let pix1 = close_gray(&pixs, WSIZE, HSIZE).expect("close_gray");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: close_gray");
     let seq = format!("C{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence C");
     let same = pix1.equals(&pix2);
@@ -89,6 +98,8 @@ fn graymorph1_reg() {
     // C版: Test 8,9 -- White tophat
     eprintln!("  Testing white tophat vs sequence");
     let pix1 = top_hat_gray(&pixs, WSIZE, HSIZE).expect("top_hat_gray");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: top_hat_gray");
     let seq = format!("Tw{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence Tw");
     let same = pix1.equals(&pix2);
@@ -103,6 +114,8 @@ fn graymorph1_reg() {
     // C版: Test 10,11 -- Black tophat
     eprintln!("  Testing black tophat vs sequence");
     let pix1 = bottom_hat_gray(&pixs, WSIZE, HSIZE).expect("bottom_hat_gray");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: bottom_hat_gray");
     let seq = format!("Tb{}.{}", WSIZE, HSIZE);
     let pix2 = gray_morph_sequence(&pixs, &seq).expect("gray_morph_sequence Tb");
     let same = pix1.equals(&pix2);
@@ -177,13 +190,15 @@ fn graymorph1_reg() {
     let pix1 = gray_morph_sequence(&pixs, "C9.9 + C19.19 + C29.29 + C39.39 + C49.49")
         .expect("close sequence");
     assert_eq!(pix1.depth(), PixelDepth::Bit8);
-    rp.compare_values(1.0, 1.0, 0.0); // Just verify it runs successfully
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: large close sequence");
 
     // C版: Test 21 -- pixGrayMorphSequence(pixs, "O9.9 + O19.19 + O29.29 + O39.39 + O49.49")
     let pix1 = gray_morph_sequence(&pixs, "O9.9 + O19.19 + O29.29 + O39.39 + O49.49")
         .expect("open sequence");
     assert_eq!(pix1.depth(), PixelDepth::Bit8);
-    rp.compare_values(1.0, 1.0, 0.0);
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: large open sequence");
 
     // ====================================================================
     // Test 6: Closing plus white tophat
@@ -209,10 +224,41 @@ fn graymorph1_reg() {
         eprintln!("    DIFFER: close+tophat vs sequence C29.29+Tw29.29");
     }
 
-    // C版: Test 29,30 -- pixHDome(pixs, 100, 4) -- Rust未実装のためスキップ
-    // C版: Test 31-35 -- pixInitAccumulate / pixAccumulate / Pixacc -- Rust未実装のためスキップ
-    // C版: Test 37-42 -- feynman-stamp tophat extraction -- pixRemoveColormap / pixConvertRGBToGray / pixConvertTo32 / pixRasterop / pixGammaTRC / pixThresholdToBinary / pixMaxDynamicRange -- Rust未実装のためスキップ
+    // ====================================================================
+    // Test 7: H-dome
+    // C版: Test 29 -- pixHDome(pixs, 100, 4)
+    // ====================================================================
+    eprintln!("  Testing h_dome");
+    let pix_hdome = h_dome(&pixs, 100, 4).expect("h_dome");
+    assert_eq!(pix_hdome.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&pix_hdome, ImageFormat::Png)
+        .expect("check: h_dome");
+
+    // C版: Test 30 -- pixMaxDynamicRange(pixHDome, L_LINEAR_SCALE) -- Rust未実装
+    // C版: Test 31-35 -- pixInitAccumulate / pixAccumulate / Pixacc -- Rust未実装
+    // C版: Test 37-42 -- feynman-stamp tophat extraction -- Rust未実装
 
     eprintln!();
     assert!(rp.cleanup(), "graymorph1 regression test failed");
+}
+
+/// C checks 30-35: pixMaxDynamicRange and contrast enhancement — Rust未実装
+///
+/// C: pixMaxDynamicRange, pixInitAccumulate, pixAccumulate, pixMultConstAccumulate,
+///    pixFinalAccumulate, Pixacc
+#[test]
+#[ignore = "not yet implemented: pixMaxDynamicRange / pixInitAccumulate / Pixacc not available"]
+fn graymorph1_reg_contrast_enhancement() {
+    // C: Test 30 -- pixMaxDynamicRange(pixHDome, L_LINEAR_SCALE)
+    // C: Test 31-35 -- contrast enhancement with morph parameters 9,9
+}
+
+/// C checks 37-42: Feynman stamp tophat extraction — Rust未実装
+///
+/// C: pixRemoveColormap, pixConvertRGBToGray, pixConvertTo32, pixTophat,
+///    pixMaxDynamicRange, pixGammaTRC, pixThresholdToBinary
+#[test]
+#[ignore = "not yet implemented: pixRemoveColormap / pixConvertRGBToGray / pixGammaTRC not available"]
+fn graymorph1_reg_feynman_stamp() {
+    // C: Test 37-42 -- feynman stamp tophat extraction
 }
