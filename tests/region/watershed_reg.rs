@@ -211,18 +211,21 @@ fn watershed_gradient() {
     let options = WatershedOptions::new()
         .with_min_depth(5)
         .with_connectivity(ConnectivityType::EightWay);
-    if let Ok(ws_result) = watershed_with_basins(&pix, &options) {
-        if let Ok(filled) = watershed_render_fill(&ws_result) {
-            rp.compare_values(20.0, filled.width() as f64, 0.0);
-            rp.write_pix_and_check(&filled, ImageFormat::Png)
-                .expect("check: watershed render_fill");
-        }
-        if let Ok(colored) = watershed_render_colors(&ws_result) {
-            rp.compare_values(20.0, colored.width() as f64, 0.0);
-            rp.write_pix_and_check(&colored, ImageFormat::Png)
-                .expect("check: watershed render_colors");
-        }
-    }
+    let ws_result =
+        watershed_with_basins(&pix, &options).expect("watershed_with_basins on small image");
+    let filled = watershed_render_fill(&ws_result).expect("watershed_render_fill on small image");
+    rp.compare_values(20.0, filled.width() as f64, 0.0);
+    rp.compare_values(20.0, filled.height() as f64, 0.0);
+    rp.compare_values(8.0, filled.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&filled, ImageFormat::Png)
+        .expect("check: watershed render_fill");
+    let colored =
+        watershed_render_colors(&ws_result).expect("watershed_render_colors on small image");
+    rp.compare_values(20.0, colored.width() as f64, 0.0);
+    rp.compare_values(20.0, colored.height() as f64, 0.0);
+    rp.compare_values(32.0, colored.depth().bits() as f64, 0.0);
+    rp.write_pix_and_check(&colored, ImageFormat::Png)
+        .expect("check: watershed render_colors");
 
     assert!(rp.cleanup(), "watershed gradient test failed");
 }

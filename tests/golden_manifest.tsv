@@ -237,11 +237,14 @@ flipdetect_correct.03.tif	36b18174021bfd7d
 fpix1_pix.06.png	f2e933a99b05252b
 gfill_basin.03.png	2adac671711d1a33
 gfill_basin.05.png	2adac671711d1a33
+gfill_basin.06.png	2adac671711d1a33
 gfill_hybrid.02.png	b2730774e0ef631d
 gfill_inv.03.png	c50cb009e8c84c55
 gfill_inv.05.png	c50cb009e8c84c55
+gfill_inv.06.png	c50cb009e8c84c55
 gfill_std.03.png	e0cfb17725c56573
 gfill_std.05.png	e0cfb17725c56573
+gfill_std.06.png	e0cfb17725c56573
 gifio.01.png	063e405d5915679a
 gifio.03.png	3eed7e7bcbe015ad
 gifio.05.png	0a9588084225113e
@@ -433,7 +436,8 @@ watershed.10.png	bd7eb7ca50048395
 watershed.22.png	d9f6990bdd0bc435
 watershed_gradient.05.png	ecc0b15f4960923d
 watershed_gradient.07.png	4b250d323a25fd07
-watershed_gradient.09.png	c026c37462fd678d
+watershed_gradient.09.png	4b250d323a25fd07
+watershed_gradient.13.png	c026c37462fd678d
 webpio.01.png	f864019ccb0d0986
 webpio.03.png	34396ef54eddf107
 webpio.05.png	10def89838f9b696
