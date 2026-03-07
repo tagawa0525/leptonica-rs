@@ -34,5 +34,18 @@ fn ptra1_reg() {
     rp.compare_values(6.0, x as f64, 0.0);
     rp.compare_values(8.0, y as f64, 0.0);
 
+    // Additional: verify element integrity after operations
+    let pta0 = ptaa.get(0).expect("pta0 after replace");
+    rp.compare_values(2.0, pta0.len() as f64, 0.0);
+
+    // Remove and verify
+    let removed = ptaa.pop().expect("pop last");
+    rp.compare_values(1.0, ptaa.len() as f64, 0.0);
+    rp.compare_values(2.0, removed.len() as f64, 0.0);
+
+    // Flatten remaining
+    let flat = ptaa.flatten();
+    rp.compare_values(2.0, flat.len() as f64, 0.0);
+
     assert!(rp.cleanup(), "ptra1 regression test failed");
 }

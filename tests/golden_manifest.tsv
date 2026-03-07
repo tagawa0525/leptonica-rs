@@ -114,6 +114,8 @@ blend5_snap_rgb.03.png	a0c8d1b56b69f915
 boxa3.01.ba	1709aef2bcb6914d
 boxa3.02.ba	c3ac5080544cf695
 boxa3.03.ba	9fe421bc638a76e7
+boxa3.07.ba	c3ac5080544cf695
+boxa3.13.ba	9fe421bc638a76e7
 bw_alpha.01.png	c3addf40c3faa296
 bw_black.03.png	0333d6ff685a9425
 bw_white.03.png	f6995f80dec29e85
@@ -272,6 +274,10 @@ hardlight_color.03.png	281943cdfdbdf537
 hardlight_gray.03.png	3152a69afc6e4c40
 hardlight_orig.03.png	440823de285d4407
 hash.04.tif	5e6de61a46a887d8
+hash.06.tif	5e6de61a46a887d8
+hash.08.tif	3c1631dedc785bd8
+insert_boxa.02.ba	03c5a356de1dab96
+insert_numa.02.na	e81ab477c1e14683
 ioformats.08.png	ccbd13ca1df413ea
 ioformats.11.png	368eed4016fed93a
 ioformats.13.png	ae835cf4d3a91625
@@ -343,6 +349,9 @@ pdfio1_multipage.01.pdf	2d5976d4f5a4ccda
 pixadisp_1bpp.03.tif	2ea186f22409f445
 pixadisp_scaled.05.png	ef85e68082995f77
 pixadisp_tiled.05.tif	f820e040504ec64b
+pixcomp_rt.04.tif	0955a39abd55c407
+pixcomp_rt.06.png	25d12b85fa3e168b
+pixcomp_rt.08.png	25d12b85fa3e168b
 pmask_32.03.png	796cccba9aa4c5e6
 pmask_clip.03.png	6617bee0e9239144
 pmask_clip.05.png	942cfbc86d858bfa

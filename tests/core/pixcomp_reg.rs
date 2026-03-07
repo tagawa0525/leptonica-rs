@@ -10,35 +10,54 @@ use crate::common::RegParams;
 use leptonica::core::pixcomp::{PixComp, PixaComp};
 use leptonica::{ImageFormat, Pixa};
 
-/// Test Pixa array operations as partial substitute for PixAComp (C checks 0-2).
+/// Test PixComp round-trip with WPAC (C checks 0-3).
+///
+/// Creates PixComp from images in various formats, converts back,
+/// and writes results to golden manifest.
 #[test]
-fn pixcomp_reg_pixa_array() {
+fn pixcomp_reg_roundtrip_wpac() {
     if crate::common::is_display_mode() {
         return;
     }
 
-    let mut rp = RegParams::new("pixcomp_pixa");
+    let mut rp = RegParams::new("pixcomp_rt");
 
-    let images = ["marge.jpg", "weasel4.16c.png", "weasel8.149g.png"];
+    // C check 0: JPEG round-trip (dimension check only, no WPAC — JPEG is lossy)
+    let pix1 = crate::common::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pc1 = PixComp::create_from_pix(&pix1, Some(ImageFormat::Jpeg)).unwrap();
+    let recovered1 = pc1.to_pix().unwrap();
+    rp.compare_values(pix1.width() as f64, recovered1.width() as f64, 0.0);
+    rp.compare_values(pix1.height() as f64, recovered1.height() as f64, 0.0);
 
-    let mut pixa = Pixa::new();
-    for img in &images {
-        let pix = crate::common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
-        pixa.push(pix);
-    }
+    // C check 2: TIFF_G4 round-trip (1bpp)
+    let pix_bin = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pc2 = PixComp::create_from_pix(&pix_bin, Some(ImageFormat::TiffG4)).unwrap();
+    let recovered2 = pc2.to_pix().unwrap();
+    rp.compare_values(pix_bin.width() as f64, recovered2.width() as f64, 0.0);
+    rp.write_pix_and_check(&recovered2, ImageFormat::Tiff)
+        .expect("check: pixcomp tiff_g4 roundtrip");
 
-    // Verify count
-    rp.compare_values(images.len() as f64, pixa.len() as f64, 0.0);
+    // C check 3: PNG round-trip (8bpp)
+    let pix8 = crate::common::load_test_image("weasel8.png").expect("load weasel8.png");
+    let pc3 = PixComp::create_from_pix(&pix8, Some(ImageFormat::Png)).unwrap();
+    let recovered3 = pc3.to_pix().unwrap();
+    rp.compare_values(pix8.width() as f64, recovered3.width() as f64, 0.0);
+    rp.write_pix_and_check(&recovered3, ImageFormat::Png)
+        .expect("check: pixcomp png roundtrip");
 
-    // Verify element access preserves dimensions
-    for (i, img) in images.iter().enumerate() {
-        let pix_orig = crate::common::load_test_image(img).unwrap_or_else(|_| panic!("load {img}"));
-        let pix_ref = pixa.get(i).unwrap_or_else(|| panic!("get {i}"));
-        rp.compare_values(pix_orig.width() as f64, pix_ref.width() as f64, 0.0);
-        rp.compare_values(pix_orig.height() as f64, pix_ref.height() as f64, 0.0);
-    }
+    // PixaComp serialization round-trip
+    let mut pac = PixaComp::create(3);
+    pac.add_pix(&pix1, None).unwrap();
+    pac.add_pix(&pix8, None).unwrap();
+    let data = pac.write_mem().unwrap();
+    let pac2 = PixaComp::read_mem(&data).unwrap();
+    rp.compare_values(2.0, pac2.get_count() as f64, 0.0);
 
-    assert!(rp.cleanup(), "pixcomp pixa array test failed");
+    let rpix = pac2.get_pix(1).unwrap();
+    rp.write_pix_and_check(&rpix, ImageFormat::Png)
+        .expect("check: pixacomp serialization roundtrip");
+
+    assert!(rp.cleanup(), "pixcomp roundtrip wpac test failed");
 }
 
 /// Test PixComp creation and round-trip.
