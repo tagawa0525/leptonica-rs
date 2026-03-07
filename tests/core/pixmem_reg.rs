@@ -39,5 +39,26 @@ fn pixmem_reg() {
     rp.compare_pix(&pix, &pix3);
     std::fs::remove_dir_all(&dir).ok();
 
+    // C checks 0-1 equivalent: deep_clone preserves pixel data (Rust's pixCopy)
+    let pix_dc = pix.deep_clone();
+    rp.compare_pix(&pix, &pix_dc);
+
+    // C checks 2-3 equivalent: to_mut roundtrip preserves pixel data
+    let pix_mut = pix.to_mut();
+    let pix_rt: Pix = pix_mut.into();
+    rp.compare_pix(&pix, &pix_rt);
+
+    // Additional depth: SPIX roundtrip for 1bpp
+    let pix1 = Pix::new(16, 12, PixelDepth::Bit1).expect("create 1bpp pix");
+    let data1 = pix1.write_spix_to_bytes().expect("write 1bpp spix");
+    let pix1_rt = Pix::read_spix_from_bytes(&data1).expect("read 1bpp spix");
+    rp.compare_pix(&pix1, &pix1_rt);
+
+    // Additional depth: SPIX roundtrip for 32bpp
+    let pix32 = Pix::new(10, 10, PixelDepth::Bit32).expect("create 32bpp pix");
+    let data32 = pix32.write_spix_to_bytes().expect("write 32bpp spix");
+    let pix32_rt = Pix::read_spix_from_bytes(&data32).expect("read 32bpp spix");
+    rp.compare_pix(&pix32, &pix32_rt);
+
     assert!(rp.cleanup(), "pixmem regression test failed");
 }
