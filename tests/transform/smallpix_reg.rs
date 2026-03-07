@@ -14,13 +14,15 @@
 //!
 //! C Leptonica: `reference/leptonica/prog/smallpix_reg.c`
 
-use leptonica::Pix;
+use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::core::pixel;
+use leptonica::io::ImageFormat;
 use leptonica::transform::{
     RotateFill, expand_replicate, rotate_am_color_corner, rotate_am_corner, scale_by_sampling,
     scale_color_li, scale_li, scale_smooth,
 };
+use leptonica::{Pix, Pixa};
 
 /// Helper: create the 9×9 cross test pattern used by the C version.
 ///
@@ -46,9 +48,11 @@ fn make_test_pattern() -> Pix {
 /// C version expands 2x first, then scales at factors 0.30–0.685.
 #[test]
 fn smallpix_reg_scale_smooth() {
+    let mut rp = RegParams::new("smallpix_smooth");
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 2).expect("expand 2x");
 
+    let mut pixa = Pixa::new();
     for i in 0..11 {
         let scale = 0.30 + 0.035 * i as f32;
         let pix2 = scale_smooth(&pix1, scale, scale).expect("scale_smooth");
@@ -56,15 +60,22 @@ fn smallpix_reg_scale_smooth() {
         let pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
         assert_eq!(pix3.width(), pix2.width() * 6);
         assert_eq!(pix3.height(), pix2.height() * 6);
+        pixa.push(pix3);
     }
+    let tiled = pixa.display_tiled(400, 0, 4).expect("tiled smooth");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: smallpix smooth tiled");
+    assert!(rp.cleanup(), "smallpix smooth test failed");
 }
 
 /// Test pixScaleBySampling at 11 downscale factors (C test check 2)
 #[test]
 fn smallpix_reg_scale_by_sampling() {
+    let mut rp = RegParams::new("smallpix_sampling");
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 2).expect("expand 2x");
 
+    let mut pixa = Pixa::new();
     for i in 0..11 {
         let scale = 0.30 + 0.035 * i as f32;
         let pix2 = scale_by_sampling(&pix1, scale, scale).expect("scale_by_sampling");
@@ -72,15 +83,22 @@ fn smallpix_reg_scale_by_sampling() {
         let pix3 = expand_replicate(&pix2, 6).expect("expand 6x");
         assert_eq!(pix3.width(), pix2.width() * 6);
         assert_eq!(pix3.height(), pix2.height() * 6);
+        pixa.push(pix3);
     }
+    let tiled = pixa.display_tiled(400, 0, 4).expect("tiled sampling");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: smallpix sampling tiled");
+    assert!(rp.cleanup(), "smallpix sampling test failed");
 }
 
 /// Test pixRotateAMCorner at 11 angles (C test check 3)
 #[test]
 fn smallpix_reg_rotate_am() {
+    let mut rp = RegParams::new("smallpix_rotate_am");
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
 
+    let mut pixa = Pixa::new();
     for i in 0..11 {
         let angle = 0.10 + 0.05 * i as f32;
         let pix2 = rotate_am_corner(&pix1, angle, RotateFill::Black).expect("rotate_am_corner");
@@ -88,15 +106,22 @@ fn smallpix_reg_rotate_am() {
         let pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
         assert_eq!(pix3.width(), pix2.width() * 8);
         assert_eq!(pix3.height(), pix2.height() * 8);
+        pixa.push(pix3);
     }
+    let tiled = pixa.display_tiled(600, 0, 4).expect("tiled rotate_am");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: smallpix rotate_am tiled");
+    assert!(rp.cleanup(), "smallpix rotate_am test failed");
 }
 
 /// Test pixRotateAMColorFast at 11 angles (C test check 6)
 #[test]
 fn smallpix_reg_rotate_am_color_fast() {
+    let mut rp = RegParams::new("smallpix_rotate_color");
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
 
+    let mut pixa = Pixa::new();
     for i in 0..11 {
         let angle = 0.10 + 0.05 * i as f32;
         let pix2 = rotate_am_color_corner(&pix1, angle, RotateFill::Black)
@@ -105,15 +130,22 @@ fn smallpix_reg_rotate_am_color_fast() {
         let pix3 = expand_replicate(&pix2, 8).expect("expand 8x");
         assert_eq!(pix3.width(), pix2.width() * 8);
         assert_eq!(pix3.height(), pix2.height() * 8);
+        pixa.push(pix3);
     }
+    let tiled = pixa.display_tiled(600, 0, 4).expect("tiled rotate_color");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: smallpix rotate_color tiled");
+    assert!(rp.cleanup(), "smallpix rotate_color test failed");
 }
 
 /// Test pixScaleColorLI at 11 upscale factors (C test check 7)
 #[test]
 fn smallpix_reg_scale_color_li() {
+    let mut rp = RegParams::new("smallpix_color_li");
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
 
+    let mut pixa = Pixa::new();
     for i in 0..11 {
         let scale = 1.0 + 0.2 * i as f32;
         let pix2 = scale_color_li(&pix1, scale, scale).expect("scale_color_li");
@@ -121,15 +153,22 @@ fn smallpix_reg_scale_color_li() {
         let pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
         assert_eq!(pix3.width(), pix2.width() * 4);
         assert_eq!(pix3.height(), pix2.height() * 4);
+        pixa.push(pix3);
     }
+    let tiled = pixa.display_tiled(800, 0, 4).expect("tiled color_li");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: smallpix color_li tiled");
+    assert!(rp.cleanup(), "smallpix color_li test failed");
 }
 
 /// Test pixScaleLI at 11 upscale factors (C test check 8)
 #[test]
 fn smallpix_reg_scale_li() {
+    let mut rp = RegParams::new("smallpix_li");
     let pixc = make_test_pattern();
     let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
 
+    let mut pixa = Pixa::new();
     for i in 0..11 {
         let scale = 1.0 + 0.2 * i as f32;
         let pix2 = scale_li(&pix1, scale, scale).expect("scale_li");
@@ -137,7 +176,12 @@ fn smallpix_reg_scale_li() {
         let pix3 = expand_replicate(&pix2, 4).expect("expand 4x");
         assert_eq!(pix3.width(), pix2.width() * 4);
         assert_eq!(pix3.height(), pix2.height() * 4);
+        pixa.push(pix3);
     }
+    let tiled = pixa.display_tiled(800, 0, 4).expect("tiled li");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: smallpix li tiled");
+    assert!(rp.cleanup(), "smallpix li test failed");
 }
 
 /// Test pixScaleAreaMap (C test check 1) and pixRotateBySampling (C test check 4)
