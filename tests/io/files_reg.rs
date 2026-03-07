@@ -46,6 +46,17 @@ fn files_reg() {
     rp.compare_values(24.0, pix0.width() as f64, 0.0);
     rp.compare_values(18.0, pix0.height() as f64, 0.0);
 
+    // Verify round-trip: re-read as pixa and check
+    let pixa_rt = pixa_read_files(&out_dir, Some(".png")).expect("pixa_read_files roundtrip");
+    rp.compare_values(2.0, pixa_rt.len() as f64, 0.0);
+
+    // Verify each round-tripped image preserves dimensions
+    for i in 0..pixa_rt.len() {
+        let p = pixa_rt.get(i).expect("get roundtrip pix");
+        rp.compare_values(24.0, p.width() as f64, 0.0);
+        rp.compare_values(18.0, p.height() as f64, 0.0);
+    }
+
     std::fs::remove_dir_all(&base).ok();
     assert!(rp.cleanup(), "files regression test failed");
 }
