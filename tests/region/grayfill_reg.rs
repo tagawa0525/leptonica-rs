@@ -71,6 +71,8 @@ fn grayfill_reg_inv() {
     let result8 = seedfill_gray_inv(&seed, &mask, ConnectivityType::EightWay)
         .expect("seedfill_gray_inv 8-way");
     rp.compare_values(w as f64, result8.width() as f64, 0.0);
+    rp.compare_values(h as f64, result8.height() as f64, 0.0);
+    assert_eq!(result8.depth(), PixelDepth::Bit8);
     rp.write_pix_and_check(&result8, ImageFormat::Png)
         .expect("check: gfill_inv 8-way");
 
@@ -112,6 +114,8 @@ fn grayfill_reg_standard() {
     let result8 =
         seedfill_gray(&seed, &mask_inv, ConnectivityType::EightWay).expect("seedfill_gray 8-way");
     rp.compare_values(w as f64, result8.width() as f64, 0.0);
+    rp.compare_values(h as f64, result8.height() as f64, 0.0);
+    assert_eq!(result8.depth(), PixelDepth::Bit8);
     rp.write_pix_and_check(&result8, ImageFormat::Png)
         .expect("check: gfill_std 8-way");
 
@@ -147,6 +151,8 @@ fn grayfill_reg_basin() {
     let result8 = seedfill_gray_basin(&pixmin, &mask, 30, ConnectivityType::EightWay)
         .expect("seedfill_gray_basin 8-way");
     rp.compare_values(w as f64, result8.width() as f64, 0.0);
+    rp.compare_values(h as f64, result8.height() as f64, 0.0);
+    assert_eq!(result8.depth(), PixelDepth::Bit8);
     rp.write_pix_and_check(&result8, ImageFormat::Png)
         .expect("check: gfill_basin 8-way");
 
