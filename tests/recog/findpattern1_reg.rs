@@ -192,7 +192,7 @@ fn findpattern1_reg_sel_boundary_hmt() {
 
     let page_bin = load_binary("tribune-page-4x.png");
 
-    // Generate SEL from word pattern boundary (C: HIT_DIST=2, MISS_DIST=5)
+    // Generate SEL from word pattern boundary (C: HIT_DIST=2, MISS_DIST=4)
     let word_bin = load_binary("tribune-word.png");
     let sel_word = generate_sel_boundary(&word_bin, 2, 4, 1, 1, true, true, true, true)
         .expect("generate_sel_boundary word");
