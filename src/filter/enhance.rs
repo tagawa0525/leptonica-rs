@@ -1083,6 +1083,124 @@ pub fn unsharp_masking(pix: &Pix, halfwidth: u32, fract: f32) -> FilterResult<Pi
     }
 }
 
+/// Scale type for `max_dynamic_range`.
+///
+/// C Leptonica: `L_LINEAR_SCALE` and `L_LOG_SCALE` in `leptonica.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicRangeScale {
+    /// Linear scaling: output = round(255 × input / max)
+    Linear,
+    /// Log-base-2 scaling: output = round(255 × log₂(input) / log₂(max))
+    Log,
+}
+
+/// Scale pixel values to fill the 0–255 dynamic range, output 8 bpp.
+///
+/// Supports 4, 8, 16, and 32 bpp source images.  All pixel values are
+/// treated as a scalar quantity (not as packed RGB components).
+///
+/// # Returns
+///
+/// An 8 bpp `Pix` with values normalized to [0, 255].
+///
+/// # Errors
+///
+/// Returns an error if the source depth is not 4, 8, 16, or 32 bpp.
+///
+/// # See also
+///
+/// C Leptonica: `pixMaxDynamicRange()` in `pixarith.c`
+pub fn max_dynamic_range(pix: &Pix, scale: DynamicRangeScale) -> FilterResult<Pix> {
+    let depth = pix.depth();
+    if !matches!(
+        depth,
+        PixelDepth::Bit4 | PixelDepth::Bit8 | PixelDepth::Bit16 | PixelDepth::Bit32
+    ) {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "4, 8, 16, or 32 bpp",
+            actual: depth.bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Find the maximum pixel value
+    let mut max: u32 = 0;
+    for y in 0..h {
+        for x in 0..w {
+            let v = pix.get_pixel_unchecked(x, y);
+            if v > max {
+                max = v;
+            }
+        }
+    }
+
+    let pixd = Pix::new(w, h, PixelDepth::Bit8).map_err(FilterError::Core)?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+
+    if max == 0 {
+        return Ok(pixd_mut.into());
+    }
+
+    match scale {
+        DynamicRangeScale::Linear => {
+            let factor = 255.0f32 / max as f32;
+            for y in 0..h {
+                for x in 0..w {
+                    let sval = pix.get_pixel_unchecked(x, y);
+                    let dval = ((factor * sval as f32 + 0.5) as u32).min(255);
+                    pixd_mut.set_pixel_unchecked(x, y, dval);
+                }
+            }
+        }
+        DynamicRangeScale::Log => {
+            let log_max = log_base2(max);
+            if log_max <= 0.0 {
+                // max == 1: log2(1) == 0, division undefined.
+                // Map zero pixels to 0, non-zero pixels to 255.
+                for y in 0..h {
+                    for x in 0..w {
+                        let sval = pix.get_pixel_unchecked(x, y);
+                        pixd_mut.set_pixel_unchecked(x, y, if sval == 0 { 0 } else { 255 });
+                    }
+                }
+            } else {
+                let factor = 255.0f32 / log_max;
+                for y in 0..h {
+                    for x in 0..w {
+                        let sval = pix.get_pixel_unchecked(x, y);
+                        let dval = ((factor * log_base2(sval) + 0.5) as u32).min(255);
+                        pixd_mut.set_pixel_unchecked(x, y, dval);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(pixd_mut.into())
+}
+
+/// Compute log base 2 of a value, matching C Leptonica's `getLogBase2`.
+///
+/// Returns 0.0 for input 0.  For values up to 32 bits, uses the same
+/// bit-shift extension as the C LUT-based implementation.
+#[inline]
+fn log_base2(val: u32) -> f32 {
+    if val == 0 {
+        return 0.0;
+    }
+    if val < 0x100 {
+        (val as f32).log2()
+    } else if val < 0x1_0000 {
+        8.0 + ((val >> 8) as f32).log2()
+    } else if val < 0x100_0000 {
+        16.0 + ((val >> 16) as f32).log2()
+    } else {
+        24.0 + ((val >> 24) as f32).log2()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1933,5 +2051,100 @@ mod tests {
     fn test_unsharp_masking_invalid_depth() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         assert!(unsharp_masking(&pix, 3, 0.5).is_err());
+    }
+
+    // ========== max_dynamic_range tests ==========
+
+    fn make_8bpp_gradient(w: u32, h: u32, max_val: u32) -> Pix {
+        let pix = Pix::new(w, h, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let v = ((x + y * w) * max_val / (w * h)).min(max_val);
+                pm.set_pixel_unchecked(x, y, v);
+            }
+        }
+        pm.into()
+    }
+
+    #[test]
+    fn test_max_dynamic_range_all_zeros() {
+        // max == 0: output should be all-zero 8bpp
+        let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+        let result = max_dynamic_range(&pix, DynamicRangeScale::Linear).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        for y in 0..4 {
+            for x in 0..4 {
+                assert_eq!(result.get_pixel_unchecked(x, y), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_max_dynamic_range_linear_max_pixel_is_255() {
+        // Linear: max pixel should map to exactly 255
+        let pix = make_8bpp_gradient(4, 4, 100);
+        let result = max_dynamic_range(&pix, DynamicRangeScale::Linear).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        let mut max_out = 0u32;
+        for y in 0..4 {
+            for x in 0..4 {
+                let v = result.get_pixel_unchecked(x, y);
+                if v > max_out {
+                    max_out = v;
+                }
+            }
+        }
+        assert_eq!(max_out, 255, "max pixel should be 255 after linear scaling");
+    }
+
+    #[test]
+    fn test_max_dynamic_range_log_max_pixel_is_255() {
+        // Log: max pixel should map to exactly 255
+        let pix = make_8bpp_gradient(4, 4, 200);
+        let result = max_dynamic_range(&pix, DynamicRangeScale::Log).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
+        let max_out = (0..4u32)
+            .flat_map(|y| (0..4u32).map(move |x| (x, y)))
+            .map(|(x, y)| result.get_pixel_unchecked(x, y))
+            .max()
+            .unwrap();
+        assert_eq!(max_out, 255, "max pixel should be 255 after log scaling");
+    }
+
+    #[test]
+    fn test_max_dynamic_range_log_max_one() {
+        // max == 1: log_base2(1) == 0 → degenerate case; no panic, non-zero → 255
+        let pix = Pix::new(2, 2, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        pm.set_pixel_unchecked(0, 1, 1);
+        pm.set_pixel_unchecked(1, 1, 0);
+        let pix: Pix = pm.into();
+        let result = max_dynamic_range(&pix, DynamicRangeScale::Log).unwrap();
+        assert_eq!(result.get_pixel_unchecked(0, 0), 0, "zero stays zero");
+        assert_eq!(result.get_pixel_unchecked(1, 0), 255, "one maps to 255");
+    }
+
+    #[test]
+    fn test_max_dynamic_range_unsupported_depth() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        assert!(max_dynamic_range(&pix, DynamicRangeScale::Linear).is_err());
+    }
+
+    #[test]
+    fn test_max_dynamic_range_16bpp() {
+        // 16bpp input should also produce valid 8bpp output
+        let pix = Pix::new(4, 4, PixelDepth::Bit16).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                pm.set_pixel_unchecked(x, y, (x + y * 100) * 256);
+            }
+        }
+        let pix: Pix = pm.into();
+        let result = max_dynamic_range(&pix, DynamicRangeScale::Linear).unwrap();
+        assert_eq!(result.depth(), PixelDepth::Bit8);
     }
 }
