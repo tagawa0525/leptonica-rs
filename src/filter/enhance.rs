@@ -1083,6 +1083,39 @@ pub fn unsharp_masking(pix: &Pix, halfwidth: u32, fract: f32) -> FilterResult<Pi
     }
 }
 
+/// Scale type for `max_dynamic_range`.
+///
+/// C Leptonica: `L_LINEAR_SCALE` and `L_LOG_SCALE` in `leptonica.h`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicRangeScale {
+    /// Linear scaling: output = round(255 × input / max)
+    Linear,
+    /// Log-base-2 scaling: output = round(255 × log₂(input) / log₂(max))
+    Log,
+}
+
+/// Scale pixel values to fill the 0–255 dynamic range, output 8 bpp.
+///
+/// Supports 4, 8, 16, and 32 bpp source images.  All pixel values are
+/// treated as a scalar quantity (not as packed RGB components).
+///
+/// # Returns
+///
+/// An 8 bpp `Pix` with values normalized to [0, 255].
+///
+/// # Errors
+///
+/// Returns an error if the source depth is not 4, 8, 16, or 32 bpp.
+///
+/// # See also
+///
+/// C Leptonica: `pixMaxDynamicRange()` in `pixarith.c`
+pub fn max_dynamic_range(_pix: &Pix, _scale: DynamicRangeScale) -> FilterResult<Pix> {
+    Err(FilterError::InvalidParameters(
+        "max_dynamic_range: not yet implemented".into(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

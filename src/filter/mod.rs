@@ -53,11 +53,11 @@ pub use edge::{
     unsharp_masking_gray_fast,
 };
 pub use enhance::{
-    TrcLut, color_shift_rgb, contrast_trc, contrast_trc_masked, contrast_trc_pix, darken_gray,
-    equalize_trc, equalize_trc_pix, gamma_trc, gamma_trc_masked, gamma_trc_pix,
-    gamma_trc_with_alpha, half_edge_by_bandpass, measure_saturation, modify_brightness, modify_hue,
-    modify_saturation, mult_constant_color, mult_matrix_color, trc_map, trc_map_general,
-    unsharp_masking, unsharp_masking_gray,
+    DynamicRangeScale, TrcLut, color_shift_rgb, contrast_trc, contrast_trc_masked,
+    contrast_trc_pix, darken_gray, equalize_trc, equalize_trc_pix, gamma_trc, gamma_trc_masked,
+    gamma_trc_pix, gamma_trc_with_alpha, half_edge_by_bandpass, max_dynamic_range,
+    measure_saturation, modify_brightness, modify_hue, modify_saturation, mult_constant_color,
+    mult_matrix_color, trc_map, trc_map_general, unsharp_masking, unsharp_masking_gray,
 };
 pub use rank::{
     MinMaxOp, max_filter, median_filter, min_filter, rank_filter, rank_filter_color,

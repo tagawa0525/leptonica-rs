@@ -5,15 +5,13 @@
 //! The C version uses a clipped region of feyn.tif and also tests
 //! seedfill_gray labeling of distance values.
 //!
-//! Partial migration: distance_function with all 8 combinations is tested.
-//! pixMaxDynamicRange and pixRenderContours are not available.
-//!
 //! # See also
 //!
 //! C Leptonica: `reference/leptonica/prog/distance_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::filter::{DynamicRangeScale, max_dynamic_range};
 use leptonica::io::ImageFormat;
 use leptonica::region::{BoundaryCondition, ConnectivityType, distance_function, seedfill_gray};
 
@@ -105,4 +103,100 @@ fn distance_reg_seedfill_labeling() {
         .expect("write labeled dist_seedfill");
 
     assert!(rp.cleanup(), "distance seedfill labeling test failed");
+}
+
+/// Test max_dynamic_range (LOG and LINEAR) on distance function output (C checks a+2, a+5, a+6).
+///
+/// For each of the 8 connectivity/depth/boundary combinations:
+/// - compute distance_function → apply max_dynamic_range(Log) → WPAC
+/// - compute distance_function → apply max_dynamic_range(Linear) → WPAC
+///
+/// C version: `TestDistance()` in `distance_reg.c` (pixt2, pixt4, pixt5)
+#[test]
+#[ignore = "max_dynamic_range not yet implemented"]
+fn distance_reg_max_dynamic_range() {
+    let mut rp = RegParams::new("dist_dynrange");
+
+    let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pixs = pix
+        .clip_rectangle(383, 338, 400, 300)
+        .expect("clip feyn region");
+
+    let connectivities = [ConnectivityType::FourWay, ConnectivityType::EightWay];
+    let depths = [PixelDepth::Bit8, PixelDepth::Bit16];
+    let boundaries = [BoundaryCondition::Background, BoundaryCondition::Foreground];
+
+    for &conn in &connectivities {
+        for &depth in &depths {
+            for &bc in &boundaries {
+                let dist = distance_function(&pixs, conn, depth, bc).expect("distance_function");
+
+                // C: pixt2 = pixMaxDynamicRange(pixt1, L_LOG_SCALE); /* a+2 */
+                let log_scaled = max_dynamic_range(&dist, DynamicRangeScale::Log)
+                    .expect("max_dynamic_range log");
+                assert_eq!(log_scaled.depth(), PixelDepth::Bit8);
+                rp.write_pix_and_check(&log_scaled, ImageFormat::Png)
+                    .expect("write log scaled");
+
+                // C: pixt4 = pixMaxDynamicRange(pixt3, L_LINEAR_SCALE); /* a+5 */
+                let lin_scaled = max_dynamic_range(&dist, DynamicRangeScale::Linear)
+                    .expect("max_dynamic_range linear");
+                assert_eq!(lin_scaled.depth(), PixelDepth::Bit8);
+                rp.write_pix_and_check(&lin_scaled, ImageFormat::Png)
+                    .expect("write linear scaled");
+            }
+        }
+    }
+
+    assert!(rp.cleanup(), "distance max_dynamic_range test failed");
+}
+
+/// Test render_contours on distance function output (C check a+4).
+///
+/// For each of the 8 combinations, generates binary and overlay contour images.
+///
+/// C version: `TestDistance()` in `distance_reg.c` (pixt2 = pixRenderContours)
+#[test]
+#[ignore = "max_dynamic_range not yet implemented"]
+fn distance_reg_render_contours() {
+    use leptonica::ContourOutput;
+
+    let mut rp = RegParams::new("dist_contours");
+
+    let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pixs = pix
+        .clip_rectangle(383, 338, 400, 300)
+        .expect("clip feyn region");
+
+    let connectivities = [ConnectivityType::FourWay, ConnectivityType::EightWay];
+    let depths = [PixelDepth::Bit8, PixelDepth::Bit16];
+    let boundaries = [BoundaryCondition::Background, BoundaryCondition::Foreground];
+
+    for &conn in &connectivities {
+        for &depth in &depths {
+            for &bc in &boundaries {
+                let dist = distance_function(&pixs, conn, depth, bc).expect("distance_function");
+
+                // C: pixt2 = pixRenderContours(pixt1, 2, 4, 1); /* binary, a+4 */
+                let contour_bin = dist
+                    .render_contours(2, 4, ContourOutput::Binary)
+                    .expect("render_contours binary");
+                assert_eq!(contour_bin.depth(), PixelDepth::Bit1);
+                rp.write_pix_and_check(&contour_bin, ImageFormat::Png)
+                    .expect("write contour_bin");
+
+                // C: pixt3 = pixRenderContours(pixt1, 2, 4, depth); /* overlay */
+                // pixt5 = pixMaxDynamicRange(pixt3, L_LOG_SCALE); /* a+6 */
+                let contour_ov = dist
+                    .render_contours(2, 4, ContourOutput::Overlay)
+                    .expect("render_contours overlay");
+                let log_scaled = max_dynamic_range(&contour_ov, DynamicRangeScale::Log)
+                    .expect("max_dynamic_range on contour overlay");
+                rp.write_pix_and_check(&log_scaled, ImageFormat::Png)
+                    .expect("write contour log scaled");
+            }
+        }
+    }
+
+    assert!(rp.cleanup(), "distance render_contours test failed");
 }
