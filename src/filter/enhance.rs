@@ -1110,10 +1110,84 @@ pub enum DynamicRangeScale {
 /// # See also
 ///
 /// C Leptonica: `pixMaxDynamicRange()` in `pixarith.c`
-pub fn max_dynamic_range(_pix: &Pix, _scale: DynamicRangeScale) -> FilterResult<Pix> {
-    Err(FilterError::InvalidParameters(
-        "max_dynamic_range: not yet implemented".into(),
-    ))
+pub fn max_dynamic_range(pix: &Pix, scale: DynamicRangeScale) -> FilterResult<Pix> {
+    let depth = pix.depth();
+    if !matches!(
+        depth,
+        PixelDepth::Bit4 | PixelDepth::Bit8 | PixelDepth::Bit16 | PixelDepth::Bit32
+    ) {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "4, 8, 16, or 32",
+            actual: depth.bits(),
+        });
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Find the maximum pixel value
+    let mut max: u32 = 0;
+    for y in 0..h {
+        for x in 0..w {
+            let v = pix.get_pixel_unchecked(x, y);
+            if v > max {
+                max = v;
+            }
+        }
+    }
+
+    let pixd = Pix::new(w, h, PixelDepth::Bit8).map_err(FilterError::Core)?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+
+    if max == 0 {
+        return Ok(pixd_mut.into());
+    }
+
+    match scale {
+        DynamicRangeScale::Linear => {
+            let factor = 255.0f32 / max as f32;
+            for y in 0..h {
+                for x in 0..w {
+                    let sval = pix.get_pixel_unchecked(x, y);
+                    let dval = ((factor * sval as f32 + 0.5) as u32).min(255);
+                    pixd_mut.set_pixel_unchecked(x, y, dval);
+                }
+            }
+        }
+        DynamicRangeScale::Log => {
+            let log_max = log_base2(max);
+            let factor = 255.0f32 / log_max;
+            for y in 0..h {
+                for x in 0..w {
+                    let sval = pix.get_pixel_unchecked(x, y);
+                    let dval = ((factor * log_base2(sval) + 0.5) as u32).min(255);
+                    pixd_mut.set_pixel_unchecked(x, y, dval);
+                }
+            }
+        }
+    }
+
+    Ok(pixd_mut.into())
+}
+
+/// Compute log base 2 of a value, matching C Leptonica's `getLogBase2`.
+///
+/// Returns 0.0 for input 0.  For values up to 32 bits, uses the same
+/// bit-shift extension as the C LUT-based implementation.
+#[inline]
+fn log_base2(val: u32) -> f32 {
+    if val == 0 {
+        return 0.0;
+    }
+    if val < 0x100 {
+        (val as f32).log2()
+    } else if val < 0x1_0000 {
+        8.0 + ((val >> 8) as f32).log2()
+    } else if val < 0x100_0000 {
+        16.0 + ((val >> 16) as f32).log2()
+    } else {
+        24.0 + ((val >> 24) as f32).log2()
+    }
 }
 
 #[cfg(test)]
