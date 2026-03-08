@@ -9,12 +9,18 @@
 //!   4. Two successive TB flips = identity
 //!   5. 90cw + 90ccw = identity
 //!
-//! C version additionally tests repeated arbitrary-angle rotation (shear,
-//! sampling, area-map) on multiple image depths, which is covered in rotate2_reg.
+//! Expanded in Phase 5 to add arbitrary-angle rotation tests across
+//! four methods (Shear, Sampling, AreaMap, AMCorner) and multiple depths.
+//!
+//! C version: tests repeated arbitrary-angle rotation on multiple depths.
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
 use leptonica::io::ImageFormat;
-use leptonica::transform::{flip_lr, flip_tb, rotate_90, rotate_180};
+use leptonica::transform::{
+    RotateFill, RotateMethod, RotateOptions, flip_lr, flip_tb, rotate, rotate_90, rotate_180,
+    rotate_am_color_corner, rotate_am_corner,
+};
 
 /// Test basic orthogonal rotations and flips on a 1bpp image
 ///
@@ -100,4 +106,190 @@ fn rotate1_reg() {
     eprintln!("  90cw + 90ccw == identity: {}", same);
 
     assert!(rp.cleanup(), "rotate1 regression test failed");
+}
+
+/// Test arbitrary-angle rotation using Shear method across image depths.
+///
+/// C: pixRotate with L_ROTATE_SHEAR on 1bpp, 8bpp images.
+/// Performs 8 successive rotations at pi/12 each.
+#[test]
+fn rotate1_reg_shear_method() {
+    let mut rp = RegParams::new("rotate1_shear");
+
+    let angle = std::f32::consts::PI / 12.0; // 15 degrees
+
+    // 1bpp: shear rotation works well for binary images
+    let pix1 = load_test_image("feyn-fract.tif").expect("load 1bpp");
+    assert_eq!(pix1.depth(), PixelDepth::Bit1);
+    let opts_shear = RotateOptions {
+        method: RotateMethod::Shear,
+        fill: RotateFill::White,
+        center_x: None,
+        center_y: None,
+        expand: false,
+    };
+    let mut cur = pix1.clone();
+    for _ in 0..8 {
+        cur = rotate(&cur, angle, &opts_shear).expect("shear rotate 1bpp");
+    }
+    rp.write_pix_and_check(&cur, ImageFormat::Tiff)
+        .expect("write shear 1bpp result");
+
+    // 8bpp grayscale
+    let pix8 = load_test_image("dreyfus8.png").expect("load 8bpp");
+    assert_eq!(pix8.depth(), PixelDepth::Bit8);
+    let mut cur8 = pix8.clone();
+    for _ in 0..8 {
+        cur8 = rotate(&cur8, angle, &opts_shear).expect("shear rotate 8bpp");
+    }
+    rp.write_pix_and_check(&cur8, ImageFormat::Png)
+        .expect("write shear 8bpp result");
+
+    // 32bpp RGB
+    let pix32 = load_test_image("marge.jpg").expect("load 32bpp");
+    let pix32 = if pix32.depth() != PixelDepth::Bit32 {
+        pix32.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix32
+    };
+    let mut cur32 = pix32.clone();
+    for _ in 0..8 {
+        cur32 = rotate(&cur32, angle, &opts_shear).expect("shear rotate 32bpp");
+    }
+    rp.write_pix_and_check(&cur32, ImageFormat::Tiff)
+        .expect("write shear 32bpp result");
+
+    assert!(rp.cleanup(), "rotate1 shear_method test failed");
+}
+
+/// Test arbitrary-angle rotation using Sampling method across image depths.
+///
+/// C: pixRotate with L_ROTATE_SAMPLING on 1bpp, 8bpp, 32bpp images.
+/// Performs 8 successive rotations at pi/12 each.
+#[test]
+fn rotate1_reg_sampling_method() {
+    let mut rp = RegParams::new("rotate1_sampling");
+
+    let angle = std::f32::consts::PI / 12.0;
+    let opts = RotateOptions {
+        method: RotateMethod::Sampling,
+        fill: RotateFill::White,
+        center_x: None,
+        center_y: None,
+        expand: false,
+    };
+
+    // 1bpp
+    let pix1 = load_test_image("feyn-fract.tif").expect("load 1bpp");
+    let mut cur = pix1;
+    for _ in 0..8 {
+        cur = rotate(&cur, angle, &opts).expect("sampling rotate 1bpp");
+    }
+    rp.write_pix_and_check(&cur, ImageFormat::Tiff)
+        .expect("write sampling 1bpp");
+
+    // 8bpp grayscale
+    let pix8 = load_test_image("dreyfus8.png").expect("load 8bpp");
+    let mut cur8 = pix8;
+    for _ in 0..8 {
+        cur8 = rotate(&cur8, angle, &opts).expect("sampling rotate 8bpp");
+    }
+    rp.write_pix_and_check(&cur8, ImageFormat::Png)
+        .expect("write sampling 8bpp");
+
+    // 32bpp RGB
+    let pix32 = load_test_image("marge.jpg").expect("load 32bpp");
+    let pix32 = if pix32.depth() != PixelDepth::Bit32 {
+        pix32.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix32
+    };
+    let mut cur32 = pix32;
+    for _ in 0..8 {
+        cur32 = rotate(&cur32, angle, &opts).expect("sampling rotate 32bpp");
+    }
+    rp.write_pix_and_check(&cur32, ImageFormat::Tiff)
+        .expect("write sampling 32bpp");
+
+    assert!(rp.cleanup(), "rotate1 sampling_method test failed");
+}
+
+/// Test arbitrary-angle rotation using AreaMap method across image depths.
+///
+/// C: pixRotate with L_ROTATE_AREA_MAP on 8bpp, 32bpp images.
+/// Performs 8 successive rotations at pi/12 each.
+#[test]
+fn rotate1_reg_areamap_method() {
+    let mut rp = RegParams::new("rotate1_areamap");
+
+    let angle = std::f32::consts::PI / 12.0;
+    let opts = RotateOptions {
+        method: RotateMethod::AreaMap,
+        fill: RotateFill::White,
+        center_x: None,
+        center_y: None,
+        expand: false,
+    };
+
+    // 8bpp grayscale
+    let pix8 = load_test_image("dreyfus8.png").expect("load 8bpp");
+    let mut cur8 = pix8;
+    for _ in 0..8 {
+        cur8 = rotate(&cur8, angle, &opts).expect("areamap rotate 8bpp");
+    }
+    rp.write_pix_and_check(&cur8, ImageFormat::Png)
+        .expect("write areamap 8bpp");
+
+    // 32bpp RGB
+    let pix32 = load_test_image("marge.jpg").expect("load 32bpp");
+    let pix32 = if pix32.depth() != PixelDepth::Bit32 {
+        pix32.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix32
+    };
+    let mut cur32 = pix32;
+    for _ in 0..8 {
+        cur32 = rotate(&cur32, angle, &opts).expect("areamap rotate 32bpp");
+    }
+    rp.write_pix_and_check(&cur32, ImageFormat::Tiff)
+        .expect("write areamap 32bpp");
+
+    assert!(rp.cleanup(), "rotate1 areamap_method test failed");
+}
+
+/// Test rotate_am_corner and rotate_am_color_corner methods.
+///
+/// C: pixRotateAMCorner (8bpp), pixRotateAMColorFast (32bpp).
+/// Performs 8 successive rotations at pi/12 each.
+#[test]
+fn rotate1_reg_am_corner() {
+    let mut rp = RegParams::new("rotate1_amcorner");
+
+    let angle = std::f32::consts::PI / 12.0;
+
+    // 8bpp: rotate_am_corner
+    let pix8 = load_test_image("dreyfus8.png").expect("load 8bpp");
+    let mut cur8 = pix8;
+    for _ in 0..8 {
+        cur8 = rotate_am_corner(&cur8, angle, RotateFill::White).expect("am_corner 8bpp");
+    }
+    rp.write_pix_and_check(&cur8, ImageFormat::Png)
+        .expect("write am_corner 8bpp");
+
+    // 32bpp: rotate_am_color_corner (fast color rotation)
+    let pix32 = load_test_image("marge.jpg").expect("load 32bpp");
+    let pix32 = if pix32.depth() != PixelDepth::Bit32 {
+        pix32.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix32
+    };
+    let mut cur32 = pix32;
+    for _ in 0..8 {
+        cur32 = rotate_am_color_corner(&cur32, angle, RotateFill::White)
+            .expect("am_color_corner 32bpp");
+    }
+    rp.write_pix_and_check(&cur32, ImageFormat::Tiff)
+        .expect("write am_color_corner 32bpp");
+
+    assert!(rp.cleanup(), "rotate1 am_corner test failed");
 }
