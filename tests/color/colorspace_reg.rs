@@ -192,37 +192,37 @@ fn colorspace_reg_color_magnitude() {
     rp.write_pix_and_check(&mag_max, ImageFormat::Png)
         .expect("write MaxDiff");
 
-    // Threshold sweep: count fraction of pixels above each threshold (6 levels × 20 white points)
+    // Threshold sweep: counts must be monotonically non-increasing as threshold rises.
     // C: sweeps thresholds 20, 40, 60, 80, 100, 120 on both mag types
     let thresholds = [20u8, 40, 60, 80, 100, 120];
     let n_pixels = (pix32.width() * pix32.height()) as f64;
 
+    let mut prev_frac_ave = 1.0f64;
+    let mut prev_frac_int = 1.0f64;
     for thresh in thresholds {
-        // Count pixels above threshold in AveMaxDiff2 map
-        let count_ave = count_pixels_above(&mag_ave, thresh);
-        let frac_ave = count_ave as f64 / n_pixels;
-        rp.compare_values(
-            1.0,
-            if (0.0..=1.0).contains(&frac_ave) {
-                1.0
-            } else {
-                0.0
-            },
-            0.0,
+        // AveMaxDiff2 map: fraction must be in [0,1] and non-increasing
+        let frac_ave = count_pixels_above(&mag_ave, thresh) as f64 / n_pixels;
+        assert!(
+            (0.0..=1.0).contains(&frac_ave),
+            "AveMaxDiff2 fraction out of range at threshold {thresh}: {frac_ave}"
         );
+        assert!(
+            frac_ave <= prev_frac_ave + f64::EPSILON,
+            "AveMaxDiff2 not monotone at threshold {thresh}: {prev_frac_ave} -> {frac_ave}"
+        );
+        prev_frac_ave = frac_ave;
 
-        // Count pixels above threshold in IntermedDiff map
-        let count_int = count_pixels_above(&mag_int, thresh);
-        let frac_int = count_int as f64 / n_pixels;
-        rp.compare_values(
-            1.0,
-            if (0.0..=1.0).contains(&frac_int) {
-                1.0
-            } else {
-                0.0
-            },
-            0.0,
+        // IntermedDiff map: fraction must be in [0,1] and non-increasing
+        let frac_int = count_pixels_above(&mag_int, thresh) as f64 / n_pixels;
+        assert!(
+            (0.0..=1.0).contains(&frac_int),
+            "IntermedDiff fraction out of range at threshold {thresh}: {frac_int}"
         );
+        assert!(
+            frac_int <= prev_frac_int + f64::EPSILON,
+            "IntermedDiff not monotone at threshold {thresh}: {prev_frac_int} -> {frac_int}"
+        );
+        prev_frac_int = frac_int;
     }
 
     assert!(rp.cleanup(), "colorspace_reg_color_magnitude failed");
