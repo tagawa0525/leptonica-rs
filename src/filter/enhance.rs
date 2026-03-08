@@ -2060,7 +2060,7 @@ mod tests {
         let mut pm = pix.try_into_mut().unwrap();
         for y in 0..h {
             for x in 0..w {
-                let v = ((x + y * w) * max_val / (w * h)).min(max_val) as u32;
+                let v = ((x + y * w) * max_val / (w * h)).min(max_val);
                 pm.set_pixel_unchecked(x, y, v);
             }
         }
