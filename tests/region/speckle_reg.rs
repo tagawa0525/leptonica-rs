@@ -1,16 +1,12 @@
 //! Speckle removal regression test
 //!
-//! Tests region-based speckle removal using connected component analysis.
-//! The C version uses pixBackgroundNormFlex, pixHMT, pixDilate, and pixSubtract
-//! to remove speckle noise from a document image. Since those functions live in
-//! leptonica-filter and leptonica-morph, this Rust test instead exercises
-//! the leptonica-region APIs that are relevant to speckle analysis:
-//! clear_border, pix_count_components, and pix_select_by_size.
+//! Tests region-based speckle removal using connected component analysis
+//! and morphological operations.
 //!
-//! Partial migration: clear_border, pix_count_components, find_connected_components,
-//! and pix_select_by_size are tested using feyn.tif (already 1bpp).
-//! The full speckle pipeline (pixHMT, pixDilate, pixSubtract) requires
-//! leptonica-morph and is not available here.
+//! Expanded in Phase 5 to implement the full speckle removal pipeline:
+//! background_norm_flex → gamma_trc_masked → threshold → HMT → dilate → subtract
+//!
+//! C version: `reference/leptonica/prog/speckle_reg.c`
 //!
 //! # See also
 //!
@@ -18,7 +14,10 @@
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;
+use leptonica::color::threshold_to_binary;
+use leptonica::filter::{FlexNormOptions, background_norm_flex, gamma_trc_masked};
 use leptonica::io::ImageFormat;
+use leptonica::morph::{Sel, dilate, hit_miss_transform};
 use leptonica::region::{
     ConnectivityType, SizeSelectRelation, SizeSelectType, clear_border, find_connected_components,
     pix_count_components, pix_select_by_size,
@@ -136,21 +135,80 @@ fn speckle_reg_select_by_size() {
     assert!(rp.cleanup(), "speckle select_by_size test failed");
 }
 
-/// Test full speckle removal pipeline (C checks 0-8).
+/// Test full speckle removal pipeline.
 ///
-/// Requires pixBackgroundNormFlex (leptonica-filter), pixGammaTRCMasked,
-/// pixHMT (leptonica-morph), pixDilate, and pixSubtract which are in
-/// different crates and cannot be used from leptonica-region tests.
+/// C: pixBackgroundNormFlex → pixGammaTRCMasked → pixThresholdToBinary
+///    → pixHMT(sel_speckle2) → pixDilate(2x2) → pixSubtract (2x2 speckle removal)
+///    → pixHMT(sel_speckle3) → pixDilate(3x3) → pixSubtract (3x3 speckle removal)
+///
+/// Uses w91frag.jpg (grayscale document fragment with speckle noise).
 #[test]
-#[ignore = "not yet implemented: speckle pipeline requires leptonica-morph/filter functions"]
 fn speckle_reg_full_pipeline() {
-    // C version:
-    // pix1 = pixBackgroundNormFlex(pixs, 7, 7, 1, 1, 10);
-    // pix2 = pixGammaTRCMasked(NULL, pix1, NULL, 1.0, 100, 175);
-    // pix3 = pixThresholdToBinary(pix2, 180);
-    // sel1 = selCreateFromString(selstr2, 4, 4, "speckle2");
-    // pix4 = pixHMT(NULL, pix3, sel1);
-    // sel2 = selCreateBrick(2, 2, 0, 0, SEL_HIT);
-    // pix5 = pixDilate(NULL, pix4, sel2);
-    // pix6 = pixSubtract(NULL, pix3, pix5);
+    let mut rp = RegParams::new("speckle_pipeline");
+
+    // Load grayscale document image with speckle noise
+    let pixs = crate::common::load_test_image("w91frag.jpg").expect("load w91frag.jpg");
+    let pixs = if pixs.depth() != PixelDepth::Bit8 {
+        pixs.convert_to_8().expect("convert to 8bpp")
+    } else {
+        pixs
+    };
+    rp.write_pix_and_check(&pixs, ImageFormat::Jpeg)
+        .expect("write original w91frag");
+
+    // Step 1: Normalize background (C: pixBackgroundNormFlex with tile=7, smooth=1)
+    let opts = FlexNormOptions {
+        tile_width: 7,
+        tile_height: 7,
+        smooth_x: 1,
+        smooth_y: 1,
+        delta: 0, // delta=10 not yet supported in Rust; use 0
+    };
+    let pix1 = background_norm_flex(&pixs, &opts).expect("background_norm_flex");
+    rp.write_pix_and_check(&pix1, ImageFormat::Jpeg)
+        .expect("write background normalized");
+
+    // Step 2: Remove background and enhance contrast (C: pixGammaTRCMasked with 1.0, 100, 175)
+    let pix2 = gamma_trc_masked(&pix1, None, 1.0, 100, 175).expect("gamma_trc_masked");
+    rp.write_pix_and_check(&pix2, ImageFormat::Jpeg)
+        .expect("write gamma corrected");
+
+    // Step 3: Binarize (C: pixThresholdToBinary(pix2, 180))
+    let pix3 = threshold_to_binary(&pix2, 180).expect("threshold_to_binary");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("write binarized");
+
+    // Step 4: Remove 2x2 speckle noise via HMT + dilate + subtract
+    // SEL: 4x4 with inner 2x2 DON'T CARE surrounded by MISS
+    // C selstr2: "oooo" / "oC o" / "o  o" / "oooo" (4x4, origin at (1,1))
+    let sel1 = Sel::from_string("oooo\no  o\no  o\noooo", 1, 1).expect("speckle2 SEL");
+    let pix4 = hit_miss_transform(&pix3, &sel1).expect("HMT speckle2");
+
+    // Dilate the detected speckle positions with a 2x2 brick
+    let sel2 = Sel::create_brick(2, 2).expect("2x2 brick");
+    let pix5 = dilate(&pix4, &sel2).expect("dilate speckle2");
+    rp.write_pix_and_check(&pix5, ImageFormat::Png)
+        .expect("write speckle2 dilated");
+
+    // Subtract speckle mask from binarized image
+    let pix6 = pix3.subtract(&pix5).expect("subtract speckle2");
+    rp.write_pix_and_check(&pix6, ImageFormat::Png)
+        .expect("write speckle2 removed");
+
+    // Step 5: Remove 3x3 speckle noise via HMT + dilate + subtract
+    // SEL: 5x5 with inner 3x3 DON'T CARE surrounded by MISS
+    // C selstr3: "ooooo" / "oC  o" / "o   o" / "o   o" / "ooooo" (5x5, origin at (1,1))
+    let sel3 = Sel::from_string("ooooo\no   o\no   o\no   o\nooooo", 1, 1).expect("speckle3 SEL");
+    let pix7 = hit_miss_transform(&pix3, &sel3).expect("HMT speckle3");
+
+    let sel4 = Sel::create_brick(3, 3).expect("3x3 brick");
+    let pix8 = dilate(&pix7, &sel4).expect("dilate speckle3");
+    rp.write_pix_and_check(&pix8, ImageFormat::Png)
+        .expect("write speckle3 dilated");
+
+    let pix9 = pix3.subtract(&pix8).expect("subtract speckle3");
+    rp.write_pix_and_check(&pix9, ImageFormat::Png)
+        .expect("write speckle3 removed");
+
+    assert!(rp.cleanup(), "speckle full_pipeline test failed");
 }
