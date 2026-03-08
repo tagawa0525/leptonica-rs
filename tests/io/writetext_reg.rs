@@ -66,8 +66,8 @@ fn writetext_reg() {
 ///
 /// C version creates 8 image types and calls AddTextAndSave (pixAddSingleTextblock)
 /// for 4 locations.  Rust's add_textlines covers Above and Below; Left and Right
-/// are Rust-only additions.  Cmapped images are tested via threshold_to_2bpp and
-/// threshold_to_4bpp.
+/// are Rust-only additions.  Note: threshold_to_2bpp/threshold_to_4bpp currently
+/// ignore the with_colormap flag and produce plain indexed images without a colormap.
 #[test]
 fn writetext_reg_multi_depth() {
     let mut rp = RegParams::new("writetext_multi");
@@ -100,22 +100,22 @@ fn writetext_reg_multi_depth() {
             .expect("write 32bpp");
     }
 
-    // 4 bpp cmapped
-    let pix4c = threshold_to_4bpp(&pix8, 10, true).expect("threshold_to_4bpp");
-    assert_eq!(pix4c.depth(), PixelDepth::Bit4);
+    // 4 bpp indexed
+    let pix4 = threshold_to_4bpp(&pix8, 10, false).expect("threshold_to_4bpp");
+    assert_eq!(pix4.depth(), PixelDepth::Bit4);
     let r = bmf
-        .add_textlines(&pix4c, text, 0, TextLocation::Below)
-        .expect("add_textlines 4bpp cmapped");
+        .add_textlines(&pix4, text, 0, TextLocation::Below)
+        .expect("add_textlines 4bpp");
     rp.compare_values(w as f64, r.width() as f64, 0.0);
     rp.write_pix_and_check(&r, ImageFormat::Png)
         .expect("write 4bpp");
 
-    // 2 bpp cmapped
-    let pix2c = threshold_to_2bpp(&pix8, 3, true).expect("threshold_to_2bpp");
-    assert_eq!(pix2c.depth(), PixelDepth::Bit2);
+    // 2 bpp indexed
+    let pix2 = threshold_to_2bpp(&pix8, 3, false).expect("threshold_to_2bpp");
+    assert_eq!(pix2.depth(), PixelDepth::Bit2);
     let r = bmf
-        .add_textlines(&pix2c, text, 0, TextLocation::Below)
-        .expect("add_textlines 2bpp cmapped");
+        .add_textlines(&pix2, text, 0, TextLocation::Below)
+        .expect("add_textlines 2bpp");
     rp.compare_values(w as f64, r.width() as f64, 0.0);
     rp.write_pix_and_check(&r, ImageFormat::Png)
         .expect("write 2bpp");
@@ -158,7 +158,7 @@ fn writetext_reg_set_textline() {
     for (i, &color) in colors.iter().enumerate() {
         let line = format!("This is textline {i}");
         let y = 50 + 50 * i as i32;
-        let (rendered, _overflow) = bmf
+        let (rendered, _) = bmf
             .set_textline(&current, &line, 10, y, color)
             .expect("set_textline");
         current = rendered;
