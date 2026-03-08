@@ -112,12 +112,25 @@ fn psioseg_reg_composite_pipeline() {
     let pix_8c =
         octree_quant(&pix_composite, &OctreeOptions { max_colors: 240 }).expect("octree_quant 240");
     assert_eq!(pix_8c.depth(), PixelDepth::Bit8);
+    assert!(
+        pix_8c.colormap().is_some(),
+        "octree_quant should return a colormapped Pix"
+    );
+    if let Some(cmap) = pix_8c.colormap() {
+        assert!(
+            cmap.len() <= 240,
+            "colormap has {} entries, expected <= 240",
+            cmap.len()
+        );
+    }
     rp.write_pix_and_check(&pix_8c, ImageFormat::Png)
         .expect("write 8bpp colormapped"); // C check 3
 
     // 4bpp colormapped: pixOctreeQuantNumColors with 16 colors, subsample=4 (C check 4)
     let pix_4c =
         octree_quant_num_colors(&pix_composite, 16, 4).expect("octree_quant_num_colors 16");
+    assert_eq!(pix_4c.depth(), PixelDepth::Bit4);
+    assert!(pix_4c.colormap().is_some());
     rp.write_pix_and_check(&pix_4c, ImageFormat::Png)
         .expect("write 4bpp colormapped"); // C check 4
 
