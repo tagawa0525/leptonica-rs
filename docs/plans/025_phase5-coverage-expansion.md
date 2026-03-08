@@ -1,6 +1,6 @@
 # Phase 5: テストカバレッジ拡充 — Ratio < 0.1 テストの C版同等化
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
