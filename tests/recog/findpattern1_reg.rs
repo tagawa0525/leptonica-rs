@@ -4,10 +4,8 @@
 //! The C version uses pixGenerateSelBoundary to create hit-miss SELs
 //! from pattern images, then pixHMT to find matches at multiple scales.
 //!
-//! Partial port: Tests hit_miss_transform with manually constructed
-//! SELs on the tribune page image. The C version also uses
-//! pixGenerateSelBoundary, pixDisplayMatchedPattern, and
-//! pixRemoveMatchedPattern which are not available in the Rust API.
+//! Expanded in Phase 5 to use generate_sel_boundary, display_matched_pattern,
+//! and remove_matched_pattern APIs.
 //!
 //! # See also
 //!
@@ -17,7 +15,20 @@ use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
 use leptonica::io::ImageFormat;
-use leptonica::morph::{Sel, SelElement, hit_miss_transform};
+use leptonica::morph::selgen::generate_sel_boundary;
+use leptonica::morph::{
+    Sel, SelElement, display_matched_pattern, hit_miss_transform, remove_matched_pattern,
+};
+
+fn load_binary(name: &str) -> leptonica::Pix {
+    let pix = crate::common::load_test_image(name).expect("load image");
+    if pix.depth() == PixelDepth::Bit1 {
+        pix
+    } else {
+        let gray = pix.convert_to_8().expect("convert to gray");
+        threshold_to_binary(&gray, 128).expect("threshold to binary")
+    }
+}
 
 /// Test hit-miss transform on tribune page (C test: pixHMT).
 ///
@@ -167,4 +178,108 @@ fn findpattern1_reg_hmt_brick() {
         .expect("write result findpat1_brick");
 
     assert!(rp.cleanup(), "findpattern1 hmt_brick test failed");
+}
+
+/// Test automatic SEL generation from pattern boundary.
+///
+/// C: sel = pixGenerateSelBoundary(pixt, HIT_DIST=2, MISS_DIST=5, ...)
+///    pixhmt = pixHMT(NULL, pix_page_bin, sel)
+///
+/// Uses both tribune-word.png and tribune-t.png patterns.
+#[test]
+fn findpattern1_reg_sel_boundary_hmt() {
+    let mut rp = RegParams::new("findpat1_sel_boundary");
+
+    let page_bin = load_binary("tribune-page-4x.png");
+
+    // Generate SEL from word pattern boundary (C: HIT_DIST=2, MISS_DIST=5)
+    let word_bin = load_binary("tribune-word.png");
+    let sel_word = generate_sel_boundary(&word_bin, 2, 4, 1, 1, true, true, true, true)
+        .expect("generate_sel_boundary word");
+    // SEL should have positive dimensions
+    let (sh, sw, _, _) = sel_word.get_parameters();
+    assert!(sh > 0, "SEL word height > 0");
+    assert!(sw > 0, "SEL word width > 0");
+
+    let hmt_word = hit_miss_transform(&page_bin, &sel_word).expect("hmt word");
+    rp.write_pix_and_check(&hmt_word, ImageFormat::Tiff)
+        .expect("write hmt word");
+
+    // Generate SEL from letter T pattern
+    let t_bin = load_binary("tribune-t.png");
+    let sel_t = generate_sel_boundary(&t_bin, 2, 4, 1, 1, true, true, true, true)
+        .expect("generate_sel_boundary t");
+    let (th, tw, _, _) = sel_t.get_parameters();
+    assert!(th > 0 && tw > 0, "SEL t dimensions > 0");
+
+    let hmt_t = hit_miss_transform(&page_bin, &sel_t).expect("hmt t");
+    rp.write_pix_and_check(&hmt_t, ImageFormat::Tiff)
+        .expect("write hmt t");
+
+    assert!(rp.cleanup(), "findpattern1 sel_boundary_hmt test failed");
+}
+
+/// Test display and removal of matched patterns.
+///
+/// C: pixDisplayMatchedPattern(pix, pixt, pixhmt, x0, y0, color, scale)
+///    pixRemoveMatchedPattern(pix, pixt, pixhmt, x0, y0, dsize)
+///
+/// Applies SEL-based HMT, then highlights and removes matches.
+#[test]
+fn findpattern1_reg_display_and_remove() {
+    let mut rp = RegParams::new("findpat1_display_remove");
+
+    let page_bin = load_binary("tribune-page-4x.png");
+
+    // Generate SEL from word pattern
+    let word_bin = load_binary("tribune-word.png");
+    let sel_word = generate_sel_boundary(&word_bin, 2, 4, 1, 1, true, true, true, true)
+        .expect("generate_sel_boundary word");
+    let x0 = sel_word.origin_x() as i32;
+    let y0 = sel_word.origin_y() as i32;
+
+    let hmt_word = hit_miss_transform(&page_bin, &sel_word).expect("hmt word");
+
+    // Display matched word patterns in red (0xff000000 = red in RGBA)
+    let displayed =
+        display_matched_pattern(&page_bin, &word_bin, &hmt_word, x0, y0, 0xff000000, 1.0)
+            .expect("display_matched_pattern word");
+    rp.write_pix_and_check(&displayed, ImageFormat::Tiff)
+        .expect("write displayed word");
+
+    // Remove matched word patterns (dsize=2 for slightly expanded removal)
+    let removed = remove_matched_pattern(&page_bin, &word_bin, &hmt_word, x0, y0, 2)
+        .expect("remove_matched_pattern word");
+    rp.write_pix_and_check(&removed, ImageFormat::Tiff)
+        .expect("write removed word");
+
+    // Verify removal reduced foreground pixels
+    let orig_count = page_bin.count_pixels();
+    let removed_count = removed.count_pixels();
+    // Removing patterns should reduce pixel count (or leave same if no matches)
+    assert!(
+        removed_count <= orig_count,
+        "removal should not add pixels: {removed_count} > {orig_count}"
+    );
+
+    // Same pipeline with letter T pattern
+    let t_bin = load_binary("tribune-t.png");
+    let sel_t = generate_sel_boundary(&t_bin, 2, 4, 1, 1, true, true, true, true)
+        .expect("generate_sel_boundary t");
+    let tx0 = sel_t.origin_x() as i32;
+    let ty0 = sel_t.origin_y() as i32;
+
+    let hmt_t = hit_miss_transform(&page_bin, &sel_t).expect("hmt t");
+
+    let displayed_t = display_matched_pattern(&page_bin, &t_bin, &hmt_t, tx0, ty0, 0xff000000, 1.0)
+        .expect("display_matched_pattern t");
+    rp.write_pix_and_check(&displayed_t, ImageFormat::Tiff)
+        .expect("write displayed t");
+
+    let removed_t = remove_matched_pattern(&page_bin, &t_bin, &hmt_t, tx0, ty0, 2)
+        .expect("remove_matched_pattern t");
+    rp.write_pix_and_check(&removed_t, ImageFormat::Tiff)
+        .expect("write removed t");
+
+    assert!(rp.cleanup(), "findpattern1 display_and_remove test failed");
 }
