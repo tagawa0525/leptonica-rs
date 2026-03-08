@@ -3,17 +3,21 @@
 //! Tests PostScript generation with mixed-raster encoding where
 //! text regions use G4 compression and image regions use JPEG.
 //!
-//! The C version requires convertSegmentedPagesToPS,
-//! pixGetRegionsBinary, pixOctreeColorQuant, and related APIs
-//! which are not available in Rust. This file documents the C test
-//! structure with available partial tests using basic PS output.
+//! The C version requires convertSegmentedPagesToPS and
+//! pixGetRegionsBinary for segmented output, which are not available
+//! in Rust. The composite pipeline (scale→tile→quantize) is
+//! implemented using available APIs.
 //!
 //! # See also
 //!
 //! C Leptonica: `reference/leptonica/prog/psioseg_reg.c`
 
 use crate::common::RegParams;
+use leptonica::color::{OctreeOptions, octree_quant, octree_quant_num_colors};
+use leptonica::io::ImageFormat;
 use leptonica::io::ps::{PsLevel, PsOptions};
+use leptonica::transform::{ScaleMethod, scale};
+use leptonica::{Pix, PixelDepth, RopOp};
 
 /// Test basic PS output of images used in C segmented tests (partial).
 ///
@@ -45,6 +49,92 @@ fn psioseg_reg_basic_ps_output() {
     rp.compare_values(1.0, if has_flate { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "psioseg basic ps output test failed");
+}
+
+/// Composite image pipeline: scale→tile→quantize (C checks 0, 2-4).
+///
+/// C: scale tetons.jpg to page width, tile into full page canvas,
+/// then gray conversion and color quantization.
+/// Check 1 (combine with halftone mask) and check 5 (convertSegmentedPagesToPS)
+/// require pixGetRegionsBinary which is not available.
+#[test]
+fn psioseg_reg_composite_pipeline() {
+    let mut rp = RegParams::new("psioseg_pipeline");
+
+    // Load source images (C: pageseg2.tif = 1bpp, tetons.jpg = 32bpp)
+    let pix_page = crate::common::load_test_image("pageseg2.tif").expect("load pageseg2.tif");
+    let pix_color = crate::common::load_test_image("tetons.jpg").expect("load tetons.jpg");
+
+    // Ensure 32bpp color
+    let pix_color = if pix_color.depth() != PixelDepth::Bit32 {
+        pix_color.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix_color
+    };
+
+    // Scale tetons to match page width (C: scalefactor = w / wc; pixScale)
+    let w = pix_page.width();
+    let h = pix_page.height();
+    let wc = pix_color.width();
+    let scalefactor = w as f32 / wc as f32;
+    let pix_scaled =
+        scale(&pix_color, scalefactor, scalefactor, ScaleMethod::Auto).expect("scale tetons");
+    let hc = pix_scaled.height();
+    rp.compare_values(w as f64, pix_scaled.width() as f64, 1.0);
+
+    // Create 32bpp canvas with page dimensions, tile the scaled image
+    // C: pixcs2 = pixCreate(w, h, 32) + two pixRasterop(PIX_SRC) calls
+    let pix_composite = {
+        let base = Pix::new(w, h, PixelDepth::Bit32).expect("create canvas");
+        let mut canvas = base.try_into_mut().expect("try_into_mut canvas");
+        canvas
+            .rop_region_inplace(0, 0, w, hc, RopOp::Src, &pix_scaled, 0, 0)
+            .expect("rasterop top half");
+        canvas
+            .rop_region_inplace(0, hc as i32, w, hc, RopOp::Src, &pix_scaled, 0, 0)
+            .expect("rasterop bottom half");
+        let p: Pix = canvas.into();
+        p
+    };
+    assert_eq!(pix_composite.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&pix_composite, ImageFormat::Jpeg)
+        .expect("write composite"); // C check 0
+
+    // Gray conversion: pixConvertRGBToLuminance (C check 2)
+    let pix_gray = pix_composite
+        .convert_rgb_to_luminance()
+        .expect("convert_rgb_to_luminance");
+    assert_eq!(pix_gray.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&pix_gray, ImageFormat::Jpeg)
+        .expect("write gray"); // C check 2
+
+    // 8bpp colormapped: pixOctreeColorQuant with 240 colors (C check 3)
+    let pix_8c =
+        octree_quant(&pix_composite, &OctreeOptions { max_colors: 240 }).expect("octree_quant 240");
+    assert_eq!(pix_8c.depth(), PixelDepth::Bit8);
+    assert!(
+        pix_8c.colormap().is_some(),
+        "octree_quant should return a colormapped Pix"
+    );
+    if let Some(cmap) = pix_8c.colormap() {
+        assert!(
+            cmap.len() <= 240,
+            "colormap has {} entries, expected <= 240",
+            cmap.len()
+        );
+    }
+    rp.write_pix_and_check(&pix_8c, ImageFormat::Png)
+        .expect("write 8bpp colormapped"); // C check 3
+
+    // 4bpp colormapped: pixOctreeQuantNumColors with 16 colors, subsample=4 (C check 4)
+    let pix_4c =
+        octree_quant_num_colors(&pix_composite, 16, 4).expect("octree_quant_num_colors 16");
+    assert_eq!(pix_4c.depth(), PixelDepth::Bit4);
+    assert!(pix_4c.colormap().is_some());
+    rp.write_pix_and_check(&pix_4c, ImageFormat::Png)
+        .expect("write 4bpp colormapped"); // C check 4
+
+    assert!(rp.cleanup(), "psioseg composite pipeline test failed");
 }
 
 /// Test segmented PS with mixed raster encoding (C checks 0-5).
