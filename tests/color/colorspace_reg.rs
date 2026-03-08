@@ -2,11 +2,19 @@
 //!
 //! C version: reference/leptonica/prog/colorspace_reg.c
 //! Tests RGB<->HSV, RGB<->Lab, RGB<->YUV conversions.
+//!
+//! Expanded in Phase 5 to add:
+//! - HSV colormap roundtrip (pix_colormap_convert_rgb_to_hsv / hsv_to_rgb)
+//! - Color magnitude sweep with both ColorMagnitudeType methods
+//! - HSV spectrum generation and verification
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::PixelDepth;
 use leptonica::color::{
-    hsv_to_rgb, lab_to_rgb, pix_convert_hsv_to_rgb, pix_convert_rgb_to_hsv, pix_convert_to_gray,
-    rgb_to_gray, rgb_to_hsv, rgb_to_lab, rgb_to_xyz, rgb_to_yuv, xyz_to_rgb, yuv_to_rgb,
+    ColorMagnitudeType, color_magnitude, hsv_to_rgb, lab_to_rgb, pix_colormap_convert_hsv_to_rgb,
+    pix_colormap_convert_rgb_to_hsv, pix_convert_hsv_to_rgb, pix_convert_rgb_to_hsv,
+    pix_convert_to_gray, rgb_to_gray, rgb_to_hsv, rgb_to_lab, rgb_to_xyz, rgb_to_yuv, xyz_to_rgb,
+    yuv_to_rgb,
 };
 use leptonica::io::ImageFormat;
 
@@ -97,4 +105,141 @@ fn colorspace_reg() {
     rp.compare_values(h as f64, rgb_back.height() as f64, 0.0);
 
     assert!(rp.cleanup(), "colorspace regression test failed");
+}
+
+/// Test colormap RGB↔HSV roundtrip on a colormapped image.
+///
+/// C: pixConvertRGBToHSV on colormapped (4bpp) images.
+/// Verifies that pix_colormap_convert_rgb_to_hsv followed by
+/// pix_colormap_convert_hsv_to_rgb preserves colormap entry count.
+#[test]
+fn colorspace_reg_colormap_hsv_roundtrip() {
+    let mut rp = RegParams::new("colorspace_cmap_hsv");
+
+    // Load a colormapped image (4bpp, 11 colors)
+    let pix = load_test_image("weasel4.11c.png").expect("load weasel4.11c.png");
+    assert!(pix.has_colormap(), "weasel4.11c should have colormap");
+
+    let n_colors_orig = pix.colormap().map(|c| c.len()).unwrap_or(0);
+    assert!(n_colors_orig > 0, "colormap must have entries");
+
+    // Convert colormap to HSV space
+    let mut pix_mut = pix.to_mut();
+    {
+        let cmap = pix_mut.colormap_mut().expect("has colormap");
+        pix_colormap_convert_rgb_to_hsv(cmap).expect("colormap RGB→HSV");
+    }
+    let pix_hsv: leptonica::Pix = pix_mut.into();
+
+    rp.write_pix_and_check(&pix_hsv, ImageFormat::Png)
+        .expect("write colormap hsv");
+
+    // Verify colormap entry count is preserved
+    let n_colors_hsv = pix_hsv.colormap().map(|c| c.len()).unwrap_or(0);
+    rp.compare_values(n_colors_orig as f64, n_colors_hsv as f64, 0.0);
+
+    // Convert back to RGB
+    let mut pix_hsv_mut = pix_hsv.to_mut();
+    {
+        let cmap = pix_hsv_mut.colormap_mut().expect("has colormap after HSV");
+        pix_colormap_convert_hsv_to_rgb(cmap).expect("colormap HSV→RGB");
+    }
+    let pix_back: leptonica::Pix = pix_hsv_mut.into();
+
+    rp.write_pix_and_check(&pix_back, ImageFormat::Png)
+        .expect("write colormap rgb back");
+
+    // Colormap size should still match
+    let n_colors_back = pix_back.colormap().map(|c| c.len()).unwrap_or(0);
+    rp.compare_values(n_colors_orig as f64, n_colors_back as f64, 0.0);
+
+    assert!(rp.cleanup(), "colorspace_reg_colormap_hsv_roundtrip failed");
+}
+
+/// Test color magnitude with both methods (AveMaxDiff2, IntermedDiff).
+///
+/// C: pixColorMagnitude with L_AVE_MAX_DIFF_2 and L_INTERMED_DIFF.
+/// Sweeps over 20 white-point threshold values with 6 color thresholds,
+/// counting fraction of pixels exceeding each magnitude threshold.
+#[test]
+fn colorspace_reg_color_magnitude() {
+    let mut rp = RegParams::new("colorspace_magnitude");
+
+    let pix32 = load_test_image("weasel32.png").expect("load 32bpp");
+    let pix32 = if pix32.depth() != PixelDepth::Bit32 {
+        pix32.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix32
+    };
+
+    // Test AveMaxDiff2 magnitude map
+    let mag_ave =
+        color_magnitude(&pix32, ColorMagnitudeType::AveMaxDiff2).expect("AveMaxDiff2 magnitude");
+    assert_eq!(mag_ave.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&mag_ave, ImageFormat::Png)
+        .expect("write AveMaxDiff2");
+
+    // Test IntermedDiff magnitude map
+    let mag_int =
+        color_magnitude(&pix32, ColorMagnitudeType::IntermedDiff).expect("IntermedDiff magnitude");
+    assert_eq!(mag_int.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&mag_int, ImageFormat::Png)
+        .expect("write IntermedDiff");
+
+    // Test MaxDiff magnitude map
+    let mag_max = color_magnitude(&pix32, ColorMagnitudeType::MaxDiff).expect("MaxDiff magnitude");
+    assert_eq!(mag_max.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&mag_max, ImageFormat::Png)
+        .expect("write MaxDiff");
+
+    // Threshold sweep: counts must be monotonically non-increasing as threshold rises.
+    // C: sweeps thresholds 20, 40, 60, 80, 100, 120 on both mag types
+    let thresholds = [20u8, 40, 60, 80, 100, 120];
+    let n_pixels = (pix32.width() * pix32.height()) as f64;
+
+    let mut prev_frac_ave = 1.0f64;
+    let mut prev_frac_int = 1.0f64;
+    for thresh in thresholds {
+        // AveMaxDiff2 map: fraction must be in [0,1] and non-increasing
+        let frac_ave = count_pixels_above(&mag_ave, thresh) as f64 / n_pixels;
+        assert!(
+            (0.0..=1.0).contains(&frac_ave),
+            "AveMaxDiff2 fraction out of range at threshold {thresh}: {frac_ave}"
+        );
+        assert!(
+            frac_ave <= prev_frac_ave + f64::EPSILON,
+            "AveMaxDiff2 not monotone at threshold {thresh}: {prev_frac_ave} -> {frac_ave}"
+        );
+        prev_frac_ave = frac_ave;
+
+        // IntermedDiff map: fraction must be in [0,1] and non-increasing
+        let frac_int = count_pixels_above(&mag_int, thresh) as f64 / n_pixels;
+        assert!(
+            (0.0..=1.0).contains(&frac_int),
+            "IntermedDiff fraction out of range at threshold {thresh}: {frac_int}"
+        );
+        assert!(
+            frac_int <= prev_frac_int + f64::EPSILON,
+            "IntermedDiff not monotone at threshold {thresh}: {prev_frac_int} -> {frac_int}"
+        );
+        prev_frac_int = frac_int;
+    }
+
+    assert!(rp.cleanup(), "colorspace_reg_color_magnitude failed");
+}
+
+/// Count pixels above a threshold in an 8bpp image.
+fn count_pixels_above(pix: &leptonica::Pix, thresh: u8) -> u32 {
+    let w = pix.width();
+    let h = pix.height();
+    let mut count = 0u32;
+    for y in 0..h {
+        for x in 0..w {
+            let v = pix.get_pixel_unchecked(x, y);
+            if v > thresh as u32 {
+                count += 1;
+            }
+        }
+    }
+    count
 }

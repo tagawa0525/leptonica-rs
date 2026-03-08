@@ -2,13 +2,20 @@
 //!
 //! C version: reference/leptonica/prog/colorfill_reg.c
 //! Tests color_fill, color_fill_from_seed, pixel_is_on_color_boundary.
+//!
+//! Expanded in Phase 5 to add:
+//! - expand_replicate tests across image depths
+//! - color_content_by_location with different tile factors
+//! - Real image processing with marge.jpg
 
 use crate::common::RegParams;
 use leptonica::color::colorfill::{
-    ColorFillOptions, Connectivity, color_fill, color_fill_from_seed, pixel_is_on_color_boundary,
+    ColorFillOptions, Connectivity, color_content_by_location, color_fill, color_fill_from_seed,
+    pixel_is_on_color_boundary,
 };
 use leptonica::core::pixel;
 use leptonica::io::ImageFormat;
+use leptonica::transform::expand_replicate;
 use leptonica::{Pix, PixelDepth};
 
 fn make_small_test_pix(c1: u32, c2: u32) -> Pix {
@@ -276,4 +283,116 @@ fn colorfill_reg() {
     assert!(color_fill_from_seed(&pix_regions, 200, 200, &opts).is_err());
 
     assert!(rp.cleanup(), "colorfill regression test failed");
+}
+
+/// Test expand_replicate across different image depths.
+///
+/// C: pixExpandReplicate used to scale pattern images for visualization.
+/// Tests pixel replication expansion at factors 2, 3, 4.
+#[test]
+fn colorfill_reg_expand_replicate() {
+    let mut rp = RegParams::new("colorfill_expand");
+
+    // 1bpp binary image
+    let pix1 = crate::common::load_test_image("feyn-fract.tif").expect("load 1bpp");
+    assert_eq!(pix1.depth(), PixelDepth::Bit1);
+    let expanded2 = expand_replicate(&pix1, 2).expect("expand 1bpp x2");
+    assert_eq!(expanded2.width(), pix1.width() * 2);
+    assert_eq!(expanded2.height(), pix1.height() * 2);
+    assert_eq!(expanded2.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&expanded2, leptonica::io::ImageFormat::Tiff)
+        .expect("write expand 1bpp x2");
+
+    let expanded4 = expand_replicate(&pix1, 4).expect("expand 1bpp x4");
+    assert_eq!(expanded4.width(), pix1.width() * 4);
+    rp.write_pix_and_check(&expanded4, leptonica::io::ImageFormat::Tiff)
+        .expect("write expand 1bpp x4");
+
+    // 8bpp grayscale
+    let pix8 = crate::common::load_test_image("dreyfus8.png").expect("load 8bpp");
+    let exp8 = expand_replicate(&pix8, 3).expect("expand 8bpp x3");
+    assert_eq!(exp8.width(), pix8.width() * 3);
+    assert_eq!(exp8.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&exp8, leptonica::io::ImageFormat::Png)
+        .expect("write expand 8bpp x3");
+
+    // 32bpp color
+    let pix32 = crate::common::load_test_image("marge.jpg").expect("load 32bpp");
+    let pix32 = if pix32.depth() != PixelDepth::Bit32 {
+        pix32.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix32
+    };
+    let exp32 = expand_replicate(&pix32, 2).expect("expand 32bpp x2");
+    assert_eq!(exp32.width(), pix32.width() * 2);
+    assert_eq!(exp32.depth(), PixelDepth::Bit32);
+    rp.write_pix_and_check(&exp32, leptonica::io::ImageFormat::Tiff)
+        .expect("write expand 32bpp x2");
+
+    // expansion factor=1 should be a no-op: dimensions, depth, and pixels unchanged
+    let exp1 = expand_replicate(&pix8, 1).expect("expand factor=1");
+    assert_eq!(exp1.width(), pix8.width());
+    assert_eq!(exp1.height(), pix8.height());
+    assert_eq!(exp1.depth(), pix8.depth());
+    for y in 0..pix8.height() {
+        for x in 0..pix8.width() {
+            let orig = pix8.get_pixel(x, y).expect("get original pixel");
+            let expanded = exp1.get_pixel(x, y).expect("get expanded pixel");
+            assert_eq!(
+                orig, expanded,
+                "pixel mismatch at ({x}, {y}) for factor=1 expand"
+            );
+        }
+    }
+
+    assert!(rp.cleanup(), "colorfill expand_replicate test failed");
+}
+
+/// Test color_content_by_location with different tile factors on real images.
+///
+/// C: pixColorContentByLocation with 1-tile and multi-tile strategies.
+/// Uses marge.jpg (substitute for lyra.005.jpg).
+#[test]
+fn colorfill_reg_color_content_by_location() {
+    let mut rp = RegParams::new("colorfill_content");
+
+    // Load real 32bpp image
+    let pix = crate::common::load_test_image("marge.jpg").expect("load marge.jpg");
+    let pix32 = if pix.depth() != PixelDepth::Bit32 {
+        pix.convert_to_32().expect("convert to 32bpp")
+    } else {
+        pix
+    };
+
+    // Small tile factor (fine grain)
+    let content_small = color_content_by_location(&pix32, 8, 60, 40).expect("content factor=8");
+    assert_eq!(content_small.depth(), PixelDepth::Bit8);
+    assert_eq!(content_small.width(), pix32.width());
+    assert_eq!(content_small.height(), pix32.height());
+    rp.write_pix_and_check(&content_small, leptonica::io::ImageFormat::Png)
+        .expect("write content factor=8");
+
+    // Medium tile factor
+    let content_med = color_content_by_location(&pix32, 16, 60, 40).expect("content factor=16");
+    assert_eq!(content_med.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&content_med, leptonica::io::ImageFormat::Png)
+        .expect("write content factor=16");
+
+    // Large tile factor (coarse grain)
+    let content_large = color_content_by_location(&pix32, 32, 60, 40).expect("content factor=32");
+    assert_eq!(content_large.depth(), PixelDepth::Bit8);
+    rp.write_pix_and_check(&content_large, leptonica::io::ImageFormat::Png)
+        .expect("write content factor=32");
+
+    // Test with different min_max and max_diff parameters
+    let content_strict = color_content_by_location(&pix32, 16, 80, 20).expect("content strict");
+    rp.write_pix_and_check(&content_strict, leptonica::io::ImageFormat::Png)
+        .expect("write content strict");
+
+    // All outputs should have same dimensions as input
+    rp.compare_values(pix32.width() as f64, content_small.width() as f64, 0.0);
+    rp.compare_values(pix32.width() as f64, content_med.width() as f64, 0.0);
+    rp.compare_values(pix32.width() as f64, content_large.width() as f64, 0.0);
+
+    assert!(rp.cleanup(), "colorfill content_by_location test failed");
 }
