@@ -113,7 +113,6 @@ fn distance_reg_seedfill_labeling() {
 ///
 /// C version: `TestDistance()` in `distance_reg.c` (pixt2, pixt4, pixt5)
 #[test]
-#[ignore = "max_dynamic_range not yet implemented"]
 fn distance_reg_max_dynamic_range() {
     let mut rp = RegParams::new("dist_dynrange");
 
@@ -157,7 +156,6 @@ fn distance_reg_max_dynamic_range() {
 ///
 /// C version: `TestDistance()` in `distance_reg.c` (pixt2 = pixRenderContours)
 #[test]
-#[ignore = "max_dynamic_range not yet implemented"]
 fn distance_reg_render_contours() {
     use leptonica::ContourOutput;
 
