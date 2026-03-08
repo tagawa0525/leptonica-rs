@@ -4,10 +4,8 @@
 //! The C version compares boundary, run/line, and random methods
 //! for generating hit-miss SELs to detect asterisk patterns.
 //!
-//! Partial port: Tests hit_miss_transform with manually constructed
-//! SELs on the asterisk page image, and verifies pattern detection
-//! produces reasonable results. The C version's pixGenerateSelBoundary,
-//! pixGenerateSelWithRuns, and pixGenerateSelRandom are not available.
+//! Expanded in Phase 5 to use all three SEL generation APIs:
+//! generate_sel_boundary, generate_sel_with_runs, generate_sel_random.
 //!
 //! # See also
 //!
@@ -17,8 +15,24 @@ use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::threshold_to_binary;
 use leptonica::io::ImageFormat;
-use leptonica::morph::{Sel, SelElement, dilate_brick, hit_miss_transform};
+use leptonica::morph::selgen::{
+    generate_sel_boundary, generate_sel_random, generate_sel_with_runs,
+};
+use leptonica::morph::{
+    Sel, SelElement, dilate_brick, display_matched_pattern, hit_miss_transform,
+    remove_matched_pattern,
+};
 use leptonica::region::{ConnectivityType, conncomp_pixa};
+
+fn load_binary(name: &str) -> leptonica::Pix {
+    let pix = crate::common::load_test_image(name).expect("load image");
+    if pix.depth() == PixelDepth::Bit1 {
+        pix
+    } else {
+        let gray = pix.convert_to_8().expect("convert to gray");
+        threshold_to_binary(&gray, 128).expect("threshold to binary")
+    }
+}
 
 /// Test asterisk detection using HMT with a cross-shaped SEL.
 ///
@@ -139,4 +153,116 @@ fn findpattern2_reg_template() {
     );
 
     assert!(rp.cleanup(), "findpattern2 template test failed");
+}
+
+/// Test boundary SEL generation (recommended method).
+///
+/// C: pixGenerateSelBoundary(pixt, 2, 4, 1, 1, 1, 1, 1, 1)
+///    pixHMT → pixDisplayMatchedPattern → pixRemoveMatchedPattern
+///
+/// The boundary method places hits/misses at specified distances from
+/// the pattern boundary — the most reliable of the three methods.
+#[test]
+fn findpattern2_reg_boundary_sel() {
+    let mut rp = RegParams::new("findpat2_boundary");
+
+    let page_bin = load_binary("asterisk.png");
+    let template_bin = load_binary("one-asterisk.png");
+
+    // Generate SEL using boundary method
+    let sel = generate_sel_boundary(&template_bin, 2, 4, 1, 1, true, true, true, true)
+        .expect("generate_sel_boundary");
+    let (sh, sw, _, _) = sel.get_parameters();
+    assert!(sh > 0 && sw > 0, "boundary SEL dimensions > 0");
+
+    let hmt = hit_miss_transform(&page_bin, &sel).expect("hmt boundary");
+    rp.write_pix_and_check(&hmt, ImageFormat::Tiff)
+        .expect("write boundary hmt");
+
+    let x0 = sel.origin_x() as i32;
+    let y0 = sel.origin_y() as i32;
+
+    // Display and remove matches
+    let displayed =
+        display_matched_pattern(&page_bin, &template_bin, &hmt, x0, y0, 0xff000000, 1.0)
+            .expect("display boundary matches");
+    rp.write_pix_and_check(&displayed, ImageFormat::Tiff)
+        .expect("write displayed boundary");
+
+    let removed = remove_matched_pattern(&page_bin, &template_bin, &hmt, x0, y0, 2)
+        .expect("remove boundary matches");
+    rp.write_pix_and_check(&removed, ImageFormat::Tiff)
+        .expect("write removed boundary");
+
+    assert!(rp.cleanup(), "findpattern2 boundary_sel test failed");
+}
+
+/// Test run-based SEL generation.
+///
+/// C: pixGenerateSelWithRuns(pixt, nhlines=5, nvlines=5, distance=1, min_length=3, ...)
+///    pixHMT → pixDisplayMatchedPattern
+///
+/// The runs method samples horizontal/vertical lines through the pattern.
+#[test]
+fn findpattern2_reg_runs_sel() {
+    let mut rp = RegParams::new("findpat2_runs");
+
+    let page_bin = load_binary("asterisk.png");
+    let template_bin = load_binary("one-asterisk.png");
+
+    // Generate SEL using runs method (5 horizontal + 5 vertical lines, min run length=3)
+    let sel = generate_sel_with_runs(&template_bin, 5, 5, 1, 3, 2, 2, 2, 2)
+        .expect("generate_sel_with_runs");
+    let (sh, sw, _, _) = sel.get_parameters();
+    assert!(sh > 0 && sw > 0, "runs SEL dimensions > 0");
+
+    let hmt = hit_miss_transform(&page_bin, &sel).expect("hmt runs");
+    rp.write_pix_and_check(&hmt, ImageFormat::Tiff)
+        .expect("write runs hmt");
+
+    let x0 = sel.origin_x() as i32;
+    let y0 = sel.origin_y() as i32;
+
+    let displayed =
+        display_matched_pattern(&page_bin, &template_bin, &hmt, x0, y0, 0xff000000, 1.0)
+            .expect("display runs matches");
+    rp.write_pix_and_check(&displayed, ImageFormat::Tiff)
+        .expect("write displayed runs");
+
+    assert!(rp.cleanup(), "findpattern2 runs_sel test failed");
+}
+
+/// Test random SEL generation.
+///
+/// C: pixGenerateSelRandom(pixt, hit_fract=0.5, miss_fract=0.5, distance=2, ...)
+///    pixHMT → pixDisplayMatchedPattern
+///
+/// The random method subsamples safe FG/BG pixels at given fractions.
+#[test]
+fn findpattern2_reg_random_sel() {
+    let mut rp = RegParams::new("findpat2_random");
+
+    let page_bin = load_binary("asterisk.png");
+    let template_bin = load_binary("one-asterisk.png");
+
+    // Generate SEL using random method (50% hit, 50% miss fractions)
+    let sel =
+        generate_sel_random(&template_bin, 0.5, 0.5, 2, 2, 2, 2, 2).expect("generate_sel_random");
+    let (sh, sw, _, _) = sel.get_parameters();
+    assert!(sh > 0 && sw > 0, "random SEL dimensions > 0");
+
+    let hmt = hit_miss_transform(&page_bin, &sel).expect("hmt random");
+    rp.write_pix_and_check(&hmt, ImageFormat::Tiff)
+        .expect("write random hmt");
+
+    let x0 = sel.origin_x() as i32;
+    let y0 = sel.origin_y() as i32;
+
+    let displayed =
+        display_matched_pattern(&page_bin, &template_bin, &hmt, x0, y0, 0xff000000, 1.0)
+            .expect("display random matches");
+    rp.write_pix_and_check(&displayed, ImageFormat::Tiff)
+        .expect("write displayed random");
+
+    assert!(rp.cleanup(), "findpattern2 random_sel test failed");
 }
