@@ -329,9 +329,21 @@ fn colorfill_reg_expand_replicate() {
     rp.write_pix_and_check(&exp32, leptonica::io::ImageFormat::Tiff)
         .expect("write expand 32bpp x2");
 
-    rp.compare_values(1.0, 1.0, 0.0); // expansion factor=1 should be no-op
+    // expansion factor=1 should be a no-op: dimensions, depth, and pixels unchanged
     let exp1 = expand_replicate(&pix8, 1).expect("expand factor=1");
     assert_eq!(exp1.width(), pix8.width());
+    assert_eq!(exp1.height(), pix8.height());
+    assert_eq!(exp1.depth(), pix8.depth());
+    for y in 0..pix8.height() {
+        for x in 0..pix8.width() {
+            let orig = pix8.get_pixel(x, y).expect("get original pixel");
+            let expanded = exp1.get_pixel(x, y).expect("get expanded pixel");
+            assert_eq!(
+                orig, expanded,
+                "pixel mismatch at ({x}, {y}) for factor=1 expand"
+            );
+        }
+    }
 
     assert!(rp.cleanup(), "colorfill expand_replicate test failed");
 }
