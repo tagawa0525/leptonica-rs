@@ -73,7 +73,7 @@ Phase 5 で拡充した speckle_reg (1.48x)、psioseg_reg (1.37x)、findpattern1
 
 ### Ratio ≤ 0.8 のテスト分析（C ≥ 50ms、Rust実装あり）
 
-62 テストが該当。WPAC（write_pix_and_check）数の C/Rust 比較による分類:
+62 テストが該当。ここでの WPAC（write_pix_and_check）は、「テスト内でピクセルを書き込む処理（write_pix 系）を実行し、その結果を直後の check 系アサーションで検証する」1 組の操作を 1 カウントとした値。各テストの C 版・Rust 版の実行ログに出力される `write_pix_and_check=XXX` の行を集計したもので、処理したピクセル数と検証回数の近似指標としてテストの仕事量・カバレッジの proxy とみなす。以下では、この WPAC 数の C/Rust 比較による分類を行う:
 
 #### カテゴリ A: WPAC ギャップ大（C WPAC >> Rust WPAC）— テスト拡充が必要
 
