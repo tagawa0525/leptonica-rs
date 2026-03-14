@@ -104,6 +104,7 @@ def get_alltests_names() -> list[str]:
             f"Missing required file: {ALLTESTS_REG}\n"
             "The C leptonica source is not available.\n"
             "Please clone it manually:\n"
+            "    mkdir -p reference\n"
             "    git clone https://github.com/DanBloomberg/leptonica.git reference/leptonica"
         )
     content = ALLTESTS_REG.read_text(encoding="utf-8")
