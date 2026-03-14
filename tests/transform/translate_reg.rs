@@ -11,7 +11,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/translate_reg.c`
+//! C Leptonica: `prog/translate_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;

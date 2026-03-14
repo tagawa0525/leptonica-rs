@@ -8,7 +8,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/kernel_reg.c`
+//! C Leptonica: `prog/kernel_reg.c`
 
 use crate::common::RegParams;
 use leptonica::filter::{

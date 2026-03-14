@@ -1,6 +1,6 @@
 //! Color content analysis regression test
 //!
-//! C version: reference/leptonica/prog/colorcontent_reg.c
+//! C version: prog/colorcontent_reg.c
 //! Tests color_content, count_colors, is_grayscale, grayscale_histogram.
 
 use crate::common::{RegParams, load_test_image};

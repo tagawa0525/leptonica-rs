@@ -13,7 +13,7 @@ A pure Rust reimplementation of the [Leptonica](http://www.leptonica.org/) image
 
 [Leptonica](http://www.leptonica.org/) is an open-source C library for image processing and analysis, created and maintained by Dan Bloomberg. With approximately 240,000 lines of code and over 2,700 functions, it covers a broad range of operations from document image processing to natural image analysis. Leptonica has served as a foundational library for projects such as [Tesseract OCR](https://github.com/tesseract-ocr/tesseract/) and [OpenCV](https://github.com/opencv/opencv) for over 20 years.
 
-This project reimplements Leptonica's design and algorithms in Rust. The original C source code and documentation serve as the primary reference, included as a git submodule under `reference/leptonica/`.
+This project reimplements Leptonica's design and algorithms in Rust. The original [C source code](https://github.com/DanBloomberg/leptonica) and documentation serve as the primary reference.
 
 ## Porting Status
 
@@ -55,14 +55,17 @@ cargo test --all-features
 cargo clippy --all-features --all-targets
 ```
 
-### Fetching the C Reference
+### C Reference Source (Optional)
+
+Some porting documents and helper scripts reference the original C source at `reference/leptonica/`.
+To use them, clone the C source manually:
 
 ```bash
-git submodule update --init
+mkdir -p reference
+git clone https://github.com/DanBloomberg/leptonica.git reference/leptonica
 ```
 
-> **Note**: `.gitmodules` uses SSH URLs (`git@github.com:...`).
-> If SSH keys are not configured, change the URL to HTTPS format.
+The `reference/` directory is listed in `.gitignore` and will not be tracked by git.
 
 ## Documentation
 

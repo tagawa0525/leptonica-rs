@@ -1,6 +1,6 @@
 //! Edge detection regression test
 //!
-//! C version: reference/leptonica/prog/edge_reg.c
+//! C version: prog/edge_reg.c
 //!
 //! Tests Sobel edge filter, Laplacian edge detection, sharpening,
 //! unsharp masking, and emboss operations.

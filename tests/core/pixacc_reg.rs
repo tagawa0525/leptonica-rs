@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pixacc_reg.c` (not a separate
+//! C Leptonica: `prog/pixacc_reg.c` (not a separate
 //! regression test in C, but functionality from pixacc.c)
 
 use leptonica::core::pixacc::PixAcc;

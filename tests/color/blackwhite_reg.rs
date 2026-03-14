@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/blackwhite_reg.c`
+//! C Leptonica: `prog/blackwhite_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;

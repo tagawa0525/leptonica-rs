@@ -1,6 +1,6 @@
 //! Test background map extraction and application functions
 //!
-//! C版: reference/leptonica/src/adaptmap.c
+//! C版: src/adaptmap.c
 //! - pixGetBackgroundGrayMap
 //! - pixGetBackgroundRGBMap
 //! - pixGetInvBackgroundMap

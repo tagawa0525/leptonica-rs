@@ -5,7 +5,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pixa1_reg.c`
+//! C Leptonica: `prog/pixa1_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Box, Pix, Pixa, Pixaa, PixelDepth};

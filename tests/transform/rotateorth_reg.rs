@@ -1,6 +1,6 @@
 //! Orthogonal rotation regression test
 //!
-//! C version: `reference/leptonica/prog/rotateorth_reg.c`
+//! C version: `prog/rotateorth_reg.c`
 //!
 //! Tests orthogonal rotation operations across all bit depths:
 //!   1. Four successive 90-degree rotations = identity

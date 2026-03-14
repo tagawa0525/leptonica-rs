@@ -1,6 +1,6 @@
 //! Edge smoothness and two-sided edge regression tests
 //!
-//! C version: reference/leptonica/prog/edge_reg.c (extended)
+//! C version: prog/edge_reg.c (extended)
 //!
 //! Tests two-sided edge filter, edge smoothness measurement,
 //! and edge profile extraction.

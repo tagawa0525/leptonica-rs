@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/webpanimio_reg.c`
+//! C Leptonica: `prog/webpanimio_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::pixel;

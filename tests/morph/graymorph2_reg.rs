@@ -1,6 +1,6 @@
 //! Gray morphology 2 regression test
 //!
-//! C version: reference/leptonica/prog/graymorph2_reg.c
+//! C version: prog/graymorph2_reg.c
 //! Tests gray morphological operations with 3x1, 1x3, and 3x3 sizes.
 //!
 //! C版は pixDilateGray3 vs pixDilateGray 等の等価比較（12 compare_pix）。

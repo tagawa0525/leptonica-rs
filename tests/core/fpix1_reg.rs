@@ -5,7 +5,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/fpix1_reg.c`
+//! C Leptonica: `prog/fpix1_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;

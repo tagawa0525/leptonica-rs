@@ -13,7 +13,7 @@
 
 [Leptonica](http://www.leptonica.org/) は Dan Bloomberg 氏が開発・保守するC言語のオープンソース画像処理ライブラリである。約240,000行のコードに2,700以上の関数を収録し、ドキュメント画像処理から自然画像処理まで幅広い領域をカバーする。[Tesseract OCR](https://github.com/tesseract-ocr/tesseract/) や [OpenCV](https://github.com/opencv/opencv) をはじめとする多くのプロジェクトの基盤として20年以上にわたり利用されてきた。
 
-本プロジェクトは、Leptonicaの設計思想とアルゴリズムをRustで再実装するものである。C版のソースコードとドキュメントを一次資料として参照し、その機能を忠実に移植することを目指す。C版のソースはgit submoduleとして `reference/leptonica/` に配置し、常に原典を参照できるようにしている。
+本プロジェクトは、Leptonicaの設計思想とアルゴリズムをRustで再実装するものである。[C版のソースコード](https://github.com/DanBloomberg/leptonica)とドキュメントを一次資料として参照し、その機能を忠実に移植することを目指す。
 
 ## 移植状況
 
@@ -55,14 +55,17 @@ cargo test --all-features
 cargo clippy --all-features --all-targets
 ```
 
-### C版リファレンスの取得
+### C版リファレンスソース（オプション）
+
+移植資料やヘルパースクリプトの一部は `reference/leptonica/` にC版ソースがあることを前提とする。
+必要な場合は手動でcloneする:
 
 ```bash
-git submodule update --init
+mkdir -p reference
+git clone https://github.com/DanBloomberg/leptonica.git reference/leptonica
 ```
 
-> **注意**: `.gitmodules` ではSSH URL（`git@github.com:...`）を使用しています。
-> SSHキーが設定されていない環境では、HTTPS形式に変更してください。
+`reference/` ディレクトリは `.gitignore` に含まれており、gitで追跡されない。
 
 ## ドキュメント
 

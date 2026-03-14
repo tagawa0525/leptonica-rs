@@ -1,6 +1,6 @@
 //! Projective transform regression test
 //!
-//! C version: `reference/leptonica/prog/projective_reg.c`
+//! C version: `prog/projective_reg.c`
 //!
 //! Tests projective transforms including invertability and large distortions.
 //!

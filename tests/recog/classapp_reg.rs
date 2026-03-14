@@ -5,7 +5,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/classapp_reg.c` (partial)
+//! C Leptonica: `prog/classapp_reg.c` (partial)
 
 use crate::common::RegParams;
 use leptonica::core::{Box, Boxa, Numa, Numaa};

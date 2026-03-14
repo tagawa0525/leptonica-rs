@@ -549,7 +549,7 @@ pub fn max_filter(pix: &Pix, width: u32, height: u32) -> FilterResult<Pix> {
 
 // ---------------------------------------------------------------------------
 // Grayscale downscaling by rank / min-max selection
-// C reference: reference/leptonica/src/scale2.c
+// C reference: src/scale2.c
 // ---------------------------------------------------------------------------
 
 /// Operation type for [`scale_gray_min_max`].

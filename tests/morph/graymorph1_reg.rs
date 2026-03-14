@@ -1,6 +1,6 @@
 //! Gray morphology regression test 1
 //!
-//! C version: reference/leptonica/prog/graymorph1_reg.c
+//! C version: prog/graymorph1_reg.c
 //! Tests:
 //!   (1) Gray morph operations and gray_morph_sequence interpreter
 //!   (2) Composite operations: tophat

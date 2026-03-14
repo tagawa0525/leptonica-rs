@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/correlscore_reg.c`
+//! C Leptonica: `prog/correlscore_reg.c`
 
 use leptonica::core::{Pix, PixelDepth};
 use leptonica::recog::correlscore;

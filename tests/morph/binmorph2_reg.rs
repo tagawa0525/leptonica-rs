@@ -1,6 +1,6 @@
 //! Binary morphology regression test 2 - safe closing
 //!
-//! C版: reference/leptonica/prog/binmorph2_reg.c
+//! C版: prog/binmorph2_reg.c
 //! Safe closing操作をテスト。通常のclosingとsafe closingの比較。
 //!
 //! Safe closingはdilationで画像境界を超える部分を考慮して

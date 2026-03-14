@@ -1,6 +1,6 @@
 //! Test fast separable bilateral filtering
 //!
-//! C版: reference/leptonica/src/bilateral.c
+//! C版: src/bilateral.c
 //! - pixBilateral
 //! - pixBilateralGray
 

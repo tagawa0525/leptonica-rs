@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/textops_reg.c`
+//! C Leptonica: `prog/textops_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::bmf;

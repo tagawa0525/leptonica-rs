@@ -1,6 +1,6 @@
 //! Bilateral filtering regression test (exact)
 //!
-//! C version: reference/leptonica/prog/bilateral1_reg.c
+//! C version: prog/bilateral1_reg.c
 //!
 //! Tests bilateral filtering with both:
 //!   (1) Separable results with full res intermediate images (pixBilateral with reduction=1,2)

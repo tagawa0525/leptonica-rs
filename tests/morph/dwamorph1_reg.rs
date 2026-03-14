@@ -1,6 +1,6 @@
 //! DWA morphology regression test
 //!
-//! C版: reference/leptonica/prog/dwamorph1_reg.c
+//! C版: prog/dwamorph1_reg.c
 //! DWA (destination word accumulation) 高速morphology操作をテスト。
 //! DWA結果が通常のbrick操作と一致することを検証。
 

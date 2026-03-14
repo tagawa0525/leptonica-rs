@@ -5,7 +5,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/boxa1_reg.c`
+//! C Leptonica: `prog/boxa1_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Box, Boxa};

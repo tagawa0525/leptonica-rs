@@ -1,6 +1,6 @@
 //! Test pixExtendByReplication()
 //!
-//! C版: reference/leptonica/src/adaptmap.c:pixExtendByReplication()
+//! C版: src/adaptmap.c:pixExtendByReplication()
 
 use leptonica::filter::extend_by_replication;
 use leptonica::{Pix, PixelDepth};

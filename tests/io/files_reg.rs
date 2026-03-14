@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/files_reg.c`
+//! C Leptonica: `prog/files_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::{ImageFormat, pixa_read_files, pixa_write_files, read_image, write_image};

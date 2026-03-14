@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pixmem_reg.c`
+//! C Leptonica: `prog/pixmem_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Pix, PixelDepth};

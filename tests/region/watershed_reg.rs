@@ -1,6 +1,6 @@
 //! Watershed segmentation regression test
 //!
-//! C reference: reference/leptonica/prog/watershed_reg.c
+//! C reference: prog/watershed_reg.c
 //!
 //! Verifies:
 //! 1. Local minima and maxima detection in synthetic images

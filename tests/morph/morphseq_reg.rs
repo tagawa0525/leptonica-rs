@@ -1,6 +1,6 @@
 //! Morphological sequence regression test
 //!
-//! C version: reference/leptonica/prog/morphseq_reg.c
+//! C version: prog/morphseq_reg.c
 //! Tests morph_sequence and gray_morph_sequence interpreters,
 //! including display mode and rejection of invalid sequence components.
 //!

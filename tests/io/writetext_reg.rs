@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/writetext_reg.c`
+//! C Leptonica: `prog/writetext_reg.c`
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::color::{threshold_to_2bpp, threshold_to_4bpp, threshold_to_binary};

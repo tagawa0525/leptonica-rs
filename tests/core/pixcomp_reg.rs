@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pixcomp_reg.c`
+//! C Leptonica: `prog/pixcomp_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::pixcomp::{PixComp, PixaComp};

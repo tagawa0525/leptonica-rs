@@ -1,3 +1,0 @@
-[submodule "reference/leptonica"]
-	path = reference/leptonica
-	url = git@github.com:DanBloomberg/leptonica.git

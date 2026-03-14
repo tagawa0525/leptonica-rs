@@ -12,7 +12,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pixadisp_reg.c`
+//! C Leptonica: `prog/pixadisp_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;

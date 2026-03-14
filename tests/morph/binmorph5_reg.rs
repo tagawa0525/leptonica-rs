@@ -1,6 +1,6 @@
 //! Binary morphology regression test 5
 //!
-//! C version: reference/leptonica/prog/binmorph5_reg.c
+//! C version: prog/binmorph5_reg.c
 //! Tests expanded DWA composite morph comparison.
 //! Compares DWA composite operations with standard morph operations
 //! for larger sizes (up to 240).

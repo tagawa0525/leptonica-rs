@@ -1,6 +1,6 @@
 //! Page segmentation regression test
 //!
-//! C版: reference/leptonica/prog/pageseg_reg.c
+//! C版: prog/pageseg_reg.c
 //! ページセグメンテーション（ハーフトーン/テキストライン/テキストブロック領域分離）をテスト。
 //!
 //! C版テストの構成:

@@ -1,6 +1,6 @@
 //! Test morph-based background map extraction and normalization
 //!
-//! C版: reference/leptonica/src/adaptmap.c
+//! C版: src/adaptmap.c
 //! - pixBackgroundNormMorph
 //! - pixBackgroundNormGrayArrayMorph
 //! - pixBackgroundNormRGBArraysMorph

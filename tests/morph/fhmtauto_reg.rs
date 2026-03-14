@@ -1,6 +1,6 @@
 //! FHMT auto-generated code regression test
 //!
-//! C version: reference/leptonica/prog/fhmtauto_reg.c
+//! C version: prog/fhmtauto_reg.c
 //! Tests hit-miss transform (HMT) on a binary image.
 //! C版は auto-gen pixFHMTGen_1 / pixHMTDwa_1 vs pixHMT を比較。
 //! Rust版は pixHMT 結果のgolden化 + 性質検証。

@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/logicops_reg.c`
+//! C Leptonica: `prog/logicops_reg.c`
 
 use crate::common::RegParams;
 use leptonica::Pix;

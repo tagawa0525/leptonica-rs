@@ -8,7 +8,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pixa2_reg.c`
+//! C Leptonica: `prog/pixa2_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::pix::statistics::PixelMaxType;

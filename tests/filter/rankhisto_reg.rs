@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/rankhisto_reg.c`
+//! C Leptonica: `prog/rankhisto_reg.c`
 
 use crate::common::RegParams;
 use leptonica::filter::{gamma_trc_pix, rank_filter, rank_filter_color};

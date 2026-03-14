@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/psioseg_reg.c`
+//! C Leptonica: `prog/psioseg_reg.c`
 
 use crate::common::RegParams;
 use leptonica::color::{OctreeOptions, octree_quant, octree_quant_num_colors};

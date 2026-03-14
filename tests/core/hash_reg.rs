@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/hash_reg.c`
+//! C Leptonica: `prog/hash_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::pix::HashOrientation;

@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/encoding_reg.c`
+//! C Leptonica: `prog/encoding_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::encoding;

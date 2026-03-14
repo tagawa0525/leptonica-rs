@@ -19,7 +19,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/compfilter_reg.c`
+//! C Leptonica: `prog/compfilter_reg.c`
 
 // ---------------------------------------------------------------------------
 // Helper: count connected components in a 1-bpp Pix (8-way)

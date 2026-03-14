@@ -1,6 +1,6 @@
 //! Test advanced adaptive mapping functions
 //!
-//! C版: reference/leptonica/src/adaptmap.c
+//! C版: src/adaptmap.c
 //! - pixApplyVariableGrayMap
 //! - pixGlobalNormRGB
 //! - pixConvertTo8MinMax

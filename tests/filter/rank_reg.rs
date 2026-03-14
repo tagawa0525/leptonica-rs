@@ -1,6 +1,6 @@
 //! Rank filter regression test
 //!
-//! C version: reference/leptonica/prog/rank_reg.c
+//! C version: prog/rank_reg.c
 //!
 //! Tests grayscale and color rank filter functions:
 //!   (1) pixRankFilterGray() -> rank_filter_gray()

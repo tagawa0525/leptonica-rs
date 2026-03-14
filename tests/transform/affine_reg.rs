@@ -1,6 +1,6 @@
 //! Affine transform regression test
 //!
-//! C version: `reference/leptonica/prog/affine_reg.c`
+//! C version: `prog/affine_reg.c`
 //!
 //! Tests affine transforms including invertability and large distortions.
 //!

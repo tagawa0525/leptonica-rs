@@ -34,7 +34,7 @@ leptonica-rs/
 │   ├── leptonica-recog/          # 文字認識・バーコード・デワープ・スキュー
 │   └── leptonica-test/           # 回帰テストインフラ（RegParams, compare_* 等）
 ├── leptonica/                    # ファサードcrate（全crateのre-export）
-└── reference/leptonica/          # C版 leptonica（git submodule）
+└── reference/leptonica/          # C版 leptonica（手動clone）
 ```
 
 ### 依存関係（実際の構成）

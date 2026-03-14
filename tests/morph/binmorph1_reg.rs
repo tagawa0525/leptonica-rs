@@ -1,6 +1,6 @@
 //! Binary morphology regression test
 //!
-//! C version: reference/leptonica/prog/binmorph1_reg.c
+//! C version: prog/binmorph1_reg.c
 //! Tests dilation, erosion, opening, and closing operations.
 //!
 //! C版は複数アルゴリズム（rasterop, dwa, sequence）間の等価比較がメイン。

@@ -5,7 +5,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/insert_reg.c`
+//! C Leptonica: `prog/insert_reg.c`
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::{Box, Boxa, Numa};

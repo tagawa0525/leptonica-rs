@@ -6,7 +6,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/enhance_reg.c`
+//! C Leptonica: `prog/enhance_reg.c`
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;

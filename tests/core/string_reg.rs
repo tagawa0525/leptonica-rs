@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/string_reg.c`
+//! C Leptonica: `prog/string_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Sarray, Sarraya};

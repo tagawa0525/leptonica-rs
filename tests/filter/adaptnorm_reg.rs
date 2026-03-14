@@ -1,6 +1,6 @@
 //! Adaptive normalization regression test
 //!
-//! C version: reference/leptonica/prog/adaptnorm_reg.c
+//! C version: prog/adaptnorm_reg.c
 //!
 //! Tests adaptive normalization for two extreme cases:
 //!   (1) Variable and low contrast -> pixContrastNorm pipeline

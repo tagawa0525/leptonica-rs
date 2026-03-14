@@ -13,7 +13,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/paint_reg.c`
+//! C Leptonica: `prog/paint_reg.c`
 
 use crate::common::RegParams;
 use leptonica::color::{ColorGrayOptions, PaintType, pix_color_gray, threshold_to_binary};

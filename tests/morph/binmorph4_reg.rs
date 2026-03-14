@@ -1,6 +1,6 @@
 //! Binary morphology regression test 4
 //!
-//! C version: reference/leptonica/prog/binmorph4_reg.c
+//! C version: prog/binmorph4_reg.c
 //! Tests DWA brick vs standard morph comparison.
 //! Compares DWA brick operations with standard brick operations
 //! for various sizes to ensure they produce identical results.

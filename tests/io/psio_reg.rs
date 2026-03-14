@@ -9,7 +9,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/psio_reg.c`
+//! C Leptonica: `prog/psio_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ps::{PsLevel, PsOptions};

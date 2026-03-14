@@ -1,6 +1,6 @@
 //! Rank filter with scaling regression test
 //!
-//! C version: reference/leptonica/prog/rank_reg.c (extended)
+//! C version: prog/rank_reg.c (extended)
 //!
 //! Tests accelerated rank filtering via downscaling.
 //!

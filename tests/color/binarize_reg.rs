@@ -1,6 +1,6 @@
 //! Binarization regression test
 //!
-//! C version: reference/leptonica/prog/binarize_reg.c
+//! C version: prog/binarize_reg.c
 //! Tests Otsu, adaptive threshold, Sauvola and other binarization methods.
 //!
 //! Expanded in Phase 5 to add tiled Sauvola, sauvola_on_contrast_norm,

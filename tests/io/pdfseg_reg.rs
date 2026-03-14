@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pdfseg_reg.c`
+//! C Leptonica: `prog/pdfseg_reg.c`
 
 use crate::common::RegParams;
 

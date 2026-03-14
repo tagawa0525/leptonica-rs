@@ -2,7 +2,7 @@
 //!
 //! This test corresponds to conncomp_reg.c in the C version.
 //!
-//! C reference: reference/leptonica/prog/conncomp_reg.c
+//! C reference: prog/conncomp_reg.c
 //!
 //! Verifies:
 //! 1. 4-way and 8-way connected component counting

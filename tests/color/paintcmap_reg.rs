@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/paintcmap_reg.c`
+//! C Leptonica: `prog/paintcmap_reg.c`
 
 use leptonica::core::{Pix, PixColormap, PixelDepth, RgbaQuad};
 

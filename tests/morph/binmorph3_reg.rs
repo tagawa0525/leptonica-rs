@@ -1,6 +1,6 @@
 //! Binary morphology regression test 3 - boundary conditions
 //!
-//! C版: reference/leptonica/prog/binmorph3_reg.c
+//! C版: prog/binmorph3_reg.c
 //! 境界条件でのmorphology操作をテスト。
 //! 1x1 identity, 分離可能性, 次元保持を検証。
 //!

@@ -6,7 +6,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/xformbox_reg.c`
+//! C Leptonica: `prog/xformbox_reg.c`
 
 use crate::common::RegParams;
 use leptonica::transform::AffineMatrix;

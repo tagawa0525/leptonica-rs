@@ -1,6 +1,6 @@
 //! Colormap quantization regression test
 //!
-//! C version: reference/leptonica/prog/cmapquant_reg.c
+//! C version: prog/cmapquant_reg.c
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::color::{

@@ -1,6 +1,6 @@
 //! Rotation regression test 1 - basic rotation and flip operations
 //!
-//! C version: `reference/leptonica/prog/rotate1_reg.c`
+//! C version: `prog/rotate1_reg.c`
 //!
 //! Tests basic orthogonal rotation and flip operations:
 //!   1. Four successive 90-degree rotations = identity (all depths)
