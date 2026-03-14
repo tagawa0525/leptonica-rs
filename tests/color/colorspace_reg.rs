@@ -1,6 +1,6 @@
 //! Colorspace conversion regression test
 //!
-//! C version: reference/leptonica/prog/colorspace_reg.c
+//! C version: prog/colorspace_reg.c
 //! Tests RGB<->HSV, RGB<->Lab, RGB<->YUV conversions.
 //!
 //! Expanded in Phase 5 to add:

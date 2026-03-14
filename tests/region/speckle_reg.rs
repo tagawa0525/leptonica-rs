@@ -6,11 +6,11 @@
 //! Expanded in Phase 5 to implement the full speckle removal pipeline:
 //! background_norm_flex → gamma_trc_masked → threshold → HMT → dilate → subtract
 //!
-//! C version: `reference/leptonica/prog/speckle_reg.c`
+//! C version: `prog/speckle_reg.c`
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/speckle_reg.c`
+//! C Leptonica: `prog/speckle_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

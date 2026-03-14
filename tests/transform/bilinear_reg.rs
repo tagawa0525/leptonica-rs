@@ -1,6 +1,6 @@
 //! Bilinear transform regression test
 //!
-//! C version: `reference/leptonica/prog/bilinear_reg.c`
+//! C version: `prog/bilinear_reg.c`
 //!
 //! Tests bilinear transforms including invertability and large distortions.
 //!

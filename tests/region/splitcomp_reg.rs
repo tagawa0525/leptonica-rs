@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/splitcomp_reg.c`
+//! C Leptonica: `prog/splitcomp_reg.c`
 
 use crate::common::RegParams;
 use leptonica::region::conncomp::count_conn_comp;

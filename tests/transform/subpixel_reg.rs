@@ -9,7 +9,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/subpixel_reg.c`
+//! C Leptonica: `prog/subpixel_reg.c`
 
 /// Test grayscale-to-subpixel-RGB conversion (C check 0).
 ///

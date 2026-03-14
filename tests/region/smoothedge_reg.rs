@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/smoothedge_reg.c`
+//! C Leptonica: `prog/smoothedge_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;

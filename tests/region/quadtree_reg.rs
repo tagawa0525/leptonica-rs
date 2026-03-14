@@ -1,6 +1,6 @@
 //! Quadtree regression test
 //!
-//! C reference: reference/leptonica/prog/quadtree_reg.c
+//! C reference: prog/quadtree_reg.c
 //!
 //! Verifies:
 //! 1. quadtree_regions generates correct box hierarchies (C regTest 0-1)

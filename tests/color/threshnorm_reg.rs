@@ -9,7 +9,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/threshnorm_reg.c`
+//! C Leptonica: `prog/threshnorm_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

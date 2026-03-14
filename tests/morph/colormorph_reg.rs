@@ -1,6 +1,6 @@
 //! Color morphology regression test
 //!
-//! C version: reference/leptonica/prog/colormorph_reg.c
+//! C version: prog/colormorph_reg.c
 //! Tests dilate_color, erode_color, open_color, close_color and compares
 //! direct operations with color_morph_sequence results.
 //!

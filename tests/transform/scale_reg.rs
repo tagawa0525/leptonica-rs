@@ -1,6 +1,6 @@
 //! Scale regression test
 //!
-//! C version: `reference/leptonica/prog/scale_reg.c`
+//! C version: `prog/scale_reg.c`
 //!
 //! Tests various scaling operations:
 //!   1. Scale up by 2x — dimensions double

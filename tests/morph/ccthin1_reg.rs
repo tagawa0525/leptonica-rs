@@ -1,6 +1,6 @@
 //! Connected-component thinning 1 regression test
 //!
-//! C version: reference/leptonica/prog/ccthin1_reg.c
+//! C version: prog/ccthin1_reg.c
 //! Tests generation and display of thinning structuring element sets,
 //! and applies thinning to a clipped region of feyn.tif.
 //!

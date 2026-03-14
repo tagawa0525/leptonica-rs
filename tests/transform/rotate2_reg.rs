@@ -1,6 +1,6 @@
 //! Rotation regression test 2 - advanced arbitrary angle rotation
 //!
-//! C version: `reference/leptonica/prog/rotate2_reg.c`
+//! C version: `prog/rotate2_reg.c`
 //!
 //! Tests various rotation methods (shear, sampling, area-map) at different
 //! angles, comparing results across methods and validating that rotated images

@@ -102,9 +102,9 @@ def get_alltests_names() -> list[str]:
     if not ALLTESTS_REG.exists():
         raise FileNotFoundError(
             f"Missing required file: {ALLTESTS_REG}\n"
-            "The leptonica reference submodule may not be checked out.\n"
-            "Please run:\n"
-            "    git submodule update --init --recursive"
+            "The C leptonica source is not available.\n"
+            "Please clone it manually:\n"
+            "    git clone https://github.com/DanBloomberg/leptonica.git reference/leptonica"
         )
     content = ALLTESTS_REG.read_text(encoding="utf-8")
     names = re.findall(r'"([a-z0-9_]+)_reg"', content)

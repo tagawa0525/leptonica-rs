@@ -8,7 +8,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/jp2kio_reg.c`
+//! C Leptonica: `prog/jp2kio_reg.c`
 
 use crate::common::RegParams;
 

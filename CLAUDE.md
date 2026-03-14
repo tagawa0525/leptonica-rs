@@ -92,7 +92,7 @@ src/
 
 ## テスト
 
-- 回帰テスト: C版 `reference/leptonica/prog/*_reg.c` に対応
+- 回帰テスト: C版 `prog/*_reg.c` に対応
 - テストデータ: `tests/data/images/`
 - ハッシュ manifest: `tests/golden_manifest.tsv`（git 管理、CI で出力変化を検出）
 - ローカル golden: `tests/golden/`（.gitignore、デバッグ用）
@@ -155,4 +155,4 @@ pub struct PixMut { inner: PixData }     // 可変・直接所有
 
 `docs/porting/`: prompt.md, overall-plan.md, feature-comparison.md, test-comparison.md
 
-C版ソース: `reference/leptonica/`（`git submodule update --init`）
+C版ソース: https://github.com/DanBloomberg/leptonica（必要に応じて `reference/leptonica/` に手動clone）

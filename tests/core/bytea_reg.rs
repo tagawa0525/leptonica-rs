@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/bytea_reg.c`
+//! C Leptonica: `prog/bytea_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Pix, PixMut, PixelDepth, decode_base64, encode_base64};

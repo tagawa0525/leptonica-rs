@@ -8,7 +8,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/binmorph6_reg.c`
+//! C Leptonica: `prog/binmorph6_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

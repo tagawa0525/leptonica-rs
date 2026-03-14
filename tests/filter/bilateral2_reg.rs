@@ -1,6 +1,6 @@
 //! Bilateral filtering regression test (parameter variations)
 //!
-//! C version: reference/leptonica/prog/bilateral2_reg.c
+//! C version: prog/bilateral2_reg.c
 //!
 //! Tests bilateral filtering with various spatial/range stdev combinations.
 //!

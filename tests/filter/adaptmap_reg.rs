@@ -1,6 +1,6 @@
 //! Adaptive mapping regression test
 //!
-//! C version: reference/leptonica/prog/adaptmap_reg.c
+//! C version: prog/adaptmap_reg.c
 //!
 //! Tests adaptive background normalization and contrast normalization.
 //!

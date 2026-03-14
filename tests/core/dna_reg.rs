@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/dna_reg.c`
+//! C Leptonica: `prog/dna_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Numa, Numaa, SortOrder};

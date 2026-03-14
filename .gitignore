@@ -1,3 +1,4 @@
 /target
+/reference/
 /tests/golden/
 /tests/regout/

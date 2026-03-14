@@ -1,6 +1,6 @@
 //! Component borders regression test
 //!
-//! C reference: reference/leptonica/prog/ccbord_reg.c
+//! C reference: prog/ccbord_reg.c
 //!
 //! Verifies:
 //! 1. get_all_borders retrieves all borders (outer + holes)

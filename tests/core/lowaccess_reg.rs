@@ -8,7 +8,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/lowaccess_reg.c`
+//! C Leptonica: `prog/lowaccess_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::pix::{

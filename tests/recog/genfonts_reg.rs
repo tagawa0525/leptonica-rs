@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/genfonts_reg.c`
+//! C Leptonica: `prog/genfonts_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;

@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/equal_reg.c`
+//! C Leptonica: `prog/equal_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::pix::RemoveColormapTarget;

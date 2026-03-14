@@ -1,6 +1,6 @@
 //! Half-edge by bandpass regression test
 //!
-//! C version: reference/leptonica/prog/enhance_reg.c (extended)
+//! C version: prog/enhance_reg.c (extended)
 //!
 //! Tests half-edge detection using bandpass filtering.
 //!

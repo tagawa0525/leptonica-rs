@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/falsecolor_reg.c`
+//! C Leptonica: `prog/falsecolor_reg.c`
 
 use crate::common::RegParams;
 use leptonica::color::{

@@ -1,6 +1,6 @@
 //! Color segmentation regression test
 //!
-//! C version: reference/leptonica/prog/colorseg_reg.c
+//! C version: prog/colorseg_reg.c
 //! Tests color_segment, color_segment_simple, color_segment_cluster.
 
 use crate::common::{RegParams, load_test_image};

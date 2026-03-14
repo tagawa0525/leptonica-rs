@@ -1,6 +1,6 @@
 //! DWA morphology regression test 2
 //!
-//! C version: reference/leptonica/prog/dwamorph2_reg.c
+//! C version: prog/dwamorph2_reg.c
 //! Compares timing and correctness of various binary morphological
 //! implementations: standard brick, DWA brick.
 //!

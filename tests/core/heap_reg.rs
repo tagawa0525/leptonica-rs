@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/heap_reg.c`
+//! C Leptonica: `prog/heap_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Numa, SortOrder};

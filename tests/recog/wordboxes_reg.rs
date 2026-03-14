@@ -12,7 +12,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/wordboxes_reg.c`
+//! C Leptonica: `prog/wordboxes_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

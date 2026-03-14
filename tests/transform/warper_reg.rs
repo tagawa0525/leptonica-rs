@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/warper_reg.c`
+//! C Leptonica: `prog/warper_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

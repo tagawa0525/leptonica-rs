@@ -1,6 +1,6 @@
 //! Connected-component thinning 2 regression test
 //!
-//! C version: reference/leptonica/prog/ccthin2_reg.c
+//! C version: prog/ccthin2_reg.c
 //! Tests thin_connected_by_set with various SEL sets on a clipped region
 //! of feyn.tif.
 //!

@@ -1,6 +1,6 @@
 //! Labeling regression test
 //!
-//! C reference: reference/leptonica/prog/label_reg.c
+//! C reference: prog/label_reg.c
 //!
 //! Verifies:
 //! 1. 4-connected and 8-connected labeling produce correct dimensions

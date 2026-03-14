@@ -9,7 +9,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/rankbin_reg.c`
+//! C Leptonica: `prog/rankbin_reg.c`
 
 use crate::common::RegParams;
 use leptonica::filter::{max_filter, median_filter, min_filter, rank_filter_gray};

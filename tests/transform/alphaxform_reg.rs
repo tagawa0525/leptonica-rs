@@ -11,7 +11,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/alphaxform_reg.c`
+//! C Leptonica: `prog/alphaxform_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

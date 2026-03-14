@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/rasterop_reg.c`
+//! C Leptonica: `prog/rasterop_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{InColor, Pix, RopOp};

@@ -6,7 +6,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pta_reg.c`
+//! C Leptonica: `prog/pta_reg.c`
 
 use crate::common::RegParams;
 use leptonica::{Pta, Ptaa};

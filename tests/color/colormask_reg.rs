@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/colormask_reg.c`
+//! C Leptonica: `prog/colormask_reg.c`
 
 /// Test HSV histogram peak detection and mask generation (C checks 0-10).
 ///

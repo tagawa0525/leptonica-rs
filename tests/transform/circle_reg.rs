@@ -10,7 +10,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/circle_reg.c`
+//! C Leptonica: `prog/circle_reg.c`
 
 use leptonica::morph::erode_brick;
 use leptonica::region::{ConnectivityType, conncomp::count_conn_comp};

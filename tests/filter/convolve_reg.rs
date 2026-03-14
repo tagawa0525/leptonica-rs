@@ -1,6 +1,6 @@
 //! Convolution regression test
 //!
-//! C version: reference/leptonica/prog/convolve_reg.c
+//! C version: prog/convolve_reg.c
 //!
 //! Tests convolution, box blur, Gaussian blur, census transform,
 //! blockconv, blockrank, blocksum, and windowed statistics operations.

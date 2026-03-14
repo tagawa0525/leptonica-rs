@@ -5,7 +5,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/rectangle_reg.c`
+//! C Leptonica: `prog/rectangle_reg.c`
 
 /// Test finding largest rectangles iteratively in image background.
 ///

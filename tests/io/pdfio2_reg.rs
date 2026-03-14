@@ -9,7 +9,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pdfio2_reg.c`
+//! C Leptonica: `prog/pdfio2_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::pdf::PdfOptions;

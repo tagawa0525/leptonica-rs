@@ -11,7 +11,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/partition_reg.c`
+//! C Leptonica: `prog/partition_reg.c`
 
 use crate::common::RegParams;
 use leptonica::color::threshold_to_binary;

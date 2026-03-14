@@ -11,7 +11,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/flipdetect_reg.c`
+//! C Leptonica: `prog/flipdetect_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

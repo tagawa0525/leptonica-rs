@@ -1,6 +1,6 @@
 //! Baseline detection regression test
 //!
-//! C版: reference/leptonica/prog/baseline_reg.c
+//! C版: prog/baseline_reg.c
 //! テキスト画像のベースライン(テキスト行の基準線)検出をテスト。
 //!
 //! C版テストの構成:

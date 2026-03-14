@@ -1,6 +1,6 @@
 //! Color quantization regression test
 //!
-//! C version: reference/leptonica/prog/colorquant_reg.c
+//! C version: prog/colorquant_reg.c
 //! Tests MedianCut and Octree quantization with various parameters.
 
 use crate::common::{RegParams, load_test_image};

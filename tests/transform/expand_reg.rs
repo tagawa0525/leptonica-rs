@@ -7,7 +7,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/expand_reg.c`
+//! C Leptonica: `prog/expand_reg.c`
 
 use crate::common::RegParams;
 use leptonica::PixelDepth;

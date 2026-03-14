@@ -12,7 +12,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/blend4_reg.c`
+//! C Leptonica: `prog/blend4_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;

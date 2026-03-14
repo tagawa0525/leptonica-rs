@@ -8,7 +8,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/numa2_reg.c`
+//! C Leptonica: `prog/numa2_reg.c`
 
 use crate::common::RegParams;
 use leptonica::Numa;

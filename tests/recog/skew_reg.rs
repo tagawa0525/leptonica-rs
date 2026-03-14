@@ -1,6 +1,6 @@
 //! Skew detection regression test
 //!
-//! C版: reference/leptonica/prog/skew_reg.c
+//! C版: prog/skew_reg.c
 //! テキスト画像のスキュー(傾き)検出と補正をテスト。
 
 use crate::common::{RegParams, load_test_image};

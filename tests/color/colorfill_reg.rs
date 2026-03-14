@@ -1,6 +1,6 @@
 //! Color fill regression test
 //!
-//! C version: reference/leptonica/prog/colorfill_reg.c
+//! C version: prog/colorfill_reg.c
 //! Tests color_fill, color_fill_from_seed, pixel_is_on_color_boundary.
 //!
 //! Expanded in Phase 5 to add:

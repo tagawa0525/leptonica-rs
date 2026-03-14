@@ -11,7 +11,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/crop_reg.c`
+//! C Leptonica: `prog/crop_reg.c`
 
 use crate::common::RegParams;
 use leptonica::Box as LeptBox;

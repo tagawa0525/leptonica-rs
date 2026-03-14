@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/pixtile_reg.c`
+//! C Leptonica: `prog/pixtile_reg.c`
 
 use crate::common::RegParams;
 use leptonica::core::pixtiling::PixTiling;

@@ -4,7 +4,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/nearline_reg.c`
+//! C Leptonica: `prog/nearline_reg.c`
 
 use crate::common::RegParams;
 use leptonica::recog::pageseg::{

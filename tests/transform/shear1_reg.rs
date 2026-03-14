@@ -9,7 +9,7 @@
 //!
 //! # See also
 //!
-//! C Leptonica: `reference/leptonica/prog/shear1_reg.c`
+//! C Leptonica: `prog/shear1_reg.c`
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;
