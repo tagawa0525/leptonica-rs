@@ -293,19 +293,20 @@ Rust独自: conncomp_ext, seedfill_ext
 
 ## 品質比較
 
-| 観点             | C版                    | Rust版                          |
-| ---------------- | ---------------------- | ------------------------------- |
-| **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + goldenファイル   |
-| **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応      |
-| **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応           |
-| **統合テスト**   | alltests_reg.c         | 205ファイル（全crate *_reg.rs） |
-| **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像      |
-| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数      |
+| 観点             | C版                    | Rust版                                        |
+| ---------------- | ---------------------- | --------------------------------------------- |
+| **回帰テスト**   | ゴールデンファイル比較 | ✅ RegParams + golden manifest (FNV-1a hash)  |
+| **視覚テスト**   | 画像出力・目視確認     | REGTEST_MODE=displayで対応                    |
+| **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応                         |
+| **統合テスト**   | alltests_reg.c         | 205ファイル（全crate *_reg.rs）               |
+| **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像                    |
+| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数                    |
 
 ## 参考
 
 - C版ソース: `reference/leptonica/prog/*_reg.c`
 - Rust版回帰テスト: `tests/**/*_reg.rs`
 - 回帰テストモード: `REGTEST_MODE={generate,compare,display}`
-- goldenファイル: `tests/golden/`（コミット対象）
+- golden manifest: `tests/golden_manifest.tsv`（git管理、FNV-1aピクセルハッシュ）
+- goldenファイル: `tests/golden/`（.gitignore対象、デバッグ用）
 - テスト出力: `tests/regout/`（.gitignore対象）

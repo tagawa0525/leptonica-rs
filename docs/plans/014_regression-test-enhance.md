@@ -1,6 +1,6 @@
 # Phase 3: 回帰テスト修正計画
 
-Status: IN_PROGRESS (PR 8/8: core 完了)
+Status: IMPLEMENTED
 
 ## Context
 
