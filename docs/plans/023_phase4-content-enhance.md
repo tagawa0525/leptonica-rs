@@ -1,6 +1,6 @@
 # Phase 4: C版同等テスト内容強化
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 

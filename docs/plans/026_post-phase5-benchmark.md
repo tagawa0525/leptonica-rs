@@ -1,6 +1,6 @@
 # C版 vs Rust版 回帰テストベンチマーク — Phase 5 後
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 

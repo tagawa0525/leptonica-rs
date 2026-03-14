@@ -1,6 +1,6 @@
 # C版回帰テスト全移植計画
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
 ## Context
 
