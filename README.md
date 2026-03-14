@@ -55,6 +55,18 @@ cargo test --all-features
 cargo clippy --all-features --all-targets
 ```
 
+### C Reference Source (Optional)
+
+Some porting documents and helper scripts reference the original C source at `reference/leptonica/`.
+To use them, clone the C source manually:
+
+```bash
+mkdir -p reference
+git clone https://github.com/DanBloomberg/leptonica.git reference/leptonica
+```
+
+The `reference/` directory is listed in `.gitignore` and will not be tracked by git.
+
 ## Documentation
 
 - `CLAUDE.md` -- Development conventions and process rules

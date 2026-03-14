@@ -55,6 +55,18 @@ cargo test --all-features
 cargo clippy --all-features --all-targets
 ```
 
+### C版リファレンスソース（オプション）
+
+移植資料やヘルパースクリプトの一部は `reference/leptonica/` にC版ソースがあることを前提とする。
+必要な場合は手動でcloneする:
+
+```bash
+mkdir -p reference
+git clone https://github.com/DanBloomberg/leptonica.git reference/leptonica
+```
+
+`reference/` ディレクトリは `.gitignore` に含まれており、gitで追跡されない。
+
 ## ドキュメント
 
 - `CLAUDE.md` -- 開発規約・プロセスルール
