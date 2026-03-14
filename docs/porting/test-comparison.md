@@ -307,6 +307,6 @@ Rust独自: conncomp_ext, seedfill_ext
 - C版ソース: `reference/leptonica/prog/*_reg.c`
 - Rust版回帰テスト: `tests/**/*_reg.rs`
 - 回帰テストモード: `REGTEST_MODE={generate,compare,display}`
-- golden manifest: `tests/golden_manifest.tsv`（git管理、FNV-1aピクセルハッシュ）
+- golden manifest: `tests/golden_manifest.tsv`（git管理、FNV-1a content hash）
 - goldenファイル: `tests/golden/`（.gitignore対象、デバッグ用）
 - テスト出力: `tests/regout/`（.gitignore対象）
