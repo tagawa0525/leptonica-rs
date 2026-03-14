@@ -2,6 +2,7 @@
 name = "leptonica"
 version = "0.3.0"
 edition = "2024"
+rust-version = "1.85"
 license = "BSD-2-Clause"
 repository = "https://github.com/tagawa0525/leptonica-rs"
 description = "Rust port of Leptonica image processing library"
