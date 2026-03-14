@@ -43,7 +43,7 @@
 leptonica-rs/
 ├── Cargo.toml                    # workspace root
 ├── CLAUDE.md                     # 規約（後述）
-├── reference/leptonica/          # C版ソース（git submodule、read-only参照）
+├── reference/leptonica/          # C版ソース（手動clone、read-only参照）
 ├── crates/
 │   ├── leptonica-core/           # Pix, Box, Numa, FPix等の基本データ構造
 │   ├── leptonica-io/             # 画像I/O（PNG, JPEG, TIFF, GIF, WebP, BMP, PNM, JP2K, PDF, PS）
