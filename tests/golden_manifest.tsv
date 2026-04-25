@@ -1,21 +1,21 @@
 # Golden manifest - content hashes for regression test outputs
 # Format: name<TAB>hash (FNV-1a hex)
-adaptmap_bg_color.04.jpg	bb2ece47591bc41b
-adaptmap_bg_color.08.jpg	fab775c0457191f9
-adaptmap_bg_color.11.jpg	9babc27506f51eac
+adaptmap_bg_color.04.jpg	1e634a3b83f05ed7
+adaptmap_bg_color.08.jpg	e92ded554268fc68
+adaptmap_bg_color.11.jpg	ba42ce6877a88d19
 adaptmap_bg_gray.04.png	d2b87b21855eca7a
 adaptmap_bg_gray.07.png	d9d4519c14d60d6f
 adaptmap_bg_gray.10.png	381701b66c0701a9
-adaptmap_bg_highlevel.04.jpg	fab775c0457191f9
-adaptmap_bg_highlevel.07.jpg	b0b0c72129bc332e
-adaptmap_color_pipeline.04.png	877f4326433414e5
+adaptmap_bg_highlevel.04.jpg	e92ded554268fc68
+adaptmap_bg_highlevel.07.jpg	c87ff5e3b8003874
+adaptmap_color_pipeline.04.png	282968097de6e6a1
 adaptmap_color_pipeline.05.png	a13c9e129b3ee5cb
-adaptmap_color_pipeline.06.png	d3954c2e2df5bd28
-adaptmap_color_pipeline.07.png	adc349b0fd5b79a3
+adaptmap_color_pipeline.06.png	ecb533cfece32862
+adaptmap_color_pipeline.07.png	cee6ccd6c2ef2f05
 adaptmap_color_pipeline.08.png	2b86c84d447ecc84
-adaptmap_color_pipeline.09.png	c9338d703d34f969
-adaptmap_color_pipeline.13.jpg	9babc27506f51eac
-adaptmap_color_pipeline.17.jpg	9aeb0e2340f5499d
+adaptmap_color_pipeline.09.png	71bc6aee3b8dbe02
+adaptmap_color_pipeline.13.jpg	ba42ce6877a88d19
+adaptmap_color_pipeline.17.jpg	65eb47ae1aae298a
 adaptmap_contrast.04.png	c3316e9e62c9539d
 adaptmap_contrast.07.png	e80e42d63172c33e
 adaptmap_contrast.10.png	463fae86f44ad9e2
