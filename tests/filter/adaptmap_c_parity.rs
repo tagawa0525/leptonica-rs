@@ -1,18 +1,15 @@
-//! C-parity test for `fill_map_holes`.
+//! C-parity tests for the adaptmap pipeline.
 //!
-//! Reference hashes derived from C leptonica master (commit f7082ecd) by
-//! running `scripts/verify_fillmapholes.c` and feeding `/tmp/c_fillmapholes_*.png`
-//! through `tests::common::pixel_content_hash` (FNV-1a). See plan
-//! `docs/plans/028_fill-map-holes-c-alignment.md`.
-//!
-//! The simple 3x3 case is bit-equivalent today. The weasel8 case asserts
-//! against the C-aligned hash, but is currently `#[ignore]`'d as **RED**
-//! because Rust's `fill_map_holes_inner` still uses 4-neighbor diffusion
-//! (~7.3% pixel divergence vs C). The GREEN PR will reimplement
-//! `fill_map_holes_inner` in C's column-major style and remove the
-//! `#[ignore]`, turning this into a live regression guard.
+//! Reference hashes are FNV-1a `pixel_content_hash` values computed from
+//! C leptonica outputs produced by `scripts/verify_*.c`. See plan
+//! `docs/plans/028_fill-map-holes-c-alignment.md` (`fill_map_holes`) and
+//! plan `docs/plans/029_adaptmap-pipeline-c-alignment.md` (the rest of
+//! the pipeline). Tests that have not yet been brought into bit-equivalence
+//! are marked `#[ignore = "RED: blocked on plan 029 ..."]` so the
+//! assertion lives in the commit history and the corresponding GREEN PR
+//! flips RED → GREEN by deleting the `#[ignore]`.
 use crate::common::{load_test_image, pixel_content_hash};
-use leptonica::filter::adaptmap::fill_map_holes;
+use leptonica::filter::adaptmap::{fill_map_holes, get_background_gray_map};
 use leptonica::filter::enhance::gamma_trc_masked;
 use leptonica::{Pix, PixMut, PixelDepth};
 
@@ -95,5 +92,33 @@ fn c_parity_weasel() {
         pixel_content_hash(&filled),
         EXPECTED_C_WEASEL_HASH,
         "Rust fill_map_holes(weasel8) hash must match C reference",
+    );
+}
+
+// ============================================================================
+// Plan 029 — adaptmap pipeline C alignment
+// ============================================================================
+
+/// FNV-1a pixel_content_hash of `/tmp/c_bg_gray_map_dreyfus.png` produced by
+/// `scripts/verify_bg_gray_map.c` on dreyfus8.png with default options
+/// (10x15 tiles, fg_thresh=60, min_count=40). Output is 33x27x8.
+///
+/// Only PNG inputs are used here — JPEG decoders (Rust `jpeg-decoder` vs
+/// C `libjpeg-turbo`) produce sub-pixel differences in the decoded
+/// samples, which then propagate into the bg map (e.g. lucasta.150.jpg
+/// shows ~0.6% pixel divergence with max delta 3 even after the
+/// algorithm is C-aligned). Use lossless PNG fixtures for parity tests.
+const EXPECTED_C_BG_GRAY_DREYFUS_HASH: u64 = 0x66d045f59e9a84a8;
+
+/// `pixGetBackgroundGrayMap(pixs, NULL, 10, 15, 60, 40)` on dreyfus8.png.
+#[test]
+fn c_parity_bg_gray_map_dreyfus() {
+    let pix = load_test_image("dreyfus8.png").expect("load dreyfus8");
+    let map = get_background_gray_map(&pix, None, 10, 15, 60, 40)
+        .expect("get_background_gray_map dreyfus");
+    assert_eq!(
+        pixel_content_hash(&map),
+        EXPECTED_C_BG_GRAY_DREYFUS_HASH,
+        "Rust get_background_gray_map(dreyfus8) must match C reference",
     );
 }

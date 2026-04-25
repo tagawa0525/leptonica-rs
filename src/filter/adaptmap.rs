@@ -325,6 +325,11 @@ pub fn get_background_gray_map(
     fg_threshold: u32,
     min_count: u32,
 ) -> FilterResult<Pix> {
+    // Decode any colormap up front (palette indices are not gray values).
+    if pix.colormap().is_some() {
+        let decoded = pix.remove_colormap(crate::core::pix::RemoveColormapTarget::ToGrayscale)?;
+        return get_background_gray_map(&decoded, _mask, tile_w, tile_h, fg_threshold, min_count);
+    }
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
             expected: "8 bpp",
@@ -749,8 +754,24 @@ fn get_background_gray_map_inner(
     fg_threshold: u32,
     min_count: u32,
 ) -> FilterResult<Pix> {
+    use crate::color::threshold::threshold_to_binary;
+    use crate::morph::sequence::morph_sequence;
+
     let w = pix.width();
     let h = pix.height();
+
+    // Build the dilated foreground mask `pixf` exactly as C does:
+    //   pixb = pixThresholdToBinary(pixs, fg_threshold)
+    //   pixf = pixMorphSequence(pixb, "d7.1 + d1.7", 0)
+    // The dilation widens the fg region so that text-edge pixels (which
+    // sit just outside the strict <fg_threshold band) are also excluded
+    // from the per-tile background average. Without this step the Rust
+    // map disagrees with C by tens of percent of pixels.
+    let thresh_u8 = u8::try_from(fg_threshold.min(255)).unwrap_or(255);
+    let pixb = threshold_to_binary(pix, thresh_u8).map_err(|e| {
+        FilterError::InvalidParameters(format!("threshold_to_binary in bg_gray_map: {e}"))
+    })?;
+    let pixf = morph_sequence(&pixb, "d7.1 + d1.7")?;
 
     // Calculate map dimensions
     let map_w = w.div_ceil(tile_width);
@@ -773,13 +794,12 @@ fn get_background_gray_map_inner(
             let mut sum: u32 = 0;
             let mut count: u32 = 0;
 
-            // Accumulate background pixels in this tile
+            // Accumulate non-foreground pixels in this tile (matches C:
+            // GET_DATA_BIT(linef + ..., delx + m) == 0).
             for y in tile_y..(tile_y + tile_height) {
                 for x in tile_x..(tile_x + tile_width) {
-                    let val = pix.get_pixel_unchecked(x, y);
-                    // Only include pixels above the foreground threshold
-                    if val >= fg_threshold {
-                        sum += val;
+                    if pixf.get_pixel_unchecked(x, y) == 0 {
+                        sum += pix.get_pixel_unchecked(x, y);
                         count += 1;
                     }
                 }
