@@ -768,6 +768,18 @@ fn get_background_gray_map_inner(
     let w = pix.width();
     let h = pix.height();
 
+    // Validate inputs that internal callers do not pre-check.
+    if tile_width == 0 || tile_height == 0 {
+        return Err(FilterError::InvalidParameters(format!(
+            "tile dimensions must be non-zero (tile_width={tile_width}, tile_height={tile_height})"
+        )));
+    }
+    if fg_threshold > 255 {
+        return Err(FilterError::InvalidParameters(format!(
+            "fg_threshold must be in 0..=255 (got {fg_threshold})"
+        )));
+    }
+
     // Build the dilated foreground mask `pixf` exactly as C does:
     //   pixb = pixThresholdToBinary(pixs, fg_threshold)
     //   pixf = pixMorphSequence(pixb, "d7.1 + d1.7", 0)
@@ -776,9 +788,7 @@ fn get_background_gray_map_inner(
     // from the per-tile background average. Without this step the Rust
     // map disagrees with C by tens of percent of pixels.
     let thresh_u8 = fg_threshold as u8;
-    let pixb = threshold_to_binary(pix, thresh_u8).map_err(|e| {
-        FilterError::InvalidParameters(format!("threshold_to_binary in bg_gray_map: {e}"))
-    })?;
+    let pixb = threshold_to_binary(pix, thresh_u8)?;
     let pixf = morph_sequence(&pixb, "d7.1 + d1.7")?;
 
     // Calculate map dimensions

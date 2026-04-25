@@ -13,6 +13,11 @@ pub enum FilterError {
     #[error("morph error: {0}")]
     Morph(#[from] crate::morph::MorphError),
 
+    /// Color operation error (filter helpers occasionally call into the
+    /// color crate, e.g. `threshold_to_binary`).
+    #[error("color error: {0}")]
+    Color(#[from] crate::color::ColorError),
+
     /// Transform operation error
     #[error("transform error: {0}")]
     Transform(#[from] crate::transform::TransformError),
