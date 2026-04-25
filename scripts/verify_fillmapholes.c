@@ -4,14 +4,28 @@
  * Holes are encoded as zero pixels (Rust API convention) and filled with
  * L_FILL_BLACK so the algorithm input is identical on both sides.
  *
- * Build (from reference/leptonica):
+ * Prerequisites:
+ *   1. Build C reference (from repo root):
+ *      cd reference/leptonica && nix-shell -p libpng libjpeg libtiff libwebp \
+ *        giflib zlib openjpeg pkg-config cmake clang \
+ *        --run 'mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release \
+ *               -DBUILD_PROG=ON && cmake --build . -j$(nproc)'
+ *   2. Generate Rust regout artifacts that this script reads:
+ *      cargo test --test filter adaptmap_reg_fill_map_holes
+ *      (writes tests/regout/adaptmap_fill_holes_{weasel.04,simple.06}.png)
+ *
+ * Build (from repo root):
  *   nix-shell -p libpng libjpeg libtiff libwebp giflib zlib openjpeg \
- *             pkg-config cmake clang \
- *     --run 'gcc -I src -I build/src scripts/verify_fillmapholes.c \
- *            -L build/src -llept -lm -o /tmp/verify_fillmapholes'
+ *             pkg-config gcc \
+ *     --run 'gcc -I reference/leptonica/src -I reference/leptonica/build/src \
+ *            scripts/verify_fillmapholes.c \
+ *            reference/leptonica/build/src/libleptonica.a \
+ *            $(pkg-config --libs libpng libjpeg libtiff-4 libwebp libopenjp2 zlib) \
+ *            -lwebpmux -lwebpdemux -lgif -lm \
+ *            -o /tmp/verify_fillmapholes'
  *
  * Run from the repository root:
- *   LD_LIBRARY_PATH=reference/leptonica/build/src /tmp/verify_fillmapholes
+ *   /tmp/verify_fillmapholes
  */
 #include "allheaders.h"
 #include <stdio.h>
@@ -130,10 +144,10 @@ int main(void) {
     /* === Compare === */
     int rc = 0;
     rc |= compare_with_rust("/tmp/c_fillmapholes_weasel.png",
-                            "tests/golden/adaptmap_fill_holes_weasel_golden.04.png",
+                            "tests/regout/adaptmap_fill_holes_weasel.04.png",
                             "fill_map_holes weasel");
     rc |= compare_with_rust("/tmp/c_fillmapholes_simple.png",
-                            "tests/golden/adaptmap_fill_holes_simple_golden.06.png",
+                            "tests/regout/adaptmap_fill_holes_simple.06.png",
                             "fill_map_holes simple 3x3");
     return rc;
 }
