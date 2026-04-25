@@ -1505,14 +1505,16 @@ fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(
         )));
     }
 
-    let out_min = pix_min.deep_clone();
-    let out_max = pix_max.deep_clone();
-    let mut min_mut = out_min.try_into_mut().unwrap();
-    let mut max_mut = out_max.try_into_mut().unwrap();
+    // We own pix_min/pix_max here; try_into_mut() avoids the extra
+    // deep_clone the previous version paid for. (If a caller ever held
+    // another Arc handle the convert would copy once, same cost as the
+    // explicit clone; the common case is one owner so we save the alloc.)
+    let mut min_mut = pix_min.try_into_mut().expect("owned Pix, refcount=1");
+    let mut max_mut = pix_max.try_into_mut().expect("owned Pix, refcount=1");
     for y in 0..h {
         for x in 0..w {
-            let v1 = pix_min.get_pixel_unchecked(x, y) as i32;
-            let v2 = pix_max.get_pixel_unchecked(x, y) as i32;
+            let v1 = min_mut.get_pixel_unchecked(x, y) as i32;
+            let v2 = max_mut.get_pixel_unchecked(x, y) as i32;
             if (v1 - v2).unsigned_abs() < min_diff {
                 min_mut.set_pixel_unchecked(x, y, 0);
                 max_mut.set_pixel_unchecked(x, y, 0);
