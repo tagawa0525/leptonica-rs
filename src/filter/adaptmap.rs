@@ -213,7 +213,6 @@ fn background_norm_gray(
         options.fg_threshold,
         min_count,
     )?;
-
     // Get inverted background map
     let inv_map =
         get_inv_background_map_inner(&bg_map, options.bg_val, options.smooth_x, options.smooth_y)?;
