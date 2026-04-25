@@ -30,12 +30,17 @@ static int dump(const char *map_path, l_int32 bgval, l_int32 smoothx,
         pixDestroy(&map);
         return 1;
     }
-    pixWrite(out_path, inv, IFF_PNG);
-    printf("%-30s wrote %dx%dx%d to %s\n", desc,
-           pixGetWidth(inv), pixGetHeight(inv), pixGetDepth(inv), out_path);
+    int rc = 0;
+    if (pixWrite(out_path, inv, IFF_PNG) != 0) {
+        fprintf(stderr, "%-30s pixWrite failed for %s\n", desc, out_path);
+        rc = 1;
+    } else {
+        printf("%-30s wrote %dx%dx%d to %s\n", desc,
+               pixGetWidth(inv), pixGetHeight(inv), pixGetDepth(inv), out_path);
+    }
     pixDestroy(&map);
     pixDestroy(&inv);
-    return 0;
+    return rc;
 }
 
 int main(void) {

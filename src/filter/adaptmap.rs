@@ -976,8 +976,9 @@ fn get_inv_background_map_inner(
     }
 
     // C: pixsm = pixBlockconv(pixs, smoothx, smoothy);
-    // pixBlockconv treats wc=0 || hc=0 as a no-op copy, matching Rust's
-    // blockconv (see src/filter/block_conv.rs:288).
+    // pixBlockconv treats wc=0 || hc=0 as a no-op copy. Rust's `blockconv`
+    // forwards 8 bpp input to `blockconv_gray`, whose no-op contract is
+    // documented in src/filter/block_conv.rs (line ~78).
     let smoothed = blockconv(pix, smooth_x, smooth_y)?;
 
     // C: pixd = pixCreate(w, h, 16); per-pixel val16 = (256 * bgval) / val
@@ -2310,11 +2311,12 @@ mod tests {
     fn create_test_color_image() -> Pix {
         // Sized so the tile-resolution map is >= 5x5 (see comment on
         // create_test_gray_image).
-        let pix = Pix::new(50, 75, PixelDepth::Bit32).unwrap();
+        let (w, h) = (50u32, 75u32);
+        let pix = Pix::new(w, h, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        for y in 0..75u32 {
-            for x in 0..50u32 {
+        for y in 0..h {
+            for x in 0..w {
                 let r = (100 + x * 2).min(255) as u8;
                 let g = (150 + y).min(255) as u8;
                 let b = 180u8;
