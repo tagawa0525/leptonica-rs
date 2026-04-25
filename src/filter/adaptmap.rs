@@ -158,6 +158,16 @@ pub fn background_norm_simple(pix: &Pix) -> FilterResult<Pix> {
 /// # Returns
 /// Background-normalized image
 pub fn background_norm(pix: &Pix, options: &BackgroundNormOptions) -> FilterResult<Pix> {
+    // 8 bpp colormapped pixels carry palette indices; tile statistics on
+    // those indices produce nonsense (and the strict C-aligned
+    // fill_map_holes will error on the resulting all-zero map). Decode
+    // the colormap up front so callers don't have to. C leptonica returns
+    // an explicit error here; we choose to be a touch more ergonomic.
+    if pix.colormap().is_some() {
+        let decoded = pix.remove_colormap(crate::core::pix::RemoveColormapTarget::ToGrayscale)?;
+        return background_norm(&decoded, options);
+    }
+
     // Validate parameters
     if options.tile_width < 4 || options.tile_height < 4 {
         return Err(FilterError::InvalidParameters(
@@ -500,12 +510,32 @@ pub fn get_foreground_gray_map(
     Ok(pixd_mut.into())
 }
 
-/// Propagates non-zero values into zero-valued tiles using two passes:
-/// 1. Forward pass (left-to-right, top-to-bottom)
-/// 2. Reverse pass (right-to-left, bottom-to-top)
+/// Fill 0-valued holes in an 8 bpp tile-resolution map by C-aligned
+/// column-major replication.
 ///
-/// Then extends edge values for partial tiles at boundaries.
+/// `nx` and `ny` are the number of fully-covered tile columns / rows; the
+/// rightmost column and bottommost row of `pix` may correspond to partial
+/// tiles when `pix.width() > nx` or `pix.height() > ny`.
+///
+/// Mirrors C `pixFillMapHoles(pix, nx, ny, L_FILL_BLACK)` in
+/// `reference/leptonica/src/adaptmap.c`. The algorithm has three phases:
+/// 1. For each column `j in 0..nx`, find the first non-zero pixel in
+///    rows `0..ny`. Replicate that value upward, then sweep downward
+///    through `0..h` propagating the most recent valid value into holes.
+/// 2. For columns with no valid pixel, replicate from the nearest valid
+///    column — backward to column 0, forward through `nx-1`.
+/// 3. If `w > nx`, replicate column `w-2` into column `w-1` to fill the
+///    last partial-tile column.
+///
+/// Returns `Err(FilterError::InvalidParameters)` if no column carries any
+/// non-zero data (matches the C `nmiss == nx` warning path).
 pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
     fill_map_holes_inner(pix, nx, ny)
 }
 
@@ -759,93 +789,90 @@ fn get_background_gray_map_inner(
 }
 
 /// Fill holes (zero values) in the map by propagating from neighbors
-fn fill_map_holes_inner(pix: &Pix, valid_x: u32, valid_y: u32) -> FilterResult<Pix> {
+fn fill_map_holes_inner(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
     let w = pix.width();
     let h = pix.height();
 
     let out_pix = pix.deep_clone();
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    // First pass: fill from left and top
-    for y in 0..h {
-        for x in 0..w {
-            let val = out_mut.get_pixel_unchecked(x, y);
-            if val == 0 {
-                // Try to get value from left neighbor
-                if x > 0 {
-                    let left = out_mut.get_pixel_unchecked(x - 1, y);
-                    if left > 0 {
-                        out_mut.set_pixel_unchecked(x, y, left);
-                        continue;
-                    }
+    let nx_idx = nx as usize;
+    let mut column_has_data = vec![false; nx_idx];
+    let mut nmiss: u32 = 0;
+
+    // Phase 1: vertical fill within each tile column.
+    // Search for the first non-zero pixel in rows 0..ny (the data origin
+    // is bounded to the full-tile region). Then replicate that value up
+    // to row 0 and propagate the most-recent valid value downward through
+    // the entire column height (0..h) so partial-tile rows are filled too.
+    for j in 0..nx {
+        let mut first: Option<u32> = None;
+        for i in 0..ny {
+            if out_mut.get_pixel_unchecked(j, i) != 0 {
+                first = Some(i);
+                break;
+            }
+        }
+        match first {
+            None => {
+                column_has_data[j as usize] = false;
+                nmiss += 1;
+            }
+            Some(y) => {
+                column_has_data[j as usize] = true;
+                let val = out_mut.get_pixel_unchecked(j, y);
+                for i in 0..y {
+                    out_mut.set_pixel_unchecked(j, i, val);
                 }
-                // Try to get value from top neighbor
-                if y > 0 {
-                    let top = out_mut.get_pixel_unchecked(x, y - 1);
-                    if top > 0 {
-                        out_mut.set_pixel_unchecked(x, y, top);
+                let mut lastval = out_mut.get_pixel_unchecked(j, 0);
+                for i in 1..h {
+                    let v = out_mut.get_pixel_unchecked(j, i);
+                    if v == 0 {
+                        out_mut.set_pixel_unchecked(j, i, lastval);
+                    } else {
+                        lastval = v;
                     }
                 }
             }
         }
     }
 
-    // Second pass: fill from right and bottom
-    for y in (0..h).rev() {
-        for x in (0..w).rev() {
-            let val = out_mut.get_pixel_unchecked(x, y);
-            if val == 0 {
-                // Try to get value from right neighbor
-                if x + 1 < w {
-                    let right = out_mut.get_pixel_unchecked(x + 1, y);
-                    if right > 0 {
-                        out_mut.set_pixel_unchecked(x, y, right);
-                        continue;
-                    }
-                }
-                // Try to get value from bottom neighbor
-                if y + 1 < h {
-                    let bottom = out_mut.get_pixel_unchecked(x, y + 1);
-                    if bottom > 0 {
-                        out_mut.set_pixel_unchecked(x, y, bottom);
-                    }
+    if nmiss == nx {
+        return Err(FilterError::InvalidParameters(
+            "fill_map_holes: no data in any column".to_string(),
+        ));
+    }
+
+    // Phase 2: replicate missing columns from the nearest valid column.
+    if nmiss > 0 {
+        let goodcol = (0..nx)
+            .find(|&j| column_has_data[j as usize])
+            .expect("nmiss < nx implies at least one valid column");
+        // Backward fill: every column to the left of goodcol copies its
+        // right neighbor (which has just been filled).
+        for j in (0..goodcol).rev() {
+            for i in 0..h {
+                let v = out_mut.get_pixel_unchecked(j + 1, i);
+                out_mut.set_pixel_unchecked(j, i, v);
+            }
+        }
+        // Forward fill: empty columns copy their already-valid left neighbor.
+        for j in (goodcol + 1)..nx {
+            if !column_has_data[j as usize] {
+                for i in 0..h {
+                    let v = out_mut.get_pixel_unchecked(j - 1, i);
+                    out_mut.set_pixel_unchecked(j, i, v);
                 }
             }
         }
     }
 
-    // Extend incomplete tiles at edges
-    // Fill right edge from valid_x to w
-    for y in 0..h {
-        if valid_x < w {
-            let last_valid = if valid_x > 0 {
-                out_mut.get_pixel_unchecked(valid_x - 1, y)
-            } else {
-                128 // mid-gray fallback when no valid neighbor exists
-            };
-            for x in valid_x..w {
-                let val = out_mut.get_pixel_unchecked(x, y);
-                if val == 0 {
-                    out_mut.set_pixel_unchecked(x, y, last_valid);
-                }
-            }
-        }
-    }
-
-    // Fill bottom edge from valid_y to h
-    for x in 0..w {
-        if valid_y < h {
-            let last_valid = if valid_y > 0 {
-                out_mut.get_pixel_unchecked(x, valid_y - 1)
-            } else {
-                128 // mid-gray fallback when no valid neighbor exists
-            };
-            for y in valid_y..h {
-                let val = out_mut.get_pixel_unchecked(x, y);
-                if val == 0 {
-                    out_mut.set_pixel_unchecked(x, y, last_valid);
-                }
-            }
+    // Phase 3: replicate the last partial-tile column when the map is
+    // wider than the full-tile region.
+    if w > nx {
+        for i in 0..h {
+            let v = out_mut.get_pixel_unchecked(w - 2, i);
+            out_mut.set_pixel_unchecked(w - 1, i, v);
         }
     }
 
@@ -1060,6 +1087,12 @@ pub fn contrast_norm_simple(pix: &Pix) -> FilterResult<Pix> {
 /// # Returns
 /// Contrast-normalized image
 pub fn contrast_norm(pix: &Pix, options: &ContrastNormOptions) -> FilterResult<Pix> {
+    // Decode colormap up front (see comment in background_norm).
+    if pix.colormap().is_some() {
+        let decoded = pix.remove_colormap(crate::core::pix::RemoveColormapTarget::ToGrayscale)?;
+        return contrast_norm(&decoded, options);
+    }
+
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
             expected: "8 bpp",
@@ -2338,10 +2371,16 @@ mod tests {
     #[test]
     fn test_contrast_norm_low_contrast_image() {
         let pix = create_low_contrast_image();
-        // Should still work even with low contrast input
-        let result = contrast_norm_simple(&pix).unwrap();
-        assert_eq!(result.width(), pix.width());
-        assert_eq!(result.height(), pix.height());
+        // C-aligned semantics: when every tile falls below `min_diff`, the
+        // intermediate map has no valid columns and `fill_map_holes`
+        // surfaces that as InvalidParameters, matching C's
+        // `pixContrastNorm` warning + error path.
+        let result = contrast_norm_simple(&pix);
+        assert!(
+            result.is_err(),
+            "expected Err on uniform low-contrast input, got {:?}",
+            result
+        );
     }
 
     #[test]

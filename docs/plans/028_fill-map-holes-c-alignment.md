@@ -1,6 +1,6 @@
 # `fill_map_holes` を C版 `pixFillMapHoles` と bit 同等に揃える
 
-Status: PLANNED
+Status: IMPLEMENTED
 
 ## Context
 
