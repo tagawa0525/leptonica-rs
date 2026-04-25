@@ -840,6 +840,12 @@ fn get_background_gray_map_inner(
     // Number of complete tiles
     let nx = w / tile_width;
     let ny = h / tile_height;
+    if nx == 0 || ny == 0 {
+        return Err(FilterError::InvalidParameters(format!(
+            "get_background_gray_map: tile size larger than image \
+             (w={w}, h={h}, tile_width={tile_width}, tile_height={tile_height})"
+        )));
+    }
 
     // Process each complete tile
     for ty in 0..ny {
@@ -943,6 +949,12 @@ fn get_background_rgb_map_inner(
 
     let nx = w / tile_width;
     let ny = h / tile_height;
+    if nx == 0 || ny == 0 {
+        return Err(FilterError::InvalidParameters(format!(
+            "get_background_rgb_map: tile size larger than image \
+             (w={w}, h={h}, tile_width={tile_width}, tile_height={tile_height})"
+        )));
+    }
 
     for ty in 0..ny {
         for tx in 0..nx {
