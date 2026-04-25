@@ -595,6 +595,12 @@ pub fn get_inv_background_map(
 ///
 /// For each tile, multiplies pixel values by the corresponding factor
 /// from the inverted map: `output = (input * factor) / 256`.
+///
+/// # Input
+/// - `pix`: 8 bpp grayscale.
+/// - `inv_map`: **16 bpp** factor map produced by
+///   [`get_inv_background_map`]. Passing any other depth is rejected
+///   with `FilterError::UnsupportedDepth`.
 pub fn apply_inv_background_gray_map(
     pix: &Pix,
     inv_map: &Pix,
@@ -607,6 +613,12 @@ pub fn apply_inv_background_gray_map(
             actual: pix.depth().bits(),
         });
     }
+    if inv_map.depth() != PixelDepth::Bit16 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "16 bpp inv_map (use get_inv_background_map)",
+            actual: inv_map.depth().bits(),
+        });
+    }
     apply_inv_background_gray_map_inner(pix, inv_map, tile_w, tile_h)
 }
 
@@ -615,6 +627,12 @@ pub fn apply_inv_background_gray_map(
 /// C版: `pixApplyInvBackgroundRGBMap()` in `adaptmap.c`
 ///
 /// Applies separate inverted maps to each channel, then recombines.
+///
+/// # Input
+/// - `pix`: 32 bpp RGB.
+/// - `inv_map_r`/`inv_map_g`/`inv_map_b`: **16 bpp** factor maps produced
+///   by [`get_inv_background_map`]. Any other depth returns
+///   `FilterError::UnsupportedDepth`.
 pub fn apply_inv_background_rgb_map(
     pix: &Pix,
     inv_map_r: &Pix,
@@ -628,6 +646,19 @@ pub fn apply_inv_background_rgb_map(
             expected: "32 bpp",
             actual: pix.depth().bits(),
         });
+    }
+    for (channel, inv_map) in [
+        ("inv_map_r", inv_map_r),
+        ("inv_map_g", inv_map_g),
+        ("inv_map_b", inv_map_b),
+    ] {
+        if inv_map.depth() != PixelDepth::Bit16 {
+            return Err(FilterError::UnsupportedDepth {
+                expected: "16 bpp inv map (use get_inv_background_map)",
+                actual: inv_map.depth().bits(),
+            });
+        }
+        let _ = channel;
     }
     let (pixr, pixg, pixb) = extract_rgb_channels(pix)?;
     let result_r = apply_inv_background_gray_map_inner(&pixr, inv_map_r, tile_w, tile_h)?;
