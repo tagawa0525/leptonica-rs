@@ -847,23 +847,25 @@ fn get_background_gray_map_inner(
             let tile_x = tx * tile_width;
             let tile_y = ty * tile_height;
 
-            let mut sum: u32 = 0;
-            let mut count: u32 = 0;
+            // u64 accumulators tolerate any tile size (u32 would overflow
+            // around ~16.8M sampled u8 pixels per tile).
+            let mut sum: u64 = 0;
+            let mut count: u64 = 0;
 
             // Accumulate non-foreground pixels in this tile (matches C:
             // GET_DATA_BIT(linef + ..., delx + m) == 0).
             for y in tile_y..(tile_y + tile_height) {
                 for x in tile_x..(tile_x + tile_width) {
                     if pixf.get_pixel_unchecked(x, y) == 0 {
-                        sum += pix.get_pixel_unchecked(x, y);
+                        sum += pix.get_pixel_unchecked(x, y) as u64;
                         count += 1;
                     }
                 }
             }
 
             // Set map value if we have enough background pixels
-            if count >= min_count {
-                let avg = sum / count;
+            if count >= min_count as u64 {
+                let avg = (sum / count) as u32;
                 map_mut.set_pixel_unchecked(tx, ty, avg);
             }
             // Otherwise leave as 0 (will be filled later)
@@ -944,15 +946,17 @@ fn get_background_rgb_map_inner(
             let tile_x = tx * tile_width;
             let tile_y = ty * tile_height;
 
-            let mut rsum: u32 = 0;
-            let mut gsum: u32 = 0;
-            let mut bsum: u32 = 0;
-            let mut count: u32 = 0;
+            // u64 accumulators tolerate any tile size (u32 would overflow
+            // around ~16.8M sampled u8 pixels per tile).
+            let mut rsum: u64 = 0;
+            let mut gsum: u64 = 0;
+            let mut bsum: u64 = 0;
+            let mut count: u64 = 0;
 
             for y in tile_y..(tile_y + tile_height) {
                 for x in tile_x..(tile_x + tile_width) {
                     if pixf.get_pixel_unchecked(x, y) == 0 {
-                        let pixel = pix.get_pixel_unchecked(x, y);
+                        let pixel = pix.get_pixel_unchecked(x, y) as u64;
                         // C reads `(pixel >> 24)` for R, `(pixel >> 16) & 0xff`
                         // for G, `(pixel >> 8) & 0xff` for B (alpha in low 8).
                         rsum += (pixel >> 24) & 0xff;
@@ -963,10 +967,10 @@ fn get_background_rgb_map_inner(
                 }
             }
 
-            if count >= min_count {
-                mr_mut.set_pixel_unchecked(tx, ty, rsum / count);
-                mg_mut.set_pixel_unchecked(tx, ty, gsum / count);
-                mb_mut.set_pixel_unchecked(tx, ty, bsum / count);
+            if count >= min_count as u64 {
+                mr_mut.set_pixel_unchecked(tx, ty, (rsum / count) as u32);
+                mg_mut.set_pixel_unchecked(tx, ty, (gsum / count) as u32);
+                mb_mut.set_pixel_unchecked(tx, ty, (bsum / count) as u32);
             }
         }
     }
