@@ -226,26 +226,10 @@ fn background_norm_color(
     options: &BackgroundNormOptions,
     min_count: u32,
 ) -> FilterResult<Pix> {
-    // Extract RGB channels and process each independently
-    let (pixr, pixg, pixb) = extract_rgb_channels(pix)?;
-
-    // Get background maps for each channel
-    let bg_map_r = get_background_gray_map_inner(
-        &pixr,
-        options.tile_width,
-        options.tile_height,
-        options.fg_threshold,
-        min_count,
-    )?;
-    let bg_map_g = get_background_gray_map_inner(
-        &pixg,
-        options.tile_width,
-        options.tile_height,
-        options.fg_threshold,
-        min_count,
-    )?;
-    let bg_map_b = get_background_gray_map_inner(
-        &pixb,
+    // Build the three bg maps in a single tile pass against a SHARED
+    // foreground mask (matches C `pixGetBackgroundRGBMap`).
+    let (bg_map_r, bg_map_g, bg_map_b) = get_background_rgb_map_inner(
+        pix,
         options.tile_width,
         options.tile_height,
         options.fg_threshold,
@@ -272,7 +256,8 @@ fn background_norm_color(
         options.smooth_y,
     )?;
 
-    // Apply maps and combine channels
+    // Apply maps and combine channels.
+    let (pixr, pixg, pixb) = extract_rgb_channels(pix)?;
     let result_r = apply_inv_background_gray_map_inner(
         &pixr,
         &inv_map_r,
@@ -350,39 +335,47 @@ pub fn get_background_gray_map(
 ///
 /// C版: `pixGetBackgroundRGBMap()` in `adaptmap.c`
 ///
-/// Extracts R, G, B channels and computes a background map for each.
+/// Builds three 8 bpp tile-resolution maps for the R, G, B channels of a
+/// 32 bpp RGB input. A **single foreground mask is shared** across all
+/// three channels (constructed from a fast grayscale conversion of `pix`
+/// via `Pix::convert_rgb_to_gray_fast`, then `threshold_to_binary` +
+/// `morph_sequence("d7.1 + d1.7")`), and per-tile R/G/B sums are
+/// accumulated in a **single pass** against that mask. Each tile's
+/// average is written to its position in the corresponding map iff the
+/// number of non-foreground samples reaches `min_count`. Holes are then
+/// filled with `fill_map_holes_inner` per channel.
 ///
 /// # Arguments
 /// * `pix` - Input 32bpp RGB image
-/// * `mask` - Optional mask (currently unused)
-/// * `pixg` - Optional grayscale conversion (currently unused)
+/// * `mask` - Optional image mask; **currently ignored**, accepted for
+///   forward compatibility (image-mask handling is a plan-029 follow-up)
+/// * `pixg` - Optional caller-supplied grayscale version; **currently
+///   ignored**. The shared fg mask is always built from
+///   `pixConvertRGBToGrayFast` internally
 /// * `tile_w` - Tile width
 /// * `tile_h` - Tile height
-/// * `fg_threshold` - Foreground threshold
-/// * `min_count` - Minimum background pixels
+/// * `fg_threshold` - Foreground threshold (`<` is foreground)
+/// * `min_count` - Minimum non-foreground samples required for a tile
+///   to receive a non-zero map entry
 ///
 /// # Returns
 /// Tuple of (red_map, green_map, blue_map) as 8bpp images
 pub fn get_background_rgb_map(
     pix: &Pix,
-    _mask: Option<&Pix>,
-    _pixg: Option<&Pix>,
+    mask: Option<&Pix>,
+    pixg: Option<&Pix>,
     tile_w: u32,
     tile_h: u32,
     fg_threshold: u32,
     min_count: u32,
 ) -> FilterResult<(Pix, Pix, Pix)> {
-    if pix.depth() != PixelDepth::Bit32 {
-        return Err(FilterError::UnsupportedDepth {
-            expected: "32 bpp",
-            actual: pix.depth().bits(),
-        });
-    }
-    let (pixr, pixg, pixb) = extract_rgb_channels(pix)?;
-    let map_r = get_background_gray_map_inner(&pixr, tile_w, tile_h, fg_threshold, min_count)?;
-    let map_g = get_background_gray_map_inner(&pixg, tile_w, tile_h, fg_threshold, min_count)?;
-    let map_b = get_background_gray_map_inner(&pixb, tile_w, tile_h, fg_threshold, min_count)?;
-    Ok((map_r, map_g, map_b))
+    // `mask` (image mask) and `pixg` (caller-supplied grayscale version)
+    // are accepted for forward compatibility; image-mask + caller-gray
+    // handling is reserved for a follow-up plan-029 PR. Today the
+    // shared fg mask is always built from `pixConvertRGBToGrayFast`.
+    let _ = mask;
+    let _ = pixg;
+    get_background_rgb_map_inner(pix, tile_w, tile_h, fg_threshold, min_count)
 }
 
 /// Fill holes (zero values) in a background or foreground map.
@@ -847,6 +840,12 @@ fn get_background_gray_map_inner(
     // Number of complete tiles
     let nx = w / tile_width;
     let ny = h / tile_height;
+    if nx == 0 || ny == 0 {
+        return Err(FilterError::InvalidParameters(format!(
+            "get_background_gray_map: tile size larger than image \
+             (w={w}, h={h}, tile_width={tile_width}, tile_height={tile_height})"
+        )));
+    }
 
     // Process each complete tile
     for ty in 0..ny {
@@ -854,23 +853,28 @@ fn get_background_gray_map_inner(
             let tile_x = tx * tile_width;
             let tile_y = ty * tile_height;
 
-            let mut sum: u32 = 0;
-            let mut count: u32 = 0;
+            // u64 accumulators tolerate any tile size. The binding
+            // constraint is the per-channel u8 *sum*: a u32 accumulator
+            // overflows around ~16.8M sampled pixels per tile (u32_max/255).
+            // `count` itself wouldn't overflow until ~4.3B samples, but
+            // we keep both at u64 so the divide doesn't need a cast back.
+            let mut sum: u64 = 0;
+            let mut count: u64 = 0;
 
             // Accumulate non-foreground pixels in this tile (matches C:
             // GET_DATA_BIT(linef + ..., delx + m) == 0).
             for y in tile_y..(tile_y + tile_height) {
                 for x in tile_x..(tile_x + tile_width) {
                     if pixf.get_pixel_unchecked(x, y) == 0 {
-                        sum += pix.get_pixel_unchecked(x, y);
+                        sum += pix.get_pixel_unchecked(x, y) as u64;
                         count += 1;
                     }
                 }
             }
 
             // Set map value if we have enough background pixels
-            if count >= min_count {
-                let avg = sum / count;
+            if count >= min_count as u64 {
+                let avg = (sum / count) as u32;
                 map_mut.set_pixel_unchecked(tx, ty, avg);
             }
             // Otherwise leave as 0 (will be filled later)
@@ -882,6 +886,122 @@ fn get_background_gray_map_inner(
 
     // Fill holes in the map (tiles with value 0)
     fill_map_holes_inner(&map_pix, nx, ny)
+}
+
+/// Generate background maps for each RGB channel from a single 32 bpp
+/// input. Mirrors C `pixGetBackgroundRGBMap` (adaptmap.c:1071).
+///
+/// Crucially this differs from running `get_background_gray_map_inner`
+/// per channel: a **single** foreground mask is built from a fast
+/// grayscale conversion of the input (`pixConvertRGBToGrayFast`) and
+/// shared across all three channels, and the per-tile loop accumulates
+/// R, G, B sums together. The per-channel approach the previous Rust
+/// port used produced different fg masks for each channel and
+/// disagreed with C output materially.
+fn get_background_rgb_map_inner(
+    pix: &Pix,
+    tile_width: u32,
+    tile_height: u32,
+    fg_threshold: u32,
+    min_count: u32,
+) -> FilterResult<(Pix, Pix, Pix)> {
+    use crate::color::threshold::threshold_to_binary;
+    use crate::morph::sequence::morph_sequence;
+
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if tile_width == 0 || tile_height == 0 {
+        return Err(FilterError::InvalidParameters(format!(
+            "tile dimensions must be non-zero (tile_width={tile_width}, \
+             tile_height={tile_height})"
+        )));
+    }
+    if fg_threshold > 255 {
+        return Err(FilterError::InvalidParameters(format!(
+            "fg_threshold must be in 0..=255 (got {fg_threshold})"
+        )));
+    }
+
+    let w = pix.width();
+    let h = pix.height();
+
+    // Shared fg mask: gray-fast → threshold → dilate, exactly as C does.
+    let pixgc = pix.convert_rgb_to_gray_fast()?;
+    let thresh_u8 = fg_threshold as u8;
+    let pixb = threshold_to_binary(&pixgc, thresh_u8).map_err(|e| match e {
+        crate::color::ColorError::Core(core) => FilterError::Core(core),
+        other => FilterError::InvalidParameters(format!("threshold_to_binary: {other}")),
+    })?;
+    let pixf = morph_sequence(&pixb, "d7.1 + d1.7")?;
+
+    let map_w = w.div_ceil(tile_width);
+    let map_h = h.div_ceil(tile_height);
+    let pixmr = Pix::new(map_w, map_h, PixelDepth::Bit8)?;
+    let pixmg = Pix::new(map_w, map_h, PixelDepth::Bit8)?;
+    let pixmb = Pix::new(map_w, map_h, PixelDepth::Bit8)?;
+    let mut mr_mut = pixmr.try_into_mut().unwrap();
+    let mut mg_mut = pixmg.try_into_mut().unwrap();
+    let mut mb_mut = pixmb.try_into_mut().unwrap();
+
+    let nx = w / tile_width;
+    let ny = h / tile_height;
+    if nx == 0 || ny == 0 {
+        return Err(FilterError::InvalidParameters(format!(
+            "get_background_rgb_map: tile size larger than image \
+             (w={w}, h={h}, tile_width={tile_width}, tile_height={tile_height})"
+        )));
+    }
+
+    for ty in 0..ny {
+        for tx in 0..nx {
+            let tile_x = tx * tile_width;
+            let tile_y = ty * tile_height;
+
+            // u64 accumulators tolerate any tile size. The binding
+            // constraint is the per-channel u8 *sum*: a u32 accumulator
+            // overflows around ~16.8M sampled pixels per tile (u32_max/255).
+            // `count` itself wouldn't overflow until ~4.3B samples, but
+            // we keep both at u64 so the divide doesn't need a cast back.
+            let mut rsum: u64 = 0;
+            let mut gsum: u64 = 0;
+            let mut bsum: u64 = 0;
+            let mut count: u64 = 0;
+
+            for y in tile_y..(tile_y + tile_height) {
+                for x in tile_x..(tile_x + tile_width) {
+                    if pixf.get_pixel_unchecked(x, y) == 0 {
+                        let pixel = pix.get_pixel_unchecked(x, y) as u64;
+                        // C reads `(pixel >> 24)` for R, `(pixel >> 16) & 0xff`
+                        // for G, `(pixel >> 8) & 0xff` for B (alpha in low 8).
+                        rsum += (pixel >> 24) & 0xff;
+                        gsum += (pixel >> 16) & 0xff;
+                        bsum += (pixel >> 8) & 0xff;
+                        count += 1;
+                    }
+                }
+            }
+
+            if count >= min_count as u64 {
+                mr_mut.set_pixel_unchecked(tx, ty, (rsum / count) as u32);
+                mg_mut.set_pixel_unchecked(tx, ty, (gsum / count) as u32);
+                mb_mut.set_pixel_unchecked(tx, ty, (bsum / count) as u32);
+            }
+        }
+    }
+
+    let pixmr: Pix = mr_mut.into();
+    let pixmg: Pix = mg_mut.into();
+    let pixmb: Pix = mb_mut.into();
+
+    let pixmr = fill_map_holes_inner(&pixmr, nx, ny)?;
+    let pixmg = fill_map_holes_inner(&pixmg, nx, ny)?;
+    let pixmb = fill_map_holes_inner(&pixmb, nx, ny)?;
+
+    Ok((pixmr, pixmg, pixmb))
 }
 
 /// Fill holes (zero values) in the map by propagating from neighbors

@@ -11,7 +11,7 @@
 use crate::common::{load_test_image, pixel_content_hash};
 use leptonica::filter::adaptmap::{
     BackgroundNormOptions, background_norm, fill_map_holes, get_background_gray_map,
-    get_inv_background_map,
+    get_background_rgb_map, get_inv_background_map,
 };
 use leptonica::filter::enhance::gamma_trc_masked;
 use leptonica::{Pix, PixMut, PixelDepth};
@@ -165,6 +165,57 @@ fn c_parity_background_norm_dreyfus() {
         pixel_content_hash(&normed),
         EXPECTED_C_BG_NORM_DREYFUS_HASH,
         "Rust pixBackgroundNorm(dreyfus8) must match C reference",
+    );
+}
+
+/// FNV-1a hashes of `/tmp/c_bg_rgb_map_{r,g,b}_church.png` produced by
+/// `scripts/verify_bg_rgb_map.c` running C `pixGetBackgroundRGBMap` on
+/// church.png with default options (10x15 tiles, fg_thresh=60,
+/// min_count=40). All three maps are 32x17x8.
+const EXPECTED_C_BG_RGB_R_CHURCH_HASH: u64 = 0x96ee670141955de6;
+const EXPECTED_C_BG_RGB_G_CHURCH_HASH: u64 = 0x51f0f5dcea7a058f;
+const EXPECTED_C_BG_RGB_B_CHURCH_HASH: u64 = 0x9f6b7fa22faaf8f4;
+
+/// FNV-1a of `/tmp/c_bg_norm_church.png` from the same verifier:
+/// full `pixBackgroundNorm` end-to-end on a 32 bpp RGB input
+/// (314x255x32, smooth_x=2, smooth_y=1).
+const EXPECTED_C_BG_NORM_CHURCH_HASH: u64 = 0x8618c323b6187384;
+
+/// `pixGetBackgroundRGBMap(church.png, NULL, NULL, 10, 15, 60, 40)`.
+/// Asserts bit-equivalence with C — Rust now builds a single shared
+/// fg mask from `pixConvertRGBToGrayFast`, matching adaptmap.c:1071.
+#[test]
+fn c_parity_bg_rgb_map_church() {
+    let pix = load_test_image("church.png").expect("load church");
+    let (map_r, map_g, map_b) =
+        get_background_rgb_map(&pix, None, None, 10, 15, 60, 40).expect("bg rgb map church");
+    assert_eq!(
+        pixel_content_hash(&map_r),
+        EXPECTED_C_BG_RGB_R_CHURCH_HASH,
+        "Rust bg_rgb_map(church) R must match C reference",
+    );
+    assert_eq!(
+        pixel_content_hash(&map_g),
+        EXPECTED_C_BG_RGB_G_CHURCH_HASH,
+        "Rust bg_rgb_map(church) G must match C reference",
+    );
+    assert_eq!(
+        pixel_content_hash(&map_b),
+        EXPECTED_C_BG_RGB_B_CHURCH_HASH,
+        "Rust bg_rgb_map(church) B must match C reference",
+    );
+}
+
+/// `pixBackgroundNorm(church.png)` end-to-end on a 32 bpp RGB input.
+#[test]
+fn c_parity_background_norm_rgb_church() {
+    let pix = load_test_image("church.png").expect("load church");
+    let normed =
+        background_norm(&pix, &BackgroundNormOptions::default()).expect("background_norm church");
+    assert_eq!(
+        pixel_content_hash(&normed),
+        EXPECTED_C_BG_NORM_CHURCH_HASH,
+        "Rust pixBackgroundNorm(church) must match C reference",
     );
 }
 
