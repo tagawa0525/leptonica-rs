@@ -1168,40 +1168,6 @@ fn get_inv_background_map_inner(
     Ok(out_mut.into())
 }
 
-/// Simple block convolution for smoothing
-fn block_convolve_gray(pix: &Pix, half_width_x: u32, half_width_y: u32) -> FilterResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    let kw = 2 * half_width_x + 1;
-    let kh = 2 * half_width_y + 1;
-    let kernel_size = kw * kh;
-
-    for y in 0..h {
-        for x in 0..w {
-            let mut sum: u32 = 0;
-
-            for ky in 0..kh {
-                for kx in 0..kw {
-                    let sx =
-                        (x as i32 + kx as i32 - half_width_x as i32).clamp(0, w as i32 - 1) as u32;
-                    let sy =
-                        (y as i32 + ky as i32 - half_width_y as i32).clamp(0, h as i32 - 1) as u32;
-                    sum += pix.get_pixel_unchecked(sx, sy);
-                }
-            }
-
-            let avg = sum / kernel_size;
-            out_mut.set_pixel_unchecked(x, y, avg);
-        }
-    }
-
-    Ok(out_mut.into())
-}
-
 // ============================================================================
 // Internal: Apply background map
 // ============================================================================
@@ -1376,7 +1342,18 @@ pub fn contrast_norm(pix: &Pix, options: &ContrastNormOptions) -> FilterResult<P
 // Internal: Contrast normalization helpers
 // ============================================================================
 
-/// Compute min and max values for each tile
+/// Compute per-tile min/max maps for `pixContrastNorm` / `pixMinMaxTiles`.
+///
+/// Mirrors C `pixMinMaxTiles` (adaptmap.c:2655) exactly:
+///
+/// 1. `pixScaleGrayMinMax` → per-tile min/max maps of size `(W/sx, H/sy)`
+/// 2. `pixExtendByReplication(., 1, 1)` to add 1 row/col on the right/bottom
+///    (so the map has one extra cell to cover partial-tile edges)
+/// 3. `add_constant(1)` so that 0 is reserved as a "this tile is a hole"
+///    sentinel even when the original min was 0
+/// 4. `set_low_contrast` zeros tile pairs where `|max - min| < min_diff`
+/// 5. `fill_map_holes_inner` fills the holes (sentinel zeros)
+/// 6. optional `blockconv` smoothing (matches C `pixBlockconv`)
 fn min_max_tiles(
     pix: &Pix,
     tile_width: u32,
@@ -1385,90 +1362,45 @@ fn min_max_tiles(
     smooth_x: u32,
     smooth_y: u32,
 ) -> FilterResult<(Pix, Pix)> {
-    let w = pix.width();
-    let h = pix.height();
+    use crate::filter::block_conv::blockconv;
+    use crate::filter::rank::{MinMaxOp, scale_gray_min_max};
 
-    // Map dimensions
-    let map_w = w.div_ceil(tile_width);
-    let map_h = h.div_ceil(tile_height);
+    // Step 1: per-tile min and max via scale_gray_min_max (C: pixScaleGrayMinMax).
+    let pix_min = scale_gray_min_max(pix, tile_width, tile_height, MinMaxOp::Min)?;
+    let pix_max = scale_gray_min_max(pix, tile_width, tile_height, MinMaxOp::Max)?;
 
-    // Create min and max maps
-    let pix_min = Pix::new(map_w, map_h, PixelDepth::Bit8)?;
-    let pix_max = Pix::new(map_w, map_h, PixelDepth::Bit8)?;
+    // Step 2: extend right/bottom by 1 cell, matching C `pixExtendByReplication(., 1, 1)`
+    // (note: Rust's public `extend_by_replication` extends both sides, so we
+    // inline a C-equivalent extension here).
+    let pix_min = extend_right_bottom_by_one(&pix_min)?;
+    let pix_max = extend_right_bottom_by_one(&pix_max)?;
+    let map_w = pix_min.width();
+    let map_h = pix_min.height();
 
-    let mut min_mut = pix_min.try_into_mut().unwrap();
-    let mut max_mut = pix_max.try_into_mut().unwrap();
+    // Step 3: bias by +1 so 0 can serve as a hole sentinel.
+    let pix_min = pix_min.add_constant(1)?;
+    let pix_max = pix_max.add_constant(1)?;
 
-    let nx = w / tile_width;
-    let ny = h / tile_height;
-
-    // Compute min/max for each complete tile
-    for ty in 0..ny {
-        for tx in 0..nx {
-            let tile_x = tx * tile_width;
-            let tile_y = ty * tile_height;
-
-            let mut min_val = 255u32;
-            let mut max_val = 0u32;
-
-            for y in tile_y..(tile_y + tile_height) {
-                for x in tile_x..(tile_x + tile_width) {
-                    let val = pix.get_pixel_unchecked(x, y);
-                    min_val = min_val.min(val);
-                    max_val = max_val.max(val);
-                }
-            }
-
-            // Add 1 so that 0 remains a sentinel for unfilled/hole tiles
-            // (subtracted back when applying the normalization transform)
-            min_mut.set_pixel_unchecked(tx, ty, min_val.saturating_add(1).min(255));
-            max_mut.set_pixel_unchecked(tx, ty, max_val.saturating_add(1).min(255));
-        }
-    }
-
-    // Extend to edges
-    for ty in 0..map_h {
-        for tx in nx..map_w {
-            let src_x = if nx > 0 { nx - 1 } else { 0 };
-            let min_val = min_mut.get_pixel_unchecked(src_x, ty);
-            let max_val = max_mut.get_pixel_unchecked(src_x, ty);
-            min_mut.set_pixel_unchecked(tx, ty, min_val);
-            max_mut.set_pixel_unchecked(tx, ty, max_val);
-        }
-    }
-    for tx in 0..map_w {
-        for ty in ny..map_h {
-            let src_y = if ny > 0 { ny - 1 } else { 0 };
-            let min_val = min_mut.get_pixel_unchecked(tx, src_y);
-            let max_val = max_mut.get_pixel_unchecked(tx, src_y);
-            min_mut.set_pixel_unchecked(tx, ty, min_val);
-            max_mut.set_pixel_unchecked(tx, ty, max_val);
-        }
-    }
-
-    let pix_min: Pix = min_mut.into();
-    let pix_max: Pix = max_mut.into();
-
-    // Set low contrast tiles to zero (will be filled later)
+    // Step 4: zero tile pairs whose contrast is below min_diff.
     let (pix_min, pix_max) = set_low_contrast(pix_min, pix_max, min_diff)?;
 
-    // Fill holes
+    // Step 5: fill the holes.
     let pix_min = fill_map_holes_inner(&pix_min, map_w, map_h)?;
     let pix_max = fill_map_holes_inner(&pix_max, map_w, map_h)?;
 
-    // Smooth if requested
+    // Step 6: smooth (matches C `pixBlockconv`). C clamps smooth half-widths
+    // to (map_w-1)/2 and (map_h-1)/2 to keep the kernel inside the map.
     let pix_min = if smooth_x > 0 || smooth_y > 0 {
         let sx = smooth_x.min((map_w - 1) / 2);
         let sy = smooth_y.min((map_h - 1) / 2);
-        block_convolve_gray(&pix_min, sx, sy)?
+        blockconv(&pix_min, sx, sy)?
     } else {
         pix_min
     };
-
     let pix_max = if smooth_x > 0 || smooth_y > 0 {
         let sx = smooth_x.min((map_w - 1) / 2);
         let sy = smooth_y.min((map_h - 1) / 2);
-        block_convolve_gray(&pix_max, sx, sy)?
+        blockconv(&pix_max, sx, sy)?
     } else {
         pix_max
     };
@@ -1476,28 +1408,90 @@ fn min_max_tiles(
     Ok((pix_min, pix_max))
 }
 
-/// Set low contrast tiles to zero (to be filled later)
-/// Consumes the inputs and returns new Pix with low contrast tiles set to 0
+/// Replicate the right column and bottom row of an 8 bpp Pix once,
+/// producing a `(w + 1) × (h + 1)` Pix. Mirrors C
+/// `pixExtendByReplication(pix, 1, 1)` exactly (note: Rust's public
+/// `extend_by_replication` extends both sides, so it cannot be reused here).
+fn extend_right_bottom_by_one(pix: &Pix) -> FilterResult<Pix> {
+    let w = pix.width();
+    let h = pix.height();
+    let out = Pix::new(w + 1, h + 1, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            out_mut.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(x, y));
+        }
+    }
+    // Right column: replicate column w-1.
+    for y in 0..h {
+        let v = pix.get_pixel_unchecked(w - 1, y);
+        out_mut.set_pixel_unchecked(w, y, v);
+    }
+    // Bottom row + bottom-right corner: replicate row h-1 (including the
+    // newly written right column).
+    for x in 0..(w + 1) {
+        let v = out_mut.get_pixel_unchecked(x, h - 1);
+        out_mut.set_pixel_unchecked(x, h, v);
+    }
+    Ok(out_mut.into())
+}
+
+/// C-aligned `pixSetLowContrast` (adaptmap.c:2744).
+///
+/// First scans both maps; if no tile pair has an absolute difference
+/// `>= min_diff`, clears both maps entirely and returns Ok with both
+/// pix all-zero (matching C's "warning + return 1" path — the downstream
+/// `fill_map_holes_inner` will then detect the all-zero state and surface
+/// `InvalidParameters`). Otherwise zeros tile pairs whose absolute
+/// difference is `< min_diff`.
 fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(Pix, Pix)> {
     let w = pix_min.width();
     let h = pix_min.height();
+    if w != pix_max.width() || h != pix_max.height() {
+        return Err(FilterError::InvalidParameters(
+            "set_low_contrast: pix_min and pix_max must have equal dimensions".to_string(),
+        ));
+    }
+    if min_diff > 254 {
+        // Match C: just return the maps untouched (mindiff > 254 would zero
+        // every cell; C explicitly bails early to avoid that).
+        return Ok((pix_min, pix_max));
+    }
+
+    let mut found = false;
+    'outer: for y in 0..h {
+        for x in 0..w {
+            let v1 = pix_min.get_pixel_unchecked(x, y) as i32;
+            let v2 = pix_max.get_pixel_unchecked(x, y) as i32;
+            if (v1 - v2).unsigned_abs() >= min_diff {
+                found = true;
+                break 'outer;
+            }
+        }
+    }
 
     let out_min = pix_min.deep_clone();
     let out_max = pix_max.deep_clone();
-
     let mut min_mut = out_min.try_into_mut().unwrap();
     let mut max_mut = out_max.try_into_mut().unwrap();
 
+    if !found {
+        // C "warning + return 1": clear both maps so callers see all-zero
+        // input downstream.
+        for y in 0..h {
+            for x in 0..w {
+                min_mut.set_pixel_unchecked(x, y, 0);
+                max_mut.set_pixel_unchecked(x, y, 0);
+            }
+        }
+        return Ok((min_mut.into(), max_mut.into()));
+    }
+
     for y in 0..h {
         for x in 0..w {
-            let min_val = pix_min.get_pixel_unchecked(x, y);
-            let max_val = pix_max.get_pixel_unchecked(x, y);
-
-            // Values have been offset by 1, so subtract to get actual diff
-            let actual_min = min_val.saturating_sub(1);
-            let actual_max = max_val.saturating_sub(1);
-
-            if actual_max.saturating_sub(actual_min) < min_diff {
+            let v1 = pix_min.get_pixel_unchecked(x, y) as i32;
+            let v2 = pix_max.get_pixel_unchecked(x, y) as i32;
+            if (v1 - v2).unsigned_abs() < min_diff {
                 min_mut.set_pixel_unchecked(x, y, 0);
                 max_mut.set_pixel_unchecked(x, y, 0);
             }
@@ -1507,7 +1501,14 @@ fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(
     Ok((min_mut.into(), max_mut.into()))
 }
 
-/// Apply linear TRC tiled to expand contrast
+/// Apply linear TRC tiled to expand contrast.
+///
+/// Mirrors C `pixLinearTRCTiled` (adaptmap.c:2825). The min/max maps are
+/// expected to come from `min_max_tiles` / `pixMinMaxTiles`, where every
+/// pixel has been biased by `+1` so that 0 can be a hole sentinel. We do
+/// **not** undo that bias here: C uses the biased `minval` directly when
+/// computing `sval = val - minval`, and the bias is absorbed into the LUT
+/// arithmetic via `diff = maxval - minval` (which is bias-invariant).
 fn linear_trc_tiled(
     pix: &Pix,
     tile_width: u32,
@@ -1523,37 +1524,40 @@ fn linear_trc_tiled(
     let out_pix = pix.deep_clone();
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    // Build LUT cache (indexed by diff value)
+    // Lazy LUT cache, keyed by `diff = maxval - minval` (range 0..=255).
     let mut lut_cache: [Option<[u8; 256]>; 256] = [None; 256];
 
     for ty in 0..map_h {
         for tx in 0..map_w {
-            let min_val = pix_min.get_pixel_unchecked(tx, ty).saturating_sub(1);
-            let max_val = pix_max.get_pixel_unchecked(tx, ty).saturating_sub(1);
+            let min_val = pix_min.get_pixel_unchecked(tx, ty);
+            let max_val = pix_max.get_pixel_unchecked(tx, ty);
 
             if max_val <= min_val {
-                continue; // Skip tiles with no contrast
+                // C `L_ERROR("shouldn't happen!")` and continues. We mirror
+                // the silent-skip behavior so the rest of the image still
+                // gets normalized.
+                continue;
             }
 
             let diff = (max_val - min_val) as usize;
 
-            // Get or create LUT for this diff
             let lut = if let Some(existing) = &lut_cache[diff] {
                 existing
             } else {
                 let mut new_lut = [0u8; 256];
-                let factor = 255.0 / diff as f32;
-                for (i, lut_val) in new_lut.iter_mut().enumerate().take(diff + 1) {
-                    *lut_val = ((factor * i as f32) + 0.5).min(255.0) as u8;
+                let factor = 255.0_f32 / diff as f32;
+                // C iaaGetLinearTRC: ia[i] = (l_int32)(factor * i + 0.5)
+                // for i in 0..=diff; ia[i] = 255 for i in (diff+1)..256.
+                for (i, slot) in new_lut.iter_mut().enumerate().take(diff + 1) {
+                    *slot = ((factor * i as f32) + 0.5).min(255.0) as u8;
                 }
-                for lut_val in new_lut.iter_mut().skip(diff + 1) {
-                    *lut_val = 255;
+                for slot in new_lut.iter_mut().skip(diff + 1) {
+                    *slot = 255;
                 }
                 lut_cache[diff] = Some(new_lut);
                 lut_cache[diff].as_ref().unwrap()
             };
 
-            // Apply LUT to tile
             let x_start = tx * tile_width;
             let y_start = ty * tile_height;
             let x_end = (x_start + tile_width).min(w);
@@ -1562,8 +1566,11 @@ fn linear_trc_tiled(
             for y in y_start..y_end {
                 for x in x_start..x_end {
                     let val = pix.get_pixel_unchecked(x, y);
-                    let shifted = val.saturating_sub(min_val) as usize;
-                    let mapped = lut[shifted.min(255)];
+                    // C: sval = val - minval; sval = L_MAX(0, sval); ia[sval]
+                    // (the LUT is sized for input 0..=255, and excess inputs
+                    // get clamped to 255 as in `iaaGetLinearTRC`).
+                    let sval = val.saturating_sub(min_val) as usize;
+                    let mapped = lut[sval.min(255)];
                     out_mut.set_pixel_unchecked(x, y, mapped as u32);
                 }
             }
@@ -2627,27 +2634,6 @@ mod tests {
             "expected Err on uniform low-contrast input, got {:?}",
             result
         );
-    }
-
-    #[test]
-    fn test_block_convolve_gray() {
-        let pix = Pix::new(20, 20, PixelDepth::Bit8).unwrap();
-        let mut pix_mut = pix.try_into_mut().unwrap();
-        for y in 0..20 {
-            for x in 0..20 {
-                pix_mut.set_pixel_unchecked(x, y, 128);
-            }
-        }
-        let pix = pix_mut.into();
-
-        let result = block_convolve_gray(&pix, 2, 2).unwrap();
-        // Uniform input should give uniform output
-        for y in 0..20 {
-            for x in 0..20 {
-                let val = result.get_pixel_unchecked(x, y);
-                assert!((127..=129).contains(&val), "Expected ~128, got {}", val);
-            }
-        }
     }
 
     #[test]

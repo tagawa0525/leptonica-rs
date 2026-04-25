@@ -10,8 +10,8 @@
 //! flips RED → GREEN by deleting the `#[ignore]`.
 use crate::common::{load_test_image, pixel_content_hash};
 use leptonica::filter::adaptmap::{
-    BackgroundNormOptions, background_norm, fill_map_holes, get_background_gray_map,
-    get_background_rgb_map, get_inv_background_map,
+    BackgroundNormOptions, ContrastNormOptions, background_norm, contrast_norm, fill_map_holes,
+    get_background_gray_map, get_background_rgb_map, get_inv_background_map,
 };
 use leptonica::filter::enhance::gamma_trc_masked;
 use leptonica::{Pix, PixMut, PixelDepth};
@@ -216,6 +216,28 @@ fn c_parity_background_norm_rgb_church() {
         pixel_content_hash(&normed),
         EXPECTED_C_BG_NORM_CHURCH_HASH,
         "Rust pixBackgroundNorm(church) must match C reference",
+    );
+}
+
+/// FNV-1a hash of `/tmp/c_contrast_norm_dreyfus.png` produced by
+/// `scripts/verify_contrast_norm.c` running C `pixContrastNorm` with
+/// defaults matching Rust `ContrastNormOptions::default()`
+/// (20x20 tiles per `DEFAULT_CONTRAST_TILE_SIZE`, mindiff=50,
+/// smooth_x=2, smooth_y=2). Output is 329x400x8.
+const EXPECTED_C_CONTRAST_NORM_DREYFUS_HASH: u64 = 0x4992e5c92e6cfa52;
+
+/// `pixContrastNorm(dreyfus8)` end-to-end. Asserts bit-equivalence
+/// with C — Rust now uses `scale_gray_min_max` + right/bottom-only
+/// extension + `+1` sentinel + `blockconv`, mirroring `pixMinMaxTiles`,
+/// `pixSetLowContrast`, and `pixLinearTRCTiled` exactly.
+#[test]
+fn c_parity_contrast_norm_dreyfus() {
+    let pix = load_test_image("dreyfus8.png").expect("load dreyfus8");
+    let normed = contrast_norm(&pix, &ContrastNormOptions::default()).expect("contrast_norm");
+    assert_eq!(
+        pixel_content_hash(&normed),
+        EXPECTED_C_CONTRAST_NORM_DREYFUS_HASH,
+        "Rust pixContrastNorm(dreyfus8) must match C reference",
     );
 }
 
