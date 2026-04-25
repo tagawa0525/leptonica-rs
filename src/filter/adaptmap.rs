@@ -538,9 +538,15 @@ pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
     }
     let w = pix.width();
     let h = pix.height();
-    if nx == 0 || ny == 0 || nx > w || ny > h {
+    // C contract (adaptmap.c): nx == w || nx == w - 1 (ditto for ny vs h).
+    // Phase 3 only replicates the last partial column, so a caller passing
+    // w > nx + 1 (or h > ny + 1) would leave intermediate columns/rows
+    // unfilled. Reject such inputs explicitly instead of producing a
+    // partially-filled map.
+    if nx == 0 || ny == 0 || nx > w || ny > h || w > nx + 1 || h > ny + 1 {
         return Err(FilterError::InvalidParameters(format!(
-            "fill_map_holes: nx/ny out of range (nx={nx}, ny={ny}, w={w}, h={h})"
+            "fill_map_holes: expected nx ∈ {{w, w-1}} and ny ∈ {{h, h-1}} \
+             (nx={nx}, ny={ny}, w={w}, h={h})"
         )));
     }
     fill_map_holes_inner(pix, nx, ny)
