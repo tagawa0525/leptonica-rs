@@ -955,13 +955,19 @@ fn get_inv_background_map_inner(
     let w = pix.width();
     let h = pix.height();
 
-    // C contract (adaptmap.c:1865-1866): pixs must be 8 bpp non-colormapped
-    // and at least 5x5. Mirror the same checks here.
-    if pix.depth() != PixelDepth::Bit8 || pix.colormap().is_some() {
+    // C contract (adaptmap.c:1865-1869): pixs must be 8 bpp non-colormapped
+    // and at least 5x5. Mirror the same checks but report depth and
+    // colormap failures separately so diagnostics are not misleading.
+    if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
-            expected: "8 bpp non-colormapped",
+            expected: "8 bpp",
             actual: pix.depth().bits(),
         });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "get_inv_background_map: pix must be non-colormapped".to_string(),
+        ));
     }
     if w < 5 || h < 5 {
         return Err(FilterError::InvalidParameters(format!(
@@ -979,12 +985,22 @@ fn get_inv_background_map_inner(
     let out_pix = Pix::new(w, h, PixelDepth::Bit16)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
+    // Compute numerator in u64 to avoid overflow when bg_val is large
+    // (256 * u32::MAX would overflow u32). C uses l_int32 so practical
+    // bg_val never exceeds 2^31-1, and u64 covers that range safely.
+    let numerator = 256u64 * bg_val as u64;
     for y in 0..h {
         for x in 0..w {
             let val = smoothed.get_pixel_unchecked(x, y);
-            let factor = (256 * bg_val).checked_div(val).unwrap_or(bg_val / 2);
-            // 16 bpp Pix stores u16 values; clamp to be safe though factor
-            // for typical bgval=200 + val>=1 stays well under 65536.
+            let factor = if val > 0 {
+                (numerator / val as u64).min(65535) as u32
+            } else {
+                // C path is "L_WARNING smoothed bg has 0 pixel; val16 = bgval/2".
+                // Mirror the warning's value directly without going through
+                // checked_div so an overflow in `numerator` does NOT route
+                // here.
+                bg_val / 2
+            };
             out_mut.set_pixel_unchecked(x, y, factor.min(65535));
         }
     }
