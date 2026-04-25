@@ -1417,12 +1417,23 @@ fn min_max_tiles(
 /// producing a `(w + 1) × (h + 1)` Pix. Mirrors C
 /// `pixExtendByReplication(pix, 1, 1)` exactly (note: Rust's public
 /// `extend_by_replication` extends both sides, so it cannot be reused here).
+///
+/// Rejects 8 bpp colormapped inputs explicitly: `Pix::new` would otherwise
+/// silently produce a non-colormapped output, treating palette indices as
+/// gray values downstream (the same trap `scale_gray_min_max` calls out).
 fn extend_right_bottom_by_one(pix: &Pix) -> FilterResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
             expected: "8 bpp",
             actual: pix.depth().bits(),
         });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "extend_right_bottom_by_one: colormapped input not supported; \
+             remove the colormap first"
+                .to_string(),
+        ));
     }
     let w = pix.width();
     let h = pix.height();
@@ -1516,10 +1527,14 @@ fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(
 ///
 /// Mirrors C `pixLinearTRCTiled` (adaptmap.c:2825). The min/max maps are
 /// expected to come from `min_max_tiles` / `pixMinMaxTiles`, where every
-/// pixel has been biased by `+1` so that 0 can be a hole sentinel. We do
-/// **not** undo that bias here: C uses the biased `minval` directly when
-/// computing `sval = val - minval`, and the bias is absorbed into the LUT
-/// arithmetic via `diff = maxval - minval` (which is bias-invariant).
+/// cell has been biased by `+1` (so 0 can be reserved as a hole sentinel)
+/// **and then clipped to `255`** by `Pix::add_constant`. We do not undo
+/// that bias here: C uses the biased map values directly when computing
+/// `sval = val - minval` and `diff = maxval - minval`, and we intentionally
+/// follow the same biased-and-clipped maps so the LUT inputs and outputs
+/// match C bit-for-bit. (Note `diff` is *not* invariant when a tile's
+/// `maxval` saturates at 255 from the `+1` clip — but that saturation is
+/// part of C's contract here, so the resulting LUT shape matches.)
 fn linear_trc_tiled(
     pix: &Pix,
     tile_width: u32,
