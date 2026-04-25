@@ -653,12 +653,12 @@ pub fn apply_inv_background_rgb_map(
         ("inv_map_b", inv_map_b),
     ] {
         if inv_map.depth() != PixelDepth::Bit16 {
-            return Err(FilterError::UnsupportedDepth {
-                expected: "16 bpp inv map (use get_inv_background_map)",
-                actual: inv_map.depth().bits(),
-            });
+            return Err(FilterError::InvalidParameters(format!(
+                "{channel}: expected 16 bpp inv map (use get_inv_background_map), \
+                 got {} bpp",
+                inv_map.depth().bits()
+            )));
         }
-        let _ = channel;
     }
     let (pixr, pixg, pixb) = extract_rgb_channels(pix)?;
     let result_r = apply_inv_background_gray_map_inner(&pixr, inv_map_r, tile_w, tile_h)?;
