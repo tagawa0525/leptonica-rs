@@ -36,45 +36,62 @@ int main(void) {
     setLeptDebugOK(1);
     int rc = 0;
 
-    PIX *pixs = pixRead("tests/data/images/dreyfus8.png");
-    PIX *gray = pixGetColormap(pixs)
+    PIX *pixs = NULL;
+    PIX *gray = NULL;
+    PIX *bg_map = NULL;
+    PIX *inv = NULL;
+    PIX *applied = NULL;
+    PIX *normed = NULL;
+
+    pixs = pixRead("tests/data/images/dreyfus8.png");
+    if (!pixs) {
+        fprintf(stderr, "could not read tests/data/images/dreyfus8.png\n");
+        rc = 1;
+        goto cleanup;
+    }
+    gray = pixGetColormap(pixs)
         ? pixRemoveColormap(pixs, REMOVE_CMAP_TO_GRAYSCALE)
         : pixClone(pixs);
     if (!gray) {
         fprintf(stderr, "could not load gray\n");
-        return 1;
+        rc = 1;
+        goto cleanup;
     }
 
     /* Apply step: bg_map (8 bpp) -> inv_map (16 bpp) -> apply.
      * Use the same smooth sizes as Rust BackgroundNormOptions::default(),
      * which mirrors C DefaultXSmoothSize=2, DefaultYSmoothSize=1. */
-    PIX *bg_map = NULL;
     if (pixGetBackgroundGrayMap(gray, NULL, 10, 15, 60, 40, &bg_map) != 0) {
         fprintf(stderr, "pixGetBackgroundGrayMap failed\n");
-        return 1;
+        rc = 1;
+        goto cleanup;
     }
-    PIX *inv = pixGetInvBackgroundMap(bg_map, 200, 2, 1);
+    inv = pixGetInvBackgroundMap(bg_map, 200, 2, 1);
     if (!inv) {
         fprintf(stderr, "pixGetInvBackgroundMap failed\n");
-        return 1;
+        rc = 1;
+        goto cleanup;
     }
-    PIX *applied = pixApplyInvBackgroundGrayMap(gray, inv, 10, 15);
+    applied = pixApplyInvBackgroundGrayMap(gray, inv, 10, 15);
     if (!applied) {
         fprintf(stderr, "pixApplyInvBackgroundGrayMap failed\n");
-        return 1;
+        rc = 1;
+        goto cleanup;
     }
     rc |= write_pix("/tmp/c_apply_inv_bg_dreyfus.png", applied,
                     "apply_inv_bg dreyfus8");
 
     /* Full pixBackgroundNorm via the high-level API. */
-    PIX *normed = pixBackgroundNorm(gray, NULL, NULL, 10, 15, 60, 40, 200, 2, 1);
+    normed = pixBackgroundNorm(gray, NULL, NULL, 10, 15, 60, 40, 200, 2, 1);
     if (!normed) {
         fprintf(stderr, "pixBackgroundNorm failed\n");
-        return 1;
+        rc = 1;
+        goto cleanup;
     }
     rc |= write_pix("/tmp/c_bg_norm_dreyfus.png", normed,
                     "bg_norm dreyfus8 (full)");
 
+cleanup:
     pixDestroy(&pixs);
     pixDestroy(&gray);
     pixDestroy(&bg_map);
