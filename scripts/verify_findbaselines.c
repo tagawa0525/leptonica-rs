@@ -1,8 +1,12 @@
 /* Verify Rust find_baselines() matches C pixFindBaselines() / Gen.
  *
  * Mirrors tests/recog/baseline_reg.rs test_3/11/13/15.
- * Writes per-image y-coordinate lists to /tmp/c_baseline_<name>.txt so a Rust
- * test can compare against /tmp/r_baseline_<name>.txt.
+ * Writes per-image y-coordinate lists to /tmp/c_baseline_<name>.txt.
+ * The values from these files are then transcribed into
+ * tests/recog/baseline_c_parity.rs as `const C_*: &[i32]` arrays — the
+ * Rust tests assert against those embedded constants rather than reading
+ * the .txt files at test time, so the C build is only needed when
+ * refreshing the constants.
  *
  * Build (from repo root):
  *   nix-shell -p libpng libjpeg libtiff libwebp giflib zlib openjpeg \

@@ -41,10 +41,15 @@ fn c_parity_simple_3x3() {
     );
 }
 
-/// weasel8 case: Rust algorithm differs from C; this test pins down the
-/// CURRENT divergence so any future bit-equivalence work surfaces here.
+/// weasel8 case: placeholder setup that runs the same input as the C side.
+/// Currently `#[ignore]` because Rust's algorithm differs from C. No
+/// assertion runs in this state — the test exists so that, once
+/// `fill_map_holes_inner` is reimplemented to match C's column-major
+/// algorithm, this can be re-enabled with a bit-equivalence assertion
+/// against `/tmp/c_fillmapholes_weasel.png` (produced by
+/// `scripts/verify_fillmapholes.c`).
 ///
-/// `scripts/verify_fillmapholes.c` reports against the same 82x73 input:
+/// `scripts/verify_fillmapholes.c` last reported on the same 82x73 input:
 ///   * IDENTICAL count: 5550 / 5986 pixels (92.7%)
 ///   * ndiff = 436 (7.3%)
 ///   * max channel delta = 233
