@@ -335,16 +335,28 @@ pub fn get_background_gray_map(
 ///
 /// C版: `pixGetBackgroundRGBMap()` in `adaptmap.c`
 ///
-/// Extracts R, G, B channels and computes a background map for each.
+/// Builds three 8 bpp tile-resolution maps for the R, G, B channels of a
+/// 32 bpp RGB input. A **single foreground mask is shared** across all
+/// three channels (constructed from a fast grayscale conversion of `pix`
+/// via `Pix::convert_rgb_to_gray_fast`, then `threshold_to_binary` +
+/// `morph_sequence("d7.1 + d1.7")`), and per-tile R/G/B sums are
+/// accumulated in a **single pass** against that mask. Each tile's
+/// average is written to its position in the corresponding map iff the
+/// number of non-foreground samples reaches `min_count`. Holes are then
+/// filled with `fill_map_holes_inner` per channel.
 ///
 /// # Arguments
 /// * `pix` - Input 32bpp RGB image
-/// * `mask` - Optional mask (currently unused)
-/// * `pixg` - Optional grayscale conversion (currently unused)
+/// * `mask` - Optional image mask; **currently ignored**, accepted for
+///   forward compatibility (image-mask handling is a plan-029 follow-up)
+/// * `pixg` - Optional caller-supplied grayscale version; **currently
+///   ignored**. The shared fg mask is always built from
+///   `pixConvertRGBToGrayFast` internally
 /// * `tile_w` - Tile width
 /// * `tile_h` - Tile height
-/// * `fg_threshold` - Foreground threshold
-/// * `min_count` - Minimum background pixels
+/// * `fg_threshold` - Foreground threshold (`<` is foreground)
+/// * `min_count` - Minimum non-foreground samples required for a tile
+///   to receive a non-zero map entry
 ///
 /// # Returns
 /// Tuple of (red_map, green_map, blue_map) as 8bpp images
