@@ -1418,6 +1418,12 @@ fn min_max_tiles(
 /// `pixExtendByReplication(pix, 1, 1)` exactly (note: Rust's public
 /// `extend_by_replication` extends both sides, so it cannot be reused here).
 fn extend_right_bottom_by_one(pix: &Pix) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
     let w = pix.width();
     let h = pix.height();
     let out = Pix::new(w + 1, h + 1, PixelDepth::Bit8)?;
@@ -1444,11 +1450,19 @@ fn extend_right_bottom_by_one(pix: &Pix) -> FilterResult<Pix> {
 /// C-aligned `pixSetLowContrast` (adaptmap.c:2744).
 ///
 /// First scans both maps; if no tile pair has an absolute difference
-/// `>= min_diff`, clears both maps entirely and returns Ok with both
-/// pix all-zero (matching C's "warning + return 1" path — the downstream
-/// `fill_map_holes_inner` will then detect the all-zero state and surface
-/// `InvalidParameters`). Otherwise zeros tile pairs whose absolute
-/// difference is `< min_diff`.
+/// `>= min_diff`, returns `FilterError::InvalidParameters` with a clear
+/// message ("input has no tile pair with sufficient contrast"). C clears
+/// the maps and returns 1 in this case, leaving the caller to surface
+/// the failure later as a generic "no data in any column" error from
+/// `pixFillMapHoles`; we surface the underlying cause directly so callers
+/// see why `contrast_norm` rejected their input.
+///
+/// Otherwise zeros tile pairs whose absolute difference is `< min_diff`,
+/// matching C's per-cell behavior bit-for-bit.
+///
+/// `min_diff > 254` is a no-op (returns the maps untouched). C bails
+/// early there because every 8 bpp tile pair would be cleared, which is
+/// nonsense input.
 fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(Pix, Pix)> {
     let w = pix_min.width();
     let h = pix_min.height();
@@ -1458,8 +1472,6 @@ fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(
         ));
     }
     if min_diff > 254 {
-        // Match C: just return the maps untouched (mindiff > 254 would zero
-        // every cell; C explicitly bails early to avoid that).
         return Ok((pix_min, pix_max));
     }
 
@@ -1475,23 +1487,17 @@ fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(
         }
     }
 
+    if !found {
+        return Err(FilterError::InvalidParameters(format!(
+            "set_low_contrast: no tile pair has |max - min| >= {min_diff}; \
+             input is below the requested contrast threshold"
+        )));
+    }
+
     let out_min = pix_min.deep_clone();
     let out_max = pix_max.deep_clone();
     let mut min_mut = out_min.try_into_mut().unwrap();
     let mut max_mut = out_max.try_into_mut().unwrap();
-
-    if !found {
-        // C "warning + return 1": clear both maps so callers see all-zero
-        // input downstream.
-        for y in 0..h {
-            for x in 0..w {
-                min_mut.set_pixel_unchecked(x, y, 0);
-                max_mut.set_pixel_unchecked(x, y, 0);
-            }
-        }
-        return Ok((min_mut.into(), max_mut.into()));
-    }
-
     for y in 0..h {
         for x in 0..w {
             let v1 = pix_min.get_pixel_unchecked(x, y) as i32;
