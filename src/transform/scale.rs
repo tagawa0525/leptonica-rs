@@ -462,7 +462,7 @@ fn convert_to_8bpp(pix: &Pix) -> TransformResult<Pix> {
         PixelDepth::Bit4 => 15u32,
         _ => 255u32,
     };
-    let scale_factor = if max_val > 0 { 255 / max_val } else { 1 };
+    let scale_factor = 255u32.checked_div(max_val).unwrap_or(1);
     for y in 0..h {
         for x in 0..w {
             let val = pix.get_pixel_unchecked(x, y);

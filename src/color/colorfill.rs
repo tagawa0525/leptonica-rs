@@ -625,10 +625,11 @@ pub fn color_content_by_location(
             // Map color content to an output value
             let val = if max_c < min_max {
                 0u32
-            } else if max_diff == 0 {
-                if diff > 0 { 255 } else { 0 }
             } else {
-                ((diff * 255) / max_diff).min(255)
+                (diff * 255)
+                    .checked_div(max_diff)
+                    .map(|v| v.min(255))
+                    .unwrap_or(if diff > 0 { 255 } else { 0 })
             };
 
             for y in y0..y1 {

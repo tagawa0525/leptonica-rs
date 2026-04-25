@@ -1661,11 +1661,7 @@ fn box_blur_gray(pix: &Pix, half_size: u32) -> TransformResult<Pix> {
                     count += 1;
                 }
             }
-            let val = if count > 0 {
-                (sum + count / 2) / count
-            } else {
-                0
-            };
+            let val = (sum + count / 2).checked_div(count).unwrap_or(0);
             out_mut.set_pixel_unchecked(x, y, val.min(255));
         }
     }

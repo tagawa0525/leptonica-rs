@@ -723,11 +723,9 @@ impl Recog {
             .map(|((s, t), b)| (*s, t, b))
         {
             match (&mut current, prev_box) {
-                (None, _) => {
-                    if score >= score_thresh {
-                        current = Some(text.clone());
-                        prev_box = Some(bx);
-                    }
+                (None, _) if score >= score_thresh => {
+                    current = Some(text.clone());
+                    prev_box = Some(bx);
                 }
                 (Some(cur), Some(pb)) => {
                     let h_sep = bx.x - (pb.x + pb.w);

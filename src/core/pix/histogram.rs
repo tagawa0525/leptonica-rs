@@ -1499,11 +1499,12 @@ impl Pix {
 
         let mut colors = Vec::with_capacity(nbins as usize);
         for i in 0..nbins as usize {
-            if counts[i] > 0 {
+            if let Some(count) = std::num::NonZeroU64::new(counts[i]) {
+                let count = count.get();
                 colors.push(pixel::compose_rgb(
-                    (r_sum[i] / counts[i]) as u8,
-                    (g_sum[i] / counts[i]) as u8,
-                    (b_sum[i] / counts[i]) as u8,
+                    (r_sum[i] / count) as u8,
+                    (g_sum[i] / count) as u8,
+                    (b_sum[i] / count) as u8,
                 ));
             } else {
                 colors.push(0);
@@ -1561,11 +1562,12 @@ impl Pix {
 
         let mut colors = Vec::with_capacity(nbins);
         for i in 0..nbins {
-            if counts[i] > 0 {
+            if let Some(count) = std::num::NonZeroU64::new(counts[i]) {
+                let count = count.get();
                 colors.push(pixel::compose_rgb(
-                    (r_sum[i] / counts[i]) as u8,
-                    (g_sum[i] / counts[i]) as u8,
-                    (b_sum[i] / counts[i]) as u8,
+                    (r_sum[i] / count) as u8,
+                    (g_sum[i] / count) as u8,
+                    (b_sum[i] / count) as u8,
                 ));
             } else {
                 colors.push(0);
@@ -1671,15 +1673,16 @@ impl Pix {
                     }
 
                     for b_idx in 0..nbins {
-                        let color = if counts[b_idx as usize] > 0 {
-                            pixel::compose_rgb(
-                                (r_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
-                                (g_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
-                                (b_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
-                            )
-                        } else {
-                            0
-                        };
+                        let color = std::num::NonZeroU64::new(counts[b_idx as usize])
+                            .map(|count| {
+                                let count = count.get();
+                                pixel::compose_rgb(
+                                    (r_sum[b_idx as usize] / count) as u8,
+                                    (g_sum[b_idx as usize] / count) as u8,
+                                    (b_sum[b_idx as usize] / count) as u8,
+                                )
+                            })
+                            .unwrap_or(0);
                         let out_y = s * nbins + b_idx;
                         if out_y < out_h {
                             for x in 0..w {
@@ -1722,15 +1725,16 @@ impl Pix {
                     }
 
                     for b_idx in 0..nbins {
-                        let color = if counts[b_idx as usize] > 0 {
-                            pixel::compose_rgb(
-                                (r_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
-                                (g_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
-                                (b_sum[b_idx as usize] / counts[b_idx as usize]) as u8,
-                            )
-                        } else {
-                            0
-                        };
+                        let color = std::num::NonZeroU64::new(counts[b_idx as usize])
+                            .map(|count| {
+                                let count = count.get();
+                                pixel::compose_rgb(
+                                    (r_sum[b_idx as usize] / count) as u8,
+                                    (g_sum[b_idx as usize] / count) as u8,
+                                    (b_sum[b_idx as usize] / count) as u8,
+                                )
+                            })
+                            .unwrap_or(0);
                         let out_x = s * nbins + b_idx;
                         if out_x < out_w {
                             for y in 0..h {

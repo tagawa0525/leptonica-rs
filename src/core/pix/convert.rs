@@ -2378,13 +2378,11 @@ impl Pix {
                 sum += gray.get_pixel_unchecked(x, y) as u64;
             }
         }
-        let threshold = if total > 0 {
-            // Use mean as threshold, biased slightly toward binarization quality
-            let mean = sum / total;
-            mean.clamp(1, 254) as u32
-        } else {
-            128
-        };
+        // Use mean as threshold, biased slightly toward binarization quality.
+        let threshold = sum
+            .checked_div(total)
+            .map(|mean| mean.clamp(1, 254) as u32)
+            .unwrap_or(128);
 
         let result = Pix::new(w, h, PixelDepth::Bit1)?;
         let mut rm = result.try_into_mut().unwrap();
