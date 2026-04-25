@@ -696,7 +696,7 @@ fn filter_baselines(
     let mut filtered_baselines = Vec::new();
     let mut filtered_endpoints = Vec::new();
 
-    for (baseline, endpoint) in baselines.into_iter().zip(endpoints.into_iter()) {
+    for (baseline, endpoint) in baselines.into_iter().zip(endpoints) {
         if let Some(ep) = endpoint {
             filtered_baselines.push(baseline);
             filtered_endpoints.push(ep);

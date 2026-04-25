@@ -102,7 +102,7 @@ fn analyze_grayscale(pix: &Pix) -> ColorResult<ColorStats> {
         .filter(|(_, c)| **c > 0)
         .map(|(i, c)| (i, *c))
         .collect();
-    indexed.sort_by(|a, b| b.1.cmp(&a.1));
+    indexed.sort_by_key(|a| std::cmp::Reverse(a.1));
 
     let dominant_colors: Vec<(u8, u8, u8, u32)> = indexed
         .iter()
@@ -176,7 +176,7 @@ fn analyze_color(pix: &Pix) -> ColorResult<ColorStats> {
 
     // Find dominant colors
     let mut color_vec: Vec<(u32, u32)> = color_counts.into_iter().collect();
-    color_vec.sort_by(|a, b| b.1.cmp(&a.1));
+    color_vec.sort_by_key(|a| std::cmp::Reverse(a.1));
 
     let dominant_colors: Vec<(u8, u8, u8, u32)> = color_vec
         .iter()

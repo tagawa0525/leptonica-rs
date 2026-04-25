@@ -891,11 +891,8 @@ fn get_inv_background_map_inner(
     for y in 0..h {
         for x in 0..w {
             let val = smoothed.get_pixel_unchecked(x, y);
-            let factor = if val > 0 {
-                (256 * bg_val) / val
-            } else {
-                bg_val / 2 // fallback for zero values
-            };
+            // Fallback for zero values: bg_val / 2.
+            let factor = (256 * bg_val).checked_div(val).unwrap_or(bg_val / 2);
             // Store as 32-bit value (16-bit factor in 32bpp Pix for convenience)
             out_mut.set_pixel_unchecked(x, y, factor.min(65535));
         }

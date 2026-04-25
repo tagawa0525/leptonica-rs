@@ -514,10 +514,11 @@ impl Octree {
 
     fn build_palette_impl(node: &mut OctreeNode, palette: &mut Vec<(u8, u8, u8)>) {
         if node.is_leaf {
-            if node.pixel_count > 0 {
-                let r = (node.red / node.pixel_count) as u8;
-                let g = (node.green / node.pixel_count) as u8;
-                let b = (node.blue / node.pixel_count) as u8;
+            if let Some(count) = std::num::NonZeroU64::new(node.pixel_count) {
+                let count = count.get();
+                let r = (node.red / count) as u8;
+                let g = (node.green / count) as u8;
+                let b = (node.blue / count) as u8;
                 node.palette_index = palette.len();
                 palette.push((r, g, b));
             }
@@ -666,7 +667,7 @@ pub fn octree_quant_by_population(pix: &Pix, level: u32) -> ColorResult<Pix> {
         .filter(|(_, c)| **c > 0)
         .map(|(i, c)| (i, *c))
         .collect();
-    occupied.sort_by(|a, b| b.1.cmp(&a.1));
+    occupied.sort_by_key(|a| std::cmp::Reverse(a.1));
 
     // Limit to 256 colors
     let ncolors = occupied.len().min(256);
@@ -1346,10 +1347,11 @@ pub fn octcube_quant_mixed_with_gray(
 
     // Average the colors in each occupied octcube and update the colormap
     for i in 0..size as usize {
-        if carray[i] > 0 {
-            let r = (rarray[i] / carray[i]) as u8;
-            let g = (garray[i] / carray[i]) as u8;
-            let b = (barray[i] / carray[i]) as u8;
+        if let Some(count) = std::num::NonZeroU64::new(carray[i]) {
+            let count = count.get();
+            let r = (rarray[i] / count) as u8;
+            let g = (garray[i] / count) as u8;
+            let b = (barray[i] / count) as u8;
             if let Some(entry) = colormap.get_mut(i) {
                 entry.red = r;
                 entry.green = g;
@@ -1442,10 +1444,11 @@ pub fn few_colors_octcube_quant1(pix: &Pix, level: u32) -> ColorResult<Pix> {
     // Build colormap from averaged colors
     let mut colormap = PixColormap::new(out_depth_bits)?;
     for i in 0..size as usize {
-        if carray[i] > 0 {
-            let r = (rarray[i] / carray[i]) as u8;
-            let g = (garray[i] / carray[i]) as u8;
-            let b = (barray[i] / carray[i]) as u8;
+        if let Some(count) = std::num::NonZeroU64::new(carray[i]) {
+            let count = count.get();
+            let r = (rarray[i] / count) as u8;
+            let g = (garray[i] / count) as u8;
+            let b = (barray[i] / count) as u8;
             colormap.add_rgb(r, g, b)?;
         }
     }

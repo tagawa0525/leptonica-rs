@@ -179,7 +179,7 @@ impl Boxa {
 
         // Sort boxes in each row horizontally (by x)
         for boxa_row in baa.boxas_mut() {
-            boxa_row.boxes_mut().sort_by(|a, b| a.x.cmp(&b.x));
+            boxa_row.boxes_mut().sort_by_key(|a| a.x);
         }
 
         // Sort rows vertically (by y of first box)

@@ -451,7 +451,8 @@ impl Pix {
                             count += 1;
                         }
                     }
-                    if count > 0 {
+                    if let Some(count) = std::num::NonZeroU32::new(count) {
+                        let count = count.get();
                         let avg = crate::core::pixel::compose_rgb(
                             (r_sum / count) as u8,
                             (g_sum / count) as u8,
@@ -486,8 +487,8 @@ impl Pix {
                             count += 1;
                         }
                     }
-                    if count > 0 {
-                        rm.set_pixel_unchecked(dx, dy, sum / count);
+                    if let Some(avg) = sum.checked_div(count) {
+                        rm.set_pixel_unchecked(dx, dy, avg);
                     }
                 }
             }

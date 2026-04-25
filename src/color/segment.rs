@@ -400,8 +400,8 @@ fn cluster_try(pix: &Pix, max_dist: u32, max_colors: u32) -> Result<Pix, Cluster
     let mut colormap = PixColormap::new(8).map_err(|e| ClusterError::Other(e.into()))?;
 
     for k in 0..rmap.len() {
-        let count = counts[k];
-        if count > 0 {
+        if let Some(count) = std::num::NonZeroU64::new(counts[k]) {
+            let count = count.get();
             let avg_r = (rsum[k] / count) as u8;
             let avg_g = (gsum[k] / count) as u8;
             let avg_b = (bsum[k] / count) as u8;

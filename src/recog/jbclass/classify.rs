@@ -294,7 +294,7 @@ impl JbClasser {
         let mut chars = Vec::new();
         let mut char_boxes = Vec::new();
 
-        for (comp, pix_box) in comps.into_iter().zip(boxes.into_iter()) {
+        for (comp, pix_box) in comps.into_iter().zip(boxes) {
             // Filter out very small or very large components
             let area = count_fg_pixels(&comp)?;
             let box_area = pix_box.w * pix_box.h;
