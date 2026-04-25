@@ -571,6 +571,15 @@ pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
 ///
 /// Computes multiplication factors `(256 * bg_val) / map_val` for each tile.
 /// The resulting map is used by `apply_inv_background_gray_map()` to normalize.
+///
+/// # Input
+/// - `pix`: 8 bpp grayscale, **non-colormapped**, with `width >= 5` and
+///   `height >= 5` (matches the C contract; out-of-spec inputs return
+///   `FilterError::UnsupportedDepth` or `FilterError::InvalidParameters`).
+///
+/// # Output
+/// - 16 bpp `Pix` of the same dimensions as `pix`, holding the inverse
+///   factors (range 0..=65535).
 pub fn get_inv_background_map(
     pix: &Pix,
     bg_val: u32,
@@ -977,8 +986,8 @@ fn get_inv_background_map_inner(
 
     // C: pixsm = pixBlockconv(pixs, smoothx, smoothy);
     // pixBlockconv treats wc=0 || hc=0 as a no-op copy. Rust's `blockconv`
-    // forwards 8 bpp input to `blockconv_gray`, whose no-op contract is
-    // documented in src/filter/block_conv.rs (line ~78).
+    // forwards 8 bpp input to `blockconv_gray`, which documents the same
+    // no-op behavior when either kernel half-width is zero.
     let smoothed = blockconv(pix, smooth_x, smooth_y)?;
 
     // C: pixd = pixCreate(w, h, 16); per-pixel val16 = (256 * bgval) / val
