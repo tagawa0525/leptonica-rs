@@ -1,7 +1,11 @@
 /* Verify Rust contrast_norm matches C pixContrastNorm.
  *
- * Default Rust ContrastNormOptions: tile 10x15, min_diff=50, smooth_x=2,
- * smooth_y=1 (matches C DefaultTileWidth/Height/MinDiff/XSmoothSize/YSmoothSize).
+ * Default Rust `ContrastNormOptions`: tile 20x20
+ * (`DEFAULT_CONTRAST_TILE_SIZE`), min_diff=50, smooth_x=2, smooth_y=2.
+ * Note this is independent of `BackgroundNormOptions` defaults — C's
+ * `pixContrastNorm` doesn't define module-level constants, so the
+ * Rust-side defaults follow leptonica's documented recommendation
+ * "sx and sy ... typically at least 20".
  *
  * Output: /tmp/c_contrast_norm_dreyfus.png
  *
@@ -49,10 +53,11 @@ int main(void) {
         goto cleanup;
     }
 
-    /* Defaults mirror Rust `ContrastNormOptions::default()`:
-     *   tile 20x20 (DEFAULT_CONTRAST_TILE_SIZE), min_diff=50, smooth_x=2,
-     *   smooth_y=2. C documents that sx/sy should be at least 20.
-     * Passing NULL for `pixd` makes pixContrastNorm allocate a new image. */
+    /* Mirrors Rust `ContrastNormOptions::default()`. The first two args
+     * are tile dimensions (20x20, per C leptonica's "sx and sy ...
+     * typically at least 20" recommendation), then mindiff=50, then the
+     * smoothing half-widths smoothx=2, smoothy=2. Passing NULL for
+     * `pixd` makes pixContrastNorm allocate a new output image. */
     normed = pixContrastNorm(NULL, gray, 20, 20, 50, 2, 2);
     if (!normed) {
         fprintf(stderr, "pixContrastNorm failed\n");

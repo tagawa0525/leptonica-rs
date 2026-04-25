@@ -1390,6 +1390,11 @@ fn min_max_tiles(
 
     // Step 6: smooth (matches C `pixBlockconv`). C clamps smooth half-widths
     // to (map_w-1)/2 and (map_h-1)/2 to keep the kernel inside the map.
+    //
+    // The `>` is OR (not AND) deliberately, mirroring C's
+    // `if (smoothx > 0 || smoothy > 0)`. When only one half-width is zero,
+    // `blockconv`/`pixBlockconv` falls back to a copy (1×N or N×1 kernels
+    // are documented as no-ops on both sides), so behavior matches C.
     let pix_min = if smooth_x > 0 || smooth_y > 0 {
         let sx = smooth_x.min((map_w - 1) / 2);
         let sy = smooth_y.min((map_h - 1) / 2);
