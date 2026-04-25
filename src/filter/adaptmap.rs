@@ -319,18 +319,31 @@ fn background_norm_color(
 /// * `min_count` - Minimum background pixels required per tile
 pub fn get_background_gray_map(
     pix: &Pix,
-    _mask: Option<&Pix>,
+    mask: Option<&Pix>,
     tile_w: u32,
     tile_h: u32,
     fg_threshold: u32,
     min_count: u32,
 ) -> FilterResult<Pix> {
+    // Decode any colormap up front (palette indices are not gray values).
+    if pix.colormap().is_some() {
+        let decoded = pix.remove_colormap(crate::core::pix::RemoveColormapTarget::ToGrayscale)?;
+        return get_background_gray_map(&decoded, mask, tile_w, tile_h, fg_threshold, min_count);
+    }
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
             expected: "8 bpp",
             actual: pix.depth().bits(),
         });
     }
+    if fg_threshold > 255 {
+        return Err(FilterError::InvalidParameters(format!(
+            "fg_threshold must be in 0..=255 (got {fg_threshold})"
+        )));
+    }
+    // Image-mask (`pixim`) handling is reserved for a future plan-029 PR;
+    // the parameter is accepted for forward compatibility but ignored.
+    let _ = mask;
     get_background_gray_map_inner(pix, tile_w, tile_h, fg_threshold, min_count)
 }
 
@@ -749,8 +762,40 @@ fn get_background_gray_map_inner(
     fg_threshold: u32,
     min_count: u32,
 ) -> FilterResult<Pix> {
+    use crate::color::threshold::threshold_to_binary;
+    use crate::morph::sequence::morph_sequence;
+
     let w = pix.width();
     let h = pix.height();
+
+    // Validate inputs that internal callers do not pre-check.
+    if tile_width == 0 || tile_height == 0 {
+        return Err(FilterError::InvalidParameters(format!(
+            "tile dimensions must be non-zero (tile_width={tile_width}, tile_height={tile_height})"
+        )));
+    }
+    if fg_threshold > 255 {
+        return Err(FilterError::InvalidParameters(format!(
+            "fg_threshold must be in 0..=255 (got {fg_threshold})"
+        )));
+    }
+
+    // Build the dilated foreground mask `pixf` exactly as C does:
+    //   pixb = pixThresholdToBinary(pixs, fg_threshold)
+    //   pixf = pixMorphSequence(pixb, "d7.1 + d1.7", 0)
+    // The dilation widens the fg region so that text-edge pixels (which
+    // sit just outside the strict <fg_threshold band) are also excluded
+    // from the per-tile background average. Without this step the Rust
+    // map disagrees with C by tens of percent of pixels.
+    let thresh_u8 = fg_threshold as u8;
+    // Preserve the underlying core error if threshold_to_binary fails for
+    // a structural reason (e.g. allocation), and surface other color-side
+    // errors with a descriptive message rather than dropping their type.
+    let pixb = threshold_to_binary(pix, thresh_u8).map_err(|e| match e {
+        crate::color::ColorError::Core(core) => FilterError::Core(core),
+        other => FilterError::InvalidParameters(format!("threshold_to_binary: {other}")),
+    })?;
+    let pixf = morph_sequence(&pixb, "d7.1 + d1.7")?;
 
     // Calculate map dimensions
     let map_w = w.div_ceil(tile_width);
@@ -773,13 +818,12 @@ fn get_background_gray_map_inner(
             let mut sum: u32 = 0;
             let mut count: u32 = 0;
 
-            // Accumulate background pixels in this tile
+            // Accumulate non-foreground pixels in this tile (matches C:
+            // GET_DATA_BIT(linef + ..., delx + m) == 0).
             for y in tile_y..(tile_y + tile_height) {
                 for x in tile_x..(tile_x + tile_width) {
-                    let val = pix.get_pixel_unchecked(x, y);
-                    // Only include pixels above the foreground threshold
-                    if val >= fg_threshold {
-                        sum += val;
+                    if pixf.get_pixel_unchecked(x, y) == 0 {
+                        sum += pix.get_pixel_unchecked(x, y);
                         count += 1;
                     }
                 }
