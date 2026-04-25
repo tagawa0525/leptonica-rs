@@ -1437,7 +1437,13 @@ fn extend_right_bottom_by_one(pix: &Pix) -> FilterResult<Pix> {
     }
     let w = pix.width();
     let h = pix.height();
-    let out = Pix::new(w + 1, h + 1, PixelDepth::Bit8)?;
+    let new_w = w
+        .checked_add(1)
+        .ok_or_else(|| FilterError::InvalidParameters("width + 1 overflow".into()))?;
+    let new_h = h
+        .checked_add(1)
+        .ok_or_else(|| FilterError::InvalidParameters("height + 1 overflow".into()))?;
+    let out = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
     let mut out_mut = out.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
