@@ -10,7 +10,8 @@
 //! flips RED → GREEN by deleting the `#[ignore]`.
 use crate::common::{load_test_image, pixel_content_hash};
 use leptonica::filter::adaptmap::{
-    fill_map_holes, get_background_gray_map, get_inv_background_map,
+    BackgroundNormOptions, background_norm, fill_map_holes, get_background_gray_map,
+    get_inv_background_map,
 };
 use leptonica::filter::enhance::gamma_trc_masked;
 use leptonica::{Pix, PixMut, PixelDepth};
@@ -143,6 +144,27 @@ fn c_parity_inv_bg_map_dreyfus() {
         pixel_content_hash(&inv),
         EXPECTED_C_INV_BG_DREYFUS_HASH,
         "Rust get_inv_background_map(dreyfus8) must match C reference",
+    );
+}
+
+/// FNV-1a pixel_content_hash of `/tmp/c_bg_norm_dreyfus.png` produced by
+/// `scripts/verify_apply_inv_bg.c` running C `pixBackgroundNorm` end-to-end
+/// with C/Rust default options (10x15 tiles, fg_thresh=60, min_count=40,
+/// bg_val=200, smooth_x=2, smooth_y=1). Output is 329x400x8.
+const EXPECTED_C_BG_NORM_DREYFUS_HASH: u64 = 0xd2b87b21855eca7a;
+
+/// `pixBackgroundNorm(dreyfus8)` end-to-end. With PR1, PR2, and the
+/// already-C-shaped `apply_inv_background_gray_map_inner` loop in
+/// place, the full pipeline output should be bit-identical to C.
+#[test]
+fn c_parity_background_norm_dreyfus() {
+    let pix = load_test_image("dreyfus8.png").expect("load dreyfus8");
+    let normed =
+        background_norm(&pix, &BackgroundNormOptions::default()).expect("background_norm dreyfus");
+    assert_eq!(
+        pixel_content_hash(&normed),
+        EXPECTED_C_BG_NORM_DREYFUS_HASH,
+        "Rust pixBackgroundNorm(dreyfus8) must match C reference",
     );
 }
 
