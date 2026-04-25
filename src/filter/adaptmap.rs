@@ -1505,12 +1505,13 @@ fn set_low_contrast(pix_min: Pix, pix_max: Pix, min_diff: u32) -> FilterResult<(
         )));
     }
 
-    // We own pix_min/pix_max here; try_into_mut() avoids the extra
-    // deep_clone the previous version paid for. (If a caller ever held
-    // another Arc handle the convert would copy once, same cost as the
-    // explicit clone; the common case is one owner so we save the alloc.)
-    let mut min_mut = pix_min.try_into_mut().expect("owned Pix, refcount=1");
-    let mut max_mut = pix_max.try_into_mut().expect("owned Pix, refcount=1");
+    // Convert each owned Pix into a mutable handle. `try_into_mut()`
+    // returns the Pix back as `Err` when the Arc refcount > 1 (it does
+    // not copy-on-write); fall back to `to_mut()` in that rare case so
+    // we always make progress, but the common single-owner path is
+    // zero-copy.
+    let mut min_mut = pix_min.try_into_mut().unwrap_or_else(|p| p.to_mut());
+    let mut max_mut = pix_max.try_into_mut().unwrap_or_else(|p| p.to_mut());
     for y in 0..h {
         for x in 0..w {
             let v1 = min_mut.get_pixel_unchecked(x, y) as i32;
