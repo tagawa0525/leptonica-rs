@@ -27,7 +27,7 @@ mod error;
 mod params;
 
 pub use error::{TestError, TestResult};
-pub use params::{RegParams, RegTestMode};
+pub use params::{RegParams, RegTestMode, pixel_content_hash};
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
