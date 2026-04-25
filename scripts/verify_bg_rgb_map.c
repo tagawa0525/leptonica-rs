@@ -3,9 +3,9 @@
  * C builds a single foreground mask from a grayscale conversion of the
  * RGB input (`pixConvertRGBToGrayFast` + threshold + dilate), then
  * accumulates R/G/B sums in one tile pass against that shared mask.
- * Rust currently builds a per-channel fg mask, which is structurally
- * different. This helper emits the C reference outputs so PR4 can
- * verify the Rust rewrite.
+ * Rust now follows the same shape (post plan-029 PR4); this helper
+ * emits the C reference outputs that the Rust c_parity tests assert
+ * against, and is the source of truth when refreshing those hashes.
  *
  * Outputs:
  *   /tmp/c_bg_rgb_map_r_church.png   /tmp/c_bg_rgb_map_g_church.png
