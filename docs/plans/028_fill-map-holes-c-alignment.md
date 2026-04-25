@@ -167,15 +167,16 @@ src/filter/adaptmap.rs:1499:    fill_map_holes_inner(&pix3, nx, ny)
 
 PR毎に別ブランチを切る。
 
-### PR 1: RED — テスト更新（fail する）
+### PR 1: RED — テスト更新（PR上は `#[ignore]` 維持、ローカルで fail 確認）
 
 ブランチ: `test/c-parity-fill-map-holes-weasel`
 
-- `c_parity_weasel_known_divergence` を `c_parity_weasel` に rename、`#[ignore]` 解除、bit-equiv assertion 追加
-- `tests/data/golden/c_fillmapholes_weasel.png` を commit（C版output）
-- `tests/data/golden/c_fillmapholes_simple.png` も commit（既存 bit-identical の保証用）
-- 実行すると `c_parity_weasel` が **fail** することを確認
-- このコミットでは `#[ignore = "RED: blocked on plan 028 GREEN"]` を一時付与してCIを通す
+- `c_parity_weasel_known_divergence` を `c_parity_weasel` に rename
+- C版出力の FNV-1a ハッシュを `EXPECTED_C_WEASEL_HASH` 定数として埋め込み、`assert_eq!(pixel_content_hash(&filled), EXPECTED_C_WEASEL_HASH)` を追加
+- ハッシュは事前に `scripts/verify_fillmapholes.c` を1度実行 → `/tmp/c_fillmapholes_weasel.png` から `pixel_content_hash` で採取（手作業）
+- **ローカル確認**: `#[ignore]` を一時的に外して `cargo test c_parity_weasel` が **fail** することを確認
+- **PR 共有時**: `#[ignore = "RED: blocked on plan 028 GREEN PR"]` を維持して CI を通す
+- 意図: assertion を先にコミット履歴に残すことで、GREEN PR で `#[ignore]` を外すだけで RED→GREEN 遷移が一目瞭然になる
 
 ### PR 2: GREEN — 実装書き換え
 
