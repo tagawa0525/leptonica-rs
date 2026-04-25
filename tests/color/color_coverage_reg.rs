@@ -97,7 +97,14 @@ fn make_bimodal_8bpp(w: u32, h: u32) -> Pix {
     let mut pm = pix.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
-            let val = if x < w / 2 { 40 } else { 210 };
+            // Bimodal halves with deterministic per-pixel variation so each
+            // tile has non-trivial local contrast — contrast_norm rejects
+            // tiles whose min/max diff falls below `min_diff` (matching C
+            // pixContrastNorm's nmiss == nx error path), so a constant-fill
+            // bimodal fixture would otherwise trip that error.
+            let base: i32 = if x < w / 2 { 40 } else { 210 };
+            let jitter = ((x.wrapping_mul(13) + y.wrapping_mul(7)) % 21) as i32 - 10;
+            let val = (base + jitter).clamp(0, 255) as u32;
             pm.set_pixel_unchecked(x, y, val);
         }
     }

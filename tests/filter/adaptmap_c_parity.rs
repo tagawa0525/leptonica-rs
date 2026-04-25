@@ -53,11 +53,10 @@ fn c_parity_simple_3x3() {
     );
 }
 
-/// weasel8 (82x73): currently RED. The GREEN PR for plan 028 will remove
-/// `#[ignore]`. The setup mirrors
+/// weasel8 (82x73): asserts bit-equivalence with C `pixFillMapHoles` after
+/// the column-major rewrite of `fill_map_holes_inner`. Setup mirrors
 /// `tests/filter/adaptmap_reg.rs::adaptmap_reg_fill_map_holes_weasel`.
 #[test]
-#[ignore = "RED: blocked on plan 028 GREEN PR (fill_map_holes_inner C alignment)"]
 fn c_parity_weasel() {
     let pix = load_test_image("weasel8.png").expect("load weasel8.png");
     let darkened = gamma_trc_masked(&pix, None, 1.0, 0, 200).expect("darken");

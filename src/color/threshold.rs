@@ -947,6 +947,17 @@ fn generate_sauvola_thresh_map(pix: &Pix, window_size: u32, k: f32, r: f32) -> C
 // =============================================================================
 
 fn ensure_grayscale(pix: &Pix) -> ColorResult<Pix> {
+    // Colormapped 8 bpp pixels carry palette indices, not gray values, so
+    // downstream tile-stat operations (fill_map_holes, background_norm,
+    // ...) would produce nonsense if we passed them through as-is. Decode
+    // the colormap to actual gray values first. This matches C leptonica
+    // pipelines that call pixGetColormap() / pixRemoveColormap() before
+    // adaptive map computations.
+    if pix.colormap().is_some() {
+        return pix
+            .remove_colormap(crate::core::pix::RemoveColormapTarget::ToGrayscale)
+            .map_err(ColorError::from);
+    }
     match pix.depth() {
         PixelDepth::Bit8 => Ok(pix.clone()),
         PixelDepth::Bit32 => pix_convert_to_gray(pix),
@@ -1076,16 +1087,20 @@ pub fn sauvola_on_contrast_norm(pix: &Pix, mindiff: u32) -> ColorResult<Pix> {
 ///
 /// C Leptonica: `pixThreshOnDoubleNorm()` in `binarize.c`
 pub fn thresh_on_double_norm(pix: &Pix, mindiff: u32) -> ColorResult<Pix> {
+    // Decode any colormap and reduce to 8 bpp gray BEFORE the adaptive map
+    // pipeline — background_norm operates on tile statistics of raw pixel
+    // values, which are meaningless for palette indices.
+    let gray = ensure_grayscale(pix)?;
+
     let bg_opts = BackgroundNormOptions::default();
-    let normed_bg = background_norm(pix, &bg_opts)
+    let normed_bg = background_norm(&gray, &bg_opts)
         .map_err(|e| ColorError::InvalidParameters(format!("background_norm failed: {e}")))?;
 
-    let gray = ensure_grayscale(&normed_bg)?;
     let cn_opts = ContrastNormOptions {
         min_diff: mindiff,
         ..ContrastNormOptions::default()
     };
-    let normed = contrast_norm(&gray, &cn_opts)
+    let normed = contrast_norm(&normed_bg, &cn_opts)
         .map_err(|e| ColorError::InvalidParameters(format!("contrast_norm failed: {e}")))?;
 
     threshold_to_binary(&normed, 200)

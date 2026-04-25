@@ -1,6 +1,19 @@
 # `fill_map_holes` を C版 `pixFillMapHoles` と bit 同等に揃える
 
-Status: PLANNED
+Status: IMPLEMENTED
+
+> **Scope note (post-implementation):** Only `fill_map_holes` itself was made
+> bit-equivalent to C. Pipeline-downstream outputs that consume it
+> (`background_norm`, `contrast_norm`, `clean_background_to_white_*`, the
+> binarize composites, etc.) still use Rust's own implementations of the
+> surrounding helpers (`get_background_gray_map_inner`,
+> `get_inv_background_map_inner`, `apply_inv_background_gray_map_inner`, ...)
+> and therefore are **not** bit-equivalent to C — empirically
+> `pixBackgroundNorm(dreyfus8)` differs from the Rust output at 91.57% of
+> pixels (max delta 45). The `golden_manifest.tsv` hashes for those
+> downstream tests are therefore "Rust output pinned post fill_map_holes
+> alignment", not "C reference values". Bringing the full pipeline into
+> bit-equivalence with C is tracked separately as plan 029.
 
 ## Context
 
