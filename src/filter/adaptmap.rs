@@ -319,7 +319,7 @@ fn background_norm_color(
 /// * `min_count` - Minimum background pixels required per tile
 pub fn get_background_gray_map(
     pix: &Pix,
-    _mask: Option<&Pix>,
+    mask: Option<&Pix>,
     tile_w: u32,
     tile_h: u32,
     fg_threshold: u32,
@@ -328,7 +328,7 @@ pub fn get_background_gray_map(
     // Decode any colormap up front (palette indices are not gray values).
     if pix.colormap().is_some() {
         let decoded = pix.remove_colormap(crate::core::pix::RemoveColormapTarget::ToGrayscale)?;
-        return get_background_gray_map(&decoded, _mask, tile_w, tile_h, fg_threshold, min_count);
+        return get_background_gray_map(&decoded, mask, tile_w, tile_h, fg_threshold, min_count);
     }
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
@@ -336,6 +336,14 @@ pub fn get_background_gray_map(
             actual: pix.depth().bits(),
         });
     }
+    if fg_threshold > 255 {
+        return Err(FilterError::InvalidParameters(format!(
+            "fg_threshold must be in 0..=255 (got {fg_threshold})"
+        )));
+    }
+    // Image-mask (`pixim`) handling is reserved for a future plan-029 PR;
+    // the parameter is accepted for forward compatibility but ignored.
+    let _ = mask;
     get_background_gray_map_inner(pix, tile_w, tile_h, fg_threshold, min_count)
 }
 
@@ -767,7 +775,7 @@ fn get_background_gray_map_inner(
     // sit just outside the strict <fg_threshold band) are also excluded
     // from the per-tile background average. Without this step the Rust
     // map disagrees with C by tens of percent of pixels.
-    let thresh_u8 = u8::try_from(fg_threshold.min(255)).unwrap_or(255);
+    let thresh_u8 = fg_threshold as u8;
     let pixb = threshold_to_binary(pix, thresh_u8).map_err(|e| {
         FilterError::InvalidParameters(format!("threshold_to_binary in bg_gray_map: {e}"))
     })?;

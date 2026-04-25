@@ -122,3 +122,34 @@ fn c_parity_bg_gray_map_dreyfus() {
         "Rust get_background_gray_map(dreyfus8) must match C reference",
     );
 }
+
+/// Regression: passing a colormapped 8 bpp Pix must produce the same map
+/// as passing the same Pix with the colormap already removed via
+/// `Pix::remove_colormap(ToGrayscale)`. Dreyfus8 ships colormapped, so
+/// loading it directly exercises the auto-decode path inside
+/// `get_background_gray_map`. Without that path, palette indices would
+/// be treated as gray values and the resulting map would diverge silently.
+#[test]
+fn bg_gray_map_auto_decodes_colormap() {
+    use leptonica::core::pix::RemoveColormapTarget;
+
+    let cmapped = load_test_image("dreyfus8.png").expect("load dreyfus8");
+    assert!(
+        cmapped.colormap().is_some(),
+        "fixture must remain colormapped to exercise the auto-decode path"
+    );
+    let decoded = cmapped
+        .remove_colormap(RemoveColormapTarget::ToGrayscale)
+        .expect("remove_colormap");
+
+    let map_via_auto_decode =
+        get_background_gray_map(&cmapped, None, 10, 15, 60, 40).expect("auto-decode path");
+    let map_via_manual_decode =
+        get_background_gray_map(&decoded, None, 10, 15, 60, 40).expect("manual-decode path");
+
+    assert_eq!(
+        pixel_content_hash(&map_via_auto_decode),
+        pixel_content_hash(&map_via_manual_decode),
+        "auto-decode of colormap must yield the same map as pre-decoded input",
+    );
+}
