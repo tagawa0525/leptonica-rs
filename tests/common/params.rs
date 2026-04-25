@@ -42,7 +42,7 @@ const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;
 
 /// Hash pixel content of a Pix (format-independent)
-fn pixel_content_hash(pix: &Pix) -> u64 {
+pub fn pixel_content_hash(pix: &Pix) -> u64 {
     let mut h = FNV_OFFSET_BASIS;
     for b in pix.width().to_le_bytes() {
         h ^= b as u64;

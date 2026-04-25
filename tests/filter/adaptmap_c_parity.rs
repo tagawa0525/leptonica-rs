@@ -1,25 +1,32 @@
 //! C-parity test for `fill_map_holes`.
 //!
-//! Reference values derived from C leptonica master (commit f7082ecd) by
-//! running `scripts/verify_fillmapholes.c`.
+//! Reference hashes derived from C leptonica master (commit f7082ecd) by
+//! running `scripts/verify_fillmapholes.c` and feeding `/tmp/c_fillmapholes_*.png`
+//! through `tests::common::pixel_content_hash` (FNV-1a). See plan
+//! `docs/plans/028_fill-map-holes-c-alignment.md`.
 //!
-//! The simple 3x3 case is bit-equivalent. The weasel8 case is NOT —
-//! Rust's algorithm (4-neighbor diffusion in two passes) differs structurally
-//! from C's column-major replication, producing ~7.3% pixel divergence on
-//! the same input. The C bug fix in upstream commit 737f969e (loop bound
-//! `j < w` → `j < nx`) addressed that column-replication path, which Rust
-//! does not use, so the bug is structurally absent from the Rust port.
-//!
-//! Bringing weasel8 into bit-equivalence would require reimplementing
-//! `fill_map_holes_inner` to match C's column-then-row strategy. That is
-//! tracked as a separate decision: see `docs/plans/` if/when scoped.
-use crate::common::load_test_image;
+//! The simple 3x3 case is bit-equivalent today. The weasel8 case asserts
+//! against the C-aligned hash, but is currently `#[ignore]`'d as **RED**
+//! because Rust's `fill_map_holes_inner` still uses 4-neighbor diffusion
+//! (~7.3% pixel divergence vs C). The GREEN PR will reimplement
+//! `fill_map_holes_inner` in C's column-major style and remove the
+//! `#[ignore]`, turning this into a live regression guard.
+use crate::common::{load_test_image, pixel_content_hash};
 use leptonica::filter::adaptmap::fill_map_holes;
 use leptonica::filter::enhance::gamma_trc_masked;
 use leptonica::{Pix, PixMut, PixelDepth};
 
-/// 3x3 case from C `pixFillMapHoles(pix, 3, 3, L_FILL_BLACK)`:
-/// input has pixel (1,0)=128 and zeros elsewhere; output fills entirely with 128.
+/// FNV-1a pixel_content_hash of `/tmp/c_fillmapholes_simple.png` produced by
+/// `scripts/verify_fillmapholes.c`. The image is 3x3x8 with all pixels = 128.
+const EXPECTED_C_SIMPLE_HASH: u64 = 0x9ac41e78c2782bfd;
+
+/// FNV-1a pixel_content_hash of `/tmp/c_fillmapholes_weasel.png` produced by
+/// `scripts/verify_fillmapholes.c` on the same gamma+holes input as the Rust
+/// test below. The image is 82x73x8.
+const EXPECTED_C_WEASEL_HASH: u64 = 0x9b960e39a97d0d8b;
+
+/// 3x3 case: input has pixel (1,0)=128 and zeros elsewhere. C's
+/// `pixFillMapHoles(pix, 3, 3, L_FILL_BLACK)` propagates 128 to every cell.
 #[test]
 fn c_parity_simple_3x3() {
     let mut input = PixMut::new(3, 3, PixelDepth::Bit8).expect("create 3x3");
@@ -39,27 +46,19 @@ fn c_parity_simple_3x3() {
         [[128, 128, 128], [128, 128, 128], [128, 128, 128]],
         "Rust 3x3 output must match C version exactly"
     );
+    assert_eq!(
+        pixel_content_hash(&filled),
+        EXPECTED_C_SIMPLE_HASH,
+        "Rust 3x3 fill_map_holes hash must match C reference",
+    );
 }
 
-/// weasel8 case: placeholder setup that runs the same input as the C side.
-/// Currently `#[ignore]` because Rust's algorithm differs from C. No
-/// assertion runs in this state — the test exists so that, once
-/// `fill_map_holes_inner` is reimplemented to match C's column-major
-/// algorithm, this can be re-enabled with a bit-equivalence assertion
-/// against `/tmp/c_fillmapholes_weasel.png` (produced by
-/// `scripts/verify_fillmapholes.c`).
-///
-/// `scripts/verify_fillmapholes.c` last reported on the same 82x73 input:
-///   * IDENTICAL count: 5550 / 5986 pixels (92.7%)
-///   * ndiff = 436 (7.3%)
-///   * max channel delta = 233
-///
-/// Mirrors the input setup in
+/// weasel8 (82x73): currently RED. The GREEN PR for plan 028 will remove
+/// `#[ignore]`. The setup mirrors
 /// `tests/filter/adaptmap_reg.rs::adaptmap_reg_fill_map_holes_weasel`.
 #[test]
-#[ignore = "Rust fill_map_holes uses 4-neighbor diffusion; bit-equivalence with \
-            C column-then-row replication requires reimplementation"]
-fn c_parity_weasel_known_divergence() {
+#[ignore = "RED: blocked on plan 028 GREEN PR (fill_map_holes_inner C alignment)"]
+fn c_parity_weasel() {
     let pix = load_test_image("weasel8.png").expect("load weasel8.png");
     let darkened = gamma_trc_masked(&pix, None, 1.0, 0, 200).expect("darken");
     let w = darkened.width();
@@ -92,9 +91,10 @@ fn c_parity_weasel_known_divergence() {
         }
     }
     let pix_with_holes: Pix = m.into();
-    let _filled = fill_map_holes(&pix_with_holes, w, h).expect("fill weasel");
-    // No assertion: this test is a placeholder while Rust implementation
-    // diverges from C. Re-enable bit-equivalence assertion (against
-    // /tmp/c_fillmapholes_weasel.png produced by verify_fillmapholes.c) once
-    // the algorithm is aligned.
+    let filled = fill_map_holes(&pix_with_holes, w, h).expect("fill weasel");
+    assert_eq!(
+        pixel_content_hash(&filled),
+        EXPECTED_C_WEASEL_HASH,
+        "Rust fill_map_holes(weasel8) hash must match C reference",
+    );
 }
