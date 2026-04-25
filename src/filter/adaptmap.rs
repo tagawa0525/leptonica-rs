@@ -950,34 +950,41 @@ fn get_inv_background_map_inner(
     smooth_x: u32,
     smooth_y: u32,
 ) -> FilterResult<Pix> {
+    use crate::filter::block_conv::blockconv;
+
     let w = pix.width();
     let h = pix.height();
 
-    // First smooth the map if requested
-    let smoothed = if smooth_x > 0 || smooth_y > 0 {
-        block_convolve_gray(pix, smooth_x, smooth_y)?
-    } else {
-        pix.deep_clone()
-    };
+    // C contract (adaptmap.c:1865-1866): pixs must be 8 bpp non-colormapped
+    // and at least 5x5. Mirror the same checks here.
+    if pix.depth() != PixelDepth::Bit8 || pix.colormap().is_some() {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp non-colormapped",
+            actual: pix.depth().bits(),
+        });
+    }
+    if w < 5 || h < 5 {
+        return Err(FilterError::InvalidParameters(format!(
+            "get_inv_background_map: w/h must be >= 5 (got {w}x{h})"
+        )));
+    }
 
-    // Create 16bpp output map (stored as values 0-65535 in 32bpp for simplicity)
-    // Actually, we'll use a Vec<u16> internally and create an 8bpp approximation
-    // for the final map since we apply it tile by tile
+    // C: pixsm = pixBlockconv(pixs, smoothx, smoothy);
+    // pixBlockconv treats wc=0 || hc=0 as a no-op copy, matching Rust's
+    // blockconv (see src/filter/block_conv.rs:288).
+    let smoothed = blockconv(pix, smooth_x, smooth_y)?;
 
-    // For simplicity, we'll store the inverted factors as 16-bit values
-    // but pack them into a structure we can use efficiently
-
-    // Create output map with 16-bit precision stored as two 8-bit values
-    // We'll use 32bpp to store the 16-bit values easily
-    let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
+    // C: pixd = pixCreate(w, h, 16); per-pixel val16 = (256 * bgval) / val
+    // (or bgval/2 for the warned-but-can't-happen 0 case after smoothing).
+    let out_pix = Pix::new(w, h, PixelDepth::Bit16)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
     for y in 0..h {
         for x in 0..w {
             let val = smoothed.get_pixel_unchecked(x, y);
-            // Fallback for zero values: bg_val / 2.
             let factor = (256 * bg_val).checked_div(val).unwrap_or(bg_val / 2);
-            // Store as 32-bit value (16-bit factor in 32bpp Pix for convenience)
+            // 16 bpp Pix stores u16 values; clamp to be safe though factor
+            // for typical bgval=200 + val>=1 stays well under 65536.
             out_mut.set_pixel_unchecked(x, y, factor.min(65535));
         }
     }
@@ -2260,16 +2267,19 @@ mod tests {
     use super::*;
 
     fn create_test_gray_image() -> Pix {
-        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        // Sized so that with the default 10x15 tile the resulting map is at
+        // least 5x5 — `pixGetInvBackgroundMap` requires w/h >= 5.
+        let (w, h) = (50u32, 75u32);
+        let pix = Pix::new(w, h, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
         // Create an image with uneven lighting (gradient + content)
-        for y in 0..50 {
-            for x in 0..50 {
+        for y in 0..h {
+            for x in 0..w {
                 // Background gradient (darker on left, brighter on right)
                 let bg = 100 + x * 2;
                 // Add some "text" (dark) in the center
-                let val = if x > 15 && x < 35 && y > 15 && y < 35 {
+                let val = if (15..35).contains(&x) && y > 15 && y < (h - 15) {
                     bg / 2
                 } else {
                     bg
@@ -2282,11 +2292,13 @@ mod tests {
     }
 
     fn create_test_color_image() -> Pix {
-        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        // Sized so the tile-resolution map is >= 5x5 (see comment on
+        // create_test_gray_image).
+        let pix = Pix::new(50, 75, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        for y in 0..50 {
-            for x in 0..50 {
+        for y in 0..75u32 {
+            for x in 0..50u32 {
                 let r = (100 + x * 2).min(255) as u8;
                 let g = (150 + y).min(255) as u8;
                 let b = 180u8;

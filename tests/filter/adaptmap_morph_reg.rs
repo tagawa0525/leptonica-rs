@@ -166,10 +166,11 @@ fn test_background_norm_gray_array_morph() {
     let pix = make_gray_test_image();
     let inv_map = adaptmap::background_norm_gray_array_morph(&pix, None, 2, 7, 200).unwrap();
 
-    // Returns the inverted background map (32bpp, 16-bit precision values)
+    // Returns the inverted background map; depth is 16 bpp (matches C
+    // `pixGetInvBackgroundMap`).
     assert!(inv_map.width() > 0);
     assert!(inv_map.height() > 0);
-    assert_eq!(inv_map.depth(), PixelDepth::Bit32);
+    assert_eq!(inv_map.depth(), PixelDepth::Bit16);
 }
 
 // ============================================================================
@@ -186,5 +187,5 @@ fn test_background_norm_rgb_arrays_morph() {
     assert_eq!(inv_r.width(), inv_b.width());
     assert_eq!(inv_r.height(), inv_g.height());
     assert_eq!(inv_r.height(), inv_b.height());
-    assert_eq!(inv_r.depth(), PixelDepth::Bit32);
+    assert_eq!(inv_r.depth(), PixelDepth::Bit16);
 }
