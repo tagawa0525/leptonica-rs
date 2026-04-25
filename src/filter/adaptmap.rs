@@ -536,6 +536,13 @@ pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
             actual: pix.depth().bits(),
         });
     }
+    let w = pix.width();
+    let h = pix.height();
+    if nx == 0 || ny == 0 || nx > w || ny > h {
+        return Err(FilterError::InvalidParameters(format!(
+            "fill_map_holes: nx/ny out of range (nx={nx}, ny={ny}, w={w}, h={h})"
+        )));
+    }
     fill_map_holes_inner(pix, nx, ny)
 }
 
