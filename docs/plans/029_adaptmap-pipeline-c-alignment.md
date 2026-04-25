@@ -1,6 +1,6 @@
 # adaptmap pipeline 全体を C版と bit 同等に揃える
 
-Status: PLANNED
+Status: IMPLEMENTED
 
 ## Context
 
