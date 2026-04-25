@@ -788,7 +788,13 @@ fn get_background_gray_map_inner(
     // from the per-tile background average. Without this step the Rust
     // map disagrees with C by tens of percent of pixels.
     let thresh_u8 = fg_threshold as u8;
-    let pixb = threshold_to_binary(pix, thresh_u8)?;
+    // Preserve the underlying core error if threshold_to_binary fails for
+    // a structural reason (e.g. allocation), and surface other color-side
+    // errors with a descriptive message rather than dropping their type.
+    let pixb = threshold_to_binary(pix, thresh_u8).map_err(|e| match e {
+        crate::color::ColorError::Core(core) => FilterError::Core(core),
+        other => FilterError::InvalidParameters(format!("threshold_to_binary: {other}")),
+    })?;
     let pixf = morph_sequence(&pixb, "d7.1 + d1.7")?;
 
     // Calculate map dimensions
