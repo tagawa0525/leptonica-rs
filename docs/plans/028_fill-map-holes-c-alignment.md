@@ -121,10 +121,10 @@ fn fill_map_holes_c_aligned(pix: &mut Pix, nx, ny):
 `c_parity_weasel_known_divergence` を以下に書き換える:
 
 - `#[ignore]` 削除、テスト名から `_known_divergence` を取る (`c_parity_weasel`)
-- C版出力 PNG を `tests/data/images/` 配下にチェックインする（`tests/common::test_data_path()` がこのパスを解決するため、新ヘルパー追加不要）。`reference/leptonica` は gitignore なので、毎回C版を build する代わりに既知のC出力を bit比較する
-- 代替案: C版出力の FNV-1a ピクセルハッシュを `golden_manifest.tsv` に登録し、Rust出力ハッシュと比較（ファイルを増やしたくない場合）
+- C版出力の **FNV-1a ピクセルハッシュ** を `EXPECTED_C_WEASEL_HASH: u64 = 0x...` 等の定数としてテストファイルに直接埋め込み、Rust出力ハッシュと比較する
+- PNG ファイル自体はリポジトリに追加しない（既存 `golden_manifest.tsv` 方式と整合）
 
-C版出力は `scripts/verify_fillmapholes.c` を1度実行して `/tmp/c_fillmapholes_weasel.png` を取得 → リポジトリに `tests/data/images/c_fillmapholes_weasel.png` として保存し、テストからは `load_test_image("c_fillmapholes_weasel.png")` で読む方針がシンプル。サイズ ~1KB なので git管理も問題ない。
+C版期待ハッシュの作り方: `scripts/verify_fillmapholes.c` を1度実行して `/tmp/c_fillmapholes_weasel.png` を生成 → `tests/common::params::pixel_content_hash` 相当の関数で FNV-1a ハッシュを採取し、それを定数としてコミットする。`reference/leptonica` の build や PNG コミットを伴わず、`tests/golden_manifest.tsv` の運用方針とも整合する。
 
 ### 3. `tests/filter/adaptmap_reg.rs`
 
