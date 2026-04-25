@@ -9,7 +9,9 @@
 //! assertion lives in the commit history and the corresponding GREEN PR
 //! flips RED → GREEN by deleting the `#[ignore]`.
 use crate::common::{load_test_image, pixel_content_hash};
-use leptonica::filter::adaptmap::{fill_map_holes, get_background_gray_map};
+use leptonica::filter::adaptmap::{
+    fill_map_holes, get_background_gray_map, get_inv_background_map,
+};
 use leptonica::filter::enhance::gamma_trc_masked;
 use leptonica::{Pix, PixMut, PixelDepth};
 
@@ -120,6 +122,27 @@ fn c_parity_bg_gray_map_dreyfus() {
         pixel_content_hash(&map),
         EXPECTED_C_BG_GRAY_DREYFUS_HASH,
         "Rust get_background_gray_map(dreyfus8) must match C reference",
+    );
+}
+
+/// FNV-1a pixel_content_hash of `/tmp/c_inv_bg_map_dreyfus.png` produced by
+/// `scripts/verify_inv_bg_map.c` from the C bg gray map (default
+/// BackgroundNormOptions: bg_val=200, smooth_x=2, smooth_y=2).
+/// Output is 16bpp 33x27.
+const EXPECTED_C_INV_BG_DREYFUS_HASH: u64 = 0x8958471f3a062425;
+
+/// `pixGetInvBackgroundMap(c_bg_map, 200, 2, 2)` on the C-aligned bg map
+/// for dreyfus8.
+#[test]
+fn c_parity_inv_bg_map_dreyfus() {
+    // Source the bg map by running the same pipeline as Rust does internally.
+    let pix = load_test_image("dreyfus8.png").expect("load dreyfus8");
+    let bg_map = get_background_gray_map(&pix, None, 10, 15, 60, 40).expect("bg map dreyfus");
+    let inv = get_inv_background_map(&bg_map, 200, 2, 2).expect("get_inv_background_map dreyfus");
+    assert_eq!(
+        pixel_content_hash(&inv),
+        EXPECTED_C_INV_BG_DREYFUS_HASH,
+        "Rust get_inv_background_map(dreyfus8) must match C reference",
     );
 }
 

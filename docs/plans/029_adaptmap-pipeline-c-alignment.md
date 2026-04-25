@@ -13,17 +13,17 @@ PR #297 終了時点での実測値: `pixBackgroundNorm(dreyfus8.png)` 直接出
 
 ## Goal
 
-| 関数 | C 版 | 完了条件 |
-| --- | --- | --- |
-| `get_background_gray_map_inner` | `pixGetBackgroundGrayMap` (adaptmap.c:876) | 同入力で **bit-identical Pix** |
-| `get_background_rgb_map_inner` | `pixGetBackgroundRGBMap` (adaptmap.c:1071) | 同上 |
-| `get_inv_background_map_inner` | `pixGetInvBackgroundMap` (adaptmap.c:1857) | 同上 |
-| `apply_inv_background_gray_map_inner` | `pixApplyInvBackgroundGrayMap` (adaptmap.c:1918) | 同上 |
-| `apply_inv_background_rgb_map_inner` | `pixApplyInvBackgroundRGBMap` (adaptmap.c:1982) | 同上 |
-| `min_max_tiles` | `pixMinMaxTiles` (adaptmap.c:2655) | 同上 |
-| `set_low_contrast` | `pixSetLowContrast` (adaptmap.c:2744) | 同上 |
-| `linear_trc_tiled` | `pixLinearTRCTiled` (adaptmap.c:2825) | 同上 |
-| (集約) `pixBackgroundNorm`, `pixContrastNorm` | （上記全部） | `verify_pipeline.c` で **両方 IDENTICAL** |
+| 関数                                          | C 版                                             | 完了条件                                  |
+| --------------------------------------------- | ------------------------------------------------ | ----------------------------------------- |
+| `get_background_gray_map_inner`               | `pixGetBackgroundGrayMap` (adaptmap.c:876)       | 同入力で **bit-identical Pix**            |
+| `get_background_rgb_map_inner`                | `pixGetBackgroundRGBMap` (adaptmap.c:1071)       | 同上                                      |
+| `get_inv_background_map_inner`                | `pixGetInvBackgroundMap` (adaptmap.c:1857)       | 同上                                      |
+| `apply_inv_background_gray_map_inner`         | `pixApplyInvBackgroundGrayMap` (adaptmap.c:1918) | 同上                                      |
+| `apply_inv_background_rgb_map_inner`          | `pixApplyInvBackgroundRGBMap` (adaptmap.c:1982)  | 同上                                      |
+| `min_max_tiles`                               | `pixMinMaxTiles` (adaptmap.c:2655)               | 同上                                      |
+| `set_low_contrast`                            | `pixSetLowContrast` (adaptmap.c:2744)            | 同上                                      |
+| `linear_trc_tiled`                            | `pixLinearTRCTiled` (adaptmap.c:2825)            | 同上                                      |
+| (集約) `pixBackgroundNorm`, `pixContrastNorm` | （上記全部）                                     | `verify_pipeline.c` で **両方 IDENTICAL** |
 
 成功時に `tests/golden_manifest.tsv` の以下 hash 群が C 参照値（`scripts/verify_pipeline.c` 等で C 出力から採取した値）に置き換わる:
 

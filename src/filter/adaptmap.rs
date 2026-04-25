@@ -571,6 +571,15 @@ pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
 ///
 /// Computes multiplication factors `(256 * bg_val) / map_val` for each tile.
 /// The resulting map is used by `apply_inv_background_gray_map()` to normalize.
+///
+/// # Input
+/// - `pix`: 8 bpp grayscale, **non-colormapped**, with `width >= 5` and
+///   `height >= 5` (matches the C contract; out-of-spec inputs return
+///   `FilterError::UnsupportedDepth` or `FilterError::InvalidParameters`).
+///
+/// # Output
+/// - 16 bpp `Pix` of the same dimensions as `pix`, holding the inverse
+///   factors (range 0..=65535).
 pub fn get_inv_background_map(
     pix: &Pix,
     bg_val: u32,
@@ -586,6 +595,12 @@ pub fn get_inv_background_map(
 ///
 /// For each tile, multiplies pixel values by the corresponding factor
 /// from the inverted map: `output = (input * factor) / 256`.
+///
+/// # Input
+/// - `pix`: 8 bpp grayscale.
+/// - `inv_map`: **16 bpp** factor map produced by
+///   [`get_inv_background_map`]. Passing any other depth is rejected
+///   with `FilterError::UnsupportedDepth`.
 pub fn apply_inv_background_gray_map(
     pix: &Pix,
     inv_map: &Pix,
@@ -598,6 +613,12 @@ pub fn apply_inv_background_gray_map(
             actual: pix.depth().bits(),
         });
     }
+    if inv_map.depth() != PixelDepth::Bit16 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "16 bpp inv_map (use get_inv_background_map)",
+            actual: inv_map.depth().bits(),
+        });
+    }
     apply_inv_background_gray_map_inner(pix, inv_map, tile_w, tile_h)
 }
 
@@ -606,6 +627,12 @@ pub fn apply_inv_background_gray_map(
 /// C版: `pixApplyInvBackgroundRGBMap()` in `adaptmap.c`
 ///
 /// Applies separate inverted maps to each channel, then recombines.
+///
+/// # Input
+/// - `pix`: 32 bpp RGB.
+/// - `inv_map_r`/`inv_map_g`/`inv_map_b`: **16 bpp** factor maps produced
+///   by [`get_inv_background_map`]. Any other depth returns
+///   `FilterError::UnsupportedDepth`.
 pub fn apply_inv_background_rgb_map(
     pix: &Pix,
     inv_map_r: &Pix,
@@ -619,6 +646,19 @@ pub fn apply_inv_background_rgb_map(
             expected: "32 bpp",
             actual: pix.depth().bits(),
         });
+    }
+    for (channel, inv_map) in [
+        ("inv_map_r", inv_map_r),
+        ("inv_map_g", inv_map_g),
+        ("inv_map_b", inv_map_b),
+    ] {
+        if inv_map.depth() != PixelDepth::Bit16 {
+            return Err(FilterError::InvalidParameters(format!(
+                "{channel}: expected 16 bpp inv map (use get_inv_background_map), \
+                 got {} bpp",
+                inv_map.depth().bits()
+            )));
+        }
     }
     let (pixr, pixg, pixb) = extract_rgb_channels(pix)?;
     let result_r = apply_inv_background_gray_map_inner(&pixr, inv_map_r, tile_w, tile_h)?;
@@ -950,34 +990,58 @@ fn get_inv_background_map_inner(
     smooth_x: u32,
     smooth_y: u32,
 ) -> FilterResult<Pix> {
+    use crate::filter::block_conv::blockconv;
+
     let w = pix.width();
     let h = pix.height();
 
-    // First smooth the map if requested
-    let smoothed = if smooth_x > 0 || smooth_y > 0 {
-        block_convolve_gray(pix, smooth_x, smooth_y)?
-    } else {
-        pix.deep_clone()
-    };
+    // C contract (adaptmap.c:1865-1869): pixs must be 8 bpp non-colormapped
+    // and at least 5x5. Mirror the same checks but report depth and
+    // colormap failures separately so diagnostics are not misleading.
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidParameters(
+            "get_inv_background_map: pix must be non-colormapped".to_string(),
+        ));
+    }
+    if w < 5 || h < 5 {
+        return Err(FilterError::InvalidParameters(format!(
+            "get_inv_background_map: w/h must be >= 5 (got {w}x{h})"
+        )));
+    }
 
-    // Create 16bpp output map (stored as values 0-65535 in 32bpp for simplicity)
-    // Actually, we'll use a Vec<u16> internally and create an 8bpp approximation
-    // for the final map since we apply it tile by tile
+    // C: pixsm = pixBlockconv(pixs, smoothx, smoothy);
+    // pixBlockconv treats wc=0 || hc=0 as a no-op copy. Rust's `blockconv`
+    // forwards 8 bpp input to `blockconv_gray`, which documents the same
+    // no-op behavior when either kernel half-width is zero.
+    let smoothed = blockconv(pix, smooth_x, smooth_y)?;
 
-    // For simplicity, we'll store the inverted factors as 16-bit values
-    // but pack them into a structure we can use efficiently
-
-    // Create output map with 16-bit precision stored as two 8-bit values
-    // We'll use 32bpp to store the 16-bit values easily
-    let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
+    // C: pixd = pixCreate(w, h, 16); per-pixel val16 = (256 * bgval) / val
+    // (or bgval/2 for the warned-but-can't-happen 0 case after smoothing).
+    let out_pix = Pix::new(w, h, PixelDepth::Bit16)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
+    // Compute numerator in u64 to avoid overflow when bg_val is large
+    // (256 * u32::MAX would overflow u32). C uses l_int32 so practical
+    // bg_val never exceeds 2^31-1, and u64 covers that range safely.
+    let numerator = 256u64 * bg_val as u64;
     for y in 0..h {
         for x in 0..w {
             let val = smoothed.get_pixel_unchecked(x, y);
-            // Fallback for zero values: bg_val / 2.
-            let factor = (256 * bg_val).checked_div(val).unwrap_or(bg_val / 2);
-            // Store as 32-bit value (16-bit factor in 32bpp Pix for convenience)
+            let factor = if val > 0 {
+                (numerator / val as u64).min(65535) as u32
+            } else {
+                // C path is "L_WARNING smoothed bg has 0 pixel; val16 = bgval/2".
+                // Mirror the warning's value directly without going through
+                // checked_div so an overflow in `numerator` does NOT route
+                // here.
+                bg_val / 2
+            };
             out_mut.set_pixel_unchecked(x, y, factor.min(65535));
         }
     }
@@ -2260,16 +2324,19 @@ mod tests {
     use super::*;
 
     fn create_test_gray_image() -> Pix {
-        let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
+        // Sized so that with the default 10x15 tile the resulting map is at
+        // least 5x5 — `pixGetInvBackgroundMap` requires w/h >= 5.
+        let (w, h) = (50u32, 75u32);
+        let pix = Pix::new(w, h, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
         // Create an image with uneven lighting (gradient + content)
-        for y in 0..50 {
-            for x in 0..50 {
+        for y in 0..h {
+            for x in 0..w {
                 // Background gradient (darker on left, brighter on right)
                 let bg = 100 + x * 2;
                 // Add some "text" (dark) in the center
-                let val = if x > 15 && x < 35 && y > 15 && y < 35 {
+                let val = if (15..35).contains(&x) && y > 15 && y < (h - 15) {
                     bg / 2
                 } else {
                     bg
@@ -2282,11 +2349,14 @@ mod tests {
     }
 
     fn create_test_color_image() -> Pix {
-        let pix = Pix::new(50, 50, PixelDepth::Bit32).unwrap();
+        // Sized so the tile-resolution map is >= 5x5 (see comment on
+        // create_test_gray_image).
+        let (w, h) = (50u32, 75u32);
+        let pix = Pix::new(w, h, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
-        for y in 0..50 {
-            for x in 0..50 {
+        for y in 0..h {
+            for x in 0..w {
                 let r = (100 + x * 2).min(255) as u8;
                 let g = (150 + y).min(255) as u8;
                 let b = 180u8;

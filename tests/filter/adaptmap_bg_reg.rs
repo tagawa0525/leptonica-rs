@@ -17,14 +17,17 @@ use leptonica::{Pix, PixelDepth};
 
 /// Create a grayscale test image with uneven background
 fn make_gray_test_image() -> Pix {
-    let pix = Pix::new(60, 60, PixelDepth::Bit8).unwrap();
+    // Sized so the default 10x15 tile produces a >= 5x5 map
+    // (`pixGetInvBackgroundMap` requires that).
+    let (w, h) = (60u32, 75u32);
+    let pix = Pix::new(w, h, PixelDepth::Bit8).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
-    for y in 0..60 {
-        for x in 0..60 {
+    for y in 0..h {
+        for x in 0..w {
             // Background gradient (brighter right side)
             let bg = 120 + (x * 2).min(135);
             // Dark "text" region in center
-            let val = if x > 15 && x < 45 && y > 15 && y < 45 {
+            let val = if x > 15 && x < 45 && y > 15 && y < (h - 15) {
                 bg / 3
             } else {
                 bg
@@ -37,10 +40,12 @@ fn make_gray_test_image() -> Pix {
 
 /// Create a 32bpp RGB test image with uneven background
 fn make_color_test_image() -> Pix {
-    let pix = Pix::new(60, 60, PixelDepth::Bit32).unwrap();
+    // Sized so the default 10x15 tile produces a >= 5x5 map.
+    let (w, h) = (60u32, 75u32);
+    let pix = Pix::new(w, h, PixelDepth::Bit32).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
-    for y in 0..60 {
-        for x in 0..60 {
+    for y in 0..h {
+        for x in 0..w {
             let r = (120 + x * 2).min(255) as u8;
             let g = (140 + y).min(255) as u8;
             let b = 180u8;
