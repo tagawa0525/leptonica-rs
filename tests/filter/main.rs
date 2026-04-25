@@ -3,6 +3,7 @@ mod common;
 
 mod adaptmap_advanced_reg;
 mod adaptmap_bg_reg;
+mod adaptmap_c_parity;
 mod adaptmap_morph_reg;
 mod adaptmap_reg;
 mod adaptnorm_reg;

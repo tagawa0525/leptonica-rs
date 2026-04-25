@@ -1,6 +1,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod baseline_c_parity;
 mod baseline_reg;
 mod classapp_reg;
 mod correlscore_reg;
