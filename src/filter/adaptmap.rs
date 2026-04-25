@@ -847,8 +847,11 @@ fn get_background_gray_map_inner(
             let tile_x = tx * tile_width;
             let tile_y = ty * tile_height;
 
-            // u64 accumulators tolerate any tile size (u32 would overflow
-            // around ~16.8M sampled u8 pixels per tile).
+            // u64 accumulators tolerate any tile size. The binding
+            // constraint is the per-channel u8 *sum*: a u32 accumulator
+            // overflows around ~16.8M sampled pixels per tile (u32_max/255).
+            // `count` itself wouldn't overflow until ~4.3B samples, but
+            // we keep both at u64 so the divide doesn't need a cast back.
             let mut sum: u64 = 0;
             let mut count: u64 = 0;
 
@@ -946,8 +949,11 @@ fn get_background_rgb_map_inner(
             let tile_x = tx * tile_width;
             let tile_y = ty * tile_height;
 
-            // u64 accumulators tolerate any tile size (u32 would overflow
-            // around ~16.8M sampled u8 pixels per tile).
+            // u64 accumulators tolerate any tile size. The binding
+            // constraint is the per-channel u8 *sum*: a u32 accumulator
+            // overflows around ~16.8M sampled pixels per tile (u32_max/255).
+            // `count` itself wouldn't overflow until ~4.3B samples, but
+            // we keep both at u64 so the divide doesn't need a cast back.
             let mut rsum: u64 = 0;
             let mut gsum: u64 = 0;
             let mut bsum: u64 = 0;
