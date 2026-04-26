@@ -139,6 +139,47 @@ pub fn find_connected_components(
 ///
 /// Returns an error if the image is not 1-bit depth.
 pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<Pix> {
+    let (mut output, mut uf, next_label) = first_pass_label(pix, connectivity)?;
+
+    let width = output.width();
+    let height = output.height();
+
+    // Second pass: resolve labels using union-find.
+    // Build a mapping from root labels to sequential labels [1, N]. Pre-size to
+    // the upper bound on distinct roots (`next_label - 1`) so the second pass
+    // does not rehash as components are encountered.
+    let mut label_map =
+        std::collections::HashMap::with_capacity((next_label.saturating_sub(1)) as usize);
+    let mut final_label: u32 = 1;
+
+    for y in 0..height {
+        for x in 0..width {
+            let label = output.get_pixel_unchecked(x, y);
+            if label > 0 {
+                let root = uf.find(label);
+                let mapped = *label_map.entry(root).or_insert_with(|| {
+                    let l = final_label;
+                    final_label += 1;
+                    l
+                });
+                output.set_pixel_unchecked(x, y, mapped);
+            }
+        }
+    }
+
+    Ok(output.into())
+}
+
+/// First-pass connected-component labeling.
+///
+/// Scans the binary image once, assigning provisional labels to foreground
+/// pixels and recording equivalences in a union-find. The returned image
+/// holds the provisional labels (not yet remapped to sequential ids).
+/// `next_label` is one past the largest provisional label allocated.
+fn first_pass_label(
+    pix: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<(PixMut, UnionFind, u32)> {
     if pix.depth() != PixelDepth::Bit1 {
         return Err(RegionError::UnsupportedDepth {
             expected: "1-bit",
@@ -149,22 +190,25 @@ pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> 
     let width = pix.width();
     let height = pix.height();
 
-    // Create output image with 32-bit depth for labels
     let mut output = Pix::new(width, height, PixelDepth::Bit32)
         .map_err(RegionError::Core)?
         .try_into_mut()
         .unwrap_or_else(|p| p.to_mut());
 
     if width == 0 || height == 0 {
-        return Ok(output.into());
+        return Ok((output, UnionFind::new(1), 1));
     }
 
-    // Maximum possible labels (worst case: every other pixel is a separate component)
-    let max_labels = ((width as usize) * (height as usize) / 2) + 1;
+    // Maximum possible provisional labels (worst case: every other pixel is a
+    // separate component, e.g. a 1D checkerboard of ON/OFF). Use ceil division
+    // so a 1x1 ON pixel still gets a slot, then add one for the unused 0
+    // background slot. Without `+1`, `UnionFind::new(1)` would panic for a 1x1
+    // image when `uf.find(1)` indexes out of bounds.
+    let pixel_count = (width as usize) * (height as usize);
+    let max_labels = pixel_count.div_ceil(2) + 1;
     let mut uf = UnionFind::new(max_labels);
     let mut next_label: u32 = 1;
 
-    // First pass: assign provisional labels and record equivalences
     for y in 0..height {
         for x in 0..width {
             if pix.get_pixel_unchecked(x, y) == 0 {
@@ -225,27 +269,7 @@ pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> 
         }
     }
 
-    // Second pass: resolve labels using union-find
-    // Create a mapping from root labels to sequential labels
-    let mut label_map = std::collections::HashMap::new();
-    let mut final_label: u32 = 1;
-
-    for y in 0..height {
-        for x in 0..width {
-            let label = output.get_pixel_unchecked(x, y);
-            if label > 0 {
-                let root = uf.find(label);
-                let mapped = *label_map.entry(root).or_insert_with(|| {
-                    let l = final_label;
-                    final_label += 1;
-                    l
-                });
-                output.set_pixel_unchecked(x, y, mapped);
-            }
-        }
-    }
-
-    Ok(output.into())
+    Ok((output, uf, next_label))
 }
 
 /// Extract component information from a labeled image
@@ -640,18 +664,24 @@ pub fn get_sorted_neighbor_values(
 /// Returns an error if the image is not 1-bit depth, or if the component count
 /// exceeds `u32::MAX`.
 pub fn count_conn_comp(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<u32> {
-    if pix.depth() != PixelDepth::Bit1 {
-        return Err(RegionError::UnsupportedDepth {
-            expected: "1-bit",
-            actual: pix.depth().bits(),
-        });
-    }
+    let (_output, mut uf, next_label) = first_pass_label(pix, connectivity)?;
 
-    // For now, use find_connected_components as implementation
-    // TODO: Optimize to avoid storing all component info
-    let components = find_connected_components(pix, connectivity)?;
-    u32::try_from(components.len())
-        .map_err(|_| RegionError::InvalidParameters("component count exceeds u32::MAX".into()))
+    // Each connected component is one root in the union-find. Provisional
+    // labels live in [1, next_label) and roots are bounded by the same range,
+    // so a dense `Vec<bool>` indexed by root id avoids the hashing overhead a
+    // `HashSet<u32>` would pay on every insert.
+    let mut seen_root = vec![false; next_label as usize];
+    let mut count: u32 = 0;
+    for label in 1..next_label {
+        let root = uf.find(label) as usize;
+        if !seen_root[root] {
+            seen_root[root] = true;
+            count = count.checked_add(1).ok_or_else(|| {
+                RegionError::InvalidParameters("component count exceeds u32::MAX".into())
+            })?;
+        }
+    }
+    Ok(count)
 }
 
 /// Find the next ON pixel in raster scan order starting from a given position
