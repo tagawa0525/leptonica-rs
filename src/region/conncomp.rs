@@ -139,14 +139,17 @@ pub fn find_connected_components(
 ///
 /// Returns an error if the image is not 1-bit depth.
 pub fn label_connected_components(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<Pix> {
-    let (mut output, mut uf, _) = first_pass_label(pix, connectivity)?;
+    let (mut output, mut uf, next_label) = first_pass_label(pix, connectivity)?;
 
     let width = output.width();
     let height = output.height();
 
     // Second pass: resolve labels using union-find.
-    // Build a mapping from root labels to sequential labels [1, N].
-    let mut label_map = std::collections::HashMap::new();
+    // Build a mapping from root labels to sequential labels [1, N]. Pre-size to
+    // the upper bound on distinct roots (`next_label - 1`) so the second pass
+    // does not rehash as components are encountered.
+    let mut label_map =
+        std::collections::HashMap::with_capacity((next_label.saturating_sub(1)) as usize);
     let mut final_label: u32 = 1;
 
     for y in 0..height {
