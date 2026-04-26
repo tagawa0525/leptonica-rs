@@ -196,8 +196,13 @@ fn first_pass_label(
         return Ok((output, UnionFind::new(1), 1));
     }
 
-    // Maximum possible labels (worst case: every other pixel is a separate component)
-    let max_labels = ((width as usize) * (height as usize) / 2) + 1;
+    // Maximum possible provisional labels (worst case: every other pixel is a
+    // separate component, e.g. a 1D checkerboard of ON/OFF). Use ceil division
+    // so a 1x1 ON pixel still gets a slot, then add one for the unused 0
+    // background slot. Without `+1`, `UnionFind::new(1)` would panic for a 1x1
+    // image when `uf.find(1)` indexes out of bounds.
+    let pixel_count = (width as usize) * (height as usize);
+    let max_labels = pixel_count.div_ceil(2) + 1;
     let mut uf = UnionFind::new(max_labels);
     let mut next_label: u32 = 1;
 
