@@ -580,8 +580,8 @@ pub fn generate_mask_by_band(pix: &Pix, lower: u32, upper: u32, in_band: bool) -
 
 /// Quantize an 8bpp grayscale image to 2bpp (2, 3, or 4 levels).
 ///
-/// Returns a 2bpp image. The `with_colormap` parameter is accepted for API
-/// compatibility but colormap attachment is not yet implemented.
+/// Returns a 2bpp image. When `with_colormap` is true, an `nlevels`-entry
+/// grayscale colormap spanning `[0, 255]` linearly is attached to the output.
 ///
 /// # See also
 ///
@@ -597,8 +597,8 @@ pub fn threshold_to_2bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorR
 
 /// Quantize an 8bpp grayscale image to 4bpp (2-16 levels).
 ///
-/// Returns a 4bpp image. The `with_colormap` parameter is accepted for API
-/// compatibility but colormap attachment is not yet implemented.
+/// Returns a 4bpp image. When `with_colormap` is true, an `nlevels`-entry
+/// grayscale colormap spanning `[0, 255]` linearly is attached to the output.
 ///
 /// # See also
 ///
@@ -617,7 +617,7 @@ fn threshold_to_nbpp(
     pix: &Pix,
     nlevels: u32,
     out_depth: PixelDepth,
-    _with_colormap: bool,
+    with_colormap: bool,
 ) -> ColorResult<Pix> {
     let gray = ensure_grayscale(pix)?;
     let w = gray.width();
@@ -640,7 +640,17 @@ fn threshold_to_nbpp(
         }
     }
 
-    // TODO: add colormap support when with_colormap is true
+    if with_colormap {
+        // Both public entry points (`threshold_to_2bpp` / `threshold_to_4bpp`)
+        // reject `nlevels < 2`, so `nlevels - 1 >= 1` here.
+        let mut cmap = PixColormap::new(out_depth.bits())?;
+        for level in 0..nlevels {
+            let gray_val = (level * 255 / (nlevels - 1)) as u8;
+            cmap.add_rgb(gray_val, gray_val, gray_val)?;
+        }
+        out_mut.set_colormap(Some(cmap))?;
+    }
+
     Ok(out_mut.into())
 }
 

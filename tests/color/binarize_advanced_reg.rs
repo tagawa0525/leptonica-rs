@@ -212,6 +212,48 @@ fn test_threshold_to_4bpp_invalid_levels() {
     assert!(threshold_to_4bpp(&pix, 17, false).is_err());
 }
 
+#[test]
+fn test_threshold_to_2bpp_with_colormap() {
+    let pix = make_gradient_8bpp(256, 1);
+    let quantized = threshold_to_2bpp(&pix, 4, true).unwrap();
+    assert_eq!(quantized.depth(), PixelDepth::Bit2);
+
+    // 4 grayscale levels evenly spread across [0, 255]
+    let cmap = quantized
+        .colormap()
+        .expect("with_colormap=true must attach a colormap");
+    assert_eq!(cmap.len(), 4);
+    assert_eq!(cmap.get_rgb(0), Some((0, 0, 0)));
+    assert_eq!(cmap.get_rgb(1), Some((85, 85, 85)));
+    assert_eq!(cmap.get_rgb(2), Some((170, 170, 170)));
+    assert_eq!(cmap.get_rgb(3), Some((255, 255, 255)));
+}
+
+#[test]
+fn test_threshold_to_4bpp_with_colormap() {
+    let pix = make_gradient_8bpp(256, 1);
+    let quantized = threshold_to_4bpp(&pix, 16, true).unwrap();
+    assert_eq!(quantized.depth(), PixelDepth::Bit4);
+
+    let cmap = quantized
+        .colormap()
+        .expect("with_colormap=true must attach a colormap");
+    assert_eq!(cmap.len(), 16);
+    // Endpoints span [0, 255]; intermediate values lie on a linear ramp.
+    assert_eq!(cmap.get_rgb(0), Some((0, 0, 0)));
+    assert_eq!(cmap.get_rgb(15), Some((255, 255, 255)));
+    let v8 = (8u32 * 255 / 15) as u8;
+    assert_eq!(cmap.get_rgb(8), Some((v8, v8, v8)));
+}
+
+#[test]
+fn test_threshold_to_4bpp_without_colormap() {
+    // with_colormap=false must NOT attach a cmap (existing behavior preserved).
+    let pix = make_gradient_8bpp(256, 1);
+    let quantized = threshold_to_4bpp(&pix, 4, false).unwrap();
+    assert!(quantized.colormap().is_none());
+}
+
 // ============================================================================
 // otsu_adaptive_threshold
 // ============================================================================
