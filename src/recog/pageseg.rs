@@ -17,6 +17,7 @@
 //!    by detecting vertical whitespace between blocks.
 
 use crate::core::{Pix, PixelDepth};
+use crate::recog::util::ensure_binary_with_threshold;
 use crate::recog::{RecogError, RecogResult};
 
 /// Minimum dimensions for page segmentation
@@ -633,46 +634,6 @@ pub fn get_word_boxes_in_textlines(
 ) -> RecogResult<(Vec<crate::core::Box>, Vec<usize>)> {
     let (boxes, _, nai) = get_words_in_textlines(pix, minwidth, minheight, maxwidth, maxheight)?;
     Ok((boxes, nai))
-}
-
-/// Ensures binary with optional threshold for grayscale input
-fn ensure_binary_with_threshold(pix: &Pix, threshold: u32) -> RecogResult<Pix> {
-    match pix.depth() {
-        PixelDepth::Bit1 => Ok(pix.deep_clone()),
-        PixelDepth::Bit8 => {
-            let w = pix.width();
-            let h = pix.height();
-            let binary = Pix::new(w, h, PixelDepth::Bit1)?;
-            let mut binary_mut = binary.try_into_mut().unwrap();
-            for y in 0..h {
-                for x in 0..w {
-                    let val = pix.get_pixel_unchecked(x, y);
-                    let bit = if val < threshold { 1 } else { 0 };
-                    binary_mut.set_pixel_unchecked(x, y, bit);
-                }
-            }
-            Ok(binary_mut.into())
-        }
-        _ => {
-            // Convert to grayscale first, then threshold
-            let w = pix.width();
-            let h = pix.height();
-            let binary = Pix::new(w, h, PixelDepth::Bit1)?;
-            let mut binary_mut = binary.try_into_mut().unwrap();
-            for y in 0..h {
-                for x in 0..w {
-                    let val = pix.get_pixel_unchecked(x, y);
-                    let r = (val >> 24) & 0xff;
-                    let g = (val >> 16) & 0xff;
-                    let b = (val >> 8) & 0xff;
-                    let lum = (r * 77 + g * 150 + b * 29) >> 8;
-                    let bit = if lum < threshold { 1 } else { 0 };
-                    binary_mut.set_pixel_unchecked(x, y, bit);
-                }
-            }
-            Ok(binary_mut.into())
-        }
-    }
 }
 
 /// Converts an RGB image to grayscale (using luminance)

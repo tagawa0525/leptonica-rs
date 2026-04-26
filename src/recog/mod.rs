@@ -82,6 +82,7 @@ pub mod pageseg;
 pub mod recog;
 pub mod skew;
 pub mod strokes;
+mod util;
 
 pub use error::{RecogError, RecogResult};
 

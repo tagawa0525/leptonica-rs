@@ -12,6 +12,7 @@
 //! - `numaaCompareImagesByBoxes` → [`numaa_compare_images_by_boxes`]
 
 use crate::core::{Box, Boxa, Boxaa, Numa, Numaa, Pix, PixelDepth, SizeRelation};
+use crate::recog::util::ensure_binary_with_threshold;
 use crate::recog::{RecogError, RecogResult};
 
 /// Find word and character bounding boxes in a document image.
@@ -429,30 +430,4 @@ fn count_aligned_matches(
     }
 
     Ok(false)
-}
-
-/// Ensures binary with optional threshold for grayscale input.
-// TODO: Extract to shared module (duplicated in pageseg.rs)
-fn ensure_binary_with_threshold(pix: &Pix, threshold: u32) -> RecogResult<Pix> {
-    match pix.depth() {
-        PixelDepth::Bit1 => Ok(pix.deep_clone()),
-        PixelDepth::Bit8 => {
-            let w = pix.width();
-            let h = pix.height();
-            let binary = Pix::new(w, h, PixelDepth::Bit1)?;
-            let mut binary_mut = binary.try_into_mut().unwrap();
-            for y in 0..h {
-                for x in 0..w {
-                    let val = pix.get_pixel_unchecked(x, y);
-                    let bit = if val < threshold { 1 } else { 0 };
-                    binary_mut.set_pixel_unchecked(x, y, bit);
-                }
-            }
-            Ok(binary_mut.into())
-        }
-        _ => {
-            let gray = pix.convert_to_8()?;
-            ensure_binary_with_threshold(&gray, threshold)
-        }
-    }
 }
