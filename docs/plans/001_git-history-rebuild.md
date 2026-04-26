@@ -90,7 +90,7 @@ TDD不要（テスト対象のコードを含まないため）。
 対象ファイル:
 
 - `src/core/src/`（error.rs, lib.rs）
-- `src/core/src/pix/`（mod.rs, ops.rs, access.rs, convert.rs, clip.rs）
+- `src/core/src/pix/`（mod.rs, access.rs, convert.rs, clip.rs）
 - `src/core/src/box_/mod.rs`
 - `src/core/src/pta/mod.rs`
 

@@ -33,7 +33,6 @@ pub mod graphics;
 mod histogram;
 mod mask;
 mod measurement;
-mod ops;
 mod rgb;
 pub mod rop;
 pub mod serial;
