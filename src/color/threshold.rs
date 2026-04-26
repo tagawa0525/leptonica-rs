@@ -641,13 +641,11 @@ fn threshold_to_nbpp(
     }
 
     if with_colormap {
+        // Both public entry points (`threshold_to_2bpp` / `threshold_to_4bpp`)
+        // reject `nlevels < 2`, so `nlevels - 1 >= 1` here.
         let mut cmap = PixColormap::new(out_depth.bits())?;
         for level in 0..nlevels {
-            let gray_val = if nlevels == 1 {
-                0
-            } else {
-                (level * 255 / (nlevels - 1)) as u8
-            };
+            let gray_val = (level * 255 / (nlevels - 1)) as u8;
             cmap.add_rgb(gray_val, gray_val, gray_val)?;
         }
         out_mut.set_colormap(Some(cmap))?;
