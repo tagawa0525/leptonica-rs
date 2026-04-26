@@ -130,7 +130,7 @@ C版ソースファイル・回帰テストファイルとRust版の対応。
 | `pdfio2stub.c`     | src/io/pdf.rs                                                                                                   |
 | `pix1.c`           | src/core/pix/mod.rs                                                                                             |
 | `pix2.c`           | src/core/pix/access.rs, src/core/pix/rgb.rs, src/core/pix/clip.rs, src/core/pix/border.rs                       |
-| `pix3.c`           | src/core/pix/mask.rs, src/core/pix/statistics.rs, src/core/pix/ops.rs                                           |
+| `pix3.c`           | src/core/pix/mask.rs, src/core/pix/statistics.rs, src/core/pix/rop.rs, src/core/pix/arith.rs                    |
 | `pix4.c`           | src/core/pix/histogram.rs, src/core/pix/statistics.rs, src/core/pix/access.rs                                   |
 | `pix5.c`           | src/core/pix/clip.rs, src/core/pix/extract.rs, src/core/pix/measurement.rs                                      |
 | `pixabasic.c`      | src/core/pixa/mod.rs, src/core/pixa/serial.rs                                                                   |
