@@ -13,6 +13,8 @@
 //! C Leptonica: `prog/equal_reg.c`
 
 use crate::common::RegParams;
+use leptonica::color::quantize::octree_quant_num_colors;
+use leptonica::color::threshold::threshold_to_4bpp;
 use leptonica::core::pix::RemoveColormapTarget;
 use leptonica::io::ImageFormat;
 
@@ -95,8 +97,17 @@ fn equal_reg_8bpp_gray() {
     // Round-trip should preserve the image
     rp.compare_pix(&pix1, &pix_8);
 
-    // TODO: pixThresholdTo4bpp (not available)
-    // TODO: pixConvertRGBToColormap (not available)
+    // 8bpp gray → 4bpp 16-level quantization (C: pixThresholdTo4bpp)
+    let pix_4 = threshold_to_4bpp(&pix1, 16, false).expect("threshold to 4bpp");
+    rp.write_pix_and_check(&pix_4, ImageFormat::Png)
+        .expect("check: equal 8bpp threshold_to_4bpp");
+
+    // 8bpp gray → 32bpp RGB → 8bpp colormapped (C: pixConvertRGBToColormap)
+    let pix_cmap = pix_32
+        .convert_rgb_to_colormap(false)
+        .expect("convert rgb to colormap");
+    rp.write_pix_and_check(&pix_cmap, ImageFormat::Png)
+        .expect("check: equal 8bpp convert_rgb_to_colormap");
 
     assert!(rp.cleanup(), "equal 8bpp gray test failed");
 }
@@ -119,8 +130,17 @@ fn equal_reg_rgb() {
     let pix_gray2 = pix_32.convert_to_8().expect("gray2");
     rp.compare_pix(&pix_gray1, &pix_gray2);
 
-    // TODO: pixOctreeQuantNumColors (not available)
-    // TODO: pixConvertRGBToColormap (not available)
+    // RGB → octree quantized 8bpp colormapped (C: pixOctreeQuantNumColors)
+    let pix_oct = octree_quant_num_colors(&pix1, 256, 1).expect("octree quant 256 colors");
+    rp.write_pix_and_check(&pix_oct, ImageFormat::Png)
+        .expect("check: equal rgb octree_quant_num_colors");
+
+    // RGB → 8bpp colormapped via direct conversion (C: pixConvertRGBToColormap)
+    let pix_cmap = pix1
+        .convert_rgb_to_colormap(false)
+        .expect("convert rgb to colormap");
+    rp.write_pix_and_check(&pix_cmap, ImageFormat::Png)
+        .expect("check: equal rgb convert_rgb_to_colormap");
 
     assert!(rp.cleanup(), "equal rgb test failed");
 }
