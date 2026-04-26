@@ -1,3 +1,4 @@
+.cargo/credential.toml
 /target
 /Cargo.lock
 /reference/
