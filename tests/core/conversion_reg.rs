@@ -236,8 +236,19 @@ fn conversion_reg_from_32bpp() {
     rp.compare_values(pix32.width() as f64, pix8.width() as f64, 0.0);
     rp.compare_values(pix32.height() as f64, pix8.height() as f64, 0.0);
 
-    // Octcube quantization (not available)
-    // TODO: pixOctcubeQuantFromCmap not available
+    // Octcube quantization onto an existing colormap (C: pixOctcubeQuantFromCmap).
+    // First derive a 64-color cmap via octree_quant_num_colors, then re-quantize
+    // the original RGB image against that cmap by nearest-color search.
+    let pix_oct = leptonica::color::quantize::octree_quant_num_colors(&pix32, 64, 1)
+        .expect("octree_quant_num_colors");
+    let cmap = pix_oct
+        .colormap()
+        .expect("octree result must carry a colormap")
+        .clone();
+    let pix_q = leptonica::color::quantize::octcube_quant_from_cmap(&pix32, &cmap, 8)
+        .expect("octcube_quant_from_cmap");
+    rp.write_pix_and_check(&pix_q, ImageFormat::Png)
+        .expect("check: conversion_from_32bpp octcube_quant_from_cmap");
 
     assert!(rp.cleanup(), "conversion from 32bpp test failed");
 }
