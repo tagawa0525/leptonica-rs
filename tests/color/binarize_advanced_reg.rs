@@ -213,7 +213,6 @@ fn test_threshold_to_4bpp_invalid_levels() {
 }
 
 #[test]
-#[ignore = "not yet implemented: with_colormap=true cmap attachment"]
 fn test_threshold_to_2bpp_with_colormap() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_2bpp(&pix, 4, true).unwrap();
@@ -231,7 +230,6 @@ fn test_threshold_to_2bpp_with_colormap() {
 }
 
 #[test]
-#[ignore = "not yet implemented: with_colormap=true cmap attachment"]
 fn test_threshold_to_4bpp_with_colormap() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_4bpp(&pix, 16, true).unwrap();
@@ -249,7 +247,6 @@ fn test_threshold_to_4bpp_with_colormap() {
 }
 
 #[test]
-#[ignore = "not yet implemented: with_colormap=true cmap attachment"]
 fn test_threshold_to_4bpp_without_colormap() {
     // with_colormap=false must NOT attach a cmap (existing behavior preserved).
     let pix = make_gradient_8bpp(256, 1);
