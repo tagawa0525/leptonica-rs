@@ -666,17 +666,22 @@ pub fn get_sorted_neighbor_values(
 pub fn count_conn_comp(pix: &Pix, connectivity: ConnectivityType) -> RegionResult<u32> {
     let (_output, mut uf, next_label) = first_pass_label(pix, connectivity)?;
 
-    // Each connected component is one root in the union-find. Count distinct
-    // roots across all provisional labels in [1, next_label) — no second-pass
-    // relabeling, no per-component bookkeeping.
-    let mut roots =
-        std::collections::HashSet::with_capacity((next_label as usize).saturating_sub(1));
+    // Each connected component is one root in the union-find. Provisional
+    // labels live in [1, next_label) and roots are bounded by the same range,
+    // so a dense `Vec<bool>` indexed by root id avoids the hashing overhead a
+    // `HashSet<u32>` would pay on every insert.
+    let mut seen_root = vec![false; next_label as usize];
+    let mut count: u32 = 0;
     for label in 1..next_label {
-        roots.insert(uf.find(label));
+        let root = uf.find(label) as usize;
+        if !seen_root[root] {
+            seen_root[root] = true;
+            count = count.checked_add(1).ok_or_else(|| {
+                RegionError::InvalidParameters("component count exceeds u32::MAX".into())
+            })?;
+        }
     }
-
-    u32::try_from(roots.len())
-        .map_err(|_| RegionError::InvalidParameters("component count exceeds u32::MAX".into()))
+    Ok(count)
 }
 
 /// Find the next ON pixel in raster scan order starting from a given position
