@@ -1091,6 +1091,28 @@ pub fn boxa_rotate(boxa: &crate::core::Boxa, xc: f32, yc: f32, angle: f32) -> cr
     boxa.rotate(xc, yc, angle)
 }
 
+/// Sequential 3-point affine warp.
+///
+/// Mirrors C Leptonica `pixAffineSequential` (`affine.c`). The warp is
+/// approximated as: H-shear → V-shear → scale → translate → V-shear back →
+/// H-shear back. About 3× faster than `affine_sampled` on 1bpp images, but
+/// produces lower quality output on text — kept mainly for parity with the
+/// C API and pedagogical value.
+///
+/// `ptas` and `ptad` must each be 3-point Pta in (origin, x-axis, y-axis)
+/// order. `bw`/`bh` add a working border before the transform and remove it
+/// after, to avoid clipping during the intermediate shears.
+pub fn affine_sequential(
+    pix: &Pix,
+    ptad: &crate::core::Pta,
+    ptas: &crate::core::Pta,
+    bw: i32,
+    bh: i32,
+) -> TransformResult<Pix> {
+    let _ = (pix, ptad, ptas, bw, bh);
+    unimplemented!("affine_sequential: implemented in GREEN commit (plan 301)")
+}
+
 // ============================================================================
 // Tests
 // ============================================================================

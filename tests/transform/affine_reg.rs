@@ -321,11 +321,55 @@ fn affine_reg_color_interpolation() {
     assert!(rp.cleanup(), "affine color interpolation test failed");
 }
 
-/// C version: `pixAffineSequential` — not implemented in Rust
+/// `pixAffineSequential` invertability check (C version analogue).
+///
+/// Apply the sequential affine warp twice with `(ptad, ptas)` swapped in the
+/// second call: `pix → pix1 → pix_back`. The two warps are inverses of each
+/// other, so `pix_back` should approximate `pix` modulo shear-rounding.
 #[test]
-#[ignore = "pixAffineSequential not implemented: C version tests sequential affine transform invertability"]
+#[ignore = "RED: affine_sequential not yet implemented (plan 301)"]
 fn affine_reg_sequential_invertability() {
-    // C: pixAffineSequential(pixb, ptad, ptas, 0, 0)
+    use leptonica::core::Pta;
+    use leptonica::transform::affine::affine_sequential;
+
+    let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pixb = if pix.depth() == leptonica::PixelDepth::Bit1 {
+        pix
+    } else {
+        pix.convert_to_1_adaptive().expect("convert to 1bpp")
+    };
+
+    // Three corner points in (origin, x-axis, y-axis) order.
+    let mut ptas = Pta::with_capacity(3);
+    ptas.push(50.0, 50.0);
+    ptas.push(250.0, 70.0);
+    ptas.push(70.0, 200.0);
+    let mut ptad = Pta::with_capacity(3);
+    ptad.push(60.0, 80.0);
+    ptad.push(260.0, 60.0);
+    ptad.push(90.0, 220.0);
+
+    // Forward warp.
+    let pix_fwd = affine_sequential(&pixb, &ptad, &ptas, 200, 200).expect("forward warp");
+    // Inverse warp by swapping point sets.
+    let pix_back = affine_sequential(&pix_fwd, &ptas, &ptad, 200, 200).expect("inverse warp");
+
+    // The result has the same dimensions as the original.
+    assert_eq!(pix_back.width(), pixb.width());
+    assert_eq!(pix_back.height(), pixb.height());
+
+    // Sequential affine is approximate; require correlation > 0.6 with the
+    // original (a low bar; the warp is known to be lossy on text).
+    let area_orig = pixb.count_pixels();
+    let area_back = pix_back.count_pixels();
+    if area_orig > 0 && area_back > 0 {
+        let score =
+            leptonica::core::pix::correlation_binary(&pixb, &pix_back).expect("correlation_binary");
+        assert!(
+            score > 0.6,
+            "round-trip correlation = {score} (expected > 0.6)",
+        );
+    }
 }
 
 /// C version: `boxaAffineTransform` test — not implemented in Rust
