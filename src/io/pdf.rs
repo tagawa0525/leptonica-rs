@@ -1171,8 +1171,8 @@ pub fn rotate_orth_files_to_pdf(
 ///   single rotation that is applied to every image.
 /// - **Mode 3** (string starts with `'5'`): a sequence of `(index,rotval)`
 ///   pairs. Arbitrary separators between pairs are ignored. Pairs with
-///   out-of-range index or invalid rotval are reported via `log` and
-///   skipped without failing the call.
+///   out-of-range index or invalid rotval are silently skipped without
+///   failing the call.
 ///
 /// Returns an error only when `rotstring` is empty or starts with an
 /// unsupported leading character.
