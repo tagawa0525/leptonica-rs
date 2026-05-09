@@ -1426,6 +1426,148 @@ impl Pix {
     }
 }
 
+/// Best-translation alignment result.
+///
+/// Returned by [`compare_with_translation`] and [`best_correlation`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TranslationMatch {
+    /// X shift of `pix2` that aligns it with `pix1`.
+    pub delx: i32,
+    /// Y shift of `pix2` that aligns it with `pix1`.
+    pub dely: i32,
+    /// Maximum correlation score found at that shift.
+    pub score: f32,
+}
+
+/// Coarse-to-fine search for the best translational alignment of two images.
+///
+/// Mirrors C Leptonica's `pixCompareWithTranslation`. The images may be of any
+/// depth; they are first thresholded to 1 bpp using `thresh` (0..=255), then a
+/// 4-level 2x cascade is built. The bottom level uses centroid difference +
+/// maxshift=6 for the initial estimate; higher levels refine with maxshift=2.
+pub fn compare_with_translation(pix1: &Pix, pix2: &Pix, thresh: u32) -> Result<TranslationMatch> {
+    use crate::morph::morphapp::pix_centroid;
+    use crate::transform::binreduce::reduce_rank_binary_2;
+
+    // Binarize each input. Pix is Arc-backed so `clone()` is cheap.
+    let pixb1 = if pix1.depth() == PixelDepth::Bit1 {
+        pix1.clone()
+    } else {
+        pix1.convert_to_1_by_sampling(1, thresh)?
+    };
+    let pixb2 = if pix2.depth() == PixelDepth::Bit1 {
+        pix2.clone()
+    } else {
+        pix2.convert_to_1_by_sampling(1, thresh)?
+    };
+
+    // Build 4-level 2x rank-reduction cascade.
+    let mut levels1: Vec<Pix> = Vec::with_capacity(4);
+    let mut levels2: Vec<Pix> = Vec::with_capacity(4);
+    levels1.push(pixb1);
+    levels2.push(pixb2);
+    for _ in 0..3 {
+        let r1 = reduce_rank_binary_2(levels1.last().unwrap(), 2)
+            .map_err(|e| Error::InvalidParameter(format!("reduce_rank_binary_2: {e}")))?;
+        let r2 = reduce_rank_binary_2(levels2.last().unwrap(), 2)
+            .map_err(|e| Error::InvalidParameter(format!("reduce_rank_binary_2: {e}")))?;
+        levels1.push(r1);
+        levels2.push(r2);
+    }
+
+    // Search from coarsest (level 3) to finest (level 0).
+    let mut delx = 0i32;
+    let mut dely = 0i32;
+    let mut score = 0.0f32;
+    for level in (0..=3i32).rev() {
+        let p1 = &levels1[level as usize];
+        let p2 = &levels2[level as usize];
+        let area1 = p1.count_pixels();
+        let area2 = p2.count_pixels();
+
+        let (etransx, etransy, maxshift) = if level == 3 {
+            // Use centroid difference as the initial estimate.
+            let (cx1, cy1) = pix_centroid(p1)
+                .map_err(|e| Error::InvalidParameter(format!("pix_centroid: {e}")))?;
+            let (cx2, cy2) = pix_centroid(p2)
+                .map_err(|e| Error::InvalidParameter(format!("pix_centroid: {e}")))?;
+            ((cx1 - cx2).round() as i32, (cy1 - cy2).round() as i32, 6)
+        } else {
+            (2 * delx, 2 * dely, 2)
+        };
+
+        let m = best_correlation(p1, p2, area1, area2, etransx, etransy, maxshift)?;
+        delx = m.delx;
+        dely = m.dely;
+        score = m.score;
+    }
+
+    Ok(TranslationMatch { delx, dely, score })
+}
+
+/// Maximize correlation score between two 1bpp images by sliding `pix2` over
+/// a `(2*maxshift+1)^2` grid centered on `(etransx, etransy)`.
+///
+/// Mirrors C Leptonica's `pixBestCorrelation`. Both images must be 1 bpp and
+/// `maxshift` must be >= 0. If either image is empty (`area = 0`), the
+/// function returns the initial estimate with `score = 0.0` rather than
+/// erroring, matching the way `compare_with_translation` cascades may
+/// degenerate to empty levels.
+pub fn best_correlation(
+    pix1: &Pix,
+    pix2: &Pix,
+    area1: u64,
+    area2: u64,
+    etransx: i32,
+    etransy: i32,
+    maxshift: i32,
+) -> Result<TranslationMatch> {
+    use crate::recog::correlscore::correlation_score;
+
+    if pix1.depth() != PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pix1.depth().bits()));
+    }
+    if pix2.depth() != PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pix2.depth().bits()));
+    }
+    if maxshift < 0 {
+        return Err(Error::InvalidParameter(format!(
+            "maxshift must be >= 0, got {maxshift}"
+        )));
+    }
+    if area1 == 0 || area2 == 0 {
+        return Ok(TranslationMatch {
+            delx: etransx,
+            dely: etransy,
+            score: 0.0,
+        });
+    }
+
+    // `correlation_score` accepts u32 areas; downcast safely.
+    let area1_u32 = u32::try_from(area1)
+        .map_err(|_| Error::InvalidParameter(format!("area1 = {area1} exceeds u32::MAX")))?;
+    let area2_u32 = u32::try_from(area2)
+        .map_err(|_| Error::InvalidParameter(format!("area2 = {area2} exceeds u32::MAX")))?;
+
+    let mut best = TranslationMatch {
+        delx: etransx,
+        dely: etransy,
+        score: 0.0,
+    };
+    for dy in -maxshift..=maxshift {
+        for dx in -maxshift..=maxshift {
+            let s = correlation_score(pix1, pix2, area1_u32, area2_u32, etransx + dx, etransy + dy)
+                .map_err(|e| Error::InvalidParameter(format!("correlation_score: {e}")))?;
+            if s > best.score {
+                best.score = s;
+                best.delx = etransx + dx;
+                best.dely = etransy + dy;
+            }
+        }
+    }
+    Ok(best)
+}
+
 /// Compute binary correlation between two 1-bit images.
 ///
 /// The correlation is a number between 0.0 and 1.0 based on foreground

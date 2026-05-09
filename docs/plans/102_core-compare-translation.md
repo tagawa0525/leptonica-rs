@@ -1,6 +1,6 @@
 # core/compare: 並進付き比較関数の移植
 
-Status: PLANNED
+Status: IMPLEMENTED
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 A)
 
 ## Context

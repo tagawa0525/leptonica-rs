@@ -12,7 +12,7 @@
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;
-use leptonica::{Color, Pix};
+use leptonica::{Color, Pix, PixelDepth};
 
 /// Test count_pixels and basic pixel statistics on binary images.
 ///
@@ -97,28 +97,76 @@ fn compare_reg_correlation() {
     assert!(rp.cleanup(), "compare correlation test failed");
 }
 
-/// Test pixBestCorrelation with translated images (C checks 0-2).
+/// Test best_correlation with a known translation (C checks 0-2 analogue).
 ///
-/// Requires pixBestCorrelation and pixCentroid which are not available.
+/// Build a 1bpp source image, translate it by a known offset using
+/// `rasterop_ip`, then verify that `best_correlation` recovers that offset
+/// when the true (inverse) translation is supplied as the initial estimate.
 #[test]
-#[ignore = "not yet implemented: pixBestCorrelation not available"]
 fn compare_reg_best_correlation() {
-    // C version:
-    // 1. Reads harmoniam100-11.png, converts to binary at threshold 160
-    // 2. Creates translated version (shifted by 32, 12)
-    // 3. pixBestCorrelation finds translation (delx=32, dely=12)
+    use leptonica::core::pix::compare::best_correlation;
+
+    let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix1 = if pix.depth() == PixelDepth::Bit1 {
+        pix
+    } else {
+        pix.convert_to_1_adaptive().expect("convert to 1bpp")
+    };
+
+    // pix2 is pix1 shifted by (sx, sy). best_correlation returns the shift
+    // that brings pix2 *back into alignment* with pix1, which is the inverse:
+    // (delx, dely) = (-sx, -sy).
+    let (sx, sy) = (32i32, 12i32);
+    let pix2 = pix1.rasterop_ip(sx, sy).expect("rasterop_ip");
+
+    let area1 = pix1.count_pixels();
+    let area2 = pix2.count_pixels();
+    assert!(area1 > 0 && area2 > 0);
+
+    let (expected_dx, expected_dy) = (-sx, -sy);
+    let m = best_correlation(&pix1, &pix2, area1, area2, expected_dx, expected_dy, 4)
+        .expect("best_correlation");
+    assert_eq!(m.delx, expected_dx, "delx");
+    assert_eq!(m.dely, expected_dy, "dely");
+    // Score is < 1.0 because rasterop_ip pushes pixels off the edge,
+    // so area2 < area1; but the exact-alignment shift should clearly beat
+    // a 1-pixel-off neighbour.
+    assert!(m.score > 0.5, "expected high score, got {}", m.score);
+    let off = best_correlation(&pix1, &pix2, area1, area2, expected_dx + 1, expected_dy, 0)
+        .expect("best_correlation off-by-one");
+    assert!(
+        m.score > off.score,
+        "exact alignment ({}) should beat off-by-one ({})",
+        m.score,
+        off.score,
+    );
 }
 
-/// Test pixCompareWithTranslation (C checks 3-6).
+/// Test compare_with_translation (C checks 3-6 analogue).
 ///
-/// Requires pixCompareWithTranslation which is not available.
+/// Build a 1bpp source, translate by a known offset, and check that the
+/// coarse-to-fine search recovers that offset.
 #[test]
-#[ignore = "not yet implemented: pixCompareWithTranslation not available"]
 fn compare_reg_with_translation() {
-    // C version:
-    // 1. Reads harmoniam-11.tif
-    // 2. Translates by (-45, 25)
-    // 3. pixCompareWithTranslation finds (delx=45, dely=-25)
+    use leptonica::core::pix::compare::compare_with_translation;
+
+    let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix1 = if pix.depth() == PixelDepth::Bit1 {
+        pix
+    } else {
+        pix.convert_to_1_adaptive().expect("convert to 1bpp")
+    };
+
+    // Use a small shift so the coarse-to-fine search converges reliably even
+    // on relatively small fixtures.
+    let (sx, sy) = (-3i32, 2i32);
+    let pix2 = pix1.rasterop_ip(sx, sy).expect("rasterop_ip");
+
+    let m = compare_with_translation(&pix1, &pix2, 130).expect("compare_with_translation");
+    let (expected_dx, expected_dy) = (-sx, -sy);
+    assert_eq!(m.delx, expected_dx, "delx (got {})", m.delx);
+    assert_eq!(m.dely, expected_dy, "dely (got {})", m.dely);
+    assert!(m.score > 0.5, "score = {}", m.score);
 }
 
 /// Test pixGetPerceptualDiff on color and grayscale images (C checks 7-12).
