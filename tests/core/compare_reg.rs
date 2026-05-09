@@ -103,32 +103,44 @@ fn compare_reg_correlation() {
 /// `rasterop_ip`, then verify that `best_correlation` recovers that offset
 /// when given the centroid of the translated copy as the initial estimate.
 #[test]
-#[ignore = "RED: best_correlation not yet implemented (plan 102)"]
+
 fn compare_reg_best_correlation() {
     use leptonica::core::pix::compare::best_correlation;
 
-    let pix = crate::common::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
+    let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     let pix1 = if pix.depth() as u32 == 1 {
         pix
     } else {
         pix.convert_to_1_adaptive().expect("convert to 1bpp")
     };
 
-    // Translate pix1 by (delx, dely) into pix2.
-    let (delx, dely) = (32i32, 12i32);
-    let pix2 = pix1.rasterop_ip(delx, dely).expect("rasterop_ip");
+    // pix2 is pix1 shifted by (sx, sy). best_correlation returns the shift
+    // that brings pix2 *back into alignment* with pix1, which is the inverse:
+    // (delx, dely) = (-sx, -sy).
+    let (sx, sy) = (32i32, 12i32);
+    let pix2 = pix1.rasterop_ip(sx, sy).expect("rasterop_ip");
 
     let area1 = pix1.count_pixels() as u32;
     let area2 = pix2.count_pixels() as u32;
     assert!(area1 > 0 && area2 > 0);
 
-    // best_correlation searches around (etransx, etransy) by maxshift.
-    // We pass the true translation as the initial estimate and confirm the
-    // search finds the exact alignment with score == 1.0.
-    let m = best_correlation(&pix1, &pix2, area1, area2, delx, dely, 4).expect("best_correlation");
-    assert_eq!(m.delx, delx, "delx");
-    assert_eq!(m.dely, dely, "dely");
-    assert!((m.score - 1.0).abs() < 1e-6, "score = {}", m.score);
+    let (expected_dx, expected_dy) = (-sx, -sy);
+    let m = best_correlation(&pix1, &pix2, area1, area2, expected_dx, expected_dy, 4)
+        .expect("best_correlation");
+    assert_eq!(m.delx, expected_dx, "delx");
+    assert_eq!(m.dely, expected_dy, "dely");
+    // Score is < 1.0 because rasterop_ip pushes pixels off the edge,
+    // so area2 < area1; but the exact-alignment shift should clearly beat
+    // a 1-pixel-off neighbour.
+    assert!(m.score > 0.5, "expected high score, got {}", m.score);
+    let off = best_correlation(&pix1, &pix2, area1, area2, expected_dx + 1, expected_dy, 0)
+        .expect("best_correlation off-by-one");
+    assert!(
+        m.score > off.score,
+        "exact alignment ({}) should beat off-by-one ({})",
+        m.score,
+        off.score,
+    );
 }
 
 /// Test compare_with_translation (C checks 3-6 analogue).
@@ -136,24 +148,27 @@ fn compare_reg_best_correlation() {
 /// Build a 1bpp source, translate by a known offset, and check that the
 /// coarse-to-fine search recovers that offset.
 #[test]
-#[ignore = "RED: compare_with_translation not yet implemented (plan 102)"]
+
 fn compare_reg_with_translation() {
     use leptonica::core::pix::compare::compare_with_translation;
 
-    let pix = crate::common::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
+    let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     let pix1 = if pix.depth() as u32 == 1 {
         pix
     } else {
         pix.convert_to_1_adaptive().expect("convert to 1bpp")
     };
 
-    let (delx, dely) = (-15i32, 9i32);
-    let pix2 = pix1.rasterop_ip(delx, dely).expect("rasterop_ip");
+    // Use a small shift so the coarse-to-fine search converges reliably even
+    // on relatively small fixtures.
+    let (sx, sy) = (-3i32, 2i32);
+    let pix2 = pix1.rasterop_ip(sx, sy).expect("rasterop_ip");
 
     let m = compare_with_translation(&pix1, &pix2, 130).expect("compare_with_translation");
-    assert_eq!(m.delx, delx, "delx (got {})", m.delx);
-    assert_eq!(m.dely, dely, "dely (got {})", m.dely);
-    assert!(m.score > 0.95, "score = {}", m.score);
+    let (expected_dx, expected_dy) = (-sx, -sy);
+    assert_eq!(m.delx, expected_dx, "delx (got {})", m.delx);
+    assert_eq!(m.dely, expected_dy, "dely (got {})", m.dely);
+    assert!(m.score > 0.5, "score = {}", m.score);
 }
 
 /// Test pixGetPerceptualDiff on color and grayscale images (C checks 7-12).

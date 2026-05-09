@@ -1445,12 +1445,64 @@ pub struct TranslationMatch {
 /// depth; they are first thresholded to 1 bpp using `thresh`, then a 4-level
 /// 2x cascade is built. The bottom level uses centroid difference + maxshift=6
 /// for the initial estimate; higher levels refine with maxshift=2.
-pub fn compare_with_translation(
-    _pix1: &Pix,
-    _pix2: &Pix,
-    _thresh: i32,
-) -> Result<TranslationMatch> {
-    unimplemented!("compare_with_translation: implemented in GREEN commit (plan 102)")
+pub fn compare_with_translation(pix1: &Pix, pix2: &Pix, thresh: i32) -> Result<TranslationMatch> {
+    use crate::morph::morphapp::pix_centroid;
+    use crate::transform::binreduce::reduce_rank_binary_2;
+
+    // Binarize each input.
+    let pixb1 = if pix1.depth() == PixelDepth::Bit1 {
+        pix1.deep_clone()
+    } else {
+        pix1.convert_to_1_by_sampling(1, thresh as u32)?
+    };
+    let pixb2 = if pix2.depth() == PixelDepth::Bit1 {
+        pix2.deep_clone()
+    } else {
+        pix2.convert_to_1_by_sampling(1, thresh as u32)?
+    };
+
+    // Build 4-level 2x rank-reduction cascade.
+    let mut levels1: Vec<Pix> = Vec::with_capacity(4);
+    let mut levels2: Vec<Pix> = Vec::with_capacity(4);
+    levels1.push(pixb1);
+    levels2.push(pixb2);
+    for _ in 0..3 {
+        let r1 = reduce_rank_binary_2(levels1.last().unwrap(), 2)
+            .map_err(|e| Error::InvalidParameter(format!("reduce_rank_binary_2: {e}")))?;
+        let r2 = reduce_rank_binary_2(levels2.last().unwrap(), 2)
+            .map_err(|e| Error::InvalidParameter(format!("reduce_rank_binary_2: {e}")))?;
+        levels1.push(r1);
+        levels2.push(r2);
+    }
+
+    // Search from coarsest (level 3) to finest (level 0).
+    let mut delx = 0i32;
+    let mut dely = 0i32;
+    let mut score = 0.0f32;
+    for level in (0..=3i32).rev() {
+        let p1 = &levels1[level as usize];
+        let p2 = &levels2[level as usize];
+        let area1 = p1.count_pixels() as u32;
+        let area2 = p2.count_pixels() as u32;
+
+        let (etransx, etransy, maxshift) = if level == 3 {
+            // Use centroid difference as the initial estimate.
+            let (cx1, cy1) = pix_centroid(p1)
+                .map_err(|e| Error::InvalidParameter(format!("pix_centroid: {e}")))?;
+            let (cx2, cy2) = pix_centroid(p2)
+                .map_err(|e| Error::InvalidParameter(format!("pix_centroid: {e}")))?;
+            ((cx1 - cx2).round() as i32, (cy1 - cy2).round() as i32, 6)
+        } else {
+            (2 * delx, 2 * dely, 2)
+        };
+
+        let m = best_correlation(p1, p2, area1, area2, etransx, etransy, maxshift)?;
+        delx = m.delx;
+        dely = m.dely;
+        score = m.score;
+    }
+
+    Ok(TranslationMatch { delx, dely, score })
 }
 
 /// Maximize correlation score between two 1bpp images by sliding `pix2` over
@@ -1458,15 +1510,43 @@ pub fn compare_with_translation(
 ///
 /// Mirrors C Leptonica's `pixBestCorrelation`. Both images must be 1 bpp.
 pub fn best_correlation(
-    _pix1: &Pix,
-    _pix2: &Pix,
-    _area1: u32,
-    _area2: u32,
-    _etransx: i32,
-    _etransy: i32,
-    _maxshift: i32,
+    pix1: &Pix,
+    pix2: &Pix,
+    area1: u32,
+    area2: u32,
+    etransx: i32,
+    etransy: i32,
+    maxshift: i32,
 ) -> Result<TranslationMatch> {
-    unimplemented!("best_correlation: implemented in GREEN commit (plan 102)")
+    use crate::recog::correlscore::correlation_score;
+
+    if pix1.depth() != PixelDepth::Bit1 {
+        return Err(Error::InvalidParameter("pix1 must be 1 bpp".into()));
+    }
+    if pix2.depth() != PixelDepth::Bit1 {
+        return Err(Error::InvalidParameter("pix2 must be 1 bpp".into()));
+    }
+    if area1 == 0 || area2 == 0 {
+        return Err(Error::InvalidParameter("areas must be > 0".into()));
+    }
+
+    let mut best = TranslationMatch {
+        delx: etransx,
+        dely: etransy,
+        score: 0.0,
+    };
+    for dy in -maxshift..=maxshift {
+        for dx in -maxshift..=maxshift {
+            let s = correlation_score(pix1, pix2, area1, area2, etransx + dx, etransy + dy)
+                .map_err(|e| Error::InvalidParameter(format!("correlation_score: {e}")))?;
+            if s > best.score {
+                best.score = s;
+                best.delx = etransx + dx;
+                best.dely = etransy + dy;
+            }
+        }
+    }
+    Ok(best)
 }
 
 /// Compute binary correlation between two 1-bit images.
