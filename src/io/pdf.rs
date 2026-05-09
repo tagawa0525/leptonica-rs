@@ -1044,6 +1044,59 @@ pub fn clean_to_1bpp_files_to_pdf(
     Ok(buf)
 }
 
+/// Rotate selected images by orthogonal (90° cw) increments and combine into a PDF.
+///
+/// Mirrors C Leptonica `rotateorthFilesToPdf()` (`pdfapp.c`).
+///
+/// # Arguments
+///
+/// * `paths` - sorted full pathnames of input images
+/// * `rotstring` - rotation specifier; see [`parse_rotation_string`] for the
+///   three accepted modes
+/// * `scalefactor` - scaling factor applied to each image; clamped to `(0.0, 2.0]`
+/// * `quality` - JPEG quality (25–95). `<= 0` selects the default of 75
+/// * `title` - optional PDF title; `"none"` is treated as no title
+///
+/// # Reference
+///
+/// C Leptonica: `rotateorthFilesToPdf()` in `pdfapp.c`
+pub fn rotate_orth_files_to_pdf(
+    paths: &[impl AsRef<Path>],
+    rotstring: &str,
+    scalefactor: f32,
+    quality: i32,
+    title: &str,
+) -> IoResult<Vec<u8>> {
+    // Stitched together so parse_rotation_string is referenced even before
+    // the GREEN step lands (avoids a dead_code warning).
+    let _ = parse_rotation_string(paths.len(), rotstring);
+    let _ = (scalefactor, quality, title);
+    unimplemented!("rotate_orth_files_to_pdf: implementation pending (plan 030 GREEN)")
+}
+
+/// Parse a rotation specifier string into a per-image rotation table.
+///
+/// The output vector has length `n` and each entry is in `0..=3` (number of
+/// 90° clockwise rotations). The string supports three modes, matching C
+/// Leptonica's `parseRotationString()`:
+///
+/// - **Mode 1** (string starts with `'0'`–`'3'`): each character is a
+///   rotation digit for the image at that index. Trailing images beyond
+///   the string length are kept at 0. Characters past the n-th are ignored.
+/// - **Mode 2** (string starts with `'4'`): the second character supplies a
+///   single rotation that is applied to every image.
+/// - **Mode 3** (string starts with `'5'`): a sequence of `(index,rotval)`
+///   pairs. Arbitrary separators between pairs are ignored. Pairs with
+///   out-of-range index or invalid rotval are reported via `log` and
+///   skipped without failing the call.
+///
+/// Returns an error only when `rotstring` is empty or starts with an
+/// unsupported leading character.
+pub(crate) fn parse_rotation_string(n: usize, rotstring: &str) -> IoResult<Vec<u8>> {
+    let _ = (n, rotstring);
+    unimplemented!("parse_rotation_string: implementation pending (plan 030 GREEN)")
+}
+
 /// Simple threshold binarization for PDF app functions.
 fn pix_to_1bpp(pix: &Pix, threshold: u32) -> Pix {
     let w = pix.width();
@@ -1317,6 +1370,89 @@ mod tests {
         assert!(buffer.len() > 200);
 
         // Cleanup
+        let _ = std::fs::remove_dir_all(&outdir);
+    }
+
+    // ------------------------------------------------------------------
+    // parse_rotation_string / rotate_orth_files_to_pdf (plan 030, RED)
+    // ------------------------------------------------------------------
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rotation_string_mode1_basic() {
+        // "00201" → image 2 rotated 180°, image 4 rotated 90°.
+        let rot = parse_rotation_string(7, "00201").unwrap();
+        assert_eq!(rot, vec![0, 0, 2, 0, 1, 0, 0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rotation_string_mode1_truncates_to_n() {
+        // String longer than n: extra characters are ignored.
+        let rot = parse_rotation_string(3, "31230").unwrap();
+        assert_eq!(rot, vec![3, 1, 2]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rotation_string_mode2_all_same() {
+        // "41" → every image rotated 90° cw.
+        let rot = parse_rotation_string(4, "41").unwrap();
+        assert_eq!(rot, vec![1, 1, 1, 1]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rotation_string_mode3_pairs() {
+        // "5(3,2)(2,1)(8,1)(23,1)" with n=10:
+        //   image 2 → 1, image 3 → 2, image 8 → 1; image 23 is out of range
+        //   and silently skipped.
+        let rot = parse_rotation_string(10, "5(3,2)(2,1)(8,1)(23,1)").unwrap();
+        assert_eq!(rot, vec![0, 0, 1, 2, 0, 0, 0, 0, 1, 0]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rotation_string_mode3_with_separators() {
+        // Arbitrary separators between parenthesized pairs are tolerated.
+        let rot = parse_rotation_string(5, "5::(3,2),(2,1)##(4,3)").unwrap();
+        assert_eq!(rot, vec![0, 0, 1, 2, 3]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rotation_string_invalid_mode() {
+        // Leading character outside '0'..='5' is rejected.
+        assert!(parse_rotation_string(3, "9").is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_parse_rotation_string_empty_string() {
+        assert!(parse_rotation_string(3, "").is_err());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rotate_orth_files_to_pdf_basic() {
+        let outdir = std::env::temp_dir().join("leptonica_rotate_orth_pdf");
+        std::fs::create_dir_all(&outdir).unwrap();
+
+        // Create three small RGB pages at distinct sizes.
+        let mut paths = Vec::new();
+        for i in 0..3 {
+            let pix = Pix::new(40 + i * 10, 30 + i * 5, PixelDepth::Bit32).unwrap();
+            let p = outdir.join(format!("page_{i}.pnm"));
+            crate::io::write_image(&pix, &p, crate::core::ImageFormat::Pnm).unwrap();
+            paths.push(p);
+        }
+
+        // Rotate page 1 by 90° cw, page 2 by 180°.
+        let pdf = rotate_orth_files_to_pdf(&paths, "012", 1.0, 0, "rotate-orth").unwrap();
+        assert!(pdf.starts_with(b"%PDF-"));
+        let pages = get_pdf_page_count(&pdf).unwrap();
+        assert_eq!(pages, 3);
+
         let _ = std::fs::remove_dir_all(&outdir);
     }
 }
