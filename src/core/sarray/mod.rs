@@ -1133,6 +1133,24 @@ impl std::ops::IndexMut<usize> for Sarraya {
     }
 }
 
+/// Find the first occurrence of `sequence` inside `data`, returning the byte
+/// offset if found.
+///
+/// C Leptonica equivalent: `arrayFindSequence` (utils2.c). The C signature uses
+/// out-parameters `(*poffset, *pfound)`; the Rust port collapses that to
+/// `Option<usize>`. An empty `sequence` matches at offset 0 (matching
+/// `<[u8]>::starts_with(&[])`, which is `true`); searching an empty `data`
+/// for a non-empty sequence returns `None`.
+pub fn array_find_sequence(data: &[u8], sequence: &[u8]) -> Option<usize> {
+    if sequence.is_empty() {
+        return Some(0);
+    }
+    if sequence.len() > data.len() {
+        return None;
+    }
+    data.windows(sequence.len()).position(|w| w == sequence)
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
