@@ -1138,9 +1138,9 @@ impl std::ops::IndexMut<usize> for Sarraya {
 ///
 /// C Leptonica equivalent: `arrayFindSequence` (utils2.c). The C signature uses
 /// out-parameters `(*poffset, *pfound)`; the Rust port collapses that to
-/// `Option<usize>`. An empty `sequence` matches at offset 0 (matching the
-/// behaviour of `slice::starts_with(&[])`); searching an empty `data` for a
-/// non-empty sequence returns `None`.
+/// `Option<usize>`. An empty `sequence` matches at offset 0 (matching
+/// `<[u8]>::starts_with(&[])`, which is `true`); searching an empty `data`
+/// for a non-empty sequence returns `None`.
 pub fn array_find_sequence(data: &[u8], sequence: &[u8]) -> Option<usize> {
     if sequence.is_empty() {
         return Some(0);

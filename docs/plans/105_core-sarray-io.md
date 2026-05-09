@@ -33,30 +33,30 @@ Number of strings = N\n
 
 ## 配置先・API 設計
 
-- ファイル: `src/core/sarray/serial.rs` を新設（または `mod.rs` に追記）
-- 公開 API:
+- ファイル: 既存 `src/core/sarray/serial.rs` で全シリアライズ I/O が
+  実装済みだったため、本タスクではテストの `#[ignore]` 解除のみ
+- 既存公開 API（再掲、本 PR で新規追加するものではない）:
 
 ```rust
 impl Sarray {
     /// sarrayWrite 相当
-    pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    pub fn write_to_file(&self, path: impl AsRef<Path>) -> Result<()>;
     /// sarrayWriteStream 相当
-    pub fn write_to_writer<W: Write>(&self, writer: &mut W) -> Result<()>;
+    pub fn write_to_writer(&self, writer: &mut impl Write) -> Result<()>;
     /// sarrayWriteMem 相当
-    pub fn to_serialized_bytes(&self) -> Result<Vec<u8>>;
+    pub fn write_to_bytes(&self) -> Result<Vec<u8>>;
 
     /// sarrayRead 相当
-    pub fn read_from_file<P: AsRef<Path>>(path: P) -> Result<Sarray>;
+    pub fn read_from_file(path: impl AsRef<Path>) -> Result<Sarray>;
     /// sarrayReadStream 相当
-    pub fn read_from_reader<R: BufRead>(reader: R) -> Result<Sarray>;
+    pub fn read_from_reader(reader: &mut impl Read) -> Result<Sarray>;
     /// sarrayReadMem 相当
-    pub fn from_serialized_bytes(bytes: &[u8]) -> Result<Sarray>;
+    pub fn read_from_bytes(data: &[u8]) -> Result<Sarray>;
 }
 
 /// arrayFindSequence 相当: data 中で sequence の最初の出現オフセットを返す。
-///
 /// 該当 C シグネチャは `(*poffset, *pfound)` だが、Rust では `Option<usize>`
-/// を返す形に圧縮する。
+/// を返す形に圧縮する。本 PR で新規追加。
 pub fn array_find_sequence(data: &[u8], sequence: &[u8]) -> Option<usize>;
 ```
 
@@ -95,9 +95,9 @@ pub fn array_find_sequence(data: &[u8], sequence: &[u8]) -> Option<usize>;
 
 ## ステータス
 
-- [x] 計画書作成
-- [ ] RED コミット
-- [ ] GREEN コミット
-- [ ] PR 作成・Copilot レビュー対応
+- [x] 計画書作成（c7612a2）
+- [x] sarray I/O は実装済みと確認（テスト `#[ignore]` 解除のみ）
+- [x] `array_find_sequence` 実装 + テスト追加（17ccb94）
+- [x] PR 作成・Copilot レビュー対応（PR #320）
 - [ ] /gh-pr-merge --merge
-- [ ] 031 全体計画書を IMPLEMENTED に更新
+- [ ] 031 全体計画書の表に PR #320 を反映

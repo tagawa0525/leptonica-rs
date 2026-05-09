@@ -45,12 +45,15 @@ fn string_reg_binary_sequence() {
     assert_eq!(array_find_sequence(nul, b"\0c"), Some(3));
 }
 
-/// Sarray file/stream I/O round-trip (C: sarrayWrite/sarrayRead).
+/// Sarray stream / in-memory I/O round-trip (C: sarrayWriteStream/ReadStream
+/// + sarrayWriteMem/ReadMem).
 ///
 /// `Sarray` already exposes `read_from_reader` / `write_to_writer` /
-/// `write_to_bytes` etc.; this regression test verifies the round-trip
-/// covers empty arrays, single strings, multi-string content and strings
-/// that contain spaces.
+/// `write_to_bytes` / `read_from_bytes`. This regression test verifies the
+/// round-trip covers empty arrays, single strings, multi-string content and
+/// strings that contain spaces. Filesystem I/O (`write_to_file` /
+/// `read_from_file`) shares the stream codec so it is not exercised
+/// separately here.
 #[test]
 fn string_reg_file_io() {
     fn roundtrip(input: Vec<&str>) {
