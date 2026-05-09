@@ -64,6 +64,7 @@ pub mod label;
 pub mod maze;
 pub mod partition;
 pub mod quadtree;
+pub mod rectangle;
 pub mod seedfill;
 pub mod select;
 pub mod watershed;
