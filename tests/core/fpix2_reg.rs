@@ -9,7 +9,20 @@
 //!
 //! C Leptonica: `fpix1.c`, `fpix2.c`
 
+use leptonica::core::fpix::transform::RotateDirection;
 use leptonica::{DPix, FPix, NegativeHandling};
+
+/// Build an FPix where the (x, y) value encodes its position so we can verify
+/// rotations and flips by inspecting individual pixel values.
+fn make_positional_fpix(w: u32, h: u32) -> FPix {
+    let mut fpix = FPix::new(w, h).unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            fpix.set_pixel(x, y, (y * w + x) as f32).unwrap();
+        }
+    }
+    fpix
+}
 
 // ============================================================================
 // C-equivalent regression test skeletons (C checks 0–4)
@@ -17,49 +30,122 @@ use leptonica::{DPix, FPix, NegativeHandling};
 
 /// FPix orthogonal rotation by 90 degrees (C check 0).
 ///
-/// C: fpixRotateOrth(fpix1, 1) → compare with pixRotateOrth(pix2, 1)
+/// rotate_orth(1) is one clockwise quarter-turn: result[i, j] = src[j, h-1-i]
+/// where the source has dimensions (w, h) and the destination (h, w).
 #[test]
-#[ignore = "fpix_rotate_orth not implemented"]
 fn fpix2_reg_rotate_orth_90() {
-    // fpixRotateOrth not available in Rust FPix API
+    let src = make_positional_fpix(5, 3);
+    let dst = src.rotate_orth(1).expect("rotate_orth(1)");
+    assert_eq!((dst.width(), dst.height()), (3, 5));
+    for y in 0..dst.height() {
+        for x in 0..dst.width() {
+            let expected = src.get_pixel(y, src.height() - 1 - x).unwrap();
+            assert_eq!(dst.get_pixel(x, y).unwrap(), expected, "pixel ({x}, {y})");
+        }
+    }
 }
 
 /// FPix orthogonal rotation by 180 degrees (C check 1).
-///
-/// C: fpixRotateOrth(fpix1, 2) → compare with pixRotateOrth(pix2, 2)
 #[test]
-#[ignore = "fpix_rotate_orth not implemented"]
 fn fpix2_reg_rotate_orth_180() {
-    // fpixRotateOrth not available in Rust FPix API
+    let src = make_positional_fpix(5, 3);
+    let dst = src.rotate_orth(2).expect("rotate_orth(2)");
+    assert_eq!((dst.width(), dst.height()), (5, 3));
+    for y in 0..dst.height() {
+        for x in 0..dst.width() {
+            let expected = src
+                .get_pixel(src.width() - 1 - x, src.height() - 1 - y)
+                .unwrap();
+            assert_eq!(dst.get_pixel(x, y).unwrap(), expected, "pixel ({x}, {y})");
+        }
+    }
 }
 
 /// FPix orthogonal rotation by 270 degrees (C check 2).
-///
-/// C: fpixRotateOrth(fpix1, 3) → compare with pixRotateOrth(pix2, 3)
 #[test]
-#[ignore = "fpix_rotate_orth not implemented"]
 fn fpix2_reg_rotate_orth_270() {
-    // fpixRotateOrth not available in Rust FPix API
+    let src = make_positional_fpix(5, 3);
+    let dst = src.rotate_orth(3).expect("rotate_orth(3)");
+    assert_eq!((dst.width(), dst.height()), (3, 5));
+    for y in 0..dst.height() {
+        for x in 0..dst.width() {
+            let expected = src.get_pixel(src.width() - 1 - y, x).unwrap();
+            assert_eq!(dst.get_pixel(x, y).unwrap(), expected, "pixel ({x}, {y})");
+        }
+    }
+
+    // rotate_90 cw + ccw round-trip restores the source.
+    let cw = src.rotate_90(RotateDirection::Cw).unwrap();
+    let restored = cw.rotate_90(RotateDirection::Ccw).unwrap();
+    assert_eq!(restored.data(), src.data(), "cw + ccw should round-trip");
+
+    // flip_lr applied twice is identity.
+    let lr = src.flip_lr().unwrap();
+    let lr_lr = lr.flip_lr().unwrap();
+    assert_eq!(lr_lr.data(), src.data());
 }
 
 /// FPix mirrored border addition (C check 3).
-///
-/// C: fpixAddMirroredBorder(fpix1, 21, 21, 25, 25) → compare with
-///    pixAddMirroredBorder(pix2, 21, 21, 25, 25)
 #[test]
-#[ignore = "fpix_add_mirrored_border not implemented"]
 fn fpix2_reg_add_mirrored_border() {
-    // fpixAddMirroredBorder not available in Rust FPix API
+    let src = make_positional_fpix(5, 3);
+    let bordered = src.add_mirrored_border(2, 2, 1, 1).expect("mirror border");
+    assert_eq!((bordered.width(), bordered.height()), (9, 5));
+    // Top-left of the original pixel block sits at (2, 1).
+    for y in 0..3 {
+        for x in 0..5 {
+            assert_eq!(
+                bordered.get_pixel(x + 2, y + 1).unwrap(),
+                src.get_pixel(x, y).unwrap(),
+                "interior pixel ({x}, {y})",
+            );
+        }
+    }
+    // Mirror columns: column 1 (one in from left) should mirror original col 0.
+    for y in 0..3 {
+        assert_eq!(
+            bordered.get_pixel(1, y + 1).unwrap(),
+            src.get_pixel(0, y).unwrap(),
+            "mirror left col @ y={y}",
+        );
+        assert_eq!(
+            bordered.get_pixel(0, y + 1).unwrap(),
+            src.get_pixel(1, y).unwrap(),
+            "mirror left col2 @ y={y}",
+        );
+    }
+}
+
+/// FPix add_mirrored_border rejects oversized borders.
+#[test]
+fn fpix2_reg_add_mirrored_border_oversized_rejected() {
+    let src = make_positional_fpix(5, 3);
+    // left = 6 > width = 5 should error before any pixel access.
+    assert!(src.add_mirrored_border(6, 0, 0, 0).is_err());
+    assert!(src.add_mirrored_border(0, 6, 0, 0).is_err());
+    assert!(src.add_mirrored_border(0, 0, 4, 0).is_err());
+    assert!(src.add_mirrored_border(0, 0, 0, 4).is_err());
+    // Equal-to-dimension borders are allowed.
+    assert!(src.add_mirrored_border(5, 5, 3, 3).is_ok());
 }
 
 /// FPix continued border addition (C check 4).
-///
-/// C: fpixAddContinuedBorder(fpix1, 21, 21, 25, 25) → compare with
-///    pixAddContinuedBorder(pix2, 21, 21, 25, 25)
 #[test]
-#[ignore = "fpix_add_continued_border not implemented"]
 fn fpix2_reg_add_continued_border() {
-    // fpixAddContinuedBorder not available in Rust FPix API
+    let src = make_positional_fpix(5, 3);
+    let bordered = src
+        .add_continued_border(2, 2, 1, 1)
+        .expect("continued border");
+    assert_eq!((bordered.width(), bordered.height()), (9, 5));
+    // Each border column repeats the nearest-edge value of the source.
+    for y in 0..3 {
+        let left_edge = src.get_pixel(0, y).unwrap();
+        let right_edge = src.get_pixel(4, y).unwrap();
+        for bx in 0..2 {
+            assert_eq!(bordered.get_pixel(bx, y + 1).unwrap(), left_edge);
+            assert_eq!(bordered.get_pixel(7 + bx, y + 1).unwrap(), right_edge);
+        }
+    }
 }
 
 // ============================================================================
