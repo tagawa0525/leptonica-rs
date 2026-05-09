@@ -955,6 +955,29 @@ pub enum PageOrientation {
     Landscape,
 }
 
+/// Helper: clip to `box_` if any, then ensure 1bpp.
+fn prepare_1bpp(pix: &Pix, box_: Option<&crate::core::Box>) -> RecogResult<Pix> {
+    let clipped = if let Some(b) = box_ {
+        let pw = pix.width() as i32;
+        let ph = pix.height() as i32;
+        if b.x < 0 || b.y < 0 || b.w <= 0 || b.h <= 0 || b.x + b.w > pw || b.y + b.h > ph {
+            return Err(RecogError::InvalidParameter(format!(
+                "box {:?} is out of bounds for {}x{} image",
+                b, pw, ph
+            )));
+        }
+        pix.clip_rectangle(b.x as u32, b.y as u32, b.w as u32, b.h as u32)
+            .map_err(RecogError::from)?
+    } else {
+        pix.clone()
+    };
+    if clipped.depth() == PixelDepth::Bit1 {
+        Ok(clipped)
+    } else {
+        ensure_binary_with_threshold(&clipped, 128)
+    }
+}
+
 /// Decide whether `pix` likely contains a table.
 ///
 /// Returns `Ok(-1)` when the analysis cannot be completed, `Ok(0..=4)` for the
@@ -963,11 +986,84 @@ pub enum PageOrientation {
 ///
 /// C Leptonica equivalent: `pixDecideIfTable`.
 pub fn decide_if_table(
-    _pix: &Pix,
-    _box_: Option<&crate::core::Box>,
-    _orient: PageOrientation,
+    pix: &Pix,
+    box_: Option<&crate::core::Box>,
+    orient: PageOrientation,
 ) -> RecogResult<i32> {
-    unimplemented!("decide_if_table: implemented in GREEN commit (plan 802)")
+    use crate::morph::{dilate_brick, sequence::morph_sequence};
+    use crate::region::conncomp::{ConnectivityType, count_conn_comp, find_connected_components};
+    use crate::region::seedfill::seedfill_binary_restricted;
+    use crate::transform::rotate::rotate_90;
+
+    // 1bpp + halftone detection: if a halftone region is present, the page
+    // likely contains an image rather than a table — return 0 immediately.
+    let pix_for_ht = prepare_1bpp(pix, box_)?;
+    let (halftone, _text) = generate_halftone_mask(&pix_for_ht)?;
+    if !halftone.is_zero() {
+        return Ok(0);
+    }
+
+    // Same 1bpp pix, dilated 2x2 to merge near-adjacent text strokes.
+    let pix1 = prepare_1bpp(pix, box_)?;
+    if pix1.is_zero() {
+        return Ok(0);
+    }
+    let pix2 = dilate_brick(&pix1, 2, 2)?;
+
+    // Deskew and optionally rotate for landscape pages.
+    let (pix3, _angle) = crate::recog::skew::deskew_both(&pix2)?;
+    let pix1 = match orient {
+        PageOrientation::Portrait => pix3,
+        PageOrientation::Landscape => rotate_90(&pix3, true)?,
+    };
+
+    // Horizontal/vertical foreground line detection.
+    let pix_h = morph_sequence(&pix1, "o100.1 + c1.4")?;
+    let pix_v = morph_sequence(&pix1, "o1.100 + c4.1")?;
+    let nhb = count_conn_comp(&pix_h, ConnectivityType::EightWay)?;
+    let nvb = count_conn_comp(&pix_v, ConnectivityType::EightWay)?;
+
+    // Vertical whitespace detection: invert to make whitespace foreground.
+    let h_lines = seedfill_binary_restricted(
+        &pix_h,
+        &pix1,
+        ConnectivityType::EightWay,
+        u32::MAX,
+        u32::MAX,
+    )?;
+    let v_lines = seedfill_binary_restricted(
+        &pix_v,
+        &pix1,
+        ConnectivityType::EightWay,
+        u32::MAX,
+        u32::MAX,
+    )?;
+    let lines = h_lines.or(&v_lines)?;
+    let no_lines = pix1.subtract(&lines)?;
+    let cleaned = morph_sequence(&no_lines, "c4.1 + o8.1")?;
+    let inverted = cleaned.invert();
+    let vws_mask = morph_sequence(&inverted, "r1 + o1.100")?;
+    // C: pixSelectBySize(pix8, 5, 0, 8, L_SELECT_WIDTH, L_SELECT_IF_GTE) — keep
+    // components whose bounding-box width is at least 5px. The Rust
+    // pix_select_by_size only offers IfBoth/IfEither, so filter via the
+    // connected-component list instead.
+    let vws_comps = find_connected_components(&vws_mask, ConnectivityType::EightWay)?;
+    let nvw = vws_comps.iter().filter(|c| c.bounds.w >= 5).count() as u32;
+
+    let mut score = 0;
+    if nhb > 1 {
+        score += 1;
+    }
+    if nvb > 2 {
+        score += 1;
+    }
+    if nvw > 3 {
+        score += 1;
+    }
+    if nvw > 6 {
+        score += 1;
+    }
+    Ok(score)
 }
 
 /// Detect inverted-text regions and re-invert them.
@@ -976,8 +1072,49 @@ pub fn decide_if_table(
 /// post-photoinvert binary image and the mask flags inverted regions.
 ///
 /// C Leptonica equivalent: `pixAutoPhotoinvert`.
-pub fn auto_photoinvert(_pix: &Pix, _thresh: u32) -> RecogResult<(Pix, Option<Pix>)> {
-    unimplemented!("auto_photoinvert: implemented in GREEN commit (plan 802)")
+pub fn auto_photoinvert(pix: &Pix, thresh: u32) -> RecogResult<(Pix, Option<Pix>)> {
+    use crate::morph::sequence::morph_sequence;
+    use crate::region::conncomp::{ConnectivityType, find_connected_components};
+    use crate::region::seedfill::fill_holes_to_bounding_rect;
+
+    let thresh = if thresh == 0 { 128 } else { thresh };
+    let pix1 = ensure_binary_with_threshold(pix, thresh)?;
+
+    // Identify candidate inverted-text regions via halftone-style mask.
+    let (ht, _text) = generate_halftone_mask(&pix1)?;
+    let denoised = morph_sequence(&ht, "o15.15 + c25.25")?;
+    let mut mask = fill_holes_to_bounding_rect(&denoised, 1, 0.5, 1.0)?;
+    if mask.is_zero() {
+        return Ok((pix1, None));
+    }
+
+    // Validate each component: the underlying region must be ≥ 60% fg in pix1
+    // (i.e. dark background with light text). Erase regions that do not meet
+    // the criterion from the mask.
+    let comps = find_connected_components(&mask, ConnectivityType::EightWay)?;
+    let mut mask_mut = mask.to_mut();
+    for cc in &comps {
+        let b = cc.bounds;
+        let region = pix1.clip_rectangle(b.x as u32, b.y as u32, b.w as u32, b.h as u32)?;
+        let frac = region.foreground_fraction()?;
+        if frac < 0.6 {
+            // Erase this component from the mask.
+            mask_mut.clear_in_rect(&b)?;
+        }
+    }
+    mask = mask_mut.into();
+
+    if mask.is_zero() {
+        return Ok((pix1, None));
+    }
+
+    // Photoinvert: combine inverted pix into pix1 over the mask.
+    let inverted = pix1.invert();
+    let mut combined_mut = pix1.to_mut();
+    combined_mut.combine_masked(&inverted, &mask)?;
+    let combined: Pix = combined_mut.into();
+
+    Ok((combined, Some(mask)))
 }
 
 // Old pixel-by-pixel implementations preserved for testing

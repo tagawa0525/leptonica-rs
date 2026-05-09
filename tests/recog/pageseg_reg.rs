@@ -747,7 +747,7 @@ fn test_22_find_large_rectangles() {
 /// Rust 版テストデータが揃わないため、`feyn-fract.tif`（テキスト中心、
 /// 表構造ほぼ無し）を非テーブル候補として、score < 2 を期待する smoke 形。
 #[test]
-#[ignore = "RED: decide_if_table not yet implemented (plan 802)"]
+
 fn test_23_30_decide_if_table() {
     use leptonica::recog::pageseg::{PageOrientation, decide_if_table};
 
@@ -773,7 +773,7 @@ fn test_23_30_decide_if_table() {
 /// Rust 版テストデータが揃わないため、smoke 観点（戻り値が 1bpp で寸法が
 /// 入力と一致する）で検証。
 #[test]
-#[ignore = "RED: auto_photoinvert not yet implemented (plan 802)"]
+
 fn test_31_36_auto_photoinvert() {
     use leptonica::recog::pageseg::auto_photoinvert;
 
