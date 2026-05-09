@@ -5,8 +5,10 @@ Status: IMPLEMENTED
 
 ## Context
 
-C 版 `fpix2.c` のうち、FPix（浮動小数点画像）の直交回転・反転・境界拡張系が
-Rust に未移植。`tests/core/fpix2_reg.rs` には 5 件の `#[ignore]` テストが残っている。
+C 版 `fpix2.c` のうち、FPix（浮動小数点画像）の直交回転・反転・境界拡張系を
+Rust に移植する計画。起草時点で `tests/core/fpix2_reg.rs` には 5 件の
+`#[ignore]` テスト（rotate_orth_{90,180,270} / add_mirrored_border /
+add_continued_border）が残っていた。PR #316 で全て移植・unignore 済み。
 
 | C 関数                   | 行   | 役割                                      |
 | ------------------------ | ---- | ----------------------------------------- |
@@ -49,7 +51,8 @@ impl FPix {
 }
 ```
 
-`RotateDirection` は新規に `core::fpix::RotateDirection { Cw, Ccw }` として定義。
+`RotateDirection { Cw, Ccw }` は `core::fpix::transform` に新規定義し、
+`core::fpix` から re-export（どちらのパスでもアクセス可）。
 in-place 版は提供せず、Rust では `&self → 新 FPix` のシンプル形に統一。
 
 ## TDD ステップ
