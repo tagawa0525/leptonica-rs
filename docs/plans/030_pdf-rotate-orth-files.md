@@ -17,18 +17,21 @@ Rust 版には既に同系統の関数 (`compress_files_to_pdf`,
 
 ## Goal
 
-| C 版                                           | Rust 版                                          | 場所                              |
-| ---------------------------------------------- | ------------------------------------------------ | --------------------------------- |
-| `rotateorthFilesToPdf` (`src/pdfapp.c`)        | `rotate_orth_files_to_pdf`                       | `src/io/pdf.rs`                   |
-| `parseRotationString` (`src/pdfapp.c`, static) | `parse_rotation_string`                          | `src/io/pdf.rs`（モジュール内）   |
-| `prog/rotateorthpdf.c`                         | `examples/rotateorthpdf.rs`                      | `examples/`                       |
+| C 版                                           | Rust 版                     | 場所                            |
+| ---------------------------------------------- | --------------------------- | ------------------------------- |
+| `rotateorthFilesToPdf` (`src/pdfapp.c`)        | `rotate_orth_files_to_pdf`  | `src/io/pdf.rs`                 |
+| `parseRotationString` (`src/pdfapp.c`, static) | `parse_rotation_string`     | `src/io/pdf.rs`（モジュール内） |
+| `prog/rotateorthpdf.c`                         | `examples/rotateorthpdf.rs` | `examples/`                     |
 
 ### 回転指定文字列の仕様
 
 - **Mode 1** (`'0'..='3'` で開始): 各文字 1 桁が画像 i の 90° cw 回転回数。
+
   文字列長が画像数より短ければ、残りは 0 (無回転)。
+
 - **Mode 2** (`'4'` で開始): 続く 1 桁を全画像に共通で適用。
 - **Mode 3** (`'5'` で開始): `(index, rotval)` ペアの並び。区切り文字は任意
+
   (`,`, `;`, `#`, 空白等は無視)。範囲外 / 無効ペアは警告してスキップ。
   解釈は `sscanf("(%d,%d)", ...)` 相当。
 
@@ -37,18 +40,23 @@ Rust 版には既に同系統の関数 (`compress_files_to_pdf`,
 ## 非Goal
 
 - C 版 `l_pdfRenderFile()`（外部 `pdftoppm` 呼び出しによる PDF→画像変換）の
+
   移植は対象外。これは元々 Rust 版でも未対応の領域で、独立した課題。
+
 - C 版が `n > 25` で `PIXAC` (圧縮 pixa) に切り替えるメモリ最適化は、
+
   Rust 版では `Pixa` 1 種類で扱う（`Pixa` は `Vec<Pix>` 相当で `Arc` 共有
   されているため、C 版ほどメモリ圧迫しない）。
 
 ## TDD コミット構成
 
 1. **RED**: `parse_rotation_string` のユニットテスト（3 モード × 正常 / 異常）と、
+
    `rotate_orth_files_to_pdf` の統合テスト（PNG ファイル数枚を入力に PDF 出力で
    先頭が `%PDF-` であること、ページ数が一致することを検証）。
    `parse_rotation_string` / `rotate_orth_files_to_pdf` のシグネチャだけ追加し、
    本体は `unimplemented!()` で `#[ignore]` 付き。
+
 2. **GREEN**: 本体実装。`#[ignore]` を外す。
 3. **REFACTOR** (必要に応じて)
 
