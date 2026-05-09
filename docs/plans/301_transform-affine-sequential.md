@@ -1,6 +1,6 @@
 # transform/affine: pixAffineSequential の移植
 
-Status: PLANNED
+Status: IN_PROGRESS
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 H)
 
 ## Context
