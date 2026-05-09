@@ -1093,9 +1093,14 @@ pub fn rotate_orth_files_to_pdf(
     let mut pixa = crate::core::Pixa::new();
     for (i, path) in paths.iter().enumerate() {
         let pix = crate::io::read_image(path.as_ref())?;
-        let pix = pix
-            .remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)
-            .map_err(|e| IoError::InvalidData(format!("remove_colormap failed: {e}")))?;
+        // remove_colormap(BasedOnSrc) deep-copies even when no colormap is
+        // present, so guard against the common no-colormap case.
+        let pix = if pix.has_colormap() {
+            pix.remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)
+                .map_err(|e| IoError::InvalidData(format!("remove_colormap failed: {e}")))?
+        } else {
+            pix
+        };
         let rotated = if rotations[i] != 0 {
             crate::transform::rotate_orth(&pix, rotations[i] as u32)
                 .map_err(|e| IoError::InvalidData(format!("rotate_orth failed: {e}")))?
