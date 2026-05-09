@@ -105,19 +105,19 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 ### 4. Morphology
 
-| Feature                   | C version                  | Rust version         | Notes                                                                                 |
-| ------------------------- | -------------------------- | -------------------- | ------------------------------------------------------------------------------------- |
-| Binary erosion/dilation   | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                                     |
-| Binary open/close         | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                                     |
-| Hit-miss transform        | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                                     |
-| Morphological gradient    | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                                     |
-| Top-hat/Bottom-hat        | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                                     |
-| Grayscale morphology      | ✅ graymorph.c             | ✅ grayscale.rs      | Dilate/erode/open/close                                                               |
-| Color morphology          | ✅ colormorph.c            | ✅ color.rs          | Independent processing per RGB channel                                                |
-| DWA (fast morphology)     | ✅ morphdwa.c, dwacomb.2.c | ✅ dwa.rs            | Brick fast operations                                                                 |
-| Structuring element (SEL) | ✅ sel1-2.c, selgen.c      | ✅ sel.rs, selgen.rs | Basic implementation + auto-generation (`selgen`); SELa persistence I/O still missing |
-| Sequence operations       | ✅ morphseq.c              | ✅ sequence.rs       | String-format sequences                                                               |
-| Thinning                  | ✅ ccthin.c                | ✅ thin.rs           | Connectivity-preserving thinning                                                      |
+| Feature                   | C version                  | Rust version         | Notes                                                                          |
+| ------------------------- | -------------------------- | -------------------- | ------------------------------------------------------------------------------ |
+| Binary erosion/dilation   | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Binary open/close         | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Hit-miss transform        | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Morphological gradient    | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Top-hat/Bottom-hat        | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Grayscale morphology      | ✅ graymorph.c             | ✅ grayscale.rs      | Dilate/erode/open/close                                                        |
+| Color morphology          | ✅ colormorph.c            | ✅ color.rs          | Independent processing per RGB channel                                         |
+| DWA (fast morphology)     | ✅ morphdwa.c, dwacomb.2.c | ✅ dwa.rs            | Brick fast operations                                                          |
+| Structuring element (SEL) | ✅ sel1-2.c, selgen.c      | ✅ sel.rs, selgen.rs | Basic + auto-generation (`selgen`) + Sela persistence I/O (`Sela::read/write`) |
+| Sequence operations       | ✅ morphseq.c              | ✅ sequence.rs       | String-format sequences                                                        |
+| Thinning                  | ✅ ccthin.c                | ✅ thin.rs           | Connectivity-preserving thinning                                               |
 
 ### 5. Filtering
 
