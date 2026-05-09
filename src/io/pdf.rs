@@ -1067,11 +1067,81 @@ pub fn rotate_orth_files_to_pdf(
     quality: i32,
     title: &str,
 ) -> IoResult<Vec<u8>> {
-    // Stitched together so parse_rotation_string is referenced even before
-    // the GREEN step lands (avoids a dead_code warning).
-    let _ = parse_rotation_string(paths.len(), rotstring);
-    let _ = (scalefactor, quality, title);
-    unimplemented!("rotate_orth_files_to_pdf: implementation pending (plan 030 GREEN)")
+    if paths.is_empty() {
+        return Err(IoError::InvalidData("no files provided".into()));
+    }
+
+    let scale_clamped = if scalefactor <= 0.0 {
+        1.0
+    } else if scalefactor > 2.0 {
+        2.0
+    } else {
+        scalefactor
+    };
+    let quality_clamped: u8 = if quality <= 0 {
+        75
+    } else if quality < 25 {
+        25
+    } else if quality > 95 {
+        95
+    } else {
+        quality as u8
+    };
+
+    let rotations = parse_rotation_string(paths.len(), rotstring)?;
+
+    let mut pixa = crate::core::Pixa::new();
+    for (i, path) in paths.iter().enumerate() {
+        let pix = crate::io::read_image(path.as_ref())?;
+        let pix = pix
+            .remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)
+            .map_err(|e| IoError::InvalidData(format!("remove_colormap failed: {e}")))?;
+        let rotated = if rotations[i] != 0 {
+            crate::transform::rotate_orth(&pix, rotations[i] as u32)
+                .map_err(|e| IoError::InvalidData(format!("rotate_orth failed: {e}")))?
+        } else {
+            pix
+        };
+        let scaled = if (scale_clamped - 1.0).abs() < f32::EPSILON {
+            rotated
+        } else {
+            crate::transform::scale(
+                &rotated,
+                scale_clamped,
+                scale_clamped,
+                crate::transform::ScaleMethod::Auto,
+            )
+            .map_err(|e| IoError::InvalidData(format!("scale failed: {e}")))?
+        };
+        pixa.push(scaled);
+    }
+
+    // Infer resolution from the first image: the longest side maps to
+    // (scalefactor * 11.0) inches when printed.
+    let first = pixa
+        .pix_slice()
+        .first()
+        .ok_or_else(|| IoError::InvalidData("pixa is empty after processing".into()))?;
+    let res = first
+        .infer_resolution(scale_clamped * 11.0)
+        .map_err(|e| IoError::InvalidData(format!("infer_resolution failed: {e}")))?;
+
+    let title_owned = if title == "none" {
+        None
+    } else {
+        Some(title.to_string())
+    };
+    let options = PdfOptions {
+        compression: PdfCompression::Auto,
+        quality: quality_clamped,
+        resolution: res.max(0) as u32,
+        title: title_owned,
+    };
+
+    let pix_refs: Vec<&Pix> = pixa.pix_slice().iter().collect();
+    let mut buf = Vec::new();
+    write_pdf_multi(&pix_refs, &mut buf, &options)?;
+    Ok(buf)
 }
 
 /// Parse a rotation specifier string into a per-image rotation table.
@@ -1093,8 +1163,82 @@ pub fn rotate_orth_files_to_pdf(
 /// Returns an error only when `rotstring` is empty or starts with an
 /// unsupported leading character.
 pub(crate) fn parse_rotation_string(n: usize, rotstring: &str) -> IoResult<Vec<u8>> {
-    let _ = (n, rotstring);
-    unimplemented!("parse_rotation_string: implementation pending (plan 030 GREEN)")
+    if rotstring.is_empty() {
+        return Err(IoError::InvalidData("rotstring is empty".into()));
+    }
+
+    let bytes = rotstring.as_bytes();
+    let mut out = vec![0u8; n];
+
+    match bytes[0] {
+        b'0'..=b'3' => {
+            // Mode 1: each character is the rotation digit for that index.
+            // Characters past min(len, n) are ignored. Non-digit or out-of-range
+            // characters are treated as 0 rather than returning garbage values
+            // (C Leptonica computes `c - '0'` blindly).
+            let max = bytes.len().min(n);
+            for (i, &c) in bytes.iter().take(max).enumerate() {
+                if (b'0'..=b'3').contains(&c) {
+                    out[i] = c - b'0';
+                }
+            }
+        }
+        b'4' => {
+            // Mode 2: second character supplies one rotation for every image.
+            if bytes.len() < 2 {
+                return Err(IoError::InvalidData(
+                    "rotstring mode 2 requires a rotation digit after '4'".into(),
+                ));
+            }
+            let c = bytes[1];
+            let v = if (b'0'..=b'3').contains(&c) {
+                c - b'0'
+            } else {
+                0
+            };
+            for slot in out.iter_mut() {
+                *slot = v;
+            }
+        }
+        b'5' => {
+            // Mode 3: scan for "(idx,rotval)" pairs. Out-of-range pairs are
+            // skipped; arbitrary separator characters between pairs are ignored.
+            let mut search = &rotstring[1..];
+            let mut base = 1usize;
+            while let Some(open_off) = search.find('(') {
+                let open = base + open_off;
+                let after_open = &rotstring[open + 1..];
+                let Some(close_off) = after_open.find(')') else {
+                    break;
+                };
+                let inner = &after_open[..close_off];
+                let close = open + 1 + close_off;
+
+                if let Some((s_idx, s_val)) = inner.split_once(',')
+                    && let (Ok(image_idx), Ok(rotval)) =
+                        (s_idx.trim().parse::<i64>(), s_val.trim().parse::<i64>())
+                    && image_idx >= 0
+                    && (image_idx as usize) < n
+                    && (0..=3).contains(&rotval)
+                {
+                    out[image_idx as usize] = rotval as u8;
+                }
+
+                base = close + 1;
+                if base >= rotstring.len() {
+                    break;
+                }
+                search = &rotstring[base..];
+            }
+        }
+        other => {
+            return Err(IoError::InvalidData(format!(
+                "rotstring must start with '0'..='5', got {:?}",
+                other as char
+            )));
+        }
+    }
+    Ok(out)
 }
 
 /// Simple threshold binarization for PDF app functions.
@@ -1378,7 +1522,6 @@ mod tests {
     // ------------------------------------------------------------------
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rotation_string_mode1_basic() {
         // "00201" → image 2 rotated 180°, image 4 rotated 90°.
         let rot = parse_rotation_string(7, "00201").unwrap();
@@ -1386,7 +1529,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rotation_string_mode1_truncates_to_n() {
         // String longer than n: extra characters are ignored.
         let rot = parse_rotation_string(3, "31230").unwrap();
@@ -1394,7 +1536,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rotation_string_mode2_all_same() {
         // "41" → every image rotated 90° cw.
         let rot = parse_rotation_string(4, "41").unwrap();
@@ -1402,7 +1543,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rotation_string_mode3_pairs() {
         // "5(3,2)(2,1)(8,1)(23,1)" with n=10:
         //   image 2 → 1, image 3 → 2, image 8 → 1; image 23 is out of range
@@ -1412,7 +1552,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rotation_string_mode3_with_separators() {
         // Arbitrary separators between parenthesized pairs are tolerated.
         let rot = parse_rotation_string(5, "5::(3,2),(2,1)##(4,3)").unwrap();
@@ -1420,20 +1559,17 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rotation_string_invalid_mode() {
         // Leading character outside '0'..='5' is rejected.
         assert!(parse_rotation_string(3, "9").is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_parse_rotation_string_empty_string() {
         assert!(parse_rotation_string(3, "").is_err());
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rotate_orth_files_to_pdf_basic() {
         let outdir = std::env::temp_dir().join("leptonica_rotate_orth_pdf");
         std::fs::create_dir_all(&outdir).unwrap();
