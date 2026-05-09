@@ -1,6 +1,6 @@
 # rotateorthFilesToPdf の Rust 移植
 
-Status: PLANNED
+Status: IMPLEMENTED
 
 ## Context
 
