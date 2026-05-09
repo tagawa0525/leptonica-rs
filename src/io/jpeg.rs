@@ -63,7 +63,11 @@ impl Default for JpegOptions {
     }
 }
 
-/// Configure chroma subsampling for the next JPEG write.
+/// Configure chroma subsampling for JPEG writes of this `Pix`.
+///
+/// The choice is persisted on the image itself via [`Pix::special`], so it
+/// applies to every subsequent JPEG write of this `Pix` (or any deep clone
+/// that copies `special`) until changed again.
 ///
 /// When `sampling` is `true` (the default), JPEG writes use 4:2:0 (2x2)
 /// subsampling — smaller files at minor quality cost. When `false`, writes

@@ -81,9 +81,9 @@ else
 
 ## ステータス
 
-- [ ] jpeg-encoder API 調査
-- [ ] RED コミット
-- [ ] GREEN コミット
-- [ ] PR 作成・Copilot レビュー対応
+- [x] jpeg-encoder API 調査（0.7.0 に `Encoder::set_sampling_factor(SamplingFactor)` 確認、`F_1_1` / `F_2_2` 利用可）
+- [x] RED コミット（056a811）
+- [x] GREEN コミット（e19d01b）
+- [x] PR 作成・Copilot レビュー対応（PR #319）
 - [ ] /gh-pr-merge --merge
-- [ ] 031 全体計画書を IMPLEMENTED に更新
+- [ ] 031 全体計画書の表に PR #319 を反映

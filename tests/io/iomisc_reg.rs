@@ -72,9 +72,11 @@ fn iomisc_reg_16bit_png() {
 // ============================================================================
 // Tests 3-5: JPEG chroma sampling
 // ============================================================================
-/// Verify that `pixSetChromaSampling(false)` produces a different (typically
-/// larger and higher-fidelity) JPEG than the default 4:2:0 subsampling, and
-/// that the choice round-trips through the `Pix::special` field.
+/// Verify that `set_chroma_sampling(false)` produces a different (typically
+/// larger) JPEG than the default 4:2:0 subsampling, and that the choice
+/// round-trips through the `Pix::special` field. Fidelity checks (e.g. PSNR
+/// vs. the original) are intentionally out of scope here; we only assert the
+/// configuration is wired through to the encoder.
 #[test]
 
 fn iomisc_reg_jpeg_chroma() {
