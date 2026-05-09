@@ -12,7 +12,7 @@
 
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;
-use leptonica::{Color, Pix};
+use leptonica::{Color, Pix, PixelDepth};
 
 /// Test count_pixels and basic pixel statistics on binary images.
 ///
@@ -101,14 +101,13 @@ fn compare_reg_correlation() {
 ///
 /// Build a 1bpp source image, translate it by a known offset using
 /// `rasterop_ip`, then verify that `best_correlation` recovers that offset
-/// when given the centroid of the translated copy as the initial estimate.
+/// when the true (inverse) translation is supplied as the initial estimate.
 #[test]
-
 fn compare_reg_best_correlation() {
     use leptonica::core::pix::compare::best_correlation;
 
     let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
-    let pix1 = if pix.depth() as u32 == 1 {
+    let pix1 = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
         pix.convert_to_1_adaptive().expect("convert to 1bpp")
@@ -120,8 +119,8 @@ fn compare_reg_best_correlation() {
     let (sx, sy) = (32i32, 12i32);
     let pix2 = pix1.rasterop_ip(sx, sy).expect("rasterop_ip");
 
-    let area1 = pix1.count_pixels() as u32;
-    let area2 = pix2.count_pixels() as u32;
+    let area1 = pix1.count_pixels();
+    let area2 = pix2.count_pixels();
     assert!(area1 > 0 && area2 > 0);
 
     let (expected_dx, expected_dy) = (-sx, -sy);
@@ -148,12 +147,11 @@ fn compare_reg_best_correlation() {
 /// Build a 1bpp source, translate by a known offset, and check that the
 /// coarse-to-fine search recovers that offset.
 #[test]
-
 fn compare_reg_with_translation() {
     use leptonica::core::pix::compare::compare_with_translation;
 
     let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
-    let pix1 = if pix.depth() as u32 == 1 {
+    let pix1 = if pix.depth() == PixelDepth::Bit1 {
         pix
     } else {
         pix.convert_to_1_adaptive().expect("convert to 1bpp")

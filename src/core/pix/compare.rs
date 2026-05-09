@@ -1442,23 +1442,23 @@ pub struct TranslationMatch {
 /// Coarse-to-fine search for the best translational alignment of two images.
 ///
 /// Mirrors C Leptonica's `pixCompareWithTranslation`. The images may be of any
-/// depth; they are first thresholded to 1 bpp using `thresh`, then a 4-level
-/// 2x cascade is built. The bottom level uses centroid difference + maxshift=6
-/// for the initial estimate; higher levels refine with maxshift=2.
-pub fn compare_with_translation(pix1: &Pix, pix2: &Pix, thresh: i32) -> Result<TranslationMatch> {
+/// depth; they are first thresholded to 1 bpp using `thresh` (0..=255), then a
+/// 4-level 2x cascade is built. The bottom level uses centroid difference +
+/// maxshift=6 for the initial estimate; higher levels refine with maxshift=2.
+pub fn compare_with_translation(pix1: &Pix, pix2: &Pix, thresh: u32) -> Result<TranslationMatch> {
     use crate::morph::morphapp::pix_centroid;
     use crate::transform::binreduce::reduce_rank_binary_2;
 
-    // Binarize each input.
+    // Binarize each input. Pix is Arc-backed so `clone()` is cheap.
     let pixb1 = if pix1.depth() == PixelDepth::Bit1 {
-        pix1.deep_clone()
+        pix1.clone()
     } else {
-        pix1.convert_to_1_by_sampling(1, thresh as u32)?
+        pix1.convert_to_1_by_sampling(1, thresh)?
     };
     let pixb2 = if pix2.depth() == PixelDepth::Bit1 {
-        pix2.deep_clone()
+        pix2.clone()
     } else {
-        pix2.convert_to_1_by_sampling(1, thresh as u32)?
+        pix2.convert_to_1_by_sampling(1, thresh)?
     };
 
     // Build 4-level 2x rank-reduction cascade.
@@ -1482,8 +1482,8 @@ pub fn compare_with_translation(pix1: &Pix, pix2: &Pix, thresh: i32) -> Result<T
     for level in (0..=3i32).rev() {
         let p1 = &levels1[level as usize];
         let p2 = &levels2[level as usize];
-        let area1 = p1.count_pixels() as u32;
-        let area2 = p2.count_pixels() as u32;
+        let area1 = p1.count_pixels();
+        let area2 = p2.count_pixels();
 
         let (etransx, etransy, maxshift) = if level == 3 {
             // Use centroid difference as the initial estimate.
@@ -1508,12 +1508,16 @@ pub fn compare_with_translation(pix1: &Pix, pix2: &Pix, thresh: i32) -> Result<T
 /// Maximize correlation score between two 1bpp images by sliding `pix2` over
 /// a `(2*maxshift+1)^2` grid centered on `(etransx, etransy)`.
 ///
-/// Mirrors C Leptonica's `pixBestCorrelation`. Both images must be 1 bpp.
+/// Mirrors C Leptonica's `pixBestCorrelation`. Both images must be 1 bpp and
+/// `maxshift` must be >= 0. If either image is empty (`area = 0`), the
+/// function returns the initial estimate with `score = 0.0` rather than
+/// erroring, matching the way `compare_with_translation` cascades may
+/// degenerate to empty levels.
 pub fn best_correlation(
     pix1: &Pix,
     pix2: &Pix,
-    area1: u32,
-    area2: u32,
+    area1: u64,
+    area2: u64,
     etransx: i32,
     etransy: i32,
     maxshift: i32,
@@ -1521,14 +1525,29 @@ pub fn best_correlation(
     use crate::recog::correlscore::correlation_score;
 
     if pix1.depth() != PixelDepth::Bit1 {
-        return Err(Error::InvalidParameter("pix1 must be 1 bpp".into()));
+        return Err(Error::UnsupportedDepth(pix1.depth().bits()));
     }
     if pix2.depth() != PixelDepth::Bit1 {
-        return Err(Error::InvalidParameter("pix2 must be 1 bpp".into()));
+        return Err(Error::UnsupportedDepth(pix2.depth().bits()));
+    }
+    if maxshift < 0 {
+        return Err(Error::InvalidParameter(format!(
+            "maxshift must be >= 0, got {maxshift}"
+        )));
     }
     if area1 == 0 || area2 == 0 {
-        return Err(Error::InvalidParameter("areas must be > 0".into()));
+        return Ok(TranslationMatch {
+            delx: etransx,
+            dely: etransy,
+            score: 0.0,
+        });
     }
+
+    // `correlation_score` accepts u32 areas; downcast safely.
+    let area1_u32 = u32::try_from(area1)
+        .map_err(|_| Error::InvalidParameter(format!("area1 = {area1} exceeds u32::MAX")))?;
+    let area2_u32 = u32::try_from(area2)
+        .map_err(|_| Error::InvalidParameter(format!("area2 = {area2} exceeds u32::MAX")))?;
 
     let mut best = TranslationMatch {
         delx: etransx,
@@ -1537,7 +1556,7 @@ pub fn best_correlation(
     };
     for dy in -maxshift..=maxshift {
         for dx in -maxshift..=maxshift {
-            let s = correlation_score(pix1, pix2, area1, area2, etransx + dx, etransy + dy)
+            let s = correlation_score(pix1, pix2, area1_u32, area2_u32, etransx + dx, etransy + dy)
                 .map_err(|e| Error::InvalidParameter(format!("correlation_score: {e}")))?;
             if s > best.score {
                 best.score = s;
