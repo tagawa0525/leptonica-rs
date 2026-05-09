@@ -1,6 +1,6 @@
 # io/jpeg: クロマサブサンプリング設定
 
-Status: PLANNED
+Status: IN_PROGRESS
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 E)
 
 ## Context
