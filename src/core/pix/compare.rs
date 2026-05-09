@@ -1426,6 +1426,49 @@ impl Pix {
     }
 }
 
+/// Best-translation alignment result.
+///
+/// Returned by [`compare_with_translation`] and [`best_correlation`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TranslationMatch {
+    /// X shift of `pix2` that aligns it with `pix1`.
+    pub delx: i32,
+    /// Y shift of `pix2` that aligns it with `pix1`.
+    pub dely: i32,
+    /// Maximum correlation score found at that shift.
+    pub score: f32,
+}
+
+/// Coarse-to-fine search for the best translational alignment of two images.
+///
+/// Mirrors C Leptonica's `pixCompareWithTranslation`. The images may be of any
+/// depth; they are first thresholded to 1 bpp using `thresh`, then a 4-level
+/// 2x cascade is built. The bottom level uses centroid difference + maxshift=6
+/// for the initial estimate; higher levels refine with maxshift=2.
+pub fn compare_with_translation(
+    _pix1: &Pix,
+    _pix2: &Pix,
+    _thresh: i32,
+) -> Result<TranslationMatch> {
+    unimplemented!("compare_with_translation: implemented in GREEN commit (plan 102)")
+}
+
+/// Maximize correlation score between two 1bpp images by sliding `pix2` over
+/// a `(2*maxshift+1)^2` grid centered on `(etransx, etransy)`.
+///
+/// Mirrors C Leptonica's `pixBestCorrelation`. Both images must be 1 bpp.
+pub fn best_correlation(
+    _pix1: &Pix,
+    _pix2: &Pix,
+    _area1: u32,
+    _area2: u32,
+    _etransx: i32,
+    _etransy: i32,
+    _maxshift: i32,
+) -> Result<TranslationMatch> {
+    unimplemented!("best_correlation: implemented in GREEN commit (plan 102)")
+}
+
 /// Compute binary correlation between two 1-bit images.
 ///
 /// The correlation is a number between 0.0 and 1.0 based on foreground

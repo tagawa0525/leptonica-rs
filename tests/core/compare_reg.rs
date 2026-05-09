@@ -97,28 +97,63 @@ fn compare_reg_correlation() {
     assert!(rp.cleanup(), "compare correlation test failed");
 }
 
-/// Test pixBestCorrelation with translated images (C checks 0-2).
+/// Test best_correlation with a known translation (C checks 0-2 analogue).
 ///
-/// Requires pixBestCorrelation and pixCentroid which are not available.
+/// Build a 1bpp source image, translate it by a known offset using
+/// `rasterop_ip`, then verify that `best_correlation` recovers that offset
+/// when given the centroid of the translated copy as the initial estimate.
 #[test]
-#[ignore = "not yet implemented: pixBestCorrelation not available"]
+#[ignore = "RED: best_correlation not yet implemented (plan 102)"]
 fn compare_reg_best_correlation() {
-    // C version:
-    // 1. Reads harmoniam100-11.png, converts to binary at threshold 160
-    // 2. Creates translated version (shifted by 32, 12)
-    // 3. pixBestCorrelation finds translation (delx=32, dely=12)
+    use leptonica::core::pix::compare::best_correlation;
+
+    let pix = crate::common::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
+    let pix1 = if pix.depth() as u32 == 1 {
+        pix
+    } else {
+        pix.convert_to_1_adaptive().expect("convert to 1bpp")
+    };
+
+    // Translate pix1 by (delx, dely) into pix2.
+    let (delx, dely) = (32i32, 12i32);
+    let pix2 = pix1.rasterop_ip(delx, dely).expect("rasterop_ip");
+
+    let area1 = pix1.count_pixels() as u32;
+    let area2 = pix2.count_pixels() as u32;
+    assert!(area1 > 0 && area2 > 0);
+
+    // best_correlation searches around (etransx, etransy) by maxshift.
+    // We pass the true translation as the initial estimate and confirm the
+    // search finds the exact alignment with score == 1.0.
+    let m = best_correlation(&pix1, &pix2, area1, area2, delx, dely, 4).expect("best_correlation");
+    assert_eq!(m.delx, delx, "delx");
+    assert_eq!(m.dely, dely, "dely");
+    assert!((m.score - 1.0).abs() < 1e-6, "score = {}", m.score);
 }
 
-/// Test pixCompareWithTranslation (C checks 3-6).
+/// Test compare_with_translation (C checks 3-6 analogue).
 ///
-/// Requires pixCompareWithTranslation which is not available.
+/// Build a 1bpp source, translate by a known offset, and check that the
+/// coarse-to-fine search recovers that offset.
 #[test]
-#[ignore = "not yet implemented: pixCompareWithTranslation not available"]
+#[ignore = "RED: compare_with_translation not yet implemented (plan 102)"]
 fn compare_reg_with_translation() {
-    // C version:
-    // 1. Reads harmoniam-11.tif
-    // 2. Translates by (-45, 25)
-    // 3. pixCompareWithTranslation finds (delx=45, dely=-25)
+    use leptonica::core::pix::compare::compare_with_translation;
+
+    let pix = crate::common::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
+    let pix1 = if pix.depth() as u32 == 1 {
+        pix
+    } else {
+        pix.convert_to_1_adaptive().expect("convert to 1bpp")
+    };
+
+    let (delx, dely) = (-15i32, 9i32);
+    let pix2 = pix1.rasterop_ip(delx, dely).expect("rasterop_ip");
+
+    let m = compare_with_translation(&pix1, &pix2, 130).expect("compare_with_translation");
+    assert_eq!(m.delx, delx, "delx (got {})", m.delx);
+    assert_eq!(m.dely, dely, "dely (got {})", m.dely);
+    assert!(m.score > 0.95, "score = {}", m.score);
 }
 
 /// Test pixGetPerceptualDiff on color and grayscale images (C checks 7-12).

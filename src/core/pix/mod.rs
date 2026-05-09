@@ -41,7 +41,10 @@ pub mod statistics;
 pub use access::*;
 pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
 pub use clip::ScanDirection;
-pub use compare::{CompareResult, CompareType, PixelDiffResult, correlation_binary};
+pub use compare::{
+    CompareResult, CompareType, PixelDiffResult, TranslationMatch, best_correlation,
+    compare_with_translation, correlation_binary,
+};
 pub use convert::{Convert16To8Type, GrayConversionType, MinMaxType, RemoveColormapTarget};
 pub use graphics::{
     Color, ContourOutput, HashOrientation, PixelOp, PlotLocation, fill_polygon, render_polygon,
