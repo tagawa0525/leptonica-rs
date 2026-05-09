@@ -115,9 +115,9 @@ pub fn auto_photoinvert(
 
 ## ステータス
 
-- [x] 計画書作成
-- [ ] RED コミット
-- [ ] GREEN コミット
-- [ ] PR 作成・Copilot レビュー対応
+- [x] 計画書作成（20fd79c）
+- [x] RED コミット（a057fc4）
+- [x] GREEN コミット（08023a3）
+- [x] PR 作成・Copilot レビュー対応（PR #322）
 - [ ] /gh-pr-merge --merge
-- [ ] 031 全体計画書を IMPLEMENTED に更新
+- [ ] 031 全体計画書の表に PR #322 を反映

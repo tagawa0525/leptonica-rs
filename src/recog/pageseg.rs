@@ -980,9 +980,11 @@ fn prepare_1bpp(pix: &Pix, box_: Option<&crate::core::Box>) -> RecogResult<Pix> 
 
 /// Decide whether `pix` likely contains a table.
 ///
-/// Returns `Ok(-1)` when the analysis cannot be completed, `Ok(0..=4)` for the
-/// detection score otherwise. A score `>= 2` is the conventional table
-/// threshold (see C `pixDecideIfTable` notes).
+/// Returns `Ok(0..=4)` where higher values indicate stronger evidence of a
+/// table; `>= 2` is the conventional threshold (see C `pixDecideIfTable`
+/// notes). The C version uses `-1` as a sentinel for "undetermined" via an
+/// out-parameter; the Rust port instead surfaces failures as `Err` so the
+/// `Ok` value is always a valid score.
 ///
 /// C Leptonica equivalent: `pixDecideIfTable`.
 pub fn decide_if_table(
@@ -1024,20 +1026,11 @@ pub fn decide_if_table(
     let nvb = count_conn_comp(&pix_v, ConnectivityType::EightWay)?;
 
     // Vertical whitespace detection: invert to make whitespace foreground.
-    let h_lines = seedfill_binary_restricted(
-        &pix_h,
-        &pix1,
-        ConnectivityType::EightWay,
-        u32::MAX,
-        u32::MAX,
-    )?;
-    let v_lines = seedfill_binary_restricted(
-        &pix_v,
-        &pix1,
-        ConnectivityType::EightWay,
-        u32::MAX,
-        u32::MAX,
-    )?;
+    // (xmax, ymax) = (0, 0) is the unlimited fast-path in
+    // `seedfill_binary_restricted`; passing u32::MAX would force per-pixel
+    // distance checks for no benefit.
+    let h_lines = seedfill_binary_restricted(&pix_h, &pix1, ConnectivityType::EightWay, 0, 0)?;
+    let v_lines = seedfill_binary_restricted(&pix_v, &pix1, ConnectivityType::EightWay, 0, 0)?;
     let lines = h_lines.or(&v_lines)?;
     let no_lines = pix1.subtract(&lines)?;
     let cleaned = morph_sequence(&no_lines, "c4.1 + o8.1")?;

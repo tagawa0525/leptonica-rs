@@ -753,11 +753,9 @@ fn test_23_30_decide_if_table() {
 
     let pix = load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     let score = decide_if_table(&pix, None, PageOrientation::Portrait).expect("decide_if_table");
-    // Plain text page: score should be in valid range and below table threshold.
-    assert!(
-        (-1..=4).contains(&score),
-        "score must be -1..=4, got {score}"
-    );
+    // Plain text page: score should be in the 0..=4 range and below the
+    // conventional table threshold.
+    assert!((0..=4).contains(&score), "score must be 0..=4, got {score}");
     assert!(
         score < 2,
         "feyn-fract.tif is text, expected score < 2, got {score}"
