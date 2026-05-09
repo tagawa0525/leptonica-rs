@@ -1,6 +1,6 @@
 # core/sarray: ファイル/ストリーム I/O とバイト列検索
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 D)
 
 ## Context
