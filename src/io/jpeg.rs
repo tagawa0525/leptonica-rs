@@ -47,6 +47,10 @@ pub fn read_header_jpeg(data: &[u8]) -> IoResult<ImageHeader> {
     })
 }
 
+/// `Pix::special` flag value for "no chroma subsampling" on JPEG write
+/// (matches C Leptonica's `L_NO_CHROMA_SAMPLING_JPEG`).
+pub const NO_CHROMA_SAMPLING_JPEG: i32 = 1;
+
 /// Options for JPEG encoding
 pub struct JpegOptions {
     /// Quality setting (1-100, default 75)
@@ -56,6 +60,22 @@ pub struct JpegOptions {
 impl Default for JpegOptions {
     fn default() -> Self {
         Self { quality: 75 }
+    }
+}
+
+/// Configure chroma subsampling for the next JPEG write.
+///
+/// When `sampling` is `true` (the default), JPEG writes use 4:2:0 (2x2)
+/// subsampling — smaller files at minor quality cost. When `false`, writes
+/// use 4:4:4 (full chroma resolution) by stamping `NO_CHROMA_SAMPLING_JPEG`
+/// into [`Pix::special`].
+///
+/// C Leptonica equivalent: `pixSetChromaSampling`
+pub fn set_chroma_sampling(pix: &mut crate::core::PixMut, sampling: bool) {
+    if sampling {
+        pix.set_special(0);
+    } else {
+        pix.set_special(NO_CHROMA_SAMPLING_JPEG);
     }
 }
 

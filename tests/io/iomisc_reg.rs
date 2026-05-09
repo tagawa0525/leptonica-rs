@@ -70,12 +70,50 @@ fn iomisc_reg_16bit_png() {
 }
 
 // ============================================================================
-// Tests 3-5: JPEG chroma sampling (not ported -- JPEG writer unavailable)
+// Tests 3-5: JPEG chroma sampling
 // ============================================================================
+/// Verify that `pixSetChromaSampling(false)` produces a different (typically
+/// larger and higher-fidelity) JPEG than the default 4:2:0 subsampling, and
+/// that the choice round-trips through the `Pix::special` field.
 #[test]
-#[ignore = "JPEG writer not implemented; pixSetChromaSampling() not implemented"]
+#[ignore = "RED: pixSetChromaSampling not yet implemented (plan 202)"]
 fn iomisc_reg_jpeg_chroma() {
-    eprintln!("SKIP: JPEG writer and chroma sampling control not yet implemented");
+    use leptonica::io::jpeg::{
+        JpegOptions, NO_CHROMA_SAMPLING_JPEG, set_chroma_sampling, write_jpeg,
+    };
+
+    let pixs = load_test_image("Leptonica.jpg").expect("load Leptonica.jpg");
+    assert_eq!(pixs.depth().bits(), 32, "expected RGB image");
+
+    // Default (4:2:0).
+    let mut buf_default: Vec<u8> = Vec::new();
+    write_jpeg(&pixs, &mut buf_default, &JpegOptions::default()).expect("default jpeg");
+
+    // Full chroma resolution via Pix::special.
+    let mut pm = pixs.to_mut();
+    set_chroma_sampling(&mut pm, false);
+    let pix_full: leptonica::Pix = pm.into();
+    assert_eq!(pix_full.special(), NO_CHROMA_SAMPLING_JPEG);
+    let mut buf_full: Vec<u8> = Vec::new();
+    write_jpeg(&pix_full, &mut buf_full, &JpegOptions::default()).expect("full-chroma jpeg");
+
+    // The two streams must differ, and full-chroma should not be smaller.
+    assert_ne!(
+        buf_default, buf_full,
+        "different chroma settings should produce different bytes",
+    );
+    assert!(
+        buf_full.len() >= buf_default.len(),
+        "full chroma ({}) should not be smaller than 4:2:0 ({})",
+        buf_full.len(),
+        buf_default.len(),
+    );
+
+    // set_chroma_sampling(true) restores the default state.
+    let mut pm_back = pix_full.to_mut();
+    set_chroma_sampling(&mut pm_back, true);
+    let pix_back: leptonica::Pix = pm_back.into();
+    assert_eq!(pix_back.special(), 0);
 }
 
 // ============================================================================
