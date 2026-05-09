@@ -131,8 +131,13 @@ impl FPix {
     ///
     /// C Leptonica equivalent: `fpixAddMirroredBorder`
     pub fn add_mirrored_border(&self, left: u32, right: u32, top: u32, bot: u32) -> Result<FPix> {
-        let mut dst = self.add_border(left, right, top, bot, 0.0)?;
         let (ws, hs) = (self.width(), self.height());
+        if left > ws || right > ws || top > hs || bot > hs {
+            return Err(Error::InvalidParameter(
+                "mirror border size exceeds image dimension".into(),
+            ));
+        }
+        let mut dst = self.add_border(left, right, top, bot, 0.0)?;
         let wd = dst.width();
 
         // Left/right columns: mirror against the boundary just inside the border.

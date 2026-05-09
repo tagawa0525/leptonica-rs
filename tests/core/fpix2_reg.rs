@@ -116,6 +116,19 @@ fn fpix2_reg_add_mirrored_border() {
     }
 }
 
+/// FPix add_mirrored_border rejects oversized borders.
+#[test]
+fn fpix2_reg_add_mirrored_border_oversized_rejected() {
+    let src = make_positional_fpix(5, 3);
+    // left = 6 > width = 5 should error before any pixel access.
+    assert!(src.add_mirrored_border(6, 0, 0, 0).is_err());
+    assert!(src.add_mirrored_border(0, 6, 0, 0).is_err());
+    assert!(src.add_mirrored_border(0, 0, 4, 0).is_err());
+    assert!(src.add_mirrored_border(0, 0, 0, 4).is_err());
+    // Equal-to-dimension borders are allowed.
+    assert!(src.add_mirrored_border(5, 5, 3, 3).is_ok());
+}
+
 /// FPix continued border addition (C check 4).
 #[test]
 fn fpix2_reg_add_continued_border() {
