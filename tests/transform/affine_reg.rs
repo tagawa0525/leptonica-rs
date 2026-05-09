@@ -328,8 +328,10 @@ fn affine_reg_color_interpolation() {
 /// strict pixel-equality / round-trip thresholds. Instead we verify that the
 /// warp:
 ///
-/// 1. Returns a Pix with the original (border-stripped) dimensions.
-/// 2. Preserves a non-trivial fraction of the foreground pixels.
+/// 1. Returns a Pix whose dimensions are within a sane factor of the source
+///    (the internal `pixScale` enlarges the bordered image, so the final
+///    dimensions are not strictly equal to the source dimensions).
+/// 2. Preserves non-trivial foreground content (count > 1000 ON pixels).
 /// 3. Rejects degenerate / wrong-arity point sets.
 #[test]
 fn affine_reg_sequential_invertability() {

@@ -1124,6 +1124,18 @@ pub fn affine_sequential(
             ptad.len()
         )));
     }
+    if bw < 0 || bh < 0 {
+        return Err(TransformError::InvalidParameters(format!(
+            "bw and bh must be >= 0, got bw={bw}, bh={bh}"
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "affine_sequential does not support colormapped images; \
+             remove the colormap (e.g. `Pix::remove_colormap`) first"
+                .into(),
+        ));
+    }
 
     let (mut x1, mut y1) = ptas.get(0).unwrap();
     let (mut x2, mut y2) = ptas.get(1).unwrap();
@@ -1144,10 +1156,12 @@ pub fn affine_sequential(
     }
 
     // Optionally enlarge with a working border so the intermediate shears
-    // don't clip image content. Border points are added to all six.
-    let pix0 = if bw != 0 || bh != 0 {
-        let bw_u = bw.max(0) as u32;
-        let bh_u = bh.max(0) as u32;
+    // don't clip image content. Fill the border with the depth-aware "white"
+    // value so it stays consistent with the subsequent ShearFill::White and
+    // rasterop_ip(InColor::White) calls.
+    let pix0 = if bw > 0 || bh > 0 {
+        let bw_u = bw as u32;
+        let bh_u = bh as u32;
         x1 += bw as f32;
         y1 += bh as f32;
         x2 += bw as f32;
@@ -1160,8 +1174,15 @@ pub fn affine_sequential(
         y2p += bh as f32;
         x3p += bw as f32;
         y3p += bh as f32;
-        pix.add_border_general(bw_u, bw_u, bh_u, bh_u, 0)
-            .map_err(|e| TransformError::InvalidParameters(format!("add_border_general: {e}")))?
+        let white = match pix.depth() {
+            PixelDepth::Bit1 => 0,
+            PixelDepth::Bit2 => 3,
+            PixelDepth::Bit4 => 15,
+            PixelDepth::Bit8 => 255,
+            PixelDepth::Bit16 => 65535,
+            PixelDepth::Bit32 => 0xFFFFFF00,
+        };
+        pix.add_border_general(bw_u, bw_u, bh_u, bh_u, white)?
     } else {
         pix.clone()
     };
@@ -1188,38 +1209,28 @@ pub fn affine_sequential(
 
     // Apply forward shears to align src points with axes.
     let mut pm1 = pix0.to_mut();
-    h_shear_ip(&mut pm1, y1 as i32, th3, ShearFill::White)
-        .map_err(|e| TransformError::InvalidParameters(format!("h_shear_ip(th3): {e}")))?;
-    v_shear_ip(&mut pm1, x1 as i32, ph2, ShearFill::White)
-        .map_err(|e| TransformError::InvalidParameters(format!("v_shear_ip(ph2): {e}")))?;
+    h_shear_ip(&mut pm1, y1 as i32, th3, ShearFill::White)?;
+    v_shear_ip(&mut pm1, x1 as i32, ph2, ShearFill::White)?;
     let pix1: Pix = pm1.into();
 
     // Scale to match the dest axes' magnitudes.
     let scalex = (x2sp - x1p) / (x2s - x1);
     let scaley = (y3p - y1p) / (y3 - y1);
-    let pix2 = scale(&pix1, scalex, scaley, super::scale::ScaleMethod::Linear)
-        .map_err(|e| TransformError::InvalidParameters(format!("scale: {e}")))?;
+    let pix2 = scale(&pix1, scalex, scaley, super::scale::ScaleMethod::Linear)?;
 
     // Translate so that the scaled src origin lands on dest origin (1').
     let x1sc = (scalex * x1 + 0.5) as i32;
     let y1sc = (scaley * y1 + 0.5) as i32;
-    let pix3 = pix2
-        .rasterop_ip(x1p as i32 - x1sc, y1p as i32 - y1sc)
-        .map_err(|e| TransformError::InvalidParameters(format!("rasterop_ip: {e}")))?;
+    let pix3 = pix2.rasterop_ip(x1p as i32 - x1sc, y1p as i32 - y1sc)?;
 
     // Inverse shears to take pts 2', 3' off the axes and to their target pos.
     let mut pm3 = pix3.to_mut();
-    v_shear_ip(&mut pm3, x1p as i32, -ph2p, ShearFill::White)
-        .map_err(|e| TransformError::InvalidParameters(format!("v_shear_ip(-ph2p): {e}")))?;
-    h_shear_ip(&mut pm3, y1p as i32, -th3p, ShearFill::White)
-        .map_err(|e| TransformError::InvalidParameters(format!("h_shear_ip(-th3p): {e}")))?;
+    v_shear_ip(&mut pm3, x1p as i32, -ph2p, ShearFill::White)?;
+    h_shear_ip(&mut pm3, y1p as i32, -th3p, ShearFill::White)?;
     let pix4: Pix = pm3.into();
 
-    if bw != 0 || bh != 0 {
-        let bw_u = bw.max(0) as u32;
-        let bh_u = bh.max(0) as u32;
-        pix4.remove_border_general(bw_u, bw_u, bh_u, bh_u)
-            .map_err(|e| TransformError::InvalidParameters(format!("remove_border_general: {e}")))
+    if bw > 0 || bh > 0 {
+        Ok(pix4.remove_border_general(bw as u32, bw as u32, bh as u32, bh as u32)?)
     } else {
         Ok(pix4)
     }
