@@ -946,6 +946,40 @@ fn subtract_images(pix1: &Pix, pix2: &Pix) -> RecogResult<Pix> {
     Ok(result_mut.into())
 }
 
+/// Page orientation for [`decide_if_table`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageOrientation {
+    /// `L_PORTRAIT_MODE` — assume the image is upright.
+    Portrait,
+    /// `L_LANDSCAPE_MODE` — rotate 90° cw before analysing.
+    Landscape,
+}
+
+/// Decide whether `pix` likely contains a table.
+///
+/// Returns `Ok(-1)` when the analysis cannot be completed, `Ok(0..=4)` for the
+/// detection score otherwise. A score `>= 2` is the conventional table
+/// threshold (see C `pixDecideIfTable` notes).
+///
+/// C Leptonica equivalent: `pixDecideIfTable`.
+pub fn decide_if_table(
+    _pix: &Pix,
+    _box_: Option<&crate::core::Box>,
+    _orient: PageOrientation,
+) -> RecogResult<i32> {
+    unimplemented!("decide_if_table: implemented in GREEN commit (plan 802)")
+}
+
+/// Detect inverted-text regions and re-invert them.
+///
+/// Returns `(processed_1bpp, optional_mask)` where `processed_1bpp` is the
+/// post-photoinvert binary image and the mask flags inverted regions.
+///
+/// C Leptonica equivalent: `pixAutoPhotoinvert`.
+pub fn auto_photoinvert(_pix: &Pix, _thresh: u32) -> RecogResult<(Pix, Option<Pix>)> {
+    unimplemented!("auto_photoinvert: implemented in GREEN commit (plan 802)")
+}
+
 // Old pixel-by-pixel implementations preserved for testing
 #[cfg(test)]
 mod old_impl {

@@ -744,16 +744,24 @@ fn test_22_find_large_rectangles() {
 /// C版: pixDecideIfTable(pix1, NULL, L_PORTRAIT_MODE, &score, pixadb)
 ///       table.15.tif, table.27.tif, table.150.png, toc.99.tif で判定
 ///
-/// Rust未実装のためスキップ。
+/// Rust 版テストデータが揃わないため、`feyn-fract.tif`（テキスト中心、
+/// 表構造ほぼ無し）を非テーブル候補として、score < 2 を期待する smoke 形。
 #[test]
-#[ignore = "pixDecideIfTable() -- Rust未実装のためスキップ"]
+#[ignore = "RED: decide_if_table not yet implemented (plan 802)"]
 fn test_23_30_decide_if_table() {
-    // C版: pixDecideIfTable で score >= 2 ならテーブルと判定
-    // table.15.tif: テーブル (expect istable=1) -- Test 23
-    // table.27.tif: テーブル (expect istable=1) -- Test 25
-    // table.150.png: テーブル (expect istable=1) -- Test 27
-    // toc.99.tif: 目次 (not a table, expect istable=0) -- Test 29
-    eprintln!("pixDecideIfTable is not implemented in Rust");
+    use leptonica::recog::pageseg::{PageOrientation, decide_if_table};
+
+    let pix = load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let score = decide_if_table(&pix, None, PageOrientation::Portrait).expect("decide_if_table");
+    // Plain text page: score should be in valid range and below table threshold.
+    assert!(
+        (-1..=4).contains(&score),
+        "score must be -1..=4, got {score}"
+    );
+    assert!(
+        score < 2,
+        "feyn-fract.tif is text, expected score < 2, got {score}"
+    );
 }
 
 /// Test 31-36: pixAutoPhotoinvert -- 自動テキスト反転
@@ -762,14 +770,18 @@ fn test_23_30_decide_if_table() {
 ///       zanotti-78.jpg の一部を反転し、自動検出して再反転
 ///       invertedtext.tif も同様にテスト
 ///
-/// Rust未実装のためスキップ。
+/// Rust 版テストデータが揃わないため、smoke 観点（戻り値が 1bpp で寸法が
+/// 入力と一致する）で検証。
 #[test]
-#[ignore = "pixAutoPhotoinvert() -- Rust未実装のためスキップ"]
+#[ignore = "RED: auto_photoinvert not yet implemented (plan 802)"]
 fn test_31_36_auto_photoinvert() {
-    // C版: pixAutoPhotoinvert で反転テキスト領域を検出して再反転
-    // zanotti-78.jpg: 一部を手動反転して自動検出テスト -- Test 31-33
-    // invertedtext.tif: 反転テキスト画像の自動検出テスト -- Test 34-36
-    eprintln!("pixAutoPhotoinvert is not implemented in Rust");
+    use leptonica::recog::pageseg::auto_photoinvert;
+
+    let pix = load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let (out, _mask) = auto_photoinvert(&pix, 128).expect("auto_photoinvert");
+    assert_eq!(out.depth(), PixelDepth::Bit1, "result must be 1bpp");
+    assert_eq!(out.width(), pix.width(), "width preserved");
+    assert_eq!(out.height(), pix.height(), "height preserved");
 }
 
 // ============================================================================
