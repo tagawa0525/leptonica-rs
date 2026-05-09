@@ -1,60 +1,60 @@
-# core/boxa: Boxaa::transpose の移植
+# core/boxa: Boxaa::transpose の検証
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 C)
 
 ## Context
 
-C 版 `boxfunc2.c::boxaaTranspose()` (1781) は、Boxaa を行優先 2D 配列とみなして列優先に転置する。
-全 Boxa が同じ box 数を持つ前提で、`baad[i][j] = baas[j][i]` を構築する。
+C 版 `boxfunc2.c::boxaaTranspose()` (1781) は、Boxaa を行優先 2D 配列とみなして
+列優先に転置する。031 起草時には未実装と分類していたが、実装着手時に
+`src/core/box_/mod.rs:1216` に既に `Boxaa::transpose` が存在していたことが判明した。
 
-要件:
+つまり 031 の項目 C は「実装漏れ」ではなく「テストでカバーされていない実装済み機能」
+だった。本計画は ignored regression test を unignore して回帰防止を担保することを
+目的とする。
 
-- 入力 Boxaa が空ならエラー
-- 各 Boxa の box 数が揃っていなければエラー
-- 出力は input.outer_count × inner_count を入れ替えた新 Boxaa
-
-## 配置先・API 設計
-
-- ファイル: `src/core/box_/mod.rs` の `impl Boxaa` に追記
-- API:
+## 既存実装の所在
 
 ```rust
+// src/core/box_/mod.rs:1216
 impl Boxaa {
-    /// boxaaTranspose 相当
-    pub fn transpose(&self) -> Result<Boxaa>;
+    pub fn transpose(&self) -> Result<Boxaa> { /* ... */ }
 }
 ```
 
-エラー型は既存 `crate::core::Error` を使用（`InvalidArgument` 系）。
+挙動:
 
-## TDD ステップ
+- 空 Boxaa は `Error::InvalidParameter("boxaa is empty")`
+- 各 Boxa の長さが揃っていなければ `Error::InvalidParameter("boxa[i] has ... boxes, expected ...")`
+- それ以外は `baad[i][j] = baas[j][i]` の新 Boxaa を返す
 
-1. **RED** (`test(core): boxaaTranspose の RED テスト`)
-   - `tests/core/boxa4_reg.rs` の `#[ignore = "boxaaTranspose not implemented"]` (line 85) を unignore
-   - 2x10 → 10x2 の転置と、サイズ不一致エラー、空エラーをアサート
+## 変更内容
 
-2. **GREEN** (`feat(core): Boxaa::transpose を実装`)
-   - 既存 `Boxaa::get_box(outer, inner)` を使った素直な 2 重ループ
+- `tests/core/boxa4_reg.rs::boxa4_reg_boxaa_transpose` の `#[ignore]` を解除
+- 形状反転 / ラウンドトリップ / 空エラー / ragged エラー の 4 ケースをアサート
+- `Boxaa::transpose` 自体への変更は **無し**
 
-3. **REFACTOR**: 不要
+## 検証結果
 
-## テスト戦略
+```text
+$ cargo test --test core boxa4_reg_boxaa_transpose
+test boxa4_reg::boxa4_reg_boxaa_transpose ... ok
+```
 
-- 構築可能な Boxaa リテラルで往復テスト（transpose 2 回で同一）
-- box 数不一致時のエラーケース
-- 空 Boxaa のエラーケース
+## 教訓
 
-## ブランチ・PR
+031 起草時の grep `pub fn boxaa_transpose` は構造体メソッド `Boxaa::transpose` を
+取りこぼしていた。今後同様のロードマップ作成時は `fn <verb>` 形式でも検索する
+（例: `fn transpose`, `fn rotate`）。
 
-- ブランチ: `feat/core-boxaa-transpose`
-- PR: `feat(core): port boxaaTranspose`
-- 1PR、RED → GREEN
+実際、改めて他 Group 1 項目 (B, A, H, E) を `fn <verb>` 形式で再検索した結果、
+それらは本当に未実装であることを確認済み。
 
 ## ステータス
 
-- [ ] RED コミット
-- [ ] GREEN コミット
+- [x] 取りこぼし発覚・既存実装の確認
+- [x] regression test の unignore
+- [x] cargo test 通過
 - [ ] PR 作成・Copilot レビュー対応
 - [ ] /gh-pr-merge --merge
-- [ ] 031 全体計画書を IMPLEMENTED に更新
+- [ ] 031 全体計画書を更新
