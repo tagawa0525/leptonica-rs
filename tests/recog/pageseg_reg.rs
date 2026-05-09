@@ -710,7 +710,7 @@ fn test_20_21_find_page_foreground() {
 ///
 /// C版: pixFindLargeRectangles(pix1, 0, 20, &boxa, &pixdb)
 #[test]
-#[ignore = "RED: find_large_rectangles not yet implemented (plan 801)"]
+
 fn test_22_find_large_rectangles() {
     use leptonica::region::rectangle::{Polarity, find_large_rectangles};
 

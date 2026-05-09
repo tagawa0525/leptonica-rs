@@ -1,6 +1,6 @@
 # region/rectangle: 矩形検出 3 関数の移植
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 K)
 
 ## Context
