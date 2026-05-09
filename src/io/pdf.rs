@@ -1137,10 +1137,13 @@ pub fn rotate_orth_files_to_pdf(
     // RGB and Flate for low-depth, matching C 版 rotateorthFilesToPdf which
     // writes RGB pages with DCT.
     let compression = select_default_encoding(first);
+    // Clamp to >= 1: PdfOptions treats resolution == 0 as "unset" and falls
+    // back to the image's xres / DEFAULT_RESOLUTION, which would defeat the
+    // intent of infer_resolution for very small images (1px long side, etc.).
     let options = PdfOptions {
         compression,
         quality: quality_clamped,
-        resolution: res.max(0) as u32,
+        resolution: (res.max(1)) as u32,
         title: title_owned,
     };
 
