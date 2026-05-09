@@ -25,6 +25,8 @@
 pub mod serial;
 pub mod transform;
 
+pub use transform::RotateDirection;
+
 use crate::core::error::{Error, Result};
 use crate::core::pix::{Pix, PixelDepth};
 
