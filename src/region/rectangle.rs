@@ -107,7 +107,13 @@ pub fn find_largest_rectangle(pix: &Pix, polarity: Polarity) -> RegionResult<Box
                     let hmin = h2.min(vertdist);
                     let area2 = hmin * (w2 + 1);
 
-                    if area1 > area2 {
+                    if area1 == 0 && area2 == 0 {
+                        // Isolated target pixel with non-target above and to
+                        // the left: the C version's recurrence collapses to
+                        // 0×0 here, which silently drops the pixel from the
+                        // search. Treat the pixel itself as the 1×1 rectangle.
+                        (1, 1)
+                    } else if area1 > area2 {
                         (wmin, h1 + 1)
                     } else {
                         (w2 + 1, hmin)
@@ -130,6 +136,12 @@ pub fn find_largest_rectangle(pix: &Pix, polarity: Polarity) -> RegionResult<Box
         }
     }
 
+    if maxarea == 0 {
+        // No pixel of the requested polarity exists; return a degenerate
+        // 0-size box at origin rather than synthesising bogus coordinates.
+        return Box::new(0, 0, 0, 0)
+            .map_err(|e| RegionError::InvalidParameters(format!("Box::new(0,0,0,0): {e}")));
+    }
     Box::new(xmax - wmax + 1, ymax - hmax + 1, wmax, hmax)
         .map_err(|e| RegionError::InvalidParameters(format!("Box::new: {e}")))
 }
@@ -151,6 +163,11 @@ pub fn find_large_rectangles(pix: &Pix, polarity: Polarity, nrect: u32) -> Regio
     let mut work: Pix = pix.deep_clone();
     for _ in 0..nrect {
         let b = find_largest_rectangle(&work, polarity)?;
+        if b.w == 0 || b.h == 0 {
+            // No more selectable rectangles for this polarity; stop early
+            // rather than padding the result with degenerate boxes.
+            break;
+        }
         boxa.push(b);
         // Fill the box with the opposite colour to prevent re-selection.
         let mut pm = work.to_mut();
@@ -185,10 +202,21 @@ pub fn find_rectangle_in_cc(
         )));
     }
 
-    // Optional clip + offset for the result coordinates.
+    // Optional clip + offset for the result coordinates. C Leptonica accepts
+    // any boxs and silently clips, but in Rust we reject out-of-bounds boxs
+    // so the result coordinates aren't ambiguous (the offset added below has
+    // to match the *actual* clip origin, which differs from `boxs` if it was
+    // partly outside the image).
     let (offset_x, offset_y, pix1) = if let Some(b) = boxs {
-        let clipped =
-            pix.clip_rectangle(b.x.max(0) as u32, b.y.max(0) as u32, b.w as u32, b.h as u32)?;
+        let pw = pix.width() as i32;
+        let ph = pix.height() as i32;
+        if b.x < 0 || b.y < 0 || b.w <= 0 || b.h <= 0 || b.x + b.w > pw || b.y + b.h > ph {
+            return Err(RegionError::InvalidParameters(format!(
+                "boxs {:?} is out of bounds for {}x{} image",
+                b, pw, ph
+            )));
+        }
+        let clipped = pix.clip_rectangle(b.x as u32, b.y as u32, b.w as u32, b.h as u32)?;
         (b.x, b.y, clipped)
     } else {
         (0, 0, pix.clone())

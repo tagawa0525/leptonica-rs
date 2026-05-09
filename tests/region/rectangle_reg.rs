@@ -84,6 +84,21 @@ fn rectangle_reg_large_rectangles() {
     // 1bpp validation.
     let gray = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
     assert!(find_large_rectangles(&gray, Polarity::Background, 1).is_err());
+
+    // No-foreground image: searching for fg rectangles returns an empty Boxa
+    // rather than padding with degenerate boxes.
+    let empty = Pix::new(8, 4, PixelDepth::Bit1).unwrap();
+    let boxa_empty =
+        find_large_rectangles(&empty, Polarity::Foreground, 5).expect("fg search on empty image");
+    assert_eq!(boxa_empty.len(), 0);
+
+    // Single pixel of fg: only 1 rectangle exists.
+    let single = make_1bpp(8, 4, &[(2, 2)]);
+    let boxa_single =
+        find_large_rectangles(&single, Polarity::Foreground, 5).expect("fg search single");
+    assert_eq!(boxa_single.len(), 1);
+    let b = boxa_single.get(0).unwrap();
+    assert_eq!((b.x, b.y, b.w, b.h), (2, 2, 1, 1));
 }
 
 /// `pixFindRectangleInCC` finds the inner rectangle of a single CC.
@@ -164,6 +179,31 @@ fn rectangle_reg_in_cc() {
             &pix,
             None,
             0.0,
+            ScanDirection::Horizontal,
+            RectSelect::GeometricUnion,
+        )
+        .is_err(),
+    );
+
+    // Out-of-bounds boxs (negative origin or extending past edge) is rejected
+    // — accepting it silently caused mis-aligned offsets.
+    let bad_box = Box::new(-1, 0, 6, 4).unwrap();
+    assert!(
+        find_rectangle_in_cc(
+            &pix,
+            Some(&bad_box),
+            0.5,
+            ScanDirection::Horizontal,
+            RectSelect::GeometricUnion,
+        )
+        .is_err(),
+    );
+    let too_wide = Box::new(0, 0, 100, 4).unwrap();
+    assert!(
+        find_rectangle_in_cc(
+            &pix,
+            Some(&too_wide),
+            0.5,
             ScanDirection::Horizontal,
             RectSelect::GeometricUnion,
         )
