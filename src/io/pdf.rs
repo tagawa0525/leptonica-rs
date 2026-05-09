@@ -1131,8 +1131,14 @@ pub fn rotate_orth_files_to_pdf(
     } else {
         Some(title.to_string())
     };
+    // Pick compression from the first page so the documented `quality`
+    // parameter actually influences encoding (Auto would always pick Flate
+    // and ignore `quality`). select_default_encoding gives Jpeg for 32bpp
+    // RGB and Flate for low-depth, matching C 版 rotateorthFilesToPdf which
+    // writes RGB pages with DCT.
+    let compression = select_default_encoding(first);
     let options = PdfOptions {
-        compression: PdfCompression::Auto,
+        compression,
         quality: quality_clamped,
         resolution: res.max(0) as u32,
         title: title_owned,
