@@ -55,21 +55,21 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 ### 1. Core Data Structures
 
-| Feature                     | C version                     | Rust version             | Notes                                                 |
-| --------------------------- | ----------------------------- | ------------------------ | ----------------------------------------------------- |
-| Pix (image container)       | ✅ pix1-5.c                   | ✅ leptonica (src/core/) | Basic ops implemented, some depth conversions not yet |
-| Box (rectangular region)    | ✅ boxbasic.c, boxfunc1-5.c   | ✅ leptonica (src/core/) | Basic ops and geometric calculations implemented      |
-| Pta (point array)           | ✅ ptabasic.c, ptafunc1-2.c   | ✅ leptonica (src/core/) | Basic ops implemented                                 |
-| Colormap                    | ✅ colormap.c                 | ✅ leptonica (src/core/) | Basic ops implemented                                 |
-| Pixa (Pix array)            | ✅ pixabasic.c, pixafunc1-2.c | ✅ pixa/mod.rs           | Basic ops implemented                                 |
-| Numa (numeric array)        | ✅ numabasic.c, numafunc1-2.c | ✅ numa/mod.rs           | Basic ops implemented                                 |
-| Sarray (string array)       | ✅ sarray1-2.c                | ✅ sarray/mod.rs         | String array/set operations                           |
-| FPix (floating point image) | ✅ fpix1-2.c                  | ✅ fpix/mod.rs           | Pix conversion/arithmetic                             |
-| Pixel arithmetic            | ✅ pixarith.c                 | ✅ arith.rs              | Add/sub/mul/div/const ops                             |
-| Logical ops                 | ✅ rop.c, roplow.c            | ✅ rop.rs                | AND/OR/XOR/NOT etc.                                   |
-| Comparison                  | ✅ compare.c                  | ✅ compare.rs            | Diff/RMS/correlation                                  |
-| Blend                       | ✅ blend.c                    | ✅ blend.rs              | Alpha/mask/multiply etc.                              |
-| Graphics                    | ✅ graphics.c                 | ✅ graphics.rs           | Line/rect/circle/contour drawing                      |
+| Feature                     | C version                     | Rust version             | Notes                                                        |
+| --------------------------- | ----------------------------- | ------------------------ | ------------------------------------------------------------ |
+| Pix (image container)       | ✅ pix1-5.c                   | ✅ leptonica (src/core/) | Basic ops + depth conversions (1/2/4/8/16/32bpp) implemented |
+| Box (rectangular region)    | ✅ boxbasic.c, boxfunc1-5.c   | ✅ leptonica (src/core/) | Basic ops and geometric calculations implemented             |
+| Pta (point array)           | ✅ ptabasic.c, ptafunc1-2.c   | ✅ leptonica (src/core/) | Basic ops implemented                                        |
+| Colormap                    | ✅ colormap.c                 | ✅ leptonica (src/core/) | Basic ops implemented                                        |
+| Pixa (Pix array)            | ✅ pixabasic.c, pixafunc1-2.c | ✅ pixa/mod.rs           | Basic ops implemented                                        |
+| Numa (numeric array)        | ✅ numabasic.c, numafunc1-2.c | ✅ numa/mod.rs           | Basic ops implemented                                        |
+| Sarray (string array)       | ✅ sarray1-2.c                | ✅ sarray/mod.rs         | String array/set operations                                  |
+| FPix (floating point image) | ✅ fpix1-2.c                  | ✅ fpix/mod.rs           | Pix conversion/arithmetic                                    |
+| Pixel arithmetic            | ✅ pixarith.c                 | ✅ arith.rs              | Add/sub/mul/div/const ops                                    |
+| Logical ops                 | ✅ rop.c, roplow.c            | ✅ rop.rs                | AND/OR/XOR/NOT etc.                                          |
+| Comparison                  | ✅ compare.c                  | ✅ compare.rs            | Diff/RMS/correlation                                         |
+| Blend                       | ✅ blend.c                    | ✅ blend.rs              | Alpha/mask/multiply etc.                                     |
+| Graphics                    | ✅ graphics.c                 | ✅ graphics.rs           | Line/rect/circle/contour drawing                             |
 
 ### 2. Image I/O
 
@@ -91,48 +91,48 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 ### 3. Geometric Transforms
 
-| Feature                    | C version                    | Rust version     | Notes                                              |
-| -------------------------- | ---------------------------- | ---------------- | -------------------------------------------------- |
-| Rotation (orthogonal)      | ✅ rotateorth.c              | ✅ rotate.rs     | 90°/180°/270°                                      |
-| Rotation (arbitrary angle) | ✅ rotate.c, rotateam.c      | ✅ rotate.rs     | Area mapping/sampling/shear                        |
-| Rotation (shear)           | ✅ rotateshear.c             | ✅ rotate.rs     | 2-shear/3-shear support                            |
-| Scaling                    | ✅ scale1-2.c                | ✅ scale.rs      | 3 algorithms (1bpp specialization not implemented) |
-| Affine transform           | ✅ affine.c, affinecompose.c | ✅ affine.rs     | Sampling/interpolation support                     |
-| Bilinear transform         | ✅ bilinear.c                | ✅ bilinear.rs   | 4-point correspondence/interpolation               |
-| Projective transform       | ✅ projective.c              | ✅ projective.rs | 4-point homography                                 |
-| Shear transform            | ✅ shear.c                   | ✅ shear.rs      | Horizontal/vertical/linear interp support          |
-| Flip (horizontal/vertical) | ✅ rotateorth.c              | ✅ rotate.rs     | Fully implemented                                  |
+| Feature                    | C version                    | Rust version     | Notes                                                                                                        |
+| -------------------------- | ---------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------ |
+| Rotation (orthogonal)      | ✅ rotateorth.c              | ✅ rotate.rs     | 90°/180°/270°                                                                                                |
+| Rotation (arbitrary angle) | ✅ rotate.c, rotateam.c      | ✅ rotate.rs     | Area mapping/sampling/shear                                                                                  |
+| Rotation (shear)           | ✅ rotateshear.c             | ✅ rotate.rs     | 2-shear/3-shear support                                                                                      |
+| Scaling                    | ✅ scale1-2.c                | ✅ scale.rs      | 3 algorithms + 1bpp specialization (`scale_binary`/`scale_to_gray`/`expand_binary_*`/`reduce_rank_binary_*`) |
+| Affine transform           | ✅ affine.c, affinecompose.c | ✅ affine.rs     | Sampling/interpolation support                                                                               |
+| Bilinear transform         | ✅ bilinear.c                | ✅ bilinear.rs   | 4-point correspondence/interpolation                                                                         |
+| Projective transform       | ✅ projective.c              | ✅ projective.rs | 4-point homography                                                                                           |
+| Shear transform            | ✅ shear.c                   | ✅ shear.rs      | Horizontal/vertical/linear interp support                                                                    |
+| Flip (horizontal/vertical) | ✅ rotateorth.c              | ✅ rotate.rs     | Fully implemented                                                                                            |
 
 ### 4. Morphology
 
-| Feature                   | C version                  | Rust version    | Notes                                                  |
-| ------------------------- | -------------------------- | --------------- | ------------------------------------------------------ |
-| Binary erosion/dilation   | ✅ morph.c                 | ✅ binary.rs    | Fully implemented                                      |
-| Binary open/close         | ✅ morph.c                 | ✅ binary.rs    | Fully implemented                                      |
-| Hit-miss transform        | ✅ morph.c                 | ✅ binary.rs    | Fully implemented                                      |
-| Morphological gradient    | ✅ morph.c                 | ✅ binary.rs    | Fully implemented                                      |
-| Top-hat/Bottom-hat        | ✅ morph.c                 | ✅ binary.rs    | Fully implemented                                      |
-| Grayscale morphology      | ✅ graymorph.c             | ✅ grayscale.rs | Dilate/erode/open/close                                |
-| Color morphology          | ✅ colormorph.c            | ✅ color.rs     | Independent processing per RGB channel                 |
-| DWA (fast morphology)     | ✅ morphdwa.c, dwacomb.2.c | ✅ dwa.rs       | Brick fast operations                                  |
-| Structuring element (SEL) | ✅ sel1-2.c, selgen.c      | ✅ sel.rs       | Basic implementation (auto-generation not implemented) |
-| Sequence operations       | ✅ morphseq.c              | ✅ sequence.rs  | String-format sequences                                |
-| Thinning                  | ✅ ccthin.c                | ✅ thin.rs      | Connectivity-preserving thinning                       |
+| Feature                   | C version                  | Rust version         | Notes                                                                          |
+| ------------------------- | -------------------------- | -------------------- | ------------------------------------------------------------------------------ |
+| Binary erosion/dilation   | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Binary open/close         | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Hit-miss transform        | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Morphological gradient    | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Top-hat/Bottom-hat        | ✅ morph.c                 | ✅ binary.rs         | Fully implemented                                                              |
+| Grayscale morphology      | ✅ graymorph.c             | ✅ grayscale.rs      | Dilate/erode/open/close                                                        |
+| Color morphology          | ✅ colormorph.c            | ✅ color.rs          | Independent processing per RGB channel                                         |
+| DWA (fast morphology)     | ✅ morphdwa.c, dwacomb.2.c | ✅ dwa.rs            | Brick fast operations                                                          |
+| Structuring element (SEL) | ✅ sel1-2.c, selgen.c      | ✅ sel.rs, selgen.rs | Basic + auto-generation (`selgen`) + Sela persistence I/O (`Sela::read/write`) |
+| Sequence operations       | ✅ morphseq.c              | ✅ sequence.rs       | String-format sequences                                                        |
+| Thinning                  | ✅ ccthin.c                | ✅ thin.rs           | Connectivity-preserving thinning                                               |
 
 ### 5. Filtering
 
-| Feature              | C version      | Rust version    | Notes                                                   |
-| -------------------- | -------------- | --------------- | ------------------------------------------------------- |
-| Convolution          | ✅ convolve.c  | ✅ convolve.rs  | Basic/block/separable/windowed stats                    |
-| Box filter           | ✅ convolve.c  | ✅ convolve.rs  | Includes block convolution optimization                 |
-| Gaussian filter      | ✅ convolve.c  | ✅ convolve.rs  | Basic implementation                                    |
-| Sobel edge detection | ✅ edge.c      | ✅ edge.rs      | Fully implemented                                       |
-| Laplacian            | ✅ edge.c      | ✅ edge.rs      | Fully implemented                                       |
-| Sharpening           | ✅ enhance.c   | ✅ edge.rs      | Basic implementation                                    |
-| Unsharp mask         | ✅ enhance.c   | ✅ edge.rs      | Basic and fast variants                                 |
-| Bilateral filter     | ✅ bilateral.c | ✅ bilateral.rs | Edge-preserving smoothing (fast approx not implemented) |
-| Adaptive mapping     | ✅ adaptmap.c  | ✅ adaptmap.rs  | Background/contrast normalization                       |
-| Rank filter          | ✅ rank.c      | ✅ rank.rs      | Median/min/max                                          |
+| Feature              | C version      | Rust version    | Notes                                                          |
+| -------------------- | -------------- | --------------- | -------------------------------------------------------------- |
+| Convolution          | ✅ convolve.c  | ✅ convolve.rs  | Basic/block/separable/windowed stats                           |
+| Box filter           | ✅ convolve.c  | ✅ convolve.rs  | Includes block convolution optimization                        |
+| Gaussian filter      | ✅ convolve.c  | ✅ convolve.rs  | Basic implementation                                           |
+| Sobel edge detection | ✅ edge.c      | ✅ edge.rs      | Fully implemented                                              |
+| Laplacian            | ✅ edge.c      | ✅ edge.rs      | Fully implemented                                              |
+| Sharpening           | ✅ enhance.c   | ✅ edge.rs      | Basic implementation                                           |
+| Unsharp mask         | ✅ enhance.c   | ✅ edge.rs      | Basic and fast variants                                        |
+| Bilateral filter     | ✅ bilateral.c | ✅ bilateral.rs | Edge-preserving smoothing + fast separable approximation (PBC) |
+| Adaptive mapping     | ✅ adaptmap.c  | ✅ adaptmap.rs  | Background/contrast normalization                              |
+| Rank filter          | ✅ rank.c      | ✅ rank.rs      | Median/min/max                                                 |
 
 ### 6. Color Processing
 
@@ -169,16 +169,16 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 ### 9. Document Processing & Recognition
 
-| Feature                   | C version                     | Rust version   | Notes                                                       |
-| ------------------------- | ----------------------------- | -------------- | ----------------------------------------------------------- |
-| Page segmentation         | ✅ pageseg.c                  | ✅ pageseg.rs  | Halftone/text detection                                     |
-| Skew detection/correction | ✅ skew.c                     | ✅ skew.rs     | Differential squared sum scoring                            |
-| Dewarping                 | ✅ dewarp1-4.c                | ✅ dewarp/     | Single page (Dewarpa multi-page management not implemented) |
-| Baseline detection        | ✅ baseline.c                 | ✅ baseline.rs | Horizontal projection method                                |
-| Character recognition     | ✅ recogbasic.c, recogident.c | ✅ recog/      | Template matching, DID                                      |
-| JBIG2 classification      | ✅ jbclass.c                  | ✅ jbclass/    | RankHaus, correlation-based classification                  |
-| Barcode                   | ✅ bardecode.c, readbarcode.c | ✅ barcode/    | EAN/UPC/Code39 etc.                                         |
-| Warper                    | ✅ warper.c                   | ✅ warper.rs   | Harmonic distortion/stereo (91% implemented)                |
+| Feature                   | C version                     | Rust version   | Notes                                         |
+| ------------------------- | ----------------------------- | -------------- | --------------------------------------------- |
+| Page segmentation         | ✅ pageseg.c                  | ✅ pageseg.rs  | Halftone/text detection                       |
+| Skew detection/correction | ✅ skew.c                     | ✅ skew.rs     | Differential squared sum scoring              |
+| Dewarping                 | ✅ dewarp1-4.c                | ✅ dewarp/     | Single page + Dewarpa (multi-page management) |
+| Baseline detection        | ✅ baseline.c                 | ✅ baseline.rs | Horizontal projection method                  |
+| Character recognition     | ✅ recogbasic.c, recogident.c | ✅ recog/      | Template matching, DID                        |
+| JBIG2 classification      | ✅ jbclass.c                  | ✅ jbclass/    | RankHaus, correlation-based classification    |
+| Barcode                   | ✅ bardecode.c, readbarcode.c | ✅ barcode/    | EAN/UPC/Code39 etc.                           |
+| Warper                    | ✅ warper.c                   | ✅ warper.rs   | Harmonic distortion/stereo (91% implemented)  |
 
 ## Rust Module Implementation Status
 
