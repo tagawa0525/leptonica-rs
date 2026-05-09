@@ -1091,6 +1091,151 @@ pub fn boxa_rotate(boxa: &crate::core::Boxa, xc: f32, yc: f32, angle: f32) -> cr
     boxa.rotate(xc, yc, angle)
 }
 
+/// Sequential 3-point affine warp.
+///
+/// Mirrors C Leptonica `pixAffineSequential` (`affine.c`). The warp is
+/// approximated as: H-shear → V-shear → scale → translate → V-shear back →
+/// H-shear back. About 3× faster than `affine_sampled` on 1bpp images, but
+/// produces lower quality output on text — kept mainly for parity with the
+/// C API and pedagogical value.
+///
+/// `ptas` and `ptad` must each be 3-point Pta in (origin, x-axis, y-axis)
+/// order. `bw`/`bh` add a working border before the transform and remove it
+/// after, to avoid clipping during the intermediate shears.
+pub fn affine_sequential(
+    pix: &Pix,
+    ptad: &crate::core::Pta,
+    ptas: &crate::core::Pta,
+    bw: i32,
+    bh: i32,
+) -> TransformResult<Pix> {
+    use crate::transform::scale::scale;
+    use crate::transform::shear::{ShearFill, h_shear_ip, v_shear_ip};
+
+    if ptas.len() != 3 {
+        return Err(TransformError::InvalidParameters(format!(
+            "ptas must have 3 points, got {}",
+            ptas.len()
+        )));
+    }
+    if ptad.len() != 3 {
+        return Err(TransformError::InvalidParameters(format!(
+            "ptad must have 3 points, got {}",
+            ptad.len()
+        )));
+    }
+    if bw < 0 || bh < 0 {
+        return Err(TransformError::InvalidParameters(format!(
+            "bw and bh must be >= 0, got bw={bw}, bh={bh}"
+        )));
+    }
+    if pix.colormap().is_some() {
+        return Err(TransformError::InvalidParameters(
+            "affine_sequential does not support colormapped images; \
+             remove the colormap (e.g. `Pix::remove_colormap`) first"
+                .into(),
+        ));
+    }
+
+    let (mut x1, mut y1) = ptas.get(0).unwrap();
+    let (mut x2, mut y2) = ptas.get(1).unwrap();
+    let (mut x3, mut y3) = ptas.get(2).unwrap();
+    let (mut x1p, mut y1p) = ptad.get(0).unwrap();
+    let (mut x2p, mut y2p) = ptad.get(1).unwrap();
+    let (mut x3p, mut y3p) = ptad.get(2).unwrap();
+
+    if y1 == y3 {
+        return Err(TransformError::InvalidParameters(
+            "ptas: y1 == y3 (degenerate)".into(),
+        ));
+    }
+    if y1p == y3p {
+        return Err(TransformError::InvalidParameters(
+            "ptad: y1' == y3' (degenerate)".into(),
+        ));
+    }
+
+    // Optionally enlarge with a working border so the intermediate shears
+    // don't clip image content. Fill the border with the depth-aware "white"
+    // value so it stays consistent with the subsequent ShearFill::White and
+    // rasterop_ip(InColor::White) calls.
+    let pix0 = if bw > 0 || bh > 0 {
+        let bw_u = bw as u32;
+        let bh_u = bh as u32;
+        x1 += bw as f32;
+        y1 += bh as f32;
+        x2 += bw as f32;
+        y2 += bh as f32;
+        x3 += bw as f32;
+        y3 += bh as f32;
+        x1p += bw as f32;
+        y1p += bh as f32;
+        x2p += bw as f32;
+        y2p += bh as f32;
+        x3p += bw as f32;
+        y3p += bh as f32;
+        let white = match pix.depth() {
+            PixelDepth::Bit1 => 0,
+            PixelDepth::Bit2 => 3,
+            PixelDepth::Bit4 => 15,
+            PixelDepth::Bit8 => 255,
+            PixelDepth::Bit16 => 65535,
+            PixelDepth::Bit32 => 0xFFFFFF00,
+        };
+        pix.add_border_general(bw_u, bw_u, bh_u, bh_u, white)?
+    } else {
+        pix.clone()
+    };
+
+    // Shear angles to put the source points on the x and y axes through pt 1.
+    let th3 = ((x1 - x3) as f64).atan2((y1 - y3) as f64) as f32;
+    let x2s = x2 - ((y1 - y2) * (x3 - x1)) / (y1 - y3);
+    if x2s == x1 {
+        return Err(TransformError::InvalidParameters(
+            "ptas: x2s == x1 (degenerate)".into(),
+        ));
+    }
+    let ph2 = ((y1 - y2) as f64).atan2((x2s - x1) as f64) as f32;
+
+    // Shear angles to put the dest points on the x and y axes through pt 1'.
+    let th3p = ((x1p - x3p) as f64).atan2((y1p - y3p) as f64) as f32;
+    let x2sp = x2p - ((y1p - y2p) * (x3p - x1p)) / (y1p - y3p);
+    if x2sp == x1p {
+        return Err(TransformError::InvalidParameters(
+            "ptad: x2sp == x1p (degenerate)".into(),
+        ));
+    }
+    let ph2p = ((y1p - y2p) as f64).atan2((x2sp - x1p) as f64) as f32;
+
+    // Apply forward shears to align src points with axes.
+    let mut pm1 = pix0.to_mut();
+    h_shear_ip(&mut pm1, y1 as i32, th3, ShearFill::White)?;
+    v_shear_ip(&mut pm1, x1 as i32, ph2, ShearFill::White)?;
+    let pix1: Pix = pm1.into();
+
+    // Scale to match the dest axes' magnitudes.
+    let scalex = (x2sp - x1p) / (x2s - x1);
+    let scaley = (y3p - y1p) / (y3 - y1);
+    let pix2 = scale(&pix1, scalex, scaley, super::scale::ScaleMethod::Linear)?;
+
+    // Translate so that the scaled src origin lands on dest origin (1').
+    let x1sc = (scalex * x1 + 0.5) as i32;
+    let y1sc = (scaley * y1 + 0.5) as i32;
+    let pix3 = pix2.rasterop_ip(x1p as i32 - x1sc, y1p as i32 - y1sc)?;
+
+    // Inverse shears to take pts 2', 3' off the axes and to their target pos.
+    let mut pm3 = pix3.to_mut();
+    v_shear_ip(&mut pm3, x1p as i32, -ph2p, ShearFill::White)?;
+    h_shear_ip(&mut pm3, y1p as i32, -th3p, ShearFill::White)?;
+    let pix4: Pix = pm3.into();
+
+    if bw > 0 || bh > 0 {
+        Ok(pix4.remove_border_general(bw as u32, bw as u32, bh as u32, bh as u32)?)
+    } else {
+        Ok(pix4)
+    }
+}
+
 // ============================================================================
 // Tests
 // ============================================================================

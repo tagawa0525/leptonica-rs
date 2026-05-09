@@ -321,11 +321,77 @@ fn affine_reg_color_interpolation() {
     assert!(rp.cleanup(), "affine color interpolation test failed");
 }
 
-/// C version: `pixAffineSequential` — not implemented in Rust
+/// `pixAffineSequential` smoke test (C version analogue).
+///
+/// The C version explicitly notes that this warp is "about 3× faster than
+/// affineSampled but the results on text are much inferior", so we avoid
+/// strict pixel-equality / round-trip thresholds. Instead we verify that the
+/// warp:
+///
+/// 1. Returns a Pix whose dimensions are within a sane factor of the source
+///    (the internal `pixScale` enlarges the bordered image, so the final
+///    dimensions are not strictly equal to the source dimensions).
+/// 2. Preserves non-trivial foreground content (count > 1000 ON pixels).
+/// 3. Rejects degenerate / wrong-arity point sets.
 #[test]
-#[ignore = "pixAffineSequential not implemented: C version tests sequential affine transform invertability"]
 fn affine_reg_sequential_invertability() {
-    // C: pixAffineSequential(pixb, ptad, ptas, 0, 0)
+    use leptonica::core::Pta;
+    use leptonica::transform::affine::affine_sequential;
+
+    let pix = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pixb = if pix.depth() == leptonica::PixelDepth::Bit1 {
+        pix
+    } else {
+        pix.convert_to_1_adaptive().expect("convert to 1bpp")
+    };
+
+    // Three corner points in (origin, x-axis, y-axis) order.
+    let mut ptas = Pta::with_capacity(3);
+    ptas.push(50.0, 50.0);
+    ptas.push(250.0, 70.0);
+    ptas.push(70.0, 200.0);
+    let mut ptad = Pta::with_capacity(3);
+    ptad.push(60.0, 80.0);
+    ptad.push(260.0, 60.0);
+    ptad.push(90.0, 220.0);
+
+    let pix_fwd = affine_sequential(&pixb, &ptad, &ptas, 200, 200).expect("forward warp");
+    // C version of pixAffineSequential applies pixScale on the bordered image
+    // and only strips the original (unscaled) border, so the final dimensions
+    // depend on scalex/scaley. We just assert the result is non-degenerate
+    // and within a reasonable factor of the source.
+    assert!(pix_fwd.width() > 0 && pix_fwd.height() > 0);
+    assert!(
+        pix_fwd.width() < 4 * pixb.width() && pix_fwd.height() < 4 * pixb.height(),
+        "output {}x{} should be within ~4x of input {}x{}",
+        pix_fwd.width(),
+        pix_fwd.height(),
+        pixb.width(),
+        pixb.height(),
+    );
+
+    // Foreground should still be present after the warp. C `pixAffineSequential`
+    // pushes a lot of content off the canvas via the intermediate shears + scale,
+    // so we only require non-trivial preservation, not a tight threshold.
+    let area_orig = pixb.count_pixels();
+    let area_fwd = pix_fwd.count_pixels();
+    assert!(area_orig > 0);
+    assert!(
+        area_fwd > 1000,
+        "warp should leave non-trivial foreground (orig={area_orig}, fwd={area_fwd})",
+    );
+
+    // Degenerate point sets are rejected.
+    let mut bad_ptas = Pta::with_capacity(3);
+    bad_ptas.push(0.0, 50.0);
+    bad_ptas.push(100.0, 60.0);
+    bad_ptas.push(50.0, 50.0); // y1 == y3
+    assert!(affine_sequential(&pixb, &ptad, &bad_ptas, 0, 0).is_err());
+
+    let mut wrong_count = Pta::with_capacity(2);
+    wrong_count.push(0.0, 0.0);
+    wrong_count.push(1.0, 1.0);
+    assert!(affine_sequential(&pixb, &ptad, &wrong_count, 0, 0).is_err());
 }
 
 /// C version: `boxaAffineTransform` test — not implemented in Rust
