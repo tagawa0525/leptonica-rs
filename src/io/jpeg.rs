@@ -47,6 +47,10 @@ pub fn read_header_jpeg(data: &[u8]) -> IoResult<ImageHeader> {
     })
 }
 
+/// `Pix::special` flag value for "no chroma subsampling" on JPEG write
+/// (matches C Leptonica's `L_NO_CHROMA_SAMPLING_JPEG`).
+pub const NO_CHROMA_SAMPLING_JPEG: i32 = 1;
+
 /// Options for JPEG encoding
 pub struct JpegOptions {
     /// Quality setting (1-100, default 75)
@@ -56,6 +60,26 @@ pub struct JpegOptions {
 impl Default for JpegOptions {
     fn default() -> Self {
         Self { quality: 75 }
+    }
+}
+
+/// Configure chroma subsampling for JPEG writes of this `Pix`.
+///
+/// The choice is persisted on the image itself via [`Pix::special`], so it
+/// applies to every subsequent JPEG write of this `Pix` (or any deep clone
+/// that copies `special`) until changed again.
+///
+/// When `sampling` is `true` (the default), JPEG writes use 4:2:0 (2x2)
+/// subsampling — smaller files at minor quality cost. When `false`, writes
+/// use 4:4:4 (full chroma resolution) by stamping `NO_CHROMA_SAMPLING_JPEG`
+/// into [`Pix::special`].
+///
+/// C Leptonica equivalent: `pixSetChromaSampling`
+pub fn set_chroma_sampling(pix: &mut crate::core::PixMut, sampling: bool) {
+    if sampling {
+        pix.set_special(0);
+    } else {
+        pix.set_special(NO_CHROMA_SAMPLING_JPEG);
     }
 }
 
@@ -140,6 +164,9 @@ pub fn read_jpeg<R: Read>(reader: R) -> IoResult<Pix> {
 /// C Leptonica: `pixWriteStreamJpeg()` in `jpegio.c`
 pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoResult<()> {
     let quality = options.quality.clamp(1, 100);
+    // Capture the per-image chroma flag before any colormap/depth conversion
+    // produces a fresh Pix that drops the original `special` value.
+    let pix_orig_special = pix.special();
 
     // Convert pix to a form suitable for JPEG encoding.
     // Following C version logic: remove colormap based on source content,
@@ -167,7 +194,16 @@ pub fn write_jpeg<W: Write>(pix: &Pix, writer: W, options: &JpegOptions) -> IoRe
         )));
     }
 
-    let encoder = jpeg_encoder::Encoder::new(writer, quality);
+    // Honor the per-image chroma subsampling flag set by `set_chroma_sampling`.
+    // After `remove_colormap`/`convert_to_8` the working `pix` is a fresh copy,
+    // so look up `special` on the *original* input.
+    let no_subsample = pix_orig_special == NO_CHROMA_SAMPLING_JPEG;
+    let mut encoder = jpeg_encoder::Encoder::new(writer, quality);
+    encoder.set_sampling_factor(if no_subsample {
+        jpeg_encoder::SamplingFactor::F_1_1
+    } else {
+        jpeg_encoder::SamplingFactor::F_2_2
+    });
 
     // Cast to usize once to avoid repeated casts and u32 overflow in arithmetic.
     // Near the 65535×65535 limit: 65535 * 65535 * 3 = ~12.9 GB, which exceeds
