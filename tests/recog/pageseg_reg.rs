@@ -709,14 +709,34 @@ fn test_20_21_find_page_foreground() {
 /// Test 22: pixFindLargeRectangles -- 大矩形検出（ホワイトスペース）
 ///
 /// C版: pixFindLargeRectangles(pix1, 0, 20, &boxa, &pixdb)
-///
-/// Rust未実装のためスキップ。
 #[test]
-#[ignore = "pixFindLargeRectangles() -- Rust未実装のためスキップ"]
+#[ignore = "RED: find_large_rectangles not yet implemented (plan 801)"]
 fn test_22_find_large_rectangles() {
-    // C版: pixScale(pixs, 0.5, 0.5) して pixFindLargeRectangles
-    // 貪欲法でホワイトスペース内の大矩形を検出
-    eprintln!("pixFindLargeRectangles is not implemented in Rust");
+    use leptonica::region::rectangle::{Polarity, find_large_rectangles};
+
+    // pageseg2.tif is a 1bpp page; ask for 5 large white-space rectangles and
+    // verify the call succeeds and returns non-degenerate boxes in decreasing
+    // area order.
+    let pix = crate::common::load_test_image("pageseg2.tif").expect("load pageseg2.tif");
+    let pix1 = if pix.depth() == leptonica::PixelDepth::Bit1 {
+        pix
+    } else {
+        pix.convert_to_1_adaptive().expect("to 1bpp")
+    };
+    let boxa =
+        find_large_rectangles(&pix1, Polarity::Background, 5).expect("find_large_rectangles");
+    assert_eq!(boxa.len(), 5);
+    let mut prev_area = i64::MAX;
+    for i in 0..boxa.len() {
+        let b = boxa.get(i).unwrap();
+        assert!(b.w > 0 && b.h > 0, "box {i} has zero size: {b:?}");
+        let area = b.w as i64 * b.h as i64;
+        assert!(
+            area <= prev_area,
+            "box {i} area {area} exceeds previous {prev_area}",
+        );
+        prev_area = area;
+    }
 }
 
 /// Test 23-30: pixDecideIfTable -- テーブル判定
