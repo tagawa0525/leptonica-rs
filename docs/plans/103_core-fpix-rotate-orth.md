@@ -1,6 +1,6 @@
 # core/fpix: 直交回転・反転・境界拡張の移植
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 B)
 
 ## Context

@@ -33,7 +33,6 @@ fn make_positional_fpix(w: u32, h: u32) -> FPix {
 /// rotate_orth(1) is one clockwise quarter-turn: result[i, j] = src[j, h-1-i]
 /// where the source has dimensions (w, h) and the destination (h, w).
 #[test]
-#[ignore = "RED: FPix::rotate_orth not yet implemented (plan 103)"]
 fn fpix2_reg_rotate_orth_90() {
     let src = make_positional_fpix(5, 3);
     let dst = src.rotate_orth(1).expect("rotate_orth(1)");
@@ -48,7 +47,6 @@ fn fpix2_reg_rotate_orth_90() {
 
 /// FPix orthogonal rotation by 180 degrees (C check 1).
 #[test]
-#[ignore = "RED: FPix::rotate_orth not yet implemented (plan 103)"]
 fn fpix2_reg_rotate_orth_180() {
     let src = make_positional_fpix(5, 3);
     let dst = src.rotate_orth(2).expect("rotate_orth(2)");
@@ -65,7 +63,6 @@ fn fpix2_reg_rotate_orth_180() {
 
 /// FPix orthogonal rotation by 270 degrees (C check 2).
 #[test]
-#[ignore = "RED: FPix::rotate_orth not yet implemented (plan 103)"]
 fn fpix2_reg_rotate_orth_270() {
     let src = make_positional_fpix(5, 3);
     let dst = src.rotate_orth(3).expect("rotate_orth(3)");
@@ -90,7 +87,6 @@ fn fpix2_reg_rotate_orth_270() {
 
 /// FPix mirrored border addition (C check 3).
 #[test]
-#[ignore = "RED: FPix::add_mirrored_border not yet implemented (plan 103)"]
 fn fpix2_reg_add_mirrored_border() {
     let src = make_positional_fpix(5, 3);
     let bordered = src.add_mirrored_border(2, 2, 1, 1).expect("mirror border");
@@ -122,7 +118,6 @@ fn fpix2_reg_add_mirrored_border() {
 
 /// FPix continued border addition (C check 4).
 #[test]
-#[ignore = "RED: FPix::add_continued_border not yet implemented (plan 103)"]
 fn fpix2_reg_add_continued_border() {
     let src = make_positional_fpix(5, 3);
     let bordered = src
