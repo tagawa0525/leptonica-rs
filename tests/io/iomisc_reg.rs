@@ -76,7 +76,7 @@ fn iomisc_reg_16bit_png() {
 /// larger and higher-fidelity) JPEG than the default 4:2:0 subsampling, and
 /// that the choice round-trips through the `Pix::special` field.
 #[test]
-#[ignore = "RED: pixSetChromaSampling not yet implemented (plan 202)"]
+
 fn iomisc_reg_jpeg_chroma() {
     use leptonica::io::jpeg::{
         JpegOptions, NO_CHROMA_SAMPLING_JPEG, set_chroma_sampling, write_jpeg,
