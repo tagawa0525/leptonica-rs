@@ -396,7 +396,7 @@ pub fn write_jp2k<W: std::io::Write>(
 /// `box == NULL`.
 pub fn read_jp2k_scaled_mem(data: &[u8], scale_denom: u32) -> IoResult<Pix> {
     if scale_denom == 0 {
-        return Err(IoError::DecodeError("scale_denom must be >= 1".to_string()));
+        return Err(IoError::InvalidData("scale_denom must be >= 1".to_string()));
     }
 
     // Probe the original dimensions to compute the target resolution.
@@ -420,9 +420,7 @@ pub fn read_jp2k_scaled_mem(data: &[u8], scale_denom: u32) -> IoResult<Pix> {
 /// Read a JPEG 2000 image from a stream at a reduced resolution.
 pub fn read_jp2k_scaled<R: Read + Seek>(mut reader: R, scale_denom: u32) -> IoResult<Pix> {
     let mut data = Vec::new();
-    reader
-        .read_to_end(&mut data)
-        .map_err(|e| IoError::DecodeError(format!("Failed to read JP2K data: {}", e)))?;
+    reader.read_to_end(&mut data)?;
     read_jp2k_scaled_mem(&data, scale_denom)
 }
 
@@ -435,10 +433,12 @@ pub fn read_jp2k_scaled<R: Read + Seek>(mut reader: R, scale_denom: u32) -> IoRe
 ///
 /// C Leptonica equivalent: `pixReadMemJp2k(data, size, 1, &box, ...)`.
 pub fn read_jp2k_cropped_mem(data: &[u8], box_: &crate::core::Box) -> IoResult<Pix> {
-    let pix = read_jp2k_mem(data)?;
+    // Validate the crop box first so degenerate parameters are rejected
+    // before we spend time parsing/decoding the JP2K stream.
     if box_.x < 0 || box_.y < 0 || box_.w <= 0 || box_.h <= 0 {
-        return Err(IoError::DecodeError(format!("invalid crop box {:?}", box_)));
+        return Err(IoError::InvalidData(format!("invalid crop box {:?}", box_)));
     }
+    let pix = read_jp2k_mem(data)?;
     pix.clip_rectangle(box_.x as u32, box_.y as u32, box_.w as u32, box_.h as u32)
         .map_err(|e| IoError::DecodeError(format!("clip_rectangle failed: {e}")))
 }
@@ -446,9 +446,7 @@ pub fn read_jp2k_cropped_mem(data: &[u8], box_: &crate::core::Box) -> IoResult<P
 /// Read a JPEG 2000 image from a stream and crop to `box_`.
 pub fn read_jp2k_cropped<R: Read + Seek>(mut reader: R, box_: &crate::core::Box) -> IoResult<Pix> {
     let mut data = Vec::new();
-    reader
-        .read_to_end(&mut data)
-        .map_err(|e| IoError::DecodeError(format!("Failed to read JP2K data: {}", e)))?;
+    reader.read_to_end(&mut data)?;
     read_jp2k_cropped_mem(&data, box_)
 }
 

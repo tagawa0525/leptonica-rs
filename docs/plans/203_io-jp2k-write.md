@@ -91,11 +91,10 @@ pub fn read_jp2k_cropped_mem(data: &[u8], box_: &Box) -> IoResult<Pix>;
 
 ## ステータス
 
-- [x] 計画書作成
+- [x] 計画書作成 (9e78e04)
 - [x] hayro-jpeg2000 API 調査 (decoder-only、target_resolution あり)
 - [x] 純 Rust encoder の不在を確認
-- [ ] RED コミット (stub + テスト)
-- [ ] GREEN コミット (実装)
-- [ ] PR 作成・Copilot レビュー対応
+- [x] 実装 + テスト (282f9e2): scaled/cropped read 4 関数、io ignored 6→4
+- [x] PR 作成・Copilot レビュー対応 (PR #325)
 - [ ] /gh-pr-merge --merge
 - [ ] 031 全体計画書を「項目 F: 部分実装、書き込みは保留」に更新

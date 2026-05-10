@@ -76,18 +76,22 @@ fn jp2kio_reg_cropped_read() {
     // Smoke: full JP2K decode tests require a bundled .jp2 fixture, which is
     // not available in-tree. We verify the error paths regardless.
     use leptonica::core::Box;
+    use leptonica::io::IoError;
     use leptonica::io::jp2k::read_jp2k_cropped_mem;
+
     let bad: &[u8] = b"not a jpeg 2000 file";
     let any_box = Box::new(0, 0, 1, 1).unwrap();
     assert!(read_jp2k_cropped_mem(bad, &any_box).is_err());
 
-    // Negative or zero-extent boxes are rejected even with valid data — we
-    // can't construct valid data here, but we exercise the parameter-check
-    // branch by passing a degenerate box; the function should error before
-    // touching the bytes for clearly invalid box parameters in any future
-    // pre-decode validation, but for now any error is acceptable.
+    // Degenerate box is rejected before the JP2K parser is touched, so the
+    // error must be `InvalidData`. We even pass empty bytes to make sure the
+    // box check fires first.
     let bad_box = Box::new(0, 0, 0, 0).unwrap();
-    assert!(read_jp2k_cropped_mem(bad, &bad_box).is_err());
+    let err = read_jp2k_cropped_mem(b"", &bad_box).unwrap_err();
+    assert!(
+        matches!(err, IoError::InvalidData(_)),
+        "expected InvalidData for degenerate box, got {err:?}",
+    );
 }
 
 /// Test JP2K scaled read at different reductions (C checks 8-11).
