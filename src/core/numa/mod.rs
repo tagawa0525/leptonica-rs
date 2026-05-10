@@ -16,6 +16,18 @@ pub use operations::{
 };
 
 use crate::core::error::{Error, Result};
+use crate::core::sarray::Sarray;
+
+/// Format type for [`Numa::convert_to_sarray`].
+///
+/// C Leptonica constants: `L_INTEGER_VALUE`, `L_FLOAT_VALUE`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NumaSarrayType {
+    /// Format each value as an integer (truncated from f32).
+    Integer,
+    /// Format each value as a floating-point number.
+    Float,
+}
 
 /// Array of floating-point numbers
 ///
@@ -129,6 +141,63 @@ impl Numa {
             startx: 0.0,
             delx: 1.0,
         })
+    }
+
+    /// Build a Numa from a comma-separated string of numbers.
+    ///
+    /// Equivalent to `Numa::parse_from_string(s, ",")`. Whitespace around each
+    /// value is ignored.
+    ///
+    /// C Leptonica equivalent: `numaCreateFromString`.
+    pub fn create_from_string(s: &str) -> Result<Self> {
+        if s.is_empty() {
+            return Err(Error::InvalidParameter(
+                "input string must not be empty".to_string(),
+            ));
+        }
+        Self::parse_from_string(s, ",")
+    }
+
+    /// Copy `startx` and `delx` parameters from `other`.
+    ///
+    /// C Leptonica equivalent: `numaCopyParameters`.
+    pub fn copy_parameters(&mut self, other: &Numa) {
+        let (startx, delx) = other.parameters();
+        self.set_parameters(startx, delx);
+    }
+
+    /// Convert this Numa to a Sarray of formatted strings.
+    ///
+    /// `width` is the minimum field width; `precision` (only for `Float`) is
+    /// the digits after the decimal point. `pad_zeros` zero-pads integer
+    /// values up to `width`.
+    ///
+    /// C Leptonica equivalent: `numaConvertToSarray`.
+    pub fn convert_to_sarray(
+        &self,
+        width: usize,
+        precision: usize,
+        pad_zeros: bool,
+        value_type: NumaSarrayType,
+    ) -> Sarray {
+        let mut sa = Sarray::with_capacity(self.data.len());
+        for &v in &self.data {
+            let s = match value_type {
+                NumaSarrayType::Integer => {
+                    let i = v as i32;
+                    if pad_zeros {
+                        format!("{i:0>width$}")
+                    } else {
+                        format!("{i:>width$}")
+                    }
+                }
+                NumaSarrayType::Float => {
+                    format!("{v:>width$.precision$}")
+                }
+            };
+            sa.push(s);
+        }
+        sa
     }
 
     /// Get the number of values
@@ -480,6 +549,18 @@ impl Numaa {
         Self {
             numas: Vec::with_capacity(capacity),
         }
+    }
+
+    /// Create a Numaa pre-populated with `nptr` empty Numas, each with
+    /// reserved capacity `n`.
+    ///
+    /// C Leptonica equivalent: `numaaCreateFull`.
+    pub fn create_full(nptr: usize, n: usize) -> Self {
+        let mut naa = Self::with_capacity(nptr);
+        for _ in 0..nptr {
+            naa.push(Numa::with_capacity(n));
+        }
+        naa
     }
 
     /// Get the number of Numa
