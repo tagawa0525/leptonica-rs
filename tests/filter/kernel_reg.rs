@@ -287,3 +287,140 @@ fn kernel_reg_convolve_color() {
 
     assert!(rp.cleanup(), "kernel convolve color test failed");
 }
+
+// =====================================================================
+// gap-fill 第2弾 (plan 501): kernel.c 生成系 5 関数
+// =====================================================================
+
+/// C: makeFlatKernel(height, width, cy, cx) — rectangular flat kernel
+#[test]
+#[ignore = "not yet implemented (plan 501)"]
+fn kernel_reg_make_flat_5x3_off_center() {
+    let kel = Kernel::make_flat(5, 3, 2, 1).expect("make_flat 5x3 cy=2 cx=1");
+    assert_eq!(kel.width(), 3);
+    assert_eq!(kel.height(), 5);
+    assert_eq!(kel.center_x(), 1);
+    assert_eq!(kel.center_y(), 2);
+
+    // Each cell = 1 / (5*3) = 1/15
+    let expected = 1.0_f32 / 15.0;
+    for y in 0..5 {
+        for x in 0..3 {
+            let v = kel.get(x, y).unwrap();
+            assert!(
+                (v - expected).abs() < 1e-6,
+                "cell ({},{}) = {} expected {}",
+                x,
+                y,
+                v,
+                expected
+            );
+        }
+    }
+
+    // Sum should be ~1.0 (normalized)
+    assert!((kel.sum() - 1.0).abs() < 1e-5);
+}
+
+/// C: makeGaussianKernel(halfh, halfw, stdev, max) — peak value at center is `max`
+#[test]
+#[ignore = "not yet implemented (plan 501)"]
+fn kernel_reg_make_gaussian_peak_value() {
+    let max = 2.5_f32;
+    let kel = Kernel::make_gaussian(2, 2, 1.0, max).expect("make_gaussian halfh=halfw=2");
+    assert_eq!(kel.width(), 5);
+    assert_eq!(kel.height(), 5);
+    assert_eq!(kel.center_x(), 2);
+    assert_eq!(kel.center_y(), 2);
+
+    // Center value should equal `max`
+    let center = kel.get(2, 2).unwrap();
+    assert!(
+        (center - max).abs() < 1e-6,
+        "center = {}, expected {}",
+        center,
+        max
+    );
+
+    // Symmetry: kel[(0,0)] == kel[(0,4)] == kel[(4,0)] == kel[(4,4)]
+    let corner = kel.get(0, 0).unwrap();
+    assert!((kel.get(0, 4).unwrap() - corner).abs() < 1e-6);
+    assert!((kel.get(4, 0).unwrap() - corner).abs() < 1e-6);
+    assert!((kel.get(4, 4).unwrap() - corner).abs() < 1e-6);
+}
+
+/// C: makeGaussianKernelSep — separable Gaussian, product at center equals `max`
+#[test]
+#[ignore = "not yet implemented (plan 501)"]
+fn kernel_reg_make_gaussian_sep_product_equals_full() {
+    let max = 1.7_f32;
+    let stdev = 1.5_f32;
+    let halfh = 2_u32;
+    let halfw = 3_u32;
+
+    let (kelx, kely) =
+        Kernel::make_gaussian_sep(halfh, halfw, stdev, max).expect("make_gaussian_sep");
+
+    // kelx is 1×(2*halfw+1) horizontal
+    assert_eq!(kelx.width(), 2 * halfw + 1);
+    assert_eq!(kelx.height(), 1);
+    // kely is (2*halfh+1)×1 vertical
+    assert_eq!(kely.width(), 1);
+    assert_eq!(kely.height(), 2 * halfh + 1);
+
+    // Center product: kelx[(halfw, 0)] * kely[(0, halfh)] should ≈ max
+    let cx = kelx.get(halfw, 0).unwrap();
+    let cy = kely.get(0, halfh).unwrap();
+    let product = cx * cy;
+    assert!(
+        (product - max).abs() < 1e-5,
+        "center product = {} ({} * {}), expected {}",
+        product,
+        cx,
+        cy,
+        max
+    );
+
+    // Cross-check: separable convolution result equals full Gaussian
+    // Compare specific cell — full[(halfw, halfh)] == cx * cy = product = max
+    let full = Kernel::make_gaussian(halfh, halfw, stdev, max).expect("full gaussian");
+    let full_center = full.get(halfw, halfh).unwrap();
+    assert!((full_center - product).abs() < 1e-5);
+}
+
+/// C: makeDoGKernel — sum is zero (bandpass filter)
+#[test]
+#[ignore = "not yet implemented (plan 501)"]
+fn kernel_reg_make_dog_sum_zero() {
+    let kel = Kernel::make_dog(5, 5, 1.0, 2.0).expect("make_dog ratio=2.0");
+    assert_eq!(kel.width(), 11);
+    assert_eq!(kel.height(), 11);
+
+    // DoG kernel sums to ~0 (bandpass mother wavelet)
+    let s = kel.sum();
+    assert!(s.abs() < 1e-3, "DoG sum = {}, expected ~0", s);
+
+    // ratio == 1.0 → all elements should be 0 (no-op)
+    let noop = Kernel::make_dog(3, 3, 1.0, 1.0).expect("make_dog ratio=1.0");
+    for v in noop.data() {
+        assert!(
+            v.abs() < 1e-6,
+            "ratio=1.0 should produce zero kernel, got {}",
+            v
+        );
+    }
+}
+
+/// C: makeDoGKernel — ratio < 1.0 should be rejected
+#[test]
+#[ignore = "not yet implemented (plan 501)"]
+fn kernel_reg_make_dog_invalid_ratio() {
+    assert!(
+        Kernel::make_dog(3, 3, 1.0, 0.5).is_err(),
+        "ratio < 1.0 should be rejected"
+    );
+    assert!(
+        Kernel::make_dog(3, 3, 1.0, -1.0).is_err(),
+        "negative ratio should be rejected"
+    );
+}

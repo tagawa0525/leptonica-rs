@@ -97,6 +97,18 @@ impl Numa {
         }
     }
 
+    /// Parse a delimited string of numbers into a Numa.
+    ///
+    /// Each token (delimited by any character in `separators`) is parsed as
+    /// `f32`. Empty tokens are skipped (consecutive separators are allowed).
+    ///
+    /// C Leptonica equivalent: `parseStringForNumbers`.
+    pub fn parse_from_string(_s: &str, _separators: &str) -> Result<Self> {
+        Err(Error::InvalidParameter(
+            "parse_from_string not yet implemented (plan 501)".to_string(),
+        ))
+    }
+
     /// Get the number of values
     #[inline]
     pub fn len(&self) -> usize {

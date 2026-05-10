@@ -128,6 +128,52 @@ impl Kernel {
         })
     }
 
+    /// C: makeFlatKernel(height, width, cy, cx)
+    ///
+    /// Rectangular flat (low-pass) kernel with explicit origin.
+    /// Returns a normalized kernel (sum = 1.0).
+    pub fn make_flat(_height: u32, _width: u32, _cy: u32, _cx: u32) -> FilterResult<Self> {
+        Err(FilterError::InvalidKernel(
+            "make_flat not yet implemented (plan 501)".to_string(),
+        ))
+    }
+
+    /// C: makeGaussianKernel(halfh, halfw, stdev, max)
+    ///
+    /// Rectangular Gaussian kernel sized `(2*halfw+1, 2*halfh+1)` with peak
+    /// value `max` at the center. NOT normalized.
+    pub fn make_gaussian(_halfh: u32, _halfw: u32, _stdev: f32, _max: f32) -> FilterResult<Self> {
+        Err(FilterError::InvalidKernel(
+            "make_gaussian not yet implemented (plan 501)".to_string(),
+        ))
+    }
+
+    /// C: makeGaussianKernelSep(halfh, halfw, stdev, max) -> (kelx, kely)
+    ///
+    /// Returns `(kelx, kely)` such that consecutive separable convolution
+    /// reproduces the full Gaussian of [`Kernel::make_gaussian`].
+    pub fn make_gaussian_sep(
+        _halfh: u32,
+        _halfw: u32,
+        _stdev: f32,
+        _max: f32,
+    ) -> FilterResult<(Self, Self)> {
+        Err(FilterError::InvalidKernel(
+            "make_gaussian_sep not yet implemented (plan 501)".to_string(),
+        ))
+    }
+
+    /// C: makeDoGKernel(halfh, halfw, stdev, ratio)
+    ///
+    /// Difference of Gaussians (DoG) wavelet bandpass kernel. The element sum
+    /// is zero so callers must NOT normalize when convolving. `ratio` is the
+    /// ratio of the wide vs narrow standard deviations and must be `>= 1.0`.
+    pub fn make_dog(_halfh: u32, _halfw: u32, _stdev: f32, _ratio: f32) -> FilterResult<Self> {
+        Err(FilterError::InvalidKernel(
+            "make_dog not yet implemented (plan 501)".to_string(),
+        ))
+    }
+
     /// Create a Sobel kernel for horizontal edge detection
     pub fn sobel_horizontal() -> Self {
         Kernel {
