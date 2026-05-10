@@ -700,6 +700,88 @@ fn remove_duplicate_pts(pta: Pta) -> Pta {
     out
 }
 
+/// Generate a Pta line starting at `(x, y)`, of `length` pixels, at `radang`
+/// (radians, CW from horizontal).
+///
+/// `length` is clamped to `>= 1` (a 1-pixel line is the start point itself).
+/// Non-finite `length` or `radang` is treated as `1.0` / `0.0` respectively.
+/// The endpoint offset is rounded (not truncated) before converting to i32 to
+/// avoid bias toward zero on negative deltas.
+///
+/// C Leptonica equivalent: `generatePtaLineFromPt`.
+pub fn generate_pta_line_from_pt(x: i32, y: i32, length: f64, radang: f64) -> Pta {
+    let len = if length.is_finite() && length >= 1.0 {
+        length
+    } else {
+        1.0
+    };
+    let ang = if radang.is_finite() { radang } else { 0.0 };
+    let dx = ((len - 1.0) * ang.cos()).round() as i32;
+    let dy = ((len - 1.0) * ang.sin()).round() as i32;
+    generate_line_pta(x, y, x + dx, y + dy)
+}
+
+/// Locate a point at `dist` pixels from `(xr, yr)` along the line at `radang`
+/// (radians, CW from horizontal).
+///
+/// C Leptonica equivalent: `locatePtRadially`.
+pub fn locate_pt_radially(xr: i32, yr: i32, dist: f64, radang: f64) -> (f64, f64) {
+    (
+        xr as f64 + dist * radang.cos(),
+        yr as f64 + dist * radang.sin(),
+    )
+}
+
+/// Build a Pta representing a plot of `na` values, with default ref baseline
+/// derived from `plotloc`. Wraps [`make_plot_pta_from_numa_gen`].
+///
+/// C Leptonica equivalent: `makePlotPtaFromNuma`.
+///
+/// * `size` — full extent perpendicular to the plot direction (image height
+///   for horizontal plots, width for vertical)
+/// * `plotloc` — where the baseline sits in the image
+/// * `linewidth` — clamped to \[1, 7\]
+/// * `max` — maximum excursion in pixels from the baseline
+pub fn make_plot_pta_from_numa(
+    na: &crate::core::numa::Numa,
+    size: u32,
+    plotloc: PlotLocation,
+    linewidth: u32,
+    max: u32,
+) -> Result<Pta> {
+    if size == 0 {
+        return Err(Error::InvalidParameter(
+            "size must be > 0 for plot pta generation".to_string(),
+        ));
+    }
+    if max == 0 {
+        return Err(Error::InvalidParameter(
+            "max must be > 0 for plot pta generation".to_string(),
+        ));
+    }
+    if max >= size {
+        return Err(Error::InvalidParameter(format!(
+            "max ({max}) must be less than size ({size}) so the baseline fits in the image"
+        )));
+    }
+    let orient = match plotloc {
+        PlotLocation::Top | PlotLocation::MidHoriz | PlotLocation::Bottom => {
+            HashOrientation::Horizontal
+        }
+        PlotLocation::Left | PlotLocation::MidVert | PlotLocation::Right => {
+            HashOrientation::Vertical
+        }
+    };
+    // size and max are u32 with `max < size` guaranteed above, so all the
+    // i32 casts below are non-truncating.
+    let refpos: i32 = match plotloc {
+        PlotLocation::Left | PlotLocation::Top => max as i32,
+        PlotLocation::MidVert | PlotLocation::MidHoriz => (size / 2) as i32,
+        PlotLocation::Right | PlotLocation::Bottom => (size - max - 1) as i32,
+    };
+    make_plot_pta_from_numa_gen(na, orient, linewidth, refpos, max, true)
+}
+
 /// Build a Pta representing a plot of `na` values.
 ///
 /// Corresponds to C's `makePlotPtaFromNumaGen()` in `graphics.c`.
@@ -2169,5 +2251,45 @@ mod tests {
         // Some pixels should be non-zero
         let any_set = (0..80u32).any(|y| (0..100u32).any(|x| pm.get_pixel(x, y) != Some(0)));
         assert!(any_set);
+    }
+
+    // ====================================================================
+    // gap-fill 第2弾 (plan 115)
+    // ====================================================================
+
+    #[test]
+    fn test_locate_pt_radially_horizontal() {
+        // 水平方向 (radang=0): x' = xr + dist, y' = yr
+        let (x, y) = locate_pt_radially(10, 20, 5.0, 0.0);
+        assert!((x - 15.0).abs() < 1e-9);
+        assert!((y - 20.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_locate_pt_radially_45deg() {
+        // 45° (PI/4): cos = sin = √2/2, dist = √2 → +1, +1
+        use std::f64::consts::PI;
+        let (x, y) = locate_pt_radially(0, 0, std::f64::consts::SQRT_2, PI / 4.0);
+        assert!((x - 1.0).abs() < 1e-9);
+        assert!((y - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_generate_pta_line_from_pt_horizontal() {
+        // 始点 (5, 5), 長さ 10, 角度 0 → 終点 (5+9, 5)
+        let pta = generate_pta_line_from_pt(5, 5, 10.0, 0.0);
+        // 線分なので端点を含む点列
+        assert!(pta.len() >= 2);
+        let (fx, fy) = pta.get(0).unwrap();
+        assert!((fx - 5.0).abs() < 1e-3 && (fy - 5.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_make_plot_pta_from_numa_basic() {
+        use crate::core::numa::Numa;
+        let na = Numa::from_slice(&[0.0, 1.0, 2.0, 1.0, 0.0]);
+        // size=40, plotloc=Top, max=10, linewidth=1
+        let pta = make_plot_pta_from_numa(&na, 40, PlotLocation::Top, 1, 10).expect("plot pta");
+        assert!(!pta.is_empty(), "plot pta should not be empty");
     }
 }
