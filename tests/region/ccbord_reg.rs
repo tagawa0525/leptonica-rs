@@ -118,9 +118,10 @@ fn run_ccbord_test(fname: &str, rp: &mut RegParams) {
 
 /// Border tracing test using feyn-fract.tif
 ///
-/// Currently cannot run due to O(n_components * image_size) memory in Rust implementation.
+/// Previously ignored with a misleading "O(n_components * image_size)" memory
+/// notice. The actual problem was an infinite loop in the Moore tracer that
+/// grew the points vector until allocation hit 4 GiB; capped in PR #323.
 #[test]
-
 fn ccbord_reg_feyn_fract() {
     let mut rp = RegParams::new("ccbord_feyn_fract");
     run_ccbord_test("feyn-fract.tif", &mut rp);

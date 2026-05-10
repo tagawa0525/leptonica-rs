@@ -7,20 +7,15 @@
 //! - Outer borders are traced clockwise
 //! - Hole borders are traced counter-clockwise
 //!
-//! # Known Limitations
+//! # Robustness
 //!
-//! **Memory Efficiency Issue in `get_all_borders()`:**
-//! The current implementation has O(n_components * image_size) memory complexity.
-//! When processing images with many components (e.g., feyn-fract.tif), memory usage
-//! can exceed available RAM. This is due to the Vec-based component detection
-//! accumulating all components before processing, unlike the C reference implementation
-//! which processes components sequentially and releases memory immediately.
-//!
-//! **Workaround:** For large images with many components, consider:
-//! - Processing components iteratively rather than collecting all at once
-//! - Or breaking the image into smaller regions before calling `get_all_borders()`
-//!
-//! See `docs/plans/500_region-full-porting.md` Phase 5 for improvement plan.
+//! The Moore-tracing termination condition (back at the start with the
+//! same outgoing direction as on the first iteration) can fail to fire on
+//! ill-formed holes; both the outer and hole tracers therefore cap the
+//! number of recorded points at roughly the perimeter bound
+//! (`4 * (W + H) + 16`) and abort with `RegionError::InvalidParameters`
+//! when the cap is exceeded. Callers (`get_component_borders`,
+//! `get_all_borders`) skip just that border / component and continue.
 //!
 //! # Examples
 //!
@@ -977,8 +972,13 @@ pub fn get_outer_border(pix: &Pix, bounds: Option<&Box>) -> RegionResult<Border>
 
     // Trace the border. As with the hole tracer, cap the number of recorded
     // points at a multiple of the perimeter bound to prevent runaway growth
-    // when the standard termination condition fails to fire.
-    let max_points = 4 * (bwidth as usize + bheight as usize) + 16;
+    // when the standard termination condition fails to fire. Compute the cap
+    // in u64 then saturate-cast to usize so we cannot overflow on
+    // pathologically large images.
+    let max_points: usize = ((bwidth as u64 + bheight as u64)
+        .saturating_mul(4)
+        .saturating_add(16))
+    .min(usize::MAX as u64) as usize;
     while let Some((next, new_qpos)) =
         find_next_border_pixel(&bordered, bwidth, bheight, px, py, qpos)
     {
@@ -988,7 +988,7 @@ pub fn get_outer_border(pix: &Pix, bounds: Option<&Box>) -> RegionResult<Border>
         }
 
         points.push(BorderPoint::new(next.x - 1, next.y - 1));
-        if points.len() >= max_points {
+        if points.len() > max_points {
             return Err(RegionError::InvalidParameters(format!(
                 "outer border trace exceeded {max_points} points without closing"
             )));
@@ -1268,8 +1268,12 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
     // start with the same outgoing direction as on the first iteration) can
     // fail for ill-formed holes and let the trace run away. Cap the number
     // of points at a multiple of the perimeter bound `2*(W + H)` so we abort
-    // long before exhausting memory.
-    let max_points = 4 * (width as usize + height as usize) + 16;
+    // long before exhausting memory. Compute in u64 + saturating cast to
+    // avoid overflow on pathologically large images.
+    let max_points: usize = ((width as u64 + height as u64)
+        .saturating_mul(4)
+        .saturating_add(16))
+    .min(usize::MAX as u64) as usize;
     while let Some((next, new_qpos)) = find_next_border_pixel(pix, width, height, px, py, qpos) {
         // Check if we've completed the loop
         if px == fpx && py == fpy && next.x == spx && next.y == spy {
@@ -1277,7 +1281,7 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
         }
 
         points.push(next);
-        if points.len() >= max_points {
+        if points.len() > max_points {
             return Err(RegionError::InvalidParameters(format!(
                 "hole border trace exceeded {max_points} points without closing"
             )));
