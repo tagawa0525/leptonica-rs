@@ -944,10 +944,33 @@ pub fn find_skew_orthogonal_range(
 /// At the top and bottom we skip at least one scanline, no more than 10% of
 /// the image height, and no more than 5% of the image width. This is the
 /// score used internally by `find_skew_sweep_and_search`.
-pub fn find_differential_square_sum(_pix: &Pix) -> RecogResult<f32> {
-    Err(RecogError::InvalidParameter(
-        "find_differential_square_sum not yet implemented (plan 803-K)".to_string(),
-    ))
+pub fn find_differential_square_sum(pix: &Pix) -> RecogResult<f32> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let na = pix.count_by_row(None)?;
+    let w = pix.width() as i32;
+    let h = pix.height() as i32;
+    // Match C `pixFindDifferentialSquareSum`: skip = min(h/10, 0.05*w),
+    // nskip = max(skip/2, 1).
+    let skiph = (0.05 * w as f32) as i32;
+    let skip = (h / 10).min(skiph);
+    let nskip = (skip / 2).max(1) as usize;
+    let n = na.len();
+    if n < 2 * nskip + 2 {
+        return Ok(0.0);
+    }
+    let mut sum = 0.0f32;
+    for i in nskip..(n - nskip) {
+        let v1 = na.get(i - 1).unwrap_or(0.0);
+        let v2 = na.get(i).unwrap_or(0.0);
+        let diff = v2 - v1;
+        sum += diff * diff;
+    }
+    Ok(sum)
 }
 
 /// Per-axis normalized sum of squared row/column pixel-counts on a 1bpp image.
@@ -960,10 +983,43 @@ pub fn find_differential_square_sum(_pix: &Pix) -> RecogResult<f32> {
 /// All three are `0.0` if the image has no foreground.
 ///
 /// C Leptonica equivalent: `pixFindNormalizedSquareSum`.
-pub fn find_normalized_square_sum(_pix: &Pix) -> RecogResult<(f32, f32, f32)> {
-    Err(RecogError::InvalidParameter(
-        "find_normalized_square_sum not yet implemented (plan 803-K)".to_string(),
-    ))
+pub fn find_normalized_square_sum(pix: &Pix) -> RecogResult<(f32, f32, f32)> {
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+    let w = pix.width() as f32;
+    let h = pix.height() as f32;
+
+    // Horizontal (per-row) ratio
+    let na_h = pix.count_by_row(None)?;
+    let sum_h: f32 = na_h.iter().sum();
+    let fract = if w > 0.0 && h > 0.0 {
+        sum_h / (w * h)
+    } else {
+        0.0
+    };
+    if sum_h == 0.0 {
+        return Ok((0.0, 0.0, 0.0));
+    }
+    let uniform_h = sum_h * sum_h / h;
+    let sumsq_h: f32 = na_h.iter().map(|v| v * v).sum();
+    let hratio = sumsq_h / uniform_h;
+
+    // Vertical (per-column via 90° rotation)
+    let pix_rot = crate::transform::rotate_orth(pix, 1)?;
+    let na_v = pix_rot.count_by_row(None)?;
+    let sum_v: f32 = na_v.iter().sum();
+    if sum_v == 0.0 {
+        return Ok((hratio, 0.0, fract));
+    }
+    let uniform_v = sum_v * sum_v / w;
+    let sumsq_v: f32 = na_v.iter().map(|v| v * v).sum();
+    let vratio = sumsq_v / uniform_v;
+
+    Ok((hratio, vratio, fract))
 }
 
 #[cfg(test)]

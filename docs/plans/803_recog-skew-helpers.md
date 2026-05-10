@@ -1,7 +1,8 @@
 # Recog: skew.c の補助 2 関数 (plan 032 カテゴリ K)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-10
+完了日: 2026-05-10
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ K
 
 ## 対象 C 関数
@@ -27,7 +28,7 @@ pub fn find_normalized_square_sum(pix: &Pix) -> RecogResult<(f32, f32, f32)>;
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] PR + Copilot レビュー対応 + マージ
-- [ ] docs/porting/comparison/recog.md で 2 件 ❌ → ✅
-- [ ] docs/plans/032 で K を IMPLEMENTED に
+- [x] cargo test/clippy/fmt 通過
+- [x] PR + Copilot レビュー対応 + マージ
+- [x] docs/porting/comparison/recog.md で 2 件 ❌ → ✅
+- [x] docs/plans/032 で K を IMPLEMENTED に

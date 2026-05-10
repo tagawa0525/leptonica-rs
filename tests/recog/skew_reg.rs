@@ -91,7 +91,7 @@ use leptonica::recog::skew::{find_differential_square_sum, find_normalized_squar
 
 /// C: pixFindDifferentialSquareSum — 平坦画像では sum=0 になる
 #[test]
-#[ignore = "not yet implemented (plan 803-K)"]
+
 fn skew_reg_differential_square_sum_uniform() {
     let pix = Pix::new(64, 64, leptonica::PixelDepth::Bit1).expect("new 1bpp");
     // 全 0 (BG only): すべての行で count=0 → diff=0 → sum=0
@@ -101,7 +101,7 @@ fn skew_reg_differential_square_sum_uniform() {
 
 /// C: pixFindDifferentialSquareSum — 縞模様では sum > 0
 #[test]
-#[ignore = "not yet implemented (plan 803-K)"]
+
 fn skew_reg_differential_square_sum_stripes() {
     let pix = Pix::new(64, 64, leptonica::PixelDepth::Bit1).expect("new 1bpp");
     let mut pm = pix.try_into_mut().expect("into_mut");
@@ -118,7 +118,7 @@ fn skew_reg_differential_square_sum_stripes() {
 
 /// C: pixFindNormalizedSquareSum — 全 0 画像では fract=0
 #[test]
-#[ignore = "not yet implemented (plan 803-K)"]
+
 fn skew_reg_normalized_square_sum_empty() {
     let pix = Pix::new(64, 64, leptonica::PixelDepth::Bit1).expect("new 1bpp");
     let (h, v, f) = find_normalized_square_sum(&pix).expect("normalized");
@@ -129,7 +129,7 @@ fn skew_reg_normalized_square_sum_empty() {
 
 /// C: pixFindNormalizedSquareSum — 一様塗り画像では hratio = vratio = 1.0
 #[test]
-#[ignore = "not yet implemented (plan 803-K)"]
+
 fn skew_reg_normalized_square_sum_uniform_full() {
     let pix = Pix::new(32, 32, leptonica::PixelDepth::Bit1).expect("new 1bpp");
     let mut pm = pix.try_into_mut().expect("into_mut");
