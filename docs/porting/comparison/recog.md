@@ -5,7 +5,7 @@
 ## サマリー
 
 | 項目      | 数  |
-| --------- | --- |
+|
 | ✅ 同等   | 132 |
 | 🔄 異なる | 45  |
 | 🚫 不要   | 18  |
@@ -21,7 +21,7 @@
 #### recog/recog/train.rs (recogbasic.c)
 
 | C関数                       | 状態 | Rust対応                                   | 備考                                    |
-| --------------------------- | ---- | ------------------------------------------ | --------------------------------------- |
+|
 | recogCreateFromRecog        | ✅   | recog::train::create_from_recog()          | 既存recogから新しいrecog生成（free fn） |
 | recogCreateFromPixa         | ✅   | recog::create_from_pixa                    | ラベル付きPixaから認識器を作成          |
 | recogCreateFromPixaNoFinish | ✅   | recog::train::create_from_pixa_no_finish() | 訓練未完了のrecog作成（free fn）        |
@@ -33,16 +33,16 @@
 #### recog/recog/query.rs (recogbasic.c)
 
 | C関数                 | 状態 | Rust対応                | 備考                          |
-| --------------------- | ---- | ----------------------- | ----------------------------- |
+|
 | recogGetClassIndex    | ✅   | Recog::get_class_index  | 文字値からインデックス取得    |
 | recogStringToIndex    | ✅   | Recog::string_to_index  | 文字列からインデックス取得    |
-| recogGetClassString   | ✅   | Recog::get_class_string | インデックス→クラス名         |
+| recogGetClassString   | ✅   | Recog::get_class_string | インデックス→クラス名        |
 | l_convertCharstrToInt | 🔄   | Recog::string_to_index  | UTF-8コードポイントとして統合 |
 
 #### recog/recog/io.rs (recogbasic.c)
 
 | C関数            | 状態 | Rust対応            | 備考                                |
-| ---------------- | ---- | ------------------- | ----------------------------------- |
+|
 | recogExtractPixa | ✅   | Recog::extract_pixa | recogから全サンプルをPixaとして抽出 |
 | recogRead        | 🔄   | Recog::read()       | ファイルからrecog読み込み           |
 | recogReadStream  | 🔄   | Recog::read()       | ストリームからrecog読み込み         |
@@ -56,7 +56,7 @@
 #### recog/recog/did.rs (recogdid.c)
 
 | C関数                 | 状態 | Rust対応                | 備考                                                       |
-| --------------------- | ---- | ----------------------- | ---------------------------------------------------------- |
+|
 | recogDecode           | ✅   | Recog::decode           | HMMベースのデコーディング                                  |
 | recogCreateDid        | ✅   | Recog::create_did       | DID構造体の作成                                            |
 | recogDestroyDid       | ✅   | Recog::destroy_did      | DID構造体の破棄                                            |
@@ -69,7 +69,7 @@
 #### recog/recog/ident.rs (recogident.c)
 
 | C関数                    | 状態 | Rust対応                     | 備考                     |
-| ------------------------ | ---- | ---------------------------- | ------------------------ |
+|
 | recogIdentifyMultiple    | ✅   | Recog::identify_multiple     | 複数文字の認識           |
 | recogSplitIntoCharacters | ✅   | Recog::split_into_characters | 文字分割                 |
 | recogCorrelationBestRow  | ✅   | Recog::correlation_best_row  | 最良相関行の検索         |
@@ -86,7 +86,7 @@
 #### recog/recog/types.rs (recogident.c)
 
 | C関数       | 状態 | Rust対応      | 備考                    |
-| ----------- | ---- | ------------- | ----------------------- |
+|
 | rchaExtract | ✅   | Rcha::extract | Rcha配列からデータ抽出  |
 | rchExtract  | ✅   | Rch::extract  | Rch構造体からデータ抽出 |
 
@@ -95,7 +95,7 @@
 #### recog/recog/train.rs (recogtrain.c)
 
 | C関数                     | 状態 | Rust対応                                | 備考                                          |
-| ------------------------- | ---- | --------------------------------------- | --------------------------------------------- |
+|
 | recogTrainLabeled         | ✅   | Recog::train_labeled                    | ラベル付きサンプルで訓練                      |
 | recogProcessLabeled       | ✅   | Recog::process_labeled                  | ラベル付きサンプルの処理                      |
 | recogAddSample            | ✅   | Recog::add_sample                       | サンプルの追加                                |
@@ -117,7 +117,7 @@
 #### recog/recog/bootstrap.rs (recogtrain.c)
 
 | C関数                       | 状態 | Rust対応                                 | 備考                                 |
-| --------------------------- | ---- | ---------------------------------------- | ------------------------------------ |
+|
 | recogAddDigitPadTemplates   | 🔄   | pad_digit_training_set 内部実装          | 数字パッドテンプレート追加           |
 | recogMakeBootDigitTemplates | 🔄   | make_boot_digit_recog 内部実装           | ブートストラップ数字テンプレート作成 |
 | recogTrainFromBoot          | ✅   | recog::bootstrap::train_from_boot        | ブートストラップ認識器から訓練       |
@@ -128,7 +128,7 @@
 #### recog/recog/ident.rs (recogtrain.c)
 
 | C関数                 | 状態 | Rust対応                   | 備考                           |
-| --------------------- | ---- | -------------------------- | ------------------------------ |
+|
 | recogFilterPixaBySize | ✅   | Recog::filter_pixa_by_size | サイズによるPixaフィルタリング |
 
 ### pageseg.c (Page Segmentation)
@@ -136,7 +136,7 @@
 #### recog/pageseg.rs (pageseg.c)
 
 | C関数                        | 状態 | Rust対応                             | 備考                     |
-| ---------------------------- | ---- | ------------------------------------ | ------------------------ |
+|
 | pixGetRegionsBinary          | ✅   | pageseg::segment_regions             | 2値画像から領域抽出      |
 | pixFindPageForeground        | ✅   | find_page_foreground                 | ページ前景の検出         |
 | pixSplitIntoCharacters       | ✅   | pix_split_into_characters            | 文字への分割             |
@@ -149,7 +149,7 @@
 #### recog/skew.rs (skew.c)
 
 | C関数                               | 状態 | Rust対応                                     | 備考                                  |
-| ----------------------------------- | ---- | -------------------------------------------- | ------------------------------------- |
+|
 | pixFindSkewAndDeskew                | ✅   | skew::find_skew_and_deskew                   | 傾き検出と補正                        |
 | pixFindSkew                         | ✅   | skew::find_skew                              | 傾き検出                              |
 | pixFindSkewSweep                    | ✅   | find_skew_sweep                              | スイープによる傾き検出                |
@@ -163,7 +163,7 @@
 #### recog/dewarp/types.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
 | C関数           | 状態 | Rust対応           | 備考                       |
-| --------------- | ---- | ------------------ | -------------------------- |
+|
 | dewarpCreate    | ✅   | Dewarp::new        | Dewarp構造体作成           |
 | dewarpCreateRef | ✅   | Dewarp::create_ref | 参照ページ指定のDewarp作成 |
 | dewarpMinimize  | ✅   | Dewarp::minimize   | Dewarpの最小化             |
@@ -171,7 +171,7 @@
 #### recog/dewarp/dewarpa.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
 | C関数                     | 状態 | Rust対応                      | 備考                                |
-| ------------------------- | ---- | ----------------------------- | ----------------------------------- |
+|
 | dewarpRead                | ✅   | Dewarp::read                  | Dewarp読み込み                      |
 | dewarpReadStream          | ✅   | Dewarp::read<R: Read>         | Dewarpストリーム読み込み            |
 | dewarpReadMem             | 🔄   | Dewarp::read (Cursor利用)     | Dewarpメモリ読み込み                |
@@ -211,7 +211,7 @@
 #### recog/dewarp/model.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
 | C関数                         | 状態 | Rust対応                                  | 備考               |
-| ----------------------------- | ---- | ----------------------------------------- | ------------------ |
+|
 | dewarpBuildPageModel          | ✅   | dewarp::model::build_page_model           | モデル構築         |
 | dewarpFindVertDisparity       | ✅   | dewarp::model::build_vertical_disparity   | 垂直歪み検出       |
 | dewarpFindHorizDisparity      | ✅   | dewarp::model::build_horizontal_disparity | 水平歪み検出       |
@@ -222,26 +222,26 @@
 #### recog/dewarp/textline.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
 | C関数                    | 状態 | Rust対応                      | 備考                   |
-| ------------------------ | ---- | ----------------------------- | ---------------------- |
+|
 | dewarpGetTextlineCenters | ✅   | dewarp::find_textline_centers | テキストライン中心検出 |
 | dewarpRemoveShortLines   | ✅   | dewarp::remove_short_lines    | 短い線の除去           |
 
 #### recog/dewarp/apply.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
 | C関数                 | 状態 | Rust対応                       | 備考         |
-| --------------------- | ---- | ------------------------------ | ------------ |
+|
 | dewarpaApplyDisparity | ✅   | dewarp::apply::apply_disparity | 歪み補正適用 |
 
 #### recog/dewarp/mod.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
 | C関数            | 状態 | Rust対応                   | 備考                 |
-| ---------------- | ---- | -------------------------- | -------------------- |
+|
 | dewarpSinglePage | ✅   | dewarp::dewarp_single_page | 単一ページの歪み補正 |
 
 #### recog/dewarp/single_page.rs (dewarp1.c, dewarp2.c, dewarp3.c, dewarp4.c)
 
 | C関数                | 状態 | Rust対応                        | 備考                       |
-| -------------------- | ---- | ------------------------------- | -------------------------- |
+|
 | dewarpSinglePageInit | ✅   | dewarp::dewarp_single_page_init | 単一ページ歪み補正の初期化 |
 | dewarpSinglePageRun  | ✅   | dewarp::dewarp_single_page_run  | 単一ページ歪み補正の実行   |
 
@@ -250,7 +250,7 @@
 #### recog/baseline.rs (baseline.c)
 
 | C関数                    | 状態 | Rust対応                                  | 備考                   |
-| ------------------------ | ---- | ----------------------------------------- | ---------------------- |
+|
 | pixFindBaselines         | ✅   | baseline::find_baselines                  | ベースライン検出       |
 | pixFindBaselinesGen      | 🔄   | baseline::find_baselines (オプション指定) | 汎用ベースライン検出   |
 | pixGetLocalSkewAngles    | ✅   | baseline::get_local_skew_angles           | ローカル傾き角配列     |
@@ -262,7 +262,7 @@
 #### recog/jbclass/classify.rs (jbclass.c)
 
 | C関数                              | 状態 | Rust対応                                     | 備考                                 |
-| ---------------------------------- | ---- | -------------------------------------------- | ------------------------------------ |
+|
 | jbRankHausInit                     | ✅   | jbclass::rank_haus_init                      | Rank Hausdorff分類器初期化           |
 | jbCorrelationInit                  | ✅   | jbclass::correlation_init                    | 相関ベース分類器初期化               |
 | jbCorrelationInitWithoutComponents | ✅   | jbclass::correlation_init_without_components | コンポーネントなし相関分類器初期化   |
@@ -292,7 +292,7 @@
 #### recog/jbclass/io.rs (jbclass.c)
 
 | C関数       | 状態 | Rust対応        | 備考                      |
-| ----------- | ---- | --------------- | ------------------------- |
+|
 | jbDataRead  | 🔄   | JbData::read()  | データ読み込み（I/O追加） |
 | jbDataWrite | 🔄   | JbData::write() | データ書き込み（I/O追加） |
 
@@ -301,14 +301,14 @@
 #### recog/jbclass/classify.rs (classapp.c)
 
 | C関数         | 状態 | Rust対応                | 備考                      |
-| ------------- | ---- | ----------------------- | ------------------------- |
+|
 | jbCorrelation | ✅   | jbclass::jb_correlation | 相関ベース高レベルAPI     |
 | jbRankHaus    | ✅   | jbclass::jb_rank_haus   | Rank Hausdorff高レベルAPI |
 
 #### recog/pageseg.rs (classapp.c)
 
 | C関数                      | 状態 | Rust対応                             | 備考                               |
-| -------------------------- | ---- | ------------------------------------ | ---------------------------------- |
+|
 | jbWordsInTextlines         | 🔄   | pageseg::get_words_in_textlines      | classappの分類器処理は未移植       |
 | pixGetWordsInTextlines     | ✅   | pageseg::get_words_in_textlines      | テキストライン内の単語取得         |
 | pixGetWordBoxesInTextlines | ✅   | pageseg::get_word_boxes_in_textlines | テキストライン内の単語ボックス取得 |
@@ -316,7 +316,7 @@
 #### recog/classapp.rs (classapp.c)
 
 | C関数                        | 状態 | Rust対応                                | 備考                         |
-| ---------------------------- | ---- | --------------------------------------- | ---------------------------- |
+|
 | pixFindWordAndCharacterBoxes | ✅   | classapp::find_word_and_character_boxes | 単語および文字ボックスの検出 |
 | boxaExtractSortedPattern     | ✅   | classapp::boxa_extract_sorted_pattern   | パターンに基づくBoxa抽出     |
 | numaaCompareImagesByBoxes    | ✅   | classapp::numaa_compare_images_by_boxes | ボックスベースの画像比較     |
@@ -326,7 +326,7 @@
 #### recog/mod.rs (bootnumgen1.c, bootnumgen2.c, bootnumgen3.c, bootnumgen4.c)
 
 | C関数          | 状態 | Rust対応 | 備考                                                      |
-| -------------- | ---- | -------- | --------------------------------------------------------- |
+|
 | l_bootnum_gen1 | 🚫   | -        | ブートストラップ数字セット1（組み込みデータジェネレータ） |
 | l_bootnum_gen2 | 🚫   | -        | ブートストラップ数字セット2（組み込みデータジェネレータ） |
 | l_bootnum_gen3 | 🚫   | -        | ブートストラップ数字セット3（組み込みデータジェネレータ） |
@@ -337,7 +337,7 @@
 #### recog/barcode/decode.rs (bardecode.c)
 
 | C関数                    | 状態 | Rust対応              | 備考                           |
-| ------------------------ | ---- | --------------------- | ------------------------------ |
+|
 | barcodeDispatchDecoder   | 🔄   | dispatch_decoder()    | バーコードデコーダディスパッチ |
 | barcodeFormatIsSupported | 🔄   | is_format_supported() | フォーマットサポート確認       |
 
@@ -346,14 +346,14 @@
 #### recog/barcode/mod.rs (readbarcode.c)
 
 | C関数              | 状態 | Rust対応                  | 備考                       |
-| ------------------ | ---- | ------------------------- | -------------------------- |
+|
 | pixProcessBarcodes | ✅   | barcode::process_barcodes | バーコード処理             |
 | pixReadBarcodes    | ✅   | read_barcodes             | Pixaからバーコード読み取り |
 
 #### recog/barcode/detect.rs (readbarcode.c)
 
 | C関数                  | 状態 | Rust対応         | 備考               |
-| ---------------------- | ---- | ---------------- | ------------------ |
+|
 | pixExtractBarcodes     | ✅   | extract_barcodes | バーコード抽出     |
 | pixLocateBarcodes      | ✅   | locate_barcodes  | バーコード位置検出 |
 | pixDeskewBarcode       | ✅   | deskew_barcode   | バーコード傾き補正 |
@@ -362,7 +362,7 @@
 #### recog/barcode/signal.rs (readbarcode.c)
 
 | C関数                      | 状態 | Rust対応                                | 備考                                  |
-| -------------------------- | ---- | --------------------------------------- | ------------------------------------- |
+|
 | pixReadBarcodeWidths       | 🔄   | barcode::signal::extract_barcode_widths | バーコード幅読み取り（Direction対応） |
 | pixExtractBarcodeWidths1   | 🔄   | barcode::signal::extract_barcode_widths | バーコード幅抽出（統合API）           |
 | pixExtractBarcodeWidths2   | 🔄   | barcode::signal::extract_barcode_widths | バーコード幅抽出（統合API）           |
@@ -371,7 +371,7 @@
 #### core/numa/operations.rs (readbarcode.c)
 
 | C関数                   | 状態 | Rust対応                     | 備考                                   |
-| ----------------------- | ---- | ---------------------------- | -------------------------------------- |
+|
 | numaFindLocForThreshold | ✅   | Numa::find_loc_for_threshold | numafunc2.c由来。readbarcode.cではない |
 
 ## 実装状況の分析（Phase 1-13 完了後 2026-02-22）
@@ -445,7 +445,7 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 ### pageseg.c (追加分)
 
 | C関数                   | 状態 | Rust対応                                       | 備考                          |
-| ----------------------- | ---- | ---------------------------------------------- | ----------------------------- |
+|
 | pixAutoPhotoinvert      | ✅   | `auto_photoinvert` (recog/pageseg.rs)          | name+module match             |
 | pixCleanImage           | ❌   | -                                              | no Rust impl in expected dirs |
 | pixCountTextColumns     | ❌   | -                                              | no Rust impl in expected dirs |
@@ -468,14 +468,14 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 ### readbarcode.c (追加分)
 
 | C関数                         | 状態 | Rust対応                                                 | 備考              |
-| ----------------------------- | ---- | -------------------------------------------------------- | ----------------- |
+|
 | numaQuantizeCrossingsByWidth  | ✅   | `quantize_crossings_by_width` (recog/barcode/signal.rs)  | name+module match |
 | numaQuantizeCrossingsByWindow | ✅   | `quantize_crossings_by_window` (recog/barcode/signal.rs) | name+module match |
 
 ### skew.c (追加分)
 
 | C関数                        | 状態 | Rust対応                         | 備考                          |
-| ---------------------------- | ---- | -------------------------------- | ----------------------------- |
+|
 | pixDeskew                    | ✅   | `deskew` (recog/skew.rs)         | name+module match             |
 | pixDeskewBoth                | ✅   | `deskew_both` (recog/skew.rs)    | name+module match             |
 | pixDeskewGeneral             | ✅   | `deskew_general` (recog/skew.rs) | name+module match             |

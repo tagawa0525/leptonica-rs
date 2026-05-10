@@ -5,7 +5,7 @@
 ## サマリー
 
 | 項目      | 数 |
-| --------- | -- |
+|
 | ✅ 同等   | 65 |
 | 🔄 異なる | 8  |
 | 🚫 不要   | 22 |
@@ -21,7 +21,7 @@
 #### region/conncomp.rs (conncomp.c)
 
 | C関数               | 状態 | Rust対応                  | 備考                                                      |
-| ------------------- | ---- | ------------------------- | --------------------------------------------------------- |
+|
 | pixConnComp         | 🔄   | find_connected_components | 異なるAPI: Rust版はVec<ConnectedComponent>を返す          |
 | pixConnCompPixa     | ✅   | conncomp_pixa()           | -                                                         |
 | pixConnCompBB       | 🔄   | find_connected_components | 異なるAPI: bounding box情報はConnectedComponentに含まれる |
@@ -36,7 +36,7 @@
 #### region/label.rs (conncomp.c)
 
 | C関数            | 状態 | Rust対応                        | 備考 |
-| ---------------- | ---- | ------------------------------- | ---- |
+|
 | pixCountConnComp | ✅   | pix_count_components (label.rs) | -    |
 
 ### ccbord.c
@@ -44,7 +44,7 @@
 #### region/ccbord.rs (ccbord.c)
 
 | C関数                     | 状態 | Rust対応                          | 備考                                    |
-| ------------------------- | ---- | --------------------------------- | --------------------------------------- |
+|
 | ccbaCreate                | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
 | ccbaDestroy               | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
 | ccbCreate                 | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
@@ -83,7 +83,7 @@
 #### region/seedfill.rs (seedfill.c)
 
 | C関数                       | 状態 | Rust対応                           | 備考                                                      |
-| --------------------------- | ---- | ---------------------------------- | --------------------------------------------------------- |
+|
 | pixSeedfillBinary           | 🔄   | seedfill_binary                    | C版の形態学的再構成と異なり、Rust版は座標ベースflood fill |
 | pixSeedfillBinaryRestricted | ✅   | seedfill_binary_restricted()       | -                                                         |
 | pixHolesByFilling           | ✅   | fill_holes                         | -                                                         |
@@ -118,7 +118,7 @@
 #### region/watershed.rs (watershed.c)
 
 | C関数             | 状態 | Rust対応                  | 備考                                        |
-| ----------------- | ---- | ------------------------- | ------------------------------------------- |
+|
 | wshedCreate       | 🚫   | -                         | C構造体管理: RustではWatershedOptionsを使用 |
 | wshedDestroy      | 🚫   | -                         | C構造体管理: RustではDropで自動解放         |
 | wshedApply        | 🔄   | watershed_segmentation    | 異なるAPI: WatershedOptionsを使用           |
@@ -131,7 +131,7 @@
 #### region/label.rs (pixlabel.c)
 
 | C関数                      | 状態 | Rust対応                         | 備考 |
-| -------------------------- | ---- | -------------------------------- | ---- |
+|
 | pixConnCompTransform       | ✅   | conn_comp_transform              | -    |
 | pixConnCompIncrInit        | ✅   | pix_conn_comp_incr_init          |      |
 | pixConnCompIncrAdd         | ✅   | pix_conn_comp_incr_add           |      |
@@ -141,7 +141,7 @@
 #### region/conncomp.rs (pixlabel.c)
 
 | C関数                    | 状態 | Rust対応                 | 備考 |
-| ------------------------ | ---- | ------------------------ | ---- |
+|
 | pixConnCompAreaTransform | ✅   | component_area_transform | -    |
 
 ### quadtree.c
@@ -149,7 +149,7 @@
 #### region/quadtree.rs (quadtree.c)
 
 | C関数                  | 状態 | Rust対応                     | 備考                          |
-| ---------------------- | ---- | ---------------------------- | ----------------------------- |
+|
 | pixQuadtreeMean        | ✅   | quadtree_mean                | -                             |
 | pixQuadtreeVariance    | ✅   | quadtree_variance            | -                             |
 | pixMeanInRectangle     | ✅   | mean_in_rectangle            | -                             |
@@ -165,7 +165,7 @@
 #### region/maze.rs (maze.c)
 
 | C関数               | 状態 | Rust対応             | 備考 |
-| ------------------- | ---- | -------------------- | ---- |
+|
 | generateBinaryMaze  | ✅   | generate_binary_maze | -    |
 | pixSearchBinaryMaze | ✅   | search_binary_maze   | -    |
 | pixSearchGrayMaze   | ✅   | search_gray_maze()   | -    |
@@ -222,7 +222,7 @@
 ### ファイル別実装率
 
 | ファイル    | 実装済 | 未実装 | 不要 | 実装率 |
-| ----------- | ------ | ------ | ---- | ------ |
+| ----------- |
 | conncomp.c  | 11     | 0      | 0    | 100.0% |
 | ccbord.c    | 20     | 0      | 12   | 100.0% |
 | seedfill.c  | 21     | 0      | 7    | 100.0% |

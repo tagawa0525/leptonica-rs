@@ -5,7 +5,7 @@
 ## サマリー
 
 | 項目      | 数  |
-| --------- | --- |
+|
 | ✅ 同等   | 112 |
 | 🔄 異なる | 0   |
 | 🚫 不要   | 13  |
@@ -21,7 +21,7 @@
 #### filter/block_conv.rs (convolve.c)
 
 | C関数                        | 状態 | Rust対応                      | 備考                                   |
-| ---------------------------- | ---- | ----------------------------- | -------------------------------------- |
+|
 | pixBlockconv                 | ✅   | blockconv()                   | ブロック畳み込み(自動でgray/color判定) |
 | pixBlockconvGray             | ✅   | blockconv_gray()              | グレースケールブロック畳み込み         |
 | pixBlockconvAccum            | ✅   | blockconv_accum()             | 畳み込み用アキュムレータ               |
@@ -32,7 +32,7 @@
 #### filter/windowed.rs (convolve.c)
 
 | C関数                 | 状態 | Rust対応               | 備考                                               |
-| --------------------- | ---- | ---------------------- | -------------------------------------------------- |
+|
 | pixWindowedStats      | ✅   | windowed_stats()       | ウィンドウ統計量(mean, mean-square, variance, RMS) |
 | pixWindowedMean       | ✅   | windowed_mean()        | ウィンドウ平均                                     |
 | pixWindowedMeanSquare | ✅   | windowed_mean_square() | ウィンドウ平均二乗                                 |
@@ -42,7 +42,7 @@
 #### filter/convolve.rs (convolve.c)
 
 | C関数                 | 状態 | Rust対応             | 備考                                                   |
-| --------------------- | ---- | -------------------- | ------------------------------------------------------ |
+|
 | pixBlockrank          | ✅   | blockrank()          | バイナリブロックランクフィルタ                         |
 | pixBlocksum           | ✅   | blocksum()           | バイナリブロック和                                     |
 | pixCensusTransform    | ✅   | census_transform()   | センサス変換                                           |
@@ -62,7 +62,7 @@
 #### filter/kernel.rs (kernel.c)
 
 | C関数                  | 状態 | Rust対応                                 | 備考                          |
-| ---------------------- | ---- | ---------------------------------------- | ----------------------------- |
+|
 | kernelCreate           | ✅   | Kernel::new()                            | カーネル生成（初期値ゼロ）    |
 | kernelGetElement       | ✅   | Kernel::get()                            | 要素読み込み                  |
 | kernelSetElement       | ✅   | Kernel::set()                            | 要素書き込み                  |
@@ -89,7 +89,7 @@
 #### filter/edge.rs (edge.c)
 
 | C関数                    | 状態 | Rust対応                | 備考                                     |
-| ------------------------ | ---- | ----------------------- | ---------------------------------------- |
+|
 | pixSobelEdgeFilter       | ✅   | sobel_edge()            | Sobelエッジ検出                          |
 | pixTwoSidedEdgeFilter    | ✅   | two_sided_edge_filter   | 両側エッジ勾配フィルタ                   |
 | pixMeasureEdgeSmoothness | ✅   | measure_edge_smoothness | エッジ滑らかさ測定 (returns l_ok)        |
@@ -102,7 +102,7 @@
 #### filter/enhance.rs (enhance.c)
 
 | C関数                 | 状態 | Rust対応               | 備考                                 |
-| --------------------- | ---- | ---------------------- | ------------------------------------ |
+|
 | pixGammaTRC           | ✅   | gamma_trc_pix()        | ガンマTRCマッピング                  |
 | pixGammaTRCMasked     | ✅   | gamma_trc_masked()     | マスク付きガンマTRC                  |
 | pixGammaTRCWithAlpha  | ✅   | gamma_trc_with_alpha() | アルファチャンネル付きガンマTRC      |
@@ -129,7 +129,7 @@
 #### filter/edge.rs (enhance.c)
 
 | C関数                     | 状態 | Rust対応                    | 備考                                                  |
-| ------------------------- | ---- | --------------------------- | ----------------------------------------------------- |
+|
 | pixUnsharpMaskingFast     | ✅   | unsharp_masking_fast()      | 高速アンシャープマスキング(カラー対応)                |
 | pixUnsharpMaskingGrayFast | ✅   | unsharp_masking_gray_fast() | 高速グレースケールアンシャープマスキング              |
 | pixUnsharpMaskingGray1D   | 🚫   | -                           | unsharp_masking_gray_fast()の内部ヘルパー（実装済み） |
@@ -141,7 +141,7 @@
 #### filter/bilateral.rs (bilateral.c)
 
 | C関数                  | 状態 | Rust対応                | 備考                                                    |
-| ---------------------- | ---- | ----------------------- | ------------------------------------------------------- |
+|
 | pixBilateral           | ✅   | bilateral()             | 高速分離可能バイラテラルフィルタ(カラー/グレー自動判定) |
 | pixBilateralGray       | ✅   | bilateral_gray()        | 高速分離可能バイラテラルフィルタ(グレースケール)        |
 | pixBlockBilateralExact | ✅   | block_bilateral_exact() | ブロックベース厳密バイラテラルフィルタ                  |
@@ -154,7 +154,7 @@
 #### filter/adaptmap.rs (adaptmap.c)
 
 | C関数                           | 状態 | Rust対応                           | 備考                                           |
-| ------------------------------- | ---- | ---------------------------------- | ---------------------------------------------- |
+|
 | pixCleanBackgroundToWhite       | ✅   | clean_background_to_white()        | 背景を白にクリーン化                           |
 | pixBackgroundNormMorph          | ✅   | background_norm_morph()            | モルフォロジーベース背景正規化                 |
 | pixBackgroundNormGrayArray      | ✅   | background_norm_gray_array()       | グレー背景正規化配列                           |
@@ -176,7 +176,7 @@
 | pixGlobalNormNoSatRGB           | ✅   | global_norm_no_sat_rgb()           | 彩度保持グローバルRGB正規化                    |
 | pixThresholdSpreadNorm          | ✅   | threshold_spread_norm()            | 閾値スプレッド正規化                           |
 | pixBackgroundNormFlex           | ✅   | background_norm_flex()             | フレキシブル背景正規化                         |
-| pixBackgroundNormTo1MinMax      | ✅   | background_norm_to_1_min_max()     | 背景正規化→1 bpp MinMax                        |
+| pixBackgroundNormTo1MinMax      | ✅   | background_norm_to_1_min_max()     | 背景正規化→1 bpp MinMax                       |
 | pixConvertTo8MinMax             | ✅   | convert_to_8_min_max()             | 8 bpp MinMax変換                               |
 | pixBackgroundNormSimple         | ✅   | background_norm_simple()           | シンプル背景正規化                             |
 | pixBackgroundNorm               | ✅   | background_norm()                  | 背景正規化                                     |
@@ -193,7 +193,7 @@
 #### filter/rank.rs (rank.c)
 
 | C関数                    | 状態 | Rust対応                 | 備考                                  |
-| ------------------------ | ---- | ------------------------ | ------------------------------------- |
+|
 | pixRankFilter            | ✅   | rank_filter()            | ランクフィルタ(グレー/カラー自動判定) |
 | pixRankFilterRGB         | ✅   | rank_filter_color()      | RGBランクフィルタ                     |
 | pixRankFilterGray        | ✅   | rank_filter_gray()       | グレースケールランクフィルタ          |
@@ -268,7 +268,7 @@
 ### kernel.c (追加分)
 
 | C関数                 | 状態 | Rust対応 | 備考                          |
-| --------------------- | ---- | -------- | ----------------------------- |
+|
 | makeDoGKernel         | ❌   | -        | no Rust impl in expected dirs |
 | makeFlatKernel        | ❌   | -        | no Rust impl in expected dirs |
 | makeGaussianKernel    | ❌   | -        | no Rust impl in expected dirs |
@@ -278,7 +278,7 @@
 ### runlength.c (追加分)
 
 | C関数                         | 状態 | Rust対応                                                | 備考                          |
-| ----------------------------- | ---- | ------------------------------------------------------- | ----------------------------- |
+|
 | pixFindHorizontalRuns         | ✅   | `find_horizontal_runs` (filter/runlength.rs)            | name+module match             |
 | pixFindMaxHorizontalRunOnLine | ✅   | `find_max_horizontal_run_on_line` (filter/runlength.rs) | name+module match             |
 | pixFindMaxRuns                | ✅   | `find_max_runs` (filter/runlength.rs)                   | name+module match             |

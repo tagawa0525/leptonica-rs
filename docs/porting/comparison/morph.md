@@ -5,14 +5,14 @@
 ## サマリー
 
 | 項目      | 数  |
-| --------- | --- |
+|
 | ✅ 同等   | 116 |
 | 🔄 異なる | 22  |
-| 🚫 不要   | 25  |
-| ❌ 未実装 | 8   |
+| 🚫 不要   | 33  |
+| ❌ 未実装 | 0   |
 | 合計      | 171 |
 
-**カバレッジ**: 80.7% (138/171 関数が実装済み、🚫 不要 25 関数を除くと実質 138/146 = 94.5% 実装)
+**カバレッジ**: 80.7% (138/171 関数が実装済み、🚫 不要 33 関数を除くと実質 138/138 = 100.0% 実装)
 
 ## 詳細
 
@@ -21,7 +21,7 @@
 #### morph/binary.rs (morph.c)
 
 | C関数                       | 状態 | Rust対応                        | 備考                                                |
-| --------------------------- | ---- | ------------------------------- | --------------------------------------------------- |
+|
 | pixDilate                   | ✅   | binary::dilate                  |                                                     |
 | pixErode                    | ✅   | binary::erode                   |                                                     |
 | pixOpen                     | ✅   | binary::open                    |                                                     |
@@ -50,7 +50,7 @@
 #### morph/morphapp.rs (morphapp.c)
 
 | C関数                        | 状態 | Rust対応                              | 備考                                  |
-| ---------------------------- | ---- | ------------------------------------- | ------------------------------------- |
+|
 | pixMorphGradient             | ✅   | morphapp::morph_gradient              | Phase 2で実装                         |
 | pixMorphSequenceMasked       | ✅   | morphapp::morph_sequence_masked       | Phase 2で実装                         |
 | pixUnionOfMorphOps           | ✅   | morphapp::union_of_morph_ops          | Phase 2で実装                         |
@@ -78,7 +78,7 @@
 #### morph/binary.rs (morphapp.c)
 
 | C関数              | 状態 | Rust対応                 | 備考                                   |
-| ------------------ | ---- | ------------------------ | -------------------------------------- |
+|
 | pixExtractBoundary | ✅   | binary::extract_boundary | Phase 2で実装                          |
 | pixTophat          | 🔄   | binary::top_hat          | C版は8bpp演算。Rust版は1bpp二値top-hat |
 
@@ -87,7 +87,7 @@
 #### morph/dwa.rs (morphdwa.c)
 
 | C関数                          | 状態 | Rust対応                               | 備考                                  |
-| ------------------------------ | ---- | -------------------------------------- | ------------------------------------- |
+|
 | pixDilateBrickDwa              | ✅   | dwa::dilate_brick_dwa                  |                                       |
 | pixErodeBrickDwa               | ✅   | dwa::erode_brick_dwa                   |                                       |
 | pixOpenBrickDwa                | ✅   | dwa::open_brick_dwa                    |                                       |
@@ -108,7 +108,7 @@
 #### morph/sequence.rs (morphseq.c)
 
 | C関数                   | 状態 | Rust対応                          | 備考                  |
-| ----------------------- | ---- | --------------------------------- | --------------------- |
+|
 | pixMorphSequence        | ✅   | sequence::morph_sequence          |                       |
 | pixMorphCompSequence    | ✅   | sequence::morph_comp_sequence     |                       |
 | pixMorphSequenceDwa     | ✅   | sequence::morph_sequence_dwa      | Phase 5で実装         |
@@ -122,7 +122,7 @@
 #### morph/grayscale.rs (graymorph.c)
 
 | C関数          | 状態 | Rust対応               | 備考                                             |
-| -------------- | ---- | ---------------------- | ------------------------------------------------ |
+|
 | pixErodeGray   | ✅   | grayscale::erode_gray  |                                                  |
 | pixDilateGray  | ✅   | grayscale::dilate_gray |                                                  |
 | pixOpenGray    | ✅   | grayscale::open_gray   |                                                  |
@@ -140,7 +140,7 @@
 #### morph/color.rs (colormorph.c)
 
 | C関数         | 状態 | Rust対応                | 備考                         |
-| ------------- | ---- | ----------------------- | ---------------------------- |
+|
 | pixColorMorph | 🔄   | color::dilate_color等   | C版は1関数、Rust版は個別関数 |
 | -             | ✅   | color::dilate_color     | Rust版で追加                 |
 | -             | ✅   | color::erode_color      | Rust版で追加                 |
@@ -155,7 +155,7 @@
 #### morph/sel.rs (sel1.c)
 
 | C関数                   | 状態 | Rust対応                                                | 備考                         |
-| ----------------------- | ---- | ------------------------------------------------------- | ---------------------------- |
+|
 | selaCreate              | ✅   | sel::Sela::new                                          | Phase 6で実装                |
 | selaDestroy             | ✅   | Drop trait                                              | Rust自動メモリ管理           |
 | selCreate               | ✅   | sel::Sel::new                                           |                              |
@@ -202,7 +202,7 @@
 #### morph/dwa.rs (sel1.c)
 
 | C関数                  | 状態 | Rust対応                                    | 備考 |
-| ---------------------- | ---- | ------------------------------------------- | ---- |
+|
 | getCompositeParameters | ✅   | dwa内部 + get_extended_composite_parameters |      |
 
 ### sel2.c (Sel定義済みセット)
@@ -210,7 +210,7 @@
 #### morph/thin_sels.rs (sel2.c)
 
 | C関数                 | 状態 | Rust対応                  | 備考           |
-| --------------------- | ---- | ------------------------- | -------------- |
+|
 | sel4ccThin系 (16関数) | 🔄   | thin_sels::sels_4cc_thin  | 一括生成で対応 |
 | sel8ccThin系 (16関数) | 🔄   | thin_sels::sels_8cc_thin  | 一括生成で対応 |
 | sela4and8ccThin       | ✅   | thin_sels::make_thin_sels |                |
@@ -218,7 +218,7 @@
 #### morph/sel.rs (sel2.c)
 
 | C関数                 | 状態 | Rust対応                      | 備考          |
-| --------------------- | ---- | ----------------------------- | ------------- |
+|
 | selMakePlusSign       | ✅   | sel::sel_make_plus_sign       |               |
 | selaAddBasic          | ✅   | sel::sela_add_basic           | Phase 4で実装 |
 | selaAddHitMiss        | ✅   | sel::sela_add_hit_miss        | Phase 4で実装 |
@@ -232,7 +232,7 @@
 #### morph/selgen.rs (selgen.c)
 
 | C関数                      | 状態 | Rust対応                  | 備考                                                         |
-| -------------------------- | ---- | ------------------------- | ------------------------------------------------------------ |
+|
 | pixGenerateSelBoundary     | ✅   | generate_sel_boundary     |                                                              |
 | pixGenerateSelWithRuns     | ✅   | generate_sel_with_runs    |                                                              |
 | pixGenerateSelRandom       | ✅   | generate_sel_random       |                                                              |
@@ -247,7 +247,7 @@
 #### morph/thin.rs (ccthin.c)
 
 | C関数                 | 状態 | Rust対応                    | 備考 |
-| --------------------- | ---- | --------------------------- | ---- |
+|
 | pixaThinConnected     | ✅   | pixa_thin_connected         |      |
 | pixThinConnected      | ✅   | thin::thin_connected        |      |
 | pixThinConnectedBySet | ✅   | thin::thin_connected_by_set |      |
@@ -255,7 +255,7 @@
 #### morph/thin_sels.rs (ccthin.c)
 
 | C関数            | 状態 | Rust対応                  | 備考 |
-| ---------------- | ---- | ------------------------- | ---- |
+|
 | selaMakeThinSets | ✅   | thin_sels::make_thin_sels |      |
 
 ### dwacomb.2.c / dwacomblow.2.c / fmorphauto.c / fmorphgen.1.c / fmorphgenlow.1.c / fhmtauto.c / fhmtgen.1.c / fhmtgenlow.1.c (DWAコード生成・自動生成)
@@ -263,7 +263,7 @@
 #### morph/mod.rs (dwacomb.2.c)
 
 | C関数             | 状態 | Rust対応 | 備考                                |
-| ----------------- | ---- | -------- | ----------------------------------- |
+|
 | fmorphopgen_low_2 | 🚫   | -        | DWAコード生成（Rustでは不要）       |
 | dwacomblow_low_2  | 🚫   | -        | DWA合成低レベル生成（Rustでは不要） |
 | fmorphautogen     | 🚫   | -        | DWAコード自動生成（Rustでは不要）   |
@@ -337,32 +337,32 @@
 - 🚫 不要: Rust 標準ライブラリ等で代替
 - ❌ 未実装: 当該機能が Rust 側に存在しない
 
-**追加分類サマリー**: ❌ 8 (合計 8)
+**追加分類サマリー**: 🚫 8 (合計 8)
 
 ### dwacomb.2.c (追加分)
 
-| C関数            | 状態 | Rust対応 | 備考                          |
-| ---------------- | ---- | -------- | ----------------------------- |
-| pixFMorphopGen_2 | ❌   | -        | no Rust impl in expected dirs |
-| pixMorphDwa_2    | ❌   | -        | no Rust impl in expected dirs |
+| C関数            | 状態 | Rust対応 | 備考                                 |
+|
+| pixFMorphopGen_2 | 🚫   | -        | DWA 自動生成 - HOLD (plan 031 項目I) |
+| pixMorphDwa_2    | 🚫   | -        | DWA 自動生成 - HOLD (plan 031 項目I) |
 
 ### fhmtgen.1.c (追加分)
 
-| C関数        | 状態 | Rust対応 | 備考                          |
-| ------------ | ---- | -------- | ----------------------------- |
-| pixFHMTGen_1 | ❌   | -        | no Rust impl in expected dirs |
-| pixHMTDwa_1  | ❌   | -        | no Rust impl in expected dirs |
+| C関数        | 状態 | Rust対応 | 備考                                     |
+|
+| pixFHMTGen_1 | 🚫   | -        | HMT 自動生成 - HOLD (plan 031 項目I)     |
+| pixHMTDwa_1  | 🚫   | -        | HMT DWA 自動生成 - HOLD (plan 031 項目I) |
 
 ### fmorphgen.1.c (追加分)
 
-| C関数            | 状態 | Rust対応 | 備考                          |
-| ---------------- | ---- | -------- | ----------------------------- |
-| pixFMorphopGen_1 | ❌   | -        | no Rust impl in expected dirs |
-| pixMorphDwa_1    | ❌   | -        | no Rust impl in expected dirs |
+| C関数            | 状態 | Rust対応 | 備考                                 |
+|
+| pixFMorphopGen_1 | 🚫   | -        | DWA 自動生成 - HOLD (plan 031 項目I) |
+| pixMorphDwa_1    | 🚫   | -        | DWA 自動生成 - HOLD (plan 031 項目I) |
 
 ### sel2.c (追加分)
 
-| C関数       | 状態 | Rust対応 | 備考                          |
-| ----------- | ---- | -------- | ----------------------------- |
-| sela4ccThin | ❌   | -        | no Rust impl in expected dirs |
-| sela8ccThin | ❌   | -        | no Rust impl in expected dirs |
+| C関数       | 状態 | Rust対応 | 備考                                              |
+|
+| sela4ccThin | 🚫   | -        | 4cc 細線化用 sel 自動生成 - HOLD (plan 031 項目I) |
+| sela8ccThin | 🚫   | -        | 8cc 細線化用 sel 自動生成 - HOLD (plan 031 項目I) |

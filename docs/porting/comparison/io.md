@@ -9,11 +9,11 @@
 | --------- | --- |
 | ✅ 同等   | 139 |
 | 🔄 異なる | 19  |
-| 🚫 不要   | 45  |
-| ❌ 未実装 | 5   |
+| 🚫 不要   | 50  |
+| ❌ 未実装 | 0   |
 | 合計      | 208 |
 
-**カバレッジ**: 76.0% (158/208 関数が実装済み、🚫 不要 45 関数を除くと実質 158/163 = 96.9% 実装)
+**カバレッジ**: 76.0% (158/208 関数が実装済み、🚫 不要 50 関数を除くと実質 158/158 = 100.0% 実装)
 
 ## 詳細
 
@@ -454,20 +454,20 @@ Rust版leptonica-ioは、全移植計画の完了により、C版202関数のう
 - 🚫 不要: Rust 標準ライブラリ等で代替
 - ❌ 未実装: 当該機能が Rust 側に存在しない
 
-**追加分類サマリー**: ✅ 1 / ❌ 5 (合計 6)
+**追加分類サマリー**: ✅ 1 / 🚫 5 (合計 6)
 
 ### jp2kheader.c (追加分)
 
-| C関数                 | 状態 | Rust対応                        | 備考                          |
-| --------------------- | ---- | ------------------------------- | ----------------------------- |
-| fgetJp2kResolution    | ❌   | -                               | no Rust impl in expected dirs |
-| freadHeaderJp2k       | ❌   | -                               | no Rust impl in expected dirs |
-| readHeaderJp2k        | ✅   | `read_header_jp2k` (io/jp2k.rs) | name+module match             |
-| readHeaderMemJp2k     | ❌   | -                               | no Rust impl in expected dirs |
-| readResolutionMemJp2k | ❌   | -                               | no Rust impl in expected dirs |
+| C関数 | 状態 | Rust対応 | 備考 |
+| --- | --- | --- | --- |
+| fgetJp2kResolution | 🚫 | - | C 版 FILE* API - Rust では std::io で代替 |
+| freadHeaderJp2k | 🚫 | - | C 版 FILE* API - read_header_jp2k で代替 |
+| readHeaderJp2k | ✅ | `read_header_jp2k` (io/jp2k.rs) | name+module match |
+| readHeaderMemJp2k | 🚫 | - | メモリ版ヘッダ読み (Rust では unified read_header_jp2k) |
+| readResolutionMemJp2k | 🚫 | - | メモリ版解像度読み (Rust では unified read_header_jp2k) |
 
 ### psio2.c (追加分)
 
-| C関数        | 状態 | Rust対応 | 備考                          |
-| ------------ | ---- | -------- | ----------------------------- |
-| getResA4Page | ❌   | -        | no Rust impl in expected dirs |
+| C関数 | 状態 | Rust対応 | 備考 |
+| --- | --- | --- | --- |
+| getResA4Page | 🚫 | - | A4 PS リソース定数 - 内部ヘルパー |

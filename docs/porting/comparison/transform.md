@@ -5,7 +5,7 @@
 ## サマリー
 
 | 項目      | 数  |
-| --------- | --- |
+|
 | ✅ 同等   | 109 |
 | 🔄 異なる | 19  |
 | 🚫 不要   | 14  |
@@ -21,7 +21,7 @@
 #### transform/rotate.rs (rotate.c)
 
 | C関数               | 状態 | Rust対応                        | 備考                     |
-| ------------------- | ---- | ------------------------------- | ------------------------ |
+|
 | pixRotate           | 🔄   | rotate::rotate                  | 異なるインタフェース設計 |
 | pixEmbedForRotation | ✅   | embed_for_rotation              |                          |
 | pixRotateBySampling | 🔄   | rotate::rotate_by_sampling_impl | 内部実装として存在       |
@@ -33,7 +33,7 @@
 #### transform/rotate.rs (rotateam.c)
 
 | C関数                  | 状態 | Rust対応                       | 備考                            |
-| ---------------------- | ---- | ------------------------------ | ------------------------------- |
+|
 | pixRotateAM            | 🔄   | rotate::rotate_area_map_impl   | 内部実装として存在              |
 | pixRotateAMColor       | 🔄   | rotate::rotate_area_map_color  | 内部実装として存在              |
 | pixRotateAMGray        | 🔄   | rotate::rotate_area_map_gray   | 内部実装として存在              |
@@ -47,7 +47,7 @@
 #### transform/rotate.rs (rotateorth.c)
 
 | C関数         | 状態 | Rust対応            | 備考 |
-| ------------- | ---- | ------------------- | ---- |
+|
 | pixRotateOrth | ✅   | rotate::rotate_orth | 同等 |
 | pixRotate180  | ✅   | rotate::rotate_180  | 同等 |
 | pixRotate90   | ✅   | rotate::rotate_90   | 同等 |
@@ -59,7 +59,7 @@
 #### transform/rotate.rs (rotateshear.c)
 
 | C関数                  | 状態 | Rust対応                       | 備考              |
-| ---------------------- | ---- | ------------------------------ | ----------------- |
+|
 | pixRotateShear         | ✅   | rotate::rotate_shear           | 同等              |
 | pixRotate2Shear        | ✅   | rotate::rotate_2_shear         | 同等 (内部関数)   |
 | pixRotate3Shear        | ✅   | rotate::rotate_3_shear         | 同等 (内部関数)   |
@@ -72,7 +72,7 @@
 #### transform/scale.rs (scale1.c)
 
 | C関数                       | 状態 | Rust対応                            | 備考                      |
-| --------------------------- | ---- | ----------------------------------- | ------------------------- |
+|
 | pixScale                    | ✅   | scale::scale                        | 同等                      |
 | pixScaleToSizeRel           | ✅   | scale_to_size_rel                   |                           |
 | pixScaleToSize              | ✅   | scale::scale_to_size                | 同等                      |
@@ -110,7 +110,7 @@
 #### transform/scale.rs (scale2.c)
 
 | C関数                    | 状態 | Rust対応                       | 備考                                                      |
-| ------------------------ | ---- | ------------------------------ | --------------------------------------------------------- |
+|
 | pixScaleToGray           | ✅   | scale::scale_to_gray           | 同等                                                      |
 | pixScaleToGrayFast       | ✅   | scale::scale_to_gray_fast      | 同等                                                      |
 | pixScaleToGray2          | ✅   | scale::scale_to_gray_2         | 同等                                                      |
@@ -134,7 +134,7 @@
 #### transform/affine.rs (affine.c)
 
 | C関数                       | 状態 | Rust対応                              | 備考                                                              |
-| --------------------------- | ---- | ------------------------------------- | ----------------------------------------------------------------- |
+|
 | pixAffineSampledPta         | ✅   | affine::affine_sampled_pta            | 同等                                                              |
 | pixAffineSampled            | ✅   | affine::affine_sampled                | 同等                                                              |
 | pixAffinePta                | ✅   | affine::affine_pta                    | 同等                                                              |
@@ -158,7 +158,7 @@
 #### transform/affine.rs (affinecompose.c)
 
 | C関数                   | 状態 | Rust対応                  | 備考                  |
-| ----------------------- | ---- | ------------------------- | --------------------- |
+|
 | createMatrix2dTranslate | ✅   | AffineMatrix::translation | 同等 (コンストラクタ) |
 | createMatrix2dScale     | ✅   | AffineMatrix::scale       | 同等 (コンストラクタ) |
 | createMatrix2dRotate    | ✅   | AffineMatrix::rotation    | 同等 (コンストラクタ) |
@@ -166,7 +166,7 @@
 #### core/pta/mod.rs (affinecompose.c)
 
 | C関数           | 状態 | Rust対応       | 備考                                        |
-| --------------- | ---- | -------------- | ------------------------------------------- |
+|
 | ptaTranslate    | ✅   | Pta::translate |                                             |
 | ptaScale        | ✅   | Pta::scale     |                                             |
 | l_productMatVec | 🚫   | -              | 不要 (スコープ除外、AffineMatrix演算で代替) |
@@ -177,14 +177,14 @@
 #### core/pta/transform.rs (affinecompose.c)
 
 | C関数              | 状態 | Rust対応              | 備考                        |
-| ------------------ | ---- | --------------------- | --------------------------- |
+|
 | ptaRotate          | ✅   | Pta::rotate_around    | 同等 (rotated_about に委譲) |
 | ptaAffineTransform | ✅   | Pta::affine_transform | 同等                        |
 
 #### core/box_/mod.rs (affinecompose.c)
 
 | C関数               | 状態 | Rust対応               | 備考 |
-| ------------------- | ---- | ---------------------- | ---- |
+|
 | boxaTranslate       | ✅   | Boxa::translate        |      |
 | boxaScale           | ✅   | Boxa::scale            |      |
 | boxaRotate          | ✅   | Boxa::rotate           |      |
@@ -195,7 +195,7 @@
 #### transform/bilinear.rs (bilinear.c)
 
 | C関数                   | 状態 | Rust対応                                | 備考                      |
-| ----------------------- | ---- | --------------------------------------- | ------------------------- |
+|
 | pixBilinearSampledPta   | ✅   | bilinear::bilinear_sampled_pta          | 同等                      |
 | pixBilinearSampled      | ✅   | bilinear::bilinear_sampled              | 同等                      |
 | pixBilinearPta          | ✅   | bilinear::bilinear_pta                  | 同等                      |
@@ -214,7 +214,7 @@
 #### transform/projective.rs (projective.c)
 
 | C関数                     | 状態 | Rust対応                                  | 備考                      |
-| ------------------------- | ---- | ----------------------------------------- | ------------------------- |
+|
 | pixProjectiveSampledPta   | ✅   | projective::projective_sampled_pta        | 同等                      |
 | pixProjectiveSampled      | ✅   | projective::projective_sampled            | 同等                      |
 | pixProjectivePta          | ✅   | projective::projective_pta                | 同等                      |
@@ -233,7 +233,7 @@
 #### transform/shear.rs (shear.c)
 
 | C関数           | 状態 | Rust対応              | 備考 |
-| --------------- | ---- | --------------------- | ---- |
+|
 | pixHShear       | ✅   | shear::h_shear        | 同等 |
 | pixVShear       | ✅   | shear::v_shear        | 同等 |
 | pixHShearCorner | ✅   | shear::h_shear_corner | 同等 |
@@ -250,7 +250,7 @@
 #### recog/flipdetect.rs (flipdetect.c)
 
 | C関数              | 状態 | Rust対応                                | 備考                          |
-| ------------------ | ---- | --------------------------------------- | ----------------------------- |
+|
 | makeOrientDecision | ✅   | recog::flipdetect::make_orient_decision | leptonica (src/recog/) に実装 |
 | pixUpDownDetect    | ✅   | recog::flipdetect::up_down_detect       | leptonica (src/recog/) に実装 |
 | pixOrientDetect    | ✅   | recog::flipdetect::orient_detect        | leptonica (src/recog/) に実装 |
@@ -264,7 +264,7 @@
 ### warper.rs (追加機能)
 
 | Rust関数                   | 備考                             |
-| -------------------------- | -------------------------------- |
+|
 | random_harmonic_warp       | ランダムな調和ワープ変換         |
 | stretch_horizontal         | 水平方向ストレッチ               |
 | stretch_horizontal_sampled | サンプリングベース水平ストレッチ |
