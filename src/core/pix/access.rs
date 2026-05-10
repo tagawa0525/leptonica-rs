@@ -214,8 +214,10 @@ pub fn set_data_dibit(line: &mut [u32], x: u32, val: u32) {
 
 /// Clear a 2-bit pixel to 0 (C: l_clearDataDibit)
 #[inline]
-pub fn clear_data_dibit(_line: &mut [u32], _x: u32) {
-    unimplemented!("clear_data_dibit not yet implemented (plan 113)")
+pub fn clear_data_dibit(line: &mut [u32], x: u32) {
+    let word_index = (x >> 4) as usize;
+    let bit_index = 2 * (15 - (x & 15));
+    line[word_index] &= !(MASK_2 << bit_index);
 }
 
 // ============================================================================
@@ -241,8 +243,10 @@ pub fn set_data_qbit(line: &mut [u32], x: u32, val: u32) {
 
 /// Clear a 4-bit pixel to 0 (C: l_clearDataQbit)
 #[inline]
-pub fn clear_data_qbit(_line: &mut [u32], _x: u32) {
-    unimplemented!("clear_data_qbit not yet implemented (plan 113)")
+pub fn clear_data_qbit(line: &mut [u32], x: u32) {
+    let word_index = (x >> 3) as usize;
+    let bit_index = 4 * (7 - (x & 7));
+    line[word_index] &= !(MASK_4 << bit_index);
 }
 
 // ============================================================================
@@ -294,15 +298,19 @@ pub fn set_data_two_bytes(line: &mut [u32], x: u32, val: u32) {
 // ============================================================================
 
 /// Get a 32-bit pixel value (C: l_getDataFourBytes)
+///
+/// Each 32-bit pixel occupies one full `u32` word, so this is equivalent
+/// to `line[x as usize]` but kept as a function for API symmetry with
+/// the smaller-bit-depth accessors.
 #[inline]
-pub fn get_data_four_bytes(_line: &[u32], _x: u32) -> u32 {
-    unimplemented!("get_data_four_bytes not yet implemented (plan 113)")
+pub fn get_data_four_bytes(line: &[u32], x: u32) -> u32 {
+    line[x as usize]
 }
 
 /// Set a 32-bit pixel value (C: l_setDataFourBytes)
 #[inline]
-pub fn set_data_four_bytes(_line: &mut [u32], _x: u32, _val: u32) {
-    unimplemented!("set_data_four_bytes not yet implemented (plan 113)")
+pub fn set_data_four_bytes(line: &mut [u32], x: u32, val: u32) {
+    line[x as usize] = val;
 }
 
 // ============================================================================

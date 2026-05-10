@@ -279,7 +279,7 @@ use leptonica::core::pix::{
 
 /// C: l_clearDataDibit — 2bit pixel を 0 にクリアする
 #[test]
-#[ignore = "not yet implemented (plan 113)"]
+
 fn lowaccess_reg_clear_data_dibit_4_pixels() {
     // 16 dibit pixels = 1 word32. 全部 0xFFFFFFFF にしてからクリア
     let mut line = vec![0xFFFFFFFFu32];
@@ -302,7 +302,7 @@ fn lowaccess_reg_clear_data_dibit_4_pixels() {
 
 /// C: l_clearDataQbit — 4bit pixel を 0 にクリアする
 #[test]
-#[ignore = "not yet implemented (plan 113)"]
+
 fn lowaccess_reg_clear_data_qbit_4_pixels() {
     let mut line = vec![0xFFFFFFFFu32];
     // 全部 0xF (set_data_qbit(_,_,15) 相当)
@@ -322,7 +322,7 @@ fn lowaccess_reg_clear_data_qbit_4_pixels() {
 
 /// C: l_getDataFourBytes / l_setDataFourBytes — 32bit ピクセルの round trip
 #[test]
-#[ignore = "not yet implemented (plan 113)"]
+
 fn lowaccess_reg_get_set_data_four_bytes_round_trip() {
     let mut line = vec![0u32; 4];
     let values = [0x12345678u32, 0xDEADBEEF, 0x00000001, 0xFFFFFFFF];

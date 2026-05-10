@@ -1,7 +1,8 @@
 # Core: arrayaccess.c の拡張ビット演算 4 関数
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-10
+完了日: 2026-05-10
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ H
 
 ## 対象 C 関数
@@ -45,9 +46,9 @@ pub fn set_data_four_bytes(line: &mut [u32], x: u32, val: u32);
 
 ## 完了条件
 
-- [ ] cargo test --all-features 全通過
-- [ ] cargo clippy --all-features --all-targets -- -D warnings
-- [ ] cargo fmt --all -- --check
-- [ ] PR + Copilot レビュー対応 + マージ
-- [ ] docs/porting/comparison/core.md の追加検証エントリで arrayaccess.c 4 件を ✅ に更新
-- [ ] docs/plans/032 のステータス表で 113 を IMPLEMENTED に更新
+- [x] cargo test --all-features 全通過
+- [x] cargo clippy --all-features --all-targets -- -D warnings
+- [x] cargo fmt --all -- --check
+- [x] PR + Copilot レビュー対応 + マージ
+- [x] docs/porting/comparison/core.md の追加検証エントリで arrayaccess.c 4 件を ✅ に更新
+- [x] docs/plans/032 のステータス表で 113 を IMPLEMENTED に更新
