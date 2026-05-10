@@ -458,16 +458,16 @@ Rust版leptonica-ioは、全移植計画の完了により、C版202関数のう
 
 ### jp2kheader.c (追加分)
 
-| C関数 | 状態 | Rust対応 | 備考 |
-| --- | --- | --- | --- |
-| fgetJp2kResolution | 🚫 | - | C 版 FILE* API - Rust では std::io で代替 |
-| freadHeaderJp2k | 🚫 | - | C 版 FILE* API - read_header_jp2k で代替 |
-| readHeaderJp2k | ✅ | `read_header_jp2k` (io/jp2k.rs) | name+module match |
-| readHeaderMemJp2k | 🚫 | - | メモリ版ヘッダ読み (Rust では unified read_header_jp2k) |
-| readResolutionMemJp2k | 🚫 | - | メモリ版解像度読み (Rust では unified read_header_jp2k) |
+| C関数                 | 状態 | Rust対応                        | 備考                                                    |
+| --------------------- | ---- | ------------------------------- | ------------------------------------------------------- |
+| fgetJp2kResolution    | 🚫   | -                               | C 版 FILE* API - Rust では std::io で代替               |
+| freadHeaderJp2k       | 🚫   | -                               | C 版 FILE* API - read_header_jp2k で代替                |
+| readHeaderJp2k        | ✅   | `read_header_jp2k` (io/jp2k.rs) | name+module match                                       |
+| readHeaderMemJp2k     | 🚫   | -                               | メモリ版ヘッダ読み (Rust では unified read_header_jp2k) |
+| readResolutionMemJp2k | 🚫   | -                               | メモリ版解像度読み (Rust では unified read_header_jp2k) |
 
 ### psio2.c (追加分)
 
-| C関数 | 状態 | Rust対応 | 備考 |
-| --- | --- | --- | --- |
-| getResA4Page | 🚫 | - | A4 PS リソース定数 - 内部ヘルパー |
+| C関数        | 状態 | Rust対応 | 備考                              |
+| ------------ | ---- | -------- | --------------------------------- |
+| getResA4Page | 🚫   | -        | A4 PS リソース定数 - 内部ヘルパー |

@@ -5,7 +5,7 @@
 ## サマリー
 
 | 項目      | 数  |
-|
+| --------- | --- |
 | ✅ 同等   | 102 |
 | 🔄 異なる | 20  |
 | 🚫 不要   | 17  |
@@ -21,7 +21,7 @@
 #### color/colorspace.rs (colorspace.c)
 
 | C関数                     | 状態 | Rust対応                                      | 備考                           |
-|
+| ------------------------- | ---- | --------------------------------------------- | ------------------------------ |
 | pixConvertRGBToHSV        | ✅   | pix_convert_rgb_to_hsv                        |                                |
 | pixConvertHSVToRGB        | ✅   | pix_convert_hsv_to_rgb                        |                                |
 | convertRGBToHSV           | ✅   | rgb_to_hsv                                    |                                |
@@ -64,7 +64,7 @@
 #### color/quantize.rs (colorquant1.c)
 
 | C関数                         | 状態 | Rust対応                       | 備考                                            |
-|
+| ----------------------------- | ---- | ------------------------------ | ----------------------------------------------- |
 | pixOctreeColorQuant           | 🔄   | octree_quant                   | Rust版は `OctreeOptions` ベース                 |
 | pixOctreeColorQuantGeneral    | 🔄   | octree_quant                   | Rust版はオプション統合API                       |
 | pixOctreeQuantByPopulation    | ✅   | octree_quant_by_population     | -                                               |
@@ -91,7 +91,7 @@
 #### color/quantize.rs (colorquant2.c)
 
 | C関数                           | 状態 | Rust対応                          | 備考                           |
-|
+| ------------------------------- | ---- | --------------------------------- | ------------------------------ |
 | pixMedianCutQuant               | 🔄   | median_cut_quant_simple           | アルゴリズムの詳細が異なる     |
 | pixMedianCutQuantGeneral        | 🔄   | median_cut_quant                  | パラメータ構造が異なる         |
 | pixMedianCutQuantMixed          | ✅   | median_cut_quant_mixed            | -                              |
@@ -103,7 +103,7 @@
 #### color/segment.rs (colorseg.c)
 
 | C関数                       | 状態 | Rust対応                    | 備考                         |
-|
+| --------------------------- | ---- | --------------------------- | ---------------------------- |
 | pixColorSegment             | 🔄   | color_segment               | Phase 3が未実装              |
 | pixColorSegmentCluster      | ✅   | color_segment_cluster       |                              |
 | pixAssignToNearestColor     | 🔄   | assign_to_nearest_color     | 実装の詳細が異なる           |
@@ -115,7 +115,7 @@
 #### color/analysis.rs (colorcontent.c)
 
 | C関数                       | 状態 | Rust対応                     | 備考                                                               |
-|
+| --------------------------- | ---- | ---------------------------- | ------------------------------------------------------------------ |
 | pixColorContent             | ✅   | color_content                | -                                                                  |
 | pixColorMagnitude           | ✅   | color_magnitude              | 3種の計算方式対応                                                  |
 | pixColorFraction            | ✅   | color_fraction               | -                                                                  |
@@ -140,7 +140,7 @@
 #### color/colorfill.rs (colorfill.c)
 
 | C関数                     | 状態 | Rust対応                  | 備考                                |
-|
+| ------------------------- | ---- | ------------------------- | ----------------------------------- |
 | l_colorfillCreate         | 🚫   | -                         | C版構造体管理（Rustでは異なる設計） |
 | l_colorfillDestroy        | 🚫   | -                         | C版構造体管理（Rustでは異なる設計） |
 | pixColorContentByLocation | ✅   | color_content_by_location | Location-based色内容分析            |
@@ -152,7 +152,7 @@
 #### color/coloring.rs (coloring.c)
 
 | C関数                       | 状態 | Rust対応                         | 備考                |
-|
+| --------------------------- | ---- | -------------------------------- | ------------------- |
 | pixColorGrayRegions         | ✅   | color_gray_regions               | Region coloring     |
 | pixColorGray                | 🔄   | pix_color_gray                   |                     |
 | pixColorGrayMasked          | ✅   | pix_color_gray_masked            |                     |
@@ -170,7 +170,7 @@
 #### color/threshold.rs (binarize.c)
 
 | C関数                           | 状態 | Rust対応                         | 備考               |
-|
+| ------------------------------- | ---- | -------------------------------- | ------------------ |
 | pixOtsuAdaptiveThreshold        | ✅   | otsu_adaptive_threshold          | -                  |
 | pixOtsuThreshOnBackgroundNorm   | ✅   | otsu_thresh_on_background_norm   | BG normalization   |
 | pixMaskedThreshOnBackgroundNorm | ✅   | masked_thresh_on_background_norm | Masked BG norm     |
@@ -186,7 +186,7 @@
 #### color/paintcmap.rs (paintcmap.c)
 
 | C関数                   | 状態 | Rust対応                    | 備考         |
-|
+| ----------------------- | ---- | --------------------------- | ------------ |
 | pixSetSelectCmap        | ✅   | pix_set_select_cmap         | paintcmap.rs |
 | pixColorGrayRegionsCmap | ✅   | pix_color_gray_regions_cmap | paintcmap.rs |
 | pixColorGrayCmap        | ✅   | pix_color_gray_cmap         | paintcmap.rs |
@@ -200,7 +200,7 @@
 #### color/threshold.rs (grayquant.c)
 
 | C関数                        | 状態 | Rust対応                        | 備考                          |
-|
+| ---------------------------- | ---- | ------------------------------- | ----------------------------- |
 | pixDitherToBinary            | 🔄   | dither_to_binary                |                               |
 | pixDitherToBinarySpec        | 🔄   | dither_to_binary_with_threshold |                               |
 | pixThresholdToBinary         | ✅   | threshold_to_binary             |                               |
