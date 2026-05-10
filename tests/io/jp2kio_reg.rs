@@ -72,23 +72,42 @@ fn jp2kio_reg_roundtrip() {
 ///
 /// Requires pixReadJp2k with box parameter for ROI extraction.
 #[test]
-#[ignore = "not yet implemented: JP2K cropped read not available"]
 fn jp2kio_reg_cropped_read() {
-    // C version:
-    // 1. pixReadJp2k(fname, reduction, box) with bounding box
-    // 2. Verify cropped dimensions
-    // 3. Multiple crop regions
+    // Smoke: full JP2K decode tests require a bundled .jp2 fixture, which is
+    // not available in-tree. We verify the error paths regardless.
+    use leptonica::core::Box;
+    use leptonica::io::IoError;
+    use leptonica::io::jp2k::read_jp2k_cropped_mem;
+
+    let bad: &[u8] = b"not a jpeg 2000 file";
+    let any_box = Box::new(0, 0, 1, 1).unwrap();
+    assert!(read_jp2k_cropped_mem(bad, &any_box).is_err());
+
+    // Degenerate box is rejected before the JP2K parser is touched, so the
+    // error must be `InvalidData`. We even pass empty bytes to make sure the
+    // box check fires first.
+    let bad_box = Box::new(0, 0, 0, 0).unwrap();
+    let err = read_jp2k_cropped_mem(b"", &bad_box).unwrap_err();
+    assert!(
+        matches!(err, IoError::InvalidData(_)),
+        "expected InvalidData for degenerate box, got {err:?}",
+    );
 }
 
 /// Test JP2K scaled read at different reductions (C checks 8-11).
 ///
-/// Requires pixReadJp2k with reduction factor parameter.
+/// Requires `pixReadJp2k` with reduction factor parameter — Rust port uses
+/// `read_jp2k_scaled_mem(data, scale_denom)` backed by hayro-jpeg2000's
+/// `target_resolution` hint.
 #[test]
-#[ignore = "not yet implemented: JP2K scaled read not available"]
 fn jp2kio_reg_scaled_read() {
-    // C version:
-    // 1. pixReadJp2k(fname, 2, NULL) for 2x reduction
-    // 2. Verify reduced dimensions
+    use leptonica::io::jp2k::read_jp2k_scaled_mem;
+    // Without sample data we can only verify error paths and the
+    // scale_denom == 0 contract.
+    let bad: &[u8] = b"not a jpeg 2000 file";
+    assert!(read_jp2k_scaled_mem(bad, 2).is_err());
+    // scale_denom == 0 is rejected before parsing.
+    assert!(read_jp2k_scaled_mem(b"", 0).is_err());
 }
 
 /// Test J2K codec variant (C check 16).
