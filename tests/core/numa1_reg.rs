@@ -414,6 +414,17 @@ fn numa1_reg_parse_from_string_csv() {
     assert!((na.get(2).unwrap() - 3.0).abs() < 1e-6);
 }
 
+/// C atof tolerates whitespace; ensure tokens with surrounding spaces parse
+/// when the separator is e.g. just `,`.
+#[test]
+fn numa1_reg_parse_from_string_csv_with_spaces() {
+    let na = Numa::parse_from_string("1, 2, 3", ",").expect("parse 'a, b, c'");
+    assert_eq!(na.len(), 3);
+    assert!((na.get(0).unwrap() - 1.0).abs() < 1e-6);
+    assert!((na.get(1).unwrap() - 2.0).abs() < 1e-6);
+    assert!((na.get(2).unwrap() - 3.0).abs() < 1e-6);
+}
+
 /// C: parseStringForNumbers — multiple separators (space + tab + newline)
 #[test]
 

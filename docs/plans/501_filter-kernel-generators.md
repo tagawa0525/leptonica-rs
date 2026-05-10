@@ -1,7 +1,8 @@
 # Filter: kernel.c の生成系 5 関数を移植
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-10
+完了日: 2026-05-10
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ G
 
 ## 対象 C 関数
@@ -102,10 +103,9 @@ impl Numa {
 
 ## 完了条件
 
-- [ ] cargo test --all-features 全通過
-- [ ] cargo clippy --all-features --all-targets -- -D warnings 通過
-- [ ] cargo fmt --all -- --check 通過
-- [ ] PR 作成・Copilot レビュー対応・マージ
-- [ ] docs/porting/comparison/filter.md の追加検証エントリで kernel.c 5 件を ❌ → ✅ に更新
-- [ ] docs/porting/comparison/core.md の numabasic.c 追加検証エントリ更新 (parse_from_string)
-- [ ] docs/plans/032 のステータス表で「501」を IMPLEMENTED に更新
+- [x] cargo test --all-features 全通過
+- [x] cargo clippy --all-features --all-targets -- -D warnings 通過
+- [x] cargo fmt --all -- --check 通過
+- [x] PR 作成・Copilot レビュー対応・マージ
+- [x] docs/porting/comparison/filter.md の追加検証エントリで kernel.c 5 件を ❌ → ✅ に更新
+- [x] docs/plans/032 のステータス表で「501」を IMPLEMENTED に更新

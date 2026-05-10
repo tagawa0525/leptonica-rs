@@ -143,14 +143,31 @@ impl Kernel {
                 "center ({cx}, {cy}) outside kernel {width}x{height}"
             )));
         }
-        let normval = 1.0 / (height * width) as f32;
+        // Use checked u64 multiplication to detect oversized kernels before
+        // the data Vec allocation overflows.
+        let total = (height as u64)
+            .checked_mul(width as u64)
+            .filter(|&n| usize::try_from(n).is_ok())
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("kernel size {width}x{height} overflows usize"))
+            })?;
+        let normval = 1.0 / total as f32;
         Ok(Kernel {
             width,
             height,
             cx,
             cy,
-            data: vec![normval; (width * height) as usize],
+            data: vec![normval; total as usize],
         })
+    }
+
+    /// Compute `2 * half + 1` checked for overflow inside `u32`.
+    fn checked_full_size(half: u32) -> FilterResult<u32> {
+        half.checked_mul(2)
+            .and_then(|n| n.checked_add(1))
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("half size {half} overflows when doubled"))
+            })
     }
 
     /// C: makeGaussianKernel(halfh, halfw, stdev, max)
@@ -164,13 +181,25 @@ impl Kernel {
                 "stdev must be positive".to_string(),
             ));
         }
-        let sx = 2 * halfw + 1;
-        let sy = 2 * halfh + 1;
+        // Cap half-sizes so squaring stays well within i32 to avoid wrap.
+        if halfh > i32::MAX as u32 / 2 || halfw > i32::MAX as u32 / 2 {
+            return Err(FilterError::InvalidKernel(format!(
+                "halfh={halfh}, halfw={halfw} too large (must fit in i32/2)"
+            )));
+        }
+        let sx = Self::checked_full_size(halfw)?;
+        let sy = Self::checked_full_size(halfh)?;
+        let total = (sx as u64)
+            .checked_mul(sy as u64)
+            .filter(|&n| usize::try_from(n).is_ok())
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("kernel size {sx}x{sy} overflows usize"))
+            })?;
         let two_sigma_sq = 2.0 * stdev * stdev;
         let halfw_i = halfw as i32;
         let halfh_i = halfh as i32;
 
-        let mut data = Vec::with_capacity((sx * sy) as usize);
+        let mut data = Vec::with_capacity(total as usize);
         for y in 0..sy {
             for x in 0..sx {
                 let dx = x as i32 - halfw_i;
@@ -206,9 +235,13 @@ impl Kernel {
 
     /// C: makeDoGKernel(halfh, halfw, stdev, ratio)
     ///
-    /// Difference of Gaussians (DoG) wavelet bandpass kernel. The element sum
-    /// is zero so callers must NOT normalize when convolving. `ratio` is the
-    /// ratio of the wide vs narrow standard deviations and must be `>= 1.0`.
+    /// Difference of Gaussians (DoG) wavelet bandpass kernel. The continuous
+    /// DoG integrates to zero (a mother wavelet), so the discrete element sum
+    /// is approximately zero — exactness depends on truncation: larger
+    /// `halfh` / `halfw` relative to `ratio * stdev` give a smaller residual.
+    /// Callers should NOT normalize when convolving.
+    /// `ratio` is the ratio of the wide vs narrow standard deviations and
+    /// must be `>= 1.0`.
     pub fn make_dog(halfh: u32, halfw: u32, stdev: f32, ratio: f32) -> FilterResult<Self> {
         if stdev <= 0.0 {
             return Err(FilterError::InvalidKernel(
@@ -220,15 +253,26 @@ impl Kernel {
                 "ratio must be finite and >= 1.0, got {ratio}"
             )));
         }
-        let sx = 2 * halfw + 1;
-        let sy = 2 * halfh + 1;
+        if halfh > i32::MAX as u32 / 2 || halfw > i32::MAX as u32 / 2 {
+            return Err(FilterError::InvalidKernel(format!(
+                "halfh={halfh}, halfw={halfw} too large (must fit in i32/2)"
+            )));
+        }
+        let sx = Self::checked_full_size(halfw)?;
+        let sy = Self::checked_full_size(halfh)?;
+        let total = (sx as u64)
+            .checked_mul(sy as u64)
+            .filter(|&n| usize::try_from(n).is_ok())
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("kernel size {sx}x{sy} overflows usize"))
+            })?;
         let halfw_i = halfw as i32;
         let halfh_i = halfh as i32;
         let pi = std::f32::consts::PI;
         let highnorm = 1.0 / (2.0 * stdev * stdev);
         let lownorm = highnorm / (ratio * ratio);
 
-        let mut data = Vec::with_capacity((sx * sy) as usize);
+        let mut data = Vec::with_capacity(total as usize);
         for y in 0..sy {
             for x in 0..sx {
                 let dx = x as i32 - halfw_i;

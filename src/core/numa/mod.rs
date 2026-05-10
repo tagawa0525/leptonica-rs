@@ -111,7 +111,11 @@ impl Numa {
         }
         let sep_chars: Vec<char> = separators.chars().collect();
         let mut data = Vec::new();
-        for token in s.split(|c: char| sep_chars.contains(&c)) {
+        for raw in s.split(|c: char| sep_chars.contains(&c)) {
+            // C `atof` is whitespace-tolerant; trim each token so callers
+            // can use non-whitespace separators (e.g. ",") on input that
+            // also contains spaces ("1, 2, 3").
+            let token = raw.trim();
             if token.is_empty() {
                 continue;
             }
