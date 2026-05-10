@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 887  |
-| 🔄 異なる | 46   |
-| 🚫 不要   | 129  |
-| ❌ 未実装 | 153  |
+| ✅ 同等   | 848  |
+| 🔄 異なる | 76   |
+| 🚫 不要   | 114  |
+| ❌ 未実装 | 177  |
 | 合計      | 1215 |
 
-**カバレッジ**: 76.8% (933/1215 関数が実装済み、🚫 不要 129 関数を除くと実質 933/1086 = 85.9% 実装)
+**カバレッジ**: 76.0% (924/1215 関数が実装済み、🚫 不要 114 関数を除くと実質 924/1101 = 83.9% 実装)
 
 ## 注記
 
@@ -1400,390 +1400,394 @@ boxfunc2.c / boxfunc5.c の該当関数群は実装済み。
 
 ## 追加検証エントリ (gap-fill audit 2026-05-10)
 
-以下は `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
-Rust 実装の一致は名前ベースのヒューリスティック検索で判定したため、`✅` 印は
-「同名/類似名の Rust 関数を確認」程度の意味であり、引数互換性までは保証しない。
-引き続き個別レビューを推奨。
+以下は当初 `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
+当初のヒューリスティック検索結果を、C 関数名と Rust 実装の場所・シグネチャで個別レビュー
+して再分類した結果である。
 
-**追加分類サマリー**: ✅ 91 / 🚫 52 / ❌ 153 (合計 296)
+- ✅ 同等: Rust 側に同名・同モジュールの実装を確認
+- 🔄 異なる: Rust 側で異なる API/モジュール配置で実装 (Vec idiomatic 等)
+- 🚫 不要: Rust 標準ライブラリ等で代替
+- ❌ 未実装: 当該機能が Rust 側に存在しない
+
+**追加分類サマリー**: ✅ 52 / 🔄 30 / 🚫 37 / ❌ 177 (合計 296)
 
 ### arrayaccess.c (追加分)
 
-| C関数              | 状態 | Rust対応       | 備考               |
-| ------------------ | ---- | -------------- | ------------------ |
-| l_clearDataBit     | ✅   | clear_data_bit | core/pix/access.rs |
-| l_clearDataDibit   | ❌   | -              |                    |
-| l_clearDataQbit    | ❌   | -              |                    |
-| l_getDataBit       | 🚫   | -              | Rust 標準で代替    |
-| l_getDataByte      | 🚫   | -              | Rust 標準で代替    |
-| l_getDataDibit     | 🚫   | -              | Rust 標準で代替    |
-| l_getDataFourBytes | 🚫   | -              | Rust 標準で代替    |
-| l_getDataQbit      | 🚫   | -              | Rust 標準で代替    |
-| l_getDataTwoBytes  | 🚫   | -              | Rust 標準で代替    |
-| l_setDataBit       | 🚫   | -              | Rust 標準で代替    |
-| l_setDataBitVal    | 🚫   | -              | Rust 標準で代替    |
-| l_setDataByte      | 🚫   | -              | Rust 標準で代替    |
-| l_setDataDibit     | 🚫   | -              | Rust 標準で代替    |
-| l_setDataFourBytes | 🚫   | -              | Rust 標準で代替    |
-| l_setDataQbit      | 🚫   | -              | Rust 標準で代替    |
-| l_setDataTwoBytes  | 🚫   | -              | Rust 標準で代替    |
+| C関数              | 状態 | Rust対応                                  | 備考                          |
+| ------------------ | ---- | ----------------------------------------- | ----------------------------- |
+| l_clearDataBit     | ✅   | `clear_data_bit` (core/pix/access.rs)     | name+module match             |
+| l_clearDataDibit   | ❌   | -                                         | no Rust impl in expected dirs |
+| l_clearDataQbit    | ❌   | -                                         | no Rust impl in expected dirs |
+| l_getDataBit       | ✅   | `get_data_bit` (core/pix/access.rs)       | name+module match             |
+| l_getDataByte      | ✅   | `get_data_byte` (core/pix/access.rs)      | name+module match             |
+| l_getDataDibit     | ✅   | `get_data_dibit` (core/pix/access.rs)     | name+module match             |
+| l_getDataFourBytes | ❌   | -                                         | no Rust impl in expected dirs |
+| l_getDataQbit      | ✅   | `get_data_qbit` (core/pix/access.rs)      | name+module match             |
+| l_getDataTwoBytes  | ✅   | `get_data_two_bytes` (core/pix/access.rs) | name+module match             |
+| l_setDataBit       | ✅   | `set_data_bit` (core/pix/access.rs)       | name+module match             |
+| l_setDataBitVal    | ✅   | `set_data_bit_val` (core/pix/access.rs)   | name+module match             |
+| l_setDataByte      | ✅   | `set_data_byte` (core/pix/access.rs)      | name+module match             |
+| l_setDataDibit     | ✅   | `set_data_dibit` (core/pix/access.rs)     | name+module match             |
+| l_setDataFourBytes | ❌   | -                                         | no Rust impl in expected dirs |
+| l_setDataQbit      | ✅   | `set_data_qbit` (core/pix/access.rs)      | name+module match             |
+| l_setDataTwoBytes  | ✅   | `set_data_two_bytes` (core/pix/access.rs) | name+module match             |
 
 ### compare.c (追加分)
 
-| C関数                          | 状態 | Rust対応                 | 備考                |
-| ------------------------------ | ---- | ------------------------ | ------------------- |
-| cmapEqual                      | 🚫   | -                        | デバッグ/同等性     |
-| compareTilesByHisto            | ❌   | -                        |                     |
-| pixBestCorrelation             | ✅   | best_correlation         | core/pix/compare.rs |
-| pixCentroid8                   | ❌   | -                        |                     |
-| pixCompareGrayByHisto          | ❌   | -                        |                     |
-| pixComparePhotoRegionsByHisto  | ❌   | -                        |                     |
-| pixCompareWithTranslation      | ✅   | compare_with_translation | core/pix/compare.rs |
-| pixCropAlignedToCentroid       | ❌   | -                        |                     |
-| pixDecideIfPhotoImage          | ❌   | -                        |                     |
-| pixGenPhotoHistos              | ❌   | -                        |                     |
-| pixPadToCenterCentroid         | ❌   | -                        |                     |
-| pixUsesCmapColor               | ❌   | -                        |                     |
-| pixaComparePhotoRegionsByHisto | ❌   | -                        |                     |
+| C関数                          | 状態 | Rust対応                                         | 備考                          |
+| ------------------------------ | ---- | ------------------------------------------------ | ----------------------------- |
+| cmapEqual                      | ❌   | -                                                | no Rust impl in expected dirs |
+| compareTilesByHisto            | ❌   | -                                                | no Rust impl in expected dirs |
+| pixBestCorrelation             | ✅   | `best_correlation` (core/pix/compare.rs)         | name+module match             |
+| pixCentroid8                   | ❌   | -                                                | no Rust impl in expected dirs |
+| pixCompareGrayByHisto          | ❌   | -                                                | no Rust impl in expected dirs |
+| pixComparePhotoRegionsByHisto  | ❌   | -                                                | no Rust impl in expected dirs |
+| pixCompareWithTranslation      | ✅   | `compare_with_translation` (core/pix/compare.rs) | name+module match             |
+| pixCropAlignedToCentroid       | ❌   | -                                                | no Rust impl in expected dirs |
+| pixDecideIfPhotoImage          | ❌   | -                                                | no Rust impl in expected dirs |
+| pixGenPhotoHistos              | ❌   | -                                                | no Rust impl in expected dirs |
+| pixPadToCenterCentroid         | ❌   | -                                                | no Rust impl in expected dirs |
+| pixUsesCmapColor               | ❌   | -                                                | no Rust impl in expected dirs |
+| pixaComparePhotoRegionsByHisto | ❌   | -                                                | no Rust impl in expected dirs |
 
 ### fpix1.c (追加分)
 
-| C関数              | 状態 | Rust対応 | 備考                                                     |
-| ------------------ | ---- | -------- | -------------------------------------------------------- |
-| dpixCopyResolution | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixCreateTemplate | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixEndianByteSwap | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixGetData        | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixGetDimensions  | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixGetPixel       | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixGetResolution  | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixGetWpl         | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixReadMem        | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixReadStream     | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixSetData        | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixSetDimensions  | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixSetPixel       | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixSetResolution  | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixSetWpl         | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixWriteMem       | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixWriteStream    | 🚫   | -        | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| fpixEndianByteSwap | 🚫   | -        | Rust 標準ライブラリ (i32::swap_bytes 等) で代替          |
-| fpixPrintStream    | 🚫   | -        | デバッグ出力                                             |
+| C関数              | 状態 | Rust対応 | 備考                                           |
+| ------------------ | ---- | -------- | ---------------------------------------------- |
+| dpixCopyResolution | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixCreateTemplate | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixEndianByteSwap | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixGetData        | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixGetDimensions  | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixGetPixel       | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixGetResolution  | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixGetWpl         | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixReadMem        | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixReadStream     | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixSetData        | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixSetDimensions  | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixSetPixel       | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixSetResolution  | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixSetWpl         | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixWriteMem       | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixWriteStream    | 🚫   | -        | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| fpixEndianByteSwap | 🚫   | -        | Rust 標準 (i32::swap_bytes 等) で代替          |
+| fpixPrintStream    | 🚫   | -        | デバッグ出力                                   |
 
 ### fpix2.c (追加分)
 
-| C関数                       | 状態 | Rust対応             | 備考                                                     |
-| --------------------------- | ---- | -------------------- | -------------------------------------------------------- |
-| dpixAddMultConstant         | 🚫   | -                    | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixGetMax                  | 🚫   | -                    | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixGetMin                  | 🚫   | -                    | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixLinearCombination       | 🚫   | -                    | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixScaleByInteger          | 🚫   | -                    | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| dpixSetAllArbitrary         | 🚫   | -                    | DPix (倍精度浮動小数点画像) は Rust 未提供 - FPix で代替 |
-| fpixAddBorder               | ✅   | add_border           | core/fpix/transform.rs                                   |
-| fpixAddContinuedBorder      | ✅   | add_continued_border | core/fpix/transform.rs                                   |
-| fpixAddMirroredBorder       | ✅   | add_mirrored_border  | core/fpix/transform.rs                                   |
-| fpixAddSlopeBorder          | ❌   | -                    |                                                          |
-| fpixAffine                  | ✅   | affine               | transform/affine.rs                                      |
-| fpixAffinePta               | ✅   | affine_pta           | transform/affine.rs                                      |
-| fpixConvertToDPix           | ❌   | -                    |                                                          |
-| fpixDisplayMaxDynamicRange  | ❌   | -                    |                                                          |
-| fpixFlipLR                  | ✅   | flip_lr              | core/fpix/transform.rs                                   |
-| fpixFlipTB                  | ✅   | flip_tb              | core/fpix/transform.rs                                   |
-| fpixGetMax                  | ❌   | -                    |                                                          |
-| fpixGetMin                  | ❌   | -                    |                                                          |
-| fpixProjective              | ✅   | projective           | transform/projective.rs                                  |
-| fpixProjectivePta           | ✅   | projective_pta       | transform/projective.rs                                  |
-| fpixRasterop                | ❌   | -                    |                                                          |
-| fpixRemoveBorder            | ✅   | remove_border        | core/numa/operations.rs                                  |
-| fpixRotate180               | ✅   | rotate_180           | core/fpix/transform.rs                                   |
-| fpixRotate90                | ✅   | rotate_90            | core/fpix/transform.rs                                   |
-| fpixRotateOrth              | ✅   | rotate_orth          | core/box_/transform.rs                                   |
-| fpixScaleByInteger          | ❌   | -                    |                                                          |
-| fpixSetAllArbitrary         | ✅   | set_all_arbitrary    | core/pix/mod.rs                                          |
-| fpixThresholdToPix          | ❌   | -                    |                                                          |
-| linearInterpolatePixelFloat | ❌   | -                    |                                                          |
-| pixComponentFunction        | ❌   | -                    |                                                          |
-| pixConvertToDPix            | ❌   | -                    |                                                          |
+| C関数                       | 状態 | Rust対応                                        | 備考                                           |
+| --------------------------- | ---- | ----------------------------------------------- | ---------------------------------------------- |
+| dpixAddMultConstant         | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixGetMax                  | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixGetMin                  | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixLinearCombination       | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixScaleByInteger          | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| dpixSetAllArbitrary         | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替 |
+| fpixAddBorder               | ✅   | `add_border` (core/fpix/transform.rs)           | name+module match                              |
+| fpixAddContinuedBorder      | ✅   | `add_continued_border` (core/fpix/transform.rs) | name+module match                              |
+| fpixAddMirroredBorder       | ✅   | `add_mirrored_border` (core/fpix/transform.rs)  | name+module match                              |
+| fpixAddSlopeBorder          | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixAffine                  | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixAffinePta               | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixConvertToDPix           | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixDisplayMaxDynamicRange  | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixFlipLR                  | ✅   | `flip_lr` (core/fpix/transform.rs)              | name+module match                              |
+| fpixFlipTB                  | ✅   | `flip_tb` (core/fpix/transform.rs)              | name+module match                              |
+| fpixGetMax                  | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixGetMin                  | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixProjective              | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixProjectivePta           | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixRasterop                | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixRemoveBorder            | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixRotate180               | ✅   | `rotate_180` (core/fpix/transform.rs)           | name+module match                              |
+| fpixRotate90                | ✅   | `rotate_90` (core/fpix/transform.rs)            | name+module match                              |
+| fpixRotateOrth              | ✅   | `rotate_orth` (core/fpix/transform.rs)          | name+module match                              |
+| fpixScaleByInteger          | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixSetAllArbitrary         | ❌   | -                                               | no Rust impl in expected dirs                  |
+| fpixThresholdToPix          | ❌   | -                                               | no Rust impl in expected dirs                  |
+| linearInterpolatePixelFloat | ❌   | -                                               | no Rust impl in expected dirs                  |
+| pixComponentFunction        | ❌   | -                                               | no Rust impl in expected dirs                  |
+| pixConvertToDPix            | ❌   | -                                               | no Rust impl in expected dirs                  |
 
 ### graphics.c (追加分)
 
-| C関数                  | 状態 | Rust対応 | 備考               |
-| ---------------------- | ---- | -------- | ------------------ |
-| generatePtaLineFromPt  | ❌   | -        |                    |
-| locatePtRadially       | ❌   | -        |                    |
-| makePlotPtaFromNuma    | 🚫   | -        | プロット用ヘルパー |
-| makePlotPtaFromNumaGen | 🚫   | -        | プロット用ヘルパー |
+| C関数                  | 状態 | Rust対応                                             | 備考                          |
+| ---------------------- | ---- | ---------------------------------------------------- | ----------------------------- |
+| generatePtaLineFromPt  | ❌   | -                                                    | no Rust impl in expected dirs |
+| locatePtRadially       | ❌   | -                                                    | no Rust impl in expected dirs |
+| makePlotPtaFromNuma    | ❌   | -                                                    | no Rust impl in expected dirs |
+| makePlotPtaFromNumaGen | ✅   | `make_plot_pta_from_numa_gen` (core/pix/graphics.rs) | name+module match             |
 
 ### numabasic.c (追加分)
 
-| C関数                | 状態 | Rust対応           | 備考              |
-| -------------------- | ---- | ------------------ | ----------------- |
-| numaAddNumber        | ❌   | -                  |                   |
-| numaClone            | ❌   | -                  |                   |
-| numaConvertToSarray  | ❌   | -                  |                   |
-| numaCopy             | ✅   | copy               | filter/kernel.rs  |
-| numaCopyParameters   | ❌   | -                  |                   |
-| numaCreate           | ✅   | create             | core/pixacc.rs    |
-| numaCreateFromFArray | ❌   | -                  |                   |
-| numaCreateFromIArray | ❌   | -                  |                   |
-| numaCreateFromString | ✅   | create_from_string | core/pixcomp.rs   |
-| numaDestroy          | ❌   | -                  |                   |
-| numaEmpty            | ✅   | empty              | color/analysis.rs |
-| numaGetCount         | ✅   | get_count          | core/pixcomp.rs   |
-| numaGetFArray        | ❌   | -                  |                   |
-| numaGetFValue        | ❌   | -                  |                   |
-| numaGetIArray        | ❌   | -                  |                   |
-| numaGetIValue        | ❌   | -                  |                   |
-| numaGetParameters    | ✅   | get_parameters     | core/pixcomp.rs   |
-| numaInsertNumber     | ❌   | -                  |                   |
-| numaRead             | ✅   | read               | core/pixcomp.rs   |
-| numaReadMem          | ✅   | read_mem           | core/pixcomp.rs   |
-| numaReadStream       | ✅   | read_stream        | core/pixcomp.rs   |
-| numaRemoveNumber     | ❌   | -                  |                   |
-| numaReplaceNumber    | ❌   | -                  |                   |
-| numaSetCount         | ❌   | -                  |                   |
-| numaSetParameters    | ✅   | set_parameters     | core/numa/mod.rs  |
-| numaSetValue         | ❌   | -                  |                   |
-| numaShiftValue       | ❌   | -                  |                   |
-| numaWrite            | ✅   | write              | core/pixcomp.rs   |
-| numaWriteDebug       | ❌   | -                  |                   |
-| numaWriteMem         | ✅   | write_mem          | core/pixcomp.rs   |
-| numaWriteStderr      | ❌   | -                  |                   |
-| numaWriteStream      | ✅   | write_stream       | core/pixcomp.rs   |
-| numaaAddNuma         | ❌   | -                  |                   |
-| numaaAddNumber       | ❌   | -                  |                   |
-| numaaCreate          | ✅   | create             | core/pixacc.rs    |
-| numaaCreateFull      | ❌   | -                  |                   |
-| numaaDestroy         | ❌   | -                  |                   |
-| numaaGetCount        | ✅   | get_count          | core/pixcomp.rs   |
-| numaaGetNuma         | ❌   | -                  |                   |
-| numaaGetNumaCount    | ❌   | -                  |                   |
-| numaaGetNumberCount  | ❌   | -                  |                   |
-| numaaGetPtrArray     | ❌   | -                  |                   |
-| numaaGetValue        | ✅   | get_value          | core/numa/mod.rs  |
-| numaaRead            | ✅   | read               | core/pixcomp.rs   |
-| numaaReadMem         | ✅   | read_mem           | core/pixcomp.rs   |
-| numaaReadStream      | ✅   | read_stream        | core/pixcomp.rs   |
-| numaaReplaceNuma     | ❌   | -                  |                   |
-| numaaTruncate        | ✅   | truncate           | core/pta/mod.rs   |
-| numaaWrite           | ✅   | write              | core/pixcomp.rs   |
-| numaaWriteMem        | ✅   | write_mem          | core/pixcomp.rs   |
-| numaaWriteStream     | ✅   | write_stream       | core/pixcomp.rs   |
+| C関数                | 状態 | Rust対応                                 | 備考                                                          |
+| -------------------- | ---- | ---------------------------------------- | ------------------------------------------------------------- |
+| numaAddNumber        | 🔄   | `push` (core/numa/mod.rs)                | C: numaAddNumber → Rust: Numa::push() (idiomatic)             |
+| numaClone            | ❌   | -                                        | Clone trait で代替 (Rust 側で未発見)                          |
+| numaConvertToSarray  | ❌   | -                                        | 未実装                                                        |
+| numaCopy             | ❌   | -                                        | C: numaCopy → Rust: Clone trait (Rust 側で未発見)             |
+| numaCopyParameters   | ❌   | -                                        | 直接対応なし                                                  |
+| numaCreate           | 🔄   | `new` (core/numa/mod.rs)                 | C: numaCreate → Rust: Numa::new()/with_capacity()             |
+| numaCreateFromFArray | 🔄   | `from_slice` (core/numa/mod.rs)          | C: numaCreateFromFArray → Rust: Numa::from_slice()/from_vec() |
+| numaCreateFromIArray | 🔄   | `from_i32_slice` (core/numa/mod.rs)      | C: numaCreateFromIArray → Rust: Numa::from_i32_slice()        |
+| numaCreateFromString | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaDestroy          | 🚫   | -                                        | Drop trait で自動破棄                                         |
+| numaEmpty            | 🔄   | `clear` (core/numa/mod.rs)               | Numa::clear()/is_empty()                                      |
+| numaGetCount         | 🔄   | `len` (core/numa/mod.rs)                 | Numa::len()                                                   |
+| numaGetFArray        | 🔄   | `as_slice` (core/numa/mod.rs)            | Numa::as_slice()/into_vec()                                   |
+| numaGetFValue        | 🔄   | `get` (core/numa/mod.rs)                 | Numa::get()                                                   |
+| numaGetIArray        | ❌   | -                                        | 直接対応なし (f32 → Vec<i32> 変換が必要)                      |
+| numaGetIValue        | 🔄   | `get_i32` (core/numa/mod.rs)             | Numa::get_i32()                                               |
+| numaGetParameters    | 🔄   | `parameters` (core/numa/mod.rs)          | Numa::parameters()                                            |
+| numaInsertNumber     | 🔄   | `insert` (core/numa/mod.rs)              | Numa::insert()                                                |
+| numaRead             | 🔄   | `read_from_file` (core/numa/serial.rs)   | Numa::read_from_file()                                        |
+| numaReadMem          | 🔄   | `read_from_bytes` (core/numa/serial.rs)  | Numa::read_from_bytes()                                       |
+| numaReadStream       | 🔄   | `read_from_reader` (core/numa/serial.rs) | Numa::read_from_reader()                                      |
+| numaRemoveNumber     | 🔄   | `remove` (core/numa/mod.rs)              | Numa::remove()                                                |
+| numaReplaceNumber    | 🔄   | `replace` (core/numa/mod.rs)             | Numa::replace()                                               |
+| numaSetCount         | ❌   | -                                        | Vec::truncate 風 (Rust 側で未発見)                            |
+| numaSetParameters    | ✅   | `set_parameters` (core/numa/mod.rs)      | name+module match                                             |
+| numaSetValue         | 🔄   | `set` (core/numa/mod.rs)                 | Numa::set()                                                   |
+| numaShiftValue       | 🔄   | `shift` (core/numa/mod.rs)               | Numa::shift()                                                 |
+| numaWrite            | 🔄   | `write_to_file` (core/numa/serial.rs)    | Numa::write_to_file()                                         |
+| numaWriteDebug       | 🚫   | -                                        | デバッグ出力                                                  |
+| numaWriteMem         | 🔄   | `write_to_bytes` (core/numa/serial.rs)   | Numa::write_to_bytes()                                        |
+| numaWriteStderr      | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaWriteStream      | 🔄   | `write_to_writer` (core/numa/serial.rs)  | Numa::write_to_writer()                                       |
+| numaaAddNuma         | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaAddNumber       | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaCreate          | 🔄   | `new` (core/numa/mod.rs)                 | Numaa::new()                                                  |
+| numaaCreateFull      | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaDestroy         | 🚫   | -                                        | Drop で自動破棄                                               |
+| numaaGetCount        | 🔄   | `len` (core/numa/mod.rs)                 | Numaa::len()                                                  |
+| numaaGetNuma         | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaGetNumaCount    | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaGetNumberCount  | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaGetPtrArray     | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaGetValue        | 🔄   | `get_value` (core/numa/mod.rs)           | Numaa::get_value()                                            |
+| numaaRead            | 🔄   | `read_from_file` (core/numa/serial.rs)   | Numaa::read_from_file()                                       |
+| numaaReadMem         | 🔄   | `read_from_bytes` (core/numa/serial.rs)  | Numaa::read_from_bytes()                                      |
+| numaaReadStream      | 🔄   | `read_from_reader` (core/numa/serial.rs) | Numaa::read_from_reader()                                     |
+| numaaReplaceNuma     | ❌   | -                                        | no Rust impl in expected dirs                                 |
+| numaaTruncate        | ❌   | -                                        | Numaa::truncate() (Rust 側で未発見)                           |
+| numaaWrite           | 🔄   | `write_to_file` (core/numa/serial.rs)    | Numaa::write_to_file()                                        |
+| numaaWriteMem        | 🔄   | `write_to_bytes` (core/numa/serial.rs)   | Numaa::write_to_bytes()                                       |
+| numaaWriteStream     | 🔄   | `write_to_writer` (core/numa/serial.rs)  | Numaa::write_to_writer()                                      |
 
 ### numafunc2.c (追加分)
 
-| C関数                           | 状態 | Rust対応                  | 備考                    |
-| ------------------------------- | ---- | ------------------------- | ----------------------- |
-| genConstrainedNumaInRange       | ❌   | -                         |                         |
-| grayHistogramsToEMD             | ❌   | -                         |                         |
-| grayInterHistogramStats         | ❌   | -                         |                         |
-| numaClose                       | ✅   | close                     | core/numa/operations.rs |
-| numaConvertToInt                | ❌   | -                         |                         |
-| numaCountReversals              | ❌   | -                         |                         |
-| numaCrossingsByPeaks            | ❌   | -                         |                         |
-| numaCrossingsByThreshold        | ❌   | -                         |                         |
-| numaDilate                      | ✅   | dilate                    | core/numa/operations.rs |
-| numaDiscretizeHistoInBins       | ❌   | -                         |                         |
-| numaDiscretizeSortedInBins      | ❌   | -                         |                         |
-| numaEarthMoverDistance          | ❌   | -                         |                         |
-| numaErode                       | ✅   | erode                     | core/numa/operations.rs |
-| numaEvalBestHaarParameters      | ❌   | -                         |                         |
-| numaEvalHaarSum                 | ❌   | -                         |                         |
-| numaFindExtrema                 | ✅   | find_extrema              | core/numa/operations.rs |
-| numaFindPeaks                   | ✅   | find_peaks                | recog/baseline.rs       |
-| numaGetHistogramStats           | ❌   | -                         |                         |
-| numaGetHistogramStatsOnInterval | ❌   | -                         |                         |
-| numaGetRankBinValues            | ❌   | -                         |                         |
-| numaGetStatsUsingHistogram      | ❌   | -                         |                         |
-| numaGetUniformBinSizes          | ❌   | -                         |                         |
-| numaHistogramGetRankFromVal     | ❌   | -                         |                         |
-| numaHistogramGetValFromRank     | ❌   | -                         |                         |
-| numaMakeHistogram               | ✅   | make_histogram            | core/numa/operations.rs |
-| numaMakeHistogramAuto           | ❌   | -                         |                         |
-| numaMakeHistogramClipped        | ✅   | make_histogram_clipped    | core/numa/operations.rs |
-| numaMakeRankFromHistogram       | ❌   | -                         |                         |
-| numaNormalizeHistogram          | ✅   | normalize_histogram       | core/numa/histogram.rs  |
-| numaOpen                        | ✅   | open                      | core/numa/operations.rs |
-| numaRebinHistogram              | ❌   | -                         |                         |
-| numaSelectCrossingThreshold     | ✅   | select_crossing_threshold | recog/barcode/signal.rs |
-| numaSimpleStats                 | ✅   | simple_stats              | core/numa/operations.rs |
-| numaSplitDistribution           | ❌   | -                         |                         |
-| numaTransform                   | ✅   | transform                 | core/numa/operations.rs |
-| numaWindowedMean                | ✅   | windowed_mean             | core/numa/operations.rs |
-| numaWindowedMeanSquare          | ✅   | windowed_mean_square      | core/numa/operations.rs |
-| numaWindowedMedian              | ✅   | windowed_median           | core/box_/smooth.rs     |
-| numaWindowedStats               | ✅   | windowed_stats            | core/numa/operations.rs |
-| numaWindowedVariance            | ✅   | windowed_variance         | filter/windowed.rs      |
+| C関数                           | 状態 | Rust対応                                              | 備考                          |
+| ------------------------------- | ---- | ----------------------------------------------------- | ----------------------------- |
+| genConstrainedNumaInRange       | ❌   | -                                                     | no Rust impl in expected dirs |
+| grayHistogramsToEMD             | ❌   | -                                                     | no Rust impl in expected dirs |
+| grayInterHistogramStats         | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaClose                       | ✅   | `close` (core/numa/operations.rs)                     | name+module match             |
+| numaConvertToInt                | ❌   | -                                                     | 未実装                        |
+| numaCountReversals              | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaCrossingsByPeaks            | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaCrossingsByThreshold        | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaDilate                      | ✅   | `dilate` (core/numa/operations.rs)                    | name+module match             |
+| numaDiscretizeHistoInBins       | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaDiscretizeSortedInBins      | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaEarthMoverDistance          | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaErode                       | ✅   | `erode` (core/numa/operations.rs)                     | name+module match             |
+| numaEvalBestHaarParameters      | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaEvalHaarSum                 | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaFindExtrema                 | ✅   | `find_extrema` (core/numa/operations.rs)              | name+module match             |
+| numaFindPeaks                   | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaGetHistogramStats           | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaGetHistogramStatsOnInterval | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaGetRankBinValues            | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaGetStatsUsingHistogram      | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaGetUniformBinSizes          | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaHistogramGetRankFromVal     | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaHistogramGetValFromRank     | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaMakeHistogram               | ✅   | `make_histogram` (core/numa/operations.rs)            | name+module match             |
+| numaMakeHistogramAuto           | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaMakeHistogramClipped        | ✅   | `make_histogram_clipped` (core/numa/operations.rs)    | name+module match             |
+| numaMakeRankFromHistogram       | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaNormalizeHistogram          | ✅   | `normalize_histogram` (core/numa/histogram.rs)        | name+module match             |
+| numaOpen                        | ✅   | `open` (core/numa/operations.rs)                      | name+module match             |
+| numaRebinHistogram              | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaSelectCrossingThreshold     | ✅   | `select_crossing_threshold` (recog/barcode/signal.rs) | name+module match             |
+| numaSimpleStats                 | ✅   | `simple_stats` (core/numa/operations.rs)              | name+module match             |
+| numaSplitDistribution           | ❌   | -                                                     | no Rust impl in expected dirs |
+| numaTransform                   | ✅   | `transform` (core/numa/operations.rs)                 | name+module match             |
+| numaWindowedMean                | ✅   | `windowed_mean` (core/numa/operations.rs)             | name+module match             |
+| numaWindowedMeanSquare          | ✅   | `windowed_mean_square` (core/numa/operations.rs)      | name+module match             |
+| numaWindowedMedian              | ✅   | `windowed_median` (core/numa/operations.rs)           | name+module match             |
+| numaWindowedStats               | ✅   | `windowed_stats` (core/numa/operations.rs)            | name+module match             |
+| numaWindowedVariance            | ✅   | `windowed_variance` (filter/windowed.rs)              | name+module match             |
 
 ### pix1.c (追加分)
 
-| C関数               | 状態 | Rust対応 | 備考 |
-| ------------------- | ---- | -------- | ---- |
-| setPixMemoryManager | ❌   | -        |      |
+| C関数               | 状態 | Rust対応 | 備考                          |
+| ------------------- | ---- | -------- | ----------------------------- |
+| setPixMemoryManager | ❌   | -        | no Rust impl in expected dirs |
 
 ### pix2.c (追加分)
 
-| C関数                    | 状態 | Rust対応 | 備考                                            |
-| ------------------------ | ---- | -------- | ----------------------------------------------- |
-| l_setAlphaMaskBorder     | 🚫   | -        | Rust 標準で代替                                 |
-| lineEndianByteSwap       | 🚫   | -        | Rust 標準ライブラリ (i32::swap_bytes 等) で代替 |
-| pixCleanupByteProcessing | ❌   | -        |                                                 |
-| pixEndianTwoByteSwapNew  | 🚫   | -        | Rust 標準ライブラリ (i32::swap_bytes 等) で代替 |
-| pixSetupByteProcessing   | ❌   | -        |                                                 |
-| setLineDataVal           | ❌   | -        |                                                 |
-| setPixelLow              | ❌   | -        |                                                 |
+| C関数                    | 状態 | Rust対応                                     | 備考                                  |
+| ------------------------ | ---- | -------------------------------------------- | ------------------------------------- |
+| l_setAlphaMaskBorder     | ❌   | -                                            | no Rust impl in expected dirs         |
+| lineEndianByteSwap       | 🚫   | -                                            | Rust 標準 (i32::swap_bytes 等) で代替 |
+| pixCleanupByteProcessing | ❌   | -                                            | no Rust impl in expected dirs         |
+| pixEndianTwoByteSwapNew  | ✅   | `endian_two_byte_swap_new` (core/pix/rgb.rs) | name+module match                     |
+| pixSetupByteProcessing   | ❌   | -                                            | no Rust impl in expected dirs         |
+| setLineDataVal           | ❌   | -                                            | no Rust impl in expected dirs         |
+| setPixelLow              | ❌   | -                                            | no Rust impl in expected dirs         |
 
 ### pix3.c (追加分)
 
-| C関数                 | 状態 | Rust対応 | 備考 |
-| --------------------- | ---- | -------- | ---- |
-| makePixelCentroidTab8 | ❌   | -        |      |
-| makePixelSumTab8      | ❌   | -        |      |
+| C関数                 | 状態 | Rust対応 | 備考                          |
+| --------------------- | ---- | -------- | ----------------------------- |
+| makePixelCentroidTab8 | ❌   | -        | no Rust impl in expected dirs |
+| makePixelSumTab8      | ❌   | -        | no Rust impl in expected dirs |
 
 ### pix4.c (追加分)
 
-| C関数                | 状態 | Rust対応 | 備考 |
-| -------------------- | ---- | -------- | ---- |
-| amapGetCountForColor | ❌   | -        |      |
+| C関数                | 状態 | Rust対応 | 備考                      |
+| -------------------- | ---- | -------- | ------------------------- |
+| amapGetCountForColor | 🚫   | -        | L_Amap は BTreeMap で代替 |
 
 ### pixafunc1.c (追加分)
 
-| C関数                        | 状態 | Rust対応              | 備考                   |
-| ---------------------------- | ---- | --------------------- | ---------------------- |
-| pixAddWithIndicator          | ❌   | -                     |                        |
-| pixRemoveWithIndicator       | ❌   | -                     |                        |
-| pixSelectByArea              | ✅   | select_by_area        | core/box_/mod.rs       |
-| pixSelectByAreaFraction      | ❌   | -                     |                        |
-| pixSelectByPerimSizeRatio    | ❌   | -                     |                        |
-| pixSelectByPerimToAreaRatio  | ❌   | -                     |                        |
-| pixSelectBySize              | ✅   | pix_select_by_size    | region/select.rs       |
-| pixSelectByWidthHeightRatio  | ❌   | -                     |                        |
-| pixaAddBorderGeneral         | ✅   | add_border_general    | core/pix/border.rs     |
-| pixaAnyColormaps             | ❌   | -                     |                        |
-| pixaBinSort                  | ✅   | bin_sort              | core/box_/sort.rs      |
-| pixaClipToForeground         | ✅   | clip_to_foreground    | core/pix/clip.rs       |
-| pixaClipToPix                | ❌   | -                     |                        |
-| pixaConvertToGivenDepth      | ❌   | -                     |                        |
-| pixaConvertToSameDepth       | ❌   | -                     |                        |
-| pixaEqual                    | ✅   | equal                 | core/pta/sort.rs       |
-| pixaGetDepthInfo             | ❌   | -                     |                        |
-| pixaGetRenderingDepth        | ❌   | -                     |                        |
-| pixaHasColor                 | ✅   | has_color             | core/colormap/mod.rs   |
-| pixaMakeSizeIndicator        | ✅   | make_size_indicator   | core/box_/select.rs    |
-| pixaRenderComponent          | ❌   | -                     |                        |
-| pixaRotate                   | ✅   | rotate                | core/box_/mod.rs       |
-| pixaRotateOrth               | ✅   | rotate_orth           | core/box_/transform.rs |
-| pixaScale                    | ✅   | scale                 | core/box_/mod.rs       |
-| pixaScaleBySampling          | ✅   | scale_by_sampling     | transform/scale.rs     |
-| pixaSelectByAreaFraction     | ❌   | -                     |                        |
-| pixaSelectByNumConnComp      | ❌   | -                     |                        |
-| pixaSelectByPerimSizeRatio   | ❌   | -                     |                        |
-| pixaSelectByPerimToAreaRatio | ❌   | -                     |                        |
-| pixaSelectByWidthHeightRatio | ❌   | -                     |                        |
-| pixaSelectRange              | ✅   | select_range          | core/box_/select.rs    |
-| pixaSelectWithIndicator      | ✅   | select_with_indicator | core/box_/select.rs    |
-| pixaSelectWithString         | ❌   | -                     |                        |
-| pixaSetFullSizeBoxa          | ❌   | -                     |                        |
-| pixaSizeRange                | ✅   | size_range            | core/box_/select.rs    |
-| pixaSort2dByIndex            | ✅   | sort_2d_by_index      | core/box_/sort.rs      |
-| pixaTranslate                | ✅   | translate             | core/box_/mod.rs       |
-| pixaaFlattenToPixa           | ❌   | -                     |                        |
-| pixaaScaleToSize             | ✅   | scale_to_size         | core/pixa/mod.rs       |
-| pixaaScaleToSizeVar          | ❌   | -                     |                        |
-| pixaaSelectRange             | ✅   | select_range          | core/box_/select.rs    |
-| pixaaSizeRange               | ✅   | size_range            | core/box_/select.rs    |
+| C関数                        | 状態 | Rust対応                            | 備考                          |
+| ---------------------------- | ---- | ----------------------------------- | ----------------------------- |
+| pixAddWithIndicator          | ❌   | -                                   | no Rust impl in expected dirs |
+| pixRemoveWithIndicator       | ❌   | -                                   | no Rust impl in expected dirs |
+| pixSelectByArea              | ✅   | `select_by_area` (core/pixa/mod.rs) | name+module match             |
+| pixSelectByAreaFraction      | ❌   | -                                   | no Rust impl in expected dirs |
+| pixSelectByPerimSizeRatio    | ❌   | -                                   | no Rust impl in expected dirs |
+| pixSelectByPerimToAreaRatio  | ❌   | -                                   | no Rust impl in expected dirs |
+| pixSelectBySize              | ✅   | `select_by_size` (core/pixa/mod.rs) | name+module match             |
+| pixSelectByWidthHeightRatio  | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaAddBorderGeneral         | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaAnyColormaps             | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaBinSort                  | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaClipToForeground         | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaClipToPix                | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaConvertToGivenDepth      | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaConvertToSameDepth       | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaEqual                    | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaGetDepthInfo             | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaGetRenderingDepth        | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaHasColor                 | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaMakeSizeIndicator        | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaRenderComponent          | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaRotate                   | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaRotateOrth               | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaScale                    | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaScaleBySampling          | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectByAreaFraction     | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectByNumConnComp      | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectByPerimSizeRatio   | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectByPerimToAreaRatio | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectByWidthHeightRatio | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectRange              | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectWithIndicator      | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSelectWithString         | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSetFullSizeBoxa          | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSizeRange                | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaSort2dByIndex            | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaTranslate                | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaaFlattenToPixa           | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaaScaleToSize             | ✅   | `scale_to_size` (core/pixa/mod.rs)  | name+module match             |
+| pixaaScaleToSizeVar          | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaaSelectRange             | ❌   | -                                   | no Rust impl in expected dirs |
+| pixaaSizeRange               | ❌   | -                                   | no Rust impl in expected dirs |
 
 ### pixafunc2.c (追加分)
 
-| C関数                         | 状態 | Rust対応                 | 備考                                         |
-| ----------------------------- | ---- | ------------------------ | -------------------------------------------- |
-| convertToNUpFiles             | 🚫   | -                        | PDF/PS生成のN-up処理 (Rust では別アプローチ) |
-| convertToNUpPixa              | 🚫   | -                        | PDF/PS生成のN-up処理 (Rust では別アプローチ) |
-| pixGetTileCount               | ❌   | -                        |                                              |
-| pixaCompareInPdf              | ❌   | -                        |                                              |
-| pixaConstrainedSelect         | ❌   | -                        |                                              |
-| pixaConvertTo1                | ❌   | -                        |                                              |
-| pixaConvertTo32               | ✅   | convert_to_32            | core/pix/convert.rs                          |
-| pixaConvertTo8                | ✅   | convert_to_8             | core/colormap/convert.rs                     |
-| pixaConvertTo8Colormap        | ✅   | convert_to_8_colormap    | core/pix/convert.rs                          |
-| pixaConvertToNUpPixa          | ❌   | -                        |                                              |
-| pixaDisplayLinearly           | ❌   | -                        |                                              |
-| pixaDisplayMultiTiled         | ❌   | -                        |                                              |
-| pixaDisplayOnLattice          | ❌   | -                        |                                              |
-| pixaDisplayPairTiledInColumns | ❌   | -                        |                                              |
-| pixaDisplayRandomCmap         | ❌   | -                        |                                              |
-| pixaDisplayTiledByIndex       | ❌   | -                        |                                              |
-| pixaDisplayTiledInColumns     | ❌   | -                        |                                              |
-| pixaDisplayTiledInRows        | ❌   | -                        |                                              |
-| pixaDisplayTiledWithText      | ❌   | -                        |                                              |
-| pixaDisplayUnsplit            | ❌   | -                        |                                              |
-| pixaMakeFromTiledPix          | ❌   | -                        |                                              |
-| pixaMakeFromTiledPixa         | ❌   | -                        |                                              |
-| pixaSelectToPdf               | ❌   | -                        |                                              |
-| pixaSplitIntoFiles            | ❌   | -                        |                                              |
-| pixaaDisplay                  | ✅   | display                  | core/box_/draw.rs                            |
-| pixaaDisplayByPixa            | ❌   | -                        |                                              |
-| pixaaDisplayTiledAndScaled    | ✅   | display_tiled_and_scaled | core/pixa/mod.rs                             |
+| C関数                         | 状態 | Rust対応                                      | 備考                          |
+| ----------------------------- | ---- | --------------------------------------------- | ----------------------------- |
+| convertToNUpFiles             | 🚫   | -                                             | PDF/PS生成のN-up処理          |
+| convertToNUpPixa              | 🚫   | -                                             | PDF/PS生成のN-up処理          |
+| pixGetTileCount               | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaCompareInPdf              | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaConstrainedSelect         | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaConvertTo1                | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaConvertTo32               | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaConvertTo8                | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaConvertTo8Colormap        | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaConvertToNUpPixa          | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayLinearly           | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayMultiTiled         | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayOnLattice          | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayPairTiledInColumns | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayRandomCmap         | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayTiledByIndex       | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayTiledInColumns     | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayTiledInRows        | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayTiledWithText      | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaDisplayUnsplit            | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaMakeFromTiledPix          | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaMakeFromTiledPixa         | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaSelectToPdf               | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaSplitIntoFiles            | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaaDisplay                  | ✅   | `display` (core/pixa/mod.rs)                  | name+module match             |
+| pixaaDisplayByPixa            | ❌   | -                                             | no Rust impl in expected dirs |
+| pixaaDisplayTiledAndScaled    | ✅   | `display_tiled_and_scaled` (core/pixa/mod.rs) | name+module match             |
 
 ### pixarith.c (追加分)
 
-| C関数                       | 状態 | Rust対応          | 備考                 |
-| --------------------------- | ---- | ----------------- | -------------------- |
-| getLogBase2                 | ❌   | -                 |                      |
-| linearScaleRGBVal           | ❌   | -                 |                      |
-| logScaleRGBVal              | ❌   | -                 |                      |
-| makeLogBase2Tab             | ❌   | -                 |                      |
-| pixAccumulate               | ❌   | -                 |                      |
-| pixAddRGB                   | ✅   | add_rgb           | core/colormap/mod.rs |
-| pixFinalAccumulate          | ❌   | -                 |                      |
-| pixFinalAccumulateThreshold | ❌   | -                 |                      |
-| pixInitAccumulate           | ❌   | -                 |                      |
-| pixMaxDynamicRange          | ✅   | max_dynamic_range | filter/enhance.rs    |
-| pixMaxDynamicRangeRGB       | ❌   | -                 |                      |
-| pixMultiplyGray             | ✅   | multiply_gray     | core/pix/arith.rs    |
-| pixThresholdToValue         | ❌   | -                 |                      |
+| C関数                       | 状態 | Rust対応                            | 備考                          |
+| --------------------------- | ---- | ----------------------------------- | ----------------------------- |
+| getLogBase2                 | ❌   | -                                   | no Rust impl in expected dirs |
+| linearScaleRGBVal           | ❌   | -                                   | no Rust impl in expected dirs |
+| logScaleRGBVal              | ❌   | -                                   | no Rust impl in expected dirs |
+| makeLogBase2Tab             | ❌   | -                                   | no Rust impl in expected dirs |
+| pixAccumulate               | ❌   | -                                   | no Rust impl in expected dirs |
+| pixAddRGB                   | ❌   | -                                   | no Rust impl in expected dirs |
+| pixFinalAccumulate          | ❌   | -                                   | no Rust impl in expected dirs |
+| pixFinalAccumulateThreshold | ❌   | -                                   | no Rust impl in expected dirs |
+| pixInitAccumulate           | ❌   | -                                   | no Rust impl in expected dirs |
+| pixMaxDynamicRange          | ❌   | -                                   | no Rust impl in expected dirs |
+| pixMaxDynamicRangeRGB       | ❌   | -                                   | no Rust impl in expected dirs |
+| pixMultiplyGray             | ✅   | `multiply_gray` (core/pix/arith.rs) | name+module match             |
+| pixThresholdToValue         | ❌   | -                                   | no Rust impl in expected dirs |
 
 ### pixconv.c (追加分)
 
-| C関数                | 状態 | Rust対応 | 備考            |
-| -------------------- | ---- | -------- | --------------- |
-| l_setNeutralBoostVal | 🚫   | -        | Rust 標準で代替 |
+| C関数                | 状態 | Rust対応 | 備考                          |
+| -------------------- | ---- | -------- | ----------------------------- |
+| l_setNeutralBoostVal | ❌   | -        | no Rust impl in expected dirs |
 
 ### ptafunc1.c (追加分)
 
-| C関数                  | 状態 | Rust対応              | 備考                            |
-| ---------------------- | ---- | --------------------- | ------------------------------- |
-| applyCubicFit          | ✅   | apply_cubic_fit       | core/pta/lsf.rs                 |
-| applyLinearFit         | ✅   | apply_linear_fit      | core/pta/lsf.rs                 |
-| applyQuadraticFit      | ✅   | apply_quadratic_fit   | core/pta/lsf.rs                 |
-| applyQuarticFit        | ✅   | apply_quartic_fit     | core/pta/lsf.rs                 |
-| l_angleBetweenVectors  | ✅   | angle_between_vectors | core/pta/transform.rs           |
-| numaConvertToPta1      | ❌   | -                     |                                 |
-| numaConvertToPta2      | ❌   | -                     |                                 |
-| pixDisplayPta          | 🚫   | -                     | Pix表示 (X11/GUI) - Rust 未提供 |
-| pixDisplayPtaPattern   | 🚫   | -                     | Pix表示 (X11/GUI) - Rust 未提供 |
-| pixDisplayPtaa         | 🚫   | -                     | Pix表示 (X11/GUI) - Rust 未提供 |
-| pixDisplayPtaaPattern  | 🚫   | -                     | Pix表示 (X11/GUI) - Rust 未提供 |
-| pixFindCornerPixels    | ❌   | -                     |                                 |
-| pixGenerateFromPta     | ❌   | -                     |                                 |
-| pixPlotAlongPta        | ❌   | -                     |                                 |
-| ptaConvertToNuma       | ❌   | -                     |                                 |
-| ptaGetBoundaryPixels   | ❌   | -                     |                                 |
-| ptaGetBoundingRegion   | ❌   | -                     |                                 |
-| ptaGetNeighborPixLocs  | ❌   | -                     |                                 |
-| ptaGetPixelsFromPix    | ❌   | -                     |                                 |
-| ptaNoisyLinearLSF      | ❌   | -                     |                                 |
-| ptaNoisyQuadraticLSF   | ❌   | -                     |                                 |
-| ptaReplicatePattern    | ✅   | replicate_pattern     | core/pix/graphics.rs            |
-| ptaaGetBoundaryPixels  | ❌   | -                     |                                 |
-| ptaaIndexLabeledPixels | ❌   | -                     |                                 |
+| C関数                  | 状態 | Rust対応                                        | 備考                          |
+| ---------------------- | ---- | ----------------------------------------------- | ----------------------------- |
+| applyCubicFit          | ✅   | `apply_cubic_fit` (core/pta/lsf.rs)             | name+module match             |
+| applyLinearFit         | ✅   | `apply_linear_fit` (core/pta/lsf.rs)            | name+module match             |
+| applyQuadraticFit      | ✅   | `apply_quadratic_fit` (core/pta/lsf.rs)         | name+module match             |
+| applyQuarticFit        | ✅   | `apply_quartic_fit` (core/pta/lsf.rs)           | name+module match             |
+| l_angleBetweenVectors  | ✅   | `angle_between_vectors` (core/pta/transform.rs) | name+module match             |
+| numaConvertToPta1      | ❌   | -                                               | no Rust impl in expected dirs |
+| numaConvertToPta2      | ❌   | -                                               | no Rust impl in expected dirs |
+| pixDisplayPta          | 🚫   | -                                               | GUI/X11 表示は Rust 未提供    |
+| pixDisplayPtaPattern   | 🚫   | -                                               | GUI/X11 表示は Rust 未提供    |
+| pixDisplayPtaa         | 🚫   | -                                               | GUI/X11 表示は Rust 未提供    |
+| pixDisplayPtaaPattern  | 🚫   | -                                               | GUI/X11 表示は Rust 未提供    |
+| pixFindCornerPixels    | ❌   | -                                               | no Rust impl in expected dirs |
+| pixGenerateFromPta     | ❌   | -                                               | no Rust impl in expected dirs |
+| pixPlotAlongPta        | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaConvertToNuma       | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaGetBoundaryPixels   | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaGetBoundingRegion   | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaGetNeighborPixLocs  | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaGetPixelsFromPix    | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaNoisyLinearLSF      | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaNoisyQuadraticLSF   | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaReplicatePattern    | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaaGetBoundaryPixels  | ❌   | -                                               | no Rust impl in expected dirs |
+| ptaaIndexLabeledPixels | ❌   | -                                               | no Rust impl in expected dirs |
 
 ### sarray1.c (追加分)
 
-| C関数                            | 状態 | Rust対応 | 備考                                         |
-| -------------------------------- | ---- | -------- | -------------------------------------------- |
-| convertSortedToNumberedPathnames | 🚫   | -        | PDF/PS生成のN-up処理 (Rust では別アプローチ) |
-| getFilenamesInDirectory          | ❌   | -        |                                              |
-| getNumberedPathnamesInDirectory  | ❌   | -        |                                              |
-| getSortedPathnamesInDirectory    | ❌   | -        |                                              |
+| C関数                            | 状態 | Rust対応 | 備考                          |
+| -------------------------------- | ---- | -------- | ----------------------------- |
+| convertSortedToNumberedPathnames | 🚫   | -        | PDF/PS生成のN-up処理          |
+| getFilenamesInDirectory          | ❌   | -        | no Rust impl in expected dirs |
+| getNumberedPathnamesInDirectory  | ❌   | -        | no Rust impl in expected dirs |
+| getSortedPathnamesInDirectory    | ❌   | -        | no Rust impl in expected dirs |

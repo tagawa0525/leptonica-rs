@@ -328,37 +328,41 @@
 
 ## 追加検証エントリ (gap-fill audit 2026-05-10)
 
-以下は `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
-Rust 実装の一致は名前ベースのヒューリスティック検索で判定したため、`✅` 印は
-「同名/類似名の Rust 関数を確認」程度の意味であり、引数互換性までは保証しない。
-引き続き個別レビューを推奨。
+以下は当初 `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
+当初のヒューリスティック検索結果を、C 関数名と Rust 実装の場所・シグネチャで個別レビュー
+して再分類した結果である。
 
-**追加分類サマリー**: ✅ 0 / 🚫 0 / ❌ 8 (合計 8)
+- ✅ 同等: Rust 側に同名・同モジュールの実装を確認
+- 🔄 異なる: Rust 側で異なる API/モジュール配置で実装 (Vec idiomatic 等)
+- 🚫 不要: Rust 標準ライブラリ等で代替
+- ❌ 未実装: 当該機能が Rust 側に存在しない
+
+**追加分類サマリー**: ❌ 8 (合計 8)
 
 ### dwacomb.2.c (追加分)
 
-| C関数            | 状態 | Rust対応 | 備考 |
-| ---------------- | ---- | -------- | ---- |
-| pixFMorphopGen_2 | ❌   | -        |      |
-| pixMorphDwa_2    | ❌   | -        |      |
+| C関数            | 状態 | Rust対応 | 備考                          |
+| ---------------- | ---- | -------- | ----------------------------- |
+| pixFMorphopGen_2 | ❌   | -        | no Rust impl in expected dirs |
+| pixMorphDwa_2    | ❌   | -        | no Rust impl in expected dirs |
 
 ### fhmtgen.1.c (追加分)
 
-| C関数        | 状態 | Rust対応 | 備考 |
-| ------------ | ---- | -------- | ---- |
-| pixFHMTGen_1 | ❌   | -        |      |
-| pixHMTDwa_1  | ❌   | -        |      |
+| C関数        | 状態 | Rust対応 | 備考                          |
+| ------------ | ---- | -------- | ----------------------------- |
+| pixFHMTGen_1 | ❌   | -        | no Rust impl in expected dirs |
+| pixHMTDwa_1  | ❌   | -        | no Rust impl in expected dirs |
 
 ### fmorphgen.1.c (追加分)
 
-| C関数            | 状態 | Rust対応 | 備考 |
-| ---------------- | ---- | -------- | ---- |
-| pixFMorphopGen_1 | ❌   | -        |      |
-| pixMorphDwa_1    | ❌   | -        |      |
+| C関数            | 状態 | Rust対応 | 備考                          |
+| ---------------- | ---- | -------- | ----------------------------- |
+| pixFMorphopGen_1 | ❌   | -        | no Rust impl in expected dirs |
+| pixMorphDwa_1    | ❌   | -        | no Rust impl in expected dirs |
 
 ### sel2.c (追加分)
 
-| C関数       | 状態 | Rust対応 | 備考 |
-| ----------- | ---- | -------- | ---- |
-| sela4ccThin | ❌   | -        |      |
-| sela8ccThin | ❌   | -        |      |
+| C関数       | 状態 | Rust対応 | 備考                          |
+| ----------- | ---- | -------- | ----------------------------- |
+| sela4ccThin | ❌   | -        | no Rust impl in expected dirs |
+| sela8ccThin | ❌   | -        | no Rust impl in expected dirs |

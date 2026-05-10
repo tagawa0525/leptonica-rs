@@ -431,49 +431,53 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 
 ## 追加検証エントリ (gap-fill audit 2026-05-10)
 
-以下は `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
-Rust 実装の一致は名前ベースのヒューリスティック検索で判定したため、`✅` 印は
-「同名/類似名の Rust 関数を確認」程度の意味であり、引数互換性までは保証しない。
-引き続き個別レビューを推奨。
+以下は当初 `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
+当初のヒューリスティック検索結果を、C 関数名と Rust 実装の場所・シグネチャで個別レビュー
+して再分類した結果である。
 
-**追加分類サマリー**: ✅ 13 / 🚫 0 / ❌ 12 (合計 25)
+- ✅ 同等: Rust 側に同名・同モジュールの実装を確認
+- 🔄 異なる: Rust 側で異なる API/モジュール配置で実装 (Vec idiomatic 等)
+- 🚫 不要: Rust 標準ライブラリ等で代替
+- ❌ 未実装: 当該機能が Rust 側に存在しない
+
+**追加分類サマリー**: ✅ 13 / ❌ 12 (合計 25)
 
 ### pageseg.c (追加分)
 
-| C関数                   | 状態 | Rust対応               | 備考                |
-| ----------------------- | ---- | ---------------------- | ------------------- |
-| pixAutoPhotoinvert      | ✅   | auto_photoinvert       | recog/pageseg.rs    |
-| pixCleanImage           | ❌   | -                      |                     |
-| pixCountTextColumns     | ❌   | -                      |                     |
-| pixCropImage            | ❌   | -                      |                     |
-| pixDecideIfTable        | ✅   | decide_if_table        | recog/pageseg.rs    |
-| pixDecideIfText         | ❌   | -                      |                     |
-| pixEstimateBackground   | ❌   | -                      |                     |
-| pixExtractRawTextlines  | ❌   | -                      |                     |
-| pixExtractTextlines     | ✅   | extract_textlines      | recog/pageseg.rs    |
-| pixFindLargeRectangles  | ✅   | find_large_rectangles  | region/rectangle.rs |
-| pixFindLargestRectangle | ✅   | find_largest_rectangle | region/rectangle.rs |
-| pixFindRectangleInCC    | ✅   | find_rectangle_in_cc   | region/rectangle.rs |
-| pixFindThreshFgExtent   | ❌   | -                      |                     |
-| pixGenHalftoneMask      | ❌   | -                      |                     |
-| pixGenTextblockMask     | ❌   | -                      |                     |
-| pixGenTextlineMask      | ❌   | -                      |                     |
-| pixGenerateHalftoneMask | ✅   | generate_halftone_mask | recog/pageseg.rs    |
-| pixPrepare1bpp          | ✅   | prepare_1bpp           | recog/pageseg.rs    |
+| C関数                   | 状態 | Rust対応                                       | 備考                          |
+| ----------------------- | ---- | ---------------------------------------------- | ----------------------------- |
+| pixAutoPhotoinvert      | ✅   | `auto_photoinvert` (recog/pageseg.rs)          | name+module match             |
+| pixCleanImage           | ❌   | -                                              | no Rust impl in expected dirs |
+| pixCountTextColumns     | ❌   | -                                              | no Rust impl in expected dirs |
+| pixCropImage            | ❌   | -                                              | no Rust impl in expected dirs |
+| pixDecideIfTable        | ✅   | `decide_if_table` (recog/pageseg.rs)           | name+module match             |
+| pixDecideIfText         | ❌   | -                                              | no Rust impl in expected dirs |
+| pixEstimateBackground   | ❌   | -                                              | no Rust impl in expected dirs |
+| pixExtractRawTextlines  | ❌   | -                                              | no Rust impl in expected dirs |
+| pixExtractTextlines     | ✅   | `extract_textlines` (recog/pageseg.rs)         | name+module match             |
+| pixFindLargeRectangles  | ✅   | `find_large_rectangles` (region/rectangle.rs)  | name+module match             |
+| pixFindLargestRectangle | ✅   | `find_largest_rectangle` (region/rectangle.rs) | name+module match             |
+| pixFindRectangleInCC    | ✅   | `find_rectangle_in_cc` (region/rectangle.rs)   | name+module match             |
+| pixFindThreshFgExtent   | ❌   | -                                              | no Rust impl in expected dirs |
+| pixGenHalftoneMask      | ❌   | -                                              | no Rust impl in expected dirs |
+| pixGenTextblockMask     | ❌   | -                                              | no Rust impl in expected dirs |
+| pixGenTextlineMask      | ❌   | -                                              | no Rust impl in expected dirs |
+| pixGenerateHalftoneMask | ✅   | `generate_halftone_mask` (recog/pageseg.rs)    | name+module match             |
+| pixPrepare1bpp          | ✅   | `prepare_1bpp` (recog/pageseg.rs)              | name+module match             |
 
 ### readbarcode.c (追加分)
 
-| C関数                         | 状態 | Rust対応                     | 備考                    |
-| ----------------------------- | ---- | ---------------------------- | ----------------------- |
-| numaQuantizeCrossingsByWidth  | ✅   | quantize_crossings_by_width  | recog/barcode/signal.rs |
-| numaQuantizeCrossingsByWindow | ✅   | quantize_crossings_by_window | recog/barcode/signal.rs |
+| C関数                         | 状態 | Rust対応                                                 | 備考              |
+| ----------------------------- | ---- | -------------------------------------------------------- | ----------------- |
+| numaQuantizeCrossingsByWidth  | ✅   | `quantize_crossings_by_width` (recog/barcode/signal.rs)  | name+module match |
+| numaQuantizeCrossingsByWindow | ✅   | `quantize_crossings_by_window` (recog/barcode/signal.rs) | name+module match |
 
 ### skew.c (追加分)
 
-| C関数                        | 状態 | Rust対応       | 備考          |
-| ---------------------------- | ---- | -------------- | ------------- |
-| pixDeskew                    | ✅   | deskew         | recog/skew.rs |
-| pixDeskewBoth                | ✅   | deskew_both    | recog/skew.rs |
-| pixDeskewGeneral             | ✅   | deskew_general | recog/skew.rs |
-| pixFindDifferentialSquareSum | ❌   | -              |               |
-| pixFindNormalizedSquareSum   | ❌   | -              |               |
+| C関数                        | 状態 | Rust対応                         | 備考                          |
+| ---------------------------- | ---- | -------------------------------- | ----------------------------- |
+| pixDeskew                    | ✅   | `deskew` (recog/skew.rs)         | name+module match             |
+| pixDeskewBoth                | ✅   | `deskew_both` (recog/skew.rs)    | name+module match             |
+| pixDeskewGeneral             | ✅   | `deskew_general` (recog/skew.rs) | name+module match             |
+| pixFindDifferentialSquareSum | ❌   | -                                | no Rust impl in expected dirs |
+| pixFindNormalizedSquareSum   | ❌   | -                                | no Rust impl in expected dirs |

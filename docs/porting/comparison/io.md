@@ -445,25 +445,29 @@ Rust版leptonica-ioは、全移植計画の完了により、C版202関数のう
 
 ## 追加検証エントリ (gap-fill audit 2026-05-10)
 
-以下は `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
-Rust 実装の一致は名前ベースのヒューリスティック検索で判定したため、`✅` 印は
-「同名/類似名の Rust 関数を確認」程度の意味であり、引数互換性までは保証しない。
-引き続き個別レビューを推奨。
+以下は当初 `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
+当初のヒューリスティック検索結果を、C 関数名と Rust 実装の場所・シグネチャで個別レビュー
+して再分類した結果である。
 
-**追加分類サマリー**: ✅ 1 / 🚫 0 / ❌ 5 (合計 6)
+- ✅ 同等: Rust 側に同名・同モジュールの実装を確認
+- 🔄 異なる: Rust 側で異なる API/モジュール配置で実装 (Vec idiomatic 等)
+- 🚫 不要: Rust 標準ライブラリ等で代替
+- ❌ 未実装: 当該機能が Rust 側に存在しない
+
+**追加分類サマリー**: ✅ 1 / ❌ 5 (合計 6)
 
 ### jp2kheader.c (追加分)
 
-| C関数                 | 状態 | Rust対応         | 備考       |
-| --------------------- | ---- | ---------------- | ---------- |
-| fgetJp2kResolution    | ❌   | -                |            |
-| freadHeaderJp2k       | ❌   | -                |            |
-| readHeaderJp2k        | ✅   | read_header_jp2k | io/jp2k.rs |
-| readHeaderMemJp2k     | ❌   | -                |            |
-| readResolutionMemJp2k | ❌   | -                |            |
+| C関数                 | 状態 | Rust対応                        | 備考                          |
+| --------------------- | ---- | ------------------------------- | ----------------------------- |
+| fgetJp2kResolution    | ❌   | -                               | no Rust impl in expected dirs |
+| freadHeaderJp2k       | ❌   | -                               | no Rust impl in expected dirs |
+| readHeaderJp2k        | ✅   | `read_header_jp2k` (io/jp2k.rs) | name+module match             |
+| readHeaderMemJp2k     | ❌   | -                               | no Rust impl in expected dirs |
+| readResolutionMemJp2k | ❌   | -                               | no Rust impl in expected dirs |
 
 ### psio2.c (追加分)
 
-| C関数        | 状態 | Rust対応 | 備考 |
-| ------------ | ---- | -------- | ---- |
-| getResA4Page | ❌   | -        |      |
+| C関数        | 状態 | Rust対応 | 備考                          |
+| ------------ | ---- | -------- | ----------------------------- |
+| getResA4Page | ❌   | -        | no Rust impl in expected dirs |

@@ -6,13 +6,13 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 107 |
+| ✅ 同等   | 112 |
 | 🔄 異なる | 0   |
 | 🚫 不要   | 13  |
-| ❌ 未実装 | 5   |
-| 合計      | 125 |
+| ❌ 未実装 | 6   |
+| 合計      | 131 |
 
-**カバレッジ**: 85.6% (107/125 関数が実装済み、🚫 不要 13 関数を除くと実質 107/112 = 95.5% 実装)
+**カバレッジ**: 85.5% (112/131 関数が実装済み、🚫 不要 13 関数を除くと実質 112/118 = 94.9% 実装)
 
 ## 詳細
 
@@ -254,19 +254,34 @@
 
 ## 追加検証エントリ (gap-fill audit 2026-05-10)
 
-以下は `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
-Rust 実装の一致は名前ベースのヒューリスティック検索で判定したため、`✅` 印は
-「同名/類似名の Rust 関数を確認」程度の意味であり、引数互換性までは保証しない。
-引き続き個別レビューを推奨。
+以下は当初 `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
+当初のヒューリスティック検索結果を、C 関数名と Rust 実装の場所・シグネチャで個別レビュー
+して再分類した結果である。
 
-**追加分類サマリー**: ✅ 0 / 🚫 0 / ❌ 5 (合計 5)
+- ✅ 同等: Rust 側に同名・同モジュールの実装を確認
+- 🔄 異なる: Rust 側で異なる API/モジュール配置で実装 (Vec idiomatic 等)
+- 🚫 不要: Rust 標準ライブラリ等で代替
+- ❌ 未実装: 当該機能が Rust 側に存在しない
+
+**追加分類サマリー**: ✅ 5 / ❌ 6 (合計 11)
 
 ### kernel.c (追加分)
 
-| C関数                 | 状態 | Rust対応 | 備考 |
-| --------------------- | ---- | -------- | ---- |
-| makeDoGKernel         | ❌   | -        |      |
-| makeFlatKernel        | ❌   | -        |      |
-| makeGaussianKernel    | ❌   | -        |      |
-| makeGaussianKernelSep | ❌   | -        |      |
-| parseStringForNumbers | ❌   | -        |      |
+| C関数                 | 状態 | Rust対応 | 備考                          |
+| --------------------- | ---- | -------- | ----------------------------- |
+| makeDoGKernel         | ❌   | -        | no Rust impl in expected dirs |
+| makeFlatKernel        | ❌   | -        | no Rust impl in expected dirs |
+| makeGaussianKernel    | ❌   | -        | no Rust impl in expected dirs |
+| makeGaussianKernelSep | ❌   | -        | no Rust impl in expected dirs |
+| parseStringForNumbers | ❌   | -        | no Rust impl in expected dirs |
+
+### runlength.c (追加分)
+
+| C関数                         | 状態 | Rust対応                                                | 備考                          |
+| ----------------------------- | ---- | ------------------------------------------------------- | ----------------------------- |
+| pixFindHorizontalRuns         | ✅   | `find_horizontal_runs` (filter/runlength.rs)            | name+module match             |
+| pixFindMaxHorizontalRunOnLine | ✅   | `find_max_horizontal_run_on_line` (filter/runlength.rs) | name+module match             |
+| pixFindMaxRuns                | ✅   | `find_max_runs` (filter/runlength.rs)                   | name+module match             |
+| pixFindMaxVerticalRunOnLine   | ✅   | `find_max_vertical_run_on_line` (filter/runlength.rs)   | name+module match             |
+| pixFindVerticalRuns           | ✅   | `find_vertical_runs` (filter/runlength.rs)              | name+module match             |
+| pixStrokeWidthTransform       | ❌   | -                                                       | no Rust impl in expected dirs |
