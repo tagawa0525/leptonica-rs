@@ -43,7 +43,8 @@ C 版 `pdfio1.c` / `pdfio2.c` の以下 4 関数が Rust に未移植。
 
 ### pdf-writer 0.14 の機能
 
-`~/.cargo/registry/src/index.crates.io-*/pdf-writer-0.14.0/src/` を調査した結果:
+`pdf-writer` 0.14 のソース ([docs.rs](https://docs.rs/pdf-writer/0.14.0/pdf_writer/)、
+[GitHub](https://github.com/typst/pdf-writer/tree/v0.14.0)) を確認した結果:
 
 - `Pdf::new()` / `Catalog`, `Pages`, `Page` 等のオブジェクト書き込み API
 - `Chunk::extend(&Chunk)` で Chunk のマージは可能
@@ -64,10 +65,18 @@ C 版 `pdfio1.c` / `pdfio2.c` の以下 4 関数が Rust に未移植。
 
 ```rust
 // 複数 Pix → 1 つの multi-page PDF
-pub fn write_pdf_multi<W: Write>(pixs: &[Pix], writer: W, options: &PdfOptions) -> IoResult<()>;
+pub fn write_pdf_multi<W: Write>(
+    images: &[&Pix],
+    writer: W,
+    options: &PdfOptions,
+) -> IoResult<()>;
 
 // 複数の画像ファイル → 1 つの multi-page PDF
-pub fn write_pdf_from_files<W: Write>(paths: &[&Path], writer: W, options: &PdfOptions) -> IoResult<()>;
+pub fn write_pdf_from_files<W: Write>(
+    paths: &[impl AsRef<std::path::Path>],
+    writer: W,
+    options: &PdfOptions,
+) -> IoResult<()>;
 ```
 
 C 版 `concatenatePdf` の主な実用シナリオ「Leptonica で 1 ページずつ生成した PDF を
