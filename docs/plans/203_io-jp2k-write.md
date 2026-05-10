@@ -1,6 +1,6 @@
 # io/jp2k: 書き込み + 高度読み込み（部分実装）
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 親計画: [031_gap-fill-overall.md](031_gap-fill-overall.md) (項目 F)
 
 ## Context

@@ -79,12 +79,14 @@ pub fn read_jp2k<R: Read + Seek>(mut reader: R) -> IoResult<Pix> {
 
 /// Read a JPEG 2000 image from memory
 pub fn read_jp2k_mem(data: &[u8]) -> IoResult<Pix> {
-    // Create decoder with default settings
     let settings = DecodeSettings::default();
-
     let image = Image::new(data, &settings)
         .map_err(|e| IoError::DecodeError(format!("JP2K parse error: {}", e)))?;
+    decode_image_to_pix(image)
+}
 
+/// Convert a hayro `Image` into a [`Pix`], dispatching on color space.
+fn decode_image_to_pix(image: Image<'_>) -> IoResult<Pix> {
     // Get image properties from the Image struct (before decoding)
     let width = image.width();
     let height = image.height();
@@ -377,6 +379,77 @@ pub fn write_jp2k<W: std::io::Write>(
     Err(IoError::UnsupportedFormat(
         "JP2K writing not yet supported: no pure-Rust encoder available".to_string(),
     ))
+}
+
+/// Read a JPEG 2000 image from memory at a reduced resolution.
+///
+/// `scale_denom` is the reciprocal of the scaling factor, e.g. `2` requests
+/// half-size and `4` requests quarter-size. `scale_denom == 0` is rejected.
+/// `scale_denom == 1` is equivalent to [`read_jp2k_mem`].
+///
+/// Implementation: passes `target_resolution` to hayro-jpeg2000's
+/// `DecodeSettings`. The hint is honoured when the codec's wavelet pyramid
+/// allows it (typically powers of two); for other denominators the decoder
+/// may return a slightly different size.
+///
+/// C Leptonica equivalent: `pixReadMemJp2k(data, size, reduction, ...)` with
+/// `box == NULL`.
+pub fn read_jp2k_scaled_mem(data: &[u8], scale_denom: u32) -> IoResult<Pix> {
+    if scale_denom == 0 {
+        return Err(IoError::DecodeError("scale_denom must be >= 1".to_string()));
+    }
+
+    // Probe the original dimensions to compute the target resolution.
+    let header_settings = DecodeSettings::default();
+    let probe = Image::new(data, &header_settings)
+        .map_err(|e| IoError::DecodeError(format!("JP2K parse error: {}", e)))?;
+    let target_w = (probe.width() / scale_denom).max(1);
+    let target_h = (probe.height() / scale_denom).max(1);
+    drop(probe);
+
+    let settings = DecodeSettings {
+        target_resolution: Some((target_w, target_h)),
+        ..DecodeSettings::default()
+    };
+    let image = Image::new(data, &settings)
+        .map_err(|e| IoError::DecodeError(format!("JP2K parse error: {}", e)))?;
+
+    decode_image_to_pix(image)
+}
+
+/// Read a JPEG 2000 image from a stream at a reduced resolution.
+pub fn read_jp2k_scaled<R: Read + Seek>(mut reader: R, scale_denom: u32) -> IoResult<Pix> {
+    let mut data = Vec::new();
+    reader
+        .read_to_end(&mut data)
+        .map_err(|e| IoError::DecodeError(format!("Failed to read JP2K data: {}", e)))?;
+    read_jp2k_scaled_mem(&data, scale_denom)
+}
+
+/// Read a JPEG 2000 image from memory and crop to `box_`.
+///
+/// hayro-jpeg2000 does not currently expose a tile-based partial decoder, so
+/// this implementation decodes the whole image then clips with
+/// [`Pix::clip_rectangle`]. For very large images this is wasteful — consider
+/// adding a tile-aware decoder when one becomes available.
+///
+/// C Leptonica equivalent: `pixReadMemJp2k(data, size, 1, &box, ...)`.
+pub fn read_jp2k_cropped_mem(data: &[u8], box_: &crate::core::Box) -> IoResult<Pix> {
+    let pix = read_jp2k_mem(data)?;
+    if box_.x < 0 || box_.y < 0 || box_.w <= 0 || box_.h <= 0 {
+        return Err(IoError::DecodeError(format!("invalid crop box {:?}", box_)));
+    }
+    pix.clip_rectangle(box_.x as u32, box_.y as u32, box_.w as u32, box_.h as u32)
+        .map_err(|e| IoError::DecodeError(format!("clip_rectangle failed: {e}")))
+}
+
+/// Read a JPEG 2000 image from a stream and crop to `box_`.
+pub fn read_jp2k_cropped<R: Read + Seek>(mut reader: R, box_: &crate::core::Box) -> IoResult<Pix> {
+    let mut data = Vec::new();
+    reader
+        .read_to_end(&mut data)
+        .map_err(|e| IoError::DecodeError(format!("Failed to read JP2K data: {}", e)))?;
+    read_jp2k_cropped_mem(&data, box_)
 }
 
 #[cfg(test)]
