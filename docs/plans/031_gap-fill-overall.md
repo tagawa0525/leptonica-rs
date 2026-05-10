@@ -1,7 +1,8 @@
 # Gap-Fill 全体計画（C版未移植機能の補完）
 
-Status: PLANNED
+Status: DONE
 作成日: 2026-05-09
+完了日: 2026-05-10
 
 ## Context
 
@@ -15,75 +16,76 @@ Status: PLANNED
 2. 対応モジュールが存在しなければ「未実装」と確定
 3. テストの `#[ignore]` メッセージは古いものが多いため鵜呑みにしない
 
-## 未実装一覧（モジュール別）
+## 結果サマリ
 
-| # | カテゴリ              | C版関数                                                                                                                             | C版ファイル                                    | 行数                | サブ計画 |
-| - | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------- | -------- |
-| A | core/compare          | `pixBestCorrelation`, `pixCompareWithTranslation`                                                                                   | compare.c, correlscore.c                       | 79+109              | 102      |
-| B | core/fpix             | `fpixRotateOrth`, `fpixRotate90`                                                                                                    | fpix2.c                                        | ~150                | 103      |
-| C | core/boxa             | `boxaaTranspose` ※実装済みで取りこぼし、テスト追加のみで完了                                                                        | boxfunc2.c                                     | ~50                 | 104 ✅   |
-| D | core/sarray           | `sarrayRead`, `sarrayWrite`, `sarrayReadStream/Mem`, `sarrayWriteStream/Mem`, `sarrayFindStringByHash`（任意）, `arrayFindSequence` | sarray1.c, utils2.c                            | ~250                | 105      |
-| E | io/jpeg               | `pixSetChromaSampling`                                                                                                              | jpegio.c                                       | ~30                 | 202      |
-| F | io/jp2k               | `pixWriteJp2k` 系（write）, cropped/scaled read                                                                                     | jp2kio.c                                       | ~700                | 203      |
-| G | io/pdf                | `concatenatePdf`, `concatenatePdfToData`, `ptraConcatenatePdf`, `ptraConcatenatePdfToData`                                          | pdfio1.c, pdfio2.c                             | ~300                | 204      |
-| H | transform/affine      | `pixAffineSequential`                                                                                                               | affine.c                                       | 152                 | 301      |
-| I | morph 自動生成        | `pixFMorphopGen_1`, `pixFHMTGen_1`, `pixHMTDwa_1`                                                                                   | fmorphgen.1.c, fhmtgen.1.c, dwacomb.2.c (+low) | ~12,000（機械生成） | 401      |
-| J | region/ccbord         | `pixGetAllCCBorders` のメモリ最適化                                                                                                 | ccbord.c（既存実装あり、効率課題）             | -                   | 701      |
-| K | recog/pageseg 矩形    | `pixFindLargestRectangle`, `pixFindRectangleInCC`, `pixFindLargeRectangles`                                                         | pageseg.c                                      | 113+163+48          | 801      |
-| L | recog/pageseg 表/反転 | `pixDecideIfTable`, `pixAutoPhotoinvert`                                                                                            | pageseg.c                                      | 127+79              | 802      |
+全 12 項目（A〜L）の方針確定。実装 9 件、HOLD 2 件、修正 1 件。Ignored test
+を 19 件解除（core 31→22 / transform 13→12 / region 1→0 / recog 13→2 /
+io 6→4 + 37→36）。
 
-合計の純実装規模は自動生成除外で約 2,500 行。
-自動生成 morph (I) は機械生成コードで規模が桁違いに大きいため別フェーズ扱いとする。
+| # | カテゴリ              | C 版関数                                                                    | サブ計画 | PR   | 結果                                                                       |
+| - | --------------------- | --------------------------------------------------------------------------- | -------- | ---- | -------------------------------------------------------------------------- |
+| A | core/compare          | `pixBestCorrelation`, `pixCompareWithTranslation`                           | 102      | #317 | ✅ IMPLEMENTED                                                             |
+| B | core/fpix             | `fpixRotateOrth` 等 8 関数                                                  | 103      | #316 | ✅ IMPLEMENTED                                                             |
+| C | core/boxa             | `boxaaTranspose`                                                            | 104      | #315 | ✅ 取りこぼし発覚、テスト追加のみで完了                                    |
+| D | core/sarray           | sarray I/O 6 関数 + `arrayFindSequence`                                     | 105      | #320 | ✅ IMPLEMENTED（I/O は実装済み取りこぼし、`array_find_sequence` のみ新規） |
+| E | io/jpeg               | `pixSetChromaSampling`                                                      | 202      | #319 | ✅ IMPLEMENTED                                                             |
+| F | io/jp2k               | scaled / cropped read + write                                               | 203      | #325 | 🟡 PARTIAL（read のみ実装、write は HOLD: 純 Rust encoder 不在）           |
+| G | io/pdf                | `concatenatePdf` 系 4 関数                                                  | 204      | #324 | 🟡 HOLD（Leptonica 専用 PDF 構造前提、汎用 PDF 連結は外部依存追加が必要）  |
+| H | transform/affine      | `pixAffineSequential`                                                       | 301      | #318 | ✅ IMPLEMENTED                                                             |
+| I | morph 自動生成        | `pixFMorphopGen_1`, `pixFHMTGen_1`, `pixHMTDwa_1`                           | 401      | #326 | 🟡 HOLD（既存 brick / DWA で代替可、性能要求が出たら再検討）               |
+| J | region/ccbord         | `get_all_borders` の OOM                                                    | 701      | #323 | ✅ FIXED（実態はトレーサ無限ループ、計算量問題ではなかった）               |
+| K | recog/pageseg 矩形    | `pixFindLargestRectangle`, `pixFindRectangleInCC`, `pixFindLargeRectangles` | 801      | #321 | ✅ IMPLEMENTED                                                             |
+| L | recog/pageseg 表/反転 | `pixDecideIfTable`, `pixAutoPhotoinvert`                                    | 802      | #322 | ✅ IMPLEMENTED                                                             |
 
 ## 不要分類（実装しない）
 
 - `L_ASET`（順序集合）, `L_HASHMAP` — `BTreeSet`/`HashMap` で代替可
 - `sarrayFindStringByHash` — 利用箇所がなく `find_string` で代替可（必要時のみ実装）
 
-## グルーピングと優先度
+## 学んだこと
 
-実装規模・依存関係から3グループに分類する。
+1. **`#[ignore]` のメッセージは情報源として弱い**: Boxaa::transpose / sarray I/O
 
-### Group 1: 小規模・独立（推定: 1-2日 / 項目）
+   など、本当は実装済みなのに古い ignore メッセージで未実装と分類されていた
+   ケースが複数あった。検索は `pub fn boxaa_transpose` のような prefix 形式
+   だけでなく `fn transpose` のようなメソッド形式でも grep する必要がある
 
-すぐ完了でき、外部依存も少ない。先に着手して勢いをつける。
+2. **OOM や「メモリ複雑度」も鵜呑みにしない**: J (ccbord) は計算量問題と
 
-- **A** core/compare 並進付き比較
-- **B** core/fpix 直交回転
-- **C** core/boxa 転置
-- **E** io/jpeg クロマサンプリング設定
-- **H** transform/affine 連結アフィン
+   分類されていたが、release ビルドのバックトレースを取って初めて
+   「無限ループによる 4 GiB allocation」が真因と判明した
 
-### Group 2: 中規模・横断（推定: 3-5日 / 項目）
+3. **HOLD 判断もドキュメント成果物**: G (PDF 連結) と I (morph 自動生成) は
 
-複数関数が絡むがアルゴリズム自体は素直。
+   実装よりも「なぜ実装しないか」を計画書として残すことに価値がある
 
-- **D** core/sarray ファイル/ストリーム I/O
-- **K** recog/pageseg 矩形検出 3関数
-- **L** recog/pageseg 表判定・自動反転
+4. **Copilot レビューはエッジケースに強い**: overflow / off-by-one / 早期
 
-### Group 3: 大規模・外部依存（推定: 1週以上 / 項目）
+   バリデーション / API consistency など、実装中に見落としがちな観点を
+   多くキャッチしてくれた
 
-外部 crate 依存や効率最適化を伴う。
+## グルーピングと進行（参考: 当初計画）
 
-- **F** io/jp2k 書き込み + 高度読み込み（依存: `jpeg2k` crate の機能調査）
-- **G** io/pdf 連結（PDF オブジェクト構造の解析が必要）
-- **J** region/ccbord メモリ最適化（既存実装のリファクタリング、OOM 再現テストが必要）
-- **I** morph 自動生成（コード生成スクリプトの移植 or 手書き化）
+実装規模・依存関係から 3 グループに分類して順次進めた。
 
-## 副次的整理タスク
+### Group 1: 小規模・独立 — A/B/C/E/H 全実装
 
-- `#[ignore]` メッセージのうち実装済みなのに古いまま残っているもの（推定 60+ 件）を更新する
+### Group 2: 中規模・横断 — D/K/L 全実装
 
-  → 各サブ計画の REFACTOR フェーズで該当テストの ignore を解除しつつ実施
+### Group 3: 大規模・外部依存 — J 修正、F 部分実装、G/I は HOLD
 
-## ステータス管理
+## 残課題（別 issue 候補）
 
-各サブ計画は独立した `docs/plans/NNN_*.md` を持ち、Status: PLANNED → IN_PROGRESS → IMPLEMENTED で進行する。
-着手時にこの文書の表に対応する PR リンクを追記する。
+- **JP2K 書き込み**: `jpeg2k` (libopenjp2 binding) の追加で実装可能
+- **PDF 連結**: `lopdf` 等の PDF パーサ追加で実装可能
+- **morph 自動生成**: 性能ボトルネックが実測されたら、ターゲット SEL のみ
 
-## 進行順序（提案）
+  手書き (~50-200 行) を優先
 
-1. Group 1 を一気に片付けて feature-comparison のメンテ精度を上げる
-2. Group 2 で recog 系の `#[ignore]` を解消
-3. Group 3 を1項目ずつ着手（外部依存調査を先行）
+- **ccbord の Moore-tracing 終了条件**: 本 PR の cap は応急処置。
+
+  ill-formed hole が発生する根本原因の調査
+
+- **`#[ignore]` メッセージの一斉クリーンアップ**: 各サブ計画で必要分は
+
+  解除済みだが、まだ古い記述が残るテストがありうる
