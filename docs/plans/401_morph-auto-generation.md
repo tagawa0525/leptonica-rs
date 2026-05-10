@@ -8,7 +8,7 @@ Status: HOLD
 C 版 `fmorphgen.1.c` / `fhmtgen.1.c` / `dwacomb.2.c`（および対応する low-level
 ヘルパ `*low.*.c`）は、`prog/fmorphautogen.c` と `prog/fhmtautogen.c` という
 コード生成プログラムが SEL（構造化要素）定義から機械生成した DWA
-(Destination Word Addressing) 形態学関数群。`pixFMorphopGen_1`、
+(Destination Word Accumulation) 形態学関数群。`pixFMorphopGen_1`、
 `pixFHMTGen_1`、`pixHMTDwa_1` 等を提供する。
 
 機械生成済み行数:
