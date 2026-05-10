@@ -21,7 +21,7 @@ Progress against the original 182 source files and 2,286 public functions.
 
 | Metric                   | Value                  |
 | ------------------------ | ---------------------- |
-| Lines of code            | ~144,000 / ~249,000    |
+| Lines of code            | ~147,000 / ~249,000    |
 | Function coverage        | 1,874 / 2,286 (82.0%)  |
 | Effective coverage       | 1,874 / 1,874 (100.0%) |
 | Regression test coverage | 159 / 159 (100.0%)     |

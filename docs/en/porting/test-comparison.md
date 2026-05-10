@@ -2,7 +2,7 @@
 
 > 🇯🇵 [日本語版](../../porting/test-comparison.md)
 
-Survey date: 2026-03-01 (all 159 C regression tests ported — 100% coverage)
+Survey date: 2026-05-10 (all 159 C regression tests ported — 100% coverage)
 
 ## Overview
 
@@ -12,7 +12,7 @@ C version's `prog/*_reg.c` and Rust version's `tests/*_reg.rs` correspondence.
 | ------------------------- | ------------------------------- | --------------------------- |
 | Total tests               | **305** (.c)                    | **205 files**               |
 | Regression tests          | **160** (*_reg.c)               | **159** (*_reg.rs)          |
-| Individual test functions | Many                            | **3,270**                   |
+| Individual test functions | Many                            | **~4,051**                  |
 | Test runner               | alltests_reg.c                  | `cargo test`                |
 
 ※ `alltests_reg.c` is excluded from the C count as it is a test runner (159 files are the target).
@@ -65,7 +65,7 @@ Legend:
 | rasteropip | rasteropip_reg.rs | ✅     |
 | string     | string_reg.rs     | ✅     |
 
-Rust-only: boxfunc, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixafunc
+Rust-only: bmf, boxfunc, core_coverage, gplot, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixacc, pixafunc
 
 ✅ 33 / ❌ 0 (out of 33 C tests)
 
@@ -95,7 +95,7 @@ Rust-only: boxfunc, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip
 | webpio     | webpio_reg.rs     | ✅     |
 | writetext  | writetext_reg.rs  | ✅     |
 
-Rust-only: spixio
+Rust-only: convertfiles, io_coverage, partify, spixio
 
 ✅ 19 / ❌ 0 (out of 19 C tests)
 
@@ -121,7 +121,7 @@ Rust-only: spixio
 | morphseq   | morphseq_reg.rs   | ✅     |
 | selio      | selio_reg.rs      | ✅     |
 
-Rust-only: sel_morphapp
+Rust-only: binreduce, morph_coverage, sel_morphapp
 
 ✅ 17 / ❌ 0 (out of 17 C tests)
 
@@ -153,6 +153,8 @@ Rust-only: sel_morphapp
 | warper       | warper_reg.rs       | ✅     |
 | xformbox     | xformbox_reg.rs     | ✅     |
 
+Rust-only: transform_coverage
+
 ✅ 21 / ❌ 0 (out of 21 C tests)
 
 ### leptonica (src/filter/) (Filtering)
@@ -176,7 +178,7 @@ Rust-only: sel_morphapp
 | rankbin    | rankbin_reg.rs    | ✅     |
 | rankhisto  | rankhisto_reg.rs  | ✅     |
 
-Rust-only: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, extend_replication
+Rust-only: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, edge_smoothness, extend_replication, half_edge, rank_scaling, runlength
 
 ✅ 14 / ❌ 0 (out of 14 C tests)
 
@@ -211,7 +213,7 @@ Rust-only: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exten
 | paintmask    | paintmask_reg.rs    | ✅     |
 | threshnorm   | threshnorm_reg.rs   | ✅     |
 
-Rust-only: binarize_advanced, color_magnitude, colorcontent_advanced, colorspace_hsv, quantize_ext
+Rust-only: binarize_advanced, color_coverage, color_magnitude, colorcontent_advanced, colorspace_hsv, paintcmap, quantize_ext
 
 ✅ 24 / ❌ 0 (out of 24 C tests)
 
@@ -236,7 +238,7 @@ Rust-only: binarize_advanced, color_magnitude, colorcontent_advanced, colorspace
 | texturefill | texturefill_reg.rs | ✅     |
 | watershed   | watershed_reg.rs   | ✅     |
 
-Rust-only: conncomp_ext, seedfill_ext
+Rust-only: checkerboard, conncomp_ext, partition_whitespace, region_coverage, seedfill_ext
 
 ✅ 14 / ❌ 0 (out of 14 C tests)
 
@@ -262,6 +264,8 @@ Rust-only: conncomp_ext, seedfill_ext
 | skew         | skew_reg.rs         | ✅     |
 | wordboxes    | wordboxes_reg.rs    | ✅     |
 
+Rust-only: classapp, correlscore, finditalic, recog_coverage, strokes
+
 ✅ 17 / ❌ 0 (out of 17 C tests)
 
 ## Summary
@@ -270,15 +274,15 @@ Rust-only: conncomp_ext, seedfill_ext
 
 | Module                     | C       | ✅      | ❌    | Rust-only | Coverage   |
 | -------------------------- | ------- | ------- | ----- | --------- | ---------- |
-| leptonica (src/core/)      | 33      | 33      | 0     | 8         | 100.0%     |
-| leptonica (src/io/)        | 19      | 19      | 0     | 1         | 100.0%     |
-| leptonica (src/morph/)     | 17      | 17      | 0     | 1         | 100.0%     |
-| leptonica (src/transform/) | 21      | 21      | 0     | 0         | 100.0%     |
-| leptonica (src/filter/)    | 14      | 14      | 0     | 5         | 100.0%     |
-| leptonica (src/color/)     | 24      | 24      | 0     | 5         | 100.0%     |
-| leptonica (src/region/)    | 14      | 14      | 0     | 2         | 100.0%     |
-| leptonica (src/recog/)     | 17      | 17      | 0     | 0         | 100.0%     |
-| **Total**                  | **159** | **159** | **0** | **22**    | **100.0%** |
+| leptonica (src/core/)      | 33      | 33      | 0     | 12        | 100.0%     |
+| leptonica (src/io/)        | 19      | 19      | 0     | 4         | 100.0%     |
+| leptonica (src/morph/)     | 17      | 17      | 0     | 3         | 100.0%     |
+| leptonica (src/transform/) | 21      | 21      | 0     | 1         | 100.0%     |
+| leptonica (src/filter/)    | 14      | 14      | 0     | 9         | 100.0%     |
+| leptonica (src/color/)     | 24      | 24      | 0     | 7         | 100.0%     |
+| leptonica (src/region/)    | 14      | 14      | 0     | 5         | 100.0%     |
+| leptonica (src/recog/)     | 17      | 17      | 0     | 5         | 100.0%     |
+| **Total**                  | **159** | **159** | **0** | **46**    | **100.0%** |
 
 All 159 C regression tests have Rust counterparts — no unported tests remain.
 
@@ -300,7 +304,7 @@ All 159 C regression tests have Rust counterparts — no unported tests remain.
 | **I/O tests**         | All formats covered              | ✅ All formats supported          |
 | **Integration tests** | alltests_reg.c                   | 205 files (full regression tests) |
 | **Test data**         | Extensive (images, PDFs, etc.)   | Real images in tests/data/images/ |
-| **Coverage**          | 159 areas                        | 8 modules, 3,270 test functions   |
+| **Coverage**          | 159 areas                        | 8 modules, ~4,051 test functions  |
 
 ## References
 

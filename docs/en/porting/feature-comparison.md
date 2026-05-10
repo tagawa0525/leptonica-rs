@@ -2,15 +2,15 @@
 
 > 🇯🇵 [日本語版](../../porting/feature-comparison.md)
 
-Survey date: 2026-02-28 (verify-comparison-counts results reflected)
+Survey date: 2026-05-10 (verify-comparison-counts results reflected)
 
 ## Overview
 
 | Item                             | C version (reference/leptonica) | Rust version (leptonica-rs) |
 | -------------------------------- | ------------------------------- | --------------------------- |
-| Source files                     | **182** (.c)                    | **151** (.rs)               |
-| Lines of code                    | **~249,000**                    | **~144,000**                |
-| Implementation rate (line-based) | 100%                            | **~50%**                    |
+| Source files                     | **182** (.c)                    | **180** (.rs)               |
+| Lines of code                    | **~249,000**                    | **~147,000**                |
+| Implementation rate (line-based) | 100%                            | **~59%**                    |
 
 ## Function-level Comparison Summary
 
@@ -193,7 +193,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 | leptonica (src/region/)    | ~10,600      | 73/95 (76.8%)           | 73/73 (100.0%)           | Connected components, seed fill, watershed, quadtree, maze                                         |
 | leptonica (src/recog/)     | ~16,000      | 164/182 (90.1%)         | 164/164 (100.0%)         | Skew correction, dewarping, character recognition, barcode                                         |
 | Other                      | -            | 143/324 (44.1%)         | 143/143 (100.0%)         | Warper, encoding                                                                                   |
-| **Total**                  | **~144,000** | **1,874/2,286 (82.0%)** | **1,874/1,874 (100.0%)** |                                                                                                    |
+| **Total**                  | **~147,000** | **1,874/2,286 (82.0%)** | **1,874/1,874 (100.0%)** |                                                                                                    |
 
 ## Unimplemented Function Status
 
