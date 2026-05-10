@@ -212,6 +212,12 @@ pub fn set_data_dibit(line: &mut [u32], x: u32, val: u32) {
     line[word_index] = (line[word_index] & !mask) | ((val & MASK_2) << bit_index);
 }
 
+/// Clear a 2-bit pixel to 0 (C: l_clearDataDibit)
+#[inline]
+pub fn clear_data_dibit(_line: &mut [u32], _x: u32) {
+    unimplemented!("clear_data_dibit not yet implemented (plan 113)")
+}
+
 // ============================================================================
 // 4-bit access (GET_DATA_QBIT / SET_DATA_QBIT)
 // ============================================================================
@@ -231,6 +237,12 @@ pub fn set_data_qbit(line: &mut [u32], x: u32, val: u32) {
     let bit_index = 4 * (7 - (x & 7));
     let mask = MASK_4 << bit_index;
     line[word_index] = (line[word_index] & !mask) | ((val & MASK_4) << bit_index);
+}
+
+/// Clear a 4-bit pixel to 0 (C: l_clearDataQbit)
+#[inline]
+pub fn clear_data_qbit(_line: &mut [u32], _x: u32) {
+    unimplemented!("clear_data_qbit not yet implemented (plan 113)")
 }
 
 // ============================================================================
@@ -275,6 +287,22 @@ pub fn set_data_two_bytes(line: &mut [u32], x: u32, val: u32) {
     let shift = half_index * 16;
     let mask = MASK_16 << shift;
     line[word_index] = (line[word_index] & !mask) | ((val & MASK_16) << shift);
+}
+
+// ============================================================================
+// 32-bit access (GET_DATA_FOUR_BYTES / SET_DATA_FOUR_BYTES)
+// ============================================================================
+
+/// Get a 32-bit pixel value (C: l_getDataFourBytes)
+#[inline]
+pub fn get_data_four_bytes(_line: &[u32], _x: u32) -> u32 {
+    unimplemented!("get_data_four_bytes not yet implemented (plan 113)")
+}
+
+/// Set a 32-bit pixel value (C: l_setDataFourBytes)
+#[inline]
+pub fn set_data_four_bytes(_line: &mut [u32], _x: u32, _val: u32) {
+    unimplemented!("set_data_four_bytes not yet implemented (plan 113)")
 }
 
 // ============================================================================
