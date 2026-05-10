@@ -6,13 +6,13 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 132 |
+| ✅ 同等   | 134 |
 | 🔄 異なる | 45  |
 | 🚫 不要   | 18  |
-| ❌ 未実装 | 12  |
+| ❌ 未実装 | 10  |
 | 合計      | 207 |
 
-**カバレッジ**: 85.5% (177/207 関数が実装済み、🚫 不要 18 関数を除くと実質 177/189 = 93.7% 実装)
+**カバレッジ**: 86.5% (179/207 関数が実装済み、🚫 不要 18 関数を除くと実質 179/189 = 94.7% 実装)
 
 ## 詳細
 
@@ -36,7 +36,7 @@
 | --------------------- | ---- | ----------------------- | ----------------------------- |
 | recogGetClassIndex    | ✅   | Recog::get_class_index  | 文字値からインデックス取得    |
 | recogStringToIndex    | ✅   | Recog::string_to_index  | 文字列からインデックス取得    |
-| recogGetClassString   | ✅   | Recog::get_class_string | インデックス→クラス名         |
+| recogGetClassString   | ✅   | Recog::get_class_string | インデックス->クラス名        |
 | l_convertCharstrToInt | 🔄   | Recog::string_to_index  | UTF-8コードポイントとして統合 |
 
 #### recog/recog/io.rs (recogbasic.c)
@@ -474,10 +474,10 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 
 ### skew.c (追加分)
 
-| C関数                        | 状態 | Rust対応                         | 備考                          |
-| ---------------------------- | ---- | -------------------------------- | ----------------------------- |
-| pixDeskew                    | ✅   | `deskew` (recog/skew.rs)         | name+module match             |
-| pixDeskewBoth                | ✅   | `deskew_both` (recog/skew.rs)    | name+module match             |
-| pixDeskewGeneral             | ✅   | `deskew_general` (recog/skew.rs) | name+module match             |
-| pixFindDifferentialSquareSum | ❌   | -                                | no Rust impl in expected dirs |
-| pixFindNormalizedSquareSum   | ❌   | -                                | no Rust impl in expected dirs |
+| C関数                        | 状態 | Rust対応                                       | 備考              |
+| ---------------------------- | ---- | ---------------------------------------------- | ----------------- |
+| pixDeskew                    | ✅   | `deskew` (recog/skew.rs)                       | name+module match |
+| pixDeskewBoth                | ✅   | `deskew_both` (recog/skew.rs)                  | name+module match |
+| pixDeskewGeneral             | ✅   | `deskew_general` (recog/skew.rs)               | name+module match |
+| pixFindDifferentialSquareSum | ✅   | `find_differential_square_sum` (recog/skew.rs) | plan 803-K        |
+| pixFindNormalizedSquareSum   | ✅   | `find_normalized_square_sum` (recog/skew.rs)   | plan 803-K        |

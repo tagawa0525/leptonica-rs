@@ -26,9 +26,9 @@ See files under `docs/porting/comparison/` for details (currently only available
 | [leptonica (src/filter/)](../../porting/comparison/filter.md)       | 117           | 0            | 1                | 13            | 131       | 89.3%     | 99.2%              |
 | [leptonica (src/color/)](../../porting/comparison/color.md)         | 102           | 20           | 0                | 17            | 139       | 87.8%     | 100.0%             |
 | [leptonica (src/region/)](../../porting/comparison/region.md)       | 65            | 8            | 0                | 22            | 95        | 76.8%     | 100.0%             |
-| [leptonica (src/recog/)](../../porting/comparison/recog.md)         | 132           | 45           | 12               | 18            | 207       | 85.5%     | 93.7%              |
+| [leptonica (src/recog/)](../../porting/comparison/recog.md)         | 134           | 45           | 10               | 18            | 207       | 86.5%     | 94.7%              |
 | [Other](../../porting/comparison/misc.md)                           | 145           | 5            | 5                | 371           | 526       | 28.5%     | 96.8%              |
-| **Total**                                                           | **1,777**     | **231**      | **142**          | **684**       | **2,834** | **70.9%** | **93.4%**          |
+| **Total**                                                           | **1,779**     | **231**      | **140**          | **684**       | **2,834** | **71.0%** | **93.5%**          |
 
 ### Classification Criteria
 
@@ -191,15 +191,15 @@ See files under `docs/porting/comparison/` for details (currently only available
 | leptonica (src/filter/)    | ~9,800       | 117/131 (89.3%)         | 117/118 (99.2%)         | Convolution, edge detection, bilateral, rank, adaptive mapping, run-length                         |
 | leptonica (src/color/)     | ~7,400       | 122/139 (87.8%)         | 122/122 (100.0%)        | Colorspace conversion, quantization, segmentation, binarization, color analysis, colormap painting |
 | leptonica (src/region/)    | ~10,600      | 73/95 (76.8%)           | 73/73 (100.0%)          | Connected components, seed fill, watershed, quadtree, maze                                         |
-| leptonica (src/recog/)     | ~16,000      | 177/207 (85.5%)         | 177/189 (93.7%)         | Skew correction, dewarping, character recognition, barcode                                         |
+| leptonica (src/recog/)     | ~16,000      | 179/207 (86.5%)         | 179/189 (94.7%)         | Skew correction, dewarping, character recognition, barcode                                         |
 | Other                      | -            | 150/526 (28.5%)         | 150/155 (96.8%)         | Warper, encoding, debug/timing helpers, etc.                                                       |
-| **Total**                  | **~147,000** | **2,008/2,834 (70.9%)** | **2,008/2,150 (93.4%)** |                                                                                                    |
+| **Total**                  | **~147,000** | **2,010/2,834 (71.0%)** | **2,010/2,150 (93.5%)** |                                                                                                    |
 
 ## Unimplemented Function Status
 
 Of the 2,150 functions remaining after excluding 684 classified as 🚫 Not needed,
-2,008 are implemented (✅ 1,777 + 🔄 231). The remaining 142 (❌) are unimplemented.
-Effective coverage is 93.4%.
+2,010 are implemented (✅ 1,779 + 🔄 231). The remaining 140 (❌) are unimplemented.
+Effective coverage is 93.5%.
 
 These figures reflect the `gap-fill audit 2026-05-10`, which enumerated all 2,743 public
 C functions in `allheaders.h` and individually reviewed each entry by comparing C function

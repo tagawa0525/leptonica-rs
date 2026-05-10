@@ -80,3 +80,79 @@ fn skew_reg() {
 
     assert!(rp.cleanup(), "skew regression test failed");
 }
+
+// =====================================================================
+// gap-fill 第2弾 (plan 803-K): pixFindDifferentialSquareSum +
+// pixFindNormalizedSquareSum
+// =====================================================================
+
+use leptonica::Pix;
+use leptonica::recog::skew::{find_differential_square_sum, find_normalized_square_sum};
+
+/// C: pixFindDifferentialSquareSum — 平坦画像では sum=0 になる
+#[test]
+
+fn skew_reg_differential_square_sum_uniform() {
+    let pix = Pix::new(64, 64, leptonica::PixelDepth::Bit1).expect("new 1bpp");
+    // 全 0 (BG only): すべての行で count=0 → diff=0 → sum=0
+    let s = find_differential_square_sum(&pix).expect("differential square sum");
+    assert!(s.abs() < 1e-3, "uniform image should give sum~0, got {}", s);
+}
+
+/// C: pixFindDifferentialSquareSum — 縞模様では sum > 0
+#[test]
+
+fn skew_reg_differential_square_sum_stripes() {
+    let pix = Pix::new(64, 64, leptonica::PixelDepth::Bit1).expect("new 1bpp");
+    let mut pm = pix.try_into_mut().expect("into_mut");
+    // odd rows fully on
+    for y in (1..64u32).step_by(2) {
+        for x in 0..64u32 {
+            pm.set_pixel(x, y, 1).expect("set");
+        }
+    }
+    let pix2: Pix = pm.into();
+    let s = find_differential_square_sum(&pix2).expect("differential");
+    assert!(s > 0.0, "striped image should give sum>0, got {}", s);
+}
+
+/// C: pixFindNormalizedSquareSum — 全 0 画像では fract=0
+#[test]
+
+fn skew_reg_normalized_square_sum_empty() {
+    let pix = Pix::new(64, 64, leptonica::PixelDepth::Bit1).expect("new 1bpp");
+    let (h, v, f) = find_normalized_square_sum(&pix).expect("normalized");
+    assert_eq!(h, 0.0);
+    assert_eq!(v, 0.0);
+    assert_eq!(f, 0.0);
+}
+
+/// C: pixFindNormalizedSquareSum — 一様塗り画像では hratio = vratio = 1.0
+#[test]
+
+fn skew_reg_normalized_square_sum_uniform_full() {
+    let pix = Pix::new(32, 32, leptonica::PixelDepth::Bit1).expect("new 1bpp");
+    let mut pm = pix.try_into_mut().expect("into_mut");
+    for y in 0..32u32 {
+        for x in 0..32u32 {
+            pm.set_pixel(x, y, 1).expect("set");
+        }
+    }
+    let pix2: Pix = pm.into();
+    let (h, v, f) = find_normalized_square_sum(&pix2).expect("normalized");
+    assert!(
+        (h - 1.0).abs() < 1e-3,
+        "uniform: hratio = {}, expected 1.0",
+        h
+    );
+    assert!(
+        (v - 1.0).abs() < 1e-3,
+        "uniform: vratio = {}, expected 1.0",
+        v
+    );
+    assert!(
+        (f - 1.0).abs() < 1e-3,
+        "uniform: fract = {}, expected 1.0",
+        f
+    );
+}

@@ -22,8 +22,8 @@ Progress against the original 182 source files and 2,743 public functions (per `
 | Metric                   | Value                 |
 | ------------------------ | --------------------- |
 | Lines of code            | ~147,000 / ~249,000   |
-| Function coverage        | 2,008 / 2,834 (70.9%) |
-| Effective coverage       | 2,008 / 2,150 (93.4%) |
+| Function coverage        | 2,010 / 2,834 (71.0%) |
+| Effective coverage       | 2,010 / 2,150 (93.5%) |
 | Regression test coverage | 159 / 159 (100.0%)    |
 
 Details: [Feature comparison](docs/en/porting/feature-comparison.md) / [Test comparison](docs/en/porting/test-comparison.md)
