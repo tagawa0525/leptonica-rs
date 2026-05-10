@@ -128,6 +128,170 @@ impl Kernel {
         })
     }
 
+    /// C: makeFlatKernel(height, width, cy, cx)
+    ///
+    /// Rectangular flat (low-pass) kernel with explicit origin.
+    /// Returns a normalized kernel (sum = 1.0).
+    pub fn make_flat(height: u32, width: u32, cy: u32, cx: u32) -> FilterResult<Self> {
+        if width == 0 || height == 0 {
+            return Err(FilterError::InvalidKernel(
+                "width and height must be > 0".to_string(),
+            ));
+        }
+        if cx >= width || cy >= height {
+            return Err(FilterError::InvalidKernel(format!(
+                "center ({cx}, {cy}) outside kernel {width}x{height}"
+            )));
+        }
+        // Use checked u64 multiplication to detect oversized kernels before
+        // the data Vec allocation overflows.
+        let total = (height as u64)
+            .checked_mul(width as u64)
+            .filter(|&n| usize::try_from(n).is_ok())
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("kernel size {width}x{height} overflows usize"))
+            })?;
+        let normval = 1.0 / total as f32;
+        Ok(Kernel {
+            width,
+            height,
+            cx,
+            cy,
+            data: vec![normval; total as usize],
+        })
+    }
+
+    /// Compute `2 * half + 1` checked for overflow inside `u32`.
+    fn checked_full_size(half: u32) -> FilterResult<u32> {
+        half.checked_mul(2)
+            .and_then(|n| n.checked_add(1))
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("half size {half} overflows when doubled"))
+            })
+    }
+
+    /// C: makeGaussianKernel(halfh, halfw, stdev, max)
+    ///
+    /// Rectangular Gaussian kernel sized `(2*halfw+1, 2*halfh+1)` with peak
+    /// value `max` at the center. NOT normalized — callers control
+    /// normalization via convolve options.
+    pub fn make_gaussian(halfh: u32, halfw: u32, stdev: f32, max: f32) -> FilterResult<Self> {
+        if stdev <= 0.0 {
+            return Err(FilterError::InvalidKernel(
+                "stdev must be positive".to_string(),
+            ));
+        }
+        // Cap half-sizes so squaring stays well within i32 to avoid wrap.
+        if halfh > i32::MAX as u32 / 2 || halfw > i32::MAX as u32 / 2 {
+            return Err(FilterError::InvalidKernel(format!(
+                "halfh={halfh}, halfw={halfw} too large (must fit in i32/2)"
+            )));
+        }
+        let sx = Self::checked_full_size(halfw)?;
+        let sy = Self::checked_full_size(halfh)?;
+        let total = (sx as u64)
+            .checked_mul(sy as u64)
+            .filter(|&n| usize::try_from(n).is_ok())
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("kernel size {sx}x{sy} overflows usize"))
+            })?;
+        let two_sigma_sq = 2.0 * stdev * stdev;
+        let halfw_i = halfw as i32;
+        let halfh_i = halfh as i32;
+
+        let mut data = Vec::with_capacity(total as usize);
+        for y in 0..sy {
+            for x in 0..sx {
+                let dx = x as i32 - halfw_i;
+                let dy = y as i32 - halfh_i;
+                let val = (-((dx * dx + dy * dy) as f32) / two_sigma_sq).exp();
+                data.push(max * val);
+            }
+        }
+        Ok(Kernel {
+            width: sx,
+            height: sy,
+            cx: halfw,
+            cy: halfh,
+            data,
+        })
+    }
+
+    /// C: makeGaussianKernelSep(halfh, halfw, stdev, max) -> (kelx, kely)
+    ///
+    /// Returns `(kelx, kely)` such that consecutive separable convolution
+    /// reproduces the full Gaussian of [`Kernel::make_gaussian`]. `kely` uses
+    /// `max = 1.0` internally so the product at the center equals `max`.
+    pub fn make_gaussian_sep(
+        halfh: u32,
+        halfw: u32,
+        stdev: f32,
+        max: f32,
+    ) -> FilterResult<(Self, Self)> {
+        let kelx = Kernel::make_gaussian(0, halfw, stdev, max)?;
+        let kely = Kernel::make_gaussian(halfh, 0, stdev, 1.0)?;
+        Ok((kelx, kely))
+    }
+
+    /// C: makeDoGKernel(halfh, halfw, stdev, ratio)
+    ///
+    /// Difference of Gaussians (DoG) wavelet bandpass kernel. The continuous
+    /// DoG integrates to zero (a mother wavelet), so the discrete element sum
+    /// is approximately zero — exactness depends on truncation: larger
+    /// `halfh` / `halfw` relative to `ratio * stdev` give a smaller residual.
+    /// Callers should NOT normalize when convolving.
+    /// `ratio` is the ratio of the wide vs narrow standard deviations and
+    /// must be `>= 1.0`.
+    pub fn make_dog(halfh: u32, halfw: u32, stdev: f32, ratio: f32) -> FilterResult<Self> {
+        if stdev <= 0.0 {
+            return Err(FilterError::InvalidKernel(
+                "stdev must be positive".to_string(),
+            ));
+        }
+        if !ratio.is_finite() || ratio < 1.0 {
+            return Err(FilterError::InvalidKernel(format!(
+                "ratio must be finite and >= 1.0, got {ratio}"
+            )));
+        }
+        if halfh > i32::MAX as u32 / 2 || halfw > i32::MAX as u32 / 2 {
+            return Err(FilterError::InvalidKernel(format!(
+                "halfh={halfh}, halfw={halfw} too large (must fit in i32/2)"
+            )));
+        }
+        let sx = Self::checked_full_size(halfw)?;
+        let sy = Self::checked_full_size(halfh)?;
+        let total = (sx as u64)
+            .checked_mul(sy as u64)
+            .filter(|&n| usize::try_from(n).is_ok())
+            .ok_or_else(|| {
+                FilterError::InvalidKernel(format!("kernel size {sx}x{sy} overflows usize"))
+            })?;
+        let halfw_i = halfw as i32;
+        let halfh_i = halfh as i32;
+        let pi = std::f32::consts::PI;
+        let highnorm = 1.0 / (2.0 * stdev * stdev);
+        let lownorm = highnorm / (ratio * ratio);
+
+        let mut data = Vec::with_capacity(total as usize);
+        for y in 0..sy {
+            for x in 0..sx {
+                let dx = x as i32 - halfw_i;
+                let dy = y as i32 - halfh_i;
+                let squaredist = (dx * dx + dy * dy) as f32;
+                let val = (highnorm / pi) * (-(highnorm * squaredist)).exp()
+                    - (lownorm / pi) * (-(lownorm * squaredist)).exp();
+                data.push(val);
+            }
+        }
+        Ok(Kernel {
+            width: sx,
+            height: sy,
+            cx: halfw,
+            cy: halfh,
+            data,
+        })
+    }
+
     /// Create a Sobel kernel for horizontal edge detection
     pub fn sobel_horizontal() -> Self {
         Kernel {
