@@ -120,7 +120,7 @@ fn run_ccbord_test(fname: &str, rp: &mut RegParams) {
 ///
 /// Currently cannot run due to O(n_components * image_size) memory in Rust implementation.
 #[test]
-#[ignore = "Rust ccbord has O(n_components * image_size) memory - causes OOM on feyn-fract.tif"]
+
 fn ccbord_reg_feyn_fract() {
     let mut rp = RegParams::new("ccbord_feyn_fract");
     run_ccbord_test("feyn-fract.tif", &mut rp);

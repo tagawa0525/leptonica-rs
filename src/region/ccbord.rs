@@ -975,7 +975,10 @@ pub fn get_outer_border(pix: &Pix, bounds: Option<&Box>) -> RegionResult<Border>
 
     let (mut px, mut py) = (spx, spy);
 
-    // Trace the border
+    // Trace the border. As with the hole tracer, cap the number of recorded
+    // points at a multiple of the perimeter bound to prevent runaway growth
+    // when the standard termination condition fails to fire.
+    let max_points = 4 * (bwidth as usize + bheight as usize) + 16;
     while let Some((next, new_qpos)) =
         find_next_border_pixel(&bordered, bwidth, bheight, px, py, qpos)
     {
@@ -985,6 +988,11 @@ pub fn get_outer_border(pix: &Pix, bounds: Option<&Box>) -> RegionResult<Border>
         }
 
         points.push(BorderPoint::new(next.x - 1, next.y - 1));
+        if points.len() >= max_points {
+            return Err(RegionError::InvalidParameters(format!(
+                "outer border trace exceeded {max_points} points without closing"
+            )));
+        }
         px = next.x;
         py = next.y;
         qpos = new_qpos;
@@ -1256,7 +1264,12 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
 
     let (mut px, mut py) = (spx, spy);
 
-    // Trace the border
+    // Trace the border. The standard termination condition (back at the
+    // start with the same outgoing direction as on the first iteration) can
+    // fail for ill-formed holes and let the trace run away. Cap the number
+    // of points at a multiple of the perimeter bound `2*(W + H)` so we abort
+    // long before exhausting memory.
+    let max_points = 4 * (width as usize + height as usize) + 16;
     while let Some((next, new_qpos)) = find_next_border_pixel(pix, width, height, px, py, qpos) {
         // Check if we've completed the loop
         if px == fpx && py == fpy && next.x == spx && next.y == spy {
@@ -1264,6 +1277,11 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
         }
 
         points.push(next);
+        if points.len() >= max_points {
+            return Err(RegionError::InvalidParameters(format!(
+                "hole border trace exceeded {max_points} points without closing"
+            )));
+        }
         px = next.x;
         py = next.y;
         qpos = new_qpos;
