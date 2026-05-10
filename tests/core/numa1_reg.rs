@@ -478,6 +478,15 @@ fn numa1_reg_convert_to_sarray_integer() {
 }
 
 #[test]
+fn numa1_reg_convert_to_sarray_integer_negative_padding() {
+    // Sign-aware zero pad: matches C printf("%03d", -2) = "-02"
+    let na = leptonica::Numa::from_slice(&[-2.0, -45.0]);
+    let sa = na.convert_to_sarray(3, 0, true, NumaSarrayType::Integer);
+    assert_eq!(sa.get(0).unwrap(), "-02");
+    assert_eq!(sa.get(1).unwrap(), "-45");
+}
+
+#[test]
 fn numa1_reg_convert_to_sarray_float() {
     let na = leptonica::Numa::from_slice(&[1.5, -2.25]);
     let sa = na.convert_to_sarray(8, 3, false, NumaSarrayType::Float);

@@ -186,7 +186,9 @@ impl Numa {
                 NumaSarrayType::Integer => {
                     let i = v as i32;
                     if pad_zeros {
-                        format!("{i:0>width$}")
+                        // Sign-aware zero pad (matches C `%0*d`):
+                        // negative values keep sign in the leftmost column.
+                        format!("{i:0width$}")
                     } else {
                         format!("{i:>width$}")
                     }
