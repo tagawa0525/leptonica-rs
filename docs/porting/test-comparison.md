@@ -2,7 +2,7 @@
 
 > 🇺🇸 [English version](../en/porting/test-comparison.md)
 
-調査日: 2026-03-01（全C版回帰テスト159個の移植完了）
+調査日: 2026-05-10（全C版回帰テスト159個の移植完了）
 
 ## 概要
 
@@ -12,7 +12,7 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 | -------------- | ------------------------- | -------------------------- |
 | テスト総数     | **305個** (.c)            | **205ファイル** (*_reg.rs) |
 | 回帰テスト     | **160個** (*_reg.c)       | **159個** (*_reg.rs)       |
-| 個別テスト関数 | 多数                      | **3,270個**                |
+| 個別テスト関数 | 多数                      | **約4,051個**              |
 | テストランナー | alltests_reg.c            | `cargo test`               |
 
 ※ C版160個のうち `alltests_reg.c` はテストランナーのため集計から除外（159個が対象）。
@@ -65,7 +65,7 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 | rasteropip | rasteropip_reg.rs | ✅   |
 | string     | string_reg.rs     | ✅   |
 
-Rust独自: boxfunc, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixafunc
+Rust独自: bmf, boxfunc, core_coverage, gplot, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixacc, pixafunc
 
 ✅ 33 / ❌ 0（C版33個中）
 
@@ -95,7 +95,7 @@ Rust独自: boxfunc, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_cli
 | webpio     | webpio_reg.rs     | ✅   |
 | writetext  | writetext_reg.rs  | ✅   |
 
-Rust独自: spixio
+Rust独自: convertfiles, io_coverage, partify, spixio
 
 ✅ 19 / ❌ 0（C版19個中）
 
@@ -121,7 +121,7 @@ Rust独自: spixio
 | morphseq   | morphseq_reg.rs   | ✅   |
 | selio      | selio_reg.rs      | ✅   |
 
-Rust独自: sel_morphapp
+Rust独自: binreduce, morph_coverage, sel_morphapp
 
 ✅ 17 / ❌ 0（C版17個中）
 
@@ -153,6 +153,8 @@ Rust独自: sel_morphapp
 | warper       | warper_reg.rs       | ✅   |
 | xformbox     | xformbox_reg.rs     | ✅   |
 
+Rust独自: transform_coverage
+
 ✅ 21 / ❌ 0（C版21個中）
 
 ### leptonica (src/filter/)（フィルタリング）
@@ -176,7 +178,7 @@ Rust独自: sel_morphapp
 | rankbin    | rankbin_reg.rs    | ✅   |
 | rankhisto  | rankhisto_reg.rs  | ✅   |
 
-Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, extend_replication
+Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, edge_smoothness, extend_replication, half_edge, rank_scaling, runlength
 
 ✅ 14 / ❌ 0（C版14個中）
 
@@ -211,7 +213,7 @@ Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, exte
 | paintmask    | paintmask_reg.rs    | ✅   |
 | threshnorm   | threshnorm_reg.rs   | ✅   |
 
-Rust独自: binarize_advanced, color_magnitude, colorcontent_advanced, colorspace_hsv, quantize_ext
+Rust独自: binarize_advanced, color_coverage, color_magnitude, colorcontent_advanced, colorspace_hsv, paintcmap, quantize_ext
 
 ✅ 24 / ❌ 0（C版24個中）
 
@@ -236,7 +238,7 @@ Rust独自: binarize_advanced, color_magnitude, colorcontent_advanced, colorspac
 | texturefill | texturefill_reg.rs | ✅   |
 | watershed   | watershed_reg.rs   | ✅   |
 
-Rust独自: conncomp_ext, seedfill_ext
+Rust独自: checkerboard, conncomp_ext, partition_whitespace, region_coverage, seedfill_ext
 
 ✅ 14 / ❌ 0（C版14個中）
 
@@ -262,6 +264,8 @@ Rust独自: conncomp_ext, seedfill_ext
 | skew         | skew_reg.rs         | ✅   |
 | wordboxes    | wordboxes_reg.rs    | ✅   |
 
+Rust独自: classapp, correlscore, finditalic, recog_coverage, strokes
+
 ✅ 17 / ❌ 0（C版17個中）
 
 ## サマリ
@@ -270,15 +274,15 @@ Rust独自: conncomp_ext, seedfill_ext
 
 | クレート                   | C版     | ✅      | ❌    | Rust独自 | カバレッジ |
 | -------------------------- | ------- | ------- | ----- | -------- | ---------- |
-| leptonica (src/core/)      | 33      | 33      | 0     | 8        | 100.0%     |
-| leptonica (src/io/)        | 19      | 19      | 0     | 1        | 100.0%     |
-| leptonica (src/morph/)     | 17      | 17      | 0     | 1        | 100.0%     |
-| leptonica (src/transform/) | 21      | 21      | 0     | 0        | 100.0%     |
-| leptonica (src/filter/)    | 14      | 14      | 0     | 5        | 100.0%     |
-| leptonica (src/color/)     | 24      | 24      | 0     | 5        | 100.0%     |
-| leptonica (src/region/)    | 14      | 14      | 0     | 2        | 100.0%     |
-| leptonica (src/recog/)     | 17      | 17      | 0     | 0        | 100.0%     |
-| **合計**                   | **159** | **159** | **0** | **22**   | **100.0%** |
+| leptonica (src/core/)      | 33      | 33      | 0     | 12       | 100.0%     |
+| leptonica (src/io/)        | 19      | 19      | 0     | 4        | 100.0%     |
+| leptonica (src/morph/)     | 17      | 17      | 0     | 3        | 100.0%     |
+| leptonica (src/transform/) | 21      | 21      | 0     | 1        | 100.0%     |
+| leptonica (src/filter/)    | 14      | 14      | 0     | 9        | 100.0%     |
+| leptonica (src/color/)     | 24      | 24      | 0     | 7        | 100.0%     |
+| leptonica (src/region/)    | 14      | 14      | 0     | 5        | 100.0%     |
+| leptonica (src/recog/)     | 17      | 17      | 0     | 5        | 100.0%     |
+| **合計**                   | **159** | **159** | **0** | **46**   | **100.0%** |
 
 全C版回帰テスト（159個）の移植が完了。未移植テストなし。
 
@@ -300,7 +304,7 @@ Rust独自: conncomp_ext, seedfill_ext
 | **I/Oテスト**    | 全フォーマット網羅     | ✅ 全フォーマット対応                        |
 | **統合テスト**   | alltests_reg.c         | 205ファイル（全crate *_reg.rs）              |
 | **テストデータ** | 豊富（画像、PDF等）    | tests/data/images/に実画像                   |
-| **カバレッジ**   | 159分野                | 8クレート、3,270テスト関数                   |
+| **カバレッジ**   | 159分野                | 8クレート、約4,051テスト関数                 |
 
 ## 参考
 

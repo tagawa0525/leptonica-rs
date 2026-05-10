@@ -49,11 +49,11 @@ src/
 │   └── pixel.rs    # RGBAピクセル操作 (compose_rgba, extract_rgb 等)
 ├── io/             # 画像I/O (PNG, JPEG, TIFF, BMP, GIF, WebP, PDF, PS)
 ├── transform/      # 幾何変換 (回転, スケール, アフィン, 射影, バイリニア)
-├── morph/          # 形態学演算 (膨張, 収縮, オープニング, クロージング, DWA)
-├── filter/         # フィルタリング (畳み込み, エッジ, 二値化, ランク, 適応マップ)
+├── morph/          # 形態学演算 (膨張, 収縮, オープニング, クロージング, DWA, 細線化)
+├── filter/         # フィルタリング (畳み込み, バイラテラル, ランク, エッジ, 適応マップ)
 ├── color/          # 色処理 (量子化, 二値化, 色空間変換, セグメンテーション)
-├── region/         # 領域解析 (連結成分, ラベリング, 流域分割, 迷路)
-└── recog/          # 文字認識・バーコード・デワープ・JBIG2分類
+├── region/         # 領域解析 (連結成分, ccbord, quadtree, 流域分割, 迷路)
+└── recog/          # 認識 (バーコード, デワープ, ベースライン, ページ分割, JBIG2分類)
 ```
 
 ## PRワークフロー
@@ -105,14 +105,14 @@ src/
 ```text
 tests/
 ├── common/          # ヘルパー（RegParams, load_test_image 等）
-├── core/            # main.rs + 32テストモジュール
-├── io/              # main.rs + 17テストモジュール
-├── morph/           # main.rs + 18テストモジュール
-├── transform/       # main.rs + 21テストモジュール
-├── filter/          # main.rs + 19テストモジュール
-├── color/           # main.rs + 28テストモジュール
-├── region/          # main.rs + 13テストモジュール
-└── recog/           # main.rs + 14テストモジュール
+├── core/            # main.rs + 45テストモジュール
+├── io/              # main.rs + 23テストモジュール
+├── morph/           # main.rs + 20テストモジュール
+├── transform/       # main.rs + 22テストモジュール
+├── filter/          # main.rs + 24テストモジュール
+├── color/           # main.rs + 31テストモジュール
+├── region/          # main.rs + 19テストモジュール
+└── recog/           # main.rs + 23テストモジュール
 ```
 
 各ディレクトリの `main.rs` がテストバイナリのエントリポイント。モジュール単位で実行可能:

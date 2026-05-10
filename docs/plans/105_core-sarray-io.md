@@ -34,7 +34,9 @@ Number of strings = N\n
 ## 配置先・API 設計
 
 - ファイル: 既存 `src/core/sarray/serial.rs` で全シリアライズ I/O が
+
   実装済みだったため、本タスクではテストの `#[ignore]` 解除のみ
+
 - 既存公開 API（再掲、本 PR で新規追加するものではない）:
 
 ```rust

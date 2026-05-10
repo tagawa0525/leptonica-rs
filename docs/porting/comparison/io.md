@@ -7,11 +7,13 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 138 |
+| ✅ 同等   | 139 |
 | 🔄 異なる | 19  |
+| 🚫 不要   | 50  |
 | ❌ 未実装 | 0   |
-| 🚫 不要   | 45  |
-| 合計      | 202 |
+| 合計      | 208 |
+
+**カバレッジ**: 76.0% (158/208 関数が実装済み、🚫 不要 50 関数を除くと実質 158/158 = 100.0% 実装)
 
 ## 詳細
 
@@ -440,3 +442,32 @@ Rust版leptonica-ioは、全移植計画の完了により、C版202関数のう
 - PS マルチページ + Level 2 DCT圧縮（Phase 7）
 
 未実装関数は0件。JP2K書き込み（`write_jp2k`、`write_jp2k_mem`）はスタブ実装で`Err(UnsupportedFormat)`を返す。
+
+## 追加検証エントリ (gap-fill audit 2026-05-10)
+
+以下は当初 `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
+当初のヒューリスティック検索結果を、C 関数名と Rust 実装の場所・シグネチャで個別レビュー
+して再分類した結果である。
+
+- ✅ 同等: Rust 側に同名・同モジュールの実装を確認
+- 🔄 異なる: Rust 側で異なる API/モジュール配置で実装 (Vec idiomatic 等)
+- 🚫 不要: Rust 標準ライブラリ等で代替
+- ❌ 未実装: 当該機能が Rust 側に存在しない
+
+**追加分類サマリー**: ✅ 1 / 🚫 5 (合計 6)
+
+### jp2kheader.c (追加分)
+
+| C関数                 | 状態 | Rust対応                        | 備考                                                    |
+| --------------------- | ---- | ------------------------------- | ------------------------------------------------------- |
+| fgetJp2kResolution    | 🚫   | -                               | C 版 FILE* API - Rust では std::io で代替               |
+| freadHeaderJp2k       | 🚫   | -                               | C 版 FILE* API - read_header_jp2k で代替                |
+| readHeaderJp2k        | ✅   | `read_header_jp2k` (io/jp2k.rs) | name+module match                                       |
+| readHeaderMemJp2k     | 🚫   | -                               | メモリ版ヘッダ読み (Rust では unified read_header_jp2k) |
+| readResolutionMemJp2k | 🚫   | -                               | メモリ版解像度読み (Rust では unified read_header_jp2k) |
+
+### psio2.c (追加分)
+
+| C関数        | 状態 | Rust対応 | 備考                              |
+| ------------ | ---- | -------- | --------------------------------- |
+| getResA4Page | 🚫   | -        | A4 PS リソース定数 - 内部ヘルパー |
