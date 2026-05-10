@@ -294,7 +294,7 @@ fn kernel_reg_convolve_color() {
 
 /// C: makeFlatKernel(height, width, cy, cx) — rectangular flat kernel
 #[test]
-#[ignore = "not yet implemented (plan 501)"]
+
 fn kernel_reg_make_flat_5x3_off_center() {
     let kel = Kernel::make_flat(5, 3, 2, 1).expect("make_flat 5x3 cy=2 cx=1");
     assert_eq!(kel.width(), 3);
@@ -324,7 +324,7 @@ fn kernel_reg_make_flat_5x3_off_center() {
 
 /// C: makeGaussianKernel(halfh, halfw, stdev, max) — peak value at center is `max`
 #[test]
-#[ignore = "not yet implemented (plan 501)"]
+
 fn kernel_reg_make_gaussian_peak_value() {
     let max = 2.5_f32;
     let kel = Kernel::make_gaussian(2, 2, 1.0, max).expect("make_gaussian halfh=halfw=2");
@@ -351,7 +351,7 @@ fn kernel_reg_make_gaussian_peak_value() {
 
 /// C: makeGaussianKernelSep — separable Gaussian, product at center equals `max`
 #[test]
-#[ignore = "not yet implemented (plan 501)"]
+
 fn kernel_reg_make_gaussian_sep_product_equals_full() {
     let max = 1.7_f32;
     let stdev = 1.5_f32;
@@ -390,13 +390,16 @@ fn kernel_reg_make_gaussian_sep_product_equals_full() {
 
 /// C: makeDoGKernel — sum is zero (bandpass filter)
 #[test]
-#[ignore = "not yet implemented (plan 501)"]
-fn kernel_reg_make_dog_sum_zero() {
-    let kel = Kernel::make_dog(5, 5, 1.0, 2.0).expect("make_dog ratio=2.0");
-    assert_eq!(kel.width(), 11);
-    assert_eq!(kel.height(), 11);
 
-    // DoG kernel sums to ~0 (bandpass mother wavelet)
+fn kernel_reg_make_dog_sum_zero() {
+    // halfh=10 covers ~5*ratio*stdev=10 standard deviations of the wider
+    // Gaussian so truncation error in the sum stays small.
+    let kel = Kernel::make_dog(10, 10, 1.0, 2.0).expect("make_dog ratio=2.0");
+    assert_eq!(kel.width(), 21);
+    assert_eq!(kel.height(), 21);
+
+    // DoG kernel sums to ~0 (bandpass mother wavelet). Truncation introduces a
+    // small residual; tolerance reflects 21x21 truncation at ratio=2.0.
     let s = kel.sum();
     assert!(s.abs() < 1e-3, "DoG sum = {}, expected ~0", s);
 
@@ -413,7 +416,7 @@ fn kernel_reg_make_dog_sum_zero() {
 
 /// C: makeDoGKernel — ratio < 1.0 should be rejected
 #[test]
-#[ignore = "not yet implemented (plan 501)"]
+
 fn kernel_reg_make_dog_invalid_ratio() {
     assert!(
         Kernel::make_dog(3, 3, 1.0, 0.5).is_err(),

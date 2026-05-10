@@ -103,10 +103,28 @@ impl Numa {
     /// `f32`. Empty tokens are skipped (consecutive separators are allowed).
     ///
     /// C Leptonica equivalent: `parseStringForNumbers`.
-    pub fn parse_from_string(_s: &str, _separators: &str) -> Result<Self> {
-        Err(Error::InvalidParameter(
-            "parse_from_string not yet implemented (plan 501)".to_string(),
-        ))
+    pub fn parse_from_string(s: &str, separators: &str) -> Result<Self> {
+        if separators.is_empty() {
+            return Err(Error::InvalidParameter(
+                "separators must not be empty".to_string(),
+            ));
+        }
+        let sep_chars: Vec<char> = separators.chars().collect();
+        let mut data = Vec::new();
+        for token in s.split(|c: char| sep_chars.contains(&c)) {
+            if token.is_empty() {
+                continue;
+            }
+            let val: f32 = token.parse().map_err(|_| {
+                Error::InvalidParameter(format!("could not parse '{token}' as f32"))
+            })?;
+            data.push(val);
+        }
+        Ok(Self {
+            data,
+            startx: 0.0,
+            delx: 1.0,
+        })
     }
 
     /// Get the number of values
