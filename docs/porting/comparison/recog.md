@@ -4,18 +4,15 @@
 
 ## サマリー
 
-この比較では、C版leptonicaのrecog関連ソースファイルの全public関数と、Rust版leptonica-recog crateの実装状況を対比します。
-
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 119 |
+| ✅ 同等   | 132 |
 | 🔄 異なる | 45  |
-| ❌ 未実装 | 0   |
 | 🚫 不要   | 18  |
-| 合計      | 182 |
+| ❌ 未実装 | 12  |
+| 合計      | 207 |
 
-> **注記**: Phase 1-13に加え、カバレッジ向上により164関数（🚫不要18関数を除く164関数中）が実装済み。
-> 🚫不要18関数はデバッグ/可視化系・C固有getter等（Rustの設計で代替済み）。
+**カバレッジ**: 85.5% (177/207 関数が実装済み、🚫 不要 18 関数を除くと実質 177/189 = 93.7% 実装)
 
 ## 詳細
 
@@ -431,3 +428,52 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 2. エラー処理はResult型で型安全に
 3. デバッグ機能は標準のDebug traitや外部ツールで代替
 4. 複数ページ管理はDewarpa構造体（Vec<Option<Dewarp>>）で実現
+
+## 追加検証エントリ (gap-fill audit 2026-05-10)
+
+以下は `verify-comparison-counts` では捕捉されていなかった C 公開関数の追加分類。
+Rust 実装の一致は名前ベースのヒューリスティック検索で判定したため、`✅` 印は
+「同名/類似名の Rust 関数を確認」程度の意味であり、引数互換性までは保証しない。
+引き続き個別レビューを推奨。
+
+**追加分類サマリー**: ✅ 13 / 🚫 0 / ❌ 12 (合計 25)
+
+### pageseg.c (追加分)
+
+| C関数                   | 状態 | Rust対応               | 備考                |
+| ----------------------- | ---- | ---------------------- | ------------------- |
+| pixAutoPhotoinvert      | ✅   | auto_photoinvert       | recog/pageseg.rs    |
+| pixCleanImage           | ❌   | -                      |                     |
+| pixCountTextColumns     | ❌   | -                      |                     |
+| pixCropImage            | ❌   | -                      |                     |
+| pixDecideIfTable        | ✅   | decide_if_table        | recog/pageseg.rs    |
+| pixDecideIfText         | ❌   | -                      |                     |
+| pixEstimateBackground   | ❌   | -                      |                     |
+| pixExtractRawTextlines  | ❌   | -                      |                     |
+| pixExtractTextlines     | ✅   | extract_textlines      | recog/pageseg.rs    |
+| pixFindLargeRectangles  | ✅   | find_large_rectangles  | region/rectangle.rs |
+| pixFindLargestRectangle | ✅   | find_largest_rectangle | region/rectangle.rs |
+| pixFindRectangleInCC    | ✅   | find_rectangle_in_cc   | region/rectangle.rs |
+| pixFindThreshFgExtent   | ❌   | -                      |                     |
+| pixGenHalftoneMask      | ❌   | -                      |                     |
+| pixGenTextblockMask     | ❌   | -                      |                     |
+| pixGenTextlineMask      | ❌   | -                      |                     |
+| pixGenerateHalftoneMask | ✅   | generate_halftone_mask | recog/pageseg.rs    |
+| pixPrepare1bpp          | ✅   | prepare_1bpp           | recog/pageseg.rs    |
+
+### readbarcode.c (追加分)
+
+| C関数                         | 状態 | Rust対応                     | 備考                    |
+| ----------------------------- | ---- | ---------------------------- | ----------------------- |
+| numaQuantizeCrossingsByWidth  | ✅   | quantize_crossings_by_width  | recog/barcode/signal.rs |
+| numaQuantizeCrossingsByWindow | ✅   | quantize_crossings_by_window | recog/barcode/signal.rs |
+
+### skew.c (追加分)
+
+| C関数                        | 状態 | Rust対応       | 備考          |
+| ---------------------------- | ---- | -------------- | ------------- |
+| pixDeskew                    | ✅   | deskew         | recog/skew.rs |
+| pixDeskewBoth                | ✅   | deskew_both    | recog/skew.rs |
+| pixDeskewGeneral             | ✅   | deskew_general | recog/skew.rs |
+| pixFindDifferentialSquareSum | ❌   | -              |               |
+| pixFindNormalizedSquareSum   | ❌   | -              |               |
