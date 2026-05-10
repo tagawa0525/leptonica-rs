@@ -280,7 +280,7 @@ use leptonica::core::pix::{
 /// C: l_clearDataDibit — 2bit pixel を 0 にクリアする
 #[test]
 
-fn lowaccess_reg_clear_data_dibit_4_pixels() {
+fn lowaccess_reg_clear_data_dibit_word32() {
     // 16 dibit pixels = 1 word32. 全部 0xFFFFFFFF にしてからクリア
     let mut line = vec![0xFFFFFFFFu32];
     // 全部 set_data_dibit(_,_,3) と等価の状態
@@ -303,7 +303,7 @@ fn lowaccess_reg_clear_data_dibit_4_pixels() {
 /// C: l_clearDataQbit — 4bit pixel を 0 にクリアする
 #[test]
 
-fn lowaccess_reg_clear_data_qbit_4_pixels() {
+fn lowaccess_reg_clear_data_qbit_word32() {
     let mut line = vec![0xFFFFFFFFu32];
     // 全部 0xF (set_data_qbit(_,_,15) 相当)
     for x in 0..8u32 {
