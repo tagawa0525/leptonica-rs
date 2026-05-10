@@ -19,7 +19,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 | Module                                                              | ✅ Equivalent | 🔄 Different | ❌ Unimplemented | 🚫 Not needed | Total     | Coverage  | Effective Coverage |
 | ------------------------------------------------------------------- | ------------- | ------------ | ---------------- | ------------- | --------- | --------- | ------------------ |
-| [leptonica (src/core/)](../../porting/comparison/core.md)           | 848           | 93           | 128              | 146           | 1,215     | 77.4%     | 88.0%              |
+| [leptonica (src/core/)](../../porting/comparison/core.md)           | 852           | 93           | 124              | 146           | 1,215     | 77.7%     | 88.4%              |
 | [leptonica (src/io/)](../../porting/comparison/io.md)               | 139           | 19           | 0                | 50            | 208       | 76.0%     | 100.0%             |
 | [leptonica (src/transform/)](../../porting/comparison/transform.md) | 109           | 19           | 0                | 14            | 142       | 90.1%     | 100.0%             |
 | [leptonica (src/morph/)](../../porting/comparison/morph.md)         | 116           | 22           | 0                | 33            | 171       | 80.7%     | 100.0%             |
@@ -28,7 +28,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 | [leptonica (src/region/)](../../porting/comparison/region.md)       | 65            | 8            | 0                | 22            | 95        | 76.8%     | 100.0%             |
 | [leptonica (src/recog/)](../../porting/comparison/recog.md)         | 132           | 45           | 12               | 18            | 207       | 85.5%     | 93.7%              |
 | [Other](../../porting/comparison/misc.md)                           | 145           | 5            | 5                | 371           | 526       | 28.5%     | 96.8%              |
-| **Total**                                                           | **1,773**     | **231**      | **146**          | **684**       | **2,834** | **70.7%** | **93.2%**          |
+| **Total**                                                           | **1,777**     | **231**      | **142**          | **684**       | **2,834** | **70.9%** | **93.4%**          |
 
 ### Classification Criteria
 
@@ -93,7 +93,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 | Feature                    | C version                    | Rust version     | Notes                                                                                                        |
 | -------------------------- | ---------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------ |
-| Rotation (orthogonal)      | ✅ rotateorth.c              | ✅ rotate.rs     | 90°/180°/270°                                                                                                |
+| Rotation (orthogonal)      | ✅ rotateorth.c              | ✅ rotate.rs     | 90/180/270 degrees                                                                                           |
 | Rotation (arbitrary angle) | ✅ rotate.c, rotateam.c      | ✅ rotate.rs     | Area mapping/sampling/shear                                                                                  |
 | Rotation (shear)           | ✅ rotateshear.c             | ✅ rotate.rs     | 2-shear/3-shear support                                                                                      |
 | Scaling                    | ✅ scale1-2.c                | ✅ scale.rs      | 3 algorithms + 1bpp specialization (`scale_binary`/`scale_to_gray`/`expand_binary_*`/`reduce_rank_binary_*`) |
@@ -136,14 +136,14 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 ### 6. Color Processing
 
-| Feature                  | C version          | Rust version     | Notes                           |
-| ------------------------ | ------------------ | ---------------- | ------------------------------- |
-| Colorspace conversion    | ✅ colorspace.c    | ✅ colorspace.rs | RGB↔HSV/LAB/XYZ/YUV (per-pixel) |
-| Color quantization       | ✅ colorquant1-2.c | ✅ quantize.rs   | Median cut, Octree (simplified) |
-| Color segmentation       | ✅ colorseg.c      | ✅ segment.rs    | 4-stage algorithm               |
-| Color content extraction | ✅ colorcontent.c  | ✅ analysis.rs   | Color stats, color count        |
-| Color fill               | ✅ colorfill.c     | ✅ colorfill.rs  | Seed-based region detection     |
-| Colorization             | ✅ coloring.c      | ✅ coloring.rs   | Gray colorization/color shift   |
+| Feature                  | C version          | Rust version     | Notes                               |
+| ------------------------ | ------------------ | ---------------- | ----------------------------------- |
+| Colorspace conversion    | ✅ colorspace.c    | ✅ colorspace.rs | RGB <-> HSV/LAB/XYZ/YUV (per-pixel) |
+| Color quantization       | ✅ colorquant1-2.c | ✅ quantize.rs   | Median cut, Octree (simplified)     |
+| Color segmentation       | ✅ colorseg.c      | ✅ segment.rs    | 4-stage algorithm                   |
+| Color content extraction | ✅ colorcontent.c  | ✅ analysis.rs   | Color stats, color count            |
+| Color fill               | ✅ colorfill.c     | ✅ colorfill.rs  | Seed-based region detection         |
+| Colorization             | ✅ coloring.c      | ✅ coloring.rs   | Gray colorization/color shift       |
 
 ### 7. Binarization
 
@@ -184,7 +184,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 | Module                     | Lines        | Function Coverage       | Effective Coverage      | Key Features                                                                                       |
 | -------------------------- | ------------ | ----------------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| leptonica (src/core/)      | ~47,100      | 941/1,215 (77.4%)       | 941/1,069 (88.0%)       | Pix, Box, Pta, Ptaa, Pixaa, Colormap, arithmetic, compare, blend, graphics, stats, histogram       |
+| leptonica (src/core/)      | ~47,100      | 945/1,215 (77.7%)       | 945/1,069 (88.4%)       | Pix, Box, Pta, Ptaa, Pixaa, Colormap, arithmetic, compare, blend, graphics, stats, histogram       |
 | leptonica (src/io/)        | ~7,900       | 158/208 (76.0%)         | 158/158 (100.0%)        | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS/SPIX + header reading                                   |
 | leptonica (src/transform/) | ~11,200      | 128/142 (90.1%)         | 128/128 (100.0%)        | Rotate, scale, affine, projective, shear                                                           |
 | leptonica (src/morph/)     | ~9,400       | 138/171 (80.7%)         | 138/138 (100.0%)        | Binary/grayscale/color morphology, DWA, thinning                                                   |
@@ -193,13 +193,13 @@ See files under `docs/porting/comparison/` for details (currently only available
 | leptonica (src/region/)    | ~10,600      | 73/95 (76.8%)           | 73/73 (100.0%)          | Connected components, seed fill, watershed, quadtree, maze                                         |
 | leptonica (src/recog/)     | ~16,000      | 177/207 (85.5%)         | 177/189 (93.7%)         | Skew correction, dewarping, character recognition, barcode                                         |
 | Other                      | -            | 150/526 (28.5%)         | 150/155 (96.8%)         | Warper, encoding, debug/timing helpers, etc.                                                       |
-| **Total**                  | **~147,000** | **2,004/2,834 (70.7%)** | **2,004/2,150 (93.2%)** |                                                                                                    |
+| **Total**                  | **~147,000** | **2,008/2,834 (70.9%)** | **2,008/2,150 (93.4%)** |                                                                                                    |
 
 ## Unimplemented Function Status
 
 Of the 2,150 functions remaining after excluding 684 classified as 🚫 Not needed,
-2,004 are implemented (✅ 1,773 + 🔄 231). The remaining 146 (❌) are unimplemented.
-Effective coverage is 93.2%.
+2,008 are implemented (✅ 1,777 + 🔄 231). The remaining 142 (❌) are unimplemented.
+Effective coverage is 93.4%.
 
 These figures reflect the `gap-fill audit 2026-05-10`, which enumerated all 2,743 public
 C functions in `allheaders.h` and individually reviewed each entry by comparing C function

@@ -267,3 +267,69 @@ fn lowaccess_reg_32bpp() {
 
     assert!(rp.cleanup(), "lowaccess 32bpp test failed");
 }
+
+// =====================================================================
+// gap-fill 第2弾 (plan 113): arrayaccess.c の clear_data_dibit/qbit
+// と get/set_data_four_bytes
+// =====================================================================
+
+use leptonica::core::pix::{
+    clear_data_dibit, clear_data_qbit, get_data_four_bytes, set_data_four_bytes,
+};
+
+/// C: l_clearDataDibit — 2bit pixel を 0 にクリアする
+#[test]
+
+fn lowaccess_reg_clear_data_dibit_word32() {
+    // 16 dibit pixels = 1 word32. 全部 0xFFFFFFFF にしてからクリア
+    let mut line = vec![0xFFFFFFFFu32];
+    // 全部 set_data_dibit(_,_,3) と等価の状態
+    for x in 0..16u32 {
+        assert_eq!(get_data_dibit(&line, x), 3);
+    }
+    // clear pixel 0, 5, 15
+    clear_data_dibit(&mut line, 0);
+    clear_data_dibit(&mut line, 5);
+    clear_data_dibit(&mut line, 15);
+    assert_eq!(get_data_dibit(&line, 0), 0);
+    assert_eq!(get_data_dibit(&line, 5), 0);
+    assert_eq!(get_data_dibit(&line, 15), 0);
+    // 他は変化しない
+    for x in [1u32, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14] {
+        assert_eq!(get_data_dibit(&line, x), 3, "dibit at {} changed", x);
+    }
+}
+
+/// C: l_clearDataQbit — 4bit pixel を 0 にクリアする
+#[test]
+
+fn lowaccess_reg_clear_data_qbit_word32() {
+    let mut line = vec![0xFFFFFFFFu32];
+    // 全部 0xF (set_data_qbit(_,_,15) 相当)
+    for x in 0..8u32 {
+        assert_eq!(get_data_qbit(&line, x), 0xF);
+    }
+    clear_data_qbit(&mut line, 0);
+    clear_data_qbit(&mut line, 3);
+    clear_data_qbit(&mut line, 7);
+    assert_eq!(get_data_qbit(&line, 0), 0);
+    assert_eq!(get_data_qbit(&line, 3), 0);
+    assert_eq!(get_data_qbit(&line, 7), 0);
+    for x in [1u32, 2, 4, 5, 6] {
+        assert_eq!(get_data_qbit(&line, x), 0xF, "qbit at {} changed", x);
+    }
+}
+
+/// C: l_getDataFourBytes / l_setDataFourBytes — 32bit ピクセルの round trip
+#[test]
+
+fn lowaccess_reg_get_set_data_four_bytes_round_trip() {
+    let mut line = vec![0u32; 4];
+    let values = [0x12345678u32, 0xDEADBEEF, 0x00000001, 0xFFFFFFFF];
+    for (i, &v) in values.iter().enumerate() {
+        set_data_four_bytes(&mut line, i as u32, v);
+    }
+    for (i, &v) in values.iter().enumerate() {
+        assert_eq!(get_data_four_bytes(&line, i as u32), v);
+    }
+}

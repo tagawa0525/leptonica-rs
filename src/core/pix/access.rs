@@ -212,6 +212,14 @@ pub fn set_data_dibit(line: &mut [u32], x: u32, val: u32) {
     line[word_index] = (line[word_index] & !mask) | ((val & MASK_2) << bit_index);
 }
 
+/// Clear a 2-bit pixel to 0 (C: l_clearDataDibit)
+#[inline]
+pub fn clear_data_dibit(line: &mut [u32], x: u32) {
+    let word_index = (x >> 4) as usize;
+    let bit_index = 2 * (15 - (x & 15));
+    line[word_index] &= !(MASK_2 << bit_index);
+}
+
 // ============================================================================
 // 4-bit access (GET_DATA_QBIT / SET_DATA_QBIT)
 // ============================================================================
@@ -231,6 +239,14 @@ pub fn set_data_qbit(line: &mut [u32], x: u32, val: u32) {
     let bit_index = 4 * (7 - (x & 7));
     let mask = MASK_4 << bit_index;
     line[word_index] = (line[word_index] & !mask) | ((val & MASK_4) << bit_index);
+}
+
+/// Clear a 4-bit pixel to 0 (C: l_clearDataQbit)
+#[inline]
+pub fn clear_data_qbit(line: &mut [u32], x: u32) {
+    let word_index = (x >> 3) as usize;
+    let bit_index = 4 * (7 - (x & 7));
+    line[word_index] &= !(MASK_4 << bit_index);
 }
 
 // ============================================================================
@@ -275,6 +291,26 @@ pub fn set_data_two_bytes(line: &mut [u32], x: u32, val: u32) {
     let shift = half_index * 16;
     let mask = MASK_16 << shift;
     line[word_index] = (line[word_index] & !mask) | ((val & MASK_16) << shift);
+}
+
+// ============================================================================
+// 32-bit access (GET_DATA_FOUR_BYTES / SET_DATA_FOUR_BYTES)
+// ============================================================================
+
+/// Get a 32-bit pixel value (C: l_getDataFourBytes)
+///
+/// Each 32-bit pixel occupies one full `u32` word, so this is equivalent
+/// to `line[x as usize]` but kept as a function for API symmetry with
+/// the smaller-bit-depth accessors.
+#[inline]
+pub fn get_data_four_bytes(line: &[u32], x: u32) -> u32 {
+    line[x as usize]
+}
+
+/// Set a 32-bit pixel value (C: l_setDataFourBytes)
+#[inline]
+pub fn set_data_four_bytes(line: &mut [u32], x: u32, val: u32) {
+    line[x as usize] = val;
 }
 
 // ============================================================================
