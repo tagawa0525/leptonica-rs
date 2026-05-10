@@ -937,6 +937,35 @@ pub fn find_skew_orthogonal_range(
     }
 }
 
+/// Sum of squared differences between adjacent row pixel-counts.
+///
+/// C Leptonica equivalent: `pixFindDifferentialSquareSum`.
+///
+/// At the top and bottom we skip at least one scanline, no more than 10% of
+/// the image height, and no more than 5% of the image width. This is the
+/// score used internally by `find_skew_sweep_and_search`.
+pub fn find_differential_square_sum(_pix: &Pix) -> RecogResult<f32> {
+    Err(RecogError::InvalidParameter(
+        "find_differential_square_sum not yet implemented (plan 803-K)".to_string(),
+    ))
+}
+
+/// Per-axis normalized sum of squared row/column pixel-counts on a 1bpp image.
+///
+/// Returns `(hratio, vratio, fract)` where:
+/// - `hratio` — ratio of horizontal-row sum-of-squares to the uniform value
+/// - `vratio` — same for vertical (after a 90° rotation)
+/// - `fract`  — ratio of foreground pixels to total pixels
+///
+/// All three are `0.0` if the image has no foreground.
+///
+/// C Leptonica equivalent: `pixFindNormalizedSquareSum`.
+pub fn find_normalized_square_sum(_pix: &Pix) -> RecogResult<(f32, f32, f32)> {
+    Err(RecogError::InvalidParameter(
+        "find_normalized_square_sum not yet implemented (plan 803-K)".to_string(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
