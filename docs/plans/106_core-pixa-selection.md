@@ -46,7 +46,7 @@ pub enum ThresholdSelect { LessThan, GreaterThan, LessOrEqual, GreaterOrEqual }
 ```rust
 impl Pixa {
     pub fn select_range(&self, first: usize, last: Option<usize>) -> Self;
-    pub fn select_with_indicator(&self, indicator: &[bool]) -> (Self, bool);
+    pub fn select_with_indicator(&self, indicator: &[bool]) -> Result<(Self, bool)>;
     pub fn select_with_string(&self, s: &str) -> Result<(Self, bool)>;
     pub fn select_by_num_conn_comp(
         &self, nmin: u32, nmax: u32, connectivity: ConnectivityType,
@@ -67,12 +67,17 @@ pub fn pix_select_by_area_fraction(pixs: &Pix, thresh: f32, conn: ConnectivityTy
 // 同様に pix_select_by_perim_size_ratio / pix_select_by_perim_to_area_ratio / pix_select_by_width_height_ratio
 ```
 
-### Internal find helpers (free fn, not part of pub API)
+### Find helpers (内部 pub(crate)、Vec<f32> ベース)
 
-- `pixa_find_area_fraction(pixa) -> Numa`
-- `pixa_find_perim_size_ratio(pixa) -> Numa`
-- `pixa_find_perim_to_area_ratio(pixa) -> Numa`
-- `pixa_find_width_height_ratio(pixa) -> Numa`
+C 版 `pixaFind*` に相当する metric 計算ヘルパー。
+`select_by_*` の内部実装で使う。同等の機能は既存の
+`Pixa::find_area_fraction` 系 (`Numa` 返り) で公開済みのため、
+こちらは `pub(crate)` に留めて API 重複を避ける。
+
+- `pixa_find_area_fraction(pixa) -> Vec<f32>`
+- `pixa_find_perim_size_ratio(pixa) -> Vec<f32>`
+- `pixa_find_perim_to_area_ratio(pixa) -> Vec<f32>`
+- `pixa_find_width_height_ratio(pixa) -> Vec<f32>`
 
 ## 完了条件
 
@@ -85,5 +90,6 @@ pub fn pix_select_by_area_fraction(pixs: &Pix, thresh: f32, conn: ConnectivityTy
 
 - 新規 `ThresholdSelect` enum (`LessThan` / `GreaterThan` / `LessOrEqual` / `GreaterOrEqual`)
 - Pixa メソッド 8 件、Pix-level wrapper 4 件、indicator paint 2 件
-- 内部ヘルパー: `pixa_find_area_fraction` 系 4 件 (Vec<f32> ベース)
+- find ヘルパー (`pub(crate)`): `pixa_find_area_fraction` 系 4 件 (Vec<f32> ベース)。
+  公開向けには既存の `Pixa::find_*` (Numa 返り) を使う。
 - 周長は `erode_brick(3,3)` + `xor` で境界ピクセル数を数える方式

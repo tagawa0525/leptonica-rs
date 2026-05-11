@@ -240,8 +240,8 @@ fn boundary_count(pix: &Pix) -> u64 {
     xor.count_pixels()
 }
 
-/// `pixaFindAreaFraction` — fg / (w*h) per pix.
-pub fn pixa_find_area_fraction(pixa: &Pixa) -> Vec<f32> {
+/// `pixaFindAreaFraction` — fg / (w*h) per pix. (internal, see also `Pixa::find_area_fraction`)
+pub(crate) fn pixa_find_area_fraction(pixa: &Pixa) -> Vec<f32> {
     pixa.pix_slice()
         .iter()
         .map(|p| {
@@ -255,8 +255,8 @@ pub fn pixa_find_area_fraction(pixa: &Pixa) -> Vec<f32> {
         .collect()
 }
 
-/// `pixaFindPerimSizeRatio` — fg boundary / (2*(w+h)) per pix.
-pub fn pixa_find_perim_size_ratio(pixa: &Pixa) -> Vec<f32> {
+/// `pixaFindPerimSizeRatio` — fg boundary / (2*(w+h)) per pix. (internal)
+pub(crate) fn pixa_find_perim_size_ratio(pixa: &Pixa) -> Vec<f32> {
     pixa.pix_slice()
         .iter()
         .map(|p| {
@@ -270,8 +270,8 @@ pub fn pixa_find_perim_size_ratio(pixa: &Pixa) -> Vec<f32> {
         .collect()
 }
 
-/// `pixaFindPerimToAreaRatio` — fg boundary / fg pixels per pix.
-pub fn pixa_find_perim_to_area_ratio(pixa: &Pixa) -> Vec<f32> {
+/// `pixaFindPerimToAreaRatio` — fg boundary / fg pixels per pix. (internal)
+pub(crate) fn pixa_find_perim_to_area_ratio(pixa: &Pixa) -> Vec<f32> {
     pixa.pix_slice()
         .iter()
         .map(|p| {
@@ -285,8 +285,8 @@ pub fn pixa_find_perim_to_area_ratio(pixa: &Pixa) -> Vec<f32> {
         .collect()
 }
 
-/// `pixaFindWidthHeightRatio` — w / h per pix.
-pub fn pixa_find_width_height_ratio(pixa: &Pixa) -> Vec<f32> {
+/// `pixaFindWidthHeightRatio` — w / h per pix. (internal)
+pub(crate) fn pixa_find_width_height_ratio(pixa: &Pixa) -> Vec<f32> {
     pixa.pix_slice()
         .iter()
         .map(|p| {

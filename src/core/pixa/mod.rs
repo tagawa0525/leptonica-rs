@@ -9,8 +9,7 @@ mod serial;
 pub use select::{
     ThresholdSelect, pix_add_with_indicator, pix_remove_with_indicator,
     pix_select_by_area_fraction, pix_select_by_perim_size_ratio, pix_select_by_perim_to_area_ratio,
-    pix_select_by_width_height_ratio, pixa_find_area_fraction, pixa_find_perim_size_ratio,
-    pixa_find_perim_to_area_ratio, pixa_find_width_height_ratio,
+    pix_select_by_width_height_ratio,
 };
 
 use crate::core::box_::{Box, Boxa, SizeRelation};
