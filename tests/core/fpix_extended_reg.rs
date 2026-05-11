@@ -152,9 +152,14 @@ fn fpix_scale_by_integer_factor_zero_errors() {
 fn fpix_remove_border_zero_is_clone() {
     let mut f = FPix::new(3, 3).unwrap();
     f.set_pixel(1, 1, 9.0).unwrap();
+    f.set_xres(300);
+    f.set_yres(300);
     let out = f.remove_border(0, 0, 0, 0).unwrap();
     assert_eq!(out.width(), 3);
     assert!((out.get_pixel(1, 1).unwrap() - 9.0).abs() < 1e-6);
+    // resolution metadata must be preserved by the zero-border path
+    assert_eq!(out.xres(), 300);
+    assert_eq!(out.yres(), 300);
 }
 
 #[test]

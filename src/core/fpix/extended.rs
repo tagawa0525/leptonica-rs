@@ -146,7 +146,7 @@ impl FPix {
         if ws < 2 || hs < 2 {
             // C version has UB in this case (wd/hd <= 0 possible); we follow
             // the spirit by returning a deep clone.
-            return Ok(self.deep_clone());
+            return Ok(self.clone());
         }
         let wd = (factor as i32) * (ws - 1) + 1;
         let hd = (factor as i32) * (hs - 1) + 1;
@@ -219,7 +219,7 @@ impl FPix {
     /// C Leptonica equivalent: `fpixRemoveBorder`.
     pub fn remove_border(&self, left: i32, right: i32, top: i32, bot: i32) -> Result<FPix> {
         if left <= 0 && right <= 0 && top <= 0 && bot <= 0 {
-            return Ok(self.deep_clone());
+            return Ok(self.clone());
         }
         let ws = self.width() as i32;
         let hs = self.height() as i32;
@@ -235,12 +235,6 @@ impl FPix {
         dst.set_yres(self.yres());
         dst.rasterop(0, 0, wd, hd, self, left.max(0), top.max(0))?;
         Ok(dst)
-    }
-
-    /// Deep clone helper (FPix data is owned, so just clone the inner Vec).
-    fn deep_clone(&self) -> FPix {
-        FPix::from_data(self.width(), self.height(), self.data().to_vec())
-            .expect("dimensions are valid")
     }
 }
 
