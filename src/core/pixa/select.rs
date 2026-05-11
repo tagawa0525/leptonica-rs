@@ -333,6 +333,9 @@ fn apply_with_indicator(
     if pixs.depth() != PixelDepth::Bit1 {
         return Err(Error::UnsupportedDepth(pixs.depth().bits()));
     }
+    if pixad.depth() != PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pixad.depth().bits()));
+    }
     let (boxa, pixa) =
         crate::region::conncomp_pixa(pixs, crate::region::ConnectivityType::EightWay)
             .map_err(|e| Error::InvalidParameter(format!("conncomp failed: {e}")))?;
@@ -352,14 +355,15 @@ fn apply_with_indicator(
         let comp = pixa
             .get(i)
             .ok_or_else(|| Error::InvalidParameter(format!("missing component at index {i}")))?;
-        paint_box(pixad, comp, b, cw, ch, add);
+        paint_box(pixad, comp, b, cw, ch, add)?;
     }
     Ok(())
 }
 
-fn paint_box(pixad: &mut PixMut, comp: &Pix, b: &Box, cw: i32, ch: i32, add: bool) {
+fn paint_box(pixad: &mut PixMut, comp: &Pix, b: &Box, cw: i32, ch: i32, add: bool) -> Result<()> {
     let w = comp.width() as i32;
     let h = comp.height() as i32;
+    let val = if add { 1 } else { 0 };
     for j in 0..h {
         for i in 0..w {
             if comp.get_pixel(i as u32, j as u32) != Some(1) {
@@ -370,9 +374,10 @@ fn paint_box(pixad: &mut PixMut, comp: &Pix, b: &Box, cw: i32, ch: i32, add: boo
             if dx < 0 || dy < 0 || dx >= cw || dy >= ch {
                 continue;
             }
-            let _ = pixad.set_pixel(dx as u32, dy as u32, if add { 1 } else { 0 });
+            pixad.set_pixel(dx as u32, dy as u32, val)?;
         }
     }
+    Ok(())
 }
 
 // ------------------------------------------------------------------------
@@ -405,7 +410,7 @@ where
     let ch = pixs.height() as i32;
     for (i, comp) in filtered_pixa.pix_slice().iter().enumerate() {
         let b = filtered_pixa.boxa().get(i).copied().unwrap_or_default();
-        paint_box(&mut out_mut, comp, &b, cw, ch, true);
+        paint_box(&mut out_mut, comp, &b, cw, ch, true)?;
     }
     let _ = boxa; // not used directly; conncomp boxes were carried through pixa
     Ok(out_mut.into())

@@ -289,6 +289,17 @@ fn pix_remove_with_indicator_clears() {
 }
 
 #[test]
+fn pix_add_with_indicator_rejects_non_1bpp_dst() {
+    let pixs = make_filled_1bpp(16, 16, 0.3);
+    let dst = Pix::new(16, 16, PixelDepth::Bit8).unwrap();
+    let mut dst_mut = dst.try_into_mut().unwrap();
+    let count = leptonica::region::count_conn_comp(&pixs, ConnectivityType::EightWay).unwrap();
+    let indicator: Vec<bool> = (0..count as usize).map(|_| true).collect();
+    let r = pix_add_with_indicator(&pixs, &mut dst_mut, &indicator);
+    assert!(r.is_err());
+}
+
+#[test]
 fn pix_select_rejects_non_1bpp() {
     let p = Pix::new(16, 16, PixelDepth::Bit8).unwrap();
     let r = pix_select_by_area_fraction(
