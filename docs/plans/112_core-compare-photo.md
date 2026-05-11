@@ -14,19 +14,14 @@ Status: IMPLEMENTED
 
 ### Colormap
 
-- `cmapEqual(cmap1, cmap2, ncomps) -> bool` — 同じサイズで全 entry の
-  RGB(A) が一致するかチェック。サイズが違えば即 false (C は INFO ログ)
-- `pixUsesCmapColor(pixs) -> bool` — colormap に色 entry があり、
-  かつ画像で実際に使用されているか
+- `cmapEqual(cmap1, cmap2, ncomps) -> bool` — 同じサイズで全 entry のRGB(A) が一致するかチェック。サイズが違えば即 false (C は INFO ログ)
+- `pixUsesCmapColor(pixs) -> bool` — colormap に色 entry があり、かつ画像で実際に使用されているか
 
 ### Centroid
 
-- `pixCentroid8(pixs, factor) -> (cx, cy)` — 8 bpp の輝度を invert して
-  幾何重心を計算 (subsampling factor 対応)
-- `pixCropAlignedToCentroid(pix1, pix2, factor) -> (Box, Box)` — 2 枚の
-  Pix の重心を揃えるクロップ範囲を計算
-- `pixPadToCenterCentroid(pixs, factor) -> Pix` — 8 bpp に変換した上で
-  重心がキャンバス中央に来るようにパディング
+- `pixCentroid8(pixs, factor) -> (cx, cy)` — 8 bpp の輝度を invert して幾何重心を計算 (subsampling factor 対応)
+- `pixCropAlignedToCentroid(pix1, pix2, factor) -> (Box, Box)` — 2 枚のPix の重心を揃えるクロップ範囲を計算
+- `pixPadToCenterCentroid(pixs, factor) -> Pix` — 8 bpp に変換した上で重心がキャンバス中央に来るようにパディング
 
 ## API 設計
 
@@ -72,8 +67,7 @@ pub fn pix_crop_aligned_to_centroid(
 
 - 既存テストデータ (1bpp/8bpp/32bpp) で:
   - cmapEqual: 同一 cmap / サイズ違い / RGB 違い / alpha 違い
-  - uses_cmap_color: cmap なし / モノクロ cmap / 色 cmap (使用) /
-    色 cmap (未使用)
+  - uses_cmap_color: cmap なし / モノクロ cmap / 色 cmap (使用) / 色 cmap (未使用)
   - centroid8: 一様 (中央) / 単一ピクセル / 全白 (= ws/2, hs/2)
   - pad_to_center_centroid: 既に中央 (サイズ不変) / 端寄り (パディング)
   - pix_crop_aligned_to_centroid: 同サイズ / 異サイズ
@@ -88,13 +82,7 @@ pub fn pix_crop_aligned_to_centroid(
 ## 実装メモ
 
 - `Colormap::equal_to(other, include_alpha)` は単純な entry 比較
-- `Pix::uses_cmap_color` は cmap entry index を直接スキャンする実装。
-  C の `pixGetGrayHistogram` 経由ではなく、Rust の
-  `gray_histogram_colormapped` が gray 値で集計するため、ここでは
-  cmap entry index ベースで色 entry の利用を判定する
-- `Pix::centroid8` は invert() + 重み付き重心計算。factor 引数は
-  C 版が無視しているのを尊重しつつ、API シグネチャは保持
-- `Pix::pad_to_center_centroid` は convert_to_8 -> centroid8 ->
-  set_all_gray(255) -> rop_region_inplace(Src) パイプライン
-- `pix_crop_aligned_to_centroid` は 2 枚の centroid8 結果から
-  対応 Box を計算 (C 版とビット同一の算術)
+- `Pix::uses_cmap_color` は cmap entry index を直接スキャンする実装。 の `pixGetGrayHistogram` 経由ではなく、Rust の`gray_histogram_colormapped` が gray 値で集計するため、ここではcmap entry index ベースで色 entry の利用を判定する
+- `Pix::centroid8` は invert() + 重み付き重心計算。factor 引数はC 版が無視しているのを尊重しつつ、API シグネチャは保持
+- `Pix::pad_to_center_centroid` は convert_to_8 -> centroid8 -> set_all_gray(255) -> rop_region_inplace(Src) パイプライン
+- `pix_crop_aligned_to_centroid` は 2 枚の centroid8 結果から対応 Box を計算 (C 版とビット同一の算術)

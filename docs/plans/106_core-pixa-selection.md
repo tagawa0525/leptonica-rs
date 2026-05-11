@@ -90,6 +90,5 @@ C 版 `pixaFind*` に相当する metric 計算ヘルパー。
 
 - 新規 `ThresholdSelect` enum (`LessThan` / `GreaterThan` / `LessOrEqual` / `GreaterOrEqual`)
 - Pixa メソッド 8 件、Pix-level wrapper 4 件、indicator paint 2 件
-- find ヘルパー (`pub(crate)`): `pixa_find_area_fraction` 系 4 件 (Vec<f32> ベース)。
-  公開向けには既存の `Pixa::find_*` (Numa 返り) を使う。
+- find ヘルパー (`pub(crate)`): `pixa_find_area_fraction` 系 4 件 (Vec<f32> ベース)。公開向けには既存の `Pixa::find_*` (Numa 返り) を使う。
 - 周長は `erode_brick(3,3)` + `xor` で境界ピクセル数を数える方式

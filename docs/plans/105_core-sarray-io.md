@@ -68,17 +68,10 @@ pub fn array_find_sequence(data: &[u8], sequence: &[u8]) -> Option<usize>;
 ## TDD ステップ
 
 1. **RED** (`test(core): RED - sarray file I/O and arrayFindSequence`)
-   - `tests/core/string_reg.rs::string_reg_binary_sequence` の `#[ignore]` を
-
-     RED に書き換え、空配列 / 1 byte / 部分一致 / 末尾一致のケースを追加
-
-   - `string_reg_file_io` の `#[ignore]` を RED に書き換え、
-
-     write_to_writer + read_from_reader / write_to_file + read_from_file
-     のラウンドトリップを 4 ケース (empty / 1 string / multiple / containing
-     spaces) で検証
-
+   - `tests/core/string_reg.rs::string_reg_binary_sequence` の `#[ignore]` をRED に書き換え、空配列 / 1 byte / 部分一致 / 末尾一致のケースを追加
+   - `string_reg_file_io` の `#[ignore]` を RED に書き換え、write_to_writer + read_from_reader / write_to_file + read_from_fileのラウンドトリップを 4 ケース (empty / 1 string / multiple / containing spaces) で検証
    - 公開 API stub を `unimplemented!()` で公開
+
 2. **GREEN** (`feat(core): port sarray file I/O and arrayFindSequence`)
    - シリアライズ/デシリアライズ実装、`#[ignore]` 解除
 
