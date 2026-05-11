@@ -1424,6 +1424,177 @@ impl Pix {
 
         Ok((fract_diff, avg_diff, exceeds))
     }
+
+    /// Check whether this Pix uses any color from its colormap.
+    ///
+    /// Returns `false` if no colormap is attached, the colormap has only
+    /// grayscale entries, or all color entries are unused. Returns `true`
+    /// only when a non-grayscale entry actually appears in the image's
+    /// pixel data.
+    ///
+    /// C Leptonica equivalent: `pixUsesCmapColor`.
+    pub fn uses_cmap_color(&self) -> Result<bool> {
+        let cmap = match self.colormap() {
+            Some(c) => c,
+            None => return Ok(false),
+        };
+        if !cmap.has_color() {
+            return Ok(false);
+        }
+        let n = cmap.len();
+        let color_idx: Vec<bool> = (0..n)
+            .map(|i| {
+                let (r, g, b, _) = cmap.get_rgba(i).expect("index in range");
+                r != g || r != b
+            })
+            .collect();
+        let w = self.width();
+        let h = self.height();
+        for y in 0..h {
+            for x in 0..w {
+                let idx = self.get_pixel_unchecked(x, y) as usize;
+                if idx < n && color_idx[idx] {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
+    /// Compute the 8 bpp luminance-weighted centroid.
+    ///
+    /// The image is inverted (so darker pixels contribute more) then the
+    /// weighted centroid (cx, cy) is calculated. For an all-white image,
+    /// returns (w/2, h/2).
+    ///
+    /// `factor` (>=1) is a subsampling factor; **the C version ignores
+    /// it and processes every pixel**, so this binding does the same to
+    /// match the reference (the parameter is preserved for API parity).
+    ///
+    /// C Leptonica equivalent: `pixCentroid8`.
+    pub fn centroid8(&self, factor: u32) -> Result<(f32, f32)> {
+        if self.depth() != PixelDepth::Bit8 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        if factor == 0 {
+            return Err(Error::InvalidParameter(
+                "subsampling factor must be >= 1".into(),
+            ));
+        }
+        let w = self.width();
+        let h = self.height();
+        if w == 0 || h == 0 {
+            return Ok((0.0, 0.0));
+        }
+        let mut sumx: f64 = 0.0;
+        let mut sumy: f64 = 0.0;
+        let mut sumv: f64 = 0.0;
+        for y in 0..h {
+            for x in 0..w {
+                // Compute inverted luminance on the fly to avoid an extra
+                // full-image clone (matches C's pixInvert + sum loop).
+                let val = (255 - self.get_pixel_unchecked(x, y) as i32) as f64;
+                sumx += val * x as f64;
+                sumy += val * y as f64;
+                sumv += val;
+            }
+        }
+        if sumv == 0.0 {
+            Ok((w as f32 / 2.0, h as f32 / 2.0))
+        } else {
+            Ok(((sumx / sumv) as f32, (sumy / sumv) as f32))
+        }
+    }
+
+    /// Pad the image so that the luminance centroid lies at the canvas
+    /// centre.
+    ///
+    /// The input is converted to 8 bpp; the output is 8 bpp filled with
+    /// white, with the source copied via raster-op at the offset that
+    /// centres the centroid.
+    ///
+    /// C Leptonica equivalent: `pixPadToCenterCentroid`.
+    pub fn pad_to_center_centroid(&self, factor: u32) -> Result<Pix> {
+        if factor == 0 {
+            return Err(Error::InvalidParameter(
+                "subsampling factor must be >= 1".into(),
+            ));
+        }
+        let pix1 = self.convert_to_8()?;
+        let (cx, cy) = pix1.centroid8(factor)?;
+        let icx = (cx + 0.5) as i32;
+        let icy = (cy + 0.5) as i32;
+        let ws = pix1.width() as i32;
+        let hs = pix1.height() as i32;
+        let delx = ws - 2 * icx;
+        let dely = hs - 2 * icy;
+        let xs = delx.max(0);
+        let ys = dely.max(0);
+        let wd = (2 * icx.max(ws - icx)) as u32;
+        let hd = (2 * icy.max(hs - icy)) as u32;
+        let dst = Pix::new(wd, hd, PixelDepth::Bit8)?;
+        let mut dst_mut = dst.try_into_mut().expect("freshly created");
+        dst_mut.set_all_gray(255)?;
+        dst_mut.set_xres(self.xres());
+        dst_mut.set_yres(self.yres());
+        dst_mut.rop_region_inplace(
+            xs,
+            ys,
+            ws as u32,
+            hs as u32,
+            super::rop::RopOp::Src,
+            &pix1,
+            0,
+            0,
+        )?;
+        Ok(dst_mut.into())
+    }
+}
+
+/// Compute the crop boxes that align two images by luminance centroid.
+///
+/// Both images are converted to 8 bpp internally to compute centroids; the
+/// returned [`Box`] pair describes the matching rectangles in `pix1` and
+/// `pix2` respectively.
+///
+/// C Leptonica equivalent: `pixCropAlignedToCentroid`.
+pub fn pix_crop_aligned_to_centroid(
+    pix1: &Pix,
+    pix2: &Pix,
+    factor: u32,
+) -> Result<(crate::core::box_::Box, crate::core::box_::Box)> {
+    if factor == 0 {
+        return Err(Error::InvalidParameter(
+            "subsampling factor must be >= 1".into(),
+        ));
+    }
+    let p3 = pix1.convert_to_8()?;
+    let p4 = pix2.convert_to_8()?;
+    let (cx1, cy1) = p3.centroid8(factor)?;
+    let (cx2, cy2) = p4.centroid8(factor)?;
+    let w1 = p3.width() as i32;
+    let h1 = p3.height() as i32;
+    let w2 = p4.width() as i32;
+    let h2 = p4.height() as i32;
+    let icx1 = (cx1 + 0.5) as i32;
+    let icy1 = (cy1 + 0.5) as i32;
+    let icx2 = (cx2 + 0.5) as i32;
+    let icy2 = (cy2 + 0.5) as i32;
+    let xm = icx1.min(icx2);
+    let xm1 = icx1 - xm;
+    let xm2 = icx2 - xm;
+    let xp = (w1 - icx1).min(w2 - icx2);
+    let xp1 = icx1 + xp;
+    let xp2 = icx2 + xp;
+    let ym = icy1.min(icy2);
+    let ym1 = icy1 - ym;
+    let ym2 = icy2 - ym;
+    let yp = (h1 - icy1).min(h2 - icy2);
+    let yp1 = icy1 + yp;
+    let yp2 = icy2 + yp;
+    let b1 = crate::core::box_::Box::new(xm1, ym1, xp1 - xm1, yp1 - ym1)?;
+    let b2 = crate::core::box_::Box::new(xm2, ym2, xp2 - xm2, yp2 - ym2)?;
+    Ok((b1, b2))
 }
 
 /// Best-translation alignment result.

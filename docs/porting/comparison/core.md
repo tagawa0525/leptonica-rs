@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 878  |
+| ✅ 同等   | 883  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 97   |
+| ❌ 未実装 | 92   |
 | 合計      | 1215 |
 
-**カバレッジ**: 80.0% (972/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 972/1069 = 90.9% 実装)
+**カバレッジ**: 80.4% (977/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 977/1069 = 91.4% 実装)
 
 ## 注記
 
@@ -1443,21 +1443,21 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 
 ### compare.c (追加分)
 
-| C関数                          | 状態 | Rust対応                                         | 備考                          |
-| ------------------------------ | ---- | ------------------------------------------------ | ----------------------------- |
-| cmapEqual                      | ❌   | -                                                | no Rust impl in expected dirs |
-| compareTilesByHisto            | ❌   | -                                                | no Rust impl in expected dirs |
-| pixBestCorrelation             | ✅   | `best_correlation` (core/pix/compare.rs)         | name+module match             |
-| pixCentroid8                   | ❌   | -                                                | no Rust impl in expected dirs |
-| pixCompareGrayByHisto          | ❌   | -                                                | no Rust impl in expected dirs |
-| pixComparePhotoRegionsByHisto  | ❌   | -                                                | no Rust impl in expected dirs |
-| pixCompareWithTranslation      | ✅   | `compare_with_translation` (core/pix/compare.rs) | name+module match             |
-| pixCropAlignedToCentroid       | ❌   | -                                                | no Rust impl in expected dirs |
-| pixDecideIfPhotoImage          | ❌   | -                                                | no Rust impl in expected dirs |
-| pixGenPhotoHistos              | ❌   | -                                                | no Rust impl in expected dirs |
-| pixPadToCenterCentroid         | ❌   | -                                                | no Rust impl in expected dirs |
-| pixUsesCmapColor               | ❌   | -                                                | no Rust impl in expected dirs |
-| pixaComparePhotoRegionsByHisto | ❌   | -                                                | no Rust impl in expected dirs |
+| C関数                          | 状態 | Rust対応                                             | 備考                          |
+| ------------------------------ | ---- | ---------------------------------------------------- | ----------------------------- |
+| cmapEqual                      | ✅   | `PixColormap::equal_to` (core/colormap/mod.rs)       | plan 112                      |
+| compareTilesByHisto            | ❌   | -                                                    | no Rust impl in expected dirs |
+| pixBestCorrelation             | ✅   | `best_correlation` (core/pix/compare.rs)             | name+module match             |
+| pixCentroid8                   | ✅   | `Pix::centroid8` (core/pix/compare.rs)               | plan 112                      |
+| pixCompareGrayByHisto          | ❌   | -                                                    | no Rust impl in expected dirs |
+| pixComparePhotoRegionsByHisto  | ❌   | -                                                    | no Rust impl in expected dirs |
+| pixCompareWithTranslation      | ✅   | `compare_with_translation` (core/pix/compare.rs)     | name+module match             |
+| pixCropAlignedToCentroid       | ✅   | `pix_crop_aligned_to_centroid` (core/pix/compare.rs) | plan 112                      |
+| pixDecideIfPhotoImage          | ❌   | -                                                    | no Rust impl in expected dirs |
+| pixGenPhotoHistos              | ❌   | -                                                    | no Rust impl in expected dirs |
+| pixPadToCenterCentroid         | ✅   | `Pix::pad_to_center_centroid` (core/pix/compare.rs)  | plan 112                      |
+| pixUsesCmapColor               | ✅   | `Pix::uses_cmap_color` (core/pix/compare.rs)         | plan 112                      |
+| pixaComparePhotoRegionsByHisto | ❌   | -                                                    | no Rust impl in expected dirs |
 
 ### fpix1.c (追加分)
 

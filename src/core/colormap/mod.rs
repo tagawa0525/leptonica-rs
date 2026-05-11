@@ -219,6 +219,25 @@ impl PixColormap {
             .any(|c| c.red != c.green || c.red != c.blue)
     }
 
+    /// Test whether two colormaps are entry-by-entry equal.
+    ///
+    /// `include_alpha = false` (C `ncomps = 3`) compares only RGB.
+    /// `include_alpha = true`  (C `ncomps = 4`) also compares alpha.
+    /// Returns `false` when the entry counts differ.
+    ///
+    /// C Leptonica equivalent: `cmapEqual`.
+    pub fn equal_to(&self, other: &PixColormap, include_alpha: bool) -> bool {
+        if self.colors.len() != other.colors.len() {
+            return false;
+        }
+        self.colors.iter().zip(other.colors.iter()).all(|(a, b)| {
+            a.red == b.red
+                && a.green == b.green
+                && a.blue == b.blue
+                && (!include_alpha || a.alpha == b.alpha)
+        })
+    }
+
     /// Check if the colormap is black and white only (for 1 bpp images)
     ///
     /// Returns true if the colormap has exactly 2 entries and they are
