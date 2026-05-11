@@ -1492,11 +1492,12 @@ fn compute_variance(data: &[u32]) -> f64 {
 /// C Leptonica equivalent: `pixFindThreshFgExtent`.
 pub fn pix_find_thresh_fg_extent(pixs: &Pix, thresh: u32) -> RecogResult<(u32, u32)> {
     if pixs.depth() != PixelDepth::Bit1 {
-        return Err(RecogError::InvalidParameter("pixs not 1 bpp".into()));
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
     }
-    let counts = pixs
-        .count_by_row(None)
-        .map_err(|e| RecogError::InvalidParameter(format!("count_by_row failed: {e}")))?;
+    let counts = pixs.count_by_row(None)?;
     let n = counts.len();
     let mut top = 0u32;
     let mut bot = 0u32;
@@ -1527,7 +1528,10 @@ pub fn pix_find_thresh_fg_extent(pixs: &Pix, thresh: u32) -> RecogResult<(u32, u
 /// `pixGenerateHalftoneMask`).
 pub fn pix_gen_halftone_mask(pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
     if pixs.depth() != PixelDepth::Bit1 {
-        return Err(RecogError::InvalidParameter("pixs not 1 bpp".into()));
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
     }
     let (halftone, text) = generate_halftone_mask(pixs)?;
     let found = !halftone.is_zero();
@@ -1545,37 +1549,33 @@ pub fn pix_gen_halftone_mask(pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
 /// C Leptonica equivalent: `pixGenTextlineMask`.
 pub fn pix_gen_textline_mask(pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
     if pixs.depth() != PixelDepth::Bit1 {
-        return Err(RecogError::InvalidParameter("pixs not 1 bpp".into()));
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
     }
     if pixs.width() < MIN_WIDTH || pixs.height() < MIN_HEIGHT {
-        return Err(RecogError::InvalidParameter(format!(
-            "pix too small: w={}, h={}",
-            pixs.width(),
-            pixs.height()
-        )));
+        return Err(RecogError::ImageTooSmall {
+            min_width: MIN_WIDTH,
+            min_height: MIN_HEIGHT,
+            actual_width: pixs.width(),
+            actual_height: pixs.height(),
+        });
     }
     use crate::morph::sequence::morph_comp_sequence;
 
     // Invert and isolate large bg regions, then subtract them.
     let mut pix1 = pixs.invert();
-    let pix2 = morph_comp_sequence(&pix1, "o80.60")
-        .map_err(|e| RecogError::InvalidParameter(format!("morph_comp_sequence failed: {e}")))?;
-    pix1 = pix1
-        .subtract(&pix2)
-        .map_err(|e| RecogError::InvalidParameter(format!("subtract failed: {e}")))?;
+    let pix2 = morph_comp_sequence(&pix1, "o80.60")?;
+    pix1 = pix1.subtract(&pix2)?;
 
     // Vertical whitespace = open the remaining background.
-    let pixvws = morph_comp_sequence(&pix1, "o5.1 + o1.200")
-        .map_err(|e| RecogError::InvalidParameter(format!("morph_comp_sequence failed: {e}")))?;
+    let pixvws = morph_comp_sequence(&pix1, "o5.1 + o1.200")?;
 
     // Textline mask: close characters, subtract vws, open small noise.
-    let pix3 = crate::morph::sequence::morph_sequence(pixs, "c30.1")
-        .map_err(|e| RecogError::InvalidParameter(format!("morph_sequence failed: {e}")))?;
-    let pix4 = pix3
-        .subtract(&pixvws)
-        .map_err(|e| RecogError::InvalidParameter(format!("subtract failed: {e}")))?;
-    let pixd = crate::morph::binary::open_brick(&pix4, 3, 3)
-        .map_err(|e| RecogError::InvalidParameter(format!("open_brick failed: {e}")))?;
+    let pix3 = crate::morph::sequence::morph_sequence(pixs, "c30.1")?;
+    let pix4 = pix3.subtract(&pixvws)?;
+    let pixd = crate::morph::binary::open_brick(&pix4, 3, 3)?;
 
     let found = !pixd.is_zero();
     Ok((pixd, pixvws, found))
@@ -1590,11 +1590,30 @@ pub fn pix_gen_textline_mask(pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
 /// C Leptonica equivalent: `pixGenTextblockMask`.
 pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pix>> {
     if pixs.depth() != PixelDepth::Bit1 {
-        return Err(RecogError::InvalidParameter("pixs not 1 bpp".into()));
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
     }
     if pixs.width() < MIN_WIDTH || pixs.height() < MIN_HEIGHT {
+        return Err(RecogError::ImageTooSmall {
+            min_width: MIN_WIDTH,
+            min_height: MIN_HEIGHT,
+            actual_width: pixs.width(),
+            actual_height: pixs.height(),
+        });
+    }
+    if pixvws.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixvws.depth().bits(),
+        });
+    }
+    if pixvws.width() != pixs.width() || pixvws.height() != pixs.height() {
         return Err(RecogError::InvalidParameter(format!(
-            "pix too small: w={}, h={}",
+            "pixvws dimensions ({}x{}) do not match pixs ({}x{})",
+            pixvws.width(),
+            pixvws.height(),
             pixs.width(),
             pixs.height()
         )));
@@ -1603,20 +1622,14 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pi
     use crate::morph::morphapp::morph_sequence_by_component;
     use crate::morph::sequence::morph_sequence;
 
-    let pix1 = morph_sequence(pixs, "c1.10 + o4.1")
-        .map_err(|e| RecogError::InvalidParameter(format!("morph_sequence failed: {e}")))?;
+    let pix1 = morph_sequence(pixs, "c1.10 + o4.1")?;
     if pix1.is_zero() {
         return Ok(None);
     }
 
-    let mut pix2 = morph_sequence_by_component(&pix1, "c30.30 + d3.3", 0, 0, 8).map_err(|e| {
-        RecogError::InvalidParameter(format!("morph_sequence_by_component failed: {e}"))
-    })?;
-    pix2 = close_safe_brick(&pix2, 10, 1)
-        .map_err(|e| RecogError::InvalidParameter(format!("close_safe_brick failed: {e}")))?;
-    let pix3 = pix2
-        .subtract(pixvws)
-        .map_err(|e| RecogError::InvalidParameter(format!("subtract failed: {e}")))?;
+    let mut pix2 = morph_sequence_by_component(&pix1, "c30.30 + d3.3", 0, 0, 8)?;
+    pix2 = close_safe_brick(&pix2, 10, 1)?;
+    let pix3 = pix2.subtract(pixvws)?;
 
     let pixd = crate::region::pix_select_by_size(
         &pix3,
@@ -1625,8 +1638,7 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pi
         crate::region::ConnectivityType::EightWay,
         crate::region::SizeSelectType::IfBoth,
         crate::region::SizeSelectRelation::Gte,
-    )
-    .map_err(|e| RecogError::InvalidParameter(format!("pix_select_by_size failed: {e}")))?;
+    )?;
     Ok(Some(pixd))
 }
 

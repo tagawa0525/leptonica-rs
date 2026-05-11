@@ -125,3 +125,17 @@ fn gen_textblock_mask_empty_image_returns_none() {
     // Empty input gives no FG after the morph step.
     assert!(out.is_none());
 }
+
+#[test]
+fn gen_textblock_mask_rejects_non_1bpp_pixvws() {
+    let p = Pix::new(120, 120, PixelDepth::Bit1).unwrap();
+    let v = Pix::new(120, 120, PixelDepth::Bit8).unwrap();
+    assert!(pix_gen_textblock_mask(&p, &v).is_err());
+}
+
+#[test]
+fn gen_textblock_mask_rejects_dim_mismatch() {
+    let p = Pix::new(120, 120, PixelDepth::Bit1).unwrap();
+    let v = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
+    assert!(pix_gen_textblock_mask(&p, &v).is_err());
+}
