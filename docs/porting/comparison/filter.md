@@ -273,13 +273,13 @@ makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
 
 ### kernel.c (追加分)
 
-| C関数                 | 状態 | Rust対応                                                  | 備考                                  |
-| --------------------- | ---- | --------------------------------------------------------- | ------------------------------------- |
-| makeDoGKernel         | ✅   | `Kernel::make_dog` (filter/kernel.rs)                     | plan 501                              |
-| makeFlatKernel        | ✅   | `Kernel::make_flat` (filter/kernel.rs)                    | plan 501                              |
-| makeGaussianKernel    | ✅   | `Kernel::make_gaussian` (filter/kernel.rs)                | plan 501                              |
-| makeGaussianKernelSep | ✅   | `Kernel::make_gaussian_sep` (filter/kernel.rs)            | plan 501                              |
-| parseStringForNumbers | ✅   | `Numa::parse_from_string` (core/numa/mod.rs)              | plan 501、Numa として実装             |
+| C関数                 | 状態 | Rust対応                                       | 備考                      |
+| --------------------- | ---- | ---------------------------------------------- | ------------------------- |
+| makeDoGKernel         | ✅   | `Kernel::make_dog` (filter/kernel.rs)          | plan 501                  |
+| makeFlatKernel        | ✅   | `Kernel::make_flat` (filter/kernel.rs)         | plan 501                  |
+| makeGaussianKernel    | ✅   | `Kernel::make_gaussian` (filter/kernel.rs)     | plan 501                  |
+| makeGaussianKernelSep | ✅   | `Kernel::make_gaussian_sep` (filter/kernel.rs) | plan 501                  |
+| parseStringForNumbers | ✅   | `Numa::parse_from_string` (core/numa/mod.rs)   | plan 501、Numa として実装 |
 
 ### runlength.c (追加分)
 

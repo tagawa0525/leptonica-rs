@@ -19,7 +19,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 | Module                                                              | ✅ Equivalent | 🔄 Different | ❌ Unimplemented | 🚫 Not needed | Total     | Coverage  | Effective Coverage |
 | ------------------------------------------------------------------- | ------------- | ------------ | ---------------- | ------------- | --------- | --------- | ------------------ |
-| [leptonica (src/core/)](../../porting/comparison/core.md)           | 859           | 94           | 116              | 146           | 1,215     | 78.4%     | 89.1%              |
+| [leptonica (src/core/)](../../porting/comparison/core.md)           | 864           | 94           | 111              | 146           | 1,215     | 78.8%     | 89.6%              |
 | [leptonica (src/io/)](../../porting/comparison/io.md)               | 139           | 19           | 0                | 50            | 208       | 76.0%     | 100.0%             |
 | [leptonica (src/transform/)](../../porting/comparison/transform.md) | 109           | 19           | 0                | 14            | 142       | 90.1%     | 100.0%             |
 | [leptonica (src/morph/)](../../porting/comparison/morph.md)         | 116           | 22           | 0                | 33            | 171       | 80.7%     | 100.0%             |
@@ -28,7 +28,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 | [leptonica (src/region/)](../../porting/comparison/region.md)       | 65            | 8            | 0                | 22            | 95        | 76.8%     | 100.0%             |
 | [leptonica (src/recog/)](../../porting/comparison/recog.md)         | 134           | 45           | 10               | 18            | 207       | 86.5%     | 94.7%              |
 | [Other](../../porting/comparison/misc.md)                           | 145           | 5            | 5                | 371           | 526       | 28.5%     | 96.8%              |
-| **Total**                                                           | **1,786**     | **232**      | **132**          | **684**       | **2,834** | **71.2%** | **93.9%**          |
+| **Total**                                                           | **1,791**     | **232**      | **127**          | **684**       | **2,834** | **71.4%** | **94.1%**          |
 
 ### Classification Criteria
 
@@ -184,7 +184,7 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 | Module                     | Lines        | Function Coverage       | Effective Coverage      | Key Features                                                                                       |
 | -------------------------- | ------------ | ----------------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| leptonica (src/core/)      | ~47,100      | 953/1,215 (78.4%)       | 953/1,069 (89.1%)       | Pix, Box, Pta, Ptaa, Pixaa, Colormap, arithmetic, compare, blend, graphics, stats, histogram       |
+| leptonica (src/core/)      | ~47,100      | 958/1,215 (78.8%)       | 958/1,069 (89.6%)       | Pix, Box, Pta, Ptaa, Pixaa, Colormap, arithmetic, compare, blend, graphics, stats, histogram       |
 | leptonica (src/io/)        | ~7,900       | 158/208 (76.0%)         | 158/158 (100.0%)        | BMP/PNG/JPEG/PNM/TIFF/GIF/WebP/JP2K/PDF/PS/SPIX + header reading                                   |
 | leptonica (src/transform/) | ~11,200      | 128/142 (90.1%)         | 128/128 (100.0%)        | Rotate, scale, affine, projective, shear                                                           |
 | leptonica (src/morph/)     | ~9,400       | 138/171 (80.7%)         | 138/138 (100.0%)        | Binary/grayscale/color morphology, DWA, thinning                                                   |
@@ -193,13 +193,13 @@ See files under `docs/porting/comparison/` for details (currently only available
 | leptonica (src/region/)    | ~10,600      | 73/95 (76.8%)           | 73/73 (100.0%)          | Connected components, seed fill, watershed, quadtree, maze                                         |
 | leptonica (src/recog/)     | ~16,000      | 179/207 (86.5%)         | 179/189 (94.7%)         | Skew correction, dewarping, character recognition, barcode                                         |
 | Other                      | -            | 150/526 (28.5%)         | 150/155 (96.8%)         | Warper, encoding, debug/timing helpers, etc.                                                       |
-| **Total**                  | **~147,000** | **2,018/2,834 (71.2%)** | **2,018/2,150 (93.9%)** |                                                                                                    |
+| **Total**                  | **~147,000** | **2,023/2,834 (71.4%)** | **2,023/2,150 (94.1%)** |                                                                                                    |
 
 ## Unimplemented Function Status
 
 Of the 2,150 functions remaining after excluding 684 classified as 🚫 Not needed,
-2,018 are implemented (✅ 1,786 + 🔄 232). The remaining 132 (❌) are unimplemented.
-Effective coverage is 93.9%.
+2,023 are implemented (✅ 1,791 + 🔄 232). The remaining 127 (❌) are unimplemented.
+Effective coverage is 94.1%.
 
 These figures reflect the `gap-fill audit 2026-05-10`, which enumerated all 2,743 public
 C functions in `allheaders.h` and individually reviewed each entry by comparing C function

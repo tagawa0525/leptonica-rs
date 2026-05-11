@@ -9,13 +9,13 @@ Status: IMPLEMENTED
 
 `reference/leptonica/src/kernel.c` 1019-1239 行で定義された生成系 5 関数:
 
-| C 関数 | 行 | 用途 |
-| --- | --- | --- |
+| C 関数                  | 行   | 用途                                                          |
+| ----------------------- | ---- | ------------------------------------------------------------- |
 | `parseStringForNumbers` | 1019 | 区切り文字列→ Numa 変換 (`kernelCreateFromString` の内部依存) |
-| `makeFlatKernel` | 1069 | 矩形フラットカーネル (height, width, cy, cx 指定) |
-| `makeGaussianKernel` | 1113 | 矩形ガウシアンカーネル (halfh, halfw, stdev, max) |
-| `makeGaussianKernelSep` | 1166 | 分離可能ガウシアン (kely, kelx の二本) |
-| `makeDoGKernel` | 1210 | DoG (Difference of Gaussians) バンドパス |
+| `makeFlatKernel`        | 1069 | 矩形フラットカーネル (height, width, cy, cx 指定)             |
+| `makeGaussianKernel`    | 1113 | 矩形ガウシアンカーネル (halfh, halfw, stdev, max)             |
+| `makeGaussianKernelSep` | 1166 | 分離可能ガウシアン (kely, kelx の二本)                        |
+| `makeDoGKernel`         | 1210 | DoG (Difference of Gaussians) バンドパス                      |
 
 ## 既存実装との関係
 

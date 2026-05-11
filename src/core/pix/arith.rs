@@ -420,6 +420,195 @@ impl Pix {
 
         Ok(result_mut.into())
     }
+
+    /// Add two RGB (32 bpp) images component-wise with saturation.
+    ///
+    /// The result is a fresh 32 bpp image sized to the intersection of the two
+    /// inputs. Each of the R, G, B components is summed and saturated at 255;
+    /// the alpha byte of the first input is preserved.
+    ///
+    /// C Leptonica equivalent: `pixAddRGB`. Unlike C, this Rust port does not
+    /// auto-decode colormapped sources; both inputs must already be 32 bpp.
+    pub fn add_rgb(&self, other: &Pix) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 || other.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width().min(other.width());
+        let h = self.height().min(other.height());
+        let dst = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut dst_mut = dst.try_into_mut().expect("freshly created");
+        for y in 0..h {
+            for x in 0..w {
+                let s1 = self.get_pixel(x, y).unwrap_or(0);
+                let s2 = other.get_pixel(x, y).unwrap_or(0);
+                let r1 = (s1 >> 24) & 0xff;
+                let g1 = (s1 >> 16) & 0xff;
+                let b1 = (s1 >> 8) & 0xff;
+                let a = s1 & 0xff;
+                let r2 = (s2 >> 24) & 0xff;
+                let g2 = (s2 >> 16) & 0xff;
+                let b2 = (s2 >> 8) & 0xff;
+                let r = (r1 + r2).min(255);
+                let g = (g1 + g2).min(255);
+                let b = (b1 + b2).min(255);
+                dst_mut.set_pixel(x, y, (r << 24) | (g << 16) | (b << 8) | a)?;
+            }
+        }
+        Ok(dst_mut.into())
+    }
+
+    /// Map every RGB component to the full \[0, 255\] range.
+    ///
+    /// The maximum component across the whole image is rescaled to 255 using
+    /// either a linear or a log2 transform. Alpha is preserved.
+    ///
+    /// C Leptonica equivalent: `pixMaxDynamicRangeRGB`.
+    pub fn max_dynamic_range_rgb(&self, scale_type: RgbScaleType) -> Result<Pix> {
+        if self.depth() != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(self.depth().bits()));
+        }
+        let w = self.width();
+        let h = self.height();
+
+        // Find max component across all pixels.
+        let mut max_comp: u32 = 0;
+        for y in 0..h {
+            for x in 0..w {
+                let v = self.get_pixel(x, y).unwrap_or(0);
+                max_comp = max_comp
+                    .max((v >> 24) & 0xff)
+                    .max((v >> 16) & 0xff)
+                    .max((v >> 8) & 0xff);
+            }
+        }
+        let max_comp = max_comp.max(1) as f32;
+
+        let factor = match scale_type {
+            RgbScaleType::Linear => 255.0 / max_comp,
+            RgbScaleType::Log => 255.0 / max_comp.log2().max(f32::EPSILON),
+        };
+
+        let dst = Pix::new(w, h, PixelDepth::Bit32)?;
+        let mut dst_mut = dst.try_into_mut().expect("freshly created");
+        for y in 0..h {
+            for x in 0..w {
+                let s = self.get_pixel(x, y).unwrap_or(0);
+                let d = match scale_type {
+                    RgbScaleType::Linear => linear_scale_rgb_val(s, factor),
+                    RgbScaleType::Log => log_scale_rgb_val(s, factor),
+                };
+                dst_mut.set_pixel(x, y, d)?;
+            }
+        }
+        Ok(dst_mut.into())
+    }
+
+    /// 8/16/32 bpp: rewrite every pixel that crosses `threshval` toward
+    /// `setval`.
+    ///
+    /// If `setval > threshval`, every pixel `>= threshval` is forced to
+    /// `setval`. If `setval < threshval`, every pixel `<= threshval` is forced
+    /// to `setval`. `setval == threshval` is a no-op (returns a clone).
+    ///
+    /// C Leptonica equivalent: `pixThresholdToValue`.
+    pub fn threshold_to_value(&self, threshval: u32, setval: u32) -> Result<Pix> {
+        let d = self.depth();
+        if d != PixelDepth::Bit8 && d != PixelDepth::Bit16 && d != PixelDepth::Bit32 {
+            return Err(Error::UnsupportedDepth(d.bits()));
+        }
+        let max_for_depth: u32 = match d {
+            PixelDepth::Bit8 => 0xff,
+            PixelDepth::Bit16 => 0xffff,
+            PixelDepth::Bit32 => 0xffff_ffff,
+            _ => unreachable!(),
+        };
+        if setval > max_for_depth {
+            return Err(Error::InvalidParameter(format!(
+                "setval ({setval}) exceeds {}-bit max ({max_for_depth})",
+                d.bits()
+            )));
+        }
+        let w = self.width();
+        let h = self.height();
+        let dst = Pix::new(w, h, d)?;
+        let mut dst_mut = dst.try_into_mut().expect("freshly created");
+        if setval == threshval {
+            // C: warn + no-op. We just clone the data.
+            for y in 0..h {
+                for x in 0..w {
+                    dst_mut.set_pixel(x, y, self.get_pixel(x, y).unwrap_or(0))?;
+                }
+            }
+            return Ok(dst_mut.into());
+        }
+        let setabove = setval > threshval;
+        for y in 0..h {
+            for x in 0..w {
+                let v = self.get_pixel(x, y).unwrap_or(0);
+                let new_v = if (setabove && v >= threshval) || (!setabove && v <= threshval) {
+                    setval
+                } else {
+                    v
+                };
+                dst_mut.set_pixel(x, y, new_v)?;
+            }
+        }
+        Ok(dst_mut.into())
+    }
+}
+
+/// Scaling kind for [`Pix::max_dynamic_range_rgb`].
+///
+/// C Leptonica constants: `L_LINEAR_SCALE`, `L_LOG_SCALE`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RgbScaleType {
+    /// Multiply each component by a constant factor.
+    Linear,
+    /// Multiply `log2(component)` by a constant factor.
+    Log,
+}
+
+/// Linearly scale the RGB components of a 32 bpp packed pixel by `factor`.
+///
+/// The alpha (low byte) component is preserved. Each RGB component is clamped
+/// to `u8` (the C reference truncates via `(uint8)` cast — equivalent to
+/// saturating to 255 because `factor` is supposed to be `<= 255 / maxcomp`).
+///
+/// C Leptonica equivalent: `linearScaleRGBVal`.
+pub fn linear_scale_rgb_val(sval: u32, factor: f32) -> u32 {
+    let scale = |c: u32| -> u32 {
+        let f = (factor * c as f32 + 0.5_f32).clamp(0.0, 255.0);
+        f as u32
+    };
+    let r = scale((sval >> 24) & 0xff);
+    let g = scale((sval >> 16) & 0xff);
+    let b = scale((sval >> 8) & 0xff);
+    let a = sval & 0xff;
+    (r << 24) | (g << 16) | (b << 8) | a
+}
+
+/// Log2-scale the RGB components of a 32 bpp packed pixel.
+///
+/// `factor` should be `255 / log2(maxcomp)` for full-range expansion. Alpha
+/// (low byte) is preserved. Components equal to 0 produce a log contribution
+/// of 0 (no negative-infinity).
+///
+/// C Leptonica equivalent: `logScaleRGBVal`. The lookup table that C builds
+/// via `makeLogBase2Tab` is replaced by direct `f32::log2` here.
+pub fn log_scale_rgb_val(sval: u32, factor: f32) -> u32 {
+    let scale = |c: u32| -> u32 {
+        if c == 0 {
+            0
+        } else {
+            let f = (factor * (c as f32).log2() + 0.5_f32).clamp(0.0, 255.0);
+            f as u32
+        }
+    };
+    let r = scale((sval >> 24) & 0xff);
+    let g = scale((sval >> 16) & 0xff);
+    let b = scale((sval >> 8) & 0xff);
+    let a = sval & 0xff;
+    (r << 24) | (g << 16) | (b << 8) | a
 }
 
 impl PixMut {

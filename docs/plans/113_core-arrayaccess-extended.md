@@ -7,12 +7,12 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数
 
-| C 関数 | 行 | 用途 |
-| --- | --- | --- |
-| `l_clearDataDibit` | 195 | 2bit ピクセルを 0 にクリア |
-| `l_clearDataQbit` | 248 | 4bit ピクセルを 0 にクリア |
+| C 関数               | 行  | 用途                                    |
+| -------------------- | --- | --------------------------------------- |
+| `l_clearDataDibit`   | 195 | 2bit ピクセルを 0 にクリア              |
+| `l_clearDataQbit`    | 248 | 4bit ピクセルを 0 にクリア              |
 | `l_getDataFourBytes` | 343 | 32bit ピクセル取得 (内部 word アクセス) |
-| `l_setDataFourBytes` | 359 | 32bit ピクセル書き込み |
+| `l_setDataFourBytes` | 359 | 32bit ピクセル書き込み                  |
 
 ## API 設計
 

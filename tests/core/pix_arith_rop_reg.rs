@@ -240,3 +240,163 @@ fn test_translate_binary() {
     // Left fill: first 3 columns are white, (0,5) is white
     assert_eq!(result.get_pixel(0, 5).unwrap(), 1);
 }
+
+// ============================================================================
+// gap-fill 第2弾 (plan 114): RGB スケーリング 5 関数
+// ============================================================================
+
+use leptonica::core::pix::{RgbScaleType, linear_scale_rgb_val, log_scale_rgb_val};
+
+#[test]
+fn test_linear_scale_rgb_val_factor_one() {
+    // factor = 1.0 — RGB は変化なし、alpha も保持
+    let sval: u32 = 0x80_60_40_FFu32;
+    let d = linear_scale_rgb_val(sval, 1.0);
+    // round(80*1 + 0.5) = 0x80, etc.
+    assert_eq!(d, sval);
+}
+
+#[test]
+fn test_linear_scale_rgb_val_factor_two_saturates() {
+    // factor = 2.0 — 0x80 * 2 = 0x100 → clamp 255 = 0xFF
+    let d = linear_scale_rgb_val(0x80_40_20_55, 2.0);
+    assert_eq!((d >> 24) & 0xff, 0xff, "0x80*2 saturates");
+    assert_eq!((d >> 16) & 0xff, 0x80, "0x40*2 = 0x80");
+    assert_eq!((d >> 8) & 0xff, 0x40, "0x20*2 = 0x40");
+    assert_eq!(d & 0xff, 0x55, "alpha preserved");
+}
+
+#[test]
+fn test_log_scale_rgb_val_zero_component() {
+    // 0 component → 0 output (log2(0) = -∞ handled)
+    let d = log_scale_rgb_val(0x00_00_00_FF, 50.0);
+    assert_eq!((d >> 24) & 0xff, 0);
+    assert_eq!((d >> 16) & 0xff, 0);
+    assert_eq!((d >> 8) & 0xff, 0);
+    assert_eq!(d & 0xff, 0xff, "alpha preserved");
+}
+
+#[test]
+fn test_log_scale_rgb_val_max_maps_to_factor_log2() {
+    // factor = 255 / log2(255) ≈ 31.875 — 255 → 255
+    let factor = 255.0_f32 / 255.0_f32.log2();
+    let d = log_scale_rgb_val(0xFF_FF_FF_00, factor);
+    // round(factor * log2(255) + 0.5) = 255 + 0.5 → 255 (clamped)
+    assert_eq!((d >> 24) & 0xff, 255);
+    assert_eq!((d >> 16) & 0xff, 255);
+    assert_eq!((d >> 8) & 0xff, 255);
+}
+
+#[test]
+fn test_pix_add_rgb_saturates() {
+    let a = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+    let b = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+    let mut am = a.to_mut();
+    let mut bm = b.to_mut();
+    // pix1: red 100, pix2: red 200 → 255 (saturates)
+    am.set_pixel(0, 0, 0x64_00_00_FFu32).unwrap();
+    bm.set_pixel(0, 0, 0xC8_00_00_AAu32).unwrap();
+    // pix1: green 50, pix2: green 100 → 150
+    am.set_pixel(1, 0, 0x00_32_00_FFu32).unwrap();
+    bm.set_pixel(1, 0, 0x00_64_00_00u32).unwrap();
+
+    let a: Pix = am.into();
+    let b: Pix = bm.into();
+    let sum = a.add_rgb(&b).expect("add_rgb");
+    assert_eq!(sum.width(), 2);
+    assert_eq!(sum.height(), 1);
+    let p0 = sum.get_pixel(0, 0).unwrap();
+    assert_eq!((p0 >> 24) & 0xff, 0xff, "100+200=300 saturates to 255");
+    assert_eq!(p0 & 0xff, 0xff, "alpha from pix1");
+    let p1 = sum.get_pixel(1, 0).unwrap();
+    assert_eq!((p1 >> 16) & 0xff, 150);
+}
+
+#[test]
+fn test_pix_add_rgb_non_32bpp_errors() {
+    let p = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+    let q = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+    assert!(p.add_rgb(&q).is_err());
+    assert!(q.add_rgb(&p).is_err());
+}
+
+#[test]
+fn test_pix_max_dynamic_range_rgb_linear_stretches_to_full() {
+    let p = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+    let mut pm = p.to_mut();
+    // R/G/B max = 0x80 across both pixels
+    pm.set_pixel(0, 0, 0x80_40_20_FFu32).unwrap();
+    pm.set_pixel(1, 0, 0x40_80_00_FFu32).unwrap();
+    let p: Pix = pm.into();
+    let stretched = p
+        .max_dynamic_range_rgb(RgbScaleType::Linear)
+        .expect("linear stretch");
+    // factor = 255 / 0x80 = 1.9921875 → 0x80 ≈ 255
+    let v0 = stretched.get_pixel(0, 0).unwrap();
+    assert_eq!((v0 >> 24) & 0xff, 0xff, "max 0x80 → 255");
+}
+
+#[test]
+fn test_pix_max_dynamic_range_rgb_non_32bpp_errors() {
+    let p = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+    assert!(p.max_dynamic_range_rgb(RgbScaleType::Linear).is_err());
+}
+
+#[test]
+fn test_pix_threshold_to_value_setval_above() {
+    let p = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+    let mut pm = p.to_mut();
+    for (x, v) in [10u32, 50, 100, 200].iter().enumerate() {
+        pm.set_pixel(x as u32, 0, *v).unwrap();
+    }
+    let p: Pix = pm.into();
+    // setval=255 > thresh=100 → 100以上は255に
+    let r = p.threshold_to_value(100, 255).expect("threshold");
+    assert_eq!(r.get_pixel(0, 0), Some(10));
+    assert_eq!(r.get_pixel(1, 0), Some(50));
+    assert_eq!(r.get_pixel(2, 0), Some(255));
+    assert_eq!(r.get_pixel(3, 0), Some(255));
+}
+
+#[test]
+fn test_pix_threshold_to_value_setval_below() {
+    let p = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+    let mut pm = p.to_mut();
+    for (x, v) in [10u32, 50, 100, 200].iter().enumerate() {
+        pm.set_pixel(x as u32, 0, *v).unwrap();
+    }
+    let p: Pix = pm.into();
+    // setval=0 < thresh=100 → 100以下は0に
+    let r = p.threshold_to_value(100, 0).expect("threshold");
+    assert_eq!(r.get_pixel(0, 0), Some(0));
+    assert_eq!(r.get_pixel(1, 0), Some(0));
+    assert_eq!(r.get_pixel(2, 0), Some(0));
+    assert_eq!(r.get_pixel(3, 0), Some(200));
+}
+
+#[test]
+fn test_pix_threshold_to_value_invalid_depth() {
+    let p = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
+    assert!(p.threshold_to_value(0, 1).is_err());
+}
+
+#[test]
+fn test_pix_threshold_to_value_setval_overflow() {
+    let p = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+    // 8bpp で setval > 255 はエラー
+    assert!(p.threshold_to_value(100, 300).is_err());
+}
+
+#[test]
+fn test_pix_threshold_to_value_setval_equals_threshval_noop() {
+    let p = Pix::new(3, 1, PixelDepth::Bit8).unwrap();
+    let mut pm = p.to_mut();
+    pm.set_pixel(0, 0, 10).unwrap();
+    pm.set_pixel(1, 0, 100).unwrap();
+    pm.set_pixel(2, 0, 200).unwrap();
+    let p: Pix = pm.into();
+    let r = p.threshold_to_value(100, 100).expect("noop");
+    assert_eq!(r.get_pixel(0, 0), Some(10));
+    assert_eq!(r.get_pixel(1, 0), Some(100));
+    assert_eq!(r.get_pixel(2, 0), Some(200));
+}
