@@ -13,7 +13,6 @@ fn make_fpix(w: u32, h: u32, fill: f32) -> FPix {
 // -- get_min / get_max ----------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_get_min_finds_minimum() {
     let mut f = make_fpix(4, 3, 5.0);
     f.set_pixel(2, 1, -1.0).unwrap();
@@ -24,7 +23,6 @@ fn fpix_get_min_finds_minimum() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_get_max_finds_maximum() {
     let mut f = make_fpix(3, 3, 0.0);
     f.set_pixel(1, 2, 7.5).unwrap();
@@ -36,7 +34,6 @@ fn fpix_get_max_finds_maximum() {
 // -- threshold_to_pix -----------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_threshold_to_pix_mixed() {
     let mut f = make_fpix(4, 2, 2.0);
     f.set_pixel(0, 0, 1.0).unwrap();
@@ -52,7 +49,6 @@ fn fpix_threshold_to_pix_mixed() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_threshold_to_pix_all_above() {
     let f = make_fpix(2, 2, 10.0);
     let pix = f.threshold_to_pix(0.0).unwrap();
@@ -60,7 +56,6 @@ fn fpix_threshold_to_pix_all_above() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_threshold_to_pix_all_below_or_equal() {
     let f = make_fpix(3, 3, 1.0);
     let pix = f.threshold_to_pix(1.0).unwrap();
@@ -70,7 +65,6 @@ fn fpix_threshold_to_pix_all_below_or_equal() {
 // -- rasterop -------------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_rasterop_basic_copy() {
     let mut src = FPix::new(4, 4).unwrap();
     for y in 0..4 {
@@ -84,7 +78,6 @@ fn fpix_rasterop_basic_copy() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_rasterop_negative_dx_clips() {
     let mut src = FPix::new(3, 3).unwrap();
     for i in 0..3 {
@@ -100,7 +93,6 @@ fn fpix_rasterop_negative_dx_clips() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_rasterop_overhang_clips() {
     let src = make_fpix(2, 2, 1.0);
     let mut dst = FPix::new(4, 4).unwrap();
@@ -110,7 +102,6 @@ fn fpix_rasterop_overhang_clips() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_rasterop_empty_after_clip_is_noop() {
     let src = make_fpix(2, 2, 1.0);
     let mut dst = make_fpix(2, 2, 0.0);
@@ -123,7 +114,6 @@ fn fpix_rasterop_empty_after_clip_is_noop() {
 // -- scale_by_integer -----------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_scale_by_integer_factor_one() {
     let mut f = FPix::new(3, 3).unwrap();
     f.set_pixel(1, 1, 5.0).unwrap();
@@ -135,7 +125,6 @@ fn fpix_scale_by_integer_factor_one() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_scale_by_integer_factor_two_midpoint() {
     // 2x2 with values v0=0, v1=4, v2=8, v3=12 (row-major).
     let mut f = FPix::new(2, 2).unwrap();
@@ -152,7 +141,6 @@ fn fpix_scale_by_integer_factor_two_midpoint() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_scale_by_integer_factor_zero_errors() {
     let f = make_fpix(2, 2, 0.0);
     assert!(f.scale_by_integer(0).is_err());
@@ -161,7 +149,6 @@ fn fpix_scale_by_integer_factor_zero_errors() {
 // -- remove_border --------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_remove_border_zero_is_clone() {
     let mut f = FPix::new(3, 3).unwrap();
     f.set_pixel(1, 1, 9.0).unwrap();
@@ -171,7 +158,6 @@ fn fpix_remove_border_zero_is_clone() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_remove_border_partial() {
     let mut f = FPix::new(5, 4).unwrap();
     for y in 0..4 {
@@ -189,7 +175,6 @@ fn fpix_remove_border_partial() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn fpix_remove_border_too_much_errors() {
     let f = make_fpix(2, 2, 0.0);
     assert!(f.remove_border(5, 5, 5, 5).is_err());
@@ -198,7 +183,6 @@ fn fpix_remove_border_too_much_errors() {
 // -- linear_interpolate_pixel_float ---------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn linear_interpolate_integer_position_returns_pixel() {
     // 3x3 with each cell = row*10 + col.
     let data: Vec<f32> = (0..9).map(|i| ((i / 3) * 10 + i % 3) as f32).collect();
@@ -207,7 +191,6 @@ fn linear_interpolate_integer_position_returns_pixel() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn linear_interpolate_midpoint() {
     // 2x2: 0,4 / 8,12. Midpoint (0.5, 0.5) → average = 6.0.
     let data: Vec<f32> = vec![0.0, 4.0, 8.0, 12.0];
@@ -220,7 +203,6 @@ fn linear_interpolate_midpoint() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn linear_interpolate_off_edge_returns_inval() {
     let data: Vec<f32> = vec![1.0; 4];
     let v = linear_interpolate_pixel_float(&data, 2, 2, -0.1, 0.0, -7.0);
@@ -231,7 +213,6 @@ fn linear_interpolate_off_edge_returns_inval() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn linear_interpolate_within_3x3() {
     // 3x3 with linear pattern: cell = row + col.
     let data: Vec<f32> = (0..9).map(|i| ((i / 3) + (i % 3)) as f32).collect();

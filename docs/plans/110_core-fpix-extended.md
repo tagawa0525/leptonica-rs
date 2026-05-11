@@ -1,6 +1,6 @@
 # Core: fpix2.c の FPix 拡張 7 関数 (plan 032 カテゴリ D の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-11
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ D
 
@@ -85,7 +85,16 @@ free fn として `src/core/fpix/interpolate.rs` 等に置く。
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 7 件 ❌ -> ✅
-- [ ] plan 032 で 110 を IMPLEMENTED に分割反映
+- [x] cargo test/clippy/fmt 通過 (19 件パス)
+- [x] core.md 7 件 ❌ -> ✅
+- [x] plan 032 で 110 を IMPLEMENTED に分割反映
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- `get_min` / `get_max`: 既存 `min` / `max` のエイリアス
+- `threshold_to_pix`: 行単位スキャンで `val <= thresh` を 1bpp に書き込み
+- `rasterop`: 水平/垂直方向に独立クリップ -> `copy_from_slice` で行コピー
+- `scale_by_integer`: bilinear 4 点重み (`fract[k]`/`fract[m]`) でサブブロックを埋め、末端行/列は線形補間、右下隅は元値コピー
+- `remove_border`: `rasterop` を使って枠を取り除いた小さい FPix を作成
+- `linear_interpolate_pixel_float`: 16 段固定小数点で C 版と同一のビット表現を維持 (`xpm`/`ypm` の整数化、4 点重み合計を 256 で割る)

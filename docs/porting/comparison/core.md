@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 883  |
+| ✅ 同等   | 890  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 92   |
+| ❌ 未実装 | 85   |
 | 合計      | 1215 |
 
-**カバレッジ**: 80.4% (977/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 977/1069 = 91.4% 実装)
+**カバレッジ**: 81.0% (984/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 984/1069 = 92.0% 実装)
 
 ## 注記
 
@@ -1485,39 +1485,39 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 
 ### fpix2.c (追加分)
 
-| C関数                       | 状態 | Rust対応                                        | 備考                                                      |
-| --------------------------- | ---- | ----------------------------------------------- | --------------------------------------------------------- |
-| dpixAddMultConstant         | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
-| dpixGetMax                  | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
-| dpixGetMin                  | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
-| dpixLinearCombination       | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
-| dpixScaleByInteger          | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
-| dpixSetAllArbitrary         | 🚫   | -                                               | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
-| fpixAddBorder               | ✅   | `add_border` (core/fpix/transform.rs)           | name+module match                                         |
-| fpixAddContinuedBorder      | ✅   | `add_continued_border` (core/fpix/transform.rs) | name+module match                                         |
-| fpixAddMirroredBorder       | ✅   | `add_mirrored_border` (core/fpix/transform.rs)  | name+module match                                         |
-| fpixAddSlopeBorder          | 🚫   | -                                               | DPix 未実装方針                                           |
-| fpixAffine                  | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixAffinePta               | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixConvertToDPix           | 🚫   | -                                               | DPix 未実装方針                                           |
-| fpixDisplayMaxDynamicRange  | 🚫   | -                                               | DPix 未実装方針                                           |
-| fpixFlipLR                  | ✅   | `flip_lr` (core/fpix/transform.rs)              | name+module match                                         |
-| fpixFlipTB                  | ✅   | `flip_tb` (core/fpix/transform.rs)              | name+module match                                         |
-| fpixGetMax                  | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixGetMin                  | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixProjective              | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixProjectivePta           | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixRasterop                | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixRemoveBorder            | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixRotate180               | ✅   | `rotate_180` (core/fpix/transform.rs)           | name+module match                                         |
-| fpixRotate90                | ✅   | `rotate_90` (core/fpix/transform.rs)            | name+module match                                         |
-| fpixRotateOrth              | ✅   | `rotate_orth` (core/fpix/transform.rs)          | name+module match                                         |
-| fpixScaleByInteger          | ❌   | -                                               | no Rust impl in expected dirs                             |
-| fpixSetAllArbitrary         | 🔄   | `(idiomatic)`                                   | FPix::set_all_arbitrary に類似機能あり (Pix 用は実装済み) |
-| fpixThresholdToPix          | ❌   | -                                               | no Rust impl in expected dirs                             |
-| linearInterpolatePixelFloat | ❌   | -                                               | no Rust impl in expected dirs                             |
-| pixComponentFunction        | ❌   | -                                               | no Rust impl in expected dirs                             |
-| pixConvertToDPix            | 🚫   | -                                               | DPix 未実装方針                                           |
+| C関数                       | 状態 | Rust対応                                                 | 備考                                                      |
+| --------------------------- | ---- | -------------------------------------------------------- | --------------------------------------------------------- |
+| dpixAddMultConstant         | 🚫   | -                                                        | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
+| dpixGetMax                  | 🚫   | -                                                        | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
+| dpixGetMin                  | 🚫   | -                                                        | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
+| dpixLinearCombination       | 🚫   | -                                                        | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
+| dpixScaleByInteger          | 🚫   | -                                                        | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
+| dpixSetAllArbitrary         | 🚫   | -                                                        | DPix (倍精度画像) は Rust 未提供 - FPix で代替            |
+| fpixAddBorder               | ✅   | `add_border` (core/fpix/transform.rs)                    | name+module match                                         |
+| fpixAddContinuedBorder      | ✅   | `add_continued_border` (core/fpix/transform.rs)          | name+module match                                         |
+| fpixAddMirroredBorder       | ✅   | `add_mirrored_border` (core/fpix/transform.rs)           | name+module match                                         |
+| fpixAddSlopeBorder          | 🚫   | -                                                        | DPix 未実装方針                                           |
+| fpixAffine                  | ❌   | -                                                        | no Rust impl in expected dirs                             |
+| fpixAffinePta               | ❌   | -                                                        | no Rust impl in expected dirs                             |
+| fpixConvertToDPix           | 🚫   | -                                                        | DPix 未実装方針                                           |
+| fpixDisplayMaxDynamicRange  | 🚫   | -                                                        | DPix 未実装方針                                           |
+| fpixFlipLR                  | ✅   | `flip_lr` (core/fpix/transform.rs)                       | name+module match                                         |
+| fpixFlipTB                  | ✅   | `flip_tb` (core/fpix/transform.rs)                       | name+module match                                         |
+| fpixGetMax                  | ✅   | `FPix::get_max` (core/fpix/extended.rs)                  | plan 110                                                  |
+| fpixGetMin                  | ✅   | `FPix::get_min` (core/fpix/extended.rs)                  | plan 110                                                  |
+| fpixProjective              | ❌   | -                                                        | no Rust impl in expected dirs                             |
+| fpixProjectivePta           | ❌   | -                                                        | no Rust impl in expected dirs                             |
+| fpixRasterop                | ✅   | `FPix::rasterop` (core/fpix/extended.rs)                 | plan 110                                                  |
+| fpixRemoveBorder            | ✅   | `FPix::remove_border` (core/fpix/extended.rs)            | plan 110                                                  |
+| fpixRotate180               | ✅   | `rotate_180` (core/fpix/transform.rs)                    | name+module match                                         |
+| fpixRotate90                | ✅   | `rotate_90` (core/fpix/transform.rs)                     | name+module match                                         |
+| fpixRotateOrth              | ✅   | `rotate_orth` (core/fpix/transform.rs)                   | name+module match                                         |
+| fpixScaleByInteger          | ✅   | `FPix::scale_by_integer` (core/fpix/extended.rs)         | plan 110                                                  |
+| fpixSetAllArbitrary         | 🔄   | `(idiomatic)`                                            | FPix::set_all_arbitrary に類似機能あり (Pix 用は実装済み) |
+| fpixThresholdToPix          | ✅   | `FPix::threshold_to_pix` (core/fpix/extended.rs)         | plan 110                                                  |
+| linearInterpolatePixelFloat | ✅   | `linear_interpolate_pixel_float` (core/fpix/extended.rs) | plan 110                                                  |
+| pixComponentFunction        | ❌   | -                                                        | no Rust impl in expected dirs                             |
+| pixConvertToDPix            | 🚫   | -                                                        | DPix 未実装方針                                           |
 
 ### graphics.c (追加分)
 
