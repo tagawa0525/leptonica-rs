@@ -22,8 +22,11 @@
 //! let (max_val, max_x, max_y) = fpix.max().unwrap();
 //! ```
 
+pub mod extended;
 pub mod serial;
 pub mod transform;
+
+pub use extended::linear_interpolate_pixel_float;
 
 pub use transform::RotateDirection;
 

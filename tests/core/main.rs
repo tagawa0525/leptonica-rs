@@ -17,6 +17,7 @@ mod equal_reg;
 mod extrema_reg;
 mod fpix1_reg;
 mod fpix2_reg;
+mod fpix_extended_reg;
 mod gplot_reg;
 mod hash_reg;
 mod heap_reg;
