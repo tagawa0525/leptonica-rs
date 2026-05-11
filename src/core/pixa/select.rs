@@ -46,7 +46,7 @@ impl Pixa {
     /// Return a new Pixa containing items `first..=last_inclusive`.
     ///
     /// If `last` is `None`, the slice extends to the end. Out-of-range
-    /// `first` returns an empty Pixa.
+    /// `first` returns an empty Pixa. `last < first` also returns empty.
     ///
     /// C Leptonica equivalent: `pixaSelectRange`.
     pub fn select_range(&self, first: usize, last: Option<usize>) -> Self {
@@ -55,7 +55,8 @@ impl Pixa {
             return Pixa::new();
         }
         let end = match last {
-            Some(l) => (l + 1).min(n),
+            Some(l) if l < first => return Pixa::new(),
+            Some(l) => l.saturating_add(1).min(n),
             None => n,
         };
         let mut out = Pixa::with_capacity(end - first);

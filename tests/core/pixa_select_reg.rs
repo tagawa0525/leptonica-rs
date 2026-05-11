@@ -64,6 +64,26 @@ fn select_range_out_of_bounds_returns_empty() {
 }
 
 #[test]
+fn select_range_last_lt_first_returns_empty() {
+    let mut pa = Pixa::new();
+    for _ in 0..4 {
+        pa.push(make_empty_1bpp(4, 4));
+    }
+    let r = pa.select_range(2, Some(1));
+    assert!(r.pix_slice().is_empty());
+}
+
+#[test]
+fn select_range_usize_max_last_saturates() {
+    let mut pa = Pixa::new();
+    for _ in 0..3 {
+        pa.push(make_empty_1bpp(4, 4));
+    }
+    let r = pa.select_range(0, Some(usize::MAX));
+    assert_eq!(r.pix_slice().len(), 3);
+}
+
+#[test]
 fn select_with_indicator_filters_correctly() {
     let mut pa = Pixa::new();
     for _ in 0..3 {
