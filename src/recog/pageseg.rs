@@ -1475,6 +1475,30 @@ fn compute_variance(data: &[u32]) -> f64 {
     variance
 }
 
+// ============================================================================
+// pageseg.c gap-fill (plan 803) — RED stubs
+// ============================================================================
+
+/// C: `pixFindThreshFgExtent`.
+pub fn pix_find_thresh_fg_extent(_pixs: &Pix, _thresh: u32) -> RecogResult<(u32, u32)> {
+    unimplemented!("plan 803 RED stub")
+}
+
+/// C: `pixGenHalftoneMask`.
+pub fn pix_gen_halftone_mask(_pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
+    unimplemented!("plan 803 RED stub")
+}
+
+/// C: `pixGenTextlineMask`.
+pub fn pix_gen_textline_mask(_pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
+    unimplemented!("plan 803 RED stub")
+}
+
+/// C: `pixGenTextblockMask`.
+pub fn pix_gen_textblock_mask(_pixs: &Pix, _pixvws: &Pix) -> RecogResult<Option<Pix>> {
+    unimplemented!("plan 803 RED stub")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
