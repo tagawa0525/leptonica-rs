@@ -5,6 +5,7 @@
 
 mod select;
 mod serial;
+mod transform;
 
 pub use select::{
     ThresholdSelect, pix_add_with_indicator, pix_remove_with_indicator,
