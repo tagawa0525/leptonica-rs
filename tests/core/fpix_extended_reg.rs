@@ -204,14 +204,25 @@ fn linear_interpolate_integer_position_returns_pixel() {
 
 #[test]
 fn linear_interpolate_midpoint() {
-    // 2x2: 0,4 / 8,12. Midpoint (0.5, 0.5) → average = 6.0.
+    // 3x3 grid (so that w-2 = 1 leaves room for true midpoint sampling):
+    //   0  4  8
+    //   8 12 16
+    //  16 20 24
+    // The 2x2 cell anchored at (0,0) covers values {0,4,8,12};
+    // midpoint (0.5,0.5) of bilinear over that cell is (0+4+8+12)/4 = 6.
+    let data: Vec<f32> = vec![0.0, 4.0, 8.0, 8.0, 12.0, 16.0, 16.0, 20.0, 24.0];
+    let v = linear_interpolate_pixel_float(&data, 3, 3, 0.5, 0.5, -1.0);
+    assert!((v - 6.0).abs() < 1e-3, "expected 6.0 at midpoint, got {v}");
+}
+
+#[test]
+fn linear_interpolate_2x2_anything_offcenter_returns_inval() {
+    // For a 2x2 input, w-2 = 0 so any x > 0 (or y > 0) is "off-edge"
+    // and the function returns inval. This documents the boundary
+    // behaviour explicitly.
     let data: Vec<f32> = vec![0.0, 4.0, 8.0, 12.0];
-    let v = linear_interpolate_pixel_float(&data, 2, 2, 0.0, 0.0, -1.0);
-    assert!((v - 0.0).abs() < 1e-4);
-    // (0,0) integer-position returns exact 0
-    // (0.5, 0.5) is at x<= w-2=0, so it counts as on-edge ⇒ allowed.
-    let v_mid = linear_interpolate_pixel_float(&data, 2, 2, 0.0, 0.0, -1.0);
-    assert!((v_mid - 0.0).abs() < 1e-4);
+    let v = linear_interpolate_pixel_float(&data, 2, 2, 0.5, 0.5, -7.0);
+    assert!((v + 7.0).abs() < 1e-6);
 }
 
 #[test]
