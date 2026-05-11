@@ -141,6 +141,13 @@ impl FPix {
         if factor == 0 {
             return Err(Error::InvalidParameter("factor must be >= 1".into()));
         }
+        // Reject factors that overflow i32 arithmetic below.
+        if factor > i32::MAX as u32 {
+            return Err(Error::InvalidParameter(format!(
+                "factor too large for i32 arithmetic: {factor}"
+            )));
+        }
+        let factor_i = factor as i32;
         let ws = self.width() as i32;
         let hs = self.height() as i32;
         if ws < 2 || hs < 2 {
@@ -148,11 +155,18 @@ impl FPix {
             // the spirit by returning a deep clone.
             return Ok(self.clone());
         }
-        let wd = (factor as i32) * (ws - 1) + 1;
-        let hd = (factor as i32) * (hs - 1) + 1;
+        // Use checked arithmetic to avoid silent i32 overflow on huge inputs.
+        let wd = factor_i
+            .checked_mul(ws - 1)
+            .and_then(|p| p.checked_add(1))
+            .ok_or_else(|| Error::InvalidParameter("scale dimensions overflow".into()))?;
+        let hd = factor_i
+            .checked_mul(hs - 1)
+            .and_then(|p| p.checked_add(1))
+            .ok_or_else(|| Error::InvalidParameter("scale dimensions overflow".into()))?;
         let mut dst = FPix::new(wd as u32, hd as u32)?;
         let f = factor as f32;
-        let fract: Vec<f32> = (0..factor as i32).map(|i| (i as f32) / f).collect();
+        let fract: Vec<f32> = (0..factor_i).map(|i| (i as f32) / f).collect();
 
         let sw = self.width() as usize;
         let src = self.data();
@@ -166,16 +180,16 @@ impl FPix {
                 let v1 = src[row0 + j as usize + 1];
                 let v2 = src[row1 + j as usize];
                 let v3 = src[row1 + j as usize + 1];
-                for k in 0..factor as i32 {
-                    let dline = ((i * factor as i32 + k) as usize) * dw_dst;
+                for k in 0..factor_i {
+                    let dline = ((i * factor_i + k) as usize) * dw_dst;
                     let fk = fract[k as usize];
-                    for m in 0..factor as i32 {
+                    for m in 0..factor_i {
                         let fm = fract[m as usize];
                         let val = v0 * (1.0 - fm) * (1.0 - fk)
                             + v1 * fm * (1.0 - fk)
                             + v2 * (1.0 - fm) * fk
                             + v3 * fm * fk;
-                        dst.data_mut()[dline + (j * factor as i32 + m) as usize] = val;
+                        dst.data_mut()[dline + (j * factor_i + m) as usize] = val;
                     }
                 }
             }
@@ -186,8 +200,8 @@ impl FPix {
         for i in 0..(hs - 1) {
             let v_right = src[i as usize * sw + (ws - 1) as usize];
             let v_right_next = src[(i as usize + 1) * sw + (ws - 1) as usize];
-            for k in 0..factor as i32 {
-                let dline = ((i * factor as i32 + k) as usize) * dw_dst;
+            for k in 0..factor_i {
+                let dline = ((i * factor_i + k) as usize) * dw_dst;
                 let fk = fract[k as usize];
                 let val = v_right * (1.0 - fk) + v_right_next * fk;
                 dst.data_mut()[dline + (wd - 1) as usize] = val;
@@ -197,10 +211,10 @@ impl FPix {
             let v_bot = src[(hs - 1) as usize * sw + j as usize];
             let v_bot_next = src[(hs - 1) as usize * sw + j as usize + 1];
             let dline = (hd - 1) as usize * dw_dst;
-            for m in 0..factor as i32 {
+            for m in 0..factor_i {
                 let fm = fract[m as usize];
                 let val = v_bot * (1.0 - fm) + v_bot_next * fm;
-                dst.data_mut()[dline + (j * factor as i32 + m) as usize] = val;
+                dst.data_mut()[dline + (j * factor_i + m) as usize] = val;
             }
         }
         // Bottom-right corner

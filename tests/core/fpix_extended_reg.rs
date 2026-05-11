@@ -146,6 +146,13 @@ fn fpix_scale_by_integer_factor_zero_errors() {
     assert!(f.scale_by_integer(0).is_err());
 }
 
+#[test]
+fn fpix_scale_by_integer_huge_factor_errors() {
+    let f = make_fpix(2, 2, 0.0);
+    // Factor > i32::MAX must be rejected to avoid silent wrap.
+    assert!(f.scale_by_integer(u32::MAX).is_err());
+}
+
 // -- remove_border --------------------------------------------------------
 
 #[test]
