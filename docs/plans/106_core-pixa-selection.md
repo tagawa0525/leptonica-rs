@@ -1,6 +1,6 @@
 # Core: pixafunc1.c の Pixa 選択系 14 関数 (plan 032 カテゴリ A-1)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-11
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-1
 
@@ -76,7 +76,14 @@ pub fn pix_select_by_area_fraction(pixs: &Pix, thresh: f32, conn: ConnectivityTy
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
+- [x] cargo test/clippy/fmt 通過 (21 件パス)
+- [x] core.md 14 件 ❌ -> ✅
+- [x] plan 032 で 106 を IMPLEMENTED に
 - [ ] PR + Copilot レビュー対応 + マージ
-- [ ] core.md 14 件 ❌ → ✅
-- [ ] plan 032 で 106 を IMPLEMENTED に
+
+## 実装メモ
+
+- 新規 `ThresholdSelect` enum (`LessThan` / `GreaterThan` / `LessOrEqual` / `GreaterOrEqual`)
+- Pixa メソッド 8 件、Pix-level wrapper 4 件、indicator paint 2 件
+- 内部ヘルパー: `pixa_find_area_fraction` 系 4 件 (Vec<f32> ベース)
+- 周長は `erode_brick(3,3)` + `xor` で境界ピクセル数を数える方式

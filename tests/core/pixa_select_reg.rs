@@ -36,7 +36,6 @@ fn make_empty_1bpp(w: u32, h: u32) -> Pix {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_range_basic() {
     let mut pa = Pixa::new();
     for _ in 0..5 {
@@ -47,7 +46,6 @@ fn select_range_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_range_open_end() {
     let mut pa = Pixa::new();
     for _ in 0..4 {
@@ -58,7 +56,6 @@ fn select_range_open_end() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_range_out_of_bounds_returns_empty() {
     let mut pa = Pixa::new();
     pa.push(make_empty_1bpp(4, 4));
@@ -67,7 +64,6 @@ fn select_range_out_of_bounds_returns_empty() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_with_indicator_filters_correctly() {
     let mut pa = Pixa::new();
     for _ in 0..3 {
@@ -79,7 +75,6 @@ fn select_with_indicator_filters_correctly() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_with_indicator_all_kept_not_changed() {
     let mut pa = Pixa::new();
     for _ in 0..2 {
@@ -91,7 +86,6 @@ fn select_with_indicator_all_kept_not_changed() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_with_indicator_length_mismatch_errors() {
     let mut pa = Pixa::new();
     pa.push(make_empty_1bpp(4, 4));
@@ -100,7 +94,6 @@ fn select_with_indicator_length_mismatch_errors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_with_string_parses_zero_one() {
     let mut pa = Pixa::new();
     for _ in 0..4 {
@@ -112,7 +105,6 @@ fn select_with_string_parses_zero_one() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_with_string_length_mismatch_errors() {
     let mut pa = Pixa::new();
     pa.push(make_empty_1bpp(4, 4));
@@ -120,7 +112,6 @@ fn select_with_string_length_mismatch_errors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_by_area_fraction_greater_than() {
     let mut pa = Pixa::new();
     pa.push(make_filled_1bpp(10, 10, 0.1)); // 10%
@@ -134,7 +125,6 @@ fn select_by_area_fraction_greater_than() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_by_area_fraction_less_than() {
     let mut pa = Pixa::new();
     pa.push(make_filled_1bpp(8, 8, 0.2));
@@ -146,7 +136,6 @@ fn select_by_area_fraction_less_than() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_by_width_height_ratio() {
     let mut pa = Pixa::new();
     pa.push(make_empty_1bpp(20, 10)); // ratio 2.0
@@ -160,7 +149,6 @@ fn select_by_width_height_ratio() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_by_num_conn_comp_one_component() {
     // Single 1bpp image with two separate components → pick those with count in [2, 2]
     let pa1 = {
@@ -183,7 +171,6 @@ fn select_by_num_conn_comp_one_component() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_by_num_conn_comp_invalid_range_errors() {
     let mut pa = Pixa::new();
     pa.push(make_empty_1bpp(4, 4));
@@ -192,7 +179,6 @@ fn select_by_num_conn_comp_invalid_range_errors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn select_by_perim_to_area_ratio_runs() {
     let mut pa = Pixa::new();
     pa.push(make_filled_1bpp(10, 10, 0.5));
@@ -204,7 +190,6 @@ fn select_by_perim_to_area_ratio_runs() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_select_by_area_fraction_wrapper() {
     let p = make_filled_1bpp(16, 16, 0.5);
     let r = pix_select_by_area_fraction(
@@ -219,7 +204,6 @@ fn pix_select_by_area_fraction_wrapper() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_select_by_width_height_ratio_wrapper() {
     let p = make_filled_1bpp(16, 8, 1.0);
     let r = pix_select_by_width_height_ratio(
@@ -233,7 +217,6 @@ fn pix_select_by_width_height_ratio_wrapper() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_select_by_perim_size_ratio_wrapper() {
     let p = make_filled_1bpp(16, 16, 0.5);
     let r = pix_select_by_perim_size_ratio(
@@ -247,7 +230,6 @@ fn pix_select_by_perim_size_ratio_wrapper() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_select_by_perim_to_area_ratio_wrapper() {
     let p = make_filled_1bpp(16, 16, 1.0);
     let r = pix_select_by_perim_to_area_ratio(
@@ -261,7 +243,6 @@ fn pix_select_by_perim_to_area_ratio_wrapper() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_add_with_indicator_runs() {
     let pixs = make_filled_1bpp(16, 16, 0.3);
     let dst = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
@@ -275,7 +256,6 @@ fn pix_add_with_indicator_runs() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_remove_with_indicator_clears() {
     let pixs = make_filled_1bpp(16, 16, 0.5);
     let count = leptonica::region::count_conn_comp(&pixs, ConnectivityType::EightWay).unwrap();
@@ -289,7 +269,6 @@ fn pix_remove_with_indicator_clears() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_select_rejects_non_1bpp() {
     let p = Pix::new(16, 16, PixelDepth::Bit8).unwrap();
     let r = pix_select_by_area_fraction(
