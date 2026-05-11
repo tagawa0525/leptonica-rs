@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 864  |
+| ✅ 同等   | 878  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 111  |
+| ❌ 未実装 | 97   |
 | 合計      | 1215 |
 
-**カバレッジ**: 78.8% (958/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 958/1069 = 89.6% 実装)
+**カバレッジ**: 80.0% (972/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 972/1069 = 90.9% 実装)
 
 ## 注記
 
@@ -1662,50 +1662,50 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 
 ### pixafunc1.c (追加分)
 
-| C関数                        | 状態 | Rust対応                            | 備考                          |
-| ---------------------------- | ---- | ----------------------------------- | ----------------------------- |
-| pixAddWithIndicator          | ❌   | -                                   | no Rust impl in expected dirs |
-| pixRemoveWithIndicator       | ❌   | -                                   | no Rust impl in expected dirs |
-| pixSelectByArea              | ✅   | `select_by_area` (core/pixa/mod.rs) | name+module match             |
-| pixSelectByAreaFraction      | ❌   | -                                   | no Rust impl in expected dirs |
-| pixSelectByPerimSizeRatio    | ❌   | -                                   | no Rust impl in expected dirs |
-| pixSelectByPerimToAreaRatio  | ❌   | -                                   | no Rust impl in expected dirs |
-| pixSelectBySize              | ✅   | `select_by_size` (core/pixa/mod.rs) | name+module match             |
-| pixSelectByWidthHeightRatio  | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaAddBorderGeneral         | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaAnyColormaps             | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaBinSort                  | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaClipToForeground         | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaClipToPix                | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaConvertToGivenDepth      | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaConvertToSameDepth       | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaEqual                    | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaGetDepthInfo             | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaGetRenderingDepth        | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaHasColor                 | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaMakeSizeIndicator        | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaRenderComponent          | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaRotate                   | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaRotateOrth               | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaScale                    | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaScaleBySampling          | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectByAreaFraction     | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectByNumConnComp      | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectByPerimSizeRatio   | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectByPerimToAreaRatio | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectByWidthHeightRatio | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectRange              | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectWithIndicator      | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSelectWithString         | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSetFullSizeBoxa          | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSizeRange                | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaSort2dByIndex            | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaTranslate                | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaaFlattenToPixa           | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaaScaleToSize             | ✅   | `scale_to_size` (core/pixa/mod.rs)  | name+module match             |
-| pixaaScaleToSizeVar          | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaaSelectRange             | ❌   | -                                   | no Rust impl in expected dirs |
-| pixaaSizeRange               | ❌   | -                                   | no Rust impl in expected dirs |
+| C関数                        | 状態 | Rust対応                                                    | 備考                          |
+| ---------------------------- | ---- | ----------------------------------------------------------- | ----------------------------- |
+| pixAddWithIndicator          | ✅   | `pix_add_with_indicator` (core/pixa/select.rs)              | plan 106                      |
+| pixRemoveWithIndicator       | ✅   | `pix_remove_with_indicator` (core/pixa/select.rs)           | plan 106                      |
+| pixSelectByArea              | ✅   | `select_by_area` (core/pixa/mod.rs)                         | name+module match             |
+| pixSelectByAreaFraction      | ✅   | `pix_select_by_area_fraction` (core/pixa/select.rs)         | plan 106                      |
+| pixSelectByPerimSizeRatio    | ✅   | `pix_select_by_perim_size_ratio` (core/pixa/select.rs)      | plan 106                      |
+| pixSelectByPerimToAreaRatio  | ✅   | `pix_select_by_perim_to_area_ratio` (core/pixa/select.rs)   | plan 106                      |
+| pixSelectBySize              | ✅   | `select_by_size` (core/pixa/mod.rs)                         | name+module match             |
+| pixSelectByWidthHeightRatio  | ✅   | `pix_select_by_width_height_ratio` (core/pixa/select.rs)    | plan 106                      |
+| pixaAddBorderGeneral         | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaAnyColormaps             | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaBinSort                  | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaClipToForeground         | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaClipToPix                | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaConvertToGivenDepth      | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaConvertToSameDepth       | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaEqual                    | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaGetDepthInfo             | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaGetRenderingDepth        | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaHasColor                 | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaMakeSizeIndicator        | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaRenderComponent          | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaRotate                   | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaRotateOrth               | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaScale                    | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaScaleBySampling          | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaSelectByAreaFraction     | ✅   | `Pixa::select_by_area_fraction` (core/pixa/select.rs)       | plan 106                      |
+| pixaSelectByNumConnComp      | ✅   | `Pixa::select_by_num_conn_comp` (core/pixa/select.rs)       | plan 106                      |
+| pixaSelectByPerimSizeRatio   | ✅   | `Pixa::select_by_perim_size_ratio` (core/pixa/select.rs)    | plan 106                      |
+| pixaSelectByPerimToAreaRatio | ✅   | `Pixa::select_by_perim_to_area_ratio` (core/pixa/select.rs) | plan 106                      |
+| pixaSelectByWidthHeightRatio | ✅   | `Pixa::select_by_width_height_ratio` (core/pixa/select.rs)  | plan 106                      |
+| pixaSelectRange              | ✅   | `Pixa::select_range` (core/pixa/select.rs)                  | plan 106                      |
+| pixaSelectWithIndicator      | ✅   | `Pixa::select_with_indicator` (core/pixa/select.rs)         | plan 106                      |
+| pixaSelectWithString         | ✅   | `Pixa::select_with_string` (core/pixa/select.rs)            | plan 106                      |
+| pixaSetFullSizeBoxa          | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaSizeRange                | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaSort2dByIndex            | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaTranslate                | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaaFlattenToPixa           | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaaScaleToSize             | ✅   | `scale_to_size` (core/pixa/mod.rs)                          | name+module match             |
+| pixaaScaleToSizeVar          | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaaSelectRange             | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaaSizeRange               | ❌   | -                                                           | no Rust impl in expected dirs |
 
 ### pixafunc2.c (追加分)
 
