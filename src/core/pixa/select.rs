@@ -122,8 +122,10 @@ impl Pixa {
     /// Filter components by their internal connected-component count
     /// (`nmin <= count <= nmax`).
     ///
-    /// Each Pix is expected to be 1 bpp; non-1bpp images are skipped via the
-    /// connected-component routine.
+    /// Each Pix is expected to be 1 bpp. Non-1bpp entries are treated as
+    /// having 0 components (matching C `pixCountConnComp`'s soft handling).
+    /// Other failures from `count_conn_comp` are propagated as
+    /// [`Error::InvalidParameter`].
     ///
     /// C Leptonica equivalent: `pixaSelectByNumConnComp`.
     pub fn select_by_num_conn_comp(
@@ -139,7 +141,15 @@ impl Pixa {
         }
         let mut indicator = Vec::with_capacity(self.pix_slice().len());
         for pix in self.pix_slice() {
-            let count = crate::region::count_conn_comp(pix, connectivity).unwrap_or(0);
+            let count = match crate::region::count_conn_comp(pix, connectivity) {
+                Ok(c) => c,
+                Err(crate::region::RegionError::UnsupportedDepth { .. }) => 0,
+                Err(e) => {
+                    return Err(Error::InvalidParameter(format!(
+                        "count_conn_comp failed: {e}"
+                    )));
+                }
+            };
             indicator.push(count >= nmin && count <= nmax);
         }
         self.select_with_indicator(&indicator)
