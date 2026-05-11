@@ -1,6 +1,6 @@
 # Recog: pageseg.c の補助 4 関数 (plan 032 カテゴリ C の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-11
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ C
 
@@ -71,7 +71,21 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> Result<Option<Pix>>;
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] recog.md 4 件 ❌ -> ✅
-- [ ] plan 032 で 803 を IMPLEMENTED に分割反映
+- [x] cargo test/clippy/fmt 通過 (13 件パス)
+- [x] recog.md 4 件 ❌ -> ✅
+- [x] plan 032 で 803 を IMPLEMENTED に分割反映
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- `pix_find_thresh_fg_extent`: 既存 `Pix::count_by_row` を使い、
+  前後から `thresh` 以上の行を走査
+- `pix_gen_halftone_mask`: 既存 private `generate_halftone_mask`
+  ヘルパーを呼び、`is_zero()` で found フラグを生成
+- `pix_gen_textline_mask`: C と同じ morph sequence
+  (`invert -> o80.60 subtract -> o5.1 + o1.200 (vws) ->
+   c30.1 subtract vws -> open_brick(3,3)`) を Rust の
+  `morph_sequence`/`morph_comp_sequence`/`open_brick` で再現
+- `pix_gen_textblock_mask`: `c1.10 + o4.1` -> 空ならば `None`、
+  `morph_sequence_by_component` -> `close_safe_brick(10,1)` ->
+  subtract vws -> `pix_select_by_size(25, 5, EightWay, IfBoth, Gte)`

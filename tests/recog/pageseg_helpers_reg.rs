@@ -19,7 +19,6 @@ fn make_with_rows(w: u32, h: u32, ys: &[u32]) -> Pix {
 // -- pix_find_thresh_fg_extent --------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_thresh_fg_extent_all_zero() {
     let p = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let (top, bot) = pix_find_thresh_fg_extent(&p, 1).unwrap();
@@ -27,7 +26,6 @@ fn find_thresh_fg_extent_all_zero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_thresh_fg_extent_single_row() {
     let p = make_with_rows(10, 10, &[3]);
     let (top, bot) = pix_find_thresh_fg_extent(&p, 1).unwrap();
@@ -35,7 +33,6 @@ fn find_thresh_fg_extent_single_row() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_thresh_fg_extent_range() {
     let p = make_with_rows(10, 10, &[2, 4, 5, 7]);
     let (top, bot) = pix_find_thresh_fg_extent(&p, 1).unwrap();
@@ -43,7 +40,6 @@ fn find_thresh_fg_extent_range() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_thresh_fg_extent_thresh_filters_low_rows() {
     let p = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let mut m = p.try_into_mut().unwrap();
@@ -60,7 +56,6 @@ fn find_thresh_fg_extent_thresh_filters_low_rows() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_thresh_fg_extent_rejects_non_1bpp() {
     let p = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
     assert!(pix_find_thresh_fg_extent(&p, 1).is_err());
@@ -69,14 +64,12 @@ fn find_thresh_fg_extent_rejects_non_1bpp() {
 // -- pix_gen_halftone_mask ------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_halftone_mask_rejects_non_1bpp() {
     let p = Pix::new(120, 120, PixelDepth::Bit8).unwrap();
     assert!(pix_gen_halftone_mask(&p).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_halftone_mask_empty_image_returns_no_halftone() {
     let p = Pix::new(120, 120, PixelDepth::Bit1).unwrap();
     let (mask, _text, found) = pix_gen_halftone_mask(&p).unwrap();
@@ -87,21 +80,18 @@ fn gen_halftone_mask_empty_image_returns_no_halftone() {
 // -- pix_gen_textline_mask ------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_textline_mask_rejects_non_1bpp() {
     let p = Pix::new(120, 120, PixelDepth::Bit8).unwrap();
     assert!(pix_gen_textline_mask(&p).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_textline_mask_rejects_too_small() {
     let p = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
     assert!(pix_gen_textline_mask(&p).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_textline_mask_empty_image_runs() {
     let p = Pix::new(120, 120, PixelDepth::Bit1).unwrap();
     let (tl, _vws, found) = pix_gen_textline_mask(&p).unwrap();
@@ -114,7 +104,6 @@ fn gen_textline_mask_empty_image_runs() {
 // -- pix_gen_textblock_mask -----------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_textblock_mask_rejects_non_1bpp() {
     let p = Pix::new(120, 120, PixelDepth::Bit8).unwrap();
     let v = Pix::new(120, 120, PixelDepth::Bit1).unwrap();
@@ -122,7 +111,6 @@ fn gen_textblock_mask_rejects_non_1bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_textblock_mask_rejects_too_small() {
     let p = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
     let v = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
@@ -130,7 +118,6 @@ fn gen_textblock_mask_rejects_too_small() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_textblock_mask_empty_image_returns_none() {
     let p = Pix::new(120, 120, PixelDepth::Bit1).unwrap();
     let v = Pix::new(120, 120, PixelDepth::Bit1).unwrap();

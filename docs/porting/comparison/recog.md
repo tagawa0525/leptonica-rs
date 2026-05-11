@@ -6,13 +6,13 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 134 |
+| ✅ 同等   | 138 |
 | 🔄 異なる | 45  |
 | 🚫 不要   | 18  |
-| ❌ 未実装 | 10  |
+| ❌ 未実装 | 6   |
 | 合計      | 207 |
 
-**カバレッジ**: 86.5% (179/207 関数が実装済み、🚫 不要 18 関数を除くと実質 179/189 = 94.7% 実装)
+**カバレッジ**: 88.4% (183/207 関数が実装済み、🚫 不要 18 関数を除くと実質 183/189 = 96.8% 実装)
 
 ## 詳細
 
@@ -458,10 +458,10 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 | pixFindLargeRectangles  | ✅   | `find_large_rectangles` (region/rectangle.rs)  | name+module match             |
 | pixFindLargestRectangle | ✅   | `find_largest_rectangle` (region/rectangle.rs) | name+module match             |
 | pixFindRectangleInCC    | ✅   | `find_rectangle_in_cc` (region/rectangle.rs)   | name+module match             |
-| pixFindThreshFgExtent   | ❌   | -                                              | no Rust impl in expected dirs |
-| pixGenHalftoneMask      | ❌   | -                                              | no Rust impl in expected dirs |
-| pixGenTextblockMask     | ❌   | -                                              | no Rust impl in expected dirs |
-| pixGenTextlineMask      | ❌   | -                                              | no Rust impl in expected dirs |
+| pixFindThreshFgExtent   | ✅   | `pix_find_thresh_fg_extent` (recog/pageseg.rs) | plan 803                      |
+| pixGenHalftoneMask      | ✅   | `pix_gen_halftone_mask` (recog/pageseg.rs)     | plan 803                      |
+| pixGenTextblockMask     | ✅   | `pix_gen_textblock_mask` (recog/pageseg.rs)    | plan 803                      |
+| pixGenTextlineMask      | ✅   | `pix_gen_textline_mask` (recog/pageseg.rs)     | plan 803                      |
 | pixGenerateHalftoneMask | ✅   | `generate_halftone_mask` (recog/pageseg.rs)    | name+module match             |
 | pixPrepare1bpp          | ✅   | `prepare_1bpp` (recog/pageseg.rs)              | name+module match             |
 
