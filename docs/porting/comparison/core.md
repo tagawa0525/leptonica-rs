@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 855  |
-| 🔄 異なる | 93   |
+| ✅ 同等   | 859  |
+| 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 121  |
+| ❌ 未実装 | 116  |
 | 合計      | 1215 |
 
-**カバレッジ**: 78.0% (948/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 948/1069 = 88.7% 実装)
+**カバレッジ**: 78.4% (953/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 953/1069 = 89.1% 実装)
 
 ## 注記
 
@@ -1534,13 +1534,13 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 | -------------------- | ---- | ---------------------------------------- | ----------------------------------------------------------------------- |
 | numaAddNumber        | 🔄   | `push` (core/numa/mod.rs)                | C: numaAddNumber -> Rust: Numa::push() (idiomatic)                      |
 | numaClone            | 🔄   | `(idiomatic)`                            | Rust の Clone trait で代替                                              |
-| numaConvertToSarray  | ❌   | -                                        | 未実装                                                                  |
+| numaConvertToSarray  | ✅   | `convert_to_sarray` (core/numa/mod.rs)   | plan 116                                                                |
 | numaCopy             | 🔄   | `(idiomatic)`                            | Rust の Clone trait で代替                                              |
-| numaCopyParameters   | ❌   | -                                        | 直接対応なし                                                            |
+| numaCopyParameters   | ✅   | `copy_parameters` (core/numa/mod.rs)     | plan 116                                                                |
 | numaCreate           | 🔄   | `new` (core/numa/mod.rs)                 | C: numaCreate -> Rust: Numa::new()/with_capacity()                      |
 | numaCreateFromFArray | 🔄   | `from_slice` (core/numa/mod.rs)          | C: numaCreateFromFArray -> Rust: Numa::from_slice()/from_vec()          |
 | numaCreateFromIArray | 🔄   | `from_i32_slice` (core/numa/mod.rs)      | C: numaCreateFromIArray -> Rust: Numa::from_i32_slice()                 |
-| numaCreateFromString | ❌   | -                                        | no Rust impl in expected dirs                                           |
+| numaCreateFromString | ✅   | `create_from_string` (core/numa/mod.rs)  | plan 116                                                                |
 | numaDestroy          | 🚫   | -                                        | Drop trait で自動破棄                                                   |
 | numaEmpty            | 🔄   | `clear` (core/numa/mod.rs)               | Numa::clear()/is_empty()                                                |
 | numaGetCount         | 🔄   | `len` (core/numa/mod.rs)                 | Numa::len()                                                             |
@@ -1567,12 +1567,12 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 | numaaAddNuma         | 🔄   | `(idiomatic)`                            | Numaa::push() で代替                                                    |
 | numaaAddNumber       | 🔄   | `(idiomatic)`                            | Numaa の特定 Numa に値追加 -> 個別に Numaa::get_mut + Numa::push で代替 |
 | numaaCreate          | 🔄   | `new` (core/numa/mod.rs)                 | Numaa::new()                                                            |
-| numaaCreateFull      | ❌   | -                                        | no Rust impl in expected dirs                                           |
+| numaaCreateFull      | ✅   | `create_full` (core/numa/mod.rs)         | plan 116                                                                |
 | numaaDestroy         | 🚫   | -                                        | Drop で自動破棄                                                         |
 | numaaGetCount        | 🔄   | `len` (core/numa/mod.rs)                 | Numaa::len()                                                            |
 | numaaGetNuma         | 🔄   | `(idiomatic)`                            | Numaa::get() で代替                                                     |
 | numaaGetNumaCount    | 🔄   | `(idiomatic)`                            | Numaa::len() で代替                                                     |
-| numaaGetNumberCount  | ❌   | -                                        | no Rust impl in expected dirs                                           |
+| numaaGetNumberCount  | 🔄   | `total_count` (core/numa/mod.rs)         | Numaa::total_count() で代替                                             |
 | numaaGetPtrArray     | 🚫   | -                                        | C ポインタ配列 - Rust では as_slice() で代替                            |
 | numaaGetValue        | 🔄   | `get_value` (core/numa/mod.rs)           | Numaa::get_value()                                                      |
 | numaaRead            | 🔄   | `read_from_file` (core/numa/serial.rs)   | Numaa::read_from_file()                                                 |

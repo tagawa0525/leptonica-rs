@@ -435,3 +435,85 @@ fn numa1_reg_parse_from_string_mixed_separators() {
         assert!((na.get(i).unwrap() - (i as f32 + 1.0)).abs() < 1e-6);
     }
 }
+
+// =====================================================================
+// gap-fill 第2弾 (plan 116): numabasic.c 拡張 5 関数
+// =====================================================================
+
+use leptonica::core::numa::{NumaSarrayType, Numaa};
+
+#[test]
+fn numa1_reg_create_from_string() {
+    let na = leptonica::Numa::create_from_string("1.5, -2, 6.25").expect("create_from_string");
+    assert_eq!(na.len(), 3);
+    assert!((na.get(0).unwrap() - 1.5).abs() < 1e-6);
+    assert!((na.get(1).unwrap() - (-2.0)).abs() < 1e-6);
+    assert!((na.get(2).unwrap() - 6.25).abs() < 1e-6);
+}
+
+#[test]
+fn numa1_reg_create_from_string_empty_errors() {
+    assert!(leptonica::Numa::create_from_string("").is_err());
+}
+
+#[test]
+fn numa1_reg_copy_parameters() {
+    let mut a = leptonica::Numa::new();
+    let mut b = leptonica::Numa::new();
+    b.set_parameters(10.0, 0.5);
+    a.copy_parameters(&b);
+    let (s, d) = a.parameters();
+    assert!((s - 10.0).abs() < 1e-6);
+    assert!((d - 0.5).abs() < 1e-6);
+}
+
+#[test]
+fn numa1_reg_convert_to_sarray_integer() {
+    let na = leptonica::Numa::from_slice(&[1.0, 23.0, 4.0]);
+    let sa = na.convert_to_sarray(3, 0, true, NumaSarrayType::Integer);
+    assert_eq!(sa.len(), 3);
+    assert_eq!(sa.get(0).unwrap(), "001");
+    assert_eq!(sa.get(1).unwrap(), "023");
+    assert_eq!(sa.get(2).unwrap(), "004");
+}
+
+#[test]
+fn numa1_reg_convert_to_sarray_integer_negative_padding() {
+    // Sign-aware zero pad: matches C printf("%03d", -2) = "-02"
+    let na = leptonica::Numa::from_slice(&[-2.0, -45.0]);
+    let sa = na.convert_to_sarray(3, 0, true, NumaSarrayType::Integer);
+    assert_eq!(sa.get(0).unwrap(), "-02");
+    assert_eq!(sa.get(1).unwrap(), "-45");
+}
+
+#[test]
+fn numa1_reg_convert_to_sarray_float() {
+    let na = leptonica::Numa::from_slice(&[1.5, -2.25]);
+    let sa = na.convert_to_sarray(8, 3, false, NumaSarrayType::Float);
+    assert_eq!(sa.len(), 2);
+    // 8 wide, 3 decimal places, e.g. "   1.500"
+    assert_eq!(sa.get(0).unwrap(), "   1.500");
+    assert_eq!(sa.get(1).unwrap(), "  -2.250");
+}
+
+#[test]
+fn numa1_reg_numaa_create_full() {
+    let naa = Numaa::create_full(4, 8);
+    assert_eq!(naa.len(), 4);
+    for i in 0..4usize {
+        let na = naa.get(i).expect("get");
+        assert_eq!(na.len(), 0);
+    }
+    // total_count() == 0 (numaaGetNumberCount equivalent)
+    assert_eq!(naa.total_count(), 0);
+}
+
+#[test]
+fn numa1_reg_numaa_total_count_matches_get_number_count() {
+    let mut naa = Numaa::create_full(3, 0);
+    naa.get_mut(0).unwrap().push(1.0);
+    naa.get_mut(0).unwrap().push(2.0);
+    naa.get_mut(2).unwrap().push(3.0);
+    // C: numaaGetNumberCount returns 3
+    assert_eq!(naa.total_count(), 3);
+}
