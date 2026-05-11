@@ -1452,7 +1452,7 @@ impl Pix {
         let h = self.height();
         for y in 0..h {
             for x in 0..w {
-                let idx = self.get_pixel(x, y).unwrap_or(0) as usize;
+                let idx = self.get_pixel_unchecked(x, y) as usize;
                 if idx < n && color_idx[idx] {
                     return Ok(true);
                 }
@@ -1486,13 +1486,14 @@ impl Pix {
         if w == 0 || h == 0 {
             return Ok((0.0, 0.0));
         }
-        let inverted = self.invert();
         let mut sumx: f64 = 0.0;
         let mut sumy: f64 = 0.0;
         let mut sumv: f64 = 0.0;
         for y in 0..h {
             for x in 0..w {
-                let val = inverted.get_pixel(x, y).unwrap_or(0) as f64;
+                // Compute inverted luminance on the fly to avoid an extra
+                // full-image clone (matches C's pixInvert + sum loop).
+                let val = (255 - self.get_pixel_unchecked(x, y) as i32) as f64;
                 sumx += val * x as f64;
                 sumy += val * y as f64;
                 sumv += val;
