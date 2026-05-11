@@ -1475,6 +1475,173 @@ fn compute_variance(data: &[u32]) -> f64 {
     variance
 }
 
+// ============================================================================
+// pageseg.c gap-fill (plan 803)
+// ============================================================================
+
+/// Find the vertical extent of foreground rows whose pixel count meets
+/// `thresh`.
+///
+/// Returns `(top, bot)` — row indices (inclusive) of the first and last
+/// rows with `count_pixels_in_row >= thresh`. If no row qualifies, both
+/// fields are `0` (matching C's "no row found" return).
+///
+/// Requires a 1 bpp image. Subsumes the `&top`/`&bot` output pointers from
+/// the C signature.
+///
+/// C Leptonica equivalent: `pixFindThreshFgExtent`.
+pub fn pix_find_thresh_fg_extent(pixs: &Pix, thresh: u32) -> RecogResult<(u32, u32)> {
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    let counts = pixs.count_by_row(None)?;
+    let n = counts.len();
+    let mut top = 0u32;
+    let mut bot = 0u32;
+    for i in 0..n {
+        if (counts.get(i).unwrap_or(0.0) as u32) >= thresh {
+            top = i as u32;
+            break;
+        }
+    }
+    for i in (0..n).rev() {
+        if (counts.get(i).unwrap_or(0.0) as u32) >= thresh {
+            bot = i as u32;
+            break;
+        }
+    }
+    Ok((top, bot))
+}
+
+/// Generate the halftone mask of `pixs` and a companion text image.
+///
+/// Returns `(halftone_mask, text_pix, halftone_found)`. The text image is
+/// `pixs` with halftone-flagged pixels removed. `halftone_found` is `true`
+/// when the halftone mask has any FG pixel.
+///
+/// Requires a 1 bpp image.
+///
+/// C Leptonica equivalent: `pixGenHalftoneMask` (delegates to
+/// `pixGenerateHalftoneMask`).
+pub fn pix_gen_halftone_mask(pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    let (halftone, text) = generate_halftone_mask(pixs)?;
+    let found = !halftone.is_zero();
+    Ok((halftone, text, found))
+}
+
+/// Generate the textline mask of `pixs` plus the vertical-whitespace mask
+/// it relies on.
+///
+/// Returns `(textline_mask, vertical_whitespace_mask, textline_found)`.
+/// `textline_found` is `true` when the textline mask has any FG pixel.
+///
+/// Requires a 1 bpp image of at least `MIN_WIDTH x MIN_HEIGHT`.
+///
+/// C Leptonica equivalent: `pixGenTextlineMask`.
+pub fn pix_gen_textline_mask(pixs: &Pix) -> RecogResult<(Pix, Pix, bool)> {
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    if pixs.width() < MIN_WIDTH || pixs.height() < MIN_HEIGHT {
+        return Err(RecogError::ImageTooSmall {
+            min_width: MIN_WIDTH,
+            min_height: MIN_HEIGHT,
+            actual_width: pixs.width(),
+            actual_height: pixs.height(),
+        });
+    }
+    use crate::morph::sequence::morph_comp_sequence;
+
+    // Invert and isolate large bg regions, then subtract them.
+    let mut pix1 = pixs.invert();
+    let pix2 = morph_comp_sequence(&pix1, "o80.60")?;
+    pix1 = pix1.subtract(&pix2)?;
+
+    // Vertical whitespace = open the remaining background.
+    let pixvws = morph_comp_sequence(&pix1, "o5.1 + o1.200")?;
+
+    // Textline mask: close characters, subtract vws, open small noise.
+    let pix3 = crate::morph::sequence::morph_sequence(pixs, "c30.1")?;
+    let pix4 = pix3.subtract(&pixvws)?;
+    let pixd = crate::morph::binary::open_brick(&pix4, 3, 3)?;
+
+    let found = !pixd.is_zero();
+    Ok((pixd, pixvws, found))
+}
+
+/// Generate a textblock mask from `pixs` and the vertical-whitespace mask
+/// returned by [`pix_gen_textline_mask`].
+///
+/// Returns `None` when the morphology step leaves no FG pixels (matching
+/// C's `NULL` return + `L_INFO` log).
+///
+/// C Leptonica equivalent: `pixGenTextblockMask`.
+pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pix>> {
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    if pixs.width() < MIN_WIDTH || pixs.height() < MIN_HEIGHT {
+        return Err(RecogError::ImageTooSmall {
+            min_width: MIN_WIDTH,
+            min_height: MIN_HEIGHT,
+            actual_width: pixs.width(),
+            actual_height: pixs.height(),
+        });
+    }
+    if pixvws.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixvws.depth().bits(),
+        });
+    }
+    if pixvws.width() != pixs.width() || pixvws.height() != pixs.height() {
+        return Err(RecogError::InvalidParameter(format!(
+            "pixvws dimensions ({}x{}) do not match pixs ({}x{})",
+            pixvws.width(),
+            pixvws.height(),
+            pixs.width(),
+            pixs.height()
+        )));
+    }
+    use crate::morph::binary::close_safe_brick;
+    use crate::morph::morphapp::morph_sequence_by_component;
+    use crate::morph::sequence::morph_sequence;
+
+    let pix1 = morph_sequence(pixs, "c1.10 + o4.1")?;
+    if pix1.is_zero() {
+        return Ok(None);
+    }
+
+    let mut pix2 = morph_sequence_by_component(&pix1, "c30.30 + d3.3", 0, 0, 8)?;
+    pix2 = close_safe_brick(&pix2, 10, 1)?;
+    let pix3 = pix2.subtract(pixvws)?;
+
+    let pixd = crate::region::pix_select_by_size(
+        &pix3,
+        25,
+        5,
+        crate::region::ConnectivityType::EightWay,
+        crate::region::SizeSelectType::IfBoth,
+        crate::region::SizeSelectRelation::Gte,
+    )?;
+    Ok(Some(pixd))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
