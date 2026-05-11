@@ -39,6 +39,7 @@ pub mod serial;
 pub mod statistics;
 
 pub use access::*;
+pub use arith::{RgbScaleType, linear_scale_rgb_val, log_scale_rgb_val};
 pub use blend::{BlendMode, GrayBlendType, MaskBlendType, blend_with_gray_mask};
 pub use clip::ScanDirection;
 pub use compare::{

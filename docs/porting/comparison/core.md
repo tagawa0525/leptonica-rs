@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 859  |
+| ✅ 同等   | 864  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 116  |
+| ❌ 未実装 | 111  |
 | 合計      | 1215 |
 
-**カバレッジ**: 78.4% (953/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 953/1069 = 89.1% 実装)
+**カバレッジ**: 78.8% (958/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 958/1069 = 89.6% 実装)
 
 ## 注記
 
@@ -1741,21 +1741,21 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 
 ### pixarith.c (追加分)
 
-| C関数                       | 状態 | Rust対応                            | 備考                                                  |
-| --------------------------- | ---- | ----------------------------------- | ----------------------------------------------------- |
-| getLogBase2                 | 🚫   | -                                   | Rust の u32::ilog2() で代替                           |
-| linearScaleRGBVal           | ❌   | -                                   | no Rust impl in expected dirs                         |
-| logScaleRGBVal              | ❌   | -                                   | no Rust impl in expected dirs                         |
-| makeLogBase2Tab             | 🚫   | -                                   | Rust では遅延構築で代替                               |
-| pixAccumulate               | 🔄   | `(idiomatic)`                       | Pixacc::add 等で代替 (core/pixacc.rs)                 |
-| pixAddRGB                   | ❌   | -                                   | no Rust impl in expected dirs                         |
-| pixFinalAccumulate          | 🔄   | `(idiomatic)`                       | Pixacc::final_accumulate で代替 (core/pixacc.rs)      |
-| pixFinalAccumulateThreshold | 🔄   | `(idiomatic)`                       | Pixacc::final_accumulate_threshold で代替             |
-| pixInitAccumulate           | 🔄   | `(idiomatic)`                       | Pixacc::new() で代替 (core/pixacc.rs)                 |
-| pixMaxDynamicRange          | 🔄   | `(idiomatic)`                       | pix_max_dynamic_range が core/pix/arith.rs で利用可能 |
-| pixMaxDynamicRangeRGB       | ❌   | -                                   | no Rust impl in expected dirs                         |
-| pixMultiplyGray             | ✅   | `multiply_gray` (core/pix/arith.rs) | name+module match                                     |
-| pixThresholdToValue         | ❌   | -                                   | no Rust impl in expected dirs                         |
+| C関数                       | 状態 | Rust対応                                    | 備考                                                  |
+| --------------------------- | ---- | ------------------------------------------- | ----------------------------------------------------- |
+| getLogBase2                 | 🚫   | -                                           | Rust の u32::ilog2() で代替                           |
+| linearScaleRGBVal           | ✅   | `linear_scale_rgb_val` (core/pix/arith.rs)  | plan 114                                              |
+| logScaleRGBVal              | ✅   | `log_scale_rgb_val` (core/pix/arith.rs)     | plan 114                                              |
+| makeLogBase2Tab             | 🚫   | -                                           | Rust では遅延構築で代替                               |
+| pixAccumulate               | 🔄   | `(idiomatic)`                               | Pixacc::add 等で代替 (core/pixacc.rs)                 |
+| pixAddRGB                   | ✅   | `add_rgb` (core/pix/arith.rs)               | plan 114                                              |
+| pixFinalAccumulate          | 🔄   | `(idiomatic)`                               | Pixacc::final_accumulate で代替 (core/pixacc.rs)      |
+| pixFinalAccumulateThreshold | 🔄   | `(idiomatic)`                               | Pixacc::final_accumulate_threshold で代替             |
+| pixInitAccumulate           | 🔄   | `(idiomatic)`                               | Pixacc::new() で代替 (core/pixacc.rs)                 |
+| pixMaxDynamicRange          | 🔄   | `(idiomatic)`                               | pix_max_dynamic_range が core/pix/arith.rs で利用可能 |
+| pixMaxDynamicRangeRGB       | ✅   | `max_dynamic_range_rgb` (core/pix/arith.rs) | plan 114                                              |
+| pixMultiplyGray             | ✅   | `multiply_gray` (core/pix/arith.rs)         | name+module match                                     |
+| pixThresholdToValue         | ✅   | `threshold_to_value` (core/pix/arith.rs)    | plan 114                                              |
 
 ### pixconv.c (追加分)
 
