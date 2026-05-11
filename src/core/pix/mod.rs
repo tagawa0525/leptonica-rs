@@ -47,7 +47,8 @@ pub use compare::{
 };
 pub use convert::{Convert16To8Type, GrayConversionType, MinMaxType, RemoveColormapTarget};
 pub use graphics::{
-    Color, ContourOutput, HashOrientation, PixelOp, PlotLocation, fill_polygon, render_polygon,
+    Color, ContourOutput, HashOrientation, PixelOp, PlotLocation, fill_polygon,
+    generate_pta_line_from_pt, locate_pt_radially, make_plot_pta_from_numa, render_polygon,
 };
 pub use histogram::ColorHistogram;
 pub use rgb::RgbComponent;

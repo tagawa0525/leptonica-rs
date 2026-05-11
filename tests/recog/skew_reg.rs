@@ -156,3 +156,17 @@ fn skew_reg_normalized_square_sum_uniform_full() {
         f
     );
 }
+
+/// C: pixFindDifferentialSquareSum — non-1bpp 入力はエラー
+#[test]
+fn skew_reg_differential_square_sum_non_1bpp_errors() {
+    let pix = Pix::new(32, 32, leptonica::PixelDepth::Bit8).expect("new 8bpp");
+    assert!(find_differential_square_sum(&pix).is_err());
+}
+
+/// C: pixFindNormalizedSquareSum — non-1bpp 入力はエラー
+#[test]
+fn skew_reg_normalized_square_sum_non_1bpp_errors() {
+    let pix = Pix::new(32, 32, leptonica::PixelDepth::Bit32).expect("new 32bpp");
+    assert!(find_normalized_square_sum(&pix).is_err());
+}
