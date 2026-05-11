@@ -26,7 +26,6 @@ fn make_cmapped_pix(w: u32, h: u32, cmap: PixColormap) -> Pix {
 // -- Colormap::equal_to ---------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmap_equal_same_rgb() {
     let a = make_cmap_rgb(&[(0, 0, 0), (255, 0, 0), (0, 255, 0)]);
     let b = make_cmap_rgb(&[(0, 0, 0), (255, 0, 0), (0, 255, 0)]);
@@ -34,7 +33,6 @@ fn cmap_equal_same_rgb() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmap_equal_size_diff() {
     let a = make_cmap_rgb(&[(0, 0, 0), (255, 0, 0)]);
     let b = make_cmap_rgb(&[(0, 0, 0)]);
@@ -42,7 +40,6 @@ fn cmap_equal_size_diff() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmap_equal_rgb_diff() {
     let a = make_cmap_rgb(&[(0, 0, 0), (255, 0, 0)]);
     let b = make_cmap_rgb(&[(0, 0, 0), (254, 0, 0)]);
@@ -50,7 +47,6 @@ fn cmap_equal_rgb_diff() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn cmap_equal_alpha_only_ignored_when_3comp() {
     let mut a = PixColormap::new(8).unwrap();
     a.add_rgba(10, 20, 30, 200).unwrap();
@@ -63,14 +59,12 @@ fn cmap_equal_alpha_only_ignored_when_3comp() {
 // -- Pix::uses_cmap_color -------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uses_cmap_color_no_cmap_is_false() {
     let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
     assert!(!pix.uses_cmap_color().unwrap());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uses_cmap_color_gray_cmap_only_is_false() {
     let cmap = make_cmap_rgb(&[(0, 0, 0), (128, 128, 128), (255, 255, 255)]);
     let pix = make_cmapped_pix(8, 8, cmap);
@@ -78,7 +72,6 @@ fn uses_cmap_color_gray_cmap_only_is_false() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uses_cmap_color_color_cmap_but_unused_is_false() {
     let cmap = make_cmap_rgb(&[(0, 0, 0), (255, 0, 0)]);
     // All zeros so only entry 0 (black) is referenced.
@@ -87,7 +80,6 @@ fn uses_cmap_color_color_cmap_but_unused_is_false() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uses_cmap_color_color_cmap_used_is_true() {
     let cmap = make_cmap_rgb(&[(0, 0, 0), (255, 0, 0)]);
     let pix = make_cmapped_pix(8, 8, cmap);
@@ -100,21 +92,18 @@ fn uses_cmap_color_color_cmap_used_is_true() {
 // -- Pix::centroid8 -------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn centroid8_rejects_non_8bpp() {
     let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
     assert!(pix.centroid8(1).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn centroid8_rejects_factor_zero() {
     let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
     assert!(pix.centroid8(0).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn centroid8_all_white_returns_center() {
     let pix = Pix::new(16, 10, PixelDepth::Bit8).unwrap();
     let mut m = pix.try_into_mut().unwrap();
@@ -130,7 +119,6 @@ fn centroid8_all_white_returns_center() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn centroid8_single_dark_pixel() {
     // 8 bpp, all 255 except one black pixel at (3,2). After invert, the
     // single non-zero pixel is at (3,2), so centroid = (3,2).
@@ -151,14 +139,12 @@ fn centroid8_single_dark_pixel() {
 // -- pad_to_center_centroid + pix_crop_aligned_to_centroid ----------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pad_to_center_centroid_rejects_factor_zero() {
     let pix = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
     assert!(pix.pad_to_center_centroid(0).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pad_to_center_centroid_centered_input_unchanged_size() {
     // Centroid already at canvas center -> wd=ws, hd=hs.
     let pix = Pix::new(10, 8, PixelDepth::Bit8).unwrap();
@@ -178,7 +164,6 @@ fn pad_to_center_centroid_centered_input_unchanged_size() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pad_to_center_centroid_off_center_expands() {
     let pix = Pix::new(10, 8, PixelDepth::Bit8).unwrap();
     let mut m = pix.try_into_mut().unwrap();
@@ -197,7 +182,6 @@ fn pad_to_center_centroid_off_center_expands() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_crop_aligned_returns_boxes() {
     let pix = Pix::new(10, 8, PixelDepth::Bit8).unwrap();
     let mut m = pix.try_into_mut().unwrap();
@@ -215,7 +199,6 @@ fn pix_crop_aligned_returns_boxes() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_crop_aligned_rejects_factor_zero() {
     let p1 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
     let p2 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();

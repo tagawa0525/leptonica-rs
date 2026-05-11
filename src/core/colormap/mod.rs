@@ -226,8 +226,16 @@ impl PixColormap {
     /// Returns `false` when the entry counts differ.
     ///
     /// C Leptonica equivalent: `cmapEqual`.
-    pub fn equal_to(&self, _other: &PixColormap, _include_alpha: bool) -> bool {
-        unimplemented!("plan 112 RED stub")
+    pub fn equal_to(&self, other: &PixColormap, include_alpha: bool) -> bool {
+        if self.colors.len() != other.colors.len() {
+            return false;
+        }
+        self.colors.iter().zip(other.colors.iter()).all(|(a, b)| {
+            a.red == b.red
+                && a.green == b.green
+                && a.blue == b.blue
+                && (!include_alpha || a.alpha == b.alpha)
+        })
     }
 
     /// Check if the colormap is black and white only (for 1 bpp images)

@@ -1,6 +1,6 @@
 # Core: compare.c の補助系 5 関数 (plan 032 カテゴリ F の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-11
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ F
 
@@ -79,7 +79,21 @@ pub fn pix_crop_aligned_to_centroid(
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 5 件 ❌ -> ✅
-- [ ] plan 032 で 112 を IMPLEMENTED に
+- [x] cargo test/clippy/fmt 通過 (17 件パス)
+- [x] core.md 5 件 ❌ -> ✅
+- [x] plan 032 で 112 を IMPLEMENTED に
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- `Colormap::equal_to(other, include_alpha)` は単純な entry 比較
+- `Pix::uses_cmap_color` は cmap entry index を直接スキャンする実装。
+  C の `pixGetGrayHistogram` 経由ではなく、Rust の
+  `gray_histogram_colormapped` が gray 値で集計するため、ここでは
+  cmap entry index ベースで色 entry の利用を判定する
+- `Pix::centroid8` は invert() + 重み付き重心計算。factor 引数は
+  C 版が無視しているのを尊重しつつ、API シグネチャは保持
+- `Pix::pad_to_center_centroid` は convert_to_8 -> centroid8 ->
+  set_all_gray(255) -> rop_region_inplace(Src) パイプライン
+- `pix_crop_aligned_to_centroid` は 2 枚の centroid8 結果から
+  対応 Box を計算 (C 版とビット同一の算術)
