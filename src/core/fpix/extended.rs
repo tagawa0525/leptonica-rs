@@ -256,7 +256,9 @@ impl FPix {
 ///
 /// `data` must be at least `w * h` elements. `(x, y)` may be fractional.
 /// When `(x, y)` is outside `[0, w-2] x [0, h-2]` the function returns
-/// `inval` (matching C's "skip if off the edge" behaviour).
+/// `inval` (matching C's "skip if off the edge" behaviour). Invalid
+/// inputs (`w < 2`, `h < 2`, undersized `data`, or non-finite
+/// `x`/`y`) also return `inval` rather than indexing blindly.
 ///
 /// C Leptonica equivalent: `linearInterpolatePixelFloat`.
 pub fn linear_interpolate_pixel_float(
@@ -267,6 +269,19 @@ pub fn linear_interpolate_pixel_float(
     y: f32,
     inval: f32,
 ) -> f32 {
+    // Reject malformed inputs up front: bilinear needs a 2x2 neighborhood,
+    // the backing buffer must hold w*h floats, and NaN/inf coordinates
+    // would otherwise bypass the bounds check before indexing.
+    if w < 2 || h < 2 {
+        return inval;
+    }
+    if !x.is_finite() || !y.is_finite() {
+        return inval;
+    }
+    let required = (w as usize).saturating_mul(h as usize);
+    if data.len() < required {
+        return inval;
+    }
     if x < 0.0 || y < 0.0 || x > (w - 2) as f32 || y > (h - 2) as f32 {
         return inval;
     }

@@ -232,3 +232,30 @@ fn linear_interpolate_within_3x3() {
     // Bilinear of (0,1,1,2) at (0.5,0.5) = 1.0.
     assert!((v - 1.0).abs() < 1e-3);
 }
+
+#[test]
+fn linear_interpolate_nan_returns_inval() {
+    let data: Vec<f32> = vec![1.0; 9];
+    let v = linear_interpolate_pixel_float(&data, 3, 3, f32::NAN, 0.0, -9.0);
+    assert!((v + 9.0).abs() < 1e-6);
+    let v2 = linear_interpolate_pixel_float(&data, 3, 3, 0.0, f32::INFINITY, -9.0);
+    assert!((v2 + 9.0).abs() < 1e-6);
+}
+
+#[test]
+fn linear_interpolate_small_dims_return_inval() {
+    let data: Vec<f32> = vec![1.0, 2.0];
+    // w < 2 or h < 2 are rejected.
+    let v = linear_interpolate_pixel_float(&data, 1, 2, 0.0, 0.0, -7.0);
+    assert!((v + 7.0).abs() < 1e-6);
+    let v2 = linear_interpolate_pixel_float(&data, 2, 1, 0.0, 0.0, -7.0);
+    assert!((v2 + 7.0).abs() < 1e-6);
+}
+
+#[test]
+fn linear_interpolate_short_buffer_returns_inval() {
+    // Claim 3x3 = 9 elements but pass only 4.
+    let data: Vec<f32> = vec![1.0; 4];
+    let v = linear_interpolate_pixel_float(&data, 3, 3, 0.5, 0.5, -7.0);
+    assert!((v + 7.0).abs() < 1e-6);
+}
