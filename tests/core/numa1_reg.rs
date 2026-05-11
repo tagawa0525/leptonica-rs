@@ -517,3 +517,32 @@ fn numa1_reg_numaa_total_count_matches_get_number_count() {
     // C: numaaGetNumberCount returns 3
     assert_eq!(naa.total_count(), 3);
 }
+
+// =====================================================================
+// gap-fill 第2弾 (plan 501/116) — 境界条件テスト
+// =====================================================================
+
+#[test]
+fn numa1_reg_parse_from_string_empty_separators_errors() {
+    assert!(leptonica::Numa::parse_from_string("1 2 3", "").is_err());
+}
+
+#[test]
+fn numa1_reg_parse_from_string_non_numeric_errors() {
+    let r = leptonica::Numa::parse_from_string("1, hello, 3", ",");
+    assert!(r.is_err(), "non-numeric token must error");
+}
+
+#[test]
+fn numa1_reg_create_from_string_non_numeric_errors() {
+    assert!(leptonica::Numa::create_from_string("1, abc, 3").is_err());
+}
+
+#[test]
+fn numa1_reg_convert_to_sarray_width_zero() {
+    // Format width 0 — values render at natural width
+    let na = leptonica::Numa::from_slice(&[5.0, 100.0]);
+    let sa = na.convert_to_sarray(0, 0, false, NumaSarrayType::Integer);
+    assert_eq!(sa.get(0).unwrap(), "5");
+    assert_eq!(sa.get(1).unwrap(), "100");
+}

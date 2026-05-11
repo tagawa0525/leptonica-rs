@@ -2292,4 +2292,51 @@ mod tests {
         let pta = make_plot_pta_from_numa(&na, 40, PlotLocation::Top, 1, 10).expect("plot pta");
         assert!(!pta.is_empty(), "plot pta should not be empty");
     }
+
+    // -- Boundary conditions raised in PR #332 Copilot review --
+
+    #[test]
+    fn test_generate_pta_line_from_pt_length_below_one_clamps_to_single_point() {
+        // length<=0 should be clamped to 1 (no negative offset)
+        let pta = generate_pta_line_from_pt(10, 10, 0.0, 0.0);
+        // 1-pixel "line" = single point at the start
+        assert_eq!(pta.len(), 1);
+        let (x, y) = pta.get(0).unwrap();
+        assert_eq!(x, 10.0);
+        assert_eq!(y, 10.0);
+    }
+
+    #[test]
+    fn test_generate_pta_line_from_pt_non_finite_inputs_clamped() {
+        // Non-finite length / radang must not panic
+        let p1 = generate_pta_line_from_pt(0, 0, f64::NAN, 0.0);
+        assert_eq!(p1.len(), 1);
+        let p2 = generate_pta_line_from_pt(0, 0, 5.0, f64::NAN);
+        // ang -> 0, so horizontal line
+        assert!(p2.len() >= 2);
+    }
+
+    #[test]
+    fn test_make_plot_pta_from_numa_size_zero_errors() {
+        use crate::core::numa::Numa;
+        let na = Numa::from_slice(&[1.0, 2.0]);
+        assert!(make_plot_pta_from_numa(&na, 0, PlotLocation::Top, 1, 5).is_err());
+    }
+
+    #[test]
+    fn test_make_plot_pta_from_numa_max_zero_errors() {
+        use crate::core::numa::Numa;
+        let na = Numa::from_slice(&[1.0, 2.0]);
+        assert!(make_plot_pta_from_numa(&na, 40, PlotLocation::Top, 1, 0).is_err());
+    }
+
+    #[test]
+    fn test_make_plot_pta_from_numa_max_ge_size_errors() {
+        use crate::core::numa::Numa;
+        let na = Numa::from_slice(&[1.0, 2.0]);
+        // max == size — refpos would underflow without the guard
+        assert!(make_plot_pta_from_numa(&na, 10, PlotLocation::Bottom, 1, 10).is_err());
+        // max > size
+        assert!(make_plot_pta_from_numa(&na, 10, PlotLocation::Right, 1, 20).is_err());
+    }
 }
