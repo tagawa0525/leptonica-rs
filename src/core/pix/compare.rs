@@ -1424,6 +1424,63 @@ impl Pix {
 
         Ok((fract_diff, avg_diff, exceeds))
     }
+
+    /// Check whether this Pix uses any color from its colormap.
+    ///
+    /// Returns `false` if no colormap is attached, the colormap has only
+    /// grayscale entries, or all color entries are unused. Returns `true`
+    /// only when a non-grayscale entry actually appears in the histogram.
+    ///
+    /// C Leptonica equivalent: `pixUsesCmapColor`.
+    pub fn uses_cmap_color(&self) -> Result<bool> {
+        let _ = self;
+        unimplemented!("plan 112 RED stub")
+    }
+
+    /// Compute the 8 bpp luminance-weighted centroid.
+    ///
+    /// The image is inverted (so darker pixels contribute more) then the
+    /// weighted centroid (cx, cy) is calculated. For an all-white image,
+    /// returns (w/2, h/2).
+    ///
+    /// `factor` (>=1) is a subsampling factor; **the C version ignores
+    /// it and processes every pixel**, so this binding does the same to
+    /// match the reference (the parameter is preserved for API parity).
+    ///
+    /// C Leptonica equivalent: `pixCentroid8`.
+    pub fn centroid8(&self, factor: u32) -> Result<(f32, f32)> {
+        let _ = (self, factor);
+        unimplemented!("plan 112 RED stub")
+    }
+
+    /// Pad the image so that the luminance centroid lies at the canvas
+    /// centre.
+    ///
+    /// The input is converted to 8 bpp; the output is 8 bpp filled with
+    /// white, with the source copied via raster-op at the offset that
+    /// centres the centroid.
+    ///
+    /// C Leptonica equivalent: `pixPadToCenterCentroid`.
+    pub fn pad_to_center_centroid(&self, factor: u32) -> Result<Pix> {
+        let _ = (self, factor);
+        unimplemented!("plan 112 RED stub")
+    }
+}
+
+/// Compute the crop boxes that align two images by luminance centroid.
+///
+/// Both images are converted to 8 bpp internally to compute centroids; the
+/// returned [`Box`] pair describes the matching rectangles in `pix1` and
+/// `pix2` respectively.
+///
+/// C Leptonica equivalent: `pixCropAlignedToCentroid`.
+pub fn pix_crop_aligned_to_centroid(
+    pix1: &Pix,
+    pix2: &Pix,
+    factor: u32,
+) -> Result<(crate::core::box_::Box, crate::core::box_::Box)> {
+    let _ = (pix1, pix2, factor);
+    unimplemented!("plan 112 RED stub")
 }
 
 /// Best-translation alignment result.
