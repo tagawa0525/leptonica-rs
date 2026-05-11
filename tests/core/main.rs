@@ -34,6 +34,7 @@ mod pix_histogram_advanced_reg;
 mod pix_stats_advanced_reg;
 mod pixa1_reg;
 mod pixa2_reg;
+mod pixa_select_reg;
 mod pixacc_reg;
 mod pixafunc_reg;
 mod pixalloc_reg;
