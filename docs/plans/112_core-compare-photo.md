@@ -82,7 +82,11 @@ pub fn pix_crop_aligned_to_centroid(
 ## 実装メモ
 
 - `Colormap::equal_to(other, include_alpha)` は単純な entry 比較
-- `Pix::uses_cmap_color` は cmap entry index を直接スキャンする実装。 の `pixGetGrayHistogram` 経由ではなく、Rust の`gray_histogram_colormapped` が gray 値で集計するため、ここではcmap entry index ベースで色 entry の利用を判定する
+- `Pix::uses_cmap_color` は cmap entry index を直接スキャンする実装。
+  C 版の `pixGetGrayHistogram` 経由のロジックは使わない。Rust の
+  `gray_histogram_colormapped` は cmap entry を gray 値に変換して
+  集計するため、entry index ベースで色 entry の利用を判定するには
+  使えないため
 - `Pix::centroid8` は invert() + 重み付き重心計算。factor 引数はC 版が無視しているのを尊重しつつ、API シグネチャは保持
 - `Pix::pad_to_center_centroid` は convert_to_8 -> centroid8 -> set_all_gray(255) -> rop_region_inplace(Src) パイプライン
 - `pix_crop_aligned_to_centroid` は 2 枚の centroid8 結果から対応 Box を計算 (C 版とビット同一の算術)
