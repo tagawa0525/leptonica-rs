@@ -20,17 +20,9 @@ Status: IMPLEMENTED
 
 ### マスク生成
 
-- `pixGenHalftoneMask(pixs, &ppixtext, &htfound)` — ハーフトーン
-
-  領域マスクとテキストピクセルを返す
-
-- `pixGenTextlineMask(pixs, &ppixvws, &tlfound)` — テキスト行マスクと
-
-  垂直空白マスクを返す
-
-- `pixGenTextblockMask(pixs, pixvws)` — `pixGenTextlineMask` の
-
-  `pixvws` を入力に取りテキストブロックマスクを生成
+- `pixGenHalftoneMask(pixs, &ppixtext, &htfound)` — ハーフトーン領域マスクとテキストピクセルを返す
+- `pixGenTextlineMask(pixs, &ppixvws, &tlfound)` — テキスト行マスクと垂直空白マスクを返す
+- `pixGenTextblockMask(pixs, pixvws)` — `pixGenTextlineMask` の`pixvws` を入力に取りテキストブロックマスクを生成
 
 ## API 設計
 
@@ -78,14 +70,7 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> Result<Option<Pix>>;
 
 ## 実装メモ
 
-- `pix_find_thresh_fg_extent`: 既存 `Pix::count_by_row` を使い、
-  前後から `thresh` 以上の行を走査
-- `pix_gen_halftone_mask`: 既存 private `generate_halftone_mask`
-  ヘルパーを呼び、`is_zero()` で found フラグを生成
-- `pix_gen_textline_mask`: C と同じ morph sequence
-  (`invert -> o80.60 subtract -> o5.1 + o1.200 (vws) ->
-   c30.1 subtract vws -> open_brick(3,3)`) を Rust の
-  `morph_sequence`/`morph_comp_sequence`/`open_brick` で再現
-- `pix_gen_textblock_mask`: `c1.10 + o4.1` -> 空ならば `None`、
-  `morph_sequence_by_component` -> `close_safe_brick(10,1)` ->
-  subtract vws -> `pix_select_by_size(25, 5, EightWay, IfBoth, Gte)`
+- `pix_find_thresh_fg_extent`: 既存 `Pix::count_by_row` を使い、前後から `thresh` 以上の行を走査
+- `pix_gen_halftone_mask`: 既存 private `generate_halftone_mask`ヘルパーを呼び、`is_zero()` で found フラグを生成
+- `pix_gen_textline_mask`: C と同じ morph sequence(`invert -> o80.60 subtract -> o5.1 + o1.200 (vws) -> c30.1 subtract vws -> open_brick(3,3)`) を Rust の`morph_sequence`/`morph_comp_sequence`/`open_brick` で再現
+- `pix_gen_textblock_mask`: `c1.10 + o4.1` -> 空ならば `None`、`morph_sequence_by_component` -> `close_safe_brick(10,1)` -> subtract vws -> `pix_select_by_size(25, 5, EightWay, IfBoth, Gte)`
