@@ -54,8 +54,39 @@ fn split_paragraphs_on_blank_line() {
     let txt = "p1 line1\np1 line2\n\np2 line1\np2 line2";
     let out = split_string_to_paragraphs(txt, ParagraphSplit::OnBlankLine);
     assert_eq!(out.len(), 2);
-    assert!(out.get(0).unwrap().contains("p1 line1"));
-    assert!(out.get(1).unwrap().contains("p2 line1"));
+    // Exact content check: the blank separator must not bleed into either
+    // paragraph and lines are re-joined verbatim with trailing \n.
+    assert_eq!(out.get(0).unwrap(), "p1 line1\np1 line2\n");
+    assert_eq!(out.get(1).unwrap(), "p2 line1\np2 line2\n");
+}
+
+#[test]
+fn split_paragraphs_blank_line_does_not_start_next_paragraph() {
+    let txt = "a\n\nb";
+    let out = split_string_to_paragraphs(txt, ParagraphSplit::OnBlankLine);
+    assert_eq!(out.len(), 2);
+    let second = out.get(1).unwrap();
+    assert!(!second.starts_with('\n'), "got: {second:?}");
+    assert_eq!(second, "b\n");
+}
+
+#[test]
+fn split_paragraphs_consecutive_blank_lines_produce_no_empty_paragraph() {
+    // Two consecutive blank lines should still split exactly once.
+    let txt = "a\n\n\nb";
+    let out = split_string_to_paragraphs(txt, ParagraphSplit::OnBlankLine);
+    assert_eq!(out.len(), 2);
+    assert_eq!(out.get(0).unwrap(), "a\n");
+    assert_eq!(out.get(1).unwrap(), "b\n");
+}
+
+#[test]
+fn split_paragraphs_unicode_whitespace_not_a_separator() {
+    // U+3000 (Ideographic Space) is whitespace in Unicode but not in
+    // C isspace() / ASCII; it must not trigger a paragraph split.
+    let txt = "first line\n\u{3000}\nlast line";
+    let out = split_string_to_paragraphs(txt, ParagraphSplit::OnBlankLine);
+    assert_eq!(out.len(), 1);
 }
 
 #[test]

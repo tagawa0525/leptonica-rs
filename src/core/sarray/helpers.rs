@@ -46,9 +46,22 @@ pub fn string_compare_lexical(str1: &str, str2: &str) -> i32 {
 /// Split `textstr` into paragraph strings, using `split` to choose
 /// the paragraph boundary.
 ///
-/// Each entry in the returned Sarray is the joined text of one
-/// paragraph (lines re-joined with `\n` separators, mirroring C's
-/// `sarrayToString(..., 1)` add-newline behaviour).
+/// Each entry in the returned Sarray is one paragraph, with its lines
+/// re-joined by `\n` plus a trailing `\n` (mirroring C
+/// `sarrayToString(..., addnlflag=1)`).
+///
+/// **Deviations from C `splitStringToParagraphs`:**
+///
+/// - Blank-line triggers (`OnBlankLine` / `OnBoth`) consume the blank
+///   line itself as a separator instead of carrying it into the next
+///   paragraph. The C implementation appends the blank line as the
+///   first line of the next paragraph, which produces stuttering
+///   output for consecutive blank lines; Rust drops them.
+///   `OnLeadingWhite` triggers keep the indented line in the next
+///   paragraph (it is content, not a separator).
+/// - Whitespace is determined via `char::is_ascii_whitespace` so
+///   non-ASCII white characters (e.g. U+3000) match C's `isspace()`
+///   semantics on byte data.
 ///
 /// C Leptonica equivalent: `splitStringToParagraphs`.
 pub fn split_string_to_paragraphs(textstr: &str, split: ParagraphSplit) -> Sarray {
@@ -71,19 +84,34 @@ pub fn split_string_to_paragraphs(textstr: &str, split: ParagraphSplit) -> Sarra
 
     for i in 0..lines.len() {
         let line = lines.get(i).unwrap_or("");
-        let all_white = line.chars().all(|c| c.is_whitespace());
-        let lead_white = line.chars().next().is_some_and(|c| c.is_whitespace());
+        let bytes = line.as_bytes();
+        // Match C isspace() semantics on byte data: ASCII-only whitespace.
+        let all_white = bytes.iter().all(|b| b.is_ascii_whitespace());
+        let is_blank = bytes.is_empty() || all_white;
+        let lead_white = bytes.first().is_some_and(|b| b.is_ascii_whitespace());
 
         // The first line is always appended; only subsequent lines may
         // trigger a paragraph break.
         if i > 0 {
             let trigger = match split {
                 ParagraphSplit::OnLeadingWhite => lead_white,
-                ParagraphSplit::OnBlankLine => all_white,
-                ParagraphSplit::OnBoth => all_white || lead_white,
+                ParagraphSplit::OnBlankLine => is_blank,
+                ParagraphSplit::OnBoth => is_blank || lead_white,
             };
             if trigger {
                 push_current_to_out(&mut current, &mut out);
+                // For blank-line triggers, the blank line is a separator
+                // and is not part of either paragraph. For
+                // OnLeadingWhite, the indented line is content of the
+                // *next* paragraph and must be kept.
+                let skip = match split {
+                    ParagraphSplit::OnLeadingWhite => false,
+                    ParagraphSplit::OnBlankLine => is_blank,
+                    ParagraphSplit::OnBoth => is_blank,
+                };
+                if skip {
+                    continue;
+                }
             }
         }
         current.push(line.to_string());
