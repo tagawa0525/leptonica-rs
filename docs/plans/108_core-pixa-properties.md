@@ -1,6 +1,6 @@
 # Core: pixafunc1.c / pixafunc2.c の Pixa プロパティ 8 関数 (plan 032 カテゴリ A-3 の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-12
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-3
 
@@ -88,7 +88,18 @@ impl Pix {
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 8 件 ❌ -> ✅
-- [ ] plan 032 で 108 を IMPLEMENTED に分割反映
+- [x] cargo test/clippy/fmt 通過 (24 件パス)
+- [x] core.md 8 件 ❌ -> ✅
+- [x] plan 032 で 108 を IMPLEMENTED に分割反映
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- すべて `Pixa::pix_slice` / `Pixa::boxa` から read-only に走査
+- `has_color`: 32bpp は即 true、cmap は `PixColormap::has_color()` で判定
+- `get_depth_info`: 空 Pixa は Err、初期値は先頭 Pix の depth
+- `get_rendering_depth`: has_color() で 32 早期 return、それ以外はmax_depth が 1 なら 1、それ以外は 8
+- `size_range`: 単一スキャンで min/max を同時計算
+- `set_full_size_boxa`: 各 Pix の幅・高さで Boxa を再構築
+- `equal_to_ordered`: C `pixaEqual` の順序版のみ実装。 unordered (boxaEqual の reorder Numa を使う) は plan 108b で対応
+- `Pix::get_tile_count`: text が `"n = N"` 形式の時のみ N をパース、それ以外はすべて 0 を返す (C の inexact-text 契約)

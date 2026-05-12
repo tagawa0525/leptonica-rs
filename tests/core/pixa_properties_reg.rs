@@ -24,7 +24,6 @@ fn make_pix_with_cmap(w: u32, h: u32, color_entry: bool) -> Pix {
 // -- any_colormaps -------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn any_colormaps_none() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -33,7 +32,6 @@ fn any_colormaps_none() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn any_colormaps_one() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -44,7 +42,6 @@ fn any_colormaps_one() {
 // -- has_color ----------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn has_color_gray_only_is_false() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -53,7 +50,6 @@ fn has_color_gray_only_is_false() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn has_color_via_cmap() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -62,7 +58,6 @@ fn has_color_via_cmap() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn has_color_via_32bpp() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit32));
@@ -72,7 +67,6 @@ fn has_color_via_32bpp() {
 // -- get_depth_info -----------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn get_depth_info_uniform() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -83,7 +77,6 @@ fn get_depth_info_uniform() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn get_depth_info_mixed() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit1));
@@ -95,7 +88,6 @@ fn get_depth_info_mixed() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn get_depth_info_empty_errors() {
     let pa = Pixa::new();
     assert!(pa.get_depth_info().is_err());
@@ -104,7 +96,6 @@ fn get_depth_info_empty_errors() {
 // -- get_rendering_depth -------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn rendering_depth_all_1bpp() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit1));
@@ -113,7 +104,6 @@ fn rendering_depth_all_1bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn rendering_depth_gray_8bpp() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -121,7 +111,6 @@ fn rendering_depth_gray_8bpp() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn rendering_depth_color_returns_32() {
     let mut pa = Pixa::new();
     pa.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -132,7 +121,6 @@ fn rendering_depth_color_returns_32() {
 // -- size_range ---------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn size_range_single() {
     let mut pa = Pixa::new();
     pa.push(make_pix(7, 5, PixelDepth::Bit8));
@@ -140,7 +128,6 @@ fn size_range_single() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn size_range_varied() {
     let mut pa = Pixa::new();
     pa.push(make_pix(7, 5, PixelDepth::Bit8));
@@ -150,7 +137,6 @@ fn size_range_varied() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn size_range_empty() {
     let pa = Pixa::new();
     assert_eq!(pa.size_range(), None);
@@ -159,7 +145,6 @@ fn size_range_empty() {
 // -- set_full_size_boxa --------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn set_full_size_boxa_creates_matching_boxes() {
     let mut pa = Pixa::new();
     pa.push(make_pix(7, 5, PixelDepth::Bit8));
@@ -172,7 +157,6 @@ fn set_full_size_boxa_creates_matching_boxes() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn set_full_size_boxa_empty_noop() {
     let mut pa = Pixa::new();
     pa.set_full_size_boxa();
@@ -182,7 +166,6 @@ fn set_full_size_boxa_empty_noop() {
 // -- equal_to_ordered ---------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn equal_to_ordered_identical() {
     let mut a = Pixa::new();
     let mut b = Pixa::new();
@@ -194,7 +177,6 @@ fn equal_to_ordered_identical() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn equal_to_ordered_length_diff() {
     let mut a = Pixa::new();
     a.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -205,7 +187,6 @@ fn equal_to_ordered_length_diff() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn equal_to_ordered_pix_diff() {
     let mut a = Pixa::new();
     a.push(make_pix(4, 4, PixelDepth::Bit8));
@@ -215,7 +196,6 @@ fn equal_to_ordered_pix_diff() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn equal_to_ordered_box_mismatch() {
     let mut a = Pixa::new();
     a.push_with_box(
@@ -233,14 +213,12 @@ fn equal_to_ordered_box_mismatch() {
 // -- Pix::get_tile_count -----------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn get_tile_count_no_text() {
     let p = make_pix(4, 4, PixelDepth::Bit8);
     assert_eq!(p.get_tile_count(), 0);
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn get_tile_count_valid_format() {
     let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
     let mut m = pix.try_into_mut().unwrap();
@@ -250,7 +228,6 @@ fn get_tile_count_valid_format() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn get_tile_count_bad_format() {
     let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
     let mut m = pix.try_into_mut().unwrap();
@@ -260,7 +237,6 @@ fn get_tile_count_bad_format() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn get_tile_count_short_text() {
     let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
     let mut m = pix.try_into_mut().unwrap();
