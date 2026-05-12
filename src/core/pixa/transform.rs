@@ -59,6 +59,9 @@ impl Pixa {
 
     /// Orthogonal rotation by `quads` * 90 degrees (0..=3).
     ///
+    /// `quads == 0` returns a deep-cloned Pixa (independent pixel buffers),
+    /// matching C `pixaRotateOrth`'s `pixaCopy(pixas, L_COPY)`.
+    ///
     /// C Leptonica equivalent: `pixaRotateOrth`.
     pub fn rotate_orth(&self, quads: u32) -> Result<Pixa> {
         if quads > 3 {
@@ -66,20 +69,22 @@ impl Pixa {
                 "quads must be in 0..=3 (got {quads})"
             )));
         }
-        if quads == 0 {
-            return Ok(self.clone());
-        }
         let n = self.pix_slice().len();
         let mut out = Pixa::with_capacity(n);
         for i in 0..n {
             let pix = &self.pix_slice()[i];
-            let rotated = crate::transform::rotate::rotate_orth(pix, quads)
-                .map_err(|e| Error::InvalidParameter(format!("rotate_orth failed: {e}")))?;
             let b = self.boxa().get(i).copied().unwrap_or_default();
-            let new_box = b
-                .rotate_orth(pix.width() as i32, pix.height() as i32, quads as i32)
-                .unwrap_or_default();
-            out.push_with_box(rotated, new_box);
+            if quads == 0 {
+                // C `pixaCopy(pixas, L_COPY)` produces fresh pixel data.
+                out.push_with_box(pix.deep_clone(), b);
+            } else {
+                let rotated = crate::transform::rotate::rotate_orth(pix, quads)
+                    .map_err(|e| Error::InvalidParameter(format!("rotate_orth failed: {e}")))?;
+                let new_box = b
+                    .rotate_orth(pix.width() as i32, pix.height() as i32, quads as i32)
+                    .unwrap_or_default();
+                out.push_with_box(rotated, new_box);
+            }
         }
         Ok(out)
     }
@@ -87,11 +92,12 @@ impl Pixa {
     /// Translate each Pix by `(hshift, vshift)`. `incolor` controls the
     /// background brought in by the shift.
     ///
+    /// `(0, 0)` shift returns a deep-cloned Pixa (independent pixel
+    /// buffers), matching `Pix::translate(0, 0, ...)`'s deep-copy
+    /// semantics.
+    ///
     /// C Leptonica equivalent: `pixaTranslate`.
     pub fn translate(&self, hshift: i32, vshift: i32, incolor: InColor) -> Result<Pixa> {
-        if hshift == 0 && vshift == 0 {
-            return Ok(self.clone());
-        }
         let n = self.pix_slice().len();
         let mut out = Pixa::with_capacity(n);
         for i in 0..n {

@@ -55,11 +55,15 @@ fn pixa_scale_by_sampling_halves() {
 // -- rotate_orth ----------------------------------------------------------
 
 #[test]
-fn pixa_rotate_orth_0_returns_clone() {
+fn pixa_rotate_orth_0_returns_independent_clone() {
     let pa = make_pixa(&[(10, 6, PixelDepth::Bit8)]);
     let out = pa.rotate_orth(0).unwrap();
     assert_eq!(out.pix_slice()[0].width(), 10);
     assert_eq!(out.pix_slice()[0].height(), 6);
+    // Deep clone: source and result must not share the same Arc-backed
+    // pixel buffer (each is independently mutable).
+    assert_eq!(pa.pix_slice()[0].ref_count(), 1);
+    assert_eq!(out.pix_slice()[0].ref_count(), 1);
 }
 
 #[test]
@@ -79,10 +83,13 @@ fn pixa_rotate_orth_out_of_range_errors() {
 // -- translate ------------------------------------------------------------
 
 #[test]
-fn pixa_translate_zero_shift_returns_clone() {
+fn pixa_translate_zero_shift_returns_independent_clone() {
     let pa = make_pixa(&[(8, 8, PixelDepth::Bit8)]);
     let out = pa.translate(0, 0, InColor::White).unwrap();
     assert_eq!(out.pix_slice()[0].width(), 8);
+    // Deep clone: source and result must not share the Arc-backed buffer.
+    assert_eq!(pa.pix_slice()[0].ref_count(), 1);
+    assert_eq!(out.pix_slice()[0].ref_count(), 1);
 }
 
 #[test]
