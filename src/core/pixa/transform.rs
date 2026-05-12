@@ -126,31 +126,24 @@ impl Pixa {
         Ok(out)
     }
 
-    /// Convert every Pix to 8 bpp. `cmap_flag = true` keeps/produces a
-    /// gray colormap (matching C's `pixConvertTo8`).
+    /// Convert every Pix to 8 bpp.
+    ///
+    /// Currently `cmap_flag` is accepted for C API parity but does not
+    /// alter behaviour: every output Pix is 8 bpp without an attached
+    /// gray colormap. Full cmap handling (matching the `cmap_flag = 1`
+    /// path of C `pixConvertTo8`) is deferred to plan 107b.
     ///
     /// C Leptonica equivalent: `pixaConvertTo8`.
     pub fn convert_to_8(&self, cmap_flag: bool) -> Result<Pixa> {
+        let _ = cmap_flag;
         let n = self.pix_slice().len();
         let mut out = Pixa::with_capacity(n);
         for i in 0..n {
             let pix = &self.pix_slice()[i];
-            let converted = if cmap_flag {
-                pix.convert_to_8_or_32()?
-            } else {
-                pix.convert_to_8()?
-            };
-            // convert_to_8_or_32 may yield 32 bpp for color, but C
-            // pixaConvertTo8 always returns 8 bpp via convert_to_8.
-            let converted = if converted.depth() != crate::core::pix::PixelDepth::Bit8 {
-                pix.convert_to_8()?
-            } else {
-                converted
-            };
+            let converted = pix.convert_to_8()?;
             let b = self.boxa().get(i).copied().unwrap_or_default();
             out.push_with_box(converted, b);
         }
-        let _ = cmap_flag; // cmap-handling pathway can be revisited in plan 107b
         Ok(out)
     }
 
