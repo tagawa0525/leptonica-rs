@@ -3,6 +3,7 @@
 //! These structures manage collections of images, optionally with
 //! associated bounding boxes for each image.
 
+mod properties;
 mod select;
 mod serial;
 mod transform;
