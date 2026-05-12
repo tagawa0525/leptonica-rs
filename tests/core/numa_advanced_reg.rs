@@ -8,7 +8,6 @@ use leptonica::core::numa::advanced::{
 // -- Numa::count_reversals ----------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn count_reversals_binary() {
     let na = Numa::from_vec(vec![0.0, 1.0, 1.0, 0.0, 1.0, 0.0]);
     let (nr, _rd) = na.count_reversals(0.5).unwrap();
@@ -17,14 +16,12 @@ fn count_reversals_binary() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn count_reversals_negative_threshold_errors() {
     let na = Numa::from_vec(vec![0.0, 1.0]);
     assert!(na.count_reversals(-0.1).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn count_reversals_empty() {
     let na = Numa::new();
     let (nr, rd) = na.count_reversals(0.0).unwrap();
@@ -35,7 +32,6 @@ fn count_reversals_empty() {
 // -- Numa::find_peaks ---------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_peaks_single_unimodal() {
     // Triangle shape: 0, 1, 4, 1, 0
     let na = Numa::from_vec(vec![0.0, 1.0, 4.0, 1.0, 0.0]);
@@ -48,7 +44,6 @@ fn find_peaks_single_unimodal() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_peaks_empty_returns_empty() {
     let na = Numa::new();
     let peaks = na.find_peaks(3, 0.1, 0.5);
@@ -56,7 +51,6 @@ fn find_peaks_empty_returns_empty() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_peaks_all_zero_returns_empty() {
     let na = Numa::from_vec(vec![0.0; 5]);
     let peaks = na.find_peaks(3, 0.1, 0.5);
@@ -66,7 +60,6 @@ fn find_peaks_all_zero_returns_empty() {
 // -- numa_crossings_by_threshold ---------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn crossings_by_threshold_simple_rise() {
     // y = [0, 2] crosses thresh=1 between index 0 and 1.
     let nay = Numa::from_vec(vec![0.0, 2.0]);
@@ -77,7 +70,6 @@ fn crossings_by_threshold_simple_rise() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn crossings_by_threshold_no_crossing() {
     let nay = Numa::from_vec(vec![5.0, 6.0, 7.0]);
     let out = numa_crossings_by_threshold(&nay, None, 1.0).unwrap();
@@ -85,7 +77,6 @@ fn crossings_by_threshold_no_crossing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn crossings_by_threshold_nax_mismatch_errors() {
     let nay = Numa::from_vec(vec![0.0, 1.0]);
     let nax = Numa::from_vec(vec![0.0]);
@@ -95,7 +86,6 @@ fn crossings_by_threshold_nax_mismatch_errors() {
 // -- numa_uniform_bin_sizes --------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uniform_bin_sizes_even() {
     let na = numa_uniform_bin_sizes(10, 5).unwrap();
     assert_eq!(na.len(), 5);
@@ -105,7 +95,6 @@ fn uniform_bin_sizes_even() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uniform_bin_sizes_uneven() {
     let na = numa_uniform_bin_sizes(10, 3).unwrap();
     assert_eq!(na.len(), 3);
@@ -115,7 +104,6 @@ fn uniform_bin_sizes_uneven() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uniform_bin_sizes_ntotal_less_than_nbins() {
     // 3 items into 5 bins: first 3 bins get 1 each.
     let na = numa_uniform_bin_sizes(3, 5).unwrap();
@@ -126,7 +114,6 @@ fn uniform_bin_sizes_ntotal_less_than_nbins() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn uniform_bin_sizes_invalid_errors() {
     assert!(numa_uniform_bin_sizes(0, 5).is_err());
     assert!(numa_uniform_bin_sizes(10, 0).is_err());
@@ -135,7 +122,6 @@ fn uniform_bin_sizes_invalid_errors() {
 // -- gen_constrained_numa_in_range ------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_constrained_numa_simple() {
     let na = gen_constrained_numa_in_range(0, 10, 6, false).unwrap();
     assert_eq!(na.len(), 6);
@@ -144,7 +130,6 @@ fn gen_constrained_numa_simple() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_constrained_numa_nmax_smaller_than_range() {
     let na = gen_constrained_numa_in_range(0, 100, 3, false).unwrap();
     assert_eq!(na.len(), 3);
@@ -153,7 +138,6 @@ fn gen_constrained_numa_nmax_smaller_than_range() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_constrained_numa_use_pairs() {
     let na = gen_constrained_numa_in_range(0, 10, 6, true).unwrap();
     // nsets = min(6, 11) / 2 = 3, total = 6 entries
@@ -167,7 +151,6 @@ fn gen_constrained_numa_use_pairs() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn gen_constrained_numa_invalid_errors() {
     // last < first
     assert!(gen_constrained_numa_in_range(10, 0, 5, false).is_err());

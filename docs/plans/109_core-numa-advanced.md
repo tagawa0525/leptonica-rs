@@ -1,6 +1,6 @@
 # Core: numafunc2.c の Numa 高度関数 5 関数 (plan 032 カテゴリ B の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-12
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ B
 
@@ -78,7 +78,15 @@ pub fn gen_constrained_numa_in_range(
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 7 件 ❌ -> ✅
-- [ ] plan 032 で 109 を IMPLEMENTED に分割反映
+- [x] cargo test/clippy/fmt 通過 (17 件パス)
+- [x] core.md 7 件 ❌ -> ✅ (本 plan 5 + 既存 Numa::histogram_**from** 対応の numaHistogramGetRank/ValFromVal/Rank)
+- [x] plan 032 で 109 を IMPLEMENTED に分割反映
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- `count_reversals`: 全要素が 0/1 ならバイナリ高速パス、それ以外は `find_extrema` を delta=min_reversal で呼んで反転数を取得
+- `find_peaks`: clone() で破壊的更新可能な作業用 Numa を作り、最大値を nmax 回検出。各ピークは (lloc, max_loc, rloc, peak_fract) の 4 要素で記録
+- `numa_crossings_by_threshold`: 隣接サンプルが thresh を跨ぐ場合に 線形補間で x を求める。nax 指定時は長さ一致を検証
+- `numa_uniform_bin_sizes`: ntotal < nbins は前から 1 ずつ詰める、それ以外は等分割 (端数を最後の bin で吸収)
+- `gen_constrained_numa_in_range`: nmax/range/use_pairs から nsets を導出して delta を計算、(use_pairs 時) 隣接ペア追加
