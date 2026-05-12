@@ -1,6 +1,6 @@
 # Core: ptafunc1.c の Pta + graphics 7 関数 (plan 032 カテゴリ E の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-12
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ E
 
@@ -81,7 +81,16 @@ pub enum PatternSource<'a> {
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 7 件 ❌ -> ✅
-- [ ] plan 032 で 111 を IMPLEMENTED に分割反映
+- [x] cargo test/clippy/fmt 通過 (15 件パス)
+- [x] core.md 8 件 ❌ -> ✅ (本 plan 7 + 既存 Pta::create_from_numa 対応の numaConvertToPta1/2)
+- [x] plan 032 で 111 を IMPLEMENTED に分割反映
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- `Pta::bounding_region`: `get_i_pt` を 1 パススキャン、empty で None、 `checked_sub`/`checked_add` で overflow ガード
+- `Pta::to_numa_pair`: 各点を `Numa::push` で x/y に分割
+- `Pta::replicate_pattern`: `PatternSource` enum で Pix/Pta を統一受け取り、 `Pix` の場合は `pta_get_pixels_from_pix(None)` で前景点に変換
+- `Pix::find_corner_pixels`: 各コーナーから対角線スキャンするクロージャ ヘルパーで 4 方向を統一処理
+- `pix_generate_from_pta` / `pta_get_pixels_from_pix`: 1bpp 限定、 範囲外は silently drop / clamp
+- `numaConvertToPta1` / `numaConvertToPta2` は既存 `Pta::create_from_numa` でカバー済み (対応エントリのみ更新)

@@ -16,7 +16,6 @@ fn make_1bpp_with_pixels(w: u32, h: u32, points: &[(u32, u32)]) -> Pix {
 // -- Pta::bounding_region -----------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn bounding_region_typical() {
     let mut pta = Pta::new();
     pta.push(1.0, 2.0);
@@ -27,14 +26,12 @@ fn bounding_region_typical() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn bounding_region_empty_is_none() {
     let pta = Pta::new();
     assert!(pta.bounding_region().is_none());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn bounding_region_single_point() {
     let mut pta = Pta::new();
     pta.push(3.0, 5.0);
@@ -45,7 +42,6 @@ fn bounding_region_single_point() {
 // -- Pta::to_numa_pair --------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn to_numa_pair_round_trip() {
     let mut pta = Pta::new();
     pta.push(1.0, 2.5);
@@ -60,7 +56,6 @@ fn to_numa_pair_round_trip() {
 // -- pix_generate_from_pta ----------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_generate_from_pta_renders_points() {
     let mut pta = Pta::new();
     pta.push(2.0, 3.0);
@@ -74,7 +69,6 @@ fn pix_generate_from_pta_renders_points() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pix_generate_from_pta_empty_pta() {
     let pta = Pta::new();
     let pix = pix_generate_from_pta(&pta, 4, 4).unwrap();
@@ -84,7 +78,6 @@ fn pix_generate_from_pta_empty_pta() {
 // -- pta_get_pixels_from_pix --------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pta_get_pixels_from_pix_full_image() {
     let pix = make_1bpp_with_pixels(5, 5, &[(0, 0), (2, 1), (4, 4)]);
     let pta = pta_get_pixels_from_pix(&pix, None).unwrap();
@@ -96,7 +89,6 @@ fn pta_get_pixels_from_pix_full_image() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pta_get_pixels_from_pix_with_region() {
     let pix = make_1bpp_with_pixels(8, 8, &[(0, 0), (3, 3), (7, 7)]);
     let region = Box::new(2, 2, 4, 4).unwrap();
@@ -107,7 +99,6 @@ fn pta_get_pixels_from_pix_with_region() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pta_get_pixels_from_pix_rejects_non_1bpp() {
     let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
     assert!(pta_get_pixels_from_pix(&pix, None).is_err());
@@ -116,14 +107,12 @@ fn pta_get_pixels_from_pix_rejects_non_1bpp() {
 // -- Pix::find_corner_pixels --------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_corner_pixels_rejects_non_1bpp() {
     let pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
     assert!(pix.find_corner_pixels().is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_corner_pixels_all_zero() {
     let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
     let pta = pix.find_corner_pixels().unwrap();
@@ -131,7 +120,6 @@ fn find_corner_pixels_all_zero() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn find_corner_pixels_all_four_corners_present() {
     // Foreground pixels at each corner.
     let pix = make_1bpp_with_pixels(8, 8, &[(0, 0), (7, 0), (0, 7), (7, 7)]);
@@ -147,7 +135,6 @@ fn find_corner_pixels_all_four_corners_present() {
 // -- Pta::replicate_pattern ---------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn replicate_pattern_simple() {
     // Anchor points (3, 3) and (5, 5); pattern = single point at (1, 1)
     // with centre (1, 1). Each anchor maps the pattern point to (x - cx + 1,
@@ -166,7 +153,6 @@ fn replicate_pattern_simple() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn replicate_pattern_clips_off_canvas() {
     // Anchor at (8, 8); pattern point at (3, 3) with centre (0, 0).
     // Result lands at (11, 11) which is outside 10x10 canvas → dropped.
@@ -181,7 +167,6 @@ fn replicate_pattern_clips_off_canvas() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn replicate_pattern_from_pix() {
     // 3x3 pattern with two FG points; anchor at (5, 5) and centre at (1, 1).
     let patt_pix = make_1bpp_with_pixels(3, 3, &[(0, 0), (2, 2)]);
