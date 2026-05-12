@@ -45,6 +45,7 @@ mod pixalloc_reg;
 mod pixcomp_reg;
 mod pixmem_reg;
 mod pixserial_reg;
+mod pta_graphics_reg;
 mod pta_reg;
 mod ptra1_reg;
 mod ptra2_reg;
