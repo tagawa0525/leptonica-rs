@@ -27,6 +27,7 @@ mod lowaccess_reg;
 mod numa1_reg;
 mod numa2_reg;
 mod numa3_reg;
+mod numa_advanced_reg;
 mod numa_sort_interp_reg;
 mod overlap_reg;
 mod pix_arith_rop_reg;
