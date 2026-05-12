@@ -49,6 +49,30 @@ fn flatten_to_pixa_empty() {
 }
 
 #[test]
+fn flatten_to_pixa_preserves_box_absence() {
+    use leptonica::core::Box;
+    // Inner 0: no boxes attached. Inner 1: boxes attached.
+    let mut inner0 = Pixa::with_capacity(2);
+    inner0.push(Pix::new(2, 2, PixelDepth::Bit8).unwrap());
+    inner0.push(Pix::new(3, 3, PixelDepth::Bit8).unwrap());
+    let mut inner1 = Pixa::with_capacity(1);
+    inner1.push_with_box(
+        Pix::new(4, 4, PixelDepth::Bit8).unwrap(),
+        Box::new(10, 20, 4, 4).unwrap(),
+    );
+    let mut paa = Pixaa::new();
+    paa.push(inner0);
+    paa.push(inner1);
+    let (pixa, _) = paa.flatten_to_pixa(false);
+    assert_eq!(pixa.pix_slice().len(), 3);
+    // Only the box from inner 1 should be carried over — no default (0,0,0,0)
+    // boxes are inserted for inner 0's box-less Pix.
+    assert_eq!(pixa.boxa().len(), 1);
+    let b = pixa.boxa().get(0).unwrap();
+    assert_eq!((b.x, b.y, b.w, b.h), (10, 20, 4, 4));
+}
+
+#[test]
 fn flatten_to_pixa_deep_clones() {
     let mut paa = Pixaa::new();
     paa.push(make_inner(&[(4, 4)]));

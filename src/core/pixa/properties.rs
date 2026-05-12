@@ -389,8 +389,10 @@ impl crate::core::pixa::Pixaa {
             };
             for j in 0..inner.pix_slice().len() {
                 let pix = inner.pix_slice()[j].deep_clone();
-                let b = inner.boxa().get(j).copied().unwrap_or_default();
-                out.push_with_box(pix, b);
+                match inner.boxa().get(j).copied() {
+                    Some(b) => out.push_with_box(pix, b),
+                    None => out.push(pix),
+                }
                 if let Some(n) = na.as_mut() {
                     n.push(i as f32);
                 }
