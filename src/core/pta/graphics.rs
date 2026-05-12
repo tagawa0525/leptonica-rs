@@ -33,21 +33,30 @@ pub enum PatternSource<'a> {
 impl Pta {
     /// Return the integer-coordinate bounding [`Box`] of all points.
     ///
-    /// Returns `None` when the Pta is empty (C version requires a
-    /// non-empty input, but Rust returns `Option` to make the empty
-    /// case representable).
+    /// Returns `None` when the Pta is empty.
+    /// Returns `Err` when the resulting width/height would overflow `i32`
+    /// (extreme inputs only — every coordinate must be near `i32::MAX`/
+    /// `i32::MIN` for this to trigger).
+    ///
+    /// Coordinates are rounded with `f32::round` (half-away-from-zero),
+    /// which is symmetric across positive and negative values. This is a
+    /// slight departure from C's `(x + 0.5) as i32` (which truncates
+    /// toward zero for negatives) but matches the box semantics expected
+    /// by callers that pass floating-point points.
     ///
     /// C Leptonica equivalent: `ptaGetBoundingRegion`.
-    pub fn bounding_region(&self) -> Option<Box> {
+    pub fn bounding_region(&self) -> Result<Option<Box>> {
         if self.is_empty() {
-            return None;
+            return Ok(None);
         }
         let mut minx = i32::MAX;
         let mut maxx = i32::MIN;
         let mut miny = i32::MAX;
         let mut maxy = i32::MIN;
         for i in 0..self.len() {
-            let (x, y) = self.get_i_pt(i).unwrap_or((0, 0));
+            let (xf, yf) = self.get(i).expect("index in 0..len must be valid");
+            let x = xf.round() as i32;
+            let y = yf.round() as i32;
             if x < minx {
                 minx = x;
             }
@@ -61,9 +70,15 @@ impl Pta {
                 maxy = y;
             }
         }
-        let w = maxx.checked_sub(minx)?.checked_add(1)?;
-        let h = maxy.checked_sub(miny)?.checked_add(1)?;
-        Box::new(minx, miny, w, h).ok()
+        let w = maxx
+            .checked_sub(minx)
+            .and_then(|d| d.checked_add(1))
+            .ok_or_else(|| Error::InvalidParameter("bounding box width overflows i32".into()))?;
+        let h = maxy
+            .checked_sub(miny)
+            .and_then(|d| d.checked_add(1))
+            .ok_or_else(|| Error::InvalidParameter("bounding box height overflows i32".into()))?;
+        Ok(Some(Box::new(minx, miny, w, h)?))
     }
 
     /// Split this Pta into two parallel Numa arrays (x, y).

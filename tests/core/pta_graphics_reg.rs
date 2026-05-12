@@ -21,22 +21,36 @@ fn bounding_region_typical() {
     pta.push(1.0, 2.0);
     pta.push(5.0, 8.0);
     pta.push(3.0, 4.0);
-    let b = pta.bounding_region().unwrap();
+    let b = pta.bounding_region().unwrap().unwrap();
     assert_eq!((b.x, b.y, b.w, b.h), (1, 2, 5, 7)); // (5-1+1=5, 8-2+1=7)
 }
 
 #[test]
 fn bounding_region_empty_is_none() {
     let pta = Pta::new();
-    assert!(pta.bounding_region().is_none());
+    assert!(pta.bounding_region().unwrap().is_none());
 }
 
 #[test]
 fn bounding_region_single_point() {
     let mut pta = Pta::new();
     pta.push(3.0, 5.0);
-    let b = pta.bounding_region().unwrap();
+    let b = pta.bounding_region().unwrap().unwrap();
     assert_eq!((b.x, b.y, b.w, b.h), (3, 5, 1, 1));
+}
+
+#[test]
+fn bounding_region_symmetric_rounding_for_negative() {
+    // Verify the doc-promised symmetric rounding for negative coords:
+    // (-1.5, -2.5).round() = (-2, -3), so bounds must include (-2, -3).
+    let mut pta = Pta::new();
+    pta.push(-1.5, -2.5);
+    pta.push(1.5, 2.5);
+    let b = pta.bounding_region().unwrap().unwrap();
+    assert_eq!(b.x, -2);
+    assert_eq!(b.y, -3);
+    assert_eq!(b.w, 2 - (-2) + 1);
+    assert_eq!(b.h, 3 - (-3) + 1);
 }
 
 // -- Pta::to_numa_pair --------------------------------------------------
