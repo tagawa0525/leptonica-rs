@@ -1,23 +1,22 @@
-# Core: pixafunc1.c / pixafunc2.c の Pixa 変換 8 関数 (plan 032 カテゴリ A-2 の一部)
+# Core: pixafunc1.c / pixafunc2.c の Pixa 変換 7 関数 (plan 032 カテゴリ A-2 の一部)
 
 Status: IMPLEMENTED
 作成日: 2026-05-11
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-2
 
-## 対象 C 関数 (8)
+## 対象 C 関数 (7)
 
-軽量・独立性の高い Pixa の geometry/convert 系 8 関数。残り 6 関数
-(`pixaConvertTo8Colormap` / `pixaConvertToNUpPixa` / `pixaScaleBySampling` /
-`pixaRotateOrth` の `incolor` parameter / `pixaConvertToGivenDepth` /
-`pixaConvertToSameDepth` / `pixaAddBorderGeneral` / `pixaClipToForeground`)
+軽量・独立性の高い Pixa の geometry/convert 系 7 関数。残り 7 関数
+(任意角 `pixaRotate` / `pixaConvertTo8Colormap` / `pixaConvertToNUpPixa` /
+`pixaConvertToGivenDepth` / `pixaConvertToSameDepth` /
+`pixaAddBorderGeneral` / `pixaClipToForeground`)
 は別 plan 107b で扱う。
 
 ### Geometry
 
 - `pixaScale(pixas, scalex, scaley)` — 各 Pix を scale、Boxa も同係数で変換
 - `pixaScaleBySampling(pixas, scalex, scaley)` — sampling 版 scale
-- `pixaRotate(pixas, angle, type, incolor, width, height)` — 任意角回転
-- `pixaRotateOrth(pixas, quads)` — 直交回転 (0/90/180/270 deg)
+- `pixaRotateOrth(pixas, quads)` — 直交回転 (0/90/180/270 deg)(任意角 `pixaRotate` は plan 107b で対応)
 - `pixaTranslate(pixas, hshift, vshift, incolor)` — 平行移動
 
 ### Convert
