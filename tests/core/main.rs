@@ -44,6 +44,7 @@ mod pixa_properties_residual_reg;
 mod pixa_select_reg;
 mod pixa_transform_reg;
 mod pixa_transform_residual_reg;
+mod pixaa_helpers_reg;
 mod pixacc_reg;
 mod pixafunc_reg;
 mod pixalloc_reg;

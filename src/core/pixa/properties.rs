@@ -362,6 +362,117 @@ fn match_relation(v: f32, t: f32, rel: super::ThresholdSelect) -> bool {
     }
 }
 
+impl crate::core::pixa::Pixaa {
+    /// Flatten this Pixaa into a single [`Pixa`] by concatenating
+    /// every inner Pixa in order. Each Pix is `deep_clone`d so the
+    /// output is independent.
+    ///
+    /// When `with_index = true`, the second tuple element is a
+    /// [`Numa`] whose `k`-th entry records which inner Pixa
+    /// contributed the `k`-th output Pix.
+    ///
+    /// C Leptonica equivalent: `pixaaFlattenToPixa`.
+    pub fn flatten_to_pixa(&self, with_index: bool) -> (Pixa, Option<crate::core::numa::Numa>) {
+        let total: usize = (0..self.len())
+            .filter_map(|i| self.get(i).map(|p| p.pix_slice().len()))
+            .sum();
+        let mut out = Pixa::with_capacity(total);
+        let mut na = if with_index {
+            Some(crate::core::numa::Numa::with_capacity(total))
+        } else {
+            None
+        };
+        for i in 0..self.len() {
+            let inner = match self.get(i) {
+                Some(p) => p,
+                None => continue,
+            };
+            for j in 0..inner.pix_slice().len() {
+                let pix = inner.pix_slice()[j].deep_clone();
+                let b = inner.boxa().get(j).copied().unwrap_or_default();
+                out.push_with_box(pix, b);
+                if let Some(n) = na.as_mut() {
+                    n.push(i as f32);
+                }
+            }
+        }
+        (out, na)
+    }
+
+    /// Return a Pixaa containing inner Pixa from `first..=last`.
+    ///
+    /// `last < 0` means "to the end". Errors when `first >= len` or
+    /// the resulting range is empty after clamping.
+    ///
+    /// C Leptonica equivalent: `pixaaSelectRange`.
+    pub fn select_range(&self, first: i32, last: i32) -> Result<Self> {
+        let n = self.len() as i32;
+        if n == 0 || first >= n {
+            return Err(Error::InvalidParameter(format!(
+                "first ({first}) >= pixaa size ({n})"
+            )));
+        }
+        let first = first.max(0);
+        let last = if last < 0 { n - 1 } else { last.min(n - 1) };
+        if last < first {
+            return Err(Error::InvalidParameter(format!(
+                "last ({last}) < first ({first})"
+            )));
+        }
+        let take = (last - first + 1) as usize;
+        let mut out = Self::with_capacity(take);
+        for i in (first as usize)..=(last as usize) {
+            let inner = match self.get(i) {
+                Some(p) => p,
+                None => continue,
+            };
+            out.push(inner.clone());
+        }
+        Ok(out)
+    }
+
+    /// Aggregate `(min_w, min_h, max_w, max_h)` across every Pix in
+    /// every inner Pixa.
+    ///
+    /// Returns `None` when the Pixaa is empty or contains no Pix at
+    /// all.
+    ///
+    /// C Leptonica equivalent: `pixaaSizeRange`.
+    pub fn size_range(&self) -> Option<(u32, u32, u32, u32)> {
+        let mut minw = u32::MAX;
+        let mut minh = u32::MAX;
+        let mut maxw = 0u32;
+        let mut maxh = 0u32;
+        let mut any = false;
+        for i in 0..self.len() {
+            let inner = match self.get(i) {
+                Some(p) => p,
+                None => continue,
+            };
+            if let Some((iw, ih, mw, mh)) = inner.size_range() {
+                any = true;
+                if iw < minw {
+                    minw = iw;
+                }
+                if ih < minh {
+                    minh = ih;
+                }
+                if mw > maxw {
+                    maxw = mw;
+                }
+                if mh > maxh {
+                    maxh = mh;
+                }
+            }
+        }
+        if any {
+            Some((minw, minh, maxw, maxh))
+        } else {
+            None
+        }
+    }
+}
+
 impl Pix {
     /// Parse the Pix's text tag for a tile count expressed as `"n = N"`.
     ///
