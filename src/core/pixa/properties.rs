@@ -178,6 +178,159 @@ impl Pixa {
     }
 }
 
+/// Which dimension(s) [`Pixa::make_size_indicator`] tests against the
+/// threshold `(width, height)`.
+///
+/// C Leptonica constants: `L_SELECT_WIDTH`, `L_SELECT_HEIGHT`,
+/// `L_SELECT_IF_EITHER`, `L_SELECT_IF_BOTH`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeIndicatorAxis {
+    /// Compare width only.
+    Width,
+    /// Compare height only.
+    Height,
+    /// Match when either width *or* height satisfies the relation.
+    IfEither,
+    /// Match only when both width *and* height satisfy the relation.
+    IfBoth,
+}
+
+impl Pixa {
+    /// Produce a 0/1 indicator [`Numa`] flagging Pix whose
+    /// `(width, height)` satisfy `relation` against the given
+    /// `(width, height)` threshold.
+    ///
+    /// C Leptonica equivalent: `pixaMakeSizeIndicator`.
+    pub fn make_size_indicator(
+        &self,
+        width: u32,
+        height: u32,
+        axis: SizeIndicatorAxis,
+        relation: super::ThresholdSelect,
+    ) -> crate::core::numa::Numa {
+        let pixs = self.pix_slice();
+        let mut na = crate::core::numa::Numa::with_capacity(pixs.len());
+        let w_t = width as f32;
+        let h_t = height as f32;
+        for p in pixs {
+            let w = p.width() as f32;
+            let h = p.height() as f32;
+            let w_match = match_relation(w, w_t, relation);
+            let h_match = match_relation(h, h_t, relation);
+            let val = match axis {
+                SizeIndicatorAxis::Width => w_match,
+                SizeIndicatorAxis::Height => h_match,
+                SizeIndicatorAxis::IfEither => w_match || h_match,
+                SizeIndicatorAxis::IfBoth => w_match && h_match,
+            };
+            na.push(if val { 1.0 } else { 0.0 });
+        }
+        na
+    }
+
+    /// Split this Pixa into a [`Pixaa`] using an index Numaa.
+    ///
+    /// Each inner Numa lists 0-based indices into `self`; the
+    /// corresponding Pix (and Box, when present) are gathered into a
+    /// fresh inner Pixa. The resulting Pixaa has the same length as
+    /// the input Numaa.
+    ///
+    /// Returns `Err` when the total index count in the Numaa does not
+    /// equal the Pixa size (matching C's "element count mismatch"
+    /// check).
+    ///
+    /// C Leptonica equivalent: `pixaSort2dByIndex`.
+    pub fn sort_2d_by_index(
+        &self,
+        naa: &crate::core::numa::Numaa,
+    ) -> Result<crate::core::pixa::Pixaa> {
+        let pix_total = self.pix_slice().len();
+        let total: usize = (0..naa.len())
+            .map(|i| naa.get(i).map(|n| n.len()).unwrap_or(0))
+            .sum();
+        if total != pix_total {
+            return Err(Error::InvalidParameter(format!(
+                "naa element count ({total}) != pixa size ({pix_total})"
+            )));
+        }
+        let mut paa = crate::core::pixa::Pixaa::with_capacity(naa.len());
+        for i in 0..naa.len() {
+            let na = naa.get(i).expect("0..naa.len() must be valid");
+            let mut pa = Pixa::with_capacity(na.len());
+            for j in 0..na.len() {
+                let idx = na.get(j).unwrap_or(-1.0) as i64;
+                if idx < 0 || (idx as usize) >= pix_total {
+                    return Err(Error::InvalidParameter(format!(
+                        "index {idx} out of range (pixa size {pix_total})"
+                    )));
+                }
+                let idx = idx as usize;
+                let pix = self.pix_slice()[idx].clone();
+                let b = self.boxa().get(idx).copied().unwrap_or_default();
+                pa.push_with_box(pix, b);
+            }
+            paa.push(pa);
+        }
+        Ok(paa)
+    }
+
+    /// Select a constrained, evenly-spaced subset of Pix.
+    ///
+    /// Wraps `gen_constrained_numa_in_range(first, last, nmax,
+    /// use_pairs)` to compute the index list and gathers the
+    /// corresponding entries (deep-cloned). Returns an empty Pixa
+    /// when the constraint yields no indices.
+    ///
+    /// C Leptonica equivalent: `pixaConstrainedSelect`.
+    pub fn constrained_select(
+        &self,
+        first: i32,
+        last: i32,
+        nmax: i32,
+        use_pairs: bool,
+    ) -> Result<Pixa> {
+        let n = self.pix_slice().len();
+        let first = first.max(0);
+        let last = if last < 0 {
+            (n as i32) - 1
+        } else {
+            last.min((n as i32) - 1)
+        };
+        if last < first {
+            return Err(Error::InvalidParameter(format!(
+                "last ({last}) < first ({first})"
+            )));
+        }
+        if nmax < 1 {
+            return Err(Error::InvalidParameter(format!("nmax < 1 (got {nmax})")));
+        }
+        let na = crate::core::numa::gen_constrained_numa_in_range(first, last, nmax, use_pairs)?;
+        let mut out = Pixa::with_capacity(na.len());
+        for i in 0..na.len() {
+            let idx = na.get(i).unwrap_or(-1.0) as i64;
+            if idx < 0 || (idx as usize) >= n {
+                continue;
+            }
+            let idx = idx as usize;
+            let pix = self.pix_slice()[idx].clone();
+            let b = self.boxa().get(idx).copied().unwrap_or_default();
+            out.push_with_box(pix, b);
+        }
+        Ok(out)
+    }
+}
+
+#[inline]
+fn match_relation(v: f32, t: f32, rel: super::ThresholdSelect) -> bool {
+    use super::ThresholdSelect::*;
+    match rel {
+        LessThan => v < t,
+        GreaterThan => v > t,
+        LessOrEqual => v <= t,
+        GreaterOrEqual => v >= t,
+    }
+}
+
 impl Pix {
     /// Parse the Pix's text tag for a tile count expressed as `"n = N"`.
     ///

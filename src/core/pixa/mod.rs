@@ -4,6 +4,8 @@
 //! associated bounding boxes for each image.
 
 mod properties;
+
+pub use properties::SizeIndicatorAxis;
 mod select;
 mod serial;
 mod transform;
