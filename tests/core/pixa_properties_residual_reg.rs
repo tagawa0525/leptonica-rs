@@ -136,3 +136,20 @@ fn constrained_select_invalid_errors() {
     // nmax < 1
     assert!(pa.constrained_select(0, 1, 0, false).is_err());
 }
+
+#[test]
+fn constrained_select_empty_pixa_returns_empty() {
+    let pa = Pixa::new();
+    let out = pa.constrained_select(0, -1, 5, false).unwrap();
+    assert_eq!(out.pix_slice().len(), 0);
+}
+
+#[test]
+fn constrained_select_deep_clones_output() {
+    let pa = make_pixa(&[(4, 4), (5, 5)]);
+    let out = pa.constrained_select(0, -1, 2, false).unwrap();
+    // Source Pix and output Pix must not share the same Arc-backed
+    // pixel buffer (each is independently mutable).
+    assert_eq!(pa.pix_slice()[0].ref_count(), 1);
+    assert_eq!(out.pix_slice()[0].ref_count(), 1);
+}

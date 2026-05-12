@@ -258,14 +258,22 @@ impl Pixa {
             let na = naa.get(i).expect("0..naa.len() must be valid");
             let mut pa = Pixa::with_capacity(na.len());
             for j in 0..na.len() {
-                let idx = na.get(j).unwrap_or(-1.0) as i64;
-                if idx < 0 || (idx as usize) >= pix_total {
+                // Use Numa::get_i32 (rounds to nearest) instead of `as i64`,
+                // which would silently truncate fractional values.
+                let raw_idx = na.get(j).unwrap_or(f32::NAN);
+                if !raw_idx.is_finite() {
                     return Err(Error::InvalidParameter(format!(
-                        "index {idx} out of range (pixa size {pix_total})"
+                        "non-finite index at naa[{i}][{j}]: {raw_idx}"
                     )));
                 }
-                let idx = idx as usize;
-                let pix = self.pix_slice()[idx].clone();
+                let idx_i32 = na.get_i32(j).expect("0..na.len() must be valid");
+                if idx_i32 < 0 || (idx_i32 as usize) >= pix_total {
+                    return Err(Error::InvalidParameter(format!(
+                        "index {idx_i32} out of range (pixa size {pix_total})"
+                    )));
+                }
+                let idx = idx_i32 as usize;
+                let pix = self.pix_slice()[idx].deep_clone();
                 let b = self.boxa().get(idx).copied().unwrap_or_default();
                 pa.push_with_box(pix, b);
             }
@@ -278,8 +286,15 @@ impl Pixa {
     ///
     /// Wraps `gen_constrained_numa_in_range(first, last, nmax,
     /// use_pairs)` to compute the index list and gathers the
-    /// corresponding entries (deep-cloned). Returns an empty Pixa
-    /// when the constraint yields no indices.
+    /// corresponding entries (each Pix is deep-cloned so the output
+    /// is independent of the source). Returns an empty Pixa when
+    /// `self` is empty.
+    ///
+    /// Errors:
+    /// - `last >= 0 && last < first`
+    /// - `nmax < 1`
+    /// - any index from `gen_constrained_numa_in_range` falls outside
+    ///   `0..self.len()` (an internal-consistency error)
     ///
     /// C Leptonica equivalent: `pixaConstrainedSelect`.
     pub fn constrained_select(
@@ -290,6 +305,11 @@ impl Pixa {
         use_pairs: bool,
     ) -> Result<Pixa> {
         let n = self.pix_slice().len();
+        // Empty Pixa: nothing to select. Return Ok(empty) rather than
+        // tripping the `last < first` branch via `last = -1`.
+        if n == 0 {
+            return Ok(Pixa::new());
+        }
         let first = first.max(0);
         let last = if last < 0 {
             (n as i32) - 1
@@ -307,12 +327,23 @@ impl Pixa {
         let na = crate::core::numa::gen_constrained_numa_in_range(first, last, nmax, use_pairs)?;
         let mut out = Pixa::with_capacity(na.len());
         for i in 0..na.len() {
-            let idx = na.get(i).unwrap_or(-1.0) as i64;
-            if idx < 0 || (idx as usize) >= n {
-                continue;
+            let raw_idx = na.get(i).unwrap_or(f32::NAN);
+            if !raw_idx.is_finite() {
+                return Err(Error::InvalidParameter(format!(
+                    "non-finite index produced by gen_constrained_numa_in_range[{i}]: {raw_idx}"
+                )));
             }
-            let idx = idx as usize;
-            let pix = self.pix_slice()[idx].clone();
+            let idx_i32 = na.get_i32(i).expect("0..na.len() must be valid");
+            if idx_i32 < 0 || (idx_i32 as usize) >= n {
+                // Out-of-range indices indicate an internal inconsistency
+                // (gen_constrained_numa_in_range respects [first, last]),
+                // so surface this rather than silently dropping.
+                return Err(Error::InvalidParameter(format!(
+                    "index {idx_i32} out of range (pixa size {n})"
+                )));
+            }
+            let idx = idx_i32 as usize;
+            let pix = self.pix_slice()[idx].deep_clone();
             let b = self.boxa().get(idx).copied().unwrap_or_default();
             out.push_with_box(pix, b);
         }
