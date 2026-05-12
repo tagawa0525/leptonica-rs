@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 920  |
+| ✅ 同等   | 925  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 55   |
+| ❌ 未実装 | 50   |
 | 合計      | 1215 |
 
-**カバレッジ**: 83.5% (1014/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 1014/1069 = 94.9% 実装)
+**カバレッジ**: 83.9% (1019/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 1019/1069 = 95.3% 実装)
 
 ## 注記
 
@@ -1586,48 +1586,48 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 
 ### numafunc2.c (追加分)
 
-| C関数                           | 状態 | Rust対応                                                 | 備考                          |
-| ------------------------------- | ---- | -------------------------------------------------------- | ----------------------------- |
-| genConstrainedNumaInRange       | ✅   | `gen_constrained_numa_in_range` (core/numa/advanced.rs)  | plan 109                      |
-| grayHistogramsToEMD             | ❌   | -                                                        | no Rust impl in expected dirs |
-| grayInterHistogramStats         | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaClose                       | ✅   | `close` (core/numa/operations.rs)                        | name+module match             |
-| numaConvertToInt                | 🔄   | `(idiomatic)`                                            | `iter().map(\                 |
-| numaCountReversals              | ✅   | `Numa::count_reversals` (core/numa/advanced.rs)          | plan 109                      |
-| numaCrossingsByPeaks            | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaCrossingsByThreshold        | ✅   | `numa_crossings_by_threshold` (core/numa/advanced.rs)    | plan 109                      |
-| numaDilate                      | ✅   | `dilate` (core/numa/operations.rs)                       | name+module match             |
-| numaDiscretizeHistoInBins       | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaDiscretizeSortedInBins      | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaEarthMoverDistance          | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaErode                       | ✅   | `erode` (core/numa/operations.rs)                        | name+module match             |
-| numaEvalBestHaarParameters      | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaEvalHaarSum                 | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaFindExtrema                 | ✅   | `find_extrema` (core/numa/operations.rs)                 | name+module match             |
-| numaFindPeaks                   | ✅   | `Numa::find_peaks` (core/numa/advanced.rs)               | plan 109                      |
-| numaGetHistogramStats           | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaGetHistogramStatsOnInterval | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaGetRankBinValues            | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaGetStatsUsingHistogram      | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaGetUniformBinSizes          | ✅   | `numa_uniform_bin_sizes` (core/numa/advanced.rs)         | plan 109                      |
-| numaHistogramGetRankFromVal     | ✅   | `Numa::histogram_rank_from_val` (core/numa/histogram.rs) | name+module match             |
-| numaHistogramGetValFromRank     | ✅   | `Numa::histogram_val_from_rank` (core/numa/histogram.rs) | name+module match             |
-| numaMakeHistogram               | ✅   | `make_histogram` (core/numa/operations.rs)               | name+module match             |
-| numaMakeHistogramAuto           | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaMakeHistogramClipped        | ✅   | `make_histogram_clipped` (core/numa/operations.rs)       | name+module match             |
-| numaMakeRankFromHistogram       | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaNormalizeHistogram          | ✅   | `normalize_histogram` (core/numa/histogram.rs)           | name+module match             |
-| numaOpen                        | ✅   | `open` (core/numa/operations.rs)                         | name+module match             |
-| numaRebinHistogram              | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaSelectCrossingThreshold     | ✅   | `select_crossing_threshold` (recog/barcode/signal.rs)    | name+module match             |
-| numaSimpleStats                 | ✅   | `simple_stats` (core/numa/operations.rs)                 | name+module match             |
-| numaSplitDistribution           | ❌   | -                                                        | no Rust impl in expected dirs |
-| numaTransform                   | ✅   | `transform` (core/numa/operations.rs)                    | name+module match             |
-| numaWindowedMean                | ✅   | `windowed_mean` (core/numa/operations.rs)                | name+module match             |
-| numaWindowedMeanSquare          | ✅   | `windowed_mean_square` (core/numa/operations.rs)         | name+module match             |
-| numaWindowedMedian              | ✅   | `windowed_median` (core/numa/operations.rs)              | name+module match             |
-| numaWindowedStats               | ✅   | `windowed_stats` (core/numa/operations.rs)               | name+module match             |
-| numaWindowedVariance            | ✅   | `windowed_variance` (filter/windowed.rs)                 | name+module match             |
+| C関数                           | 状態 | Rust対応                                                     | 備考                          |
+| ------------------------------- | ---- | ------------------------------------------------------------ | ----------------------------- |
+| genConstrainedNumaInRange       | ✅   | `gen_constrained_numa_in_range` (core/numa/advanced.rs)      | plan 109                      |
+| grayHistogramsToEMD             | ❌   | -                                                            | no Rust impl in expected dirs |
+| grayInterHistogramStats         | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaClose                       | ✅   | `close` (core/numa/operations.rs)                            | name+module match             |
+| numaConvertToInt                | 🔄   | `(idiomatic)`                                                | `iter().map(\                 |
+| numaCountReversals              | ✅   | `Numa::count_reversals` (core/numa/advanced.rs)              | plan 109                      |
+| numaCrossingsByPeaks            | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaCrossingsByThreshold        | ✅   | `numa_crossings_by_threshold` (core/numa/advanced.rs)        | plan 109                      |
+| numaDilate                      | ✅   | `dilate` (core/numa/operations.rs)                           | name+module match             |
+| numaDiscretizeHistoInBins       | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaDiscretizeSortedInBins      | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaEarthMoverDistance          | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaErode                       | ✅   | `erode` (core/numa/operations.rs)                            | name+module match             |
+| numaEvalBestHaarParameters      | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaEvalHaarSum                 | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaFindExtrema                 | ✅   | `find_extrema` (core/numa/operations.rs)                     | name+module match             |
+| numaFindPeaks                   | ✅   | `Numa::find_peaks` (core/numa/advanced.rs)                   | plan 109                      |
+| numaGetHistogramStats           | ✅   | `Numa::histogram_stats` (core/numa/histogram.rs)             | plan 119                      |
+| numaGetHistogramStatsOnInterval | ✅   | `Numa::histogram_stats_on_interval` (core/numa/histogram.rs) | plan 119                      |
+| numaGetRankBinValues            | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaGetStatsUsingHistogram      | ✅   | `Numa::stats_using_histogram` (core/numa/operations.rs)      | plan 119                      |
+| numaGetUniformBinSizes          | ✅   | `numa_uniform_bin_sizes` (core/numa/advanced.rs)             | plan 109                      |
+| numaHistogramGetRankFromVal     | ✅   | `Numa::histogram_rank_from_val` (core/numa/histogram.rs)     | name+module match             |
+| numaHistogramGetValFromRank     | ✅   | `Numa::histogram_val_from_rank` (core/numa/histogram.rs)     | name+module match             |
+| numaMakeHistogram               | ✅   | `make_histogram` (core/numa/operations.rs)                   | name+module match             |
+| numaMakeHistogramAuto           | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaMakeHistogramClipped        | ✅   | `make_histogram_clipped` (core/numa/operations.rs)           | name+module match             |
+| numaMakeRankFromHistogram       | ✅   | `make_rank_from_histogram` (core/numa/advanced.rs)           | plan 119                      |
+| numaNormalizeHistogram          | ✅   | `normalize_histogram` (core/numa/histogram.rs)               | name+module match             |
+| numaOpen                        | ✅   | `open` (core/numa/operations.rs)                             | name+module match             |
+| numaRebinHistogram              | ✅   | `numa_rebin_histogram` (core/numa/advanced.rs)               | plan 119                      |
+| numaSelectCrossingThreshold     | ✅   | `select_crossing_threshold` (recog/barcode/signal.rs)        | name+module match             |
+| numaSimpleStats                 | ✅   | `simple_stats` (core/numa/operations.rs)                     | name+module match             |
+| numaSplitDistribution           | ❌   | -                                                            | no Rust impl in expected dirs |
+| numaTransform                   | ✅   | `transform` (core/numa/operations.rs)                        | name+module match             |
+| numaWindowedMean                | ✅   | `windowed_mean` (core/numa/operations.rs)                    | name+module match             |
+| numaWindowedMeanSquare          | ✅   | `windowed_mean_square` (core/numa/operations.rs)             | name+module match             |
+| numaWindowedMedian              | ✅   | `windowed_median` (core/numa/operations.rs)                  | name+module match             |
+| numaWindowedStats               | ✅   | `windowed_stats` (core/numa/operations.rs)                   | name+module match             |
+| numaWindowedVariance            | ✅   | `windowed_variance` (filter/windowed.rs)                     | name+module match             |
 
 ### pix1.c (追加分)
 

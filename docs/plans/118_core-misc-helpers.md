@@ -17,8 +17,7 @@ runlength morphology / textops layout) が大きいため別 plan で扱う。
 
 ### textops.c
 
-- `splitStringToParagraphs(textstr, splitflag)` — テキストを
-  段落 Sarray に分割
+- `splitStringToParagraphs(textstr, splitflag)` — テキストを段落 Sarray に分割
 
 ## API 設計
 
@@ -62,17 +61,10 @@ pub fn split_string_to_paragraphs(textstr: &str, split: ParagraphSplit) -> Sarra
 
 ## 実装メモ
 
-- `string_compare_lexical`: byte 比較で C 完全互換 (返り値 0/1)。
-  内部は `as_bytes()` の素朴ループ
+- `string_compare_lexical`: byte 比較で C 完全互換 (返り値 0/1)。 内部は `as_bytes()` の素朴ループ
 - `split_string_to_paragraphs`:
-  - `Sarray::from_lines(_, true)` で空行を含めて行リスト化
-    (改行記号自体は除去される)
-  - 各行が `ParagraphSplit` の trigger 条件を満たすたびに
-    paragraph を flush
-  - C と異なり、空行 trigger 時はその空行を separator として
-    consume し、次の段落の先頭には含めない
-    (連続空行や先頭空行で空段落を生まないため)
-  - C `isspace()` 互換のため `is_ascii_whitespace` を使用
-    (U+3000 等は対象外)
-  - flush 時に各 paragraph 文字列の末尾に `\n` を付与
-    (C `sarrayToString(..., 1)` と一致)
+  - `Sarray::from_lines(_, true)` で空行を含めて行リスト化 (改行記号自体は除去される)
+  - 各行が `ParagraphSplit` の trigger 条件を満たすたびに paragraph を flush
+  - C と異なり、空行 trigger 時はその空行を separator として consume し、次の段落の先頭には含めない (連続空行や先頭空行で空段落を生まないため)
+  - C `isspace()` 互換のため `is_ascii_whitespace` を使用 (U+3000 等は対象外)
+  - flush 時に各 paragraph 文字列の末尾に `\n` を付与 (C `sarrayToString(..., 1)` と一致)

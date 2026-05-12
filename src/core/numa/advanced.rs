@@ -1,4 +1,4 @@
-//! Advanced Numa helpers (plan 109 / C numafunc2.c).
+//! Advanced Numa helpers (plan 109 / plan 119 / C numafunc2.c).
 //!
 //! Covered functions:
 //!
@@ -7,10 +7,19 @@
 //! - `numaFindPeaks` -> [`Numa::find_peaks`]
 //! - `numaGetUniformBinSizes` -> [`numa_uniform_bin_sizes`]
 //! - `genConstrainedNumaInRange` -> [`gen_constrained_numa_in_range`]
+//! - `numaRebinHistogram` -> [`numa_rebin_histogram`]
+//! - `numaMakeRankFromHistogram` -> [`make_rank_from_histogram`]
 //!
-//! `numaHistogramGetRankFromVal` / `numaHistogramGetValFromRank` are
-//! already covered by existing [`Numa::histogram_rank_from_val`] /
-//! [`Numa::histogram_val_from_rank`] in `numa::histogram`.
+//! Already covered by other modules:
+//!
+//! - `numaHistogramGetRankFromVal` / `numaHistogramGetValFromRank` ->
+//!   [`Numa::histogram_rank_from_val`] / [`Numa::histogram_val_from_rank`]
+//!   (`numa::histogram`)
+//! - `numaGetHistogramStats` / `numaGetHistogramStatsOnInterval` ->
+//!   [`Numa::histogram_stats`] / [`Numa::histogram_stats_on_interval`]
+//!   (`numa::histogram`)
+//! - `numaGetStatsUsingHistogram` ->
+//!   [`Numa::stats_using_histogram`] (`numa::operations`)
 
 use crate::core::error::{Error, Result};
 use crate::core::numa::Numa;
@@ -253,6 +262,96 @@ pub fn numa_uniform_bin_sizes(ntotal: i32, nbins: i32) -> Result<Numa> {
         start = end;
     }
     Ok(na)
+}
+
+/// Rebin a histogram by accumulating every `new_size` consecutive bins
+/// into one bin of the output.
+///
+/// The output has `ceil(ns / new_size)` bins; trailing partial groups
+/// accumulate whatever remains. The bin width parameter is scaled by
+/// `new_size` so the output's `(startx, deltax)` reflects the coarser
+/// resolution.
+///
+/// C Leptonica equivalent: `numaRebinHistogram`.
+pub fn numa_rebin_histogram(nas: &Numa, new_size: usize) -> Result<Numa> {
+    if new_size <= 1 {
+        return Err(Error::InvalidParameter("newsize must be > 1".into()));
+    }
+    let ns = nas.len();
+    if ns == 0 {
+        return Err(Error::InvalidParameter("nas is empty".into()));
+    }
+    let nd = ns.div_ceil(new_size);
+    let mut nad = Numa::with_capacity(nd);
+    let (start, oldsize) = nas.parameters();
+    nad.set_parameters(start, oldsize * (new_size as f32));
+    for i in 0..nd {
+        let base = i * new_size;
+        let mut count = 0.0_f32;
+        for j in 0..new_size {
+            let idx = base + j;
+            if idx < ns {
+                count += nas.get(idx).unwrap_or(0.0);
+            }
+        }
+        nad.push(count);
+    }
+    Ok(nad)
+}
+
+/// Build a rank (cumulative fraction) curve sampled at `npts` evenly
+/// spaced x positions covering the original histogram's range.
+///
+/// Returns `(nax, nay)` where each entry pair `(x, r)` describes the
+/// rank `r` at sample point `x`. Internally the histogram is
+/// normalised, cumulatively summed, and resampled with linear
+/// interpolation.
+///
+/// C Leptonica equivalent: `numaMakeRankFromHistogram`.
+pub fn make_rank_from_histogram(
+    startx: f32,
+    deltax: f32,
+    nasy: &Numa,
+    npts: usize,
+) -> Result<(Numa, Numa)> {
+    let n = nasy.len();
+    if n == 0 {
+        return Err(Error::InvalidParameter("no bins in nasy".into()));
+    }
+    if npts < 3 {
+        return Err(Error::InvalidParameter("npts must be >= 3".into()));
+    }
+    if deltax <= 0.0 {
+        return Err(Error::InvalidParameter("deltax must be > 0".into()));
+    }
+    let nan = nasy
+        .normalize_histogram()
+        .ok_or_else(|| Error::InvalidParameter("nasy has zero sum: cannot normalize".into()))?;
+
+    // Build the cumulative rank Numa (length n+1) and tag it with
+    // (startx, deltax) so interpolate_eqx_interval can map index -> x.
+    let mut nar = Numa::with_capacity(n + 1);
+    nar.set_parameters(startx, deltax);
+    let mut sum = 0.0_f32;
+    nar.push(sum);
+    for i in 0..n {
+        sum += nan.get(i).unwrap_or(0.0);
+        nar.push(sum);
+    }
+
+    let x_end = startx + (n as f32) * deltax;
+    let nay = nar.interpolate_eqx_interval(
+        crate::core::numa::InterpolationType::Linear,
+        startx,
+        x_end,
+        npts,
+    )?;
+    let dx = (x_end - startx) / ((npts - 1) as f32);
+    let mut nax = Numa::with_capacity(npts);
+    for i in 0..npts {
+        nax.push(startx + (i as f32) * dx);
+    }
+    Ok((nax, nay))
 }
 
 /// Generate up to `nmax` integer values evenly spread across the
