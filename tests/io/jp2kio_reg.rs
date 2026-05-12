@@ -72,6 +72,7 @@ fn jp2kio_reg_roundtrip() {
 ///
 /// Requires pixReadJp2k with box parameter for ROI extraction.
 #[test]
+#[cfg(feature = "jp2k-format")]
 fn jp2kio_reg_cropped_read() {
     // Smoke: full JP2K decode tests require a bundled .jp2 fixture, which is
     // not available in-tree. We verify the error paths regardless.
@@ -100,6 +101,7 @@ fn jp2kio_reg_cropped_read() {
 /// `read_jp2k_scaled_mem(data, scale_denom)` backed by hayro-jpeg2000's
 /// `target_resolution` hint.
 #[test]
+#[cfg(feature = "jp2k-format")]
 fn jp2kio_reg_scaled_read() {
     use leptonica::io::jp2k::read_jp2k_scaled_mem;
     // Without sample data we can only verify error paths and the
