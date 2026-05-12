@@ -4,7 +4,10 @@
 //! This module provides Leptonica-style convenience methods
 //! wrapped around Rust's `Vec<String>`.
 
+pub mod helpers;
 pub mod serial;
+
+pub use helpers::{ParagraphSplit, split_string_to_paragraphs, string_compare_lexical};
 
 use crate::core::error::{Error, Result};
 use std::collections::HashSet;

@@ -24,6 +24,7 @@ mod heap_reg;
 mod insert_reg;
 mod logicops_reg;
 mod lowaccess_reg;
+mod misc_helpers_reg;
 mod numa1_reg;
 mod numa2_reg;
 mod numa3_reg;
