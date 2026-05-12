@@ -33,14 +33,13 @@ fn count_reversals_empty() {
 
 #[test]
 fn find_peaks_single_unimodal() {
-    // Triangle shape: 0, 1, 4, 1, 0
+    // Triangle shape: 0, 1, 4, 1, 0 produces exactly one peak record
+    // (4 floats) for any nmax >= 1.
     let na = Numa::from_vec(vec![0.0, 1.0, 4.0, 1.0, 0.0]);
     let peaks = na.find_peaks(2, 0.1, 0.5);
-    // At least one peak's max_loc should be 2.
-    assert!(peaks.len() >= 4);
+    assert_eq!(peaks.len(), 4, "unimodal input must produce exactly 1 peak");
     // peak format: [lloc, max_loc, rloc, fract]
-    let max_loc = peaks.get(1).unwrap();
-    assert_eq!(max_loc, 2.0);
+    assert_eq!(peaks.get(1).unwrap(), 2.0); // max_loc
 }
 
 #[test]

@@ -64,8 +64,16 @@ impl Numa {
         };
 
         let (_start, delx) = self.parameters();
-        let len = delx.max(1.0) * (n as f32);
-        let rd = if len > 0.0 { nr as f32 / len } else { 0.0 };
+        // Density follows C's formula `nr / (delx * n)`. Guard against
+        // `delx == 0` (and the rare NaN/inf case) so we never divide by
+        // zero; valid sub-unit sampling rates (delx < 1.0) are preserved
+        // as-is.
+        let len = delx * (n as f32);
+        let rd = if len.is_finite() && len != 0.0 {
+            nr as f32 / len
+        } else {
+            0.0
+        };
         Ok((nr, rd))
     }
 
@@ -76,9 +84,16 @@ impl Numa {
     /// each peak is extracted the affected range is zeroed before
     /// looking for the next.
     ///
-    /// `fract1` is the threshold (relative to the peak height) above
-    /// which neighbouring values are included; `fract2` is the maximum
-    /// fractional drop allowed before stopping the inclusion sweep.
+    /// The sweep extends through every neighbour that satisfies **either**
+    /// of these conditions (matching C `numaFindPeaks`):
+    ///
+    /// 1. `val > fract1 * fmax_val` — value is still close to the peak
+    /// 2. `lastval - val > fract2 * lastval` — value drops sharply from
+    ///    the previous one, which is treated as a "transition through"
+    ///    rather than the end of the peak region
+    ///
+    /// The sweep stops on the first neighbour that fails both conditions,
+    /// or on a zero value.
     ///
     /// C Leptonica equivalent: `numaFindPeaks`.
     pub fn find_peaks(&self, nmax: u32, fract1: f32, fract2: f32) -> Numa {
