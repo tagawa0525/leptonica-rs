@@ -409,7 +409,10 @@ impl crate::core::pixa::Pixaa {
     /// C Leptonica equivalent: `pixaaSelectRange`.
     pub fn select_range(&self, first: i32, last: i32) -> Result<Self> {
         let n = self.len() as i32;
-        if n == 0 || first >= n {
+        if n == 0 {
+            return Err(Error::InvalidParameter("pixaa is empty".into()));
+        }
+        if first >= n {
             return Err(Error::InvalidParameter(format!(
                 "first ({first}) >= pixaa size ({n})"
             )));

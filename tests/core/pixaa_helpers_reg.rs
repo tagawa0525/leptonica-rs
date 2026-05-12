@@ -118,7 +118,12 @@ fn select_range_first_too_large_errors() {
 #[test]
 fn select_range_empty_pixaa_errors() {
     let paa = Pixaa::new();
-    assert!(paa.select_range(0, -1).is_err());
+    // Both positive and negative `first` must error with the empty-pixaa
+    // message — not with a misleading "first >= size" message.
+    let e0 = paa.select_range(0, -1).unwrap_err().to_string();
+    assert!(e0.contains("empty"), "unexpected msg: {e0}");
+    let e1 = paa.select_range(-3, -1).unwrap_err().to_string();
+    assert!(e1.contains("empty"), "unexpected msg: {e1}");
 }
 
 // -- size_range --------------------------------------------------------
