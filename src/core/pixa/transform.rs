@@ -178,13 +178,21 @@ impl Pixa {
         bot: u32,
         val: u32,
     ) -> Result<Pixa> {
+        // Border widths must fit in i32 because the Box shift uses
+        // signed subtraction. Fail loudly on overflow rather than
+        // silently truncating coordinates.
+        let left_i = i32::try_from(left)
+            .map_err(|_| Error::InvalidParameter(format!("left border {left} overflows i32")))?;
+        let top_i = i32::try_from(top)
+            .map_err(|_| Error::InvalidParameter(format!("top border {top} overflows i32")))?;
+
         let n = self.pix_slice().len();
         let mut out = Pixa::with_capacity(n);
         for i in 0..n {
             let pix = &self.pix_slice()[i];
             let bordered = pix.add_border_general(left, right, top, bot, val)?;
-            let b = self.boxa().get(i).copied().unwrap_or_default();
-            let new_box = Box::new_unchecked(b.x - left as i32, b.y - top as i32, b.w, b.h);
+            let b = pix_box_or_full(pix, self.boxa().get(i).copied());
+            let new_box = Box::new(b.x - left_i, b.y - top_i, b.w, b.h)?;
             out.push_with_box(bordered, new_box);
         }
         Ok(out)
@@ -209,7 +217,7 @@ impl Pixa {
                     boxa.push(b);
                 }
                 None => {
-                    let b = Box::new_unchecked(0, 0, pix.width() as i32, pix.height() as i32);
+                    let b = full_image_box(pix)?;
                     pixad.push_with_box(pix.deep_clone(), b);
                     boxa.push(b);
                 }
@@ -257,12 +265,25 @@ impl Pixa {
             let mut tmp = Pixa::with_capacity(n);
             for i in 0..n {
                 let pix = &self.pix_slice()[i];
-                let conv = if rd == 32 {
+                // For cmapped entries, first strip the colormap; for
+                // non-cmapped entries, only do a depth conversion if
+                // we need to promote.
+                let conv = if pix.colormap().is_some() {
+                    use crate::core::pix::convert::RemoveColormapTarget;
+                    let target = if rd == 32 {
+                        RemoveColormapTarget::ToFullColor
+                    } else {
+                        RemoveColormapTarget::ToGrayscale
+                    };
+                    pix.remove_colormap(target)?
+                } else if rd == 32 && pix.depth() != crate::core::pix::PixelDepth::Bit32 {
                     pix.convert_to_32()?
-                } else {
+                } else if rd != 32 && pix.depth() != crate::core::pix::PixelDepth::Bit8 {
                     pix.convert_to_8()?
+                } else {
+                    pix.deep_clone()
                 };
-                let b = self.boxa().get(i).copied().unwrap_or_default();
+                let b = pix_box_or_full(pix, self.boxa().get(i).copied());
                 tmp.push_with_box(conv, b);
             }
             tmp
@@ -284,7 +305,7 @@ impl Pixa {
             } else {
                 pix.convert_to_32()?
             };
-            let b = stage1.boxa().get(i).copied().unwrap_or_default();
+            let b = pix_box_or_full(pix, stage1.boxa().get(i).copied());
             out.push_with_box(conv, b);
         }
         Ok(out)
@@ -299,4 +320,28 @@ fn scale_box(b: &Box, scale_x: f32, scale_y: f32) -> Box {
     let nw = ((b.w as f32 * scale_x).max(1.0) + 0.5) as i32;
     let nh = ((b.h as f32 * scale_y).max(1.0) + 0.5) as i32;
     Box::new_unchecked(nx, ny, nw, nh)
+}
+
+/// Build a Box covering the whole image, with overflow check.
+///
+/// Used when a Pixa entry has no associated Box and we need a
+/// meaningful fallback (the full image rectangle) rather than the
+/// zero-sized default.
+fn full_image_box(pix: &crate::core::pix::Pix) -> Result<Box> {
+    let w = i32::try_from(pix.width())
+        .map_err(|_| Error::InvalidParameter(format!("pix width {} overflows i32", pix.width())))?;
+    let h = i32::try_from(pix.height()).map_err(|_| {
+        Error::InvalidParameter(format!("pix height {} overflows i32", pix.height()))
+    })?;
+    Ok(Box::new_unchecked(0, 0, w, h))
+}
+
+/// Return `boxa[i]` if present, else a Box covering the whole image.
+/// Falls back to a zero-Box (only) when the Pix dimensions overflow
+/// i32 — which never happens for any real image.
+fn pix_box_or_full(pix: &crate::core::pix::Pix, candidate: Option<Box>) -> Box {
+    match candidate {
+        Some(b) if b.w > 0 && b.h > 0 => b,
+        _ => full_image_box(pix).unwrap_or_default(),
+    }
 }

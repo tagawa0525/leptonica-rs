@@ -137,3 +137,32 @@ fn convert_to_same_depth_empty_errors() {
     let pa = Pixa::new();
     assert!(pa.convert_to_same_depth().is_err());
 }
+
+#[test]
+fn convert_to_same_depth_strips_colormap() {
+    use leptonica::PixColormap;
+    // 8 bpp Pix with a grayscale colormap → rendering depth = 8.
+    let pix1 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+    let mut m = pix1.try_into_mut().unwrap();
+    let mut cmap = PixColormap::new(8).unwrap();
+    cmap.add_rgb(0, 0, 0).unwrap();
+    cmap.add_rgb(128, 128, 128).unwrap();
+    m.set_colormap(Some(cmap)).unwrap();
+    let pix1: Pix = m.into();
+
+    let pix2 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
+    let mut pa = Pixa::new();
+    pa.push(pix1);
+    pa.push(pix2);
+    assert!(pa.any_colormaps());
+
+    let out = pa.convert_to_same_depth().unwrap();
+    // Output must drop all colormaps.
+    assert!(!out.any_colormaps());
+    // Rendering depth was 8 → output is 8 bpp throughout.
+    assert!(
+        out.pix_slice()
+            .iter()
+            .all(|p| p.depth() == PixelDepth::Bit8)
+    );
+}
