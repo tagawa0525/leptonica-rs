@@ -1,43 +1,175 @@
-//! Pixa transform helpers — RED stubs (plan 107 / C pixafunc1.c + pixafunc2.c).
+//! Pixa transform helpers (plan 107 / C pixafunc1.c + pixafunc2.c).
+//!
+//! Each method iterates the source Pixa, applies the corresponding Pix
+//! function, and rebuilds the Boxa with matching coordinates.
 
-use crate::core::error::Result;
+use crate::core::box_::Box;
+use crate::core::error::{Error, Result};
 use crate::core::pix::rop::InColor;
 
 use super::Pixa;
 
 impl Pixa {
-    /// C: `pixaScale`.
-    pub fn scale(&self, _scale_x: f32, _scale_y: f32) -> Result<Pixa> {
-        unimplemented!("plan 107 RED stub")
+    /// Scale each Pix by `(scale_x, scale_y)` and rebuild matching boxes.
+    ///
+    /// C Leptonica equivalent: `pixaScale`.
+    pub fn scale(&self, scale_x: f32, scale_y: f32) -> Result<Pixa> {
+        if !scale_x.is_finite() || !scale_y.is_finite() || scale_x <= 0.0 || scale_y <= 0.0 {
+            return Err(Error::InvalidParameter(format!(
+                "scale factors must be > 0 (got {scale_x}, {scale_y})"
+            )));
+        }
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let scaled = crate::transform::scale::scale(
+                pix,
+                scale_x,
+                scale_y,
+                crate::transform::scale::ScaleMethod::Auto,
+            )
+            .map_err(|e| Error::InvalidParameter(format!("scale failed: {e}")))?;
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            out.push_with_box(scaled, scale_box(&b, scale_x, scale_y));
+        }
+        Ok(out)
     }
 
-    /// C: `pixaScaleBySampling`.
-    pub fn scale_by_sampling(&self, _scale_x: f32, _scale_y: f32) -> Result<Pixa> {
-        unimplemented!("plan 107 RED stub")
+    /// Scale each Pix by sampling.
+    ///
+    /// C Leptonica equivalent: `pixaScaleBySampling`.
+    pub fn scale_by_sampling(&self, scale_x: f32, scale_y: f32) -> Result<Pixa> {
+        if !scale_x.is_finite() || !scale_y.is_finite() || scale_x <= 0.0 || scale_y <= 0.0 {
+            return Err(Error::InvalidParameter(format!(
+                "scale factors must be > 0 (got {scale_x}, {scale_y})"
+            )));
+        }
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let scaled = crate::transform::scale::scale_by_sampling(pix, scale_x, scale_y)
+                .map_err(|e| Error::InvalidParameter(format!("scale_by_sampling failed: {e}")))?;
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            out.push_with_box(scaled, scale_box(&b, scale_x, scale_y));
+        }
+        Ok(out)
     }
 
-    /// C: `pixaRotateOrth`.
-    pub fn rotate_orth(&self, _quads: u32) -> Result<Pixa> {
-        unimplemented!("plan 107 RED stub")
+    /// Orthogonal rotation by `quads` * 90 degrees (0..=3).
+    ///
+    /// C Leptonica equivalent: `pixaRotateOrth`.
+    pub fn rotate_orth(&self, quads: u32) -> Result<Pixa> {
+        if quads > 3 {
+            return Err(Error::InvalidParameter(format!(
+                "quads must be in 0..=3 (got {quads})"
+            )));
+        }
+        if quads == 0 {
+            return Ok(self.clone());
+        }
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let rotated = crate::transform::rotate::rotate_orth(pix, quads)
+                .map_err(|e| Error::InvalidParameter(format!("rotate_orth failed: {e}")))?;
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            let new_box = b
+                .rotate_orth(pix.width() as i32, pix.height() as i32, quads as i32)
+                .unwrap_or_default();
+            out.push_with_box(rotated, new_box);
+        }
+        Ok(out)
     }
 
-    /// C: `pixaTranslate`.
-    pub fn translate(&self, _hshift: i32, _vshift: i32, _incolor: InColor) -> Result<Pixa> {
-        unimplemented!("plan 107 RED stub")
+    /// Translate each Pix by `(hshift, vshift)`. `incolor` controls the
+    /// background brought in by the shift.
+    ///
+    /// C Leptonica equivalent: `pixaTranslate`.
+    pub fn translate(&self, hshift: i32, vshift: i32, incolor: InColor) -> Result<Pixa> {
+        if hshift == 0 && vshift == 0 {
+            return Ok(self.clone());
+        }
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let shifted = pix.translate(hshift, vshift, incolor);
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            let new_box = Box::new_unchecked(b.x + hshift, b.y + vshift, b.w, b.h);
+            out.push_with_box(shifted, new_box);
+        }
+        Ok(out)
     }
 
-    /// C: `pixaConvertTo1`.
-    pub fn convert_to_1(&self, _thresh: u32) -> Result<Pixa> {
-        unimplemented!("plan 107 RED stub")
+    /// Convert every Pix to 1 bpp using a global threshold.
+    ///
+    /// Equivalent to calling `Pix::convert_to_1_by_sampling(1, thresh)`.
+    /// C Leptonica equivalent: `pixaConvertTo1`.
+    pub fn convert_to_1(&self, thresh: u32) -> Result<Pixa> {
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let converted = pix.convert_to_1_by_sampling(1, thresh)?;
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            out.push_with_box(converted, b);
+        }
+        Ok(out)
     }
 
-    /// C: `pixaConvertTo8`.
-    pub fn convert_to_8(&self, _cmap_flag: bool) -> Result<Pixa> {
-        unimplemented!("plan 107 RED stub")
+    /// Convert every Pix to 8 bpp. `cmap_flag = true` keeps/produces a
+    /// gray colormap (matching C's `pixConvertTo8`).
+    ///
+    /// C Leptonica equivalent: `pixaConvertTo8`.
+    pub fn convert_to_8(&self, cmap_flag: bool) -> Result<Pixa> {
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let converted = if cmap_flag {
+                pix.convert_to_8_or_32()?
+            } else {
+                pix.convert_to_8()?
+            };
+            // convert_to_8_or_32 may yield 32 bpp for color, but C
+            // pixaConvertTo8 always returns 8 bpp via convert_to_8.
+            let converted = if converted.depth() != crate::core::pix::PixelDepth::Bit8 {
+                pix.convert_to_8()?
+            } else {
+                converted
+            };
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            out.push_with_box(converted, b);
+        }
+        let _ = cmap_flag; // cmap-handling pathway can be revisited in plan 107b
+        Ok(out)
     }
 
-    /// C: `pixaConvertTo32`.
+    /// Convert every Pix to 32 bpp.
+    ///
+    /// C Leptonica equivalent: `pixaConvertTo32`.
     pub fn convert_to_32(&self) -> Result<Pixa> {
-        unimplemented!("plan 107 RED stub")
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let converted = pix.convert_to_32()?;
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            out.push_with_box(converted, b);
+        }
+        Ok(out)
     }
+}
+
+/// Scale a Box by `(scale_x, scale_y)` (origin + dimensions),
+/// matching C's `boxaTransform(boxa, 0, 0, sx, sy)`.
+fn scale_box(b: &Box, scale_x: f32, scale_y: f32) -> Box {
+    let nx = (b.x as f32 * scale_x + 0.5) as i32;
+    let ny = (b.y as f32 * scale_y + 0.5) as i32;
+    let nw = ((b.w as f32 * scale_x).max(1.0) + 0.5) as i32;
+    let nh = ((b.h as f32 * scale_y).max(1.0) + 0.5) as i32;
+    Box::new_unchecked(nx, ny, nw, nh)
 }

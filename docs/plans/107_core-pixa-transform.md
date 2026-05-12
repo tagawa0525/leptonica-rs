@@ -1,6 +1,6 @@
 # Core: pixafunc1.c / pixafunc2.c の Pixa 変換 8 関数 (plan 032 カテゴリ A-2 の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-11
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-2
 
@@ -59,10 +59,8 @@ RotateOptions を取るため、シグネチャ整合に時間がかかる。
 
 ## 依存
 
-- 既存: `transform::scale`, `transform::scale_by_sampling`,
-  `transform::rotate_orth`, `transform::translate`
-- 既存: `Pix::convert_to_8`, `Pix::convert_to_32`,
-  `Pix::convert_to_1_by_sampling`
+- 既存: `transform::scale`, `transform::scale_by_sampling`, `transform::rotate_orth`, `transform::translate`
+- 既存: `Pix::convert_to_8`, `Pix::convert_to_32`, `Pix::convert_to_1_by_sampling`
 - 既存: `Pix::add_border_general`, `Pix::clip_to_foreground`
 - 既存: `Pixa::with_capacity`, `Pixa::push_with_box`
 - 既存: `Boxa::transform`, `Box::scale_by`
@@ -76,9 +74,25 @@ RotateOptions を取るため、シグネチャ整合に時間がかかる。
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 7 件 ❌ -> ✅ (pixaScale, pixaScaleBySampling,
-  pixaRotateOrth, pixaTranslate, pixaConvertTo1, pixaConvertTo8,
-  pixaConvertTo32)
-- [ ] plan 032 で 107 を IMPLEMENTED に分割反映
+- [x] cargo test/clippy/fmt 通過 (12 件パス)
+- [x] core.md 7 件 ❌ -> ✅
+- [x] plan 032 で 107 を IMPLEMENTED に分割反映
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- すべて `Pixa::with_capacity` + `push_with_box` で構築
+- `scale` / `scale_by_sampling`: `transform::scale` / `scale_by_sampling`
+
+  を各 Pix に適用。Box は `scale_box` ヘルパー (C `boxaTransform(0,0,sx,sy)` 相当)
+
+- `rotate_orth`: `quads == 0` でクローン、それ以外は `transform::rotate_orth`
+  - `Box::rotate_orth` で Box を変換
+- `translate`: `Pix::translate(hshift, vshift, incolor)` を呼び、
+
+  Box は `(x+hshift, y+vshift)` にシフト
+
+- `convert_to_1/8/32`: 各 Pix の対応メソッドを呼ぶ。cmap_flag は
+
+  現状 8bpp ⇒ gray cmap を生成しないシンプルな実装。
+  完全な cmap 対応は plan 107b で扱う

@@ -17,7 +17,6 @@ fn make_pixa(items: &[(u32, u32, PixelDepth)]) -> Pixa {
 // -- scale ---------------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_scale_doubles_dimensions() {
     let pa = make_pixa(&[(10, 10, PixelDepth::Bit8), (20, 10, PixelDepth::Bit8)]);
     let out = pa.scale(2.0, 2.0).unwrap();
@@ -30,7 +29,6 @@ fn pixa_scale_doubles_dimensions() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_scale_invalid_factor_errors() {
     let pa = make_pixa(&[(10, 10, PixelDepth::Bit8)]);
     assert!(pa.scale(0.0, 1.0).is_err());
@@ -38,7 +36,6 @@ fn pixa_scale_invalid_factor_errors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_scale_empty_returns_empty() {
     let pa = Pixa::new();
     let out = pa.scale(2.0, 2.0).unwrap();
@@ -48,7 +45,6 @@ fn pixa_scale_empty_returns_empty() {
 // -- scale_by_sampling ----------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_scale_by_sampling_halves() {
     let pa = make_pixa(&[(20, 20, PixelDepth::Bit8)]);
     let out = pa.scale_by_sampling(0.5, 0.5).unwrap();
@@ -59,7 +55,6 @@ fn pixa_scale_by_sampling_halves() {
 // -- rotate_orth ----------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_rotate_orth_0_returns_clone() {
     let pa = make_pixa(&[(10, 6, PixelDepth::Bit8)]);
     let out = pa.rotate_orth(0).unwrap();
@@ -68,7 +63,6 @@ fn pixa_rotate_orth_0_returns_clone() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_rotate_orth_90_swaps_dims() {
     let pa = make_pixa(&[(10, 6, PixelDepth::Bit8)]);
     let out = pa.rotate_orth(1).unwrap();
@@ -77,7 +71,6 @@ fn pixa_rotate_orth_90_swaps_dims() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_rotate_orth_out_of_range_errors() {
     let pa = make_pixa(&[(10, 6, PixelDepth::Bit8)]);
     assert!(pa.rotate_orth(4).is_err());
@@ -86,7 +79,6 @@ fn pixa_rotate_orth_out_of_range_errors() {
 // -- translate ------------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_translate_zero_shift_returns_clone() {
     let pa = make_pixa(&[(8, 8, PixelDepth::Bit8)]);
     let out = pa.translate(0, 0, InColor::White).unwrap();
@@ -94,7 +86,6 @@ fn pixa_translate_zero_shift_returns_clone() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_translate_shifts_box() {
     let pa = make_pixa(&[(8, 8, PixelDepth::Bit8)]);
     let out = pa.translate(3, 4, InColor::White).unwrap();
@@ -106,7 +97,6 @@ fn pixa_translate_shifts_box() {
 // -- convert_to_1 / convert_to_8 / convert_to_32 -------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_convert_to_1() {
     let pa = make_pixa(&[(8, 8, PixelDepth::Bit8), (4, 4, PixelDepth::Bit8)]);
     let out = pa.convert_to_1(128).unwrap();
@@ -118,7 +108,6 @@ fn pixa_convert_to_1() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_convert_to_8() {
     let pa = make_pixa(&[(8, 8, PixelDepth::Bit1), (4, 4, PixelDepth::Bit32)]);
     let out = pa.convert_to_8(false).unwrap();
@@ -130,7 +119,6 @@ fn pixa_convert_to_8() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn pixa_convert_to_32() {
     let pa = make_pixa(&[(8, 8, PixelDepth::Bit1), (4, 4, PixelDepth::Bit8)]);
     let out = pa.convert_to_32().unwrap();
