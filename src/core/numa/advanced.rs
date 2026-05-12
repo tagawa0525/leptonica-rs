@@ -111,10 +111,10 @@ impl Numa {
                     lloc = i + 1;
                     break;
                 }
-                if val > fract1 * fmax_val {
-                    sum += val;
-                    lastval = val;
-                } else if lastval - val > fract2 * lastval {
+                // Either the value is high enough OR the drop is small
+                // enough; both cases continue the sweep with the same
+                // bookkeeping. Otherwise stop.
+                if val > fract1 * fmax_val || lastval - val > fract2 * lastval {
                     sum += val;
                     lastval = val;
                 } else {
@@ -134,10 +134,7 @@ impl Numa {
                     rloc = i - 1;
                     break;
                 }
-                if val > fract1 * fmax_val {
-                    sum += val;
-                    lastval = val;
-                } else if lastval - val > fract2 * lastval {
+                if val > fract1 * fmax_val || lastval - val > fract2 * lastval {
                     sum += val;
                     lastval = val;
                 } else {
@@ -171,14 +168,14 @@ impl Numa {
 /// C Leptonica equivalent: `numaCrossingsByThreshold`.
 pub fn numa_crossings_by_threshold(nay: &Numa, nax: Option<&Numa>, thresh: f32) -> Result<Numa> {
     let n = nay.len();
-    if let Some(x) = nax {
-        if x.len() != n {
-            return Err(Error::InvalidParameter(format!(
-                "nax length ({}) != nay length ({})",
-                x.len(),
-                n
-            )));
-        }
+    if let Some(x) = nax
+        && x.len() != n
+    {
+        return Err(Error::InvalidParameter(format!(
+            "nax length ({}) != nay length ({})",
+            x.len(),
+            n
+        )));
     }
     let mut out = Numa::new();
     if n < 2 {
