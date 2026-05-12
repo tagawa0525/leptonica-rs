@@ -121,6 +121,11 @@ impl Pixa {
     /// No-op when the Pixa is empty (C version logs `L_INFO`).
     ///
     /// C Leptonica equivalent: `pixaSetFullSizeBoxa`.
+    ///
+    /// Pix dimensions are validated with `i32::try_from`; any entry whose
+    /// width or height exceeds `i32::MAX` is clamped to `i32::MAX` (the
+    /// maximum representable `Box` dimension). This is defensive against
+    /// pathologically large Pix that should not occur in practice.
     pub fn set_full_size_boxa(&mut self) {
         let n = self.pix_slice().len();
         if n == 0 {
@@ -128,8 +133,9 @@ impl Pixa {
         }
         let mut boxa = Boxa::with_capacity(n);
         for p in self.pix_slice() {
-            let b = Box::new_unchecked(0, 0, p.width() as i32, p.height() as i32);
-            boxa.push(b);
+            let w = i32::try_from(p.width()).unwrap_or(i32::MAX);
+            let h = i32::try_from(p.height()).unwrap_or(i32::MAX);
+            boxa.push(Box::new_unchecked(0, 0, w, h));
         }
         self.set_boxa(boxa);
     }
