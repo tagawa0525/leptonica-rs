@@ -1,4 +1,4 @@
-//! Regression tests for plan 107 (pixafunc1/2.c の Pixa 変換 8 関数).
+//! Regression tests for plan 107 (pixafunc1/2.c の Pixa 変換 7 関数).
 
 use leptonica::core::Box;
 use leptonica::core::pix::rop::InColor;
