@@ -168,28 +168,38 @@ impl Pix {
         let mindim = w.min(h);
         let mut pta = Pta::with_capacity(4);
 
-        // Helper: scan anti-diagonals from a corner, calling `xy(i, j)`
-        // to compute coordinates. The first foreground pixel found
-        // along the smallest diagonal is appended to the Pta.
-        let mut scan = |xy: &dyn Fn(i32, i32) -> (i32, i32)| {
+        // Inline-friendly generic helper: scan anti-diagonals from a
+        // corner. Using a generic `F: Fn(i32, i32) -> (i32, i32)` lets
+        // the compiler monomorphize each call and inline the closure,
+        // avoiding per-pixel dynamic dispatch.
+        fn scan_corner<F: Fn(i32, i32) -> (i32, i32)>(
+            pix: &Pix,
+            w: i32,
+            h: i32,
+            mindim: i32,
+            pta: &mut Pta,
+            xy: F,
+        ) {
             for i in 0..mindim {
                 for j in 0..=i {
                     let (x, y) = xy(i, j);
                     if x < 0 || x >= w || y < 0 || y >= h {
                         continue;
                     }
-                    if self.get_pixel_unchecked(x as u32, y as u32) != 0 {
+                    if pix.get_pixel_unchecked(x as u32, y as u32) != 0 {
                         pta.push(x as f32, y as f32);
                         return;
                     }
                 }
             }
-        };
+        }
 
-        scan(&|i, j| (j, i - j)); // top-left
-        scan(&|i, j| (w - 1 - j, i - j)); // top-right
-        scan(&|i, j| (j, h - 1 - (i - j))); // bottom-left
-        scan(&|i, j| (w - 1 - j, h - 1 - (i - j))); // bottom-right
+        scan_corner(self, w, h, mindim, &mut pta, |i, j| (j, i - j)); // TL
+        scan_corner(self, w, h, mindim, &mut pta, |i, j| (w - 1 - j, i - j)); // TR
+        scan_corner(self, w, h, mindim, &mut pta, |i, j| (j, h - 1 - (i - j))); // BL
+        scan_corner(self, w, h, mindim, &mut pta, |i, j| {
+            (w - 1 - j, h - 1 - (i - j))
+        }); // BR
 
         Ok(pta)
     }
