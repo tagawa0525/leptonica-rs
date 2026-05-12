@@ -3,12 +3,16 @@
 //! Arrays of floating-point numbers, commonly used for histograms,
 //! signal processing, and general numeric data storage.
 
+pub mod advanced;
 mod histogram;
 mod interpolation;
 mod operations;
 pub mod serial;
 mod sort;
 
+pub use advanced::{
+    gen_constrained_numa_in_range, numa_crossings_by_threshold, numa_uniform_bin_sizes,
+};
 pub use histogram::HistogramStats;
 pub use operations::{
     ArithOp, BorderType, CountRelativeToZero, HistogramResult, InterpolationType, LogicalOp,
