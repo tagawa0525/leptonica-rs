@@ -3,7 +3,7 @@
 //! Each method iterates the source Pixa, applies the corresponding Pix
 //! function, and rebuilds the Boxa with matching coordinates.
 
-use crate::core::box_::Box;
+use crate::core::box_::{Box, Boxa};
 use crate::core::error::{Error, Result};
 use crate::core::pix::rop::InColor;
 
@@ -158,6 +158,134 @@ impl Pixa {
             let converted = pix.convert_to_32()?;
             let b = self.boxa().get(i).copied().unwrap_or_default();
             out.push_with_box(converted, b);
+        }
+        Ok(out)
+    }
+
+    /// Add a uniform border to every Pix.
+    ///
+    /// `val` is the pixel value used to fill the border, expressed in
+    /// the per-Pix native format. Each Box is shifted by
+    /// `(-left, -top)` because the new image origin moves by that
+    /// offset relative to the original coordinate system.
+    ///
+    /// C Leptonica equivalent: `pixaAddBorderGeneral`.
+    pub fn add_border_general(
+        &self,
+        left: u32,
+        right: u32,
+        top: u32,
+        bot: u32,
+        val: u32,
+    ) -> Result<Pixa> {
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let bordered = pix.add_border_general(left, right, top, bot, val)?;
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            let new_box = Box::new_unchecked(b.x - left as i32, b.y - top as i32, b.w, b.h);
+            out.push_with_box(bordered, new_box);
+        }
+        Ok(out)
+    }
+
+    /// Clip every Pix to its foreground bounding region.
+    ///
+    /// Returns `(pixa, boxa)`: the clipped Pixa and the per-entry crop
+    /// Box (in original coordinates). Pix without any foreground are
+    /// kept as a deep clone with a Box that covers the whole image.
+    ///
+    /// C Leptonica equivalent: `pixaClipToForeground`.
+    pub fn clip_to_foreground_all(&self) -> Result<(Pixa, Boxa)> {
+        let n = self.pix_slice().len();
+        let mut pixad = Pixa::with_capacity(n);
+        let mut boxa = Boxa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            match pix.clip_to_foreground()? {
+                Some((clipped, b)) => {
+                    pixad.push_with_box(clipped, b);
+                    boxa.push(b);
+                }
+                None => {
+                    let b = Box::new_unchecked(0, 0, pix.width() as i32, pix.height() as i32);
+                    pixad.push_with_box(pix.deep_clone(), b);
+                    boxa.push(b);
+                }
+            }
+        }
+        Ok((pixad, boxa))
+    }
+
+    /// Convert every Pix to the given target depth.
+    ///
+    /// Only `depth = 8` or `depth = 32` is supported, matching C
+    /// `pixaConvertToGivenDepth`.
+    ///
+    /// C Leptonica equivalent: `pixaConvertToGivenDepth`.
+    pub fn convert_to_given_depth(&self, depth: u32) -> Result<Pixa> {
+        if depth != 8 && depth != 32 {
+            return Err(Error::InvalidParameter(format!(
+                "depth must be 8 or 32 (got {depth})"
+            )));
+        }
+        if depth == 8 {
+            self.convert_to_8(false)
+        } else {
+            self.convert_to_32()
+        }
+    }
+
+    /// Bring every Pix to a common depth.
+    ///
+    /// Strips colormaps first (if any), then promotes every Pix to
+    /// 8 bpp when the rendered depth is <= 16, else 32 bpp.
+    /// Errors when the Pixa is empty (matches C).
+    ///
+    /// C Leptonica equivalent: `pixaConvertToSameDepth`.
+    pub fn convert_to_same_depth(&self) -> Result<Pixa> {
+        let n = self.pix_slice().len();
+        if n == 0 {
+            return Err(Error::InvalidParameter("pixa is empty".into()));
+        }
+        // 1. Drop colormaps by converting through 8/32 depending on the
+        //    rendering depth.
+        let rd = self.get_rendering_depth()?;
+        let has_cmap = self.any_colormaps();
+        let stage1: Pixa = if has_cmap {
+            let mut tmp = Pixa::with_capacity(n);
+            for i in 0..n {
+                let pix = &self.pix_slice()[i];
+                let conv = if rd == 32 {
+                    pix.convert_to_32()?
+                } else {
+                    pix.convert_to_8()?
+                };
+                let b = self.boxa().get(i).copied().unwrap_or_default();
+                tmp.push_with_box(conv, b);
+            }
+            tmp
+        } else {
+            self.clone()
+        };
+
+        // 2. Promote all entries to the max depth.
+        let (maxd, same) = stage1.get_depth_info()?;
+        if same {
+            return Ok(stage1);
+        }
+        let target = if maxd <= 16 { 8 } else { 32 };
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &stage1.pix_slice()[i];
+            let conv = if target == 8 {
+                pix.convert_to_8()?
+            } else {
+                pix.convert_to_32()?
+            };
+            let b = stage1.boxa().get(i).copied().unwrap_or_default();
+            out.push_with_box(conv, b);
         }
         Ok(out)
     }
