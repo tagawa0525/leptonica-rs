@@ -181,6 +181,22 @@ fn replicate_pattern_clips_off_canvas() {
 }
 
 #[test]
+fn replicate_pattern_rejects_zero_canvas() {
+    let mut ptas = Pta::new();
+    ptas.push(0.0, 0.0);
+    let mut patt = Pta::new();
+    patt.push(0.0, 0.0);
+    assert!(
+        ptas.replicate_pattern(PatternSource::Pta(&patt), 0, 0, 0, 10)
+            .is_err()
+    );
+    assert!(
+        ptas.replicate_pattern(PatternSource::Pta(&patt), 0, 0, 10, -1)
+            .is_err()
+    );
+}
+
+#[test]
 fn replicate_pattern_from_pix() {
     // 3x3 pattern with two FG points; anchor at (5, 5) and centre at (1, 1).
     let patt_pix = make_1bpp_with_pixels(3, 3, &[(0, 0), (2, 2)]);

@@ -113,17 +113,28 @@ impl Pta {
         w: i32,
         h: i32,
     ) -> Result<Pta> {
-        let ptap: Pta = match pattern {
-            PatternSource::Pta(p) => p.clone(),
-            PatternSource::Pix(pix) => pta_get_pixels_from_pix(pix, None)?,
+        if w <= 0 || h <= 0 {
+            return Err(Error::InvalidParameter(format!(
+                "canvas dimensions must be positive (got w={w}, h={h})"
+            )));
+        }
+        // Borrow the pattern Pta when caller supplies one; only the Pix
+        // arm has to allocate (extracting FG points produces a fresh Pta).
+        let owned_from_pix;
+        let ptap: &Pta = match pattern {
+            PatternSource::Pta(p) => p,
+            PatternSource::Pix(pix) => {
+                owned_from_pix = pta_get_pixels_from_pix(pix, None)?;
+                &owned_from_pix
+            }
         };
         let n = self.len();
         let np = ptap.len();
         let mut out = Pta::with_capacity(n.saturating_mul(np));
         for i in 0..n {
-            let (x, y) = self.get_i_pt(i).unwrap_or((0, 0));
+            let (x, y) = self.get_i_pt(i).expect("index in 0..len must be valid");
             for j in 0..np {
-                let (xp, yp) = ptap.get_i_pt(j).unwrap_or((0, 0));
+                let (xp, yp) = ptap.get_i_pt(j).expect("index in 0..np must be valid");
                 let xf = x - cx + xp;
                 let yf = y - cy + yp;
                 if xf >= 0 && xf < w && yf >= 0 && yf < h {
