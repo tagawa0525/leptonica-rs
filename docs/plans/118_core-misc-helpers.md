@@ -1,6 +1,6 @@
 # Core: misc 単独関数 2 件 (plan 032 カテゴリ M の一部)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-12
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ M
 
@@ -55,7 +55,15 @@ pub fn split_string_to_paragraphs(textstr: &str, split: ParagraphSplit) -> Sarra
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] misc.md / core.md の対応エントリ更新
-- [ ] plan 032 で 118 を IMPLEMENTED に分割反映
+- [x] cargo test/clippy/fmt 通過 (10 件パス)
+- [x] misc.md の対応エントリ更新
+- [x] plan 032 で 118 を IMPLEMENTED に分割反映
 - [ ] PR + Copilot レビュー対応 + マージ
+
+## 実装メモ
+
+- `string_compare_lexical`: byte 比較で C 完全互換 (返り値 0/1)。
+  内部は `as_bytes()` の素朴ループ
+- `split_string_to_paragraphs`: `Sarray::from_lines(_, true)` で
+  改行保持のまま行リスト化 -> 各行が trigger 条件を満たすたびに
+  paragraph を flush (C `sarrayToString(..., 1)` 互換で末尾 \n 付与)
