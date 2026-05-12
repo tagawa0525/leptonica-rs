@@ -83,3 +83,16 @@ fn rank_from_histogram_invalid_inputs_error() {
     // empty histogram
     assert!(make_rank_from_histogram(0.0, 1.0, &Numa::new(), 5).is_err());
 }
+
+#[test]
+fn rank_from_all_zero_histogram_errors() {
+    // All-zero histogram cannot be normalised, so the call must fail.
+    let na = Numa::from_vec(vec![0.0, 0.0, 0.0, 0.0]);
+    let err = make_rank_from_histogram(0.0, 1.0, &na, 5).unwrap_err();
+    let msg = format!("{err}");
+    // Sanity check the error message mentions the cause for the caller.
+    assert!(
+        msg.contains("zero sum"),
+        "error message should mention zero sum, got: {msg}"
+    );
+}

@@ -316,7 +316,7 @@ pub fn make_rank_from_histogram(
 ) -> Result<(Numa, Numa)> {
     let n = nasy.len();
     if n == 0 {
-        return Err(Error::InvalidParameter("no bins in nas".into()));
+        return Err(Error::InvalidParameter("no bins in nasy".into()));
     }
     if npts < 3 {
         return Err(Error::InvalidParameter("npts must be >= 3".into()));
@@ -326,7 +326,7 @@ pub fn make_rank_from_histogram(
     }
     let nan = nasy
         .normalize_histogram()
-        .ok_or_else(|| Error::InvalidParameter("histogram normalization failed".into()))?;
+        .ok_or_else(|| Error::InvalidParameter("nasy has zero sum: cannot normalize".into()))?;
 
     // Build the cumulative rank Numa (length n+1) and tag it with
     // (startx, deltax) so interpolate_eqx_interval can map index -> x.
