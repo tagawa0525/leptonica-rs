@@ -592,3 +592,136 @@ impl crate::core::pixa::Pixaa {
         Ok(out)
     }
 }
+
+// ============================================================================
+// Plan 125: convert_to_8_colormap / Pix::make_tiled_pixa / Pixa::make_tiled_pixa
+// ============================================================================
+
+impl Pixa {
+    /// Convert each Pix to 8 bpp with an attached colormap.
+    ///
+    /// Boxes are copied verbatim.
+    ///
+    /// C Leptonica equivalent: `pixaConvertTo8Colormap`.
+    pub fn convert_to_8_colormap(&self, dither: bool) -> Result<Pixa> {
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let converted = pix.convert_to_8_colormap(dither)?;
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            out.push_with_box(converted, b);
+        }
+        Ok(out)
+    }
+
+    /// Build a Pixa by tiling every inner Pix and joining the results.
+    ///
+    /// Each inner Pix contributes up to `nsamp` tiles of size `w`×`h`,
+    /// starting at index 0. `nsamp` must be > 0 (use `Pix::make_tiled_pixa`
+    /// directly with `num = 0` if you want to take all tiles). Inner Pix
+    /// that yield fewer than `nsamp` tiles still contribute what they have.
+    ///
+    /// C Leptonica equivalent: `pixaMakeFromTiledPixa`.
+    pub fn make_tiled_pixa(&self, w: u32, h: u32, nsamp: u32) -> Result<Pixa> {
+        if nsamp == 0 {
+            return Err(Error::InvalidParameter(
+                "nsamp must be > 0 (use Pix::make_tiled_pixa with num=0 \
+                 directly for the all-tiles case)"
+                    .into(),
+            ));
+        }
+        let mut out = Pixa::new();
+        for pix in self.pix_slice().iter() {
+            let tiles = pix.make_tiled_pixa(w, h, 0, nsamp, None)?;
+            out.join(&tiles, 0, None)?;
+        }
+        Ok(out)
+    }
+}
+
+impl crate::core::pix::Pix {
+    /// Split this Pix into a Pixa of `w`×`h` tiles, or extract sub-regions
+    /// indicated by `boxa` (when `Some`).
+    ///
+    /// - `start` skips the first `start` tiles
+    /// - `num == 0` means "take all remaining tiles" (matching C semantics)
+    /// - When `boxa = Some(b)` the `w`/`h` arguments are ignored, and
+    ///   sub-images are clipped from this Pix at each box position.
+    ///   This path delegates to [`Pixa::create_from_boxa`], which silently
+    ///   **skips** boxes that lie fully outside the image or clamp to zero
+    ///   area. The output may therefore contain fewer tiles than the boxa
+    ///   has entries, and `start`/`num` are applied to that already-filtered
+    ///   sequence (not the original boxa indices).
+    /// - When `boxa = None`, the image is split into a `nx`×`ny` grid where
+    ///   `nx = width / w`, `ny = height / h`. The Pix text field may carry
+    ///   an `"n = N"` tile count that limits how many tiles are produced.
+    ///
+    /// C Leptonica equivalent: `pixaMakeFromTiledPix`.
+    pub fn make_tiled_pixa(
+        &self,
+        w: u32,
+        h: u32,
+        start: u32,
+        num: u32,
+        boxa: Option<&Boxa>,
+    ) -> Result<Pixa> {
+        if let Some(b) = boxa {
+            let pa = Pixa::create_from_boxa(self, b);
+            let len = pa.pix_slice().len();
+            if start as usize >= len && len > 0 {
+                return Ok(Pixa::new());
+            }
+            let begin = (start as usize).min(len);
+            let end = if num == 0 {
+                len
+            } else {
+                len.min(begin + num as usize)
+            };
+            return Ok(pa.select_range(begin, Some(end.saturating_sub(1))));
+        }
+        if w == 0 || h == 0 {
+            return Err(Error::InvalidParameter(format!(
+                "tile size must be > 0 (got w={w} h={h})"
+            )));
+        }
+        let ws = self.width();
+        let hs = self.height();
+        let nx = ws / w;
+        let ny = hs / h;
+        if nx < 1 || ny < 1 {
+            return Err(Error::InvalidParameter(format!(
+                "image {ws}x{hs} cannot hold any {w}x{h} tile"
+            )));
+        }
+        let grid_total = nx.saturating_mul(ny);
+        let text_n = self.get_tile_count();
+        // Use the text-encoded tile count only if it lies in
+        // (nx * (ny - 1), nx * ny], matching the C heuristic.
+        let n_isvalid =
+            text_n > 0 && text_n <= grid_total && text_n > nx.saturating_mul(ny.saturating_sub(1));
+        let ntiles = if n_isvalid { text_n } else { grid_total };
+        if start >= ntiles {
+            return Ok(Pixa::new());
+        }
+        let nmax = ntiles - start;
+        let take = if num == 0 { nmax } else { num.min(nmax) };
+        let mut out = Pixa::with_capacity(take as usize);
+        let mut k: u32 = 0;
+        for i in 0..ny {
+            for j in 0..nx {
+                if k < start {
+                    k += 1;
+                    continue;
+                }
+                if k >= start + take {
+                    return Ok(out);
+                }
+                let tile = self.clip_rectangle(j * w, i * h, w, h)?;
+                out.push(tile);
+                k += 1;
+            }
+        }
+        Ok(out)
+    }
+}
