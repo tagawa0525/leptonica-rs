@@ -808,20 +808,28 @@ impl Pixa {
         if n == 0 {
             return Ok(Pixa::new());
         }
+        let outer_tile_width = border
+            .checked_mul(2)
+            .and_then(|b2| tile_width.checked_add(b2))
+            .ok_or_else(|| {
+                Error::InvalidParameter(format!(
+                    "tile_width ({tile_width}) + 2 * border ({border}) overflows u32"
+                ))
+            })?;
         let per_page = (nx as usize) * (ny as usize);
         let pages = n.div_ceil(per_page);
         let mut out = Pixa::with_capacity(pages);
         for p in 0..pages {
             let begin = p * per_page;
             let end = ((p + 1) * per_page).min(n);
-            // Stage 1: scale each tile to width = tile_width
+            // Build a Pixa view of the page's slice. `display_tiled_and_scaled`
+            // already scales each Pix to the inner tile width, so we don't
+            // pre-scale here — the C code did, but only because it inserted
+            // text overlays between the two scaling passes (we don't).
             let mut staged = Pixa::with_capacity(end - begin);
             for pix in &self.pix_slice()[begin..end] {
-                let scaled = crate::transform::scale::scale_to_size(pix, tile_width, 0)
-                    .map_err(|e| Error::InvalidParameter(format!("scale_to_size failed: {e}")))?;
-                staged.push(scaled);
+                staged.push(pix.clone());
             }
-            // Stage 2: lay out as nx × ny grid via display_tiled_and_scaled
             let depth = staged.get_rendering_depth().unwrap_or(8);
             let outdepth = match depth {
                 1 => crate::core::pix::PixelDepth::Bit1,
@@ -830,7 +838,7 @@ impl Pixa {
             };
             let page = staged.display_tiled_and_scaled(
                 outdepth,
-                tile_width + 2 * border,
+                outer_tile_width,
                 nx,
                 0,
                 spacing,
