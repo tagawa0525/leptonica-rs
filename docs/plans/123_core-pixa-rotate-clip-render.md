@@ -1,6 +1,6 @@
 # Core: Pixa rotate / clip / render 3 関数 (plan 032 カテゴリ A-3 残り)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-13
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-3 (108b)
 
@@ -66,9 +66,9 @@ impl Pixa {
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 3 件 ❌ → ✅
-- [ ] plan 032 で 123 を新規 IMPLEMENTED 行として追加
+- [x] cargo test/clippy/fmt 通過 (9 件パス)
+- [x] core.md 3 件 ❌ → ✅
+- [x] plan 032 で 123 を新規 IMPLEMENTED 行として追加
 - [ ] PR + Copilot レビュー対応 + マージ
 
 ## 実装メモ
