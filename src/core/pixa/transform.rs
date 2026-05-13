@@ -769,3 +769,31 @@ impl Pixa {
         crate::io::pdf::write_pdf_multi(&refs, writer, options)
     }
 }
+
+// ============================================================================
+// Plan 127: Pixa::convert_to_nup
+// ============================================================================
+
+impl Pixa {
+    /// Tile this Pixa into N-up pages.
+    ///
+    /// Each page is one `nx × ny` grid laid out by
+    /// [`Pixa::display_tiled_and_scaled`]; the result is a Pixa with one Pix
+    /// per page (`ceil(self.len() / (nx * ny))` pages in total).
+    ///
+    /// Matches C `pixaConvertToNUpPixa` with `fontsize == 0` (no text
+    /// overlay). BMF text annotation (`pixAddTextlines`) is intentionally
+    /// omitted; consumers can layer that on top by pre-annotating each Pix.
+    ///
+    /// C Leptonica equivalent: `pixaConvertToNUpPixa`.
+    pub fn convert_to_nup(
+        &self,
+        _nx: u32,
+        _ny: u32,
+        _tile_width: u32,
+        _spacing: u32,
+        _border: u32,
+    ) -> Result<Pixa> {
+        unimplemented!("plan 127: Pixa::convert_to_nup")
+    }
+}
