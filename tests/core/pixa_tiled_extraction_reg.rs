@@ -108,3 +108,12 @@ fn pixa_make_tiled_pixa_clamps_nsamp() {
     let out = pa.make_tiled_pixa(10, 10, 5).unwrap();
     assert_eq!(out.pix_slice().len(), 4);
 }
+
+#[test]
+fn pixa_make_tiled_pixa_rejects_nsamp_zero() {
+    // `nsamp = 0` is reserved (it would silently mean "all tiles" via the
+    // Pix-level call) and must surface as an explicit error.
+    let mut pa = Pixa::new();
+    pa.push(mkpix(20, 10));
+    assert!(pa.make_tiled_pixa(10, 10, 0).is_err());
+}

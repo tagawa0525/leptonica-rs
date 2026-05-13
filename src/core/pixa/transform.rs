@@ -618,18 +618,23 @@ impl Pixa {
     /// Build a Pixa by tiling every inner Pix and joining the results.
     ///
     /// Each inner Pix contributes up to `nsamp` tiles of size `w`×`h`,
-    /// starting at index 0. Inner Pix that yield fewer tiles still
-    /// contribute what they have (no error).
+    /// starting at index 0. `nsamp` must be > 0 (use `Pix::make_tiled_pixa`
+    /// directly with `num = 0` if you want to take all tiles). Inner Pix
+    /// that yield fewer than `nsamp` tiles still contribute what they have.
     ///
     /// C Leptonica equivalent: `pixaMakeFromTiledPixa`.
     pub fn make_tiled_pixa(&self, w: u32, h: u32, nsamp: u32) -> Result<Pixa> {
+        if nsamp == 0 {
+            return Err(Error::InvalidParameter(
+                "nsamp must be > 0 (use Pix::make_tiled_pixa with num=0 \
+                 directly for the all-tiles case)"
+                    .into(),
+            ));
+        }
         let mut out = Pixa::new();
         for pix in self.pix_slice().iter() {
             let tiles = pix.make_tiled_pixa(w, h, 0, nsamp, None)?;
-            let len = tiles.pix_slice().len();
-            if len > 0 {
-                out.join(&tiles, 0, Some(len))?;
-            }
+            out.join(&tiles, 0, None)?;
         }
         Ok(out)
     }
