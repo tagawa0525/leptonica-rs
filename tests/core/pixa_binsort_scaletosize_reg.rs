@@ -17,7 +17,7 @@ fn pixa_with_widths(widths: &[u32]) -> Pixa {
 // -- bin_sort ----------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn bin_sort_by_width_ascending_matches_sort() {
     let pa = pixa_with_widths(&[8, 2, 5, 1, 9, 3]);
     let (sorted, indices) = pa
@@ -35,7 +35,7 @@ fn bin_sort_by_width_ascending_matches_sort() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn bin_sort_descending_reverses() {
     let pa = pixa_with_widths(&[3, 1, 4, 1, 5, 9, 2, 6]);
     let (asc, _) = pa
@@ -51,7 +51,7 @@ fn bin_sort_descending_reverses() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn bin_sort_empty_pixa() {
     let pa = Pixa::new();
     let (sorted, indices) = pa
@@ -62,7 +62,7 @@ fn bin_sort_empty_pixa() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn bin_sort_rejects_unsupported_type() {
     let pa = pixa_with_widths(&[2, 3]);
     // ByArea, ByMinDimension, etc. are not supported by C `pixaBinSort`.
@@ -91,7 +91,7 @@ fn build_pixaa(layout: &[&[(u32, u32)]]) -> Pixaa {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn scale_to_size_var_wd_only() {
     let paa = build_pixaa(&[&[(8, 4), (12, 6)], &[(20, 10)]]);
     let wd = Numa::from_i32_slice(&[16, 30]);
@@ -108,7 +108,7 @@ fn scale_to_size_var_wd_only() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn scale_to_size_var_hd_only() {
     let paa = build_pixaa(&[&[(8, 4)], &[(20, 10), (40, 30)]]);
     let hd = Numa::from_i32_slice(&[8, 20]);
@@ -122,7 +122,7 @@ fn scale_to_size_var_hd_only() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn scale_to_size_var_both() {
     let paa = build_pixaa(&[&[(8, 4)], &[(20, 10)]]);
     let wd = Numa::from_i32_slice(&[16, 30]);
@@ -135,14 +135,14 @@ fn scale_to_size_var_both() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn scale_to_size_var_requires_one_numa() {
     let paa = build_pixaa(&[&[(8, 4)]]);
     assert!(paa.scale_to_size_var(None, None).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn scale_to_size_var_size_mismatch() {
     let paa = build_pixaa(&[&[(8, 4)], &[(20, 10)]]);
     let wd = Numa::from_i32_slice(&[16]); // length 1, but paa has 2 inner
