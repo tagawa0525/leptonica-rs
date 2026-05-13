@@ -437,10 +437,14 @@ impl Pixa {
                     Error::InvalidParameter("boxa is empty; cannot size canvas".into())
                 })?;
                 let w_u = u32::try_from(w).map_err(|_| {
-                    Error::InvalidParameter(format!("boxa extent width {w} not in 0..=i32::MAX"))
+                    Error::InvalidParameter(format!(
+                        "boxa extent width is negative ({w}); a box has negative x/w"
+                    ))
                 })?;
                 let h_u = u32::try_from(h).map_err(|_| {
-                    Error::InvalidParameter(format!("boxa extent height {h} not in 0..=i32::MAX"))
+                    Error::InvalidParameter(format!(
+                        "boxa extent height is negative ({h}); a box has negative y/h"
+                    ))
                 })?;
                 crate::core::pix::Pix::new(w_u, h_u, crate::core::pix::PixelDepth::Bit1)?
             }
