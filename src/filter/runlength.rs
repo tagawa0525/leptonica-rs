@@ -361,3 +361,24 @@ pub fn find_max_runs(pix: &Pix, direction: RunDirection) -> Result<(Numa, Numa)>
 
     Ok((na_size, na_start))
 }
+
+// ============================================================================
+// Plan 128: stroke_width_transform
+// ============================================================================
+
+/// Compute the local stroke width at every foreground pixel of a 1 bpp image.
+///
+/// The output records, per foreground pixel, the minimum of the runlength
+/// transforms along several axes. The set of axes is controlled by
+/// `nangles`: 2 covers H/V only, 4 adds ±45°, 6 adds ±30°/±60°, 8 adds
+/// ±22.5°/±67.5°.
+///
+/// Matches C `pixStrokeWidthTransform` (`runlength.c`).
+pub fn stroke_width_transform(
+    _pix: &Pix,
+    _color: u32,
+    _depth: PixelDepth,
+    _nangles: u32,
+) -> Result<Pix> {
+    unimplemented!("plan 128: stroke_width_transform")
+}
