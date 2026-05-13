@@ -39,14 +39,14 @@ fn pixa_rotate_small_angle_is_clone() {
 
 #[test]
 
-fn pixa_rotate_90deg_runs() {
+fn pixa_rotate_45deg_runs() {
     let pa = small_pixa();
     let opts = RotateOptions {
         method: RotateMethod::Sampling,
         expand: true,
         ..RotateOptions::default()
     };
-    // ~45 degrees, large enough to actually rotate
+    // 45 degrees, large enough to actually rotate
     let out = pa.rotate(std::f32::consts::FRAC_PI_4, &opts).unwrap();
     assert_eq!(out.pix_slice().len(), 2);
     // Expanded output should be larger than the input
