@@ -748,16 +748,24 @@ impl Pixa {
         writer: W,
     ) -> crate::io::IoResult<()> {
         let n = self.pix_slice().len();
-        let begin = first.min(n);
+        if first >= n {
+            return Err(crate::io::IoError::InvalidData(format!(
+                "first ({first}) >= pixa size ({n}); select_to_pdf range is empty"
+            )));
+        }
+        let begin = first;
         let end = match last {
-            Some(l) => l.saturating_add(1).min(n),
+            Some(l) => {
+                if l < begin {
+                    return Err(crate::io::IoError::InvalidData(format!(
+                        "last ({l}) < first ({begin}); select_to_pdf range is empty"
+                    )));
+                }
+                l.saturating_add(1).min(n)
+            }
             None => n,
         };
-        let refs: Vec<&crate::core::pix::Pix> = if end > begin {
-            self.pix_slice()[begin..end].iter().collect()
-        } else {
-            Vec::new()
-        };
+        let refs: Vec<&crate::core::pix::Pix> = self.pix_slice()[begin..end].iter().collect();
         crate::io::pdf::write_pdf_multi(&refs, writer, options)
     }
 }
