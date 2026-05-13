@@ -449,24 +449,16 @@ impl Pixa {
         let comp = &self.pix_slice()[index];
         let b = self.boxa().get(index).copied().unwrap_or_default();
         let mut dst_mut = dst.try_into_mut().unwrap();
-        let cw = dst_mut.width() as i32;
-        let ch = dst_mut.height() as i32;
-        let w = comp.width() as i32;
-        let h = comp.height() as i32;
-        for j in 0..h {
-            for i in 0..w {
-                if comp.get_pixel(i as u32, j as u32) != Some(1) {
-                    continue;
-                }
-                let dx = b.x + i;
-                let dy = b.y + j;
-                if dx < 0 || dy < 0 || dx >= cw || dy >= ch {
-                    continue;
-                }
-                // OR semantics: never clear an already-set pixel.
-                dst_mut.set_pixel(dx as u32, dy as u32, 1)?;
-            }
-        }
+        dst_mut.rop_region_inplace(
+            b.x,
+            b.y,
+            comp.width(),
+            comp.height(),
+            crate::core::pix::rop::RopOp::Or,
+            comp,
+            0,
+            0,
+        )?;
         Ok(dst_mut.into())
     }
 }
