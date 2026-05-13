@@ -725,3 +725,47 @@ impl crate::core::pix::Pix {
         Ok(out)
     }
 }
+
+// ============================================================================
+// Plan 126: Pixa::select_to_pdf
+// ============================================================================
+
+#[cfg(feature = "pdf-format")]
+impl Pixa {
+    /// Write a contiguous range of Pix to a multi-page PDF.
+    ///
+    /// Mirrors C `pixaSelectToPdf` with `fontsize <= 0` (no text annotation).
+    /// `last = None` extends to the end of the Pixa. The selected range must
+    /// be non-empty; otherwise the underlying PDF writer returns an error.
+    ///
+    /// C Leptonica equivalent: `pixaSelectToPdf` (text-annotation feature
+    /// intentionally omitted; pair with the existing BMF helpers if needed).
+    pub fn select_to_pdf<W: std::io::Write>(
+        &self,
+        first: usize,
+        last: Option<usize>,
+        options: &crate::io::pdf::PdfOptions,
+        writer: W,
+    ) -> crate::io::IoResult<()> {
+        let n = self.pix_slice().len();
+        if first >= n {
+            return Err(crate::io::IoError::InvalidData(format!(
+                "first ({first}) >= pixa size ({n}); select_to_pdf range is empty"
+            )));
+        }
+        let begin = first;
+        let end = match last {
+            Some(l) => {
+                if l < begin {
+                    return Err(crate::io::IoError::InvalidData(format!(
+                        "last ({l}) < first ({begin}); select_to_pdf range is empty"
+                    )));
+                }
+                l.saturating_add(1).min(n)
+            }
+            None => n,
+        };
+        let refs: Vec<&crate::core::pix::Pix> = self.pix_slice()[begin..end].iter().collect();
+        crate::io::pdf::write_pdf_multi(&refs, writer, options)
+    }
+}
