@@ -1,6 +1,6 @@
 # Core: Pixa bin_sort / Pixaa scale_to_size_var (plan 032 残)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-13
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-3 (108b)
 
@@ -56,9 +56,9 @@ impl Pixaa {
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 2 件 ❌ → ✅
-- [ ] plan 032 で 124 を新規 IMPLEMENTED 行として追加
+- [x] cargo test/clippy/fmt 通過 (9 件パス)
+- [x] core.md 2 件 ❌ → ✅
+- [x] plan 032 で 124 を新規 IMPLEMENTED 行として追加
 - [ ] PR + Copilot レビュー対応 + マージ
 
 ## 実装メモ
