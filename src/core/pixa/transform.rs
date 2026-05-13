@@ -466,3 +466,129 @@ impl Pixa {
         Ok(dst_mut.into())
     }
 }
+
+// ============================================================================
+// Plan 124: bin_sort / scale_to_size_var
+// ============================================================================
+
+impl Pixa {
+    /// O(n) bin sort by a single box dimension key.
+    ///
+    /// Mirrors C `pixaBinSort` which supports only `ByX`, `ByY`, `ByWidth`,
+    /// `ByHeight`, `ByPerimeter`. Other [`PixaSortType`] variants return Err.
+    ///
+    /// Each entry's key is taken from its Box when present. When no Box is
+    /// attached the fallback differs by sort type:
+    ///
+    /// - `ByX` / `ByY` → `0` (the implicit origin)
+    /// - `ByWidth` / `ByHeight` / `ByPerimeter` → the Pix's own width and
+    ///   height
+    ///
+    /// C Leptonica equivalent: `pixaBinSort`.
+    pub fn bin_sort(
+        &self,
+        sort_type: crate::core::pixa::PixaSortType,
+        order: crate::core::numa::SortOrder,
+    ) -> Result<(Pixa, Vec<usize>)> {
+        use crate::core::pixa::PixaSortType;
+        let n = self.pix_slice().len();
+        if n == 0 {
+            return Ok((Pixa::new(), Vec::new()));
+        }
+        let mut keys = Vec::with_capacity(n);
+        for (i, pix) in self.pix_slice().iter().enumerate() {
+            let (x, y, w, h) = if let Some(b) = self.boxa().get(i) {
+                (b.x, b.y, b.w, b.h)
+            } else {
+                let pw = i32::try_from(pix.width()).map_err(|_| {
+                    Error::InvalidParameter(format!("pix[{i}] width overflows i32"))
+                })?;
+                let ph = i32::try_from(pix.height()).map_err(|_| {
+                    Error::InvalidParameter(format!("pix[{i}] height overflows i32"))
+                })?;
+                (0, 0, pw, ph)
+            };
+            let key = match sort_type {
+                PixaSortType::ByX => x,
+                PixaSortType::ByY => y,
+                PixaSortType::ByWidth => w,
+                PixaSortType::ByHeight => h,
+                PixaSortType::ByPerimeter => w.saturating_add(h),
+                _ => {
+                    return Err(Error::InvalidParameter(format!(
+                        "pixaBinSort does not support {sort_type:?}; \
+                         supported: ByX, ByY, ByWidth, ByHeight, ByPerimeter"
+                    )));
+                }
+            };
+            keys.push(key);
+        }
+        let na = crate::core::numa::Numa::from_i32_slice(&keys);
+        let naindex = na
+            .bin_sort_index(order)
+            .map_err(|e| Error::InvalidParameter(format!("bin_sort_index failed: {e}")))?;
+        let indices: Vec<usize> = (0..naindex.len())
+            .map(|i| naindex.get_i32(i).map(|v| v as usize).unwrap_or(0))
+            .collect();
+        let sorted = self.sort_by_index(&indices)?;
+        Ok((sorted, indices))
+    }
+}
+
+impl crate::core::pixa::Pixaa {
+    /// Scale each inner Pixa to per-image target sizes.
+    ///
+    /// `nawd[i]` (resp. `nahd[i]`) is the target width (resp. height) for
+    /// every Pix in the `i`-th inner Pixa. At least one of `nawd`/`nahd`
+    /// must be provided; the size of any provided Numa must equal
+    /// `self.len()`.
+    ///
+    /// C Leptonica equivalent: `pixaaScaleToSizeVar`.
+    pub fn scale_to_size_var(
+        &self,
+        nawd: Option<&crate::core::numa::Numa>,
+        nahd: Option<&crate::core::numa::Numa>,
+    ) -> Result<crate::core::pixa::Pixaa> {
+        if nawd.is_none() && nahd.is_none() {
+            return Err(Error::InvalidParameter(
+                "scale_to_size_var requires at least one of nawd/nahd".into(),
+            ));
+        }
+        let n = self.len();
+        if let Some(na) = nawd
+            && na.len() != n
+        {
+            return Err(Error::InvalidParameter(format!(
+                "nawd length {} != pixaa size {n}",
+                na.len()
+            )));
+        }
+        if let Some(na) = nahd
+            && na.len() != n
+        {
+            return Err(Error::InvalidParameter(format!(
+                "nahd length {} != pixaa size {n}",
+                na.len()
+            )));
+        }
+        let mut out = crate::core::pixa::Pixaa::with_capacity(n);
+        for i in 0..n {
+            let inner = match self.get(i) {
+                Some(p) => p,
+                None => continue,
+            };
+            let wd = nawd
+                .and_then(|na| na.get_i32(i))
+                .filter(|&v| v > 0)
+                .map(|v| v as u32)
+                .unwrap_or(0);
+            let hd = nahd
+                .and_then(|na| na.get_i32(i))
+                .filter(|&v| v > 0)
+                .map(|v| v as u32)
+                .unwrap_or(0);
+            out.push(inner.scale_to_size(wd, hd));
+        }
+        Ok(out)
+    }
+}

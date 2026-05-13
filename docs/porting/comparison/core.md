@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 938  |
+| ✅ 同等   | 940  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 37   |
+| ❌ 未実装 | 35   |
 | 合計      | 1215 |
 
-**カバレッジ**: 85.0% (1032/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 1032/1069 = 96.5% 実装)
+**カバレッジ**: 85.2% (1034/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 1034/1069 = 96.7% 実装)
 
 ## 注記
 
@@ -1662,50 +1662,50 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 
 ### pixafunc1.c (追加分)
 
-| C関数                        | 状態 | Rust対応                                                    | 備考                          |
-| ---------------------------- | ---- | ----------------------------------------------------------- | ----------------------------- |
-| pixAddWithIndicator          | ✅   | `pix_add_with_indicator` (core/pixa/select.rs)              | plan 106                      |
-| pixRemoveWithIndicator       | ✅   | `pix_remove_with_indicator` (core/pixa/select.rs)           | plan 106                      |
-| pixSelectByArea              | ✅   | `select_by_area` (core/pixa/mod.rs)                         | name+module match             |
-| pixSelectByAreaFraction      | ✅   | `pix_select_by_area_fraction` (core/pixa/select.rs)         | plan 106                      |
-| pixSelectByPerimSizeRatio    | ✅   | `pix_select_by_perim_size_ratio` (core/pixa/select.rs)      | plan 106                      |
-| pixSelectByPerimToAreaRatio  | ✅   | `pix_select_by_perim_to_area_ratio` (core/pixa/select.rs)   | plan 106                      |
-| pixSelectBySize              | ✅   | `select_by_size` (core/pixa/mod.rs)                         | name+module match             |
-| pixSelectByWidthHeightRatio  | ✅   | `pix_select_by_width_height_ratio` (core/pixa/select.rs)    | plan 106                      |
-| pixaAddBorderGeneral         | ✅   | `Pixa::add_border_general` (core/pixa/transform.rs)         | plan 120                      |
-| pixaAnyColormaps             | ✅   | `Pixa::any_colormaps` (core/pixa/properties.rs)             | plan 108                      |
-| pixaBinSort                  | ❌   | -                                                           | no Rust impl in expected dirs |
-| pixaClipToForeground         | ✅   | `Pixa::clip_to_foreground_all` (core/pixa/transform.rs)     | plan 120                      |
-| pixaClipToPix                | ✅   | `Pixa::clip_to_pix` (core/pixa/transform.rs)                | plan 123                      |
-| pixaConvertToGivenDepth      | ✅   | `Pixa::convert_to_given_depth` (core/pixa/transform.rs)     | plan 120                      |
-| pixaConvertToSameDepth       | ✅   | `Pixa::convert_to_same_depth` (core/pixa/transform.rs)      | plan 120                      |
-| pixaEqual                    | ✅   | `Pixa::equal_to_ordered` (core/pixa/properties.rs)          | plan 108 (ordered variant)    |
-| pixaGetDepthInfo             | ✅   | `Pixa::get_depth_info` (core/pixa/properties.rs)            | plan 108                      |
-| pixaGetRenderingDepth        | ✅   | `Pixa::get_rendering_depth` (core/pixa/properties.rs)       | plan 108                      |
-| pixaHasColor                 | ✅   | `Pixa::has_color` (core/pixa/properties.rs)                 | plan 108                      |
-| pixaMakeSizeIndicator        | ✅   | `Pixa::make_size_indicator` (core/pixa/properties.rs)       | plan 121                      |
-| pixaRenderComponent          | ✅   | `Pixa::render_component` (core/pixa/transform.rs)           | plan 123                      |
-| pixaRotate                   | ✅   | `Pixa::rotate` (core/pixa/transform.rs)                     | plan 123                      |
-| pixaRotateOrth               | ✅   | `Pixa::rotate_orth` (core/pixa/transform.rs)                | plan 107                      |
-| pixaScale                    | ✅   | `Pixa::scale` (core/pixa/transform.rs)                      | plan 107                      |
-| pixaScaleBySampling          | ✅   | `Pixa::scale_by_sampling` (core/pixa/transform.rs)          | plan 107                      |
-| pixaSelectByAreaFraction     | ✅   | `Pixa::select_by_area_fraction` (core/pixa/select.rs)       | plan 106                      |
-| pixaSelectByNumConnComp      | ✅   | `Pixa::select_by_num_conn_comp` (core/pixa/select.rs)       | plan 106                      |
-| pixaSelectByPerimSizeRatio   | ✅   | `Pixa::select_by_perim_size_ratio` (core/pixa/select.rs)    | plan 106                      |
-| pixaSelectByPerimToAreaRatio | ✅   | `Pixa::select_by_perim_to_area_ratio` (core/pixa/select.rs) | plan 106                      |
-| pixaSelectByWidthHeightRatio | ✅   | `Pixa::select_by_width_height_ratio` (core/pixa/select.rs)  | plan 106                      |
-| pixaSelectRange              | ✅   | `Pixa::select_range` (core/pixa/select.rs)                  | plan 106                      |
-| pixaSelectWithIndicator      | ✅   | `Pixa::select_with_indicator` (core/pixa/select.rs)         | plan 106                      |
-| pixaSelectWithString         | ✅   | `Pixa::select_with_string` (core/pixa/select.rs)            | plan 106                      |
-| pixaSetFullSizeBoxa          | ✅   | `Pixa::set_full_size_boxa` (core/pixa/properties.rs)        | plan 108                      |
-| pixaSizeRange                | ✅   | `Pixa::size_range` (core/pixa/properties.rs)                | plan 108                      |
-| pixaSort2dByIndex            | ✅   | `Pixa::sort_2d_by_index` (core/pixa/properties.rs)          | plan 121                      |
-| pixaTranslate                | ✅   | `Pixa::translate` (core/pixa/transform.rs)                  | plan 107                      |
-| pixaaFlattenToPixa           | ✅   | `Pixaa::flatten_to_pixa` (core/pixa/properties.rs)          | plan 122                      |
-| pixaaScaleToSize             | ✅   | `scale_to_size` (core/pixa/mod.rs)                          | name+module match             |
-| pixaaScaleToSizeVar          | ❌   | -                                                           | no Rust impl in expected dirs |
-| pixaaSelectRange             | ✅   | `Pixaa::select_range` (core/pixa/properties.rs)             | plan 122                      |
-| pixaaSizeRange               | ✅   | `Pixaa::size_range` (core/pixa/properties.rs)               | plan 122                      |
+| C関数                        | 状態 | Rust対応                                                    | 備考                       |
+| ---------------------------- | ---- | ----------------------------------------------------------- | -------------------------- |
+| pixAddWithIndicator          | ✅   | `pix_add_with_indicator` (core/pixa/select.rs)              | plan 106                   |
+| pixRemoveWithIndicator       | ✅   | `pix_remove_with_indicator` (core/pixa/select.rs)           | plan 106                   |
+| pixSelectByArea              | ✅   | `select_by_area` (core/pixa/mod.rs)                         | name+module match          |
+| pixSelectByAreaFraction      | ✅   | `pix_select_by_area_fraction` (core/pixa/select.rs)         | plan 106                   |
+| pixSelectByPerimSizeRatio    | ✅   | `pix_select_by_perim_size_ratio` (core/pixa/select.rs)      | plan 106                   |
+| pixSelectByPerimToAreaRatio  | ✅   | `pix_select_by_perim_to_area_ratio` (core/pixa/select.rs)   | plan 106                   |
+| pixSelectBySize              | ✅   | `select_by_size` (core/pixa/mod.rs)                         | name+module match          |
+| pixSelectByWidthHeightRatio  | ✅   | `pix_select_by_width_height_ratio` (core/pixa/select.rs)    | plan 106                   |
+| pixaAddBorderGeneral         | ✅   | `Pixa::add_border_general` (core/pixa/transform.rs)         | plan 120                   |
+| pixaAnyColormaps             | ✅   | `Pixa::any_colormaps` (core/pixa/properties.rs)             | plan 108                   |
+| pixaBinSort                  | ✅   | `Pixa::bin_sort` (core/pixa/transform.rs)                   | plan 124                   |
+| pixaClipToForeground         | ✅   | `Pixa::clip_to_foreground_all` (core/pixa/transform.rs)     | plan 120                   |
+| pixaClipToPix                | ✅   | `Pixa::clip_to_pix` (core/pixa/transform.rs)                | plan 123                   |
+| pixaConvertToGivenDepth      | ✅   | `Pixa::convert_to_given_depth` (core/pixa/transform.rs)     | plan 120                   |
+| pixaConvertToSameDepth       | ✅   | `Pixa::convert_to_same_depth` (core/pixa/transform.rs)      | plan 120                   |
+| pixaEqual                    | ✅   | `Pixa::equal_to_ordered` (core/pixa/properties.rs)          | plan 108 (ordered variant) |
+| pixaGetDepthInfo             | ✅   | `Pixa::get_depth_info` (core/pixa/properties.rs)            | plan 108                   |
+| pixaGetRenderingDepth        | ✅   | `Pixa::get_rendering_depth` (core/pixa/properties.rs)       | plan 108                   |
+| pixaHasColor                 | ✅   | `Pixa::has_color` (core/pixa/properties.rs)                 | plan 108                   |
+| pixaMakeSizeIndicator        | ✅   | `Pixa::make_size_indicator` (core/pixa/properties.rs)       | plan 121                   |
+| pixaRenderComponent          | ✅   | `Pixa::render_component` (core/pixa/transform.rs)           | plan 123                   |
+| pixaRotate                   | ✅   | `Pixa::rotate` (core/pixa/transform.rs)                     | plan 123                   |
+| pixaRotateOrth               | ✅   | `Pixa::rotate_orth` (core/pixa/transform.rs)                | plan 107                   |
+| pixaScale                    | ✅   | `Pixa::scale` (core/pixa/transform.rs)                      | plan 107                   |
+| pixaScaleBySampling          | ✅   | `Pixa::scale_by_sampling` (core/pixa/transform.rs)          | plan 107                   |
+| pixaSelectByAreaFraction     | ✅   | `Pixa::select_by_area_fraction` (core/pixa/select.rs)       | plan 106                   |
+| pixaSelectByNumConnComp      | ✅   | `Pixa::select_by_num_conn_comp` (core/pixa/select.rs)       | plan 106                   |
+| pixaSelectByPerimSizeRatio   | ✅   | `Pixa::select_by_perim_size_ratio` (core/pixa/select.rs)    | plan 106                   |
+| pixaSelectByPerimToAreaRatio | ✅   | `Pixa::select_by_perim_to_area_ratio` (core/pixa/select.rs) | plan 106                   |
+| pixaSelectByWidthHeightRatio | ✅   | `Pixa::select_by_width_height_ratio` (core/pixa/select.rs)  | plan 106                   |
+| pixaSelectRange              | ✅   | `Pixa::select_range` (core/pixa/select.rs)                  | plan 106                   |
+| pixaSelectWithIndicator      | ✅   | `Pixa::select_with_indicator` (core/pixa/select.rs)         | plan 106                   |
+| pixaSelectWithString         | ✅   | `Pixa::select_with_string` (core/pixa/select.rs)            | plan 106                   |
+| pixaSetFullSizeBoxa          | ✅   | `Pixa::set_full_size_boxa` (core/pixa/properties.rs)        | plan 108                   |
+| pixaSizeRange                | ✅   | `Pixa::size_range` (core/pixa/properties.rs)                | plan 108                   |
+| pixaSort2dByIndex            | ✅   | `Pixa::sort_2d_by_index` (core/pixa/properties.rs)          | plan 121                   |
+| pixaTranslate                | ✅   | `Pixa::translate` (core/pixa/transform.rs)                  | plan 107                   |
+| pixaaFlattenToPixa           | ✅   | `Pixaa::flatten_to_pixa` (core/pixa/properties.rs)          | plan 122                   |
+| pixaaScaleToSize             | ✅   | `scale_to_size` (core/pixa/mod.rs)                          | name+module match          |
+| pixaaScaleToSizeVar          | ✅   | `Pixaa::scale_to_size_var` (core/pixa/transform.rs)         | plan 124                   |
+| pixaaSelectRange             | ✅   | `Pixaa::select_range` (core/pixa/properties.rs)             | plan 122                   |
+| pixaaSizeRange               | ✅   | `Pixaa::size_range` (core/pixa/properties.rs)               | plan 122                   |
 
 ### pixafunc2.c (追加分)
 
