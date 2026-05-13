@@ -345,3 +345,40 @@ fn pix_box_or_full(pix: &crate::core::pix::Pix, candidate: Option<Box>) -> Box {
         _ => full_image_box(pix).unwrap_or_default(),
     }
 }
+
+// ============================================================================
+// Plan 123: rotate / clip_to_pix / render_component
+// ============================================================================
+
+impl Pixa {
+    /// Rotate every Pix by `angle` radians, returning a new Pixa.
+    ///
+    /// Matches C `pixaRotate`: for an angle below the rotation threshold the
+    /// output is a deep_clone of the input. The boxa of the output is left
+    /// empty because rotated geometry does not preserve the original boxes.
+    ///
+    /// C Leptonica equivalent: `pixaRotate`.
+    pub fn rotate(&self, _angle: f32, _options: &crate::transform::RotateOptions) -> Result<Pixa> {
+        unimplemented!("plan 123: Pixa::rotate")
+    }
+
+    /// Clip each box-rectangle from `pixs` and AND it with the matching Pix
+    /// in this Pixa.
+    ///
+    /// C Leptonica equivalent: `pixaClipToPix`.
+    pub fn clip_to_pix(&self, _pixs: &crate::core::pix::Pix) -> Result<Pixa> {
+        unimplemented!("plan 123: Pixa::clip_to_pix")
+    }
+
+    /// Render the 1bpp component at `index` onto `pixs` (or a fresh
+    /// boxa-extent canvas if `None`).
+    ///
+    /// C Leptonica equivalent: `pixaRenderComponent`.
+    pub fn render_component(
+        &self,
+        _pixs: Option<&crate::core::pix::Pix>,
+        _index: usize,
+    ) -> Result<crate::core::pix::Pix> {
+        unimplemented!("plan 123: Pixa::render_component")
+    }
+}

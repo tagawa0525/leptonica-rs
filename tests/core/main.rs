@@ -41,6 +41,7 @@ mod pixa1_reg;
 mod pixa2_reg;
 mod pixa_properties_reg;
 mod pixa_properties_residual_reg;
+mod pixa_rotate_clip_render_reg;
 mod pixa_select_reg;
 mod pixa_transform_reg;
 mod pixa_transform_residual_reg;
