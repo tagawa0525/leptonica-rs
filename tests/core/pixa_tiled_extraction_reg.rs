@@ -7,7 +7,7 @@ use leptonica::{Pix, PixMut, Pixa, PixelDepth};
 // -- convert_to_8_colormap ---------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_8_colormap_preserves_boxa() {
     let mut pa = Pixa::new();
     let p32: Pix = PixMut::new(8, 8, PixelDepth::Bit32).unwrap().into();
@@ -28,7 +28,7 @@ fn mkpix(w: u32, h: u32) -> Pix {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pix_make_tiled_pixa_grid() {
     // 30x20 image, 10x10 tiles -> 3 x 2 = 6 tiles
     let pixs = mkpix(30, 20);
@@ -41,7 +41,7 @@ fn pix_make_tiled_pixa_grid() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pix_make_tiled_pixa_start_num() {
     // 30x20 image, 10x10 tiles, start=2, num=2 -> tiles 2..4
     let pixs = mkpix(30, 20);
@@ -50,7 +50,7 @@ fn pix_make_tiled_pixa_start_num() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pix_make_tiled_pixa_with_boxa() {
     // boxa overrides the uniform grid case
     let pixs = mkpix(30, 20);
@@ -64,7 +64,7 @@ fn pix_make_tiled_pixa_with_boxa() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pix_make_tiled_pixa_respects_tile_count() {
     // If text field encodes "n = 5" (a valid hint <= 6 tiles), only 5 are
     // produced when num = 0 (take all).
@@ -78,7 +78,7 @@ fn pix_make_tiled_pixa_respects_tile_count() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pix_make_tiled_pixa_invalid_tile_size() {
     let pixs = mkpix(10, 10);
     // 20 > 10, so nx = 0, error
@@ -88,7 +88,7 @@ fn pix_make_tiled_pixa_invalid_tile_size() {
 // -- Pixa::make_tiled_pixa --------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_make_tiled_pixa_joins_all_inner() {
     // Two 30x10 (3 tiles) Pixs in a Pixa -> each contributes 3 tiles -> total 6
     let mut pa = Pixa::new();
@@ -99,7 +99,7 @@ fn pixa_make_tiled_pixa_joins_all_inner() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_make_tiled_pixa_clamps_nsamp() {
     // Each Pix has only 2 tiles but nsamp = 5 -> still 2 tiles per Pix (clamp)
     let mut pa = Pixa::new();
