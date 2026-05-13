@@ -1,6 +1,6 @@
 # Core: Pixa::convert_to_nup (plan 032 残)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-13
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-2 (107b)
 
@@ -47,9 +47,9 @@ impl Pixa {
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md 1 件 ❌ → ✅
-- [ ] plan 032 で 127 を新規 IMPLEMENTED 行として追加
+- [x] cargo test/clippy/fmt 通過 (5 件パス)
+- [x] core.md 1 件 ❌ → ✅
+- [x] plan 032 で 127 を新規 IMPLEMENTED 行として追加
 - [ ] PR + Copilot レビュー対応 + マージ
 
 ## 実装メモ
