@@ -375,10 +375,101 @@ pub fn find_max_runs(pix: &Pix, direction: RunDirection) -> Result<(Numa, Numa)>
 ///
 /// Matches C `pixStrokeWidthTransform` (`runlength.c`).
 pub fn stroke_width_transform(
-    _pix: &Pix,
-    _color: u32,
-    _depth: PixelDepth,
-    _nangles: u32,
+    pix: &Pix,
+    color: u32,
+    depth: PixelDepth,
+    nangles: u32,
 ) -> Result<Pix> {
-    unimplemented!("plan 128: stroke_width_transform")
+    use crate::core::Error;
+    if pix.depth() != PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pix.depth().bits()));
+    }
+    if depth != PixelDepth::Bit8 && depth != PixelDepth::Bit16 {
+        return Err(Error::InvalidParameter(format!(
+            "depth must be Bit8 or Bit16 (got {:?})",
+            depth
+        )));
+    }
+    if !matches!(nangles, 2 | 4 | 6 | 8) {
+        return Err(Error::InvalidParameter(format!(
+            "nangles must be 2, 4, 6, or 8 (got {nangles})"
+        )));
+    }
+
+    // Use foreground (black) runs for evaluation. color=0 means the
+    // caller's foreground is white, so invert to make foreground black.
+    let pixt = if color == 0 {
+        pix.invert()
+    } else {
+        pix.deep_clone()
+    };
+
+    let pix_h = runlength_transform(&pixt, 1, RunDirection::Horizontal, depth)?;
+    let pix_v = runlength_transform(&pixt, 1, RunDirection::Vertical, depth)?;
+    let mut pixg = pix_h.arith_min(&pix_v)?;
+
+    let pi = std::f32::consts::PI;
+    if nangles == 4 || nangles == 8 {
+        let pix_d = find_min_runs_orthogonal(&pixt, pi / 4.0, depth)?;
+        pixg = pixg.arith_min(&pix_d)?;
+    }
+    if nangles == 6 {
+        let pix_30 = find_min_runs_orthogonal(&pixt, pi / 6.0, depth)?;
+        pixg = pixg.arith_min(&pix_30)?;
+        let pix_60 = find_min_runs_orthogonal(&pixt, pi / 3.0, depth)?;
+        pixg = pixg.arith_min(&pix_60)?;
+    }
+    if nangles == 8 {
+        let pix_22 = find_min_runs_orthogonal(&pixt, pi / 8.0, depth)?;
+        pixg = pixg.arith_min(&pix_22)?;
+        let pix_67 = find_min_runs_orthogonal(&pixt, 3.0 * pi / 8.0, depth)?;
+        pixg = pixg.arith_min(&pix_67)?;
+    }
+    Ok(pixg)
 }
+
+/// Internal helper for [`stroke_width_transform`]: rotate by `angle`, take
+/// the min of H/V runlength transforms, rotate back, and crop to the
+/// original geometry.
+///
+/// Mirrors C `pixFindMinRunsOrthogonal`.
+fn find_min_runs_orthogonal(pix: &Pix, angle: f32, depth: PixelDepth) -> Result<Pix> {
+    use crate::core::pix::rop::RopOp;
+    let w = pix.width();
+    let h = pix.height();
+    let w2 = (w * w) as f64;
+    let h2 = (h * h) as f64;
+    let diag = ((w2 + h2).sqrt() + 2.5) as u32;
+    let xoff = ((diag - w) / 2) as i32;
+    let yoff = ((diag - h) / 2) as i32;
+
+    // Stage pix into the center of a large 1bpp canvas so that rotation
+    // doesn't lose pixels for any angle.
+    let canvas = Pix::new(diag, diag, PixelDepth::Bit1)?;
+    let mut canvas_mut = canvas.try_into_mut().unwrap();
+    canvas_mut.rop_region_inplace(xoff, yoff, w, h, RopOp::Src, pix, 0, 0)?;
+    let pixb: Pix = canvas_mut.into();
+
+    // Forward rotate
+    let cx = (diag / 2) as i32;
+    let cy = (diag / 2) as i32;
+    let pixr = crate::transform::rotate_shear(&pixb, cx, cy, angle, ShearFillBg::White)
+        .map_err(|e| crate::core::Error::InvalidParameter(format!("rotate_shear: {e}")))?;
+
+    // Min of H/V runs in the rotated frame
+    let pix_h = runlength_transform(&pixr, 1, RunDirection::Horizontal, depth)?;
+    let pix_v = runlength_transform(&pixr, 1, RunDirection::Vertical, depth)?;
+    let pixg = pix_h.arith_min(&pix_v)?;
+
+    // Rotate back by -angle. The runlength image is `depth` bpp, so use
+    // the same rotate_shear; ShearFill::Black for an 8/16 bpp image
+    // produces 0-fill, which is the natural background.
+    let pix_back = crate::transform::rotate_shear(&pixg, cx, cy, -angle, ShearFillBg::Black)
+        .map_err(|e| crate::core::Error::InvalidParameter(format!("rotate_shear back: {e}")))?;
+
+    // Crop back to the original geometry
+    pix_back.clip_rectangle(xoff as u32, yoff as u32, w, h)
+}
+
+// Local alias to keep the rotate_shear calls readable inside this file.
+type ShearFillBg = crate::transform::shear::ShearFill;

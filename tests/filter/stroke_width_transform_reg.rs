@@ -14,7 +14,7 @@ fn solid_block(w: u32, h: u32) -> leptonica::Pix {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn swt_solid_block_reports_width() {
     // A 10x10 solid 1bpp block: every fg pixel's stroke width is non-zero,
     // and the center pixel sees the maximum value among the candidates.
@@ -28,7 +28,7 @@ fn swt_solid_block_reports_width() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn swt_color_zero_inverts_input() {
     // color = 0: background pixels are treated as foreground.
     // Build a Pix that is mostly 0 (white) with a small fg block in the
@@ -52,14 +52,14 @@ fn swt_color_zero_inverts_input() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn swt_rejects_non_1bpp_input() {
     let pix: leptonica::Pix = PixMut::new(10, 10, PixelDepth::Bit8).unwrap().into();
     assert!(stroke_width_transform(&pix, 1, PixelDepth::Bit8, 2).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn swt_rejects_invalid_depth() {
     let pix = solid_block(10, 10);
     assert!(stroke_width_transform(&pix, 1, PixelDepth::Bit4, 2).is_err());
@@ -67,7 +67,7 @@ fn swt_rejects_invalid_depth() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn swt_rejects_invalid_nangles() {
     let pix = solid_block(10, 10);
     for n in [0u32, 1, 3, 5, 7, 9, 16] {
@@ -79,7 +79,7 @@ fn swt_rejects_invalid_nangles() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn swt_supports_all_valid_nangles() {
     let pix = solid_block(10, 10);
     for n in [2u32, 4, 6, 8] {
