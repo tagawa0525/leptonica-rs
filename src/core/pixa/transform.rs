@@ -466,3 +466,33 @@ impl Pixa {
         Ok(dst_mut.into())
     }
 }
+
+// ============================================================================
+// Plan 124: bin_sort / scale_to_size_var
+// ============================================================================
+
+impl Pixa {
+    /// O(n) bin sort by a single box dimension key.
+    ///
+    /// C Leptonica equivalent: `pixaBinSort`.
+    pub fn bin_sort(
+        &self,
+        _sort_type: crate::core::pixa::PixaSortType,
+        _order: crate::core::numa::SortOrder,
+    ) -> Result<(Pixa, Vec<usize>)> {
+        unimplemented!("plan 124: Pixa::bin_sort")
+    }
+}
+
+impl crate::core::pixa::Pixaa {
+    /// Scale each inner Pixa to per-image target sizes.
+    ///
+    /// C Leptonica equivalent: `pixaaScaleToSizeVar`.
+    pub fn scale_to_size_var(
+        &self,
+        _nawd: Option<&crate::core::numa::Numa>,
+        _nahd: Option<&crate::core::numa::Numa>,
+    ) -> Result<crate::core::pixa::Pixaa> {
+        unimplemented!("plan 124: Pixaa::scale_to_size_var")
+    }
+}
