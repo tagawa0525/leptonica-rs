@@ -476,8 +476,13 @@ impl Pixa {
     ///
     /// Mirrors C `pixaBinSort` which supports only `ByX`, `ByY`, `ByWidth`,
     /// `ByHeight`, `ByPerimeter`. Other [`PixaSortType`] variants return Err.
-    /// Each entry's key is the box dimension when present, falling back to
-    /// the Pix's own width/height when no Box is attached.
+    ///
+    /// Each entry's key is taken from its Box when present. When no Box is
+    /// attached the fallback differs by sort type:
+    ///
+    /// - `ByX` / `ByY` → `0` (the implicit origin)
+    /// - `ByWidth` / `ByHeight` / `ByPerimeter` → the Pix's own width and
+    ///   height
     ///
     /// C Leptonica equivalent: `pixaBinSort`.
     pub fn bin_sort(
