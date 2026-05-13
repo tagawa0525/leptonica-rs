@@ -592,3 +592,39 @@ impl crate::core::pixa::Pixaa {
         Ok(out)
     }
 }
+
+// ============================================================================
+// Plan 125: convert_to_8_colormap / Pix::make_tiled_pixa / Pixa::make_tiled_pixa
+// ============================================================================
+
+impl Pixa {
+    /// Convert each Pix to 8 bpp with an attached colormap.
+    ///
+    /// C Leptonica equivalent: `pixaConvertTo8Colormap`.
+    pub fn convert_to_8_colormap(&self, _dither: bool) -> Result<Pixa> {
+        unimplemented!("plan 125: Pixa::convert_to_8_colormap")
+    }
+
+    /// Build a Pixa by tiling every inner Pix and joining the results.
+    ///
+    /// C Leptonica equivalent: `pixaMakeFromTiledPixa`.
+    pub fn make_tiled_pixa(&self, _w: u32, _h: u32, _nsamp: u32) -> Result<Pixa> {
+        unimplemented!("plan 125: Pixa::make_tiled_pixa")
+    }
+}
+
+impl crate::core::pix::Pix {
+    /// Split this Pix into a Pixa of `w`×`h` tiles.
+    ///
+    /// C Leptonica equivalent: `pixaMakeFromTiledPix`.
+    pub fn make_tiled_pixa(
+        &self,
+        _w: u32,
+        _h: u32,
+        _start: u32,
+        _num: u32,
+        _boxa: Option<&Boxa>,
+    ) -> Result<Pixa> {
+        unimplemented!("plan 125: Pix::make_tiled_pixa")
+    }
+}
