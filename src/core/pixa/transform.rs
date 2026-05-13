@@ -769,3 +769,83 @@ impl Pixa {
         crate::io::pdf::write_pdf_multi(&refs, writer, options)
     }
 }
+
+// ============================================================================
+// Plan 127: Pixa::convert_to_nup
+// ============================================================================
+
+impl Pixa {
+    /// Tile this Pixa into N-up pages.
+    ///
+    /// Each page is one `nx × ny` grid laid out by
+    /// [`Pixa::display_tiled_and_scaled`]; the result is a Pixa with one Pix
+    /// per page (`ceil(self.len() / (nx * ny))` pages in total).
+    ///
+    /// Matches C `pixaConvertToNUpPixa` with `fontsize == 0` (no text
+    /// overlay). BMF text annotation (`pixAddTextlines`) is intentionally
+    /// omitted; consumers can layer that on top by pre-annotating each Pix.
+    ///
+    /// C Leptonica equivalent: `pixaConvertToNUpPixa`.
+    pub fn convert_to_nup(
+        &self,
+        nx: u32,
+        ny: u32,
+        tile_width: u32,
+        spacing: u32,
+        border: u32,
+    ) -> Result<Pixa> {
+        if !(1..=50).contains(&nx) || !(1..=50).contains(&ny) {
+            return Err(Error::InvalidParameter(format!(
+                "nx and ny must be in 1..=50 (got nx={nx}, ny={ny})"
+            )));
+        }
+        if tile_width < 20 {
+            return Err(Error::InvalidParameter(format!(
+                "tile_width must be >= 20 (got {tile_width})"
+            )));
+        }
+        let n = self.pix_slice().len();
+        if n == 0 {
+            return Ok(Pixa::new());
+        }
+        let outer_tile_width = border
+            .checked_mul(2)
+            .and_then(|b2| tile_width.checked_add(b2))
+            .ok_or_else(|| {
+                Error::InvalidParameter(format!(
+                    "tile_width ({tile_width}) + 2 * border ({border}) overflows u32"
+                ))
+            })?;
+        let per_page = (nx as usize) * (ny as usize);
+        let pages = n.div_ceil(per_page);
+        let mut out = Pixa::with_capacity(pages);
+        for p in 0..pages {
+            let begin = p * per_page;
+            let end = ((p + 1) * per_page).min(n);
+            // Build a Pixa view of the page's slice. `display_tiled_and_scaled`
+            // already scales each Pix to the inner tile width, so we don't
+            // pre-scale here — the C code did, but only because it inserted
+            // text overlays between the two scaling passes (we don't).
+            let mut staged = Pixa::with_capacity(end - begin);
+            for pix in &self.pix_slice()[begin..end] {
+                staged.push(pix.clone());
+            }
+            let depth = staged.get_rendering_depth().unwrap_or(8);
+            let outdepth = match depth {
+                1 => crate::core::pix::PixelDepth::Bit1,
+                32 => crate::core::pix::PixelDepth::Bit32,
+                _ => crate::core::pix::PixelDepth::Bit8,
+            };
+            let page = staged.display_tiled_and_scaled(
+                outdepth,
+                outer_tile_width,
+                nx,
+                0,
+                spacing,
+                border,
+            )?;
+            out.push(page);
+        }
+        Ok(out)
+    }
+}
