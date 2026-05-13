@@ -8,7 +8,7 @@ fn add_pix(pa: &mut Pixa, w: u32, h: u32) {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_nup_2x2_one_page() {
     let mut pa = Pixa::new();
     for _ in 0..4 {
@@ -19,7 +19,7 @@ fn convert_to_nup_2x2_one_page() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_nup_partial_last_page() {
     // 5 images, 2x2 grid -> 2 pages (first full, second has only 1 tile)
     let mut pa = Pixa::new();
@@ -31,7 +31,7 @@ fn convert_to_nup_partial_last_page() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_nup_empty_returns_empty() {
     let pa = Pixa::new();
     let out = pa.convert_to_nup(2, 2, 40, 4, 0).unwrap();
@@ -39,7 +39,7 @@ fn convert_to_nup_empty_returns_empty() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_nup_invalid_grid_errors() {
     let mut pa = Pixa::new();
     add_pix(&mut pa, 40, 40);
@@ -49,7 +49,7 @@ fn convert_to_nup_invalid_grid_errors() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_nup_too_small_tile_width_errors() {
     let mut pa = Pixa::new();
     add_pix(&mut pa, 40, 40);

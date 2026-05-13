@@ -788,12 +788,56 @@ impl Pixa {
     /// C Leptonica equivalent: `pixaConvertToNUpPixa`.
     pub fn convert_to_nup(
         &self,
-        _nx: u32,
-        _ny: u32,
-        _tile_width: u32,
-        _spacing: u32,
-        _border: u32,
+        nx: u32,
+        ny: u32,
+        tile_width: u32,
+        spacing: u32,
+        border: u32,
     ) -> Result<Pixa> {
-        unimplemented!("plan 127: Pixa::convert_to_nup")
+        if !(1..=50).contains(&nx) || !(1..=50).contains(&ny) {
+            return Err(Error::InvalidParameter(format!(
+                "nx and ny must be in 1..=50 (got nx={nx}, ny={ny})"
+            )));
+        }
+        if tile_width < 20 {
+            return Err(Error::InvalidParameter(format!(
+                "tile_width must be >= 20 (got {tile_width})"
+            )));
+        }
+        let n = self.pix_slice().len();
+        if n == 0 {
+            return Ok(Pixa::new());
+        }
+        let per_page = (nx as usize) * (ny as usize);
+        let pages = n.div_ceil(per_page);
+        let mut out = Pixa::with_capacity(pages);
+        for p in 0..pages {
+            let begin = p * per_page;
+            let end = ((p + 1) * per_page).min(n);
+            // Stage 1: scale each tile to width = tile_width
+            let mut staged = Pixa::with_capacity(end - begin);
+            for pix in &self.pix_slice()[begin..end] {
+                let scaled = crate::transform::scale::scale_to_size(pix, tile_width, 0)
+                    .map_err(|e| Error::InvalidParameter(format!("scale_to_size failed: {e}")))?;
+                staged.push(scaled);
+            }
+            // Stage 2: lay out as nx × ny grid via display_tiled_and_scaled
+            let depth = staged.get_rendering_depth().unwrap_or(8);
+            let outdepth = match depth {
+                1 => crate::core::pix::PixelDepth::Bit1,
+                32 => crate::core::pix::PixelDepth::Bit32,
+                _ => crate::core::pix::PixelDepth::Bit8,
+            };
+            let page = staged.display_tiled_and_scaled(
+                outdepth,
+                tile_width + 2 * border,
+                nx,
+                0,
+                spacing,
+                border,
+            )?;
+            out.push(page);
+        }
+        Ok(out)
     }
 }
