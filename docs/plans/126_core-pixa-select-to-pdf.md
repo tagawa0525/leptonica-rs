@@ -1,6 +1,6 @@
 # Core: Pixa::select_to_pdf (plan 032 残)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-13
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ A-3 (108b)
 
@@ -47,9 +47,9 @@ impl Pixa {
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] core.md で pixaSelectToPdf を ✅、pixaSplitIntoFiles を 🚫
-- [ ] plan 032 で 126 を新規 IMPLEMENTED 行として追加
+- [x] cargo test/clippy/fmt 通過 (3 件パス、pdf-format feature)
+- [x] core.md で pixaSelectToPdf を ✅、pixaSplitIntoFiles を 🚫
+- [x] plan 032 で 126 を新規 IMPLEMENTED 行として追加
 - [ ] PR + Copilot レビュー対応 + マージ
 
 ## 実装メモ
