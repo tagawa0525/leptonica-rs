@@ -353,32 +353,120 @@ fn pix_box_or_full(pix: &crate::core::pix::Pix, candidate: Option<Box>) -> Box {
 impl Pixa {
     /// Rotate every Pix by `angle` radians, returning a new Pixa.
     ///
-    /// Matches C `pixaRotate`: for an angle below the rotation threshold the
-    /// output is a deep_clone of the input. The boxa of the output is left
-    /// empty because rotated geometry does not preserve the original boxes.
+    /// Matches C `pixaRotate`: for a sub-threshold angle the output is a
+    /// deep_clone of the input. The output boxa is left empty because
+    /// rotated geometry does not preserve the original boxes.
     ///
     /// C Leptonica equivalent: `pixaRotate`.
-    pub fn rotate(&self, _angle: f32, _options: &crate::transform::RotateOptions) -> Result<Pixa> {
-        unimplemented!("plan 123: Pixa::rotate")
+    pub fn rotate(&self, angle: f32, options: &crate::transform::RotateOptions) -> Result<Pixa> {
+        let n = self.pix_slice().len();
+        let mut out = Pixa::with_capacity(n);
+        for pix in self.pix_slice().iter() {
+            let rotated = crate::transform::rotate(pix, angle, options)
+                .map_err(|e| Error::InvalidParameter(format!("rotate failed: {e}")))?;
+            out.push(rotated);
+        }
+        Ok(out)
     }
 
     /// Clip each box-rectangle from `pixs` and AND it with the matching Pix
     /// in this Pixa.
     ///
+    /// Walks `min(pixa_count, boxa_count)` entries. Pix without a box are
+    /// silently skipped (C `pixaClipToPix` assumes the two counts agree).
+    ///
     /// C Leptonica equivalent: `pixaClipToPix`.
-    pub fn clip_to_pix(&self, _pixs: &crate::core::pix::Pix) -> Result<Pixa> {
-        unimplemented!("plan 123: Pixa::clip_to_pix")
+    pub fn clip_to_pix(&self, pixs: &crate::core::pix::Pix) -> Result<Pixa> {
+        let n = self.pix_slice().len().min(self.boxa().len());
+        let mut out = Pixa::with_capacity(n);
+        for i in 0..n {
+            let pix = &self.pix_slice()[i];
+            let b = self.boxa().get(i).copied().unwrap_or_default();
+            let x = u32::try_from(b.x).map_err(|_| {
+                Error::InvalidParameter(format!("box[{i}].x ({}) is negative", b.x))
+            })?;
+            let y = u32::try_from(b.y).map_err(|_| {
+                Error::InvalidParameter(format!("box[{i}].y ({}) is negative", b.y))
+            })?;
+            let w = u32::try_from(b.w).map_err(|_| {
+                Error::InvalidParameter(format!("box[{i}].w ({}) is negative", b.w))
+            })?;
+            let h = u32::try_from(b.h).map_err(|_| {
+                Error::InvalidParameter(format!("box[{i}].h ({}) is negative", b.h))
+            })?;
+            let clipped = pixs.clip_rectangle(x, y, w, h)?;
+            let anded = clipped.and(pix)?;
+            out.push_with_box(anded, b);
+        }
+        Ok(out)
     }
 
     /// Render the 1bpp component at `index` onto `pixs` (or a fresh
     /// boxa-extent canvas if `None`).
     ///
+    /// `pixs` (when present) and every Pix in the Pixa must be 1 bpp.
+    /// The component is OR-ed onto the destination at its associated box.
+    ///
     /// C Leptonica equivalent: `pixaRenderComponent`.
     pub fn render_component(
         &self,
-        _pixs: Option<&crate::core::pix::Pix>,
-        _index: usize,
+        pixs: Option<&crate::core::pix::Pix>,
+        index: usize,
     ) -> Result<crate::core::pix::Pix> {
-        unimplemented!("plan 123: Pixa::render_component")
+        let n = self.pix_slice().len();
+        if index >= n {
+            return Err(Error::IndexOutOfBounds { index, len: n });
+        }
+        if let Some(p) = pixs
+            && p.depth() != crate::core::pix::PixelDepth::Bit1
+        {
+            return Err(Error::UnsupportedDepth(p.depth().bits()));
+        }
+        for pix in self.pix_slice().iter() {
+            if pix.depth() != crate::core::pix::PixelDepth::Bit1 {
+                return Err(Error::UnsupportedDepth(pix.depth().bits()));
+            }
+        }
+
+        // Build the destination canvas: either the provided pixs (cloned) or
+        // a fresh zero canvas sized to the boxa extent.
+        let dst = match pixs {
+            Some(p) => p.deep_clone(),
+            None => {
+                let (w, h, _) = self.boxa().get_extent().ok_or_else(|| {
+                    Error::InvalidParameter("boxa is empty; cannot size canvas".into())
+                })?;
+                let w_u = u32::try_from(w).map_err(|_| {
+                    Error::InvalidParameter(format!("boxa extent width {w} not in 0..=i32::MAX"))
+                })?;
+                let h_u = u32::try_from(h).map_err(|_| {
+                    Error::InvalidParameter(format!("boxa extent height {h} not in 0..=i32::MAX"))
+                })?;
+                crate::core::pix::Pix::new(w_u, h_u, crate::core::pix::PixelDepth::Bit1)?
+            }
+        };
+
+        let comp = &self.pix_slice()[index];
+        let b = self.boxa().get(index).copied().unwrap_or_default();
+        let mut dst_mut = dst.try_into_mut().unwrap();
+        let cw = dst_mut.width() as i32;
+        let ch = dst_mut.height() as i32;
+        let w = comp.width() as i32;
+        let h = comp.height() as i32;
+        for j in 0..h {
+            for i in 0..w {
+                if comp.get_pixel(i as u32, j as u32) != Some(1) {
+                    continue;
+                }
+                let dx = b.x + i;
+                let dy = b.y + j;
+                if dx < 0 || dy < 0 || dx >= cw || dy >= ch {
+                    continue;
+                }
+                // OR semantics: never clear an already-set pixel.
+                dst_mut.set_pixel(dx as u32, dy as u32, 1)?;
+            }
+        }
+        Ok(dst_mut.into())
     }
 }

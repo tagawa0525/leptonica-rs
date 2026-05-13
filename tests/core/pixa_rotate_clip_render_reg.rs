@@ -27,7 +27,7 @@ fn small_pixa() -> Pixa {
 // -- rotate ------------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_rotate_small_angle_is_clone() {
     let pa = small_pixa();
     let opts = RotateOptions::default();
@@ -38,7 +38,7 @@ fn pixa_rotate_small_angle_is_clone() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_rotate_90deg_runs() {
     let pa = small_pixa();
     let opts = RotateOptions {
@@ -54,7 +54,7 @@ fn pixa_rotate_90deg_runs() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_rotate_empty() {
     let pa = Pixa::new();
     let out = pa.rotate(0.5, &RotateOptions::default()).unwrap();
@@ -64,7 +64,7 @@ fn pixa_rotate_empty() {
 // -- clip_to_pix -------------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_clip_to_pix_1bpp_and() {
     // 16x16 pixs, all foreground (1bpp). Mask each Pix in pixa is also all 1s
     // and the box covers the full area -> AND should give all 1s.
@@ -99,7 +99,7 @@ fn pixa_clip_to_pix_1bpp_and() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_clip_to_pix_partial_overlap() {
     // pixs has only the top half set; clipping with a box covering the
     // whole 16x16 should leave only the top half as 1s after AND.
@@ -141,7 +141,7 @@ fn pixa_clip_to_pix_partial_overlap() {
 // -- render_component --------------------------------------------------
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_render_component_into_existing() {
     // pixs is a 16x16 1bpp zero image. Pixa has one 4x4 all-ones Pix
     // at box (2,3). After rendering, the (2..6, 3..7) region should be 1.
@@ -170,7 +170,7 @@ fn pixa_render_component_into_existing() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_render_component_creates_canvas_when_none() {
     let mut pa = Pixa::new();
     let mut comp = PixMut::new(3, 3, PixelDepth::Bit1).unwrap();
@@ -201,14 +201,14 @@ fn pixa_render_component_creates_canvas_when_none() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_render_component_index_out_of_range_errors() {
     let pa = Pixa::new();
     assert!(pa.render_component(None, 0).is_err());
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_render_component_rejects_non_1bpp() {
     let mut pa = Pixa::new();
     let comp: Pix = PixMut::new(4, 4, PixelDepth::Bit8).unwrap().into();
