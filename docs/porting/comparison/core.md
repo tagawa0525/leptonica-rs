@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 935  |
+| ✅ 同等   | 938  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 146  |
-| ❌ 未実装 | 40   |
+| ❌ 未実装 | 37   |
 | 合計      | 1215 |
 
-**カバレッジ**: 84.8% (1029/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 1029/1069 = 96.3% 実装)
+**カバレッジ**: 85.0% (1032/1215 関数が実装済み、🚫 不要 146 関数を除くと実質 1032/1069 = 96.5% 実装)
 
 ## 注記
 
@@ -1676,7 +1676,7 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 | pixaAnyColormaps             | ✅   | `Pixa::any_colormaps` (core/pixa/properties.rs)             | plan 108                      |
 | pixaBinSort                  | ❌   | -                                                           | no Rust impl in expected dirs |
 | pixaClipToForeground         | ✅   | `Pixa::clip_to_foreground_all` (core/pixa/transform.rs)     | plan 120                      |
-| pixaClipToPix                | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaClipToPix                | ✅   | `Pixa::clip_to_pix` (core/pixa/transform.rs)                | plan 123                      |
 | pixaConvertToGivenDepth      | ✅   | `Pixa::convert_to_given_depth` (core/pixa/transform.rs)     | plan 120                      |
 | pixaConvertToSameDepth       | ✅   | `Pixa::convert_to_same_depth` (core/pixa/transform.rs)      | plan 120                      |
 | pixaEqual                    | ✅   | `Pixa::equal_to_ordered` (core/pixa/properties.rs)          | plan 108 (ordered variant)    |
@@ -1684,8 +1684,8 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 | pixaGetRenderingDepth        | ✅   | `Pixa::get_rendering_depth` (core/pixa/properties.rs)       | plan 108                      |
 | pixaHasColor                 | ✅   | `Pixa::has_color` (core/pixa/properties.rs)                 | plan 108                      |
 | pixaMakeSizeIndicator        | ✅   | `Pixa::make_size_indicator` (core/pixa/properties.rs)       | plan 121                      |
-| pixaRenderComponent          | ❌   | -                                                           | no Rust impl in expected dirs |
-| pixaRotate                   | ❌   | -                                                           | no Rust impl in expected dirs |
+| pixaRenderComponent          | ✅   | `Pixa::render_component` (core/pixa/transform.rs)           | plan 123                      |
+| pixaRotate                   | ✅   | `Pixa::rotate` (core/pixa/transform.rs)                     | plan 123                      |
 | pixaRotateOrth               | ✅   | `Pixa::rotate_orth` (core/pixa/transform.rs)                | plan 107                      |
 | pixaScale                    | ✅   | `Pixa::scale` (core/pixa/transform.rs)                      | plan 107                      |
 | pixaScaleBySampling          | ✅   | `Pixa::scale_by_sampling` (core/pixa/transform.rs)          | plan 107                      |
