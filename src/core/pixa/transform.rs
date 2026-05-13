@@ -642,7 +642,12 @@ impl crate::core::pix::Pix {
     /// - `start` skips the first `start` tiles
     /// - `num == 0` means "take all remaining tiles" (matching C semantics)
     /// - When `boxa = Some(b)` the `w`/`h` arguments are ignored, and
-    ///   sub-images are clipped from this Pix at each box position
+    ///   sub-images are clipped from this Pix at each box position.
+    ///   This path delegates to [`Pixa::create_from_boxa`], which silently
+    ///   **skips** boxes that lie fully outside the image or clamp to zero
+    ///   area. The output may therefore contain fewer tiles than the boxa
+    ///   has entries, and `start`/`num` are applied to that already-filtered
+    ///   sequence (not the original boxa indices).
     /// - When `boxa = None`, the image is split into a `nx`×`ny` grid where
     ///   `nx = width / w`, `ny = height / h`. The Pix text field may carry
     ///   an `"n = N"` tile count that limits how many tiles are produced.
