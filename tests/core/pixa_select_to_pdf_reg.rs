@@ -14,7 +14,7 @@ fn pixa_2_pages() -> Pixa {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_select_to_pdf_writes_bytes() {
     let pa = pixa_2_pages();
     let mut buf = Vec::new();
@@ -26,7 +26,7 @@ fn pixa_select_to_pdf_writes_bytes() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_select_to_pdf_partial_range() {
     let pa = pixa_2_pages();
     let mut buf = Vec::new();
@@ -36,7 +36,7 @@ fn pixa_select_to_pdf_partial_range() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn pixa_select_to_pdf_empty_range_errors() {
     let pa = pixa_2_pages();
     let mut buf = Vec::new();

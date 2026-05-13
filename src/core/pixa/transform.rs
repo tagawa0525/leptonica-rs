@@ -742,11 +742,22 @@ impl Pixa {
     /// intentionally omitted; pair with the existing BMF helpers if needed).
     pub fn select_to_pdf<W: std::io::Write>(
         &self,
-        _first: usize,
-        _last: Option<usize>,
-        _options: &crate::io::pdf::PdfOptions,
-        _writer: W,
+        first: usize,
+        last: Option<usize>,
+        options: &crate::io::pdf::PdfOptions,
+        writer: W,
     ) -> crate::io::IoResult<()> {
-        unimplemented!("plan 126: Pixa::select_to_pdf")
+        let n = self.pix_slice().len();
+        let begin = first.min(n);
+        let end = match last {
+            Some(l) => l.saturating_add(1).min(n),
+            None => n,
+        };
+        let refs: Vec<&crate::core::pix::Pix> = if end > begin {
+            self.pix_slice()[begin..end].iter().collect()
+        } else {
+            Vec::new()
+        };
+        crate::io::pdf::write_pdf_multi(&refs, writer, options)
     }
 }
