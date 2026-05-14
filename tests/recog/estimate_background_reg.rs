@@ -14,7 +14,6 @@ fn solid_gray(w: u32, h: u32, val: u32) -> leptonica::Pix {
 }
 
 #[test]
-
 fn estimate_background_solid_gray() {
     let pix = solid_gray(40, 40, 200);
     let bg = estimate_background(&pix, 0, 0.0).unwrap();
@@ -26,7 +25,6 @@ fn estimate_background_solid_gray() {
 }
 
 #[test]
-
 fn estimate_background_with_darkthresh_excludes_dark() {
     // Top half: dark (gray=50), bottom half: light (gray=220).
     // With darkthresh=100, the dark region is masked out, so the
@@ -47,7 +45,6 @@ fn estimate_background_with_darkthresh_excludes_dark() {
 }
 
 #[test]
-
 fn estimate_background_rejects_non_8bpp() {
     let pix: leptonica::Pix = PixMut::new(40, 40, PixelDepth::Bit1).unwrap().into();
     assert!(estimate_background(&pix, 0, 0.0).is_err());
@@ -56,7 +53,6 @@ fn estimate_background_rejects_non_8bpp() {
 }
 
 #[test]
-
 fn estimate_background_rejects_invalid_edgecrop() {
     let pix = solid_gray(40, 40, 128);
     assert!(estimate_background(&pix, 0, -0.1).is_err());
@@ -65,7 +61,6 @@ fn estimate_background_rejects_invalid_edgecrop() {
 }
 
 #[test]
-
 fn estimate_background_edgecrop_constrains_to_inner() {
     // Outer border = dark (50), inner = light (220). With edgecrop = 0.5,
     // only the inner half is sampled and the background should be 220.
