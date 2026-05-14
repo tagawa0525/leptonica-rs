@@ -6,13 +6,13 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 138 |
+| ✅ 同等   | 139 |
 | 🔄 異なる | 45  |
 | 🚫 不要   | 18  |
-| ❌ 未実装 | 6   |
+| ❌ 未実装 | 5   |
 | 合計      | 207 |
 
-**カバレッジ**: 88.4% (183/207 関数が実装済み、🚫 不要 18 関数を除くと実質 183/189 = 96.8% 実装)
+**カバレッジ**: 88.9% (184/207 関数が実装済み、🚫 不要 18 関数を除くと実質 184/189 = 97.4% 実装)
 
 ## 詳細
 
@@ -452,7 +452,7 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 | pixCropImage            | ❌   | -                                              | no Rust impl in expected dirs |
 | pixDecideIfTable        | ✅   | `decide_if_table` (recog/pageseg.rs)           | name+module match             |
 | pixDecideIfText         | ❌   | -                                              | no Rust impl in expected dirs |
-| pixEstimateBackground   | ❌   | -                                              | no Rust impl in expected dirs |
+| pixEstimateBackground   | ✅   | `estimate_background` (recog/pageseg.rs)       | plan 129                      |
 | pixExtractRawTextlines  | ❌   | -                                              | no Rust impl in expected dirs |
 | pixExtractTextlines     | ✅   | `extract_textlines` (recog/pageseg.rs)         | name+module match             |
 | pixFindLargeRectangles  | ✅   | `find_large_rectangles` (region/rectangle.rs)  | name+module match             |
