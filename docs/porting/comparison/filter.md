@@ -248,11 +248,12 @@
 - タイル化による大画像処理対応
 - 分離可能畳み込みによる計算量削減
 
-### 未実装（❌ 1件）
+### 未実装（❌ 0件）
 
-gap-fill audit (2026-05-10) と plan 501 完了後の状態:
+filter モジュールの ❌ は 2026-05-13 (plan 128) で完全解消。
 
-- runlength.c: pixStrokeWidthTransform (1 件)
+- runlength.c: pixStrokeWidthTransform → ✅ `stroke_width_transform`
+  (plan 128)
 
 kernel.c の生成系 5 関数 (makeFlatKernel / makeGaussianKernel /
 makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
@@ -290,4 +291,4 @@ makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
 | pixFindMaxRuns                | ✅   | `find_max_runs` (filter/runlength.rs)                   | name+module match             |
 | pixFindMaxVerticalRunOnLine   | ✅   | `find_max_vertical_run_on_line` (filter/runlength.rs)   | name+module match             |
 | pixFindVerticalRuns           | ✅   | `find_vertical_runs` (filter/runlength.rs)              | name+module match             |
-| pixStrokeWidthTransform       | ❌   | -                                                       | no Rust impl in expected dirs |
+| pixStrokeWidthTransform       | ✅   | `stroke_width_transform` (filter/runlength.rs)          | plan 128                      |
