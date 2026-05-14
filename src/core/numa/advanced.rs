@@ -17,6 +17,7 @@
 //! - `numaMakeHistogramAuto` -> [`Numa::make_histogram_auto`]
 //! - `numaSplitDistribution` -> [`Numa::split_distribution`]
 //!   (returns [`SplitDistribution`])
+//! - `numaCrossingsByPeaks` -> [`Numa::crossings_by_peaks`]
 //!
 //! Already covered by other modules:
 //!
@@ -519,6 +520,90 @@ impl Numa {
             }
         }
         Ok(out)
+    }
+
+    /// Find threshold-crossings located between successive peaks/troughs
+    /// of a 1D signal.
+    ///
+    /// First locates the extrema of `self` (via [`Numa::find_extrema`]
+    /// with the given `delta`) and appends the last index. Between each
+    /// pair of consecutive extrema, walks the signal to find the point
+    /// where it crosses `(prev_extremum_val + cur_extremum_val) / 2` and
+    /// records that location in the result. Locations are expressed in
+    /// `nax` units when provided, otherwise in `startx + i * delx`.
+    ///
+    /// C Leptonica equivalent: `numaCrossingsByPeaks` (`numafunc2.c`).
+    pub fn crossings_by_peaks(&self, nax: Option<&Numa>, delta: f32) -> Result<Numa> {
+        let n = self.len();
+        if n < 2 {
+            return Ok(Numa::new());
+        }
+        if let Some(x) = nax
+            && x.len() != n
+        {
+            return Err(Error::InvalidParameter(format!(
+                "nax length ({}) != nay length ({n})",
+                x.len()
+            )));
+        }
+        // Find the extrema, then append n-1 to capture the last transition.
+        let mut nap = self.find_extrema(delta)?;
+        nap.push((n - 1) as f32);
+        let np = nap.len();
+
+        let (startx, delx) = self.parameters();
+        let mut nad = Numa::with_capacity(np);
+        let mut prev_index: usize = 0;
+        let mut prev_val = self.get(0).unwrap_or(0.0);
+        for i in 0..np {
+            // Extremum positions are stored as f32; use get_i32 for proper
+            // rounding and reject negative or out-of-range values to avoid
+            // silent `as usize` truncation.
+            let cur_index_i = nap
+                .get_i32(i)
+                .ok_or_else(|| Error::InvalidParameter(format!("extrema[{i}] read failed")))?;
+            if cur_index_i < 0 || (cur_index_i as usize) >= n {
+                return Err(Error::InvalidParameter(format!(
+                    "extrema[{i}] = {cur_index_i} is out of [0, {n})"
+                )));
+            }
+            let cur_index = cur_index_i as usize;
+            let cur_val = self.get(cur_index).unwrap_or(0.0);
+            let thresh = (prev_val + cur_val) / 2.0;
+            let xval1_initial = match nax {
+                Some(x) => x.get(prev_index).unwrap_or(0.0),
+                None => startx + prev_index as f32 * delx,
+            };
+            let yval1_initial = self.get(prev_index).unwrap_or(0.0);
+            let mut xval1 = xval1_initial;
+            let mut yval1 = yval1_initial;
+            for j in (prev_index + 1)..=cur_index {
+                let xval2 = match nax {
+                    Some(x) => x.get(j).unwrap_or(0.0),
+                    None => startx + j as f32 * delx,
+                };
+                let yval2 = self.get(j).unwrap_or(0.0);
+                let delta1 = yval1 - thresh;
+                let delta2 = yval2 - thresh;
+                if delta1 == 0.0 {
+                    nad.push(xval1);
+                    break;
+                } else if delta2 == 0.0 {
+                    nad.push(xval2);
+                    break;
+                } else if delta1 * delta2 < 0.0 {
+                    let fract = delta1.abs() / (yval1 - yval2).abs();
+                    let crossval = xval1 + fract * (xval2 - xval1);
+                    nad.push(crossval);
+                    break;
+                }
+                xval1 = xval2;
+                yval1 = yval2;
+            }
+            prev_index = cur_index;
+            prev_val = cur_val;
+        }
+        Ok(nad)
     }
 
     /// Otsu-style split of a histogram into a lower / upper partition.
