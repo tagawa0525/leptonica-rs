@@ -43,8 +43,30 @@ fn histogram_auto_constant_collapses_to_single_bin() {
     let h = na.make_histogram_auto(8).unwrap();
     assert_eq!(h.len(), 1);
     assert_eq!(h.get(0).unwrap(), 10.0);
-    let (start, _) = h.parameters();
+    let (start, delx) = h.parameters();
     assert_eq!(start, 7.0);
+    // delx must be positive so downstream APIs that divide by delx
+    // (e.g. histogram_rank_from_val) don't produce NaN/inf.
+    assert!(delx > 0.0, "constant-input delx must be > 0, got {delx}");
+}
+
+#[test]
+fn histogram_auto_constant_non_integer_uses_positive_delx() {
+    // Non-integer constant: still produces a usable 1-bin histogram.
+    let mut na = Numa::new();
+    for _ in 0..5 {
+        na.push(0.5);
+    }
+    let h = na.make_histogram_auto(4).unwrap();
+    assert_eq!(h.len(), 1);
+    let (_, delx) = h.parameters();
+    assert!(delx > 0.0, "delx must be > 0, got {delx}");
+}
+
+#[test]
+fn histogram_auto_rejects_maxbins_zero() {
+    let na = Numa::from_i32_slice(&[1, 2, 3]);
+    assert!(na.make_histogram_auto(0).is_err());
 }
 
 #[test]
