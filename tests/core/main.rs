@@ -34,6 +34,7 @@ mod numa_get_rank_bin_values_reg;
 mod numa_histogram_auto_reg;
 mod numa_histogram_ext_reg;
 mod numa_sort_interp_reg;
+mod numa_split_distribution_reg;
 mod overlap_reg;
 mod pix_arith_rop_reg;
 mod pix_clip_advanced_ext_reg;

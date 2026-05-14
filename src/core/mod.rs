@@ -50,7 +50,7 @@ pub use gplot::{
 };
 pub use numa::{
     CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
-    SortOrder, ThresholdComparison, WindowedStats,
+    SortOrder, SplitDistribution, ThresholdComparison, WindowedStats,
 };
 pub use pix::serial::SpixHeader;
 pub use pix::statistics::{
