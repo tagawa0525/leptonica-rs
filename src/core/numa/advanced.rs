@@ -24,6 +24,23 @@
 use crate::core::error::{Error, Result};
 use crate::core::numa::Numa;
 
+/// Result of [`Numa::split_distribution`].
+#[derive(Debug, Clone)]
+pub struct SplitDistribution {
+    /// Threshold-style split index (best_split + 1, capped at 255).
+    pub split_index: i32,
+    /// Average of the lower partition at the chosen split.
+    pub ave1: f32,
+    /// Average of the upper partition at the chosen split.
+    pub ave2: f32,
+    /// Count in the lower partition at the chosen split.
+    pub num1: f32,
+    /// Count in the upper partition at the chosen split.
+    pub num2: f32,
+    /// Per-bin Otsu-like score array (only when `want_score = true`).
+    pub score: Option<Numa>,
+}
+
 impl Numa {
     /// Count the number of significant "reversals" (sign / level changes
     /// large enough to exceed `min_reversal`).
@@ -494,6 +511,130 @@ impl Numa {
             }
         }
         Ok(out)
+    }
+
+    /// Otsu-style split of a histogram into a lower / upper partition.
+    ///
+    /// For each candidate split point `i`, computes an Otsu inter-class
+    /// variance score with weights normalised by `4 / (n-1)^2`. The split
+    /// point is then refined to the minimum-value bin within all contiguous
+    /// scores at least `(1 - score_fract)` of the peak. The returned
+    /// `split_index` is offset by `+1` (capped at 255) to match the
+    /// threshold semantics of `pixThresholdToBinary` (which selects values
+    /// strictly below the threshold).
+    ///
+    /// C Leptonica equivalent: `numaSplitDistribution` (`numafunc2.c`).
+    pub fn split_distribution(
+        &self,
+        score_fract: f32,
+        want_score: bool,
+    ) -> Result<SplitDistribution> {
+        let n = self.len();
+        if n <= 1 {
+            return Err(Error::InvalidParameter(format!(
+                "split_distribution: n must be > 1 (got {n})"
+            )));
+        }
+        let sum = self.sum().unwrap_or(0.0);
+        if sum <= 0.0 {
+            return Err(Error::InvalidParameter(format!(
+                "split_distribution: histogram total must be > 0 (got {sum})"
+            )));
+        }
+        let norm = 4.0 / ((n as f32 - 1.0).powi(2));
+        let mut ave1_prev = 0.0;
+        let stats = self
+            .histogram_stats(0.0, 1.0)
+            .ok_or_else(|| Error::InvalidParameter("histogram_stats failed".into()))?;
+        let mut ave2_prev = stats.mean;
+        let mut num1_prev = 0.0;
+        let mut num2_prev = sum;
+        let mut max_index: usize = n / 2;
+        let mut max_score = 0.0_f32;
+
+        let mut nascore = Numa::with_capacity(n);
+        let mut naave1 = Numa::with_capacity(n);
+        let mut naave2 = Numa::with_capacity(n);
+        let mut nanum1 = Numa::with_capacity(n);
+        let mut nanum2 = Numa::with_capacity(n);
+
+        for i in 0..n {
+            let val = self.get(i).unwrap_or(0.0);
+            let num1 = num1_prev + val;
+            let ave1 = if num1 == 0.0 {
+                ave1_prev
+            } else {
+                (num1_prev * ave1_prev + i as f32 * val) / num1
+            };
+            let num2 = num2_prev - val;
+            let ave2 = if num2 == 0.0 {
+                ave2_prev
+            } else {
+                (num2_prev * ave2_prev - i as f32 * val) / num2
+            };
+            let fract1 = num1 / sum;
+            let score = norm * (fract1 * (1.0 - fract1)) * (ave2 - ave1).powi(2);
+            nascore.push(score);
+            naave1.push(ave1);
+            naave2.push(ave2);
+            nanum1.push(num1);
+            nanum2.push(num2);
+            if score > max_score {
+                max_score = score;
+                max_index = i;
+            }
+            num1_prev = num1;
+            num2_prev = num2;
+            ave1_prev = ave1;
+            ave2_prev = ave2;
+        }
+
+        // Refine split: choose minimum-value bin within all contiguous
+        // scores at least (1 - score_fract) * max_score.
+        let min_score = (1.0 - score_fract) * max_score;
+        let mut min_range = max_index;
+        // Sweep left.
+        let mut i = max_index as i32 - 1;
+        while i >= 0 {
+            if nascore.get(i as usize).unwrap_or(0.0) < min_score {
+                break;
+            }
+            min_range = i as usize;
+            i -= 1;
+        }
+        let mut max_range = max_index;
+        // Sweep right.
+        let mut i = max_index + 1;
+        while i < n {
+            if nascore.get(i).unwrap_or(0.0) < min_score {
+                break;
+            }
+            max_range = i;
+            i += 1;
+        }
+        let mut best_split = min_range;
+        let mut min_val = self.get(min_range).unwrap_or(0.0);
+        for j in (min_range + 1)..=max_range {
+            let v = self.get(j).unwrap_or(0.0);
+            if v < min_val {
+                min_val = v;
+                best_split = j;
+            }
+        }
+        // Match C: cap at 255 and add 1 to align with threshold semantics
+        // ("pixThresholdToBinary" picks values strictly less than the
+        // returned threshold).
+        let split_index = (best_split + 1).min(255) as i32;
+        let bs_idx = best_split.min(n - 1);
+
+        Ok(SplitDistribution {
+            split_index,
+            ave1: naave1.get(bs_idx).unwrap_or(0.0),
+            ave2: naave2.get(bs_idx).unwrap_or(0.0),
+            num1: nanum1.get(bs_idx).unwrap_or(0.0),
+            num2: nanum2.get(bs_idx).unwrap_or(0.0),
+            score: if want_score { Some(nascore) } else { None },
+        })
     }
 
     /// Make a histogram with automatic bin sizing.
