@@ -1,6 +1,6 @@
 # Filter: pixStrokeWidthTransform 移植 (plan 032 M 単独)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-13
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ M (単独関数)
 
@@ -62,9 +62,9 @@ pub fn stroke_width_transform(
 
 ## 完了条件
 
-- [ ] cargo test/clippy/fmt 通過
-- [ ] filter.md 1 件 ❌ → ✅
-- [ ] plan 032 で 128 を新規 IMPLEMENTED 行として追加
+- [x] cargo test/clippy/fmt 通過 (6 件パス)
+- [x] filter.md 1 件 ❌ → ✅
+- [x] plan 032 で 128 を新規 IMPLEMENTED 行として追加
 - [ ] PR + Copilot レビュー対応 + マージ
 
 ## 実装メモ
