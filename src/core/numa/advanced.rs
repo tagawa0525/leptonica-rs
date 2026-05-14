@@ -512,7 +512,12 @@ impl Numa {
                 "make_histogram_auto: input is empty".into(),
             ));
         }
-        let maxbins = maxbins.max(1) as usize;
+        if maxbins == 0 {
+            return Err(Error::InvalidParameter(
+                "make_histogram_auto: maxbins must be >= 1".into(),
+            ));
+        }
+        let maxbins = maxbins as usize;
         let minval = self.min_value().unwrap_or(0.0);
         let maxval = self.max_value().unwrap_or(0.0);
         let n = self.len();
@@ -542,8 +547,12 @@ impl Numa {
         // Float-bin path.
         let range = maxval - minval;
         if range == 0.0 {
+            // All values identical: produce a single-bin histogram.
+            // Use delx = 1.0 (matching the integer constant path and
+            // `make_histogram`) so downstream histogram APIs that divide by
+            // delx don't yield NaN/inf.
             let mut hist = Numa::with_capacity(1);
-            hist.set_parameters(minval, 0.0);
+            hist.set_parameters(minval, 1.0);
             hist.push(n as f32);
             return Ok(hist);
         }
