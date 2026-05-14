@@ -95,11 +95,47 @@ fn gray_inter_stats_identical_inputs_zero_variance() {
     assert_eq!(ms.len(), 256);
     assert_eq!(var.len(), 256);
     assert_eq!(rms.len(), 256);
-    // Identical inputs -> variance is 0 everywhere.
+    // Identical inputs (no smoothing) → only bin 100 carries mass. After
+    // normalization to sum = 10000, bin 100 has value 10000 and others 0.
+    assert!(
+        (mean.get(100).unwrap() - 10000.0).abs() < 1.0,
+        "expected mean[100] ≈ 10000, got {}",
+        mean.get(100).unwrap()
+    );
+    assert!(mean.get(50).unwrap().abs() < 1.0, "expected mean[50] ≈ 0");
+    // mean_square = (E[x])^2: bin 100 carries 10000^2.
+    assert!(
+        (ms.get(100).unwrap() - 10000.0 * 10000.0).abs() < 100.0,
+        "expected mean_square[100] ≈ 1e8, got {}",
+        ms.get(100).unwrap()
+    );
+    // Identical inputs → variance and rms are 0 everywhere.
     for j in 0..256 {
         assert!(var.get(j).unwrap().abs() < 1e-3, "var[{j}] not 0");
         assert!(rms.get(j).unwrap().abs() < 1e-3, "rms[{j}] not 0");
     }
+}
+
+#[test]
+fn gray_inter_stats_differing_inputs_nonzero_variance() {
+    // Two histograms with mass at *different* bins → variance > 0 at those
+    // bins. Confirms mean / variance follow the standard
+    // E[x^2] - (E[x])^2 identity.
+    let mut naa = Numaa::new();
+    naa.push(shifted_256(50, 1, 10.0));
+    naa.push(shifted_256(200, 1, 10.0));
+    let stats = Numa::gray_inter_histogram_stats(&naa, 0, true, false, true, false).unwrap();
+    let mean = stats.mean.unwrap();
+    let var = stats.variance.unwrap();
+    // Mean at bin 50 = (10000 + 0) / 2 = 5000. Var = E[x^2] - mean^2 =
+    // (10000^2 + 0) / 2 - 5000^2 = 50_000_000 - 25_000_000 = 25_000_000.
+    assert!((mean.get(50).unwrap() - 5000.0).abs() < 1.0);
+    assert!((mean.get(200).unwrap() - 5000.0).abs() < 1.0);
+    assert!((var.get(50).unwrap() - 25_000_000.0).abs() < 1000.0);
+    assert!((var.get(200).unwrap() - 25_000_000.0).abs() < 1000.0);
+    // Bins with no mass have zero mean & variance.
+    assert!(mean.get(100).unwrap().abs() < 1.0);
+    assert!(var.get(100).unwrap().abs() < 1.0);
 }
 
 #[test]

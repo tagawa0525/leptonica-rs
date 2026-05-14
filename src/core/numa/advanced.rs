@@ -39,11 +39,12 @@ use crate::core::numa::Numa;
 /// when its corresponding `want_*` flag is `false`.
 #[derive(Debug, Clone, Default)]
 pub struct InterHistogramStats {
-    /// Per-bin mean across the input histograms.
+    /// Per-bin mean across the input histograms (`E[x]`).
     pub mean: Option<Numa>,
-    /// Per-bin mean of squared values (= `mean^2`).
+    /// Per-bin square of the mean (`(E[x])^2` — matches C
+    /// `grayInterHistogramStats`'s `mean * mean` output, *not* `E[x^2]`).
     pub mean_square: Option<Numa>,
-    /// Per-bin variance.
+    /// Per-bin variance (`Var[x] = E[x^2] - (E[x])^2`).
     pub variance: Option<Numa>,
     /// Per-bin rms deviation (`sqrt(variance)`).
     pub rms: Option<Numa>,
@@ -599,12 +600,21 @@ impl Numa {
         let mut na_ms = want_mean_square.then(|| Numa::with_capacity(256));
         let mut na_var = want_variance.then(|| Numa::with_capacity(256));
         let mut na_rms = want_rms.then(|| Numa::with_capacity(256));
+        // Compute mean/variance/rms per bin directly from the column values
+        // without allocating a fresh Numa per bin (matches C's per-bin
+        // numaSimpleStats but avoids the 256× allocation).
+        let n_f = n as f32;
         for j in 0..256 {
-            let mut col = Numa::with_capacity(n);
+            let mut sum = 0.0_f32;
+            let mut sumsq = 0.0_f32;
             for row in &arrays {
-                col.push(row[j]);
+                let v = row[j];
+                sum += v;
+                sumsq += v * v;
             }
-            let (mean, var, rvar) = col.simple_stats(0, -1)?;
+            let mean = sum / n_f;
+            let var = (sumsq / n_f) - mean * mean;
+            let rvar = var.max(0.0).sqrt();
             if let Some(na) = na_mean.as_mut() {
                 na.push(mean);
             }
