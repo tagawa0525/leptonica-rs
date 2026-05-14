@@ -6,6 +6,7 @@ mod baseline_reg;
 mod classapp_reg;
 mod correlscore_reg;
 mod dewarp_reg;
+mod estimate_background_reg;
 mod findcorners_reg;
 mod finditalic_reg;
 mod findpattern1_reg;
