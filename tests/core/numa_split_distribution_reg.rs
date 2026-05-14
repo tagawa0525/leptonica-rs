@@ -65,18 +65,36 @@ fn split_distribution_rejects_zero_sum() {
 }
 
 #[test]
-fn split_distribution_caps_index_at_255() {
-    // 300-bin histogram, ensure the +1 / 255-cap rule works.
+fn split_distribution_rejects_invalid_score_fract() {
     let mut na = Numa::new();
-    for i in 0..300u32 {
-        // Most mass near the right end (around bin 250).
-        let v = if (245..=255).contains(&i) { 100 } else { 1 };
+    for v in [0, 5, 20, 5, 0] {
+        na.push(v as f32);
+    }
+    assert!(na.split_distribution(-0.1, false).is_err());
+    assert!(na.split_distribution(1.5, false).is_err());
+    assert!(na.split_distribution(f32::NAN, false).is_err());
+}
+
+#[test]
+fn split_distribution_caps_index_at_255() {
+    // Construct a 512-bin bimodal histogram so the Otsu-optimal split lies
+    // well above 254. Without the cap, `split_index` would be a number in
+    // the high 300s+; the cap clamps it to exactly 255.
+    let mut na = Numa::new();
+    for i in 0..512u32 {
+        // Two clear peaks: one centred near bin 320, another near bin 480.
+        // The valley between them sits around bin 400 (>> 255).
+        let v = if (300..=340).contains(&i) || (460..=500).contains(&i) {
+            100
+        } else {
+            0
+        };
         na.push(v as f32);
     }
     let r = na.split_distribution(0.1, false).unwrap();
-    assert!(
-        r.split_index <= 255,
-        "split index must be capped at 255, got {}",
+    assert_eq!(
+        r.split_index, 255,
+        "expected the 255 cap to clamp the split index (got {})",
         r.split_index
     );
 }

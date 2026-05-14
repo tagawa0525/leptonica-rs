@@ -1,4 +1,5 @@
-//! Advanced Numa helpers (plan 109 / plan 119 / C numafunc2.c).
+//! Advanced Numa helpers (plan 109 / plan 119 / plans 130-133 /
+//! C numafunc2.c).
 //!
 //! Covered functions:
 //!
@@ -9,6 +10,13 @@
 //! - `genConstrainedNumaInRange` -> [`gen_constrained_numa_in_range`]
 //! - `numaRebinHistogram` -> [`numa_rebin_histogram`]
 //! - `numaMakeRankFromHistogram` -> [`make_rank_from_histogram`]
+//! - `numaEarthMoverDistance` -> [`Numa::earth_mover_distance`]
+//! - `numaDiscretizeSortedInBins` -> [`Numa::discretize_sorted_in_bins`]
+//! - `numaDiscretizeHistoInBins` -> [`Numa::discretize_histo_in_bins`]
+//! - `numaGetRankBinValues` -> [`Numa::get_rank_bin_values`]
+//! - `numaMakeHistogramAuto` -> [`Numa::make_histogram_auto`]
+//! - `numaSplitDistribution` -> [`Numa::split_distribution`]
+//!   (returns [`SplitDistribution`])
 //!
 //! Already covered by other modules:
 //!
@@ -529,6 +537,11 @@ impl Numa {
         score_fract: f32,
         want_score: bool,
     ) -> Result<SplitDistribution> {
+        if !(0.0..=1.0).contains(&score_fract) {
+            return Err(Error::InvalidParameter(format!(
+                "split_distribution: score_fract must be in [0.0, 1.0] (got {score_fract})"
+            )));
+        }
         let n = self.len();
         if n <= 1 {
             return Err(Error::InvalidParameter(format!(

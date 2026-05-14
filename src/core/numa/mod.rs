@@ -11,8 +11,8 @@ pub mod serial;
 mod sort;
 
 pub use advanced::{
-    gen_constrained_numa_in_range, make_rank_from_histogram, numa_crossings_by_threshold,
-    numa_rebin_histogram, numa_uniform_bin_sizes,
+    SplitDistribution, gen_constrained_numa_in_range, make_rank_from_histogram,
+    numa_crossings_by_threshold, numa_rebin_histogram, numa_uniform_bin_sizes,
 };
 pub use histogram::HistogramStats;
 pub use operations::{
