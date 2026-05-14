@@ -257,3 +257,144 @@ pub fn pta_get_pixels_from_pix(pixs: &Pix, region: Option<&Box>) -> Result<Pta> 
     }
     Ok(pta)
 }
+
+/// Boundary-pixel type for [`pta_get_boundary_pixels`] and
+/// [`ptaa_get_boundary_pixels`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryType {
+    /// Foreground boundary pixels (those that border background).
+    Foreground,
+    /// Background boundary pixels (those that border foreground).
+    Background,
+}
+
+/// Extract foreground- or background-boundary pixels of a 1 bpp image.
+///
+/// For `Foreground`, `pixs` is eroded with a 3×3 SE and XOR-ed back with
+/// itself; for `Background` the same is done with dilation. The remaining
+/// pixels are the boundary, returned as their `(x, y)` coordinates.
+///
+/// C Leptonica equivalent: `ptaGetBoundaryPixels` (`ptafunc1.c`).
+pub fn pta_get_boundary_pixels(pixs: &Pix, btype: BoundaryType) -> Result<Pta> {
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pixs.depth().bits()));
+    }
+    let seq = match btype {
+        BoundaryType::Foreground => "e3.3",
+        BoundaryType::Background => "d3.3",
+    };
+    let processed = crate::morph::sequence::morph_sequence(pixs, seq)
+        .map_err(|e| Error::InvalidParameter(format!("morph_sequence({seq}): {e}")))?;
+    let xored = processed.xor(pixs)?;
+    pta_get_pixels_from_pix(&xored, None)
+}
+
+/// Generate a Pta of valid 4- or 8-connected neighbour locations of
+/// `(x, y)` within `pixs`.
+///
+/// Out-of-image neighbours are omitted (the image acts as an implicit
+/// boundary). `(x, y)` itself must lie inside `pixs`.
+///
+/// C Leptonica equivalent: `ptaGetNeighborPixLocs` (`ptafunc1.c`).
+pub fn pta_get_neighbor_pix_locs(pixs: &Pix, x: i32, y: i32, conn: u32) -> Result<Pta> {
+    let w = pixs.width() as i32;
+    let h = pixs.height() as i32;
+    if x < 0 || x >= w || y < 0 || y >= h {
+        return Err(Error::InvalidParameter(format!(
+            "(x, y) = ({x}, {y}) outside pixs {w}x{h}"
+        )));
+    }
+    if conn != 4 && conn != 8 {
+        return Err(Error::InvalidParameter(format!(
+            "conn must be 4 or 8 (got {conn})"
+        )));
+    }
+    let mut pta = Pta::with_capacity(conn as usize);
+    if x > 0 {
+        pta.push((x - 1) as f32, y as f32);
+    }
+    if x < w - 1 {
+        pta.push((x + 1) as f32, y as f32);
+    }
+    if y > 0 {
+        pta.push(x as f32, (y - 1) as f32);
+    }
+    if y < h - 1 {
+        pta.push(x as f32, (y + 1) as f32);
+    }
+    if conn == 8 {
+        if x > 0 {
+            if y > 0 {
+                pta.push((x - 1) as f32, (y - 1) as f32);
+            }
+            if y < h - 1 {
+                pta.push((x - 1) as f32, (y + 1) as f32);
+            }
+        }
+        if x < w - 1 {
+            if y > 0 {
+                pta.push((x + 1) as f32, (y - 1) as f32);
+            }
+            if y < h - 1 {
+                pta.push((x + 1) as f32, (y + 1) as f32);
+            }
+        }
+    }
+    Ok(pta)
+}
+
+/// Bucket the pixels of a 32 bpp labeled image into a Ptaa, one Pta per
+/// connected-component label.
+///
+/// `pixs` must be 32 bpp; pixel values are treated as integer labels
+/// (typically the output of a connected-component labeler). The returned
+/// Ptaa has one Pta per label index `0..=max_label`, with `(x, y)`
+/// coordinates of all pixels carrying that label. Returns
+/// `(ptaa, max_label)` so callers can read the count of components.
+///
+/// C Leptonica equivalent: `ptaaIndexLabeledPixels` (`ptafunc1.c`).
+pub fn ptaa_index_labeled_pixels(pixs: &Pix) -> Result<(crate::core::pta::Ptaa, u32)> {
+    if pixs.depth() != PixelDepth::Bit32 {
+        return Err(Error::UnsupportedDepth(pixs.depth().bits()));
+    }
+    let w = pixs.width();
+    let h = pixs.height();
+    // First pass: find the max label.
+    let mut maxval: u32 = 0;
+    for y in 0..h {
+        for x in 0..w {
+            let v = pixs.get_pixel_unchecked(x, y);
+            if v > maxval {
+                maxval = v;
+            }
+        }
+    }
+    // Sanity-cap maxval before allocating `(maxval + 1)` empty Pta entries.
+    // A plausible connected-component count is in the millions; values
+    // beyond `MAX_LABELS` almost always indicate non-label 32 bpp data
+    // (e.g. an RGB image mistakenly passed in) and would explode memory.
+    const MAX_LABELS: u32 = 1_048_576; // 2^20
+    if maxval > MAX_LABELS {
+        return Err(Error::InvalidParameter(format!(
+            "ptaa_index_labeled_pixels: max label {maxval} exceeds the \
+             {MAX_LABELS}-label cap; pixs is likely not a labeled image"
+        )));
+    }
+    // Pre-fill the Ptaa with (maxval + 1) empty Pta entries so add_pt can
+    // index any label up to maxval. `with_capacity` only reserves space,
+    // not slots, so we push explicitly.
+    let mut ptaa = crate::core::pta::Ptaa::with_capacity((maxval + 1) as usize);
+    for _ in 0..=maxval {
+        ptaa.push(Pta::new());
+    }
+    // Second pass: bucket each non-zero pixel by its label.
+    for y in 0..h {
+        for x in 0..w {
+            let index = pixs.get_pixel_unchecked(x, y);
+            if index > 0 {
+                ptaa.add_pt(index as usize, x as f32, y as f32)?;
+            }
+        }
+    }
+    Ok((ptaa, maxval))
+}
