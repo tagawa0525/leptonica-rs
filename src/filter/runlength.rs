@@ -395,6 +395,11 @@ pub fn stroke_width_transform(
             "nangles must be 2, 4, 6, or 8 (got {nangles})"
         )));
     }
+    if color > 1 {
+        return Err(Error::InvalidParameter(format!(
+            "color must be 0 (white runs) or 1 (black runs); got {color}"
+        )));
+    }
 
     // Use foreground (black) runs for evaluation. color=0 means the
     // caller's foreground is white, so invert to make foreground black.
@@ -437,9 +442,11 @@ fn find_min_runs_orthogonal(pix: &Pix, angle: f32, depth: PixelDepth) -> Result<
     use crate::core::pix::rop::RopOp;
     let w = pix.width();
     let h = pix.height();
-    let w2 = (w * w) as f64;
-    let h2 = (h * h) as f64;
-    let diag = ((w2 + h2).sqrt() + 2.5) as u32;
+    // Cast to f64 *before* squaring so very large but valid dimensions
+    // (w > 65535) don't overflow u32 multiplication.
+    let wf = w as f64;
+    let hf = h as f64;
+    let diag = ((wf * wf + hf * hf).sqrt() + 2.5) as u32;
     let xoff = ((diag - w) / 2) as i32;
     let yoff = ((diag - h) / 2) as i32;
 
