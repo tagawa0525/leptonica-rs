@@ -44,3 +44,29 @@ fn get_rank_bin_values_rejects_invalid() {
     let empty = Numa::new();
     assert!(empty.get_rank_bin_values(4).is_err());
 }
+
+#[test]
+fn get_rank_bin_values_shifted_histogram() {
+    // Values shifted away from 0 should still produce averages in the
+    // original value domain (not internal histogram indices). 1000..1255
+    // each repeated 10x → histogram path with non-zero binstart.
+    let mut na = Numa::new();
+    for v in 1000..1256 {
+        for _ in 0..10 {
+            na.push(v as f32);
+        }
+    }
+    let out = na.get_rank_bin_values(4).unwrap();
+    assert_eq!(out.len(), 4);
+    let v0 = out.get(0).unwrap();
+    let v3 = out.get(3).unwrap();
+    // Values should be in the 1000..1256 range, not 0..256.
+    assert!(
+        v0 > 999.0 && v0 < 1100.0,
+        "first bin {v0} should be near 1000 (not histogram index 0)"
+    );
+    assert!(
+        v3 > 1100.0 && v3 < 1260.0,
+        "last bin {v3} should be near 1255 (not histogram index)"
+    );
+}
