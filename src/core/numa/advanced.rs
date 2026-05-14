@@ -20,6 +20,8 @@
 //! - `numaCrossingsByPeaks` -> [`Numa::crossings_by_peaks`]
 //! - `grayHistogramsToEMD` -> [`Numa::gray_histograms_to_emd`]
 //! - `grayInterHistogramStats` -> [`Numa::gray_inter_histogram_stats`]
+//! - `numaEvalHaarSum` -> [`Numa::eval_haar_sum`]
+//! - `numaEvalBestHaarParameters` -> [`Numa::eval_best_haar_parameters`]
 //!
 //! Already covered by other modules:
 //!
@@ -537,6 +539,118 @@ impl Numa {
             }
         }
         Ok(out)
+    }
+
+    /// Convolution score with a Haar-like comb whose samples alternate
+    /// between `-relweight` (at even indices `i = 0, 2, ...`) and `+1`
+    /// (at odd indices `i = 1, 3, ...`), spaced by `width` and phase-shifted
+    /// by `shift`. The parity matches C `numaEvalHaarSum`.
+    ///
+    /// Score is normalised by `2 * width / n` so it does not grow with the
+    /// signal length. Useful for finding periodic structure in 1D signals
+    /// (line spacing, barcode bars, etc.). Returns `Err` when `n < 2 * width`.
+    ///
+    /// C Leptonica equivalent: `numaEvalHaarSum` (`numafunc2.c`).
+    pub fn eval_haar_sum(&self, width: f32, shift: f32, relweight: f32) -> Result<f32> {
+        let n = self.len();
+        if !(width > 0.0 && width.is_finite()) {
+            return Err(Error::InvalidParameter(format!(
+                "eval_haar_sum: width must be > 0 and finite (got {width})"
+            )));
+        }
+        if !(shift >= 0.0 && shift.is_finite()) {
+            return Err(Error::InvalidParameter(format!(
+                "eval_haar_sum: shift must be >= 0 and finite (got {shift})"
+            )));
+        }
+        if (n as f32) < 2.0 * width {
+            return Err(Error::InvalidParameter(format!(
+                "eval_haar_sum: nas size {n} < 2 * width ({width})"
+            )));
+        }
+        let nsamp = ((n as f32 - shift) / width) as i32;
+        if nsamp <= 0 {
+            return Ok(0.0);
+        }
+        let mut score = 0.0_f32;
+        for i in 0..nsamp {
+            let index = (shift + i as f32 * width) as usize;
+            if index >= n {
+                break;
+            }
+            let weight = if i % 2 == 1 { 1.0 } else { -relweight };
+            score += weight * self.get(index).unwrap_or(0.0);
+        }
+        Ok(2.0 * width * score / n as f32)
+    }
+
+    /// Sweep widths and shifts to find the (width, shift) pair that maximises
+    /// the Haar-like convolution score from [`Numa::eval_haar_sum`].
+    ///
+    /// Returns `(best_width, best_shift, best_score)`. `nwidth >= 2` and
+    /// `nshift >= 1` are required.
+    ///
+    /// C Leptonica equivalent: `numaEvalBestHaarParameters` (`numafunc2.c`).
+    pub fn eval_best_haar_parameters(
+        &self,
+        relweight: f32,
+        nwidth: u32,
+        nshift: u32,
+        minwidth: f32,
+        maxwidth: f32,
+    ) -> Result<(f32, f32, f32)> {
+        if nwidth < 2 {
+            return Err(Error::InvalidParameter(format!(
+                "eval_best_haar_parameters: nwidth must be >= 2 (got {nwidth})"
+            )));
+        }
+        if nshift == 0 {
+            return Err(Error::InvalidParameter(
+                "eval_best_haar_parameters: nshift must be >= 1".into(),
+            ));
+        }
+        if !(minwidth > 0.0 && maxwidth >= minwidth && maxwidth.is_finite()) {
+            return Err(Error::InvalidParameter(format!(
+                "eval_best_haar_parameters: invalid width range \
+                 [{minwidth}, {maxwidth}]"
+            )));
+        }
+        let n = self.len() as f32;
+        let delwidth = (maxwidth - minwidth) / (nwidth as f32 - 1.0);
+        let mut best_score = f32::NEG_INFINITY;
+        let mut best_width = 0.0_f32;
+        let mut best_shift = 0.0_f32;
+        let mut any_evaluated = false;
+        for i in 0..nwidth {
+            let width = minwidth + delwidth * i as f32;
+            // Pre-skip widths that violate eval_haar_sum's `n >= 2 * width`
+            // precondition, so that other validation errors from
+            // eval_haar_sum surface as Err rather than being silently
+            // swallowed by the sweep.
+            if n < 2.0 * width {
+                continue;
+            }
+            let delshift = width / nshift as f32;
+            for j in 0..nshift {
+                let shift = j as f32 * delshift;
+                let score = self.eval_haar_sum(width, shift, relweight)?;
+                any_evaluated = true;
+                if score > best_score {
+                    best_score = score;
+                    best_width = width;
+                    best_shift = shift;
+                }
+            }
+        }
+        if !any_evaluated {
+            return Err(Error::InvalidParameter(format!(
+                "eval_best_haar_parameters: no valid (width, shift) pair \
+                 evaluated — every width in [{minwidth}, {maxwidth}] exceeds \
+                 n / 2 = {}",
+                n / 2.0
+            )));
+        }
+        Ok((best_width, best_shift, best_score))
     }
 
     /// Inter-histogram statistics across an arbitrary set of 256-bin
