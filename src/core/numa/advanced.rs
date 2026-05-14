@@ -541,8 +541,10 @@ impl Numa {
         Ok(out)
     }
 
-    /// Convolution score with a Haar-like comb of alternating +1 / -relweight
-    /// samples, spaced by `width` and phase-shifted by `shift`.
+    /// Convolution score with a Haar-like comb whose samples alternate
+    /// between `-relweight` (at even indices `i = 0, 2, ...`) and `+1`
+    /// (at odd indices `i = 1, 3, ...`), spaced by `width` and phase-shifted
+    /// by `shift`. The parity matches C `numaEvalHaarSum`.
     ///
     /// Score is normalised by `2 * width / n` so it does not grow with the
     /// signal length. Useful for finding periodic structure in 1D signals
@@ -613,27 +615,40 @@ impl Numa {
                  [{minwidth}, {maxwidth}]"
             )));
         }
+        let n = self.len() as f32;
         let delwidth = (maxwidth - minwidth) / (nwidth as f32 - 1.0);
-        let mut best_score = 0.0_f32;
+        let mut best_score = f32::NEG_INFINITY;
         let mut best_width = 0.0_f32;
         let mut best_shift = 0.0_f32;
+        let mut any_evaluated = false;
         for i in 0..nwidth {
             let width = minwidth + delwidth * i as f32;
+            // Pre-skip widths that violate eval_haar_sum's `n >= 2 * width`
+            // precondition, so that other validation errors from
+            // eval_haar_sum surface as Err rather than being silently
+            // swallowed by the sweep.
+            if n < 2.0 * width {
+                continue;
+            }
             let delshift = width / nshift as f32;
             for j in 0..nshift {
                 let shift = j as f32 * delshift;
-                // `eval_haar_sum` enforces `n >= 2 * width`; skip widths that
-                // exceed the signal length rather than aborting the sweep.
-                let score = match self.eval_haar_sum(width, shift, relweight) {
-                    Ok(s) => s,
-                    Err(_) => continue,
-                };
+                let score = self.eval_haar_sum(width, shift, relweight)?;
+                any_evaluated = true;
                 if score > best_score {
                     best_score = score;
                     best_width = width;
                     best_shift = shift;
                 }
             }
+        }
+        if !any_evaluated {
+            return Err(Error::InvalidParameter(format!(
+                "eval_best_haar_parameters: no valid (width, shift) pair \
+                 evaluated — every width in [{minwidth}, {maxwidth}] exceeds \
+                 n / 2 = {}",
+                n / 2.0
+            )));
         }
         Ok((best_width, best_shift, best_score))
     }

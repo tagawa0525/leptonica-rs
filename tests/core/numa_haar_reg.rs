@@ -91,3 +91,29 @@ fn eval_best_haar_rejects_invalid_width_range() {
     assert!(na.eval_best_haar_parameters(1.0, 5, 4, 0.0, 10.0).is_err());
     assert!(na.eval_best_haar_parameters(1.0, 5, 4, 10.0, 5.0).is_err());
 }
+
+#[test]
+fn eval_best_haar_errors_when_no_width_fits() {
+    // All candidate widths exceed n / 2, so no (width, shift) pair can be
+    // evaluated. Should return Err rather than (0, 0, 0).
+    let na = Numa::from_vec(vec![1.0; 10]);
+    assert!(na.eval_best_haar_parameters(1.0, 5, 4, 8.0, 12.0).is_err());
+}
+
+#[test]
+fn eval_best_haar_handles_all_negative_scores() {
+    // Constant non-zero signal with relweight = 1.0 makes every Haar score
+    // negative (more -1 weights than +1 weights when nsamp is odd, or 0
+    // when nsamp is even). The best score is then the *least negative*
+    // value rather than the initial 0.0 sentinel.
+    let na = Numa::from_vec(vec![1.0; 100]);
+    let (best_width, _best_shift, best_score) =
+        na.eval_best_haar_parameters(1.0, 5, 4, 5.0, 20.0).unwrap();
+    // A valid pair was returned and best_width lies in the sweep range.
+    assert!(
+        (5.0..=20.0).contains(&best_width),
+        "best_width {best_width} out of [5, 20]"
+    );
+    // best_score is finite (not the f32::NEG_INFINITY sentinel).
+    assert!(best_score.is_finite());
+}
