@@ -138,6 +138,74 @@ pub struct SegmentationResult {
 /// let result = segment_regions(&pix, &PageSegOptions::default()).unwrap();
 /// println!("Text lines found in textline_mask");
 /// ```
+/// Estimate the background gray level of an 8 bpp image.
+///
+/// Optionally crops the inner part by `edgecrop` (in `[0.0, 1.0)`) and
+/// excludes pixels darker than `darkthresh` from the median. Returns the
+/// median gray level in `[0, 255]`.
+///
+/// C Leptonica equivalent: `pixEstimateBackground` (`pageseg.c`).
+pub fn estimate_background(pix: &Pix, darkthresh: u32, edgecrop: f32) -> RecogResult<u32> {
+    use crate::core::pix::convert::RemoveColormapTarget;
+    if !(0.0..1.0).contains(&edgecrop) || !edgecrop.is_finite() {
+        return Err(RecogError::InvalidParameter(format!(
+            "edgecrop must be in [0.0, 1.0); got {edgecrop}"
+        )));
+    }
+
+    // Convert (or pass through) to 8 bpp grayscale.
+    let pix1 = if pix.depth() == PixelDepth::Bit8 && pix.colormap().is_none() {
+        pix.deep_clone()
+    } else if pix.depth() == PixelDepth::Bit8 {
+        pix.remove_colormap(RemoveColormapTarget::ToGrayscale)
+            .map_err(|e| RecogError::InvalidParameter(format!("remove_colormap: {e}")))?
+    } else {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    };
+
+    let w = pix1.width();
+    let h = pix1.height();
+
+    // Optionally crop the inner part.
+    let pix2 = if edgecrop > 0.0 {
+        let cx = (0.5 * edgecrop * w as f32) as u32;
+        let cy = (0.5 * edgecrop * h as f32) as u32;
+        let cw = ((1.0 - edgecrop) * w as f32) as u32;
+        let ch = ((1.0 - edgecrop) * h as f32) as u32;
+        if cw == 0 || ch == 0 {
+            return Err(RecogError::InvalidParameter(format!(
+                "edgecrop {edgecrop} leaves no inner area for {w}x{h}"
+            )));
+        }
+        pix1.clip_rectangle(cx, cy, cw, ch)
+            .map_err(|e| RecogError::InvalidParameter(format!("clip_rectangle: {e}")))?
+    } else {
+        pix1
+    };
+
+    // No more than 50K samples.
+    let cw = pix2.width() as f64;
+    let ch = pix2.height() as f64;
+    let sampling = (((cw * ch) / 50000.0 + 0.5).sqrt() as u32).max(1);
+
+    // Optional dark-pixel mask.
+    let mask = if darkthresh > 0 {
+        let dark = crate::color::threshold::threshold_to_binary(&pix2, darkthresh as u8)
+            .map_err(|e| RecogError::InvalidParameter(format!("threshold_to_binary: {e}")))?;
+        Some(dark.invert())
+    } else {
+        None
+    };
+
+    let (val, _) = pix2
+        .rank_value_masked(mask.as_ref(), 0, 0, sampling, 0.5)
+        .map_err(|e| RecogError::InvalidParameter(format!("rank_value_masked: {e}")))?;
+    Ok((val + 0.5) as u32)
+}
+
 pub fn segment_regions(pix: &Pix, options: &PageSegOptions) -> RecogResult<SegmentationResult> {
     options.validate()?;
 
