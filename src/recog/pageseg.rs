@@ -138,6 +138,56 @@ pub struct SegmentationResult {
 /// let result = segment_regions(&pix, &PageSegOptions::default()).unwrap();
 /// println!("Text lines found in textline_mask");
 /// ```
+pub fn segment_regions(pix: &Pix, options: &PageSegOptions) -> RecogResult<SegmentationResult> {
+    options.validate()?;
+
+    let w = pix.width();
+    let h = pix.height();
+
+    if w < MIN_WIDTH || h < MIN_HEIGHT {
+        return Err(RecogError::ImageTooSmall {
+            min_width: MIN_WIDTH,
+            min_height: MIN_HEIGHT,
+            actual_width: w,
+            actual_height: h,
+        });
+    }
+
+    // Ensure binary
+    let binary = ensure_binary(pix)?;
+
+    // Reduce to half resolution for processing
+    let reduced = reduce_by_2(&binary)?;
+
+    // Step 1: Detect halftone regions (optional)
+    let (halftone_mask, text_pixels) = if options.detect_halftone {
+        let (hm, tp) = generate_halftone_mask(&reduced)?;
+        (Some(expand_by_2(&hm, w, h)?), tp)
+    } else {
+        (None, reduced.deep_clone())
+    };
+
+    // Step 2: Generate text line mask
+    let (textline_mask_2x, vws) = generate_textline_mask_internal(
+        &text_pixels,
+        options.textline_close_h / 2,
+        options.textline_close_v,
+    )?;
+
+    // Step 3: Generate text block mask
+    let textblock_mask_2x = generate_textblock_mask_internal(&textline_mask_2x, &vws)?;
+
+    // Expand masks to full resolution
+    let textline_mask = expand_by_2(&textline_mask_2x, w, h)?;
+    let textblock_mask = expand_by_2(&textblock_mask_2x, w, h)?;
+
+    Ok(SegmentationResult {
+        halftone_mask,
+        textline_mask,
+        textblock_mask,
+    })
+}
+
 /// Estimate the background gray level of an 8 bpp image.
 ///
 /// Optionally crops the inner part by `edgecrop` (in `[0.0, 1.0)`) and
@@ -204,56 +254,6 @@ pub fn estimate_background(pix: &Pix, darkthresh: u32, edgecrop: f32) -> RecogRe
         .rank_value_masked(mask.as_ref(), 0, 0, sampling, 0.5)
         .map_err(|e| RecogError::InvalidParameter(format!("rank_value_masked: {e}")))?;
     Ok((val + 0.5) as u32)
-}
-
-pub fn segment_regions(pix: &Pix, options: &PageSegOptions) -> RecogResult<SegmentationResult> {
-    options.validate()?;
-
-    let w = pix.width();
-    let h = pix.height();
-
-    if w < MIN_WIDTH || h < MIN_HEIGHT {
-        return Err(RecogError::ImageTooSmall {
-            min_width: MIN_WIDTH,
-            min_height: MIN_HEIGHT,
-            actual_width: w,
-            actual_height: h,
-        });
-    }
-
-    // Ensure binary
-    let binary = ensure_binary(pix)?;
-
-    // Reduce to half resolution for processing
-    let reduced = reduce_by_2(&binary)?;
-
-    // Step 1: Detect halftone regions (optional)
-    let (halftone_mask, text_pixels) = if options.detect_halftone {
-        let (hm, tp) = generate_halftone_mask(&reduced)?;
-        (Some(expand_by_2(&hm, w, h)?), tp)
-    } else {
-        (None, reduced.deep_clone())
-    };
-
-    // Step 2: Generate text line mask
-    let (textline_mask_2x, vws) = generate_textline_mask_internal(
-        &text_pixels,
-        options.textline_close_h / 2,
-        options.textline_close_v,
-    )?;
-
-    // Step 3: Generate text block mask
-    let textblock_mask_2x = generate_textblock_mask_internal(&textline_mask_2x, &vws)?;
-
-    // Expand masks to full resolution
-    let textline_mask = expand_by_2(&textline_mask_2x, w, h)?;
-    let textblock_mask = expand_by_2(&textblock_mask_2x, w, h)?;
-
-    Ok(SegmentationResult {
-        halftone_mask,
-        textline_mask,
-        textblock_mask,
-    })
 }
 
 /// Generate a text line mask from a binary image
