@@ -496,6 +496,63 @@ impl Numa {
         Ok(out)
     }
 
+    /// Compute equal-population rank bin values from an arbitrary Numa.
+    ///
+    /// Internally chooses between a sort-based path (when the value range is
+    /// large relative to length) and a histogram-based path (when the range
+    /// is small, e.g. 8-bit pixel values). Returns the average value within
+    /// each of the `nbins` equal-population buckets in the **original value
+    /// domain** (the histogram path post-multiplies by the histogram's
+    /// `binsize` and adds `binstart` so callers see real-world values rather
+    /// than internal histogram indices — a small divergence from C, which
+    /// returns indices).
+    ///
+    /// Note: matches C `numaGetRankBinValues` for the documented
+    /// "no negative values" case. Negative-minimum inputs follow the
+    /// histogram path with reduced resolution (C also uses only `maxval`
+    /// to pick maxbins; this port mirrors that behaviour).
+    ///
+    /// C Leptonica equivalent: `numaGetRankBinValues` (`numafunc2.c`).
+    pub fn get_rank_bin_values(&self, nbins: u32) -> Result<Numa> {
+        if nbins < 2 {
+            return Err(Error::InvalidParameter(format!(
+                "nbins must be > 1 (got {nbins})"
+            )));
+        }
+        if self.is_empty() {
+            return Err(Error::InvalidParameter(
+                "get_rank_bin_values: input is empty".into(),
+            ));
+        }
+        let max_val = self.max_value().unwrap_or(0.0);
+        let use_bin_sort = Numa::choose_sort_type(self.len(), max_val);
+        if !use_bin_sort {
+            // Sort-based path: shell sort the values, then equal-population
+            // average across the sorted array.
+            let mut sorted = self.clone();
+            sorted.sort(crate::core::numa::SortOrder::Increasing);
+            return sorted.discretize_sorted_in_bins(nbins);
+        }
+        // Histogram-based path: build a histogram up to 100002 entries and
+        // discretize that. The discretizer returns averages in histogram-
+        // index units; convert back to the original value domain with the
+        // histogram's binstart / binsize.
+        let maxbins = (max_val as i32 + 2).clamp(2, 100_002) as usize;
+        let hist_result = self
+            .make_histogram(maxbins)
+            .ok_or_else(|| Error::InvalidParameter("make_histogram failed".into()))?;
+        let (binval, _) = hist_result
+            .histogram
+            .discretize_histo_in_bins(nbins, false)?;
+        let binstart = hist_result.binstart as f32;
+        let binsize = hist_result.binsize as f32;
+        let mut out = Numa::with_capacity(binval.len());
+        for i in 0..binval.len() {
+            out.push(binstart + binsize * binval.get(i).unwrap_or(0.0));
+        }
+        Ok(out)
+    }
+
     /// Discretize a histogram Numa (count per index) into `nbins` equal-
     /// population buckets. Returns `(average index per bucket, optional
     /// cumulative normalized rank)`.
