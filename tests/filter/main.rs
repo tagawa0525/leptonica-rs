@@ -26,6 +26,7 @@ mod edge_smoothness_reg;
 mod half_edge_reg;
 mod rank_scaling_reg;
 mod runlength_reg;
+mod stroke_width_transform_reg;
 
 // gap-fill 第 2 弾 (plans 501 / 113 / 803-K / 115 / 116) — 統合ワークフロー
 mod gap_fill_workflows_reg;

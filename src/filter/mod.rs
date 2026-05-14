@@ -67,7 +67,7 @@ pub use rank::{
 pub use runlength::{
     RunDirection, find_horizontal_runs, find_max_horizontal_run_on_line, find_max_runs,
     find_max_vertical_run_on_line, find_vertical_runs, make_msbit_loc_tab,
-    runlength_membership_on_line, runlength_transform,
+    runlength_membership_on_line, runlength_transform, stroke_width_transform,
 };
 pub use windowed::{
     WindowedStatsResult, mean_square_accum, windowed_mean, windowed_mean_square, windowed_stats,

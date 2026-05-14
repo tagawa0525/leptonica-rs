@@ -6,13 +6,13 @@
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 117 |
+| ✅ 同等   | 118 |
 | 🔄 異なる | 0   |
 | 🚫 不要   | 13  |
-| ❌ 未実装 | 1   |
+| ❌ 未実装 | 0   |
 | 合計      | 131 |
 
-**カバレッジ**: 89.3% (117/131 関数が実装済み、🚫 不要 13 関数を除くと実質 117/118 = 99.2% 実装)
+**カバレッジ**: 90.1% (118/131 関数が実装済み、🚫 不要 13 関数を除くと実質 118/118 = 100% 実装)
 
 ## 詳細
 
@@ -248,11 +248,12 @@
 - タイル化による大画像処理対応
 - 分離可能畳み込みによる計算量削減
 
-### 未実装（❌ 1件）
+### 未実装（❌ 0件）
 
-gap-fill audit (2026-05-10) と plan 501 完了後の状態:
+filter モジュールの ❌ は 2026-05-13 (plan 128) で完全解消。
 
-- runlength.c: pixStrokeWidthTransform (1 件)
+- runlength.c: pixStrokeWidthTransform → ✅ `stroke_width_transform`
+  (plan 128)
 
 kernel.c の生成系 5 関数 (makeFlatKernel / makeGaussianKernel /
 makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
@@ -269,7 +270,7 @@ makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
 - 🚫 不要: Rust 標準ライブラリ等で代替
 - ❌ 未実装: 当該機能が Rust 側に存在しない
 
-**追加分類サマリー**: ✅ 10 / ❌ 1 (合計 11)
+**追加分類サマリー**: ✅ 11 / ❌ 0 (合計 11)
 
 ### kernel.c (追加分)
 
@@ -290,4 +291,4 @@ makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
 | pixFindMaxRuns                | ✅   | `find_max_runs` (filter/runlength.rs)                   | name+module match             |
 | pixFindMaxVerticalRunOnLine   | ✅   | `find_max_vertical_run_on_line` (filter/runlength.rs)   | name+module match             |
 | pixFindVerticalRuns           | ✅   | `find_vertical_runs` (filter/runlength.rs)              | name+module match             |
-| pixStrokeWidthTransform       | ❌   | -                                                       | no Rust impl in expected dirs |
+| pixStrokeWidthTransform       | ✅   | `stroke_width_transform` (filter/runlength.rs)          | plan 128                      |
