@@ -556,7 +556,18 @@ impl Numa {
         let mut prev_index: usize = 0;
         let mut prev_val = self.get(0).unwrap_or(0.0);
         for i in 0..np {
-            let cur_index = nap.get(i).unwrap_or(0.0) as usize;
+            // Extremum positions are stored as f32; use get_i32 for proper
+            // rounding and reject negative or out-of-range values to avoid
+            // silent `as usize` truncation.
+            let cur_index_i = nap
+                .get_i32(i)
+                .ok_or_else(|| Error::InvalidParameter(format!("extrema[{i}] read failed")))?;
+            if cur_index_i < 0 || (cur_index_i as usize) >= n {
+                return Err(Error::InvalidParameter(format!(
+                    "extrema[{i}] = {cur_index_i} is out of [0, {n})"
+                )));
+            }
+            let cur_index = cur_index_i as usize;
             let cur_val = self.get(cur_index).unwrap_or(0.0);
             let thresh = (prev_val + cur_val) / 2.0;
             let xval1_initial = match nax {
