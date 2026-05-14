@@ -496,6 +496,75 @@ impl Numa {
         Ok(out)
     }
 
+    /// Make a histogram with automatic bin sizing.
+    ///
+    /// If all values are integers and the integer range fits within
+    /// `maxbins`, returns a unit-width integer histogram with one bin per
+    /// distinct integer value (parameters: `startx = minval, delx = 1.0`).
+    /// Otherwise distributes the values into `maxbins` floating-point bins
+    /// spanning `[minval, maxval]` (parameters: `startx = minval,
+    /// delx = (maxval - minval) / maxbins`).
+    ///
+    /// C Leptonica equivalent: `numaMakeHistogramAuto` (`numafunc2.c`).
+    pub fn make_histogram_auto(&self, maxbins: u32) -> Result<Numa> {
+        if self.is_empty() {
+            return Err(Error::InvalidParameter(
+                "make_histogram_auto: input is empty".into(),
+            ));
+        }
+        let maxbins = maxbins.max(1) as usize;
+        let minval = self.min_value().unwrap_or(0.0);
+        let maxval = self.max_value().unwrap_or(0.0);
+        let n = self.len();
+
+        // Integer fast path.
+        let allints = self.has_only_integers(0.0);
+        if allints && (maxval - minval) < maxbins as f32 {
+            let imin = minval as i32;
+            let imax = maxval as i32;
+            let irange = (imax - imin + 1) as usize;
+            let mut hist = Numa::with_capacity(irange);
+            for _ in 0..irange {
+                hist.push(0.0);
+            }
+            hist.set_parameters(minval, 1.0);
+            for i in 0..n {
+                let v = self.get(i).unwrap_or(0.0) as i32;
+                let bin = (v - imin) as usize;
+                if bin < irange {
+                    let prev = hist.get(bin).unwrap_or(0.0);
+                    let _ = hist.set(bin, prev + 1.0);
+                }
+            }
+            return Ok(hist);
+        }
+
+        // Float-bin path.
+        let range = maxval - minval;
+        if range == 0.0 {
+            let mut hist = Numa::with_capacity(1);
+            hist.set_parameters(minval, 0.0);
+            hist.push(n as f32);
+            return Ok(hist);
+        }
+        let binsize = range / maxbins as f32;
+        let mut hist = Numa::with_capacity(maxbins);
+        for _ in 0..maxbins {
+            hist.push(0.0);
+        }
+        hist.set_parameters(minval, binsize);
+        for i in 0..n {
+            let v = self.get(i).unwrap_or(0.0);
+            let mut bin = ((v - minval) / binsize) as usize;
+            if bin >= maxbins {
+                bin = maxbins - 1;
+            }
+            let prev = hist.get(bin).unwrap_or(0.0);
+            let _ = hist.set(bin, prev + 1.0);
+        }
+        Ok(hist)
+    }
+
     /// Compute equal-population rank bin values from an arbitrary Numa.
     ///
     /// Internally chooses between a sort-based path (when the value range is
