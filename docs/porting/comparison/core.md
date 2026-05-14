@@ -6,13 +6,13 @@
 
 | 項目      | 数   |
 | --------- | ---- |
-| ✅ 同等   | 956  |
+| ✅ 同等   | 959  |
 | 🔄 異なる | 94   |
 | 🚫 不要   | 147  |
-| ❌ 未実装 | 18   |
+| ❌ 未実装 | 15   |
 | 合計      | 1215 |
 
-**カバレッジ**: 86.4% (1050/1215 関数が実装済み、🚫 不要 147 関数を除くと実質 1050/1068 = 98.3% 実装)
+**カバレッジ**: 86.7% (1053/1215 関数が実装済み、🚫 不要 147 関数を除くと実質 1053/1068 = 98.6% 実装)
 
 ## 注記
 
@@ -1765,32 +1765,32 @@ gap-fill audit (2026-05-10) で C 公開関数を全数突き合わせた結果�
 
 ### ptafunc1.c (追加分)
 
-| C関数                  | 状態 | Rust対応                                         | 備考                          |
-| ---------------------- | ---- | ------------------------------------------------ | ----------------------------- |
-| applyCubicFit          | ✅   | `apply_cubic_fit` (core/pta/lsf.rs)              | name+module match             |
-| applyLinearFit         | ✅   | `apply_linear_fit` (core/pta/lsf.rs)             | name+module match             |
-| applyQuadraticFit      | ✅   | `apply_quadratic_fit` (core/pta/lsf.rs)          | name+module match             |
-| applyQuarticFit        | ✅   | `apply_quartic_fit` (core/pta/lsf.rs)            | name+module match             |
-| l_angleBetweenVectors  | ✅   | `angle_between_vectors` (core/pta/transform.rs)  | name+module match             |
-| numaConvertToPta1      | ✅   | `Pta::create_from_numa` (core/pta/mod.rs)        | name+module match             |
-| numaConvertToPta2      | ✅   | `Pta::create_from_numa` (core/pta/mod.rs)        | name+module match             |
-| pixDisplayPta          | 🚫   | -                                                | GUI/X11 表示は Rust 未提供    |
-| pixDisplayPtaPattern   | 🚫   | -                                                | GUI/X11 表示は Rust 未提供    |
-| pixDisplayPtaa         | 🚫   | -                                                | GUI/X11 表示は Rust 未提供    |
-| pixDisplayPtaaPattern  | 🚫   | -                                                | GUI/X11 表示は Rust 未提供    |
-| pixFindCornerPixels    | ✅   | `Pix::find_corner_pixels` (core/pta/graphics.rs) | plan 111                      |
-| pixGenerateFromPta     | ✅   | `pix_generate_from_pta` (core/pta/graphics.rs)   | plan 111                      |
-| pixPlotAlongPta        | ❌   | -                                                | no Rust impl in expected dirs |
-| ptaConvertToNuma       | ✅   | `Pta::to_numa_pair` (core/pta/graphics.rs)       | plan 111                      |
-| ptaGetBoundaryPixels   | ❌   | -                                                | no Rust impl in expected dirs |
-| ptaGetBoundingRegion   | ✅   | `Pta::bounding_region` (core/pta/graphics.rs)    | plan 111                      |
-| ptaGetNeighborPixLocs  | ❌   | -                                                | no Rust impl in expected dirs |
-| ptaGetPixelsFromPix    | ✅   | `pta_get_pixels_from_pix` (core/pta/graphics.rs) | plan 111                      |
-| ptaNoisyLinearLSF      | ❌   | -                                                | no Rust impl in expected dirs |
-| ptaNoisyQuadraticLSF   | ❌   | -                                                | no Rust impl in expected dirs |
-| ptaReplicatePattern    | ✅   | `Pta::replicate_pattern` (core/pta/graphics.rs)  | plan 111                      |
-| ptaaGetBoundaryPixels  | ❌   | -                                                | no Rust impl in expected dirs |
-| ptaaIndexLabeledPixels | ❌   | -                                                | no Rust impl in expected dirs |
+| C関数                  | 状態 | Rust対応                                           | 備考                          |
+| ---------------------- | ---- | -------------------------------------------------- | ----------------------------- |
+| applyCubicFit          | ✅   | `apply_cubic_fit` (core/pta/lsf.rs)                | name+module match             |
+| applyLinearFit         | ✅   | `apply_linear_fit` (core/pta/lsf.rs)               | name+module match             |
+| applyQuadraticFit      | ✅   | `apply_quadratic_fit` (core/pta/lsf.rs)            | name+module match             |
+| applyQuarticFit        | ✅   | `apply_quartic_fit` (core/pta/lsf.rs)              | name+module match             |
+| l_angleBetweenVectors  | ✅   | `angle_between_vectors` (core/pta/transform.rs)    | name+module match             |
+| numaConvertToPta1      | ✅   | `Pta::create_from_numa` (core/pta/mod.rs)          | name+module match             |
+| numaConvertToPta2      | ✅   | `Pta::create_from_numa` (core/pta/mod.rs)          | name+module match             |
+| pixDisplayPta          | 🚫   | -                                                  | GUI/X11 表示は Rust 未提供    |
+| pixDisplayPtaPattern   | 🚫   | -                                                  | GUI/X11 表示は Rust 未提供    |
+| pixDisplayPtaa         | 🚫   | -                                                  | GUI/X11 表示は Rust 未提供    |
+| pixDisplayPtaaPattern  | 🚫   | -                                                  | GUI/X11 表示は Rust 未提供    |
+| pixFindCornerPixels    | ✅   | `Pix::find_corner_pixels` (core/pta/graphics.rs)   | plan 111                      |
+| pixGenerateFromPta     | ✅   | `pix_generate_from_pta` (core/pta/graphics.rs)     | plan 111                      |
+| pixPlotAlongPta        | ❌   | -                                                  | no Rust impl in expected dirs |
+| ptaConvertToNuma       | ✅   | `Pta::to_numa_pair` (core/pta/graphics.rs)         | plan 111                      |
+| ptaGetBoundaryPixels   | ✅   | `pta_get_boundary_pixels` (core/pta/graphics.rs)   | plan 137                      |
+| ptaGetBoundingRegion   | ✅   | `Pta::bounding_region` (core/pta/graphics.rs)      | plan 111                      |
+| ptaGetNeighborPixLocs  | ✅   | `pta_get_neighbor_pix_locs` (core/pta/graphics.rs) | plan 137                      |
+| ptaGetPixelsFromPix    | ✅   | `pta_get_pixels_from_pix` (core/pta/graphics.rs)   | plan 111                      |
+| ptaNoisyLinearLSF      | ❌   | -                                                  | no Rust impl in expected dirs |
+| ptaNoisyQuadraticLSF   | ❌   | -                                                  | no Rust impl in expected dirs |
+| ptaReplicatePattern    | ✅   | `Pta::replicate_pattern` (core/pta/graphics.rs)    | plan 111                      |
+| ptaaGetBoundaryPixels  | ❌   | -                                                  | no Rust impl in expected dirs |
+| ptaaIndexLabeledPixels | ✅   | `ptaa_index_labeled_pixels` (core/pta/graphics.rs) | plan 137                      |
 
 ### sarray1.c (追加分)
 
