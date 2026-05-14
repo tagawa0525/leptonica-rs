@@ -89,3 +89,50 @@ fn swt_supports_all_valid_nangles() {
         );
     }
 }
+
+#[test]
+fn swt_higher_nangles_is_monotone_nonincreasing() {
+    // Adding more sampling angles can only *lower* the per-pixel min (you're
+    // taking the min over a superset of axes). Verify that for a non-square
+    // 16×8 rectangle, every fg pixel of nangles=4/6/8 is <= nangles=2.
+    // Catches mistakes in the rotated/runlength branches that would push
+    // values higher than the axis-aligned baseline.
+    let pix = solid_block(16, 8);
+    let out2 = stroke_width_transform(&pix, 1, PixelDepth::Bit8, 2).unwrap();
+    let out4 = stroke_width_transform(&pix, 1, PixelDepth::Bit8, 4).unwrap();
+    let out6 = stroke_width_transform(&pix, 1, PixelDepth::Bit8, 6).unwrap();
+    let out8 = stroke_width_transform(&pix, 1, PixelDepth::Bit8, 8).unwrap();
+    let mut any_strict = false;
+    for y in 0..8 {
+        for x in 0..16 {
+            let v2 = out2.get_pixel(x, y).unwrap();
+            for (label, out_other) in [("4", &out4), ("6", &out6), ("8", &out8)] {
+                let vo = out_other.get_pixel(x, y).unwrap();
+                assert!(
+                    vo <= v2,
+                    "nangles={label} value at ({x},{y}) is {vo} > nangles=2 value {v2}"
+                );
+                if vo < v2 {
+                    any_strict = true;
+                }
+            }
+        }
+    }
+    // The 16×8 rectangle is asymmetric enough that the diagonal axes
+    // pick up shorter runs at *some* pixel. If everything matches nangles=2
+    // exactly, the angled branches likely degenerated to no-ops.
+    assert!(
+        any_strict,
+        "expected at least one pixel where nangles>=4 < nangles=2"
+    );
+}
+
+#[test]
+fn swt_rejects_color_other_than_0_or_1() {
+    // color is documented as binary (0 / 1). Reject 2, 255, etc. so bad
+    // calls don't silently follow the "black runs" path.
+    let pix = solid_block(10, 10);
+    assert!(stroke_width_transform(&pix, 2, PixelDepth::Bit8, 2).is_err());
+    assert!(stroke_width_transform(&pix, 255, PixelDepth::Bit8, 2).is_err());
+    assert!(stroke_width_transform(&pix, u32::MAX, PixelDepth::Bit8, 2).is_err());
+}
