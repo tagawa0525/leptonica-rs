@@ -29,6 +29,7 @@ mod numa1_reg;
 mod numa2_reg;
 mod numa3_reg;
 mod numa_advanced_reg;
+mod numa_crossings_by_peaks_reg;
 mod numa_emd_discretize_reg;
 mod numa_get_rank_bin_values_reg;
 mod numa_histogram_auto_reg;
