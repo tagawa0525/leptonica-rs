@@ -369,6 +369,17 @@ pub fn ptaa_index_labeled_pixels(pixs: &Pix) -> Result<(crate::core::pta::Ptaa, 
             }
         }
     }
+    // Sanity-cap maxval before allocating `(maxval + 1)` empty Pta entries.
+    // A plausible connected-component count is in the millions; values
+    // beyond `MAX_LABELS` almost always indicate non-label 32 bpp data
+    // (e.g. an RGB image mistakenly passed in) and would explode memory.
+    const MAX_LABELS: u32 = 1_048_576; // 2^20
+    if maxval > MAX_LABELS {
+        return Err(Error::InvalidParameter(format!(
+            "ptaa_index_labeled_pixels: max label {maxval} exceeds the \
+             {MAX_LABELS}-label cap; pixs is likely not a labeled image"
+        )));
+    }
     // Pre-fill the Ptaa with (maxval + 1) empty Pta entries so add_pt can
     // index any label up to maxval. `with_capacity` only reserves space,
     // not slots, so we push explicitly.

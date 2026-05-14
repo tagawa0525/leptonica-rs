@@ -126,3 +126,14 @@ fn ptaa_index_labels_rejects_non_32bpp() {
     let pix: Pix = PixMut::new(10, 10, PixelDepth::Bit8).unwrap().into();
     assert!(ptaa_index_labeled_pixels(&pix).is_err());
 }
+
+#[test]
+fn ptaa_index_labels_rejects_unreasonable_max_label() {
+    // Single 32 bpp pixel set to a huge value (e.g., RGB-shaped data).
+    // Without the sanity cap, the function would try to allocate billions
+    // of empty Pta entries and OOM.
+    let mut pm = PixMut::new(2, 2, PixelDepth::Bit32).unwrap();
+    pm.set_pixel(0, 0, 0xFFFFFFFF).unwrap();
+    let pix: Pix = pm.into();
+    assert!(ptaa_index_labeled_pixels(&pix).is_err());
+}
