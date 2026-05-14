@@ -402,3 +402,168 @@ pub fn gen_constrained_numa_in_range(
     }
     Ok(na)
 }
+
+// ============================================================================
+// Plan 130: earth_mover_distance / discretize_sorted_in_bins /
+//           discretize_histo_in_bins
+// ============================================================================
+
+impl Numa {
+    /// 1D Earth-Mover Distance between two equal-length distributions.
+    ///
+    /// `other` is renormalized so its total matches `self`, then mass is
+    /// pushed bin-by-bin to align with `self`. The total work
+    /// (sum of |movement|) is divided by `sum(self)` to produce the EMD.
+    ///
+    /// C Leptonica equivalent: `numaEarthMoverDistance` (`numafunc2.c`).
+    pub fn earth_mover_distance(&self, other: &Numa) -> Result<f32> {
+        let n = self.len();
+        if other.len() != n {
+            return Err(Error::InvalidParameter(format!(
+                "earth_mover_distance: na1 length {n} != na2 length {}",
+                other.len()
+            )));
+        }
+        if n == 0 {
+            return Err(Error::InvalidParameter(
+                "earth_mover_distance: empty inputs".into(),
+            ));
+        }
+        let sum1 = self.sum().unwrap_or(0.0);
+        let sum2 = other.sum().unwrap_or(0.0);
+        if sum1 == 0.0 {
+            return Ok(0.0);
+        }
+        if sum2 == 0.0 {
+            return Err(Error::InvalidParameter(
+                "earth_mover_distance: other has zero total mass".into(),
+            ));
+        }
+        let normalized = (sum1 - sum2).abs() < 1e-5 * sum1.abs();
+        let scale = if normalized { 1.0 } else { sum1 / sum2 };
+        let mut na3: Vec<f32> = (0..n)
+            .map(|i| other.get(i).unwrap_or(0.0) * scale)
+            .collect();
+        let mut total = 0.0_f32;
+        for i in 1..n {
+            let diff = self.get(i - 1).unwrap_or(0.0) - na3[i - 1];
+            na3[i] -= diff;
+            total += diff.abs();
+        }
+        Ok(total / sum1)
+    }
+
+    /// Discretize an already-sorted Numa into `nbins` equal-population
+    /// buckets, returning the average value in each bucket.
+    ///
+    /// C Leptonica equivalent: `numaDiscretizeSortedInBins`.
+    pub fn discretize_sorted_in_bins(&self, nbins: u32) -> Result<Numa> {
+        if nbins < 2 {
+            return Err(Error::InvalidParameter(format!(
+                "nbins must be > 1 (got {nbins})"
+            )));
+        }
+        let ntot = self.len();
+        if ntot == 0 {
+            return Err(Error::InvalidParameter(
+                "discretize_sorted_in_bins: input is empty".into(),
+            ));
+        }
+        let ntot_i = i32::try_from(ntot)
+            .map_err(|_| Error::InvalidParameter("input length overflows i32".into()))?;
+        let nbins_i = i32::try_from(nbins)
+            .map_err(|_| Error::InvalidParameter("nbins overflows i32".into()))?;
+        let naeach = numa_uniform_bin_sizes(ntot_i, nbins_i)?;
+        let mut out = Numa::with_capacity(nbins as usize);
+        let mut sum = 0.0_f32;
+        let mut bincount: u32 = 0;
+        let mut binindex: usize = 0;
+        let mut binsize = naeach.get(0).unwrap_or(0.0) as u32;
+        for i in 0..ntot {
+            sum += self.get(i).unwrap_or(0.0);
+            bincount += 1;
+            if bincount == binsize {
+                out.push(sum / binsize as f32);
+                sum = 0.0;
+                bincount = 0;
+                binindex += 1;
+                if binindex == nbins as usize {
+                    break;
+                }
+                binsize = naeach.get(binindex).unwrap_or(0.0) as u32;
+            }
+        }
+        Ok(out)
+    }
+
+    /// Discretize a histogram Numa (count per index) into `nbins` equal-
+    /// population buckets. Returns `(average index per bucket, optional
+    /// cumulative normalized rank)`.
+    ///
+    /// C Leptonica equivalent: `numaDiscretizeHistoInBins`.
+    pub fn discretize_histo_in_bins(
+        &self,
+        nbins: u32,
+        want_rank: bool,
+    ) -> Result<(Numa, Option<Numa>)> {
+        if nbins < 2 {
+            return Err(Error::InvalidParameter(format!(
+                "nbins must be > 1 (got {nbins})"
+            )));
+        }
+        let nxvals = self.len();
+        if nxvals == 0 {
+            return Err(Error::InvalidParameter(
+                "discretize_histo_in_bins: input is empty".into(),
+            ));
+        }
+        let ntot = self.sum().unwrap_or(0.0) as i32;
+        if ntot <= 0 {
+            return Err(Error::InvalidParameter(
+                "discretize_histo_in_bins: histogram total is zero".into(),
+            ));
+        }
+        let nbins_i = i32::try_from(nbins)
+            .map_err(|_| Error::InvalidParameter("nbins overflows i32".into()))?;
+        let naeach = numa_uniform_bin_sizes(ntot, nbins_i)?;
+
+        let mut binval = Numa::with_capacity(nbins as usize);
+        let mut sum = 0.0_f32;
+        let mut bincount: u32 = 0;
+        let mut binindex: usize = 0;
+        let mut binsize = naeach.get(0).unwrap_or(0.0) as u32;
+        'outer: for i in 0..nxvals {
+            let count = self.get(i).unwrap_or(0.0) as u32;
+            for _ in 0..count {
+                bincount += 1;
+                sum += i as f32;
+                if bincount == binsize {
+                    binval.push(sum / binsize as f32);
+                    sum = 0.0;
+                    bincount = 0;
+                    binindex += 1;
+                    if binindex == nbins as usize {
+                        break 'outer;
+                    }
+                    binsize = naeach.get(binindex).unwrap_or(0.0) as u32;
+                }
+            }
+        }
+
+        let rank = if want_rank {
+            // Cumulative normalized histogram: rank[i] = Σ_{k<=i} na[k] / ntot.
+            let mut rank = Numa::with_capacity(nxvals);
+            let mut cum = 0.0_f32;
+            let total = ntot as f32;
+            for i in 0..nxvals {
+                cum += self.get(i).unwrap_or(0.0);
+                rank.push(cum / total);
+            }
+            Some(rank)
+        } else {
+            None
+        };
+
+        Ok((binval, rank))
+    }
+}
