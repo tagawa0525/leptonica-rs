@@ -18,6 +18,8 @@
 //! - `numaSplitDistribution` -> [`Numa::split_distribution`]
 //!   (returns [`SplitDistribution`])
 //! - `numaCrossingsByPeaks` -> [`Numa::crossings_by_peaks`]
+//! - `grayHistogramsToEMD` -> [`Numa::gray_histograms_to_emd`]
+//! - `grayInterHistogramStats` -> [`Numa::gray_inter_histogram_stats`]
 //!
 //! Already covered by other modules:
 //!
@@ -32,6 +34,20 @@
 
 use crate::core::error::{Error, Result};
 use crate::core::numa::Numa;
+
+/// Result of [`Numa::gray_inter_histogram_stats`]. Each field is `None`
+/// when its corresponding `want_*` flag is `false`.
+#[derive(Debug, Clone, Default)]
+pub struct InterHistogramStats {
+    /// Per-bin mean across the input histograms.
+    pub mean: Option<Numa>,
+    /// Per-bin mean of squared values (= `mean^2`).
+    pub mean_square: Option<Numa>,
+    /// Per-bin variance.
+    pub variance: Option<Numa>,
+    /// Per-bin rms deviation (`sqrt(variance)`).
+    pub rms: Option<Numa>,
+}
 
 /// Result of [`Numa::split_distribution`].
 #[derive(Debug, Clone)]
@@ -520,6 +536,135 @@ impl Numa {
             }
         }
         Ok(out)
+    }
+
+    /// Inter-histogram statistics across an arbitrary set of 256-bin
+    /// histograms.
+    ///
+    /// Each inner Numa of `naa` is smoothed with a windowed-mean filter of
+    /// half-width `wc` and normalized (to sum = 10000 for C parity). Then,
+    /// for each of the 256 bin positions, the per-Pixaa values are
+    /// aggregated with `simple_stats` to produce mean / mean-square /
+    /// variance / rms-deviation arrays (any of which are optional).
+    ///
+    /// Returns `(mean, mean_square, variance, rms)` where any disabled
+    /// output is `None`.
+    ///
+    /// C Leptonica equivalent: `grayInterHistogramStats` (`numafunc2.c`).
+    pub fn gray_inter_histogram_stats(
+        naa: &crate::core::numa::Numaa,
+        wc: usize,
+        want_mean: bool,
+        want_mean_square: bool,
+        want_variance: bool,
+        want_rms: bool,
+    ) -> Result<InterHistogramStats> {
+        if !(want_mean || want_mean_square || want_variance || want_rms) {
+            return Err(Error::InvalidParameter(
+                "gray_inter_histogram_stats: nothing requested".into(),
+            ));
+        }
+        let n = naa.len();
+        if n == 0 {
+            return Err(Error::InvalidParameter(
+                "gray_inter_histogram_stats: naa is empty".into(),
+            ));
+        }
+        for i in 0..n {
+            let inner = naa
+                .get(i)
+                .ok_or_else(|| Error::InvalidParameter(format!("naa[{i}] missing")))?;
+            if inner.len() != 256 {
+                return Err(Error::InvalidParameter(format!(
+                    "naa[{i}] has {} entries; expected 256",
+                    inner.len()
+                )));
+            }
+        }
+        // First pass: smooth + normalize to sum = 10000 (for C parity).
+        let mut arrays: Vec<Vec<f32>> = Vec::with_capacity(n);
+        for i in 0..n {
+            let inner = naa.get(i).unwrap();
+            let smoothed = inner.windowed_mean(wc);
+            let normalized = smoothed
+                .normalize_histogram()
+                .ok_or_else(|| Error::InvalidParameter(format!("naa[{i}] has zero sum")))?;
+            let row: Vec<f32> = (0..256)
+                .map(|k| normalized.get(k).unwrap_or(0.0) * 10000.0)
+                .collect();
+            arrays.push(row);
+        }
+        // Second pass: per-bin stats across the n inner histograms.
+        let mut na_mean = want_mean.then(|| Numa::with_capacity(256));
+        let mut na_ms = want_mean_square.then(|| Numa::with_capacity(256));
+        let mut na_var = want_variance.then(|| Numa::with_capacity(256));
+        let mut na_rms = want_rms.then(|| Numa::with_capacity(256));
+        for j in 0..256 {
+            let mut col = Numa::with_capacity(n);
+            for row in &arrays {
+                col.push(row[j]);
+            }
+            let (mean, var, rvar) = col.simple_stats(0, -1)?;
+            if let Some(na) = na_mean.as_mut() {
+                na.push(mean);
+            }
+            if let Some(na) = na_ms.as_mut() {
+                na.push(mean * mean);
+            }
+            if let Some(na) = na_var.as_mut() {
+                na.push(var);
+            }
+            if let Some(na) = na_rms.as_mut() {
+                na.push(rvar);
+            }
+        }
+        Ok(InterHistogramStats {
+            mean: na_mean,
+            mean_square: na_ms,
+            variance: na_var,
+            rms: na_rms,
+        })
+    }
+
+    /// Per-pair Earth-Mover Distance over two equal-length Numaa of
+    /// 256-bin histograms.
+    ///
+    /// For each `i`, computes the EMD between `naa1[i]` and `naa2[i]` via
+    /// [`Numa::earth_mover_distance`], divides by 255 to normalize into
+    /// `[0.0, 1.0]`, and pushes the result into the output Numa.
+    ///
+    /// C Leptonica equivalent: `grayHistogramsToEMD` (`numafunc2.c`).
+    pub fn gray_histograms_to_emd(
+        naa1: &crate::core::numa::Numaa,
+        naa2: &crate::core::numa::Numaa,
+    ) -> Result<Numa> {
+        let n = naa1.len();
+        if n != naa2.len() {
+            return Err(Error::InvalidParameter(format!(
+                "gray_histograms_to_emd: naa1 ({n}) != naa2 ({})",
+                naa2.len()
+            )));
+        }
+        let mut nad = Numa::with_capacity(n);
+        for i in 0..n {
+            let na1 = naa1
+                .get(i)
+                .ok_or_else(|| Error::InvalidParameter(format!("naa1[{i}] missing")))?;
+            let na2 = naa2
+                .get(i)
+                .ok_or_else(|| Error::InvalidParameter(format!("naa2[{i}] missing")))?;
+            if na1.len() != 256 || na2.len() != 256 {
+                return Err(Error::InvalidParameter(format!(
+                    "gray_histograms_to_emd: na1/na2[{i}] sizes must be 256 \
+                     (got {} / {})",
+                    na1.len(),
+                    na2.len()
+                )));
+            }
+            let dist = na1.earth_mover_distance(na2)?;
+            nad.push(dist / 255.0);
+        }
+        Ok(nad)
     }
 
     /// Find threshold-crossings located between successive peaks/troughs

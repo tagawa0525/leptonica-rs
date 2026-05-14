@@ -49,8 +49,8 @@ pub use gplot::{
     gplot_simple_pix_1, gplot_simple_pix_2, gplot_simple_pix_n,
 };
 pub use numa::{
-    CountRelativeToZero, HistogramResult, HistogramStats, InterpolationType, Numa, Numaa,
-    SortOrder, SplitDistribution, ThresholdComparison, WindowedStats,
+    CountRelativeToZero, HistogramResult, HistogramStats, InterHistogramStats, InterpolationType,
+    Numa, Numaa, SortOrder, SplitDistribution, ThresholdComparison, WindowedStats,
 };
 pub use pix::serial::SpixHeader;
 pub use pix::statistics::{
