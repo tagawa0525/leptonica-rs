@@ -43,6 +43,7 @@ mod overlap_reg;
 mod pix_arith_rop_reg;
 mod pix_clip_advanced_ext_reg;
 mod pix_clip_advanced_reg;
+mod pix_component_function_reg;
 mod pix_histogram_advanced_reg;
 mod pix_stats_advanced_reg;
 mod pixa1_reg;
