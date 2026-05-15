@@ -78,10 +78,32 @@ fn noisy_quadratic_lsf_rejects_outlier_and_recovers_coeffs() {
 }
 
 #[test]
+fn noisy_quadratic_lsf_returns_fit_when_requested() {
+    let pta = make_quadratic_with_outlier();
+    let r = pta.noisy_quadratic_lsf(3.0, true).unwrap();
+    let fit = r.fit.expect("want_fit=true should populate fit");
+    assert_eq!(fit.len(), r.inliers.len());
+    // Fit values should approximate the true quadratic at each inlier x.
+    let xs = r.inliers.x_coords();
+    for (i, &x) in xs.iter().enumerate() {
+        let expected = 2.0 * x * x + 3.0 * x + 1.0;
+        let got = fit.get(i).unwrap();
+        assert!(
+            (got - expected).abs() < 5.0,
+            "fit[{i}] (x={x}) {got} too far from expected {expected}"
+        );
+    }
+}
+
+#[test]
 fn noisy_quadratic_lsf_rejects_invalid_factor() {
     let pta = make_quadratic_with_outlier();
     assert!(pta.noisy_quadratic_lsf(0.0, false).is_err());
     assert!(pta.noisy_quadratic_lsf(-2.0, false).is_err());
+    // Non-finite factors must also be rejected (matching the linear test).
+    assert!(pta.noisy_quadratic_lsf(f32::NAN, false).is_err());
+    assert!(pta.noisy_quadratic_lsf(f32::INFINITY, false).is_err());
+    assert!(pta.noisy_quadratic_lsf(f32::NEG_INFINITY, false).is_err());
 }
 
 #[test]
