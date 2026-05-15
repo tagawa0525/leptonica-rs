@@ -91,3 +91,33 @@ fn pix_compare_gray_clamps_n_silently() {
     let r = pix_compare_gray_by_histo(&pix1, &pix2, None, None, 0.9, 230, 1, 100);
     assert!(r.is_ok());
 }
+
+#[test]
+fn pix_compare_gray_handles_all_white_after_maxgray_clip() {
+    // 8 bpp image of pure white (255). With maxgray = 200, all mass is
+    // clipped, leaving both tile histograms empty. Both tiles are then
+    // "identical empty" and the score should be high (~1.0), not 0.
+    let white1 = solid_gray(80, 80, 255);
+    let white2 = solid_gray(80, 80, 255);
+    let score = pix_compare_gray_by_histo(&white1, &white2, None, None, 0.9, 200, 1, 4).unwrap();
+    assert!(
+        score > 0.95,
+        "expected ~1.0 for identical empty histograms, got {score}"
+    );
+}
+
+#[test]
+fn pix_compare_gray_handles_negative_box_origin() {
+    // Box with negative origin should clip to the image rather than panicking
+    // or returning a giant u32 value.
+    let pix1 = solid_gray(100, 100, 128);
+    let pix2 = solid_gray(100, 100, 128);
+    let box1 = leptonica::core::Box::new(-10, -10, 80, 80).unwrap();
+    let box2 = leptonica::core::Box::new(-10, -10, 80, 80).unwrap();
+    let score =
+        pix_compare_gray_by_histo(&pix1, &pix2, Some(&box1), Some(&box2), 0.9, 230, 1, 4).unwrap();
+    assert!(
+        score > 0.9,
+        "negative-origin box should clip not panic, got {score}"
+    );
+}

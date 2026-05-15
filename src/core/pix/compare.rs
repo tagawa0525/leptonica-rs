@@ -1959,9 +1959,12 @@ fn pix_compare_tiles_by_histo(
         let (max2, _) = na4
             .max()
             .ok_or_else(|| Error::InvalidParameter(format!("tile[{i}] na4.max() failed")))?;
+        // Both empty after `maxgray` clipping → identical (1.0).
+        // One empty + one populated → maximally different (0.0).
+        if max1 == 0.0 && max2 == 0.0 {
+            continue; // 1.0 contribution; no need to lower minscore.
+        }
         if max1 == 0.0 || max2 == 0.0 {
-            // No mass left in either histogram → contributes a 0 score
-            // (tile is entirely dropped by maxgray clip).
             minscore = 0.0;
             continue;
         }
@@ -2052,24 +2055,59 @@ pub fn pix_compare_gray_by_histo(
         return Ok(0.0);
     }
 
-    // Optional initial crop.
+    // Helper: clamp a box to the image bounds and clip-rectangle from it.
+    // Negative origins are clamped to 0, sizes capped to the image.
+    let clamp_clip = |pix: &Pix, b: &crate::core::box_::Box| -> Result<Pix> {
+        let pw = pix.width() as i32;
+        let ph = pix.height() as i32;
+        let x0 = b.x.max(0).min(pw);
+        let y0 = b.y.max(0).min(ph);
+        let x1 = (b.x + b.w).max(0).min(pw);
+        let y1 = (b.y + b.h).max(0).min(ph);
+        let cw = (x1 - x0).max(0) as u32;
+        let ch = (y1 - y0).max(0) as u32;
+        if cw == 0 || ch == 0 {
+            return Err(Error::InvalidParameter(format!(
+                "pix_compare_gray_by_histo: box ({}, {}, {}, {}) does not \
+                 intersect {pw}x{ph}",
+                b.x, b.y, b.w, b.h
+            )));
+        }
+        pix.clip_rectangle(x0 as u32, y0 as u32, cw, ch)
+    };
+
+    // Optional initial crop (intersected with the image bounds).
     let p3 = match box1 {
-        Some(b) => pix1.clip_rectangle(b.x as u32, b.y as u32, b.w as u32, b.h as u32)?,
+        Some(b) => clamp_clip(pix1, b)?,
         None => pix1.deep_clone(),
     };
     let p4 = match box2 {
-        Some(b) => pix2.clip_rectangle(b.x as u32, b.y as u32, b.w as u32, b.h as u32)?,
+        Some(b) => clamp_clip(pix2, b)?,
         None => pix2.deep_clone(),
     };
 
-    // Convert to 8 bpp.
-    let p5 = p3.convert_to_8()?;
-    let p6 = p4.convert_to_8()?;
+    // Convert to 8 bpp grayscale. `convert_to_8` alone keeps an 8 bpp
+    // colormap, so palette-coloured images would otherwise compare as
+    // indices — explicitly remove the colormap first.
+    let p3_flat = if p3.colormap().is_some() {
+        p3.remove_colormap(crate::core::pix::convert::RemoveColormapTarget::ToGrayscale)?
+    } else {
+        p3
+    };
+    let p4_flat = if p4.colormap().is_some() {
+        p4.remove_colormap(crate::core::pix::convert::RemoveColormapTarget::ToGrayscale)?
+    } else {
+        p4
+    };
+    let p5 = p3_flat.convert_to_8()?;
+    let p6 = p4_flat.convert_to_8()?;
 
-    // Align centroids and take the maximal common crop.
+    // Align centroids and take the maximal common crop. The centroid-aligner
+    // can return boxes whose origins are within the image but whose
+    // dimensions reach beyond it, so apply the same clamp-then-clip helper.
     let (b3, b4) = pix_crop_aligned_to_centroid(&p5, &p6, factor)?;
-    let p7 = p5.clip_rectangle(b3.x as u32, b3.y as u32, b3.w as u32, b3.h as u32)?;
-    let p8 = p6.clip_rectangle(b4.x as u32, b4.y as u32, b4.w as u32, b4.h as u32)?;
+    let p7 = clamp_clip(&p5, &b3)?;
+    let p8 = clamp_clip(&p6, &b4)?;
 
     pix_compare_tiles_by_histo(&p7, &p8, maxgray, factor, n)
 }
