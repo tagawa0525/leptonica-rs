@@ -10,6 +10,7 @@ mod boxfunc_reg;
 mod bytea_reg;
 mod compare_photo_reg;
 mod compare_reg;
+mod compare_tiles_by_histo_reg;
 mod conversion_reg;
 mod core_coverage_reg;
 mod dna_reg;
