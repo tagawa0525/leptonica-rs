@@ -314,8 +314,11 @@ pub fn fpix_affine(fpixs: &FPix, vc: &[f32; 6], inval: f32) -> Result<FPix> {
     let w = fpixs.width() as i32;
     let h = fpixs.height() as i32;
     let datas = fpixs.data();
+    // `create_template` already produces a zero-filled buffer; since we
+    // write every destination pixel exactly once below (in-bounds samples
+    // get the interpolated value, out-of-bounds get `inval`), we skip the
+    // extra `set_all(inval)` pass to avoid a redundant O(w*h) write.
     let mut fpixd = fpixs.create_template();
-    fpixd.set_all(inval);
     let datad = fpixd.data_mut();
     let wu = w as usize;
     for i in 0..h {
@@ -345,8 +348,9 @@ pub fn fpix_projective(fpixs: &FPix, vc: &[f32; 8], inval: f32) -> Result<FPix> 
     let w = fpixs.width() as i32;
     let h = fpixs.height() as i32;
     let datas = fpixs.data();
+    // See fpix_affine: every destination pixel is written exactly once
+    // below, so we skip the redundant `set_all(inval)` pre-fill.
     let mut fpixd = fpixs.create_template();
-    fpixd.set_all(inval);
     let datad = fpixd.data_mut();
     let wu = w as usize;
     for i in 0..h {

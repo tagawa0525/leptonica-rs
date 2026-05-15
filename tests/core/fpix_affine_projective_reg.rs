@@ -90,3 +90,48 @@ fn fpix_projective_preserves_dimensions() {
     assert_eq!(dst.width(), 8);
     assert_eq!(dst.height(), 12);
 }
+
+#[test]
+fn fpix_affine_cross_term_swaps_axes() {
+    // Build a 2D source where pixel (x, y) = 100*y + x — both coordinates
+    // contribute. The matrix vc = [0, 1, 0, 1, 0, 0] swaps axes:
+    //   x_src = vc[0]*j + vc[1]*i + vc[2] = i  (uses cross-term vc[1])
+    //   y_src = vc[3]*j + vc[4]*i + vc[5] = j  (uses cross-term vc[3])
+    // So dst(j, i) should equal src(i, j) = 100*j + i.
+    let w = 8u32;
+    let h = 8u32;
+    let mut src = leptonica::core::fpix::FPix::new(w, h).unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            src.set_pixel(x, y, 100.0 * y as f32 + x as f32).unwrap();
+        }
+    }
+    let dst = fpix_affine(&src, &[0.0, 1.0, 0.0, 1.0, 0.0, 0.0], -1.0).unwrap();
+    // Check several interior pixels — at dst (j, i), expected = 100*j + i.
+    // Use ±1.5 tolerance to absorb bilinear quantisation (16 sub-pixel grid).
+    for &(j, i) in &[(1, 2), (3, 4), (5, 1)] {
+        let got = dst.get_pixel(j as u32, i as u32).unwrap();
+        let expected = 100.0 * j as f32 + i as f32;
+        assert!(
+            (got - expected).abs() < 1.5,
+            "swap at ({j}, {i}): expected {expected}, got {got}"
+        );
+    }
+}
+
+#[test]
+fn fpix_affine_fractional_shift_uses_bilinear_interpolation() {
+    // Ramp along x with 0.5-pixel shift in x. dst(x, y) should sample
+    // src(x + 0.5, y) ≈ x + 0.5 (since ramp_x is linear in x).
+    let src = ramp_x(10, 10);
+    let dst = fpix_affine(&src, &[1.0, 0.0, 0.5, 0.0, 1.0, 0.0], -1.0).unwrap();
+    // Interior pixels only (x + 0.5 must lie in [0, w-2]).
+    for x in 0u32..=7 {
+        let got = dst.get_pixel(x, 5).unwrap();
+        let expected = x as f32 + 0.5;
+        assert!(
+            (got - expected).abs() < 0.1,
+            "bilinear at ({x}, 5): expected {expected}, got {got}"
+        );
+    }
+}
