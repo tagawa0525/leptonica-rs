@@ -65,6 +65,7 @@ mod pixmem_reg;
 mod pixserial_reg;
 mod pta_boundary_neighbor_labels_reg;
 mod pta_graphics_reg;
+mod pta_noisy_lsf_reg;
 mod pta_reg;
 mod ptra1_reg;
 mod ptra2_reg;

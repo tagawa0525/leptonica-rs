@@ -294,47 +294,48 @@ Pta から画像へのレンダリング、Pta-Numa 変換、最小二乗フィ�
 
 ## ステータス管理
 
-| サブ計画 | カテゴリ                             | 件数 | Status      | PR  |
-| -------- | ------------------------------------ | ---- | ----------- | --- |
-| 501      | G. カーネル生成                      | 5    | IMPLEMENTED | TBD |
-| 113      | H. arrayaccess                       | 4    | IMPLEMENTED | TBD |
-| 112      | F. 画像比較 (補助 5)                 | 5    | IMPLEMENTED | TBD |
-| 117      | F. 画像比較 (残り 6)                 | 6    | PLANNED     | -   |
-| 803-K    | K. Skew 補助                         | 2    | IMPLEMENTED | TBD |
-| 803      | C. 文書解析 (補助 4)                 | 4    | IMPLEMENTED | TBD |
-| 129      | C. 文書解析 (estimate_background)    | 1    | IMPLEMENTED | TBD |
-| 803b     | C. 文書解析 (残り 5)                 | 5    | PLANNED     | -   |
-| 106      | A-1. Pixa 選択                       | 14   | IMPLEMENTED | TBD |
-| 110      | D. FPix 拡張 (補助 7)                | 7    | IMPLEMENTED | TBD |
-| 110b     | D. FPix 拡張 (残り 5)                | 5    | PLANNED     | -   |
-| 109      | B. Numa 高度 (補助 5)                | 5    | IMPLEMENTED | TBD |
-| 119      | B. Numa 高度 (histogram 5)           | 5    | IMPLEMENTED | TBD |
-| 130      | B. Numa EMD + discretize (3)         | 3    | IMPLEMENTED | TBD |
-| 131      | B. Numa get_rank_bin_values (1)      | 1    | IMPLEMENTED | TBD |
-| 132      | B. Numa make_histogram_auto (1)      | 1    | IMPLEMENTED | TBD |
-| 133      | B. Numa split_distribution (1)       | 1    | IMPLEMENTED | TBD |
-| 134      | B. Numa crossings_by_peaks (1)       | 1    | IMPLEMENTED | TBD |
-| 135      | B. gray histograms (EMD+inter, 2)    | 2    | IMPLEMENTED | TBD |
-| 136      | B. Numa Haar (eval_haar+best, 2)     | 2    | IMPLEMENTED | TBD |
-| 107      | A-2. Pixa 変換 (補助 7)              | 7    | IMPLEMENTED | TBD |
-| 120      | A-2. Pixa 変換 (border/clip)         | 4    | IMPLEMENTED | TBD |
-| 127      | A-2. Pixa convert_to_nup (1)         | 1    | IMPLEMENTED | TBD |
-| 114      | I. RGB スケーリング                  | 5    | IMPLEMENTED | TBD |
-| 108      | A-3. Pixa プロパティ (補助 8)        | 8    | IMPLEMENTED | TBD |
-| 121      | A-3. Pixa プロパティ (sort+select 3) | 3    | IMPLEMENTED | TBD |
-| 122      | A-3. Pixaa ヘルパー (3)              | 3    | IMPLEMENTED | TBD |
-| 123      | A-3. Pixa rotate/clip/render (3)     | 3    | IMPLEMENTED | TBD |
-| 124      | A-3. Pixa bin_sort + Pixaa scale (2) | 2    | IMPLEMENTED | TBD |
-| 125      | A-3. Pixa 8-cmap + tiled (3)         | 3    | IMPLEMENTED | TBD |
-| 126      | A-3. Pixa select_to_pdf (1+🚫1)      | 2    | IMPLEMENTED | TBD |
-| 111      | E. Pta + graphics (補助 7)           | 7    | IMPLEMENTED | TBD |
-| 137      | E. Pta boundary/neighbor/labels (3)  | 3    | IMPLEMENTED | TBD |
-| 111b     | E. Pta + graphics (残り 4)           | 4    | PLANNED     | -   |
-| 116      | L. Numa 基本                         | 5    | IMPLEMENTED | TBD |
-| 115      | J. graphics ヘルパー                 | 3    | IMPLEMENTED | TBD |
-| 118      | M. 単独 (補助 2)                     | 2    | IMPLEMENTED | TBD |
-| 128      | M. 単独 (stroke_width)               | 1    | IMPLEMENTED | TBD |
-| (個別)   | M. 単独 (残り 3)                     | 3    | PLANNED     | -   |
+| サブ計画 | カテゴリ                              | 件数 | Status      | PR  |
+| -------- | ------------------------------------- | ---- | ----------- | --- |
+| 501      | G. カーネル生成                       | 5    | IMPLEMENTED | TBD |
+| 113      | H. arrayaccess                        | 4    | IMPLEMENTED | TBD |
+| 112      | F. 画像比較 (補助 5)                  | 5    | IMPLEMENTED | TBD |
+| 117      | F. 画像比較 (残り 6)                  | 6    | PLANNED     | -   |
+| 803-K    | K. Skew 補助                          | 2    | IMPLEMENTED | TBD |
+| 803      | C. 文書解析 (補助 4)                  | 4    | IMPLEMENTED | TBD |
+| 129      | C. 文書解析 (estimate_background)     | 1    | IMPLEMENTED | TBD |
+| 803b     | C. 文書解析 (残り 5)                  | 5    | PLANNED     | -   |
+| 106      | A-1. Pixa 選択                        | 14   | IMPLEMENTED | TBD |
+| 110      | D. FPix 拡張 (補助 7)                 | 7    | IMPLEMENTED | TBD |
+| 110b     | D. FPix 拡張 (残り 5)                 | 5    | PLANNED     | -   |
+| 109      | B. Numa 高度 (補助 5)                 | 5    | IMPLEMENTED | TBD |
+| 119      | B. Numa 高度 (histogram 5)            | 5    | IMPLEMENTED | TBD |
+| 130      | B. Numa EMD + discretize (3)          | 3    | IMPLEMENTED | TBD |
+| 131      | B. Numa get_rank_bin_values (1)       | 1    | IMPLEMENTED | TBD |
+| 132      | B. Numa make_histogram_auto (1)       | 1    | IMPLEMENTED | TBD |
+| 133      | B. Numa split_distribution (1)        | 1    | IMPLEMENTED | TBD |
+| 134      | B. Numa crossings_by_peaks (1)        | 1    | IMPLEMENTED | TBD |
+| 135      | B. gray histograms (EMD+inter, 2)     | 2    | IMPLEMENTED | TBD |
+| 136      | B. Numa Haar (eval_haar+best, 2)      | 2    | IMPLEMENTED | TBD |
+| 107      | A-2. Pixa 変換 (補助 7)               | 7    | IMPLEMENTED | TBD |
+| 120      | A-2. Pixa 変換 (border/clip)          | 4    | IMPLEMENTED | TBD |
+| 127      | A-2. Pixa convert_to_nup (1)          | 1    | IMPLEMENTED | TBD |
+| 114      | I. RGB スケーリング                   | 5    | IMPLEMENTED | TBD |
+| 108      | A-3. Pixa プロパティ (補助 8)         | 8    | IMPLEMENTED | TBD |
+| 121      | A-3. Pixa プロパティ (sort+select 3)  | 3    | IMPLEMENTED | TBD |
+| 122      | A-3. Pixaa ヘルパー (3)               | 3    | IMPLEMENTED | TBD |
+| 123      | A-3. Pixa rotate/clip/render (3)      | 3    | IMPLEMENTED | TBD |
+| 124      | A-3. Pixa bin_sort + Pixaa scale (2)  | 2    | IMPLEMENTED | TBD |
+| 125      | A-3. Pixa 8-cmap + tiled (3)          | 3    | IMPLEMENTED | TBD |
+| 126      | A-3. Pixa select_to_pdf (1+🚫1)       | 2    | IMPLEMENTED | TBD |
+| 111      | E. Pta + graphics (補助 7)            | 7    | IMPLEMENTED | TBD |
+| 137      | E. Pta boundary/neighbor/labels (3)   | 3    | IMPLEMENTED | TBD |
+| 138      | E. Pta noisy linear/quadratic LSF (2) | 2    | IMPLEMENTED | TBD |
+| 111b     | E. Pta + graphics (残り 2)            | 2    | PLANNED     | -   |
+| 116      | L. Numa 基本                          | 5    | IMPLEMENTED | TBD |
+| 115      | J. graphics ヘルパー                  | 3    | IMPLEMENTED | TBD |
+| 118      | M. 単独 (補助 2)                      | 2    | IMPLEMENTED | TBD |
+| 128      | M. 単独 (stroke_width)                | 1    | IMPLEMENTED | TBD |
+| (個別)   | M. 単独 (残り 3)                      | 3    | PLANNED     | -   |
 
 合計 **151 関数 / 14 サブ計画**。
 

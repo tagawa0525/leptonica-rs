@@ -349,6 +349,141 @@ fn gauss_jordan_n(a: &[Vec<f64>], b: &[f64]) -> Option<Vec<f64>> {
     Some((0..n).map(|i| m[i][n]).collect())
 }
 
+/// Result of [`Pta::noisy_linear_lsf`].
+#[derive(Debug, Clone)]
+pub struct NoisyLinearLsf {
+    /// Slope `a` of the refit line `y = a*x + b`.
+    pub a: f32,
+    /// Intercept `b` of the refit line.
+    pub b: f32,
+    /// Median absolute error of the *initial* linear fit (used as the
+    /// outlier-rejection scale).
+    pub median_error: f32,
+    /// Pta with outliers removed.
+    pub inliers: Pta,
+    /// Per-point fit values `a*x + b` for `inliers`, when `want_fit = true`.
+    pub fit: Option<Numa>,
+}
+
+/// Result of [`Pta::noisy_quadratic_lsf`].
+#[derive(Debug, Clone)]
+pub struct NoisyQuadraticLsf {
+    /// Coefficient `a` of `y = a*x^2 + b*x + c`.
+    pub a: f32,
+    /// Coefficient `b` of `y = a*x^2 + b*x + c`.
+    pub b: f32,
+    /// Coefficient `c` of `y = a*x^2 + b*x + c`.
+    pub c: f32,
+    /// Median absolute error of the *initial* quadratic fit.
+    pub median_error: f32,
+    /// Pta with outliers removed.
+    pub inliers: Pta,
+    /// Per-point fit values for `inliers`, when `want_fit = true`.
+    pub fit: Option<Numa>,
+}
+
+impl Pta {
+    /// Robust linear LSF: run [`Pta::get_linear_lsf`], reject points whose
+    /// absolute error exceeds `factor * median_error`, then re-fit on the
+    /// remaining inliers.
+    ///
+    /// `factor > 0.0` is required (typical value `~3`). Requires at least
+    /// 3 points.
+    ///
+    /// C Leptonica equivalent: `ptaNoisyLinearLSF` (`ptafunc1.c`).
+    pub fn noisy_linear_lsf(&self, factor: f32, want_fit: bool) -> Result<NoisyLinearLsf> {
+        if !(factor > 0.0 && factor.is_finite()) {
+            return Err(Error::InvalidParameter(format!(
+                "noisy_linear_lsf: factor must be > 0 and finite (got {factor})"
+            )));
+        }
+        let n = self.len();
+        if n < 3 {
+            return Err(Error::InvalidParameter(format!(
+                "noisy_linear_lsf: less than 3 points (got {n})"
+            )));
+        }
+        // Initial linear fit with the per-point fit array.
+        let (a0, b0, fit0) = self.get_linear_lsf(true, true, true)?;
+        let fit0 = fit0.ok_or_else(|| {
+            Error::InvalidParameter("get_linear_lsf returned no fit array".into())
+        })?;
+        let xa = self.x_coords();
+        let ya = self.y_coords();
+        let mut errors = Numa::with_capacity(n);
+        for (i, &yi) in ya.iter().enumerate() {
+            let yf = fit0.get(i).unwrap_or(0.0);
+            errors.push((yi - yf).abs());
+        }
+        let median_error = errors.median()?;
+        let threshold = factor * median_error;
+        // Remove outliers (use <= to keep all points when median_error == 0).
+        let mut inliers = Pta::with_capacity(n);
+        for i in 0..n {
+            if errors.get(i).unwrap_or(0.0) <= threshold {
+                inliers.push(xa[i], ya[i]);
+            }
+        }
+        // Re-fit. Drop the fit array if not requested.
+        let (a, b, fit) = inliers.get_linear_lsf(true, true, want_fit)?;
+        let _ = (a0, b0); // initial coefficients are not part of the public result
+        Ok(NoisyLinearLsf {
+            a,
+            b,
+            median_error,
+            inliers,
+            fit,
+        })
+    }
+
+    /// Robust quadratic LSF: same as [`Pta::noisy_linear_lsf`] but with
+    /// [`Pta::get_quadratic_lsf`] for the underlying fit.
+    ///
+    /// C Leptonica equivalent: `ptaNoisyQuadraticLSF` (`ptafunc1.c`).
+    pub fn noisy_quadratic_lsf(&self, factor: f32, want_fit: bool) -> Result<NoisyQuadraticLsf> {
+        if !(factor > 0.0 && factor.is_finite()) {
+            return Err(Error::InvalidParameter(format!(
+                "noisy_quadratic_lsf: factor must be > 0 and finite (got {factor})"
+            )));
+        }
+        let n = self.len();
+        if n < 4 {
+            return Err(Error::InvalidParameter(format!(
+                "noisy_quadratic_lsf: less than 4 points (got {n})"
+            )));
+        }
+        let (a0, b0, c0, fit0) = self.get_quadratic_lsf(true)?;
+        let fit0 = fit0.ok_or_else(|| {
+            Error::InvalidParameter("get_quadratic_lsf returned no fit array".into())
+        })?;
+        let xa = self.x_coords();
+        let ya = self.y_coords();
+        let mut errors = Numa::with_capacity(n);
+        for (i, &yi) in ya.iter().enumerate() {
+            let yf = fit0.get(i).unwrap_or(0.0);
+            errors.push((yi - yf).abs());
+        }
+        let median_error = errors.median()?;
+        let threshold = factor * median_error;
+        let mut inliers = Pta::with_capacity(n);
+        for i in 0..n {
+            if errors.get(i).unwrap_or(0.0) <= threshold {
+                inliers.push(xa[i], ya[i]);
+            }
+        }
+        let (a, b, c, fit) = inliers.get_quadratic_lsf(want_fit)?;
+        let _ = (a0, b0, c0);
+        Ok(NoisyQuadraticLsf {
+            a,
+            b,
+            c,
+            median_error,
+            inliers,
+            fit,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
