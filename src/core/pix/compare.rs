@@ -1874,6 +1874,85 @@ fn count_and_pixels(pix1: &Pix, pix2: &Pix) -> u64 {
     count
 }
 
+/// Per-tile histogram comparison via 1D Earth-Mover Distance.
+///
+/// Both inputs are `Numaa` of per-tile 256-bin grayscale histograms. Each
+/// tile pair has bin 255 (white) zeroed out (matches C
+/// `compareTilesByHisto`: padding white pixels should not skew EMD), then
+/// the normalised EMD is converted to a similarity score:
+///
+/// ```text
+/// score = max(0, 1 - 10 * dist / 255)
+/// ```
+///
+/// The function returns the *minimum* score across all tiles. When the
+/// width or height ratio between `(w1, h1)` and `(w2, h2)` falls below
+/// `minratio` (or the two Numaa have different tile counts), the function
+/// returns `0.0` — matching the C "different sizes" early-exit.
+///
+/// C Leptonica equivalent: `compareTilesByHisto` (`compare.c`); debug
+/// output (gplot PDFs) is intentionally omitted.
+pub fn compare_tiles_by_histo(
+    naa1: &crate::core::numa::Numaa,
+    naa2: &crate::core::numa::Numaa,
+    minratio: f32,
+    w1: i32,
+    h1: i32,
+    w2: i32,
+    h2: i32,
+) -> crate::core::Result<f32> {
+    if !(0.0..=1.0).contains(&minratio) {
+        return Err(crate::core::Error::InvalidParameter(format!(
+            "compare_tiles_by_histo: minratio must be in [0.0, 1.0] (got {minratio})"
+        )));
+    }
+    // Size filter.
+    let wratio = if w1 < w2 {
+        w1 as f32 / w2 as f32
+    } else {
+        w2 as f32 / w1 as f32
+    };
+    let hratio = if h1 < h2 {
+        h1 as f32 / h2 as f32
+    } else {
+        h2 as f32 / h1 as f32
+    };
+    if wratio < minratio || hratio < minratio {
+        return Ok(0.0);
+    }
+    let n = naa1.len();
+    if n != naa2.len() {
+        return Ok(0.0);
+    }
+    if n == 0 {
+        return Ok(0.0);
+    }
+    let mut minscore = 1.0_f32;
+    for i in 0..n {
+        let na1 = naa1
+            .get(i)
+            .ok_or_else(|| crate::core::Error::InvalidParameter(format!("naa1[{i}] missing")))?;
+        let na2 = naa2
+            .get(i)
+            .ok_or_else(|| crate::core::Error::InvalidParameter(format!("naa2[{i}] missing")))?;
+        // Zero out bin 255 (white) — only if it exists.
+        let mut na1_clean = na1.clone();
+        let mut na2_clean = na2.clone();
+        if na1_clean.len() > 255 {
+            let _ = na1_clean.set(255, 0.0);
+        }
+        if na2_clean.len() > 255 {
+            let _ = na2_clean.set(255, 0.0);
+        }
+        let dist = na1_clean.earth_mover_distance(&na2_clean)?;
+        let score = (1.0 - 10.0 * dist / 255.0).max(0.0);
+        if score < minscore {
+            minscore = score;
+        }
+    }
+    Ok(minscore)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
