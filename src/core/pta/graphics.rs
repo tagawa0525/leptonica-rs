@@ -345,12 +345,14 @@ pub fn pta_get_neighbor_pix_locs(pixs: &Pix, x: i32, y: i32, conn: u32) -> Resul
 
 /// Boundary pixels of every connected component of a 1 bpp image.
 ///
-/// Each component is processed in isolation (per its bounding box, with a
-/// 1-pixel border added when `btype == Background` so that components
-/// touching the image edge still produce sensible bg-boundary pixels). The
-/// result is a Ptaa with one Pta per component, expressed in the original
-/// image's coordinate frame. Optional `Boxa` and `Pixa` of the components
-/// are returned when their respective `want_*` flags are set.
+/// Each component is processed in isolation (per its bounding box). When
+/// `btype == Background`, a 1-pixel border is added on each side of the
+/// component that does **not** already touch the parent image edge, so
+/// that interior bg-boundary pixels exist (sides that already touch the
+/// image edge are left unpadded, matching C `ptaaGetBoundaryPixels`).
+/// The result is a Ptaa with one Pta per component, expressed in the
+/// original image's coordinate frame. Optional `Boxa` and `Pixa` of the
+/// components are returned when their respective `want_*` flags are set.
 ///
 /// C Leptonica equivalent: `ptaaGetBoundaryPixels` (`ptafunc1.c`).
 pub fn ptaa_get_boundary_pixels(
@@ -404,12 +406,16 @@ pub fn ptaa_get_boundary_pixels(
         } else {
             (0, 0, 0, 0)
         };
-        let processed = if left + right + top + bot > 0 {
-            comp.add_border_general(left, right, top, bot, 0)?
+        // Pix is Arc-backed; cheap-clone only when we need to materialise
+        // the padded version, otherwise just reuse `comp` by reference.
+        let padded;
+        let processed: &Pix = if left + right + top + bot > 0 {
+            padded = comp.add_border_general(left, right, top, bot, 0)?;
+            &padded
         } else {
-            comp.deep_clone()
+            comp
         };
-        let mut pta = pta_get_boundary_pixels(&processed, btype)?;
+        let mut pta = pta_get_boundary_pixels(processed, btype)?;
         // Translate from the (padded) component frame back to the parent
         // image frame: shift by `(x - left, y - top)`.
         pta.translate((x - left as i32) as f32, (y - top as i32) as f32);
