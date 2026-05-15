@@ -1979,6 +1979,338 @@ fn pix_compare_tiles_by_histo(
     Ok(minscore)
 }
 
+/// Decide whether an 8 bpp image is "photo-like" based on the variance
+/// of tile-wise smoothed/normalised histograms, and return those
+/// histograms when the verdict is positive.
+///
+/// Algorithm (mirrors C `pixDecideIfPhotoImage` with the `pixDecideIfText`
+/// pre-check intentionally omitted — callers that need the text-vs-photo
+/// distinction should pre-classify):
+///
+/// 1. Split into `nx × ny` tiles via `find_histo_grid_dimensions(n)`.
+/// 2. Per-tile 256-bin gray histogram, bin 255 zeroed, `windowed_mean(5)`,
+///    normalised so peak = 255.
+/// 3. Per-bin rms deviation across tiles (`gray_inter_histogram_stats`).
+/// 4. Photo verdict: `Σ rms[50..=150] / Σ rms[200..=230] > thresh`.
+///    `thresh = 0.0` uses the C default 1.3.
+///
+/// Returns `(naa, isphoto)` where `naa` is `Some(Numaa)` of per-tile
+/// histograms when the verdict is photo, `None` otherwise.
+///
+/// C Leptonica equivalent: `pixDecideIfPhotoImage` (`compare.c`), minus
+/// the text check.
+pub fn pix_decide_if_photo_image(
+    pix: &Pix,
+    factor: u32,
+    thresh: f32,
+    n: i32,
+) -> Result<(Option<crate::core::numa::Numaa>, bool)> {
+    if pix.depth() != PixelDepth::Bit8 || pix.colormap().is_some() {
+        return Err(Error::UnsupportedDepth(pix.depth().bits()));
+    }
+    let w = pix.width() as i32;
+    let h = pix.height() as i32;
+    if w == 0 || h == 0 {
+        return Err(Error::InvalidParameter(
+            "pix_decide_if_photo_image: invalid pix dimension".into(),
+        ));
+    }
+    let n = if !(1..=7).contains(&n) { 4 } else { n };
+    let thresh = if thresh <= 0.0 { 1.3 } else { thresh };
+
+    let (nx, ny) = find_histo_grid_dimensions(n, w, h);
+    let pixa1 = crate::core::pixa::Pixa::split_pix(pix, nx as usize, ny as usize, 0, 0)?;
+    let ngr = (nx * ny) as usize;
+    let mut naa = crate::core::numa::Numaa::new();
+    for i in 0..ngr {
+        let p1 = pixa1
+            .get(i)
+            .ok_or_else(|| Error::InvalidParameter(format!("pixa1[{i}] missing")))?;
+        let mut na1 = p1.gray_histogram(factor)?;
+        let _ = na1.set(255, 0.0);
+        let na2 = na1.windowed_mean(5);
+        let (maxv, _) = na2
+            .max()
+            .ok_or_else(|| Error::InvalidParameter(format!("tile[{i}] histogram empty")))?;
+        let na3 = if maxv > 0.0 {
+            na2.transform(0.0, 255.0 / maxv)
+        } else {
+            na2
+        };
+        naa.push(na3);
+    }
+    let stats =
+        crate::core::numa::Numa::gray_inter_histogram_stats(&naa, 5, false, false, false, true)?;
+    let narv = stats
+        .rms
+        .ok_or_else(|| Error::InvalidParameter("rms stats missing".into()))?;
+    let sum1 = narv.sum_on_interval(50, 150).unwrap_or(0.0);
+    let sum2 = narv.sum_on_interval(200, 230).unwrap_or(0.0);
+    let isphoto = if sum2 == 0.0 {
+        false
+    } else {
+        (sum1 / sum2) > thresh
+    };
+    if isphoto {
+        Ok((Some(naa), true))
+    } else {
+        Ok((None, false))
+    }
+}
+
+/// Generate per-tile gray histograms for a photo-like region.
+///
+/// Procedure (mirrors C `pixGenPhotoHistos`):
+///
+/// 1. Optional initial crop via `box`.
+/// 2. `convert_to_8` (decoding any colormap to grayscale first).
+/// 3. `pad_to_center_centroid` so the photometric-inverted centroid sits
+///    at the image centre.
+/// 4. Pixels above 230 are reset to 255 so they get dropped when bin 255
+///    is zeroed inside [`pix_decide_if_photo_image`].
+/// 5. Photo decision via [`pix_decide_if_photo_image`]. When `isphoto`,
+///    returns `(Some(naa), padded_w, padded_h)`.
+///
+/// Returns `(naa_option, padded_width, padded_height)`.
+///
+/// C Leptonica equivalent: `pixGenPhotoHistos`; debug PDF output omitted.
+pub fn pix_gen_photo_histos(
+    pixs: &Pix,
+    boxr: Option<&crate::core::box_::Box>,
+    factor: u32,
+    thresh: f32,
+    n: i32,
+) -> Result<(Option<crate::core::numa::Numaa>, u32, u32)> {
+    if pixs.depth() == PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pixs.depth().bits()));
+    }
+    if factor == 0 {
+        return Err(Error::InvalidParameter(
+            "pix_gen_photo_histos: factor must be >= 1".into(),
+        ));
+    }
+    let n = if !(1..=7).contains(&n) { 4 } else { n };
+
+    // Initial crop.
+    let p1 = match boxr {
+        Some(b) => {
+            let pw = pixs.width() as i32;
+            let ph = pixs.height() as i32;
+            let x0 = b.x.max(0).min(pw);
+            let y0 = b.y.max(0).min(ph);
+            let x1 = (b.x + b.w).max(0).min(pw);
+            let y1 = (b.y + b.h).max(0).min(ph);
+            let cw = (x1 - x0).max(0) as u32;
+            let ch = (y1 - y0).max(0) as u32;
+            if cw == 0 || ch == 0 {
+                return Err(Error::InvalidParameter(
+                    "pix_gen_photo_histos: box does not intersect pixs".into(),
+                ));
+            }
+            pixs.clip_rectangle(x0 as u32, y0 as u32, cw, ch)?
+        }
+        None => pixs.deep_clone(),
+    };
+
+    // Convert to 8 bpp grayscale (decoding any colormap).
+    let p2_flat = if p1.colormap().is_some() {
+        p1.remove_colormap(crate::core::pix::convert::RemoveColormapTarget::ToGrayscale)?
+    } else {
+        p1
+    };
+    let p2 = p2_flat.convert_to_8()?;
+
+    // Pad so the photo-inverted centroid is at the centre.
+    let mut p3 = p2.pad_to_center_centroid(factor)?;
+
+    // Reset pixels above 230 to 255 so the bin-255 zeroing inside
+    // pix_decide_if_photo_image drops light-gray pixels.
+    let w = p3.width();
+    let h = p3.height();
+    {
+        let mut p3_mut = p3.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                if p3_mut.get_pixel(x, y).unwrap_or(0) > 230 {
+                    let _ = p3_mut.set_pixel(x, y, 255);
+                }
+            }
+        }
+        p3 = p3_mut.into();
+    }
+
+    let (naa_opt, _) = pix_decide_if_photo_image(&p3, factor, thresh, n)?;
+    Ok((naa_opt, w, h))
+}
+
+/// Compare two regions of grayscale (or grayscale-convertible) images by
+/// photo-histogram similarity.
+///
+/// Procedure (mirrors C `pixComparePhotoRegionsByHisto`):
+///
+/// 1. Size filter against `minratio`.
+/// 2. `pix_gen_photo_histos` for each side; if either side is judged
+///    non-photo (`naa = None`), return `0.0`.
+/// 3. `compare_tiles_by_histo` on the two Numaa with the post-padded
+///    dimensions.
+///
+/// C Leptonica equivalent: `pixComparePhotoRegionsByHisto`; debug output
+/// omitted.
+#[allow(clippy::too_many_arguments)]
+pub fn pix_compare_photo_regions_by_histo(
+    pix1: &Pix,
+    pix2: &Pix,
+    box1: Option<&crate::core::box_::Box>,
+    box2: Option<&crate::core::box_::Box>,
+    minratio: f32,
+    factor: u32,
+    n: i32,
+) -> Result<f32> {
+    if !(0.5..=1.0).contains(&minratio) {
+        return Err(Error::InvalidParameter(format!(
+            "pix_compare_photo_regions_by_histo: minratio must be in [0.5, 1.0] (got {minratio})"
+        )));
+    }
+    if factor == 0 {
+        return Err(Error::InvalidParameter(
+            "pix_compare_photo_regions_by_histo: factor must be >= 1".into(),
+        ));
+    }
+    let n = if !(1..=7).contains(&n) { 4 } else { n };
+
+    let (w1, h1) = match box1 {
+        Some(b) => (b.w, b.h),
+        None => (pix1.width() as i32, pix1.height() as i32),
+    };
+    let (w2, h2) = match box2 {
+        Some(b) => (b.w, b.h),
+        None => (pix2.width() as i32, pix2.height() as i32),
+    };
+    let wratio = if w1 < w2 {
+        w1 as f32 / w2 as f32
+    } else {
+        w2 as f32 / w1 as f32
+    };
+    let hratio = if h1 < h2 {
+        h1 as f32 / h2 as f32
+    } else {
+        h2 as f32 / h1 as f32
+    };
+    if wratio < minratio || hratio < minratio {
+        return Ok(0.0);
+    }
+
+    let (naa1, w1c, h1c) = pix_gen_photo_histos(pix1, box1, factor, 0.0, n)?;
+    let Some(naa1) = naa1 else { return Ok(0.0) };
+    let (naa2, w2c, h2c) = pix_gen_photo_histos(pix2, box2, factor, 0.0, n)?;
+    let Some(naa2) = naa2 else { return Ok(0.0) };
+
+    compare_tiles_by_histo(
+        &naa1, &naa2, minratio, w1c as i32, h1c as i32, w2c as i32, h2c as i32,
+    )
+}
+
+/// All-vs-all photo comparison over a Pixa. Returns `(class_indices,
+/// scores)` where `class_indices[i]` is the assigned class id of image `i`
+/// (images deemed similar share a class id) and `scores` is the full
+/// `n × n` pairwise score matrix in row-major order. Non-photo images are
+/// kept as their own singleton class.
+///
+/// Two images are placed in the same class when their score exceeds
+/// `1.0 - simthresh` (note: C `pixaComparePhotoRegionsByHisto` uses a
+/// "distance" rather than "similarity" convention and clusters on
+/// `score >= simthresh`, but here we follow the similarity convention
+/// throughout the comparison API).
+///
+/// C Leptonica equivalent: `pixaComparePhotoRegionsByHisto`; the
+/// optional rendered comparison Pix (`ppixd`) is omitted — callers can
+/// build it from the returned class indices.
+pub fn pixa_compare_photo_regions_by_histo(
+    pixa: &crate::core::pixa::Pixa,
+    minratio: f32,
+    factor: u32,
+    n: i32,
+    simthresh: f32,
+) -> Result<(Vec<i32>, Vec<f32>)> {
+    if !(0.0..=1.0).contains(&minratio) {
+        return Err(Error::InvalidParameter(format!(
+            "pixa_compare_photo_regions_by_histo: minratio must be in [0.0, 1.0] (got {minratio})"
+        )));
+    }
+    if factor == 0 {
+        return Err(Error::InvalidParameter(
+            "pixa_compare_photo_regions_by_histo: factor must be >= 1".into(),
+        ));
+    }
+    let simthresh = if simthresh <= 0.0 { 0.25 } else { simthresh };
+    if simthresh > 1.0 {
+        return Err(Error::InvalidParameter(format!(
+            "pixa_compare_photo_regions_by_histo: simthresh must be <= 1.0 (got {simthresh})"
+        )));
+    }
+    let n = if !(1..=7).contains(&n) { 4 } else { n };
+
+    let pixs = pixa.pix_slice();
+    let nim = pixs.len();
+    let mut histos: Vec<Option<(crate::core::numa::Numaa, u32, u32)>> = Vec::with_capacity(nim);
+    for pix in pixs.iter() {
+        let (naa_opt, w, h) = pix_gen_photo_histos(pix, None, factor, 0.0, n)?;
+        histos.push(naa_opt.map(|naa| (naa, w, h)));
+    }
+
+    // Pairwise scores.
+    let mut scores = vec![0.0_f32; nim * nim];
+    for i in 0..nim {
+        scores[i * nim + i] = 1.0;
+        for j in (i + 1)..nim {
+            let s = match (&histos[i], &histos[j]) {
+                (Some((naa1, w1, h1)), Some((naa2, w2, h2))) => compare_tiles_by_histo(
+                    naa1, naa2, minratio, *w1 as i32, *h1 as i32, *w2 as i32, *h2 as i32,
+                )?,
+                _ => 0.0,
+            };
+            scores[i * nim + j] = s;
+            scores[j * nim + i] = s;
+        }
+    }
+
+    // Cluster: union-find on score > 1.0 - simthresh.
+    let threshold = 1.0 - simthresh;
+    let mut parent: Vec<usize> = (0..nim).collect();
+    fn find(parent: &mut [usize], i: usize) -> usize {
+        if parent[i] != i {
+            parent[i] = find(parent, parent[i]);
+        }
+        parent[i]
+    }
+    for i in 0..nim {
+        for j in (i + 1)..nim {
+            if scores[i * nim + j] > threshold {
+                let ri = find(&mut parent, i);
+                let rj = find(&mut parent, j);
+                if ri != rj {
+                    parent[ri] = rj;
+                }
+            }
+        }
+    }
+    // Compact class ids.
+    let mut canonical: std::collections::HashMap<usize, i32> = std::collections::HashMap::new();
+    let mut class_indices = Vec::with_capacity(nim);
+    let mut next_id: i32 = 0;
+    for i in 0..nim {
+        let root = find(&mut parent, i);
+        let id = *canonical.entry(root).or_insert_with(|| {
+            let id = next_id;
+            next_id += 1;
+            id
+        });
+        class_indices.push(id);
+    }
+
+    Ok((class_indices, scores))
+}
+
 /// Histogram-based similarity score of two grayscale (or grayscale-
 /// convertible) images.
 ///
