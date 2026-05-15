@@ -343,6 +343,84 @@ pub fn pta_get_neighbor_pix_locs(pixs: &Pix, x: i32, y: i32, conn: u32) -> Resul
     Ok(pta)
 }
 
+/// Boundary pixels of every connected component of a 1 bpp image.
+///
+/// Each component is processed in isolation (per its bounding box, with a
+/// 1-pixel border added when `btype == Background` so that components
+/// touching the image edge still produce sensible bg-boundary pixels). The
+/// result is a Ptaa with one Pta per component, expressed in the original
+/// image's coordinate frame. Optional `Boxa` and `Pixa` of the components
+/// are returned when their respective `want_*` flags are set.
+///
+/// C Leptonica equivalent: `ptaaGetBoundaryPixels` (`ptafunc1.c`).
+pub fn ptaa_get_boundary_pixels(
+    pixs: &Pix,
+    btype: BoundaryType,
+    connectivity: u32,
+    want_boxa: bool,
+    want_pixa: bool,
+) -> Result<(
+    crate::core::pta::Ptaa,
+    Option<crate::core::Boxa>,
+    Option<crate::core::Pixa>,
+)> {
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(Error::UnsupportedDepth(pixs.depth().bits()));
+    }
+    let conn = match connectivity {
+        4 => crate::region::ConnectivityType::FourWay,
+        8 => crate::region::ConnectivityType::EightWay,
+        other => {
+            return Err(Error::InvalidParameter(format!(
+                "connectivity must be 4 or 8 (got {other})"
+            )));
+        }
+    };
+    let w = pixs.width() as i32;
+    let h = pixs.height() as i32;
+    let (boxa, pixa) = crate::region::conncomp_pixa(pixs, conn)
+        .map_err(|e| Error::InvalidParameter(format!("conncomp_pixa: {e}")))?;
+    let n = boxa.len();
+    let mut ptaa = crate::core::pta::Ptaa::with_capacity(n);
+
+    for i in 0..n {
+        let comp = pixa
+            .get(i)
+            .ok_or_else(|| Error::InvalidParameter(format!("pixa[{i}] missing")))?;
+        let b = boxa
+            .get(i)
+            .ok_or_else(|| Error::InvalidParameter(format!("boxa[{i}] missing")))?;
+        let (x, y, bw, bh) = (b.x, b.y, b.w, b.h);
+
+        // For background-boundary, pad by 1 pixel on any side that does
+        // *not* already touch the image edge, so the bg ring exists.
+        let (left, right, top, bot) = if btype == BoundaryType::Background {
+            (
+                (x > 0) as u32,
+                ((x + bw) < w) as u32,
+                (y > 0) as u32,
+                ((y + bh) < h) as u32,
+            )
+        } else {
+            (0, 0, 0, 0)
+        };
+        let processed = if left + right + top + bot > 0 {
+            comp.add_border_general(left, right, top, bot, 0)?
+        } else {
+            comp.deep_clone()
+        };
+        let mut pta = pta_get_boundary_pixels(&processed, btype)?;
+        // Translate from the (padded) component frame back to the parent
+        // image frame: shift by `(x - left, y - top)`.
+        pta.translate((x - left as i32) as f32, (y - top as i32) as f32);
+        ptaa.push(pta);
+    }
+
+    let boxa_out = if want_boxa { Some(boxa) } else { None };
+    let pixa_out = if want_pixa { Some(pixa) } else { None };
+    Ok((ptaa, boxa_out, pixa_out))
+}
+
 /// Bucket the pixels of a 32 bpp labeled image into a Ptaa, one Pta per
 /// connected-component label.
 ///

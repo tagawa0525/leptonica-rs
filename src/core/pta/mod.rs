@@ -10,7 +10,8 @@ pub mod transform;
 
 pub use graphics::{
     BoundaryType, PatternSource, pix_generate_from_pta, pta_get_boundary_pixels,
-    pta_get_neighbor_pix_locs, pta_get_pixels_from_pix, ptaa_index_labeled_pixels,
+    pta_get_neighbor_pix_locs, pta_get_pixels_from_pix, ptaa_get_boundary_pixels,
+    ptaa_index_labeled_pixels,
 };
 pub use lsf::{
     NoisyLinearLsf, NoisyQuadraticLsf, apply_cubic_fit, apply_linear_fit, apply_quadratic_fit,
