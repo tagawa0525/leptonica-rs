@@ -300,3 +300,71 @@ pub fn linear_interpolate_pixel_float(
     let v11 = xf * yf * data[line + wu + xp + 1];
     (v00 + v01 + v10 + v11) / 256.0
 }
+
+/// Affine-transform an [`FPix`] by a 6-element matrix that maps destination
+/// coordinates back to source coordinates.
+///
+/// For each destination pixel `(j, i)`, computes the source coordinate
+/// `(x, y) = (vc[0]*j + vc[1]*i + vc[2], vc[3]*j + vc[4]*i + vc[5])` and
+/// samples `fpixs` via [`linear_interpolate_pixel_float`]. Out-of-bounds
+/// samples are filled with `inval`.
+///
+/// C Leptonica equivalent: `fpixAffine` (`fpix2.c`).
+pub fn fpix_affine(fpixs: &FPix, vc: &[f32; 6], inval: f32) -> Result<FPix> {
+    let w = fpixs.width() as i32;
+    let h = fpixs.height() as i32;
+    let datas = fpixs.data();
+    // `create_template` already produces a zero-filled buffer; since we
+    // write every destination pixel exactly once below (in-bounds samples
+    // get the interpolated value, out-of-bounds get `inval`), we skip the
+    // extra `set_all(inval)` pass to avoid a redundant O(w*h) write.
+    let mut fpixd = fpixs.create_template();
+    let datad = fpixd.data_mut();
+    let wu = w as usize;
+    for i in 0..h {
+        for j in 0..w {
+            let x = vc[0] * j as f32 + vc[1] * i as f32 + vc[2];
+            let y = vc[3] * j as f32 + vc[4] * i as f32 + vc[5];
+            let val = linear_interpolate_pixel_float(datas, w, h, x, y, inval);
+            datad[i as usize * wu + j as usize] = val;
+        }
+    }
+    Ok(fpixd)
+}
+
+/// Projective-transform an [`FPix`] by an 8-element vector that maps
+/// destination coordinates back to source coordinates.
+///
+/// For each destination pixel `(j, i)`:
+/// - `denom = vc[6] * j + vc[7] * i + 1`
+/// - `(x, y) = ((vc[0]*j + vc[1]*i + vc[2]) / denom,
+///             (vc[3]*j + vc[4]*i + vc[5]) / denom)`
+///
+/// and samples `fpixs` via [`linear_interpolate_pixel_float`].
+/// Out-of-bounds samples are filled with `inval`.
+///
+/// C Leptonica equivalent: `fpixProjective` (`fpix2.c`).
+pub fn fpix_projective(fpixs: &FPix, vc: &[f32; 8], inval: f32) -> Result<FPix> {
+    let w = fpixs.width() as i32;
+    let h = fpixs.height() as i32;
+    let datas = fpixs.data();
+    // See fpix_affine: every destination pixel is written exactly once
+    // below, so we skip the redundant `set_all(inval)` pre-fill.
+    let mut fpixd = fpixs.create_template();
+    let datad = fpixd.data_mut();
+    let wu = w as usize;
+    for i in 0..h {
+        for j in 0..w {
+            let denom = vc[6] * j as f32 + vc[7] * i as f32 + 1.0;
+            let val = if denom == 0.0 {
+                inval
+            } else {
+                let x = (vc[0] * j as f32 + vc[1] * i as f32 + vc[2]) / denom;
+                let y = (vc[3] * j as f32 + vc[4] * i as f32 + vc[5]) / denom;
+                linear_interpolate_pixel_float(datas, w, h, x, y, inval)
+            };
+            datad[i as usize * wu + j as usize] = val;
+        }
+    }
+    Ok(fpixd)
+}
