@@ -1874,6 +1874,206 @@ fn count_and_pixels(pix1: &Pix, pix2: &Pix) -> u64 {
     count
 }
 
+/// Choose a `(nx, ny)` grid for a `~n^2`-tile partition of a `w × h`
+/// image. The grid is biased so the aspect ratio of the tiles stays
+/// roughly square (between 0.5 and 2.0).
+///
+/// Mirrors C `findHistoGridDimensions` (static helper in `compare.c`).
+fn find_histo_grid_dimensions(n: i32, w: i32, h: i32) -> (i32, i32) {
+    let mut nx = n;
+    let mut ny = n;
+    let max = n * n;
+    let mut ratio = w as f32 / h as f32;
+    while nx > 1 && ny > 1 {
+        if ratio > 2.0 {
+            ny -= 1;
+            nx = max / ny;
+        } else if ratio < 0.5 {
+            nx -= 1;
+            ny = max / nx;
+        } else {
+            break;
+        }
+        ratio = (ny * w) as f32 / (nx * h) as f32;
+    }
+    (nx, ny)
+}
+
+/// Per-tile gray-histogram similarity between two 8 bpp images.
+///
+/// Splits `pix1` and `pix2` into an `nx × ny` grid (chosen from `n` and
+/// the image aspect), computes per-tile 256-bin gray histograms with
+/// subsampling factor `factor`, zeros bins above `maxgray`, smooths each
+/// histogram with a windowed mean of half-width 5, normalises its peak to
+/// 255, computes the normalised EMD, and converts to a similarity score
+/// `max(0, 1 - 8 * dist / 255)`. Returns the minimum score across tiles.
+///
+/// Both inputs must already be 8 bpp and equal-size (caller is responsible
+/// for the pre-alignment that C `pixCompareGrayByHisto` does).
+///
+/// C Leptonica equivalent: `pixCompareTilesByHisto` (`compare.c`); the
+/// debug output (`pixadebug`) is intentionally omitted.
+fn pix_compare_tiles_by_histo(
+    pix1: &Pix,
+    pix2: &Pix,
+    maxgray: u32,
+    factor: u32,
+    n: i32,
+) -> Result<f32> {
+    if pix1.depth() != PixelDepth::Bit8 || pix2.depth() != PixelDepth::Bit8 {
+        return Err(Error::UnsupportedDepth(pix1.depth().bits()));
+    }
+    let w = pix1.width() as i32;
+    let h = pix1.height() as i32;
+    let (nx, ny) = find_histo_grid_dimensions(n, w, h);
+    let pixa1 = crate::core::pixa::Pixa::split_pix(pix1, nx as usize, ny as usize, 0, 0)?;
+    let pixa2 = crate::core::pixa::Pixa::split_pix(pix2, nx as usize, ny as usize, 0, 0)?;
+    let ngr = (nx * ny) as usize;
+    let mut minscore = 1.0_f32;
+    for i in 0..ngr {
+        let p3 = pixa1
+            .get(i)
+            .ok_or_else(|| Error::InvalidParameter(format!("pixa1[{i}] missing")))?;
+        let p4 = pixa2
+            .get(i)
+            .ok_or_else(|| Error::InvalidParameter(format!("pixa2[{i}] missing")))?;
+        let mut na1 = p3.gray_histogram(factor)?;
+        let mut na2 = p4.gray_histogram(factor)?;
+        // Zero out bins above maxgray (caller-chosen cap, typically 255 for
+        // photos or e.g. 230 for text-heavy images).
+        if maxgray < 255 {
+            for j in (maxgray as usize + 1)..256 {
+                if j < na1.len() {
+                    let _ = na1.set(j, 0.0);
+                }
+                if j < na2.len() {
+                    let _ = na2.set(j, 0.0);
+                }
+            }
+        }
+        let na3 = na1.windowed_mean(5);
+        let na4 = na2.windowed_mean(5);
+        let (max1, _) = na3
+            .max()
+            .ok_or_else(|| Error::InvalidParameter(format!("tile[{i}] na3.max() failed")))?;
+        let (max2, _) = na4
+            .max()
+            .ok_or_else(|| Error::InvalidParameter(format!("tile[{i}] na4.max() failed")))?;
+        if max1 == 0.0 || max2 == 0.0 {
+            // No mass left in either histogram → contributes a 0 score
+            // (tile is entirely dropped by maxgray clip).
+            minscore = 0.0;
+            continue;
+        }
+        let na5 = na3.transform(0.0, 255.0 / max1);
+        let na6 = na4.transform(0.0, 255.0 / max2);
+        let dist = na5.earth_mover_distance(&na6)?;
+        let score = (1.0 - 8.0 * dist / 255.0).max(0.0);
+        if score < minscore {
+            minscore = score;
+        }
+    }
+    Ok(minscore)
+}
+
+/// Histogram-based similarity score of two grayscale (or grayscale-
+/// convertible) images.
+///
+/// Procedure (mirrors C `pixCompareGrayByHisto`):
+///
+/// 1. Size filter: return `0.0` if either width or height ratio
+///    `min/max` is below `minratio`.
+/// 2. Optional initial crop via `box1`/`box2`.
+/// 3. Convert both to 8 bpp, align centroids, take a common crop.
+/// 4. Tile-wise histogram comparison via [`pix_compare_tiles_by_histo`].
+///
+/// `minratio` must be in `[0.5, 1.0]`, `maxgray >= 200` (capped at 255),
+/// `factor >= 1`, `n` in `1..=7` (otherwise clamped to 4 with a warning
+/// in C; here we clamp silently).
+///
+/// C Leptonica equivalent: `pixCompareGrayByHisto`; debug output omitted.
+#[allow(clippy::too_many_arguments)]
+pub fn pix_compare_gray_by_histo(
+    pix1: &Pix,
+    pix2: &Pix,
+    box1: Option<&crate::core::box_::Box>,
+    box2: Option<&crate::core::box_::Box>,
+    minratio: f32,
+    maxgray: u32,
+    factor: u32,
+    n: i32,
+) -> Result<f32> {
+    if !(0.5..=1.0).contains(&minratio) {
+        return Err(Error::InvalidParameter(format!(
+            "pix_compare_gray_by_histo: minratio must be in [0.5, 1.0] (got {minratio})"
+        )));
+    }
+    if maxgray < 200 {
+        return Err(Error::InvalidParameter(format!(
+            "pix_compare_gray_by_histo: maxgray must be >= 200 (got {maxgray})"
+        )));
+    }
+    if factor == 0 {
+        return Err(Error::InvalidParameter(
+            "pix_compare_gray_by_histo: factor must be >= 1".into(),
+        ));
+    }
+    let maxgray = maxgray.min(255);
+    // Clamp n into 1..=7 (C warns then sets to 4 when out of range; we do
+    // the same silently).
+    let n = if !(1..=7).contains(&n) { 4 } else { n };
+
+    // Size filter.
+    let (w1, h1) = match box1 {
+        Some(b) => (b.w, b.h),
+        None => (pix1.width() as i32, pix1.height() as i32),
+    };
+    let (w2, h2) = match box2 {
+        Some(b) => (b.w, b.h),
+        None => (pix2.width() as i32, pix2.height() as i32),
+    };
+    if w1 <= 0 || h1 <= 0 || w2 <= 0 || h2 <= 0 {
+        return Err(Error::InvalidParameter(format!(
+            "pix_compare_gray_by_histo: all dimensions must be > 0 \
+             (got w1={w1}, h1={h1}, w2={w2}, h2={h2})"
+        )));
+    }
+    let wratio = if w1 < w2 {
+        w1 as f32 / w2 as f32
+    } else {
+        w2 as f32 / w1 as f32
+    };
+    let hratio = if h1 < h2 {
+        h1 as f32 / h2 as f32
+    } else {
+        h2 as f32 / h1 as f32
+    };
+    if wratio < minratio || hratio < minratio {
+        return Ok(0.0);
+    }
+
+    // Optional initial crop.
+    let p3 = match box1 {
+        Some(b) => pix1.clip_rectangle(b.x as u32, b.y as u32, b.w as u32, b.h as u32)?,
+        None => pix1.deep_clone(),
+    };
+    let p4 = match box2 {
+        Some(b) => pix2.clip_rectangle(b.x as u32, b.y as u32, b.w as u32, b.h as u32)?,
+        None => pix2.deep_clone(),
+    };
+
+    // Convert to 8 bpp.
+    let p5 = p3.convert_to_8()?;
+    let p6 = p4.convert_to_8()?;
+
+    // Align centroids and take the maximal common crop.
+    let (b3, b4) = pix_crop_aligned_to_centroid(&p5, &p6, factor)?;
+    let p7 = p5.clip_rectangle(b3.x as u32, b3.y as u32, b3.w as u32, b3.h as u32)?;
+    let p8 = p6.clip_rectangle(b4.x as u32, b4.y as u32, b4.w as u32, b4.h as u32)?;
+
+    pix_compare_tiles_by_histo(&p7, &p8, maxgray, factor, n)
+}
+
 /// Per-tile histogram comparison via 1D Earth-Mover Distance.
 ///
 /// Both inputs are `Numaa` of per-tile 256-bin grayscale histograms. Each
