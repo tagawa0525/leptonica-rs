@@ -41,6 +41,7 @@ mod numa_histogram_ext_reg;
 mod numa_sort_interp_reg;
 mod numa_split_distribution_reg;
 mod overlap_reg;
+mod photo_histo_chain_reg;
 mod pix_arith_rop_reg;
 mod pix_clip_advanced_ext_reg;
 mod pix_clip_advanced_reg;
