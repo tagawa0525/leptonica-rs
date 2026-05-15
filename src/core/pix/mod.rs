@@ -45,6 +45,7 @@ pub use clip::ScanDirection;
 pub use compare::{
     CompareResult, CompareType, PixelDiffResult, TranslationMatch, best_correlation,
     compare_tiles_by_histo, compare_with_translation, correlation_binary,
+    pix_compare_gray_by_histo,
 };
 pub use convert::{Convert16To8Type, GrayConversionType, MinMaxType, RemoveColormapTarget};
 pub use graphics::{
