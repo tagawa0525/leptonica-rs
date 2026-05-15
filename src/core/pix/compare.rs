@@ -1906,6 +1906,12 @@ pub fn compare_tiles_by_histo(
             "compare_tiles_by_histo: minratio must be in [0.0, 1.0] (got {minratio})"
         )));
     }
+    if w1 <= 0 || h1 <= 0 || w2 <= 0 || h2 <= 0 {
+        return Err(crate::core::Error::InvalidParameter(format!(
+            "compare_tiles_by_histo: all dimensions must be > 0 \
+             (got w1={w1}, h1={h1}, w2={w2}, h2={h2})"
+        )));
+    }
     // Size filter.
     let wratio = if w1 < w2 {
         w1 as f32 / w2 as f32
@@ -1935,15 +1941,22 @@ pub fn compare_tiles_by_histo(
         let na2 = naa2
             .get(i)
             .ok_or_else(|| crate::core::Error::InvalidParameter(format!("naa2[{i}] missing")))?;
-        // Zero out bin 255 (white) — only if it exists.
+        // Enforce 256-bin grayscale histograms — the score normalization
+        // (`1 - 10 * dist / 255`) and the "ignore bin 255 (white)" step
+        // assume that exact bin count. Mirrors `gray_histograms_to_emd`.
+        if na1.len() != 256 || na2.len() != 256 {
+            return Err(crate::core::Error::InvalidParameter(format!(
+                "compare_tiles_by_histo: tile[{i}] histograms must be 256 bins \
+                 (got {} / {})",
+                na1.len(),
+                na2.len()
+            )));
+        }
+        // Zero out bin 255 (white).
         let mut na1_clean = na1.clone();
         let mut na2_clean = na2.clone();
-        if na1_clean.len() > 255 {
-            let _ = na1_clean.set(255, 0.0);
-        }
-        if na2_clean.len() > 255 {
-            let _ = na2_clean.set(255, 0.0);
-        }
+        let _ = na1_clean.set(255, 0.0);
+        let _ = na2_clean.set(255, 0.0);
         let dist = na1_clean.earth_mover_distance(&na2_clean)?;
         let score = (1.0 - 10.0 * dist / 255.0).max(0.0);
         if score < minscore {

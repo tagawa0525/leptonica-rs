@@ -102,6 +102,31 @@ fn compare_tiles_empty_returns_zero() {
 }
 
 #[test]
+fn compare_tiles_rejects_non_positive_dimensions() {
+    let mut naa1 = Numaa::new();
+    let mut naa2 = Numaa::new();
+    naa1.push(one_tile_histo(100, 50.0));
+    naa2.push(one_tile_histo(100, 50.0));
+    assert!(compare_tiles_by_histo(&naa1, &naa2, 0.9, 0, 100, 100, 100).is_err());
+    assert!(compare_tiles_by_histo(&naa1, &naa2, 0.9, 100, 0, 100, 100).is_err());
+    assert!(compare_tiles_by_histo(&naa1, &naa2, 0.9, -1, 100, 100, 100).is_err());
+    assert!(compare_tiles_by_histo(&naa1, &naa2, 0.9, 100, 100, 100, 0).is_err());
+}
+
+#[test]
+fn compare_tiles_rejects_non_256_bin_tiles() {
+    let mut naa1 = Numaa::new();
+    let mut naa2 = Numaa::new();
+    let mut short_na = Numa::new();
+    for _ in 0..100 {
+        short_na.push(0.5);
+    }
+    naa1.push(short_na.clone());
+    naa2.push(short_na);
+    assert!(compare_tiles_by_histo(&naa1, &naa2, 0.9, 100, 100, 100, 100).is_err());
+}
+
+#[test]
 fn compare_tiles_ignores_white_bin_255() {
     // Two histos that are identical except for bin 255 (white). Should
     // still score 1.0 because bin 255 is zeroed before EMD.
