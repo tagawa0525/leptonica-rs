@@ -12,7 +12,10 @@ pub use graphics::{
     BoundaryType, PatternSource, pix_generate_from_pta, pta_get_boundary_pixels,
     pta_get_neighbor_pix_locs, pta_get_pixels_from_pix, ptaa_index_labeled_pixels,
 };
-pub use lsf::{apply_cubic_fit, apply_linear_fit, apply_quadratic_fit, apply_quartic_fit};
+pub use lsf::{
+    NoisyLinearLsf, NoisyQuadraticLsf, apply_cubic_fit, apply_linear_fit, apply_quadratic_fit,
+    apply_quartic_fit,
+};
 pub use sort::SortBy;
 pub use transform::{SelectCoord, SelectRelation};
 
