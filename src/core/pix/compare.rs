@@ -2005,8 +2005,15 @@ pub fn pix_decide_if_photo_image(
     thresh: f32,
     n: i32,
 ) -> Result<(Option<crate::core::numa::Numaa>, bool)> {
-    if pix.depth() != PixelDepth::Bit8 || pix.colormap().is_some() {
+    if pix.depth() != PixelDepth::Bit8 {
         return Err(Error::UnsupportedDepth(pix.depth().bits()));
+    }
+    if pix.colormap().is_some() {
+        return Err(Error::InvalidParameter(
+            "pix_decide_if_photo_image: pix must not have a colormap; \
+             decode via remove_colormap(ToGrayscale) first"
+                .into(),
+        ));
     }
     let w = pix.width() as i32;
     let h = pix.height() as i32;
@@ -2016,6 +2023,13 @@ pub fn pix_decide_if_photo_image(
         ));
     }
     let n = if !(1..=7).contains(&n) { 4 } else { n };
+    // Reject non-finite thresholds; only zero/negative falls back to the
+    // C default of 1.3.
+    if !thresh.is_finite() {
+        return Err(Error::InvalidParameter(format!(
+            "pix_decide_if_photo_image: thresh must be finite (got {thresh})"
+        )));
+    }
     let thresh = if thresh <= 0.0 { 1.3 } else { thresh };
 
     let (nx, ny) = find_histo_grid_dimensions(n, w, h);
@@ -2241,6 +2255,11 @@ pub fn pixa_compare_photo_regions_by_histo(
         return Err(Error::InvalidParameter(
             "pixa_compare_photo_regions_by_histo: factor must be >= 1".into(),
         ));
+    }
+    if !simthresh.is_finite() {
+        return Err(Error::InvalidParameter(format!(
+            "pixa_compare_photo_regions_by_histo: simthresh must be finite (got {simthresh})"
+        )));
     }
     let simthresh = if simthresh <= 0.0 { 0.25 } else { simthresh };
     if simthresh > 1.0 {

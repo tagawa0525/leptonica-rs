@@ -26,9 +26,9 @@ pub fn pix_decide_if_photo_image(
     pix: &Pix, factor: u32, thresh: f32, n: i32,
 ) -> Result<(Option<Numaa>, bool)>;
 
-// 単一画像のヒストグラム生成
+// 単一画像のヒストグラム生成 (`box` は予約語のため引数は `boxr`)
 pub fn pix_gen_photo_histos(
-    pixs: &Pix, box: Option<&Box>, factor: u32, thresh: f32, n: i32,
+    pixs: &Pix, boxr: Option<&Box>, factor: u32, thresh: f32, n: i32,
 ) -> Result<(Option<Numaa>, u32, u32)>;
 
 // 2 画像比較
