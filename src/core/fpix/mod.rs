@@ -26,7 +26,9 @@ pub mod extended;
 pub mod serial;
 pub mod transform;
 
-pub use extended::{fpix_affine, fpix_projective, linear_interpolate_pixel_float};
+pub use extended::{
+    fpix_affine, fpix_projective, linear_interpolate_pixel_float, pix_component_function,
+};
 
 pub use transform::RotateDirection;
 

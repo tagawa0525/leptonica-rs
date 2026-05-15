@@ -301,6 +301,90 @@ pub fn linear_interpolate_pixel_float(
     (v00 + v01 + v10 + v11) / 256.0
 }
 
+/// Compute a per-pixel linear-combination ratio of the R/G/B channels of a
+/// 32 bpp RGB image, returning the result as an [`FPix`].
+///
+/// For each input pixel `(r, g, b)` the output is:
+///
+/// ```text
+/// f_num   = rnum   * r + gnum   * g + bnum   * b
+/// f_denom = rdenom * r + gdenom * g + bdenom * b
+/// out     = f_num / f_denom        (general case)
+///         = f_num                  (when rdenom == gdenom == bdenom == 0)
+///         = 256 * f_num            (when f_denom == 0 in the general case)
+/// ```
+///
+/// `(rdenom, gdenom, bdenom) == (0, 0, 0)` skips the divide; if exactly one
+/// of them is `1.0` and the other two are `0.0`, the division is replaced
+/// with a 256-entry reciprocal table for speed.
+///
+/// C Leptonica equivalent: `pixComponentFunction` (`fpix2.c`).
+pub fn pix_component_function(
+    pix: &Pix,
+    rnum: f32,
+    gnum: f32,
+    bnum: f32,
+    rdenom: f32,
+    gdenom: f32,
+    bdenom: f32,
+) -> Result<FPix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(Error::UnsupportedDepth(pix.depth().bits()));
+    }
+    let w = pix.width();
+    let h = pix.height();
+    let mut fpixd = FPix::new(w, h)?;
+    // Preserve source DPI metadata so downstream consumers don't lose it
+    // (matches FPix::from_pix and other Pix→FPix conversions).
+    fpixd.set_resolution(pix.xres(), pix.yres());
+    let datad = fpixd.data_mut();
+    let wu = w as usize;
+
+    let zero_denom = rdenom == 0.0 && gdenom == 0.0 && bdenom == 0.0;
+    // True when exactly one of the denominator weights is 1.0 and the
+    // other two are 0.0 — the optimization in C uses a reciprocal table.
+    let one_denom_r = rdenom == 1.0 && gdenom == 0.0 && bdenom == 0.0;
+    let one_denom_g = rdenom == 0.0 && gdenom == 1.0 && bdenom == 0.0;
+    let one_denom_b = rdenom == 0.0 && gdenom == 0.0 && bdenom == 1.0;
+
+    // Reciprocal table for the one-denom fast paths. Index 0 uses 256
+    // (matching C's arbitrary-large sentinel for "divide by zero").
+    let mut recip = [0.0_f32; 256];
+    if one_denom_r || one_denom_g || one_denom_b {
+        recip[0] = 256.0;
+        for (i, slot) in recip.iter_mut().enumerate().skip(1) {
+            *slot = 1.0 / i as f32;
+        }
+    }
+
+    for y in 0..h {
+        for x in 0..w {
+            let px = pix.get_pixel(x, y).unwrap_or(0);
+            let (r, g, b) = crate::core::pixel::extract_rgb(px);
+            let (r, g, b) = (r as f32, g as f32, b as f32);
+            let fnum = rnum * r + gnum * g + bnum * b;
+            let val = if zero_denom {
+                fnum
+            } else if one_denom_r {
+                recip[r as u8 as usize] * fnum
+            } else if one_denom_g {
+                recip[g as u8 as usize] * fnum
+            } else if one_denom_b {
+                recip[b as u8 as usize] * fnum
+            } else {
+                let fdenom = rdenom * r + gdenom * g + bdenom * b;
+                if fdenom == 0.0 {
+                    256.0 * fnum
+                } else {
+                    fnum / fdenom
+                }
+            };
+            datad[y as usize * wu + x as usize] = val;
+        }
+    }
+    Ok(fpixd)
+}
+
 /// Affine-transform an [`FPix`] by a 6-element matrix that maps destination
 /// coordinates back to source coordinates.
 ///
