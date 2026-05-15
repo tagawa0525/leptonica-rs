@@ -334,6 +334,9 @@ pub fn pix_component_function(
     let w = pix.width();
     let h = pix.height();
     let mut fpixd = FPix::new(w, h)?;
+    // Preserve source DPI metadata so downstream consumers don't lose it
+    // (matches FPix::from_pix and other Pix→FPix conversions).
+    fpixd.set_resolution(pix.xres(), pix.yres());
     let datad = fpixd.data_mut();
     let wu = w as usize;
 

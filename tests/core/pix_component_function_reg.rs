@@ -92,3 +92,21 @@ fn pix_component_function_rejects_non_32bpp() {
     let pix: leptonica::Pix = PixMut::new(4, 4, PixelDepth::Bit8).unwrap().into();
     assert!(pix_component_function(&pix, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0).is_err());
 }
+
+#[test]
+fn pix_component_function_preserves_resolution() {
+    // 200 DPI source should produce a 200 DPI FPix (regression: FPix::new
+    // leaves xres/yres at 0, so we must copy from the source Pix).
+    let mut pm = PixMut::new(4, 4, PixelDepth::Bit32).unwrap();
+    pm.set_resolution(200, 150);
+    let px = compose_rgba(50, 50, 50, 0);
+    for y in 0..4 {
+        for x in 0..4 {
+            pm.set_pixel(x, y, px).unwrap();
+        }
+    }
+    let pix: leptonica::Pix = pm.into();
+    let fp = pix_component_function(&pix, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0).unwrap();
+    assert_eq!(fp.xres(), 200);
+    assert_eq!(fp.yres(), 150);
+}
