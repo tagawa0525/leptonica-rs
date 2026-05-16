@@ -1807,9 +1807,14 @@ pub fn pix_clean_image(
 ///
 /// # Parameters
 ///
-/// - `deltafract`: 0.15..=0.75 (extrema-detection delta as fraction of range)
-/// - `peakfract`: 0.25..=0.9 (peak threshold as fraction of range)
-/// - `clipfract`: 0.0..0.5 (border fraction clipped before analysis)
+/// - `deltafract`: extrema-detection delta as fraction of range.
+///   Recommended 0.15..=0.75; values outside this range are accepted
+///   without error (matches C which only logs a warning).
+/// - `peakfract`: peak threshold as fraction of range.
+///   Recommended 0.25..=0.9; values outside this range are accepted
+///   without error (matches C which only logs a warning).
+/// - `clipfract`: border fraction clipped before analysis. Must be in
+///   `[0.0, 0.5)`; returns `Err` otherwise (matches C's hard validation).
 ///
 /// C Leptonica equivalent: `pixCountTextColumns`.
 pub fn pix_count_text_columns(
