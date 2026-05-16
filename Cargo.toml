@@ -53,3 +53,7 @@ opt-level = 1
 [[example]]
 name = "rotateorthpdf"
 required-features = ["pdf-format"]
+
+[[example]]
+name = "gen_c_manifest"
+required-features = ["all-formats"]
