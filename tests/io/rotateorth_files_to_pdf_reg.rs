@@ -27,7 +27,6 @@ fn copy_test_image_to(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
 }
 
 #[test]
-#[ignore = "plan 811: not yet implemented"]
 fn rotateorth_files_to_pdf_basic() {
     let dir = unique_tmp("basic");
     let p1 = copy_test_image_to(&dir, "karen8.jpg");
@@ -51,7 +50,6 @@ fn rotateorth_files_to_pdf_basic() {
 }
 
 #[test]
-#[ignore = "plan 811: not yet implemented"]
 fn rotateorth_files_to_pdf_with_rotation_and_scale() {
     let dir = unique_tmp("rot");
     let p1 = copy_test_image_to(&dir, "karen8.jpg");
@@ -79,7 +77,6 @@ fn rotateorth_files_to_pdf_with_rotation_and_scale() {
 }
 
 #[test]
-#[ignore = "plan 811: not yet implemented"]
 fn rotateorth_files_to_pdf_rejects_empty_paths() {
     let dir = unique_tmp("empty");
     let out = dir.join("out.pdf");
@@ -91,7 +88,6 @@ fn rotateorth_files_to_pdf_rejects_empty_paths() {
 }
 
 #[test]
-#[ignore = "plan 811: not yet implemented"]
 fn rotateorth_files_to_pdf_rejects_invalid_rotstring() {
     let dir = unique_tmp("badrot");
     let p1 = copy_test_image_to(&dir, "karen8.jpg");

@@ -675,16 +675,63 @@ pub fn rotateorth_files_to_pdf(
     compression: PdfCompression,
     output: impl AsRef<Path>,
 ) -> IoResult<()> {
-    let _ = (
-        paths,
-        rotstring,
-        scalefactor,
-        quality,
-        title,
+    if paths.is_empty() {
+        return Err(IoError::InvalidData("paths is empty".into()));
+    }
+    let rotations = parse_rotation_string(paths.len(), rotstring)?;
+
+    let scalefactor = if scalefactor <= 0.0 {
+        1.0
+    } else if scalefactor > 2.0 {
+        2.0
+    } else {
+        scalefactor
+    };
+    let quality = if !(25..=95).contains(&quality) {
+        75
+    } else {
+        quality
+    };
+
+    let mut images: Vec<Pix> = Vec::with_capacity(paths.len());
+    for (i, path) in paths.iter().enumerate() {
+        let pix = crate::io::read_image(path.as_ref())?;
+        let rotval = rotations.get(i).copied().unwrap_or(0) as u32;
+        let rotated = if rotval == 0 {
+            pix
+        } else {
+            crate::transform::rotate_orth(&pix, rotval)
+                .map_err(|e| IoError::InvalidData(format!("rotate_orth failed: {e}")))?
+        };
+        let scaled = if (scalefactor - 1.0).abs() < f32::EPSILON {
+            rotated
+        } else {
+            crate::transform::scale(
+                &rotated,
+                scalefactor,
+                scalefactor,
+                crate::transform::ScaleMethod::Auto,
+            )
+            .map_err(|e| IoError::InvalidData(format!("scale failed: {e}")))?
+        };
+        images.push(scaled);
+    }
+
+    // Infer resolution from the first image, assuming the long side maps to
+    // `scalefactor * 11.0` inches.
+    let res = images[0]
+        .infer_resolution(scalefactor * 11.0)
+        .map_err(|e| IoError::InvalidData(format!("infer_resolution failed: {e}")))?;
+    let opts = PdfOptions {
         compression,
-        output,
-    );
-    unimplemented!("rotateorth_files_to_pdf: plan 811 (RED)")
+        quality,
+        resolution: res.max(1) as u32,
+        title: title.map(|s| s.to_string()),
+    };
+    let image_refs: Vec<&Pix> = images.iter().collect();
+    let pdf_data = generate_pdf(&image_refs, &opts)?;
+    std::fs::write(output, &pdf_data).map_err(IoError::Io)?;
+    Ok(())
 }
 
 /// Convert segmented image files to PDF
