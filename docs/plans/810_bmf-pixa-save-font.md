@@ -39,13 +39,8 @@ pub fn pixa_save_font(
 
 ## 設計差分 (C → Rust)
 
-1. C は `indir` がある場合に画像ファイルからフォント抽出を行うが、
-   Rust 版はそのケースをサポートしない (compiled-in font のみ)。
-   `indir` 引数は省略。
-2. `Bmf::new` は 18 pt の glyph をコンパイル時に持たず暗黙クランプ
-   するため、`pixa_save_font` は 18 を **明示的に拒否** する
-   (`chars-18.pa` に 16 pt の中身が入る不整合を防ぐ)。これは C との
-   主な差分。
+1. C は `indir` がある場合に画像ファイルからフォント抽出を行うが、Rust 版はそのケースをサポートしない (compiled-in font のみ)。 `indir` 引数は省略。
+2. `Bmf::new` は 18 pt の glyph をコンパイル時に持たず暗黙クランプするため、`pixa_save_font` は 18 を **明示的に拒否** する (`chars-18.pa` に 16 pt の中身が入る不整合を防ぐ)。これは C との主な差分。
 3. 出力ファイル名は C と同じ `chars-{N}.pa`。
 
 ## テスト方針

@@ -54,17 +54,13 @@ pub fn rotate_orth_files_to_pdf_file(
 ## 設計差分 (C → Rust)
 
 1. C は `SARRAY *` を受け取るが、Rust 版は `&[impl AsRef<Path>]`。
-2. C は `pixacomp` 経由で大量画像のメモリ節約を試みるが、Rust 版は
-   常に `Vec<Pix>` を保持する (既存 `rotate_orth_files_to_pdf` の挙動)。
-3. PDF 圧縮方式は first page の `select_default_encoding` で自動選択
-   (RGB は Jpeg、低ビット深度は Flate)。
+2. C は `pixacomp` 経由で大量画像のメモリ節約を試みるが、Rust 版は常に `Vec<Pix>` を保持する (既存 `rotate_orth_files_to_pdf` の挙動)。
+3. PDF 圧縮方式は first page の `select_default_encoding` で自動選択 (RGB は Jpeg、低ビット深度は Flate)。
 4. 戻り値は C の 0/1 ではなく `IoResult<()>`。
 
 ## テスト方針
 
-- ファイル出力ラッパー: 基本ケース / title 埋め込み / 空 paths Err /
-  不正 rotstring Err
+- ファイル出力ラッパー: 基本ケース / title 埋め込み / 空 paths Err / 不正 rotstring Err
 - バイト列ラッパーの 振る舞いカバレッジ:
   - 回転 1 と 0 で出力バイト列が異なる (rotation が無視されないこと)
-  - scalefactor 1.0 と 0.5 で出力バイト列が異なる (scaling が無視されな
-    いこと)
+  - scalefactor 1.0 と 0.5 で出力バイト列が異なる (scaling が無視されないこと)
