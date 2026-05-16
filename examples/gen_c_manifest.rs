@@ -68,29 +68,66 @@ mod logic {
         h
     }
 
-    /// `true` for extensions handled by `read_image`.
+    /// `true` for extensions handled by `leptonica::io::read_image` under
+    /// the `all-formats` feature. Mirrors the magic-byte detection in
+    /// `src/io/format.rs::detect_format_from_bytes` so that any C output we
+    /// can decode is hashed at the pixel level rather than as raw bytes.
     pub fn is_image_extension(ext: &str) -> bool {
         matches!(
             ext.to_ascii_lowercase().as_str(),
+            // Common formats
             "png" | "jpg" | "jpeg" | "tif" | "tiff" | "bmp" | "gif" | "webp"
+            // JPEG 2000 family
+            | "jp2" | "j2k" | "jpf" | "jpx" | "jpm"
+            // Leptonica native
+            | "spix"
+            // PNM family
+            | "pnm" | "pbm" | "pgm" | "ppm" | "pam"
         )
     }
 
+    /// Reason a file could not be hashed. `unsupported` files are skipped
+    /// without aborting the run because leptonica-rs simply does not implement
+    /// the corresponding decoder yet (e.g. TIFF Fax3 / Huffman / RGBPalette);
+    /// the matching Rust test will fail to read the file too, so the absence
+    /// from the manifest is harmless. Other failures indicate a broken C
+    /// output or environment problem and must abort `main`.
+    #[derive(Debug)]
+    pub struct HashFailure {
+        pub unsupported: bool,
+        pub message: String,
+    }
+
     /// Hash a file: images via pixel hash, others as raw bytes.
-    pub fn hash_file(path: &Path) -> Result<u64, String> {
+    pub fn hash_file(path: &Path) -> Result<u64, HashFailure> {
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_string();
         if is_image_extension(&ext) {
-            let path_str = path.to_str().ok_or("non-utf8 path")?;
-            let pix = read_image(path_str)
-                .map_err(|e| format!("read_image failed for {}: {}", path.display(), e))?;
+            let path_str = path.to_str().ok_or_else(|| HashFailure {
+                unsupported: false,
+                message: format!("non-utf8 path: {}", path.display()),
+            })?;
+            let pix = read_image(path_str).map_err(|e| {
+                let message = format!("read_image failed for {}: {}", path.display(), e);
+                // The TIFF / image-decoder crates surface unsupported features
+                // with the literal "unsupported" in the message. We rely on
+                // that string here; tests/common/params.rs does not need this
+                // distinction because no Rust test attempts these files.
+                let unsupported = message.contains("unsupported");
+                HashFailure {
+                    unsupported,
+                    message,
+                }
+            })?;
             Ok(pixel_content_hash(&pix))
         } else {
-            let bytes = std::fs::read(path)
-                .map_err(|e| format!("std::fs::read failed for {}: {}", path.display(), e))?;
+            let bytes = std::fs::read(path).map_err(|e| HashFailure {
+                unsupported: false,
+                message: format!("std::fs::read failed for {}: {}", path.display(), e),
+            })?;
             Ok(data_content_hash(&bytes))
         }
     }
@@ -98,7 +135,8 @@ mod logic {
     /// Format a slice of `(name, hash)` entries as TSV manifest body (caller sorts).
     pub fn format_manifest(entries: &[(String, u64)]) -> String {
         let mut s = String::from(
-            "# C-version golden manifest - pixel-content hashes from C leptonica output\n",
+            "# C-version golden manifest - FNV-1a hashes \
+             (pixel content for images, raw bytes for other files)\n",
         );
         s.push_str("# Format: name<TAB>hash (FNV-1a hex)\n");
         for (name, h) in entries {
@@ -138,9 +176,16 @@ fn parse_args() -> Args {
     let mut rust_manifest: Option<PathBuf> = None;
 
     let argv: Vec<String> = std::env::args().collect();
+    let usage = "Usage: gen_c_manifest --c-dir DIR --out FILE [--rust-manifest FILE]";
     let mut i = 1;
     while i < argv.len() {
-        match argv[i].as_str() {
+        let flag = argv[i].clone();
+        let needs_value = matches!(flag.as_str(), "--c-dir" | "--out" | "--rust-manifest");
+        if needs_value && i + 1 >= argv.len() {
+            eprintln!("Missing value for {flag}\n{usage}");
+            std::process::exit(1);
+        }
+        match flag.as_str() {
             "--c-dir" => {
                 i += 1;
                 c_dir = PathBuf::from(&argv[i]);
@@ -154,11 +199,11 @@ fn parse_args() -> Args {
                 rust_manifest = Some(PathBuf::from(&argv[i]));
             }
             "--help" | "-h" => {
-                eprintln!("Usage: gen_c_manifest --c-dir DIR --out FILE [--rust-manifest FILE]");
+                eprintln!("{usage}");
                 std::process::exit(0);
             }
             other => {
-                eprintln!("Unknown argument: {}", other);
+                eprintln!("Unknown argument: {other}\n{usage}");
                 std::process::exit(1);
             }
         }
@@ -191,13 +236,14 @@ fn main() {
 
     let mut entries: BTreeMap<String, u64> = BTreeMap::new();
     let mut errors = 0usize;
+    let mut unsupported = 0usize;
     let mut skipped = 0usize;
 
     for dirent in std::fs::read_dir(&args.c_dir).expect("read_dir") {
         let dirent = match dirent {
             Ok(d) => d,
             Err(e) => {
-                eprintln!("read_dir entry error: {}", e);
+                eprintln!("error: read_dir entry: {}", e);
                 errors += 1;
                 continue;
             }
@@ -223,11 +269,24 @@ fn main() {
             Ok(h) => {
                 entries.insert(name, h);
             }
-            Err(e) => {
-                eprintln!("warning: {}", e);
+            Err(f) if f.unsupported => {
+                eprintln!("skip (unsupported by leptonica-rs): {}", f.message);
+                unsupported += 1;
+            }
+            Err(f) => {
+                eprintln!("error: {}", f.message);
                 errors += 1;
             }
         }
+    }
+
+    if errors > 0 {
+        eprintln!(
+            "\nAborting: {errors} hashing errors prevent a clean baseline. \
+             Manifest not written to {}.",
+            args.out.display()
+        );
+        std::process::exit(1);
     }
 
     let sorted: Vec<(String, u64)> = entries.into_iter().collect();
@@ -239,10 +298,10 @@ fn main() {
     std::fs::write(&args.out, &body).expect("write manifest");
 
     eprintln!(
-        "Wrote {} entries to {} (errors: {}, skipped: {})",
+        "Wrote {} entries to {} (unsupported: {}, skipped: {})",
         sorted.len(),
         args.out.display(),
-        errors,
+        unsupported,
         skipped,
     );
 }
@@ -265,35 +324,72 @@ mod tests {
 
     #[test]
     fn image_extensions_recognised() {
+        // Common formats
         for ext in [
             "png", "PNG", "jpg", "Jpeg", "tif", "tiff", "bmp", "gif", "webp",
         ] {
             assert!(is_image_extension(ext), "{ext} should be image");
         }
-        for ext in ["ba", "na", "pdf", "txt", "pta", ""] {
+        // JPEG 2000 family
+        for ext in ["jp2", "j2k", "JPF", "jpx", "jpm"] {
+            assert!(is_image_extension(ext), "{ext} should be image");
+        }
+        // Leptonica native + PNM family
+        for ext in ["spix", "pnm", "pbm", "pgm", "ppm", "pam", "PAM"] {
+            assert!(is_image_extension(ext), "{ext} should be image");
+        }
+        // Definitely not image extensions
+        for ext in ["ba", "na", "pdf", "ps", "txt", "pta", ""] {
             assert!(!is_image_extension(ext), "{ext} should NOT be image");
         }
     }
 
     #[test]
-    fn format_manifest_emits_header_and_tsv_rows() {
+    fn format_manifest_header_covers_pixel_and_raw_hashes() {
         let mut sorted = vec![
             ("zzz.png".to_string(), 0xdead_beef_dead_beef_u64),
             ("aaa.jpg".to_string(), 0x0123_4567_89ab_cdef_u64),
         ];
         sorted.sort_by(|a, b| a.0.cmp(&b.0));
         let s = format_manifest(&sorted);
-        let header_lines: Vec<&str> = s.lines().filter(|l| l.starts_with('#')).collect();
+        let header = s
+            .lines()
+            .filter(|l| l.starts_with('#'))
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(
-            header_lines
-                .iter()
-                .any(|l| l.contains("C-version golden manifest")),
-            "header should mention C-version: {s}"
+            header.contains("pixel content for images"),
+            "header should explain pixel hashing for images: {header}"
+        );
+        assert!(
+            header.contains("raw bytes for other files"),
+            "header should explain raw-byte hashing for non-images: {header}"
         );
         let body_lines: Vec<&str> = s.lines().filter(|l| !l.starts_with('#')).collect();
         assert_eq!(
             body_lines,
             ["aaa.jpg\t0123456789abcdef", "zzz.png\tdeadbeefdeadbeef"]
+        );
+    }
+
+    #[test]
+    fn hash_file_classifies_unsupported_and_real_errors() {
+        use super::logic::hash_file;
+        // Missing file → real error, not "unsupported".
+        let f = hash_file(std::path::Path::new(
+            "/tmp/__definitely_does_not_exist__.png",
+        ))
+        .unwrap_err();
+        assert!(!f.unsupported, "missing file should be a real error");
+
+        // Non-image extension reads raw bytes, missing file is still an error.
+        let f = hash_file(std::path::Path::new(
+            "/tmp/__definitely_does_not_exist__.ba",
+        ))
+        .unwrap_err();
+        assert!(
+            !f.unsupported,
+            "missing raw-byte file should be a real error"
         );
     }
 }
