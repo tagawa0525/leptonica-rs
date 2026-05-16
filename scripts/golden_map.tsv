@@ -11,7 +11,7 @@
 # C: test8.jpg → pixSobelEdgeFilter → pixThresholdToBinary(60) → pixInvert
 # Rust: test8.jpg → sobel_edge → threshold_to_binary(60) → invert
 # Note: entries 0-2 are 1bpp
-# KNOWN: JPEG codec diff via test8.jpg decode. 1bpp diffs are 4-11 px / max 1
+# KNOWN (仮説): JPEG codec diff via test8.jpg decode. 1bpp diffs are 4-11 px / max 1
 # (threshold-60 boundary flip); 8bpp diff is 25912 px / max 23. Sobel kernel
 # definitions verified bit-for-bit against pixSobelEdgeFilter. See
 # docs/porting/c-compat-findings/001-jpeg-codec-diffs.md.
@@ -23,8 +23,8 @@ edge	edge	3	edge	4	8bpp max(H,V) inverted
 # === convolve_reg ===
 # C: test8.jpg → pixBlockconvGray(pixacc, 3, 5)
 # Rust: test8.jpg → blockconv_gray(3, 5)
-# KNOWN: JPEG codec diff. 14429 px / max 5 (decode-diff propagation through a
-# linear filter). See docs/porting/c-compat-findings/001-jpeg-codec-diffs.md.
+# KNOWN (仮説): JPEG codec diff. 14429 px / max 5 (decode-diff propagation
+# through a linear filter). See docs/porting/c-compat-findings/001-jpeg-codec-diffs.md.
 convolve	convolve	0	convolve_blockconv_gray	1	blockconv gray (wc=3 hc=5)
 
 # === compfilter_reg ===
