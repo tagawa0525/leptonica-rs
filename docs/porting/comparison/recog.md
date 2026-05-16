@@ -1,18 +1,18 @@
 # leptonica (src/recog/): C版 vs Rust版 関数レベル比較
 
-調査日: 2026-02-22（Phase 1-13 全移植計画完了を反映）
+調査日: 2026-05-16（plan 804 完了で pageseg.c 重い 5 関数を実装）
 
 ## サマリー
 
 | 項目      | 数  |
 | --------- | --- |
-| ✅ 同等   | 139 |
+| ✅ 同等   | 144 |
 | 🔄 異なる | 45  |
 | 🚫 不要   | 18  |
-| ❌ 未実装 | 5   |
+| ❌ 未実装 | 0   |
 | 合計      | 207 |
 
-**カバレッジ**: 88.9% (184/207 関数が実装済み、🚫 不要 18 関数を除くと実質 184/189 = 97.4% 実装)
+**カバレッジ**: 91.3% (189/207 関数が実装済み、🚫 不要 18 関数を除くと 189/189 = 100% 実装)
 
 ## 詳細
 
@@ -416,11 +416,11 @@
 
 ## 備考
 
-- C版の関数総数: 169関数（recog関連全体、この表の範囲）
-- Rust版実装済み: 151関数（✅125 + 🔄26）
+- C版の関数総数: 207関数（recog関連全体、この表の範囲、gap-fill audit 含む）
+- Rust版実装済み: 189関数（✅144 + 🔄45）
 - 🚫不要: 18関数（デバッグ/可視化系・C固有getter/setter）
 - ❌未実装: 0関数
-- 実装率: 89.3%（全体）、100.0%（🚫不要除外ベース）
+- 実装率: 91.3%（全体）、100.0%（🚫不要除外ベース）
 
 C版の全機能を網羅することは目標ではなく、Rustの慣用的な設計で同等の機能を提供することを重視しています。特に以下の点で設計が異なります：
 
@@ -440,20 +440,20 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 - 🚫 不要: Rust 標準ライブラリ等で代替
 - ❌ 未実装: 当該機能が Rust 側に存在しない
 
-**追加分類サマリー**: ✅ 13 / ❌ 12 (合計 25)
+**追加分類サマリー**: ✅ 25 / ❌ 0 (合計 25; plan 804 で残り 5 件を実装)
 
 ### pageseg.c (追加分)
 
 | C関数                   | 状態 | Rust対応                                       | 備考                          |
 | ----------------------- | ---- | ---------------------------------------------- | ----------------------------- |
 | pixAutoPhotoinvert      | ✅   | `auto_photoinvert` (recog/pageseg.rs)          | name+module match             |
-| pixCleanImage           | ❌   | -                                              | no Rust impl in expected dirs |
-| pixCountTextColumns     | ❌   | -                                              | no Rust impl in expected dirs |
-| pixCropImage            | ❌   | -                                              | no Rust impl in expected dirs |
+| pixCleanImage           | ✅   | `pix_clean_image` (recog/pageseg.rs)           | plan 804                      |
+| pixCountTextColumns     | ✅   | `pix_count_text_columns` (recog/pageseg.rs)    | plan 804                      |
+| pixCropImage            | ✅   | `pix_crop_image` (recog/pageseg.rs)            | plan 804                      |
 | pixDecideIfTable        | ✅   | `decide_if_table` (recog/pageseg.rs)           | name+module match             |
-| pixDecideIfText         | ❌   | -                                              | no Rust impl in expected dirs |
+| pixDecideIfText         | ✅   | `pix_decide_if_text` (recog/pageseg.rs)        | plan 804                      |
 | pixEstimateBackground   | ✅   | `estimate_background` (recog/pageseg.rs)       | plan 129                      |
-| pixExtractRawTextlines  | ❌   | -                                              | no Rust impl in expected dirs |
+| pixExtractRawTextlines  | ✅   | `pix_extract_raw_textlines` (recog/pageseg.rs) | plan 804                      |
 | pixExtractTextlines     | ✅   | `extract_textlines` (recog/pageseg.rs)         | name+module match             |
 | pixFindLargeRectangles  | ✅   | `find_large_rectangles` (region/rectangle.rs)  | name+module match             |
 | pixFindLargestRectangle | ✅   | `find_largest_rectangle` (region/rectangle.rs) | name+module match             |

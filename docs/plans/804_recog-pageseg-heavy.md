@@ -1,7 +1,8 @@
 # Recog: pageseg.c の重い高レベル 5 関数 (plan 032 カテゴリ C 残り)
 
-Status: PLANNED
+Status: IMPLEMENTED
 作成日: 2026-05-16
+完了日: 2026-05-16
 親計画: docs/plans/032_gap-fill-roadmap-v2.md カテゴリ C
 関連計画: docs/plans/803_recog-pageseg-helpers.md (補助 4 関数)
 
@@ -123,10 +124,17 @@ C には以下の static 関数があるが、Rust 版でも `pageseg.rs` 内の
 
 ## ステータス
 
-- [ ] plan コミット
-- [ ] `pix_clean_image` 実装 + テスト
-- [ ] `pix_count_text_columns` 実装 + テスト
-- [ ] `pix_decide_if_text` 実装 + テスト
-- [ ] `pix_extract_raw_textlines` 実装 + テスト
-- [ ] `pix_crop_image` 実装 + テスト
-- [ ] `docs/porting/comparison/recog.md` 更新 (5 件 ❌ → ✅)
+- [x] plan コミット
+- [x] `pix_clean_image` 実装 + テスト
+- [x] `pix_count_text_columns` 実装 + テスト
+- [x] `pix_decide_if_text` 実装 + テスト
+- [x] `pix_extract_raw_textlines` 実装 + テスト
+- [x] `pix_crop_image` 実装 + テスト
+- [x] `docs/porting/comparison/recog.md` 更新 (5 件 ❌ → ✅)
+
+## 副次修正
+
+- `Boxaa::align_box`: 空ボックス配列のとき `max_ovlp = i32::MIN`
+  との加算でオーバーフローしていたため `saturating_add` に変更。
+- `RecogError` に `Filter(FilterError)` バリアントを追加し、
+  `background_norm_to_1_min_max` の `?` 変換を有効化。
