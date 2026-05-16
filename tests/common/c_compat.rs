@@ -21,7 +21,15 @@ pub enum CCompatMode {
 
 impl CCompatMode {
     pub fn from_env() -> Self {
-        unimplemented!("CCompatMode::from_env")
+        match std::env::var("REGTEST_C_COMPAT")
+            .unwrap_or_default()
+            .to_lowercase()
+            .as_str()
+        {
+            "0" | "off" | "no" | "false" => Self::Off,
+            "strict" | "fail" => Self::Strict,
+            _ => Self::Report,
+        }
     }
 }
 
@@ -47,43 +55,156 @@ pub type GoldenMap = HashMap<(String, usize), CKey>;
 pub type ManifestMap = HashMap<String, u64>;
 
 /// Parse a manifest key like `"edge.04.jpg"` into `(prefix, index, ext)`.
-/// Returns `None` for non-conforming inputs.
-pub fn parse_manifest_key(_key: &str) -> Option<(String, usize, String)> {
-    unimplemented!("parse_manifest_key")
+/// The prefix may itself contain dots (`"rotate1_amcorner.02.tif"` → prefix
+/// `"rotate1_amcorner"`); the index/ext are the last two dot-separated segments.
+/// Returns `None` for non-conforming inputs (no two dots, non-numeric index).
+pub fn parse_manifest_key(key: &str) -> Option<(String, usize, String)> {
+    let last_dot = key.rfind('.')?;
+    let ext = &key[last_dot + 1..];
+    let before_ext = &key[..last_dot];
+    let prev_dot = before_ext.rfind('.')?;
+    let index_str = &before_ext[prev_dot + 1..];
+    let prefix = &before_ext[..prev_dot];
+    if prefix.is_empty() || ext.is_empty() {
+        return None;
+    }
+    let index: usize = index_str.parse().ok()?;
+    Some((prefix.to_string(), index, ext.to_string()))
 }
 
 /// Parse the TSV content of `scripts/golden_map.tsv` into a
 /// `(rust_prefix, rust_index) → CKey { c_prefix, c_index }` map.
-pub fn parse_golden_map(_content: &str) -> GoldenMap {
-    unimplemented!("parse_golden_map")
+///
+/// Lines starting with `#` or empty lines are skipped. Lines with fewer than
+/// 5 fields, or with non-numeric indices, are silently ignored.
+pub fn parse_golden_map(content: &str) -> GoldenMap {
+    let mut map = GoldenMap::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let fields: Vec<&str> = line.split('\t').collect();
+        if fields.len() < 5 {
+            continue;
+        }
+        // fields: module, c_prefix, c_index, rust_prefix, rust_index, [description]
+        let c_prefix = fields[1].trim();
+        let Ok(c_index) = fields[2].trim().parse::<usize>() else {
+            continue;
+        };
+        let rust_prefix = fields[3].trim();
+        let Ok(rust_index) = fields[4].trim().parse::<usize>() else {
+            continue;
+        };
+        map.insert(
+            (rust_prefix.to_string(), rust_index),
+            CKey {
+                prefix: c_prefix.to_string(),
+                index: c_index,
+            },
+        );
+    }
+    map
 }
 
 /// Parse the TSV content of `tests/golden_manifest_c.tsv` into a
-/// `filename → hash` map.
-pub fn parse_c_manifest(_content: &str) -> ManifestMap {
-    unimplemented!("parse_c_manifest")
+/// `filename → hash` map. Header (`#`) and malformed lines are skipped.
+pub fn parse_c_manifest(content: &str) -> ManifestMap {
+    let mut map = ManifestMap::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((name, hash_str)) = line.split_once('\t') else {
+            continue;
+        };
+        let Ok(hash) = u64::from_str_radix(hash_str.trim(), 16) else {
+            continue;
+        };
+        map.insert(name.to_string(), hash);
+    }
+    map
 }
+
+/// Extensions tried when resolving a C key to a manifest entry. The C version
+/// writes the same operation to different formats depending on bit-depth, so
+/// `lookup_c_hash_in` searches a fixed list of candidate extensions and returns
+/// the first hit. PDF / PS / data-stream files are included because some C
+/// regression outputs are raw byte streams (`.ba`, `.na`, `.pdf`).
+const CANDIDATE_C_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp", "jp2", "j2k", "spix", "pnm", "pbm",
+    "pgm", "ppm", "pam", "pdf", "ps", "ba", "na", "pta",
+];
 
 /// Look up the C-side hash that should correspond to the given Rust key.
 /// Returns the matched C filename and its hash, or `None` if either the
 /// golden_map mapping or the C manifest entry is absent.
 pub fn lookup_c_hash_in(
-    _rust_key: &str,
-    _golden_map: &GoldenMap,
-    _c_manifest: &ManifestMap,
+    rust_key: &str,
+    golden_map: &GoldenMap,
+    c_manifest: &ManifestMap,
 ) -> Option<(String, u64)> {
-    unimplemented!("lookup_c_hash_in")
+    let (rust_prefix, rust_index, _rust_ext) = parse_manifest_key(rust_key)?;
+    let c_key = golden_map.get(&(rust_prefix, rust_index))?;
+    for ext in CANDIDATE_C_EXTENSIONS {
+        let candidate = format!("{}.{:02}.{}", c_key.prefix, c_key.index, ext);
+        if let Some(&hash) = c_manifest.get(&candidate) {
+            return Some((candidate, hash));
+        }
+    }
+    None
 }
 
 /// Classify a Rust key against the C baseline. Returns the status plus a
 /// human-readable detail line suitable for the report file.
 pub fn check_c_hash_against(
-    _rust_key: &str,
-    _rust_hash: u64,
-    _golden_map: &GoldenMap,
-    _c_manifest: &ManifestMap,
+    rust_key: &str,
+    rust_hash: u64,
+    golden_map: &GoldenMap,
+    c_manifest: &ManifestMap,
 ) -> (CCompatStatus, String) {
-    unimplemented!("check_c_hash_against")
+    let Some((rust_prefix, rust_index, _ext)) = parse_manifest_key(rust_key) else {
+        return (
+            CCompatStatus::Unmapped,
+            format!("could not parse key '{rust_key}'"),
+        );
+    };
+    let Some(c_key) = golden_map.get(&(rust_prefix, rust_index)) else {
+        return (
+            CCompatStatus::Unmapped,
+            "no golden_map.tsv entry".to_string(),
+        );
+    };
+    let mut found: Option<(String, u64)> = None;
+    for ext in CANDIDATE_C_EXTENSIONS {
+        let candidate = format!("{}.{:02}.{}", c_key.prefix, c_key.index, ext);
+        if let Some(&h) = c_manifest.get(&candidate) {
+            found = Some((candidate, h));
+            break;
+        }
+    }
+    let Some((c_name, c_hash)) = found else {
+        return (
+            CCompatStatus::MissingC,
+            format!(
+                "golden_map → {}/{:02} but no C manifest entry",
+                c_key.prefix, c_key.index
+            ),
+        );
+    };
+    if c_hash == rust_hash {
+        (
+            CCompatStatus::Ok,
+            format!("matches {c_name} = {c_hash:016x}"),
+        )
+    } else {
+        (
+            CCompatStatus::Mismatch,
+            format!("rust={rust_hash:016x}, c[{c_name}]={c_hash:016x}"),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -91,7 +212,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn parse_key_accepts_two_digit_index_and_extension() {
         let (p, i, e) = parse_manifest_key("edge.04.jpg").unwrap();
         assert_eq!(p, "edge");
@@ -100,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn parse_key_accepts_prefix_with_dot() {
         // Some Rust manifest keys contain extra dots in the prefix (e.g. "1bpp-bw1.png" — no idx).
         // Confirm normal three-segment keys still parse with multi-segment prefixes.
@@ -111,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn parse_key_rejects_missing_index_or_ext() {
         assert!(parse_manifest_key("edge").is_none());
         assert!(parse_manifest_key("edge.png").is_none());
@@ -119,7 +240,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn parse_golden_map_extracts_rust_to_c_mapping() {
         let content = "\
 # comment
@@ -143,7 +264,7 @@ convolve\tconvolve\t0\tconvolve_blockconv_gray\t1\tdesc";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn parse_golden_map_ignores_comments_blanks_and_malformed_lines() {
         let content = "\
 # header
@@ -157,7 +278,7 @@ edge\tedge\tNaN\tedge\t9\tinvalid_index";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn parse_c_manifest_extracts_filename_to_hash() {
         let content = "\
 # header
@@ -172,7 +293,7 @@ ok.01.png\tdeadbeefdeadbeef";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn lookup_resolves_through_golden_map_and_tries_multiple_extensions() {
         let mut gmap: GoldenMap = HashMap::new();
         gmap.insert(
@@ -191,7 +312,7 @@ ok.01.png\tdeadbeefdeadbeef";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn lookup_returns_none_when_unmapped_or_missing_c_entry() {
         let mut gmap: GoldenMap = HashMap::new();
         gmap.insert(
@@ -210,7 +331,7 @@ ok.01.png\tdeadbeefdeadbeef";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn check_against_classifies_ok_mismatch_unmapped_missing() {
         let mut gmap: GoldenMap = HashMap::new();
         gmap.insert(
@@ -237,7 +358,7 @@ ok.01.png\tdeadbeefdeadbeef";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
+
     fn ccompat_mode_from_env_recognises_off_report_strict() {
         // SAFETY: env mutation is racy across threads; this single test is enough
         // to lock down the parsing logic without exercising globals in parallel.
