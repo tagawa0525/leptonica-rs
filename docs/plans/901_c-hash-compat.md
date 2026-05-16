@@ -147,8 +147,12 @@ Phase 2 のレポートを元に、不一致が出ている Rust テストを 1 
    - C 側にバグがあり、修正版が Rust にのみ反映済みのケース (これは leptonica 上流の issue を確認)
    - golden_map のマッピング誤りに起因する見かけの不一致
 
-3. 各不一致について `docs/porting/c-compat-findings/<NNN-<test>>.md` を作って所見を記録 (任意)
+3. 各不一致について `docs/porting/c-compat-findings/<NNN-<title>>.md` を作って所見を記録 (任意)
 4. Rust 側修正が入った PR ごとに `tests/golden_manifest.tsv` を再生成
+
+#### Findings ログ
+
+- [001-jpeg-codec-diffs.md](../porting/c-compat-findings/001-jpeg-codec-diffs.md): Phase 2 のレポートで観測された 9 件の Mismatch (edge / convolve_blockconv_gray / colormorph) はすべて **JPEG codec 差** と判定。Rust 側修正対象外
 
 ### Phase 3: 1モジュールでの検証ベースライン記録
 
