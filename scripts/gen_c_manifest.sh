@@ -2,8 +2,8 @@
 # Run C-version regression tests in 'generate' mode and update
 # tests/golden_manifest_c.tsv via examples/gen_c_manifest.
 #
-# By default runs all *_reg binaries; pass test names (without _reg suffix)
-# to limit the run, e.g.:
+# By default runs every prog/*_reg binary except those in SKIP_REGS;
+# pass test names (without _reg suffix) to limit the run, e.g.:
 #
 #     scripts/gen_c_manifest.sh             # run everything
 #     scripts/gen_c_manifest.sh edge io     # run edge_reg and io_reg only
@@ -20,6 +20,27 @@ PROG_DIR="$LEPT_DIR/prog"
 C_OUT_DIR="${LEPT_REGOUT_DIR:-/tmp/lept/regout}"
 MANIFEST_OUT="$ROOT/tests/golden_manifest_c.tsv"
 
+# Regression binaries that should never be invoked with the bare 'generate'
+# argument: either they are wrappers that re-invoke the others, or their
+# argv[1] is interpreted as something other than the regtest mode keyword.
+# Skipping them here keeps `failures` reserved for genuine regressions.
+SKIP_REGS=(
+    alltests_reg     # wrapper: system()s every other *_reg (alltests_reg.c:252)
+    binmorph2_reg    # rejects 'generate' (different CLI surface)
+    dwamorph2_reg    # rejects 'generate'
+    fmorphauto_reg   # treats argv[1] as a file path, not the mode keyword
+    morphseq_reg     # rejects 'generate'
+)
+
+skip_match() {
+    local name="$1"
+    local s
+    for s in "${SKIP_REGS[@]}"; do
+        [[ "$name" == "$s" ]] && return 0
+    done
+    return 1
+}
+
 if [[ ! -d "$BIN_DIR" ]] || ! compgen -G "$BIN_DIR/*_reg" > /dev/null; then
     echo "C leptonica not built at $BIN_DIR." >&2
     echo "Run scripts/build_c_leptonica.sh first." >&2
@@ -31,24 +52,37 @@ if [[ ! -d "$PROG_DIR" ]]; then
     exit 1
 fi
 
-mkdir -p "$C_OUT_DIR"
-
-# Build the binary list. Empty positional args ⇒ run everything.
+# Build the binary list. Empty positional args ⇒ run everything (full run);
+# in that case we wipe the regout dir so the manifest reflects only outputs
+# from this invocation. For a scoped run, keep the directory but warn the
+# operator that pre-existing files will leak into the manifest.
 binaries=()
 if [[ "$#" -eq 0 ]]; then
+    echo "==> cleaning $C_OUT_DIR (full run)"
+    rm -rf "$C_OUT_DIR"
+    mkdir -p "$C_OUT_DIR"
     while IFS= read -r -d '' bin; do
-        # alltests_reg は他の *_reg を system() で呼ぶラッパー (alltests_reg.c:252)。
-        # 個別 _reg を全部走らせれば内容を網羅でき、二重実行を避けるためここで除外。
-        if [[ "$(basename "$bin")" == "alltests_reg" ]]; then
+        if skip_match "$(basename "$bin")"; then
             continue
         fi
         binaries+=("$bin")
     done < <(find "$BIN_DIR" -maxdepth 1 -type f -name '*_reg' -print0 | sort -z)
 else
+    mkdir -p "$C_OUT_DIR"
+    if compgen -G "$C_OUT_DIR/*" > /dev/null; then
+        echo "warning: $C_OUT_DIR already contains files." >&2
+        echo "         Outputs from earlier runs will be hashed into the manifest" >&2
+        echo "         alongside this scoped run. Run with no args (or rm -rf the" >&2
+        echo "         dir) for a clean baseline." >&2
+    fi
     for name in "$@"; do
         candidate="$BIN_DIR/${name}_reg"
         if [[ ! -x "$candidate" ]]; then
             echo "warning: $candidate not found, skipping" >&2
+            continue
+        fi
+        if skip_match "${name}_reg"; then
+            echo "warning: ${name}_reg is in SKIP_REGS, skipping" >&2
             continue
         fi
         binaries+=("$candidate")
@@ -78,6 +112,16 @@ echo "Ran ${#binaries[@]} regression binaries (failures: ${#failures[@]})"
 for f in "${failures[@]}"; do
     echo "  - $f"
 done
+
+# Refuse to overwrite the manifest if any C binary failed: the resulting
+# /tmp/lept/regout would be missing the corresponding outputs and a stale
+# baseline could be committed silently.
+if [[ "${#failures[@]}" -gt 0 ]]; then
+    echo
+    echo "Aborting: ${#failures[@]} regression binary(ies) failed; manifest not regenerated." >&2
+    echo "         Fix the failure or extend SKIP_REGS if 'generate' is unsupported." >&2
+    exit 1
+fi
 
 cd "$ROOT"
 echo
