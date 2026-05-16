@@ -14,8 +14,9 @@ fn make_blank(w: u32, h: u32, depth: PixelDepth) -> Pix {
     let pix = Pix::new(w, h, depth).unwrap();
     if depth != PixelDepth::Bit1 {
         let mut m = pix.try_into_mut().unwrap();
+        // 32bpp pixels are 0xRRGGBBAA; white is R=G=B=255 with full alpha.
         let bg = if depth == PixelDepth::Bit32 {
-            0x00ffffff
+            0xffffffffu32
         } else {
             255
         };
