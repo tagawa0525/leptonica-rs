@@ -123,6 +123,71 @@ if [[ "${#failures[@]}" -gt 0 ]]; then
     exit 1
 fi
 
+# Phase 1.5: run scripts/verify_*.c programs to obtain C outputs for the
+# assertion-only regressions (binmorph1/3, fhmtauto, graymorph2) that
+# prog/*_reg never emits. Only happens on a full run (no positional args)
+# because scoped runs by definition target a subset of prog/*_reg.
+VERIFY_BIN_DIR="/tmp/lept_verify"
+VERIFY_MAP="$ROOT/scripts/c_verify_outputs.tsv"
+
+if [[ "$#" -eq 0 ]]; then
+    echo
+    echo "==> building verify_*.c (idempotent)"
+    bash "$ROOT/scripts/build_c_verify.sh"
+
+    echo "==> running verify_*.c programs (cwd: $PROG_DIR)"
+    # Clean any stale /tmp/c_*.tif / .jpg from previous runs so the copy
+    # step below only sees outputs from this invocation.
+    rm -f /tmp/c_binmorph1_*.tif /tmp/c_binmorph3_*.tif \
+          /tmp/c_fhmtauto_*.tif /tmp/c_graymorph2_*.jpg
+    verify_failed=()
+    for prog in verify_binmorph verify_fhmtauto verify_graymorph2; do
+        bin="$VERIFY_BIN_DIR/$prog"
+        if [[ ! -x "$bin" ]]; then
+            verify_failed+=("$prog (not built)")
+            continue
+        fi
+        if ! "$bin" > /tmp/lept_run.log 2>&1; then
+            echo "    FAILED ($prog) — last 5 lines:"
+            tail -5 /tmp/lept_run.log | sed 's/^/    /'
+            verify_failed+=("$prog")
+        fi
+    done
+
+    if [[ "${#verify_failed[@]}" -gt 0 ]]; then
+        echo
+        echo "Aborting: ${#verify_failed[@]} verify program(s) failed; manifest not regenerated." >&2
+        for f in "${verify_failed[@]}"; do
+            echo "  - $f" >&2
+        done
+        exit 1
+    fi
+
+    echo "==> copying verify outputs to $C_OUT_DIR with golden_map names"
+    verify_copied=0
+    verify_missing=()
+    while IFS=$'\t' read -r src dst; do
+        # Skip comment / blank lines in c_verify_outputs.tsv
+        [[ -z "$src" || "$src" =~ ^# ]] && continue
+        if [[ -f "$src" ]]; then
+            cp "$src" "$C_OUT_DIR/$dst"
+            verify_copied=$((verify_copied + 1))
+        else
+            verify_missing+=("$src → $dst")
+        fi
+    done < "$VERIFY_MAP"
+    echo "    copied $verify_copied verify outputs"
+
+    if [[ "${#verify_missing[@]}" -gt 0 ]]; then
+        echo
+        echo "Aborting: ${#verify_missing[@]} verify output(s) missing from /tmp/." >&2
+        for m in "${verify_missing[@]}"; do
+            echo "  - $m" >&2
+        done
+        exit 1
+    fi
+fi
+
 cd "$ROOT"
 echo
 echo "==> hashing $C_OUT_DIR → $MANIFEST_OUT"
