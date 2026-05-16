@@ -1710,6 +1710,82 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pi
     Ok(Some(pixd))
 }
 
+// ============================================================================
+// plan 804: pageseg.c の重い高レベル関数 (5)
+// ============================================================================
+
+/// Clean an image for printing/OCR: optional rotation, deskew, background
+/// whitening, binarisation, and optional small-noise removal.
+///
+/// C Leptonica equivalent: `pixCleanImage`.
+pub fn pix_clean_image(
+    _pixs: &Pix,
+    _contrast: u32,
+    _rotation: u32,
+    _scale: u32,
+    _opensize: u32,
+) -> RecogResult<Pix> {
+    unimplemented!("pix_clean_image: plan 804 (RED)")
+}
+
+/// Estimate the number of text columns on a page from the column-FG profile.
+///
+/// C Leptonica equivalent: `pixCountTextColumns`.
+pub fn pix_count_text_columns(
+    _pixs: &Pix,
+    _deltafract: f32,
+    _peakfract: f32,
+    _clipfract: f32,
+) -> RecogResult<u32> {
+    unimplemented!("pix_count_text_columns: plan 804 (RED)")
+}
+
+/// Decide whether `pixs` is more likely text or photo.
+///
+/// Returns `Some(true)` for text, `Some(false)` for photo, and `None` when
+/// the input is empty or the decision cannot be made (mirrors C's `-1`
+/// sentinel via the out-parameter `*pistext`).
+///
+/// C Leptonica equivalent: `pixDecideIfText`.
+pub fn pix_decide_if_text(
+    _pixs: &Pix,
+    _box_: Option<&crate::core::Box>,
+) -> RecogResult<Option<bool>> {
+    unimplemented!("pix_decide_if_text: plan 804 (RED)")
+}
+
+/// Extract raw text lines from `pixs` as a `Pixa` of sub-images.
+///
+/// C Leptonica equivalent: `pixExtractRawTextlines`.
+pub fn pix_extract_raw_textlines(
+    _pixs: &Pix,
+    _maxw: i32,
+    _maxh: i32,
+    _adjw: i32,
+    _adjh: i32,
+) -> RecogResult<crate::core::Pixa> {
+    unimplemented!("pix_extract_raw_textlines: plan 804 (RED)")
+}
+
+/// Crop the foreground of a page and rescale it for printing.
+///
+/// Returns `(cropped_image, crop_box_at_input_resolution)`.
+///
+/// C Leptonica equivalent: `pixCropImage`.
+#[allow(clippy::too_many_arguments)]
+pub fn pix_crop_image(
+    _pixs: &Pix,
+    _lr_clear: i32,
+    _tb_clear: i32,
+    _edgeclean: i32,
+    _lr_border: i32,
+    _tb_border: i32,
+    _maxwiden: f32,
+    _printwiden: u32,
+) -> RecogResult<(Pix, crate::core::Box)> {
+    unimplemented!("pix_crop_image: plan 804 (RED)")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

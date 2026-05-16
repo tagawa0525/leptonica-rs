@@ -18,6 +18,7 @@ mod jbclass_reg;
 mod lineremoval_reg;
 mod nearline_reg;
 mod newspaper_reg;
+mod pageseg_heavy_reg;
 mod pageseg_helpers_reg;
 mod pageseg_reg;
 mod partition_reg;
