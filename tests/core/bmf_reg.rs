@@ -454,7 +454,6 @@ fn unique_tmp_dir(tag: &str) -> std::path::PathBuf {
 }
 
 #[test]
-#[ignore = "plan 810: not yet implemented"]
 fn pixa_save_font_writes_pa_file() {
     let dir = unique_tmp_dir("write");
     bmf::pixa_save_font(&dir, 10).unwrap();
@@ -466,7 +465,6 @@ fn pixa_save_font_writes_pa_file() {
 }
 
 #[test]
-#[ignore = "plan 810: not yet implemented"]
 fn pixa_save_font_rejects_odd_size() {
     let dir = unique_tmp_dir("odd");
     assert!(bmf::pixa_save_font(&dir, 7).is_err());
@@ -474,7 +472,6 @@ fn pixa_save_font_rejects_odd_size() {
 }
 
 #[test]
-#[ignore = "plan 810: not yet implemented"]
 fn pixa_save_font_rejects_out_of_range() {
     let dir = unique_tmp_dir("range");
     assert!(bmf::pixa_save_font(&dir, 2).is_err());

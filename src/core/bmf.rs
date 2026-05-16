@@ -1001,6 +1001,13 @@ pub fn bmf_get_line_strings(text: &str, max_w: u32, first_indent: u32, bmf: &Bmf
 /// # See also
 ///
 /// C Leptonica: `pixaSaveFont()` in `bmf.c`.
-pub fn pixa_save_font(_outdir: impl AsRef<std::path::Path>, _fontsize: u32) -> Result<()> {
-    unimplemented!("pixa_save_font: plan 810 (RED)")
+pub fn pixa_save_font(outdir: impl AsRef<std::path::Path>, fontsize: u32) -> Result<()> {
+    if !(4..=20).contains(&fontsize) || fontsize % 2 != 0 {
+        return Err(Error::InvalidParameter(format!(
+            "fontsize must be even and in 4..=20, got {fontsize}"
+        )));
+    }
+    let bmf = Bmf::new(fontsize)?;
+    let path = outdir.as_ref().join(format!("chars-{fontsize}.pa"));
+    bmf.get_font_pixa().write_to_file(&path)
 }
