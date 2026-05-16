@@ -478,3 +478,25 @@ fn pixa_save_font_rejects_out_of_range() {
     assert!(bmf::pixa_save_font(&dir, 22).is_err());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn pixa_save_font_rejects_unsupported_even_size() {
+    // 18 is even and in 4..=20, but Bmf::new has no compiled glyphs for it
+    // and would clamp to 16. The wrapper rejects it explicitly to avoid a
+    // misleading `chars-18.pa` containing 16pt glyphs.
+    let dir = unique_tmp_dir("unsupported18");
+    assert!(bmf::pixa_save_font(&dir, 18).is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn pixa_save_font_errs_when_outdir_missing() {
+    let missing = std::env::temp_dir().join(format!(
+        "leptonica_pixa_save_font_missing_{}/does_not_exist",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    assert!(bmf::pixa_save_font(&missing, 10).is_err());
+}
