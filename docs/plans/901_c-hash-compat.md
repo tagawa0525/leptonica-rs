@@ -84,7 +84,7 @@ adaptmap_bg_color.04.jpg <C版 PIX を pixel_content_hash() に通した値>
 ...
 ```
 
-エントリ名は Rust manifest と同一キー (`<test_name>.<index>.<ext>`)。インデックスがズレるテストは初期段階では C 側を欠落として扱い、報告のみ行う。
+エントリ名は **C 出力のファイル名そのまま** (`edge.00.png` のように 0-indexed)。Rust manifest は 1-indexed (`edge.04.jpg`) で番号がズレるため、Phase 2 のランタイム比較では `scripts/golden_map.tsv` を介して C↔Rust のキー対応を解決する。マッピングが未登録のテストは「未カバー」として report-only に出す。
 
 ### params.rs の拡張
 
