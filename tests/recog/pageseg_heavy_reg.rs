@@ -195,7 +195,6 @@ fn count_text_columns_two_column_layout() {
 // -- pix_decide_if_text ----------------------------------------------------
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn decide_if_text_empty_returns_none() {
     let pix = make_blank(400, 400, PixelDepth::Bit1);
     let res = pix_decide_if_text(&pix, None).unwrap();
@@ -203,7 +202,6 @@ fn decide_if_text_empty_returns_none() {
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn decide_if_text_rejects_invalid_box() {
     use leptonica::core::Box as LeptBox;
     let pix = make_blank(400, 400, PixelDepth::Bit1);
@@ -217,7 +215,6 @@ fn decide_if_text_rejects_invalid_box() {
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn decide_if_text_photo_returns_some_false() {
     // Single huge fg blob (no horizontal text-line structure) → photo.
     let pix = Pix::new(500, 500, PixelDepth::Bit1).unwrap();

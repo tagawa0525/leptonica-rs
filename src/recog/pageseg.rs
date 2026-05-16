@@ -1917,10 +1917,83 @@ pub fn pix_count_text_columns(
 ///
 /// C Leptonica equivalent: `pixDecideIfText`.
 pub fn pix_decide_if_text(
-    _pixs: &Pix,
-    _box_: Option<&crate::core::Box>,
+    pixs: &Pix,
+    box_: Option<&crate::core::Box>,
 ) -> RecogResult<Option<bool>> {
-    unimplemented!("pix_decide_if_text: plan 804 (RED)")
+    use crate::morph::sequence::morph_comp_sequence;
+    use crate::morph::{Sel, SelElement, hit_miss_transform};
+    use crate::region::seedfill::seedfill_binary_restricted;
+    use crate::region::{ConnectivityType, conncomp_pixa};
+
+    // Crop and convert to 1 bpp at ~300 ppi.
+    let pix1 = prepare_1bpp(pixs, box_)?;
+    if pix1.is_zero() {
+        return Ok(None);
+    }
+    let w = pix1.width() as i32;
+
+    // Build a vertical-line hit-miss SEL (81 px tall, 11 wide; column 5 is
+    // the hit column; misses at columns 0 and 10 at three vertical
+    // positions). Removes thin vertical lines as found in tables.
+    let sel_template = Pix::new(11, 81, PixelDepth::Bit1)?;
+    let mut t = sel_template.try_into_mut().unwrap();
+    for y in 0..81 {
+        t.set_pixel(5, y, 1)?;
+    }
+    let template: Pix = t.into();
+    // Rust API: from_pix(pix, cx, cy) — origin at (5, 40) in (w=11, h=81).
+    let mut sel1 = Sel::from_pix(&template, 5, 40)?;
+    // set_element(x, y, elem) — pair of misses on either side of the hit
+    // column at rows 20, 40, 60.
+    for &y in &[20u32, 40, 60] {
+        sel1.set_element(0, y, SelElement::Miss);
+        sel1.set_element(10, y, SelElement::Miss);
+    }
+
+    let pix3 = hit_miss_transform(&pix1, &sel1)?;
+    let pix4 = seedfill_binary_restricted(&pix3, &pix1, ConnectivityType::EightWay, 5, 1000)?;
+    let pix5 = pix1.xor(&pix4)?;
+
+    // Merge cleaned residual into long horizontal components.
+    let pix6 = morph_comp_sequence(&pix5, "c30.1 + o15.1 + c60.1 + o2.2")?;
+
+    // Region height for minlines: full height with explicit box, otherwise
+    // textline-band extent on pix6.
+    let h = if box_.is_some() {
+        pix6.height() as i32
+    } else {
+        let (_top, bot) = pix_find_thresh_fg_extent(&pix6, 400)?;
+        bot as i32
+    };
+
+    let (boxa1, _) = conncomp_pixa(&pix6, ConnectivityType::EightWay)?;
+    if boxa1.is_empty() {
+        return Ok(Some(false));
+    }
+
+    // Width of the 2nd-widest component (mirror C: boxaSort by width, idx 1).
+    let mut widths: Vec<i32> = boxa1.iter().map(|b| b.w).collect();
+    widths.sort_unstable_by(|a, b| b.cmp(a));
+    let maxw = if widths.len() >= 2 {
+        widths[1]
+    } else {
+        widths[0]
+    };
+
+    let min_w = ((0.4 * maxw as f32) as i32).max(1);
+    let n_long = boxa1.iter().filter(|b| b.w >= min_w).count() as i32;
+    let n_thin = boxa1.iter().filter(|b| b.w >= min_w && b.h <= 60).count() as i32;
+    let big_comp = boxa1.iter().any(|b| b.w > 400 && b.h > 175);
+
+    let ratio1 = maxw as f32 / w as f32;
+    let ratio2 = if n_long > 0 {
+        n_thin as f32 / n_long as f32
+    } else {
+        0.0
+    };
+    let minlines = 2i32.max(h / 125);
+    let is_text = !(big_comp || ratio1 < 0.6 || ratio2 < 0.8 || n_thin < minlines);
+    Ok(Some(is_text))
 }
 
 /// Extract raw text lines from `pixs` as a `Pixa` of sub-images.
