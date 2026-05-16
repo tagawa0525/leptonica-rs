@@ -339,23 +339,42 @@ impl RegParams {
                 eprintln!("Generated: {} (hash: {:016x})", manifest_key, hash);
             }
             RegTestMode::Compare => {
-                let map = manifest().lock().unwrap();
-                match map.get(&manifest_key) {
-                    Some(&expected) if expected == hash => {}
-                    Some(&expected) => {
-                        let msg = format!(
-                            "Failure in {}_reg, index {}: hash mismatch for {}\n\
-                             \x20 expected: {:016x}\n\
-                             \x20 actual:   {:016x}",
-                            self.test_name, self.index, manifest_key, expected, hash
-                        );
-                        eprintln!("{}", msg);
-                        self.failures.push(msg);
-                        self.success = false;
+                {
+                    let map = manifest().lock().unwrap();
+                    match map.get(&manifest_key) {
+                        Some(&expected) if expected == hash => {}
+                        Some(&expected) => {
+                            let msg = format!(
+                                "Failure in {}_reg, index {}: hash mismatch for {}\n\
+                                 \x20 expected: {:016x}\n\
+                                 \x20 actual:   {:016x}",
+                                self.test_name, self.index, manifest_key, expected, hash
+                            );
+                            eprintln!("{}", msg);
+                            self.failures.push(msg);
+                            self.success = false;
+                        }
+                        None => {
+                            eprintln!("Warning: no manifest entry for {manifest_key}, skipping");
+                        }
                     }
-                    None => {
-                        eprintln!("Warning: no manifest entry for {manifest_key}, skipping");
-                    }
+                }
+
+                // C-version compatibility check (plan 901 Phase 2). Reports to
+                // tests/c_compat_report.txt and only fails the test when
+                // REGTEST_C_COMPAT=strict.
+                let c_status = super::c_compat::check_c_hash(&self.test_name, &manifest_key, hash);
+                if c_status == super::c_compat::CCompatStatus::Mismatch
+                    && super::c_compat::CCompatMode::from_env()
+                        == super::c_compat::CCompatMode::Strict
+                {
+                    let msg = format!(
+                        "Failure in {}_reg, index {}: C-compat mismatch for {} (REGTEST_C_COMPAT=strict)",
+                        self.test_name, self.index, manifest_key
+                    );
+                    eprintln!("{}", msg);
+                    self.failures.push(msg);
+                    self.success = false;
                 }
             }
             RegTestMode::Display => {}
