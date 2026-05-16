@@ -123,6 +123,25 @@ fn c_manifest() -> &'static HashMap<String, u64> { /* OnceLock */ }
 
 Phase 1 完了条件: `tests/golden_manifest_c.tsv` が生成でき、`tests/golden_manifest.tsv` と diff を取って大まかな一致状況が分かる
 
+### Phase 1.5: assertion-only テストの C 中間結果取り込み
+
+PR #380 (`c-compat-coverage.md`) で判明した抜け穴。C 版 `prog/*_reg.c` が
+`regTestWritePixAndCheck` を呼ばない assertion-only テスト (binmorph1/3、
+fhmtauto、graymorph2) について、`scripts/verify_*.c` が C 中間結果を
+`/tmp/c_*.{tif,jpg}` に出力する設計があるのに Phase 1 では取り込んでいなかった。
+
+1. `scripts/c_verify_outputs.tsv` (新規): `/tmp/c_*.{tif,jpg}` 27 ファイル →
+   `golden_map.tsv` の合成キー (`binmorph1_verify.NN.tif` 等) の対応表
+2. `scripts/build_c_verify.sh` (新規): `verify_binmorph` / `verify_fhmtauto` /
+   `verify_graymorph2` を libleptonica.a + cmake link line から拾った
+   image libs で直接コンパイル (`nix develop` 不要)
+3. `scripts/gen_c_manifest.sh` を拡張: フルラン時に verify プログラムを実行
+   し、`/tmp/c_*` を `c_verify_outputs.tsv` に従ってリネーム copy → 既存の
+   `examples/gen_c_manifest` で hash 化される
+
+Phase 1.5 完了条件: `cargo test --all-features` 実行後に
+`tests/c_compat_report.*.txt` の `MissingC` が 0 件 (1871 → 1898 entries)
+
 ### Phase 2: テストランタイムでの C 互換チェック (レポート機構)
 
 1. `tests/common/c_compat.rs` を新規追加し、以下を実装:

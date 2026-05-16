@@ -1,0 +1,45 @@
+# Mapping from scripts/verify_*.c output files to golden_map.tsv synthetic keys.
+#
+# Each line: <source_path>\t<manifest_filename>
+# - source_path: file produced by verify_binmorph / verify_fhmtauto / verify_graymorph2
+# - manifest_filename: name used as the key in tests/golden_manifest_c.tsv,
+#   matching the C prefix in scripts/golden_map.tsv (e.g. binmorph1_verify.00.tif)
+#
+# Used by scripts/gen_c_manifest.sh to copy verify outputs into the regout
+# directory under their canonical manifest names before hashing. See
+# docs/porting/c-compat-coverage.md for the Phase 1.5 rationale.
+
+# --- verify_binmorph: binmorph1 group (4 files) ---
+/tmp/c_binmorph1_dilate.tif	binmorph1_verify.00.tif
+/tmp/c_binmorph1_erode.tif	binmorph1_verify.01.tif
+/tmp/c_binmorph1_open.tif	binmorph1_verify.02.tif
+/tmp/c_binmorph1_close.tif	binmorph1_verify.03.tif
+
+# --- verify_binmorph: binmorph3 group (3 files) ---
+/tmp/c_binmorph3_sep.tif	binmorph3_verify.00.tif
+/tmp/c_binmorph3_dir.tif	binmorph3_verify.01.tif
+/tmp/c_binmorph3_h21.tif	binmorph3_verify.02.tif
+
+# --- verify_fhmtauto (8 files) ---
+/tmp/c_fhmtauto_02.tif	fhmtauto_verify.00.tif
+/tmp/c_fhmtauto_04.tif	fhmtauto_verify.01.tif
+/tmp/c_fhmtauto_06.tif	fhmtauto_verify.02.tif
+/tmp/c_fhmtauto_08.tif	fhmtauto_verify.03.tif
+/tmp/c_fhmtauto_10.tif	fhmtauto_verify.04.tif
+/tmp/c_fhmtauto_12.tif	fhmtauto_verify.05.tif
+/tmp/c_fhmtauto_14.tif	fhmtauto_verify.06.tif
+/tmp/c_fhmtauto_id.tif	fhmtauto_verify.07.tif
+
+# --- verify_graymorph2 (12 files) ---
+/tmp/c_graymorph2_dilate_gray_3x1.jpg	graymorph2_verify.00.jpg
+/tmp/c_graymorph2_erode_gray_3x1.jpg	graymorph2_verify.01.jpg
+/tmp/c_graymorph2_dilate_gray_1x3.jpg	graymorph2_verify.02.jpg
+/tmp/c_graymorph2_erode_gray_1x3.jpg	graymorph2_verify.03.jpg
+/tmp/c_graymorph2_dilate_gray_3x3.jpg	graymorph2_verify.04.jpg
+/tmp/c_graymorph2_erode_gray_3x3.jpg	graymorph2_verify.05.jpg
+/tmp/c_graymorph2_open_gray_3x1.jpg	graymorph2_verify.06.jpg
+/tmp/c_graymorph2_close_gray_3x1.jpg	graymorph2_verify.07.jpg
+/tmp/c_graymorph2_open_gray_1x3.jpg	graymorph2_verify.08.jpg
+/tmp/c_graymorph2_close_gray_1x3.jpg	graymorph2_verify.09.jpg
+/tmp/c_graymorph2_open_gray_3x3.jpg	graymorph2_verify.10.jpg
+/tmp/c_graymorph2_close_gray_3x3.jpg	graymorph2_verify.11.jpg
