@@ -1,0 +1,6 @@
+# C-version golden manifest - pixel-content hashes from C leptonica output
+# Format: name<TAB>hash (FNV-1a hex)
+edge.00.png	bd122d333ab37dd9
+edge.01.png	dd6d8f4561ccf5e9
+edge.02.png	b646cc16db80a569
+edge.03.jpg	fcfea0e83ecec76c
