@@ -9,10 +9,8 @@ Status: IMPLEMENTED
 `fpix2.c` の FPix 残課題のうち、係数ベースの affine / projective
 変換を移植する。
 
-- `fpixAffine(fpixs, vc[6], inval)` — 6 係数で逆方向に変換し、
-  各 dst 画素に bilinear interpolation で値を写す
-- `fpixProjective(fpixs, vc[8], inval)` — 8 係数の射影変換
-  (`denom = vc[6]*j + vc[7]*i + 1` で割る)
+- `fpixAffine(fpixs, vc[6], inval)` — 6 係数で逆方向に変換し、各 dst 画素に bilinear interpolation で値を写す
+- `fpixProjective(fpixs, vc[8], inval)` — 8 係数の射影変換 (`denom = vc[6]*j + vc[7]*i + 1` で割る)
 
 Pta-based wrapper (`fpixAffinePta` / `fpixProjectivePta`) は
 `fpix_add_slope_border` 依存のため別 plan で扱う。

@@ -9,12 +9,9 @@ Status: IMPLEMENTED
 `pixafunc2.c` の Pixa 残課題のうち、既存 Pix/Pixa 操作の薄い
 ラッパーで実装可能な 3 関数を移植する。
 
-- `pixaConvertTo8Colormap(pixas, dither) -> Pixa` —
-  各 Pix を 8bpp + colormap に変換、box を引き継ぐ
-- `pixaMakeFromTiledPix(pixs, w, h, start, num, boxa) -> Pixa` —
-  単一 Pix を nx×ny グリッドに分割 (boxa 指定時は box ベース)
-- `pixaMakeFromTiledPixa(pixas, w, h, nsamp) -> Pixa` —
-  Pixa の各 inner Pix をタイル分割し、`Pixa::join` で連結
+- `pixaConvertTo8Colormap(pixas, dither) -> Pixa` — 各 Pix を 8bpp + colormap に変換、box を引き継ぐ
+- `pixaMakeFromTiledPix(pixs, w, h, start, num, boxa) -> Pixa` — 単一 Pix を nx×ny グリッドに分割 (boxa 指定時は box ベース)
+- `pixaMakeFromTiledPixa(pixas, w, h, nsamp) -> Pixa` — Pixa の各 inner Pix をタイル分割し、`Pixa::join` で連結
 
 ## API 設計
 
@@ -71,8 +68,5 @@ impl Pix {
 
 ## 実装メモ
 
-- `Pix::make_tiled_pixa`: C版が `pixaCreateFromBoxa(start, num)` で
-  範囲指定するが、Rust の `create_from_boxa` には start/num が無いため、
-  boxa 指定時は手動で範囲を切り出す形にする
-- `Pixa::make_tiled_pixa`: C版は固定 10 個に対し、Rust では
-  `self.len()` 分回す (より汎用)。nsamp は per-inner 件数の上限
+- `Pix::make_tiled_pixa`: C版が `pixaCreateFromBoxa(start, num)` で範囲指定するが、Rust の `create_from_boxa` には start/num が無いため、boxa 指定時は手動で範囲を切り出す形にする
+- `Pixa::make_tiled_pixa`: C版は固定 10 個に対し、Rust では `self.len()` 分回す (より汎用)。nsamp は per-inner 件数の上限

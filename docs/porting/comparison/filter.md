@@ -252,8 +252,7 @@
 
 filter モジュールの ❌ は 2026-05-13 (plan 128) で完全解消。
 
-- runlength.c: pixStrokeWidthTransform → ✅ `stroke_width_transform`
-  (plan 128)
+- runlength.c: pixStrokeWidthTransform → ✅ `stroke_width_transform` (plan 128)
 
 kernel.c の生成系 5 関数 (makeFlatKernel / makeGaussianKernel /
 makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
@@ -284,11 +283,11 @@ makeGaussianKernelSep / makeDoGKernel / parseStringForNumbers) は plan 501 で
 
 ### runlength.c (追加分)
 
-| C関数                         | 状態 | Rust対応                                                | 備考                          |
-| ----------------------------- | ---- | ------------------------------------------------------- | ----------------------------- |
-| pixFindHorizontalRuns         | ✅   | `find_horizontal_runs` (filter/runlength.rs)            | name+module match             |
-| pixFindMaxHorizontalRunOnLine | ✅   | `find_max_horizontal_run_on_line` (filter/runlength.rs) | name+module match             |
-| pixFindMaxRuns                | ✅   | `find_max_runs` (filter/runlength.rs)                   | name+module match             |
-| pixFindMaxVerticalRunOnLine   | ✅   | `find_max_vertical_run_on_line` (filter/runlength.rs)   | name+module match             |
-| pixFindVerticalRuns           | ✅   | `find_vertical_runs` (filter/runlength.rs)              | name+module match             |
-| pixStrokeWidthTransform       | ✅   | `stroke_width_transform` (filter/runlength.rs)          | plan 128                      |
+| C関数                         | 状態 | Rust対応                                                | 備考              |
+| ----------------------------- | ---- | ------------------------------------------------------- | ----------------- |
+| pixFindHorizontalRuns         | ✅   | `find_horizontal_runs` (filter/runlength.rs)            | name+module match |
+| pixFindMaxHorizontalRunOnLine | ✅   | `find_max_horizontal_run_on_line` (filter/runlength.rs) | name+module match |
+| pixFindMaxRuns                | ✅   | `find_max_runs` (filter/runlength.rs)                   | name+module match |
+| pixFindMaxVerticalRunOnLine   | ✅   | `find_max_vertical_run_on_line` (filter/runlength.rs)   | name+module match |
+| pixFindVerticalRuns           | ✅   | `find_vertical_runs` (filter/runlength.rs)              | name+module match |
+| pixStrokeWidthTransform       | ✅   | `stroke_width_transform` (filter/runlength.rs)          | plan 128          |

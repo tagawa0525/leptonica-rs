@@ -11,12 +11,9 @@ sort/render 系) は plan 108b で扱う。
 
 ### Pixaa flatten / range
 
-- `pixaaFlattenToPixa(paa) -> (Pixa, Option<Numa>)` —
-  全 Pixa を連結した Pixa、optional に index Numa
-- `pixaaSelectRange(paas, first, last) -> Pixaa` —
-  inner Pixa の範囲スライス
-- `pixaaSizeRange(paa) -> (minw, minh, maxw, maxh)` —
-  全 Pix の寸法範囲
+- `pixaaFlattenToPixa(paa) -> (Pixa, Option<Numa>)` — 全 Pixa を連結した Pixa、optional に index Numa
+- `pixaaSelectRange(paas, first, last) -> Pixaa` — inner Pixa の範囲スライス
+- `pixaaSizeRange(paa) -> (minw, minh, maxw, maxh)` — 全 Pix の寸法範囲
 
 ## API 設計
 
@@ -35,8 +32,7 @@ impl Pixaa {
 
 ## 依存
 
-- 既存 `Pixaa::get`, `Pixaa::len`, `Pixaa::with_capacity`,
-  `Pixaa::push`
+- 既存 `Pixaa::get`, `Pixaa::len`, `Pixaa::with_capacity`, `Pixaa::push`
 - 既存 `Pixa::size_range` (plan 108)
 - 既存 `Pixa::pix_slice`, `boxa`, `with_capacity`, `push_with_box`
 - 既存 `Numa::push`
@@ -61,10 +57,6 @@ impl Pixaa {
 
 ## 実装メモ
 
-- `flatten_to_pixa`: 各 inner Pixa を順に走査して deep_clone した
-  Pix を append。with_index=true で inner index を Numa に push
-- `select_range`: `first..=last` 範囲を inner Pixa の clone() で
-  詰める (Pixa clone は Vec<Arc<PixData>> なので shallow だが、
-  C `L_CLONE` 相当の挙動)
-- `size_range`: 各 inner で `Pixa::size_range` (plan 108) を呼び、
-  min/max を集計
+- `flatten_to_pixa`: 各 inner Pixa を順に走査して deep_clone した Pix を append。with_index=true で inner index を Numa に push
+- `select_range`: `first..=last` 範囲を inner Pixa の clone() で 詰める (Pixa clone は Vec<Arc<PixData>> なので shallow だが、C `L_CLONE` 相当の挙動)
+- `size_range`: 各 inner で `Pixa::size_range` (plan 108) を呼び、 min/max を集計

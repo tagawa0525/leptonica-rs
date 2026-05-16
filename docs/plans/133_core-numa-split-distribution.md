@@ -6,9 +6,7 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数 (1)
 
-- `numaSplitDistribution` — Otsu-style 分割。ヒストグラムを下/上の
-  2 区画に分けるベスト分割点と、各区画の平均・件数、optional に
-  per-bin score 配列を返す。
+- `numaSplitDistribution` — Otsu-style 分割。ヒストグラムを下/上の 2 区画に分けるベスト分割点と、各区画の平均・件数、optional に per-bin score 配列を返す。
 
 ## API 設計
 
@@ -32,10 +30,8 @@ impl Numa {
 ```
 
 - Score is normalized by `4 / (n - 1)^2` per C
-- 候補スコアの最大値から (1 - score_fract) の連続範囲内で最小値を持つ
-  bin を選ぶ
-- `split_index = (best_split + 1).min(255)` — `pixThresholdToBinary`
-  と整合させるための C 仕様
+- 候補スコアの最大値から (1 - score_fract) の連続範囲内で最小値を持つ bin を選ぶ
+- `split_index = (best_split + 1).min(255)` — `pixThresholdToBinary` と整合させるための C 仕様
 
 ## 完了条件
 

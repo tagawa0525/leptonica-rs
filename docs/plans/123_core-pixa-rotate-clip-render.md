@@ -9,13 +9,9 @@ Status: IMPLEMENTED
 `pixafunc1.c` の残課題 (plan 108b 10 件) のうち、純粋に既存
 Pix 操作のラッパーとして実装可能な 3 関数を切り出す。
 
-- `pixaRotate(pixas, angle, type, incolor, w, h) -> Pixa` —
-  各 Pix を任意角で回転 (boxa は空のまま; C 版同様)
-- `pixaClipToPix(pixas, pixs) -> Pixa` — 各 box で `pixs` を
-  矩形クリップし、対応する `pixa` の Pix と AND
-- `pixaRenderComponent(pixs, pixa, index) -> Pix` — 1bpp の
-  単一コンポーネントを `pixs` に OR で描画 (`pixs = None`
-  ならボックス extent でゼロ画像を生成)
+- `pixaRotate(pixas, angle, type, incolor, w, h) -> Pixa` — 各 Pix を任意角で回転 (boxa は空のまま; C 版同様)
+- `pixaClipToPix(pixas, pixs) -> Pixa` — 各 box で `pixs` を矩形クリップし、対応する `pixa` の Pix と AND
+- `pixaRenderComponent(pixs, pixa, index) -> Pix` — 1bpp の単一コンポーネントを `pixs` に OR で描画 (`pixs = None` ならボックス extent でゼロ画像を生成)
 
 ## API 設計
 
@@ -73,9 +69,6 @@ impl Pixa {
 
 ## 実装メモ
 
-- `rotate`: `transform::rotate` を順に呼ぶだけ。C 版同様 boxa は
-  空のまま (回転後の box は意味を持たないため)
-- `clip_to_pix`: box が pixa 数より少ない場合は box 数までで終了
-  (C 版は両者一致を前提だがチェックしていない; Rust 側は明示)
-- `render_component`: 1bpp 制約は早期 Err。pixs=None のとき
-  boxa.extent() でゼロ画像生成
+- `rotate`: `transform::rotate` を順に呼ぶだけ。C 版同様 boxa は空のまま (回転後の box は意味を持たないため)
+- `clip_to_pix`: box が pixa 数より少ない場合は box 数までで終了(C 版は両者一致を前提だがチェックしていない; Rust 側は明示)
+- `render_component`: 1bpp 制約は早期 Err。pixs=None のとき boxa.extent() でゼロ画像生成

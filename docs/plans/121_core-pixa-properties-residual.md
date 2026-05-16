@@ -11,12 +11,9 @@ plan 108 (8 関数) の残り 16 件のうち、独立性が高くて
 
 ### Sort / Select
 
-- `pixaMakeSizeIndicator(pixa, width, height, type, relation) -> Numa` —
-  各 Pix の (w, h) と (width, height) を比較し、選別 0/1 indicator Numa を返す
-- `pixaSort2dByIndex(pixas, naa) -> Pixaa` — Numaa の各 Numa を
-  index リストとして Pixa を 2D 構造 (Pixaa) に展開
-- `pixaConstrainedSelect(pixas, first, last, nmax, use_pairs) -> Pixa` —
-  `gen_constrained_numa_in_range` でインデックス選択 → Pixa 構築
+- `pixaMakeSizeIndicator(pixa, width, height, type, relation) -> Numa` — 各 Pix の (w, h) と (width, height) を比較し、選別 0/1 indicator Numa を返す
+- `pixaSort2dByIndex(pixas, naa) -> Pixaa` — Numaa の各 Numa を index リストとして Pixa を 2D 構造 (Pixaa) に展開
+- `pixaConstrainedSelect(pixas, first, last, nmax, use_pairs) -> Pixa` — `gen_constrained_numa_in_range` でインデックス選択 → Pixa 構築
 
 ## API 設計
 
@@ -73,11 +70,7 @@ impl Pixa {
 
 ## 実装メモ
 
-- `SizeIndicatorAxis` enum で C `L_SELECT_WIDTH/HEIGHT/BOTH/EITHER`
-  をモデル化、relation は既存 `ThresholdSelect`
+- `SizeIndicatorAxis` enum で C `L_SELECT_WIDTH/HEIGHT/BOTH/EITHER` をモデル化、relation は既存 `ThresholdSelect`
 - `make_size_indicator`: 1 パススキャンで w/h 個別判定 + axis 合成
-- `sort_2d_by_index`: 総 index 数 == Pixa 長を検証、index は
-  `i64` 経由で範囲外 + 負値の両方を弾く
-- `constrained_select`: `last < 0` を `n - 1` に解釈、
-  `gen_constrained_numa_in_range` でインデックス Numa を生成
-  してから Pix/Box を gather
+- `sort_2d_by_index`: 総 index 数 == Pixa 長を検証、index は `i64` 経由で範囲外 + 負値の両方を弾く
+- `constrained_select`: `last < 0` を `n - 1` に解釈、 `gen_constrained_numa_in_range` でインデックス Numa を生成してから Pix/Box を gather

@@ -6,9 +6,7 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数 (1)
 
-- `compareTilesByHisto(naa1, naa2, minratio, w1, h1, w2, h2, &score, pixadebug)`
-  — 2 Numaa の per-tile 256-bin ヒストグラム間 EMD を計算し、
-  最も低いタイルの類似度スコアを返す
+- `compareTilesByHisto(naa1, naa2, minratio, w1, h1, w2, h2, &score, pixadebug)` — 2 Numaa の per-tile 256-bin ヒストグラム間 EMD を計算し、最も低いタイルの類似度スコアを返す
 
 ## API 設計
 
@@ -22,11 +20,9 @@ pub fn compare_tiles_by_histo(
 ) -> Result<f32>;
 ```
 
-- 寸法比 (`min(w1,w2)/max(w1,w2)` / `min(h1,h2)/max(h1,h2)`) が
-  `minratio` 未満なら 0.0
+- 寸法比 (`min(w1,w2)/max(w1,w2)` / `min(h1,h2)/max(h1,h2)`) が `minratio` 未満なら 0.0
 - Numaa 件数が異なれば 0.0
-- 各 tile: bin 255 (white) を 0 にしてから EMD、
-  `score = max(0, 1 - 10 * dist / 255)`
+- 各 tile: bin 255 (white) を 0 にしてから EMD、 `score = max(0, 1 - 10 * dist / 255)`
 - 戻り値は全 tile の minimum score
 
 ## 依存

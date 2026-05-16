@@ -10,13 +10,9 @@ Status: IMPLEMENTED
 他のロードマップ項目 (compare/photo-histo) で多用される 3 関数を
 切り出して移植する。
 
-- `numaEarthMoverDistance(na1, na2) -> f32` — 同サイズの 2 Numa の
-  1 次元 Earth-Mover Distance を返す
-- `numaDiscretizeSortedInBins(na, nbins) -> Numa` — 既ソートの Numa を
-  nbins 等数バケットで離散化し、各バケットの平均値を返す
-- `numaDiscretizeHistoInBins(na, nbins) -> (Numa, Numa)` —
-  ヒストグラム Numa を rank-bin で離散化、`(bin 平均値, 累積 rank)`
-  を返す
+- `numaEarthMoverDistance(na1, na2) -> f32` — 同サイズの 2 Numa の 1 次元 Earth-Mover Distance を返す
+- `numaDiscretizeSortedInBins(na, nbins) -> Numa` — 既ソートの Numa を nbins 等数バケットで離散化し、各バケットの平均値を返す
+- `numaDiscretizeHistoInBins(na, nbins) -> (Numa, Numa)` — ヒストグラム Numa を rank-bin で離散化、`(bin 平均値, 累積 rank)` を返す
 
 ## API 設計
 
@@ -66,7 +62,5 @@ impl Numa {
 
 ## 実装メモ
 
-- EMD の `na3` は `na2` を `sum1/sum2` でスケールしたコピー。
-  total = Σ|na1[i] - cumulative_na3[i]| / sum1
-- 既ソート/ヒストグラム両方とも `numa_uniform_bin_sizes` で
-  各 bin の要素数を決め、累積平均を計算する
+- EMD の `na3` は `na2` を `sum1/sum2` でスケールしたコピー。 total = Σ|na1[i] - cumulative_na3[i]| / sum1
+- 既ソート/ヒストグラム両方とも `numa_uniform_bin_sizes` で各 bin の要素数を決め、累積平均を計算する

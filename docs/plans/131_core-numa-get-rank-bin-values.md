@@ -6,9 +6,7 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数 (1)
 
-- `numaGetRankBinValues(na, nbins) -> Numa` — 任意 Numa から rank
-  bin 平均値を求める。データ範囲に応じて shell-sort 経路または
-  histogram 経路を選ぶ。
+- `numaGetRankBinValues(na, nbins) -> Numa` — 任意 Numa から rank bin 平均値を求める。データ範囲に応じて shell-sort 経路または histogram 経路を選ぶ。
 
 ## 実装
 
@@ -24,8 +22,7 @@ impl Numa {
 
 - shell-sort 経路: `sort + discretize_sorted_in_bins`
 - histogram 経路: `make_histogram + discretize_histo_in_bins`
-- 経路選択: `choose_sort_type(len, max_val)` の結果が `true` の
-  ときヒストグラム、`false` のときソート
+- 経路選択: `choose_sort_type(len, max_val)` の結果が `true` のときヒストグラム、`false` のときソート
 
 ## 完了条件
 

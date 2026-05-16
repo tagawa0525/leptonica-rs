@@ -6,8 +6,7 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数 (1)
 
-- `ptaaGetBoundaryPixels(pixs, type, connectivity, &boxa, &pixa)` —
-  各 connected component の境界ピクセル座標を Ptaa にして返す
+- `ptaaGetBoundaryPixels(pixs, type, connectivity, &boxa, &pixa)` — 各 connected component の境界ピクセル座標を Ptaa にして返す
 
 ## API 設計
 
@@ -23,8 +22,7 @@ pub fn ptaa_get_boundary_pixels(
 
 - `connectivity`: 4 または 8
 - BG boundary は各 component を 1 ピクセルパディングしてから境界抽出
-- 出力 Ptaa の各 Pta は親画像の座標系 (component box の (x, y)
-  オフセット込み)
+- 出力 Ptaa の各 Pta は親画像の座標系 (component box の (x, y) オフセット込み)
 
 ## 依存
 

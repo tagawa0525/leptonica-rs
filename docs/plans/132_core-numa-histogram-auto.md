@@ -6,9 +6,7 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数 (1)
 
-- `numaMakeHistogramAuto(na, maxbins) -> Numa` — 自動ビン幅で
-  ヒストグラム生成。整数 + 小範囲なら単位幅整数ビン、それ以外は
-  [minval, maxval] を maxbins 等分する float ビン。
+- `numaMakeHistogramAuto(na, maxbins) -> Numa` — 自動ビン幅でヒストグラム生成。整数 + 小範囲なら単位幅整数ビン、それ以外は [minval, maxval] を maxbins 等分する float ビン。
 
 ## 実装
 
@@ -18,10 +16,8 @@ impl Numa {
 }
 ```
 
-- 整数ビン経路: `(maxval - minval) < maxbins` かつ整数のとき、
-  `[imin, imax]` の単位幅ヒストグラム
-- float ビン経路: `binsize = (maxval - minval) / maxbins`、
-  edge case (`v == maxval`) は最後のビンにクランプ
+- 整数ビン経路: `(maxval - minval) < maxbins` かつ整数のとき、 `[imin, imax]` の単位幅ヒストグラム
+- float ビン経路: `binsize = (maxval - minval) / maxbins`、 edge case (`v == maxval`) は最後のビンにクランプ
 - 全 constant 入力 (`range == 0`) は 1 ビン (count = n) を返す
 
 ## 完了条件

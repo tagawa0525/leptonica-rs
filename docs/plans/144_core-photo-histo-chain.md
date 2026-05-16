@@ -8,15 +8,10 @@ Status: IMPLEMENTED
 
 117 の残り 4 関数を一気に移植。**117 完全解消**。
 
-- `pixDecideIfPhotoImage(pix, factor, thresh, n, &naa, pixadebug)` —
-  画像が photo か line-art/text かを histogram variance ratio で判定
-- `pixGenPhotoHistos(pixs, box, factor, thresh, n, &naa, &w, &h, dbg)` —
-  centroid 揃え + light-gray reset + photo 判定
-- `pixComparePhotoRegionsByHisto(pix1, pix2, box1, box2, minratio,
-  factor, n, &score, dbg)` — pix_gen_photo_histos × 2 + compare
-- `pixaComparePhotoRegionsByHisto(pixa, minratio, textthresh, factor, n,
-  simthresh, &nai, &scores, &ppixd, debug)` — Pixa 全要素の pairwise
-  比較とクラスタリング
+- `pixDecideIfPhotoImage(pix, factor, thresh, n, &naa, pixadebug)` — 画像が photo か line-art/text かを histogram variance ratio で判定
+- `pixGenPhotoHistos(pixs, box, factor, thresh, n, &naa, &w, &h, dbg)` — centroid 揃え + light-gray reset + photo 判定
+- `pixComparePhotoRegionsByHisto(pix1, pix2, box1, box2, minratio, factor, n, &score, dbg)` — pix_gen_photo_histos × 2 + compare
+- `pixaComparePhotoRegionsByHisto(pixa, minratio, textthresh, factor, n, simthresh, &nai, &scores, &ppixd, debug)` — Pixa 全要素の pairwise 比較とクラスタリング
 
 ## API 設計
 
@@ -45,24 +40,15 @@ pub fn pixa_compare_photo_regions_by_histo(
 
 ## C 仕様との差分
 
-- `pixDecideIfPhotoImage` は元コードで `pixDecideIfText` を呼ぶが、
-  これは recog の pageseg.c の未実装関数 (`pixDecideIfText`) に依存。
-  本実装ではこのチェックを省略し、純粋に histogram variance ratio
-  のみで photo 判定を行う。テキスト画像を事前に弾きたい呼び出し側は
-  自前で実装する必要がある
+- `pixDecideIfPhotoImage` は元コードで `pixDecideIfText` を呼ぶが、これは recog の pageseg.c の未実装関数 (`pixDecideIfText`) に依存。本実装ではこのチェックを省略し、純粋に histogram variance ratio のみで photo 判定を行う。テキスト画像を事前に弾きたい呼び出し側は自前で実装する必要がある
 - `pixadebug` (gplot/PDF 出力) はすべて省略
-- `pixaComparePhotoRegionsByHisto` の `ppixd` (比較画像の rendered
-  composite) は省略 — クラスタ ID 配列から呼び出し側で構築可能
+- `pixaComparePhotoRegionsByHisto` の `ppixd` (比較画像の rendered composite) は省略 — クラスタ ID 配列から呼び出し側で構築可能
 
 ## 依存
 
-- 既存 `Pixa::split_pix`, `Pix::gray_histogram`, `Pix::convert_to_8`,
-  `Pix::remove_colormap`, `Pix::pad_to_center_centroid`
-- 既存 `Numa::windowed_mean`, `transform`, `set`,
-  `sum_on_interval`, `earth_mover_distance`,
-  `gray_inter_histogram_stats`
-- plan 142 `compare_tiles_by_histo`, plan 143 内部 helper
-  `find_histo_grid_dimensions`
+- 既存 `Pixa::split_pix`, `Pix::gray_histogram`, `Pix::convert_to_8`, `Pix::remove_colormap`, `Pix::pad_to_center_centroid`
+- 既存 `Numa::windowed_mean`, `transform`, `set`, `sum_on_interval`, `earth_mover_distance`, `gray_inter_histogram_stats`
+- plan 142 `compare_tiles_by_histo`, plan 143 内部 helper `find_histo_grid_dimensions`
 
 ## 完了条件
 

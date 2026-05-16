@@ -6,10 +6,8 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数 (1) + 内部 helper 2
 
-- `pixCompareGrayByHisto(pix1, pix2, box1, box2, minratio, maxgray,
-  factor, n)` — 2 枚のグレー画像の類似度を histogram-based に算出
-- 内部: `findHistoGridDimensions` (grid 決定), `pixCompareTilesByHisto`
-  (per-tile histo + EMD)
+- `pixCompareGrayByHisto(pix1, pix2, box1, box2, minratio, maxgray, factor, n)` — 2 枚のグレー画像の類似度を histogram-based に算出
+- 内部: `findHistoGridDimensions` (grid 決定), `pixCompareTilesByHisto` (per-tile histo + EMD)
 
 ## API 設計
 
@@ -27,15 +25,12 @@ pub fn pix_compare_gray_by_histo(
 2. box1/box2 で initial crop (optional)
 3. 8 bpp 変換 + `pix_crop_aligned_to_centroid` で揃え
 4. nx × ny 分割 (`find_histo_grid_dimensions`)
-5. 各 tile で gray_histogram → maxgray より上を 0 → windowed_mean(5)
-   → max を 255 に正規化 → EMD → score = max(0, 1 - 8 * dist / 255)
+5. 各 tile で gray_histogram → maxgray より上を 0 → windowed_mean(5) → max を 255 に正規化 → EMD → score = max(0, 1 - 8 * dist / 255)
 6. 全 tile の minimum を返す
 
 ## 依存
 
-- 既存 `Pixa::split_pix`, `Pix::gray_histogram`, `Numa::windowed_mean`,
-  `Numa::transform`, `Numa::earth_mover_distance`,
-  `pix_crop_aligned_to_centroid`, `Pix::convert_to_8`
+- 既存 `Pixa::split_pix`, `Pix::gray_histogram`, `Numa::windowed_mean`, `Numa::transform`, `Numa::earth_mover_distance`, `pix_crop_aligned_to_centroid`, `Pix::convert_to_8`
 
 ## 完了条件
 

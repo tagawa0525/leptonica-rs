@@ -6,11 +6,8 @@ Status: IMPLEMENTED
 
 ## 対象 C 関数 (2)
 
-- `grayHistogramsToEMD(naa1, naa2, &nad)` — 2 Numaa 内の対応する
-  256-bin ヒストグラム間 EMD を計算、`/255` で [0.0, 1.0] に正規化
-- `grayInterHistogramStats(naa, wc, ...)` — 各 inner histogram を
-  smooth + normalize (sum=10000) し、256 bin 位置ごとに `simple_stats`
-  で aggregate
+- `grayHistogramsToEMD(naa1, naa2, &nad)` — 2 Numaa 内の対応する 256-bin ヒストグラム間 EMD を計算、`/255` で [0.0, 1.0] に正規化
+- `grayInterHistogramStats(naa, wc, ...)` — 各 inner histogram を smooth + normalize (sum=10000) し、256 bin 位置ごとに `simple_stats` で aggregate
 
 ## API 設計
 

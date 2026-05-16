@@ -8,12 +8,8 @@ Status: IMPLEMENTED
 
 109b 最後の 2 関数。これで 109b カテゴリ完全解消。
 
-- `numaEvalHaarSum(nas, width, shift, relweight)` — Haar 風 comb
-  (+1 と -relweight が交互、width 間隔、shift 位相) との畳み込みを
-  `2 * width / n` で正規化して返す
-- `numaEvalBestHaarParameters(nas, relweight, nwidth, nshift,
-  minwidth, maxwidth)` — width/shift を sweep して最大スコアの
-  (width, shift, score) を返す
+- `numaEvalHaarSum(nas, width, shift, relweight)` — Haar 風 comb (+1 と -relweight が交互、width 間隔、shift 位相) との畳み込みを `2 * width / n` で正規化して返す
+- `numaEvalBestHaarParameters(nas, relweight, nwidth, nshift, minwidth, maxwidth)` — width/shift を sweep して最大スコアの(width, shift, score) を返す
 
 ## API 設計
 

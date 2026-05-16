@@ -25,8 +25,7 @@ pub fn pix_component_function(
 - `f_denom = rdenom * r + gdenom * g + bdenom * b`
 - `out     = f_num / f_denom` (general case)
 - 全 denom が 0: `out = f_num` (divide skip)
-- denom のうち 1 つだけ 1.0 (他は 0.0): 256-entry 逆数テーブルで
-  高速化
+- denom のうち 1 つだけ 1.0 (他は 0.0): 256-entry 逆数テーブルで高速化
 - `f_denom == 0` (general case): `out = 256 * f_num` (C と同じ sentinel)
 
 ## 完了条件

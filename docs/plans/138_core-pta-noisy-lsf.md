@@ -8,10 +8,8 @@ Status: IMPLEMENTED
 
 `ptafunc1.c` の robust LSF 系 2 関数。
 
-- `ptaNoisyLinearLSF(pta, factor, ...)` — 1 回目 linear LSF →
-  各点誤差の中央値で外れ値判定 → 残った点で再 LSF
-- `ptaNoisyQuadraticLSF(pta, factor, ...)` — 同じ flow を quadratic
-  fit で実行
+- `ptaNoisyLinearLSF(pta, factor, ...)` — 1 回目 linear LSF → 各点誤差の中央値で外れ値判定 → 残った点で再 LSF
+- `ptaNoisyQuadraticLSF(pta, factor, ...)` — 同じ flow を quadratic fit で実行
 
 ## API 設計
 
@@ -39,8 +37,7 @@ impl Pta {
 
 - `factor > 0.0` 必須 (typical ~3)
 - linear は `n >= 3`、quadratic は `n >= 4` を要求
-- 外れ値判定は `|error| <= factor * median_error` (`<=` で
-  median_error == 0 のとき全点保持)
+- 外れ値判定は `|error| <= factor * median_error` (`<=` で median_error == 0 のとき全点保持)
 
 ## 完了条件
 

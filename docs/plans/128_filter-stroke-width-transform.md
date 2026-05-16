@@ -53,8 +53,7 @@ pub fn stroke_width_transform(
 
 ## テスト方針
 
-- 1bpp の単純な矩形について `stroke_width_transform(pix, 1, Bit8, 2)`
-  → 8bpp 出力でストローク幅が反映される (中心は最大値)
+- 1bpp の単純な矩形について `stroke_width_transform(pix, 1, Bit8, 2)` → 8bpp 出力でストローク幅が反映される (中心は最大値)
 - `color = 0` で background pixel が fg として扱われることを確認
 - `depth = Bit2 など` で Err
 - `nangles = 3 など` で Err

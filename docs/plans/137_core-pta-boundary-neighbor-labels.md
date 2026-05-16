@@ -9,12 +9,9 @@ Status: IMPLEMENTED
 `ptafunc1.c` の Pta/Ptaa 残課題 (111b) のうち、依存が薄く独立性の
 高い 3 関数を切り出して移植。
 
-- `ptaGetBoundaryPixels(pixs, type) -> Pta` — erode/dilate + XOR で
-  fg/bg 境界ピクセル座標を抽出
-- `ptaGetNeighborPixLocs(pixs, x, y, conn) -> Pta` — `(x, y)` の
-  4/8-連結近傍座標を列挙 (画像外は除く)
-- `ptaaIndexLabeledPixels(pixs) -> (Ptaa, max_label)` — 32 bpp の
-  ラベル付き画像をラベルごとに Pta バケットへ振り分ける
+- `ptaGetBoundaryPixels(pixs, type) -> Pta` — erode/dilate + XOR で fg/bg 境界ピクセル座標を抽出
+- `ptaGetNeighborPixLocs(pixs, x, y, conn) -> Pta` — `(x, y)` の 4/8-連結近傍座標を列挙 (画像外は除く)
+- `ptaaIndexLabeledPixels(pixs) -> (Ptaa, max_label)` — 32 bpp のラベル付き画像をラベルごとに Pta バケットへ振り分ける
 
 ## API 設計
 
@@ -42,6 +39,4 @@ pub fn ptaa_index_labeled_pixels(pixs: &Pix) -> Result<(Ptaa, u32)>;
 
 ## 実装メモ
 
-- `ptaa_index_labeled_pixels` は `Ptaa::with_capacity` だけだと
-  `add_pt` が IndexOutOfBounds になるため、`(maxval + 1)` 個の
-  空 Pta を事前に push して長さを揃える
+- `ptaa_index_labeled_pixels` は `Ptaa::with_capacity` だけだと `add_pt` が IndexOutOfBounds になるため、`(maxval + 1)` 個の空 Pta を事前に push して長さを揃える
