@@ -645,95 +645,6 @@ pub fn convert_image_data_to_pdf_data(
     write_pdf_mem(&pix, &options)
 }
 
-/// Rotate selected image files orthogonally and wrap them in a multi-page
-/// PDF.
-///
-/// `rotstring` is parsed by [`parse_rotation_string`] (modes 1, 2, 3 of the C
-/// version, with index 0-based). Each image is read, optionally rotated by
-/// a multiple of 90° clockwise, scaled by `scalefactor`, and written as a
-/// page of the output PDF.
-///
-/// # Parameters
-///
-/// - `paths`: sorted full pathnames of input images
-/// - `rotstring`: rotation spec parsed as a list of `0..=3` cw quad rotations
-/// - `scalefactor`: applied to every image; clamped to `(0.0, 2.0]`
-///   (values `<= 0` reset to `1.0`)
-/// - `quality`: JPEG quality 25..=95 (defaults to 75 outside the range)
-/// - `title`: optional PDF title
-/// - `compression`: passed through to the PDF encoder
-/// - `output`: path of the PDF file to write
-///
-/// C Leptonica: `rotateorthFilesToPdf()` in `pdfapp.c`.
-#[allow(clippy::too_many_arguments)]
-pub fn rotateorth_files_to_pdf(
-    paths: &[impl AsRef<Path>],
-    rotstring: &str,
-    scalefactor: f32,
-    quality: u8,
-    title: Option<&str>,
-    compression: PdfCompression,
-    output: impl AsRef<Path>,
-) -> IoResult<()> {
-    if paths.is_empty() {
-        return Err(IoError::InvalidData("paths is empty".into()));
-    }
-    let rotations = parse_rotation_string(paths.len(), rotstring)?;
-
-    let scalefactor = if scalefactor <= 0.0 {
-        1.0
-    } else if scalefactor > 2.0 {
-        2.0
-    } else {
-        scalefactor
-    };
-    let quality = if !(25..=95).contains(&quality) {
-        75
-    } else {
-        quality
-    };
-
-    let mut images: Vec<Pix> = Vec::with_capacity(paths.len());
-    for (i, path) in paths.iter().enumerate() {
-        let pix = crate::io::read_image(path.as_ref())?;
-        let rotval = rotations.get(i).copied().unwrap_or(0) as u32;
-        let rotated = if rotval == 0 {
-            pix
-        } else {
-            crate::transform::rotate_orth(&pix, rotval)
-                .map_err(|e| IoError::InvalidData(format!("rotate_orth failed: {e}")))?
-        };
-        let scaled = if (scalefactor - 1.0).abs() < f32::EPSILON {
-            rotated
-        } else {
-            crate::transform::scale(
-                &rotated,
-                scalefactor,
-                scalefactor,
-                crate::transform::ScaleMethod::Auto,
-            )
-            .map_err(|e| IoError::InvalidData(format!("scale failed: {e}")))?
-        };
-        images.push(scaled);
-    }
-
-    // Infer resolution from the first image, assuming the long side maps to
-    // `scalefactor * 11.0` inches.
-    let res = images[0]
-        .infer_resolution(scalefactor * 11.0)
-        .map_err(|e| IoError::InvalidData(format!("infer_resolution failed: {e}")))?;
-    let opts = PdfOptions {
-        compression,
-        quality,
-        resolution: res.max(1) as u32,
-        title: title.map(|s| s.to_string()),
-    };
-    let image_refs: Vec<&Pix> = images.iter().collect();
-    let pdf_data = generate_pdf(&image_refs, &opts)?;
-    std::fs::write(output, &pdf_data).map_err(IoError::Io)?;
-    Ok(())
-}
-
 /// Convert segmented image files to PDF
 ///
 /// # See also
@@ -1245,6 +1156,28 @@ pub fn rotate_orth_files_to_pdf(
     let mut buf = Vec::new();
     write_pdf_multi(&pix_refs, &mut buf, &options)?;
     Ok(buf)
+}
+
+/// File-writing wrapper around [`rotate_orth_files_to_pdf`]: produces the
+/// PDF data in memory and writes it to `output`.
+///
+/// This matches C `rotateorthFilesToPdf`'s signature (with `fileout`) more
+/// closely than the bytes-returning sibling. See [`rotate_orth_files_to_pdf`]
+/// for parameter semantics.
+///
+/// # Reference
+///
+/// C Leptonica: `rotateorthFilesToPdf()` in `pdfapp.c` (the `fileout` form).
+pub fn rotate_orth_files_to_pdf_file(
+    paths: &[impl AsRef<Path>],
+    rotstring: &str,
+    scalefactor: f32,
+    quality: i32,
+    title: &str,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let data = rotate_orth_files_to_pdf(paths, rotstring, scalefactor, quality, title)?;
+    std::fs::write(output, &data).map_err(IoError::Io)
 }
 
 /// Parse a rotation specifier string into a per-image rotation table.
