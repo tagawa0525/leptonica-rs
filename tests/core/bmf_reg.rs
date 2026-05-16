@@ -500,3 +500,200 @@ fn pixa_save_font_errs_when_outdir_missing() {
     ));
     assert!(bmf::pixa_save_font(&missing, 10).is_err());
 }
+
+// ==========================================================================
+// Test: add_single_textblock (plan 812)
+// ==========================================================================
+
+use leptonica::core::bmf::TextblockLocation;
+
+#[test]
+fn add_single_textblock_above_expands_height() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..60 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _overflow) = bmf
+        .add_single_textblock(&pix, "Hello", 0, TextblockLocation::Above)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert!(out.height() > pix.height());
+}
+
+#[test]
+fn add_single_textblock_below_expands_height() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..60 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _overflow) = bmf
+        .add_single_textblock(&pix, "Hello", 0, TextblockLocation::Below)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert!(out.height() > pix.height());
+}
+
+#[test]
+fn add_single_textblock_at_top_keeps_dimensions() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 200, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..200 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _) = bmf
+        .add_single_textblock(&pix, "Hi", 0, TextblockLocation::AtTop)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert_eq!(out.height(), pix.height());
+    // Text should be near the top → at least some dark pixels in upper half.
+    let mut dark_top = 0u32;
+    for y in 0..(pix.height() / 2) {
+        for x in 0..pix.width() {
+            if out.get_pixel(x, y).unwrap_or(255) < 128 {
+                dark_top += 1;
+            }
+        }
+    }
+    assert!(dark_top > 0, "expected text pixels in top half");
+}
+
+#[test]
+fn add_single_textblock_at_bot_keeps_dimensions() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 200, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..200 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _) = bmf
+        .add_single_textblock(&pix, "Hi", 0, TextblockLocation::AtBot)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert_eq!(out.height(), pix.height());
+    // Text should be near the bottom → at least some dark pixels in lower half.
+    let mut dark_bot = 0u32;
+    for y in (pix.height() / 2)..pix.height() {
+        for x in 0..pix.width() {
+            if out.get_pixel(x, y).unwrap_or(255) < 128 {
+                dark_bot += 1;
+            }
+        }
+    }
+    assert!(dark_bot > 0, "expected text pixels in bottom half");
+}
+
+#[test]
+fn add_single_textblock_empty_returns_copy_with_unchanged_pixels() {
+    // Stamp a distinctive checkerboard pattern so we can verify the empty-
+    // text path returns an exact pixel-level copy of the input.
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..60u32 {
+        for x in 0..120u32 {
+            let v = if ((x / 8) + (y / 8)) % 2 == 0 {
+                200
+            } else {
+                50
+            };
+            m.set_pixel(x, y, v).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+
+    let (out, overflow) = bmf
+        .add_single_textblock(&pix, "", 0, TextblockLocation::Above)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert_eq!(out.height(), pix.height());
+    assert!(!overflow);
+
+    for y in 0..pix.height() {
+        for x in 0..pix.width() {
+            assert_eq!(
+                out.get_pixel(x, y),
+                pix.get_pixel(x, y),
+                "pixel ({x}, {y}) differs between empty-text result and input"
+            );
+        }
+    }
+}
+
+#[test]
+fn add_single_textblock_32bpp_uses_supplied_color() {
+    // Verify that with a 32 bpp input, a colour-encoded `val` actually
+    // appears in the rendered output. Use pure red (0xff0000ff = R=255,
+    // A=255) to make detection unambiguous.
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(200, 60, leptonica::core::PixelDepth::Bit32).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..60u32 {
+        for x in 0..200u32 {
+            // White background: R=G=B=255, A=255 = 0xffffffff
+            m.set_pixel(x, y, 0xffffffffu32).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+
+    let red = pixel::compose_rgba(255, 0, 0, 255);
+    let (out, _) = bmf
+        .add_single_textblock(&pix, "Hi", red, TextblockLocation::AtTop)
+        .unwrap();
+    assert_eq!(out.depth(), leptonica::core::PixelDepth::Bit32);
+    let saw_red = (0..out.height()).any(|y| {
+        (0..out.width()).any(|x| {
+            let p = out.get_pixel(x, y).unwrap_or(0);
+            pixel::red(p) == 255 && pixel::green(p) == 0 && pixel::blue(p) == 0
+        })
+    });
+    assert!(
+        saw_red,
+        "expected at least one pure-red pixel from the text"
+    );
+}
+
+#[test]
+fn add_single_textblock_clamps_out_of_range_val() {
+    // val=999 on an 8bpp input must not panic; it should be clamped to 128
+    // (mid-grey) per the documented behaviour. We can detect "some text was
+    // drawn" by checking that the output differs from the white input.
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..60u32 {
+        for x in 0..120u32 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _) = bmf
+        .add_single_textblock(&pix, "Hi", 999, TextblockLocation::AtTop)
+        .unwrap();
+    let mut differs = false;
+    'outer: for y in 0..out.height() {
+        for x in 0..out.width() {
+            if out.get_pixel(x, y) != Some(255) {
+                differs = true;
+                break 'outer;
+            }
+        }
+    }
+    assert!(differs, "out-of-range val should still draw text (clamped)");
+}

@@ -1017,3 +1017,155 @@ pub fn pixa_save_font(outdir: impl AsRef<std::path::Path>, fontsize: u32) -> Res
     let path = outdir.as_ref().join(format!("chars-{fontsize}.pa"));
     bmf.get_font_pixa().write_to_file(&path)
 }
+
+/// Placement for [`Bmf::add_single_textblock`].
+///
+/// Mirrors C `L_ADD_ABOVE` / `L_ADD_AT_TOP` / `L_ADD_AT_BOT` /
+/// `L_ADD_BELOW`. Unlike [`TextLocation`], this enum supports rendering the
+/// text *inside* the image as well as expanding the image to make room.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextblockLocation {
+    /// Expand the image upward and render the text in the new border.
+    Above,
+    /// Render the text inside the image, near the top.
+    AtTop,
+    /// Render the text inside the image, near the bottom.
+    AtBot,
+    /// Expand the image downward and render the text in the new border.
+    Below,
+}
+
+impl Bmf {
+    /// Paint a block of text over `pix` at the requested location.
+    ///
+    /// Returns `(rendered_pix, overflowed)`. `overflowed == true` indicates
+    /// that one or more lines were too wide to fit within the available
+    /// horizontal extent.
+    ///
+    /// If `text` is empty, returns `(pix.deep_clone(), false)` (the C
+    /// version falls back to `pixGetText(pix)`; this Rust port mirrors
+    /// that fallback via [`Pix::text`]).
+    ///
+    /// # `val` semantics
+    ///
+    /// `val` is the foreground colour. The accepted range depends on
+    /// `pix.depth()`:
+    ///
+    /// - 1 bpp: `0` or `1`
+    /// - 2 bpp: `0..=3`
+    /// - 4 bpp: `0..=15`
+    /// - 8 bpp: `0..=255`
+    /// - 16 bpp: `0..=0xffff`
+    /// - 32 bpp: a `0xRRGGBBAA` value (use
+    ///   [`crate::core::pixel::compose_rgba`] for clarity)
+    ///
+    /// Out-of-range values are **clamped to a sensible mid-range substitute**
+    /// (e.g. 8 bpp `> 255` becomes `128`, 32 bpp `< 256` becomes mid-grey
+    /// `0x80808000`). This matches the C version of
+    /// `pixAddSingleTextblock`. Note this differs from
+    /// [`Bmf::set_textline`] / [`Bmf::add_textlines`], which delegate to
+    /// `paint_through_mask` and therefore *wrap* (bitmask) out-of-range
+    /// values rather than clamp. Callers mixing the two APIs should pass a
+    /// `val` within the depth's range to get identical behaviour.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddSingleTextblock()` in `textops.c`.
+    pub fn add_single_textblock(
+        &self,
+        pix: &Pix,
+        text: &str,
+        val: u32,
+        location: TextblockLocation,
+    ) -> Result<(Pix, bool)> {
+        let actual_text = if text.is_empty() {
+            pix.text().unwrap_or_default().to_string()
+        } else {
+            text.to_string()
+        };
+        if actual_text.is_empty() {
+            return Ok((pix.deep_clone(), false));
+        }
+
+        let depth = pix.depth();
+        // Clamp val to a sensible mid-range substitute when out of range
+        // (matches C pixAddSingleTextblock). See the doc comment above for
+        // the difference vs set_textline / add_textlines, which wrap.
+        let val = match depth {
+            PixelDepth::Bit1 if val > 1 => 1,
+            PixelDepth::Bit2 if val > 3 => 2,
+            PixelDepth::Bit4 if val > 15 => 8,
+            PixelDepth::Bit8 if val > 0xff => 128,
+            PixelDepth::Bit16 if val > 0xffff => 0x8000,
+            PixelDepth::Bit32 if val < 256 => 0x80808000,
+            _ => val,
+        };
+
+        let w = pix.width();
+        let h = pix.height();
+        let spacer = 10u32;
+        let xstart = (w as f32 * 0.1) as u32;
+        let max_text_width = w.saturating_sub(2 * xstart).max(1);
+        let (lines, text_h) = self.get_line_strings(&actual_text, max_text_width, 0);
+        if lines.is_empty() {
+            return Ok((pix.deep_clone(), false));
+        }
+
+        let extra = text_h + 2 * spacer;
+        let dest = match location {
+            TextblockLocation::Above | TextblockLocation::Below => {
+                let new_h = h + extra;
+                let canvas = Pix::new(w, new_h, depth)?;
+                let mut cm = canvas.try_into_mut().unwrap();
+                if depth != PixelDepth::Bit1 {
+                    let white = depth.max_value();
+                    for y in 0..new_h {
+                        for x in 0..w {
+                            cm.set_pixel_unchecked(x, y, white);
+                        }
+                    }
+                }
+                let img_y = if location == TextblockLocation::Above {
+                    extra
+                } else {
+                    0
+                };
+                for y in 0..h {
+                    for x in 0..w {
+                        let v = pix.get_pixel_unchecked(x, y);
+                        cm.set_pixel_unchecked(x, y + img_y, v);
+                    }
+                }
+                let canvas: Pix = cm.into();
+                canvas
+            }
+            TextblockLocation::AtTop | TextblockLocation::AtBot => pix.deep_clone(),
+        };
+
+        // Baseline of 'I' approximates C's baselinetab[93].
+        let baseline_y = self
+            .get_baseline('I')
+            .unwrap_or(self.line_height().saturating_sub(1));
+
+        let ystart = match location {
+            TextblockLocation::Above | TextblockLocation::AtTop => baseline_y + spacer,
+            TextblockLocation::AtBot => h.saturating_sub(text_h + spacer) + baseline_y,
+            TextblockLocation::Below => h + baseline_y + spacer,
+        };
+
+        let line_step = self.line_height() + self.vert_line_sep();
+        let mut current = dest;
+        let mut overflow = false;
+        for (i, line) in lines.iter().enumerate() {
+            let y = ystart + (i as u32) * line_step;
+            let (rendered, line_w) =
+                self.set_textline(&current, line, xstart as i32, y as i32, val)?;
+            if line_w > max_text_width {
+                overflow = true;
+            }
+            current = rendered;
+        }
+
+        Ok((current, overflow))
+    }
+}
