@@ -500,3 +500,118 @@ fn pixa_save_font_errs_when_outdir_missing() {
     ));
     assert!(bmf::pixa_save_font(&missing, 10).is_err());
 }
+
+// ==========================================================================
+// Test: add_single_textblock (plan 812)
+// ==========================================================================
+
+use leptonica::core::bmf::TextblockLocation;
+
+#[test]
+#[ignore = "plan 812: not yet implemented"]
+fn add_single_textblock_above_expands_height() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..60 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _overflow) = bmf
+        .add_single_textblock(&pix, "Hello", 0, TextblockLocation::Above)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert!(out.height() > pix.height());
+}
+
+#[test]
+#[ignore = "plan 812: not yet implemented"]
+fn add_single_textblock_below_expands_height() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..60 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _overflow) = bmf
+        .add_single_textblock(&pix, "Hello", 0, TextblockLocation::Below)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert!(out.height() > pix.height());
+}
+
+#[test]
+#[ignore = "plan 812: not yet implemented"]
+fn add_single_textblock_at_top_keeps_dimensions() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 200, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..200 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _) = bmf
+        .add_single_textblock(&pix, "Hi", 0, TextblockLocation::AtTop)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert_eq!(out.height(), pix.height());
+    // Text should be near the top → at least some dark pixels in upper half.
+    let mut dark_top = 0u32;
+    for y in 0..(pix.height() / 2) {
+        for x in 0..pix.width() {
+            if out.get_pixel(x, y).unwrap_or(255) < 128 {
+                dark_top += 1;
+            }
+        }
+    }
+    assert!(dark_top > 0, "expected text pixels in top half");
+}
+
+#[test]
+#[ignore = "plan 812: not yet implemented"]
+fn add_single_textblock_at_bot_keeps_dimensions() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 200, leptonica::core::PixelDepth::Bit8).unwrap();
+    let mut m = pix.try_into_mut().unwrap();
+    for y in 0..200 {
+        for x in 0..120 {
+            m.set_pixel(x, y, 255).unwrap();
+        }
+    }
+    let pix: leptonica::core::Pix = m.into();
+    let (out, _) = bmf
+        .add_single_textblock(&pix, "Hi", 0, TextblockLocation::AtBot)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert_eq!(out.height(), pix.height());
+    // Text should be near the bottom → at least some dark pixels in lower half.
+    let mut dark_bot = 0u32;
+    for y in (pix.height() / 2)..pix.height() {
+        for x in 0..pix.width() {
+            if out.get_pixel(x, y).unwrap_or(255) < 128 {
+                dark_bot += 1;
+            }
+        }
+    }
+    assert!(dark_bot > 0, "expected text pixels in bottom half");
+}
+
+#[test]
+#[ignore = "plan 812: not yet implemented"]
+fn add_single_textblock_empty_returns_copy() {
+    let bmf = Bmf::new(10).unwrap();
+    let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
+    let (out, overflow) = bmf
+        .add_single_textblock(&pix, "", 0, TextblockLocation::Above)
+        .unwrap();
+    assert_eq!(out.width(), pix.width());
+    assert_eq!(out.height(), pix.height());
+    assert!(!overflow);
+}

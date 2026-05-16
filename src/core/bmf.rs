@@ -1017,3 +1017,46 @@ pub fn pixa_save_font(outdir: impl AsRef<std::path::Path>, fontsize: u32) -> Res
     let path = outdir.as_ref().join(format!("chars-{fontsize}.pa"));
     bmf.get_font_pixa().write_to_file(&path)
 }
+
+/// Placement for [`Bmf::add_single_textblock`].
+///
+/// Mirrors C `L_ADD_ABOVE` / `L_ADD_AT_TOP` / `L_ADD_AT_BOT` /
+/// `L_ADD_BELOW`. Unlike [`TextLocation`], this enum supports rendering the
+/// text *inside* the image as well as expanding the image to make room.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextblockLocation {
+    /// Expand the image upward and render the text in the new border.
+    Above,
+    /// Render the text inside the image, near the top.
+    AtTop,
+    /// Render the text inside the image, near the bottom.
+    AtBot,
+    /// Expand the image downward and render the text in the new border.
+    Below,
+}
+
+impl Bmf {
+    /// Paint a block of text over `pix` at the requested location.
+    ///
+    /// Returns `(rendered_pix, overflowed)`. `overflowed == true` indicates
+    /// that one or more lines were too wide to fit within the available
+    /// horizontal extent.
+    ///
+    /// If `text` is empty, returns `(pix.deep_clone(), false)` (the C
+    /// version falls back to `pixGetText(pix)`; this Rust port mirrors
+    /// that fallback via [`Pix::text`]).
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixAddSingleTextblock()` in `textops.c`.
+    pub fn add_single_textblock(
+        &self,
+        pix: &Pix,
+        text: &str,
+        val: u32,
+        location: TextblockLocation,
+    ) -> Result<(Pix, bool)> {
+        let _ = (pix, text, val, location);
+        unimplemented!("add_single_textblock: plan 812 (RED)")
+    }
+}
