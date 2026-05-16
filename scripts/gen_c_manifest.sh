@@ -143,13 +143,16 @@ if [[ "$#" -eq 0 ]]; then
     verify_failed=()
     for prog in verify_binmorph verify_fhmtauto verify_graymorph2; do
         bin="$VERIFY_BIN_DIR/$prog"
+        log="/tmp/lept_verify_${prog}.log"
         if [[ ! -x "$bin" ]]; then
             verify_failed+=("$prog (not built)")
             continue
         fi
-        if ! "$bin" > /tmp/lept_run.log 2>&1; then
-            echo "    FAILED ($prog) — last 5 lines:"
-            tail -5 /tmp/lept_run.log | sed 's/^/    /'
+        # Use a per-program log so a later failure does not overwrite the
+        # diagnostics for an earlier one when we report.
+        if ! "$bin" > "$log" 2>&1; then
+            echo "    FAILED ($prog) — last 5 lines of $log:"
+            tail -5 "$log" | sed 's/^/    /'
             verify_failed+=("$prog")
         fi
     done
@@ -166,9 +169,20 @@ if [[ "$#" -eq 0 ]]; then
     echo "==> copying verify outputs to $C_OUT_DIR with golden_map names"
     verify_copied=0
     verify_missing=()
-    while IFS=$'\t' read -r src dst; do
+    verify_malformed=()
+    line_no=0
+    # Read three fields so any extra tab-separated column on a line is
+    # captured in $extra and we can flag it explicitly instead of silently
+    # ignoring it. We also reject empty src/dst so a typo dropping the tab
+    # cannot trick `cp` into writing to an unintended path.
+    while IFS=$'\t' read -r src dst extra; do
+        line_no=$((line_no + 1))
         # Skip comment / blank lines in c_verify_outputs.tsv
         [[ -z "$src" || "$src" =~ ^# ]] && continue
+        if [[ -z "$dst" || -n "$extra" ]]; then
+            verify_malformed+=("L$line_no: '$src' '$dst' extra='$extra'")
+            continue
+        fi
         if [[ -f "$src" ]]; then
             cp "$src" "$C_OUT_DIR/$dst"
             verify_copied=$((verify_copied + 1))
@@ -176,6 +190,15 @@ if [[ "$#" -eq 0 ]]; then
             verify_missing+=("$src → $dst")
         fi
     done < "$VERIFY_MAP"
+
+    if [[ "${#verify_malformed[@]}" -gt 0 ]]; then
+        echo
+        echo "Aborting: ${#verify_malformed[@]} malformed line(s) in $VERIFY_MAP." >&2
+        for m in "${verify_malformed[@]}"; do
+            echo "  - $m" >&2
+        done
+        exit 1
+    fi
     echo "    copied $verify_copied verify outputs"
 
     if [[ "${#verify_missing[@]}" -gt 0 ]]; then
