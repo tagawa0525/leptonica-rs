@@ -1717,15 +1717,85 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pi
 /// Clean an image for printing/OCR: optional rotation, deskew, background
 /// whitening, binarisation, and optional small-noise removal.
 ///
+/// # Parameters
+///
+/// - `contrast`: 1..=10 (1 = lightest, 10 = darkest).
+/// - `rotation`: 0..=3 (cw 90° quads applied before deskew).
+/// - `scale`: 1 (threshold only) or 2 (2× upscale before threshold).
+/// - `opensize`: 0 or 1 = skip; 2 or 3 = open with square SE of this size.
+///
 /// C Leptonica equivalent: `pixCleanImage`.
 pub fn pix_clean_image(
-    _pixs: &Pix,
-    _contrast: u32,
-    _rotation: u32,
-    _scale: u32,
-    _opensize: u32,
+    pixs: &Pix,
+    contrast: u32,
+    rotation: u32,
+    scale: u32,
+    opensize: u32,
 ) -> RecogResult<Pix> {
-    unimplemented!("pix_clean_image: plan 804 (RED)")
+    use crate::filter::background_norm_to_1_min_max;
+    use crate::morph::sequence::morph_sequence;
+    use crate::recog::skew::deskew;
+    use crate::transform::scale::{ScaleMethod, scale as scale_pix};
+    use crate::transform::{expand_binary_replicate, rotate_orth};
+
+    if rotation > 3 {
+        return Err(RecogError::InvalidParameter(format!(
+            "rotation must be in 0..=3, got {rotation}"
+        )));
+    }
+    if !(1..=10).contains(&contrast) {
+        return Err(RecogError::InvalidParameter(format!(
+            "contrast must be in 1..=10, got {contrast}"
+        )));
+    }
+    if scale != 1 && scale != 2 {
+        return Err(RecogError::InvalidParameter(format!(
+            "scale must be 1 or 2, got {scale}"
+        )));
+    }
+    if opensize > 3 {
+        return Err(RecogError::InvalidParameter(format!(
+            "opensize must be <= 3, got {opensize}"
+        )));
+    }
+
+    let intermediate = if pixs.depth() == PixelDepth::Bit1 {
+        let rotated = if rotation > 0 {
+            rotate_orth(pixs, rotation)?
+        } else {
+            pixs.clone()
+        };
+        let deskewed = deskew(&rotated)?;
+        if scale == 2 {
+            expand_binary_replicate(&deskewed, 2, 2)?
+        } else {
+            deskewed
+        }
+    } else {
+        let gray = pixs.convert_to_8()?;
+        let rotated = if rotation > 0 {
+            rotate_orth(&gray, rotation)?
+        } else {
+            gray
+        };
+        let deskewed = deskew(&rotated)?;
+        // C's pixBackgroundNormTo1MinMax handles `scale == 2` internally by
+        // bilinear-upscaling the grayscale before threshold. The Rust public
+        // helper only does scale=1, so we pre-scale here to match dims.
+        let to_norm = if scale == 2 {
+            scale_pix(&deskewed, 2.0, 2.0, ScaleMethod::Linear)?
+        } else {
+            deskewed
+        };
+        background_norm_to_1_min_max(&to_norm, contrast)?
+    };
+
+    if opensize == 2 || opensize == 3 {
+        let seq = format!("o{opensize}.{opensize}");
+        Ok(morph_sequence(&intermediate, &seq)?)
+    } else {
+        Ok(intermediate)
+    }
 }
 
 /// Estimate the number of text columns on a page from the column-FG profile.

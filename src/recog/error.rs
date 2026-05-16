@@ -25,6 +25,10 @@ pub enum RecogError {
     #[error("color error: {0}")]
     Color(#[from] crate::color::ColorError),
 
+    /// Filter library error
+    #[error("filter error: {0}")]
+    Filter(#[from] crate::filter::FilterError),
+
     /// Unsupported pixel depth for this operation
     #[error("unsupported depth: expected {expected}, got {actual}")]
     UnsupportedDepth { expected: &'static str, actual: u32 },
