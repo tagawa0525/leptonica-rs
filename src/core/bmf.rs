@@ -1046,6 +1046,28 @@ impl Bmf {
     /// version falls back to `pixGetText(pix)`; this Rust port mirrors
     /// that fallback via [`Pix::text`]).
     ///
+    /// # `val` semantics
+    ///
+    /// `val` is the foreground colour. The accepted range depends on
+    /// `pix.depth()`:
+    ///
+    /// - 1 bpp: `0` or `1`
+    /// - 2 bpp: `0..=3`
+    /// - 4 bpp: `0..=15`
+    /// - 8 bpp: `0..=255`
+    /// - 16 bpp: `0..=0xffff`
+    /// - 32 bpp: a `0xRRGGBBAA` value (use
+    ///   [`crate::core::pixel::compose_rgba`] for clarity)
+    ///
+    /// Out-of-range values are **clamped to a sensible mid-range substitute**
+    /// (e.g. 8 bpp `> 255` becomes `128`, 32 bpp `< 256` becomes mid-grey
+    /// `0x80808000`). This matches the C version of
+    /// `pixAddSingleTextblock`. Note this differs from
+    /// [`Bmf::set_textline`] / [`Bmf::add_textlines`], which delegate to
+    /// `paint_through_mask` and therefore *wrap* (bitmask) out-of-range
+    /// values rather than clamp. Callers mixing the two APIs should pass a
+    /// `val` within the depth's range to get identical behaviour.
+    ///
     /// # See also
     ///
     /// C Leptonica: `pixAddSingleTextblock()` in `textops.c`.
@@ -1066,6 +1088,9 @@ impl Bmf {
         }
 
         let depth = pix.depth();
+        // Clamp val to a sensible mid-range substitute when out of range
+        // (matches C pixAddSingleTextblock). See the doc comment above for
+        // the difference vs set_textline / add_textlines, which wrap.
         let val = match depth {
             PixelDepth::Bit1 if val > 1 => 1,
             PixelDepth::Bit2 if val > 3 => 2,
