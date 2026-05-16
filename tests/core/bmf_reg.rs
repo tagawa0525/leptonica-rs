@@ -436,3 +436,48 @@ fn bmf_rendered_text_has_pixels() {
     }
     assert!(on_count > 0, "rendered text should have ON pixels");
 }
+
+// ==========================================================================
+// Test: pixa_save_font (plan 810)
+// ==========================================================================
+
+fn unique_tmp_dir(tag: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "leptonica_pixa_save_font_{tag}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+#[test]
+#[ignore = "plan 810: not yet implemented"]
+fn pixa_save_font_writes_pa_file() {
+    let dir = unique_tmp_dir("write");
+    bmf::pixa_save_font(&dir, 10).unwrap();
+    let path = dir.join("chars-10.pa");
+    assert!(path.exists(), "expected {} to exist", path.display());
+    let pixa = Pixa::read_from_file(&path).unwrap();
+    assert_eq!(pixa.len(), 95);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+#[ignore = "plan 810: not yet implemented"]
+fn pixa_save_font_rejects_odd_size() {
+    let dir = unique_tmp_dir("odd");
+    assert!(bmf::pixa_save_font(&dir, 7).is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+#[ignore = "plan 810: not yet implemented"]
+fn pixa_save_font_rejects_out_of_range() {
+    let dir = unique_tmp_dir("range");
+    assert!(bmf::pixa_save_font(&dir, 2).is_err());
+    assert!(bmf::pixa_save_font(&dir, 22).is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}
