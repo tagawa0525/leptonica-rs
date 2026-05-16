@@ -1158,6 +1158,28 @@ pub fn rotate_orth_files_to_pdf(
     Ok(buf)
 }
 
+/// File-writing wrapper around [`rotate_orth_files_to_pdf`]: produces the
+/// PDF data in memory and writes it to `output`.
+///
+/// This matches C `rotateorthFilesToPdf`'s signature (with `fileout`) more
+/// closely than the bytes-returning sibling. See [`rotate_orth_files_to_pdf`]
+/// for parameter semantics.
+///
+/// # Reference
+///
+/// C Leptonica: `rotateorthFilesToPdf()` in `pdfapp.c` (the `fileout` form).
+pub fn rotate_orth_files_to_pdf_file(
+    paths: &[impl AsRef<Path>],
+    rotstring: &str,
+    scalefactor: f32,
+    quality: i32,
+    title: &str,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let data = rotate_orth_files_to_pdf(paths, rotstring, scalefactor, quality, title)?;
+    std::fs::write(output, &data).map_err(IoError::Io)
+}
+
 /// Parse a rotation specifier string into a per-image rotation table.
 ///
 /// The output vector has length `n` and each entry is in `0..=3` (number of
