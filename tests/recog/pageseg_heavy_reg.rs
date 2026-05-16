@@ -166,7 +166,6 @@ fn make_blank_page() -> Pix {
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn count_text_columns_blank_returns_zero() {
     let pix = make_blank_page();
     let n = pix_count_text_columns(&pix, 0.3, 0.5, 0.1).unwrap();
@@ -174,14 +173,12 @@ fn count_text_columns_blank_returns_zero() {
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn count_text_columns_rejects_non_1bpp() {
     let pix = Pix::new(300, 200, PixelDepth::Bit8).unwrap();
     assert!(pix_count_text_columns(&pix, 0.3, 0.5, 0.1).is_err());
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn count_text_columns_rejects_clipfract_out_of_range() {
     let pix = make_blank_page();
     assert!(pix_count_text_columns(&pix, 0.3, 0.5, -0.1).is_err());
@@ -189,7 +186,6 @@ fn count_text_columns_rejects_clipfract_out_of_range() {
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn count_text_columns_two_column_layout() {
     let pix = make_two_column_page();
     let n = pix_count_text_columns(&pix, 0.3, 0.5, 0.1).unwrap();

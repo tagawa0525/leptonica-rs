@@ -1800,14 +1800,113 @@ pub fn pix_clean_image(
 
 /// Estimate the number of text columns on a page from the column-FG profile.
 ///
+/// Returns `0` when no significant content is detected. The C version
+/// returns the count via an out-parameter and uses `-1` as the unset
+/// sentinel; the Rust port surfaces failures as `Err` so the count is
+/// always meaningful.
+///
+/// # Parameters
+///
+/// - `deltafract`: 0.15..=0.75 (extrema-detection delta as fraction of range)
+/// - `peakfract`: 0.25..=0.9 (peak threshold as fraction of range)
+/// - `clipfract`: 0.0..0.5 (border fraction clipped before analysis)
+///
 /// C Leptonica equivalent: `pixCountTextColumns`.
 pub fn pix_count_text_columns(
-    _pixs: &Pix,
-    _deltafract: f32,
-    _peakfract: f32,
-    _clipfract: f32,
+    pixs: &Pix,
+    deltafract: f32,
+    peakfract: f32,
+    clipfract: f32,
 ) -> RecogResult<u32> {
-    unimplemented!("pix_count_text_columns: plan 804 (RED)")
+    use crate::morph::binary::close_safe_brick;
+    use crate::recog::skew::deskew;
+    use crate::transform::reduce_rank_binary_cascade;
+    use crate::transform::scale::{ScaleMethod, scale as scale_pix};
+
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    if !(0.0..0.5).contains(&clipfract) {
+        return Err(RecogError::InvalidParameter(format!(
+            "clipfract must be in [0.0, 0.5), got {clipfract}"
+        )));
+    }
+    // deltafract / peakfract: C only warns; we accept any value (consistent
+    // with C's permissive behaviour outside the recommended range).
+
+    // Scale to between 37.5 and 75 ppi.
+    let res = if pixs.xres() <= 0 { 300 } else { pixs.xres() };
+    let pix1 = if res < 37 {
+        let factor = 37.5 / res as f32;
+        scale_pix(pixs, factor, factor, ScaleMethod::Sampling)?
+    } else {
+        let redfact = res as f32 / 37.5;
+        if redfact < 2.0 {
+            pixs.clone()
+        } else if redfact < 4.0 {
+            reduce_rank_binary_cascade(pixs, &[1])?
+        } else if redfact < 8.0 {
+            reduce_rank_binary_cascade(pixs, &[1, 2])?
+        } else if redfact < 16.0 {
+            reduce_rank_binary_cascade(pixs, &[1, 2, 2])?
+        } else {
+            reduce_rank_binary_cascade(pixs, &[1, 2, 2, 2])?
+        }
+    };
+
+    // Crop inner (1 - 2*clipfract) of image.
+    let w1 = pix1.width() as f32;
+    let h1 = pix1.height() as f32;
+    let cx = (clipfract * w1) as i32;
+    let cy = (clipfract * h1) as i32;
+    let cw = ((1.0 - 2.0 * clipfract) * w1) as i32;
+    let ch = ((1.0 - 2.0 * clipfract) * h1) as i32;
+    if cw <= 0 || ch <= 0 {
+        return Ok(0);
+    }
+    let pix2 = pix1.clip_rectangle(cx as u32, cy as u32, cw as u32, ch as u32)?;
+
+    // Deskew (may fail on empty input → 0 columns).
+    let pix3 = match deskew(&pix2) {
+        Ok(p) => p,
+        Err(_) => return Ok(0),
+    };
+    let w = pix3.width();
+    let h = pix3.height();
+
+    // Close to merge text into bands, then invert so that text-band columns
+    // become low counts and gutters become high counts.
+    let pix4 = close_safe_brick(&pix3, 5, 21)?;
+    let pix4_inv = pix4.invert();
+    let na1 = pix4_inv.count_by_column(None)?;
+
+    let max_val = na1.max_value().unwrap_or(0.0);
+    let min_val = na1.min_value().unwrap_or(0.0);
+    let range = max_val - min_val;
+    let fraction_active = range / h as f32;
+    if fraction_active < 0.05 {
+        return Ok(0);
+    }
+
+    // numaFindExtrema with `delta = deltafract * (max - min)`.
+    let (na_loc, na_val) = na1.find_extrema_with_values(deltafract * range)?;
+    // Normalised location (0..1) and normalised value (0..1).
+    let na_loc_norm = na_loc.transform(0.0, 1.0 / w as f32);
+    let na_val_norm = na_val.transform(-min_val, 1.0 / range);
+
+    let mut peaks = 0u32;
+    for i in 0..na_loc_norm.len() {
+        let loc = na_loc_norm.get(i).unwrap_or(0.0);
+        let val = na_val_norm.get(i).unwrap_or(0.0);
+        if loc > 0.3 && loc < 0.7 && val >= peakfract {
+            peaks += 1;
+        }
+    }
+
+    Ok(peaks + 1)
 }
 
 /// Decide whether `pixs` is more likely text or photo.
