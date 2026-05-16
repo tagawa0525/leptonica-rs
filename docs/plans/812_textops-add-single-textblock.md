@@ -35,7 +35,9 @@ impl Bmf {
         &self,
         pix: &Pix,
         text: &str,        // 空ならコピーを返す
-        val: u32,          // 描画色 (1bpp なら 0/1, 8bpp なら 0..=255, 32bpp は 0xRRGGBB00)
+        val: u32,          // 描画色: 1bpp 0/1, 8bpp 0..=255, 32bpp は
+                           // `pixel::compose_rgba(r, g, b, a)` で 0xRRGGBBAA を構成
+                           // (このクレートの 32bpp レイアウト — src/core/pixel.rs)
         location: TextblockLocation,
     ) -> Result<(Pix, bool)>; // bool: 水平方向に溢れた行があったか
 }
