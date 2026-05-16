@@ -37,6 +37,11 @@ mkdir -p "$C_OUT_DIR"
 binaries=()
 if [[ "$#" -eq 0 ]]; then
     while IFS= read -r -d '' bin; do
+        # alltests_reg は他の *_reg を system() で呼ぶラッパー (alltests_reg.c:252)。
+        # 個別 _reg を全部走らせれば内容を網羅でき、二重実行を避けるためここで除外。
+        if [[ "$(basename "$bin")" == "alltests_reg" ]]; then
+            continue
+        fi
         binaries+=("$bin")
     done < <(find "$BIN_DIR" -maxdepth 1 -type f -name '*_reg' -print0 | sort -z)
 else
