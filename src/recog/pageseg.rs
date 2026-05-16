@@ -2005,8 +2005,12 @@ pub fn pix_decide_if_text(
 ///
 /// - `maxw`, `maxh`: maximum component width/height kept before clustering.
 ///   Pass `0` for the default `0.5 * resolution`.
-/// - `adjw`, `adjh`: amounts subtracted from each band's left/right and
-///   top/bottom respectively before clipping. `0` keeps the bounding box.
+/// - `adjw`, `adjh`: amounts added to each band's left/right and top/bottom
+///   respectively (i.e. positive values expand the bounding box outward by
+///   that many pixels on each side before clipping). `0` keeps the bounding
+///   box unchanged. Matches C's call `boxaAdjustSides(boxa2, -adjw, adjw,
+///   -adjh, adjh)` where the negative-positive pairing yields symmetric
+///   outward expansion.
 ///
 /// C Leptonica equivalent: `pixExtractRawTextlines`.
 pub fn pix_extract_raw_textlines(
