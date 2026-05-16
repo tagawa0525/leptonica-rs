@@ -123,16 +123,34 @@ fn c_manifest() -> &'static HashMap<String, u64> { /* OnceLock */ }
 
 Phase 1 完了条件: `tests/golden_manifest_c.tsv` が生成でき、`tests/golden_manifest.tsv` と diff を取って大まかな一致状況が分かる
 
-### Phase 2: テストランタイムでの C 互換チェック
+### Phase 2: テストランタイムでの C 互換チェック (レポート機構)
 
-1. `tests/common/params.rs` に C manifest ロード + `check_hash()` 拡張
-2. `tests/c_compat_report.txt` の append ロジック (テスト並列対応)
-3. `tests/common/error.rs` に `CCompatMismatch` 等のレポート用構造体を追加 (テストは fail させない)
-4. `REGTEST_C_COMPAT` 環境変数の追加
+1. `tests/common/c_compat.rs` を新規追加し、以下を実装:
+   - `c_manifest()` static: `tests/golden_manifest_c.tsv` をロード
+   - `golden_map()` static: `scripts/golden_map.tsv` をパースして `(rust_prefix, rust_index) → (c_prefix, c_index)` の対応表
+   - `parse_manifest_key()`: `"edge.04.jpg"` を `(prefix, index, ext)` に分解
+   - `check_c_hash()`: Rust 側キーから C 側ハッシュを引き、状態 (`Ok` / `Mismatch` / `Unmapped` / `MissingC`) を返す
+   - `tests/c_compat_report.txt` への append (Mutex、起動時 truncate、`#[cfg(test)]` のもとで)
+2. `tests/common/params.rs::RegParams::check_hash` を拡張し、`Compare` モード時に `check_c_hash()` を呼んで結果をレポート
+3. `REGTEST_C_COMPAT` 環境変数: `off` で無効化、`report` (デフォルト) で報告のみ、`strict` で `Mismatch` を fail に昇格
+4. `tests/c_compat_report.txt` を `.gitignore` に追加
 
-Phase 2 完了条件: `cargo test --test core` 等を実行すると `tests/c_compat_report.txt` に C 互換性差分が出力される
+Phase 2 完了条件: `cargo test --all-features` を実行すると `tests/c_compat_report.txt` に C 互換性差分が出力され、既存テストの成否には影響しない
 
-### Phase 3: 1モジュールでの検証
+### Phase 2.5: 個別不一致の調査と Rust 側修正 (複数 PR)
+
+Phase 2 のレポートを元に、不一致が出ている Rust テストを 1 件ずつ調査する:
+
+1. **修正対象**: Rust 実装のアルゴリズム差・ピクセル境界処理ミス・型変換誤りなど移植品質の問題。差分が小さくても挙動として誤っていれば修正
+2. **修正対象外と判定する根拠**:
+   - JPEG/WebP 等の lossy エンコーダ差 (例: libjpeg vs jpeg-encoder)。`compare_pix` で **Rust 同士の整合性** が取れていて、かつ C↔Rust のピクセル差が圧縮歪み範囲ならスキップ
+   - C 側にバグがあり、修正版が Rust にのみ反映済みのケース (これは leptonica 上流の issue を確認)
+   - golden_map のマッピング誤りに起因する見かけの不一致
+
+3. 各不一致について `docs/porting/c-compat-findings/<NNN-<test>>.md` を作って所見を記録 (任意)
+4. Rust 側修正が入った PR ごとに `tests/golden_manifest.tsv` を再生成
+
+### Phase 3: 1モジュールでの検証ベースライン記録
 
 1. `tests/io/` か `tests/morph/` を先行検証
 2. 一致率・主要な不一致パターンを `docs/porting/c-compat-status.md` (新規) にまとめる
@@ -152,11 +170,12 @@ Phase 4 完了条件: CI で C 互換差分が継続的に観測できる状態
 
 このプランは複数 PR に分割する:
 
-1. **PR-1** (Phase 1): スクリプトと `examples/gen_c_manifest.rs` + `tests/golden_manifest_c.tsv` の初回コミット
-   - `feat(tests): C版互換性チェック用 manifest 生成ツール`
-2. **PR-2** (Phase 2): `params.rs` 拡張と report-only 比較
+1. **PR-1** (Phase 1, ✅ merged as #377): スクリプトと `examples/gen_c_manifest.rs` + `tests/golden_manifest_c.tsv`
+2. **PR-2** (Phase 2, in progress): `tests/common/c_compat.rs` 新規 + `params.rs` 拡張 + report-only 比較
    - `feat(tests): C-version hash comparison (report-only)`
-3. **PR-3** (Phase 3+4): 検証結果ドキュメント + CI 統合
+3. **PR-2.5/N** (Phase 2.5, 複数 PR): Phase 2 のレポートで判明した個別の不一致を Rust 側で修正
+   - `fix(<module>): C版と一致するように <op> を修正` のような形で、不一致 1 件ごとに独立 PR
+4. **PR-3** (Phase 3+4): 検証結果ドキュメント + CI 統合
    - `docs(porting): C互換性ベースラインを記録` / `ci: C compat report を artifact 化`
 
 各 PR は RED → GREEN → (必要なら REFACTOR) の TDD サイクルでコミット履歴を残す。
