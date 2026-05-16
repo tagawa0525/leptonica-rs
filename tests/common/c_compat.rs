@@ -4,9 +4,11 @@
 //! to report whether a Rust regression output matches the C version's golden
 //! output (`tests/golden_manifest_c.tsv`, produced by `examples/gen_c_manifest`).
 //!
-//! Differences are written to `tests/c_compat_report.txt` and do **not** fail
-//! the test by default. Set `REGTEST_C_COMPAT=strict` to escalate mismatches
-//! to test failures, or `REGTEST_C_COMPAT=off` to disable entirely.
+//! Differences are written to `tests/c_compat_report.<binary>.txt` (one
+//! file per cargo-test integration binary, e.g. `core` / `io` / `filter`)
+//! and do **not** fail the test by default. Set `REGTEST_C_COMPAT=strict`
+//! to escalate mismatches to test failures, or `REGTEST_C_COMPAT=off` to
+//! disable entirely.
 
 #![allow(dead_code)]
 
@@ -213,10 +215,40 @@ pub fn check_c_hash_against(
 
 const C_MANIFEST_PATH_REL: &str = "tests/golden_manifest_c.tsv";
 const GOLDEN_MAP_PATH_REL: &str = "scripts/golden_map.tsv";
-const REPORT_PATH_REL: &str = "tests/c_compat_report.txt";
 
 fn workspace_root() -> &'static str {
     env!("CARGO_MANIFEST_DIR")
+}
+
+/// `cargo test --all-features` spawns one process per integration-test
+/// binary (`tests/core/main.rs`, `tests/io/main.rs`, …). A single shared
+/// report file would be silently truncated by whichever process started
+/// last, so we derive a per-binary report path from `std::env::current_exe`
+/// (the test binary name minus its build hash suffix).
+fn report_path() -> String {
+    let stem = std::env::current_exe()
+        .ok()
+        .and_then(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+        })
+        .map(|name| {
+            // cargo test binaries are named like "core-9f2b7cd034b6d92b";
+            // strip the trailing hex hash (split on first '-' from the right
+            // if the suffix looks like a hex blob).
+            let parts: Vec<&str> = name.rsplitn(2, '-').collect();
+            if parts.len() == 2
+                && parts[0].len() == 16
+                && parts[0].chars().all(|c| c.is_ascii_hexdigit())
+            {
+                parts[1].to_string()
+            } else {
+                name
+            }
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+    format!("{}/tests/c_compat_report.{}.txt", workspace_root(), stem)
 }
 
 fn c_manifest() -> &'static ManifestMap {
@@ -243,9 +275,13 @@ fn report_file() -> Option<&'static Mutex<std::fs::File>> {
     // OnceLock<Option<Mutex<File>>>: we may fail to open the report file (e.g.
     // when the workspace is read-only); in that case we silently degrade to
     // no-op rather than failing the test run.
+    //
+    // Each cargo-test binary owns its own report file (`report_path()`), so
+    // truncating on first open is safe within a single binary and avoids
+    // accumulating stale lines across re-runs of that binary.
     static FILE: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
     FILE.get_or_init(|| {
-        let path = format!("{}/{}", workspace_root(), REPORT_PATH_REL);
+        let path = report_path();
         let mut f = std::fs::OpenOptions::new()
             .write(true)
             .truncate(true)

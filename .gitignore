@@ -4,4 +4,4 @@
 /reference/
 /tests/golden/
 /tests/regout/
-/tests/c_compat_report.txt
+/tests/c_compat_report.*.txt
