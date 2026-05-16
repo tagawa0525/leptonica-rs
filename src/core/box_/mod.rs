@@ -1258,7 +1258,14 @@ impl Boxaa {
             }
         }
 
-        if max_ovlp + delta >= 0 { max_index } else { n }
+        if max_index == n {
+            return n;
+        }
+        if max_ovlp.saturating_add(delta) >= 0 {
+            max_index
+        } else {
+            n
+        }
     }
 }
 

@@ -236,7 +236,6 @@ fn decide_if_text_photo_returns_some_false() {
 // -- pix_extract_raw_textlines --------------------------------------------
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn extract_raw_textlines_empty_returns_empty() {
     let pix = make_blank(500, 500, PixelDepth::Bit1);
     let pixa = pix_extract_raw_textlines(&pix, 0, 0, 0, 0).unwrap();
@@ -244,17 +243,22 @@ fn extract_raw_textlines_empty_returns_empty() {
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn extract_raw_textlines_finds_lines() {
-    // 600x400 1bpp page with 5 well-separated horizontal text lines.
+    // 600x400 1bpp page with 5 horizontal text lines, each made up of many
+    // small char-like glyphs (so each component is < maxw before the
+    // horizontal close merges them into a line).
     let pix = Pix::new(600, 400, PixelDepth::Bit1).unwrap();
     let mut m = pix.try_into_mut().unwrap();
     for line in 0..5u32 {
         let y_start = 40 + line * 60;
-        for y in y_start..(y_start + 10) {
-            for x in 50..550 {
-                m.set_pixel(x, y, 1).unwrap();
+        let mut x = 50u32;
+        while x + 16 < 550 {
+            for y in y_start..(y_start + 10) {
+                for xx in x..(x + 12) {
+                    m.set_pixel(xx, y, 1).unwrap();
+                }
             }
+            x += 20;
         }
     }
     m.set_resolution(300, 300);

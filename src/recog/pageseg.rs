@@ -1925,15 +1925,88 @@ pub fn pix_decide_if_text(
 
 /// Extract raw text lines from `pixs` as a `Pixa` of sub-images.
 ///
+/// Returns an empty `Pixa` when `pixs` has no foreground pixels (instead of
+/// C's `NULL` + log).
+///
+/// # Parameters
+///
+/// - `maxw`, `maxh`: maximum component width/height kept before clustering.
+///   Pass `0` for the default `0.5 * resolution`.
+/// - `adjw`, `adjh`: amounts subtracted from each band's left/right and
+///   top/bottom respectively before clipping. `0` keeps the bounding box.
+///
 /// C Leptonica equivalent: `pixExtractRawTextlines`.
 pub fn pix_extract_raw_textlines(
-    _pixs: &Pix,
-    _maxw: i32,
-    _maxh: i32,
-    _adjw: i32,
-    _adjh: i32,
+    pixs: &Pix,
+    maxw: i32,
+    maxh: i32,
+    adjw: i32,
+    adjh: i32,
 ) -> RecogResult<crate::core::Pixa> {
-    unimplemented!("pix_extract_raw_textlines: plan 804 (RED)")
+    use crate::color::threshold_to_binary;
+    use crate::filter::clean_background_to_white;
+    use crate::morph::sequence::morph_comp_sequence;
+    use crate::region::{ConnectivityType, conncomp_pixa};
+
+    let res = if pixs.xres() <= 0 { 300 } else { pixs.xres() };
+    let maxw = if maxw != 0 {
+        maxw
+    } else {
+        (0.5 * res as f32) as i32
+    };
+    let maxh = if maxh != 0 {
+        maxh
+    } else {
+        (0.5 * res as f32) as i32
+    };
+    if maxw <= 0 || maxh <= 0 {
+        return Err(RecogError::InvalidParameter(format!(
+            "maxw and maxh must resolve to positive values (got {maxw}, {maxh})"
+        )));
+    }
+
+    let pix1 = if pixs.depth() != PixelDepth::Bit1 {
+        let gray = pixs.convert_to_8()?;
+        let cleaned = clean_background_to_white(&gray, None, None)?;
+        threshold_to_binary(&cleaned, 150)?
+    } else {
+        pixs.clone()
+    };
+
+    if pix1.is_zero() {
+        return Ok(crate::core::Pixa::new());
+    }
+
+    // Drop very tall or very wide components.
+    let pix2 = crate::region::pix_select_by_size(
+        &pix1,
+        maxw,
+        maxh,
+        crate::region::ConnectivityType::EightWay,
+        crate::region::SizeSelectType::IfBoth,
+        crate::region::SizeSelectRelation::Lte,
+    )?;
+    if pix2.is_zero() {
+        return Ok(crate::core::Pixa::new());
+    }
+
+    // Close horizontally to solidify text lines.
+    let csize = 120i32.min((60 * res / 300).max(1));
+    let seq = format!("c{csize}.1");
+    let pix3 = morph_comp_sequence(&pix2, &seq)?;
+
+    // Connected components are dilated text lines; group them via boxaSort2d
+    // and take the extent of each cluster.
+    let (boxa1, _) = conncomp_pixa(&pix3, ConnectivityType::FourWay)?;
+    if boxa1.is_empty() {
+        return Ok(crate::core::Pixa::new());
+    }
+
+    let baa = boxa1.sort_2d(-1, -1, 5)?;
+    let (_w, _h, _bbox, boxa2) = baa.get_extent()?;
+    let boxa3 = boxa2.adjust_all_sides(-adjw, adjw, -adjh, adjh);
+
+    Ok(pix2.clip_rectangles(&boxa3)?)
 }
 
 /// Crop the foreground of a page and rescale it for printing.
