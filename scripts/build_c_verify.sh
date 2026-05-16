@@ -69,13 +69,29 @@ if [[ "$force" -eq 1 ]]; then
     rm -f "$MARKER" "$BIN_DIR"/verify_*
 fi
 
-if [[ "$force" -eq 0 && -f "$MARKER" ]]; then
+# Rebuild when any verify_*.c source is newer than the marker, so editing
+# a helper without --force does not silently keep stale binaries.
+needs_rebuild=0
+if [[ "$force" -eq 1 || ! -f "$MARKER" ]]; then
+    needs_rebuild=1
+else
+    for prog in "${VERIFY_PROGS[@]}"; do
+        src="$SCRIPTS_DIR/${prog}.c"
+        if [[ -f "$src" && "$src" -nt "$MARKER" ]]; then
+            needs_rebuild=1
+            break
+        fi
+    done
+fi
+
+if [[ "$needs_rebuild" -eq 0 ]]; then
     echo "Verify programs already built (marker: $MARKER, use --force to rebuild)."
     exit 0
 fi
 
-# Compile each verify program against the same libleptonica.so produced by
-# scripts/build_c_leptonica.sh. We invoke cc directly rather than going
+# Compile each verify program against libleptonica.a produced by
+# scripts/build_c_leptonica.sh (cmake builds a static archive by default
+# with BUILD_SHARED_LIBS=OFF). We invoke cc directly rather than going
 # through `nix develop` (which would need a flake.nix at the repo root)
 # because the C toolchain is expected to be on PATH in the same environment
 # that already built libleptonica.
