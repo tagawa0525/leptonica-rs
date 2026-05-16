@@ -23,9 +23,11 @@
 //!
 //! - `REGTEST_MODE`: Set to "generate", "compare", or "display"
 
+mod c_compat;
 mod error;
 mod params;
 
+pub use c_compat::{CCompatMode, CCompatStatus};
 pub use error::{TestError, TestResult};
 pub use params::{RegParams, RegTestMode, pixel_content_hash};
 use std::collections::HashMap;
