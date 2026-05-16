@@ -508,7 +508,6 @@ fn pixa_save_font_errs_when_outdir_missing() {
 use leptonica::core::bmf::TextblockLocation;
 
 #[test]
-#[ignore = "plan 812: not yet implemented"]
 fn add_single_textblock_above_expands_height() {
     let bmf = Bmf::new(10).unwrap();
     let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
@@ -527,7 +526,6 @@ fn add_single_textblock_above_expands_height() {
 }
 
 #[test]
-#[ignore = "plan 812: not yet implemented"]
 fn add_single_textblock_below_expands_height() {
     let bmf = Bmf::new(10).unwrap();
     let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();
@@ -546,7 +544,6 @@ fn add_single_textblock_below_expands_height() {
 }
 
 #[test]
-#[ignore = "plan 812: not yet implemented"]
 fn add_single_textblock_at_top_keeps_dimensions() {
     let bmf = Bmf::new(10).unwrap();
     let pix = leptonica::core::Pix::new(120, 200, leptonica::core::PixelDepth::Bit8).unwrap();
@@ -575,7 +572,6 @@ fn add_single_textblock_at_top_keeps_dimensions() {
 }
 
 #[test]
-#[ignore = "plan 812: not yet implemented"]
 fn add_single_textblock_at_bot_keeps_dimensions() {
     let bmf = Bmf::new(10).unwrap();
     let pix = leptonica::core::Pix::new(120, 200, leptonica::core::PixelDepth::Bit8).unwrap();
@@ -604,7 +600,6 @@ fn add_single_textblock_at_bot_keeps_dimensions() {
 }
 
 #[test]
-#[ignore = "plan 812: not yet implemented"]
 fn add_single_textblock_empty_returns_copy() {
     let bmf = Bmf::new(10).unwrap();
     let pix = leptonica::core::Pix::new(120, 60, leptonica::core::PixelDepth::Bit8).unwrap();

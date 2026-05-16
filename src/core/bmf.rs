@@ -1056,7 +1056,91 @@ impl Bmf {
         val: u32,
         location: TextblockLocation,
     ) -> Result<(Pix, bool)> {
-        let _ = (pix, text, val, location);
-        unimplemented!("add_single_textblock: plan 812 (RED)")
+        let actual_text = if text.is_empty() {
+            pix.text().unwrap_or_default().to_string()
+        } else {
+            text.to_string()
+        };
+        if actual_text.is_empty() {
+            return Ok((pix.deep_clone(), false));
+        }
+
+        let depth = pix.depth();
+        let val = match depth {
+            PixelDepth::Bit1 if val > 1 => 1,
+            PixelDepth::Bit2 if val > 3 => 2,
+            PixelDepth::Bit4 if val > 15 => 8,
+            PixelDepth::Bit8 if val > 0xff => 128,
+            PixelDepth::Bit16 if val > 0xffff => 0x8000,
+            PixelDepth::Bit32 if val < 256 => 0x80808000,
+            _ => val,
+        };
+
+        let w = pix.width();
+        let h = pix.height();
+        let spacer = 10u32;
+        let xstart = (w as f32 * 0.1) as u32;
+        let max_text_width = w.saturating_sub(2 * xstart).max(1);
+        let (lines, text_h) = self.get_line_strings(&actual_text, max_text_width, 0);
+        if lines.is_empty() {
+            return Ok((pix.deep_clone(), false));
+        }
+
+        let extra = text_h + 2 * spacer;
+        let dest = match location {
+            TextblockLocation::Above | TextblockLocation::Below => {
+                let new_h = h + extra;
+                let canvas = Pix::new(w, new_h, depth)?;
+                let mut cm = canvas.try_into_mut().unwrap();
+                if depth != PixelDepth::Bit1 {
+                    let white = depth.max_value();
+                    for y in 0..new_h {
+                        for x in 0..w {
+                            cm.set_pixel_unchecked(x, y, white);
+                        }
+                    }
+                }
+                let img_y = if location == TextblockLocation::Above {
+                    extra
+                } else {
+                    0
+                };
+                for y in 0..h {
+                    for x in 0..w {
+                        let v = pix.get_pixel_unchecked(x, y);
+                        cm.set_pixel_unchecked(x, y + img_y, v);
+                    }
+                }
+                let canvas: Pix = cm.into();
+                canvas
+            }
+            TextblockLocation::AtTop | TextblockLocation::AtBot => pix.deep_clone(),
+        };
+
+        // Baseline of 'I' approximates C's baselinetab[93].
+        let baseline_y = self
+            .get_baseline('I')
+            .unwrap_or(self.line_height().saturating_sub(1));
+
+        let ystart = match location {
+            TextblockLocation::Above | TextblockLocation::AtTop => baseline_y + spacer,
+            TextblockLocation::AtBot => h.saturating_sub(text_h + spacer) + baseline_y,
+            TextblockLocation::Below => h + baseline_y + spacer,
+        };
+
+        let line_step = self.line_height() + self.vert_line_sep();
+        let mut current = dest;
+        let mut overflow = false;
+        for (i, line) in lines.iter().enumerate() {
+            let y = ystart + (i as u32) * line_step;
+            let (rendered, line_w) =
+                self.set_textline(&current, line, xstart as i32, y as i32, val)?;
+            if line_w > max_text_width {
+                overflow = true;
+            }
+            current = rendered;
+        }
+
+        Ok((current, overflow))
     }
 }
