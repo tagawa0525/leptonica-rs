@@ -1710,6 +1710,682 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pi
     Ok(Some(pixd))
 }
 
+// ============================================================================
+// plan 804: pageseg.c の重い高レベル関数 (5)
+// ============================================================================
+
+/// Clean an image for printing/OCR: optional rotation, deskew, background
+/// whitening, binarisation, and optional small-noise removal.
+///
+/// # Parameters
+///
+/// - `contrast`: 1..=10 (1 = lightest, 10 = darkest).
+/// - `rotation`: 0..=3 (cw 90° quads applied before deskew).
+/// - `scale`: 1 (threshold only) or 2 (2× upscale before threshold).
+/// - `opensize`: 0 or 1 = skip; 2 or 3 = open with square SE of this size.
+///
+/// C Leptonica equivalent: `pixCleanImage`.
+pub fn pix_clean_image(
+    pixs: &Pix,
+    contrast: u32,
+    rotation: u32,
+    scale: u32,
+    opensize: u32,
+) -> RecogResult<Pix> {
+    use crate::filter::background_norm_to_1_min_max;
+    use crate::morph::sequence::morph_sequence;
+    use crate::recog::skew::deskew;
+    use crate::transform::scale::{ScaleMethod, scale as scale_pix};
+    use crate::transform::{expand_binary_replicate, rotate_orth};
+
+    if rotation > 3 {
+        return Err(RecogError::InvalidParameter(format!(
+            "rotation must be in 0..=3, got {rotation}"
+        )));
+    }
+    if !(1..=10).contains(&contrast) {
+        return Err(RecogError::InvalidParameter(format!(
+            "contrast must be in 1..=10, got {contrast}"
+        )));
+    }
+    if scale != 1 && scale != 2 {
+        return Err(RecogError::InvalidParameter(format!(
+            "scale must be 1 or 2, got {scale}"
+        )));
+    }
+    if opensize > 3 {
+        return Err(RecogError::InvalidParameter(format!(
+            "opensize must be <= 3, got {opensize}"
+        )));
+    }
+
+    let intermediate = if pixs.depth() == PixelDepth::Bit1 {
+        let rotated = if rotation > 0 {
+            rotate_orth(pixs, rotation)?
+        } else {
+            pixs.clone()
+        };
+        let deskewed = deskew(&rotated)?;
+        if scale == 2 {
+            expand_binary_replicate(&deskewed, 2, 2)?
+        } else {
+            deskewed
+        }
+    } else {
+        let gray = pixs.convert_to_8()?;
+        let rotated = if rotation > 0 {
+            rotate_orth(&gray, rotation)?
+        } else {
+            gray
+        };
+        let deskewed = deskew(&rotated)?;
+        // C's pixBackgroundNormTo1MinMax handles `scale == 2` internally by
+        // bilinear-upscaling the grayscale before threshold. The Rust public
+        // helper only does scale=1, so we pre-scale here to match dims.
+        let to_norm = if scale == 2 {
+            scale_pix(&deskewed, 2.0, 2.0, ScaleMethod::Linear)?
+        } else {
+            deskewed
+        };
+        background_norm_to_1_min_max(&to_norm, contrast)?
+    };
+
+    if opensize == 2 || opensize == 3 {
+        let seq = format!("o{opensize}.{opensize}");
+        Ok(morph_sequence(&intermediate, &seq)?)
+    } else {
+        Ok(intermediate)
+    }
+}
+
+/// Estimate the number of text columns on a page from the column-FG profile.
+///
+/// Returns `0` when no significant content is detected. The C version
+/// returns the count via an out-parameter and uses `-1` as the unset
+/// sentinel; the Rust port surfaces failures as `Err` so the count is
+/// always meaningful.
+///
+/// # Parameters
+///
+/// - `deltafract`: extrema-detection delta as fraction of range.
+///   Recommended 0.15..=0.75; values outside this range are accepted
+///   without error (matches C which only logs a warning).
+/// - `peakfract`: peak threshold as fraction of range.
+///   Recommended 0.25..=0.9; values outside this range are accepted
+///   without error (matches C which only logs a warning).
+/// - `clipfract`: border fraction clipped before analysis. Must be in
+///   `[0.0, 0.5)`; returns `Err` otherwise (matches C's hard validation).
+///
+/// C Leptonica equivalent: `pixCountTextColumns`.
+pub fn pix_count_text_columns(
+    pixs: &Pix,
+    deltafract: f32,
+    peakfract: f32,
+    clipfract: f32,
+) -> RecogResult<u32> {
+    use crate::morph::binary::close_safe_brick;
+    use crate::recog::skew::deskew;
+    use crate::transform::reduce_rank_binary_cascade;
+    use crate::transform::scale::{ScaleMethod, scale as scale_pix};
+
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    if !(0.0..0.5).contains(&clipfract) {
+        return Err(RecogError::InvalidParameter(format!(
+            "clipfract must be in [0.0, 0.5), got {clipfract}"
+        )));
+    }
+    // deltafract / peakfract: C only warns; we accept any value (consistent
+    // with C's permissive behaviour outside the recommended range).
+
+    // Scale to between 37.5 and 75 ppi.
+    let res = if pixs.xres() <= 0 { 300 } else { pixs.xres() };
+    let pix1 = if res < 37 {
+        let factor = 37.5 / res as f32;
+        scale_pix(pixs, factor, factor, ScaleMethod::Sampling)?
+    } else {
+        let redfact = res as f32 / 37.5;
+        if redfact < 2.0 {
+            pixs.clone()
+        } else if redfact < 4.0 {
+            reduce_rank_binary_cascade(pixs, &[1])?
+        } else if redfact < 8.0 {
+            reduce_rank_binary_cascade(pixs, &[1, 2])?
+        } else if redfact < 16.0 {
+            reduce_rank_binary_cascade(pixs, &[1, 2, 2])?
+        } else {
+            reduce_rank_binary_cascade(pixs, &[1, 2, 2, 2])?
+        }
+    };
+
+    // Crop inner (1 - 2*clipfract) of image.
+    let w1 = pix1.width() as f32;
+    let h1 = pix1.height() as f32;
+    let cx = (clipfract * w1) as i32;
+    let cy = (clipfract * h1) as i32;
+    let cw = ((1.0 - 2.0 * clipfract) * w1) as i32;
+    let ch = ((1.0 - 2.0 * clipfract) * h1) as i32;
+    if cw <= 0 || ch <= 0 {
+        return Ok(0);
+    }
+    let pix2 = pix1.clip_rectangle(cx as u32, cy as u32, cw as u32, ch as u32)?;
+
+    // Deskew (may fail on empty input → 0 columns).
+    let pix3 = match deskew(&pix2) {
+        Ok(p) => p,
+        Err(_) => return Ok(0),
+    };
+    let w = pix3.width();
+    let h = pix3.height();
+
+    // Close to merge text into bands, then invert so that text-band columns
+    // become low counts and gutters become high counts.
+    let pix4 = close_safe_brick(&pix3, 5, 21)?;
+    let pix4_inv = pix4.invert();
+    let na1 = pix4_inv.count_by_column(None)?;
+
+    let max_val = na1.max_value().unwrap_or(0.0);
+    let min_val = na1.min_value().unwrap_or(0.0);
+    let range = max_val - min_val;
+    let fraction_active = range / h as f32;
+    if fraction_active < 0.05 {
+        return Ok(0);
+    }
+
+    // numaFindExtrema with `delta = deltafract * (max - min)`.
+    let (na_loc, na_val) = na1.find_extrema_with_values(deltafract * range)?;
+    // Normalised location (0..1) and normalised value (0..1).
+    let na_loc_norm = na_loc.transform(0.0, 1.0 / w as f32);
+    let na_val_norm = na_val.transform(-min_val, 1.0 / range);
+
+    let mut peaks = 0u32;
+    for i in 0..na_loc_norm.len() {
+        let loc = na_loc_norm.get(i).unwrap_or(0.0);
+        let val = na_val_norm.get(i).unwrap_or(0.0);
+        if loc > 0.3 && loc < 0.7 && val >= peakfract {
+            peaks += 1;
+        }
+    }
+
+    Ok(peaks + 1)
+}
+
+/// Decide whether `pixs` is more likely text or photo.
+///
+/// Returns `Some(true)` for text, `Some(false)` for photo, and `None` when
+/// the input is empty or the decision cannot be made (mirrors C's `-1`
+/// sentinel via the out-parameter `*pistext`).
+///
+/// C Leptonica equivalent: `pixDecideIfText`.
+pub fn pix_decide_if_text(
+    pixs: &Pix,
+    box_: Option<&crate::core::Box>,
+) -> RecogResult<Option<bool>> {
+    use crate::morph::sequence::morph_comp_sequence;
+    use crate::morph::{Sel, SelElement, hit_miss_transform};
+    use crate::region::seedfill::seedfill_binary_restricted;
+    use crate::region::{ConnectivityType, conncomp_pixa};
+
+    // Crop and convert to 1 bpp at ~300 ppi.
+    let pix1 = prepare_1bpp(pixs, box_)?;
+    if pix1.is_zero() {
+        return Ok(None);
+    }
+    let w = pix1.width() as i32;
+
+    // Build a vertical-line hit-miss SEL (81 px tall, 11 wide; column 5 is
+    // the hit column; misses at columns 0 and 10 at three vertical
+    // positions). Removes thin vertical lines as found in tables.
+    let sel_template = Pix::new(11, 81, PixelDepth::Bit1)?;
+    let mut t = sel_template.try_into_mut().unwrap();
+    for y in 0..81 {
+        t.set_pixel(5, y, 1)?;
+    }
+    let template: Pix = t.into();
+    // Rust API: from_pix(pix, cx, cy) — origin at (5, 40) in (w=11, h=81).
+    let mut sel1 = Sel::from_pix(&template, 5, 40)?;
+    // set_element(x, y, elem) — pair of misses on either side of the hit
+    // column at rows 20, 40, 60.
+    for &y in &[20u32, 40, 60] {
+        sel1.set_element(0, y, SelElement::Miss);
+        sel1.set_element(10, y, SelElement::Miss);
+    }
+
+    let pix3 = hit_miss_transform(&pix1, &sel1)?;
+    let pix4 = seedfill_binary_restricted(&pix3, &pix1, ConnectivityType::EightWay, 5, 1000)?;
+    let pix5 = pix1.xor(&pix4)?;
+
+    // Merge cleaned residual into long horizontal components.
+    let pix6 = morph_comp_sequence(&pix5, "c30.1 + o15.1 + c60.1 + o2.2")?;
+
+    // Region height for minlines: full height with explicit box, otherwise
+    // textline-band extent on pix6.
+    let h = if box_.is_some() {
+        pix6.height() as i32
+    } else {
+        let (_top, bot) = pix_find_thresh_fg_extent(&pix6, 400)?;
+        bot as i32
+    };
+
+    let (boxa1, _) = conncomp_pixa(&pix6, ConnectivityType::EightWay)?;
+    if boxa1.is_empty() {
+        return Ok(Some(false));
+    }
+
+    // Width of the 2nd-widest component (mirror C: boxaSort by width, idx 1).
+    let mut widths: Vec<i32> = boxa1.iter().map(|b| b.w).collect();
+    widths.sort_unstable_by(|a, b| b.cmp(a));
+    let maxw = if widths.len() >= 2 {
+        widths[1]
+    } else {
+        widths[0]
+    };
+
+    let min_w = ((0.4 * maxw as f32) as i32).max(1);
+    let n_long = boxa1.iter().filter(|b| b.w >= min_w).count() as i32;
+    let n_thin = boxa1.iter().filter(|b| b.w >= min_w && b.h <= 60).count() as i32;
+    let big_comp = boxa1.iter().any(|b| b.w > 400 && b.h > 175);
+
+    let ratio1 = maxw as f32 / w as f32;
+    let ratio2 = if n_long > 0 {
+        n_thin as f32 / n_long as f32
+    } else {
+        0.0
+    };
+    let minlines = 2i32.max(h / 125);
+    let is_text = !(big_comp || ratio1 < 0.6 || ratio2 < 0.8 || n_thin < minlines);
+    Ok(Some(is_text))
+}
+
+/// Extract raw text lines from `pixs` as a `Pixa` of sub-images.
+///
+/// Returns an empty `Pixa` when `pixs` has no foreground pixels (instead of
+/// C's `NULL` + log).
+///
+/// # Parameters
+///
+/// - `maxw`, `maxh`: maximum component width/height kept before clustering.
+///   Pass `0` for the default `0.5 * resolution`.
+/// - `adjw`, `adjh`: amounts added to each band's left/right and top/bottom
+///   respectively (i.e. positive values expand the bounding box outward by
+///   that many pixels on each side before clipping). `0` keeps the bounding
+///   box unchanged. Matches C's call `boxaAdjustSides(boxa2, -adjw, adjw,
+///   -adjh, adjh)` where the negative-positive pairing yields symmetric
+///   outward expansion.
+///
+/// C Leptonica equivalent: `pixExtractRawTextlines`.
+pub fn pix_extract_raw_textlines(
+    pixs: &Pix,
+    maxw: i32,
+    maxh: i32,
+    adjw: i32,
+    adjh: i32,
+) -> RecogResult<crate::core::Pixa> {
+    use crate::color::threshold_to_binary;
+    use crate::filter::clean_background_to_white;
+    use crate::morph::sequence::morph_comp_sequence;
+    use crate::region::{ConnectivityType, conncomp_pixa};
+
+    let res = if pixs.xres() <= 0 { 300 } else { pixs.xres() };
+    let maxw = if maxw != 0 {
+        maxw
+    } else {
+        (0.5 * res as f32) as i32
+    };
+    let maxh = if maxh != 0 {
+        maxh
+    } else {
+        (0.5 * res as f32) as i32
+    };
+    if maxw <= 0 || maxh <= 0 {
+        return Err(RecogError::InvalidParameter(format!(
+            "maxw and maxh must resolve to positive values (got {maxw}, {maxh})"
+        )));
+    }
+
+    let pix1 = if pixs.depth() != PixelDepth::Bit1 {
+        let gray = pixs.convert_to_8()?;
+        let cleaned = clean_background_to_white(&gray, None, None)?;
+        threshold_to_binary(&cleaned, 150)?
+    } else {
+        pixs.clone()
+    };
+
+    if pix1.is_zero() {
+        return Ok(crate::core::Pixa::new());
+    }
+
+    // Drop very tall or very wide components.
+    let pix2 = crate::region::pix_select_by_size(
+        &pix1,
+        maxw,
+        maxh,
+        crate::region::ConnectivityType::EightWay,
+        crate::region::SizeSelectType::IfBoth,
+        crate::region::SizeSelectRelation::Lte,
+    )?;
+    if pix2.is_zero() {
+        return Ok(crate::core::Pixa::new());
+    }
+
+    // Close horizontally to solidify text lines.
+    let csize = 120i32.min((60 * res / 300).max(1));
+    let seq = format!("c{csize}.1");
+    let pix3 = morph_comp_sequence(&pix2, &seq)?;
+
+    // Connected components are dilated text lines; group them via boxaSort2d
+    // and take the extent of each cluster.
+    let (boxa1, _) = conncomp_pixa(&pix3, ConnectivityType::FourWay)?;
+    if boxa1.is_empty() {
+        return Ok(crate::core::Pixa::new());
+    }
+
+    let baa = boxa1.sort_2d(-1, -1, 5)?;
+    let (_w, _h, _bbox, boxa2) = baa.get_extent()?;
+    let boxa3 = boxa2.adjust_all_sides(-adjw, adjw, -adjh, adjh);
+
+    Ok(pix2.clip_rectangles(&boxa3)?)
+}
+
+/// Locate the largest (or two comparable) connected component(s) after a
+/// strong vertical closing. Returns a bounding box in the input resolution
+/// of `pixs` (which is itself a 2x reduction of the original).
+///
+/// C Leptonica equivalent (static): `pixMaxCompAfterVClosing`.
+fn pix_max_comp_after_v_closing(pixs: &Pix) -> RecogResult<crate::core::Box> {
+    use crate::morph::sequence::morph_sequence;
+    use crate::region::{ConnectivityType, find_connected_components};
+
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+
+    let pix1 = morph_sequence(pixs, "r11 + c3.80 + o3.80 + x4")?;
+    if pix1.is_zero() {
+        return Err(RecogError::NoContent(
+            "pixMaxCompAfterVClosing: closed pix is empty".into(),
+        ));
+    }
+
+    let mut comps = find_connected_components(&pix1, ConnectivityType::EightWay)?;
+    if comps.is_empty() {
+        return Err(RecogError::NoContent(
+            "pixMaxCompAfterVClosing: no components".into(),
+        ));
+    }
+    comps.sort_by_key(|c| -((c.bounds.w as i64) * (c.bounds.h as i64)));
+
+    if comps.len() == 1 {
+        return Ok(comps[0].bounds);
+    }
+    let b1 = comps[0].bounds;
+    let b2 = comps[1].bounds;
+    let a1 = (b1.w as f32) * (b1.h as f32);
+    let a2 = (b2.w as f32) * (b2.h as f32);
+    Ok(if a2 / a1 > 0.7 { b1.union(&b2) } else { b1 })
+}
+
+/// Extract the page region inside a solid black border. Returns a bounding
+/// box in the input resolution of `pixs` (a 2x reduction of the original).
+///
+/// C Leptonica equivalent (static): `pixFindPageInsideBlackBorder`.
+fn pix_find_page_inside_black_border(pixs: &Pix) -> RecogResult<crate::core::Box> {
+    use crate::core::Box as LeptBox;
+    use crate::morph::sequence::morph_sequence;
+    use crate::region::{ConnectivityType, find_connected_components};
+
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+
+    let pix1 = morph_sequence(pixs, "r22 + c5.5 + o7.7")?;
+    if pix1.is_zero() {
+        return Err(RecogError::NoContent(
+            "pixFindPageInsideBlackBorder: closed pix is empty".into(),
+        ));
+    }
+    let pix1_inv = pix1.invert();
+    let pix2 = morph_sequence(&pix1_inv, "c11.11 + o11.11")?;
+    let mut comps = find_connected_components(&pix2, ConnectivityType::EightWay)?;
+    if comps.is_empty() {
+        return Err(RecogError::NoContent(
+            "pixFindPageInsideBlackBorder: no components".into(),
+        ));
+    }
+    comps.sort_by_key(|c| -((c.bounds.w as i64) * (c.bounds.h as i64)));
+
+    let box1 = comps[0]
+        .bounds
+        .adjust_sides(5, -5, 5, -5)
+        .ok_or_else(|| RecogError::NoContent("largest component too small after inset".into()))?;
+    let box2 = box1.scale(4.0);
+
+    let cx = box2.x.max(0) as u32;
+    let cy = box2.y.max(0) as u32;
+    let cw = box2.w.min(pixs.width() as i32 - cx as i32).max(0) as u32;
+    let ch = box2.h.min(pixs.height() as i32 - cy as i32).max(0) as u32;
+    if cw == 0 || ch == 0 {
+        return Err(RecogError::NoContent(
+            "pixFindPageInsideBlackBorder: box outside image".into(),
+        ));
+    }
+    let pix3 = pixs.clip_rectangle(cx, cy, cw, ch)?;
+    let box3 = match pix3.clip_to_foreground()? {
+        Some((_, b)) => b,
+        None => LeptBox {
+            x: 0,
+            y: 0,
+            w: cw as i32,
+            h: ch as i32,
+        },
+    };
+    Ok(box3.translate(box2.x, box2.y))
+}
+
+/// Rescale `pixs` to fit isomorphically (with optional horizontal stretch)
+/// inside a `(w x h)` page with cleared borders.
+///
+/// C Leptonica equivalent (static): `pixRescaleForCropping`.
+fn pix_rescale_for_cropping(
+    pixs: &Pix,
+    w: i32,
+    h: i32,
+    lr_border: i32,
+    tb_border: i32,
+    maxwiden: f32,
+) -> RecogResult<Pix> {
+    use crate::core::{InitColor, RopOp};
+    use crate::transform::scale::{ScaleMethod, scale as scale_pix};
+
+    if pixs.depth() != PixelDepth::Bit1 {
+        return Err(RecogError::UnsupportedDepth {
+            expected: "1-bit",
+            actual: pixs.depth().bits(),
+        });
+    }
+    let lr_border = lr_border.max(0);
+    let tb_border = tb_border.max(0);
+    let maxwiden = maxwiden.max(1.0);
+
+    let wi = pixs.width() as i32;
+    let hi = pixs.height() as i32;
+    let wmax = w - 2 * lr_border;
+    let hmax = h - 2 * tb_border;
+    if wmax <= 0 || hmax <= 0 {
+        return Err(RecogError::InvalidParameter(
+            "border parameters leave no usable area".into(),
+        ));
+    }
+    let ratio = (wmax * hi) as f32 / (hmax * wi) as f32;
+
+    let (pix1, wf, hf, xf) = if ratio >= 1.0 {
+        let scaleh = hmax as f32 / hi as f32;
+        let wn = (scaleh * wi as f32) as i32;
+        let scalewid = maxwiden.min(wmax as f32 / wn.max(1) as f32);
+        let scalew = scaleh * scalewid;
+        let wf = (scalew * wi as f32) as i32;
+        let hf = hmax;
+        let pix1 = scale_pix(pixs, scalew, scaleh, ScaleMethod::Linear)?;
+        let xf = (w - wf) / 2;
+        (pix1, wf, hf, xf)
+    } else {
+        let scalew = wmax as f32 / wi as f32;
+        let pix1 = scale_pix(pixs, scalew, scalew, ScaleMethod::Linear)?;
+        let wf = wmax;
+        let hf = (scalew * hi as f32) as i32;
+        let xf = lr_border;
+        (pix1, wf, hf, xf)
+    };
+
+    let pixd = Pix::new(w as u32, h as u32, PixelDepth::Bit1)?;
+    let mut pixd_mut = pixd.try_into_mut().unwrap();
+    pixd_mut.set_or_clear_border(0, 0, 0, 0, InitColor::White);
+    pixd_mut.rop_region_inplace(
+        xf,
+        tb_border,
+        wf.max(0) as u32,
+        hf.max(0) as u32,
+        RopOp::Src,
+        &pix1,
+        0,
+        0,
+    )?;
+    Ok(pixd_mut.into())
+}
+
+/// Crop the foreground of a page and rescale it for printing.
+///
+/// Returns `(cropped_image, crop_box_at_input_resolution)`.
+///
+/// # Parameters
+///
+/// - `edgeclean`: `-2` extracts the page from a solid black border; `-1`
+///   removes left/right noise via a strong vertical closing; `0` keeps all
+///   foreground; `1..=15` applies an open/close of that size for noise
+///   removal.
+/// - `printwiden`: `0` skips; `1` widens for 8.5x11 paper, `2` for A4.
+///
+/// C Leptonica equivalent: `pixCropImage`.
+#[allow(clippy::too_many_arguments)]
+pub fn pix_crop_image(
+    pixs: &Pix,
+    lr_clear: i32,
+    tb_clear: i32,
+    edgeclean: i32,
+    lr_border: i32,
+    tb_border: i32,
+    maxwiden: f32,
+    printwiden: u32,
+) -> RecogResult<(Pix, crate::core::Box)> {
+    use crate::core::InitColor;
+    use crate::filter::background_norm_to_1_min_max;
+    use crate::morph::sequence::morph_sequence;
+    use crate::transform::reduce_rank_binary_2;
+    use crate::transform::scale::{ScaleMethod, scale as scale_pix};
+
+    let mut edgeclean = edgeclean;
+    if edgeclean > 15 {
+        edgeclean = 15;
+    }
+    if edgeclean < -1 {
+        edgeclean = -2;
+    }
+
+    let w = pixs.width() as i32;
+    let h = pixs.height() as i32;
+    if w < MIN_WIDTH as i32 || h < MIN_HEIGHT as i32 {
+        return Err(RecogError::ImageTooSmall {
+            min_width: MIN_WIDTH,
+            min_height: MIN_HEIGHT,
+            actual_width: pixs.width(),
+            actual_height: pixs.height(),
+        });
+    }
+    let lr_clear = lr_clear.max(0);
+    let tb_clear = tb_clear.max(0);
+    let lr_border = lr_border.max(0);
+    let tb_border = tb_border.max(0);
+    if lr_clear > w / 6 || tb_clear > h / 6 {
+        return Err(RecogError::InvalidParameter(format!(
+            "lr_clear/tb_clear too large; must be <= {}/{}",
+            w / 6,
+            h / 6
+        )));
+    }
+    let printwiden = if printwiden > 2 { 0 } else { printwiden };
+
+    let pix1 = background_norm_to_1_min_max(pixs, 1)?;
+    let pix2 = reduce_rank_binary_2(&pix1, 2)?;
+
+    let mut pix2_mut = pix2.try_into_mut().unwrap();
+    pix2_mut.set_or_clear_border(
+        (lr_clear / 2) as u32,
+        (lr_clear / 2) as u32,
+        (tb_clear / 2) as u32,
+        (tb_clear / 2) as u32,
+        InitColor::White,
+    );
+    let pix2: Pix = pix2_mut.into();
+
+    let box1 = if edgeclean == 0 {
+        pix2.clip_to_foreground()?
+            .ok_or_else(|| RecogError::NoContent("no foreground in pix2".into()))?
+            .1
+    } else if edgeclean > 0 {
+        let val = edgeclean + 1;
+        let seq = format!("c{val}.{val} + o{val}.{val}");
+        let pix3 = morph_sequence(&pix2, &seq)?;
+        pix3.clip_to_foreground()?
+            .ok_or_else(|| RecogError::NoContent("no foreground after edge clean".into()))?
+            .1
+    } else if edgeclean == -1 {
+        pix_max_comp_after_v_closing(&pix2)?
+    } else {
+        pix_find_page_inside_black_border(&pix2)?
+    };
+
+    let box2 = box1.scale(2.0);
+
+    let cx = box2.x.max(0) as u32;
+    let cy = box2.y.max(0) as u32;
+    let cw = box2.w.min(pix1.width() as i32 - cx as i32).max(1) as u32;
+    let ch = box2.h.min(pix1.height() as i32 - cy as i32).max(1) as u32;
+    let pix_fg = pix1.clip_rectangle(cx, cy, cw, ch)?;
+
+    // Slightly thicken long horizontal lines.
+    let pix_thick = morph_sequence(&pix_fg, "o80.1 + d1.2")?;
+    let mut pix_fg_mut = pix_fg.to_mut();
+    pix_fg_mut.or_inplace(&pix_thick)?;
+    let pix_fg: Pix = pix_fg_mut.into();
+
+    let pix_rescaled = pix_rescale_for_cropping(&pix_fg, w, h, lr_border, tb_border, maxwiden)?;
+
+    let r1 = h as f32 / w as f32;
+    let r2 = match printwiden {
+        1 => r1 / 1.294,
+        2 => r1 / 1.414,
+        _ => 0.0,
+    };
+    let pix_final = if r2 > 1.03 {
+        let r2 = r2.min(1.20);
+        scale_pix(&pix_rescaled, r2, 1.0, ScaleMethod::Sampling)?
+    } else {
+        pix_rescaled
+    };
+
+    Ok((pix_final, box2))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
