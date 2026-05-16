@@ -4,11 +4,12 @@
 //! to report whether a Rust regression output matches the C version's golden
 //! output (`tests/golden_manifest_c.tsv`, produced by `examples/gen_c_manifest`).
 //!
-//! Differences are written to `tests/c_compat_report.<binary>.txt` (one
-//! file per cargo-test integration binary, e.g. `core` / `io` / `filter`)
-//! and do **not** fail the test by default. Set `REGTEST_C_COMPAT=strict`
-//! to escalate mismatches to test failures, or `REGTEST_C_COMPAT=off` to
-//! disable entirely.
+//! Every comparison (including `Ok` matches) is recorded to
+//! `tests/c_compat_report.<binary>.txt` (one file per cargo-test integration
+//! binary, e.g. `core` / `io` / `filter`) so the report doubles as a baseline
+//! of which Rust outputs match the C reference. Lines do **not** fail the
+//! test by default. Set `REGTEST_C_COMPAT=strict` to escalate mismatches to
+//! test failures, or `REGTEST_C_COMPAT=off` to disable the check entirely.
 
 #![allow(dead_code)]
 
@@ -25,11 +26,15 @@ pub enum CCompatMode {
 
 impl CCompatMode {
     pub fn from_env() -> Self {
-        match std::env::var("REGTEST_C_COMPAT")
-            .unwrap_or_default()
-            .to_lowercase()
-            .as_str()
-        {
+        Self::from_value(&std::env::var("REGTEST_C_COMPAT").unwrap_or_default())
+    }
+
+    /// Pure decoder used by `from_env`. Split out so unit tests can exercise
+    /// the parsing rules without mutating process-wide environment state
+    /// (`std::env::set_var` is `unsafe` because other threads may be
+    /// reading any env var concurrently).
+    pub fn from_value(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
             "0" | "off" | "no" | "false" => Self::Off,
             "strict" | "fail" => Self::Strict,
             _ => Self::Report,
@@ -134,13 +139,49 @@ pub fn parse_c_manifest(content: &str) -> ManifestMap {
 
 /// Extensions tried when resolving a C key to a manifest entry. The C version
 /// writes the same operation to different formats depending on bit-depth, so
-/// `lookup_c_hash_in` searches a fixed list of candidate extensions and returns
-/// the first hit. PDF / PS / data-stream files are included because some C
-/// regression outputs are raw byte streams (`.ba`, `.na`, `.pdf`).
+/// the lookup searches this fixed list and returns the first hit. PDF / PS /
+/// data-stream files are included because some C regression outputs are raw
+/// byte streams (`.ba`, `.na`, `.pdf`, `.pa` for Pta).
 const CANDIDATE_C_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp", "jp2", "j2k", "spix", "pnm", "pbm",
-    "pgm", "ppm", "pam", "pdf", "ps", "ba", "na", "pta",
+    "pgm", "ppm", "pam", "pdf", "ps", "ba", "na", "pa",
 ];
+
+/// Detailed lookup result used by both `lookup_c_hash_in` (Option facade) and
+/// `check_c_hash_against` (status classifier). Returns the matched C name +
+/// hash on success, or a `(status, detail)` pair describing why the lookup
+/// failed (`Unmapped` for parse / golden_map miss, `MissingC` for no C entry).
+fn lookup_c_hash_detailed(
+    rust_key: &str,
+    golden_map: &GoldenMap,
+    c_manifest: &ManifestMap,
+) -> Result<(String, u64), (CCompatStatus, String)> {
+    let Some((rust_prefix, rust_index, _rust_ext)) = parse_manifest_key(rust_key) else {
+        return Err((
+            CCompatStatus::Unmapped,
+            format!("could not parse key '{rust_key}'"),
+        ));
+    };
+    let Some(c_key) = golden_map.get(&(rust_prefix, rust_index)) else {
+        return Err((
+            CCompatStatus::Unmapped,
+            "no golden_map.tsv entry".to_string(),
+        ));
+    };
+    for ext in CANDIDATE_C_EXTENSIONS {
+        let candidate = format!("{}.{:02}.{}", c_key.prefix, c_key.index, ext);
+        if let Some(&hash) = c_manifest.get(&candidate) {
+            return Ok((candidate, hash));
+        }
+    }
+    Err((
+        CCompatStatus::MissingC,
+        format!(
+            "golden_map → {}/{:02} but no C manifest entry",
+            c_key.prefix, c_key.index
+        ),
+    ))
+}
 
 /// Look up the C-side hash that should correspond to the given Rust key.
 /// Returns the matched C filename and its hash, or `None` if either the
@@ -150,15 +191,7 @@ pub fn lookup_c_hash_in(
     golden_map: &GoldenMap,
     c_manifest: &ManifestMap,
 ) -> Option<(String, u64)> {
-    let (rust_prefix, rust_index, _rust_ext) = parse_manifest_key(rust_key)?;
-    let c_key = golden_map.get(&(rust_prefix, rust_index))?;
-    for ext in CANDIDATE_C_EXTENSIONS {
-        let candidate = format!("{}.{:02}.{}", c_key.prefix, c_key.index, ext);
-        if let Some(&hash) = c_manifest.get(&candidate) {
-            return Some((candidate, hash));
-        }
-    }
-    None
+    lookup_c_hash_detailed(rust_key, golden_map, c_manifest).ok()
 }
 
 /// Classify a Rust key against the C baseline. Returns the status plus a
@@ -169,45 +202,21 @@ pub fn check_c_hash_against(
     golden_map: &GoldenMap,
     c_manifest: &ManifestMap,
 ) -> (CCompatStatus, String) {
-    let Some((rust_prefix, rust_index, _ext)) = parse_manifest_key(rust_key) else {
-        return (
-            CCompatStatus::Unmapped,
-            format!("could not parse key '{rust_key}'"),
-        );
-    };
-    let Some(c_key) = golden_map.get(&(rust_prefix, rust_index)) else {
-        return (
-            CCompatStatus::Unmapped,
-            "no golden_map.tsv entry".to_string(),
-        );
-    };
-    let mut found: Option<(String, u64)> = None;
-    for ext in CANDIDATE_C_EXTENSIONS {
-        let candidate = format!("{}.{:02}.{}", c_key.prefix, c_key.index, ext);
-        if let Some(&h) = c_manifest.get(&candidate) {
-            found = Some((candidate, h));
-            break;
+    match lookup_c_hash_detailed(rust_key, golden_map, c_manifest) {
+        Ok((c_name, c_hash)) => {
+            if c_hash == rust_hash {
+                (
+                    CCompatStatus::Ok,
+                    format!("matches {c_name} = {c_hash:016x}"),
+                )
+            } else {
+                (
+                    CCompatStatus::Mismatch,
+                    format!("rust={rust_hash:016x}, c[{c_name}]={c_hash:016x}"),
+                )
+            }
         }
-    }
-    let Some((c_name, c_hash)) = found else {
-        return (
-            CCompatStatus::MissingC,
-            format!(
-                "golden_map → {}/{:02} but no C manifest entry",
-                c_key.prefix, c_key.index
-            ),
-        );
-    };
-    if c_hash == rust_hash {
-        (
-            CCompatStatus::Ok,
-            format!("matches {c_name} = {c_hash:016x}"),
-        )
-    } else {
-        (
-            CCompatStatus::Mismatch,
-            format!("rust={rust_hash:016x}, c[{c_name}]={c_hash:016x}"),
-        )
+        Err(failure) => failure,
     }
 }
 
@@ -308,8 +317,10 @@ fn append_report(line: &str) {
     }
 }
 
-/// Compare a Rust output hash against the C baseline (if any) and append the
-/// result to `tests/c_compat_report.txt`. Returns the classification status.
+/// Compare a Rust output hash against the C baseline (if any) and append
+/// **every** result (including `Ok`) to `tests/c_compat_report.<binary>.txt`.
+/// Logging all matches keeps the report usable as a baseline of which Rust
+/// outputs are bit-for-bit identical with the C reference.
 ///
 /// In `CCompatMode::Off` the comparison is skipped entirely and `Ok` is
 /// returned without writing to the report. In `CCompatMode::Strict` callers
@@ -476,20 +487,20 @@ ok.01.png\tdeadbeefdeadbeef";
     }
 
     #[test]
-
-    fn ccompat_mode_from_env_recognises_off_report_strict() {
-        // SAFETY: env mutation is racy across threads; this single test is enough
-        // to lock down the parsing logic without exercising globals in parallel.
-        // Other tests must avoid setting REGTEST_C_COMPAT.
-        unsafe {
-            std::env::set_var("REGTEST_C_COMPAT", "off");
-            assert_eq!(CCompatMode::from_env(), CCompatMode::Off);
-            std::env::set_var("REGTEST_C_COMPAT", "strict");
-            assert_eq!(CCompatMode::from_env(), CCompatMode::Strict);
-            std::env::set_var("REGTEST_C_COMPAT", "report");
-            assert_eq!(CCompatMode::from_env(), CCompatMode::Report);
-            std::env::remove_var("REGTEST_C_COMPAT");
-            assert_eq!(CCompatMode::from_env(), CCompatMode::Report);
-        }
+    fn ccompat_mode_from_value_recognises_off_report_strict() {
+        // Use the pure `from_value` decoder rather than mutating env vars:
+        // `std::env::set_var` is `unsafe` under concurrent reads (e.g. by
+        // other tests calling `RegTestMode::from_env()`), so the env-driven
+        // path is exercised indirectly via this codec test.
+        assert_eq!(CCompatMode::from_value("off"), CCompatMode::Off);
+        assert_eq!(CCompatMode::from_value("0"), CCompatMode::Off);
+        assert_eq!(CCompatMode::from_value("strict"), CCompatMode::Strict);
+        assert_eq!(CCompatMode::from_value("fail"), CCompatMode::Strict);
+        assert_eq!(CCompatMode::from_value("report"), CCompatMode::Report);
+        assert_eq!(CCompatMode::from_value(""), CCompatMode::Report);
+        assert_eq!(
+            CCompatMode::from_value("anything-else"),
+            CCompatMode::Report
+        );
     }
 }
