@@ -271,14 +271,12 @@ fn extract_raw_textlines_finds_lines() {
 // -- pix_crop_image -------------------------------------------------------
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn crop_image_rejects_small() {
     let pix = make_blank(50, 50, PixelDepth::Bit8);
     assert!(pix_crop_image(&pix, 0, 0, 0, 0, 0, 1.0, 0).is_err());
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn crop_image_returns_same_size_and_some_crop_box() {
     let pix = make_blank(400, 400, PixelDepth::Bit8);
     let mut m = pix.try_into_mut().unwrap();
@@ -302,7 +300,6 @@ fn crop_image_returns_same_size_and_some_crop_box() {
 }
 
 #[test]
-#[ignore = "plan 804: not yet implemented"]
 fn crop_image_rejects_clear_too_large() {
     let pix = make_blank(400, 400, PixelDepth::Bit8);
     // lr_clear = w/3 > w/6 → reject.
