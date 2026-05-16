@@ -152,8 +152,8 @@ Phase 2 のレポートを元に、不一致が出ている Rust テストを 1 
 
 #### Findings ログ
 
-- [c-compat-coverage.md](../porting/c-compat-coverage.md): Phase 2.5 移行前の完全性確認。C 159 件 (alltests 除く) のうち hash 取得対象 155 件は manifest 化済み、残り 4 件は C も Rust も assertion 型テストで manifest 対象外。Rust 側カバレッジ 159/159 = 100%
-- [001-jpeg-codec-diffs.md](../porting/c-compat-findings/001-jpeg-codec-diffs.md): Phase 2 のレポートで観測された 9 件の Mismatch (edge / convolve_blockconv_gray / colormorph) はすべて **JPEG codec 差** と判定。Rust 側修正対象外
+- [c-compat-coverage.md](../porting/c-compat-coverage.md): Phase 2.5 移行前の完全性確認。⚠️ Phase 1 は **未完成** と判明。`prog/*_reg` 由来は 155 件取得済み (SKIP_REGS 4 件は出力なしで対象外、これは正しい) だが、`scripts/verify_*.c` 由来の C 中間結果 27 件が manifest_c.tsv に未取り込み (Phase 2 レポートで MissingC 27 件として現れる)。Rust 側回帰テスト数は 159/159 だが、機能カバー率は file 数とは別物 (dwamorph2/fmorphauto/morphseq でカバー漏れあり)。Phase 1.5 完全化 PR の実施が次のアクション
+- [001-jpeg-codec-diffs.md](../porting/c-compat-findings/001-jpeg-codec-diffs.md): Phase 2 のレポートで観測された 9 件の Mismatch (edge / convolve_blockconv_gray / colormorph) はすべて **JPEG codec 差** (仮説段階)。Rust 側修正対象外
 
 ### Phase 3: 1モジュールでの検証ベースライン記録
 
