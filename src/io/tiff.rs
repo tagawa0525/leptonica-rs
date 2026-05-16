@@ -10,7 +10,7 @@ use tiff::ColorType;
 use tiff::decoder::{Decoder, DecodingResult};
 use tiff::encoder::colortype::{Gray8, Gray16, RGB8, RGBA8};
 use tiff::encoder::{Compression, TiffEncoder};
-use tiff::tags::PhotometricInterpretation;
+use tiff::tags::{CompressionMethod, PhotometricInterpretation, Tag};
 
 /// Read TIFF header metadata without decoding pixel data
 pub fn read_header_tiff(data: &[u8]) -> IoResult<ImageHeader> {
@@ -847,17 +847,59 @@ fn write_pix_to_encoder<W: Write + Seek>(mut encoder: TiffEncoder<W>, pix: &Pix)
 
     match pix.depth() {
         PixelDepth::Bit1 => {
-            // 1-bit binary - convert to 8-bit for simplicity
-            let mut data = vec![0u8; (width * height) as usize];
+            // 1bpp uncompressed TIFF via the `tiff` crate's low-level
+            // `DirectoryEncoder` API. `colortype::Gray8` (used previously)
+            // expanded each pixel to one byte and produced `bps=8` files,
+            // which is incompatible with C leptonica's 1bpp output and
+            // changes `pixel_content_hash`. See
+            // docs/porting/c-compat-findings/002-tiff-1bpp-write-limit.md.
+            let row_bytes = width.div_ceil(8) as usize;
+            let mut data = vec![0u8; row_bytes * height as usize];
             for y in 0..height {
+                let row_off = y as usize * row_bytes;
                 for x in 0..width {
                     let val = pix.get_pixel(x, y).unwrap_or(0);
-                    data[(y * width + x) as usize] = if val != 0 { 255 } else { 0 };
+                    if val != 0 {
+                        // TIFF default FillOrder=1: MSB of each byte is the
+                        // leftmost pixel.
+                        let byte_idx = row_off + (x / 8) as usize;
+                        let bit_idx = 7 - (x & 7);
+                        data[byte_idx] |= 1 << bit_idx;
+                    }
                 }
             }
-            encoder
-                .write_image::<Gray8>(width, height, &data)
+
+            let mut dir = encoder
+                .image_directory()
                 .map_err(|e| IoError::EncodeError(format!("TIFF write error: {}", e)))?;
+            let map = |e: tiff::TiffError| -> IoError {
+                IoError::EncodeError(format!("TIFF write error: {}", e))
+            };
+
+            dir.write_tag(Tag::ImageWidth, width).map_err(map)?;
+            dir.write_tag(Tag::ImageLength, height).map_err(map)?;
+            dir.write_tag(Tag::BitsPerSample, 1u16).map_err(map)?;
+            dir.write_tag(Tag::Compression, CompressionMethod::None.to_u16())
+                .map_err(map)?;
+            dir.write_tag(
+                Tag::PhotometricInterpretation,
+                // Leptonica's 1bpp convention: 0 = background (white),
+                // 1 = foreground (black). Match with WhiteIsZero so the
+                // pixel value semantics survive the round trip.
+                PhotometricInterpretation::WhiteIsZero.to_u16(),
+            )
+            .map_err(map)?;
+            dir.write_tag(Tag::SamplesPerPixel, 1u16).map_err(map)?;
+            dir.write_tag(Tag::RowsPerStrip, height).map_err(map)?;
+
+            let strip_byte_count = (row_bytes * height as usize) as u32;
+            let strip_offset = dir.write_data(&data[..]).map_err(map)?;
+            dir.write_tag(Tag::StripOffsets, &[strip_offset as u32][..])
+                .map_err(map)?;
+            dir.write_tag(Tag::StripByteCounts, &[strip_byte_count][..])
+                .map_err(map)?;
+
+            dir.finish().map_err(map)?;
         }
         PixelDepth::Bit2 | PixelDepth::Bit4 => {
             // 2-bit and 4-bit - convert to 8-bit
