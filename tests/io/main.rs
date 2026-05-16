@@ -24,6 +24,8 @@ mod pnmio_reg;
 mod psio_reg;
 #[cfg(feature = "ps-format")]
 mod psioseg_reg;
+#[cfg(feature = "pdf-format")]
+mod rotateorth_files_to_pdf_reg;
 mod spixio_reg;
 #[cfg(feature = "webp-format")]
 mod webpanimio_reg;

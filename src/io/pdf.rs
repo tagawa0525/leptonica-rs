@@ -645,6 +645,48 @@ pub fn convert_image_data_to_pdf_data(
     write_pdf_mem(&pix, &options)
 }
 
+/// Rotate selected image files orthogonally and wrap them in a multi-page
+/// PDF.
+///
+/// `rotstring` is parsed by [`parse_rotation_string`] (modes 1, 2, 3 of the C
+/// version, with index 0-based). Each image is read, optionally rotated by
+/// a multiple of 90° clockwise, scaled by `scalefactor`, and written as a
+/// page of the output PDF.
+///
+/// # Parameters
+///
+/// - `paths`: sorted full pathnames of input images
+/// - `rotstring`: rotation spec parsed as a list of `0..=3` cw quad rotations
+/// - `scalefactor`: applied to every image; clamped to `(0.0, 2.0]`
+///   (values `<= 0` reset to `1.0`)
+/// - `quality`: JPEG quality 25..=95 (defaults to 75 outside the range)
+/// - `title`: optional PDF title
+/// - `compression`: passed through to the PDF encoder
+/// - `output`: path of the PDF file to write
+///
+/// C Leptonica: `rotateorthFilesToPdf()` in `pdfapp.c`.
+#[allow(clippy::too_many_arguments)]
+pub fn rotateorth_files_to_pdf(
+    paths: &[impl AsRef<Path>],
+    rotstring: &str,
+    scalefactor: f32,
+    quality: u8,
+    title: Option<&str>,
+    compression: PdfCompression,
+    output: impl AsRef<Path>,
+) -> IoResult<()> {
+    let _ = (
+        paths,
+        rotstring,
+        scalefactor,
+        quality,
+        title,
+        compression,
+        output,
+    );
+    unimplemented!("rotateorth_files_to_pdf: plan 811 (RED)")
+}
+
 /// Convert segmented image files to PDF
 ///
 /// # See also
