@@ -30,8 +30,15 @@ static void compare_1bpp(const char *c_path, const char *r_path, const char *des
 }
 
 int main() {
-    PIX *pixs = pixRead("/home/tagawa/github/leptonica-rs/tests/data/images/feyn-fract.tif");
-    if (!pixs) { fprintf(stderr, "Cannot read\n"); return 1; }
+    /* Use relative path so this matches verify_binmorph.c / verify_graymorph2.c
+     * conventions and can be invoked from any environment. The caller must
+     * `cd reference/leptonica/prog` before running (feyn-fract.tif lives
+     * there alongside the other C reg-test inputs). */
+    PIX *pixs = pixRead("feyn-fract.tif");
+    if (!pixs) {
+        fprintf(stderr, "Cannot read feyn-fract.tif (must run from prog/)\n");
+        return 1;
+    }
     printf("Input: %dx%dx%d\n\n", pixGetWidth(pixs), pixGetHeight(pixs), pixGetDepth(pixs));
 
     /* Set4cc1 = selaMakeThinSets(1, 0): sel_4_1, sel_4_2, sel_4_3 */
@@ -53,7 +60,11 @@ int main() {
      * fhmtauto_hmt_golden.12.tif → Set8cc1[2] = sel_8_5
      * fhmtauto_hmt_golden.14.tif → Set8cc1[3] = sel_8_6
      */
-    const char *golden_dir = "/home/tagawa/github/leptonica-rs/tests/golden";
+    /* Rust golden directory: defaults to empty so compare_1bpp reports
+     * MISSING (silent skip) when run by scripts/gen_c_manifest.sh. Manual
+     * invocations can `RUST_GOLDEN_DIR=...` env var to enable comparison. */
+    const char *golden_dir = getenv("RUST_GOLDEN_DIR");
+    if (!golden_dir) golden_dir = "";
     char r_path[512], c_path[256];
     int golden_idx = 2;  /* starts at 02 (even indices) */
     
