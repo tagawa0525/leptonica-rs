@@ -1002,7 +1002,7 @@ pub fn bmf_get_line_strings(text: &str, max_w: u32, first_indent: u32, bmf: &Bmf
 ///
 /// C Leptonica: `pixaSaveFont()` in `bmf.c`.
 pub fn pixa_save_font(outdir: impl AsRef<std::path::Path>, fontsize: u32) -> Result<()> {
-    if !(4..=20).contains(&fontsize) || fontsize % 2 != 0 {
+    if !(4..=20).contains(&fontsize) || !fontsize.is_multiple_of(2) {
         return Err(Error::InvalidParameter(format!(
             "fontsize must be even and in 4..=20, got {fontsize}"
         )));
