@@ -444,26 +444,26 @@ C版の全機能を網羅することは目標ではなく、Rustの慣用的な
 
 ### pageseg.c (追加分)
 
-| C関数                   | 状態 | Rust対応                                       | 備考                          |
-| ----------------------- | ---- | ---------------------------------------------- | ----------------------------- |
-| pixAutoPhotoinvert      | ✅   | `auto_photoinvert` (recog/pageseg.rs)          | name+module match             |
-| pixCleanImage           | ✅   | `pix_clean_image` (recog/pageseg.rs)           | plan 804                      |
-| pixCountTextColumns     | ✅   | `pix_count_text_columns` (recog/pageseg.rs)    | plan 804                      |
-| pixCropImage            | ✅   | `pix_crop_image` (recog/pageseg.rs)            | plan 804                      |
-| pixDecideIfTable        | ✅   | `decide_if_table` (recog/pageseg.rs)           | name+module match             |
-| pixDecideIfText         | ✅   | `pix_decide_if_text` (recog/pageseg.rs)        | plan 804                      |
-| pixEstimateBackground   | ✅   | `estimate_background` (recog/pageseg.rs)       | plan 129                      |
-| pixExtractRawTextlines  | ✅   | `pix_extract_raw_textlines` (recog/pageseg.rs) | plan 804                      |
-| pixExtractTextlines     | ✅   | `extract_textlines` (recog/pageseg.rs)         | name+module match             |
-| pixFindLargeRectangles  | ✅   | `find_large_rectangles` (region/rectangle.rs)  | name+module match             |
-| pixFindLargestRectangle | ✅   | `find_largest_rectangle` (region/rectangle.rs) | name+module match             |
-| pixFindRectangleInCC    | ✅   | `find_rectangle_in_cc` (region/rectangle.rs)   | name+module match             |
-| pixFindThreshFgExtent   | ✅   | `pix_find_thresh_fg_extent` (recog/pageseg.rs) | plan 803                      |
-| pixGenHalftoneMask      | ✅   | `pix_gen_halftone_mask` (recog/pageseg.rs)     | plan 803                      |
-| pixGenTextblockMask     | ✅   | `pix_gen_textblock_mask` (recog/pageseg.rs)    | plan 803                      |
-| pixGenTextlineMask      | ✅   | `pix_gen_textline_mask` (recog/pageseg.rs)     | plan 803                      |
-| pixGenerateHalftoneMask | ✅   | `generate_halftone_mask` (recog/pageseg.rs)    | name+module match             |
-| pixPrepare1bpp          | ✅   | `prepare_1bpp` (recog/pageseg.rs)              | name+module match             |
+| C関数                   | 状態 | Rust対応                                       | 備考              |
+| ----------------------- | ---- | ---------------------------------------------- | ----------------- |
+| pixAutoPhotoinvert      | ✅   | `auto_photoinvert` (recog/pageseg.rs)          | name+module match |
+| pixCleanImage           | ✅   | `pix_clean_image` (recog/pageseg.rs)           | plan 804          |
+| pixCountTextColumns     | ✅   | `pix_count_text_columns` (recog/pageseg.rs)    | plan 804          |
+| pixCropImage            | ✅   | `pix_crop_image` (recog/pageseg.rs)            | plan 804          |
+| pixDecideIfTable        | ✅   | `decide_if_table` (recog/pageseg.rs)           | name+module match |
+| pixDecideIfText         | ✅   | `pix_decide_if_text` (recog/pageseg.rs)        | plan 804          |
+| pixEstimateBackground   | ✅   | `estimate_background` (recog/pageseg.rs)       | plan 129          |
+| pixExtractRawTextlines  | ✅   | `pix_extract_raw_textlines` (recog/pageseg.rs) | plan 804          |
+| pixExtractTextlines     | ✅   | `extract_textlines` (recog/pageseg.rs)         | name+module match |
+| pixFindLargeRectangles  | ✅   | `find_large_rectangles` (region/rectangle.rs)  | name+module match |
+| pixFindLargestRectangle | ✅   | `find_largest_rectangle` (region/rectangle.rs) | name+module match |
+| pixFindRectangleInCC    | ✅   | `find_rectangle_in_cc` (region/rectangle.rs)   | name+module match |
+| pixFindThreshFgExtent   | ✅   | `pix_find_thresh_fg_extent` (recog/pageseg.rs) | plan 803          |
+| pixGenHalftoneMask      | ✅   | `pix_gen_halftone_mask` (recog/pageseg.rs)     | plan 803          |
+| pixGenTextblockMask     | ✅   | `pix_gen_textblock_mask` (recog/pageseg.rs)    | plan 803          |
+| pixGenTextlineMask      | ✅   | `pix_gen_textline_mask` (recog/pageseg.rs)     | plan 803          |
+| pixGenerateHalftoneMask | ✅   | `generate_halftone_mask` (recog/pageseg.rs)    | name+module match |
+| pixPrepare1bpp          | ✅   | `prepare_1bpp` (recog/pageseg.rs)              | name+module match |
 
 ### readbarcode.c (追加分)
 

@@ -77,42 +77,30 @@ pub fn pix_crop_image(
 - `filter::background_norm_to_1_min_max`
 - `filter::clean_background_to_white`
 - `color::threshold_to_binary`
-- `morph::morph_sequence` / `morph_comp_sequence` / `close_safe_brick` /
-  `hit_miss_transform`
-- `transform::scale` / `rotate_orth` / `expand_binary_replicate` /
-  `reduce_rank_binary_2` / `reduce_rank_binary_cascade`
+- `morph::morph_sequence` / `morph_comp_sequence` / `close_safe_brick` / `hit_miss_transform`
+- `transform::scale` / `rotate_orth` / `expand_binary_replicate` / `reduce_rank_binary_2` / `reduce_rank_binary_cascade`
 - `region::pix_select_by_size` / `conncomp_pixa` / `seedfill_binary_restricted`
 - `recog::skew::deskew` / `find_skew_and_deskew`
 - `recog::pageseg::pix_find_thresh_fg_extent`
-- `Pix::convert_to_8` / `convert_to_1_*` / `clip_rectangle` /
-  `clip_rectangles` / `clip_to_foreground` / `count_by_column` /
-  `count_by_row` / `set_or_clear_border` / `xor` / `or` / `invert` /
-  `subtract` / `is_zero`
+- `Pix::convert_to_8` / `convert_to_1_*` / `clip_rectangle` / `clip_rectangles` / `clip_to_foreground` / `count_by_column` / `count_by_row` / `set_or_clear_border` / `xor` / `or` / `invert` / `subtract` / `is_zero`
 - `Boxa::sort_2d` / `select_by_size` / `sort_by_*` / `adjust_sides`
 - `Boxaa::get_extent`
-- `Numa::find_extrema_with_values` / `transform` / `min_value` /
-  `max_value` / `get`
+- `Numa::find_extrema_with_values` / `transform` / `min_value` / `max_value` / `get`
 
 ## 設計差分 (C → Rust)
 
 1. デバッグ用 `pixa` 引数は省略 (Debug trait と外部ツールで代替する方針)。
-2. `pixDecideIfText` は C の out-param `*pistext ∈ {-1, 0, 1}` を
-   `Option<bool>` で表現。
-3. `pixCropImage` は C の `BOX **pcropbox` (任意) を必須の戻り値
-   `(Pix, Box)` に変更。crop box は常に意味があるため。
-4. `pixBackgroundNormTo1MinMax` の C 版 `scale` 引数は Rust 公開関数で
-   未公開。`scale == 2` の場合は先に入力 8bpp を 2x bilinear 拡大して
-   から `background_norm_to_1_min_max(contrast)` を呼ぶ。
+2. `pixDecideIfText` は C の out-param `*pistext ∈ {-1, 0, 1}` を `Option<bool>` で表現。
+3. `pixCropImage` は C の `BOX **pcropbox` (任意) を必須の戻り値 `(Pix, Box)` に変更。crop box は常に意味があるため。
+4. `pixBackgroundNormTo1MinMax` の C 版 `scale` 引数は Rust 公開関数で 未公開。`scale == 2` の場合は先に入力 8bpp を 2x bilinear 拡大してから `background_norm_to_1_min_max(contrast)` を呼ぶ。
 
 ## 内部ヘルパー (pixCropImage で必要)
 
 C には以下の static 関数があるが、Rust 版でも `pageseg.rs` 内の
 プライベートヘルパーとして移植する:
 
-- `pixMaxCompAfterVClosing` — 大きい縦方向クローズ後の最大成分検出
-  (edgeclean == -1)
-- `pixFindPageInsideBlackBorder` — 黒枠を持つページの内側検出
-  (edgeclean == -2)
+- `pixMaxCompAfterVClosing` — 大きい縦方向クローズ後の最大成分検出 (edgeclean == -1)
+- `pixFindPageInsideBlackBorder` — 黒枠を持つページの内側検出 (edgeclean == -2)
 - `pixRescaleForCropping` — クロップ後のページを元サイズに再配置
 
 ## テスト方針
@@ -134,7 +122,5 @@ C には以下の static 関数があるが、Rust 版でも `pageseg.rs` 内の
 
 ## 副次修正
 
-- `Boxaa::align_box`: 空ボックス配列のとき `max_ovlp = i32::MIN`
-  との加算でオーバーフローしていたため `saturating_add` に変更。
-- `RecogError` に `Filter(FilterError)` バリアントを追加し、
-  `background_norm_to_1_min_max` の `?` 変換を有効化。
+- `Boxaa::align_box`: 空ボックス配列のとき `max_ovlp = i32::MIN` との加算でオーバーフローしていたため `saturating_add` に変更。
+- `RecogError` に `Filter(FilterError)` バリアントを追加し、 `background_norm_to_1_min_max` の `?` 変換を有効化。
