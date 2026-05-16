@@ -11,6 +11,10 @@
 # C: test8.jpg → pixSobelEdgeFilter → pixThresholdToBinary(60) → pixInvert
 # Rust: test8.jpg → sobel_edge → threshold_to_binary(60) → invert
 # Note: entries 0-2 are 1bpp
+# KNOWN (仮説): JPEG codec diff via test8.jpg decode. 1bpp diffs are 4-11 px / max 1
+# (threshold-60 boundary flip); 8bpp diff is 25912 px / max 23. Sobel kernel
+# definitions verified bit-for-bit against pixSobelEdgeFilter. See
+# docs/porting/c-compat-findings/001-jpeg-codec-diffs.md.
 edge	edge	0	edge	1	Sobel horizontal (1bpp inverted)
 edge	edge	1	edge	2	Sobel vertical (1bpp inverted)
 edge	edge	2	edge	3	OR combined H+V edges
@@ -19,6 +23,8 @@ edge	edge	3	edge	4	8bpp max(H,V) inverted
 # === convolve_reg ===
 # C: test8.jpg → pixBlockconvGray(pixacc, 3, 5)
 # Rust: test8.jpg → blockconv_gray(3, 5)
+# KNOWN (仮説): JPEG codec diff. 14429 px / max 5 (decode-diff propagation
+# through a linear filter). See docs/porting/c-compat-findings/001-jpeg-codec-diffs.md.
 convolve	convolve	0	convolve_blockconv_gray	1	blockconv gray (wc=3 hc=5)
 
 # === compfilter_reg ===
@@ -32,6 +38,9 @@ compfilter	compfilter	1	compfilter_write_synthetic	2	render_hash_box synthetic
 # Rust: wyom.jpg → dilate_color/erode_color/open_color/close_color(7, 7)
 # KNOWN: JPEG codec diff (libjpeg vs jpeg-encoder). Algorithm verified correct
 # via compare_pix (dilate_color == color_morph_sequence("d7.7") etc).
+# Phase 2 compare_golden numbers: 70-75% px diff / max 22-32 (dilate/erode
+# replace pixels with neighbour extrema, so decode-diff is amplified 8x8 by
+# JPEG block boundaries). See docs/porting/c-compat-findings/001-jpeg-codec-diffs.md.
 colormorph	colormorph	0	colormorph	1	dilate_color 7x7
 colormorph	colormorph	2	colormorph	3	erode_color 7x7
 colormorph	colormorph	4	colormorph	5	open_color 7x7
