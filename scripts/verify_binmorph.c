@@ -1,6 +1,13 @@
 /* Generate and compare binmorph1/binmorph3 golden outputs from C leptonica.
  * binmorph1: dilate/erode/open/close_brick(21, 15) on feyn-fract.tif
  * binmorph3: separable dilate(11,1)+(1,7), direct dilate(11,7), dilate(21,1)
+ *
+ * NOTE: Uses pix*CompBrick (composite decomposition) to match Rust's
+ * `src/morph/binary.rs::dilate_brick` semantics, which is documented as
+ * "Uses separable + composite decomposition for optimal performance".
+ * See docs/porting/c-compat-findings/003-morph-brick-comp-vs-plain.md.
+ * The plain pix*Brick variants would differ from Rust for sizes that the
+ * decomposer rounds (e.g. 11 → 3×4 = 12).
  */
 #include "allheaders.h"
 #include <stdio.h>
@@ -45,10 +52,10 @@ int main() {
 
     /* binmorph1: dilate/erode/open/close with 21x15 brick */
     printf("=== binmorph1: dilate/erode/open/close_brick(21, 15) ===\n");
-    PIX *dil = pixDilateBrick(NULL, pixs, 21, 15);
-    PIX *ero = pixErodeBrick(NULL, pixs, 21, 15);
-    PIX *opn = pixOpenBrick(NULL, pixs, 21, 15);
-    PIX *cls = pixCloseBrick(NULL, pixs, 21, 15);
+    PIX *dil = pixDilateCompBrick(NULL, pixs, 21, 15);
+    PIX *ero = pixErodeCompBrick(NULL, pixs, 21, 15);
+    PIX *opn = pixOpenCompBrick(NULL, pixs, 21, 15);
+    PIX *cls = pixCloseCompBrick(NULL, pixs, 21, 15);
     
     pixWriteTiff("/tmp/c_binmorph1_dilate.tif", dil, IFF_TIFF_G4, "w");
     pixWriteTiff("/tmp/c_binmorph1_erode.tif",  ero, IFF_TIFF_G4, "w");
@@ -71,10 +78,10 @@ int main() {
 
     /* binmorph3: separable and direct dilation */
     printf("\n=== binmorph3: separable and direct dilation ===\n");
-    PIX *dil_sep_h = pixDilateBrick(NULL, pixs, 11, 1);   /* horizontal first */
-    PIX *dil_sep   = pixDilateBrick(NULL, dil_sep_h, 1, 7); /* then vertical */
-    PIX *dil_dir   = pixDilateBrick(NULL, pixs, 11, 7);   /* direct 11x7 */
-    PIX *dil_h21   = pixDilateBrick(NULL, pixs, 21, 1);   /* horizontal 21x1 */
+    PIX *dil_sep_h = pixDilateCompBrick(NULL, pixs, 11, 1);   /* horizontal first */
+    PIX *dil_sep   = pixDilateCompBrick(NULL, dil_sep_h, 1, 7); /* then vertical */
+    PIX *dil_dir   = pixDilateCompBrick(NULL, pixs, 11, 7);   /* direct 11x7 */
+    PIX *dil_h21   = pixDilateCompBrick(NULL, pixs, 21, 1);   /* horizontal 21x1 */
     
     pixWriteTiff("/tmp/c_binmorph3_sep.tif",   dil_sep, IFF_TIFF_G4, "w");
     pixWriteTiff("/tmp/c_binmorph3_dir.tif",   dil_dir, IFF_TIFF_G4, "w");
