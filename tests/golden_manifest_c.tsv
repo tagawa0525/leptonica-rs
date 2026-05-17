@@ -273,7 +273,6 @@ binmorph6.05.png	b7f005730578dbee
 binmorph6.06.png	ed2378ed256a8026
 blackwhite.00.png	fb9543cbb81f1b0c
 blackwhite.01.png	b7babbf0b12293cc
-blend.pdf	22054b0b21e68080
 blend1.00.jpg	d25ef5b7528aa9d3
 blend1.01.jpg	811930575350d66b
 blend1.02.jpg	6784492b212a704d
@@ -707,7 +706,6 @@ compare.08.jpg	0ead766c63460b62
 compare.09.tif	fb3fc1755aec9a37
 compare.11.jpg	70e82b1d003136f6
 compare.12.tif	38ddb24b298c7f76
-compare.pdf	e61b635f3185401f
 compfilter.00.png	776f015732796ef4
 compfilter.01.png	32bbb5fff34c2454
 compfilter.31.png	3fc0111ee4296a1a
@@ -767,7 +765,6 @@ convolve.12.jpg	a9b8b7eef401b147
 convolve.13.jpg	f8f9c41edea63600
 convolve.14.jpg	91d660b752bc379e
 convolve.15.jpg	8d16597917a4e1a5
-correl.pdf	cbfba652ac050b91
 correl_5.png	ed418e487c30f43d
 crop.00.png	8853dafc907ca23c
 crop.01.png	fba6f8278d4e3eda
@@ -1377,7 +1374,6 @@ newspaper.09.tif	ed5159c3e38ac54b
 newspaper.10.png	80973652156f94e6
 newspaper.11.png	1687ac003fe74482
 newspaper.12.png	c594c4ef90c4b090
-newspaper.pdf	6d074d99d04dfea5
 numa2.00.png	81ca3c8ea6b59883
 numa2.03.png	2d1fe43567bd06ef
 numa2.10.png	8d93c0e3882212eb
@@ -1418,7 +1414,6 @@ pageseg.17.png	55799c27ee258006
 pageseg.18.png	1c437a12b42b32ef
 pageseg.19.png	e1b3838402297a5e
 pageseg.20.ba	b515cbc633485f75
-pageseg.21.pdf	ff60f410199fe857
 pageseg.22.png	ceb5b3a350c7014b
 pageseg.24.png	73e39578582717d9
 pageseg.26.png	001bcbe3de2672f0
@@ -1481,7 +1476,6 @@ paintmask.18.png	bb046f9937faa18a
 paintmask.19.png	e8bd6b5ba0733f0a
 paintmask.20.png	a0ec3f49705c429a
 paintmask.21.png	450593fb6e06121a
-pdfseg.7.pdf	d1db90dc5ee7169b
 pixa2-1.jpg	d0bad2f553ee185a
 pixa2-2.jpg	29c11ca0634d1af6
 pixa2-3.jpg	4adce8133b064826
@@ -1505,8 +1499,6 @@ pixcomp.04.jpg	4cc9e2d12eeb8038
 pixcomp.05.jpg	b2468932b8121aa9
 pixcomp.06.jpg	b844630b12aba742
 pixcomp.10.jpg	1584a368958731c7
-pixcomp.14.pdf	adaf5f34464c1e83
-pixcomp.15.pdf	aa5686642c746a44
 pixkern.png	1b68f34d0bc68ca6
 pixmem.12.png	0fd0a92eca260229
 pixs.10.spix	2accd0c9f3f2fa04
@@ -1553,24 +1545,13 @@ projective.30.jpg	0dfff0f65c1c1435
 projective.31.jpg	3b6a6197147f984e
 projective.32.jpg	62773181b431f54f
 projective.33.jpg	8f4900d057726a3a
-psio0.ps	82a0e85a8f66022b
-psio1.ps	27d031c01006f53f
-psio10.ps	b85fc44cedfb55fb
 psio2.jpg	949dc17f480620df
-psio3.ps	8dbf1f7bc700d812
-psio4.ps	6fbbab1a2c34f7ad
 psio5.jpg	82dcf510cfa9c46f
-psio5.ps	67377e022dca65c3
-psio6.ps	93436a37822a3002
-psio7.ps	19813ca77651a628
-psio8.ps	ab9ad5d8a52aae49
-psio9.ps	0615781884c3e055
 psioseg.00.jpg	c4d8a0e50edc6f51
 psioseg.01.jpg	714d60f571bb5cf4
 psioseg.02.jpg	1166bcf140330408
 psioseg.03.png	ace1c81e41968b85
 psioseg.04.png	040e83667327dac9
-psioseg.5.ps	204fa8467c7631cc
 pta.07.png	9950b2114a962a88
 pta.08.png	3e158421f59a6d68
 pta.09.png	4b0b56495eb194a8

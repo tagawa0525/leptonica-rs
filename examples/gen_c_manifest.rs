@@ -86,6 +86,21 @@ mod logic {
         )
     }
 
+    /// `true` for extensions whose C-side output embeds non-determinism
+    /// (e.g. `CreationDate`, sequential object identifiers) and therefore
+    /// changes hash on every regeneration even when the actual rendered
+    /// content is the same. These are skipped entirely so they never end up
+    /// in `tests/golden_manifest_c.tsv` and never trigger spurious diffs
+    /// on `bash scripts/gen_c_manifest.sh` re-runs.
+    ///
+    /// The Rust side does not hit this issue because `RegParams::
+    /// write_pix_and_check` hashes the in-memory `Pix`, not the serialized
+    /// PDF/PS bytes — so Rust manifest entries for `*.pdf` / `*.ps` are
+    /// stable.
+    pub fn is_unstable_extension(ext: &str) -> bool {
+        matches!(ext.to_ascii_lowercase().as_str(), "pdf" | "ps")
+    }
+
     /// Reason a file could not be hashed. `unsupported` files are skipped
     /// without aborting the run because leptonica-rs simply does not implement
     /// the corresponding decoder yet (e.g. TIFF Fax3 / Huffman / RGBPalette);
@@ -265,6 +280,15 @@ fn main() {
             skipped += 1;
             continue;
         }
+        // Skip formats that embed non-deterministic metadata (PDF
+        // CreationDate, PS object ids, etc.) so the manifest stays stable
+        // across `bash scripts/gen_c_manifest.sh` re-runs. See the
+        // is_unstable_extension doc for why Rust side is unaffected.
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if logic::is_unstable_extension(ext) {
+            skipped += 1;
+            continue;
+        }
         match logic::hash_file(&path) {
             Ok(h) => {
                 entries.insert(name, h);
@@ -320,6 +344,16 @@ mod tests {
         assert_eq!(data_content_hash(b"foo"), data_content_hash(b"foo"));
         assert_ne!(data_content_hash(b"foo"), data_content_hash(b"bar"));
         assert_ne!(data_content_hash(b"foo"), data_content_hash(b"foo\0"));
+    }
+
+    #[test]
+    fn unstable_extensions_recognised() {
+        for ext in ["pdf", "PDF", "ps", "PS"] {
+            assert!(is_unstable_extension(ext), "{ext} should be unstable");
+        }
+        for ext in ["png", "tif", "jpg", "txt", "ba", ""] {
+            assert!(!is_unstable_extension(ext), "{ext} should NOT be unstable");
+        }
     }
 
     #[test]
