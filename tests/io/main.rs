@@ -27,6 +27,8 @@ mod psioseg_reg;
 #[cfg(feature = "pdf-format")]
 mod rotateorth_files_to_pdf_reg;
 mod spixio_reg;
+#[cfg(feature = "tiff-format")]
+mod tiff_1bpp_reg;
 #[cfg(feature = "webp-format")]
 mod webpanimio_reg;
 #[cfg(feature = "webp-format")]
