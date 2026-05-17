@@ -173,7 +173,8 @@ Phase 2 のレポートを元に、不一致が出ている Rust テストを 1 
 
 - [c-compat-coverage.md](../porting/c-compat-coverage.md): Phase 2.5 移行前の完全性確認。⚠️ Phase 1 は **未完成** と判明。`prog/*_reg` 由来は 155 件取得済み (SKIP_REGS 4 件は出力なしで対象外、これは正しい) だが、`scripts/verify_*.c` 由来の C 中間結果 27 件が manifest_c.tsv に未取り込み (Phase 2 レポートで MissingC 27 件として現れる)。Rust 側回帰テスト数は 159/159 だが、機能カバー率は file 数とは別物 (dwamorph2/fmorphauto/morphseq でカバー漏れあり)。Phase 1.5 完全化 PR の実施が次のアクション
 - [001-jpeg-codec-diffs.md](../porting/c-compat-findings/001-jpeg-codec-diffs.md): Phase 2 のレポートで観測された 9 件の Mismatch (edge / convolve_blockconv_gray / colormorph) はすべて **JPEG codec 差** (仮説段階)。Rust 側修正対象外
-- [002-tiff-1bpp-write-limit.md](../porting/c-compat-findings/002-tiff-1bpp-write-limit.md): Phase 1.5 で顕在化した 15 件の 1bpp Mismatch (binmorph1/3、fhmtauto) は `src/io/tiff.rs` が 1bpp Pix を 8bpp に拡張して書き出すことが原因。`tiff` crate 0.11.3 に 1bpp encoder サポートがない。修正は別 PR (中規模、Rust manifest 再生成を伴う)
+- [002-tiff-1bpp-write-limit.md](../porting/c-compat-findings/002-tiff-1bpp-write-limit.md): Phase 1.5 で顕在化した 15 件の 1bpp Mismatch (binmorph1/3、fhmtauto) は `src/io/tiff.rs` が 1bpp Pix を 8bpp に拡張して書き出すことが原因。`tiff` crate 0.11.3 に 1bpp encoder サポートがない。修正は PR #383 で完了 (DirectoryEncoder の low-level API で 1bpp 直接書き出し)
+- [003-morph-brick-comp-vs-plain.md](../porting/c-compat-findings/003-morph-brick-comp-vs-plain.md): PR #383 後に残った 7 件の Mismatch (binmorph1/3) は Rust `dilate_brick` 等が composite decomposition を使う一方、`verify_binmorph.c` が plain `pixDilateBrick` を呼ぶことが原因。fhmtauto 8 件は別系統 (HMT 実装差、別 finding 予定)。修正は別 PR (推奨: verify_*.c を Comp 系に揃える Option A)
 
 ### Phase 3: 1モジュールでの検証ベースライン記録
 
