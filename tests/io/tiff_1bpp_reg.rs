@@ -27,7 +27,6 @@ fn tmp_path(stem: &str) -> String {
 }
 
 #[test]
-
 fn round_trip_preserves_bit1_depth_byte_aligned_width() {
     // 16 は 8 の倍数なので末尾 padding なし
     let pix = make_1bpp_checkerboard(16, 8);
@@ -56,7 +55,6 @@ fn round_trip_preserves_bit1_depth_byte_aligned_width() {
 }
 
 #[test]
-
 fn round_trip_preserves_bit1_depth_non_byte_aligned_width() {
     // 17 は 8 の倍数ではないので末尾 padding bits がある (各行末で 7 bits 余る)
     // これらの padding bits が pixel data として読み戻されないことを確認
@@ -82,7 +80,6 @@ fn round_trip_preserves_bit1_depth_non_byte_aligned_width() {
 }
 
 #[test]
-
 fn round_trip_preserves_all_white_and_all_black_1bpp() {
     for (label, fill) in [("white", 0u32), ("black", 1u32)] {
         let pix = Pix::new(24, 6, PixelDepth::Bit1).unwrap();
