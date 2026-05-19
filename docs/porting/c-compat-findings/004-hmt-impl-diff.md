@@ -27,9 +27,11 @@ Phase 2 / Phase 1.5 で発生した `fhmtauto` 系 8 件の `Mismatch` を調査
 
 ## Identity 1x1 brick が 100% diff になる仮説
 
-verify_fhmtauto.c L88-94:
+`scripts/verify_fhmtauto.c:99-105` (Identity ブロック):
 
 ```c
+/* Identity: 1x1 HIT sel */
+printf("\n=== Identity (1x1 brick) ===\n");
 SEL *sel_id = selCreateBrick(1, 1, 0, 0, SEL_HIT);
 PIX *id_result = pixHMT(NULL, pixs, sel_id);
 pixWriteTiff("/tmp/c_fhmtauto_id.tif", id_result, IFF_TIFF_G4, "w");
@@ -61,13 +63,10 @@ Rust 側を **コードレベルで読む限り** identity が出るはずだが
 可能性 (要 debug):
 
 1. `shift_and_row(dst, src, 0)` で意図と違う動作
-2. `Pix::new(w, h, Bit1)` 直後の `data_mut()` が `0xFFFFFFFF` で初期化
-
-   できていない
-
+2. `Pix::new(w, h, Bit1)` 直後の `data_mut()` が `0xFFFFFFFF` で初期化できていない
 3. `try_into_mut().unwrap()` の挙動
 4. `clear_unused_bits` が想定外の範囲をクリアしている
-5. `hit_offsets()` が `enumerate` の闭包キャプチャで想定外の動作
+5. `hit_offsets()` が `enumerate` のクロージャキャプチャで想定外の動作
 
 ## 7 件 (sel_4_*, sel_8_*) が 3-7% diff になる仮説
 
