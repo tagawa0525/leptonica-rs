@@ -39,7 +39,12 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -uo pipefail
+          # GitHub Actions' default bash shell runs with `set -e`. `grep -c`
+          # returns exit 1 when there are zero matches (e.g. an io-binary
+          # report with no `Mismatch` lines), which would abort the whole
+          # step before we finish writing the summary. Disable errexit here
+          # and rely on the `|| true` fallbacks below for individual greps.
+          set +e
           if ! ls tests/c_compat_report.*.txt >/dev/null 2>&1; then
             echo "_No C-compat report files found_" >> "$GITHUB_STEP_SUMMARY"
             exit 0
