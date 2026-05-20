@@ -330,58 +330,200 @@ fn xor(a: &Pix, b: &Pix) -> MorphResult<Pix> {
     Ok(out_mut.into())
 }
 
-/// Dilate with a brick (rectangular) structuring element
+/// Build the composable (brick, comb) SEL pair for a dimension size.
 ///
-/// Uses separable + composite decomposition for optimal performance.
-/// For composite sizes N = f1 × f2: brick(f1) then comb(f1, f2) reduces
-/// shift operations from N to f1 + f2.
-pub fn dilate_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    if width == 1 && height == 1 {
+/// Mirrors C `selectComposableSels(size, direction, &sel1, &sel2)` in
+/// `reference/leptonica/src/morph.c`. The pair is later applied as
+/// `dilate(sel1) then dilate(sel2)` (and similarly for erode), which is
+/// pixel-equivalent to a single dilate by `brick(factor1 * factor2)`.
+///
+/// Returns the brick SEL (size `factor1` along the active axis) and the
+/// comb SEL (size `factor1 * factor2`, with `factor2` hits spaced
+/// `factor1` apart).
+fn select_composable_sels(size: u32, horizontal: bool) -> MorphResult<(Sel, Sel)> {
+    let (factor1, factor2) = select_composable_sizes(size);
+    let sel1 = if horizontal {
+        Sel::create_horizontal(factor1)?
+    } else {
+        Sel::create_vertical(factor1)?
+    };
+    let sel2 = if horizontal {
+        Sel::create_comb_horizontal(factor1, factor2)?
+    } else {
+        Sel::create_comb_vertical(factor1, factor2)?
+    };
+    Ok((sel1, sel2))
+}
+
+/// Dilate with a brick (rectangular) structuring element.
+///
+/// Mirrors C `pixDilateCompBrick` (`reference/leptonica/src/morph.c`):
+/// adds a 32-pixel border, applies the composable `(brick, comb)` SEL
+/// pair for each non-trivial dimension sequentially on the bordered
+/// image (each `dilate` call allocates a fresh intermediate `Pix`; the
+/// Arc/refcount model makes the per-step allocation cheap), then strips
+/// the border.
+///
+/// `selectComposableSizes` may approximate the requested size by ±1 or
+/// ±2 for primes — see `select_composable_sizes` docs for the cost
+/// rationale.
+pub fn dilate_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
+    if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
-    // Separable: horizontal then vertical, each using composite decomposition.
-    // dilate_rasterop preserves unused bits for composite intermediate steps.
-    let tmp: Pix = dilate_1d_composite(pix, width, true)?.into();
-    let mut result = dilate_1d_composite(&tmp, height, false)?;
+
+    let bordered = add_border(pix, 32, 32, 32, 32)?;
+
+    let final_pix: Pix = if vsize == 1 {
+        let (selh1, selh2) = select_composable_sels(hsize, true)?;
+        let tmp = dilate(&bordered, &selh1)?;
+        dilate(&tmp, &selh2)?
+    } else if hsize == 1 {
+        let (selv1, selv2) = select_composable_sels(vsize, false)?;
+        let tmp = dilate(&bordered, &selv1)?;
+        dilate(&tmp, &selv2)?
+    } else {
+        let (selh1, selh2) = select_composable_sels(hsize, true)?;
+        let (selv1, selv2) = select_composable_sels(vsize, false)?;
+        let a = dilate(&bordered, &selh1)?;
+        let b = dilate(&a, &selh2)?;
+        let c = dilate(&b, &selv1)?;
+        dilate(&c, &selv2)?
+    };
+
+    let mut result = remove_border(&final_pix, 32, 32, pix.width(), pix.height())?;
     clear_unused_bits(result.data_mut(), pix.width(), pix.wpl() as usize);
     Ok(result.into())
 }
 
-/// Erode with a brick (rectangular) structuring element
+/// Erode with a brick (rectangular) structuring element.
 ///
-/// Uses separable + composite decomposition for optimal performance.
-pub fn erode_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    if width == 1 && height == 1 {
+/// Mirrors C `pixErodeCompBrick` (`reference/leptonica/src/morph.c`):
+/// applies the composable `(brick, comb)` SEL pair for each non-trivial
+/// dimension **without adding a border** (asymmetric boundary handling:
+/// erode treats outside as 1, which is the correct BG for foreground
+/// shrinkage and needs no padding).
+pub fn erode_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
+    if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
-    let tmp: Pix = erode_1d_composite(pix, width, true)?.into();
-    let mut result = erode_1d_composite(&tmp, height, false)?;
-    clear_unused_bits(result.data_mut(), pix.width(), pix.wpl() as usize);
-    Ok(result.into())
+
+    let result: Pix = if vsize == 1 {
+        let (selh1, selh2) = select_composable_sels(hsize, true)?;
+        let tmp = erode(pix, &selh1)?;
+        erode(&tmp, &selh2)?
+    } else if hsize == 1 {
+        let (selv1, selv2) = select_composable_sels(vsize, false)?;
+        let tmp = erode(pix, &selv1)?;
+        erode(&tmp, &selv2)?
+    } else {
+        let (selh1, selh2) = select_composable_sels(hsize, true)?;
+        let (selv1, selv2) = select_composable_sels(vsize, false)?;
+        let a = erode(pix, &selh1)?;
+        let b = erode(&a, &selh2)?;
+        let c = erode(&b, &selv1)?;
+        erode(&c, &selv2)?
+    };
+    Ok(result)
 }
 
-/// Open with a brick structuring element
+/// Open with a brick structuring element.
 ///
-/// Opening = erosion followed by dilation.
-pub fn open_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    if width == 1 && height == 1 {
+/// Mirrors C `pixOpenCompBrick` (`reference/leptonica/src/morph.c`):
+/// erode (h1→h2→v1→v2) then dilate (h1→h2→v1→v2) on the original image
+/// **without border**. The opening operator already removes objects
+/// smaller than the SEL, so no boundary padding is needed.
+pub fn open_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
+    if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
-    let eroded = erode_brick(pix, width, height)?;
-    dilate_brick(&eroded, width, height)
+
+    if vsize == 1 {
+        let (selh1, selh2) = select_composable_sels(hsize, true)?;
+        let a = erode(pix, &selh1)?;
+        let b = erode(&a, &selh2)?;
+        let c = dilate(&b, &selh1)?;
+        return dilate(&c, &selh2);
+    }
+    if hsize == 1 {
+        let (selv1, selv2) = select_composable_sels(vsize, false)?;
+        let a = erode(pix, &selv1)?;
+        let b = erode(&a, &selv2)?;
+        let c = dilate(&b, &selv1)?;
+        return dilate(&c, &selv2);
+    }
+    let (selh1, selh2) = select_composable_sels(hsize, true)?;
+    let (selv1, selv2) = select_composable_sels(vsize, false)?;
+    let a = erode(pix, &selh1)?;
+    let b = erode(&a, &selh2)?;
+    let c = erode(&b, &selv1)?;
+    let d = erode(&c, &selv2)?;
+    let e = dilate(&d, &selh1)?;
+    let f = dilate(&e, &selh2)?;
+    let g = dilate(&f, &selv1)?;
+    dilate(&g, &selv2)
 }
 
-/// Close with a brick structuring element
+/// Close with a brick structuring element.
 ///
-/// Closing = dilation followed by erosion.
-/// Must clear unused bits between dilation and erosion to prevent
-/// contamination from dilated unused bits propagating into erosion.
-pub fn close_brick(pix: &Pix, width: u32, height: u32) -> MorphResult<Pix> {
-    if width == 1 && height == 1 {
+/// Mirrors C `pixCloseCompBrick` (`reference/leptonica/src/morph.c`):
+/// dilate (h1→h2→v1→v2) then erode (h1→h2→v1→v2) on the original image
+/// **without border**. Unlike `dilate_brick`, the closing operator's
+/// erode step compensates for the dilate's boundary spread, so no
+/// padding is needed.
+pub fn close_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
+    if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
-    let dilated = dilate_brick(pix, width, height)?;
-    erode_brick(&dilated, width, height)
+
+    if vsize == 1 {
+        let (selh1, selh2) = select_composable_sels(hsize, true)?;
+        let a = dilate(pix, &selh1)?;
+        let b = dilate(&a, &selh2)?;
+        let c = erode(&b, &selh1)?;
+        return erode(&c, &selh2);
+    }
+    if hsize == 1 {
+        let (selv1, selv2) = select_composable_sels(vsize, false)?;
+        let a = dilate(pix, &selv1)?;
+        let b = dilate(&a, &selv2)?;
+        let c = erode(&b, &selv1)?;
+        return erode(&c, &selv2);
+    }
+    let (selh1, selh2) = select_composable_sels(hsize, true)?;
+    let (selv1, selv2) = select_composable_sels(vsize, false)?;
+    let a = dilate(pix, &selh1)?;
+    let b = dilate(&a, &selh2)?;
+    let c = dilate(&b, &selv1)?;
+    let d = dilate(&c, &selv2)?;
+    let e = erode(&d, &selh1)?;
+    let f = erode(&e, &selh2)?;
+    let g = erode(&f, &selv1)?;
+    erode(&g, &selv2)
 }
 
 /// Close a binary image safely, avoiding boundary artifacts.
@@ -488,98 +630,117 @@ pub fn close_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
     hit_miss_transform(&dilated, sel)
 }
 
-/// Composite 1D dilation: brick(f1) then comb(f1, f2) when beneficial.
+/// Find a factor pair `(factor1, factor2)` for composite SEL decomposition.
 ///
-/// `horizontal`: true for horizontal, false for vertical.
-/// Returns PixMut without clearing unused bits (caller's responsibility).
-fn dilate_1d_composite(pix: &Pix, size: u32, horizontal: bool) -> MorphResult<crate::core::PixMut> {
-    if size <= 1 {
-        // Identity: 1x1 SEL at origin just copies the image
-        let sel = Sel::create_horizontal(1)?;
-        return dilate_rasterop(pix, &sel);
-    }
-    let (f1, f2) = select_composable_sizes(size);
-    if f2 <= 1 {
-        // Not composable (prime or small): single SEL
-        let sel = if horizontal {
-            Sel::create_horizontal(size)?
-        } else {
-            Sel::create_vertical(size)?
-        };
-        return dilate_rasterop(pix, &sel);
-    }
-    // Composite: brick(f1) then comb(f1, f2).
-    // Add border to prevent boundary clipping in the brick step.
-    // The comb step needs intermediate results that extend beyond the
-    // original image boundary (C version: pixAddBorder in morphcomp.c).
-    let (sel_brick, sel_comb) = if horizontal {
-        (
-            Sel::create_horizontal(f1)?,
-            Sel::create_comb_horizontal(f1, f2)?,
-        )
-    } else {
-        (
-            Sel::create_vertical(f1)?,
-            Sel::create_comb_vertical(f1, f2)?,
-        )
-    };
-    let max_comb_offset = ((f2 - 1) * f1).div_ceil(2);
-    let (left, right, top, bottom) = if horizontal {
-        let border = max_comb_offset.div_ceil(32) * 32;
-        (border, border, 0u32, 0u32)
-    } else {
-        (0u32, 0u32, max_comb_offset, max_comb_offset)
-    };
-    let bordered = add_border(pix, left, right, top, bottom)?;
-    let tmp: Pix = dilate_rasterop(&bordered, &sel_brick)?.into();
-    let result: Pix = dilate_rasterop(&tmp, &sel_comb)?.into();
-    remove_border(&result, left, top, pix.width(), pix.height())
-}
-
-/// Composite 1D erosion: brick(f1) then comb(f1, f2) when beneficial.
-fn erode_1d_composite(pix: &Pix, size: u32, horizontal: bool) -> MorphResult<crate::core::PixMut> {
-    if size <= 1 {
-        let sel = Sel::create_horizontal(1)?;
-        return erode_rasterop(pix, &sel);
-    }
-    let (f1, f2) = select_composable_sizes(size);
-    if f2 <= 1 {
-        let sel = if horizontal {
-            Sel::create_horizontal(size)?
-        } else {
-            Sel::create_vertical(size)?
-        };
-        return erode_rasterop(pix, &sel);
-    }
-    let (sel_brick, sel_comb) = if horizontal {
-        (
-            Sel::create_horizontal(f1)?,
-            Sel::create_comb_horizontal(f1, f2)?,
-        )
-    } else {
-        (
-            Sel::create_vertical(f1)?,
-            Sel::create_comb_vertical(f1, f2)?,
-        )
-    };
-    let tmp: Pix = erode_rasterop(pix, &sel_brick)?.into();
-    erode_rasterop(&tmp, &sel_comb)
-}
-
-/// Find the factor pair (f1, f2) where f1 * f2 = size and f1 + f2 is minimized.
-///
-/// Returns (1, size) for primes (no composite decomposition possible).
+/// Mirrors C `selectComposableSizes` (`reference/leptonica/src/morph.c`):
+/// - For perfect squares, returns `(sqrt, sqrt)`.
+/// - Otherwise minimizes the cost function `4 * diff + rastcost`, where
+///   `diff = |size - factor1 * factor2|` and `rastcost = factor1 +
+///   factor2 - 2 * midval`. If a zero-diff pair with `rastcost <
+///   ACCEPTABLE_COST (5)` is found, returns it immediately.
+/// - **The returned product `factor1 * factor2` may differ from `size`**
+///   by up to ±2 (for `size <= 300`). Callers that decompose a brick
+///   into `brick(factor1) + comb(factor1, factor2)` must accept this
+///   approximation — it is the same trade-off C leptonica makes.
+/// - Returned ordering: `factor1 >= factor2`. When `size > 1`,
+///   `factor1 > 1` always.
+/// - C `selectComposableSizes` rejects `size > 10000`. This wrapper
+///   accepts arbitrary `u32` values by performing arithmetic in `i64`
+///   so cost-function overflow cannot occur, even though dilation sizes
+///   beyond a few hundred have no practical meaning.
 pub(crate) fn select_composable_sizes(size: u32) -> (u32, u32) {
     if size <= 1 {
-        return (1, size);
+        return (1, 1);
     }
-    let sqrt = (size as f64).sqrt() as u32;
-    for f1 in (2..=sqrt).rev() {
-        if size.is_multiple_of(f1) {
-            return (f1, size / f1);
+    let size_i: i64 = size as i64;
+    let midval = ((size as f64).sqrt() + 0.001) as i64;
+    if midval * midval == size_i {
+        return (midval as u32, midval as u32);
+    }
+
+    let n = (midval + 1) as usize;
+    let mut lowval = vec![0i64; n];
+    let mut hival = vec![0i64; n];
+    let mut rastcost = vec![0i64; n];
+    let mut diff = vec![0i64; n];
+
+    let mut val1 = midval + 1;
+    let mut i = 0usize;
+    while val1 > 0 {
+        let val2m = size_i / val1;
+        let val2p = val2m + 1;
+        let prodm = val1 * val2m;
+        let prodp = val1 * val2p;
+        let rastcostm = val1 + val2m - 2 * midval;
+        let rastcostp = val1 + val2p - 2 * midval;
+        let diffm = (size_i - prodm).abs();
+        let diffp = (size_i - prodp).abs();
+        if diffm <= diffp {
+            lowval[i] = val1.min(val2m);
+            hival[i] = val1.max(val2m);
+            rastcost[i] = rastcostm;
+            diff[i] = diffm;
+        } else {
+            lowval[i] = val1.min(val2p);
+            hival[i] = val1.max(val2p);
+            rastcost[i] = rastcostp;
+            diff[i] = diffp;
+        }
+        val1 -= 1;
+        i += 1;
+    }
+
+    const ACCEPTABLE_COST: i64 = 5;
+    let mut mincost: i64 = i64::MAX;
+    let mut index = 0usize;
+    for j in 0..n {
+        if diff[j] == 0 && rastcost[j] < ACCEPTABLE_COST {
+            return (hival[j] as u32, lowval[j] as u32);
+        }
+        let totcost = 4 * diff[j] + rastcost[j];
+        if totcost < mincost {
+            mincost = totcost;
+            index = j;
         }
     }
-    (1, size)
+    (hival[index] as u32, lowval[index] as u32)
+}
+
+#[cfg(test)]
+mod composable_c_parity_tests {
+    use super::select_composable_sizes;
+
+    /// Encodes the values produced by C `selectComposableSizes`
+    /// (`reference/leptonica/src/morph.c`) for prime sizes. Without the
+    /// C-parity rewrite (i.e. with the Rust-only "primes stay plain" rule)
+    /// these will fail.
+    ///
+    /// Computed by hand from the C cost function `totcost = 4 * diff +
+    /// rastcost` with `ACCEPTABLE_COST = 5`:
+    /// - 11 (prime): expected `(4, 3)` → product 12, diff 1, totcost 5
+    /// - 13 (prime): expected `(4, 3)` → product 12, diff 1, totcost 5
+    #[test]
+    fn test_select_composable_sizes_c_parity_primes() {
+        assert_eq!(
+            select_composable_sizes(11),
+            (4, 3),
+            "11 → C selects (4, 3) for size 12 approximation"
+        );
+        assert_eq!(
+            select_composable_sizes(13),
+            (4, 3),
+            "13 → C selects (4, 3) for size 12 approximation"
+        );
+    }
+
+    /// Perfect divisors are unaffected by the C-parity rewrite.
+    /// These should pass both before and after the change.
+    #[test]
+    fn test_select_composable_sizes_perfect_divisors() {
+        assert_eq!(select_composable_sizes(4), (2, 2));
+        assert_eq!(select_composable_sizes(9), (3, 3));
+        assert_eq!(select_composable_sizes(16), (4, 4));
+    }
 }
 
 /// Shift src row by `shift` pixels and OR into dst (word-level).
@@ -1310,14 +1471,19 @@ mod tests {
                 size,
             );
         }
-        // Prime sizes should still work (no composite decomposition)
-        for &size in &[7u32, 13] {
+        // Prime sizes: dilate_brick can pick a composite size that differs
+        // from the requested size by ±1 or ±2 (C `selectComposableSizes`
+        // cost-based selection — see `select_composable_sizes` docs).
+        // Only sizes where `select_composable_sizes(size) = (size, 1)`
+        // stay equivalent to direct dilate. As of C-parity rewrite, the
+        // primes 2, 3, 5, 7 fall into this "plain" category.
+        for &size in &[2u32, 3, 5, 7] {
             let brick_result = dilate_brick(&pix, size, 1).unwrap();
             let sel = Sel::create_horizontal(size).unwrap();
             let direct_result = dilate(&pix, &sel).unwrap();
             assert!(
                 brick_result.equals(&direct_result),
-                "dilate_brick({}, 1) != direct dilate (prime)",
+                "dilate_brick({}, 1) != direct dilate (small prime → plain)",
                 size,
             );
         }
@@ -1348,14 +1514,15 @@ mod tests {
                 size,
             );
         }
-        // Prime sizes
-        for &size in &[7u32, 13] {
+        // Small primes (2, 3, 5, 7) stay as plain SEL — see
+        // `test_dilate_brick_composite_equivalence` for details.
+        for &size in &[2u32, 3, 5, 7] {
             let brick_result = erode_brick(&pix, size, 1).unwrap();
             let sel = Sel::create_horizontal(size).unwrap();
             let direct_result = erode(&pix, &sel).unwrap();
             assert!(
                 brick_result.equals(&direct_result),
-                "erode_brick({}, 1) != direct erode (prime)",
+                "erode_brick({}, 1) != direct erode (small prime → plain)",
                 size,
             );
         }
