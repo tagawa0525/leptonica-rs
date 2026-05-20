@@ -72,21 +72,21 @@ PR #389 の TIFF invert bug 修正で **5 件追加で Ok 化**。
 
 ### 修正対象 (Rust 実装の C 互換性改善): 10 件
 
-| カテゴリ                          | 件数 | finding                                                   | 修正方針                                                                                                                |
-| --------------------------------- | ---: | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `fhmtauto_hmt` (sel_4_*, sel_8_*) |    7 | [004](c-compat-findings/004-hmt-impl-diff.md)             | `hit_miss_transform` に C `pixHMT` の「Clear near edges」処理を追加 (`selFindMaxTranslations` 分の端 pixel を 0 クリア) |
-| `binmorph3` (sep/dir dilate)      |    2 | [003](c-compat-findings/003-morph-brick-comp-vs-plain.md) | `dilate_1d_composite` の factor 選択 / SEL origin / 境界処理を C `pixDilateCompBrick` 内部と pixel-level で突き合わせ   |
-| `binmorph1` (close 21x15)         |    1 | [003](c-compat-findings/003-morph-brick-comp-vs-plain.md) | 同上 (close は `pixCloseCompBrick` の padding 差)                                                                       |
+| カテゴリ                          | 件数 | finding                                                   | 修正方針                                                                                                                                                                              |
+| --------------------------------- | ---: | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fhmtauto_hmt` (sel_4_*, sel_8_*) |    7 | [004](c-compat-findings/004-hmt-impl-diff.md)             | 2026-05-20 実験: Clear near edges 追加では効果なし (Rust 出力 hash 不変)。root cause は SEL 生成差または bit-shift 内部実装にあり、追加調査が必要 (004 finding 末尾「Next step」参照) |
+| `binmorph3` (sep/dir dilate)      |    2 | [003](c-compat-findings/003-morph-brick-comp-vs-plain.md) | `dilate_1d_composite` の factor 選択 / SEL origin / 境界処理を C `pixDilateCompBrick` 内部と pixel-level で突き合わせ                                                                 |
+| `binmorph1` (close 21x15)         |    1 | [003](c-compat-findings/003-morph-brick-comp-vs-plain.md) | 同上 (close は `pixCloseCompBrick` の padding 差)                                                                                                                                     |
 
 ## 解消した発見の系譜 (Phase 2.5 の調査履歴)
 
-| Finding                                                                                       | 解消状況                                                           |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [001 JPEG codec diff](c-compat-findings/001-jpeg-codec-diffs.md)                              | 仮説段階 (修正対象外、21 件カバー)                                 |
-| [002 TIFF 1bpp write limit](c-compat-findings/002-tiff-1bpp-write-limit.md)                   | ✅ 実装完了 (PR #383)、bps=1 で書けるように                        |
-| [003 brick comp vs plain](c-compat-findings/003-morph-brick-comp-vs-plain.md)                 | 部分対応 (PR #385 で verify を Comp 化、`composite 細部差` 残課題) |
-| [004 HMT impl diff](c-compat-findings/004-hmt-impl-diff.md)                                   | 部分対応 (Identity は 005 真因で解消、Clear near edges は残課題)   |
-| [005 TIFF 1bpp photometric invert](c-compat-findings/005-tiff-1bpp-photometric-invert-bug.md) | ✅ 実装完了 (PR #389)、5 件 Ok 化                                  |
+| Finding                                                                                       | 解消状況                                                                                                            |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [001 JPEG codec diff](c-compat-findings/001-jpeg-codec-diffs.md)                              | 仮説段階 (修正対象外、21 件カバー)                                                                                  |
+| [002 TIFF 1bpp write limit](c-compat-findings/002-tiff-1bpp-write-limit.md)                   | ✅ 実装完了 (PR #383)、bps=1 で書けるように                                                                         |
+| [003 brick comp vs plain](c-compat-findings/003-morph-brick-comp-vs-plain.md)                 | 部分対応 (PR #385 で verify を Comp 化、`composite 細部差` 残課題)                                                  |
+| [004 HMT impl diff](c-compat-findings/004-hmt-impl-diff.md)                                   | 部分対応 (Identity は 005 真因で解消、`fhmtauto_hmt` 7 件は Clear near edges 追加でも不変と判明 → SEL 生成差調査へ) |
+| [005 TIFF 1bpp photometric invert](c-compat-findings/005-tiff-1bpp-photometric-invert-bug.md) | ✅ 実装完了 (PR #389)、5 件 Ok 化                                                                                   |
 
 ## Unmapped 520 件について
 
@@ -106,15 +106,19 @@ PR #389 の TIFF invert bug 修正で **5 件追加で Ok 化**。
 
 ### Phase 2.5 残作業 (Rust 修正対象 10 件)
 
-1. **004 finding 実装**: `src/morph/binary.rs::hit_miss_transform` に
+1. **004 finding 続き**: 2026-05-20 実験で Clear near edges 追加は不変
 
-   Clear near edges 処理を追加 → fhmtauto_hmt 7 件解消見込み
+   と判明。次は `make_thin_sels(Set4cc1/Set8cc1)` の SEL 内容を C
+   `selaAddHitMiss` と byte-level 比較し、SEL 生成差の有無を切り分け
+   → 切り分け後の方針で fhmtauto_hmt 7 件解消を目指す
 
 2. **003 finding 続き**: `src/morph/binary.rs::dilate_1d_composite` の
 
    pixel-level audit → binmorph 3 件解消見込み
 
 両方完了で Mismatch 31 → 21 (JPEG codec 差のみが残る) になる見込み。
+ただし 004 は当初想定より深い調査が必要なため、複数 PR に分割される
+可能性がある。
 
 ### Phase 3 残作業 (本書整理 + golden_map 拡充)
 
@@ -126,9 +130,13 @@ PR #389 の TIFF invert bug 修正で **5 件追加で Ok 化**。
 ### Phase 4: CI 統合 (PR #391 で実装)
 
 - ✅ `tests/c_compat_report.*.txt` を GitHub Actions の artifact として保存
+
   (retention: 14 日)
+
 - ✅ workflow の Job Summary に Ok / Mismatch / MissingC / Unmapped の
+
   集計テーブル (全体 + binary 別) を出力
+
 - PR 本文への自動コメント投稿は将来の拡張対象
 
 ## 関連

@@ -135,6 +135,80 @@ clear_pixels_in_rect(&mut out_mut, 0, h - yn, w, yn);
 
   すべて通ることを確認 (regression が無い)
 
+## 2026-05-20 更新: Identity は 005 で解消、Clear near edges は無効
+
+### Identity 1x1 (`fhmtauto_id.01.tif`): ✅ Ok 化
+
+PR #389 (TIFF 1bpp `PhotometricInterpretation` invert 修正, finding 005)
+によって **Identity 1x1 brick の 100% diff は解消**。最新の Phase 2
+レポート (`tests/c_compat_report.morph.txt`) で:
+
+```text
+[Ok] fhmtauto_id :: fhmtauto_id.01.tif :: matches fhmtauto_verify.07.tif = f29e3849aca2341e
+```
+
+→ 上記の「Identity 100% diff」仮説 (`hit_miss_transform` の bug) は誤りで、
+真因は TIFF reader の `BlackIsZero` 強制 invert (tiff crate の
+`WhiteIsZero` auto-invert と二重反転になっていた) だった。
+
+### Clear near edges 追加: ❌ 効果なし (Rust 出力 hash 不変)
+
+「Step 2: Clear near edges 実装」(上記) を実験的に `src/morph/binary.rs::
+hit_miss_transform` に追加して `cargo test --release --test morph`
+を実行した結果、**Rust 出力 hash は完全に不変** (例:
+`fhmtauto_hmt.02.tif = 622fa09c5fdc17bf` のまま) であり、fhmtauto_hmt 7
+件 (`sel_4_*` / `sel_8_*`) は依然 Mismatch のまま残った。
+
+理由:
+
+- C `pixHMT` の `Clear near edges` は **shift 元の `cx-j`/`cy-i` で
+
+  カバーされない領域** を明示的に 0 にする処理
+
+- Rust `shift_and_row` は word/bit 単位の shift 時に **左右端**
+
+  (`shift > 0` の `dst[0..word_shift] = 0` および `shift > 0` で `dst[
+  word_shift] &= src[0] >> bit_shift` の上位 bit) を AND-clear 済み
+
+- Rust `hit_miss_transform` は hit 行が `src_y < 0 || src_y >= h` のとき
+
+  **dst 行全体を 0 にクリア** (上下端)
+
+- → C `Clear near edges` と Rust 既存の word/bit-shift 境界処理が
+
+  **数学的に等価** で、追加しても出力に差が出ない
+
+### 結論: 残 7 件の root cause は別
+
+`hit_miss_transform` の Rust 実装は word/bit-shift 単位では C と一致して
+いるが、Phase 2 レポートで C と pixel-level hash 不一致が残る原因は、
+以下のいずれかにある (要追加調査):
+
+1. **`make_thin_sels` (`ThinSelSet::Set4cc1`/`Set8cc1`) の SEL 内容** が
+
+   C `selaAddHitMiss` (`reference/leptonica/src/morphapp.c`) が生成する
+   thinning sels と微妙に異なる
+
+2. C `pixHMT` の **first rasterop CLR/SET + その後 AND** ロジックと
+
+   Rust の **all-1 で開始して AND** ロジックが、特定 SEL 構成で異なる
+   結果になる (例: hit と miss が混在し、初期状態の影響が出るケース)
+
+3. Rust の `shift_and_row` / `shift_and_not_row` の MSB-first bit 順処理
+
+   に subtle なバグがあり、特定の `bit_shift` 値で C と差が出る
+
+### Next step (別 PR)
+
+- C `selaAddHitMiss` の SEL を dump し、Rust `make_thin_sels` と byte-
+
+  level で比較
+
+- 差があれば: Rust 側 SEL 生成を C 準拠に修正
+- 差がなければ: `hit_miss_transform` のロジックを `pixHMT` 完全準拠
+
+  (first rasterop CLR/SET 方式) に書き換えて再測定
+
 ## 関連
 
 - Phase 2.5 第一弾 ([001-jpeg-codec-diffs.md](001-jpeg-codec-diffs.md))
