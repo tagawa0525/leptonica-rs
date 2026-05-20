@@ -142,3 +142,14 @@ io	gifio	1	gifio	3	gifio Set1 a-write/read checkpoint
 io	gifio	3	gifio	7	gifio Set1 b-write/read checkpoint
 io	iomisc	13	iomisc_regen_rgb_cmap	2	regenerate RGB colormap (8bpp cmap → 32bpp RGB)
 core	logicops	0	logicops_invert	3	logicops pixInvert
+
+# Phase 3 second pass (2026-05-20): semantic-mapped pairs whose hashes
+# differ. Adding these turns the entries from `Unmapped` to `Mismatch`
+# (intentional — the goal is to expose real differences for follow-up
+# findings, not to silently leave them unmapped). See finding 006.
+region	seedspread	0	seedspread	1	seedspread 4-cc moderately dense
+region	seedspread	1	seedspread	2	seedspread 8-cc moderately dense
+region	seedspread	2	seedspread	3	seedspread 4-cc lattice
+region	seedspread	3	seedspread	4	seedspread 8-cc lattice
+region	seedspread	4	seedspread	5	seedspread 4-cc sparse seeds
+region	seedspread	5	seedspread	6	seedspread 8-cc sparse seeds
