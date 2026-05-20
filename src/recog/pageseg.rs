@@ -2587,8 +2587,18 @@ mod tests {
     fn test_close_equivalence() {
         let pix = create_test_document(200, 100);
 
-        let old_result = morphological_close_old(&pix, 4, 4).unwrap();
-        let new_result = morphological_close(&pix, 4, 4).unwrap();
+        // SE size must be odd here: the `*_old` reference implementations
+        // use `x + dx - hw` with `hw = se / 2`, giving a symmetric
+        // footprint `[-hw, +hw]` only when `se` is odd. The new
+        // `close_brick` follows C `pixCloseCompBrick` and may decompose
+        // even sizes into asymmetric component SELs — for example
+        // `select_composable_sizes(4)` returns `(2, 2)`, with the
+        // `brick(2)` factor having `cx = 1` and relative hits `{-1, 0}`,
+        // which produces a different but C-correct result. Using
+        // `se = 5` keeps both sides on symmetric SELs, preserving the
+        // equivalence invariant.
+        let old_result = morphological_close_old(&pix, 5, 5).unwrap();
+        let new_result = morphological_close(&pix, 5, 5).unwrap();
 
         assert_pix_equal(&old_result, &new_result);
     }
