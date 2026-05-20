@@ -11,13 +11,13 @@
 
 C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
-| 項目                 | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
-| -------------------- | ------------------------- | -------------------------- |
-| テスト総数           | **305個** (.c)            | **244ファイル** (*_reg.rs) |
-| C 対応回帰テスト     | **160個** (*_reg.c)       | **159個** (*_reg.rs)       |
-| Rust独自回帰テスト   | -                         | **85個** (*_reg.rs)        |
-| 個別テスト関数       | 多数                      | **約4,051個**              |
-| テストランナー       | alltests_reg.c            | `cargo test`               |
+| 項目               | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
+| ------------------ | ------------------------- | -------------------------- |
+| テスト総数         | **305個** (.c)            | **244ファイル** (*_reg.rs) |
+| C 対応回帰テスト   | **160個** (*_reg.c)       | **159個** (*_reg.rs)       |
+| Rust独自回帰テスト | -                         | **85個** (*_reg.rs)        |
+| 個別テスト関数     | 多数                      | **約4,051個**              |
+| テストランナー     | alltests_reg.c            | `cargo test`               |
 
 ※ C版160個のうち `alltests_reg.c` はテストランナーのため集計から除外（159個が対象）。
 ※ C版テストの分類は、Rust側のテストファイルの実際の配置先クレートに基づく。
@@ -261,9 +261,17 @@ quantize_ext
 | texturefill | texturefill_reg.rs | ✅   |
 | watershed   | watershed_reg.rs   | ✅   |
 
-Rust独自 (4 件、2026-05-20 実測): conncomp_ext, partition_whitespace,
-region_coverage, seedfill_ext (※ checkerboard は C 版 prog にも存在し
-transform クレートで 1:1 対応扱い)
+Rust独自 (5 件、2026-05-20 実測): checkerboard, conncomp_ext,
+partition_whitespace, region_coverage, seedfill_ext
+
+> `checkerboard_reg.rs` は region と transform の **両方**
+> (`tests/region/` と `tests/transform/`) に存在する。C 版
+> `prog/checkerboard_reg.c` 1 件に対応するのは transform 側
+> (本書の C 版対応カウントは transform で 1:1 計上)。
+> region 側は Rust 独自の追加カバレッジテストとして配置されており、
+> ここでは region の「Rust 独自」として計上する。
+> Rust 独自 85 件合計と整合する分類: 各テストの **Rust 側配置先**
+> (`tests/<crate>/`) で 1 度だけ計上する。
 
 ✅ 14 / ❌ 0（C版14個中）
 
@@ -301,23 +309,24 @@ recog_coverage, strokes
 
 | クレート                   | C版     | ✅      | ❌    | Rust独自 | カバレッジ |
 | -------------------------- | ------- | ------- | ----- | -------- | ---------- |
-| leptonica (src/core/)      | 33      | 33      | 0     | 12       | 100.0%     |
-| leptonica (src/io/)        | 19      | 19      | 0     | 4        | 100.0%     |
+| leptonica (src/core/)      | 33      | 33      | 0     | 44       | 100.0%     |
+| leptonica (src/io/)        | 19      | 19      | 0     | 6        | 100.0%     |
 | leptonica (src/morph/)     | 17      | 17      | 0     | 3        | 100.0%     |
 | leptonica (src/transform/) | 21      | 21      | 0     | 1        | 100.0%     |
-| leptonica (src/filter/)    | 14      | 14      | 0     | 9        | 100.0%     |
+| leptonica (src/filter/)    | 14      | 14      | 0     | 11       | 100.0%     |
 | leptonica (src/color/)     | 24      | 24      | 0     | 7        | 100.0%     |
 | leptonica (src/region/)    | 14      | 14      | 0     | 5        | 100.0%     |
-| leptonica (src/recog/)     | 17      | 17      | 0     | 5        | 100.0%     |
+| leptonica (src/recog/)     | 17      | 17      | 0     | 8        | 100.0%     |
 | **合計**                   | **159** | **159** | **0** | **85**   | **100.0%** |
 
 全C版回帰テスト（159個）の移植が完了。未移植テストなし。Rust独自テスト
 85 件と合わせて回帰テスト総数は **244 個** (2026-05-20 実測:
 `find tests -name '*_reg.rs' | wc -l`)。
 
-各クレートの「Rust独自」列に挙がっている代表名は当初の整備時のもので、
-現在は追加が進んでいる。`comm -23 <(find tests -name '*_reg.rs' ...)
-<(ls reference/leptonica/prog/*_reg.c ...)` で完全な diff を取れる。
+「Rust 独自」列の値は 2026-05-20 に実測 (各 crate セクションの
+「Rust独自 (N 件、2026-05-20 実測):」リストと一致)。差分を再取得する
+には `comm -23 <(find tests -name '*_reg.rs' ...) <(ls
+reference/leptonica/prog/*_reg.c ...)` を使う。
 
 ## Rust版テストの現状
 
