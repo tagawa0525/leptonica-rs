@@ -2591,11 +2591,12 @@ mod tests {
         // use `x + dx - hw` with `hw = se / 2`, giving a symmetric
         // footprint `[-hw, +hw]` only when `se` is odd. The new
         // `close_brick` follows C `pixCloseCompBrick` and may decompose
-        // even sizes into asymmetric component SELs (e.g. `select_
-        // composable_sizes(4) = (2, 2)` with `brick(2)` having `cx = 1`
-        // and relative hits `{-1, 0}`), which produces a different but
-        // C-correct result. Using `se = 5` keeps both sides on
-        // symmetric SELs, preserving the equivalence invariant.
+        // even sizes into asymmetric component SELs — for example
+        // `select_composable_sizes(4)` returns `(2, 2)`, with the
+        // `brick(2)` factor having `cx = 1` and relative hits `{-1, 0}`,
+        // which produces a different but C-correct result. Using
+        // `se = 5` keeps both sides on symmetric SELs, preserving the
+        // equivalence invariant.
         let old_result = morphological_close_old(&pix, 5, 5).unwrap();
         let new_result = morphological_close(&pix, 5, 5).unwrap();
 
