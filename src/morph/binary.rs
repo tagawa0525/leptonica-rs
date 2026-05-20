@@ -582,6 +582,44 @@ pub(crate) fn select_composable_sizes(size: u32) -> (u32, u32) {
     (1, size)
 }
 
+#[cfg(test)]
+mod composable_c_parity_tests {
+    use super::select_composable_sizes;
+
+    /// Encodes the values produced by C `selectComposableSizes`
+    /// (`reference/leptonica/src/morph.c`) for prime sizes. Without the
+    /// C-parity rewrite (i.e. with the Rust-only "primes stay plain" rule)
+    /// these will fail.
+    ///
+    /// Computed by hand from the C cost function `totcost = 4 * diff +
+    /// rastcost` with `ACCEPTABLE_COST = 5`:
+    /// - 11 (prime): expected `(4, 3)` → product 12, diff 1, totcost 5
+    /// - 13 (prime): expected `(4, 3)` → product 12, diff 1, totcost 5
+    #[test]
+    #[ignore = "RED: pending select_composable_sizes C-parity rewrite"]
+    fn test_select_composable_sizes_c_parity_primes() {
+        assert_eq!(
+            select_composable_sizes(11),
+            (4, 3),
+            "11 → C selects (4, 3) for size 12 approximation"
+        );
+        assert_eq!(
+            select_composable_sizes(13),
+            (4, 3),
+            "13 → C selects (4, 3) for size 12 approximation"
+        );
+    }
+
+    /// Perfect divisors are unaffected by the C-parity rewrite.
+    /// These should pass both before and after the change.
+    #[test]
+    fn test_select_composable_sizes_perfect_divisors() {
+        assert_eq!(select_composable_sizes(4), (2, 2));
+        assert_eq!(select_composable_sizes(9), (3, 3));
+        assert_eq!(select_composable_sizes(16), (4, 4));
+    }
+}
+
 /// Shift src row by `shift` pixels and OR into dst (word-level).
 ///
 /// MSB-first bit ordering: pixel 0 = bit 31, pixel 31 = bit 0.
