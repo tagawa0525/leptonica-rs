@@ -21,16 +21,19 @@ gifio_reg.c` の `test_gif()` を読み合わせて確定):
 > で、`scripts/golden_map.tsv` の `c_index` / `rust_index` 欄は
 > filename index を保持する。
 
-| Test file (input)            | Rust check | C check | Rust file | C file | 状態            |
-| ---------------------------- | ---------: | ------: | --------: | -----: | --------------- |
-| FILE_1BPP (`feyn-fract.tif`) |          0 |       0 |        01 |     00 | ✅ Ok           |
-| FILE_2BPP (`weasel2.png`)    |          1 |       1 |        03 |     01 | ✅ Ok           |
-| FILE_4BPP (`weasel4.png`)    |          2 |       2 |        05 |     02 | ✅ Ok           |
-| FILE_8BPP_1 (`map1.jpg`)     |          3 |       3 |        07 |     03 | ✅ Ok           |
-| FILE_8BPP_2 (`weasel8.png`)  |          4 |       4 |        09 |     04 | ✅ Ok           |
-| **FILE_8BPP_3** (`feyn.tif`) |          5 |       5 |        11 |     05 | ⚠️ **Mismatch** |
-| FILE_16BPP (`marge.png`)     |          6 |       6 |        13 |     06 | ✅ Ok           |
-| **FILE_32BPP** (`marge.jpg`) |          7 |       7 |        15 |     07 | ⚠️ **Mismatch** |
+入力ファイル名は `tests/io/gifio_reg.rs` の定数 (`FILE_1BPP` 〜
+`FILE_32BPP`) から確認:
+
+| Test file (input)                | Rust check | C check | Rust file | C file | 状態            |
+| -------------------------------- | ---------: | ------: | --------: | -----: | --------------- |
+| FILE_1BPP (`feyn.tif`)           |          0 |       0 |        01 |     00 | ✅ Ok           |
+| FILE_2BPP (`weasel2.4g.png`)     |          1 |       1 |        03 |     01 | ✅ Ok           |
+| FILE_4BPP (`weasel4.16c.png`)    |          2 |       2 |        05 |     02 | ✅ Ok           |
+| FILE_8BPP_1 (`dreyfus8.png`)     |          3 |       3 |        07 |     03 | ✅ Ok           |
+| FILE_8BPP_2 (`weasel8.240c.png`) |          4 |       4 |        09 |     04 | ✅ Ok           |
+| **FILE_8BPP_3** (`test8.jpg`)    |          5 |       5 |        11 |     05 | ⚠️ **Mismatch** |
+| FILE_16BPP (`test16.tif`)        |          6 |       6 |        13 |     06 | ✅ Ok           |
+| **FILE_32BPP** (`marge.jpg`)     |          7 |       7 |        15 |     07 | ⚠️ **Mismatch** |
 
 GIF のテスト構造は「lossless r/w ラウンドトリップ」 (元画像 → GIF
 write → read で得た `pix1` の hash を確認) なので、入力画像と Rust の
@@ -39,29 +42,38 @@ GIF encoder/decoder + C の GIF encoder/decoder の挙動差が hash 差に
 
 ## Root cause 仮説 (未確定、要追加調査)
 
-| 仮説                                                     | 影響                                       | 切り分け方                                         |
-| -------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------- |
-| (1) Rust `gif` crate と giflib の LZW 圧縮テーブル順序差 | round-trip 後の pixel 値も差うる可能性     | Rust write → C read で round-trip が成功するか確認 |
-| (2) 32bpp → 8bpp 量子化アルゴリズム差                    | FILE_32BPP は GIF write 前に必ず量子化     | Rust `convert_to_8` / `color_quant` 系と C の差    |
-| (3) JPEG decoder 差 (FILE_8BPP_3 = `feyn.tif`)           | 入力 8bpp の値が C/Rust で違う可能性       | `feyn.tif` のロード直後の hash を C/Rust で比較    |
-| (4) 8bpp colormap 順序                                   | GIF が cmap-based のため順序差で hash 違う | round-trip 後の cmap entry 順序を C/Rust で比較    |
+LZW 圧縮自体は lossless なので、GIF bytes が異なっても decoded pixel
+値は同じになるはず。よって LZW 圧縮テーブル順序差は本 finding の root
+cause **ではない**。差は encoder 前 (palette 構築 / quantization /
+colormap 順序) または decoder 側 (palette index 解釈) にあると考え
+られる。
 
-実は `FILE_8BPP_3 = feyn.tif` は **TIFF G4 (1bpp)** で、Rust 側 (`test_files` line 44 で "8bpp from JPEG" と書かれているがコメントは古い) の load 経路でも実態は 1bpp として load されるはず。であれば 1bpp → 8bpp → GIF とコンバートする経路で cmap 構築の差が出る (仮説 4)。
+| 仮説                                            | 影響                                                                                    | 切り分け方                                                    |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| (1) 32bpp → 8bpp 量子化アルゴリズム差           | FILE_32BPP は GIF write 前に必ず量子化                                                  | Rust `convert_to_8` / `color_quant` 系と C の差               |
+| (2) JPEG decoder 差 (FILE_8BPP_3 = `test8.jpg`) | 入力 8bpp の値が C/Rust で違う可能性                                                    | `test8.jpg` のロード直後の hash を C/Rust で比較              |
+| (3) 8bpp colormap 順序                          | GIF が cmap-based のため、palette index 順序差で pixel 値が違う                         | round-trip 後の cmap entry 順序を C/Rust で比較               |
+| (4) GIF encoder の palette 構築差               | cmap 未付与画像から GIF を書き出す際の Rust gif crate と giflib の生成 palette が異なる | C と Rust で同じ image を GIF write して decoded pixel を比較 |
+
+`FILE_8BPP_3 = test8.jpg` は JPEG 8bpp なので、JPEG decoder 差 (仮説 2)
+が直接効く可能性が高い。`FILE_32BPP = marge.jpg` は JPEG 32bpp で、
+入力ロードと GIF write 前の量子化の **両方** の差が積み重なる。
 
 ## Next step (別 PR)
 
 優先度順:
 
-1. **入力の hash 確認**: `feyn.tif` と `marge.jpg` を C と Rust で
+1. **入力の hash 確認**: `test8.jpg` と `marge.jpg` を C と Rust で
 
-   load して、ロード直後の hash が一致するか確認 (仮説 3 を切り分け)
+   load して、ロード直後の hash が一致するか確認 (仮説 2 = JPEG
+   decoder 差を切り分け)
 
-2. **GIF write → 即 read round-trip の hash**: Rust と C で同じ入力
+2. **同一入力 pix からの GIF write 比較**: C と Rust で同じ入力 pix
 
-   pix から書き出した GIF を、逆側 (C 出力を Rust read / Rust 出力を
-   C read) で逆 round-trip して hash 比較 (仮説 1 を切り分け)
+   を別々に GIF に書き出し、**同じ decoder で read** して decoded
+   pixel が一致するか確認 (encoder 差 = 仮説 4 を切り分け)
 
-3. 仮説 2 / 4 はその後に検討
+3. 仮説 1 (量子化) / 3 (colormap 順序) はその後に検討
 
 ## 関連
 
