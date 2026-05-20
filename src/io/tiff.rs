@@ -282,17 +282,12 @@ fn decode_tiff_image<R: Read + Seek>(decoder: &mut Decoder<R>) -> IoResult<Pix> 
         .colortype()
         .map_err(|e| IoError::DecodeError(format!("Failed to get TIFF color type: {}", e)))?;
 
-    let photometric = decoder
-        .get_tag_u32(tiff::tags::Tag::PhotometricInterpretation)
-        .ok()
-        .map(|v| match v {
-            0 => PhotometricInterpretation::WhiteIsZero,
-            1 => PhotometricInterpretation::BlackIsZero,
-            2 => PhotometricInterpretation::RGB,
-            3 => PhotometricInterpretation::RGBPalette,
-            _ => PhotometricInterpretation::BlackIsZero,
-        })
-        .unwrap_or(PhotometricInterpretation::BlackIsZero);
+    // NOTE: PhotometricInterpretation is intentionally not consulted here
+    // for the 1bpp invert decision below. See the comment around the
+    // `invert` binding for why the `tiff` crate's auto-inversion of
+    // WhiteIsZero already normalises 1bpp/8bpp inputs to a common shape.
+    // If 8bpp WhiteIsZero handling is added later, re-introduce a tag read
+    // at this point and consult it inside `convert_u8_to_pix::Gray(8)`.
 
     let image_data = decoder
         .read_image()
@@ -335,11 +330,24 @@ fn decode_tiff_image<R: Read + Seek>(decoder: &mut Decoder<R>) -> IoResult<Pix> 
         pix_mut.set_yres(y_res as i32);
     }
 
-    // Handle inverted photometric interpretation for binary images
-    let invert = matches!(
-        (pix_depth, photometric),
-        (PixelDepth::Bit1, PhotometricInterpretation::WhiteIsZero)
-    );
+    // Reproduce the C leptonica convention "in-memory FG = 1" (see
+    // `reference/leptonica/src/tiffio.c:760-762`). The tricky part: the
+    // `tiff` crate's decoder *auto-inverts* WhiteIsZero before handing
+    // bytes back (see `tiff-0.11.3/src/decoder/image.rs:948`), so by the
+    // time `convert_u8_to_pix` sees them, both BlackIsZero and WhiteIsZero
+    // arrive as "0 = lightness 0, max = max lightness". For 1bpp we want
+    // FG (= black, low lightness) to map to `1`, so we always invert.
+    //
+    // The 8bpp WhiteIsZero case is intentionally not handled here yet:
+    // `convert_u8_to_pix` only consults `invert` for the Gray(1) branch,
+    // and 8bpp grayscale parity with C requires a separate audit. Adding
+    // an 8bpp clause now would be dead code (Copilot review PR #389).
+    //
+    // Previously the Rust check `(Bit1, WhiteIsZero)` only flipped half
+    // of the cases, leaving BlackIsZero 1bpp TIFFs (e.g. feyn-fract.tif)
+    // with FG=0 in memory — opposite of the leptonica convention — and
+    // broke pixel-level parity for binmorph / fhmtauto / cthin tests.
+    let invert = matches!(pix_depth, PixelDepth::Bit1);
 
     // Convert decoded data to Pix format
     match image_data {
