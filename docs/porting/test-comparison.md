@@ -69,7 +69,20 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 | rasteropip | rasteropip_reg.rs | ✅   |
 | string     | string_reg.rs     | ✅   |
 
-Rust独自: bmf, boxfunc, core_coverage, gplot, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixacc, pixafunc
+Rust独自 (44 件、2026-05-20 実測): bmf, boxfunc, compare_photo,
+compare_tiles_by_histo, core_coverage, fpix_affine_projective,
+fpix_extended, gplot, misc_helpers, numa_advanced, numa_crossings_by_peaks,
+numa_emd_discretize, numa_get_rank_bin_values, numa_gray_histograms,
+numa_haar, numa_histogram_auto, numa_histogram_ext, numa_sort_interp,
+numa_split_distribution, photo_histo_chain, pix_arith_rop,
+pix_clip_advanced, pix_clip_advanced_ext, pix_compare_gray_by_histo,
+pix_component_function, pix_histogram_advanced, pix_stats_advanced,
+pixa_binsort_scaletosize, pixa_convert_to_nup, pixa_properties,
+pixa_properties_residual, pixa_rotate_clip_render, pixa_select,
+pixa_select_to_pdf, pixa_tiled_extraction, pixa_transform,
+pixa_transform_residual, pixaa_helpers, pixacc, pixafunc,
+pta_boundary_neighbor_labels, pta_graphics, pta_noisy_lsf,
+ptaa_get_boundary_pixels
 
 ✅ 33 / ❌ 0（C版33個中）
 
@@ -99,7 +112,8 @@ Rust独自: bmf, boxfunc, core_coverage, gplot, numa_sort_interp, pix_arith_rop,
 | webpio     | webpio_reg.rs     | ✅   |
 | writetext  | writetext_reg.rs  | ✅   |
 
-Rust独自: convertfiles, io_coverage, partify, spixio
+Rust独自 (6 件、2026-05-20 実測): convertfiles, io_coverage, partify,
+rotateorth_files_to_pdf, spixio, tiff_1bpp
 
 ✅ 19 / ❌ 0（C版19個中）
 
@@ -125,7 +139,7 @@ Rust独自: convertfiles, io_coverage, partify, spixio
 | morphseq   | morphseq_reg.rs   | ✅   |
 | selio      | selio_reg.rs      | ✅   |
 
-Rust独自: binreduce, morph_coverage, sel_morphapp
+Rust独自 (3 件、2026-05-20 実測): binreduce, morph_coverage, sel_morphapp
 
 ✅ 17 / ❌ 0（C版17個中）
 
@@ -157,7 +171,7 @@ Rust独自: binreduce, morph_coverage, sel_morphapp
 | warper       | warper_reg.rs       | ✅   |
 | xformbox     | xformbox_reg.rs     | ✅   |
 
-Rust独自: transform_coverage
+Rust独自 (1 件、2026-05-20 実測): transform_coverage
 
 ✅ 21 / ❌ 0（C版21個中）
 
@@ -182,7 +196,10 @@ Rust独自: transform_coverage
 | rankbin    | rankbin_reg.rs    | ✅   |
 | rankhisto  | rankhisto_reg.rs  | ✅   |
 
-Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, edge_smoothness, extend_replication, half_edge, rank_scaling, runlength
+Rust独自 (11 件、2026-05-20 実測): adaptmap_advanced, adaptmap_bg,
+adaptmap_morph, bilateral_fast, edge_smoothness, extend_replication,
+gap_fill_workflows, half_edge, rank_scaling, runlength,
+stroke_width_transform
 
 ✅ 14 / ❌ 0（C版14個中）
 
@@ -217,7 +234,9 @@ Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, edge
 | paintmask    | paintmask_reg.rs    | ✅   |
 | threshnorm   | threshnorm_reg.rs   | ✅   |
 
-Rust独自: binarize_advanced, color_coverage, color_magnitude, colorcontent_advanced, colorspace_hsv, paintcmap, quantize_ext
+Rust独自 (7 件、2026-05-20 実測): binarize_advanced, color_coverage,
+color_magnitude, colorcontent_advanced, colorspace_hsv, paintcmap,
+quantize_ext
 
 ✅ 24 / ❌ 0（C版24個中）
 
@@ -242,7 +261,9 @@ Rust独自: binarize_advanced, color_coverage, color_magnitude, colorcontent_adv
 | texturefill | texturefill_reg.rs | ✅   |
 | watershed   | watershed_reg.rs   | ✅   |
 
-Rust独自: checkerboard, conncomp_ext, partition_whitespace, region_coverage, seedfill_ext
+Rust独自 (4 件、2026-05-20 実測): conncomp_ext, partition_whitespace,
+region_coverage, seedfill_ext (※ checkerboard は C 版 prog にも存在し
+transform クレートで 1:1 対応扱い)
 
 ✅ 14 / ❌ 0（C版14個中）
 
@@ -268,7 +289,9 @@ Rust独自: checkerboard, conncomp_ext, partition_whitespace, region_coverage, s
 | skew         | skew_reg.rs         | ✅   |
 | wordboxes    | wordboxes_reg.rs    | ✅   |
 
-Rust独自: classapp, correlscore, finditalic, recog_coverage, strokes
+Rust独自 (8 件、2026-05-20 実測): classapp, correlscore,
+estimate_background, finditalic, pageseg_heavy, pageseg_helpers,
+recog_coverage, strokes
 
 ✅ 17 / ❌ 0（C版17個中）
 
