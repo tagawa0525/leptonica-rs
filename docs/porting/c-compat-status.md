@@ -9,9 +9,10 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 > **As of 2026-05-20** (Phase 3 第一弾 merge 後)。Phase 2.5 修正対象
 > 10 件すべて解消 (PR #397/#398/#400)。Phase 3 第一弾で hash-match
 > ペア 8 件を `golden_map.tsv` に追加し、core / io / transform の 3
-> binary を新規に C 比較対象に組み込み。全体 Ok は 22 → 40 (Phase
-> 2.5 で +10、Phase 3 で +8)、Mismatch は 21 件のまま (全件 JPEG
-> codec 差、finding 001 参照)。
+> binary を新規に C 比較対象に組み込み。全体 Ok の推移は
+> **22 (Phase 2.5 開始時) → 32 (Phase 2.5 完了時) → 40 (Phase 3 第一弾
+> 完了時)**。Mismatch は 21 件のまま (全件 JPEG codec 差、finding 001
+> 参照)。
 
 ## 全体集計
 
