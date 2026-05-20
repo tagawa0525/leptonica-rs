@@ -11,13 +11,13 @@
 
 C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 
-| 項目                 | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
-| -------------------- | ------------------------- | -------------------------- |
-| テスト総数           | **305個** (.c)            | **244ファイル** (*_reg.rs) |
-| C 対応回帰テスト     | **160個** (*_reg.c)       | **159個** (*_reg.rs)       |
-| Rust独自回帰テスト   | -                         | **85個** (*_reg.rs)        |
-| 個別テスト関数       | 多数                      | **約4,051個**              |
-| テストランナー       | alltests_reg.c            | `cargo test`               |
+| 項目               | C版 (reference/leptonica) | Rust版 (leptonica-rs)      |
+| ------------------ | ------------------------- | -------------------------- |
+| テスト総数         | **305個** (.c)            | **244ファイル** (*_reg.rs) |
+| C 対応回帰テスト   | **160個** (*_reg.c)       | **159個** (*_reg.rs)       |
+| Rust独自回帰テスト | -                         | **85個** (*_reg.rs)        |
+| 個別テスト関数     | 多数                      | **約4,051個**              |
+| テストランナー     | alltests_reg.c            | `cargo test`               |
 
 ※ C版160個のうち `alltests_reg.c` はテストランナーのため集計から除外（159個が対象）。
 ※ C版テストの分類は、Rust側のテストファイルの実際の配置先クレートに基づく。
@@ -69,7 +69,20 @@ C版の `prog/*_reg.c` とRust版の `tests/**/*_reg.rs` の対応関係。
 | rasteropip | rasteropip_reg.rs | ✅   |
 | string     | string_reg.rs     | ✅   |
 
-Rust独自: bmf, boxfunc, core_coverage, gplot, numa_sort_interp, pix_arith_rop, pix_clip_advanced, pix_clip_advanced_ext, pix_histogram_advanced, pix_stats_advanced, pixacc, pixafunc
+Rust独自 (44 件、2026-05-20 実測): bmf, boxfunc, compare_photo,
+compare_tiles_by_histo, core_coverage, fpix_affine_projective,
+fpix_extended, gplot, misc_helpers, numa_advanced, numa_crossings_by_peaks,
+numa_emd_discretize, numa_get_rank_bin_values, numa_gray_histograms,
+numa_haar, numa_histogram_auto, numa_histogram_ext, numa_sort_interp,
+numa_split_distribution, photo_histo_chain, pix_arith_rop,
+pix_clip_advanced, pix_clip_advanced_ext, pix_compare_gray_by_histo,
+pix_component_function, pix_histogram_advanced, pix_stats_advanced,
+pixa_binsort_scaletosize, pixa_convert_to_nup, pixa_properties,
+pixa_properties_residual, pixa_rotate_clip_render, pixa_select,
+pixa_select_to_pdf, pixa_tiled_extraction, pixa_transform,
+pixa_transform_residual, pixaa_helpers, pixacc, pixafunc,
+pta_boundary_neighbor_labels, pta_graphics, pta_noisy_lsf,
+ptaa_get_boundary_pixels
 
 ✅ 33 / ❌ 0（C版33個中）
 
@@ -99,7 +112,8 @@ Rust独自: bmf, boxfunc, core_coverage, gplot, numa_sort_interp, pix_arith_rop,
 | webpio     | webpio_reg.rs     | ✅   |
 | writetext  | writetext_reg.rs  | ✅   |
 
-Rust独自: convertfiles, io_coverage, partify, spixio
+Rust独自 (6 件、2026-05-20 実測): convertfiles, io_coverage, partify,
+rotateorth_files_to_pdf, spixio, tiff_1bpp
 
 ✅ 19 / ❌ 0（C版19個中）
 
@@ -125,7 +139,7 @@ Rust独自: convertfiles, io_coverage, partify, spixio
 | morphseq   | morphseq_reg.rs   | ✅   |
 | selio      | selio_reg.rs      | ✅   |
 
-Rust独自: binreduce, morph_coverage, sel_morphapp
+Rust独自 (3 件、2026-05-20 実測): binreduce, morph_coverage, sel_morphapp
 
 ✅ 17 / ❌ 0（C版17個中）
 
@@ -157,7 +171,7 @@ Rust独自: binreduce, morph_coverage, sel_morphapp
 | warper       | warper_reg.rs       | ✅   |
 | xformbox     | xformbox_reg.rs     | ✅   |
 
-Rust独自: transform_coverage
+Rust独自 (1 件、2026-05-20 実測): transform_coverage
 
 ✅ 21 / ❌ 0（C版21個中）
 
@@ -182,7 +196,10 @@ Rust独自: transform_coverage
 | rankbin    | rankbin_reg.rs    | ✅   |
 | rankhisto  | rankhisto_reg.rs  | ✅   |
 
-Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, edge_smoothness, extend_replication, half_edge, rank_scaling, runlength
+Rust独自 (11 件、2026-05-20 実測): adaptmap_advanced, adaptmap_bg,
+adaptmap_morph, bilateral_fast, edge_smoothness, extend_replication,
+gap_fill_workflows, half_edge, rank_scaling, runlength,
+stroke_width_transform
 
 ✅ 14 / ❌ 0（C版14個中）
 
@@ -217,7 +234,9 @@ Rust独自: adaptmap_advanced, adaptmap_bg, adaptmap_morph, bilateral_fast, edge
 | paintmask    | paintmask_reg.rs    | ✅   |
 | threshnorm   | threshnorm_reg.rs   | ✅   |
 
-Rust独自: binarize_advanced, color_coverage, color_magnitude, colorcontent_advanced, colorspace_hsv, paintcmap, quantize_ext
+Rust独自 (7 件、2026-05-20 実測): binarize_advanced, color_coverage,
+color_magnitude, colorcontent_advanced, colorspace_hsv, paintcmap,
+quantize_ext
 
 ✅ 24 / ❌ 0（C版24個中）
 
@@ -242,7 +261,17 @@ Rust独自: binarize_advanced, color_coverage, color_magnitude, colorcontent_adv
 | texturefill | texturefill_reg.rs | ✅   |
 | watershed   | watershed_reg.rs   | ✅   |
 
-Rust独自: checkerboard, conncomp_ext, partition_whitespace, region_coverage, seedfill_ext
+Rust独自 (5 件、2026-05-20 実測): checkerboard, conncomp_ext,
+partition_whitespace, region_coverage, seedfill_ext
+
+> `checkerboard_reg.rs` は region と transform の **両方**
+> (`tests/region/` と `tests/transform/`) に存在する。C 版
+> `prog/checkerboard_reg.c` 1 件に対応するのは transform 側
+> (本書の C 版対応カウントは transform で 1:1 計上)。
+> region 側は Rust 独自の追加カバレッジテストとして配置されており、
+> ここでは region の「Rust 独自」として計上する。
+> Rust 独自 85 件合計と整合する分類: 各テストの **Rust 側配置先**
+> (`tests/<crate>/`) で 1 度だけ計上する。
 
 ✅ 14 / ❌ 0（C版14個中）
 
@@ -268,7 +297,9 @@ Rust独自: checkerboard, conncomp_ext, partition_whitespace, region_coverage, s
 | skew         | skew_reg.rs         | ✅   |
 | wordboxes    | wordboxes_reg.rs    | ✅   |
 
-Rust独自: classapp, correlscore, finditalic, recog_coverage, strokes
+Rust独自 (8 件、2026-05-20 実測): classapp, correlscore,
+estimate_background, finditalic, pageseg_heavy, pageseg_helpers,
+recog_coverage, strokes
 
 ✅ 17 / ❌ 0（C版17個中）
 
@@ -278,23 +309,24 @@ Rust独自: classapp, correlscore, finditalic, recog_coverage, strokes
 
 | クレート                   | C版     | ✅      | ❌    | Rust独自 | カバレッジ |
 | -------------------------- | ------- | ------- | ----- | -------- | ---------- |
-| leptonica (src/core/)      | 33      | 33      | 0     | 12       | 100.0%     |
-| leptonica (src/io/)        | 19      | 19      | 0     | 4        | 100.0%     |
+| leptonica (src/core/)      | 33      | 33      | 0     | 44       | 100.0%     |
+| leptonica (src/io/)        | 19      | 19      | 0     | 6        | 100.0%     |
 | leptonica (src/morph/)     | 17      | 17      | 0     | 3        | 100.0%     |
 | leptonica (src/transform/) | 21      | 21      | 0     | 1        | 100.0%     |
-| leptonica (src/filter/)    | 14      | 14      | 0     | 9        | 100.0%     |
+| leptonica (src/filter/)    | 14      | 14      | 0     | 11       | 100.0%     |
 | leptonica (src/color/)     | 24      | 24      | 0     | 7        | 100.0%     |
 | leptonica (src/region/)    | 14      | 14      | 0     | 5        | 100.0%     |
-| leptonica (src/recog/)     | 17      | 17      | 0     | 5        | 100.0%     |
+| leptonica (src/recog/)     | 17      | 17      | 0     | 8        | 100.0%     |
 | **合計**                   | **159** | **159** | **0** | **85**   | **100.0%** |
 
 全C版回帰テスト（159個）の移植が完了。未移植テストなし。Rust独自テスト
 85 件と合わせて回帰テスト総数は **244 個** (2026-05-20 実測:
 `find tests -name '*_reg.rs' | wc -l`)。
 
-各クレートの「Rust独自」列に挙がっている代表名は当初の整備時のもので、
-現在は追加が進んでいる。`comm -23 <(find tests -name '*_reg.rs' ...)
-<(ls reference/leptonica/prog/*_reg.c ...)` で完全な diff を取れる。
+「Rust 独自」列の値は 2026-05-20 に実測 (各 crate セクションの
+「Rust独自 (N 件、2026-05-20 実測):」リストと一致)。差分を再取得する
+には `comm -23 <(find tests -name '*_reg.rs' ...) <(ls
+reference/leptonica/prog/*_reg.c ...)` を使う。
 
 ## Rust版テストの現状
 
