@@ -1,23 +1,24 @@
 # C 互換性ベースライン (Phase 3)
 
-Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 (一連の PR #377〜#398) で確立した
+Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 (一連の PR #377〜#400) で確立した
 C 版 leptonica との互換性検証の **現在地** を整理する。`cargo test
 --all-features` 1 回で `tests/c_compat_report.*.txt` (8 個の test binary
 別ファイル) に集計が出力される仕組みは Phase 2 (PR #378) で導入済み。
 
-> **As of 2026-05-20** (PR #397/#398 merge 後)。Phase 2.5 修正対象
-> 10 件のうち **8 件 (80%)** 解消 (fhmtauto_hmt 7 件 + binmorph1.12
-> close 1 件)。全体 Mismatch は 31 → 23 (8 件減、内訳は JPEG codec 差
-> 21 件は据え置き、修正対象は 10 → 2)。
+> **As of 2026-05-20** (PR #400 merge 後)。**Phase 2.5 修正対象
+> 10 件すべて解消 (100%)** — fhmtauto_hmt 7 件 (PR #397)、binmorph1.12
+> close 1 件 (PR #398)、binmorph3.14/15 dilate 2 件 (PR #400)。
+> 全体 Mismatch は 31 → 21 (10 件減、残 21 件は既知の JPEG codec 差で
+> 修正対象外、finding 001 参照)。
 
 ## 全体集計
 
-| 状態        |    件数 | 説明                                                   |
-| ----------- | ------: | ------------------------------------------------------ |
-| ✅ Ok       |  **30** | C 版と pixel-level 完全一致 (8 件追加、PR #397 + #398) |
-| ⚠️ Mismatch |  **23** | C と Rust で hash 不一致 (内訳は後述)                  |
-| ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                           |
-| 📭 Unmapped | **520** | `scripts/golden_map.tsv` 未登録 (Phase 3+ で整理)      |
+| 状態        |    件数 | 説明                                                       |
+| ----------- | ------: | ---------------------------------------------------------- |
+| ✅ Ok       |  **32** | C 版と pixel-level 完全一致 (10 件追加、PR #397/#398/#400) |
+| ⚠️ Mismatch |  **21** | C と Rust で hash 不一致 (全件 JPEG codec 差、修正対象外)  |
+| ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                               |
+| 📭 Unmapped | **520** | `scripts/golden_map.tsv` 未登録 (Phase 3+ で整理)          |
 
 合計 573 entries が C 比較対象。Rust manifest (`tests/golden_manifest.tsv`)
 全体は **580 entries** (582 行 - ヘッダ 2 行)。加えて Rust 独自テスト 84
@@ -31,7 +32,7 @@ C 版 leptonica との互換性検証の **現在地** を整理する。`cargo 
 | `core`      |      0 |        0 |        0 |       35 |
 | `filter`    |      2 |        5 |        0 |       97 |
 | `io`        |      0 |        0 |        0 |       60 |
-| `morph`     | **28** |   **18** |        0 |        9 |
+| `morph`     | **30** |   **16** |        0 |        9 |
 | `recog`     |      0 |        0 |        0 |       45 |
 | `region`    |      0 |        0 |        0 |       78 |
 | `transform` |      0 |        0 |        0 |       82 |
@@ -44,7 +45,7 @@ C 版 leptonica との互換性検証の **現在地** を整理する。`cargo 
 
 - Phase 2.5 で重点的に修正を進めた領域
 
-## Ok 30 件の内訳
+## Ok 32 件の内訳
 
 C 版と完全一致している領域:
 
@@ -53,13 +54,13 @@ C 版と完全一致している領域:
 | `cthin1_thin` (4) + `cthin2_set` (11) |   15 | `pixThinConnected` / `pixThinConnectedBySet` (1bpp 細線化)                                   |
 | `compfilter_write_synthetic`          |    2 | `pixFillClosedBorders` 等 (合成画像)                                                         |
 | `binmorph1`                           |    4 | `pixDilate/Erode/Open/CloseCompBrick(21,15)` (PR #389 で 3 件 + PR #398 で `close` 1 件追加) |
-| `binmorph3`                           |    1 | `pixDilateCompBrick(21,1)`                                                                   |
+| `binmorph3`                           |    3 | `pixDilateCompBrick(21,1)` 1 件 + `(11,7)` sep/dir 2 件 (PR #400 で追加)                     |
 | `fhmtauto_id`                         |    1 | Identity 1x1 HMT (PR #389 で解消)                                                            |
 | `fhmtauto_hmt` (sel_4_*, sel_8_*)     |    7 | PR #397 で thinning SEL 中心 `'C'` を DontCare に修正し解消                                  |
 
-通算で **8 件追加 Ok 化** (PR #397 で fhmtauto 7、PR #398 で binmorph1.12 1)。
+通算で **10 件追加 Ok 化** (PR #397 で fhmtauto 7、PR #398 で binmorph1.12 1、PR #400 で binmorph3.14/15 2)。
 
-## Mismatch 23 件の内訳
+## Mismatch 21 件の内訳
 
 ### 修正対象外: 既知の JPEG codec 差 (21 件)
 
@@ -74,21 +75,20 @@ C 版と完全一致している領域:
 **JPEG codec 差** (libjpeg-turbo vs jpeg-decoder/jpeg-encoder) と仮説判定
 済み。Rust 実装のアルゴリズムは正しいと推定 (確定検証は別途)。
 
-### 修正対象 (Rust 実装の C 互換性改善): 2 件
+### 修正対象 (Rust 実装の C 互換性改善): **0 件 (✅ 完全解消)**
 
-| カテゴリ                     | 件数 | finding                                                   | 修正方針                                                                                                                                                                                                                                                  |
-| ---------------------------- | ---: | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `binmorph3` (sep/dir dilate) |    2 | [003](c-compat-findings/003-morph-brick-comp-vs-plain.md) | PR #398 で C `pixDilateCompBrick` 準拠の border + 4-step 構造に書き直したが、prime size 11 ((4, 3) で size 12 composite) で C と pixel-level 不一致。Rust 基本 `dilate` (word-shift / boundary) と C `pixDilate` の subtle 差が原因と推定、追加調査が必要 |
+Phase 2.5 開始時の修正対象 10 件はすべて Ok 化済み。詳細は finding
+003 / 004 を参照。
 
 ## 解消した発見の系譜 (Phase 2.5 の調査履歴)
 
-| Finding                                                                                       | 解消状況                                                                                                                                                                                                |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [001 JPEG codec diff](c-compat-findings/001-jpeg-codec-diffs.md)                              | 仮説段階 (修正対象外、21 件カバー)                                                                                                                                                                      |
-| [002 TIFF 1bpp write limit](c-compat-findings/002-tiff-1bpp-write-limit.md)                   | ✅ 実装完了 (PR #383)、bps=1 で書けるように                                                                                                                                                             |
-| [003 brick comp vs plain](c-compat-findings/003-morph-brick-comp-vs-plain.md)                 | 部分対応 (PR #385 verify を Comp 化 / PR #398 で `pixDilate/Erode/Open/CloseCompBrick` 準拠書き直し、`binmorph1.12 close` 1 件解消、`binmorph3.14/15 dilate 11x7` 2 件は subtle な `dilate` 差で残課題) |
-| [004 HMT impl diff](c-compat-findings/004-hmt-impl-diff.md)                                   | ✅ 解消 (PR #397 で thinning SEL 中心 `'C'` を C 準拠で DontCare に修正、`fhmtauto_hmt` 7 件すべて Ok 化)                                                                                               |
-| [005 TIFF 1bpp photometric invert](c-compat-findings/005-tiff-1bpp-photometric-invert-bug.md) | ✅ 実装完了 (PR #389)、5 件 Ok 化                                                                                                                                                                       |
+| Finding                                                                                       | 解消状況                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [001 JPEG codec diff](c-compat-findings/001-jpeg-codec-diffs.md)                              | 仮説段階 (修正対象外、21 件カバー)                                                                                                                                                        |
+| [002 TIFF 1bpp write limit](c-compat-findings/002-tiff-1bpp-write-limit.md)                   | ✅ 実装完了 (PR #383)、bps=1 で書けるように                                                                                                                                               |
+| [003 brick comp vs plain](c-compat-findings/003-morph-brick-comp-vs-plain.md)                 | ✅ 解消 (PR #385 で verify を Comp 化、PR #398 で `pix*CompBrick` 準拠書き直し + `binmorph1.12 close` Ok 化、PR #400 で `dilate_rasterop` 方向修正 + `binmorph3.14/15 dilate 11x7` Ok 化) |
+| [004 HMT impl diff](c-compat-findings/004-hmt-impl-diff.md)                                   | ✅ 解消 (PR #397 で thinning SEL 中心 `'C'` を C 準拠で DontCare に修正、`fhmtauto_hmt` 7 件すべて Ok 化)                                                                                 |
+| [005 TIFF 1bpp photometric invert](c-compat-findings/005-tiff-1bpp-photometric-invert-bug.md) | ✅ 実装完了 (PR #389)、5 件 Ok 化                                                                                                                                                         |
 
 ## Unmapped 520 件について
 
@@ -106,11 +106,11 @@ C 版と完全一致している領域:
 
 ## 次のアクション
 
-### Phase 2.5 残作業 (Rust 修正対象 2 件)
+### Phase 2.5: ✅ 完了 (2026-05-20、PR #400 まで)
 
-**003 finding 続き**: PR #398 で `pixDilate/Erode/Open/CloseCompBrick` 準拠の border / 4-step 構造に書き直した結果、`binmorph1.12 close (21×15)` は C と完全一致したが、`binmorph3.14/15 dilate(11×7)` は新 hash `2a65...` ≠ C `7285...` で残課題。SEL pair (brick(4), comb(4,3)) と border 32 / 4-step は両者完全同一で、差は Rust 基本 `dilate(pix, sel)` の word-shift / boundary 処理にあると推定。
-
-次は (a) C `pixAddBorder(pix, 32, 0)` と Rust `add_border(pix, 32, 32, 32, 32)` の hash 一致確認、(b) 各 step (`selh1`, `selh2`, `selv1`, `selv2`) 後の中間 hash を C と Rust で順次比較、で乖離点を特定する。完了で Mismatch 23 → 21 (JPEG codec 差のみが残る) になる見込み。
+修正対象 10 件すべて解消。残 21 件は finding 001 で JPEG codec 差と
+判定済みで、Rust 実装のアルゴリズムは正しいと推定 (Rust JPEG エンコーダ
+の出力 byte 差が hash に反映されているのみ)。
 
 ### Phase 3 残作業 (本書整理 + golden_map 拡充)
 

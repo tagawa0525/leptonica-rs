@@ -265,38 +265,46 @@ close_brick` を C `pixDilate/Erode/Open/CloseCompBrick`
 
 ### 結果
 
-| Test                             | 旧 hash (Rust) | 新 hash (Rust) | C hash    | 状態           |
-| -------------------------------- | -------------- | -------------- | --------- | -------------- |
-| `binmorph1.12 close(21, 15)`     | 4e0325...      | 9720f6...      | 9720f6... | ✅ **Ok 化**   |
-| `binmorph3.14 dilate(11, 7) sep` | ea9553...      | 2a6524...      | 7285e6... | ⚠️ Mismatch 残 |
-| `binmorph3.15 dilate(11, 7) dir` | ea9553...      | 2a6524...      | 7285e6... | ⚠️ Mismatch 残 |
+| Test                             | 旧 hash (Rust) | 新 hash (Rust) | C hash    | 状態         |
+| -------------------------------- | -------------- | -------------- | --------- | ------------ |
+| `binmorph1.12 close(21, 15)`     | 4e0325...      | 9720f6...      | 9720f6... | ✅ **Ok 化** |
+| `binmorph3.14 dilate(11, 7) sep` | ea9553...      | 2a6524...      | 7285e6... | (PR #400 へ) |
+| `binmorph3.15 dilate(11, 7) dir` | ea9553...      | 2a6524...      | 7285e6... | (PR #400 へ) |
 
 完全分解できる `close(21, 15)` (= `(7, 3) × (5, 3)`) は **完全一致**。
 prime 11 を含む `dilate(11, 7)` (= `(4, 3) × (7, 1)` で size 12) は
-**依然不一致**。
+PR #398 時点で不一致が残ったが、PR #400 で root cause を特定し解消した
+(下節「PR #400 結果」)。
 
-### 残 root cause (要追加調査)
+## PR #400 結果 (2026-05-20)
 
-PR #398 で SEL pair (brick(4), comb(4, 3)) + border 32 + 4-step
-構造を C と完全に揃えたが、`binmorph3.14/15` (dilate 11x7) は不一致
-のまま。原因は Rust 基本 `dilate(pix, sel)` (= `dilate_rasterop` の
-word/bit shift OR ループ) と C `pixDilate` (= `pixRasterop` with
-`PIX_SRC | PIX_DST`) の **subtle な内部差** にあると推定。
+PR #398 で SEL pair・border・4-step 構造を C と完全に揃えたあとも残った
+`binmorph3.14/15` の root cause が `dilate_rasterop` の **hit-offset
+方向反転** にあることが判明した。
 
-### Next step (別 PR)
+数学的には:
 
-1. C `pixAddBorder(pix, 32, 0)` の出力 hash と Rust `add_border(pix,
+- dilation: `B ⊕ A = ∪ (B + a)` = `dst(x) |= src(x - a) for a ∈ A`
+- erosion : `B ⊖ A = ∩ (B - a)` = `dst(x) &= src(x + a) for a ∈ A`
 
-   32, 32, 32, 32)` の出力 hash が一致するか確認 (border 構築 step
-   の検証)
+Rust 旧 `dilate_rasterop` は `src_y = y + dy, shift = -dx` で **`erode`
+と同じ sign** を使っており、これは erosion 側では正しいが dilation に
+流用したため `B ⊕ A^` (A^ = A の原点反射) を計算していた。対称 SEL
+(cx = w/2 で w odd) では A = A^ で結果同じだが、binmorph3 の
+`(4, 3)` 分解で生じる `brick(4)` (cx=2, 相対 {-2, -1, 0, +1}) が非対称
+で、ここで顕在化していた。
 
-2. 各 step (`selh1`, `selh2`, `selv1`, `selv2`) 後の中間 hash を C と
+| Test                             | PR #398 後 | PR #400 後 | C hash    | 状態         |
+| -------------------------------- | ---------- | ---------- | --------- | ------------ |
+| `binmorph3.14 dilate(11, 7) sep` | 2a6524...  | 7285e6...  | 7285e6... | ✅ **Ok 化** |
+| `binmorph3.15 dilate(11, 7) dir` | 2a6524...  | 7285e6...  | 7285e6... | ✅ **Ok 化** |
 
-   Rust で順次比較し、乖離が発生する step を特定
+### 結論: ✅ finding 003 完全解消
 
-3. 該当 step (例: `shift_or_row` の MSB-first bit 順、または cx/cy
-
-   origin 解釈) を C と pixel-level で一致させる
+PR #398 (composite brick 構造) + PR #400 (dilate 方向) の 2 段階で
+`binmorph1` / `binmorph3` 計 3 件 (close 21x15、dilate 11x7 sep/dir) が
+すべて C と pixel-level 完全一致になった。Phase 2.5 修正対象 10 件
+完全解消の最終ピース。
 
 ## 関連
 
