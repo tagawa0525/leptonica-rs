@@ -129,3 +129,16 @@ graymorph2	graymorph2_verify	8	gmorph2_open_close	6	open_gray 1x3
 graymorph2	graymorph2_verify	9	gmorph2_open_close	8	close_gray 1x3
 graymorph2	graymorph2_verify	10	gmorph2_open_close	10	open_gray 3x3
 graymorph2	graymorph2_verify	11	gmorph2_open_close	12	close_gray 3x3
+
+# Phase 3 pairings (2026-05-20): hash-match candidates verified by running
+# `scripts/phase3_find_hash_match_pairs.py` (one-to-one Rust/C entries
+# with identical FNV-1a content hash). Adding these turns the mapping
+# entries from `Unmapped` to `Ok` in `tests/c_compat_report.*.txt`.
+transform	expand	0	expand_1bpp	3	1bpp expand 2x
+transform	expand	1	expand_2bpp	3	2bpp expand 2x
+transform	expand	3	expand_4bpp	3	4bpp expand 2x
+transform	expand	5	expand_8bpp	3	8bpp expand 2x
+io	gifio	1	gifio	3	gifio Set1 a-write/read checkpoint
+io	gifio	3	gifio	7	gifio Set1 b-write/read checkpoint
+io	iomisc	13	iomisc_regen_rgb_cmap	2	regenerate RGB colormap (8bpp cmap → 32bpp RGB)
+core	logicops	0	logicops_invert	3	logicops pixInvert
