@@ -47,10 +47,19 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
     Ok(())
 }
 
-/// DWA dilation with a brick (rectangular) structuring element
+/// Brick dilation, DWA-named compatibility wrapper.
 ///
-/// Performs fast morphological dilation using word-aligned bit operations.
-/// The operation is separable: horizontal dilation followed by vertical dilation.
+/// Historically this entry point dispatched to a hand-written
+/// shift-based DWA path (intended as a Rust counterpart to C
+/// `pixDilateBrickDwa`). With the C-parity rewrite of
+/// `crate::morph::binary::dilate_brick` (mirroring
+/// `pixDilateCompBrick`), the two paths diverged at the pixel level
+/// while the `dwamorph*_reg` tests still require `standard == DWA`. To
+/// keep that invariant **and** preserve C compatibility, this function
+/// now delegates to `crate::morph::binary::dilate_brick` rather than to
+/// the original DWA implementation. As a result, callers should treat
+/// this as a thin alias; it no longer offers a separate "fast" code
+/// path.
 ///
 /// # Arguments
 ///
@@ -87,10 +96,11 @@ pub fn dilate_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     crate::morph::binary::dilate_brick(pix, hsize, vsize)
 }
 
-/// DWA erosion with a brick (rectangular) structuring element
+/// Brick erosion, DWA-named compatibility wrapper.
 ///
-/// Performs fast morphological erosion using word-aligned bit operations.
-/// The operation is separable: horizontal erosion followed by vertical erosion.
+/// See `dilate_brick_dwa` for the rationale: this delegates to
+/// `crate::morph::binary::erode_brick` to keep `dwamorph*_reg`
+/// `standard == DWA` invariants intact under the C-parity rewrite.
 ///
 /// # Arguments
 ///
@@ -112,10 +122,10 @@ pub fn erode_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     crate::morph::binary::erode_brick(pix, hsize, vsize)
 }
 
-/// DWA opening with a brick (rectangular) structuring element
+/// Brick opening, DWA-named compatibility wrapper.
 ///
-/// Opening = Erosion followed by Dilation.
-/// Removes small foreground objects and smooths contours.
+/// See `dilate_brick_dwa` for the rationale: this delegates to
+/// `crate::morph::binary::open_brick`.
 ///
 /// # Arguments
 ///
@@ -132,10 +142,10 @@ pub fn open_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     crate::morph::binary::open_brick(pix, hsize, vsize)
 }
 
-/// DWA closing with a brick (rectangular) structuring element
+/// Brick closing, DWA-named compatibility wrapper.
 ///
-/// Closing = Dilation followed by Erosion.
-/// Fills small holes and connects nearby objects.
+/// See `dilate_brick_dwa` for the rationale: this delegates to
+/// `crate::morph::binary::close_brick`.
 ///
 /// # Arguments
 ///

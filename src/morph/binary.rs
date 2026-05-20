@@ -359,14 +359,21 @@ fn select_composable_sels(size: u32, horizontal: bool) -> MorphResult<(Sel, Sel)
 ///
 /// Mirrors C `pixDilateCompBrick` (`reference/leptonica/src/morph.c`):
 /// adds a 32-pixel border, applies the composable `(brick, comb)` SEL
-/// pair for each non-trivial dimension on the bordered image (all four
-/// steps share the same buffer), then strips the border.
+/// pair for each non-trivial dimension sequentially on the bordered
+/// image (each `dilate` call allocates a fresh intermediate `Pix`; the
+/// Arc/refcount model makes the per-step allocation cheap), then strips
+/// the border.
 ///
 /// `selectComposableSizes` may approximate the requested size by ±1 or
 /// ±2 for primes — see `select_composable_sizes` docs for the cost
 /// rationale.
 pub fn dilate_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
@@ -404,6 +411,11 @@ pub fn dilate_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 /// shrinkage and needs no padding).
 pub fn erode_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
@@ -435,6 +447,11 @@ pub fn erode_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 /// smaller than the SEL, so no boundary padding is needed.
 pub fn open_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
@@ -474,6 +491,11 @@ pub fn open_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 /// padding is needed.
 pub fn close_brick(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
     check_binary(pix)?;
+    if hsize == 0 || vsize == 0 {
+        return Err(MorphError::InvalidSel(
+            "hsize and vsize must be >= 1".to_string(),
+        ));
+    }
     if hsize == 1 && vsize == 1 {
         return Ok(pix.clone());
     }
@@ -622,24 +644,25 @@ pub fn close_generalized(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 ///   approximation — it is the same trade-off C leptonica makes.
 /// - Returned ordering: `factor1 >= factor2`. When `size > 1`,
 ///   `factor1 > 1` always.
+/// - C `selectComposableSizes` rejects `size > 10000`. This wrapper
+///   accepts arbitrary `u32` values by performing arithmetic in `i64`
+///   so cost-function overflow cannot occur, even though dilation sizes
+///   beyond a few hundred have no practical meaning.
 pub(crate) fn select_composable_sizes(size: u32) -> (u32, u32) {
-    if size == 0 {
+    if size <= 1 {
         return (1, 1);
     }
-    if size == 1 {
-        return (1, 1);
-    }
-    let size_i = size as i32;
-    let midval = ((size as f64).sqrt() + 0.001) as i32;
+    let size_i: i64 = size as i64;
+    let midval = ((size as f64).sqrt() + 0.001) as i64;
     if midval * midval == size_i {
         return (midval as u32, midval as u32);
     }
 
     let n = (midval + 1) as usize;
-    let mut lowval = vec![0i32; n];
-    let mut hival = vec![0i32; n];
-    let mut rastcost = vec![0i32; n];
-    let mut diff = vec![0i32; n];
+    let mut lowval = vec![0i64; n];
+    let mut hival = vec![0i64; n];
+    let mut rastcost = vec![0i64; n];
+    let mut diff = vec![0i64; n];
 
     let mut val1 = midval + 1;
     let mut i = 0usize;
@@ -667,8 +690,8 @@ pub(crate) fn select_composable_sizes(size: u32) -> (u32, u32) {
         i += 1;
     }
 
-    const ACCEPTABLE_COST: i32 = 5;
-    let mut mincost = 10000i32;
+    const ACCEPTABLE_COST: i64 = 5;
+    let mut mincost: i64 = i64::MAX;
     let mut index = 0usize;
     for j in 0..n {
         if diff[j] == 0 && rastcost[j] < ACCEPTABLE_COST {
