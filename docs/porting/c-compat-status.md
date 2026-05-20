@@ -1,12 +1,14 @@
 # C 互換性ベースライン (Phase 3)
 
-Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 (一連の PR #377〜#389) で確立した
+Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 (一連の PR #377〜#398) で確立した
 C 版 leptonica との互換性検証の **現在地** を整理する。`cargo test
 --all-features` 1 回で `tests/c_compat_report.*.txt` (8 個の test binary
 別ファイル) に集計が出力される仕組みは Phase 2 (PR #378) で導入済み。
 
-> **As of 2026-05-20** (PR #397/#398 merge 後)。Phase 2.5 通算で
-> Mismatch 31 → 23 (8 件解消、78%)。
+> **As of 2026-05-20** (PR #397/#398 merge 後)。Phase 2.5 修正対象
+> 10 件のうち **8 件 (80%)** 解消 (fhmtauto_hmt 7 件 + binmorph1.12
+> close 1 件)。全体 Mismatch は 31 → 23 (8 件減、内訳は JPEG codec 差
+> 21 件は据え置き、修正対象は 10 → 2)。
 
 ## 全体集計
 
