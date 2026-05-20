@@ -1059,6 +1059,53 @@ mod tests {
         assert_eq!(dilated.get_pixel_unchecked(4, 4), 1);
     }
 
+    /// `dilate` must match the leptonica/C convention:
+    /// `B ⊕ A = ∪_{a ∈ A} (B + a)`. C `pixDilate` (`morph.c:213`)
+    /// implements this with `pixRasterop(pixd, j - cx, i - cy, ...,
+    /// PIX_SRC | PIX_DST, pixt, 0, 0)`, which shifts src by
+    /// `+(j - cx, i - cy)` per hit and ORs into dst.
+    ///
+    /// With an asymmetric SEL `brick(4)` (cx=2, hits at x ∈ {0, 1, 2, 3},
+    /// relative positions a ∈ {-2, -1, 0, +1}), dilating a single
+    /// foreground pixel at column 5 must produce 1s at columns
+    /// `5 + a` = `{3, 4, 5, 6}` (= the SEL footprint **as-is**, not
+    /// reflected).
+    ///
+    /// Rust's previous `dilate_rasterop` used the **same** sign as
+    /// `erode_rasterop` (`src_y = y + dy`, `shift = -dx`), which is
+    /// correct for erode but produces `B ⊕ A^` (SEL reflected) for
+    /// dilate — invisible for symmetric SELs but visible for any
+    /// asymmetric SEL. binmorph3 dilate(11, 7) decomposes to brick(4) +
+    /// comb(4, 3), and brick(4) is asymmetric, which is the root cause
+    /// of the remaining binmorph3.14/15 Mismatches.
+    #[test]
+    #[ignore = "RED: pending dilate_rasterop direction fix"]
+    fn test_dilate_asymmetric_brick_direction() {
+        // 10×3 image with a single foreground pixel at (5, 1).
+        let pix = Pix::new(10, 3, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(5, 1, 1);
+        let pix: Pix = pm.into();
+
+        // brick(4): width=4, height=1, cx=2, cy=0 → relative hits {-2, -1, 0, +1}.
+        let sel = Sel::create_horizontal(4).unwrap();
+        let out = dilate(&pix, &sel).unwrap();
+
+        // C-correct dilation: src(5,1)=1 propagates to dst(5+a) for
+        // a ∈ {-2, -1, 0, +1} = dst(3, 4, 5, 6) on row 1.
+        let row1: Vec<u32> = (0..10).map(|x| out.get_pixel_unchecked(x, 1)).collect();
+        assert_eq!(
+            row1,
+            vec![0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+            "dilate(brick(4)) of pixel (5,1) must set (3,1)..(6,1) (C convention)"
+        );
+        // Rows 0 and 2 stay zero (sel height = 1).
+        for x in 0..10 {
+            assert_eq!(out.get_pixel_unchecked(x, 0), 0, "row 0 should stay 0");
+            assert_eq!(out.get_pixel_unchecked(x, 2), 0, "row 2 should stay 0");
+        }
+    }
+
     #[test]
     fn test_erode() {
         let pix = create_test_image();
