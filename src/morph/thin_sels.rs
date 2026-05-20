@@ -140,7 +140,7 @@ const SEL_48_2: &str = "o x\noCx\no x";
 
 /// Create a thinning SEL from a string pattern
 ///
-/// Mirrors C `selCreateFromString` (`reference/leptonica/src/sel1.c:1541`):
+/// Mirrors C `selCreateFromString` (`reference/leptonica/src/sel1.c`):
 /// - 'X': Hit + Origin
 /// - 'x': Hit
 /// - 'O': Miss + Origin
@@ -378,7 +378,7 @@ mod tests {
     }
 
     /// Thinning SEL center 'C' must be DontCare to match C leptonica's
-    /// `selCreateFromString` (`reference/leptonica/src/sel1.c:1583-1587`),
+    /// `selCreateFromString` (`reference/leptonica/src/sel1.c`),
     /// which classifies `'C'` as origin + DONT_CARE.
     ///
     /// Without this, `pixHMT(make_thin_sels(...))` produces output that
