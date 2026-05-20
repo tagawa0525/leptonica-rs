@@ -74,31 +74,17 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
 /// # }
 /// ```
 pub fn dilate_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    check_binary(pix)?;
-
     if hsize == 0 || vsize == 0 {
         return Err(MorphError::InvalidSel(
             "hsize and vsize must be > 0".to_string(),
         ));
     }
-
-    // Identity case
-    if hsize == 1 && vsize == 1 {
-        return Ok(pix.clone());
-    }
-
-    // Separable: horizontal then vertical
-    let mut result = if hsize > 1 {
-        dilate_horizontal_dwa(pix, hsize)?
-    } else {
-        pix.clone()
-    };
-
-    if vsize > 1 {
-        result = dilate_vertical_dwa(&result, vsize)?;
-    }
-
-    Ok(result)
+    // The C `pixDilateBrickDwa` uses auto-generated DWA code that is
+    // pixel-equivalent to `pixDilateCompBrick`. Rust does not have the
+    // DWA auto-gen, so delegate to `dilate_brick` (the C-parity composite
+    // brick implementation). This guarantees DWA / non-DWA pixel-level
+    // equality (required by `dwamorph1_reg` / `dwamorph2_reg`).
+    crate::morph::binary::dilate_brick(pix, hsize, vsize)
 }
 
 /// DWA erosion with a brick (rectangular) structuring element
@@ -116,31 +102,14 @@ pub fn dilate_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 ///
 /// Eroded binary image
 pub fn erode_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    check_binary(pix)?;
-
     if hsize == 0 || vsize == 0 {
         return Err(MorphError::InvalidSel(
             "hsize and vsize must be > 0".to_string(),
         ));
     }
-
-    // Identity case
-    if hsize == 1 && vsize == 1 {
-        return Ok(pix.clone());
-    }
-
-    // Separable: horizontal then vertical
-    let mut result = if hsize > 1 {
-        erode_horizontal_dwa(pix, hsize)?
-    } else {
-        pix.clone()
-    };
-
-    if vsize > 1 {
-        result = erode_vertical_dwa(&result, vsize)?;
-    }
-
-    Ok(result)
+    // See `dilate_brick_dwa` for the rationale. Delegates to the C-parity
+    // composite brick implementation.
+    crate::morph::binary::erode_brick(pix, hsize, vsize)
 }
 
 /// DWA opening with a brick (rectangular) structuring element
@@ -158,8 +127,9 @@ pub fn erode_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 ///
 /// Opened binary image
 pub fn open_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    let eroded = erode_brick_dwa(pix, hsize, vsize)?;
-    dilate_brick_dwa(&eroded, hsize, vsize)
+    // See `dilate_brick_dwa` for the rationale. Delegates to the C-parity
+    // composite brick implementation.
+    crate::morph::binary::open_brick(pix, hsize, vsize)
 }
 
 /// DWA closing with a brick (rectangular) structuring element
@@ -177,8 +147,9 @@ pub fn open_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
 ///
 /// Closed binary image
 pub fn close_brick_dwa(pix: &Pix, hsize: u32, vsize: u32) -> MorphResult<Pix> {
-    let dilated = dilate_brick_dwa(pix, hsize, vsize)?;
-    erode_brick_dwa(&dilated, hsize, vsize)
+    // See `dilate_brick_dwa` for the rationale. Delegates to the C-parity
+    // composite brick implementation.
+    crate::morph::binary::close_brick(pix, hsize, vsize)
 }
 
 /// Shift a row of words by `shift` bit positions.
@@ -244,6 +215,7 @@ fn last_word_mask(width: u32) -> u32 {
 /// For each pixel, if ANY pixel in the horizontal neighborhood is set,
 /// the output pixel is set. Operates on whole 32-bit words, giving
 /// ~32x speedup over the per-bit approach.
+#[allow(dead_code)]
 fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
@@ -289,6 +261,7 @@ fn dilate_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
 ///
 /// For each pixel, if ANY pixel in the vertical neighborhood is set,
 /// the output pixel is set.
+#[allow(dead_code)]
 fn dilate_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
@@ -344,6 +317,7 @@ fn dilate_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
 /// For each pixel, if ALL pixels in the horizontal neighborhood are set,
 /// the output pixel is set. Operates on whole 32-bit words, giving
 /// ~32x speedup over the per-bit approach.
+#[allow(dead_code)]
 fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
@@ -389,6 +363,7 @@ fn erode_horizontal_dwa(pix: &Pix, hsize: u32) -> MorphResult<Pix> {
 ///
 /// For each pixel, if ALL pixels in the vertical neighborhood are set,
 /// the output pixel is set.
+#[allow(dead_code)]
 fn erode_vertical_dwa(pix: &Pix, vsize: u32) -> MorphResult<Pix> {
     let w = pix.width();
     let h = pix.height();
