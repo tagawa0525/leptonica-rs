@@ -180,7 +180,7 @@ Phase 2 のレポートを元に、不一致が出ている Rust テストを 1 
 
 ### Phase 3: ベースライン記録
 
-1. ✅ `docs/porting/c-compat-status.md` を新規作成 (PR 番号: 本 PR)。現在の Ok/Mismatch/MissingC/Unmapped 集計と Phase 2.5 findings (001-005) の解消状況を整理
+1. ✅ [`docs/porting/c-compat-status.md`](../porting/c-compat-status.md) を新規作成 (PR #390)。現在の Ok/Mismatch/MissingC/Unmapped 集計と Phase 2.5 findings (001-005) の解消状況を整理
 2. `scripts/golden_map.tsv` の Unmapped 520 件のうち実マップ可能なエントリを段階的に追加 (継続作業)
 3. インデックスズレが多いテストの一覧を作成 (golden_map.tsv の補完情報)
 
