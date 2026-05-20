@@ -45,13 +45,13 @@ C 版 leptonica との互換性検証の **現在地** を整理する。`cargo 
 
 C 版と完全一致している領域:
 
-| カテゴリ                              | 件数 | 由来                                                           |
-| ------------------------------------- | ---: | -------------------------------------------------------------- |
-| `cthin1_thin` (4) + `cthin2_set` (11) |   15 | `pixThinConnected` / `pixThinConnectedBySet` (1bpp 細線化)     |
-| `compfilter_write_synthetic`          |    2 | `pixFillClosedBorders` 等 (合成画像)                           |
-| `binmorph1`                           |    3 | `pixDilate/Erode/Open*CompBrick(21,15)` (PR #389 で 4→1 Ok 化) |
-| `binmorph3`                           |    1 | `pixDilate*CompBrick(21,1)`                                    |
-| `fhmtauto_id`                         |    1 | Identity 1x1 HMT (PR #389 で解消)                              |
+| カテゴリ                              | 件数 | 由来                                                                          |
+| ------------------------------------- | ---: | ----------------------------------------------------------------------------- |
+| `cthin1_thin` (4) + `cthin2_set` (11) |   15 | `pixThinConnected` / `pixThinConnectedBySet` (1bpp 細線化)                    |
+| `compfilter_write_synthetic`          |    2 | `pixFillClosedBorders` 等 (合成画像)                                          |
+| `binmorph1`                           |    3 | `pixDilate/Erode/Open*CompBrick(21,15)` (PR #389 で Mismatch 4→1、3 件 Ok 化) |
+| `binmorph3`                           |    1 | `pixDilate*CompBrick(21,1)`                                                   |
+| `fhmtauto_id`                         |    1 | Identity 1x1 HMT (PR #389 で解消)                                             |
 
 PR #389 の TIFF invert bug 修正で **5 件追加で Ok 化**。
 
