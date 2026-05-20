@@ -92,13 +92,31 @@ src/
 
 ## テスト
 
-- 回帰テスト: C版 `prog/*_reg.c` に対応
+- 回帰テスト: C版 `prog/*_reg.c` に対応 (244 ファイル = C 対応 159 + Rust 独自 85、2026-05-20 実測)
 - テストデータ: `tests/data/images/`
 - ハッシュ manifest: `tests/golden_manifest.tsv`（git 管理、CI で出力変化を検出）
 - ローカル golden: `tests/golden/`（.gitignore、デバッグ用）
 - テスト出力: `tests/regout/`（.gitignore）
-- インフラ: `tests/common/`（`RegParams`, `compare_values()`, `compare_pix()`, `load_test_image()` 等）
-- C版比較: `examples/compare_golden.rs` + `scripts/golden_map.tsv`
+- インフラ: `tests/common/`（`RegParams`, `compare_values()`, `compare_pix()`, `load_test_image()`、加えて `c_compat::check_c_hash()` で C 比較）
+- C版比較ツール: `examples/compare_golden.rs` + `scripts/golden_map.tsv`
+
+### C 互換性検証 (plan 901、PR #377〜#391 で整備)
+
+`cargo test --all-features` 1 回で C 版 leptonica と pixel-level の互換性
+を自動測定する仕組みが入っている。
+
+- C 側 hash manifest: `tests/golden_manifest_c.tsv`（git 管理、1879 entries、
+  `bash scripts/gen_c_manifest.sh` で再生成）
+- ランタイムレポート: `tests/c_compat_report.<binary>.txt`（.gitignore）。
+  Rust 出力 hash と C manifest を `scripts/golden_map.tsv` 経由で照合し、
+  `Ok / Mismatch / MissingC / Unmapped` を記録
+- 現状ベースライン (As of 2026-05-20、PR #390): `docs/porting/c-compat-status.md`
+  に詳細。**Ok 22 / Mismatch 31 / MissingC 0 / Unmapped 520**
+- 環境変数: `REGTEST_C_COMPAT=off` で無効化、`=strict` で Mismatch を fail
+  に昇格 (デフォルトは report-only)
+- CI 統合 (PR #391): GitHub Actions の Job Summary に集計テーブル + report
+  ファイルを `c-compat-report` artifact (14 日保持) として upload
+- 個別の不一致調査ログ: `docs/porting/c-compat-findings/00X-*.md` (001-005)
 
 ### テストのディレクトリ構造
 
