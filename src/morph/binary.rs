@@ -29,6 +29,17 @@ pub fn dilate(pix: &Pix, sel: &Sel) -> MorphResult<Pix> {
 /// Used internally by composite decomposition where intermediate
 /// results need to preserve bits beyond the image width for the
 /// next decomposition step to read.
+///
+/// Implements C `pixDilate` (`reference/leptonica/src/morph.c:213`):
+/// for each hit `(j, i)` in sel with origin `(cx, cy)`, shift src by
+/// `+(j - cx, i - cy)` (= `+(dx, dy)`) and OR into dst. In terms of
+/// the per-row inner loop, the dst row `y` reads from src row
+/// `y - dy`, and the horizontal `shift_or_row(_, _, +dx)` moves src
+/// content rightward by `dx` pixels.
+///
+/// **Note**: the sign convention here is opposite to `erode_rasterop`
+/// (which uses `+dy, -dx`). That asymmetry is correct: dilation is
+/// `∪ (B + a)` while erosion is `∩ (B - a)`.
 fn dilate_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<crate::core::PixMut> {
     check_binary(pix)?;
 
@@ -46,7 +57,7 @@ fn dilate_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<crate::core::PixMut> {
 
     for &(dx, dy) in &hit_offsets {
         for y in 0..h as i32 {
-            let src_y = y + dy;
+            let src_y = y - dy;
             if src_y < 0 || src_y >= h as i32 {
                 continue;
             }
@@ -57,7 +68,7 @@ fn dilate_rasterop(pix: &Pix, sel: &Sel) -> MorphResult<crate::core::PixMut> {
             shift_or_row(
                 &mut dst_data[dst_start..dst_start + wpl],
                 &src_data[src_start..src_start + wpl],
-                -dx,
+                dx,
             );
         }
     }
@@ -1079,7 +1090,6 @@ mod tests {
     /// comb(4, 3), and brick(4) is asymmetric, which is the root cause
     /// of the remaining binmorph3.14/15 Mismatches.
     #[test]
-    #[ignore = "RED: pending dilate_rasterop direction fix"]
     fn test_dilate_asymmetric_brick_direction() {
         // 10×3 image with a single foreground pixel at (5, 1).
         let pix = Pix::new(10, 3, PixelDepth::Bit1).unwrap();
