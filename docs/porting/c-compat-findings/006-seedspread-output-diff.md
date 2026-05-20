@@ -23,14 +23,24 @@ Phase 3 第二弾で `scripts/golden_map.tsv` に
 `reference/leptonica/prog/seedspread_reg.c` の `write_pix_and_check` /
 `regTestWritePixAndCheck` 順序を読み合わせて確定):
 
-| Test                              | Rust check | C check |
-| --------------------------------- | ---------: | ------: |
-| 4-cc moderately dense (100 seeds) |          0 |       0 |
-| 8-cc moderately dense (100 seeds) |          1 |       1 |
-| 4-cc lattice (400 seeds)          |          2 |       2 |
-| 8-cc lattice (400 seeds)          |          3 |       3 |
-| 4-cc sparse (4 seeds)             |          4 |       4 |
-| 8-cc sparse (4 seeds)             |          5 |       5 |
+> **注**: 「Rust check」「C check」は **0-based の呼び出し順序** を
+> 指す (どちらも 0 → 1 → 2 ... の順番)。実際の filename / manifest
+> での index は `seedspread.01.png` 〜 `seedspread.06.png` (Rust は
+> **1-based**) と `seedspread.00.png` 〜 `seedspread.05.png` (C は
+> **0-based**) で、`scripts/golden_map.tsv` の `c_index` / `rust_index`
+> 欄はその filename index を保持する。下表 1 行目 (4-cc dense) は
+> Rust check 0 = filename `seedspread.01.png` / manifest idx 1、C
+> check 0 = filename `seedspread.00.png` / manifest idx 0、という
+> 対応を意味する。
+
+| Test                              | Rust check (0-based) | C check (0-based) | Rust file (1-based) | C file (0-based) |
+| --------------------------------- | -------------------: | ----------------: | ------------------: | ---------------: |
+| 4-cc moderately dense (100 seeds) |                    0 |                 0 |                  01 |               00 |
+| 8-cc moderately dense (100 seeds) |                    1 |                 1 |                  02 |               01 |
+| 4-cc lattice (400 seeds)          |                    2 |                 2 |                  03 |               02 |
+| 8-cc lattice (400 seeds)          |                    3 |                 3 |                  04 |               03 |
+| 4-cc sparse (4 seeds)             |                    4 |                 4 |                  05 |               04 |
+| 8-cc sparse (4 seeds)             |                    5 |                 5 |                  06 |               05 |
 
 C 側にはこれに加えて check 6 (`pixSelectMinInConnComp` から得た
 `pixd` の出力) があるが、Rust 側はその checkpoint を実装していない
