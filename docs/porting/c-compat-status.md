@@ -123,10 +123,13 @@ PR #389 の TIFF invert bug 修正で **5 件追加で Ok 化**。
 
   実際に C と pair 可能なものを段階的に登録
 
-### Phase 4: CI 統合
+### Phase 4: CI 統合 (PR #391 で実装)
 
-- `tests/c_compat_report.*.txt` を GitHub Actions の artifact として保存
-- `Ok / Mismatch / MissingC / Unmapped` の集計を PR 本文に自動コメント
+- ✅ `tests/c_compat_report.*.txt` を GitHub Actions の artifact として保存
+  (retention: 14 日)
+- ✅ workflow の Job Summary に Ok / Mismatch / MissingC / Unmapped の
+  集計テーブル (全体 + binary 別) を出力
+- PR 本文への自動コメント投稿は将来の拡張対象
 
 ## 関連
 

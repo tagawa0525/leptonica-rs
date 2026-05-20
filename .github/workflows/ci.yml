@@ -30,3 +30,52 @@ jobs:
 
       - name: test
         run: cargo test --all-features
+
+      # plan 901 Phase 4: surface the C-compat report so reviewers can see
+      # at a glance how many Rust outputs match / mismatch / are unmapped
+      # against the C leptonica baseline, and download the raw per-binary
+      # reports for deeper inspection. See docs/porting/c-compat-status.md.
+      - name: Summarize C-compat report
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          if ! ls tests/c_compat_report.*.txt >/dev/null 2>&1; then
+            echo "_No C-compat report files found_" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## C compatibility report"
+            echo ""
+            echo "| 状態 | 件数 |"
+            echo "| --- | --: |"
+            for state in Ok Mismatch MissingC Unmapped; do
+              count=$(grep -h "^\[$state\]" tests/c_compat_report.*.txt 2>/dev/null | wc -l)
+              echo "| $state | $count |"
+            done
+            echo ""
+            echo "### test binary 別"
+            echo ""
+            echo "| binary | Ok | Mismatch | MissingC | Unmapped |"
+            echo "| --- | --: | --: | --: | --: |"
+            for f in tests/c_compat_report.*.txt; do
+              [ -f "$f" ] || continue
+              bin=$(basename "$f" | sed -e 's/^c_compat_report\.//' -e 's/\.txt$//')
+              ok=$(grep -c '^\[Ok\]' "$f" 2>/dev/null || true)
+              ms=$(grep -c '^\[Mismatch\]' "$f" 2>/dev/null || true)
+              mc=$(grep -c '^\[MissingC\]' "$f" 2>/dev/null || true)
+              un=$(grep -c '^\[Unmapped\]' "$f" 2>/dev/null || true)
+              echo "| $bin | ${ok:-0} | ${ms:-0} | ${mc:-0} | ${un:-0} |"
+            done
+            echo ""
+            echo "Raw reports are attached as the \`c-compat-report\` artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload C-compat report artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: c-compat-report
+          path: tests/c_compat_report.*.txt
+          if-no-files-found: warn
+          retention-days: 14
