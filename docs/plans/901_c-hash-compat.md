@@ -178,10 +178,10 @@ Phase 2 のレポートを元に、不一致が出ている Rust テストを 1 
 - [004-hmt-impl-diff.md](../porting/c-compat-findings/004-hmt-impl-diff.md): fhmtauto 系 8 件の Mismatch。7 件 (sel_4_*, sel_8_*) は C `pixHMT` の「Clear near edges」処理が Rust `hit_miss_transform` に無いことが疑わしい。8 件目 (Identity 1x1 brick, 100% diff) は theoretical には identity になるはずだが実機で all-1 出力に近い → 005 で真因解明
 - [005-tiff-1bpp-photometric-invert-bug.md](../porting/c-compat-findings/005-tiff-1bpp-photometric-invert-bug.md): **`src/io/tiff.rs` の 1bpp invert 条件が C `tiffio.c` と完全に逆**。BlackIsZero TIFF (`feyn-fract.tif` 等) を読むと内部表現が「逆 leptonica 慣習 (FG=0)」になる重大 bug。修正は数行だが影響広範 (24+ Rust テスト fail) で write 側との整合性も含めて見直しが必要。修正は別 PR で慎重に進める。binmorph/fhmtauto/cthin 系の Mismatch 15 件が一気に Ok 化する見込み
 
-### Phase 3: 1モジュールでの検証ベースライン記録
+### Phase 3: ベースライン記録
 
-1. `tests/io/` か `tests/morph/` を先行検証
-2. 一致率・主要な不一致パターンを `docs/porting/c-compat-status.md` (新規) にまとめる
+1. ✅ `docs/porting/c-compat-status.md` を新規作成 (PR 番号: 本 PR)。現在の Ok/Mismatch/MissingC/Unmapped 集計と Phase 2.5 findings (001-005) の解消状況を整理
+2. `scripts/golden_map.tsv` の Unmapped 520 件のうち実マップ可能なエントリを段階的に追加 (継続作業)
 3. インデックスズレが多いテストの一覧を作成 (golden_map.tsv の補完情報)
 
 Phase 3 完了条件: 主要モジュールで C 互換性のベースラインが得られている
