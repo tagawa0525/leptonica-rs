@@ -1,24 +1,27 @@
 # C 互換性ベースライン (Phase 3)
 
-Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 (一連の PR #377〜#400) で確立した
-C 版 leptonica との互換性検証の **現在地** を整理する。`cargo test
---all-features` 1 回で `tests/c_compat_report.*.txt` (8 個の test binary
-別ファイル) に集計が出力される仕組みは Phase 2 (PR #378) で導入済み。
+Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
+確立した C 版 leptonica との互換性検証の **現在地** を整理する。
+`cargo test --all-features` 1 回で `tests/c_compat_report.*.txt`
+(8 個の test binary 別ファイル) に集計が出力される仕組みは Phase 2
+(PR #378) で導入済み。
 
-> **As of 2026-05-20** (PR #400 merge 後)。**Phase 2.5 修正対象
-> 10 件すべて解消 (100%)** — fhmtauto_hmt 7 件 (PR #397)、binmorph1.12
-> close 1 件 (PR #398)、binmorph3.14/15 dilate 2 件 (PR #400)。
-> 全体 Mismatch は 31 → 21 (10 件減、残 21 件は既知の JPEG codec 差で
-> 修正対象外、finding 001 参照)。
+> **As of 2026-05-20** (Phase 3 第一弾 merge 後)。Phase 2.5 修正対象
+> 10 件すべて解消 (PR #397/#398/#400)。Phase 3 第一弾で hash-match
+> ペア 8 件を `golden_map.tsv` に追加し、core / io / transform の 3
+> binary を新規に C 比較対象に組み込み。全体 Ok の推移は
+> **22 (Phase 2.5 開始時) → 32 (Phase 2.5 完了時) → 40 (Phase 3 第一弾
+> 完了時)**。Mismatch は 21 件のまま (全件 JPEG codec 差、finding 001
+> 参照)。
 
 ## 全体集計
 
-| 状態        |    件数 | 説明                                                       |
-| ----------- | ------: | ---------------------------------------------------------- |
-| ✅ Ok       |  **32** | C 版と pixel-level 完全一致 (10 件追加、PR #397/#398/#400) |
-| ⚠️ Mismatch |  **21** | C と Rust で hash 不一致 (全件 JPEG codec 差、修正対象外)  |
-| ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                               |
-| 📭 Unmapped | **520** | `scripts/golden_map.tsv` 未登録 (Phase 3+ で整理)          |
+| 状態        |    件数 | 説明                                                                        |
+| ----------- | ------: | --------------------------------------------------------------------------- |
+| ✅ Ok       |  **40** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 第一弾で +8)         |
+| ⚠️ Mismatch |  **21** | C と Rust で hash 不一致 (全件 JPEG codec 差、修正対象外)                   |
+| ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                                                |
+| 📭 Unmapped | **512** | `scripts/golden_map.tsv` 未登録 (Phase 3 進行中、520 → 512、8 件追加マップ) |
 
 合計 573 entries が C 比較対象。Rust manifest (`tests/golden_manifest.tsv`)
 全体は **580 entries** (582 行 - ヘッダ 2 行)。加えて Rust 独自テスト 84
@@ -29,13 +32,13 @@ C 版 leptonica との互換性検証の **現在地** を整理する。`cargo 
 | Binary      |     Ok | Mismatch | MissingC | Unmapped |
 | ----------- | -----: | -------: | -------: | -------: |
 | `color`     |      0 |        0 |        0 |      114 |
-| `core`      |      0 |        0 |        0 |       35 |
+| `core`      |      1 |        0 |        0 |       34 |
 | `filter`    |      2 |        5 |        0 |       97 |
-| `io`        |      0 |        0 |        0 |       60 |
+| `io`        |      3 |        0 |        0 |       57 |
 | `morph`     | **30** |   **16** |        0 |        9 |
 | `recog`     |      0 |        0 |        0 |       45 |
 | `region`    |      0 |        0 |        0 |       78 |
-| `transform` |      0 |        0 |        0 |       82 |
+| `transform` |      4 |        0 |        0 |       78 |
 
 **morph** が現状最も Ok/Mismatch が集中している binary。これは:
 
@@ -45,7 +48,7 @@ C 版 leptonica との互換性検証の **現在地** を整理する。`cargo 
 
 - Phase 2.5 で重点的に修正を進めた領域
 
-## Ok 32 件の内訳
+## Ok 40 件の内訳
 
 C 版と完全一致している領域:
 
@@ -57,8 +60,14 @@ C 版と完全一致している領域:
 | `binmorph3`                           |    3 | `pixDilateCompBrick(21,1)` 1 件 + `(11,7)` sep/dir 2 件 (PR #400 で追加)                     |
 | `fhmtauto_id`                         |    1 | Identity 1x1 HMT (PR #389 で解消)                                                            |
 | `fhmtauto_hmt` (sel_4_*, sel_8_*)     |    7 | PR #397 で thinning SEL 中心 `'C'` を DontCare に修正し解消                                  |
+| `expand_{1,2,4,8}bpp`                 |    4 | Phase 3: `expand_replicate` 2× (1/2/4/8bpp、transform binary 初登場)                         |
+| `gifio`                               |    2 | Phase 3: GIF I/O Set1 a/b write-read checkpoint (io binary 初登場)                           |
+| `iomisc_regen_rgb_cmap`               |    1 | Phase 3: 8bpp colormap → 32bpp RGB 復元 (io binary)                                          |
+| `logicops_invert`                     |    1 | Phase 3: `pixInvert` 二値反転 (core binary 初登場)                                           |
 
-通算で **10 件追加 Ok 化** (PR #397 で fhmtauto 7、PR #398 で binmorph1.12 1、PR #400 で binmorph3.14/15 2)。
+通算で **18 件追加 Ok 化** (Phase 2.5 で 10 件、Phase 3 第一弾で hash-match
+pair 8 件)。Phase 3 で **core / io / transform** の 3 新 binary が C 比較
+対象に組み込まれた。
 
 ## Mismatch 21 件の内訳
 
@@ -90,16 +99,16 @@ Phase 2.5 開始時の修正対象 10 件はすべて Ok 化済み。詳細は f
 | [004 HMT impl diff](c-compat-findings/004-hmt-impl-diff.md)                                   | ✅ 解消 (PR #397 で thinning SEL 中心 `'C'` を C 準拠で DontCare に修正、`fhmtauto_hmt` 7 件すべて Ok 化)                                                                                 |
 | [005 TIFF 1bpp photometric invert](c-compat-findings/005-tiff-1bpp-photometric-invert-bug.md) | ✅ 実装完了 (PR #389)、5 件 Ok 化                                                                                                                                                         |
 
-## Unmapped 520 件について
+## Unmapped 512 件について
 
 `scripts/golden_map.tsv` に C↔Rust の対応マッピングが登録されていない
 テスト。これは「Phase 1 / 1.5 で C 出力は取得済みだが、対応する Rust 出力
-との pairing 情報がない」状態。本書のスコープ外で、Phase 3+ (golden_map
-拡充フェーズ) で個別に拡張する。
+との pairing 情報がない」状態。Phase 3 で段階的に拡張中
+(2026-05-20 第一弾で 520 → 512、8 件追加)。
 
 優先度の高い拡張候補 (現状 Unmapped が多い領域):
 
-- `color` (114), `transform` (82), `region` (78), `filter` (97), `io` (60)
+- `color` (114), `filter` (97), `region` (78), `transform` (78), `io` (57)
 
 これらの大半は Rust 独自テスト (C に対応なし) も含むため、実質マッピング
 可能な件数はもっと少ない可能性。
@@ -114,10 +123,23 @@ Phase 2.5 開始時の修正対象 10 件はすべて Ok 化済み。詳細は f
 
 ### Phase 3 残作業 (本書整理 + golden_map 拡充)
 
-- 本書の継続更新 (Mismatch 数が変わるたびに表を refresh)
-- `scripts/golden_map.tsv` に未登録のテスト群 (Unmapped 520 件) のうち、
+Phase 3 第一弾 (2026-05-20): `scripts/phase3_find_hash_match_pairs.py`
+で one-to-one hash-match pair 8 件を抽出し `scripts/golden_map.tsv` に
+追加。core / io / transform の 3 binary が C 比較対象に初登場。
 
-  実際に C と pair 可能なものを段階的に登録
+Phase 3 第二弾以降:
+
+- 本書の継続更新 (Mismatch 数が変わるたびに表を refresh)
+- `scripts/golden_map.tsv` への追加マッピング。残 Unmapped 512 件は
+
+  hash が不一致 (semantic は対応する可能性あり、Rust 実装と C で出力
+  pixel-level が異なる)。1 module ずつ、Rust の \*\_reg.rs と C の
+  prog/\*\_reg.c の write\_pix\_and\_check 順序を読み合わせて確認しな
+  がら段階的に追加する
+
+- 上記で Mismatch が増えた場合は、その都度 root cause を別 finding に
+
+  記録 (= Phase 2.5 と同じ方式で個別解消)
 
 ### Phase 4: CI 統合 (PR #391 で実装)
 
