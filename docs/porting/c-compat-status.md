@@ -106,19 +106,10 @@ PR #389 の TIFF invert bug 修正で **5 件追加で Ok 化**。
 
 ### Phase 2.5 残作業 (Rust 修正対象 10 件)
 
-1. **004 finding 続き**: 2026-05-20 実験で Clear near edges 追加は不変
+1. **004 finding 続き**: 2026-05-20 実験で Clear near edges 追加は不変と判明。次は `make_thin_sels(Set4cc1/Set8cc1)` の SEL 内容を C `selaAddHitMiss` と byte-level 比較し、SEL 生成差の有無を切り分け → 切り分け後の方針で fhmtauto_hmt 7 件解消を目指す
+2. **003 finding 続き**: `src/morph/binary.rs::dilate_1d_composite` の pixel-level audit → binmorph 3 件解消見込み
 
-   と判明。次は `make_thin_sels(Set4cc1/Set8cc1)` の SEL 内容を C
-   `selaAddHitMiss` と byte-level 比較し、SEL 生成差の有無を切り分け
-   → 切り分け後の方針で fhmtauto_hmt 7 件解消を目指す
-
-2. **003 finding 続き**: `src/morph/binary.rs::dilate_1d_composite` の
-
-   pixel-level audit → binmorph 3 件解消見込み
-
-両方完了で Mismatch 31 → 21 (JPEG codec 差のみが残る) になる見込み。
-ただし 004 は当初想定より深い調査が必要なため、複数 PR に分割される
-可能性がある。
+両方完了で Mismatch 31 → 21 (JPEG codec 差のみが残る) になる見込み。ただし 004 は当初想定より深い調査が必要なため、複数 PR に分割される可能性がある。
 
 ### Phase 3 残作業 (本書整理 + golden_map 拡充)
 
@@ -129,14 +120,8 @@ PR #389 の TIFF invert bug 修正で **5 件追加で Ok 化**。
 
 ### Phase 4: CI 統合 (PR #391 で実装)
 
-- ✅ `tests/c_compat_report.*.txt` を GitHub Actions の artifact として保存
-
-  (retention: 14 日)
-
-- ✅ workflow の Job Summary に Ok / Mismatch / MissingC / Unmapped の
-
-  集計テーブル (全体 + binary 別) を出力
-
+- ✅ `tests/c_compat_report.*.txt` を GitHub Actions の artifact として保存 (retention: 14 日)
+- ✅ workflow の Job Summary に Ok / Mismatch / MissingC / Unmapped の集計テーブル (全体 + binary 別) を出力
 - PR 本文への自動コメント投稿は将来の拡張対象
 
 ## 関連
