@@ -153,3 +153,15 @@ region	seedspread	2	seedspread	3	seedspread 4-cc lattice
 region	seedspread	3	seedspread	4	seedspread 8-cc lattice
 region	seedspread	4	seedspread	5	seedspread 4-cc sparse seeds
 region	seedspread	5	seedspread	6	seedspread 8-cc sparse seeds
+
+# Phase 3 third pass (2026-05-20): complete gifio Part 1 mapping
+# (8 files × 1 write checkpoint each in C `test_gif()` ↔ Rust loop).
+# 4 are hash-match (Ok); 2 (Rust 11 / 15 = FILE_8BPP_3 / FILE_32BPP)
+# have different hashes and become Mismatch — see finding 007 (GIF
+# encoder / quantization diff).
+io	gifio	0	gifio	1	gifio FILE_1BPP read-back checkpoint
+io	gifio	2	gifio	5	gifio FILE_4BPP read-back checkpoint
+io	gifio	4	gifio	9	gifio FILE_8BPP_2 read-back checkpoint
+io	gifio	5	gifio	11	gifio FILE_8BPP_3 read-back checkpoint
+io	gifio	6	gifio	13	gifio FILE_16BPP read-back checkpoint
+io	gifio	7	gifio	15	gifio FILE_32BPP read-back checkpoint
