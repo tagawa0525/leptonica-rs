@@ -16,9 +16,9 @@ C 版 leptonica との互換性検証の **現在地** を整理する。`cargo 
 | ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                      |
 | 📭 Unmapped | **520** | `scripts/golden_map.tsv` 未登録 (Phase 3+ で整理) |
 
-合計 573 entries が `tests/golden_manifest.tsv` 経由で C 比較対象。Rust
-manifest 全体は約 580 entries、加えて Rust 独自テスト 84 件 (C 版に
-対応なし)。
+合計 573 entries が C 比較対象。Rust manifest (`tests/golden_manifest.tsv`)
+全体は **580 entries** (582 行 - ヘッダ 2 行)。加えて Rust 独自テスト 84
+件 (C 版に対応なし)。
 
 ## test binary 別の内訳
 
