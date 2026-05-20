@@ -366,6 +366,39 @@ mod tests {
         assert_eq!(sel.name(), Some("sel_4_1"));
     }
 
+    /// Thinning SEL center 'C' must be DontCare to match C leptonica's
+    /// `selCreateFromString` (`reference/leptonica/src/sel1.c:1583-1587`),
+    /// which classifies `'C'` as origin + DONT_CARE.
+    ///
+    /// Without this, `pixHMT(make_thin_sels(...))` produces output that
+    /// diverges from C `pixHMT(selaAddHitMiss(...))` (see
+    /// `docs/porting/c-compat-findings/004-hmt-impl-diff.md`).
+    #[test]
+    #[ignore = "RED: pending sel_from_thin_pattern 'C' = DontCare fix"]
+    fn test_thin_sel_center_is_dontcare() {
+        use crate::morph::SelElement;
+
+        let sels = sels_4cc_thin();
+        let sel_4_1 = &sels[0];
+        // sel_4_1 pattern "  x\noCx\n  x": origin at (1, 1), center = 'C'
+        assert_eq!(sel_4_1.origin_x(), 1);
+        assert_eq!(sel_4_1.origin_y(), 1);
+        assert_eq!(
+            sel_4_1.get_element(1, 1),
+            Some(SelElement::DontCare),
+            "thinning SEL center 'C' must be DontCare (C-version selCreateFromString convention)"
+        );
+
+        // Also check sel_8_2: " x \noCx\no  ", center = 'C' at (1, 1).
+        let sels_8 = sels_8cc_thin();
+        let sel_8_2 = &sels_8[1];
+        assert_eq!(
+            sel_8_2.get_element(1, 1),
+            Some(SelElement::DontCare),
+            "sel_8_2 center 'C' must be DontCare"
+        );
+    }
+
     #[test]
     fn test_sels_8cc_thin() {
         let sels = sels_8cc_thin();
