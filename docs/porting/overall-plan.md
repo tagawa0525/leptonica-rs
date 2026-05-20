@@ -85,7 +85,8 @@ leptonica-rs/                     # plan 006 統合前
 └── leptonica/                    # ファサード crate
 ```
 
-統合の経緯と判断材料は `docs/plans/006_single-crate-consolidation.md`
+統合の経緯と判断材料は
+[plan 006_single-crate-consolidation](../plans/006_single-crate-consolidation.md)
 を参照。
 
 ---
