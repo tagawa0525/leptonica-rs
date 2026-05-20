@@ -140,11 +140,19 @@ const SEL_48_2: &str = "o x\noCx\no x";
 
 /// Create a thinning SEL from a string pattern
 ///
-/// The pattern uses:
-/// - 'x' or 'X' for hit (foreground match)
-/// - 'o' or 'O' for miss (background match)
-/// - ' ' for don't care
-/// - 'C' marks the center/origin (treated as hit)
+/// Mirrors C `selCreateFromString` (`reference/leptonica/src/sel1.c:1541`):
+/// - 'X': Hit + Origin
+/// - 'x': Hit
+/// - 'O': Miss + Origin
+/// - 'o': Miss
+/// - 'C': DontCare + Origin (the `case 'C': /* fall through */ case ' ':`
+///   path in C — origin marker only, NOT a Hit)
+/// - ' ': DontCare
+///
+/// Misclassifying 'C' as Hit causes `pixHMT(make_thin_sels(...))` to
+/// require the center pixel to be foreground, which produces output
+/// divergent from C `pixHMT(selaAddHitMiss(...))`. See
+/// `docs/porting/c-compat-findings/004-hmt-impl-diff.md`.
 fn sel_from_thin_pattern(pattern: &str, name: &str) -> MorphResult<Sel> {
     // Parse the pattern to find dimensions and center
     let lines: Vec<&str> = pattern.lines().collect();
@@ -153,7 +161,10 @@ fn sel_from_thin_pattern(pattern: &str, name: &str) -> MorphResult<Sel> {
 
     let mut sel = Sel::new(width, height)?;
 
-    // Find center position (marked with 'C')
+    // Find center position (marked with one of 'X' / 'O' / 'C' — see C
+    // `selCreateFromString`, where each origin marker falls through to its
+    // element-kind case). The thin pattern constants use 'C' so we only
+    // need to scan for that.
     let mut cx = width / 2;
     let mut cy = height / 2;
 
@@ -168,11 +179,11 @@ fn sel_from_thin_pattern(pattern: &str, name: &str) -> MorphResult<Sel> {
 
     sel.set_origin(cx, cy)?;
 
-    // Set the elements
+    // Set the elements (C-compatible 'C' = DontCare).
     for (y, line) in lines.iter().enumerate() {
         for (x, ch) in line.chars().enumerate() {
             let elem = match ch {
-                'x' | 'X' | 'C' | 'c' => crate::morph::SelElement::Hit,
+                'x' | 'X' => crate::morph::SelElement::Hit,
                 'o' | 'O' => crate::morph::SelElement::Miss,
                 _ => crate::morph::SelElement::DontCare,
             };
@@ -374,7 +385,6 @@ mod tests {
     /// diverges from C `pixHMT(selaAddHitMiss(...))` (see
     /// `docs/porting/c-compat-findings/004-hmt-impl-diff.md`).
     #[test]
-    #[ignore = "RED: pending sel_from_thin_pattern 'C' = DontCare fix"]
     fn test_thin_sel_center_is_dontcare() {
         use crate::morph::SelElement;
 
@@ -449,15 +459,18 @@ mod tests {
 
     #[test]
     fn test_sel_pattern_correctness() {
-        // Verify sel_4_1 pattern
+        // Verify sel_4_1 pattern (C-compatible: 'C' = DontCare + Origin)
         //   x
         // oCx
         //   x
         let sels = sels_4cc_thin();
         let sel = &sels[0];
 
-        // Center should be hit (C)
-        assert_eq!(sel.get_element(1, 1), Some(crate::morph::SelElement::Hit));
+        // Center 'C' is origin + DontCare (matches C `selCreateFromString`).
+        assert_eq!(
+            sel.get_element(1, 1),
+            Some(crate::morph::SelElement::DontCare)
+        );
         // Left should be miss (o)
         assert_eq!(sel.get_element(0, 1), Some(crate::morph::SelElement::Miss));
         // Right should be hit (x)
