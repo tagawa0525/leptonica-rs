@@ -244,6 +244,15 @@ impl Pix {
         let w = self.width();
         let h = self.height();
 
+        // C `pixConvert8To32` (and the other depth converters routed via it)
+        // builds the gray→RGB replication table as
+        //     tab[i] = ((u32)i << 24) | (i << 16) | (i << 8);
+        // i.e. **alpha byte = 0** (not set). Rust's `pixel::compose_rgb`
+        // forces alpha = 255, which would make `pixel_content_hash` differ
+        // from C for every byte. Match the C layout here by composing the
+        // pixel manually with alpha = 0.
+        let compose_no_alpha = |r: u8, g: u8, b: u8| pixel::compose_rgba(r, g, b, 0);
+
         match self.depth() {
             PixelDepth::Bit32 => {
                 // Already 32-bit: return a deep copy
@@ -251,8 +260,8 @@ impl Pix {
             }
             PixelDepth::Bit1 => {
                 // 1-bit: 0 -> white (255,255,255), 1 -> black (0,0,0)
-                let white = pixel::compose_rgb(255, 255, 255);
-                let black = pixel::compose_rgb(0, 0, 0);
+                let white = compose_no_alpha(255, 255, 255);
+                let black = compose_no_alpha(0, 0, 0);
                 let result = Pix::new(w, h, PixelDepth::Bit32)?;
                 let mut result_mut = result.try_into_mut().unwrap();
                 for y in 0..h {
@@ -277,7 +286,7 @@ impl Pix {
                             2 => 170,
                             _ => 255,
                         };
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -291,7 +300,7 @@ impl Pix {
                     for x in 0..w {
                         let val = self.get_pixel_unchecked(x, y);
                         let gray = (val * 255 / 15) as u8;
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -304,7 +313,7 @@ impl Pix {
                 for y in 0..h {
                     for x in 0..w {
                         let gray = self.get_pixel_unchecked(x, y) as u8;
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -318,7 +327,7 @@ impl Pix {
                     for x in 0..w {
                         let val = self.get_pixel_unchecked(x, y);
                         let gray = (val >> 8) as u8;
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }

@@ -51,6 +51,32 @@ C 側にはこれに加えて check 6 (`pixSelectMinInConnComp` から得た
 pixel 配列 (RGBA 32-bit) の hash なので、PNG エンコーダの差では
 なく **画像の pixel 値** が C と Rust で異なる。
 
+## 2026-05-21 更新: alpha=0 修正で部分改善、root cause は seedspread 内部
+
+仮説 3 (`convert_to_32` の差) を切り分けるため C `pixConvert8To32`
+(`reference/leptonica/src/pixconv.c:3334`) を読んだところ、replication
+table は `tab[i] = ((u32)i << 24) | (i << 16) | (i << 8)` で **alpha
+byte = 0** (未設定)。Rust 旧実装は `pixel::compose_rgb` 経由で
+**alpha = 255** を設定していたため、`pixel_content_hash` の alpha 1
+byte 分が常に C と異なっていた。
+
+本 PR で `convert_to_32` の全 depth 分岐を C 仕様 (alpha=0) に揃え、
+seedspread の 6 hash が変化することを確認した:
+
+```text
+旧 Rust: seedspread.01.png = f1fe8b0727797eb9
+新 Rust: seedspread.01.png = 98ed60a115af02f6
+C:       seedspread.00.png = f43982d8c41041f5
+```
+
+**しかし新 Rust hash と C hash は依然不一致**。alpha 修正は必要だが
+十分ではない。残差の root cause は (1) seedspread 内部アルゴリズム差
+(scan の subtle 差) または (2) `paint_marker_3x3` の差 (RGBA word
+値そのものは確認済みで一致、ただし leptonica の 32bpp 内部 byte order
+解釈で `pixSetAllArbitrary(0x00ff0000)` の結果と Rust set_pixel で
+書いた `compose_rgba(0, 0xff, 0, 0)` の格納順が違う可能性) に絞られ
+た。次の PR で切り分け。
+
 ## Root cause 仮説 (未確定、要追加調査)
 
 `seedspread` は seed pixel から Voronoi-ish に値を広げる
