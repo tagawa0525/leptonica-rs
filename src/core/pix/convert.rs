@@ -237,12 +237,31 @@ impl Pix {
     /// - **16 bpp**: use MSB as gray, pack as R=G=B
     /// - **32 bpp**: return deep clone (identity)
     ///
+    /// # Alpha channel
+    ///
+    /// All non-`Bit32` source depths produce output pixels whose **alpha
+    /// byte is 0** (not set), matching C `pixConvert8To32` (`reference/
+    /// leptonica/src/pixconv.c`) where the replication table is built as
+    /// `tab[i] = ((u32)i << 24) | (i << 16) | (i << 8)`. Callers that
+    /// need an explicit opaque alpha (`0xff`) should call
+    /// [`pixel::set_alpha`](crate::core::pixel::set_alpha) or compose a
+    /// fresh `Pix` with `pixel::compose_rgba(_, _, _, 0xff)`.
+    /// (`Bit32` source depths are returned via `deep_clone`, so their
+    /// alpha bytes are preserved as-is.)
+    ///
     /// # See also
     ///
     /// C Leptonica: `pixConvertTo32()` in `pixconv.c`
     pub fn convert_to_32(&self) -> Result<Pix> {
         let w = self.width();
         let h = self.height();
+
+        // Match C `pixConvert8To32`: replication table sets alpha byte = 0
+        // (not 0xff). Rust's `pixel::compose_rgb` would otherwise force
+        // alpha=255, which would shift the alpha byte of every converted
+        // pixel and prevent `pixel_content_hash` from matching the C
+        // output. Use a local closure that fixes alpha = 0 instead.
+        let compose_no_alpha = |r: u8, g: u8, b: u8| pixel::compose_rgba(r, g, b, 0);
 
         match self.depth() {
             PixelDepth::Bit32 => {
@@ -251,8 +270,8 @@ impl Pix {
             }
             PixelDepth::Bit1 => {
                 // 1-bit: 0 -> white (255,255,255), 1 -> black (0,0,0)
-                let white = pixel::compose_rgb(255, 255, 255);
-                let black = pixel::compose_rgb(0, 0, 0);
+                let white = compose_no_alpha(255, 255, 255);
+                let black = compose_no_alpha(0, 0, 0);
                 let result = Pix::new(w, h, PixelDepth::Bit32)?;
                 let mut result_mut = result.try_into_mut().unwrap();
                 for y in 0..h {
@@ -277,7 +296,7 @@ impl Pix {
                             2 => 170,
                             _ => 255,
                         };
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -291,7 +310,7 @@ impl Pix {
                     for x in 0..w {
                         let val = self.get_pixel_unchecked(x, y);
                         let gray = (val * 255 / 15) as u8;
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -304,7 +323,7 @@ impl Pix {
                 for y in 0..h {
                     for x in 0..w {
                         let gray = self.get_pixel_unchecked(x, y) as u8;
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -318,7 +337,7 @@ impl Pix {
                     for x in 0..w {
                         let val = self.get_pixel_unchecked(x, y);
                         let gray = (val >> 8) as u8;
-                        let pixel = pixel::compose_rgb(gray, gray, gray);
+                        let pixel = compose_no_alpha(gray, gray, gray);
                         result_mut.set_pixel_unchecked(x, y, pixel);
                     }
                 }
@@ -2868,6 +2887,34 @@ mod tests {
         assert_eq!((r, g, b), (128, 128, 128));
         let (r, g, b) = pixel::extract_rgb(result.get_pixel_unchecked(2, 0));
         assert_eq!((r, g, b), (255, 255, 255));
+    }
+
+    /// `convert_to_32` must match C `pixConvert8To32`: the alpha byte
+    /// of every converted pixel is **0** (not 0xff). Regression guard
+    /// against `compose_rgb`-style alpha=255 sneaking back in.
+    #[test]
+    fn test_convert_to_32_alpha_byte_is_zero() {
+        // 8 bpp → 32 bpp (covers the common Bit8 path).
+        let pix8 = Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut m = pix8.try_into_mut().unwrap();
+        m.set_pixel_unchecked(0, 0, 0);
+        m.set_pixel_unchecked(1, 0, 200);
+        let out8 = Pix::from(m).convert_to_32().unwrap();
+        for x in 0..2 {
+            let a = pixel::alpha(out8.get_pixel_unchecked(x, 0));
+            assert_eq!(a, 0, "8 → 32 alpha must be 0 at x={x}, got 0x{a:02x}");
+        }
+
+        // 1 bpp → 32 bpp (covers the Bit1 short-circuit).
+        let pix1 = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut m = pix1.try_into_mut().unwrap();
+        m.set_pixel_unchecked(0, 0, 0);
+        m.set_pixel_unchecked(1, 0, 1);
+        let out1 = Pix::from(m).convert_to_32().unwrap();
+        for x in 0..2 {
+            let a = pixel::alpha(out1.get_pixel_unchecked(x, 0));
+            assert_eq!(a, 0, "1 → 32 alpha must be 0 at x={x}, got 0x{a:02x}");
+        }
     }
 
     #[test]
