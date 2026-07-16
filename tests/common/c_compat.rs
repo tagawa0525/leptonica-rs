@@ -58,6 +58,41 @@ pub enum CCompatStatus {
     Unmapped,
     /// `golden_map.tsv` maps to a C key but no matching entry exists in `golden_manifest_c.tsv`.
     MissingC,
+    /// Not mapped, and matched by an exclusion rule in `scripts/c_compat_exclude.tsv`
+    /// (e.g. JPEG codec differences, non-deterministic formats). Never a failure.
+    Excluded,
+}
+
+/// What an exclusion rule matches against (plan 902).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExcludeKind {
+    /// Matches the file extension of the Rust manifest key (`edge.04.jpg` → `jpg`).
+    Ext,
+    /// Matches the parsed prefix of the Rust manifest key (`edge.04.jpg` → `edge`).
+    Prefix,
+}
+
+/// One parsed line of `scripts/c_compat_exclude.tsv`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExcludeRule {
+    pub kind: ExcludeKind,
+    pub value: String,
+    pub reason: String,
+}
+
+/// Parse the TSV content of `scripts/c_compat_exclude.tsv` into exclusion
+/// rules. Fields: `kind` (`ext` | `prefix`), `value`, `reason`. Lines starting
+/// with `#`, empty lines, and malformed lines (unknown kind, fewer than 3
+/// fields) are skipped.
+pub fn parse_exclude_rules(_content: &str) -> Vec<ExcludeRule> {
+    Vec::new() // stub — implemented in GREEN (plan 902 PR 1)
+}
+
+/// Return the first exclusion rule matching the given Rust manifest key, or
+/// `None`. Only consulted when the key has no `golden_map.tsv` entry — an
+/// explicit mapping always wins over exclusion.
+pub fn find_exclusion<'a>(_rust_key: &str, _rules: &'a [ExcludeRule]) -> Option<&'a ExcludeRule> {
+    None // stub — implemented in GREEN (plan 902 PR 1)
 }
 
 pub type GoldenMap = HashMap<(String, usize), CKey>;
@@ -196,11 +231,16 @@ pub fn lookup_c_hash_in(
 
 /// Classify a Rust key against the C baseline. Returns the status plus a
 /// human-readable detail line suitable for the report file.
+///
+/// Exclusion rules are consulted only for keys with no `golden_map.tsv`
+/// entry: an explicit mapping always wins, so existing Ok / Mismatch
+/// baselines are unaffected by additions to the exclusion list.
 pub fn check_c_hash_against(
     rust_key: &str,
     rust_hash: u64,
     golden_map: &GoldenMap,
     c_manifest: &ManifestMap,
+    exclude: &[ExcludeRule],
 ) -> (CCompatStatus, String) {
     match lookup_c_hash_detailed(rust_key, golden_map, c_manifest) {
         Ok((c_name, c_hash)) => {
@@ -216,6 +256,10 @@ pub fn check_c_hash_against(
                 )
             }
         }
+        Err((CCompatStatus::Unmapped, detail)) => match find_exclusion(rust_key, exclude) {
+            Some(rule) => (CCompatStatus::Excluded, rule.reason.clone()),
+            None => (CCompatStatus::Unmapped, detail),
+        },
         Err(failure) => failure,
     }
 }
@@ -329,7 +373,8 @@ pub fn check_c_hash(test_name: &str, rust_key: &str, rust_hash: u64) -> CCompatS
     if CCompatMode::from_env() == CCompatMode::Off {
         return CCompatStatus::Ok;
     }
-    let (status, detail) = check_c_hash_against(rust_key, rust_hash, golden_map(), c_manifest());
+    let (status, detail) =
+        check_c_hash_against(rust_key, rust_hash, golden_map(), c_manifest(), &[]);
     append_report(&format!(
         "[{status:?}] {test_name} :: {rust_key} :: {detail}"
     ));
@@ -473,17 +518,118 @@ ok.01.png\tdeadbeefdeadbeef";
         let mut cm: ManifestMap = HashMap::new();
         cm.insert("edge.03.jpg".to_string(), 0xfcfea0e83ecec76c);
 
-        let (s, _) = check_c_hash_against("edge.04.jpg", 0xfcfea0e83ecec76c, &gmap, &cm);
+        let (s, _) = check_c_hash_against("edge.04.jpg", 0xfcfea0e83ecec76c, &gmap, &cm, &[]);
         assert_eq!(s, CCompatStatus::Ok);
 
-        let (s, _) = check_c_hash_against("edge.04.jpg", 0xdead_beef, &gmap, &cm);
+        let (s, _) = check_c_hash_against("edge.04.jpg", 0xdead_beef, &gmap, &cm, &[]);
         assert_eq!(s, CCompatStatus::Mismatch);
 
-        let (s, _) = check_c_hash_against("foo.01.png", 0, &gmap, &cm);
+        let (s, _) = check_c_hash_against("foo.01.png", 0, &gmap, &cm, &[]);
         assert_eq!(s, CCompatStatus::Unmapped);
 
-        let (s, _) = check_c_hash_against("edge.04.jpg", 0, &gmap, &ManifestMap::new());
+        let (s, _) = check_c_hash_against("edge.04.jpg", 0, &gmap, &ManifestMap::new(), &[]);
         assert_eq!(s, CCompatStatus::MissingC);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn parse_exclude_rules_extracts_ext_and_prefix_rules() {
+        let content = "\
+# kind\tvalue\treason
+ext\tjpg\tJPEG codec diff (finding 001)
+prefix\twebpio\tno C counterpart";
+        let rules = parse_exclude_rules(content);
+        assert_eq!(
+            rules,
+            vec![
+                ExcludeRule {
+                    kind: ExcludeKind::Ext,
+                    value: "jpg".to_string(),
+                    reason: "JPEG codec diff (finding 001)".to_string(),
+                },
+                ExcludeRule {
+                    kind: ExcludeKind::Prefix,
+                    value: "webpio".to_string(),
+                    reason: "no C counterpart".to_string(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn parse_exclude_rules_ignores_comments_blanks_and_malformed_lines() {
+        let content = "\
+# header
+
+ext\tjpg
+glob\t*.jpg\tunknown kind
+ext\tpdf\tnon-deterministic (PR #386)";
+        let rules = parse_exclude_rules(content);
+        assert_eq!(rules.len(), 1, "only the well-formed line should be parsed");
+        assert_eq!(rules[0].value, "pdf");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn find_exclusion_matches_by_extension_and_prefix() {
+        let rules = vec![
+            ExcludeRule {
+                kind: ExcludeKind::Ext,
+                value: "jpg".to_string(),
+                reason: "codec".to_string(),
+            },
+            ExcludeRule {
+                kind: ExcludeKind::Prefix,
+                value: "webpio".to_string(),
+                reason: "no C counterpart".to_string(),
+            },
+        ];
+        assert_eq!(
+            find_exclusion("edge.04.jpg", &rules).map(|r| r.reason.as_str()),
+            Some("codec")
+        );
+        assert_eq!(
+            find_exclusion("webpio.02.png", &rules).map(|r| r.reason.as_str()),
+            Some("no C counterpart")
+        );
+        // Extension must match exactly, not the prefix of another key.
+        assert!(find_exclusion("edge.04.png", &rules).is_none());
+        // Prefix must match the full parsed prefix, not a substring.
+        assert!(find_exclusion("webpio_lossless.01.png", &rules).is_none());
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn check_against_returns_excluded_only_when_unmapped() {
+        let mut gmap: GoldenMap = HashMap::new();
+        gmap.insert(
+            ("edge".to_string(), 4),
+            CKey {
+                prefix: "edge".to_string(),
+                index: 3,
+            },
+        );
+        let mut cm: ManifestMap = HashMap::new();
+        cm.insert("edge.03.jpg".to_string(), 0xfcfea0e83ecec76c);
+        let rules = vec![ExcludeRule {
+            kind: ExcludeKind::Ext,
+            value: "jpg".to_string(),
+            reason: "JPEG codec diff (finding 001)".to_string(),
+        }];
+
+        // Mapped keys keep their normal classification — mapping wins.
+        let (s, _) = check_c_hash_against("edge.04.jpg", 0xdead_beef, &gmap, &cm, &rules);
+        assert_eq!(s, CCompatStatus::Mismatch);
+
+        // Unmapped + rule hit → Excluded, with the rule's reason as detail.
+        let (s, d) = check_c_hash_against("other.01.jpg", 0, &gmap, &cm, &rules);
+        assert_eq!(s, CCompatStatus::Excluded);
+        assert_eq!(d, "JPEG codec diff (finding 001)");
+
+        // Unmapped + no rule hit → Unmapped, unchanged.
+        let (s, _) = check_c_hash_against("other.01.png", 0, &gmap, &cm, &rules);
+        assert_eq!(s, CCompatStatus::Unmapped);
     }
 
     #[test]
