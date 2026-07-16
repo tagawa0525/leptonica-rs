@@ -36,36 +36,37 @@ total=234300 diff=3298 maxdiff=1
 
 C 側で decode した test8.jpg を PNG 化し、同一ピクセルを両実装に与えた:
 
-| C 出力     | 演算                  | 結果        |
-| ---------- | --------------------- | ----------- |
-| dither.00  | dither_to_binary      | **diff=0**  |
-| dither.02  | dither_to_2bpp        | **diff=0**  |
-| dither.04  | scale 2x LI dither    | diff=14.24% |
-| dither.05  | scale 4x LI dither    | diff=15.16% |
+| C 出力    | 演算               | 結果                              |
+| --------- | ------------------ | --------------------------------- |
+| dither.00 | dither_to_binary   | **diff=0**                        |
+| dither.02 | dither_to_2bpp     | **diff=0**                        |
+| dither.04 | scale 2x LI dither | **diff=0** (PR 3 の発見 3 対応後) |
+| dither.05 | scale 4x LI dither | **diff=0** (同上)                 |
 
 dither kernel は **bit 一致を確定証明**。finding 001 が「仮説」に留めていた
 「同一入力なら一致する」を、dither 系では確定させた。
 
-## 発見 3: scale_gray_2x/4x_li の LI スケーリング実装差 (未修正)
+## 発見 3: scale_gray_2x/4x_li の LI スケーリング実装差 (解消済み)
 
-dither.04/05 の残差は dither ではなく **LI スケーリング自体の差**:
+dither.04/05 の残差は dither ではなく **LI スケーリング自体の差**だった:
 
 - C `scaleGray2xLILineLow` (`src/scale1.c`): 専用の整数 2x 補間
   (`(s1+s2)>>1`、`(s1+s2+s3+s4)>>2`)
 - Rust `scale_gray_2x_li`: 汎用 `scale_gray_li(pix, 2.0, 2.0)` に委譲
   (fractional LI、サンプリング位置も異なる)
 
-→ **follow-up**: transform/scale の 2x/4x LI を C 専用実装に揃える
-(plan 902 の後続 PR 候補)。
+→ **plan 902 PR 3 で解消**: 2x/4x とも C 専用整数補間 (4x は 1/4・1/2・
+3/4 重みの 4x4 ブロック、最終行・列は複製) に書き直し。同一入力検証で
+dither.04/05 とも **diff=0 の bit 一致** を確認。
 
 ## 現状の分類
 
-| ペア                    | 状態     | 原因                                        |
-| ----------------------- | -------- | ------------------------------------------- |
-| dither.00 ↔ dither_bin  | Mismatch | JPEG 入力 decode 差のみ (kernel は一致)     |
-| dither.02 ↔ dither_2bpp | Mismatch | 同上                                        |
-| dither.04 ↔ scaled 2x   | Mismatch | JPEG decode 差 + LI スケーリング差 (発見 3) |
-| dither.05 ↔ scaled 4x   | Mismatch | 同上                                        |
+| ペア                    | 状態     | 原因                                    |
+| ----------------------- | -------- | --------------------------------------- |
+| dither.00 ↔ dither_bin  | Mismatch | JPEG 入力 decode 差のみ (kernel は一致) |
+| dither.02 ↔ dither_2bpp | Mismatch | 同上                                    |
+| dither.04 ↔ scaled 2x   | Mismatch | 同上 (発見 3 は PR 3 で解消済み)        |
+| dither.05 ↔ scaled 4x   | Mismatch | 同上                                    |
 
 ## 再現手順
 

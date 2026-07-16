@@ -29,6 +29,11 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 > dither kernel の実装差 (FS vs C 3近傍) を発見・修正し、同一入力での
 > bit 一致を確定証明 (finding 008)。残る Mismatch は JPEG 入力 decode 差
 > (dither.00/02) と scale LI 実装差 (dither.04/05、follow-up 対象)。
+>
+> **plan 902 PR 3 (scale LI の C 準拠化) 後**: scale_gray_2x/4x_li を
+> C 専用整数補間に修正 (finding 008 発見 3 解消)。dither 系 4 ペアは
+> すべて同一入力で bit 一致し、残差は JPEG 入力 decode 差のみとなった。
+> 集計値は変化なし (Mismatch 33 のまま、原因の内訳が単純化)。
 
 ## 全体集計
 
