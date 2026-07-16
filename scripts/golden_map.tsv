@@ -197,8 +197,10 @@ region	distance	52	dist_contours	13	render_contours binary c8/d16/bg
 region	distance	58	dist_contours	15	render_contours binary c8/d16/fg
 
 # label_reg.c (plan 902 PR 6): feyn-fract/form1/form2 の lossless 系列
-region	label	4	label	21	cc area transform 8bpp (feyn-fract, LS_TWO_BYTES/CLIP_TO_FF)
-region	label	6	label	24	loc-to-color transform (form1)
+region	label	1	label	20	cc transform 8bpp (feyn-fract, 1 + i%254)
+region	label	4	label	23	cc area transform 8bpp (feyn-fract, LS_TWO_BYTES/CLIP_TO_FF)
+region	label	5	label	24	cc area transform x0.3 (pixMultConstantGray) 8bpp
+region	label	6	label	27	loc-to-color transform (form1)
 region	label	7	label_color	1	loc-to-color of rot90 (form1)
 region	label	11	label_color	2	loc-to-color of rot180 (form1)
 region	label	15	label_color	3	loc-to-color of rot270 (form1)
