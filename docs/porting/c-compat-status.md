@@ -15,6 +15,9 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 > → 40 (第二弾、Mismatch +6) → 44 (第三弾、+4 Ok / +2 Mismatch)**。
 > Mismatch は 21 → 29 (新規 8 件は finding 006/007 で root cause 調査
 > 中、既存 21 件は JPEG codec 差で finding 001)。
+>
+> 2026-07-16 実測 (v0.5.0 リリース時、Phase 3 第四弾 PR #405 後):
+> 集計は変化なし (Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 500)。
 
 ## 全体集計
 

@@ -25,7 +25,7 @@ Progress against the original 182 source files and 2,743 public functions (per `
 | Function coverage        | 2,023 / 2,834 (71.4%)                                                                        |
 | Effective coverage       | 2,023 / 2,150 (94.1%)                                                                        |
 | Regression test coverage | 159 / 159 (100.0%)                                                                           |
-| C pixel-level compat     | Ok 22 / Mismatch 31 / MissingC 0 / Unmapped 520 ([details](docs/porting/c-compat-status.md)) |
+| C pixel-level compat     | Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 500 ([details](docs/porting/c-compat-status.md)) |
 
 Details: [Feature comparison](docs/en/porting/feature-comparison.md) / [Test comparison](docs/en/porting/test-comparison.md) / [C compat baseline](docs/porting/c-compat-status.md)
 
