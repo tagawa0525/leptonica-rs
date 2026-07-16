@@ -210,3 +210,82 @@ fn distance_reg_render_contours() {
 
     assert!(rp.cleanup(), "distance render_contours test failed");
 }
+
+/// distance_function must reproduce C pixDistanceFunction exactly for both
+/// boundary conditions. Expected values hand-computed from the C algorithm
+/// (`pixDistanceFunction()` / `distanceFunctionLow()` in upstream seedfill.c):
+///
+/// - init: fg = 1, bg = 0
+/// - L_BOUNDARY_BG: the 1-pixel boundary ring keeps its init value
+/// - L_BOUNDARY_FG: the ring is set to 255 before the interior passes, and
+///   afterwards each ring pixel is mirrored from its adjacent interior pixel
+/// - two raster passes over the interior only (fwd: overwrite with
+///   min(neighbors, 254)+1; bwd: min(min(neighbors)+1, current))
+#[test]
+#[ignore = "not yet implemented"]
+fn distance_reg_matches_c_kernel() {
+    // 6x5 all-fg image with one interior bg pixel at (3, 2).
+    let pix = {
+        let p = leptonica::Pix::new(6, 5, PixelDepth::Bit1).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..5 {
+            for x in 0..6 {
+                pm.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        pm.set_pixel(3, 2, 0).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    // bc = Background: ring keeps init (all fg → 1).
+    let expected_bg: [[u32; 6]; 5] = [
+        [1, 1, 1, 1, 1, 1],
+        [1, 2, 2, 1, 2, 1],
+        [1, 2, 1, 0, 1, 1],
+        [1, 2, 2, 1, 2, 1],
+        [1, 1, 1, 1, 1, 1],
+    ];
+    let out = distance_function(
+        &pix,
+        ConnectivityType::FourWay,
+        PixelDepth::Bit8,
+        BoundaryCondition::Background,
+    )
+    .expect("distance_function bg");
+    for (y, row) in expected_bg.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "bg pixel ({x}, {y})"
+            );
+        }
+    }
+
+    // bc = Foreground: ring = 255 during the passes, then mirrored from the
+    // interior (corners take the diagonal interior value).
+    let expected_fg: [[u32; 6]; 5] = [
+        [3, 3, 2, 1, 2, 2],
+        [3, 3, 2, 1, 2, 2],
+        [2, 2, 1, 0, 1, 1],
+        [3, 3, 2, 1, 2, 2],
+        [3, 3, 2, 1, 2, 2],
+    ];
+    let out = distance_function(
+        &pix,
+        ConnectivityType::FourWay,
+        PixelDepth::Bit8,
+        BoundaryCondition::Foreground,
+    )
+    .expect("distance_function fg");
+    for (y, row) in expected_fg.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "fg pixel ({x}, {y})"
+            );
+        }
+    }
+}
