@@ -70,6 +70,14 @@ pub enum ShearFill {
 }
 
 impl ShearFill {
+    /// Convert to the rasterop incolor convention (C L_BRING_IN_WHITE/BLACK).
+    pub fn to_incolor(self) -> crate::core::pix::rop::InColor {
+        match self {
+            ShearFill::White => crate::core::pix::rop::InColor::White,
+            ShearFill::Black => crate::core::pix::rop::InColor::Black,
+        }
+    }
+
     /// Get the fill value for a specific pixel depth
     pub fn to_value(self, depth: PixelDepth) -> u32 {
         match self {
@@ -119,6 +127,60 @@ fn normalize_angle_for_shear(mut radang: f32, mindif: f32) -> Option<f32> {
     }
 
     Some(radang)
+}
+
+// ============================================================================
+// Band shift computation (C shear quantization)
+// ============================================================================
+
+/// Per-row (or per-column) integer shifts for a shear about `loc`, using the
+/// C band quantization: lines are shifted in bands of size ≈ |1/tan(angle)|
+/// with boundaries at `trunc(invangle * (shift ± 0.5) + 0.5)`, exactly as in
+/// C `pixHShear` / `pixHShearIP` (and the V variants).
+///
+/// `dir` is -1 for horizontal shear (C uses `-sign*hshift`) and +1 for
+/// vertical shear (`+sign*vshift`).
+fn band_shifts(len: i32, loc: i32, radang: f32, dir: i32) -> Vec<i32> {
+    let mut shifts = vec![0i32; len.max(0) as usize];
+    let tan_angle = radang.tan();
+    if tan_angle == 0.0 {
+        return shifts;
+    }
+    let sign: i32 = if radang > 0.0 { 1 } else { -1 };
+    let invangle = (1.0 / tan_angle).abs();
+    let init_incr = (invangle / 2.0) as i32;
+
+    let mut y = loc + init_incr;
+    let mut hshift = 1;
+    while y < len {
+        let incr = (invangle * (hshift as f32 + 0.5) + 0.5) as i32 - (y - loc);
+        if incr != 0 {
+            let incr = incr.min(len - y);
+            for row in y..y + incr {
+                if row >= 0 {
+                    shifts[row as usize] = dir * sign * hshift;
+                }
+            }
+            y += incr;
+        }
+        hshift += 1;
+    }
+
+    let mut y = loc - init_incr;
+    let mut hshift = -1;
+    while y > 0 {
+        let incr = (y - loc) - (invangle * (hshift as f32 - 0.5) + 0.5) as i32;
+        if incr != 0 {
+            let incr = incr.min(y);
+            for row in (y - incr).max(0)..y.min(len) {
+                shifts[row as usize] = dir * sign * hshift;
+            }
+            y -= incr;
+        }
+        hshift -= 1;
+    }
+
+    shifts
 }
 
 // ============================================================================
@@ -175,15 +237,14 @@ pub fn h_shear(pix: &Pix, yloc: i32, radang: f32, fill: ShearFill) -> TransformR
     // Fill with background
     fill_image(&mut out_mut, fill_value);
 
-    // Perform horizontal shear
-    let tan_angle = radang.tan();
+    // Perform horizontal shear with the C band quantization
+    // (C pixHShear: dest x offset = -sign*hshift per band).
     let wi = w as i32;
     let hi = h as i32;
+    let shifts = band_shifts(hi, yloc, radang, -1);
 
     for y in 0..hi {
-        // Calculate horizontal shift for this row
-        // Positive angle: rows above yloc shift right (positive), below shift left (negative)
-        let shift = ((yloc - y) as f32 * tan_angle).round() as i32;
+        let shift = shifts[y as usize];
 
         for x in 0..wi {
             let src_x = x - shift;
@@ -269,14 +330,14 @@ pub fn v_shear(pix: &Pix, xloc: i32, radang: f32, fill: ShearFill) -> TransformR
     fill_image(&mut out_mut, fill_value);
 
     // Perform vertical shear
-    let tan_angle = radang.tan();
+    // Perform vertical shear with the C band quantization
+    // (C pixVShear: dest y offset = +sign*vshift per band).
     let wi = w as i32;
     let hi = h as i32;
+    let shifts = band_shifts(wi, xloc, radang, 1);
 
     for x in 0..wi {
-        // Calculate vertical shift for this column
-        // Positive angle: columns right of xloc shift down (positive), left shift up (negative)
-        let shift = ((x - xloc) as f32 * tan_angle).round() as i32;
+        let shift = shifts[x as usize];
 
         for y in 0..hi {
             let src_y = y - shift;
@@ -350,42 +411,43 @@ pub fn h_shear_ip(
         Some(a) => a,
         None => return Ok(()), // No shear needed
     };
-
-    let w = pix.width();
-    let h = pix.height();
-    let depth = pix.depth();
-    let fill_value = fill.to_value(depth);
-
     let tan_angle = radang.tan();
-    let wi = w as i32;
-    let hi = h as i32;
+    if tan_angle == 0.0 {
+        return Ok(());
+    }
 
-    // Process rows in order of shift direction to avoid overwriting
-    // For positive tan_angle: rows above yloc shift right
-    // We need to process in a way that doesn't overwrite unread pixels
+    // C pixHShearIP: rows are shifted in bands of height ≈ |1/tan(angle)|,
+    // with band boundaries at trunc(invangle * (hshift ± 0.5) + 0.5). The
+    // per-band shift is applied with the in-place rasterop (which also
+    // fills the exposed pixels per incolor).
+    let h = pix.height() as i32;
+    let sign: i32 = if radang > 0.0 { 1 } else { -1 };
+    let incolor = fill.to_incolor();
+    let invangle = (1.0 / tan_angle).abs();
+    let inityincr = (invangle / 2.0) as i32;
 
-    // Since we're shifting rows, we can process each row independently
-    // using a temporary buffer for the row
-    let mut row_buffer = vec![fill_value; w as usize];
-
-    for y in 0..hi {
-        let shift = ((yloc - y) as f32 * tan_angle).round() as i32;
-
-        // Read original row into buffer
-        for x in 0..wi {
-            row_buffer[x as usize] = pix.get_pixel_unchecked(x as u32, y as u32);
+    let mut y = yloc + inityincr;
+    let mut hshift = 1;
+    while y < h {
+        let yincr = (invangle * (hshift as f32 + 0.5) + 0.5) as i32 - (y - yloc);
+        if yincr != 0 {
+            let yincr = yincr.min(h - y);
+            pix.rasterop_hip(y, yincr, -sign * hshift, incolor);
+            y += yincr;
         }
+        hshift += 1;
+    }
 
-        // Write shifted row
-        for x in 0..wi {
-            let src_x = x - shift;
-            let val = if src_x >= 0 && src_x < wi {
-                row_buffer[src_x as usize]
-            } else {
-                fill_value
-            };
-            pix.set_pixel_unchecked(x as u32, y as u32, val);
+    let mut y = yloc - inityincr;
+    let mut hshift = -1;
+    while y > 0 {
+        let yincr = (y - yloc) - (invangle * (hshift as f32 - 0.5) + 0.5) as i32;
+        if yincr != 0 {
+            let yincr = yincr.min(y);
+            pix.rasterop_hip(y - yincr, yincr, -sign * hshift, incolor);
+            y -= yincr;
         }
+        hshift -= 1;
     }
 
     Ok(())
@@ -414,44 +476,47 @@ pub fn v_shear_ip(
 ) -> TransformResult<()> {
     // Note: PixMut does not provide colormap() method, so we cannot check here.
     // The caller must ensure the image does not have a colormap.
-    // If needed, use v_shear (non-in-place) which handles colormaps correctly.
 
     // Normalize angle and check if shear is needed
     let radang = match normalize_angle_for_shear(radang, MIN_DIFF_FROM_HALF_PI) {
         Some(a) => a,
         None => return Ok(()), // No shear needed
     };
-
-    let w = pix.width();
-    let h = pix.height();
-    let depth = pix.depth();
-    let fill_value = fill.to_value(depth);
-
     let tan_angle = radang.tan();
-    let wi = w as i32;
-    let hi = h as i32;
+    if tan_angle == 0.0 {
+        return Ok(());
+    }
 
-    // Process columns using a temporary buffer
-    let mut col_buffer = vec![fill_value; h as usize];
+    // C pixVShearIP: mirror of pixHShearIP over columns, but with shift
+    // +sign*vshift (the horizontal variant uses -sign*hshift).
+    let w = pix.width() as i32;
+    let sign: i32 = if radang > 0.0 { 1 } else { -1 };
+    let incolor = fill.to_incolor();
+    let invangle = (1.0 / tan_angle).abs();
+    let initxincr = (invangle / 2.0) as i32;
 
-    for x in 0..wi {
-        let shift = ((x - xloc) as f32 * tan_angle).round() as i32;
-
-        // Read original column into buffer
-        for y in 0..hi {
-            col_buffer[y as usize] = pix.get_pixel_unchecked(x as u32, y as u32);
+    let mut x = xloc + initxincr;
+    let mut vshift = 1;
+    while x < w {
+        let xincr = (invangle * (vshift as f32 + 0.5) + 0.5) as i32 - (x - xloc);
+        if xincr != 0 {
+            let xincr = xincr.min(w - x);
+            pix.rasterop_vip(x, xincr, sign * vshift, incolor);
+            x += xincr;
         }
+        vshift += 1;
+    }
 
-        // Write shifted column
-        for y in 0..hi {
-            let src_y = y - shift;
-            let val = if src_y >= 0 && src_y < hi {
-                col_buffer[src_y as usize]
-            } else {
-                fill_value
-            };
-            pix.set_pixel_unchecked(x as u32, y as u32, val);
+    let mut x = xloc - initxincr;
+    let mut vshift = -1;
+    while x > 0 {
+        let xincr = (x - xloc) - (invangle * (vshift as f32 - 0.5) + 0.5) as i32;
+        if xincr != 0 {
+            let xincr = xincr.min(x);
+            pix.rasterop_vip(x - xincr, xincr, sign * vshift, incolor);
+            x -= xincr;
         }
+        vshift -= 1;
     }
 
     Ok(())
@@ -928,7 +993,6 @@ mod tests {
     /// for angle 0.1 rad (invangle ≈ 9.97, half-band = 4): rows 0-1 shift
     /// +1, rows 2-9 shift 0, rows 10-11 shift −1.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_shear_ip_band_quantization_matches_c() {
         // Vertical fg line at x = 6 on a 12x12 1bpp image.
         let pix = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
