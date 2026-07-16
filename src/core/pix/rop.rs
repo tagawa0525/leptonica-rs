@@ -721,9 +721,13 @@ impl PixMut {
             return;
         }
 
-        let fill_val = match incolor {
-            InColor::White => self.depth().max_value(),
-            InColor::Black => 0,
+        // C pixRasteropHip/Vip: for 1bpp, white = 0 (fg = 1 = black) and
+        // black = 1; for deeper images white = max and black = 0.
+        let fill_val = match (incolor, self.depth()) {
+            (InColor::White, PixelDepth::Bit1) => 0,
+            (InColor::White, d) => d.max_value(),
+            (InColor::Black, PixelDepth::Bit1) => 1,
+            (InColor::Black, _) => 0,
         };
 
         if vshift > 0 {
@@ -786,9 +790,13 @@ impl PixMut {
             return;
         }
 
-        let fill_val = match incolor {
-            InColor::White => self.depth().max_value(),
-            InColor::Black => 0,
+        // C pixRasteropHip/Vip: for 1bpp, white = 0 (fg = 1 = black) and
+        // black = 1; for deeper images white = max and black = 0.
+        let fill_val = match (incolor, self.depth()) {
+            (InColor::White, PixelDepth::Bit1) => 0,
+            (InColor::White, d) => d.max_value(),
+            (InColor::Black, PixelDepth::Bit1) => 1,
+            (InColor::Black, _) => 0,
         };
 
         if hshift > 0 {
@@ -894,7 +902,6 @@ mod tests {
     /// foreground = 1 = black) and L_BRING_IN_BLACK sets it; for deeper
     /// images white = max and black = 0.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_translate_incolor_matches_c() {
         // 3x3 all-fg 1bpp image translated by (1,1).
         let pix = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
