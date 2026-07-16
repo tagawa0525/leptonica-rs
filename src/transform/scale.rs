@@ -1472,8 +1472,14 @@ fn gray_threshold_to_binary(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
 ///
 /// In the output 1bpp image: 0 = white, 1 = black.
 fn gray_error_diffusion_dither(pix: &Pix) -> TransformResult<Pix> {
-    crate::color::dither_to_binary(pix)
-        .map_err(|e| TransformError::InvalidParameters(e.to_string()))
+    use crate::color::ColorError;
+    crate::color::dither_to_binary(pix).map_err(|e| match e {
+        ColorError::Core(c) => TransformError::Core(c),
+        ColorError::UnsupportedDepth { expected, actual } => {
+            TransformError::UnsupportedDepth(format!("expected {expected}, got {actual}"))
+        }
+        other => TransformError::InvalidParameters(other.to_string()),
+    })
 }
 
 /// Single-stage 2× grayscale rank reduction.
