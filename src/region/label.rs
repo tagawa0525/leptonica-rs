@@ -965,13 +965,44 @@ pub fn pix_loc_to_color_transform(pix: &Pix) -> RegionResult<Pix> {
 /// first-encountered pixel) gets value `1 + (i % 254)` at 8bpp,
 /// `1 + (i % 0xfffe)` at 16bpp, and `1 + i` at 32bpp.
 pub fn conn_comp_transform_depth(
-    _pix: &Pix,
-    _connectivity: ConnectivityType,
-    _out_depth: PixelDepth,
+    pix: &Pix,
+    connectivity: ConnectivityType,
+    out_depth: PixelDepth,
 ) -> RegionResult<Pix> {
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 7)
-    ))
+    if !matches!(
+        out_depth,
+        PixelDepth::Bit8 | PixelDepth::Bit16 | PixelDepth::Bit32
+    ) {
+        return Err(RegionError::InvalidParameters(
+            "out_depth must be 8, 16 or 32".to_string(),
+        ));
+    }
+
+    // label_connected_components assigns sequential 1-based labels in raster
+    // order of the first-encountered pixel — the same enumeration order as
+    // C pixConnComp, so `label - 1` corresponds to C's component index i.
+    let labeled = label_connected_components(pix, connectivity)?;
+    let w = labeled.width();
+    let h = labeled.height();
+
+    let out = Pix::new(w, h, out_depth).map_err(RegionError::Core)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    for y in 0..h {
+        for x in 0..w {
+            let label = labeled.get_pixel_unchecked(x, y);
+            if label == 0 {
+                continue;
+            }
+            let i = label - 1;
+            let val = match out_depth {
+                PixelDepth::Bit8 => 1 + (i % 254),
+                PixelDepth::Bit16 => 1 + (i % 0xfffe),
+                _ => 1 + i,
+            };
+            out_mut.set_pixel_unchecked(x, y, val);
+        }
+    }
+    Ok(out_mut.into())
 }
 
 /// Get the unique sorted neighbor values for a pixel in a labeled image.
@@ -1051,13 +1082,12 @@ mod tests_c_compat {
     /// component i (0-based, in raster order of first-encountered pixel)
     /// is labeled 1 + (i % 254) for 8bpp output.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_conn_comp_transform_depth_matches_c() {
         // Three 4-connected components, first pixels in raster order:
-        // (1,0) → label 1, (3,0) → label 2, (0,2) → label 3.
+        // (1,0) → label 1, (3,0) → label 2, (4,2) → label 3.
         let pix = Pix::new(5, 3, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
-        for (x, y) in [(1, 0), (1, 1), (3, 0), (0, 2), (1, 2)] {
+        for (x, y) in [(1, 0), (1, 1), (3, 0), (4, 2)] {
             pm.set_pixel(x, y, 1).unwrap();
         }
         let pix: Pix = pm.into();
@@ -1067,8 +1097,7 @@ mod tests_c_compat {
         assert_eq!(out.get_pixel(1, 0), Some(1));
         assert_eq!(out.get_pixel(1, 1), Some(1));
         assert_eq!(out.get_pixel(3, 0), Some(2));
-        assert_eq!(out.get_pixel(0, 2), Some(3));
-        assert_eq!(out.get_pixel(1, 2), Some(3));
+        assert_eq!(out.get_pixel(4, 2), Some(3));
         assert_eq!(out.get_pixel(0, 0), Some(0));
     }
 }

@@ -724,17 +724,13 @@ impl PixMut {
                 }
             }
             PixelDepth::Bit32 => {
+                // C pixMultConstantGray: the whole 32-bit word is a single
+                // gray value, multiplied without clipping (for per-channel
+                // RGB scaling use filter::mult_constant_color).
                 for y in 0..height {
                     for x in 0..width {
-                        let pixel = self.get_pixel(x, y).unwrap_or(0);
-                        let (r, g, b) = pixel::extract_rgb(pixel);
-
-                        let r_new = ((factor * r as f32) as u32).min(255) as u8;
-                        let g_new = ((factor * g as f32) as u32).min(255) as u8;
-                        let b_new = ((factor * b as f32) as u32).min(255) as u8;
-
-                        let new_pixel = pixel::compose_rgb(r_new, g_new, b_new);
-                        self.set_pixel_unchecked(x, y, new_pixel);
+                        let pval = self.get_pixel(x, y).unwrap_or(0) as f32;
+                        self.set_pixel_unchecked(x, y, (factor * pval) as u32);
                     }
                 }
             }
@@ -930,7 +926,6 @@ mod tests {
     /// whole word is treated as a single gray value and multiplied without
     /// clipping (the per-channel RGB variant lives in filter::mult_constant_color).
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_multiply_constant_32bpp_matches_c() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
