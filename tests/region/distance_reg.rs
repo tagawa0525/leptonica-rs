@@ -222,7 +222,6 @@ fn distance_reg_render_contours() {
 /// - two raster passes over the interior only (fwd: overwrite with
 ///   min(neighbors, 254)+1; bwd: min(min(neighbors)+1, current))
 #[test]
-#[ignore = "not yet implemented"]
 fn distance_reg_matches_c_kernel() {
     // 6x5 all-fg image with one interior bg pixel at (3, 2).
     let pix = {

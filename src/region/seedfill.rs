@@ -511,19 +511,25 @@ pub enum BoundaryCondition {
 /// Compute the distance from each foreground pixel to the nearest
 /// background pixel using a Chamfer distance transform.
 ///
-/// Uses forward/backward raster scans for O(n) performance.
+/// Reproduces C `pixDistanceFunction()` exactly: fg pixels are initialized
+/// to 1 and bg to 0, then two raster scans update the interior only (the
+/// 1-pixel boundary ring keeps its value). For
+/// [`BoundaryCondition::Foreground`] the ring is first set to the depth
+/// maximum (255 / 65535) and afterwards mirrored from the adjacent
+/// interior pixels.
 ///
 /// # Arguments
 ///
 /// * `pix` - 1-bpp binary input image
 /// * `connectivity` - 4 or 8-way connectivity
-/// * `out_depth` - Output depth: [`PixelDepth::Bit8`] (max 254) or
-///   [`PixelDepth::Bit16`] (max 65534)
+/// * `out_depth` - Output depth: [`PixelDepth::Bit8`] (values clamp at 255)
+///   or [`PixelDepth::Bit16`] (values clamp at 65535)
 /// * `boundary_cond` - How to handle pixels at image boundaries
 ///
 /// # See also
 ///
-/// C Leptonica: `pixDistanceFunction()` in `seedfill.c`
+/// C Leptonica: `pixDistanceFunction()` / `distanceFunctionLow()` in
+/// `seedfill.c`
 pub fn distance_function(
     pix: &Pix,
     connectivity: ConnectivityType,
@@ -542,113 +548,91 @@ pub fn distance_function(
         ));
     }
 
-    let w = pix.width();
-    let h = pix.height();
-    let max_val: u32 = if out_depth == PixelDepth::Bit8 {
-        254
+    let w = pix.width() as usize;
+    let h = pix.height() as usize;
+    // C: forward-pass clamp (254 / 0xfffe) and PIX_SET ring value (255 / 0xffff).
+    let (clamp, ring_max): (u32, u32) = if out_depth == PixelDepth::Bit8 {
+        (254, 255)
     } else {
-        0xfffe
+        (0xfffe, 0xffff)
     };
 
-    // Initialize: foreground pixels get max_val, background gets 0
-    let init_val = match boundary_cond {
-        BoundaryCondition::Background => 0u32,
-        BoundaryCondition::Foreground => max_val,
-    };
-
-    let mut dist: Vec<u32> = vec![0; (w * h) as usize];
+    // C: pixSetMasked(pixd, pixs, 1) — fg = 1, bg = 0.
+    let mut dist: Vec<u32> = vec![0; w * h];
     for y in 0..h {
         for x in 0..w {
-            if pix.get_pixel(x, y).unwrap_or(0) != 0 {
-                dist[(y * w + x) as usize] = max_val;
+            if pix.get_pixel_unchecked(x as u32, y as u32) != 0 {
+                dist[y * w + x] = 1;
             }
         }
     }
 
+    // C L_BOUNDARY_FG: set the boundary ring to the depth maximum before
+    // the interior passes.
+    if boundary_cond == BoundaryCondition::Foreground && w > 0 && h > 0 {
+        for x in 0..w {
+            dist[x] = ring_max;
+            dist[(h - 1) * w + x] = ring_max;
+        }
+        for row in dist.chunks_exact_mut(w) {
+            row[0] = ring_max;
+            row[w - 1] = ring_max;
+        }
+    }
+
+    // Two raster scans over the interior only (C distanceFunctionLow).
     let use_diag = connectivity == ConnectivityType::EightWay;
-
-    // Forward pass (top-left to bottom-right)
-    for y in 0..h {
-        for x in 0..w {
-            let idx = (y * w + x) as usize;
-            if dist[idx] == 0 {
-                continue;
-            }
-            let mut min_neighbor = max_val;
-            // Left
-            if x > 0 {
-                min_neighbor = min_neighbor.min(dist[idx - 1]);
-            } else {
-                min_neighbor = min_neighbor.min(init_val);
-            }
-            // Above
-            if y > 0 {
-                min_neighbor = min_neighbor.min(dist[((y - 1) * w + x) as usize]);
-            } else {
-                min_neighbor = min_neighbor.min(init_val);
-            }
-            if use_diag {
-                // Above-left
-                if x > 0 && y > 0 {
-                    min_neighbor = min_neighbor.min(dist[((y - 1) * w + x - 1) as usize]);
-                } else {
-                    min_neighbor = min_neighbor.min(init_val);
+    if w > 2 && h > 2 {
+        // UL → LR: overwrite fg pixels with min(neighbors, clamp) + 1.
+        for y in 1..h - 1 {
+            for x in 1..w - 1 {
+                let idx = y * w + x;
+                if dist[idx] == 0 {
+                    continue;
                 }
-                // Above-right
-                if x + 1 < w && y > 0 {
-                    min_neighbor = min_neighbor.min(dist[((y - 1) * w + x + 1) as usize]);
-                } else {
-                    min_neighbor = min_neighbor.min(init_val);
+                let mut minval = dist[idx - w].min(dist[idx - 1]);
+                if use_diag {
+                    minval = minval.min(dist[idx - w - 1]).min(dist[idx - w + 1]);
                 }
+                dist[idx] = minval.min(clamp) + 1;
             }
-            dist[idx] = dist[idx].min(min_neighbor.saturating_add(1));
+        }
+        // LR → UL: min(min(neighbors) + 1, current).
+        for y in (1..h - 1).rev() {
+            for x in (1..w - 1).rev() {
+                let idx = y * w + x;
+                if dist[idx] == 0 {
+                    continue;
+                }
+                let mut minval = dist[idx + w].min(dist[idx + 1]);
+                if use_diag {
+                    minval = minval.min(dist[idx + w - 1]).min(dist[idx + w + 1]);
+                }
+                dist[idx] = (minval + 1).min(dist[idx]);
+            }
         }
     }
 
-    // Backward pass (bottom-right to top-left)
-    for y in (0..h).rev() {
-        for x in (0..w).rev() {
-            let idx = (y * w + x) as usize;
-            if dist[idx] == 0 {
-                continue;
-            }
-            let mut min_neighbor = max_val;
-            // Right
-            if x + 1 < w {
-                min_neighbor = min_neighbor.min(dist[idx + 1]);
-            } else {
-                min_neighbor = min_neighbor.min(init_val);
-            }
-            // Below
-            if y + 1 < h {
-                min_neighbor = min_neighbor.min(dist[((y + 1) * w + x) as usize]);
-            } else {
-                min_neighbor = min_neighbor.min(init_val);
-            }
-            if use_diag {
-                // Below-right
-                if x + 1 < w && y + 1 < h {
-                    min_neighbor = min_neighbor.min(dist[((y + 1) * w + x + 1) as usize]);
-                } else {
-                    min_neighbor = min_neighbor.min(init_val);
-                }
-                // Below-left
-                if x > 0 && y + 1 < h {
-                    min_neighbor = min_neighbor.min(dist[((y + 1) * w + x - 1) as usize]);
-                } else {
-                    min_neighbor = min_neighbor.min(init_val);
-                }
-            }
-            dist[idx] = dist[idx].min(min_neighbor.saturating_add(1));
+    // C L_BOUNDARY_FG: pixSetMirroredBorder(pixd, 1, 1, 1, 1) — left/right
+    // columns first, then full-width top/bottom rows (so corners take the
+    // diagonal interior value).
+    if boundary_cond == BoundaryCondition::Foreground && w > 2 && h > 2 {
+        for y in 1..h - 1 {
+            dist[y * w] = dist[y * w + 1];
+            dist[y * w + w - 1] = dist[y * w + w - 2];
+        }
+        for x in 0..w {
+            dist[x] = dist[w + x];
+            dist[(h - 1) * w + x] = dist[(h - 2) * w + x];
         }
     }
 
     // Write to output Pix
-    let out_pix = Pix::new(w, h, out_depth).map_err(RegionError::Core)?;
+    let out_pix = Pix::new(w as u32, h as u32, out_depth).map_err(RegionError::Core)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
-            out_mut.set_pixel_unchecked(x, y, dist[(y * w + x) as usize]);
+            out_mut.set_pixel_unchecked(x as u32, y as u32, dist[y * w + x]);
         }
     }
 
