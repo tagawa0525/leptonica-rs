@@ -70,7 +70,17 @@ C 版ソース: `src/scale1.c` (scaleGray2xLILineLow / scaleGray4xLILineLow)。
 - 同一入力検証で dither.04/05 とも diff=0 の bit 一致を確認。これで
   dither 系 4 ペアはすべて「アルゴリズム等価、残差は JPEG decode 差のみ」
 
-### PR 4 以降: semantic マッピングの漸進追加
+### PR 4: paintmask 19-21 の lossless ペア (実施済み)
+
+C 版ソース: `prog/paintmask_reg.c` 19-21 (feyn.tif / rabi.png)。
+
+- C と同条件 (同 box・outval) の 1bpp blend テストを追加し 3 ペアをマップ
+- **全件 hash 完全一致 (Ok 44 → 47)**。clip_rectangle / invert /
+  clip_masked の C 等価性を pixel-level で証明
+- 教訓: **lossless 入力のペアは即 Ok になる**。JPEG 入力系列
+  (decode 差で必ず Mismatch) より lossless 系列を優先してマップする
+
+### PR 5 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

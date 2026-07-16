@@ -34,12 +34,18 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 > C 専用整数補間に修正 (finding 008 発見 3 解消)。dither 系 4 ペアは
 > すべて同一入力で bit 一致し、残差は JPEG 入力 decode 差のみとなった。
 > 集計値は変化なし (Mismatch 33 のまま、原因の内訳が単純化)。
+>
+> **plan 902 PR 4 (paintmask 19-21) 後**: lossless 入力 (feyn.tif /
+> rabi.png) の 1bpp blend 系列を C prog と同条件で再現し 3 ペア追加、
+> **全件 hash 完全一致で Ok 44 → 47** (color binary 初の Ok)。
+> lossless 入力のペアは即 Ok になることを実証 — 以降のマッピングは
+> lossless 入力系列を優先する。
 
 ## 全体集計
 
 | 状態        | 件数    | 説明                                                                                                                           |
 | ----------- | ------: | -----------------------------------------------------------------------------------------------------------------------------  |
-| ✅ Ok       | **44**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12)                                                                 |
+| ✅ Ok       | **47**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +3)                                                 |
 | ⚠️ Mismatch | **33**  | 内訳: JPEG codec 差 21 件 (finding 001) + seedspread 6 件 (finding 006) + gifio 2 件 (finding 007) + dither 4 件 (finding 008) |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                   |
 | 📭 Unmapped | **445** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → 500 → 447 → 445)                                          |
@@ -53,7 +59,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | Binary      |     Ok | Mismatch | MissingC | Unmapped | Excluded |
 | ----------- | -----: | -------: | -------: | -------: | -------: |
-| `color`     |      0 |        4 |        0 |      112 |        0 |
+| `color`     |      3 |        4 |        0 |      112 |        0 |
 | `core`      |      1 |        0 |        0 |       34 |        0 |
 | `filter`    |      2 |        5 |        0 |       57 |       40 |
 | `io`        |      7 |        2 |        0 |       41 |       10 |
@@ -70,7 +76,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 - Phase 2.5 で重点的に修正を進めた領域
 
-## Ok 44 件の内訳
+## Ok 47 件の内訳
 
 C 版と完全一致している領域:
 

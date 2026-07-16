@@ -171,3 +171,8 @@ color	dither	0	dither_bin	3	error-diffusion dither to binary (gamma 1.3)
 color	dither	2	dither_2bpp	3	dither to 2bpp without colormap (gamma 1.3)
 color	dither	4	dither_2bpp	6	scale gray 2x LI dither (gamma 1.3)
 color	dither	5	dither_2bpp	9	scale gray 4x LI dither (gamma 1.3)
+
+# paintmask_reg.c 19-21 (plan 902 PR 4): feyn.tif/rabi.png の lossless 1bpp 系列
+color	paintmask	19	pmask_1bpp	1	clipped 1bpp feyn.tif (box 670,827,800,500)
+color	paintmask	20	pmask_1bpp	2	inverted clipped rabi.png mask (box 303,1983,800,500)
+color	paintmask	21	pmask_1bpp	3	1bpp blend via clip_masked (outval 1)
