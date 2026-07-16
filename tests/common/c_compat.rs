@@ -91,7 +91,7 @@ pub struct ExcludeRule {
 }
 
 /// Parse the TSV content of `scripts/c_compat_exclude.tsv` into exclusion
-/// rules. Fields: `kind` (`ext` | `prefix`), `value`, `reason`. Lines starting
+/// rules. Fields: `kind` (`ext` | `prefix` | `key`), `value`, `reason`. Lines starting
 /// with `#`, empty lines, and malformed lines (unknown kind, fewer than 3
 /// fields) are skipped.
 pub fn parse_exclude_rules(content: &str) -> Vec<ExcludeRule> {
@@ -108,6 +108,7 @@ pub fn parse_exclude_rules(content: &str) -> Vec<ExcludeRule> {
         let kind = match fields[0].trim() {
             "ext" => ExcludeKind::Ext,
             "prefix" => ExcludeKind::Prefix,
+            "key" => ExcludeKind::Key,
             _ => continue,
         };
         rules.push(ExcludeRule {
@@ -127,7 +128,7 @@ pub fn find_exclusion<'a>(rust_key: &str, rules: &'a [ExcludeRule]) -> Option<&'
     rules.iter().find(|r| match r.kind {
         ExcludeKind::Ext => r.value == ext,
         ExcludeKind::Prefix => r.value == prefix,
-        ExcludeKind::Key => false, // stub — implemented in GREEN (plan 902 PR 5)
+        ExcludeKind::Key => r.value == rust_key,
     })
 }
 
@@ -684,7 +685,6 @@ ext\tpdf\tnon-deterministic (PR #386)";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn parse_exclude_rules_accepts_key_kind() {
         let content = "key\tdist_dynrange.01.png\tC counterpart is JPEG (finding 001)";
         let rules = parse_exclude_rules(content);
@@ -699,7 +699,6 @@ ext\tpdf\tnon-deterministic (PR #386)";
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn find_exclusion_matches_full_key_exactly() {
         let rules = vec![ExcludeRule {
             kind: ExcludeKind::Key,
