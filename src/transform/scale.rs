@@ -1233,9 +1233,11 @@ pub fn scale_gray_4x_li(pix: &Pix) -> TransformResult<Pix> {
             let s3 = pix.get_pixel_unchecked(j, inext);
             let s4 = pix.get_pixel_unchecked(jnext, inext);
             let (s1t, s2t, s3t, s4t) = (3 * s1, 3 * s2, 3 * s3, 3 * s4);
-            // C scaleGray4xLILineLow: d1..d16 for one source pixel. With
-            // the last column/row the neighbor equals s1, so the same
-            // formulas also produce the C replication values.
+            // C scaleGray4xLILineLow: d1..d16 for one source pixel.
+            // Clamping folds the out-of-range neighbors onto the nearest
+            // in-range ones (last column: s2=s1, s4=s3; last row: s3=s1,
+            // s4=s2; both: all equal s1); substituting these into the
+            // formulas reproduces the C replication values exactly.
             let block: [[u32; 4]; 4] = [
                 [s1, (s1t + s2) / 4, (s1 + s2) / 2, (s1 + s2t) / 4],
                 [
@@ -2544,7 +2546,7 @@ mod tests {
     /// replicated.
     ///
     /// Expected values hand-computed from the C algorithm
-    /// (`reference/leptonica/src/scale1.c` scaleGray2xLILineLow).
+    /// (`scaleGray2xLILineLow()` in upstream C leptonica `scale1.c`).
     #[test]
     fn test_scale_gray_2x_li_matches_c() {
         // Odd sums exercise C integer truncation: e.g. (11+20)/2 = 15,
