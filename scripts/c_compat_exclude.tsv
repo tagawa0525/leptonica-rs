@@ -7,6 +7,8 @@
 # Format: kind<TAB>value<TAB>reason
 #   kind = ext    — matches the key's file extension (edge.04.jpg → jpg)
 #   kind = prefix — matches the key's parsed prefix   (edge.04.jpg → edge)
+#   kind = key    — matches the full manifest key exactly (edge.04.jpg);
+#                   for tests where only some outputs are un-mappable
 ext	jpg	JPEG encoder output differs from C libjpeg (finding 001)
 ext	jpeg	JPEG encoder output differs from C libjpeg (finding 001)
 ext	pdf	non-deterministic byte stream, excluded from hashing (PR #386)
