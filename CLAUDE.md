@@ -109,7 +109,7 @@ src/
   `bash scripts/gen_c_manifest.sh` で再生成）
 - ランタイムレポート: `tests/c_compat_report.<binary>.txt`（.gitignore）。
   Rust 出力 hash と C manifest を `scripts/golden_map.tsv` 経由で照合し、
-  `Ok / Mismatch / MissingC / Unmapped` を記録
+  `Ok / Mismatch / MissingC / Unmapped / Excluded` を記録
 - 現状ベースライン (As of 2026-07-16 実測、plan 902 Excluded 導入後):
   `docs/porting/c-compat-status.md` に詳細。
   **Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 447 / Excluded 53**
