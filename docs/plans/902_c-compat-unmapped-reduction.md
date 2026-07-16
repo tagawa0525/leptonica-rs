@@ -51,7 +51,17 @@ C 版ソース: 対応なし (テストインフラのみ)。
 
 期待効果: Unmapped 500 → 447 (jpg 45 + pdf 8 が Excluded へ)。
 
-### PR 2 以降: semantic マッピングの漸進追加
+### PR 2: dither の semantic ペア + kernel 修正 (実施済み)
+
+C 版ソース: `src/grayquant.c` (ditherToBinaryLineLow / ditherTo2bppLineLow)。
+
+- Rust テストを C prog と同じ gamma 1.3 前処理に整列し、dither ペア 4 件を
+  golden_map に追加 (Unmapped 447 → 445、Mismatch +4)
+- この過程で **dither kernel の実装差** (古典 FS vs C 3近傍 3/8・3/8・1/4
+  整数演算 + clip) を発見し、C 準拠に修正。同一入力での bit 一致を確定証明
+- 詳細: finding 008。follow-up: scale_gray_2x/4x_li の LI 実装差 (発見 3)
+
+### PR 3 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
