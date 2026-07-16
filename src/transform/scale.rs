@@ -1130,7 +1130,10 @@ pub fn scale_color_4x_li(pix: &Pix) -> TransformResult<Pix> {
 
 /// 2× upscale of an 8bpp grayscale image using linear interpolation.
 ///
-/// Equivalent to `scale_gray_li(pix, 2.0, 2.0)`.
+/// Reproduces C `pixScaleGray2xLI()`: for source pixels s1 = (j, i),
+/// s2 = (j+1, i), s3 = (j, i+1), s4 = (j+1, i+1), the four destination
+/// pixels are `s1`, `(s1+s2)/2`, `(s1+s3)/2`, `(s1+s2+s3+s4)/4` in integer
+/// arithmetic; the last source column and row are replicated.
 pub fn scale_gray_2x_li(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
@@ -1143,12 +1146,53 @@ pub fn scale_gray_2x_li(pix: &Pix) -> TransformResult<Pix> {
             "cmapped input not supported".to_string(),
         ));
     }
-    scale_gray_li(pix, 2.0, 2.0)
+    let ws = pix.width();
+    let hs = pix.height();
+    let out = Pix::new(2 * ws, 2 * hs, PixelDepth::Bit8)?;
+    let mut dst = out.try_into_mut().unwrap();
+
+    for i in 0..hs {
+        // C scaleGray2xLILineLow: the last source row replicates itself
+        // (lastlineflag == 1), otherwise s3/s4 come from the next row.
+        let inext = if i + 1 < hs { i + 1 } else { i };
+        let (yd0, yd1) = (2 * i, 2 * i + 1);
+        for j in 0..ws {
+            let s1 = pix.get_pixel_unchecked(j, i);
+            let s3 = pix.get_pixel_unchecked(j, inext);
+            // The last source column replicates s1/s3 (C: pix2 = pix1).
+            let (s2, s4, last_col) = if j + 1 < ws {
+                (
+                    pix.get_pixel_unchecked(j + 1, i),
+                    pix.get_pixel_unchecked(j + 1, inext),
+                    false,
+                )
+            } else {
+                (s1, s3, true)
+            };
+            let (xd0, xd1) = (2 * j, 2 * j + 1);
+            dst.set_pixel_unchecked(xd0, yd0, s1);
+            dst.set_pixel_unchecked(xd1, yd0, if last_col { s1 } else { (s1 + s2) / 2 });
+            dst.set_pixel_unchecked(xd0, yd1, (s1 + s3) / 2);
+            dst.set_pixel_unchecked(
+                xd1,
+                yd1,
+                if last_col {
+                    (s1 + s3) / 2
+                } else {
+                    (s1 + s2 + s3 + s4) / 4
+                },
+            );
+        }
+    }
+    Ok(dst.into())
 }
 
 /// 4× upscale of an 8bpp grayscale image using linear interpolation.
 ///
-/// Equivalent to `scale_gray_li(pix, 4.0, 4.0)`.
+/// Reproduces C `pixScaleGray4xLI()`: each source pixel expands into a
+/// 4×4 destination block interpolated with 1/4, 1/2, 3/4 integer weights
+/// between s1 and its right/below/diagonal neighbors; the last source
+/// column and row are replicated.
 pub fn scale_gray_4x_li(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
@@ -1161,7 +1205,54 @@ pub fn scale_gray_4x_li(pix: &Pix) -> TransformResult<Pix> {
             "cmapped input not supported".to_string(),
         ));
     }
-    scale_gray_li(pix, 4.0, 4.0)
+    let ws = pix.width();
+    let hs = pix.height();
+    let out = Pix::new(4 * ws, 4 * hs, PixelDepth::Bit8)?;
+    let mut dst = out.try_into_mut().unwrap();
+
+    for i in 0..hs {
+        let last_line = i + 1 == hs;
+        let inext = if last_line { i } else { i + 1 };
+        for j in 0..ws {
+            let last_col = j + 1 == ws;
+            let jnext = if last_col { j } else { j + 1 };
+            let s1 = pix.get_pixel_unchecked(j, i);
+            let s2 = pix.get_pixel_unchecked(jnext, i);
+            let s3 = pix.get_pixel_unchecked(j, inext);
+            let s4 = pix.get_pixel_unchecked(jnext, inext);
+            let (s1t, s2t, s3t, s4t) = (3 * s1, 3 * s2, 3 * s3, 3 * s4);
+            // C scaleGray4xLILineLow: d1..d16 for one source pixel. With
+            // the last column/row the neighbor equals s1, so the same
+            // formulas also produce the C replication values.
+            let block: [[u32; 4]; 4] = [
+                [s1, (s1t + s2) / 4, (s1 + s2) / 2, (s1 + s2t) / 4],
+                [
+                    (s1t + s3) / 4,
+                    (9 * s1 + s2t + s3t + s4) / 16,
+                    (s1t + s2t + s3 + s4) / 8,
+                    (s1t + 9 * s2 + s3 + s4t) / 16,
+                ],
+                [
+                    (s1 + s3) / 2,
+                    (s1t + s2 + s3t + s4) / 8,
+                    (s1 + s2 + s3 + s4) / 4,
+                    (s1 + s2t + s3 + s4t) / 8,
+                ],
+                [
+                    (s1 + s3t) / 4,
+                    (s1t + s2 + 9 * s3 + s4t) / 16,
+                    (s1 + s2 + s3t + s4t) / 8,
+                    (s1 + s2t + s3t + 9 * s4) / 16,
+                ],
+            ];
+            for (dy, row) in block.iter().enumerate() {
+                for (dx, &v) in row.iter().enumerate() {
+                    dst.set_pixel_unchecked(4 * j + dx as u32, 4 * i + dy as u32, v);
+                }
+            }
+        }
+    }
+    Ok(dst.into())
 }
 
 /// 2× upscale of an 8bpp image with LI, then threshold to 1bpp.
@@ -2440,7 +2531,6 @@ mod tests {
     /// Expected values hand-computed from the C algorithm
     /// (`reference/leptonica/src/scale1.c` scaleGray2xLILineLow).
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_2x_li_matches_c() {
         let input: [[u8; 3]; 2] = [[10, 20, 30], [50, 60, 70]];
         let expected: [[u32; 6]; 4] = [
@@ -2458,7 +2548,6 @@ mod tests {
     /// (16 destination pixels per source pixel with 1/4, 1/2, 3/4 integer
     /// interpolation weights; last source column/row replicated).
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_gray_4x_li_matches_c() {
         let input: [[u8; 2]; 2] = [[0, 40], [80, 120]];
         let expected: [[u32; 8]; 8] = [
