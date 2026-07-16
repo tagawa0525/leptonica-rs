@@ -76,6 +76,10 @@ pub enum ExcludeKind {
     Ext,
     /// Matches the parsed prefix of the Rust manifest key (`edge.04.jpg` → `edge`).
     Prefix,
+    /// Matches the full Rust manifest key exactly (`edge.04.jpg`). Used when
+    /// only some outputs of a test are un-mappable (e.g. the C counterpart
+    /// is written as JPEG while sibling outputs are PNG).
+    Key,
 }
 
 /// One parsed line of `scripts/c_compat_exclude.tsv`.
@@ -87,7 +91,7 @@ pub struct ExcludeRule {
 }
 
 /// Parse the TSV content of `scripts/c_compat_exclude.tsv` into exclusion
-/// rules. Fields: `kind` (`ext` | `prefix`), `value`, `reason`. Lines starting
+/// rules. Fields: `kind` (`ext` | `prefix` | `key`), `value`, `reason`. Lines starting
 /// with `#`, empty lines, and malformed lines (unknown kind, fewer than 3
 /// fields) are skipped.
 pub fn parse_exclude_rules(content: &str) -> Vec<ExcludeRule> {
@@ -104,6 +108,7 @@ pub fn parse_exclude_rules(content: &str) -> Vec<ExcludeRule> {
         let kind = match fields[0].trim() {
             "ext" => ExcludeKind::Ext,
             "prefix" => ExcludeKind::Prefix,
+            "key" => ExcludeKind::Key,
             _ => continue,
         };
         rules.push(ExcludeRule {
@@ -123,6 +128,7 @@ pub fn find_exclusion<'a>(rust_key: &str, rules: &'a [ExcludeRule]) -> Option<&'
     rules.iter().find(|r| match r.kind {
         ExcludeKind::Ext => r.value == ext,
         ExcludeKind::Prefix => r.value == prefix,
+        ExcludeKind::Key => r.value == rust_key,
     })
 }
 
@@ -676,6 +682,33 @@ ext\tpdf\tnon-deterministic (PR #386)";
         // Unmapped + no rule hit → Unmapped, unchanged.
         let (s, _) = check_c_hash_against("other.01.png", 0, &gmap, &cm, &rules);
         assert_eq!(s, CCompatStatus::Unmapped);
+    }
+
+    #[test]
+    fn parse_exclude_rules_accepts_key_kind() {
+        let content = "key\tdist_dynrange.01.png\tC counterpart is JPEG (finding 001)";
+        let rules = parse_exclude_rules(content);
+        assert_eq!(
+            rules,
+            vec![ExcludeRule {
+                kind: ExcludeKind::Key,
+                value: "dist_dynrange.01.png".to_string(),
+                reason: "C counterpart is JPEG (finding 001)".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn find_exclusion_matches_full_key_exactly() {
+        let rules = vec![ExcludeRule {
+            kind: ExcludeKind::Key,
+            value: "dist_dynrange.01.png".to_string(),
+            reason: "C counterpart is JPEG".to_string(),
+        }];
+        assert!(find_exclusion("dist_dynrange.01.png", &rules).is_some());
+        // Neither a different index nor a prefix/extension match qualifies.
+        assert!(find_exclusion("dist_dynrange.02.png", &rules).is_none());
+        assert!(find_exclusion("dist_dynrange.01.tif", &rules).is_none());
     }
 
     #[test]

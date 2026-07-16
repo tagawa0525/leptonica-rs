@@ -27,28 +27,34 @@ fn distance_reg_all_combos() {
     // box = boxCreate(383, 338, 1480, 1050);
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = pix
-        .clip_rectangle(383, 338, 800, 500)
+        .clip_rectangle(383, 338, 1480, 1050)
         .expect("clip feyn region");
     assert_eq!(pixs.depth(), PixelDepth::Bit1);
+
+    // C check 0: the clipped source itself.
+    rp.write_pix_and_check(&pixs, ImageFormat::Png)
+        .expect("write clipped source");
+
+    // C TestDistance inverts pixs before computing the distance function
+    // (and inverts back afterwards); distance is measured in the page
+    // background, not inside the text strokes.
+    let pixs_inv = pixs.invert();
 
     let connectivities = [ConnectivityType::FourWay, ConnectivityType::EightWay];
     let depths = [PixelDepth::Bit8, PixelDepth::Bit16];
     let boundaries = [BoundaryCondition::Background, BoundaryCondition::Foreground];
 
-    let mut combo_idx = 0usize;
     for &conn in &connectivities {
         for &depth in &depths {
             for &bc in &boundaries {
-                // C: pixt1 = pixDistanceFunction(pixs, conn, depth, bc);
-                let result = distance_function(&pixs, conn, depth, bc).expect("distance_function");
+                // C: pixInvert; pixt1 = pixDistanceFunction(pixs, conn, depth, bc); /* a+1 */
+                let result =
+                    distance_function(&pixs_inv, conn, depth, bc).expect("distance_function");
                 rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);
                 rp.compare_values(pixs.height() as f64, result.height() as f64, 0.0);
                 assert_eq!(result.depth(), depth);
-                if combo_idx == 0 {
-                    rp.write_pix_and_check(&result, ImageFormat::Png)
-                        .expect("write result dist_combos");
-                }
-                combo_idx += 1;
+                rp.write_pix_and_check(&result, ImageFormat::Png)
+                    .expect("write result dist_combos");
             }
         }
     }
@@ -67,7 +73,7 @@ fn distance_reg_seedfill_labeling() {
 
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = pix
-        .clip_rectangle(383, 338, 400, 300)
+        .clip_rectangle(383, 338, 1480, 1050)
         .expect("clip feyn region");
 
     // C: pixt1 = pixDistanceFunction(pixs, 4, 8, bc);
@@ -118,17 +124,20 @@ fn distance_reg_max_dynamic_range() {
 
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = pix
-        .clip_rectangle(383, 338, 400, 300)
+        .clip_rectangle(383, 338, 1480, 1050)
         .expect("clip feyn region");
 
     let connectivities = [ConnectivityType::FourWay, ConnectivityType::EightWay];
     let depths = [PixelDepth::Bit8, PixelDepth::Bit16];
     let boundaries = [BoundaryCondition::Background, BoundaryCondition::Foreground];
 
+    // C TestDistance computes the distance function on the inverted source.
+    let pixs_inv = pixs.invert();
     for &conn in &connectivities {
         for &depth in &depths {
             for &bc in &boundaries {
-                let dist = distance_function(&pixs, conn, depth, bc).expect("distance_function");
+                let dist =
+                    distance_function(&pixs_inv, conn, depth, bc).expect("distance_function");
 
                 // C: pixt2 = pixMaxDynamicRange(pixt1, L_LOG_SCALE); /* a+2 */
                 let log_scaled = max_dynamic_range(&dist, DynamicRangeScale::Log)
@@ -163,17 +172,20 @@ fn distance_reg_render_contours() {
 
     let pix = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
     let pixs = pix
-        .clip_rectangle(383, 338, 400, 300)
+        .clip_rectangle(383, 338, 1480, 1050)
         .expect("clip feyn region");
 
     let connectivities = [ConnectivityType::FourWay, ConnectivityType::EightWay];
     let depths = [PixelDepth::Bit8, PixelDepth::Bit16];
     let boundaries = [BoundaryCondition::Background, BoundaryCondition::Foreground];
 
+    // C TestDistance computes the distance function on the inverted source.
+    let pixs_inv = pixs.invert();
     for &conn in &connectivities {
         for &depth in &depths {
             for &bc in &boundaries {
-                let dist = distance_function(&pixs, conn, depth, bc).expect("distance_function");
+                let dist =
+                    distance_function(&pixs_inv, conn, depth, bc).expect("distance_function");
 
                 // C: pixt2 = pixRenderContours(pixt1, 2, 4, 1); /* binary, a+4 */
                 let contour_bin = dist
@@ -197,4 +209,82 @@ fn distance_reg_render_contours() {
     }
 
     assert!(rp.cleanup(), "distance render_contours test failed");
+}
+
+/// distance_function must reproduce C pixDistanceFunction exactly for both
+/// boundary conditions. Expected values hand-computed from the C algorithm
+/// (`pixDistanceFunction()` / `distanceFunctionLow()` in upstream seedfill.c):
+///
+/// - init: fg = 1, bg = 0
+/// - L_BOUNDARY_BG: the 1-pixel boundary ring keeps its init value
+/// - L_BOUNDARY_FG: the ring is set to 255 before the interior passes, and
+///   afterwards each ring pixel is mirrored from its adjacent interior pixel
+/// - two raster passes over the interior only (fwd: overwrite with
+///   min(neighbors, 254)+1; bwd: min(min(neighbors)+1, current))
+#[test]
+fn distance_reg_matches_c_kernel() {
+    // 6x5 all-fg image with one interior bg pixel at (3, 2).
+    let pix = {
+        let p = leptonica::Pix::new(6, 5, PixelDepth::Bit1).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..5 {
+            for x in 0..6 {
+                pm.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        pm.set_pixel(3, 2, 0).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    // bc = Background: ring keeps init (all fg → 1).
+    let expected_bg: [[u32; 6]; 5] = [
+        [1, 1, 1, 1, 1, 1],
+        [1, 2, 2, 1, 2, 1],
+        [1, 2, 1, 0, 1, 1],
+        [1, 2, 2, 1, 2, 1],
+        [1, 1, 1, 1, 1, 1],
+    ];
+    let out = distance_function(
+        &pix,
+        ConnectivityType::FourWay,
+        PixelDepth::Bit8,
+        BoundaryCondition::Background,
+    )
+    .expect("distance_function bg");
+    for (y, row) in expected_bg.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "bg pixel ({x}, {y})"
+            );
+        }
+    }
+
+    // bc = Foreground: ring = 255 during the passes, then mirrored from the
+    // interior (corners take the diagonal interior value).
+    let expected_fg: [[u32; 6]; 5] = [
+        [3, 3, 2, 1, 2, 2],
+        [3, 3, 2, 1, 2, 2],
+        [2, 2, 1, 0, 1, 1],
+        [3, 3, 2, 1, 2, 2],
+        [3, 3, 2, 1, 2, 2],
+    ];
+    let out = distance_function(
+        &pix,
+        ConnectivityType::FourWay,
+        PixelDepth::Bit8,
+        BoundaryCondition::Foreground,
+    )
+    .expect("distance_function fg");
+    for (y, row) in expected_fg.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "fg pixel ({x}, {y})"
+            );
+        }
+    }
 }

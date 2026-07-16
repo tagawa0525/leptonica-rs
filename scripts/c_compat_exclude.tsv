@@ -7,7 +7,21 @@
 # Format: kind<TAB>value<TAB>reason
 #   kind = ext    — matches the key's file extension (edge.04.jpg → jpg)
 #   kind = prefix — matches the key's parsed prefix   (edge.04.jpg → edge)
+#   kind = key    — matches the full manifest key exactly (edge.04.jpg);
+#                   for tests where only some outputs are un-mappable
 ext	jpg	JPEG encoder output differs from C libjpeg (finding 001)
 ext	jpeg	JPEG encoder output differs from C libjpeg (finding 001)
 ext	pdf	non-deterministic byte stream, excluded from hashing (PR #386)
 ext	ps	non-deterministic byte stream, excluded from hashing (PR #386)
+# distance_reg (plan 902 PR 5): C 側対応出力が JPEG (finding 001) または存在しないため
+prefix	dist_dynrange	C counterpart is JPEG (a+2) or absent (linear variant of dist)
+key	dist_contours.02.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_contours.04.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_contours.06.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_contours.08.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_contours.10.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_contours.12.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_contours.14.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_contours.16.png	C counterpart a+6 is JPEG (finding 001)
+key	dist_seedfill.05.png	C b-section writes only JPEG (b+1..b+3, finding 001)
+key	dist_seedfill.06.png	C b-section writes only JPEG (b+1..b+3, finding 001)
