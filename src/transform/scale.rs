@@ -1130,7 +1130,10 @@ pub fn scale_color_4x_li(pix: &Pix) -> TransformResult<Pix> {
 
 /// 2× upscale of an 8bpp grayscale image using linear interpolation.
 ///
-/// Equivalent to `scale_gray_li(pix, 2.0, 2.0)`.
+/// Reproduces C `pixScaleGray2xLI()`: for source pixels s1 = (j, i),
+/// s2 = (j+1, i), s3 = (j, i+1), s4 = (j+1, i+1), the four destination
+/// pixels are `s1`, `(s1+s2)/2`, `(s1+s3)/2`, `(s1+s2+s3+s4)/4` in integer
+/// arithmetic; the last source column and row are replicated.
 pub fn scale_gray_2x_li(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
@@ -1143,12 +1146,59 @@ pub fn scale_gray_2x_li(pix: &Pix) -> TransformResult<Pix> {
             "cmapped input not supported".to_string(),
         ));
     }
-    scale_gray_li(pix, 2.0, 2.0)
+    let ws = pix.width();
+    let hs = pix.height();
+    let wd = ws.checked_mul(2).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled width would overflow u32".to_string())
+    })?;
+    let hd = hs.checked_mul(2).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled height would overflow u32".to_string())
+    })?;
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut dst = out.try_into_mut().unwrap();
+
+    for i in 0..hs {
+        // C scaleGray2xLILineLow: the last source row replicates itself
+        // (lastlineflag == 1), otherwise s3/s4 come from the next row.
+        let inext = if i + 1 < hs { i + 1 } else { i };
+        let (yd0, yd1) = (2 * i, 2 * i + 1);
+        for j in 0..ws {
+            let s1 = pix.get_pixel_unchecked(j, i);
+            let s3 = pix.get_pixel_unchecked(j, inext);
+            // The last source column replicates s1/s3 (C: pix2 = pix1).
+            let (s2, s4, last_col) = if j + 1 < ws {
+                (
+                    pix.get_pixel_unchecked(j + 1, i),
+                    pix.get_pixel_unchecked(j + 1, inext),
+                    false,
+                )
+            } else {
+                (s1, s3, true)
+            };
+            let (xd0, xd1) = (2 * j, 2 * j + 1);
+            dst.set_pixel_unchecked(xd0, yd0, s1);
+            dst.set_pixel_unchecked(xd1, yd0, if last_col { s1 } else { (s1 + s2) / 2 });
+            dst.set_pixel_unchecked(xd0, yd1, (s1 + s3) / 2);
+            dst.set_pixel_unchecked(
+                xd1,
+                yd1,
+                if last_col {
+                    (s1 + s3) / 2
+                } else {
+                    (s1 + s2 + s3 + s4) / 4
+                },
+            );
+        }
+    }
+    Ok(dst.into())
 }
 
 /// 4× upscale of an 8bpp grayscale image using linear interpolation.
 ///
-/// Equivalent to `scale_gray_li(pix, 4.0, 4.0)`.
+/// Reproduces C `pixScaleGray4xLI()`: each source pixel expands into a
+/// 4×4 destination block interpolated with 1/4, 1/2, 3/4 integer weights
+/// between s1 and its right/below/diagonal neighbors; the last source
+/// column and row are replicated.
 pub fn scale_gray_4x_li(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
@@ -1161,7 +1211,62 @@ pub fn scale_gray_4x_li(pix: &Pix) -> TransformResult<Pix> {
             "cmapped input not supported".to_string(),
         ));
     }
-    scale_gray_li(pix, 4.0, 4.0)
+    let ws = pix.width();
+    let hs = pix.height();
+    let wd = ws.checked_mul(4).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled width would overflow u32".to_string())
+    })?;
+    let hd = hs.checked_mul(4).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled height would overflow u32".to_string())
+    })?;
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
+    let mut dst = out.try_into_mut().unwrap();
+
+    for i in 0..hs {
+        let last_line = i + 1 == hs;
+        let inext = if last_line { i } else { i + 1 };
+        for j in 0..ws {
+            let last_col = j + 1 == ws;
+            let jnext = if last_col { j } else { j + 1 };
+            let s1 = pix.get_pixel_unchecked(j, i);
+            let s2 = pix.get_pixel_unchecked(jnext, i);
+            let s3 = pix.get_pixel_unchecked(j, inext);
+            let s4 = pix.get_pixel_unchecked(jnext, inext);
+            let (s1t, s2t, s3t, s4t) = (3 * s1, 3 * s2, 3 * s3, 3 * s4);
+            // C scaleGray4xLILineLow: d1..d16 for one source pixel.
+            // Clamping folds the out-of-range neighbors onto the nearest
+            // in-range ones (last column: s2=s1, s4=s3; last row: s3=s1,
+            // s4=s2; both: all equal s1); substituting these into the
+            // formulas reproduces the C replication values exactly.
+            let block: [[u32; 4]; 4] = [
+                [s1, (s1t + s2) / 4, (s1 + s2) / 2, (s1 + s2t) / 4],
+                [
+                    (s1t + s3) / 4,
+                    (9 * s1 + s2t + s3t + s4) / 16,
+                    (s1t + s2t + s3 + s4) / 8,
+                    (s1t + 9 * s2 + s3 + s4t) / 16,
+                ],
+                [
+                    (s1 + s3) / 2,
+                    (s1t + s2 + s3t + s4) / 8,
+                    (s1 + s2 + s3 + s4) / 4,
+                    (s1 + s2t + s3 + s4t) / 8,
+                ],
+                [
+                    (s1 + s3t) / 4,
+                    (s1t + s2 + 9 * s3 + s4t) / 16,
+                    (s1 + s2 + s3t + s4t) / 8,
+                    (s1 + s2t + s3t + 9 * s4) / 16,
+                ],
+            ];
+            for (dy, row) in block.iter().enumerate() {
+                for (dx, &v) in row.iter().enumerate() {
+                    dst.set_pixel_unchecked(4 * j + dx as u32, 4 * i + dy as u32, v);
+                }
+            }
+        }
+    }
+    Ok(dst.into())
 }
 
 /// 2× upscale of an 8bpp image with LI, then threshold to 1bpp.
@@ -2430,6 +2535,82 @@ mod tests {
         let out = scale_gray_4x_li(&pix).unwrap();
         assert_eq!((out.width(), out.height()), (16, 12));
         assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    /// scale_gray_2x_li must reproduce C scaleGray2xLILineLow exactly.
+    /// In (x, y) order, with s1 = src(x, y), s2 = src(x+1, y),
+    /// s3 = src(x, y+1), s4 = src(x+1, y+1):
+    /// dst(2x, 2y) = s1, dst(2x+1, 2y) = (s1+s2)/2,
+    /// dst(2x, 2y+1) = (s1+s3)/2, dst(2x+1, 2y+1) = (s1+s2+s3+s4)/4,
+    /// all in integer arithmetic, with the last source column/row
+    /// replicated.
+    ///
+    /// Expected values hand-computed from the C algorithm
+    /// (`scaleGray2xLILineLow()` in upstream C leptonica `scale1.c`).
+    #[test]
+    fn test_scale_gray_2x_li_matches_c() {
+        // Odd sums exercise C integer truncation: e.g. (11+20)/2 = 15,
+        // (11+20+50+61)/4 = 35, (20+33)/2 = 26, (33+70)/2 = 51.
+        let input: [[u8; 3]; 2] = [[11, 20, 33], [50, 61, 70]];
+        let expected: [[u32; 6]; 4] = [
+            [11, 15, 20, 26, 33, 33],
+            [30, 35, 40, 46, 51, 51],
+            [50, 55, 61, 65, 70, 70],
+            [50, 55, 61, 65, 70, 70],
+        ];
+        let pix = gray_pix_from_rows(&input);
+        let out = scale_gray_2x_li(&pix).unwrap();
+        assert_pixels_eq(&out, &expected);
+    }
+
+    /// scale_gray_4x_li must reproduce C scaleGray4xLILineLow exactly
+    /// (16 destination pixels per source pixel with 1/4, 1/2, 3/4 integer
+    /// interpolation weights; last source column/row replicated).
+    #[test]
+    fn test_scale_gray_4x_li_matches_c() {
+        // Small non-multiples make every 1/4, 1/8, 1/16 weighted sum
+        // truncate, locking in exact C integer semantics
+        // (e.g. d2 = (3*1+2)/4 = 1, d6 = (9*1+3*2+3*3+4)/16 = 1,
+        // d16 = (1+3*2+3*3+9*4)/16 = 3).
+        let input: [[u8; 2]; 2] = [[1, 2], [3, 4]];
+        let expected: [[u32; 8]; 8] = [
+            [1, 1, 1, 1, 2, 2, 2, 2],
+            [1, 1, 2, 2, 2, 2, 2, 2],
+            [2, 2, 2, 2, 3, 3, 3, 3],
+            [2, 2, 3, 3, 3, 3, 3, 3],
+            [3, 3, 3, 3, 4, 4, 4, 4],
+            [3, 3, 3, 3, 4, 4, 4, 4],
+            [3, 3, 3, 3, 4, 4, 4, 4],
+            [3, 3, 3, 3, 4, 4, 4, 4],
+        ];
+        let pix = gray_pix_from_rows(&input);
+        let out = scale_gray_4x_li(&pix).unwrap();
+        assert_pixels_eq(&out, &expected);
+    }
+
+    /// Build an 8bpp grayscale Pix from a small row-major table.
+    fn gray_pix_from_rows<const W: usize, const H: usize>(rows: &[[u8; W]; H]) -> Pix {
+        let pix = Pix::new(W as u32, H as u32, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for (y, row) in rows.iter().enumerate() {
+            for (x, &v) in row.iter().enumerate() {
+                pm.set_pixel(x as u32, y as u32, v as u32).unwrap();
+            }
+        }
+        pm.into()
+    }
+
+    fn assert_pixels_eq<const W: usize, const H: usize>(out: &Pix, expected: &[[u32; W]; H]) {
+        assert_eq!((out.width(), out.height()), (W as u32, H as u32));
+        for (y, row) in expected.iter().enumerate() {
+            for (x, &want) in row.iter().enumerate() {
+                assert_eq!(
+                    out.get_pixel(x as u32, y as u32).unwrap(),
+                    want,
+                    "pixel ({x}, {y})"
+                );
+            }
+        }
     }
 
     #[test]
