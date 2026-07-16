@@ -99,7 +99,6 @@ fn dither_reg_ordered() {
 /// Expected values hand-computed from the C algorithm
 /// (`reference/leptonica/src/grayquant.c` ditherToBinaryLineLow).
 #[test]
-#[ignore = "not yet implemented"]
 fn dither_reg_to_binary_matches_c_kernel() {
     // Row 0: 8 is within lowerclip (10) → ON without propagation
     //        (classic Floyd-Steinberg would propagate and flip later pixels).
@@ -124,7 +123,6 @@ fn dither_reg_to_binary_matches_c_kernel() {
 /// 43/128/213, cliptoblack = cliptowhite = 5) and truncating integer
 /// division for negative errors.
 #[test]
-#[ignore = "not yet implemented"]
 fn dither_reg_to_2bpp_matches_c_kernel() {
     let input: [[u8; 3]; 2] = [[100, 200, 60], [50, 150, 255]];
     let expected: [[u32; 3]; 2] = [[1, 2, 1], [1, 2, 3]];

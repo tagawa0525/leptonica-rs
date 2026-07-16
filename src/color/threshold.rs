@@ -328,75 +328,104 @@ fn compute_mean_from_integral_f64(
 }
 
 // =============================================================================
-// Floyd-Steinberg Dithering
+// Error-diffusion dithering (C leptonica kernel)
 // =============================================================================
 
-/// Convert grayscale image to binary using Floyd-Steinberg dithering
+/// Distance to black/white below which a 1bpp dither pixel propagates no
+/// error (C `DEFAULT_CLIP_LOWER_1` / `DEFAULT_CLIP_UPPER_1`).
+const DEFAULT_CLIP_LOWER_1: i32 = 10;
+const DEFAULT_CLIP_UPPER_1: i32 = 10;
+
+/// Convert grayscale image to binary with error-diffusion dithering.
 ///
-/// Distributes quantization error to neighboring pixels for better
-/// visual appearance.
+/// Uses leptonica's 3-neighbor kernel: 3/8 of the error to the right and
+/// below neighbors, 1/4 to the below-right, in integer arithmetic. Pixels
+/// within `DEFAULT_CLIP_LOWER_1` / `DEFAULT_CLIP_UPPER_1` (= 10) of black
+/// or white propagate no error.
+///
+/// # See also
+///
+/// C Leptonica: `pixDitherToBinary()` in `grayquant.c`
 pub fn dither_to_binary(pix: &Pix) -> ColorResult<Pix> {
     dither_to_binary_with_threshold(pix, 128)
 }
 
-/// Convert grayscale image to binary using Floyd-Steinberg dithering
-/// with a specified threshold.
+/// Convert grayscale image to binary with error-diffusion dithering and a
+/// specified threshold.
+///
+/// Rust extension of `pixDitherToBinary()`: the C kernel binarizes at the
+/// fixed boundary `oval > 127`; here a pixel is ON when `oval < threshold`,
+/// so `threshold = 128` reproduces the C behavior exactly.
 pub fn dither_to_binary_with_threshold(pix: &Pix, threshold: u8) -> ColorResult<Pix> {
     let gray_pix = ensure_grayscale(pix)?;
 
-    let w = gray_pix.width();
-    let h = gray_pix.height();
+    let w = gray_pix.width() as usize;
+    let h = gray_pix.height() as usize;
+    let threshold = threshold as i32;
 
-    // Work with floating point for error diffusion
-    let mut buffer: Vec<f32> = Vec::with_capacity((w * h) as usize);
+    // Two-line rolling buffers, as in C ditherToBinaryLow (bufs1 = current
+    // row, bufs2 = next row). Values stay clamped to u8 range after every
+    // propagation, matching the C byte buffers.
+    let mut bufs1: Vec<i32> = Vec::with_capacity(w);
+    let mut bufs2: Vec<i32> = (0..w)
+        .map(|x| gray_pix.get_pixel_unchecked(x as u32, 0) as i32)
+        .collect();
+
+    let out_pix = Pix::new(w as u32, h as u32, PixelDepth::Bit1)?;
+    let mut out = out_pix.try_into_mut().unwrap();
+
     for y in 0..h {
+        std::mem::swap(&mut bufs1, &mut bufs2);
+        let last_line = y + 1 == h;
+        if !last_line {
+            bufs2.clear();
+            bufs2.extend(
+                (0..w).map(|x| gray_pix.get_pixel_unchecked(x as u32, (y + 1) as u32) as i32),
+            );
+        }
+
         for x in 0..w {
-            let pixel = gray_pix.get_pixel_unchecked(x, y) as f32;
-            buffer.push(pixel);
+            let oval = bufs1[x];
+            let last_col = x + 1 == w;
+            if oval >= threshold {
+                // Binarize to OFF (0); subtract the distance to white.
+                let eval = 255 - oval;
+                if eval > DEFAULT_CLIP_UPPER_1 {
+                    let fval1 = (3 * eval) / 8;
+                    let fval2 = eval / 4;
+                    match (last_col, last_line) {
+                        (false, false) => {
+                            bufs1[x + 1] = (bufs1[x + 1] - fval1).max(0);
+                            bufs2[x] = (bufs2[x] - fval1).max(0);
+                            bufs2[x + 1] = (bufs2[x + 1] - fval2).max(0);
+                        }
+                        (true, false) => bufs2[x] = (bufs2[x] - fval1).max(0),
+                        (false, true) => bufs1[x + 1] = (bufs1[x + 1] - fval1).max(0),
+                        (true, true) => {}
+                    }
+                }
+            } else {
+                // Binarize to ON (1); add the distance to black.
+                out.set_pixel_unchecked(x as u32, y as u32, 1);
+                if oval > DEFAULT_CLIP_LOWER_1 {
+                    let fval1 = (3 * oval) / 8;
+                    let fval2 = oval / 4;
+                    match (last_col, last_line) {
+                        (false, false) => {
+                            bufs1[x + 1] = (bufs1[x + 1] + fval1).min(255);
+                            bufs2[x] = (bufs2[x] + fval1).min(255);
+                            bufs2[x + 1] = (bufs2[x + 1] + fval2).min(255);
+                        }
+                        (true, false) => bufs2[x] = (bufs2[x] + fval1).min(255),
+                        (false, true) => bufs1[x + 1] = (bufs1[x + 1] + fval1).min(255),
+                        (true, true) => {}
+                    }
+                }
+            }
         }
     }
 
-    let out_pix = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    let threshold = threshold as f32;
-
-    for y in 0..h {
-        for x in 0..w {
-            let idx = (y * w + x) as usize;
-            let old_pixel = buffer[idx];
-
-            // Quantize: dark pixels (< threshold) become foreground (1),
-            // bright pixels (>= threshold) become background (0).
-            let is_fg = old_pixel < threshold;
-            let new_pixel = if is_fg { 0.0 } else { 255.0 };
-            let binary = if is_fg { 1 } else { 0 };
-            out_mut.set_pixel_unchecked(x, y, binary);
-
-            // Compute error
-            let error = old_pixel - new_pixel;
-
-            // Distribute error to neighbors (Floyd-Steinberg pattern)
-            // [   *   7/16]
-            // [3/16 5/16 1/16]
-
-            if x + 1 < w {
-                buffer[idx + 1] += error * 7.0 / 16.0;
-            }
-            if y + 1 < h {
-                let next_row = ((y + 1) * w) as usize;
-                if x > 0 {
-                    buffer[next_row + x as usize - 1] += error * 3.0 / 16.0;
-                }
-                buffer[next_row + x as usize] += error * 5.0 / 16.0;
-                if x + 1 < w {
-                    buffer[next_row + x as usize + 1] += error * 1.0 / 16.0;
-                }
-            }
-        }
-    }
-
-    Ok(out_mut.into())
+    Ok(out.into())
 }
 
 // =============================================================================
@@ -1315,25 +1344,105 @@ pub fn adapt_threshold_to_binary_gen(
     threshold_otsu(&mapped_pix)
 }
 
-/// Floyd-Steinberg dither to 2bpp (4 levels).
+/// Distance to black/white below which a 2bpp dither pixel propagates no
+/// error (C `DEFAULT_CLIP_LOWER_2` / `DEFAULT_CLIP_UPPER_2`).
+const DEFAULT_CLIP_LOWER_2: i32 = 5;
+const DEFAULT_CLIP_UPPER_2: i32 = 5;
+
+/// Error-diffusion dither to 2bpp (4 levels at 0, 85, 170, 255).
 ///
-/// Uses error-diffusion dithering with output levels 0, 85, 170, 255
-/// mapped to 2bpp values 0–3.
+/// Reproduces C `pixDitherTo2bpp()`: lookup tables from
+/// `make8To2DitherTables()` select the output level (split points 43, 85,
+/// 128, 170, 213) and the signed error, which is diffused 3/8 right,
+/// 3/8 below, and 1/4 below-right in integer arithmetic. Values within
+/// `DEFAULT_CLIP_LOWER_2` / `DEFAULT_CLIP_UPPER_2` (= 5) of black or white
+/// propagate no error.
 ///
 /// # See also
 ///
 /// C Leptonica: `pixDitherTo2bpp()` in `grayquant.c`
 pub fn dither_to_2bpp(pix: &Pix) -> ColorResult<Pix> {
-    dither_to_2bpp_spec(pix, 64, 128, 192)
+    let gray_pix = ensure_grayscale(pix)?;
+
+    // Lookup tables (C make8To2DitherTables): output level, 3/8 error,
+    // 1/4 error. Rust i32 division truncates toward zero like C l_int32.
+    let mut tabval = [0i32; 256];
+    let mut tab38 = [0i32; 256];
+    let mut tab14 = [0i32; 256];
+    for (i, ((tv, t38), t14)) in tabval
+        .iter_mut()
+        .zip(tab38.iter_mut())
+        .zip(tab14.iter_mut())
+        .enumerate()
+    {
+        let i = i as i32;
+        (*tv, *t38, *t14) = if i <= DEFAULT_CLIP_LOWER_2 {
+            (0, 0, 0)
+        } else if i < 43 {
+            (0, (3 * i + 4) / 8, (i + 2) / 4)
+        } else if i < 85 {
+            (1, (3 * (i - 85) - 4) / 8, ((i - 85) - 2) / 4)
+        } else if i < 128 {
+            (1, (3 * (i - 85) + 4) / 8, ((i - 85) + 2) / 4)
+        } else if i < 170 {
+            (2, (3 * (i - 170) - 4) / 8, ((i - 170) - 2) / 4)
+        } else if i < 213 {
+            (2, (3 * (i - 170) + 4) / 8, ((i - 170) + 2) / 4)
+        } else if i < 255 - DEFAULT_CLIP_UPPER_2 {
+            (3, (3 * (i - 255) - 4) / 8, ((i - 255) - 2) / 4)
+        } else {
+            (3, 0, 0)
+        };
+    }
+
+    let w = gray_pix.width() as usize;
+    let h = gray_pix.height() as usize;
+
+    let mut bufs1: Vec<i32> = Vec::with_capacity(w);
+    let mut bufs2: Vec<i32> = (0..w)
+        .map(|x| gray_pix.get_pixel_unchecked(x as u32, 0) as i32)
+        .collect();
+
+    let out_pix = Pix::new(w as u32, h as u32, PixelDepth::Bit2)?;
+    let mut out = out_pix.try_into_mut().unwrap();
+
+    for y in 0..h {
+        std::mem::swap(&mut bufs1, &mut bufs2);
+        let last_line = y + 1 == h;
+        if !last_line {
+            bufs2.clear();
+            bufs2.extend(
+                (0..w).map(|x| gray_pix.get_pixel_unchecked(x as u32, (y + 1) as u32) as i32),
+            );
+        }
+
+        for x in 0..w {
+            let oval = bufs1[x] as usize;
+            out.set_pixel_unchecked(x as u32, y as u32, tabval[oval] as u32);
+            let t38 = tab38[oval];
+            let t14 = tab14[oval];
+            let apply = |v: i32, e: i32| (v + e).clamp(0, 255);
+            match (x + 1 == w, last_line) {
+                (false, false) => {
+                    bufs1[x + 1] = apply(bufs1[x + 1], t38);
+                    bufs2[x] = apply(bufs2[x], t38);
+                    bufs2[x + 1] = apply(bufs2[x + 1], t14);
+                }
+                (true, false) => bufs2[x] = apply(bufs2[x], t38),
+                (false, true) => bufs1[x + 1] = apply(bufs1[x + 1], t38),
+                (true, true) => {}
+            }
+        }
+    }
+
+    Ok(out.into())
 }
 
 /// Dither to 2bpp with specified thresholds.
 ///
-/// The three thresholds divide the 0–255 range into four output levels.
-///
-/// # See also
-///
-/// C Leptonica: `pixDitherTo2bppSpec()` in `grayquant.c`
+/// Rust extension: the three thresholds divide the 0–255 range into four
+/// output levels using classic Floyd-Steinberg error diffusion. For the
+/// C-compatible fixed-level dither, use [`dither_to_2bpp`].
 pub fn dither_to_2bpp_spec(
     pix: &Pix,
     thresh1: u32,
