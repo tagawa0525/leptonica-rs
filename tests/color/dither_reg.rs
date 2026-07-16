@@ -13,12 +13,22 @@
 //! C Leptonica: `prog/dither_reg.c`
 
 use crate::common::RegParams;
+use leptonica::Pix;
 use leptonica::PixelDepth;
 use leptonica::color::{
     dither_to_2bpp, dither_to_binary, dither_to_binary_with_threshold, ordered_dither,
 };
+use leptonica::filter::gamma_trc_pix;
 use leptonica::io::ImageFormat;
 use leptonica::transform::{scale_gray_2x_li_dither, scale_gray_4x_li_dither};
+
+/// Load test8.jpg with the same gamma-1.3 preprocessing as the C prog
+/// (`pixs = pixGammaTRC(NULL, pix, 1.3, 0, 255)`), so outputs are
+/// comparable with the C golden hashes (plan 902).
+fn load_gamma_corrected_test8() -> crate::common::TestResult<Pix> {
+    let pix = crate::common::load_test_image("test8.jpg")?;
+    Ok(gamma_trc_pix(&pix, 1.3, 0, 255).expect("gamma_trc 1.3"))
+}
 
 /// Test dither_to_binary (C check 0: pixDitherToBinary).
 ///
@@ -27,7 +37,7 @@ use leptonica::transform::{scale_gray_2x_li_dither, scale_gray_4x_li_dither};
 fn dither_reg_to_binary() {
     let mut rp = RegParams::new("dither_bin");
 
-    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = load_gamma_corrected_test8().expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -56,7 +66,7 @@ fn dither_reg_to_binary() {
 fn dither_reg_ordered() {
     let mut rp = RegParams::new("dither_ord");
 
-    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = load_gamma_corrected_test8().expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -92,7 +102,7 @@ fn dither_reg_2bpp_and_scaled() {
 
     let mut rp = RegParams::new("dither_2bpp");
 
-    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = load_gamma_corrected_test8().expect("load test8.jpg");
     let pix8 = pix.convert_to_8().expect("convert to 8bpp");
     let w = pix8.width();
     let h = pix8.height();
@@ -110,12 +120,16 @@ fn dither_reg_2bpp_and_scaled() {
     rp.compare_values((w * 2) as f64, scaled2.width() as f64, 0.0);
     rp.compare_values((h * 2) as f64, scaled2.height() as f64, 0.0);
     assert_eq!(scaled2.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&scaled2, ImageFormat::Png)
+        .expect("write scaled2 dither");
 
     // C: pix1 = pixScaleGray4xLIDither(pixs);
     let scaled4 = scale_gray_4x_li_dither(&pix8).expect("scale_gray_4x_li_dither");
     rp.compare_values((w * 4) as f64, scaled4.width() as f64, 0.0);
     rp.compare_values((h * 4) as f64, scaled4.height() as f64, 0.0);
     assert_eq!(scaled4.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&scaled4, ImageFormat::Png)
+        .expect("write scaled4 dither");
 
     assert!(rp.cleanup(), "dither 2bpp and scaled test failed");
 }
