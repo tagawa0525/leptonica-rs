@@ -2547,12 +2547,14 @@ mod tests {
     /// (`reference/leptonica/src/scale1.c` scaleGray2xLILineLow).
     #[test]
     fn test_scale_gray_2x_li_matches_c() {
-        let input: [[u8; 3]; 2] = [[10, 20, 30], [50, 60, 70]];
+        // Odd sums exercise C integer truncation: e.g. (11+20)/2 = 15,
+        // (11+20+50+61)/4 = 35, (20+33)/2 = 26, (33+70)/2 = 51.
+        let input: [[u8; 3]; 2] = [[11, 20, 33], [50, 61, 70]];
         let expected: [[u32; 6]; 4] = [
-            [10, 15, 20, 25, 30, 30],
-            [30, 35, 40, 45, 50, 50],
-            [50, 55, 60, 65, 70, 70],
-            [50, 55, 60, 65, 70, 70],
+            [11, 15, 20, 26, 33, 33],
+            [30, 35, 40, 46, 51, 51],
+            [50, 55, 61, 65, 70, 70],
+            [50, 55, 61, 65, 70, 70],
         ];
         let pix = gray_pix_from_rows(&input);
         let out = scale_gray_2x_li(&pix).unwrap();
@@ -2564,16 +2566,20 @@ mod tests {
     /// interpolation weights; last source column/row replicated).
     #[test]
     fn test_scale_gray_4x_li_matches_c() {
-        let input: [[u8; 2]; 2] = [[0, 40], [80, 120]];
+        // Small non-multiples make every 1/4, 1/8, 1/16 weighted sum
+        // truncate, locking in exact C integer semantics
+        // (e.g. d2 = (3*1+2)/4 = 1, d6 = (9*1+3*2+3*3+4)/16 = 1,
+        // d16 = (1+3*2+3*3+9*4)/16 = 3).
+        let input: [[u8; 2]; 2] = [[1, 2], [3, 4]];
         let expected: [[u32; 8]; 8] = [
-            [0, 10, 20, 30, 40, 40, 40, 40],
-            [20, 30, 40, 50, 60, 60, 60, 60],
-            [40, 50, 60, 70, 80, 80, 80, 80],
-            [60, 70, 80, 90, 100, 100, 100, 100],
-            [80, 90, 100, 110, 120, 120, 120, 120],
-            [80, 90, 100, 110, 120, 120, 120, 120],
-            [80, 90, 100, 110, 120, 120, 120, 120],
-            [80, 90, 100, 110, 120, 120, 120, 120],
+            [1, 1, 1, 1, 2, 2, 2, 2],
+            [1, 1, 2, 2, 2, 2, 2, 2],
+            [2, 2, 2, 2, 3, 3, 3, 3],
+            [2, 2, 3, 3, 3, 3, 3, 3],
+            [3, 3, 3, 3, 4, 4, 4, 4],
+            [3, 3, 3, 3, 4, 4, 4, 4],
+            [3, 3, 3, 3, 4, 4, 4, 4],
+            [3, 3, 3, 3, 4, 4, 4, 4],
         ];
         let pix = gray_pix_from_rows(&input);
         let out = scale_gray_4x_li(&pix).unwrap();
