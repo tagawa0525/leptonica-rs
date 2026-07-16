@@ -2432,6 +2432,75 @@ mod tests {
         assert_eq!(out.depth(), PixelDepth::Bit8);
     }
 
+    /// scale_gray_2x_li must reproduce C scaleGray2xLILineLow exactly:
+    /// dst(2i,2j) = s1, dst(2i,2j+1) = (s1+s2)/2, dst(2i+1,2j) = (s1+s3)/2,
+    /// dst(2i+1,2j+1) = (s1+s2+s3+s4)/4 in integer arithmetic, with the
+    /// last source column/row replicated.
+    ///
+    /// Expected values hand-computed from the C algorithm
+    /// (`reference/leptonica/src/scale1.c` scaleGray2xLILineLow).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_2x_li_matches_c() {
+        let input: [[u8; 3]; 2] = [[10, 20, 30], [50, 60, 70]];
+        let expected: [[u32; 6]; 4] = [
+            [10, 15, 20, 25, 30, 30],
+            [30, 35, 40, 45, 50, 50],
+            [50, 55, 60, 65, 70, 70],
+            [50, 55, 60, 65, 70, 70],
+        ];
+        let pix = gray_pix_from_rows(&input);
+        let out = scale_gray_2x_li(&pix).unwrap();
+        assert_pixels_eq(&out, &expected);
+    }
+
+    /// scale_gray_4x_li must reproduce C scaleGray4xLILineLow exactly
+    /// (16 destination pixels per source pixel with 1/4, 1/2, 3/4 integer
+    /// interpolation weights; last source column/row replicated).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_scale_gray_4x_li_matches_c() {
+        let input: [[u8; 2]; 2] = [[0, 40], [80, 120]];
+        let expected: [[u32; 8]; 8] = [
+            [0, 10, 20, 30, 40, 40, 40, 40],
+            [20, 30, 40, 50, 60, 60, 60, 60],
+            [40, 50, 60, 70, 80, 80, 80, 80],
+            [60, 70, 80, 90, 100, 100, 100, 100],
+            [80, 90, 100, 110, 120, 120, 120, 120],
+            [80, 90, 100, 110, 120, 120, 120, 120],
+            [80, 90, 100, 110, 120, 120, 120, 120],
+            [80, 90, 100, 110, 120, 120, 120, 120],
+        ];
+        let pix = gray_pix_from_rows(&input);
+        let out = scale_gray_4x_li(&pix).unwrap();
+        assert_pixels_eq(&out, &expected);
+    }
+
+    /// Build an 8bpp grayscale Pix from a small row-major table.
+    fn gray_pix_from_rows<const W: usize, const H: usize>(rows: &[[u8; W]; H]) -> Pix {
+        let pix = Pix::new(W as u32, H as u32, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for (y, row) in rows.iter().enumerate() {
+            for (x, &v) in row.iter().enumerate() {
+                pm.set_pixel(x as u32, y as u32, v as u32).unwrap();
+            }
+        }
+        pm.into()
+    }
+
+    fn assert_pixels_eq<const W: usize, const H: usize>(out: &Pix, expected: &[[u32; W]; H]) {
+        assert_eq!((out.width(), out.height()), (W as u32, H as u32));
+        for (y, row) in expected.iter().enumerate() {
+            for (x, &want) in row.iter().enumerate() {
+                assert_eq!(
+                    out.get_pixel(x as u32, y as u32).unwrap(),
+                    want,
+                    "pixel ({x}, {y})"
+                );
+            }
+        }
+    }
+
     #[test]
     fn test_scale_gray_2x_li_thresh_dims() {
         let pix = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
