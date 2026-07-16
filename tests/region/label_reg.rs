@@ -207,7 +207,6 @@ fn label_reg_color_transform_series() {
 /// - channels composed like C pixCreateRGBImage, i.e. **alpha byte = 0**
 ///   (same convention as pixConvert8To32, cf. PR #405)
 #[test]
-#[ignore = "not yet implemented"]
 fn label_reg_loc_to_color_matches_c() {
     // 4x4 with a single fg pixel at (1,1): w2 = h2 = 2, inv = 127.5,
     // rval = gval = (127.5 * 1) as int = 127, bval = area = 1.
