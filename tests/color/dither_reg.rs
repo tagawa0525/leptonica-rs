@@ -27,7 +27,10 @@ use leptonica::transform::{scale_gray_2x_li_dither, scale_gray_4x_li_dither};
 /// comparable with the C golden hashes (plan 902).
 fn load_gamma_corrected_test8() -> crate::common::TestResult<Pix> {
     let pix = crate::common::load_test_image("test8.jpg")?;
-    Ok(gamma_trc_pix(&pix, 1.3, 0, 255).expect("gamma_trc 1.3"))
+    gamma_trc_pix(&pix, 1.3, 0, 255).map_err(|e| crate::common::TestError::ImageLoad {
+        path: "test8.jpg".to_string(),
+        message: format!("gamma_trc 1.3 failed: {e}"),
+    })
 }
 
 /// Test dither_to_binary (C check 0: pixDitherToBinary).
