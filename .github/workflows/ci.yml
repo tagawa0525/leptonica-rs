@@ -54,15 +54,15 @@ jobs:
             echo ""
             echo "| 状態 | 件数 |"
             echo "| --- | --: |"
-            for state in Ok Mismatch MissingC Unmapped; do
+            for state in Ok Mismatch MissingC Unmapped Excluded; do
               count=$(grep -h "^\[$state\]" tests/c_compat_report.*.txt 2>/dev/null | wc -l)
               echo "| $state | $count |"
             done
             echo ""
             echo "### test binary 別"
             echo ""
-            echo "| binary | Ok | Mismatch | MissingC | Unmapped |"
-            echo "| --- | --: | --: | --: | --: |"
+            echo "| binary | Ok | Mismatch | MissingC | Unmapped | Excluded |"
+            echo "| --- | --: | --: | --: | --: | --: |"
             for f in tests/c_compat_report.*.txt; do
               [ -f "$f" ] || continue
               bin=$(basename "$f" | sed -e 's/^c_compat_report\.//' -e 's/\.txt$//')
@@ -70,7 +70,8 @@ jobs:
               ms=$(grep -c '^\[Mismatch\]' "$f" 2>/dev/null || true)
               mc=$(grep -c '^\[MissingC\]' "$f" 2>/dev/null || true)
               un=$(grep -c '^\[Unmapped\]' "$f" 2>/dev/null || true)
-              echo "| $bin | ${ok:-0} | ${ms:-0} | ${mc:-0} | ${un:-0} |"
+              ex=$(grep -c '^\[Excluded\]' "$f" 2>/dev/null || true)
+              echo "| $bin | ${ok:-0} | ${ms:-0} | ${mc:-0} | ${un:-0} | ${ex:-0} |"
             done
             echo ""
             echo "Raw reports are attached as the \`c-compat-report\` artifact."
