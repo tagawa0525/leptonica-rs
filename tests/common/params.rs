@@ -313,10 +313,17 @@ impl RegParams {
         // computed by decoding C's written files, so hash our own written
         // file the same way (e.g. PNG drops the 32bpp alpha byte on write;
         // an in-memory hash would never match). Falls back to the in-memory
-        // hash if the format cannot be read back.
-        let roundtrip_hash = leptonica::io::read_image(&local_path)
-            .map(|p| pixel_content_hash(&p))
-            .unwrap_or(hash);
+        // hash if the format cannot be read back. Only computed when the
+        // C-compat check can actually run (compare mode, not turned off).
+        let roundtrip_hash = if self.mode == RegTestMode::Compare
+            && super::c_compat::CCompatMode::from_env() != super::c_compat::CCompatMode::Off
+        {
+            leptonica::io::read_image(&local_path)
+                .map(|p| pixel_content_hash(&p))
+                .unwrap_or(hash)
+        } else {
+            hash
+        };
         self.check_hash(&local_path, hash, roundtrip_hash)
     }
 

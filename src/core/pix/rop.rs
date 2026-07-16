@@ -715,8 +715,10 @@ impl PixMut {
         let img_h = self.height() as i32;
 
         // Clip band to image bounds
-        let x0 = bx.max(0) as u32;
-        let x1 = (bx + bw).min(img_w) as u32;
+        // Clamp before the u32 casts so a band fully left of the image
+        // (bx + bw < 0) cannot wrap around.
+        let x0 = bx.clamp(0, img_w) as u32;
+        let x1 = (bx + bw).clamp(0, img_w) as u32;
         if x0 >= x1 {
             return;
         }
@@ -783,9 +785,10 @@ impl PixMut {
         let img_w = self.width() as i32;
         let img_h = self.height() as i32;
 
-        // Clip band to image bounds
-        let y0 = by.max(0) as u32;
-        let y1 = (by + bh).min(img_h) as u32;
+        // Clip band to image bounds. Clamp before the u32 casts so a band
+        // fully above the image (by + bh < 0) cannot wrap around.
+        let y0 = by.clamp(0, img_h) as u32;
+        let y1 = (by + bh).clamp(0, img_h) as u32;
         if y0 >= y1 {
             return;
         }
