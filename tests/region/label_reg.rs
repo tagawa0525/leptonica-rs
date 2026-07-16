@@ -14,8 +14,9 @@ use leptonica::PixelDepth;
 use leptonica::core::pix::{Convert16To8Type, Convert32To16Type};
 use leptonica::io::ImageFormat;
 use leptonica::region::{
-    ConnectivityType, component_area_transform, find_connected_components,
-    label_connected_components, pix_get_sorted_neighbor_values, pix_loc_to_color_transform,
+    ConnectivityType, component_area_transform, conn_comp_transform_depth,
+    find_connected_components, label_connected_components, pix_get_sorted_neighbor_values,
+    pix_loc_to_color_transform,
 };
 
 #[test]
@@ -95,6 +96,14 @@ fn label_reg() {
     eprintln!("  feyn-fract 8-way components: {}", comps_fract.len());
     rp.compare_values(1.0, if comps_fract.len() > 100 { 1.0 } else { 0.0 }, 0.0);
 
+    // --- Test 5.5: conn_comp_transform 8bpp (C check 1) ---
+    // C: pix2 = pixConnCompTransform(feyn-fract, 8, 8);
+    let cc8 = conn_comp_transform_depth(&pixf, ConnectivityType::EightWay, PixelDepth::Bit8)
+        .expect("conn_comp_transform_depth");
+    rp.compare_values(pixf.width() as f64, cc8.width() as f64, 0.0);
+    rp.write_pix_and_check(&cc8, ImageFormat::Png)
+        .expect("check: cc transform 8bpp");
+
     // --- Test 6: component_area_transform (C check 4) ---
     // C: pix2 = pixConnCompAreaTransform(feyn-fract, 8);
     //    pix3 = pixConvert32To8(pix2, L_LS_TWO_BYTES, L_CLIP_TO_FF);
@@ -108,6 +117,20 @@ fn label_reg() {
     rp.compare_values(pixf.height() as f64, area8.height() as f64, 0.0);
     rp.write_pix_and_check(&area8, ImageFormat::Png)
         .expect("check: area transform");
+
+    // --- Test 6.5: pixMultConstantGray 0.3 on the 32bpp area (C check 5) ---
+    // C: pixMultConstantGray(pix2, 0.3);
+    //    pix4 = pixConvert32To8(pix2, L_LS_TWO_BYTES, L_CLIP_TO_FF);
+    let mut area_mut = area32.try_into_mut().expect("area32 into mut");
+    area_mut
+        .multiply_constant_inplace(0.3)
+        .expect("multiply_constant 0.3");
+    let area32m: leptonica::Pix = area_mut.into();
+    let area8m = area32m
+        .convert_32_to_8(Convert32To16Type::LsTwoBytes, Convert16To8Type::ClipToFf)
+        .expect("convert scaled area to 8bpp");
+    rp.write_pix_and_check(&area8m, ImageFormat::Png)
+        .expect("check: scaled area transform");
 
     // --- Test 7: pix_loc_to_color_transform (C check 6) ---
     // C: pix5 = pixLocToColorTransform(pixRead("form1.tif"));
