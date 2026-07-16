@@ -80,7 +80,21 @@ C 版ソース: `prog/paintmask_reg.c` 19-21 (feyn.tif / rabi.png)。
 - 教訓: **lossless 入力のペアは即 Ok になる**。JPEG 入力系列
   (decode 差で必ず Mismatch) より lossless 系列を優先してマップする
 
-### PR 5 以降: semantic マッピングの漸進追加
+### PR 5: distance 系の整列 + boundary condition 修正 (実施済み)
+
+C 版ソース: `prog/distance_reg.c`、`src/seedfill.c`
+(pixDistanceFunction / distanceFunctionLow / pixSetMirroredBorder)。
+
+- distance テスト 4 本を C prog と同条件に整列 (box 1480x1050、invert)
+- ペアを張った結果 **bc=Foreground の全ペアが不一致** →
+  `distance_function` の L_BOUNDARY_FG 実装差を発見し TDD で C 準拠に修正
+  (境界1周の 255 セット → interior 2 パス → 隣接 interior ミラー)
+- 17 ペア全件 hash 一致 (Ok 47 → 64)。C 対応が JPEG/不在の 26 キーは
+  除外ルール (`key` 種別を新設) で分離し、distance 系 Unmapped は 0
+- 教訓: lossless 系列の整列は「即 Ok」または「実バグ発見」のどちらかに
+  なる。マッピング作業自体がバグ検出器として機能している
+
+### PR 6 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

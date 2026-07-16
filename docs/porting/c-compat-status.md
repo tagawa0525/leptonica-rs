@@ -40,16 +40,25 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 > **全件 hash 完全一致で Ok 44 → 47** (color binary 初の Ok)。
 > lossless 入力のペアは即 Ok になることを実証 — 以降のマッピングは
 > lossless 入力系列を優先する。
+>
+> **plan 902 PR 5 (distance 系の整列 + boundary condition 修正) 後**:
+> distance テストを C prog と同条件 (box 1480x1050、invert 前処理) に
+> 整列してペアを張ったところ、**bc=FG の全ペアが不一致** →
+> `distance_function` の L_BOUNDARY_FG 実装差 (境界1周の 255 セット +
+> 事後ミラーの欠落) を発見し C 準拠に修正。17 ペア全件 hash 一致で
+> **Ok 47 → 64**。C 対応が JPEG/不在の 26 キーは Excluded に分離し、
+> distance 系の Unmapped は 0 (全体 445 → 410)。除外ルールに `key`
+> 種別を追加。
 
 ## 全体集計
 
 | 状態        | 件数    | 説明                                                                                                                           |
 | ----------- | ------: | -----------------------------------------------------------------------------------------------------------------------------  |
-| ✅ Ok       | **47**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +3)                                                 |
+| ✅ Ok       | **64**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +20)                                                |
 | ⚠️ Mismatch | **33**  | 内訳: JPEG codec 差 21 件 (finding 001) + seedspread 6 件 (finding 006) + gifio 2 件 (finding 007) + dither 4 件 (finding 008) |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                   |
-| 📭 Unmapped | **445** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → 500 → 447 → 445)                                          |
-| 🚫 Excluded | **53**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 件 (finding 001) + pdf/ps 8 件 (PR #386)                        |
+| 📭 Unmapped | **410** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → 500 → 447 → 445 → 410)                                    |
+| 🚫 Excluded | **79**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + C 対応が JPEG/不在の distance 系 26                |
 
 合計 573 entries が C 比較対象。Rust manifest (`tests/golden_manifest.tsv`)
 全体は **580 entries** (582 行 - ヘッダ 2 行)。加えて Rust 独自テスト 84
@@ -65,7 +74,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 | `io`        |      7 |        2 |        0 |       41 |       10 |
 | `morph`     | **30** |   **16** |        0 |        9 |        0 |
 | `recog`     |      0 |        0 |        0 |       45 |        0 |
-| `region`    |      0 |        6 |        0 |       69 |        3 |
+| `region`    | **17** |        6 |        0 |       34 |       29 |
 | `transform` |      4 |        0 |        0 |       78 |        0 |
 
 **morph** が現状最も Ok/Mismatch が集中している binary。これは:
@@ -76,7 +85,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 - Phase 2.5 で重点的に修正を進めた領域
 
-## Ok 47 件の内訳
+## Ok 64 件の内訳
 
 C 版と完全一致している領域:
 
