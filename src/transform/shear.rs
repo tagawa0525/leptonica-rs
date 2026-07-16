@@ -921,6 +921,43 @@ fn remove_colormap(pix: &Pix) -> TransformResult<Pix> {
 mod tests {
     use super::*;
 
+    /// h_shear_ip / v_shear_ip must reproduce C pixHShearIP / pixVShearIP
+    /// exactly: rows/columns are shifted in *bands* of height ≈ |1/tan|,
+    /// with band boundaries at trunc(invangle * (shift ± 0.5) + 0.5), not
+    /// per-row rounding. Expected values hand-computed from the C algorithm
+    /// for angle 0.1 rad (invangle ≈ 9.97, half-band = 4): rows 0-1 shift
+    /// +1, rows 2-9 shift 0, rows 10-11 shift −1.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_shear_ip_band_quantization_matches_c() {
+        // Vertical fg line at x = 6 on a 12x12 1bpp image.
+        let pix = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..12 {
+            pm.set_pixel(6, y, 1).unwrap();
+        }
+        h_shear_ip(&mut pm, 6, 0.1, ShearFill::White).unwrap();
+        let out: Pix = pm.into();
+        for (y, expect_x) in [(0, 7), (1, 7), (2, 6), (9, 6), (10, 5), (11, 5)] {
+            assert_eq!(out.get_pixel(expect_x, y), Some(1), "h row {y}");
+            if expect_x != 6 {
+                assert_eq!(out.get_pixel(6, y), Some(0), "h row {y} old pos");
+            }
+        }
+
+        // Horizontal fg line at y = 6; v-shear uses +sign*shift per C.
+        let pix = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in 0..12 {
+            pm.set_pixel(x, 6, 1).unwrap();
+        }
+        v_shear_ip(&mut pm, 6, 0.1, ShearFill::White).unwrap();
+        let out: Pix = pm.into();
+        for (x, expect_y) in [(0, 5), (1, 5), (2, 6), (9, 6), (10, 7), (11, 7)] {
+            assert_eq!(out.get_pixel(x, expect_y), Some(1), "v col {x}");
+        }
+    }
+
     // ========================================================================
     // ShearFill tests
     // ========================================================================
