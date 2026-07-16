@@ -110,13 +110,14 @@ src/
 - ランタイムレポート: `tests/c_compat_report.<binary>.txt`（.gitignore）。
   Rust 出力 hash と C manifest を `scripts/golden_map.tsv` 経由で照合し、
   `Ok / Mismatch / MissingC / Unmapped` を記録
-- 現状ベースライン (As of 2026-05-20、PR #390): `docs/porting/c-compat-status.md`
-  に詳細。**Ok 22 / Mismatch 31 / MissingC 0 / Unmapped 520**
+- 現状ベースライン (As of 2026-07-16 実測、Phase 3 第四弾 PR #405 後):
+  `docs/porting/c-compat-status.md` に詳細。
+  **Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 500**
 - 環境変数: `REGTEST_C_COMPAT=off` で無効化、`=strict` で Mismatch を fail
   に昇格 (デフォルトは report-only)
 - CI 統合 (PR #391): GitHub Actions の Job Summary に集計テーブル + report
   ファイルを `c-compat-report` artifact (14 日保持) として upload
-- 個別の不一致調査ログ: `docs/porting/c-compat-findings/00X-*.md` (001-005)
+- 個別の不一致調査ログ: `docs/porting/c-compat-findings/00X-*.md` (001-007)
 
 ### テストのディレクトリ構造
 
