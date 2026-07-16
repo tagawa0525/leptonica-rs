@@ -960,6 +960,20 @@ pub fn pix_loc_to_color_transform(pix: &Pix) -> RegionResult<Pix> {
     Ok(out_mut.into())
 }
 
+/// Label each connected component with a depth-limited index, exactly as
+/// C `pixConnCompTransform()`: component i (0-based, raster order of the
+/// first-encountered pixel) gets value `1 + (i % 254)` at 8bpp,
+/// `1 + (i % 0xfffe)` at 16bpp, and `1 + i` at 32bpp.
+pub fn conn_comp_transform_depth(
+    _pix: &Pix,
+    _connectivity: ConnectivityType,
+    _out_depth: PixelDepth,
+) -> RegionResult<Pix> {
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 7)
+    ))
+}
+
 /// Get the unique sorted neighbor values for a pixel in a labeled image.
 ///
 /// Returns the set of non-zero neighboring pixel values, sorted smallest
@@ -1026,6 +1040,37 @@ pub fn pix_get_sorted_neighbor_values(
     }
 
     Ok(values.into_iter().collect())
+}
+
+#[cfg(test)]
+mod tests_c_compat {
+    use super::*;
+    use crate::core::{Pix, PixelDepth};
+
+    /// conn_comp_transform_depth must reproduce C pixConnCompTransform:
+    /// component i (0-based, in raster order of first-encountered pixel)
+    /// is labeled 1 + (i % 254) for 8bpp output.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_conn_comp_transform_depth_matches_c() {
+        // Three 4-connected components, first pixels in raster order:
+        // (1,0) → label 1, (3,0) → label 2, (0,2) → label 3.
+        let pix = Pix::new(5, 3, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for (x, y) in [(1, 0), (1, 1), (3, 0), (0, 2), (1, 2)] {
+            pm.set_pixel(x, y, 1).unwrap();
+        }
+        let pix: Pix = pm.into();
+        let out =
+            conn_comp_transform_depth(&pix, ConnectivityType::FourWay, PixelDepth::Bit8).unwrap();
+        assert_eq!(out.depth(), PixelDepth::Bit8);
+        assert_eq!(out.get_pixel(1, 0), Some(1));
+        assert_eq!(out.get_pixel(1, 1), Some(1));
+        assert_eq!(out.get_pixel(3, 0), Some(2));
+        assert_eq!(out.get_pixel(0, 2), Some(3));
+        assert_eq!(out.get_pixel(1, 2), Some(3));
+        assert_eq!(out.get_pixel(0, 0), Some(0));
+    }
 }
 
 #[cfg(test)]

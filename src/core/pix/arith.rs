@@ -926,6 +926,23 @@ enum ArithBinaryOp {
 mod tests {
     use super::*;
 
+    /// multiply_constant must reproduce C pixMultConstantGray: for 32bpp the
+    /// whole word is treated as a single gray value and multiplied without
+    /// clipping (the per-channel RGB variant lives in filter::mult_constant_color).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_multiply_constant_32bpp_matches_c() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(0, 0, 100_000).unwrap();
+        pm.set_pixel(1, 0, 3).unwrap();
+        pm.multiply_constant_inplace(0.3).unwrap();
+        let out: Pix = pm.into();
+        // C: upval = (l_uint32)(0.3 * 100000) = 30000 (truncation, no clip)
+        assert_eq!(out.get_pixel(0, 0), Some(30_000));
+        assert_eq!(out.get_pixel(1, 0), Some(0));
+    }
+
     #[test]
     fn test_add_constant_gray() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
