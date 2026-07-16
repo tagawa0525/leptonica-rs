@@ -889,6 +889,42 @@ fn apply_rop_value(d: u32, s: u32, op: RopOp, max_val: u32) -> u32 {
 mod tests {
     use super::*;
 
+    /// translate must follow the C incolor convention (pixRasteropHip/Vip):
+    /// for 1bpp, L_BRING_IN_WHITE clears the exposed region (white = 0,
+    /// foreground = 1 = black) and L_BRING_IN_BLACK sets it; for deeper
+    /// images white = max and black = 0.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_translate_incolor_matches_c() {
+        // 3x3 all-fg 1bpp image translated by (1,1).
+        let pix = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.to_mut();
+        for y in 0..3 {
+            for x in 0..3 {
+                pm.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let white = pix.translate(1, 1, InColor::White);
+        // Exposed top row and left column are white (0) for 1bpp.
+        assert_eq!(white.get_pixel(0, 0), Some(0));
+        assert_eq!(white.get_pixel(2, 0), Some(0));
+        assert_eq!(white.get_pixel(0, 2), Some(0));
+        assert_eq!(white.get_pixel(2, 2), Some(1));
+
+        let black = pix.translate(1, 1, InColor::Black);
+        assert_eq!(black.get_pixel(0, 0), Some(1));
+
+        // 8bpp: white = 255, black = 0.
+        let gray = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
+        let gray: Pix = gray.to_mut().into();
+        let white8 = gray.translate(1, 1, InColor::White);
+        assert_eq!(white8.get_pixel(0, 0), Some(255));
+        let black8 = gray.translate(1, 1, InColor::Black);
+        assert_eq!(black8.get_pixel(0, 0), Some(0));
+    }
+
     #[test]
     fn test_and_binary() {
         // Create two binary images with some pixels set
