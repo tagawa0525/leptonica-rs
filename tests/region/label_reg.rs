@@ -11,6 +11,7 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::PixelDepth;
+use leptonica::core::pix::{Convert16To8Type, Convert32To16Type};
 use leptonica::io::ImageFormat;
 use leptonica::region::{
     ConnectivityType, component_area_transform, find_connected_components,
@@ -42,8 +43,6 @@ fn label_reg() {
         label_connected_components(&pixs, ConnectivityType::FourWay).expect("label 4-connected");
     rp.compare_values(w as f64, labeled4.width() as f64, 0.0);
     rp.compare_values(h as f64, labeled4.height() as f64, 0.0);
-    rp.write_pix_and_check(&labeled4, ImageFormat::Png)
-        .expect("write labeled4 label");
 
     // --- Test 2: 8-connected labeling ---
     eprintln!("=== 8-connected labeling ===");
@@ -51,8 +50,6 @@ fn label_reg() {
         label_connected_components(&pixs, ConnectivityType::EightWay).expect("label 8-connected");
     rp.compare_values(w as f64, labeled8.width() as f64, 0.0);
     rp.compare_values(h as f64, labeled8.height() as f64, 0.0);
-    rp.write_pix_and_check(&labeled8, ImageFormat::Png)
-        .expect("write labeled8 label");
 
     // --- Test 3: Component counting ---
     eprintln!("=== Component counting ===");
@@ -99,16 +96,25 @@ fn label_reg() {
     rp.compare_values(1.0, if comps_fract.len() > 100 { 1.0 } else { 0.0 }, 0.0);
 
     // --- Test 6: component_area_transform (C check 4) ---
-    let area_img = component_area_transform(&labeled8).expect("component_area_transform");
-    rp.compare_values(w as f64, area_img.width() as f64, 0.0);
-    rp.compare_values(h as f64, area_img.height() as f64, 0.0);
-    rp.write_pix_and_check(&area_img, ImageFormat::Png)
+    // C: pix2 = pixConnCompAreaTransform(feyn-fract, 8);
+    //    pix3 = pixConvert32To8(pix2, L_LS_TWO_BYTES, L_CLIP_TO_FF);
+    let labeled_f =
+        label_connected_components(&pixf, ConnectivityType::EightWay).expect("label feyn-fract");
+    let area32 = component_area_transform(&labeled_f).expect("component_area_transform");
+    let area8 = area32
+        .convert_32_to_8(Convert32To16Type::LsTwoBytes, Convert16To8Type::ClipToFf)
+        .expect("convert area to 8bpp");
+    rp.compare_values(pixf.width() as f64, area8.width() as f64, 0.0);
+    rp.compare_values(pixf.height() as f64, area8.height() as f64, 0.0);
+    rp.write_pix_and_check(&area8, ImageFormat::Png)
         .expect("check: area transform");
 
     // --- Test 7: pix_loc_to_color_transform (C check 6) ---
-    let color_img = pix_loc_to_color_transform(&pixs).expect("pix_loc_to_color_transform");
-    rp.compare_values(w as f64, color_img.width() as f64, 0.0);
-    rp.compare_values(h as f64, color_img.height() as f64, 0.0);
+    // C: pix5 = pixLocToColorTransform(pixRead("form1.tif"));
+    let form1 = load_test_image("form1.tif").expect("load form1.tif");
+    let color_img = pix_loc_to_color_transform(&form1).expect("pix_loc_to_color_transform");
+    rp.compare_values(form1.width() as f64, color_img.width() as f64, 0.0);
+    rp.compare_values(form1.height() as f64, color_img.height() as f64, 0.0);
     rp.write_pix_and_check(&color_img, ImageFormat::Png)
         .expect("check: loc-to-color transform");
 
@@ -142,4 +148,52 @@ fn label_reg_sorted_neighbors() {
     for &v in &neighbors {
         assert_ne!(v, 0, "background value should be excluded");
     }
+}
+
+/// Location-to-color transform under 4-fold symmetry, translation, small
+/// rotation, and a different form, mirroring C checks 7-27 exactly
+/// (same input form1.tif / form2.tif, same transforms), so the six outputs
+/// are C-comparable at pixel level (plan 902 PR 6).
+#[test]
+fn label_reg_color_transform_series() {
+    use leptonica::core::pix::rop::InColor;
+    use leptonica::transform::{ShearFill, rotate_orth, rotate_shear_center_ip};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("label_color");
+
+    let form1 = load_test_image("form1.tif").expect("load form1.tif");
+
+    // C checks 7 / 11 / 15: pixLocToColorTransform(pixRotateOrth(form1, q))
+    for quads in [1u32, 2, 3] {
+        let rotated = rotate_orth(&form1, quads).expect("rotate_orth");
+        let color = pix_loc_to_color_transform(&rotated).expect("loc_to_color rotated");
+        rp.write_pix_and_check(&color, ImageFormat::Png)
+            .expect("check: loc-to-color rotated");
+    }
+
+    // C check 19: pixTranslate(pix1, pix1, 10, 10, L_BRING_IN_WHITE)
+    let translated = form1.translate(10, 10, InColor::White);
+    let color = pix_loc_to_color_transform(&translated).expect("loc_to_color translated");
+    rp.write_pix_and_check(&color, ImageFormat::Png)
+        .expect("check: loc-to-color translated");
+
+    // C check 23: pixRotateShearCenterIP(pix1, 0.1, L_BRING_IN_WHITE)
+    let mut sheared = form1.deep_clone().try_into_mut().expect("into mut");
+    rotate_shear_center_ip(&mut sheared, 0.1, ShearFill::White).expect("rotate_shear_center_ip");
+    let sheared: leptonica::Pix = sheared.into();
+    let color = pix_loc_to_color_transform(&sheared).expect("loc_to_color sheared");
+    rp.write_pix_and_check(&color, ImageFormat::Png)
+        .expect("check: loc-to-color sheared");
+
+    // C check 27: pixLocToColorTransform(pixRead("form2.tif"))
+    let form2 = load_test_image("form2.tif").expect("load form2.tif");
+    let color = pix_loc_to_color_transform(&form2).expect("loc_to_color form2");
+    rp.write_pix_and_check(&color, ImageFormat::Png)
+        .expect("check: loc-to-color form2");
+
+    assert!(rp.cleanup(), "label color transform series failed");
 }
