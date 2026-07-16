@@ -101,6 +101,9 @@ fn label_reg() {
     let cc8 = conn_comp_transform_depth(&pixf, ConnectivityType::EightWay, PixelDepth::Bit8)
         .expect("conn_comp_transform_depth");
     rp.compare_values(pixf.width() as f64, cc8.width() as f64, 0.0);
+    // assert_eq! (index を消費しない) で高さも検証。compare_values を足すと
+    // 以降の manifest key がずれるため。
+    assert_eq!(cc8.height(), pixf.height());
     rp.write_pix_and_check(&cc8, ImageFormat::Png)
         .expect("check: cc transform 8bpp");
 
