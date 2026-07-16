@@ -197,3 +197,29 @@ fn label_reg_color_transform_series() {
 
     assert!(rp.cleanup(), "label color transform series failed");
 }
+
+/// pix_loc_to_color_transform must reproduce C pixLocToColorTransform
+/// exactly. Expected value hand-computed from the C algorithm
+/// (`pixLocToColorTransform()` in upstream pixlabel.c):
+///
+/// - r/g: 255/(dim/2) * |coord - dim/2|, truncated to int
+/// - b: component area, taken as (area & 0xffff) then clipped to 255
+/// - channels composed like C pixCreateRGBImage, i.e. **alpha byte = 0**
+///   (same convention as pixConvert8To32, cf. PR #405)
+#[test]
+#[ignore = "not yet implemented"]
+fn label_reg_loc_to_color_matches_c() {
+    // 4x4 with a single fg pixel at (1,1): w2 = h2 = 2, inv = 127.5,
+    // rval = gval = (127.5 * 1) as int = 127, bval = area = 1.
+    let pix = {
+        let p = leptonica::Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        pm.set_pixel(1, 1, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+    let out = pix_loc_to_color_transform(&pix).expect("loc_to_color");
+    assert_eq!(out.get_pixel(1, 1).unwrap(), 0x7F7F_0100);
+    // bg pixels stay 0x00000000
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 0);
+}
