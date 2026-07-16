@@ -107,6 +107,13 @@ impl ShearFill {
 /// Brings the angle into the range [-pi/2 + mindif, pi/2 - mindif].
 /// Returns None if the angle is effectively zero (no shear needed).
 fn normalize_angle_for_shear(mut radang: f32, mindif: f32) -> Option<f32> {
+    // A NaN/Inf angle would defeat every later comparison and make the
+    // band loops in the shear implementations fail to advance; treat it
+    // as "no shear". After normalization the angle lies strictly inside
+    // (-pi/2, pi/2), so tan() of the result is always finite.
+    if !radang.is_finite() {
+        return None;
+    }
     let pi2 = std::f32::consts::FRAC_PI_2;
 
     // Bring angle into range [-pi/2, pi/2]
@@ -1020,6 +1027,21 @@ mod tests {
         for (x, expect_y) in [(0, 5), (1, 5), (2, 6), (9, 6), (10, 7), (11, 7)] {
             assert_eq!(out.get_pixel(x, expect_y), Some(1), "v col {x}");
         }
+    }
+
+    /// Non-finite angles must be treated as "no shear" instead of hanging
+    /// the band loops (NaN/Inf would make every cast collapse to 0).
+    #[test]
+    fn test_shear_ip_nonfinite_angle_is_noop() {
+        let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(3, 3, 1).unwrap();
+        for angle in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            h_shear_ip(&mut pm, 4, angle, ShearFill::White).unwrap();
+            v_shear_ip(&mut pm, 4, angle, ShearFill::White).unwrap();
+        }
+        let out: Pix = pm.into();
+        assert_eq!(out.get_pixel(3, 3), Some(1));
     }
 
     // ========================================================================
