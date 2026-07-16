@@ -1,8 +1,8 @@
 //! Dither regression test
 //!
 //! Tests dithering from 8 bpp grayscale to 1 bpp binary.
-//! The C version tests Floyd-Steinberg dithering, 2bpp dithering, and
-//! scaled dithering.
+//! The C version tests error-diffusion dithering (leptonica's 3-neighbor
+//! integer kernel), 2bpp dithering, and scaled dithering.
 //!
 //! Partial migration: dither_to_binary, dither_to_binary_with_threshold,
 //! ordered_dither, dither_to_2bpp, scale_gray_2x_li_dither, and
@@ -35,7 +35,8 @@ fn load_gamma_corrected_test8() -> crate::common::TestResult<Pix> {
 
 /// Test dither_to_binary (C check 0: pixDitherToBinary).
 ///
-/// Converts 8bpp grayscale to 1bpp using Floyd-Steinberg dithering.
+/// Converts 8bpp grayscale to 1bpp using leptonica's 3-neighbor
+/// error-diffusion dithering.
 #[test]
 fn dither_reg_to_binary() {
     let mut rp = RegParams::new("dither_bin");

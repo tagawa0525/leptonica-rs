@@ -1214,7 +1214,8 @@ pub fn scale_gray_4x_li_thresh(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
     gray_threshold_to_binary(&gray, thresh)
 }
 
-/// 2× upscale of an 8bpp image with LI, then Floyd-Steinberg dither to 1bpp.
+/// 2× upscale of an 8bpp image with LI, then error-diffusion dither to 1bpp
+/// (C leptonica 3-neighbor kernel).
 pub fn scale_gray_2x_li_dither(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
@@ -1231,7 +1232,8 @@ pub fn scale_gray_2x_li_dither(pix: &Pix) -> TransformResult<Pix> {
     gray_error_diffusion_dither(&gray)
 }
 
-/// 4× upscale of an 8bpp image with LI, then Floyd-Steinberg dither to 1bpp.
+/// 4× upscale of an 8bpp image with LI, then error-diffusion dither to 1bpp
+/// (C leptonica 3-neighbor kernel).
 pub fn scale_gray_4x_li_dither(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
