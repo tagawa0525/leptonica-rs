@@ -1148,7 +1148,13 @@ pub fn scale_gray_2x_li(pix: &Pix) -> TransformResult<Pix> {
     }
     let ws = pix.width();
     let hs = pix.height();
-    let out = Pix::new(2 * ws, 2 * hs, PixelDepth::Bit8)?;
+    let wd = ws.checked_mul(2).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled width would overflow u32".to_string())
+    })?;
+    let hd = hs.checked_mul(2).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled height would overflow u32".to_string())
+    })?;
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
     let mut dst = out.try_into_mut().unwrap();
 
     for i in 0..hs {
@@ -1207,7 +1213,13 @@ pub fn scale_gray_4x_li(pix: &Pix) -> TransformResult<Pix> {
     }
     let ws = pix.width();
     let hs = pix.height();
-    let out = Pix::new(4 * ws, 4 * hs, PixelDepth::Bit8)?;
+    let wd = ws.checked_mul(4).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled width would overflow u32".to_string())
+    })?;
+    let hd = hs.checked_mul(4).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled height would overflow u32".to_string())
+    })?;
+    let out = Pix::new(wd, hd, PixelDepth::Bit8)?;
     let mut dst = out.try_into_mut().unwrap();
 
     for i in 0..hs {
@@ -2523,10 +2535,13 @@ mod tests {
         assert_eq!(out.depth(), PixelDepth::Bit8);
     }
 
-    /// scale_gray_2x_li must reproduce C scaleGray2xLILineLow exactly:
-    /// dst(2i,2j) = s1, dst(2i,2j+1) = (s1+s2)/2, dst(2i+1,2j) = (s1+s3)/2,
-    /// dst(2i+1,2j+1) = (s1+s2+s3+s4)/4 in integer arithmetic, with the
-    /// last source column/row replicated.
+    /// scale_gray_2x_li must reproduce C scaleGray2xLILineLow exactly.
+    /// In (x, y) order, with s1 = src(x, y), s2 = src(x+1, y),
+    /// s3 = src(x, y+1), s4 = src(x+1, y+1):
+    /// dst(2x, 2y) = s1, dst(2x+1, 2y) = (s1+s2)/2,
+    /// dst(2x, 2y+1) = (s1+s3)/2, dst(2x+1, 2y+1) = (s1+s2+s3+s4)/4,
+    /// all in integer arithmetic, with the last source column/row
+    /// replicated.
     ///
     /// Expected values hand-computed from the C algorithm
     /// (`reference/leptonica/src/scale1.c` scaleGray2xLILineLow).
