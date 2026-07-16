@@ -94,7 +94,20 @@ C 版ソース: `prog/distance_reg.c`、`src/seedfill.c`
 - 教訓: lossless 系列の整列は「即 Ok」または「実バグ発見」のどちらかに
   なる。マッピング作業自体がバグ検出器として機能している
 
-### PR 6 以降: semantic マッピングの漸進追加
+### PR 6: label 整列 — hash 規約の構造修正 + 3 実装バグ (実施済み)
+
+C 版ソース: `prog/label_reg.c`、`src/pixlabel.c` / `src/rop.c` / `src/shear.c`。
+
+- label 8 ペアを張る過程で 4 つの乖離を連鎖的に発見しすべて解消
+  (finding 009): (1) **hash 比較規約の非対称** → C 比較のみ roundtrip
+  hash に構造修正 (seedspread 4 件が自動解消)、(2) loc-to-color の
+  alpha=255、(3) rasterop_hip/vip の 1bpp incolor 反転、(4) shear の
+  band 量子化欠落
+- label 8 ペア全件 Ok (Ok 64 → 76、Mismatch 33 → 29、Unmapped 410 → 406)
+- 未対応: C check 1 (ConnCompTransform 8bpp) と check 5
+  (pixMultConstantGray) は API 追加が必要 (finding 009 参照)
+
+### PR 7 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

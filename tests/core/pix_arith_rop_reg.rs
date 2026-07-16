@@ -235,10 +235,11 @@ fn test_translate_binary() {
 
     // Original (5,5) moved to (8,7)
     assert_eq!(result.get_pixel(8, 7).unwrap(), 1);
-    // Top-left fill: first 2 rows are white (1 for binary), (0,0) is white
-    assert_eq!(result.get_pixel(0, 0).unwrap(), 1);
+    // Top-left fill: first 2 rows are white. In leptonica's 1bpp convention
+    // white = 0 (fg = 1 = black), matching C L_BRING_IN_WHITE → PIX_CLR.
+    assert_eq!(result.get_pixel(0, 0).unwrap(), 0);
     // Left fill: first 3 columns are white, (0,5) is white
-    assert_eq!(result.get_pixel(0, 5).unwrap(), 1);
+    assert_eq!(result.get_pixel(0, 5).unwrap(), 0);
 }
 
 // ============================================================================

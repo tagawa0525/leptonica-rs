@@ -48,7 +48,9 @@ pub use compare::{
     pix_compare_gray_by_histo, pix_compare_photo_regions_by_histo, pix_decide_if_photo_image,
     pix_gen_photo_histos, pixa_compare_photo_regions_by_histo,
 };
-pub use convert::{Convert16To8Type, GrayConversionType, MinMaxType, RemoveColormapTarget};
+pub use convert::{
+    Convert16To8Type, Convert32To16Type, GrayConversionType, MinMaxType, RemoveColormapTarget,
+};
 pub use graphics::{
     Color, ContourOutput, HashOrientation, PixelOp, PlotLocation, fill_polygon,
     generate_pta_line_from_pt, locate_pt_radially, make_plot_pta_from_numa, render_polygon,

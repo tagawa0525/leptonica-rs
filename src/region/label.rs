@@ -945,11 +945,14 @@ pub fn pix_loc_to_color_transform(pix: &Pix) -> RegionResult<Pix> {
                 (r, g)
             };
 
-            // Blue channel: component area clipped to 255
+            // Blue channel: C converts the 32bpp area via L_LS_TWO_BYTES
+            // then L_CLIP_TO_FF, i.e. (area & 0xffff) clipped to 255.
             let area = area_pix.get_pixel(x, y).unwrap_or(0);
-            let bval = area.min(255) as u8;
+            let bval = (area & 0xffff).min(255) as u8;
 
-            let color = compose_rgba(rval, gval, bval, 255);
+            // C pixCreateRGBImage composes with alpha byte = 0
+            // (same convention as pixConvert8To32, cf. PR #405).
+            let color = compose_rgba(rval, gval, bval, 0);
             let _ = out_mut.set_pixel(x, y, color);
         }
     }

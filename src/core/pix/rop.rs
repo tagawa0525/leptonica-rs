@@ -715,15 +715,21 @@ impl PixMut {
         let img_h = self.height() as i32;
 
         // Clip band to image bounds
-        let x0 = bx.max(0) as u32;
-        let x1 = (bx + bw).min(img_w) as u32;
+        // Clamp before the u32 casts so a band fully left of the image
+        // (bx + bw < 0) cannot wrap around.
+        let x0 = bx.clamp(0, img_w) as u32;
+        let x1 = (bx + bw).clamp(0, img_w) as u32;
         if x0 >= x1 {
             return;
         }
 
-        let fill_val = match incolor {
-            InColor::White => self.depth().max_value(),
-            InColor::Black => 0,
+        // C pixRasteropHip/Vip: for 1bpp, white = 0 (fg = 1 = black) and
+        // black = 1; for deeper images white = max and black = 0.
+        let fill_val = match (incolor, self.depth()) {
+            (InColor::White, PixelDepth::Bit1) => 0,
+            (InColor::White, d) => d.max_value(),
+            (InColor::Black, PixelDepth::Bit1) => 1,
+            (InColor::Black, _) => 0,
         };
 
         if vshift > 0 {
@@ -779,16 +785,21 @@ impl PixMut {
         let img_w = self.width() as i32;
         let img_h = self.height() as i32;
 
-        // Clip band to image bounds
-        let y0 = by.max(0) as u32;
-        let y1 = (by + bh).min(img_h) as u32;
+        // Clip band to image bounds. Clamp before the u32 casts so a band
+        // fully above the image (by + bh < 0) cannot wrap around.
+        let y0 = by.clamp(0, img_h) as u32;
+        let y1 = (by + bh).clamp(0, img_h) as u32;
         if y0 >= y1 {
             return;
         }
 
-        let fill_val = match incolor {
-            InColor::White => self.depth().max_value(),
-            InColor::Black => 0,
+        // C pixRasteropHip/Vip: for 1bpp, white = 0 (fg = 1 = black) and
+        // black = 1; for deeper images white = max and black = 0.
+        let fill_val = match (incolor, self.depth()) {
+            (InColor::White, PixelDepth::Bit1) => 0,
+            (InColor::White, d) => d.max_value(),
+            (InColor::Black, PixelDepth::Bit1) => 1,
+            (InColor::Black, _) => 0,
         };
 
         if hshift > 0 {
@@ -888,6 +899,41 @@ fn apply_rop_value(d: u32, s: u32, op: RopOp, max_val: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// translate must follow the C incolor convention (pixRasteropHip/Vip):
+    /// for 1bpp, L_BRING_IN_WHITE clears the exposed region (white = 0,
+    /// foreground = 1 = black) and L_BRING_IN_BLACK sets it; for deeper
+    /// images white = max and black = 0.
+    #[test]
+    fn test_translate_incolor_matches_c() {
+        // 3x3 all-fg 1bpp image translated by (1,1).
+        let pix = Pix::new(3, 3, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.to_mut();
+        for y in 0..3 {
+            for x in 0..3 {
+                pm.set_pixel(x, y, 1).unwrap();
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let white = pix.translate(1, 1, InColor::White);
+        // Exposed top row and left column are white (0) for 1bpp.
+        assert_eq!(white.get_pixel(0, 0), Some(0));
+        assert_eq!(white.get_pixel(2, 0), Some(0));
+        assert_eq!(white.get_pixel(0, 2), Some(0));
+        assert_eq!(white.get_pixel(2, 2), Some(1));
+
+        let black = pix.translate(1, 1, InColor::Black);
+        assert_eq!(black.get_pixel(0, 0), Some(1));
+
+        // 8bpp: white = 255, black = 0.
+        let gray = Pix::new(3, 3, PixelDepth::Bit8).unwrap();
+        let gray: Pix = gray.to_mut().into();
+        let white8 = gray.translate(1, 1, InColor::White);
+        assert_eq!(white8.get_pixel(0, 0), Some(255));
+        let black8 = gray.translate(1, 1, InColor::Black);
+        assert_eq!(black8.get_pixel(0, 0), Some(0));
+    }
 
     #[test]
     fn test_and_binary() {

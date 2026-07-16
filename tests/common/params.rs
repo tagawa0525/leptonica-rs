@@ -309,7 +309,22 @@ impl RegParams {
         })?;
 
         let hash = pixel_content_hash(pix);
-        self.check_hash(&local_path, hash)
+        // C-compat comparison must be file-level: the C manifest hashes are
+        // computed by decoding C's written files, so hash our own written
+        // file the same way (e.g. PNG drops the 32bpp alpha byte on write;
+        // an in-memory hash would never match). Falls back to the in-memory
+        // hash if the format cannot be read back. Only computed when the
+        // C-compat check can actually run (compare mode, not turned off).
+        let roundtrip_hash = if self.mode == RegTestMode::Compare
+            && super::c_compat::CCompatMode::from_env() != super::c_compat::CCompatMode::Off
+        {
+            leptonica::io::read_image(&local_path)
+                .map(|p| pixel_content_hash(&p))
+                .unwrap_or(hash)
+        } else {
+            hash
+        };
+        self.check_hash(&local_path, hash, roundtrip_hash)
     }
 
     /// Check content hash against the golden manifest.
@@ -317,7 +332,11 @@ impl RegParams {
     /// In generate mode, copies the file to golden and updates the manifest.
     /// In compare mode, compares the hash against the manifest entry.
     /// In display mode, does nothing.
-    fn check_hash(&mut self, local_path: &str, hash: u64) -> TestResult<()> {
+    /// `roundtrip_hash` is the hash of the *written file* read back in —
+    /// the convention used by the C-side manifest — and is what the
+    /// C-compat check compares against. The Rust golden manifest keeps
+    /// using the in-memory `hash`.
+    fn check_hash(&mut self, local_path: &str, hash: u64, roundtrip_hash: u64) -> TestResult<()> {
         let ext = Path::new(local_path)
             .extension()
             .and_then(|e| e.to_str())
@@ -363,7 +382,8 @@ impl RegParams {
                 // C-version compatibility check (plan 901 Phase 2). Reports to
                 // tests/c_compat_report.txt and only fails the test when
                 // REGTEST_C_COMPAT=strict.
-                let c_status = super::c_compat::check_c_hash(&self.test_name, &manifest_key, hash);
+                let c_status =
+                    super::c_compat::check_c_hash(&self.test_name, &manifest_key, roundtrip_hash);
                 if c_status == super::c_compat::CCompatStatus::Mismatch
                     && super::c_compat::CCompatMode::from_env()
                         == super::c_compat::CCompatMode::Strict
@@ -437,7 +457,9 @@ impl RegParams {
 
         fs::write(&local_path, data)?;
         let hash = data_content_hash(data);
-        self.check_hash(&local_path, hash)
+        // Raw data streams have no decode round-trip; the file bytes are
+        // the canonical content on both sides.
+        self.check_hash(&local_path, hash, hash)
     }
 
     /// Clean up and report results
