@@ -154,3 +154,41 @@ fn paintmask_reg_clip_masked() {
 
     assert!(rp.cleanup(), "paintmask clip_masked test failed");
 }
+
+/// 1bpp blending through a clipped mask, mirroring C checks 19-21 exactly
+/// (same inputs feyn.tif / rabi.png, same boxes, same outval), so the three
+/// outputs are C-comparable at pixel level (plan 902 PR 4).
+///
+/// C: pixs = feyn.tif; pixt2 = pixClipRectangle(pixs, box(670,827,800,500));
+///    pixm = pixInvert(pixClipRectangle(rabi.png, box(303,1983,800,500)));
+///    pixd = pixClipMasked(pixs, pixm, 670, 827, 1).
+#[test]
+fn paintmask_reg_1bpp_blend() {
+    let mut rp = RegParams::new("pmask_1bpp");
+
+    let pixs = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
+    assert_eq!(pixs.depth(), PixelDepth::Bit1);
+
+    // C check 19: clipped 1bpp source
+    let clipped = pixs.clip_rectangle(670, 827, 800, 500).expect("clip feyn");
+    rp.write_pix_and_check(&clipped, ImageFormat::Png)
+        .expect("check: clipped feyn");
+
+    // C check 20: inverted clipped mask
+    let rabi = crate::common::load_test_image("rabi.png").expect("load rabi.png");
+    let mask = rabi.clip_rectangle(303, 1983, 800, 500).expect("clip mask");
+    let mask = mask.invert();
+    assert_eq!(mask.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&mask, ImageFormat::Png)
+        .expect("check: inverted mask");
+
+    // C check 21: blend the two 1bpp sources through the mask
+    let result = pixs
+        .clip_masked(&mask, 670, 827, 1)
+        .expect("clip_masked 1bpp blend");
+    assert_eq!(result.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&result, ImageFormat::Png)
+        .expect("check: 1bpp blend");
+
+    assert!(rp.cleanup(), "paintmask 1bpp blend test failed");
+}
