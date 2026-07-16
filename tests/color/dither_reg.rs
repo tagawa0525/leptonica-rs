@@ -91,6 +91,69 @@ fn dither_reg_ordered() {
     assert!(rp.cleanup(), "ordered dither test failed");
 }
 
+/// dither_to_binary must reproduce C ditherToBinaryLineLow exactly:
+/// 3-neighbor error diffusion (3/8 right, 3/8 below, 1/4 below-right) in
+/// integer arithmetic, with no propagation when the pixel is within
+/// lowerclip/upperclip (= 10) of black/white.
+///
+/// Expected values hand-computed from the C algorithm
+/// (`reference/leptonica/src/grayquant.c` ditherToBinaryLineLow).
+#[test]
+#[ignore = "not yet implemented"]
+fn dither_reg_to_binary_matches_c_kernel() {
+    // Row 0: 8 is within lowerclip (10) → ON without propagation
+    //        (classic Floyd-Steinberg would propagate and flip later pixels).
+    let input: [[u8; 3]; 2] = [[8, 126, 130], [128, 126, 4]];
+    let expected: [[u32; 3]; 2] = [[1, 1, 0], [0, 1, 1]];
+
+    let pix = make_gray_pix(&input);
+    let out = dither_to_binary(&pix).expect("dither_to_binary");
+    for (y, row) in expected.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "pixel ({x}, {y})"
+            );
+        }
+    }
+}
+
+/// dither_to_2bpp must reproduce C ditherTo2bppLineLow exactly, including
+/// the make8To2DitherTables lookup (4 levels at 0/85/170/255, split points
+/// 43/128/213, cliptoblack = cliptowhite = 5) and truncating integer
+/// division for negative errors.
+#[test]
+#[ignore = "not yet implemented"]
+fn dither_reg_to_2bpp_matches_c_kernel() {
+    let input: [[u8; 3]; 2] = [[100, 200, 60], [50, 150, 255]];
+    let expected: [[u32; 3]; 2] = [[1, 2, 1], [1, 2, 3]];
+
+    let pix = make_gray_pix(&input);
+    let out = dither_to_2bpp(&pix).expect("dither_to_2bpp");
+    for (y, row) in expected.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "pixel ({x}, {y})"
+            );
+        }
+    }
+}
+
+/// Build an 8bpp grayscale Pix from a small row-major table.
+fn make_gray_pix<const W: usize, const H: usize>(rows: &[[u8; W]; H]) -> Pix {
+    let pix = Pix::new(W as u32, H as u32, PixelDepth::Bit8).expect("new pix");
+    let mut pm = pix.try_into_mut().unwrap();
+    for (y, row) in rows.iter().enumerate() {
+        for (x, &v) in row.iter().enumerate() {
+            pm.set_pixel(x as u32, y as u32, v as u32).unwrap();
+        }
+    }
+    pm.into()
+}
+
 /// Test pixDitherTo2bpp and scaled dither (C checks 1-5).
 ///
 /// Tests dither_to_2bpp, scale_gray_2x_li_dither and scale_gray_4x_li_dither.
