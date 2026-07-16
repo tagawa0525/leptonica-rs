@@ -12,7 +12,7 @@
 
 use crate::core::{ImageFormat, Pix, PixelDepth};
 use crate::io::{IoError, IoResult, header::ImageHeader};
-use hayro_jpeg2000::{ColorSpace, DecodeSettings, Image};
+use hayro_jpeg2000::{ColorSpace, DecodeSettings, DecoderContext, Image};
 use std::io::{Read, Seek};
 
 /// Read JPEG 2000 header metadata without decoding pixel data
@@ -94,9 +94,11 @@ fn decode_image_to_pix(image: Image<'_>) -> IoResult<Pix> {
     let has_alpha = image.has_alpha();
 
     // Decode the image
+    let mut ctx = DecoderContext::default();
     let pixels = image
-        .decode()
-        .map_err(|e| IoError::DecodeError(format!("JP2K decode error: {}", e)))?;
+        .decode(&mut ctx)
+        .map_err(|e| IoError::DecodeError(format!("JP2K decode error: {}", e)))?
+        .data_u8();
 
     // Create Pix based on color space
     match &color_space {
