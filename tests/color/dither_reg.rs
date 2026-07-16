@@ -124,8 +124,8 @@ fn dither_reg_to_binary_matches_c_kernel() {
 
 /// dither_to_2bpp must reproduce C ditherTo2bppLineLow exactly, including
 /// the make8To2DitherTables lookup (4 levels at 0/85/170/255, split points
-/// 43/128/213, cliptoblack = cliptowhite = 5) and truncating integer
-/// division for negative errors.
+/// 43/85/128/170/213, cliptoblack = cliptowhite = 5) and truncating
+/// integer division for negative errors.
 #[test]
 fn dither_reg_to_2bpp_matches_c_kernel() {
     let input: [[u8; 3]; 2] = [[100, 200, 60], [50, 150, 255]];
