@@ -1,0 +1,13 @@
+# C-compat exclusion rules (plan 902).
+# Rust manifest keys with no golden_map.tsv entry that match a rule below are
+# reported as [Excluded] instead of [Unmapped] — they are un-mappable by
+# design, so Unmapped counts only actionable mapping work.
+# An explicit golden_map.tsv entry always wins over these rules.
+#
+# Format: kind<TAB>value<TAB>reason
+#   kind = ext    — matches the key's file extension (edge.04.jpg → jpg)
+#   kind = prefix — matches the key's parsed prefix   (edge.04.jpg → edge)
+ext	jpg	JPEG encoder output differs from C libjpeg (finding 001)
+ext	jpeg	JPEG encoder output differs from C libjpeg (finding 001)
+ext	pdf	non-deterministic byte stream, excluded from hashing (PR #386)
+ext	ps	non-deterministic byte stream, excluded from hashing (PR #386)

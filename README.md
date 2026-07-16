@@ -19,13 +19,13 @@ This project reimplements Leptonica's design and algorithms in Rust. The origina
 
 Progress against the original 182 source files and 2,743 public functions (per `allheaders.h`).
 
-| Metric                   | Value                                                                                        |
-| ------------------------ | -------------------------------------------------------------------------------------------- |
-| Lines of code            | ~147,000 / ~249,000                                                                          |
-| Function coverage        | 2,023 / 2,834 (71.4%)                                                                        |
-| Effective coverage       | 2,023 / 2,150 (94.1%)                                                                        |
-| Regression test coverage | 159 / 159 (100.0%)                                                                           |
-| C pixel-level compat     | Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 500 ([details](docs/porting/c-compat-status.md)) |
+| Metric                   | Value                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Lines of code            | ~147,000 / ~249,000                                                                                        |
+| Function coverage        | 2,023 / 2,834 (71.4%)                                                                                      |
+| Effective coverage       | 2,023 / 2,150 (94.1%)                                                                                      |
+| Regression test coverage | 159 / 159 (100.0%)                                                                                         |
+| C pixel-level compat     | Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 447 / Excluded 53 ([details](docs/porting/c-compat-status.md)) |
 
 Details: [Feature comparison](docs/en/porting/feature-comparison.md) / [Test comparison](docs/en/porting/test-comparison.md) / [C compat baseline](docs/porting/c-compat-status.md)
 

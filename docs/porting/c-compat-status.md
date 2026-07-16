@@ -18,6 +18,11 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 >
 > 2026-07-16 実測 (v0.5.0 リリース時、Phase 3 第四弾 PR #405 後):
 > 集計は変化なし (Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 500)。
+>
+> **plan 902 (Excluded 導入) 後**: 設計上マップ不能な分
+> (jpg/jpeg 45 件 = finding 001、pdf/ps 8 件 = PR #386) を
+> `scripts/c_compat_exclude.tsv` の除外ルールで `Excluded` に分離。
+> Unmapped は **447** となり「マップ可能な未着手」だけを数える。
 
 ## 全体集計
 
@@ -26,7 +31,8 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 | ✅ Ok       |  **44** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12)                                                                |
 | ⚠️ Mismatch |  **29** | 内訳: 既知の JPEG codec 差 21 件 (finding 001) + seedspread 6 件 (finding 006) + gifio 2 件 (finding 007、第三弾で新規可視化) |
 | ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                                                                                                  |
-| 📭 Unmapped | **500** | `scripts/golden_map.tsv` 未登録 (Phase 3 進行中、520 → 500、20 件追加マップ)                                                  |
+| 📭 Unmapped | **447** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → 500 → 447)                                               |
+| 🚫 Excluded |  **53** | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 件 (finding 001) + pdf/ps 8 件 (PR #386)                       |
 
 合計 573 entries が C 比較対象。Rust manifest (`tests/golden_manifest.tsv`)
 全体は **580 entries** (582 行 - ヘッダ 2 行)。加えて Rust 独自テスト 84
@@ -34,16 +40,16 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 ## test binary 別の内訳
 
-| Binary      |     Ok | Mismatch | MissingC | Unmapped |
-| ----------- | -----: | -------: | -------: | -------: |
-| `color`     |      0 |        0 |        0 |      114 |
-| `core`      |      1 |        0 |        0 |       34 |
-| `filter`    |      2 |        5 |        0 |       97 |
-| `io`        |      7 |        2 |        0 |       51 |
-| `morph`     | **30** |   **16** |        0 |        9 |
-| `recog`     |      0 |        0 |        0 |       45 |
-| `region`    |      0 |        6 |        0 |       72 |
-| `transform` |      4 |        0 |        0 |       78 |
+| Binary      |     Ok | Mismatch | MissingC | Unmapped | Excluded |
+| ----------- | -----: | -------: | -------: | -------: | -------: |
+| `color`     |      0 |        0 |        0 |      114 |        0 |
+| `core`      |      1 |        0 |        0 |       34 |        0 |
+| `filter`    |      2 |        5 |        0 |       57 |       40 |
+| `io`        |      7 |        2 |        0 |       41 |       10 |
+| `morph`     | **30** |   **16** |        0 |        9 |        0 |
+| `recog`     |      0 |        0 |        0 |       45 |        0 |
+| `region`    |      0 |        6 |        0 |       69 |        3 |
+| `transform` |      4 |        0 |        0 |       78 |        0 |
 
 **morph** が現状最も Ok/Mismatch が集中している binary。これは:
 
