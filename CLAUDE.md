@@ -110,9 +110,9 @@ src/
 - ランタイムレポート: `tests/c_compat_report.<binary>.txt`（.gitignore）。
   Rust 出力 hash と C manifest を `scripts/golden_map.tsv` 経由で照合し、
   `Ok / Mismatch / MissingC / Unmapped / Excluded` を記録
-- 現状ベースライン (As of 2026-07-16 実測、plan 902 Excluded 導入後):
+- 現状ベースライン (As of 2026-07-16 実測、plan 902 PR 2 後):
   `docs/porting/c-compat-status.md` に詳細。
-  **Ok 44 / Mismatch 29 / MissingC 0 / Unmapped 447 / Excluded 53**
+  **Ok 44 / Mismatch 33 / MissingC 0 / Unmapped 445 / Excluded 53**
 - 除外ルール: `scripts/c_compat_exclude.tsv` (plan 902)。設計上マップ不能な
   キー (JPEG codec 差、非決定的形式) を Unmapped から Excluded に分離
 - 環境変数: `REGTEST_C_COMPAT=off` で無効化、`=strict` で Mismatch を fail

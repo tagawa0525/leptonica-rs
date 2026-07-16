@@ -1,8 +1,8 @@
 //! Dither regression test
 //!
 //! Tests dithering from 8 bpp grayscale to 1 bpp binary.
-//! The C version tests Floyd-Steinberg dithering, 2bpp dithering, and
-//! scaled dithering.
+//! The C version tests error-diffusion dithering (leptonica's 3-neighbor
+//! integer kernel), 2bpp dithering, and scaled dithering.
 //!
 //! Partial migration: dither_to_binary, dither_to_binary_with_threshold,
 //! ordered_dither, dither_to_2bpp, scale_gray_2x_li_dither, and
@@ -13,21 +13,35 @@
 //! C Leptonica: `prog/dither_reg.c`
 
 use crate::common::RegParams;
+use leptonica::Pix;
 use leptonica::PixelDepth;
 use leptonica::color::{
     dither_to_2bpp, dither_to_binary, dither_to_binary_with_threshold, ordered_dither,
 };
+use leptonica::filter::gamma_trc_pix;
 use leptonica::io::ImageFormat;
 use leptonica::transform::{scale_gray_2x_li_dither, scale_gray_4x_li_dither};
 
+/// Load test8.jpg with the same gamma-1.3 preprocessing as the C prog
+/// (`pixs = pixGammaTRC(NULL, pix, 1.3, 0, 255)`), so outputs are
+/// comparable with the C golden hashes (plan 902).
+fn load_gamma_corrected_test8() -> crate::common::TestResult<Pix> {
+    let pix = crate::common::load_test_image("test8.jpg")?;
+    gamma_trc_pix(&pix, 1.3, 0, 255).map_err(|e| crate::common::TestError::ImageLoad {
+        path: "test8.jpg".to_string(),
+        message: format!("gamma_trc 1.3 failed: {e}"),
+    })
+}
+
 /// Test dither_to_binary (C check 0: pixDitherToBinary).
 ///
-/// Converts 8bpp grayscale to 1bpp using Floyd-Steinberg dithering.
+/// Converts 8bpp grayscale to 1bpp using leptonica's 3-neighbor
+/// error-diffusion dithering.
 #[test]
 fn dither_reg_to_binary() {
     let mut rp = RegParams::new("dither_bin");
 
-    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = load_gamma_corrected_test8().expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -56,7 +70,7 @@ fn dither_reg_to_binary() {
 fn dither_reg_ordered() {
     let mut rp = RegParams::new("dither_ord");
 
-    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = load_gamma_corrected_test8().expect("load test8.jpg");
     let w = pix.width();
     let h = pix.height();
 
@@ -81,6 +95,67 @@ fn dither_reg_ordered() {
     assert!(rp.cleanup(), "ordered dither test failed");
 }
 
+/// dither_to_binary must reproduce C ditherToBinaryLineLow exactly:
+/// 3-neighbor error diffusion (3/8 right, 3/8 below, 1/4 below-right) in
+/// integer arithmetic, with no propagation when the pixel is within
+/// lowerclip/upperclip (= 10) of black/white.
+///
+/// Expected values hand-computed from the C algorithm
+/// (`reference/leptonica/src/grayquant.c` ditherToBinaryLineLow).
+#[test]
+fn dither_reg_to_binary_matches_c_kernel() {
+    // Row 0: 8 is within lowerclip (10) → ON without propagation
+    //        (classic Floyd-Steinberg would propagate and flip later pixels).
+    let input: [[u8; 3]; 2] = [[8, 126, 130], [128, 126, 4]];
+    let expected: [[u32; 3]; 2] = [[1, 1, 0], [0, 1, 1]];
+
+    let pix = make_gray_pix(&input);
+    let out = dither_to_binary(&pix).expect("dither_to_binary");
+    for (y, row) in expected.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "pixel ({x}, {y})"
+            );
+        }
+    }
+}
+
+/// dither_to_2bpp must reproduce C ditherTo2bppLineLow exactly, including
+/// the make8To2DitherTables lookup (4 levels at 0/85/170/255, split points
+/// 43/85/128/170/213, cliptoblack = cliptowhite = 5) and truncating
+/// integer division for negative errors.
+#[test]
+fn dither_reg_to_2bpp_matches_c_kernel() {
+    let input: [[u8; 3]; 2] = [[100, 200, 60], [50, 150, 255]];
+    let expected: [[u32; 3]; 2] = [[1, 2, 1], [1, 2, 3]];
+
+    let pix = make_gray_pix(&input);
+    let out = dither_to_2bpp(&pix).expect("dither_to_2bpp");
+    for (y, row) in expected.iter().enumerate() {
+        for (x, &want) in row.iter().enumerate() {
+            assert_eq!(
+                out.get_pixel(x as u32, y as u32).unwrap(),
+                want,
+                "pixel ({x}, {y})"
+            );
+        }
+    }
+}
+
+/// Build an 8bpp grayscale Pix from a small row-major table.
+fn make_gray_pix<const W: usize, const H: usize>(rows: &[[u8; W]; H]) -> Pix {
+    let pix = Pix::new(W as u32, H as u32, PixelDepth::Bit8).expect("new pix");
+    let mut pm = pix.try_into_mut().unwrap();
+    for (y, row) in rows.iter().enumerate() {
+        for (x, &v) in row.iter().enumerate() {
+            pm.set_pixel(x as u32, y as u32, v as u32).unwrap();
+        }
+    }
+    pm.into()
+}
+
 /// Test pixDitherTo2bpp and scaled dither (C checks 1-5).
 ///
 /// Tests dither_to_2bpp, scale_gray_2x_li_dither and scale_gray_4x_li_dither.
@@ -92,7 +167,7 @@ fn dither_reg_2bpp_and_scaled() {
 
     let mut rp = RegParams::new("dither_2bpp");
 
-    let pix = crate::common::load_test_image("test8.jpg").expect("load test8.jpg");
+    let pix = load_gamma_corrected_test8().expect("load test8.jpg");
     let pix8 = pix.convert_to_8().expect("convert to 8bpp");
     let w = pix8.width();
     let h = pix8.height();
@@ -110,12 +185,16 @@ fn dither_reg_2bpp_and_scaled() {
     rp.compare_values((w * 2) as f64, scaled2.width() as f64, 0.0);
     rp.compare_values((h * 2) as f64, scaled2.height() as f64, 0.0);
     assert_eq!(scaled2.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&scaled2, ImageFormat::Png)
+        .expect("write scaled2 dither");
 
     // C: pix1 = pixScaleGray4xLIDither(pixs);
     let scaled4 = scale_gray_4x_li_dither(&pix8).expect("scale_gray_4x_li_dither");
     rp.compare_values((w * 4) as f64, scaled4.width() as f64, 0.0);
     rp.compare_values((h * 4) as f64, scaled4.height() as f64, 0.0);
     assert_eq!(scaled4.depth(), PixelDepth::Bit1);
+    rp.write_pix_and_check(&scaled4, ImageFormat::Png)
+        .expect("write scaled4 dither");
 
     assert!(rp.cleanup(), "dither 2bpp and scaled test failed");
 }

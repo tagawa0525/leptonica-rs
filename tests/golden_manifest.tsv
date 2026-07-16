@@ -45,7 +45,7 @@ adaptnorm_cn_simple.04.jpg	6effa958b8faacad
 adaptnorm_contrast.01.jpg	12a7c2c1e9c44fd8
 adaptnorm_contrast.05.jpg	fd53a189f7b2695f
 adaptnorm_contrast.10.jpg	e56a3157d76023f9
-adaptnorm_contrast.12.png	68e88988e513e3d6
+adaptnorm_contrast.12.png	8d4c938a5d12e0d4
 adaptnorm_contrast.14.png	d9340681a3623160
 adaptnorm_contrast.18.png	df4e703d87c45a36
 adaptnorm_contrast.22.png	80d4e64e586c0256
@@ -57,7 +57,7 @@ adaptnorm_local_extrema.04.png	187f2e01c6755699
 adaptnorm_local_extrema.08.png	4c282438d0ea5218
 adaptnorm_pipeline.02.jpg	fd53a189f7b2695f
 adaptnorm_pipeline.04.jpg	2a016e01693b9162
-adaptnorm_quantization.02.png	b3e61ba960c6b789
+adaptnorm_quantization.02.png	8b1032fec24637a8
 adaptnorm_quantization.04.png	d804b5dd60b5be64
 affine_color.04.png	66131ef41bc745df
 affine_gray_interp.02.png	52bc6b753d784ddd
@@ -252,9 +252,11 @@ dist_dynrange.15.png	1a7aa7ff07c5cfdf
 dist_dynrange.16.png	f5c3be2e2636f469
 dist_seedfill.05.png	cfec7494c4aa4fde
 dist_seedfill.06.png	caa1bb88749dfb66
-dither_2bpp.03.png	b3e61ba960c6b789
-dither_bin.03.tif	0e0abc286fab8f38
-dither_ord.03.tif	70b1c5ce6c0f4ae9
+dither_2bpp.03.png	1f5dc11d6044ac49
+dither_2bpp.06.png	5c95ea45e8068a90
+dither_2bpp.09.png	cc7d256ceb3cdf3a
+dither_bin.03.tif	24585361293744f8
+dither_ord.03.tif	bbfe4b077aec6da8
 edge.01.png	711eae78687c7489
 edge.02.png	dba750a4be10d4a9
 edge.03.png	35eaf1879f260e08
@@ -355,7 +357,7 @@ gquant_adv.10.png	9538ed4d581c5f0c
 gquant_adv.12.png	d17631b18efce9ae
 gquant_bin.03.tif	c392ec6e56c59aa9
 gquant_cquant.03.png	4e4ac9aad7b2d527
-gquant_dither.03.png	b3e61ba960c6b789
+gquant_dither.03.png	8b1032fec24637a8
 gquant_dither.05.png	dd23ac8401d1e97b
 gquant_multi.03.png	08810b088ba999b8
 gquant_multi.05.png	08810b088ba999b8

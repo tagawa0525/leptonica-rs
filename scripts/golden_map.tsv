@@ -165,3 +165,9 @@ io	gifio	4	gifio	9	gifio FILE_8BPP_2 read-back checkpoint
 io	gifio	5	gifio	11	gifio FILE_8BPP_3 read-back checkpoint
 io	gifio	6	gifio	13	gifio FILE_16BPP read-back checkpoint
 io	gifio	7	gifio	15	gifio FILE_32BPP read-back checkpoint
+
+# dither_reg.c (plan 902 PR 2): Rust 側は C と同じ gamma 1.3 前処理を適用
+color	dither	0	dither_bin	3	error-diffusion dither to binary (gamma 1.3)
+color	dither	2	dither_2bpp	3	dither to 2bpp without colormap (gamma 1.3)
+color	dither	4	dither_2bpp	6	scale gray 2x LI dither (gamma 1.3)
+color	dither	5	dither_2bpp	9	scale gray 4x LI dither (gamma 1.3)

@@ -1214,7 +1214,8 @@ pub fn scale_gray_4x_li_thresh(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
     gray_threshold_to_binary(&gray, thresh)
 }
 
-/// 2× upscale of an 8bpp image with LI, then Floyd-Steinberg dither to 1bpp.
+/// 2× upscale of an 8bpp image with LI, then error-diffusion dither to 1bpp
+/// (C leptonica 3-neighbor kernel).
 pub fn scale_gray_2x_li_dither(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
@@ -1228,10 +1229,11 @@ pub fn scale_gray_2x_li_dither(pix: &Pix) -> TransformResult<Pix> {
         ));
     }
     let gray = scale_gray_2x_li(pix)?;
-    gray_floyd_steinberg_dither(&gray)
+    gray_error_diffusion_dither(&gray)
 }
 
-/// 4× upscale of an 8bpp image with LI, then Floyd-Steinberg dither to 1bpp.
+/// 4× upscale of an 8bpp image with LI, then error-diffusion dither to 1bpp
+/// (C leptonica 3-neighbor kernel).
 pub fn scale_gray_4x_li_dither(pix: &Pix) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(TransformError::UnsupportedDepth(format!(
@@ -1245,7 +1247,7 @@ pub fn scale_gray_4x_li_dither(pix: &Pix) -> TransformResult<Pix> {
         ));
     }
     let gray = scale_gray_4x_li(pix)?;
-    gray_floyd_steinberg_dither(&gray)
+    gray_error_diffusion_dither(&gray)
 }
 
 /// Downscale an 8bpp image by selecting the min, max, or max-minus-min value
@@ -1464,53 +1466,20 @@ fn gray_threshold_to_binary(pix: &Pix, thresh: i32) -> TransformResult<Pix> {
     Ok(out_mut.into())
 }
 
-/// Floyd-Steinberg error-diffusion dithering from 8bpp to 1bpp.
+/// Error-diffusion dithering from 8bpp to 1bpp, using the C leptonica
+/// 3-neighbor kernel (`ditherToBinaryLow`), as `pixScaleGray2xLIDither` /
+/// `pixScaleGray4xLIDither` do after scaling.
 ///
 /// In the output 1bpp image: 0 = white, 1 = black.
-fn gray_floyd_steinberg_dither(pix: &Pix) -> TransformResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
-
-    // Use an f32 buffer to accumulate diffused errors.
-    let mut buf: Vec<f32> = Vec::with_capacity((w * h) as usize);
-    for y in 0..h {
-        for x in 0..w {
-            buf.push(pix.get_pixel_unchecked(x, y) as f32);
+fn gray_error_diffusion_dither(pix: &Pix) -> TransformResult<Pix> {
+    use crate::color::ColorError;
+    crate::color::dither_to_binary(pix).map_err(|e| match e {
+        ColorError::Core(c) => TransformError::Core(c),
+        ColorError::UnsupportedDepth { expected, actual } => {
+            TransformError::UnsupportedDepth(format!("expected {expected}, got {actual}"))
         }
-    }
-
-    let out = Pix::new(w, h, PixelDepth::Bit1)?;
-    let mut out_mut = out.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let idx = (y * w + x) as usize;
-            let old_val = buf[idx].clamp(0.0, 255.0);
-            // Quantize: >= 128 → white (0 in 1bpp), < 128 → black (1 in 1bpp)
-            let (new_val, binary) = if old_val >= 128.0 {
-                (255.0_f32, 0_u32)
-            } else {
-                (0.0_f32, 1_u32)
-            };
-            out_mut.set_pixel_unchecked(x, y, binary);
-            let error = old_val - new_val;
-
-            // Distribute error to neighbours (Floyd-Steinberg weights)
-            if x + 1 < w {
-                buf[idx + 1] += error * 7.0 / 16.0;
-            }
-            if y + 1 < h {
-                if x > 0 {
-                    buf[((y + 1) * w + x - 1) as usize] += error * 3.0 / 16.0;
-                }
-                buf[((y + 1) * w + x) as usize] += error * 5.0 / 16.0;
-                if x + 1 < w {
-                    buf[((y + 1) * w + x + 1) as usize] += error * 1.0 / 16.0;
-                }
-            }
-        }
-    }
-    Ok(out_mut.into())
+        other => TransformError::InvalidParameters(other.to_string()),
+    })
 }
 
 /// Single-stage 2× grayscale rank reduction.
