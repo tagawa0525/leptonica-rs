@@ -57,8 +57,11 @@ impl Pix {
 
     /// Multiply all pixels by a constant factor.
     ///
-    /// Creates a new image where each pixel value is multiplied by the factor.
-    /// Values are clipped to the valid range for the pixel depth.
+    /// Creates a new image where each pixel value is multiplied by the
+    /// factor. For 8/16 bpp the result is clipped to the valid range; for
+    /// 32 bpp the whole word is treated as a single gray value and is *not*
+    /// clipped, matching C `pixMultConstantGray()` (per-channel RGB scaling
+    /// is `filter::mult_constant_color`).
     ///
     /// # Arguments
     ///
