@@ -982,11 +982,15 @@ pub fn conn_comp_transform_depth(
     // order of the first-encountered pixel — the same enumeration order as
     // C pixConnComp, so `label - 1` corresponds to C's component index i.
     let labeled = label_connected_components(pix, connectivity)?;
+    if out_depth == PixelDepth::Bit32 {
+        // At 32bpp the C value 1 + i equals the label itself.
+        return Ok(labeled);
+    }
     let w = labeled.width();
     let h = labeled.height();
 
     let out = Pix::new(w, h, out_depth).map_err(RegionError::Core)?;
-    let mut out_mut = out.try_into_mut().unwrap();
+    let mut out_mut = out.try_into_mut().unwrap_or_else(|p| p.to_mut());
     for y in 0..h {
         for x in 0..w {
             let label = labeled.get_pixel_unchecked(x, y);
