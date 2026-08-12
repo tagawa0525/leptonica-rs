@@ -50,3 +50,31 @@ fn genfonts_reg() {
 
     assert!(rp.cleanup(), "genfonts regression test failed");
 }
+
+/// C-comparable font pixa displays (plan 902 PR 12).
+///
+/// Mirrors the string-generated section of C genfonts_reg (checks 9-17):
+/// for each font size, tile the 95-glyph font pixa with
+/// pixaDisplayTiled(1500, 0, 15). Pairs with C genfonts.09-17; the C
+/// manifest itself proves the file path (checks 0-8) produces identical
+/// output, so one series covers both.
+#[test]
+fn genfonts_c_compat() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("genfonts_c");
+
+    for size in [4u32, 6, 8, 10, 12, 14, 16, 18, 20] {
+        let bmf = Bmf::new(size).expect("create bmf");
+        let tiled = bmf
+            .get_font_pixa()
+            .display_tiled(1500, 0, 15)
+            .expect("display tiled font");
+        rp.write_pix_and_check(&tiled, ImageFormat::Png)
+            .expect("check: tiled font pixa");
+    }
+
+    assert!(rp.cleanup(), "genfonts c-compat test failed");
+}

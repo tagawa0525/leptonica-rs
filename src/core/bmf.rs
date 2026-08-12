@@ -19,217 +19,152 @@ use crate::core::pix::{Pix, PixelDepth};
 use crate::core::pixa::Pixa;
 
 // ────────────────────────────────────────────────────────────────────
-//  Font glyph data
+//  Font sheet data
 // ────────────────────────────────────────────────────────────────────
 
-/// A minimal 5×7 bitmap font definition for ASCII 32–126.
+/// The 9 bitmap-font sheets from C leptonica's `bmfdata.h`, decoded from
+/// their base64 form into CCITT G4 TIFF bytes by
+/// `scripts/extract_bmfdata.py`. Each sheet holds the 95 printable ASCII
+/// characters in 3 rows; [`pixa_generate_font`] cuts it into glyphs at
+/// runtime, exactly like C `pixaGenerateFontFromString()`.
+fn font_sheet_tiff(fontsize: u32) -> Option<&'static [u8]> {
+    Some(match fontsize {
+        4 => include_bytes!("fonts/chars-4.tif"),
+        6 => include_bytes!("fonts/chars-6.tif"),
+        8 => include_bytes!("fonts/chars-8.tif"),
+        10 => include_bytes!("fonts/chars-10.tif"),
+        12 => include_bytes!("fonts/chars-12.tif"),
+        14 => include_bytes!("fonts/chars-14.tif"),
+        16 => include_bytes!("fonts/chars-16.tif"),
+        18 => include_bytes!("fonts/chars-18.tif"),
+        20 => include_bytes!("fonts/chars-20.tif"),
+        _ => return None,
+    })
+}
+
+/// Extra vertical space between text lines, as a fraction of line height.
 ///
-/// Each character is represented as a slice of bytes, one per row (MSB-left).
-/// Width is stored separately so proportional widths are possible.
-mod font_data {
-    /// (width, rows) for each ASCII code 32..=126.
-    /// Row bytes are MSB-left: bit 7 = leftmost pixel.
-    pub(super) fn glyph(ch: u8) -> (u8, [u8; 7]) {
-        match ch {
-            // space
-            32 => (3, [0, 0, 0, 0, 0, 0, 0]),
-            // !
-            33 => (1, [0x80, 0x80, 0x80, 0x80, 0x80, 0x00, 0x80]),
-            // "
-            34 => (3, [0xA0, 0xA0, 0, 0, 0, 0, 0]),
-            // #
-            35 => (5, [0x50, 0xF8, 0x50, 0x50, 0xF8, 0x50, 0]),
-            // $
-            36 => (5, [0x20, 0x78, 0xA0, 0x70, 0x28, 0xF0, 0x20]),
-            // %
-            37 => (5, [0xC8, 0xC8, 0x10, 0x20, 0x40, 0x98, 0x98]),
-            // &
-            38 => (5, [0x40, 0xA0, 0xA0, 0x40, 0xA8, 0x90, 0x68]),
-            // '
-            39 => (1, [0x80, 0x80, 0, 0, 0, 0, 0]),
-            // (
-            40 => (2, [0x40, 0x80, 0x80, 0x80, 0x80, 0x80, 0x40]),
-            // )
-            41 => (2, [0x80, 0x40, 0x40, 0x40, 0x40, 0x40, 0x80]),
-            // *
-            42 => (5, [0, 0x20, 0xA8, 0x70, 0xA8, 0x20, 0]),
-            // +
-            43 => (5, [0, 0x20, 0x20, 0xF8, 0x20, 0x20, 0]),
-            // ,
-            44 => (2, [0, 0, 0, 0, 0, 0x40, 0x80]),
-            // -
-            45 => (4, [0, 0, 0, 0xF0, 0, 0, 0]),
-            // .
-            46 => (1, [0, 0, 0, 0, 0, 0, 0x80]),
-            // /
-            47 => (3, [0x20, 0x20, 0x40, 0x40, 0x40, 0x80, 0x80]),
-            // 0
-            48 => (4, [0x60, 0x90, 0x90, 0x90, 0x90, 0x90, 0x60]),
-            // 1
-            49 => (3, [0x20, 0x60, 0x20, 0x20, 0x20, 0x20, 0x70]),
-            // 2
-            50 => (4, [0x60, 0x90, 0x10, 0x20, 0x40, 0x80, 0xF0]),
-            // 3
-            51 => (4, [0x60, 0x90, 0x10, 0x60, 0x10, 0x90, 0x60]),
-            // 4
-            52 => (4, [0x10, 0x30, 0x50, 0x90, 0xF0, 0x10, 0x10]),
-            // 5
-            53 => (4, [0xF0, 0x80, 0xE0, 0x10, 0x10, 0x90, 0x60]),
-            // 6
-            54 => (4, [0x60, 0x80, 0xE0, 0x90, 0x90, 0x90, 0x60]),
-            // 7
-            55 => (4, [0xF0, 0x10, 0x20, 0x20, 0x40, 0x40, 0x40]),
-            // 8
-            56 => (4, [0x60, 0x90, 0x90, 0x60, 0x90, 0x90, 0x60]),
-            // 9
-            57 => (4, [0x60, 0x90, 0x90, 0x70, 0x10, 0x10, 0x60]),
-            // :
-            58 => (1, [0, 0, 0x80, 0, 0, 0x80, 0]),
-            // ;
-            59 => (2, [0, 0, 0x40, 0, 0, 0x40, 0x80]),
-            // <
-            60 => (3, [0, 0x20, 0x40, 0x80, 0x40, 0x20, 0]),
-            // =
-            61 => (4, [0, 0, 0xF0, 0, 0xF0, 0, 0]),
-            // >
-            62 => (3, [0, 0x80, 0x40, 0x20, 0x40, 0x80, 0]),
-            // ?
-            63 => (4, [0x60, 0x90, 0x10, 0x20, 0x20, 0, 0x20]),
-            // @
-            64 => (5, [0x70, 0x88, 0xB8, 0xA8, 0xB8, 0x80, 0x70]),
-            // A
-            65 => (4, [0x60, 0x90, 0x90, 0xF0, 0x90, 0x90, 0x90]),
-            // B
-            66 => (4, [0xE0, 0x90, 0x90, 0xE0, 0x90, 0x90, 0xE0]),
-            // C
-            67 => (4, [0x60, 0x90, 0x80, 0x80, 0x80, 0x90, 0x60]),
-            // D
-            68 => (4, [0xE0, 0x90, 0x90, 0x90, 0x90, 0x90, 0xE0]),
-            // E
-            69 => (4, [0xF0, 0x80, 0x80, 0xE0, 0x80, 0x80, 0xF0]),
-            // F
-            70 => (4, [0xF0, 0x80, 0x80, 0xE0, 0x80, 0x80, 0x80]),
-            // G
-            71 => (4, [0x60, 0x90, 0x80, 0xB0, 0x90, 0x90, 0x60]),
-            // H
-            72 => (4, [0x90, 0x90, 0x90, 0xF0, 0x90, 0x90, 0x90]),
-            // I
-            73 => (3, [0xE0, 0x40, 0x40, 0x40, 0x40, 0x40, 0xE0]),
-            // J
-            74 => (4, [0x70, 0x10, 0x10, 0x10, 0x10, 0x90, 0x60]),
-            // K
-            75 => (4, [0x90, 0xA0, 0xC0, 0xC0, 0xA0, 0x90, 0x90]),
-            // L
-            76 => (4, [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0xF0]),
-            // M
-            77 => (5, [0x88, 0xD8, 0xA8, 0x88, 0x88, 0x88, 0x88]),
-            // N
-            78 => (4, [0x90, 0xD0, 0xD0, 0xB0, 0xB0, 0x90, 0x90]),
-            // O
-            79 => (4, [0x60, 0x90, 0x90, 0x90, 0x90, 0x90, 0x60]),
-            // P
-            80 => (4, [0xE0, 0x90, 0x90, 0xE0, 0x80, 0x80, 0x80]),
-            // Q
-            81 => (4, [0x60, 0x90, 0x90, 0x90, 0x90, 0xA0, 0x50]),
-            // R
-            82 => (4, [0xE0, 0x90, 0x90, 0xE0, 0xA0, 0x90, 0x90]),
-            // S
-            83 => (4, [0x60, 0x90, 0x80, 0x60, 0x10, 0x90, 0x60]),
-            // T
-            84 => (5, [0xF8, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20]),
-            // U
-            85 => (4, [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x60]),
-            // V
-            86 => (5, [0x88, 0x88, 0x88, 0x50, 0x50, 0x20, 0x20]),
-            // W
-            87 => (5, [0x88, 0x88, 0x88, 0xA8, 0xA8, 0xD8, 0x88]),
-            // X
-            88 => (4, [0x90, 0x90, 0x60, 0x60, 0x90, 0x90, 0x90]),
-            // Y
-            89 => (5, [0x88, 0x88, 0x50, 0x20, 0x20, 0x20, 0x20]),
-            // Z
-            90 => (4, [0xF0, 0x10, 0x20, 0x40, 0x80, 0x80, 0xF0]),
-            // [
-            91 => (2, [0xC0, 0x80, 0x80, 0x80, 0x80, 0x80, 0xC0]),
-            // backslash
-            92 => (3, [0x80, 0x80, 0x40, 0x40, 0x40, 0x20, 0x20]),
-            // ]
-            93 => (2, [0xC0, 0x40, 0x40, 0x40, 0x40, 0x40, 0xC0]),
-            // ^
-            94 => (3, [0x40, 0xA0, 0, 0, 0, 0, 0]),
-            // _
-            95 => (4, [0, 0, 0, 0, 0, 0, 0xF0]),
-            // `
-            96 => (2, [0x80, 0x40, 0, 0, 0, 0, 0]),
-            // a
-            97 => (4, [0, 0, 0x60, 0x10, 0x70, 0x90, 0x70]),
-            // b
-            98 => (4, [0x80, 0x80, 0xE0, 0x90, 0x90, 0x90, 0xE0]),
-            // c
-            99 => (3, [0, 0, 0x60, 0x80, 0x80, 0x80, 0x60]),
-            // d
-            100 => (4, [0x10, 0x10, 0x70, 0x90, 0x90, 0x90, 0x70]),
-            // e
-            101 => (4, [0, 0, 0x60, 0x90, 0xF0, 0x80, 0x60]),
-            // f
-            102 => (3, [0x20, 0x40, 0xE0, 0x40, 0x40, 0x40, 0x40]),
-            // g
-            103 => (4, [0, 0, 0x70, 0x90, 0x90, 0x70, 0x10]),
-            // h
-            104 => (4, [0x80, 0x80, 0xE0, 0x90, 0x90, 0x90, 0x90]),
-            // i
-            105 => (1, [0x80, 0, 0x80, 0x80, 0x80, 0x80, 0x80]),
-            // j
-            106 => (2, [0x40, 0, 0x40, 0x40, 0x40, 0x40, 0x80]),
-            // k
-            107 => (4, [0x80, 0x80, 0x90, 0xA0, 0xC0, 0xA0, 0x90]),
-            // l
-            108 => (1, [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]),
-            // m
-            109 => (5, [0, 0, 0xD0, 0xA8, 0xA8, 0x88, 0x88]),
-            // n
-            110 => (4, [0, 0, 0xE0, 0x90, 0x90, 0x90, 0x90]),
-            // o
-            111 => (4, [0, 0, 0x60, 0x90, 0x90, 0x90, 0x60]),
-            // p
-            112 => (4, [0, 0, 0xE0, 0x90, 0x90, 0xE0, 0x80]),
-            // q
-            113 => (4, [0, 0, 0x70, 0x90, 0x90, 0x70, 0x10]),
-            // r
-            114 => (3, [0, 0, 0xA0, 0xC0, 0x80, 0x80, 0x80]),
-            // s
-            115 => (3, [0, 0, 0x60, 0x80, 0x40, 0x20, 0xC0]),
-            // t
-            116 => (3, [0x40, 0x40, 0xE0, 0x40, 0x40, 0x40, 0x20]),
-            // u
-            117 => (4, [0, 0, 0x90, 0x90, 0x90, 0x90, 0x70]),
-            // v
-            118 => (3, [0, 0, 0xA0, 0xA0, 0xA0, 0x40, 0x40]),
-            // w
-            119 => (5, [0, 0, 0x88, 0x88, 0xA8, 0xA8, 0x50]),
-            // x
-            120 => (3, [0, 0, 0xA0, 0x40, 0x40, 0x40, 0xA0]),
-            // y
-            121 => (4, [0, 0, 0x90, 0x90, 0x90, 0x70, 0x60]),
-            // z
-            122 => (3, [0, 0, 0xE0, 0x20, 0x40, 0x80, 0xE0]),
-            // {
-            123 => (3, [0x20, 0x40, 0x40, 0x80, 0x40, 0x40, 0x20]),
-            // |
-            124 => (1, [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]),
-            // }
-            125 => (3, [0x80, 0x40, 0x40, 0x20, 0x40, 0x40, 0x80]),
-            // ~
-            126 => (4, [0, 0, 0x50, 0xA0, 0, 0, 0]),
-            _ => (3, [0, 0, 0, 0, 0, 0, 0]),
+/// C Leptonica: `VertFractSep` in `bmf.c`.
+const VERT_FRACT_SEP: f32 = 0.3;
+
+/// Cut a font sheet (95 printable ASCII chars in 3 rows) into the 95
+/// glyph images, returning them with the baseline of each row.
+///
+/// C Leptonica: `pixaGenerateFont()` in `bmf.c`
+fn pixa_generate_font(sheet: &Pix) -> Result<(Pixa, [u32; 3])> {
+    use crate::region::ConnectivityType;
+
+    // Locate the 3 rows of characters from the row pixel counts.
+    let w = sheet.width();
+    let na = sheet.count_by_row(None)?;
+    let mut rows: Vec<(u32, u32)> = Vec::new(); // (top, height)
+    let mut inrow = false;
+    let mut top = 0u32;
+    for i in 0..sheet.height() {
+        let count = na.get(i as usize).unwrap_or(0.0);
+        if !inrow && count > 0.0 {
+            inrow = true;
+            top = i;
+        } else if inrow && count == 0.0 {
+            inrow = false;
+            rows.push((top, i - top));
+        }
+    }
+    if rows.len() != 3 {
+        return Err(Error::InvalidParameter(format!(
+            "font sheet has {} rows of chars, expected 3",
+            rows.len()
+        )));
+    }
+
+    let mut pixa = Pixa::with_capacity(NUM_CHARS);
+    let mut baselines = [0u32; 3];
+    for (i, &(top, rowh)) in rows.iter().enumerate() {
+        let pixr = sheet.clip_rectangle(0, top, w, rowh)?;
+        baselines[i] = text_baseline(&pixr)?;
+
+        // Close with a 1x35 brick so each character becomes one component,
+        // then take the components in left-to-right order.
+        let pixrc = crate::morph::close_safe_brick(&pixr, 1, 35)
+            .map_err(|e| Error::InvalidParameter(format!("close_safe_brick: {e}")))?;
+        let comps = crate::region::find_connected_components(&pixrc, ConnectivityType::EightWay)
+            .map_err(|e| Error::InvalidParameter(format!("find_connected_components: {e}")))?;
+        let mut boxes: Vec<crate::core::Box> = comps.into_iter().map(|c| c.bounds).collect();
+        boxes.sort_by_key(|b| b.x);
+
+        if i == 0 {
+            // Consolidate the two components of '"' into one box.
+            if boxes.len() < 3 {
+                return Err(Error::InvalidParameter(
+                    "font sheet row 0 has too few components".into(),
+                ));
+            }
+            boxes[1].w = boxes[2].x + boxes[2].w - boxes[1].x;
+            boxes.remove(2);
+        }
+
+        let h = pixr.height();
+        for (j, b) in boxes.iter().enumerate() {
+            if b.w <= 2 && b.h == 1 {
+                // Skip 1x1 and 2x1 noise components.
+                continue;
+            }
+            let pixc = pixr.clip_rectangle(b.x as u32, 0, b.w as u32, h - 1)?;
+            if i == 0 && j == 0 {
+                // Placeholder for the space; replaced below.
+                pixa.push(pixc.clone());
+            }
+            if i == 2 && j == 0 {
+                // Placeholder for the '\'; replaced below.
+                pixa.push(pixc.clone());
+            }
+            pixa.push(pixc);
         }
     }
 
-    /// Baseline position (distance from top of glyph to baseline) in the
-    /// base 7-row font.  Most characters sit at row 6; descenders go below.
-    pub(super) fn baseline() -> u32 {
-        5 // row index 5 in the 7-row grid (0-based)
+    if pixa.len() != NUM_CHARS {
+        return Err(Error::InvalidParameter(format!(
+            "font sheet produced {} chars, expected {}",
+            pixa.len(),
+            NUM_CHARS
+        )));
     }
+
+    // The space (index 0) has no ON pixels and is about twice as wide
+    // as the '!' character whose copy currently sits there.
+    let (bang_w, bang_h) = {
+        let bang = pixa.get(0).expect("glyph 0");
+        (bang.width(), bang.height())
+    };
+    pixa.replace(0, Pix::new(2 * bang_w, bang_h, PixelDepth::Bit1)?)?;
+
+    // The '\' (index 60) is a left-right flip of the '/' (index 15).
+    let backslash = crate::transform::flip_lr(pixa.get(15).expect("glyph 15"))
+        .map_err(|e| Error::InvalidParameter(format!("flip_lr: {e}")))?;
+    pixa.replace(60, backslash)?;
+
+    Ok((pixa, baselines))
+}
+
+/// Locate the baseline of a row of text as the raster line above the
+/// largest drop in the row pixel-count profile.
+///
+/// C Leptonica: `pixGetTextBaseline()` in `bmf.c`
+fn text_baseline(pix: &Pix) -> Result<u32> {
+    let na = pix.count_by_row(None)?;
+    let h = pix.height() as usize;
+    let mut diffmax = 0i32;
+    let mut ymax = 0u32;
+    for i in 1..h {
+        let val1 = na.get(i - 1).unwrap_or(0.0) as i32;
+        let val2 = na.get(i).unwrap_or(0.0) as i32;
+        let diff = (val1 - val2).max(0);
+        if diff > diffmax {
+            diffmax = diff;
+            ymax = (i - 1) as u32; // upper raster line
+        }
+    }
+    Ok(ymax)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -288,73 +223,64 @@ const NUM_CHARS: usize = (LAST_CHAR - FIRST_CHAR + 1) as usize; // 95
 impl Bmf {
     /// Create a bitmap font at the given point size.
     ///
-    /// Valid sizes: 4, 6, 8, 10, 12, 14, 16, 20.  Other sizes are
-    /// clamped to the nearest valid size.
+    /// Valid sizes: 4, 6, 8, ..., 20 (even sizes only, like C). The glyphs
+    /// are cut at runtime from the font sheets embedded from C leptonica's
+    /// `bmfdata.h`, so the result is bit-identical to `bmfCreate(NULL, size)`.
+    ///
+    /// Requires the `tiff-format` feature (on by default) to decode the
+    /// embedded G4 TIFF sheets; without it this returns an error, matching
+    /// C's behavior when built without libtiff.
     ///
     /// # See also
     ///
     /// C Leptonica: `bmfCreate()` in `bmf.c`
     pub fn new(pointsize: u32) -> Result<Self> {
-        let pointsize = Self::clamp_size(pointsize);
-        if pointsize == 0 {
-            return Err(Error::InvalidParameter("pointsize must be > 0".into()));
-        }
+        let sheet_tiff = font_sheet_tiff(pointsize).ok_or_else(|| {
+            Error::InvalidParameter(format!(
+                "fontsize must be one of 4, 6, ..., 20, got {pointsize}"
+            ))
+        })?;
+        let sheet = crate::io::read_image_mem(sheet_tiff).map_err(|e| {
+            Error::InvalidParameter(format!("cannot decode embedded font sheet: {e}"))
+        })?;
+        let (pixa, row_baselines) = pixa_generate_font(&sheet)?;
 
-        // Base font is 5-wide × 7-tall.  Scale factor = pointsize / 7
-        // (at least 1).
-        let scale = (pointsize as f64 / 7.0).max(1.0);
-
-        let base_height = 7u32;
-        let scaled_height = (base_height as f64 * scale).round() as u32;
-        let base_baseline = font_data::baseline();
-        let scaled_baseline = (base_baseline as f64 * scale).round() as u32;
-
-        let mut pixa = Pixa::with_capacity(NUM_CHARS);
+        // bmfMakeAsciiTables: per-char baselines. Chars 32-57 sit on row 0,
+        // 58-91 on row 1, 93-126 on row 2; '\' (92) was cut from row 0.
         let mut widths = Vec::with_capacity(NUM_CHARS);
         let mut baselines = Vec::with_capacity(NUM_CHARS);
-
         for ch in FIRST_CHAR..=LAST_CHAR {
-            let (base_w, rows) = font_data::glyph(ch);
-            let base_w = base_w as u32;
-            let scaled_w = ((base_w as f64) * scale).round().max(1.0) as u32;
-
-            // Create 1bpp glyph
-            let pix = Pix::new(scaled_w, scaled_height, PixelDepth::Bit1)?;
-            let mut pm = pix.try_into_mut().unwrap();
-
-            for (src_y, &row_byte) in rows.iter().enumerate() {
-                for src_x in 0..base_w {
-                    let bit = (row_byte >> (7 - src_x)) & 1;
-                    if bit != 0 {
-                        // Scale up: fill the rectangle
-                        let dx_start = (src_x as f64 * scale).round() as u32;
-                        let dx_end =
-                            (((src_x + 1) as f64) * scale).round().min(scaled_w as f64) as u32;
-                        let dy_start = (src_y as f64 * scale).round() as u32;
-                        let dy_end = (((src_y + 1) as f64) * scale)
-                            .round()
-                            .min(scaled_height as f64) as u32;
-                        for dy in dy_start..dy_end {
-                            for dx in dx_start..dx_end {
-                                pm.set_pixel_unchecked(dx, dy, 1);
-                            }
-                        }
-                    }
-                }
-            }
-
-            let pix: Pix = pm.into();
-            pixa.push(pix);
-            widths.push(scaled_w);
-            baselines.push(scaled_baseline);
+            let idx = (ch - FIRST_CHAR) as usize;
+            let pix = pixa
+                .get(idx)
+                .ok_or_else(|| Error::InvalidParameter(format!("font pixa missing glyph {idx}")))?;
+            widths.push(pix.width());
+            baselines.push(match ch {
+                32..=57 | 92 => row_baselines[0],
+                58..=91 => row_baselines[1],
+                _ => row_baselines[2],
+            });
         }
 
-        // Kern width ≈ 8% of 'x' width (minimum 1)
-        let x_idx = (b'x' - FIRST_CHAR) as usize;
-        let kern_width = (widths[x_idx] as f64 * 0.08).round().max(1.0) as u32;
+        // Line height: from the highest ascender to the lowest descender,
+        // taken as the max glyph height of ' ' (row 0), ':' (row 1) and
+        // ']' (row 2).
+        let line_height = b" :]"
+            .iter()
+            .map(|&ch| {
+                pixa.get((ch - FIRST_CHAR) as usize)
+                    .map(|p| p.height())
+                    .unwrap_or(0)
+            })
+            .max()
+            .unwrap_or(0);
+
+        // Kern width: 8% of the 'x' width, at least 1.
+        let x_width = widths[(b'x' - FIRST_CHAR) as usize];
+        let kern_width = ((0.08 * x_width as f32 + 0.5) as u32).max(1);
 
         let space_width = widths[(b' ' - FIRST_CHAR) as usize];
-        let vert_line_sep = (scaled_height as f64 * 0.3).round().max(1.0) as u32;
+        let vert_line_sep = (VERT_FRACT_SEP * line_height as f32 + 0.5) as u32;
 
         Ok(Bmf {
             pixa,
@@ -363,18 +289,9 @@ impl Bmf {
             baselines,
             kern_width,
             space_width,
-            line_height: scaled_height,
+            line_height,
             vert_line_sep,
         })
-    }
-
-    /// Clamp to the nearest supported font size.
-    fn clamp_size(ps: u32) -> u32 {
-        const SIZES: [u32; 8] = [4, 6, 8, 10, 12, 14, 16, 20];
-        *SIZES
-            .iter()
-            .min_by_key(|&&s| (s as i32 - ps as i32).unsigned_abs())
-            .unwrap_or(&10)
     }
 
     /// Return the character index (0-based) for an ASCII character.
@@ -988,17 +905,11 @@ pub fn bmf_get_line_strings(text: &str, max_w: u32, first_indent: u32, bmf: &Bmf
     lines
 }
 
-/// Supported bitmap-font point sizes (subset of the C version: 18pt is not
-/// generated by [`Bmf::new`] and is therefore rejected here).
-const SUPPORTED_FONT_SIZES: [u32; 8] = [4, 6, 8, 10, 12, 14, 16, 20];
-
 /// Generate and save a bitmap-font `Pixa` for a given point size.
 ///
 /// Writes `chars-{fontsize}.pa` into `outdir` via [`Pixa::write_to_file`].
 ///
-/// `fontsize` must be one of `{4, 6, 8, 10, 12, 14, 16, 20}`. Other values
-/// (including the C-supported 18 pt) return `Err`, since [`Bmf::new`] does
-/// not have compiled-in glyph data for them and would silently clamp.
+/// `fontsize` must be one of `{4, 6, 8, ..., 20}` (even sizes, like C).
 ///
 /// The C version supports an optional `indir` to extract a font from an
 /// image file; this port only generates from the compiled-in font data
@@ -1008,11 +919,6 @@ const SUPPORTED_FONT_SIZES: [u32; 8] = [4, 6, 8, 10, 12, 14, 16, 20];
 ///
 /// C Leptonica: `pixaSaveFont()` in `bmf.c`.
 pub fn pixa_save_font(outdir: impl AsRef<std::path::Path>, fontsize: u32) -> Result<()> {
-    if !SUPPORTED_FONT_SIZES.contains(&fontsize) {
-        return Err(Error::InvalidParameter(format!(
-            "fontsize must be one of {SUPPORTED_FONT_SIZES:?}, got {fontsize}"
-        )));
-    }
     let bmf = Bmf::new(fontsize)?;
     let path = outdir.as_ref().join(format!("chars-{fontsize}.pa"));
     bmf.get_font_pixa().write_to_file(&path)

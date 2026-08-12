@@ -165,7 +165,48 @@ C 版ソース: `prog/falsecolor_reg.c`、`src/pixconv.c` / `src/colormap.c`。
   pixAddSingleTextblock (bmf フォント) 経由のため、quadtree 02-04 と
   同じく bmfdata 移植が前提 (後続 PR 候補)
 
-### PR 12 以降: semantic マッピングの漸進追加
+### PR 12: bmfdata 移植 — Bmf の C 準拠化 (実施済み)
+
+C 版ソース: `src/bmf.c` / `src/bmfdata.h`、`prog/genfonts_reg.c`。
+
+Rust の `Bmf` は合成 5x7 フォントのスケール生成で、C のビットマップ
+フォント実体 (bmfdata.h の G4 TIFF) とグリフ・行高が根本的に異なる。
+これが quadtree 02-04 / coloring 全 14 出力のブロッカー (PR 10/11 で
+記録)。事前調査で以下を確認済み:
+
+- fontdata_N (base64) を decode した TIFF は Rust の tiff crate で
+  decode 可能 (G4 対応)、かつ `prog/fonts/chars-N.tif` と pixel 一致
+- C genfonts_reg の出力 00-08 (ファイル経路) と 09-17 (文字列経路) は
+  同一 hash — 経路によらず同一 pixa
+
+作業内容:
+
+1. fontdata の decode 済み TIFF (9 サイズ、計 30KB) を
+   `src/core/fonts/` に置き `include_bytes!` で埋め込み
+   (抽出スクリプトをコミット、C bmfdata.h との一致を検証)
+2. `pixaGenerateFont` / `pixGetTextBaseline` / `bmfMakeAsciiTables` を
+   C 移植し、`Bmf::new` を C 準拠に差し替え (合成フォント削除、
+   fontsize は C 同様 4-20 偶数のみ)
+3. genfonts_c_compat テスト (9 サイズの font pixa を
+   pixaDisplayTiled(1500, 0, 15)) で C genfonts.09-17 と 9 ペア
+4. quadtree.02-04 ↔ quadtree_c.03-05 の 3 ペア (fpixa display は
+   PR 10 で移植済み、フォント差のみが残ブロッカー)
+5. Bmf 依存の既存 golden (bmf_reg / writetext_reg / genfonts_reg /
+   quadtree_c / gplot 系) を再生成
+
+実施結果:
+
+- 全 9 サイズで baseline / lineheight / kern / space / vertsep /
+  グリフ寸法が C 実測値と一致 (bmf_c_compat_metrics)
+- この過程で **pixaDisplayTiled の実装差 (12 件目)** を発見: Rust は
+  詰め込み折り返しで、C は最大部分画像寸法ベースの均等格子。C 準拠に
+  書き直し (TDD)
+- quadtree 3 ペア + genfonts 9 ペア **全件 Ok (Ok 98 → 110)**。
+  genfonts ペアは 95 グリフ x 9 サイズの bit 等価の完全証明
+- fontsize 18 が新たに有効化。coloring 14 ペアのフォント面の前提が
+  整った (残りは cmapped pixShiftByComponent、PR 13 候補)
+
+### PR 13 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

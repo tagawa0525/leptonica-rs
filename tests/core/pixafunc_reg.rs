@@ -223,11 +223,11 @@ fn test_display_tiled_single_row() {
     pixa.push(make_pix(10, 10));
     pixa.push(make_pix(10, 10));
 
-    // max_width=1000, all fit in one row
+    // C lattice: ncols = (1000-5)/(10+5) = 66 columns are reserved even
+    // for 3 images -> wd = 10*66 + 5*67 = 995; one row -> hd = 10 + 5*2.
     let result = pixa.display_tiled(1000, 0, 5).unwrap();
-    // 3 images of 10px + 2 gaps of 5px = 40px
-    assert_eq!(result.width(), 40);
-    assert_eq!(result.height(), 10);
+    assert_eq!(result.width(), 995);
+    assert_eq!(result.height(), 20);
 }
 
 #[test]
@@ -237,11 +237,11 @@ fn test_display_tiled_multi_row() {
     pixa.push(make_pix(20, 15));
     pixa.push(make_pix(20, 10));
 
-    // max_width=50, first two images (20+5+20=45) fit, third wraps
+    // C lattice: wmax=20, hmax=15, ncols = (50-5)/(20+5) = 1, nrows = 3
+    // -> wd = 20 + 5*2 = 30, hd = 15*3 + 5*4 = 65.
     let result = pixa.display_tiled(50, 0, 5).unwrap();
-    assert_eq!(result.width(), 45); // first row width
-    // height = 15 (first row max) + 5 (spacing) + 10 (second row)
-    assert_eq!(result.height(), 30);
+    assert_eq!(result.width(), 30);
+    assert_eq!(result.height(), 65);
 }
 
 #[test]
@@ -255,10 +255,49 @@ fn test_display_tiled_single_image_exceeds_max_width() {
     let mut pixa = Pixa::new();
     pixa.push(make_pix(200, 20));
 
-    // Image wider than max_width goes on its own row
+    // C lattice: ncols clamps to 1 even when the image exceeds max_width
+    // -> wd = 200 + 5*2 = 210, hd = 20 + 5*2 = 30.
     let result = pixa.display_tiled(100, 0, 5).unwrap();
-    assert_eq!(result.width(), 200);
-    assert_eq!(result.height(), 20);
+    assert_eq!(result.width(), 210);
+    assert_eq!(result.height(), 30);
+}
+
+/// display_tiled must reproduce C pixaDisplayTiled: a regular lattice
+/// sized from the max subimage dimensions, with the full column count
+/// reserved even when there are fewer images (plan 902 PR 12).
+///
+/// C: ncols = max(1, (maxwidth - spacing) / (wmax + spacing)),
+///    wd = wmax*ncols + spacing*(ncols+1), hd likewise with rows;
+///    background = 0 paints white for d > 1 (pixSetAll).
+#[test]
+fn test_display_tiled_c_lattice() {
+    // 3 images of 10x10, maxwidth=1000, spacing=5:
+    // ncols = 995/15 = 66, nrows = 1 -> wd = 10*66 + 5*67 = 995, hd = 20.
+    let mut pixa = Pixa::new();
+    for _ in 0..3 {
+        pixa.push(make_pix(10, 10));
+    }
+    let result = pixa.display_tiled(1000, 0, 5).unwrap();
+    assert_eq!((result.width(), result.height()), (995, 20));
+    // background=0 on 8bpp paints white
+    assert_eq!(result.get_pixel(994, 19).unwrap(), 255);
+
+    // 20x10 + 20x15 + 20x10, maxwidth=50, spacing=5:
+    // wmax=20, hmax=15, ncols = 45/25 = 1, nrows = 3
+    // -> wd = 20 + 5*2 = 30, hd = 15*3 + 5*4 = 65.
+    let mut pixa = Pixa::new();
+    pixa.push(make_pix(20, 10));
+    pixa.push(make_pix(20, 15));
+    pixa.push(make_pix(20, 10));
+    let result = pixa.display_tiled(50, 0, 5).unwrap();
+    assert_eq!((result.width(), result.height()), (30, 65));
+
+    // Single 200x20 image with maxwidth=100: ncols clamps to 1
+    // -> wd = 200 + 5*2 = 210, hd = 20 + 5*2 = 30.
+    let mut pixa = Pixa::new();
+    pixa.push(make_pix(200, 20));
+    let result = pixa.display_tiled(100, 0, 5).unwrap();
+    assert_eq!((result.width(), result.height()), (210, 30));
 }
 
 #[test]
