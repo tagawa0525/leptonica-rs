@@ -1643,6 +1643,43 @@ impl std::ops::IndexMut<usize> for Pixaa {
 
 #[cfg(test)]
 mod tests {
+    /// display must reproduce C pixaDisplay: 1bpp components are composited
+    /// with PIX_PAINT (OR) so overlapping bounding boxes do not erase
+    /// previously painted fg pixels, and canvases deeper than 1bpp start
+    /// all-white (pixSetAll).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_matches_c_compositing() {
+        use crate::core::{Box, Pix, PixelDepth};
+
+        // Two overlapping 1bpp components: a pixel of the first lies inside
+        // the second's bounding box but is bg in the second's mask.
+        let mut pixa = super::Pixa::new();
+        let a = Pix::new(3, 1, PixelDepth::Bit1).unwrap();
+        let mut am = a.try_into_mut().unwrap();
+        am.set_pixel(0, 0, 1).unwrap();
+        am.set_pixel(2, 0, 1).unwrap();
+        pixa.push_with_box(am.into(), Box::new_unchecked(0, 0, 3, 1));
+
+        let b = Pix::new(3, 1, PixelDepth::Bit1).unwrap();
+        let mut bm = b.try_into_mut().unwrap();
+        bm.set_pixel(1, 0, 1).unwrap();
+        pixa.push_with_box(bm.into(), Box::new_unchecked(0, 0, 3, 1));
+
+        let disp = pixa.display(3, 1).unwrap();
+        assert_eq!(disp.get_pixel(0, 0), Some(1), "OR must keep first fg");
+        assert_eq!(disp.get_pixel(1, 0), Some(1));
+        assert_eq!(disp.get_pixel(2, 0), Some(1), "OR must keep first fg");
+
+        // 8bpp canvas starts white (255) outside any component.
+        let mut pixa8 = super::Pixa::new();
+        let g = Pix::new(1, 1, PixelDepth::Bit8).unwrap();
+        pixa8.push_with_box(g, Box::new_unchecked(0, 0, 1, 1));
+        let disp8 = pixa8.display(3, 1).unwrap();
+        assert_eq!(disp8.get_pixel(0, 0), Some(0), "component copied as-is");
+        assert_eq!(disp8.get_pixel(2, 0), Some(255), "background is white");
+    }
+
     use super::*;
 
     fn make_test_pix(width: u32, height: u32) -> Pix {
