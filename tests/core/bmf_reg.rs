@@ -438,6 +438,55 @@ fn bmf_rendered_text_has_pixels() {
 }
 
 // ==========================================================================
+// Test: C bmfCreate(NULL, size) parity (plan 902 PR 12)
+// ==========================================================================
+
+/// Bmf must reproduce C bmfCreate(NULL, size) exactly for all 9 sizes.
+///
+/// Expected values were dumped from the C reference build
+/// (scripts/dump_bmf.c one-off; see plan 902 PR 12):
+/// baselines, lineheight, kernwidth, spacewidth, vertlinesep, and the
+/// 'A' glyph dimensions / 'x' width for every font size 4-20.
+#[test]
+#[ignore = "not yet implemented: Bmf uses a synthetic font, not C bmfdata"]
+fn bmf_c_compat_metrics() {
+    // (size, bl1, bl2, bl3, lineheight, kern, space, vertsep, a_w, a_h, x_w)
+    #[rustfmt::skip]
+    const EXPECTED: [(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32); 9] = [
+        (4,  11, 12, 12, 17, 1,  4, 5,  11, 15, 8),
+        (6,  18, 18, 18, 25, 1,  6, 8,  18, 23, 12),
+        (8,  24, 24, 24, 34, 1,  8, 10, 25, 31, 17),
+        (10, 30, 30, 30, 42, 2, 10, 13, 32, 38, 20),
+        (12, 36, 36, 36, 50, 2, 12, 15, 38, 46, 24),
+        (14, 42, 42, 42, 59, 2, 12, 18, 43, 53, 28),
+        (16, 48, 48, 48, 67, 3, 16, 20, 49, 61, 32),
+        (18, 54, 54, 54, 76, 3, 18, 23, 56, 69, 36),
+        (20, 60, 60, 60, 84, 3, 18, 25, 62, 76, 39),
+    ];
+
+    for (size, bl1, bl2, bl3, lineheight, kern, space, vertsep, a_w, a_h, x_w) in EXPECTED {
+        let bmf = Bmf::new(size).unwrap_or_else(|e| panic!("Bmf::new({size}): {e}"));
+        assert_eq!(bmf.get_font_pixa().len(), 95, "size {size}: glyph count");
+        // Baselines: '0' (48) uses bl1, 'A' (65) uses bl2, 'a' (97) uses bl3.
+        assert_eq!(bmf.get_baseline('0'), Some(bl1), "size {size}: baseline1");
+        assert_eq!(bmf.get_baseline('A'), Some(bl2), "size {size}: baseline2");
+        assert_eq!(bmf.get_baseline('a'), Some(bl3), "size {size}: baseline3");
+        assert_eq!(bmf.line_height(), lineheight, "size {size}: lineheight");
+        assert_eq!(bmf.kern_width(), kern, "size {size}: kernwidth");
+        assert_eq!(bmf.get_width(' '), Some(space), "size {size}: spacewidth");
+        assert_eq!(bmf.vert_line_sep(), vertsep, "size {size}: vertlinesep");
+        let a = bmf.get_pix('A').expect("glyph 'A'");
+        assert_eq!((a.width(), a.height()), (a_w, a_h), "size {size}: 'A' dims");
+        assert_eq!(bmf.get_width('x'), Some(x_w), "size {size}: 'x' width");
+    }
+
+    // C rejects sizes outside {4, 6, ..., 20}.
+    assert!(Bmf::new(7).is_err(), "odd size must be rejected");
+    assert!(Bmf::new(2).is_err(), "size < 4 must be rejected");
+    assert!(Bmf::new(22).is_err(), "size > 20 must be rejected");
+}
+
+// ==========================================================================
 // Test: pixa_save_font (plan 810)
 // ==========================================================================
 
