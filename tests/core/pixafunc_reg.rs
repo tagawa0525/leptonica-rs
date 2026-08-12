@@ -189,8 +189,9 @@ fn test_display_basic() {
     assert_eq!(canvas.height(), 30);
     // Check pixel at (10, 10) - inside the placed image
     assert_eq!(canvas.get_pixel(10, 10).unwrap(), 200);
-    // Check pixel at (0, 0) - outside, should be 0 (background)
-    assert_eq!(canvas.get_pixel(0, 0).unwrap(), 0);
+    // Check pixel at (0, 0) - outside. C pixaDisplay initializes canvases
+    // deeper than 1bpp with pixSetAll, so the background is white (255).
+    assert_eq!(canvas.get_pixel(0, 0).unwrap(), 255);
 }
 
 #[test]

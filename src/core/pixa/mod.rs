@@ -907,14 +907,28 @@ impl Pixa {
         let canvas = Pix::new(canvas_w, canvas_h, depth)?;
         let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
 
-        // Paint each image onto the canvas
+        // C pixaDisplay: canvases deeper than 1bpp start all-white
+        // (pixSetAll), and 1bpp components are composited with PIX_PAINT
+        // (OR) so overlapping bounding boxes do not erase earlier fg.
+        if depth != PixelDepth::Bit1 {
+            let max = depth.max_value();
+            for y in 0..canvas_h {
+                for x in 0..canvas_w {
+                    canvas_mut.set_pixel_unchecked(x, y, max);
+                }
+            }
+        }
         for (i, src) in self.pix.iter().enumerate() {
             let (ox, oy) = if let Some(b) = self.boxa.get(i) {
                 (b.x, b.y)
             } else {
                 (0, 0)
             };
-            blit_pix(&mut canvas_mut, src, ox, oy);
+            if depth == PixelDepth::Bit1 {
+                blit_pix_or(&mut canvas_mut, src, ox, oy);
+            } else {
+                blit_pix(&mut canvas_mut, src, ox, oy);
+            }
         }
 
         Ok(canvas_mut.into())
@@ -1267,6 +1281,33 @@ use crate::core::box_::{compare_relation, compare_relation_i64};
 /// For bulk image operations, row-level memcpy would be more efficient.
 ///
 /// Clips to destination bounds. Handles all pixel depths.
+/// OR-composite `src` onto `dst` at (ox, oy) — C PIX_PAINT for 1bpp.
+fn blit_pix_or(dst: &mut PixMut, src: &Pix, ox: i32, oy: i32) {
+    let dw = dst.width() as i32;
+    let dh = dst.height() as i32;
+    let sw = src.width() as i32;
+    let sh = src.height() as i32;
+
+    let src_x0 = if ox < 0 { -ox } else { 0 };
+    let src_y0 = if oy < 0 { -oy } else { 0 };
+    let src_x1 = sw.min(dw - ox);
+    let src_y1 = sh.min(dh - oy);
+
+    if src_x0 >= src_x1 || src_y0 >= src_y1 {
+        return;
+    }
+
+    for sy in src_y0..src_y1 {
+        let dy = oy + sy;
+        for sx in src_x0..src_x1 {
+            if src.get_pixel(sx as u32, sy as u32).unwrap_or(0) != 0 {
+                let dx = ox + sx;
+                dst.set_pixel_unchecked(dx as u32, dy as u32, 1);
+            }
+        }
+    }
+}
+
 fn blit_pix(dst: &mut PixMut, src: &Pix, ox: i32, oy: i32) {
     let dw = dst.width() as i32;
     let dh = dst.height() as i32;
@@ -1648,7 +1689,6 @@ mod tests {
     /// previously painted fg pixels, and canvases deeper than 1bpp start
     /// all-white (pixSetAll).
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_display_matches_c_compositing() {
         use crate::core::{Box, Pix, PixelDepth};
 
