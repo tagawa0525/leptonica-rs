@@ -221,6 +221,9 @@ region	conncomp	17	conncomp	19	covering of rectangles maxiters=5
 # quadtree_reg.c (plan 902 PR 10): boxaa regions + tiled average (rabi.png)
 region	quadtree	0	quadtree_c	1	boxaa quadtree regions 1000x500 nlevels=3 (serialized)
 region	quadtree	1	quadtree_c	2	boxaa quadtree regions 1001x501 nlevels=3 (serialized)
+region	quadtree	2	quadtree_c	3	fpixa display mean 3 levels fontsize 8 (bmfdata)
+region	quadtree	3	quadtree_c	4	fpixa display rms 3 levels fontsize 8 (bmfdata)
+region	quadtree	4	quadtree_c	5	fpixa display variance 3 levels fontsize 8 (bmfdata)
 region	quadtree	5	quadtree_c	6	average_tiled 5x6 MeanAbsVal + expand 4x
 region	quadtree	6	quadtree_c	7	average_tiled 5x6 StdDev + expand 4x
 
@@ -233,3 +236,14 @@ color	falsecolor	4	falsecolor_c	5	false color 8bpp gamma=3.0
 color	falsecolor	5	falsecolor_c	6	false color 16bpp gamma=1.0
 color	falsecolor	6	falsecolor_c	7	false color 16bpp gamma=2.0
 color	falsecolor	7	falsecolor_c	8	false color 16bpp gamma=3.0
+
+# genfonts_reg.c (plan 902 PR 12): string-generated font pixa displays
+recog	genfonts	9	genfonts_c	1	font pixa display tiled, size 4 (bmfdata)
+recog	genfonts	10	genfonts_c	2	font pixa display tiled, size 6 (bmfdata)
+recog	genfonts	11	genfonts_c	3	font pixa display tiled, size 8 (bmfdata)
+recog	genfonts	12	genfonts_c	4	font pixa display tiled, size 10 (bmfdata)
+recog	genfonts	13	genfonts_c	5	font pixa display tiled, size 12 (bmfdata)
+recog	genfonts	14	genfonts_c	6	font pixa display tiled, size 14 (bmfdata)
+recog	genfonts	15	genfonts_c	7	font pixa display tiled, size 16 (bmfdata)
+recog	genfonts	16	genfonts_c	8	font pixa display tiled, size 18 (bmfdata)
+recog	genfonts	17	genfonts_c	9	font pixa display tiled, size 20 (bmfdata)
