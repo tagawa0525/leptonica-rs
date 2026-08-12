@@ -73,15 +73,52 @@ fn coloring_reg_foreground_shift() {
     assert!(rp.cleanup(), "coloring foreground shift test failed");
 }
 
-/// Test pixShiftByComponent on colormapped images (C checks 0-3).
+/// Test pixShiftByComponent on colormapped images (plan 902 PR 13).
 ///
-/// Requires colormapped input images; Rust pix_shift_by_component requires 32bpp.
-/// Test image harmoniam100-11.png is not available.
+/// C pixShiftByComponent on a cmapped pix leaves the index raster
+/// untouched and shifts each colormap entry with
+/// pixcmapShiftByComponent. Expected entry values are hand-computed
+/// from the C formula (dst < src: val*dst/src; dst > src:
+/// 255 - (255-dst)*(255-val)/(255-src), truncating).
 #[test]
-#[ignore = "not yet implemented: pix_shift_by_component requires 32bpp; colormap variant not available"]
-fn coloring_reg_colormap() {
-    // C version:
-    // pix0 = pixRead("harmoniam100-11.png") -- colormapped
-    // pixcmapResetColor(cmap, index, rval, gval, bval) -- modify colormap entry
-    // pixShiftByComponent(NULL, pix0, scolor, dcolor) -- shift on colormapped
+#[ignore = "not yet implemented: pix_shift_by_component rejects colormapped input"]
+fn coloring_reg_colormap_shift() {
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    // 2x1 2bpp cmapped pix: index 0 = white, index 1 = mid gray.
+    let pix = {
+        let p = leptonica::Pix::new(2, 1, PixelDepth::Bit2).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(2).unwrap();
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap();
+        cmap.add_color(RgbaQuad::rgb(128, 64, 200)).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel(0, 0, 0).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    // Shift white -> (255, 255, 235): only blue moves (dst < src).
+    let out = pix_shift_by_component(&pix, 0xffffff00, 0xffffeb00).expect("cmapped shift");
+    assert_eq!(out.depth(), PixelDepth::Bit2);
+    let cmap = out.colormap().expect("colormap preserved");
+    // white: b = 255*235/255 = 235
+    assert_eq!(cmap.get_rgb(0).unwrap(), (255, 255, 235));
+    // mid gray: r,g unchanged; b = 200*235/255 = 184 (truncated)
+    assert_eq!(cmap.get_rgb(1).unwrap(), (128, 64, 184));
+    // index raster is untouched
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 0);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 1);
+
+    // Foreground shift black -> (200, 30, 150): dst > src pushes toward 255.
+    // white stays white: 255 - (255-d)*(255-255)/255 = 255 for each channel.
+    let out = pix_shift_by_component(&pix, 0x00000000, 0xc81e9600).expect("fg cmapped shift");
+    let cmap = out.colormap().expect("colormap preserved");
+    assert_eq!(cmap.get_rgb(0).unwrap(), (255, 255, 255));
+    // mid gray (128, 64, 200):
+    //   r = 255 - (255-200)*(255-128)/255 = 255 - 55*127/255 = 255 - 27 = 228
+    //   g = 255 - (255-30)*(255-64)/255 = 255 - 225*191/255 = 255 - 168 = 87
+    //   b = 255 - (255-150)*(255-200)/255 = 255 - 105*55/255 = 255 - 22 = 233
+    assert_eq!(cmap.get_rgb(1).unwrap(), (228, 87, 233));
 }
