@@ -1293,10 +1293,111 @@ impl Pixa {
         spacing: u32,
         border: u32,
     ) -> Result<Pix> {
-        let _ = (outdepth, maxwidth, scalefactor, background, spacing, border);
-        Err(Error::InvalidParameter(
-            "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 10)
-        ))
+        if !matches!(
+            outdepth,
+            PixelDepth::Bit1 | PixelDepth::Bit8 | PixelDepth::Bit32
+        ) {
+            return Err(Error::InvalidParameter(
+                "outdepth must be 1, 8 or 32".to_string(),
+            ));
+        }
+        if self.pix.is_empty() {
+            return Err(Error::NullInput("pixa is empty"));
+        }
+        let scalefactor = if scalefactor <= 0.0 { 1.0 } else { scalefactor };
+
+        // Normalize depths, scale, optionally add border.
+        let bordval = if outdepth == PixelDepth::Bit1 { 1 } else { 0 };
+        let mut norm: Vec<Pix> = Vec::with_capacity(self.pix.len());
+        for pix in &self.pix {
+            let pixn = match outdepth {
+                PixelDepth::Bit8 => pix.convert_to_8()?,
+                PixelDepth::Bit32 => pix.convert_to_32()?,
+                _ => {
+                    // C uses pixConvertTo1(pix, 128); this port only accepts
+                    // inputs that are already 1bpp (a no-op there).
+                    if pix.depth() != PixelDepth::Bit1 {
+                        return Err(Error::UnsupportedDepth(pix.depth().bits()));
+                    }
+                    pix.deep_clone()
+                }
+            };
+            let pix1 = if scalefactor != 1.0 {
+                crate::transform::scale(
+                    &pixn,
+                    scalefactor,
+                    scalefactor,
+                    crate::transform::ScaleMethod::Linear,
+                )
+                .map_err(|e| Error::InvalidParameter(e.to_string()))?
+            } else {
+                pixn
+            };
+            let pixd = if border > 0 {
+                pix1.add_border(border, bordval)?
+            } else {
+                pix1
+            };
+            norm.push(pixd);
+        }
+
+        // Row layout, exactly as C: accumulate widths until maxwidth.
+        let spacing = spacing as i32;
+        let maxwidth = maxwidth as i32;
+        let mut nainrow: Vec<i32> = Vec::new();
+        let mut namaxh: Vec<i32> = Vec::new();
+        let mut wmaxrow = 0i32;
+        let mut w = spacing;
+        let mut h = spacing;
+        let mut maxh = 0i32;
+        let mut irow = 0i32;
+        for pix in &norm {
+            let wt = pix.width() as i32;
+            let ht = pix.height() as i32;
+            let wtry = w + wt + spacing;
+            if wtry > maxwidth {
+                nainrow.push(irow);
+                namaxh.push(maxh);
+                wmaxrow = wmaxrow.max(w);
+                h += maxh + spacing;
+                irow = 0;
+                w = wt + 2 * spacing;
+                maxh = ht;
+            } else {
+                w = wtry;
+                maxh = maxh.max(ht);
+            }
+            irow += 1;
+        }
+        nainrow.push(irow);
+        namaxh.push(maxh);
+        wmaxrow = wmaxrow.max(w);
+        h += maxh + spacing;
+
+        let canvas = Pix::new(wmaxrow.max(1) as u32, h.max(1) as u32, outdepth)?;
+        let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+        // C: background = 1 → black for 1bpp; background = 0 → white otherwise.
+        if (background == 1 && outdepth == PixelDepth::Bit1)
+            || (background == 0 && outdepth != PixelDepth::Bit1)
+        {
+            canvas_mut.set_all();
+        }
+
+        let mut y = spacing;
+        let mut index = 0usize;
+        for (row, &ninrow) in nainrow.iter().enumerate() {
+            let maxh = namaxh[row];
+            let mut x = spacing;
+            for _ in 0..ninrow {
+                let pix = &norm[index];
+                blit_pix(&mut canvas_mut, pix, x, y);
+                x += pix.width() as i32 + spacing;
+                index += 1;
+            }
+            y += maxh + spacing;
+        }
+
+        Ok(canvas_mut.into())
     }
 }
 
@@ -1710,7 +1811,6 @@ mod tests {
     /// and (8,2) on a 15x7 white canvas; maxwidth 12 wraps the second image
     /// to a new row at (2,7) on a 9x11 canvas.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_display_tiled_in_rows_matches_c() {
         use crate::core::{Pix, PixelDepth};
 

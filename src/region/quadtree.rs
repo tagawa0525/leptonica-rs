@@ -810,10 +810,42 @@ pub fn quadtree_variance_with_integral(
 /// each axis into 2^k intervals with boundaries at `(dim-1)*i/nside`
 /// (start incremented by 1 for i > 0).
 pub fn boxaa_quadtree_regions(w: i32, h: i32, nlevels: u32) -> RegionResult<Boxaa> {
-    let _ = (w, h, nlevels);
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 10)
-    ))
+    if nlevels < 1 {
+        return Err(RegionError::InvalidParameters(
+            "nlevels must be >= 1".to_string(),
+        ));
+    }
+    let side = 1i32 << (nlevels - 1);
+    if w < side || h < side {
+        return Err(RegionError::InvalidParameters(format!(
+            "{w}x{h} doesn't support {nlevels} levels"
+        )));
+    }
+
+    let mut baa = Boxaa::with_capacity(nlevels as usize);
+    for k in 0..nlevels {
+        let nside = 1i32 << k;
+        let mut xstart = vec![0i32; nside as usize];
+        let mut xend = vec![0i32; nside as usize];
+        let mut ystart = vec![0i32; nside as usize];
+        let mut yend = vec![0i32; nside as usize];
+        for i in 0..nside {
+            xstart[i as usize] = (w - 1) * i / nside + i32::from(i > 0);
+            xend[i as usize] = (w - 1) * (i + 1) / nside;
+            ystart[i as usize] = (h - 1) * i / nside + i32::from(i > 0);
+            yend[i as usize] = (h - 1) * (i + 1) / nside;
+        }
+        let mut boxa = Boxa::with_capacity((nside * nside) as usize);
+        for i in 0..nside as usize {
+            let bh = yend[i] - ystart[i] + 1;
+            for j in 0..nside as usize {
+                let bw = xend[j] - xstart[j] + 1;
+                boxa.push(Box::new_unchecked(xstart[j], ystart[i], bw, bh));
+            }
+        }
+        baa.push(boxa);
+    }
+    Ok(baa)
 }
 
 /// Render the levels of a quadtree decomposition (mean / variance planes)
@@ -822,10 +854,41 @@ pub fn boxaa_quadtree_regions(w: i32, h: i32, nlevels: u32) -> RegionResult<Boxa
 /// `factor * 2^(nlevels-1-k)`, converted to 32bpp, labeled "Level k" below,
 /// and the levels are tiled in rows.
 pub fn fpixa_display_quadtree(levels: &[FPix], factor: u32, fontsize: u32) -> RegionResult<Pix> {
-    let _ = (levels, factor, fontsize);
-    Err(RegionError::InvalidParameters(
-        "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 10)
-    ))
+    use crate::core::bmf::{Bmf, TextblockLocation};
+    use crate::core::fpix::NegativeHandling;
+
+    let nlevels = levels.len();
+    if nlevels == 0 {
+        return Err(RegionError::InvalidParameters("levels empty".to_string()));
+    }
+    let bmf = Bmf::new(fontsize).map_err(RegionError::Core)?;
+
+    let mut pixa = crate::core::pixa::Pixa::with_capacity(nlevels);
+    for (i, fpix) in levels.iter().enumerate() {
+        // C: fpixConvertToPix(fpix, 8, L_CLIP_TO_ZERO, 0)
+        let pix8 = fpix
+            .to_pix(8, NegativeHandling::ClipToZero)
+            .map_err(RegionError::Core)?;
+        let mag = factor * (1u32 << (nlevels - i - 1));
+        let expanded = crate::transform::expand_replicate(&pix8, mag)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        let pix32 = expanded.convert_to_32().map_err(RegionError::Core)?;
+        // C: pixAddSingleTextblock(pixt3, bmf, "Level %d\n", 0xff000000, L_ADD_BELOW)
+        let (labeled, _) = bmf
+            .add_single_textblock(
+                &pix32,
+                &format!("Level {i}\n"),
+                0xff00_0000,
+                TextblockLocation::Below,
+            )
+            .map_err(RegionError::Core)?;
+        pixa.push(labeled);
+    }
+
+    let w = pixa.get(nlevels - 1).map(|p| p.width()).unwrap_or_default();
+    // C: pixaDisplayTiledInRows(pixat, 32, nlevels * (w + 80), 1.0, 0, 30, 2)
+    pixa.display_tiled_in_rows(PixelDepth::Bit32, nlevels as u32 * (w + 80), 1.0, 0, 30, 2)
+        .map_err(RegionError::Core)
 }
 
 #[cfg(test)]
@@ -835,7 +898,6 @@ mod tests {
     /// boxaa_quadtree_regions must reproduce C boxaaQuadtreeRegions.
     /// Expected boxes hand-computed for w = h = 5, nlevels = 2.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_boxaa_quadtree_regions_matches_c() {
         let baa = boxaa_quadtree_regions(5, 5, 2).unwrap();
         assert_eq!(baa.len(), 2);
