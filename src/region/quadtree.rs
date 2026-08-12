@@ -815,7 +815,14 @@ pub fn boxaa_quadtree_regions(w: i32, h: i32, nlevels: u32) -> RegionResult<Boxa
             "nlevels must be >= 1".to_string(),
         ));
     }
-    let side = 1i32 << (nlevels - 1);
+    // Guard the shifts below: nside is 2^(nlevels-1) boxes per axis, so
+    // anything beyond i32 range is invalid input, not a panic.
+    let side = 1i32
+        .checked_shl(nlevels - 1)
+        .filter(|s| *s > 0)
+        .ok_or_else(|| {
+            RegionError::InvalidParameters(format!("nlevels = {nlevels} is too large"))
+        })?;
     if w < side || h < side {
         return Err(RegionError::InvalidParameters(format!(
             "{w}x{h} doesn't support {nlevels} levels"

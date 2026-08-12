@@ -213,7 +213,8 @@ pub fn parse_c_manifest(content: &str) -> ManifestMap {
 /// writes the same operation to different formats depending on bit-depth, so
 /// the lookup searches this fixed list and returns the first hit. PDF / PS /
 /// data-stream files are included because some C regression outputs are raw
-/// byte streams (`.ba`, `.na`, `.pdf`, `.pa` for Pta).
+/// byte streams (`.ba` for Boxa, `.baa` for Boxaa, `.na` for Numa,
+/// `.pa` for Pta, `.pdf`).
 const CANDIDATE_C_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp", "jp2", "j2k", "spix", "pnm", "pbm",
     "pgm", "ppm", "pam", "pdf", "ps", "ba", "baa", "na", "pa",

@@ -1279,10 +1279,13 @@ use crate::core::box_::{compare_relation, compare_relation_i64};
 impl Pixa {
     /// Tile the images into rows, wrapping at `maxwidth`, exactly as C
     /// `pixaDisplayTiledInRows()`: images are normalized to `outdepth`
-    /// (1, 8 or 32), optionally scaled and bordered, laid out left-to-right
-    /// with `spacing` around them, and blitted with PIX_SRC onto a canvas
-    /// whose background is set by `background` (1 = black for 1bpp,
-    /// 0 = white otherwise).
+    /// (8 or 32; for `outdepth` = 1 the inputs must already be 1bpp — the
+    /// C `pixConvertTo1(pix, 128)` depth conversion is not ported),
+    /// optionally scaled and bordered, laid out left-to-right with
+    /// `spacing` around them, and blitted with PIX_SRC onto a canvas whose
+    /// background is set by `background` (1 = black for 1bpp,
+    /// 0 = white otherwise). Like C, a first image wider than `maxwidth`
+    /// records an empty leading row.
     #[allow(clippy::too_many_arguments)]
     pub fn display_tiled_in_rows(
         &self,
