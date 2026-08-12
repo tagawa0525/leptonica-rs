@@ -941,7 +941,9 @@ impl Pixa {
     /// # Arguments
     ///
     /// * `max_width` - Maximum width of the output image
-    /// * `background` - 0 for white, 1 for black
+    /// * `background` - 0 for white, 1 for black. Any other value skips
+    ///   the background fill entirely (like C), which leaves the canvas
+    ///   white for 1 bpp and black for deeper images — pass only 0 or 1
     /// * `spacing` - Pixels of spacing between lattice cells
     ///
     /// # See also
