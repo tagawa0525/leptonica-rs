@@ -206,7 +206,21 @@ Rust の `Bmf` は合成 5x7 フォントのスケール生成で、C のビッ�
 - fontsize 18 が新たに有効化。coloring 14 ペアのフォント面の前提が
   整った (残りは cmapped pixShiftByComponent、PR 13 候補)
 
-### PR 13 以降: semantic マッピングの漸進追加
+### PR 13: coloring 整列 — cmapped shift 対応 + 14 ペア (IN_PROGRESS)
+
+C 版ソース: `prog/coloring_reg.c`、`src/coloring.c` / `src/colormap.c`。
+
+PR 11 で見送った coloring 系列。フォント面の前提は PR 12 で解消済み。
+
+1. `pix_shift_by_component` に cmapped 分岐を追加 (C は cmap を
+   `pixcmapShiftByComponent` で変換するだけ。`PixColormap::
+   shift_by_component` は移植済みで pixel 式も C と一致確認済み) (TDD)
+2. テスト画像 `harmoniam100-11.png` を C prog から追加
+3. coloring_c テスト: C checks 2-15 と同条件 (cmap reset 4 + cmapped
+   shift 4 + rgb shift 4 + fg cmapped/rgb 2、全出力に
+   pixAddSingleTextblock fontsize 8) で 14 出力を書き出し 14 ペア
+
+### PR 14 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
