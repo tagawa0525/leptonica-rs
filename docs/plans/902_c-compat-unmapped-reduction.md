@@ -165,7 +165,7 @@ C 版ソース: `prog/falsecolor_reg.c`、`src/pixconv.c` / `src/colormap.c`。
   pixAddSingleTextblock (bmf フォント) 経由のため、quadtree 02-04 と
   同じく bmfdata 移植が前提 (後続 PR 候補)
 
-### PR 12: bmfdata 移植 — Bmf の C 準拠化 (IN_PROGRESS)
+### PR 12: bmfdata 移植 — Bmf の C 準拠化 (実施済み)
 
 C 版ソース: `src/bmf.c` / `src/bmfdata.h`、`prog/genfonts_reg.c`。
 
@@ -193,6 +193,18 @@ Rust の `Bmf` は合成 5x7 フォントのスケール生成で、C のビッ�
    PR 10 で移植済み、フォント差のみが残ブロッカー)
 5. Bmf 依存の既存 golden (bmf_reg / writetext_reg / genfonts_reg /
    quadtree_c / gplot 系) を再生成
+
+実施結果:
+
+- 全 9 サイズで baseline / lineheight / kern / space / vertsep /
+  グリフ寸法が C 実測値と一致 (bmf_c_compat_metrics)
+- この過程で **pixaDisplayTiled の実装差 (12 件目)** を発見: Rust は
+  詰め込み折り返しで、C は最大部分画像寸法ベースの均等格子。C 準拠に
+  書き直し (TDD)
+- quadtree 3 ペア + genfonts 9 ペア **全件 Ok (Ok 98 → 110)**。
+  genfonts ペアは 95 グリフ x 9 サイズの bit 等価の完全証明
+- fontsize 18 が新たに有効化。coloring 14 ペアのフォント面の前提が
+  整った (残りは cmapped pixShiftByComponent、PR 13 候補)
 
 ### PR 13 以降: semantic マッピングの漸進追加
 
