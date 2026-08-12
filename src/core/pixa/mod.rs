@@ -911,12 +911,7 @@ impl Pixa {
         // (pixSetAll), and 1bpp components are composited with PIX_PAINT
         // (OR) so overlapping bounding boxes do not erase earlier fg.
         if depth != PixelDepth::Bit1 {
-            let max = depth.max_value();
-            for y in 0..canvas_h {
-                for x in 0..canvas_w {
-                    canvas_mut.set_pixel_unchecked(x, y, max);
-                }
-            }
+            canvas_mut.set_all();
         }
         for (i, src) in self.pix.iter().enumerate() {
             let (ox, oy) = if let Some(b) = self.boxa.get(i) {
@@ -1300,7 +1295,8 @@ fn blit_pix_or(dst: &mut PixMut, src: &Pix, ox: i32, oy: i32) {
     for sy in src_y0..src_y1 {
         let dy = oy + sy;
         for sx in src_x0..src_x1 {
-            if src.get_pixel(sx as u32, sy as u32).unwrap_or(0) != 0 {
+            // Loop bounds already guarantee in-range coordinates.
+            if src.get_pixel_unchecked(sx as u32, sy as u32) != 0 {
                 let dx = ox + sx;
                 dst.set_pixel_unchecked(dx as u32, dy as u32, 1);
             }

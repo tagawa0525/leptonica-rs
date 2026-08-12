@@ -47,7 +47,7 @@ fn conncomp_reg() {
     // C check 4: the reassembled display must equal the source exactly.
     rp.compare_pix(&pixs, &display4);
 
-    // C check 4: reconstructed image dimensions match
+    // Rust-specific: reconstructed image dimensions match
     rp.compare_values(pixs.width() as f64, display4.width() as f64, 0.0);
     rp.compare_values(pixs.height() as f64, display4.height() as f64, 0.0);
 
