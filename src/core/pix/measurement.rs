@@ -3,7 +3,7 @@
 //! Functions for computing area, perimeter, and overlap ratios.
 //! Corresponds to functions in C Leptonica's `pix5.c`.
 
-use super::{Pix, PixelDepth};
+use super::{Pix, PixMut, PixelDepth};
 use crate::core::box_::{Boxa, SizeRelation};
 use crate::core::error::{Error, Result};
 use crate::core::pixa::Pixa;
@@ -445,10 +445,49 @@ impl Pix {
         if self.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
-        let _ = maxiters;
-        Err(Error::InvalidParameter(
-            "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 9)
-        ))
+        // C: maxiters == 0 → internal cap of 50 ("until convergence").
+        let maxiters = if maxiters == 0 { 50 } else { maxiters };
+
+        let w = self.width();
+        let h = self.height();
+        let out = Pix::new(w, h, PixelDepth::Bit1)?;
+        if self.count_pixels() == 0 {
+            return Ok(out);
+        }
+
+        // Fill the bounding boxes of the 8-connected components, then
+        // repeatedly re-box and re-fill until the mask stops changing.
+        let fill_boxes = |src: &Pix, dst: &mut PixMut| -> Result<()> {
+            let comps = crate::region::find_connected_components(
+                src,
+                crate::region::ConnectivityType::EightWay,
+            )
+            .map_err(|e| Error::InvalidParameter(e.to_string()))?;
+            let boxa: Boxa = comps.iter().map(|c| c.bounds).collect();
+            dst.mask_boxa(&boxa, super::graphics::PixelOp::Set);
+            Ok(())
+        };
+
+        let mut cur = out.try_into_mut().unwrap_or_else(|p| p.to_mut());
+        fill_boxes(self, &mut cur)?;
+        let mut cur: Pix = cur.into();
+        if maxiters == 1 {
+            return Ok(cur);
+        }
+
+        for _ in 1..maxiters {
+            let mut next = cur
+                .deep_clone()
+                .try_into_mut()
+                .unwrap_or_else(|p| p.to_mut());
+            fill_boxes(&cur, &mut next)?;
+            let next: Pix = next.into();
+            if next.equals(&cur) {
+                return Ok(next);
+            }
+            cur = next;
+        }
+        Ok(cur)
     }
 }
 

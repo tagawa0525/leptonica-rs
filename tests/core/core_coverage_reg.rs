@@ -464,11 +464,11 @@ fn filter_component_by_size() {
 
 /// `make_covering_of_rectangles` must reproduce C
 /// `pixMakeCoveringOfRectangles()`. Expected values hand-computed from the
-/// C algorithm: components {(0,0),(1,1)} (one 8-cc, bbox 2x2) and {(2,2)};
-/// after the first boxing the filled 2x2 block touches (2,2) 8-connectedly,
-/// so the second iteration merges them into a 3x3 box.
+/// C algorithm: components {(0,1),(1,0)} (one 8-cc, bbox 2x2) and {(2,2)}
+/// (not 8-adjacent to either pixel); the first boxing fills (1,1), which
+/// touches (2,2) 8-connectedly, so the second iteration merges them into
+/// a 3x3 box.
 #[test]
-#[ignore = "not yet implemented"]
 fn make_covering_of_rectangles() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
     let covering = pix.make_covering_of_rectangles(2).unwrap();
@@ -478,7 +478,7 @@ fn make_covering_of_rectangles() {
 
     let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
     let mut pm = pix.try_into_mut().unwrap();
-    for (x, y) in [(0, 0), (1, 1), (2, 2)] {
+    for (x, y) in [(0, 1), (1, 0), (2, 2)] {
         pm.set_pixel(x, y, 1).unwrap();
     }
     let pix: Pix = pm.into();
