@@ -432,66 +432,23 @@ impl Pix {
         Ok(pix)
     }
 
-    /// Create a set of non-overlapping rectangles that cover all foreground.
+    /// Create a mask of non-overlapping rectangles that covers all foreground.
     ///
-    /// For 1bpp. Iteratively expands bounding boxes of connected components
-    /// until convergence, grouping nearby foreground into covering rectangles.
-    ///
-    /// * `distance` - expansion distance per iteration for merging nearby components.
+    /// For 1bpp. Reproduces C `pixMakeCoveringOfRectangles()`: fill the
+    /// bounding boxes of the 8-connected components, then repeatedly re-box
+    /// and re-fill the result until it stops changing or `maxiters`
+    /// iterations were run (`maxiters == 0` means "until convergence",
+    /// like C's internal cap of 50).
     ///
     /// C equivalent: `pixMakeCoveringOfRectangles()` in `pix5.c`
-    pub fn make_covering_of_rectangles(&self, distance: u32) -> Result<Boxa> {
+    pub fn make_covering_of_rectangles(&self, maxiters: u32) -> Result<Pix> {
         if self.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
-        let w = self.width();
-        let h = self.height();
-
-        // Start with CC bounding boxes
-        let (initial_boxa, _pixa) =
-            crate::region::conncomp_pixa(self, crate::region::ConnectivityType::EightWay)
-                .map_err(|e| Error::InvalidParameter(e.to_string()))?;
-
-        if initial_boxa.is_empty() {
-            return Ok(Boxa::new());
-        }
-
-        let dist = distance as i32;
-        let max_iters = 20;
-        let mut current_boxa = initial_boxa;
-
-        for _ in 0..max_iters {
-            // Paint expanded bounding boxes into a mask
-            let canvas = Pix::new(w, h, PixelDepth::Bit1)?;
-            let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p| p.to_mut());
-            for b in current_boxa.boxes() {
-                let x0 = (b.x - dist).max(0) as u32;
-                let y0 = (b.y - dist).max(0) as u32;
-                let x1 = ((b.x + b.w + dist) as u32).min(w);
-                let y1 = ((b.y + b.h + dist) as u32).min(h);
-                for y in y0..y1 {
-                    for x in x0..x1 {
-                        canvas_mut.set_pixel_unchecked(x, y, 1);
-                    }
-                }
-            }
-            let canvas_pix: Pix = canvas_mut.into();
-
-            // Extract new CCs from the expanded mask
-            let (new_boxa, _) = crate::region::conncomp_pixa(
-                &canvas_pix,
-                crate::region::ConnectivityType::EightWay,
-            )
-            .map_err(|e| Error::InvalidParameter(e.to_string()))?;
-
-            // Check convergence
-            if new_boxa.len() == current_boxa.len() {
-                return Ok(new_boxa);
-            }
-            current_boxa = new_boxa;
-        }
-
-        Ok(current_boxa)
+        let _ = maxiters;
+        Err(Error::InvalidParameter(
+            "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 9)
+        ))
     }
 }
 

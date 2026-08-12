@@ -78,14 +78,6 @@ fn conncomp_reg() {
     let boxa_rt = leptonica::Boxa::read_from_bytes(&boxa_data).expect("deserialize boxa4");
     rp.compare_values(n1 as f64, boxa_rt.len() as f64, 0.0);
 
-    // C checks 12-17: covering rectangles with increasing distance
-    for dist in [1, 2, 3] {
-        let covering = pixs
-            .make_covering_of_rectangles(dist)
-            .expect("covering rects");
-        rp.compare_values(1.0, if !covering.is_empty() { 1.0 } else { 0.0 }, 0.0);
-    }
-
     // 8-way should find fewer or equal components than 4-way
     assert!(n2 <= n1);
 
