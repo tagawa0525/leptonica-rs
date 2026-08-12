@@ -149,7 +149,23 @@ C 版ソース: `src/quadtree.c` / `src/pixafunc2.c` / `src/scale2.c`。
   (base 7px スケール) で C のビットマップフォント実体と行高が異なるため
   pixel 不一致。C フォントデータ (bmfdata) の移植が必要 (後続 PR 候補)
 
-### PR 11 以降: semantic マッピングの漸進追加
+### PR 11: falsecolor 整列 — color の合成入力系列 (実施済み)
+
+C 版ソース: `prog/falsecolor_reg.c`、`src/pixconv.c` / `src/colormap.c`。
+
+- C prog と同一の合成入力 (768x100 の 8/16bpp gradient) で
+  `convert_gray_to_false_color` を gamma {1.0, 2.0, 3.0} で適用する
+  `falsecolor_c_compat` を追加し、C の 8 出力 (全 PNG) と 8 ペア
+  **全件即 hash 一致 (Ok 90 → 98)**。実装は既に C と等価だった
+- pixel hash は colormap を含まないため、gamma 別 colormap
+  (256 エントリ) は C 出力との decode 後比較で bit 一致を別途実証
+- Rust 独自 API (pix_linear_map_to_target_color 等) の falsecolor.*
+  4 件は C 対応が無く prefix 除外 (Unmapped 407 → 403)
+- **見送り**: coloring_reg (harmoniam100-11.png、PNG 14 件) は全出力が
+  pixAddSingleTextblock (bmf フォント) 経由のため、quadtree 02-04 と
+  同じく bmfdata 移植が前提 (後続 PR 候補)
+
+### PR 12 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

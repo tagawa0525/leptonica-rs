@@ -80,3 +80,78 @@ fn falsecolor_reg() {
 
     assert!(rp.cleanup(), "falsecolor regression test failed");
 }
+
+/// C-comparable false color conversion (plan 902 PR 11).
+///
+/// Mirrors C falsecolor_reg exactly: 768x100 synthetic 8bpp / 16bpp
+/// horizontal gradients, then `convert_gray_to_false_color` with
+/// gamma in {1.0, 2.0, 3.0}. All eight outputs pair with C
+/// falsecolor.00-07 (lossless PNG, no codec ambiguity).
+#[test]
+fn falsecolor_c_compat() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("falsecolor_c");
+
+    // C: pixCreate(768, 100, 8/16) with val = 0xff * j / 768 (0xffff for 16)
+    let pix8 = {
+        let p = Pix::new(768, 100, PixelDepth::Bit8).expect("create 8bpp gradient");
+        let mut pm = p.try_into_mut().expect("mutable 8bpp gradient");
+        for y in 0..100 {
+            for x in 0..768u32 {
+                pm.set_pixel_unchecked(x, y, 0xff * x / 768);
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let pix16 = {
+        let p = Pix::new(768, 100, PixelDepth::Bit16).expect("create 16bpp gradient");
+        let mut pm = p.try_into_mut().expect("mutable 16bpp gradient");
+        for y in 0..100 {
+            for x in 0..768u32 {
+                pm.set_pixel_unchecked(x, y, 0xffff * x / 768);
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+
+    // C checks 0-1: the raw gradients
+    rp.write_pix_and_check(&pix8, ImageFormat::Png)
+        .expect("check: 8bpp gradient");
+    rp.write_pix_and_check(&pix16, ImageFormat::Png)
+        .expect("check: 16bpp gradient");
+
+    // The manifest hash covers only pixel (index) values, not the colormap,
+    // so assert the gamma-dependent colormap entries directly. Expected
+    // values follow C pixcmapGrayToFalseColor: for index 0,
+    // bval = (int)(255 * (32/64)^(1/gamma) + 0.5).
+    let expected_index0_blue = [128u8, 180, 202]; // gamma 1.0 / 2.0 / 3.0
+
+    // C checks 2-4 (8bpp) and 5-7 (16bpp): false color with gamma sweep
+    for (gamma, blue) in [1.0f32, 2.0, 3.0].into_iter().zip(expected_index0_blue) {
+        let fc = pix8
+            .convert_gray_to_false_color(gamma)
+            .expect("false color 8bpp");
+        let cmap = fc.colormap().expect("false color colormap");
+        assert_eq!(cmap.len(), 256);
+        assert_eq!(cmap.get_rgb(0).unwrap(), (0, 0, blue), "gamma={gamma}");
+        assert_eq!(cmap.get_rgb(255).unwrap(), (blue, 0, 0), "gamma={gamma}");
+        rp.write_pix_and_check(&fc, ImageFormat::Png)
+            .expect("check: false color 8bpp");
+    }
+    for (gamma, blue) in [1.0f32, 2.0, 3.0].into_iter().zip(expected_index0_blue) {
+        let fc = pix16
+            .convert_gray_to_false_color(gamma)
+            .expect("false color 16bpp");
+        let cmap = fc.colormap().expect("false color colormap");
+        assert_eq!(cmap.get_rgb(0).unwrap(), (0, 0, blue), "gamma={gamma}");
+        rp.write_pix_and_check(&fc, ImageFormat::Png)
+            .expect("check: false color 16bpp");
+    }
+
+    assert!(rp.cleanup(), "falsecolor c-compat test failed");
+}

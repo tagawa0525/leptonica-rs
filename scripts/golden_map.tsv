@@ -223,3 +223,13 @@ region	quadtree	0	quadtree_c	1	boxaa quadtree regions 1000x500 nlevels=3 (serial
 region	quadtree	1	quadtree_c	2	boxaa quadtree regions 1001x501 nlevels=3 (serialized)
 region	quadtree	5	quadtree_c	6	average_tiled 5x6 MeanAbsVal + expand 4x
 region	quadtree	6	quadtree_c	7	average_tiled 5x6 StdDev + expand 4x
+
+# falsecolor_reg.c (plan 902 PR 11): synthetic 768x100 gradients + false color
+color	falsecolor	0	falsecolor_c	1	8bpp horizontal gradient
+color	falsecolor	1	falsecolor_c	2	16bpp horizontal gradient
+color	falsecolor	2	falsecolor_c	3	false color 8bpp gamma=1.0
+color	falsecolor	3	falsecolor_c	4	false color 8bpp gamma=2.0
+color	falsecolor	4	falsecolor_c	5	false color 8bpp gamma=3.0
+color	falsecolor	5	falsecolor_c	6	false color 16bpp gamma=1.0
+color	falsecolor	6	falsecolor_c	7	false color 16bpp gamma=2.0
+color	falsecolor	7	falsecolor_c	8	false color 16bpp gamma=3.0
