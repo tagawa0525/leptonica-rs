@@ -216,7 +216,7 @@ pub fn parse_c_manifest(content: &str) -> ManifestMap {
 /// byte streams (`.ba`, `.na`, `.pdf`, `.pa` for Pta).
 const CANDIDATE_C_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp", "jp2", "j2k", "spix", "pnm", "pbm",
-    "pgm", "ppm", "pam", "pdf", "ps", "ba", "na", "pa",
+    "pgm", "ppm", "pam", "pdf", "ps", "ba", "baa", "na", "pa",
 ];
 
 /// Detailed lookup result used by both `lookup_c_hash_in` (Option facade) and
