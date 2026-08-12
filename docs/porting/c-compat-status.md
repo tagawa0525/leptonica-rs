@@ -54,21 +54,21 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        | 件数    | 説明                                                                                                                              |
 | ----------- | ------: | -----------------------------------------------------------------------------------------------------------------------------     |
-| ✅ Ok       | **90**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +46)                                                   |
+| ✅ Ok       | **98**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +54)                                                   |
 | ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007) |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                      |
-| 📭 Unmapped | **407** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 404 → 407 = quadtree display 3 件の新規出力を含む)       |
-| 🚫 Excluded | **79**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + C 対応が JPEG/不在の distance 系 26                   |
+| 📭 Unmapped | **403** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 407 → 403)                                               |
+| 🚫 Excluded | **83**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + Rust 独自 falsecolor 4               |
 
-合計 573 entries が C 比較対象。Rust manifest (`tests/golden_manifest.tsv`)
-全体は **580 entries** (582 行 - ヘッダ 2 行)。加えて Rust 独自テスト 84
-件 (C 版に対応なし)。
+合計 613 entries がレポート対象 (As of 2026-08-13、plan 902 PR 11 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **620 entries**
+(622 行 - ヘッダ 2 行)。
 
 ## test binary 別の内訳
 
 | Binary      |     Ok | Mismatch | MissingC | Unmapped | Excluded |
 | ----------- | -----: | -------: | -------: | -------: | -------: |
-| `color`     |      3 |        4 |        0 |      112 |        0 |
+| `color`     |     11 |        4 |        0 |      108 |        4 |
 | `core`      |      1 |        0 |        0 |       34 |        0 |
 | `filter`    |      2 |        5 |        0 |       57 |       40 |
 | `io`        |      7 |        2 |        0 |       41 |       10 |
