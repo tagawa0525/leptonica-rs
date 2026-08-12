@@ -1276,6 +1276,30 @@ use crate::core::box_::{compare_relation, compare_relation_i64};
 /// For bulk image operations, row-level memcpy would be more efficient.
 ///
 /// Clips to destination bounds. Handles all pixel depths.
+impl Pixa {
+    /// Tile the images into rows, wrapping at `maxwidth`, exactly as C
+    /// `pixaDisplayTiledInRows()`: images are normalized to `outdepth`
+    /// (1, 8 or 32), optionally scaled and bordered, laid out left-to-right
+    /// with `spacing` around them, and blitted with PIX_SRC onto a canvas
+    /// whose background is set by `background` (1 = black for 1bpp,
+    /// 0 = white otherwise).
+    #[allow(clippy::too_many_arguments)]
+    pub fn display_tiled_in_rows(
+        &self,
+        outdepth: PixelDepth,
+        maxwidth: u32,
+        scalefactor: f32,
+        background: u32,
+        spacing: u32,
+        border: u32,
+    ) -> Result<Pix> {
+        let _ = (outdepth, maxwidth, scalefactor, background, spacing, border);
+        Err(Error::InvalidParameter(
+            "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 10)
+        ))
+    }
+}
+
 /// OR-composite `src` onto `dst` at (ox, oy) — C PIX_PAINT for 1bpp.
 fn blit_pix_or(dst: &mut PixMut, src: &Pix, ox: i32, oy: i32) {
     let dw = dst.width() as i32;
@@ -1680,6 +1704,52 @@ impl std::ops::IndexMut<usize> for Pixaa {
 
 #[cfg(test)]
 mod tests {
+    /// display_tiled_in_rows must reproduce the C layout algorithm.
+    /// Expected positions hand-computed for two 8bpp images (4x3 and 5x2)
+    /// with spacing 2: single-row layout at maxwidth 20 puts them at (2,2)
+    /// and (8,2) on a 15x7 white canvas; maxwidth 12 wraps the second image
+    /// to a new row at (2,7) on a 9x11 canvas.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_tiled_in_rows_matches_c() {
+        use crate::core::{Pix, PixelDepth};
+
+        let mut pixa = super::Pixa::new();
+        let a = Pix::new(4, 3, PixelDepth::Bit8).unwrap();
+        let mut am = a.try_into_mut().unwrap();
+        for y in 0..3 {
+            for x in 0..4 {
+                am.set_pixel(x, y, 10).unwrap();
+            }
+        }
+        pixa.push(am.into());
+        let b = Pix::new(5, 2, PixelDepth::Bit8).unwrap();
+        let mut bm = b.try_into_mut().unwrap();
+        for y in 0..2 {
+            for x in 0..5 {
+                bm.set_pixel(x, y, 20).unwrap();
+            }
+        }
+        pixa.push(bm.into());
+
+        let one_row = pixa
+            .display_tiled_in_rows(PixelDepth::Bit8, 20, 1.0, 0, 2, 0)
+            .unwrap();
+        assert_eq!((one_row.width(), one_row.height()), (15, 7));
+        assert_eq!(one_row.get_pixel(0, 0), Some(255), "white background");
+        assert_eq!(one_row.get_pixel(2, 2), Some(10));
+        assert_eq!(one_row.get_pixel(5, 4), Some(10));
+        assert_eq!(one_row.get_pixel(8, 2), Some(20));
+        assert_eq!(one_row.get_pixel(8, 4), Some(255));
+
+        let wrapped = pixa
+            .display_tiled_in_rows(PixelDepth::Bit8, 12, 1.0, 0, 2, 0)
+            .unwrap();
+        assert_eq!((wrapped.width(), wrapped.height()), (9, 11));
+        assert_eq!(wrapped.get_pixel(2, 2), Some(10));
+        assert_eq!(wrapped.get_pixel(2, 7), Some(20));
+    }
+
     /// display must reproduce C pixaDisplay: 1bpp components are composited
     /// with PIX_PAINT (OR) so overlapping bounding boxes do not erase
     /// previously painted fg pixels, and canvases deeper than 1bpp start

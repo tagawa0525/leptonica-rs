@@ -805,9 +805,50 @@ pub fn quadtree_variance_with_integral(
 // Tests
 // ============================================================================
 
+/// Generate the quadtree partitioning of a `w` x `h` region into `nlevels`
+/// levels of boxes, exactly as C `boxaaQuadtreeRegions()`: level k splits
+/// each axis into 2^k intervals with boundaries at `(dim-1)*i/nside`
+/// (start incremented by 1 for i > 0).
+pub fn boxaa_quadtree_regions(w: i32, h: i32, nlevels: u32) -> RegionResult<Boxaa> {
+    let _ = (w, h, nlevels);
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 10)
+    ))
+}
+
+/// Render the levels of a quadtree decomposition (mean / variance planes)
+/// as a single tiled image, exactly as C `fpixaDisplayQuadtree()`: each
+/// level is converted to 8bpp (clip to zero), expanded by
+/// `factor * 2^(nlevels-1-k)`, converted to 32bpp, labeled "Level k" below,
+/// and the levels are tiled in rows.
+pub fn fpixa_display_quadtree(levels: &[FPix], factor: u32, fontsize: u32) -> RegionResult<Pix> {
+    let _ = (levels, factor, fontsize);
+    Err(RegionError::InvalidParameters(
+        "not yet implemented".to_string(), // stub — implemented in GREEN (plan 902 PR 10)
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// boxaa_quadtree_regions must reproduce C boxaaQuadtreeRegions.
+    /// Expected boxes hand-computed for w = h = 5, nlevels = 2.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_boxaa_quadtree_regions_matches_c() {
+        let baa = boxaa_quadtree_regions(5, 5, 2).unwrap();
+        assert_eq!(baa.len(), 2);
+        let l0 = baa.get(0).unwrap();
+        assert_eq!(l0.len(), 1);
+        assert_eq!(*l0.get(0).unwrap(), Box::new_unchecked(0, 0, 5, 5));
+        let l1 = baa.get(1).unwrap();
+        assert_eq!(l1.len(), 4);
+        assert_eq!(*l1.get(0).unwrap(), Box::new_unchecked(0, 0, 3, 3));
+        assert_eq!(*l1.get(1).unwrap(), Box::new_unchecked(3, 0, 2, 3));
+        assert_eq!(*l1.get(2).unwrap(), Box::new_unchecked(0, 3, 3, 2));
+        assert_eq!(*l1.get(3).unwrap(), Box::new_unchecked(3, 3, 2, 2));
+    }
 
     fn create_test_image(width: u32, height: u32, value: u8) -> Pix {
         let pix = Pix::new(width, height, PixelDepth::Bit8).unwrap();
