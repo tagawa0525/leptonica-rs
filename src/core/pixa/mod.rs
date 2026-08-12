@@ -929,108 +929,79 @@ impl Pixa {
         Ok(canvas_mut.into())
     }
 
-    /// Arrange all Pix images in a tiled layout.
+    /// Arrange all Pix images on a regular lattice.
     ///
-    /// Images are placed left-to-right, wrapping to the next row when
-    /// `max_width` is exceeded. If a single image is wider than `max_width`,
-    /// it is placed on its own row. Returns the composited image.
-    ///
-    /// The canvas depth is taken from the first image. All images should
-    /// have the same depth for correct rendering.
+    /// The lattice cell size is taken from the maximum subimage width and
+    /// height; the column count is chosen so the output width does not
+    /// exceed `max_width` (but at least one column is used, so a single
+    /// oversized image still renders). The full column count is reserved
+    /// even when there are fewer images. Images with colormaps are
+    /// converted to 32 bpp; all images must otherwise share one depth.
     ///
     /// # Arguments
     ///
-    /// * `max_width` - Maximum width before wrapping to next row
-    /// * `background` - Background pixel value (0 for black, 255 for white)
-    /// * `spacing` - Pixels of spacing between images
+    /// * `max_width` - Maximum width of the output image
+    /// * `background` - 0 for white, 1 for black
+    /// * `spacing` - Pixels of spacing between lattice cells
     ///
     /// # See also
     ///
-    /// C Leptonica: `pixaDisplayTiled()` in `pixafunc1.c`
+    /// C Leptonica: `pixaDisplayTiled()` in `pixafunc2.c`
     pub fn display_tiled(&self, max_width: u32, background: u32, spacing: u32) -> Result<Pix> {
-        if self.pix.is_empty() {
+        let n = self.pix.len();
+        if n == 0 {
             return Err(Error::NullInput("pixa is empty"));
         }
 
-        let depth = self.pix[0].depth();
+        // If any pix have colormaps, generate rgb.
+        let converted: Vec<Pix> = if self.pix.iter().any(|p| p.has_colormap()) {
+            self.pix
+                .iter()
+                .map(|p| p.convert_to_32())
+                .collect::<Result<_>>()?
+        } else {
+            self.pix.clone()
+        };
 
-        // Compute layout: rows of images
-        let mut rows: Vec<Vec<usize>> = Vec::new();
-        let mut current_row: Vec<usize> = Vec::new();
-        let mut row_x: u32 = 0;
-
-        for i in 0..self.pix.len() {
-            let pw = self.pix[i].width();
-            let next_x = if current_row.is_empty() {
-                pw
-            } else {
-                row_x + spacing + pw
-            };
-            if !current_row.is_empty() && next_x > max_width {
-                rows.push(std::mem::take(&mut current_row));
-                row_x = pw;
-                current_row.push(i);
-            } else {
-                row_x = next_x;
-                current_row.push(i);
-            }
-        }
-        if !current_row.is_empty() {
-            rows.push(current_row);
+        let depth = converted[0].depth();
+        if converted.iter().any(|p| p.depth() != depth) {
+            return Err(Error::InvalidParameter(
+                "display_tiled: depths not equal".into(),
+            ));
         }
 
-        // Compute total dimensions
-        let mut total_width: u32 = 0;
-        let mut total_height: u32 = 0;
-        let mut row_heights: Vec<u32> = Vec::with_capacity(rows.len());
-        for row in &rows {
-            let mut rw: u32 = 0;
-            let mut rh: u32 = 0;
-            for (j, &idx) in row.iter().enumerate() {
-                if j > 0 {
-                    rw += spacing;
-                }
-                rw += self.pix[idx].width();
-                rh = rh.max(self.pix[idx].height());
-            }
-            total_width = total_width.max(rw);
-            row_heights.push(rh);
-            total_height += rh;
-        }
-        // Add spacing between rows
-        if rows.len() > 1 {
-            total_height += spacing * (rows.len() as u32 - 1);
-        }
+        // Lattice geometry from the max subimage dimensions.
+        let wmax = converted.iter().map(|p| p.width()).max().unwrap_or(0);
+        let hmax = converted.iter().map(|p| p.height()).max().unwrap_or(0);
+        let ncols = (((max_width as f32 - spacing as f32) / (wmax + spacing) as f32) as u32).max(1);
+        let nrows = (n as u32).div_ceil(ncols);
+        let wd = wmax * ncols + spacing * (ncols + 1);
+        let hd = hmax * nrows + spacing * (nrows + 1);
 
-        let canvas = Pix::new(total_width, total_height, depth)?;
+        let canvas = Pix::new(wd, hd, depth)?;
         let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
 
-        // Fill background (per-pixel; row-level fill could be more efficient
-        // for large canvases but this is sufficient for typical use)
-        if background != 0 {
-            for y in 0..total_height {
-                for x in 0..total_width {
-                    canvas_mut.set_pixel_unchecked(x, y, background);
-                }
-            }
+        // background: 0 = white, 1 = black. White for d > 1 and black for
+        // d == 1 both mean pixSetAll.
+        if (background == 1 && depth == PixelDepth::Bit1)
+            || (background == 0 && depth != PixelDepth::Bit1)
+        {
+            canvas_mut.set_all();
         }
 
-        // Place images
-        let mut cy: u32 = 0;
-        for (row_idx, row) in rows.iter().enumerate() {
-            let mut cx: u32 = 0;
-            for (j, &idx) in row.iter().enumerate() {
-                if j > 0 {
-                    cx += spacing;
-                }
-                blit_pix(&mut canvas_mut, &self.pix[idx], cx as i32, cy as i32);
-                cx += self.pix[idx].width();
+        // Blit the images to the dest.
+        let mut res = 0;
+        for (ni, pix) in converted.iter().enumerate() {
+            let i = ni as u32 / ncols;
+            let j = ni as u32 % ncols;
+            if ni == 0 {
+                res = pix.xres();
             }
-            cy += row_heights[row_idx];
-            if row_idx < rows.len() - 1 {
-                cy += spacing;
-            }
+            let xstart = spacing + j * (wmax + spacing);
+            let ystart = spacing + i * (hmax + spacing);
+            blit_pix(&mut canvas_mut, pix, xstart as i32, ystart as i32);
         }
+        canvas_mut.set_resolution(res, res);
 
         Ok(canvas_mut.into())
     }

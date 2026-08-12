@@ -341,7 +341,7 @@ findpat2_runs.01.tif	11b649b730026a9a
 findpat2_runs.02.tif	df14ce780eea167e
 flipdetect_correct.03.tif	36b18174021bfd7d
 fpix1_pix.06.png	f2e933a99b05252b
-genfonts.02.png	e28045308e3216c0
+genfonts.02.png	11377e9de23428c7
 gfill_basin.03.png	2adac671711d1a33
 gfill_basin.05.png	2adac671711d1a33
 gfill_basin.06.png	2adac671711d1a33
@@ -480,7 +480,7 @@ pdfio1_jpeg.01.pdf	f256c54eeb94b970
 pdfio1_multipage.01.pdf	2d5976d4f5a4ccda
 pixadisp_1bpp.03.tif	2ea186f22409f445
 pixadisp_scaled.05.png	ef85e68082995f77
-pixadisp_tiled.05.tif	f820e040504ec64b
+pixadisp_tiled.05.tif	df0c4d781d6c950b
 pixcomp_rt.04.tif	f29e3849aca2341e
 pixcomp_rt.06.png	25d12b85fa3e168b
 pixcomp_rt.08.png	25d12b85fa3e168b
@@ -565,12 +565,12 @@ shear2_color_samp.02.png	626bb2a2e1c2b0f8
 shear2_general.02.png	626bb2a2e1c2b0f8
 shear2_gray_interp.03.png	7366c9f9e594f1f2
 skew.05.tif	a82f76ea1682d511
-smallpix_color_li.01.png	468a00af983ffcfb
-smallpix_li.01.png	468a00af983ffcfb
-smallpix_rotate_am.01.png	aa588697190dc47b
-smallpix_rotate_color.01.png	aa588697190dc47b
-smallpix_sampling.01.png	3a9a46a7b224e11c
-smallpix_smooth.01.png	0e1bbbb1a0abf91c
+smallpix_color_li.01.png	a1694ffb5abfdac4
+smallpix_li.01.png	a1694ffb5abfdac4
+smallpix_rotate_am.01.png	8a1488df8e4500ab
+smallpix_rotate_color.01.png	8a1488df8e4500ab
+smallpix_sampling.01.png	9fc551c79e721762
+smallpix_smooth.01.png	fe6135c67e6b47e2
 smoothedge.04.png	649a7207cd0e3395
 smoothedge.07.png	0966dfb5b0de8c3f
 speckle_border.03.tif	bbd9c9e04e503800
