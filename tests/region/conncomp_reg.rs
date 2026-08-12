@@ -44,8 +44,10 @@ fn conncomp_reg() {
         .expect("display 4-way");
     rp.write_pix_and_check(&display4, ImageFormat::Png)
         .expect("check: conncomp 4-way display");
+    // C check 4: the reassembled display must equal the source exactly.
+    rp.compare_pix(&pixs, &display4);
 
-    // C check 4: reconstructed image dimensions match
+    // Rust-specific: reconstructed image dimensions match
     rp.compare_values(pixs.width() as f64, display4.width() as f64, 0.0);
     rp.compare_values(pixs.height() as f64, display4.height() as f64, 0.0);
 
@@ -68,6 +70,8 @@ fn conncomp_reg() {
         .expect("display 8-way");
     rp.write_pix_and_check(&display8, ImageFormat::Png)
         .expect("check: conncomp 8-way display");
+    // C check 9: same invariant for 8-cc.
+    rp.compare_pix(&pixs, &display8);
 
     // C check 10: Boxa serialization roundtrip
     let boxa_data = boxa4.write_to_bytes().expect("serialize boxa4");

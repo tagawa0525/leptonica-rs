@@ -113,7 +113,19 @@ C 版ソース: `prog/label_reg.c`、`src/pixlabel.c` / `src/rop.c` / `src/shear
   `multiply_constant` 32bpp の C 準拠化 (実装差 8 件目) で
   C label_reg の PNG 出力 10 件が完全制覇 (Ok 76 → 78)
 
-### PR 8 以降: semantic マッピングの漸進追加
+### PR 8: conncomp 整列 — pixaDisplay の合成修正 (実施済み)
+
+C 版ソース: `prog/conncomp_reg.c`、`src/pixafunc2.c` (pixaDisplay)。
+
+- conncomp の pixa 再構成ペアを張る過程で **pixaDisplay の合成が
+  上書きコピーになっており、bbox が重なる成分の fg が消える**実装差
+  (9 件目) を発見。C の PIX_PAINT (OR) + 白背景初期化に修正
+- 4-cc/8-cc の再構成が原画像と bit 一致し 2 ペア Ok (Ok 78 → 80)
+- 未対応: C 11 (pixaDisplayRandomCmap、乱数依存)、C 12-18
+  (pixMakeCoveringOfRectangles — Rust 版はパラメータ意味論が異なり
+  要整列。後続 PR 候補)
+
+### PR 9 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

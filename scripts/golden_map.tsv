@@ -207,3 +207,7 @@ region	label	15	label_color	3	loc-to-color of rot270 (form1)
 region	label	19	label_color	4	loc-to-color of translate(10,10) (form1)
 region	label	23	label_color	5	loc-to-color of rotate_shear_center_ip(0.1) (form1)
 region	label	27	label_color	6	loc-to-color transform (form2)
+
+# conncomp_reg.c (plan 902 PR 8): feyn.tif の pixa 再構成 (pixaDisplay OR 合成)
+region	conncomp	3	conncomp	4	pixaDisplay of 4-cc pixa == source
+region	conncomp	8	conncomp	11	pixaDisplay of 8-cc pixa == source
