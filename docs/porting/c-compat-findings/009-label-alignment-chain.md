@@ -48,9 +48,12 @@ label 8 ペア全件 hash 完全一致 (Ok +8)。roundtrip 規約で seedspread 
 (finding 008、JPEG 入力 decode 差) + seedspread 2 (finding 006 残) +
 gifio 2 (finding 007)。
 
-## 未対応 (後続 PR 候補)
+## 未対応 → PR 7 で解消
 
-- C label_reg の check 1 (`pixConnCompTransform` の 8bpp 出力):
-  Rust の `conn_comp_transform` は出力 depth パラメータを持たず、
-  ラベル値の規約 (1 + i % 254) と成分列挙順の一致確認も必要
-- C check 5 (`pixMultConstantGray` 0.3 倍): 対応 API が未移植
+- C check 1: `conn_comp_transform_depth` を新設 (8bpp: 1 + i%254)。
+  Rust のラベル列挙順 (raster 初出順) が C pixConnComp と一致することを
+  feyn-fract (mod 254 wrap 含む) の hash 一致で実証
+- C check 5: `multiply_constant` の 32bpp を C pixMultConstantGray 準拠
+  (語全体の乗算・clip なし) に修正して対応
+
+→ **C label_reg の PNG 出力 10 件すべてが Ok** (Ok 76 → 78)

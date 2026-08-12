@@ -107,7 +107,13 @@ C 版ソース: `prog/label_reg.c`、`src/pixlabel.c` / `src/rop.c` / `src/shear
 - 未対応: C check 1 (ConnCompTransform 8bpp) と check 5
   (pixMultConstantGray) は API 追加が必要 (finding 009 参照)
 
-### PR 7 以降: semantic マッピングの漸進追加
+### PR 7: label 残り 2 ペア — conn_comp_transform_depth + multiply_constant (実施済み)
+
+- `conn_comp_transform_depth` 新設 (C pixConnCompTransform 準拠) と
+  `multiply_constant` 32bpp の C 準拠化 (実装差 8 件目) で
+  C label_reg の PNG 出力 10 件が完全制覇 (Ok 76 → 78)
+
+### PR 8 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
