@@ -448,23 +448,35 @@ fn bmf_rendered_text_has_pixels() {
 /// baselines, lineheight, kernwidth, spacewidth, vertlinesep, and the
 /// 'A' glyph dimensions / 'x' width for every font size 4-20.
 #[test]
-#[ignore = "not yet implemented: Bmf uses a synthetic font, not C bmfdata"]
 fn bmf_c_compat_metrics() {
     // (size, bl1, bl2, bl3, lineheight, kern, space, vertsep, a_w, a_h, x_w)
     #[rustfmt::skip]
-    const EXPECTED: [(u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32); 9] = [
-        (4,  11, 12, 12, 17, 1,  4, 5,  11, 15, 8),
-        (6,  18, 18, 18, 25, 1,  6, 8,  18, 23, 12),
-        (8,  24, 24, 24, 34, 1,  8, 10, 25, 31, 17),
-        (10, 30, 30, 30, 42, 2, 10, 13, 32, 38, 20),
-        (12, 36, 36, 36, 50, 2, 12, 15, 38, 46, 24),
-        (14, 42, 42, 42, 59, 2, 12, 18, 43, 53, 28),
-        (16, 48, 48, 48, 67, 3, 16, 20, 49, 61, 32),
-        (18, 54, 54, 54, 76, 3, 18, 23, 56, 69, 36),
-        (20, 60, 60, 60, 84, 3, 18, 25, 62, 76, 39),
+    const EXPECTED: [[u32; 11]; 9] = [
+        [4,  11, 12, 12, 17, 1,  4, 5,  11, 15, 8],
+        [6,  18, 18, 18, 25, 1,  6, 8,  18, 23, 12],
+        [8,  24, 24, 24, 34, 1,  8, 10, 25, 31, 17],
+        [10, 30, 30, 30, 42, 2, 10, 13, 32, 38, 20],
+        [12, 36, 36, 36, 50, 2, 12, 15, 38, 46, 24],
+        [14, 42, 42, 42, 59, 2, 12, 18, 43, 53, 28],
+        [16, 48, 48, 48, 67, 3, 16, 20, 49, 61, 32],
+        [18, 54, 54, 54, 76, 3, 18, 23, 56, 69, 36],
+        [20, 60, 60, 60, 84, 3, 18, 25, 62, 76, 39],
     ];
 
-    for (size, bl1, bl2, bl3, lineheight, kern, space, vertsep, a_w, a_h, x_w) in EXPECTED {
+    for [
+        size,
+        bl1,
+        bl2,
+        bl3,
+        lineheight,
+        kern,
+        space,
+        vertsep,
+        a_w,
+        a_h,
+        x_w,
+    ] in EXPECTED
+    {
         let bmf = Bmf::new(size).unwrap_or_else(|e| panic!("Bmf::new({size}): {e}"));
         assert_eq!(bmf.get_font_pixa().len(), 95, "size {size}: glyph count");
         // Baselines: '0' (48) uses bl1, 'A' (65) uses bl2, 'a' (97) uses bl3.
@@ -529,12 +541,13 @@ fn pixa_save_font_rejects_out_of_range() {
 }
 
 #[test]
-fn pixa_save_font_rejects_unsupported_even_size() {
-    // 18 is even and in 4..=20, but Bmf::new has no compiled glyphs for it
-    // and would clamp to 16. The wrapper rejects it explicitly to avoid a
-    // misleading `chars-18.pa` containing 16pt glyphs.
-    let dir = unique_tmp_dir("unsupported18");
-    assert!(bmf::pixa_save_font(&dir, 18).is_err());
+fn pixa_save_font_accepts_size_18() {
+    // 18 is a valid C font size; the bmfdata port (plan 902 PR 12) added
+    // its glyphs, so pixa_save_font must now accept it.
+    let dir = unique_tmp_dir("size18");
+    bmf::pixa_save_font(&dir, 18).unwrap();
+    let path = dir.join("chars-18.pa");
+    assert!(path.exists(), "expected {} to exist", path.display());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
