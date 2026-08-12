@@ -462,14 +462,39 @@ fn filter_component_by_size() {
     assert_eq!(result.width(), 20);
 }
 
-/// Test `Pix::make_covering_of_rectangles` – create covering rectangles.
+/// `make_covering_of_rectangles` must reproduce C
+/// `pixMakeCoveringOfRectangles()`. Expected values hand-computed from the
+/// C algorithm: components {(0,1),(1,0)} (one 8-cc, bbox 2x2) and {(2,2)}
+/// (not 8-adjacent to either pixel); the first boxing fills (1,1), which
+/// touches (2,2) 8-connectedly, so the second iteration merges them into
+/// a 3x3 box.
 #[test]
-
 fn make_covering_of_rectangles() {
     let pix = Pix::new(20, 20, PixelDepth::Bit1).unwrap();
-    let boxa = pix.make_covering_of_rectangles(2).unwrap();
-    // No foreground → no covering rects
-    assert_eq!(boxa.len(), 0);
+    let covering = pix.make_covering_of_rectangles(2).unwrap();
+    // No foreground → empty mask of the same size
+    assert_eq!((covering.width(), covering.height()), (20, 20));
+    assert_eq!(covering.count_pixels(), 0);
+
+    let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    for (x, y) in [(0, 1), (1, 0), (2, 2)] {
+        pm.set_pixel(x, y, 1).unwrap();
+    }
+    let pix: Pix = pm.into();
+
+    // maxiters = 1: just the filled bounding boxes (2x2 block + 1 px).
+    let one = pix.make_covering_of_rectangles(1).unwrap();
+    assert_eq!(one.count_pixels(), 5);
+
+    // Until convergence: second iteration merges into a 3x3 box.
+    let full = pix.make_covering_of_rectangles(0).unwrap();
+    assert_eq!(full.count_pixels(), 9);
+    for y in 0..3 {
+        for x in 0..3 {
+            assert_eq!(full.get_pixel(x, y), Some(1), "pixel ({x}, {y})");
+        }
+    }
 }
 
 /// Test `Pix::reversal_profile` – count reversals along rows/columns.

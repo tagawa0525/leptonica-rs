@@ -125,7 +125,18 @@ C 版ソース: `prog/conncomp_reg.c`、`src/pixafunc2.c` (pixaDisplay)。
   (pixMakeCoveringOfRectangles — Rust 版はパラメータ意味論が異なり
   要整列。後続 PR 候補)
 
-### PR 9 以降: semantic マッピングの漸進追加
+### PR 9: covering of rectangles の C 準拠化 (実施済み)
+
+C 版ソース: `src/pix5.c` (pixMakeCoveringOfRectangles)。
+
+- `make_covering_of_rectangles` を C 準拠 (maxiters 指定、PIX 返し、
+  bbox 塗り→再ラベル→収束) に書き直し (旧 Rust 版は distance 拡張の
+  Boxa 返しで意味論が異なった)
+- C 12-17 の 6 ペア (rank cascade + covering ×5) が全件即 hash 一致
+  (Ok 80 → 86)。conncomp は乱数依存の C 11 と composite の C 18 を
+  除き全 PNG 出力が Ok
+
+### PR 10 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

@@ -78,14 +78,6 @@ fn conncomp_reg() {
     let boxa_rt = leptonica::Boxa::read_from_bytes(&boxa_data).expect("deserialize boxa4");
     rp.compare_values(n1 as f64, boxa_rt.len() as f64, 0.0);
 
-    // C checks 12-17: covering rectangles with increasing distance
-    for dist in [1, 2, 3] {
-        let covering = pixs
-            .make_covering_of_rectangles(dist)
-            .expect("covering rects");
-        rp.compare_values(1.0, if !covering.is_empty() { 1.0 } else { 0.0 }, 0.0);
-    }
-
     // 8-way should find fewer or equal components than 4-way
     assert!(n2 <= n1);
 
@@ -99,6 +91,24 @@ fn conncomp_reg() {
             comp.bounds.w > 0 && comp.bounds.h > 0,
             "Bounds should be positive"
         );
+    }
+
+    // C checks 12-17: rank-binary reduction of rabi.png, then coverings of
+    // rectangles with maxiters 1..5 (same inputs and parameters as C).
+    // C: pix2 = pixReduceRankBinaryCascade(pixRead("rabi.png"), 1, 1, 1, 0);
+    let rabi = load_test_image("rabi.png").expect("load rabi.png");
+    let reduced = leptonica::transform::reduce_rank_binary_cascade(&rabi, &[1, 1, 1])
+        .expect("reduce_rank_binary_cascade");
+    rp.write_pix_and_check(&reduced, ImageFormat::Png)
+        .expect("check: rank cascade");
+
+    // C: pix3 = pixMakeCoveringOfRectangles(pix2, i) for i in 1..=5
+    for maxiters in 1..=5u32 {
+        let covering = reduced
+            .make_covering_of_rectangles(maxiters)
+            .expect("make_covering_of_rectangles");
+        rp.write_pix_and_check(&covering, ImageFormat::Png)
+            .expect("check: covering of rectangles");
     }
 
     assert!(rp.cleanup(), "conncomp regression test failed");

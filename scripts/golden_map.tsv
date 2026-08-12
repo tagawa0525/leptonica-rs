@@ -211,3 +211,9 @@ region	label	27	label_color	6	loc-to-color transform (form2)
 # conncomp_reg.c (plan 902 PR 8): feyn.tif の pixa 再構成 (pixaDisplay OR 合成)
 region	conncomp	3	conncomp	4	pixaDisplay of 4-cc pixa == source
 region	conncomp	8	conncomp	11	pixaDisplay of 8-cc pixa == source
+region	conncomp	12	conncomp	14	rank binary cascade (rabi.png, levels 1,1,1)
+region	conncomp	13	conncomp	15	covering of rectangles maxiters=1
+region	conncomp	14	conncomp	16	covering of rectangles maxiters=2
+region	conncomp	15	conncomp	17	covering of rectangles maxiters=3
+region	conncomp	16	conncomp	18	covering of rectangles maxiters=4
+region	conncomp	17	conncomp	19	covering of rectangles maxiters=5
