@@ -217,3 +217,9 @@ region	conncomp	14	conncomp	16	covering of rectangles maxiters=2
 region	conncomp	15	conncomp	17	covering of rectangles maxiters=3
 region	conncomp	16	conncomp	18	covering of rectangles maxiters=4
 region	conncomp	17	conncomp	19	covering of rectangles maxiters=5
+
+# quadtree_reg.c (plan 902 PR 10): boxaa regions + tiled average (rabi.png)
+region	quadtree	0	quadtree_c	1	boxaa quadtree regions 1000x500 nlevels=3 (serialized)
+region	quadtree	1	quadtree_c	2	boxaa quadtree regions 1001x501 nlevels=3 (serialized)
+region	quadtree	5	quadtree_c	6	average_tiled 5x6 MeanAbsVal + expand 4x
+region	quadtree	6	quadtree_c	7	average_tiled 5x6 StdDev + expand 4x
