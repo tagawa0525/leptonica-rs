@@ -93,5 +93,23 @@ fn conncomp_reg() {
         );
     }
 
+    // C checks 12-17: rank-binary reduction of rabi.png, then coverings of
+    // rectangles with maxiters 1..5 (same inputs and parameters as C).
+    // C: pix2 = pixReduceRankBinaryCascade(pixRead("rabi.png"), 1, 1, 1, 0);
+    let rabi = load_test_image("rabi.png").expect("load rabi.png");
+    let reduced = leptonica::transform::reduce_rank_binary_cascade(&rabi, &[1, 1, 1])
+        .expect("reduce_rank_binary_cascade");
+    rp.write_pix_and_check(&reduced, ImageFormat::Png)
+        .expect("check: rank cascade");
+
+    // C: pix3 = pixMakeCoveringOfRectangles(pix2, i) for i in 1..=5
+    for maxiters in 1..=5u32 {
+        let covering = reduced
+            .make_covering_of_rectangles(maxiters)
+            .expect("make_covering_of_rectangles");
+        rp.write_pix_and_check(&covering, ImageFormat::Png)
+            .expect("check: covering of rectangles");
+    }
+
     assert!(rp.cleanup(), "conncomp regression test failed");
 }
