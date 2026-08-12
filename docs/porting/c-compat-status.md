@@ -54,10 +54,10 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        | 件数    | 説明                                                                                                                              |
 | ----------- | ------: | -----------------------------------------------------------------------------------------------------------------------------     |
-| ✅ Ok       | **86**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +42)                                                   |
+| ✅ Ok       | **90**  | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +46)                                                   |
 | ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007) |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                      |
-| 📭 Unmapped | **404** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → 500 → 447 → 445 → 410 → 406 → 404)                           |
+| 📭 Unmapped | **407** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 404 → 407 = quadtree display 3 件の新規出力を含む)       |
 | 🚫 Excluded | **79**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + C 対応が JPEG/不在の distance 系 26                   |
 
 合計 573 entries が C 比較対象。Rust manifest (`tests/golden_manifest.tsv`)
@@ -74,7 +74,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 | `io`        |      7 |        2 |        0 |       41 |       10 |
 | `morph`     | **30** |   **16** |        0 |        9 |        0 |
 | `recog`     |      0 |        0 |        0 |       45 |        0 |
-| `region`    | **39** |        2 |        0 |       28 |       29 |
+| `region`    | **43** |        2 |        0 |       31 |       29 |
 | `transform` |      4 |        0 |        0 |       78 |        0 |
 
 **morph** が現状最も Ok/Mismatch が集中している binary。これは:
@@ -85,7 +85,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 - Phase 2.5 で重点的に修正を進めた領域
 
-## Ok 86 件の内訳
+## Ok 90 件の内訳
 
 C 版と完全一致している領域:
 

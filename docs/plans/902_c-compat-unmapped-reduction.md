@@ -136,7 +136,20 @@ C 版ソース: `src/pix5.c` (pixMakeCoveringOfRectangles)。
   (Ok 80 → 86)。conncomp は乱数依存の C 11 と composite の C 18 を
   除き全 PNG 出力が Ok
 
-### PR 10 以降: semantic マッピングの漸進追加
+### PR 10: quadtree 整列 — 値テーブル修正 + 表示系 3 関数移植 (実施済み)
+
+C 版ソース: `src/quadtree.c` / `src/pixafunc2.c` / `src/scale2.c`。
+
+- **scale_to_gray_N の値テーブルが四捨五入になっていた実装差 (11 件目)**
+  を発見・修正 (C は 255 - (black*255)/N² の切り捨て)
+- boxaa_quadtree_regions / fpixa_display_quadtree /
+  Pixa::display_tiled_in_rows を新規移植 (TDD)
+- quadtree 4 ペア追加・全件 Ok (Ok 86 → 90)。Boxaa 直列化も byte 互換を実証
+- **未対応**: quadtree 02-04 (fpixa display) は Rust の Bmf が合成フォント
+  (base 7px スケール) で C のビットマップフォント実体と行高が異なるため
+  pixel 不一致。C フォントデータ (bmfdata) の移植が必要 (後続 PR 候補)
+
+### PR 11 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

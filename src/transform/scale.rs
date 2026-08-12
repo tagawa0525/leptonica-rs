@@ -1035,7 +1035,9 @@ fn scale_to_gray_n(pix: &Pix, n: u32) -> TransformResult<Pix> {
                     }
                 }
             }
-            let gray = ((white_count * 255 + total / 2) / total).min(255);
+            // C makeValTabSG*: val = 255 - (black * 255) / N², truncating.
+            let black_count = total - white_count;
+            let gray = 255 - (black_count * 255) / total;
             out_mut.set_pixel_unchecked(xd, yd, gray);
         }
     }
@@ -2535,6 +2537,21 @@ mod tests {
         let out = scale_gray_4x_li(&pix).unwrap();
         assert_eq!((out.width(), out.height()), (16, 12));
         assert_eq!(out.depth(), PixelDepth::Bit8);
+    }
+
+    /// scale_to_gray_N must reproduce the C value tables exactly:
+    /// `val = 255 - (black_count * 255) / N²` with *truncating* division
+    /// (makeValTabSG2/3/4/6/8 in upstream scale2.c), not rounding.
+    /// For a 4x4 block with exactly 1 black pixel:
+    /// C = 255 - 255/16 = 255 - 15 = 240 (truncated).
+    #[test]
+    fn test_scale_to_gray_value_table_matches_c() {
+        let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(0, 0, 1).unwrap();
+        let pix: Pix = pm.into();
+        let out = scale_to_gray_4(&pix).unwrap();
+        assert_eq!(out.get_pixel(0, 0), Some(240));
     }
 
     /// scale_gray_2x_li must reproduce C scaleGray2xLILineLow exactly.

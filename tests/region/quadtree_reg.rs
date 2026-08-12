@@ -424,3 +424,55 @@ fn quadtree_error_cases() {
 
     assert!(rp.cleanup(), "quadtree error cases test failed");
 }
+
+/// C-comparable outputs mirroring `quadtree_reg.c` checks 0-6 exactly
+/// (same inputs and parameters), so all seven outputs can be paired with
+/// the C golden hashes (plan 902 PR 10).
+#[test]
+fn quadtree_c_compat() {
+    use leptonica::core::pix::statistics::PixelStatType;
+    use leptonica::io::ImageFormat;
+    use leptonica::region::{boxaa_quadtree_regions, fpixa_display_quadtree};
+    use leptonica::transform::{expand_replicate, scale_to_gray_4};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("quadtree_c");
+
+    // C 0/1: boxaaQuadtreeRegions serialized with boxaaWriteMem
+    for (w, h) in [(1000, 500), (1001, 501)] {
+        let baa = boxaa_quadtree_regions(w, h, 3).expect("boxaa_quadtree_regions");
+        let data = baa.write_to_bytes().expect("serialize boxaa");
+        rp.write_data_and_check(&data, "baa")
+            .expect("check: boxaa regions");
+    }
+
+    // C 2-4: quadtree mean / variance / root-variance displays of
+    // scale-to-gray-4 rabi.png at 8 levels.
+    let rabi = crate::common::load_test_image("rabi.png").expect("load rabi.png");
+    let pixg = scale_to_gray_4(&rabi).expect("scale_to_gray_4");
+    let mean = leptonica::region::quadtree_mean(&pixg, 8).expect("quadtree_mean");
+    let disp = fpixa_display_quadtree(mean.levels(), 2, 10).expect("display mean");
+    rp.write_pix_and_check(&disp, ImageFormat::Png)
+        .expect("check: quadtree mean display");
+
+    let (var, rvar) = leptonica::region::quadtree_variance(&pixg, 8).expect("quadtree_variance");
+    let disp = fpixa_display_quadtree(var.levels(), 2, 10).expect("display var");
+    rp.write_pix_and_check(&disp, ImageFormat::Png)
+        .expect("check: quadtree variance display");
+    let disp = fpixa_display_quadtree(rvar.levels(), 2, 10).expect("display rvar");
+    rp.write_pix_and_check(&disp, ImageFormat::Png)
+        .expect("check: quadtree root variance display");
+
+    // C 5/6: fixed-size tiling comparison (average_tiled + expand 4x).
+    for stat in [PixelStatType::MeanAbsVal, PixelStatType::StandardDeviation] {
+        let tiled = pixg.average_tiled(5, 6, stat).expect("average_tiled");
+        let expanded = expand_replicate(&tiled, 4).expect("expand_replicate");
+        rp.write_pix_and_check(&expanded, ImageFormat::Png)
+            .expect("check: tiled average");
+    }
+
+    assert!(rp.cleanup(), "quadtree c-compat test failed");
+}

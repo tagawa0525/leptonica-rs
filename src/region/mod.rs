@@ -121,8 +121,9 @@ pub use select::{SizeSelectRelation, SizeSelectType, pix_select_by_size};
 
 // Re-export quadtree types and functions
 pub use quadtree::{
-    IntegralImage, QuadtreeResult, SquaredIntegralImage, mean_in_rectangle, quadtree_max_levels,
-    quadtree_mean, quadtree_mean_with_integral, quadtree_regions, quadtree_variance,
+    IntegralImage, QuadtreeResult, SquaredIntegralImage, boxaa_quadtree_regions,
+    fpixa_display_quadtree, mean_in_rectangle, quadtree_max_levels, quadtree_mean,
+    quadtree_mean_with_integral, quadtree_regions, quadtree_variance,
     quadtree_variance_with_integral, variance_in_rectangle,
 };
 

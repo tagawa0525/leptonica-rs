@@ -805,9 +805,119 @@ pub fn quadtree_variance_with_integral(
 // Tests
 // ============================================================================
 
+/// Generate the quadtree partitioning of a `w` x `h` region into `nlevels`
+/// levels of boxes, exactly as C `boxaaQuadtreeRegions()`: level k splits
+/// each axis into 2^k intervals with boundaries at `(dim-1)*i/nside`
+/// (start incremented by 1 for i > 0).
+pub fn boxaa_quadtree_regions(w: i32, h: i32, nlevels: u32) -> RegionResult<Boxaa> {
+    if nlevels < 1 {
+        return Err(RegionError::InvalidParameters(
+            "nlevels must be >= 1".to_string(),
+        ));
+    }
+    // Guard the shifts below: nside is 2^(nlevels-1) boxes per axis, so
+    // anything beyond i32 range is invalid input, not a panic.
+    let side = 1i32
+        .checked_shl(nlevels - 1)
+        .filter(|s| *s > 0)
+        .ok_or_else(|| {
+            RegionError::InvalidParameters(format!("nlevels = {nlevels} is too large"))
+        })?;
+    if w < side || h < side {
+        return Err(RegionError::InvalidParameters(format!(
+            "{w}x{h} doesn't support {nlevels} levels"
+        )));
+    }
+
+    let mut baa = Boxaa::with_capacity(nlevels as usize);
+    for k in 0..nlevels {
+        let nside = 1i32 << k;
+        let mut xstart = vec![0i32; nside as usize];
+        let mut xend = vec![0i32; nside as usize];
+        let mut ystart = vec![0i32; nside as usize];
+        let mut yend = vec![0i32; nside as usize];
+        for i in 0..nside {
+            xstart[i as usize] = (w - 1) * i / nside + i32::from(i > 0);
+            xend[i as usize] = (w - 1) * (i + 1) / nside;
+            ystart[i as usize] = (h - 1) * i / nside + i32::from(i > 0);
+            yend[i as usize] = (h - 1) * (i + 1) / nside;
+        }
+        let mut boxa = Boxa::with_capacity((nside * nside) as usize);
+        for i in 0..nside as usize {
+            let bh = yend[i] - ystart[i] + 1;
+            for j in 0..nside as usize {
+                let bw = xend[j] - xstart[j] + 1;
+                boxa.push(Box::new_unchecked(xstart[j], ystart[i], bw, bh));
+            }
+        }
+        baa.push(boxa);
+    }
+    Ok(baa)
+}
+
+/// Render the levels of a quadtree decomposition (mean / variance planes)
+/// as a single tiled image, exactly as C `fpixaDisplayQuadtree()`: each
+/// level is converted to 8bpp (clip to zero), expanded by
+/// `factor * 2^(nlevels-1-k)`, converted to 32bpp, labeled "Level k" below,
+/// and the levels are tiled in rows.
+pub fn fpixa_display_quadtree(levels: &[FPix], factor: u32, fontsize: u32) -> RegionResult<Pix> {
+    use crate::core::bmf::{Bmf, TextblockLocation};
+    use crate::core::fpix::NegativeHandling;
+
+    let nlevels = levels.len();
+    if nlevels == 0 {
+        return Err(RegionError::InvalidParameters("levels empty".to_string()));
+    }
+    let bmf = Bmf::new(fontsize).map_err(RegionError::Core)?;
+
+    let mut pixa = crate::core::pixa::Pixa::with_capacity(nlevels);
+    for (i, fpix) in levels.iter().enumerate() {
+        // C: fpixConvertToPix(fpix, 8, L_CLIP_TO_ZERO, 0)
+        let pix8 = fpix
+            .to_pix(8, NegativeHandling::ClipToZero)
+            .map_err(RegionError::Core)?;
+        let mag = factor * (1u32 << (nlevels - i - 1));
+        let expanded = crate::transform::expand_replicate(&pix8, mag)
+            .map_err(|e| RegionError::InvalidParameters(e.to_string()))?;
+        let pix32 = expanded.convert_to_32().map_err(RegionError::Core)?;
+        // C: pixAddSingleTextblock(pixt3, bmf, "Level %d\n", 0xff000000, L_ADD_BELOW)
+        let (labeled, _) = bmf
+            .add_single_textblock(
+                &pix32,
+                &format!("Level {i}\n"),
+                0xff00_0000,
+                TextblockLocation::Below,
+            )
+            .map_err(RegionError::Core)?;
+        pixa.push(labeled);
+    }
+
+    let w = pixa.get(nlevels - 1).map(|p| p.width()).unwrap_or_default();
+    // C: pixaDisplayTiledInRows(pixat, 32, nlevels * (w + 80), 1.0, 0, 30, 2)
+    pixa.display_tiled_in_rows(PixelDepth::Bit32, nlevels as u32 * (w + 80), 1.0, 0, 30, 2)
+        .map_err(RegionError::Core)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// boxaa_quadtree_regions must reproduce C boxaaQuadtreeRegions.
+    /// Expected boxes hand-computed for w = h = 5, nlevels = 2.
+    #[test]
+    fn test_boxaa_quadtree_regions_matches_c() {
+        let baa = boxaa_quadtree_regions(5, 5, 2).unwrap();
+        assert_eq!(baa.len(), 2);
+        let l0 = baa.get(0).unwrap();
+        assert_eq!(l0.len(), 1);
+        assert_eq!(*l0.get(0).unwrap(), Box::new_unchecked(0, 0, 5, 5));
+        let l1 = baa.get(1).unwrap();
+        assert_eq!(l1.len(), 4);
+        assert_eq!(*l1.get(0).unwrap(), Box::new_unchecked(0, 0, 3, 3));
+        assert_eq!(*l1.get(1).unwrap(), Box::new_unchecked(3, 0, 2, 3));
+        assert_eq!(*l1.get(2).unwrap(), Box::new_unchecked(0, 3, 3, 2));
+        assert_eq!(*l1.get(3).unwrap(), Box::new_unchecked(3, 3, 2, 2));
+    }
 
     fn create_test_image(width: u32, height: u32, value: u8) -> Pix {
         let pix = Pix::new(width, height, PixelDepth::Bit8).unwrap();
