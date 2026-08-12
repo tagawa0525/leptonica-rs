@@ -1035,7 +1035,9 @@ fn scale_to_gray_n(pix: &Pix, n: u32) -> TransformResult<Pix> {
                     }
                 }
             }
-            let gray = ((white_count * 255 + total / 2) / total).min(255);
+            // C makeValTabSG*: val = 255 - (black * 255) / N², truncating.
+            let black_count = total - white_count;
+            let gray = 255 - (black_count * 255) / total;
             out_mut.set_pixel_unchecked(xd, yd, gray);
         }
     }
@@ -2543,7 +2545,6 @@ mod tests {
     /// For a 4x4 block with exactly 1 black pixel:
     /// C = 255 - 255/16 = 255 - 15 = 240 (truncated).
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_scale_to_gray_value_table_matches_c() {
         let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
