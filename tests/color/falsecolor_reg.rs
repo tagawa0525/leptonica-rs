@@ -125,18 +125,30 @@ fn falsecolor_c_compat() {
     rp.write_pix_and_check(&pix16, ImageFormat::Png)
         .expect("check: 16bpp gradient");
 
+    // The manifest hash covers only pixel (index) values, not the colormap,
+    // so assert the gamma-dependent colormap entries directly. Expected
+    // values follow C pixcmapGrayToFalseColor: for index 0,
+    // bval = (int)(255 * (32/64)^(1/gamma) + 0.5).
+    let expected_index0_blue = [128u8, 180, 202]; // gamma 1.0 / 2.0 / 3.0
+
     // C checks 2-4 (8bpp) and 5-7 (16bpp): false color with gamma sweep
-    for gamma in [1.0f32, 2.0, 3.0] {
+    for (gamma, blue) in [1.0f32, 2.0, 3.0].into_iter().zip(expected_index0_blue) {
         let fc = pix8
             .convert_gray_to_false_color(gamma)
             .expect("false color 8bpp");
+        let cmap = fc.colormap().expect("false color colormap");
+        assert_eq!(cmap.len(), 256);
+        assert_eq!(cmap.get_rgb(0).unwrap(), (0, 0, blue), "gamma={gamma}");
+        assert_eq!(cmap.get_rgb(255).unwrap(), (blue, 0, 0), "gamma={gamma}");
         rp.write_pix_and_check(&fc, ImageFormat::Png)
             .expect("check: false color 8bpp");
     }
-    for gamma in [1.0f32, 2.0, 3.0] {
+    for (gamma, blue) in [1.0f32, 2.0, 3.0].into_iter().zip(expected_index0_blue) {
         let fc = pix16
             .convert_gray_to_false_color(gamma)
             .expect("false color 16bpp");
+        let cmap = fc.colormap().expect("false color colormap");
+        assert_eq!(cmap.get_rgb(0).unwrap(), (0, 0, blue), "gamma={gamma}");
         rp.write_pix_and_check(&fc, ImageFormat::Png)
             .expect("check: false color 16bpp");
     }
