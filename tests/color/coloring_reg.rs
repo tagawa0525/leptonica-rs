@@ -70,6 +70,115 @@ fn coloring_reg_foreground_shift() {
     assert!(rp.cleanup(), "coloring foreground shift test failed");
 }
 
+/// C-comparable coloring series (plan 902 PR 13).
+///
+/// Mirrors C coloring_reg checks 2-15 exactly: harmoniam100-11.png
+/// (8bpp cmapped), bmfCreate(NULL, 8) — identical to the C "fonts" pixa
+/// per genfonts (PR 12) — and pixAddSingleTextblock at L_ADD_AT_BOT with
+/// color 0xff000000 on every output. The colormap resets accumulate on
+/// pix0 across sections, as in C.
+#[test]
+fn coloring_c_compat() {
+    use leptonica::Bmf;
+    use leptonica::core::bmf::TextblockLocation;
+    use leptonica::core::pixel;
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("coloring_c");
+
+    let mut pix0 = crate::common::load_test_image("harmoniam100-11.png").expect("load harmoniam");
+    assert!(pix0.has_colormap());
+    let bmf = Bmf::new(8).expect("bmf size 8");
+    let bgcolors: [(u8, u8, u8); 4] = [
+        (255, 255, 235),
+        (255, 245, 235),
+        (255, 235, 245),
+        (235, 245, 255),
+    ];
+    let white_index = pix0
+        .colormap()
+        .unwrap()
+        .get_index(255, 255, 255)
+        .expect("white in cmap");
+
+    let mut pixa: Vec<leptonica::Pix> = Vec::new();
+
+    // C checks 2-5: cmapped coloring of the white pixels only, by
+    // resetting the white colormap entry in place (accumulates on pix0).
+    for (r, g, b) in bgcolors {
+        let mut pm = pix0.try_into_mut().unwrap_or_else(|p| p.to_mut());
+        pm.colormap_mut()
+            .unwrap()
+            .reset_color(white_index, r, g, b)
+            .expect("reset white entry");
+        pix0 = pm.into();
+        let buf = format!("(rval, bval, gval) = ({r}, {g}, {b})");
+        let (pix1, _) = bmf
+            .add_single_textblock(&pix0, &buf, 0xff000000, TextblockLocation::AtBot)
+            .expect("textblock on cmap-reset");
+        pixa.push(pix1);
+    }
+
+    // C checks 6-9: cmapped background coloring on all pixels. Note pix0
+    // still carries the last reset (white -> (235, 245, 255)).
+    for (r, g, b) in bgcolors {
+        let dcolor = pixel::compose_rgba(r, g, b, 0);
+        let pix1 = pix_shift_by_component(&pix0, 0xffffff00, dcolor).expect("cmapped bg shift");
+        let buf = format!("(rval, bval, gval) = ({r}, {g}, {b})");
+        let (pix2, _) = bmf
+            .add_single_textblock(&pix1, &buf, 0xff000000, TextblockLocation::AtBot)
+            .expect("textblock on cmapped shift");
+        pixa.push(pix2);
+    }
+
+    // C checks 10-13: background coloring on rgb.
+    let pix1_32 = pix0.convert_to_32().expect("convert to 32");
+    for (r, g, b) in bgcolors {
+        let dcolor = pixel::compose_rgba(r, g, b, 0);
+        let pix2 = pix_shift_by_component(&pix1_32, 0xffffff00, dcolor).expect("rgb bg shift");
+        let buf = format!("(rval, bval, gval) = ({r}, {g}, {b})");
+        let (pix3, _) = bmf
+            .add_single_textblock(&pix2, &buf, 0xff000000, TextblockLocation::AtBot)
+            .expect("textblock on rgb shift");
+        pixa.push(pix3);
+    }
+
+    // C checks 14-15 (and compares 0-1): fg coloring, cmapped vs rgb.
+    let dcolor = pixel::compose_rgba(200, 30, 150, 0);
+    let fg_cmapped = pix_shift_by_component(&pix0, 0x0000_0000, dcolor).expect("fg cmapped");
+    let buf = "(rval, bval, gval) = (200, 100, 50)";
+    let (fg_cmapped_txt, _) = bmf
+        .add_single_textblock(&fg_cmapped, buf, 0xff000000, TextblockLocation::AtBot)
+        .expect("textblock fg cmapped");
+    pixa.push(fg_cmapped_txt.clone());
+    let fg_rgb =
+        pix_shift_by_component(&pix0.convert_to_32().expect("to 32"), 0, dcolor).expect("fg rgb");
+    let (fg_rgb_txt, _) = bmf
+        .add_single_textblock(&fg_rgb, buf, 0xff000000, TextblockLocation::AtBot)
+        .expect("textblock fg rgb");
+    pixa.push(fg_rgb_txt.clone());
+
+    // C regTestComparePix 0-1: the cmapped and rgb paths must agree.
+    // (C pixEqual expands the colormap; here we convert to 32bpp first.
+    // These two calls consume indices 1-2, keeping the write indices
+    // aligned with C at rust_index = c_index + 1.)
+    let a = fg_cmapped.convert_to_32().expect("cmapped to 32");
+    rp.compare_pix(&a, &fg_rgb);
+    let b = fg_cmapped_txt.convert_to_32().expect("cmapped txt to 32");
+    rp.compare_pix(&b, &fg_rgb_txt);
+
+    // C checks 2-15: write out all 14 images.
+    for pix in &pixa {
+        rp.write_pix_and_check(pix, ImageFormat::Png)
+            .expect("check: coloring output");
+    }
+
+    assert!(rp.cleanup(), "coloring c-compat test failed");
+}
+
 /// Test pixShiftByComponent on colormapped images (plan 902 PR 13).
 ///
 /// C pixShiftByComponent on a cmapped pix leaves the index raster
