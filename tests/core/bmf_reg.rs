@@ -759,3 +759,38 @@ fn add_single_textblock_clamps_out_of_range_val() {
     }
     assert!(differs, "out-of-range val should still draw text (clamped)");
 }
+
+#[test]
+#[ignore = "not yet implemented: cmapped text rendering (pixSetMaskedCmap path)"]
+fn add_single_textblock_cmapped_adds_color_to_cmap() {
+    // C pixAddSingleTextblock on a colormapped pix resolves the text color
+    // via pixcmapAddNearestColor and paints the corresponding index through
+    // the glyph masks (pixSetMaskedCmap). The index raster must reference
+    // a colormap entry equal to the requested color when there is room.
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    let bmf = Bmf::new(8).unwrap();
+    let pix = {
+        let p = Pix::new(300, 120, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap(); // white bg
+        pm.set_colormap(Some(cmap)).unwrap();
+        let p: Pix = pm.into();
+        p
+    };
+
+    // 0xff000000 = red in C 0xRRGGBB00 form (as used by coloring_reg).
+    let (out, _) = bmf
+        .add_single_textblock(&pix, "Hi", 0xff000000, TextblockLocation::AtBot)
+        .unwrap();
+    assert_eq!(out.depth(), PixelDepth::Bit8);
+    let cmap = out.colormap().expect("colormap preserved");
+    assert_eq!(cmap.len(), 2, "red should be added to the colormap");
+    assert_eq!(cmap.get_rgb(1).unwrap(), (255, 0, 0));
+
+    // Some pixels must now use index 1 (the red text).
+    let saw_text =
+        (0..out.height()).any(|y| (0..out.width()).any(|x| out.get_pixel(x, y) == Some(1)));
+    assert!(saw_text, "expected text pixels using the new cmap index");
+}
