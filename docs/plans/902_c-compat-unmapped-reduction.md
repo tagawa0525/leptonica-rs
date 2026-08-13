@@ -206,7 +206,7 @@ Rust の `Bmf` は合成 5x7 フォントのスケール生成で、C のビッ�
 - fontsize 18 が新たに有効化。coloring 14 ペアのフォント面の前提が
   整った (残りは cmapped pixShiftByComponent、PR 13 候補)
 
-### PR 13: coloring 整列 — cmapped shift 対応 + 14 ペア (IN_PROGRESS)
+### PR 13: coloring 整列 — cmapped shift 対応 + 14 ペア (実施済み)
 
 C 版ソース: `prog/coloring_reg.c`、`src/coloring.c` / `src/colormap.c`。
 
@@ -219,6 +219,19 @@ PR 11 で見送った coloring 系列。フォント面の前提は PR 12 で解
 3. coloring_c テスト: C checks 2-15 と同条件 (cmap reset 4 + cmapped
    shift 4 + rgb shift 4 + fg cmapped/rgb 2、全出力に
    pixAddSingleTextblock fontsize 8) で 14 出力を書き出し 14 ペア
+
+実施結果:
+
+- cmapped テキスト描画を C 準拠化 (paint_through_mask の
+  pixSetMaskedCmap 分岐、add_single_textblock の色解決と cmapped 時の
+  クランプ回避、baselinetab[93] 整合) (TDD)
+- **実装差 13 件目**: convert_to_32 が colormap を無視して index 値を
+  グレー複製していた → C pixConvert*To32 準拠で
+  REMOVE_CMAP_TO_FULL_COLOR 経由に修正。あわせて
+  remove_colormap(ToFullColor) の alpha byte を C 準拠の 0 に修正 (TDD)
+- coloring 14 ペア **全件即 Ok (Ok 110 → 124)**。cmapped 描画・shift・
+  cmap reset・RGB 展開の全経路が C と bit 一致。C compare 0-1 相当の
+  cmapped/rgb 経路一致検証も rp.compare_pix で index を揃えて実施
 
 ### PR 14 以降: semantic マッピングの漸進追加
 
