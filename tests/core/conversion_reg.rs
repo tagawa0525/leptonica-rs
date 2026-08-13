@@ -252,3 +252,33 @@ fn conversion_reg_from_32bpp() {
 
     assert!(rp.cleanup(), "conversion from 32bpp test failed");
 }
+
+/// convert_to_32 must apply the colormap (plan 902 PR 13).
+///
+/// C pixConvert8To32 routes colormapped input through
+/// pixRemoveColormap(REMOVE_CMAP_TO_FULL_COLOR), so the output holds the
+/// colormap's RGB entries — not the raw index values replicated as gray.
+#[test]
+#[ignore = "not yet implemented: convert_to_32 ignores the colormap"]
+fn conversion_to_32_applies_colormap() {
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    let pix = {
+        let p = leptonica::Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_color(RgbaQuad::rgb(10, 20, 30)).unwrap();
+        cmap.add_color(RgbaQuad::rgb(200, 150, 100)).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel(0, 0, 0).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    let out = pix.convert_to_32().expect("convert_to_32");
+    assert_eq!(out.depth(), PixelDepth::Bit32);
+    // C removeColormap composes with alpha byte = 0.
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 0x0a141e00);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 0xc8966400);
+}
