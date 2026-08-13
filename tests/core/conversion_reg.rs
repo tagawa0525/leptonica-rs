@@ -259,7 +259,6 @@ fn conversion_reg_from_32bpp() {
 /// pixRemoveColormap(REMOVE_CMAP_TO_FULL_COLOR), so the output holds the
 /// colormap's RGB entries — not the raw index values replicated as gray.
 #[test]
-#[ignore = "not yet implemented: convert_to_32 ignores the colormap"]
 fn conversion_to_32_applies_colormap() {
     use leptonica::core::{PixColormap, RgbaQuad};
 
