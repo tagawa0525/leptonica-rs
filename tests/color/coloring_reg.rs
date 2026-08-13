@@ -1,11 +1,8 @@
 //! Coloring regression test
 //!
-//! Tests pix_shift_by_component for background and foreground color shifting.
-//! The C version tests pixShiftByComponent with both colormapped and RGB images.
-//!
-//! Partial migration: pix_shift_by_component is tested on 32bpp RGB images.
-//! Colormap-based shifting is not available in the Rust API.
-//! Test image harmoniam100-11.png is not available; test24.jpg is used instead.
+//! Tests pix_shift_by_component for background and foreground color
+//! shifting, on both colormapped and 32bpp RGB images, plus the
+//! C-comparable series over harmoniam100-11.png (plan 902 PR 13).
 //!
 //! # See also
 //!
@@ -81,7 +78,6 @@ fn coloring_reg_foreground_shift() {
 /// from the C formula (dst < src: val*dst/src; dst > src:
 /// 255 - (255-dst)*(255-val)/(255-src), truncating).
 #[test]
-#[ignore = "not yet implemented: pix_shift_by_component rejects colormapped input"]
 fn coloring_reg_colormap_shift() {
     use leptonica::core::{PixColormap, RgbaQuad};
 
