@@ -247,3 +247,19 @@ recog	genfonts	14	genfonts_c	6	font pixa display tiled, size 14 (bmfdata)
 recog	genfonts	15	genfonts_c	7	font pixa display tiled, size 16 (bmfdata)
 recog	genfonts	16	genfonts_c	8	font pixa display tiled, size 18 (bmfdata)
 recog	genfonts	17	genfonts_c	9	font pixa display tiled, size 20 (bmfdata)
+
+# coloring_reg.c (plan 902 PR 13): harmoniam100-11.png + bmfdata size 8
+color	coloring	2	coloring_c	3	cmap reset white -> (255,255,235) + textblock
+color	coloring	3	coloring_c	4	cmap reset white -> (255,245,235) + textblock
+color	coloring	4	coloring_c	5	cmap reset white -> (255,235,245) + textblock
+color	coloring	5	coloring_c	6	cmap reset white -> (235,245,255) + textblock
+color	coloring	6	coloring_c	7	cmapped shift white -> (255,255,235) + textblock
+color	coloring	7	coloring_c	8	cmapped shift white -> (255,245,235) + textblock
+color	coloring	8	coloring_c	9	cmapped shift white -> (255,235,245) + textblock
+color	coloring	9	coloring_c	10	cmapped shift white -> (235,245,255) + textblock
+color	coloring	10	coloring_c	11	rgb shift white -> (255,255,235) + textblock
+color	coloring	11	coloring_c	12	rgb shift white -> (255,245,235) + textblock
+color	coloring	12	coloring_c	13	rgb shift white -> (255,235,245) + textblock
+color	coloring	13	coloring_c	14	rgb shift white -> (235,245,255) + textblock
+color	coloring	14	coloring_c	15	fg shift cmapped -> (200,30,150) + textblock
+color	coloring	15	coloring_c	16	fg shift rgb -> (200,30,150) + textblock

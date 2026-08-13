@@ -637,19 +637,33 @@ pub fn pix_linear_map_to_target_color(
 ///
 /// # Arguments
 ///
-/// * `pix` - Input 32-bit RGB image
+/// * `pix` - Input 32-bit RGB image, or any colormapped image
 /// * `src_color` - Source color in 0xRRGGBB00 format
 /// * `dst_color` - Target color in 0xRRGGBB00 format
 ///
 /// # Returns
 ///
-/// A new image with shifted colors.
+/// A new image with shifted colors. For a colormapped input the index
+/// raster is unchanged and only the colormap entries are shifted.
 ///
 /// # Example
 ///
 /// To color a light background, use `src_color = 0xffffff00` and pick a
 /// target background color for `dst_color`.
+///
+/// # See also
+///
+/// C Leptonica: `pixShiftByComponent()` in `coloring.c`
 pub fn pix_shift_by_component(pix: &Pix, src_color: u32, dst_color: u32) -> ColorResult<Pix> {
+    // If colormapped, just modify the colormap.
+    if pix.has_colormap() {
+        let mut pm = pix.deep_clone().try_into_mut().expect("fresh clone");
+        if let Some(cmap) = pm.colormap_mut() {
+            cmap.shift_by_component(src_color, dst_color);
+        }
+        return Ok(pm.into());
+    }
+
     if pix.depth() != PixelDepth::Bit32 {
         return Err(ColorError::UnsupportedDepth {
             expected: "32 bpp",

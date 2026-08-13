@@ -256,6 +256,20 @@ impl Pix {
         let w = self.width();
         let h = self.height();
 
+        // C pixConvert{2,4,8}To32 route colormapped input through
+        // pixRemoveColormap(REMOVE_CMAP_TO_FULL_COLOR): the output holds
+        // the colormap's RGB entries, not gray-replicated index values.
+        // 1 bpp is excluded: C pixConvertTo32 sends it through
+        // pixConvert1To32, which ignores any colormap.
+        if self.has_colormap()
+            && matches!(
+                self.depth(),
+                PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+            )
+        {
+            return self.remove_colormap(RemoveColormapTarget::ToFullColor);
+        }
+
         // Match C `pixConvert8To32`: replication table sets alpha byte = 0
         // (not 0xff). Rust's `pixel::compose_rgb` would otherwise force
         // alpha=255, which would shift the alpha byte of every converted
@@ -684,7 +698,8 @@ impl Pix {
                 for (i, pixel_val) in lut.iter_mut().enumerate().take(cmap.len()) {
                     *pixel_val = if target == RemoveColormapTarget::ToFullColor {
                         if let Some((r, g, b)) = cmap.get_rgb(i) {
-                            pixel::compose_rgb(r, g, b)
+                            // C REMOVE_CMAP_TO_FULL_COLOR leaves alpha 0.
+                            pixel::compose_rgba(r, g, b, 0)
                         } else {
                             0
                         }

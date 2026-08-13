@@ -91,17 +91,38 @@ impl PixMut {
     /// * `mask` - 1 bpp mask image
     /// * `x` - Horizontal offset for mask placement
     /// * `y` - Vertical offset for mask placement
-    /// * `val` - Value to paint (masked to valid range for depth)
+    /// * `val` - Value to paint (masked to valid range for depth). For a
+    ///   colormapped image, `val` is a 0xRRGGBB00 color: the matching
+    ///   colormap index is painted, adding the color if not present
+    ///   (like C `pixSetMaskedCmap`)
     ///
     /// # Errors
     ///
-    /// Returns an error if the mask is not 1 bpp or if this image
-    /// has an unsupported depth.
+    /// Returns an error if the mask is not 1 bpp, if this image has an
+    /// unsupported depth, or if a colormapped image has no room left for
+    /// a new color.
     pub fn paint_through_mask(&mut self, mask: &Pix, x: i32, y: i32, val: u32) -> Result<()> {
         if mask.depth() != PixelDepth::Bit1 {
             return Err(Error::UnsupportedDepth(mask.depth().bits()));
         }
-        let val = mask_val(val, self.depth());
+        // C pixPaintThroughMask: with a colormap, resolve val (a color) to
+        // a colormap index via pixSetMaskedCmap, adding it if necessary.
+        let val = if self.has_colormap() {
+            let (r, g, b) = crate::core::pixel::extract_rgb(val);
+            let cmap = self.colormap_mut().expect("checked has_colormap");
+            match cmap.get_index(r, g, b) {
+                Some(index) => index as u32,
+                None => {
+                    cmap.add_color(crate::core::RgbaQuad::rgb(r, g, b))
+                        .map_err(|_| {
+                            Error::InvalidParameter("paint_through_mask: no room in cmap".into())
+                        })?;
+                    (cmap.len() - 1) as u32
+                }
+            }
+        } else {
+            mask_val(val, self.depth())
+        };
         let dw = self.width() as i32;
         let dh = self.height() as i32;
         let mw = mask.width() as i32;

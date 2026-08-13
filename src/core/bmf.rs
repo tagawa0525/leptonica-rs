@@ -995,13 +995,16 @@ impl Bmf {
 
         let depth = pix.depth();
         // Clamp val to a sensible mid-range substitute when out of range
-        // (matches C pixAddSingleTextblock). See the doc comment above for
-        // the difference vs set_textline / add_textlines, which wrap.
+        // (matches C pixAddSingleTextblock). For colormapped 2/4/8 bpp
+        // images val is a color, not an index, so C skips the clamp there.
+        // See the doc comment above for the difference vs set_textline /
+        // add_textlines, which wrap.
+        let cmapped = pix.has_colormap();
         let val = match depth {
             PixelDepth::Bit1 if val > 1 => 1,
-            PixelDepth::Bit2 if val > 3 => 2,
-            PixelDepth::Bit4 if val > 15 => 8,
-            PixelDepth::Bit8 if val > 0xff => 128,
+            PixelDepth::Bit2 if val > 3 && !cmapped => 2,
+            PixelDepth::Bit4 if val > 15 && !cmapped => 8,
+            PixelDepth::Bit8 if val > 0xff && !cmapped => 128,
             PixelDepth::Bit16 if val > 0xffff => 0x8000,
             PixelDepth::Bit32 if val < 256 => 0x80808000,
             _ => val,
@@ -1048,10 +1051,30 @@ impl Bmf {
             TextblockLocation::AtTop | TextblockLocation::AtBot => pix.deep_clone(),
         };
 
-        // Baseline of 'I' approximates C's baselinetab[93].
+        // C uses bmf->baselinetab[93] (']') as the offset from the top of
+        // the tallest character to the baseline.
         let baseline_y = self
-            .get_baseline('I')
+            .get_baseline(']')
             .unwrap_or(self.line_height().saturating_sub(1));
+
+        // C: if cmapped, resolve the requested color like
+        // pixcmapAddNearestColor does — the exact color when the colormap
+        // has room, else the nearest existing entry. Only the *resolution*
+        // happens here (on a scratch clone); the actual insertion into the
+        // destination colormap is done by paint_through_mask (C
+        // pixSetMaskedCmap), which cannot fail afterwards because a full
+        // colormap resolves to an entry that already exists.
+        let val = if let Some(cmap) = dest.colormap() {
+            let (r, g, b) = crate::core::pixel::extract_rgb(val);
+            let mut scratch = cmap.clone();
+            let index = scratch.add_nearest_color(r, g, b)?;
+            let (r, g, b) = scratch
+                .get_rgb(index)
+                .ok_or_else(|| Error::InvalidParameter("invalid cmap index".into()))?;
+            crate::core::pixel::compose_rgb(r, g, b)
+        } else {
+            val
+        };
 
         let ystart = match location {
             TextblockLocation::Above | TextblockLocation::AtTop => baseline_y + spacer,
