@@ -761,7 +761,6 @@ fn add_single_textblock_clamps_out_of_range_val() {
 }
 
 #[test]
-#[ignore = "not yet implemented: cmapped text rendering (pixSetMaskedCmap path)"]
 fn add_single_textblock_cmapped_adds_color_to_cmap() {
     // C pixAddSingleTextblock on a colormapped pix resolves the text color
     // via pixcmapAddNearestColor and paints the corresponding index through
