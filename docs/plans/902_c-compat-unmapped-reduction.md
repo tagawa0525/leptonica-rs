@@ -309,7 +309,7 @@ PR 14 で `display_tiled_in_columns` を移植し、両 prog の前提が揃っ�
 - translate 3 ペア + shear2 4 ペア **全件 Ok (Ok 133 → 140)**。
   transform binary は Ok 13 → 20
 
-### PR 16: xformbox 整列 — hash box 描画と box 変換 (IN_PROGRESS)
+### PR 16: xformbox 整列 — hash box 描画と box 変換 (実施済み)
 
 C 版ソース: `prog/xformbox_reg.c`、`src/boxfunc2.c` / `src/graphics.c`。
 
@@ -324,6 +324,20 @@ hash box 描画 3 種と boxa の直交回転・順序付き変換を検証す�
 
 必要 API (`render_hash_box*`, `Boxa::rotate_orth`,
 `Boxa::transform_ordered`, `display_tiled_in_rows`) は移植済み。
+
+実施結果:
+
+- **実装差 22 件目**: `render_pta_color` が cmapped 画像で colormap を
+  使わず生の gray/RGB 値を書いていた (C pixRenderPtaArb は
+  pixcmapAddNearestColor で index を解決)。TDD で修正
+- C 0-2 の 3 ペア **全件 Ok (Ok 140 → 143)**。1bpp / 8bpp cmapped /
+  32bpp blend の 3 描画経路を実証
+- **C 3/4 は次段送り**: どちらも `pixaDisplayTiledIn*` 内部の
+  `pixScale` を経由するが、Rust の `scale_general` は
+  **(a) unsharp masking (C は sharpfract 0.2/0.4 を既定で適用)、
+  (b) area map の 1/2 特別ケース、(c) 出力寸法の丸め**が C と異なる
+  (実装差 23 件目)。理由付きで Excluded に分離し PR 17 で対応する
+- C 5 はさらに `boxaAffineTransform` + 2D 行列ビルダが未移植
 
 ### PR 17 以降: semantic マッピングの漸進追加
 
