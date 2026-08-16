@@ -488,7 +488,6 @@ fn conversion_to_8_ignores_1bpp_colormap() {
 /// there is room. Writing a raw gray/RGB value instead names an unrelated
 /// colormap entry.
 #[test]
-#[ignore = "not yet implemented: render_pta_color ignores the colormap"]
 fn render_pta_color_uses_colormap() {
     use leptonica::core::pix::graphics::Color;
     use leptonica::core::{PixColormap, Pta, RgbaQuad};

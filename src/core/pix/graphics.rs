@@ -966,17 +966,25 @@ impl PixMut {
         let h = self.height();
         let depth = self.depth();
 
-        // Calculate the pixel value based on depth
-        let pixel_val = match depth {
-            PixelDepth::Bit1 => 1u32,
-            PixelDepth::Bit2 => (color.to_gray() >> 6) as u32,
-            PixelDepth::Bit4 => (color.to_gray() >> 4) as u32,
-            PixelDepth::Bit8 => color.to_gray() as u32,
-            PixelDepth::Bit16 => {
-                let g = color.to_gray() as u32;
-                (g << 8) | g
+        // C pixRenderPtaArb: on a colormapped pix the colour is resolved
+        // with pixcmapAddNearestColor and the resulting index is written,
+        // rather than a raw gray/RGB value that would name an unrelated
+        // colormap entry.
+        let pixel_val = if depth != PixelDepth::Bit1 && self.has_colormap() {
+            let cmap = self.colormap_mut().expect("checked has_colormap");
+            cmap.add_nearest_color(color.r, color.g, color.b)? as u32
+        } else {
+            match depth {
+                PixelDepth::Bit1 => 1u32,
+                PixelDepth::Bit2 => (color.to_gray() >> 6) as u32,
+                PixelDepth::Bit4 => (color.to_gray() >> 4) as u32,
+                PixelDepth::Bit8 => color.to_gray() as u32,
+                PixelDepth::Bit16 => {
+                    let g = color.to_gray() as u32;
+                    (g << 8) | g
+                }
+                PixelDepth::Bit32 => color.to_pixel32(),
             }
-            PixelDepth::Bit32 => color.to_pixel32(),
         };
 
         for (x, y) in pta.iter() {
