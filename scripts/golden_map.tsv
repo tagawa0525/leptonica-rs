@@ -285,3 +285,8 @@ transform	shear2	0	shear2_c	1	quadratic v shear, colour 301x301
 transform	shear2	1	shear2_c	2	quadratic v shear, gray 301x301
 transform	shear2	2	shear2_c	3	quadratic v shear, colour 601x601
 transform	shear2	3	shear2_c	4	quadratic v shear, gray 601x601
+
+# xformbox_reg.c (plan 902 PR 16): feyn.tif hash boxes + ordered transforms
+transform	xformbox	0	xformbox_c	1	render_hash_box on 1bpp components
+transform	xformbox	1	xformbox_c	2	render_hash_box_color on 8bpp
+transform	xformbox	2	xformbox_c	3	render_hash_box_blend on 32bpp
