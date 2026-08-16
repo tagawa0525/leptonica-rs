@@ -583,57 +583,127 @@ impl Boxaa {
 // ---- Boxa display functions ----
 
 impl Boxa {
-    /// Create a tiled display of 1bpp images of boxes.
+    /// Render each box on its own tile and lay the tiles out in rows.
     ///
-    /// Creates small images showing each box, tiles them into a single output.
+    /// Invalid boxes are dropped first. Each tile is either the matching
+    /// image from `pixa` or a white canvas the size of the boxa extent,
+    /// framed with a 2 px blue border and labelled with its index below,
+    /// with the box itself drawn in red at `linewidth`.
     ///
-    /// C Leptonica equivalent: `boxaDisplayTiled`
-    pub fn display_tiled(&self, pixa: Option<&Pixa>, max_width: u32) -> Result<Pix> {
-        if self.is_empty() {
+    /// # Arguments
+    ///
+    /// * `pixa` - optional per-box source images (must match the box count)
+    /// * `first` / `last` - index range; `last < 0` means through the end
+    /// * `maxwidth` - maximum width of the tiled output
+    /// * `linewidth` - width of the rendered box outline
+    /// * `scalefactor` - scale applied when tiling (also picks the font size)
+    /// * `background` - 0 for white, 1 for black
+    /// * `spacing` / `border` - passed through to the row layout
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `boxaDisplayTiled()` in `boxfunc4.c`
+    #[allow(clippy::too_many_arguments)]
+    pub fn display_tiled(
+        &self,
+        pixa: Option<&Pixa>,
+        first: i32,
+        last: i32,
+        maxwidth: u32,
+        linewidth: u32,
+        scalefactor: f32,
+        background: u32,
+        spacing: u32,
+        border: u32,
+    ) -> Result<Pix> {
+        use crate::core::bmf::{Bmf, TextblockLocation};
+        use crate::core::pix::graphics::Color;
+
+        // C boxaSaveValid: drop degenerate boxes.
+        let boxes: Vec<Box> = self.iter().filter(|b| b.is_valid()).copied().collect();
+        let n = boxes.len() as i32;
+        if n == 0 {
             return Err(Error::InvalidParameter("boxa is empty".to_string()));
         }
-        let max_width = max_width.max(100);
-        let line_width = 2u32;
-        let mut tile_pixa = Pixa::new();
-
-        for (i, b) in self.boxes().iter().enumerate() {
-            let bw = b.w.unsigned_abs().max(1);
-            let bh = b.h.unsigned_abs().max(1);
-            // If pixa provided and has this index, use it; otherwise create blank
-            let canvas = if let Some(pa) = pixa {
-                if i < pa.len() {
-                    pa[i].convert_to_32()?
-                } else {
-                    let p = Pix::new(bw, bh, PixelDepth::Bit32)?;
-                    let mut pm = p.try_into_mut().unwrap_or_else(|p| p.to_mut());
-                    let white = crate::core::pixel::compose_rgb(255, 255, 255);
-                    for y in 0..bh {
-                        for x in 0..bw {
-                            pm.set_pixel_unchecked(x, y, white);
-                        }
-                    }
-                    Pix::from(pm)
-                }
-            } else {
-                let p = Pix::new(bw, bh, PixelDepth::Bit32)?;
-                let mut pm = p.try_into_mut().unwrap_or_else(|p| p.to_mut());
-                let white = crate::core::pixel::compose_rgb(255, 255, 255);
-                for y in 0..bh {
-                    for x in 0..bw {
-                        pm.set_pixel_unchecked(x, y, white);
-                    }
-                }
-                Pix::from(pm)
-            };
-            // Draw box outline on canvas
-            let mut canvas_mut = canvas.try_into_mut().unwrap_or_else(|p| p.to_mut());
-            let draw_box = Box::new_unchecked(0, 0, bw as i32, bh as i32);
-            let color = CYCLING_COLORS[i % CYCLING_COLORS.len()];
-            let _ = canvas_mut.render_box_color(&draw_box, line_width, color);
-            tile_pixa.push(canvas_mut.into());
+        if let Some(pa) = pixa
+            && pa.len() as i32 != n
+        {
+            return Err(Error::InvalidParameter(
+                "boxa and pixa counts differ".to_string(),
+            ));
         }
 
-        tile_pixa.display_tiled(max_width, 0, 4)
+        let first = first.max(0);
+        let last = if last < 0 { n - 1 } else { last.min(n - 1) };
+        if first >= n {
+            return Err(Error::InvalidParameter("invalid first".to_string()));
+        }
+        if first > last {
+            return Err(Error::InvalidParameter("first > last".to_string()));
+        }
+
+        // C picks the label font size from the scale factor.
+        let fontsize = if scalefactor > 0.8 {
+            6
+        } else if scalefactor > 0.6 {
+            10
+        } else if scalefactor > 0.4 {
+            14
+        } else if scalefactor > 0.3 {
+            18
+        } else {
+            20
+        };
+        let bmf = Bmf::new(fontsize)?;
+
+        let mut valid = Boxa::new();
+        for b in &boxes {
+            valid.push(*b);
+        }
+        let extent = valid
+            .get_extent()
+            .ok_or_else(|| Error::InvalidParameter("empty extent".to_string()))?;
+        let (w, h) = (extent.0.max(1) as u32, extent.1.max(1) as u32);
+
+        let mut tiles = Pixa::with_capacity((last - first + 1) as usize);
+        for i in first..=last {
+            let b = boxes[i as usize];
+            let base = match pixa {
+                Some(pa) => pa
+                    .get(i as usize)
+                    .ok_or_else(|| Error::InvalidParameter("pixa index".to_string()))?
+                    .deep_clone(),
+                None => {
+                    let p = Pix::new(w, h, PixelDepth::Bit32)?;
+                    let mut pm = p.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+                    pm.set_all();
+                    pm.into()
+                }
+            };
+            let mut pm = base.to_mut();
+            // C: a 2px blue frame, then the index below, then the box in red.
+            pm.set_border_val(0, 0, 0, 2, 0x0000ff00)?;
+            let framed: Pix = pm.into();
+            let (mut labelled, _) = bmf.add_single_textblock(
+                &framed,
+                &i.to_string(),
+                0x00ff0000,
+                TextblockLocation::Below,
+            )?;
+            let mut lm = labelled.to_mut();
+            lm.render_box_color(&b, linewidth, Color::new(255, 0, 0))?;
+            labelled = lm.into();
+            tiles.push(labelled);
+        }
+
+        tiles.display_tiled_in_rows(
+            PixelDepth::Bit32,
+            maxwidth,
+            scalefactor,
+            background,
+            spacing,
+            border,
+        )
     }
 }
 
