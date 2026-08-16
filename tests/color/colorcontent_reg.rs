@@ -230,3 +230,64 @@ fn colorcontent_reg() {
 
     assert!(rp.cleanup(), "colorcontent regression test failed");
 }
+
+/// C-compat: `prog/colorcontent_reg.c` checks 10-17.
+///
+/// These are the RGB-gamut classification steps. They take no input image
+/// (the gamut is synthesized), so unlike the earlier checks in that program
+/// they are free of JPEG decode differences and can be compared bit-exactly
+/// against the C output.
+#[test]
+fn colorcontent_c_compat() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("colorcontent_c");
+
+    // C 10-12: binary classification of RGB colors using a single plane.
+    let gamut = Pix::make_gamut_rgb(3).expect("gamut");
+    let mask = gamut
+        .make_arb_mask_from_rgb(-0.5, -0.5, 1.0, 20.0)
+        .expect("arb mask");
+    let combined = combine_over_white(&gamut, &mask);
+    rp.write_pix_and_check(&gamut, ImageFormat::Png)
+        .expect("check: gamut");
+    rp.write_pix_and_check(&mask, ImageFormat::Png)
+        .expect("check: single-plane mask");
+    rp.write_pix_and_check(&combined, ImageFormat::Png)
+        .expect("check: single-plane selection");
+
+    // C 13-17: more than one plane, further restricting the allowed region.
+    let mask2 = gamut
+        .make_arb_mask_from_rgb(1.5, -0.5, -1.0, 0.0)
+        .expect("arb mask 2");
+    let mask3 = gamut
+        .make_arb_mask_from_rgb(0.4, 0.3, 0.3, 60.0)
+        .expect("arb mask 3")
+        .invert();
+    let sub1 = mask.subtract(&mask2).expect("mask - mask2");
+    let sub2 = sub1.subtract(&mask3).expect("sub1 - mask3");
+    let combined2 = combine_over_white(&gamut, &sub2);
+    rp.write_pix_and_check(&mask2, ImageFormat::Png)
+        .expect("check: mask2");
+    rp.write_pix_and_check(&mask3, ImageFormat::Png)
+        .expect("check: mask3 inverted");
+    rp.write_pix_and_check(&sub1, ImageFormat::Png)
+        .expect("check: mask - mask2");
+    rp.write_pix_and_check(&sub2, ImageFormat::Png)
+        .expect("check: sub1 - mask3");
+    rp.write_pix_and_check(&combined2, ImageFormat::Png)
+        .expect("check: multi-plane selection");
+
+    assert!(rp.cleanup(), "colorcontent C-compat test failed");
+}
+
+/// C: `pixCreate(w, h, 32); pixSetAll(pix); pixCombineMasked(pix, src, mask)`.
+fn combine_over_white(src: &Pix, mask: &Pix) -> Pix {
+    let white = Pix::new(src.width(), src.height(), PixelDepth::Bit32).expect("white canvas");
+    let mut wm = white.try_into_mut().unwrap();
+    wm.set_all();
+    wm.combine_masked(src, mask).expect("combine masked");
+    wm.into()
+}

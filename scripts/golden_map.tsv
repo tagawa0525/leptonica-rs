@@ -353,3 +353,11 @@ core	boxa3	22	boxa3_c	17	boxap3 scaled (serialized)
 core	boxa3	27	boxa3_c	19	boxap3 reconcile width (serialized)
 core	boxa3	29	boxa3_c	21	boxap3 reconcile height (serialized)
 core	boxa3	31	boxa3_c	23	boxap3 reconcile both (serialized)
+color	colorcontent	10	colorcontent_c	1	gamut RGB (scale 3)
+color	colorcontent	11	colorcontent_c	2	arb mask from RGB (-0.5,-0.5,1.0) thresh 20
+color	colorcontent	12	colorcontent_c	3	single-plane selection over white
+color	colorcontent	13	colorcontent_c	4	arb mask from RGB (1.5,-0.5,-1.0) thresh 0
+color	colorcontent	14	colorcontent_c	5	arb mask from RGB (0.4,0.3,0.3) thresh 60, inverted
+color	colorcontent	15	colorcontent_c	6	mask - mask2
+color	colorcontent	16	colorcontent_c	7	(mask - mask2) - inverted mask3
+color	colorcontent	17	colorcontent_c	8	multi-plane selection over white
