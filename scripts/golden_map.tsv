@@ -274,3 +274,8 @@ transform	smallpix	5	smallpix_c	6	rotate_am_corner sweep 0.10-0.60 rad
 transform	smallpix	6	smallpix_c	7	rotate_am_color_fast sweep 0.10-0.60 rad
 transform	smallpix	7	smallpix_c	8	scale_color_li sweep 1.0-3.0 (re-expand 4x)
 transform	smallpix	8	smallpix_c	9	scale_li sweep 1.0-3.0
+
+# translate_reg.c (plan 902 PR 15): weasel2.4c.png 3x sampling + clip
+transform	translate	0	translate_c	1	translate 4 ways x cmap/gray/rgb/1bpp
+transform	translate	1	translate_c	2	translate 4 ways x gray/rotate_am(+0.25)
+transform	translate	2	translate_c	3	translate 4 ways x 8 variants
