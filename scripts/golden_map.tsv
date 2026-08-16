@@ -279,3 +279,9 @@ transform	smallpix	8	smallpix_c	9	scale_li sweep 1.0-3.0
 transform	translate	0	translate_c	1	translate 4 ways x cmap/gray/rgb/1bpp
 transform	translate	1	translate_c	2	translate 4 ways x gray/rotate_am(+0.25)
 transform	translate	2	translate_c	3	translate 4 ways x 8 variants
+
+# shear2_reg.c (plan 902 PR 15): synthetic RGB canvases + quadratic v shear
+transform	shear2	0	shear2_c	1	quadratic v shear, colour 301x301
+transform	shear2	1	shear2_c	2	quadratic v shear, gray 301x301
+transform	shear2	2	shear2_c	3	quadratic v shear, colour 601x601
+transform	shear2	3	shear2_c	4	quadratic v shear, gray 601x601
