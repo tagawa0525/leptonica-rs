@@ -2073,7 +2073,12 @@ pub fn local_extrema(pix: &Pix, maxmin: u32, minmax: u32) -> RegionResult<(Pix, 
             actual: pix.depth().bits(),
         });
     }
-    let maxmin = if maxmin == 0 { 254 } else { maxmin };
+    // C: `if (maxmin <= 0) maxmin = 254;` (likewise minmax -> 1).
+    let maxmin = if maxmin == 0 || maxmin > 255 {
+        254
+    } else {
+        maxmin
+    };
     let minmax = if minmax == 0 { 1 } else { minmax };
 
     // Minima: candidates where the source equals its 3x3 gray erosion.
@@ -2090,10 +2095,19 @@ pub fn local_extrema(pix: &Pix, maxmin: u32, minmax: u32) -> RegionResult<(Pix, 
     let inverted = pix.invert();
     let eroded = crate::morph::erode_gray(&inverted, 3, 3)
         .map_err(|e| RegionError::InvalidParameters(format!("erode_gray: {e}")))?;
+    // C passes `255 - minmax` as an l_int32, and pixQualifyLocalMinima
+    // replaces any value <= 0 with its 254 default. Reproduce that rather
+    // than saturating to 0, which would reject almost every candidate.
+    let maxima_threshold = 255i32 - minmax as i32;
+    let maxima_threshold = if maxima_threshold <= 0 {
+        254u8
+    } else {
+        maxima_threshold as u8
+    };
     let pixmax = qualify_local_minima(
         &inverted,
         &find_equal_values(&inverted, &eroded)?,
-        255u32.saturating_sub(minmax).min(255) as u8,
+        maxima_threshold,
     )?;
 
     Ok((pixmin, pixmax))

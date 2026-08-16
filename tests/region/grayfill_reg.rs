@@ -494,7 +494,7 @@ fn grayfill_local_extrema_matches_c() {
     assert_eq!(pixmin.get_pixel(2, 2).unwrap(), 1, "dip at (2,2)");
     let min_count: u32 = (0..5)
         .flat_map(|y| (0..5).map(move |x| (x, y)))
-        .map(|(x, y)| pixmin.get_pixel(x, y).unwrap_or(0))
+        .map(|(x, y)| pixmin.get_pixel(x, y).expect("in-bounds pixel"))
         .sum();
     assert_eq!(min_count, 1, "only the dip should qualify as a minimum");
 
@@ -502,7 +502,7 @@ fn grayfill_local_extrema_matches_c() {
     assert_eq!(pixmax.get_pixel(0, 0).unwrap(), 1, "peak at (0,0)");
     let max_count: u32 = (0..5)
         .flat_map(|y| (0..5).map(move |x| (x, y)))
-        .map(|(x, y)| pixmax.get_pixel(x, y).unwrap_or(0))
+        .map(|(x, y)| pixmax.get_pixel(x, y).expect("in-bounds pixel"))
         .sum();
     assert_eq!(max_count, 1, "only the peak should qualify as a maximum");
 
