@@ -582,7 +582,42 @@ wyom.jpg・map.057.jpg を入力とするため JPEG デコード差 (finding 00
 - JPEG 入力側の 5 件は既存の finding 001/008 の範囲であり、
   今回は新規マップ対象外
 
-### PR 24 以降: semantic マッピングの漸進追加
+### PR 24: grayquant の feyn.tif ブロック (実施済み)
+
+C 版ソース: `src/paintcmap.c` (pixSetSelectCmap)、
+`src/grayquant.c` (pixThresholdTo2bpp / pixThresholdTo4bpp /
+makeGrayQuantIndexTable / makeGrayQuantTargetTable)、
+`prog/grayquant_reg.c`。
+
+`grayquant_reg` の 47 出力の大半は `test8.jpg` / `stampede2.jpg` 入力で
+JPEG デコード差 (finding 001) の影響を受けるが、**check 28-39 の 12 件は
+可逆な `feyn.tif` 入力**なので bit 一致比較ができる。
+
+実施結果:
+
+- 実装差 36 件目: `pix_set_select_cmap` が colormap のエントリ自体を
+  上書きし、`region` を `let _ = region;` で捨てていた。C
+  `pixSetSelectCmap` は新しい色を cmap から検索 (無ければ末尾に追加、
+  既存エントリは不変) し、box 内の `old_index` の **ピクセル** だけを
+  新 index に置き換える。box 外の同 index ピクセルは色が変わらない
+- 実装差 37 件目: `threshold_to_2bpp` / `threshold_to_4bpp` の量子化
+  テーブルが等幅バケット (`level = i / (256/nlevels)`) だった。C は
+  `cmapflag` でテーブルを切り替える:
+
+  - cmapflag: `makeGrayQuantIndexTable(nlevels)` — 閾値
+    `255*(2j+1)/(2*nlevels-2)` による最近傍 index 割り当て
+  - 非 cmapflag: `makeGrayQuantTargetTable(1<<d, d)` — `nlevels` を
+    `2^depth` で上書きし、index ではなく量子化後のグレー **値** を格納
+
+  `nlevels = 2` のときだけ両者が一致するため、これまで 2 レベルの
+  テストだけが通っていた
+- grayquant の C check 28-39 を 12 ペアマップ — **全件 Ok**
+  (Ok 206 → 218)
+- 量子化変更に伴い gquant_multi / pmask_clip / equal_8bpp_gray /
+  writetext_multi / adaptnorm 系の golden を再生成 (いずれも Unmapped で
+  C 側 Ok の退行なし)
+
+### PR 25 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
