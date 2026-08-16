@@ -115,6 +115,12 @@ impl Pix {
         // Copy resolution from source
         pixd_mut.set_resolution(self.xres(), self.yres());
 
+        // C pixClipRectangle also copies the colormap, so index values in
+        // the clipped raster keep their meaning.
+        if let Some(cmap) = self.colormap() {
+            pixd_mut.set_colormap(Some(cmap.clone()))?;
+        }
+
         // Copy pixel data
         for dy in 0..clip_h {
             for dx in 0..clip_w {

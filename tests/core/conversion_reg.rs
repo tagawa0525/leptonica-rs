@@ -383,7 +383,6 @@ fn conversion_to_1_matches_c() {
 /// a colormapped image stays colormapped. Dropping it silently turns the
 /// indices into raw pixel values.
 #[test]
-#[ignore = "not yet implemented: clip_rectangle drops the colormap"]
 fn clip_rectangle_preserves_colormap() {
     use leptonica::core::{PixColormap, RgbaQuad};
 
