@@ -382,7 +382,6 @@ fn grayfill_c_compat() {
 /// the mask. The mask therefore acts as a lower barrier, and pixels where
 /// the seed never reaches above the mask keep their seed value.
 #[test]
-#[ignore = "not yet implemented: seedfill_gray_inv starts from the mask"]
 fn grayfill_seedfill_gray_inv_matches_c() {
     use leptonica::{Pix, PixelDepth};
 
