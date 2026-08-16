@@ -281,3 +281,36 @@ fn conversion_to_32_applies_colormap() {
     assert_eq!(out.get_pixel(0, 0).unwrap(), 0x0a141e00);
     assert_eq!(out.get_pixel(1, 0).unwrap(), 0xc8966400);
 }
+
+/// convert_to_8 must apply the colormap (plan 902 PR 15).
+///
+/// C `pixConvertTo8(pixs, FALSE)` on an 8 bpp colormapped input routes
+/// through `pixRemoveColormap(REMOVE_CMAP_TO_GRAYSCALE)`, so the output
+/// holds luminance values — not the raw indices. Sub-8bpp colormapped
+/// inputs are likewise expanded rather than value-mapped.
+#[test]
+#[ignore = "not yet implemented: convert_to_8 ignores the colormap"]
+fn conversion_to_8_applies_colormap() {
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    let pix = {
+        let p = leptonica::Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        // Luminance uses C's 0.3 / 0.5 / 0.2 weights (+0.5 rounding).
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap(); // -> 255
+        cmap.add_color(RgbaQuad::rgb(100, 200, 50)).unwrap(); // -> 140
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel(0, 0, 0).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    let out = pix.convert_to_8().expect("convert_to_8");
+    assert_eq!(out.depth(), PixelDepth::Bit8);
+    assert!(!out.has_colormap(), "colormap must be removed");
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 255);
+    // 0.3*100 + 0.5*200 + 0.2*50 = 30 + 100 + 10 = 140
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 140);
+}
