@@ -339,7 +339,32 @@ hash box 描画 3 種と boxa の直交回転・順序付き変換を検証す�
   (実装差 23 件目)。理由付きで Excluded に分離し PR 17 で対応する
 - C 5 はさらに `boxaAffineTransform` + 2D 行列ビルダが未移植
 
-### PR 17 以降: semantic マッピングの漸進追加
+### PR 17: scale_general の C 準拠化 (IN_PROGRESS)
+
+C 版ソース: `src/scale1.c` (pixScale / pixScaleGeneral)、
+`src/enhance.c` (pixUnsharpMasking* )。
+
+PR 16 で記録した実装差 23 件目の解消。`pixScale` は移植済み関数の中でも
+利用箇所が広く (`display_tiled_in_*` の scalefactor 経路を含む)、C との
+乖離が xformbox 2 ペアのブロッカーになっている。
+
+C `pixScaleGeneral` との差:
+
+- **unsharp masking を適用していない** — C は `pixScale` から
+  sharpfract 0.2 (maxscale < 0.7) / 0.4、sharpwidth 1 / 2 を既定で渡し、
+  縮小時は maxscale > 0.2、拡大時は maxscale < 1.4 の条件で適用する。
+  Rust は引数を `_sharpfract` / `_sharpwidth` として無視
+- **sub-dispatch** — C は公開関数 (`pixScaleAreaMap` / `pixScaleGrayLI` /
+  `pixScaleColorLI`) を呼ぶため 1/2 の特別ケースや寸法規約が効くが、
+  Rust は impl を直接呼び `.round()` で寸法を決めている
+- 1bpp は `pixScaleBinary`、それ以外は `pixConvertTo8Or32` を通す
+
+あわせて **実装差 24 件目**: `unsharp_masking_gray_fast` が
+`blockconv_gray` による全面ブラーで、C の分離型 box フィルタ
+(内部のみ更新、border は原画コピー、`(int)(s + f*(s-L) + 0.5)`) と
+異なる。
+
+### PR 18 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
