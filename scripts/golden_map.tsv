@@ -333,3 +333,9 @@ recog	lineremoval	6	lineremoval_c	7	line mask (threshold 210)
 recog	lineremoval	7	lineremoval_c	8	arith_add with inverted lines
 recog	lineremoval	8	lineremoval_c	9	open_gray 1x9
 recog	lineremoval	9	lineremoval_c	10	combine_masked through line mask
+
+# iomisc_reg.c (plan 902 PR 21): alpha and colormap conversions
+io	iomisc	6	iomisc_c	1	alpha channel of books_logo.png
+io	iomisc	14	iomisc_c	5	convert_rgb_to_colormap
+io	iomisc	15	iomisc_c	6	remove_colormap of weasel4.5g
+io	iomisc	16	iomisc_c	7	convert_gray_to_colormap

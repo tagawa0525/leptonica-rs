@@ -26,3 +26,9 @@ key	dist_contours.16.png	C counterpart a+6 is JPEG (finding 001)
 key	dist_seedfill.05.png	C b-section writes only JPEG (b+1..b+3, finding 001)
 key	dist_seedfill.06.png	C b-section writes only JPEG (b+1..b+3, finding 001)
 prefix	falsecolor	Rust-specific color-mapping API outputs; C falsecolor_reg outputs are paired via falsecolor_c
+# iomisc_reg (plan 902 PR 21): C の pixAlphaBlendUniform は白 x 白 (alpha 13)
+# のブレンドで 254 を返すが、公開ソースの式 (1-f)*255 + f*255 は float/double
+# いずれでも 255。合成 1x1 入力でも再現し、C ソースからは説明できない
+key	iomisc_c.02.png	C pixAlphaBlendUniform diverges from its own published formula
+key	iomisc_c.03.png	depends on iomisc_c.02 (alpha blend over white)
+key	iomisc_c.04.png	depends on iomisc_c.02 (alpha blend over white)
