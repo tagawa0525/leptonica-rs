@@ -617,7 +617,39 @@ JPEG デコード差 (finding 001) の影響を受けるが、**check 28-39 の 
   writetext_multi / adaptnorm 系の golden を再生成 (いずれも Unmapped で
   C 側 Ok の退行なし)
 
-### PR 25 以降: semantic マッピングの漸進追加
+### PR 25: checkerboard corner 検出 (実施済み)
+
+C 版ソース: `src/checkerboard.c` (pixFindCheckerboardCorners /
+makeCheckerboardCornerPixa)、`src/boxfunc2.c` (boxaExtractCorners)、
+`prog/checkerboard_reg.c`。
+
+`checkerboard_reg` は既に C の構造 (check 0/2/3/5) をそのまま写して
+いたが、入力が可逆な `checkerboard1.tif` / `checkerboard2.tif` にも
+かかわらず 4 件すべて Mismatch だった。
+
+実施結果:
+
+- 実装差 38 件目: corner 検出の hit-miss sel が象限全体を hit/miss で
+  埋める独自構成だった。C `makeCheckerboardCornerPixa` は
+
+  - 2 点 ((1,1) と (size-2, size-2)、cross 系は中央列の 2 点) を立てた
+    1bpp マスクを dilation ブリックで膨張させたものを hit
+  - 同マスクを 90 度時計回りに回転したものを miss
+  - 残りは全て don't-care、原点は中心
+
+  とする**疎な**構成で、対になる sel は hit/miss を入れ替える。
+  `morph::dilate_brick` / `transform::rotate_90` で C の構成を再現した
+- 実装差 39 件目: `Boxa::extract_corners(Center)` が
+  `(left + right) as f32 / 2.0` と浮動小数で計算していた。C
+  `boxaExtractCorners(L_BOX_CENTER)` は l_int32 の `(left + right) / 2`
+  で、偶数幅の box では .5 にならず左上側へ切り捨てられる
+- checkerboard の C check 0/2/3/5 を 4 ペアマップ — **全件 Ok**
+  (Ok 218 → 222、Unmapped 400 → 396)
+- **C check 1/4 (debug pixa の tiled display) は次段送り**:
+  `selaDisplayInPix` / `selMakePlusSign` / `pixDisplaySelectedPixels` が
+  未移植で、`find_checkerboard_corners` が中間画像を返さないため
+
+### PR 26 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
