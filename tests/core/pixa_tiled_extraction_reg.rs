@@ -15,7 +15,10 @@ fn convert_to_8_colormap_preserves_boxa() {
     let out = pa.convert_to_8_colormap(false).unwrap();
     assert_eq!(out.pix_slice().len(), 1);
     let p = &out.pix_slice()[0];
-    assert_eq!(p.depth(), PixelDepth::Bit8);
+    // C pixConvertTo8Colormap delegates 32bpp input to
+    // pixConvertRGBToColormap, which sizes the output from the colour
+    // count — a single-colour image lands at 2 bpp despite the name.
+    assert_eq!(p.depth(), PixelDepth::Bit2);
     assert!(p.colormap().is_some());
     let b = out.boxa().get(0).unwrap();
     assert_eq!((b.x, b.y, b.w, b.h), (3, 5, 8, 8));

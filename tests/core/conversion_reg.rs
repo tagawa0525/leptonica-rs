@@ -516,3 +516,48 @@ fn render_pta_color_uses_colormap() {
     // The raster must reference the new index, not a raw gray value.
     assert_eq!(out.get_pixel(1, 0).unwrap(), 2);
 }
+
+/// convert_rgb_to_colormap must pick the C output depth (plan 902 PR 21).
+///
+/// C `pixFewColorsOctcubeQuant2` sizes the destination from the colour
+/// count: 2 bpp for up to 4 colours, 4 bpp for up to 16, else 8 bpp.
+/// Always emitting 8 bpp changes the raster even when the colours match.
+#[test]
+fn conversion_rgb_to_colormap_picks_depth() {
+    let make = |colors: &[(u8, u8, u8)]| -> leptonica::Pix {
+        let p = leptonica::Pix::new(colors.len() as u32, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for (x, &(r, g, b)) in colors.iter().enumerate() {
+            pm.set_pixel(
+                x as u32,
+                0,
+                leptonica::core::pixel::compose_rgba(r, g, b, 0),
+            )
+            .unwrap();
+        }
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    // 3 colours -> 2 bpp
+    let pix = make(&[(255, 0, 0), (0, 255, 0), (0, 0, 255)]);
+    let out = pix.convert_rgb_to_colormap(false).expect("3 colours");
+    assert_eq!(out.depth(), PixelDepth::Bit2);
+
+    // 5 colours -> 4 bpp
+    let pix = make(&[
+        (255, 0, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (255, 255, 0),
+        (0, 255, 255),
+    ]);
+    let out = pix.convert_rgb_to_colormap(false).expect("5 colours");
+    assert_eq!(out.depth(), PixelDepth::Bit4);
+
+    // 20 colours -> 8 bpp
+    let colors: Vec<(u8, u8, u8)> = (0..20u8).map(|i| (i * 10, 255 - i * 10, i)).collect();
+    let pix = make(&colors);
+    let out = pix.convert_rgb_to_colormap(false).expect("20 colours");
+    assert_eq!(out.depth(), PixelDepth::Bit8);
+}

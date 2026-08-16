@@ -467,7 +467,49 @@ gray morphology と算術の主要経路をまとめて検証できる。必要 
   C と同じ計算順に揃えて解消
 - lineremoval 10 ペア **全件 Ok (Ok 172 → 182)**。recog binary は Ok 19
 
-### PR 21 以降: semantic マッピングの漸進追加
+### PR 21: iomisc 整列 — alpha / colormap 変換系 (実施済み)
+
+C 版ソース: `prog/iomisc_reg.c`。
+
+io は Unmapped 41。iomisc_reg の PNG 出力は 8 件で、うち C check 13
+(番号であって件数ではない) は既に Ok (`iomisc_regen_rgb_cmap`)。
+残る 7 件が lossless 入力
+(`books_logo.png` / `weasel4.11c.png` / `weasel4.5g.png`) 由来:
+
+| C check | 内容 |
+| --: | --- |
+| 6 | alpha チャンネルの取り出し |
+| 7 | `alpha_blend_uniform` (白背景) |
+| 9 | `set_alpha_over_white` 後の alpha |
+| 10 | `alpha_blend_uniform` (シアン背景) |
+| 14 | `convert_rgb_to_colormap` |
+| 15-16 | 8bpp cmapped の除去と `convert_gray_to_colormap` |
+
+必要 API はすべて移植済み。
+
+実施結果:
+
+- **実装差 31 件目**: `convert_rgb_to_colormap` が常に 8bpp を返していた
+  (C `pixFewColorsOctcubeQuant2` は色数で 2/4/8bpp を選ぶ)。C
+  `pixConvertTo8Colormap` も 32bpp 入力をこれに委譲するため、
+  `convert_to_8_colormap` は単色画像で 2bpp になるのが C 準拠
+- **実装差 32 件目**: `set_alpha_over_white` が `255 - 輝度平均` の近似
+  だった。C は距離変換ベース (反転 → RGB max → 閾値 → 反転 →
+  `distance_function(8, 8, Foreground)` → x128) なので置き換え
+- `alpha_blend_uniform` の丸めを C の切り捨てに合わせ、差分を
+  4364 → 83 画素に削減
+- iomisc 4 ペア Ok (Ok 182 → 186)
+- **C 側の不整合を発見**: `pixAlphaBlendUniform` は白 x 白 (alpha 13) の
+  ブレンドで 254 を返すが、公開ソースの式 `(1-f)*255 + f*255` は
+  float/double いずれの評価でも 255。合成 1x1 入力でも再現し、C ソース
+  からは説明できない。残る 83 画素はすべてこの形のため、checks 7/9/10 は
+  理由付きで Excluded とした
+
+**見送り**: `boxa3_reg` は `boxaDisplayTiled` のシグネチャが C と
+大きく異なる (Rust は `(pixa, max_width)` のみ) ため、パラメータ整列が
+前提。24 出力と規模も大きく別 PR とする。
+
+### PR 22 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

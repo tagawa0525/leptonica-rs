@@ -2291,12 +2291,18 @@ impl Pix {
         }
 
         if !too_many {
-            // Direct mapping
-            let mut cmap = PixColormap::new(8)?;
+            // Direct mapping. C pixFewColorsOctcubeQuant2 sizes the
+            // destination from the colour count.
+            let depth = match unique_colors.len() {
+                0..=4 => PixelDepth::Bit2,
+                5..=16 => PixelDepth::Bit4,
+                _ => PixelDepth::Bit8,
+            };
+            let mut cmap = PixColormap::new(depth.bits())?;
             for &(r, g, b) in &unique_colors {
                 cmap.add_rgb(r, g, b)?;
             }
-            let result = Pix::new(w, h, PixelDepth::Bit8)?;
+            let result = Pix::new(w, h, depth)?;
             let mut rm = result.try_into_mut().unwrap();
             rm.set_resolution(self.xres(), self.yres());
             for y in 0..h {
