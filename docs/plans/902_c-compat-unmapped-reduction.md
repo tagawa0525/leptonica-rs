@@ -378,7 +378,27 @@ C `pixScaleGeneral` との差:
 - xformbox 5 ペア **全件 Ok (Ok 143 → 145)**、PR 16 の Excluded 2 件も
   解消。transform binary は Unmapped/Excluded ともに残り 0 の Ok 25
 
-### PR 18 以降: semantic マッピングの漸進追加
+### PR 18: grayfill 整列 — filter 最大プールへの着手 (IN_PROGRESS)
+
+C 版ソース: `prog/grayfill_reg.c`、`src/seedfill.c`。
+
+filter は Unmapped 57 で残り最大のプール。その中で grayfill_reg は
+**入力が完全合成 (200x200 の pixCreate + 式で値を埋める)** で全 27 出力が
+PNG のため、codec 差なしで gray seedfill 系を検証できる。
+
+| C check | 内容 | 依存 |
+| --- | --- | --- |
+| 0-6 | seedfill_gray_inv (4/8 連結) + 閾値 + combine_masked + tiled | 済 |
+| 7-12 | seedfill_gray (4/8 連結) + 閾値 + tiled | 済 |
+| 13-18 | local_extrema + seedfill_gray_basin | **未** |
+| 19-34 | 4 組の inv/正順 x simple 一致検証 | 済 |
+
+**実装差 28 件目**: `local_extrema` は C `pixLocalExtrema` と
+パラメータ意味論が異なる (Rust は erosion/dilation のカーネル径と
+最小差分、C は 3x3 固定 + `pixQualifyLocalMinima` の閾値 maxmin/minmax)。
+13-18 はこれの整列が前提のため次段送り。
+
+### PR 19 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
