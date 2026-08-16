@@ -960,7 +960,19 @@ impl PixMut {
 
     /// Render a point array with a specific RGB color.
     ///
-    /// For non-32bpp images, the color is converted to grayscale.
+    /// The value actually written depends on the image:
+    ///
+    /// - **colormapped** (any depth above 1 bpp): the colour is resolved
+    ///   against the colormap — added when there is room, otherwise the
+    ///   nearest existing entry — and that index is written, so the
+    ///   requested RGB is preserved
+    /// - **32 bpp**: the packed RGB value
+    /// - **1 bpp**: the foreground bit
+    /// - other depths: the colour converted to grayscale
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRenderPtaArb()` in `graphics.c`
     pub fn render_pta_color(&mut self, pta: &Pta, color: Color) -> Result<()> {
         let w = self.width();
         let h = self.height();
@@ -971,7 +983,7 @@ impl PixMut {
         // rather than a raw gray/RGB value that would name an unrelated
         // colormap entry.
         let pixel_val = if depth != PixelDepth::Bit1 && self.has_colormap() {
-            let cmap = self.colormap_mut().expect("checked has_colormap");
+            let cmap = self.colormap_mut().ok_or(Error::ColormapRequired)?;
             cmap.add_nearest_color(color.r, color.g, color.b)? as u32
         } else {
             match depth {
