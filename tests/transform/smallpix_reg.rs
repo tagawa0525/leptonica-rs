@@ -382,7 +382,6 @@ fn smallpix_c_compat() {
 /// `pixScaleBySampling` passes shift = 0.5. C `pixRotateBySampling`
 /// likewise truncates the rotated *offset* before adding the centre.
 #[test]
-#[ignore = "not yet implemented: sampling index convention differs from C"]
 fn smallpix_sampling_index_matches_c() {
     use leptonica::transform::{rotate_by_sampling, scale_by_sampling};
 
@@ -422,4 +421,62 @@ fn smallpix_sampling_index_matches_c() {
     };
     let rot = rotate_by_sampling(&grid, 4, 4, 0.1, RotateFill::Black).unwrap();
     assert_eq!(rot.get_pixel(5, 0).unwrap(), 4);
+}
+
+/// Bilinear scaling must use C's 1/16 subpixel convention (plan 902 PR 14).
+///
+/// C `scaleColorLILow` / `scaleGrayLILow` map destination `j` to
+/// `xpm = (int)(16 * ws / wd * j)`, split it into `xp = xpm >> 4` and
+/// `xf = xpm & 0xf`, and weight the four neighbours by
+/// `(16 - xf)(16 - yf)` etc. with a `+ 128` rounding term. The endpoint
+/// matched `(w - 1) / (wd - 1)` convention gives different samples.
+/// C also special-cases scale 1.0 (copy) and 2.0 / 4.0.
+#[test]
+#[ignore = "not yet implemented: bilinear scaling uses an endpoint-matched ratio"]
+fn smallpix_bilinear_matches_c() {
+    use leptonica::transform::{scale_color_2x_li, scale_gray_li};
+
+    // 4x1 8bpp ramp scaled 3x: wd = 12, scx = 16 * 4 / 12 = 5.333.
+    //   j = 1: xpm = (int)5.333 = 5 -> xp = 0, xf = 5
+    //          val = ((16-5)*16*v0 + 5*16*v1 + 128) / 256
+    //              = (176*0 + 80*30 + 128) / 256 = 2528 / 256 = 9
+    //   j = 3: xpm = (int)16.0 = 16 -> xp = 1, xf = 0 -> val = v1 = 30
+    let ramp = {
+        let p = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for (x, v) in [0u32, 30, 60, 90].into_iter().enumerate() {
+            pm.set_pixel(x as u32, 0, v).unwrap();
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_gray_li(&ramp, 3.0, 1.0).unwrap();
+    assert_eq!(out.width(), 12);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 9);
+    assert_eq!(out.get_pixel(3, 0).unwrap(), 30);
+
+    // C returns a plain copy at scale 1.0 and routes 2.0 to the dedicated
+    // 2x doubler.
+    let pixc = make_test_pattern();
+    let same = scale_color_li(&pixc, 1.0, 1.0).unwrap();
+    for y in 0..9 {
+        for x in 0..9 {
+            assert_eq!(same.get_pixel(x, y), pixc.get_pixel(x, y));
+        }
+    }
+    let doubled = scale_color_li(&pixc, 2.0, 2.0).unwrap();
+    let expect = scale_color_2x_li(&pixc).unwrap();
+    assert_eq!(
+        (doubled.width(), doubled.height()),
+        (expect.width(), expect.height())
+    );
+    for y in 0..expect.height() {
+        for x in 0..expect.width() {
+            assert_eq!(
+                doubled.get_pixel(x, y),
+                expect.get_pixel(x, y),
+                "scale 2.0 must equal scale_color_2x_li at ({x}, {y})"
+            );
+        }
+    }
 }
