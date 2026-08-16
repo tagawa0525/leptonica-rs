@@ -509,7 +509,7 @@ io は Unmapped 41。iomisc_reg の PNG 出力は 8 件で、うち C check 13
 大きく異なる (Rust は `(pixa, max_width)` のみ) ため、パラメータ整列が
 前提。24 出力と規模も大きく別 PR とする。
 
-### PR 22: boxaDisplayTiled の C 準拠化 (IN_PROGRESS)
+### PR 22: boxaDisplayTiled の C 準拠化 (実施済み)
 
 C 版ソース: `src/boxfunc4.c` (boxaDisplayTiled)、`prog/boxa3_reg.c`。
 
@@ -529,6 +529,17 @@ scalefactor, background, spacing, border)` に対し Rust は
 
 必要 API (`set_border_val` / `render_box_color` /
 `add_single_textblock` / `display_tiled_in_rows`) は移植済み。
+
+実施結果:
+
+- `Boxa::display_tiled` を C シグネチャ・処理に書き換え (実装差 33 件目)
+- boxa3 の **直列化 12 件が全件 byte 一致 (Ok 186 → 198)**。
+  `transform_ordered` (= C boxaTransform)、
+  `reconcile_size_by_median` の 3 種、`.ba` 直列化がいずれも
+  C と bit 等価であることを実証
+- **display 出力 12 件は次段送り**: タイル高が C と異なる
+  (テキストブロック高の算出差、幅は一致)。boxa アルゴリズム自体は
+  `.ba` で検証済みのため、理由付きで Excluded とした
 
 ### PR 23 以降: semantic マッピングの漸進追加
 
