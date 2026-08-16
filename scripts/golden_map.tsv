@@ -290,3 +290,5 @@ transform	shear2	3	shear2_c	4	quadratic v shear, gray 601x601
 transform	xformbox	0	xformbox_c	1	render_hash_box on 1bpp components
 transform	xformbox	1	xformbox_c	2	render_hash_box_color on 8bpp
 transform	xformbox	2	xformbox_c	3	render_hash_box_blend on 32bpp
+transform	xformbox	3	xformbox_c	4	rotate_orth x4 + boxa rotate_orth, tiled in rows
+transform	xformbox	4	xformbox_c	5	transform_ordered 6 orders (translate + scale)

@@ -1299,11 +1299,12 @@ impl Pixa {
                 }
             };
             let pix1 = if scalefactor != 1.0 {
+                // C uses pixScale, i.e. the auto dispatch with sharpening.
                 crate::transform::scale(
                     &pixn,
                     scalefactor,
                     scalefactor,
-                    crate::transform::ScaleMethod::Linear,
+                    crate::transform::ScaleMethod::Auto,
                 )
                 .map_err(|e| Error::InvalidParameter(e.to_string()))?
             } else {

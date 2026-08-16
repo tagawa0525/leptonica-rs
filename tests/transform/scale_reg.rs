@@ -141,3 +141,111 @@ fn scale_reg() {
 
     assert!(rp.cleanup(), "scale regression test failed");
 }
+
+/// scale_general must follow C pixScaleGeneral (plan 902 PR 17).
+///
+/// C dispatches to the public `pixScaleAreaMap` / `pixScaleGrayLI` /
+/// `pixScaleColorLI` entry points (so their special cases and
+/// `(int)(scale * ws + 0.5)` sizing apply) and then sharpens with
+/// `pixUnsharpMasking` when `sharpfract`/`sharpwidth` are positive:
+/// for reductions when `maxscale > 0.2`, for magnifications when
+/// `maxscale < 1.4`.
+#[test]
+fn scale_general_matches_c_dispatch() {
+    use leptonica::transform::{scale, scale_area_map, scale_general};
+    use leptonica::{Pix, PixelDepth};
+
+    // A 465-tall image at 0.5 must use the area-map 1/2 special case,
+    // giving 232 (not the 233 that rounding would produce).
+    let pix = Pix::new(300, 465, PixelDepth::Bit32).expect("create");
+    let out = scale_general(&pix, 0.5, 0.5, 0.0, 0).expect("scale_general");
+    assert_eq!((out.width(), out.height()), (150, 232));
+    let direct = scale_area_map(&pix, 0.5, 0.5).expect("scale_area_map");
+    assert_eq!((direct.width(), direct.height()), (150, 232));
+
+    // With sharpening disabled the result must equal the bare area map.
+    // A blocky pattern: a linear ramp would make the box lowpass equal the
+    // centre value, so sharpening would be a no-op.
+    let gradient = {
+        let p = Pix::new(64, 64, PixelDepth::Bit8).expect("create gray");
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..64u32 {
+            for x in 0..64u32 {
+                let v = if ((x / 4) + (y / 4)) % 2 == 0 {
+                    40
+                } else {
+                    210
+                };
+                pm.set_pixel(x, y, v).unwrap();
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let plain = scale_general(&gradient, 0.5, 0.5, 0.0, 0).expect("no sharpening");
+    let area = scale_area_map(&gradient, 0.5, 0.5).expect("area map");
+    for y in 0..plain.height() {
+        for x in 0..plain.width() {
+            assert_eq!(plain.get_pixel(x, y), area.get_pixel(x, y), "({x}, {y})");
+        }
+    }
+
+    // pixScale applies sharpening by default, so it must differ from the
+    // unsharpened path on an image with edges.
+    let sharpened =
+        scale(&gradient, 0.5, 0.5, leptonica::transform::ScaleMethod::Auto).expect("scale");
+    assert_eq!(
+        (sharpened.width(), sharpened.height()),
+        (plain.width(), plain.height())
+    );
+    let differs = (0..plain.height())
+        .any(|y| (0..plain.width()).any(|x| sharpened.get_pixel(x, y) != plain.get_pixel(x, y)));
+    assert!(differs, "pixScale must sharpen by default");
+}
+
+/// scale_area_map_2 must truncate like C (plan 902 PR 17).
+///
+/// C `scaleAreaMapLow2` averages each 2x2 block with `val >>= 2` — a
+/// truncating shift, not a `+2` round-half-up — and composes only the
+/// three colour bytes (alpha stays 0).
+#[test]
+fn scale_area_map_2_truncates_like_c() {
+    use leptonica::transform::scale_area_map_2;
+    use leptonica::{Pix, PixelDepth};
+
+    // 2x2 gray block summing to 402: C gives 402 >> 2 = 100,
+    // rounding would give (402 + 2) / 4 = 101.
+    let gray = {
+        let p = Pix::new(2, 2, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        pm.set_pixel(0, 0, 100).unwrap();
+        pm.set_pixel(1, 0, 101).unwrap();
+        pm.set_pixel(0, 1, 100).unwrap();
+        pm.set_pixel(1, 1, 101).unwrap();
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_area_map_2(&gray).expect("scale_area_map_2 gray");
+    assert_eq!((out.width(), out.height()), (1, 1));
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 100);
+
+    // Same for each colour channel of a 32bpp block.
+    let color = {
+        let p = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for (x, y, v) in [
+            (0u32, 0u32, 0x6465_66ffu32),
+            (1, 0, 0x6566_67ff),
+            (0, 1, 0x6465_66ff),
+            (1, 1, 0x6566_67ff),
+        ] {
+            pm.set_pixel(x, y, v).unwrap();
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_area_map_2(&color).expect("scale_area_map_2 color");
+    // r: (100+101)*2 = 402 >> 2 = 100 = 0x64, likewise g = 0x65, b = 0x66.
+    // C composeRGBPixel leaves the alpha byte 0.
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 0x6465_6600);
+}

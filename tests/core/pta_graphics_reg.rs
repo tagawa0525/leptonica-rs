@@ -211,3 +211,37 @@ fn replicate_pattern_from_pix() {
     assert!(pts.contains(&(4, 4)));
     assert!(pts.contains(&(6, 6)));
 }
+
+/// Diagonal hash lines must use C's double-precision spacing
+/// (plan 902 PR 17).
+///
+/// C `generatePtaHashBox` computes the line origin as
+/// `(l_int32)(bx + (i + 0.5) * 1.4 * spacing)` in double precision.
+/// Evaluating it in f32 truncates differently — for a box at x = 5 with
+/// spacing 10, line 1 lands at 25 in C but at 26 in f32.
+#[test]
+fn hash_box_diagonal_spacing_matches_c() {
+    use leptonica::Box as LeptBox;
+    use leptonica::core::pix::graphics::{HashOrientation, generate_hash_box_pta};
+
+    // width = 1 so each diagonal is a single pixel wide and its position
+    // is unambiguous.
+    let b = LeptBox::new(5, 5, 45, 28).unwrap();
+    let pta = generate_hash_box_pta(&b, 10, 1, HashOrientation::PosSlope, false)
+        .expect("generate_hash_box_pta");
+
+    // C's diagonals meet the top edge (y = 5) at x = 11, 24, 39 — the
+    // second one is 24 because C evaluates the origin in double precision
+    // (f32 would place it at 25).
+    let top_xs: Vec<i32> = {
+        let mut xs: Vec<i32> = pta
+            .iter()
+            .filter(|(_, y)| *y as i32 == 5)
+            .map(|(x, _)| x as i32)
+            .collect();
+        xs.sort_unstable();
+        xs.dedup();
+        xs
+    };
+    assert_eq!(top_xs, vec![11, 24, 39], "diagonal origins on the top edge");
+}
