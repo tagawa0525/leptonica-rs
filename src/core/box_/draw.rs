@@ -587,12 +587,15 @@ impl Boxa {
     ///
     /// Invalid boxes are dropped first. Each tile is either the matching
     /// image from `pixa` or a white canvas the size of the boxa extent,
-    /// framed with a 2 px blue border and labelled with its index below,
-    /// with the box itself drawn in red at `linewidth`.
+    /// given a 2 px blue *bottom* border (C sets only that edge) and
+    /// labelled below with its index in green, with the box itself drawn
+    /// in red at `linewidth`.
     ///
     /// # Arguments
     ///
-    /// * `pixa` - optional per-box source images (must match the box count)
+    /// * `pixa` - optional per-box source images. As in C, the count must
+    ///   match the boxes that survive the validity filter, and entries are
+    ///   looked up by the filtered index
     /// * `first` / `last` - index range; `last < 0` means through the end
     /// * `maxwidth` - maximum width of the tiled output
     /// * `linewidth` - width of the rendered box outline
@@ -623,7 +626,9 @@ impl Boxa {
         let boxes: Vec<Box> = self.iter().filter(|b| b.is_valid()).copied().collect();
         let n = boxes.len() as i32;
         if n == 0 {
-            return Err(Error::InvalidParameter("boxa is empty".to_string()));
+            return Err(Error::InvalidParameter(
+                "no valid boxes to display (all were degenerate)".to_string(),
+            ));
         }
         if let Some(pa) = pixa
             && pa.len() as i32 != n
@@ -681,9 +686,11 @@ impl Boxa {
                 }
             };
             let mut pm = base.to_mut();
-            // C: a 2px blue frame, then the index below, then the box in red.
+            // C pixSetBorderVal(pix1, 0, 0, 0, 2, 0x0000ff00): a 2 px blue
+            // bottom border only, then the index below, then the box in red.
             pm.set_border_val(0, 0, 0, 2, 0x0000ff00)?;
             let framed: Pix = pm.into();
+            // C passes 0x00ff0000 in its 0xRRGGBB00 layout, i.e. green.
             let (mut labelled, _) = bmf.add_single_textblock(
                 &framed,
                 &i.to_string(),
