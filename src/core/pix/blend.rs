@@ -940,16 +940,15 @@ impl Pix {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
                 let (r, g, b, a) = pixel::extract_rgba(pixel);
-                let alpha = a as f32 / 255.0;
-                let nr = (alpha * r as f32 + (1.0 - alpha) * bg_r as f32)
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
-                let ng = (alpha * g as f32 + (1.0 - alpha) * bg_g as f32)
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
-                let nb = (alpha * b as f32 + (1.0 - alpha) * bg_b as f32)
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
+                // C pixBlendWithGrayMask computes
+                // `(1.0 - fract) * dval + fract * sval` in double precision
+                // (fract is an l_float32 promoted by the double literal) and
+                // truncates with an int cast — no rounding.
+                let alpha = (a as f32 / 255.0) as f64;
+                let blend = |src: u8, bg: u8| -> u8 {
+                    ((1.0 - alpha) * bg as f64 + alpha * src as f64).clamp(0.0, 255.0) as u8
+                };
+                let (nr, ng, nb) = (blend(r, bg_r), blend(g, bg_g), blend(b, bg_b));
                 result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
             }
         }
@@ -1071,16 +1070,15 @@ impl Pix {
             for x in 0..w {
                 let pval = self.get_pixel_unchecked(x, y);
                 let (r, g, b, a) = pixel::extract_rgba(pval);
-                let alpha = a as f32 / 255.0;
-                let nr = (alpha * r as f32 + (1.0 - alpha) * bg_r as f32)
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
-                let ng = (alpha * g as f32 + (1.0 - alpha) * bg_g as f32)
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
-                let nb = (alpha * b as f32 + (1.0 - alpha) * bg_b as f32)
-                    .round()
-                    .clamp(0.0, 255.0) as u8;
+                // C pixBlendWithGrayMask computes
+                // `(1.0 - fract) * dval + fract * sval` in double precision
+                // (fract is an l_float32 promoted by the double literal) and
+                // truncates with an int cast — no rounding.
+                let alpha = (a as f32 / 255.0) as f64;
+                let blend = |src: u8, bg: u8| -> u8 {
+                    ((1.0 - alpha) * bg as f64 + alpha * src as f64).clamp(0.0, 255.0) as u8
+                };
+                let (nr, ng, nb) = (blend(r, bg_r), blend(g, bg_g), blend(b, bg_b));
                 result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
             }
         }
@@ -1097,27 +1095,38 @@ impl Pix {
     ///
     /// C equivalent: `pixSetAlphaOverWhite()` in `blend.c`
     pub fn set_alpha_over_white(&self) -> Result<Pix> {
-        if self.depth() != PixelDepth::Bit32 {
+        use crate::core::pix::{MinMaxType, RemoveColormapTarget, RgbComponent};
+        use crate::region::{BoundaryCondition, ConnectivityType, distance_function};
+
+        // C accepts 32 bpp or any colormapped pix.
+        let src = if self.has_colormap() {
+            self.remove_colormap(RemoveColormapTarget::ToFullColor)?
+        } else if self.depth() == PixelDepth::Bit32 {
+            self.deep_clone()
+        } else {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
-        }
+        };
 
-        let w = self.width();
-        let h = self.height();
-        let result = Pix::new(w, h, PixelDepth::Bit32)?;
-        let mut result_mut = result.try_into_mut().unwrap();
+        // C: invert (white -> 0), take the max channel, threshold at 1 so
+        // white becomes 1, invert again so white is 0, then use the
+        // distance from the white boundary as the alpha ramp.
+        let inverted = src.invert();
+        let gray = inverted.convert_rgb_to_gray_min_max(MinMaxType::Max)?;
+        let binary = gray.convert_to_1(1)?.invert();
+        let dist = distance_function(
+            &binary,
+            ConnectivityType::EightWay,
+            PixelDepth::Bit8,
+            BoundaryCondition::Foreground,
+        )
+        .map_err(|e| Error::InvalidParameter(format!("distance_function: {e}")))?;
+        let mut alpha = dist.to_mut();
+        alpha.multiply_constant_inplace(128.0)?;
+        let alpha: Pix = alpha.into();
 
-        for y in 0..h {
-            for x in 0..w {
-                let pval = self.get_pixel_unchecked(x, y);
-                let (r, g, b, _) = pixel::extract_rgba(pval);
-                // Simple luminance as average of components
-                let gray = ((r as u32 + g as u32 + b as u32) / 3) as u8;
-                let alpha = 255u8.saturating_sub(gray);
-                result_mut.set_pixel_unchecked(x, y, pixel::compose_rgba(r, g, b, alpha));
-            }
-        }
-
-        Ok(result_mut.into())
+        let mut out = src.to_mut();
+        out.set_rgb_component(&alpha, RgbComponent::Alpha)?;
+        Ok(out.into())
     }
 }
 

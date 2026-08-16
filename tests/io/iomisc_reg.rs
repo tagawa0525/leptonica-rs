@@ -700,7 +700,6 @@ fn iomisc_c_compat_alpha_and_cmap() {
 /// 128. Pixels deep inside a non-white region therefore saturate at 255,
 /// while a simple `255 - luminance` gives partial values.
 #[test]
-#[ignore = "not yet implemented: set_alpha_over_white inverts luminance"]
 fn iomisc_set_alpha_over_white_matches_c() {
     use leptonica::core::pix::RgbComponent;
     use leptonica::{Pix, PixelDepth};
