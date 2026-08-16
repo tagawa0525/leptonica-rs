@@ -641,6 +641,47 @@ pub fn threshold_to_4bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorR
     threshold_to_nbpp(pix, nlevels, PixelDepth::Bit4, with_colormap)
 }
 
+/// Map each of the 256 gray values to the nearest of `nlevels` colormap
+/// indices, using C's integer threshold `255 * (2j + 1) / (2 * nlevels - 2)`.
+///
+/// C equivalent: `makeGrayQuantIndexTable()` in `grayquant.c`
+fn gray_quant_index_table(nlevels: u32) -> [u32; 256] {
+    let mut tab = [0u32; 256];
+    for (i, entry) in tab.iter_mut().enumerate() {
+        for j in 0..nlevels {
+            let thresh = 255 * (2 * j + 1) / (2 * nlevels - 2);
+            if i as u32 <= thresh {
+                *entry = j;
+                break;
+            }
+        }
+    }
+    tab
+}
+
+/// Map each of the 256 gray values to a quantized gray *value* at the full
+/// `2^depth` levels. C's `makeGrayQuantTargetTable(nlevels, depth)` overrides
+/// its `nlevels` argument with `1 << depth` whenever `depth < 8`, so the
+/// caller's level count plays no part on this path.
+///
+/// C equivalent: `makeGrayQuantTargetTable()` in `grayquant.c`
+fn gray_quant_target_table(depth: PixelDepth) -> [u32; 256] {
+    let d = depth.bits();
+    let maxval = (1u32 << d) - 1;
+    let nlevels = 1u32 << d;
+    let mut tab = [0u32; 256];
+    for (i, entry) in tab.iter_mut().enumerate() {
+        for j in 0..nlevels {
+            let thresh = 255 * (2 * j + 1) / (2 * nlevels - 2);
+            if i as u32 <= thresh {
+                *entry = maxval * j / (nlevels - 1);
+                break;
+            }
+        }
+    }
+    tab
+}
+
 /// Common implementation for threshold_to_2bpp and threshold_to_4bpp.
 fn threshold_to_nbpp(
     pix: &Pix,
@@ -652,13 +693,15 @@ fn threshold_to_nbpp(
     let w = gray.width();
     let h = gray.height();
 
-    // Build quantization lookup table: 256 entries mapping 8bpp → output level
-    let mut qtable = [0u32; 256];
-    let step = 256.0 / nlevels as f32;
-    for (i, entry) in qtable.iter_mut().enumerate() {
-        let level = (i as f32 / step) as u32;
-        *entry = level.min(nlevels - 1);
-    }
+    // C picks a different table depending on `cmapflag`:
+    //   cmapflag -> makeGrayQuantIndexTable(nlevels): colormap indices
+    //   else     -> makeGrayQuantTargetTable(1 << d, d): gray *values*, and
+    //               the requested nlevels is ignored in favour of 2^d
+    let qtable = if with_colormap {
+        gray_quant_index_table(nlevels)
+    } else {
+        gray_quant_target_table(out_depth)
+    };
 
     let out = Pix::new(w, h, out_depth)?;
     let mut out_mut = out.try_into_mut().unwrap();

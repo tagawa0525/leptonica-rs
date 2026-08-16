@@ -8,7 +8,11 @@
 
 use leptonica::core::{Pix, PixColormap, PixelDepth, RgbaQuad};
 
-/// Test pix_set_select_cmap: repaint a colormap entry.
+/// Test pix_set_select_cmap: repaint the pixels of one index, not the entry.
+///
+/// C `pixSetSelectCmap` appends the new colour (index 2 here) and rewrites
+/// the *pixels* that held `old_index`; the original entry is left alone, so
+/// other pixels using index 1 keep their old colour.
 #[test]
 fn paintcmap_set_select() {
     use leptonica::color::paintcmap::pix_set_select_cmap;
@@ -20,13 +24,40 @@ fn paintcmap_set_select() {
     let mut pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap().to_mut();
     pix.set_colormap(Some(cmap)).unwrap();
     pix.set_pixel(5, 5, 1).unwrap(); // Set to gray
+    pix.set_pixel(9, 9, 1).unwrap(); // Also gray, but outside the region
+
+    let region = leptonica::core::Box::new(0, 0, 8, 8).unwrap();
+    pix_set_select_cmap(&mut pix, Some(&region), 1, (255, 0, 0)).unwrap();
+
+    // A new entry was appended; index 1 still holds the original gray.
+    let cmap = pix.colormap().unwrap();
+    assert_eq!(cmap.len(), 3);
+    assert_eq!(cmap.get_rgb(1).unwrap(), (128, 128, 128));
+    assert_eq!(cmap.get_rgb(2).unwrap(), (255, 0, 0));
+
+    // Only the pixel inside the region was repainted.
+    assert_eq!(pix.get_pixel(5, 5).unwrap(), 2);
+    assert_eq!(pix.get_pixel(9, 9).unwrap(), 1);
+}
+
+/// An already-present colour is reused rather than appended again.
+#[test]
+fn paintcmap_set_select_reuses_existing_color() {
+    use leptonica::color::paintcmap::pix_set_select_cmap;
+
+    let mut cmap = PixColormap::new(8).unwrap();
+    cmap.add_color(RgbaQuad::rgb(0, 0, 0)).unwrap();
+    cmap.add_color(RgbaQuad::rgb(128, 128, 128)).unwrap();
+    cmap.add_color(RgbaQuad::rgb(255, 0, 0)).unwrap();
+
+    let mut pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap().to_mut();
+    pix.set_colormap(Some(cmap)).unwrap();
+    pix.set_pixel(1, 1, 1).unwrap();
 
     pix_set_select_cmap(&mut pix, None, 1, (255, 0, 0)).unwrap();
 
-    // Now index 1 should be red
-    let cmap = pix.colormap().unwrap();
-    let (r, g, b) = cmap.get_rgb(1).unwrap();
-    assert_eq!((r, g, b), (255, 0, 0));
+    assert_eq!(pix.colormap().unwrap().len(), 3);
+    assert_eq!(pix.get_pixel(1, 1).unwrap(), 2);
 }
 
 /// Test pix_color_gray_cmap: colorize gray entries.

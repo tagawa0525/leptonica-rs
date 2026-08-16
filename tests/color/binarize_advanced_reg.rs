@@ -147,14 +147,22 @@ fn test_mask_by_band_gradient() {
 // threshold_to_2bpp
 // ============================================================================
 
+/// Without a colormap C builds `makeGrayQuantTargetTable(1 << d, d)`, which
+/// overrides the requested level count with the full `2^d` levels and stores
+/// quantized gray *values*. So 2 bpp always spans 0..=3 here, whatever
+/// `nlevels` says; only the colormapped path honours `nlevels`.
 #[test]
 fn test_threshold_to_2bpp_2levels() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_2bpp(&pix, 2, false).unwrap();
     assert_eq!(quantized.depth(), PixelDepth::Bit2);
-    // With 2 levels: values < 128 → 0, values >= 128 → 1
     assert_eq!(quantized.get_pixel_unchecked(0, 0), 0);
-    assert_eq!(quantized.get_pixel_unchecked(255, 0), 1);
+    assert_eq!(quantized.get_pixel_unchecked(255, 0), 3);
+
+    // The colormapped path does honour nlevels: 2 levels means indices 0/1.
+    let cmapped = threshold_to_2bpp(&pix, 2, true).unwrap();
+    assert_eq!(cmapped.get_pixel_unchecked(0, 0), 0);
+    assert_eq!(cmapped.get_pixel_unchecked(255, 0), 1);
 }
 
 #[test]
@@ -181,6 +189,8 @@ fn test_threshold_to_2bpp_invalid_levels() {
 // threshold_to_4bpp
 // ============================================================================
 
+/// As above: the non-colormapped path always uses the full 16 levels of a
+/// 4 bpp image, so the peak value is 15 rather than `nlevels - 1`.
 #[test]
 fn test_threshold_to_4bpp_4levels() {
     let pix = make_gradient_8bpp(256, 1);
@@ -190,7 +200,15 @@ fn test_threshold_to_4bpp_4levels() {
         .map(|x| quantized.get_pixel_unchecked(x, 0))
         .max()
         .unwrap();
-    assert_eq!(max_val, 3);
+    assert_eq!(max_val, 15);
+
+    // With a colormap, 4 levels means indices 0..=3.
+    let cmapped = threshold_to_4bpp(&pix, 4, true).unwrap();
+    let max_index = (0..256)
+        .map(|x| cmapped.get_pixel_unchecked(x, 0))
+        .max()
+        .unwrap();
+    assert_eq!(max_index, 3);
 }
 
 #[test]
