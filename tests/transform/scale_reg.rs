@@ -209,7 +209,6 @@ fn scale_general_matches_c_dispatch() {
 /// truncating shift, not a `+2` round-half-up — and composes only the
 /// three colour bytes (alpha stays 0).
 #[test]
-#[ignore = "not yet implemented: scale_area_map_2 rounds instead of truncating"]
 fn scale_area_map_2_truncates_like_c() {
     use leptonica::transform::scale_area_map_2;
     use leptonica::{Pix, PixelDepth};

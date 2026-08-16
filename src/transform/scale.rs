@@ -58,24 +58,23 @@ pub fn scale(pix: &Pix, scale_x: f32, scale_y: f32, method: ScaleMethod) -> Tran
         ));
     }
 
-    let method = match method {
-        ScaleMethod::Auto => {
-            // Choose method based on scale factors
-            let min_scale = scale_x.min(scale_y);
-            if min_scale < 0.7 {
-                ScaleMethod::AreaMap
-            } else {
-                ScaleMethod::Linear
-            }
-        }
-        m => m,
-    };
-
     match method {
+        // C pixScale: pick the sharpening parameters by scale, then let
+        // pixScaleGeneral do the dispatch.
+        ScaleMethod::Auto => {
+            let maxscale = scale_x.max(scale_y);
+            // C compares an l_float32 against a double literal, promoting
+            // the float, so a scale of 0.7f counts as < 0.7. Compare in f64.
+            let (sharpfract, sharpwidth) = if (maxscale as f64) < 0.7 {
+                (0.2, 1)
+            } else {
+                (0.4, 2)
+            };
+            scale_general(pix, scale_x, scale_y, sharpfract, sharpwidth)
+        }
         ScaleMethod::Sampling => scale_by_sampling_impl(pix, new_w, new_h),
         ScaleMethod::Linear => scale_linear(pix, new_w, new_h),
         ScaleMethod::AreaMap => scale_area_map_impl(pix, new_w, new_h),
-        ScaleMethod::Auto => unreachable!(),
     }
 }
 
@@ -250,7 +249,8 @@ pub fn scale_area_map_2(pix: &Pix) -> TransformResult<Pix> {
                     let v10 = pix.get_pixel_unchecked(2 * j + 1, 2 * i);
                     let v01 = pix.get_pixel_unchecked(2 * j, 2 * i + 1);
                     let v11 = pix.get_pixel_unchecked(2 * j + 1, 2 * i + 1);
-                    let avg = (v00 + v10 + v01 + v11 + 2) / 4;
+                    // C scaleAreaMapLow2: val >>= 2 (truncating).
+                    let avg = (v00 + v10 + v01 + v11) >> 2;
                     out_mut.set_pixel_unchecked(j, i, avg);
                 }
             }
@@ -266,15 +266,16 @@ pub fn scale_area_map_2(pix: &Pix) -> TransformResult<Pix> {
                     let p10 = pix.get_pixel_unchecked(2 * j + 1, 2 * i);
                     let p01 = pix.get_pixel_unchecked(2 * j, 2 * i + 1);
                     let p11 = pix.get_pixel_unchecked(2 * j + 1, 2 * i + 1);
-                    let (r0, g0, b0, a0) = pixel::extract_rgba(p00);
-                    let (r1, g1, b1, a1) = pixel::extract_rgba(p10);
-                    let (r2, g2, b2, a2) = pixel::extract_rgba(p01);
-                    let (r3, g3, b3, a3) = pixel::extract_rgba(p11);
-                    let r = ((r0 as u32 + r1 as u32 + r2 as u32 + r3 as u32 + 2) / 4) as u8;
-                    let g = ((g0 as u32 + g1 as u32 + g2 as u32 + g3 as u32 + 2) / 4) as u8;
-                    let b = ((b0 as u32 + b1 as u32 + b2 as u32 + b3 as u32 + 2) / 4) as u8;
-                    let a = ((a0 as u32 + a1 as u32 + a2 as u32 + a3 as u32 + 2) / 4) as u8;
-                    out_mut.set_pixel_unchecked(j, i, pixel::compose_rgba(r, g, b, a));
+                    let (r0, g0, b0, _) = pixel::extract_rgba(p00);
+                    let (r1, g1, b1, _) = pixel::extract_rgba(p10);
+                    let (r2, g2, b2, _) = pixel::extract_rgba(p01);
+                    let (r3, g3, b3, _) = pixel::extract_rgba(p11);
+                    // C scaleAreaMapLow2 shifts by 2 (truncating) and
+                    // composes only the colour bytes, leaving alpha 0.
+                    let r = ((r0 as u32 + r1 as u32 + r2 as u32 + r3 as u32) >> 2) as u8;
+                    let g = ((g0 as u32 + g1 as u32 + g2 as u32 + g3 as u32) >> 2) as u8;
+                    let b = ((b0 as u32 + b1 as u32 + b2 as u32 + b3 as u32) >> 2) as u8;
+                    out_mut.set_pixel_unchecked(j, i, pixel::compose_rgba(r, g, b, 0));
                 }
             }
             Ok(out_mut.into())
@@ -497,7 +498,8 @@ pub fn scale_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
         )));
     }
     let max_scale = scale_x.max(scale_y);
-    if max_scale < 0.7 {
+    // C promotes the l_float32 scale to double for this comparison.
+    if (max_scale as f64) < 0.7 {
         return scale_general(pix, scale_x, scale_y, 0.0, 0);
     }
     let depth = pix.depth();
@@ -528,7 +530,8 @@ pub fn scale_color_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<
         ));
     }
     let max_scale = scale_x.max(scale_y);
-    if max_scale < 0.7 {
+    // C promotes the l_float32 scale to double for this comparison.
+    if (max_scale as f64) < 0.7 {
         return scale_general(pix, scale_x, scale_y, 0.0, 0);
     }
     // C fast special cases.
@@ -563,7 +566,8 @@ pub fn scale_gray_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<P
         ));
     }
     let max_scale = scale_x.max(scale_y);
-    if max_scale < 0.7 {
+    // C promotes the l_float32 scale to double for this comparison.
+    if (max_scale as f64) < 0.7 {
         return scale_general(pix, scale_x, scale_y, 0.0, 0);
     }
     // C fast special cases.
@@ -595,44 +599,53 @@ pub fn scale_general(
     pix: &Pix,
     scale_x: f32,
     scale_y: f32,
-    _sharpfract: f32,
-    _sharpwidth: i32,
+    sharpfract: f32,
+    sharpwidth: i32,
 ) -> TransformResult<Pix> {
     if scale_x <= 0.0 || scale_y <= 0.0 {
         return Err(TransformError::InvalidScaleFactor(format!(
-            "scale factors must be positive: ({}, {})",
-            scale_x, scale_y
+            "scale factors must be positive: ({scale_x}, {scale_y})"
         )));
     }
     if scale_x == 1.0 && scale_y == 1.0 {
         return Ok(pix.deep_clone());
     }
-
-    let depth = pix.depth();
-    // 1bpp: fall through to sampling
-    if depth == PixelDepth::Bit1 {
-        let new_w = ((pix.width() as f32) * scale_x).round() as u32;
-        let new_h = ((pix.height() as f32) * scale_y).round() as u32;
-        return scale_by_sampling_impl(pix, new_w.max(1), new_h.max(1));
+    if pix.depth() == PixelDepth::Bit1 {
+        return scale_binary(pix, scale_x, scale_y);
     }
 
+    // C: pixConvertTo8Or32(pixs, L_CLONE, 0) — removes any colormap.
+    let src = pix
+        .convert_to_8_or_32()
+        .map_err(|e| TransformError::InvalidParameters(e.to_string()))?;
+    let depth = src.depth();
     let max_scale = scale_x.max(scale_y);
     let min_scale = scale_x.min(scale_y);
 
-    if max_scale < 0.7 {
-        if min_scale < 0.02 {
-            scale_smooth(pix, scale_x, scale_y)
+    // C compares l_float32 scales against double literals, so the floats
+    // are promoted; 0.7f counts as < 0.7. Compare in f64 throughout.
+    let (scaled, sharpen) = if (max_scale as f64) < 0.7 {
+        // Low-pass filter for anti-aliasing.
+        let out = if (min_scale as f64) < 0.02 {
+            scale_smooth(&src, scale_x, scale_y)?
         } else {
-            let new_w = ((pix.width() as f32) * scale_x).round() as u32;
-            let new_h = ((pix.height() as f32) * scale_y).round() as u32;
-            scale_area_map_impl(pix, new_w.max(1), new_h.max(1))
-        }
+            scale_area_map(&src, scale_x, scale_y)?
+        };
+        (out, max_scale as f64 > 0.2)
     } else {
-        // Linear interpolation
-        let new_w = ((pix.width() as f32) * scale_x).round() as u32;
-        let new_h = ((pix.height() as f32) * scale_y).round() as u32;
-        scale_linear(pix, new_w.max(1), new_h.max(1))
+        let out = if depth == PixelDepth::Bit8 {
+            scale_gray_li(&src, scale_x, scale_y)?
+        } else {
+            scale_color_li(&src, scale_x, scale_y)?
+        };
+        (out, (max_scale as f64) < 1.4)
+    };
+
+    if sharpen && sharpfract > 0.0 && sharpwidth > 0 {
+        return crate::filter::unsharp_masking(&scaled, sharpwidth as u32, sharpfract)
+            .map_err(|e| TransformError::InvalidParameters(e.to_string()));
     }
+    Ok(scaled)
 }
 
 /// Scale to a target resolution.
@@ -745,7 +758,8 @@ pub fn scale_smooth(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pi
             scale_x, scale_y
         )));
     }
-    if scale_x >= 0.7 || scale_y >= 0.7 {
+    // C: maxscale >= 0.7 with the float promoted to double.
+    if (scale_x as f64) >= 0.7 || (scale_y as f64) >= 0.7 {
         return scale_general(pix, scale_x, scale_y, 0.0, 0);
     }
 
@@ -1930,11 +1944,12 @@ pub fn scale_area_map(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<
         )));
     }
 
-    if scale_x.min(scale_y) < 0.02 {
+    // C promotes the l_float32 scales to double for these comparisons.
+    if (scale_x.min(scale_y) as f64) < 0.02 {
         // Too small for area mapping.
         return scale_smooth(pix, scale_x, scale_y);
     }
-    if scale_x.max(scale_y) >= 0.7 {
+    if (scale_x.max(scale_y) as f64) >= 0.7 {
         // Too large for area mapping.
         return scale_general(pix, scale_x, scale_y, 0.0, 0);
     }
