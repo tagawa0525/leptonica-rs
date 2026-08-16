@@ -935,9 +935,11 @@ fn rotate_by_sampling_impl(
         for j in 0..dst_w {
             let xdif = cx_dst - j as f32;
 
-            // Inverse rotation (Leptonica convention: clockwise positive)
-            let x = (cx_src + (-xdif * cos_a - ydif * sin_a)).round() as i32;
-            let y = (cy_src + (-ydif * cos_a + xdif * sin_a)).round() as i32;
+            // Inverse rotation (Leptonica convention: clockwise positive).
+            // C truncates the rotated *offset* and then adds the centre:
+            //   x = xcen + (l_int32)(-xdif * cosa - ydif * sina)
+            let x = cx_src as i32 + (-xdif * cos_a - ydif * sin_a) as i32;
+            let y = cy_src as i32 + (-ydif * cos_a + xdif * sin_a) as i32;
 
             if x >= 0 && x <= wm1 && y >= 0 && y <= hm1 {
                 let val = src.get_pixel_unchecked(x as u32, y as u32);
