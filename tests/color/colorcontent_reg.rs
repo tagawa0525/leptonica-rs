@@ -238,7 +238,6 @@ fn colorcontent_reg() {
 /// they are free of JPEG decode differences and can be compared bit-exactly
 /// against the C output.
 #[test]
-#[ignore = "not yet implemented"]
 fn colorcontent_c_compat() {
     if crate::common::is_display_mode() {
         return;

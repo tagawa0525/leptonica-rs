@@ -367,20 +367,57 @@ impl Pix {
     /// [`Pix::make_arb_mask_from_rgb`] partitions RGB color space.
     ///
     /// C equivalent: `pixMakeGamutRGB()` in `colorspace.c`
-    pub fn make_gamut_rgb(_scale: u32) -> Result<Pix> {
-        Err(Error::InvalidParameter("not yet implemented".to_string()))
+    pub fn make_gamut_rgb(scale: u32) -> Result<Pix> {
+        let scale = if scale == 0 { 8 } else { scale };
+
+        let mut pixa = crate::core::Pixa::with_capacity(32);
+        for k in 0..32u32 {
+            let tile = Pix::new(32, 32, PixelDepth::Bit32)?;
+            let mut tm = tile.try_into_mut().unwrap();
+            for i in 0..32u32 {
+                for j in 0..32u32 {
+                    let val = crate::core::pixel::compose_rgba(
+                        (8 * j) as u8,
+                        (8 * i) as u8,
+                        (8 * k) as u8,
+                        0,
+                    );
+                    tm.set_pixel_unchecked(j, i, val);
+                }
+            }
+            pixa.push(tm.into());
+        }
+        pixa.display_tiled_in_columns(8, scale as f32, 5, 0)
     }
 
     /// Create a 1 bpp mask from a 32 bpp RGB image using weighted coefficients.
     ///
     /// Computes `rc*R + gc*G + bc*B` for each pixel, then thresholds.
-    /// Pixels where the weighted sum exceeds `thresh` are ON in the mask.
+    /// The coefficients may be negative.
+    ///
+    /// C reaches the mask through an intermediate 8 bpp gray image
+    /// (`pixConvertRGBToGrayArb`), so the weighted sum is **truncated to an
+    /// integer and clipped to `[0, 255]`** before the comparison, and the
+    /// threshold itself is truncated to an integer. Both quantizations are
+    /// reproduced here: a pixel is ON iff
+    /// `clip(trunc(rc*R + gc*G + bc*B), 0, 255) >= trunc(thresh) + 1`.
+    ///
+    /// `thresh` is clamped to 254.0 to avoid 8 bit overflow, as in C.
     ///
     /// C equivalent: `pixMakeArbMaskFromRGB()` in `pix3.c`
     pub fn make_arb_mask_from_rgb(&self, rc: f32, gc: f32, bc: f32, thresh: f32) -> Result<Pix> {
         if self.depth() != PixelDepth::Bit32 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
+        if rc <= 0.0 && gc <= 0.0 && bc <= 0.0 {
+            return Err(Error::InvalidParameter("all coefficients <= 0".to_string()));
+        }
+
+        // C: `if (thresh >= 255.0) thresh = 254.0;` then
+        // `pixThresholdToBinary(pix1, thresh + 1)` with an l_int32 parameter,
+        // so the float threshold is truncated on the call.
+        let thresh = if thresh >= 255.0 { 254.0 } else { thresh };
+        let cutoff = thresh as i32 + 1;
 
         let w = self.width();
         let h = self.height();
@@ -392,7 +429,8 @@ impl Pix {
                 let pixel = self.get_pixel_unchecked(x, y);
                 let (r, g, b, _) = crate::core::pixel::extract_rgba(pixel);
                 let val = rc * r as f32 + gc * g as f32 + bc * b as f32;
-                if val > thresh {
+                let val = (val as i32).clamp(0, 255);
+                if val >= cutoff {
                     mm.set_pixel_unchecked(x, y, 1);
                 }
             }
@@ -1075,7 +1113,6 @@ mod tests {
     /// cutoff in C (`trunc(60.8) = 60 < 61`), while a naive float
     /// comparison (`60.8 > 60.0`) would turn the pixel on.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_arb_mask_from_rgb_truncates_like_c() {
         let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1099,7 +1136,6 @@ mod tests {
     /// sum can never satisfy a non-negative threshold, and a sum above 255
     /// always does.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_arb_mask_from_rgb_clips_to_byte_range() {
         let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -1121,7 +1157,6 @@ mod tests {
     /// C rejects coefficients that are all non-positive, because the gray
     /// intermediate would then be uniformly clipped to 0.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_arb_mask_from_rgb_rejects_nonpositive_coefficients() {
         let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
         assert!(pix.make_arb_mask_from_rgb(-1.0, -1.0, 0.0, 0.0).is_err());
@@ -1130,7 +1165,6 @@ mod tests {
     /// C `pixMakeGamutRGB(scale)` tiles 32 subimages of 32x32 cells, 8 per
     /// row, at `scale` replication with a spacing of 5 and no border.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_gamut_rgb_dimensions_and_corner() {
         let pix = Pix::make_gamut_rgb(3).unwrap();
         assert_eq!(pix.depth(), PixelDepth::Bit32);
@@ -1143,7 +1177,6 @@ mod tests {
 
     /// `scale = 0` falls back to C's default of 8.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_make_gamut_rgb_zero_scale_defaults_to_8() {
         let pix = Pix::make_gamut_rgb(0).unwrap();
         assert_eq!(pix.width(), 8 * 256 + 9 * 5);
