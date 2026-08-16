@@ -313,3 +313,67 @@ fn conversion_to_8_applies_colormap() {
     // 0.3*100 + 0.5*200 + 0.2*50 = 30 + 100 + 10 = 140
     assert_eq!(out.get_pixel(1, 0).unwrap(), 140);
 }
+
+/// convert_to_1 must follow C pixConvertTo1 (plan 902 PR 15).
+///
+/// For depths other than 1 bpp, C converts to 8 bpp (removing any
+/// colormap to grayscale) and thresholds. For 1 bpp input it copies,
+/// except that a colormapped 1 bpp pix has the colormap stripped and is
+/// inverted when index 1 is the lighter colour, so the result follows
+/// the standard binary photometry (1 = black).
+#[test]
+#[ignore = "not yet implemented: convert_to_1 does not exist"]
+fn conversion_to_1_matches_c() {
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    // 8 bpp cmapped: luminance 255 and 140, threshold 128 -> 0 and 0
+    // (both above), so use a darker entry to get a set pixel.
+    let pix = {
+        let p = leptonica::Pix::new(2, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap(); // -> 255
+        cmap.add_color(RgbaQuad::rgb(10, 10, 10)).unwrap(); // -> 10
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel(0, 0, 0).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+    let out = pix.convert_to_1(128).expect("convert_to_1");
+    assert_eq!(out.depth(), PixelDepth::Bit1);
+    // threshold_to_binary: value < threshold becomes 1 (black).
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 0);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 1);
+
+    // 1 bpp without a colormap is copied unchanged.
+    let bin = {
+        let p = leptonica::Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+    let out = bin.convert_to_1(128).expect("convert_to_1 on 1bpp");
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 0);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 1);
+
+    // 1 bpp with a colormap whose index 1 is lighter gets inverted.
+    let cmapped = {
+        let p = leptonica::Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(1).unwrap();
+        cmap.add_color(RgbaQuad::rgb(0, 0, 0)).unwrap(); // index 0 dark
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap(); // index 1 light
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+    let out = cmapped
+        .convert_to_1(128)
+        .expect("convert_to_1 cmapped 1bpp");
+    assert!(!out.has_colormap());
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 1);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 0);
+}

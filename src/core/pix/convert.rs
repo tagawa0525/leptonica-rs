@@ -141,6 +141,23 @@ impl Pix {
     /// let pix8 = pix32.convert_to_8().unwrap();
     /// assert_eq!(pix8.depth(), PixelDepth::Bit8);
     /// ```
+    /// Convert any depth to 1 bpp by thresholding.
+    ///
+    /// Depths other than 1 bpp are converted to 8 bpp first (removing any
+    /// colormap to grayscale), then thresholded: values below `threshold`
+    /// become 1 (black, the leptonica foreground convention).
+    ///
+    /// A 1 bpp input is returned unchanged, except that a colormapped one
+    /// has the colormap stripped and is inverted when index 1 is the
+    /// lighter colour, so the result follows standard binary photometry.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo1()` in `pixconv.c`
+    pub fn convert_to_1(&self, _threshold: u8) -> Result<Pix> {
+        Err(Error::InvalidParameter("not yet implemented".to_string()))
+    }
+
     pub fn convert_to_8(&self) -> Result<Pix> {
         let w = self.width();
         let h = self.height();
