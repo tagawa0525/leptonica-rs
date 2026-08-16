@@ -321,3 +321,15 @@ region	grayfill	27	grayfill_c	28	set3 inv fill 4-way
 region	grayfill	29	grayfill_c	30	set3 fwd fill 4-way
 region	grayfill	31	grayfill_c	32	set4 inv fill 8-way
 region	grayfill	33	grayfill_c	34	set4 fwd fill 8-way
+
+# lineremoval_reg.c (plan 902 PR 20): dave-orig.png line removal pipeline
+recog	lineremoval	0	lineremoval_c	1	threshold to binary 170
+recog	lineremoval	1	lineremoval_c	2	rotate_am_gray by detected skew
+recog	lineremoval	2	lineremoval_c	3	close_gray 51x1
+recog	lineremoval	3	lineremoval_c	4	erode_gray 1x5
+recog	lineremoval	4	lineremoval_c	5	threshold_to_value 210 -> 255
+recog	lineremoval	5	lineremoval_c	6	threshold_to_value 200 -> 0
+recog	lineremoval	6	lineremoval_c	7	line mask (threshold 210)
+recog	lineremoval	7	lineremoval_c	8	arith_add with inverted lines
+recog	lineremoval	8	lineremoval_c	9	open_gray 1x9
+recog	lineremoval	9	lineremoval_c	10	combine_masked through line mask

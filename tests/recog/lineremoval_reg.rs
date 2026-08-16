@@ -196,7 +196,10 @@ fn lineremoval_c_compat() {
     let mut rp = RegParams::new("lineremoval_c");
 
     let pixs = crate::common::load_test_image("dave-orig.png").expect("load dave-orig.png");
-    let deg2rad = 3.14159f32 / 180.0;
+    // C: `l_float32 deg2rad = 3.14159 / 180.` — a double division
+    // rounded once to float.
+    #[allow(clippy::approx_constant)] // C hard-codes this truncated pi
+    let deg2rad = (3.14159f64 / 180.0) as f32;
 
     // C 0: threshold to binary at 170
     let pix1 = threshold_to_binary(&pixs, 170).expect("threshold 170");
@@ -264,12 +267,14 @@ fn lineremoval_c_compat() {
 /// rounded to float once. Computing `angle.sin()` in f32 and scaling in
 /// f32 shifts a few sub-pixel positions across a truncation boundary.
 #[test]
-#[ignore = "not yet implemented: rotate_am_gray scales sin/cos in f32"]
 fn lineremoval_rotate_am_gray_matches_c() {
     use leptonica::transform::{RotateFill, rotate_am_gray};
 
     let pixs = crate::common::load_test_image("dave-orig.png").expect("load dave-orig.png");
-    let deg2rad = 3.14159f32 / 180.0;
+    // C: `l_float32 deg2rad = 3.14159 / 180.` — a double division
+    // rounded once to float.
+    #[allow(clippy::approx_constant)] // C hard-codes this truncated pi
+    let deg2rad = (3.14159f64 / 180.0) as f32;
     let out = rotate_am_gray(&pixs, deg2rad * -0.656250, RotateFill::White).expect("rotate");
 
     // Pixels where the f32 scaling picks the neighbouring source sample.
