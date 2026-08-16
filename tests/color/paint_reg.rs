@@ -213,3 +213,79 @@ fn paint_reg_colormap() {
     // pix4 = pixColorGrayRegions(pix2, boxa, L_PAINT_DARK, 230, 255, 0, 0);
     // pixd = ReconstructByValue(rp, "weasel2.4c.png");
 }
+
+/// C-compat: `prog/paint_reg.c` checks 23-28.
+///
+/// The colormap reconstruction block. Its inputs (`weasel2.4c.png`,
+/// `weasel4.11c.png`, `weasel8.240c.png`) are lossless colormapped PNGs, so
+/// unlike the JPEG-driven checks earlier in that program these are
+/// bit-exactly comparable against C.
+#[test]
+fn paint_c_compat_reconstruct() {
+    use leptonica::Pix;
+    use leptonica::color::paintcmap::pix_set_masked_cmap;
+    use leptonica::color::{generate_mask_by_band, generate_mask_by_value};
+    use leptonica::core::PixColormap;
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("paint_c");
+
+    const NAMES: [&str; 3] = ["weasel2.4c.png", "weasel4.11c.png", "weasel8.240c.png"];
+
+    // C 23-25: rebuild each cmapped image one colormap index at a time.
+    // pixd starts as a template (same cmap, zeroed data), so every colour is
+    // already present and pixSetMaskedCmap reuses its index.
+    for name in NAMES {
+        let pixs = crate::common::load_test_image(name).expect("load weasel");
+        let n = pixs.colormap().expect("cmapped input").len();
+        let pixd = pixs.create_template();
+        let mut dm = pixd.try_into_mut().unwrap();
+        for i in 0..n {
+            let mask = generate_mask_by_value(&pixs, i as u32).expect("mask by value");
+            let (r, g, b) = pixs.colormap().unwrap().get_rgb(i).expect("cmap entry");
+            pix_set_masked_cmap(&mut dm, &mask, 0, 0, (r, g, b)).expect("set masked cmap");
+        }
+        let pixd: Pix = dm.into();
+        // C: regTestComparePix(rp, pixs, pixd) — the reconstruction is exact.
+        rp.compare_pix(&pixs, &pixd);
+        rp.write_pix_and_check(&pixd, ImageFormat::Png)
+            .expect("check: reconstruct by value");
+    }
+
+    // C 26-28: rebuild with pairs of colormap entries collapsed into their
+    // average colour, into a fresh (initially empty) colormap.
+    for name in NAMES {
+        let pixs = crate::common::load_test_image(name).expect("load weasel");
+        let cmaps = pixs.colormap().expect("cmapped input").clone();
+        let n = cmaps.len();
+        let nbands = n.div_ceil(2);
+        let pixd = pixs.create_template();
+        let mut dm = pixd.try_into_mut().unwrap();
+        dm.set_colormap(Some(
+            PixColormap::new(pixs.depth().bits()).expect("empty cmap"),
+        ))
+        .expect("set empty cmap");
+        for i in 0..nbands {
+            let jlow = 2 * i;
+            let jup = (jlow + 1).min(n - 1);
+            let mask =
+                generate_mask_by_band(&pixs, jlow as u32, jup as u32, true).expect("mask by band");
+            let (r1, g1, b1) = cmaps.get_rgb(jlow).expect("cmap low");
+            let (r2, g2, b2) = cmaps.get_rgb(jup).expect("cmap up");
+            let avg = (
+                ((r1 as u32 + r2 as u32) / 2) as u8,
+                ((g1 as u32 + g2 as u32) / 2) as u8,
+                ((b1 as u32 + b2 as u32) / 2) as u8,
+            );
+            pix_set_masked_cmap(&mut dm, &mask, 0, 0, avg).expect("set masked cmap band");
+        }
+        let pixd: Pix = dm.into();
+        rp.write_pix_and_check(&pixd, ImageFormat::Png)
+            .expect("check: fake reconstruct by band");
+    }
+
+    assert!(rp.cleanup(), "paint C-compat reconstruction test failed");
+}

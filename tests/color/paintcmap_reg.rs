@@ -158,7 +158,7 @@ fn paintcmap_set_select_masked() {
     pix_set_select_masked_cmap(&mut pix, &mask, 0, 0, 1, (0, 255, 0)).unwrap();
 }
 
-/// Test pix_set_masked_cmap.
+/// Test pix_set_masked_cmap: a colour not yet present is appended.
 #[test]
 fn paintcmap_set_masked() {
     use leptonica::color::paintcmap::pix_set_masked_cmap;
@@ -176,4 +176,55 @@ fn paintcmap_set_masked() {
     let mask: Pix = mask.into();
 
     pix_set_masked_cmap(&mut pix, &mask, 0, 0, (255, 128, 0)).unwrap();
+
+    assert_eq!(pix.colormap().unwrap().len(), 3);
+    assert_eq!(pix.get_pixel(3, 3).unwrap(), 2);
+    assert_eq!(pix.get_pixel(7, 7).unwrap(), 2);
+    assert_eq!(pix.get_pixel(0, 0).unwrap(), 0);
+}
+
+/// C `pixSetMaskedCmap` looks the colour up first (`pixcmapGetIndex`) and
+/// only appends when it is absent, so repainting with a colour already in
+/// the colormap must reuse its entry rather than duplicate it.
+#[test]
+fn paintcmap_set_masked_reuses_existing_color() {
+    use leptonica::color::paintcmap::pix_set_masked_cmap;
+
+    let mut cmap = PixColormap::new(8).unwrap();
+    cmap.add_color(RgbaQuad::rgb(0, 0, 0)).unwrap();
+    cmap.add_color(RgbaQuad::rgb(128, 128, 128)).unwrap();
+    cmap.add_color(RgbaQuad::rgb(255, 128, 0)).unwrap();
+
+    let mut pix = Pix::new(4, 4, PixelDepth::Bit8).unwrap().to_mut();
+    pix.set_colormap(Some(cmap)).unwrap();
+
+    let mut mask = Pix::new(4, 4, PixelDepth::Bit1).unwrap().to_mut();
+    mask.set_pixel(1, 1, 1).unwrap();
+    let mask: Pix = mask.into();
+
+    pix_set_masked_cmap(&mut pix, &mask, 0, 0, (255, 128, 0)).unwrap();
+
+    assert_eq!(pix.colormap().unwrap().len(), 3);
+    assert_eq!(pix.get_pixel(1, 1).unwrap(), 2);
+}
+
+/// When the colormap is full and the colour is absent, C returns an error
+/// ("no room in cmap"); the nearest-colour fallback lives one level up.
+#[test]
+fn paintcmap_set_masked_full_cmap_is_an_error() {
+    use leptonica::color::paintcmap::pix_set_masked_cmap;
+
+    let mut cmap = PixColormap::new(2).unwrap();
+    for v in [0u8, 85, 170, 255] {
+        cmap.add_color(RgbaQuad::rgb(v, v, v)).unwrap();
+    }
+
+    let mut pix = Pix::new(4, 4, PixelDepth::Bit2).unwrap().to_mut();
+    pix.set_colormap(Some(cmap)).unwrap();
+
+    let mut mask = Pix::new(4, 4, PixelDepth::Bit1).unwrap().to_mut();
+    mask.set_pixel(1, 1, 1).unwrap();
+    let mask: Pix = mask.into();
+
+    assert!(pix_set_masked_cmap(&mut pix, &mask, 0, 0, (10, 20, 30)).is_err());
 }
