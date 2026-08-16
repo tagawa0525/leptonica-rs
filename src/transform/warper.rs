@@ -122,7 +122,15 @@ pub enum WarpFill {
 }
 
 impl WarpFill {
-    /// Get the fill value for a specific pixel depth
+    /// Get the fill value for a specific pixel depth.
+    ///
+    /// Matches C `pixSetBlackOrWhite()`, which fills with every bit set
+    /// for white (so 32 bpp white is `0xffffffff`, alpha included) and
+    /// every bit clear for black.
+    ///
+    /// Note the C warp functions validate their `incolor` argument but
+    /// then always fill white; this port honours [`WarpFill::Black`]
+    /// instead, which only differs from C when black is requested.
     pub fn to_value(self, depth: PixelDepth) -> u32 {
         match self {
             WarpFill::White => match depth {
@@ -131,7 +139,7 @@ impl WarpFill {
                 PixelDepth::Bit4 => 15,
                 PixelDepth::Bit8 => 255,
                 PixelDepth::Bit16 => 65535,
-                PixelDepth::Bit32 => 0xFFFFFF00,
+                PixelDepth::Bit32 => 0xFFFFFFFF,
             },
             WarpFill::Black => match depth {
                 PixelDepth::Bit1 => 1, // 1 = black for binary
@@ -1380,7 +1388,8 @@ mod tests {
         assert_eq!(WarpFill::Black.to_value(PixelDepth::Bit1), 1);
         assert_eq!(WarpFill::White.to_value(PixelDepth::Bit8), 255);
         assert_eq!(WarpFill::Black.to_value(PixelDepth::Bit8), 0);
-        assert_eq!(WarpFill::White.to_value(PixelDepth::Bit32), 0xFFFFFF00);
+        // C pixSetBlackOrWhite fills white with every bit set.
+        assert_eq!(WarpFill::White.to_value(PixelDepth::Bit32), 0xFFFFFFFF);
         assert_eq!(WarpFill::Black.to_value(PixelDepth::Bit32), 0);
     }
 

@@ -141,9 +141,74 @@ impl Pix {
     /// let pix8 = pix32.convert_to_8().unwrap();
     /// assert_eq!(pix8.depth(), PixelDepth::Bit8);
     /// ```
+    /// Convert any depth to 1 bpp by thresholding.
+    ///
+    /// Depths other than 1 bpp are converted to 8 bpp first (removing any
+    /// colormap to grayscale), then thresholded: values below `threshold`
+    /// become 1 (black, the leptonica foreground convention).
+    ///
+    /// A 1 bpp input is returned unchanged, except that a colormapped one
+    /// has the colormap stripped and is inverted when index 1 is the
+    /// lighter colour, so the result follows standard binary photometry.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixConvertTo1()` in `pixconv.c`
+    pub fn convert_to_1(&self, threshold: u8) -> Result<Pix> {
+        if self.depth() == PixelDepth::Bit1 {
+            let Some(cmap) = self.colormap() else {
+                return Ok(self.deep_clone());
+            };
+            // Strip the colormap, inverting when index 1 is the lighter
+            // colour so that 1 means black.
+            let sum = |i: usize| {
+                cmap.get_rgb(i)
+                    .map(|(r, g, b)| r as u32 + g as u32 + b as u32)
+                    .unwrap_or(0)
+            };
+            let invert = sum(1) > sum(0);
+            let mut out = self.deep_clone().to_mut();
+            out.set_colormap(None)?;
+            let out: Pix = out.into();
+            return Ok(if invert { out.invert() } else { out });
+        }
+
+        // All other depths go through 8 bpp (which removes any colormap).
+        let gray = self.convert_to_8()?;
+        let (w, h) = (gray.width(), gray.height());
+        let out = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut out_mut = out.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let val = gray.get_pixel_unchecked(x, y) as u8;
+                out_mut.set_pixel_unchecked(x, y, u32::from(val < threshold));
+            }
+        }
+        Ok(out_mut.into())
+    }
+
     pub fn convert_to_8(&self) -> Result<Pix> {
         let w = self.width();
         let h = self.height();
+
+        // C pixConvertTo8(pixs, FALSE) removes a colormap to grayscale
+        // rather than passing the raw indices through, for 2, 4 and 8 bpp
+        // (pixConvert{2,4}To8 with cmapflag = FALSE, and pixRemoveColormap
+        // for 8 bpp).
+        //
+        // 1 bpp is deliberately excluded: C takes the
+        // `pixConvert1To8(NULL, pixs, 255, 0)` branch regardless of any
+        // colormap, so bit 0 always becomes 255 and bit 1 always becomes 0.
+        // The Bit1 arm below reproduces that, which is why a colormapped
+        // 1 bpp pix does not go through remove_colormap here.
+        if self.has_colormap()
+            && matches!(
+                self.depth(),
+                PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+            )
+        {
+            return self.remove_colormap(RemoveColormapTarget::ToGrayscale);
+        }
 
         match self.depth() {
             PixelDepth::Bit8 => {

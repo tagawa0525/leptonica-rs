@@ -584,8 +584,12 @@ shear1_binary.03.tif	35cc1394f62d30f9
 shear1_gray8.02.png	fdbeb7c41eda1506
 shear1_inplace.01.png	2d873b2b2eafe19a
 shear1_interp.02.png	b0e04c28ec1d8b6e
-shear2_color_samp.02.png	626bb2a2e1c2b0f8
-shear2_general.02.png	626bb2a2e1c2b0f8
+shear2_c.01.png	5f117f8af731b02e
+shear2_c.02.png	500fa1dab5e94f5e
+shear2_c.03.png	c33034c28d3739e3
+shear2_c.04.png	53ce644a10809831
+shear2_color_samp.02.png	339f0b19dd6b59d4
+shear2_general.02.png	339f0b19dd6b59d4
 shear2_gray_interp.03.png	7366c9f9e594f1f2
 skew.05.tif	a82f76ea1682d511
 smallpix_c.01.png	d9479798307abea0
@@ -623,6 +627,9 @@ texturefill.10.tif	2e20e4a993fc7663
 texturefill.12.tif	d9438c4b4fe4b9a8
 threshnorm_spread.03.png	37098b8e48b64382
 threshnorm_sweep.05.tif	9e647d02eaee9e18
+translate_c.01.png	c3a0a2dfa9525060
+translate_c.02.png	809850b7d5f7e8de
+translate_c.03.png	660f56bbe91369dd
 translate_neg.03.png	ac10e8157f49a7ff
 translate_pos.03.png	be54eaaf1dbc1451
 translate_rgb.03.png	44c7bde8439cab39

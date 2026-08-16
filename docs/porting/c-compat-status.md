@@ -54,14 +54,14 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        | 件数    | 説明                                                                                                                              |
 | ----------- | ------: | -----------------------------------------------------------------------------------------------------------------------------     |
-| ✅ Ok       | **133** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +89)                                                   |
+| ✅ Ok       | **140** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +96)                                                   |
 | ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007) |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                      |
 | 📭 Unmapped | **400** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 403 → 400)                                               |
 | 🚫 Excluded | **83**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + Rust 独自 falsecolor 4               |
 
-合計 645 entries がレポート対象 (As of 2026-08-13、plan 902 PR 14 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **652 entries**。
+合計 652 entries がレポート対象 (As of 2026-08-16、plan 902 PR 15 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **659 entries**。
 
 ## test binary 別の内訳
 
@@ -74,7 +74,7 @@ Rust manifest (`tests/golden_manifest.tsv`) 全体は **652 entries**。
 | `morph`     | **30** |   **16** |        0 |        9 |        0 |
 | `recog`     |      9 |        0 |        0 |       45 |        0 |
 | `region`    | **46** |        2 |        0 |       28 |       29 |
-| `transform` |     13 |        0 |        0 |       78 |        0 |
+| `transform` |     20 |        0 |        0 |       78 |        0 |
 
 **morph** が現状最も Ok/Mismatch が集中している binary。これは:
 
