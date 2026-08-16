@@ -217,3 +217,57 @@ fn make_cross_sel(size: usize, half: usize, dilation: u32, flipped: bool) -> Reg
     Sel::from_string(&pattern, half as u32, half as u32)
         .map_err(|e| RegionError::Core(crate::core::Error::NotSupported(e.to_string())))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::morph::SelElement;
+
+    /// C builds each corner sel from two *dilated pixels* per role, not from
+    /// filled quadrants: `pixSetPixel(pix2, 1, 1)` and
+    /// `pixSetPixel(pix2, size - 2, size - 2)`, dilated by a
+    /// `dilation x dilation` brick, are the hits, and the same mask rotated
+    /// 90 degrees gives the misses. Everything else is don't-care.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_corner_sels_are_sparse_like_c() {
+        let sels = make_checkerboard_corner_sels(15, 3, 2).unwrap();
+        assert_eq!(sels.len(), 2);
+        for sel in &sels {
+            assert_eq!(sel.width(), 15);
+            assert_eq!(sel.height(), 15);
+            assert_eq!(sel.origin_x(), 7);
+            assert_eq!(sel.origin_y(), 7);
+            // Two 3x3 blocks of hits and two of misses.
+            assert_eq!(sel.hit_count(), 18);
+            assert_eq!(sel.miss_count(), 18);
+        }
+        // The pair swaps hits and misses.
+        assert_eq!(
+            sels[0].get_element(0, 0).unwrap(),
+            sels[1].get_element(14, 0).unwrap()
+        );
+    }
+
+    /// Without dilation each role is a single pixel per corner.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_corner_sels_undilated() {
+        let sels = make_checkerboard_corner_sels(15, 1, 4).unwrap();
+        assert_eq!(sels.len(), 4);
+        for sel in &sels {
+            assert_eq!(sel.hit_count(), 2);
+            assert_eq!(sel.miss_count(), 2);
+        }
+        // Diagonal sel: hits on the negative-slope inset corners.
+        assert_eq!(sels[0].get_element(1, 1).unwrap(), SelElement::Hit);
+        assert_eq!(sels[0].get_element(13, 13).unwrap(), SelElement::Hit);
+        assert_eq!(sels[0].get_element(13, 1).unwrap(), SelElement::Miss);
+        assert_eq!(sels[0].get_element(1, 13).unwrap(), SelElement::Miss);
+        // Cross sel: hits on the mid-column.
+        assert_eq!(sels[2].get_element(7, 1).unwrap(), SelElement::Hit);
+        assert_eq!(sels[2].get_element(7, 13).unwrap(), SelElement::Hit);
+        assert_eq!(sels[2].get_element(1, 7).unwrap(), SelElement::Miss);
+        assert_eq!(sels[2].get_element(13, 7).unwrap(), SelElement::Miss);
+    }
+}
