@@ -176,3 +176,104 @@ fn lineremoval_reg_pipeline() {
 
     assert!(rp.cleanup(), "lineremoval pipeline test failed");
 }
+
+/// C-comparable line removal pipeline (plan 902 PR 20).
+///
+/// Mirrors C lineremoval_reg exactly: dave-orig.png thresholded, skew
+/// detected and corrected with `rotate_am_gray`, lines isolated with
+/// gray close/erode and two `threshold_to_value` steps, then merged back
+/// with `arith_add` and `combine_masked`. All ten outputs are PNG.
+#[test]
+fn lineremoval_c_compat() {
+    use leptonica::morph::{close_gray, erode_gray, open_gray};
+    use leptonica::recog::skew::{SkewDetectOptions, find_skew};
+    use leptonica::transform::{RotateFill, rotate_am_gray};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("lineremoval_c");
+
+    let pixs = crate::common::load_test_image("dave-orig.png").expect("load dave-orig.png");
+    let deg2rad = 3.14159f32 / 180.0;
+
+    // C 0: threshold to binary at 170
+    let pix1 = threshold_to_binary(&pixs, 170).expect("threshold 170");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check 0");
+
+    // C 1: deskew the grayscale original by the detected angle
+    let skew = find_skew(&pix1, &SkewDetectOptions::default()).expect("find_skew");
+    let pix2 =
+        rotate_am_gray(&pixs, deg2rad * skew.angle, RotateFill::White).expect("rotate_am_gray");
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check 1");
+
+    // C 2-3: isolate horizontal lines
+    let pix3 = close_gray(&pix2, 51, 1).expect("close_gray 51x1");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("check 2");
+    let pix4 = erode_gray(&pix3, 1, 5).expect("erode_gray 1x5");
+    rp.write_pix_and_check(&pix4, ImageFormat::Png)
+        .expect("check 3");
+
+    // C 4-5: flatten the background, then the lines
+    let pix5 = pix4
+        .threshold_to_value(210, 255)
+        .expect("threshold_to_value 210");
+    rp.write_pix_and_check(&pix5, ImageFormat::Png)
+        .expect("check 4");
+    let pix6 = pix5
+        .threshold_to_value(200, 0)
+        .expect("threshold_to_value 200");
+    rp.write_pix_and_check(&pix6, ImageFormat::Png)
+        .expect("check 5");
+
+    // C 6: line mask
+    let pix7 = threshold_to_binary(&pix6, 210).expect("threshold 210");
+    rp.write_pix_and_check(&pix7, ImageFormat::Png)
+        .expect("check 6");
+
+    // C 7: add the inverted line image back to the deskewed original
+    let pix6_inv = pix6.invert();
+    let pix8 = pix2.arith_add(&pix6_inv).expect("arith_add");
+    rp.write_pix_and_check(&pix8, ImageFormat::Png)
+        .expect("check 7");
+
+    // C 8-9: vertical opening, then paste it back through the line mask
+    let pix9 = open_gray(&pix8, 1, 9).expect("open_gray 1x9");
+    rp.write_pix_and_check(&pix9, ImageFormat::Png)
+        .expect("check 8");
+    let merged = {
+        let mut m = pix8.deep_clone().to_mut();
+        m.combine_masked(&pix9, &pix7).expect("combine_masked");
+        let p: leptonica::Pix = m.into();
+        p
+    };
+    rp.write_pix_and_check(&merged, ImageFormat::Png)
+        .expect("check 9");
+
+    assert!(rp.cleanup(), "lineremoval c-compat test failed");
+}
+
+/// Area-map rotation must derive sin/cos like C (plan 902 PR 20).
+///
+/// C `rotateAMGrayLow` computes `sina = 16.f * sin(angle)` where `sin()`
+/// returns a double, so the scaling happens in double precision and is
+/// rounded to float once. Computing `angle.sin()` in f32 and scaling in
+/// f32 shifts a few sub-pixel positions across a truncation boundary.
+#[test]
+#[ignore = "not yet implemented: rotate_am_gray scales sin/cos in f32"]
+fn lineremoval_rotate_am_gray_matches_c() {
+    use leptonica::transform::{RotateFill, rotate_am_gray};
+
+    let pixs = crate::common::load_test_image("dave-orig.png").expect("load dave-orig.png");
+    let deg2rad = 3.14159f32 / 180.0;
+    let out = rotate_am_gray(&pixs, deg2rad * -0.656250, RotateFill::White).expect("rotate");
+
+    // Pixels where the f32 scaling picks the neighbouring source sample.
+    // Values here come from the C reference (pixRotateAMGray on the same
+    // input and angle).
+    assert_eq!(out.get_pixel(491, 246).unwrap(), 254);
+}
