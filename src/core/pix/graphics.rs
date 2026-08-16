@@ -492,10 +492,11 @@ pub fn generate_hash_box_pta(
             }
         }
         HashOrientation::PosSlope => {
-            let diag = bw as f32 + bh as f32;
-            let n = (2.0 + diag / (1.4 * spacing as f32)) as usize;
+            // C computes these in double precision; f32 truncates the line
+            // origins to different columns.
+            let n = 2 + ((bw as f64 + bh as f64) / (1.4 * spacing as f64)) as usize;
             for i in 0..n {
-                let x = (bx as f32 + (i as f32 + 0.5) * 1.4 * spacing as f32) as i32;
+                let x = (bx as f64 + (i as f64 + 0.5) * 1.4 * spacing as f64) as i32;
                 if let Ok(isect) = b.intersect_by_line(x, by - 1, 1.0)
                     && isect.count == 2
                 {
@@ -509,10 +510,9 @@ pub fn generate_hash_box_pta(
             }
         }
         HashOrientation::NegSlope => {
-            let diag = bw as f32 + bh as f32;
-            let n = (2.0 + diag / (1.4 * spacing as f32)) as usize;
+            let n = 2 + ((bw as f64 + bh as f64) / (1.4 * spacing as f64)) as usize;
             for i in 0..n {
-                let x = (bx as f32 - bh as f32 + (i as f32 + 0.5) * 1.4 * spacing as f32) as i32;
+                let x = (bx as f64 - bh as f64 + (i as f64 + 0.5) * 1.4 * spacing as f64) as i32;
                 if let Ok(isect) = b.intersect_by_line(x, by - 1, -1.0)
                     && isect.count == 2
                 {

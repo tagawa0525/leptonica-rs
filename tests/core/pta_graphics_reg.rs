@@ -220,19 +220,28 @@ fn replicate_pattern_from_pix() {
 /// Evaluating it in f32 truncates differently — for a box at x = 5 with
 /// spacing 10, line 1 lands at 25 in C but at 26 in f32.
 #[test]
-#[ignore = "not yet implemented: hash spacing is computed in f32"]
 fn hash_box_diagonal_spacing_matches_c() {
     use leptonica::Box as LeptBox;
     use leptonica::core::pix::graphics::{HashOrientation, generate_hash_box_pta};
 
+    // width = 1 so each diagonal is a single pixel wide and its position
+    // is unambiguous.
     let b = LeptBox::new(5, 5, 45, 28).unwrap();
-    let pta = generate_hash_box_pta(&b, 10, 3, HashOrientation::PosSlope, false)
+    let pta = generate_hash_box_pta(&b, 10, 1, HashOrientation::PosSlope, false)
         .expect("generate_hash_box_pta");
 
-    // C's second diagonal starts at x = 25 (not 26), so its topmost point
-    // on the box's top edge is (24, 5) after the intersection.
-    let has_24_5 = pta.iter().any(|(x, y)| x as i32 == 24 && y as i32 == 5);
-    let has_25_5 = pta.iter().any(|(x, y)| x as i32 == 25 && y as i32 == 5);
-    assert!(has_24_5, "expected C's diagonal through (24, 5)");
-    assert!(!has_25_5, "f32 rounding would put the diagonal at (25, 5)");
+    // C's diagonals meet the top edge (y = 5) at x = 11, 24, 39 — the
+    // second one is 24 because C evaluates the origin in double precision
+    // (f32 would place it at 25).
+    let top_xs: Vec<i32> = {
+        let mut xs: Vec<i32> = pta
+            .iter()
+            .filter(|(_, y)| *y as i32 == 5)
+            .map(|(x, _)| x as i32)
+            .collect();
+        xs.sort_unstable();
+        xs.dedup();
+        xs
+    };
+    assert_eq!(top_xs, vec![11, 24, 39], "diagonal origins on the top edge");
 }
