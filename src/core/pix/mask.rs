@@ -354,6 +354,23 @@ impl Pix {
         Ok(dm.into())
     }
 
+    /// Build a 32 bpp image covering the whole RGB gamut.
+    ///
+    /// The gamut is divided into `2^15` cubical cells of 8x8x8 pixel values.
+    /// Each of the 32 subimages holds a constant B, with R and G varying over
+    /// their range in 32 steps of 8; the subimages are tiled 8 per row with a
+    /// spacing of 5 and each cell replicated `scale` times in x and y.
+    ///
+    /// `scale` defaults to 8 when it is 0.
+    ///
+    /// This is useful for visualizing how a filter such as
+    /// [`Pix::make_arb_mask_from_rgb`] partitions RGB color space.
+    ///
+    /// C equivalent: `pixMakeGamutRGB()` in `colorspace.c`
+    pub fn make_gamut_rgb(_scale: u32) -> Result<Pix> {
+        Err(Error::InvalidParameter("not yet implemented".to_string()))
+    }
+
     /// Create a 1 bpp mask from a 32 bpp RGB image using weighted coefficients.
     ///
     /// Computes `rc*R + gc*G + bc*B` for each pixel, then thresholds.
@@ -1050,5 +1067,85 @@ mod tests {
     fn test_set_under_transparency_not_32bpp() {
         let pix = Pix::new(10, 10, PixelDepth::Bit8).unwrap();
         assert!(pix.set_under_transparency(0xFFFFFF00).is_err());
+    }
+
+    /// C reaches the mask through an 8 bpp gray intermediate, so the
+    /// weighted sum is truncated to an integer before the comparison.
+    /// A sum of 60.8 against `thresh = 60` is therefore *below* the
+    /// cutoff in C (`trunc(60.8) = 60 < 61`), while a naive float
+    /// comparison (`60.8 > 60.0`) would turn the pixel on.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_arb_mask_from_rgb_truncates_like_c() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // 0.4*32 + 0.3*80 + 0.3*80 = 12.8 + 24 + 24 = 60.8
+        pm.set_pixel_unchecked(0, 0, crate::core::pixel::compose_rgba(32, 80, 80, 0));
+        let pix: Pix = pm.into();
+
+        let mask = pix.make_arb_mask_from_rgb(0.4, 0.3, 0.3, 60.0).unwrap();
+        assert_eq!(mask.get_pixel(0, 0).unwrap(), 0);
+
+        // One step up (0.4*40 + 0.3*80 + 0.3*80 = 64.0) clears the cutoff.
+        let pix2 = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm2 = pix2.try_into_mut().unwrap();
+        pm2.set_pixel_unchecked(0, 0, crate::core::pixel::compose_rgba(40, 80, 80, 0));
+        let pix2: Pix = pm2.into();
+        let mask2 = pix2.make_arb_mask_from_rgb(0.4, 0.3, 0.3, 60.0).unwrap();
+        assert_eq!(mask2.get_pixel(0, 0).unwrap(), 1);
+    }
+
+    /// C clips the gray intermediate to `[0, 255]`, so a negative weighted
+    /// sum can never satisfy a non-negative threshold, and a sum above 255
+    /// always does.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_arb_mask_from_rgb_clips_to_byte_range() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, crate::core::pixel::compose_rgba(0, 255, 255, 0));
+        pm.set_pixel_unchecked(1, 0, crate::core::pixel::compose_rgba(255, 255, 255, 0));
+        let pix: Pix = pm.into();
+
+        // -2.0*R + 1.0*G: -510 at x=0 (clipped to 0), 0 at x=1.
+        let mask = pix.make_arb_mask_from_rgb(1.0, -2.0, 0.0, 0.0).unwrap();
+        assert_eq!(mask.get_pixel(0, 0).unwrap(), 0);
+        assert_eq!(mask.get_pixel(1, 0).unwrap(), 0);
+
+        // A threshold of 255 or more is clamped to 254, so a saturated
+        // gray value of 255 is still ON.
+        let mask2 = pix.make_arb_mask_from_rgb(1.0, 1.0, 1.0, 300.0).unwrap();
+        assert_eq!(mask2.get_pixel(1, 0).unwrap(), 1);
+    }
+
+    /// C rejects coefficients that are all non-positive, because the gray
+    /// intermediate would then be uniformly clipped to 0.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_arb_mask_from_rgb_rejects_nonpositive_coefficients() {
+        let pix = Pix::new(2, 2, PixelDepth::Bit32).unwrap();
+        assert!(pix.make_arb_mask_from_rgb(-1.0, -1.0, 0.0, 0.0).is_err());
+    }
+
+    /// C `pixMakeGamutRGB(scale)` tiles 32 subimages of 32x32 cells, 8 per
+    /// row, at `scale` replication with a spacing of 5 and no border.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_gamut_rgb_dimensions_and_corner() {
+        let pix = Pix::make_gamut_rgb(3).unwrap();
+        assert_eq!(pix.depth(), PixelDepth::Bit32);
+        // 4 rows x 8 columns of 96x96 tiles, spacing 5 between and around.
+        assert_eq!(pix.width(), 8 * 96 + 9 * 5);
+        assert_eq!(pix.height(), 4 * 96 + 5 * 5);
+        // First tile starts at (5, 5) and its origin cell is pure black.
+        assert_eq!(pix.get_pixel(5, 5).unwrap(), 0);
+    }
+
+    /// `scale = 0` falls back to C's default of 8.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_make_gamut_rgb_zero_scale_defaults_to_8() {
+        let pix = Pix::make_gamut_rgb(0).unwrap();
+        assert_eq!(pix.width(), 8 * 256 + 9 * 5);
     }
 }
