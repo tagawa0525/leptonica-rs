@@ -358,8 +358,13 @@ impl Pix {
     ///
     /// The gamut is divided into `2^15` cubical cells of 8x8x8 pixel values.
     /// Each of the 32 subimages holds a constant B, with R and G varying over
-    /// their range in 32 steps of 8; the subimages are tiled 8 per row with a
-    /// spacing of 5 and each cell replicated `scale` times in x and y.
+    /// their range in 32 steps of 8; the 32x32 subimages are then tiled 8 per
+    /// row with a spacing of 5, scaled up by `scale`.
+    ///
+    /// C's note calls this a replication of each cell, but both C and this
+    /// port magnify the tiles through the regular scaling path, so `scale`
+    /// is a scale factor rather than a pixel-replication count. For the
+    /// integer factors this is used with the two agree bit-exactly.
     ///
     /// `scale` defaults to 8 when it is 0.
     ///
