@@ -190,14 +190,15 @@ fn shear2_c_compat() {
         pixa.push(labelled);
     };
 
-    // C checks 0-3: colour/gray x small/large.
+    // C checks 0-3: colour/gray x small/large. Note the colour 601 case
+    // uses a stronger shear (120 / -40) than the other three.
     let sources = [
-        pixs1.clone(),
-        pixs1.convert_to_8().expect("gray small"),
-        pixs2.clone(),
-        pixs2.convert_to_8().expect("gray large"),
+        (pixs1.clone(), 60, -20),
+        (pixs1.convert_to_8().expect("gray small"), 60, -20),
+        (pixs2.clone(), 120, -40),
+        (pixs2.convert_to_8().expect("gray large"), 60, -20),
     ];
-    for src in &sources {
+    for (src, vmax_top, vmax_bottom) in &sources {
         let mut pixa = Pixa::new();
         for (op, opname) in [
             (WarpOperation::Sampled, "sampled"),
@@ -207,8 +208,9 @@ fn shear2_c_compat() {
                 (WarpDirection::ToLeft, "left"),
                 (WarpDirection::ToRight, "right"),
             ] {
-                let sheared = quadratic_v_shear(src, dir, 60, -20, op, WarpFill::White)
-                    .expect("quadratic_v_shear");
+                let sheared =
+                    quadratic_v_shear(src, dir, *vmax_top, *vmax_bottom, op, WarpFill::White)
+                        .expect("quadratic_v_shear");
                 save(&mut pixa, &sheared, &format!("{opname}-{dirname}"));
             }
         }
@@ -229,7 +231,6 @@ fn shear2_c_compat() {
 /// bit set, i.e. 0xffffffff including the alpha byte. A fill of
 /// 0xffffff00 leaves the alpha byte clear and diverges from C.
 #[test]
-#[ignore = "not yet implemented: 32bpp warp white fill leaves alpha 0"]
 fn shear2_warp_white_fill_is_opaque() {
     use leptonica::transform::{WarpDirection, WarpFill, WarpOperation, quadratic_v_shear};
     use leptonica::{Pix, PixelDepth};
