@@ -234,3 +234,53 @@ fn enhance_reg_mosaic_color_shift() {
     // Applies spatially-varying color shift across image tiles
     assert!(rp.cleanup(), "enhance mosaic_color_shift test failed");
 }
+
+/// Fast unsharp masking must follow C's separable box filter
+/// (plan 902 PR 17).
+///
+/// C `pixUnsharpMaskingGray2D` starts from `pixCopyBorder`, so the
+/// `halfwidth`-wide border keeps the source values, and only the interior
+/// is sharpened as `(int)(s + fract * (s - L) + 0.5)` where L is a
+/// separable box average over `(2*halfwidth+1)²`.
+#[test]
+#[ignore = "not yet implemented: unsharp fast blurs the whole image via blockconv"]
+fn enhance_unsharp_fast_matches_c() {
+    use leptonica::filter::unsharp_masking_gray_fast;
+    use leptonica::{Pix, PixelDepth};
+
+    // 5x5 with a bright centre; halfwidth 1 sharpens only the 3x3 interior.
+    let pix = {
+        let p = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                pm.set_pixel(x, y, 100).unwrap();
+            }
+        }
+        pm.set_pixel(2, 2, 200).unwrap();
+        let p: Pix = pm.into();
+        p
+    };
+
+    let out = unsharp_masking_gray_fast(&pix, 1, 0.4).expect("unsharp fast");
+    assert_eq!((out.width(), out.height()), (5, 5));
+
+    // Border keeps the source values (C pixCopyBorder).
+    for x in 0..5u32 {
+        assert_eq!(out.get_pixel(x, 0).unwrap(), 100, "top border at x={x}");
+        assert_eq!(out.get_pixel(x, 4).unwrap(), 100, "bottom border at x={x}");
+    }
+    for y in 0..5u32 {
+        assert_eq!(out.get_pixel(0, y).unwrap(), 100, "left border at y={y}");
+        assert_eq!(out.get_pixel(4, y).unwrap(), 100, "right border at y={y}");
+    }
+
+    // Centre: L = (8*100 + 200) / 9 = 111.111; s = 200
+    //   ival = (int)(200 + 0.4 * (200 - 111.111) + 0.5) = (int)(236.055) = 236
+    assert_eq!(out.get_pixel(2, 2).unwrap(), 236);
+
+    // A neighbour of the centre: L = (8*100 + 200)/9 = 111.111 as well
+    // (the 3x3 window around (1,1) covers the centre), s = 100
+    //   ival = (int)(100 + 0.4 * (100 - 111.111) + 0.5) = (int)(96.055) = 96
+    assert_eq!(out.get_pixel(1, 1).unwrap(), 96);
+}
