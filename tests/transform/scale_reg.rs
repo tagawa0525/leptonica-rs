@@ -141,3 +141,58 @@ fn scale_reg() {
 
     assert!(rp.cleanup(), "scale regression test failed");
 }
+
+/// scale_general must follow C pixScaleGeneral (plan 902 PR 17).
+///
+/// C dispatches to the public `pixScaleAreaMap` / `pixScaleGrayLI` /
+/// `pixScaleColorLI` entry points (so their special cases and
+/// `(int)(scale * ws + 0.5)` sizing apply) and then sharpens with
+/// `pixUnsharpMasking` when `sharpfract`/`sharpwidth` are positive:
+/// for reductions when `maxscale > 0.2`, for magnifications when
+/// `maxscale < 1.4`.
+#[test]
+#[ignore = "not yet implemented: scale_general ignores sharpening and sub-dispatch"]
+fn scale_general_matches_c_dispatch() {
+    use leptonica::transform::{scale, scale_area_map, scale_general};
+    use leptonica::{Pix, PixelDepth};
+
+    // A 465-tall image at 0.5 must use the area-map 1/2 special case,
+    // giving 232 (not the 233 that rounding would produce).
+    let pix = Pix::new(300, 465, PixelDepth::Bit32).expect("create");
+    let out = scale_general(&pix, 0.5, 0.5, 0.0, 0).expect("scale_general");
+    assert_eq!((out.width(), out.height()), (150, 232));
+    let direct = scale_area_map(&pix, 0.5, 0.5).expect("scale_area_map");
+    assert_eq!((direct.width(), direct.height()), (150, 232));
+
+    // With sharpening disabled the result must equal the bare area map.
+    let gradient = {
+        let p = Pix::new(64, 64, PixelDepth::Bit8).expect("create gray");
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..64u32 {
+            for x in 0..64u32 {
+                pm.set_pixel(x, y, (x * 4) % 256).unwrap();
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let plain = scale_general(&gradient, 0.5, 0.5, 0.0, 0).expect("no sharpening");
+    let area = scale_area_map(&gradient, 0.5, 0.5).expect("area map");
+    for y in 0..plain.height() {
+        for x in 0..plain.width() {
+            assert_eq!(plain.get_pixel(x, y), area.get_pixel(x, y), "({x}, {y})");
+        }
+    }
+
+    // pixScale applies sharpening by default, so it must differ from the
+    // unsharpened path on an image with edges.
+    let sharpened =
+        scale(&gradient, 0.5, 0.5, leptonica::transform::ScaleMethod::Auto).expect("scale");
+    assert_eq!(
+        (sharpened.width(), sharpened.height()),
+        (plain.width(), plain.height())
+    );
+    let differs = (0..plain.height())
+        .any(|y| (0..plain.width()).any(|x| sharpened.get_pixel(x, y) != plain.get_pixel(x, y)));
+    assert!(differs, "pixScale must sharpen by default");
+}
