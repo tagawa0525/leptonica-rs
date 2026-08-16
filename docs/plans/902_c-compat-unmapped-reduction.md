@@ -442,7 +442,19 @@ C `pixLocalExtrema(pixs, maxmin, minmax, &pixmin, &pixmax)`:
 - grayfill が **27 ペア全件 Ok (Ok 166 → 172)**。grayfill_reg の全 PNG
   出力を完全制覇し、region binary は Ok 73
 
-### PR 20 以降: semantic マッピングの漸進追加
+### PR 20: lineremoval 整列 — recog の lossless パイプライン (IN_PROGRESS)
+
+C 版ソース: `prog/lineremoval_reg.c`。
+
+recog は Unmapped 45 で残る大きなプール。lineremoval_reg は入力が
+`dave-orig.png` (lossless) の単一直線パイプラインで、全 10 出力が PNG。
+
+閾値化 → skew 検出 → `rotate_am_gray` → gray close/erode/open →
+`threshold_to_value` ×2 → 反転 → `arith_add` → `combine_masked` と、
+gray morphology と算術の主要経路をまとめて検証できる。必要 API は
+すべて移植済み (`find_skew` は `SkewDetectOptions` 経由)。
+
+### PR 21 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
