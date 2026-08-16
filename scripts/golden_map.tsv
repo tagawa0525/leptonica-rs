@@ -292,3 +292,26 @@ transform	xformbox	1	xformbox_c	2	render_hash_box_color on 8bpp
 transform	xformbox	2	xformbox_c	3	render_hash_box_blend on 32bpp
 transform	xformbox	3	xformbox_c	4	rotate_orth x4 + boxa rotate_orth, tiled in rows
 transform	xformbox	4	xformbox_c	5	transform_ordered 6 orders (translate + scale)
+
+# grayfill_reg.c (plan 902 PR 18): synthetic 200x200 gray seedfill
+region	grayfill	0	grayfill_c	1	synthetic mask
+region	grayfill	1	grayfill_c	2	synthetic seed (50)
+region	grayfill	2	grayfill_c	3	seedfill_gray_inv 4-way
+region	grayfill	3	grayfill_c	4	seedfill_gray_inv 8-way
+region	grayfill	4	grayfill_c	5	threshold 20
+region	grayfill	5	grayfill_c	6	combine_masked
+region	grayfill	6	grayfill_c	7	tiled columns 6
+region	grayfill	7	grayfill_c	8	inverted mask
+region	grayfill	8	grayfill_c	9	synthetic seed (205)
+region	grayfill	9	grayfill_c	10	seedfill_gray 4-way
+region	grayfill	10	grayfill_c	11	seedfill_gray 8-way
+region	grayfill	11	grayfill_c	12	threshold 205
+region	grayfill	12	grayfill_c	13	tiled columns 5
+region	grayfill	19	grayfill_c	14	set1 inv fill 4-way
+region	grayfill	21	grayfill_c	16	set1 fwd fill 4-way
+region	grayfill	23	grayfill_c	18	set2 inv fill 8-way
+region	grayfill	25	grayfill_c	20	set2 fwd fill 8-way
+region	grayfill	27	grayfill_c	22	set3 inv fill 4-way
+region	grayfill	29	grayfill_c	24	set3 fwd fill 4-way
+region	grayfill	31	grayfill_c	26	set4 inv fill 8-way
+region	grayfill	33	grayfill_c	28	set4 fwd fill 8-way

@@ -378,7 +378,40 @@ C `pixScaleGeneral` との差:
 - xformbox 5 ペア **全件 Ok (Ok 143 → 145)**、PR 16 の Excluded 2 件も
   解消。transform binary は Unmapped/Excluded ともに残り 0 の Ok 25
 
-### PR 18 以降: semantic マッピングの漸進追加
+### PR 18: grayfill 整列 — filter 最大プールへの着手 (実施済み)
+
+C 版ソース: `prog/grayfill_reg.c`、`src/seedfill.c`。
+
+filter は Unmapped 57 で残り最大のプール。その中で grayfill_reg は
+**入力が完全合成 (200x200 の pixCreate + 式で値を埋める)** で全 27 出力が
+PNG のため、codec 差なしで gray seedfill 系を検証できる。
+
+| C check | 内容 | 依存 |
+| --- | --- | --- |
+| 0-6 | seedfill_gray_inv (4/8 連結) + 閾値 + combine_masked + tiled | 済 |
+| 7-12 | seedfill_gray (4/8 連結) + 閾値 + tiled | 済 |
+| 13-18 | local_extrema + seedfill_gray_basin | **未** |
+| 19-34 | 4 組の inv/正順 x simple 一致検証 | 済 |
+
+**実装差 28 件目**: `local_extrema` は C `pixLocalExtrema` と
+パラメータ意味論が異なる (Rust は erosion/dilation のカーネル径と
+最小差分、C は 3x3 固定 + `pixQualifyLocalMinima` の閾値 maxmin/minmax)。
+13-18 はこれの整列が前提のため次段送り。
+
+実施結果:
+
+- **実装差 29 件目**: `seedfill_gray_inv` が C と**別のアルゴリズム**
+  だった。C `seedfillGrayInvLowSimple` は前後 2 方向の走査で
+  「mask < 255 の画素について自身と走査済み近傍の最大値を取り、
+  mask を超える場合のみ書き戻す」(mask は下側の障壁) のに対し、
+  Rust は `max(seed, mask)` で初期化して最小値を伝播しており、
+  結果が実質 mask になっていた。C 準拠に書き直し、
+  `seedfill_gray_inv_simple` も同じ実装に委譲 (C 自身が両者の一致を
+  reg test で保証しているため)
+- 一方 `seedfill_gray` (正順) は初回から全件 Ok で、C と等価だった
+- grayfill 21 ペア **全件 Ok (Ok 145 → 166)**。region binary は Ok 67
+
+### PR 19 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

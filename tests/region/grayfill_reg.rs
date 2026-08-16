@@ -229,3 +229,194 @@ fn grayfill_reg_hybrid_comparison() {
 
     assert!(rp.cleanup());
 }
+
+/// C-comparable gray seedfill series (plan 902 PR 18).
+///
+/// Mirrors C grayfill_reg checks 0-12 and 19-34 exactly: the same
+/// synthetic 200x200 masks and seeds, the same 4- and 8-connected fills,
+/// thresholds and `display_tiled_in_columns` layouts, plus the four
+/// hybrid-vs-simple equality sets.
+///
+/// C checks 13-18 need `pixLocalExtrema`, whose Rust counterpart takes
+/// different parameters (see plan 902 PR 18), so they are not paired yet.
+#[test]
+fn grayfill_c_compat() {
+    use leptonica::{Pix, Pixa, PixelDepth};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("grayfill_c");
+
+    // C: pixm(j, i) = 20 + |(100 - i) * (100 - j)| / 50
+    let pixm = {
+        let p = Pix::new(200, 200, PixelDepth::Bit8).expect("create mask");
+        let mut pm = p.try_into_mut().expect("into_mut");
+        for i in 0..200i32 {
+            for j in 0..200i32 {
+                let v = 20 + ((100 - i) * (100 - j)).abs() / 50;
+                pm.set_pixel(j as u32, i as u32, v as u32).expect("set");
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let pixmi = pixm.invert();
+
+    // C: a 3x3 seed patch at the centre, value 50 - i/100 - j/100.
+    let make_seed = |base: i32| -> Pix {
+        let p = Pix::new(200, 200, PixelDepth::Bit8).expect("create seed");
+        let mut pm = p.try_into_mut().expect("into_mut");
+        for i in 99..=101i32 {
+            for j in 99..=101i32 {
+                let v = base - i / 100 - j / 100;
+                pm.set_pixel(j as u32, i as u32, v as u32).expect("set");
+            }
+        }
+        pm.into()
+    };
+    let pixs1 = make_seed(50);
+    let pixs2 = make_seed(205);
+
+    // --- C checks 0-6: inverse gray fill ---
+    let mut pixa = Pixa::new();
+    pixa.push(pixm.clone());
+    rp.write_pix_and_check(&pixm, ImageFormat::Png)
+        .expect("check 0");
+    pixa.push(pixs1.clone());
+    rp.write_pix_and_check(&pixs1, ImageFormat::Png)
+        .expect("check 1");
+
+    let filled4 = seedfill_gray_inv(&pixs1, &pixm, ConnectivityType::FourWay).expect("inv 4");
+    let filled8 = seedfill_gray_inv(&pixs1, &pixm, ConnectivityType::EightWay).expect("inv 8");
+    pixa.push(filled4.clone());
+    rp.write_pix_and_check(&filled4, ImageFormat::Png)
+        .expect("check 2");
+    pixa.push(filled8.clone());
+    rp.write_pix_and_check(&filled8, ImageFormat::Png)
+        .expect("check 3");
+
+    let pixb1 = filled4.convert_to_1(20).expect("threshold 20");
+    pixa.push(pixb1.clone());
+    rp.write_pix_and_check(&pixb1, ImageFormat::Png)
+        .expect("check 4");
+
+    let combined = {
+        let mut m = filled4.deep_clone().to_mut();
+        m.combine_masked(&pixm, &pixb1).expect("combine_masked");
+        let p: Pix = m.into();
+        p
+    };
+    pixa.push(combined.clone());
+    rp.write_pix_and_check(&combined, ImageFormat::Png)
+        .expect("check 5");
+
+    let tiled = pixa
+        .display_tiled_in_columns(6, 1.0, 15, 2)
+        .expect("tiled 0-5");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check 6");
+
+    // --- C checks 7-12: standard gray fill ---
+    let mut pixa = Pixa::new();
+    pixa.push(pixmi.clone());
+    rp.write_pix_and_check(&pixmi, ImageFormat::Png)
+        .expect("check 7");
+    pixa.push(pixs2.clone());
+    rp.write_pix_and_check(&pixs2, ImageFormat::Png)
+        .expect("check 8");
+
+    let std4 = seedfill_gray(&pixs2, &pixmi, ConnectivityType::FourWay).expect("std 4");
+    let std8 = seedfill_gray(&pixs2, &pixmi, ConnectivityType::EightWay).expect("std 8");
+    pixa.push(std4.clone());
+    rp.write_pix_and_check(&std4, ImageFormat::Png)
+        .expect("check 9");
+    pixa.push(std8.clone());
+    rp.write_pix_and_check(&std8, ImageFormat::Png)
+        .expect("check 10");
+
+    let pixb2 = std4.convert_to_1(205).expect("threshold 205");
+    rp.write_pix_and_check(&pixb2, ImageFormat::Png)
+        .expect("check 11");
+    pixa.push(pixb2);
+
+    let tiled = pixa
+        .display_tiled_in_columns(5, 1.0, 15, 2)
+        .expect("tiled 7-11");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check 12");
+
+    // --- C checks 19-34: hybrid vs simple, four parameter sets ---
+    // C: pixAddConstantGray(pixs1, -30) and (pixs2, +60) on copies of pixm.
+    let lo = pixm.add_constant(-30).expect("add -30");
+    let hi = pixm.add_constant(60).expect("add +60");
+    let sets: [(&Pix, &Pix, ConnectivityType); 4] = [
+        (&lo, &hi, ConnectivityType::FourWay),
+        (&lo, &hi, ConnectivityType::EightWay),
+        (&hi, &lo, ConnectivityType::FourWay),
+        (&hi, &lo, ConnectivityType::EightWay),
+    ];
+    for (s1, s2, conn) in sets {
+        let inv = seedfill_gray_inv(s1, &pixm, conn).expect("inv fill");
+        rp.write_pix_and_check(&inv, ImageFormat::Png)
+            .expect("check: inv fill");
+        let inv_simple = seedfill_gray_inv_simple(s1, &pixm, conn).expect("inv simple");
+        rp.compare_pix(&inv, &inv_simple);
+
+        let fwd = seedfill_gray(s2, &pixm, conn).expect("fwd fill");
+        rp.write_pix_and_check(&fwd, ImageFormat::Png)
+            .expect("check: fwd fill");
+        let fwd_simple = seedfill_gray_simple(s2, &pixm, conn).expect("fwd simple");
+        rp.compare_pix(&fwd, &fwd_simple);
+    }
+
+    assert!(rp.cleanup(), "grayfill c-compat test failed");
+}
+
+/// Inverse gray seedfill must follow C's max-propagation (plan 902 PR 18).
+///
+/// C `seedfillGrayInvLowSimple` sweeps forward then backward, and at each
+/// pixel whose mask value is below 255 takes the max of itself and the
+/// already-swept neighbours, writing it back only when that max exceeds
+/// the mask. The mask therefore acts as a lower barrier, and pixels where
+/// the seed never reaches above the mask keep their seed value.
+#[test]
+fn grayfill_seedfill_gray_inv_matches_c() {
+    use leptonica::{Pix, PixelDepth};
+
+    // 5x1 with a high seed in the middle and a mask that blocks on the
+    // right: mask = [10, 10, 10, 250, 10], seed = [0, 0, 200, 0, 0].
+    let mask = {
+        let p = Pix::new(5, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for (x, v) in [(0u32, 10u32), (1, 10), (2, 10), (3, 250), (4, 10)] {
+            pm.set_pixel(x, 0, v).unwrap();
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let seed = {
+        let p = Pix::new(5, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        pm.set_pixel(2, 0, 200).unwrap();
+        let p: Pix = pm.into();
+        p
+    };
+
+    let out = seedfill_gray_inv(&seed, &mask, ConnectivityType::FourWay).expect("inv fill");
+    // The 200 propagates left (mask 10 < 200) but is stopped at x = 3,
+    // where the mask (250) exceeds it, so that pixel keeps its seed 0.
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 200);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 200);
+    assert_eq!(out.get_pixel(2, 0).unwrap(), 200);
+    assert_eq!(out.get_pixel(3, 0).unwrap(), 0);
+    assert_eq!(out.get_pixel(4, 0).unwrap(), 0);
+
+    // The hybrid and simple entry points must agree, as C asserts.
+    let simple =
+        seedfill_gray_inv_simple(&seed, &mask, ConnectivityType::FourWay).expect("inv simple");
+    for x in 0..5u32 {
+        assert_eq!(out.get_pixel(x, 0), simple.get_pixel(x, 0), "at x={x}");
+    }
+}

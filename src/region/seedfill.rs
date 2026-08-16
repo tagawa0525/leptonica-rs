@@ -826,21 +826,47 @@ fn get_neighbors(
 
 /// Inverse grayscale seedfill (basin filling).
 ///
-/// Like [`seedfill_gray`], but the seed value is propagated *downward*
-/// (clipped from below by the mask) rather than upward. In each pass,
-/// the minimum of the current value and its neighbors is taken, clipped
-/// to be no less than the mask value.
+/// Think of filling a basin up to the level given by the largest seed
+/// value in it: seed values spread by taking the **maximum** over the
+/// neighbourhood, and the mask acts as a *lower barrier* — a pixel is
+/// only raised where the propagated maximum exceeds its mask value, so
+/// the fill stops at walls that rise above it. Pixels whose mask is 255
+/// are never touched, and pixels the fill cannot rise above keep their
+/// seed value.
+///
+/// Contrast with [`seedfill_gray`], where the mask is an upper bound.
+/// The seed does not need to dominate the mask anywhere.
 ///
 /// # Arguments
 ///
-/// * `seed` - 8-bpp seed image (values ≥ mask everywhere)
-/// * `mask` - 8-bpp mask image (lower bound)
+/// * `seed` - 8-bpp seed image
+/// * `mask` - 8-bpp filling mask (lower barrier)
 /// * `connectivity` - 4 or 8-way connectivity
 ///
 /// # See also
 ///
 /// C Leptonica: `pixSeedfillGrayInv()` in `seedfill.c`
 pub fn seedfill_gray_inv(
+    seed: &Pix,
+    mask: &Pix,
+    connectivity: ConnectivityType,
+) -> RegionResult<Pix> {
+    seedfill_gray_inv_impl(seed, mask, connectivity)
+}
+
+/// Shared implementation of the inverse gray seedfill.
+///
+/// Reproduces C `seedfillGrayInvLowSimple` iterated to convergence: each
+/// sweep visits every pixel whose mask value is below 255, takes the max
+/// of itself and the neighbours already visited in that sweep direction,
+/// and writes it back only when that max exceeds the mask. The mask thus
+/// acts as a lower barrier: where the fill cannot rise above it, the seed
+/// value is left alone.
+///
+/// C's `pixSeedfillGrayInv` uses a queue-based hybrid for speed; this port
+/// runs the raster sweeps to convergence instead, which C asserts gives
+/// identical results (`pixSeedfillGrayInvSimple`).
+fn seedfill_gray_inv_impl(
     seed: &Pix,
     mask: &Pix,
     connectivity: ConnectivityType,
@@ -857,105 +883,85 @@ pub fn seedfill_gray_inv(
             actual: mask.depth().bits(),
         });
     }
-
-    let width = seed.width();
-    let height = seed.height();
-
-    if mask.width() != width || mask.height() != height {
+    if seed.width() != mask.width() || seed.height() != mask.height() {
         return Err(RegionError::InvalidParameters(
-            "seed and mask must have the same dimensions".to_string(),
+            "seed and mask sizes differ".into(),
         ));
     }
 
-    // Initialize output: seed clamped to be >= mask (since we propagate downward)
-    let mut output = Pix::new(width, height, PixelDepth::Bit8)
-        .map_err(RegionError::Core)?
-        .try_into_mut()
-        .unwrap_or_else(|p| p.to_mut());
+    let (w, h) = (seed.width(), seed.height());
+    let eight = connectivity == ConnectivityType::EightWay;
+    let mut out = seed.deep_clone().to_mut();
 
-    for y in 0..height {
-        for x in 0..width {
-            let seed_val = seed.get_pixel(x, y).unwrap_or(0);
-            let mask_val = mask.get_pixel(x, y).unwrap_or(0);
-            let _ = output.set_pixel(x, y, seed_val.max(mask_val));
-        }
-    }
+    // C pixSeedfillGrayInvSimple iterates the two sweeps until stable.
+    const MAX_ITERS: u32 = 40;
+    for _ in 0..MAX_ITERS {
+        let mut changed = false;
 
-    // Iterative reconstruction: propagate minimum values, clipped by mask from below
-    let mut changed = true;
-    let mut iterations = 0;
-    const MAX_ITERATIONS: u32 = 10000;
-
-    while changed && iterations < MAX_ITERATIONS {
-        changed = false;
-        iterations += 1;
-
-        // Forward pass
-        for y in 0..height {
-            for x in 0..width {
-                let current = output.get_pixel(x, y).unwrap_or(0);
-                let mask_val = mask.get_pixel(x, y).unwrap_or(0);
-                let mut min_neighbor = current;
-
-                if x > 0 {
-                    min_neighbor = min_neighbor.min(output.get_pixel(x - 1, y).unwrap_or(255));
+        // Forward sweep: neighbours above and to the left.
+        for y in 0..h {
+            for x in 0..w {
+                let maskval = mask.get_pixel_unchecked(x, y);
+                if maskval >= 255 {
+                    continue;
                 }
+                let mut maxval = out.get_pixel_unchecked(x, y);
                 if y > 0 {
-                    min_neighbor = min_neighbor.min(output.get_pixel(x, y - 1).unwrap_or(255));
+                    maxval = maxval.max(out.get_pixel_unchecked(x, y - 1));
                 }
-                if connectivity == ConnectivityType::EightWay {
+                if x > 0 {
+                    maxval = maxval.max(out.get_pixel_unchecked(x - 1, y));
+                }
+                if eight {
                     if x > 0 && y > 0 {
-                        min_neighbor =
-                            min_neighbor.min(output.get_pixel(x - 1, y - 1).unwrap_or(255));
+                        maxval = maxval.max(out.get_pixel_unchecked(x - 1, y - 1));
                     }
-                    if x + 1 < width && y > 0 {
-                        min_neighbor =
-                            min_neighbor.min(output.get_pixel(x + 1, y - 1).unwrap_or(255));
+                    if x + 1 < w && y > 0 {
+                        maxval = maxval.max(out.get_pixel_unchecked(x + 1, y - 1));
                     }
                 }
-
-                let new_val = min_neighbor.max(mask_val);
-                if new_val < current {
-                    let _ = output.set_pixel(x, y, new_val);
+                if maxval > maskval && maxval != out.get_pixel_unchecked(x, y) {
+                    out.set_pixel_unchecked(x, y, maxval);
                     changed = true;
                 }
             }
         }
 
-        // Backward pass
-        for y in (0..height).rev() {
-            for x in (0..width).rev() {
-                let current = output.get_pixel(x, y).unwrap_or(0);
-                let mask_val = mask.get_pixel(x, y).unwrap_or(0);
-                let mut min_neighbor = current;
-
-                if x + 1 < width {
-                    min_neighbor = min_neighbor.min(output.get_pixel(x + 1, y).unwrap_or(255));
+        // Backward sweep: neighbours below and to the right.
+        for y in (0..h).rev() {
+            for x in (0..w).rev() {
+                let maskval = mask.get_pixel_unchecked(x, y);
+                if maskval >= 255 {
+                    continue;
                 }
-                if y + 1 < height {
-                    min_neighbor = min_neighbor.min(output.get_pixel(x, y + 1).unwrap_or(255));
+                let mut maxval = out.get_pixel_unchecked(x, y);
+                if y + 1 < h {
+                    maxval = maxval.max(out.get_pixel_unchecked(x, y + 1));
                 }
-                if connectivity == ConnectivityType::EightWay {
-                    if x + 1 < width && y + 1 < height {
-                        min_neighbor =
-                            min_neighbor.min(output.get_pixel(x + 1, y + 1).unwrap_or(255));
+                if x + 1 < w {
+                    maxval = maxval.max(out.get_pixel_unchecked(x + 1, y));
+                }
+                if eight {
+                    if x + 1 < w && y + 1 < h {
+                        maxval = maxval.max(out.get_pixel_unchecked(x + 1, y + 1));
                     }
-                    if x > 0 && y + 1 < height {
-                        min_neighbor =
-                            min_neighbor.min(output.get_pixel(x - 1, y + 1).unwrap_or(255));
+                    if x > 0 && y + 1 < h {
+                        maxval = maxval.max(out.get_pixel_unchecked(x - 1, y + 1));
                     }
                 }
-
-                let new_val = min_neighbor.max(mask_val);
-                if new_val < current {
-                    let _ = output.set_pixel(x, y, new_val);
+                if maxval > maskval && maxval != out.get_pixel_unchecked(x, y) {
+                    out.set_pixel_unchecked(x, y, maxval);
                     changed = true;
                 }
             }
+        }
+
+        if !changed {
+            break;
         }
     }
 
-    Ok(output.into())
+    Ok(out.into())
 }
 
 /// Binary seedfill restricted to a maximum distance from seed pixels.
@@ -1733,79 +1739,6 @@ fn scan_gray_reconstruct(data: &mut [u8], mask_data: &[u8], w: u32, h: u32, use_
     }
 }
 
-/// Private helper: iterative raster/anti-raster scan with max-propagate (inverse grayscale reconstruction).
-///
-/// Modifies `data` in-place. Pixels where `mask_data[i] == 255` are skipped.
-/// Each pixel is updated to `max(self, causal_neighbors)` only when that max exceeds the mask.
-fn scan_gray_inv_reconstruct(data: &mut [u8], mask_data: &[u8], w: u32, h: u32, use_8: bool) {
-    const MAX_ITERS: u32 = 40;
-    for _ in 0..MAX_ITERS {
-        let prev = data.to_vec();
-
-        // Raster scan (UL -> LR)
-        for y in 0..h {
-            for x in 0..w {
-                let idx = (y * w + x) as usize;
-                let maskval = mask_data[idx];
-                if maskval == 255 {
-                    continue;
-                }
-                let mut maxval = data[idx];
-                if y > 0 {
-                    maxval = maxval.max(data[((y - 1) * w + x) as usize]);
-                }
-                if x > 0 {
-                    maxval = maxval.max(data[(y * w + x - 1) as usize]);
-                }
-                if use_8 {
-                    if x > 0 && y > 0 {
-                        maxval = maxval.max(data[((y - 1) * w + x - 1) as usize]);
-                    }
-                    if x + 1 < w && y > 0 {
-                        maxval = maxval.max(data[((y - 1) * w + x + 1) as usize]);
-                    }
-                }
-                if maxval > maskval {
-                    data[idx] = maxval;
-                }
-            }
-        }
-
-        // Anti-raster scan (LR -> UL)
-        for y in (0..h).rev() {
-            for x in (0..w).rev() {
-                let idx = (y * w + x) as usize;
-                let maskval = mask_data[idx];
-                if maskval == 255 {
-                    continue;
-                }
-                let mut maxval = data[idx];
-                if y + 1 < h {
-                    maxval = maxval.max(data[((y + 1) * w + x) as usize]);
-                }
-                if x + 1 < w {
-                    maxval = maxval.max(data[(y * w + x + 1) as usize]);
-                }
-                if use_8 {
-                    if x + 1 < w && y + 1 < h {
-                        maxval = maxval.max(data[((y + 1) * w + x + 1) as usize]);
-                    }
-                    if x > 0 && y + 1 < h {
-                        maxval = maxval.max(data[((y + 1) * w + x - 1) as usize]);
-                    }
-                }
-                if maxval > maskval {
-                    data[idx] = maxval;
-                }
-            }
-        }
-
-        if data == prev.as_slice() {
-            break;
-        }
-    }
-}
-
 /// Simple iterative grayscale seedfill (morphological reconstruction).
 ///
 /// Performs grayscale morphological reconstruction using sequential
@@ -1877,14 +1810,14 @@ pub fn seedfill_gray_simple(
 
 /// Simple iterative inverse grayscale seedfill.
 ///
-/// Like [`seedfill_gray_simple`], but the mask clips from below rather
-/// than above. Seed values propagate upward (maximized) where they
-/// exceed the mask.
+/// Identical in result to [`seedfill_gray_inv`] — C keeps both entry
+/// points (the other one is queue-accelerated) and asserts they agree,
+/// and this port shares one implementation.
 ///
 /// # Arguments
 ///
 /// * `seed` - 8-bpp seed image
-/// * `mask` - 8-bpp filling mask (lower bound)
+/// * `mask` - 8-bpp filling mask (lower barrier)
 /// * `connectivity` - 4-way or 8-way connectivity
 ///
 /// # See also
@@ -1895,52 +1828,7 @@ pub fn seedfill_gray_inv_simple(
     mask: &Pix,
     connectivity: ConnectivityType,
 ) -> RegionResult<Pix> {
-    if seed.depth() != PixelDepth::Bit8 {
-        return Err(RegionError::UnsupportedDepth {
-            expected: "8-bit",
-            actual: seed.depth().bits(),
-        });
-    }
-    if mask.depth() != PixelDepth::Bit8 {
-        return Err(RegionError::UnsupportedDepth {
-            expected: "8-bit",
-            actual: mask.depth().bits(),
-        });
-    }
-
-    let w = seed.width();
-    let h = seed.height();
-    if mask.width() != w || mask.height() != h {
-        return Err(RegionError::InvalidParameters(
-            "seed and mask must have the same dimensions".to_string(),
-        ));
-    }
-
-    // Initialize output: seed clamped to be >= mask
-    let mut data = vec![0u8; (w * h) as usize];
-    let mut mask_data = vec![0u8; (w * h) as usize];
-    for y in 0..h {
-        for x in 0..w {
-            let sv = seed.get_pixel(x, y).unwrap_or(0) as u8;
-            let mv = mask.get_pixel(x, y).unwrap_or(0) as u8;
-            let idx = (y * w + x) as usize;
-            data[idx] = sv.max(mv);
-            mask_data[idx] = mv;
-        }
-    }
-
-    let use_8 = connectivity == ConnectivityType::EightWay;
-    scan_gray_inv_reconstruct(&mut data, &mask_data, w, h, use_8);
-
-    let out = Pix::new(w, h, PixelDepth::Bit8).map_err(RegionError::Core)?;
-    let mut out_mut = out.try_into_mut().unwrap();
-    for y in 0..h {
-        for x in 0..w {
-            out_mut.set_pixel_unchecked(x, y, data[(y * w + x) as usize] as u32);
-        }
-    }
-
-    Ok(out_mut.into())
+    seedfill_gray_inv_impl(seed, mask, connectivity)
 }
 
 /// Grayscale basin filling with delta above the mask.
