@@ -276,7 +276,27 @@ codec 差なしで主要変換 9 種を一挙に検証できる:
 - smallpix 9 ペア **全件 Ok (Ok 124 → 133)**。transform binary が
   Ok 4 → 13 になり、主要変換 9 種の C 等価性を実証
 
-### PR 15 以降: semantic マッピングの漸進追加
+### PR 15: translate / shear2 整列 — transform の残り lossless (IN_PROGRESS)
+
+C 版ソース: `prog/translate_reg.c` / `prog/shear2_reg.c`、
+`src/rop.c` / `src/warper.c`。
+
+PR 14 で `display_tiled_in_columns` を移植し、両 prog の前提が揃った。
+どちらも全出力が PNG で、入力は lossless (weasel2.4c.png) または完全合成。
+
+| C prog | 出力 | 入力 | 使用関数 |
+| --- | --: | --- | --- |
+| translate | 3 | weasel2.4c.png | pixTranslate x 4 種 x 深度別 |
+| shear2 | 4 | 合成 (RenderLineArb) | pixQuadraticVShear (sampled/interp) |
+
+作業内容:
+
+1. translate_c テスト: C と同条件 (3x sampling → clip 209x214、
+   cmap 除去 2 種 + 1bpp 化 + rotate_am 4 種) で 3 出力
+2. shear2_c テスト: C と同条件 (301/601 の合成 RGB に 6 本の色線、
+   sampled/interp x left/right、border 3 + textblock) で 4 出力
+
+### PR 16 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
