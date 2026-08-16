@@ -419,7 +419,7 @@ graymorph1.18.png	30b9cd78569f8b93
 graymorph1.21.png	f0bf0443c990972b
 hardlight_color.03.png	281943cdfdbdf537
 hardlight_gray.03.png	3152a69afc6e4c40
-hardlight_orig.03.png	4b75beb05c1cfc9a
+hardlight_orig.03.png	d404d6e21d903a89
 hash.04.tif	5e6de61a46a887d8
 hash.06.tif	5e6de61a46a887d8
 hash.08.tif	3c1631dedc785bd8
@@ -470,11 +470,11 @@ lineremoval_morph.03.png	75e5ba2f861cdc3e
 lineremoval_morph.06.png	fc8919170aa50eab
 lineremoval_pipe.03.png	c8d9ac4cf5a3e493
 logicops_invert.03.tif	2fd7502f5f315b39
-multitype_affine.13.png	fc5cec9cc60d3d5c
-multitype_bilinear.13.png	7193594b9b90a957
-multitype_projective.13.png	e71b1c9ab1375894
-multitype_rotate.11.png	c67432d4578642e4
-multitype_scale.15.png	c9d53e149971375f
+multitype_affine.13.png	4f1ee754f2651fe8
+multitype_bilinear.13.png	7d7be38cae72e408
+multitype_projective.13.png	e9449302d5b1726f
+multitype_rotate.11.png	26811882472cd3fc
+multitype_scale.15.png	5acb94f75d497ae5
 newspaper_lines.03.tif	110dbc79418357ed
 newspaper_removal.05.tif	eacb2c7b194ebbed
 newspaper_scale.03.png	305f9d43d0f66b33
@@ -567,7 +567,7 @@ rotateorth.16.png	4e0162ba6433c1f6
 rotateorth.28.png	bcc1922c2afc4e9a
 scale.03.png	6f29584fc6b18824
 scale.06.png	018b9de25103953d
-scale.09.png	659231111c5a8dcd
+scale.09.png	25ccc27d0749f008
 scale.16.png	06dab1f73264af7d
 scale.22.png	e03d45f20ae6ef39
 scale.24.png	a050038134b26386
@@ -662,5 +662,5 @@ writetext_setline.01.png	5ed9a5b9156de512
 xformbox_c.01.png	28993e9a4de8e97a
 xformbox_c.02.png	0d3e996267f3a878
 xformbox_c.03.png	28e411c8fcfdbdd6
-xformbox_c.04.png	f036ee328e790bc3
-xformbox_c.05.png	f5e7d000f1fac774
+xformbox_c.04.png	f34ba323f1c18c8c
+xformbox_c.05.png	3500a61b4aed61f4
