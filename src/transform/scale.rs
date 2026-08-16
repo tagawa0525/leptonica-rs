@@ -74,7 +74,7 @@ pub fn scale(pix: &Pix, scale_x: f32, scale_y: f32, method: ScaleMethod) -> Tran
     match method {
         ScaleMethod::Sampling => scale_by_sampling_impl(pix, new_w, new_h),
         ScaleMethod::Linear => scale_linear(pix, new_w, new_h),
-        ScaleMethod::AreaMap => scale_area_map(pix, scale_x, scale_y, new_w, new_h),
+        ScaleMethod::AreaMap => scale_area_map_impl(pix, scale_x, scale_y, new_w, new_h),
         ScaleMethod::Auto => unreachable!(),
     }
 }
@@ -211,7 +211,7 @@ pub fn scale_area_map_to_size(pix: &Pix, wd: u32, hd: u32) -> TransformResult<Pi
     };
     let new_w = ((w as f32) * sx).round() as u32;
     let new_h = ((h as f32) * sy).round() as u32;
-    scale_area_map(pix, sx, sy, new_w.max(1), new_h.max(1))
+    scale_area_map_impl(pix, sx, sy, new_w.max(1), new_h.max(1))
 }
 
 /// Fast 2× area mapping downscale.
@@ -595,7 +595,7 @@ pub fn scale_general(
         } else {
             let new_w = ((pix.width() as f32) * scale_x).round() as u32;
             let new_h = ((pix.height() as f32) * scale_y).round() as u32;
-            scale_area_map(pix, scale_x, scale_y, new_w.max(1), new_h.max(1))
+            scale_area_map_impl(pix, scale_x, scale_y, new_w.max(1), new_h.max(1))
         }
     } else {
         // Linear interpolation
@@ -739,7 +739,7 @@ pub fn scale_smooth(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pi
             scale_smooth_gray(pix, scale_x, scale_y, new_w, new_h, isize)
         }
         PixelDepth::Bit32 => scale_smooth_color(pix, scale_x, scale_y, new_w, new_h, isize),
-        _ => scale_area_map(pix, scale_x, scale_y, new_w, new_h),
+        _ => scale_area_map_impl(pix, scale_x, scale_y, new_w, new_h),
     }
 }
 
@@ -1839,8 +1839,83 @@ fn interpolate_channel(c00: u8, c10: u8, c01: u8, c11: u8, fx: f32, fy: f32) -> 
     result.round().clamp(0.0, 255.0) as u8
 }
 
+/// Downscale by area mapping, dispatching exactly like C.
+///
+/// Area mapping averages each destination pixel over the corresponding
+/// source rectangle, which suppresses aliasing on strong reductions. C
+/// restricts it to that regime and falls back elsewhere:
+///
+/// - `min(sx, sy) < 0.02` — too small; delegates to [`scale_smooth`]
+/// - `max(sx, sy) >= 0.7` — too large; delegates to regular scaling
+/// - exactly 1/2, 1/4, 1/8 or 1/16 — repeated [`scale_area_map_2`]
+///
+/// Colormaps are removed and 2/4 bpp is promoted to 8 bpp first.
+///
+/// # See also
+///
+/// C Leptonica: `pixScaleAreaMap()` in `scale1.c`
+pub fn scale_area_map(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
+    let d = pix.depth();
+    if matches!(d, PixelDepth::Bit1 | PixelDepth::Bit16) {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "scale_area_map does not support {d:?}"
+        )));
+    }
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({scale_x}, {scale_y})"
+        )));
+    }
+
+    if scale_x.min(scale_y) < 0.02 {
+        // Too small for area mapping.
+        return scale_smooth(pix, scale_x, scale_y);
+    }
+    if scale_x.max(scale_y) >= 0.7 {
+        // Too large for area mapping.
+        return scale_general(pix, scale_x, scale_y, 0.0, 0);
+    }
+
+    // Special cases: 2x, 4x, 8x, 16x reduction.
+    if scale_x == scale_y {
+        let reps = match scale_x {
+            0.5 => 1,
+            0.25 => 2,
+            0.125 => 3,
+            0.0625 => 4,
+            _ => 0,
+        };
+        if reps > 0 {
+            let mut out = scale_area_map_2(pix)?;
+            for _ in 1..reps {
+                out = scale_area_map_2(&out)?;
+            }
+            return Ok(out);
+        }
+    }
+
+    // Remove colormap if necessary; promote 2/4 bpp gray to 8 bpp.
+    let src = if pix.has_colormap() {
+        pix.remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)?
+    } else if matches!(d, PixelDepth::Bit2 | PixelDepth::Bit4) {
+        pix.convert_to_8()?
+    } else {
+        pix.clone()
+    };
+
+    // C: wd = (l_int32)(scalex * ws + 0.5)
+    let wd = (scale_x * src.width() as f32 + 0.5) as u32;
+    let hd = (scale_y * src.height() as f32 + 0.5) as u32;
+    if wd < 1 || hd < 1 {
+        return Err(TransformError::InvalidScaleFactor(
+            "resulting dimensions would be zero".to_string(),
+        ));
+    }
+    scale_area_map_impl(&src, scale_x, scale_y, wd, hd)
+}
+
 /// Scale using area mapping (for downscaling with anti-aliasing)
-fn scale_area_map(
+fn scale_area_map_impl(
     pix: &Pix,
     scale_x: f32,
     scale_y: f32,

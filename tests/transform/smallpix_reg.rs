@@ -194,3 +194,75 @@ fn smallpix_reg_missing_methods() {
     // pixRotateBySampling: only private implementation
     // pixRotateAMCorner: same as rotate_am_corner above (C test check 5)
 }
+
+// ==========================================================================
+// C-compatible transform entry points (plan 902 PR 14)
+// ==========================================================================
+
+/// The C-named rotate/scale entry points must follow C's dispatch rules.
+#[test]
+fn smallpix_c_entry_points_follow_c_dispatch() {
+    use leptonica::transform::{
+        rotate_am, rotate_am_color_fast, rotate_by_sampling, scale_area_map,
+    };
+
+    let pix32 = make_test_pattern();
+
+    // pixRotateAM rejects 1 bpp and returns a copy below the angle threshold.
+    let pix1 = Pix::new(9, 9, PixelDepth::Bit1).unwrap();
+    assert!(rotate_am(&pix1, 0.2, RotateFill::Black).is_err());
+    let same = rotate_am(&pix32, 0.0, RotateFill::Black).unwrap();
+    assert_eq!(same.get_pixel(4, 4), pix32.get_pixel(4, 4));
+
+    // pixRotateAM promotes sub-8bpp to 8bpp.
+    let pix4 = Pix::new(9, 9, PixelDepth::Bit4).unwrap();
+    let out = rotate_am(&pix4, 0.2, RotateFill::Black).unwrap();
+    assert_eq!(out.depth(), PixelDepth::Bit8);
+    assert_eq!((out.width(), out.height()), (9, 9));
+
+    // pixRotateBySampling works on 1 bpp (no interpolation) and keeps depth.
+    let out = rotate_by_sampling(&pix1, 4, 4, 0.2, RotateFill::White).unwrap();
+    assert_eq!(out.depth(), PixelDepth::Bit1);
+    // A half-turn about the centre maps the cross onto itself.
+    let half_turn =
+        rotate_by_sampling(&pix32, 4, 4, std::f32::consts::PI, RotateFill::Black).unwrap();
+    for y in 0..9 {
+        for x in 0..9 {
+            assert_eq!(
+                half_turn.get_pixel(x, y),
+                pix32.get_pixel(8 - x, 8 - y),
+                "half turn at ({x}, {y})"
+            );
+        }
+    }
+
+    // pixRotateAMColorFast is 32bpp-only and leaves the alpha byte 0 on
+    // interpolated pixels.
+    assert!(rotate_am_color_fast(&pix4, 0.2, RotateFill::Black).is_err());
+    let fast = rotate_am_color_fast(&pix32, 0.2, RotateFill::Black).unwrap();
+    assert_eq!((fast.width(), fast.height()), (9, 9));
+    for y in 0..9 {
+        for x in 0..9 {
+            assert_eq!(
+                fast.get_pixel(x, y).unwrap() & 0xff,
+                0,
+                "alpha byte must stay 0 at ({x}, {y})"
+            );
+        }
+    }
+
+    // pixScaleAreaMap dispatch: >= 0.7 falls through to regular scaling,
+    // exact 1/2 powers use repeated 2x reduction, 1bpp is rejected.
+    assert!(scale_area_map(&pix1, 0.5, 0.5).is_err());
+    let big = expand_replicate(&pix32, 8).expect("expand 8x"); // 72x72
+    let half = scale_area_map(&big, 0.5, 0.5).unwrap();
+    assert_eq!((half.width(), half.height()), (36, 36));
+    let quarter = scale_area_map(&big, 0.25, 0.25).unwrap();
+    assert_eq!((quarter.width(), quarter.height()), (18, 18));
+    // 0.3 is the general path: wd = (int)(0.3 * 72 + 0.5) = 22.
+    let general = scale_area_map(&big, 0.3, 0.3).unwrap();
+    assert_eq!((general.width(), general.height()), (22, 22));
+    // >= 0.7 delegates to regular scaling, which rounds instead.
+    let large = scale_area_map(&big, 0.8, 0.8).unwrap();
+    assert_eq!((large.width(), large.height()), (58, 58));
+}

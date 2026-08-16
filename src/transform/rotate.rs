@@ -1728,6 +1728,253 @@ fn rotate_3_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
     }
 }
 
+// ============================================================================
+// C-compatible center rotations (pixRotateAM / pixRotateBySampling /
+// pixRotateAMColorFast)
+// ============================================================================
+
+/// Rotate about the image center by area mapping.
+///
+/// Colormaps are removed and depths below 8 bpp are promoted to 8 bpp, as
+/// in C. 1 bpp input is rejected (use [`rotate_by_sampling`] instead).
+///
+/// # See also
+///
+/// C Leptonica: `pixRotateAM()` in `rotateam.c`
+pub fn rotate_am(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if pix.depth() == PixelDepth::Bit1 {
+        return Err(TransformError::UnsupportedDepth("1 bpp".to_string()));
+    }
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    // C: pixRemoveColormap(REMOVE_CMAP_BASED_ON_SRC), then promote to 8 bpp.
+    let src = if pix.has_colormap() {
+        pix.remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)?
+    } else {
+        pix.clone()
+    };
+    let src = if src.depth().bits() < 8 {
+        src.convert_to_8()?
+    } else {
+        src
+    };
+
+    match src.depth() {
+        PixelDepth::Bit8 => rotate_am_gray(&src, angle, fill),
+        PixelDepth::Bit32 => rotate_am_color(&src, angle, fill),
+        d => Err(TransformError::UnsupportedDepth(format!("{d:?}"))),
+    }
+}
+
+/// Rotate a 32 bpp image about its center by area mapping.
+///
+/// # See also
+///
+/// C Leptonica: `pixRotateAMColor()` in `rotateam.c`
+pub fn rotate_am_color(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let (w, h) = (pix.width(), pix.height());
+    let out = Pix::new(w, h, PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    // C uses xcen = w / 2 (integer division) for both source and dest.
+    let (cx, cy) = ((w / 2) as f32, (h / 2) as f32);
+    rotate_area_map_color(
+        pix,
+        &mut out_mut,
+        angle.cos(),
+        angle.sin(),
+        cx,
+        cy,
+        cx,
+        cy,
+        fill.to_value(PixelDepth::Bit32),
+    );
+    Ok(out_mut.into())
+}
+
+/// Rotate an 8 bpp image about its center by area mapping.
+///
+/// # See also
+///
+/// C Leptonica: `pixRotateAMGray()` in `rotateam.c`
+pub fn rotate_am_gray(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let (w, h) = (pix.width(), pix.height());
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    let (cx, cy) = ((w / 2) as f32, (h / 2) as f32);
+    rotate_area_map_gray(
+        pix,
+        &mut out_mut,
+        angle.cos(),
+        angle.sin(),
+        cx,
+        cy,
+        cx,
+        cy,
+        fill.to_value(PixelDepth::Bit8) as u8,
+    );
+    Ok(out_mut.into())
+}
+
+/// Rotate about an arbitrary center by sampling (nearest neighbour).
+///
+/// Works for every depth, including 1 bpp and colormapped images, since no
+/// pixel values are interpolated.
+///
+/// # See also
+///
+/// C Leptonica: `pixRotateBySampling()` in `rotate.c`
+pub fn rotate_by_sampling(
+    pix: &Pix,
+    xcen: i32,
+    ycen: i32,
+    angle: f32,
+    fill: RotateFill,
+) -> TransformResult<Pix> {
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let (w, h) = (pix.width(), pix.height());
+    let depth = pix.depth();
+    let out = Pix::new(w, h, depth)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+    if let Some(cmap) = pix.colormap() {
+        out_mut.set_colormap(Some(cmap.clone()))?;
+    }
+    // C pixSetBlackOrWhite fills the whole dest before sampling.
+    let fill_value = fill.to_value(depth);
+    for y in 0..h {
+        for x in 0..w {
+            out_mut.set_pixel_unchecked(x, y, fill_value);
+        }
+    }
+
+    rotate_by_sampling_impl(
+        pix,
+        &mut out_mut,
+        angle.cos(),
+        angle.sin(),
+        xcen as f32,
+        ycen as f32,
+        xcen as f32,
+        ycen as f32,
+        fill_value,
+    );
+    Ok(out_mut.into())
+}
+
+/// Rotate a 32 bpp image about its center using 2-bit subpixel sampling.
+///
+/// About 20% faster than [`rotate_am_color`] with slightly coarser
+/// interpolation: positions are quantized to quarter pixels and the four
+/// neighbours are averaged with the corresponding integer weights.
+///
+/// Note the alpha byte of interpolated pixels is set to 0, matching C.
+///
+/// # See also
+///
+/// C Leptonica: `pixRotateAMColorFast()` in `rotateam.c`
+pub fn rotate_am_color_fast(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "{:?}",
+            pix.depth()
+        )));
+    }
+    if angle.abs() < MIN_ANGLE_TO_ROTATE {
+        return Ok(pix.deep_clone());
+    }
+
+    let w = pix.width() as i32;
+    let h = pix.height() as i32;
+    let colorval = fill.to_value(PixelDepth::Bit32);
+    let out = Pix::new(pix.width(), pix.height(), PixelDepth::Bit32)?;
+    let mut out_mut = out.try_into_mut().unwrap();
+
+    let xcen = w / 2;
+    let ycen = h / 2;
+    let wm2 = w - 2;
+    let hm2 = h - 2;
+    // C scales sin/cos by 4: two fractional bits.
+    let sina = 4.0 * angle.sin();
+    let cosa = 4.0 * angle.cos();
+
+    for i in 0..h {
+        let ydif = (ycen - i) as f32;
+        for j in 0..w {
+            let xdif = (xcen - j) as f32;
+            let xpm = (-xdif * cosa - ydif * sina) as i32;
+            let ypm = (-ydif * cosa + xdif * sina) as i32;
+            let xp = xcen + (xpm >> 2);
+            let yp = ycen + (ypm >> 2);
+            let xf = xpm & 0x03;
+            let yf = ypm & 0x03;
+
+            if xp < 0 || yp < 0 || xp > wm2 || yp > hm2 {
+                out_mut.set_pixel_unchecked(j as u32, i as u32, colorval);
+                continue;
+            }
+
+            let v00 = pix.get_pixel_unchecked(xp as u32, yp as u32);
+            if xf == 0 && yf == 0 {
+                // C case 0 copies the source word verbatim (alpha included).
+                out_mut.set_pixel_unchecked(j as u32, i as u32, v00);
+                continue;
+            }
+            let v10 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32);
+            let v01 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32);
+            let v11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32);
+
+            // Weights over a 4x4 subpixel grid, summing to 16. C spells out
+            // all 16 cases with pre-divided weights; the results are equal.
+            let w00 = (4 - xf) * (4 - yf);
+            let w10 = xf * (4 - yf);
+            let w01 = (4 - xf) * yf;
+            let w11 = xf * yf;
+            let mix = |c00: u8, c10: u8, c01: u8, c11: u8| -> u8 {
+                ((w00 * c00 as i32 + w10 * c10 as i32 + w01 * c01 as i32 + w11 * c11 as i32) / 16)
+                    as u8
+            };
+            let (r00, g00, b00, _) = pixel::extract_rgba(v00);
+            let (r10, g10, b10, _) = pixel::extract_rgba(v10);
+            let (r01, g01, b01, _) = pixel::extract_rgba(v01);
+            let (r11, g11, b11, _) = pixel::extract_rgba(v11);
+            // C composes only the three colour bytes, leaving alpha 0.
+            let val = pixel::compose_rgba(
+                mix(r00, r10, r01, r11),
+                mix(g00, g10, g01, g11),
+                mix(b00, b10, b01, b11),
+                0,
+            );
+            out_mut.set_pixel_unchecked(j as u32, i as u32, val);
+        }
+    }
+
+    Ok(out_mut.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
