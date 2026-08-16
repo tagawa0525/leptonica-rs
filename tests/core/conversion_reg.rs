@@ -523,7 +523,6 @@ fn render_pta_color_uses_colormap() {
 /// count: 2 bpp for up to 4 colours, 4 bpp for up to 16, else 8 bpp.
 /// Always emitting 8 bpp changes the raster even when the colours match.
 #[test]
-#[ignore = "not yet implemented: convert_rgb_to_colormap always emits 8bpp"]
 fn conversion_rgb_to_colormap_picks_depth() {
     let make = |colors: &[(u8, u8, u8)]| -> leptonica::Pix {
         let p = leptonica::Pix::new(colors.len() as u32, 1, PixelDepth::Bit32).unwrap();
