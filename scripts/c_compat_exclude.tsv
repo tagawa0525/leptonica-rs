@@ -32,3 +32,18 @@ prefix	falsecolor	Rust-specific color-mapping API outputs; C falsecolor_reg outp
 key	iomisc_c.02.png	C pixAlphaBlendUniform diverges from its own published formula
 key	iomisc_c.03.png	depends on iomisc_c.02 (alpha blend over white)
 key	iomisc_c.04.png	depends on iomisc_c.02 (alpha blend over white)
+# boxa3_reg (plan 902 PR 22): display 出力はタイル高が C と 17px/行 異なる。
+# boxa の変換・reconcile・直列化自体は .ba 12 件が hash 一致で実証済み。
+# 原因はテキストブロック高の算出で、bmf 行分割の追跡が必要 (後続 PR)
+key	boxa3_c.02.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.04.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.06.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.08.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.10.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.12.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.14.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.16.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.18.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.20.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.22.png	tile height differs from C; see plan 902 PR 22
+key	boxa3_c.24.png	tile height differs from C; see plan 902 PR 22

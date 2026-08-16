@@ -339,3 +339,17 @@ io	iomisc	6	iomisc_c	1	alpha channel of books_logo.png
 io	iomisc	14	iomisc_c	5	convert_rgb_to_colormap
 io	iomisc	15	iomisc_c	6	remove_colormap of weasel4.5g
 io	iomisc	16	iomisc_c	7	convert_gray_to_colormap
+
+# boxa3_reg.c (plan 902 PR 22): boxap*.ba scaling and median reconciliation
+core	boxa3	0	boxa3_c	1	boxap1 scaled (serialized)
+core	boxa3	5	boxa3_c	3	boxap1 reconcile width (serialized)
+core	boxa3	7	boxa3_c	5	boxap1 reconcile height (serialized)
+core	boxa3	9	boxa3_c	7	boxap1 reconcile both (serialized)
+core	boxa3	11	boxa3_c	9	boxap2 scaled (serialized)
+core	boxa3	16	boxa3_c	11	boxap2 reconcile width (serialized)
+core	boxa3	18	boxa3_c	13	boxap2 reconcile height (serialized)
+core	boxa3	20	boxa3_c	15	boxap2 reconcile both (serialized)
+core	boxa3	22	boxa3_c	17	boxap3 scaled (serialized)
+core	boxa3	27	boxa3_c	19	boxap3 reconcile width (serialized)
+core	boxa3	29	boxa3_c	21	boxap3 reconcile height (serialized)
+core	boxa3	31	boxa3_c	23	boxap3 reconcile both (serialized)

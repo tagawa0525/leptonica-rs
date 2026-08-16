@@ -61,3 +61,68 @@ fn boxa3_reg() {
 
     assert!(rp.cleanup(), "boxa3 regression test failed");
 }
+
+/// C-comparable boxa reconciliation series (plan 902 PR 22).
+///
+/// Mirrors C boxa3_reg's `TestBoxa` for the three `boxap*.ba` inputs:
+/// scale each boxa so its extent is 100 wide, serialize it, tile it with
+/// the C-signature `display_tiled`, then do the same for the three
+/// `reconcile_size_by_median` variants.
+#[test]
+fn boxa3_c_compat() {
+    use leptonica::TransformOrder;
+    use leptonica::core::box_::Boxa;
+    use leptonica::core::box_::smooth::CheckType;
+    use leptonica::io::ImageFormat;
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("boxa3_c");
+
+    for name in ["boxap1", "boxap2", "boxap3"] {
+        let path = format!("{}/tests/data/{name}.ba", env!("CARGO_MANIFEST_DIR"));
+        let boxa1 = Boxa::read_from_file(&path).expect("read boxa");
+
+        // C: scalefact = 100 / extent_width, then boxaTransform(0, 0, s, s)
+        let (w, _, _) = boxa1.get_extent().expect("extent");
+        let scalefact = 100.0 / w as f32;
+        let boxa2 = boxa1.transform_ordered(
+            0,
+            0,
+            scalefact,
+            scalefact,
+            0,
+            0,
+            0.0,
+            TransformOrder::TrScRo,
+        );
+
+        let data = boxa2.write_to_bytes().expect("serialize boxa2");
+        rp.write_data_and_check(&data, "ba")
+            .expect("check: scaled boxa");
+        let tiled = boxa2
+            .display_tiled(None, 0, -1, 2200, 2, 1.0, 0, 3, 2)
+            .expect("display_tiled");
+        rp.write_pix_and_check(&tiled, ImageFormat::Png)
+            .expect("check: scaled boxa display");
+
+        // C: three reconcile_size_by_median variants
+        for check in [CheckType::Width, CheckType::Height, CheckType::Both] {
+            let boxa3 = boxa2
+                .reconcile_size_by_median(check, 0.05, 0.04, 1.03)
+                .expect("reconcile_size_by_median");
+            let data = boxa3.write_to_bytes().expect("serialize boxa3");
+            rp.write_data_and_check(&data, "ba")
+                .expect("check: reconciled boxa");
+            let tiled = boxa3
+                .display_tiled(None, 0, -1, 2200, 2, 1.0, 0, 3, 2)
+                .expect("display_tiled reconciled");
+            rp.write_pix_and_check(&tiled, ImageFormat::Png)
+                .expect("check: reconciled boxa display");
+        }
+    }
+
+    assert!(rp.cleanup(), "boxa3 c-compat test failed");
+}
