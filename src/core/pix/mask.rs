@@ -398,9 +398,10 @@ impl Pix {
     /// C reaches the mask through an intermediate 8 bpp gray image
     /// (`pixConvertRGBToGrayArb`), so the weighted sum is **truncated to an
     /// integer and clipped to `[0, 255]`** before the comparison, and the
-    /// threshold itself is truncated to an integer. Both quantizations are
-    /// reproduced here: a pixel is ON iff
-    /// `clip(trunc(rc*R + gc*G + bc*B), 0, 255) >= trunc(thresh) + 1`.
+    /// threshold reaches `pixThresholdToBinary` as an `l_int32`, so
+    /// `thresh + 1` is truncated *after* the increment. Both quantizations
+    /// are reproduced here: a pixel is ON iff
+    /// `clip(trunc(rc*R + gc*G + bc*B), 0, 255) >= trunc(thresh + 1)`.
     ///
     /// `thresh` is clamped to 254.0 to avoid 8 bit overflow, as in C.
     ///
@@ -415,9 +416,11 @@ impl Pix {
 
         // C: `if (thresh >= 255.0) thresh = 254.0;` then
         // `pixThresholdToBinary(pix1, thresh + 1)` with an l_int32 parameter,
-        // so the float threshold is truncated on the call.
+        // so the increment happens in float and the *sum* is truncated on
+        // the call. Truncating before the increment would differ for
+        // fractional negative thresholds (thresh = -0.2 gives 0, not 1).
         let thresh = if thresh >= 255.0 { 254.0 } else { thresh };
-        let cutoff = thresh as i32 + 1;
+        let cutoff = (thresh + 1.0) as i32;
 
         let w = self.width();
         let h = self.height();
@@ -1152,6 +1155,23 @@ mod tests {
         // gray value of 255 is still ON.
         let mask2 = pix.make_arb_mask_from_rgb(1.0, 1.0, 1.0, 300.0).unwrap();
         assert_eq!(mask2.get_pixel(1, 0).unwrap(), 1);
+    }
+
+    /// C passes `thresh + 1` to `pixThresholdToBinary`, whose parameter is
+    /// an `l_int32`, so the truncation happens after the increment. For
+    /// `thresh = -0.2` the cutoff is therefore `trunc(0.8) = 0`, not
+    /// `trunc(-0.2) + 1 = 1`, and a pixel with a clipped gray value of 0
+    /// is ON.
+    #[test]
+    fn test_make_arb_mask_from_rgb_truncates_threshold_after_increment() {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // 1.0*0 + 1.0*0 + 1.0*0 = 0, i.e. the lowest possible gray value.
+        pm.set_pixel_unchecked(0, 0, crate::core::pixel::compose_rgba(0, 0, 0, 0));
+        let pix: Pix = pm.into();
+
+        let mask = pix.make_arb_mask_from_rgb(1.0, 1.0, 1.0, -0.2).unwrap();
+        assert_eq!(mask.get_pixel(0, 0).unwrap(), 1);
     }
 
     /// C rejects coefficients that are all non-positive, because the gray
