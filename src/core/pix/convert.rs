@@ -154,8 +154,37 @@ impl Pix {
     /// # See also
     ///
     /// C Leptonica: `pixConvertTo1()` in `pixconv.c`
-    pub fn convert_to_1(&self, _threshold: u8) -> Result<Pix> {
-        Err(Error::InvalidParameter("not yet implemented".to_string()))
+    pub fn convert_to_1(&self, threshold: u8) -> Result<Pix> {
+        if self.depth() == PixelDepth::Bit1 {
+            let Some(cmap) = self.colormap() else {
+                return Ok(self.deep_clone());
+            };
+            // Strip the colormap, inverting when index 1 is the lighter
+            // colour so that 1 means black.
+            let sum = |i: usize| {
+                cmap.get_rgb(i)
+                    .map(|(r, g, b)| r as u32 + g as u32 + b as u32)
+                    .unwrap_or(0)
+            };
+            let invert = sum(1) > sum(0);
+            let mut out = self.deep_clone().to_mut();
+            out.set_colormap(None)?;
+            let out: Pix = out.into();
+            return Ok(if invert { out.invert() } else { out });
+        }
+
+        // All other depths go through 8 bpp (which removes any colormap).
+        let gray = self.convert_to_8()?;
+        let (w, h) = (gray.width(), gray.height());
+        let out = Pix::new(w, h, PixelDepth::Bit1)?;
+        let mut out_mut = out.try_into_mut().unwrap();
+        for y in 0..h {
+            for x in 0..w {
+                let val = gray.get_pixel_unchecked(x, y) as u8;
+                out_mut.set_pixel_unchecked(x, y, u32::from(val < threshold));
+            }
+        }
+        Ok(out_mut.into())
     }
 
     pub fn convert_to_8(&self) -> Result<Pix> {

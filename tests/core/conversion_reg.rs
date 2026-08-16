@@ -322,7 +322,6 @@ fn conversion_to_8_applies_colormap() {
 /// inverted when index 1 is the lighter colour, so the result follows
 /// the standard binary photometry (1 = black).
 #[test]
-#[ignore = "not yet implemented: convert_to_1 does not exist"]
 fn conversion_to_1_matches_c() {
     use leptonica::core::{PixColormap, RgbaQuad};
 
