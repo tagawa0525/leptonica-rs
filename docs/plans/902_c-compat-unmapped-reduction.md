@@ -276,7 +276,7 @@ codec 差なしで主要変換 9 種を一挙に検証できる:
 - smallpix 9 ペア **全件 Ok (Ok 124 → 133)**。transform binary が
   Ok 4 → 13 になり、主要変換 9 種の C 等価性を実証
 
-### PR 15: translate / shear2 整列 — transform の残り lossless (IN_PROGRESS)
+### PR 15: translate / shear2 整列 — transform の残り lossless (実施済み)
 
 C 版ソース: `prog/translate_reg.c` / `prog/shear2_reg.c`、
 `src/rop.c` / `src/warper.c`。
@@ -295,6 +295,19 @@ PR 14 で `display_tiled_in_columns` を移植し、両 prog の前提が揃っ�
    cmap 除去 2 種 + 1bpp 化 + rotate_am 4 種) で 3 出力
 2. shear2_c テスト: C と同条件 (301/601 の合成 RGB に 6 本の色線、
    sampled/interp x left/right、border 3 + textblock) で 4 出力
+
+実施結果:
+
+- **cmapped 経路の実装差 4 件 (18-21 件目) を発見・修正**:
+  (18) convert_to_8 が colormap を無視 (8bpp cmapped を deep copy)、
+  (19) **clip_rectangle が colormap を落とす** — 以降の
+  remove_colormap / convert_* が全て無効化される根本原因、
+  (20) rasterop_hip/vip の cmapped 充填が生値 (0 / max) で
+  get_rank_intensity の index を使っていない、
+  (21) 32bpp warp の白充填が 0xffffff00 (C は pixSetAll = 0xffffffff)
+- あわせて convert_to_1 (C pixConvertTo1) を新規実装
+- translate 3 ペア + shear2 4 ペア **全件 Ok (Ok 133 → 140)**。
+  transform binary は Ok 13 → 20
 
 ### PR 16 以降: semantic マッピングの漸進追加
 
