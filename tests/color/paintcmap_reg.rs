@@ -14,7 +14,6 @@ use leptonica::core::{Pix, PixColormap, PixelDepth, RgbaQuad};
 /// the *pixels* that held `old_index`; the original entry is left alone, so
 /// other pixels using index 1 keep their old colour.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_select() {
     use leptonica::color::paintcmap::pix_set_select_cmap;
 
@@ -43,7 +42,6 @@ fn paintcmap_set_select() {
 
 /// An already-present colour is reused rather than appended again.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_select_reuses_existing_color() {
     use leptonica::color::paintcmap::pix_set_select_cmap;
 

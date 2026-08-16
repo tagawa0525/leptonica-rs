@@ -21,16 +21,19 @@ fn check_colormapped(pix: &PixMut) -> ColorResult<()> {
     Ok(())
 }
 
-/// Repaint selected colormap entries in a region.
+/// Repaint the pixels of one colormap index inside a region.
 ///
-/// Pixels in the specified region that have color index `old_index` are
-/// changed to the `new_color`. The colormap is updated if necessary.
+/// Pixels in `region` whose index is `old_index` are given the index of
+/// `new_color` instead. The colour is looked up in the colormap first and
+/// only appended when it is not already present, so existing entries are
+/// never overwritten and pixels **outside** the region keep `old_index`.
 ///
 /// # Arguments
 ///
-/// * `pix` - Colormapped image (mutable)
-/// * `region` - Optional bounding box (None for entire image)
-/// * `old_index` - Colormap index to replace
+/// * `pix` - Colormapped image of depth 1, 2, 4 or 8 (mutable)
+/// * `region` - Optional bounding box (None for entire image); clipped to
+///   the image
+/// * `old_index` - Colormap index whose pixels are repainted
 /// * `new_color` - Replacement RGB color
 ///
 /// # Reference
@@ -43,23 +46,55 @@ pub fn pix_set_select_cmap(
     new_color: (u8, u8, u8),
 ) -> ColorResult<()> {
     check_colormapped(pix)?;
+    let d = pix.depth();
+    if !matches!(
+        d,
+        PixelDepth::Bit1 | PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+    ) {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "1, 2, 4 or 8 bpp",
+            actual: d.bits(),
+        });
+    }
 
+    let (r, g, b) = new_color;
     let cmap = pix.colormap_mut().unwrap();
-    let max_idx = cmap.len();
-    if old_index as usize >= max_idx {
+    let n = cmap.len();
+    if old_index as usize >= n {
         return Err(ColorError::InvalidParameters(format!(
-            "old_index {} >= colormap size {}",
-            old_index, max_idx
+            "old_index {old_index} >= colormap size {n}"
         )));
     }
 
-    cmap.set_color(
-        old_index as usize,
-        RgbaQuad::rgb(new_color.0, new_color.1, new_color.2),
-    )
-    .map_err(|e| ColorError::InvalidParameters(e.to_string()))?;
+    // C: reuse the entry when the colour is already in the cmap, otherwise
+    // append it. The old entry itself is left untouched.
+    let new_index = match cmap.get_index(r, g, b) {
+        Some(index) => index,
+        None => cmap
+            .add_color(RgbaQuad::rgb(r, g, b))
+            .map_err(|e| ColorError::InvalidParameters(e.to_string()))?,
+    } as u32;
 
-    let _ = region; // Colormap change applies globally for that index
+    let w = pix.width();
+    let h = pix.height();
+    let (x1, y1, x2, y2) = match region {
+        None => (0i64, 0i64, w as i64 - 1, h as i64 - 1),
+        Some(b) => {
+            let x1 = b.x as i64;
+            let y1 = b.y as i64;
+            (x1, y1, x1 + b.w as i64 - 1, y1 + b.h as i64 - 1)
+        }
+    };
+
+    for y in y1.max(0)..=y2.min(h as i64 - 1) {
+        for x in x1.max(0)..=x2.min(w as i64 - 1) {
+            let (x, y) = (x as u32, y as u32);
+            if pix.get_pixel_unchecked(x, y) == old_index {
+                pix.set_pixel_unchecked(x, y, new_index);
+            }
+        }
+    }
+
     Ok(())
 }
 

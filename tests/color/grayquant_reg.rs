@@ -219,7 +219,6 @@ fn grayquant_reg_advanced_threshold() {
 /// it reads a lossless 1 bpp TIFF rather than `test8.jpg`, so it is free of
 /// JPEG decode differences and can be compared bit-exactly against C.
 #[test]
-#[ignore = "not yet implemented"]
 fn grayquant_c_compat() {
     use leptonica::color::paintcmap::pix_set_select_cmap;
     use leptonica::core::pix::RemoveColormapTarget;

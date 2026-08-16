@@ -361,3 +361,15 @@ color	colorcontent	14	colorcontent_c	5	arb mask from RGB (0.4,0.3,0.3) thresh 60
 color	colorcontent	15	colorcontent_c	6	mask - mask2
 color	colorcontent	16	colorcontent_c	7	(mask - mask2) - inverted mask3
 color	colorcontent	17	colorcontent_c	8	multi-plane selection over white
+color	grayquant	28	grayquant_c	1	scale_to_gray_4 on feyn.tif
+color	grayquant	29	grayquant_c	2	reduce_rank_binary_cascade [2,2]
+color	grayquant	30	grayquant_c	3	threshold_to_2bpp (3 levels) + set_select_cmap highlight
+color	grayquant	31	grayquant_c	4	threshold_to_4bpp (4 levels) + 3 set_select_cmap highlights
+color	grayquant	32	grayquant_c	5	reduce_rank_binary_cascade [2,2] (repeat)
+color	grayquant	33	grayquant_c	6	6x magnified crop
+color	grayquant	34	grayquant_c	7	threshold_to_4bpp 6 levels
+color	grayquant	35	grayquant_c	8	threshold_to_4bpp 5 levels
+color	grayquant	36	grayquant_c	9	threshold_to_4bpp 4 levels
+color	grayquant	37	grayquant_c	10	threshold_to_4bpp 3 levels
+color	grayquant	38	grayquant_c	11	threshold_to_4bpp 2 levels
+color	grayquant	39	grayquant_c	12	stacked 8bpp comparison

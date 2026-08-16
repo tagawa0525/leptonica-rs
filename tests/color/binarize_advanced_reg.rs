@@ -152,7 +152,6 @@ fn test_mask_by_band_gradient() {
 /// quantized gray *values*. So 2 bpp always spans 0..=3 here, whatever
 /// `nlevels` says; only the colormapped path honours `nlevels`.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_2bpp_2levels() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_2bpp(&pix, 2, false).unwrap();
@@ -193,7 +192,6 @@ fn test_threshold_to_2bpp_invalid_levels() {
 /// As above: the non-colormapped path always uses the full 16 levels of a
 /// 4 bpp image, so the peak value is 15 rather than `nlevels - 1`.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_threshold_to_4bpp_4levels() {
     let pix = make_gradient_8bpp(256, 1);
     let quantized = threshold_to_4bpp(&pix, 4, false).unwrap();
