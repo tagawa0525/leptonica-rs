@@ -402,7 +402,12 @@ pub fn pix_set_select_masked_cmap(
 
 /// Set all pixels to a color through a mask in a colormapped image.
 ///
-/// Pixels where the mask is ON are set to `new_color`.
+/// Pixels where the mask is ON, offset by `(x_offset, y_offset)`, are given
+/// the index of `new_color`. As in C the colour is looked up in the colormap
+/// first and only appended when absent, so repainting with a colour that is
+/// already present reuses its entry instead of duplicating it. When the
+/// colormap is full and the colour is not present this is an error — C's
+/// nearest-colour fallback lives one level up, not here.
 ///
 /// # Reference
 ///
@@ -421,14 +426,23 @@ pub fn pix_set_masked_cmap(
         });
     }
     check_colormapped(pix)?;
+    let d = pix.depth();
+    if !matches!(d, PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8) {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "2, 4 or 8 bpp",
+            actual: d.bits(),
+        });
+    }
 
+    let (r, g, b) = new_color;
     let new_idx = {
         let cmap = pix.colormap_mut().unwrap();
-        match cmap.add_color(RgbaQuad::rgb(new_color.0, new_color.1, new_color.2)) {
-            Ok(idx) => idx as u32,
-            Err(_) => cmap
-                .find_nearest(new_color.0, new_color.1, new_color.2)
-                .unwrap_or(0) as u32,
+        match cmap.get_index(r, g, b) {
+            Some(index) => index as u32,
+            None => cmap
+                .add_color(RgbaQuad::rgb(r, g, b))
+                .map_err(|_| ColorError::InvalidParameters("no room in cmap".into()))?
+                as u32,
         }
     };
 

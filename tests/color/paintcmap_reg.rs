@@ -160,7 +160,6 @@ fn paintcmap_set_select_masked() {
 
 /// Test pix_set_masked_cmap: a colour not yet present is appended.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_masked() {
     use leptonica::color::paintcmap::pix_set_masked_cmap;
 
@@ -188,7 +187,6 @@ fn paintcmap_set_masked() {
 /// only appends when it is absent, so repainting with a colour already in
 /// the colormap must reuse its entry rather than duplicate it.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_masked_reuses_existing_color() {
     use leptonica::color::paintcmap::pix_set_masked_cmap;
 
@@ -213,7 +211,6 @@ fn paintcmap_set_masked_reuses_existing_color() {
 /// When the colormap is full and the colour is absent, C returns an error
 /// ("no room in cmap"); the nearest-colour fallback lives one level up.
 #[test]
-#[ignore = "not yet implemented"]
 fn paintcmap_set_masked_full_cmap_is_an_error() {
     use leptonica::color::paintcmap::pix_set_masked_cmap;
 

@@ -221,7 +221,6 @@ fn paint_reg_colormap() {
 /// unlike the JPEG-driven checks earlier in that program these are
 /// bit-exactly comparable against C.
 #[test]
-#[ignore = "not yet implemented"]
 fn paint_c_compat_reconstruct() {
     use leptonica::Pix;
     use leptonica::color::paintcmap::pix_set_masked_cmap;

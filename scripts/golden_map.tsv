@@ -377,3 +377,9 @@ transform	checkerboard	0	checkerboard	1	corner pix (checkerboard1.tif, nsels 2)
 transform	checkerboard	2	checkerboard	2	Pta corners dilated 5x5 (checkerboard1.tif)
 transform	checkerboard	3	checkerboard	3	corner pix (checkerboard2.tif, nsels 4)
 transform	checkerboard	5	checkerboard	4	Pta corners dilated 5x5 (checkerboard2.tif)
+color	paint	24	paint_c	2	ReconstructByValue weasel2.4c.png
+color	paint	26	paint_c	4	ReconstructByValue weasel4.11c.png
+color	paint	28	paint_c	6	ReconstructByValue weasel8.240c.png
+color	paint	29	paint_c	7	FakeReconstructByBand weasel2.4c.png
+color	paint	30	paint_c	8	FakeReconstructByBand weasel4.11c.png
+color	paint	31	paint_c	9	FakeReconstructByBand weasel8.240c.png
