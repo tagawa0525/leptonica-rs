@@ -975,8 +975,8 @@ fn rotate_area_map_impl(
             rotate_area_map_gray(
                 src,
                 dst,
-                cos_a,
-                sin_a,
+                cos_a as f64,
+                sin_a as f64,
                 cx_src,
                 cy_src,
                 cx_dst,
@@ -986,7 +986,15 @@ fn rotate_area_map_impl(
         }
         PixelDepth::Bit32 => {
             rotate_area_map_color(
-                src, dst, cos_a, sin_a, cx_src, cy_src, cx_dst, cy_dst, fill_value,
+                src,
+                dst,
+                cos_a as f64,
+                sin_a as f64,
+                cx_src,
+                cy_src,
+                cx_dst,
+                cy_dst,
+                fill_value,
             );
         }
         _ => {
@@ -1003,8 +1011,8 @@ fn rotate_area_map_impl(
 fn rotate_area_map_gray(
     src: &Pix,
     dst: &mut PixMut,
-    cos_a: f32,
-    sin_a: f32,
+    cos_a: f64,
+    sin_a: f64,
     cx_src: f32,
     cy_src: f32,
     cx_dst: f32,
@@ -1018,9 +1026,13 @@ fn rotate_area_map_gray(
     let wm2 = src_w - 2;
     let hm2 = src_h - 2;
 
-    // Scale sin/cos by 16 for sub-pixel precision
-    let sina = 16.0 * sin_a;
-    let cosa = 16.0 * cos_a;
+    // Scale sin/cos by 16 for sub-pixel precision, rounding to f32 once
+    // after the multiply. C computes `16.f * sin(angle)` where sin()
+    // returns a double, so both the trig and the scaling happen in double
+    // precision; taking f64 here lets callers reproduce that exactly (the
+    // shared dispatcher still widens its own f32 values).
+    let sina = (16.0f64 * sin_a) as f32;
+    let cosa = (16.0f64 * cos_a) as f32;
 
     for i in 0..dst_h {
         let ydif = cy_dst - i as f32;
@@ -1067,8 +1079,8 @@ fn rotate_area_map_gray(
 fn rotate_area_map_color(
     src: &Pix,
     dst: &mut PixMut,
-    cos_a: f32,
-    sin_a: f32,
+    cos_a: f64,
+    sin_a: f64,
     cx_src: f32,
     cy_src: f32,
     cx_dst: f32,
@@ -1082,9 +1094,13 @@ fn rotate_area_map_color(
     let wm2 = src_w - 2;
     let hm2 = src_h - 2;
 
-    // Scale sin/cos by 16 for sub-pixel precision
-    let sina = 16.0 * sin_a;
-    let cosa = 16.0 * cos_a;
+    // Scale sin/cos by 16 for sub-pixel precision, rounding to f32 once
+    // after the multiply. C computes `16.f * sin(angle)` where sin()
+    // returns a double, so both the trig and the scaling happen in double
+    // precision; taking f64 here lets callers reproduce that exactly (the
+    // shared dispatcher still widens its own f32 values).
+    let sina = (16.0f64 * sin_a) as f32;
+    let cosa = (16.0f64 * cos_a) as f32;
 
     for i in 0..dst_h {
         let ydif = cy_dst - i as f32;
@@ -1251,8 +1267,8 @@ pub fn rotate_am_color_corner(pix: &Pix, angle: f32, fill: RotateFill) -> Transf
     let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    let cos_a = angle.cos();
-    let sin_a = angle.sin();
+    let cos_a = (angle as f64).cos();
+    let sin_a = (angle as f64).sin();
     rotate_area_map_color(
         pix,
         &mut out_mut,
@@ -1292,9 +1308,17 @@ pub fn rotate_am_gray_corner(pix: &Pix, angle: f32, fill: RotateFill) -> Transfo
     let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    let cos_a = angle.cos();
-    let sin_a = angle.sin();
-    rotate_area_map_gray(pix, &mut out_mut, cos_a, sin_a, 0.0, 0.0, 0.0, 0.0, grayval);
+    rotate_area_map_gray(
+        pix,
+        &mut out_mut,
+        (angle as f64).cos(),
+        (angle as f64).sin(),
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        grayval,
+    );
 
     Ok(out_mut.into())
 }
@@ -1499,7 +1523,17 @@ pub fn rotate_with_alpha(
 
     let alpha_out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut alpha_out = alpha_out_pix.try_into_mut().unwrap();
-    rotate_area_map_gray(alpha, &mut alpha_out, cos_a, sin_a, cx, cy, cx, cy, 255);
+    rotate_area_map_gray(
+        alpha,
+        &mut alpha_out,
+        cos_a as f64,
+        sin_a as f64,
+        cx,
+        cy,
+        cx,
+        cy,
+        255,
+    );
     let rotated_alpha: Pix = alpha_out.into();
 
     // Set alpha channel in rotated RGB result
@@ -1620,7 +1654,17 @@ pub fn rotate_binary_nice(pix: &Pix, angle: f32, fill: RotateFill) -> TransformR
     let cy = h as f32 / 2.0;
     let rot_pix = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut rot_mut = rot_pix.try_into_mut().unwrap();
-    rotate_area_map_gray(&blurred, &mut rot_mut, cos_a, sin_a, cx, cy, cx, cy, fill_8);
+    rotate_area_map_gray(
+        &blurred,
+        &mut rot_mut,
+        cos_a as f64,
+        sin_a as f64,
+        cx,
+        cy,
+        cx,
+        cy,
+        fill_8,
+    );
     let rotated: Pix = rot_mut.into();
 
     // Step 4: Threshold back to 1bpp (threshold at 128)
@@ -1794,8 +1838,8 @@ pub fn rotate_am_color(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResu
     rotate_area_map_color(
         pix,
         &mut out_mut,
-        angle.cos(),
-        angle.sin(),
+        (angle as f64).cos(),
+        (angle as f64).sin(),
         cx,
         cy,
         cx,
@@ -1828,8 +1872,8 @@ pub fn rotate_am_gray(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResul
     rotate_area_map_gray(
         pix,
         &mut out_mut,
-        angle.cos(),
-        angle.sin(),
+        (angle as f64).cos(),
+        (angle as f64).sin(),
         cx,
         cy,
         cx,
