@@ -420,3 +420,62 @@ fn grayfill_seedfill_gray_inv_matches_c() {
         assert_eq!(out.get_pixel(x, 0), simple.get_pixel(x, 0), "at x={x}");
     }
 }
+
+/// local_extrema must follow C pixLocalExtrema (plan 902 PR 19).
+///
+/// C fixes the structuring element at 3x3 and treats the two parameters
+/// as *thresholds* passed to `pixQualifyLocalMinima`: `maxmin` (default
+/// 254) rejects minima whose value is too high, and `minmax` (default 1)
+/// does the same for maxima on the inverted image. A candidate component
+/// also survives only when every pixel on its 1-pixel exterior boundary
+/// is strictly greater than the component's value.
+#[test]
+#[ignore = "not yet implemented: local_extrema takes a kernel size and min diff"]
+fn grayfill_local_extrema_matches_c() {
+    use leptonica::region::local_extrema;
+    use leptonica::{Pix, PixelDepth};
+
+    // 5x5 flat 100 with a single dip to 40 at (2, 2) and a plateau of 200
+    // at (0, 0). The dip is a qualifying local minimum; the corner is not
+    // a minimum (its neighbours are lower).
+    let pix = {
+        let p = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..5u32 {
+            for x in 0..5u32 {
+                pm.set_pixel(x, y, 100).unwrap();
+            }
+        }
+        pm.set_pixel(2, 2, 40).unwrap();
+        pm.set_pixel(0, 0, 200).unwrap();
+        let p: Pix = pm.into();
+        p
+    };
+
+    // C defaults: maxmin = 254, minmax = 1.
+    let (pixmin, pixmax) = local_extrema(&pix, 0, 0).expect("local_extrema");
+    assert_eq!(pixmin.depth(), PixelDepth::Bit1);
+    assert_eq!(pixmax.depth(), PixelDepth::Bit1);
+
+    // The dip qualifies; nothing else does (the flat 100 region touches
+    // the border and its boundary is not strictly greater).
+    assert_eq!(pixmin.get_pixel(2, 2).unwrap(), 1, "dip at (2,2)");
+    let min_count: u32 = (0..5)
+        .flat_map(|y| (0..5).map(move |x| (x, y)))
+        .map(|(x, y)| pixmin.get_pixel(x, y).unwrap_or(0))
+        .sum();
+    assert_eq!(min_count, 1, "only the dip should qualify as a minimum");
+
+    // The 200 corner is the sole local maximum.
+    assert_eq!(pixmax.get_pixel(0, 0).unwrap(), 1, "peak at (0,0)");
+    let max_count: u32 = (0..5)
+        .flat_map(|y| (0..5).map(move |x| (x, y)))
+        .map(|(x, y)| pixmax.get_pixel(x, y).unwrap_or(0))
+        .sum();
+    assert_eq!(max_count, 1, "only the peak should qualify as a maximum");
+
+    // maxmin rejects minima whose value exceeds it: with maxmin = 30 the
+    // dip (40) is erased.
+    let (pixmin, _) = local_extrema(&pix, 30, 0).expect("local_extrema maxmin=30");
+    assert_eq!(pixmin.get_pixel(2, 2).unwrap(), 0, "dip erased by maxmin");
+}
