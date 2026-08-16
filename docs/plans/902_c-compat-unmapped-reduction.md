@@ -339,7 +339,7 @@ hash box 描画 3 種と boxa の直交回転・順序付き変換を検証す�
   (実装差 23 件目)。理由付きで Excluded に分離し PR 17 で対応する
 - C 5 はさらに `boxaAffineTransform` + 2D 行列ビルダが未移植
 
-### PR 17: scale_general の C 準拠化 (IN_PROGRESS)
+### PR 17: scale_general の C 準拠化 (実施済み)
 
 C 版ソース: `src/scale1.c` (pixScale / pixScaleGeneral)、
 `src/enhance.c` (pixUnsharpMasking* )。
@@ -363,6 +363,20 @@ C `pixScaleGeneral` との差:
 `blockconv_gray` による全面ブラーで、C の分離型 box フィルタ
 (内部のみ更新、border は原画コピー、`(int)(s + f*(s-L) + 0.5)`) と
 異なる。
+
+実施結果 — 追跡の過程で **実装差 5 件 (23-27) を発見・修正**:
+
+- **23** `scale_general` の dispatch と unsharp masking (上記)
+- **24** `unsharp_masking_gray_fast` の分離型 box 化
+- **25** `scale_area_map_2` の 2x2 平均が `+2` の四捨五入 (C は
+  `val >>= 2` の切り捨て)、alpha も平均していた
+- **26** 対角 hash の spacing を f32 で計算しており、C の double と
+  切り捨て位置がずれる (`generatePtaHashBox`)
+- **27** **閾値比較の精度**。C は `l_float32` を double literal と
+  比較するため float が昇格し、`0.7f` は「< 0.7」と判定される。
+  Rust の f32 同士比較では false になり dispatch が分岐していた
+- xformbox 5 ペア **全件 Ok (Ok 143 → 145)**、PR 16 の Excluded 2 件も
+  解消。transform binary は Unmapped/Excluded ともに残り 0 の Ok 25
 
 ### PR 18 以降: semantic マッピングの漸進追加
 
