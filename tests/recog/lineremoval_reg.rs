@@ -185,8 +185,6 @@ fn lineremoval_reg_pipeline() {
 /// with `arith_add` and `combine_masked`. All ten outputs are PNG.
 #[test]
 fn lineremoval_c_compat() {
-    use leptonica::morph::{close_gray, erode_gray, open_gray};
-    use leptonica::recog::skew::{SkewDetectOptions, find_skew};
     use leptonica::transform::{RotateFill, rotate_am_gray};
 
     if crate::common::is_display_mode() {

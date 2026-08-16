@@ -1026,10 +1026,11 @@ fn rotate_area_map_gray(
     let wm2 = src_w - 2;
     let hm2 = src_h - 2;
 
-    // Scale sin/cos by 16 for sub-pixel precision. C computes
-    // `16.f * sin(angle)` where sin() returns a double, so both the trig
-    // and the scaling happen in double precision and are rounded to float
-    // once; callers therefore hand us f64 sin/cos values.
+    // Scale sin/cos by 16 for sub-pixel precision, rounding to f32 once
+    // after the multiply. C computes `16.f * sin(angle)` where sin()
+    // returns a double, so both the trig and the scaling happen in double
+    // precision; taking f64 here lets callers reproduce that exactly (the
+    // shared dispatcher still widens its own f32 values).
     let sina = (16.0f64 * sin_a) as f32;
     let cosa = (16.0f64 * cos_a) as f32;
 
@@ -1093,10 +1094,11 @@ fn rotate_area_map_color(
     let wm2 = src_w - 2;
     let hm2 = src_h - 2;
 
-    // Scale sin/cos by 16 for sub-pixel precision. C computes
-    // `16.f * sin(angle)` where sin() returns a double, so both the trig
-    // and the scaling happen in double precision and are rounded to float
-    // once; callers therefore hand us f64 sin/cos values.
+    // Scale sin/cos by 16 for sub-pixel precision, rounding to f32 once
+    // after the multiply. C computes `16.f * sin(angle)` where sin()
+    // returns a double, so both the trig and the scaling happen in double
+    // precision; taking f64 here lets callers reproduce that exactly (the
+    // shared dispatcher still widens its own f32 values).
     let sina = (16.0f64 * sin_a) as f32;
     let cosa = (16.0f64 * cos_a) as f32;
 
