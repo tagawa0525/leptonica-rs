@@ -233,7 +233,7 @@ PR 11 で見送った coloring 系列。フォント面の前提は PR 12 で解
   cmap reset・RGB 展開の全経路が C と bit 一致。C compare 0-1 相当の
   cmapped/rgb 経路一致検証も rp.compare_pix で index を揃えて実施
 
-### PR 14: smallpix 整列 — 変換 9 関数の合成入力系列 (IN_PROGRESS)
+### PR 14: smallpix 整列 — 変換 9 関数の合成入力系列 (実施済み)
 
 C 版ソース: `prog/smallpix_reg.c`、`src/scale1.c` / `src/rotate.c` /
 `src/pixafunc2.c`。
@@ -262,6 +262,19 @@ codec 差なしで主要変換 9 種を一挙に検証できる:
 2. 未公開の 4 関数 (`scale_area_map` / `rotate_am` /
    `rotate_by_sampling` / `rotate_am_color_fast`) を C シグネチャで公開
 3. smallpix_reg.rs を C と同条件の `smallpix_c_compat` に整列し 9 ペア
+
+実施結果:
+
+- Pixa::display_tiled_in_columns を移植し、未公開だった 4 関数を公開
+  (rotate_am 系 3 種は初回から C と bit 一致)
+- **この 1 PR で実装差 4 件 (14-17 件目) を発見・修正**:
+  (14) sampling の index 規約 ((int)(ratio*i + shift)、
+  scale_by_sampling の shift=0.5、rotate の切り捨て位置)、
+  (15) bilinear の 1/16 サブピクセル規約 + 特別ケース、
+  (16) scale_smooth の固定窓・clamp・isize^2 除算、
+  (17) area map の 1/16 分解 (C の float/double 非対称まで再現)
+- smallpix 9 ペア **全件 Ok (Ok 124 → 133)**。transform binary が
+  Ok 4 → 13 になり、主要変換 9 種の C 等価性を実証
 
 ### PR 15 以降: semantic マッピングの漸進追加
 
