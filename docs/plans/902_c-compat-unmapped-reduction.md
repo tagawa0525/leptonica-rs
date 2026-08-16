@@ -309,7 +309,23 @@ PR 14 で `display_tiled_in_columns` を移植し、両 prog の前提が揃っ�
 - translate 3 ペア + shear2 4 ペア **全件 Ok (Ok 133 → 140)**。
   transform binary は Ok 13 → 20
 
-### PR 16 以降: semantic マッピングの漸進追加
+### PR 16: xformbox 整列 — hash box 描画と box 変換 (IN_PROGRESS)
+
+C 版ソース: `prog/xformbox_reg.c`、`src/boxfunc2.c` / `src/graphics.c`。
+
+transform に残る最後の全 PNG 系列。入力は feyn.tif (lossless) で、
+hash box 描画 3 種と boxa の直交回転・順序付き変換を検証する。
+
+| C check | 内容 |
+| --: | --- |
+| 0-2 | render_hash_box / _color /_blend を成分 boxa に適用 |
+| 3 | rotate_orth x 4 + boxa rotate_orth を tiled in rows |
+| 4-5 | transform_ordered 6 種 (translate / scale 系) の重ね描き |
+
+必要 API (`render_hash_box*`, `Boxa::rotate_orth`,
+`Boxa::transform_ordered`, `display_tiled_in_rows`) は移植済み。
+
+### PR 17 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
