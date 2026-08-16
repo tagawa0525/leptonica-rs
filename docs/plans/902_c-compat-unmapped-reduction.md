@@ -467,7 +467,30 @@ gray morphology と算術の主要経路をまとめて検証できる。必要 
   C と同じ計算順に揃えて解消
 - lineremoval 10 ペア **全件 Ok (Ok 172 → 182)**。recog binary は Ok 19
 
-### PR 21 以降: semantic マッピングの漸進追加
+### PR 21: iomisc 整列 — alpha / colormap 変換系 (IN_PROGRESS)
+
+C 版ソース: `prog/iomisc_reg.c`。
+
+io は Unmapped 41。iomisc_reg の PNG 出力 8 件のうち 13 は既に Ok
+(`iomisc_regen_rgb_cmap`) で、残り 7 件が lossless 入力
+(`books_logo.png` / `weasel4.11c.png` / `weasel4.5g.png`) 由来:
+
+| C check | 内容 |
+| --: | --- |
+| 6 | alpha チャンネルの取り出し |
+| 7 | `alpha_blend_uniform` (白背景) |
+| 9 | `set_alpha_over_white` 後の alpha |
+| 10 | `alpha_blend_uniform` (シアン背景) |
+| 14 | `convert_rgb_to_colormap` |
+| 15-16 | 8bpp cmapped の除去と `convert_gray_to_colormap` |
+
+必要 API はすべて移植済み。
+
+**見送り**: `boxa3_reg` は `boxaDisplayTiled` のシグネチャが C と
+大きく異なる (Rust は `(pixa, max_width)` のみ) ため、パラメータ整列が
+前提。24 出力と規模も大きく別 PR とする。
+
+### PR 22 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
