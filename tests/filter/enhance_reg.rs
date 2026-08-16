@@ -243,7 +243,6 @@ fn enhance_reg_mosaic_color_shift() {
 /// is sharpened as `(int)(s + fract * (s - L) + 0.5)` where L is a
 /// separable box average over `(2*halfwidth+1)²`.
 #[test]
-#[ignore = "not yet implemented: unsharp fast blurs the whole image via blockconv"]
 fn enhance_unsharp_fast_matches_c() {
     use leptonica::filter::unsharp_masking_gray_fast;
     use leptonica::{Pix, PixelDepth};

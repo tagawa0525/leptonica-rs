@@ -1,7 +1,7 @@
 //! Edge detection and enhancement operations
 
 use crate::core::{Numa, Pix, PixelDepth, pix::RgbComponent};
-use crate::filter::{FilterError, FilterResult, Kernel, blockconv_gray, convolve_gray};
+use crate::filter::{FilterError, FilterResult, Kernel, convolve_gray};
 
 /// Edge detection orientation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -303,25 +303,43 @@ pub fn unsharp_masking_gray_fast(pix: &Pix, halfwidth: u32, amount: f32) -> Filt
 
     let w = pix.width();
     let h = pix.height();
+    let hw = halfwidth;
 
-    // Use block convolution for fast blurring
-    // blockconv_gray(pix, None, wc, hc) where kernel size = 2*halfwidth+1
-    let blurred = blockconv_gray(pix, None, halfwidth, halfwidth)?;
+    // C pixUnsharpMaskingGray2D starts from pixCopyBorder: the halfwidth
+    // border keeps the source values and only the interior is sharpened.
+    let blank = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut out_mut = blank.copy_border(pix, hw, hw, hw, hw)?.to_mut();
 
-    // Compute: result = original + amount * (original - blurred)
-    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
+    if w <= 2 * hw || h <= 2 * hw {
+        // No interior to sharpen.
+        return Ok(out_mut.into());
+    }
 
+    // Separable box filter: horizontal sums first, then vertical.
+    let mut rowsum = vec![0f32; (w * h) as usize];
     for y in 0..h {
-        for x in 0..w {
-            let orig = pix.get_pixel_unchecked(x, y) as f32;
-            let blur = blurred.get_pixel_unchecked(x, y) as f32;
+        for x in hw..(w - hw) {
+            let mut sum = 0u32;
+            for k in (x - hw)..=(x + hw) {
+                sum += pix.get_pixel_unchecked(k, y);
+            }
+            rowsum[(y * w + x) as usize] = sum as f32;
+        }
+    }
 
-            let diff = orig - blur;
-            let result = orig + amount * diff;
-            let result = result.round().clamp(0.0, 255.0) as u32;
-
-            out_mut.set_pixel_unchecked(x, y, result);
+    let side = 2 * hw + 1;
+    let norm = 1.0 / (side * side) as f32;
+    for y in hw..(h - hw) {
+        for x in hw..(w - hw) {
+            let mut colsum = 0f32;
+            for k in (y - hw)..=(y + hw) {
+                colsum += rowsum[(k * w + x) as usize];
+            }
+            let lowpass = norm * colsum;
+            let sval = pix.get_pixel_unchecked(x, y) as f32;
+            // C: ival = (l_int32)(sval + fract * (sval - val) + 0.5)
+            let ival = (sval + amount * (sval - lowpass) + 0.5) as i32;
+            out_mut.set_pixel_unchecked(x, y, ival.clamp(0, 255) as u32);
         }
     }
 
