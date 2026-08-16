@@ -184,17 +184,6 @@ fn smallpix_reg_scale_li() {
     assert!(rp.cleanup(), "smallpix li test failed");
 }
 
-/// Test pixScaleAreaMap (C test check 1) and pixRotateBySampling (C test check 4)
-///
-/// These functions are not publicly available in the Rust version.
-#[test]
-#[ignore = "not yet implemented: scale_area_map and rotate_by_sampling not public"]
-fn smallpix_reg_missing_methods() {
-    // pixScaleAreaMap: not publicly exported
-    // pixRotateBySampling: only private implementation
-    // pixRotateAMCorner: same as rotate_am_corner above (C test check 5)
-}
-
 // ==========================================================================
 // C-compatible transform entry points (plan 902 PR 14)
 // ==========================================================================

@@ -793,10 +793,12 @@ fn scale_smooth_gray(pix: &Pix, new_w: u32, new_h: u32, isize: u32) -> Transform
         let ystart = ((hratio * yd as f32) as u32).min(h - isize);
         for xd in 0..new_w {
             let xstart = ((wratio * xd as f32) as u32).min(w - isize);
-            let mut sum: u32 = 0;
+            // u64: with the maximum isize of 10000, 255 * isize^2 would
+            // overflow u32.
+            let mut sum: u64 = 0;
             for m in 0..isize {
                 for n in 0..isize {
-                    sum += pix.get_pixel_unchecked(xstart + n, ystart + m);
+                    sum += pix.get_pixel_unchecked(xstart + n, ystart + m) as u64;
                 }
             }
             out_mut.set_pixel_unchecked(xd, yd, (sum as f32 * norm) as u32);
@@ -822,14 +824,14 @@ fn scale_smooth_color(pix: &Pix, new_w: u32, new_h: u32, isize: u32) -> Transfor
         let ystart = ((hratio * yd as f32) as u32).min(h - isize);
         for xd in 0..new_w {
             let xstart = ((wratio * xd as f32) as u32).min(w - isize);
-            let (mut sum_r, mut sum_g, mut sum_b) = (0u32, 0u32, 0u32);
+            let (mut sum_r, mut sum_g, mut sum_b) = (0u64, 0u64, 0u64);
             for m in 0..isize {
                 for n in 0..isize {
                     let (r, g, b, _) =
                         pixel::extract_rgba(pix.get_pixel_unchecked(xstart + n, ystart + m));
-                    sum_r += r as u32;
-                    sum_g += g as u32;
-                    sum_b += b as u32;
+                    sum_r += r as u64;
+                    sum_g += g as u64;
+                    sum_b += b as u64;
                 }
             }
             // C composeRGBPixel leaves the alpha byte 0.

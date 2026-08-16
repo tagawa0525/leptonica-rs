@@ -1445,9 +1445,12 @@ impl Pixa {
             norm.push(pix2);
         }
 
-        // Compute the layout and save it as a boxa.
+        // Compute the layout and save it as a boxa. Layout coordinates are
+        // i32, so reject a spacing that cannot be represented there rather
+        // than wrapping into negative box origins.
         let n = norm.len();
-        let spacing = spacing as i32;
+        let spacing = i32::try_from(spacing)
+            .map_err(|_| Error::InvalidParameter("spacing exceeds i32::MAX".to_string()))?;
         let nrows = n.div_ceil(nx as usize);
         let mut boxa = Boxa::new();
         let mut y = spacing;
