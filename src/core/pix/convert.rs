@@ -1833,7 +1833,9 @@ impl Pix {
     /// Convert 32 bpp RGB to 8 bpp gray using arbitrary linear weights.
     ///
     /// Unlike `convert_rgb_to_gray`, weights may be negative, but at least one
-    /// must be positive. Output values are clamped to [0, 255].
+    /// must be positive. As in C, the weighted sum is **truncated** toward
+    /// zero (`(l_int32)(rc*R + gc*G + bc*B)`, not rounded) and the resulting
+    /// integer is then clamped to `[0, 255]`.
     ///
     /// # Arguments
     ///
@@ -1866,7 +1868,8 @@ impl Pix {
                 let pixel = self.get_pixel_unchecked(x, y);
                 let (r, g, b) = pixel::extract_rgb(pixel);
                 let val = rc * r as f32 + gc * g as f32 + bc * b as f32;
-                let val = (val.clamp(0.0, 255.0) + 0.5) as u32;
+                // C: `val = (l_int32)(...)` then `L_MIN(255, L_MAX(0, val))`.
+                let val = (val as i32).clamp(0, 255) as u32;
                 result_mut.set_pixel_unchecked(x, y, val);
             }
         }
@@ -4528,6 +4531,24 @@ mod tests {
         assert_eq!(result.get_pixel(1, 0), Some(30));
         // (100*0.5 + 100*0.3 + 100*0.2) = 100.0 → 100
         assert_eq!(result.get_pixel(2, 0), Some(100));
+    }
+
+    /// C computes `val = (l_int32)(rc*R + gc*G + bc*B)`, i.e. it truncates
+    /// toward zero rather than rounding. A weighted sum of 60.8 becomes 60,
+    /// not 61.
+    #[test]
+    fn test_convert_rgb_to_gray_arb_truncates_like_c() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        // 0.4*32 + 0.3*80 + 0.3*80 = 12.8 + 24 + 24 = 60.8
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgb(32, 80, 80));
+        // 0.4*40 + 0.3*80 + 0.3*80 = 16 + 24 + 24 = 64.0
+        pm.set_pixel_unchecked(1, 0, pixel::compose_rgb(40, 80, 80));
+        let pix: Pix = pm.into();
+
+        let result = pix.convert_rgb_to_gray_arb(0.4, 0.3, 0.3).unwrap();
+        assert_eq!(result.get_pixel(0, 0), Some(60));
+        assert_eq!(result.get_pixel(1, 0), Some(64));
     }
 
     #[test]

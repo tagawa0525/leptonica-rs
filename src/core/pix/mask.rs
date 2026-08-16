@@ -395,12 +395,12 @@ impl Pix {
     /// Computes `rc*R + gc*G + bc*B` for each pixel, then thresholds.
     /// The coefficients may be negative.
     ///
-    /// C reaches the mask through an intermediate 8 bpp gray image
-    /// (`pixConvertRGBToGrayArb`), so the weighted sum is **truncated to an
-    /// integer and clipped to `[0, 255]`** before the comparison, and the
-    /// threshold reaches `pixThresholdToBinary` as an `l_int32`, so
-    /// `thresh + 1` is truncated *after* the increment. Both quantizations
-    /// are reproduced here: a pixel is ON iff
+    /// C reaches the mask through an intermediate 8 bpp gray image, so this
+    /// goes through [`Pix::convert_rgb_to_gray_arb`] as well: the weighted
+    /// sum is **truncated toward zero and clipped to `[0, 255]`** before the
+    /// comparison. The threshold in turn reaches `pixThresholdToBinary` as
+    /// an `l_int32`, so `thresh + 1` is truncated *after* the increment.
+    /// A pixel is therefore ON iff
     /// `clip(trunc(rc*R + gc*G + bc*B), 0, 255) >= trunc(thresh + 1)`.
     ///
     /// `thresh` is clamped to 254.0 to avoid 8 bit overflow, as in C.
@@ -409,9 +409,6 @@ impl Pix {
     pub fn make_arb_mask_from_rgb(&self, rc: f32, gc: f32, bc: f32, thresh: f32) -> Result<Pix> {
         if self.depth() != PixelDepth::Bit32 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
-        }
-        if rc <= 0.0 && gc <= 0.0 && bc <= 0.0 {
-            return Err(Error::InvalidParameter("all coefficients <= 0".to_string()));
         }
 
         // C: `if (thresh >= 255.0) thresh = 254.0;` then
@@ -422,6 +419,10 @@ impl Pix {
         let thresh = if thresh >= 255.0 { 254.0 } else { thresh };
         let cutoff = (thresh + 1.0) as i32;
 
+        // The all-non-positive coefficient check lives in
+        // convert_rgb_to_gray_arb, matching where C rejects them
+        // (pixConvertRGBToGrayArb).
+        let gray = self.convert_rgb_to_gray_arb(rc, gc, bc)?;
         let w = self.width();
         let h = self.height();
         let mask = Pix::new(w, h, PixelDepth::Bit1)?;
@@ -429,11 +430,7 @@ impl Pix {
 
         for y in 0..h {
             for x in 0..w {
-                let pixel = self.get_pixel_unchecked(x, y);
-                let (r, g, b, _) = crate::core::pixel::extract_rgba(pixel);
-                let val = rc * r as f32 + gc * g as f32 + bc * b as f32;
-                let val = (val as i32).clamp(0, 255);
-                if val >= cutoff {
+                if gray.get_pixel_unchecked(x, y) as i32 >= cutoff {
                     mm.set_pixel_unchecked(x, y, 1);
                 }
             }
