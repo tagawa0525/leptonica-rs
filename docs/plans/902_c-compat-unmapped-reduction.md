@@ -411,7 +411,27 @@ PNG のため、codec 差なしで gray seedfill 系を検証できる。
 - 一方 `seedfill_gray` (正順) は初回から全件 Ok で、C と等価だった
 - grayfill 21 ペア **全件 Ok (Ok 145 → 166)**。region binary は Ok 67
 
-### PR 19 以降: semantic マッピングの漸進追加
+### PR 19: local_extrema の C 準拠化 (IN_PROGRESS)
+
+C 版ソース: `src/seedfill.c` (pixLocalExtrema / pixQualifyLocalMinima)。
+
+PR 18 で記録した実装差 28 件目の解消。grayfill の C 13-18 が
+これに依存している。
+
+C `pixLocalExtrema(pixs, maxmin, minmax, &pixmin, &pixmax)`:
+
+1. `pixErodeGray(pixs, 3, 3)` と `pixFindEqualValues` で候補を出す
+   (3x3 固定。Rust はカーネル径を引数に取っていた)
+2. `pixQualifyLocalMinima(pixs, pixmin, maxmin)` で候補成分を篩う:
+   成分の代表値が `maxval` 超なら除去し、成分の**外周 1 画素**
+   (dilate 3x3 と XOR で得る) がすべて代表値より大きくなければ除去
+3. maxima は入力を反転して同じ処理 (閾値は `255 - minmax`)
+4. `maxmin <= 0` は 254、`minmax <= 0` は 1 が既定
+
+必要 API (`erode_gray` / `find_equal_values` / `conncomp_pixa` /
+`dilate_brick` / `xor` / `next_on_pixel_in_raster`) は移植済み。
+
+### PR 20 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
