@@ -347,6 +347,39 @@ fn grayfill_c_compat() {
     rp.write_pix_and_check(&tiled, ImageFormat::Png)
         .expect("check 12");
 
+    // --- C checks 13-18: basin fill from local minima ---
+    let mut pixa = Pixa::new();
+    pixa.push(pixm.clone());
+    rp.write_pix_and_check(&pixm, ImageFormat::Png)
+        .expect("check 13");
+
+    let (pixmin, _) = local_extrema(&pixm, 0, 0).expect("local_extrema");
+    pixa.push(pixmin.clone());
+    rp.write_pix_and_check(&pixmin, ImageFormat::Png)
+        .expect("check 14");
+
+    let basin4 =
+        seedfill_gray_basin(&pixmin, &pixm, 30, ConnectivityType::FourWay).expect("basin 4");
+    let basin8 =
+        seedfill_gray_basin(&pixmin, &pixm, 30, ConnectivityType::EightWay).expect("basin 8");
+    pixa.push(basin4.clone());
+    rp.write_pix_and_check(&basin4, ImageFormat::Png)
+        .expect("check 15");
+    pixa.push(basin8.clone());
+    rp.write_pix_and_check(&basin8, ImageFormat::Png)
+        .expect("check 16");
+
+    let pixb3 = basin4.convert_to_1(60).expect("threshold 60");
+    rp.write_pix_and_check(&pixb3, ImageFormat::Png)
+        .expect("check 17");
+    pixa.push(pixb3);
+
+    let tiled = pixa
+        .display_tiled_in_columns(5, 1.0, 15, 2)
+        .expect("tiled 13-17");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check 18");
+
     // --- C checks 19-34: hybrid vs simple, four parameter sets ---
     // C: pixAddConstantGray(pixs1, -30) and (pixs2, +60) on copies of pixm.
     let lo = pixm.add_constant(-30).expect("add -30");
@@ -430,7 +463,6 @@ fn grayfill_seedfill_gray_inv_matches_c() {
 /// also survives only when every pixel on its 1-pixel exterior boundary
 /// is strictly greater than the component's value.
 #[test]
-#[ignore = "not yet implemented: local_extrema takes a kernel size and min diff"]
 fn grayfill_local_extrema_matches_c() {
     use leptonica::region::local_extrema;
     use leptonica::{Pix, PixelDepth};
