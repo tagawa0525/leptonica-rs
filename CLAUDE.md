@@ -110,7 +110,7 @@ src/
 - ランタイムレポート: `tests/c_compat_report.<binary>.txt`（.gitignore）。
   Rust 出力 hash と C manifest を `scripts/golden_map.tsv` 経由で照合し、
   `Ok / Mismatch / MissingC / Unmapped / Excluded` を記録
-- 現状ベースライン (As of 2026-08-16 実測、plan 902 PR 22 後):
+- 現状ベースライン (As of 2026-08-16 実測、plan 902 PR 23 後):
   `docs/porting/c-compat-status.md` に詳細。
   **Ok 206 / Mismatch 29 / MissingC 0 / Unmapped 400 / Excluded 98**
 - 除外ルール: `scripts/c_compat_exclude.tsv` (plan 902)。設計上マップ不能な
