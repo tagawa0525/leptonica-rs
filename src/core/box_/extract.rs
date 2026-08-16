@@ -115,6 +115,11 @@ impl Boxa {
     ///
     /// Invalid boxes (w==0 or h==0) produce (0, 0).
     ///
+    /// The centre is computed with C's **integer** division
+    /// `(left + right) / 2`, so a box of even extent rounds towards the
+    /// upper-left rather than landing on a half-pixel. The sum is taken in
+    /// `i64` so that boxes near `i32::MAX` cannot overflow.
+    ///
     /// C Leptonica equivalent: `boxaExtractCorners`
     pub fn extract_corners(&self, loc: CornerLocation) -> Pta {
         let n = self.len();
@@ -126,15 +131,21 @@ impl Boxa {
                 pta.push(0.0, 0.0);
                 continue;
             }
-            let right = left + w - 1;
-            let bot = top + h - 1;
+            // Widened so that boxes near i32::MAX cannot overflow; the
+            // arithmetic is otherwise identical to C's l_int32 version.
+            let (left, top) = (left as i64, top as i64);
+            let right = left + w as i64 - 1;
+            let bot = top + h as i64 - 1;
             match loc {
                 CornerLocation::UpperLeft => pta.push(left as f32, top as f32),
                 CornerLocation::UpperRight => pta.push(right as f32, top as f32),
                 CornerLocation::LowerLeft => pta.push(left as f32, bot as f32),
                 CornerLocation::LowerRight => pta.push(right as f32, bot as f32),
                 CornerLocation::Center => {
-                    pta.push((left + right) as f32 / 2.0, (top + bot) as f32 / 2.0);
+                    // C: ptaAddPt(pta, (left + right) / 2, (top + bot) / 2)
+                    // with l_int32 arithmetic; i64 division truncates towards
+                    // zero the same way.
+                    pta.push(((left + right) / 2) as f32, ((top + bot) / 2) as f32);
                 }
             }
         }
@@ -265,14 +276,24 @@ mod tests {
         assert_eq!(pta.get(0).unwrap(), (39.0, 59.0)); // (10+30-1, 20+40-1)
     }
 
+    /// C computes the centre with l_int32 arithmetic, so a box of even
+    /// extent truncates towards the upper-left instead of landing on .5.
     #[test]
     fn test_extract_corners_center() {
         let boxa = sample_boxa();
         let pta = boxa.extract_corners(CornerLocation::Center);
-        // box(10,20,30,40): center = ((10+39)/2, (20+59)/2) = (24.5, 39.5)
-        let (cx, cy) = pta.get(0).unwrap();
-        assert!((cx - 24.5).abs() < 0.01);
-        assert!((cy - 39.5).abs() < 0.01);
+        // box(10,20,30,40): center = ((10+39)/2, (20+59)/2) = (24, 39)
+        assert_eq!(pta.get(0).unwrap(), (24.0, 39.0));
+    }
+
+    /// Coordinates near `i32::MAX` must not overflow the intermediate sum.
+    #[test]
+    fn test_extract_corners_center_near_i32_max() {
+        let mut boxa = Boxa::new();
+        boxa.push(Box::new_unchecked(i32::MAX - 10, i32::MAX - 10, 5, 5));
+        let pta = boxa.extract_corners(CornerLocation::Center);
+        let expected = ((i32::MAX - 10) as i64 + (i32::MAX - 6) as i64) / 2;
+        assert_eq!(pta.get(0).unwrap(), (expected as f32, expected as f32));
     }
 
     #[test]

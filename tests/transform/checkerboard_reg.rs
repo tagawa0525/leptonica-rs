@@ -16,24 +16,6 @@
 use crate::common::RegParams;
 use leptonica::io::ImageFormat;
 use leptonica::morph::dilate_brick;
-use leptonica::{Pix, PixelDepth};
-
-/// Generate a 1bpp image from Pta coordinates.
-///
-/// Equivalent to C's `pixGenerateFromPta(pta, w, h)`.
-fn generate_pix_from_pta(pta: &leptonica::Pta, w: u32, h: u32) -> Pix {
-    let pix = Pix::new(w, h, PixelDepth::Bit1).expect("create pix for pta");
-    let mut pm = pix.try_into_mut().expect("mutable pix for pta");
-    for i in 0..pta.len() {
-        let (x, y) = pta.get(i).expect("get pta point");
-        let xi = x.round() as u32;
-        let yi = y.round() as u32;
-        if xi < w && yi < h {
-            pm.set_pixel_unchecked(xi, yi, 1);
-        }
-    }
-    pm.into()
-}
 
 /// Helper to run checkerboard corner detection and register results.
 ///
@@ -59,7 +41,8 @@ fn locate_checkerboard_corners(rp: &mut RegParams, fname: &str, nsels: u32) {
 
     // C check 2/5: generate image from Pta + dilate 5x5 (WPAC)
     let (w, h) = (pix1.width(), pix1.height());
-    let pta_pix = generate_pix_from_pta(&pta, w, h);
+    let pta_pix =
+        leptonica::core::pta::graphics::pix_generate_from_pta(&pta, w, h).expect("pta -> pix");
     let dilated = dilate_brick(&pta_pix, 5, 5).unwrap_or_else(|_| {
         panic!("dilate pta_pix for {fname}");
     });
