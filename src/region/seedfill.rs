@@ -826,15 +826,21 @@ fn get_neighbors(
 
 /// Inverse grayscale seedfill (basin filling).
 ///
-/// Like [`seedfill_gray`], but the seed value is propagated *downward*
-/// (clipped from below by the mask) rather than upward. In each pass,
-/// the minimum of the current value and its neighbors is taken, clipped
-/// to be no less than the mask value.
+/// Think of filling a basin up to the level given by the largest seed
+/// value in it: seed values spread by taking the **maximum** over the
+/// neighbourhood, and the mask acts as a *lower barrier* — a pixel is
+/// only raised where the propagated maximum exceeds its mask value, so
+/// the fill stops at walls that rise above it. Pixels whose mask is 255
+/// are never touched, and pixels the fill cannot rise above keep their
+/// seed value.
+///
+/// Contrast with [`seedfill_gray`], where the mask is an upper bound.
+/// The seed does not need to dominate the mask anywhere.
 ///
 /// # Arguments
 ///
-/// * `seed` - 8-bpp seed image (values ≥ mask everywhere)
-/// * `mask` - 8-bpp mask image (lower bound)
+/// * `seed` - 8-bpp seed image
+/// * `mask` - 8-bpp filling mask (lower barrier)
 /// * `connectivity` - 4 or 8-way connectivity
 ///
 /// # See also
@@ -1804,14 +1810,14 @@ pub fn seedfill_gray_simple(
 
 /// Simple iterative inverse grayscale seedfill.
 ///
-/// Like [`seedfill_gray_simple`], but the mask clips from below rather
-/// than above. Seed values propagate upward (maximized) where they
-/// exceed the mask.
+/// Identical in result to [`seedfill_gray_inv`] — C keeps both entry
+/// points (the other one is queue-accelerated) and asserts they agree,
+/// and this port shares one implementation.
 ///
 /// # Arguments
 ///
 /// * `seed` - 8-bpp seed image
-/// * `mask` - 8-bpp filling mask (lower bound)
+/// * `mask` - 8-bpp filling mask (lower barrier)
 /// * `connectivity` - 4-way or 8-way connectivity
 ///
 /// # See also
