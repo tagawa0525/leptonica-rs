@@ -54,14 +54,14 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        | 件数    | 説明                                                                                                                              |
 | ----------- | ------: | --------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ Ok       | **182** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +138)                                                  |
+| ✅ Ok       | **186** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +142)                                                  |
 | ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007) |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                      |
 | 📭 Unmapped | **400** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 403 → 400)                                               |
 | 🚫 Excluded | **83**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + Rust 独自 falsecolor 4               |
 
-合計 694 entries がレポート対象 (As of 2026-08-16、plan 902 PR 20 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **701 entries**。
+合計 701 entries がレポート対象 (As of 2026-08-16、plan 902 PR 21 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **708 entries**。
 
 ## test binary 別の内訳
 
@@ -70,7 +70,7 @@ Rust manifest (`tests/golden_manifest.tsv`) 全体は **701 entries**。
 | `color`     |     25 |        4 |        0 |      108 |        4 |
 | `core`      |      1 |        0 |        0 |       34 |        0 |
 | `filter`    |      2 |        5 |        0 |       57 |       40 |
-| `io`        |      7 |        2 |        0 |       41 |       10 |
+| `io`        |     11 |        2 |        0 |       41 |       13 |
 | `morph`     | **30** |   **16** |        0 |        9 |        0 |
 | `recog`     |     19 |        0 |        0 |       45 |        0 |
 | `region`    | **73** |        2 |        0 |       28 |       29 |
