@@ -316,14 +316,19 @@ pub fn unsharp_masking_gray_fast(pix: &Pix, halfwidth: u32, amount: f32) -> Filt
     }
 
     // Separable box filter: horizontal sums first, then vertical.
-    let mut rowsum = vec![0f32; (w * h) as usize];
+    // Index in usize so the buffer offset cannot overflow for large images.
+    let (wu, hu) = (w as usize, h as usize);
+    let len = wu.checked_mul(hu).ok_or_else(|| {
+        FilterError::InvalidParameters("image too large for the row-sum buffer".to_string())
+    })?;
+    let mut rowsum = vec![0f32; len];
     for y in 0..h {
         for x in hw..(w - hw) {
             let mut sum = 0u32;
             for k in (x - hw)..=(x + hw) {
                 sum += pix.get_pixel_unchecked(k, y);
             }
-            rowsum[(y * w + x) as usize] = sum as f32;
+            rowsum[y as usize * wu + x as usize] = sum as f32;
         }
     }
 
@@ -333,7 +338,7 @@ pub fn unsharp_masking_gray_fast(pix: &Pix, halfwidth: u32, amount: f32) -> Filt
         for x in hw..(w - hw) {
             let mut colsum = 0f32;
             for k in (y - hw)..=(y + hw) {
-                colsum += rowsum[(k * w + x) as usize];
+                colsum += rowsum[k as usize * wu + x as usize];
             }
             let lowpass = norm * colsum;
             let sval = pix.get_pixel_unchecked(x, y) as f32;

@@ -588,13 +588,23 @@ pub fn scale_gray_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<P
 
 /// General-purpose scaling with optional sharpening.
 ///
-/// Dispatches to the appropriate method based on scale factors:
-/// - For 1bpp: nearest-neighbor sampling
-/// - For `max_scale < 0.7`: smooth (box-filter) or area mapping
-/// - Otherwise: linear interpolation (LI)
+/// Dispatches like C `pixScaleGeneral`:
 ///
-/// **Note**: The `sharpfract` and `sharpwidth` parameters are accepted for API compatibility
-/// but sharpening is not applied. Use an external unsharp-masking step if needed.
+/// - 1 bpp goes to [`scale_binary`]; deeper input is first reduced to 8 or
+///   32 bpp (removing any colormap)
+/// - `max_scale < 0.7` uses a low-pass filter — [`scale_smooth`] when
+///   `min_scale < 0.02`, otherwise [`scale_area_map`]
+/// - otherwise linear interpolation ([`scale_gray_li`] / [`scale_color_li`])
+///
+/// `sharpfract` and `sharpwidth` control a final unsharp-masking pass: it
+/// runs when both are positive and the scale is in the useful range
+/// (`max_scale > 0.2` for reductions, `max_scale < 1.4` for magnifications).
+/// Pass `0.0` / `0` to skip sharpening; [`scale`] with
+/// [`ScaleMethod::Auto`] supplies C's defaults (0.2/1 or 0.4/2).
+///
+/// # See also
+///
+/// C Leptonica: `pixScaleGeneral()` in `scale1.c`
 pub fn scale_general(
     pix: &Pix,
     scale_x: f32,
@@ -615,9 +625,7 @@ pub fn scale_general(
     }
 
     // C: pixConvertTo8Or32(pixs, L_CLONE, 0) — removes any colormap.
-    let src = pix
-        .convert_to_8_or_32()
-        .map_err(|e| TransformError::InvalidParameters(e.to_string()))?;
+    let src = pix.convert_to_8_or_32()?;
     let depth = src.depth();
     let max_scale = scale_x.max(scale_y);
     let min_scale = scale_x.min(scale_y);
