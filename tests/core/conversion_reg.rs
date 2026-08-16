@@ -376,3 +376,34 @@ fn conversion_to_1_matches_c() {
     assert_eq!(out.get_pixel(0, 0).unwrap(), 1);
     assert_eq!(out.get_pixel(1, 0).unwrap(), 0);
 }
+
+/// clip_rectangle must carry the colormap over (plan 902 PR 15).
+///
+/// C `pixClipRectangle` calls `pixCopyColormap(pixd, pixs)`, so a clip of
+/// a colormapped image stays colormapped. Dropping it silently turns the
+/// indices into raw pixel values.
+#[test]
+#[ignore = "not yet implemented: clip_rectangle drops the colormap"]
+fn clip_rectangle_preserves_colormap() {
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    let pix = {
+        let p = leptonica::Pix::new(4, 2, PixelDepth::Bit2).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(2).unwrap();
+        cmap.add_color(RgbaQuad::rgb(10, 20, 30)).unwrap();
+        cmap.add_color(RgbaQuad::rgb(200, 150, 100)).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel(2, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    let clipped = pix.clip_rectangle(1, 0, 3, 2).expect("clip");
+    assert_eq!(clipped.depth(), PixelDepth::Bit2);
+    let cmap = clipped.colormap().expect("colormap must be preserved");
+    assert_eq!(cmap.len(), 2);
+    assert_eq!(cmap.get_rgb(1).unwrap(), (200, 150, 100));
+    // The index raster is shifted by the clip origin.
+    assert_eq!(clipped.get_pixel(1, 0).unwrap(), 1);
+}
