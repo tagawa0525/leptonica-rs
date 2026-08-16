@@ -411,7 +411,7 @@ PNG のため、codec 差なしで gray seedfill 系を検証できる。
 - 一方 `seedfill_gray` (正順) は初回から全件 Ok で、C と等価だった
 - grayfill 21 ペア **全件 Ok (Ok 145 → 166)**。region binary は Ok 67
 
-### PR 19: local_extrema の C 準拠化 (IN_PROGRESS)
+### PR 19: local_extrema の C 準拠化 (実施済み)
 
 C 版ソース: `src/seedfill.c` (pixLocalExtrema / pixQualifyLocalMinima)。
 
@@ -430,6 +430,17 @@ C `pixLocalExtrema(pixs, maxmin, minmax, &pixmin, &pixmax)`:
 
 必要 API (`erode_gray` / `find_equal_values` / `conncomp_pixa` /
 `dilate_brick` / `xor` / `next_on_pixel_in_raster`) は移植済み。
+
+実施結果:
+
+- 候補の篩い分けには**既存の公開 `qualify_local_minima`** をそのまま
+  再利用できた (C と同仕様で移植済みだったが、`local_extrema` から
+  呼ばれていなかった)
+- 旧意味論に基づく unit テスト 2 件を C の実挙動に合わせて更新。
+  平坦画像は「全体が 1 つの極小」(外周が画像外で反証されない) となり、
+  maxima 側は反転後の 255 が閾値 254 を超えて全消去される
+- grayfill が **27 ペア全件 Ok (Ok 166 → 172)**。grayfill_reg の全 PNG
+  出力を完全制覇し、region binary は Ok 73
 
 ### PR 20 以降: semantic マッピングの漸進追加
 
