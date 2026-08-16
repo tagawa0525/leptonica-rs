@@ -2047,18 +2047,17 @@ fn binary_dilate(mask: &[bool], w: u32, h: u32, r: u32) -> Vec<bool> {
 
 /// Find local extrema of a grayscale image.
 ///
-/// Computes local minima and maxima masks by comparing the original
-/// image with its morphological erosion and dilation. A pixel is a
-/// local minimum if it equals its eroded value, and a local maximum
-/// if it equals its dilated value. `min_diff` excludes flat regions
-/// where the difference between dilated and eroded is smaller than
-/// the threshold.
+/// Candidates come from a fixed 3x3 gray erosion (dilation for maxima)
+/// compared with the source, then each connected candidate component is
+/// qualified: it survives only when its value is at or below the
+/// threshold **and** every pixel on its 1-pixel exterior boundary is
+/// strictly greater than it.
 ///
 /// # Arguments
 ///
 /// * `pix` - 8-bpp input image
-/// * `min_max_size` - kernel size for erosion/dilation (must be odd, >= 1)
-/// * `min_diff` - minimum required difference between dilated and eroded values
+/// * `maxmin` - reject minima whose value exceeds this (0 means 254)
+/// * `minmax` - reject maxima whose value is below this (0 means 1)
 ///
 /// # Returns
 ///
@@ -2066,58 +2065,52 @@ fn binary_dilate(mask: &[bool], w: u32, h: u32, r: u32) -> Vec<bool> {
 ///
 /// # See also
 ///
-/// C Leptonica: `pixLocalExtrema()` / `pixSelectedLocalExtrema()` in `seedfill.c`
-pub fn local_extrema(pix: &Pix, min_max_size: u32, min_diff: u32) -> RegionResult<(Pix, Pix)> {
+/// C Leptonica: `pixLocalExtrema()` in `seedfill.c`
+pub fn local_extrema(pix: &Pix, maxmin: u32, minmax: u32) -> RegionResult<(Pix, Pix)> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(RegionError::UnsupportedDepth {
             expected: "8-bit",
             actual: pix.depth().bits(),
         });
     }
-    if min_max_size == 0 || min_max_size.is_multiple_of(2) {
-        return Err(RegionError::InvalidParameters(
-            "min_max_size must be odd and >= 1".into(),
-        ));
-    }
+    // C: `if (maxmin <= 0) maxmin = 254;` (likewise minmax -> 1).
+    let maxmin = if maxmin == 0 || maxmin > 255 {
+        254
+    } else {
+        maxmin
+    };
+    let minmax = if minmax == 0 { 1 } else { minmax };
 
-    let w = pix.width();
-    let h = pix.height();
-    let r = (min_max_size - 1) / 2;
+    // Minima: candidates where the source equals its 3x3 gray erosion.
+    let eroded = crate::morph::erode_gray(pix, 3, 3)
+        .map_err(|e| RegionError::InvalidParameters(format!("erode_gray: {e}")))?;
+    let pixmin = qualify_local_minima(
+        pix,
+        &find_equal_values(pix, &eroded)?,
+        maxmin.min(255) as u8,
+    )?;
 
-    let mut data = vec![0u8; (w * h) as usize];
-    for y in 0..h {
-        for x in 0..w {
-            data[(y * w + x) as usize] = pix.get_pixel(x, y).unwrap_or(0) as u8;
-        }
-    }
+    // Maxima: the same on the inverted image, with the complementary
+    // threshold (C passes 255 - minmax).
+    let inverted = pix.invert();
+    let eroded = crate::morph::erode_gray(&inverted, 3, 3)
+        .map_err(|e| RegionError::InvalidParameters(format!("erode_gray: {e}")))?;
+    // C passes `255 - minmax` as an l_int32, and pixQualifyLocalMinima
+    // replaces any value <= 0 with its 254 default. Reproduce that rather
+    // than saturating to 0, which would reject almost every candidate.
+    let maxima_threshold = 255i32 - minmax as i32;
+    let maxima_threshold = if maxima_threshold <= 0 {
+        254u8
+    } else {
+        maxima_threshold as u8
+    };
+    let pixmax = qualify_local_minima(
+        &inverted,
+        &find_equal_values(&inverted, &eroded)?,
+        maxima_threshold,
+    )?;
 
-    let eroded = gray_minmax(&data, w, h, r, true);
-    let dilated = gray_minmax(&data, w, h, r, false);
-
-    let min_pix = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
-    let max_pix = Pix::new(w, h, PixelDepth::Bit1).map_err(RegionError::Core)?;
-    let mut min_mut = min_pix.try_into_mut().unwrap();
-    let mut max_mut = max_pix.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let idx = (y * w + x) as usize;
-            let v = data[idx];
-            let e = eroded[idx];
-            let d = dilated[idx];
-            let diff = d.saturating_sub(e) as u32;
-            if diff >= min_diff {
-                if v == e {
-                    min_mut.set_pixel_unchecked(x, y, 1);
-                }
-                if v == d {
-                    max_mut.set_pixel_unchecked(x, y, 1);
-                }
-            }
-        }
-    }
-
-    Ok((min_mut.into(), max_mut.into()))
+    Ok((pixmin, pixmax))
 }
 
 /// Filter local minima mask to retain only true local minima.
@@ -2878,12 +2871,14 @@ mod tests {
     }
 
     #[test]
-    fn test_local_extrema_flat_excluded_by_min_diff() {
-        // Flat image: all pixels same value.
-        // With min_diff > 0, no extrema should be found.
+    fn test_local_extrema_flat_image() {
+        // An all-zero image is one candidate component covering everything.
+        // Its exterior boundary lies outside the image, so C's scan finds
+        // nothing to disqualify it and the whole image stays a minimum.
+        // For the maxima pass the inverted image is 255, which exceeds the
+        // 255 - minmax = 254 threshold, so every candidate is erased.
         let pix = make_8bpp(5, 5, &[]);
-        // All pixels default to 0, so dilate==erode==0, diff==0 < min_diff==1
-        let (pixmin, pixmax) = local_extrema(&pix, 3, 1).unwrap();
+        let (pixmin, pixmax) = local_extrema(&pix, 0, 0).unwrap();
         let mut any_min = false;
         let mut any_max = false;
         for y in 0..5 {
@@ -2896,8 +2891,8 @@ mod tests {
                 }
             }
         }
-        assert!(!any_min, "flat image should have no minima with min_diff>0");
-        assert!(!any_max, "flat image should have no maxima with min_diff>0");
+        assert!(any_min, "flat image is entirely a local minimum");
+        assert!(!any_max, "255 exceeds the maxima threshold, so none remain");
     }
 
     #[test]
@@ -3012,15 +3007,16 @@ mod tests {
     }
 
     #[test]
-    fn test_local_extrema_invalid_params() {
+    fn test_local_extrema_thresholds_accept_defaults() {
+        // C treats the two arguments as thresholds, with 0 meaning the
+        // defaults (maxmin = 254, minmax = 1); no value is rejected.
         let pix = make_8bpp(5, 5, &[]);
-        // min_max_size == 0 should error
-        assert!(local_extrema(&pix, 0, 0).is_err());
-        // even min_max_size should error
-        assert!(local_extrema(&pix, 2, 0).is_err());
-        // odd min_max_size >= 1 should succeed
-        assert!(local_extrema(&pix, 1, 0).is_ok());
-        assert!(local_extrema(&pix, 3, 0).is_ok());
+        assert!(local_extrema(&pix, 0, 0).is_ok());
+        assert!(local_extrema(&pix, 30, 200).is_ok());
+        assert!(local_extrema(&pix, 254, 1).is_ok());
+        // Non-8bpp input is still rejected.
+        let pix1 = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
+        assert!(local_extrema(&pix1, 0, 0).is_err());
     }
 
     #[test]
