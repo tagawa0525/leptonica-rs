@@ -432,7 +432,6 @@ fn smallpix_sampling_index_matches_c() {
 /// matched `(w - 1) / (wd - 1)` convention gives different samples.
 /// C also special-cases scale 1.0 (copy) and 2.0 / 4.0.
 #[test]
-#[ignore = "not yet implemented: bilinear scaling uses an endpoint-matched ratio"]
 fn smallpix_bilinear_matches_c() {
     use leptonica::transform::{scale_color_2x_li, scale_gray_li};
 
@@ -479,4 +478,41 @@ fn smallpix_bilinear_matches_c() {
             );
         }
     }
+}
+
+/// Box-filter smoothing must use C's fixed, clamped window (plan 902 PR 14).
+///
+/// C `scaleSmoothLow` anchors a fixed `isize x isize` box at
+/// `scol[j] = min((int)(wratio * j), ws - isize)` — the upper-left corner,
+/// clamped so the box never leaves the image — and divides the sum by
+/// `isize²` with truncation. A centred, border-clipped window with a
+/// variable divisor gives different values.
+#[test]
+#[ignore = "not yet implemented: scale_smooth uses a centred, clipped window"]
+fn smallpix_scale_smooth_matches_c() {
+    // 8x1 8bpp ramp (value == 10 * x) scaled by 0.3:
+    //   isize = max(2, (int)(1 / 0.3 + 0.5)) = 3
+    //   wd = (int)(0.3 * 8 + 0.5) = 2, wratio = 8 / 2 = 4
+    //   scol[0] = min(0, 8 - 3) = 0 -> mean of x = 0..2 over a 3x1 row,
+    //     but the box is 3x3 and the image is 1 tall, so C requires
+    //     hs >= isize; use an 8x8 image instead where every row is equal.
+    let ramp = {
+        let p = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pm.set_pixel(x, y, 10 * x).unwrap();
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_smooth(&ramp, 0.3, 0.3).unwrap();
+    assert_eq!((out.width(), out.height()), (2, 2));
+    // j = 0: xstart = 0 -> values 0, 10, 20 per row, 3 rows
+    //        sum = 90, /9 = 10
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 10);
+    // j = 1: xstart = min((int)(4 * 1), 8 - 3) = 4 -> values 40, 50, 60
+    //        sum = 450, /9 = 50
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 50);
 }
