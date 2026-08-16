@@ -235,3 +235,190 @@ fn xformbox_reg_hash_rendering() {
 
     assert!(rp.cleanup(), "xformbox hash rendering test failed");
 }
+
+/// C-comparable hash-box and box-transform series (plan 902 PR 16).
+///
+/// Mirrors C xformbox_reg checks 0-4: feyn.tif clipped to the same box,
+/// connected components rendered with the three hash-box variants, the
+/// four orthogonal rotations with correspondingly rotated boxa, and the
+/// six `transform_ordered` orders applied to translation and scaling.
+///
+/// C check 5 additionally needs `boxaAffineTransform` with the 2D matrix
+/// builders, which this port does not have yet.
+#[test]
+fn xformbox_c_compat() {
+    use leptonica::TransformOrder;
+    use leptonica::core::pix::PixelOp;
+    use leptonica::core::pix::graphics::{Color, HashOrientation};
+    use leptonica::io::ImageFormat;
+    use leptonica::region::{ConnectivityType, find_connected_components};
+    use leptonica::transform::rotate_orth;
+    use leptonica::{Boxa, Pix, Pixa, PixelDepth};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("xformbox_c");
+
+    // C: pixClipRectangle(feyn.tif, boxCreate(461, 429, 1393, 342))
+    let feyn = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
+    let pix1 = feyn.clip_rectangle(461, 429, 1393, 342).expect("clip");
+    let comps = find_connected_components(&pix1, ConnectivityType::EightWay).expect("conncomp");
+    let mut boxa = Boxa::new();
+    for c in &comps {
+        boxa.push(c.bounds);
+    }
+
+    // C uses i % 4 as the hash orientation index.
+    let orient_of = |i: usize| match i % 4 {
+        0 => HashOrientation::Horizontal,
+        1 => HashOrientation::PosSlope,
+        2 => HashOrientation::Vertical,
+        _ => HashOrientation::NegSlope,
+    };
+    let color_of = |i: usize| {
+        Color::new(
+            ((1413 * i) % 256) as u8,
+            ((4917 * i) % 256) as u8,
+            ((7341 * i) % 256) as u8,
+        )
+    };
+
+    // C checks 0-2: the three hash-box renderers over the same boxa.
+    let mut bin = pix1.deep_clone().to_mut();
+    // C: pixConvertTo8(pix1, 1) -> pixConvert1To8Cmap (8bpp with colormap).
+    let mut gray = pix1.convert_1_to_8_cmap().expect("to 8bpp cmap").to_mut();
+    let mut rgb = pix1.convert_to_32().expect("to 32bpp").to_mut();
+    for (i, b) in boxa.iter().enumerate() {
+        let orient = orient_of(i);
+        let color = color_of(i + 1);
+        bin.render_hash_box(b, 8, 2, orient, true, PixelOp::Set)
+            .expect("render_hash_box");
+        gray.render_hash_box_color(b, 7, 2, orient, true, color)
+            .expect("render_hash_box_color");
+        rgb.render_hash_box_blend(b, 7, 2, orient, true, color, 0.5)
+            .expect("render_hash_box_blend");
+    }
+    for pix in [Pix::from(bin), Pix::from(gray), Pix::from(rgb)] {
+        rp.write_pix_and_check(&pix, ImageFormat::Png)
+            .expect("check: xformbox hash render");
+    }
+
+    // C check 3: four orthogonal rotations with matching boxa rotations.
+    let (w, h) = (pix1.width() as i32, pix1.height() as i32);
+    let pixc = pix1.convert_to_32().expect("to 32bpp");
+    let mut pixa = Pixa::new();
+    for i in 0..4u32 {
+        let rotated = rotate_orth(&pixc, i).expect("rotate_orth");
+        let boxa2 = boxa.rotate_orth(w, h, i as i32).expect("boxa rotate_orth");
+        let mut m = rotated.to_mut();
+        m.render_hash_boxa_color(
+            &boxa2,
+            10,
+            3,
+            orient_of(i as usize),
+            true,
+            color_of(i as usize + 4),
+        )
+        .expect("render_hash_boxa_color");
+        pixa.push(m.into());
+    }
+    let tiled = pixa
+        .display_tiled_in_rows(PixelDepth::Bit32, 1200, 0.7, 0, 30, 3)
+        .expect("tiled in rows");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: xformbox rotate orth");
+
+    // C check 4: the six transform orders, over translation then scaling.
+    // pixs = clip(feyn, 420, 360, 1500, 465) with a 200px right border.
+    let pixt = feyn.clip_rectangle(420, 360, 1500, 465).expect("clip 2");
+    let pixs = pixt
+        .add_border_general(0, 200, 0, 0, 0)
+        .expect("add right border");
+    let comps = find_connected_components(&pixs, ConnectivityType::EightWay).expect("conncomp 2");
+    let mut boxa = Boxa::new();
+    for c in &comps {
+        boxa.push(c.bounds);
+    }
+
+    let render = |pix: &Pix, boxa: &Boxa, i: usize| -> Pix {
+        let mut m = pix.deep_clone().to_mut();
+        for b in boxa.iter() {
+            m.render_hash_box_color(b, 10, 3, orient_of(i), true, color_of(i))
+                .expect("render_hash_box_color");
+        }
+        m.into()
+    };
+
+    // (shift, scale, orders) per C group.
+    /// (shift, scale, three transform orders, base colour index).
+    struct Group {
+        shift: (i32, i32),
+        scale: (f32, f32),
+        orders: [TransformOrder; 3],
+        base_index: usize,
+    }
+    let groups: [Group; 4] = [
+        Group {
+            shift: (50, 70),
+            scale: (1.0, 1.0),
+            orders: [
+                TransformOrder::TrScRo,
+                TransformOrder::TrRoSc,
+                TransformOrder::ScTrRo,
+            ],
+            base_index: 0,
+        },
+        Group {
+            shift: (50, 70),
+            scale: (1.0, 1.0),
+            orders: [
+                TransformOrder::RoTrSc,
+                TransformOrder::RoScTr,
+                TransformOrder::ScRoTr,
+            ],
+            base_index: 4,
+        },
+        Group {
+            shift: (0, 0),
+            scale: (1.17, 1.13),
+            orders: [
+                TransformOrder::TrScRo,
+                TransformOrder::ScRoTr,
+                TransformOrder::ScTrRo,
+            ],
+            base_index: 8,
+        },
+        Group {
+            shift: (0, 0),
+            scale: (1.17, 1.13),
+            orders: [
+                TransformOrder::RoTrSc,
+                TransformOrder::RoScTr,
+                TransformOrder::TrRoSc,
+            ],
+            base_index: 12,
+        },
+    ];
+
+    let base = pixs.convert_to_32().expect("pixs to 32bpp");
+    let mut pixa = Pixa::new();
+    for group in groups {
+        let (sx, sy) = group.shift;
+        let (scx, scy) = group.scale;
+        let mut acc = base.deep_clone();
+        for (i, order) in group.orders.into_iter().enumerate() {
+            let boxat = boxa.transform_ordered(sx, sy, scx, scy, 450, 250, 0.10, order);
+            acc = render(&acc, &boxat, group.base_index + i);
+        }
+        pixa.push(acc);
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(1, 0.5, 20, 0)
+        .expect("tiled in columns");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: xformbox ordered transforms");
+
+    assert!(rp.cleanup(), "xformbox c-compat test failed");
+}

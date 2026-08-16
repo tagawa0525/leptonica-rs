@@ -479,3 +479,40 @@ fn conversion_to_8_ignores_1bpp_colormap() {
     assert_eq!(out.get_pixel(0, 0).unwrap(), 255);
     assert_eq!(out.get_pixel(1, 0).unwrap(), 0);
 }
+
+/// Arb-colour rendering on a colormapped pix must go through the
+/// colormap (plan 902 PR 16).
+///
+/// C `pixRenderPtaArb` resolves the requested colour with
+/// `pixcmapAddNearestColor` and writes that index, adding the colour when
+/// there is room. Writing a raw gray/RGB value instead names an unrelated
+/// colormap entry.
+#[test]
+fn render_pta_color_uses_colormap() {
+    use leptonica::core::pix::graphics::Color;
+    use leptonica::core::{PixColormap, Pta, RgbaQuad};
+
+    let pix = {
+        let p = leptonica::Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(8).unwrap();
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap();
+        cmap.add_color(RgbaQuad::rgb(0, 0, 0)).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    let mut pta = Pta::new();
+    pta.push(1.0, 0.0);
+    let mut m = pix.to_mut();
+    m.render_pta_color(&pta, Color::new(200, 30, 150))
+        .expect("render_pta_color");
+    let out: leptonica::Pix = m.into();
+
+    let cmap = out.colormap().expect("colormap preserved");
+    assert_eq!(cmap.len(), 3, "the new colour must be added to the cmap");
+    assert_eq!(cmap.get_rgb(2).unwrap(), (200, 30, 150));
+    // The raster must reference the new index, not a raw gray value.
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 2);
+}

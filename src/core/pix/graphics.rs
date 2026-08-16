@@ -960,23 +960,43 @@ impl PixMut {
 
     /// Render a point array with a specific RGB color.
     ///
-    /// For non-32bpp images, the color is converted to grayscale.
+    /// The value actually written depends on the image:
+    ///
+    /// - **colormapped** (any depth above 1 bpp): the colour is resolved
+    ///   against the colormap — added when there is room, otherwise the
+    ///   nearest existing entry — and that index is written, so the
+    ///   requested RGB is preserved
+    /// - **32 bpp**: the packed RGB value
+    /// - **1 bpp**: the foreground bit
+    /// - other depths: the colour converted to grayscale
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixRenderPtaArb()` in `graphics.c`
     pub fn render_pta_color(&mut self, pta: &Pta, color: Color) -> Result<()> {
         let w = self.width();
         let h = self.height();
         let depth = self.depth();
 
-        // Calculate the pixel value based on depth
-        let pixel_val = match depth {
-            PixelDepth::Bit1 => 1u32,
-            PixelDepth::Bit2 => (color.to_gray() >> 6) as u32,
-            PixelDepth::Bit4 => (color.to_gray() >> 4) as u32,
-            PixelDepth::Bit8 => color.to_gray() as u32,
-            PixelDepth::Bit16 => {
-                let g = color.to_gray() as u32;
-                (g << 8) | g
+        // C pixRenderPtaArb: on a colormapped pix the colour is resolved
+        // with pixcmapAddNearestColor and the resulting index is written,
+        // rather than a raw gray/RGB value that would name an unrelated
+        // colormap entry.
+        let pixel_val = if depth != PixelDepth::Bit1 && self.has_colormap() {
+            let cmap = self.colormap_mut().ok_or(Error::ColormapRequired)?;
+            cmap.add_nearest_color(color.r, color.g, color.b)? as u32
+        } else {
+            match depth {
+                PixelDepth::Bit1 => 1u32,
+                PixelDepth::Bit2 => (color.to_gray() >> 6) as u32,
+                PixelDepth::Bit4 => (color.to_gray() >> 4) as u32,
+                PixelDepth::Bit8 => color.to_gray() as u32,
+                PixelDepth::Bit16 => {
+                    let g = color.to_gray() as u32;
+                    (g << 8) | g
+                }
+                PixelDepth::Bit32 => color.to_pixel32(),
             }
-            PixelDepth::Bit32 => color.to_pixel32(),
         };
 
         for (x, y) in pta.iter() {

@@ -26,3 +26,7 @@ key	dist_contours.16.png	C counterpart a+6 is JPEG (finding 001)
 key	dist_seedfill.05.png	C b-section writes only JPEG (b+1..b+3, finding 001)
 key	dist_seedfill.06.png	C b-section writes only JPEG (b+1..b+3, finding 001)
 prefix	falsecolor	Rust-specific color-mapping API outputs; C falsecolor_reg outputs are paired via falsecolor_c
+# xformbox_reg (plan 902 PR 16): C 3/4 は pixScale の unsharp masking と
+# area map の 1/2 特別ケースが未移植 (scale_general の C 準拠化が前提)
+key	xformbox_c.04.png	needs C pixScale dispatch (unsharp masking); see plan 902 PR 17
+key	xformbox_c.05.png	needs C pixScale dispatch (unsharp masking); see plan 902 PR 17
