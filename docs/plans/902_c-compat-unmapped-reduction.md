@@ -541,7 +541,42 @@ scalefactor, background, spacing, border)` に対し Rust は
   (テキストブロック高の算出差、幅は一致)。boxa アルゴリズム自体は
   `.ba` で検証済みのため、理由付きで Excluded とした
 
-### PR 23 以降: semantic マッピングの漸進追加
+### PR 23: colorcontent の RGB gamut 分類 (実施済み)
+
+C 版ソース: `src/pix3.c` (pixMakeArbMaskFromRGB)、
+`src/colorspace.c` (pixMakeGamutRGB)、`prog/colorcontent_reg.c`。
+
+`colorcontent_reg` の 13 出力のうち check 0/1/5/8/9 は fish24.jpg・
+wyom.jpg・map.057.jpg を入力とするため JPEG デコード差 (finding 001/008)
+で bit 一致が原理的に不可能。一方 **check 10-17 の 8 件は入力画像を持たず**、
+`pixMakeGamutRGB` で合成した RGB gamut を `pixMakeArbMaskFromRGB` で
+分類するだけなので決定的に比較できる。
+
+実施結果:
+
+- 実装差 34 件目: `make_arb_mask_from_rgb` が f32 の重み付き和を
+  そのまま閾値と比較していた。C は `pixConvertRGBToGrayArb` で
+  8bpp gray 中間を作ってから `pixThresholdToBinary(pix1, thresh + 1)` +
+  `pixInvert` するため、実際の判定は
+
+  ```text
+  clip(trunc(rc*R + gc*G + bc*B), 0, 255) >= trunc(thresh) + 1
+  ```
+
+  という整数意味論になる。例えば係数 (0.4, 0.3, 0.3)・閾値 60 で和が
+  60.8 のとき、C は `trunc(60.8) = 60 < 61` で OFF、旧実装は
+  `60.8 > 60.0` で ON となり乖離していた。切り捨て・[0,255] クリップ・
+  閾値の整数化に加え、`thresh >= 255` を 254 にクランプする挙動と
+  係数が全て非正のときのエラーも C に合わせた
+- `Pix::make_gamut_rgb` (C pixMakeGamutRGB) を新規移植。32 個の
+  32x32 サブ画像 (B 一定、R/G を 8 刻みで振る) を
+  `display_tiled_in_columns(8, scale, 5, 0)` で並べる
+- colorcontent の C check 10-17 を 8 ペアマップ — **全件即 Ok**
+  (Ok 198 → 206)
+- JPEG 入力側の 5 件は既存の finding 001/008 の範囲であり、
+  今回は新規マップ対象外
+
+### PR 24 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
