@@ -289,7 +289,6 @@ fn conversion_to_32_applies_colormap() {
 /// holds luminance values — not the raw indices. Sub-8bpp colormapped
 /// inputs are likewise expanded rather than value-mapped.
 #[test]
-#[ignore = "not yet implemented: convert_to_8 ignores the colormap"]
 fn conversion_to_8_applies_colormap() {
     use leptonica::core::{PixColormap, RgbaQuad};
 

@@ -145,6 +145,19 @@ impl Pix {
         let w = self.width();
         let h = self.height();
 
+        // C pixConvertTo8(pixs, FALSE) removes a colormap to grayscale
+        // rather than passing the raw indices through. Sub-8bpp cmapped
+        // input is expanded the same way (C pixConvert{2,4}To8 with
+        // cmapflag = FALSE).
+        if self.has_colormap()
+            && matches!(
+                self.depth(),
+                PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8
+            )
+        {
+            return self.remove_colormap(RemoveColormapTarget::ToGrayscale);
+        }
+
         match self.depth() {
             PixelDepth::Bit8 => {
                 // Already 8-bit: return a deep copy
