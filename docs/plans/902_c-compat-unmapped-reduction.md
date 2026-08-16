@@ -568,6 +568,12 @@ wyom.jpg・map.057.jpg を入力とするため JPEG デコード差 (finding 00
   `60.8 > 60.0` で ON となり乖離していた。切り捨て・[0,255] クリップ・
   閾値の整数化に加え、`thresh >= 255` を 254 にクランプする挙動と
   係数が全て非正のときのエラーも C に合わせた
+- 実装差 35 件目 (レビュー指摘から派生): 既存の
+  `convert_rgb_to_gray_arb` が `+ 0.5` で丸めていた。C
+  `pixConvertRGBToGrayArb` は `val = (l_int32)(...)` で切り捨てるため
+  同じ 60.8 が 61 になっていた。切り捨てに修正し、
+  `make_arb_mask_from_rgb` を同関数経由に変更して量子化規約を 1 箇所に
+  集約した (golden hash に変化なし)
 - `Pix::make_gamut_rgb` (C pixMakeGamutRGB) を新規移植。32 個の
   32x32 サブ画像 (B 一定、R/G を 8 刻みで振る) を
   `display_tiled_in_columns(8, scale, 5, 0)` で並べる
