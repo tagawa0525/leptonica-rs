@@ -74,7 +74,7 @@ pub fn scale(pix: &Pix, scale_x: f32, scale_y: f32, method: ScaleMethod) -> Tran
     match method {
         ScaleMethod::Sampling => scale_by_sampling_impl(pix, new_w, new_h),
         ScaleMethod::Linear => scale_linear(pix, new_w, new_h),
-        ScaleMethod::AreaMap => scale_area_map(pix, scale_x, scale_y, new_w, new_h),
+        ScaleMethod::AreaMap => scale_area_map_impl(pix, new_w, new_h),
         ScaleMethod::Auto => unreachable!(),
     }
 }
@@ -211,7 +211,7 @@ pub fn scale_area_map_to_size(pix: &Pix, wd: u32, hd: u32) -> TransformResult<Pi
     };
     let new_w = ((w as f32) * sx).round() as u32;
     let new_h = ((h as f32) * sy).round() as u32;
-    scale_area_map(pix, sx, sy, new_w.max(1), new_h.max(1))
+    scale_area_map_impl(pix, new_w.max(1), new_h.max(1))
 }
 
 /// Fast 2× area mapping downscale.
@@ -472,9 +472,17 @@ fn convert_to_8bpp(pix: &Pix) -> TransformResult<Pix> {
     Ok(out_mut.into())
 }
 
-/// Scale an image using nearest-neighbor sampling
+/// Scale an image using nearest-neighbour sampling.
+///
+/// Samples with a half-pixel shift, so the source index for destination
+/// column `j` is `(int)(wratio * j + 0.5)`. This centres the sampling
+/// lattice, which matters most at strong reductions of small images.
+///
+/// # See also
+///
+/// C Leptonica: `pixScaleBySampling()` in `scale1.c`
 pub fn scale_by_sampling(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
-    scale(pix, scale_x, scale_y, ScaleMethod::Sampling)
+    scale_by_sampling_with_shift(pix, scale_x, scale_y, 0.5, 0.5)
 }
 
 /// Scale using bilinear (linear) interpolation.
@@ -523,8 +531,19 @@ pub fn scale_color_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<
     if max_scale < 0.7 {
         return scale_general(pix, scale_x, scale_y, 0.0, 0);
     }
-    let new_w = ((pix.width() as f32) * scale_x).round() as u32;
-    let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+    // C fast special cases.
+    if scale_x == 1.0 && scale_y == 1.0 {
+        return Ok(pix.deep_clone());
+    }
+    if scale_x == 2.0 && scale_y == 2.0 {
+        return scale_color_2x_li(pix);
+    }
+    if scale_x == 4.0 && scale_y == 4.0 {
+        return scale_color_4x_li(pix);
+    }
+    // C: wd = (l_int32)(scalex * ws + 0.5)
+    let new_w = (scale_x * pix.width() as f32 + 0.5) as u32;
+    let new_h = (scale_y * pix.height() as f32 + 0.5) as u32;
     scale_linear_color(pix, new_w.max(1), new_h.max(1))
 }
 
@@ -547,8 +566,19 @@ pub fn scale_gray_li(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<P
     if max_scale < 0.7 {
         return scale_general(pix, scale_x, scale_y, 0.0, 0);
     }
-    let new_w = ((pix.width() as f32) * scale_x).round() as u32;
-    let new_h = ((pix.height() as f32) * scale_y).round() as u32;
+    // C fast special cases.
+    if scale_x == 1.0 && scale_y == 1.0 {
+        return Ok(pix.deep_clone());
+    }
+    if scale_x == 2.0 && scale_y == 2.0 {
+        return scale_gray_2x_li(pix);
+    }
+    if scale_x == 4.0 && scale_y == 4.0 {
+        return scale_gray_4x_li(pix);
+    }
+    // C: wd = (l_int32)(scalex * ws + 0.5)
+    let new_w = (scale_x * pix.width() as f32 + 0.5) as u32;
+    let new_h = (scale_y * pix.height() as f32 + 0.5) as u32;
     scale_linear_gray(pix, new_w.max(1), new_h.max(1))
 }
 
@@ -595,7 +625,7 @@ pub fn scale_general(
         } else {
             let new_w = ((pix.width() as f32) * scale_x).round() as u32;
             let new_h = ((pix.height() as f32) * scale_y).round() as u32;
-            scale_area_map(pix, scale_x, scale_y, new_w.max(1), new_h.max(1))
+            scale_area_map_impl(pix, new_w.max(1), new_h.max(1))
         }
     } else {
         // Linear interpolation
@@ -671,12 +701,12 @@ pub fn scale_by_sampling_with_shift(
     let inv_x = w as f32 / new_w as f32;
     let inv_y = h as f32 / new_h as f32;
 
+    // C scaleBySamplingLow: srow[i] = min((int)(hratio * i + shifty), hs - 1).
+    // The shift is added *after* scaling and the sum is truncated.
     for y in 0..new_h {
-        let src_y = ((y as f32 + shift_y) * inv_y) as u32;
-        let src_y = src_y.min(h - 1);
+        let src_y = ((inv_y * y as f32 + shift_y) as u32).min(h - 1);
         for x in 0..new_w {
-            let src_x = ((x as f32 + shift_x) * inv_x) as u32;
-            let src_x = src_x.min(w - 1);
+            let src_x = ((inv_x * x as f32 + shift_x) as u32).min(w - 1);
             out_mut.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(src_x, src_y));
         }
     }
@@ -722,127 +752,96 @@ pub fn scale_smooth(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pi
     let depth = pix.depth();
     let w = pix.width();
     let h = pix.height();
-    let new_w = ((w as f32) * scale_x).round() as u32;
-    let new_h = ((h as f32) * scale_y).round() as u32;
-    if new_w == 0 || new_h == 0 {
-        return Err(TransformError::InvalidScaleFactor(
-            "resulting dimensions would be zero".to_string(),
-        ));
+
+    // C: isize = min(10000, max(2, (int)(1 / minscale + 0.5)))
+    let min_scale = scale_x.min(scale_y);
+    let isize = ((1.0 / min_scale + 0.5) as u32).clamp(2, 10000);
+
+    // C returns a 1x1 pix holding the centre pixel when the filter does
+    // not fit inside the image.
+    if w < isize || h < isize {
+        let out = Pix::new(1, 1, depth)?;
+        let mut out_mut = out.try_into_mut().unwrap();
+        out_mut.set_pixel_unchecked(0, 0, pix.get_pixel_unchecked(w / 2, h / 2));
+        return Ok(out_mut.into());
     }
 
-    let min_scale = scale_x.min(scale_y);
-    let isize = (1.0 / min_scale + 0.5).floor() as u32;
-    let isize = isize.clamp(2, 10000);
+    // C: wd = max(1, (l_int32)(scalex * ws + 0.5))
+    let new_w = ((scale_x * w as f32 + 0.5) as u32).max(1);
+    let new_h = ((scale_y * h as f32 + 0.5) as u32).max(1);
 
     match depth {
-        PixelDepth::Bit8 if pix.colormap().is_none() => {
-            scale_smooth_gray(pix, scale_x, scale_y, new_w, new_h, isize)
-        }
-        PixelDepth::Bit32 => scale_smooth_color(pix, scale_x, scale_y, new_w, new_h, isize),
-        _ => scale_area_map(pix, scale_x, scale_y, new_w, new_h),
+        PixelDepth::Bit8 if pix.colormap().is_none() => scale_smooth_gray(pix, new_w, new_h, isize),
+        PixelDepth::Bit32 => scale_smooth_color(pix, new_w, new_h, isize),
+        _ => scale_area_map_impl(pix, new_w, new_h),
     }
 }
 
 /// Box-filter smooth downscale for 8bpp grayscale
-fn scale_smooth_gray(
-    pix: &Pix,
-    scale_x: f32,
-    scale_y: f32,
-    new_w: u32,
-    new_h: u32,
-    isize: u32,
-) -> TransformResult<Pix> {
+fn scale_smooth_gray(pix: &Pix, new_w: u32, new_h: u32, isize: u32) -> TransformResult<Pix> {
     let w = pix.width();
     let h = pix.height();
     let out_pix = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    let half = isize / 2;
+    // C scaleSmoothLow: a fixed isize x isize box anchored at its upper-left
+    // corner, clamped so it never leaves the image; divide by isize^2.
+    let norm = 1.0 / (isize * isize) as f32;
+    let wratio = w as f32 / new_w as f32;
+    let hratio = h as f32 / new_h as f32;
     for yd in 0..new_h {
-        let ys_center = (yd as f32 / scale_y + 0.5) as i32;
+        let ystart = ((hratio * yd as f32) as u32).min(h - isize);
         for xd in 0..new_w {
-            let xs_center = (xd as f32 / scale_x + 0.5) as i32;
-            let mut sum: u32 = 0;
-            let mut count: u32 = 0;
-            for dy in 0..isize {
-                let ys = ys_center - half as i32 + dy as i32;
-                if ys < 0 || ys >= h as i32 {
-                    continue;
-                }
-                for dx in 0..isize {
-                    let xs = xs_center - half as i32 + dx as i32;
-                    if xs < 0 || xs >= w as i32 {
-                        continue;
-                    }
-                    sum += pix.get_pixel_unchecked(xs as u32, ys as u32);
-                    count += 1;
+            let xstart = ((wratio * xd as f32) as u32).min(w - isize);
+            // u64: with the maximum isize of 10000, 255 * isize^2 would
+            // overflow u32.
+            let mut sum: u64 = 0;
+            for m in 0..isize {
+                for n in 0..isize {
+                    sum += pix.get_pixel_unchecked(xstart + n, ystart + m) as u64;
                 }
             }
-            let val = if count > 0 {
-                ((sum as f32 / count as f32) + 0.5) as u32
-            } else {
-                0
-            };
-            out_mut.set_pixel_unchecked(xd, yd, val.min(255));
+            out_mut.set_pixel_unchecked(xd, yd, (sum as f32 * norm) as u32);
         }
     }
     Ok(out_mut.into())
 }
 
 /// Box-filter smooth downscale for 32bpp color
-fn scale_smooth_color(
-    pix: &Pix,
-    scale_x: f32,
-    scale_y: f32,
-    new_w: u32,
-    new_h: u32,
-    isize: u32,
-) -> TransformResult<Pix> {
+fn scale_smooth_color(pix: &Pix, new_w: u32, new_h: u32, isize: u32) -> TransformResult<Pix> {
     let w = pix.width();
     let h = pix.height();
     let out_pix = Pix::new(new_w, new_h, PixelDepth::Bit32)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
     out_mut.set_spp(pix.spp());
 
-    let half = isize / 2;
+    // C scaleSmoothLow: a fixed isize x isize box anchored at its upper-left
+    // corner, clamped so it never leaves the image; divide by isize^2.
+    let norm = 1.0 / (isize * isize) as f32;
+    let wratio = w as f32 / new_w as f32;
+    let hratio = h as f32 / new_h as f32;
     for yd in 0..new_h {
-        let ys_center = (yd as f32 / scale_y + 0.5) as i32;
+        let ystart = ((hratio * yd as f32) as u32).min(h - isize);
         for xd in 0..new_w {
-            let xs_center = (xd as f32 / scale_x + 0.5) as i32;
-            let mut sum_r: u32 = 0;
-            let mut sum_g: u32 = 0;
-            let mut sum_b: u32 = 0;
-            let mut sum_a: u32 = 0;
-            let mut count: u32 = 0;
-            for dy in 0..isize {
-                let ys = ys_center - half as i32 + dy as i32;
-                if ys < 0 || ys >= h as i32 {
-                    continue;
-                }
-                for dx in 0..isize {
-                    let xs = xs_center - half as i32 + dx as i32;
-                    if xs < 0 || xs >= w as i32 {
-                        continue;
-                    }
-                    let (r, g, b, a) =
-                        pixel::extract_rgba(pix.get_pixel_unchecked(xs as u32, ys as u32));
-                    sum_r += r as u32;
-                    sum_g += g as u32;
-                    sum_b += b as u32;
-                    sum_a += a as u32;
-                    count += 1;
+            let xstart = ((wratio * xd as f32) as u32).min(w - isize);
+            let (mut sum_r, mut sum_g, mut sum_b) = (0u64, 0u64, 0u64);
+            for m in 0..isize {
+                for n in 0..isize {
+                    let (r, g, b, _) =
+                        pixel::extract_rgba(pix.get_pixel_unchecked(xstart + n, ystart + m));
+                    sum_r += r as u64;
+                    sum_g += g as u64;
+                    sum_b += b as u64;
                 }
             }
-            let pixel = if count > 0 {
-                let r = ((sum_r as f32 / count as f32) + 0.5) as u8;
-                let g = ((sum_g as f32 / count as f32) + 0.5) as u8;
-                let b = ((sum_b as f32 / count as f32) + 0.5) as u8;
-                let a = ((sum_a as f32 / count as f32) + 0.5) as u8;
-                pixel::compose_rgba(r, g, b, a)
-            } else {
-                0
-            };
-            out_mut.set_pixel_unchecked(xd, yd, pixel);
+            // C composeRGBPixel leaves the alpha byte 0.
+            let val = pixel::compose_rgba(
+                (sum_r as f32 * norm) as u8,
+                (sum_g as f32 * norm) as u8,
+                (sum_b as f32 * norm) as u8,
+                0,
+            );
+            out_mut.set_pixel_unchecked(xd, yd, val);
         }
     }
     Ok(out_mut.into())
@@ -1104,30 +1103,81 @@ pub fn scale_binary(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pi
 // Phase 5: Special scaling operations
 // ────────────────────────────────────────────────────────────────────────────
 
-/// 2× upscale of a 32bpp color image using linear interpolation.
+/// Expand each source pixel of a 32 bpp image into an `n`x`n` destination
+/// block, interpolating per channel with the C integer weights.
 ///
-/// Equivalent to `scale_color_li(pix, 2.0, 2.0)`.
-pub fn scale_color_2x_li(pix: &Pix) -> TransformResult<Pix> {
+/// Shared by [`scale_color_2x_li`] (n = 2) and [`scale_color_4x_li`]
+/// (n = 4). The last source column and row replicate themselves, and the
+/// alpha byte of every output pixel is 0, both as in C.
+fn scale_color_nx_li(pix: &Pix, n: u32) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit32 {
         return Err(TransformError::UnsupportedDepth(format!(
             "{:?}",
             pix.depth()
         )));
     }
-    scale_color_li(pix, 2.0, 2.0)
+    let (ws, hs) = (pix.width(), pix.height());
+    let wd = ws.checked_mul(n).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled width would overflow u32".to_string())
+    })?;
+    let hd = hs.checked_mul(n).ok_or_else(|| {
+        TransformError::InvalidParameters("scaled height would overflow u32".to_string())
+    })?;
+    let out = Pix::new(wd, hd, PixelDepth::Bit32)?;
+    let mut dst = out.try_into_mut().unwrap();
+
+    for i in 0..hs {
+        let inext = if i + 1 < hs { i + 1 } else { i };
+        for j in 0..ws {
+            let jnext = if j + 1 < ws { j + 1 } else { j };
+            let s1 = pixel::extract_rgba(pix.get_pixel_unchecked(j, i));
+            let s2 = pixel::extract_rgba(pix.get_pixel_unchecked(jnext, i));
+            let s3 = pixel::extract_rgba(pix.get_pixel_unchecked(j, inext));
+            let s4 = pixel::extract_rgba(pix.get_pixel_unchecked(jnext, inext));
+
+            for dy in 0..n {
+                for dx in 0..n {
+                    // Bilinear weights over the n x n block, denominator n².
+                    let (wx1, wx2) = (n - dx, dx);
+                    let (wy1, wy2) = (n - dy, dy);
+                    let mix = |c1: u8, c2: u8, c3: u8, c4: u8| -> u8 {
+                        ((wx1 * wy1 * c1 as u32
+                            + wx2 * wy1 * c2 as u32
+                            + wx1 * wy2 * c3 as u32
+                            + wx2 * wy2 * c4 as u32)
+                            / (n * n)) as u8
+                    };
+                    // C composes only the colour bytes; alpha stays 0.
+                    let val = pixel::compose_rgba(
+                        mix(s1.0, s2.0, s3.0, s4.0),
+                        mix(s1.1, s2.1, s3.1, s4.1),
+                        mix(s1.2, s2.2, s3.2, s4.2),
+                        0,
+                    );
+                    dst.set_pixel_unchecked(n * j + dx, n * i + dy, val);
+                }
+            }
+        }
+    }
+    Ok(dst.into())
 }
 
-/// 4× upscale of a 32bpp color image using linear interpolation.
+/// 2× upscale of a 32 bpp color image using linear interpolation.
 ///
-/// Equivalent to `scale_color_li(pix, 4.0, 4.0)`.
+/// Reproduces C `pixScaleColor2xLI()`: for source pixels s1 = (j, i),
+/// s2 = (j+1, i), s3 = (j, i+1), s4 = (j+1, i+1), the four destination
+/// pixels are `s1`, `(s1+s2)/2`, `(s1+s3)/2`, `(s1+s2+s3+s4)/4` per
+/// channel in integer arithmetic.
+pub fn scale_color_2x_li(pix: &Pix) -> TransformResult<Pix> {
+    scale_color_nx_li(pix, 2)
+}
+
+/// 4× upscale of a 32 bpp color image using linear interpolation.
+///
+/// Reproduces C `pixScaleColor4xLI()`: each source pixel expands into a
+/// 4×4 destination block interpolated with 1/4, 1/2, 3/4 integer weights.
 pub fn scale_color_4x_li(pix: &Pix) -> TransformResult<Pix> {
-    if pix.depth() != PixelDepth::Bit32 {
-        return Err(TransformError::UnsupportedDepth(format!(
-            "{:?}",
-            pix.depth()
-        )));
-    }
-    scale_color_li(pix, 4.0, 4.0)
+    scale_color_nx_li(pix, 4)
 }
 
 /// 2× upscale of an 8bpp grayscale image using linear interpolation.
@@ -1727,37 +1777,67 @@ fn scale_linear(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
 
 /// Bilinear interpolation for 32bpp color images
 fn scale_linear_color(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
-    let w = pix.width();
-    let h = pix.height();
+    let (ws, hs) = (pix.width() as i32, pix.height() as i32);
 
     let out_pix = Pix::new(new_w, new_h, PixelDepth::Bit32)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
     out_mut.set_spp(pix.spp());
 
-    let scale_x = (w as f32 - 1.0) / (new_w as f32 - 1.0).max(1.0);
-    let scale_y = (h as f32 - 1.0) / (new_h as f32 - 1.0).max(1.0);
+    // C scaleColorLILow: dest -> src in 1/16 pixel units.
+    let scx = 16.0 * ws as f32 / new_w as f32;
+    let scy = 16.0 * hs as f32 / new_h as f32;
+    let (wm2, hm2) = (ws - 2, hs - 2);
 
-    for y in 0..new_h {
-        let src_y = y as f32 * scale_y;
-        let y0 = src_y.floor() as u32;
-        let y1 = (y0 + 1).min(h - 1);
-        let fy = src_y - y0 as f32;
+    for i in 0..new_h {
+        let ypm = (scy * i as f32) as i32;
+        let yp = ypm >> 4;
+        let yf = ypm & 0x0f;
+        for j in 0..new_w {
+            let xpm = (scx * j as f32) as i32;
+            let xp = xpm >> 4;
+            let xf = xpm & 0x0f;
 
-        for x in 0..new_w {
-            let src_x = x as f32 * scale_x;
-            let x0 = src_x.floor() as u32;
-            let x1 = (x0 + 1).min(w - 1);
-            let fx = src_x - x0 as f32;
+            let p1 = pix.get_pixel_unchecked(xp as u32, yp as u32);
+            // Near the right/bottom edges C replicates instead of reading
+            // out of bounds.
+            let (p2, p3, p4) = if xp > wm2 || yp > hm2 {
+                if yp > hm2 && xp <= wm2 {
+                    let p2 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32);
+                    (p2, p1, p2)
+                } else if xp > wm2 && yp <= hm2 {
+                    let p3 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32);
+                    (p1, p3, p3)
+                } else {
+                    (p1, p1, p1)
+                }
+            } else {
+                (
+                    pix.get_pixel_unchecked((xp + 1) as u32, yp as u32),
+                    pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32),
+                    pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32),
+                )
+            };
 
-            // Get 4 corner pixels
-            let p00 = pix.get_pixel_unchecked(x0, y0);
-            let p10 = pix.get_pixel_unchecked(x1, y0);
-            let p01 = pix.get_pixel_unchecked(x0, y1);
-            let p11 = pix.get_pixel_unchecked(x1, y1);
-
-            // Interpolate each channel
-            let result = interpolate_color(p00, p10, p01, p11, fx, fy);
-            out_mut.set_pixel_unchecked(x, y, result);
+            let a00 = ((16 - xf) * (16 - yf)) as u32;
+            let a10 = (xf * (16 - yf)) as u32;
+            let a01 = ((16 - xf) * yf) as u32;
+            let a11 = (xf * yf) as u32;
+            let (r1, g1, b1, _) = pixel::extract_rgba(p1);
+            let (r2, g2, b2, _) = pixel::extract_rgba(p2);
+            let (r3, g3, b3, _) = pixel::extract_rgba(p3);
+            let (r4, g4, b4, _) = pixel::extract_rgba(p4);
+            let mix = |c1: u8, c2: u8, c3: u8, c4: u8| -> u8 {
+                ((a00 * c1 as u32 + a10 * c2 as u32 + a01 * c3 as u32 + a11 * c4 as u32 + 128)
+                    / 256) as u8
+            };
+            // C composes only the three colour bytes; alpha stays 0.
+            let val = pixel::compose_rgba(
+                mix(r1, r2, r3, r4),
+                mix(g1, g2, g3, g4),
+                mix(b1, b2, b3, b4),
+                0,
+            );
+            out_mut.set_pixel_unchecked(j, i, val);
         }
     }
 
@@ -1777,83 +1857,133 @@ fn scale_linear_gray(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> 
     let out_pix = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    let scale_x = (w as f32 - 1.0) / (new_w as f32 - 1.0).max(1.0);
-    let scale_y = (h as f32 - 1.0) / (new_h as f32 - 1.0).max(1.0);
+    // C scaleGrayLILow: same 1/16 subpixel convention as the colour path.
+    let (ws, hs) = (w as i32, h as i32);
+    let scx = 16.0 * ws as f32 / new_w as f32;
+    let scy = 16.0 * hs as f32 / new_h as f32;
+    let (wm2, hm2) = (ws - 2, hs - 2);
 
-    for y in 0..new_h {
-        let src_y = y as f32 * scale_y;
-        let y0 = src_y.floor() as u32;
-        let y1 = (y0 + 1).min(h - 1);
-        let fy = src_y - y0 as f32;
+    for i in 0..new_h {
+        let ypm = (scy * i as f32) as i32;
+        let yp = ypm >> 4;
+        let yf = ypm & 0x0f;
+        for j in 0..new_w {
+            let xpm = (scx * j as f32) as i32;
+            let xp = xpm >> 4;
+            let xf = xpm & 0x0f;
 
-        for x in 0..new_w {
-            let src_x = x as f32 * scale_x;
-            let x0 = src_x.floor() as u32;
-            let x1 = (x0 + 1).min(w - 1);
-            let fx = src_x - x0 as f32;
+            let v00 = pix.get_pixel_unchecked(xp as u32, yp as u32);
+            let (v10, v01, v11) = if xp > wm2 || yp > hm2 {
+                if yp > hm2 && xp <= wm2 {
+                    let v10 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32);
+                    (v10, v00, v10)
+                } else if xp > wm2 && yp <= hm2 {
+                    let v01 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32);
+                    (v00, v01, v01)
+                } else {
+                    (v00, v00, v00)
+                }
+            } else {
+                (
+                    pix.get_pixel_unchecked((xp + 1) as u32, yp as u32),
+                    pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32),
+                    pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32),
+                )
+            };
 
-            // Get 4 corner pixels
-            let p00 = pix.get_pixel_unchecked(x0, y0) as f32;
-            let p10 = pix.get_pixel_unchecked(x1, y0) as f32;
-            let p01 = pix.get_pixel_unchecked(x0, y1) as f32;
-            let p11 = pix.get_pixel_unchecked(x1, y1) as f32;
-
-            // Bilinear interpolation
-            let top = p00 * (1.0 - fx) + p10 * fx;
-            let bottom = p01 * (1.0 - fx) + p11 * fx;
-            let result = (top * (1.0 - fy) + bottom * fy).round() as u32;
-
-            out_mut.set_pixel_unchecked(x, y, result);
+            let sum = ((16 - xf) * (16 - yf)) as u32 * v00
+                + (xf * (16 - yf)) as u32 * v10
+                + ((16 - xf) * yf) as u32 * v01
+                + (xf * yf) as u32 * v11;
+            out_mut.set_pixel_unchecked(j, i, (sum + 128) / 256);
         }
     }
 
     Ok(out_mut.into())
 }
 
-/// Interpolate between 4 color pixels using bilinear weights
-fn interpolate_color(p00: u32, p10: u32, p01: u32, p11: u32, fx: f32, fy: f32) -> u32 {
-    let (r00, g00, b00, a00) = pixel::extract_rgba(p00);
-    let (r10, g10, b10, a10) = pixel::extract_rgba(p10);
-    let (r01, g01, b01, a01) = pixel::extract_rgba(p01);
-    let (r11, g11, b11, a11) = pixel::extract_rgba(p11);
+/// Downscale by area mapping, dispatching exactly like C.
+///
+/// Area mapping averages each destination pixel over the corresponding
+/// source rectangle, which suppresses aliasing on strong reductions. C
+/// restricts it to that regime and falls back elsewhere:
+///
+/// - `min(sx, sy) < 0.02` — too small; delegates to [`scale_smooth`]
+/// - `max(sx, sy) >= 0.7` — too large; delegates to regular scaling
+/// - exactly 1/2, 1/4, 1/8 or 1/16 — repeated [`scale_area_map_2`]
+///
+/// Colormaps are removed and 2/4 bpp is promoted to 8 bpp first.
+///
+/// # See also
+///
+/// C Leptonica: `pixScaleAreaMap()` in `scale1.c`
+pub fn scale_area_map(pix: &Pix, scale_x: f32, scale_y: f32) -> TransformResult<Pix> {
+    let d = pix.depth();
+    if matches!(d, PixelDepth::Bit1 | PixelDepth::Bit16) {
+        return Err(TransformError::UnsupportedDepth(format!(
+            "scale_area_map does not support {d:?}"
+        )));
+    }
+    if scale_x <= 0.0 || scale_y <= 0.0 {
+        return Err(TransformError::InvalidScaleFactor(format!(
+            "scale factors must be positive: ({scale_x}, {scale_y})"
+        )));
+    }
 
-    let r = interpolate_channel(r00, r10, r01, r11, fx, fy);
-    let g = interpolate_channel(g00, g10, g01, g11, fx, fy);
-    let b = interpolate_channel(b00, b10, b01, b11, fx, fy);
-    let a = interpolate_channel(a00, a10, a01, a11, fx, fy);
+    if scale_x.min(scale_y) < 0.02 {
+        // Too small for area mapping.
+        return scale_smooth(pix, scale_x, scale_y);
+    }
+    if scale_x.max(scale_y) >= 0.7 {
+        // Too large for area mapping.
+        return scale_general(pix, scale_x, scale_y, 0.0, 0);
+    }
 
-    pixel::compose_rgba(r, g, b, a)
-}
+    // Special cases: 2x, 4x, 8x, 16x reduction.
+    if scale_x == scale_y {
+        let reps = match scale_x {
+            0.5 => 1,
+            0.25 => 2,
+            0.125 => 3,
+            0.0625 => 4,
+            _ => 0,
+        };
+        if reps > 0 {
+            let mut out = scale_area_map_2(pix)?;
+            for _ in 1..reps {
+                out = scale_area_map_2(&out)?;
+            }
+            return Ok(out);
+        }
+    }
 
-/// Bilinear interpolation for a single channel
-fn interpolate_channel(c00: u8, c10: u8, c01: u8, c11: u8, fx: f32, fy: f32) -> u8 {
-    let c00 = c00 as f32;
-    let c10 = c10 as f32;
-    let c01 = c01 as f32;
-    let c11 = c11 as f32;
+    // Remove colormap if necessary; promote 2/4 bpp gray to 8 bpp.
+    let src = if pix.has_colormap() {
+        pix.remove_colormap(crate::core::pix::RemoveColormapTarget::BasedOnSrc)?
+    } else if matches!(d, PixelDepth::Bit2 | PixelDepth::Bit4) {
+        pix.convert_to_8()?
+    } else {
+        pix.clone()
+    };
 
-    let top = c00 * (1.0 - fx) + c10 * fx;
-    let bottom = c01 * (1.0 - fx) + c11 * fx;
-    let result = top * (1.0 - fy) + bottom * fy;
-
-    result.round().clamp(0.0, 255.0) as u8
+    // C: wd = (l_int32)(scalex * ws + 0.5)
+    let wd = (scale_x * src.width() as f32 + 0.5) as u32;
+    let hd = (scale_y * src.height() as f32 + 0.5) as u32;
+    if wd < 1 || hd < 1 {
+        return Err(TransformError::InvalidScaleFactor(
+            "resulting dimensions would be zero".to_string(),
+        ));
+    }
+    scale_area_map_impl(&src, wd, hd)
 }
 
 /// Scale using area mapping (for downscaling with anti-aliasing)
-fn scale_area_map(
-    pix: &Pix,
-    scale_x: f32,
-    scale_y: f32,
-    new_w: u32,
-    new_h: u32,
-) -> TransformResult<Pix> {
+fn scale_area_map_impl(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
     let depth = pix.depth();
 
     match depth {
-        PixelDepth::Bit32 => scale_area_map_color(pix, scale_x, scale_y, new_w, new_h),
-        PixelDepth::Bit8 if pix.colormap().is_none() => {
-            scale_area_map_gray(pix, scale_x, scale_y, new_w, new_h)
-        }
+        PixelDepth::Bit32 => scale_area_map_color(pix, new_w, new_h),
+        PixelDepth::Bit8 if pix.colormap().is_none() => scale_area_map_gray(pix, new_w, new_h),
         _ => {
             // For other depths, fall back to sampling
             scale_by_sampling_impl(pix, new_w, new_h)
@@ -1862,13 +1992,7 @@ fn scale_area_map(
 }
 
 /// Area mapping for color images
-fn scale_area_map_color(
-    pix: &Pix,
-    scale_x: f32,
-    scale_y: f32,
-    new_w: u32,
-    new_h: u32,
-) -> TransformResult<Pix> {
+fn scale_area_map_color(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
     let w = pix.width();
     let h = pix.height();
 
@@ -1876,160 +2000,169 @@ fn scale_area_map_color(
     let mut out_mut = out_pix.try_into_mut().unwrap();
     out_mut.set_spp(pix.spp());
 
-    let inv_scale_x = 1.0 / scale_x;
-    let inv_scale_y = 1.0 / scale_y;
-
-    for y in 0..new_h {
-        let src_y_start = y as f32 * inv_scale_y;
-        let src_y_end = ((y + 1) as f32 * inv_scale_y).min(h as f32);
-
-        for x in 0..new_w {
-            let src_x_start = x as f32 * inv_scale_x;
-            let src_x_end = ((x + 1) as f32 * inv_scale_x).min(w as f32);
-
-            let pixel = area_average_color(pix, src_x_start, src_y_start, src_x_end, src_y_end);
-            out_mut.set_pixel_unchecked(x, y, pixel);
-        }
+    for (i, j, geom) in AreaMapGeometry::new(w, h, new_w, new_h) {
+        let Some(g) = geom else {
+            // C falls back to a plain source sample near the last row/col.
+            let (xup, yup) = AreaMapGeometry::edge_sample(w, h, new_w, new_h, j, i);
+            out_mut.set_pixel_unchecked(j, i, pix.get_pixel_unchecked(xup, yup));
+            continue;
+        };
+        let sample = |x: u32, y: u32| pixel::extract_rgba(pix.get_pixel_unchecked(x, y));
+        let (mut sr, mut sg, mut sb) = (0i64, 0i64, 0i64);
+        let mut add = |weight: i64, x: u32, y: u32| {
+            let (r, g, b, _) = sample(x, y);
+            sr += weight * r as i64;
+            sg += weight * g as i64;
+            sb += weight * b as i64;
+        };
+        g.for_each_contribution(&mut add);
+        let norm = |sum: i64| ((sum + 128) / g.area) as u8;
+        // C composeRGBPixel leaves the alpha byte 0.
+        let val = pixel::compose_rgba(norm(sr), norm(sg), norm(sb), 0);
+        out_mut.set_pixel_unchecked(j, i, val);
     }
 
     Ok(out_mut.into())
 }
 
+/// The source rectangle for one destination pixel of an area map, in
+/// C's 1/16-pixel units.
+///
+/// C `scaleGrayAreaMapLow` / `scaleColorAreaMapLow` split the rectangle
+/// into four corner pixels, four partial sides and the full interior,
+/// each weighted by its subpixel overlap, then divide by the quantized
+/// area (which varies per destination pixel).
+struct AreaMapGeometry {
+    xup: u32,
+    yup: u32,
+    xlp: u32,
+    ylp: u32,
+    xuf: i64,
+    yuf: i64,
+    xlf: i64,
+    ylf: i64,
+    delx: u32,
+    dely: u32,
+    area: i64,
+}
+
+impl AreaMapGeometry {
+    /// Iterate over destination pixels, yielding `(i, j, geometry)` with
+    /// `None` where C falls back to a plain source sample.
+    fn new(
+        ws: u32,
+        hs: u32,
+        wd: u32,
+        hd: u32,
+    ) -> impl Iterator<Item = (u32, u32, Option<AreaMapGeometry>)> {
+        let scx = 16.0 * ws as f32 / wd as f32;
+        let scy = 16.0 * hs as f32 / hd as f32;
+        let (wm2, hm2) = (ws as i64 - 2, hs as i64 - 2);
+        (0..hd).flat_map(move |i| {
+            // C computes the upper edge as `scy * i` (float x int -> float)
+            // but the lower edge as `scy * (i + 1.0)`, where the double
+            // literal promotes the product to double. Reproduce both.
+            let yu = (scy * i as f32) as i64;
+            let yl = (scy as f64 * (i as f64 + 1.0)) as i64;
+            let (yup, yuf) = (yu >> 4, yu & 0x0f);
+            let (ylp, ylf) = (yl >> 4, yl & 0x0f);
+            (0..wd).map(move |j| {
+                let xu = (scx * j as f32) as i64;
+                let xl = (scx as f64 * (j as f64 + 1.0)) as i64;
+                let (xup, xuf) = (xu >> 4, xu & 0x0f);
+                let (xlp, xlf) = (xl >> 4, xl & 0x0f);
+                if xlp > wm2 || ylp > hm2 {
+                    return (i, j, None);
+                }
+                let delx = (xlp - xup) as u32;
+                let dely = (ylp - yup) as u32;
+                // C: the summed area varies with the quantization.
+                let area = ((16 - xuf) + 16 * (delx as i64 - 1) + xlf)
+                    * ((16 - yuf) + 16 * (dely as i64 - 1) + ylf);
+                (
+                    i,
+                    j,
+                    Some(AreaMapGeometry {
+                        xup: xup as u32,
+                        yup: yup as u32,
+                        xlp: xlp as u32,
+                        ylp: ylp as u32,
+                        xuf,
+                        yuf,
+                        xlf,
+                        ylf,
+                        delx,
+                        dely,
+                        area,
+                    }),
+                )
+            })
+        })
+    }
+
+    /// Source coordinate C samples when the rectangle reaches the last
+    /// row or column.
+    fn edge_sample(ws: u32, hs: u32, wd: u32, hd: u32, j: u32, i: u32) -> (u32, u32) {
+        let scx = 16.0 * ws as f32 / wd as f32;
+        let scy = 16.0 * hs as f32 / hd as f32;
+        let xup = ((scx * j as f32) as i64 >> 4) as u32;
+        let yup = ((scy * i as f32) as i64 >> 4) as u32;
+        (xup.min(ws - 1), yup.min(hs - 1))
+    }
+
+    /// Feed every `(weight, x, y)` contribution to `add`.
+    fn for_each_contribution(&self, add: &mut impl FnMut(i64, u32, u32)) {
+        let (xup, yup, xlp, ylp) = (self.xup, self.yup, self.xlp, self.ylp);
+        // Four corners.
+        add((16 - self.xuf) * (16 - self.yuf), xup, yup);
+        add(self.xlf * (16 - self.yuf), xlp, yup);
+        add((16 - self.xuf) * self.ylf, xup, ylp);
+        add(self.xlf * self.ylf, xlp, ylp);
+        // Full interior pixels.
+        for k in 1..self.dely {
+            for m in 1..self.delx {
+                add(256, xup + m, yup + k);
+            }
+        }
+        // Partial sides.
+        let areal = (16 - self.xuf) * 16;
+        let arear = self.xlf * 16;
+        let areat = 16 * (16 - self.yuf);
+        let areab = 16 * self.ylf;
+        for k in 1..self.dely {
+            add(areal, xup, yup + k);
+            add(arear, xlp, yup + k);
+        }
+        for m in 1..self.delx {
+            add(areat, xup + m, yup);
+            add(areab, xup + m, ylp);
+        }
+    }
+}
+
 /// Area mapping for grayscale images
-fn scale_area_map_gray(
-    pix: &Pix,
-    scale_x: f32,
-    scale_y: f32,
-    new_w: u32,
-    new_h: u32,
-) -> TransformResult<Pix> {
+fn scale_area_map_gray(pix: &Pix, new_w: u32, new_h: u32) -> TransformResult<Pix> {
     let w = pix.width();
     let h = pix.height();
 
     let out_pix = Pix::new(new_w, new_h, PixelDepth::Bit8)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
 
-    let inv_scale_x = 1.0 / scale_x;
-    let inv_scale_y = 1.0 / scale_y;
-
-    for y in 0..new_h {
-        let src_y_start = y as f32 * inv_scale_y;
-        let src_y_end = ((y + 1) as f32 * inv_scale_y).min(h as f32);
-
-        for x in 0..new_w {
-            let src_x_start = x as f32 * inv_scale_x;
-            let src_x_end = ((x + 1) as f32 * inv_scale_x).min(w as f32);
-
-            let val = area_average_gray(pix, src_x_start, src_y_start, src_x_end, src_y_end);
-            out_mut.set_pixel_unchecked(x, y, val as u32);
-        }
+    for (i, j, geom) in AreaMapGeometry::new(w, h, new_w, new_h) {
+        let Some(g) = geom else {
+            let (xup, yup) = AreaMapGeometry::edge_sample(w, h, new_w, new_h, j, i);
+            out_mut.set_pixel_unchecked(j, i, pix.get_pixel_unchecked(xup, yup));
+            continue;
+        };
+        let mut sum = 0i64;
+        let mut add = |weight: i64, x: u32, y: u32| {
+            sum += weight * pix.get_pixel_unchecked(x, y) as i64;
+        };
+        g.for_each_contribution(&mut add);
+        out_mut.set_pixel_unchecked(j, i, ((sum + 128) / g.area) as u32);
     }
 
     Ok(out_mut.into())
-}
-
-/// Calculate area-weighted average for color pixels
-fn area_average_color(pix: &Pix, x0: f32, y0: f32, x1: f32, y1: f32) -> u32 {
-    let w = pix.width();
-    let h = pix.height();
-
-    let ix0 = x0.floor() as u32;
-    let iy0 = y0.floor() as u32;
-    let ix1 = (x1.ceil() as u32).min(w);
-    let iy1 = (y1.ceil() as u32).min(h);
-
-    let mut sum_r = 0.0f32;
-    let mut sum_g = 0.0f32;
-    let mut sum_b = 0.0f32;
-    let mut sum_a = 0.0f32;
-    let mut total_weight = 0.0f32;
-
-    for sy in iy0..iy1 {
-        // Calculate vertical weight
-        let y_weight = if sy == iy0 {
-            1.0 - (y0 - sy as f32)
-        } else if sy + 1 >= iy1 {
-            y1 - sy as f32
-        } else {
-            1.0
-        };
-
-        for sx in ix0..ix1 {
-            // Calculate horizontal weight
-            let x_weight = if sx == ix0 {
-                1.0 - (x0 - sx as f32)
-            } else if sx + 1 >= ix1 {
-                x1 - sx as f32
-            } else {
-                1.0
-            };
-
-            let weight = x_weight * y_weight;
-            let pixel = pix.get_pixel_unchecked(sx, sy);
-            let (r, g, b, a) = pixel::extract_rgba(pixel);
-
-            sum_r += r as f32 * weight;
-            sum_g += g as f32 * weight;
-            sum_b += b as f32 * weight;
-            sum_a += a as f32 * weight;
-            total_weight += weight;
-        }
-    }
-
-    if total_weight > 0.0 {
-        let r = (sum_r / total_weight).round().clamp(0.0, 255.0) as u8;
-        let g = (sum_g / total_weight).round().clamp(0.0, 255.0) as u8;
-        let b = (sum_b / total_weight).round().clamp(0.0, 255.0) as u8;
-        let a = (sum_a / total_weight).round().clamp(0.0, 255.0) as u8;
-        pixel::compose_rgba(r, g, b, a)
-    } else {
-        0
-    }
-}
-
-/// Calculate area-weighted average for grayscale pixels
-fn area_average_gray(pix: &Pix, x0: f32, y0: f32, x1: f32, y1: f32) -> u8 {
-    let w = pix.width();
-    let h = pix.height();
-
-    let ix0 = x0.floor() as u32;
-    let iy0 = y0.floor() as u32;
-    let ix1 = (x1.ceil() as u32).min(w);
-    let iy1 = (y1.ceil() as u32).min(h);
-
-    let mut sum = 0.0f32;
-    let mut total_weight = 0.0f32;
-
-    for sy in iy0..iy1 {
-        let y_weight = if sy == iy0 {
-            1.0 - (y0 - sy as f32)
-        } else if sy + 1 >= iy1 {
-            y1 - sy as f32
-        } else {
-            1.0
-        };
-
-        for sx in ix0..ix1 {
-            let x_weight = if sx == ix0 {
-                1.0 - (x0 - sx as f32)
-            } else if sx + 1 >= ix1 {
-                x1 - sx as f32
-            } else {
-                1.0
-            };
-
-            let weight = x_weight * y_weight;
-            let val = pix.get_pixel_unchecked(sx, sy);
-            sum += val as f32 * weight;
-            total_weight += weight;
-        }
-    }
-
-    if total_weight > 0.0 {
-        (sum / total_weight).round().clamp(0.0, 255.0) as u8
-    } else {
-        0
-    }
 }
 
 #[cfg(test)]
@@ -2297,8 +2430,10 @@ mod tests {
         let pix: Pix = pix_mut.into();
         let scaled = scale_by_int_sampling(&pix, 2).unwrap();
         assert_eq!((scaled.width(), scaled.height()), (4, 4));
-        // With factor=2 and shift=0.5: src_x = (0 + 0.5) * 2 = 1 → pixel[1,0] = 10
-        assert_eq!(scaled.get_pixel(0, 0).unwrap(), 10);
+        // C convention: scol[j] = (int)(wratio * j + 0.5) with wratio = 2,
+        // so scol[0] = 0 and scol[1] = 2 (pixel values 0 and 20).
+        assert_eq!(scaled.get_pixel(0, 0).unwrap(), 0);
+        assert_eq!(scaled.get_pixel(1, 0).unwrap(), 20);
     }
 
     #[test]

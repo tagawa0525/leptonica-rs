@@ -184,13 +184,354 @@ fn smallpix_reg_scale_li() {
     assert!(rp.cleanup(), "smallpix li test failed");
 }
 
-/// Test pixScaleAreaMap (C test check 1) and pixRotateBySampling (C test check 4)
-///
-/// These functions are not publicly available in the Rust version.
+// ==========================================================================
+// C-compatible transform entry points (plan 902 PR 14)
+// ==========================================================================
+
+/// The C-named rotate/scale entry points must follow C's dispatch rules.
 #[test]
-#[ignore = "not yet implemented: scale_area_map and rotate_by_sampling not public"]
-fn smallpix_reg_missing_methods() {
-    // pixScaleAreaMap: not publicly exported
-    // pixRotateBySampling: only private implementation
-    // pixRotateAMCorner: same as rotate_am_corner above (C test check 5)
+fn smallpix_c_entry_points_follow_c_dispatch() {
+    use leptonica::transform::{
+        rotate_am, rotate_am_color_fast, rotate_by_sampling, scale_area_map,
+    };
+
+    let pix32 = make_test_pattern();
+
+    // pixRotateAM rejects 1 bpp and returns a copy below the angle threshold.
+    let pix1 = Pix::new(9, 9, PixelDepth::Bit1).unwrap();
+    assert!(rotate_am(&pix1, 0.2, RotateFill::Black).is_err());
+    let same = rotate_am(&pix32, 0.0, RotateFill::Black).unwrap();
+    assert_eq!(same.get_pixel(4, 4), pix32.get_pixel(4, 4));
+
+    // pixRotateAM promotes sub-8bpp to 8bpp.
+    let pix4 = Pix::new(9, 9, PixelDepth::Bit4).unwrap();
+    let out = rotate_am(&pix4, 0.2, RotateFill::Black).unwrap();
+    assert_eq!(out.depth(), PixelDepth::Bit8);
+    assert_eq!((out.width(), out.height()), (9, 9));
+
+    // pixRotateBySampling works on 1 bpp (no interpolation) and keeps depth.
+    let out = rotate_by_sampling(&pix1, 4, 4, 0.2, RotateFill::White).unwrap();
+    assert_eq!(out.depth(), PixelDepth::Bit1);
+    // Rotating a 32bpp image keeps its depth and size; the exact sampled
+    // indices are pinned by smallpix_sampling_index_matches_c.
+    let rot = rotate_by_sampling(&pix32, 4, 4, 0.2, RotateFill::Black).unwrap();
+    assert_eq!(rot.depth(), PixelDepth::Bit32);
+    assert_eq!((rot.width(), rot.height()), (9, 9));
+
+    // pixRotateAMColorFast is 32bpp-only and leaves the alpha byte 0 on
+    // interpolated pixels.
+    assert!(rotate_am_color_fast(&pix4, 0.2, RotateFill::Black).is_err());
+    let fast = rotate_am_color_fast(&pix32, 0.2, RotateFill::Black).unwrap();
+    assert_eq!((fast.width(), fast.height()), (9, 9));
+    for y in 0..9 {
+        for x in 0..9 {
+            assert_eq!(
+                fast.get_pixel(x, y).unwrap() & 0xff,
+                0,
+                "alpha byte must stay 0 at ({x}, {y})"
+            );
+        }
+    }
+
+    // pixScaleAreaMap dispatch: >= 0.7 falls through to regular scaling,
+    // exact 1/2 powers use repeated 2x reduction, 1bpp is rejected.
+    assert!(scale_area_map(&pix1, 0.5, 0.5).is_err());
+    let big = expand_replicate(&pix32, 8).expect("expand 8x"); // 72x72
+    let half = scale_area_map(&big, 0.5, 0.5).unwrap();
+    assert_eq!((half.width(), half.height()), (36, 36));
+    let quarter = scale_area_map(&big, 0.25, 0.25).unwrap();
+    assert_eq!((quarter.width(), quarter.height()), (18, 18));
+    // 0.3 is the general path: wd = (int)(0.3 * 72 + 0.5) = 22.
+    let general = scale_area_map(&big, 0.3, 0.3).unwrap();
+    assert_eq!((general.width(), general.height()), (22, 22));
+    // >= 0.7 delegates to regular scaling, which rounds instead.
+    let large = scale_area_map(&big, 0.8, 0.8).unwrap();
+    assert_eq!((large.width(), large.height()), (58, 58));
+}
+
+/// C-comparable smallpix series (plan 902 PR 14).
+///
+/// Mirrors C smallpix_reg exactly: the same synthetic 9x9 input (four
+/// rays of length 3.1 from (4, 4), painted green through a 1 bpp mask),
+/// the same expand/scale/rotate sweeps, and pixaDisplayTiledInColumns
+/// with nx = 12, spacing 20, no border. Every output is lossless PNG, so
+/// all nine checks pair with C smallpix.00-08.
+#[test]
+fn smallpix_c_compat() {
+    use leptonica::core::pix::PixelOp;
+    use leptonica::core::pix::graphics::generate_pta_line_from_pt;
+    use leptonica::transform::{
+        rotate_am, rotate_am_color_fast, rotate_by_sampling, scale_area_map,
+    };
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("smallpix_c");
+
+    // C: four rays of length 3.1 from (4, 4), rendered into a 1 bpp mask
+    // and painted green (0x00ff0000) onto an empty 9x9 32 bpp pix.
+    let pi = std::f64::consts::PI;
+    let pixc = {
+        let mut pta = generate_pta_line_from_pt(4, 4, 3.1, 0.0);
+        for angle in [0.5 * pi, pi, 1.5 * pi] {
+            let ray = generate_pta_line_from_pt(4, 4, 3.1, angle);
+            pta.join(&ray, 0, None).expect("join rays");
+        }
+        let mask = Pix::new(9, 9, PixelDepth::Bit1).expect("create mask");
+        let mut mm = mask.try_into_mut().expect("mask into_mut");
+        mm.render_pta(&pta, PixelOp::Set).expect("render rays");
+        let mask: Pix = mm.into();
+
+        let pix = Pix::new(9, 9, PixelDepth::Bit32).expect("create 9x9");
+        let mut pm = pix.try_into_mut().expect("into_mut");
+        pm.paint_through_mask(&mask, 0, 0, 0x00ff0000)
+            .expect("paint cross");
+        let pix: Pix = pm.into();
+        pix
+    };
+
+    // C checks 0-2: scale sweeps on a 2x expansion, re-expanded by 6.
+    let pix1 = expand_replicate(&pixc, 2).expect("expand 2x");
+    for check in 0..3 {
+        let mut pixa = Pixa::new();
+        for i in 0..11 {
+            let scale = 0.30 + 0.035 * i as f32;
+            let pix2 = match check {
+                0 => scale_smooth(&pix1, scale, scale).expect("scale_smooth"),
+                1 => scale_area_map(&pix1, scale, scale).expect("scale_area_map"),
+                _ => scale_by_sampling(&pix1, scale, scale).expect("scale_by_sampling"),
+            };
+            pixa.push(expand_replicate(&pix2, 6).expect("expand 6x"));
+        }
+        let tiled = pixa
+            .display_tiled_in_columns(12, 1.0, 20, 0)
+            .expect("tiled columns");
+        rp.write_pix_and_check(&tiled, ImageFormat::Png)
+            .expect("check: smallpix scale sweep");
+    }
+
+    // C checks 3-6: rotation sweeps on the original, re-expanded by 8.
+    let pix1 = expand_replicate(&pixc, 1).expect("expand 1x");
+    for check in 0..4 {
+        let mut pixa = Pixa::new();
+        for i in 0..11 {
+            let angle = 0.10 + 0.05 * i as f32;
+            let pix2 = match check {
+                0 => rotate_am(&pix1, angle, RotateFill::Black).expect("rotate_am"),
+                1 => rotate_by_sampling(&pix1, 4, 4, angle, RotateFill::Black)
+                    .expect("rotate_by_sampling"),
+                2 => rotate_am_corner(&pix1, angle, RotateFill::Black).expect("rotate_am_corner"),
+                _ => rotate_am_color_fast(&pix1, angle, RotateFill::Black)
+                    .expect("rotate_am_color_fast"),
+            };
+            pixa.push(expand_replicate(&pix2, 8).expect("expand 8x"));
+        }
+        let tiled = pixa
+            .display_tiled_in_columns(12, 1.0, 20, 0)
+            .expect("tiled columns");
+        rp.write_pix_and_check(&tiled, ImageFormat::Png)
+            .expect("check: smallpix rotate sweep");
+    }
+
+    // C checks 7-8: upscale sweeps, re-expanded by 4.
+    for check in 0..2 {
+        let mut pixa = Pixa::new();
+        for i in 0..11 {
+            let scale = 1.0 + 0.2 * i as f32;
+            let pix2 = if check == 0 {
+                scale_color_li(&pix1, scale, scale).expect("scale_color_li")
+            } else {
+                scale_li(&pix1, scale, scale).expect("scale_li")
+            };
+            pixa.push(expand_replicate(&pix2, 4).expect("expand 4x"));
+        }
+        let tiled = pixa
+            .display_tiled_in_columns(12, 1.0, 20, 0)
+            .expect("tiled columns");
+        rp.write_pix_and_check(&tiled, ImageFormat::Png)
+            .expect("check: smallpix upscale sweep");
+    }
+
+    assert!(rp.cleanup(), "smallpix c-compat test failed");
+}
+
+/// Sampling transforms must use C's index convention (plan 902 PR 14).
+///
+/// C computes the source index as `(int)(ratio * i + shift)` — the shift
+/// is added *after* scaling and the result is truncated — and
+/// `pixScaleBySampling` passes shift = 0.5. C `pixRotateBySampling`
+/// likewise truncates the rotated *offset* before adding the centre.
+#[test]
+fn smallpix_sampling_index_matches_c() {
+    use leptonica::transform::{rotate_by_sampling, scale_by_sampling};
+
+    // 18x1 8bpp ramp: pixel value == x.
+    let ramp = {
+        let p = Pix::new(18, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for x in 0..18u32 {
+            pm.set_pixel(x, 0, x).unwrap();
+        }
+        let p: Pix = pm.into();
+        p
+    };
+
+    // C: wd = (int)(0.3 * 18 + 0.5) = 5; wratio = 18 / 5 = 3.6;
+    //    scol[j] = min((int)(3.6 * j + 0.5), 17) = 0, 4, 7, 11, 14.
+    let out = scale_by_sampling(&ramp, 0.3, 1.0).unwrap();
+    assert_eq!(out.width(), 5);
+    let got: Vec<u32> = (0..5).map(|x| out.get_pixel(x, 0).unwrap()).collect();
+    assert_eq!(got, vec![0, 4, 7, 11, 14]);
+
+    // 9x9 8bpp with unique values (x + 9y) so the sampled source is
+    // identifiable. C at dest (5, 0) with angle 0.1 about (4, 4):
+    //   x = 4 + (int)(0.995004 - 0.399334) = 4 + 0 = 4
+    //   y = 4 + (int)(-3.980017 - 0.099833) = 4 + (-4) = 0
+    // so the value is 4. Rounding the sum instead would give (5, 0) = 5.
+    let grid = {
+        let p = Pix::new(9, 9, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..9u32 {
+            for x in 0..9u32 {
+                pm.set_pixel(x, y, x + 9 * y).unwrap();
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let rot = rotate_by_sampling(&grid, 4, 4, 0.1, RotateFill::Black).unwrap();
+    assert_eq!(rot.get_pixel(5, 0).unwrap(), 4);
+}
+
+/// Bilinear scaling must use C's 1/16 subpixel convention (plan 902 PR 14).
+///
+/// C `scaleColorLILow` / `scaleGrayLILow` map destination `j` to
+/// `xpm = (int)(16 * ws / wd * j)`, split it into `xp = xpm >> 4` and
+/// `xf = xpm & 0xf`, and weight the four neighbours by
+/// `(16 - xf)(16 - yf)` etc. with a `+ 128` rounding term. The endpoint
+/// matched `(w - 1) / (wd - 1)` convention gives different samples.
+/// C also special-cases scale 1.0 (copy) and 2.0 / 4.0.
+#[test]
+fn smallpix_bilinear_matches_c() {
+    use leptonica::transform::{scale_color_2x_li, scale_gray_li};
+
+    // 4x1 8bpp ramp scaled 3x: wd = 12, scx = 16 * 4 / 12 = 5.333.
+    //   j = 1: xpm = (int)5.333 = 5 -> xp = 0, xf = 5
+    //          val = ((16-5)*16*v0 + 5*16*v1 + 128) / 256
+    //              = (176*0 + 80*30 + 128) / 256 = 2528 / 256 = 9
+    //   j = 3: xpm = (int)16.0 = 16 -> xp = 1, xf = 0 -> val = v1 = 30
+    let ramp = {
+        let p = Pix::new(4, 1, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for (x, v) in [0u32, 30, 60, 90].into_iter().enumerate() {
+            pm.set_pixel(x as u32, 0, v).unwrap();
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_gray_li(&ramp, 3.0, 1.0).unwrap();
+    assert_eq!(out.width(), 12);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 9);
+    assert_eq!(out.get_pixel(3, 0).unwrap(), 30);
+
+    // C returns a plain copy at scale 1.0 and routes 2.0 to the dedicated
+    // 2x doubler.
+    let pixc = make_test_pattern();
+    let same = scale_color_li(&pixc, 1.0, 1.0).unwrap();
+    for y in 0..9 {
+        for x in 0..9 {
+            assert_eq!(same.get_pixel(x, y), pixc.get_pixel(x, y));
+        }
+    }
+    let doubled = scale_color_li(&pixc, 2.0, 2.0).unwrap();
+    let expect = scale_color_2x_li(&pixc).unwrap();
+    assert_eq!(
+        (doubled.width(), doubled.height()),
+        (expect.width(), expect.height())
+    );
+    for y in 0..expect.height() {
+        for x in 0..expect.width() {
+            assert_eq!(
+                doubled.get_pixel(x, y),
+                expect.get_pixel(x, y),
+                "scale 2.0 must equal scale_color_2x_li at ({x}, {y})"
+            );
+        }
+    }
+}
+
+/// Box-filter smoothing must use C's fixed, clamped window (plan 902 PR 14).
+///
+/// C `scaleSmoothLow` anchors a fixed `isize x isize` box at
+/// `scol[j] = min((int)(wratio * j), ws - isize)` — the upper-left corner,
+/// clamped so the box never leaves the image — and divides the sum by
+/// `isize²` with truncation. A centred, border-clipped window with a
+/// variable divisor gives different values.
+#[test]
+fn smallpix_scale_smooth_matches_c() {
+    // 8x1 8bpp ramp (value == 10 * x) scaled by 0.3:
+    //   isize = max(2, (int)(1 / 0.3 + 0.5)) = 3
+    //   wd = (int)(0.3 * 8 + 0.5) = 2, wratio = 8 / 2 = 4
+    //   scol[0] = min(0, 8 - 3) = 0 -> mean of x = 0..2 over a 3x1 row,
+    //     but the box is 3x3 and the image is 1 tall, so C requires
+    //     hs >= isize; use an 8x8 image instead where every row is equal.
+    let ramp = {
+        let p = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pm.set_pixel(x, y, 10 * x).unwrap();
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_smooth(&ramp, 0.3, 0.3).unwrap();
+    assert_eq!((out.width(), out.height()), (2, 2));
+    // j = 0: xstart = 0 -> values 0, 10, 20 per row, 3 rows
+    //        sum = 90, /9 = 10
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 10);
+    // j = 1: xstart = min((int)(4 * 1), 8 - 3) = 4 -> values 40, 50, 60
+    //        sum = 450, /9 = 50
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 50);
+}
+
+/// Area mapping must use C's 1/16 subpixel decomposition (plan 902 PR 14).
+///
+/// C `scaleGrayAreaMapLow` derives the source rectangle in 1/16 pixel
+/// units, sums corner / side / interior contributions with integer
+/// weights, and divides by the *quantized* area (which varies per
+/// destination pixel). It also falls back to a plain source sample when
+/// the rectangle reaches the last row or column.
+#[test]
+fn smallpix_area_map_matches_c() {
+    use leptonica::transform::scale_area_map;
+
+    // 8x8 8bpp, value = 10 * x on every row, scaled by 0.3:
+    //   wd = hd = (int)(0.3 * 8 + 0.5) = 2, scx = scy = 16 * 8 / 2 = 64
+    //   j = 0: xup = 0, xlp = 4, delx = 4 (same vertically)
+    //     area = (16 + 16*3 + 0)^2 = 4096
+    //     corners: only area00 = 256 contributes, over value 0
+    //     interior (k, m = 1..3): 256 * 10m summed over 3 rows = 46080
+    //     top side (m = 1..3): 256 * (10 + 20 + 30) = 15360
+    //     val = (46080 + 15360 + 128) / 4096 = 15
+    //   j = 1: xlp = 8 > ws - 2 = 6, so C samples pixel (xup, yup) = (4, 0)
+    //     val = 40
+    let ramp = {
+        let p = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pm.set_pixel(x, y, 10 * x).unwrap();
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_area_map(&ramp, 0.3, 0.3).unwrap();
+    assert_eq!((out.width(), out.height()), (2, 2));
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 15);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 40);
 }

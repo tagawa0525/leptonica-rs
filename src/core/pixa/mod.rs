@@ -1375,6 +1375,123 @@ impl Pixa {
 
         Ok(canvas_mut.into())
     }
+
+    /// Tile the images into `nx` columns, left to right and top to bottom.
+    ///
+    /// Unlike [`Pixa::display_tiled_in_rows`], the column count is fixed and
+    /// each row is as tall as its tallest member, so images of differing
+    /// sizes stay on a per-row baseline. All images are first converted to a
+    /// common depth, then optionally scaled and given a border.
+    ///
+    /// The serialized layout [`Boxa`] is stored in the output's text field,
+    /// as in C.
+    ///
+    /// # Arguments
+    ///
+    /// * `nx` - Number of columns (must be > 0)
+    /// * `scalefactor` - Scale applied to each image (<= 0 means 1.0)
+    /// * `spacing` - Pixels between images and around the border
+    /// * `border` - Width of a border added to each image
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaDisplayTiledInColumns()` in `pixafunc2.c`
+    pub fn display_tiled_in_columns(
+        &self,
+        nx: u32,
+        scalefactor: f32,
+        spacing: u32,
+        border: u32,
+    ) -> Result<Pix> {
+        if self.pix.is_empty() {
+            return Err(Error::NullInput("pixa is empty"));
+        }
+        if nx == 0 {
+            return Err(Error::InvalidParameter("nx must be > 0".to_string()));
+        }
+        let scalefactor = if scalefactor <= 0.0 { 1.0 } else { scalefactor };
+
+        // Convert to same depth, then scale and optionally add a border.
+        let same = self.convert_to_same_depth()?;
+        let maxd = same
+            .pix
+            .first()
+            .map(|p| p.depth())
+            .unwrap_or(PixelDepth::Bit1);
+        let bordval = if maxd == PixelDepth::Bit1 { 1 } else { 0 };
+
+        let mut norm: Vec<Pix> = Vec::with_capacity(same.pix.len());
+        let mut res = 0;
+        for (i, pix) in same.pix.iter().enumerate() {
+            let pix1 = if scalefactor != 1.0 {
+                crate::transform::scale(
+                    pix,
+                    scalefactor,
+                    scalefactor,
+                    crate::transform::ScaleMethod::Auto,
+                )
+                .map_err(|e| Error::InvalidParameter(e.to_string()))?
+            } else {
+                pix.clone()
+            };
+            let pix2 = if border > 0 {
+                pix1.add_border(border, bordval)?
+            } else {
+                pix1
+            };
+            if i == 0 {
+                res = pix2.xres();
+            }
+            norm.push(pix2);
+        }
+
+        // Compute the layout and save it as a boxa. Layout coordinates are
+        // i32, so reject a spacing that cannot be represented there rather
+        // than wrapping into negative box origins.
+        let n = norm.len();
+        let spacing = i32::try_from(spacing)
+            .map_err(|_| Error::InvalidParameter("spacing exceeds i32::MAX".to_string()))?;
+        let nrows = n.div_ceil(nx as usize);
+        let mut boxa = Boxa::new();
+        let mut y = spacing;
+        let mut index = 0usize;
+        for _ in 0..nrows {
+            let mut x = spacing;
+            let mut maxh = 0i32;
+            for _ in 0..nx {
+                if index >= n {
+                    break;
+                }
+                let wb = norm[index].width() as i32;
+                let hb = norm[index].height() as i32;
+                boxa.push(Box::new(x, y, wb, hb)?);
+                maxh = maxh.max(hb + spacing);
+                x += wb + spacing;
+                index += 1;
+            }
+            y += maxh;
+        }
+
+        // Render through pixaDisplay over the layout extent.
+        let (w, h, _) = boxa
+            .get_extent()
+            .ok_or_else(|| Error::InvalidParameter("empty layout".to_string()))?;
+        let mut laid = Pixa::with_capacity(n);
+        for (pix, b) in norm.into_iter().zip(boxa.iter()) {
+            laid.push_with_box(pix, *b);
+        }
+        let mut pixd = laid
+            .display((w + spacing) as u32, (h + spacing) as u32)?
+            .to_mut();
+        pixd.set_resolution(res, res);
+
+        // C stores the serialized boxa in the text field.
+        if let Ok(data) = boxa.write_to_bytes() {
+            pixd.set_text(Some(String::from_utf8_lossy(&data).into_owned()));
+        }
+
+        Ok(pixd.into())
+    }
 }
 
 /// OR-composite `src` onto `dst` at (ox, oy) — C PIX_PAINT for 1bpp.

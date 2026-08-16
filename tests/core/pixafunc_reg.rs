@@ -315,3 +315,42 @@ fn test_sort_by_aspect_ratio() {
     assert_eq!(sorted[2].width(), 20);
     assert_eq!(sorted[2].height(), 10);
 }
+
+/// display_tiled_in_columns lays out a fixed column count with per-row
+/// heights, matching C pixaDisplayTiledInColumns (plan 902 PR 14).
+#[test]
+fn test_display_tiled_in_columns_layout() {
+    // 5 images of 10x10 into 2 columns, spacing 5, no border:
+    // 3 rows; each row is 5 + 10 + 5 + 10 = 30 wide (extent = 35 right
+    // edge of the second box), 3 rows of (10 + 5).
+    // C: boxes at x = 5, 20; y = 5, 20, 35. Extent = (30, 45).
+    // Canvas = extent + spacing = (35, 50).
+    let mut pixa = Pixa::new();
+    for _ in 0..5 {
+        pixa.push(make_pix(10, 10));
+    }
+    let out = pixa.display_tiled_in_columns(2, 1.0, 5, 0).unwrap();
+    assert_eq!((out.width(), out.height()), (35, 50));
+
+    // Mixed heights: a taller image sets its row's height.
+    // Row 0: 10x10 and 10x30 -> maxh = 35; row 1 starts at y = 5 + 35 = 40.
+    let mut pixa = Pixa::new();
+    pixa.push(make_pix(10, 10));
+    pixa.push(make_pix(10, 30));
+    pixa.push(make_pix(10, 10));
+    let out = pixa.display_tiled_in_columns(2, 1.0, 5, 0).unwrap();
+    // Extent: right = 20 + 10 = 30, bottom = 40 + 10 = 50 -> +spacing.
+    assert_eq!((out.width(), out.height()), (35, 55));
+
+    // A border widens every cell by 2 * border.
+    let mut pixa = Pixa::new();
+    pixa.push(make_pix(10, 10));
+    pixa.push(make_pix(10, 10));
+    let out = pixa.display_tiled_in_columns(2, 1.0, 5, 3).unwrap();
+    // Each cell is 16x16: right = 5 + 16 + 5 + 16 = 42, bottom = 5 + 16.
+    assert_eq!((out.width(), out.height()), (47, 26));
+
+    // nx = 0 is rejected; an empty pixa errors.
+    assert!(pixa.display_tiled_in_columns(0, 1.0, 5, 0).is_err());
+    assert!(Pixa::new().display_tiled_in_columns(2, 1.0, 5, 0).is_err());
+}

@@ -233,7 +233,50 @@ PR 11 で見送った coloring 系列。フォント面の前提は PR 12 で解
   cmap reset・RGB 展開の全経路が C と bit 一致。C compare 0-1 相当の
   cmapped/rgb 経路一致検証も rp.compare_pix で index を揃えて実施
 
-### PR 14 以降: semantic マッピングの漸進追加
+### PR 14: smallpix 整列 — 変換 9 関数の合成入力系列 (実施済み)
+
+C 版ソース: `prog/smallpix_reg.c`、`src/scale1.c` / `src/rotate.c` /
+`src/pixafunc2.c`。
+
+transform は Unmapped 78 で最大の未開拓プール。smallpix_reg は
+**入力が完全合成 (9x9 の pixCreate + generatePtaLineFromPt)** で全 9
+出力が PNG、しかも 1 出力 = 1 変換関数のスイープになっており、
+codec 差なしで主要変換 9 種を一挙に検証できる:
+
+| C check | 関数 | Rust 現状 |
+| --- | --- | --- |
+| 0 | pixScaleSmooth | `scale_smooth` |
+| 1 | pixScaleAreaMap | 非公開 (`_to_size` のみ) |
+| 2 | pixScaleBySampling | `scale_by_sampling` |
+| 3 | pixRotateAM | 非公開 (corner 版のみ) |
+| 4 | pixRotateBySampling | 非公開 |
+| 5 | pixRotateAMCorner | `rotate_am_corner` |
+| 6 | pixRotateAMColorFast | 非公開 (corner 版のみ) |
+| 7 | pixScaleColorLI | `scale_color_li` |
+| 8 | pixScaleLI | `scale_li` |
+
+作業内容:
+
+1. `Pixa::display_tiled_in_columns` を移植 (C
+   pixaDisplayTiledInColumns。translate / shear2 / xformbox でも必要)
+2. 未公開の 4 関数 (`scale_area_map` / `rotate_am` /
+   `rotate_by_sampling` / `rotate_am_color_fast`) を C シグネチャで公開
+3. smallpix_reg.rs を C と同条件の `smallpix_c_compat` に整列し 9 ペア
+
+実施結果:
+
+- Pixa::display_tiled_in_columns を移植し、未公開だった 4 関数を公開
+  (rotate_am 系 3 種は初回から C と bit 一致)
+- **この 1 PR で実装差 4 件 (14-17 件目) を発見・修正**:
+  (14) sampling の index 規約 ((int)(ratio*i + shift)、
+  scale_by_sampling の shift=0.5、rotate の切り捨て位置)、
+  (15) bilinear の 1/16 サブピクセル規約 + 特別ケース、
+  (16) scale_smooth の固定窓・clamp・isize^2 除算、
+  (17) area map の 1/16 分解 (C の float/double 非対称まで再現)
+- smallpix 9 ペア **全件 Ok (Ok 124 → 133)**。transform binary が
+  Ok 4 → 13 になり、主要変換 9 種の C 等価性を実証
+
+### PR 15 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

@@ -263,3 +263,14 @@ color	coloring	12	coloring_c	13	rgb shift white -> (255,235,245) + textblock
 color	coloring	13	coloring_c	14	rgb shift white -> (235,245,255) + textblock
 color	coloring	14	coloring_c	15	fg shift cmapped -> (200,30,150) + textblock
 color	coloring	15	coloring_c	16	fg shift rgb -> (200,30,150) + textblock
+
+# smallpix_reg.c (plan 902 PR 14): synthetic 9x9 cross, 9 transform sweeps
+transform	smallpix	0	smallpix_c	1	scale_smooth sweep 0.30-0.65 (expand 2x, re-expand 6x)
+transform	smallpix	1	smallpix_c	2	scale_area_map sweep 0.30-0.65
+transform	smallpix	2	smallpix_c	3	scale_by_sampling sweep 0.30-0.65
+transform	smallpix	3	smallpix_c	4	rotate_am sweep 0.10-0.60 rad (re-expand 8x)
+transform	smallpix	4	smallpix_c	5	rotate_by_sampling (4,4) sweep 0.10-0.60 rad
+transform	smallpix	5	smallpix_c	6	rotate_am_corner sweep 0.10-0.60 rad
+transform	smallpix	6	smallpix_c	7	rotate_am_color_fast sweep 0.10-0.60 rad
+transform	smallpix	7	smallpix_c	8	scale_color_li sweep 1.0-3.0 (re-expand 4x)
+transform	smallpix	8	smallpix_c	9	scale_li sweep 1.0-3.0
