@@ -488,7 +488,6 @@ fn smallpix_bilinear_matches_c() {
 /// `isize²` with truncation. A centred, border-clipped window with a
 /// variable divisor gives different values.
 #[test]
-#[ignore = "not yet implemented: scale_smooth uses a centred, clipped window"]
 fn smallpix_scale_smooth_matches_c() {
     // 8x1 8bpp ramp (value == 10 * x) scaled by 0.3:
     //   isize = max(2, (int)(1 / 0.3 + 0.5)) = 3
@@ -515,4 +514,43 @@ fn smallpix_scale_smooth_matches_c() {
     // j = 1: xstart = min((int)(4 * 1), 8 - 3) = 4 -> values 40, 50, 60
     //        sum = 450, /9 = 50
     assert_eq!(out.get_pixel(1, 0).unwrap(), 50);
+}
+
+/// Area mapping must use C's 1/16 subpixel decomposition (plan 902 PR 14).
+///
+/// C `scaleGrayAreaMapLow` derives the source rectangle in 1/16 pixel
+/// units, sums corner / side / interior contributions with integer
+/// weights, and divides by the *quantized* area (which varies per
+/// destination pixel). It also falls back to a plain source sample when
+/// the rectangle reaches the last row or column.
+#[test]
+#[ignore = "not yet implemented: area map uses float rectangle averaging"]
+fn smallpix_area_map_matches_c() {
+    use leptonica::transform::scale_area_map;
+
+    // 8x8 8bpp, value = 10 * x on every row, scaled by 0.3:
+    //   wd = hd = (int)(0.3 * 8 + 0.5) = 2, scx = scy = 16 * 8 / 2 = 64
+    //   j = 0: xup = 0, xlp = 4, delx = 4 (same vertically)
+    //     area = (16 + 16*3 + 0)^2 = 4096
+    //     corners: only area00 = 256 contributes, over value 0
+    //     interior (k, m = 1..3): 256 * 10m summed over 3 rows = 46080
+    //     top side (m = 1..3): 256 * (10 + 20 + 30) = 15360
+    //     val = (46080 + 15360 + 128) / 4096 = 15
+    //   j = 1: xlp = 8 > ws - 2 = 6, so C samples pixel (xup, yup) = (4, 0)
+    //     val = 40
+    let ramp = {
+        let p = Pix::new(8, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                pm.set_pixel(x, y, 10 * x).unwrap();
+            }
+        }
+        let p: Pix = pm.into();
+        p
+    };
+    let out = scale_area_map(&ramp, 0.3, 0.3).unwrap();
+    assert_eq!((out.width(), out.height()), (2, 2));
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 15);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 40);
 }
