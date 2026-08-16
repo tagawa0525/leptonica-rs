@@ -373,3 +373,7 @@ color	grayquant	36	grayquant_c	9	threshold_to_4bpp 4 levels
 color	grayquant	37	grayquant_c	10	threshold_to_4bpp 3 levels
 color	grayquant	38	grayquant_c	11	threshold_to_4bpp 2 levels
 color	grayquant	39	grayquant_c	12	stacked 8bpp comparison
+transform	checkerboard	0	checkerboard	1	corner pix (checkerboard1.tif, nsels 2)
+transform	checkerboard	2	checkerboard	2	Pta corners dilated 5x5 (checkerboard1.tif)
+transform	checkerboard	3	checkerboard	3	corner pix (checkerboard2.tif, nsels 4)
+transform	checkerboard	5	checkerboard	4	Pta corners dilated 5x5 (checkerboard2.tif)

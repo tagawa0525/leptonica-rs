@@ -115,6 +115,10 @@ impl Boxa {
     ///
     /// Invalid boxes (w==0 or h==0) produce (0, 0).
     ///
+    /// The centre is computed with C's **integer** division
+    /// `(left + right) / 2`, so a box of even extent rounds towards the
+    /// upper-left rather than landing on a half-pixel.
+    ///
     /// C Leptonica equivalent: `boxaExtractCorners`
     pub fn extract_corners(&self, loc: CornerLocation) -> Pta {
         let n = self.len();
@@ -134,7 +138,9 @@ impl Boxa {
                 CornerLocation::LowerLeft => pta.push(left as f32, bot as f32),
                 CornerLocation::LowerRight => pta.push(right as f32, bot as f32),
                 CornerLocation::Center => {
-                    pta.push((left + right) as f32 / 2.0, (top + bot) as f32 / 2.0);
+                    // C: ptaAddPt(pta, (left + right) / 2, (top + bot) / 2)
+                    // with l_int32 arithmetic.
+                    pta.push(((left + right) / 2) as f32, ((top + bot) / 2) as f32);
                 }
             }
         }
@@ -268,7 +274,6 @@ mod tests {
     /// C computes the centre with l_int32 arithmetic, so a box of even
     /// extent truncates towards the upper-left instead of landing on .5.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_extract_corners_center() {
         let boxa = sample_boxa();
         let pta = boxa.extract_corners(CornerLocation::Center);

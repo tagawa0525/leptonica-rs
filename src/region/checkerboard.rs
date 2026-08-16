@@ -6,9 +6,10 @@
 //! # See also
 //! C Leptonica: `checkerboard.c`
 
-use crate::core::{Boxa, Pix, Pta};
+use crate::core::Pix;
+use crate::core::{CornerLocation, Pta};
 use crate::morph;
-use crate::morph::{MorphOpType, Sel};
+use crate::morph::{MorphOpType, Sel, SelElement};
 use crate::region;
 use crate::region::{ConnectivityType, RegionError, RegionResult};
 
@@ -76,146 +77,84 @@ pub fn find_checkerboard_corners(
     .map_err(|e| RegionError::Core(crate::core::Error::NotSupported(e.to_string())))?;
 
     // Extract center coordinates of each CC
+    // C: boxaExtractCorners(boxa1, L_BOX_CENTER)
     let (boxa, _) = region::conncomp_pixa(&pix3, ConnectivityType::EightWay)?;
-    let pta = boxa_extract_centers(&boxa);
+    let pta = boxa.extract_corners(CornerLocation::Center);
 
     Ok((pix3, pta))
 }
 
-/// Extract center points from bounding boxes
-fn boxa_extract_centers(boxa: &Boxa) -> Pta {
-    let mut pta = Pta::new();
-    for i in 0..boxa.len() {
-        if let Some(b) = boxa.get(i) {
-            pta.push(b.center_x() as f32, b.center_y() as f32);
-        }
-    }
-    pta
-}
-
-/// Generate diagonal hit-miss structuring elements for corner detection
+/// Generate the hit-miss structuring elements for corner detection.
+///
+/// C builds each sel from a *sparse* pair of dilated pixels rather than
+/// filled quadrants: a 1 bpp mask with two set pixels near opposite corners
+/// (or on the mid-line, for the cross sels), dilated by a `dilation` brick,
+/// gives the hits; the same mask rotated 90 degrees gives the misses. The
+/// second sel of each pair swaps the two roles. Everything else in the
+/// `size` x `size` window stays don't-care, and the origin is the centre.
+///
+/// C equivalent: `makeCheckerboardCornerPixa()` + `selCreateFromColorPix()`
+/// in `checkerboard.c` / `sel1.c`
 fn make_checkerboard_corner_sels(size: u32, dilation: u32, nsels: u32) -> RegionResult<Vec<Sel>> {
+    let half = size / 2;
     let mut sels = Vec::with_capacity(nsels as usize);
-    let s = size as usize;
-    let half = s / 2;
 
-    // Sel 1: diagonal pattern (top-left hit, bottom-right hit; top-right miss, bottom-left miss)
-    let sel1 = make_diagonal_sel(s, half, dilation, false)?;
-    sels.push(sel1);
-
-    // Sel 2: opposite diagonal pattern
-    let sel2 = make_diagonal_sel(s, half, dilation, true)?;
-    sels.push(sel2);
+    // Diagonal (negative slope) mask: the UL and LR inset corners.
+    let diag = corner_mask(size, dilation, &[(1, 1), (size - 2, size - 2)])?;
+    let anti = rotate_mask_90(&diag)?;
+    sels.push(sel_from_masks(size, half, &diag, &anti)?);
+    sels.push(sel_from_masks(size, half, &anti, &diag)?);
 
     if nsels == 4 {
-        // Sel 3: cross pattern variant 1
-        let sel3 = make_cross_sel(s, half, dilation, false)?;
-        sels.push(sel3);
-
-        // Sel 4: cross pattern variant 2
-        let sel4 = make_cross_sel(s, half, dilation, true)?;
-        sels.push(sel4);
+        // Vertical mask: two points on the mid-column.
+        let vert = corner_mask(size, dilation, &[(half, 1), (half, size - 2)])?;
+        let horiz = rotate_mask_90(&vert)?;
+        sels.push(sel_from_masks(size, half, &vert, &horiz)?);
+        sels.push(sel_from_masks(size, half, &horiz, &vert)?);
     }
 
     Ok(sels)
 }
 
-/// Make a diagonal corner sel
-fn make_diagonal_sel(size: usize, half: usize, dilation: u32, flipped: bool) -> RegionResult<Sel> {
-    let mut pattern = String::new();
-    let d = dilation as usize;
-
-    for y in 0..size {
-        for x in 0..size {
-            if y == half && x == half {
-                pattern.push('C');
-            } else {
-                let is_hit;
-                let is_miss;
-
-                if !flipped {
-                    // Top-left and bottom-right are hits; top-right and bottom-left are misses
-                    is_hit = (x < half.saturating_sub(d) && y < half.saturating_sub(d))
-                        || (x > half + d && y > half + d);
-                    is_miss = (x > half + d && y < half.saturating_sub(d))
-                        || (x < half.saturating_sub(d) && y > half + d);
-                } else {
-                    // Top-right and bottom-left are hits; top-left and bottom-right are misses
-                    is_hit = (x > half + d && y < half.saturating_sub(d))
-                        || (x < half.saturating_sub(d) && y > half + d);
-                    is_miss = (x < half.saturating_sub(d) && y < half.saturating_sub(d))
-                        || (x > half + d && y > half + d);
-                }
-
-                if is_hit {
-                    pattern.push('x');
-                } else if is_miss {
-                    pattern.push('o');
-                } else {
-                    pattern.push(' ');
-                }
-            }
-        }
-        if y < size - 1 {
-            pattern.push('\n');
-        }
+/// A `size` x `size` 1 bpp mask with `points` set and dilated by a
+/// `dilation` x `dilation` brick (C only dilates when `dilation > 1`).
+fn corner_mask(size: u32, dilation: u32, points: &[(u32, u32)]) -> RegionResult<Pix> {
+    let pix = Pix::new(size, size, crate::core::PixelDepth::Bit1).map_err(RegionError::Core)?;
+    let mut pm = pix.try_into_mut().unwrap();
+    for &(x, y) in points {
+        pm.set_pixel_unchecked(x, y, 1);
     }
+    let pix: Pix = pm.into();
+    if dilation > 1 {
+        morph::dilate_brick(&pix, dilation, dilation)
+            .map_err(|e| RegionError::Core(crate::core::Error::NotSupported(e.to_string())))
+    } else {
+        Ok(pix)
+    }
+}
 
-    Sel::from_string(&pattern, half as u32, half as u32)
+/// C `pixRotate90(pix, 1)`: a clockwise quarter turn.
+fn rotate_mask_90(pix: &Pix) -> RegionResult<Pix> {
+    crate::transform::rotate_90(pix, true)
         .map_err(|e| RegionError::Core(crate::core::Error::NotSupported(e.to_string())))
 }
 
-/// Make a cross corner sel
-fn make_cross_sel(size: usize, half: usize, dilation: u32, flipped: bool) -> RegionResult<Sel> {
-    let mut pattern = String::new();
-    let d = dilation as usize;
-
+/// Combine a hit mask and a miss mask into a sel centred on `half`.
+fn sel_from_masks(size: u32, half: u32, hits: &Pix, misses: &Pix) -> RegionResult<Sel> {
+    let mut sel = Sel::new(size, size)
+        .map_err(|e| RegionError::Core(crate::core::Error::NotSupported(e.to_string())))?;
     for y in 0..size {
         for x in 0..size {
-            if y == half && x == half {
-                pattern.push('C');
-            } else {
-                let is_hit;
-                let is_miss;
-
-                if !flipped {
-                    // Top and bottom center are hits; left and right center are misses
-                    is_hit = (x >= half.saturating_sub(d)
-                        && x <= half + d
-                        && y < half.saturating_sub(d))
-                        || (x >= half.saturating_sub(d) && x <= half + d && y > half + d);
-                    is_miss = (y >= half.saturating_sub(d)
-                        && y <= half + d
-                        && x < half.saturating_sub(d))
-                        || (y >= half.saturating_sub(d) && y <= half + d && x > half + d);
-                } else {
-                    // Left and right center are hits; top and bottom center are misses
-                    is_hit = (y >= half.saturating_sub(d)
-                        && y <= half + d
-                        && x < half.saturating_sub(d))
-                        || (y >= half.saturating_sub(d) && y <= half + d && x > half + d);
-                    is_miss = (x >= half.saturating_sub(d)
-                        && x <= half + d
-                        && y < half.saturating_sub(d))
-                        || (x >= half.saturating_sub(d) && x <= half + d && y > half + d);
-                }
-
-                if is_hit {
-                    pattern.push('x');
-                } else if is_miss {
-                    pattern.push('o');
-                } else {
-                    pattern.push(' ');
-                }
+            if hits.get_pixel_unchecked(x, y) == 1 {
+                sel.set_element(x, y, SelElement::Hit);
+            } else if misses.get_pixel_unchecked(x, y) == 1 {
+                sel.set_element(x, y, SelElement::Miss);
             }
         }
-        if y < size - 1 {
-            pattern.push('\n');
-        }
     }
-
-    Sel::from_string(&pattern, half as u32, half as u32)
-        .map_err(|e| RegionError::Core(crate::core::Error::NotSupported(e.to_string())))
+    sel.set_origin(half, half)
+        .map_err(|e| RegionError::Core(crate::core::Error::NotSupported(e.to_string())))?;
+    Ok(sel)
 }
 
 #[cfg(test)]
@@ -229,7 +168,6 @@ mod tests {
     /// `dilation x dilation` brick, are the hits, and the same mask rotated
     /// 90 degrees gives the misses. Everything else is don't-care.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_corner_sels_are_sparse_like_c() {
         let sels = make_checkerboard_corner_sels(15, 3, 2).unwrap();
         assert_eq!(sels.len(), 2);
@@ -251,7 +189,6 @@ mod tests {
 
     /// Without dilation each role is a single pixel per corner.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_corner_sels_undilated() {
         let sels = make_checkerboard_corner_sels(15, 1, 4).unwrap();
         assert_eq!(sels.len(), 4);
