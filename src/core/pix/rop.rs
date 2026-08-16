@@ -703,6 +703,31 @@ impl PixMut {
     /// * `vshift` - Vertical shift (positive = down, negative = up)
     /// * `incolor` - Color to fill exposed areas
     ///
+    /// Pixel value that `incolor` names for this image.
+    ///
+    /// For a colormapped image C fills the vacated band with the colormap
+    /// index of the darkest / lightest entry
+    /// (`pixcmapGetRankIntensity`), since the raw 0 / max value would name
+    /// an unrelated colour. Otherwise: 1 bpp has white = 0 (foreground is
+    /// 1 = black) and black = 1; deeper images have white = max, black = 0.
+    fn incolor_fill_value(&self, incolor: InColor) -> u32 {
+        if let Some(cmap) = self.colormap() {
+            let rank = match incolor {
+                InColor::White => 1.0,
+                InColor::Black => 0.0,
+            };
+            if let Ok(index) = cmap.get_rank_intensity(rank) {
+                return index as u32;
+            }
+        }
+        match (incolor, self.depth()) {
+            (InColor::White, PixelDepth::Bit1) => 0,
+            (InColor::White, d) => d.max_value(),
+            (InColor::Black, PixelDepth::Bit1) => 1,
+            (InColor::Black, _) => 0,
+        }
+    }
+
     /// # See also
     ///
     /// C Leptonica: `pixRasteropVip()` in `rop.c`
@@ -723,14 +748,7 @@ impl PixMut {
             return;
         }
 
-        // C pixRasteropHip/Vip: for 1bpp, white = 0 (fg = 1 = black) and
-        // black = 1; for deeper images white = max and black = 0.
-        let fill_val = match (incolor, self.depth()) {
-            (InColor::White, PixelDepth::Bit1) => 0,
-            (InColor::White, d) => d.max_value(),
-            (InColor::Black, PixelDepth::Bit1) => 1,
-            (InColor::Black, _) => 0,
-        };
+        let fill_val = self.incolor_fill_value(incolor);
 
         if vshift > 0 {
             // Shift down: copy from bottom to top to avoid overwriting
@@ -793,14 +811,7 @@ impl PixMut {
             return;
         }
 
-        // C pixRasteropHip/Vip: for 1bpp, white = 0 (fg = 1 = black) and
-        // black = 1; for deeper images white = max and black = 0.
-        let fill_val = match (incolor, self.depth()) {
-            (InColor::White, PixelDepth::Bit1) => 0,
-            (InColor::White, d) => d.max_value(),
-            (InColor::Black, PixelDepth::Bit1) => 1,
-            (InColor::Black, _) => 0,
-        };
+        let fill_val = self.incolor_fill_value(incolor);
 
         if hshift > 0 {
             // Shift right: copy from right to left to avoid overwriting

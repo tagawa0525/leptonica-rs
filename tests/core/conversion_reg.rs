@@ -415,7 +415,6 @@ fn clip_rectangle_preserves_colormap() {
 /// or lightest colour — rather than the raw 0 / max value, which would
 /// name an unrelated colormap entry.
 #[test]
-#[ignore = "not yet implemented: translate ignores the colormap when filling"]
 fn translate_cmapped_brings_in_colormap_index() {
     use leptonica::core::pix::rop::InColor;
     use leptonica::core::{PixColormap, RgbaQuad};
