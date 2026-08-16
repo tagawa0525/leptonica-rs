@@ -753,7 +753,9 @@ fn boxa_display_tiled() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 20, 20).unwrap());
     boxa.push(Box::new(0, 0, 30, 30).unwrap());
-    let result = boxa.display_tiled(None, 200).unwrap();
+    let result = boxa
+        .display_tiled(None, 0, -1, 200, 2, 1.0, 0, 3, 2)
+        .unwrap();
     assert!(result.width() > 0);
 }
 
@@ -1337,4 +1339,42 @@ fn boxaa_read_from_files_with_filter() {
     assert_eq!(baa.len(), 1);
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Boxa::display_tiled must follow C boxaDisplayTiled (plan 902 PR 22).
+///
+/// C takes `(pixa, first, last, maxwidth, linewidth, scalefactor,
+/// background, spacing, border)`, drops invalid boxes, renders each box
+/// on a white canvas with a 2 px blue frame and its index below, then
+/// tiles with `display_tiled_in_rows(32, ...)`.
+#[test]
+fn boxa_display_tiled_matches_c() {
+    use leptonica::core::box_::Boxa;
+    use leptonica::{Box as LeptBox, PixelDepth};
+
+    let mut boxa = Boxa::new();
+    boxa.push(LeptBox::new(10, 10, 40, 30).unwrap());
+    boxa.push(LeptBox::new(5, 5, 60, 20).unwrap());
+    boxa.push(LeptBox::new(0, 0, 30, 50).unwrap());
+
+    // Full range, no source pixa: each tile is the boxa extent (65x55)
+    // plus the text block below, tiled in one row at scale 1.0.
+    let out = boxa
+        .display_tiled(None, 0, -1, 2200, 2, 1.0, 0, 3, 2)
+        .expect("display_tiled");
+    assert_eq!(out.depth(), PixelDepth::Bit32);
+    // Wide enough for three tiles side by side.
+    assert!(out.width() > 3 * 65, "got {}", out.width());
+
+    // A restricted range yields a narrower result.
+    let one = boxa
+        .display_tiled(None, 1, 1, 2200, 2, 1.0, 0, 3, 2)
+        .expect("display_tiled single");
+    assert!(one.width() < out.width());
+
+    // last < 0 means "through the end".
+    let tail = boxa
+        .display_tiled(None, 1, -1, 2200, 2, 1.0, 0, 3, 2)
+        .expect("display_tiled tail");
+    assert!(tail.width() > one.width() && tail.width() < out.width());
 }

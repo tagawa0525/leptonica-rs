@@ -509,7 +509,39 @@ io は Unmapped 41。iomisc_reg の PNG 出力は 8 件で、うち C check 13
 大きく異なる (Rust は `(pixa, max_width)` のみ) ため、パラメータ整列が
 前提。24 出力と規模も大きく別 PR とする。
 
-### PR 22 以降: semantic マッピングの漸進追加
+### PR 22: boxaDisplayTiled の C 準拠化 (実施済み)
+
+C 版ソース: `src/boxfunc4.c` (boxaDisplayTiled)、`prog/boxa3_reg.c`。
+
+PR 21 で見送った `boxa3_reg` (24 出力) のブロッカー。C の
+`boxaDisplayTiled(boxa, pixa, first, last, maxwidth, linewidth,
+scalefactor, background, spacing, border)` に対し Rust は
+`(pixa, max_width)` しか取らず、内部処理も異なる:
+
+1. `boxaSaveValid` で無効 box を除去
+2. `first`/`last` の範囲指定 (last < 0 は末尾)
+3. scalefactor から fontsize を決める (0.8 超で 6、以下 10/14/18/20)
+4. 各 box: 白背景 (または pixa の該当 pix) に 2px の青枠 →
+   index を `add_single_textblock` で下に描画 → 赤の box を線幅
+   `linewidth` で描画
+5. `display_tiled_in_rows(32, maxwidth, scalefactor, background,
+   spacing, border)` で合成
+
+必要 API (`set_border_val` / `render_box_color` /
+`add_single_textblock` / `display_tiled_in_rows`) は移植済み。
+
+実施結果:
+
+- `Boxa::display_tiled` を C シグネチャ・処理に書き換え (実装差 33 件目)
+- boxa3 の **直列化 12 件が全件 byte 一致 (Ok 186 → 198)**。
+  `transform_ordered` (= C boxaTransform)、
+  `reconcile_size_by_median` の 3 種、`.ba` 直列化がいずれも
+  C と bit 等価であることを実証
+- **display 出力 12 件は次段送り**: タイル高が C と異なる
+  (テキストブロック高の算出差、幅は一致)。boxa アルゴリズム自体は
+  `.ba` で検証済みのため、理由付きで Excluded とした
+
+### PR 23 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
