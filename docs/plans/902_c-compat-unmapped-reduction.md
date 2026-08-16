@@ -442,7 +442,7 @@ C `pixLocalExtrema(pixs, maxmin, minmax, &pixmin, &pixmax)`:
 - grayfill が **27 ペア全件 Ok (Ok 166 → 172)**。grayfill_reg の全 PNG
   出力を完全制覇し、region binary は Ok 73
 
-### PR 20: lineremoval 整列 — recog の lossless パイプライン (IN_PROGRESS)
+### PR 20: lineremoval 整列 — recog の lossless パイプライン (実施済み)
 
 C 版ソース: `prog/lineremoval_reg.c`。
 
@@ -453,6 +453,19 @@ recog は Unmapped 45 で残る大きなプール。lineremoval_reg は入力が
 `threshold_to_value` ×2 → 反転 → `arith_add` → `combine_masked` と、
 gray morphology と算術の主要経路をまとめて検証できる。必要 API は
 すべて移植済み (`find_skew` は `SkewDetectOptions` 経由)。
+
+実施結果:
+
+- skew 角は C と完全一致 (-0.656250) だったが `rotate_am_gray` の出力が
+  3 画素だけずれた。追跡の結果 **実装差 30 件目**: C の
+  `rotateAM{Gray,Color}Low` は `sina = 16.f * sin(angle)` を、sin() が
+  double を返すため double 精度で計算し float に一度だけ丸める。
+  Rust は f32 で三角関数を評価していた。area map 系カーネルが f64 の
+  sin/cos を受け取るよう修正
+- さらにテスト側の `deg2rad` も C は `3.14159 / 180.` を **double 除算**
+  してから float に丸めており、f32 除算では sin が 1 ulp ずれる。
+  C と同じ計算順に揃えて解消
+- lineremoval 10 ペア **全件 Ok (Ok 172 → 182)**。recog binary は Ok 19
 
 ### PR 21 以降: semantic マッピングの漸進追加
 
