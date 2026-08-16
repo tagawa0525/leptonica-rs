@@ -58,7 +58,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 | ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007) |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                      |
 | 📭 Unmapped | **400** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 403 → 400)                                               |
-| 🚫 Excluded | **83**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + Rust 独自 falsecolor 4               |
+| 🚫 Excluded | **86**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 + iomisc alpha blend 3  |
 
 合計 701 entries がレポート対象 (As of 2026-08-16、plan 902 PR 21 後)。
 Rust manifest (`tests/golden_manifest.tsv`) 全体は **708 entries**。

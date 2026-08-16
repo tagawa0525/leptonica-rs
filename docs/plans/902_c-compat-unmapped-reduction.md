@@ -471,8 +471,9 @@ gray morphology と算術の主要経路をまとめて検証できる。必要 
 
 C 版ソース: `prog/iomisc_reg.c`。
 
-io は Unmapped 41。iomisc_reg の PNG 出力 8 件のうち 13 は既に Ok
-(`iomisc_regen_rgb_cmap`) で、残り 7 件が lossless 入力
+io は Unmapped 41。iomisc_reg の PNG 出力は 8 件で、うち C check 13
+(番号であって件数ではない) は既に Ok (`iomisc_regen_rgb_cmap`)。
+残る 7 件が lossless 入力
 (`books_logo.png` / `weasel4.11c.png` / `weasel4.5g.png`) 由来:
 
 | C check | 内容 |
