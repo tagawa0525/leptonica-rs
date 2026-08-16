@@ -211,3 +211,28 @@ fn replicate_pattern_from_pix() {
     assert!(pts.contains(&(4, 4)));
     assert!(pts.contains(&(6, 6)));
 }
+
+/// Diagonal hash lines must use C's double-precision spacing
+/// (plan 902 PR 17).
+///
+/// C `generatePtaHashBox` computes the line origin as
+/// `(l_int32)(bx + (i + 0.5) * 1.4 * spacing)` in double precision.
+/// Evaluating it in f32 truncates differently — for a box at x = 5 with
+/// spacing 10, line 1 lands at 25 in C but at 26 in f32.
+#[test]
+#[ignore = "not yet implemented: hash spacing is computed in f32"]
+fn hash_box_diagonal_spacing_matches_c() {
+    use leptonica::Box as LeptBox;
+    use leptonica::core::pix::graphics::{HashOrientation, generate_hash_box_pta};
+
+    let b = LeptBox::new(5, 5, 45, 28).unwrap();
+    let pta = generate_hash_box_pta(&b, 10, 3, HashOrientation::PosSlope, false)
+        .expect("generate_hash_box_pta");
+
+    // C's second diagonal starts at x = 25 (not 26), so its topmost point
+    // on the box's top edge is (24, 5) after the intersection.
+    let has_24_5 = pta.iter().any(|(x, y)| x as i32 == 24 && y as i32 == 5);
+    let has_25_5 = pta.iter().any(|(x, y)| x as i32 == 25 && y as i32 == 5);
+    assert!(has_24_5, "expected C's diagonal through (24, 5)");
+    assert!(!has_25_5, "f32 rounding would put the diagonal at (25, 5)");
+}
