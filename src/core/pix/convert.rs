@@ -192,9 +192,15 @@ impl Pix {
         let h = self.height();
 
         // C pixConvertTo8(pixs, FALSE) removes a colormap to grayscale
-        // rather than passing the raw indices through. Sub-8bpp cmapped
-        // input is expanded the same way (C pixConvert{2,4}To8 with
-        // cmapflag = FALSE).
+        // rather than passing the raw indices through, for 2, 4 and 8 bpp
+        // (pixConvert{2,4}To8 with cmapflag = FALSE, and pixRemoveColormap
+        // for 8 bpp).
+        //
+        // 1 bpp is deliberately excluded: C takes the
+        // `pixConvert1To8(NULL, pixs, 255, 0)` branch regardless of any
+        // colormap, so bit 0 always becomes 255 and bit 1 always becomes 0.
+        // The Bit1 arm below reproduces that, which is why a colormapped
+        // 1 bpp pix does not go through remove_colormap here.
         if self.has_colormap()
             && matches!(
                 self.depth(),

@@ -449,3 +449,33 @@ fn translate_cmapped_brings_in_colormap_index() {
     assert_eq!(black.get_pixel(1, 0).unwrap(), 2);
     assert_eq!(black.get_pixel(2, 0).unwrap(), 0);
 }
+
+/// convert_to_8 must leave 1 bpp colormaps alone (plan 902 PR 15).
+///
+/// C `pixConvertTo8(pixs, FALSE)` takes the
+/// `pixConvert1To8(NULL, pixs, 255, 0)` branch for 1 bpp regardless of any
+/// colormap, so bit 0 becomes 255 and bit 1 becomes 0 even when the
+/// colormap says otherwise.
+#[test]
+fn conversion_to_8_ignores_1bpp_colormap() {
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    let pix = {
+        let p = leptonica::Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(1).unwrap();
+        // Inverted photometry: index 0 is black, index 1 is white.
+        cmap.add_color(RgbaQuad::rgb(0, 0, 0)).unwrap();
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap();
+        pm.set_colormap(Some(cmap)).unwrap();
+        pm.set_pixel(1, 0, 1).unwrap();
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    let out = pix.convert_to_8().expect("convert_to_8");
+    assert_eq!(out.depth(), PixelDepth::Bit8);
+    // C ignores the colormap here: bit 0 -> 255, bit 1 -> 0.
+    assert_eq!(out.get_pixel(0, 0).unwrap(), 255);
+    assert_eq!(out.get_pixel(1, 0).unwrap(), 0);
+}
