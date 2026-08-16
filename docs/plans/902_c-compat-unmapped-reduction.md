@@ -649,7 +649,36 @@ makeCheckerboardCornerPixa)、`src/boxfunc2.c` (boxaExtractCorners)、
   `selaDisplayInPix` / `selMakePlusSign` / `pixDisplaySelectedPixels` が
   未移植で、`find_checkerboard_corners` が中間画像を返さないため
 
-### PR 26 以降: semantic マッピングの漸進追加
+### PR 26: paint の colormap 再構成 (実施済み)
+
+C 版ソース: `src/paintcmap.c` (pixSetMaskedCmap)、`prog/paint_reg.c`。
+
+`paint_reg` の入力は大半が JPEG (lucasta-frag.jpg / lucasta.150.jpg) だが、
+末尾の **colormap 再構成ブロックは weasel2.4c.png / weasel4.11c.png /
+weasel8.240c.png という可逆な cmapped PNG のみ**を使うため bit 一致比較が
+できる。
+
+実施結果:
+
+- 実装差 40 件目: `pix_set_masked_cmap` が色を検索せずに必ず `add_color`
+  し、失敗時は最近傍色へ黙ってフォールバックしていた。C
+  `pixSetMaskedCmap` は `pixcmapGetIndex` で既存色を探して再利用し、
+  無い場合のみ追加、空きが無ければ "no room in cmap" でエラーを返す
+  (最近傍フォールバックは呼び出し側の責務)。深度 {2,4,8} の検証も追加。
+  旧実装では `ReconstructByValue` のように既存 cmap を持つ pix を塗り直す
+  ケースで重複エントリが積まれ index がずれていた
+- paint の C check 24/26/28-31 を 6 ペアマップ — **全件 Ok**
+  (Ok 222 → 228)
+- **C ソースのコメント番号は実 index とずれている**: helper 内の
+  `regTestComparePix` を数えていないため `/* 23 */` 〜 `/* 28 */` は実際には
+  24/26/28〜31。C manifest に 23/25/27 が存在しないことで判明した。
+  以後のマッピングでは manifest の実エントリを正とする
+- **check 18-22 (feyn-fract.tif ブロック) は次段送り**: C
+  `pixColorGrayRegions` / `pixColorGray` は 8bpp gray と cmapped を直接
+  扱い boxa を取るのに対し、Rust 側は 32bpp 専用でシグネチャも異なるため、
+  別 PR で C 準拠に書き換える必要がある
+
+### PR 27 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
