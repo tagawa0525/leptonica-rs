@@ -212,3 +212,99 @@ fn grayquant_reg_advanced_threshold() {
 
     assert!(rp.cleanup(), "grayquant advanced threshold test failed");
 }
+
+/// C-compat: `prog/grayquant_reg.c` checks 28-39.
+///
+/// This is the `feyn.tif` block. Unlike the earlier checks in that program
+/// it reads a lossless 1 bpp TIFF rather than `test8.jpg`, so it is free of
+/// JPEG decode differences and can be compared bit-exactly against C.
+#[test]
+#[ignore = "not yet implemented"]
+fn grayquant_c_compat() {
+    use leptonica::color::paintcmap::pix_set_select_cmap;
+    use leptonica::core::pix::RemoveColormapTarget;
+    use leptonica::core::pix::RopOp;
+    use leptonica::transform::{ScaleMethod, reduce_rank_binary_cascade, scale, scale_to_gray_4};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("grayquant_c");
+
+    let pixs = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
+
+    // C 28-30: 8 bpp reduction, rank-binary cascade, and 2 bpp thresholding
+    // with one colormap entry repainted inside a box.
+    let pix1 = scale_to_gray_4(&pixs).expect("scale to gray 4");
+    let pix2 = reduce_rank_binary_cascade(&pixs, &[2, 2]).expect("rank cascade");
+    let pix3 = threshold_to_2bpp(&pix1, 3, true).expect("threshold to 2bpp");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: scale to gray 4");
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check: rank binary cascade");
+
+    let mut pm = pix3.try_into_mut().unwrap();
+    pix_set_select_cmap(
+        &mut pm,
+        Some(&leptonica::core::Box::new(175, 208, 228, 88).unwrap()),
+        2,
+        (255, 255, 100),
+    )
+    .expect("set select cmap 2bpp");
+    let pix3: leptonica::Pix = pm.into();
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("check: 2bpp with highlight");
+
+    // C 31-32: 4 bpp thresholding with three highlighted boxes.
+    const NLEVELS: u32 = 4;
+    let pix2 = threshold_to_4bpp(&pix1, NLEVELS, true).expect("threshold to 4bpp");
+    let mut pm = pix2.try_into_mut().unwrap();
+    for (b, color) in [
+        ((175, 208, 228, 83), (255, 255, 100)),
+        ((232, 298, 110, 25), (100, 255, 255)),
+        ((21, 698, 246, 82), (225, 100, 255)),
+    ] {
+        pix_set_select_cmap(
+            &mut pm,
+            Some(&leptonica::core::Box::new(b.0, b.1, b.2, b.3).unwrap()),
+            NLEVELS - 1,
+            color,
+        )
+        .expect("set select cmap 4bpp");
+    }
+    let pix2: leptonica::Pix = pm.into();
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check: 4bpp with highlights");
+    let pix3 = reduce_rank_binary_cascade(&pixs, &[2, 2]).expect("rank cascade 2");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("check: rank binary cascade 2");
+
+    // C 33-39: a 6x magnified crop thresholded to 4 bpp at 6, 5, 4, 3 and 2
+    // levels, stacked into a single 8 bpp image.
+    let crop = pix1.clip_rectangle(25, 202, 136, 37).expect("clip");
+    let big = scale(&crop, 6.0, 6.0, ScaleMethod::Auto).expect("scale 6x");
+    rp.write_pix_and_check(&big, ImageFormat::Png)
+        .expect("check: 6x crop");
+
+    let (w, h) = (big.width(), big.height());
+    let stack = leptonica::Pix::new(w, 6 * h, PixelDepth::Bit8).expect("stack");
+    let mut sm = stack.try_into_mut().unwrap();
+    sm.rop_region_inplace(0, 0, w, h, RopOp::Src, &big, 0, 0)
+        .expect("blit original");
+    for (k, levels) in [6u32, 5, 4, 3, 2].into_iter().enumerate() {
+        let quant = threshold_to_4bpp(&big, levels, true).expect("threshold to 4bpp levels");
+        let gray = quant
+            .remove_colormap(RemoveColormapTarget::ToGrayscale)
+            .expect("remove cmap to gray");
+        sm.rop_region_inplace(0, (k as i32 + 1) * h as i32, w, h, RopOp::Src, &gray, 0, 0)
+            .expect("blit quantized");
+        rp.write_pix_and_check(&quant, ImageFormat::Png)
+            .expect("check: 4bpp levels");
+    }
+    let stack: leptonica::Pix = sm.into();
+    rp.write_pix_and_check(&stack, ImageFormat::Png)
+        .expect("check: stacked comparison");
+
+    assert!(rp.cleanup(), "grayquant C-compat test failed");
+}
