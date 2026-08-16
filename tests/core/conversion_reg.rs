@@ -406,3 +406,47 @@ fn clip_rectangle_preserves_colormap() {
     // The index raster is shifted by the clip origin.
     assert_eq!(clipped.get_pixel(1, 0).unwrap(), 1);
 }
+
+/// Shifting a colormapped image must bring in a colormap index
+/// (plan 902 PR 15).
+///
+/// C `pixRasteropHip` / `pixRasteropVip` fill the vacated band with
+/// `pixcmapGetRankIntensity(cmap, 0.0 or 1.0)` — the index of the darkest
+/// or lightest colour — rather than the raw 0 / max value, which would
+/// name an unrelated colormap entry.
+#[test]
+#[ignore = "not yet implemented: translate ignores the colormap when filling"]
+fn translate_cmapped_brings_in_colormap_index() {
+    use leptonica::core::pix::rop::InColor;
+    use leptonica::core::{PixColormap, RgbaQuad};
+
+    // Colormap ordered so that neither the darkest nor the lightest
+    // colour sits at index 0 or at the maximum index.
+    let pix = {
+        let p = leptonica::Pix::new(4, 1, PixelDepth::Bit2).unwrap();
+        let mut pm = p.try_into_mut().unwrap();
+        let mut cmap = PixColormap::new(2).unwrap();
+        cmap.add_color(RgbaQuad::rgb(128, 128, 128)).unwrap(); // 0: mid
+        cmap.add_color(RgbaQuad::rgb(255, 255, 255)).unwrap(); // 1: lightest
+        cmap.add_color(RgbaQuad::rgb(0, 0, 0)).unwrap(); // 2: darkest
+        cmap.add_color(RgbaQuad::rgb(200, 200, 200)).unwrap(); // 3: light
+        pm.set_colormap(Some(cmap)).unwrap();
+        for x in 0..4u32 {
+            pm.set_pixel(x, 0, 0).unwrap();
+        }
+        let p: leptonica::Pix = pm.into();
+        p
+    };
+
+    // Bringing in white must use index 1, not the raw max value 3.
+    let white = pix.translate(2, 0, InColor::White);
+    assert_eq!(white.get_pixel(0, 0).unwrap(), 1);
+    assert_eq!(white.get_pixel(1, 0).unwrap(), 1);
+    assert_eq!(white.get_pixel(2, 0).unwrap(), 0);
+
+    // Bringing in black must use index 2, not the raw value 0.
+    let black = pix.translate(2, 0, InColor::Black);
+    assert_eq!(black.get_pixel(0, 0).unwrap(), 2);
+    assert_eq!(black.get_pixel(1, 0).unwrap(), 2);
+    assert_eq!(black.get_pixel(2, 0).unwrap(), 0);
+}
