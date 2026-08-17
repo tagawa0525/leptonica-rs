@@ -25,17 +25,12 @@
 //! # Examples
 //!
 //! ```no_run
-//! use leptonica::color::coloring::{pix_color_gray, ColorGrayOptions, PaintType};
+//! use leptonica::color::coloring::{pix_color_gray, PaintType};
 //! use leptonica::core::{Pix, PixelDepth};
 //!
 //! // Colorize light pixels with red
 //! let pix = Pix::new(100, 100, PixelDepth::Bit32).unwrap();
-//! let options = ColorGrayOptions {
-//!     paint_type: PaintType::Light,
-//!     threshold: 0,
-//!     target_color: (255, 0, 0),
-//! };
-//! let colored = pix_color_gray(&pix, None, &options).unwrap();
+//! let colored = pix_color_gray(&pix, None, PaintType::Light, 0, (255, 0, 0)).unwrap();
 //! ```
 
 use crate::color::{ColorError, ColorResult};
@@ -57,30 +52,6 @@ pub enum PaintType {
     /// Pixels with average value below threshold are colorized.
     /// White pixels remain white (preserving antialiasing).
     Dark,
-}
-
-/// Options for gray colorization operations
-#[derive(Debug, Clone)]
-pub struct ColorGrayOptions {
-    /// Paint type: colorize light or dark pixels
-    pub paint_type: PaintType,
-    /// Threshold for colorization
-    ///
-    /// For `PaintType::Light`: pixels with average > threshold are colorized
-    /// For `PaintType::Dark`: pixels with average < threshold are colorized
-    pub threshold: u8,
-    /// Target color (r, g, b)
-    pub target_color: (u8, u8, u8),
-}
-
-impl Default for ColorGrayOptions {
-    fn default() -> Self {
-        Self {
-            paint_type: PaintType::Light,
-            threshold: 0,
-            target_color: (255, 0, 0), // Red
-        }
-    }
 }
 
 // =============================================================================
@@ -250,129 +221,116 @@ fn compose_color_from_rgb(r: u8, g: u8, b: u8) -> u32 {
 // =============================================================================
 // Image-level functions
 // =============================================================================
-
-/// Colorize gray pixels in a 32-bit RGB image
+/// Colorize the gray pixels of an image, optionally restricted to one box.
 ///
-/// This function colorizes pixels based on their gray level, preserving
-/// antialiasing. The algorithm differs based on paint type:
+/// Accepts colormapped, 8 bpp gray and 32 bpp RGB input, matching C:
 ///
-/// - **Light**: Non-black pixels are colorized. A pixel with gray level `g`
-///   gets color `(target_r * g / 255, target_g * g / 255, target_b * g / 255)`.
-///   Black pixels (g=0) remain black.
+/// * colormapped input is handled by
+///   [`crate::color::paintcmap::pix_color_gray_cmap`]
+/// * 8 bpp gray is promoted to 32 bpp first
+/// * the result is 32 bpp with **alpha 0**, since C composes the new pixel
+///   with `composeRGBPixel`
 ///
-/// - **Dark**: Non-white pixels are colorized. A pixel with gray level `g`
-///   gets color `(target_r + (255-target_r)*g/255, ...)`.
-///   White pixels (g=255) remain white.
+/// A pixel is colorized when its component average `aveval` satisfies
+/// `aveval >= thresh` for [`PaintType::Light`] and `aveval <= thresh` for
+/// [`PaintType::Dark`]; the boundary value itself is included, as in C.
 ///
 /// # Arguments
 ///
-/// * `pix` - Input 32-bit RGB image
-/// * `region` - Optional bounding box to restrict operation
-/// * `options` - Colorization options
+/// * `pix` - colormapped, 8 bpp gray or 32 bpp RGB input
+/// * `region` - optional box; `None` colorizes the whole image
+/// * `paint_type` - colorize the light or the dark pixels
+/// * `thresh` - must be `< 255` for Light and `> 0` for Dark
+/// * `color` - target RGB color
 ///
-/// # Returns
+/// # See also
 ///
-/// A new colorized image.
-///
-/// # Errors
-///
-/// Returns error if the image is not 32-bit.
+/// C Leptonica: `pixColorGray()` in `coloring.c`
 pub fn pix_color_gray(
     pix: &Pix,
     region: Option<&Box>,
-    options: &ColorGrayOptions,
+    paint_type: PaintType,
+    thresh: u32,
+    color: (u8, u8, u8),
 ) -> ColorResult<Pix> {
-    if pix.depth() != PixelDepth::Bit32 {
+    if pix.colormap().is_some() {
+        let mut pm = pix.to_mut();
+        crate::color::paintcmap::pix_color_gray_cmap(&mut pm, region, paint_type, color)?;
+        return Ok(pm.into());
+    }
+
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
         return Err(ColorError::UnsupportedDepth {
-            expected: "32 bpp",
-            actual: pix.depth().bits(),
+            expected: "cmapped, 8 bpp or 32 bpp",
+            actual: d.bits(),
         });
     }
+    check_color_gray_thresh(paint_type, thresh)?;
 
-    // Validate threshold
-    match options.paint_type {
-        PaintType::Light => {
-            if options.threshold == 255 {
-                return Err(ColorError::InvalidParameters(
-                    "threshold must be < 255 for Light paint type".to_string(),
-                ));
-            }
-        }
-        PaintType::Dark => {
-            if options.threshold == 0 {
-                return Err(ColorError::InvalidParameters(
-                    "threshold must be > 0 for Dark paint type".to_string(),
-                ));
-            }
-        }
-    }
-
-    let w = pix.width();
-    let h = pix.height();
-
-    // Determine region bounds
-    let (x1, y1, x2, y2) = if let Some(b) = region {
-        let bx = b.x.max(0) as u32;
-        let by = b.y.max(0) as u32;
-        let bw = b.w as u32;
-        let bh = b.h as u32;
-        (bx, by, (bx + bw).min(w), (by + bh).min(h))
+    // C converts an 8 bpp input to 32 bpp in place before painting.
+    let src = if d == PixelDepth::Bit8 {
+        pix.convert_to_32().map_err(ColorError::Core)?
     } else {
-        (0, 0, w, h)
+        pix.clone()
     };
 
-    let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-    out_mut.set_spp(pix.spp());
+    let w = src.width() as i64;
+    let h = src.height() as i64;
+    let (x1, y1, x2, y2) = match region {
+        // C uses x2 = w, y2 = h here (not w - 1), but the per-pixel bounds
+        // check discards the extra column and row.
+        None => (0i64, 0i64, w, h),
+        Some(b) => {
+            let x1 = b.x as i64;
+            let y1 = b.y as i64;
+            (x1, y1, x1 + b.w as i64 - 1, y1 + b.h as i64 - 1)
+        }
+    };
 
-    // Copy original and then modify region
-    for y in 0..h {
-        for x in 0..w {
-            let pixel = pix.get_pixel_unchecked(x, y);
-
-            let new_pixel = if x >= x1 && x < x2 && y >= y1 && y < y2 {
-                colorize_pixel(pixel, options)
-            } else {
-                pixel
-            };
-
-            out_mut.set_pixel_unchecked(x, y, new_pixel);
+    let out = src.deep_clone();
+    let mut om = out.try_into_mut().unwrap();
+    for y in y1.max(0)..=y2.min(h - 1) {
+        for x in x1.max(0)..=x2.min(w - 1) {
+            let (x, y) = (x as u32, y as u32);
+            let pixel = src.get_pixel_unchecked(x, y);
+            if let Some(new) = colorize_pixel(pixel, paint_type, thresh, color) {
+                om.set_pixel_unchecked(x, y, new);
+            }
         }
     }
 
-    Ok(out_mut.into())
+    Ok(om.into())
 }
 
-/// Colorize gray pixels under a mask
+/// C rejects thresholds that would make the operation a no-op.
+fn check_color_gray_thresh(paint_type: PaintType, thresh: u32) -> ColorResult<()> {
+    match paint_type {
+        PaintType::Light if thresh >= 255 => Err(ColorError::InvalidParameters(
+            "thresh must be < 255 for PaintType::Light".into(),
+        )),
+        PaintType::Dark if thresh == 0 => Err(ColorError::InvalidParameters(
+            "thresh must be > 0 for PaintType::Dark".into(),
+        )),
+        _ => Ok(()),
+    }
+}
+/// Colorize the gray pixels of an image under a 1 bpp mask.
 ///
-/// Similar to [`pix_color_gray`], but only pixels under foreground (1) pixels
-/// of the mask are colorized.
+/// Same acceptance and arithmetic as [`pix_color_gray`], but the painted
+/// region is the mask foreground rather than a box. Only the overlap of the
+/// two images is processed, as in C.
 ///
-/// # Arguments
+/// # See also
 ///
-/// * `pix` - Input 32-bit RGB image
-/// * `mask` - 1-bit mask image
-/// * `options` - Colorization options
-///
-/// # Returns
-///
-/// A new colorized image.
-///
-/// # Errors
-///
-/// Returns error if the image is not 32-bit or mask is not 1-bit.
+/// C Leptonica: `pixColorGrayMasked()` in `coloring.c`
 pub fn pix_color_gray_masked(
     pix: &Pix,
     mask: &Pix,
-    options: &ColorGrayOptions,
+    paint_type: PaintType,
+    thresh: u32,
+    color: (u8, u8, u8),
 ) -> ColorResult<Pix> {
-    if pix.depth() != PixelDepth::Bit32 {
-        return Err(ColorError::UnsupportedDepth {
-            expected: "32 bpp",
-            actual: pix.depth().bits(),
-        });
-    }
-
     if mask.depth() != PixelDepth::Bit1 {
         return Err(ColorError::UnsupportedDepth {
             expected: "1 bpp mask",
@@ -380,91 +338,82 @@ pub fn pix_color_gray_masked(
         });
     }
 
-    // Validate threshold
-    match options.paint_type {
-        PaintType::Light => {
-            if options.threshold == 255 {
-                return Err(ColorError::InvalidParameters(
-                    "threshold must be < 255 for Light paint type".to_string(),
-                ));
+    if pix.colormap().is_some() {
+        let mut pm = pix.to_mut();
+        crate::color::paintcmap::pix_color_gray_masked_cmap(&mut pm, mask, color, 1, 254)?;
+        return Ok(pm.into());
+    }
+
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "cmapped, 8 bpp or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    check_color_gray_thresh(paint_type, thresh)?;
+
+    let src = if d == PixelDepth::Bit8 {
+        pix.convert_to_32().map_err(ColorError::Core)?
+    } else {
+        pix.clone()
+    };
+
+    let wmin = src.width().min(mask.width());
+    let hmin = src.height().min(mask.height());
+    let out = src.deep_clone();
+    let mut om = out.try_into_mut().unwrap();
+    for y in 0..hmin {
+        for x in 0..wmin {
+            if mask.get_pixel_unchecked(x, y) == 0 {
+                continue;
             }
-        }
-        PaintType::Dark => {
-            if options.threshold == 0 {
-                return Err(ColorError::InvalidParameters(
-                    "threshold must be > 0 for Dark paint type".to_string(),
-                ));
+            let pixel = src.get_pixel_unchecked(x, y);
+            if let Some(new) = colorize_pixel(pixel, paint_type, thresh, color) {
+                om.set_pixel_unchecked(x, y, new);
             }
         }
     }
 
-    let w = pix.width();
-    let h = pix.height();
-    let mask_w = mask.width();
-    let mask_h = mask.height();
-
-    let w_min = w.min(mask_w);
-    let h_min = h.min(mask_h);
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-    out_mut.set_spp(pix.spp());
-
-    for y in 0..h {
-        for x in 0..w {
-            let pixel = pix.get_pixel_unchecked(x, y);
-
-            let new_pixel = if x < w_min && y < h_min {
-                let mask_val = mask.get_pixel_unchecked(x, y);
-                if mask_val != 0 {
-                    colorize_pixel(pixel, options)
-                } else {
-                    pixel
-                }
-            } else {
-                pixel
-            };
-
-            out_mut.set_pixel_unchecked(x, y, new_pixel);
-        }
-    }
-
-    Ok(out_mut.into())
+    Ok(om.into())
 }
 
 /// Helper to colorize a single pixel
 #[inline]
-fn colorize_pixel(pixel: u32, options: &ColorGrayOptions) -> u32 {
-    let (r, g, b, a) = pixel::extract_rgba(pixel);
-    let (tr, tg, tb) = options.target_color;
+/// The per-pixel colorization C applies in `pixColorGray`.
+///
+/// Returns `None` when the pixel is skipped. C's arithmetic is reproduced
+/// exactly: the average is the truncated integer mean of the three
+/// components, the light case is `(l_int32)(rval * aveval * (1.f / 255.f))`
+/// in float, and the dark case is
+/// `rval + (l_int32)((255. - rval) * aveval * factor)` where the `255.`
+/// literal promotes the product to double. The output alpha is 0 because C
+/// builds the pixel with `composeRGBPixel`.
+fn colorize_pixel(
+    pixel: u32,
+    paint_type: PaintType,
+    thresh: u32,
+    color: (u8, u8, u8),
+) -> Option<u32> {
+    let (r, g, b, _) = pixel::extract_rgba(pixel);
+    let (tr, tg, tb) = color;
+    let aveval = (r as u32 + g as u32 + b as u32) / 3;
 
-    // Calculate average gray value
-    let avg = ((r as u32 + g as u32 + b as u32) / 3) as u8;
-
-    match options.paint_type {
+    const FACTOR: f32 = 1.0 / 255.0;
+    match paint_type {
         PaintType::Light => {
-            if avg <= options.threshold {
-                // Skip dark pixels
-                return pixel;
+            if aveval < thresh {
+                return None;
             }
-            // Colorize: new_color = target_color * avg / 255
-            let factor = avg as f32 / 255.0;
-            let nr = (tr as f32 * factor) as u8;
-            let ng = (tg as f32 * factor) as u8;
-            let nb = (tb as f32 * factor) as u8;
-            pixel::compose_rgba(nr, ng, nb, a)
+            let comp = |t: u8| (t as f32 * aveval as f32 * FACTOR) as u8;
+            Some(pixel::compose_rgba(comp(tr), comp(tg), comp(tb), 0))
         }
         PaintType::Dark => {
-            if avg >= options.threshold {
-                // Skip light pixels
-                return pixel;
+            if aveval > thresh {
+                return None;
             }
-            // Colorize: new_color = target_color + (255 - target_color) * avg / 255
-            let factor = avg as f32 / 255.0;
-            let nr = tr + ((255.0 - tr as f32) * factor) as u8;
-            let ng = tg + ((255.0 - tg as f32) * factor) as u8;
-            let nb = tb + ((255.0 - tb as f32) * factor) as u8;
-            pixel::compose_rgba(nr, ng, nb, a)
+            let comp = |t: u8| t + ((255.0 - t as f64) * aveval as f64 * FACTOR as f64) as u8;
+            Some(pixel::compose_rgba(comp(tr), comp(tg), comp(tb), 0))
         }
     }
 }
@@ -749,91 +698,75 @@ pub fn pix_map_with_invariant_hue(pix: &Pix, src_color: u32, fract: f32) -> Colo
     // Use the (src_color, dst_color) pair to define the linear transform
     pix_linear_map_to_target_color(pix, src_color, dst_color)
 }
-
-/// Colorize gray regions of an RGB image with specified color.
+/// Colorize the gray pixels of an image inside a set of regions.
 ///
-/// Only near-gray pixels (where max component difference < `thresh`) that fall
-/// within the brightness range `[min_val, max_val]` are tinted toward the
-/// target color.
+/// When the input is colormapped and there is room to expand an 8 bpp
+/// colormap (`ncolors + ngray < 255`), C keeps the result colormapped and
+/// delegates to `pixColorGrayRegionsCmap`. Otherwise the result is 32 bpp
+/// and each box is painted with [`pix_color_gray`].
 ///
 /// # Arguments
 ///
-/// * `pix` - 32-bpp RGB input image
-/// * `mask` - Optional 1-bpp mask (only fg pixels are processed)
-/// * `thresh` - Max component difference to consider a pixel "gray"
-/// * `min_val` - Minimum average brightness for colorization
-/// * `max_val` - Maximum average brightness for colorization
-/// * `target` - Target (R, G, B) color for tinting
+/// * `pix` - input image of any depth except 1 bpp
+/// * `boxa` - regions to colorize
+/// * `paint_type` - colorize the light or the dark pixels
+/// * `thresh` - must be `< 255` for Light and `> 0` for Dark (ignored on the
+///   colormapped path, as in C)
+/// * `color` - target RGB color
 ///
 /// # See also
 ///
 /// C Leptonica: `pixColorGrayRegions()` in `coloring.c`
 pub fn color_gray_regions(
     pix: &Pix,
-    mask: Option<&Pix>,
+    boxa: &crate::core::Boxa,
+    paint_type: PaintType,
     thresh: u32,
-    min_val: u32,
-    max_val: u32,
-    target: (u8, u8, u8),
+    color: (u8, u8, u8),
 ) -> ColorResult<Pix> {
-    if pix.depth() != PixelDepth::Bit32 {
+    if pix.depth() == PixelDepth::Bit1 {
         return Err(ColorError::UnsupportedDepth {
-            expected: "32 bpp",
-            actual: pix.depth().bits(),
+            expected: "not 1 bpp",
+            actual: 1,
         });
     }
-    if min_val > max_val {
-        return Err(ColorError::InvalidParameters(
-            "min_val must be <= max_val".into(),
-        ));
-    }
 
-    let w = pix.width();
-    let h = pix.height();
-    let out = pix.deep_clone();
-    let mut out_mut = out.try_into_mut().unwrap();
-
-    let (target_r, target_g, target_b) = target;
-    let tr = target_r as f64;
-    let tg = target_g as f64;
-    let tb = target_b as f64;
-
-    for y in 0..h {
-        for x in 0..w {
-            if let Some(m) = mask
-                && (x >= m.width() || y >= m.height() || m.get_pixel_unchecked(x, y) == 0)
-            {
-                continue;
-            }
-
-            let px = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = pixel::extract_rgb(px);
-
-            let max_c = r.max(g).max(b) as u32;
-            let min_c = r.min(g).min(b) as u32;
-            let diff = max_c - min_c;
-
-            if diff >= thresh {
-                continue;
-            }
-
-            let avg = (r as u32 + g as u32 + b as u32) / 3;
-            if avg < min_val || avg > max_val {
-                continue;
-            }
-
-            // Blend: fraction is how "gray" the pixel is (lower diff = stronger tint)
-            let fract = 1.0 - (diff as f64 / thresh.max(1) as f64);
-            let fract = fract * (avg as f64 / 255.0);
-            let nr = (r as f64 + fract * (tr - r as f64)).clamp(0.0, 255.0) as u8;
-            let ng = (g as f64 + fract * (tg - g as f64)).clamp(0.0, 255.0) as u8;
-            let nb = (b as f64 + fract * (tb - b as f64)).clamp(0.0, 255.0) as u8;
-
-            out_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
+    // C: keep the colormap when there is room for the colorized entries.
+    if let Some(cmap) = pix.colormap() {
+        let ncolors = cmap.len();
+        let ngray = count_gray_colors(cmap);
+        if ncolors + ngray < 255 {
+            let pix8 = promote_cmapped_to_8bpp(pix)?;
+            let mut pm = pix8.to_mut();
+            crate::color::paintcmap::pix_color_gray_regions_cmap(&mut pm, boxa, paint_type, color)?;
+            return Ok(pm.into());
         }
     }
 
-    Ok(out_mut.into())
+    check_color_gray_thresh(paint_type, thresh)?;
+
+    let mut pixd = pix.convert_to_32().map_err(ColorError::Core)?;
+    for b in boxa.iter() {
+        pixd = pix_color_gray(&pixd, Some(b), paint_type, thresh, color)?;
+    }
+    Ok(pixd)
+}
+
+/// C `pixcmapCountGrayColors`: the number of *distinct* gray levels present.
+fn count_gray_colors(cmap: &crate::core::PixColormap) -> usize {
+    let mut seen = [false; 256];
+    let mut count = 0;
+    for i in 0..cmap.len() {
+        if let Some((r, g, b)) = cmap.get_rgb(i)
+            && r == g
+            && r == b
+            && !seen[r as usize]
+        {
+            seen[r as usize] = true;
+            count += 1;
+        }
+    }
+    count
 }
 
 /// Snap colormap colors within `diff` distance to `target_color`.
@@ -878,6 +811,25 @@ pub fn snap_color_cmap(pix: &Pix, target_color: u32, diff: u32) -> ColorResult<P
         .set_colormap(Some(new_cmap))
         .map_err(|e| ColorError::InvalidParameters(format!("{e}")))?;
     Ok(out_mut.into())
+}
+
+/// C `pixConvertTo8(pixs, 1)` for a colormapped input: the indices and the
+/// colormap carry over to an 8 bpp image unchanged.
+fn promote_cmapped_to_8bpp(pix: &Pix) -> ColorResult<Pix> {
+    if pix.depth() == PixelDepth::Bit8 {
+        return Ok(pix.clone());
+    }
+    let (w, h) = (pix.width(), pix.height());
+    let out = Pix::new(w, h, PixelDepth::Bit8).map_err(ColorError::Core)?;
+    let mut om = out.try_into_mut().unwrap();
+    om.set_colormap(pix.colormap().cloned())
+        .map_err(ColorError::Core)?;
+    for y in 0..h {
+        for x in 0..w {
+            om.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(x, y));
+        }
+    }
+    Ok(om.into())
 }
 
 #[cfg(test)]
@@ -963,13 +915,8 @@ mod tests {
             }
         }
 
-        let options = ColorGrayOptions {
-            paint_type: PaintType::Light,
-            threshold: 0,
-            target_color: (255, 0, 0), // Red
-        };
-
-        let result = pix_color_gray(&pix_mut.into(), None, &options).unwrap();
+        let result =
+            pix_color_gray(&pix_mut.into(), None, PaintType::Light, 0, (255, 0, 0)).unwrap();
 
         // Check that pixels are now reddish
         let pixel = result.get_pixel_unchecked(5, 5);
@@ -995,13 +942,8 @@ mod tests {
             }
         }
 
-        let options = ColorGrayOptions {
-            paint_type: PaintType::Dark,
-            threshold: 255,
-            target_color: (0, 0, 255), // Blue
-        };
-
-        let result = pix_color_gray(&pix_mut.into(), None, &options).unwrap();
+        let result =
+            pix_color_gray(&pix_mut.into(), None, PaintType::Dark, 255, (0, 0, 255)).unwrap();
 
         // Check that pixels are now bluish
         let pixel = result.get_pixel_unchecked(5, 5);
@@ -1134,19 +1076,9 @@ mod tests {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
 
         // Light paint type with threshold >= 255 should fail
-        let options = ColorGrayOptions {
-            paint_type: PaintType::Light,
-            threshold: 255,
-            target_color: (255, 0, 0),
-        };
-        assert!(pix_color_gray(&pix, None, &options).is_err());
+        assert!(pix_color_gray(&pix, None, PaintType::Light, 255, (255, 0, 0)).is_err());
 
         // Dark paint type with threshold == 0 should fail
-        let options = ColorGrayOptions {
-            paint_type: PaintType::Dark,
-            threshold: 0,
-            target_color: (255, 0, 0),
-        };
-        assert!(pix_color_gray(&pix, None, &options).is_err());
+        assert!(pix_color_gray(&pix, None, PaintType::Dark, 0, (255, 0, 0)).is_err());
     }
 }

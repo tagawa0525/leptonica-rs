@@ -7,6 +7,7 @@
 //!
 //! Based on Leptonica's `paintcmap.c`.
 
+use crate::color::coloring::PaintType;
 use crate::color::{ColorError, ColorResult};
 use crate::core::{Box, Pix, PixColormap, PixMut, PixelDepth, RgbaQuad};
 
@@ -98,18 +99,20 @@ pub fn pix_set_select_cmap(
     Ok(())
 }
 
-/// Colorize gray pixels in specified regions of a colormapped image.
+/// Colorize the gray pixels of a colormapped 8 bpp image inside a set of
+/// regions.
 ///
-/// Gray pixels are identified by having equal R, G, B values.
-/// New colormap entries are added for the colorized versions.
+/// A colorized entry is appended to the colormap for every gray entry (see
+/// [`add_colorized_gray_to_cmap`]), then the pixels inside each box are
+/// remapped through it. Pixels whose index is at or beyond the original
+/// colormap size are skipped, so overlapping boxes do not colorize twice.
 ///
 /// # Arguments
 ///
-/// * `pix` - Colormapped image (mutable)
-/// * `boxa` - Bounding boxes of regions to colorize
-/// * `color` - Target RGB color
-/// * `dark_thresh` - Pixels darker than this are not colorized
-/// * `light_thresh` - Pixels lighter than this are not colorized
+/// * `pix` - colormapped 8 bpp image (mutable)
+/// * `boxa` - regions to colorize; each is clipped to the image
+/// * `paint_type` - colorize the light or the dark pixels
+/// * `color` - target RGB color
 ///
 /// # Reference
 ///
@@ -117,29 +120,55 @@ pub fn pix_set_select_cmap(
 pub fn pix_color_gray_regions_cmap(
     pix: &mut PixMut,
     boxa: &crate::core::Boxa,
+    paint_type: PaintType,
     color: (u8, u8, u8),
-    dark_thresh: u8,
-    light_thresh: u8,
 ) -> ColorResult<()> {
-    for i in 0..boxa.len() {
-        if let Some(b) = boxa.get(i) {
-            pix_color_gray_cmap_in_region(pix, Some(b), color, dark_thresh, light_thresh)?;
+    check_colormapped(pix)?;
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let nc = pix.colormap().unwrap().len() as u32;
+    let map = {
+        let cmap = pix.colormap_mut().unwrap();
+        add_colorized_gray_to_cmap(cmap, paint_type, color)?
+    };
+
+    let w = pix.width() as i64;
+    let h = pix.height() as i64;
+    for b in boxa.iter() {
+        let x1 = b.x as i64;
+        let y1 = b.y as i64;
+        let x2 = x1 + b.w as i64 - 1;
+        let y2 = y1 + b.h as i64 - 1;
+        for y in y1.max(0)..=y2.min(h - 1) {
+            for x in x1.max(0)..=x2.min(w - 1) {
+                let (x, y) = (x as u32, y as u32);
+                let val = pix.get_pixel_unchecked(x, y);
+                // C: `if (val >= nc) continue;` — already colorized by an
+                // overlapping box.
+                if val >= nc {
+                    continue;
+                }
+                let nval = map[val as usize];
+                if nval != CMAP_NO_REMAP {
+                    pix.set_pixel_unchecked(x, y, nval);
+                }
+            }
         }
     }
+
     Ok(())
 }
 
-/// Colorize gray pixels in a colormapped image.
+/// Colorize the gray pixels of a colormapped image, optionally restricted to
+/// one box.
 ///
-/// Creates new colormap entries that blend the gray value with the target color.
-///
-/// # Arguments
-///
-/// * `pix` - Colormapped image (mutable)
-/// * `region` - Optional region (None for entire image)
-/// * `color` - Target RGB color
-/// * `dark_thresh` - Min gray value to colorize
-/// * `light_thresh` - Max gray value to colorize
+/// 2 and 4 bpp inputs are promoted to 8 bpp first, as in C. `None` colorizes
+/// the whole image.
 ///
 /// # Reference
 ///
@@ -147,85 +176,41 @@ pub fn pix_color_gray_regions_cmap(
 pub fn pix_color_gray_cmap(
     pix: &mut PixMut,
     region: Option<&Box>,
+    paint_type: PaintType,
     color: (u8, u8, u8),
-    dark_thresh: u8,
-    light_thresh: u8,
-) -> ColorResult<()> {
-    pix_color_gray_cmap_in_region(pix, region, color, dark_thresh, light_thresh)
-}
-
-fn pix_color_gray_cmap_in_region(
-    pix: &mut PixMut,
-    region: Option<&Box>,
-    color: (u8, u8, u8),
-    dark_thresh: u8,
-    light_thresh: u8,
 ) -> ColorResult<()> {
     check_colormapped(pix)?;
-
-    // Build mapping: for each gray colormap entry, compute colorized version
-    let mut index_map: Vec<Option<u32>> = {
-        let cmap = pix.colormap().unwrap();
-        vec![None; cmap.len()]
-    };
-
-    let new_entries: Vec<(usize, RgbaQuad)> = {
-        let cmap = pix.colormap().unwrap();
-        let mut entries = Vec::new();
-        for i in 0..cmap.len() {
-            if let Some((r, g, b)) = cmap.get_rgb(i)
-                && r == g
-                && g == b
-                && r >= dark_thresh
-                && r <= light_thresh
-            {
-                let gray_val = r as f32 / 255.0;
-                let nr = (color.0 as f32 * gray_val).round() as u8;
-                let ng = (color.1 as f32 * gray_val).round() as u8;
-                let nb = (color.2 as f32 * gray_val).round() as u8;
-                entries.push((i, RgbaQuad::rgb(nr, ng, nb)));
-            }
-        }
-        entries
-    };
-
-    // Apply entries to colormap
-    {
-        let cmap = pix.colormap_mut().unwrap();
-        for &(orig_idx, new_color_quad) in &new_entries {
-            match cmap.add_color(new_color_quad) {
-                Ok(new_idx) => {
-                    index_map[orig_idx] = Some(new_idx as u32);
-                }
-                Err(_) => {
-                    let _ = cmap.set_color(orig_idx, new_color_quad);
-                }
-            }
-        }
+    let d = pix.depth();
+    if !matches!(d, PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8) {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "2, 4 or 8 bpp",
+            actual: d.bits(),
+        });
     }
 
-    // Remap pixels
-    let (x0, y0, x1, y1) = match region {
-        Some(b) => (
-            b.x.max(0) as u32,
-            b.y.max(0) as u32,
-            (b.x + b.w).min(pix.width() as i32) as u32,
-            (b.y + b.h).min(pix.height() as i32) as u32,
-        ),
-        None => (0, 0, pix.width(), pix.height()),
-    };
+    let (w, h) = (pix.width(), pix.height());
 
-    for y in y0..y1 {
-        for x in x0..x1 {
-            if let Some(val) = pix.get_pixel(x, y)
-                && let Some(Some(new_idx)) = index_map.get(val as usize)
-            {
-                pix.set_pixel_unchecked(x, y, *new_idx);
+    // C: `if (d == 2 || d == 4) { pixt = pixConvertTo8(pixs, 1); ... }`
+    // — the indices and the colormap are carried over unchanged.
+    if d != PixelDepth::Bit8 {
+        let promoted = Pix::new(w, h, PixelDepth::Bit8).map_err(ColorError::Core)?;
+        let mut pm = promoted.try_into_mut().unwrap();
+        pm.set_colormap(pix.colormap().cloned())
+            .map_err(ColorError::Core)?;
+        for y in 0..h {
+            for x in 0..w {
+                pm.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(x, y));
             }
         }
+        *pix = pm;
     }
 
-    Ok(())
+    let mut boxa = crate::core::Boxa::new();
+    match region {
+        Some(b) => boxa.push(*b),
+        None => boxa.push(Box::new(0, 0, w as i32, h as i32).map_err(ColorError::Core)?),
+    }
+    pix_color_gray_regions_cmap(pix, &boxa, paint_type, color)
 }
 
 /// Colorize gray pixels using a mask in a colormapped image.
@@ -305,38 +290,90 @@ pub fn pix_color_gray_masked_cmap(
 
     Ok(())
 }
-
-/// Add colorized gray entries to a colormap.
+/// Append a colorized version of every gray colormap entry, returning the
+/// index map from old entry to new entry.
 ///
-/// For each gray entry in the colormap, creates a new entry blending
-/// the gray value with the specified color.
+/// An entry qualifies when `r == g == b` and, following C, it is not the
+/// extreme that the transform leaves unchanged: value 0 for
+/// [`PaintType::Light`] and value 255 for [`PaintType::Dark`]. Non-qualifying
+/// entries map to [`CMAP_NO_REMAP`] (C's sentinel 256).
+///
+/// The colorized colour is added with C's `pixcmapAddNewColor` semantics: an
+/// identical entry already in the colormap is reused rather than duplicated,
+/// and a full colormap is an error.
 ///
 /// # Reference
 ///
 /// C Leptonica: `addColorizedGrayToCmap()`
 pub fn add_colorized_gray_to_cmap(
     cmap: &mut PixColormap,
+    paint_type: PaintType,
     color: (u8, u8, u8),
-) -> ColorResult<Vec<(usize, usize)>> {
-    let mut mapping = Vec::new();
-
+) -> ColorResult<Vec<u32>> {
+    let (rval, gval, bval) = color;
     let n = cmap.len();
+    let mut map = Vec::with_capacity(n);
+
     for i in 0..n {
-        if let Some((r, g, b)) = cmap.get_rgb(i)
-            && r == g
-            && g == b
-        {
-            let gray_val = r as f32 / 255.0;
-            let nr = (color.0 as f32 * gray_val).round() as u8;
-            let ng = (color.1 as f32 * gray_val).round() as u8;
-            let nb = (color.2 as f32 * gray_val).round() as u8;
-            match cmap.add_color(RgbaQuad::rgb(nr, ng, nb)) {
-                Ok(new_idx) => mapping.push((i, new_idx)),
-                Err(_) => break,
-            }
+        let Some((er, eg, eb)) = cmap.get_rgb(i) else {
+            map.push(CMAP_NO_REMAP);
+            continue;
+        };
+        let is_gray = er == eg && er == eb;
+        let qualifies = match paint_type {
+            PaintType::Light => is_gray && er != 0,
+            PaintType::Dark => is_gray && er != 255,
+        };
+        if !qualifies {
+            map.push(CMAP_NO_REMAP);
+            continue;
         }
+        let new = colorize_gray_triple(paint_type, (rval, gval, bval), (er, eg, eb));
+        let index = add_new_color(cmap, new)?;
+        map.push(index);
     }
-    Ok(mapping)
+
+    Ok(map)
+}
+
+/// Sentinel used by [`add_colorized_gray_to_cmap`] for entries that are not
+/// remapped (C stores 256 in the numa).
+pub const CMAP_NO_REMAP: u32 = 256;
+
+/// C `pixcmapAddNewColor`: reuse an identical entry, otherwise append.
+fn add_new_color(cmap: &mut PixColormap, color: (u8, u8, u8)) -> ColorResult<u32> {
+    let (r, g, b) = color;
+    match cmap.get_index(r, g, b) {
+        Some(index) => Ok(index as u32),
+        None => cmap
+            .add_color(RgbaQuad::rgb(r, g, b))
+            .map(|i| i as u32)
+            .map_err(|_| ColorError::InvalidParameters("no room; colormap full".into())),
+    }
+}
+
+/// The per-component colorization C applies to a gray colormap entry.
+///
+/// C evaluates `rval * (l_float32)erval / 255.` for [`PaintType::Light`] and
+/// `rval + (l_int32)((255. - rval) * (l_float32)erval / 255.)` for
+/// [`PaintType::Dark`], truncating rather than rounding. The `255.` literals
+/// are doubles, so the dark case is evaluated in double precision.
+fn colorize_gray_triple(
+    paint_type: PaintType,
+    target: (u8, u8, u8),
+    entry: (u8, u8, u8),
+) -> (u8, u8, u8) {
+    let comp = |t: u8, e: u8| -> u8 {
+        match paint_type {
+            PaintType::Light => (t as f64 * e as f32 as f64 / 255.0) as u8,
+            PaintType::Dark => t + ((255.0 - t as f64) * e as f32 as f64 / 255.0) as u8,
+        }
+    };
+    (
+        comp(target.0, entry.0),
+        comp(target.1, entry.1),
+        comp(target.2, entry.2),
+    )
 }
 
 /// Set selected pixels to a color through a mask in a colormapped image.

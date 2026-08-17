@@ -15,8 +15,7 @@
 use crate::common::RegParams;
 use leptonica::PixelDepth;
 use leptonica::color::{
-    ColorGrayOptions, PaintType, color_gray_regions, has_highlight_red, pix_color_gray,
-    pix_color_gray_masked,
+    PaintType, color_gray_regions, has_highlight_red, pix_color_gray, pix_color_gray_masked,
 };
 use leptonica::io::ImageFormat;
 
@@ -35,12 +34,8 @@ fn colorize_reg_color_gray() {
 
     // C: pixColorGray(pix13, box, L_PAINT_DARK, 220, 0, 0, 255) — blue on dark pixels
     let region = leptonica::Box::new(200, 200, 250, 350).expect("create box");
-    let options = ColorGrayOptions {
-        paint_type: PaintType::Dark,
-        threshold: 220,
-        target_color: (0, 0, 255),
-    };
-    let result = pix_color_gray(&pix, Some(&region), &options).expect("color_gray with region");
+    let result = pix_color_gray(&pix, Some(&region), PaintType::Dark, 220, (0, 0, 255))
+        .expect("color_gray with region");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -48,23 +43,15 @@ fn colorize_reg_color_gray() {
         .expect("write colored color_gray");
 
     // Full-image colorization with PaintType::Light
-    let light_options = ColorGrayOptions {
-        paint_type: PaintType::Light,
-        threshold: 128,
-        target_color: (255, 0, 0),
-    };
-    let result2 = pix_color_gray(&pix, None, &light_options).expect("color_gray full image");
+    let result2 = pix_color_gray(&pix, None, PaintType::Light, 128, (255, 0, 0))
+        .expect("color_gray full image");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
     rp.write_pix_and_check(&result2, ImageFormat::Png)
         .expect("check: color_gray light full");
 
     // Dark with green target (additional variant)
-    let green_options = ColorGrayOptions {
-        paint_type: PaintType::Dark,
-        threshold: 200,
-        target_color: (0, 200, 0),
-    };
-    let result3 = pix_color_gray(&pix, Some(&region), &green_options).expect("color_gray green");
+    let result3 = pix_color_gray(&pix, Some(&region), PaintType::Dark, 200, (0, 200, 0))
+        .expect("color_gray green");
     rp.compare_values(w as f64, result3.width() as f64, 0.0);
     rp.write_pix_and_check(&result3, ImageFormat::Png)
         .expect("check: color_gray green");
@@ -89,12 +76,8 @@ fn colorize_reg_color_gray_masked() {
     assert_eq!(mask.depth(), PixelDepth::Bit1);
 
     // C: pixColorGrayMasked(pix2, pix9, L_PAINT_DARK, 225, irval, igval, ibval)
-    let options = ColorGrayOptions {
-        paint_type: PaintType::Dark,
-        threshold: 225,
-        target_color: (255, 64, 32),
-    };
-    let result = pix_color_gray_masked(&pix, &mask, &options).expect("color_gray_masked");
+    let result = pix_color_gray_masked(&pix, &mask, PaintType::Dark, 225, (255, 64, 32))
+        .expect("color_gray_masked");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -129,8 +112,11 @@ fn colorize_reg_highlight_detect() {
     let w = pix.width();
     let h = pix.height();
 
-    let result =
-        color_gray_regions(&pix, None, 30, 0, 220, (0, 255, 0)).expect("color_gray_regions");
+    // C uses a boxa of regions; here the whole image is one box.
+    let mut boxa = leptonica::Boxa::new();
+    boxa.push(leptonica::Box::new(0, 0, w as i32, h as i32).expect("full box"));
+    let result = color_gray_regions(&pix, &boxa, PaintType::Dark, 220, (0, 255, 0))
+        .expect("color_gray_regions");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -138,8 +124,8 @@ fn colorize_reg_highlight_detect() {
         .expect("check: color_gray_regions green");
 
     // Additional: color_gray_regions with different color
-    let result2 =
-        color_gray_regions(&pix, None, 30, 0, 220, (255, 0, 128)).expect("color_gray_regions red");
+    let result2 = color_gray_regions(&pix, &boxa, PaintType::Dark, 220, (255, 0, 128))
+        .expect("color_gray_regions red");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
     rp.write_pix_and_check(&result2, ImageFormat::Png)
         .expect("check: color_gray_regions red");

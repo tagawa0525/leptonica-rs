@@ -383,3 +383,8 @@ color	paint	28	paint_c	6	ReconstructByValue weasel8.240c.png
 color	paint	29	paint_c	7	FakeReconstructByBand weasel2.4c.png
 color	paint	30	paint_c	8	FakeReconstructByBand weasel4.11c.png
 color	paint	31	paint_c	9	FakeReconstructByBand weasel8.240c.png
+color	paint	18	paint_cg	1	color_gray_regions on 8bpp gray (feyn-fract)
+color	paint	19	paint_cg	2	threshold_on_8bpp 10 levels
+color	paint	20	paint_cg	3	color_gray_regions on cmapped
+color	paint	21	paint_cg	4	color_gray on 8bpp gray
+color	paint	22	paint_cg	5	color_gray on cmapped

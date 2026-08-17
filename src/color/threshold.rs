@@ -659,16 +659,17 @@ fn gray_quant_index_table(nlevels: u32) -> [u32; 256] {
     tab
 }
 
-/// Map each of the 256 gray values to a quantized gray *value* at the full
-/// `2^depth` levels. C's `makeGrayQuantTargetTable(nlevels, depth)` overrides
-/// its `nlevels` argument with `1 << depth` whenever `depth < 8`, so the
-/// caller's level count plays no part on this path.
+/// Map each of the 256 gray values to a quantized gray *value*.
+///
+/// C's `makeGrayQuantTargetTable(nlevels, depth)` overrides its `nlevels`
+/// argument with `1 << depth` whenever `depth < 8`, so for 2 and 4 bpp the
+/// caller's level count plays no part; at 8 bpp `nlevels` is honoured.
 ///
 /// C equivalent: `makeGrayQuantTargetTable()` in `grayquant.c`
-fn gray_quant_target_table(depth: PixelDepth) -> [u32; 256] {
+fn gray_quant_target_table(nlevels: u32, depth: PixelDepth) -> [u32; 256] {
     let d = depth.bits();
     let maxval = (1u32 << d) - 1;
-    let nlevels = 1u32 << d;
+    let nlevels = if d < 8 { 1u32 << d } else { nlevels };
     let mut tab = [0u32; 256];
     for (i, entry) in tab.iter_mut().enumerate() {
         for j in 0..nlevels {
@@ -700,7 +701,7 @@ fn threshold_to_nbpp(
     let qtable = if with_colormap {
         gray_quant_index_table(nlevels)
     } else {
-        gray_quant_target_table(out_depth)
+        gray_quant_target_table(nlevels, out_depth)
     };
 
     let out = Pix::new(w, h, out_depth)?;
@@ -1560,36 +1561,39 @@ pub fn dither_to_2bpp_spec(
 ///
 /// C Leptonica: `pixThresholdOn8bpp()` in `grayquant.c`
 pub fn threshold_on_8bpp(pix: &Pix, nlevels: u32, with_colormap: bool) -> ColorResult<Pix> {
+    if !(2..=256).contains(&nlevels) {
+        return Err(ColorError::InvalidParameters(
+            "nlevels must be in [2, 256]".into(),
+        ));
+    }
     let gray = ensure_grayscale(pix)?;
     let w = gray.width();
     let h = gray.height();
 
-    let nlevels = nlevels.clamp(2, 256);
-    let step = 256.0 / nlevels as f32;
-
-    // Build LUT: map each 0–255 value to the nearest quantized level
-    let mut lut = [0u8; 256];
-    for (i, entry) in lut.iter_mut().enumerate() {
-        let level_idx = ((i as f32 / step) as u32).min(nlevels - 1);
-        let center = ((level_idx as f32 + 0.5) * step).clamp(0.0, 255.0);
-        *entry = center as u8;
-    }
+    // Same table split as pixThresholdTo2bpp / pixThresholdTo4bpp: colormap
+    // indices when a colormap is attached, quantized gray values otherwise.
+    let qtab = if with_colormap {
+        gray_quant_index_table(nlevels)
+    } else {
+        gray_quant_target_table(nlevels, PixelDepth::Bit8)
+    };
 
     let out = Pix::new(w, h, PixelDepth::Bit8)?;
     let mut out_mut = out.try_into_mut().unwrap();
     for y in 0..h {
         for x in 0..w {
             let val = gray.get_pixel_unchecked(x, y) as usize;
-            out_mut.set_pixel_unchecked(x, y, lut[val.min(255)] as u32);
+            out_mut.set_pixel_unchecked(x, y, qtab[val.min(255)]);
         }
     }
 
     if with_colormap {
+        // C: pixcmapCreateLinear(8, nlevels) — gray values i * 255 / (n - 1).
         let mut cmap = PixColormap::new(8)
             .map_err(|e| ColorError::InvalidParameters(format!("colormap creation failed: {e}")))?;
         for i in 0..nlevels {
-            let center = (((i as f32 + 0.5) * step).clamp(0.0, 255.0)) as u8;
-            let _ = cmap.add_rgb(center, center, center);
+            let v = (i * 255 / (nlevels - 1)) as u8;
+            let _ = cmap.add_rgb(v, v, v);
         }
         out_mut
             .set_colormap(Some(cmap))

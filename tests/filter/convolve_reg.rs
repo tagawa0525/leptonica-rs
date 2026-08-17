@@ -269,7 +269,12 @@ fn convolve_windowed_stats_reg() {
 fn convolve_reg() {
     let mut rp = RegParams::new("convolve");
 
-    let pixs = load_test_image("dreyfus8.png").expect("load dreyfus8.png");
+    // dreyfus8.png is colormapped; C's pixConvolve rejects a colormap, so
+    // strip it first exactly as the C callers do.
+    let pixs = load_test_image("dreyfus8.png")
+        .expect("load dreyfus8.png")
+        .convert_to_8()
+        .expect("remove colormap");
     let w = pixs.width();
     let h = pixs.height();
 

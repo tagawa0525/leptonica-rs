@@ -190,7 +190,8 @@ fn sobel_combined(
 pub fn sharpen(pix: &Pix) -> FilterResult<Pix> {
     check_grayscale(pix)?;
     let kernel = Kernel::sharpen();
-    convolve_gray(pix, &kernel)
+    // The sharpen kernel already sums to 1, so no normalization is wanted.
+    convolve_gray(pix, &kernel, PixelDepth::Bit8, false)
 }
 
 /// Apply unsharp masking
@@ -208,7 +209,7 @@ pub fn unsharp_mask(pix: &Pix, radius: u32, amount: f32) -> FilterResult<Pix> {
     // 1. Create blurred version
     let size = 2 * radius + 1;
     let blur_kernel = Kernel::gaussian(size, radius as f32)?;
-    let blurred = convolve_gray(pix, &blur_kernel)?;
+    let blurred = convolve_gray(pix, &blur_kernel, PixelDepth::Bit8, false)?;
 
     // 2. Compute: result = original + amount * (original - blurred)
     let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;

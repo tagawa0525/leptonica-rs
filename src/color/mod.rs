@@ -211,7 +211,6 @@ pub use colorfill::{
 // Re-export coloring functions
 pub use coloring::{
     // Types
-    ColorGrayOptions,
     PaintType,
     // Image-level functions
     color_gray_regions,

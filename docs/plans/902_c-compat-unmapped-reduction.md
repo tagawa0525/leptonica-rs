@@ -678,7 +678,44 @@ weasel8.240c.png という可逆な cmapped PNG のみ**を使うため bit 一�
   扱い boxa を取るのに対し、Rust 側は 32bpp 専用でシグネチャも異なるため、
   別 PR で C 準拠に書き換える必要がある
 
-### PR 27 以降: semantic マッピングの漸進追加
+### PR 27: paint の feyn-fract ブロック (実施済み)
+
+C 版ソース: `src/convolve.c` (pixConvolve / pixConvolveRGB)、
+`src/grayquant.c` (pixThresholdOn8bpp)、`src/coloring.c` /
+`src/paintcmap.c` (pixColorGray 系)、`prog/paint_reg.c`。
+
+PR 26 で次段送りにした check 18-22。可逆な `feyn-fract.tif` を入力に
+「ガウシアン畳み込み → 二値化 → 連結成分 → gray 領域の彩色」という連鎖を
+通る。C 側に中間出力を書き出す dump プログラムを作り、段階ごとに
+FNV-1a ハッシュを突き合わせて 3 箇所の乖離を切り分けた。
+
+実施結果:
+
+- 実装差 41 件目: `convolve` が C `pixConvolve` と別物だった。カーネル
+  反転なし、正規化なし、境界が replicate (C は mirrored)、負の総和を
+  0 クリップ (C は絶対値)、`outdepth` / `normflag` 引数なし。この段階で
+  既に畳み込み結果が違い、連結成分数が C の 179 に対し 1360 だった。
+  `convolve_color` は C `pixConvolveRGB` (成分ごとに outdepth 8 /
+  normflag 1) に対応させた
+- 実装差 42 件目: `threshold_on_8bpp` の量子化テーブルがビン中心方式
+  だった。PR 24 と同じく C は `cmapflag` で
+  `makeGrayQuantIndexTable(nlevels)` と
+  `makeGrayQuantTargetTable(nlevels, 8)` を切り替える。colormap も
+  `pixcmapCreateLinear` 相当の `i*255/(n-1)` に修正
+- 実装差 43 件目: color_gray 系が 32bpp 専用だった。C は cmapped と
+  8bpp gray を直接受け付け、`pixColorGrayRegions` は cmap に余裕が
+  あれば cmapped のまま処理し、`PaintType` で式が変わり、閾値の境界は
+  Light が `ave >= thresh` / Dark が `ave <= thresh`、Dark 側は
+  `255.` が double リテラルのため倍精度評価、出力 alpha は 0
+- paint の C check 18-22 を 5 ペアマップ — **全件 Ok** (Ok 228 → 233)
+- convolve の mirrored 境界化に伴い colorize / gquant_adv /
+  paint_cgray / convolve_custom_kernel の golden を再生成
+  (いずれも Unmapped か Excluded で C 側 Ok の退行なし)
+- `dreyfus8.png` は cmapped なので、C `pixConvolve` 同様 colormap 付き
+  入力を拒否するようになった。テスト側で C の呼び出し順どおり
+  colormap を外してから畳み込むよう修正した
+
+### PR 28 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

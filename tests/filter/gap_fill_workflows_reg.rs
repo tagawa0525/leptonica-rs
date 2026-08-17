@@ -31,7 +31,7 @@ fn workflow_make_flat_then_convolve_smooths_noise() {
 
     // 3x3 flat kernel (centered) — 平滑化
     let k = Kernel::make_flat(3, 3, 1, 1).expect("make_flat 3x3");
-    let dst = convolve_gray(&src, &k).expect("convolve_gray");
+    let dst = convolve_gray(&src, &k, PixelDepth::Bit8, true).expect("convolve_gray");
 
     // 境界 (x=3,4 のあたり) の隣接ピクセルは中間値になるはず
     let v3 = dst.get_pixel(3, 4).unwrap_or(0);
@@ -63,7 +63,7 @@ fn workflow_make_gaussian_normalized_preserves_uniform() {
 
     let mut k = Kernel::make_gaussian(2, 2, 1.0, 1.0).expect("make_gaussian 5x5");
     k.normalize();
-    let dst = convolve_gray(&src, &k).expect("convolve");
+    let dst = convolve_gray(&src, &k, PixelDepth::Bit8, true).expect("convolve");
 
     // 中央付近は元の値 (128) と概ね一致
     let v = dst.get_pixel(8, 8).unwrap_or(0);
@@ -89,7 +89,7 @@ fn workflow_parse_string_to_kernel_then_convolve() {
         pm.set_pixel(x, 4, 255).expect("set");
     }
     let src: Pix = pm.into();
-    let dst = convolve_gray(&src, &k).expect("convolve");
+    let dst = convolve_gray(&src, &k, PixelDepth::Bit8, true).expect("convolve");
     // 中央行は約 255/3、隣接行は 255/3 → 中央列にもにじむ
     let v = dst.get_pixel(4, 4).unwrap_or(0);
     assert!(v > 0, "convolved value should be non-zero, got {}", v);
