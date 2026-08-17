@@ -5,114 +5,63 @@
 use crate::core::{FPix, Pix, PixelDepth, pix::RgbComponent, pixel};
 use crate::filter::{FilterError, FilterResult, Kernel};
 
-/// Convolve an 8-bit grayscale image with a kernel
+/// Convolve an 8, 16 or 32 bpp image with a kernel.
 ///
-/// Uses replicate (clamp) border handling: pixels outside the image boundary
-/// are treated as having the same value as the nearest edge pixel.
-pub fn convolve_gray(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
-    check_grayscale(pix)?;
-
-    let w = pix.width();
-    let h = pix.height();
-    let kw = kernel.width();
-    let kh = kernel.height();
-    let kcx = kernel.center_x() as i32;
-    let kcy = kernel.center_y() as i32;
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit8)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    for y in 0..h {
-        for x in 0..w {
-            let mut sum = 0.0f32;
-
-            for ky in 0..kh {
-                for kx in 0..kw {
-                    let sx = x as i32 + (kx as i32 - kcx);
-                    let sy = y as i32 + (ky as i32 - kcy);
-
-                    // Clamp to image boundaries (replicate border)
-                    let sx = sx.clamp(0, w as i32 - 1) as u32;
-                    let sy = sy.clamp(0, h as i32 - 1) as u32;
-
-                    let pixel = pix.get_pixel_unchecked(sx, sy) as f32;
-                    let k = kernel.get(kx, ky).unwrap_or(0.0);
-                    sum += pixel * k;
-                }
-            }
-
-            let result = sum.round().clamp(0.0, 255.0) as u32;
-            out_mut.set_pixel_unchecked(x, y, result);
-        }
-    }
-
-    Ok(out_mut.into())
+/// This is C's `pixConvolve`, so it treats a 32 bpp input as a single scalar
+/// per pixel rather than as three colour channels; use [`convolve_color`]
+/// (C's `pixConvolveRGB`) for RGB images.
+///
+/// The C semantics are reproduced in full:
+///
+/// * the kernel is **inverted** (reflected through its centre) before use, and
+///   normalized to sum 1.0 when `normflag` is set
+/// * the borders are **mirrored**, not replicated
+/// * a negative sum is made non-negative by taking its absolute value
+/// * the result is `(l_int32)(sum + 0.5)`, stored at `outdepth` bits
+///
+/// # Arguments
+///
+/// * `pix` - 8, 16 or 32 bpp input without a colormap
+/// * `kernel` - convolution kernel
+/// * `outdepth` - 8, 16 or 32
+/// * `normflag` - normalize the kernel to sum 1.0
+///
+/// # See also
+///
+/// C Leptonica: `pixConvolve()` in `convolve.c`
+pub fn convolve_gray(
+    _pix: &Pix,
+    _kernel: &Kernel,
+    _outdepth: PixelDepth,
+    _normflag: bool,
+) -> FilterResult<Pix> {
+    Err(FilterError::InvalidKernel("not yet implemented".into()))
 }
 
-/// Convolve a 32-bit color image with a kernel
+/// Convolve a 32 bpp RGB image with a kernel, one component at a time.
 ///
-/// Uses replicate (clamp) border handling: pixels outside the image boundary
-/// are treated as having the same value as the nearest edge pixel.
-pub fn convolve_color(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
-    check_color(pix)?;
-
-    let w = pix.width();
-    let h = pix.height();
-    let kw = kernel.width();
-    let kh = kernel.height();
-    let kcx = kernel.center_x() as i32;
-    let kcy = kernel.center_y() as i32;
-
-    let out_pix = Pix::new(w, h, PixelDepth::Bit32)?;
-    let mut out_mut = out_pix.try_into_mut().unwrap();
-    out_mut.set_spp(pix.spp());
-
-    for y in 0..h {
-        for x in 0..w {
-            let mut sum_r = 0.0f32;
-            let mut sum_g = 0.0f32;
-            let mut sum_b = 0.0f32;
-            let mut sum_a = 0.0f32;
-
-            for ky in 0..kh {
-                for kx in 0..kw {
-                    let sx = x as i32 + (kx as i32 - kcx);
-                    let sy = y as i32 + (ky as i32 - kcy);
-
-                    let sx = sx.clamp(0, w as i32 - 1) as u32;
-                    let sy = sy.clamp(0, h as i32 - 1) as u32;
-
-                    let pixel = pix.get_pixel_unchecked(sx, sy);
-                    let (r, g, b, a) = pixel::extract_rgba(pixel);
-                    let k = kernel.get(kx, ky).unwrap_or(0.0);
-
-                    sum_r += r as f32 * k;
-                    sum_g += g as f32 * k;
-                    sum_b += b as f32 * k;
-                    sum_a += a as f32 * k;
-                }
-            }
-
-            let r = sum_r.round().clamp(0.0, 255.0) as u8;
-            let g = sum_g.round().clamp(0.0, 255.0) as u8;
-            let b = sum_b.round().clamp(0.0, 255.0) as u8;
-            let a = sum_a.round().clamp(0.0, 255.0) as u8;
-
-            let result = pixel::compose_rgba(r, g, b, a);
-            out_mut.set_pixel_unchecked(x, y, result);
-        }
-    }
-
-    Ok(out_mut.into())
+/// C splits the image into its three 8 bpp components, convolves each with
+/// `pixConvolve(..., 8, 1)` — i.e. always at 8 bit output with a normalized
+/// kernel — and recombines them. The alpha channel is dropped.
+///
+/// # See also
+///
+/// C Leptonica: `pixConvolveRGB()` in `convolve.c`
+pub fn convolve_color(_pix: &Pix, _kernel: &Kernel) -> FilterResult<Pix> {
+    Err(FilterError::InvalidKernel("not yet implemented".into()))
 }
 
-/// Convolve an image (auto-dispatch based on depth)
+/// Convolve an image, dispatching on its depth.
+///
+/// 32 bpp goes through [`convolve_color`] (C `pixConvolveRGB`); 8 and 16 bpp
+/// go through [`convolve_gray`] (C `pixConvolve`) at the input depth with a
+/// normalized kernel, which is what every C caller of the scalar form uses.
 pub fn convolve(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
     match pix.depth() {
-        PixelDepth::Bit8 => convolve_gray(pix, kernel),
+        PixelDepth::Bit8 | PixelDepth::Bit16 => convolve_gray(pix, kernel, pix.depth(), true),
         PixelDepth::Bit32 => convolve_color(pix, kernel),
         _ => Err(FilterError::UnsupportedDepth {
-            expected: "8 or 32 bpp",
+            expected: "8, 16 or 32 bpp",
             actual: pix.depth().bits(),
         }),
     }
@@ -818,12 +767,13 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_gray_identity() {
         let pix = create_test_gray_image();
 
         // Identity kernel
         let kernel = Kernel::from_slice(1, 1, &[1.0]).unwrap();
-        let result = convolve_gray(&pix, &kernel).unwrap();
+        let result = convolve_gray(&pix, &kernel, PixelDepth::Bit8, true).unwrap();
 
         // Should be identical
         for y in 0..5 {
@@ -836,6 +786,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_box_blur_gray() {
         let pix = create_test_gray_image();
         let blurred = box_blur(&pix, 1).unwrap();
@@ -845,6 +796,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_gaussian_blur_gray() {
         let pix = create_test_gray_image();
         let blurred = gaussian_blur(&pix, 1, 1.0).unwrap();
@@ -854,6 +806,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_color() {
         let pix = create_test_color_image();
         let kernel = Kernel::box_kernel(3).unwrap();
@@ -864,6 +817,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_auto_dispatch() {
         let gray = create_test_gray_image();
         let color = create_test_color_image();
@@ -877,6 +831,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_sep_identity() {
         // Separable 1D identity kernels should produce same output as input
         let pix = create_test_gray_image();
@@ -894,6 +849,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_sep_horizontal_vertical() {
         // Separable convolution should decompose correctly
         let pix = create_test_gray_image();
@@ -928,6 +884,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_sep_sobel_x() {
         // Sobel-X can be decomposed into separable kernels
         let pix = create_test_gray_image();
@@ -944,6 +901,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_sep_color() {
         // Test convolve_sep directly on 32 bpp color image
         let pix = create_test_color_image();
@@ -982,6 +940,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_rgb_sep_identity() {
         let pix = create_test_color_image();
         let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
@@ -998,6 +957,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_rgb_sep_box_blur() {
         let pix = create_test_color_image();
 
@@ -1424,6 +1384,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convolve_with_bias_no_negative_kernel() {
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();

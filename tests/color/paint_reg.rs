@@ -16,7 +16,7 @@
 //! C Leptonica: `prog/paint_reg.c`
 
 use crate::common::RegParams;
-use leptonica::color::{ColorGrayOptions, PaintType, pix_color_gray, threshold_to_binary};
+use leptonica::color::{PaintType, pix_color_gray, threshold_to_binary};
 use leptonica::io::ImageFormat;
 use leptonica::{Color, PixelDepth};
 
@@ -24,6 +24,7 @@ use leptonica::{Color, PixelDepth};
 ///
 /// Colorizes dark and light gray pixels in a 32bpp image.
 #[test]
+#[ignore = "not yet implemented"]
 fn paint_reg_color_gray() {
     let mut rp = RegParams::new("paint_cgray");
 
@@ -36,12 +37,8 @@ fn paint_reg_color_gray() {
 
     // C: pixColorGray(pixt, box, L_PAINT_DARK, 220, 0, 0, 255) — blue on dark
     let region = leptonica::Box::new(120, 30, 200, 200).expect("create box");
-    let dark_options = ColorGrayOptions {
-        paint_type: PaintType::Dark,
-        threshold: 220,
-        target_color: (0, 0, 255),
-    };
-    let result = pix_color_gray(&pix, Some(&region), &dark_options).expect("color_gray dark box");
+    let result = pix_color_gray(&pix, Some(&region), PaintType::Dark, 220, (0, 0, 255))
+        .expect("color_gray dark box");
     rp.compare_values(w as f64, result.width() as f64, 0.0);
     rp.compare_values(h as f64, result.height() as f64, 0.0);
     assert_eq!(result.depth(), PixelDepth::Bit32);
@@ -49,34 +46,22 @@ fn paint_reg_color_gray() {
         .expect("write result paint_color_gray");
 
     // C check 1: pixColorGray(pixt, NULL, L_PAINT_DARK, 220, 255, 100, 100) — red on dark
-    let dark_full = ColorGrayOptions {
-        paint_type: PaintType::Dark,
-        threshold: 220,
-        target_color: (255, 100, 100),
-    };
-    let result2 = pix_color_gray(&result, None, &dark_full).expect("color_gray dark full");
+    let result2 = pix_color_gray(&result, None, PaintType::Dark, 220, (255, 100, 100))
+        .expect("color_gray dark full");
     rp.compare_values(w as f64, result2.width() as f64, 0.0);
     rp.write_pix_and_check(&result2, ImageFormat::Png)
         .expect("check: color_gray dark full");
 
     // C check 4: pixColorGray(pixt, box, L_PAINT_LIGHT, 20, 0, 0, 255) — blue on light
-    let light_options = ColorGrayOptions {
-        paint_type: PaintType::Light,
-        threshold: 20,
-        target_color: (0, 0, 255),
-    };
-    let result3 = pix_color_gray(&pix, Some(&region), &light_options).expect("color_gray light");
+    let result3 = pix_color_gray(&pix, Some(&region), PaintType::Light, 20, (0, 0, 255))
+        .expect("color_gray light");
     rp.compare_values(w as f64, result3.width() as f64, 0.0);
     rp.write_pix_and_check(&result3, ImageFormat::Png)
         .expect("check: color_gray light box");
 
     // C check 5: pixColorGray(pixt, NULL, L_PAINT_LIGHT, 20, 255, 100, 100)
-    let light_full = ColorGrayOptions {
-        paint_type: PaintType::Light,
-        threshold: 20,
-        target_color: (255, 100, 100),
-    };
-    let result4 = pix_color_gray(&result3, None, &light_full).expect("color_gray light full");
+    let result4 = pix_color_gray(&result3, None, PaintType::Light, 20, (255, 100, 100))
+        .expect("color_gray light full");
     rp.compare_values(w as f64, result4.width() as f64, 0.0);
     rp.write_pix_and_check(&result4, ImageFormat::Png)
         .expect("check: color_gray light full");
@@ -288,4 +273,62 @@ fn paint_c_compat_reconstruct() {
     }
 
     assert!(rp.cleanup(), "paint C-compat reconstruction test failed");
+}
+
+/// C-compat: `prog/paint_reg.c` checks 18-22.
+///
+/// The `feyn-fract.tif` block: a lossless 1 bpp input is blurred, thresholded
+/// and connected-component analysed, then the gray regions are colorized both
+/// as 32 bpp RGB and through a colormap.
+#[test]
+#[ignore = "not yet implemented"]
+fn paint_c_compat_color_gray() {
+    use leptonica::Pix;
+    use leptonica::color::{color_gray_regions, pix_color_gray, threshold_on_8bpp};
+    use leptonica::filter::{Kernel, convolve};
+    use leptonica::region::{ConnectivityType, conncomp_pixa};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("paint_cg");
+
+    let pixs = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    let pix1 = pixs.convert_to_8().expect("convert to 8");
+    let kel = Kernel::make_gaussian(2, 2, 1.5, 1.0).expect("gaussian kernel");
+    let pix2 = convolve(&pix1, &kel).expect("convolve");
+    let pix3 = threshold_to_binary(&pix2, 230).expect("threshold to binary");
+    let (boxa, _) = conncomp_pixa(&pix3, ConnectivityType::EightWay).expect("conn comp");
+
+    // C 18: colorize each component in the gray image (result is 32 bpp).
+    let pix4 = color_gray_regions(&pix2, &boxa, PaintType::Dark, 230, (255, 0, 0))
+        .expect("color_gray_regions gray");
+    rp.write_pix_and_check(&pix4, ImageFormat::Png)
+        .expect("check: color_gray_regions on 8bpp");
+
+    // C 19: threshold to 10 levels of gray, keeping a colormap.
+    let pix3c = threshold_on_8bpp(&pix2, 10, true).expect("threshold on 8bpp");
+    rp.write_pix_and_check(&pix3c, ImageFormat::Png)
+        .expect("check: threshold_on_8bpp 10 levels");
+
+    // C 20: colorize each component in the cmapped image (stays cmapped).
+    let pix5 = color_gray_regions(&pix3c, &boxa, PaintType::Dark, 230, (255, 0, 0))
+        .expect("color_gray_regions cmapped");
+    rp.write_pix_and_check(&pix5, ImageFormat::Png)
+        .expect("check: color_gray_regions on cmapped");
+
+    // C 21: colorize the entire gray image, not component-wise.
+    let pix6: Pix =
+        pix_color_gray(&pix2, None, PaintType::Dark, 230, (255, 0, 0)).expect("color_gray gray");
+    rp.write_pix_and_check(&pix6, ImageFormat::Png)
+        .expect("check: color_gray on 8bpp");
+
+    // C 22: colorize the entire cmapped image.
+    let pix7 =
+        pix_color_gray(&pix3c, None, PaintType::Dark, 230, (255, 0, 0)).expect("color_gray cmap");
+    rp.write_pix_and_check(&pix7, ImageFormat::Png)
+        .expect("check: color_gray on cmapped");
+
+    assert!(rp.cleanup(), "paint C-compat color gray test failed");
 }

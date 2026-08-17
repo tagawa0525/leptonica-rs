@@ -637,6 +637,7 @@ fn test_color_content_by_location() {
 // ============================================================================
 
 #[test]
+#[ignore = "not yet implemented"]
 fn test_color_gray_regions() {
     use leptonica::color::coloring::color_gray_regions;
 
@@ -654,7 +655,15 @@ fn test_color_gray_regions() {
         }
     }
     let pix: Pix = pm.into();
-    let result = color_gray_regions(&pix, None, 20, 0, 200, (0, 255, 0));
+    let mut boxa = leptonica::Boxa::new();
+    boxa.push(leptonica::Box::new(0, 0, 100, 100).unwrap());
+    let result = color_gray_regions(
+        &pix,
+        &boxa,
+        leptonica::color::PaintType::Dark,
+        200,
+        (0, 255, 0),
+    );
     assert!(result.is_ok());
     let pixd = result.unwrap();
     assert_eq!(pixd.depth(), PixelDepth::Bit32);

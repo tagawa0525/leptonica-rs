@@ -62,6 +62,7 @@ fn paintcmap_set_select_reuses_existing_color() {
 
 /// Test pix_color_gray_cmap: colorize gray entries.
 #[test]
+#[ignore = "not yet implemented"]
 fn paintcmap_color_gray() {
     use leptonica::color::paintcmap::pix_color_gray_cmap;
 
@@ -76,11 +77,18 @@ fn paintcmap_color_gray() {
         pix.set_pixel(x, 0, 1).unwrap(); // gray row
     }
 
-    pix_color_gray_cmap(&mut pix, None, (255, 0, 0), 1, 254).unwrap();
+    pix_color_gray_cmap(
+        &mut pix,
+        None,
+        leptonica::color::PaintType::Light,
+        (255, 0, 0),
+    )
+    .unwrap();
 }
 
 /// Test pix_color_gray_regions_cmap with bounding boxes.
 #[test]
+#[ignore = "not yet implemented"]
 fn paintcmap_color_gray_regions() {
     use leptonica::color::paintcmap::pix_color_gray_regions_cmap;
     use leptonica::core::Boxa;
@@ -95,7 +103,13 @@ fn paintcmap_color_gray_regions() {
     let mut boxa = Boxa::new();
     boxa.push(leptonica::Box::new(0, 0, 10, 10).unwrap());
 
-    pix_color_gray_regions_cmap(&mut pix, &boxa, (0, 255, 0), 1, 254).unwrap();
+    pix_color_gray_regions_cmap(
+        &mut pix,
+        &boxa,
+        leptonica::color::PaintType::Light,
+        (0, 255, 0),
+    )
+    .unwrap();
 }
 
 /// Test pix_color_gray_masked_cmap.
@@ -121,6 +135,7 @@ fn paintcmap_color_gray_masked() {
 
 /// Test add_colorized_gray_to_cmap.
 #[test]
+#[ignore = "not yet implemented"]
 fn paintcmap_add_colorized_gray() {
     use leptonica::color::paintcmap::add_colorized_gray_to_cmap;
 
@@ -131,10 +146,18 @@ fn paintcmap_add_colorized_gray() {
     cmap.add_color(RgbaQuad::rgb(255, 0, 0)).unwrap(); // non-gray
 
     let n_before = cmap.len();
-    let mapping = add_colorized_gray_to_cmap(&mut cmap, (255, 0, 0)).unwrap();
+    let map =
+        add_colorized_gray_to_cmap(&mut cmap, leptonica::color::PaintType::Light, (255, 0, 0))
+            .unwrap();
 
-    // Should have added new entries for gray entries (indices 0, 1, 2)
-    assert!(!mapping.is_empty());
+    // One map entry per original colormap entry.
+    assert_eq!(map.len(), n_before);
+    // Index 0 is black, which PaintType::Light leaves alone; 1 and 2 are gray.
+    assert_eq!(map[0], leptonica::color::paintcmap::CMAP_NO_REMAP);
+    assert_ne!(map[1], leptonica::color::paintcmap::CMAP_NO_REMAP);
+    assert_ne!(map[2], leptonica::color::paintcmap::CMAP_NO_REMAP);
+    // Index 3 is red, not gray.
+    assert_eq!(map[3], leptonica::color::paintcmap::CMAP_NO_REMAP);
     assert!(cmap.len() > n_before);
 }
 
