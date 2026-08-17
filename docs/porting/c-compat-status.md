@@ -54,14 +54,14 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        |    件数 | 説明                                                                                                                                                |
 | ----------- | ------: | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ Ok       | **233** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +189)                                                                    |
+| ✅ Ok       | **238** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +194)                                                                    |
 | ⚠️ Mismatch |  **29** | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007)                   |
 | ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                                                                                                                        |
-| 📭 Unmapped | **396** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 400 → 396)                                                                 |
+| 📭 Unmapped | **393** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 396 → 393)                                                                 |
 | 🚫 Excluded |  **98** | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 + iomisc alpha blend 3 + boxa3 display 12 |
 
-合計 756 entries がレポート対象 (As of 2026-08-18、plan 902 PR 27 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **765 entries**。
+合計 758 entries がレポート対象 (As of 2026-08-18、plan 902 PR 28 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **767 entries**。
 
 ## test binary 別の内訳
 
@@ -69,7 +69,7 @@ Rust manifest (`tests/golden_manifest.tsv`) 全体は **765 entries**。
 | ----------- | -----: | -------: | -------: | -------: | -------: |
 | `color`     |     56 |        4 |        0 |      108 |        4 |
 | `core`      |     13 |        0 |        0 |       34 |       12 |
-| `filter`    |      2 |        5 |        0 |       57 |       40 |
+| `filter`    |      7 |        5 |        0 |       55 |       40 |
 | `io`        |     11 |        2 |        0 |       41 |       13 |
 | `morph`     | **30** |   **16** |        0 |        9 |        0 |
 | `recog`     |     19 |        0 |        0 |       45 |        0 |

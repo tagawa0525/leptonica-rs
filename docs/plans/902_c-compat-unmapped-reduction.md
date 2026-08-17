@@ -715,7 +715,44 @@ FNV-1a ハッシュを突き合わせて 3 箇所の乖離を切り分けた。
   入力を拒否するようになった。テスト側で C の呼び出し順どおり
   colormap を外してから畳み込むよう修正した
 
-### PR 28 以降: semantic マッピングの漸進追加
+### PR 28: filter 系の最初の整列 (実施済み)
+
+C 版ソース: `src/convolve.c` (pixBlocksum / blocksumLow /
+pixBlockconvAccum)、`src/adaptmap.c` (pixFillMapHoles)、
+`src/enhance.c` (numaGammaTRC)、`prog/convolve_reg.c` /
+`prog/adaptmap_reg.c`。
+
+`filter` は Ok 2 件と最も未開拓なバイナリだった。lossless 入力を持つ
+ブロックを探し、`convolve_reg` の check 2-4 (test1.png の
+`pixBlockrank`) と `adaptmap_reg` の check 14-15 (weasel8.png と 3x3
+合成マップの `pixFillMapHoles`) を対象にした。
+
+実施結果:
+
+- 実装差 44 件目: `blocksum` の正規化が 1 パスの f64 丸めだった。C
+  `blocksumLow` は
+
+  1. 全カーネル面積の `norm = 255/(fwc*fhc)` で正規化し、f32 の積を
+     byte に切り捨てる
+  2. 境界の行・列を、**切り捨て済みの byte** に対して `fhc/hn`・
+     `fwc/wn` で再スケールし、また切り捨てる
+
+  という 2 パス構成。理想値を 1 回丸めるのとは多くの画素で 1 ずれ、
+  全 ON 画像でも角が 252 になる。accumulator も C 同様 1bpp を
+  「ON 画素数」で積算するよう `blockconv_accum` を 1bpp 対応にした
+- 実装差 45 件目: `fill_map_holes` が `filltype` を取らず
+  `L_FILL_BLACK` 固定だった。C は
+  `valtest = (filltype == L_FILL_WHITE) ? 255 : 0` で穴の値を切り替える。
+  `MapFillType` を導入
+- 実装差 46 件目: `gamma_trc` の LUT が
+  `255. * powf(x, invgamma) + 0.5` を f32 で評価していた。C の `255.` は
+  double リテラルのため倍精度評価になり、.5 境界に乗る値が 1 ずれる
+  (maxval 270 で入力 153 が C 144 に対し 145)。**PR 27 の #41 / #43 と
+  同種の「C の double リテラルによる評価精度」問題**で、この
+  キャンペーンで繰り返し現れるパターン
+- 5 ペアマップ — **全件 Ok** (Ok 233 → 238、filter binary の Ok が 2 → 7)
+
+### PR 29 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
