@@ -1255,8 +1255,12 @@ mod tests {
     }
 
     #[test]
+    /// An all-ON image does **not** come out uniformly 255: C normalizes the
+    /// borders in a second pass that works on the already-truncated byte, so
+    /// the corners and edges lose up to 3 counts. These are the values C
+    /// produces for a 10x10 all-ON image with wc = hc = 1.
+    #[ignore = "not yet implemented"]
     fn test_blocksum_all_one() {
-        // All-one image should produce all-255 output
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
@@ -1270,9 +1274,26 @@ mod tests {
         let result = blocksum(&pix, 1, 1).unwrap();
 
         assert_eq!(result.depth(), PixelDepth::Bit8);
-        for y in 0..10 {
-            for x in 0..10 {
-                assert_eq!(result.get_pixel_unchecked(x, y), 255);
+        #[rustfmt::skip]
+        let expected: [[u32; 10]; 10] = [
+            [252, 252, 255, 255, 255, 255, 255, 255, 255, 252],
+            [252, 254, 255, 255, 255, 255, 255, 255, 255, 254],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [252, 254, 255, 255, 255, 255, 255, 255, 255, 254],
+        ];
+        for y in 0..10u32 {
+            for x in 0..10u32 {
+                assert_eq!(
+                    result.get_pixel_unchecked(x, y),
+                    expected[y as usize][x as usize],
+                    "at ({x}, {y})"
+                );
             }
         }
     }

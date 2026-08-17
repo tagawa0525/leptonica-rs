@@ -33,7 +33,8 @@ fn c_parity_simple_3x3() {
     input.set_pixel(1, 0, 128).expect("set pixel");
     let pix: Pix = input.into();
 
-    let filled = fill_map_holes(&pix, 3, 3).expect("fill_map_holes 3x3");
+    let filled = fill_map_holes(&pix, 3, 3, leptonica::filter::adaptmap::MapFillType::Black)
+        .expect("fill_map_holes 3x3");
 
     let mut grid = [[0u32; 3]; 3];
     for y in 0..3 {
@@ -90,7 +91,13 @@ fn c_parity_weasel() {
         }
     }
     let pix_with_holes: Pix = m.into();
-    let filled = fill_map_holes(&pix_with_holes, w, h).expect("fill weasel");
+    let filled = fill_map_holes(
+        &pix_with_holes,
+        w,
+        h,
+        leptonica::filter::adaptmap::MapFillType::Black,
+    )
+    .expect("fill weasel");
     assert_eq!(
         pixel_content_hash(&filled),
         EXPECTED_C_WEASEL_HASH,
