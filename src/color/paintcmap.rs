@@ -118,12 +118,50 @@ pub fn pix_set_select_cmap(
 ///
 /// C Leptonica: `pixColorGrayRegionsCmap()`
 pub fn pix_color_gray_regions_cmap(
-    _pix: &mut PixMut,
-    _boxa: &crate::core::Boxa,
-    _paint_type: PaintType,
-    _color: (u8, u8, u8),
+    pix: &mut PixMut,
+    boxa: &crate::core::Boxa,
+    paint_type: PaintType,
+    color: (u8, u8, u8),
 ) -> ColorResult<()> {
-    Err(ColorError::InvalidParameters("not yet implemented".into()))
+    check_colormapped(pix)?;
+    if pix.depth() != PixelDepth::Bit8 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "8 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let nc = pix.colormap().unwrap().len() as u32;
+    let map = {
+        let cmap = pix.colormap_mut().unwrap();
+        add_colorized_gray_to_cmap(cmap, paint_type, color)?
+    };
+
+    let w = pix.width() as i64;
+    let h = pix.height() as i64;
+    for b in boxa.iter() {
+        let x1 = b.x as i64;
+        let y1 = b.y as i64;
+        let x2 = x1 + b.w as i64 - 1;
+        let y2 = y1 + b.h as i64 - 1;
+        for y in y1.max(0)..=y2.min(h - 1) {
+            for x in x1.max(0)..=x2.min(w - 1) {
+                let (x, y) = (x as u32, y as u32);
+                let val = pix.get_pixel_unchecked(x, y);
+                // C: `if (val >= nc) continue;` — already colorized by an
+                // overlapping box.
+                if val >= nc {
+                    continue;
+                }
+                let nval = map[val as usize];
+                if nval != CMAP_NO_REMAP {
+                    pix.set_pixel_unchecked(x, y, nval);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Colorize the gray pixels of a colormapped image, optionally restricted to
@@ -136,12 +174,43 @@ pub fn pix_color_gray_regions_cmap(
 ///
 /// C Leptonica: `pixColorGrayCmap()`
 pub fn pix_color_gray_cmap(
-    _pix: &mut PixMut,
-    _region: Option<&Box>,
-    _paint_type: PaintType,
-    _color: (u8, u8, u8),
+    pix: &mut PixMut,
+    region: Option<&Box>,
+    paint_type: PaintType,
+    color: (u8, u8, u8),
 ) -> ColorResult<()> {
-    Err(ColorError::InvalidParameters("not yet implemented".into()))
+    check_colormapped(pix)?;
+    let d = pix.depth();
+    if !matches!(d, PixelDepth::Bit2 | PixelDepth::Bit4 | PixelDepth::Bit8) {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "2, 4 or 8 bpp",
+            actual: d.bits(),
+        });
+    }
+
+    let (w, h) = (pix.width(), pix.height());
+
+    // C: `if (d == 2 || d == 4) { pixt = pixConvertTo8(pixs, 1); ... }`
+    // — the indices and the colormap are carried over unchanged.
+    if d != PixelDepth::Bit8 {
+        let promoted = Pix::new(w, h, PixelDepth::Bit8).map_err(ColorError::Core)?;
+        let mut pm = promoted.try_into_mut().unwrap();
+        pm.set_colormap(pix.colormap().cloned())
+            .map_err(ColorError::Core)?;
+        for y in 0..h {
+            for x in 0..w {
+                pm.set_pixel_unchecked(x, y, pix.get_pixel_unchecked(x, y));
+            }
+        }
+        *pix = pm;
+    }
+
+    let mut boxa = crate::core::Boxa::new();
+    match region {
+        Some(b) => boxa.push(*b),
+        None => boxa.push(Box::new(0, 0, w as i32, h as i32).map_err(ColorError::Core)?),
+    }
+    pix_color_gray_regions_cmap(pix, &boxa, paint_type, color)
 }
 
 /// Colorize gray pixels using a mask in a colormapped image.
@@ -237,11 +306,34 @@ pub fn pix_color_gray_masked_cmap(
 ///
 /// C Leptonica: `addColorizedGrayToCmap()`
 pub fn add_colorized_gray_to_cmap(
-    _cmap: &mut PixColormap,
-    _paint_type: PaintType,
-    _color: (u8, u8, u8),
+    cmap: &mut PixColormap,
+    paint_type: PaintType,
+    color: (u8, u8, u8),
 ) -> ColorResult<Vec<u32>> {
-    Err(ColorError::InvalidParameters("not yet implemented".into()))
+    let (rval, gval, bval) = color;
+    let n = cmap.len();
+    let mut map = Vec::with_capacity(n);
+
+    for i in 0..n {
+        let Some((er, eg, eb)) = cmap.get_rgb(i) else {
+            map.push(CMAP_NO_REMAP);
+            continue;
+        };
+        let is_gray = er == eg && er == eb;
+        let qualifies = match paint_type {
+            PaintType::Light => is_gray && er != 0,
+            PaintType::Dark => is_gray && er != 255,
+        };
+        if !qualifies {
+            map.push(CMAP_NO_REMAP);
+            continue;
+        }
+        let new = colorize_gray_triple(paint_type, (rval, gval, bval), (er, eg, eb));
+        let index = add_new_color(cmap, new)?;
+        map.push(index);
+    }
+
+    Ok(map)
 }
 
 /// Sentinel used by [`add_colorized_gray_to_cmap`] for entries that are not
@@ -249,7 +341,6 @@ pub fn add_colorized_gray_to_cmap(
 pub const CMAP_NO_REMAP: u32 = 256;
 
 /// C `pixcmapAddNewColor`: reuse an identical entry, otherwise append.
-#[allow(dead_code)]
 fn add_new_color(cmap: &mut PixColormap, color: (u8, u8, u8)) -> ColorResult<u32> {
     let (r, g, b) = color;
     match cmap.get_index(r, g, b) {
@@ -267,7 +358,6 @@ fn add_new_color(cmap: &mut PixColormap, color: (u8, u8, u8)) -> ColorResult<u32
 /// `rval + (l_int32)((255. - rval) * (l_float32)erval / 255.)` for
 /// [`PaintType::Dark`], truncating rather than rounding. The `255.` literals
 /// are doubles, so the dark case is evaluated in double precision.
-#[allow(dead_code)]
 fn colorize_gray_triple(
     paint_type: PaintType,
     target: (u8, u8, u8),

@@ -30,12 +30,71 @@ use crate::filter::{FilterError, FilterResult, Kernel};
 ///
 /// C Leptonica: `pixConvolve()` in `convolve.c`
 pub fn convolve_gray(
-    _pix: &Pix,
-    _kernel: &Kernel,
-    _outdepth: PixelDepth,
-    _normflag: bool,
+    pix: &Pix,
+    kernel: &Kernel,
+    outdepth: PixelDepth,
+    normflag: bool,
 ) -> FilterResult<Pix> {
-    Err(FilterError::InvalidKernel("not yet implemented".into()))
+    if pix.colormap().is_some() {
+        return Err(FilterError::InvalidKernel(
+            "pixs has a colormap; remove it first".to_string(),
+        ));
+    }
+    let d = pix.depth();
+    if !matches!(d, PixelDepth::Bit8 | PixelDepth::Bit16 | PixelDepth::Bit32) {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "8, 16 or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    if !matches!(
+        outdepth,
+        PixelDepth::Bit8 | PixelDepth::Bit16 | PixelDepth::Bit32
+    ) {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "outdepth 8, 16 or 32",
+            actual: outdepth.bits(),
+        });
+    }
+
+    // C: keli = kernelInvert(kel); keln = normflag ? normalize(keli) : keli
+    let mut keln = kernel.invert();
+    if normflag {
+        keln.normalize();
+    }
+    let sx = keln.width();
+    let sy = keln.height();
+    let cx = keln.center_x();
+    let cy = keln.center_y();
+
+    let w = pix.width();
+    let h = pix.height();
+    let padded = pix
+        .add_mirrored_border(cx, sx - cx, cy, sy - cy)
+        .map_err(|e| FilterError::InvalidKernel(e.to_string()))?;
+
+    let out = Pix::new(w, h, outdepth)?;
+    let mut om = out.try_into_mut().unwrap();
+    let maxval = outdepth.max_value();
+
+    for y in 0..h {
+        for x in 0..w {
+            let mut sum = 0.0f32;
+            for k in 0..sy {
+                for m in 0..sx {
+                    let val = padded.get_pixel_unchecked(x + m, y + k) as f32;
+                    sum += val * keln.get(m, k).unwrap_or(0.0);
+                }
+            }
+            // C: `if (sum < 0.0) sum = -sum;`
+            if sum < 0.0 {
+                sum = -sum;
+            }
+            om.set_pixel_unchecked(x, y, ((sum + 0.5) as u32) & maxval);
+        }
+    }
+
+    Ok(om.into())
 }
 
 /// Convolve a 32 bpp RGB image with a kernel, one component at a time.
@@ -47,8 +106,23 @@ pub fn convolve_gray(
 /// # See also
 ///
 /// C Leptonica: `pixConvolveRGB()` in `convolve.c`
-pub fn convolve_color(_pix: &Pix, _kernel: &Kernel) -> FilterResult<Pix> {
-    Err(FilterError::InvalidKernel("not yet implemented".into()))
+pub fn convolve_color(pix: &Pix, kernel: &Kernel) -> FilterResult<Pix> {
+    if pix.depth() != PixelDepth::Bit32 {
+        return Err(FilterError::UnsupportedDepth {
+            expected: "32 bpp",
+            actual: pix.depth().bits(),
+        });
+    }
+
+    let mut planes = Vec::with_capacity(3);
+    for comp in [RgbComponent::Red, RgbComponent::Green, RgbComponent::Blue] {
+        let plane = pix
+            .get_rgb_component(comp)
+            .map_err(|e| FilterError::InvalidKernel(e.to_string()))?;
+        planes.push(convolve_gray(&plane, kernel, PixelDepth::Bit8, true)?);
+    }
+    Pix::create_rgb_image(&planes[0], &planes[1], &planes[2])
+        .map_err(|e| FilterError::InvalidKernel(e.to_string()))
 }
 
 /// Convolve an image, dispatching on its depth.
@@ -767,7 +841,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_gray_identity() {
         let pix = create_test_gray_image();
 
@@ -786,7 +859,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_box_blur_gray() {
         let pix = create_test_gray_image();
         let blurred = box_blur(&pix, 1).unwrap();
@@ -796,7 +868,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_gaussian_blur_gray() {
         let pix = create_test_gray_image();
         let blurred = gaussian_blur(&pix, 1, 1.0).unwrap();
@@ -806,7 +877,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_color() {
         let pix = create_test_color_image();
         let kernel = Kernel::box_kernel(3).unwrap();
@@ -817,7 +887,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_auto_dispatch() {
         let gray = create_test_gray_image();
         let color = create_test_color_image();
@@ -831,7 +900,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_sep_identity() {
         // Separable 1D identity kernels should produce same output as input
         let pix = create_test_gray_image();
@@ -849,7 +917,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_sep_horizontal_vertical() {
         // Separable convolution should decompose correctly
         let pix = create_test_gray_image();
@@ -884,7 +951,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_sep_sobel_x() {
         // Sobel-X can be decomposed into separable kernels
         let pix = create_test_gray_image();
@@ -901,7 +967,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_sep_color() {
         // Test convolve_sep directly on 32 bpp color image
         let pix = create_test_color_image();
@@ -940,7 +1005,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_rgb_sep_identity() {
         let pix = create_test_color_image();
         let kernel_1d = Kernel::from_slice(1, 1, &[1.0]).unwrap();
@@ -957,7 +1021,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_rgb_sep_box_blur() {
         let pix = create_test_color_image();
 
@@ -1384,7 +1447,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_convolve_with_bias_no_negative_kernel() {
         let pix = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();

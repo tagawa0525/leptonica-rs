@@ -198,7 +198,6 @@ fn kernel_reg_from_file() {
 ///
 /// Verifies convolve and convolve_gray preserve dimensions.
 #[test]
-#[ignore = "not yet implemented"]
 fn kernel_reg_convolve() {
     let mut rp = RegParams::new("kernel_conv");
 
@@ -232,7 +231,6 @@ fn kernel_reg_convolve() {
 ///
 /// Verifies blockconv and box_blur preserve dimensions.
 #[test]
-#[ignore = "not yet implemented"]
 fn kernel_reg_blockconv() {
     let mut rp = RegParams::new("kernel_blockconv");
 
@@ -266,7 +264,6 @@ fn kernel_reg_blockconv() {
 ///
 /// Verifies convolve on a color image produces 32bpp output.
 #[test]
-#[ignore = "not yet implemented"]
 fn kernel_reg_convolve_color() {
     let mut rp = RegParams::new("kernel_conv_color");
 

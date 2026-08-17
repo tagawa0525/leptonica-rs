@@ -133,7 +133,6 @@ fn convolve_census_transform_reg() {
 /// C checkpoint 7: pixConvolve(pixg, kel1, 8, 1) where kel1 is a 5x5 Gaussian-like kernel.
 /// C checkpoint 8: pixConvolve(pixg, kel2, 8, 1) where kel2 is a flat 11x11 kernel.
 #[test]
-#[ignore = "not yet implemented"]
 fn convolve_custom_kernel_reg() {
     let mut rp = RegParams::new("convolve_custom_kernel");
 
@@ -267,7 +266,6 @@ fn convolve_windowed_stats_reg() {
 ///
 /// Rust: Tests box_blur, gaussian_blur, and convolve with custom kernel.
 #[test]
-#[ignore = "not yet implemented"]
 fn convolve_reg() {
     let mut rp = RegParams::new("convolve");
 

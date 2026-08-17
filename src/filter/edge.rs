@@ -727,7 +727,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_sharpen() {
         let pix = create_test_image();
         let sharpened = sharpen(&pix).unwrap();
@@ -736,7 +735,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_unsharp_mask() {
         let pix = create_test_image();
         let sharpened = unsharp_mask(&pix, 1, 0.5).unwrap();

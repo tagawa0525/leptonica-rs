@@ -24,7 +24,6 @@ use leptonica::{Color, PixelDepth};
 ///
 /// Colorizes dark and light gray pixels in a 32bpp image.
 #[test]
-#[ignore = "not yet implemented"]
 fn paint_reg_color_gray() {
     let mut rp = RegParams::new("paint_cgray");
 
@@ -281,7 +280,6 @@ fn paint_c_compat_reconstruct() {
 /// and connected-component analysed, then the gray regions are colorized both
 /// as 32 bpp RGB and through a colormap.
 #[test]
-#[ignore = "not yet implemented"]
 fn paint_c_compat_color_gray() {
     use leptonica::Pix;
     use leptonica::color::{color_gray_regions, pix_color_gray, threshold_on_8bpp};

@@ -166,7 +166,6 @@ fn grayquant_reg_color_quant() {
 ///
 /// Tests threshold_on_8bpp, threshold_8 (on Pix), and threshold_gray_arb.
 #[test]
-#[ignore = "not yet implemented"]
 fn grayquant_reg_advanced_threshold() {
     let mut rp = RegParams::new("gquant_adv");
 

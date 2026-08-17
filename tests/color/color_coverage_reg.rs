@@ -637,7 +637,6 @@ fn test_color_content_by_location() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_color_gray_regions() {
     use leptonica::color::coloring::color_gray_regions;
 

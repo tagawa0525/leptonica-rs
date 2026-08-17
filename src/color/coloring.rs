@@ -247,17 +247,63 @@ fn compose_color_from_rgb(r: u8, g: u8, b: u8) -> u32 {
 ///
 /// C Leptonica: `pixColorGray()` in `coloring.c`
 pub fn pix_color_gray(
-    _pix: &Pix,
-    _region: Option<&Box>,
-    _paint_type: PaintType,
-    _thresh: u32,
-    _color: (u8, u8, u8),
+    pix: &Pix,
+    region: Option<&Box>,
+    paint_type: PaintType,
+    thresh: u32,
+    color: (u8, u8, u8),
 ) -> ColorResult<Pix> {
-    Err(ColorError::InvalidParameters("not yet implemented".into()))
+    if pix.colormap().is_some() {
+        let mut pm = pix.to_mut();
+        crate::color::paintcmap::pix_color_gray_cmap(&mut pm, region, paint_type, color)?;
+        return Ok(pm.into());
+    }
+
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "cmapped, 8 bpp or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    check_color_gray_thresh(paint_type, thresh)?;
+
+    // C converts an 8 bpp input to 32 bpp in place before painting.
+    let src = if d == PixelDepth::Bit8 {
+        pix.convert_to_32().map_err(ColorError::Core)?
+    } else {
+        pix.clone()
+    };
+
+    let w = src.width() as i64;
+    let h = src.height() as i64;
+    let (x1, y1, x2, y2) = match region {
+        // C uses x2 = w, y2 = h here (not w - 1), but the per-pixel bounds
+        // check discards the extra column and row.
+        None => (0i64, 0i64, w, h),
+        Some(b) => {
+            let x1 = b.x as i64;
+            let y1 = b.y as i64;
+            (x1, y1, x1 + b.w as i64 - 1, y1 + b.h as i64 - 1)
+        }
+    };
+
+    let out = src.deep_clone();
+    let mut om = out.try_into_mut().unwrap();
+    for y in y1.max(0)..=y2.min(h - 1) {
+        for x in x1.max(0)..=x2.min(w - 1) {
+            let (x, y) = (x as u32, y as u32);
+            let pixel = src.get_pixel_unchecked(x, y);
+            if let Some(new) = colorize_pixel(pixel, paint_type, thresh, color) {
+                om.set_pixel_unchecked(x, y, new);
+            }
+        }
+    }
+
+    Ok(om.into())
 }
 
 /// C rejects thresholds that would make the operation a no-op.
-#[allow(dead_code)]
 fn check_color_gray_thresh(paint_type: PaintType, thresh: u32) -> ColorResult<()> {
     match paint_type {
         PaintType::Light if thresh >= 255 => Err(ColorError::InvalidParameters(
@@ -279,13 +325,57 @@ fn check_color_gray_thresh(paint_type: PaintType, thresh: u32) -> ColorResult<()
 ///
 /// C Leptonica: `pixColorGrayMasked()` in `coloring.c`
 pub fn pix_color_gray_masked(
-    _pix: &Pix,
-    _mask: &Pix,
-    _paint_type: PaintType,
-    _thresh: u32,
-    _color: (u8, u8, u8),
+    pix: &Pix,
+    mask: &Pix,
+    paint_type: PaintType,
+    thresh: u32,
+    color: (u8, u8, u8),
 ) -> ColorResult<Pix> {
-    Err(ColorError::InvalidParameters("not yet implemented".into()))
+    if mask.depth() != PixelDepth::Bit1 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "1 bpp mask",
+            actual: mask.depth().bits(),
+        });
+    }
+
+    if pix.colormap().is_some() {
+        let mut pm = pix.to_mut();
+        crate::color::paintcmap::pix_color_gray_masked_cmap(&mut pm, mask, color, 1, 254)?;
+        return Ok(pm.into());
+    }
+
+    let d = pix.depth();
+    if d != PixelDepth::Bit8 && d != PixelDepth::Bit32 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "cmapped, 8 bpp or 32 bpp",
+            actual: d.bits(),
+        });
+    }
+    check_color_gray_thresh(paint_type, thresh)?;
+
+    let src = if d == PixelDepth::Bit8 {
+        pix.convert_to_32().map_err(ColorError::Core)?
+    } else {
+        pix.clone()
+    };
+
+    let wmin = src.width().min(mask.width());
+    let hmin = src.height().min(mask.height());
+    let out = src.deep_clone();
+    let mut om = out.try_into_mut().unwrap();
+    for y in 0..hmin {
+        for x in 0..wmin {
+            if mask.get_pixel_unchecked(x, y) == 0 {
+                continue;
+            }
+            let pixel = src.get_pixel_unchecked(x, y);
+            if let Some(new) = colorize_pixel(pixel, paint_type, thresh, color) {
+                om.set_pixel_unchecked(x, y, new);
+            }
+        }
+    }
+
+    Ok(om.into())
 }
 
 /// Helper to colorize a single pixel
@@ -299,7 +389,6 @@ pub fn pix_color_gray_masked(
 /// `rval + (l_int32)((255. - rval) * aveval * factor)` where the `255.`
 /// literal promotes the product to double. The output alpha is 0 because C
 /// builds the pixel with `composeRGBPixel`.
-#[allow(dead_code)]
 fn colorize_pixel(
     pixel: u32,
     paint_type: PaintType,
@@ -629,17 +718,41 @@ pub fn pix_map_with_invariant_hue(pix: &Pix, src_color: u32, fract: f32) -> Colo
 ///
 /// C Leptonica: `pixColorGrayRegions()` in `coloring.c`
 pub fn color_gray_regions(
-    _pix: &Pix,
-    _boxa: &crate::core::Boxa,
-    _paint_type: PaintType,
-    _thresh: u32,
-    _color: (u8, u8, u8),
+    pix: &Pix,
+    boxa: &crate::core::Boxa,
+    paint_type: PaintType,
+    thresh: u32,
+    color: (u8, u8, u8),
 ) -> ColorResult<Pix> {
-    Err(ColorError::InvalidParameters("not yet implemented".into()))
+    if pix.depth() == PixelDepth::Bit1 {
+        return Err(ColorError::UnsupportedDepth {
+            expected: "not 1 bpp",
+            actual: 1,
+        });
+    }
+
+    // C: keep the colormap when there is room for the colorized entries.
+    if let Some(cmap) = pix.colormap() {
+        let ncolors = cmap.len();
+        let ngray = count_gray_colors(cmap);
+        if ncolors + ngray < 255 {
+            let pix8 = promote_cmapped_to_8bpp(pix)?;
+            let mut pm = pix8.to_mut();
+            crate::color::paintcmap::pix_color_gray_regions_cmap(&mut pm, boxa, paint_type, color)?;
+            return Ok(pm.into());
+        }
+    }
+
+    check_color_gray_thresh(paint_type, thresh)?;
+
+    let mut pixd = pix.convert_to_32().map_err(ColorError::Core)?;
+    for b in boxa.iter() {
+        pixd = pix_color_gray(&pixd, Some(b), paint_type, thresh, color)?;
+    }
+    Ok(pixd)
 }
 
 /// C `pixcmapCountGrayColors`: the number of *distinct* gray levels present.
-#[allow(dead_code)]
 fn count_gray_colors(cmap: &crate::core::PixColormap) -> usize {
     let mut seen = [false; 256];
     let mut count = 0;
@@ -702,7 +815,6 @@ pub fn snap_color_cmap(pix: &Pix, target_color: u32, diff: u32) -> ColorResult<P
 
 /// C `pixConvertTo8(pixs, 1)` for a colormapped input: the indices and the
 /// colormap carry over to an 8 bpp image unchanged.
-#[allow(dead_code)]
 fn promote_cmapped_to_8bpp(pix: &Pix) -> ColorResult<Pix> {
     if pix.depth() == PixelDepth::Bit8 {
         return Ok(pix.clone());
@@ -791,7 +903,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pix_color_gray_light() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -819,7 +930,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_pix_color_gray_dark() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
@@ -962,7 +1072,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_color_gray_threshold_validation() {
         let pix = Pix::new(10, 10, PixelDepth::Bit32).unwrap();
 
