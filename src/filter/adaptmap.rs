@@ -534,8 +534,12 @@ impl MapFillType {
     }
 }
 
-/// Fill 0-valued holes in an 8 bpp tile-resolution map by C-aligned
-/// column-major replication.
+/// Fill holes in an 8 bpp tile-resolution map by C-aligned column-major
+/// replication.
+///
+/// A *hole* is a pixel whose value equals the extreme selected by
+/// `filltype` — 0 for [`MapFillType::Black`], 255 for
+/// [`MapFillType::White`] — and every other pixel counts as valid data.
 ///
 /// `nx` and `ny` are the number of fully-covered tile columns / rows; the
 /// rightmost column and bottommost row of `pix` may correspond to partial
@@ -547,7 +551,7 @@ impl MapFillType {
 ///
 /// Mirrors C `pixFillMapHoles(pix, nx, ny, filltype)` in
 /// `reference/leptonica/src/adaptmap.c`. The algorithm has three phases:
-/// 1. For each column `j in 0..nx`, find the first non-zero pixel in
+/// 1. For each column `j in 0..nx`, find the first valid (non-hole) pixel in
 ///    rows `0..ny`. Replicate that value upward, then sweep downward
 ///    through `0..h` propagating the most recent valid value into holes.
 /// 2. For columns with no valid pixel, replicate from the nearest valid
@@ -556,7 +560,7 @@ impl MapFillType {
 ///    last partial-tile column.
 ///
 /// Returns `Err(FilterError::InvalidParameters)` if no column carries any
-/// non-zero data (matches the C `nmiss == nx` warning path).
+/// valid data (matches the C `nmiss == nx` warning path).
 pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32, filltype: MapFillType) -> FilterResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
@@ -1042,7 +1046,7 @@ fn fill_map_holes_inner(pix: &Pix, nx: u32, ny: u32, filltype: MapFillType) -> F
     let mut nmiss: u32 = 0;
 
     // Phase 1: vertical fill within each tile column.
-    // Search for the first non-zero pixel in rows 0..ny (the data origin
+    // Search for the first non-hole pixel in rows 0..ny (the data origin
     // is bounded to the full-tile region). Then replicate that value up
     // to row 0 and propagate the most-recent valid value downward through
     // the entire column height (0..h) so partial-tile rows are filled too.

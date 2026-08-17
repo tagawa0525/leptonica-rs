@@ -438,6 +438,10 @@ pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
 ///
 /// Rounding the ideal value once instead would differ by 1 on many pixels.
 ///
+/// A degenerate kernel (`wc == 0 || hc == 0`, either as given or after the
+/// reduction below) makes this a no-op: C returns `pixCopy(NULL, pixs)`, so
+/// the result is the **1 bpp input unchanged** rather than an 8 bpp image.
+///
 /// # See also
 ///
 /// C Leptonica: `pixBlocksum()` and `blocksumLow()` in `convolve.c`
@@ -463,7 +467,7 @@ pub fn blocksum(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
         (wc, hc)
     };
     if wc == 0 || hc == 0 {
-        return Ok(pix.convert_1_to_8(0, 255)?);
+        return Ok(pix.deep_clone());
     }
     if w <= wc || h <= hc {
         return Err(FilterError::InvalidParameters("wc >= w || hc >= h".into()));
