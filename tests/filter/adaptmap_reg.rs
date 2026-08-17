@@ -712,7 +712,6 @@ fn sample_min_max(pix: &leptonica::Pix) -> (u32, u32) {
 /// lossless `weasel8.png` and a synthetic 3x3 map, so they are bit-exactly
 /// comparable against C.
 #[test]
-#[ignore = "not yet implemented"]
 fn adaptmap_c_compat_fill_map_holes() {
     use leptonica::PixelDepth;
     use leptonica::core::Pixa;

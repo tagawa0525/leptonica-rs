@@ -388,3 +388,8 @@ color	paint	19	paint_cg	2	threshold_on_8bpp 10 levels
 color	paint	20	paint_cg	3	color_gray_regions on cmapped
 color	paint	21	paint_cg	4	color_gray on 8bpp gray
 color	paint	22	paint_cg	5	color_gray on cmapped
+filter	convolve	2	convolve_blockrank	1	blockrank 4x4 rank 0.25 (test1.png)
+filter	convolve	3	convolve_blockrank	2	blockrank 4x4 rank 0.50
+filter	convolve	4	convolve_blockrank	3	blockrank 4x4 rank 0.75
+filter	adaptmap	14	adaptmap_c	1	fill_map_holes on weasel8.png (L_FILL_WHITE)
+filter	adaptmap	15	adaptmap_c	2	fill_map_holes 3x3 (L_FILL_BLACK)

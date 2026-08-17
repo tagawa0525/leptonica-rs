@@ -55,7 +55,12 @@ pub fn gamma_trc(gamma: f32, minval: i32, maxval: i32) -> FilterResult<TrcLut> {
             255
         } else {
             let x = (i - minval) as f32 / range;
-            let mapped = 255.0 * x.powf(inv_gamma) + 0.5;
+            // C: `val = (l_int32)(255. * powf(x, invgamma) + 0.5)`. The
+            // `255.` literal is a double, so the product and the rounding
+            // are evaluated in double precision even though `x` and `powf`
+            // are single. Doing it all in f32 shifts values that land near
+            // a .5 boundary by one (e.g. 153 with maxval 270: 144 vs 145).
+            let mapped = 255.0f64 * x.powf(inv_gamma) as f64 + 0.5;
             (mapped as i32).clamp(0, 255)
         };
         lut[i as usize] = val as u8;

@@ -422,26 +422,25 @@ pub fn add_gaussian_noise(pix: &Pix, stdev: f32) -> FilterResult<Pix> {
 
     Ok(pixd_mut.into())
 }
-
-/// Block sum for binary images
+/// Block sum of a 1 bpp image, normalized to 8 bpp.
 ///
-/// Computes the sum of ON pixels in (2*wc+1) × (2*hc+1) blocks centered at
-/// each pixel of a 1-bit binary image. The output is an 8-bit image where
-/// each pixel value is normalized to 0-255 range based on block size.
+/// Each output pixel is `255 * (ON pixels in the (2*wc+1) x (2*hc+1) block)
+/// / (block area)`.
 ///
-/// # Arguments
+/// C computes this in two passes and both are reproduced here, because the
+/// intermediate truncation is visible in the output:
 ///
-/// * `pix` - Input 1-bit binary image
-/// * `wc` - Half-width of block
-/// * `hc` - Half-height of block
+/// 1. every pixel is normalized by the **full** block area, with the
+///    accumulator differences taken at C's clamped indices, and the f32
+///    product truncated to a byte;
+/// 2. the border rows and columns are then rescaled by `fhc / hn` and
+///    `fwc / wn` **on the already-truncated byte**, and truncated again.
 ///
-/// # Returns
-///
-/// 8-bit image with normalized block sums
+/// Rounding the ideal value once instead would differ by 1 on many pixels.
 ///
 /// # See also
 ///
-/// C Leptonica: `pixBlocksum()` in `convolve.c`
+/// C Leptonica: `pixBlocksum()` and `blocksumLow()` in `convolve.c`
 pub fn blocksum(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
     if pix.depth() != PixelDepth::Bit1 {
         return Err(FilterError::UnsupportedDepth {
@@ -457,69 +456,92 @@ pub fn blocksum(pix: &Pix, wc: u32, hc: u32) -> FilterResult<Pix> {
         return Ok(pix.deep_clone());
     }
 
-    // Reduce kernel if necessary
-    let wc = wc.min((w - 1) / 2);
-    let hc = hc.min((h - 1) / 2);
-
+    // C: reduce the kernel when it does not fit.
+    let (wc, hc) = if w < 2 * wc + 1 || h < 2 * hc + 1 {
+        (wc.min((w - 1) / 2), hc.min((h - 1) / 2))
+    } else {
+        (wc, hc)
+    };
     if wc == 0 || hc == 0 {
-        // Return 8bpp version even for degenerate kernel (documented output is 8bpp)
         return Ok(pix.convert_1_to_8(0, 255)?);
     }
+    if w <= wc || h <= hc {
+        return Err(FilterError::InvalidParameters("wc >= w || hc >= h".into()));
+    }
 
-    // Convert 1bpp to 8bpp (0→0, 1→255) for integral image computation
-    let pix8 = pix.convert_1_to_8(0, 255)?;
+    // C: pixBlockconvAccum on the 1 bpp source, i.e. ON-pixel counts.
+    let acc = crate::filter::block_conv::blockconv_accum(pix)?;
 
-    // Compute integral image using blockconv_accum
-    let acc = crate::filter::block_conv::blockconv_accum(&pix8)?;
+    let fwc = 2 * wc + 1;
+    let fhc = 2 * hc + 1;
+    // C: norm = 255. / ((l_float32)fwc * fhc), stored in an l_float32.
+    let norm = (255.0f64 / ((fwc as f32 * fhc as f32) as f64)) as f32;
 
-    // Compute block sums using integral image
-    let pixd = Pix::new(w, h, PixelDepth::Bit8)?;
-    let mut pixd_mut = pixd.try_into_mut().unwrap();
+    let out = Pix::new(w, h, PixelDepth::Bit8)?;
+    let mut om = out.try_into_mut().unwrap();
 
-    let fwc = (2 * wc + 1) as f64;
-    let fhc = (2 * hc + 1) as f64;
-    let norm = 1.0 / (fwc * fhc);
-
+    // Pass 1: full-kernel normalization at C's clamped accumulator indices.
     for y in 0..h {
-        let ymin = if y > hc { y - hc - 1 } else { 0 };
-        let ymax = (y + hc).min(h - 1);
-        let hn = if y > hc {
-            (ymax - ymin) as f64
-        } else {
-            (ymax + 1) as f64
-        };
-
+        let imin = y.saturating_sub(hc + 1);
+        let imax = (y + hc).min(h - 1);
         for x in 0..w {
-            let xmin = if x > wc { x - wc - 1 } else { 0 };
-            let xmax = (x + wc).min(w - 1);
-            let wn = if x > wc {
-                (xmax - xmin) as f64
-            } else {
-                (xmax + 1) as f64
-            };
-
-            // Four-corner lookup on integral image
-            let mut val = acc.get_pixel_unchecked(xmax, ymax) as i64;
-            if y > hc {
-                val -= acc.get_pixel_unchecked(xmax, ymin) as i64;
-            }
-            if x > wc {
-                val -= acc.get_pixel_unchecked(xmin, ymax) as i64;
-            }
-            if y > hc && x > wc {
-                val += acc.get_pixel_unchecked(xmin, ymin) as i64;
-            }
-
-            // Normalize: output = val / (actual_area) = val * norm * fwc/wn * fhc/hn
-            // Since input was scaled 0→0, 1→255, the sum is already in terms of 255*count
-            // We need to normalize by the actual area, not the full kernel area
-            let result = (norm * val as f64 * fwc / wn * fhc / hn + 0.5) as u32;
-            let result = result.min(255);
-            pixd_mut.set_pixel_unchecked(x, y, result);
+            let jmin = x.saturating_sub(wc + 1);
+            let jmax = (x + wc).min(w - 1);
+            // C computes this in l_uint32, so the intermediate wraps exactly
+            // as the C expression does.
+            let val = acc
+                .get_pixel_unchecked(jmax, imax)
+                .wrapping_sub(acc.get_pixel_unchecked(jmin, imax))
+                .wrapping_sub(acc.get_pixel_unchecked(jmax, imin))
+                .wrapping_add(acc.get_pixel_unchecked(jmin, imin));
+            om.set_pixel_unchecked(x, y, ((norm * val as f32) as u32) & 0xff);
         }
     }
 
-    Ok(pixd_mut.into())
+    // Pass 2: rescale the borders, byte in / byte out, as C does.
+    let wmwc = w - wc;
+    let hmhc = h - hc;
+    let rescale = |om: &mut crate::core::PixMut, x: u32, y: u32, f: f32| {
+        let val = om.get_pixel_unchecked(x, y) as f32;
+        om.set_pixel_unchecked(x, y, ((val * f) as u32) & 0xff);
+    };
+
+    let fix_row = |om: &mut crate::core::PixMut, y: u32, normh: f32| {
+        for x in 0..=wc {
+            let wn = wc + x;
+            let normw = fwc as f32 / wn as f32;
+            rescale(om, x, y, normh * normw);
+        }
+        for x in (wc + 1)..wmwc {
+            rescale(om, x, y, normh);
+        }
+        for x in wmwc..w {
+            let wn = wc + w - x;
+            let normw = fwc as f32 / wn as f32;
+            rescale(om, x, y, normh * normw);
+        }
+    };
+
+    for y in 0..=hc {
+        let hn = hc + y;
+        fix_row(&mut om, y, fhc as f32 / hn as f32);
+    }
+    for y in hmhc..h {
+        let hn = hc + h - y;
+        fix_row(&mut om, y, fhc as f32 / hn as f32);
+    }
+    for y in (hc + 1)..hmhc {
+        for x in 0..=wc {
+            let wn = wc + x;
+            rescale(&mut om, x, y, fwc as f32 / wn as f32);
+        }
+        for x in wmwc..w {
+            let wn = wc + w - x;
+            rescale(&mut om, x, y, fwc as f32 / wn as f32);
+        }
+    }
+
+    Ok(om.into())
 }
 
 /// Block rank for binary images
@@ -1259,7 +1281,6 @@ mod tests {
     /// borders in a second pass that works on the already-truncated byte, so
     /// the corners and edges lose up to 3 counts. These are the values C
     /// produces for a 10x10 all-ON image with wc = hc = 1.
-    #[ignore = "not yet implemented"]
     fn test_blocksum_all_one() {
         let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
