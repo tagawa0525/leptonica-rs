@@ -291,7 +291,13 @@ fn adaptmap_reg_fill_map_holes_weasel() {
     let pix_with_holes: leptonica::Pix = pix_holes.into();
 
     // Apply fill_map_holes: Rust fills 0-valued holes by propagating non-zero neighbors.
-    let filled = fill_map_holes(&pix_with_holes, w, h).expect("fill_map_holes weasel");
+    let filled = fill_map_holes(
+        &pix_with_holes,
+        w,
+        h,
+        leptonica::filter::adaptmap::MapFillType::Black,
+    )
+    .expect("fill_map_holes weasel");
     rp.compare_values(w as f64, filled.width() as f64, 0.0);
     rp.compare_values(h as f64, filled.height() as f64, 0.0);
     rp.compare_values(8.0, filled.depth().bits() as f64, 0.0);
@@ -326,7 +332,13 @@ fn adaptmap_reg_fill_map_holes_simple() {
     let pix_sparse: leptonica::Pix = pix3.into();
 
     // Apply fill_map_holes: should propagate the value at (1,0) to neighbors
-    let filled = fill_map_holes(&pix_sparse, 3, 3).expect("fill_map_holes 3x3");
+    let filled = fill_map_holes(
+        &pix_sparse,
+        3,
+        3,
+        leptonica::filter::adaptmap::MapFillType::Black,
+    )
+    .expect("fill_map_holes 3x3");
     rp.compare_values(3.0, filled.width() as f64, 0.0);
     rp.compare_values(3.0, filled.height() as f64, 0.0);
     rp.compare_values(8.0, filled.depth().bits() as f64, 0.0);
@@ -691,4 +703,77 @@ fn sample_min_max(pix: &leptonica::Pix) -> (u32, u32) {
     }
 
     (min_val, max_val)
+}
+
+/// C-compat: `prog/adaptmap_reg.c` checks 14-15.
+///
+/// The `pixFillMapHoles` demonstrations. Unlike the background-normalization
+/// checks earlier in that program (which read `wet-day.jpg`), these use the
+/// lossless `weasel8.png` and a synthetic 3x3 map, so they are bit-exactly
+/// comparable against C.
+#[test]
+fn adaptmap_c_compat_fill_map_holes() {
+    use leptonica::PixelDepth;
+    use leptonica::core::Pixa;
+    use leptonica::core::pix::RopOp;
+    use leptonica::filter::adaptmap::{MapFillType, fill_map_holes};
+    use leptonica::filter::gamma_trc_pix;
+    use leptonica::io::ImageFormat;
+    use leptonica::transform::expand_replicate;
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("adaptmap_c");
+
+    // C 14: weasel8.png as a map, darkened, with white stripes punched in as
+    // holes, then filled with L_FILL_WHITE.
+    let mut pixa = Pixa::new();
+    let pix1 = load_test_image("weasel8.png").expect("load weasel8.png");
+    let pix1 = gamma_trc_pix(&pix1, 1.0, 0, 270).expect("gamma trc");
+    pixa.push(pix1.clone());
+
+    let (w, h) = (pix1.width(), pix1.height());
+    let mut pm = pix1.to_mut();
+    // C: pixRasterop(pix1, x, y, bw, bh, PIX_SET, NULL, 0, 0) — white holes.
+    for &(x, y, bw, bh) in &[
+        (0, 0, 5, h),
+        (20, 0, 2, h),
+        (40, 0, 3, h),
+        (0, 0, w, 3),
+        (0, 15, w, 3),
+        (0, 35, w, 2),
+    ] {
+        pm.rop_region_inplace(x, y, bw, bh, RopOp::Set, &pix1, 0, 0)
+            .expect("punch hole");
+    }
+    let holed: leptonica::Pix = pm.into();
+    pixa.push(holed.clone());
+
+    let filled = fill_map_holes(&holed, w, h, MapFillType::White).expect("fill map holes white");
+    pixa.push(filled);
+    let tiled = pixa
+        .display_tiled_in_columns(3, 1.0, 20, 1)
+        .expect("tile weasel maps");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: fill_map_holes on weasel8");
+
+    // C 15: a 3x3 map with a single non-zero pixel, filled with L_FILL_BLACK.
+    let mut pixa = Pixa::new();
+    let small = leptonica::Pix::new(3, 3, PixelDepth::Bit8).expect("3x3 map");
+    let mut sm = small.try_into_mut().unwrap();
+    sm.set_pixel_unchecked(1, 0, 128);
+    let small: leptonica::Pix = sm.into();
+    pixa.push(expand_replicate(&small, 25).expect("expand before"));
+    let small_filled =
+        fill_map_holes(&small, 3, 3, MapFillType::Black).expect("fill map holes black");
+    pixa.push(expand_replicate(&small_filled, 25).expect("expand after"));
+    let tiled = pixa
+        .display_tiled_in_columns(2, 1.0, 20, 0)
+        .expect("tile small maps");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: fill_map_holes 3x3");
+
+    assert!(rp.cleanup(), "adaptmap C-compat fill_map_holes test failed");
 }

@@ -160,7 +160,9 @@ fn test_fill_map_holes_public() {
     pm.set_pixel_unchecked(4, 4, 180);
     let pix: Pix = pm.into();
 
-    let filled = adaptmap::fill_map_holes(&pix, 5, 5).unwrap();
+    let filled =
+        adaptmap::fill_map_holes(&pix, 5, 5, leptonica::filter::adaptmap::MapFillType::Black)
+            .unwrap();
 
     // All holes should be filled
     for y in 0..5 {

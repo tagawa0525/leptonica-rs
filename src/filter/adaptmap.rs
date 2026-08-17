@@ -489,7 +489,7 @@ pub fn get_foreground_gray_map(
     // Fill holes in fg by propagation
     let valid_x = (w / sx).min(pixt2.width());
     let valid_y = (h / sy).min(pixt2.height());
-    let pixt2_filled = fill_map_holes(&pixt2, valid_x, valid_y)?;
+    let pixt2_filled = fill_map_holes(&pixt2, valid_x, valid_y, MapFillType::Black)?;
 
     // Smooth with 17x17 kernel (blockconv half-width 8)
     let pixt3 = blockconv(&pixt2_filled, 8, 8)?;
@@ -514,17 +514,44 @@ pub fn get_foreground_gray_map(
 
     Ok(pixd_mut.into())
 }
+/// Which extreme value marks a hole in a background map.
+///
+/// C equivalent: `L_FILL_BLACK` / `L_FILL_WHITE` in `adaptmap.c`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MapFillType {
+    /// Holes are 0-valued pixels.
+    Black,
+    /// Holes are 255-valued pixels.
+    White,
+}
 
-/// Fill 0-valued holes in an 8 bpp tile-resolution map by C-aligned
-/// column-major replication.
+impl MapFillType {
+    fn hole_value(self) -> u32 {
+        match self {
+            MapFillType::Black => 0,
+            MapFillType::White => 255,
+        }
+    }
+}
+
+/// Fill holes in an 8 bpp tile-resolution map by C-aligned column-major
+/// replication.
+///
+/// A *hole* is a pixel whose value equals the extreme selected by
+/// `filltype` — 0 for [`MapFillType::Black`], 255 for
+/// [`MapFillType::White`] — and every other pixel counts as valid data.
 ///
 /// `nx` and `ny` are the number of fully-covered tile columns / rows; the
 /// rightmost column and bottommost row of `pix` may correspond to partial
 /// tiles when `pix.width() > nx` or `pix.height() > ny`.
 ///
-/// Mirrors C `pixFillMapHoles(pix, nx, ny, L_FILL_BLACK)` in
+/// `filltype` selects which value marks a hole: [`MapFillType::Black`] treats
+/// 0 as a hole and [`MapFillType::White`] treats 255 as one, matching C's
+/// `valtest = (filltype == L_FILL_WHITE) ? 255 : 0`.
+///
+/// Mirrors C `pixFillMapHoles(pix, nx, ny, filltype)` in
 /// `reference/leptonica/src/adaptmap.c`. The algorithm has three phases:
-/// 1. For each column `j in 0..nx`, find the first non-zero pixel in
+/// 1. For each column `j in 0..nx`, find the first valid (non-hole) pixel in
 ///    rows `0..ny`. Replicate that value upward, then sweep downward
 ///    through `0..h` propagating the most recent valid value into holes.
 /// 2. For columns with no valid pixel, replicate from the nearest valid
@@ -533,8 +560,8 @@ pub fn get_foreground_gray_map(
 ///    last partial-tile column.
 ///
 /// Returns `Err(FilterError::InvalidParameters)` if no column carries any
-/// non-zero data (matches the C `nmiss == nx` warning path).
-pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
+/// valid data (matches the C `nmiss == nx` warning path).
+pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32, filltype: MapFillType) -> FilterResult<Pix> {
     if pix.depth() != PixelDepth::Bit8 {
         return Err(FilterError::UnsupportedDepth {
             expected: "8 bpp",
@@ -554,7 +581,7 @@ pub fn fill_map_holes(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
              (nx={nx}, ny={ny}, w={w}, h={h})"
         )));
     }
-    fill_map_holes_inner(pix, nx, ny)
+    fill_map_holes_inner(pix, nx, ny, filltype)
 }
 
 /// Generate inverted background map for normalization.
@@ -885,7 +912,7 @@ fn get_background_gray_map_inner(
     let map_pix = map_mut.into();
 
     // Fill holes in the map (tiles with value 0)
-    fill_map_holes_inner(&map_pix, nx, ny)
+    fill_map_holes_inner(&map_pix, nx, ny, MapFillType::Black)
 }
 
 /// Generate background maps for each RGB channel from a single 32 bpp
@@ -997,15 +1024,17 @@ fn get_background_rgb_map_inner(
     let pixmg: Pix = mg_mut.into();
     let pixmb: Pix = mb_mut.into();
 
-    let pixmr = fill_map_holes_inner(&pixmr, nx, ny)?;
-    let pixmg = fill_map_holes_inner(&pixmg, nx, ny)?;
-    let pixmb = fill_map_holes_inner(&pixmb, nx, ny)?;
+    let pixmr = fill_map_holes_inner(&pixmr, nx, ny, MapFillType::Black)?;
+    let pixmg = fill_map_holes_inner(&pixmg, nx, ny, MapFillType::Black)?;
+    let pixmb = fill_map_holes_inner(&pixmb, nx, ny, MapFillType::Black)?;
 
     Ok((pixmr, pixmg, pixmb))
 }
 
 /// Fill holes (zero values) in the map by propagating from neighbors
-fn fill_map_holes_inner(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
+fn fill_map_holes_inner(pix: &Pix, nx: u32, ny: u32, filltype: MapFillType) -> FilterResult<Pix> {
+    // C: `valtest = (filltype == L_FILL_WHITE) ? 255 : 0;`
+    let valtest = filltype.hole_value();
     let w = pix.width();
     let h = pix.height();
 
@@ -1017,14 +1046,14 @@ fn fill_map_holes_inner(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
     let mut nmiss: u32 = 0;
 
     // Phase 1: vertical fill within each tile column.
-    // Search for the first non-zero pixel in rows 0..ny (the data origin
+    // Search for the first non-hole pixel in rows 0..ny (the data origin
     // is bounded to the full-tile region). Then replicate that value up
     // to row 0 and propagate the most-recent valid value downward through
     // the entire column height (0..h) so partial-tile rows are filled too.
     for j in 0..nx {
         let mut first: Option<u32> = None;
         for i in 0..ny {
-            if out_mut.get_pixel_unchecked(j, i) != 0 {
+            if out_mut.get_pixel_unchecked(j, i) != valtest {
                 first = Some(i);
                 break;
             }
@@ -1043,7 +1072,7 @@ fn fill_map_holes_inner(pix: &Pix, nx: u32, ny: u32) -> FilterResult<Pix> {
                 let mut lastval = out_mut.get_pixel_unchecked(j, 0);
                 for i in 1..h {
                     let v = out_mut.get_pixel_unchecked(j, i);
-                    if v == 0 {
+                    if v == valtest {
                         out_mut.set_pixel_unchecked(j, i, lastval);
                     } else {
                         lastval = v;
@@ -1385,8 +1414,8 @@ fn min_max_tiles(
     let (pix_min, pix_max) = set_low_contrast(pix_min, pix_max, min_diff)?;
 
     // Step 5: fill the holes.
-    let pix_min = fill_map_holes_inner(&pix_min, map_w, map_h)?;
-    let pix_max = fill_map_holes_inner(&pix_max, map_w, map_h)?;
+    let pix_min = fill_map_holes_inner(&pix_min, map_w, map_h, MapFillType::Black)?;
+    let pix_max = fill_map_holes_inner(&pix_max, map_w, map_h, MapFillType::Black)?;
 
     // Step 6: smooth (matches C `pixBlockconv`). C clamps smooth half-widths
     // to (map_w-1)/2 and (map_h-1)/2 to keep the kernel inside the map.
@@ -1742,7 +1771,7 @@ pub fn get_background_gray_map_morph(
     // Fill holes in the map
     let nx = pix.width() / reduction;
     let ny = pix.height() / reduction;
-    let filled = fill_map_holes_inner(&pix3, nx, ny)?;
+    let filled = fill_map_holes_inner(&pix3, nx, ny, MapFillType::Black)?;
 
     Ok(filled)
 }
@@ -1808,7 +1837,7 @@ fn get_background_single_channel_morph(
     let pix1 = scale_rgb_to_gray_fast(pix, reduction, shift)?;
     let pix2 = crate::morph::close_gray(&pix1, size, size)?;
     let pix3 = extend_by_replication(&pix2, 1, 1)?;
-    fill_map_holes_inner(&pix3, nx, ny)
+    fill_map_holes_inner(&pix3, nx, ny, MapFillType::Black)
 }
 
 /// Fast downscaling of a single RGB channel to 8bpp grayscale.
@@ -2682,7 +2711,7 @@ mod tests {
 
         let pix = pix_mut.into();
 
-        let filled = fill_map_holes_inner(&pix, 5, 5).unwrap();
+        let filled = fill_map_holes_inner(&pix, 5, 5, MapFillType::Black).unwrap();
 
         // Check that holes are filled
         for y in 0..5 {

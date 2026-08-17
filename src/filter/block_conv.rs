@@ -23,10 +23,12 @@ fn check_8bpp(pix: &Pix) -> FilterResult<()> {
     Ok(())
 }
 
-/// Build an integral image (summed area table) from an 8 bpp grayscale image.
+/// Build an integral image (summed area table) from a 1 or 8 bpp image.
 ///
 /// Each pixel in the output 32 bpp image contains the sum of all source
-/// pixel values in the rectangle from (0,0) to (x,y) inclusive.
+/// pixel values in the rectangle from (0,0) to (x,y) inclusive. A 1 bpp
+/// source contributes its **bit** (0 or 1) per pixel, as in C, so the
+/// accumulator holds ON-pixel counts rather than 0/255 sums.
 ///
 /// The recursion is: `a(i,j) = v(i,j) + a(i-1,j) + a(i,j-1) - a(i-1,j-1)`
 ///
@@ -34,7 +36,9 @@ fn check_8bpp(pix: &Pix) -> FilterResult<()> {
 ///
 /// C Leptonica: `pixBlockconvAccum()` in `convolve.c`
 pub fn blockconv_accum(pix: &Pix) -> FilterResult<Pix> {
-    check_8bpp(pix)?;
+    if pix.depth() != PixelDepth::Bit1 {
+        check_8bpp(pix)?;
+    }
 
     let w = pix.width();
     let h = pix.height();
