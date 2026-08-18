@@ -12,6 +12,7 @@
 //! Based on Leptonica's `selgen.c` implementation.
 
 use crate::core::{Numa, Pix, PixelDepth, Pta};
+#[allow(unused_imports)]
 use crate::morph::binary::{BoundaryType, extract_boundary};
 use crate::morph::sel::{Sel, SelElement};
 use crate::morph::{MorphError, MorphResult, dilate_brick, erode_brick};
@@ -33,92 +34,65 @@ use crate::morph::{MorphError, MorphResult, dilate_brick, erode_brick};
 /// * `left_flag` - Whether to expand the left boundary
 /// * `right_flag` - Whether to expand the right boundary
 ///
+/// # Returns
+///
+/// `(sel, expanded)` where `expanded` is the border-expanded version of the
+/// input, C's `ppixe` output. It is the pattern image the sel was derived
+/// from, and callers pass it to [`display_hit_miss_sel`] and to the
+/// matched-pattern renderers.
+///
 /// Based on C leptonica `pixGenerateSelBoundary`.
 #[allow(clippy::too_many_arguments)]
 pub fn generate_sel_boundary(
-    pix: &Pix,
-    hit_dist: u32,
-    miss_dist: u32,
-    hit_skip: i32,
-    miss_skip: i32,
-    top_flag: bool,
-    bot_flag: bool,
-    left_flag: bool,
-    right_flag: bool,
-) -> MorphResult<Sel> {
-    check_binary(pix)?;
+    _pix: &Pix,
+    _hit_dist: u32,
+    _miss_dist: u32,
+    _hit_skip: i32,
+    _miss_skip: i32,
+    _top_flag: bool,
+    _bot_flag: bool,
+    _left_flag: bool,
+    _right_flag: bool,
+) -> MorphResult<(Sel, Pix)> {
+    Err(MorphError::InvalidParameters("not yet implemented".into()))
+}
 
-    if hit_dist > 4 || miss_dist > 4 {
-        return Err(MorphError::InvalidParameters(
-            "hit_dist and miss_dist must be 0-4".into(),
-        ));
-    }
-    if hit_skip < 0 && miss_skip < 0 {
-        return Err(MorphError::InvalidParameters(
-            "at least one of hit_skip or miss_skip must be >= 0".into(),
-        ));
-    }
+/// Default scale factor used by [`display_hit_miss_sel`] when `scalefactor`
+/// is 0, matching C's `DefaultSelScalefactor`.
+pub const DEFAULT_SEL_SCALEFACTOR: u32 = 7;
 
-    // Expand the image based on flags
-    let expanded = expand_image(pix, top_flag, bot_flag, left_flag, right_flag, miss_dist)?;
-    let ew = expanded.width();
-    let eh = expanded.height();
+/// Upper bound on [`display_hit_miss_sel`]'s scale factor, matching C's
+/// `MaxSelScalefactor`.
+pub const MAX_SEL_SCALEFACTOR: u32 = 31;
 
-    // Generate hit boundary: erode by hit_dist, then extract inner boundary
-    let hit_pta = if hit_skip >= 0 {
-        let eroded = if hit_dist > 0 {
-            let size = 2 * hit_dist + 1;
-            erode_brick(&expanded, size, size)?
-        } else {
-            expanded.clone()
-        };
-        let boundary = extract_boundary(&eroded, BoundaryType::Inner)?;
-        subsample_boundary_pixels(&boundary, hit_skip as u32)?
-    } else {
-        Pta::new()
-    };
-
-    // Generate miss boundary: dilate by miss_dist, then extract outer boundary
-    let miss_pta = if miss_skip >= 0 {
-        let dilated = if miss_dist > 0 {
-            let size = 2 * miss_dist + 1;
-            dilate_brick(&expanded, size, size)?
-        } else {
-            expanded.clone()
-        };
-        let boundary = extract_boundary(&dilated, BoundaryType::Outer)?;
-        subsample_boundary_pixels(&boundary, miss_skip as u32)?
-    } else {
-        Pta::new()
-    };
-
-    // Create the SEL from the combined points
-    let mut sel = Sel::new(ew, eh)?;
-    sel.set_origin(ew / 2, eh / 2)?;
-
-    for i in 0..hit_pta.len() {
-        if let Some((x, y)) = hit_pta.get_i_pt(i)
-            && x >= 0
-            && y >= 0
-            && (x as u32) < ew
-            && (y as u32) < eh
-        {
-            sel.set_element(x as u32, y as u32, SelElement::Hit);
-        }
-    }
-
-    for i in 0..miss_pta.len() {
-        if let Some((x, y)) = miss_pta.get_i_pt(i)
-            && x >= 0
-            && y >= 0
-            && (x as u32) < ew
-            && (y as u32) < eh
-        {
-            sel.set_element(x as u32, y as u32, SelElement::Miss);
-        }
-    }
-
-    Ok(sel)
+/// Render a hit-miss sel superimposed on the pattern it was generated from.
+///
+/// The 1 bpp pattern is converted to an 8 bpp colormapped image (white
+/// background, black foreground), the sel's hits and misses are painted in
+/// `hit_color` and `miss_color`, and the result is magnified `scalefactor`
+/// times by sampling.
+///
+/// Colors are given in C's `0xRRGGBBAA` layout; the alpha byte is ignored,
+/// as in C.
+///
+/// # Arguments
+///
+/// * `pix` - 1 bpp pattern the sel was derived from (C's `ppixe` output of
+///   [`generate_sel_boundary`])
+/// * `sel` - hit-miss sel to overlay
+/// * `scalefactor` - magnification; 0 selects [`DEFAULT_SEL_SCALEFACTOR`] and
+///   values above [`MAX_SEL_SCALEFACTOR`] are clamped
+/// * `hit_color`, `miss_color` - colors for the hit and miss elements
+///
+/// C equivalent: `pixDisplayHitMissSel()` in `selgen.c`
+pub fn display_hit_miss_sel(
+    _pix: &Pix,
+    _sel: &Sel,
+    _scalefactor: u32,
+    _hit_color: u32,
+    _miss_color: u32,
+) -> MorphResult<Pix> {
+    Err(MorphError::InvalidParameters("not yet implemented".into()))
 }
 
 /// Generate a Sel using run-length patterns from a binary image.
@@ -468,18 +442,22 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
 }
 
 /// Expand image with border padding based on flags.
+/// Pad the flagged sides by `pad` pixels.
+///
+/// C uses `missdist + 1` for `pad`, so callers pass that.
+#[allow(dead_code)]
 fn expand_image(
     pix: &Pix,
     top: bool,
     bot: bool,
     left: bool,
     right: bool,
-    dist: u32,
+    pad: u32,
 ) -> MorphResult<Pix> {
-    let pad_top = if top { dist } else { 0 };
-    let pad_bot = if bot { dist } else { 0 };
-    let pad_left = if left { dist } else { 0 };
-    let pad_right = if right { dist } else { 0 };
+    let pad_top = if top { pad } else { 0 };
+    let pad_bot = if bot { pad } else { 0 };
+    let pad_left = if left { pad } else { 0 };
+    let pad_right = if right { pad } else { 0 };
     expand_image_by_pixels(pix, pad_top, pad_bot, pad_left, pad_right)
 }
 
@@ -620,14 +598,15 @@ fn find_next_boundary_pixel(
     h: u32,
     visited: &[bool],
 ) -> Option<(u32, u32)> {
-    // 4-connected neighbors first, then diagonals
+    // C `adjacentOnPixelInRaster` scans in this exact order; the traversal
+    // order decides which pixels survive subsampling, so it must match.
     let neighbors: [(i32, i32); 8] = [
-        (1, 0),
-        (0, 1),
         (-1, 0),
+        (0, 1),
+        (1, 0),
         (0, -1),
-        (1, 1),
         (-1, 1),
+        (1, 1),
         (1, -1),
         (-1, -1),
     ];

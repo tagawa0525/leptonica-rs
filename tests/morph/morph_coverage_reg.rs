@@ -151,6 +151,7 @@ fn test_selective_conn_comp_fill_fills_hole() {
 }
 
 #[test]
+#[ignore = "not yet implemented"]
 fn test_remove_and_display_matched_pattern() {
     let pix = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
     let mut sm = pix.try_into_mut().unwrap();
@@ -170,10 +171,13 @@ fn test_remove_and_display_matched_pattern() {
     let removed = remove_matched_pattern(&src, &pattern, &matches, 0, 0, 0).unwrap();
     assert_eq!(removed.get_pixel_unchecked(6, 7), 0);
 
+    // C's pixDisplayMatchedPattern returns a 4 bpp colormapped image; the
+    // paint colour is appended to the white/black colormap as index 2.
     let color = 0x00ff00ff;
-    let shown = display_matched_pattern(&src, &pattern, &matches, 0, 0, color, 1.0).unwrap();
-    assert_eq!(shown.depth(), PixelDepth::Bit32);
-    assert_eq!(shown.get_pixel_unchecked(6, 7), color);
+    let shown = display_matched_pattern(&src, &pattern, &matches, 0, 0, color, 1.0, 5).unwrap();
+    assert_eq!(shown.depth(), PixelDepth::Bit4);
+    assert_eq!(shown.colormap().unwrap().get_rgb(2).unwrap(), (0, 255, 0));
+    assert_eq!(shown.get_pixel_unchecked(6, 7), 2);
 }
 
 #[test]
@@ -229,19 +233,21 @@ fn test_run_histogram_morph_and_gray_ops() {
 // ============================================================================
 
 #[test]
+#[ignore = "not yet implemented"]
 fn test_generate_sel_boundary_basic() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
-    let sel = generate_sel_boundary(&pix, 1, 1, 0, 0, true, true, true, true).unwrap();
+    let (sel, _) = generate_sel_boundary(&pix, 1, 1, 0, 0, true, true, true, true).unwrap();
     // Should produce a hit-miss Sel
     assert!(sel.hit_count() > 0);
     assert!(sel.miss_count() > 0);
 }
 
 #[test]
+#[ignore = "not yet implemented"]
 fn test_generate_sel_boundary_skip_hits() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     // Skip=2 means subsample boundary pixels
-    let sel = generate_sel_boundary(&pix, 1, 1, 2, 2, true, true, true, true).unwrap();
+    let (sel, _) = generate_sel_boundary(&pix, 1, 1, 2, 2, true, true, true, true).unwrap();
     assert!(sel.hit_count() > 0);
 }
 

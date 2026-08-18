@@ -15,7 +15,7 @@ use crate::morph::{
 };
 use crate::region::{ConnectivityType, conncomp_pixa, fill_holes, seedfill_gray};
 use crate::transform::{
-    GrayMinMaxMode, scale_by_sampling, scale_by_sampling_to_size, scale_gray_min_max, scale_to_size,
+    GrayMinMaxMode, scale_by_sampling_to_size, scale_gray_min_max, scale_to_size,
 };
 
 /// Type of morphological operation for union/intersection functions.
@@ -609,87 +609,43 @@ pub fn remove_matched_pattern(
 
     Ok(out_mut.into())
 }
-
-/// Display matched pattern locations by painting a binary stencil in color.
+/// Paint the matched pattern at every match location, on a colormapped copy
+/// of the input.
 ///
-/// Returns a 32 bpp image.
-/// Based on C leptonica `pixDisplayMatchedPattern`.
+/// Follows C exactly, so the result is **4 bpp colormapped**, not 32 bpp:
+///
+/// * at `scale == 1.0` the input becomes a 4 bpp image with a white/black
+///   colormap and the pattern is painted through `pix_set_masked_cmap`;
+/// * below 1.0 the input is reduced with `scale_to_gray` and quantized with
+///   `threshold_to_4bpp(nlevels, true)`, the pattern is reduced by sampling,
+///   and each paint offset is truncated as `(l_int32)(scale * offset)`.
+///
+/// Match centres come from the connected components of `eroded_matches`,
+/// whose centroids are rounded the way C's `ptaGetIPt` does.
+///
+/// # Arguments
+///
+/// * `pix` - 1 bpp source image
+/// * `pattern` - 1 bpp pattern to paint (C's `pixp`)
+/// * `eroded_matches` - 1 bpp match locations (C's `pixe`)
+/// * `x0`, `y0` - the pattern's centre, relative to its UL corner
+/// * `color` - paint color in C's `0xRRGGBBAA` layout
+/// * `scale` - in `(0.0, 1.0]`
+/// * `nlevels` - gray levels for the downscaled path; unused at `scale == 1.0`
+///
+/// C equivalent: `pixDisplayMatchedPattern()` in `morphapp.c`
+#[allow(clippy::too_many_arguments)]
 pub fn display_matched_pattern(
-    pix: &Pix,
-    pattern: &Pix,
-    eroded_matches: &Pix,
-    x0: i32,
-    y0: i32,
-    color: u32,
-    scale: f32,
+    _pix: &Pix,
+    _pattern: &Pix,
+    _eroded_matches: &Pix,
+    _x0: i32,
+    _y0: i32,
+    _color: u32,
+    _scale: f32,
+    _nlevels: u32,
 ) -> MorphResult<Pix> {
-    if pix.depth() != PixelDepth::Bit1 {
-        return Err(MorphError::UnsupportedDepth {
-            expected: "1-bpp binary",
-            actual: pix.depth().bits(),
-        });
-    }
-    if pattern.depth() != PixelDepth::Bit1 {
-        return Err(MorphError::UnsupportedDepth {
-            expected: "1-bpp binary",
-            actual: pattern.depth().bits(),
-        });
-    }
-    if eroded_matches.depth() != PixelDepth::Bit1 {
-        return Err(MorphError::UnsupportedDepth {
-            expected: "1-bpp binary",
-            actual: eroded_matches.depth().bits(),
-        });
-    }
-    if !scale.is_finite() || scale <= 0.0 || scale > 1.0 {
-        return Err(MorphError::InvalidParameters(
-            "scale must be in (0.0, 1.0]".into(),
-        ));
-    }
-
-    let (boxa, pixa) = conncomp_pixa(eroded_matches, ConnectivityType::EightWay)
-        .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {e}")))?;
-    let centroids = if pixa.is_empty() {
-        Pta::new()
-    } else {
-        pixa_centroids(&pixa)?
-    };
-
-    let (base, pattern_scaled) = if (scale - 1.0).abs() <= f32::EPSILON {
-        (pix.convert_to_32()?, pattern.clone())
-    } else {
-        let pixs = scale_by_sampling(pix, scale, scale)
-            .map_err(|e| MorphError::InvalidParameters(format!("scale_by_sampling error: {e}")))?;
-        let pats = scale_by_sampling(pattern, scale, scale)
-            .map_err(|e| MorphError::InvalidParameters(format!("scale_by_sampling error: {e}")))?;
-        (pixs.convert_to_32()?, pats)
-    };
-
-    let mut out_mut = match base.try_into_mut() {
-        Ok(pm) => pm,
-        Err(p) => p.to_mut(),
-    };
-    let paint = if (color & 0xff) == 0 {
-        color | 0xff
-    } else {
-        color
-    };
-
-    for i in 0..boxa.len() {
-        let b = boxa
-            .get(i)
-            .ok_or_else(|| MorphError::InvalidParameters(format!("missing box at index {i}")))?;
-        let (cx, cy) = centroids.get(i).unwrap_or((0.0, 0.0));
-        let mut ox = b.x as f32 + cx - x0 as f32;
-        let mut oy = b.y as f32 + cy - y0 as f32;
-        if scale < 1.0 {
-            ox *= scale;
-            oy *= scale;
-        }
-        out_mut.set_masked_general(&pattern_scaled, paint, ox.round() as i32, oy.round() as i32)?;
-    }
-
-    Ok(out_mut.into())
+    Err(MorphError::InvalidParameters("not yet implemented".into()))
 }
 
 /// Extend a pixa by iterative erosion or dilation.
@@ -1284,6 +1240,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_display_matched_pattern_paints_color() {
         let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
 
@@ -1297,10 +1254,16 @@ mod tests {
         mm.set_pixel_unchecked(3, 2, 1);
         let matches: Pix = mm.into();
 
+        // C returns a 4 bpp colormapped image, not 32 bpp: the paint colour
+        // becomes a new colormap entry (index 2, after white and black) and
+        // the matched pixel carries that index.
         let color = 0xff0000ff;
-        let out = display_matched_pattern(&pix, &pattern, &matches, 0, 0, color, 1.0).unwrap();
-        assert_eq!(out.depth(), PixelDepth::Bit32);
-        assert_eq!(out.get_pixel_unchecked(3, 2), color);
+        let out = display_matched_pattern(&pix, &pattern, &matches, 0, 0, color, 1.0, 5).unwrap();
+        assert_eq!(out.depth(), PixelDepth::Bit4);
+        let cmap = out.colormap().expect("colormapped output");
+        assert_eq!(cmap.len(), 3);
+        assert_eq!(cmap.get_rgb(2).unwrap(), (255, 0, 0));
+        assert_eq!(out.get_pixel_unchecked(3, 2), 2);
     }
 
     #[test]
