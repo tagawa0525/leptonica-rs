@@ -792,7 +792,36 @@ hit/miss 数) を dump して段階的に突き合わせた。
   1 件も出ない無意味なテストだったため削除した。同じ C プログラムは
   `findpattern1_c_compat` が厳密に覆う
 
-### PR 30 以降: semantic マッピングの漸進追加
+### PR 30: newspaper のセグメンテーション連鎖 (実施済み)
+
+C 版ソース: `src/morphseq.c` (morphSequence の 'c')、`src/pix3.c`
+(pixSubtract)、`src/pixafunc2.c` (pixaDisplayRandomCmap)、
+`prog/newspaper_reg.c`。
+
+`newspaper_reg` は可逆な `scots-frag.tif` だけを入力とし、13 出力のうち
+check 0 (C が JPEG で書く) を除く 12 件が bit 一致比較できる。
+
+実施結果:
+
+- 実装差 52 件目: `morph_sequence` の `'c'` が `close_brick` を呼んで
+  いた。C `morphSequence` は `pixCloseSafeBrick` を、DWA 版
+  `morphSequenceDwa` は `pixCloseSafeCompBrick` を使う。境界を安全に
+  扱うためのボーダー付加の有無で結果が変わり、`"c50.1 + c1.10"` の
+  出力がずれていた
+- 実装差 53 件目: `Pix::diff` (subtract / abs_diff) が寸法一致を要求して
+  いた。C `pixSubtract` / `pixXor` は寸法差を**警告するだけ**で、UL 角で
+  揃えた交差領域に `pixRasterop` を適用する。結果は `pixs1` の寸法を保ち、
+  重なりの外側は `pixs1` のまま。newspaper では 1450x1600 から
+  1448x1600 を引くため、この差でエラーになっていた
+- C `pixaDisplayRandomCmap` 相当の `Pixa::display_random_cmap` を新規移植
+- newspaper の C check 1-9 と 11 を **10 ペアマップ — 全件 Ok**
+  (Ok 258 → 268、recog binary の Ok が 39 → 49)
+- **check 10 と 12 は Excluded**: `pixcmapCreateRandom` の乱数色が
+  colormap 展開 (スケーリング時の `pixConvertTo8Or32`) で画素値に入る
+  ため原理的に比較不能。check 11 は cmapped のまま出力されるので、
+  pixel hash が colormap を含まない本方式では比較できる
+
+### PR 31 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
