@@ -1352,13 +1352,27 @@ fn rotate_2_shear(src: &Pix, dst: &mut PixMut, angle: f32, xcen: i32, ycen: i32,
 
 /// Rotate an image by area-map about the upper-left corner (dispatcher)
 ///
-/// Dispatches to `rotate_am_color_corner` for 32bpp, `rotate_am_gray_corner`
-/// for 8bpp, and clones for other depths.
+/// Follows C `pixRotateAMCorner`: any colormap is removed first and a depth
+/// below 8 bpp is unpacked to 8 bpp, so a 1, 2 or 4 bpp input comes back as
+/// an 8 bpp rotation rather than a copy. The result is then produced by
+/// [`rotate_am_gray_corner`] at 8 bpp or [`rotate_am_color_corner`] at
+/// 32 bpp.
+///
+/// An angle below the rotation threshold returns a clone unchanged.
 ///
 /// # Arguments
-/// * `pix` - Input image (8bpp or 32bpp)
+/// * `pix` - Input image; any depth that can be reduced to 8 or 32 bpp
 /// * `angle` - Rotation angle in radians (positive = clockwise)
 /// * `fill` - Background fill color
+///
+/// # Errors
+///
+/// Returns [`TransformError::UnsupportedDepth`] if, after colormap removal
+/// and the 8 bpp promotion, the depth is neither 8 nor 32 bpp (e.g. 16 bpp).
+///
+/// # See also
+///
+/// C Leptonica: `pixRotateAMCorner()` in `rotateam.c`
 pub fn rotate_am_corner(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
     if angle.abs() < MIN_ANGLE_TO_ROTATE {
         return Ok(pix.deep_clone());
