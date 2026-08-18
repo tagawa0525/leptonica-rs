@@ -183,6 +183,17 @@ pub fn display_hit_miss_sel(
     miss_color: u32,
 ) -> MorphResult<Pix> {
     check_binary(pix)?;
+    // The sel is normally the one generated from `pix`, so the two match;
+    // guard against a mismatched pair rather than indexing out of bounds.
+    if sel.width() > pix.width() || sel.height() > pix.height() {
+        return Err(MorphError::InvalidParameters(format!(
+            "sel {}x{} does not fit in pix {}x{}",
+            sel.width(),
+            sel.height(),
+            pix.width(),
+            pix.height()
+        )));
+    }
 
     let scalefactor = match scalefactor {
         0 => DEFAULT_SEL_SCALEFACTOR,

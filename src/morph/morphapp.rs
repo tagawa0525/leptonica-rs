@@ -623,6 +623,10 @@ pub fn remove_matched_pattern(
 /// Match centres come from the connected components of `eroded_matches`,
 /// whose centroids are rounded the way C's `ptaGetIPt` does.
 ///
+/// With no matches at all this returns an error, because C returns `NULL`
+/// there. (C's `pixRemoveMatchedPattern` reports *success* in the same
+/// situation; the asymmetry is C's own and is preserved.)
+///
 /// # Arguments
 ///
 /// * `pix` - 1 bpp source image
@@ -662,8 +666,13 @@ pub fn display_matched_pattern(
 
     let (boxa, pixa) = conncomp_pixa(eroded_matches, ConnectivityType::EightWay)
         .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {e}")))?;
+    // C warns and returns NULL here (`return 0;` from a PIX*-returning
+    // function), unlike pixRemoveMatchedPattern which reports success on the
+    // same condition. The asymmetry is C's, so it is preserved.
     if boxa.is_empty() {
-        return Err(MorphError::InvalidParameters("no matched patterns".into()));
+        return Err(MorphError::InvalidParameters(
+            "no matched patterns (C returns NULL in this case)".into(),
+        ));
     }
     let centroids = pixa_centroids(&pixa)?;
 

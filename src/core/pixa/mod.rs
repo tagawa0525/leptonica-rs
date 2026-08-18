@@ -1084,6 +1084,11 @@ impl Pixa {
         if ncols == 0 {
             return Err(Error::InvalidParameter("ncols must be > 0".to_string()));
         }
+        if tile_width == 0 {
+            return Err(Error::InvalidParameter(
+                "tile_width must be > 0".to_string(),
+            ));
+        }
         // C: `if (border < 0 || border > tilewidth / 5) border = 0;`
         let border = if border > tile_width / 5 { 0 } else { border };
         let bordval = if outdepth == PixelDepth::Bit1 { 1 } else { 0 };
