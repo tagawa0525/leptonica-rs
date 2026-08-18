@@ -390,7 +390,9 @@ fn bilinear_c_compat() {
             Point::new(XP4[i] as f32, YP4[i] as f32),
         ];
 
-        // Argument order mirrors C's pixBilinearSampledPta(pixs, ptad, ptas).
+        // C's pixBilinearSampledPta(pixs, ptad, ptas) builds the backward map
+        // from ptad to ptas; the Rust API takes (src_pts, dst_pts) and forms
+        // that map internally, so the two ptas are passed the other way round.
         let pix1 = bilinear_sampled_pta(&pixb, ptas, ptad, AffineFill::White)
             .expect("bilinear sampled fwd");
         rp.write_pix_and_check(&pix1, ImageFormat::Png)
