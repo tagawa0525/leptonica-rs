@@ -881,7 +881,36 @@ scaleToGray16Low / makeValTabSG*)、`prog/scale_reg.c`。
 - scale の PNG 出力 16 件をマップ — **全件 Ok** (Ok 278 → 294、
   transform binary の Ok が 29 → 45)
 
-### PR 33 以降: semantic マッピングの漸進追加
+### PR 33: affine の可逆性ブロック (実施済み)
+
+C 版ソース: `src/affine.c` (pixAffineSequential / pixAffineSampledPta /
+affineXformSampledPt)、`src/pix3.c` (pixAnd / pixOr / pixXor)、
+`prog/affine_reg.c`。
+
+`affine_reg` の check 0-19 (sequential と sampled の可逆性ブロック) は
+`feyn.tif` のみを入力とし、C も PNG で書くため bit 一致比較ができる。
+C 側に中間出力と変換係数を書き出して段階的に突き合わせた。
+
+実施結果:
+
+- 実装差 59 件目: `affine_sequential` の内部スケーリングが
+  `ScaleMethod::Linear` 固定だった。C は `pixScale` (汎用ディスパッチ) を
+  呼ぶため、1bpp 入力では `pixScaleBinary` に流れる
+- 実装差 60 件目: `affineXformSampledPt` 相当の丸めが floor だった。C は
+  `(l_int32)(vc[0]*x + vc[1]*y + vc[2] + 0.5)` すなわち **0 方向への
+  切り捨て**で、負の結果で 1 ずれ、ソース範囲外判定が変わる
+- 実装差 61 件目: `Pix::and` / `or` / `xor` が寸法一致を要求していた。C の
+  `pixAnd` / `pixOr` / `pixXor` は寸法差を警告するだけで、UL 角を揃えた
+  交差領域に rasterop を適用する (**PR 30 で `pixSubtract` に入れたのと
+  同じ規約**)。1bpp / 8bpp / 32bpp / その他深度の全経路に適用した
+- affine の C check 0-19 を 20 ペアマップ — **全件 Ok** (Ok 294 → 314、
+  transform binary の Ok が 45 → 65)
+
+**知見**: 変換係数までは一致していたのに出力が違う場合、疑うべきは
+(a) 丸め規約、(b) 内部で呼ぶ下位関数のディスパッチ、の 2 点。今回は
+両方だった。C の係数を dump して先に一致を確認しておくと切り分けが速い。
+
+### PR 34 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

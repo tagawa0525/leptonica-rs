@@ -330,12 +330,22 @@ impl AffineMatrix {
     /// Transform a point with integer rounding (for sampled transforms)
     ///
     /// Returns the nearest integer coordinates after transformation.
+    /// Transform a point and quantize it the way C's `affineXformSampledPt`
+    /// does: add 0.5 and **cast**, i.e. truncate toward zero.
+    ///
+    /// This is not a true nearest-integer round — a result of -0.7 becomes 0,
+    /// not -1 — and the difference decides whether a sampled source pixel is
+    /// treated as out of range.
     pub fn transform_point_sampled(&self, x: i32, y: i32) -> (i32, i32) {
         let [a, b, tx, c, d, ty] = self.coeffs;
         let xf = x as f32;
         let yf = y as f32;
-        let xp = (a * xf + b * yf + tx + 0.5).floor() as i32;
-        let yp = (c * xf + d * yf + ty + 0.5).floor() as i32;
+        // C affineXformSampledPt: `(l_int32)(vc[0] * x + vc[1] * y + vc[2] + 0.5)`
+        // — a cast, i.e. truncation toward zero, not a floor. The two differ
+        // for negative results (-0.7 truncates to 0 but floors to -1), which
+        // decides whether an out-of-range source pixel is skipped.
+        let xp = (a * xf + b * yf + tx + 0.5) as i32;
+        let yp = (c * xf + d * yf + ty + 0.5) as i32;
         (xp, yp)
     }
 
@@ -1216,7 +1226,9 @@ pub fn affine_sequential(
     // Scale to match the dest axes' magnitudes.
     let scalex = (x2sp - x1p) / (x2s - x1);
     let scaley = (y3p - y1p) / (y3 - y1);
-    let pix2 = scale(&pix1, scalex, scaley, super::scale::ScaleMethod::Linear)?;
+    // C calls pixScale, i.e. the general dispatcher — for 1 bpp that routes to
+    // pixScaleBinary rather than any interpolating path.
+    let pix2 = scale(&pix1, scalex, scaley, super::scale::ScaleMethod::Auto)?;
 
     // Translate so that the scaled src origin lands on dest origin (1').
     let x1sc = (scalex * x1 + 0.5) as i32;

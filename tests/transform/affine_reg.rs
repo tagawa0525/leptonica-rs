@@ -400,3 +400,118 @@ fn affine_reg_sequential_invertability() {
 fn affine_reg_boxa_transform() {
     // C: Tests affine transforms and inverses on pix and boxa
 }
+
+/// C-compat: `prog/affine_reg.c` checks 0-19.
+///
+/// The sequential and sampled invertibility blocks. Both read only
+/// `feyn.tif`, and C writes their outputs as PNG, so they are bit-exactly
+/// comparable. (The later gray/color blocks are JPEG.)
+#[test]
+fn affine_c_compat() {
+    use leptonica::Pta;
+    use leptonica::core::Pixa;
+    use leptonica::transform::{affine_sequential, scale_to_gray};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    const ADDED_BORDER_PIXELS: u32 = 1000;
+
+    let mut rp = RegParams::new("affine_c");
+
+    let pix = load_test_image("feyn.tif").expect("load feyn.tif");
+    let pixs = scale(&pix, 0.22, 0.22, ScaleMethod::Auto).expect("scale 0.22");
+
+    let ptas_of = |i: usize| -> Pta {
+        let mut p = Pta::new();
+        p.push(X1[i] as f32, Y1[i] as f32);
+        p.push(X2[i] as f32, Y2[i] as f32);
+        p.push(X3[i] as f32, Y3[i] as f32);
+        p
+    };
+    let ptad_of = |i: usize| -> Pta {
+        let mut p = Pta::new();
+        p.push(XP1[i] as f32, YP1[i] as f32);
+        p.push(XP2[i] as f32, YP2[i] as f32);
+        p.push(XP3[i] as f32, YP3[i] as f32);
+        p
+    };
+    let pts = |p: &Pta| -> [Point; 3] {
+        let g = |k: usize| {
+            let (x, y) = p.get(k).expect("pta point");
+            Point { x, y }
+        };
+        [g(0), g(1), g(2)]
+    };
+
+    // C 0-9: invertibility of pixAffineSequential.
+    let mut pixa = Pixa::new();
+    for i in 0..3usize {
+        let pixb = pixs.add_border(ADDED_BORDER_PIXELS, 0).expect("add border");
+        let (ptas, ptad) = (ptas_of(i), ptad_of(i));
+        let pix1 = affine_sequential(&pixb, &ptad, &ptas, 0, 0).expect("affine sequential fwd");
+        rp.write_pix_and_check(&pix1, ImageFormat::Png)
+            .expect("check: sequential forward");
+        pixa.push(pix1.clone());
+        let pix2 = affine_sequential(&pix1, &ptas, &ptad, 0, 0).expect("affine sequential inv");
+        rp.write_pix_and_check(&pix2, ImageFormat::Png)
+            .expect("check: sequential inverse");
+        pixa.push(pix2.clone());
+        let pixd = pix2
+            .remove_border(ADDED_BORDER_PIXELS)
+            .expect("remove border")
+            .xor(&pixs)
+            .expect("xor with source");
+        rp.write_pix_and_check(&pixd, ImageFormat::Png)
+            .expect("check: sequential residual");
+        pixa.push(pixd);
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(3, 1.0, 20, 3)
+        .expect("tile sequential");
+    rp.write_pix_and_check(
+        &scale_to_gray(&tiled, 0.2).expect("to gray"),
+        ImageFormat::Png,
+    )
+    .expect("check: sequential summary");
+
+    // C 10-19: invertibility of pixAffineSampledPta.
+    let mut pixa = Pixa::new();
+    for i in 0..3usize {
+        let pixb = pixs.add_border(ADDED_BORDER_PIXELS, 0).expect("add border");
+        let (ptas, ptad) = (ptas_of(i), ptad_of(i));
+        // C's pixAffineSampledPta(pixs, ptad, ptas) builds the backward map
+        // from ptad to ptas; the Rust API takes (src_pts, dst_pts) and forms
+        // the same backward map internally, so the arguments are ordered the
+        // other way round here.
+        let pix1 = affine_sampled_pta(&pixb, pts(&ptas), pts(&ptad), AffineFill::White)
+            .expect("affine sampled fwd");
+        rp.write_pix_and_check(&pix1, ImageFormat::Png)
+            .expect("check: sampled forward");
+        pixa.push(pix1.clone());
+        let pix2 = affine_sampled_pta(&pix1, pts(&ptad), pts(&ptas), AffineFill::White)
+            .expect("affine sampled inv");
+        rp.write_pix_and_check(&pix2, ImageFormat::Png)
+            .expect("check: sampled inverse");
+        pixa.push(pix2.clone());
+        let pixd = pix2
+            .remove_border(ADDED_BORDER_PIXELS)
+            .expect("remove border")
+            .xor(&pixs)
+            .expect("xor with source");
+        rp.write_pix_and_check(&pixd, ImageFormat::Png)
+            .expect("check: sampled residual");
+        pixa.push(pixd);
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(3, 1.0, 20, 3)
+        .expect("tile sampled");
+    rp.write_pix_and_check(
+        &scale_to_gray(&tiled, 0.2).expect("to gray"),
+        ImageFormat::Png,
+    )
+    .expect("check: sampled summary");
+
+    assert!(rp.cleanup(), "affine C-compat test failed");
+}

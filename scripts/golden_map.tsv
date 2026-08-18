@@ -449,3 +449,23 @@ transform	scale	28	scale_c	13	weasel4.16c scale 1.72
 transform	scale	29	scale_c	14	weasel4.16c scale 0.85
 transform	scale	30	scale_c	15	weasel4.16c scale 0.65
 transform	scale	35	scale_c	16	graytext scale_to_size(0, 32)
+transform	affine	0	affine_c	1	affine_sequential forward (pts 0)
+transform	affine	1	affine_c	2	affine_sequential inverse (pts 0)
+transform	affine	2	affine_c	3	affine_sequential residual (pts 0)
+transform	affine	3	affine_c	4	affine_sequential forward (pts 1)
+transform	affine	4	affine_c	5	affine_sequential inverse (pts 1)
+transform	affine	5	affine_c	6	affine_sequential residual (pts 1)
+transform	affine	6	affine_c	7	affine_sequential forward (pts 2)
+transform	affine	7	affine_c	8	affine_sequential inverse (pts 2)
+transform	affine	8	affine_c	9	affine_sequential residual (pts 2)
+transform	affine	9	affine_c	10	affine_sequential summary
+transform	affine	10	affine_c	11	affine_sampled forward (pts 0)
+transform	affine	11	affine_c	12	affine_sampled inverse (pts 0)
+transform	affine	12	affine_c	13	affine_sampled residual (pts 0)
+transform	affine	13	affine_c	14	affine_sampled forward (pts 1)
+transform	affine	14	affine_c	15	affine_sampled inverse (pts 1)
+transform	affine	15	affine_c	16	affine_sampled residual (pts 1)
+transform	affine	16	affine_c	17	affine_sampled forward (pts 2)
+transform	affine	17	affine_c	18	affine_sampled inverse (pts 2)
+transform	affine	18	affine_c	19	affine_sampled residual (pts 2)
+transform	affine	19	affine_c	20	affine_sampled summary
