@@ -423,3 +423,13 @@ recog	newspaper	7	newspaper_c	7	vertical gutters
 recog	newspaper	8	newspaper_c	8	gutter mask
 recog	newspaper	9	newspaper_c	9	solidified text
 recog	newspaper	11	newspaper_c	11	background white
+core	overlap	0	overlap_c	1	percolation display maxsize 5
+core	overlap	1	overlap_c	2	percolation display maxsize 10
+core	overlap	2	overlap_c	3	percolation display maxsize 15
+core	overlap	3	overlap_c	4	percolation display maxsize 20
+core	overlap	4	overlap_c	5	percolation display maxsize 25
+core	overlap	5	overlap_c	6	percolation display maxsize 26
+core	overlap	6	overlap_c	7	percolation display maxsize 27
+core	overlap	8	overlap_c	9	combine_overlaps debug frames
+core	overlap	11	overlap_c	12	combine_overlaps_in_pair debug frames
+core	overlap	12	overlap_c	13	overlap/separation distance table

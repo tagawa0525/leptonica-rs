@@ -299,50 +299,132 @@ impl Boxa {
     pub fn intersects_box_count(&self, target: &Box) -> usize {
         self.iter().filter(|b| b.overlaps(target)).count()
     }
-
-    /// Combine overlapping boxes between two Boxa arrays.
+    /// Combine overlapping boxes within and between two box arrays.
     ///
-    /// Iteratively merges overlapping boxes across the two arrays.
-    /// Returns the two resulting Boxa arrays after merging.
+    /// Follows C exactly: the array with the larger total area gets first
+    /// crack, each pass first combines overlaps inside each array and then
+    /// lets the larger box of an overlapping cross-array pair absorb the
+    /// smaller one, and the loop stops when neither count changes.
     ///
-    /// C Leptonica equivalent: `boxaCombineOverlapsInPair`
-    pub fn combine_overlaps_in_pair(boxa1: &Boxa, boxa2: &Boxa) -> (Boxa, Boxa) {
-        let mut boxes1: Vec<Box> = boxa1.iter().copied().collect();
-        let mut boxes2: Vec<Box> = boxa2.iter().copied().collect();
+    /// `pixadb` optionally receives C's debug frames: the first array in red
+    /// and the second in green, once before each pass and once after it.
+    ///
+    /// # Return order
+    ///
+    /// The returned pair follows the **processing** order, not the argument
+    /// order: when `boxa2` has the larger total area it is processed first
+    /// and comes back as the first element. This mirrors C, which assigns
+    /// `*pboxad1 = boxac1` after having swapped the inputs, so a caller that
+    /// needs positional correspondence must compare the total areas itself.
+    ///
+    /// C Leptonica equivalent: `boxaCombineOverlapsInPair()`
+    pub fn combine_overlaps_in_pair_debug(
+        boxa1: &Boxa,
+        boxa2: &Boxa,
+        mut pixadb: Option<&mut crate::core::Pixa>,
+    ) -> (Boxa, Boxa) {
+        let (dbw, dbh) = if pixadb.is_some() {
+            let e1 = boxa1.get_extent().map(|(w, h, _)| (w, h)).unwrap_or((0, 0));
+            let e2 = boxa2.get_extent().map(|(w, h, _)| (w, h)).unwrap_or((0, 0));
+            // C: `h = L_MAX(h, w2)` — comparing the height against the second
+            // array's *width*. Reproduced so the canvas matches.
+            (
+                e1.0.max(e2.0).max(0) as u32 + 5,
+                e1.1.max(e2.0).max(0) as u32 + 5,
+            )
+        } else {
+            (0, 0)
+        };
 
-        let mut changed = true;
-        while changed {
-            changed = false;
+        let area = |b: &Boxa| -> i64 { b.iter().map(|x| x.area()).sum() };
+        let (mut bc1, mut bc2) = if area(boxa1) >= area(boxa2) {
+            (boxa1.clone(), boxa2.clone())
+        } else {
+            (boxa2.clone(), boxa1.clone())
+        };
 
-            // Combine overlaps within each array
-            boxes1 = Boxa::from_iter(boxes1)
-                .combine_overlaps()
-                .into_iter()
-                .collect();
-            boxes2 = Boxa::from_iter(boxes2)
-                .combine_overlaps()
-                .into_iter()
-                .collect();
+        let draw = |bc1: &Boxa, bc2: &Boxa| -> crate::core::Pix {
+            let pix = crate::core::Pix::new(dbw, dbh, crate::core::PixelDepth::Bit32)
+                .expect("debug canvas");
+            let mut pm = pix.try_into_mut().expect("fresh pix");
+            pm.set_all();
+            let _ = pm.render_boxa_color(bc1, 2, crate::core::Color::new(255, 0, 0));
+            let _ = pm.render_boxa_color(bc2, 2, crate::core::Color::new(0, 255, 0));
+            pm.into()
+        };
 
-            // Merge across arrays
-            'outer: for i in 0..boxes1.len() {
-                for j in 0..boxes2.len() {
-                    if i < boxes1.len() && j < boxes2.len() && boxes1[i].overlaps(&boxes2[j]) {
-                        if boxes1[i].area() >= boxes2[j].area() {
-                            boxes1[i] = boxes1[i].union(&boxes2[j]);
-                            boxes2.remove(j);
-                        } else {
-                            boxes2[j] = boxes1[i].union(&boxes2[j]);
-                            boxes1.remove(i);
-                        }
-                        changed = true;
-                        break 'outer;
+        let mut n1i = bc1.len();
+        let mut n2i = bc2.len();
+        loop {
+            if let Some(pixa) = pixadb.as_deref_mut() {
+                pixa.push(draw(&bc1, &bc2));
+            }
+
+            let mut v1: Vec<Box> = bc1.combine_overlaps().into_iter().collect();
+            let mut v2: Vec<Box> = bc2.combine_overlaps().into_iter().collect();
+            let (n1, n2) = (v1.len(), v2.len());
+
+            // 1 eats 2
+            #[allow(clippy::needless_range_loop)]
+            for i in 0..n1 {
+                if !v1[i].is_valid() {
+                    continue;
+                }
+                let mut b1 = v1[i];
+                for j in 0..n2 {
+                    if !v2[j].is_valid() {
+                        continue;
+                    }
+                    if b1.overlaps(&v2[j]) && b1.area() > v2[j].area() {
+                        let b3 = b1.union(&v2[j]);
+                        v1[i] = b3;
+                        v2[j] = Box::new_unchecked(0, 0, 0, 0);
+                        b1 = b3;
                     }
                 }
             }
+            // 2 eats 1
+            #[allow(clippy::needless_range_loop)]
+            for i in 0..n2 {
+                if !v2[i].is_valid() {
+                    continue;
+                }
+                let mut b2 = v2[i];
+                for j in 0..n1 {
+                    if !v1[j].is_valid() {
+                        continue;
+                    }
+                    if v1[j].overlaps(&b2) && b2.area() > v1[j].area() {
+                        let b3 = v1[j].union(&b2);
+                        v2[i] = b3;
+                        v1[j] = Box::new_unchecked(0, 0, 0, 0);
+                        b2 = b3;
+                    }
+                }
+            }
+
+            bc1 = v1.into_iter().filter(|b| b.is_valid()).collect();
+            bc2 = v2.into_iter().filter(|b| b.is_valid()).collect();
+            if bc1.len() == n1i && bc2.len() == n2i {
+                break;
+            }
+            n1i = bc1.len();
+            n2i = bc2.len();
+
+            if let Some(pixa) = pixadb.as_deref_mut() {
+                pixa.push(draw(&bc1, &bc2));
+            }
         }
 
-        (boxes1.into_iter().collect(), boxes2.into_iter().collect())
+        (bc1, bc2)
+    }
+
+    /// Combine overlapping boxes within and between two box arrays.
+    ///
+    /// Convenience wrapper over [`Boxa::combine_overlaps_in_pair_debug`] with
+    /// no debug output. See that function for the return-order caveat.
+    pub fn combine_overlaps_in_pair(boxa1: &Boxa, boxa2: &Boxa) -> (Boxa, Boxa) {
+        Self::combine_overlaps_in_pair_debug(boxa1, boxa2, None)
     }
 
     /// Handle overlapping boxes with configurable thresholds.
@@ -851,6 +933,23 @@ mod tests {
 
     // -- Boxa::combine_overlaps_in_pair --
 
+    /// C swaps the inputs so the larger-area array is processed first and
+    /// returns them in that order, so the result is not positionally tied to
+    /// the arguments.
+    #[test]
+    fn test_combine_overlaps_in_pair_returns_larger_area_first() {
+        let mut small = Boxa::new();
+        small.push(Box::new(0, 0, 10, 10).unwrap());
+
+        let mut large = Boxa::new();
+        large.push(Box::new(500, 500, 90, 90).unwrap());
+
+        // Passing the small array first still returns the large one first.
+        let (r1, r2) = Boxa::combine_overlaps_in_pair(&small, &large);
+        assert_eq!(r1.get(0).unwrap().w, 90);
+        assert_eq!(r2.get(0).unwrap().w, 10);
+    }
+
     #[test]
     fn test_combine_overlaps_in_pair() {
         let mut boxa1 = Boxa::new();
@@ -859,8 +958,16 @@ mod tests {
         let mut boxa2 = Boxa::new();
         boxa2.push(Box::new(40, 40, 60, 60).unwrap());
 
+        // C only lets the *strictly larger* box absorb the other
+        // (boxCompareSize returns 0 for equal areas), so two overlapping
+        // boxes of identical size both survive.
         let (r1, r2) = Boxa::combine_overlaps_in_pair(&boxa1, &boxa2);
-        // After merging, one of the arrays should contain the union
+        assert_eq!(r1.len() + r2.len(), 2);
+
+        // Make one strictly larger and it absorbs the other.
+        let mut boxa3 = Boxa::new();
+        boxa3.push(Box::new(0, 0, 80, 80).unwrap());
+        let (r1, r2) = Boxa::combine_overlaps_in_pair(&boxa3, &boxa2);
         assert_eq!(r1.len() + r2.len(), 1);
     }
 

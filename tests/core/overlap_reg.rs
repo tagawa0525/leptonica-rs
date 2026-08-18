@@ -65,19 +65,22 @@ fn overlap_reg_contained_in() {
 fn overlap_reg_combine_in_pair() {
     let mut rp = RegParams::new("overlap_pair");
 
+    // C only lets the *strictly larger* box of an overlapping cross-array pair
+    // absorb the other, so the second array's boxes are made smaller here;
+    // with equal sizes nothing would merge across the arrays.
     let mut boxa1 = Boxa::new();
     for i in 0..4i32 {
         boxa1.push(Box::new(i * 30, i * 30, 40, 40).unwrap());
     }
     let mut boxa2 = Boxa::new();
     for i in 0..4i32 {
-        boxa2.push(Box::new(i * 30 + 15, i * 30 + 15, 40, 40).unwrap());
+        boxa2.push(Box::new(i * 30 + 15, i * 30 + 15, 20, 20).unwrap());
     }
 
     let (result1, result2) = Boxa::combine_overlaps_in_pair(&boxa1, &boxa2);
 
-    // Pairwise combination should merge more boxes than combining each Boxa independently,
-    // because it merges across the two input arrays as well as within each.
+    // Pairwise combination merges across the two arrays as well as within
+    // each, so it ends up with fewer boxes than combining them separately.
     let combined1 = boxa1.combine_overlaps();
     let combined2 = boxa2.combine_overlaps();
     let total_individual = combined1.len() + combined2.len();
@@ -215,4 +218,235 @@ fn smoothedge_reg_edge_profile() {
 fn texturefill_reg_fill() {
     // C: pixFindRepCloseTile(pixs, box1, L_VERT, 20, 30, 7, &box2, 1);
     //    pixTextureFillMap(pixa, boxa, ...);
+}
+
+/// Reproduces glibc's `rand()` (the TYPE_3 additive-feedback generator), so
+/// the test can build exactly the same pseudo-random boxes that C's
+/// `overlap_reg` does. Without this the inputs — and therefore every output —
+/// would differ.
+struct GlibcRand {
+    state: Vec<u32>,
+    idx: usize,
+}
+
+impl GlibcRand {
+    fn new(seed: u32) -> Self {
+        let mut r = vec![0u32; 344];
+        r[0] = seed;
+        for i in 1..31 {
+            // r[i] = (16807 * r[i-1]) % 2147483647, via Schrage's trick.
+            let prev = r[i - 1] as i64;
+            let hi = prev / 127_773;
+            let lo = prev % 127_773;
+            let mut word = 16_807 * lo - 2_836 * hi;
+            if word < 0 {
+                word += 2_147_483_647;
+            }
+            r[i] = word as u32;
+        }
+        for i in 31..34 {
+            r[i] = r[i - 31];
+        }
+        for i in 34..344 {
+            r[i] = r[i - 31].wrapping_add(r[i - 3]);
+        }
+        Self { state: r, idx: 344 }
+    }
+
+    fn next(&mut self) -> u32 {
+        let v = self.state[self.idx - 31].wrapping_add(self.state[self.idx - 3]);
+        self.state.push(v);
+        self.idx += 1;
+        v >> 1
+    }
+
+    /// C: `(l_int32)(scale * (l_float64)rand() / (l_float64)RAND_MAX)`
+    fn scaled(&mut self, scale: f64) -> i32 {
+        (scale * self.next() as f64 / 2_147_483_647.0) as i32
+    }
+}
+
+/// C's `boxaContainedInBoxa(boxa1, boxa2)`: despite the argument names it
+/// iterates **boxa2** and asks whether each of its boxes is contained in some
+/// box of boxa1.
+fn all_contained(boxa1: &Boxa, boxa2: &Boxa) -> bool {
+    boxa2.iter().filter(|b| b.is_valid()).all(|b2| {
+        boxa1.iter().filter(|b| b.is_valid()).any(|b1| {
+            b2.x >= b1.x && b2.y >= b1.y && b2.x + b2.w <= b1.x + b1.w && b2.y + b2.h <= b1.y + b1.h
+        })
+    })
+}
+
+/// C's `boxaCombineOverlapsAlt` from `prog/overlap_reg.c`: the same result by
+/// a less elegant route, used there only as a cross-check.
+fn combine_overlaps_alt(boxas: &Boxa) -> Boxa {
+    let mut boxa1: Vec<Box> = boxas.iter().copied().collect();
+    loop {
+        let n1 = boxa1.len();
+        let mut boxa2: Vec<Box> = Vec::with_capacity(n1);
+        for (i, &box1) in boxa1.iter().enumerate() {
+            if i == 0 {
+                boxa2.push(box1);
+                continue;
+            }
+            let mut found = false;
+            for slot in boxa2.iter_mut() {
+                if box1.overlaps(slot) {
+                    *slot = box1.union(slot);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                boxa2.push(box1);
+            }
+        }
+        let n2 = boxa2.len();
+        boxa1 = boxa2;
+        if n1 == n2 {
+            return boxa1.into_iter().collect();
+        }
+    }
+}
+
+/// C-compat: `prog/overlap_reg.c` checks 0-12.
+///
+/// The program has no image input at all — every box is generated from
+/// `srand(45617)` plus glibc's `rand()` — so reproducing that generator makes
+/// the whole thing deterministic and bit-exactly comparable against C.
+#[test]
+fn overlap_c_compat() {
+    use leptonica::core::Pixa;
+    use leptonica::core::pix::PixelOp;
+    use leptonica::io::ImageFormat;
+    use leptonica::{Pix, PixelDepth};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    const MAXSIZE: [f64; 7] = [5.0, 10.0, 15.0, 20.0, 25.0, 26.0, 27.0];
+
+    let mut rp = RegParams::new("overlap_c");
+
+    // C 0-6: percolation-style display at each maximum box size. C re-seeds
+    // at the top of every iteration, so the generator is left 2000 draws past
+    // the seed when the loop ends — the later blocks continue from there.
+    let mut rng = GlibcRand::new(45617);
+    for &maxsize in MAXSIZE.iter() {
+        rng = GlibcRand::new(45617);
+        let mut pixa1 = Pixa::new();
+        let mut boxa1 = Boxa::new();
+        for _ in 0..500 {
+            let x = rng.scaled(600.0);
+            let y = rng.scaled(600.0);
+            let w = 1 + rng.scaled(maxsize);
+            let h = 1 + rng.scaled(maxsize);
+            boxa1.push(Box::new(x, y, w, h).expect("box"));
+        }
+
+        let pix1 = Pix::new(660, 660, PixelDepth::Bit1).expect("canvas");
+        let mut pm = pix1.try_into_mut().unwrap();
+        pm.render_boxa(&boxa1, 2, PixelOp::Set)
+            .expect("render boxa");
+        pixa1.push(pm.into());
+
+        let boxa2 = boxa1.combine_overlaps();
+        let pix2 = Pix::new(660, 660, PixelDepth::Bit1).expect("canvas 2");
+        let mut pm = pix2.try_into_mut().unwrap();
+        pm.render_boxa(&boxa2, 2, PixelOp::Set)
+            .expect("render combined");
+        pixa1.push(pm.into());
+
+        let pix3 = pixa1
+            .display_tiled_in_rows(PixelDepth::Bit1, 1500, 1.0, 0, 50, 2)
+            .expect("tile rows");
+        rp.write_pix_and_check(&pix3, ImageFormat::Png)
+            .expect("check: percolation display");
+    }
+
+    // C 7-8: one case with the debug pixa from boxaCombineOverlaps.
+    let mut boxa1 = Boxa::new();
+    for _ in 0..80 {
+        let x = rng.scaled(600.0);
+        let y = rng.scaled(600.0);
+        let w = 10 + rng.scaled(48.0);
+        let h = 10 + rng.scaled(53.0);
+        boxa1.push(Box::new(x, y, w, h).expect("box"));
+    }
+    let mut pixadb = Pixa::new();
+    let boxa2 = boxa1.combine_overlaps_debug(Some(&mut pixadb));
+    // C 7: regTestCompareValues(rp, 1, boxaContainedInBoxa(boxa2, boxa1), 0)
+    rp.compare_values(
+        1.0,
+        if all_contained(&boxa2, &boxa1) {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+    let pix1 = pixadb
+        .display_tiled_in_rows(PixelDepth::Bit32, 1500, 1.0, 0, 50, 2)
+        .expect("tile debug rows");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: combine_overlaps debug");
+
+    // C 9-10: the alternative implementation agrees with the main one.
+    let boxa3 = combine_overlaps_alt(&boxa1);
+    rp.compare_values(
+        1.0,
+        if all_contained(&boxa3, &boxa2) {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+    rp.compare_values(
+        1.0,
+        if all_contained(&boxa2, &boxa3) {
+            1.0
+        } else {
+            0.0
+        },
+        0.0,
+    );
+
+    // C 11: two boxa greedily munching each other.
+    let mut boxa1 = Boxa::new();
+    let mut boxa2 = Boxa::new();
+    for i in 0..80 {
+        let x = rng.scaled(600.0);
+        let y = rng.scaled(600.0);
+        let w = 10 + rng.scaled(55.0);
+        let h = 10 + rng.scaled(55.0);
+        let b = Box::new(x, y, w, h).expect("box");
+        if i < 40 { boxa1.push(b) } else { boxa2.push(b) }
+    }
+    let mut pixadb = Pixa::new();
+    let (_, _) = Boxa::combine_overlaps_in_pair_debug(&boxa1, &boxa2, Some(&mut pixadb));
+    let pix1 = pixadb
+        .display_tiled_in_rows(PixelDepth::Bit32, 1500, 1.0, 0, 50, 2)
+        .expect("tile pair debug rows");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check: combine_overlaps_in_pair debug");
+
+    // C 12: overlap and separation distances for 9 unit boxes on a 3x3 grid.
+    let box1 = Box::new(0, 0, 1, 1).expect("unit box");
+    let mut out = String::new();
+    for i in 0..3 {
+        for j in 0..3 {
+            let box2 = Box::new(i, j, 1, 1).expect("probe box");
+            let (hovl, vovl) = box1.overlap_distance(&box2);
+            let (hsep, vsep) = box1.separation_distance(&box2);
+            out.push_str(&format!(
+                "({i},{j}): ovl = ({hovl},{vovl}); sep = ({hsep},{vsep})\n"
+            ));
+        }
+    }
+    rp.write_data_and_check(out.as_bytes(), "dat")
+        .expect("check: overlap/separation table");
+
+    assert!(rp.cleanup(), "overlap C-compat test failed");
 }

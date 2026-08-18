@@ -109,10 +109,15 @@ impl Box {
         self.w as i64 * self.h as i64
     }
 
-    /// Check if the box is valid (non-negative dimensions)
+    /// Check if the box is valid, i.e. has a positive extent in both
+    /// directions.
+    ///
+    /// C's `boxaGetValidBox` rejects `w <= 0 || h <= 0`, so a zero-area box
+    /// (the marker leptonica writes when it invalidates an entry) counts as
+    /// invalid here too.
     #[inline]
     pub fn is_valid(&self) -> bool {
-        self.w >= 0 && self.h >= 0
+        self.w > 0 && self.h > 0
     }
 
     /// Check if the box is empty (zero area)
@@ -508,38 +513,98 @@ impl Boxa {
             .collect()
     }
 
-    /// Combine overlapping boxes into their unions
+    /// Combine overlapping boxes into their bounding regions.
     ///
-    /// Iteratively merges any pair of overlapping boxes until no overlaps remain.
+    /// Follows C's iteration structure exactly: on each pass every box is
+    /// compared against the later ones, an overlapping partner is absorbed
+    /// into the growing bounding region and replaced by an invalid
+    /// `(0, 0, 0, 0)` box, and the invalid boxes are compacted away at the
+    /// end of the pass. The loop stops when a pass removes nothing.
     ///
-    /// C Leptonica equivalent: `boxaCombineOverlaps`
-    pub fn combine_overlaps(&self) -> Boxa {
+    /// `pixadb` optionally receives C's debug frames: before each pass the
+    /// current boxes are drawn in red on a white canvas, and after the pass
+    /// the surviving boxes are overdrawn in green on the same frame.
+    ///
+    /// C Leptonica equivalent: `boxaCombineOverlaps()`
+    pub fn combine_overlaps_debug(&self, mut pixadb: Option<&mut crate::core::Pixa>) -> Boxa {
         if self.boxes.is_empty() {
             return Boxa::new();
         }
 
-        let mut result: Vec<Box> = self.boxes.clone();
-        let mut changed = true;
+        // C: boxaGetExtent gives the canvas size for the debug frames.
+        let (dbw, dbh) = match (&pixadb, self.get_extent()) {
+            (Some(_), Some((w, h, _))) => (w.max(0) as u32 + 5, h.max(0) as u32 + 5),
+            _ => (0, 0),
+        };
 
-        while changed {
-            changed = false;
-            let mut i = 0;
-            while i < result.len() {
-                let mut j = i + 1;
-                while j < result.len() {
-                    if result[i].overlaps(&result[j]) {
-                        result[i] = result[i].union(&result[j]);
-                        result.remove(j);
-                        changed = true;
-                    } else {
-                        j += 1;
+        let mut boxa1: Vec<Box> = self.boxes.clone();
+        let mut n1 = boxa1.len();
+        loop {
+            // C: render the current boxes in red, add a *copy* to pixadb, and
+            // keep the frame so the post-pass result can be overdrawn on it.
+            let frame: Option<crate::core::Pix> = pixadb.as_ref().map(|_| {
+                let pix = crate::core::Pix::new(dbw, dbh, crate::core::PixelDepth::Bit32)
+                    .expect("debug canvas");
+                let mut pm = pix.try_into_mut().expect("fresh pix");
+                pm.set_all();
+                let _ = pm.render_boxa_color(
+                    &Boxa::from_iter(boxa1.iter().copied()),
+                    2,
+                    crate::core::Color::new(255, 0, 0),
+                );
+                pm.into()
+            });
+            if let (Some(pixa), Some(f)) = (pixadb.as_deref_mut(), frame.as_ref()) {
+                pixa.push(f.clone());
+            }
+
+            for i in 0..n1 {
+                if !boxa1[i].is_valid() {
+                    continue;
+                }
+                let mut box1 = boxa1[i];
+                for j in (i + 1)..n1 {
+                    if !boxa1[j].is_valid() {
+                        continue;
+                    }
+                    if box1.overlaps(&boxa1[j]) {
+                        let box3 = box1.union(&boxa1[j]);
+                        boxa1[i] = box3;
+                        boxa1[j] = Box::new_unchecked(0, 0, 0, 0);
+                        box1 = box3;
                     }
                 }
-                i += 1;
+            }
+
+            boxa1.retain(|b| b.is_valid());
+            let n2 = boxa1.len();
+            if n1 == n2 {
+                break;
+            }
+            n1 = n2;
+
+            if let (Some(pixa), Some(f)) = (pixadb.as_deref_mut(), frame) {
+                let mut pm = f.to_mut();
+                let _ = pm.render_boxa_color(
+                    &Boxa::from_iter(boxa1.iter().copied()),
+                    2,
+                    crate::core::Color::new(0, 255, 0),
+                );
+                pixa.push(pm.into());
             }
         }
 
-        Boxa { boxes: result }
+        Boxa::from_iter(boxa1)
+    }
+
+    /// Combine overlapping boxes into their unions.
+    ///
+    /// Convenience wrapper over [`Boxa::combine_overlaps_debug`] with no
+    /// debug output.
+    ///
+    /// C Leptonica equivalent: `boxaCombineOverlaps(boxas, NULL)`
+    pub fn combine_overlaps(&self) -> Boxa {
+        self.combine_overlaps_debug(None)
     }
 
     /// Select boxes by width and height
