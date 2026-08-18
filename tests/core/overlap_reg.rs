@@ -315,7 +315,6 @@ fn combine_overlaps_alt(boxas: &Boxa) -> Boxa {
 /// `srand(45617)` plus glibc's `rand()` — so reproducing that generator makes
 /// the whole thing deterministic and bit-exactly comparable against C.
 #[test]
-#[ignore = "not yet implemented"]
 fn overlap_c_compat() {
     use leptonica::core::Pixa;
     use leptonica::core::pix::PixelOp;
