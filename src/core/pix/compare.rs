@@ -393,18 +393,21 @@ impl Pix {
     /// A new image containing the difference. For `Subtract`, negative values
     /// are clipped to 0. For `AbsDiff`, the absolute value is taken.
     ///
+    /// For 1 bpp the two images are aligned at their upper-left corners and
+    /// the operation runs over their **intersection**, exactly as C's
+    /// `pixSubtract` / `pixXor` do; the result keeps `self`'s dimensions and
+    /// any area outside the overlap is copied from `self` unchanged. C only
+    /// warns about a size mismatch rather than failing.
+    ///
+    /// The 8 and 32 bpp paths have no direct counterpart in C's `pixSubtract`
+    /// (which is a 1 bpp rasterop). They compute over all of `self`, treating
+    /// out-of-range reads from `other` as 0, and the 32 bpp path rebuilds
+    /// each pixel with `compose_rgb`, so **alpha is not preserved**.
+    ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or incompatible depths.
+    /// Returns error if the images have incompatible depths.
     pub fn diff(&self, other: &Pix, compare_type: CompareType) -> Result<Pix> {
-        // Check dimensions
-        if self.width() != other.width() || self.height() != other.height() {
-            return Err(Error::DimensionMismatch {
-                expected: (self.width(), self.height()),
-                actual: (other.width(), other.height()),
-            });
-        }
-
         if self.depth() != other.depth() {
             return Err(Error::IncompatibleDepths(
                 self.depth().bits(),
@@ -438,27 +441,40 @@ impl Pix {
     fn diff_binary(&self, other: &Pix, compare_type: CompareType) -> Result<Pix> {
         let width = self.width();
         let height = self.height();
-        let wpl = self.wpl();
 
-        let result = Pix::new(width, height, PixelDepth::Bit1)?;
+        // The result starts as a copy of self; only the overlap is combined,
+        // which is what C's pixRasterop over the intersection amounts to.
+        let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
 
-        for y in 0..height {
+        let overlap_h = height.min(other.height());
+        let overlap_wpl = (self.wpl() as usize).min(other.wpl() as usize);
+        // The last shared word may extend past the narrower image; mask it so
+        // the bits beyond that width keep self's content.
+        let ow = width.min(other.width());
+        for y in 0..overlap_h {
+            // `result_mut` is a separate Pix (a deep clone of self), so the
+            // immutable borrows of self/other coexist with the mutable one.
             let line1 = self.row_data(y);
             let line2 = other.row_data(y);
             let line_out = result_mut.row_data_mut(y);
 
-            for w in 0..wpl as usize {
-                match compare_type {
-                    CompareType::Subtract => {
-                        // self - other: pixels in self but not in other
-                        line_out[w] = line1[w] & !line2[w];
-                    }
-                    CompareType::AbsDiff => {
-                        // |self - other|: XOR (symmetric difference)
-                        line_out[w] = line1[w] ^ line2[w];
-                    }
+            for w in 0..overlap_wpl {
+                let bits_before = (w as u32) * 32;
+                if bits_before >= ow {
+                    break;
                 }
+                let valid = (ow - bits_before).min(32);
+                let mask = if valid == 32 {
+                    u32::MAX
+                } else {
+                    !0u32 << (32 - valid)
+                };
+                let combined = match compare_type {
+                    CompareType::Subtract => line1[w] & !line2[w],
+                    CompareType::AbsDiff => line1[w] ^ line2[w],
+                };
+                line_out[w] = (combined & mask) | (line1[w] & !mask);
             }
         }
 

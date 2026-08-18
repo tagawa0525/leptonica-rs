@@ -255,3 +255,102 @@ fn newspaper_reg_full_pipeline() {
 
     assert!(rp.cleanup(), "newspaper full_pipeline test failed");
 }
+
+/// C-compat: `prog/newspaper_reg.c` checks 1-12.
+///
+/// The whole program runs off the lossless `scots-frag.tif`, so every output
+/// except check 0 (which C writes as JPEG) is bit-exactly comparable.
+#[test]
+fn newspaper_c_compat() {
+    use leptonica::Pix;
+    use leptonica::morph::seedfill_morph;
+    use leptonica::transform::{
+        ScaleMethod, expand_binary_power2, reduce_rank_binary_2, reduce_rank_binary_cascade, scale,
+    };
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("newspaper_c");
+    let half = |p: &Pix| scale(p, 0.5, 0.5, ScaleMethod::Auto).expect("scale 0.5");
+
+    let pixs = crate::common::load_test_image("scots-frag.tif").expect("load scots-frag.tif");
+
+    // C 0 is a JPEG of pixScaleToGray4; skipped here (see the exclude rule).
+    // Rank reduce 2x.
+    let pix1 = reduce_rank_binary_2(&pixs, 2).expect("rank reduce 2");
+
+    // C 1: open out the vertical lines.
+    let pix2 = morph_sequence(&pix1, "o1.50").expect("open vertical");
+    rp.write_pix_and_check(&half(&pix2), ImageFormat::Tiff)
+        .expect("check: open vertical lines");
+
+    // C 2: seedfill back to recover the full lines.
+    let pix3 = seedfill_morph(&pix2, &pix1, 0, 8).expect("seedfill vertical");
+    rp.write_pix_and_check(&half(&pix3), ImageFormat::Tiff)
+        .expect("check: seedfill vertical");
+
+    // C 3: remove the vertical lines.
+    let pix2 = pix1.xor(&pix3).expect("xor vertical");
+    rp.write_pix_and_check(&half(&pix2), ImageFormat::Tiff)
+        .expect("check: remove vertical lines");
+
+    // C 4: open out the horizontal lines, then seedfill them back.
+    let pix4 = morph_sequence(&pix2, "o50.1").expect("open horizontal");
+    let pix5 = seedfill_morph(&pix4, &pix2, 0, 8).expect("seedfill horizontal");
+    rp.write_pix_and_check(&half(&pix5), ImageFormat::Tiff)
+        .expect("check: seedfill horizontal");
+
+    // C 5: remove the horizontal lines.
+    let pix4 = pix2.xor(&pix5).expect("xor horizontal");
+    rp.write_pix_and_check(&half(&pix4), ImageFormat::Tiff)
+        .expect("check: remove horizontal lines");
+
+    // C 6-8: invert and find the vertical gutters between text columns.
+    let pix6 = reduce_rank_binary_cascade(&pix4, &[1, 1])
+        .expect("rank cascade")
+        .invert();
+    let up2 = |p: &Pix| scale(p, 2.0, 2.0, ScaleMethod::Auto).expect("scale 2.0");
+    rp.write_pix_and_check(&up2(&pix6), ImageFormat::Tiff)
+        .expect("check: inverted gutters");
+    let pix7 = morph_sequence(&pix6, "o1.50").expect("open gutters");
+    rp.write_pix_and_check(&up2(&pix7), ImageFormat::Tiff)
+        .expect("check: vertical gutters");
+    let pix8 = expand_binary_power2(&pix7, 4).expect("expand gutter mask");
+    rp.write_pix_and_check(&pix8, ImageFormat::Tiff)
+        .expect("check: gutter mask");
+
+    // C 9: solidify the text blocks, preserving the gutters.
+    let pix9 = morph_sequence(&pix4, "c50.1 + c1.10").expect("close text");
+    let pix9 = pix9.subtract(&pix8).expect("preserve gutter");
+    let pix10 = morph_sequence(&pix9, "d3.3").expect("dilate text");
+    rp.write_pix_and_check(&half(&pix10), ImageFormat::Tiff)
+        .expect("check: solidified text");
+
+    // C 10: show what lies under the mask, one random colormap index per
+    // connected component.
+    let (w, h) = (pix10.width(), pix10.height());
+    let (_, pixa2) = conncomp_pixa(&pix10, ConnectivityType::EightWay).expect("conn comp");
+    let pix11 = pixa2.display_random_cmap(w, h).expect("random cmap");
+    let mut pm = pix11.to_mut();
+    pm.paint_through_mask(&pix4, 0, 0, 0)
+        .expect("paint through");
+    let pix11: Pix = pm.into();
+    rp.write_pix_and_check(&half(&pix11), ImageFormat::Png)
+        .expect("check: stuff under mask 1");
+
+    // C 11-12: paint the background white by resetting colormap entry 0.
+    let mut pm = pix11.to_mut();
+    pm.colormap_mut()
+        .expect("colormapped")
+        .reset_color(0, 255, 255, 255)
+        .expect("reset entry 0");
+    let pix11: Pix = pm.into();
+    rp.write_pix_and_check(&pix11, ImageFormat::Png)
+        .expect("check: background white");
+    rp.write_pix_and_check(&half(&pix11), ImageFormat::Png)
+        .expect("check: stuff under mask 2");
+
+    assert!(rp.cleanup(), "newspaper C-compat test failed");
+}

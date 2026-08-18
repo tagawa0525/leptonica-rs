@@ -47,3 +47,5 @@ key	boxa3_c.18.png	tile height differs from C; see plan 902 PR 22
 key	boxa3_c.20.png	tile height differs from C; see plan 902 PR 22
 key	boxa3_c.22.png	tile height differs from C; see plan 902 PR 22
 key	boxa3_c.24.png	tile height differs from C; see plan 902 PR 22
+key	newspaper_c.10.png	pixaDisplayRandomCmap uses rand() colors; colormap expansion during scaling makes pixels non-deterministic
+key	newspaper_c.12.png	pixaDisplayRandomCmap uses rand() colors; colormap expansion during scaling makes pixels non-deterministic
