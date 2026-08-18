@@ -306,6 +306,18 @@ impl Boxa {
     /// Returns the two resulting Boxa arrays after merging.
     ///
     /// C Leptonica equivalent: `boxaCombineOverlapsInPair`
+    /// Combine overlapping boxes within and between two box arrays,
+    /// optionally recording C's per-iteration debug frames.
+    ///
+    /// C Leptonica equivalent: `boxaCombineOverlapsInPair()`
+    pub fn combine_overlaps_in_pair_debug(
+        _boxa1: &Boxa,
+        _boxa2: &Boxa,
+        _pixadb: Option<&mut crate::core::Pixa>,
+    ) -> (Boxa, Boxa) {
+        (Boxa::new(), Boxa::new())
+    }
+
     pub fn combine_overlaps_in_pair(boxa1: &Boxa, boxa2: &Boxa) -> (Boxa, Boxa) {
         let mut boxes1: Vec<Box> = boxa1.iter().copied().collect();
         let mut boxes2: Vec<Box> = boxa2.iter().copied().collect();

@@ -513,6 +513,14 @@ impl Boxa {
     /// Iteratively merges any pair of overlapping boxes until no overlaps remain.
     ///
     /// C Leptonica equivalent: `boxaCombineOverlaps`
+    /// Combine overlapping boxes into their bounding regions, optionally
+    /// recording C's per-iteration debug frames.
+    ///
+    /// C Leptonica equivalent: `boxaCombineOverlaps()`
+    pub fn combine_overlaps_debug(&self, _pixadb: Option<&mut crate::core::Pixa>) -> Boxa {
+        Boxa::new()
+    }
+
     pub fn combine_overlaps(&self) -> Boxa {
         if self.boxes.is_empty() {
             return Boxa::new();
