@@ -86,7 +86,8 @@ impl Pix {
     ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or depths.
+    /// Returns error if the images have different depths. A size mismatch is
+    /// not an error: only the intersection is combined.
     ///
     /// # Example
     ///
@@ -187,13 +188,16 @@ impl Pix {
     ///
     /// New image containing the result.
     ///
+    /// Binary operations combine only the **intersection** of the two images,
+    /// as C's rasterop does; the result keeps `self`'s dimensions and the
+    /// non-overlapping area keeps `self`'s pixels.
+    ///
     /// # Errors
     ///
-    /// Returns error if:
-    /// - Images have different dimensions (for binary operations)
-    /// - Images have different depths (for binary operations)
+    /// Returns error if the images have different depths (for binary
+    /// operations). A size mismatch is not an error.
     pub fn rop(&self, other: &Pix, op: RopOp) -> Result<Pix> {
-        // For unary operations, we don't need dimension checks
+        // Unary operations ignore `other` entirely.
         if !op.requires_source() {
             let result = self.deep_clone();
             let mut result_mut = result.try_into_mut().unwrap();
@@ -431,7 +435,8 @@ impl PixMut {
     ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or depths.
+    /// Returns error if the images have different depths. A size mismatch is
+    /// not an error: only the intersection is combined.
     pub fn and_inplace(&mut self, other: &Pix) -> Result<()> {
         self.rop_inplace(other, RopOp::And)
     }
@@ -444,7 +449,8 @@ impl PixMut {
     ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or depths.
+    /// Returns error if the images have different depths. A size mismatch is
+    /// not an error: only the intersection is combined.
     pub fn or_inplace(&mut self, other: &Pix) -> Result<()> {
         self.rop_inplace(other, RopOp::Or)
     }
@@ -457,7 +463,8 @@ impl PixMut {
     ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or depths.
+    /// Returns error if the images have different depths. A size mismatch is
+    /// not an error: only the intersection is combined.
     pub fn xor_inplace(&mut self, other: &Pix) -> Result<()> {
         self.rop_inplace(other, RopOp::Xor)
     }
@@ -506,9 +513,12 @@ impl PixMut {
     /// * `other` - The source image
     /// * `op` - The raster operation to perform
     ///
+    /// Only the intersection with `other` is combined; rows and columns
+    /// beyond it keep their current content, matching C's rasterop.
+    ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or depths.
+    /// Returns error if the images have different depths.
     pub fn rop_inplace(&mut self, other: &Pix, op: RopOp) -> Result<()> {
         // For unary operations, we don't need dimension checks
         if !op.requires_source() {
@@ -538,17 +548,31 @@ impl PixMut {
 
     /// Binary image raster operation in place (1-bit, word-optimized)
     fn rop_binary_inplace(&mut self, other: &Pix, op: RopOp) {
-        let height = self.height();
-        let wpl = self.wpl();
+        // Intersection only, exactly as the non-in-place path: rows and words
+        // beyond `other` keep self's content.
+        let overlap_h = self.height().min(other.height());
+        let wpl = (self.wpl() as usize).min(other.wpl() as usize);
+        let ow = self.width().min(other.width());
 
-        for y in 0..height {
+        for y in 0..overlap_h {
             let line_s = other.row_data(y);
             let line_d = self.row_data_mut(y);
 
-            for w in 0..wpl as usize {
+            for w in 0..wpl {
+                let bits_before = (w as u32) * 32;
+                if bits_before >= ow {
+                    break;
+                }
+                let valid = (ow - bits_before).min(32);
+                let mask = if valid == 32 {
+                    u32::MAX
+                } else {
+                    !0u32 << (32 - valid)
+                };
                 let d = line_d[w];
                 let s = line_s[w];
-                line_d[w] = apply_rop_word(d, s, op);
+                let combined = apply_rop_word(d, s, op);
+                line_d[w] = (combined & mask) | (d & !mask);
             }
         }
     }
@@ -1121,7 +1145,7 @@ mod tests {
     /// C's pixAnd / pixOr / pixXor only warn on a size mismatch and rasterop
     /// over the intersection, so this is not an error: the result keeps
     /// self's size and only the overlap is combined.
-    fn test_dimension_mismatch_error() {
+    fn test_size_mismatch_combines_intersection_only() {
         let pix1 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
         let mut pm = pix1.try_into_mut().unwrap();
         pm.set_all();
@@ -1133,6 +1157,57 @@ mod tests {
         // Inside the overlap: 255 & 0 == 0. Outside it, self is untouched.
         assert_eq!(result.get_pixel(10, 10), Some(0));
         assert_eq!(result.get_pixel(80, 10), Some(255));
+    }
+
+    /// The 1 bpp path masks the last shared 32-bit word so bits past the
+    /// narrower image keep self's content. A width that is not a multiple of
+    /// 32 exercises that mask.
+    #[test]
+    fn test_size_mismatch_1bpp_preserves_bits_past_overlap() {
+        let pix1 = Pix::new(64, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix1.try_into_mut().unwrap();
+        pm.set_all();
+        let pix1: Pix = pm.into();
+
+        // 33 columns wide: the overlap ends one bit into the second word.
+        let pix2 = Pix::new(33, 4, PixelDepth::Bit1).unwrap();
+
+        let result = pix1.and(&pix2).unwrap();
+        assert_eq!((result.width(), result.height()), (64, 4));
+        for x in 0..33u32 {
+            assert_eq!(result.get_pixel(x, 0), Some(0), "cleared at x={x}");
+        }
+        for x in 33..64u32 {
+            assert_eq!(result.get_pixel(x, 0), Some(1), "preserved at x={x}");
+        }
+    }
+
+    /// The in-place path must behave identically, and must not panic when
+    /// `other` is shorter than `self`.
+    #[test]
+    fn test_size_mismatch_inplace_matches_non_inplace() {
+        let pix1 = Pix::new(64, 4, PixelDepth::Bit1).unwrap();
+        let mut pm = pix1.try_into_mut().unwrap();
+        pm.set_all();
+        let pix1: Pix = pm.into();
+        let pix2 = Pix::new(33, 2, PixelDepth::Bit1).unwrap();
+
+        let expected = pix1.and(&pix2).unwrap();
+        let mut inplace = pix1.to_mut();
+        inplace.and_inplace(&pix2).unwrap();
+        let inplace: Pix = inplace.into();
+
+        for y in 0..4u32 {
+            for x in 0..64u32 {
+                assert_eq!(
+                    inplace.get_pixel(x, y),
+                    expected.get_pixel(x, y),
+                    "at ({x}, {y})"
+                );
+            }
+        }
+        // Rows beyond `other` are untouched.
+        assert_eq!(inplace.get_pixel(0, 3), Some(1));
     }
 
     #[test]

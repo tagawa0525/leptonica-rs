@@ -330,6 +330,12 @@ impl AffineMatrix {
     /// Transform a point with integer rounding (for sampled transforms)
     ///
     /// Returns the nearest integer coordinates after transformation.
+    /// Transform a point and quantize it the way C's `affineXformSampledPt`
+    /// does: add 0.5 and **cast**, i.e. truncate toward zero.
+    ///
+    /// This is not a true nearest-integer round — a result of -0.7 becomes 0,
+    /// not -1 — and the difference decides whether a sampled source pixel is
+    /// treated as out of range.
     pub fn transform_point_sampled(&self, x: i32, y: i32) -> (i32, i32) {
         let [a, b, tx, c, d, ty] = self.coeffs;
         let xf = x as f32;

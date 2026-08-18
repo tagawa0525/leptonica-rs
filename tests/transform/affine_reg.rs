@@ -403,7 +403,7 @@ fn affine_reg_boxa_transform() {
 
 /// C-compat: `prog/affine_reg.c` checks 0-19.
 ///
-/// The sequential and sampled invertability blocks. Both read only
+/// The sequential and sampled invertibility blocks. Both read only
 /// `feyn.tif`, and C writes their outputs as PNG, so they are bit-exactly
 /// comparable. (The later gray/color blocks are JPEG.)
 #[test]
@@ -445,7 +445,7 @@ fn affine_c_compat() {
         [g(0), g(1), g(2)]
     };
 
-    // C 0-9: invertability of pixAffineSequential.
+    // C 0-9: invertibility of pixAffineSequential.
     let mut pixa = Pixa::new();
     for i in 0..3usize {
         let pixb = pixs.add_border(ADDED_BORDER_PIXELS, 0).expect("add border");
@@ -476,7 +476,7 @@ fn affine_c_compat() {
     )
     .expect("check: sequential summary");
 
-    // C 10-19: invertability of pixAffineSampledPta.
+    // C 10-19: invertibility of pixAffineSampledPta.
     let mut pixa = Pixa::new();
     for i in 0..3usize {
         let pixb = pixs.add_border(ADDED_BORDER_PIXELS, 0).expect("add border");
