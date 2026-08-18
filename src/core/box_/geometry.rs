@@ -309,6 +309,14 @@ impl Boxa {
     /// `pixadb` optionally receives C's debug frames: the first array in red
     /// and the second in green, once before each pass and once after it.
     ///
+    /// # Return order
+    ///
+    /// The returned pair follows the **processing** order, not the argument
+    /// order: when `boxa2` has the larger total area it is processed first
+    /// and comes back as the first element. This mirrors C, which assigns
+    /// `*pboxad1 = boxac1` after having swapped the inputs, so a caller that
+    /// needs positional correspondence must compare the total areas itself.
+    ///
     /// C Leptonica equivalent: `boxaCombineOverlapsInPair()`
     pub fn combine_overlaps_in_pair_debug(
         boxa1: &Boxa,
@@ -414,7 +422,7 @@ impl Boxa {
     /// Combine overlapping boxes within and between two box arrays.
     ///
     /// Convenience wrapper over [`Boxa::combine_overlaps_in_pair_debug`] with
-    /// no debug output.
+    /// no debug output. See that function for the return-order caveat.
     pub fn combine_overlaps_in_pair(boxa1: &Boxa, boxa2: &Boxa) -> (Boxa, Boxa) {
         Self::combine_overlaps_in_pair_debug(boxa1, boxa2, None)
     }
@@ -924,6 +932,23 @@ mod tests {
     }
 
     // -- Boxa::combine_overlaps_in_pair --
+
+    /// C swaps the inputs so the larger-area array is processed first and
+    /// returns them in that order, so the result is not positionally tied to
+    /// the arguments.
+    #[test]
+    fn test_combine_overlaps_in_pair_returns_larger_area_first() {
+        let mut small = Boxa::new();
+        small.push(Box::new(0, 0, 10, 10).unwrap());
+
+        let mut large = Boxa::new();
+        large.push(Box::new(500, 500, 90, 90).unwrap());
+
+        // Passing the small array first still returns the large one first.
+        let (r1, r2) = Boxa::combine_overlaps_in_pair(&small, &large);
+        assert_eq!(r1.get(0).unwrap().w, 90);
+        assert_eq!(r2.get(0).unwrap().w, 10);
+    }
 
     #[test]
     fn test_combine_overlaps_in_pair() {
