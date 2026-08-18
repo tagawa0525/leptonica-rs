@@ -910,7 +910,28 @@ C 側に中間出力と変換係数を書き出して段階的に突き合わせ
 (a) 丸め規約、(b) 内部で呼ぶ下位関数のディスパッチ、の 2 点。今回は
 両方だった。C の係数を dump して先に一致を確認しておくと切り分けが速い。
 
-### PR 34 以降: semantic マッピングの漸進追加
+### PR 34: projective / bilinear の可逆性ブロック (実施済み)
+
+C 版ソース: `prog/projective_reg.c`、`prog/bilinear_reg.c`。
+
+PR 33 で整列した affine と**同型のブロック**。`projective_reg` の
+check 0-9 と `bilinear_reg` の check 0-6 は、いずれも `feyn.tif` のみを
+入力とし C も PNG で書くため bit 一致比較ができる。
+
+実施結果:
+
+- **実装変更なしで 17 ペア全件 Ok** (Ok 314 → 331、transform binary の
+  Ok が 65 → 82)。PR 33 までに入れたサンプル点の丸め (実装差 60) と
+  rop の交差領域化 (実装差 61) がそのまま効いた
+- bilinear の C 側ループは `for (i = 1; i < 3; i++)` で 2 点セットのみ
+  使う点、residual を取る前に `pixInvert` を挟む点をテストで再現した
+
+**知見**: 同型の C プログラムが複数ある場合、1 本を丁寧に整列させると
+残りは実装変更なしで乗ることがある。affine → projective / bilinear が
+その例で、投入コストに対する回収が大きい。次に狙うなら
+`rotate1` / `rotate2` など同系統の残りが候補。
+
+### PR 35 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
