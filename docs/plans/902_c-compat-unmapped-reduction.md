@@ -821,7 +821,42 @@ check 0 (C が JPEG で書く) を除く 12 件が bit 一致比較できる。
   ため原理的に比較不能。check 11 は cmapped のまま出力されるので、
   pixel hash が colormap を含まない本方式では比較できる
 
-### PR 31 以降: semantic マッピングの漸進追加
+### PR 31: overlap の box 統合 (実施済み)
+
+C 版ソース: `src/boxbasic.c` (boxaGetValidBox)、`src/boxfunc1.c`
+(boxaCombineOverlaps / boxaCombineOverlapsInPair / boxCompareSize)、
+`prog/overlap_reg.c`。
+
+`overlap_reg` は**画像入力を一切持たず**、`srand(45617)` と glibc の
+`rand()` だけで全ての box を生成する。テスト側で glibc の TYPE_3
+加算フィードバック生成器を再現すれば、13 出力すべてが決定的に比較できる
+(再現できていることは C の `rand()` 出力と直接照合して確認した)。
+
+実施結果:
+
+- 実装差 54 件目: `Box::is_valid` が `w >= 0 && h >= 0` だった。C
+  `boxaGetValidBox` は `w <= 0 || h <= 0` を無効とするため、leptonica が
+  無効化マーカーとして書く `(0, 0, 0, 0)` が「有効」と判定され、
+  combine 系の圧縮が効いていなかった
+- 実装差 55 件目: `combine_overlaps` が C と別アルゴリズムだった。C は
+  各パスで、吸収した相手を `(0,0,0,0)` に置き換えてから `boxaSaveValid`
+  でまとめて圧縮し、件数が変わらなくなるまで繰り返す。C の構造をそのまま
+  再現し、debug pixa (処理前を赤、処理後を緑で同じフレームに重ね描き) を
+  受け取る `combine_overlaps_debug` を追加した
+- 実装差 56 件目: `combine_overlaps_in_pair` も別物だった。C は面積合計の
+  大きい方に先手を与え、交差する組では **厳密に面積が大きい** box だけが
+  相手を吸収する (同面積なら双方残る)。旧実装は `>=` で比較していたため、
+  同サイズの組でも片方が消えていた
+- 検証系: C-compat の候補拡張子に `dat` を追加し、
+  `regTestWriteDataAndCheck` 由来の出力を照合できるようにした
+- overlap の全 13 出力のうちファイル出力 10 件をマップ — **全件 Ok**
+  (Ok 268 → 278、core binary の Ok が 13 → 23)
+
+**知見**: C の reg プログラムが `rand()` で入力を作る場合でも、glibc の
+生成器を再現すれば比較可能になる。同種の prog は他にもあるため、この
+`GlibcRand` ヘルパは再利用できる。
+
+### PR 32 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
