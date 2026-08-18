@@ -114,9 +114,14 @@ impl Pix {
     ///
     /// New image containing the OR result.
     ///
+    /// The two images are aligned at their upper-left corners and only their
+    /// **intersection** is combined, as in C's `pixAnd` / `pixOr` / `pixXor`,
+    /// which warn about a size mismatch rather than failing. The result keeps
+    /// `self`'s dimensions and the non-overlapping area keeps `self`'s pixels.
+    ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or depths.
+    /// Returns error if the images have different depths.
     pub fn or(&self, other: &Pix) -> Result<Pix> {
         self.rop(other, RopOp::Or)
     }
@@ -134,9 +139,14 @@ impl Pix {
     ///
     /// New image containing the XOR result.
     ///
+    /// The two images are aligned at their upper-left corners and only their
+    /// **intersection** is combined, as in C's `pixAnd` / `pixOr` / `pixXor`,
+    /// which warn about a size mismatch rather than failing. The result keeps
+    /// `self`'s dimensions and the non-overlapping area keeps `self`'s pixels.
+    ///
     /// # Errors
     ///
-    /// Returns error if images have different dimensions or depths.
+    /// Returns error if the images have different depths.
     pub fn xor(&self, other: &Pix) -> Result<Pix> {
         self.rop(other, RopOp::Xor)
     }
@@ -191,14 +201,9 @@ impl Pix {
             return Ok(result_mut.into());
         }
 
-        // Check dimensions for binary operations
-        if self.width() != other.width() || self.height() != other.height() {
-            return Err(Error::DimensionMismatch {
-                expected: (self.width(), self.height()),
-                actual: (other.width(), other.height()),
-            });
-        }
-
+        // C's pixAnd / pixOr / pixXor only warn on a size mismatch: they copy
+        // pixs1 and then rasterop pixs2 over the intersection, so the result
+        // keeps self's dimensions and the non-overlapping part stays as self.
         if self.depth() != other.depth() {
             return Err(Error::IncompatibleDepths(
                 self.depth().bits(),
@@ -215,23 +220,41 @@ impl Pix {
     }
 
     /// Binary image raster operation (1-bit, word-optimized)
+    ///
+    /// Only the overlap with `other` is combined; the rest of the result keeps
+    /// `self`'s content, matching C's rasterop over the intersection.
     fn rop_binary(&self, other: &Pix, op: RopOp) -> Result<Pix> {
         let width = self.width();
         let height = self.height();
-        let wpl = self.wpl();
+        let wpl = (self.wpl() as usize).min(other.wpl() as usize);
+        let overlap_h = height.min(other.height());
+        let ow = width.min(other.width());
 
-        let result = Pix::new(width, height, PixelDepth::Bit1)?;
+        let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
 
-        for y in 0..height {
+        for y in 0..overlap_h {
             let line_d = self.row_data(y);
             let line_s = other.row_data(y);
             let line_out = result_mut.row_data_mut(y);
 
-            for w in 0..wpl as usize {
+            for w in 0..wpl {
+                // Mask the last shared word so bits past the narrower image
+                // keep self's content.
+                let bits_before = (w as u32) * 32;
+                if bits_before >= ow {
+                    break;
+                }
+                let valid = (ow - bits_before).min(32);
+                let mask = if valid == 32 {
+                    u32::MAX
+                } else {
+                    !0u32 << (32 - valid)
+                };
                 let d = line_d[w];
                 let s = line_s[w];
-                line_out[w] = apply_rop_word(d, s, op);
+                let combined = apply_rop_word(d, s, op);
+                line_out[w] = (combined & mask) | (d & !mask);
             }
         }
 
@@ -240,10 +263,11 @@ impl Pix {
 
     /// Grayscale image raster operation (8-bit)
     fn rop_gray(&self, other: &Pix, op: RopOp) -> Result<Pix> {
-        let width = self.width();
-        let height = self.height();
+        // Only the overlap is combined; the rest keeps self's content.
+        let width = self.width().min(other.width());
+        let height = self.height().min(other.height());
 
-        let result = Pix::new(width, height, PixelDepth::Bit8)?;
+        let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
 
         for y in 0..height {
@@ -260,10 +284,11 @@ impl Pix {
 
     /// RGB image raster operation (32-bit)
     fn rop_rgb(&self, other: &Pix, op: RopOp) -> Result<Pix> {
-        let width = self.width();
-        let height = self.height();
+        // Only the overlap is combined; the rest keeps self's content.
+        let width = self.width().min(other.width());
+        let height = self.height().min(other.height());
 
-        let result = Pix::new(width, height, PixelDepth::Bit32)?;
+        let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
 
         for y in 0..height {
@@ -288,11 +313,12 @@ impl Pix {
 
     /// Generic raster operation for other depths (2, 4, 16-bit)
     fn rop_generic(&self, other: &Pix, op: RopOp) -> Result<Pix> {
-        let width = self.width();
-        let height = self.height();
+        // Only the overlap is combined; the rest keeps self's content.
+        let width = self.width().min(other.width());
+        let height = self.height().min(other.height());
         let max_val = self.depth().max_value();
 
-        let result = Pix::new(width, height, self.depth())?;
+        let result = self.deep_clone();
         let mut result_mut = result.try_into_mut().unwrap();
 
         for y in 0..height {
@@ -490,14 +516,9 @@ impl PixMut {
             return Ok(());
         }
 
-        // Check dimensions for binary operations
-        if self.width() != other.width() || self.height() != other.height() {
-            return Err(Error::DimensionMismatch {
-                expected: (self.width(), self.height()),
-                actual: (other.width(), other.height()),
-            });
-        }
-
+        // C's pixAnd / pixOr / pixXor only warn on a size mismatch: they copy
+        // pixs1 and then rasterop pixs2 over the intersection, so the result
+        // keeps self's dimensions and the non-overlapping part stays as self.
         if self.depth() != other.depth() {
             return Err(Error::IncompatibleDepths(
                 self.depth().bits(),
@@ -1097,12 +1118,21 @@ mod tests {
     }
 
     #[test]
+    /// C's pixAnd / pixOr / pixXor only warn on a size mismatch and rasterop
+    /// over the intersection, so this is not an error: the result keeps
+    /// self's size and only the overlap is combined.
     fn test_dimension_mismatch_error() {
         let pix1 = Pix::new(100, 100, PixelDepth::Bit8).unwrap();
-        let pix2 = Pix::new(200, 100, PixelDepth::Bit8).unwrap();
+        let mut pm = pix1.try_into_mut().unwrap();
+        pm.set_all();
+        let pix1: Pix = pm.into();
+        let pix2 = Pix::new(50, 100, PixelDepth::Bit8).unwrap();
 
-        let result = pix1.and(&pix2);
-        assert!(result.is_err());
+        let result = pix1.and(&pix2).unwrap();
+        assert_eq!((result.width(), result.height()), (100, 100));
+        // Inside the overlap: 255 & 0 == 0. Outside it, self is untouched.
+        assert_eq!(result.get_pixel(10, 10), Some(0));
+        assert_eq!(result.get_pixel(80, 10), Some(255));
     }
 
     #[test]

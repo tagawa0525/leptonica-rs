@@ -407,7 +407,6 @@ fn affine_reg_boxa_transform() {
 /// `feyn.tif`, and C writes their outputs as PNG, so they are bit-exactly
 /// comparable. (The later gray/color blocks are JPEG.)
 #[test]
-#[ignore = "not yet implemented"]
 fn affine_c_compat() {
     use leptonica::Pta;
     use leptonica::core::Pixa;
