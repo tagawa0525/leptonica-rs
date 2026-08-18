@@ -12,7 +12,6 @@
 //! Based on Leptonica's `selgen.c` implementation.
 
 use crate::core::{Numa, Pix, PixelDepth, Pta};
-#[allow(unused_imports)]
 use crate::morph::binary::{BoundaryType, extract_boundary};
 use crate::morph::sel::{Sel, SelElement};
 use crate::morph::{MorphError, MorphResult, dilate_brick, erode_brick};
@@ -44,17 +43,108 @@ use crate::morph::{MorphError, MorphResult, dilate_brick, erode_brick};
 /// Based on C leptonica `pixGenerateSelBoundary`.
 #[allow(clippy::too_many_arguments)]
 pub fn generate_sel_boundary(
-    _pix: &Pix,
-    _hit_dist: u32,
-    _miss_dist: u32,
-    _hit_skip: i32,
-    _miss_skip: i32,
-    _top_flag: bool,
-    _bot_flag: bool,
-    _left_flag: bool,
-    _right_flag: bool,
+    pix: &Pix,
+    hit_dist: u32,
+    miss_dist: u32,
+    hit_skip: i32,
+    miss_skip: i32,
+    top_flag: bool,
+    bot_flag: bool,
+    left_flag: bool,
+    right_flag: bool,
 ) -> MorphResult<(Sel, Pix)> {
-    Err(MorphError::InvalidParameters("not yet implemented".into()))
+    check_binary(pix)?;
+
+    if hit_dist > 4 || miss_dist > 4 {
+        return Err(MorphError::InvalidParameters(
+            "hit_dist and miss_dist must be 0-4".into(),
+        ));
+    }
+    if hit_skip < 0 && miss_skip < 0 {
+        return Err(MorphError::InvalidParameters(
+            "at least one of hit_skip or miss_skip must be >= 0".into(),
+        ));
+    }
+
+    // C first crops to the foreground bounding box (pixClipToForeground),
+    // then pads each flagged side by `missdist + 1`.
+    let clipped = match pix
+        .clip_to_foreground()
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?
+    {
+        Some((p, _)) => p,
+        None => {
+            return Err(MorphError::InvalidParameters(
+                "pixs has no foreground".into(),
+            ));
+        }
+    };
+    let expanded = expand_image(
+        &clipped,
+        top_flag,
+        bot_flag,
+        left_flag,
+        right_flag,
+        miss_dist + 1,
+    )?;
+    let ew = expanded.width();
+    let eh = expanded.height();
+
+    // Generate hit boundary: erode by hit_dist, then extract inner boundary
+    let hit_pta = if hit_skip >= 0 {
+        let eroded = if hit_dist > 0 {
+            let size = 2 * hit_dist + 1;
+            erode_brick(&expanded, size, size)?
+        } else {
+            expanded.clone()
+        };
+        let boundary = extract_boundary(&eroded, BoundaryType::Inner)?;
+        subsample_boundary_pixels(&boundary, hit_skip as u32)?
+    } else {
+        Pta::new()
+    };
+
+    // Generate miss boundary: dilate by miss_dist, then extract outer boundary
+    let miss_pta = if miss_skip >= 0 {
+        let dilated = if miss_dist > 0 {
+            let size = 2 * miss_dist + 1;
+            dilate_brick(&expanded, size, size)?
+        } else {
+            expanded.clone()
+        };
+        let boundary = extract_boundary(&dilated, BoundaryType::Outer)?;
+        subsample_boundary_pixels(&boundary, miss_skip as u32)?
+    } else {
+        Pta::new()
+    };
+
+    // Create the SEL from the combined points
+    let mut sel = Sel::new(ew, eh)?;
+    sel.set_origin(ew / 2, eh / 2)?;
+
+    for i in 0..hit_pta.len() {
+        if let Some((x, y)) = hit_pta.get_i_pt(i)
+            && x >= 0
+            && y >= 0
+            && (x as u32) < ew
+            && (y as u32) < eh
+        {
+            sel.set_element(x as u32, y as u32, SelElement::Hit);
+        }
+    }
+
+    for i in 0..miss_pta.len() {
+        if let Some((x, y)) = miss_pta.get_i_pt(i)
+            && x >= 0
+            && y >= 0
+            && (x as u32) < ew
+            && (y as u32) < eh
+        {
+            sel.set_element(x as u32, y as u32, SelElement::Miss);
+        }
+    }
+
+    Ok((sel, expanded))
 }
 
 /// Default scale factor used by [`display_hit_miss_sel`] when `scalefactor`
@@ -86,13 +176,60 @@ pub const MAX_SEL_SCALEFACTOR: u32 = 31;
 ///
 /// C equivalent: `pixDisplayHitMissSel()` in `selgen.c`
 pub fn display_hit_miss_sel(
-    _pix: &Pix,
-    _sel: &Sel,
-    _scalefactor: u32,
-    _hit_color: u32,
-    _miss_color: u32,
+    pix: &Pix,
+    sel: &Sel,
+    scalefactor: u32,
+    hit_color: u32,
+    miss_color: u32,
 ) -> MorphResult<Pix> {
-    Err(MorphError::InvalidParameters("not yet implemented".into()))
+    check_binary(pix)?;
+
+    let scalefactor = match scalefactor {
+        0 => DEFAULT_SEL_SCALEFACTOR,
+        s if s > MAX_SEL_SCALEFACTOR => MAX_SEL_SCALEFACTOR,
+        s => s,
+    };
+
+    // C: pixConvert1To8(NULL, pixs, 0, 1) then a 4-entry colormap of
+    // white / black / hit / miss.
+    let pixt = pix
+        .convert_1_to_8(0, 1)
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+    let mut pm = pixt.try_into_mut().unwrap();
+    let mut cmap = crate::core::PixColormap::new(8)
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+    let rgb = |c: u32| {
+        (
+            (c >> 24) as u8,
+            ((c >> 16) & 0xff) as u8,
+            ((c >> 8) & 0xff) as u8,
+        )
+    };
+    for (r, g, b) in [
+        (255u8, 255u8, 255u8),
+        (0, 0, 0),
+        rgb(hit_color),
+        rgb(miss_color),
+    ] {
+        cmap.add_rgb(r, g, b)
+            .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+    }
+    pm.set_colormap(Some(cmap))
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+
+    for y in 0..sel.height() {
+        for x in 0..sel.width() {
+            match sel.get_element(x, y) {
+                Some(SelElement::Hit) => pm.set_pixel_unchecked(x, y, 2),
+                Some(SelElement::Miss) => pm.set_pixel_unchecked(x, y, 3),
+                _ => {}
+            }
+        }
+    }
+
+    let pixt: Pix = pm.into();
+    crate::transform::scale_by_sampling(&pixt, scalefactor as f32, scalefactor as f32)
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))
 }
 
 /// Generate a Sel using run-length patterns from a binary image.
@@ -445,7 +582,6 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
 /// Pad the flagged sides by `pad` pixels.
 ///
 /// C uses `missdist + 1` for `pad`, so callers pass that.
-#[allow(dead_code)]
 fn expand_image(
     pix: &Pix,
     top: bool,

@@ -8,7 +8,7 @@ fn add_pix(pa: &mut Pixa, w: u32, h: u32) {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_nup_2x2_one_page() {
     let mut pa = Pixa::new();
     for _ in 0..4 {
@@ -34,7 +34,6 @@ fn convert_to_nup_2x2_one_page() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn convert_to_nup_border_widens_output() {
     // A non-zero border must enlarge the output relative to border = 0,
     // catching implementations that silently drop the border parameter.
@@ -53,7 +52,6 @@ fn convert_to_nup_border_widens_output() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn convert_to_nup_preserves_depth() {
     // 32 bpp input must produce 32 bpp page; 1 bpp input → 1 bpp page.
     let mut pa32 = Pixa::new();
@@ -72,7 +70,7 @@ fn convert_to_nup_preserves_depth() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+
 fn convert_to_nup_partial_last_page() {
     // 5 images, 2x2 grid -> 2 pages (first full, second has only 1 tile)
     let mut pa = Pixa::new();

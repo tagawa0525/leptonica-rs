@@ -1061,14 +1061,127 @@ impl Pixa {
     /// C equivalent: `pixaDisplayTiledAndScaled()` in `pixafunc2.c`
     pub fn display_tiled_and_scaled(
         &self,
-        _outdepth: crate::core::pix::PixelDepth,
-        _tile_width: u32,
-        _ncols: u32,
-        _background: u32,
-        _spacing: u32,
-        _border: u32,
+        outdepth: crate::core::pix::PixelDepth,
+        tile_width: u32,
+        ncols: u32,
+        background: u32,
+        spacing: u32,
+        border: u32,
     ) -> Result<Pix> {
-        Err(Error::NotSupported("not yet implemented".to_string()))
+        use crate::core::pix::PixelDepth;
+
+        if self.pix.is_empty() {
+            return Err(Error::NullInput("pixa is empty"));
+        }
+        if !matches!(
+            outdepth,
+            PixelDepth::Bit1 | PixelDepth::Bit8 | PixelDepth::Bit32
+        ) {
+            return Err(Error::InvalidParameter(
+                "outdepth must be 1, 8 or 32".to_string(),
+            ));
+        }
+        if ncols == 0 {
+            return Err(Error::InvalidParameter("ncols must be > 0".to_string()));
+        }
+        // C: `if (border < 0 || border > tilewidth / 5) border = 0;`
+        let border = if border > tile_width / 5 { 0 } else { border };
+        let bordval = if outdepth == PixelDepth::Bit1 { 1 } else { 0 };
+
+        let mut scaled_pix: Vec<Pix> = Vec::with_capacity(self.len());
+        for pix in &self.pix {
+            let w = pix.width();
+            if w == 0 {
+                continue;
+            }
+            let scalefact = (tile_width - 2 * border) as f32 / w as f32;
+            // C: 1 bpp reduced into a deeper output goes through scale_to_gray.
+            let pix1 = if pix.depth() == PixelDepth::Bit1
+                && outdepth != PixelDepth::Bit1
+                && scalefact < 1.0
+            {
+                crate::transform::scale_to_gray(pix, scalefact)
+                    .map_err(|e| Error::NotSupported(e.to_string()))?
+            } else {
+                crate::transform::scale(
+                    pix,
+                    scalefact,
+                    scalefact,
+                    crate::transform::ScaleMethod::Auto,
+                )
+                .map_err(|e| Error::NotSupported(e.to_string()))?
+            };
+            let pixn = match outdepth {
+                PixelDepth::Bit1 => pix1.convert_to_1(128)?,
+                PixelDepth::Bit8 => pix1.convert_to_8()?,
+                _ => pix1.convert_to_32()?,
+            };
+            let pixb = if border > 0 {
+                pixn.add_border(border, bordval)?
+            } else {
+                pixn
+            };
+            scaled_pix.push(pixb);
+        }
+
+        if scaled_pix.is_empty() {
+            return Err(Error::NullInput("no valid images after scaling"));
+        }
+
+        let n = scaled_pix.len();
+        let ncols_u = ncols as usize;
+        let nrows = n.div_ceil(ncols_u);
+        let row_heights: Vec<u32> = (0..nrows)
+            .map(|row| {
+                (0..ncols_u)
+                    .filter_map(|col| scaled_pix.get(row * ncols_u + col))
+                    .map(|p| p.height())
+                    .max()
+                    .unwrap_or(0)
+            })
+            .collect();
+
+        let canvas_w = tile_width * ncols + spacing * (ncols + 1);
+        let canvas_h: u32 = row_heights.iter().sum::<u32>() + spacing * (nrows as u32 + 1);
+
+        let canvas = Pix::new(canvas_w, canvas_h, outdepth)?;
+        let mut dst = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
+
+        // C: pixSetAll when (background == 1 && outdepth == 1) ||
+        //                  (background == 0 && outdepth != 1)
+        let fill = if outdepth == PixelDepth::Bit1 {
+            background == 1
+        } else {
+            background == 0
+        };
+        if fill {
+            dst.set_all();
+        }
+
+        let mut cy = spacing as i32;
+        for (row, &rh) in row_heights.iter().enumerate() {
+            let mut cx = spacing as i32;
+            for col in 0..ncols_u {
+                let idx = row * ncols_u + col;
+                if idx < n {
+                    let src = &scaled_pix[idx];
+                    dst.rop_region_inplace(
+                        cx,
+                        cy,
+                        src.width(),
+                        src.height(),
+                        crate::core::pix::RopOp::Src,
+                        src,
+                        0,
+                        0,
+                    )?;
+                }
+                cx += tile_width as i32 + spacing as i32;
+            }
+            cy += rh as i32 + spacing as i32;
+        }
+
+        Ok(dst.into())
     }
 
     /// Create a deep copy of this Pixa
@@ -2511,7 +2624,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_display_tiled_and_scaled() {
         use crate::core::pix::PixelDepth;
         let pix = make_test_pix(10, 10);

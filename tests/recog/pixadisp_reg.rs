@@ -74,7 +74,6 @@ fn pixadisp_reg_display_tiled() {
 ///    Scale each component to width 250, arrange in 5 columns,
 ///    with 10px spacing and 2px border.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixadisp_reg_display_tiled_and_scaled() {
     let mut rp = RegParams::new("pixadisp_scaled");
 
@@ -132,7 +131,6 @@ fn pixadisp_reg_display_tiled_and_scaled() {
 ///
 /// C: pixaDisplayTiledAndScaled(pixa, 32, tilewidth, ncols, bg, spacing, border)
 #[test]
-#[ignore = "not yet implemented"]
 fn pixadisp_reg_display_tiled_color() {
     let mut rp = RegParams::new("pixadisp_color");
 
@@ -204,7 +202,6 @@ fn pixadisp_reg_black_bg() {
 /// C: pixaDisplayTiledAndScaled(pixa, 1, tilewidth, ncols, bg, spacing, border)
 ///    Binary output preserves thresholded content.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixadisp_reg_display_1bpp() {
     let mut rp = RegParams::new("pixadisp_1bpp");
 
@@ -254,7 +251,6 @@ fn pixadisp_reg_display_1bpp() {
 ///
 /// Rust: We load the brev images into a Pixa and test basic tiled display.
 #[test]
-#[ignore = "not yet implemented"]
 fn pixadisp_reg_brev_images() {
     let mut rp = RegParams::new("pixadisp_brev");
 

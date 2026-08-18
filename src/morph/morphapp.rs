@@ -15,7 +15,7 @@ use crate::morph::{
 };
 use crate::region::{ConnectivityType, conncomp_pixa, fill_holes, seedfill_gray};
 use crate::transform::{
-    GrayMinMaxMode, scale_by_sampling_to_size, scale_gray_min_max, scale_to_size,
+    GrayMinMaxMode, scale_by_sampling, scale_by_sampling_to_size, scale_gray_min_max, scale_to_size,
 };
 
 /// Type of morphological operation for union/intersection functions.
@@ -636,16 +636,88 @@ pub fn remove_matched_pattern(
 /// C equivalent: `pixDisplayMatchedPattern()` in `morphapp.c`
 #[allow(clippy::too_many_arguments)]
 pub fn display_matched_pattern(
-    _pix: &Pix,
-    _pattern: &Pix,
-    _eroded_matches: &Pix,
-    _x0: i32,
-    _y0: i32,
-    _color: u32,
-    _scale: f32,
-    _nlevels: u32,
+    pix: &Pix,
+    pattern: &Pix,
+    eroded_matches: &Pix,
+    x0: i32,
+    y0: i32,
+    color: u32,
+    scale: f32,
+    nlevels: u32,
 ) -> MorphResult<Pix> {
-    Err(MorphError::InvalidParameters("not yet implemented".into()))
+    for p in [pix, pattern, eroded_matches] {
+        if p.depth() != PixelDepth::Bit1 {
+            return Err(MorphError::UnsupportedDepth {
+                expected: "1-bpp binary",
+                actual: p.depth().bits(),
+            });
+        }
+    }
+    // C warns and falls back to 1.0 rather than failing.
+    let scale = if !scale.is_finite() || scale <= 0.0 || scale > 1.0 {
+        1.0
+    } else {
+        scale
+    };
+
+    let (boxa, pixa) = conncomp_pixa(eroded_matches, ConnectivityType::EightWay)
+        .map_err(|e| MorphError::InvalidParameters(format!("conncomp error: {e}")))?;
+    if boxa.is_empty() {
+        return Err(MorphError::InvalidParameters("no matched patterns".into()));
+    }
+    let centroids = pixa_centroids(&pixa)?;
+
+    let (r, g, b) = {
+        let (r, g, b, _) = crate::core::pixel::extract_rgba(color);
+        (r, g, b)
+    };
+
+    let full_res = scale == 1.0;
+    let (pixd, pattern_scaled) = if full_res {
+        // C: pixConvert1To4(NULL, pixs, 0, 1) with a white/black colormap.
+        let pixd = pix
+            .convert_1_to_4(0, 1)
+            .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+        let mut pm = pixd.try_into_mut().unwrap();
+        let mut cmap = crate::core::PixColormap::new(4)
+            .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+        cmap.add_rgb(255, 255, 255)
+            .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+        cmap.add_rgb(0, 0, 0)
+            .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+        pm.set_colormap(Some(cmap))
+            .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+        (pm, pattern.clone())
+    } else {
+        let gray = crate::transform::scale_to_gray(pix, scale)
+            .map_err(|e| MorphError::InvalidParameters(format!("scale_to_gray error: {e}")))?;
+        let quant = crate::color::threshold_to_4bpp(&gray, nlevels, true)
+            .map_err(|e| MorphError::InvalidParameters(format!("threshold_to_4bpp: {e}")))?;
+        let pats = scale_by_sampling(pattern, scale, scale)
+            .map_err(|e| MorphError::InvalidParameters(format!("scale_by_sampling error: {e}")))?;
+        (quant.to_mut(), pats)
+    };
+    let mut pixd = pixd;
+
+    for i in 0..boxa.len() {
+        let bx = boxa
+            .get(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing box at index {i}")))?;
+        let (cx, cy) = centroids
+            .get_i_pt(i)
+            .ok_or_else(|| MorphError::InvalidParameters(format!("missing centroid {i}")))?;
+        let (ox, oy) = (bx.x + cx - x0, bx.y + cy - y0);
+        let (ox, oy) = if full_res {
+            (ox, oy)
+        } else {
+            // C: `(l_int32)(scale * (xb + x - x0))`, truncating.
+            ((scale * ox as f32) as i32, (scale * oy as f32) as i32)
+        };
+        crate::color::paintcmap::pix_set_masked_cmap(&mut pixd, &pattern_scaled, ox, oy, (r, g, b))
+            .map_err(|e| MorphError::InvalidParameters(format!("set_masked_cmap: {e}")))?;
+    }
+
+    Ok(pixd.into())
 }
 
 /// Extend a pixa by iterative erosion or dilation.
@@ -1240,7 +1312,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_display_matched_pattern_paints_color() {
         let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
 

@@ -163,7 +163,6 @@ fn findpattern2_reg_template() {
 /// The boundary method places hits/misses at specified distances from
 /// the pattern boundary — the most reliable of the three methods.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern2_reg_boundary_sel() {
     let mut rp = RegParams::new("findpat2_boundary");
 
@@ -205,7 +204,6 @@ fn findpattern2_reg_boundary_sel() {
 ///
 /// The runs method samples horizontal/vertical lines through the pattern.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern2_reg_runs_sel() {
     let mut rp = RegParams::new("findpat2_runs");
 
@@ -241,7 +239,6 @@ fn findpattern2_reg_runs_sel() {
 ///
 /// The random method subsamples safe FG/BG pixels at given fractions.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern2_reg_random_sel() {
     let mut rp = RegParams::new("findpat2_random");
 

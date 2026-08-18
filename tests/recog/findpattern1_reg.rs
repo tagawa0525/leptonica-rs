@@ -187,7 +187,6 @@ fn findpattern1_reg_hmt_brick() {
 ///
 /// Uses both tribune-word.png and tribune-t.png patterns.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern1_reg_sel_boundary_hmt() {
     let mut rp = RegParams::new("findpat1_sel_boundary");
 
@@ -226,7 +225,6 @@ fn findpattern1_reg_sel_boundary_hmt() {
 /// `tribune-page-4x.png`), so the whole program is bit-exactly comparable
 /// against C.
 #[test]
-#[ignore = "not yet implemented"]
 fn findpattern1_c_compat() {
     use leptonica::Pix;
     use leptonica::core::Pixa;

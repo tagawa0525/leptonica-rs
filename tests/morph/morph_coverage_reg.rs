@@ -151,7 +151,6 @@ fn test_selective_conn_comp_fill_fills_hole() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_remove_and_display_matched_pattern() {
     let pix = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
     let mut sm = pix.try_into_mut().unwrap();
@@ -233,7 +232,6 @@ fn test_run_histogram_morph_and_gray_ops() {
 // ============================================================================
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_boundary_basic() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     let (sel, _) = generate_sel_boundary(&pix, 1, 1, 0, 0, true, true, true, true).unwrap();
@@ -243,7 +241,6 @@ fn test_generate_sel_boundary_basic() {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
 fn test_generate_sel_boundary_skip_hits() {
     let pix = make_rect(20, 20, 5, 5, 15, 15);
     // Skip=2 means subsample boundary pixels
