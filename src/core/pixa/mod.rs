@@ -1043,6 +1043,22 @@ impl Pixa {
         }
         out
     }
+    /// Paint every 1 bpp component into an 8 bpp image with a random
+    /// colormap, one colormap index per component.
+    ///
+    /// Component `i` is painted with index `1 + (i % 254)` at its stored
+    /// bounding box, OR-ed into the destination. Index 0 stays black and
+    /// index 255 white, as in C's `pixcmapCreateRandom(8, 1, 1)`.
+    ///
+    /// `w` and `h` give the canvas size; passing 0 for either uses the extent
+    /// of the stored boxes.
+    ///
+    /// C equivalent: `pixaDisplayRandomCmap()` in `pixafunc2.c`
+    pub fn display_random_cmap(&self, w: u32, h: u32) -> Result<Pix> {
+        let _ = (w, h);
+        Err(Error::NotSupported("not yet implemented".to_string()))
+    }
+
     /// Scale every image to a common tile width and tile them in `ncols`
     /// columns.
     ///
