@@ -1020,7 +1020,17 @@ pub fn scale_to_gray_16(pix: &Pix) -> TransformResult<Pix> {
 }
 
 /// Generic N×N scale-to-gray for 1bpp input.
-/// For each N×N block, counts white (0) pixels and maps to 0-255.
+///
+/// For each N×N block, counts the ON (black) pixels and maps the count to a
+/// gray value. Two details follow C exactly:
+///
+/// * the destination **width is truncated** to a multiple that depends on the
+///   factor — `pixScaleToGray3` and `pixScaleToGray6` mask it with
+///   `0xfffffff8`, `pixScaleToGray4` with `0xfffffffe`, and the 8x and 16x
+///   variants use plain division;
+/// * at 16x the value is `255 - min(black, 255)` rather than a proportional
+///   `255 - black * 255 / 256`, because C's `scaleToGray16Low` clamps the raw
+///   count instead of using a value table.
 fn scale_to_gray_n(pix: &Pix, n: u32) -> TransformResult<Pix> {
     if pix.depth() != PixelDepth::Bit1 {
         return Err(TransformError::InvalidParameters(format!(
@@ -1029,7 +1039,13 @@ fn scale_to_gray_n(pix: &Pix, n: u32) -> TransformResult<Pix> {
     }
     let ws = pix.width();
     let hs = pix.height();
-    let wd = ws / n;
+    // C: pixScaleToGray3/6 mask with 0xfffffff8, pixScaleToGray4 with
+    // 0xfffffffe; 8x and 16x divide plainly.
+    let wd = match n {
+        3 | 6 => (ws / n) & 0xffff_fff8,
+        4 => (ws / n) & 0xffff_fffe,
+        _ => ws / n,
+    };
     let hd = hs / n;
     if wd == 0 || hd == 0 {
         return Err(TransformError::InvalidParameters(format!(
@@ -1056,9 +1072,14 @@ fn scale_to_gray_n(pix: &Pix, n: u32) -> TransformResult<Pix> {
                     }
                 }
             }
-            // C makeValTabSG*: val = 255 - (black * 255) / N², truncating.
             let black_count = total - white_count;
-            let gray = 255 - (black_count * 255) / total;
+            let gray = if n == 16 {
+                // C scaleToGray16Low: `sum = L_MIN(sum, 255); 255 - sum`.
+                255 - black_count.min(255)
+            } else {
+                // C makeValTabSG*: val = 255 - (black * 255) / N², truncating.
+                255 - (black_count * 255) / total
+            };
             out_mut.set_pixel_unchecked(xd, yd, gray);
         }
     }
@@ -2572,19 +2593,27 @@ mod tests {
     }
 
     #[test]
+    /// C truncates the 3x destination width to a multiple of 8, so 72 / 3
+    /// stays 24 while a source narrow enough to leave fewer than 8 columns is
+    /// rejected as "pixs too small".
     fn test_scale_to_gray_3_dims() {
-        let pix = make_1bpp(12, 12, &[]);
+        let pix = make_1bpp(72, 12, &[]);
         let out = scale_to_gray_3(&pix).unwrap();
-        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!((out.width(), out.height()), (24, 4));
         assert_eq!(out.depth(), PixelDepth::Bit8);
+
+        assert!(scale_to_gray_3(&make_1bpp(12, 12, &[])).is_err());
     }
 
     #[test]
+    /// Same 8-column truncation as the 3x case.
     fn test_scale_to_gray_6_dims() {
-        let pix = make_1bpp(24, 24, &[]);
+        let pix = make_1bpp(96, 24, &[]);
         let out = scale_to_gray_6(&pix).unwrap();
-        assert_eq!((out.width(), out.height()), (4, 4));
+        assert_eq!((out.width(), out.height()), (16, 4));
         assert_eq!(out.depth(), PixelDepth::Bit8);
+
+        assert!(scale_to_gray_6(&make_1bpp(24, 24, &[])).is_err());
     }
 
     #[test]
@@ -2704,12 +2733,35 @@ mod tests {
     /// C = 255 - 255/16 = 255 - 15 = 240 (truncated).
     #[test]
     fn test_scale_to_gray_value_table_matches_c() {
-        let pix = Pix::new(4, 4, PixelDepth::Bit1).unwrap();
+        // C truncates the 4x destination width to an even number, so the
+        // source needs at least 8 columns to produce anything.
+        let pix = Pix::new(8, 4, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
         pm.set_pixel(0, 0, 1).unwrap();
         let pix: Pix = pm.into();
         let out = scale_to_gray_4(&pix).unwrap();
+        assert_eq!((out.width(), out.height()), (2, 1));
+        // makeValTabSG4: 255 - 1 * 255 / 16 = 240.
         assert_eq!(out.get_pixel(0, 0), Some(240));
+    }
+
+    /// C `scaleToGray16Low` clamps the raw black-pixel count instead of using
+    /// a value table, so a 16x16 block that is entirely black comes out 0 and
+    /// a single black pixel gives 254 — not the 255 - 255/256 = 255 that a
+    /// proportional mapping would give.
+    #[test]
+    fn test_scale_to_gray_16_clamps_raw_count() {
+        let pix = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel(0, 0, 1).unwrap();
+        let pix: Pix = pm.into();
+        assert_eq!(scale_to_gray_16(&pix).unwrap().get_pixel(0, 0), Some(254));
+
+        let full = Pix::new(16, 16, PixelDepth::Bit1).unwrap();
+        let mut pm = full.try_into_mut().unwrap();
+        pm.set_all();
+        let full: Pix = pm.into();
+        assert_eq!(scale_to_gray_16(&full).unwrap().get_pixel(0, 0), Some(0));
     }
 
     /// scale_gray_2x_li must reproduce C scaleGray2xLILineLow exactly.
