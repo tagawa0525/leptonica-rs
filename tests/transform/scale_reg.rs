@@ -27,7 +27,6 @@ use leptonica::transform::{
 /// C version: tests `pixScale` at factors [2.3, 1.5, 1.1, 0.6, 0.3] on each
 /// of 10 image types (1bpp, 2bpp, 4bpp, 8bpp, 16bpp, 32bpp with/without cmap).
 #[test]
-#[ignore = "not yet implemented"]
 fn scale_reg() {
     let mut rp = RegParams::new("scale");
 
@@ -260,7 +259,6 @@ fn scale_area_map_2_truncates_like_c() {
 /// `scale_to_size` check (35) are PNG and read only lossless images, so they
 /// are bit-exactly comparable against C.
 #[test]
-#[ignore = "not yet implemented"]
 fn scale_c_compat() {
     use leptonica::transform::{
         ScaleMethod, scale, scale_to_gray_3, scale_to_gray_4, scale_to_gray_6, scale_to_gray_8,

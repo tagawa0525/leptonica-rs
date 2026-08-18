@@ -433,3 +433,19 @@ core	overlap	6	overlap_c	7	percolation display maxsize 27
 core	overlap	8	overlap_c	9	combine_overlaps debug frames
 core	overlap	11	overlap_c	12	combine_overlaps_in_pair debug frames
 core	overlap	12	overlap_c	13	overlap/separation distance table
+transform	scale	0	scale_c	1	1bpp scale 0.32
+transform	scale	1	scale_c	2	scale_to_gray_3
+transform	scale	2	scale_c	3	scale_to_gray_4
+transform	scale	3	scale_c	4	scale_to_gray_6
+transform	scale	4	scale_c	5	scale_to_gray_8
+transform	scale	5	scale_c	6	scale_to_gray_16
+transform	scale	20	scale_c	7	weasel2.4c scale 2.25
+transform	scale	21	scale_c	8	weasel2.4c scale 0.85
+transform	scale	22	scale_c	9	weasel2.4c scale 0.65
+transform	scale	24	scale_c	10	weasel4 scale 1.72
+transform	scale	25	scale_c	11	weasel4 scale 0.85
+transform	scale	26	scale_c	12	weasel4 scale 0.65
+transform	scale	28	scale_c	13	weasel4.16c scale 1.72
+transform	scale	29	scale_c	14	weasel4.16c scale 0.85
+transform	scale	30	scale_c	15	weasel4.16c scale 0.65
+transform	scale	35	scale_c	16	graytext scale_to_size(0, 32)
