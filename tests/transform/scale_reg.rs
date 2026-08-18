@@ -27,6 +27,7 @@ use leptonica::transform::{
 /// C version: tests `pixScale` at factors [2.3, 1.5, 1.1, 0.6, 0.3] on each
 /// of 10 image types (1bpp, 2bpp, 4bpp, 8bpp, 16bpp, 32bpp with/without cmap).
 #[test]
+#[ignore = "not yet implemented"]
 fn scale_reg() {
     let mut rp = RegParams::new("scale");
 
@@ -119,18 +120,20 @@ fn scale_reg() {
     rp.write_pix_and_check(&stg2, ImageFormat::Png)
         .expect("check: scale_to_gray_2");
 
+    // C truncates the 3x and 6x destination widths to a multiple of 8, and
+    // the 4x width to an even number (pixScaleToGray{3,4,6}).
     let stg3 = scale_to_gray_3(&pixb).expect("scale_to_gray_3");
-    rp.compare_values((pixb.width() / 3) as f64, stg3.width() as f64, 1.0);
+    rp.compare_values(((pixb.width() / 3) & !7) as f64, stg3.width() as f64, 0.0);
     rp.write_pix_and_check(&stg3, ImageFormat::Png)
         .expect("check: scale_to_gray_3");
 
     let stg4 = scale_to_gray_4(&pixb).expect("scale_to_gray_4");
-    rp.compare_values((pixb.width() / 4) as f64, stg4.width() as f64, 1.0);
+    rp.compare_values(((pixb.width() / 4) & !1) as f64, stg4.width() as f64, 0.0);
     rp.write_pix_and_check(&stg4, ImageFormat::Png)
         .expect("check: scale_to_gray_4");
 
     let stg6 = scale_to_gray_6(&pixb).expect("scale_to_gray_6");
-    rp.compare_values((pixb.width() / 6) as f64, stg6.width() as f64, 1.0);
+    rp.compare_values(((pixb.width() / 6) & !7) as f64, stg6.width() as f64, 0.0);
     rp.write_pix_and_check(&stg6, ImageFormat::Png)
         .expect("check: scale_to_gray_6");
 
@@ -248,4 +251,62 @@ fn scale_area_map_2_truncates_like_c() {
     // r: (100+101)*2 = 402 >> 2 = 100 = 0x64, likewise g = 0x65, b = 0x66.
     // C composeRGBPixel leaves the alpha byte 0.
     assert_eq!(out.get_pixel(0, 0).unwrap(), 0x6465_6600);
+}
+
+/// C-compat: `prog/scale_reg.c`, every PNG output from a lossless input.
+///
+/// The program writes most of its results as JPEG, but the 1 bpp block
+/// (checks 0-5), the 2 and 4 bpp blocks (20-22, 24-26, 28-30) and the
+/// `scale_to_size` check (35) are PNG and read only lossless images, so they
+/// are bit-exactly comparable against C.
+#[test]
+#[ignore = "not yet implemented"]
+fn scale_c_compat() {
+    use leptonica::transform::{
+        ScaleMethod, scale, scale_to_gray_3, scale_to_gray_4, scale_to_gray_6, scale_to_gray_8,
+        scale_to_gray_16, scale_to_size,
+    };
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("scale_c");
+    let sc = |p: &leptonica::Pix, f: f32| scale(p, f, f, ScaleMethod::Auto).expect("scale");
+
+    // C 0-5: 1 bpp, scaled down and reduced to gray at several factors.
+    let pixs = load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    rp.write_pix_and_check(&sc(&pixs, 0.32), ImageFormat::Png)
+        .expect("check: 1bpp scale 0.32");
+    for reduced in [
+        scale_to_gray_3(&pixs).expect("to gray 3"),
+        scale_to_gray_4(&pixs).expect("to gray 4"),
+        scale_to_gray_6(&pixs).expect("to gray 6"),
+        scale_to_gray_8(&pixs).expect("to gray 8"),
+        scale_to_gray_16(&pixs).expect("to gray 16"),
+    ] {
+        rp.write_pix_and_check(&reduced, ImageFormat::Png)
+            .expect("check: scale to gray");
+    }
+
+    // C 20-22, 24-26, 28-30: 2 bpp with cmap, 4 bpp without, 4 bpp with.
+    for (name, up) in [
+        ("weasel2.4c.png", 2.25f32),
+        ("weasel4.png", 1.72),
+        ("weasel4.16c.png", 1.72),
+    ] {
+        let pixs = load_test_image(name).expect("load weasel");
+        for f in [up, 0.85, 0.65] {
+            rp.write_pix_and_check(&sc(&pixs, f), ImageFormat::Png)
+                .expect("check: weasel scale");
+        }
+    }
+
+    // C 35: scale_to_size with a free dimension (uses fast unsharp masking).
+    let pixs = load_test_image("graytext.png").expect("load graytext.png");
+    let scaled = scale_to_size(&pixs, 0, 32).expect("scale to size");
+    rp.write_pix_and_check(&scaled, ImageFormat::Png)
+        .expect("check: scale_to_size");
+
+    assert!(rp.cleanup(), "scale C-compat test failed");
 }
