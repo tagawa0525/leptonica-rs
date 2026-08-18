@@ -856,7 +856,32 @@ C 版ソース: `src/boxbasic.c` (boxaGetValidBox)、`src/boxfunc1.c`
 生成器を再現すれば比較可能になる。同種の prog は他にもあるため、この
 `GlibcRand` ヘルパは再利用できる。
 
-### PR 32 以降: semantic マッピングの漸進追加
+### PR 32: scale の PNG 出力 (実施済み)
+
+C 版ソース: `src/scale2.c` (pixScaleToGray3/4/6/8/16 と
+scaleToGray16Low / makeValTabSG*)、`prog/scale_reg.c`。
+
+`scale_reg` は 50 出力のうち大半を JPEG で書くが、1bpp ブロック
+(check 0-5)、2/4bpp ブロック (20-22, 24-26, 28-30)、`scale_to_size`
+(check 35) の **16 件は PNG かつ可逆入力のみ**を使うため bit 一致比較が
+できる。
+
+実施結果:
+
+- 実装差 57 件目: `scale_to_gray_N` に出力幅の切り詰めが無かった。C は
+  destination 幅を `pixScaleToGray3` / `pixScaleToGray6` で
+  `(ws / n) & 0xfffffff8`、`pixScaleToGray4` で `& 0xfffffffe` と
+  マスクする (8x / 16x は素の除算)。切り詰めた結果が 0 になる小さい入力は
+  C ではエラーになる
+- 実装差 58 件目: 16x の値式が違った。C `scaleToGray16Low` は値テーブルを
+  使わず `sum = L_MIN(sum, 255); 255 - sum` と**生の黒画素数をクランプ**
+  する。比例配分 (`255 - black*255/256`) ではないため、16x16 全黒が 0、
+  黒 1 画素が 254 になる
+- 不足していたテスト画像 `weasel4.png` / `graytext.png` を追加
+- scale の PNG 出力 16 件をマップ — **全件 Ok** (Ok 278 → 294、
+  transform binary の Ok が 29 → 45)
+
+### PR 33 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
