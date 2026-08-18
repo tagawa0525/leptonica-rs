@@ -294,3 +294,90 @@ fn projective_reg_color_interpolation() {
 
     assert!(rp.cleanup(), "projective color interpolation test failed");
 }
+
+/// C-compat: `prog/projective_reg.c` checks 0-9.
+///
+/// The sampled invertibility block. It reads only `feyn.tif` and C writes its
+/// outputs as PNG, so it is bit-exactly comparable. (The later gray and color
+/// blocks are JPEG.)
+#[test]
+fn projective_c_compat() {
+    use leptonica::core::Pixa;
+    use leptonica::transform::{AffineFill, Point, ScaleMethod, projective_sampled_pta, scale};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    const ADDED_BORDER_PIXELS: u32 = 250;
+    // MakePtas() in prog/projective_reg.c
+    const X1: [i32; 3] = [300, 300, 300];
+    const Y1: [i32; 3] = [1200, 1200, 1250];
+    const X2: [i32; 3] = [1200, 1200, 1125];
+    const Y2: [i32; 3] = [1100, 1100, 1100];
+    const X3: [i32; 3] = [200, 200, 200];
+    const Y3: [i32; 3] = [200, 200, 200];
+    const X4: [i32; 3] = [1200, 1200, 1300];
+    const Y4: [i32; 3] = [400, 200, 200];
+    const XP1: [i32; 3] = [300, 300, 1150];
+    const YP1: [i32; 3] = [1200, 1400, 1150];
+    const XP2: [i32; 3] = [1100, 1400, 320];
+    const YP2: [i32; 3] = [1000, 1500, 1300];
+    const XP3: [i32; 3] = [250, 200, 1310];
+    const YP3: [i32; 3] = [200, 300, 250];
+    const XP4: [i32; 3] = [1250, 1200, 240];
+    const YP4: [i32; 3] = [300, 300, 250];
+
+    let mut rp = RegParams::new("projective_c");
+
+    let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
+    let pixsc = scale(&pixs, 0.3, 0.3, ScaleMethod::Auto).expect("scale 0.3");
+
+    let mut pixa = Pixa::new();
+    for i in 0..3usize {
+        let pixb = pixsc
+            .add_border(ADDED_BORDER_PIXELS, 0)
+            .expect("add border");
+        let ptas = [
+            Point::new(X1[i] as f32, Y1[i] as f32),
+            Point::new(X2[i] as f32, Y2[i] as f32),
+            Point::new(X3[i] as f32, Y3[i] as f32),
+            Point::new(X4[i] as f32, Y4[i] as f32),
+        ];
+        let ptad = [
+            Point::new(XP1[i] as f32, YP1[i] as f32),
+            Point::new(XP2[i] as f32, YP2[i] as f32),
+            Point::new(XP3[i] as f32, YP3[i] as f32),
+            Point::new(XP4[i] as f32, YP4[i] as f32),
+        ];
+
+        // C's pixProjectiveSampledPta(pixs, ptad, ptas) builds the backward
+        // map from ptad to ptas; the Rust API takes (src_pts, dst_pts) and
+        // forms that map internally, so the order is reversed here.
+        let pix1 = projective_sampled_pta(&pixb, ptas, ptad, AffineFill::White)
+            .expect("projective sampled fwd");
+        rp.write_pix_and_check(&pix1, ImageFormat::Png)
+            .expect("check: projective forward");
+        pixa.push(pix1.clone());
+        let pix2 = projective_sampled_pta(&pix1, ptad, ptas, AffineFill::White)
+            .expect("projective sampled inv");
+        rp.write_pix_and_check(&pix2, ImageFormat::Png)
+            .expect("check: projective inverse");
+        pixa.push(pix2.clone());
+        let pixd = pix2
+            .remove_border(ADDED_BORDER_PIXELS)
+            .expect("remove border")
+            .xor(&pixsc)
+            .expect("xor with source");
+        rp.write_pix_and_check(&pixd, ImageFormat::Png)
+            .expect("check: projective residual");
+        pixa.push(pixd);
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(3, 0.5, 20, 3)
+        .expect("tile projective");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: projective summary");
+
+    assert!(rp.cleanup(), "projective C-compat test failed");
+}

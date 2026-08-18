@@ -331,3 +331,91 @@ fn bilinear_reg_color_interpolation() {
 
     assert!(rp.cleanup(), "bilinear color interpolation test failed");
 }
+
+/// C-compat: `prog/bilinear_reg.c` checks 0-6.
+///
+/// The sampled invertibility block. It reads only `feyn.tif` and C writes its
+/// outputs as PNG, so it is bit-exactly comparable. Note C's loop starts at
+/// `i = 1`, so only two point sets are used.
+#[test]
+fn bilinear_c_compat() {
+    use leptonica::core::Pixa;
+    use leptonica::io::ImageFormat;
+    use leptonica::transform::{AffineFill, Point, bilinear_sampled_pta, scale_to_gray};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    const ADDED_BORDER_PIXELS: u32 = 250;
+    // MakePtas() in prog/bilinear_reg.c
+    const X1: [i32; 3] = [32, 32, 32];
+    const Y1: [i32; 3] = [150, 150, 150];
+    const X2: [i32; 3] = [520, 520, 520];
+    const Y2: [i32; 3] = [150, 150, 150];
+    const X3: [i32; 3] = [32, 32, 32];
+    const Y3: [i32; 3] = [612, 612, 612];
+    const X4: [i32; 3] = [520, 520, 520];
+    const Y4: [i32; 3] = [612, 612, 612];
+    const XP1: [i32; 3] = [32, 32, 32];
+    const YP1: [i32; 3] = [150, 150, 150];
+    const XP2: [i32; 3] = [520, 520, 520];
+    const YP2: [i32; 3] = [44, 124, 140];
+    const XP3: [i32; 3] = [32, 32, 32];
+    const YP3: [i32; 3] = [612, 612, 612];
+    const XP4: [i32; 3] = [520, 520, 520];
+    const YP4: [i32; 3] = [694, 624, 622];
+
+    let mut rp = RegParams::new("bilinear_c");
+
+    let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
+    let pixg = scale_to_gray(&pixs, 0.2).expect("scale to gray 0.2");
+
+    let mut pixa = Pixa::new();
+    // C: `for (i = 1; i < 3; i++)`
+    for i in 1..3usize {
+        let pixb = pixg
+            .add_border(ADDED_BORDER_PIXELS, 255)
+            .expect("add border");
+        let ptas = [
+            Point::new(X1[i] as f32, Y1[i] as f32),
+            Point::new(X2[i] as f32, Y2[i] as f32),
+            Point::new(X3[i] as f32, Y3[i] as f32),
+            Point::new(X4[i] as f32, Y4[i] as f32),
+        ];
+        let ptad = [
+            Point::new(XP1[i] as f32, YP1[i] as f32),
+            Point::new(XP2[i] as f32, YP2[i] as f32),
+            Point::new(XP3[i] as f32, YP3[i] as f32),
+            Point::new(XP4[i] as f32, YP4[i] as f32),
+        ];
+
+        // Argument order mirrors C's pixBilinearSampledPta(pixs, ptad, ptas).
+        let pix1 = bilinear_sampled_pta(&pixb, ptas, ptad, AffineFill::White)
+            .expect("bilinear sampled fwd");
+        rp.write_pix_and_check(&pix1, ImageFormat::Png)
+            .expect("check: bilinear forward");
+        pixa.push(pix1.clone());
+        let pix2 = bilinear_sampled_pta(&pix1, ptad, ptas, AffineFill::White)
+            .expect("bilinear sampled inv");
+        rp.write_pix_and_check(&pix2, ImageFormat::Png)
+            .expect("check: bilinear inverse");
+        pixa.push(pix2.clone());
+        let pixd = pix2
+            .remove_border(ADDED_BORDER_PIXELS)
+            .expect("remove border")
+            .invert()
+            .xor(&pixg)
+            .expect("xor with source");
+        rp.write_pix_and_check(&pixd, ImageFormat::Png)
+            .expect("check: bilinear residual");
+        pixa.push(pixd);
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(3, 0.5, 20, 3)
+        .expect("tile bilinear");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: bilinear summary");
+
+    assert!(rp.cleanup(), "bilinear C-compat test failed");
+}
