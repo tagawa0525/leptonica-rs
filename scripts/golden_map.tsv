@@ -486,3 +486,35 @@ transform	bilinear	3	bilinear_c	4	bilinear_sampled forward (pts 2)
 transform	bilinear	4	bilinear_c	5	bilinear_sampled inverse (pts 2)
 transform	bilinear	5	bilinear_c	6	bilinear_sampled residual (pts 2)
 transform	bilinear	6	bilinear_c	7	bilinear_sampled summary
+transform	rotate1	0	rotate1_c	1	test1 shear x11
+transform	rotate1	1	rotate1_c	2	test1 shear x22
+transform	rotate1	2	rotate1_c	3	test1 sampling x11
+transform	rotate1	3	rotate1_c	4	test1 sampling x22
+transform	rotate1	4	rotate1_c	5	test1 areamap x11
+transform	rotate1	5	rotate1_c	6	test1 areamap x22
+transform	rotate1	6	rotate1_c	7	test1 amcorner x11
+transform	rotate1	7	rotate1_c	8	test1 amcorner x22
+transform	rotate1	8	rotate1_c	9	weasel2.4c shear x11
+transform	rotate1	9	rotate1_c	10	weasel2.4c shear x22
+transform	rotate1	10	rotate1_c	11	weasel2.4c sampling x11
+transform	rotate1	11	rotate1_c	12	weasel2.4c sampling x22
+transform	rotate1	12	rotate1_c	13	weasel2.4c areamap x11
+transform	rotate1	13	rotate1_c	14	weasel2.4c areamap x22
+transform	rotate1	14	rotate1_c	15	weasel2.4c amcorner x11
+transform	rotate1	15	rotate1_c	16	weasel2.4c amcorner x22
+transform	rotate1	16	rotate1_c	17	weasel4.11c shear x11
+transform	rotate1	17	rotate1_c	18	weasel4.11c shear x22
+transform	rotate1	18	rotate1_c	19	weasel4.11c sampling x11
+transform	rotate1	19	rotate1_c	20	weasel4.11c sampling x22
+transform	rotate1	20	rotate1_c	21	weasel4.11c areamap x11
+transform	rotate1	21	rotate1_c	22	weasel4.11c areamap x22
+transform	rotate1	22	rotate1_c	23	weasel4.11c amcorner x11
+transform	rotate1	23	rotate1_c	24	weasel4.11c amcorner x22
+transform	rotate1	24	rotate1_c	25	weasel4.16g shear x11
+transform	rotate1	25	rotate1_c	26	weasel4.16g shear x22
+transform	rotate1	26	rotate1_c	27	weasel4.16g sampling x11
+transform	rotate1	27	rotate1_c	28	weasel4.16g sampling x22
+transform	rotate1	28	rotate1_c	29	weasel4.16g areamap x11
+transform	rotate1	29	rotate1_c	30	weasel4.16g areamap x22
+transform	rotate1	30	rotate1_c	31	weasel4.16g amcorner x11
+transform	rotate1	31	rotate1_c	32	weasel4.16g amcorner x22

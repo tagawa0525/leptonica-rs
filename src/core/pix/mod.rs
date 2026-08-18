@@ -1067,12 +1067,25 @@ impl PixMut {
     ///
     /// Handles all pixel depths. Note: Colormapped images are currently treated
     /// the same as non-colormapped images of the same depth; colormap entries
-    /// are not adjusted.
+    /// With a colormap the requested extreme is appended to it (if not
+    /// already present) and every pixel is set to that index, as in C.
     ///
     /// # See also
     ///
     /// C Leptonica: `pixSetBlackOrWhite()` in `pix2.c`
     pub fn set_black_or_white(&mut self, color: InitColor) {
+        // C: with a colormap, black/white is *added to the colormap* and the
+        // image is filled with that index rather than with a raw extreme.
+        if self.inner.colormap.is_some() {
+            let index = self
+                .colormap_mut()
+                .and_then(|cmap| cmap.add_black_or_white(color == InitColor::Black).ok());
+            if let Some(index) = index {
+                let _ = self.set_all_arbitrary(index as u32);
+                return;
+            }
+        }
+
         let d = self.inner.depth;
         match color {
             InitColor::Black => {

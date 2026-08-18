@@ -300,7 +300,6 @@ fn rotate1_reg_am_corner() {
 /// the four lossless 1/2/4 bpp inputs account for all 32 PNG outputs; the
 /// 8 and 32 bpp images are written as JPEG and skipped here.
 #[test]
-#[ignore = "not yet implemented"]
 fn rotate1_c_compat() {
     use leptonica::Pix;
     use leptonica::transform::{RotateFill, RotateMethod, RotateOptions, rotate, rotate_am_corner};

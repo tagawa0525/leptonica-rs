@@ -241,8 +241,16 @@ pub fn h_shear(pix: &Pix, yloc: i32, radang: f32, fill: ShearFill) -> TransformR
         let _ = out_mut.set_colormap(Some(cmap.clone()));
     }
 
-    // Fill with background
-    fill_image(&mut out_mut, fill_value);
+    // Fill with background. C uses pixSetBlackOrWhite, so with a colormap the
+    // fill is the *index* of black/white, appended if it is not there yet.
+    if pix.colormap().is_some() {
+        out_mut.set_black_or_white(match fill {
+            ShearFill::Black => crate::core::pix::InitColor::Black,
+            ShearFill::White => crate::core::pix::InitColor::White,
+        });
+    } else {
+        fill_image(&mut out_mut, fill_value);
+    }
 
     // Perform horizontal shear with the C band quantization
     // (C pixHShear: dest x offset = -sign*hshift per band).
@@ -333,8 +341,16 @@ pub fn v_shear(pix: &Pix, xloc: i32, radang: f32, fill: ShearFill) -> TransformR
         let _ = out_mut.set_colormap(Some(cmap.clone()));
     }
 
-    // Fill with background
-    fill_image(&mut out_mut, fill_value);
+    // Fill with background. C uses pixSetBlackOrWhite, so with a colormap the
+    // fill is the *index* of black/white, appended if it is not there yet.
+    if pix.colormap().is_some() {
+        out_mut.set_black_or_white(match fill {
+            ShearFill::Black => crate::core::pix::InitColor::Black,
+            ShearFill::White => crate::core::pix::InitColor::White,
+        });
+    } else {
+        fill_image(&mut out_mut, fill_value);
+    }
 
     // Perform vertical shear
     // Perform vertical shear with the C band quantization
