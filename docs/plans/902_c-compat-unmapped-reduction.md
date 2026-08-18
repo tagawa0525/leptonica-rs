@@ -931,7 +931,48 @@ check 0-9 と `bilinear_reg` の check 0-6 は、いずれも `feyn.tif` のみ�
 その例で、投入コストに対する回収が大きい。次に狙うなら
 `rotate1` / `rotate2` など同系統の残りが候補。
 
-### PR 35 以降: semantic マッピングの漸進追加
+### PR 35: rotate1 の全 PNG 出力 (実施済み)
+
+C 版ソース: `src/rotate.c` (pixRotate / pixEmbedForRotation /
+pixRotateBySampling)、`src/rotateam.c` (pixRotateAMCorner)、
+`src/rotateshear.c` (pixRotateShear / pixRotate2Shear / pixRotate3Shear)、
+`src/pix2.c` (pixSetBlackOrWhite)、`prog/rotate1_reg.c`。
+
+`rotate1_reg` の PNG 出力 32 件は `test1.png` / `weasel2.4c.png` /
+`weasel4.11c.png` / `weasel4.16g.png` という可逆入力のみから作られる
+(8/32bpp の 4 枚は JPEG)。
+
+実施結果 (**このキャンペーン最多の 6 実装差**):
+
+- 実装差 62 件目: `rotate()` が C `pixRotate` のパイプラインではなく
+  独自実装だった。C は「メソッド上書き → area map なら cmap 除去 →
+  埋め込みなしなら cmap に黒/白追加 → 埋め込み → area map かつ 8bpp 未満
+  なら 8bpp 昇格 → 下位関数へ委譲」。既に C 準拠だった下位関数に委譲する
+  形へ書き換えた
+- 実装差 63 件目: 埋め込み判定の基準寸法が pix 自身の寸法だった。C は
+  呼び出し側の width/height から maxside を出す。**繰り返し回転では C は
+  常に原寸を渡す**ので、一度大きくなった後は追加の埋め込みが起きない。
+  `RotateEmbed` で C の width/height を表現できるようにした
+- 実装差 64 件目: メソッド上書きの条件が違った。C は 1bpp を常に
+  shear/sampling に強制し、area map を浅い深度で sampling に落とさず
+  8bpp に昇格させる。`LimitShearAngle` も 0.50 ではなく 0.35
+- 実装差 65 件目: `rotate_am_corner` が 8bpp 未満をそのまま複製していた
+- 実装差 66 件目: **cmapped 画像の背景色が生の極値だった**。C
+  `pixSetBlackOrWhite` は colormap に黒/白を追加してその index で塗る。
+  `set_black_or_white` を C 準拠にし、embed / sampling / shear の背景設定を
+  これに統一した
+- 実装差 67 件目: `rotate_shear` が独自実装だった。C は 2-shear / 3-shear の
+  合成 (`|angle| <= MaxTwoShearAngle` で hshear+vshear、超えると
+  vshear(a/2) + hshear(atan(sin a)) + vshear(a/2))
+- rotate1 の PNG 出力 32 件をマップ — **全件 Ok** (Ok 331 → 363、
+  transform binary の Ok が 82 → 114)
+
+**知見**: 「上位のディスパッチ関数が独自実装で、下位の演算は既に C 準拠」
+というパターンは、上位を C のパイプラインに置き換えるだけで一気に揃う。
+cmapped 画像の背景色 (index か生値か) は横断的に効く論点で、他の
+fill 系関数にも同じ確認が要る。
+
+### PR 36 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
