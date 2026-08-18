@@ -589,7 +589,7 @@ fn execute_binary_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
         MorphOp::Dilate { width, height } => crate::morph::dilate_brick(pix, *width, *height),
         MorphOp::Erode { width, height } => crate::morph::erode_brick(pix, *width, *height),
         MorphOp::Open { width, height } => crate::morph::open_brick(pix, *width, *height),
-        MorphOp::Close { width, height } => crate::morph::close_brick(pix, *width, *height),
+        MorphOp::Close { width, height } => crate::morph::close_safe_brick(pix, *width, *height),
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),
         )),
@@ -611,8 +611,9 @@ fn execute_dwa_op(pix: &Pix, op: &MorphOp) -> MorphResult<Pix> {
             crate::morph::dwa::erode_brick_dwa(pix, *width, *height)
         }
         MorphOp::Open { width, height } => crate::morph::dwa::open_brick_dwa(pix, *width, *height),
+        // C morphSequenceDwa maps 'c' to pixCloseSafeCompBrick.
         MorphOp::Close { width, height } => {
-            crate::morph::dwa::close_brick_dwa(pix, *width, *height)
+            crate::morph::close_safe_comp_brick(pix, *width, *height)
         }
         MorphOp::Tophat { .. } => Err(MorphError::InvalidSequence(
             "tophat is only valid for grayscale operations".to_string(),

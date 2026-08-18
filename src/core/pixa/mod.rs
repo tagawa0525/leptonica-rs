@@ -1055,8 +1055,45 @@ impl Pixa {
     ///
     /// C equivalent: `pixaDisplayRandomCmap()` in `pixafunc2.c`
     pub fn display_random_cmap(&self, w: u32, h: u32) -> Result<Pix> {
-        let _ = (w, h);
-        Err(Error::NotSupported("not yet implemented".to_string()))
+        use crate::core::pix::{PixelDepth, RopOp};
+
+        if self.pix.is_empty() {
+            return Err(Error::NullInput("pixa is empty"));
+        }
+        if self.pix.iter().any(|p| p.depth() != PixelDepth::Bit1) {
+            return Err(Error::InvalidParameter(
+                "not all components are 1 bpp".to_string(),
+            ));
+        }
+
+        let (w, h) = if w == 0 || h == 0 {
+            let mut ext_w = 0i32;
+            let mut ext_h = 0i32;
+            for i in 0..self.len() {
+                if let Some((x, y, bw, bh)) = self.get_box_geometry(i) {
+                    ext_w = ext_w.max(x + bw);
+                    ext_h = ext_h.max(y + bh);
+                }
+            }
+            (ext_w.max(0) as u32, ext_h.max(0) as u32)
+        } else {
+            (w, h)
+        };
+
+        let pixd = Pix::new(w, h, PixelDepth::Bit8)?;
+        let mut dm = pixd.try_into_mut().unwrap();
+        dm.set_colormap(Some(crate::core::PixColormap::create_random(
+            8, true, true,
+        )?))?;
+
+        for (i, pixs) in self.pix.iter().enumerate() {
+            let index = 1 + (i as u32 % 254);
+            let (xb, yb, wb, hb) = self.get_box_geometry(i).unwrap_or((0, 0, 0, 0));
+            let pix1 = pixs.convert_1_to_8(0, index)?;
+            dm.rop_region_inplace(xb, yb, wb as u32, hb as u32, RopOp::Or, &pix1, 0, 0)?;
+        }
+
+        Ok(dm.into())
     }
 
     /// Scale every image to a common tile width and tile them in `ncols`

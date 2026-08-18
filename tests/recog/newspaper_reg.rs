@@ -261,7 +261,6 @@ fn newspaper_reg_full_pipeline() {
 /// The whole program runs off the lossless `scots-frag.tif`, so every output
 /// except check 0 (which C writes as JPEG) is bit-exactly comparable.
 #[test]
-#[ignore = "not yet implemented"]
 fn newspaper_c_compat() {
     use leptonica::Pix;
     use leptonica::core::Pixa;

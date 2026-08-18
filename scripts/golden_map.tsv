@@ -413,3 +413,13 @@ recog	findpattern1	16	findpat1_c	17	patno 1 red 8: sel display
 recog	findpattern1	17	findpat1_c	18	patno 1 red 8: matched at full res
 recog	findpattern1	18	findpat1_c	19	patno 1 red 8: matched at 0.5 scale
 recog	findpattern1	19	findpat1_c	20	patno 1 red 8: matched removed
+recog	newspaper	1	newspaper_c	1	open vertical lines
+recog	newspaper	2	newspaper_c	2	seedfill vertical
+recog	newspaper	3	newspaper_c	3	remove vertical lines
+recog	newspaper	4	newspaper_c	4	seedfill horizontal
+recog	newspaper	5	newspaper_c	5	remove horizontal lines
+recog	newspaper	6	newspaper_c	6	inverted gutters
+recog	newspaper	7	newspaper_c	7	vertical gutters
+recog	newspaper	8	newspaper_c	8	gutter mask
+recog	newspaper	9	newspaper_c	9	solidified text
+recog	newspaper	11	newspaper_c	11	background white
