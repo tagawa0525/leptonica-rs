@@ -1043,17 +1043,20 @@ impl Pixa {
         }
         out
     }
-
-    /// Scale each Pix to `tile_width` pixels wide (maintaining aspect ratio),
-    /// optionally add a border, convert to `outdepth`, then composite into a
-    /// tiled layout with `ncols` columns.
+    /// Scale every image to a common tile width and tile them in `ncols`
+    /// columns.
     ///
-    /// * `outdepth` – output bit depth (1, 8, or 32 bpp)
-    /// * `tile_width` – width of each tile (including any border)
-    /// * `ncols` – number of tile columns
-    /// * `background` – background pixel value (0 = black, non-zero = white)
-    /// * `spacing` – gap between tiles in pixels
-    /// * `border` – extra border added to each tile (0 = none)
+    /// Each image is scaled by `(tile_width - 2 * border) / w`. A 1 bpp
+    /// image being reduced into a deeper output goes through
+    /// `scale_to_gray`, exactly as C does, so text stays legible; everything
+    /// else goes through the regular scaler. The result is then converted to
+    /// `outdepth` and optionally bordered.
+    ///
+    /// `background` selects the fill: C paints white when
+    /// `(background == 1 && outdepth == 1) || (background == 0 && outdepth != 1)`,
+    /// i.e. **0 means white for 8 and 32 bpp output** and black for 1 bpp.
+    ///
+    /// A `border` larger than `tile_width / 5` is ignored, as in C.
     ///
     /// C equivalent: `pixaDisplayTiledAndScaled()` in `pixafunc2.c`
     pub fn display_tiled_and_scaled(
@@ -1065,19 +1068,30 @@ impl Pixa {
         spacing: u32,
         border: u32,
     ) -> Result<Pix> {
+        use crate::core::pix::PixelDepth;
+
         if self.pix.is_empty() {
             return Err(Error::NullInput("pixa is empty"));
+        }
+        if !matches!(
+            outdepth,
+            PixelDepth::Bit1 | PixelDepth::Bit8 | PixelDepth::Bit32
+        ) {
+            return Err(Error::InvalidParameter(
+                "outdepth must be 1, 8 or 32".to_string(),
+            ));
         }
         if ncols == 0 {
             return Err(Error::InvalidParameter("ncols must be > 0".to_string()));
         }
-
-        // Scale and convert each image to the target depth
-        let inner_width = if tile_width > 2 * border {
-            tile_width - 2 * border
-        } else {
-            tile_width
-        };
+        if tile_width == 0 {
+            return Err(Error::InvalidParameter(
+                "tile_width must be > 0".to_string(),
+            ));
+        }
+        // C: `if (border < 0 || border > tilewidth / 5) border = 0;`
+        let border = if border > tile_width / 5 { 0 } else { border };
+        let bordval = if outdepth == PixelDepth::Bit1 { 1 } else { 0 };
 
         let mut scaled_pix: Vec<Pix> = Vec::with_capacity(self.len());
         for pix in &self.pix {
@@ -1085,68 +1099,87 @@ impl Pixa {
             if w == 0 {
                 continue;
             }
-            // Scale to inner_width, preserving aspect ratio
-            let s = scale_pix_to_size(pix, inner_width, 0);
-            // Convert depth
-            let s = convert_pix_depth(&s, outdepth);
-            // Optionally add border (simple: expand canvas)
-            let s = if border > 0 {
-                add_border_pix(&s, border, outdepth)
+            let scalefact = (tile_width - 2 * border) as f32 / w as f32;
+            // C: 1 bpp reduced into a deeper output goes through scale_to_gray.
+            let pix1 = if pix.depth() == PixelDepth::Bit1
+                && outdepth != PixelDepth::Bit1
+                && scalefact < 1.0
+            {
+                crate::transform::scale_to_gray(pix, scalefact)
+                    .map_err(|e| Error::NotSupported(e.to_string()))?
             } else {
-                s
+                crate::transform::scale(
+                    pix,
+                    scalefact,
+                    scalefact,
+                    crate::transform::ScaleMethod::Auto,
+                )
+                .map_err(|e| Error::NotSupported(e.to_string()))?
             };
-            scaled_pix.push(s);
+            let pixn = match outdepth {
+                PixelDepth::Bit1 => pix1.convert_to_1(128)?,
+                PixelDepth::Bit8 => pix1.convert_to_8()?,
+                _ => pix1.convert_to_32()?,
+            };
+            let pixb = if border > 0 {
+                pixn.add_border(border, bordval)?
+            } else {
+                pixn
+            };
+            scaled_pix.push(pixb);
         }
 
         if scaled_pix.is_empty() {
             return Err(Error::NullInput("no valid images after scaling"));
         }
 
-        // Tile into columns
         let n = scaled_pix.len();
-        let ncols = ncols as usize;
-        let nrows = n.div_ceil(ncols);
+        let ncols_u = ncols as usize;
+        let nrows = n.div_ceil(ncols_u);
+        let row_heights: Vec<u32> = (0..nrows)
+            .map(|row| {
+                (0..ncols_u)
+                    .filter_map(|col| scaled_pix.get(row * ncols_u + col))
+                    .map(|p| p.height())
+                    .max()
+                    .unwrap_or(0)
+            })
+            .collect();
 
-        // Compute row heights
-        let mut row_heights: Vec<u32> = Vec::with_capacity(nrows);
-        for row in 0..nrows {
-            let max_h = (0..ncols)
-                .filter_map(|col| scaled_pix.get(row * ncols + col))
-                .map(|p| p.height())
-                .max()
-                .unwrap_or(1);
-            row_heights.push(max_h);
-        }
-
-        let canvas_w = tile_width * ncols as u32 + spacing * (ncols as u32 + 1);
+        let canvas_w = tile_width * ncols + spacing * (ncols + 1);
         let canvas_h: u32 = row_heights.iter().sum::<u32>() + spacing * (nrows as u32 + 1);
 
         let canvas = Pix::new(canvas_w, canvas_h, outdepth)?;
         let mut dst = canvas.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
 
-        // Fill background with depth-appropriate white value
-        if background != 0 {
-            let white: u32 = match outdepth {
-                crate::core::pix::PixelDepth::Bit1 => 1,
-                crate::core::pix::PixelDepth::Bit8 => 255,
-                crate::core::pix::PixelDepth::Bit32 => 0xFFFF_FFFFu32,
-                _ => (1u32 << (outdepth as u32)) - 1,
-            };
-            for y in 0..canvas_h {
-                for x in 0..canvas_w {
-                    dst.set_pixel_unchecked(x, y, white);
-                }
-            }
+        // C: pixSetAll when (background == 1 && outdepth == 1) ||
+        //                  (background == 0 && outdepth != 1)
+        let fill = if outdepth == PixelDepth::Bit1 {
+            background == 1
+        } else {
+            background == 0
+        };
+        if fill {
+            dst.set_all();
         }
 
-        // Blit tiles
         let mut cy = spacing as i32;
-        for (row, &rh) in row_heights.iter().enumerate().take(nrows) {
+        for (row, &rh) in row_heights.iter().enumerate() {
             let mut cx = spacing as i32;
-            for col in 0..ncols {
-                let idx = row * ncols + col;
+            for col in 0..ncols_u {
+                let idx = row * ncols_u + col;
                 if idx < n {
-                    blit_pix(&mut dst, &scaled_pix[idx], cx, cy);
+                    let src = &scaled_pix[idx];
+                    dst.rop_region_inplace(
+                        cx,
+                        cy,
+                        src.width(),
+                        src.height(),
+                        crate::core::pix::RopOp::Src,
+                        src,
+                        0,
+                        0,
+                    )?;
                 }
                 cx += tile_width as i32 + spacing as i32;
             }
@@ -1593,75 +1626,6 @@ fn scale_pix_to_size(src: &Pix, wd: u32, hd: u32) -> Pix {
             dst.set_pixel_unchecked(dx, dy, val);
         }
     }
-    dst.into()
-}
-
-/// Convert a Pix to a specific bit depth.
-///
-/// Only the targets Bit1, Bit8, and Bit32 produce well-defined output;
-/// other `outdepth` values are rejected and a deep clone is returned.
-fn convert_pix_depth(src: &Pix, outdepth: crate::core::pix::PixelDepth) -> Pix {
-    use crate::core::pix::PixelDepth;
-    // Validate that outdepth is one of the supported targets
-    if !matches!(
-        outdepth,
-        PixelDepth::Bit1 | PixelDepth::Bit8 | PixelDepth::Bit32
-    ) {
-        return src.deep_clone();
-    }
-    let d = src.depth();
-    if d == outdepth {
-        return src.deep_clone();
-    }
-    let w = src.width();
-    let h = src.height();
-    let dst_pix = Pix::new(w, h, outdepth).unwrap_or_else(|_| src.deep_clone());
-    let mut dst = dst_pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
-
-    for y in 0..h {
-        for x in 0..w {
-            let val = src.get_pixel_unchecked(x, y);
-            // Convert source pixel to an 8-bit gray value
-            // Bit1: 0 = white (255), 1 = black (0) — matches Leptonica convention
-            let gray: u32 = match d {
-                PixelDepth::Bit1 => {
-                    if val & 1 != 0 {
-                        0u32 // black
-                    } else {
-                        255u32 // white
-                    }
-                }
-                PixelDepth::Bit2 => (val & 3) * 85,
-                PixelDepth::Bit4 => (val & 0xF) * 17,
-                PixelDepth::Bit8 => val & 0xFF,
-                PixelDepth::Bit16 => (val & 0xFFFF) >> 8,
-                PixelDepth::Bit32 => (val >> 24) & 0xFF, // red channel as gray
-            };
-            let out_val = match outdepth {
-                PixelDepth::Bit1 => u32::from(gray < 128),
-                PixelDepth::Bit8 => gray,
-                PixelDepth::Bit32 => (gray << 24) | (gray << 16) | (gray << 8) | 0xFF,
-                // All unsupported targets were already rejected above.
-                _ => unreachable!(),
-            };
-            dst.set_pixel_unchecked(x, y, out_val);
-        }
-    }
-    dst.into()
-}
-
-/// Add a uniform border of `border` pixels around `src`.
-///
-/// The source is converted to `outdepth` before blitting so that the pixel
-/// values are interpreted consistently.
-fn add_border_pix(src: &Pix, border: u32, outdepth: crate::core::pix::PixelDepth) -> Pix {
-    let w = src.width() + 2 * border;
-    let h = src.height() + 2 * border;
-    let dst_pix = Pix::new(w, h, outdepth).unwrap_or_else(|_| src.deep_clone());
-    let mut dst = dst_pix.try_into_mut().unwrap_or_else(|p: Pix| p.to_mut());
-    // Convert src to the target depth so pixel values are consistent
-    let src_converted = convert_pix_depth(src, outdepth);
-    blit_pix(&mut dst, &src_converted, border as i32, border as i32);
     dst.into()
 }
 

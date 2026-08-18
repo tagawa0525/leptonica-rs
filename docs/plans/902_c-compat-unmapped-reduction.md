@@ -752,7 +752,47 @@ pixBlockconvAccum)、`src/adaptmap.c` (pixFillMapHoles)、
   キャンペーンで繰り返し現れるパターン
 - 5 ペアマップ — **全件 Ok** (Ok 233 → 238、filter binary の Ok が 2 → 7)
 
-### PR 29 以降: semantic マッピングの漸進追加
+### PR 29: findpattern1 の全 20 出力 (実施済み)
+
+C 版ソース: `src/selgen.c` (pixGenerateSelBoundary /
+pixSubsampleBoundaryPixels / adjacentOnPixelInRaster /
+pixDisplayHitMissSel)、`src/morphapp.c` (pixDisplayMatchedPattern)、
+`src/pixafunc2.c` (pixaDisplayTiledAndScaled)、
+`prog/findpattern1_reg.c`。
+
+`findpattern1_reg` は tribune-word.png / tribune-t.png /
+tribune-page-4x.png という可逆 PNG のみを入力とし、**20 出力すべて**が
+bit 一致比較できる。C 側の sel パラメータ (pixp/sel の寸法、原点、
+hit/miss 数) を dump して段階的に突き合わせた。
+
+実施結果:
+
+- 実装差 47 件目: `generate_sel_boundary` が C の
+  `pixClipToForeground` を行わず、パディング量も `missdist`
+  (C は `missdist + 1`) だった。pixp の寸法が食い違っていた
+  (例: 254x74 に対し 255x74)
+- 実装差 48 件目: 同関数が C の `ppixe` (境界拡張後のパターン画像) を
+  返していなかった。戻り値を `(Sel, Pix)` にした
+- 実装差 49 件目: 境界画素の追跡順が C の `adjacentOnPixelInRaster`
+  と異なっていた。**サブサンプリングでどの画素が残るかは追跡順で決まる**
+  ため hit/miss 集合がずれていた (65/101 に対し C は 68/84)
+- 実装差 50 件目: `display_matched_pattern` が 32bpp を返していた。
+  C は 4bpp cmapped を返し、`scale < 1` では
+  `scale_to_gray` + `threshold_to_4bpp` を通り、オフセットを
+  `(l_int32)(scale * offset)` で切り捨てる。`nlevels` 引数も欠けていた
+- 実装差 51 件目: `display_tiled_and_scaled` が C と別実装だった。
+  1bpp を縮小して深い出力にする際の `scale_to_gray` 経路がなく、
+  **背景の判定が C と逆** (非 1bpp では `background == 0` が白)、
+  `border > tilewidth / 5` の無効化もなかった
+- C `pixDisplayHitMissSel` 相当の `display_hit_miss_sel` を新規移植
+- findpattern1 の **全 20 出力をマップ — 全件 Ok** (Ok 238 → 258、
+  recog binary の Ok が 19 → 39)
+- `findpattern1_reg_display_and_remove` は独自パラメータ (フル解像度の
+  パターンを 4x 縮小ページに当てる) で、sel が C 準拠になると一致が
+  1 件も出ない無意味なテストだったため削除した。同じ C プログラムは
+  `findpattern1_c_compat` が厳密に覆う
+
+### PR 30 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:

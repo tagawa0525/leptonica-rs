@@ -393,3 +393,23 @@ filter	convolve	3	convolve_blockrank	2	blockrank 4x4 rank 0.50
 filter	convolve	4	convolve_blockrank	3	blockrank 4x4 rank 0.75
 filter	adaptmap	14	adaptmap_c	1	fill_map_holes on weasel8.png (L_FILL_WHITE)
 filter	adaptmap	15	adaptmap_c	2	fill_map_holes 3x3 (L_FILL_BLACK)
+recog	findpattern1	0	findpat1_c	1	patno 0 red 4: sel display
+recog	findpattern1	1	findpat1_c	2	patno 0 red 4: matched at full res
+recog	findpattern1	2	findpat1_c	3	patno 0 red 4: matched at 0.5 scale
+recog	findpattern1	3	findpat1_c	4	patno 0 red 4: matched removed
+recog	findpattern1	4	findpat1_c	5	patno 0 red 8: sel display
+recog	findpattern1	5	findpat1_c	6	patno 0 red 8: matched at full res
+recog	findpattern1	6	findpat1_c	7	patno 0 red 8: matched at 0.5 scale
+recog	findpattern1	7	findpat1_c	8	patno 0 red 8: matched removed
+recog	findpattern1	8	findpat1_c	9	patno 0 red 16: sel display
+recog	findpattern1	9	findpat1_c	10	patno 0 red 16: matched at full res
+recog	findpattern1	10	findpat1_c	11	patno 0 red 16: matched at 0.5 scale
+recog	findpattern1	11	findpat1_c	12	patno 0 red 16: matched removed
+recog	findpattern1	12	findpat1_c	13	patno 1 red 4: sel display
+recog	findpattern1	13	findpat1_c	14	patno 1 red 4: matched at full res
+recog	findpattern1	14	findpat1_c	15	patno 1 red 4: matched at 0.5 scale
+recog	findpattern1	15	findpat1_c	16	patno 1 red 4: matched removed
+recog	findpattern1	16	findpat1_c	17	patno 1 red 8: sel display
+recog	findpattern1	17	findpat1_c	18	patno 1 red 8: matched at full res
+recog	findpattern1	18	findpat1_c	19	patno 1 red 8: matched at 0.5 scale
+recog	findpattern1	19	findpat1_c	20	patno 1 red 8: matched removed

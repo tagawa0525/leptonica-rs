@@ -33,6 +33,13 @@ use crate::morph::{MorphError, MorphResult, dilate_brick, erode_brick};
 /// * `left_flag` - Whether to expand the left boundary
 /// * `right_flag` - Whether to expand the right boundary
 ///
+/// # Returns
+///
+/// `(sel, expanded)` where `expanded` is the border-expanded version of the
+/// input, C's `ppixe` output. It is the pattern image the sel was derived
+/// from, and callers pass it to [`display_hit_miss_sel`] and to the
+/// matched-pattern renderers.
+///
 /// Based on C leptonica `pixGenerateSelBoundary`.
 #[allow(clippy::too_many_arguments)]
 pub fn generate_sel_boundary(
@@ -45,7 +52,7 @@ pub fn generate_sel_boundary(
     bot_flag: bool,
     left_flag: bool,
     right_flag: bool,
-) -> MorphResult<Sel> {
+) -> MorphResult<(Sel, Pix)> {
     check_binary(pix)?;
 
     if hit_dist > 4 || miss_dist > 4 {
@@ -59,8 +66,27 @@ pub fn generate_sel_boundary(
         ));
     }
 
-    // Expand the image based on flags
-    let expanded = expand_image(pix, top_flag, bot_flag, left_flag, right_flag, miss_dist)?;
+    // C first crops to the foreground bounding box (pixClipToForeground),
+    // then pads each flagged side by `missdist + 1`.
+    let clipped = match pix
+        .clip_to_foreground()
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?
+    {
+        Some((p, _)) => p,
+        None => {
+            return Err(MorphError::InvalidParameters(
+                "pixs has no foreground".into(),
+            ));
+        }
+    };
+    let expanded = expand_image(
+        &clipped,
+        top_flag,
+        bot_flag,
+        left_flag,
+        right_flag,
+        miss_dist + 1,
+    )?;
     let ew = expanded.width();
     let eh = expanded.height();
 
@@ -118,7 +144,103 @@ pub fn generate_sel_boundary(
         }
     }
 
-    Ok(sel)
+    Ok((sel, expanded))
+}
+
+/// Default scale factor used by [`display_hit_miss_sel`] when `scalefactor`
+/// is 0, matching C's `DefaultSelScalefactor`.
+pub const DEFAULT_SEL_SCALEFACTOR: u32 = 7;
+
+/// Upper bound on [`display_hit_miss_sel`]'s scale factor, matching C's
+/// `MaxSelScalefactor`.
+pub const MAX_SEL_SCALEFACTOR: u32 = 31;
+
+/// Render a hit-miss sel superimposed on the pattern it was generated from.
+///
+/// The 1 bpp pattern is converted to an 8 bpp colormapped image (white
+/// background, black foreground), the sel's hits and misses are painted in
+/// `hit_color` and `miss_color`, and the result is magnified `scalefactor`
+/// times by sampling.
+///
+/// Colors are given in C's `0xRRGGBBAA` layout; the alpha byte is ignored,
+/// as in C.
+///
+/// # Arguments
+///
+/// * `pix` - 1 bpp pattern the sel was derived from (C's `ppixe` output of
+///   [`generate_sel_boundary`])
+/// * `sel` - hit-miss sel to overlay
+/// * `scalefactor` - magnification; 0 selects [`DEFAULT_SEL_SCALEFACTOR`] and
+///   values above [`MAX_SEL_SCALEFACTOR`] are clamped
+/// * `hit_color`, `miss_color` - colors for the hit and miss elements
+///
+/// C equivalent: `pixDisplayHitMissSel()` in `selgen.c`
+pub fn display_hit_miss_sel(
+    pix: &Pix,
+    sel: &Sel,
+    scalefactor: u32,
+    hit_color: u32,
+    miss_color: u32,
+) -> MorphResult<Pix> {
+    check_binary(pix)?;
+    // The sel is normally the one generated from `pix`, so the two match;
+    // guard against a mismatched pair rather than indexing out of bounds.
+    if sel.width() > pix.width() || sel.height() > pix.height() {
+        return Err(MorphError::InvalidParameters(format!(
+            "sel {}x{} does not fit in pix {}x{}",
+            sel.width(),
+            sel.height(),
+            pix.width(),
+            pix.height()
+        )));
+    }
+
+    let scalefactor = match scalefactor {
+        0 => DEFAULT_SEL_SCALEFACTOR,
+        s if s > MAX_SEL_SCALEFACTOR => MAX_SEL_SCALEFACTOR,
+        s => s,
+    };
+
+    // C: pixConvert1To8(NULL, pixs, 0, 1) then a 4-entry colormap of
+    // white / black / hit / miss.
+    let pixt = pix
+        .convert_1_to_8(0, 1)
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+    let mut pm = pixt.try_into_mut().unwrap();
+    let mut cmap = crate::core::PixColormap::new(8)
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+    let rgb = |c: u32| {
+        (
+            (c >> 24) as u8,
+            ((c >> 16) & 0xff) as u8,
+            ((c >> 8) & 0xff) as u8,
+        )
+    };
+    for (r, g, b) in [
+        (255u8, 255u8, 255u8),
+        (0, 0, 0),
+        rgb(hit_color),
+        rgb(miss_color),
+    ] {
+        cmap.add_rgb(r, g, b)
+            .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+    }
+    pm.set_colormap(Some(cmap))
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))?;
+
+    for y in 0..sel.height() {
+        for x in 0..sel.width() {
+            match sel.get_element(x, y) {
+                Some(SelElement::Hit) => pm.set_pixel_unchecked(x, y, 2),
+                Some(SelElement::Miss) => pm.set_pixel_unchecked(x, y, 3),
+                _ => {}
+            }
+        }
+    }
+
+    let pixt: Pix = pm.into();
+    crate::transform::scale_by_sampling(&pixt, scalefactor as f32, scalefactor as f32)
+        .map_err(|e| MorphError::InvalidParameters(e.to_string()))
 }
 
 /// Generate a Sel using run-length patterns from a binary image.
@@ -468,18 +590,21 @@ fn check_binary(pix: &Pix) -> MorphResult<()> {
 }
 
 /// Expand image with border padding based on flags.
+/// Pad the flagged sides by `pad` pixels.
+///
+/// C uses `missdist + 1` for `pad`, so callers pass that.
 fn expand_image(
     pix: &Pix,
     top: bool,
     bot: bool,
     left: bool,
     right: bool,
-    dist: u32,
+    pad: u32,
 ) -> MorphResult<Pix> {
-    let pad_top = if top { dist } else { 0 };
-    let pad_bot = if bot { dist } else { 0 };
-    let pad_left = if left { dist } else { 0 };
-    let pad_right = if right { dist } else { 0 };
+    let pad_top = if top { pad } else { 0 };
+    let pad_bot = if bot { pad } else { 0 };
+    let pad_left = if left { pad } else { 0 };
+    let pad_right = if right { pad } else { 0 };
     expand_image_by_pixels(pix, pad_top, pad_bot, pad_left, pad_right)
 }
 
@@ -620,14 +745,15 @@ fn find_next_boundary_pixel(
     h: u32,
     visited: &[bool],
 ) -> Option<(u32, u32)> {
-    // 4-connected neighbors first, then diagonals
+    // C `adjacentOnPixelInRaster` scans in this exact order; the traversal
+    // order decides which pixels survive subsampling, so it must match.
     let neighbors: [(i32, i32); 8] = [
-        (1, 0),
-        (0, 1),
         (-1, 0),
+        (0, 1),
+        (1, 0),
         (0, -1),
-        (1, 1),
         (-1, 1),
+        (1, 1),
         (1, -1),
         (-1, -1),
     ];
