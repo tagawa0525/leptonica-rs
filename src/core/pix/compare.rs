@@ -393,13 +393,16 @@ impl Pix {
     /// A new image containing the difference. For `Subtract`, negative values
     /// are clipped to 0. For `AbsDiff`, the absolute value is taken.
     ///
-    /// The two images are aligned at their upper-left corners and the
-    /// operation runs over their **intersection**, exactly as C's
+    /// For 1 bpp the two images are aligned at their upper-left corners and
+    /// the operation runs over their **intersection**, exactly as C's
     /// `pixSubtract` / `pixXor` do; the result keeps `self`'s dimensions and
     /// any area outside the overlap is copied from `self` unchanged. C only
-    /// warns about a size mismatch rather than failing. (The 8 and 32 bpp
-    /// paths, which have no direct C counterpart in `pixSubtract`, treat
-    /// out-of-range reads as 0.)
+    /// warns about a size mismatch rather than failing.
+    ///
+    /// The 8 and 32 bpp paths have no direct counterpart in C's `pixSubtract`
+    /// (which is a 1 bpp rasterop). They compute over all of `self`, treating
+    /// out-of-range reads from `other` as 0, and the 32 bpp path rebuilds
+    /// each pixel with `compose_rgb`, so **alpha is not preserved**.
     ///
     /// # Errors
     ///
@@ -450,8 +453,10 @@ impl Pix {
         // the bits beyond that width keep self's content.
         let ow = width.min(other.width());
         for y in 0..overlap_h {
-            let line1: Vec<u32> = self.row_data(y).to_vec();
-            let line2: Vec<u32> = other.row_data(y).to_vec();
+            // `result_mut` is a separate Pix (a deep clone of self), so the
+            // immutable borrows of self/other coexist with the mutable one.
+            let line1 = self.row_data(y);
+            let line2 = other.row_data(y);
             let line_out = result_mut.row_data_mut(y);
 
             for w in 0..overlap_wpl {

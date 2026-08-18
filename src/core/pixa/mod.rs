@@ -1051,7 +1051,9 @@ impl Pixa {
     /// index 255 white, as in C's `pixcmapCreateRandom(8, 1, 1)`.
     ///
     /// `w` and `h` give the canvas size; passing 0 for either uses the extent
-    /// of the stored boxes.
+    /// of the stored boxes. Every component must have a stored box (as it does
+    /// when the pixa comes from a connected-component pass); a missing box is
+    /// an error rather than a silently skipped blit.
     ///
     /// C equivalent: `pixaDisplayRandomCmap()` in `pixafunc2.c`
     pub fn display_random_cmap(&self, w: u32, h: u32) -> Result<Pix> {
@@ -1088,7 +1090,9 @@ impl Pixa {
 
         for (i, pixs) in self.pix.iter().enumerate() {
             let index = 1 + (i as u32 % 254);
-            let (xb, yb, wb, hb) = self.get_box_geometry(i).unwrap_or((0, 0, 0, 0));
+            let (xb, yb, wb, hb) = self.get_box_geometry(i).ok_or_else(|| {
+                Error::InvalidParameter(format!("pixa has no box for component {i}"))
+            })?;
             let pix1 = pixs.convert_1_to_8(0, index)?;
             dm.rop_region_inplace(xb, yb, wb as u32, hb as u32, RopOp::Or, &pix1, 0, 0)?;
         }

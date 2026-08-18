@@ -263,7 +263,6 @@ fn newspaper_reg_full_pipeline() {
 #[test]
 fn newspaper_c_compat() {
     use leptonica::Pix;
-    use leptonica::core::Pixa;
     use leptonica::morph::seedfill_morph;
     use leptonica::transform::{
         ScaleMethod, expand_binary_power2, reduce_rank_binary_2, reduce_rank_binary_cascade, scale,
@@ -353,6 +352,5 @@ fn newspaper_c_compat() {
     rp.write_pix_and_check(&half(&pix11), ImageFormat::Png)
         .expect("check: stuff under mask 2");
 
-    let _ = Pixa::new();
     assert!(rp.cleanup(), "newspaper C-compat test failed");
 }
