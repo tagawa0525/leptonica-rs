@@ -97,8 +97,24 @@ pub struct RotateOptions {
     pub center_x: Option<f32>,
     /// Custom rotation center Y (None = image center)
     pub center_y: Option<f32>,
-    /// Expand output to fit all rotated pixels
-    pub expand: bool,
+    /// How much room to make for the rotated image.
+    ///
+    /// This is C's `width` / `height` pair on `pixRotate`.
+    pub embed: RotateEmbed,
+}
+
+/// How [`rotate`] decides whether to embed the source in a larger canvas.
+///
+/// C equivalent: the `width` / `height` arguments of `pixRotate`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RotateEmbed {
+    /// Do not embed; the output keeps the source dimensions (C `0, 0`).
+    None,
+    /// Embed so that a rotation of the source dimensions fits.
+    #[default]
+    ToFit,
+    /// Embed so that a rotation of these dimensions fits.
+    Explicit(u32, u32),
 }
 
 impl Default for RotateOptions {
@@ -108,7 +124,7 @@ impl Default for RotateOptions {
             fill: RotateFill::White,
             center_x: None,
             center_y: None,
-            expand: true,
+            embed: RotateEmbed::ToFit,
         }
     }
 }
@@ -137,9 +153,9 @@ impl RotateOptions {
         self
     }
 
-    /// Set whether to expand output dimensions
-    pub fn expand(mut self, expand: bool) -> Self {
-        self.expand = expand;
+    /// Set how much room to make for the rotated image.
+    pub fn embed(mut self, embed: RotateEmbed) -> Self {
+        self.embed = embed;
         self
     }
 }
@@ -729,7 +745,8 @@ pub fn rotate(pix: &Pix, angle: f32, options: &RotateOptions) -> TransformResult
     let cos_a = angle.cos();
     let sin_a = angle.sin();
 
-    let (out_w, out_h) = if options.expand {
+    let expand = options.embed != RotateEmbed::None;
+    let (out_w, out_h) = if expand {
         let (nw, nh) = calculate_rotated_bounds(w, h, cos_a, sin_a);
         (nw as u32, nh as u32)
     } else {
@@ -738,16 +755,8 @@ pub fn rotate(pix: &Pix, angle: f32, options: &RotateOptions) -> TransformResult
 
     let cx_src = options.center_x.unwrap_or(w / 2.0);
     let cy_src = options.center_y.unwrap_or(h / 2.0);
-    let cx_dst = if options.expand {
-        out_w as f32 / 2.0
-    } else {
-        cx_src
-    };
-    let cy_dst = if options.expand {
-        out_h as f32 / 2.0
-    } else {
-        cy_src
-    };
+    let cx_dst = if expand { out_w as f32 / 2.0 } else { cx_src };
+    let cy_dst = if expand { out_h as f32 / 2.0 } else { cy_src };
 
     // Create output image
     let out_pix = Pix::new(out_w, out_h, depth)?;
@@ -850,7 +859,7 @@ pub fn rotate_about_center(
         fill,
         center_x: Some(center_x),
         center_y: Some(center_y),
-        expand: false, // Don't expand when using custom center
+        embed: RotateEmbed::None, // Don't expand when using custom center
         ..Default::default()
     };
     rotate(pix, angle, &options)
@@ -1497,7 +1506,7 @@ pub fn rotate_with_alpha(
     let options = RotateOptions {
         method: RotateMethod::AreaMap,
         fill: RotateFill::White,
-        expand: false,
+        embed: RotateEmbed::None,
         ..Default::default()
     };
     let rotated = rotate(pix, angle, &options)?;
@@ -1558,7 +1567,13 @@ pub fn rotate_with_alpha(
 /// If the angle is tiny (< MIN_ANGLE_TO_ROTATE), returns a clone.
 ///
 /// C equivalent: `pixEmbedForRotation`
-pub fn embed_for_rotation(pix: &Pix, angle: f32, fill: RotateFill) -> TransformResult<Pix> {
+pub fn embed_for_rotation(
+    pix: &Pix,
+    angle: f32,
+    fill: RotateFill,
+    _width: u32,
+    _height: u32,
+) -> TransformResult<Pix> {
     if angle.abs() < MIN_ANGLE_TO_ROTATE {
         return Ok(pix.deep_clone());
     }
@@ -2428,12 +2443,12 @@ mod tests {
     fn test_rotate_options_builder() {
         let options = RotateOptions::with_method(RotateMethod::Sampling)
             .center(25.0, 30.0)
-            .expand(false);
+            .embed(RotateEmbed::None);
 
         assert_eq!(options.method, RotateMethod::Sampling);
         assert_eq!(options.center_x, Some(25.0));
         assert_eq!(options.center_y, Some(30.0));
-        assert!(!options.expand);
+        assert_eq!(options.embed, RotateEmbed::None);
     }
 
     #[test]
@@ -2449,7 +2464,7 @@ mod tests {
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let options = RotateOptions {
             method: RotateMethod::Shear,
-            expand: false, // Don't expand output
+            embed: RotateEmbed::None, // Don't expand output
             ..Default::default()
         };
         let rotated = rotate(&pix, 0.03, &options).unwrap(); // ~1.7 degrees
@@ -2462,7 +2477,7 @@ mod tests {
         let pix = Pix::new(50, 50, PixelDepth::Bit8).unwrap();
         let options = RotateOptions {
             method: RotateMethod::Shear,
-            expand: false,
+            embed: RotateEmbed::None,
             ..Default::default()
         };
         let rotated = rotate(&pix, 0.15, &options).unwrap(); // ~8.5 degrees

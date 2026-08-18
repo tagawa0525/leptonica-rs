@@ -26,7 +26,9 @@ fn test_embed_for_rotation_basic() {
     let h = pix.height();
     let angle: f32 = 0.3; // ~17 degrees
 
-    let embedded = embed_for_rotation(&pix, angle, RotateFill::White).expect("embed_for_rotation");
+    // C passes the source dimensions to request embedding (0, 0 skips it).
+    let embedded =
+        embed_for_rotation(&pix, angle, RotateFill::White, w, h).expect("embed_for_rotation");
     // Embedded image should be larger than original to fit rotation
     assert!(embedded.width() >= w);
     assert!(embedded.height() >= h);
@@ -38,7 +40,8 @@ fn test_embed_for_rotation_basic() {
 fn test_embed_for_rotation_tiny_angle() {
     use leptonica::transform::rotate::embed_for_rotation;
     let pix = load_test_image("test8.jpg").expect("load test8.jpg");
-    let embedded = embed_for_rotation(&pix, 0.0001, RotateFill::White).expect("tiny angle");
+    let embedded = embed_for_rotation(&pix, 0.0001, RotateFill::White, pix.width(), pix.height())
+        .expect("tiny angle");
     // Tiny angle should return same dimensions
     assert_eq!(embedded.width(), pix.width());
     assert_eq!(embedded.height(), pix.height());

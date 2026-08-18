@@ -40,12 +40,13 @@ pub use projective::{
     projective_sampled_pta,
 };
 pub use rotate::{
-    RotateFill, RotateMethod, RotateOptions, embed_for_rotation, flip_lr, flip_tb, rotate,
-    rotate_90, rotate_180, rotate_180_in_place, rotate_about_center, rotate_am, rotate_am_color,
-    rotate_am_color_corner, rotate_am_color_fast, rotate_am_corner, rotate_am_gray,
-    rotate_am_gray_corner, rotate_binary_nice, rotate_by_angle, rotate_by_angle_with_options,
-    rotate_by_radians, rotate_by_sampling, rotate_orth, rotate_shear, rotate_shear_center,
-    rotate_shear_center_ip, rotate_shear_ip, rotate_with_alpha, rotate_with_method,
+    RotateEmbed, RotateFill, RotateMethod, RotateOptions, embed_for_rotation, flip_lr, flip_tb,
+    rotate, rotate_90, rotate_180, rotate_180_in_place, rotate_about_center, rotate_am,
+    rotate_am_color, rotate_am_color_corner, rotate_am_color_fast, rotate_am_corner,
+    rotate_am_gray, rotate_am_gray_corner, rotate_binary_nice, rotate_by_angle,
+    rotate_by_angle_with_options, rotate_by_radians, rotate_by_sampling, rotate_orth, rotate_shear,
+    rotate_shear_center, rotate_shear_center_ip, rotate_shear_ip, rotate_with_alpha,
+    rotate_with_method,
 };
 pub use scale::{
     GrayMinMaxMode, ScaleMethod, expand_replicate, scale, scale_area_map, scale_area_map_2,
