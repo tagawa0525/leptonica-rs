@@ -152,7 +152,7 @@ fn rotate2_c_compat() {
         let fit = RotateEmbed::Explicit(w, h);
         let none = RotateEmbed::None;
 
-        // C write 1: eight shear rotations, two angles x two fills x embed/no.
+        // C write #1: eight shear rotations, two angles x two fills x embed/no.
         let mut pixa = Pixa::new();
         for angle in [ANGLE1, ANGLE2] {
             for embed in [fit, none] {
@@ -170,7 +170,7 @@ fn rotate2_c_compat() {
         rp.write_pix_and_check(&tiled, ImageFormat::Png)
             .expect("check: shear variants");
 
-        // C write 2: four sampling rotations then four area-map ones. For a
+        // C write #2: four sampling rotations then four area-map ones. For a
         // 1 bpp source the area-map block runs on pixScaleToGray2 output.
         let mut pixa = Pixa::new();
         for embed in [fit, none] {
