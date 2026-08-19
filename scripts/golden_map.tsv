@@ -518,3 +518,11 @@ transform	rotate1	28	rotate1_c	29	weasel4.16g areamap x11
 transform	rotate1	29	rotate1_c	30	weasel4.16g areamap x22
 transform	rotate1	30	rotate1_c	31	weasel4.16g amcorner x11
 transform	rotate1	31	rotate1_c	32	weasel4.16g amcorner x22
+transform	rotate2	0	rotate2_c	1	test1 shear variants
+transform	rotate2	1	rotate2_c	2	test1 sampling + area map variants
+transform	rotate2	2	rotate2_c	3	weasel2.4c shear variants
+transform	rotate2	3	rotate2_c	4	weasel2.4c sampling + area map variants
+transform	rotate2	4	rotate2_c	5	weasel4.11c shear variants
+transform	rotate2	5	rotate2_c	6	weasel4.11c sampling + area map variants
+transform	rotate2	6	rotate2_c	7	weasel4.16g shear variants
+transform	rotate2	7	rotate2_c	8	weasel4.16g sampling + area map variants
