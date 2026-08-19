@@ -972,7 +972,30 @@ pixRotateBySampling)、`src/rotateam.c` (pixRotateAMCorner)、
 cmapped 画像の背景色 (index か生値か) は横断的に効く論点で、他の
 fill 系関数にも同じ確認が要る。
 
-### PR 36 以降: semantic マッピングの漸進追加
+### PR 36: rotate2 の全 PNG 出力 (実施済み)
+
+C 版ソース: `prog/rotate2_reg.c`。
+
+PR 35 で整列した rotate1 と同系統。PNG 出力 8 件は同じ 4 枚の可逆入力から
+作られ、1 枚あたり 2 出力 (shear の 8 変種 = 2 角度 x 2 fill x 埋め込み
+有無、および sampling 4 変種 + area map 4 変種) を並べたもの。
+
+実施結果:
+
+- **実装変更なしで 8 ペア全件 Ok** (Ok 363 → 371、transform binary の
+  Ok が 114 → 122)。PR 35 の `pixRotate` パイプライン化がそのまま効いた
+- 1bpp では area map ブロックの前に `pixScaleToGray2` を挟む点、
+  `L_BRING_IN_BLACK` と埋め込み無し (C の `0, 0`) の組み合わせも
+  テストで再現した
+- `rotateorth_reg` は `regTestComparePix` のみでファイル出力が無いため
+  マップ対象が存在しない (C manifest のエントリも 0)
+
+**次段送り**: `warper_reg` の 8 件 (feyn-word.tif、可逆) は C が
+`srand(seed)` + glibc `rand()` で歪みパラメータを作る。PR 31 の
+`GlibcRand` と同じ手が使えるが、ライブラリ側の乱数生成そのものを
+glibc 互換にする必要があるため別 PR とする。
+
+### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
 優先順位はバイナリ別の未開拓度で決める:
