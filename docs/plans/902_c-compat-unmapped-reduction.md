@@ -1071,9 +1071,18 @@ C 版ソース: `prog/findcorners_reg.c`。入力は `tickets.tif` のみ (lossl
 - `pageseg` にあった「Rust の `pix_select_by_size` は IfBoth/IfEither しか
   無いので conncomp で代替」という回避策のコメントを実態に合わせて修正
 
+- `compfilter_reg` にあった代替コード (Width/Height が無いので Both +
+  未使用側の閾値を常に満たす値にする、strict `>` を `Gte` + 閾値+1 で
+  代替、Either を手書きフィルタで数える) を C の引数そのままに戻した
+
 **教訓**: 「無い」と判断する前に同一モジュール配下を確認する。今回
 `SizeSelectType` を新設しかけたが、`box_/select.rs` に同名・同義の型が
 既にあった (レビューで指摘され統合)。
+
+**次段送り**: `core::pixa::properties::SizeIndicatorAxis` が
+`SizeSelectType` と同義でありながら `IfEither` / `IfBoth` しか持たない。
+C `pixaMakeSizeIndicator` も 4 type を取るため、`SizeSelectType` への
+統合が望ましい (本 PR のスコープ外)。
 
 **次段送り**: 非 JPEG 入力で未マップかつ 5 件以上のプログラムのうち、
 `watershed` (22 件) は C の `L_WSHED` 優先度キュー実装の移植、
