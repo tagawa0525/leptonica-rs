@@ -216,7 +216,15 @@ pub fn find_skew_and_deskew(
 /// * `angle` - Rotation angle in degrees (positive = counterclockwise)
 ///
 /// # Returns
-/// The deskewed image
+///
+/// The deskewed image, always with the source dimensions.
+///
+/// The depth can change: this asks for area-map rotation, as C
+/// `pixDeskewGeneral` does, and C's `pixRotateAM` promotes anything below
+/// 8 bpp to 8 bpp. 1 bpp is the exception — `pixRotate` overrides the
+/// request to shear (or sampling past ~6 degrees) before that, so a 1 bpp
+/// input stays 1 bpp. In short: 1 bpp in, 1 bpp out; 2 or 4 bpp in, 8 bpp
+/// out.
 pub fn deskew_by_angle(pix: &Pix, angle: f32) -> RecogResult<Pix> {
     if angle.abs() < 0.001 {
         return Ok(pix.deep_clone());
@@ -225,7 +233,8 @@ pub fn deskew_by_angle(pix: &Pix, angle: f32) -> RecogResult<Pix> {
     // C `pixDeskewGeneral` finishes with
     // `pixRotate(pixs, deg2rad * angle, L_ROTATE_AREA_MAP, L_BRING_IN_WHITE, 0, 0)`.
     // Passing 0 for width/height means "do not embed", so the deskewed image
-    // keeps the source dimensions.
+    // keeps the source dimensions. See the depth note above for what the
+    // area-map request does to sub-8-bpp inputs.
     let options = RotateOptions {
         method: RotateMethod::AreaMap,
         fill: RotateFill::White,
@@ -1070,6 +1079,22 @@ mod tests {
         let r_center = find_skew_sweep_and_search_score_pivot(&pix, &opts, SkewPivot::Center);
         assert!(r_corner.is_ok());
         assert!(r_center.is_ok());
+    }
+
+    #[test]
+    fn test_deskew_by_angle_depth_contract() {
+        // C forces shear for 1 bpp before area mapping can promote it, but
+        // `pixRotateAM` converts anything else below 8 bpp to 8 bpp.
+        for (input, expected) in [
+            (PixelDepth::Bit1, PixelDepth::Bit1),
+            (PixelDepth::Bit4, PixelDepth::Bit8),
+            (PixelDepth::Bit8, PixelDepth::Bit8),
+        ] {
+            let pix = Pix::new(100, 100, input).unwrap();
+            let out = deskew_by_angle(&pix, 2.0).unwrap();
+            assert_eq!(out.depth(), expected, "input {input:?}");
+            assert_eq!((out.width(), out.height()), (100, 100), "input {input:?}");
+        }
     }
 
     #[test]
