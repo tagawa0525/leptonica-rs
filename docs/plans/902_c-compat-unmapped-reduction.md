@@ -1039,6 +1039,58 @@ manifest を再生成した。
 `multitype` (17 件) は `test8.jpg` / `marge.jpg` を含むため原理的に
 一致不可 (finding 001/008)。
 
+### PR 38: findcorners の全 G4 TIFF 出力 (実施済み)
+
+C 版ソース: `prog/findcorners_reg.c`。入力は `tickets.tif` のみ (lossless)
+で、C の出力は全て G4 TIFF なので pixel hash で完全比較できる。
+
+モルフォロジーでチケット領域を検出 → `pixFindSkew` でデスキュー →
+再検出してクリップ、という流れなので、PR 37 で C 準拠にした skew 探索が
+実データ上で検証される。
+
+実施結果:
+
+- **12 ペア全件 Ok** (Ok 385 → 397、recog 56 → 68)。9 件のデスキュー結果が
+  すべて一致したのは PR 37 の直接の成果
+- マッピングのために欠けていた C API を 2 つ追加した:
+
+| 追加 | C 対応 | 内容 |
+| --- | --- | --- |
+| `Box::transform` / `Boxa::transform` | `boxTransform` / `boxaTransform` | shift → scale。`max(0, ...)` / `max(1, ...)` で切り捨て |
+
+- `Boxa::select_by_size` が幅と高さの両方しか見ておらず、C の
+  `L_SELECT_WIDTH` / `L_SELECT_HEIGHT` を表現できていなかった。
+  `box_/select.rs` に既にあった `Boxa::make_size_indicator`
+  (C `boxaMakeSizeIndicator` の完全な移植) と `SizeSelectType`
+  (Width/Height/Either/Both) を使い、C と同じく indicator 経由で
+  選択する形に直した
+- 重複していた `region::SizeSelectRelation` (Gte/Lte のみ) を廃止し、
+  C の 4 relation を持つ `core::SizeRelation` に一本化。
+  `region::pix_select_by_size` も連結成分の bounding box から Boxa を作って
+  `make_size_indicator` に通す
+- `pageseg` にあった「Rust の `pix_select_by_size` は IfBoth/IfEither しか
+  無いので conncomp で代替」という回避策のコメントを実態に合わせて修正
+
+- `compfilter_reg` にあった代替コード (Width/Height が無いので Both +
+  未使用側の閾値を常に満たす値にする、strict `>` を `Gte` + 閾値+1 で
+  代替、Either を手書きフィルタで数える) を C の引数そのままに戻した
+
+**教訓**: 「無い」と判断する前に同一モジュール配下を確認する。今回
+`SizeSelectType` を新設しかけたが、`box_/select.rs` に同名・同義の型が
+既にあった (レビューで指摘され統合)。
+
+**次段送り**: `core::pixa::properties::SizeIndicatorAxis` が
+`SizeSelectType` と同義でありながら `IfEither` / `IfBoth` しか持たない。
+C `pixaMakeSizeIndicator` も 4 type を取るため、`SizeSelectType` への
+統合が望ましい (本 PR のスコープ外)。
+
+**次段送り**: 非 JPEG 入力で未マップかつ 5 件以上のプログラムのうち、
+`watershed` (22 件) は C の `L_WSHED` 優先度キュー実装の移植、
+`ptra1` (18 件) は `Ptra` 型、`ccbord` (14 件) は CCBORDA パイプライン、
+`circle` (13 件) は `circles.pa` の pixa シリアライズ読み込みがそれぞれ
+必要。`multitype` (17 件) は `test8.jpg` / `marge.jpg` を含むため原理的に
+一致不可 (finding 001/008)。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

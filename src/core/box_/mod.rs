@@ -7,6 +7,7 @@ pub mod draw;
 pub mod extract;
 pub mod geometry;
 pub mod select;
+pub use select::SizeSelectType;
 pub mod serial;
 pub mod smooth;
 pub mod sort;
@@ -607,20 +608,25 @@ impl Boxa {
         self.combine_overlaps_debug(None)
     }
 
-    /// Select boxes by width and height
+    /// Select boxes by bounding-box width and height.
     ///
-    /// Filters boxes where both width and height satisfy the relation
-    /// against the given thresholds.
+    /// `select_type` decides which dimensions are tested against `relation`:
+    /// [`SizeSelectType::Width`] and [`SizeSelectType::Height`] look at one
+    /// dimension only and ignore the other threshold entirely, while
+    /// [`SizeSelectType::Either`] and [`SizeSelectType::Both`] combine both
+    /// tests.
     ///
     /// C Leptonica equivalent: `boxaSelectBySize`
-    pub fn select_by_size(&self, width: i32, height: i32, relation: SizeRelation) -> Boxa {
-        self.boxes
-            .iter()
-            .filter(|b| {
-                compare_relation(b.w, width, relation) && compare_relation(b.h, height, relation)
-            })
-            .copied()
-            .collect()
+    pub fn select_by_size(
+        &self,
+        width: i32,
+        height: i32,
+        select_type: SizeSelectType,
+        relation: SizeRelation,
+    ) -> Boxa {
+        // C: boxaMakeSizeIndicator then boxaSelectWithIndicator.
+        let indicator = self.make_size_indicator(width, height, select_type, relation);
+        self.select_with_indicator(&indicator)
     }
 
     /// Select boxes by area

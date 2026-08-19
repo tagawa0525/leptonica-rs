@@ -117,7 +117,7 @@ pub use ccbord::{
 };
 
 // Re-export select types and functions
-pub use select::{SizeSelectRelation, SizeSelectType, pix_select_by_size};
+pub use select::{SizeRelation, SizeSelectType, pix_select_by_size};
 
 // Re-export quadtree types and functions
 pub use quadtree::{

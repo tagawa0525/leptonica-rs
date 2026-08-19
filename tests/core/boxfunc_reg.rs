@@ -4,7 +4,7 @@
 //!
 //! C Leptonica: `boxfunc1.c`, `boxfunc4.c`
 
-use leptonica::{Box, Boxa, SizeRelation};
+use leptonica::{Box, Boxa, SizeRelation, SizeSelectType};
 
 // ============================================================================
 // Box::overlap_area / overlap_fraction
@@ -137,7 +137,7 @@ fn test_select_by_size() {
     boxa.push(Box::new(0, 0, 50, 50).unwrap());
     boxa.push(Box::new(0, 0, 100, 100).unwrap());
 
-    let result = boxa.select_by_size(30, 30, SizeRelation::GreaterThan);
+    let result = boxa.select_by_size(30, 30, SizeSelectType::Both, SizeRelation::GreaterThan);
     assert_eq!(result.len(), 2); // 50x50 and 100x100
 }
 
@@ -272,4 +272,73 @@ fn test_join_range() {
     assert_eq!(b1.len(), 3);
     assert_eq!(b1.get(1).unwrap().x, 20);
     assert_eq!(b1.get(2).unwrap().x, 30);
+}
+
+// ============================================================================
+// Box::transform / Boxa::transform (C boxTransform / boxaTransform)
+// ============================================================================
+
+/// C: boxTransform(box, shiftx, shifty, scalex, scaley)
+#[test]
+fn test_box_transform() {
+    // C: boxCreate((l_int32)(L_MAX(0, scalex * (x + shiftx) + 0.5)), ...,
+    //              (l_int32)(L_MAX(1.0, scalex * w + 0.5)), ...)
+    let b = Box::new(10, 20, 30, 40).expect("box");
+    let t = b.transform(0, 0, 2.0, 2.0);
+    assert_eq!((t.x, t.y, t.w, t.h), (20, 40, 60, 80));
+
+    // Shift is applied before the scale.
+    let t = b.transform(5, -5, 2.0, 2.0);
+    assert_eq!((t.x, t.y, t.w, t.h), (30, 30, 60, 80));
+
+    // Corners clamp at 0; extents clamp at 1.
+    let t = b.transform(-100, -100, 1.0, 1.0);
+    assert_eq!((t.x, t.y), (0, 0));
+    let t = b.transform(0, 0, 0.01, 0.01);
+    assert_eq!((t.w, t.h), (1, 1));
+
+    // An invalid box maps to the all-zero box.
+    let t = Box::new_unchecked(1, 2, 0, 5).transform(0, 0, 2.0, 2.0);
+    assert_eq!((t.x, t.y, t.w, t.h), (0, 0, 0, 0));
+
+    // An extreme shift must not overflow the i32 corner arithmetic.
+    let t = Box::new_unchecked(i32::MAX, i32::MAX, 10, 10).transform(i32::MAX, i32::MAX, 1.0, 1.0);
+    assert!(t.x > 0 && t.y > 0);
+}
+
+/// C: boxaTransform applies boxTransform to every box.
+#[test]
+fn test_boxa_transform() {
+    let mut boxa = Boxa::new();
+    boxa.push(Box::new(10, 20, 30, 40).expect("b1"));
+    boxa.push(Box::new(0, 0, 5, 5).expect("b2"));
+    let t = boxa.transform(0, 0, 0.5, 0.5);
+    assert_eq!(t.len(), 2);
+    let b0 = t.get(0).expect("b0");
+    assert_eq!((b0.x, b0.y, b0.w, b0.h), (5, 10, 15, 20));
+}
+
+/// C: boxaSelectBySize honours L_SELECT_WIDTH / L_SELECT_HEIGHT, which test
+/// only one dimension and ignore the other threshold entirely.
+#[test]
+fn test_boxa_select_by_size_types() {
+    let mut boxa = Boxa::new();
+    boxa.push(Box::new(0, 0, 100, 10).expect("wide"));
+    boxa.push(Box::new(0, 0, 10, 100).expect("tall"));
+    boxa.push(Box::new(0, 0, 5, 5).expect("small"));
+
+    // Width only: the height threshold of 0 must not exclude anything.
+    let sel = boxa.select_by_size(50, 0, SizeSelectType::Width, SizeRelation::GreaterThan);
+    assert_eq!(sel.len(), 1);
+    assert_eq!(sel.get(0).expect("wide").w, 100);
+
+    let sel = boxa.select_by_size(0, 50, SizeSelectType::Height, SizeRelation::GreaterThan);
+    assert_eq!(sel.len(), 1);
+    assert_eq!(sel.get(0).expect("tall").h, 100);
+
+    let sel = boxa.select_by_size(50, 50, SizeSelectType::Either, SizeRelation::GreaterThan);
+    assert_eq!(sel.len(), 2);
+
+    let sel = boxa.select_by_size(50, 50, SizeSelectType::Both, SizeRelation::GreaterThan);
+    assert_eq!(sel.len(), 0);
 }

@@ -7,7 +7,7 @@
 //!
 //! Implemented in Rust:
 //!   - Box rendering / fill_closed_borders (C indices 0-1)
-//!   - pixSelectBySize IfBoth / IfEither (C indices 2-13 equivalent)
+//!   - pixSelectBySize Width / Height / Either / Both (C indices 2-13)
 //!   - boxaSelectBySize (C indices 26-27 equivalent)
 //!
 //! Not yet implemented:
@@ -137,12 +137,12 @@ fn compfilter_reg_write_synthetic_images() {
 // ---------------------------------------------------------------------------
 // C checks 2-13: pixSelectBySize with various parameters.
 //
-// Notes on mapping:
-//   C L_SELECT_HEIGHT / L_SELECT_WIDTH → Rust: use IfBoth with the unused
-//     dimension threshold set so it is always satisfied.
-//   C L_SELECT_IF_GT (strict >) → Rust Gte with threshold+1
-//   C L_SELECT_IF_LT (strict <) → Rust Lte with threshold-1
-//   C L_SELECT_IF_EITHER / L_SELECT_IF_BOTH → SizeSelectType::IfEither / IfBoth
+// Notes on mapping: the Rust enums now match C one-for-one.
+//   C L_SELECT_WIDTH / L_SELECT_HEIGHT / L_SELECT_IF_EITHER / L_SELECT_IF_BOTH
+//     → SizeSelectType::Width / Height / Either / Both
+//   C L_SELECT_IF_LT / GT / LTE / GTE
+//     → SizeRelation::LessThan / GreaterThan / LessThanOrEqual /
+//       GreaterThanOrEqual
 //
 // C expected component counts (4 solid boxes):
 //   box1: w=20, h=30
@@ -178,9 +178,7 @@ fn compfilter_reg_write_synthetic_images() {
 #[test]
 fn compfilter_reg_select_by_height() {
     use crate::common::RegParams;
-    use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, pix_select_by_size,
-    };
+    use leptonica::region::{ConnectivityType, SizeRelation, SizeSelectType, pix_select_by_size};
 
     let mut rp = RegParams::new("compfilter_select_by_height");
     if crate::common::is_display_mode() {
@@ -190,56 +188,52 @@ fn compfilter_reg_select_by_height() {
 
     let (pix1, _pix2) = build_test_images();
 
-    // C idx 2: height > 22 → 1 component (box1 h=30)
-    // Rust: IfEither with width_thresh very large (never triggers on width) and height_thresh=23 Gte
-    // We use IfBoth + width_thresh=0 Gte (always true) + height_thresh=23 Gte
+    // C idx 2: pixSelectBySize(pix1, 0, 22, 8, L_SELECT_HEIGHT, L_SELECT_IF_GT)
     let filtered = pix_select_by_size(
         &pix1,
         0,
-        23,
+        22,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Height,
+        SizeRelation::GreaterThan,
     )
-    .expect("select height>=23");
+    .expect("select height>22");
     rp.compare_values(1.0, count_pieces(&filtered) as f64, 0.0);
 
-    // C idx 3: height < 30 → 3 components (box2,box3,box4)
-    // Rust: IfBoth with width_thresh large (never blocks) + height Lte 29
-    // But IfBoth Lte means BOTH w<=large AND h<=29. Use width_thresh=99999.
+    // C idx 3: pixSelectBySize(pix1, 0, 30, 8, L_SELECT_HEIGHT, L_SELECT_IF_LT)
     let filtered = pix_select_by_size(
         &pix1,
-        99999,
-        29,
+        0,
+        30,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Lte,
+        SizeSelectType::Height,
+        SizeRelation::LessThan,
     )
-    .expect("select height<=29");
+    .expect("select height<30");
     rp.compare_values(3.0, count_pieces(&filtered) as f64, 0.0);
 
-    // C idx 4: height > 5 → 3 components (box1,box2,box4)
+    // C idx 4: pixSelectBySize(pix1, 0, 5, 8, L_SELECT_HEIGHT, L_SELECT_IF_GT)
+    let filtered = pix_select_by_size(
+        &pix1,
+        0,
+        5,
+        ConnectivityType::EightWay,
+        SizeSelectType::Height,
+        SizeRelation::GreaterThan,
+    )
+    .expect("select height>5");
+    rp.compare_values(3.0, count_pieces(&filtered) as f64, 0.0);
+
+    // C idx 5: pixSelectBySize(pix1, 0, 6, 8, L_SELECT_HEIGHT, L_SELECT_IF_LT)
     let filtered = pix_select_by_size(
         &pix1,
         0,
         6,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Height,
+        SizeRelation::LessThan,
     )
-    .expect("select height>=6");
-    rp.compare_values(3.0, count_pieces(&filtered) as f64, 0.0);
-
-    // C idx 5: height < 6 → 1 component (box3 h=5)
-    let filtered = pix_select_by_size(
-        &pix1,
-        99999,
-        5,
-        ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Lte,
-    )
-    .expect("select height<=5");
+    .expect("select height<6");
     rp.compare_values(1.0, count_pieces(&filtered) as f64, 0.0);
 
     assert!(rp.cleanup(), "compfilter_select_by_height test failed");
@@ -253,9 +247,7 @@ fn compfilter_reg_select_by_height() {
 #[test]
 fn compfilter_reg_select_by_width() {
     use crate::common::RegParams;
-    use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, pix_select_by_size,
-    };
+    use leptonica::region::{ConnectivityType, SizeRelation, SizeSelectType, pix_select_by_size};
 
     let mut rp = RegParams::new("compfilter_select_by_width");
     if crate::common::is_display_mode() {
@@ -265,34 +257,34 @@ fn compfilter_reg_select_by_width() {
 
     let (pix1, _pix2) = build_test_images();
 
-    // C idx 6: width > 20 → 2 components (box2 w=40, box3 w=35)
+    // C idx 6: pixSelectBySize(pix1, 20, 0, 8, L_SELECT_WIDTH, L_SELECT_IF_GT)
     let filtered = pix_select_by_size(
         &pix1,
-        21,
+        20,
         0,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Width,
+        SizeRelation::GreaterThan,
     )
-    .expect("select width>=21");
+    .expect("select width>20");
     rp.compare_values(2.0, count_pieces(&filtered) as f64, 0.0);
 
-    // C idx 7: width < 31 → 2 components (box1 w=20, box4 w=5)
+    // C idx 7: pixSelectBySize(pix1, 31, 0, 8, L_SELECT_WIDTH, L_SELECT_IF_LT)
     let filtered = pix_select_by_size(
         &pix1,
-        30,
-        99999,
+        31,
+        0,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Lte,
+        SizeSelectType::Width,
+        SizeRelation::LessThan,
     )
-    .expect("select width<=30");
+    .expect("select width<31");
     rp.compare_values(2.0, count_pieces(&filtered) as f64, 0.0);
 
     assert!(rp.cleanup(), "compfilter_select_by_width test failed");
 }
 
-/// Test component selection by size – IfEither variants (C checks 8-9).
+/// Test component selection by size – Either variants (C checks 8-9).
 ///
 /// C reference:
 ///   pixSelectBySize(pix1, 21, 10, 8, L_SELECT_IF_EITHER, L_SELECT_IF_LT) → 3
@@ -300,9 +292,7 @@ fn compfilter_reg_select_by_width() {
 #[test]
 fn compfilter_reg_select_if_either() {
     use crate::common::RegParams;
-    use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, pix_select_by_size,
-    };
+    use leptonica::region::{ConnectivityType, SizeRelation, SizeSelectType, pix_select_by_size};
 
     let mut rp = RegParams::new("compfilter_select_if_either");
     if crate::common::is_display_mode() {
@@ -316,32 +306,32 @@ fn compfilter_reg_select_if_either() {
     // box1(w=20<21✓), box2(w=40,h=20 neither), box3(h=5<10✓), box4(w=5<21✓)
     let filtered = pix_select_by_size(
         &pix1,
-        20,
-        9,
+        21,
+        10,
         ConnectivityType::EightWay,
-        SizeSelectType::IfEither,
-        SizeSelectRelation::Lte,
+        SizeSelectType::Either,
+        SizeRelation::LessThan,
     )
-    .expect("select either<=");
+    .expect("select either<");
     rp.compare_values(3.0, count_pieces(&filtered) as f64, 0.0);
 
     // C idx 9: either(w>20 or h>30) → 2 components
     // box1(h=30, not >30), box2(w=40>20✓), box3(w=35>20✓), box4(w=5,h=15 neither)
     let filtered = pix_select_by_size(
         &pix1,
-        21,
-        31,
+        20,
+        30,
         ConnectivityType::EightWay,
-        SizeSelectType::IfEither,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Either,
+        SizeRelation::GreaterThan,
     )
-    .expect("select either>=");
+    .expect("select either>");
     rp.compare_values(2.0, count_pieces(&filtered) as f64, 0.0);
 
     assert!(rp.cleanup(), "compfilter_select_if_either test failed");
 }
 
-/// Test component selection by size – IfBoth variants (C checks 10-13).
+/// Test component selection by size – Both variants (C checks 10-13).
 ///
 /// C reference:
 ///   pixSelectBySize(pix1, 22, 32, 8, L_SELECT_IF_BOTH, L_SELECT_IF_LT) → 2
@@ -351,9 +341,7 @@ fn compfilter_reg_select_if_either() {
 #[test]
 fn compfilter_reg_select_if_both() {
     use crate::common::RegParams;
-    use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, pix_select_by_size,
-    };
+    use leptonica::region::{ConnectivityType, SizeRelation, SizeSelectType, pix_select_by_size};
 
     let mut rp = RegParams::new("compfilter_select_if_both");
     if crate::common::is_display_mode() {
@@ -366,11 +354,11 @@ fn compfilter_reg_select_if_both() {
     // C idx 10: both(w<22 and h<32) → 2 components (box1: 20<22,30<32✓; box4: 5<22,15<32✓)
     let filtered = pix_select_by_size(
         &pix1,
-        21,
-        31,
+        22,
+        32,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Lte,
+        SizeSelectType::Both,
+        SizeRelation::LessThan,
     )
     .expect("both < (22,32)");
     rp.compare_values(2.0, count_pieces(&filtered) as f64, 0.0);
@@ -378,11 +366,11 @@ fn compfilter_reg_select_if_both() {
     // C idx 11: both(w<6 and h<32) → 1 component (box4: 5<6,15<32✓)
     let filtered = pix_select_by_size(
         &pix1,
-        5,
-        31,
+        6,
+        32,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Lte,
+        SizeSelectType::Both,
+        SizeRelation::LessThan,
     )
     .expect("both < (6,32)");
     rp.compare_values(1.0, count_pieces(&filtered) as f64, 0.0);
@@ -390,11 +378,11 @@ fn compfilter_reg_select_if_both() {
     // C idx 12: both(w>5 and h>25) → 1 component (box1: 20>5,30>25✓)
     let filtered = pix_select_by_size(
         &pix1,
-        6,
-        26,
+        5,
+        25,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Both,
+        SizeRelation::GreaterThan,
     )
     .expect("both > (5,25)");
     rp.compare_values(1.0, count_pieces(&filtered) as f64, 0.0);
@@ -402,11 +390,11 @@ fn compfilter_reg_select_if_both() {
     // C idx 13: both(w>25 and h>5) → 1 component (box2: 40>25,20>5✓)
     let filtered = pix_select_by_size(
         &pix1,
-        26,
-        6,
+        25,
+        5,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Both,
+        SizeRelation::GreaterThan,
     )
     .expect("both > (25,5)");
     rp.compare_values(1.0, count_pieces(&filtered) as f64, 0.0);
@@ -465,19 +453,16 @@ fn compfilter_reg_select_by_area_fraction() {}
 // C idx 27: boxaSelectBySize(boxa1, 22, 32, L_SELECT_IF_BOTH,   L_SELECT_IF_LT) → 2
 //   both(w<22 and h<32): box1(20<22,30<32✓), box4(5<22,15<32✓) → 2
 //
-// NOTE: Rust Boxa::select_by_size only supports IfBoth (both dimensions).
-// The IfEither case is covered by using two separate Lte filters and combining,
-// or via a manual filter.
 // ---------------------------------------------------------------------------
 
-/// Test boxaSelectBySize – IfBoth variant (C check 27).
+/// Test boxaSelectBySize – Both variant (C check 27).
 ///
 /// C reference:
 ///   boxaSelectBySize(boxa1, 22, 32, L_SELECT_IF_BOTH, L_SELECT_IF_LT) → 2
 #[test]
 fn compfilter_reg_boxa_select_by_size_both() {
     use crate::common::RegParams;
-    use leptonica::core::{Box, Boxa, SizeRelation};
+    use leptonica::core::{Box, Boxa, SizeRelation, SizeSelectType};
 
     let mut rp = RegParams::new("compfilter_boxa_select_both");
     if crate::common::is_display_mode() {
@@ -493,23 +478,20 @@ fn compfilter_reg_boxa_select_by_size_both() {
     boxa1.push(Box::new(160, 10, 5, 15).expect("box4"));
 
     // C idx 27: both(w<22 and h<32) → box1(20<22,30<32✓) + box4(5<22,15<32✓) = 2
-    // Rust Boxa::select_by_size checks BOTH conditions with same SizeRelation.
-    let selected = boxa1.select_by_size(21, 31, SizeRelation::LessThanOrEqual);
+    let selected = boxa1.select_by_size(22, 32, SizeSelectType::Both, SizeRelation::LessThan);
     rp.compare_values(2.0, selected.len() as f64, 0.0);
 
     assert!(rp.cleanup(), "compfilter_boxa_select_both test failed");
 }
 
-/// Test boxaSelectBySize – IfEither variant (C check 26).
+/// Test boxaSelectBySize – Either variant (C check 26).
 ///
 /// C reference:
 ///   boxaSelectBySize(boxa1, 21, 10, L_SELECT_IF_EITHER, L_SELECT_IF_LT) → 3
-///
-/// Rust Boxa::select_by_size only supports IfBoth; IfEither is done manually.
 #[test]
 fn compfilter_reg_boxa_select_by_size_either() {
     use crate::common::RegParams;
-    use leptonica::core::Box;
+    use leptonica::core::{Box, Boxa, SizeRelation, SizeSelectType};
 
     let mut rp = RegParams::new("compfilter_boxa_select_either");
     if crate::common::is_display_mode() {
@@ -517,17 +499,16 @@ fn compfilter_reg_boxa_select_by_size_either() {
         return;
     }
 
-    // Build boxa1
-    let boxes = [
-        Box::new(10, 10, 20, 30).expect("box1"), // w=20, h=30
-        Box::new(50, 10, 40, 20).expect("box2"), // w=40, h=20
-        Box::new(110, 10, 35, 5).expect("box3"), // w=35, h=5
-        Box::new(160, 10, 5, 15).expect("box4"), // w=5,  h=15
-    ];
+    // Build the boxa from C: box1..box4
+    let mut boxa1 = Boxa::new();
+    boxa1.push(Box::new(10, 10, 20, 30).expect("box1")); // w=20, h=30
+    boxa1.push(Box::new(50, 10, 40, 20).expect("box2")); // w=40, h=20
+    boxa1.push(Box::new(110, 10, 35, 5).expect("box3")); // w=35, h=5
+    boxa1.push(Box::new(160, 10, 5, 15).expect("box4")); // w=5,  h=15
 
     // C idx 26: either(w<21 or h<10) → box1(w=20<21✓), box3(h=5<10✓), box4(w=5<21✓) = 3
-    let count = boxes.iter().filter(|b| b.w < 21 || b.h < 10).count();
-    rp.compare_values(3.0, count as f64, 0.0);
+    let selected = boxa1.select_by_size(21, 10, SizeSelectType::Either, SizeRelation::LessThan);
+    rp.compare_values(3.0, selected.len() as f64, 0.0);
 
     assert!(rp.cleanup(), "compfilter_boxa_select_either test failed");
 }
@@ -589,7 +570,7 @@ fn compfilter_reg_multi_criterion_filter() {}
 fn compfilter_reg_select_by_size() {
     use crate::common::{RegParams, load_test_image};
     use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, find_connected_components,
+        ConnectivityType, SizeRelation, SizeSelectType, find_connected_components,
         pix_select_by_size,
     };
 
@@ -610,8 +591,8 @@ fn compfilter_reg_select_by_size() {
         10,
         10,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Both,
+        SizeRelation::GreaterThanOrEqual,
     )
     .expect("pix_select_by_size");
 
@@ -647,7 +628,7 @@ fn compfilter_reg_select_by_shape() {
 
     use crate::common::{RegParams, load_test_image};
     use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, find_connected_components,
+        ConnectivityType, SizeRelation, SizeSelectType, find_connected_components,
         pix_select_by_size,
     };
 
@@ -663,8 +644,8 @@ fn compfilter_reg_select_by_shape() {
         20,
         20,
         ConnectivityType::EightWay,
-        SizeSelectType::IfEither,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Either,
+        SizeRelation::GreaterThanOrEqual,
     )
     .expect("pix_select_by_size shape");
 
@@ -718,9 +699,7 @@ fn compfilter_reg_fill_closed_borders() {
 #[test]
 fn compfilter_reg_select_all_components() {
     use crate::common::RegParams;
-    use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, pix_select_by_size,
-    };
+    use leptonica::region::{ConnectivityType, SizeRelation, SizeSelectType, pix_select_by_size};
 
     let mut rp = RegParams::new("compfilter_select_all");
     if crate::common::is_display_mode() {
@@ -736,8 +715,8 @@ fn compfilter_reg_select_all_components() {
         0,
         0,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Both,
+        SizeRelation::GreaterThanOrEqual,
     )
     .expect("select all");
     rp.compare_values(4.0, count_pieces(&filtered) as f64, 0.0);
@@ -749,9 +728,7 @@ fn compfilter_reg_select_all_components() {
 #[test]
 fn compfilter_reg_select_none() {
     use crate::common::RegParams;
-    use leptonica::region::{
-        ConnectivityType, SizeSelectRelation, SizeSelectType, pix_select_by_size,
-    };
+    use leptonica::region::{ConnectivityType, SizeRelation, SizeSelectType, pix_select_by_size};
 
     let mut rp = RegParams::new("compfilter_select_none");
     if crate::common::is_display_mode() {
@@ -767,8 +744,8 @@ fn compfilter_reg_select_none() {
         1000,
         1000,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Both,
+        SizeRelation::GreaterThanOrEqual,
     )
     .expect("select none");
     rp.compare_values(0.0, count_pieces(&filtered) as f64, 0.0);

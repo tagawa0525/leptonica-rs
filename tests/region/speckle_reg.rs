@@ -19,7 +19,7 @@ use leptonica::filter::{FlexNormOptions, background_norm_flex, gamma_trc_masked}
 use leptonica::io::ImageFormat;
 use leptonica::morph::{Sel, dilate, hit_miss_transform};
 use leptonica::region::{
-    ConnectivityType, SizeSelectRelation, SizeSelectType, clear_border, find_connected_components,
+    ConnectivityType, SizeRelation, SizeSelectType, clear_border, find_connected_components,
     pix_count_components, pix_select_by_size,
 };
 
@@ -109,8 +109,8 @@ fn speckle_reg_select_by_size() {
         3,
         3,
         ConnectivityType::FourWay,
-        SizeSelectType::IfBoth,
-        SizeSelectRelation::Gte,
+        SizeSelectType::Both,
+        SizeRelation::GreaterThanOrEqual,
     )
     .expect("pix_select_by_size");
     rp.compare_values(w as f64, filtered.width() as f64, 0.0);

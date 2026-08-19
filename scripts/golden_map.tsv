@@ -540,3 +540,15 @@ recog	skew	3	skew_c	4	rotated 37 deg
 recog	skew	4	skew_c	5	orthogonally deskewed
 recog	skew	5	skew_c	6	recentered
 recog	skew	6	skew_c	7	tiled summary
+recog	findcorners	0	findcorners_c	1	located barcodes
+recog	findcorners	1	findcorners_c	2	deskewed ticket 0
+recog	findcorners	2	findcorners_c	3	deskewed ticket 1
+recog	findcorners	3	findcorners_c	4	deskewed ticket 2
+recog	findcorners	4	findcorners_c	5	deskewed ticket 3
+recog	findcorners	5	findcorners_c	6	deskewed ticket 4
+recog	findcorners	6	findcorners_c	7	deskewed ticket 5
+recog	findcorners	7	findcorners_c	8	deskewed ticket 6
+recog	findcorners	8	findcorners_c	9	deskewed ticket 7
+recog	findcorners	9	findcorners_c	10	deskewed ticket 8
+recog	findcorners	10	findcorners_c	11	halved
+recog	findcorners	11	findcorners_c	12	corners marked

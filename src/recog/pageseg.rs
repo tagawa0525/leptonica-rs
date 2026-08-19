@@ -1105,9 +1105,9 @@ pub fn decide_if_table(
     let inverted = cleaned.invert();
     let vws_mask = morph_sequence(&inverted, "r1 + o1.100")?;
     // C: pixSelectBySize(pix8, 5, 0, 8, L_SELECT_WIDTH, L_SELECT_IF_GTE) — keep
-    // components whose bounding-box width is at least 5px. The Rust
-    // pix_select_by_size only offers IfBoth/IfEither, so filter via the
-    // connected-component list instead.
+    // components whose bounding-box width is at least 5px. Only the count is
+    // needed, so filter the component list directly rather than rendering a
+    // selected image and running connected components over it again.
     let vws_comps = find_connected_components(&vws_mask, ConnectivityType::EightWay)?;
     let nvw = vws_comps.iter().filter(|c| c.bounds.w >= 5).count() as u32;
 
@@ -1704,8 +1704,8 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pi
         25,
         5,
         crate::region::ConnectivityType::EightWay,
-        crate::region::SizeSelectType::IfBoth,
-        crate::region::SizeSelectRelation::Gte,
+        crate::region::SizeSelectType::Both,
+        crate::region::SizeRelation::GreaterThanOrEqual,
     )?;
     Ok(Some(pixd))
 }
@@ -2065,8 +2065,8 @@ pub fn pix_extract_raw_textlines(
         maxw,
         maxh,
         crate::region::ConnectivityType::EightWay,
-        crate::region::SizeSelectType::IfBoth,
-        crate::region::SizeSelectRelation::Lte,
+        crate::region::SizeSelectType::Both,
+        crate::region::SizeRelation::LessThanOrEqual,
     )?;
     if pix2.is_zero() {
         return Ok(crate::core::Pixa::new());

@@ -63,8 +63,8 @@ pub fn find_checkerboard_corners(
         size as i32,
         size as i32,
         ConnectivityType::EightWay,
-        region::SizeSelectType::IfBoth,
-        region::SizeSelectRelation::Lte,
+        region::SizeSelectType::Both,
+        region::SizeRelation::LessThanOrEqual,
     )?;
 
     // Thin remaining CCs to single pixels

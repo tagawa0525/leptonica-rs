@@ -30,6 +30,28 @@ pub enum TransformOrder {
 }
 
 impl Box {
+    /// Shift then scale the box.
+    ///
+    /// The corner is `max(0, scale * (coord + shift) + 0.5)` and the extent is
+    /// `max(1, scale * extent + 0.5)`, both truncated toward zero. An invalid
+    /// box (non-positive width or height) maps to `(0, 0, 0, 0)`.
+    ///
+    /// C Leptonica equivalent: `boxTransform`
+    pub fn transform(&self, shiftx: i32, shifty: i32, scalex: f32, scaley: f32) -> Box {
+        if self.w <= 0 || self.h <= 0 {
+            return Box::new_unchecked(0, 0, 0, 0);
+        }
+        // C evaluates these with `0.5` as a double literal, so the products
+        // are promoted to double before truncation. The shift is added in f64
+        // so an extreme offset cannot overflow the i32 step (C adds as
+        // l_int32, which would be undefined behaviour there).
+        let x = (scalex as f64 * (self.x as f64 + shiftx as f64) + 0.5).max(0.0) as i32;
+        let y = (scaley as f64 * (self.y as f64 + shifty as f64) + 0.5).max(0.0) as i32;
+        let w = (scalex as f64 * self.w as f64 + 0.5).max(1.0) as i32;
+        let h = (scaley as f64 * self.h as f64 + 0.5).max(1.0) as i32;
+        Box::new_unchecked(x, y, w, h)
+    }
+
     /// Apply an ordered sequence of shift, scale, and rotation transforms.
     ///
     /// The rotation is about the point (`xcen`, `ycen`) specified before
@@ -219,6 +241,15 @@ impl Box {
 }
 
 impl Boxa {
+    /// Shift then scale every box.
+    ///
+    /// C Leptonica equivalent: `boxaTransform`
+    pub fn transform(&self, shiftx: i32, shifty: i32, scalex: f32, scaley: f32) -> Boxa {
+        self.iter()
+            .map(|b| b.transform(shiftx, shifty, scalex, scaley))
+            .collect()
+    }
+
     /// Apply an ordered transform to all boxes.
     ///
     /// C Leptonica equivalent: `boxaTransformOrdered`
