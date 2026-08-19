@@ -995,6 +995,50 @@ PR 35 で整列した rotate1 と同系統。PNG 出力 8 件は同じ 4 枚の�
 `GlibcRand` と同じ手が使えるが、ライブラリ側の乱数生成そのものを
 glibc 互換にする必要があるため別 PR とする。
 
+### PR 37: binmorph6 と skew の全 PNG 出力 (実施済み)
+
+C 版ソース: `prog/binmorph6_reg.c`、`prog/skew_reg.c`。
+
+どちらも入力は可逆 (`feyn-fract.tif` / `feyn.tif`) で、C の出力は全て
+PNG なので pixel hash で完全比較できる。
+
+実施結果:
+
+- **binmorph6 は実装変更なしで 7 ペア全件 Ok**。`selCreateFromPix` で
+  作った hit-only sel での dilate / open / close_safe を検証した
+- **skew は 7 ペア全件 Ok**。ただし C 準拠にするために skew 探索の
+  ほぼ全体を書き換えた (実装差 12 件)。index 2/4/5 が探索結果の角度に
+  依存するため、アルゴリズムがずれていると hash が一致しない
+- Ok 371 → 385 (morph 30 → 37、recog 49 → 56)
+
+skew で見つかった主な実装差:
+
+| 箇所 | 旧実装 | C |
+| --- | --- | --- |
+| center pivot | 中央 1/4 を切り出す | `pixVShearCenter` で支点を変えるだけ |
+| sweep 用縮小 | 元画像から縮小 | search 用縮小画像をさらに縮小 |
+| 縮小方法 | サブサンプリング | `pixReduceRankBinaryCascade` |
+| シア | 画像を拡大 | 同サイズに書き込み、はみ出しは捨てる |
+| スコア累算 | f64 | l_float32 (仮数部飽和で argmax が変わる) |
+| confidence 分母 | sweep 分も含む | 二分探索のスコアのみ |
+| confidence 閾値 | 元画像の寸法 | redsearch 縮小後の寸法 |
+| sweep 端の最大 | 扱いなし | 警告して angle = conf = 0 |
+| 直交探索 | `rotate_by_angle` + `+90` | `pixRotateOrth(1)` + `-90 + angle2` |
+| sweep 単独版 | raw argmax | `numaFitMax` の放物線補間 |
+| 差分二乗和 | `n < 2*nskip + 2` で 0 | 1 項だけでも加算。`0.05 * w` は double |
+| deskew の回転 | embed して拡大 | `pixRotate(.., AREA_MAP, WHITE, 0, 0)` |
+
+Rust 独自の `skew_reg` は index 5 (deskew 結果) の出力が変わるため
+manifest を再生成した。
+
+**次段送り**: 非 JPEG 入力で未マップかつ 5 件以上のプログラムのうち、
+`watershed` (22 件) は C の `L_WSHED` 優先度キュー実装の移植、
+`ptra1` (18 件) は `Ptra` 型と `lucasta.1.300.tif` の追加、
+`ccbord` (14 件) は CCBORDA パイプライン、`circle` (13 件) は
+`circles.pa` の pixa シリアライズ読み込みがそれぞれ必要。
+`multitype` (17 件) は `test8.jpg` / `marge.jpg` を含むため原理的に
+一致不可 (finding 001/008)。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
