@@ -538,6 +538,12 @@ fn sweep_and_search_pivot(
     )?)?;
     let mut bs_scores = vec![scores[2], scores[0], scores[4]];
 
+    // C reuses the single `maxscore` variable for both phases: it still holds
+    // the sweep maximum here (skew.c:774) and is only overwritten inside the
+    // loop body (skew.c:868). So when `minbsdelta > 0.5 * sweepdelta` and the
+    // loop never runs, the confidence below is computed from the sweep score.
+    // That mixes scales (the sweep runs on `pixsw`, the search on `pixsch`),
+    // but it is C's behaviour and callers depend on the same numbers.
     let mut delta = 0.5 * sweepdelta;
     while delta >= minbsdelta {
         let leftcenterangle = centerangle - delta;
