@@ -533,3 +533,10 @@ morph	binmorph6	3	binmorph6_c	4	close_safe with sel
 morph	binmorph6	4	binmorph6_c	5	dilate - source
 morph	binmorph6	5	binmorph6_c	6	source - close
 morph	binmorph6	6	binmorph6_c	7	tiled summary
+recog	skew	0	skew_c	1	reduced source
+recog	skew	1	skew_c	2	rotated 40 deg
+recog	skew	2	skew_c	3	deskewed via sweep+search
+recog	skew	3	skew_c	4	rotated 37 deg
+recog	skew	4	skew_c	5	orthogonally deskewed
+recog	skew	5	skew_c	6	recentered
+recog	skew	6	skew_c	7	tiled summary
