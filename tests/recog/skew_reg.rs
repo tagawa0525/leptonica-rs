@@ -178,7 +178,6 @@ fn skew_reg_normalized_square_sum_non_1bpp_errors() {
 /// angle found by `pixFindSkewSweepAndSearchScorePivot` /
 /// `pixFindSkewOrthogonalRange`, so this also pins those search algorithms.
 #[test]
-#[ignore = "not yet implemented"]
 fn skew_c_compat() {
     use leptonica::core::{InitColor, Pix, Pixa, RopOp};
     use leptonica::recog::skew::{
@@ -204,7 +203,7 @@ fn skew_c_compat() {
     let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
     // C: pixSetOrClearBorder(pixs, 100, 250, 100, 0, PIX_CLR)
     let pixs = {
-        let mut m = pixs.try_into_mut().expect("into mut");
+        let mut m = pixs.deep_clone().try_into_mut().expect("into mut");
         m.set_or_clear_border(100, 250, 100, 0, InitColor::White);
         Pix::from(m)
     };
@@ -281,7 +280,7 @@ fn skew_c_compat() {
     let (wd, hd) = (pixd.width(), pixd.height());
     let pixc = Pix::new(w, h, PixelDepth::Bit1).expect("new 1bpp");
     let pixc = {
-        let mut m = pixc.try_into_mut().expect("into mut");
+        let mut m = pixc.deep_clone().try_into_mut().expect("into mut");
         m.rop_region_inplace(
             0,
             0,
