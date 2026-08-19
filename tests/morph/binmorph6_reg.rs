@@ -83,3 +83,50 @@ fn binmorph6_reg_sel_from_string() {
 
     assert!(rp.cleanup(), "binmorph6 sel_from_string test failed");
 }
+
+/// C-compat: `prog/binmorph6_reg.c`, all 7 outputs.
+///
+/// Builds a hit-only sel from a clip of `feyn-fract.tif` and applies it with
+/// dilate / open / close-safe. The only input is lossless and C writes every
+/// output as PNG, so the whole program is bit-exactly comparable.
+#[test]
+fn binmorph6_c_compat() {
+    use leptonica::core::Pixa;
+    use leptonica::io::ImageFormat;
+    use leptonica::morph::{Sel, close_safe, dilate, open};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("binmorph6_c");
+
+    let pix1 = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
+    // C: boxCreate(507, 65, 60, 36) then pixClipRectangle.
+    let pix2 = pix1.clip_rectangle(507, 65, 60, 36).expect("clip");
+    // C: selCreateFromPix(pix2, 6, 6, "life") — (cy, cx) in C's order.
+    let sel = Sel::from_pix(&pix2, 6, 6).expect("sel from pix");
+
+    let pix3 = dilate(&pix1, &sel).expect("dilate");
+    let pix4 = open(&pix1, &sel).expect("open");
+    let pix5 = close_safe(&pix1, &sel).expect("close safe");
+    let pix6 = pix3.subtract(&pix1).expect("dilate - src");
+    let pix7 = pix1.subtract(&pix5).expect("src - close");
+
+    for pix in [&pix2, &pix3, &pix4, &pix5, &pix6, &pix7] {
+        rp.write_pix_and_check(pix, ImageFormat::Png)
+            .expect("check: binmorph6 stage");
+    }
+
+    let mut pixa = Pixa::new();
+    for pix in [&pix1, &pix3, &pix4, &pix5, &pix6, &pix7] {
+        pixa.push(pix.clone());
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(2, 0.75, 20, 2)
+        .expect("tile binmorph6");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: binmorph6 summary");
+
+    assert!(rp.cleanup(), "binmorph6 C-compat test failed");
+}

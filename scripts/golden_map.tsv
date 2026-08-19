@@ -526,3 +526,10 @@ transform	rotate2	4	rotate2_c	5	weasel4.11c shear variants
 transform	rotate2	5	rotate2_c	6	weasel4.11c sampling + area map variants
 transform	rotate2	6	rotate2_c	7	weasel4.16g shear variants
 transform	rotate2	7	rotate2_c	8	weasel4.16g sampling + area map variants
+morph	binmorph6	0	binmorph6_c	1	sel template clip
+morph	binmorph6	1	binmorph6_c	2	dilate with sel
+morph	binmorph6	2	binmorph6_c	3	open with sel
+morph	binmorph6	3	binmorph6_c	4	close_safe with sel
+morph	binmorph6	4	binmorph6_c	5	dilate - source
+morph	binmorph6	5	binmorph6_c	6	source - close
+morph	binmorph6	6	binmorph6_c	7	tiled summary
