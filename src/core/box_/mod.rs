@@ -27,6 +27,45 @@ pub enum SizeRelation {
     GreaterThanOrEqual,
 }
 
+/// Which bounding-box dimensions a size selection tests.
+///
+/// C equivalent: `L_SELECT_WIDTH` / `L_SELECT_HEIGHT` / `L_SELECT_IF_EITHER` /
+/// `L_SELECT_IF_BOTH` (see `boxaMakeSizeIndicator` in `boxfunc4.c`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeSelectType {
+    /// Test the width only; the height threshold is ignored.
+    Width,
+    /// Test the height only; the width threshold is ignored.
+    Height,
+    /// Select if EITHER width or height satisfies the relation.
+    IfEither,
+    /// Select if BOTH width and height satisfy the relation.
+    IfBoth,
+}
+
+/// Whether `(w, h)` satisfies `relation` against `(width, height)` under `select_type`.
+///
+/// This is the decision C's `boxaMakeSizeIndicator` makes per box, shared by
+/// [`Boxa::select_by_size`] and `region::pix_select_by_size`.
+pub fn size_select_matches(
+    w: i32,
+    h: i32,
+    width: i32,
+    height: i32,
+    select_type: SizeSelectType,
+    relation: SizeRelation,
+) -> bool {
+    let wok = compare_relation(w, width, relation);
+    let hok = compare_relation(h, height, relation);
+    match select_type {
+        SizeSelectType::IfEither => wok || hok,
+        SizeSelectType::IfBoth => wok && hok,
+        SizeSelectType::Width | SizeSelectType::Height => {
+            unimplemented!("L_SELECT_WIDTH / L_SELECT_HEIGHT")
+        }
+    }
+}
+
 /// A rectangle region
 ///
 /// Unlike Leptonica's Box which uses reference counting, this is a simple
@@ -613,12 +652,16 @@ impl Boxa {
     /// against the given thresholds.
     ///
     /// C Leptonica equivalent: `boxaSelectBySize`
-    pub fn select_by_size(&self, width: i32, height: i32, relation: SizeRelation) -> Boxa {
+    pub fn select_by_size(
+        &self,
+        width: i32,
+        height: i32,
+        select_type: SizeSelectType,
+        relation: SizeRelation,
+    ) -> Boxa {
         self.boxes
             .iter()
-            .filter(|b| {
-                compare_relation(b.w, width, relation) && compare_relation(b.h, height, relation)
-            })
+            .filter(|b| size_select_matches(b.w, b.h, width, height, select_type, relation))
             .copied()
             .collect()
     }

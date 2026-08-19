@@ -18,7 +18,7 @@ use leptonica::color::threshold_to_binary;
 use leptonica::io::ImageFormat;
 use leptonica::morph::dilate_brick;
 use leptonica::region::{ConnectivityType, conncomp_pixa};
-use leptonica::{Pix, PixelDepth, SizeRelation};
+use leptonica::{Pix, PixelDepth, SizeRelation, SizeSelectType};
 
 /// Test connected components on test8.jpg (C test: pixConnComp).
 ///
@@ -74,7 +74,12 @@ fn partition_reg_dilate_conncomp() {
     rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // Filter by minimum size (>= 3x3)
-    let filtered = boxa.select_by_size(3, 3, SizeRelation::GreaterThanOrEqual);
+    let filtered = boxa.select_by_size(
+        3,
+        3,
+        SizeSelectType::IfBoth,
+        SizeRelation::GreaterThanOrEqual,
+    );
     rp.compare_values(
         1.0,
         if filtered.len() <= boxa.len() {
@@ -109,14 +114,29 @@ fn partition_reg_select_by_size() {
     let (boxa, _) = conncomp_pixa(&dilated, ConnectivityType::FourWay).expect("conncomp");
 
     // Small filter: many components
-    let small = boxa.select_by_size(2, 2, SizeRelation::GreaterThanOrEqual);
+    let small = boxa.select_by_size(
+        2,
+        2,
+        SizeSelectType::IfBoth,
+        SizeRelation::GreaterThanOrEqual,
+    );
     // Large filter: fewer components
-    let large = boxa.select_by_size(50, 50, SizeRelation::GreaterThanOrEqual);
+    let large = boxa.select_by_size(
+        50,
+        50,
+        SizeSelectType::IfBoth,
+        SizeRelation::GreaterThanOrEqual,
+    );
 
     rp.compare_values(1.0, if large.len() <= small.len() { 1.0 } else { 0.0 }, 0.0);
 
     // Very large filter: should have fewer still
-    let very_large = boxa.select_by_size(200, 200, SizeRelation::GreaterThanOrEqual);
+    let very_large = boxa.select_by_size(
+        200,
+        200,
+        SizeSelectType::IfBoth,
+        SizeRelation::GreaterThanOrEqual,
+    );
     rp.compare_values(
         1.0,
         if very_large.len() <= large.len() {

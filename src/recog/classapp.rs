@@ -11,7 +11,7 @@
 //! - `boxaExtractSortedPattern` → [`boxa_extract_sorted_pattern`]
 //! - `numaaCompareImagesByBoxes` → [`numaa_compare_images_by_boxes`]
 
-use crate::core::{Box, Boxa, Boxaa, Numa, Numaa, Pix, PixelDepth, SizeRelation};
+use crate::core::{Box, Boxa, Boxaa, Numa, Numaa, Pix, PixelDepth, SizeRelation, SizeSelectType};
 use crate::recog::util::ensure_binary_with_threshold;
 use crate::recog::{RecogError, RecogResult};
 
@@ -120,7 +120,13 @@ pub fn find_word_and_character_boxes(
 
         // Extract bounding boxes and filter small pieces
         let boxa2: Boxa = components.iter().map(|c| c.bounds).collect();
-        let boxa3 = boxa2.select_by_size(2, 5, SizeRelation::GreaterThanOrEqual);
+        // C: boxaSelectBySize(boxa2, 2, 5, L_SELECT_IF_BOTH, L_SELECT_IF_GTE, NULL)
+        let boxa3 = boxa2.select_by_size(
+            2,
+            5,
+            SizeSelectType::IfBoth,
+            SizeRelation::GreaterThanOrEqual,
+        );
 
         // Sort left-to-right by x position
         let mut boxa4 = boxa3;

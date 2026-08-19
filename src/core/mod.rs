@@ -37,7 +37,7 @@ pub use box_::draw::make_mosaic_strips;
 pub use box_::extract::{BoxField, CornerLocation};
 pub use box_::sort::BoxSortType;
 pub use box_::transform::TransformOrder;
-pub use box_::{Box, Boxa, Boxaa, SizeRelation};
+pub use box_::{Box, Boxa, Boxaa, SizeRelation, SizeSelectType, size_select_matches};
 pub use colormap::convert::{ColormapArrays, ComponentsPerColor};
 pub use colormap::query::{NonOpaqueInfo, RangeComponent, RangeValues};
 pub use colormap::{PixColormap, RgbaQuad};

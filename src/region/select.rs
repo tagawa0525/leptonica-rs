@@ -5,39 +5,24 @@
 //!
 //! C equivalent: `pixSelectBySize()` and related functions in `pixafunc1.c`
 
-use crate::core::{Pix, PixelDepth};
+use crate::core::{Pix, PixelDepth, size_select_matches};
 use crate::region::conncomp::{
     ConnectivityType, find_connected_components, label_connected_components,
 };
 use crate::region::error::{RegionError, RegionResult};
 use std::collections::HashSet;
 
-/// Selection type for component filtering by bounding box dimensions.
+/// Re-exported so callers can stay within `region`.
 ///
-/// Determines how width and height thresholds are combined when deciding
-/// whether to keep a component.
-///
-/// C equivalent: `L_SELECT_IF_BOTH` / `L_SELECT_IF_EITHER` in Leptonica
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SizeSelectType {
-    /// Select if BOTH width and height satisfy the relation
-    IfBoth,
-    /// Select if EITHER width or height satisfies the relation
-    IfEither,
-}
+/// C equivalent: `L_SELECT_WIDTH` / `L_SELECT_HEIGHT` / `L_SELECT_IF_EITHER` /
+/// `L_SELECT_IF_BOTH`.
+pub use crate::core::SizeSelectType;
 
-/// Selection relation for component filtering.
+/// Re-exported so callers can stay within `region`.
 ///
-/// Determines the comparison operator used against the threshold.
-///
-/// C equivalent: `L_SELECT_IF_GTE` / `L_SELECT_IF_LTE` in Leptonica
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SizeSelectRelation {
-    /// Select if greater than or equal to threshold
-    Gte,
-    /// Select if less than or equal to threshold
-    Lte,
-}
+/// C equivalent: `L_SELECT_IF_LT` / `L_SELECT_IF_GT` / `L_SELECT_IF_LTE` /
+/// `L_SELECT_IF_GTE`.
+pub use crate::core::SizeRelation;
 
 /// Select connected components from a binary image by bounding box size.
 ///
@@ -58,7 +43,7 @@ pub enum SizeSelectRelation {
 /// * `height_thresh` - Height threshold for selection
 /// * `connectivity` - Type of connectivity (4-way or 8-way)
 /// * `select_type` - How to combine width/height criteria ([`SizeSelectType`])
-/// * `relation` - Comparison relation ([`SizeSelectRelation`])
+/// * `relation` - Comparison relation ([`SizeRelation`])
 ///
 /// # Returns
 ///
@@ -73,7 +58,7 @@ pub enum SizeSelectRelation {
 /// ```
 /// use leptonica::core::{Pix, PixelDepth};
 /// use leptonica::region::{
-///     ConnectivityType, SizeSelectType, SizeSelectRelation, pix_select_by_size,
+///     ConnectivityType, SizeSelectType, SizeRelation, pix_select_by_size,
 ///     find_connected_components,
 /// };
 ///
@@ -101,7 +86,7 @@ pub enum SizeSelectRelation {
 ///     &pix, 4, 4,
 ///     ConnectivityType::FourWay,
 ///     SizeSelectType::IfBoth,
-///     SizeSelectRelation::Gte,
+///     SizeRelation::GreaterThanOrEqual,
 /// ).unwrap();
 ///
 /// let comps = find_connected_components(&result, ConnectivityType::FourWay).unwrap();
@@ -113,7 +98,7 @@ pub fn pix_select_by_size(
     height_thresh: i32,
     connectivity: ConnectivityType,
     select_type: SizeSelectType,
-    relation: SizeSelectRelation,
+    relation: SizeRelation,
 ) -> RegionResult<Pix> {
     if pixs.depth() != PixelDepth::Bit1 {
         return Err(RegionError::UnsupportedDepth {
@@ -143,20 +128,7 @@ pub fn pix_select_by_size(
         let cw = comp.bounds.w; // bounding box width
         let ch = comp.bounds.h; // bounding box height
 
-        let keep = match (select_type, relation) {
-            (SizeSelectType::IfBoth, SizeSelectRelation::Gte) => {
-                cw >= width_thresh && ch >= height_thresh
-            }
-            (SizeSelectType::IfBoth, SizeSelectRelation::Lte) => {
-                cw <= width_thresh && ch <= height_thresh
-            }
-            (SizeSelectType::IfEither, SizeSelectRelation::Gte) => {
-                cw >= width_thresh || ch >= height_thresh
-            }
-            (SizeSelectType::IfEither, SizeSelectRelation::Lte) => {
-                cw <= width_thresh || ch <= height_thresh
-            }
-        };
+        let keep = size_select_matches(cw, ch, width_thresh, height_thresh, select_type, relation);
 
         if keep {
             keep_labels.insert(comp.label);
@@ -218,7 +190,7 @@ mod tests {
             2,
             ConnectivityType::FourWay,
             SizeSelectType::IfBoth,
-            SizeSelectRelation::Gte,
+            SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();
 
@@ -248,7 +220,7 @@ mod tests {
             1,
             ConnectivityType::FourWay,
             SizeSelectType::IfBoth,
-            SizeSelectRelation::Lte,
+            SizeRelation::LessThanOrEqual,
         )
         .unwrap();
 
@@ -281,7 +253,7 @@ mod tests {
             3,
             ConnectivityType::FourWay,
             SizeSelectType::IfEither,
-            SizeSelectRelation::Gte,
+            SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();
 
@@ -300,7 +272,7 @@ mod tests {
             5,
             ConnectivityType::FourWay,
             SizeSelectType::IfBoth,
-            SizeSelectRelation::Gte,
+            SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();
 
@@ -317,7 +289,7 @@ mod tests {
             5,
             ConnectivityType::FourWay,
             SizeSelectType::IfBoth,
-            SizeSelectRelation::Gte,
+            SizeRelation::GreaterThanOrEqual,
         );
         assert!(result.is_err());
     }
@@ -332,7 +304,7 @@ mod tests {
             1,
             ConnectivityType::FourWay,
             SizeSelectType::IfBoth,
-            SizeSelectRelation::Gte,
+            SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();
 
