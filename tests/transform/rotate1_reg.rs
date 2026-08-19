@@ -126,7 +126,7 @@ fn rotate1_reg_shear_method() {
         fill: RotateFill::White,
         center_x: None,
         center_y: None,
-        expand: false,
+        embed: leptonica::transform::RotateEmbed::None,
     };
     let mut cur = pix1.clone();
     for _ in 0..8 {
@@ -176,7 +176,7 @@ fn rotate1_reg_sampling_method() {
         fill: RotateFill::White,
         center_x: None,
         center_y: None,
-        expand: false,
+        embed: leptonica::transform::RotateEmbed::None,
     };
 
     // 1bpp
@@ -228,7 +228,7 @@ fn rotate1_reg_areamap_method() {
         fill: RotateFill::White,
         center_x: None,
         center_y: None,
-        expand: false,
+        embed: leptonica::transform::RotateEmbed::None,
     };
 
     // 8bpp grayscale
@@ -292,4 +292,80 @@ fn rotate1_reg_am_corner() {
         .expect("write am_color_corner 32bpp");
 
     assert!(rp.cleanup(), "rotate1 am_corner test failed");
+}
+
+/// C-compat: `prog/rotate1_reg.c`, every PNG output.
+///
+/// `RotateTest` writes PNG only when the depth is neither 8 nor 32 bpp, so
+/// the four lossless 1/2/4 bpp inputs account for all 32 PNG outputs; the
+/// 8 and 32 bpp images are written as JPEG and skipped here.
+#[test]
+fn rotate1_c_compat() {
+    use leptonica::Pix;
+    use leptonica::transform::{RotateFill, RotateMethod, RotateOptions, rotate, rotate_am_corner};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    // C uses the literal 3.14159265, not M_PI, so the constants must match it
+    // exactly rather than std::f64::consts::PI.
+    #[allow(clippy::approx_constant)]
+    const ANGLE1: f32 = (3.141_592_65 / 12.0) as f32;
+    #[allow(clippy::approx_constant)]
+    const ANGLE2: f32 = (3.141_592_65 / 120.0) as f32;
+    const NTIMES: usize = 24;
+    const MODSIZE: usize = 11;
+    const IMAGES: [&str; 4] = [
+        "test1.png",       // 1 bpp
+        "weasel2.4c.png",  // 2 bpp cmapped, filled cmap
+        "weasel4.11c.png", // 4 bpp cmapped, unfilled cmap
+        "weasel4.16g.png", // 4 bpp cmapped, filled cmap
+    ];
+
+    let mut rp = RegParams::new("rotate1_c");
+
+    for name in IMAGES {
+        let pixs = load_test_image(name).expect("load rotate input");
+
+        // C passes the source dimensions to pixRotate, i.e. no expansion.
+        // C passes the *source* dimensions to pixRotate on every iteration,
+        // so once the image has grown enough nothing more is embedded.
+        let (sw, sh) = (pixs.width(), pixs.height());
+        let opts = |method: RotateMethod| RotateOptions {
+            method,
+            fill: RotateFill::White,
+            center_x: None,
+            center_y: None,
+            embed: leptonica::transform::RotateEmbed::Explicit(sw, sh),
+        };
+
+        for method in [
+            RotateMethod::Shear,
+            RotateMethod::Sampling,
+            RotateMethod::AreaMap,
+        ] {
+            let o = opts(method);
+            let mut pixd = rotate(&pixs, ANGLE1, &o).expect("rotate");
+            for i in 1..NTIMES {
+                if i % MODSIZE == 0 {
+                    rp.write_pix_and_check(&pixd, ImageFormat::Png)
+                        .expect("check: repeated rotate");
+                }
+                pixd = rotate(&pixd, ANGLE1, &o).expect("rotate again");
+            }
+        }
+
+        let mut pixd: Pix =
+            rotate_am_corner(&pixs, ANGLE2, RotateFill::White).expect("rotate am corner");
+        for i in 1..NTIMES {
+            if i % MODSIZE == 0 {
+                rp.write_pix_and_check(&pixd, ImageFormat::Png)
+                    .expect("check: repeated am corner");
+            }
+            pixd = rotate_am_corner(&pixd, ANGLE2, RotateFill::White).expect("am corner again");
+        }
+    }
+
+    assert!(rp.cleanup(), "rotate1 C-compat test failed");
 }

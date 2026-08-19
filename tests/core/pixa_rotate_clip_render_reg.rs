@@ -43,7 +43,7 @@ fn pixa_rotate_45deg_runs() {
     let pa = small_pixa();
     let opts = RotateOptions {
         method: RotateMethod::Sampling,
-        expand: true,
+        embed: leptonica::transform::RotateEmbed::ToFit,
         ..RotateOptions::default()
     };
     // 45 degrees, large enough to actually rotate
