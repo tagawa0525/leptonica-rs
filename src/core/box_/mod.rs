@@ -613,8 +613,8 @@ impl Boxa {
     /// `select_type` decides which dimensions are tested against `relation`:
     /// [`SizeSelectType::Width`] and [`SizeSelectType::Height`] look at one
     /// dimension only and ignore the other threshold entirely, while
-    /// [`SizeSelectType::IfEither`] and [`SizeSelectType::IfBoth`] combine
-    /// both tests.
+    /// [`SizeSelectType::Either`] and [`SizeSelectType::Both`] combine both
+    /// tests.
     ///
     /// C Leptonica equivalent: `boxaSelectBySize`
     pub fn select_by_size(
