@@ -479,6 +479,14 @@ fn sweep_and_search_pivot(
             "redsearch must not exceed redsweep".to_string(),
         ));
     }
+    // C does not validate these, but a non-positive delta is unbounded here:
+    // `sweepdelta = 0` makes `nangles` saturate to i32::MAX, and
+    // `minbsdelta <= 0` never terminates the halving loop below.
+    if sweeprange <= 0.0 || sweepdelta <= 0.0 || minbsdelta <= 0.0 {
+        return Err(RecogError::InvalidParameter(
+            "sweeprange, sweepdelta and minbsdelta must be positive".to_string(),
+        ));
+    }
 
     // Reduced image for the binary search, and a further reduced one for
     // the sweep. C derives the sweep image from the search image, not from
@@ -1062,5 +1070,16 @@ mod tests {
         let r_center = find_skew_sweep_and_search_score_pivot(&pix, &opts, SkewPivot::Center);
         assert!(r_corner.is_ok());
         assert!(r_center.is_ok());
+    }
+
+    #[test]
+    fn test_orthogonal_range_rejects_non_positive_deltas() {
+        // These must fail fast: sweepdelta = 0 saturates the angle count and
+        // minbsdelta = 0 makes the binary search halve forever.
+        let pix = create_horizontal_lines_image(200, 200, 20);
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 47.0, 0.0, 0.03, 0.0).is_err());
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 47.0, 1.0, 0.0, 0.0).is_err());
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 0.0, 1.0, 0.03, 0.0).is_err());
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 47.0, 1.0, 0.03, 0.0).is_ok());
     }
 }
