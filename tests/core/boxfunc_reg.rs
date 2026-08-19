@@ -300,6 +300,10 @@ fn test_box_transform() {
     // An invalid box maps to the all-zero box.
     let t = Box::new_unchecked(1, 2, 0, 5).transform(0, 0, 2.0, 2.0);
     assert_eq!((t.x, t.y, t.w, t.h), (0, 0, 0, 0));
+
+    // An extreme shift must not overflow the i32 corner arithmetic.
+    let t = Box::new_unchecked(i32::MAX, i32::MAX, 10, 10).transform(i32::MAX, i32::MAX, 1.0, 1.0);
+    assert!(t.x > 0 && t.y > 0);
 }
 
 /// C: boxaTransform applies boxTransform to every box.
