@@ -280,7 +280,6 @@ fn test_join_range() {
 
 /// C: boxTransform(box, shiftx, shifty, scalex, scaley)
 #[test]
-#[ignore = "not yet implemented"]
 fn test_box_transform() {
     // C: boxCreate((l_int32)(L_MAX(0, scalex * (x + shiftx) + 0.5)), ...,
     //              (l_int32)(L_MAX(1.0, scalex * w + 0.5)), ...)
@@ -305,7 +304,6 @@ fn test_box_transform() {
 
 /// C: boxaTransform applies boxTransform to every box.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_boxa_transform() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(10, 20, 30, 40).expect("b1"));
@@ -319,7 +317,6 @@ fn test_boxa_transform() {
 /// C: boxaSelectBySize honours L_SELECT_WIDTH / L_SELECT_HEIGHT, which test
 /// only one dimension and ignore the other threshold entirely.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_boxa_select_by_size_types() {
     let mut boxa = Boxa::new();
     boxa.push(Box::new(0, 0, 100, 10).expect("wide"));

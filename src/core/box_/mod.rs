@@ -58,11 +58,10 @@ pub fn size_select_matches(
     let wok = compare_relation(w, width, relation);
     let hok = compare_relation(h, height, relation);
     match select_type {
+        SizeSelectType::Width => wok,
+        SizeSelectType::Height => hok,
         SizeSelectType::IfEither => wok || hok,
         SizeSelectType::IfBoth => wok && hok,
-        SizeSelectType::Width | SizeSelectType::Height => {
-            unimplemented!("L_SELECT_WIDTH / L_SELECT_HEIGHT")
-        }
     }
 }
 

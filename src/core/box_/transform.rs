@@ -38,8 +38,16 @@ impl Box {
     ///
     /// C Leptonica equivalent: `boxTransform`
     pub fn transform(&self, shiftx: i32, shifty: i32, scalex: f32, scaley: f32) -> Box {
-        let _ = (shiftx, shifty, scalex, scaley);
-        unimplemented!("boxTransform")
+        if self.w <= 0 || self.h <= 0 {
+            return Box::new_unchecked(0, 0, 0, 0);
+        }
+        // C evaluates these with `0.5` as a double literal, so the products
+        // are promoted to double before truncation.
+        let x = (scalex as f64 * (self.x + shiftx) as f64 + 0.5).max(0.0) as i32;
+        let y = (scaley as f64 * (self.y + shifty) as f64 + 0.5).max(0.0) as i32;
+        let w = (scalex as f64 * self.w as f64 + 0.5).max(1.0) as i32;
+        let h = (scaley as f64 * self.h as f64 + 0.5).max(1.0) as i32;
+        Box::new_unchecked(x, y, w, h)
     }
 
     /// Apply an ordered sequence of shift, scale, and rotation transforms.
@@ -235,8 +243,9 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaTransform`
     pub fn transform(&self, shiftx: i32, shifty: i32, scalex: f32, scaley: f32) -> Boxa {
-        let _ = (shiftx, shifty, scalex, scaley);
-        unimplemented!("boxaTransform")
+        self.iter()
+            .map(|b| b.transform(shiftx, shifty, scalex, scaley))
+            .collect()
     }
 
     /// Apply an ordered transform to all boxes.
