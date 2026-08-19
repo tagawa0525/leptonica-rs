@@ -645,10 +645,13 @@ impl Boxa {
         self.combine_overlaps_debug(None)
     }
 
-    /// Select boxes by width and height
+    /// Select boxes by bounding-box width and height.
     ///
-    /// Filters boxes where both width and height satisfy the relation
-    /// against the given thresholds.
+    /// `select_type` decides which dimensions are tested against `relation`:
+    /// [`SizeSelectType::Width`] and [`SizeSelectType::Height`] look at one
+    /// dimension only and ignore the other threshold entirely, while
+    /// [`SizeSelectType::IfEither`] and [`SizeSelectType::IfBoth`] combine
+    /// both tests.
     ///
     /// C Leptonica equivalent: `boxaSelectBySize`
     pub fn select_by_size(
