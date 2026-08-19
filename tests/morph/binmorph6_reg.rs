@@ -104,7 +104,8 @@ fn binmorph6_c_compat() {
     let pix1 = crate::common::load_test_image("feyn-fract.tif").expect("load feyn-fract.tif");
     // C: boxCreate(507, 65, 60, 36) then pixClipRectangle.
     let pix2 = pix1.clip_rectangle(507, 65, 60, 36).expect("clip");
-    // C: selCreateFromPix(pix2, 6, 6, "life") — (cy, cx) in C's order.
+    // C: selCreateFromPix(pix2, 6, 6, "life"). C takes (cy, cx) while this
+    // takes (cx, cy); both are 6 here, so the order does not matter.
     let sel = Sel::from_pix(&pix2, 6, 6).expect("sel from pix");
 
     let pix3 = dilate(&pix1, &sel).expect("dilate");
