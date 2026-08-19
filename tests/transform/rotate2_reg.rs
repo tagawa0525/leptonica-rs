@@ -105,3 +105,101 @@ fn rotate2_reg() {
 
     assert!(rp.cleanup(), "rotate2 regression test failed");
 }
+
+/// C-compat: `prog/rotate2_reg.c`, every PNG output.
+///
+/// `RotateTest` writes PNG only when the depth is neither 8 nor 32 bpp, so
+/// the four lossless 1/2/4 bpp inputs account for all 8 PNG outputs.
+#[test]
+fn rotate2_c_compat() {
+    use leptonica::Pix;
+    use leptonica::core::Pixa;
+    use leptonica::io::ImageFormat;
+    use leptonica::transform::{
+        RotateEmbed, RotateFill, RotateMethod, RotateOptions, rotate, scale_to_gray_2,
+    };
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    // C uses the literal 3.14159265, not M_PI.
+    #[allow(clippy::approx_constant)]
+    const ANGLE1: f32 = (3.141_592_65 / 30.0) as f32;
+    #[allow(clippy::approx_constant)]
+    const ANGLE2: f32 = (3.141_592_65 / 7.0) as f32;
+    const IMAGES: [&str; 4] = [
+        "test1.png",
+        "weasel2.4c.png",
+        "weasel4.11c.png",
+        "weasel4.16g.png",
+    ];
+
+    let mut rp = RegParams::new("rotate2_c");
+
+    for name in IMAGES {
+        let pixs = crate::common::load_test_image(name).expect("load rotate input");
+        let (w, h) = (pixs.width(), pixs.height());
+
+        let opts = |method: RotateMethod, fill: RotateFill, embed: RotateEmbed| RotateOptions {
+            method,
+            fill,
+            center_x: None,
+            center_y: None,
+            embed,
+        };
+        // C passes either (w, h) — embed — or (0, 0) — no embedding.
+        let fit = RotateEmbed::Explicit(w, h);
+        let none = RotateEmbed::None;
+
+        // C write #1: eight shear rotations, two angles x two fills x embed/no.
+        let mut pixa = Pixa::new();
+        for angle in [ANGLE1, ANGLE2] {
+            for embed in [fit, none] {
+                for fill in [RotateFill::White, RotateFill::Black] {
+                    pixa.push(
+                        rotate(&pixs, angle, &opts(RotateMethod::Shear, fill, embed))
+                            .expect("shear rotate"),
+                    );
+                }
+            }
+        }
+        let tiled = pixa
+            .display_tiled_in_columns(2, 1.0, 20, 0)
+            .expect("tile shear");
+        rp.write_pix_and_check(&tiled, ImageFormat::Png)
+            .expect("check: shear variants");
+
+        // C write #2: four sampling rotations then four area-map ones. For a
+        // 1 bpp source the area-map block runs on pixScaleToGray2 output.
+        let mut pixa = Pixa::new();
+        for embed in [fit, none] {
+            for fill in [RotateFill::White, RotateFill::Black] {
+                pixa.push(
+                    rotate(&pixs, ANGLE2, &opts(RotateMethod::Sampling, fill, embed))
+                        .expect("sampling rotate"),
+                );
+            }
+        }
+        let am_src: Pix = if pixs.depth() == leptonica::PixelDepth::Bit1 {
+            scale_to_gray_2(&pixs).expect("scale to gray 2")
+        } else {
+            pixs.clone()
+        };
+        for embed in [fit, none] {
+            for fill in [RotateFill::White, RotateFill::Black] {
+                pixa.push(
+                    rotate(&am_src, ANGLE2, &opts(RotateMethod::AreaMap, fill, embed))
+                        .expect("area map rotate"),
+                );
+            }
+        }
+        let tiled = pixa
+            .display_tiled_in_columns(2, 1.0, 20, 0)
+            .expect("tile sampling/areamap");
+        rp.write_pix_and_check(&tiled, ImageFormat::Png)
+            .expect("check: sampling and area map variants");
+    }
+
+    assert!(rp.cleanup(), "rotate2 C-compat test failed");
+}
