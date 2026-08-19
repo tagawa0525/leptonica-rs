@@ -118,6 +118,10 @@ fn findcorners_c_compat() {
 
     let pixs = crate::common::load_test_image("tickets.tif").expect("load tickets.tif");
     let (boxa, pixd) = locate_barcodes(&pixs, true);
+    // C writes one output per located barcode (indices 1-9) plus three more,
+    // so a detection regression must fail here rather than silently produce
+    // fewer outputs.
+    assert_eq!(boxa.len(), 9, "expected 9 barcodes in tickets.tif");
     let pixd = pixd.expect("pixd");
     rp.write_pix_and_check(&pixd, ImageFormat::TiffG4)
         .expect("check: located barcodes");
@@ -144,6 +148,11 @@ fn findcorners_c_compat() {
             .angle;
         let pix2 = rotate(&pix1, deg2rad * angle, &sampling).expect("deskew");
         let (boxa2, _) = locate_barcodes(&pix2, false);
+        assert_eq!(
+            boxa2.len(),
+            1,
+            "ticket {i}: expected exactly one barcode after deskew"
+        );
         let box3 = *boxa2.get(0).expect("relocated box");
         let box4 = box3.adjust_sides(-141, 221, -1535, 157).expect("adjust 2");
         let pix3 = pix2
