@@ -1039,6 +1039,39 @@ manifest を再生成した。
 `multitype` (17 件) は `test8.jpg` / `marge.jpg` を含むため原理的に
 一致不可 (finding 001/008)。
 
+### PR 38: findcorners の全 G4 TIFF 出力 (実施済み)
+
+C 版ソース: `prog/findcorners_reg.c`。入力は `tickets.tif` のみ (lossless)
+で、C の出力は全て G4 TIFF なので pixel hash で完全比較できる。
+
+モルフォロジーでチケット領域を検出 → `pixFindSkew` でデスキュー →
+再検出してクリップ、という流れなので、PR 37 で C 準拠にした skew 探索が
+実データ上で検証される。
+
+実施結果:
+
+- **12 ペア全件 Ok** (Ok 385 → 397、recog 56 → 68)。9 件のデスキュー結果が
+  すべて一致したのは PR 37 の直接の成果
+- マッピングのために欠けていた C API を 2 つ追加した:
+
+| 追加 | C 対応 | 内容 |
+| --- | --- | --- |
+| `Box::transform` / `Boxa::transform` | `boxTransform` / `boxaTransform` | shift → scale。`max(0, ...)` / `max(1, ...)` で切り捨て |
+| `SizeSelectType::Width` / `Height` | `L_SELECT_WIDTH` / `L_SELECT_HEIGHT` | 片方の寸法だけを見る選択 |
+
+- あわせて重複していた `region::SizeSelectRelation` (Gte/Lte のみ) を廃止し、
+  C の 4 relation を持つ `core::SizeRelation` に一本化した。
+  `Boxa::select_by_size` は select type 引数を取る C 準拠のシグネチャになる
+- `pageseg` にあった「Rust の `pix_select_by_size` は IfBoth/IfEither しか
+  無いので conncomp で代替」という回避策のコメントを実態に合わせて修正
+
+**次段送り**: 非 JPEG 入力で未マップかつ 5 件以上のプログラムのうち、
+`watershed` (22 件) は C の `L_WSHED` 優先度キュー実装の移植、
+`ptra1` (18 件) は `Ptra` 型、`ccbord` (14 件) は CCBORDA パイプライン、
+`circle` (13 件) は `circles.pa` の pixa シリアライズ読み込みがそれぞれ
+必要。`multitype` (17 件) は `test8.jpg` / `marge.jpg` を含むため原理的に
+一致不可 (finding 001/008)。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
