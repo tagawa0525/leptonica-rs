@@ -1704,7 +1704,7 @@ pub fn pix_gen_textblock_mask(pixs: &Pix, pixvws: &Pix) -> RecogResult<Option<Pi
         25,
         5,
         crate::region::ConnectivityType::EightWay,
-        crate::region::SizeSelectType::IfBoth,
+        crate::region::SizeSelectType::Both,
         crate::region::SizeRelation::GreaterThanOrEqual,
     )?;
     Ok(Some(pixd))
@@ -2065,7 +2065,7 @@ pub fn pix_extract_raw_textlines(
         maxw,
         maxh,
         crate::region::ConnectivityType::EightWay,
-        crate::region::SizeSelectType::IfBoth,
+        crate::region::SizeSelectType::Both,
         crate::region::SizeRelation::LessThanOrEqual,
     )?;
     if pix2.is_zero() {

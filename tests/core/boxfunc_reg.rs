@@ -137,7 +137,7 @@ fn test_select_by_size() {
     boxa.push(Box::new(0, 0, 50, 50).unwrap());
     boxa.push(Box::new(0, 0, 100, 100).unwrap());
 
-    let result = boxa.select_by_size(30, 30, SizeSelectType::IfBoth, SizeRelation::GreaterThan);
+    let result = boxa.select_by_size(30, 30, SizeSelectType::Both, SizeRelation::GreaterThan);
     assert_eq!(result.len(), 2); // 50x50 and 100x100
 }
 
@@ -332,9 +332,9 @@ fn test_boxa_select_by_size_types() {
     assert_eq!(sel.len(), 1);
     assert_eq!(sel.get(0).expect("tall").h, 100);
 
-    let sel = boxa.select_by_size(50, 50, SizeSelectType::IfEither, SizeRelation::GreaterThan);
+    let sel = boxa.select_by_size(50, 50, SizeSelectType::Either, SizeRelation::GreaterThan);
     assert_eq!(sel.len(), 2);
 
-    let sel = boxa.select_by_size(50, 50, SizeSelectType::IfBoth, SizeRelation::GreaterThan);
+    let sel = boxa.select_by_size(50, 50, SizeSelectType::Both, SizeRelation::GreaterThan);
     assert_eq!(sel.len(), 0);
 }

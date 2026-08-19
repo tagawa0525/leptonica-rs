@@ -7,6 +7,7 @@ pub mod draw;
 pub mod extract;
 pub mod geometry;
 pub mod select;
+pub use select::SizeSelectType;
 pub mod serial;
 pub mod smooth;
 pub mod sort;
@@ -25,44 +26,6 @@ pub enum SizeRelation {
     GreaterThan,
     /// Select if value >= threshold
     GreaterThanOrEqual,
-}
-
-/// Which bounding-box dimensions a size selection tests.
-///
-/// C equivalent: `L_SELECT_WIDTH` / `L_SELECT_HEIGHT` / `L_SELECT_IF_EITHER` /
-/// `L_SELECT_IF_BOTH` (see `boxaMakeSizeIndicator` in `boxfunc4.c`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SizeSelectType {
-    /// Test the width only; the height threshold is ignored.
-    Width,
-    /// Test the height only; the width threshold is ignored.
-    Height,
-    /// Select if EITHER width or height satisfies the relation.
-    IfEither,
-    /// Select if BOTH width and height satisfy the relation.
-    IfBoth,
-}
-
-/// Whether `(w, h)` satisfies `relation` against `(width, height)` under `select_type`.
-///
-/// This is the decision C's `boxaMakeSizeIndicator` makes per box, shared by
-/// [`Boxa::select_by_size`] and `region::pix_select_by_size`.
-pub fn size_select_matches(
-    w: i32,
-    h: i32,
-    width: i32,
-    height: i32,
-    select_type: SizeSelectType,
-    relation: SizeRelation,
-) -> bool {
-    let wok = compare_relation(w, width, relation);
-    let hok = compare_relation(h, height, relation);
-    match select_type {
-        SizeSelectType::Width => wok,
-        SizeSelectType::Height => hok,
-        SizeSelectType::IfEither => wok || hok,
-        SizeSelectType::IfBoth => wok && hok,
-    }
 }
 
 /// A rectangle region
@@ -661,11 +624,9 @@ impl Boxa {
         select_type: SizeSelectType,
         relation: SizeRelation,
     ) -> Boxa {
-        self.boxes
-            .iter()
-            .filter(|b| size_select_matches(b.w, b.h, width, height, select_type, relation))
-            .copied()
-            .collect()
+        // C: boxaMakeSizeIndicator then boxaSelectWithIndicator.
+        let indicator = self.make_size_indicator(width, height, select_type, relation);
+        self.select_with_indicator(&indicator)
     }
 
     /// Select boxes by area

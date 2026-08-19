@@ -142,7 +142,7 @@ fn compfilter_reg_write_synthetic_images() {
 //     dimension threshold set so it is always satisfied.
 //   C L_SELECT_IF_GT (strict >) → Rust Gte with threshold+1
 //   C L_SELECT_IF_LT (strict <) → Rust Lte with threshold-1
-//   C L_SELECT_IF_EITHER / L_SELECT_IF_BOTH → SizeSelectType::IfEither / IfBoth
+//   C L_SELECT_IF_EITHER / L_SELECT_IF_BOTH → SizeSelectType::Either / IfBoth
 //
 // C expected component counts (4 solid boxes):
 //   box1: w=20, h=30
@@ -196,7 +196,7 @@ fn compfilter_reg_select_by_height() {
         0,
         23,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("select height>=23");
@@ -210,7 +210,7 @@ fn compfilter_reg_select_by_height() {
         99999,
         29,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::LessThanOrEqual,
     )
     .expect("select height<=29");
@@ -222,7 +222,7 @@ fn compfilter_reg_select_by_height() {
         0,
         6,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("select height>=6");
@@ -234,7 +234,7 @@ fn compfilter_reg_select_by_height() {
         99999,
         5,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::LessThanOrEqual,
     )
     .expect("select height<=5");
@@ -267,7 +267,7 @@ fn compfilter_reg_select_by_width() {
         21,
         0,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("select width>=21");
@@ -279,7 +279,7 @@ fn compfilter_reg_select_by_width() {
         30,
         99999,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::LessThanOrEqual,
     )
     .expect("select width<=30");
@@ -313,7 +313,7 @@ fn compfilter_reg_select_if_either() {
         20,
         9,
         ConnectivityType::EightWay,
-        SizeSelectType::IfEither,
+        SizeSelectType::Either,
         SizeRelation::LessThanOrEqual,
     )
     .expect("select either<=");
@@ -326,7 +326,7 @@ fn compfilter_reg_select_if_either() {
         21,
         31,
         ConnectivityType::EightWay,
-        SizeSelectType::IfEither,
+        SizeSelectType::Either,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("select either>=");
@@ -361,7 +361,7 @@ fn compfilter_reg_select_if_both() {
         21,
         31,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::LessThanOrEqual,
     )
     .expect("both < (22,32)");
@@ -373,7 +373,7 @@ fn compfilter_reg_select_if_both() {
         5,
         31,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::LessThanOrEqual,
     )
     .expect("both < (6,32)");
@@ -385,7 +385,7 @@ fn compfilter_reg_select_if_both() {
         6,
         26,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("both > (5,25)");
@@ -397,7 +397,7 @@ fn compfilter_reg_select_if_both() {
         26,
         6,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("both > (25,5)");
@@ -485,12 +485,8 @@ fn compfilter_reg_boxa_select_by_size_both() {
     boxa1.push(Box::new(160, 10, 5, 15).expect("box4"));
 
     // C idx 27: both(w<22 and h<32) → box1(20<22,30<32✓) + box4(5<22,15<32✓) = 2
-    let selected = boxa1.select_by_size(
-        21,
-        31,
-        SizeSelectType::IfBoth,
-        SizeRelation::LessThanOrEqual,
-    );
+    let selected =
+        boxa1.select_by_size(21, 31, SizeSelectType::Both, SizeRelation::LessThanOrEqual);
     rp.compare_values(2.0, selected.len() as f64, 0.0);
 
     assert!(rp.cleanup(), "compfilter_boxa_select_both test failed");
@@ -606,7 +602,7 @@ fn compfilter_reg_select_by_size() {
         10,
         10,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("pix_select_by_size");
@@ -659,7 +655,7 @@ fn compfilter_reg_select_by_shape() {
         20,
         20,
         ConnectivityType::EightWay,
-        SizeSelectType::IfEither,
+        SizeSelectType::Either,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("pix_select_by_size shape");
@@ -730,7 +726,7 @@ fn compfilter_reg_select_all_components() {
         0,
         0,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("select all");
@@ -759,7 +755,7 @@ fn compfilter_reg_select_none() {
         1000,
         1000,
         ConnectivityType::EightWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("select none");

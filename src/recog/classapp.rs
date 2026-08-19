@@ -121,12 +121,8 @@ pub fn find_word_and_character_boxes(
         // Extract bounding boxes and filter small pieces
         let boxa2: Boxa = components.iter().map(|c| c.bounds).collect();
         // C: boxaSelectBySize(boxa2, 2, 5, L_SELECT_IF_BOTH, L_SELECT_IF_GTE, NULL)
-        let boxa3 = boxa2.select_by_size(
-            2,
-            5,
-            SizeSelectType::IfBoth,
-            SizeRelation::GreaterThanOrEqual,
-        );
+        let boxa3 =
+            boxa2.select_by_size(2, 5, SizeSelectType::Both, SizeRelation::GreaterThanOrEqual);
 
         // Sort left-to-right by x position
         let mut boxa4 = boxa3;

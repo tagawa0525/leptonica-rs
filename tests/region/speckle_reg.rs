@@ -109,7 +109,7 @@ fn speckle_reg_select_by_size() {
         3,
         3,
         ConnectivityType::FourWay,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     )
     .expect("pix_select_by_size");

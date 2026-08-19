@@ -5,7 +5,7 @@
 //!
 //! C equivalent: `pixSelectBySize()` and related functions in `pixafunc1.c`
 
-use crate::core::{Pix, PixelDepth, size_select_matches};
+use crate::core::{Boxa, Pix, PixelDepth};
 use crate::region::conncomp::{
     ConnectivityType, find_connected_components, label_connected_components,
 };
@@ -85,7 +85,7 @@ pub use crate::core::SizeRelation;
 /// let result = pix_select_by_size(
 ///     &pix, 4, 4,
 ///     ConnectivityType::FourWay,
-///     SizeSelectType::IfBoth,
+///     SizeSelectType::Both,
 ///     SizeRelation::GreaterThanOrEqual,
 /// ).unwrap();
 ///
@@ -121,15 +121,12 @@ pub fn pix_select_by_size(
     // Get the labeled image so we can identify which component each pixel belongs to
     let labeled = label_connected_components(pixs, connectivity)?;
 
-    // Build a set of labels to keep
+    // Build a set of labels to keep. C runs the same decision through
+    // `boxaMakeSizeIndicator` on the component bounding boxes.
+    let boxa: Boxa = components.iter().map(|c| c.bounds).collect();
+    let indicator = boxa.make_size_indicator(width_thresh, height_thresh, select_type, relation);
     let mut keep_labels = HashSet::new();
-
-    for comp in &components {
-        let cw = comp.bounds.w; // bounding box width
-        let ch = comp.bounds.h; // bounding box height
-
-        let keep = size_select_matches(cw, ch, width_thresh, height_thresh, select_type, relation);
-
+    for (comp, keep) in components.iter().zip(indicator) {
         if keep {
             keep_labels.insert(comp.label);
         }
@@ -189,7 +186,7 @@ mod tests {
             2,
             2,
             ConnectivityType::FourWay,
-            SizeSelectType::IfBoth,
+            SizeSelectType::Both,
             SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();
@@ -219,7 +216,7 @@ mod tests {
             1,
             1,
             ConnectivityType::FourWay,
-            SizeSelectType::IfBoth,
+            SizeSelectType::Both,
             SizeRelation::LessThanOrEqual,
         )
         .unwrap();
@@ -252,7 +249,7 @@ mod tests {
             3,
             3,
             ConnectivityType::FourWay,
-            SizeSelectType::IfEither,
+            SizeSelectType::Either,
             SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();
@@ -271,7 +268,7 @@ mod tests {
             5,
             5,
             ConnectivityType::FourWay,
-            SizeSelectType::IfBoth,
+            SizeSelectType::Both,
             SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();
@@ -288,7 +285,7 @@ mod tests {
             5,
             5,
             ConnectivityType::FourWay,
-            SizeSelectType::IfBoth,
+            SizeSelectType::Both,
             SizeRelation::GreaterThanOrEqual,
         );
         assert!(result.is_err());
@@ -303,7 +300,7 @@ mod tests {
             1,
             1,
             ConnectivityType::FourWay,
-            SizeSelectType::IfBoth,
+            SizeSelectType::Both,
             SizeRelation::GreaterThanOrEqual,
         )
         .unwrap();

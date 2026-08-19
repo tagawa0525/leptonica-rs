@@ -74,12 +74,8 @@ fn partition_reg_dilate_conncomp() {
     rp.compare_values(1.0, if !boxa.is_empty() { 1.0 } else { 0.0 }, 0.0);
 
     // Filter by minimum size (>= 3x3)
-    let filtered = boxa.select_by_size(
-        3,
-        3,
-        SizeSelectType::IfBoth,
-        SizeRelation::GreaterThanOrEqual,
-    );
+    let filtered =
+        boxa.select_by_size(3, 3, SizeSelectType::Both, SizeRelation::GreaterThanOrEqual);
     rp.compare_values(
         1.0,
         if filtered.len() <= boxa.len() {
@@ -114,17 +110,12 @@ fn partition_reg_select_by_size() {
     let (boxa, _) = conncomp_pixa(&dilated, ConnectivityType::FourWay).expect("conncomp");
 
     // Small filter: many components
-    let small = boxa.select_by_size(
-        2,
-        2,
-        SizeSelectType::IfBoth,
-        SizeRelation::GreaterThanOrEqual,
-    );
+    let small = boxa.select_by_size(2, 2, SizeSelectType::Both, SizeRelation::GreaterThanOrEqual);
     // Large filter: fewer components
     let large = boxa.select_by_size(
         50,
         50,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     );
 
@@ -134,7 +125,7 @@ fn partition_reg_select_by_size() {
     let very_large = boxa.select_by_size(
         200,
         200,
-        SizeSelectType::IfBoth,
+        SizeSelectType::Both,
         SizeRelation::GreaterThanOrEqual,
     );
     rp.compare_values(
