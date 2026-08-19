@@ -170,3 +170,139 @@ fn skew_reg_normalized_square_sum_non_1bpp_errors() {
     let pix = Pix::new(32, 32, leptonica::PixelDepth::Bit32).expect("new 32bpp");
     assert!(find_normalized_square_sum(&pix).is_err());
 }
+
+/// C-compat: `prog/skew_reg.c`, all 7 outputs.
+///
+/// `feyn.tif` is lossless and C writes every output as PNG, so the whole
+/// program is bit-exactly comparable. Indices 2, 4 and 5 depend on the skew
+/// angle found by `pixFindSkewSweepAndSearchScorePivot` /
+/// `pixFindSkewOrthogonalRange`, so this also pins those search algorithms.
+#[test]
+fn skew_c_compat() {
+    use leptonica::core::{InitColor, Pix, Pixa, RopOp};
+    use leptonica::recog::skew::{
+        SkewPivot, find_skew_orthogonal_range, find_skew_sweep_and_search_score_pivot,
+    };
+    use leptonica::transform::{
+        RotateEmbed, RotateFill, RotateMethod, RotateOptions, reduce_rank_binary_cascade, rotate,
+        rotate_by_sampling,
+    };
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    const BORDER: u32 = 150;
+    // C uses the literal 3.1415926535, not M_PI.
+    #[allow(clippy::approx_constant, clippy::excessive_precision)]
+    let deg2rad = 3.1415926535_f32 / 180.0;
+
+    let mut rp = RegParams::new("skew_c");
+    let mut pixa = Pixa::new();
+
+    let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
+    // C: pixSetOrClearBorder(pixs, 100, 250, 100, 0, PIX_CLR)
+    let pixs = {
+        let mut m = pixs.deep_clone().try_into_mut().expect("into mut");
+        m.set_or_clear_border(100, 250, 100, 0, InitColor::White);
+        Pix::from(m)
+    };
+
+    // C: pixReduceRankBinaryCascade(pixs, 2, 2, 0, 0)
+    let pixb1 = reduce_rank_binary_cascade(&pixs, &[2, 2]).expect("rank cascade");
+    rp.write_pix_and_check(&pixb1, ImageFormat::Png)
+        .expect("check: reduced source");
+
+    let pixb2 = pixb1.add_border(BORDER, 0).expect("add border");
+    let (w, h) = (pixb2.width(), pixb2.height());
+    pixa.push(pixb2.clone());
+
+    // C: rotate by sampling, 40 degrees about the center of pixb2.
+    let pixr = rotate_by_sampling(
+        &pixb2,
+        (w / 2) as i32,
+        (h / 2) as i32,
+        deg2rad * 40.0,
+        RotateFill::White,
+    )
+    .expect("rotate 40");
+    rp.write_pix_and_check(&pixr, ImageFormat::Png)
+        .expect("check: rotated 40 deg");
+    pixa.push(pixr.clone());
+
+    // C: pixFindSkewSweepAndSearchScorePivot(pixr, .., 1, 1, 0.0, 45.0, 2.0, 0.03, CENTER)
+    let opts = SkewDetectOptions {
+        sweep_range: 45.0,
+        sweep_delta: 2.0,
+        min_bs_delta: 0.03,
+        sweep_reduction: 1,
+        bs_reduction: 1,
+    };
+    let (angle, _conf, _score) =
+        find_skew_sweep_and_search_score_pivot(&pixr, &opts, SkewPivot::Center)
+            .expect("sweep and search");
+
+    let pixf = rotate_by_sampling(
+        &pixr,
+        (w / 2) as i32,
+        (h / 2) as i32,
+        deg2rad * angle,
+        RotateFill::White,
+    )
+    .expect("deskew rotate");
+    let pixd = pixf.remove_border(BORDER).expect("remove border");
+    rp.write_pix_and_check(&pixd, ImageFormat::Png)
+        .expect("check: deskewed");
+    pixa.push(pixd);
+
+    // C: pixRotate(pixb1, 37 deg, SAMPLING, WHITE, w, h) with pixb1's own dims.
+    let (w, h) = (pixb1.width(), pixb1.height());
+    let ropts = RotateOptions {
+        method: RotateMethod::Sampling,
+        fill: RotateFill::White,
+        center_x: None,
+        center_y: None,
+        embed: RotateEmbed::Explicit(w, h),
+    };
+    let pixr = rotate(&pixb1, deg2rad * 37.0, &ropts).expect("rotate 37");
+    rp.write_pix_and_check(&pixr, ImageFormat::Png)
+        .expect("check: rotated 37 deg");
+    pixa.push(pixr.clone());
+
+    // C: pixFindSkewOrthogonalRange(pixr, .., 2, 1, 47.0, 1.0, 0.03, 0.0)
+    let (angle, _conf) =
+        find_skew_orthogonal_range(&pixr, 2, 1, 47.0, 1.0, 0.03, 0.0).expect("orthogonal range");
+    let pixd = rotate(&pixr, deg2rad * angle, &ropts).expect("orthogonal deskew");
+    rp.write_pix_and_check(&pixd, ImageFormat::Png)
+        .expect("check: orthogonally deskewed");
+
+    // C: crop the (larger) rotated result back to pixb1's size, centered.
+    let (wd, hd) = (pixd.width(), pixd.height());
+    let pixc = Pix::new(w, h, PixelDepth::Bit1).expect("new 1bpp");
+    let pixc = {
+        let mut m = pixc.deep_clone().try_into_mut().expect("into mut");
+        m.rop_region_inplace(
+            0,
+            0,
+            w,
+            h,
+            RopOp::Src,
+            &pixd,
+            (wd as i32 - w as i32) / 2,
+            (hd as i32 - h as i32) / 2,
+        )
+        .expect("rasterop");
+        Pix::from(m)
+    };
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("check: recentered");
+    pixa.push(pixc);
+
+    let tiled = pixa
+        .display_tiled_in_columns(3, 0.5, 20, 3)
+        .expect("tile skew");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("check: skew summary");
+
+    assert!(rp.cleanup(), "skew C-compat test failed");
+}

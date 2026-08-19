@@ -16,9 +16,12 @@
 //!    differential square sum of row pixel counts is computed. Text lines
 //!    produce maximum score when horizontal.
 
-use crate::core::{Pix, PixelDepth};
+use crate::core::{Numa, Pix, PixelDepth};
 use crate::recog::{RecogError, RecogResult};
-use crate::transform::rotate_by_angle;
+use crate::transform::{
+    RotateEmbed, RotateFill, RotateMethod, RotateOptions, ShearFill, reduce_rank_binary_cascade,
+    rotate, rotate_orth, v_shear_center, v_shear_corner,
+};
 
 /// Options for skew detection
 #[derive(Debug, Clone)]
@@ -138,8 +141,8 @@ pub struct SkewResult {
 }
 
 // Constants for confidence calculation
-const MIN_VALID_MAX_SCORE: f64 = 10000.0;
-const MIN_SCORE_THRESH_FACTOR: f64 = 0.000002;
+const MIN_VALID_MAX_SCORE: f32 = 10000.0;
+const MIN_SCORE_THRESH_FACTOR: f32 = 0.000002;
 const MIN_DESKEW_ANGLE: f32 = 0.1;
 const MIN_ALLOWED_CONFIDENCE: f32 = 3.0;
 
@@ -167,53 +170,18 @@ pub fn find_skew(pix: &Pix, options: &SkewDetectOptions) -> RecogResult<SkewResu
     // Convert to 1bpp if necessary
     let binary_pix = ensure_binary(pix)?;
 
-    // Check for empty image
-    if is_image_empty(&binary_pix) {
-        return Err(RecogError::NoContent(
-            "image is empty or all white".to_string(),
-        ));
-    }
-
-    // Reduce image for sweep
-    let sweep_pix = reduce_image(&binary_pix, options.sweep_reduction)?;
-
-    // Reduce image for binary search (may be same as sweep)
-    let search_pix = if options.bs_reduction == options.sweep_reduction {
-        sweep_pix.deep_clone()
-    } else {
-        reduce_image(&binary_pix, options.bs_reduction)?
-    };
-
-    // Phase 1: Coarse sweep
-    let (best_angle, _best_score) = sweep_angles(
-        &sweep_pix,
-        -options.sweep_range,
+    let (angle, confidence, _) = sweep_and_search_pivot(
+        &binary_pix,
+        options.sweep_reduction,
+        options.bs_reduction,
+        0.0,
         options.sweep_range,
-        options.sweep_delta,
-    )?;
-
-    // Phase 2: Binary search refinement
-    let (refined_angle, max_score, min_score) = binary_search_angle(
-        &search_pix,
-        best_angle,
         options.sweep_delta,
         options.min_bs_delta,
+        SkewPivot::Corner,
     )?;
 
-    // Calculate confidence
-    let confidence = calculate_confidence(
-        &search_pix,
-        max_score,
-        min_score,
-        refined_angle,
-        options.sweep_range,
-        options.sweep_delta,
-    );
-
-    Ok(SkewResult {
-        angle: refined_angle,
-        confidence,
-    })
+    Ok(SkewResult { angle, confidence })
 }
 
 /// Detect skew and deskew the image
@@ -248,15 +216,33 @@ pub fn find_skew_and_deskew(
 /// * `angle` - Rotation angle in degrees (positive = counterclockwise)
 ///
 /// # Returns
-/// The deskewed image
+///
+/// The deskewed image, always with the source dimensions.
+///
+/// The depth can change: this asks for area-map rotation, as C
+/// `pixDeskewGeneral` does, and C's `pixRotateAM` promotes anything below
+/// 8 bpp to 8 bpp. 1 bpp is the exception — `pixRotate` overrides the
+/// request to shear (or sampling past ~6 degrees) before that, so a 1 bpp
+/// input stays 1 bpp. In short: 1 bpp in, 1 bpp out; 2 or 4 bpp in, 8 bpp
+/// out.
 pub fn deskew_by_angle(pix: &Pix, angle: f32) -> RecogResult<Pix> {
     if angle.abs() < 0.001 {
         return Ok(pix.deep_clone());
     }
 
-    // Rotate by the detected angle to correct skew
-    let rotated = rotate_by_angle(pix, angle)?;
-    Ok(rotated)
+    // C `pixDeskewGeneral` finishes with
+    // `pixRotate(pixs, deg2rad * angle, L_ROTATE_AREA_MAP, L_BRING_IN_WHITE, 0, 0)`.
+    // Passing 0 for width/height means "do not embed", so the deskewed image
+    // keeps the source dimensions. See the depth note above for what the
+    // area-map request does to sub-8-bpp inputs.
+    let options = RotateOptions {
+        method: RotateMethod::AreaMap,
+        fill: RotateFill::White,
+        center_x: None,
+        center_y: None,
+        embed: RotateEmbed::None,
+    };
+    Ok(rotate(pix, DEG2RAD * angle, &options)?)
 }
 
 /// Options for the deskew high-level interface
@@ -419,53 +405,215 @@ pub fn find_skew_sweep_and_search_score_pivot(
     options.validate()?;
 
     let binary_pix = ensure_binary(pix)?;
-    if is_image_empty(&binary_pix) {
+    sweep_and_search_pivot(
+        &binary_pix,
+        options.sweep_reduction,
+        options.bs_reduction,
+        0.0,
+        options.sweep_range,
+        options.sweep_delta,
+        options.min_bs_delta,
+        pivot,
+    )
+}
+
+/// Degrees-to-radians factor. C Leptonica hardcodes this literal (not `M_PI`)
+/// in every skew function, and the sweep angles are sensitive to it.
+#[allow(clippy::approx_constant, clippy::excessive_precision)]
+const DEG2RAD: f32 = 3.1415926535 / 180.0;
+
+/// C `pixReduceRankBinaryCascade` cascade for a requested reduction factor.
+///
+/// C uses `(1, 0, 0, 0)` for 2x, `(1, 1, 0, 0)` for 4x and `(1, 1, 2, 0)` for
+/// 8x. A trailing 0 terminates the cascade.
+fn reduce_for_search(pix: &Pix, reduction: u32) -> RecogResult<Pix> {
+    let levels: &[u8] = match reduction {
+        1 => return Ok(pix.clone()),
+        2 => &[1],
+        4 => &[1, 1],
+        8 => &[1, 1, 2],
+        _ => {
+            return Err(RecogError::InvalidParameter(
+                "reduction must be 1, 2, 4, or 8".to_string(),
+            ));
+        }
+    };
+    Ok(reduce_rank_binary_cascade(pix, levels)?)
+}
+
+/// C's second cascade, applied to the already-reduced search image to get the
+/// sweep image: `(1, 0, 0, 0)`, `(1, 2, 0, 0)` or `(1, 2, 2, 0)`.
+fn reduce_for_sweep(pix: &Pix, ratio: u32) -> RecogResult<Pix> {
+    let levels: &[u8] = match ratio {
+        1 => return Ok(pix.clone()),
+        2 => &[1],
+        4 => &[1, 2],
+        _ => &[1, 2, 2],
+    };
+    Ok(reduce_rank_binary_cascade(pix, levels)?)
+}
+
+/// Vertical shear about the pivot, as C's sweep and binary search do it.
+fn shear_about_pivot(pix: &Pix, theta_deg: f32, pivot: SkewPivot) -> RecogResult<Pix> {
+    let radang = DEG2RAD * theta_deg;
+    Ok(match pivot {
+        SkewPivot::Corner => v_shear_corner(pix, radang, ShearFill::White)?,
+        SkewPivot::Center => v_shear_center(pix, radang, ShearFill::White)?,
+    })
+}
+
+/// C `pixFindSkewSweepAndSearchScorePivot`.
+///
+/// Returns `(angle_deg, confidence, end_score)`. When the sweep maximum lands
+/// on either end of the sweep range, C warns and returns zeros; this does the
+/// same rather than reporting an untrustworthy angle.
+#[allow(clippy::too_many_arguments)]
+fn sweep_and_search_pivot(
+    pixs: &Pix,
+    redsweep: u32,
+    redsearch: u32,
+    sweepcenter: f32,
+    sweeprange: f32,
+    sweepdelta: f32,
+    minbsdelta: f32,
+    pivot: SkewPivot,
+) -> RecogResult<(f32, f32, f32)> {
+    if !matches!(redsweep, 1 | 2 | 4 | 8) || !matches!(redsearch, 1 | 2 | 4 | 8) {
+        return Err(RecogError::InvalidParameter(
+            "reductions must be 1, 2, 4, or 8".to_string(),
+        ));
+    }
+    if redsearch > redsweep {
+        return Err(RecogError::InvalidParameter(
+            "redsearch must not exceed redsweep".to_string(),
+        ));
+    }
+    // C does not validate these, but a non-positive delta is unbounded here:
+    // `sweepdelta = 0` makes `nangles` saturate to i32::MAX, and
+    // `minbsdelta <= 0` never terminates the halving loop below.
+    if sweeprange <= 0.0 || sweepdelta <= 0.0 || minbsdelta <= 0.0 {
+        return Err(RecogError::InvalidParameter(
+            "sweeprange, sweepdelta and minbsdelta must be positive".to_string(),
+        ));
+    }
+
+    // Reduced image for the binary search, and a further reduced one for
+    // the sweep. C derives the sweep image from the search image, not from
+    // the source, so the cascades compose.
+    let pixsch = reduce_for_search(pixs, redsearch)?;
+    if is_image_empty(&pixsch) {
         return Err(RecogError::NoContent(
             "image is empty or all white".to_string(),
         ));
     }
+    let pixsw = reduce_for_sweep(&pixsch, redsweep / redsearch)?;
 
-    // For center pivot, crop to the central half of the image so the sweep
-    // is anchored to the center rather than the top-left corner.
-    let work_pix = if pivot == SkewPivot::Center {
-        let w = binary_pix.width();
-        let h = binary_pix.height();
-        binary_pix.clip_rectangle(w / 4, h / 4, w / 2, h / 2)?
+    // C: nangles = (l_int32)((2. * sweeprange) / sweepdelta + 1), in double.
+    let nangles = ((2.0_f64 * sweeprange as f64) / sweepdelta as f64 + 1.0) as i32;
+    if nangles <= 0 {
+        return Err(RecogError::InvalidParameter(
+            "sweep range and delta yield no angles".to_string(),
+        ));
+    }
+
+    // Sweep.
+    let rangeleft = sweepcenter - sweeprange;
+    let mut maxscore = f32::MIN;
+    let mut maxindex = 0i32;
+    let mut maxangle = 0.0f32;
+    for i in 0..nangles {
+        let theta = rangeleft + i as f32 * sweepdelta;
+        let sheared = shear_about_pivot(&pixsw, theta, pivot)?;
+        let sum = find_differential_square_sum(&sheared)?;
+        if sum > maxscore {
+            maxscore = sum;
+            maxindex = i;
+            maxangle = theta;
+        }
+    }
+
+    // C warns and bails out when the maximum is at a sweep edge.
+    if maxindex == 0 || maxindex == nangles - 1 {
+        return Ok((0.0, 0.0, 0.0));
+    }
+
+    // Binary search. `scores` holds C's bsearchscore[5]; `bs_scores` collects
+    // every score evaluated here, which is what the confidence minimum uses
+    // (the sweep scores are discarded first).
+    let mut centerangle = maxangle;
+    let mut scores = [0.0f32; 5];
+    scores[2] = find_differential_square_sum(&shear_about_pivot(&pixsch, centerangle, pivot)?)?;
+    scores[0] = find_differential_square_sum(&shear_about_pivot(
+        &pixsch,
+        centerangle - sweepdelta,
+        pivot,
+    )?)?;
+    scores[4] = find_differential_square_sum(&shear_about_pivot(
+        &pixsch,
+        centerangle + sweepdelta,
+        pivot,
+    )?)?;
+    let mut bs_scores = vec![scores[2], scores[0], scores[4]];
+
+    // C reuses the single `maxscore` variable for both phases: it still holds
+    // the sweep maximum here (skew.c:774) and is only overwritten inside the
+    // loop body (skew.c:868). So when `minbsdelta > 0.5 * sweepdelta` and the
+    // loop never runs, the confidence below is computed from the sweep score.
+    // That mixes scales (the sweep runs on `pixsw`, the search on `pixsch`),
+    // but it is C's behaviour and callers depend on the same numbers.
+    let mut delta = 0.5 * sweepdelta;
+    while delta >= minbsdelta {
+        let leftcenterangle = centerangle - delta;
+        scores[1] =
+            find_differential_square_sum(&shear_about_pivot(&pixsch, leftcenterangle, pivot)?)?;
+        bs_scores.push(scores[1]);
+
+        let rightcenterangle = centerangle + delta;
+        scores[3] =
+            find_differential_square_sum(&shear_about_pivot(&pixsch, rightcenterangle, pivot)?)?;
+        bs_scores.push(scores[3]);
+
+        // The maximum must be one of the middle three, not an end value.
+        maxscore = scores[1];
+        let mut bsindex = 1usize;
+        for (i, &score) in scores.iter().enumerate().take(4).skip(2) {
+            if score > maxscore {
+                maxscore = score;
+                bsindex = i;
+            }
+        }
+
+        let lefttemp = scores[bsindex - 1];
+        let righttemp = scores[bsindex + 1];
+        scores[2] = maxscore;
+        scores[0] = lefttemp;
+        scores[4] = righttemp;
+
+        centerangle += delta * (bsindex as f32 - 2.0);
+        delta *= 0.5;
+    }
+    let endscore = scores[2];
+
+    // Confidence: max/min score ratio, distrusted when the minimum is too
+    // small for the image dimensions, when the angle sits at the edge of the
+    // sweep range, or when the maximum score itself is tiny.
+    let minscore = bs_scores.iter().copied().fold(f32::MAX, f32::min);
+    let width = pixsch.width() as f32;
+    let height = pixsch.height() as f32;
+    let minthresh = MIN_SCORE_THRESH_FACTOR * width * width * height;
+    let mut conf = if minscore > minthresh {
+        maxscore / minscore
     } else {
-        binary_pix
+        0.0
     };
+    if centerangle > rangeleft + 2.0 * sweeprange - sweepdelta
+        || centerangle < rangeleft + sweepdelta
+        || maxscore < MIN_VALID_MAX_SCORE
+    {
+        conf = 0.0;
+    }
 
-    let sweep_pix = reduce_image(&work_pix, options.sweep_reduction)?;
-    let search_pix = if options.bs_reduction == options.sweep_reduction {
-        sweep_pix.deep_clone()
-    } else {
-        reduce_image(&work_pix, options.bs_reduction)?
-    };
-
-    let (best_angle, _) = sweep_angles(
-        &sweep_pix,
-        -options.sweep_range,
-        options.sweep_range,
-        options.sweep_delta,
-    )?;
-
-    let (refined_angle, max_score, min_score) = binary_search_angle(
-        &search_pix,
-        best_angle,
-        options.sweep_delta,
-        options.min_bs_delta,
-    )?;
-
-    let confidence = calculate_confidence(
-        &search_pix,
-        max_score,
-        min_score,
-        refined_angle,
-        options.sweep_range,
-        options.sweep_delta,
-    );
-
-    Ok((refined_angle, confidence, max_score as f32))
+    Ok((centerangle, conf, endscore))
 }
 
 /// Ensure image is binary (1 bpp)
@@ -565,279 +713,6 @@ fn is_image_empty(pix: &Pix) -> bool {
     true
 }
 
-/// Reduce image by factor (simple subsampling for binary images)
-fn reduce_image(pix: &Pix, factor: u32) -> RecogResult<Pix> {
-    if factor == 1 {
-        return Ok(pix.deep_clone());
-    }
-
-    let w = pix.width();
-    let h = pix.height();
-    let new_w = w / factor;
-    let new_h = h / factor;
-
-    if new_w == 0 || new_h == 0 {
-        return Err(RecogError::ImageTooSmall {
-            min_width: factor,
-            min_height: factor,
-            actual_width: w,
-            actual_height: h,
-        });
-    }
-
-    let reduced = Pix::new(new_w, new_h, pix.depth())?;
-    let mut reduced_mut = reduced.try_into_mut().unwrap();
-
-    // For binary images, use OR reduction (any black pixel makes output black)
-    for ny in 0..new_h {
-        for nx in 0..new_w {
-            let mut has_black = false;
-            for dy in 0..factor {
-                for dx in 0..factor {
-                    let sx = nx * factor + dx;
-                    let sy = ny * factor + dy;
-                    if sx < w && sy < h {
-                        let val = pix.get_pixel_unchecked(sx, sy);
-                        if val != 0 {
-                            has_black = true;
-                            break;
-                        }
-                    }
-                }
-                if has_black {
-                    break;
-                }
-            }
-            let out_val = if has_black { 1 } else { 0 };
-            reduced_mut.set_pixel_unchecked(nx, ny, out_val);
-        }
-    }
-
-    Ok(reduced_mut.into())
-}
-
-/// Sweep through angles and find the one with maximum score
-fn sweep_angles(
-    pix: &Pix,
-    start_angle: f32,
-    end_angle: f32,
-    delta: f32,
-) -> RecogResult<(f32, f64)> {
-    let mut best_angle = 0.0f32;
-    let mut best_score = f64::MIN;
-
-    let mut angle = start_angle;
-    while angle <= end_angle {
-        let sheared = vertical_shear(pix, angle)?;
-        let score = compute_differential_square_sum(&sheared);
-
-        if score > best_score {
-            best_score = score;
-            best_angle = angle;
-        }
-
-        angle += delta;
-    }
-
-    Ok((best_angle, best_score))
-}
-
-/// Binary search to refine angle
-#[allow(clippy::needless_range_loop)]
-fn binary_search_angle(
-    pix: &Pix,
-    center_angle: f32,
-    initial_delta: f32,
-    min_delta: f32,
-) -> RecogResult<(f32, f64, f64)> {
-    let mut center = center_angle;
-    let mut delta = initial_delta / 2.0;
-
-    // Initial scores at center and neighbors
-    let sheared_center = vertical_shear(pix, center)?;
-    let mut scores = [0.0f64; 5];
-    scores[2] = compute_differential_square_sum(&sheared_center);
-
-    let sheared_left = vertical_shear(pix, center - initial_delta)?;
-    scores[0] = compute_differential_square_sum(&sheared_left);
-
-    let sheared_right = vertical_shear(pix, center + initial_delta)?;
-    scores[4] = compute_differential_square_sum(&sheared_right);
-
-    let mut max_score = scores[0].max(scores[2]).max(scores[4]);
-    let mut min_score = scores[0].min(scores[2]).min(scores[4]);
-
-    while delta >= min_delta {
-        // Compute left intermediate
-        let left_angle = center - delta;
-        let sheared_left = vertical_shear(pix, left_angle)?;
-        scores[1] = compute_differential_square_sum(&sheared_left);
-
-        // Compute right intermediate
-        let right_angle = center + delta;
-        let sheared_right = vertical_shear(pix, right_angle)?;
-        scores[3] = compute_differential_square_sum(&sheared_right);
-
-        // Find maximum among center three
-        let mut max_idx = 1;
-        let mut max_val = scores[1];
-        for i in 2..4 {
-            if scores[i] > max_val {
-                max_val = scores[i];
-                max_idx = i;
-            }
-        }
-
-        // Update tracking
-        max_score = max_score.max(max_val);
-        min_score = min_score.min(scores[1]).min(scores[3]);
-
-        // Update for next iteration
-        let left_temp = scores[max_idx - 1];
-        let right_temp = scores[max_idx + 1];
-        scores[2] = max_val;
-        scores[0] = left_temp;
-        scores[4] = right_temp;
-
-        center += delta * (max_idx as f32 - 2.0);
-        delta *= 0.5;
-    }
-
-    Ok((center, max_score, min_score))
-}
-
-/// Vertical shear transformation
-/// This is a key operation for skew detection - it shears the image
-/// vertically by an amount proportional to the x-coordinate
-fn vertical_shear(pix: &Pix, angle_deg: f32) -> RecogResult<Pix> {
-    if angle_deg.abs() < 0.001 {
-        return Ok(pix.deep_clone());
-    }
-
-    let w = pix.width();
-    let h = pix.height();
-    let angle_rad = angle_deg.to_radians();
-    let tan_a = angle_rad.tan();
-
-    // Calculate new height needed to contain sheared image
-    let max_shear = (w as f32 * tan_a.abs()).ceil() as u32;
-    let new_h = h + max_shear;
-
-    let sheared = Pix::new(w, new_h, pix.depth())?;
-    let mut sheared_mut = sheared.try_into_mut().unwrap();
-
-    // Apply vertical shear: y' = y + x * tan(angle)
-    let y_offset = if tan_a < 0.0 { max_shear } else { 0 };
-
-    for y in 0..h {
-        for x in 0..w {
-            let val = pix.get_pixel_unchecked(x, y);
-            if val != 0 {
-                let shear_amount = (x as f32 * tan_a).round() as i32;
-                let new_y = y as i32 + shear_amount + y_offset as i32;
-                if new_y >= 0 && (new_y as u32) < new_h {
-                    sheared_mut.set_pixel_unchecked(x, new_y as u32, val);
-                }
-            }
-        }
-    }
-
-    Ok(sheared_mut.into())
-}
-
-/// Compute differential square sum score
-/// This measures how well text lines are aligned horizontally
-fn compute_differential_square_sum(pix: &Pix) -> f64 {
-    let h = pix.height();
-
-    // Count pixels per row
-    let mut row_sums: Vec<u32> = Vec::with_capacity(h as usize);
-    if pix.depth() == PixelDepth::Bit1 {
-        let w = pix.width();
-        let wpl = pix.wpl() as usize;
-        let bits_used = w % 32;
-        let full_words = (w / 32) as usize;
-        let end_mask = if bits_used == 0 {
-            0xFFFF_FFFF
-        } else {
-            !((1u32 << (32 - bits_used)) - 1)
-        };
-        for y in 0..h {
-            let line = pix.row_data(y);
-            let mut sum = 0u32;
-            for &word in &line[..full_words] {
-                sum += word.count_ones();
-            }
-            if bits_used != 0 && full_words < wpl {
-                sum += (line[full_words] & end_mask).count_ones();
-            }
-            row_sums.push(sum);
-        }
-    } else {
-        let w = pix.width();
-        for y in 0..h {
-            let mut sum = 0u32;
-            for x in 0..w {
-                if pix.get_pixel_unchecked(x, y) != 0 {
-                    sum += 1;
-                }
-            }
-            row_sums.push(sum);
-        }
-    }
-
-    // Skip some rows at top and bottom to avoid edge effects
-    let w = pix.width();
-    let skip_h = ((w as f32 * 0.05) as u32).max(1);
-    let skip = (h / 10).min(skip_h);
-    let n_skip = (skip / 2).max(1) as usize;
-
-    if row_sums.len() <= 2 * n_skip {
-        return 0.0;
-    }
-
-    // Compute sum of squared differences
-    let mut sum = 0.0f64;
-    for i in n_skip..(row_sums.len() - n_skip) {
-        let diff = row_sums[i] as f64 - row_sums[i - 1] as f64;
-        sum += diff * diff;
-    }
-
-    sum
-}
-
-/// Calculate confidence score
-fn calculate_confidence(
-    pix: &Pix,
-    max_score: f64,
-    min_score: f64,
-    angle: f32,
-    sweep_range: f32,
-    sweep_delta: f32,
-) -> f32 {
-    let w = pix.width() as f64;
-    let h = pix.height() as f64;
-
-    // Minimum threshold based on image dimensions
-    let min_thresh = MIN_SCORE_THRESH_FACTOR * w * w * h;
-
-    // Check if scores are valid
-    if max_score < MIN_VALID_MAX_SCORE {
-        return 0.0;
-    }
-
-    if min_score <= min_thresh {
-        return 0.0;
-    }
-
-    // Check if angle is at edge of sweep range
-    if angle.abs() > sweep_range - sweep_delta {
-        return 0.0;
-    }
-
-    (max_score / min_score) as f32
-}
-
 /// Finds the skew angle using only the sweep phase (no binary search).
 ///
 /// This is a low-level function that does a single pass through the angle
@@ -870,16 +745,27 @@ pub fn find_skew_sweep(
     }
 
     let binary_pix = ensure_binary(pix)?;
-    if is_image_empty(&binary_pix) {
+    let reduced = reduce_for_search(&binary_pix, reduction)?;
+    if is_image_empty(&reduced) {
         return Err(RecogError::NoContent(
             "image is empty or all white".to_string(),
         ));
     }
 
-    let reduced = reduce_image(&binary_pix, reduction)?;
+    let nangles = ((2.0_f64 * sweep_range as f64) / sweep_delta as f64 + 1.0) as i32;
+    let mut nascore = Numa::new();
+    let mut natheta = Numa::new();
+    for i in 0..nangles {
+        let theta = -sweep_range + i as f32 * sweep_delta;
+        let sheared = shear_about_pivot(&reduced, theta, SkewPivot::Corner)?;
+        nascore.push(find_differential_square_sum(&sheared)?);
+        natheta.push(theta);
+    }
 
-    let (best_angle, _) = sweep_angles(&reduced, -sweep_range, sweep_range, sweep_delta)?;
-    Ok(best_angle)
+    // C interpolates a parabola through the maximum rather than taking the
+    // raw argmax, so the returned angle can lie between two sweep steps.
+    let (_, maxangle) = nascore.fit_max(Some(&natheta))?;
+    Ok(maxangle)
 }
 
 /// Finds the skew angle by searching in two orthogonal directions.
@@ -911,29 +797,36 @@ pub fn find_skew_orthogonal_range(
     minbs_delta: f32,
     confprior: f32,
 ) -> RecogResult<(f32, f32)> {
-    // Search around 0°
-    let opts = SkewDetectOptions {
+    let binary_pix = ensure_binary(pix)?;
+
+    let (angle1, conf1, _) = sweep_and_search_pivot(
+        &binary_pix,
+        redsweep,
+        redsearch,
+        0.0,
         sweep_range,
         sweep_delta,
-        min_bs_delta: minbs_delta,
-        sweep_reduction: redsweep,
-        bs_reduction: redsearch,
-    };
+        minbs_delta,
+        SkewPivot::Corner,
+    )?;
 
-    let result0 = find_skew(pix, &opts)?;
+    // C rotates by one quadrant (90 degrees clockwise) and searches again.
+    let rotated = rotate_orth(&binary_pix, 1)?;
+    let (angle2, conf2, _) = sweep_and_search_pivot(
+        &rotated,
+        redsweep,
+        redsearch,
+        0.0,
+        sweep_range,
+        sweep_delta,
+        minbs_delta,
+        SkewPivot::Corner,
+    )?;
 
-    // Search around 90° by rotating the image
-    let rotated = rotate_by_angle(pix, std::f32::consts::FRAC_PI_2)?;
-    let result90 = find_skew(&rotated, &opts)?;
-
-    // Apply confprior penalty to 90° result
-    let conf90_adjusted = result90.confidence - confprior;
-
-    if result0.confidence >= conf90_adjusted {
-        Ok((result0.angle, result0.confidence))
+    if conf1 > conf2 - confprior {
+        Ok((angle1, conf1))
     } else {
-        // Adjust angle: the 90° search was done on rotated image
-        Ok((result90.angle + 90.0, result90.confidence))
+        Ok((-90.0 + angle2, conf2))
     }
 }
 
@@ -956,11 +849,12 @@ pub fn find_differential_square_sum(pix: &Pix) -> RecogResult<f32> {
     let h = pix.height() as i32;
     // Match C `pixFindDifferentialSquareSum`: skip = min(h/10, 0.05*w),
     // nskip = max(skip/2, 1).
-    let skiph = (0.05 * w as f32) as i32;
+    // C evaluates `0.05 * w` in double, then truncates.
+    let skiph = (0.05 * w as f64) as i32;
     let skip = (h / 10).min(skiph);
     let nskip = (skip / 2).max(1) as usize;
     let n = na.len();
-    if n < 2 * nskip + 2 {
+    if n <= nskip {
         return Ok(0.0);
     }
     let mut sum = 0.0f32;
@@ -1026,7 +920,7 @@ pub fn find_normalized_square_sum(pix: &Pix) -> RecogResult<(f32, f32, f32)> {
 mod tests {
     use super::*;
 
-    fn create_horizontal_lines_image(w: u32, h: u32, line_spacing: u32) -> Pix {
+    pub(super) fn create_horizontal_lines_image(w: u32, h: u32, line_spacing: u32) -> Pix {
         let pix = Pix::new(w, h, PixelDepth::Bit1).unwrap();
         let mut pix_mut = pix.try_into_mut().unwrap();
 
@@ -1065,32 +959,36 @@ mod tests {
     }
 
     #[test]
-    fn test_vertical_shear_zero_angle() {
+    fn test_shear_about_pivot_zero_angle() {
         let pix = Pix::new(50, 50, PixelDepth::Bit1).unwrap();
-        let sheared = vertical_shear(&pix, 0.0).unwrap();
+        let sheared = shear_about_pivot(&pix, 0.0, SkewPivot::Corner).unwrap();
         assert_eq!(sheared.width(), 50);
         assert_eq!(sheared.height(), 50);
     }
 
     #[test]
-    fn test_vertical_shear_nonzero() {
+    fn test_shear_about_pivot_keeps_size() {
+        // C's pixVShear writes into a pix of the same size as the source, so
+        // the sheared image never grows; content shifts out of frame instead.
         let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
-        let sheared = vertical_shear(&pix, 5.0).unwrap();
-        assert_eq!(sheared.width(), 100);
-        assert!(sheared.height() > 100);
+        for pivot in [SkewPivot::Corner, SkewPivot::Center] {
+            let sheared = shear_about_pivot(&pix, 5.0, pivot).unwrap();
+            assert_eq!(sheared.width(), 100);
+            assert_eq!(sheared.height(), 100);
+        }
     }
 
     #[test]
-    fn test_compute_differential_square_sum() {
+    fn test_differential_square_sum_positive() {
         let pix = create_horizontal_lines_image(200, 200, 20);
-        let score = compute_differential_square_sum(&pix);
+        let score = find_differential_square_sum(&pix).unwrap();
         assert!(score > 0.0);
     }
 
     #[test]
-    fn test_reduce_image() {
+    fn test_reduce_for_search() {
         let pix = Pix::new(100, 100, PixelDepth::Bit1).unwrap();
-        let reduced = reduce_image(&pix, 2).unwrap();
+        let reduced = reduce_for_search(&pix, 2).unwrap();
         assert_eq!(reduced.width(), 50);
         assert_eq!(reduced.height(), 50);
     }
@@ -1181,5 +1079,32 @@ mod tests {
         let r_center = find_skew_sweep_and_search_score_pivot(&pix, &opts, SkewPivot::Center);
         assert!(r_corner.is_ok());
         assert!(r_center.is_ok());
+    }
+
+    #[test]
+    fn test_deskew_by_angle_depth_contract() {
+        // C forces shear for 1 bpp before area mapping can promote it, but
+        // `pixRotateAM` converts anything else below 8 bpp to 8 bpp.
+        for (input, expected) in [
+            (PixelDepth::Bit1, PixelDepth::Bit1),
+            (PixelDepth::Bit4, PixelDepth::Bit8),
+            (PixelDepth::Bit8, PixelDepth::Bit8),
+        ] {
+            let pix = Pix::new(100, 100, input).unwrap();
+            let out = deskew_by_angle(&pix, 2.0).unwrap();
+            assert_eq!(out.depth(), expected, "input {input:?}");
+            assert_eq!((out.width(), out.height()), (100, 100), "input {input:?}");
+        }
+    }
+
+    #[test]
+    fn test_orthogonal_range_rejects_non_positive_deltas() {
+        // These must fail fast: sweepdelta = 0 saturates the angle count and
+        // minbsdelta = 0 makes the binary search halve forever.
+        let pix = create_horizontal_lines_image(200, 200, 20);
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 47.0, 0.0, 0.03, 0.0).is_err());
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 47.0, 1.0, 0.0, 0.0).is_err());
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 0.0, 1.0, 0.03, 0.0).is_err());
+        assert!(find_skew_orthogonal_range(&pix, 2, 1, 47.0, 1.0, 0.03, 0.0).is_ok());
     }
 }
