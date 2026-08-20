@@ -354,3 +354,62 @@ fn test_display_tiled_in_columns_layout() {
     assert!(pixa.display_tiled_in_columns(0, 1.0, 5, 0).is_err());
     assert!(Pixa::new().display_tiled_in_columns(2, 1.0, 5, 0).is_err());
 }
+
+// ============================================================================
+// Pixa::display / Boxa::extent (C pixaDisplay / boxaGetExtent)
+// ============================================================================
+
+/// C `boxaGetExtent` skips boxes with a non-positive width or height, both
+/// for the `w`/`h` outputs and for the enclosing box.
+#[test]
+#[ignore = "not yet implemented"]
+fn test_boxa_get_extent_skips_invalid() {
+    use leptonica::core::{Box, Boxa};
+
+    let mut boxa = Boxa::new();
+    boxa.push(Box::new(10, 20, 30, 40).expect("b1"));
+    boxa.push(Box::new(5, 5, 100, 10).expect("b2"));
+    // A degenerate box must not drag the extent out to (999, 999).
+    boxa.push(Box::new_unchecked(999, 999, 0, 0));
+
+    let (w, h, bb) = boxa.get_extent().expect("extent");
+    assert_eq!((w, h), (105, 60));
+    assert_eq!((bb.x, bb.y, bb.w, bb.h), (5, 5, 100, 55));
+
+    // C returns 0 for an empty boxa rather than failing.
+    let (w, h, bb) = Boxa::new().get_extent().expect("empty extent");
+    assert_eq!((w, h), (0, 0));
+    assert_eq!((bb.x, bb.y, bb.w, bb.h), (0, 0, 0, 0));
+}
+
+/// C: pixaDisplay on an empty pixa returns an empty 1 bpp pix of the given
+/// size, and only errors when no size is given either.
+#[test]
+#[ignore = "not yet implemented"]
+fn test_pixa_display_empty() {
+    use leptonica::PixelDepth;
+    use leptonica::core::Pixa;
+
+    let pixa = Pixa::new();
+    let pix = pixa.display(40, 30).expect("empty display");
+    assert_eq!((pix.width(), pix.height()), (40, 30));
+    assert_eq!(pix.depth(), PixelDepth::Bit1);
+
+    assert!(pixa.display(0, 0).is_err());
+}
+
+/// C: pixaDisplay sizes the canvas from the boxa extent when a dimension is
+/// missing, without compensating for negative origins.
+#[test]
+#[ignore = "not yet implemented"]
+fn test_pixa_display_extent_sizing() {
+    use leptonica::core::{Box, Pixa};
+    use leptonica::{Pix, PixelDepth};
+
+    let mut pixa = Pixa::new();
+    pixa.push(Pix::new(10, 10, PixelDepth::Bit1).expect("p1"));
+    pixa.add_box(Box::new(20, 30, 10, 10).expect("b1"));
+
+    let pix = pixa.display(0, 0).expect("extent display");
+    assert_eq!((pix.width(), pix.height()), (30, 40));
+}
