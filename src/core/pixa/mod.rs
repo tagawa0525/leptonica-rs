@@ -888,12 +888,17 @@ impl Pixa {
         // valid boxes. Negative origins are not compensated for; the blits
         // below clip instead.
         let (canvas_w, canvas_h) = if w == 0 || h == 0 {
-            let (ext_w, ext_h, _) = self
+            // C reads the extent unconditionally (an empty boxa yields zeros)
+            // and fails when either dimension came out zero.
+            let (ext_w, ext_h) = self
                 .boxa
                 .get_extent()
-                .ok_or(Error::NullInput("pixa has no associated boxa"))?;
+                .map(|(w, h, _)| (w, h))
+                .unwrap_or((0, 0));
             if ext_w <= 0 || ext_h <= 0 {
-                return Err(Error::NullInput("pixa has no associated boxa"));
+                return Err(Error::NullInput(
+                    "pixa boxa has no positive extent; pass an explicit canvas size",
+                ));
             }
             (ext_w as u32, ext_h as u32)
         } else {

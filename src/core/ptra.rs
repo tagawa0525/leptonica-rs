@@ -172,8 +172,11 @@ impl<T> Ptra<T> {
             if imax < 10 {
                 DownShift::Full
             } else {
-                // C computes `(imax - index) / imax` with integer division,
-                // so this is 1 only when index is 0 and 0 otherwise.
+                // Two deliberate oddities carried over from C: the hole
+                // count is `imax - nactual` (one less than the actual number
+                // of holes below imax), and `(imax - index) / imax` is
+                // integer division, so it is 1 only when index is 0.
+                // Together these make Auto pick Min only in narrow cases.
                 let nexpected =
                     (imax - self.nactual) as f32 * ((imax - index as i32) / imax) as f32;
                 if nexpected > 2.0 {
