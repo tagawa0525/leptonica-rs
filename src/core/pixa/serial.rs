@@ -421,12 +421,19 @@ mod c_format_tests {
     #[test]
     fn test_write_matches_c_header() {
         let bytes = sample_pixa().write_to_bytes().unwrap();
-        let text = String::from_utf8_lossy(&bytes);
+        // Only look at the text before the first PNG stream: the compressed
+        // bytes are arbitrary and could contain any ASCII sequence.
+        let signature = b"\x89PNG\r\n\x1a\n";
+        let end = bytes
+            .windows(signature.len())
+            .position(|w| w == signature)
+            .expect("a PNG stream should follow the header");
+        let header = String::from_utf8_lossy(&bytes[..end]);
         assert!(
-            text.contains(" pix[0]: xres = 300, yres = 300\n"),
-            "header should match C exactly"
+            header.contains(" pix[0]: xres = 300, yres = 300\n"),
+            "header should match C exactly, got {header:?}"
         );
-        assert!(!text.contains("size = "), "C writes no size field");
+        assert!(!header.contains("size = "), "C writes no size field");
     }
 
     /// A file written by C has no `size` field, so the reader has to find the
