@@ -92,6 +92,11 @@ impl Pixa {
             // Read pix header line
             read_line_trimmed(&mut cursor, &mut line_buf)?;
             let (xres, yres, size) = parse_pix_header(&line_buf, i)?;
+            let pos = cursor.position() as usize;
+            let size = match size {
+                Some(size) => size,
+                None => png_stream_len(data.get(pos..).unwrap_or_default())?,
+            };
             if size > MAX_PNG_SIZE {
                 return Err(Error::DecodeError(format!(
                     "PNG data too large for pix[{i}]: {size}"
@@ -99,7 +104,6 @@ impl Pixa {
             }
 
             // Read PNG data
-            let pos = cursor.position() as usize;
             let end = pos.checked_add(size).ok_or_else(|| {
                 Error::DecodeError(format!(
                     "integer overflow computing PNG data end position for pix[{i}]"
@@ -146,12 +150,12 @@ impl Pixa {
             let png_data = crate::io::png::write_png_to_vec(pix).map_err(|e| {
                 Error::EncodeError(format!("failed to write PNG for pix[{i}]: {e}"))
             })?;
+            // C writes no size field; the PNG stream terminates itself.
             writeln!(
                 writer,
-                " pix[{i}]: xres = {}, yres = {}, size = {}",
+                " pix[{i}]: xres = {}, yres = {}",
                 pix.xres(),
-                pix.yres(),
-                png_data.len()
+                pix.yres()
             )?;
             writer.write_all(&png_data)?;
         }
@@ -242,7 +246,11 @@ fn parse_after_prefix(line: &str, prefix: &str) -> Result<i32> {
 }
 
 /// Parse pix header line like " pix[0]: xres = 72, yres = 72, size = 1234"
-fn parse_pix_header(line: &str, expected_index: usize) -> Result<(i32, i32, usize)> {
+/// Parse a `pix[i]:` header line.
+///
+/// C writes only `xres` and `yres`. Older files written by this crate also
+/// carry a `size` field, which is accepted and returned when present.
+fn parse_pix_header(line: &str, expected_index: usize) -> Result<(i32, i32, Option<usize>)> {
     let line = line.trim();
     let prefix = format!("pix[{expected_index}]:");
     let rest = line
@@ -279,8 +287,40 @@ fn parse_pix_header(line: &str, expected_index: usize) -> Result<(i32, i32, usiz
     Ok((
         xres.ok_or_else(|| Error::DecodeError("missing xres".into()))?,
         yres.ok_or_else(|| Error::DecodeError("missing yres".into()))?,
-        size.ok_or_else(|| Error::DecodeError("missing size".into()))?,
+        size,
     ))
+}
+
+/// Length of the PNG stream starting at `data[0]`.
+///
+/// C relies on the PNG decoder consuming exactly one image from the stream.
+/// Walking the chunk headers to `IEND` gives the same boundary without
+/// decoding.
+fn png_stream_len(data: &[u8]) -> Result<usize> {
+    const SIGNATURE: usize = 8;
+    if data.len() < SIGNATURE || data[..SIGNATURE] != *b"\x89PNG\r\n\x1a\n" {
+        return Err(Error::DecodeError("not a PNG stream".into()));
+    }
+    let mut pos = SIGNATURE;
+    loop {
+        // Each chunk is [4-byte length][4-byte type][data][4-byte CRC].
+        if pos + 8 > data.len() {
+            return Err(Error::DecodeError("truncated PNG chunk header".into()));
+        }
+        let len = u32::from_be_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
+        let ctype = &data[pos + 4..pos + 8];
+        let end = pos
+            .checked_add(12)
+            .and_then(|p| p.checked_add(len as usize))
+            .ok_or_else(|| Error::DecodeError("PNG chunk length overflow".into()))?;
+        if end > data.len() {
+            return Err(Error::DecodeError("truncated PNG chunk".into()));
+        }
+        if ctype == b"IEND" {
+            return Ok(end);
+        }
+        pos = end;
+    }
 }
 
 #[cfg(test)]
@@ -376,7 +416,6 @@ mod c_format_tests {
     /// self-terminating, so there is no `size` field. Writing one makes the
     /// file unreadable by C.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_write_matches_c_header() {
         let bytes = sample_pixa().write_to_bytes().unwrap();
         let text = String::from_utf8_lossy(&bytes);
@@ -390,7 +429,6 @@ mod c_format_tests {
     /// A file written by C has no `size` field, so the reader has to find the
     /// end of each PNG stream itself.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_read_c_written_header() {
         let pixa = sample_pixa();
         let mut bytes = Vec::new();
