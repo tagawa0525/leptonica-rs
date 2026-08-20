@@ -570,3 +570,16 @@ core	ptra1	14	ptra1_c	15	shifted up (auto) 1
 core	ptra1	15	ptra1_c	16	shifted up (auto) 2
 core	ptra1	16	ptra1_c	17	summary 1
 core	ptra1	17	ptra1_c	18	summary 2
+transform	circle	0	circle_c	1	circle 0 erosion series
+transform	circle	1	circle_c	2	circle 1 erosion series
+transform	circle	2	circle_c	3	circle 2 erosion series
+transform	circle	3	circle_c	4	circle 3 erosion series
+transform	circle	4	circle_c	5	circle 4 erosion series
+transform	circle	5	circle_c	6	circle 5 erosion series
+transform	circle	6	circle_c	7	circle 6 erosion series
+transform	circle	7	circle_c	8	circle 7 erosion series
+transform	circle	8	circle_c	9	circle 8 erosion series
+transform	circle	9	circle_c	10	circle 9 erosion series
+transform	circle	10	circle_c	11	circle 10 erosion series
+transform	circle	11	circle_c	12	circle 11 erosion series
+transform	circle	12	circle_c	13	circle summary
