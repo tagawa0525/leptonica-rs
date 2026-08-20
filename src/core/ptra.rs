@@ -279,6 +279,11 @@ impl<T> Ptra<T> {
 
     /// Put `item` at `index` and return whatever was there.
     ///
+    /// Passing `None` clears the slot. C's `ptraReplace` leaves `imax` alone
+    /// in that case, so it can end up pointing at a hole; this lowers `imax`
+    /// to the next occupied slot instead, keeping the invariant that
+    /// [`Ptra::max_index`] names an occupied slot (as `remove` and `swap` do).
+    ///
     /// C Leptonica equivalent: `ptraReplace` with `freeflag = FALSE`
     pub fn replace(&mut self, index: i32, item: Option<T>) -> Result<Option<T>> {
         if index < 0 || index > self.imax {
@@ -294,6 +299,15 @@ impl<T> Ptra<T> {
             self.nactual -= 1;
         } else if had_item && olditem.is_none() {
             self.nactual += 1;
+        }
+
+        // Clearing the tail leaves imax on a hole; walk it back.
+        if !had_item && index == self.imax {
+            let mut i = index - 1;
+            while i >= 0 && self.array[i as usize].is_none() {
+                i -= 1;
+            }
+            self.imax = i;
         }
         Ok(olditem)
     }
@@ -587,6 +601,24 @@ mod tests {
         assert_eq!(pa.get(1), Some(&0));
         assert_eq!(pa.actual_count(), 2);
         assert_eq!(pa.max_index(), 2);
+    }
+
+    /// Clearing the last occupied slot must leave `max_index` on an occupied
+    /// slot. C's `ptraReplace` does not do this bookkeeping.
+    #[test]
+    fn test_replace_with_none_updates_max_index() {
+        let mut pa = filled(4);
+        pa.remove(2, Compaction::No).expect("remove");
+        // [0, 1, _, 3], imax = 3
+        assert_eq!(pa.replace(3, None).expect("replace"), Some(3));
+        assert_eq!(pa.max_index(), 1);
+        assert_eq!(pa.actual_count(), 2);
+
+        // Replacing with an item keeps imax where it is.
+        let mut pa = filled(3);
+        assert_eq!(pa.replace(2, Some(9)).expect("replace"), Some(2));
+        assert_eq!(pa.max_index(), 2);
+        assert_eq!(pa.actual_count(), 3);
     }
 
     /// Out-of-range indices are reported, not asserted, matching the other
