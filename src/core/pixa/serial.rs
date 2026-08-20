@@ -353,3 +353,68 @@ mod tests {
         assert!(Pixa::read_from_bytes(b"").is_err());
     }
 }
+
+#[cfg(test)]
+mod c_format_tests {
+    use super::*;
+    use crate::core::{Pix, PixelDepth};
+
+    fn sample_pixa() -> Pixa {
+        let mut pixa = Pixa::new();
+        for d in [PixelDepth::Bit1, PixelDepth::Bit8] {
+            let pix = Pix::new(7, 5, d).unwrap();
+            let mut m = pix.try_into_mut().unwrap();
+            m.set_xres(300);
+            m.set_yres(300);
+            let _ = m.set_pixel(1, 1, 1);
+            pixa.push(m.into());
+        }
+        pixa
+    }
+
+    /// C `pixaWriteStream` emits only `xres` and `yres`; the PNG stream is
+    /// self-terminating, so there is no `size` field. Writing one makes the
+    /// file unreadable by C.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_write_matches_c_header() {
+        let bytes = sample_pixa().write_to_bytes().unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(
+            text.contains(" pix[0]: xres = 300, yres = 300\n"),
+            "header should match C exactly"
+        );
+        assert!(!text.contains("size = "), "C writes no size field");
+    }
+
+    /// A file written by C has no `size` field, so the reader has to find the
+    /// end of each PNG stream itself.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_read_c_written_header() {
+        let pixa = sample_pixa();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"\nPixa Version 2\n");
+        bytes.extend_from_slice(format!("Number of pix = {}\n", pixa.len()).as_bytes());
+        pixa.boxa().write_to_writer(&mut bytes).unwrap();
+        for i in 0..pixa.len() {
+            let pix = pixa.get(i).unwrap();
+            bytes.extend_from_slice(
+                format!(" pix[{i}]: xres = {}, yres = {}\n", pix.xres(), pix.yres()).as_bytes(),
+            );
+            bytes.extend_from_slice(&crate::io::png::write_png_to_vec(pix).unwrap());
+        }
+
+        let got = Pixa::read_from_bytes(&bytes).unwrap();
+        assert_eq!(got.len(), pixa.len());
+        for i in 0..pixa.len() {
+            let a = pixa.get(i).unwrap();
+            let b = got.get(i).unwrap();
+            assert_eq!(
+                (a.width(), a.height(), a.depth()),
+                (b.width(), b.height(), b.depth())
+            );
+            assert_eq!((b.xres(), b.yres()), (300, 300));
+        }
+    }
+}
