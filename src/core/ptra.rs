@@ -63,7 +63,8 @@ impl<T> Ptra<T> {
 
     /// Create an empty array with room for `n` items.
     ///
-    /// C rounds a non-positive `n` up to 20, and so does this.
+    /// `n == 0` falls back to 20 slots, matching what C does for a
+    /// non-positive request.
     ///
     /// C Leptonica equivalent: `ptraCreate`
     pub fn with_capacity(n: usize) -> Self {

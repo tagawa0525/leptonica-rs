@@ -859,8 +859,9 @@ impl Pixa {
     /// boxa extent ([`Boxa::get_extent`]), which does not compensate for
     /// negative origins — anything falling outside the canvas is clipped.
     ///
-    /// An empty pixa yields an empty 1 bpp canvas of the requested size, and
-    /// is an error only when no size is given.
+    /// An empty pixa yields an empty 1 bpp canvas of the requested size; both
+    /// `w` and `h` must be non-zero for that, since there are no boxes to take
+    /// an extent from.
     ///
     /// The canvas depth is taken from the first image. All images should
     /// have the same depth for correct rendering.
