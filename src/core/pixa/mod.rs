@@ -854,11 +854,14 @@ impl Pixa {
 
     /// Compose all Pix images onto a single canvas.
     ///
-    /// Each image is placed at its associated bounding box position.
-    /// Images without boxes are placed at (0, 0). If `w` or `h` is 0,
-    /// the canvas size is computed from the extent of all boxes and images.
-    /// Negative box coordinates are handled: portions outside the canvas
-    /// are clipped.
+    /// Each image is placed at its associated bounding box position; an image
+    /// with no box is skipped. If either `w` or `h` is 0, both come from the
+    /// boxa extent ([`Boxa::get_extent`]), which does not compensate for
+    /// negative origins — anything falling outside the canvas is clipped.
+    ///
+    /// An empty pixa yields an empty 1 bpp canvas of the requested size; both
+    /// `w` and `h` must be non-zero for that, since there are no boxes to take
+    /// an extent from.
     ///
     /// The canvas depth is taken from the first image. All images should
     /// have the same depth for correct rendering.
@@ -867,39 +870,38 @@ impl Pixa {
     ///
     /// C Leptonica: `pixaDisplay()` in `pixafunc1.c`
     pub fn display(&self, w: u32, h: u32) -> Result<Pix> {
+        // C: with no components and no size there is nothing to build, but a
+        // given size still yields an empty 1 bpp canvas.
         if self.pix.is_empty() {
-            return Err(Error::NullInput("pixa is empty"));
+            if w == 0 || h == 0 {
+                return Err(Error::NullInput(
+                    "pixa is empty; both width and height are needed to size the canvas",
+                ));
+            }
+            return Pix::new(w, h, PixelDepth::Bit1);
         }
 
         // Determine depth from first image
         let depth = self.pix[0].depth();
 
-        // Auto-compute canvas size if w or h is 0.
-        // Track min offsets to handle negative box coordinates.
+        // C: when either dimension is missing, both come from the boxa
+        // extent (`boxaGetExtent`), which is the largest x+w / y+h over the
+        // valid boxes. Negative origins are not compensated for; the blits
+        // below clip instead.
         let (canvas_w, canvas_h) = if w == 0 || h == 0 {
-            let mut min_x: i32 = 0;
-            let mut min_y: i32 = 0;
-            let mut max_right: i32 = 0;
-            let mut max_bottom: i32 = 0;
-            for (i, pix) in self.pix.iter().enumerate() {
-                let (bx, by) = if let Some(b) = self.boxa.get(i) {
-                    (b.x, b.y)
-                } else {
-                    (0, 0)
-                };
-                min_x = min_x.min(bx);
-                min_y = min_y.min(by);
-                let right = bx + pix.width() as i32;
-                let bottom = by + pix.height() as i32;
-                max_right = max_right.max(right);
-                max_bottom = max_bottom.max(bottom);
+            // C reads the extent unconditionally (an empty boxa yields zeros)
+            // and fails when either dimension came out zero.
+            let (ext_w, ext_h) = self
+                .boxa
+                .get_extent()
+                .map(|(w, h, _)| (w, h))
+                .unwrap_or((0, 0));
+            if ext_w <= 0 || ext_h <= 0 {
+                return Err(Error::NullInput(
+                    "pixa boxa has no positive extent; pass an explicit canvas size",
+                ));
             }
-            let computed_w = (max_right - min_x).max(1) as u32;
-            let computed_h = (max_bottom - min_y).max(1) as u32;
-            (
-                if w == 0 { computed_w } else { w },
-                if h == 0 { computed_h } else { h },
-            )
+            (ext_w as u32, ext_h as u32)
         } else {
             (w, h)
         };
@@ -914,11 +916,13 @@ impl Pixa {
             canvas_mut.set_all();
         }
         for (i, src) in self.pix.iter().enumerate() {
-            let (ox, oy) = if let Some(b) = self.boxa.get(i) {
-                (b.x, b.y)
-            } else {
-                (0, 0)
+            // C warns and skips a component with no box rather than placing
+            // it at the origin. There is no logging layer here, so this only
+            // skips.
+            let Some(b) = self.boxa.get(i) else {
+                continue;
             };
+            let (ox, oy) = (b.x, b.y);
             if depth == PixelDepth::Bit1 {
                 blit_pix_or(&mut canvas_mut, src, ox, oy);
             } else {

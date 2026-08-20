@@ -30,6 +30,7 @@ pub mod pixacc;
 pub mod pixcomp;
 pub mod pixtiling;
 pub mod pta;
+pub mod ptra;
 pub mod sarray;
 
 pub use bmf::{Bmf, TextLocation, bmf_get_line_strings, bmf_get_string_width, bmf_get_word_widths};
@@ -67,6 +68,7 @@ pub use pixacc::PixAcc;
 pub use pixcomp::{PixComp, PixaComp};
 pub use pixtiling::PixTiling;
 pub use pta::{Pta, Ptaa};
+pub use ptra::{Compaction, DownShift, Ptra};
 pub use sarray::{Sarray, Sarraya};
 
 pub mod pixel;

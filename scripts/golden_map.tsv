@@ -552,3 +552,21 @@ recog	findcorners	8	findcorners_c	9	deskewed ticket 7
 recog	findcorners	9	findcorners_c	10	deskewed ticket 8
 recog	findcorners	10	findcorners_c	11	halved
 recog	findcorners	11	findcorners_c	12	corners marked
+core	ptra1	0	ptra1_c	1	clones reconstructed 1
+core	ptra1	1	ptra1_c	2	clones reconstructed 2
+core	ptra1	2	ptra1_c	3	half removed 1
+core	ptra1	3	ptra1_c	4	half removed 2
+core	ptra1	4	ptra1_c	5	compacted after holes 1
+core	ptra1	5	ptra1_c	6	compacted after holes 2
+core	ptra1	6	ptra1_c	7	inserted at head 1
+core	ptra1	7	ptra1_c	8	inserted at head 2
+core	ptra1	8	ptra1_c	9	reversed by swapping 1
+core	ptra1	9	ptra1_c	10	reversed by swapping 2
+core	ptra1	10	ptra1_c	11	emptied by swapping
+core	ptra1	11	ptra1_c	12	moved by swapping
+core	ptra1	12	ptra1_c	13	shifted up (min) 1
+core	ptra1	13	ptra1_c	14	shifted up (min) 2
+core	ptra1	14	ptra1_c	15	shifted up (auto) 1
+core	ptra1	15	ptra1_c	16	shifted up (auto) 2
+core	ptra1	16	ptra1_c	17	summary 1
+core	ptra1	17	ptra1_c	18	summary 2

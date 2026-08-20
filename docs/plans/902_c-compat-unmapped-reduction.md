@@ -1091,6 +1091,48 @@ C `pixaMakeSizeIndicator` も 4 type を取るため、`SizeSelectType` への
 必要。`multitype` (17 件) は `test8.jpg` / `marge.jpg` を含むため原理的に
 一致不可 (finding 001/008)。
 
+### PR 39: ptra1 の全 PNG 出力 (実施済み)
+
+C 版ソース: `prog/ptra1_reg.c`。入力は `lucasta.1.300.tif` のみ (lossless)
+で、C の出力は全て PNG なので pixel hash で完全比較できる。
+
+ページの連結成分を `L_PTRA` に載せ、insert / remove / swap / compaction の
+組み合わせで並べ替えた結果を毎回 `pixaDisplay` で復元する。
+
+実施結果:
+
+- **18 ペア全件 Ok** (Ok 397 → 415、core 23 → 41)
+- C `L_PTRA` に相当する型が無かったので `Ptra<T>` を新設した。穴を許す
+  動的配列で、imax / nactual の管理、3 種の downshift、compaction 有無の
+  remove を移した。`swap` だけは C の remove → replace → insert 経由を
+  踏襲していない (後述)
+- 単体テストで C の細かい挙動が 2 つ判明した:
+  - `ptraAdd` の拡張判定は格納**前**の `imax >= nalloc - 1` なので、容量
+    ちょうどまで詰めても拡張されない
+  - `ptraInsert` は「穴が無い」を `imax + 1 == nactual` で判定するが、
+    nactual は挿入分を先に加算済み。このため穴が 1 つだけのときは
+    `L_MIN_DOWNSHIFT` を指定しても full downshift に落ちる
+- `ptraSwap` は C では remove → replace → insert を経由するが、index1 が
+  最後の占有スロットで index2 がその下の穴の並びより手前にあると、remove が
+  imax を下げた結果 replace が範囲外を弾き、取り出した item が失われる。
+  Rust では両スロットを直接交換し、末尾が空いたときだけ imax を下げる
+  (C が正しく扱えるケースでは結果は同じ)
+- あわせて `Pixa::display` / `Boxa::get_extent` の実装差を修正した:
+
+| 箇所 | 旧実装 | C |
+| --- | --- | --- |
+| 空 pixa | 常にエラー | サイズ指定があれば空の 1bpp 画像 |
+| canvas サイズ | 負の原点を補正した独自計算 | `boxaGetExtent` (補正なし) |
+| box を持たない成分 | 原点に配置 | 警告して読み飛ばす |
+| `boxaGetExtent` | 全 box を含める | 幅・高さが非正の box を除外 |
+
+**次段送り**: 残る非 JPEG 入力の未マップは `watershed` (22 件、C の
+`L_WSHED` 優先度キュー実装の移植)、`ccbord` (14 件、CCBORDA パイプライン)、
+`circle` (13 件、`circles.pa` の pixa シリアライズ読み込み)、`jbclass`
+(8 件、`pixaDisplayOnLattice` と `jbDataRender`)。`rectangle` (9 件) は
+C ライブラリが `/tmp` に書いたデバッグ画像を検証対象にしているため
+マップ不能。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
