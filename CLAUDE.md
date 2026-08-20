@@ -45,7 +45,7 @@ REGTEST_MODE=compare  cargo test --test filter   # manifest と比較（デフ�
 ```text
 src/
 ├── lib.rs          # 公開API入口（core型のルート再エクスポート）
-├── core/           # 基本データ構造 (Pix, Box, Numa, FPix, Pta, Pixa, Colormap, SArray)
+├── core/           # 基本データ構造 (Pix, Box, Numa, FPix, Pta, Ptra, Pixa, Colormap, SArray)
 │   └── pixel.rs    # RGBAピクセル操作 (compose_rgba, extract_rgb 等)
 ├── io/             # 画像I/O (PNG, JPEG, TIFF, BMP, GIF, WebP, PDF, PS)
 ├── transform/      # 幾何変換 (回転, スケール, アフィン, 射影, バイリニア)
@@ -110,9 +110,9 @@ src/
 - ランタイムレポート: `tests/c_compat_report.<binary>.txt`（.gitignore）。
   Rust 出力 hash と C manifest を `scripts/golden_map.tsv` 経由で照合し、
   `Ok / Mismatch / MissingC / Unmapped / Excluded` を記録
-- 現状ベースライン (As of 2026-08-20 実測、plan 902 PR 38 後):
+- 現状ベースライン (As of 2026-08-20 実測、plan 902 PR 39 後):
   `docs/porting/c-compat-status.md` に詳細。
-  **Ok 397 / Mismatch 29 / MissingC 0 / Unmapped 389 / Excluded 100**
+  **Ok 415 / Mismatch 29 / MissingC 0 / Unmapped 389 / Excluded 100**
 - 除外ルール: `scripts/c_compat_exclude.tsv` (plan 902)。設計上マップ不能な
   キー (JPEG codec 差、非決定的形式) を Unmapped から Excluded に分離
 - 環境変数: `REGTEST_C_COMPAT=off` で無効化、`=strict` で Mismatch を fail
