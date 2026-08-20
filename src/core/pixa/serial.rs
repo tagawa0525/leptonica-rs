@@ -249,11 +249,10 @@ fn parse_after_prefix(line: &str, prefix: &str) -> Result<i32> {
         })
 }
 
-/// Parse pix header line like " pix[0]: xres = 72, yres = 72, size = 1234"
-/// Parse a `pix[i]:` header line.
+/// Parse a `pix[i]:` header line, e.g. `" pix[0]: xres = 72, yres = 72"`.
 ///
-/// C writes only `xres` and `yres`. Older files written by this crate also
-/// carry a `size` field, which is accepted and returned when present.
+/// C writes only `xres` and `yres`. Older files written by this crate append
+/// `, size = S`, which is accepted and returned when present.
 fn parse_pix_header(line: &str, expected_index: usize) -> Result<(i32, i32, Option<usize>)> {
     let line = line.trim();
     let prefix = format!("pix[{expected_index}]:");
