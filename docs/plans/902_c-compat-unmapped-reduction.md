@@ -1133,6 +1133,41 @@ C 版ソース: `prog/ptra1_reg.c`。入力は `lucasta.1.300.tif` のみ (lossl
 C ライブラリが `/tmp` に書いたデバッグ画像を検証対象にしているため
 マップ不能。
 
+### PR 40: circle の全 PNG 出力 (実施済み)
+
+C 版ソース: `prog/circle_reg.c`。入力は `circles.pa` (可逆 PNG を収めた
+pixa シリアライズ) のみで、C の出力は全て PNG なので pixel hash で完全
+比較できる。
+
+各円について外側を seedfill で塗り、円盤を 3x3 で段階的に収縮しながら
+元画像との積の連結成分数を数え、断片化が収まる収縮量を選ぶ。
+
+実施結果:
+
+- **13 ペア全件 Ok** (Ok 415 → 428、transform 122 → 135)
+- 唯一の障害だった `circles.pa` の読み込みで pixa シリアライズの実装差が
+  見つかった:
+
+| 箇所 | 旧実装 | C |
+| --- | --- | --- |
+| pix ヘッダ | `xres`, `yres`, `size` | `xres`, `yres` のみ |
+| PNG の終端 | `size` から決定 | PNG ストリームの自己終端に委ねる |
+
+  C `pixaWriteStream` は `size` を書かず、`pixaReadStream` は PNG
+  デコーダにストリームを渡して終端を任せている。このため C が書いた
+  `.pa` を読めず、Rust が書いた `.pa` も C から読めなかった。読む側は
+  PNG のチャンクを IEND までたどる方式にし (`size` 付きも引き続き受理)、
+  書く側は C と同じヘッダにした
+
+- 形態学と seedfill 側の実装差はゼロ
+
+**次段送り**: 残る非 JPEG 入力の未マップは `watershed` (22 件、C の
+`L_WSHED` 優先度キュー実装の移植)、`ccbord` (14 件、CCBORDA
+パイプライン)、`jbclass` (8 件、`pixaDisplayOnLattice` と
+`jbDataRender`)、`warper` (8 件、glibc 互換乱数)。`rectangle` (9 件) は
+C ライブラリが `/tmp` に書いたデバッグ画像を検証対象にしているため
+マップ不能。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

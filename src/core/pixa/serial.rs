@@ -1,18 +1,22 @@
 //! Serialization for Pixa
 //!
-//! Binary serialization format for Pixa arrays. Each Pix is stored as PNG
-//! data with a length prefix. The format is:
+//! Binary serialization format for Pixa arrays. Each Pix is stored as a PNG
+//! stream directly after its header line; the stream is self-terminating, so
+//! no length prefix is written. The format is:
 //!
 //! ```text
 //! Pixa Version 2\n
 //! Number of pix = N\n
 //! [embedded boxa in text format]
-//!  pix[0]: xres = X, yres = Y, size = S\n
-//! [S bytes of PNG data]
-//!  pix[1]: xres = X, yres = Y, size = S\n
-//! [S bytes of PNG data]
+//!  pix[0]: xres = X, yres = Y\n
+//! [PNG stream, ending with its IEND chunk]
+//!  pix[1]: xres = X, yres = Y\n
+//! [PNG stream]
 //! ...
 //! ```
+//!
+//! Earlier versions of this crate appended `, size = S` to the header line.
+//! Such files are still read, but they are not readable by C Leptonica.
 //!
 //! # See also
 //!
@@ -92,6 +96,11 @@ impl Pixa {
             // Read pix header line
             read_line_trimmed(&mut cursor, &mut line_buf)?;
             let (xres, yres, size) = parse_pix_header(&line_buf, i)?;
+            let pos = cursor.position() as usize;
+            let size = match size {
+                Some(size) => size,
+                None => png_stream_len(data.get(pos..).unwrap_or_default())?,
+            };
             if size > MAX_PNG_SIZE {
                 return Err(Error::DecodeError(format!(
                     "PNG data too large for pix[{i}]: {size}"
@@ -99,7 +108,6 @@ impl Pixa {
             }
 
             // Read PNG data
-            let pos = cursor.position() as usize;
             let end = pos.checked_add(size).ok_or_else(|| {
                 Error::DecodeError(format!(
                     "integer overflow computing PNG data end position for pix[{i}]"
@@ -146,12 +154,12 @@ impl Pixa {
             let png_data = crate::io::png::write_png_to_vec(pix).map_err(|e| {
                 Error::EncodeError(format!("failed to write PNG for pix[{i}]: {e}"))
             })?;
+            // C writes no size field; the PNG stream terminates itself.
             writeln!(
                 writer,
-                " pix[{i}]: xres = {}, yres = {}, size = {}",
+                " pix[{i}]: xres = {}, yres = {}",
                 pix.xres(),
-                pix.yres(),
-                png_data.len()
+                pix.yres()
             )?;
             writer.write_all(&png_data)?;
         }
@@ -241,8 +249,11 @@ fn parse_after_prefix(line: &str, prefix: &str) -> Result<i32> {
         })
 }
 
-/// Parse pix header line like " pix[0]: xres = 72, yres = 72, size = 1234"
-fn parse_pix_header(line: &str, expected_index: usize) -> Result<(i32, i32, usize)> {
+/// Parse a `pix[i]:` header line, e.g. `" pix[0]: xres = 72, yres = 72"`.
+///
+/// C writes only `xres` and `yres`. Older files written by this crate append
+/// `, size = S`, which is accepted and returned when present.
+fn parse_pix_header(line: &str, expected_index: usize) -> Result<(i32, i32, Option<usize>)> {
     let line = line.trim();
     let prefix = format!("pix[{expected_index}]:");
     let rest = line
@@ -279,8 +290,40 @@ fn parse_pix_header(line: &str, expected_index: usize) -> Result<(i32, i32, usiz
     Ok((
         xres.ok_or_else(|| Error::DecodeError("missing xres".into()))?,
         yres.ok_or_else(|| Error::DecodeError("missing yres".into()))?,
-        size.ok_or_else(|| Error::DecodeError("missing size".into()))?,
+        size,
     ))
+}
+
+/// Length of the PNG stream starting at `data[0]`.
+///
+/// C relies on the PNG decoder consuming exactly one image from the stream.
+/// Walking the chunk headers to `IEND` gives the same boundary without
+/// decoding.
+fn png_stream_len(data: &[u8]) -> Result<usize> {
+    const SIGNATURE: usize = 8;
+    if data.len() < SIGNATURE || data[..SIGNATURE] != *b"\x89PNG\r\n\x1a\n" {
+        return Err(Error::DecodeError("not a PNG stream".into()));
+    }
+    let mut pos = SIGNATURE;
+    loop {
+        // Each chunk is [4-byte length][4-byte type][data][4-byte CRC].
+        if pos + 8 > data.len() {
+            return Err(Error::DecodeError("truncated PNG chunk header".into()));
+        }
+        let len = u32::from_be_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
+        let ctype = &data[pos + 4..pos + 8];
+        let end = pos
+            .checked_add(12)
+            .and_then(|p| p.checked_add(len as usize))
+            .ok_or_else(|| Error::DecodeError("PNG chunk length overflow".into()))?;
+        if end > data.len() {
+            return Err(Error::DecodeError("truncated PNG chunk".into()));
+        }
+        if ctype == b"IEND" {
+            return Ok(end);
+        }
+        pos = end;
+    }
 }
 
 #[cfg(test)]
@@ -351,5 +394,75 @@ mod tests {
     fn test_pixa_invalid_data() {
         assert!(Pixa::read_from_bytes(b"garbage data").is_err());
         assert!(Pixa::read_from_bytes(b"").is_err());
+    }
+}
+
+#[cfg(test)]
+mod c_format_tests {
+    use super::*;
+    use crate::core::{Pix, PixelDepth};
+
+    fn sample_pixa() -> Pixa {
+        let mut pixa = Pixa::new();
+        for d in [PixelDepth::Bit1, PixelDepth::Bit8] {
+            let pix = Pix::new(7, 5, d).unwrap();
+            let mut m = pix.try_into_mut().unwrap();
+            m.set_xres(300);
+            m.set_yres(300);
+            let _ = m.set_pixel(1, 1, 1);
+            pixa.push(m.into());
+        }
+        pixa
+    }
+
+    /// C `pixaWriteStream` emits only `xres` and `yres`; the PNG stream is
+    /// self-terminating, so there is no `size` field. Writing one makes the
+    /// file unreadable by C.
+    #[test]
+    fn test_write_matches_c_header() {
+        let bytes = sample_pixa().write_to_bytes().unwrap();
+        // Only look at the text before the first PNG stream: the compressed
+        // bytes are arbitrary and could contain any ASCII sequence.
+        let signature = b"\x89PNG\r\n\x1a\n";
+        let end = bytes
+            .windows(signature.len())
+            .position(|w| w == signature)
+            .expect("a PNG stream should follow the header");
+        let header = String::from_utf8_lossy(&bytes[..end]);
+        assert!(
+            header.contains(" pix[0]: xres = 300, yres = 300\n"),
+            "header should match C exactly, got {header:?}"
+        );
+        assert!(!header.contains("size = "), "C writes no size field");
+    }
+
+    /// A file written by C has no `size` field, so the reader has to find the
+    /// end of each PNG stream itself.
+    #[test]
+    fn test_read_c_written_header() {
+        let pixa = sample_pixa();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"\nPixa Version 2\n");
+        bytes.extend_from_slice(format!("Number of pix = {}\n", pixa.len()).as_bytes());
+        pixa.boxa().write_to_writer(&mut bytes).unwrap();
+        for i in 0..pixa.len() {
+            let pix = pixa.get(i).unwrap();
+            bytes.extend_from_slice(
+                format!(" pix[{i}]: xres = {}, yres = {}\n", pix.xres(), pix.yres()).as_bytes(),
+            );
+            bytes.extend_from_slice(&crate::io::png::write_png_to_vec(pix).unwrap());
+        }
+
+        let got = Pixa::read_from_bytes(&bytes).unwrap();
+        assert_eq!(got.len(), pixa.len());
+        for i in 0..pixa.len() {
+            let a = pixa.get(i).unwrap();
+            let b = got.get(i).unwrap();
+            assert_eq!(
+                (a.width(), a.height(), a.depth()),
+                (b.width(), b.height(), b.depth())
+            );
+            assert_eq!((b.xres(), b.yres()), (300, 300));
+        }
     }
 }
