@@ -907,7 +907,8 @@ impl Pixa {
         }
         for (i, src) in self.pix.iter().enumerate() {
             // C warns and skips a component with no box rather than placing
-            // it at the origin.
+            // it at the origin. There is no logging layer here, so this only
+            // skips.
             let Some(b) = self.boxa.get(i) else {
                 continue;
             };

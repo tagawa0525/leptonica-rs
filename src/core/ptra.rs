@@ -137,15 +137,8 @@ impl<T> Ptra<T> {
             index >= 0 && index as usize <= self.array.len(),
             "index {index} not in [0 ..= nalloc]"
         );
-        self.insert_opt(index, Some(item), shift);
-    }
 
-    /// C's `ptraInsert` accepts a NULL item, which only bumps bookkeeping.
-    /// [`Ptra::swap`] relies on that, so keep the general form private.
-    fn insert_opt(&mut self, index: i32, item: Option<T>, shift: DownShift) {
-        if item.is_some() {
-            self.nactual += 1;
-        }
+        self.nactual += 1;
         if index as usize == self.array.len() {
             self.extend_array();
         }
@@ -155,9 +148,8 @@ impl<T> Ptra<T> {
 
         // Inserting into a hole or beyond the last item: no shift needed.
         if self.array[index].is_none() {
-            let was_some = item.is_some();
-            self.array[index] = item;
-            if was_some && index as i32 > imax {
+            self.array[index] = Some(item);
+            if index as i32 > imax {
                 self.imax = index as i32;
             }
             return;
@@ -167,7 +159,9 @@ impl<T> Ptra<T> {
             self.extend_array();
         }
 
-        // With no holes there is nothing to shift into, so go all the way.
+        // C decides "there are no holes" with `imax + 1 == nactual`, and
+        // nactual already counts the item being inserted. So a single hole is
+        // not enough to keep a min downshift.
         let shift = if imax + 1 == self.nactual {
             DownShift::Full
         } else if shift == DownShift::Auto {
@@ -189,6 +183,7 @@ impl<T> Ptra<T> {
         };
 
         let ihole = if shift == DownShift::Min {
+            // Run down looking for the first hole to shift into.
             let mut ihole = index as i32 + 1;
             while ihole <= imax {
                 if self.array[ihole as usize].is_none() {
@@ -206,7 +201,7 @@ impl<T> Ptra<T> {
             self.array[i as usize] = self.array[(i - 1) as usize].take();
             i -= 1;
         }
-        self.array[index] = item;
+        self.array[index] = Some(item);
         if ihole == imax + 1 {
             self.imax += 1;
         }
@@ -284,9 +279,17 @@ impl<T> Ptra<T> {
         olditem
     }
 
-    /// Exchange the items at two indices.
+    /// Exchange the contents of two slots, either of which may be a hole.
     ///
     /// C Leptonica equivalent: `ptraSwap`
+    ///
+    /// C routes this through `ptraRemove` → `ptraReplace` → `ptraInsert`,
+    /// which for two occupied slots is just an exchange. That route breaks
+    /// when the first index is the last occupied slot and the second sits
+    /// below a run of holes: the remove drops `imax` past those holes, the
+    /// replace then rejects the now out-of-range index, and the item is
+    /// dropped on the floor. Exchanging the slots directly gives the same
+    /// result in every case C handles, without losing an item.
     pub fn swap(&mut self, index1: i32, index2: i32) {
         if index1 == index2 {
             return;
@@ -296,11 +299,17 @@ impl<T> Ptra<T> {
             index1 >= 0 && index1 <= imax && index2 >= 0 && index2 <= imax,
             "swap indices not in [0 ..= imax]"
         );
-        // C goes through remove / replace / insert so that the bookkeeping
-        // matches an ordinary rearrangement; keep the same route.
-        let item = self.remove(index1, Compaction::No);
-        let item = self.replace(index2, item);
-        self.insert_opt(index1, item, DownShift::Min);
+        self.array.swap(index1 as usize, index2 as usize);
+
+        // An exchange never changes the item count, but it can empty the
+        // tail, in which case imax falls back to the last occupied slot.
+        if self.array[imax as usize].is_none() {
+            let mut i = imax - 1;
+            while i >= 0 && self.array[i as usize].is_none() {
+                i -= 1;
+            }
+            self.imax = i;
+        }
     }
 
     /// Close every hole, preserving order.
@@ -523,6 +532,39 @@ mod tests {
             .filter_map(|i| pa.get(i).copied())
             .collect();
         assert_eq!(got, vec![4, 3, 2, 1, 0]);
+    }
+
+    /// Swapping the last item into a hole below it must leave the array
+    /// consistent. C loses the item here: its `ptraRemove` drops imax past
+    /// the holes, the following `ptraReplace` then rejects the (now
+    /// out-of-range) index and returns NULL, and the item is never stored.
+    #[test]
+    fn test_swap_last_into_hole() {
+        let mut pa = filled(4);
+        pa.remove(1, Compaction::No);
+        pa.remove(2, Compaction::No);
+        // [0, _, _, 3], imax = 3, nactual = 2
+        pa.swap(3, 1);
+        assert_eq!(pa.get(0), Some(&0));
+        assert_eq!(pa.get(1), Some(&3));
+        assert_eq!(pa.get(2), None);
+        assert_eq!(pa.get(3), None);
+        assert_eq!(pa.actual_count(), 2);
+        // The tail became a hole, so imax drops to the last occupied slot.
+        assert_eq!(pa.max_index(), 1);
+    }
+
+    /// Swapping two holes is a no-op, and swapping a hole with an item just
+    /// moves the item.
+    #[test]
+    fn test_swap_with_holes() {
+        let mut pa = filled(3);
+        pa.remove(1, Compaction::No);
+        pa.swap(0, 1);
+        assert_eq!(pa.get(0), None);
+        assert_eq!(pa.get(1), Some(&0));
+        assert_eq!(pa.actual_count(), 2);
+        assert_eq!(pa.max_index(), 2);
     }
 
     /// C `ptraRemoveLast` takes the item at imax.
