@@ -32,7 +32,6 @@ pub enum Compaction {
 }
 
 /// C `DefaultInitPtraSize`.
-#[allow(dead_code)]
 const DEFAULT_INIT_SIZE: usize = 20;
 
 /// A dynamically resizable array that may contain holes.
@@ -66,8 +65,14 @@ impl<T> Ptra<T> {
     ///
     /// C Leptonica equivalent: `ptraCreate`
     pub fn with_capacity(n: usize) -> Self {
-        let _ = n;
-        unimplemented!("ptraCreate")
+        let n = if n == 0 { DEFAULT_INIT_SIZE } else { n };
+        let mut array = Vec::with_capacity(n);
+        array.resize_with(n, || None);
+        Self {
+            array,
+            imax: -1,
+            nactual: 0,
+        }
     }
 
     /// Largest index holding an item, or -1 when the array is empty.
@@ -105,7 +110,6 @@ impl<T> Ptra<T> {
     }
 
     /// C `ptraExtendArray`: double the number of slots.
-    #[allow(dead_code)]
     fn extend_array(&mut self) {
         let new_len = self.array.len() * 2;
         self.array.resize_with(new_len, || None);
@@ -115,8 +119,12 @@ impl<T> Ptra<T> {
     ///
     /// C Leptonica equivalent: `ptraAdd`
     pub fn add(&mut self, item: T) {
-        let _ = item;
-        unimplemented!("ptraAdd")
+        if self.imax >= self.array.len() as i32 - 1 {
+            self.extend_array();
+        }
+        self.array[(self.imax + 1) as usize] = Some(item);
+        self.imax += 1;
+        self.nactual += 1;
     }
 
     /// Insert `item` at `index`, shifting occupied slots down as needed.
@@ -125,13 +133,15 @@ impl<T> Ptra<T> {
     ///
     /// C Leptonica equivalent: `ptraInsert`
     pub fn insert(&mut self, index: i32, item: T, shift: DownShift) {
-        let _ = (index, item, shift);
-        unimplemented!("ptraInsert")
+        assert!(
+            index >= 0 && index as usize <= self.array.len(),
+            "index {index} not in [0 ..= nalloc]"
+        );
+        self.insert_opt(index, Some(item), shift);
     }
 
     /// C's `ptraInsert` accepts a NULL item, which only bumps bookkeeping.
     /// [`Ptra::swap`] relies on that, so keep the general form private.
-    #[allow(dead_code)]
     fn insert_opt(&mut self, index: i32, item: Option<T>, shift: DownShift) {
         if item.is_some() {
             self.nactual += 1;
@@ -210,53 +220,133 @@ impl<T> Ptra<T> {
     ///
     /// C Leptonica equivalent: `ptraRemove`
     pub fn remove(&mut self, index: i32, flag: Compaction) -> Option<T> {
-        let _ = (index, flag);
-        unimplemented!("ptraRemove")
+        let imax = self.imax;
+        assert!(
+            index >= 0 && index <= imax,
+            "index {index} not in [0 ..= imax]"
+        );
+
+        let item = self.array[index as usize].take();
+        if item.is_some() {
+            self.nactual -= 1;
+        }
+
+        let fromend = index == imax;
+        if fromend {
+            let mut i = index - 1;
+            while i >= 0 {
+                if self.array[i as usize].is_some() {
+                    break;
+                }
+                i -= 1;
+            }
+            self.imax = i;
+        } else if flag == Compaction::Yes {
+            let mut icurrent = index;
+            for i in (index + 1)..=imax {
+                if self.array[i as usize].is_some() {
+                    self.array[icurrent as usize] = self.array[i as usize].take();
+                    icurrent += 1;
+                }
+            }
+            self.imax = icurrent - 1;
+        }
+
+        item
     }
 
     /// Take the item at the maximum index.
     ///
     /// C Leptonica equivalent: `ptraRemoveLast`
     pub fn remove_last(&mut self) -> Option<T> {
-        unimplemented!("ptraRemoveLast")
+        if self.imax < 0 {
+            return None;
+        }
+        self.remove(self.imax, Compaction::No)
     }
 
     /// Put `item` at `index` and return whatever was there.
     ///
     /// C Leptonica equivalent: `ptraReplace` with `freeflag = FALSE`
     pub fn replace(&mut self, index: i32, item: Option<T>) -> Option<T> {
-        let _ = (index, item);
-        unimplemented!("ptraReplace")
+        assert!(
+            index >= 0 && index <= self.imax,
+            "index {index} not in [0 ..= imax]"
+        );
+        let olditem = self.array[index as usize].take();
+        let had_item = item.is_some();
+        self.array[index as usize] = item;
+        if !had_item && olditem.is_some() {
+            self.nactual -= 1;
+        } else if had_item && olditem.is_none() {
+            self.nactual += 1;
+        }
+        olditem
     }
 
     /// Exchange the items at two indices.
     ///
     /// C Leptonica equivalent: `ptraSwap`
     pub fn swap(&mut self, index1: i32, index2: i32) {
-        let _ = (index1, index2);
-        unimplemented!("ptraSwap")
+        if index1 == index2 {
+            return;
+        }
+        let imax = self.imax;
+        assert!(
+            index1 >= 0 && index1 <= imax && index2 >= 0 && index2 <= imax,
+            "swap indices not in [0 ..= imax]"
+        );
+        // C goes through remove / replace / insert so that the bookkeeping
+        // matches an ordinary rearrangement; keep the same route.
+        let item = self.remove(index1, Compaction::No);
+        let item = self.replace(index2, item);
+        self.insert_opt(index1, item, DownShift::Min);
     }
 
     /// Close every hole, preserving order.
     ///
     /// C Leptonica equivalent: `ptraCompactArray`
     pub fn compact(&mut self) {
-        unimplemented!("ptraCompactArray")
+        let imax = self.imax;
+        if imax + 1 == self.nactual {
+            return;
+        }
+        let mut index = 0i32;
+        for i in 0..=imax.max(-1) {
+            if i > imax {
+                break;
+            }
+            if self.array[i as usize].is_some() {
+                self.array[index as usize] = self.array[i as usize].take();
+                index += 1;
+            }
+        }
+        self.imax = index - 1;
     }
 
     /// Reverse the order of the items.
     ///
     /// C Leptonica equivalent: `ptraReverse`
     pub fn reverse(&mut self) {
-        unimplemented!("ptraReverse")
+        let imax = self.imax;
+        for i in 0..((imax + 1) / 2) {
+            self.swap(i, imax - i);
+        }
     }
 
     /// Move every item of `other` onto the end of this array.
     ///
     /// C Leptonica equivalent: `ptraJoin`
     pub fn join(&mut self, other: &mut Ptra<T>) {
-        let _ = other;
-        unimplemented!("ptraJoin")
+        let imax = other.imax;
+        for i in 0..=imax.max(-1) {
+            if i > imax {
+                break;
+            }
+            if let Some(item) = other.remove(i, Compaction::No) {
+                self.add(item);
+            }
+        }
     }
 }
 
@@ -275,7 +365,6 @@ mod tests {
     /// C `ptraCreate`: a non-positive request becomes the default size of 20,
     /// and a fresh array reports imax = -1.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_and_add() {
         let pa: Ptra<i32> = Ptra::new();
         assert_eq!(pa.capacity(), 20);
@@ -288,20 +377,27 @@ mod tests {
         assert_eq!(pa.get(2), Some(&2));
     }
 
-    /// C `ptraAdd` doubles the backing array when it runs out of slots.
+    /// C `ptraAdd` doubles the backing array only once it would overflow:
+    /// the check is `imax >= nalloc - 1` *before* the store, so filling an
+    /// array to exactly its capacity does not extend it.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_add_extends() {
         let pa = filled(25);
-        assert_eq!(pa.capacity(), 40);
+        assert_eq!(pa.capacity(), 25);
         assert_eq!(pa.max_index(), 24);
         assert_eq!(pa.actual_count(), 25);
+
+        // Adding one more than the capacity doubles it.
+        let mut pa = filled(5);
+        assert_eq!(pa.capacity(), 5);
+        pa.add(5);
+        assert_eq!(pa.capacity(), 10);
+        assert_eq!(pa.max_index(), 5);
     }
 
     /// C `ptraRemove` with `L_NO_COMPACTION` leaves a hole; imax only drops
     /// when the last item is taken, and then down to the next occupied slot.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_no_compaction() {
         let mut pa = filled(5);
         assert_eq!(pa.remove(1, Compaction::No), Some(1));
@@ -322,7 +418,6 @@ mod tests {
 
     /// C `ptraRemove` with `L_COMPACTION` closes the gap up to imax.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_with_compaction() {
         let mut pa = filled(5);
         assert_eq!(pa.remove(1, Compaction::Yes), Some(1));
@@ -334,7 +429,6 @@ mod tests {
 
     /// C `ptraInsert` into a hole never shifts anything.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_insert_into_hole() {
         let mut pa = filled(5);
         pa.remove(2, Compaction::No);
@@ -347,7 +441,6 @@ mod tests {
     /// C `ptraInsert` at an occupied slot: with no holes it always does a
     /// full downshift, so imax grows by one.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_insert_full_downshift() {
         let mut pa = filled(5);
         pa.insert(0, 99, DownShift::Min);
@@ -358,25 +451,46 @@ mod tests {
         assert_eq!(pa.get(5), Some(&4));
     }
 
-    /// With a hole available, `DownShift::Min` shifts only that far and imax
-    /// stays put.
+    /// With a hole still available after the insert is accounted for,
+    /// `DownShift::Min` shifts only that far and imax stays put.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_insert_min_downshift_stops_at_hole() {
+        let mut pa = filled(6);
+        pa.remove(2, Compaction::No);
+        pa.remove(4, Compaction::No);
+        // [0, 1, _, 3, _, 5], imax = 5, nactual = 4
+        pa.insert(0, 99, DownShift::Min);
+        assert_eq!(pa.max_index(), 5);
+        assert_eq!(pa.actual_count(), 5);
+        assert_eq!(pa.get(0), Some(&99));
+        assert_eq!(pa.get(1), Some(&0));
+        assert_eq!(pa.get(2), Some(&1));
+        assert_eq!(pa.get(3), Some(&3));
+        assert_eq!(pa.get(4), None);
+        assert_eq!(pa.get(5), Some(&5));
+    }
+
+    /// C decides "there are no holes" with `imax + 1 == nactual`, and nactual
+    /// has already been incremented for the item being inserted. So a single
+    /// hole is not enough: `DownShift::Min` is overridden to a full downshift
+    /// and imax grows.
+    #[test]
+    fn test_insert_min_downgrades_to_full_with_one_hole() {
         let mut pa = filled(5);
         pa.remove(3, Compaction::No);
+        // [0, 1, 2, _, 4], imax = 4, nactual = 4
         pa.insert(1, 99, DownShift::Min);
-        assert_eq!(pa.max_index(), 4);
+        assert_eq!(pa.max_index(), 5);
         assert_eq!(pa.get(1), Some(&99));
         assert_eq!(pa.get(2), Some(&1));
         assert_eq!(pa.get(3), Some(&2));
-        assert_eq!(pa.get(4), Some(&4));
+        assert_eq!(pa.get(4), None);
+        assert_eq!(pa.get(5), Some(&4));
     }
 
     /// C `ptraCompactArray` removes every hole and is a no-op when there are
     /// none.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_compact() {
         let mut pa = filled(5);
         pa.remove(1, Compaction::No);
@@ -395,7 +509,6 @@ mod tests {
 
     /// C `ptraSwap` exchanges two items and leaves the counts unchanged.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_swap_and_reverse() {
         let mut pa = filled(5);
         pa.swap(0, 4);
@@ -414,7 +527,6 @@ mod tests {
 
     /// C `ptraRemoveLast` takes the item at imax.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_remove_last_and_join() {
         let mut pa = filled(3);
         assert_eq!(pa.remove_last(), Some(2));

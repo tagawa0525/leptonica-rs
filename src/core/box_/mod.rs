@@ -669,10 +669,37 @@ impl Boxa {
     ///
     /// C Leptonica equivalent: `boxaGetExtent`
     pub fn get_extent(&self) -> Option<(i32, i32, Box)> {
-        let bb = self.bounding_box()?;
-        let max_right = self.boxes.iter().map(|b| b.right()).max().unwrap_or(0);
-        let max_bottom = self.boxes.iter().map(|b| b.bottom()).max().unwrap_or(0);
-        Some((max_right, max_bottom, bb))
+        // C skips boxes with a non-positive width or height, and reports
+        // (0, 0) plus an all-zero box when none of them are valid. C has no
+        // failure case at all; `None` here is reserved for an empty boxa,
+        // where C would also report zeros.
+        if self.boxes.is_empty() {
+            return None;
+        }
+        let mut xmin = i32::MAX;
+        let mut ymin = i32::MAX;
+        let mut xmax = 0;
+        let mut ymax = 0;
+        let mut found = false;
+        for b in &self.boxes {
+            if b.w <= 0 || b.h <= 0 {
+                continue;
+            }
+            found = true;
+            xmin = xmin.min(b.x);
+            ymin = ymin.min(b.y);
+            xmax = xmax.max(b.x + b.w);
+            ymax = ymax.max(b.y + b.h);
+        }
+        if !found {
+            xmin = 0;
+            ymin = 0;
+        }
+        Some((
+            xmax,
+            ymax,
+            Box::new_unchecked(xmin, ymin, xmax - xmin, ymax - ymin),
+        ))
     }
 
     /// Compute the fractional coverage of boxes within a canvas

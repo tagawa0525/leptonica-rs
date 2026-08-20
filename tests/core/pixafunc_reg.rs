@@ -362,7 +362,6 @@ fn test_display_tiled_in_columns_layout() {
 /// C `boxaGetExtent` skips boxes with a non-positive width or height, both
 /// for the `w`/`h` outputs and for the enclosing box.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_boxa_get_extent_skips_invalid() {
     use leptonica::core::{Box, Boxa};
 
@@ -376,8 +375,10 @@ fn test_boxa_get_extent_skips_invalid() {
     assert_eq!((w, h), (105, 60));
     assert_eq!((bb.x, bb.y, bb.w, bb.h), (5, 5, 100, 55));
 
-    // C returns 0 for an empty boxa rather than failing.
-    let (w, h, bb) = Boxa::new().get_extent().expect("empty extent");
+    // With no valid boxes C reports zeros rather than failing.
+    let mut only_invalid = Boxa::new();
+    only_invalid.push(Box::new_unchecked(7, 7, 0, 0));
+    let (w, h, bb) = only_invalid.get_extent().expect("degenerate extent");
     assert_eq!((w, h), (0, 0));
     assert_eq!((bb.x, bb.y, bb.w, bb.h), (0, 0, 0, 0));
 }
@@ -385,7 +386,6 @@ fn test_boxa_get_extent_skips_invalid() {
 /// C: pixaDisplay on an empty pixa returns an empty 1 bpp pix of the given
 /// size, and only errors when no size is given either.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_display_empty() {
     use leptonica::PixelDepth;
     use leptonica::core::Pixa;
@@ -401,7 +401,6 @@ fn test_pixa_display_empty() {
 /// C: pixaDisplay sizes the canvas from the boxa extent when a dimension is
 /// missing, without compensating for negative origins.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_pixa_display_extent_sizing() {
     use leptonica::core::{Box, Pixa};
     use leptonica::{Pix, PixelDepth};
