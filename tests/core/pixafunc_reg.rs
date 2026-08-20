@@ -356,7 +356,7 @@ fn test_display_tiled_in_columns_layout() {
 }
 
 // ============================================================================
-// Pixa::display / Boxa::extent (C pixaDisplay / boxaGetExtent)
+// Pixa::display / Boxa::get_extent (C pixaDisplay / boxaGetExtent)
 // ============================================================================
 
 /// C `boxaGetExtent` skips boxes with a non-positive width or height, both

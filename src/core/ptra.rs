@@ -134,6 +134,11 @@ impl<T> Ptra<T> {
     ///
     /// Inserting into a hole or past the maximum index never shifts anything.
     ///
+    /// `index` may be at most the current slot count (C's `nalloc`), which is
+    /// the same bound C enforces; inserting exactly at that boundary grows the
+    /// array. This is deliberately tighter than [`Ptra::add`], which always
+    /// appends and grows on demand.
+    ///
     /// C Leptonica equivalent: `ptraInsert`
     pub fn insert(&mut self, index: i32, item: T, shift: DownShift) -> Result<()> {
         if index < 0 || index as usize > self.array.len() {
@@ -268,8 +273,8 @@ impl<T> Ptra<T> {
         if self.imax < 0 {
             return None;
         }
-        // imax is in range by construction.
-        self.remove(self.imax, Compaction::No).unwrap_or(None)
+        self.remove(self.imax, Compaction::No)
+            .expect("imax is in range by construction")
     }
 
     /// Put `item` at `index` and return whatever was there.
@@ -355,8 +360,8 @@ impl<T> Ptra<T> {
     pub fn reverse(&mut self) {
         let imax = self.imax;
         for i in 0..((imax + 1) / 2) {
-            // Both indices are within [0, imax] by construction.
-            let _ = self.swap(i, imax - i);
+            self.swap(i, imax - i)
+                .expect("both indices are within [0, imax] by construction");
         }
     }
 
@@ -366,8 +371,10 @@ impl<T> Ptra<T> {
     pub fn join(&mut self, other: &mut Ptra<T>) {
         let imax = other.imax;
         for i in 0..=imax {
-            // i is within [0, imax] by construction.
-            if let Ok(Some(item)) = other.remove(i, Compaction::No) {
+            let item = other
+                .remove(i, Compaction::No)
+                .expect("i is within [0, imax] by construction");
+            if let Some(item) = item {
                 self.add(item);
             }
         }

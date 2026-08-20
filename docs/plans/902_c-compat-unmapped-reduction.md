@@ -1104,13 +1104,19 @@ C 版ソース: `prog/ptra1_reg.c`。入力は `lucasta.1.300.tif` のみ (lossl
 - **18 ペア全件 Ok** (Ok 397 → 415、core 23 → 41)
 - C `L_PTRA` に相当する型が無かったので `Ptra<T>` を新設した。穴を許す
   動的配列で、imax / nactual の管理、3 種の downshift、compaction 有無の
-  remove、swap が remove → replace → insert を経由する点まで移した
+  remove を移した。`swap` だけは C の remove → replace → insert 経由を
+  踏襲していない (後述)
 - 単体テストで C の細かい挙動が 2 つ判明した:
   - `ptraAdd` の拡張判定は格納**前**の `imax >= nalloc - 1` なので、容量
     ちょうどまで詰めても拡張されない
   - `ptraInsert` は「穴が無い」を `imax + 1 == nactual` で判定するが、
     nactual は挿入分を先に加算済み。このため穴が 1 つだけのときは
     `L_MIN_DOWNSHIFT` を指定しても full downshift に落ちる
+- `ptraSwap` は C では remove → replace → insert を経由するが、index1 が
+  最後の占有スロットで index2 がその下の穴の並びより手前にあると、remove が
+  imax を下げた結果 replace が範囲外を弾き、取り出した item が失われる。
+  Rust では両スロットを直接交換し、末尾が空いたときだけ imax を下げる
+  (C が正しく扱えるケースでは結果は同じ)
 - あわせて `Pixa::display` / `Boxa::get_extent` の実装差を修正した:
 
 | 箇所 | 旧実装 | C |
