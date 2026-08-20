@@ -83,8 +83,8 @@ fn ptra1_c_compat() {
         let imax = papix.max_index();
         let mut pixat = Pixa::new();
         for i in 0..=imax {
-            let pix = papix.remove(i, Compaction::No);
-            let b = pabox.remove(i, Compaction::No);
+            let pix = papix.remove(i, Compaction::No).expect("remove pix");
+            let b = pabox.remove(i, Compaction::No).expect("remove box");
             if let Some(p) = pix {
                 pixat.push(p);
             }
@@ -100,8 +100,8 @@ fn ptra1_c_compat() {
         let imax = papix.max_index();
         let mut pixat = Pixa::new();
         for i in (0..=imax).step_by(2) {
-            let pix = papix.remove(i, Compaction::No);
-            let b = pabox.remove(i, Compaction::No);
+            let pix = papix.remove(i, Compaction::No).expect("remove pix");
+            let b = pabox.remove(i, Compaction::No).expect("remove box");
             if let Some(p) = pix {
                 pixat.push(p);
             }
@@ -112,8 +112,8 @@ fn ptra1_c_compat() {
         papix.compact();
         pabox.compact();
         while papix.actual_count() != 0 {
-            let pix = papix.remove(0, Compaction::Yes);
-            let b = pabox.remove(0, Compaction::Yes);
+            let pix = papix.remove(0, Compaction::Yes).expect("remove pix");
+            let b = pabox.remove(0, Compaction::Yes).expect("remove box");
             if let Some(p) = pix {
                 pixat.push(p);
             }
@@ -164,8 +164,8 @@ fn ptra1_c_compat() {
     for reconstruct2_pass in [false, true] {
         let (mut papix, mut pabox) = make_ptras(&pixas);
         for i in (0..n / 2).step_by(2) {
-            papix.remove(i as i32, Compaction::Yes);
-            pabox.remove(i as i32, Compaction::Yes);
+            papix.remove(i as i32, Compaction::Yes).expect("remove pix");
+            pabox.remove(i as i32, Compaction::Yes).expect("remove box");
         }
         let pixa = if reconstruct2_pass {
             reconstruct2(&mut papix, &mut pabox)
@@ -186,8 +186,8 @@ fn ptra1_c_compat() {
     for reconstruct2_pass in [false, true] {
         let (mut papix, mut pabox) = make_ptras(&pixas);
         for i in (0..n).step_by(2) {
-            papix.remove(i as i32, Compaction::No);
-            pabox.remove(i as i32, Compaction::No);
+            papix.remove(i as i32, Compaction::No).expect("remove pix");
+            pabox.remove(i as i32, Compaction::No).expect("remove box");
         }
         papix.compact();
         pabox.compact();
@@ -211,8 +211,12 @@ fn ptra1_c_compat() {
         let mut papix: Ptra<Pix> = Ptra::with_capacity(n);
         let mut pabox: Ptra<Box> = Ptra::with_capacity(n);
         for i in 0..n {
-            papix.insert(0, pixas.get(i).expect("pix").clone(), DownShift::Min);
-            pabox.insert(0, *pixas.boxa().get(i).expect("box"), DownShift::Full);
+            papix
+                .insert(0, pixas.get(i).expect("pix").clone(), DownShift::Min)
+                .expect("insert pix");
+            pabox
+                .insert(0, *pixas.boxa().get(i).expect("box"), DownShift::Full)
+                .expect("insert box");
         }
         let pixa = if reconstruct2_pass {
             reconstruct2(&mut papix, &mut pabox)
@@ -233,8 +237,8 @@ fn ptra1_c_compat() {
     for reconstruct2_pass in [false, true] {
         let (mut papix, mut pabox) = make_ptras(&pixas);
         for i in 0..n / 2 {
-            papix.swap(i as i32, (n - i - 1) as i32);
-            pabox.swap(i as i32, (n - i - 1) as i32);
+            papix.swap(i as i32, (n - i - 1) as i32).expect("swap pix");
+            pabox.swap(i as i32, (n - i - 1) as i32).expect("swap box");
         }
         papix.compact();
         pabox.compact();
@@ -260,15 +264,15 @@ fn ptra1_c_compat() {
         let mut pabox2: Ptra<Box> = Ptra::new();
         while papix.actual_count() != 0 {
             let imax = papix.max_index();
-            if let Some(p) = papix.remove(0, Compaction::No) {
+            if let Some(p) = papix.remove(0, Compaction::No).expect("remove pix") {
                 papix2.add(p);
             }
-            if let Some(b) = pabox.remove(0, Compaction::No) {
+            if let Some(b) = pabox.remove(0, Compaction::No).expect("remove box") {
                 pabox2.add(b);
             }
             for i in 1..=imax {
-                papix.swap(i - 1, i);
-                pabox.swap(i - 1, i);
+                papix.swap(i - 1, i).expect("swap pix");
+                pabox.swap(i - 1, i).expect("swap box");
             }
         }
         papix.compact();
@@ -292,13 +296,13 @@ fn ptra1_c_compat() {
         for reconstruct2_pass in [false, true] {
             let (mut papix, mut pabox) = make_ptras(&pixas);
             for i in 1..n as i32 {
-                let pix = papix.remove(i, Compaction::No);
-                let b = pabox.remove(i, Compaction::No);
+                let pix = papix.remove(i, Compaction::No).expect("remove pix");
+                let b = pabox.remove(i, Compaction::No).expect("remove box");
                 if let Some(p) = pix {
-                    papix.insert(i - 1, p, shift);
+                    papix.insert(i - 1, p, shift).expect("insert pix");
                 }
                 if let Some(b) = b {
-                    pabox.insert(i - 1, b, shift);
+                    pabox.insert(i - 1, b, shift).expect("insert box");
                 }
             }
             let pixa = if reconstruct2_pass {

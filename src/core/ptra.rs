@@ -7,6 +7,8 @@
 //!
 //! C Leptonica equivalent: `L_PTRA` in `ptra.c`.
 
+use crate::core::error::{Error, Result};
+
 /// How [`Ptra::insert`] makes room when the target slot is occupied.
 ///
 /// C equivalent: `L_AUTO_DOWNSHIFT` / `L_MIN_DOWNSHIFT` / `L_FULL_DOWNSHIFT`.
@@ -132,11 +134,13 @@ impl<T> Ptra<T> {
     /// Inserting into a hole or past the maximum index never shifts anything.
     ///
     /// C Leptonica equivalent: `ptraInsert`
-    pub fn insert(&mut self, index: i32, item: T, shift: DownShift) {
-        assert!(
-            index >= 0 && index as usize <= self.array.len(),
-            "index {index} not in [0 ..= nalloc]"
-        );
+    pub fn insert(&mut self, index: i32, item: T, shift: DownShift) -> Result<()> {
+        if index < 0 || index as usize > self.array.len() {
+            return Err(Error::IndexOutOfBounds {
+                index: index.max(0) as usize,
+                len: self.array.len(),
+            });
+        }
 
         self.nactual += 1;
         if index as usize == self.array.len() {
@@ -152,7 +156,7 @@ impl<T> Ptra<T> {
             if index as i32 > imax {
                 self.imax = index as i32;
             }
-            return;
+            return Ok(());
         }
 
         if imax >= self.array.len() as i32 - 1 {
@@ -205,6 +209,7 @@ impl<T> Ptra<T> {
         if ihole == imax + 1 {
             self.imax += 1;
         }
+        Ok(())
     }
 
     /// Take the item at `index`, leaving a hole or closing the gap.
@@ -214,12 +219,14 @@ impl<T> Ptra<T> {
     /// `flag`.
     ///
     /// C Leptonica equivalent: `ptraRemove`
-    pub fn remove(&mut self, index: i32, flag: Compaction) -> Option<T> {
+    pub fn remove(&mut self, index: i32, flag: Compaction) -> Result<Option<T>> {
         let imax = self.imax;
-        assert!(
-            index >= 0 && index <= imax,
-            "index {index} not in [0 ..= imax]"
-        );
+        if index < 0 || index > imax {
+            return Err(Error::IndexOutOfBounds {
+                index: index.max(0) as usize,
+                len: (imax + 1).max(0) as usize,
+            });
+        }
 
         let item = self.array[index as usize].take();
         if item.is_some() {
@@ -247,7 +254,7 @@ impl<T> Ptra<T> {
             self.imax = icurrent - 1;
         }
 
-        item
+        Ok(item)
     }
 
     /// Take the item at the maximum index.
@@ -257,17 +264,20 @@ impl<T> Ptra<T> {
         if self.imax < 0 {
             return None;
         }
-        self.remove(self.imax, Compaction::No)
+        // imax is in range by construction.
+        self.remove(self.imax, Compaction::No).unwrap_or(None)
     }
 
     /// Put `item` at `index` and return whatever was there.
     ///
     /// C Leptonica equivalent: `ptraReplace` with `freeflag = FALSE`
-    pub fn replace(&mut self, index: i32, item: Option<T>) -> Option<T> {
-        assert!(
-            index >= 0 && index <= self.imax,
-            "index {index} not in [0 ..= imax]"
-        );
+    pub fn replace(&mut self, index: i32, item: Option<T>) -> Result<Option<T>> {
+        if index < 0 || index > self.imax {
+            return Err(Error::IndexOutOfBounds {
+                index: index.max(0) as usize,
+                len: (self.imax + 1).max(0) as usize,
+            });
+        }
         let olditem = self.array[index as usize].take();
         let had_item = item.is_some();
         self.array[index as usize] = item;
@@ -276,7 +286,7 @@ impl<T> Ptra<T> {
         } else if had_item && olditem.is_none() {
             self.nactual += 1;
         }
-        olditem
+        Ok(olditem)
     }
 
     /// Exchange the contents of two slots, either of which may be a hole.
@@ -290,15 +300,19 @@ impl<T> Ptra<T> {
     /// replace then rejects the now out-of-range index, and the item is
     /// dropped on the floor. Exchanging the slots directly gives the same
     /// result in every case C handles, without losing an item.
-    pub fn swap(&mut self, index1: i32, index2: i32) {
+    pub fn swap(&mut self, index1: i32, index2: i32) -> Result<()> {
         if index1 == index2 {
-            return;
+            return Ok(());
         }
         let imax = self.imax;
-        assert!(
-            index1 >= 0 && index1 <= imax && index2 >= 0 && index2 <= imax,
-            "swap indices not in [0 ..= imax]"
-        );
+        for index in [index1, index2] {
+            if index < 0 || index > imax {
+                return Err(Error::IndexOutOfBounds {
+                    index: index.max(0) as usize,
+                    len: (imax + 1).max(0) as usize,
+                });
+            }
+        }
         self.array.swap(index1 as usize, index2 as usize);
 
         // An exchange never changes the item count, but it can empty the
@@ -310,6 +324,7 @@ impl<T> Ptra<T> {
             }
             self.imax = i;
         }
+        Ok(())
     }
 
     /// Close every hole, preserving order.
@@ -321,10 +336,7 @@ impl<T> Ptra<T> {
             return;
         }
         let mut index = 0i32;
-        for i in 0..=imax.max(-1) {
-            if i > imax {
-                break;
-            }
+        for i in 0..=imax {
             if self.array[i as usize].is_some() {
                 self.array[index as usize] = self.array[i as usize].take();
                 index += 1;
@@ -339,7 +351,8 @@ impl<T> Ptra<T> {
     pub fn reverse(&mut self) {
         let imax = self.imax;
         for i in 0..((imax + 1) / 2) {
-            self.swap(i, imax - i);
+            // Both indices are within [0, imax] by construction.
+            let _ = self.swap(i, imax - i);
         }
     }
 
@@ -348,11 +361,9 @@ impl<T> Ptra<T> {
     /// C Leptonica equivalent: `ptraJoin`
     pub fn join(&mut self, other: &mut Ptra<T>) {
         let imax = other.imax;
-        for i in 0..=imax.max(-1) {
-            if i > imax {
-                break;
-            }
-            if let Some(item) = other.remove(i, Compaction::No) {
+        for i in 0..=imax {
+            // i is within [0, imax] by construction.
+            if let Ok(Some(item)) = other.remove(i, Compaction::No) {
                 self.add(item);
             }
         }
@@ -409,19 +420,19 @@ mod tests {
     #[test]
     fn test_remove_no_compaction() {
         let mut pa = filled(5);
-        assert_eq!(pa.remove(1, Compaction::No), Some(1));
+        assert_eq!(pa.remove(1, Compaction::No).expect("remove"), Some(1));
         assert_eq!(pa.max_index(), 4);
         assert_eq!(pa.actual_count(), 4);
         assert_eq!(pa.get(1), None);
         assert_eq!(pa.get(2), Some(&2));
 
         // Removing an existing hole yields nothing and changes no counts.
-        assert_eq!(pa.remove(1, Compaction::No), None);
+        assert_eq!(pa.remove(1, Compaction::No).expect("remove"), None);
         assert_eq!(pa.actual_count(), 4);
 
         // Taking the last item walks imax back over the holes below it.
-        pa.remove(3, Compaction::No);
-        assert_eq!(pa.remove(4, Compaction::No), Some(4));
+        pa.remove(3, Compaction::No).expect("remove");
+        assert_eq!(pa.remove(4, Compaction::No).expect("remove"), Some(4));
         assert_eq!(pa.max_index(), 2);
     }
 
@@ -429,7 +440,7 @@ mod tests {
     #[test]
     fn test_remove_with_compaction() {
         let mut pa = filled(5);
-        assert_eq!(pa.remove(1, Compaction::Yes), Some(1));
+        assert_eq!(pa.remove(1, Compaction::Yes).expect("remove"), Some(1));
         assert_eq!(pa.max_index(), 3);
         assert_eq!(pa.actual_count(), 4);
         assert_eq!(pa.get(1), Some(&2));
@@ -440,8 +451,8 @@ mod tests {
     #[test]
     fn test_insert_into_hole() {
         let mut pa = filled(5);
-        pa.remove(2, Compaction::No);
-        pa.insert(2, 99, DownShift::Min);
+        pa.remove(2, Compaction::No).expect("remove");
+        pa.insert(2, 99, DownShift::Min).expect("insert");
         assert_eq!(pa.get(2), Some(&99));
         assert_eq!(pa.max_index(), 4);
         assert_eq!(pa.actual_count(), 5);
@@ -452,7 +463,7 @@ mod tests {
     #[test]
     fn test_insert_full_downshift() {
         let mut pa = filled(5);
-        pa.insert(0, 99, DownShift::Min);
+        pa.insert(0, 99, DownShift::Min).expect("insert");
         assert_eq!(pa.max_index(), 5);
         assert_eq!(pa.actual_count(), 6);
         assert_eq!(pa.get(0), Some(&99));
@@ -465,10 +476,10 @@ mod tests {
     #[test]
     fn test_insert_min_downshift_stops_at_hole() {
         let mut pa = filled(6);
-        pa.remove(2, Compaction::No);
-        pa.remove(4, Compaction::No);
+        pa.remove(2, Compaction::No).expect("remove");
+        pa.remove(4, Compaction::No).expect("remove");
         // [0, 1, _, 3, _, 5], imax = 5, nactual = 4
-        pa.insert(0, 99, DownShift::Min);
+        pa.insert(0, 99, DownShift::Min).expect("insert");
         assert_eq!(pa.max_index(), 5);
         assert_eq!(pa.actual_count(), 5);
         assert_eq!(pa.get(0), Some(&99));
@@ -486,9 +497,9 @@ mod tests {
     #[test]
     fn test_insert_min_downgrades_to_full_with_one_hole() {
         let mut pa = filled(5);
-        pa.remove(3, Compaction::No);
+        pa.remove(3, Compaction::No).expect("remove");
         // [0, 1, 2, _, 4], imax = 4, nactual = 4
-        pa.insert(1, 99, DownShift::Min);
+        pa.insert(1, 99, DownShift::Min).expect("insert");
         assert_eq!(pa.max_index(), 5);
         assert_eq!(pa.get(1), Some(&99));
         assert_eq!(pa.get(2), Some(&1));
@@ -502,8 +513,8 @@ mod tests {
     #[test]
     fn test_compact() {
         let mut pa = filled(5);
-        pa.remove(1, Compaction::No);
-        pa.remove(3, Compaction::No);
+        pa.remove(1, Compaction::No).expect("remove");
+        pa.remove(3, Compaction::No).expect("remove");
         pa.compact();
         assert_eq!(pa.max_index(), 2);
         assert_eq!(pa.actual_count(), 3);
@@ -520,7 +531,7 @@ mod tests {
     #[test]
     fn test_swap_and_reverse() {
         let mut pa = filled(5);
-        pa.swap(0, 4);
+        pa.swap(0, 4).expect("swap");
         assert_eq!(pa.get(0), Some(&4));
         assert_eq!(pa.get(4), Some(&0));
         assert_eq!(pa.actual_count(), 5);
@@ -541,10 +552,10 @@ mod tests {
     #[test]
     fn test_swap_last_into_hole() {
         let mut pa = filled(4);
-        pa.remove(1, Compaction::No);
-        pa.remove(2, Compaction::No);
+        pa.remove(1, Compaction::No).expect("remove");
+        pa.remove(2, Compaction::No).expect("remove");
         // [0, _, _, 3], imax = 3, nactual = 2
-        pa.swap(3, 1);
+        pa.swap(3, 1).expect("swap");
         assert_eq!(pa.get(0), Some(&0));
         assert_eq!(pa.get(1), Some(&3));
         assert_eq!(pa.get(2), None);
@@ -559,12 +570,29 @@ mod tests {
     #[test]
     fn test_swap_with_holes() {
         let mut pa = filled(3);
-        pa.remove(1, Compaction::No);
-        pa.swap(0, 1);
+        pa.remove(1, Compaction::No).expect("remove");
+        pa.swap(0, 1).expect("swap");
         assert_eq!(pa.get(0), None);
         assert_eq!(pa.get(1), Some(&0));
         assert_eq!(pa.actual_count(), 2);
         assert_eq!(pa.max_index(), 2);
+    }
+
+    /// Out-of-range indices are reported, not asserted, matching the other
+    /// core collections. C returns an error code in the same situations.
+    #[test]
+    fn test_out_of_range_reports_error() {
+        let mut pa = filled(3);
+        assert!(pa.remove(3, Compaction::No).is_err());
+        assert!(pa.remove(-1, Compaction::No).is_err());
+        assert!(pa.replace(3, Some(9)).is_err());
+        assert!(pa.swap(0, 3).is_err());
+        assert!(pa.insert(-1, 9, DownShift::Min).is_err());
+
+        // A rejected insert must not have counted the item.
+        let before = pa.actual_count();
+        assert!(pa.insert(-1, 9, DownShift::Min).is_err());
+        assert_eq!(pa.actual_count(), before);
     }
 
     /// C `ptraRemoveLast` takes the item at imax.

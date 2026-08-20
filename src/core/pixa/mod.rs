@@ -854,11 +854,13 @@ impl Pixa {
 
     /// Compose all Pix images onto a single canvas.
     ///
-    /// Each image is placed at its associated bounding box position.
-    /// Images without boxes are placed at (0, 0). If `w` or `h` is 0,
-    /// the canvas size is computed from the extent of all boxes and images.
-    /// Negative box coordinates are handled: portions outside the canvas
-    /// are clipped.
+    /// Each image is placed at its associated bounding box position; an image
+    /// with no box is skipped. If either `w` or `h` is 0, both come from the
+    /// boxa extent ([`Boxa::get_extent`]), which does not compensate for
+    /// negative origins — anything falling outside the canvas is clipped.
+    ///
+    /// An empty pixa yields an empty 1 bpp canvas of the requested size, and
+    /// is an error only when no size is given.
     ///
     /// The canvas depth is taken from the first image. All images should
     /// have the same depth for correct rendering.
@@ -871,7 +873,9 @@ impl Pixa {
         // given size still yields an empty 1 bpp canvas.
         if self.pix.is_empty() {
             if w == 0 || h == 0 {
-                return Err(Error::NullInput("pixa is empty and no size given"));
+                return Err(Error::NullInput(
+                    "pixa is empty; both width and height are needed to size the canvas",
+                ));
             }
             return Pix::new(w, h, PixelDepth::Bit1);
         }
