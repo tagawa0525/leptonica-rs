@@ -35,21 +35,6 @@ fn circle_reg_smoke() {
     assert!(n >= 1);
 }
 
-/// Test circle extraction using erosion and connected components (C checks 0-1).
-///
-/// Requires circles.pa Pixa archive which is not present in test data.
-#[test]
-#[ignore = "not yet implemented: circles.pa test data not available"]
-fn circle_reg_extract_circles() {
-    // C version:
-    // 1. pixaRead("circles.pa") to load pre-rendered circle images
-    // 2. pixInvert + pixCreateTemplate + pixSetOrClearBorder + pixSeedfillBinary
-    //    to isolate circle interior
-    // 3. pixAnd + pixCountConnComp to count components in and around circles
-    // 4. pixErodeBrick to find boundary transitions
-    // 5. regTestCompareValues() for component counts at erosion thresholds
-}
-
 /// C-compat: `prog/circle_reg.c`, all 13 outputs.
 ///
 /// `circles.pa` is a serialized pixa of lossless PNGs and C writes every
@@ -121,6 +106,10 @@ fn circle_c_compat() {
                 maxloc = i;
             }
         }
+        // When the peak is the last erosion, C's two search loops never run
+        // and `i` keeps the loop-exit value `num_erodes`, giving a final
+        // erosion one step past everything measured. Reproduce that rather
+        // than clamping.
         let minval = counts[maxloc + 1..NUM_ERODES]
             .iter()
             .copied()

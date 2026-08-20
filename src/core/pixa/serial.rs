@@ -1,18 +1,22 @@
 //! Serialization for Pixa
 //!
-//! Binary serialization format for Pixa arrays. Each Pix is stored as PNG
-//! data with a length prefix. The format is:
+//! Binary serialization format for Pixa arrays. Each Pix is stored as a PNG
+//! stream directly after its header line; the stream is self-terminating, so
+//! no length prefix is written. The format is:
 //!
 //! ```text
 //! Pixa Version 2\n
 //! Number of pix = N\n
 //! [embedded boxa in text format]
-//!  pix[0]: xres = X, yres = Y, size = S\n
-//! [S bytes of PNG data]
-//!  pix[1]: xres = X, yres = Y, size = S\n
-//! [S bytes of PNG data]
+//!  pix[0]: xres = X, yres = Y\n
+//! [PNG stream, ending with its IEND chunk]
+//!  pix[1]: xres = X, yres = Y\n
+//! [PNG stream]
 //! ...
 //! ```
+//!
+//! Earlier versions of this crate appended `, size = S` to the header line.
+//! Such files are still read, but they are not readable by C Leptonica.
 //!
 //! # See also
 //!
