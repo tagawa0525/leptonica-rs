@@ -258,11 +258,13 @@ fn watershed_error_handling() {
     assert!(rp.cleanup(), "watershed error handling test failed");
 }
 
-/// C-compatible port of `DoWatershed()` in `prog/watershed_reg.c`, restricted
-/// to the local-extrema/seed stage (C indices 0-6 and 12-18).
+/// C-compatible port of `DoWatershed()` in `prog/watershed_reg.c`, covering
+/// every check it emits (C indices 0-11 and 12-23).
 ///
-/// The watershed stage proper (C indices 7-11, 19-23) needs the `L_WSHED`
-/// priority-queue machinery, which is not ported yet.
+/// Checks 10/11 and 22/23 currently mismatch C: they carry the colours from
+/// `pixaDisplayRandomCmap`, whose colormap comes from a per-call generator
+/// here but from glibc's single process-wide `rand()` stream in C. See
+/// `docs/porting/c-compat-findings/010-random-cmap-global-rng.md`.
 fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
     use leptonica::core::Pixa;
     use leptonica::core::pix::InitColor;
