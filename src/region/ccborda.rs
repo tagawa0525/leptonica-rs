@@ -21,7 +21,7 @@ use crate::region::seedfill::{holes_by_filling, seedfill_binary_restricted};
 ///
 /// C has no such bound: it assumes the termination condition (back at the
 /// start pixel heading for the same second pixel) always fires. It can fail
-/// to on ill-formed input, so cap the walk rather than growing without limit.
+/// on ill-formed input, so cap the walk rather than growing without limit.
 ///
 /// The bound must scale with area, not perimeter: a comb-shaped component's
 /// border walks up and down every tooth, so its length grows with the area.

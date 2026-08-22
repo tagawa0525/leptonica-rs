@@ -977,10 +977,11 @@ pub fn get_outer_border(pix: &Pix, bounds: Option<&Box>) -> RegionResult<Border>
     let (mut px, mut py) = (spx, spy);
 
     // Trace the border. As with the hole tracer, cap the number of recorded
-    // points at a multiple of the perimeter bound to prevent runaway growth
-    // when the standard termination condition fails to fire. Compute the cap
-    // in u64 then saturate-cast to usize so we cannot overflow on
-    // pathologically large images.
+    // points at the area bound `8 * W * H` to prevent runaway growth when the
+    // standard termination condition fails to fire. A perimeter bound would
+    // reject legitimate borders: a comb-shaped component's border walks up
+    // and down every tooth. Compute the cap in u64 then saturate-cast to
+    // usize so we cannot overflow on pathologically large images.
     let max_points: usize = (bwidth as u64)
         .saturating_mul(bheight as u64)
         .saturating_mul(8)
@@ -1274,9 +1275,11 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
     // Trace the border. The standard termination condition (back at the
     // start with the same outgoing direction as on the first iteration) can
     // fail for ill-formed holes and let the trace run away. Cap the number
-    // of points at a multiple of the perimeter bound `2*(W + H)` so we abort
-    // long before exhausting memory. Compute in u64 + saturating cast to
-    // avoid overflow on pathologically large images.
+    // of points at the area bound `8 * W * H`: the trace enters a pixel at
+    // most once per incoming direction, so this aborts a runaway walk without
+    // rejecting a legitimate border, whose length grows with the area rather
+    // than the perimeter. Compute in u64 + saturating cast to avoid overflow
+    // on pathologically large images.
     let max_points: usize = (width as u64)
         .saturating_mul(height as u64)
         .saturating_mul(8)
