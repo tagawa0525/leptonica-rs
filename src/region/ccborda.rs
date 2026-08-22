@@ -16,6 +16,8 @@ use crate::core::{Box, Boxa, Numa, Numaa, Pix, PixelDepth, Pta, Ptaa};
 use crate::region::conncomp::{ConnectivityType, conncomp_pixa, next_on_pixel_in_raster};
 use crate::region::error::{RegionError, RegionResult};
 use crate::region::seedfill::{holes_by_filling, seedfill_binary_restricted};
+#[cfg(feature = "ccb-format")]
+use miniz_oxide::{deflate::compress_to_vec_zlib, inflate::decompress_to_vec_zlib};
 
 /// Upper bound on the points a single border trace may record.
 ///
@@ -586,6 +588,49 @@ fn pta_get_ipt(pta: &Pta, index: usize) -> (i32, i32) {
     ((x + 0.5) as i32, (y + 0.5) as i32)
 }
 
+/// Bytes of the `.ccb` header: `"ccba: %7d cc\n"` is 17 characters, and C
+/// takes an 18th byte from its `snprintf` buffer, which is the NUL.
+#[cfg(feature = "ccb-format")]
+const CCB_HEADER_SIZE: usize = 18;
+
+/// Cursor over an uncompressed `.ccb` stream.
+///
+/// C's `ccbaReadStream()` trusts the counts in the file and `memcpy`s past
+/// the end of a truncated one; every read here is bounds-checked instead.
+#[cfg(feature = "ccb-format")]
+struct CcbReader<'a> {
+    data: &'a [u8],
+    offset: usize,
+}
+
+#[cfg(feature = "ccb-format")]
+impl<'a> CcbReader<'a> {
+    fn take(&mut self, n: usize) -> RegionResult<&'a [u8]> {
+        let end = self
+            .offset
+            .checked_add(n)
+            .filter(|&end| end <= self.data.len())
+            .ok_or_else(|| {
+                RegionError::InvalidParameters(format!(
+                    "ccba stream is truncated: wanted {n} bytes at offset {}, have {}",
+                    self.offset,
+                    self.data.len()
+                ))
+            })?;
+        let out = &self.data[self.offset..end];
+        self.offset = end;
+        Ok(out)
+    }
+
+    fn take4(&mut self) -> RegionResult<[u8; 4]> {
+        Ok(self.take(4)?.try_into().expect("four bytes"))
+    }
+
+    fn byte(&mut self) -> RegionResult<u8> {
+        Ok(self.take(1)?[0])
+    }
+}
+
 /// Serialization of the C `.ccb` format.
 ///
 /// The stream holds only the step chain representation: image size, and per
@@ -615,7 +660,50 @@ impl CcBorda {
     ///
     /// C Leptonica: `ccbaWriteStream()` in `ccbord.c`
     pub fn to_bytes(&self) -> RegionResult<Vec<u8>> {
-        Err(RegionError::NotImplemented)
+        let mut buf = format!("ccba: {:7} cc\n", self.ccb.len()).into_bytes();
+        buf.resize(CCB_HEADER_SIZE, 0);
+        buf.extend_from_slice(&self.w.to_le_bytes());
+        buf.extend_from_slice(&self.h.to_le_bytes());
+
+        for (i, ccb) in self.ccb.iter().enumerate() {
+            let b = ccb.boxa.get(0).ok_or_else(|| {
+                RegionError::InvalidParameters(format!("component {i} has no bounding box"))
+            })?;
+            if ccb.step.is_empty() {
+                return Err(RegionError::InvalidParameters(format!(
+                    "component {i} has no step chains; call generate_step_chains first"
+                )));
+            }
+            // C writes w and h too, though reconstruction does not need them.
+            for v in [b.x, b.y, b.w, b.h, ccb.step.len() as i32] {
+                buf.extend_from_slice(&v.to_le_bytes());
+            }
+
+            for j in 0..ccb.step.len() {
+                let na = ccb.step.get(j).expect("border in range");
+                let (startx, starty) = pta_get_ipt(&ccb.start, j);
+                buf.extend_from_slice(&startx.to_le_bytes());
+                buf.extend_from_slice(&starty.to_le_bytes());
+
+                // Two steps per byte, the earlier one in the high nibble.
+                let mut bval = 0u8;
+                for k in 0..na.len() {
+                    let val = (na.get_i32(k).unwrap_or(0) as u8) & 0xf;
+                    if k % 2 == 0 {
+                        bval = val << 4;
+                    } else {
+                        bval |= val;
+                        buf.push(bval);
+                    }
+                }
+                // 8 is not a step direction, so it terminates: after an odd
+                // count the last step keeps the high nibble, otherwise both
+                // nibbles are the sentinel.
+                buf.push(if na.len() % 2 == 1 { bval | 0x8 } else { 0x88 });
+            }
+        }
+
+        Ok(compress_to_vec_zlib(&buf, 6))
     }
 
     /// Parse the zlib-compressed C `.ccb` format.
@@ -628,8 +716,72 @@ impl CcBorda {
     /// # See also
     ///
     /// C Leptonica: `ccbaReadStream()` in `ccbord.c`
-    pub fn from_bytes(_data: &[u8]) -> RegionResult<Self> {
-        Err(RegionError::NotImplemented)
+    pub fn from_bytes(data: &[u8]) -> RegionResult<Self> {
+        let data = decompress_to_vec_zlib(data).map_err(|e| {
+            RegionError::InvalidParameters(format!("ccba stream is not zlib data: {e}"))
+        })?;
+        let mut r = CcbReader {
+            data: &data,
+            offset: 0,
+        };
+
+        let header = r.take(CCB_HEADER_SIZE)?;
+        let ncc = std::str::from_utf8(&header[..CCB_HEADER_SIZE - 1])
+            .ok()
+            .and_then(|s| s.strip_prefix("ccba:"))
+            .and_then(|s| s.strip_suffix(" cc\n"))
+            .and_then(|s| s.trim().parse::<usize>().ok())
+            .ok_or_else(|| {
+                RegionError::InvalidParameters("data is not a ccba stream".to_string())
+            })?;
+
+        let w = u32::from_le_bytes(r.take4()?);
+        let h = u32::from_le_bytes(r.take4()?);
+
+        // The counts come from the file, so they are not trusted for
+        // preallocation; the bounds checks in `take` are what limit growth.
+        let mut ccba = Self {
+            w,
+            h,
+            ccb: Vec::new(),
+        };
+        for _ in 0..ncc {
+            let mut ccb = CcBord::default();
+            let bx = i32::from_le_bytes(r.take4()?);
+            let by = i32::from_le_bytes(r.take4()?);
+            let bw = i32::from_le_bytes(r.take4()?);
+            let bh = i32::from_le_bytes(r.take4()?);
+            ccb.boxa
+                .push(Box::new(bx, by, bw, bh).map_err(RegionError::Core)?);
+
+            let nb = i32::from_le_bytes(r.take4()?);
+            let nb = usize::try_from(nb).map_err(|_| {
+                RegionError::InvalidParameters(format!("negative border count {nb}"))
+            })?;
+            for _ in 0..nb {
+                let startx = i32::from_le_bytes(r.take4()?);
+                let starty = i32::from_le_bytes(r.take4()?);
+                ccb.start.push(startx as f32, starty as f32);
+
+                let mut na = Numa::new();
+                loop {
+                    let bval = r.byte()?;
+                    let (nib1, nib2) = (bval >> 4, bval & 0xf);
+                    if nib1 == 8 {
+                        break;
+                    }
+                    na.push(f32::from(nib1));
+                    if nib2 == 8 {
+                        break;
+                    }
+                    na.push(f32::from(nib2));
+                }
+                ccb.step.push(na);
+            }
+            ccba.ccb.push(ccb);
+        }
+
+        Ok(ccba)
     }
 }
 
@@ -820,7 +972,6 @@ mod tests {
     /// Compare against the uncompressed payload, not the file: the compressed
     /// bytes depend on the deflate implementation, the payload does not.
     #[test]
-    #[ignore = "not yet implemented"]
     #[cfg(feature = "ccb-format")]
     fn test_to_bytes_matches_c() {
         let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
@@ -830,7 +981,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     #[cfg(feature = "ccb-format")]
     fn test_to_bytes_odd_step_chain_matches_c() {
         let mut ccba = CcBorda::from_pix(&l_triomino()).unwrap();
@@ -840,7 +990,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     #[cfg(feature = "ccb-format")]
     fn test_to_bytes_without_step_chains_is_an_error() {
         let ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
@@ -850,7 +999,6 @@ mod tests {
     /// Parse C's own stream, so the reader is checked against C's writer
     /// rather than only against our own.
     #[test]
-    #[ignore = "not yet implemented"]
     #[cfg(feature = "ccb-format")]
     fn test_from_bytes_reads_c_stream() {
         let ccba = CcBorda::from_bytes(&deflate(C_STREAM_RING_AND_DOT)).expect("from_bytes");
@@ -884,7 +1032,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     #[cfg(feature = "ccb-format")]
     fn test_from_bytes_reads_odd_step_chain() {
         let ccba = CcBorda::from_bytes(&deflate(C_STREAM_L_TRIOMINO)).expect("from_bytes");
@@ -893,7 +1040,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     #[cfg(feature = "ccb-format")]
     fn test_from_bytes_rejects_foreign_data() {
         let not_ccba = deflate(b"nope: not a ccba stream at all");
@@ -907,7 +1053,6 @@ mod tests {
     /// The round trip is what `prog/ccbord_reg.c` checks 3 and 4 rely on: the
     /// borders drawn after a write/read must be identical to the originals.
     #[test]
-    #[ignore = "not yet implemented"]
     #[cfg(feature = "ccb-format")]
     fn test_round_trip_reproduces_borders_and_image() {
         let pixs = ring_and_dot();
