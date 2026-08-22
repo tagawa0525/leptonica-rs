@@ -1416,6 +1416,85 @@ C `nextOnPixelInRasterLow()` は走査を `(xstart, ystart)` から始めるた�
 境界追跡そのもの (位置テーブルによる次画素探索、ステップチェーン、
 seedfill による再構成) には実装差がなかった。
 
+### PR 45: ccbord の `.ccb` シリアライズ往復 (実施済み)
+
+C 版ソース: `prog/ccbord_reg.c` の check 3,4 / 10,11。PR 44 で作った
+`CCBORDA` を `.ccb` ファイルに書き出して読み戻し、境界描画 (3,10) と
+画像再構成 (4,11) をやり直す。
+
+移植する C 関数:
+
+| C 関数 | 役割 |
+| --- | --- |
+| `ccbaWriteStream` | ステップチェーン表現を直列化して zlib 圧縮 |
+| `ccbaReadStream` | zlib 展開して直列化データを復元 |
+
+`ccbaWrite` / `ccbaRead` はファイルを開閉するだけの薄い包みなので移植
+しない。`std::fs::write(path, ccba.to_bytes()?)` /
+`CcBorda::from_bytes(&std::fs::read(path)?)` で足りる。`RegionError` に
+`Io` を足さずに済む利点もある。
+
+**形式** (C の doc comment より、実測で確認済み):
+
+```text
+"ccba: %7d cc\n" を 18 バイト  (17 文字 + snprintf の NUL)
+pix width   4B
+pix height  4B
+[成分ごと]
+    ulx 4B / uly 4B / w 4B / h 4B     (w,h は復元に不要だが書かれる)
+    境界数 nb 4B
+    [境界ごと]
+        startx 4B / starty 4B
+        ステップ 2 個を 1 バイトに詰める (上位ニブルが先)
+        終端 1B: n が奇数なら 0xz8 (z = 最後の値)、偶数なら 0x88
+```
+
+全体を zlib 圧縮する。整数は C が native order で書くため、x86 に
+合わせてリトルエンディアンで実装する。
+
+**復元されないもの**: `local` / `global` 座標と穴の bounding box
+(`boxa` の index 1 以降)。読み戻した `CcBorda` は `boxa[0]` / `start` /
+`step` だけを持ち、座標は `step_chains_to_pix_coords` で作り直す。
+C の reg test がまさにその順序で呼ぶ。
+
+**zlib 依存**: `miniz_oxide` は既に optional 依存 (`pdf-format` /
+`ps-format`)。`.ccb` は 1 つのファイル形式なので、他の形式と同じ流儀で
+`ccb-format` feature を足して `all-formats` に含める。テスト
+`ccbord_c_compat` は feature ごと gate する (一部の check だけ落とすと
+check 番号がずれて manifest が壊れるため)。`tests/core/pixa_select_to_pdf_reg.rs`
+が `#![cfg(feature = "pdf-format")]` で同じことをしている前例。
+
+**期待値**: C manifest では `ccbord.03 == ccbord.00`、`ccbord.04 ==
+ccbord.02`、`ccbord.10 == ccbord.07`、`ccbord.11 == ccbord.09`。往復が
+無損失なら自動的に一致するので、この 4 ペアは「往復でデータが落ちない」
+ことの検証になる。
+
+**RED に使う C 実測値** (`ccbaWrite` の出力を `zlibUncompress` して採取):
+
+| 図形 | 成分 | ステップ列 | 終端バイト |
+| --- | --- | --- | --- |
+| 8x6 に 3x2 塊と孤立点 | 2 | `4 4 6 0 0 2` / なし | `44 60 02 88` / `88` |
+| 9x9 の 5x5 リング | 1 (穴 1) | 外周 16 個 / 穴 12 個 | 各 `88` |
+| 5x5 の L 字 3 画素 | 1 | `4 7 2` (奇数) | `47 28` |
+
+実施結果:
+
+- **4 ペア全件 Ok** (Ok 456 → 460、region 101 → 105)。実装差は 0 件
+- `feyn-fract.tif` (464 成分、38272 バイト) と `dreyfus1.png`
+  (290 成分、40987 バイト) で、C の `ccbaWrite()` が出す非圧縮ペイロード
+  と Rust の `to_bytes()` がバイト完全一致することを確認した
+- `ccbord_c_compat` の check が 2 つずつ増えたので、dreyfus1 側の Rust
+  index が 4-6 から 6-10 にずれた。`golden_map.tsv` と manifest を更新
+
+**C との意図的な差異** (いずれも rustdoc に記載):
+
+- `to_bytes()` はステップチェーン未生成をエラーにする。C は黙って
+  `ccbaGenerateStepChains()` を呼ぶが、同じモジュールの
+  `step_chains_to_pix_coords` がエラーを返す方針なので揃えた
+- `from_bytes()` は全読み出しを境界検査する。C の `ccbaReadStream()` は
+  ファイル中の個数を信用して `memcpy` するため、切り詰められた入力で
+  バッファ外を読む。個数からの事前確保もしない
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

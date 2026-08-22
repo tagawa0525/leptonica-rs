@@ -47,30 +47,29 @@ Rust 独自の便宜 API で、表現も直列化形式も C とは異なる。
 
 #### region/ccborda.rs (ccbord.c) — C 対応の移植
 
-| C関数                     | 状態 | Rust対応                            | 備考                      |
-| ------------------------- | ---- | ----------------------------------- | ------------------------- |
-| pixGetAllCCBorders        | ✅   | CcBorda::from_pix                   | plan 902 PR 44            |
-| pixGetCCBorders           | ✅   | cc_borders (private)                | -                         |
-| pixGetOuterBorder         | ✅   | get_outer_border (private)          | -                         |
-| pixGetHoleBorder          | ✅   | get_hole_border (private)           | -                         |
-| findNextBorderPixel       | ✅   | find_next_border_pixel (private)    | 位置テーブルごと移植      |
-| locateOutsideSeedPixel    | ✅   | locate_outside_seed_pixel (private) | -                         |
-| ccbaGenerateGlobalLocs    | ✅   | CcBorda::generate_global_locs       | C とビット一致            |
-| ccbaGenerateStepChains    | ✅   | CcBorda::generate_step_chains       | C とビット一致            |
-| ccbaStepChainsToPixCoords | ✅   | CcBorda::step_chains_to_pix_coords  | Local / Global 両方       |
-| ccbaDisplayBorder         | ✅   | CcBorda::display_border             | C とビット一致            |
-| ccbaDisplayImage2         | ✅   | CcBorda::display_image              | C とビット一致            |
-| ccbaWrite / ccbaRead      | 🔄   | -                                   | plan 902 PR 45 で移植予定 |
-| ccbaGenerateSinglePath    | 🔄   | -                                   | plan 902 PR 46 で移植予定 |
-| ccbaGenerateSPGlobalLocs  | 🔄   | -                                   | 同上                      |
-| ccbaDisplaySPBorder       | 🔄   | -                                   | 同上                      |
-| ccbaWriteSVGString        | 🔄   | -                                   | 同上                      |
-| ccbaDisplayImage1         | 🚫   | -                                   | C の reg テストが使わない |
+| C関数                     | 状態 | Rust対応                            | 備考                       |
+| ------------------------- | ---- | ----------------------------------- | -------------------------- |
+| pixGetAllCCBorders        | ✅   | CcBorda::from_pix                   | plan 902 PR 44             |
+| pixGetCCBorders           | ✅   | cc_borders (private)                | -                          |
+| pixGetOuterBorder         | ✅   | get_outer_border (private)          | -                          |
+| pixGetHoleBorder          | ✅   | get_hole_border (private)           | -                          |
+| findNextBorderPixel       | ✅   | find_next_border_pixel (private)    | 位置テーブルごと移植       |
+| locateOutsideSeedPixel    | ✅   | locate_outside_seed_pixel (private) | -                          |
+| ccbaGenerateGlobalLocs    | ✅   | CcBorda::generate_global_locs       | C とビット一致             |
+| ccbaGenerateStepChains    | ✅   | CcBorda::generate_step_chains       | C とビット一致             |
+| ccbaStepChainsToPixCoords | ✅   | CcBorda::step_chains_to_pix_coords  | Local / Global 両方        |
+| ccbaDisplayBorder         | ✅   | CcBorda::display_border             | C とビット一致             |
+| ccbaDisplayImage2         | ✅   | CcBorda::display_image              | C とビット一致             |
+| ccbaWriteStream           | ✅   | CcBorda::to_bytes                   | C とバイト一致 (PR 45)     |
+| ccbaReadStream            | ✅   | CcBorda::from_bytes                 | plan 902 PR 45             |
+| ccbaWrite / ccbaRead      | 🚫   | -                                   | ファイル開閉のみの薄い包み |
+| ccbaGenerateSinglePath    | 🔄   | -                                   | plan 902 PR 46 で移植予定  |
+| ccbaGenerateSPGlobalLocs  | 🔄   | -                                   | 同上                       |
+| ccbaDisplaySPBorder       | 🔄   | -                                   | 同上                       |
+| ccbaWriteSVGString        | 🔄   | -                                   | 同上                       |
+| ccbaDisplayImage1         | 🚫   | -                                   | C の reg テストが使わない  |
 
-C の `CCBORDA` パイプラインの移植は `region/ccborda.rs` (`CcBorda`)。
-`region/ccbord.rs` の `Border` / `ComponentBorders` は C に一対一対応の
-ない Rust 独自の便宜 API で、表現も直列化形式も C とは異なる。両方に
-対応がある関数は、C 対応の実装で状態を判定している。
+両方に対応がある関数は、C 対応の実装で状態を判定している。
 
 #### region/ccborda.rs + region/ccbord.rs (ccbord.c) — Rust 独自 API
 

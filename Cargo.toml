@@ -43,9 +43,10 @@ webp-format = ["image-webp"]
 jp2k-format = ["hayro-jpeg2000"]
 pdf-format  = ["pdf-writer", "miniz_oxide"]
 ps-format   = ["miniz_oxide"]
+ccb-format  = ["miniz_oxide"]
 all-formats = ["bmp", "pnm", "png-format", "jpeg", "gif-format",
                "tiff-format", "webp-format", "jp2k-format",
-               "pdf-format", "ps-format"]
+               "pdf-format", "ps-format", "ccb-format"]
 
 [profile.dev]
 opt-level = 1
