@@ -172,10 +172,16 @@ fn ccbord_reg_dreyfus1_smoke() {
 }
 
 /// C-compatible port of `RunCCBordTest()` in `prog/ccbord_reg.c`, covering the
-/// border-following and reconstruction stage (C indices 0-2 and 7-9).
+/// border-following, reconstruction, and serialization stages (C indices 0-4
+/// and 7-11).
 ///
-/// The serialization round-trip (3,4 / 10,11) and the single-path/SVG stage
-/// (5,6 / 12,13) need more of the `CCBORDA` API and follow in later PRs.
+/// The single-path/SVG stage (5,6 / 12,13) needs more of the `CCBORDA` API and
+/// follows in a later PR.
+///
+/// Gated on `ccb-format` as a whole rather than per check: dropping only the
+/// serialization checks would renumber the ones after them and break the
+/// golden manifest.
+#[cfg(feature = "ccb-format")]
 fn do_ccbord_c(rp: &mut RegParams, fname: &str) {
     use leptonica::region::{CcBorda, CcbCoords};
 
@@ -204,9 +210,35 @@ fn do_ccbord_c(rp: &mut RegParams, fname: &str) {
     // 2 / 9
     rp.write_pix_and_check(&pixc, ImageFormat::Png)
         .expect("write reconstruction");
+
+    // Write the step data out and read it back. Only the step representation
+    // survives, so both coordinate frames have to be rebuilt from it.
+    let serialized = ccba.to_bytes().expect("to_bytes");
+    let mut ccba2 = CcBorda::from_bytes(&serialized).expect("from_bytes");
+
+    ccba2
+        .step_chains_to_pix_coords(CcbCoords::Global)
+        .expect("read-back step chains to global");
+    let pixd2 = ccba2
+        .display_border()
+        .expect("display_border after round trip");
+    // 3 / 10
+    rp.write_pix_and_check(&pixd2, ImageFormat::Png)
+        .expect("write border after round trip");
+
+    ccba2
+        .step_chains_to_pix_coords(CcbCoords::Local)
+        .expect("read-back step chains to local");
+    let pixc2 = ccba2
+        .display_image()
+        .expect("display_image after round trip");
+    // 4 / 11
+    rp.write_pix_and_check(&pixc2, ImageFormat::Png)
+        .expect("write reconstruction after round trip");
 }
 
 #[test]
+#[cfg(feature = "ccb-format")]
 fn ccbord_c_compat() {
     let mut rp = RegParams::new("ccbord_c");
     do_ccbord_c(&mut rp, "feyn-fract.tif");

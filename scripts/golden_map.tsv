@@ -346,9 +346,13 @@ region	watershed	23	watershed_c	24	watershed image 2 tiled stages
 region	ccbord	0	ccbord_c	1	ccbord feyn-fract border pixels (global locs)
 region	ccbord	1	ccbord_c	2	ccbord feyn-fract border pixels (via step chains)
 region	ccbord	2	ccbord_c	3	ccbord feyn-fract image reconstruction
-region	ccbord	7	ccbord_c	4	ccbord dreyfus1 border pixels (global locs)
-region	ccbord	8	ccbord_c	5	ccbord dreyfus1 border pixels (via step chains)
-region	ccbord	9	ccbord_c	6	ccbord dreyfus1 image reconstruction
+region	ccbord	3	ccbord_c	4	ccbord feyn-fract border pixels after .ccb round trip
+region	ccbord	4	ccbord_c	5	ccbord feyn-fract image reconstruction after .ccb round trip
+region	ccbord	7	ccbord_c	6	ccbord dreyfus1 border pixels (global locs)
+region	ccbord	8	ccbord_c	7	ccbord dreyfus1 border pixels (via step chains)
+region	ccbord	9	ccbord_c	8	ccbord dreyfus1 image reconstruction
+region	ccbord	10	ccbord_c	9	ccbord dreyfus1 border pixels after .ccb round trip
+region	ccbord	11	ccbord_c	10	ccbord dreyfus1 image reconstruction after .ccb round trip
 
 # lineremoval_reg.c (plan 902 PR 20): dave-orig.png line removal pipeline
 recog	lineremoval	0	lineremoval_c	1	threshold to binary 170
