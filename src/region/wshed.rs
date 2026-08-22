@@ -18,20 +18,123 @@
 //! watersheds that are duplicates". That behaviour is reproduced here, not
 //! corrected — the point of this port is to agree with C bit for bit.
 
-use crate::core::{Numa, Pix, Pixa, PixelDepth, Pta};
+use crate::core::pta::pix_generate_from_pta;
+use crate::core::{Box, Numa, Pix, Pixa, PixelDepth, Pta};
+use crate::region::conncomp::ConnectivityType;
 use crate::region::error::{RegionError, RegionResult};
+use crate::region::seedfill::{local_extrema, remove_seeded_components, select_min_in_conncomp};
 
 /// C: `static const l_uint32 MAX_LABEL_VALUE = 0x7fffffff` — the label
 /// written into every pixel of `pixlab` before filling starts.
 const MAX_LABEL_VALUE: u32 = 0x7fff_ffff;
+
+/// One entry of the flooding priority queue (C `L_WSPIXEL`).
+#[derive(Clone, Copy, Debug)]
+struct WsPixel {
+    /// Ordering key: the source pixel value. C stores it as `l_float32`.
+    val: f32,
+    x: i32,
+    y: i32,
+    /// Label of the set this pixel belongs to.
+    index: i32,
+}
+
+/// Binary min-heap ordered on `WsPixel::val`.
+///
+/// Ported verbatim from C `L_HEAP` (`heap.c`) with `L_SORT_INCREASING`.
+/// The exact sift-up / sift-down steps decide the order among equal
+/// values, and that order changes which basin claims a saddle pixel, so
+/// this must not be replaced with [`std::collections::BinaryHeap`].
+struct WsHeap {
+    array: Vec<WsPixel>,
+}
+
+impl WsHeap {
+    fn new() -> Self {
+        Self { array: Vec::new() }
+    }
+
+    fn len(&self) -> usize {
+        self.array.len()
+    }
+
+    /// C `lheapAdd()`: append, then sift up from the new last slot.
+    fn add(&mut self, item: WsPixel) {
+        self.array.push(item);
+        self.swap_up(self.array.len() - 1);
+    }
+
+    /// C `lheapRemove()`: take the root, move the last item to the head,
+    /// shrink, then sift down.
+    fn remove(&mut self) -> Option<WsPixel> {
+        let item = *self.array.first()?;
+        let last = *self.array.last().expect("non-empty");
+        self.array[0] = last;
+        self.array.pop();
+        self.swap_down();
+        Some(item)
+    }
+
+    /// C `lheapSwapUp()`. `ic` / `ip` are 1-based heap indices.
+    fn swap_up(&mut self, index: usize) {
+        let mut ic = index + 1;
+        loop {
+            if ic == 1 {
+                break; // root of heap
+            }
+            let ip = ic / 2;
+            let valc = self.array[ic - 1].val;
+            let valp = self.array[ip - 1].val;
+            if valp <= valc {
+                break;
+            }
+            self.array.swap(ip - 1, ic - 1);
+            ic = ip;
+        }
+    }
+
+    /// C `lheapSwapDown()`. `ip` / `icl` / `icr` are 1-based heap indices.
+    fn swap_down(&mut self) {
+        let n = self.array.len();
+        if n < 1 {
+            return;
+        }
+        let mut ip = 1usize;
+        loop {
+            let icl = 2 * ip;
+            if icl > n {
+                break;
+            }
+            let valp = self.array[ip - 1].val;
+            let valcl = self.array[icl - 1].val;
+            let icr = icl + 1;
+            if icr > n {
+                // Only a left child; no iterations below this one.
+                if valp > valcl {
+                    self.array.swap(ip - 1, icl - 1);
+                }
+                break;
+            }
+            let valcr = self.array[icr - 1].val;
+            if valp <= valcl && valp <= valcr {
+                break; // smaller than both
+            }
+            if valcl <= valcr {
+                self.array.swap(ip - 1, icl - 1);
+                ip = icl;
+            } else {
+                self.array.swap(ip - 1, icr - 1);
+                ip = icr;
+            }
+        }
+    }
+}
 
 /// Watershed transform state (C `L_WSHED`).
 ///
 /// Build it with [`Wshed::new`], run [`Wshed::apply`], then read the
 /// basins with [`Wshed::basins`] or render them with
 /// [`Wshed::render_fill`] / [`Wshed::render_colors`].
-// The stub does not touch most of the state yet; `apply()` fills it in.
-#[allow(dead_code)]
 pub struct Wshed {
     /// 8 bpp source.
     pixs: Pix,
@@ -151,14 +254,308 @@ impl Wshed {
         self.nother
     }
 
+    #[inline]
+    fn source_value(&self, x: i32, y: i32) -> i32 {
+        self.pixs.get_pixel_unchecked(x as u32, y as u32) as i32
+    }
+
     /// Run the flooding.
-    ///
-    /// Not implemented yet.
     ///
     /// # See also
     ///
     /// C Leptonica: `wshedApply()` in `watershed.c`
     pub fn apply(&mut self) -> RegionResult<()> {
+        let w = self.w as i32;
+        let h = self.h as i32;
+        let mut lh = WsHeap::new();
+
+        // Seeds: one pixel per connected component of pixm.
+        let (ptas, nash) = select_min_in_conncomp(&self.pixs, &self.pixm)?;
+        let pixsd = pix_generate_from_pta(&ptas, self.w, self.h)?;
+        let nseeds = ptas.len() as i32;
+        for i in 0..nseeds {
+            let (x, y) = pta_get_ipt(&ptas, i as usize);
+            lh.add(WsPixel {
+                val: self.source_value(x, y) as f32,
+                x,
+                y,
+                index: i,
+            });
+        }
+        self.ptas = ptas;
+        self.nasi = Numa::make_constant(1.0, nseeds as usize);
+        self.nash = nash;
+        self.nseeds = nseeds;
+
+        // Minima that are not seeds: take the local minima, drop the ones
+        // that already hold a seed, then shrink each survivor to a pixel.
+        let (pixmin, _) = local_extrema(&self.pixs, 200, 0)?;
+        let pixmin = remove_seeded_components(&pixsd, &pixmin, ConnectivityType::EightWay, 2)?;
+        let (ptao, namh) = select_min_in_conncomp(&self.pixs, &pixmin)?;
+        let nother = ptao.len() as i32;
+        for i in 0..nother {
+            let (x, y) = pta_get_ipt(&ptao, i as usize);
+            lh.add(WsPixel {
+                val: self.source_value(x, y) as f32,
+                x,
+                y,
+                index: nseeds + i,
+            });
+        }
+        self.namh = namh;
+        self.nother = nother;
+
+        // Merging lookup tables. `lut` always gives the current owner of an
+        // index; `links` are the back-pointers so a merge can redirect all
+        // of an owner's followers at once.
+        let mindepth = self.mindepth;
+        let nboth = nseeds + nother;
+        let arraysize = 2 * nboth;
+        self.arraysize = arraysize;
+        self.lut = (0..arraysize).collect();
+        self.links = vec![None; arraysize.max(0) as usize];
+        let mut nindex = nseeds + nother; // next unused index value
+
+        while lh.len() > 0 {
+            let Some(p) = lh.remove() else { break };
+            let (val, x, y, index) = (p.val as i32, p.x, p.y, p.index);
+            let ulabel = self.pixlab[(y as usize) * (w as usize) + x as usize];
+            let clabel = if ulabel == MAX_LABEL_VALUE {
+                MAX_LABEL_VALUE as i32
+            } else {
+                self.lut[ulabel as usize]
+            };
+            let cindex = self.lut[index as usize];
+            if clabel == cindex {
+                continue; // already seen this one
+            }
+
+            if clabel == MAX_LABEL_VALUE as i32 {
+                // New one: assign the index and try to propagate to all
+                // 8-neighbours.
+                self.pixlab[(y as usize) * (w as usize) + x as usize] = cindex as u32;
+                let imin = 0.max(y - 1);
+                let imax = (h - 1).min(y + 1);
+                let jmin = 0.max(x - 1);
+                let jmax = (w - 1).min(x + 1);
+                for i in imin..=imax {
+                    for j in jmin..=jmax {
+                        if i == y && j == x {
+                            continue;
+                        }
+                        lh.add(WsPixel {
+                            val: self.source_value(j, i) as f32,
+                            x: j,
+                            y: i,
+                            index: cindex,
+                        });
+                    }
+                }
+            } else if clabel < nseeds && cindex < nseeds {
+                // Both indices are seeds. If the shallower of the two is
+                // deeper than mindepth we have two new watersheds; save
+                // both and give them a fresh index to keep filling with.
+                // Otherwise absorb the shallower into the deeper one.
+                let hlabel = self.get_height(val, clabel)?;
+                let hindex = self.get_height(val, cindex)?;
+                let hmin = hlabel.min(hindex);
+                if hmin >= mindepth {
+                    self.save_basin(cindex, val - 1)?;
+                    self.save_basin(clabel, val - 1)?;
+                    self.set_seed_done(cindex);
+                    self.set_seed_done(clabel);
+                    self.merge_lookup(clabel, nindex)?;
+                    self.merge_lookup(cindex, nindex)?;
+                    nindex += 1;
+                }
+                // C runs this merge whether or not the basins were saved
+                // (the comment there flags it as possibly misplaced).
+                let (minhindex, maxhindex) = if hindex > hlabel {
+                    (clabel, cindex)
+                } else {
+                    (cindex, clabel)
+                };
+                self.merge_lookup(minhindex, maxhindex)?;
+            } else if clabel < nseeds && cindex >= nboth {
+                // One index is a seed, the other a merge of two
+                // watersheds: generate a single watershed.
+                self.save_basin(clabel, val - 1)?;
+                self.set_seed_done(clabel);
+                self.merge_lookup(clabel, cindex)?;
+            } else if cindex < nseeds && clabel >= nboth {
+                self.save_basin(cindex, val - 1)?;
+                self.set_seed_done(cindex);
+                self.merge_lookup(cindex, clabel)?;
+            } else if clabel < nseeds {
+                // One is a seed, the other came from a minimum: merge the
+                // minimum's basin into the seeded one.
+                self.merge_lookup(cindex, clabel)?;
+            } else if cindex < nseeds {
+                self.merge_lookup(clabel, cindex)?;
+            } else {
+                // Neither is a seed; just merge.
+                self.merge_lookup(clabel, cindex)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Mark a seed's basin as finished. C: `numaSetValue(nasi, i, 0)`.
+    fn set_seed_done(&mut self, index: i32) {
+        let _ = self.nasi.set(index as usize, 0.0);
+    }
+
+    /// Height of `val` above the minimum of the basin labelled `label`.
+    ///
+    /// # C fidelity
+    ///
+    /// C has a second branch for `label` in `[nseeds, nseeds + nother)`
+    /// that reads `namh` with the unshifted `label`, which is out of range
+    /// for that array. It is unreachable: `wshedApply()` only calls this
+    /// when both indices are below `nseeds`. Reject that range instead of
+    /// reproducing an out-of-bounds read.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `wshedGetHeight()` in `watershed.c`
+    fn get_height(&self, val: i32, label: i32) -> RegionResult<i32> {
+        if label >= self.nseeds {
+            return Err(RegionError::InvalidParameters(format!(
+                "wshed height requested for non-seed label {label} (nseeds = {})",
+                self.nseeds
+            )));
+        }
+        let minval = self.nash.get(label as usize).unwrap_or(0.0) as i32;
+        Ok(val - minval)
+    }
+
+    /// Save the basin owned by `index`, filled up to `level`.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `wshedSaveBasin()` in `watershed.c`
+    fn save_basin(&mut self, index: i32, level: i32) -> RegionResult<()> {
+        let (b, pix) = self.identify_basin(index, level)?;
+        self.pixad.push_with_box(pix, b);
+        self.nalevels.push((level - 1) as f32);
+        Ok(())
+    }
+
+    /// Breadth-first search that carves the basin owned by `index` out of
+    /// the label plane.
+    ///
+    /// A neighbour joins the basin when it carries the label `index`, its
+    /// source value is below `level` (the overflow height at which the two
+    /// basins joined), and it has not been seen in this search.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `identifyWatershedBasin()` in `watershed.c`
+    fn identify_basin(&mut self, index: i32, level: i32) -> RegionResult<(Box, Pix)> {
+        let w = self.w as i32;
+        let h = self.h as i32;
+        let wu = self.w as usize;
+
+        // C primes these with 1000000 / 0 and relies on the seed push to
+        // bring them into range.
+        let mut minx = 1_000_000i32;
+        let mut miny = 1_000_000i32;
+        let mut maxx = 0i32;
+        let mut maxy = 0i32;
+
+        let (sx, sy) = pta_get_ipt(&self.ptas, index as usize);
+        self.pixt[(sy as usize) * wu + sx as usize] = true;
+        let mut queue = std::collections::VecDeque::new();
+        push_new_pixel(
+            &mut queue, sx, sy, &mut minx, &mut maxx, &mut miny, &mut maxy,
+        );
+
+        while let Some((x, y)) = queue.pop_front() {
+            let imin = 0.max(y - 1);
+            let imax = (h - 1).min(y + 1);
+            let jmin = 0.max(x - 1);
+            let jmax = (w - 1).min(x + 1);
+            for i in imin..=imax {
+                for j in jmin..=jmax {
+                    if j == x && i == y {
+                        continue; // parent
+                    }
+                    let off = (i as usize) * wu + j as usize;
+                    let label = self.pixlab[off];
+                    if label == MAX_LABEL_VALUE || self.lut[label as usize] != index {
+                        continue;
+                    }
+                    if self.pixt[off] {
+                        continue; // already seen
+                    }
+                    if self.source_value(j, i) >= level {
+                        continue; // too high
+                    }
+                    self.pixt[off] = true;
+                    push_new_pixel(&mut queue, j, i, &mut minx, &mut maxx, &mut miny, &mut maxy);
+                }
+            }
+        }
+
+        // Extract the box and pix, then clear that region of pixt. C does
+        // it with pixClipRectangle + an in-place XOR rasterop; copying the
+        // bits out and zeroing them is the same thing.
+        let bw = (maxx - minx + 1) as u32;
+        let bh = (maxy - miny + 1) as u32;
+        let b = Box::new_unchecked(minx, miny, bw as i32, bh as i32);
+        let pixd = Pix::new(bw, bh, PixelDepth::Bit1).map_err(RegionError::Core)?;
+        let mut pixd = pixd.try_into_mut().map_err(|_| {
+            RegionError::InvalidParameters("basin pix unexpectedly shared".to_string())
+        })?;
+        for dy in 0..bh {
+            for dx in 0..bw {
+                let off = ((miny as u32 + dy) as usize) * wu + (minx as u32 + dx) as usize;
+                if self.pixt[off] {
+                    pixd.set_pixel_unchecked(dx, dy, 1);
+                    self.pixt[off] = false;
+                }
+            }
+        }
+        Ok((b, pixd.into()))
+    }
+
+    /// Redirect `sindex` (and everything pointing at it) to `dindex`.
+    ///
+    /// Every entry of `lut` is either an *owner* (`lut[i] == i`) or a
+    /// *redirect* (`lut[i] != i`). This restores that canonical form after
+    /// a merge, so a redirect always points straight at the current owner.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `mergeLookup()` in `watershed.c`
+    fn merge_lookup(&mut self, sindex: i32, dindex: i32) -> RegionResult<()> {
+        let size = self.arraysize;
+        if sindex < 0 || sindex >= size {
+            return Err(RegionError::InvalidParameters(format!(
+                "invalid merge source index {sindex} (size {size})"
+            )));
+        }
+        if dindex < 0 || dindex >= size {
+            return Err(RegionError::InvalidParameters(format!(
+                "invalid merge destination index {dindex} (size {size})"
+            )));
+        }
+
+        // Redirect the links in the lut.
+        let src = self.links[sindex as usize].take().unwrap_or_default();
+        for &idx in &src {
+            self.lut[idx as usize] = dindex;
+        }
+        self.lut[sindex as usize] = dindex;
+
+        // Shift the back-link arrays from sindex to dindex. sindex has no
+        // back-links left: everything that pointed at it now points at
+        // dindex. C's callers never merge an index into itself, so the
+        // move below never aliases.
+        let dst = self.links[dindex as usize].get_or_insert_with(Vec::new);
+        dst.extend(src);
+        dst.push(sindex);
         Ok(())
     }
 
@@ -200,6 +597,29 @@ impl Wshed {
             .map_err(RegionError::Core)?;
         Ok(pixd.into())
     }
+}
+
+/// C `ptaGetIPt()`: round the stored float coordinates to integers.
+fn pta_get_ipt(pta: &Pta, index: usize) -> (i32, i32) {
+    let (x, y) = pta.get(index).unwrap_or((0.0, 0.0));
+    ((x + 0.5) as i32, (y + 0.5) as i32)
+}
+
+/// C `pushNewPixel()`: enqueue and grow the bounding box.
+fn push_new_pixel(
+    queue: &mut std::collections::VecDeque<(i32, i32)>,
+    x: i32,
+    y: i32,
+    minx: &mut i32,
+    maxx: &mut i32,
+    miny: &mut i32,
+    maxy: &mut i32,
+) {
+    *minx = (*minx).min(x);
+    *maxx = (*maxx).max(x);
+    *miny = (*miny).min(y);
+    *maxy = (*maxy).max(y);
+    queue.push_back((x, y));
 }
 
 #[cfg(test)]
@@ -258,7 +678,6 @@ mod tests {
     ];
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_wshed_apply_matches_c() {
         let (pixs, pixm) = two_basin_fixture();
         let mut w = Wshed::new(&pixs, &pixm, 5).unwrap();
@@ -289,7 +708,6 @@ mod tests {
     /// C `wshedRenderFill()` paints each basin at its recorded level over a
     /// copy of the source. Expected values dumped from C.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_wshed_render_fill_matches_c() {
         let (pixs, pixm) = two_basin_fixture();
         let mut w = Wshed::new(&pixs, &pixm, 5).unwrap();
