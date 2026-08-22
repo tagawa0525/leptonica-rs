@@ -1960,8 +1960,10 @@ mod tests {
     /// the trace walks up and down every tooth. Bounding the point count by
     /// `4 * (W + H)` therefore rejects perfectly well-formed input.
     ///
-    /// This 21x11 comb has 11 teeth; its outer border is well over the old
-    /// `4 * (21 + 11) + 16 = 144` cap. The same failure happens on the real
+    /// This 21x11 comb has 11 teeth and a 241-point outer border. The old cap
+    /// was computed on the padded dimensions the tracer works with (23x13),
+    /// giving `4 * (23 + 13) + 16 = 160`, so compare against that rather than
+    /// the unpadded figure. The same failure happens on the real
     /// `dreyfus1.png`, whose longest border is 2383 points against a cap of
     /// 1916.
     #[test]
@@ -1979,9 +1981,12 @@ mod tests {
         let pix: Pix = pm.into();
 
         let border = get_outer_border(&pix, None).expect("comb outer border");
+        // The tracer adds a 1-pixel border, so the old cap used 23x13.
+        let old_cap = 4 * ((21 + 2) + (11 + 2)) + 16;
+        assert_eq!(old_cap, 160);
         assert!(
-            border.len() > 4 * (21 + 11) + 16,
-            "the comb border ({}) must exceed the old perimeter cap",
+            border.len() > old_cap,
+            "the comb border ({}) must exceed the old perimeter cap ({old_cap})",
             border.len()
         );
     }
