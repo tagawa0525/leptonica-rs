@@ -258,15 +258,20 @@ fn watershed_error_handling() {
     assert!(rp.cleanup(), "watershed error handling test failed");
 }
 
-/// C-compatible port of `DoWatershed()` in `prog/watershed_reg.c`, restricted
-/// to the local-extrema/seed stage (C indices 0-6 and 12-18).
+/// C-compatible port of `DoWatershed()` in `prog/watershed_reg.c`, covering
+/// every check it emits (C indices 0-11 and 12-23).
 ///
-/// The watershed stage proper (C indices 7-11, 19-23) needs the `L_WSHED`
-/// priority-queue machinery, which is not ported yet.
+/// Checks 10/11 and 22/23 currently mismatch C: they carry the colours from
+/// `pixaDisplayRandomCmap`, whose colormap comes from a per-call generator
+/// here but from glibc's single process-wide `rand()` stream in C. See
+/// `docs/porting/c-compat-findings/010-random-cmap-global-rng.md`.
 fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
+    use leptonica::core::Pixa;
     use leptonica::core::pix::InitColor;
     use leptonica::core::pixel::compose_rgba;
-    use leptonica::region::{local_extrema, remove_seeded_components, select_min_in_conncomp};
+    use leptonica::region::{
+        Wshed, local_extrema, remove_seeded_components, select_min_in_conncomp,
+    };
 
     let w = pixs.width();
     let h = pixs.height();
@@ -323,7 +328,7 @@ fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
     rp.write_pix_and_check(&pix4, ImageFormat::Png)
         .expect("write painted seeds");
 
-    let pix5 = remove_seeded_components(&pix3, &pix1, ConnectivityType::EightWay)
+    let pix5 = remove_seeded_components(&pix3, &pix1, ConnectivityType::EightWay, 2)
         .expect("remove_seeded_components");
     // 5
     rp.write_pix_and_check(&pix5, ImageFormat::Png)
@@ -331,6 +336,40 @@ fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
     // 6
     let empty = if pix5.is_zero() { 1.0 } else { 0.0 };
     rp.compare_values(1.0, empty, 0.0);
+
+    // Make and display the watershed.
+    let mut wshed = Wshed::new(pixs, &pix3, 10).expect("Wshed::new");
+    wshed.apply().expect("wshed apply");
+    let (pixad, nalevels) = wshed.basins();
+    let pix6 = pixad
+        .display_random_cmap(w, h)
+        .expect("display_random_cmap");
+    // 7
+    rp.write_pix_and_check(&pix6, ImageFormat::Png)
+        .expect("write random cmap");
+    // 8
+    let data = nalevels.write_to_bytes().expect("numa write");
+    rp.write_data_and_check(&data, "na").expect("write levels");
+    let pix7 = wshed.render_fill().expect("render_fill");
+    // 9
+    rp.write_pix_and_check(&pix7, ImageFormat::Png)
+        .expect("write render_fill");
+    let pix8 = wshed.render_colors().expect("render_colors");
+    // 10
+    rp.write_pix_and_check(&pix8, ImageFormat::Png)
+        .expect("write render_colors");
+
+    // C accumulates every stage into `pixa` and tiles it as check 11.
+    let mut pixa = Pixa::new();
+    for p in [pixs, &pixc, &pix1, &pix3, &pix4, &pix5, &pix6, &pix7, &pix8] {
+        pixa.push(p.clone());
+    }
+    let pix9 = pixa
+        .display_tiled_in_columns(3, 1.0, 20, 0)
+        .expect("display_tiled_in_columns");
+    // 11
+    rp.write_pix_and_check(&pix9, ImageFormat::Png)
+        .expect("write tiled");
 }
 
 #[test]

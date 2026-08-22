@@ -157,15 +157,15 @@ See files under `docs/porting/comparison/` for details (currently only available
 
 ### 8. Region Processing
 
-| Feature                      | C version      | Rust version    | Notes                                             |
-| ---------------------------- | -------------- | --------------- | ------------------------------------------------- |
-| Connected components         | ✅ conncomp.c  | 🔄 conncomp.rs  | Union-Find approach (C returns BOXA/PIXA)         |
-| Connected component labeling | ✅ pixlabel.c  | ✅ label.rs     | Basic implementation                              |
-| Border tracing               | ✅ ccbord.c    | 🔄 ccbord.rs    | Simplified Border struct (C uses CCBORDA)         |
-| Seed fill                    | ✅ seedfill.c  | 🔄 seedfill.rs  | Queue-based BFS (C uses stack-based)              |
-| Watershed transform          | ✅ watershed.c | 🔄 watershed.rs | Priority queue approach                           |
-| Quadtree                     | ✅ quadtree.c  | ✅ quadtree.rs  | Integral image/hierarchical stats (high coverage) |
-| Maze                         | ✅ maze.c      | ✅ maze.rs      | Generation/BFS solver                             |
+| Feature                      | C version      | Rust version   | Notes                                             |
+| ---------------------------- | -------------- | -------------- | ------------------------------------------------- |
+| Connected components         | ✅ conncomp.c  | 🔄 conncomp.rs | Union-Find approach (C returns BOXA/PIXA)         |
+| Connected component labeling | ✅ pixlabel.c  | ✅ label.rs    | Basic implementation                              |
+| Border tracing               | ✅ ccbord.c    | 🔄 ccbord.rs   | Simplified Border struct (C uses CCBORDA)         |
+| Seed fill                    | ✅ seedfill.c  | 🔄 seedfill.rs | Queue-based BFS (C uses stack-based)              |
+| Watershed transform          | ✅ watershed.c | ✅ wshed.rs    | Port of C L_WSHED (plan 902 PR 42)                |
+| Quadtree                     | ✅ quadtree.c  | ✅ quadtree.rs | Integral image/hierarchical stats (high coverage) |
+| Maze                         | ✅ maze.c      | ✅ maze.rs     | Generation/BFS solver                             |
 
 ### 9. Document Processing & Recognition
 

@@ -54,14 +54,14 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        |    件数 | 説明                                                                                                                                                                          |
 | ----------- | ------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ Ok       | **440** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +396)                                                                                              |
-| ⚠️ Mismatch |  **29** | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007)                                             |
+| ✅ Ok       | **446** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +402)                                                                                              |
+| ⚠️ Mismatch |  **33** | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + random cmap 4 件 (finding 010) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007)            |
 | ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                                                                                                                                                  |
 | 📭 Unmapped | **389** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 393 → 389)                                                                                           |
 | 🚫 Excluded | **100** | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 + iomisc alpha blend 3 + boxa3 display 12 + newspaper random cmap 2 |
 
-合計 958 entries がレポート対象 (As of 2026-08-22、plan 902 PR 41 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **965 entries** (コメント 2 行を除く)。
+合計 968 entries がレポート対象 (As of 2026-08-22、plan 902 PR 42 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **975 entries** (コメント 2 行を除く)。
 
 ## test binary 別の内訳
 
@@ -73,7 +73,7 @@ Rust manifest (`tests/golden_manifest.tsv`) 全体は **965 entries** (コメン
 | `io`        |     11 |        2 |        0 |       41 |       13 |
 | `morph`     | **37** |   **16** |        0 |        9 |        0 |
 | `recog`     |     68 |        0 |        0 |       41 |        2 |
-| `region`    | **85** |        2 |        0 |       28 |       29 |
+| `region`    | **91** |        6 |        0 |       28 |       29 |
 | `transform` |    135 |        0 |        0 |       74 |        0 |
 
 **morph** が現状最も Ok/Mismatch が集中している binary。これは:
@@ -122,15 +122,16 @@ binary が C 比較対象に組み込まれた。
 
 ### Phase 3 以降で可視化 (12 件、要追加調査)
 
-| カテゴリ     | 件数 | 根拠                                                                                                                                                            |
-| ------------ | ---: | -----------------------------------------------------------------------------------------------------------------------                                         |
-| `seedspread` | 6    | [006](c-compat-findings/006-seedspread-output-diff.md): 仮説段階 (第二弾で可視化、要切り分け)                                                                   |
-| `gifio`      | 2    | [007](c-compat-findings/007-gifio-quantization-diff.md): FILE_8BPP_3 / FILE_32BPP の GIF round-trip 差 (第三弾で可視化)                                         |
-| `dither`     | 4    | [008](c-compat-findings/008-dither-kernel-and-jpeg-input.md): kernel は修正済み・bit 一致証明済み。残差は JPEG 入力 decode 差 (00/02) + scale LI 実装差 (04/05) |
+| カテゴリ      | 件数 | 根拠                                                                                                                                                            |
+| ------------- | ---: | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `watershed_c` |    4 | [010](c-compat-findings/010-random-cmap-global-rng.md): `pixcmapCreateRandom` が glibc の共有乱数系列を使うため色が一致しない (plan 902 PR 43 で解消予定)       |
+| `dither`      |    4 | [008](c-compat-findings/008-dither-kernel-and-jpeg-input.md): kernel は修正済み・bit 一致証明済み。残差は JPEG 入力 decode 差 (00/02) + scale LI 実装差 (04/05) |
+| `seedspread`  |    2 | [006](c-compat-findings/006-seedspread-output-diff.md): 仮説段階。6 件のうち 4 件は finding 009 の hash 規約修正で Ok 化済み                                    |
+| `gifio`       |    2 | [007](c-compat-findings/007-gifio-quantization-diff.md): FILE_8BPP_3 / FILE_32BPP の GIF round-trip 差                                                          |
 
-Phase 3 で `golden_map.tsv` の Unmapped から semantic マッピングを
-追加し、それまで隠れていた出力差を Mismatch として明示。各々 finding
-ドキュメントで仮説を列挙、別 PR で root cause 切り分け予定。
+`golden_map.tsv` に semantic マッピングを追加するたび、それまで隠れていた
+出力差が Mismatch として表に出る。各々 finding ドキュメントで仮説を
+列挙し、別 PR で root cause を切り分ける。
 
 ### Phase 2.5 修正対象: **0 件 (✅ 完全解消)**
 

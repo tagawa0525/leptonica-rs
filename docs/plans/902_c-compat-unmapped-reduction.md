@@ -1234,6 +1234,76 @@ C の実出力は境界に接する平坦域も残す 16 画素で、修正後�
 
 **次段送り**: check 7-11 / 19-23 (10 ペア) は `L_WSHED` の移植が前提。
 
+### PR 42: watershed の流域拡張段 — L_WSHED 移植 (実施済み)
+
+PR 41 で送りにした check 7-11 / 19-23 (**10 ペア**) を対象にする。C の
+`L_WSHED` (優先度キューによる流域拡張) の移植が前提。
+
+移植対象 (`src/watershed.c`, 約 700 行):
+
+| C 関数 | 役割 |
+| --- | --- |
+| `wshedCreate` | 32bpp ラベル画像を `MAX_LABEL_VALUE` (0x7fffffff) で初期化 |
+| `wshedApply` | 優先度キューで低い値から充填し、盆地の衝突を解決 |
+| `wshedSaveBasin` / `identifyWatershedBasin` | 確定した盆地を BFS で切り出す |
+| `mergeLookup` | lut と backlink を正準形に保つ |
+| `wshedGetHeight` | シード最小値からの高さ |
+| `wshedRenderFill` / `wshedRenderColors` | 結果の描画 |
+
+補助構造:
+
+- `L_HEAP` (`heap.c`): f32 値で順序付ける二分ヒープ。`lheapSwapUp` /
+  `lheapSwapDown` の実装が同値要素の順序を決めるため、逐語移植が必要
+- `L_QUEUE` (`queue.c`): `identifyWatershedBasin` の BFS 用 FIFO
+
+既存 API との関係: `watershed_segmentation` / `WatershedResult` は C に
+対応物のない Rust 独自の便宜 API で、独自の充填アルゴリズムを持つ。本 PR
+では触らず、`Wshed` を C の対応物として新設する。両者の統合は別途検討する
+(現時点で統合すると `smoothedge_reg` を含む既存 golden が動くため)。
+
+事前に判明している要修正点:
+
+- `remove_seeded_components` に C の `bordersize` 引数がない。PR 41 の
+  呼び出しでは入力が既に境界クリア済みだったため表面化しなかったが、
+  `wshedApply` は境界クリアしていない `pixLocalExtrema` の出力に対して
+  `bordersize = 2` で呼ぶため、この差が結果に出る
+
+実施結果:
+
+- **18/22 Ok** (Ok 440 → 446、region 85 → 91)。L_WSHED 本体の移植は正しく、
+  盆地のランダム cmap (check 7/19)、レベルの Numa (8/20)、render_fill
+  (9/21) がいずれもビット一致
+- 実装差を 3 件発見:
+
+**(1) `remove_seeded_components` の bordersize 欠落** (事前予測どおり)
+
+**(2) Numa 直列化の末尾空行**
+
+C `numaWriteStream()` は値の並びの後に必ず空行を出し、その後に任意の
+`startx`/`delx` 行を書く。Rust 側は空行を出さず、代わりに `startx` 行の前に
+だけ改行を付けていた。非デフォルトの場合は結果的に一致するが、デフォルト
+では末尾の空行が欠ける。`.na` は生バイトをハッシュするため、これが
+そのまま不一致になる。
+
+**(3) `pixcmapCreateRandom` のグローバル乱数系列** (finding 010、PR 43 送り)
+
+C は glibc の `rand()` を使い、これはプロセス全体で共有される 1 本の系列。
+Rust は呼び出しごとに同じ LCG を初期化するため、2 回目以降の
+`pixaDisplayRandomCmap` で色が食い違う。check 7/19 が一致するのは pixel
+hash がカラーマップではなくインデックスを対象にするため。
+
+C 忠実性の判断:
+
+- C ヘッダが明記する既知の不具合 (重複した流域を見つけることがある) は
+  修正せず再現した。12x12 の検証画像では C も Rust も同じ 1x1 の重複盆地を
+  返す
+- `wshedGetHeight` の `label >= nseeds` 分岐は C では `namh` を未シフトの
+  `label` で引いており範囲外になる。`wshedApply` からは到達しないため、
+  範囲外読みを再現せずエラーを返す形にした
+
+**次段送り**: check 10/11/22/23 の 4 件は PR 43 (glibc 互換乱数を引数で
+渡す API) で解消する。同じ仕組みは `warper_reg` の 8 件にも使える。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

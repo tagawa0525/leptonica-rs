@@ -68,6 +68,7 @@ pub mod rectangle;
 pub mod seedfill;
 pub mod select;
 pub mod watershed;
+pub mod wshed;
 
 // Re-export core types
 pub use crate::core;
@@ -107,6 +108,7 @@ pub use watershed::{
     find_local_minima, watershed_render_colors, watershed_render_fill, watershed_segmentation,
     watershed_with_basins,
 };
+pub use wshed::Wshed;
 
 // Re-export ccbord types and functions
 pub use ccbord::{
