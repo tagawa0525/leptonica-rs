@@ -14,9 +14,19 @@
 //!
 //! # C fidelity
 //!
-//! C's own header warns that `wshedApply()` "is buggy: it seems to locate
-//! watersheds that are duplicates". That behaviour is reproduced here, not
-//! corrected — the point of this port is to agree with C bit for bit.
+//! The flooding and the basin geometry agree with C bit for bit: the basins
+//! themselves, their bounding boxes and their fill levels all match, and so
+//! does [`Wshed::render_fill`]. C's own header warns that `wshedApply()` "is
+//! buggy: it seems to locate watersheds that are duplicates"; that behaviour
+//! is reproduced here rather than corrected, because agreeing with C is the
+//! point of the port.
+//!
+//! [`Wshed::render_colors`] is the exception. It tints the basins with
+//! [`Pixa::display_random_cmap`], whose colormap comes from a per-call
+//! generator, while C's `pixcmapCreateRandom()` draws from glibc's single
+//! process-wide `rand()` stream. The basin masks are identical but the
+//! colours are not, so `render_colors` output does not match C today. See
+//! `docs/porting/c-compat-findings/010-random-cmap-global-rng.md`.
 
 use crate::core::pta::pix_generate_from_pta;
 use crate::core::{Box, Numa, Pix, Pixa, PixelDepth, Pta};
