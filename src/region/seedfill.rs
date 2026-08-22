@@ -2217,6 +2217,23 @@ pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResu
                 continue;
             }
 
+            // C walks the padded (wc+2) x (hc+2) boundary frame with
+            //
+            //   for (i = 0, y = yc - 1; i < hc + 2 && y >= 0 && y < h; i++, y++)
+            //     for (j = 0, x = xc - 1; j < wc + 2 && x >= 0 && x < w; j++, x++)
+            //
+            // The `y >= 0` / `x >= 0` guards *terminate* the loop instead of
+            // skipping the row or column, so a component whose bounding box
+            // touches the top (yc == 0) or left (xc == 0) edge never has a
+            // single exterior pixel examined and is kept unconditionally.
+            // The `y < h` / `x < w` guards do clip normally, because those
+            // pixels lie outside the image anyway.
+            let cc_x_min = cc_pixels.iter().map(|&(px, _)| px).min().unwrap_or(0);
+            let cc_y_min = sy; // raster order: the seed row is the topmost one
+            if cc_x_min == 0 || cc_y_min == 0 {
+                continue;
+            }
+
             // Check all 8-neighbors of CC pixels that are NOT in the CC.
             // Mark CC pixels in the reusable buffer.
             for &(px, py) in &cc_pixels {
@@ -3040,7 +3057,6 @@ mod tests {
     /// (`xc == 0`) or top (`yc == 0`) edge has no exterior pixel examined
     /// at all and is kept unconditionally.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_qualify_local_minima_keeps_component_on_left_or_top_edge() {
         // Uniform image: every candidate has an exterior neighbour of
         // equal value, so a fully clipped scan would reject all of them.
