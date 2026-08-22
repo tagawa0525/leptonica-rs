@@ -3019,6 +3019,62 @@ mod tests {
         assert!(local_extrema(&pix1, 0, 0).is_err());
     }
 
+    fn make_1bpp(width: u32, height: u32, on: &[(u32, u32)]) -> Pix {
+        let pix = Pix::new(width, height, PixelDepth::Bit1).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for &(x, y) in on {
+            pix_mut.set_pixel(x, y, 1).unwrap();
+        }
+        pix_mut.into()
+    }
+
+    /// C scans the exterior boundary of each candidate component with
+    ///
+    /// ```c
+    /// for (i = 0, y = yc - 1; i < hc + 2 && y >= 0 && y < h; i++, y++)
+    ///     for (j = 0, x = xc - 1; j < wc + 2 && x >= 0 && x < w; j++, x++)
+    /// ```
+    ///
+    /// `y >= 0` and `x >= 0` *terminate* the loop instead of skipping the
+    /// row or column, so a component whose bounding box touches the left
+    /// (`xc == 0`) or top (`yc == 0`) edge has no exterior pixel examined
+    /// at all and is kept unconditionally.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_qualify_local_minima_keeps_component_on_left_or_top_edge() {
+        // Uniform image: every candidate has an exterior neighbour of
+        // equal value, so a fully clipped scan would reject all of them.
+        let pix = make_8bpp(5, 5, &[]);
+
+        for (x, y) in [(0u32, 2u32), (2, 0), (0, 0)] {
+            let pix_min = make_1bpp(5, 5, &[(x, y)]);
+            let out = qualify_local_minima(&pix, &pix_min, 255).unwrap();
+            assert_eq!(
+                out.get_pixel(x, y).unwrap(),
+                1,
+                "component at ({x}, {y}) touches the left/top edge and must survive"
+            );
+        }
+    }
+
+    /// The mirror-image guards (`x < w`, `y < h`) do clip normally: those
+    /// exterior pixels lie outside the image, so a component on the right
+    /// or bottom edge is still qualified against its in-image neighbours.
+    #[test]
+    fn test_qualify_local_minima_still_rejects_interior_and_far_edge() {
+        let pix = make_8bpp(5, 5, &[]);
+
+        for (x, y) in [(2u32, 2u32), (4, 2), (2, 4), (4, 4)] {
+            let pix_min = make_1bpp(5, 5, &[(x, y)]);
+            let out = qualify_local_minima(&pix, &pix_min, 255).unwrap();
+            assert_eq!(
+                out.get_pixel(x, y).unwrap(),
+                0,
+                "component at ({x}, {y}) has an equal-valued neighbour and must be rejected"
+            );
+        }
+    }
+
     #[test]
     fn test_qualify_local_minima_size_mismatch() {
         let pix = make_8bpp(5, 5, &[]);
