@@ -1356,6 +1356,46 @@ depth から初期化するため、2 回目以降で色が食い違う。
 なったので、残る理由 (スケーリング時の colormap 展開) だけで除外が妥当か
 再確認する余地がある。
 
+### PR 44: ccbord の境界追跡と再構成 (計画)
+
+C 版ソース: `prog/ccbord_reg.c`。`RunCCBordTest()` を `feyn-fract.tif` と
+`dreyfus1.png` に適用し、各 7 check (計 14) を出力する。全て PNG と
+SVG 文字列なので比較できる。
+
+C の `CCBORDA` パイプライン (`src/ccbord.c`、2578 行) 全体が必要なので、
+3 PR に分ける。
+
+| PR | C check | 内容 | ペア |
+| --- | --- | --- | --: |
+| 44 | 0,1,2 / 7,8,9 | 境界追跡・大域座標・ステップチェーン・再構成 | 6 |
+| 45 | 3,4 / 10,11 | `.ccb` シリアライズの往復 | 4 |
+| 46 | 5,6 / 12,13 | 単一パス境界と SVG 出力 | 4 |
+
+本 PR (44) で移植する C 関数:
+
+| C 関数 | 役割 |
+| --- | --- |
+| `pixGetAllCCBorders` / `pixGetCCBorders` | 連結成分ごとに外周と穴の境界を追う |
+| `pixGetOuterBorder` / `pixGetHoleBorder` | 境界追跡本体 |
+| `findNextBorderPixel` | 位置テーブル (`xpostab`/`ypostab`/`qpostab`) による次画素探索 |
+| `locateOutsideSeedPixel` | 再構成用の外側シード決定 |
+| `ccbaGenerateGlobalLocs` | 局所座標 → 大域座標 |
+| `ccbaGenerateStepChains` | 局所座標 → ステップチェーン符号 |
+| `ccbaStepChainsToPixCoords` | ステップチェーン → 局所/大域座標 |
+| `ccbaDisplayBorder` | 大域座標の境界画素を描画 |
+| `ccbaDisplayImage2` | 境界からの画像再構成 (seedfill) |
+
+データ構造は C の `CCBORD` に合わせる (`boxa` / `start` / `local` /
+`global` / `step`、後続 PR で `splocal` / `spglobal`)。
+
+既存 API との関係: `src/region/ccbord.rs` の `Border` /
+`ComponentBorders` は C に一対一対応のない Rust 独自 API。`Wshed` と同様、
+C 対応物として `CcBorda` を別モジュールに新設し、既存 API は触らない。
+
+必要な準備:
+
+- `dreyfus1.png` をテストデータに追加する (`feyn-fract.tif` は既存)
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
