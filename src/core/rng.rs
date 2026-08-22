@@ -55,7 +55,8 @@ impl GlibcRand {
     pub fn new(seed: u32) -> Self {
         // glibc seeds 31 words with a Lehmer generator, mirrors the first
         // three, then runs the additive recurrence for 310 discarded steps.
-        let mut r = vec![0u32; DEG + SEP + DISCARD];
+        const LEN: usize = DEG + SEP + DISCARD;
+        let mut r = [0u32; LEN];
         r[0] = seed;
         for i in 1..DEG {
             // r[i] = (16807 * r[i-1]) % 2147483647, via Schrage's trick to
@@ -72,15 +73,15 @@ impl GlibcRand {
         for i in DEG..DEG + SEP {
             r[i] = r[i - DEG];
         }
-        for i in DEG + SEP..r.len() {
+        for i in DEG + SEP..LEN {
             r[i] = r[i - DEG].wrapping_add(r[i - SEP]);
         }
 
-        // Keep only the last DEG values. The next output needs r[len - DEG]
-        // and r[len - SEP], which are the first and the SEP-th-from-last
+        // Keep only the last DEG values. The next output needs r[LEN - DEG]
+        // and r[LEN - SEP], which are the first and the SEP-th-from-last
         // entries of that window, so the read position starts at 0.
         let mut ring = [0u32; DEG];
-        ring.copy_from_slice(&r[r.len() - DEG..]);
+        ring.copy_from_slice(&r[LEN - DEG..]);
         Self { r: ring, pos: 0 }
     }
 

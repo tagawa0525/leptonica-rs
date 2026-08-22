@@ -54,17 +54,6 @@ pub struct RangeValues {
 }
 
 impl PixColormap {
-    /// Create a colormap with random colors.
-    ///
-    /// # Arguments
-    ///
-    /// * `depth` - Image depth (2, 4, or 8)
-    /// * `has_black` - Add black (0,0,0) at index 0
-    /// * `has_white` - Add white (255,255,255) at last index
-    ///
-    /// # See also
-    ///
-    /// C Leptonica: `pixcmapCreateRandom()` in `colormap.c`
     /// Create a colormap with random colors, drawing from `rng`.
     ///
     /// C `pixcmapCreateRandom()` calls `rand()`, which advances one
@@ -90,7 +79,7 @@ impl PixColormap {
     ) -> Result<Self> {
         if !matches!(depth, 2 | 4 | 8) {
             return Err(Error::InvalidParameter(format!(
-                "create_random requires depth 2, 4, or 8, got {depth}"
+                "a random colormap requires depth 2, 4, or 8, got {depth}"
             )));
         }
 
@@ -118,6 +107,22 @@ impl PixColormap {
         Ok(cmap)
     }
 
+    /// Create a colormap with random colors.
+    ///
+    /// Equivalent to C's *first* `pixcmapCreateRandom()` in a program that
+    /// never calls `srand()`. Later calls in such a program continue the one
+    /// process-wide `rand()` stream and get different colors; use
+    /// [`PixColormap::create_random_with`] to reproduce those.
+    ///
+    /// # Arguments
+    ///
+    /// * `depth` - Image depth (2, 4, or 8)
+    /// * `has_black` - Add black (0,0,0) at index 0
+    /// * `has_white` - Add white (255,255,255) at last index
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixcmapCreateRandom()` in `colormap.c`
     pub fn create_random(depth: u32, has_black: bool, has_white: bool) -> Result<Self> {
         // A C program that never calls `srand()` behaves as if seeded with 1,
         // so this matches C's *first* `pixcmapCreateRandom()`. Later calls in
