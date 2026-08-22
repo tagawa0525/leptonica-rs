@@ -243,7 +243,7 @@ C `L_WSHED` の移植は `region/wshed.rs` (`Wshed`)。`watershed_segmentation` 
 
 - **Cメモリ/データ構造管理**: ccbaCreate/Destroy, ccbCreate/Destroy, ccbaAddCcb, ccbaExtendArray, ccbaGetCount, ccbaGetCcb, wshedCreate/Destroy
 - **Low-level内部関数**: seedfillBinaryLow, seedfillGrayLow, seedfillGrayInvLow, seedfillGrayLowSimple, seedfillGrayInvLowSimple, distanceFunctionLow, seedspreadLow
-- **表示/可視化関数**: ccbaDisplayBorder, ccbaDisplaySPBorder, ccbaDisplayImage1, ccbaDisplayImage2, fpixaDisplayQuadtree
+- **表示/可視化関数**: ccbaDisplayImage1, fpixaDisplayQuadtree (`ccbaDisplayBorder` と `ccbaDisplayImage2` は plan 902 PR 44 で `CcBorda` に実装済み。`ccbaDisplaySPBorder` は PR 46 で移植予定)
 
 ### Rust版の追加機能
 

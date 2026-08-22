@@ -73,7 +73,7 @@ Rust manifest (`tests/golden_manifest.tsv`) 全体は **981 entries** (コメン
 | `io`        |      11 |        2 |        0 |       41 |       13 |
 | `morph`     |  **37** |   **16** |        0 |        9 |        0 |
 | `recog`     |      68 |        0 |        0 |       41 |        2 |
-| `region`    | **101** |        2 |        0 |       22 |       29 |
+| `region`    | **101** |    **2** |        0 |       28 |       29 |
 | `transform` |     135 |        0 |        0 |       74 |        0 |
 
 **morph** が現状最も Ok/Mismatch が集中している binary。これは:
