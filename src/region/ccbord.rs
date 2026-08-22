@@ -12,10 +12,16 @@
 //! The Moore-tracing termination condition (back at the start with the
 //! same outgoing direction as on the first iteration) can fail to fire on
 //! ill-formed holes; both the outer and hole tracers therefore cap the
-//! number of recorded points at roughly the perimeter bound
-//! (`4 * (W + H) + 16`) and abort with `RegionError::InvalidParameters`
-//! when the cap is exceeded. Callers (`get_component_borders`,
-//! `get_all_borders`) skip just that border / component and continue.
+//! number of recorded points and abort with
+//! `RegionError::InvalidParameters` when the cap is exceeded. Callers
+//! (`get_component_borders`, `get_all_borders`) skip just that border /
+//! component and continue.
+//!
+//! The cap has to be an area bound, not a perimeter one: a comb-shaped
+//! component's border walks up and down every tooth, so its length grows
+//! with the area rather than the perimeter. The trace revisits a pixel at
+//! most once per incoming direction, so `8 * W * H + 16` bounds it without
+//! rejecting well-formed input.
 //!
 //! # Examples
 //!
@@ -975,10 +981,11 @@ pub fn get_outer_border(pix: &Pix, bounds: Option<&Box>) -> RegionResult<Border>
     // when the standard termination condition fails to fire. Compute the cap
     // in u64 then saturate-cast to usize so we cannot overflow on
     // pathologically large images.
-    let max_points: usize = ((bwidth as u64 + bheight as u64)
-        .saturating_mul(4)
-        .saturating_add(16))
-    .min(usize::MAX as u64) as usize;
+    let max_points: usize = (bwidth as u64)
+        .saturating_mul(bheight as u64)
+        .saturating_mul(8)
+        .saturating_add(16)
+        .min(usize::MAX as u64) as usize;
     while let Some((next, new_qpos)) =
         find_next_border_pixel(&bordered, bwidth, bheight, px, py, qpos)
     {
@@ -1270,10 +1277,11 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
     // of points at a multiple of the perimeter bound `2*(W + H)` so we abort
     // long before exhausting memory. Compute in u64 + saturating cast to
     // avoid overflow on pathologically large images.
-    let max_points: usize = ((width as u64 + height as u64)
-        .saturating_mul(4)
-        .saturating_add(16))
-    .min(usize::MAX as u64) as usize;
+    let max_points: usize = (width as u64)
+        .saturating_mul(height as u64)
+        .saturating_mul(8)
+        .saturating_add(16)
+        .min(usize::MAX as u64) as usize;
     while let Some((next, new_qpos)) = find_next_border_pixel(pix, width, height, px, py, qpos) {
         // Check if we've completed the loop
         if px == fpx && py == fpy && next.x == spx && next.y == spy {
@@ -1954,7 +1962,6 @@ mod tests {
     /// `dreyfus1.png`, whose longest border is 2383 points against a cap of
     /// 1916.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_outer_border_allows_comb_longer_than_perimeter() {
         let pix = Pix::new(21, 11, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();

@@ -17,6 +17,24 @@ use crate::region::conncomp::{ConnectivityType, conncomp_pixa, next_on_pixel_in_
 use crate::region::error::{RegionError, RegionResult};
 use crate::region::seedfill::{holes_by_filling, seedfill_binary_restricted};
 
+/// Upper bound on the points a single border trace may record.
+///
+/// C has no such bound: it assumes the termination condition (back at the
+/// start pixel heading for the same second pixel) always fires. It can fail
+/// to on ill-formed input, so cap the walk rather than growing without limit.
+///
+/// The bound must scale with area, not perimeter: a comb-shaped component's
+/// border walks up and down every tooth, so its length grows with the area.
+/// The trace revisits a pixel at most once per incoming direction, so
+/// `8 * w * h + 16` cannot reject well-formed input.
+fn max_border_points(w: i32, h: i32) -> usize {
+    (w.max(0) as u64)
+        .saturating_mul(h.max(0) as u64)
+        .saturating_mul(8)
+        .saturating_add(16)
+        .min(usize::MAX as u64) as usize
+}
+
 /// Which coordinate frame [`CcBorda::step_chains_to_pix_coords`] writes into.
 ///
 /// C: `CCB_LOCAL_COORDS` / `CCB_GLOBAL_COORDS`.
@@ -442,11 +460,17 @@ fn get_outer_border(ccb: &mut CcBord, pixs: &Pix, b: &Box) -> RegionResult<()> {
     // C ignores the return value here; a pixel already known to be on a
     // border always has a neighbour, so the search cannot fail. Stopping on
     // `None` is the same walk without relying on that.
+    let cap = max_border_points(w, h);
     while let Some((npx, npy)) = find_next_border_pixel(&pixb, w, h, px, py, &mut qpos) {
         if px == fpx && py == fpy && npx == spx && npy == spy {
             break;
         }
         pta.push((npx - 1) as f32, (npy - 1) as f32);
+        if pta.len() > cap {
+            return Err(RegionError::InvalidParameters(format!(
+                "outer border trace exceeded {cap} points without closing"
+            )));
+        }
         px = npx;
         py = npy;
     }
@@ -481,11 +505,17 @@ fn get_hole_border(ccb: &mut CcBord, pixs: &Pix, b: &Box, xs: i32, ys: i32) -> R
     let (mut px, mut py) = (spx, spy);
 
     // See the note in `get_outer_border` about C ignoring the return value.
+    let cap = max_border_points(w, h);
     while let Some((npx, npy)) = find_next_border_pixel(pixs, w, h, px, py, &mut qpos) {
         if px == fpx && py == fpy && npx == spx && npy == spy {
             break;
         }
         pta.push(npx as f32, npy as f32);
+        if pta.len() > cap {
+            return Err(RegionError::InvalidParameters(format!(
+                "hole border trace exceeded {cap} points without closing"
+            )));
+        }
         px = npx;
         py = npy;
     }
