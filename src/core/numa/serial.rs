@@ -223,11 +223,14 @@ fn write_numa(writer: &mut impl Write, numa: &Numa) -> Result<()> {
     for (i, val) in numa.iter().enumerate() {
         writeln!(writer, "  [{i}] = {val:.6}")?;
     }
+    // C always terminates the value list with a blank line, whether or not
+    // the optional parameter line follows.
+    writeln!(writer)?;
 
     // Write startx/delx only if non-default (C Leptonica behavior)
     let (startx, delx) = numa.parameters();
     if startx != 0.0 || delx != 1.0 {
-        writeln!(writer, "\nstartx = {startx:.6}, delx = {delx:.6}")?;
+        writeln!(writer, "startx = {startx:.6}, delx = {delx:.6}")?;
     }
 
     Ok(())
@@ -609,7 +612,6 @@ mod tests {
     /// `watershed_reg.c` hashes the raw bytes of a `numaWriteMem()` buffer,
     /// so the trailing blank line has to be there.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_numa_write_matches_c_byte_for_byte() {
         let mut na = Numa::new();
         for v in [81.0f32, 82.5, 145.0] {
