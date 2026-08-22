@@ -595,6 +595,43 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
+    /// C `numaWriteStream()` always terminates the value list with a blank
+    /// line, and only then writes the optional `startx`/`delx` line:
+    ///
+    /// ```c
+    /// for (i = 0; i < n; i++)
+    ///     fprintf(fp, "  [%d] = %f\n", i, na->array[i]);
+    /// fprintf(fp, "\n");
+    /// if (startx != 0.0 || delx != 1.0)
+    ///     fprintf(fp, "startx = %f, delx = %f\n", startx, delx);
+    /// ```
+    ///
+    /// `watershed_reg.c` hashes the raw bytes of a `numaWriteMem()` buffer,
+    /// so the trailing blank line has to be there.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_numa_write_matches_c_byte_for_byte() {
+        let mut na = Numa::new();
+        for v in [81.0f32, 82.5, 145.0] {
+            na.push(v);
+        }
+        assert_eq!(
+            String::from_utf8(na.write_to_bytes().unwrap()).unwrap(),
+            "\nNuma Version 1\nNumber of numbers = 3\n  [0] = 81.000000\n  \
+             [1] = 82.500000\n  [2] = 145.000000\n\n"
+        );
+
+        // With non-default parameters the extra line follows the blank one.
+        let mut na = Numa::new();
+        na.push(7.0);
+        na.set_parameters(3.0, 0.5);
+        assert_eq!(
+            String::from_utf8(na.write_to_bytes().unwrap()).unwrap(),
+            "\nNuma Version 1\nNumber of numbers = 1\n  [0] = 7.000000\n\n\
+             startx = 3.000000, delx = 0.500000\n"
+        );
+    }
+
     #[test]
     fn test_numaa_negative_count_rejected() {
         let input = b"\nNumaa Version 1\nNumber of numa = -1\n";
