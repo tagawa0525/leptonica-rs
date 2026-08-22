@@ -69,10 +69,7 @@ Rust 独自の便宜 API で、表現も直列化形式も C とは異なる。
 | ccbaWriteSVGString        | 🔄   | -                                   | 同上                       |
 | ccbaDisplayImage1         | 🚫   | -                                   | C の reg テストが使わない  |
 
-C の `CCBORDA` パイプラインの移植は `region/ccborda.rs` (`CcBorda`)。
-`region/ccbord.rs` の `Border` / `ComponentBorders` は C に一対一対応の
-ない Rust 独自の便宜 API で、表現も直列化形式も C とは異なる。両方に
-対応がある関数は、C 対応の実装で状態を判定している。
+両方に対応がある関数は、C 対応の実装で状態を判定している。
 
 #### region/ccborda.rs + region/ccbord.rs (ccbord.c) — Rust 独自 API
 
