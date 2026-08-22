@@ -580,7 +580,12 @@ impl Wshed {
         for i in 0..self.pixad.len() {
             let pix = self.pixad.get(i).expect("basin pix");
             let b = self.pixad.boxa().get(i).expect("basin box");
-            let level = self.nalevels.get(i).unwrap_or(0.0) as u32;
+            // C reads the level as an `l_int32` and passes it to
+            // `pixPaintThroughMask()` as an `l_uint32`, which writes the low
+            // byte. A basin saved at collision value 1 has level -1, and C
+            // paints 255. Going straight from f32 to u32 would saturate to 0,
+            // so round-trip through i32 to reproduce the wrap.
+            let level = self.nalevels.get(i).unwrap_or(0.0) as i32 as u32;
             pixd.paint_through_mask(pix, b.x, b.y, level)
                 .map_err(RegionError::Core)?;
         }
@@ -826,7 +831,6 @@ mod tests {
     /// discarded as too shallow). C reports `level=-1` for every basin and
     /// paints 255 at both minima.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_wshed_render_fill_negative_level_matches_c() {
         fn rowval(x: i32) -> i32 {
             if x == 8 || x == 12 {
