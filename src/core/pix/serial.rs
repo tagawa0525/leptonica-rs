@@ -325,8 +325,8 @@ fn serialize_colormap(cmap: &PixColormap) -> (u32, Vec<u8>) {
 
 /// Copy bytes into a u32 slice using native endian byte order.
 fn copy_bytes_to_u32_slice(bytes: &[u8], dest: &mut [u32]) {
-    for (i, chunk) in bytes.chunks_exact(4).enumerate() {
-        dest[i] = u32::from_ne_bytes(chunk.try_into().unwrap());
+    for (i, &chunk) in bytes.as_chunks::<4>().0.iter().enumerate() {
+        dest[i] = u32::from_ne_bytes(chunk);
     }
 }
 

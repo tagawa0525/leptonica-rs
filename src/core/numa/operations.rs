@@ -753,8 +753,7 @@ impl Numa {
 
         // Determine bin size
         let range = imaxval - iminval + 1;
-        let binsize;
-        if range > max_bins as i32 - 1 {
+        let binsize = if range > max_bins as i32 - 1 {
             let ratio = range as f32 / max_bins as f32;
             let mut found = 0;
             for &bs in BIN_SIZE_ARRAY {
@@ -766,10 +765,10 @@ impl Numa {
             if found == 0 {
                 return None; // numbers too large
             }
-            binsize = found;
+            found
         } else {
-            binsize = 1;
-        }
+            1
+        };
 
         let nbins = 1 + range / binsize;
 
