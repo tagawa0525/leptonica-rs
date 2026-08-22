@@ -1944,4 +1944,35 @@ mod tests {
         // Border pixels should be set
         assert_eq!(rendered.get_pixel(1, 1), Some(1));
     }
+
+    /// A comb-shaped component has a border far longer than its perimeter:
+    /// the trace walks up and down every tooth. Bounding the point count by
+    /// `4 * (W + H)` therefore rejects perfectly well-formed input.
+    ///
+    /// This 21x11 comb has 11 teeth; its outer border is well over the old
+    /// `4 * (21 + 11) + 16 = 144` cap. The same failure happens on the real
+    /// `dreyfus1.png`, whose longest border is 2383 points against a cap of
+    /// 1916.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_outer_border_allows_comb_longer_than_perimeter() {
+        let pix = Pix::new(21, 11, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in (0..21).step_by(2) {
+            for y in 0..10 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        for x in 0..21 {
+            pm.set_pixel_unchecked(x, 10, 1);
+        }
+        let pix: Pix = pm.into();
+
+        let border = get_outer_border(&pix, None).expect("comb outer border");
+        assert!(
+            border.len() > 4 * (21 + 11) + 16,
+            "the comb border ({}) must exceed the old perimeter cap",
+            border.len()
+        );
+    }
 }
