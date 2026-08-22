@@ -1356,7 +1356,7 @@ depth から初期化するため、2 回目以降で色が食い違う。
 なったので、残る理由 (スケーリング時の colormap 展開) だけで除外が妥当か
 再確認する余地がある。
 
-### PR 44: ccbord の境界追跡と再構成 (計画)
+### PR 44: ccbord の境界追跡と再構成 (実施済み)
 
 C 版ソース: `prog/ccbord_reg.c`。`RunCCBordTest()` を `feyn-fract.tif` と
 `dreyfus1.png` に適用し、各 7 check (計 14) を出力する。全て PNG と
@@ -1395,6 +1395,26 @@ C 対応物として `CcBorda` を別モジュールに新設し、既存 API �
 必要な準備:
 
 - `dreyfus1.png` をテストデータに追加する (`feyn-fract.tif` は既存)
+
+実施結果:
+
+- **6 ペア全件 Ok** (Ok 450 → 456、region 95 → 101)。`feyn-fract.tif`
+  (464 成分) と `dreyfus1.png` (290 成分) の両方でビット一致
+- 実装差は 1 件のみ:
+
+**`next_on_pixel_in_raster` が開始画素を飛ばしていた**
+
+C `nextOnPixelInRasterLow()` は走査を `(xstart, ystart)` から始めるため、
+既に ON の画素から尋ねると同じ画素が返る。Rust 版は `start_x + 1` から
+走査する仕様で、doc にも「開始画素は検査しない」と書かれ、既存テストも
+その前提だった。
+
+`pixGetOuterBorder()` は 1 画素境界を足した成分に対してこれを呼ぶ。1x1 の
+成分では開始画素が唯一の前景画素なので、飛ばすと「開始画素が見つからない」
+になる。`dreyfus1.png` には 1x1 成分が 8 個あり、そこで表面化した。
+
+境界追跡そのもの (位置テーブルによる次画素探索、ステップチェーン、
+seedfill による再構成) には実装差がなかった。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
