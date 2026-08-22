@@ -254,9 +254,21 @@ impl CcBorda {
                 let mut y = yul + ystart;
                 pta.push(x as f32, y as f32);
                 for k in 0..na.len() {
-                    let stepdir = na.get(k).unwrap_or(0.0) as usize;
-                    x += XPOSTAB[stepdir];
-                    y += YPOSTAB[stepdir];
+                    // `step` is public and can also come from a `.ccb` file,
+                    // so a direction outside the tables must not index it.
+                    // C indexes `xpostab` unchecked and reads out of bounds.
+                    let stepdir = na.get_i32(k).unwrap_or(-1);
+                    let dir = usize::try_from(stepdir)
+                        .ok()
+                        .filter(|&d| d < XPOSTAB.len())
+                        .ok_or_else(|| {
+                            RegionError::InvalidParameters(format!(
+                                "component {i} border {j} has step direction {stepdir}, \
+                                 which is not one of 0-7"
+                            ))
+                        })?;
+                    x += XPOSTAB[dir];
+                    y += YPOSTAB[dir];
                     pta.push(x as f32, y as f32);
                 }
                 out.push(pta);
@@ -688,7 +700,17 @@ impl CcBorda {
                 // Two steps per byte, the earlier one in the high nibble.
                 let mut bval = 0u8;
                 for k in 0..na.len() {
-                    let val = (na.get_i32(k).unwrap_or(0) as u8) & 0xf;
+                    // 8 is the terminator, so only 0-7 are representable.
+                    let stepdir = na.get_i32(k).unwrap_or(-1);
+                    let val = u8::try_from(stepdir)
+                        .ok()
+                        .filter(|&v| v < 8)
+                        .ok_or_else(|| {
+                            RegionError::InvalidParameters(format!(
+                                "component {i} border {j} has step direction {stepdir}, \
+                             which is not one of 0-7"
+                            ))
+                        })?;
                     if k % 2 == 0 {
                         bval = val << 4;
                     } else {
@@ -764,17 +786,21 @@ impl CcBorda {
                 ccb.start.push(startx as f32, starty as f32);
 
                 let mut na = Numa::new();
-                loop {
+                'steps: loop {
                     let bval = r.byte()?;
-                    let (nib1, nib2) = (bval >> 4, bval & 0xf);
-                    if nib1 == 8 {
-                        break;
+                    for nib in [bval >> 4, bval & 0xf] {
+                        match nib {
+                            // 8 is not a direction, so it terminates the chain.
+                            8 => break 'steps,
+                            0..=7 => na.push(f32::from(nib)),
+                            _ => {
+                                return Err(RegionError::InvalidParameters(format!(
+                                    "ccba stream has step direction {nib}, \
+                                     which is not one of 0-7"
+                                )));
+                            }
+                        }
                     }
-                    na.push(f32::from(nib1));
-                    if nib2 == 8 {
-                        break;
-                    }
-                    na.push(f32::from(nib2));
                 }
                 ccb.step.push(na);
             }
@@ -1067,5 +1093,41 @@ mod tests {
 
         back.step_chains_to_pix_coords(CcbCoords::Local).unwrap();
         assert!(back.display_image().unwrap().equals(&pixs));
+    }
+
+    /// 9 is neither a direction (0-7) nor the terminator (8). C would index
+    /// `xpostab` out of bounds; this must be an error, not a panic.
+    #[test]
+    #[cfg(feature = "ccb-format")]
+    fn test_from_bytes_rejects_invalid_step_direction() {
+        let mut stream = C_STREAM_L_TRIOMINO.to_vec();
+        let steps = stream.len() - 2; // the byte holding steps 4 and 7
+        assert_eq!(stream[steps], 0x47);
+        stream[steps] = 0x97;
+        assert!(CcBorda::from_bytes(&deflate(&stream)).is_err());
+    }
+
+    /// `CcBord::step` is public, so a direction outside the tables can reach
+    /// `step_chains_to_pix_coords` without going through `from_bytes`.
+    #[test]
+    fn test_step_chains_reject_invalid_step_direction() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_step_chains();
+        ccba.ccb[0].step.get_mut(0).unwrap().set(0, 9.0).unwrap();
+        assert!(ccba.step_chains_to_pix_coords(CcbCoords::Local).is_err());
+
+        ccba.ccb[0].step.get_mut(0).unwrap().set(0, -1.0).unwrap();
+        assert!(ccba.step_chains_to_pix_coords(CcbCoords::Local).is_err());
+    }
+
+    /// The format reserves 8 as the terminator, so a chain that a reader
+    /// would reject must not be writable either.
+    #[test]
+    #[cfg(feature = "ccb-format")]
+    fn test_to_bytes_rejects_invalid_step_direction() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_step_chains();
+        ccba.ccb[0].step.get_mut(0).unwrap().set(0, 9.0).unwrap();
+        assert!(ccba.to_bytes().is_err());
     }
 }
