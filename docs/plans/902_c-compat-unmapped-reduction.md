@@ -1234,6 +1234,40 @@ C の実出力は境界に接する平坦域も残す 16 画素で、修正後�
 
 **次段送り**: check 7-11 / 19-23 (10 ペア) は `L_WSHED` の移植が前提。
 
+### PR 42: watershed の流域拡張段 — L_WSHED 移植 (計画)
+
+PR 41 で送りにした check 7-11 / 19-23 (**10 ペア**) を対象にする。C の
+`L_WSHED` (優先度キューによる流域拡張) の移植が前提。
+
+移植対象 (`src/watershed.c`, 約 700 行):
+
+| C 関数 | 役割 |
+| --- | --- |
+| `wshedCreate` | 32bpp ラベル画像を `MAX_LABEL_VALUE` (0x7fffffff) で初期化 |
+| `wshedApply` | 優先度キューで低い値から充填し、盆地の衝突を解決 |
+| `wshedSaveBasin` / `identifyWatershedBasin` | 確定した盆地を BFS で切り出す |
+| `mergeLookup` | lut と backlink を正準形に保つ |
+| `wshedGetHeight` | シード最小値からの高さ |
+| `wshedRenderFill` / `wshedRenderColors` | 結果の描画 |
+
+補助構造:
+
+- `L_HEAP` (`heap.c`): f32 値で順序付ける二分ヒープ。`lheapSwapUp` /
+  `lheapSwapDown` の実装が同値要素の順序を決めるため、逐語移植が必要
+- `L_QUEUE` (`queue.c`): `identifyWatershedBasin` の BFS 用 FIFO
+
+既存 API との関係: `watershed_segmentation` / `WatershedResult` は C に
+対応物のない Rust 独自の便宜 API で、独自の充填アルゴリズムを持つ。本 PR
+では触らず、`Wshed` を C の対応物として新設する。両者の統合は別途検討する
+(現時点で統合すると `smoothedge_reg` を含む既存 golden が動くため)。
+
+事前に判明している要修正点:
+
+- `remove_seeded_components` に C の `bordersize` 引数がない。PR 41 の
+  呼び出しでは入力が既に境界クリア済みだったため表面化しなかったが、
+  `wshedApply` は境界クリアしていない `pixLocalExtrema` の出力に対して
+  `bordersize = 2` で呼ぶため、この差が結果に出る
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
