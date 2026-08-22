@@ -585,3 +585,140 @@ fn pta_get_ipt(pta: &Pta, index: usize) -> (i32, i32) {
     let (x, y) = pta.get(index).unwrap_or((0.0, 0.0));
     ((x + 0.5) as i32, (y + 0.5) as i32)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A 6x5 ring (so the component has a hole border as well as an outer
+    /// one) plus an isolated pixel, which exercises the single-point border
+    /// that gets an empty step chain.
+    fn ring_and_dot() -> Pix {
+        let pix = Pix::new(12, 10, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in 1..=6u32 {
+            pm.set_pixel_unchecked(x, 1, 1);
+            pm.set_pixel_unchecked(x, 5, 1);
+        }
+        for y in 1..=5u32 {
+            pm.set_pixel_unchecked(1, y, 1);
+            pm.set_pixel_unchecked(6, y, 1);
+        }
+        pm.set_pixel_unchecked(10, 8, 1); // isolated pixel
+        pm.into()
+    }
+
+    fn local_points(ccba: &CcBorda) -> Vec<Vec<(i32, i32)>> {
+        let mut out = Vec::new();
+        for i in 0..ccba.len() {
+            let ccb = ccba.get(i).expect("component");
+            for j in 0..ccb.local.len() {
+                let pta = ccb.local.get(j).expect("border");
+                out.push((0..pta.len()).map(|k| pta_get_ipt(pta, k)).collect());
+            }
+        }
+        out
+    }
+
+    /// Expected borders are the verbatim output of C `pixGetAllCCBorders()`
+    /// on this fixture.
+    #[test]
+    fn test_local_borders_match_c() {
+        let ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        assert_eq!(ccba.len(), 2);
+
+        let got = local_points(&ccba);
+        assert_eq!(
+            got,
+            vec![
+                // outer border of the ring
+                vec![
+                    (0, 0),
+                    (1, 0),
+                    (2, 0),
+                    (3, 0),
+                    (4, 0),
+                    (5, 0),
+                    (5, 1),
+                    (5, 2),
+                    (5, 3),
+                    (5, 4),
+                    (4, 4),
+                    (3, 4),
+                    (2, 4),
+                    (1, 4),
+                    (0, 4),
+                    (0, 3),
+                    (0, 2),
+                    (0, 1),
+                    (0, 0),
+                ],
+                // hole border of the ring
+                vec![
+                    (5, 1),
+                    (4, 0),
+                    (3, 0),
+                    (2, 0),
+                    (1, 0),
+                    (0, 1),
+                    (0, 2),
+                    (0, 3),
+                    (1, 4),
+                    (2, 4),
+                    (3, 4),
+                    (4, 4),
+                    (5, 3),
+                    (5, 2),
+                    (5, 1),
+                ],
+                // the isolated pixel
+                vec![(0, 0)],
+            ]
+        );
+    }
+
+    /// Rebuilding local coordinates from the step chains must reproduce what
+    /// `from_pix` traced, including the isolated pixel whose chain is empty.
+    /// Verified against C, which round-trips this fixture unchanged.
+    #[test]
+    fn test_step_chains_round_trip_to_local() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        let before = local_points(&ccba);
+
+        ccba.generate_step_chains();
+        ccba.step_chains_to_pix_coords(CcbCoords::Local).unwrap();
+        assert_eq!(local_points(&ccba), before);
+
+        // The reconstruction still works off the regenerated local coords.
+        let rebuilt = ccba.display_image().unwrap();
+        let original = ring_and_dot();
+        for y in 0..10 {
+            for x in 0..12 {
+                assert_eq!(
+                    rebuilt.get_pixel_unchecked(x, y),
+                    original.get_pixel_unchecked(x, y),
+                    "reconstruction at ({x}, {y})"
+                );
+            }
+        }
+    }
+
+    /// The isolated pixel's chain is empty, and the global frame just shifts
+    /// every point by the component's upper-left corner.
+    #[test]
+    fn test_step_chains_and_global_shift() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_step_chains();
+
+        let dot = ccba.get(1).expect("isolated component");
+        assert_eq!(dot.step.len(), 1);
+        assert_eq!(dot.step.get(0).expect("chain").len(), 0);
+
+        ccba.generate_global_locs();
+        let dot = ccba.get(1).expect("isolated component");
+        let b = dot.boxa.get(0).expect("box");
+        assert_eq!((b.x, b.y), (10, 8));
+        let g = dot.global.get(0).expect("global border");
+        assert_eq!(pta_get_ipt(g, 0), (10, 8));
+    }
+}
