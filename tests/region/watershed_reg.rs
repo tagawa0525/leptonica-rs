@@ -17,28 +17,31 @@ use leptonica::region::{
 use leptonica::{Pix, PixelDepth};
 
 /// Create the synthetic test image used in the C version.
+///
+/// C accumulates into an `l_float32 f` while every term is evaluated in double
+/// precision (the literals are doubles and `sin`/`cos` return doubles), so each
+/// `+=` rounds the running sum back to f32.  Evaluating the whole expression in
+/// f32 gives a visibly different image, so mirror C's per-term rounding.
 fn create_synthetic_image(variant: u32) -> Pix {
     let size = 500u32;
     let pix = Pix::new(size, size, PixelDepth::Bit8).unwrap();
     let mut pix_mut = pix.try_into_mut().unwrap();
 
+    let (ca, cb, cc, cd) = if variant == 0 {
+        (0.0438f64, 0.0712f64, 0.0561f64, 0.0327f64)
+    } else {
+        (0.0238f64, 0.0312f64, 0.0261f64, 0.0207f64)
+    };
+
     for i in 0..size {
         for j in 0..size {
-            let fi = i as f32;
-            let fj = j as f32;
-            let f = if variant == 0 {
-                128.0
-                    + 26.3 * (0.0438 * fi).sin()
-                    + 33.4 * (0.0712 * fi).cos()
-                    + 18.6 * (0.0561 * fj).sin()
-                    + 23.6 * (0.0327 * fj).cos()
-            } else {
-                128.0
-                    + 26.3 * (0.0238 * fi).sin()
-                    + 33.4 * (0.0312 * fi).cos()
-                    + 18.6 * (0.0261 * fj).sin()
-                    + 23.6 * (0.0207 * fj).cos()
-            };
+            let fi = i as f64;
+            let fj = j as f64;
+            let mut f = (128.0 + 26.3 * (ca * fi).sin()) as f32;
+            f = (f as f64 + 33.4 * (cb * fi).cos()) as f32;
+            f = (f as f64 + 18.6 * (cc * fj).sin()) as f32;
+            f = (f as f64 + 23.6 * (cd * fj).cos()) as f32;
+            // C: pixSetPixel(pix, j, i, (l_int32)f) - truncation toward zero.
             let _ = pix_mut.set_pixel(j, i, f as u32);
         }
     }
