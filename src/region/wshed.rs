@@ -812,6 +812,65 @@ mod tests {
         assert_eq!(colored.depth(), PixelDepth::Bit32);
     }
 
+    /// `save_basin` stores `level - 1` and its callers pass `val - 1`, so a
+    /// basin saved at a collision value of 1 records level `-1`.
+    ///
+    /// C keeps that as an `l_int32`, passes it to `pixPaintThroughMask()` as
+    /// an `l_uint32`, and the low byte is written — so level `-1` paints 255
+    /// (measured: `-1` -> 255, `-2` -> 254). Saturating the cast to 0 instead
+    /// would paint black.
+    ///
+    /// The fixture below is the one used to verify this against C: two minima
+    /// at 0 joined by a plateau of 1s long enough that the saddle is not
+    /// adjacent to either minimum (otherwise the basins collide at 0 and are
+    /// discarded as too shallow). C reports `level=-1` for every basin and
+    /// paints 255 at both minima.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_wshed_render_fill_negative_level_matches_c() {
+        fn rowval(x: i32) -> i32 {
+            if x == 8 || x == 12 {
+                0
+            } else if x > 8 && x < 12 {
+                1
+            } else if x < 8 {
+                2 + (8 - x)
+            } else {
+                2 + (x - 12)
+            }
+        }
+
+        let pixs = Pix::new(24, 24, PixelDepth::Bit8).unwrap();
+        let mut m = pixs.try_into_mut().unwrap();
+        for y in 0..24i32 {
+            for x in 0..24i32 {
+                let v = (rowval(x) + 3 * (y - 12).abs()).min(255);
+                m.set_pixel(x as u32, y as u32, v as u32).unwrap();
+            }
+        }
+        let pixs: Pix = m.into();
+
+        let pixm = Pix::new(24, 24, PixelDepth::Bit1).unwrap();
+        let mut m = pixm.try_into_mut().unwrap();
+        m.set_pixel(8, 12, 1).unwrap();
+        m.set_pixel(12, 12, 1).unwrap();
+        let pixm: Pix = m.into();
+
+        let mut w = Wshed::new(&pixs, &pixm, 1).unwrap();
+        w.apply().unwrap();
+
+        let (pixa, na) = w.basins();
+        assert_eq!(pixa.len(), 3, "C saves three basins for this fixture");
+        for i in 0..na.len() {
+            assert_eq!(na.get(i).unwrap() as i32, -1, "basin {i} level");
+        }
+
+        // C: renderFill row 12, x = 6..14 -> 4 3 255 1 1 1 255 3 4
+        let filled = w.render_fill().unwrap();
+        let row: Vec<u32> = (6..15).map(|x| filled.get_pixel_unchecked(x, 12)).collect();
+        assert_eq!(row, vec![4, 3, 255, 1, 1, 1, 255, 3, 4]);
+    }
+
     #[test]
     fn test_wshed_rejects_bad_input() {
         let pix8 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
