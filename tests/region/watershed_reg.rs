@@ -17,28 +17,31 @@ use leptonica::region::{
 use leptonica::{Pix, PixelDepth};
 
 /// Create the synthetic test image used in the C version.
+///
+/// C accumulates into an `l_float32 f` while every term is evaluated in double
+/// precision (the literals are doubles and `sin`/`cos` return doubles), so each
+/// `+=` rounds the running sum back to f32.  Evaluating the whole expression in
+/// f32 gives a visibly different image, so mirror C's per-term rounding.
 fn create_synthetic_image(variant: u32) -> Pix {
     let size = 500u32;
     let pix = Pix::new(size, size, PixelDepth::Bit8).unwrap();
     let mut pix_mut = pix.try_into_mut().unwrap();
 
+    let (ca, cb, cc, cd) = if variant == 0 {
+        (0.0438f64, 0.0712f64, 0.0561f64, 0.0327f64)
+    } else {
+        (0.0238f64, 0.0312f64, 0.0261f64, 0.0207f64)
+    };
+
     for i in 0..size {
         for j in 0..size {
-            let fi = i as f32;
-            let fj = j as f32;
-            let f = if variant == 0 {
-                128.0
-                    + 26.3 * (0.0438 * fi).sin()
-                    + 33.4 * (0.0712 * fi).cos()
-                    + 18.6 * (0.0561 * fj).sin()
-                    + 23.6 * (0.0327 * fj).cos()
-            } else {
-                128.0
-                    + 26.3 * (0.0238 * fi).sin()
-                    + 33.4 * (0.0312 * fi).cos()
-                    + 18.6 * (0.0261 * fj).sin()
-                    + 23.6 * (0.0207 * fj).cos()
-            };
+            let fi = i as f64;
+            let fj = j as f64;
+            let mut f = (128.0 + 26.3 * (ca * fi).sin()) as f32;
+            f = (f as f64 + 33.4 * (cb * fi).cos()) as f32;
+            f = (f as f64 + 18.6 * (cc * fj).sin()) as f32;
+            f = (f as f64 + 23.6 * (cd * fj).cos()) as f32;
+            // C: pixSetPixel(pix, j, i, (l_int32)f) - truncation toward zero.
             let _ = pix_mut.set_pixel(j, i, f as u32);
         }
     }
@@ -253,4 +256,91 @@ fn watershed_error_handling() {
     rp.compare_values(1.0, if result.is_err() { 1.0 } else { 0.0 }, 0.0);
 
     assert!(rp.cleanup(), "watershed error handling test failed");
+}
+
+/// C-compatible port of `DoWatershed()` in `prog/watershed_reg.c`, restricted
+/// to the local-extrema/seed stage (C indices 0-6 and 12-18).
+///
+/// The watershed stage proper (C indices 7-11, 19-23) needs the `L_WSHED`
+/// priority-queue machinery, which is not ported yet.
+fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
+    use leptonica::core::pix::InitColor;
+    use leptonica::core::pixel::compose_rgba;
+    use leptonica::region::{local_extrema, remove_seeded_components, select_min_in_conncomp};
+
+    let w = pixs.width();
+    let h = pixs.height();
+
+    // 0
+    rp.write_pix_and_check(pixs, ImageFormat::Png)
+        .expect("write pixs");
+
+    let (pix1, pix2) = local_extrema(pixs, 0, 0).expect("local_extrema");
+    let pix1 = {
+        let mut m = pix1.try_into_mut().expect("into mut");
+        m.set_or_clear_border(2, 2, 2, 2, InitColor::White);
+        Pix::from(m)
+    };
+
+    // C `composeRGBPixel` leaves the alpha byte at 0, and `convert_to_32`
+    // already matches that (see `pixConvert8To32`). Using `compose_rgb`,
+    // which forces alpha = 255, would paint a different alpha than the
+    // surrounding pixels and diverge from C's in-memory 32bpp image.
+    let redval = compose_rgba(255, 0, 0, 0);
+    let greenval = compose_rgba(0, 255, 0, 0);
+
+    let pixc = pixs.convert_to_32().expect("convert_to_32");
+    let pixc = {
+        let mut m = pixc.try_into_mut().expect("into mut");
+        m.paint_through_mask(&pix2, 0, 0, greenval)
+            .expect("paint maxima");
+        m.paint_through_mask(&pix1, 0, 0, redval)
+            .expect("paint minima");
+        Pix::from(m)
+    };
+    // 1
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("write pixc");
+    // 2
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("write minima");
+
+    let (pta, _) = select_min_in_conncomp(pixs, &pix1).expect("select_min_in_conncomp");
+    let pix3 =
+        leptonica::core::pta::pix_generate_from_pta(&pta, w, h).expect("pix_generate_from_pta");
+    // 3
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("write seeds");
+
+    let pix4 = pixs.convert_to_32().expect("convert_to_32");
+    let pix4 = {
+        let mut m = pix4.try_into_mut().expect("into mut");
+        m.paint_through_mask(&pix3, 0, 0, greenval)
+            .expect("paint seeds");
+        Pix::from(m)
+    };
+    // 4
+    rp.write_pix_and_check(&pix4, ImageFormat::Png)
+        .expect("write painted seeds");
+
+    let pix5 = remove_seeded_components(&pix3, &pix1, ConnectivityType::EightWay)
+        .expect("remove_seeded_components");
+    // 5
+    rp.write_pix_and_check(&pix5, ImageFormat::Png)
+        .expect("write leftovers");
+    // 6
+    let empty = if pix5.is_zero() { 1.0 } else { 0.0 };
+    rp.compare_values(1.0, empty, 0.0);
+}
+
+#[test]
+fn watershed_c_compat() {
+    let mut rp = crate::common::RegParams::new("watershed_c");
+
+    let pix1 = create_synthetic_image(0);
+    do_watershed_c(&mut rp, &pix1);
+    let pix2 = create_synthetic_image(1);
+    do_watershed_c(&mut rp, &pix2);
+
+    assert!(rp.cleanup(), "watershed c-compat test failed");
 }

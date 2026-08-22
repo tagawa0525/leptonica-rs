@@ -321,6 +321,18 @@ region	grayfill	27	grayfill_c	28	set3 inv fill 4-way
 region	grayfill	29	grayfill_c	30	set3 fwd fill 4-way
 region	grayfill	31	grayfill_c	32	set4 inv fill 8-way
 region	grayfill	33	grayfill_c	34	set4 fwd fill 8-way
+region	watershed	0	watershed_c	1	watershed image 1 source image
+region	watershed	1	watershed_c	2	watershed image 1 local extrema painted
+region	watershed	2	watershed_c	3	watershed image 1 local minima mask
+region	watershed	3	watershed_c	4	watershed image 1 seed points
+region	watershed	4	watershed_c	5	watershed image 1 seeds painted
+region	watershed	5	watershed_c	6	watershed image 1 unseeded minima leftovers
+region	watershed	12	watershed_c	8	watershed image 2 source image
+region	watershed	13	watershed_c	9	watershed image 2 local extrema painted
+region	watershed	14	watershed_c	10	watershed image 2 local minima mask
+region	watershed	15	watershed_c	11	watershed image 2 seed points
+region	watershed	16	watershed_c	12	watershed image 2 seeds painted
+region	watershed	17	watershed_c	13	watershed image 2 unseeded minima leftovers
 
 # lineremoval_reg.c (plan 902 PR 20): dave-orig.png line removal pipeline
 recog	lineremoval	0	lineremoval_c	1	threshold to binary 170

@@ -2053,6 +2053,11 @@ fn binary_dilate(mask: &[bool], w: u32, h: u32, r: u32) -> Vec<bool> {
 /// threshold **and** every pixel on its 1-pixel exterior boundary is
 /// strictly greater than it.
 ///
+/// One C-compatible exception applies to the boundary test: a component
+/// whose bounding box touches the left or top edge of the image is never
+/// boundary-tested and survives the second condition unconditionally.
+/// The threshold test still applies to it. See [`qualify_local_minima`].
+///
 /// # Arguments
 ///
 /// * `pix` - 8-bpp input image
@@ -2121,6 +2126,29 @@ pub fn local_extrema(pix: &Pix, maxmin: u32, minmax: u32) -> RegionResult<(Pix, 
 ///    have strictly greater values.
 ///
 /// Components failing either condition are removed from the returned mask.
+///
+/// # C-compatible edge exception
+///
+/// C walks the exterior boundary with
+///
+/// ```c
+/// for (i = 0, y = yc - 1; i < hc + 2 && y >= 0 && y < h; i++, y++)
+///     for (j = 0, x = xc - 1; j < wc + 2 && x >= 0 && x < w; j++, x++)
+/// ```
+///
+/// where `y >= 0` and `x >= 0` *terminate* the loop rather than skipping
+/// the row or column. A component whose bounding box touches the left
+/// (`xc == 0`) or top (`yc == 0`) edge therefore has no exterior pixel
+/// examined at all, and condition 2 cannot reject it. Condition 1 is
+/// applied first and is unaffected, so such a component is still removed
+/// when its value exceeds `max_val`.
+///
+/// The `x < w` / `y < h` guards clip normally, because those pixels lie
+/// outside the image anyway; components on the right or bottom edge are
+/// qualified against their in-image neighbours as usual.
+///
+/// This is reproduced deliberately: matching C bit-for-bit is what makes
+/// the watershed seed pipeline agree with `prog/watershed_reg.c`.
 ///
 /// # Arguments
 ///
@@ -2214,6 +2242,23 @@ pub fn qualify_local_minima(pix: &Pix, pix_min: &Pix, max_val: u8) -> RegionResu
                 for &(px, py) in &cc_pixels {
                     keep[(py * w + px) as usize] = false;
                 }
+                continue;
+            }
+
+            // C walks the padded (wc+2) x (hc+2) boundary frame with
+            //
+            //   for (i = 0, y = yc - 1; i < hc + 2 && y >= 0 && y < h; i++, y++)
+            //     for (j = 0, x = xc - 1; j < wc + 2 && x >= 0 && x < w; j++, x++)
+            //
+            // The `y >= 0` / `x >= 0` guards *terminate* the loop instead of
+            // skipping the row or column, so a component whose bounding box
+            // touches the top (yc == 0) or left (xc == 0) edge never has a
+            // single exterior pixel examined and is kept unconditionally.
+            // The `y < h` / `x < w` guards do clip normally, because those
+            // pixels lie outside the image anyway.
+            let cc_x_min = cc_pixels.iter().map(|&(px, _)| px).min().unwrap_or(0);
+            let cc_y_min = sy; // raster order: the seed row is the topmost one
+            if cc_x_min == 0 || cc_y_min == 0 {
                 continue;
             }
 
@@ -3017,6 +3062,61 @@ mod tests {
         // Non-8bpp input is still rejected.
         let pix1 = Pix::new(5, 5, PixelDepth::Bit1).unwrap();
         assert!(local_extrema(&pix1, 0, 0).is_err());
+    }
+
+    fn make_1bpp(width: u32, height: u32, on: &[(u32, u32)]) -> Pix {
+        let pix = Pix::new(width, height, PixelDepth::Bit1).unwrap();
+        let mut pix_mut = pix.try_into_mut().unwrap();
+        for &(x, y) in on {
+            pix_mut.set_pixel(x, y, 1).unwrap();
+        }
+        pix_mut.into()
+    }
+
+    /// C scans the exterior boundary of each candidate component with
+    ///
+    /// ```c
+    /// for (i = 0, y = yc - 1; i < hc + 2 && y >= 0 && y < h; i++, y++)
+    ///     for (j = 0, x = xc - 1; j < wc + 2 && x >= 0 && x < w; j++, x++)
+    /// ```
+    ///
+    /// `y >= 0` and `x >= 0` *terminate* the loop instead of skipping the
+    /// row or column, so a component whose bounding box touches the left
+    /// (`xc == 0`) or top (`yc == 0`) edge has no exterior pixel examined
+    /// at all and is kept unconditionally.
+    #[test]
+    fn test_qualify_local_minima_keeps_component_on_left_or_top_edge() {
+        // Uniform image: every candidate has an exterior neighbour of
+        // equal value, so a fully clipped scan would reject all of them.
+        let pix = make_8bpp(5, 5, &[]);
+
+        for (x, y) in [(0u32, 2u32), (2, 0), (0, 0)] {
+            let pix_min = make_1bpp(5, 5, &[(x, y)]);
+            let out = qualify_local_minima(&pix, &pix_min, 255).unwrap();
+            assert_eq!(
+                out.get_pixel(x, y).unwrap(),
+                1,
+                "component at ({x}, {y}) touches the left/top edge and must survive"
+            );
+        }
+    }
+
+    /// The mirror-image guards (`x < w`, `y < h`) do clip normally: those
+    /// exterior pixels lie outside the image, so a component on the right
+    /// or bottom edge is still qualified against its in-image neighbours.
+    #[test]
+    fn test_qualify_local_minima_still_rejects_interior_and_far_edge() {
+        let pix = make_8bpp(5, 5, &[]);
+
+        for (x, y) in [(2u32, 2u32), (4, 2), (2, 4), (4, 4)] {
+            let pix_min = make_1bpp(5, 5, &[(x, y)]);
+            let out = qualify_local_minima(&pix, &pix_min, 255).unwrap();
+            assert_eq!(
+                out.get_pixel(x, y).unwrap(),
+                0,
+                "component at ({x}, {y}) has an equal-valued neighbour and must be rejected"
+            );
+        }
     }
 
     #[test]

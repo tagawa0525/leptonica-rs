@@ -19,11 +19,10 @@ pub fn encode(data: &[u8]) -> String {
     let mut col = 0;
 
     // Process complete 4-byte groups
-    let chunks = data.chunks_exact(4);
-    let remainder = chunks.remainder();
+    let (chunks, remainder) = data.as_chunks::<4>();
 
-    for chunk in chunks {
-        let value = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+    for &chunk in chunks {
+        let value = u32::from_be_bytes(chunk);
 
         if value == 0 {
             // Special case: all zeros encode to 'z'

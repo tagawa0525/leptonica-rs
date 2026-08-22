@@ -28,9 +28,7 @@ impl Pta {
         let xa = self.x_coords();
         let ya = self.y_coords();
 
-        let a;
-        let b;
-        if want_a && want_b {
+        let (a, b) = if want_a && want_b {
             let mut sx = 0f32;
             let mut sy = 0f32;
             let mut sxx = 0f32;
@@ -46,8 +44,10 @@ impl Pta {
                 return Err(Error::InvalidParameter("no solution found".to_string()));
             }
             let inv = 1.0 / factor;
-            a = inv * (n as f32 * sxy - sx * sy);
-            b = inv * (sxx * sy - sx * sxy);
+            (
+                inv * (n as f32 * sxy - sx * sy),
+                inv * (sxx * sy - sx * sxy),
+            )
         } else if want_a {
             // b = 0; line through origin
             let mut sxx = 0f32;
@@ -59,14 +59,12 @@ impl Pta {
             if sxx == 0.0 {
                 return Err(Error::InvalidParameter("no solution found".to_string()));
             }
-            a = sxy / sxx;
-            b = 0.0;
+            (sxy / sxx, 0.0)
         } else {
             // a = 0; horizontal line
             let sy: f32 = ya.iter().sum();
-            a = 0.0;
-            b = sy / n as f32;
-        }
+            (0.0, sy / n as f32)
+        };
 
         let nafit = if fit {
             let mut na = Numa::with_capacity(n);

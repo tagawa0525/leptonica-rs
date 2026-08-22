@@ -454,22 +454,26 @@ fn grayfill_seedfill_gray_inv_matches_c() {
     }
 }
 
-/// local_extrema must follow C pixLocalExtrema (plan 902 PR 19).
+/// local_extrema must follow C pixLocalExtrema (plan 902 PR 19/41).
 ///
 /// C fixes the structuring element at 3x3 and treats the two parameters
 /// as *thresholds* passed to `pixQualifyLocalMinima`: `maxmin` (default
 /// 254) rejects minima whose value is too high, and `minmax` (default 1)
 /// does the same for maxima on the inverted image. A candidate component
-/// also survives only when every pixel on its 1-pixel exterior boundary
-/// is strictly greater than the component's value.
+/// survives the boundary test only when every pixel on its 1-pixel
+/// exterior boundary is strictly greater than the component's value —
+/// except that C's scan guards terminate rather than skip, so a component
+/// touching the left or top edge is never boundary-tested at all.
+///
+/// The expected masks below are the verbatim output of C
+/// `pixLocalExtrema()` on this image.
 #[test]
 fn grayfill_local_extrema_matches_c() {
     use leptonica::region::local_extrema;
     use leptonica::{Pix, PixelDepth};
 
     // 5x5 flat 100 with a single dip to 40 at (2, 2) and a plateau of 200
-    // at (0, 0). The dip is a qualifying local minimum; the corner is not
-    // a minimum (its neighbours are lower).
+    // at (0, 0).
     let pix = {
         let p = Pix::new(5, 5, PixelDepth::Bit8).unwrap();
         let mut pm = p.try_into_mut().unwrap();
@@ -484,30 +488,54 @@ fn grayfill_local_extrema_matches_c() {
         p
     };
 
+    fn assert_mask(actual: &Pix, expected: [[u32; 5]; 5], what: &str) {
+        for (y, row) in expected.iter().enumerate() {
+            for (x, &want) in row.iter().enumerate() {
+                assert_eq!(
+                    actual.get_pixel(x as u32, y as u32).unwrap(),
+                    want,
+                    "{what} at ({x}, {y})"
+                );
+            }
+        }
+    }
+
     // C defaults: maxmin = 254, minmax = 1.
     let (pixmin, pixmax) = local_extrema(&pix, 0, 0).expect("local_extrema");
     assert_eq!(pixmin.depth(), PixelDepth::Bit1);
     assert_eq!(pixmax.depth(), PixelDepth::Bit1);
 
-    // The dip qualifies; nothing else does (the flat 100 region touches
-    // the border and its boundary is not strictly greater).
-    assert_eq!(pixmin.get_pixel(2, 2).unwrap(), 1, "dip at (2,2)");
-    let min_count: u32 = (0..5)
-        .flat_map(|y| (0..5).map(move |x| (x, y)))
-        .map(|(x, y)| pixmin.get_pixel(x, y).expect("in-bounds pixel"))
-        .sum();
-    assert_eq!(min_count, 1, "only the dip should qualify as a minimum");
+    // The dip qualifies. So does the surrounding flat-100 ring: its
+    // bounding box starts at (0, 0), so C never boundary-tests it.
+    assert_mask(
+        &pixmin,
+        [
+            [0, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1],
+            [1, 0, 1, 0, 1],
+            [1, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1],
+        ],
+        "minimum",
+    );
 
-    // The 200 corner is the sole local maximum.
-    assert_eq!(pixmax.get_pixel(0, 0).unwrap(), 1, "peak at (0,0)");
-    let max_count: u32 = (0..5)
-        .flat_map(|y| (0..5).map(move |x| (x, y)))
-        .map(|(x, y)| pixmax.get_pixel(x, y).expect("in-bounds pixel"))
-        .sum();
-    assert_eq!(max_count, 1, "only the peak should qualify as a maximum");
+    // Maxima are computed on the inverted image, where the same edge
+    // quirk keeps the inverted flat region.
+    assert_mask(
+        &pixmax,
+        [
+            [1, 0, 1, 1, 1],
+            [0, 0, 1, 1, 1],
+            [1, 1, 0, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+        ],
+        "maximum",
+    );
 
-    // maxmin rejects minima whose value exceeds it: with maxmin = 30 the
-    // dip (40) is erased.
+    // maxmin rejects minima whose value exceeds it, and C applies that
+    // test *before* the boundary scan, so the edge quirk does not shield
+    // the flat-100 ring: with maxmin = 30 every component is erased.
     let (pixmin, _) = local_extrema(&pix, 30, 0).expect("local_extrema maxmin=30");
-    assert_eq!(pixmin.get_pixel(2, 2).unwrap(), 0, "dip erased by maxmin");
+    assert_mask(&pixmin, [[0; 5]; 5], "minimum with maxmin=30");
 }

@@ -34,8 +34,7 @@ pub fn encode_base64(data: &[u8]) -> String {
     let mut result = String::with_capacity(out_len + line_breaks);
     let mut col = 0;
 
-    let chunks = data.chunks_exact(3);
-    let remainder = chunks.remainder();
+    let (chunks, remainder) = data.as_chunks::<3>();
 
     for chunk in chunks {
         let b0 = chunk[0] as u32;
@@ -103,7 +102,7 @@ pub fn decode_base64(input: &str) -> Result<Vec<u8>> {
     }
 
     let mut result = Vec::with_capacity(filtered.len() * 3 / 4);
-    for chunk in filtered.chunks_exact(4) {
+    for chunk in filtered.as_chunks::<4>().0 {
         let v0 = base64_char_value(chunk[0])?;
         let v1 = base64_char_value(chunk[1])?;
         let v2 = base64_char_value(chunk[2])?;
