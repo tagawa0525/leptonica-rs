@@ -1150,6 +1150,27 @@ mod tests {
         assert_eq!(next_on_pixel_in_raster(&bordered, 1, 1), Some((1, 1)));
     }
 
+    /// Advancing past a hit at the right edge means passing `start_x == w`.
+    /// C keeps scanning from the next row in that case (its first-word and
+    /// rest-of-line loops simply run zero times), so the caller's iteration
+    /// idiom keeps working.
+    ///
+    /// Expected values dumped from C.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_next_on_pixel_in_raster_rolls_over_row_end() {
+        // 5x5 with pixels at (4, 1) and (0, 2).
+        let pix = create_test_image(5, 5, &[(4, 1), (0, 2)]);
+        assert_eq!(next_on_pixel_in_raster(&pix, 0, 0), Some((4, 1)));
+        assert_eq!(next_on_pixel_in_raster(&pix, 5, 1), Some((0, 2)));
+
+        // A 1-column image hits this on every step.
+        let narrow = create_test_image(1, 4, &[(0, 0), (0, 2)]);
+        assert_eq!(next_on_pixel_in_raster(&narrow, 0, 0), Some((0, 0)));
+        assert_eq!(next_on_pixel_in_raster(&narrow, 1, 0), Some((0, 2)));
+        assert_eq!(next_on_pixel_in_raster(&narrow, 1, 2), None);
+    }
+
     #[test]
     fn test_next_on_pixel_raster_order() {
         // Verify raster scan order (left-to-right, top-to-bottom)
