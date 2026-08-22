@@ -122,15 +122,16 @@ binary が C 比較対象に組み込まれた。
 
 ### Phase 3 以降で可視化 (12 件、要追加調査)
 
-| カテゴリ     | 件数 | 根拠                                                                                                                                                            |
-| ------------ | ---: | -----------------------------------------------------------------------------------------------------------------------                                         |
-| `seedspread` | 6    | [006](c-compat-findings/006-seedspread-output-diff.md): 仮説段階 (第二弾で可視化、要切り分け)                                                                   |
-| `gifio`      | 2    | [007](c-compat-findings/007-gifio-quantization-diff.md): FILE_8BPP_3 / FILE_32BPP の GIF round-trip 差 (第三弾で可視化)                                         |
-| `dither`     | 4    | [008](c-compat-findings/008-dither-kernel-and-jpeg-input.md): kernel は修正済み・bit 一致証明済み。残差は JPEG 入力 decode 差 (00/02) + scale LI 実装差 (04/05) |
+| カテゴリ      | 件数 | 根拠                                                                                                                                                            |
+| ------------- | ---: | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `watershed_c` |    4 | [010](c-compat-findings/010-random-cmap-global-rng.md): `pixcmapCreateRandom` が glibc の共有乱数系列を使うため色が一致しない (plan 902 PR 43 で解消予定)       |
+| `dither`      |    4 | [008](c-compat-findings/008-dither-kernel-and-jpeg-input.md): kernel は修正済み・bit 一致証明済み。残差は JPEG 入力 decode 差 (00/02) + scale LI 実装差 (04/05) |
+| `seedspread`  |    2 | [006](c-compat-findings/006-seedspread-output-diff.md): 仮説段階。6 件のうち 4 件は finding 009 の hash 規約修正で Ok 化済み                                    |
+| `gifio`       |    2 | [007](c-compat-findings/007-gifio-quantization-diff.md): FILE_8BPP_3 / FILE_32BPP の GIF round-trip 差                                                          |
 
-Phase 3 で `golden_map.tsv` の Unmapped から semantic マッピングを
-追加し、それまで隠れていた出力差を Mismatch として明示。各々 finding
-ドキュメントで仮説を列挙、別 PR で root cause 切り分け予定。
+`golden_map.tsv` に semantic マッピングを追加するたび、それまで隠れていた
+出力差が Mismatch として表に出る。各々 finding ドキュメントで仮説を
+列挙し、別 PR で root cause を切り分ける。
 
 ### Phase 2.5 修正対象: **0 件 (✅ 完全解消)**
 
