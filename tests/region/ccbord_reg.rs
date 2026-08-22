@@ -170,3 +170,46 @@ fn ccbord_reg_dreyfus1_smoke() {
 
     assert!(rp.cleanup(), "ccbord dreyfus1 smoke test failed");
 }
+
+/// C-compatible port of `RunCCBordTest()` in `prog/ccbord_reg.c`, covering the
+/// border-following and reconstruction stage (C indices 0-2 and 7-9).
+///
+/// The serialization round-trip (3,4 / 10,11) and the single-path/SVG stage
+/// (5,6 / 12,13) need more of the `CCBORDA` API and follow in later PRs.
+fn do_ccbord_c(rp: &mut RegParams, fname: &str) {
+    use leptonica::region::{CcBorda, CcbCoords};
+
+    let pixs = load_test_image(fname).unwrap_or_else(|e| panic!("load {}: {}", fname, e));
+    let mut ccba = CcBorda::from_pix(&pixs).expect("CcBorda::from_pix");
+
+    // Local -> global locations, then draw the border pixels.
+    ccba.generate_global_locs();
+    let pixd = ccba.display_border().expect("display_border");
+    // 0 / 7
+    rp.write_pix_and_check(&pixd, ImageFormat::Png)
+        .expect("write border");
+
+    // Step chain code -> global locations, then draw again. C checks that the
+    // result is unchanged, which the identical hash confirms.
+    ccba.generate_step_chains();
+    ccba.step_chains_to_pix_coords(CcbCoords::Global)
+        .expect("step chains to global");
+    let pixd = ccba.display_border().expect("display_border from steps");
+    // 1 / 8
+    rp.write_pix_and_check(&pixd, ImageFormat::Png)
+        .expect("write border from steps");
+
+    // Reconstruct the image from the borders.
+    let pixc = ccba.display_image().expect("display_image");
+    // 2 / 9
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("write reconstruction");
+}
+
+#[test]
+fn ccbord_c_compat() {
+    let mut rp = RegParams::new("ccbord_c");
+    do_ccbord_c(&mut rp, "feyn-fract.tif");
+    do_ccbord_c(&mut rp, "dreyfus1.png");
+    assert!(rp.cleanup(), "ccbord c-compat test failed");
+}
