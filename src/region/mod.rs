@@ -57,6 +57,7 @@
 //! ```
 
 pub mod ccbord;
+pub mod ccborda;
 pub mod checkerboard;
 pub mod conncomp;
 pub mod error;
@@ -103,6 +104,7 @@ pub use seedfill::{
 };
 
 // Re-export watershed types and functions
+pub use ccborda::{CcBord, CcBorda, CcbCoords};
 pub use watershed::{
     WatershedOptions, WatershedResult, compute_gradient, find_basins, find_local_maxima,
     find_local_minima, watershed_render_colors, watershed_render_fill, watershed_segmentation,
