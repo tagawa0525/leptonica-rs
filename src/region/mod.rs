@@ -103,13 +103,15 @@ pub use seedfill::{
     seedfill_gray_simple, seedspread, select_min_in_conncomp, selected_local_extrema,
 };
 
-// Re-export watershed types and functions
+// Re-export the C CCBORDA border representation
 pub use ccborda::{CcBord, CcBorda, CcbCoords};
+// Re-export the Rust-only watershed convenience API
 pub use watershed::{
     WatershedOptions, WatershedResult, compute_gradient, find_basins, find_local_maxima,
     find_local_minima, watershed_render_colors, watershed_render_fill, watershed_segmentation,
     watershed_with_basins,
 };
+// Re-export the C L_WSHED watershed transform
 pub use wshed::Wshed;
 
 // Re-export ccbord types and functions
