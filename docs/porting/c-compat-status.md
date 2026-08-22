@@ -61,7 +61,7 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 | 🚫 Excluded | **100** | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 + iomisc alpha blend 3 + boxa3 display 12 + newspaper random cmap 2 |
 
 合計 968 entries がレポート対象 (As of 2026-08-22、plan 902 PR 42 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **976 entries** (コメント 2 行を除く)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **975 entries** (コメント 2 行を除く)。
 
 ## test binary 別の内訳
 
