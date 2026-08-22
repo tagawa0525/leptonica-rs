@@ -166,8 +166,6 @@ pub struct Wshed {
     nasi: Numa,
     /// Initial seed heights.
     nash: Numa,
-    /// Initial heights of the minima that carry no seed.
-    namh: Numa,
     /// Result: the fill level of each saved basin.
     nalevels: Numa,
     nseeds: i32,
@@ -232,7 +230,6 @@ impl Wshed {
             ptas: Pta::new(),
             nasi: Numa::new(),
             nash: Numa::new(),
-            namh: Numa::new(),
             nalevels: Numa::new(),
             nseeds: 0,
             nother: 0,
@@ -301,7 +298,10 @@ impl Wshed {
         // that already hold a seed, then shrink each survivor to a pixel.
         let (pixmin, _) = local_extrema(&self.pixs, 200, 0)?;
         let pixmin = remove_seeded_components(&pixsd, &pixmin, ConnectivityType::EightWay, 2)?;
-        let (ptao, namh) = select_min_in_conncomp(&self.pixs, &pixmin)?;
+        // C stores the second return (`namh`, the heights of these minima) on
+        // the struct, but its only reader is the unreachable branch of
+        // `wshedGetHeight` described there, so there is nothing to keep.
+        let (ptao, _namh) = select_min_in_conncomp(&self.pixs, &pixmin)?;
         let nother = ptao.len() as i32;
         for i in 0..nother {
             let (x, y) = pta_get_ipt(&ptao, i as usize);
@@ -312,7 +312,6 @@ impl Wshed {
                 index: nseeds + i,
             });
         }
-        self.namh = namh;
         self.nother = nother;
 
         // Merging lookup tables. `lut` always gives the current owner of an
@@ -421,10 +420,11 @@ impl Wshed {
     /// # C fidelity
     ///
     /// C has a second branch for `label` in `[nseeds, nseeds + nother)`
-    /// that reads `namh` with the unshifted `label`, which is out of range
-    /// for that array. It is unreachable: `wshedApply()` only calls this
-    /// when both indices are below `nseeds`. Reject that range instead of
-    /// reproducing an out-of-bounds read.
+    /// that reads its `namh` array with the unshifted `label`, which is out
+    /// of range for that array. It is unreachable: `wshedApply()` only calls
+    /// this when both indices are below `nseeds`. Reject that range instead
+    /// of reproducing an out-of-bounds read — which is also why this port
+    /// does not keep a `namh` field at all.
     ///
     /// # See also
     ///
@@ -596,6 +596,14 @@ impl Wshed {
     pub fn render_colors(&self) -> RegionResult<Pix> {
         let (w, h) = (self.w, self.h);
         let pixd = self.pixs.convert_to_32().map_err(RegionError::Core)?;
+        if self.pixad.is_empty() {
+            // No basin was ever saved (for example a lone seed that never
+            // collides with another). C walks the same path: every step from
+            // `pixaDisplayRandomCmap` on logs an error and does nothing, and
+            // `wshedRenderColors` returns the plain 32 bpp source. Return that
+            // instead of failing, so the two agree.
+            return Ok(pixd);
+        }
         let pixt = self
             .pixad
             .display_random_cmap(w, h)
@@ -749,6 +757,59 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A lone seed never collides with another basin, so nothing is ever
+    /// saved. C leaves `pixad` empty here (verified by running
+    /// `wshedApply()` on this fixture: `nbasins=0`), and `wshedRenderColors()`
+    /// then logs errors from `pixaDisplayRandomCmap` onwards and returns the
+    /// plain 32 bpp source. C has a final pass over the seed indicators that
+    /// would save such basins, but it is disabled behind `#if 0` with the
+    /// comment "This seems to screw things up!", so it must not be ported.
+    #[test]
+    fn test_wshed_single_seed_saves_no_basin() {
+        let pixs = Pix::new(12, 12, PixelDepth::Bit8).unwrap();
+        let mut m = pixs.try_into_mut().unwrap();
+        for y in 0..12i32 {
+            for x in 0..12i32 {
+                let d = (x - 6) * (x - 6) + (y - 6) * (y - 6);
+                m.set_pixel(x as u32, y as u32, (40 + d).min(255) as u32)
+                    .unwrap();
+            }
+        }
+        let pixs: Pix = m.into();
+
+        let pixm = Pix::new(12, 12, PixelDepth::Bit1).unwrap();
+        let mut m = pixm.try_into_mut().unwrap();
+        m.set_pixel(6, 6, 1).unwrap();
+        let pixm: Pix = m.into();
+
+        let mut w = Wshed::new(&pixs, &pixm, 5).unwrap();
+        w.apply().unwrap();
+        assert_eq!(w.num_seeds(), 1);
+        assert_eq!(w.num_other(), 0);
+        let (pixa, na) = w.basins();
+        assert_eq!(
+            pixa.len(),
+            0,
+            "a lone seed never collides, so C saves nothing"
+        );
+        assert_eq!(na.len(), 0);
+
+        // render_fill leaves the source untouched, render_colors returns it
+        // converted to 32 bpp; neither may fail.
+        let filled = w.render_fill().unwrap();
+        for y in 0..12u32 {
+            for x in 0..12u32 {
+                assert_eq!(
+                    filled.get_pixel_unchecked(x, y),
+                    pixs.get_pixel_unchecked(x, y),
+                    "render_fill at ({x}, {y})"
+                );
+            }
+        }
+        let colored = w.render_colors().unwrap();
+        assert_eq!(colored.depth(), PixelDepth::Bit32);
     }
 
     #[test]
