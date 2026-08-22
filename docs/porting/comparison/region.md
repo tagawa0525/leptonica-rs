@@ -128,7 +128,7 @@ C `L_WSHED` の移植は `region/wshed.rs` (`Wshed`)。`watershed_segmentation` 
 | wshedApply        | ✅   | Wshed::apply()         | L_HEAP の sift 手順ごと逐語移植     |
 | wshedBasins       | ✅   | Wshed::basins()        | (&Pixa, &Numa) を返す               |
 | wshedRenderFill   | ✅   | Wshed::render_fill()   | C とビット一致                      |
-| wshedRenderColors | 🔄   | Wshed::render_colors() | 乱数系列が C と異なる (finding 010) |
+| wshedRenderColors | ✅   | Wshed::render_colors() | C とビット一致 (乱数源は引数で渡す) |
 
 ### pixlabel.c
 

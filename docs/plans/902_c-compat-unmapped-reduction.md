@@ -1304,7 +1304,7 @@ C 忠実性の判断:
 **次段送り**: check 10/11/22/23 の 4 件は PR 43 (glibc 互換乱数を引数で
 渡す API) で解消する。同じ仕組みは `warper_reg` の 8 件にも使える。
 
-### PR 43: glibc 互換乱数で watershed を完遂 (計画)
+### PR 43: glibc 互換乱数で watershed を完遂 (実施済み)
 
 finding 010 の解消。`watershed` の残り 4 ペア (C check 10/11/22/23) を Ok に
 する。
@@ -1337,6 +1337,24 @@ depth から初期化するため、2 回目以降で色が食い違う。
 `tests/core/overlap_reg.rs` に同等の実装がテストローカルで存在するので、
 ライブラリ側に移して重複を解消する。同じ仕組みは `warper_reg` (8 件、
 `srand(seed)` + `rand()` で歪みパラメータを生成) にも使える。
+
+実施結果:
+
+- **watershed 22/22 全件 Ok** (Ok 446 → 450、region 91 → 95、
+  Mismatch 33 → 29)。finding 010 を解消
+- `tests/core/overlap_reg.rs` のテストローカル実装を削除し統合
+- 引数なしの `create_random` / `display_random_cmap` は種 1 の系列に
+  委譲するようにした。C の 1 回目の呼び出しと一致するため、アドホックな
+  LCG を使っていた従来より厳密になる
+
+**落とし穴**: C から期待値を採る際、3 つの `rand()` を `printf` の引数に
+並べると gcc の右から左への評価順で出力が逆順になる。最初この形で採った
+期待値がテストを誤らせた (実装は正しかった)。値を変数に受けてから表示する。
+
+**再検討候補**: `newspaper` の Excluded 2 件は「`pixaDisplayRandomCmap` が
+`rand()` の色を使う」ことを除外理由の 1 つに挙げている。乱数が再現可能に
+なったので、残る理由 (スケーリング時の colormap 展開) だけで除外が妥当か
+再確認する余地がある。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
