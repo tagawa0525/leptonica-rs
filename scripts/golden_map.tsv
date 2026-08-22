@@ -327,12 +327,22 @@ region	watershed	2	watershed_c	3	watershed image 1 local minima mask
 region	watershed	3	watershed_c	4	watershed image 1 seed points
 region	watershed	4	watershed_c	5	watershed image 1 seeds painted
 region	watershed	5	watershed_c	6	watershed image 1 unseeded minima leftovers
-region	watershed	12	watershed_c	8	watershed image 2 source image
-region	watershed	13	watershed_c	9	watershed image 2 local extrema painted
-region	watershed	14	watershed_c	10	watershed image 2 local minima mask
-region	watershed	15	watershed_c	11	watershed image 2 seed points
-region	watershed	16	watershed_c	12	watershed image 2 seeds painted
-region	watershed	17	watershed_c	13	watershed image 2 unseeded minima leftovers
+region	watershed	7	watershed_c	8	watershed image 1 basins with random cmap
+region	watershed	8	watershed_c	9	watershed image 1 basin levels
+region	watershed	9	watershed_c	10	watershed image 1 render_fill
+region	watershed	10	watershed_c	11	watershed image 1 render_colors
+region	watershed	11	watershed_c	12	watershed image 1 tiled stages
+region	watershed	12	watershed_c	13	watershed image 2 source image
+region	watershed	13	watershed_c	14	watershed image 2 local extrema painted
+region	watershed	14	watershed_c	15	watershed image 2 local minima mask
+region	watershed	15	watershed_c	16	watershed image 2 seed points
+region	watershed	16	watershed_c	17	watershed image 2 seeds painted
+region	watershed	17	watershed_c	18	watershed image 2 unseeded minima leftovers
+region	watershed	19	watershed_c	20	watershed image 2 basins with random cmap
+region	watershed	20	watershed_c	21	watershed image 2 basin levels
+region	watershed	21	watershed_c	22	watershed image 2 render_fill
+region	watershed	22	watershed_c	23	watershed image 2 render_colors
+region	watershed	23	watershed_c	24	watershed image 2 tiled stages
 
 # lineremoval_reg.c (plan 902 PR 20): dave-orig.png line removal pipeline
 recog	lineremoval	0	lineremoval_c	1	threshold to binary 170
