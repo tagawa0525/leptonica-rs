@@ -875,6 +875,64 @@ mod tests {
         assert_eq!(row, vec![4, 3, 255, 1, 1, 1, 255, 3, 4]);
     }
 
+    /// Exercises the unseeded-minimum path: `apply()` finds local minima that
+    /// carry no marker and floods them under indices `nseeds..nseeds + nother`,
+    /// which reach the "minimum absorbed into seeded basin" merge branches.
+    ///
+    /// Three conical basins, only two of them seeded. Expected values are the
+    /// verbatim output of C `wshedApply()` / `wshedRenderFill()` on this
+    /// fixture (`nseeds = 2, nother = 1`).
+    #[test]
+    fn test_wshed_unseeded_minimum_matches_c() {
+        let (w, h) = (20u32, 14u32);
+        let pixs = Pix::new(w, h, PixelDepth::Bit8).unwrap();
+        let mut m = pixs.try_into_mut().unwrap();
+        for y in 0..h as i32 {
+            for x in 0..w as i32 {
+                let d1 = (x - 3) * (x - 3) + (y - 7) * (y - 7);
+                let d2 = (x - 10) * (x - 10) + (y - 7) * (y - 7);
+                let d3 = (x - 16) * (x - 16) + (y - 7) * (y - 7);
+                let d = d1.min(d2).min(d3);
+                m.set_pixel(x as u32, y as u32, (30 + d * 2).min(255) as u32)
+                    .unwrap();
+            }
+        }
+        let pixs: Pix = m.into();
+
+        // (16, 7) deliberately has no seed.
+        let pixm = Pix::new(w, h, PixelDepth::Bit1).unwrap();
+        let mut m = pixm.try_into_mut().unwrap();
+        m.set_pixel(3, 7, 1).unwrap();
+        m.set_pixel(10, 7, 1).unwrap();
+        let pixm: Pix = m.into();
+
+        let mut ws = Wshed::new(&pixs, &pixm, 5).unwrap();
+        ws.apply().unwrap();
+        assert_eq!(ws.num_seeds(), 2);
+        assert_eq!(ws.num_other(), 1, "the third basin has no marker");
+
+        let (pixa, na) = ws.basins();
+        let boxes: Vec<(i32, i32, i32, i32)> = (0..pixa.len())
+            .map(|i| {
+                let b = pixa.boxa().get(i).expect("basin box");
+                (b.x, b.y, b.w, b.h)
+            })
+            .collect();
+        assert_eq!(boxes, vec![(1, 5, 5, 5), (8, 5, 5, 5), (10, 7, 1, 1)]);
+        for i in 0..na.len() {
+            assert_eq!(na.get(i).unwrap() as i32, 46, "basin {i} level");
+        }
+
+        #[rustfmt::skip]
+        const EXPECTED_ROW7: [u32; 20] = [
+            48, 46, 46, 46, 46, 46, 48, 48, 46, 46,
+            46, 46, 46, 48, 38, 32, 30, 32, 38, 48,
+        ];
+        let filled = ws.render_fill().unwrap();
+        let row: Vec<u32> = (0..w).map(|x| filled.get_pixel_unchecked(x, 7)).collect();
+        assert_eq!(row, EXPECTED_ROW7);
+    }
+
     #[test]
     fn test_wshed_rejects_bad_input() {
         let pix8 = Pix::new(4, 4, PixelDepth::Bit8).unwrap();
