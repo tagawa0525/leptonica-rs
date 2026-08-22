@@ -1304,6 +1304,40 @@ C 忠実性の判断:
 **次段送り**: check 10/11/22/23 の 4 件は PR 43 (glibc 互換乱数を引数で
 渡す API) で解消する。同じ仕組みは `warper_reg` の 8 件にも使える。
 
+### PR 43: glibc 互換乱数で watershed を完遂 (計画)
+
+finding 010 の解消。`watershed` の残り 4 ペア (C check 10/11/22/23) を Ok に
+する。
+
+C `pixcmapCreateRandom()` は glibc の `rand()` を呼ぶが、これは**プロセス
+全体で共有される 1 本の系列**で、`srand()` が呼ばれなければ種は 1。
+`watershed_reg.c` は `pixaDisplayRandomCmap` を 4 回実行し (各 762 個消費)、
+それぞれ系列の異なる位置を使う。Rust 側は呼び出しごとに同じ LCG を
+depth から初期化するため、2 回目以降で色が食い違う。
+
+事前検証済み: 種 1 の glibc 系列から生成したカラーマップは、C の 1 回目
+(check 7) と 3 回目 (check 19) のパレットと **256/256 完全一致**する。
+2 回目の系列には C が check 10 で塗った色 (91, 3, 160) が index 16 に
+存在する。
+
+方針: グローバル可変状態は入れず、乱数源を引数で明示的に渡す。
+
+| 追加 API | 対応する C |
+| --- | --- |
+| `core::GlibcRand` | glibc `rand()` (TYPE_3 additive-feedback) |
+| `PixColormap::create_random_with` | `pixcmapCreateRandom()` |
+| `Pixa::display_random_cmap_with` | `pixaDisplayRandomCmap()` |
+| `Wshed::render_colors_with` | `wshedRenderColors()` |
+
+引数なしの既存 API は種 1 の新しい系列に委譲する。C で `srand()` を呼ばず
+最初に `rand()` を使った場合と一致するので、現行のアドホック LCG より
+厳密になる。C の 1 本の系列を再現したいテストは `GlibcRand` を 1 つ作って
+全ての呼び出しに渡す。
+
+`tests/core/overlap_reg.rs` に同等の実装がテストローカルで存在するので、
+ライブラリ側に移して重複を解消する。同じ仕組みは `warper_reg` (8 件、
+`srand(seed)` + `rand()` で歪みパラメータを生成) にも使える。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
