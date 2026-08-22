@@ -1168,6 +1168,26 @@ pixa シリアライズ) のみで、C の出力は全て PNG なので pixel ha
 C ライブラリが `/tmp` に書いたデバッグ画像を検証対象にしているため
 マップ不能。
 
+### PR 41: watershed の極値・シード段 (計画)
+
+C 版ソース: `prog/watershed_reg.c`。`DoWatershed()` を 2 枚の合成画像
+(500x500, 8bpp) に適用し、check 0-11 と 12-23 を出力する。全て PNG と
+Numa なので pixel hash で比較できる。
+
+check 7-11 / 19-23 は `L_WSHED` (優先度キューによる流域拡張) を必要と
+するため PR 42 に回し、本 PR は極値検出とシード生成の段 (check 0-6 /
+12-18) に絞る。対象は **12 ペア**。
+
+| C check | 内容 | 必要な Rust API |
+| --: | --- | --- |
+| 0 | 合成画像そのもの | - |
+| 1 | 極小=赤・極大=緑で塗った 32bpp | `local_extrema`, `paint_through_mask` |
+| 2 | 極小マスク (2 画素境界クリア後) | `set_or_clear_border` |
+| 3 | シード点 | `select_min_in_conncomp`, `pix_generate_from_pta` |
+| 4 | シードを緑で塗った 32bpp | 同上 |
+| 5 | シードが載らなかった極小成分 | `remove_seeded_components` |
+| 6 | 5 が空であることの値比較 | `is_zero` |
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
