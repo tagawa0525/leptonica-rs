@@ -1304,6 +1304,58 @@ C 忠実性の判断:
 **次段送り**: check 10/11/22/23 の 4 件は PR 43 (glibc 互換乱数を引数で
 渡す API) で解消する。同じ仕組みは `warper_reg` の 8 件にも使える。
 
+### PR 43: glibc 互換乱数で watershed を完遂 (実施済み)
+
+finding 010 の解消。`watershed` の残り 4 ペア (C check 10/11/22/23) を Ok に
+する。
+
+C `pixcmapCreateRandom()` は glibc の `rand()` を呼ぶが、これは**プロセス
+全体で共有される 1 本の系列**で、`srand()` が呼ばれなければ種は 1。
+`watershed_reg.c` は `pixaDisplayRandomCmap` を 4 回実行し (各 762 個消費)、
+それぞれ系列の異なる位置を使う。Rust 側は呼び出しごとに同じ LCG を
+depth から初期化するため、2 回目以降で色が食い違う。
+
+事前検証済み: 種 1 の glibc 系列から生成したカラーマップは、C の 1 回目
+(check 7) と 3 回目 (check 19) のパレットと **256/256 完全一致**する。
+2 回目の系列には C が check 10 で塗った色 (91, 3, 160) が index 16 に
+存在する。
+
+方針: グローバル可変状態は入れず、乱数源を引数で明示的に渡す。
+
+| 追加 API | 対応する C |
+| --- | --- |
+| `core::GlibcRand` | glibc `rand()` (TYPE_3 additive-feedback) |
+| `PixColormap::create_random_with` | `pixcmapCreateRandom()` |
+| `Pixa::display_random_cmap_with` | `pixaDisplayRandomCmap()` |
+| `Wshed::render_colors_with` | `wshedRenderColors()` |
+
+引数なしの既存 API は種 1 の新しい系列に委譲する。C で `srand()` を呼ばず
+最初に `rand()` を使った場合と一致するので、現行のアドホック LCG より
+厳密になる。C の 1 本の系列を再現したいテストは `GlibcRand` を 1 つ作って
+全ての呼び出しに渡す。
+
+`tests/core/overlap_reg.rs` に同等の実装がテストローカルで存在するので、
+ライブラリ側に移して重複を解消する。同じ仕組みは `warper_reg` (8 件、
+`srand(seed)` + `rand()` で歪みパラメータを生成) にも使える。
+
+実施結果:
+
+- **watershed 22/22 全件 Ok** (Ok 446 → 450、region 91 → 95、
+  Mismatch 33 → 29)。finding 010 を解消
+- `tests/core/overlap_reg.rs` のテストローカル実装を削除し統合
+- 引数なしの `create_random` / `display_random_cmap` は種 1 の系列に
+  委譲するようにした。C の 1 回目の呼び出しと一致するため、アドホックな
+  LCG を使っていた従来より厳密になる
+
+**落とし穴**: C から期待値を採る際、3 つの `rand()` を `printf` の引数に
+並べると gcc の右から左への評価順で出力が逆順になる。最初この形で採った
+期待値がテストを誤らせた (実装は正しかった)。値を変数に受けてから表示する。
+
+**再検討候補**: `newspaper` の Excluded 2 件は「`pixaDisplayRandomCmap` が
+`rand()` の色を使う」ことを除外理由の 1 つに挙げている。乱数が再現可能に
+なったので、残る理由 (スケーリング時の colormap 展開) だけで除外が妥当か
+再確認する余地がある。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

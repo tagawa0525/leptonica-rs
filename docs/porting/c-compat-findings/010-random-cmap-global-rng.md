@@ -1,8 +1,8 @@
-# C互換性調査 #010: pixaDisplayRandomCmap のグローバル乱数系列 (未解消)
+# C互換性調査 #010: pixaDisplayRandomCmap のグローバル乱数系列 (解消)
 
 plan 902 PR 42 で `watershed_reg` の 22 ペアを張った際、`wshedRenderColors`
 とそれをタイル表示する check (C 10/11 と 22/23 の計 4 件) が Mismatch に
-なった。原因を特定済みで、PR 43 で解消する。
+なった。**PR 43 で解消し、watershed は 22/22 全件 Ok になった。**
 
 ## 症状
 
@@ -47,11 +47,11 @@ Rust の `PixColormap::create_random()` は呼び出しごとに同じ LCG を d
 1 回目 (check 7) は「たまたま」インデックス一致で通り、2 回目以降で
 色が食い違う。
 
-## 対応方針 (PR 43)
+## 対応 (PR 43、実施済み)
 
-グローバル可変状態は入れない。ライブラリ内に glibc 互換の
-`GlibcRand` (TYPE_3 additive-feedback generator。`tests/core/overlap_reg.rs`
-に同等の実装が既にある) を置き、乱数源を引数で明示的に渡せる API を足す:
+グローバル可変状態は入れず、ライブラリ内に glibc 互換の `GlibcRand`
+(TYPE_3 additive-feedback generator) を置き、乱数源を引数で明示的に
+渡せる API を足した:
 
 - `PixColormap::create_random_with(depth, has_black, has_white, &mut rng)`
 - `Pixa::display_random_cmap_with(w, h, &mut rng)`
@@ -61,5 +61,20 @@ Rust の `PixColormap::create_random()` は呼び出しごとに同じ LCG を d
 最初に `rand()` を使った場合と一致する)。C の 1 本の系列を再現したい
 テストは `GlibcRand` を 1 つ作って全ての呼び出しに渡す。
 
+`tests/core/overlap_reg.rs` にあったテストローカルの同等実装は削除し、
+ライブラリの `GlibcRand` に統合した。
+
+## 検証
+
+- 種 1 の先頭 8 値、種 45617 の先頭 5 値が glibc の `rand()` と一致
+- 種 1 から生成したカラーマップが C の check 7 / 19 のパレットと
+  256/256 一致
+- `watershed_c_compat` に 1 本の系列を通して **22/22 全件 Ok**
+
 この仕組みは `warper_reg` (8 件、`srand(seed)` + `rand()` で歪みパラメータを
 生成) にもそのまま使える。
+
+## 落とし穴
+
+C から期待値を採る際、3 つの `rand()` を `printf` の引数に並べると gcc の
+右から左への評価順で出力が逆順になる。値を変数に受けてから表示すること。

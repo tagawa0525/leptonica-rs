@@ -9,6 +9,7 @@
 //! 4. Error handling for invalid input depths
 
 use crate::common::RegParams;
+use leptonica::core::GlibcRand;
 use leptonica::io::ImageFormat;
 use leptonica::region::{
     ConnectivityType, WatershedOptions, compute_gradient, find_local_maxima, find_local_minima,
@@ -261,11 +262,11 @@ fn watershed_error_handling() {
 /// C-compatible port of `DoWatershed()` in `prog/watershed_reg.c`, covering
 /// every check it emits (C indices 0-11 and 12-23).
 ///
-/// Checks 10/11 and 22/23 currently mismatch C: they carry the colours from
-/// `pixaDisplayRandomCmap`, whose colormap comes from a per-call generator
-/// here but from glibc's single process-wide `rand()` stream in C. See
+/// The colours in checks 7/10 and 19/22 come from `pixaDisplayRandomCmap`,
+/// which in C draws from one process-wide `rand()` stream. `rng` carries that
+/// stream across all four calls; see
 /// `docs/porting/c-compat-findings/010-random-cmap-global-rng.md`.
-fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
+fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix, rng: &mut GlibcRand) {
     use leptonica::core::Pixa;
     use leptonica::core::pix::InitColor;
     use leptonica::core::pixel::compose_rgba;
@@ -342,7 +343,7 @@ fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
     wshed.apply().expect("wshed apply");
     let (pixad, nalevels) = wshed.basins();
     let pix6 = pixad
-        .display_random_cmap(w, h)
+        .display_random_cmap_with(w, h, rng)
         .expect("display_random_cmap");
     // 7
     rp.write_pix_and_check(&pix6, ImageFormat::Png)
@@ -354,7 +355,7 @@ fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
     // 9
     rp.write_pix_and_check(&pix7, ImageFormat::Png)
         .expect("write render_fill");
-    let pix8 = wshed.render_colors().expect("render_colors");
+    let pix8 = wshed.render_colors_with(rng).expect("render_colors");
     // 10
     rp.write_pix_and_check(&pix8, ImageFormat::Png)
         .expect("write render_colors");
@@ -376,10 +377,17 @@ fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
 fn watershed_c_compat() {
     let mut rp = crate::common::RegParams::new("watershed_c");
 
+    // C draws every random colormap from one process-wide `rand()` stream,
+    // seeded implicitly with 1 because `watershed_reg.c` never calls
+    // `srand()`. The four `pixaDisplayRandomCmap()` calls (check 7 and the
+    // one inside `wshedRenderColors` for each image) therefore use four
+    // different stretches of it. Thread a single generator through them all.
+    let mut rng = GlibcRand::new(1);
+
     let pix1 = create_synthetic_image(0);
-    do_watershed_c(&mut rp, &pix1);
+    do_watershed_c(&mut rp, &pix1, &mut rng);
     let pix2 = create_synthetic_image(1);
-    do_watershed_c(&mut rp, &pix2);
+    do_watershed_c(&mut rp, &pix2, &mut rng);
 
     assert!(rp.cleanup(), "watershed c-compat test failed");
 }

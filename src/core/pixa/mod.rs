@@ -1061,6 +1061,30 @@ impl Pixa {
     ///
     /// C equivalent: `pixaDisplayRandomCmap()` in `pixafunc2.c`
     pub fn display_random_cmap(&self, w: u32, h: u32) -> Result<Pix> {
+        // A C program that never calls `srand()` behaves as if seeded with 1,
+        // so this matches C's *first* call. Later calls in the same C program
+        // continue the one process-wide stream; use
+        // [`Pixa::display_random_cmap_with`] to reproduce those.
+        let mut rng = crate::core::GlibcRand::new(1);
+        self.display_random_cmap_with(w, h, &mut rng)
+    }
+
+    /// Same as [`Pixa::display_random_cmap`], but drawing the colormap from
+    /// `rng`.
+    ///
+    /// C `pixaDisplayRandomCmap()` builds its colormap with
+    /// `pixcmapCreateRandom()`, which reads glibc's single process-wide
+    /// `rand()` stream. Consecutive calls in a C program therefore get
+    /// *different* colormaps. Pass the same [`GlibcRand`](crate::core::GlibcRand)
+    /// to every call to reproduce that.
+    ///
+    /// C equivalent: `pixaDisplayRandomCmap()` in `pixafunc2.c`
+    pub fn display_random_cmap_with(
+        &self,
+        w: u32,
+        h: u32,
+        rng: &mut crate::core::GlibcRand,
+    ) -> Result<Pix> {
         use crate::core::pix::{PixelDepth, RopOp};
 
         if self.pix.is_empty() {
@@ -1088,8 +1112,8 @@ impl Pixa {
 
         let pixd = Pix::new(w, h, PixelDepth::Bit8)?;
         let mut dm = pixd.try_into_mut().unwrap();
-        dm.set_colormap(Some(crate::core::PixColormap::create_random(
-            8, true, true,
+        dm.set_colormap(Some(crate::core::PixColormap::create_random_with(
+            8, true, true, rng,
         )?))?;
 
         for (i, pixs) in self.pix.iter().enumerate() {
