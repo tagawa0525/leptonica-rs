@@ -687,14 +687,15 @@ pub fn count_conn_comp(pix: &Pix, connectivity: ConnectivityType) -> RegionResul
 /// Find the next ON pixel in raster scan order starting from a given position
 ///
 /// Scans the image from left to right, top to bottom, starting at the pixel
-/// **after** `(start_x, start_y)` in raster order. The start pixel itself is
-/// not checked.
+/// at or after `(start_x, start_y)` in raster order. As in C, the start pixel
+/// itself is checked, so asking from a pixel that is already ON returns that
+/// same pixel. To walk the ON pixels, advance past the one just returned.
 ///
 /// # Arguments
 ///
 /// * `pix` - 1-bpp binary image
-/// * `start_x` - Starting x coordinate (exclusive: scan begins after this position)
-/// * `start_y` - Starting y coordinate (exclusive: scan begins after this position)
+/// * `start_x` - Starting x coordinate (inclusive)
+/// * `start_y` - Starting y coordinate (inclusive)
 ///
 /// # Returns
 ///
@@ -711,15 +712,9 @@ pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<
         return None;
     }
 
-    // Scan from the pixel AFTER (start_x, start_y) in raster order
-    let mut y = start_y;
-    let mut x = start_x + 1;
-
-    // Move to next row if past end of current row
-    if x >= w {
-        x = 0;
-        y += 1;
-    }
+    // C scans from (start_x, start_y) inclusive.
+    let y = start_y;
+    let x = start_x;
 
     // Scan remaining rows
     for sy in y..h {
@@ -1138,7 +1133,6 @@ mod tests {
     ///
     /// Expected values dumped from C.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_next_on_pixel_in_raster_includes_start() {
         // 5x5 image: pixels at (1,0), (3,2), (4,4)
         let pix = create_test_image(5, 5, &[(1, 0), (3, 2), (4, 4)]);
@@ -1157,7 +1151,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_next_on_pixel_raster_order() {
         // Verify raster scan order (left-to-right, top-to-bottom)
         let pix = create_test_image(5, 5, &[(2, 1), (1, 2), (3, 1)]);
