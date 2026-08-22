@@ -6,13 +6,13 @@
 
 | 項目      | 数 |
 | --------- | -- |
-| ✅ 同等   | 65 |
-| 🔄 異なる | 8  |
-| 🚫 不要   | 22 |
+| ✅ 同等   | 68 |
+| 🔄 異なる | 7  |
+| 🚫 不要   | 20 |
 | ❌ 未実装 | 0  |
 | 合計      | 95 |
 
-**カバレッジ**: 76.8% (73/95 関数が実装済み、🚫 不要 22 関数を除くと実質 73/73 = 100.0% 実装)
+**カバレッジ**: 78.9% (75/95 関数が実装済み、🚫 不要 20 関数を除くと実質 75/75 = 100.0% 実装)
 
 ## 詳細
 
@@ -67,42 +67,47 @@ Rust 独自の便宜 API で、表現も直列化形式も C とは異なる。
 | ccbaWriteSVGString        | 🔄   | -                                   | 同上                      |
 | ccbaDisplayImage1         | 🚫   | -                                   | C の reg テストが使わない |
 
-#### region/ccbord.rs (ccbord.c) — Rust 独自 API
+C の `CCBORDA` パイプラインの移植は `region/ccborda.rs` (`CcBorda`)。
+`region/ccbord.rs` の `Border` / `ComponentBorders` は C に一対一対応の
+ない Rust 独自の便宜 API で、表現も直列化形式も C とは異なる。両方に
+対応がある関数は、C 対応の実装で状態を判定している。
 
-| C関数                     | 状態 | Rust対応                          | 備考                                    |
-| ------------------------- | ---- | --------------------------------- | --------------------------------------- |
-| ccbaCreate                | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
-| ccbaDestroy               | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
-| ccbCreate                 | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
-| ccbDestroy                | 🚫   | -                                 | Cメモリ管理: Rustでは不要               |
-| ccbaAddCcb                | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
-| ccbaExtendArray           | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
-| ccbaGetCount              | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
-| ccbaGetCcb                | 🚫   | -                                 | Cデータ構造管理: Rustでは不要           |
-| pixGetAllCCBorders        | 🔄   | get_all_borders                   | 異なるAPI: ImageBordersを返す           |
-| pixGetCCBorders           | ✅   | get_component_borders             |                                         |
-| pixGetOuterBordersPtaa    | 🔄   | get_outer_borders                 | 異なるAPI: Vec<Border>を返す            |
-| pixGetOuterBorderPta      | 🔄   | get_outer_border                  | 異なるAPI: Borderを返す                 |
-| pixGetOuterBorder         | ✅   | get_outer_border                  |                                         |
-| pixGetHoleBorder          | ✅   | pix_get_hole_border               |                                         |
-| findNextBorderPixel       | ✅   | find_next_border_pixel (private)  | -                                       |
-| locateOutsideSeedPixel    | ✅   | locate_outside_seed_pixel         |                                         |
-| ccbaGenerateGlobalLocs    | ✅   | ccbord::generate_global_locs      |                                         |
-| ccbaGenerateStepChains    | ✅   | ccbord::generate_step_chains      |                                         |
-| ccbaStepChainsToPixCoords | ✅   | ccbord::step_chains_to_pix_coords |                                         |
-| ccbaGenerateSPGlobalLocs  | ✅   | ccbord::generate_sp_global_locs   |                                         |
-| ccbaGenerateSinglePath    | ✅   | ccbord::generate_single_path      |                                         |
-| getCutPathForHole         | ✅   | get_cut_path_for_hole             |                                         |
-| ccbaDisplayBorder         | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
-| ccbaDisplaySPBorder       | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
-| ccbaDisplayImage1         | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
-| ccbaDisplayImage2         | 🚫   | -                                 | `PIX*`レンダリング関数（専用API未提供） |
-| ccbaWrite                 | ✅   | ccbord::write_to_file             |                                         |
-| ccbaWriteStream           | ✅   | ccbord::write<W: Write>           |                                         |
-| ccbaRead                  | ✅   | ccbord::read_from_file            |                                         |
-| ccbaReadStream            | ✅   | ccbord::read_from<R: Read>        |                                         |
-| ccbaWriteSVG              | ✅   | ccbord::write_svg                 |                                         |
-| ccbaWriteSVGString        | ✅   | ccbord::to_svg_string             |                                         |
+#### region/ccborda.rs + region/ccbord.rs (ccbord.c) — Rust 独自 API
+
+| C関数                     | 状態 | Rust対応                           | 備考                                                |
+| ------------------------- | ---- | ---------------------------------- | --------------------------------------------------- |
+| ccbaCreate                | 🚫   | -                                  | Cメモリ管理: Rustでは不要                           |
+| ccbaDestroy               | 🚫   | -                                  | Cメモリ管理: Rustでは不要                           |
+| ccbCreate                 | 🚫   | -                                  | Cメモリ管理: Rustでは不要                           |
+| ccbDestroy                | 🚫   | -                                  | Cメモリ管理: Rustでは不要                           |
+| ccbaAddCcb                | 🚫   | -                                  | Cデータ構造管理: Rustでは不要                       |
+| ccbaExtendArray           | 🚫   | -                                  | Cデータ構造管理: Rustでは不要                       |
+| ccbaGetCount              | 🚫   | -                                  | Cデータ構造管理: Rustでは不要                       |
+| ccbaGetCcb                | 🚫   | -                                  | Cデータ構造管理: Rustでは不要                       |
+| pixGetAllCCBorders        | ✅   | CcBorda::from_pix                  | C とビット一致 (PR 44)。独自 API は get_all_borders |
+| pixGetCCBorders           | ✅   | get_component_borders              |                                                     |
+| pixGetOuterBordersPtaa    | 🔄   | get_outer_borders                  | 異なるAPI: Vec<Border>を返す                        |
+| pixGetOuterBorderPta      | 🔄   | get_outer_border                   | 異なるAPI: Borderを返す                             |
+| pixGetOuterBorder         | ✅   | get_outer_border (ccborda private) | C とビット一致 (PR 44)                              |
+| pixGetHoleBorder          | ✅   | get_hole_border (ccborda private)  | C とビット一致 (PR 44)                              |
+| findNextBorderPixel       | ✅   | find_next_border_pixel (private)   | -                                                   |
+| locateOutsideSeedPixel    | ✅   | locate_outside_seed_pixel          |                                                     |
+| ccbaGenerateGlobalLocs    | ✅   | CcBorda::generate_global_locs      | C とビット一致 (PR 44)                              |
+| ccbaGenerateStepChains    | ✅   | CcBorda::generate_step_chains      | C とビット一致 (PR 44)                              |
+| ccbaStepChainsToPixCoords | ✅   | CcBorda::step_chains_to_pix_coords | Local / Global 両方 (PR 44)                         |
+| ccbaGenerateSPGlobalLocs  | ✅   | ccbord::generate_sp_global_locs    |                                                     |
+| ccbaGenerateSinglePath    | ✅   | ccbord::generate_single_path       |                                                     |
+| getCutPathForHole         | ✅   | get_cut_path_for_hole              |                                                     |
+| ccbaDisplayBorder         | ✅   | CcBorda::display_border            | C とビット一致 (PR 44)                              |
+| ccbaDisplaySPBorder       | 🚫   | -                                  | plan 902 PR 46 で移植予定                           |
+| ccbaDisplayImage1         | 🚫   | -                                  | `PIX*`レンダリング関数（専用API未提供）             |
+| ccbaDisplayImage2         | ✅   | CcBorda::display_image             | C とビット一致 (PR 44)                              |
+| ccbaWrite                 | ✅   | ccbord::write_to_file              |                                                     |
+| ccbaWriteStream           | ✅   | ccbord::write<W: Write>            |                                                     |
+| ccbaRead                  | ✅   | ccbord::read_from_file             |                                                     |
+| ccbaReadStream            | ✅   | ccbord::read_from<R: Read>         |                                                     |
+| ccbaWriteSVG              | ✅   | ccbord::write_svg                  |                                                     |
+| ccbaWriteSVGString        | ✅   | ccbord::to_svg_string              |                                                     |
 
 ### seedfill.c
 
@@ -256,7 +261,7 @@ C `L_WSHED` の移植は `region/wshed.rs` (`Wshed`)。`watershed_segmentation` 
 | ----------- |
 
 | conncomp.c  | 11     | 0      | 0    | 100.0% |
-| ccbord.c    | 20     | 0      | 12   | 100.0% |
+| ccbord.c    | 22     | 0      | 10   | 100.0% |
 | seedfill.c  | 21     | 0      | 7    | 100.0% |
 | watershed.c | 4      | 0      | 2    | 100.0% |
 | pixlabel.c  | 6      | 0      | 0    | 100.0% |
