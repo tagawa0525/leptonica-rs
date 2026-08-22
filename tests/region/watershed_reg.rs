@@ -265,7 +265,7 @@ fn watershed_error_handling() {
 /// priority-queue machinery, which is not ported yet.
 fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
     use leptonica::core::pix::InitColor;
-    use leptonica::core::pixel::compose_rgb;
+    use leptonica::core::pixel::compose_rgba;
     use leptonica::region::{local_extrema, remove_seeded_components, select_min_in_conncomp};
 
     let w = pixs.width();
@@ -282,8 +282,12 @@ fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
         Pix::from(m)
     };
 
-    let redval = compose_rgb(255, 0, 0);
-    let greenval = compose_rgb(0, 255, 0);
+    // C `composeRGBPixel` leaves the alpha byte at 0, and `convert_to_32`
+    // already matches that (see `pixConvert8To32`). Using `compose_rgb`,
+    // which forces alpha = 255, would paint a different alpha than the
+    // surrounding pixels and diverge from C's in-memory 32bpp image.
+    let redval = compose_rgba(255, 0, 0, 0);
+    let greenval = compose_rgba(0, 255, 0, 0);
 
     let pixc = pixs.convert_to_32().expect("convert_to_32");
     let pixc = {
