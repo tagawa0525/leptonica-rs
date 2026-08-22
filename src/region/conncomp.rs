@@ -687,14 +687,15 @@ pub fn count_conn_comp(pix: &Pix, connectivity: ConnectivityType) -> RegionResul
 /// Find the next ON pixel in raster scan order starting from a given position
 ///
 /// Scans the image from left to right, top to bottom, starting at the pixel
-/// **after** `(start_x, start_y)` in raster order. The start pixel itself is
-/// not checked.
+/// at or after `(start_x, start_y)` in raster order. As in C, the start pixel
+/// itself is checked, so asking from a pixel that is already ON returns that
+/// same pixel. To walk the ON pixels, advance past the one just returned.
 ///
 /// # Arguments
 ///
 /// * `pix` - 1-bpp binary image
-/// * `start_x` - Starting x coordinate (exclusive: scan begins after this position)
-/// * `start_y` - Starting y coordinate (exclusive: scan begins after this position)
+/// * `start_x` - Starting x coordinate (inclusive)
+/// * `start_y` - Starting y coordinate (inclusive)
 ///
 /// # Returns
 ///
@@ -707,18 +708,20 @@ pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<
     let w = pix.width();
     let h = pix.height();
 
-    if start_x >= w || start_y >= h {
+    if start_y >= h {
         return None;
     }
 
-    // Scan from the pixel AFTER (start_x, start_y) in raster order
-    let mut y = start_y;
-    let mut x = start_x + 1;
-
-    // Move to next row if past end of current row
-    if x >= w {
-        x = 0;
-        y += 1;
+    // C scans from (start_x, start_y) inclusive. An x past the end of the row
+    // simply rolls over to the start of the next one, which is what callers
+    // iterating with `x + 1` hit at the right edge.
+    let (x, y) = if start_x >= w {
+        (0, start_y + 1)
+    } else {
+        (start_x, start_y)
+    };
+    if y >= h {
+        return None;
     }
 
     // Scan remaining rows
@@ -1124,26 +1127,55 @@ mod tests {
         assert_eq!(count, 2);
     }
 
+    /// C `nextOnPixelInRasterLow()` starts its scan **at** `(xstart, ystart)`:
+    ///
+    /// ```c
+    /// for (x = xstart; x <= xend && x < w; x++)
+    ///     if (GET_DATA_BIT(line, x)) { *px = x; *py = ystart; return 1; }
+    /// ```
+    ///
+    /// Asking from a pixel that is already ON therefore returns that same
+    /// pixel. `pixGetOuterBorder()` relies on this: it calls the function on
+    /// a component with a 1-pixel border added, and for a 1x1 component the
+    /// start pixel is the only foreground pixel there is.
+    ///
+    /// Expected values dumped from C.
     #[test]
-    fn test_next_on_pixel_in_raster_basic() {
+    fn test_next_on_pixel_in_raster_includes_start() {
         // 5x5 image: pixels at (1,0), (3,2), (4,4)
         let pix = create_test_image(5, 5, &[(1, 0), (3, 2), (4, 4)]);
 
-        // From origin, should find (1,0)
-        let next = next_on_pixel_in_raster(&pix, 0, 0).unwrap();
-        assert_eq!(next, (1, 0));
+        assert_eq!(next_on_pixel_in_raster(&pix, 0, 0), Some((1, 0)));
+        // Each of these start pixels is itself ON, so it comes straight back.
+        assert_eq!(next_on_pixel_in_raster(&pix, 1, 0), Some((1, 0)));
+        assert_eq!(next_on_pixel_in_raster(&pix, 3, 2), Some((3, 2)));
+        assert_eq!(next_on_pixel_in_raster(&pix, 4, 4), Some((4, 4)));
 
-        // From (1,0), should find (3,2)
-        let next = next_on_pixel_in_raster(&pix, 1, 0).unwrap();
-        assert_eq!(next, (3, 2));
+        // A 1x1 component with a 1-pixel border: the only ON pixel is the
+        // start pixel itself.
+        let one = create_test_image(1, 1, &[(0, 0)]);
+        let bordered = one.add_border(1, 0).unwrap();
+        assert_eq!(next_on_pixel_in_raster(&bordered, 1, 1), Some((1, 1)));
+    }
 
-        // From (3,2), should find (4,4)
-        let next = next_on_pixel_in_raster(&pix, 3, 2).unwrap();
-        assert_eq!(next, (4, 4));
+    /// Advancing past a hit at the right edge means passing `start_x == w`.
+    /// C keeps scanning from the next row in that case (its first-word and
+    /// rest-of-line loops simply run zero times), so the caller's iteration
+    /// idiom keeps working.
+    ///
+    /// Expected values dumped from C.
+    #[test]
+    fn test_next_on_pixel_in_raster_rolls_over_row_end() {
+        // 5x5 with pixels at (4, 1) and (0, 2).
+        let pix = create_test_image(5, 5, &[(4, 1), (0, 2)]);
+        assert_eq!(next_on_pixel_in_raster(&pix, 0, 0), Some((4, 1)));
+        assert_eq!(next_on_pixel_in_raster(&pix, 5, 1), Some((0, 2)));
 
-        // From (4,4), should find nothing
-        let next = next_on_pixel_in_raster(&pix, 4, 4);
-        assert!(next.is_none());
+        // A 1-column image hits this on every step.
+        let narrow = create_test_image(1, 4, &[(0, 0), (0, 2)]);
+        assert_eq!(next_on_pixel_in_raster(&narrow, 0, 0), Some((0, 0)));
+        assert_eq!(next_on_pixel_in_raster(&narrow, 1, 0), Some((0, 2)));
+        assert_eq!(next_on_pixel_in_raster(&narrow, 1, 2), None);
     }
 
     #[test]
@@ -1151,15 +1183,18 @@ mod tests {
         // Verify raster scan order (left-to-right, top-to-bottom)
         let pix = create_test_image(5, 5, &[(2, 1), (1, 2), (3, 1)]);
 
-        // Should traverse in raster order: (1,2) comes after (3,1) in raster scan
+        // To walk the ON pixels the caller advances past the one it just got,
+        // exactly as C's callers do.
         let next1 = next_on_pixel_in_raster(&pix, 0, 0).unwrap();
         assert_eq!(next1, (2, 1)); // First in raster order
 
-        let next2 = next_on_pixel_in_raster(&pix, next1.0, next1.1).unwrap();
+        let next2 = next_on_pixel_in_raster(&pix, next1.0 + 1, next1.1).unwrap();
         assert_eq!(next2, (3, 1)); // Second in raster order (same row)
 
-        let next3 = next_on_pixel_in_raster(&pix, next2.0, next2.1).unwrap();
+        let next3 = next_on_pixel_in_raster(&pix, next2.0 + 1, next2.1).unwrap();
         assert_eq!(next3, (1, 2)); // Third in raster order (next row)
+
+        assert_eq!(next_on_pixel_in_raster(&pix, next3.0 + 1, next3.1), None);
     }
 
     #[test]

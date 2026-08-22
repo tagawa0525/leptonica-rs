@@ -1356,6 +1356,66 @@ depth から初期化するため、2 回目以降で色が食い違う。
 なったので、残る理由 (スケーリング時の colormap 展開) だけで除外が妥当か
 再確認する余地がある。
 
+### PR 44: ccbord の境界追跡と再構成 (実施済み)
+
+C 版ソース: `prog/ccbord_reg.c`。`RunCCBordTest()` を `feyn-fract.tif` と
+`dreyfus1.png` に適用し、各 7 check (計 14) を出力する。全て PNG と
+SVG 文字列なので比較できる。
+
+C の `CCBORDA` パイプライン (`src/ccbord.c`、2578 行) 全体が必要なので、
+3 PR に分ける。
+
+| PR | C check | 内容 | ペア |
+| --- | --- | --- | --: |
+| 44 | 0,1,2 / 7,8,9 | 境界追跡・大域座標・ステップチェーン・再構成 | 6 |
+| 45 | 3,4 / 10,11 | `.ccb` シリアライズの往復 | 4 |
+| 46 | 5,6 / 12,13 | 単一パス境界と SVG 出力 | 4 |
+
+本 PR (44) で移植する C 関数:
+
+| C 関数 | 役割 |
+| --- | --- |
+| `pixGetAllCCBorders` / `pixGetCCBorders` | 連結成分ごとに外周と穴の境界を追う |
+| `pixGetOuterBorder` / `pixGetHoleBorder` | 境界追跡本体 |
+| `findNextBorderPixel` | 位置テーブル (`xpostab`/`ypostab`/`qpostab`) による次画素探索 |
+| `locateOutsideSeedPixel` | 再構成用の外側シード決定 |
+| `ccbaGenerateGlobalLocs` | 局所座標 → 大域座標 |
+| `ccbaGenerateStepChains` | 局所座標 → ステップチェーン符号 |
+| `ccbaStepChainsToPixCoords` | ステップチェーン → 局所/大域座標 |
+| `ccbaDisplayBorder` | 大域座標の境界画素を描画 |
+| `ccbaDisplayImage2` | 境界からの画像再構成 (seedfill) |
+
+データ構造は C の `CCBORD` に合わせる (`boxa` / `start` / `local` /
+`global` / `step`、後続 PR で `splocal` / `spglobal`)。
+
+既存 API との関係: `src/region/ccbord.rs` の `Border` /
+`ComponentBorders` は C に一対一対応のない Rust 独自 API。`Wshed` と同様、
+C 対応物として `CcBorda` を別モジュールに新設し、既存 API は触らない。
+
+必要な準備:
+
+- `dreyfus1.png` をテストデータに追加する (`feyn-fract.tif` は既存)
+
+実施結果:
+
+- **6 ペア全件 Ok** (Ok 450 → 456、region 95 → 101)。`feyn-fract.tif`
+  (464 成分) と `dreyfus1.png` (290 成分) の両方でビット一致
+- 実装差は 1 件のみ:
+
+**`next_on_pixel_in_raster` が開始画素を飛ばしていた**
+
+C `nextOnPixelInRasterLow()` は走査を `(xstart, ystart)` から始めるため、
+既に ON の画素から尋ねると同じ画素が返る。Rust 版は `start_x + 1` から
+走査する仕様で、doc にも「開始画素は検査しない」と書かれ、既存テストも
+その前提だった。
+
+`pixGetOuterBorder()` は 1 画素境界を足した成分に対してこれを呼ぶ。1x1 の
+成分では開始画素が唯一の前景画素なので、飛ばすと「開始画素が見つからない」
+になる。`dreyfus1.png` には 1x1 成分が 8 個あり、そこで表面化した。
+
+境界追跡そのもの (位置テーブルによる次画素探索、ステップチェーン、
+seedfill による再構成) には実装差がなかった。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

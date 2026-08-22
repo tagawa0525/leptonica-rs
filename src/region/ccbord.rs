@@ -12,10 +12,16 @@
 //! The Moore-tracing termination condition (back at the start with the
 //! same outgoing direction as on the first iteration) can fail to fire on
 //! ill-formed holes; both the outer and hole tracers therefore cap the
-//! number of recorded points at roughly the perimeter bound
-//! (`4 * (W + H) + 16`) and abort with `RegionError::InvalidParameters`
-//! when the cap is exceeded. Callers (`get_component_borders`,
-//! `get_all_borders`) skip just that border / component and continue.
+//! number of recorded points and abort with
+//! `RegionError::InvalidParameters` when the cap is exceeded. Callers
+//! (`get_component_borders`, `get_all_borders`) skip just that border /
+//! component and continue.
+//!
+//! The cap has to be an area bound, not a perimeter one: a comb-shaped
+//! component's border walks up and down every tooth, so its length grows
+//! with the area rather than the perimeter. The trace revisits a pixel at
+//! most once per incoming direction, so `8 * W * H + 16` bounds it without
+//! rejecting well-formed input.
 //!
 //! # Examples
 //!
@@ -971,14 +977,16 @@ pub fn get_outer_border(pix: &Pix, bounds: Option<&Box>) -> RegionResult<Border>
     let (mut px, mut py) = (spx, spy);
 
     // Trace the border. As with the hole tracer, cap the number of recorded
-    // points at a multiple of the perimeter bound to prevent runaway growth
-    // when the standard termination condition fails to fire. Compute the cap
-    // in u64 then saturate-cast to usize so we cannot overflow on
-    // pathologically large images.
-    let max_points: usize = ((bwidth as u64 + bheight as u64)
-        .saturating_mul(4)
-        .saturating_add(16))
-    .min(usize::MAX as u64) as usize;
+    // points at the area bound `8 * W * H` to prevent runaway growth when the
+    // standard termination condition fails to fire. A perimeter bound would
+    // reject legitimate borders: a comb-shaped component's border walks up
+    // and down every tooth. Compute the cap in u64 then saturate-cast to
+    // usize so we cannot overflow on pathologically large images.
+    let max_points: usize = (bwidth as u64)
+        .saturating_mul(bheight as u64)
+        .saturating_mul(8)
+        .saturating_add(16)
+        .min(usize::MAX as u64) as usize;
     while let Some((next, new_qpos)) =
         find_next_border_pixel(&bordered, bwidth, bheight, px, py, qpos)
     {
@@ -1267,13 +1275,16 @@ fn trace_hole_border(pix: &Pix, start: BorderPoint, _hole_bounds: &Box) -> Regio
     // Trace the border. The standard termination condition (back at the
     // start with the same outgoing direction as on the first iteration) can
     // fail for ill-formed holes and let the trace run away. Cap the number
-    // of points at a multiple of the perimeter bound `2*(W + H)` so we abort
-    // long before exhausting memory. Compute in u64 + saturating cast to
-    // avoid overflow on pathologically large images.
-    let max_points: usize = ((width as u64 + height as u64)
-        .saturating_mul(4)
-        .saturating_add(16))
-    .min(usize::MAX as u64) as usize;
+    // of points at the area bound `8 * W * H`: the trace enters a pixel at
+    // most once per incoming direction, so this aborts a runaway walk without
+    // rejecting a legitimate border, whose length grows with the area rather
+    // than the perimeter. Compute in u64 + saturating cast to avoid overflow
+    // on pathologically large images.
+    let max_points: usize = (width as u64)
+        .saturating_mul(height as u64)
+        .saturating_mul(8)
+        .saturating_add(16)
+        .min(usize::MAX as u64) as usize;
     while let Some((next, new_qpos)) = find_next_border_pixel(pix, width, height, px, py, qpos) {
         // Check if we've completed the loop
         if px == fpx && py == fpy && next.x == spx && next.y == spy {
@@ -1943,5 +1954,40 @@ mod tests {
         assert_eq!(rendered.height(), 6);
         // Border pixels should be set
         assert_eq!(rendered.get_pixel(1, 1), Some(1));
+    }
+
+    /// A comb-shaped component has a border far longer than its perimeter:
+    /// the trace walks up and down every tooth. Bounding the point count by
+    /// `4 * (W + H)` therefore rejects perfectly well-formed input.
+    ///
+    /// This 21x11 comb has 11 teeth and a 241-point outer border. The old cap
+    /// was computed on the padded dimensions the tracer works with (23x13),
+    /// giving `4 * (23 + 13) + 16 = 160`, so compare against that rather than
+    /// the unpadded figure. The same failure happens on the real
+    /// `dreyfus1.png`, whose longest border is 2383 points against a cap of
+    /// 1916.
+    #[test]
+    fn test_outer_border_allows_comb_longer_than_perimeter() {
+        let pix = Pix::new(21, 11, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for x in (0..21).step_by(2) {
+            for y in 0..10 {
+                pm.set_pixel_unchecked(x, y, 1);
+            }
+        }
+        for x in 0..21 {
+            pm.set_pixel_unchecked(x, 10, 1);
+        }
+        let pix: Pix = pm.into();
+
+        let border = get_outer_border(&pix, None).expect("comb outer border");
+        // The tracer adds a 1-pixel border, so the old cap used 23x13.
+        let old_cap = 4 * ((21 + 2) + (11 + 2)) + 16;
+        assert_eq!(old_cap, 160);
+        assert!(
+            border.len() > old_cap,
+            "the comb border ({}) must exceed the old perimeter cap ({old_cap})",
+            border.len()
+        );
     }
 }
