@@ -157,15 +157,15 @@ C版の全public関数を抽出し、Rust版での実装状況を4段階で分�
 
 ### 8. 領域処理
 
-| 機能               | C版            | Rust版          | 備考                                   |
-| ------------------ | -------------- | --------------- | -------------------------------------- |
-| 連結成分           | ✅ conncomp.c  | 🔄 conncomp.rs  | Union-Find方式（C版はBOXA/PIXA返却）   |
-| 連結成分ラベリング | ✅ pixlabel.c  | ✅ label.rs     | 基本実装                               |
-| 境界追跡           | ✅ ccbord.c    | 🔄 ccbord.rs    | 簡略化Border構造体（C版はCCBORDA）     |
-| シードフィル       | ✅ seedfill.c  | 🔄 seedfill.rs  | キューベースBFS（C版はスタックベース） |
-| 分水嶺変換         | ✅ watershed.c | 🔄 watershed.rs | 優先度キュー方式                       |
-| 四分木             | ✅ quadtree.c  | ✅ quadtree.rs  | 積分画像/階層統計（カバレッジ高）      |
-| 迷路               | ✅ maze.c      | ✅ maze.rs      | 生成/BFS解法                           |
+| 機能               | C版            | Rust版         | 備考                                   |
+| ------------------ | -------------- | -------------- | -------------------------------------- |
+| 連結成分           | ✅ conncomp.c  | 🔄 conncomp.rs | Union-Find方式（C版はBOXA/PIXA返却）   |
+| 連結成分ラベリング | ✅ pixlabel.c  | ✅ label.rs    | 基本実装                               |
+| 境界追跡           | ✅ ccbord.c    | 🔄 ccbord.rs   | 簡略化Border構造体（C版はCCBORDA）     |
+| シードフィル       | ✅ seedfill.c  | 🔄 seedfill.rs | キューベースBFS（C版はスタックベース） |
+| 分水嶺変換         | ✅ watershed.c | ✅ wshed.rs    | C L_WSHED を移植 (plan 902 PR 42)      |
+| 四分木             | ✅ quadtree.c  | ✅ quadtree.rs | 積分画像/階層統計（カバレッジ高）      |
+| 迷路               | ✅ maze.c      | ✅ maze.rs     | 生成/BFS解法                           |
 
 ### 9. 文書処理・認識
 
