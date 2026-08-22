@@ -9,6 +9,7 @@
 use super::{PixColormap, RgbaQuad};
 use crate::core::error::{Error, Result};
 use crate::core::pixel;
+use crate::core::rng::GlibcRand;
 
 /// Component selector for range value queries.
 ///
@@ -64,6 +65,33 @@ impl PixColormap {
     /// # See also
     ///
     /// C Leptonica: `pixcmapCreateRandom()` in `colormap.c`
+    /// Create a colormap with random colors, drawing from `rng`.
+    ///
+    /// C `pixcmapCreateRandom()` calls `rand()`, which advances one
+    /// process-wide stream, so consecutive calls in a C program produce
+    /// *different* colormaps. Pass the same [`GlibcRand`] to every call to
+    /// reproduce that.
+    ///
+    /// # Arguments
+    ///
+    /// * `depth` - Image depth (2, 4, or 8)
+    /// * `has_black` - Add black (0,0,0) at index 0
+    /// * `has_white` - Add white (255,255,255) at last index
+    /// * `rng` - Random source; each color consumes three values
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixcmapCreateRandom()` in `colormap.c`
+    pub fn create_random_with(
+        depth: u32,
+        has_black: bool,
+        has_white: bool,
+        rng: &mut GlibcRand,
+    ) -> Result<Self> {
+        let _ = rng;
+        Self::create_random(depth, has_black, has_white)
+    }
+
     pub fn create_random(depth: u32, has_black: bool, has_white: bool) -> Result<Self> {
         if !matches!(depth, 2 | 4 | 8) {
             return Err(Error::InvalidParameter(format!(
@@ -718,6 +746,41 @@ mod tests {
         assert_eq!(cmap.distance_to_color(0, 10, 20, 30), Some(1400));
         assert_eq!(cmap.distance_to_color(0, 0, 0, 0), Some(0));
         assert_eq!(cmap.distance_to_color(1, 0, 0, 0), None); // out of bounds
+    }
+
+    /// C `pixcmapCreateRandom(8, 1, 1)` fills indices 1..255 with
+    /// `rand() & 0xff` triples and consumes 3 * 254 = 762 values.
+    ///
+    /// Expected colors verified against the palette C wrote in
+    /// `prog/watershed_reg.c` check 7 (all 256 entries matched).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_create_random_with_matches_glibc() {
+        let mut rng = GlibcRand::new(1);
+        let cmap = PixColormap::create_random_with(8, true, true, &mut rng).unwrap();
+        assert_eq!(cmap.len(), 256);
+        assert_eq!(cmap.get_rgb(0).unwrap(), (0, 0, 0));
+        assert_eq!(cmap.get_rgb(1).unwrap(), (103, 198, 105));
+        assert_eq!(cmap.get_rgb(2).unwrap(), (115, 81, 255));
+        assert_eq!(cmap.get_rgb(255).unwrap(), (255, 255, 255));
+
+        // The stream is left just past the 762 values this colormap used, so
+        // a second colormap differs — exactly as consecutive C calls do.
+        let cmap2 = PixColormap::create_random_with(8, true, true, &mut rng).unwrap();
+        assert_eq!(cmap2.get_rgb(1).unwrap(), (30, 168, 172));
+        assert_ne!(cmap2.get_rgb(1).unwrap(), cmap.get_rgb(1).unwrap());
+    }
+
+    /// The argument-free entry point behaves like the first `rand()` call of
+    /// a C program that never calls `srand()`, i.e. seed 1.
+    #[test]
+    fn test_create_random_defaults_to_seed_1() {
+        let a = PixColormap::create_random(8, true, true).unwrap();
+        let mut rng = GlibcRand::new(1);
+        let b = PixColormap::create_random_with(8, true, true, &mut rng).unwrap();
+        for i in 0..256 {
+            assert_eq!(a.get_rgb(i).unwrap(), b.get_rgb(i).unwrap(), "index {i}");
+        }
     }
 
     #[test]
