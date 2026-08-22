@@ -12,6 +12,7 @@
 //! C Leptonica: `prog/overlap_reg.c`
 
 use crate::common::{RegParams, load_test_image};
+use leptonica::core::GlibcRand;
 use leptonica::{Box, Boxa};
 
 /// Test combine_overlaps: boxes that overlap are merged into bounding regions.
@@ -220,49 +221,20 @@ fn texturefill_reg_fill() {
     //    pixTextureFillMap(pixa, boxa, ...);
 }
 
-/// Reproduces glibc's `rand()` (the TYPE_3 additive-feedback generator), so
-/// the test can build exactly the same pseudo-random boxes that C's
-/// `overlap_reg` does. Without this the inputs — and therefore every output —
-/// would differ.
-struct GlibcRand {
-    state: Vec<u32>,
-    idx: usize,
-}
+/// `overlap_reg.c` builds every box from `srand(45617)` plus glibc's
+/// `rand()`, so the inputs — and therefore every output — depend on
+/// reproducing that generator. [`GlibcRand`] does; this wraps the scaling
+/// idiom the C program uses at each call site.
+struct ScaledRand(GlibcRand);
 
-impl GlibcRand {
+impl ScaledRand {
     fn new(seed: u32) -> Self {
-        let mut r = vec![0u32; 344];
-        r[0] = seed;
-        for i in 1..31 {
-            // r[i] = (16807 * r[i-1]) % 2147483647, via Schrage's trick.
-            let prev = r[i - 1] as i64;
-            let hi = prev / 127_773;
-            let lo = prev % 127_773;
-            let mut word = 16_807 * lo - 2_836 * hi;
-            if word < 0 {
-                word += 2_147_483_647;
-            }
-            r[i] = word as u32;
-        }
-        for i in 31..34 {
-            r[i] = r[i - 31];
-        }
-        for i in 34..344 {
-            r[i] = r[i - 31].wrapping_add(r[i - 3]);
-        }
-        Self { state: r, idx: 344 }
-    }
-
-    fn next(&mut self) -> u32 {
-        let v = self.state[self.idx - 31].wrapping_add(self.state[self.idx - 3]);
-        self.state.push(v);
-        self.idx += 1;
-        v >> 1
+        Self(GlibcRand::new(seed))
     }
 
     /// C: `(l_int32)(scale * (l_float64)rand() / (l_float64)RAND_MAX)`
     fn scaled(&mut self, scale: f64) -> i32 {
-        (scale * self.next() as f64 / 2_147_483_647.0) as i32
+        (scale * self.0.next_u32() as f64 / 2_147_483_647.0) as i32
     }
 }
 
@@ -332,9 +304,9 @@ fn overlap_c_compat() {
     // C 0-6: percolation-style display at each maximum box size. C re-seeds
     // at the top of every iteration, so the generator is left 2000 draws past
     // the seed when the loop ends — the later blocks continue from there.
-    let mut rng = GlibcRand::new(45617);
+    let mut rng = ScaledRand::new(45617);
     for &maxsize in MAXSIZE.iter() {
-        rng = GlibcRand::new(45617);
+        rng = ScaledRand::new(45617);
         let mut pixa1 = Pixa::new();
         let mut boxa1 = Boxa::new();
         for _ in 0..500 {

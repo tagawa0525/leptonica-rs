@@ -88,11 +88,6 @@ impl PixColormap {
         has_white: bool,
         rng: &mut GlibcRand,
     ) -> Result<Self> {
-        let _ = rng;
-        Self::create_random(depth, has_black, has_white)
-    }
-
-    pub fn create_random(depth: u32, has_black: bool, has_white: bool) -> Result<Self> {
         if !matches!(depth, 2 | 4 | 8) {
             return Err(Error::InvalidParameter(format!(
                 "create_random requires depth 2, 4, or 8, got {depth}"
@@ -106,17 +101,13 @@ impl PixColormap {
             cmap.add_color(RgbaQuad::rgb(0, 0, 0))?;
         }
 
+        // C draws r, g and b as three separate statements, so they come off
+        // the stream in that order.
         let random_count = n - usize::from(has_black) - usize::from(has_white);
-        // Simple deterministic "random" using a linear congruential generator
-        // to avoid depending on rand crate. Seed with depth for variety.
-        let mut state: u32 = 1_103_515_245u32.wrapping_mul(depth).wrapping_add(12345);
         for _ in 0..random_count {
-            state = state.wrapping_mul(1_103_515_245).wrapping_add(12345);
-            let r = ((state >> 16) & 0xff) as u8;
-            state = state.wrapping_mul(1_103_515_245).wrapping_add(12345);
-            let g = ((state >> 16) & 0xff) as u8;
-            state = state.wrapping_mul(1_103_515_245).wrapping_add(12345);
-            let b = ((state >> 16) & 0xff) as u8;
+            let r = rng.next_byte();
+            let g = rng.next_byte();
+            let b = rng.next_byte();
             cmap.add_color(RgbaQuad::rgb(r, g, b))?;
         }
 
@@ -125,6 +116,15 @@ impl PixColormap {
         }
 
         Ok(cmap)
+    }
+
+    pub fn create_random(depth: u32, has_black: bool, has_white: bool) -> Result<Self> {
+        // A C program that never calls `srand()` behaves as if seeded with 1,
+        // so this matches C's *first* `pixcmapCreateRandom()`. Later calls in
+        // the same C program continue the one process-wide stream; use
+        // [`PixColormap::create_random_with`] to reproduce those.
+        let mut rng = GlibcRand::new(1);
+        Self::create_random_with(depth, has_black, has_white, &mut rng)
     }
 
     /// Check if the number of colors is valid for the depth.
@@ -754,7 +754,6 @@ mod tests {
     /// Expected colors verified against the palette C wrote in
     /// `prog/watershed_reg.c` check 7 (all 256 entries matched).
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_create_random_with_matches_glibc() {
         let mut rng = GlibcRand::new(1);
         let cmap = PixColormap::create_random_with(8, true, true, &mut rng).unwrap();

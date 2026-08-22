@@ -21,12 +21,13 @@
 //! is reproduced here rather than corrected, because agreeing with C is the
 //! point of the port.
 //!
-//! [`Wshed::render_colors`] is the exception. It tints the basins with
-//! [`Pixa::display_random_cmap`], whose colormap comes from a per-call
-//! generator, while C's `pixcmapCreateRandom()` draws from glibc's single
-//! process-wide `rand()` stream. The basin masks are identical but the
-//! colours are not, so `render_colors` output does not match C today. See
-//! `docs/porting/c-compat-findings/010-random-cmap-global-rng.md`.
+//! [`Wshed::render_colors`] matches too, but only when the random colormap
+//! is drawn from the right place in the sequence. C's `pixcmapCreateRandom()`
+//! reads glibc's single process-wide `rand()` stream, so a program that also
+//! calls `pixaDisplayRandomCmap()` elsewhere shifts the colours here. Use
+//! [`Wshed::render_colors_with`] and thread one
+//! [`GlibcRand`](crate::core::GlibcRand) through every call in program order.
+//! See `docs/porting/c-compat-findings/010-random-cmap-global-rng.md`.
 
 use crate::core::pta::pix_generate_from_pta;
 use crate::core::{Box, Numa, Pix, Pixa, PixelDepth, Pta};
@@ -599,6 +600,24 @@ impl Wshed {
     ///
     /// C Leptonica: `wshedRenderColors()` in `watershed.c`
     pub fn render_colors(&self) -> RegionResult<Pix> {
+        // Matches C's *first* call in a program; see `render_colors_with`.
+        let mut rng = crate::core::GlibcRand::new(1);
+        self.render_colors_with(&mut rng)
+    }
+
+    /// Same as [`Wshed::render_colors`], but drawing the basin colours from
+    /// `rng`.
+    ///
+    /// C `wshedRenderColors()` tints the basins with
+    /// `pixaDisplayRandomCmap()`, whose colormap comes from glibc's single
+    /// process-wide `rand()` stream. Reproducing a C program that also calls
+    /// `pixaDisplayRandomCmap()` elsewhere means threading the same
+    /// [`GlibcRand`](crate::core::GlibcRand) through every call in order.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `wshedRenderColors()` in `watershed.c`
+    pub fn render_colors_with(&self, rng: &mut crate::core::GlibcRand) -> RegionResult<Pix> {
         let (w, h) = (self.w, self.h);
         let pixd = self.pixs.convert_to_32().map_err(RegionError::Core)?;
         if self.pixad.is_empty() {
@@ -611,7 +630,7 @@ impl Wshed {
         }
         let pixt = self
             .pixad
-            .display_random_cmap(w, h)
+            .display_random_cmap_with(w, h, rng)
             .map_err(RegionError::Core)?;
         let pixc = pixt.convert_to_32().map_err(RegionError::Core)?;
         let pixm = self.pixad.display(w, h).map_err(RegionError::Core)?;
