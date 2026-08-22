@@ -2053,6 +2053,11 @@ fn binary_dilate(mask: &[bool], w: u32, h: u32, r: u32) -> Vec<bool> {
 /// threshold **and** every pixel on its 1-pixel exterior boundary is
 /// strictly greater than it.
 ///
+/// One C-compatible exception applies to the boundary test: a component
+/// whose bounding box touches the left or top edge of the image is never
+/// boundary-tested and survives the second condition unconditionally.
+/// The threshold test still applies to it. See [`qualify_local_minima`].
+///
 /// # Arguments
 ///
 /// * `pix` - 8-bpp input image
@@ -2121,6 +2126,29 @@ pub fn local_extrema(pix: &Pix, maxmin: u32, minmax: u32) -> RegionResult<(Pix, 
 ///    have strictly greater values.
 ///
 /// Components failing either condition are removed from the returned mask.
+///
+/// # C-compatible edge exception
+///
+/// C walks the exterior boundary with
+///
+/// ```c
+/// for (i = 0, y = yc - 1; i < hc + 2 && y >= 0 && y < h; i++, y++)
+///     for (j = 0, x = xc - 1; j < wc + 2 && x >= 0 && x < w; j++, x++)
+/// ```
+///
+/// where `y >= 0` and `x >= 0` *terminate* the loop rather than skipping
+/// the row or column. A component whose bounding box touches the left
+/// (`xc == 0`) or top (`yc == 0`) edge therefore has no exterior pixel
+/// examined at all, and condition 2 cannot reject it. Condition 1 is
+/// applied first and is unaffected, so such a component is still removed
+/// when its value exceeds `max_val`.
+///
+/// The `x < w` / `y < h` guards clip normally, because those pixels lie
+/// outside the image anyway; components on the right or bottom edge are
+/// qualified against their in-image neighbours as usual.
+///
+/// This is reproduced deliberately: matching C bit-for-bit is what makes
+/// the watershed seed pipeline agree with `prog/watershed_reg.c`.
 ///
 /// # Arguments
 ///
