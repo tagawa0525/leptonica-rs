@@ -1416,7 +1416,7 @@ C `nextOnPixelInRasterLow()` は走査を `(xstart, ystart)` から始めるた�
 境界追跡そのもの (位置テーブルによる次画素探索、ステップチェーン、
 seedfill による再構成) には実装差がなかった。
 
-### PR 45: ccbord の `.ccb` シリアライズ往復 (計画)
+### PR 45: ccbord の `.ccb` シリアライズ往復 (実施済み)
 
 C 版ソース: `prog/ccbord_reg.c` の check 3,4 / 10,11。PR 44 で作った
 `CCBORDA` を `.ccb` ファイルに書き出して読み戻し、境界描画 (3,10) と
@@ -1476,6 +1476,24 @@ ccbord.02`、`ccbord.10 == ccbord.07`、`ccbord.11 == ccbord.09`。往復が
 | 8x6 に 3x2 塊と孤立点 | 2 | `4 4 6 0 0 2` / なし | `44 60 02 88` / `88` |
 | 9x9 の 5x5 リング | 1 (穴 1) | 外周 16 個 / 穴 12 個 | 各 `88` |
 | 5x5 の L 字 3 画素 | 1 | `4 7 2` (奇数) | `47 28` |
+
+実施結果:
+
+- **4 ペア全件 Ok** (Ok 456 → 460、region 101 → 105)。実装差は 0 件
+- `feyn-fract.tif` (464 成分、38272 バイト) と `dreyfus1.png`
+  (290 成分、40987 バイト) で、C の `ccbaWrite()` が出す非圧縮ペイロード
+  と Rust の `to_bytes()` がバイト完全一致することを確認した
+- `ccbord_c_compat` の check が 2 つずつ増えたので、dreyfus1 側の Rust
+  index が 4-6 から 6-10 にずれた。`golden_map.tsv` と manifest を更新
+
+**C との意図的な差異** (いずれも rustdoc に記載):
+
+- `to_bytes()` はステップチェーン未生成をエラーにする。C は黙って
+  `ccbaGenerateStepChains()` を呼ぶが、同じモジュールの
+  `step_chains_to_pix_coords` がエラーを返す方針なので揃えた
+- `from_bytes()` は全読み出しを境界検査する。C の `ccbaReadStream()` は
+  ファイル中の個数を信用して `memcpy` するため、切り詰められた入力で
+  バッファ外を読む。個数からの事前確保もしない
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
