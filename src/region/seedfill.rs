@@ -725,7 +725,7 @@ pub fn remove_seeded_components(
     seed: &Pix,
     mask: &Pix,
     connectivity: ConnectivityType,
-    _border_size: u32,
+    border_size: u32,
 ) -> RegionResult<Pix> {
     if seed.depth() != PixelDepth::Bit1 {
         return Err(RegionError::UnsupportedDepth {
@@ -783,6 +783,19 @@ pub fn remove_seeded_components(
             // XOR: keep mask pixels NOT in seeded components
             out_mut.set_pixel_unchecked(x, y, mask_val ^ fill_val);
         }
+    }
+
+    // C: `if (bordersize > 0) pixSetOrClearBorder(pixd, bordersize, ...,
+    // PIX_CLR)`. Callers use it to drop components that ride the image
+    // edge, where the seedfill cannot decide them reliably.
+    if border_size > 0 {
+        out_mut.set_or_clear_border(
+            border_size,
+            border_size,
+            border_size,
+            border_size,
+            crate::core::pix::InitColor::White,
+        );
     }
 
     Ok(out_mut.into())

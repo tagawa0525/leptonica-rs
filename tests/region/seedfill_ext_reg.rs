@@ -248,7 +248,6 @@ fn test_remove_seeded_components_basic() {
 /// The expected masks are the verbatim output of the C function on this
 /// fixture.
 #[test]
-#[ignore = "not yet implemented"]
 fn test_remove_seeded_components_border_size() {
     let mask = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
     let mut pm = mask.try_into_mut().unwrap();
