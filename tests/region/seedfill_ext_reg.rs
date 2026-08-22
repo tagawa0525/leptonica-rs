@@ -233,18 +233,85 @@ fn test_remove_seeded_components_basic() {
     pm.set_pixel_unchecked(3, 3, 1);
     let seed: Pix = pm.into();
 
-    let result = remove_seeded_components(&seed, &mask, ConnectivityType::FourWay).unwrap();
+    let result = remove_seeded_components(&seed, &mask, ConnectivityType::FourWay, 0).unwrap();
     // Left rectangle should be removed
     assert_eq!(result.get_pixel_unchecked(3, 3), 0);
     // Right rectangle should remain
     assert_eq!(result.get_pixel_unchecked(15, 4), 1);
 }
 
+/// C `pixRemoveSeededComponents()` takes a `bordersize` argument and clears
+/// that many pixels around the result. `wshedApply()` relies on it
+/// (`bordersize = 2` on a mask that has not been border-cleared), so the
+/// Rust port must expose it too.
+///
+/// The expected masks are the verbatim output of the C function on this
+/// fixture.
+#[test]
+#[ignore = "not yet implemented"]
+fn test_remove_seeded_components_border_size() {
+    let mask = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+    let mut pm = mask.try_into_mut().unwrap();
+    for x in 0..8u32 {
+        pm.set_pixel_unchecked(x, 0, 1);
+        pm.set_pixel_unchecked(x, 7, 1);
+    }
+    pm.set_pixel_unchecked(4, 4, 1);
+    pm.set_pixel_unchecked(5, 4, 1);
+    pm.set_pixel_unchecked(2, 2, 1);
+    pm.set_pixel_unchecked(1, 3, 1);
+    pm.set_pixel_unchecked(3, 6, 1);
+    let mask: Pix = pm.into();
+
+    let seed = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+    let mut pm = seed.try_into_mut().unwrap();
+    pm.set_pixel_unchecked(4, 4, 1);
+    let seed: Pix = pm.into();
+
+    let expected: [(u32, [&str; 8]); 3] = [
+        (
+            0,
+            [
+                "11111111", "00000000", "00100000", "01000000", "00000000", "00000000", "00010000",
+                "11111111",
+            ],
+        ),
+        (
+            1,
+            [
+                "00000000", "00000000", "00100000", "01000000", "00000000", "00000000", "00010000",
+                "00000000",
+            ],
+        ),
+        (
+            2,
+            [
+                "00000000", "00000000", "00100000", "00000000", "00000000", "00000000", "00000000",
+                "00000000",
+            ],
+        ),
+    ];
+
+    for (border_size, rows) in expected {
+        let out = remove_seeded_components(&seed, &mask, ConnectivityType::EightWay, border_size)
+            .unwrap();
+        for (y, row) in rows.iter().enumerate() {
+            for (x, c) in row.bytes().enumerate() {
+                assert_eq!(
+                    out.get_pixel_unchecked(x as u32, y as u32),
+                    u32::from(c - b'0'),
+                    "border_size={border_size} at ({x}, {y})"
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn test_remove_seeded_components_no_seeds() {
     let mask = make_binary_rect(10, 10, 2, 2, 8, 8);
     let seed = Pix::new(10, 10, PixelDepth::Bit1).unwrap(); // empty
-    let result = remove_seeded_components(&seed, &mask, ConnectivityType::FourWay).unwrap();
+    let result = remove_seeded_components(&seed, &mask, ConnectivityType::FourWay, 0).unwrap();
     // Nothing should be removed
     assert_eq!(result.get_pixel_unchecked(5, 5), 1);
 }

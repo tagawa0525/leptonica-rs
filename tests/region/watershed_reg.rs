@@ -323,7 +323,7 @@ fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
     rp.write_pix_and_check(&pix4, ImageFormat::Png)
         .expect("write painted seeds");
 
-    let pix5 = remove_seeded_components(&pix3, &pix1, ConnectivityType::EightWay)
+    let pix5 = remove_seeded_components(&pix3, &pix1, ConnectivityType::EightWay, 2)
         .expect("remove_seeded_components");
     // 5
     rp.write_pix_and_check(&pix5, ImageFormat::Png)

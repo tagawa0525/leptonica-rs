@@ -716,6 +716,7 @@ pub fn fill_closed_borders(pix: &Pix, connectivity: ConnectivityType) -> RegionR
 /// * `seed` - 1-bpp seed image (pixels marking components to remove)
 /// * `mask` - 1-bpp mask image (components to filter)
 /// * `connectivity` - 4 or 8-way connectivity
+/// * `border_size` - clear this many pixels around the result (0 = none)
 ///
 /// # See also
 ///
@@ -724,6 +725,7 @@ pub fn remove_seeded_components(
     seed: &Pix,
     mask: &Pix,
     connectivity: ConnectivityType,
+    _border_size: u32,
 ) -> RegionResult<Pix> {
     if seed.depth() != PixelDepth::Bit1 {
         return Err(RegionError::UnsupportedDepth {
