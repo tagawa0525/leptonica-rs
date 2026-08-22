@@ -257,3 +257,86 @@ fn watershed_error_handling() {
 
     assert!(rp.cleanup(), "watershed error handling test failed");
 }
+
+/// C-compatible port of `DoWatershed()` in `prog/watershed_reg.c`, restricted
+/// to the local-extrema/seed stage (C indices 0-6 and 12-18).
+///
+/// The watershed stage proper (C indices 7-11, 19-23) needs the `L_WSHED`
+/// priority-queue machinery, which is not ported yet.
+fn do_watershed_c(rp: &mut crate::common::RegParams, pixs: &Pix) {
+    use leptonica::core::pix::InitColor;
+    use leptonica::core::pixel::compose_rgb;
+    use leptonica::region::{local_extrema, remove_seeded_components, select_min_in_conncomp};
+
+    let w = pixs.width();
+    let h = pixs.height();
+
+    // 0
+    rp.write_pix_and_check(pixs, ImageFormat::Png)
+        .expect("write pixs");
+
+    let (pix1, pix2) = local_extrema(pixs, 0, 0).expect("local_extrema");
+    let pix1 = {
+        let mut m = pix1.try_into_mut().expect("into mut");
+        m.set_or_clear_border(2, 2, 2, 2, InitColor::White);
+        Pix::from(m)
+    };
+
+    let redval = compose_rgb(255, 0, 0);
+    let greenval = compose_rgb(0, 255, 0);
+
+    let pixc = pixs.convert_to_32().expect("convert_to_32");
+    let pixc = {
+        let mut m = pixc.try_into_mut().expect("into mut");
+        m.paint_through_mask(&pix2, 0, 0, greenval)
+            .expect("paint maxima");
+        m.paint_through_mask(&pix1, 0, 0, redval)
+            .expect("paint minima");
+        Pix::from(m)
+    };
+    // 1
+    rp.write_pix_and_check(&pixc, ImageFormat::Png)
+        .expect("write pixc");
+    // 2
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("write minima");
+
+    let (pta, _) = select_min_in_conncomp(pixs, &pix1).expect("select_min_in_conncomp");
+    let pix3 =
+        leptonica::core::pta::pix_generate_from_pta(&pta, w, h).expect("pix_generate_from_pta");
+    // 3
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("write seeds");
+
+    let pix4 = pixs.convert_to_32().expect("convert_to_32");
+    let pix4 = {
+        let mut m = pix4.try_into_mut().expect("into mut");
+        m.paint_through_mask(&pix3, 0, 0, greenval)
+            .expect("paint seeds");
+        Pix::from(m)
+    };
+    // 4
+    rp.write_pix_and_check(&pix4, ImageFormat::Png)
+        .expect("write painted seeds");
+
+    let pix5 = remove_seeded_components(&pix3, &pix1, ConnectivityType::EightWay)
+        .expect("remove_seeded_components");
+    // 5
+    rp.write_pix_and_check(&pix5, ImageFormat::Png)
+        .expect("write leftovers");
+    // 6
+    let empty = if pix5.is_zero() { 1.0 } else { 0.0 };
+    rp.compare_values(1.0, empty, 0.0);
+}
+
+#[test]
+fn watershed_c_compat() {
+    let mut rp = crate::common::RegParams::new("watershed_c");
+
+    let pix1 = create_synthetic_image(0);
+    do_watershed_c(&mut rp, &pix1);
+    let pix2 = create_synthetic_image(1);
+    do_watershed_c(&mut rp, &pix2);
+
+    assert!(rp.cleanup(), "watershed c-compat test failed");
+}
