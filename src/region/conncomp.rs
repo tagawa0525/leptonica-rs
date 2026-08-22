@@ -708,13 +708,21 @@ pub fn next_on_pixel_in_raster(pix: &Pix, start_x: u32, start_y: u32) -> Option<
     let w = pix.width();
     let h = pix.height();
 
-    if start_x >= w || start_y >= h {
+    if start_y >= h {
         return None;
     }
 
-    // C scans from (start_x, start_y) inclusive.
-    let y = start_y;
-    let x = start_x;
+    // C scans from (start_x, start_y) inclusive. An x past the end of the row
+    // simply rolls over to the start of the next one, which is what callers
+    // iterating with `x + 1` hit at the right edge.
+    let (x, y) = if start_x >= w {
+        (0, start_y + 1)
+    } else {
+        (start_x, start_y)
+    };
+    if y >= h {
+        return None;
+    }
 
     // Scan remaining rows
     for sy in y..h {
@@ -1157,7 +1165,6 @@ mod tests {
     ///
     /// Expected values dumped from C.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_next_on_pixel_in_raster_rolls_over_row_end() {
         // 5x5 with pixels at (4, 1) and (0, 2).
         let pix = create_test_image(5, 5, &[(4, 1), (0, 2)]);
