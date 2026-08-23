@@ -1283,4 +1283,80 @@ mod tests {
         assert_eq!((d.pix.width(), d.pix.height()), (18, 60));
         assert_eq!(d.nclass, 3);
     }
+
+    /// C `jbGetULCorners()` stores the centroid of the *bordered* component,
+    /// so a solid 5x7 block padded by 6 has its centroid at (8, 9).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_instance_centroids_match_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        let rounded: Vec<_> = c.ptac.iter().map(|&(x, y)| (x, y)).collect();
+        assert_eq!(rounded, [(8.0, 9.0), (8.0, 9.0), (8.0, 9.0), (7.0, 8.0)]);
+    }
+
+    /// Verbatim from C. Component 0 sits at x = 4 but is placed at x = 3:
+    /// its alignment window runs off the left edge of the page, which C
+    /// clips, and the shifted position then scores better.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_ul_corners_match_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        assert_eq!(c.ptaul, [(3, 6), (22, 6), (40, 6), (58, 6)]);
+    }
+
+    /// C `pixaCreateFromPix()` clips each 1 bpp cell back to its foreground,
+    /// so the templates come out at their own size, not the lattice size.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_extracted_templates_are_clipped_like_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        let d = c.get_data().unwrap();
+        let t = d.extract_templates().unwrap();
+        let sizes: Vec<_> = t.iter().map(|p| (p.width(), p.height())).collect();
+        assert_eq!(sizes, [(5, 7), (5, 7), (3, 5)]);
+    }
+
+    /// The whole pipeline: the page C reconstructs from the templates.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_render_page_matches_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        let d = c.get_data().unwrap();
+        let page = d.render_page(0).unwrap();
+        assert_eq!((page.width(), page.height()), (80, 24));
+
+        // Rows 6..13 of C's output; every other row is blank.
+        let expected: [&str; 7] = [
+            "...#####..............#####.............#####.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#...................................",
+            "...#####..............#####.............#####...................................",
+        ];
+        for (i, row) in expected.iter().enumerate() {
+            let y = 6 + i as u32;
+            let got: String = (0..80)
+                .map(|x| {
+                    if page.get_pixel_unchecked(x, y) == 1 {
+                        '#'
+                    } else {
+                        '.'
+                    }
+                })
+                .collect();
+            assert_eq!(&got, row, "row {y}");
+        }
+        for y in (0..6).chain(13..24) {
+            let fg = (0..80)
+                .filter(|&x| page.get_pixel_unchecked(x, y) == 1)
+                .count();
+            assert_eq!(fg, 0, "row {y} should be blank");
+        }
+    }
 }
