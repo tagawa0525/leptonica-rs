@@ -788,7 +788,10 @@ fn compfilter_c_compat() {
     let ratios: Vec<f32> = pixa
         .pix_slice()
         .iter()
-        .map(|p| p.find_perim_to_area_ratio().unwrap_or(0.0))
+        .map(|p| {
+            p.find_perim_to_area_ratio()
+                .expect("perimeter-to-area ratio of a 1 bpp component")
+        })
         .collect();
     let na1 = leptonica::core::Numa::from_slice(&ratios);
 
@@ -806,7 +809,7 @@ fn compfilter_c_compat() {
     na2.invert(); // now marks the components to remove
 
     let indicator: Vec<bool> = (0..na2.len())
-        .map(|i| na2.get(i).unwrap_or(0.0) != 0.0)
+        .map(|i| na2.get(i).expect("indicator value in range") != 0.0)
         .collect();
     let out = pixs.deep_clone();
     let mut out_mut = out.try_into_mut().expect("fresh copy");
