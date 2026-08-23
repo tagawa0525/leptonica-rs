@@ -144,7 +144,7 @@
 | pixAffinePtaGray            | ✅   | affine::affine_gray                   | C とビット一致 (PR 53)                                            |
 | pixAffineGray               | ✅   | affine::affine_gray                   | C とビット一致 (PR 53)                                            |
 | pixAffinePtaWithAlpha       | ✅   | affine::affine_pta_with_alpha         | 同等                                                              |
-| linearInterpolatePixelGray  | ✅   | warper::linear_interpolate_gray       | warp と affine で共有 (plan 902 PR 49 / 53)                       |
+| linearInterpolatePixelGray  | ✅   | warper::linear_interpolate_gray       | warp / affine / bilinear / projective で共有 (PR 49 / 53)         |
 | linearInterpolatePixelColor | 🚫   | -                                     | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
 | gaussjordan                 | 🔄   | affine::gauss_jordan                  | 内部実装として存在                                                |
 | pixAffineSequential         | 🚫   | -                                     | 不要 (スコープ除外: AffineMatrix::compose で対応)                 |

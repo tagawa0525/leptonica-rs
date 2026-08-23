@@ -2044,6 +2044,14 @@ PR 52 の棚卸しで残った `transform` の未着手分。`affine` は C 側 
 (`pixAffineSampledPta`) は修正前から一致していたので、補間経路だけの
 問題だったと切り分けられた。
 
+**レビュー指摘から波及**: 移植表の `linearInterpolatePixelGray` が
+「不要・インライン処理」のままだと指摘され、実態を確認する過程で
+**C では `affine.c` だけでなく `bilinear.c` と `projective.c` も同じ
+ヘルパーを呼ぶ**ことが分かった。Rust 側の `bilinear_gray` /
+`projective_gray` も同じ独自実装を持っていて同じ 3 点で食い違って
+いたので、まとめて共通実装に寄せた。こちらも C と pixel 完全一致を確認
+(修正前は約 13 万画素、最大差 255)。
+
 **残り**: check 50-52 は `createMatrix2dTranslate` / `createMatrix2dScale` /
 `createMatrix2dRotate` / `l_productMat3` / `affineInvertXform` /
 `pixAffine` が未移植。行列合成 API 一式の移植になるため別 PR。
