@@ -1915,6 +1915,48 @@ C 準拠にするには src/dst を分離する必要がある。
 Ok のものが混在するため、`key` 単位で 108 行書く必要がある。費用対効果を
 見て別途判断する。
 
+### PR 52: shear1 のマッピング (計画)
+
+`transform` binary は Unmapped 74 件。棚卸ししたところ、大半は既に
+マップ済みか JPEG 縛りだった:
+
+| C テスト | C の PNG 出力 | マップ済み | 残り |
+| --- | --: | --: | --- |
+| `scale` | 17 | 16 | 49 のみ |
+| `rotate1` | 32 | 32 | なし |
+| `rotate2` | 8 | 8 | なし |
+| `shear2` / `translate` / `smallpix` | 4 / 3 / 9 | 同数 | なし |
+| `affine` | 33 | 20 | 13 |
+| **`shear1`** | **6** | **0** | **6 件すべて** |
+
+`shear1` は 6 件とも未着手で、しかも**入力が全て lossless**
+(`test1.png` / `weasel2.4c.png` / `weasel4.11c.png` / `weasel4.16g.png` /
+`dreyfus8.png`)。JPEG 出力の check 4/6/7 だけが対象外。
+
+| C check | 入力 | 深度 |
+| --- | --- | --- |
+| 0 | `test1.png` | 1bpp |
+| 1 | `weasel2.4c.png` | 2bpp cmap (満杯) |
+| 2 | `weasel4.11c.png` | 4bpp cmap (空きあり) |
+| 3 | `weasel4.16g.png` | 4bpp cmap (満杯) |
+| 5 | `dreyfus8.png` | 8bpp cmap |
+| 12 | `weasel4.11c.png` | 4bpp cmap、in-place 系 |
+
+C の `shearTest1()` は入力ごとに以下を組み合わせて 4 列に並べる:
+
+- `pixHShear` / `pixVShear` を yloc/xloc 2 通り x fill 2 通り
+- colormap なしの場合のみ `pixHShearIP` / `pixVShearIP` を同 4 通り
+- 8bpp / 32bpp / colormap 付きの場合のみ `pixHShearLI` / `pixVShearLI`
+  を同 4 通り
+
+check 1 は**入力の colormap を書き換えてから**シアーする点に注意
+(黒 (40,44,40) を暗赤 (100,0,0) に。満杯の colormap では
+`L_BRING_IN_BLACK` が黒を引き込めないことを見せるため)。
+
+使う Rust API はいずれも実装済み: `h_shear` / `v_shear` /
+`h_shear_ip` / `v_shear_ip` / `h_shear_li` / `v_shear_li`。
+角度は `ANGLE1 = 3.14159265 / 12`。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
