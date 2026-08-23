@@ -1010,9 +1010,16 @@ fn copy_to(dst: &mut crate::core::PixMut, src: &Pix, x: i32, y: i32) -> RecogRes
 /// makes the template differ least from what is actually on the page.
 ///
 /// The window is the template's own size, padded by [`TEMPLATE_BORDER`] and
-/// placed at the centroid-corrected position. Where it runs off the page, C
-/// clips it and compares only the part that remains, so components near an
-/// edge can be pulled towards it; this reproduces that.
+/// placed at the centroid-corrected position.
+///
+/// Where the window runs off the page, C clips it with `pixClipRectangle()`
+/// and compares only the part that remains. It then rasterops the template at
+/// `(j, i)` **in that clipped frame**, without shifting it back by how much
+/// was cut off, so near an edge the template is effectively compared against a
+/// displaced piece of the page and the chosen offset moves with it. That looks
+/// like an oversight, but it decides where those components land, so it is
+/// reproduced rather than corrected: adding the clip offset moves the first
+/// component of the test fixture from C's x = 3 to x = 4.
 ///
 /// # See also
 ///
@@ -1046,6 +1053,8 @@ fn final_positioning_for_alignment(
             for v in 0..ch {
                 for u in 0..cw {
                     let mut val = pixs.get_pixel_unchecked((cx + u) as u32, (cy + v) as u32);
+                    // Template origin sits at (j, i) of the clipped window, as
+                    // in C; deliberately not offset by (cx - bx, cy - by).
                     let (tu, tv) = (u - j, v - i);
                     if tu >= 0 && tv >= 0 && tu < w && tv < h {
                         val ^= template.get_pixel_unchecked(tu as u32, tv as u32);
