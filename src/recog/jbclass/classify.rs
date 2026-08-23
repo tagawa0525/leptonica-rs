@@ -732,7 +732,14 @@ impl JbData {
 
     /// Extracts individual templates from the composite image
     fn extract_templates(&self) -> RecogResult<Vec<Pix>> {
-        let cols = ((self.nclass as f32).sqrt().ceil() as usize).max(1);
+        // Derive the column count from the composite itself rather than
+        // recomputing the layout, so this cannot drift from whatever produced
+        // the image. C does the same in `pixaCreateFromPix()`.
+        let cols = self
+            .pix
+            .width()
+            .div_ceil((self.lattice_w.max(1)) as u32)
+            .max(1) as usize;
 
         let mut templates = Vec::with_capacity(self.nclass);
 
