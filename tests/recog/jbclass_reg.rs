@@ -14,10 +14,11 @@
 //! C Leptonica: `prog/jbclass_reg.c`
 
 use crate::common::RegParams;
+use leptonica::core::Pixa;
 use leptonica::io::ImageFormat;
 use leptonica::recog::jbclass::{
-    JbComponent, correlation_init, pix_word_boxes_by_dilation, pix_word_mask_by_dilation,
-    rank_haus_init,
+    JbClasser, JbComponent, correlation_init, pix_word_boxes_by_dilation,
+    pix_word_mask_by_dilation, rank_haus_init,
 };
 use leptonica::{Pix, PixelDepth};
 
@@ -239,32 +240,88 @@ fn jbclass_reg_word_boxes() {
     assert!(rp.cleanup(), "jbclass word_boxes test failed");
 }
 
-/// C-compatible port of `prog/jbclass_reg.c`, covering the template composite
-/// that `jbDataSave()` builds for each classifier (C indices 0 and 4).
+/// Adds the outline C's `PixaOutlineTemplates()` draws around the first
+/// instance of each class: three white pixels then one black.
 ///
-/// The page reconstructions (1,2 / 5,6) and the per-class instance display
-/// (3 / 7) need `jbGetULCorners` and `pixaDisplayTiledInColumns` and follow in
-/// a later PR.
+/// `classes[i]` is the class of `instances[i]`, and the flattened order groups
+/// instances by class, so a change of class marks a template.
+fn outline_templates(instances: &[Pix], classes: &[usize]) -> Vec<Pix> {
+    let mut out = Vec::with_capacity(instances.len());
+    let mut prev: Option<usize> = None;
+    for (pix, &class) in instances.iter().zip(classes) {
+        if prev == Some(class) {
+            out.push(pix.clone());
+        } else {
+            prev = Some(class);
+            let padded = pix.add_border(3, 0).expect("white border");
+            out.push(padded.add_border(1, 1).expect("black border"));
+        }
+    }
+    out
+}
+
+/// Flattens the per-class instance arrays, returning the instances and the
+/// class each one belongs to.
+///
+/// C: `pixaaFlattenToPixa(classer->pixaa, &na, L_CLONE)`.
+fn flatten_instances(classer: &leptonica::recog::jbclass::JbClasser) -> (Vec<Pix>, Vec<usize>) {
+    let mut pix = Vec::new();
+    let mut classes = Vec::new();
+    for (class, instances) in classer.pixaa.iter().enumerate() {
+        for inst in instances {
+            pix.push(inst.clone());
+            classes.push(class);
+        }
+    }
+    (pix, classes)
+}
+
+/// Runs one classifier through the three stages C checks: the template
+/// composite, the pages rebuilt from it, and every instance laid out by class.
+fn do_jbclass_c_one(rp: &mut RegParams, classer: &mut JbClasser, pages: &[Pix]) {
+    classer.add_pages(pages).expect("add_pages");
+    let data = classer.get_data().expect("get_data");
+
+    // 0 / 4
+    rp.write_pix_and_check(&data.pix, ImageFormat::Tiff)
+        .expect("write templates");
+
+    // 1,2 / 5,6
+    for page in 0..pages.len() {
+        let rendered = data.render_page(page).expect("render_page");
+        rp.write_pix_and_check(&rendered, ImageFormat::Tiff)
+            .expect("write rendered page");
+    }
+
+    // 3 / 7
+    let (instances, classes) = flatten_instances(classer);
+    let outlined = outline_templates(&instances, &classes);
+    let mut pixa = Pixa::with_capacity(outlined.len());
+    for pix in outlined {
+        pixa.push(pix);
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(40, 1.0, 10, 0)
+        .expect("display_tiled_in_columns");
+    rp.write_pix_and_check(&tiled, ImageFormat::Tiff)
+        .expect("write instance display");
+}
+
+/// C-compatible port of `prog/jbclass_reg.c`, covering all of it: the template
+/// composite, the pages reconstructed from the templates, and the per-class
+/// instance display, for the correlation classifier (C indices 0-3) and then
+/// the rank Hausdorff one (C indices 4-7).
 fn do_jbclass_c(rp: &mut RegParams) {
     let pix1 = crate::common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
     let pix4 = crate::common::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
     let pages = [clip_top_half(&pix1), clip_top_half(&pix4)];
 
-    // Correlation classifier, then rank Hausdorff, in C's order.
     let mut corr =
         correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).expect("correlation_init");
-    corr.add_pages(&pages).expect("add_pages corr");
-    let corr_data = corr.get_data().expect("get_data corr");
-    // 0
-    rp.write_pix_and_check(&corr_data.pix, ImageFormat::Tiff)
-        .expect("write corr templates");
+    do_jbclass_c_one(rp, &mut corr, &pages);
 
     let mut haus = rank_haus_init(JbComponent::ConnComps, 0, 0, 2, 0.97).expect("rank_haus_init");
-    haus.add_pages(&pages).expect("add_pages haus");
-    let haus_data = haus.get_data().expect("get_data haus");
-    // 4
-    rp.write_pix_and_check(&haus_data.pix, ImageFormat::Tiff)
-        .expect("write haus templates");
+    do_jbclass_c_one(rp, &mut haus, &pages);
 }
 
 #[test]

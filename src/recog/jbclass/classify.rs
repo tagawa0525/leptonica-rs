@@ -186,6 +186,8 @@ pub fn rank_haus_init(
         DEFAULT_SIZE_HAUS
     };
     classer.rank_haus = rank_haus;
+    // C keeps every instance so callers can inspect or improve the templates.
+    classer.keep_pixaa = true;
 
     Ok(classer)
 }
@@ -234,6 +236,8 @@ pub fn correlation_init(
     };
     classer.thresh = if thresh > 0.0 { thresh } else { DEFAULT_THRESH };
     classer.weight_factor = weight_factor;
+    // C keeps every instance so callers can inspect or improve the templates.
+    classer.keep_pixaa = true;
 
     Ok(classer)
 }
@@ -269,15 +273,16 @@ impl JbClasser {
                 JbMethod::Correlation => self.classify_correlation(comp)?,
             };
 
-            // Store classification results
             self.naclass.push(class_idx);
             self.napage.push(self.npages);
-            self.ptaul.push((pix_box.x, pix_box.y));
-            self.ptall.push((pix_box.x, pix_box.y + pix_box.h));
+            self.ptac.push(instance_centroid(&add_border(
+                comp,
+                TEMPLATE_BORDER as u32,
+            )?)?);
 
-            // Compute and store centroid
-            let (cx, cy) = compute_centroid(comp)?;
-            self.ptac.push((cx, cy));
+            let (ulx, uly) = self.ul_corner(pix, class_idx, self.ptac.len() - 1, pix_box)?;
+            self.ptaul.push((ulx, uly));
+            self.ptall.push((ulx, uly + pix_box.h));
         }
 
         self.base_index += num_comps;
@@ -296,6 +301,40 @@ impl JbClasser {
             self.add_page(pix)?;
         }
         Ok(())
+    }
+
+    /// Where to draw this component's template so that the template and the
+    /// instance line up.
+    ///
+    /// The centroid difference gives a first guess; the final pixel is chosen
+    /// by trying all nine one-pixel shifts and keeping the one that differs
+    /// least from the page.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `jbGetULCorners()` in `jbclass.c`
+    fn ul_corner(
+        &self,
+        pixs: &Pix,
+        class_idx: usize,
+        comp_idx: usize,
+        bounds: &PixBox,
+    ) -> RecogResult<(i32, i32)> {
+        let (x1, y1) = self.ptac[comp_idx];
+        let (x2, y2) = *self.ptact.get(class_idx).ok_or_else(|| {
+            RecogError::ClassificationError(format!("class {class_idx} has no centroid"))
+        })?;
+        // C rounds away from zero, which `f32::round` also does.
+        let idelx = (x2 - x1).round() as i32;
+        let idely = (y2 - y1).round() as i32;
+
+        let template = self.pixat.get(class_idx).ok_or_else(|| {
+            RecogError::ClassificationError(format!("class {class_idx} has no template"))
+        })?;
+        let (dx, dy) =
+            final_positioning_for_alignment(pixs, bounds.x, bounds.y, idelx, idely, template);
+
+        Ok((bounds.x - idelx + dx, bounds.y - idely + dy))
     }
 
     /// Extracts components from a page based on component type
@@ -752,7 +791,16 @@ impl JbData {
             let pix_box =
                 PixBox::new(x, y, self.lattice_w, self.lattice_h).map_err(RecogError::Core)?;
 
-            templates.push(extract_rect(&self.pix, &pix_box)?);
+            // C clips each 1 bpp cell back to its foreground, so the template
+            // comes out at its own size rather than the lattice size. An
+            // all-white cell has nothing to clip to; keep it as-is.
+            let cell = extract_rect(&self.pix, &pix_box)?;
+            let clipped = cell
+                .clip_to_foreground()
+                .map_err(RecogError::Core)?
+                .map(|(pix, _)| pix)
+                .unwrap_or(cell);
+            templates.push(clipped);
         }
 
         Ok(templates)
@@ -958,6 +1006,91 @@ fn copy_to(dst: &mut crate::core::PixMut, src: &Pix, x: i32, y: i32) -> RecogRes
     Ok(())
 }
 
+/// Picks the one-pixel shift, out of the nine in a 3x3 neighbourhood, that
+/// makes the template differ least from what is actually on the page.
+///
+/// The window is the template's own size, padded by [`TEMPLATE_BORDER`] and
+/// placed at the centroid-corrected position.
+///
+/// Where the window runs off the page, C clips it with `pixClipRectangle()`
+/// and compares only the part that remains. It then rasterops the template at
+/// `(j, i)` **in that clipped frame**, without shifting it back by how much
+/// was cut off, so near an edge the template is effectively compared against a
+/// displaced piece of the page and the chosen offset moves with it. That looks
+/// like an oversight, but it decides where those components land, so it is
+/// reproduced rather than corrected: adding the clip offset moves the first
+/// component of the test fixture from C's x = 3 to x = 4.
+///
+/// # See also
+///
+/// C Leptonica: `finalPositioningForAlignment()` in `jbclass.c`
+fn final_positioning_for_alignment(
+    pixs: &Pix,
+    x: i32,
+    y: i32,
+    idelx: i32,
+    idely: i32,
+    template: &Pix,
+) -> (i32, i32) {
+    let (w, h) = (template.width() as i32, template.height() as i32);
+    let (pw, ph) = (pixs.width() as i32, pixs.height() as i32);
+
+    // The window, clipped to the page as C's `pixClipRectangle` does.
+    let bx = x - idelx - TEMPLATE_BORDER;
+    let by = y - idely - TEMPLATE_BORDER;
+    let cx = bx.max(0);
+    let cy = by.max(0);
+    let cw = (bx + w).min(pw) - cx;
+    let ch = (by + h).min(ph) - cy;
+    if cw <= 0 || ch <= 0 {
+        return (0, 0);
+    }
+
+    let (mut best, mut mincount) = ((0, 0), i32::MAX);
+    for i in -1..=1 {
+        for j in -1..=1 {
+            let mut count = 0;
+            for v in 0..ch {
+                for u in 0..cw {
+                    let mut val = pixs.get_pixel_unchecked((cx + u) as u32, (cy + v) as u32);
+                    // Template origin sits at (j, i) of the clipped window, as
+                    // in C; deliberately not offset by (cx - bx, cy - by).
+                    let (tu, tv) = (u - j, v - i);
+                    if tu >= 0 && tv >= 0 && tu < w && tv < h {
+                        val ^= template.get_pixel_unchecked(tu as u32, tv as u32);
+                    }
+                    count += val as i32;
+                }
+            }
+            if count < mincount {
+                mincount = count;
+                best = (j, i);
+            }
+        }
+    }
+    best
+}
+
+/// The centroid an instance contributes to [`JbClasser::ptac`].
+///
+/// C measures it on the bordered component, the same image the classifiers
+/// compare. It then appends it with `ptaJoin()`, which passes every point
+/// through `ptaGetIPt()` and so **rounds it to whole pixels**; the template
+/// centroids in `ptact` are stored directly and keep their fraction. The
+/// asymmetry is visible in the placement of a few components, so reproduce
+/// it rather than keeping the exact value here.
+///
+/// # See also
+///
+/// C Leptonica: `ptaJoin()` in `ptabasic.c`, called from
+/// `jbClassifyRankHaus()` / `jbClassifyCorrelation()`
+fn instance_centroid(bordered: &Pix) -> RecogResult<(f32, f32)> {
+    let (x, y) = compute_centroid(bordered)?;
+    // C rounds with `(l_int32)(v + 0.5)`, which truncates towards zero after
+    // the offset; centroids are never negative here.
+    Ok(((x + 0.5).floor(), (y + 0.5).floor()))
+}
+
 /// Helper: Computes the centroid of foreground pixels
 fn compute_centroid(pix: &Pix) -> RecogResult<(f32, f32)> {
     let w = pix.width();
@@ -1048,9 +1181,15 @@ pub fn add_page_components(
 
         classer.naclass.push(class_id);
         classer.napage.push(page);
-        classer.ptac.push(compute_centroid(comp)?);
-        classer.ptaul.push((bounds.x, bounds.y));
-        classer.ptall.push((bounds.x, bounds.y + bounds.h));
+        classer.ptac.push(instance_centroid(&add_border(
+            comp,
+            TEMPLATE_BORDER as u32,
+        )?)?);
+
+        let comp_idx = classer.ptac.len() - 1;
+        let (ulx, uly) = classer.ul_corner(pix, class_id, comp_idx, bounds)?;
+        classer.ptaul.push((ulx, uly));
+        classer.ptall.push((ulx, uly + bounds.h));
 
         n_added += 1;
     }
@@ -1282,5 +1421,77 @@ mod tests {
         assert_eq!((d.lattice_w, d.lattice_h), (18, 20));
         assert_eq!((d.pix.width(), d.pix.height()), (18, 60));
         assert_eq!(d.nclass, 3);
+    }
+
+    /// C `jbGetULCorners()` stores the centroid of the *bordered* component,
+    /// so a solid 5x7 block padded by 6 has its centroid at (8, 9).
+    #[test]
+    fn test_instance_centroids_match_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        let rounded: Vec<_> = c.ptac.iter().map(|&(x, y)| (x, y)).collect();
+        assert_eq!(rounded, [(8.0, 9.0), (8.0, 9.0), (8.0, 9.0), (7.0, 8.0)]);
+    }
+
+    /// Verbatim from C. Component 0 sits at x = 4 but is placed at x = 3:
+    /// its alignment window runs off the left edge of the page, which C
+    /// clips, and the shifted position then scores better.
+    #[test]
+    fn test_ul_corners_match_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        assert_eq!(c.ptaul, [(3, 6), (22, 6), (40, 6), (58, 6)]);
+    }
+
+    /// C `pixaCreateFromPix()` clips each 1 bpp cell back to its foreground,
+    /// so the templates come out at their own size, not the lattice size.
+    #[test]
+    fn test_extracted_templates_are_clipped_like_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        let d = c.get_data().unwrap();
+        let t = d.extract_templates().unwrap();
+        let sizes: Vec<_> = t.iter().map(|p| (p.width(), p.height())).collect();
+        assert_eq!(sizes, [(5, 7), (5, 7), (3, 5)]);
+    }
+
+    /// The whole pipeline: the page C reconstructs from the templates.
+    #[test]
+    fn test_render_page_matches_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        let d = c.get_data().unwrap();
+        let page = d.render_page(0).unwrap();
+        assert_eq!((page.width(), page.height()), (80, 24));
+
+        // Rows 6..13 of C's output; every other row is blank.
+        let expected: [&str; 7] = [
+            "...#####..............#####.............#####.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#.............###...................",
+            "...#####..............#####.............#...#...................................",
+            "...#####..............#####.............#####...................................",
+        ];
+        for (i, row) in expected.iter().enumerate() {
+            let y = 6 + i as u32;
+            let got: String = (0..80)
+                .map(|x| {
+                    if page.get_pixel_unchecked(x, y) == 1 {
+                        '#'
+                    } else {
+                        '.'
+                    }
+                })
+                .collect();
+            assert_eq!(&got, row, "row {y}");
+        }
+        for y in (0..6).chain(13..24) {
+            let fg = (0..80)
+                .filter(|&x| page.get_pixel_unchecked(x, y) == 1)
+                .count();
+            assert_eq!(fg, 0, "row {y} should be blank");
+        }
     }
 }

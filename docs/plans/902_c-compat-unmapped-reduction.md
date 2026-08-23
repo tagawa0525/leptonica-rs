@@ -1669,6 +1669,71 @@ PR 47 で移植する C 関数:
 - check 3,7 の `pixaDisplayTiledInColumns` と、テンプレートに白 3 +
   黒 1 の枠を付ける `PixaOutlineTemplates` が未移植
 
+### PR 48: jbclass のページ再構成とインスタンス表示 (実施済み)
+
+C 版ソース: `prog/jbclass_reg.c` の check 1,2,3 / 5,6,7。PR 47 で分類器が
+C 一致になったので、テンプレートからページを再構成する段 (1,2 / 5,6) と、
+クラス別に全インスタンスを並べる段 (3 / 7) を合わせる。
+
+移植する C 関数:
+
+| C 関数 | 役割 |
+| --- | --- |
+| `jbGetULCorners` | 各インスタンスの配置位置を重心差から決める |
+| `finalPositioningForAlignment` | 3x3 の範囲で XOR 画素数が最小の位置を選ぶ |
+| `pixaCreateFromPix` | 合成画像を格子で切り出す (1bpp は前景に切り詰め) |
+| `pixaaFlattenToPixa` | クラス別インスタンス配列を平坦化 |
+| `PixaOutlineTemplates` | 各クラス先頭に白 3 + 黒 1 の枠を付ける (reg test 側) |
+| `pixaDisplayTiledInColumns` | 40 列・間隔 10 で並べる |
+
+**要修正点** (PR 47 の調査で判明):
+
+- `ptac` が境界なし成分の重心になっている。C は境界込み
+  (`JB_ADDED_PIXELS` を足した画像) の重心を使う。UL 座標に直接効く
+- `extract_templates` が格子セル全体を返す。C は 1bpp のとき
+  `pixClipToForeground` で前景に切り詰めるので、配置されるテンプレートの
+  寸法が違う
+- `finalPositioningForAlignment` が未移植。UL 座標が重心差だけで決まって
+  いる
+
+**`finalPositioningForAlignment` の注意点**: 切り出し矩形
+`(x - idelx - 6, y - idely - 6, w, h)` は画像外にはみ出しうる。C の
+`pixClipRectangle` は矩形を画像に切り詰めて**小さい pix を返す**ので、
+続く XOR も切り詰められた枠の中で行われる。画像端の成分では、この効果で
+選ばれる位置が変わる。
+
+**RED に使う C 実測値** (PR 47 と同じ 4 成分の fixture、相関):
+
+- `ptac` (境界込み重心): `(8,9) (8,9) (8,9) (7,8)`
+- `ptaul`: `(3,6) (22,6) (40,6) (58,6)`。成分 0 は元が x=4 なのに x=3 に
+  なる (上記の画像端の効果)
+- 合成画像から切り出したテンプレート: `5x7 / 5x7 / 3x5` (格子セルの
+  18x20 ではない)
+
+実施結果:
+
+- **6 ペア全件 Ok** (Ok 466 → 472、recog 70 → 76)。これで **jbclass は
+  8/8 全件 Ok**、C の `jbclass_reg.c` を全 check 移植し終えた
+- 相関・rank Hausdorff とも、再構成ページ 2 枚とインスタンス表示が
+  C と pixel 完全一致
+
+計画の 3 点に加えて解消した差:
+
+- `keep_pixaa` の既定が `false` だった。C の `jbRankHausInit` /
+  `jbCorrelationInit` はどちらも 1 にする (インスタンス表示に必要)
+
+**C の `ptaJoin` が重心を丸める**: C は `ptaJoin()` で `ptac` に重心を
+追加するが、この関数は内部で `ptaGetIPt()` を通すため**値が整数に
+丸められる**。一方 `ptact` (テンプレート重心) は `ptaAddPt()` 直接なので
+小数のまま残る。この非対称が UL 座標に効く。
+
+見つけ方: 相関は全一致したのに rank Hausdorff の page1 だけ不一致で、
+`ptaul` の y 合計が 2 ずれていた。成分ごとに突き合わせると 5488 個中
+2 個だけ配置が 1 画素ずれており、C の `ptac` が (14.000000, 22.000000)
+と**整数ちょうど**なのに対し、同じ成分を C 内で直接 `pixCentroid` すると
+(14.361702, 22.446808) になった。丸めは 3x3 の最終位置合わせがたいてい
+吸収するので、窓の端に最適解が来た 2 個だけ表面化していた。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

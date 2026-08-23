@@ -271,7 +271,8 @@
 | jbClassifyCorrelation              | ✅   | JbClasser::classify_correlation              | C とクラス割当一致 (PR 47)         |
 | jbClasserCreate                    | 🔄   | rank_haus_init / correlation_init            | 分類器作成（専用関数に分割）       |
 | jbClasserDestroy                   | ✅   | Drop trait                                   | 自動破棄                           |
-| jbGetULCorners                     | 🔄   | JbData フィールド直接参照                    | 左上コーナー取得                   |
+| jbGetULCorners                     | ✅   | JbClasser::ul_corner (private)               | 3x3 の最終位置合わせ込み (PR 48)   |
+| finalPositioningForAlignment       | ✅   | final_positioning_for_alignment (private)    | 画像端の切り詰めも再現 (PR 48)     |
 | jbGetLLCorners                     | 🔄   | JbData フィールド直接参照                    | 左下コーナー取得                   |
 | pixHaustest                        | ✅   | hausdorff_match_with_areas                   | rank=1.0 の場合 (PR 47)            |
 | pixRankHaustest                    | ✅   | hausdorff_match_with_areas                   | 重心整列付き (PR 47)               |
@@ -279,7 +280,7 @@
 | jbAccumulateComposites             | 🔄   | JbClasser::get_data                          | 合成処理は内部実装                 |
 | jbTemplatesFromComposites          | ✅   | JbClasser::templates_from_composites         |                                    |
 | jbDataDestroy                      | 🔄   | Drop trait                                   | Rustでは所有権で自動破棄           |
-| jbDataRender                       | 🔄   | JbData::render_page / JbData::render_all     | 単一/全ページに分離                |
+| jbDataRender                       | ✅   | JbData::render_page / render_all             | C とビット一致 (PR 48)             |
 | jbCorrelation                      | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属              |
 | jbRankHaus                         | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属              |
 | jbWordsInTextlines                 | 🔄   | classapp.c セクション参照                    | `pixWordMaskByDilation` とは別関数 |
