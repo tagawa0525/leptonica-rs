@@ -514,6 +514,16 @@ transform	affine	16	affine_c	17	affine_sampled forward (pts 2)
 transform	affine	17	affine_c	18	affine_sampled inverse (pts 2)
 transform	affine	18	affine_c	19	affine_sampled residual (pts 2)
 transform	affine	19	affine_c	20	affine_sampled summary
+transform	affine	40	affine_c	21	affine sequential (pts 3)
+transform	affine	41	affine_c	22	affine sampled (pts 3)
+transform	affine	42	affine_c	23	affine sequential vs sampled residual
+transform	affine	43	affine_c	24	affine comparison summary
+transform	affine	44	affine_c	25	affine sequential large distortion
+transform	affine	45	affine_c	26	affine sampled large distortion
+transform	affine	46	affine_c	27	affine interpolated large distortion
+transform	affine	47	affine_c	28	affine seq vs sampled residual (inverted)
+transform	affine	48	affine_c	29	affine sampled vs interp residual (inverted)
+transform	affine	49	affine_c	30	affine large distortion summary
 transform	projective	0	projective_c	1	projective_sampled forward (pts 0)
 transform	projective	1	projective_c	2	projective_sampled inverse (pts 0)
 transform	projective	2	projective_c	3	projective_sampled residual (pts 0)
