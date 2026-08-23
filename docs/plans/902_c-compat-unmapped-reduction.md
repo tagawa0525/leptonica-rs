@@ -2112,6 +2112,51 @@ check 86 は独立していて移植しやすい:
 lossless 分 (check 0-3) は gnuplot 経由のプロット画像なので対象外
 (C manifest 側も `.na` 混在)。
 
+### PR 55: flipdetect のマッピング (実施済み)
+
+`recog` binary は Unmapped 41 件。C 側テストを棚卸しした:
+
+| C テスト | C 側 lossless 出力 | マップ済み | 状況 |
+| --- | --: | --: | --- |
+| `lineremoval` / `skew` / `findcorners` | 10 / 7 / 12 | 同数 | 完了 |
+| `newspaper` | 12 | 10 | 残り 2 は Excluded |
+| `genfonts` | 18 | 9 | 残りは別種 |
+| `pageseg` | 31 | 0 | 下記の理由で保留 |
+| `italic` | 3 | 0 | check 2/3 が中間ファイル依存 |
+| `wordboxes` / `pixadisp` | 2 / 8 | 0 | JPEG 混在 |
+| **`flipdetect`** | **1** | **0** | **check 12 が移植可能** |
+
+**`pageseg` を保留する理由**: check 0-19 は `pixGetRegionsBinary` が
+`pixadb` に積むデバッグ画像 20 枚。Rust の `segment_regions` は
+**デバッグ画像出力が未実装**で、さらに既存テストのコメントによると
+ハーフトーン検出が大画像で性能問題を起こすため無効化されている。
+移植には API 拡張と性能改善が要り、範囲が別物になる。
+
+**本 PR は `flipdetect` の check 12** に絞る。`feyn.tif` を 0.5 倍に
+縮小し、90 度ずつ回した 4 枚を 2 列に並べる (0.25 倍・間隔 20・枠 2) だけ
+なので、向き検出の結果に依存しない。
+
+使う C 関数 (Rust 実装は確認済み):
+
+| C 関数 | Rust |
+| --- | --- |
+| `pixScale` | `transform::scale` |
+| `pixRotate90` | `transform::rotate_90` |
+| `pixaDisplayTiledInColumns` | `Pixa::display_tiled_in_columns` |
+
+**注意**: C は `pixa` に 1 枚目として縮小画像そのものを入れ、以降は
+直前の結果を 90 度回して積む。回転は累積する。
+
+実施結果:
+
+- **1 ペア Ok** (Ok 505 → 506、recog 76 → 77)。**実装差は 0 件**で、
+  一度目から C と pixel 完全一致した
+
+**recog に残る課題**: `pageseg` の 20 件は本命だが、
+`segment_regions` にデバッグ画像出力を足し、ハーフトーン検出の性能問題
+(大画像で seed_fill が極端に遅い) を解消する必要がある。マッピングでは
+なく機能追加なので別 plan が適切。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

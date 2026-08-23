@@ -272,3 +272,49 @@ fn flipdetect_reg_mirror() {
 
     assert!(rp.cleanup(), "flipdetect mirror test failed");
 }
+
+/// C-compatible port of the orientation montage in `prog/flipdetect_reg.c`
+/// (C index 12).
+///
+/// The four tiles are the half-size page and the same page turned by 90, 180
+/// and 270 degrees; C builds them by rotating the previous tile each time, so
+/// the rotations accumulate. The montage does not depend on what the
+/// orientation detector reports, only on the rotations and the layout, so it
+/// can be matched pixel for pixel.
+///
+/// The other checks in that file compare confidence values rather than
+/// images, so they have no golden counterpart here.
+#[test]
+fn flipdetect_c_compat() {
+    use crate::common::load_test_image;
+    use leptonica::core::Pixa;
+    use leptonica::transform::{ScaleMethod, rotate_90, scale};
+
+    // The c-compat tests compare against a golden hash, so there is nothing
+    // to do in display mode.
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("flipdetect_c");
+
+    let pix = load_test_image("feyn.tif").expect("load feyn.tif");
+    let pixs = scale(&pix, 0.5, 0.5, ScaleMethod::Auto).expect("scale 0.5");
+
+    let mut pixa = Pixa::with_capacity(4);
+    let mut current = pixs;
+    pixa.push(current.clone());
+    for _ in 0..3 {
+        current = rotate_90(&current, true).expect("rotate 90");
+        pixa.push(current.clone());
+    }
+
+    let tiled = pixa
+        .display_tiled_in_columns(2, 0.25, 20, 2)
+        .expect("display_tiled_in_columns");
+    // 12
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("write orientation montage");
+
+    assert!(rp.cleanup(), "flipdetect c-compat test failed");
+}
