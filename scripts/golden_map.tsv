@@ -644,3 +644,8 @@ transform	warper	4	warper_c	5	warper simple captcha nterms 1
 transform	warper	5	warper_c	6	warper simple captcha nterms 2
 transform	warper	6	warper_c	7	warper simple captcha nterms 3
 transform	warper	7	warper_c	8	warper simple captcha nterms 4
+transform	shear1	0	shear1_c	1	shear1 1bpp test1.png
+transform	shear1	1	shear1_c	2	shear1 2bpp cmap (full) weasel2.4c.png
+transform	shear1	2	shear1_c	3	shear1 4bpp cmap (free slots) weasel4.11c.png
+transform	shear1	3	shear1_c	4	shear1 4bpp cmap (full) weasel4.16g.png
+transform	shear1	5	shear1_c	5	shear1 8bpp cmap dreyfus8.png

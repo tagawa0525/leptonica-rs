@@ -844,7 +844,7 @@ rotate1_sampling.02.png	5586eee6287439a1
 rotate1_sampling.03.tif	526fed0fffd478c4
 rotate1_shear.01.tif	035792012003385e
 rotate1_shear.02.png	80355ab7808b20e0
-rotate1_shear.03.tif	e7cb905208d45338
+rotate1_shear.03.tif	a72d76dd7aec017c
 rotate2.02.png	31264a34c140339f
 rotate2.06.png	3324a6ebf4973257
 rotate2.15.png	ebc5fc04b5dabc36
@@ -891,6 +891,11 @@ seedspread.04.png	fe2f6e5ffeb09b6e
 seedspread.05.png	a56332c1f76549c6
 seedspread.06.png	ff9931b435cc2a66
 shear1_binary.03.tif	35cc1394f62d30f9
+shear1_c.01.png	bcc9d476b82a47b1
+shear1_c.02.png	a9ec0edc5b046aa1
+shear1_c.03.png	016c6d4ad332a261
+shear1_c.04.png	63da25375d284399
+shear1_c.05.png	396f13054145db38
 shear1_gray8.02.png	fdbeb7c41eda1506
 shear1_inplace.01.png	2d873b2b2eafe19a
 shear1_interp.02.png	b0e04c28ec1d8b6e
@@ -959,7 +964,7 @@ warper_c.06.png	7b3cca097dd4f38a
 warper_c.07.png	31d059b9feaff259
 warper_c.08.png	26900ec5364a03ae
 warper_rhw.03.png	55334661745081ef
-warper_stereo.03.png	916162c316194de2
+warper_stereo.03.png	7619c03c9b8daecb
 warper_stretch.03.png	816b0445acaed99d
 watershed.10.png	26281324afb671e9
 watershed.22.png	c5a401e679e225a1
