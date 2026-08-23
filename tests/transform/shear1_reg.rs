@@ -210,6 +210,10 @@ fn shear_test1(pixs: &leptonica::Pix, scale: f32) -> leptonica::Pix {
         }
     }
     if d == 8 || d == 32 || has_cmap {
+        // C passes `w / 2` here even though the parameter is a row, unlike the
+        // `h / 2` it uses for the non-interpolated horizontal shears above.
+        // That looks like a slip in `shearTest1()`, but it is what produces
+        // the reference output, so it is reproduced rather than corrected.
         for (loc, fill) in [
             (0, ShearFill::White),
             (w / 2, ShearFill::White),
