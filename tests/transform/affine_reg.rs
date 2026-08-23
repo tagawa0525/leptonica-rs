@@ -17,7 +17,9 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::io::ImageFormat;
-use leptonica::transform::{AffineFill, Point, ScaleMethod, affine_pta, affine_sampled_pta, scale};
+use leptonica::transform::{
+    AffineFill, Point, ScaleMethod, affine_pta, affine_sampled_pta, scale, scale_to_gray_6,
+};
 use leptonica::{Pix, PixelDepth};
 
 // Point data from C version (affine_reg.c MakePtas function)
@@ -512,6 +514,86 @@ fn affine_c_compat() {
         ImageFormat::Png,
     )
     .expect("check: sampled summary");
+
+    // C 40-43: sequential against sampled on the same warp, with the XOR of
+    // the two as a residual. The residual only means anything if both
+    // transforms already agree with C.
+    let (ptas, ptad) = (ptas_of(3), ptad_of(3));
+    let mut pixa = Pixa::new();
+    let pix1 = affine_sequential(
+        &pixs,
+        &ptas,
+        &ptad,
+        ADDED_BORDER_PIXELS as i32,
+        ADDED_BORDER_PIXELS as i32,
+    )
+    .expect("affine sequential");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check 40");
+    pixa.push(pix1.clone());
+
+    let pix2 = affine_sampled_pta(&pixs, pts(&ptad), pts(&ptas), AffineFill::White)
+        .expect("affine sampled");
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check 41");
+    pixa.push(pix2.clone());
+
+    let residual = pix2.xor(&pix1).expect("xor sequential vs sampled");
+    rp.write_pix_and_check(&residual, ImageFormat::Png)
+        .expect("check 42");
+    pixa.push(residual);
+
+    let tiled = pixa
+        .display_tiled_in_columns(3, 1.0, 20, 3)
+        .expect("tile comparison");
+    rp.write_pix_and_check(
+        &scale(&tiled, 0.5, 0.5, ScaleMethod::Auto).expect("scale 0.5"),
+        ImageFormat::Png,
+    )
+    .expect("check 43");
+
+    // C 44-49: the same three transforms under a much larger distortion, on
+    // an 8 bpp reduction. The two residuals are inverted before writing.
+    let (ptas, ptad) = (ptas_of(4), ptad_of(4));
+    let pix = load_test_image("feyn.tif").expect("load feyn.tif");
+    let pixg = scale_to_gray_6(&pix).expect("scale to gray 6");
+    let mut pixa = Pixa::new();
+
+    let pix1 = affine_sequential(&pixg, &ptas, &ptad, 0, 0).expect("affine sequential large");
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("check 44");
+    pixa.push(pix1.clone());
+
+    let pix2 = affine_sampled_pta(&pixg, pts(&ptad), pts(&ptas), AffineFill::White)
+        .expect("affine sampled large");
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("check 45");
+    pixa.push(pix2.clone());
+
+    let pix3 = affine_pta(&pixg, pts(&ptad), pts(&ptas), AffineFill::White)
+        .expect("affine interpolated large");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("check 46");
+    pixa.push(pix3.clone());
+
+    let diff1 = pix1.xor(&pix2).expect("xor seq vs sampled").invert();
+    rp.write_pix_and_check(&diff1, ImageFormat::Png)
+        .expect("check 47");
+    pixa.push(diff1);
+
+    let diff2 = pix2.xor(&pix3).expect("xor sampled vs interp").invert();
+    rp.write_pix_and_check(&diff2, ImageFormat::Png)
+        .expect("check 48");
+    pixa.push(diff2);
+
+    let tiled = pixa
+        .display_tiled_in_columns(5, 1.0, 20, 3)
+        .expect("tile large distortion");
+    rp.write_pix_and_check(
+        &scale(&tiled, 0.8, 0.8, ScaleMethod::Auto).expect("scale 0.8"),
+        ImageFormat::Png,
+    )
+    .expect("check 49");
 
     assert!(rp.cleanup(), "affine C-compat test failed");
 }
