@@ -1649,9 +1649,25 @@ PR 47 で移植する C 関数:
 二重実装しており、しかもハッシュキーに境界込み寸法を使っていて
 `classify_*` と食い違っていた。同じ関数に委譲するようにした。
 
+**レイアウトの二重計算**: `templates_to_composite` を C の
+`floor(sqrt(n))` 列に直したとき、`extract_templates` は
+`ceil(sqrt(n))` のままで、正方数でないクラス数では別のセルを読んでいた
+(nclass=501 で 22 列 vs 23 列、先頭 50 個中 28 個が別物)。C の
+`pixaCreateFromPix` と同じく**合成画像の幅から列数を導く**ようにして、
+ずれようがない形にした。レビュー指摘で発覚。
+
 **残り**: check 1,2,3 / 5,6,7 (ページ再構成とインスタンス表示) は PR 48。
-`jbGetULCorners` の最終位置合わせ (`finalPositioningForAlignment`) と、
-`ptac` が境界なし成分の重心になっている点の修正が要る (C は境界込み)。
+判明している要修正点:
+
+- `jbGetULCorners` の最終位置合わせ (`finalPositioningForAlignment`) が
+  未移植。C は 3x3 の範囲で XOR 画素数が最小になる位置を選ぶ
+- `ptac` が境界なし成分の重心になっている (C は境界込み)。UL 座標の
+  計算に効く
+- `extract_templates` がセル全体を返す。C の `pixaCreateFromPix` は
+  1bpp のとき `pixClipToForeground` で前景に切り詰めるので、配置される
+  テンプレートの寸法が違う
+- check 3,7 の `pixaDisplayTiledInColumns` と、テンプレートに白 3 +
+  黒 1 の枠を付ける `PixaOutlineTemplates` が未移植
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
