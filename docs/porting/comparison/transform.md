@@ -144,7 +144,7 @@
 | pixAffinePtaGray            | ✅   | affine::affine_gray                   | C とビット一致 (PR 53)                                            |
 | pixAffineGray               | ✅   | affine::affine_gray                   | C とビット一致 (PR 53)                                            |
 | pixAffinePtaWithAlpha       | ✅   | affine::affine_pta_with_alpha         | 同等                                                              |
-| linearInterpolatePixelGray  | 🚫   | -                                     | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
+| linearInterpolatePixelGray  | ✅   | warper::linear_interpolate_gray       | warp と affine で共有 (plan 902 PR 49 / 53)                       |
 | linearInterpolatePixelColor | 🚫   | -                                     | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
 | gaussjordan                 | 🔄   | affine::gauss_jordan                  | 内部実装として存在                                                |
 | pixAffineSequential         | 🚫   | -                                     | 不要 (スコープ除外: AffineMatrix::compose で対応)                 |
@@ -288,7 +288,7 @@
 
 2. **🚫 不要に分類した関数** (14件):
    - **スコープ除外**: pixRotateAMColorFast, pixScaleRGBToGrayFast, pixScaleRGBToBinaryFast, pixScaleGrayToBinaryFast, pixScaleRGBToGray2, pixAffineSequential, l_productMat系4関数
-   - **内部ヘルパー**: pixScaleMipmap, pixScaleAndTransferAlpha, linearInterpolatePixelGray/Color（高レベルAPIで内部処理済み）
+   - **内部ヘルパー**: pixScaleMipmap, pixScaleAndTransferAlpha, linearInterpolatePixelColor（高レベルAPIで内部処理済み）。linearInterpolatePixelGray は warper::linear_interpolate_gray として移植し warp / affine で共有 (PR 49 / 53)
 
 3. **全関数実装完了** (元16件の未実装 → 全て✅):
    - PTA/BOXAのtranslate/scale/rotateユーティリティ

@@ -107,7 +107,7 @@ alphaops_mask.03.png	1fbef8ead48ce196
 alphaops_mult.03.png	224ad29fc91f84a1
 alphaops_uniform.03.png	6d118050e15549de
 alphaxform_affine.03.png	ea8a3581cd4e5d17
-alphaxform_proj.03.png	697633641064546e
+alphaxform_proj.03.png	907319969bdc8388
 alphaxform_rotate.03.png	d5c6d5305198bf84
 bilinear_c.01.png	60f1adde9fd4dc26
 bilinear_c.02.png	0f4b7ecafd8d186c
@@ -117,9 +117,9 @@ bilinear_c.05.png	b0e7628e7ad897e7
 bilinear_c.06.png	08b1eaf0f26bd07c
 bilinear_c.07.png	f5063261c5c95b06
 bilinear_compare.03.png	c84f4898e9fc321e
-bilinear_gray_interp.02.png	dee38a62c2bc2e42
+bilinear_gray_interp.02.png	9ac8adf78545425d
 bilinear_large_distort.02.png	0c2137798eb21abc
-bilinear_pta_basic.04.png	69f7bc67f687dcc5
+bilinear_pta_basic.04.png	262d6bc0474a3df1
 bilinear_sampling.02.png	2fcd372dbf3a8e9d
 binarize.04.tif	291b7125b2d54aec
 binarize.13.tif	d71dee6c585a2fbd
@@ -765,8 +765,8 @@ projective_c.09.png	1b64b04866206373
 projective_c.10.png	d179ce50723b1a2b
 projective_color.04.png	07d524469a1d3244
 projective_compare.03.png	b3a5431e08f28491
-projective_gray_interp.02.png	88a7957032d06598
-projective_pta_basic.04.png	7d79963d0c3c5d6c
+projective_gray_interp.02.png	b2cfecebc414b413
+projective_pta_basic.04.png	d9398cc86eff8111
 projective_sampling.02.tif	6632c563ae2f8523
 psioseg_pipeline.02.jpg	6f6b01667b89a30e
 psioseg_pipeline.03.jpg	2fb8dc274a7f7116
