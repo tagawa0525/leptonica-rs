@@ -1190,4 +1190,92 @@ mod tests {
         let result = pix_word_mask_by_dilation(&pix, 10);
         assert!(result.is_err());
     }
+
+    /// Four components: two identical solid blocks, a hollow ring of the same
+    /// bounding box, and a smaller solid block. Verbatim from the C fixture
+    /// used to measure the expectations below.
+    fn c_fixture() -> Pix {
+        let pix = Pix::new(80, 24, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        let oy = 6u32;
+        for ox in [4u32, 22] {
+            for y in 0..7 {
+                for x in 0..5 {
+                    pm.set_pixel_unchecked(ox + x, oy + y, 1);
+                }
+            }
+        }
+        for y in 0..7u32 {
+            for x in 0..5u32 {
+                if y == 0 || y == 6 || x == 0 || x == 4 {
+                    pm.set_pixel_unchecked(40 + x, oy + y, 1);
+                }
+            }
+        }
+        for y in 0..5u32 {
+            for x in 0..3u32 {
+                pm.set_pixel_unchecked(58 + x, oy + y, 1);
+            }
+        }
+        pm.into()
+    }
+
+    /// C `JB_ADDED_PIXELS` is 6, so a 5x7 component yields a 17x19 template.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_template_border_matches_c() {
+        assert_eq!(TEMPLATE_BORDER, 6);
+    }
+
+    /// C `jbCorrelationInit(JB_CONN_COMPS, 0, 0, ...)` fills in
+    /// `MAX_CONN_COMP_WIDTH` = 350 and `MAX_COMP_HEIGHT` = 120.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_default_max_size_matches_c() {
+        let c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        assert_eq!((c.max_width, c.max_height), (350, 120));
+        let c = rank_haus_init(JbComponent::ConnComps, 0, 0, 2, 0.97).unwrap();
+        assert_eq!((c.max_width, c.max_height), (350, 120));
+        let c = correlation_init(JbComponent::Words, 0, 0, 0.8, 0.6).unwrap();
+        assert_eq!((c.max_width, c.max_height), (1000, 120));
+    }
+
+    /// Expectations are the verbatim output of C on [`c_fixture`]: the two
+    /// identical blocks share a class, the ring and the smaller block each
+    /// get their own.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_correlation_classes_match_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        assert_eq!(c.nclass, 3);
+        assert_eq!(c.naclass, vec![0, 0, 1, 2]);
+        let sizes: Vec<_> = c.pixat.iter().map(|p| (p.width(), p.height())).collect();
+        assert_eq!(sizes, [(17, 19), (17, 19), (15, 17)]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_rank_haus_classes_match_c() {
+        let mut c = rank_haus_init(JbComponent::ConnComps, 0, 0, 2, 0.97).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        assert_eq!(c.nclass, 3);
+        assert_eq!(c.naclass, vec![0, 0, 1, 2]);
+        let sizes: Vec<_> = c.pixat.iter().map(|p| (p.width(), p.height())).collect();
+        assert_eq!(sizes, [(17, 19), (17, 19), (15, 17)]);
+    }
+
+    /// C `jbDataSave` uses a lattice one pixel larger than the biggest
+    /// template, and `pixaDisplayOnLattice` lays the cells out with
+    /// `nw = floor(sqrt(n))` columns, so 3 classes make a single column.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_data_lattice_matches_c() {
+        let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
+        c.add_page(&c_fixture()).unwrap();
+        let d = c.get_data().unwrap();
+        assert_eq!((d.lattice_w, d.lattice_h), (18, 20));
+        assert_eq!((d.pix.width(), d.pix.height()), (18, 60));
+        assert_eq!(d.nclass, 3);
+    }
 }
