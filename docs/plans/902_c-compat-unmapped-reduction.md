@@ -1561,6 +1561,18 @@ strlen(svgstr), "ccb")` で SVG 文字列を `.ccb` 拡張子で書く。`.ccb` 
 が無く、正しい出力なのに `MissingC` になっていた。`.ccb` は画像拡張子
 ではないので、C 側 manifest も Rust 側も生バイトの FNV ハッシュになる。
 
+**C との意図的な差異**: `generate_sp_global_locs` は単一パス未生成を
+エラーにする。C は黙って `ccbaGenerateSinglePath()` を呼ぶが、この
+モジュールは生成段を全て明示する方針で統一している (PR 45 の
+`to_bytes`、PR 44 の `step_chains_to_pix_coords` と同じ)。C の reg test
+は `ccbaGenerateSinglePath` を先に呼ぶので、C 互換の呼び出し順は
+そのまま通る。
+
+**golden manifest の落とし穴**: check を途中に挿入して index の拡張子が
+変わると (07 が png から ccb へ)、generate モードは同じキーを上書きする
+だけなので旧 `ccbord_c.07.png` が取り残される。生成後は manifest の
+diff で削除漏れがないか確認する。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

@@ -735,6 +735,12 @@ impl CcBorda {
 
     /// Fill in [`CcBord::spglobal`] from [`CcBord::splocal`].
     ///
+    /// Unlike C, which quietly calls `ccbaGenerateSinglePath()` when a
+    /// component has no single path, this reports the omission. Every
+    /// generation step in this module is explicit, matching
+    /// [`CcBorda::step_chains_to_pix_coords`] and `to_bytes`, which is
+    /// gated behind the `ccb-format` feature.
+    ///
     /// # Errors
     ///
     /// Returns an error if the single path has not been generated yet, or if
