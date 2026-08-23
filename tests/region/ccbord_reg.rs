@@ -171,19 +171,16 @@ fn ccbord_reg_dreyfus1_smoke() {
     assert!(rp.cleanup(), "ccbord dreyfus1 smoke test failed");
 }
 
-/// C-compatible port of `RunCCBordTest()` in `prog/ccbord_reg.c`, covering the
-/// border-following, reconstruction, and serialization stages (C indices 0-4
-/// and 7-11).
-///
-/// The single-path/SVG stage (5,6 / 12,13) needs more of the `CCBORDA` API and
-/// follows in a later PR.
+/// C-compatible port of `RunCCBordTest()` in `prog/ccbord_reg.c`, covering all
+/// of it: border following, reconstruction, serialization, and the single-path
+/// and SVG output (C indices 0-6 and 7-13).
 ///
 /// Gated on `ccb-format` as a whole rather than per check: dropping only the
 /// serialization checks would renumber the ones after them and break the
 /// golden manifest.
 #[cfg(feature = "ccb-format")]
 fn do_ccbord_c(rp: &mut RegParams, fname: &str) {
-    use leptonica::region::{CcBorda, CcbCoords};
+    use leptonica::region::{CcBorda, CcbCoords, CcbPoints};
 
     let pixs = load_test_image(fname).unwrap_or_else(|e| panic!("load {}: {}", fname, e));
     let mut ccba = CcBorda::from_pix(&pixs).expect("CcBorda::from_pix");
@@ -235,6 +232,23 @@ fn do_ccbord_c(rp: &mut RegParams, fname: &str) {
     // 4 / 11
     rp.write_pix_and_check(&pixc2, ImageFormat::Png)
         .expect("write reconstruction after round trip");
+
+    // Join every border of each component into one path, then draw it. C
+    // checks that these pixels are a subset of the original.
+    ccba.generate_single_path().expect("generate_single_path");
+    ccba.generate_sp_global_locs(CcbPoints::Turning)
+        .expect("generate_sp_global_locs");
+    let pixd3 = ccba.display_sp_border().expect("display_sp_border");
+    // 5 / 12
+    rp.write_pix_and_check(&pixd3, ImageFormat::Png)
+        .expect("write single path border");
+
+    // C writes the SVG string with a "ccb" extension, so it is hashed as raw
+    // bytes on both sides rather than decoded as an image.
+    let svg = ccba.to_svg_string().expect("to_svg_string");
+    // 6 / 13
+    rp.write_data_and_check(svg.as_bytes(), "ccb")
+        .expect("write svg");
 }
 
 #[test]
