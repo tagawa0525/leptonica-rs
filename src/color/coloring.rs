@@ -33,6 +33,7 @@
 //! let colored = pix_color_gray(&pix, None, PaintType::Light, 0, (255, 0, 0)).unwrap();
 //! ```
 
+use crate::color::quantize::remove_unused_colors;
 use crate::color::{ColorError, ColorResult};
 use crate::core::{Box, Pix, PixelDepth, pixel};
 
@@ -434,6 +435,10 @@ fn colorize_pixel(
 ///
 /// A new image with snapped colors.
 pub fn pix_snap_color(pix: &Pix, src_color: u32, dst_color: u32, diff: u8) -> ColorResult<Pix> {
+    // A colormapped image is snapped through its colormap, as in C.
+    if pix.colormap().is_some() {
+        return snap_color_cmap(pix, src_color, dst_color, u32::from(diff));
+    }
     match pix.depth() {
         PixelDepth::Bit8 => pix_snap_color_8bpp(pix, src_color, dst_color, diff),
         PixelDepth::Bit32 => pix_snap_color_32bpp(pix, src_color, dst_color, diff),
@@ -792,10 +797,61 @@ fn count_gray_colors(cmap: &crate::core::PixColormap) -> usize {
 ///
 /// C Leptonica: `pixSnapColorCmap()` in `coloring.c`
 pub fn snap_color_cmap(pix: &Pix, srcval: u32, dstval: u32, diff: u32) -> ColorResult<Pix> {
-    let _ = (srcval, dstval, diff);
-    pix.colormap()
+    let cmap = pix
+        .colormap()
         .ok_or_else(|| ColorError::InvalidParameters("image has no colormap".into()))?;
-    Err(ColorError::InvalidParameters("not yet implemented".into()))
+
+    let (rsval, gsval, bsval) = extract_rgb_from_color(srcval);
+    let (rdval, gdval, bdval) = extract_rgb_from_color(dstval);
+    let close_to_src = |(r, g, b): (u8, u8, u8)| {
+        (i32::from(r) - i32::from(rsval)).unsigned_abs() <= diff
+            && (i32::from(g) - i32::from(gsval)).unsigned_abs() <= diff
+            && (i32::from(b) - i32::from(bsval)).unsigned_abs() <= diff
+    };
+
+    let mut new_cmap = cmap.clone();
+    let index = if new_cmap.free_count() == 0 {
+        // No room, so take over the first entry that is close enough. If none
+        // is, there is nothing to snap.
+        let Some(i) = (0..new_cmap.len()).find(|&i| new_cmap.get_rgb(i).is_some_and(close_to_src))
+        else {
+            return Ok(pix.clone());
+        };
+        new_cmap
+            .reset_color(i, rdval, gdval, bdval)
+            .map_err(ColorError::Core)?;
+        i
+    } else {
+        new_cmap
+            .add_rgb(rdval, gdval, bdval)
+            .map_err(ColorError::Core)?
+    };
+
+    // Mark every colour close to the source, then repoint those pixels at the
+    // destination entry. The commandeered entry now holds the destination
+    // colour, so it is marked too and simply maps to itself.
+    let mut lut = [0u8; 256];
+    for (i, slot) in lut.iter_mut().enumerate().take(new_cmap.len()) {
+        if new_cmap.get_rgb(i).is_some_and(close_to_src) {
+            *slot = 1;
+        }
+    }
+
+    let out = pix.deep_clone();
+    let mut out_mut = out.try_into_mut().unwrap_or_else(|p| p.to_mut());
+    out_mut
+        .set_colormap(Some(new_cmap))
+        .map_err(ColorError::Core)?;
+    let staged: Pix = out_mut.into();
+
+    let mask = staged.make_mask_from_lut(&lut).map_err(ColorError::Core)?;
+    let mut staged_mut = staged.try_into_mut().unwrap_or_else(|p| p.to_mut());
+    staged_mut
+        .set_masked(&mask, index as u32)
+        .map_err(ColorError::Core)?;
+    let snapped: Pix = staged_mut.into();
+
+    remove_unused_colors(&snapped)
 }
 
 /// C `pixConvertTo8(pixs, 1)` for a colormapped input: the indices and the
@@ -1074,7 +1130,6 @@ mod tests {
     /// remaps the matching pixels and drops the entry that is left unused.
     /// Expectations are verbatim from C.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_snap_color_cmap_matches_c_with_free_slots() {
         let pix = crate::io::read_image("tests/data/images/weasel4.11c.png").unwrap();
         let cmap = pix.colormap().expect("input is colormapped");
@@ -1109,7 +1164,6 @@ mod tests {
     /// With no free slot C commandeers the first entry close enough to the
     /// source colour and overwrites it, rather than appending.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_snap_color_cmap_matches_c_when_full() {
         let pix = crate::io::read_image("tests/data/images/google-searchbox.png").unwrap();
         let cmap = pix.colormap().expect("input is colormapped");
