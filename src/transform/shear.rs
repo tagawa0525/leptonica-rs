@@ -1080,7 +1080,9 @@ mod tests {
         assert_eq!(ShearFill::Black.to_value(PixelDepth::Bit1), 1);
         assert_eq!(ShearFill::White.to_value(PixelDepth::Bit8), 255);
         assert_eq!(ShearFill::Black.to_value(PixelDepth::Bit8), 0);
-        assert_eq!(ShearFill::White.to_value(PixelDepth::Bit32), 0xFFFFFF00);
+        // C fills with `pixSetAll`, so every bit is set including the alpha
+        // byte, matching `pixSetBlackOrWhite(pixd, L_SET_WHITE)`.
+        assert_eq!(ShearFill::White.to_value(PixelDepth::Bit32), 0xFFFFFFFF);
         assert_eq!(ShearFill::Black.to_value(PixelDepth::Bit32), 0);
     }
 
