@@ -62,6 +62,18 @@ const XPOSTAB: [i32; 8] = [-1, -1, 0, 1, 1, 1, 0, -1];
 const YPOSTAB: [i32; 8] = [0, -1, -1, -1, 0, 1, 1, 1];
 const QPOSTAB: [i32; 8] = [6, 6, 0, 0, 2, 2, 4, 4];
 
+/// Which points [`CcBorda::generate_sp_global_locs`] keeps.
+///
+/// C: `CCB_SAVE_ALL_PTS` / `CCB_SAVE_TURNING_PTS`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CcbPoints {
+    /// Every point of the single path.
+    All,
+    /// Only the points where the direction changes. This still describes the
+    /// same polygon and is about half the size.
+    Turning,
+}
+
 /// The borders of a single 8-connected component (C `CCBORD`).
 #[derive(Debug, Clone, Default)]
 pub struct CcBord {
@@ -77,6 +89,17 @@ pub struct CcBord {
     pub global: Ptaa,
     /// Step chain code of each border.
     pub step: Numaa,
+    /// Single path through the outer border and every hole border, local to
+    /// the component.
+    pub splocal: Pta,
+    /// The same single path in global image coordinates.
+    pub spglobal: Pta,
+    /// The component's bitmap, which [`CcBorda::generate_single_path`] scans
+    /// to find a cut from each hole out to the exterior border.
+    ///
+    /// `None` for a component read from a `.ccb` stream, which does not
+    /// store it, as in C.
+    pub pix: Option<Pix>,
 }
 
 /// Borders of every component in an image (C `CCBORDA`).
@@ -402,7 +425,11 @@ impl CcBorda {
 ///
 /// C Leptonica: `pixGetCCBorders()` in `ccbord.c`
 fn cc_borders(pixs: &Pix, b: &Box) -> RegionResult<CcBord> {
-    let mut ccb = CcBord::default();
+    let mut ccb = CcBord {
+        // C `ccbCreate(pixs)` keeps the component bitmap for cut finding.
+        pix: Some(pixs.clone()),
+        ..CcBord::default()
+    };
     get_outer_border(&mut ccb, pixs, b)?;
 
     let pixh = holes_by_filling(pixs, ConnectivityType::FourWay)?;
@@ -598,6 +625,69 @@ fn locate_outside_seed_pixel(fpx: i32, fpy: i32, spx: i32, spy: i32) -> (i32, i3
 fn pta_get_ipt(pta: &Pta, index: usize) -> (i32, i32) {
     let (x, y) = pta.get(index).unwrap_or((0.0, 0.0));
     ((x + 0.5) as i32, (y + 0.5) as i32)
+}
+
+/// Single path representation and SVG output.
+impl CcBorda {
+    /// Join every border of each component into one closed path.
+    ///
+    /// A component with no holes just copies its exterior border. Otherwise
+    /// each hole is connected to the exterior by a cut path found through the
+    /// component's own pixels, and the path walks out along the cut, around
+    /// the hole, and back.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a component has no bounding box.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaGenerateSinglePath()` in `ccbord.c`
+    pub fn generate_single_path(&mut self) -> RegionResult<()> {
+        Err(RegionError::NotImplemented)
+    }
+
+    /// Fill in [`CcBord::spglobal`] from [`CcBord::splocal`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the single path has not been generated yet, or if
+    /// a component has no bounding box.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaGenerateSPGlobalLocs()` in `ccbord.c`
+    pub fn generate_sp_global_locs(&mut self, _points: CcbPoints) -> RegionResult<()> {
+        Err(RegionError::NotImplemented)
+    }
+
+    /// Paint every pixel of the single path, using the global coordinates.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the destination pix cannot be created.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaDisplaySPBorder()` in `ccbord.c`
+    pub fn display_sp_border(&self) -> RegionResult<Pix> {
+        Err(RegionError::NotImplemented)
+    }
+
+    /// Render the single paths as one SVG `polygon` element per component.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a component has no single path in global
+    /// coordinates.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaWriteSVGString()` in `ccbord.c`. `ccbaWriteSVG()`
+    /// only writes the string to a file and is not ported.
+    pub fn to_svg_string(&self) -> RegionResult<String> {
+        Err(RegionError::NotImplemented)
+    }
 }
 
 /// Bytes of the `.ccb` header: `"ccba: %7d cc\n"` is 17 characters, and C
@@ -1129,5 +1219,187 @@ mod tests {
         ccba.generate_step_chains();
         ccba.ccb[0].step.get_mut(0).unwrap().set(0, 9.0).unwrap();
         assert!(ccba.to_bytes().is_err());
+    }
+
+    /// C `ccbaGenerateSinglePath()` on the ring of [`ring_and_dot`]. The cut
+    /// path out to the hole and back repeats points, e.g. `(3, 0)` twice.
+    const C_SP_LOCAL_RING: &[(i32, i32)] = &[
+        (0, 0),
+        (1, 0),
+        (2, 0),
+        (3, 0),
+        (3, 0),
+        (2, 0),
+        (1, 0),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (1, 4),
+        (2, 4),
+        (3, 4),
+        (4, 4),
+        (5, 3),
+        (5, 2),
+        (5, 1),
+        (4, 0),
+        (3, 0),
+        (3, 0),
+        (4, 0),
+        (5, 0),
+        (5, 1),
+        (5, 2),
+        (5, 3),
+        (5, 4),
+        (4, 4),
+        (3, 4),
+        (2, 4),
+        (1, 4),
+        (0, 4),
+        (0, 3),
+        (0, 2),
+        (0, 1),
+        (0, 0),
+    ];
+
+    /// The ring's single path in global coordinates, turning points only.
+    const C_SP_GLOBAL_TURNING_RING: &[(i32, i32)] = &[
+        (1, 1),
+        (4, 1),
+        (4, 1),
+        (2, 1),
+        (1, 2),
+        (1, 4),
+        (2, 5),
+        (5, 5),
+        (6, 4),
+        (6, 2),
+        (5, 1),
+        (4, 1),
+        (4, 1),
+        (6, 1),
+        (6, 5),
+        (1, 5),
+        (1, 1),
+    ];
+
+    /// Pixels C `ccbaDisplaySPBorder()` sets after
+    /// `generate_sp_global_locs(Turning)`, in raster order.
+    const C_SP_BORDER_PIXELS: &[(i32, i32)] = &[
+        (1, 1),
+        (2, 1),
+        (4, 1),
+        (5, 1),
+        (6, 1),
+        (1, 2),
+        (6, 2),
+        (1, 4),
+        (6, 4),
+        (1, 5),
+        (2, 5),
+        (5, 5),
+        (6, 5),
+        (10, 8),
+    ];
+
+    fn sp_points(pta: &Pta) -> Vec<(i32, i32)> {
+        (0..pta.len()).map(|k| pta_get_ipt(pta, k)).collect()
+    }
+
+    /// The exact SVG C emits for [`ring_and_dot`]. `sarrayToString()` puts
+    /// every array element on its own line, so each point is one line, and
+    /// the lone space element becomes a space line after `</svg>`.
+    fn c_svg_ring_and_dot() -> String {
+        let mut s = String::from("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n");
+        s.push_str(
+            "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 20000303 Stylable//EN\" \
+             \"http://www.w3.org/TR/2000/03/WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">\n",
+        );
+        s.push_str("<svg>\n");
+        for pts in [C_SP_GLOBAL_TURNING_RING, &[(10, 8)]] {
+            s.push_str("<polygon style=\"stroke-width:1;stroke:black;\" points=\"\n");
+            for (x, y) in pts {
+                s.push_str(&format!("{x},{y}\n"));
+            }
+            s.push_str("\" />\n");
+        }
+        s.push_str("</svg>\n \n");
+        s
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_single_path_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().expect("generate_single_path");
+        assert_eq!(sp_points(&ccba.get(0).unwrap().splocal), C_SP_LOCAL_RING);
+        // An isolated pixel has one border of one point and no hole to cut to.
+        assert_eq!(sp_points(&ccba.get(1).unwrap().splocal), [(0, 0)]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sp_global_all_points_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::All)
+            .expect("generate_sp_global_locs");
+
+        // The ring's box starts at (1, 1), so every local point shifts by it.
+        let expected: Vec<_> = C_SP_LOCAL_RING
+            .iter()
+            .map(|&(x, y)| (x + 1, y + 1))
+            .collect();
+        assert_eq!(sp_points(&ccba.get(0).unwrap().spglobal), expected);
+        assert_eq!(sp_points(&ccba.get(1).unwrap().spglobal), [(10, 8)]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sp_global_turning_points_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::Turning).unwrap();
+        assert_eq!(
+            sp_points(&ccba.get(0).unwrap().spglobal),
+            C_SP_GLOBAL_TURNING_RING
+        );
+        assert_eq!(sp_points(&ccba.get(1).unwrap().spglobal), [(10, 8)]);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_sp_border_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::Turning).unwrap();
+        let pixd = ccba.display_sp_border().expect("display_sp_border");
+
+        let mut set = Vec::new();
+        for y in 0..pixd.height() {
+            for x in 0..pixd.width() {
+                if pixd.get_pixel(x, y).unwrap_or(0) != 0 {
+                    set.push((x as i32, y as i32));
+                }
+            }
+        }
+        assert_eq!(set, C_SP_BORDER_PIXELS);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_svg_string_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::Turning).unwrap();
+        let svg = ccba.to_svg_string().expect("to_svg_string");
+        assert_eq!(svg, c_svg_ring_and_dot());
+        assert_eq!(svg.len(), 391, "C emits 391 bytes for this fixture");
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_sp_global_without_single_path_is_an_error() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        assert!(ccba.generate_sp_global_locs(CcbPoints::All).is_err());
     }
 }
