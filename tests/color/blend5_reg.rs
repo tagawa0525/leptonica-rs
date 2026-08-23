@@ -200,3 +200,34 @@ fn blend5_reg_edge_fade_combined() {
 
     assert!(rp.cleanup(), "blend5 edge_fade_combined test failed");
 }
+
+/// C-compatible port of the colormapped `pixSnapColor` calls in
+/// `prog/blend5_reg.c` (C indices 2 and 3).
+///
+/// Only these two are mapped: every other check in that file either reads a
+/// JPEG or writes one, so the decode rounding rules out a pixel-exact match
+/// (finding 001). Both inputs here are colormapped PNGs, and they exercise
+/// the two branches of `pixSnapColorCmap` — one colormap is full, the other
+/// has free slots.
+#[test]
+fn blend5_c_compat() {
+    let mut rp = RegParams::new("blend5_c");
+
+    // 2: the searchbox colormap uses all 256 entries, so C commandeers the
+    // entry closest to white rather than adding one.
+    let searchbox =
+        crate::common::load_test_image("google-searchbox.png").expect("load google-searchbox.png");
+    let snapped =
+        pix_snap_color(&searchbox, 0xffffff00, 0xffffe400, 30).expect("snap white to yellow");
+    rp.write_pix_and_check(&snapped, ImageFormat::Png)
+        .expect("write searchbox snap");
+
+    // 3: this colormap has room, so the destination colour is appended.
+    let weasel = crate::common::load_test_image("weasel4.11c.png").expect("load weasel4.11c.png");
+    let snapped =
+        pix_snap_color(&weasel, 0xfefefe00, 0x80800000, 50).expect("snap near-white to olive");
+    rp.write_pix_and_check(&snapped, ImageFormat::Png)
+        .expect("write weasel snap");
+
+    assert!(rp.cleanup(), "blend5 c-compat test failed");
+}

@@ -1857,6 +1857,64 @@ f64 で計算すると 255.0 ちょうどになり 255 になる。
 というのが答え。3 件とも Ok になったので除外ルールを削除した
 (Excluded 100 → 97)。
 
+### PR 51: color の再調査と snap_color の C 準拠化 (実施済み)
+
+PR 50 で「次 PR 候補」とした `grayquant` を調べたところ、**既に
+`grayquant_c` として 12 件すべて Ok 済み**だった。PR 50 の見積もり
+(「22 件がマップ可能」) は二重に誤っていた:
+
+- 件数: C の check 28 以降を数えたが、40-49 は `stampede2.jpg` 入力で
+  対象外。lossless (`feyn.tif`) なのは 28-39 の 12 件
+- 状態: その 12 件は既にマッピング済みで Ok
+
+`paintmask` も同様で、lossless (`feyn.tif` / `rabi.png`) の check 19-21 は
+`pmask_1bpp` として Ok 済み。残る 02-18 は `test24.jpg` 入力。
+
+**color 全 22 テストの入力を機械的に洗い直した結果**、未マップで
+lossless 入力のものは **`blend5` の check 2,3 だけ**だった:
+
+| C check | 入力 | 内容 |
+| --- | --- | --- |
+| 2 | `google-searchbox.png` | 白 (`0xffffff00`) を黄 (`0xffffe400`) に snap、diff 30 |
+| 3 | `weasel4.11c.png` | `0xfefefe00` を `0x80800000` に snap、diff 50 |
+
+**実装差**: C の `pixSnapColor(pixd, pixs, srcval, dstval, diff)` は
+**src 色と dst 色を別に取る**が、Rust の `snap_color_cmap(pix, target, diff)`
+は 1 色しか取らず「target に近い色を target 自身に潰す」別物になっている。
+C 準拠にするには src/dst を分離する必要がある。
+
+さらに C の `pixSnapColorCmap` は colormap に空きがあるかで挙動を変える:
+
+- 空きあり → dst 色を**追加**して新しい index を使う
+- 空きなし → src に近い既存 entry を 1 つ**乗っ取って** dst 色に書き換える
+
+`google-searchbox.png` は 256 色すべて使用済み (C のコメントに明記) なので
+後者の経路を通る。両方の経路を移植する必要がある。
+
+**本 PR でやること**:
+
+1. `snap_color_cmap` を C 準拠にする (src/dst 分離、空き有無の分岐)
+2. colormap を持たない 8bpp / 32bpp 向けの `snap_color` も移植する
+3. `blend5` の check 2,3 をマッピングする
+
+実施結果:
+
+- **2 ペア全件 Ok** (Ok 487 → 489、color 60 → 62)
+- `snap_color_cmap` を C 準拠にした。src/dst を分離し、colormap の空き
+  有無で経路を分け、最後に未使用色を除去する。`pix_snap_color` は
+  colormap 付き入力をこちらに委譲する (C と同じ)
+- `google-searchbox.png` (256 色・空きなし = 乗っ取り経路) と
+  `weasel4.11c.png` (11 色・空きあり = 追加経路) の両方で C と pixel
+  完全一致
+
+**color 領域の結論**: マップ可能な pair は出し切った。残る Unmapped
+108 件は、C 側テストが JPEG 入力かつその Rust 側テストが独自に追加した
+出力で、原理的に pixel 一致しない。件数を減らすなら
+`c_compat_exclude.tsv` への移送になるが、prefix 単位では
+`grayquant_c` / `pmask_1bpp` / `blend5_c` のように同じテストファイル内に
+Ok のものが混在するため、`key` 単位で 108 行書く必要がある。費用対効果を
+見て別途判断する。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

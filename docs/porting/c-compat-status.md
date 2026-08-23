@@ -54,20 +54,20 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        | 件数    | 説明                                                                                                                                                   |
 | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ✅ Ok       | **487** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +443)                                                                       |
+| ✅ Ok       | **489** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +445)                                                                       |
 | ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007)                      |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                                           |
 | 📭 Unmapped | **389** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 393 → 389)                                                                    |
 | 🚫 Excluded | **97**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 + boxa3 display 12 + newspaper random cmap 2 |
 
-合計 1002 entries がレポート対象 (As of 2026-08-23、plan 902 PR 50 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **1009 entries** (コメント 2 行を除く)。
+合計 1004 entries がレポート対象 (As of 2026-08-23、plan 902 PR 51 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **1011 entries** (コメント 2 行を除く)。
 
 ## test binary 別の内訳
 
 | Binary      |      Ok | Mismatch | MissingC | Unmapped | Excluded |
 | ----------- | ------: | -------: | -------: | -------: | -------: |
-| `color`     |      60 |        4 |        0 |      108 |        4 |
+| `color`     |      62 |        4 |        0 |      108 |        4 |
 | `core`      |      41 |        0 |        0 |       34 |       12 |
 | `filter`    |       7 |        5 |        0 |       54 |       40 |
 | `io`        |      14 |        2 |        0 |       41 |       10 |
