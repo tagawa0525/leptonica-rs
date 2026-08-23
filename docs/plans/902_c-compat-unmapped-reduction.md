@@ -1796,6 +1796,50 @@ reg test 側は各画像の直後 (captcha は直前) に色決定で `rand()` �
 いて `srand(0)` が常に 0 を返していた。warper が seed 0 を使うため
 表面化した。
 
+### PR 50: color 領域の棚卸しと alphaops のマッピング (計画)
+
+`color` binary は Unmapped 108 件で最大の未開拓領域だが、調査の結果
+**大半が JPEG 入力に縛られていてマップ不能**と分かった。
+
+**調査結果** (Unmapped 108 件を prefix 63 種に分類し、C 側の reg test と
+入力形式を突き合わせた):
+
+| 区分 | 件数 | 内訳 |
+| --- | --: | --- |
+| C 対応なし (Rust 独自テスト) | 23 | `gquant_*` 13、`pmask_*` 7、`bw_*` 3 |
+| C 対応はあるが JPEG 入出力 | 81 | blend1-5、binarize、colorfill、colorize、paint、colorspace、colorcontent、cmapquant、coloring、dither、hardlight、threshnorm、colorseg、colorquant |
+| **マップ可能** | **4** | `alphaops` の check 0,1,3,4 |
+
+代表例:
+
+- `colorcontent` は既に 8 件 Ok。残る C 側 00/01/05/08/09 は
+  `fish24.jpg` / `wyom.jpg` / `map.057.jpg` が入力。C のソース自身が
+  「jpeg 展開の丸めで色数が数 % 変わる」と注記している
+- `colorspace` は 24 check あるが 1-9 が `IFF_JFIF_JPEG` 出力で
+  入力も `wyom.jpg`
+- `paint` は 11 件マップ済み。残る PNG 出力 02-09/11/13-17 は入力が
+  `lucasta-frag.jpg`
+- `blend3` は入力を読まないように見えるが、ヘルパー内で `marge.jpg` /
+  `test8.jpg` を読み JPEG で書く
+
+**本 PR でやること**:
+
+1. `alphaops` の check 0,1,3,4 を `alphaops_c` としてマッピングする。
+   入力は `books_logo.png` (lossless)、出力も PNG
+2. C 対応が存在しない 23 件を `c_compat_exclude.tsv` に理由付きで移す。
+   plan 902 の狙いどおり Unmapped を「マップ可能な未着手」に純化する
+
+使う C 関数 (いずれも Rust 実装あり):
+
+| C 関数 | Rust |
+| --- | --- |
+| `pixAlphaBlendUniform` | `Pix::alpha_blend_uniform` |
+| `pixSetAlphaOverWhite` | `Pix::set_alpha_over_white` |
+| `pixSetSpp` | `PixMut::set_spp` |
+
+check 0 は入力をそのまま書き出すだけなので、PNG の読み書きが C と
+一致するかの検査にもなる。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
