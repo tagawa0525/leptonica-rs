@@ -188,9 +188,11 @@ fn ioformats_c_compat() {
 
     // 7, 9: the same 24 bpp image through a BMP file and a PNG file.
     for (format, name) in [
-        (ImageFormat::Bmp, "alpha3.bmp"),
-        (ImageFormat::Png, "alpha3.png"),
+        (ImageFormat::Bmp, "ioformats_c_roundtrip.bmp"),
+        (ImageFormat::Png, "ioformats_c_roundtrip.png"),
     ] {
+        // `regout` is shared by every test, so keep the scratch file named
+        // after this one.
         let path = format!("{}/{}", crate::common::regout_dir(), name);
         write_image(&pix2, &path, format).unwrap_or_else(|e| panic!("write {name}: {e}"));
         let reloaded =

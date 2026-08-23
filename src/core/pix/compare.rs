@@ -848,22 +848,29 @@ impl Pix {
         true
     }
 
-    /// Create a 32bpp color-coded display showing differences between two images.
+    /// Show where two images differ, as a 32 bpp image.
     ///
-    /// Supported depths: 8bpp (grayscale) and 32bpp (RGB). The output image is
-    /// always 32bpp RGB.
+    /// Pixels whose components differ by at least `mindiff` are painted with
+    /// `diffcolor`; the rest keep the first image's value. With `showall` the
+    /// result is instead a montage of both inputs and the difference, laid out
+    /// in two columns.
     ///
-    /// The `mindiff` parameter is the threshold above which pixels are tinted
-    /// with `diffcolor`:
-    /// - For 8bpp images, the difference is the absolute difference between
-    ///   grayscale pixel values.
-    /// - For 32bpp images, the difference is the maximum component difference
-    ///   across the R, G, and B channels.
+    /// 1 bpp input is rendered by [`Pix::display_diff_binary`] and then
+    /// promoted to 32 bpp, so the four-colour coding of that function shows
+    /// through. Any other depth is compared component-wise after conversion to
+    /// 32 bpp.
     ///
-    /// Both images must have the same depth; otherwise `Error::IncompatibleDepths`
-    /// is returned.
+    /// Both images must have the same depth, but they need not be the same
+    /// size: the comparison runs over the overlap, and **the result is cropped
+    /// to it**.
     ///
-    /// Corresponds to `pixDisplayDiff()` in Leptonica's `compare.c`.
+    /// # Errors
+    ///
+    /// Returns an error if the depths differ or `mindiff` is zero.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixDisplayDiff()` in `compare.c`
     pub fn display_diff(
         &self,
         other: &Pix,
@@ -894,7 +901,8 @@ impl Pix {
             return pixa.display_tiled_in_columns(2, 1.0, 30, 2);
         }
 
-        // C compares over the overlap and keeps the first image elsewhere.
+        // C sizes the result to the overlap and seeds it from the first
+        // image, so anything outside the overlap is dropped rather than kept.
         let pix1 = self.convert_to_32()?;
         let pix2 = other.convert_to_32()?;
         let minw = self.width().min(other.width());
@@ -3112,5 +3120,42 @@ mod tests {
             .display_diff(&same, true, 1, Color { r: 255, g: 0, b: 0 })
             .unwrap();
         assert_eq!((out.width(), out.height()), (324, 188));
+    }
+
+    /// Different sizes are allowed: C sizes the result to the overlap, so the
+    /// part of the first image outside it is dropped.
+    #[test]
+    fn test_display_diff_crops_to_overlap() {
+        use crate::core::pix::graphics::Color;
+        let big = Pix::new(10, 8, PixelDepth::Bit32).unwrap();
+        let small = Pix::new(6, 5, PixelDepth::Bit32).unwrap();
+        let out = big
+            .display_diff(&small, false, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!((out.width(), out.height()), (6, 5));
+    }
+
+    /// 1 bpp goes through the four-colour binary rendering rather than the
+    /// component comparison.
+    #[test]
+    fn test_display_diff_accepts_1bpp() {
+        use crate::core::pix::graphics::Color;
+        let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+        let out = pix
+            .display_diff(&pix.deep_clone(), false, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!(out.depth(), PixelDepth::Bit32);
+        assert_eq!((out.width(), out.height()), (8, 8));
+    }
+
+    /// C rejects a zero threshold outright.
+    #[test]
+    fn test_display_diff_rejects_zero_mindiff() {
+        use crate::core::pix::graphics::Color;
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        assert!(
+            pix.display_diff(&pix.deep_clone(), false, 0, Color { r: 255, g: 0, b: 0 })
+                .is_err()
+        );
     }
 }
