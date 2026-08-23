@@ -358,7 +358,14 @@ fn apply_warp_transform(
 /// # See also
 ///
 /// C Leptonica: `linearInterpolatePixelGray()` in `bilinear.c`
-fn linear_interpolate_gray(pix: &Pix, w: u32, h: u32, x: f32, y: f32, fill_val: u8) -> u8 {
+pub(crate) fn linear_interpolate_gray(
+    pix: &Pix,
+    w: u32,
+    h: u32,
+    x: f32,
+    y: f32,
+    fill_val: u8,
+) -> u8 {
     // Written so that a NaN coordinate fails the test and yields `fill_val`,
     // as the equivalent check does in C.
     if !(x >= 0.0 && y >= 0.0 && x < w as f32 && y < h as f32) {

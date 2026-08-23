@@ -611,59 +611,21 @@ fn affine_gray(pix: &Pix, inv_matrix: &AffineMatrix, fill: AffineFill) -> Transf
 
     let out_pix = Pix::new(w, h, depth)?;
     let mut out_mut = out_pix.try_into_mut().unwrap();
-
-    // Fill with background
-    fill_image(&mut out_mut, fill_value as u32);
-
-    let wi = w as i32;
-    let hi = h as i32;
-    let wm2 = wi - 2;
-    let hm2 = hi - 2;
+    fill_image(&mut out_mut, u32::from(fill_value));
 
     let [a, b, tx, c, d, ty] = *inv_matrix.coeffs();
 
-    // Scale coefficients by 16 for sub-pixel precision
-    let a16 = 16.0 * a;
-    let b16 = 16.0 * b;
-    let c16 = 16.0 * c;
-    let d16 = 16.0 * d;
-
+    // Sample the source at the mapped position with the same area-weighted
+    // interpolation C uses, so the edge handling and rounding agree.
     for j in 0..h {
         let jf = j as f32;
         for i in 0..w {
             let if_ = i as f32;
-
-            // Compute sub-pixel position (scaled by 16)
-            let xpm = (a16 * if_ + b16 * jf + 16.0 * tx) as i32;
-            let ypm = (c16 * if_ + d16 * jf + 16.0 * ty) as i32;
-
-            // Integer and fractional parts
-            let xp = xpm >> 4;
-            let yp = ypm >> 4;
-            let xf = xpm & 0x0f;
-            let yf = ypm & 0x0f;
-
-            // Bounds check
-            if xp < 0 || yp < 0 || xp > wm2 || yp > hm2 {
-                // Keep fill value (already set)
-                continue;
-            }
-
-            // Get four neighboring pixels
-            let v00 = pix.get_pixel_unchecked(xp as u32, yp as u32) as i32;
-            let v10 = pix.get_pixel_unchecked((xp + 1) as u32, yp as u32) as i32;
-            let v01 = pix.get_pixel_unchecked(xp as u32, (yp + 1) as u32) as i32;
-            let v11 = pix.get_pixel_unchecked((xp + 1) as u32, (yp + 1) as u32) as i32;
-
-            // Area-weighted interpolation
-            let val = ((16 - xf) * (16 - yf) * v00
-                + xf * (16 - yf) * v10
-                + (16 - xf) * yf * v01
-                + xf * yf * v11
-                + 128)
-                / 256;
-
-            out_mut.set_pixel_unchecked(i, j, val as u32);
+            let x = a * if_ + b * jf + tx;
+            let y = c * if_ + d * jf + ty;
+            let val =
+                crate::transform::warper::linear_interpolate_gray(pix, w, h, x, y, fill_value);
+            out_mut.set_pixel_unchecked(i, j, u32::from(val));
         }
     }
 
