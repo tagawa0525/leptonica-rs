@@ -1495,6 +1495,56 @@ ccbord.02`、`ccbord.10 == ccbord.07`、`ccbord.11 == ccbord.09`。往復が
   ファイル中の個数を信用して `memcpy` するため、切り詰められた入力で
   バッファ外を読む。個数からの事前確保もしない
 
+### PR 46: ccbord の単一パス境界と SVG 出力 (計画)
+
+C 版ソース: `prog/ccbord_reg.c` の check 5,6 / 12,13。穴を持つ成分の
+境界を 1 本の閉 path にまとめ (`ccbaGenerateSinglePath`)、その大域座標を
+描画 (5,12) して SVG 文字列を出力する (6,13)。
+
+移植する C 関数:
+
+| C 関数 | 役割 |
+| --- | --- |
+| `ccbaGenerateSinglePath` | 穴の境界を切断路で外周につなぎ 1 本にする |
+| `getCutPathForHole` | 穴から外周への短い切断路を成分内部で探す |
+| `ccbaGenerateSPGlobalLocs` | 単一パスを大域座標に変換 (全点 / 変曲点) |
+| `ccbaDisplaySPBorder` | 単一パスの画素を描画 |
+| `ccbaWriteSVGString` | polygon 要素の SVG 文字列を組む |
+
+`ccbaWriteSVG` はファイルに書くだけなので PR 45 の `ccbaWrite` と同じく
+移植しない。
+
+**必要なデータ構造の追加**:
+
+- `CcBord` に `splocal` / `spglobal` (`Pta`) を足す。C の `CCBORD` と同じ
+- `CcBord` に `pix` (`Option<Pix>`) を足す。`getCutPathForHole` が成分の
+  ビットマップを走査するため。C は `ccbCreate(pixs)` で保持している。
+  `from_bytes` で読み戻した `CcBorda` は持たない (C の `ccbaRead` も
+  復元しない) ので `Option`
+
+`Pta` の `join` / `reverse` / `cyclic_perm` / `contains_pt` は core に
+実装済みなのでそのまま使える。
+
+**既存の Rust 独自実装との関係**: `region/ccbord.rs` にも
+`generate_single_path` / `get_cut_path_for_hole` / `to_svg_string` がある
+が、`get_cut_path_for_hole` が pix を取らないことから分かるとおり別の
+アルゴリズムで、C 対応ではない。PR 44/45 と同じく `ccborda.rs` 側に新設
+し、既存 API は触らない。
+
+**check 6,13 の扱い**: C は `regTestWriteDataAndCheck(rp, svgstr,
+strlen(svgstr), "ccb")` で SVG 文字列を `.ccb` 拡張子で書く。`.ccb` は
+画像拡張子ではないので manifest は生バイトの FNV ハッシュになる
+(`examples/gen_c_manifest.rs`)。Rust 側は `RegParams::write_data_and_check`
+が同じ規則なので、文字列がバイト一致すれば Ok になる。
+
+**RED に使う C 実測値** (`ring_and_dot` 図形):
+
+- cc 0 (穴あり): `splocal` 35 点。切断路を往復するので `(3,0) (3,0)` の
+  ように同じ点が連続する。`spglobal` (変曲点のみ) 17 点
+- cc 1 (孤立点): `splocal` / `spglobal` とも 1 点
+- SVG は 391 バイト。`</svg>` の後に空白 1 文字の行が付く
+  (`sarrayToString` が各要素の後に改行を足すため)
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
