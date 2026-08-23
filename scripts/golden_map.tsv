@@ -627,3 +627,11 @@ transform	circle	9	circle_c	10	circle 9 erosion series
 transform	circle	10	circle_c	11	circle 10 erosion series
 transform	circle	11	circle_c	12	circle 11 erosion series
 transform	circle	12	circle_c	13	circle summary
+transform	warper	0	warper_c	1	warper random harmonic warp set 0
+transform	warper	1	warper_c	2	warper random harmonic warp set 1
+transform	warper	2	warper_c	3	warper random harmonic warp set 2
+transform	warper	3	warper_c	4	warper random harmonic warp set 3
+transform	warper	4	warper_c	5	warper simple captcha nterms 1
+transform	warper	5	warper_c	6	warper simple captcha nterms 2
+transform	warper	6	warper_c	7	warper simple captcha nterms 3
+transform	warper	7	warper_c	8	warper simple captcha nterms 4

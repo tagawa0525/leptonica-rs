@@ -13,12 +13,14 @@
 //! C Leptonica: `prog/warper_reg.c`
 
 use crate::common::RegParams;
-use leptonica::PixelDepth;
+use leptonica::core::Pixa;
 use leptonica::io::ImageFormat;
+use leptonica::transform::warper::simple_captcha;
 use leptonica::transform::{
     StereoscopicParams, WarpDirection, WarpFill, WarpOperation, WarpType, random_harmonic_warp,
     stretch_horizontal, warp_stereoscopic,
 };
+use leptonica::{Pix, PixelDepth};
 
 /// Test random harmonic warp reproducibility (C checks 0-3).
 ///
@@ -138,11 +140,121 @@ fn warper_reg_stretch_horizontal() {
 fn warper_reg_captcha() {
     let pix = crate::common::load_test_image("weasel8.149g.png").expect("load test image");
 
-    let result = leptonica::transform::warper::simple_captcha(&pix, 10, 2, 42, false);
+    let result = leptonica::transform::warper::simple_captcha(
+        &pix,
+        10,
+        2,
+        42,
+        leptonica::core::pixel::compose_rgba(200, 60, 60, 0),
+        false,
+    );
     assert!(result.is_ok());
     let captcha = result.unwrap();
     assert!(captcha.width() > 0);
     assert!(captcha.height() > 0);
     // Captcha should be at least as large as original + border
     assert!(captcha.width() >= pix.width());
+}
+
+/// The colour C picks for each tile: three `rand()` draws, packed R, G, B.
+///
+/// C writes them as one expression whose evaluation order is unspecified, but
+/// the reference build takes them left to right, so the first draw is red.
+/// Confirmed against the colours in C's own output.
+fn next_tile_color(rng: &mut leptonica::core::GlibcRand) -> u32 {
+    use leptonica::core::pixel::compose_rgba;
+    let r = ((rng.next_u32() >> 16) & 0xff) as u8;
+    let g = ((rng.next_u32() >> 16) & 0xff) as u8;
+    let b = ((rng.next_u32() >> 16) & 0xff) as u8;
+    compose_rgba(r, g, b, 0)
+}
+
+/// Lays out the 50 tiles of one check the way C's `pixaDisplayTiledInColumns`
+/// call does.
+fn tile_check(rp: &mut RegParams, tiles: Vec<Pix>) {
+    let mut pixa = Pixa::with_capacity(tiles.len());
+    for tile in tiles {
+        pixa.push(tile);
+    }
+    let tiled = pixa
+        .display_tiled_in_columns(10, 1.0, 20, 0)
+        .expect("display_tiled_in_columns");
+    rp.write_pix_and_check(&tiled, ImageFormat::Png)
+        .expect("write tiled");
+}
+
+/// C-compatible port of `prog/warper_reg.c`.
+///
+/// Both loops reseed the generator for every image (`pixRandomHarmonicWarp`
+/// calls `srand(seed)`), and the colour draws continue from that same stream:
+/// after the warp for checks 0-3, before the captcha for checks 4-7.
+#[test]
+fn warper_c_compat() {
+    use leptonica::core::GlibcRand;
+
+    let mut rp = RegParams::new("warper_c");
+
+    let pixs = crate::common::load_test_image("feyn-word.tif").expect("load feyn-word.tif");
+    let pixg = pixs
+        .add_border(25, 0)
+        .expect("add border")
+        .convert_to_8()
+        .expect("convert to 8bpp");
+
+    const XMAG: [f32; 4] = [3.0, 4.0, 5.0, 7.0];
+    const YMAG: [f32; 4] = [5.0, 6.0, 8.0, 10.0];
+    const XFREQ: [f32; 4] = [0.11, 0.10, 0.10, 0.12];
+    const YFREQ: [f32; 4] = [0.11, 0.13, 0.13, 0.15];
+    const NXY: [u32; 4] = [4, 3, 2, 1];
+
+    // 0-3: warp the page directly.
+    for k in 0..4 {
+        let mut tiles = Vec::with_capacity(50);
+        for i in 0..50u32 {
+            let seed = 7 * i;
+            let warped = random_harmonic_warp(
+                &pixg, XMAG[k], YMAG[k], XFREQ[k], YFREQ[k], NXY[k], NXY[k], seed, 255,
+            )
+            .expect("random_harmonic_warp");
+            // The warp consumed 5 * (nx + ny) draws from this seed; the colour
+            // takes the next three.
+            let mut rng = GlibcRand::new(seed);
+            for _ in 0..5 * (NXY[k] + NXY[k]) {
+                rng.next_u32();
+            }
+            let color = next_tile_color(&mut rng);
+            tiles.push(warped.colorize_gray(color, false).expect("colorize_gray"));
+        }
+        // 0 / 1 / 2 / 3
+        tile_check(&mut rp, tiles);
+    }
+
+    // 4-7: the captcha wrapper. Here the colour is drawn *before* the warp
+    // reseeds, so it continues the stream left by the previous image: the last
+    // warp above reseeded with 7 * 49 and took 5 * (nx + ny) draws, then its
+    // own colour took three more.
+    let mut rng = GlibcRand::new(7 * 49);
+    for _ in 0..5 * (NXY[3] + NXY[3]) + 3 {
+        rng.next_u32();
+    }
+    for nterms in 1..=4u32 {
+        let mut tiles = Vec::with_capacity(50);
+        for i in 0..50u32 {
+            let color = next_tile_color(&mut rng);
+            let seed = 7 * i;
+            tiles.push(
+                simple_captcha(&pixs, 25, nterms, seed, color, false).expect("simple_captcha"),
+            );
+            // `simple_captcha` reseeded the stream and used 5 * 2 * nterms
+            // draws; the next colour continues from there.
+            rng = GlibcRand::new(seed);
+            for _ in 0..10 * nterms {
+                rng.next_u32();
+            }
+        }
+        // 4 / 5 / 6 / 7
+        tile_check(&mut rp, tiles);
+    }
+
+    assert!(rp.cleanup(), "warper c-compat test failed");
 }
