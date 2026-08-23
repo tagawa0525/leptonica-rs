@@ -62,6 +62,18 @@ const XPOSTAB: [i32; 8] = [-1, -1, 0, 1, 1, 1, 0, -1];
 const YPOSTAB: [i32; 8] = [0, -1, -1, -1, 0, 1, 1, 1];
 const QPOSTAB: [i32; 8] = [6, 6, 0, 0, 2, 2, 4, 4];
 
+/// Which points [`CcBorda::generate_sp_global_locs`] keeps.
+///
+/// C: `CCB_SAVE_ALL_PTS` / `CCB_SAVE_TURNING_PTS`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CcbPoints {
+    /// Every point of the single path.
+    All,
+    /// Only the points where the direction changes. This still describes the
+    /// same polygon and is about half the size.
+    Turning,
+}
+
 /// The borders of a single 8-connected component (C `CCBORD`).
 #[derive(Debug, Clone, Default)]
 pub struct CcBord {
@@ -77,6 +89,17 @@ pub struct CcBord {
     pub global: Ptaa,
     /// Step chain code of each border.
     pub step: Numaa,
+    /// Single path through the outer border and every hole border, local to
+    /// the component.
+    pub splocal: Pta,
+    /// The same single path in global image coordinates.
+    pub spglobal: Pta,
+    /// The component's bitmap, which [`CcBorda::generate_single_path`] scans
+    /// to find a cut from each hole out to the exterior border.
+    ///
+    /// `None` for a component read from a `.ccb` stream, which does not
+    /// store it, as in C.
+    pub pix: Option<Pix>,
 }
 
 /// Borders of every component in an image (C `CCBORDA`).
@@ -402,7 +425,11 @@ impl CcBorda {
 ///
 /// C Leptonica: `pixGetCCBorders()` in `ccbord.c`
 fn cc_borders(pixs: &Pix, b: &Box) -> RegionResult<CcBord> {
-    let mut ccb = CcBord::default();
+    let mut ccb = CcBord {
+        // C `ccbCreate(pixs)` keeps the component bitmap for cut finding.
+        pix: Some(pixs.clone()),
+        ..CcBord::default()
+    };
     get_outer_border(&mut ccb, pixs, b)?;
 
     let pixh = holes_by_filling(pixs, ConnectivityType::FourWay)?;
@@ -598,6 +625,303 @@ fn locate_outside_seed_pixel(fpx: i32, fpy: i32, spx: i32, spy: i32) -> (i32, i3
 fn pta_get_ipt(pta: &Pta, index: usize) -> (i32, i32) {
     let (x, y) = pta.get(index).unwrap_or((0.0, 0.0));
     ((x + 0.5) as i32, (y + 0.5) as i32)
+}
+
+/// Upper bound on holes C will connect into the single path. Above it, the
+/// cut finding is not worth the work and the outer border is used alone.
+///
+/// C: `NMAX_HOLES` in `ccbord.c`.
+const NMAX_HOLES: usize = 150;
+
+/// Single path representation and SVG output.
+impl CcBorda {
+    /// Join every border of each component into one closed path.
+    ///
+    /// A component with no holes just copies its exterior border. Otherwise
+    /// each hole is connected to the exterior by a cut path found through the
+    /// component's own pixels, and the path walks out along the cut, around
+    /// the hole, and back.
+    ///
+    /// A hole whose cut cannot be found is dropped from the path, as in C;
+    /// the borders themselves still describe the image exactly.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a component has borders but no bitmap, which
+    /// happens when the component was read from a `.ccb` stream.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaGenerateSinglePath()` in `ccbord.c`
+    pub fn generate_single_path(&mut self) -> RegionResult<()> {
+        for (i, ccb) in self.ccb.iter_mut().enumerate() {
+            if ccb.local.is_empty() {
+                continue; // C warns and skips
+            }
+            let nb = ccb.local.len();
+            let outer = ccb.local.get(0).expect("outer border").clone();
+
+            let mut path = Pta::new();
+            if nb == 1 || nb > NMAX_HOLES + 1 {
+                path.join(&outer, 0, None).map_err(RegionError::Core)?;
+                ccb.splocal = path;
+                continue;
+            }
+
+            let pix = ccb.pix.as_ref().ok_or_else(|| {
+                RegionError::InvalidParameters(format!(
+                    "component {i} has holes but no bitmap to cut through"
+                ))
+            })?;
+
+            // One cut per hole, plus the point where it meets each border.
+            // A hole with no cut gets (-1, -1), which no border point equals.
+            let mut cuts: Vec<Pta> = Vec::with_capacity(nb - 1);
+            let mut first = Pta::with_capacity(nb - 1);
+            let mut last = Pta::with_capacity(nb - 1);
+            for j in 1..nb {
+                let boxinner = ccb.boxa.get(j).ok_or_else(|| {
+                    RegionError::InvalidParameters(format!(
+                        "component {i} has no bounding box for hole {j}"
+                    ))
+                })?;
+                let cut = get_cut_path_for_hole(pix, &outer, boxinner);
+                if cut.is_empty() {
+                    first.push(-1.0, -1.0);
+                    last.push(-1.0, -1.0);
+                } else {
+                    let (fx, fy) = pta_get_ipt(&cut, 0);
+                    let (lx, ly) = pta_get_ipt(&cut, cut.len() - 1);
+                    first.push(fx as f32, fy as f32);
+                    last.push(lx as f32, ly as f32);
+                }
+                cuts.push(cut);
+            }
+
+            // Walk the outer border; at each point that a cut reaches, detour
+            // out along the cut, around the hole, and back.
+            for k in 0..outer.len() {
+                let (x, y) = pta_get_ipt(&outer, k);
+                if k == 0 {
+                    // A cut at the first point can wait until the walk ends.
+                    path.push(x as f32, y as f32);
+                    continue;
+                }
+                let mut taken = false;
+                for (j, cut) in cuts.iter().enumerate() {
+                    let (xl, yl) = pta_get_ipt(&last, j);
+                    if x != xl || y != yl {
+                        continue;
+                    }
+                    taken = true;
+                    let (xf, yf) = pta_get_ipt(&first, j);
+                    let hole = ccb.local.get(j + 1).expect("hole border");
+                    // Start the hole at the point the cut arrives on.
+                    let hole = hole.cyclic_perm(xf, yf).map_err(RegionError::Core)?;
+                    path.join(&cut.reverse(), 0, None)
+                        .map_err(RegionError::Core)?;
+                    path.join(&hole, 0, None).map_err(RegionError::Core)?;
+                    path.join(cut, 0, None).map_err(RegionError::Core)?;
+                    break;
+                }
+                if !taken {
+                    path.push(x as f32, y as f32);
+                }
+            }
+            ccb.splocal = path;
+        }
+        Ok(())
+    }
+
+    /// Fill in [`CcBord::spglobal`] from [`CcBord::splocal`].
+    ///
+    /// Unlike C, which quietly calls `ccbaGenerateSinglePath()` when a
+    /// component has no single path, this reports the omission. Every
+    /// generation step in this module is explicit, matching
+    /// [`CcBorda::step_chains_to_pix_coords`] and `to_bytes`, which is
+    /// gated behind the `ccb-format` feature.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the single path has not been generated yet, or if
+    /// a component has no bounding box.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaGenerateSPGlobalLocs()` in `ccbord.c`
+    pub fn generate_sp_global_locs(&mut self, points: CcbPoints) -> RegionResult<()> {
+        for (i, ccb) in self.ccb.iter_mut().enumerate() {
+            if ccb.splocal.is_empty() {
+                return Err(RegionError::InvalidParameters(format!(
+                    "component {i} has no single path; call generate_single_path first"
+                )));
+            }
+            let b = ccb.boxa.get(0).ok_or_else(|| {
+                RegionError::InvalidParameters(format!("component {i} has no bounding box"))
+            })?;
+            let (xul, yul) = (b.x, b.y);
+            let local = &ccb.splocal;
+            let npt = local.len();
+            let mut global = Pta::with_capacity(npt);
+
+            match points {
+                CcbPoints::All => {
+                    for j in 0..npt {
+                        let (x, y) = pta_get_ipt(local, j);
+                        global.push((x + xul) as f32, (y + yul) as f32);
+                    }
+                }
+                CcbPoints::Turning => {
+                    let (mut xp, mut yp) = pta_get_ipt(local, 0);
+                    global.push((xp + xul) as f32, (yp + yul) as f32);
+                    if npt == 2 {
+                        let (x, y) = pta_get_ipt(local, 1);
+                        global.push((x + xul) as f32, (y + yul) as f32);
+                    } else if npt > 2 {
+                        let (x, y) = pta_get_ipt(local, 1);
+                        let (mut delxp, mut delyp) = (x - xp, y - yp);
+                        (xp, yp) = (x, y);
+                        for j in 2..npt {
+                            let (x, y) = pta_get_ipt(local, j);
+                            let (delx, dely) = (x - xp, y - yp);
+                            if delx != delxp || dely != delyp {
+                                global.push((xp + xul) as f32, (yp + yul) as f32);
+                            }
+                            (xp, yp) = (x, y);
+                            (delxp, delyp) = (delx, dely);
+                        }
+                        global.push((xp + xul) as f32, (yp + yul) as f32);
+                    }
+                }
+            }
+            ccb.spglobal = global;
+        }
+        Ok(())
+    }
+
+    /// Paint every pixel of the single path, using the global coordinates.
+    ///
+    /// [`CcBorda::generate_sp_global_locs`] must have run first; a component
+    /// without a global single path is skipped, as in C.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the destination pix cannot be created.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaDisplaySPBorder()` in `ccbord.c`
+    pub fn display_sp_border(&self) -> RegionResult<Pix> {
+        let pixd = Pix::new(self.w, self.h, PixelDepth::Bit1).map_err(RegionError::Core)?;
+        let mut pixd = pixd.try_into_mut().map_err(|_| {
+            RegionError::InvalidParameters("border pix unexpectedly shared".to_string())
+        })?;
+        for ccb in &self.ccb {
+            for k in 0..ccb.spglobal.len() {
+                let (x, y) = pta_get_ipt(&ccb.spglobal, k);
+                let _ = pixd.set_pixel(x as u32, y as u32, 1);
+            }
+        }
+        Ok(pixd.into())
+    }
+
+    /// Render the single paths as one SVG `polygon` element per component.
+    ///
+    /// C builds this from an `SARRAY` joined with a newline after every
+    /// element, so each point sits on its own line and a lone space line
+    /// follows `</svg>`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a component has no single path in global
+    /// coordinates.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `ccbaWriteSVGString()` in `ccbord.c`. `ccbaWriteSVG()`
+    /// only writes the string to a file and is not ported.
+    pub fn to_svg_string(&self) -> RegionResult<String> {
+        let mut svg = String::from("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n");
+        svg.push_str(
+            "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 20000303 Stylable//EN\" \
+             \"http://www.w3.org/TR/2000/03/WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">\n",
+        );
+        svg.push_str("<svg>\n");
+        for (i, ccb) in self.ccb.iter().enumerate() {
+            if ccb.spglobal.is_empty() {
+                return Err(RegionError::InvalidParameters(format!(
+                    "component {i} has no global single path; \
+                     call generate_sp_global_locs first"
+                )));
+            }
+            svg.push_str("<polygon style=\"stroke-width:1;stroke:black;\" points=\"\n");
+            for k in 0..ccb.spglobal.len() {
+                let (x, y) = pta_get_ipt(&ccb.spglobal, k);
+                svg.push_str(&format!("{x},{y}\n"));
+            }
+            svg.push_str("\" />\n");
+        }
+        svg.push_str("</svg>\n \n");
+        Ok(svg)
+    }
+}
+
+/// Find a short path from inside a hole out to the exterior border, staying
+/// on foreground pixels of the component.
+///
+/// Tries up, then down, then left, then right from the middle of the hole's
+/// bounding box: run to the first foreground pixel, keep going while the run
+/// stays foreground, and accept the direction if the run ends on `outer`.
+/// Returns an empty path when no direction works, in which case C drops the
+/// hole from the single path.
+///
+/// # See also
+///
+/// C Leptonica: `getCutPathForHole()` in `ccbord.c`
+fn get_cut_path_for_hole(pix: &Pix, outer: &Pta, boxinner: &Box) -> Pta {
+    let (w, h) = (pix.width() as i32, pix.height() as i32);
+    let xmid = boxinner.x + boxinner.w / 2;
+    let ymid = boxinner.y + boxinner.h / 2;
+
+    let on = |x: i32, y: i32| -> bool {
+        if x < 0 || y < 0 || x >= w || y >= h {
+            return false;
+        }
+        pix.get_pixel(x as u32, y as u32).unwrap_or(0) == 1
+    };
+
+    // (dx, dy) for up, down, left, right, in C's order of preference.
+    for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
+        let mut ptac = Pta::new();
+        // Run to the first foreground pixel.
+        let (mut x, mut y) = (xmid, ymid);
+        while x >= 0 && y >= 0 && x < w && y < h {
+            if on(x, y) {
+                ptac.push(x as f32, y as f32);
+                break;
+            }
+            x += dx;
+            y += dy;
+        }
+        // Then stay on foreground for as long as it lasts.
+        x += dx;
+        y += dy;
+        while on(x, y) {
+            ptac.push(x as f32, y as f32);
+            x += dx;
+            y += dy;
+        }
+        if ptac.is_empty() {
+            continue;
+        }
+        let (xl, yl) = pta_get_ipt(&ptac, ptac.len() - 1);
+        if outer.contains_pt(xl, yl) {
+            return ptac;
+        }
+    }
+
+    // Sometimes there is nothing.
+    Pta::new()
 }
 
 /// Bytes of the `.ccb` header: `"ccba: %7d cc\n"` is 17 characters, and C
@@ -1129,5 +1453,181 @@ mod tests {
         ccba.generate_step_chains();
         ccba.ccb[0].step.get_mut(0).unwrap().set(0, 9.0).unwrap();
         assert!(ccba.to_bytes().is_err());
+    }
+
+    /// C `ccbaGenerateSinglePath()` on the ring of [`ring_and_dot`]. The cut
+    /// path out to the hole and back repeats points, e.g. `(3, 0)` twice.
+    const C_SP_LOCAL_RING: &[(i32, i32)] = &[
+        (0, 0),
+        (1, 0),
+        (2, 0),
+        (3, 0),
+        (3, 0),
+        (2, 0),
+        (1, 0),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (1, 4),
+        (2, 4),
+        (3, 4),
+        (4, 4),
+        (5, 3),
+        (5, 2),
+        (5, 1),
+        (4, 0),
+        (3, 0),
+        (3, 0),
+        (4, 0),
+        (5, 0),
+        (5, 1),
+        (5, 2),
+        (5, 3),
+        (5, 4),
+        (4, 4),
+        (3, 4),
+        (2, 4),
+        (1, 4),
+        (0, 4),
+        (0, 3),
+        (0, 2),
+        (0, 1),
+        (0, 0),
+    ];
+
+    /// The ring's single path in global coordinates, turning points only.
+    const C_SP_GLOBAL_TURNING_RING: &[(i32, i32)] = &[
+        (1, 1),
+        (4, 1),
+        (4, 1),
+        (2, 1),
+        (1, 2),
+        (1, 4),
+        (2, 5),
+        (5, 5),
+        (6, 4),
+        (6, 2),
+        (5, 1),
+        (4, 1),
+        (4, 1),
+        (6, 1),
+        (6, 5),
+        (1, 5),
+        (1, 1),
+    ];
+
+    /// Pixels C `ccbaDisplaySPBorder()` sets after
+    /// `generate_sp_global_locs(Turning)`, in raster order.
+    const C_SP_BORDER_PIXELS: &[(i32, i32)] = &[
+        (1, 1),
+        (2, 1),
+        (4, 1),
+        (5, 1),
+        (6, 1),
+        (1, 2),
+        (6, 2),
+        (1, 4),
+        (6, 4),
+        (1, 5),
+        (2, 5),
+        (5, 5),
+        (6, 5),
+        (10, 8),
+    ];
+
+    fn sp_points(pta: &Pta) -> Vec<(i32, i32)> {
+        (0..pta.len()).map(|k| pta_get_ipt(pta, k)).collect()
+    }
+
+    /// The exact SVG C emits for [`ring_and_dot`]. `sarrayToString()` puts
+    /// every array element on its own line, so each point is one line, and
+    /// the lone space element becomes a space line after `</svg>`.
+    fn c_svg_ring_and_dot() -> String {
+        let mut s = String::from("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n");
+        s.push_str(
+            "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 20000303 Stylable//EN\" \
+             \"http://www.w3.org/TR/2000/03/WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">\n",
+        );
+        s.push_str("<svg>\n");
+        for pts in [C_SP_GLOBAL_TURNING_RING, &[(10, 8)]] {
+            s.push_str("<polygon style=\"stroke-width:1;stroke:black;\" points=\"\n");
+            for (x, y) in pts {
+                s.push_str(&format!("{x},{y}\n"));
+            }
+            s.push_str("\" />\n");
+        }
+        s.push_str("</svg>\n \n");
+        s
+    }
+
+    #[test]
+    fn test_single_path_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().expect("generate_single_path");
+        assert_eq!(sp_points(&ccba.get(0).unwrap().splocal), C_SP_LOCAL_RING);
+        // An isolated pixel has one border of one point and no hole to cut to.
+        assert_eq!(sp_points(&ccba.get(1).unwrap().splocal), [(0, 0)]);
+    }
+
+    #[test]
+    fn test_sp_global_all_points_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::All)
+            .expect("generate_sp_global_locs");
+
+        // The ring's box starts at (1, 1), so every local point shifts by it.
+        let expected: Vec<_> = C_SP_LOCAL_RING
+            .iter()
+            .map(|&(x, y)| (x + 1, y + 1))
+            .collect();
+        assert_eq!(sp_points(&ccba.get(0).unwrap().spglobal), expected);
+        assert_eq!(sp_points(&ccba.get(1).unwrap().spglobal), [(10, 8)]);
+    }
+
+    #[test]
+    fn test_sp_global_turning_points_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::Turning).unwrap();
+        assert_eq!(
+            sp_points(&ccba.get(0).unwrap().spglobal),
+            C_SP_GLOBAL_TURNING_RING
+        );
+        assert_eq!(sp_points(&ccba.get(1).unwrap().spglobal), [(10, 8)]);
+    }
+
+    #[test]
+    fn test_display_sp_border_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::Turning).unwrap();
+        let pixd = ccba.display_sp_border().expect("display_sp_border");
+
+        let mut set = Vec::new();
+        for y in 0..pixd.height() {
+            for x in 0..pixd.width() {
+                if pixd.get_pixel(x, y).unwrap_or(0) != 0 {
+                    set.push((x as i32, y as i32));
+                }
+            }
+        }
+        assert_eq!(set, C_SP_BORDER_PIXELS);
+    }
+
+    #[test]
+    fn test_svg_string_matches_c() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        ccba.generate_single_path().unwrap();
+        ccba.generate_sp_global_locs(CcbPoints::Turning).unwrap();
+        let svg = ccba.to_svg_string().expect("to_svg_string");
+        assert_eq!(svg, c_svg_ring_and_dot());
+        assert_eq!(svg.len(), 391, "C emits 391 bytes for this fixture");
+    }
+
+    #[test]
+    fn test_sp_global_without_single_path_is_an_error() {
+        let mut ccba = CcBorda::from_pix(&ring_and_dot()).unwrap();
+        assert!(ccba.generate_sp_global_locs(CcbPoints::All).is_err());
     }
 }

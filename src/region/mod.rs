@@ -104,7 +104,7 @@ pub use seedfill::{
 };
 
 // Re-export the C CCBORDA border representation
-pub use ccborda::{CcBord, CcBorda, CcbCoords};
+pub use ccborda::{CcBord, CcBorda, CcbCoords, CcbPoints};
 // Re-export the Rust-only watershed convenience API
 pub use watershed::{
     WatershedOptions, WatershedResult, compute_gradient, find_basins, find_local_maxima,

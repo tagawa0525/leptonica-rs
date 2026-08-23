@@ -214,10 +214,10 @@ pub fn parse_c_manifest(content: &str) -> ManifestMap {
 /// the lookup searches this fixed list and returns the first hit. PDF / PS /
 /// data-stream files are included because some C regression outputs are raw
 /// byte streams (`.ba` for Boxa, `.baa` for Boxaa, `.na` for Numa,
-/// `.pa` for Pta, `.pdf`).
+/// `.pa` for Pta, `.ccb` for the ccbord SVG string, `.pdf`).
 const CANDIDATE_C_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp", "jp2", "j2k", "spix", "pnm", "pbm",
-    "pgm", "ppm", "pam", "pdf", "ps", "ba", "baa", "na", "pa", "dat",
+    "pgm", "ppm", "pam", "pdf", "ps", "ba", "baa", "na", "pa", "ccb", "dat",
 ];
 
 /// Detailed lookup result used by both `lookup_c_hash_in` (Option facade) and
