@@ -2056,6 +2056,46 @@ PR 52 の棚卸しで残った `transform` の未着手分。`affine` は C 側 
 `createMatrix2dRotate` / `l_productMat3` / `affineInvertXform` /
 `pixAffine` が未移植。行列合成 API 一式の移植になるため別 PR。
 
+### PR 54: compfilter のマッピング (計画)
+
+`filter` binary は Unmapped 54 件。C 側の全テストの入力形式を洗い直した:
+
+| C テスト | JPEG 入力 | lossless 入力 | 状況 |
+| --- | --: | --- | --- |
+| `adaptmap` | 1 | `weasel8.png` | lossless 分 (14/15) はマップ済み |
+| `adaptnorm` | 2 | なし | 対象外 |
+| `convolve` | 3 | `feyn-fract2.tif` / `test1.png` | lossless 分 (2-4) はマップ済み |
+| `edge` / `enhance` / `rank` / `rankhisto` | 1-4 | なし | 対象外 |
+| `rankbin` | 3 | `feyn.tif` | check 0-3 は gnuplot 出力で対象外 |
+| **`compfilter`** | **0** | **`feyn.tif`** | **00/01 のみ Ok、31-86 が未マップ** |
+
+**`compfilter` は JPEG を一切使わない唯一のテスト**。C 側 PNG 12 件のうち
+00/01 は `compfilter_write_synthetic` として Ok 済みで、31-86 の 10 件が
+残っている。
+
+**本 PR は check 86 に絞る**。31-55 は C の `Count_pieces()` が
+`rp->index > 28 && rp->index < 55` という **reg index への依存**で出力を
+出し分けており、その index は同関数内の `regTestCompareValues` の呼び出し
+回数で決まる。Rust 側で同じ index 進行を再現するには compfilter_reg 全体を
+移植する必要があり、範囲が別物になる。
+
+check 86 は独立していて移植しやすい:
+
+- 高さ 50 以上、または幅 30-35 の成分
+- かつ周長/面積比が 0.4 以上
+- これらを残し、それ以外を `pixRemoveWithIndicator` で除去
+
+使う C 関数 (Rust 実装は確認済み):
+
+| C 関数 | Rust |
+| --- | --- |
+| `pixConnComp` (pixa 付き) | `region::conncomp_pixa` |
+| `pixaFindDimensions` | `Pixa::find_dimensions` |
+| `pixaFindPerimToAreaRatio` | `pixa_find_perim_to_area_ratio` (crate 内) |
+| `numaMakeThresholdIndicator` | `Numa::make_threshold_indicator` |
+| `numaLogicalOp` / `numaInvert` | `Numa::logical_op` / `Numa::invert` |
+| `pixRemoveWithIndicator` | `pix_remove_with_indicator` |
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
