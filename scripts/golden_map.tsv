@@ -438,6 +438,7 @@ filter	convolve	3	convolve_blockrank	2	blockrank 4x4 rank 0.50
 filter	convolve	4	convolve_blockrank	3	blockrank 4x4 rank 0.75
 filter	adaptmap	14	adaptmap_c	1	fill_map_holes on weasel8.png (L_FILL_WHITE)
 filter	adaptmap	15	adaptmap_c	2	fill_map_holes 3x3 (L_FILL_BLACK)
+filter	compfilter	86	compfilter_c	1	compfilter final extraction (height/width band + perim ratio)
 recog	findpattern1	0	findpat1_c	1	patno 0 red 4: sel display
 recog	findpattern1	1	findpat1_c	2	patno 0 red 4: matched at full res
 recog	findpattern1	2	findpat1_c	3	patno 0 red 4: matched at 0.5 scale
