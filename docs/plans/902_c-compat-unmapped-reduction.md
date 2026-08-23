@@ -1796,19 +1796,24 @@ reg test 側は各画像の直後 (captcha は直前) に色決定で `rand()` �
 いて `srand(0)` が常に 0 を返していた。warper が seed 0 を使うため
 表面化した。
 
-### PR 50: color 領域の棚卸しと alphaops のマッピング (計画)
+### PR 50: color 領域の棚卸しと alphaops のマッピング (実施済み)
 
-`color` binary は Unmapped 108 件で最大の未開拓領域だが、調査の結果
-**大半が JPEG 入力に縛られていてマップ不能**と分かった。
+`color` binary は Unmapped 108 件で最大の未開拓領域。C 側の reg test と
+入力形式を突き合わせて棚卸しした。
 
-**調査結果** (Unmapped 108 件を prefix 63 種に分類し、C 側の reg test と
-入力形式を突き合わせた):
+**調査でやり直した点**: 最初 Rust の prefix から C のテスト名を機械的に
+推測して「C 対応なし 23 件」と分類したが、これは誤りだった。Rust 側は
+`gquant_*` / `pmask_*` / `bw_*` と略しているのに対し、C は
+`grayquant` / `paintmask` / `blackwhite` という名前で、単純な前方一致では
+見つからない。テストファイルの由来を 1 件ずつ確認して訂正した。
 
-| 区分 | 件数 | 内訳 |
-| --- | --: | --- |
-| C 対応なし (Rust 独自テスト) | 23 | `gquant_*` 13、`pmask_*` 7、`bw_*` 3 |
-| C 対応はあるが JPEG 入出力 | 81 | blend1-5、binarize、colorfill、colorize、paint、colorspace、colorcontent、cmapquant、coloring、dither、hardlight、threshnorm、colorseg、colorquant |
-| **マップ可能** | **4** | `alphaops` の check 0,1,3,4 |
+**訂正後の分類**:
+
+| 区分 | 内訳 |
+| --- | --- |
+| JPEG 入出力でマップ不能 | blend1-5、binarize、colorfill、colorize、paint の残り、colorspace、colorcontent の残り、cmapquant、coloring、dither、hardlight、threshnorm、colorseg、colorquant、`blackwhite` (11 枚のタイル合成に `marge.jpg` を含む) |
+| マップ可能・本 PR | `alphaops` の check 0,1,3,4 (4 件) |
+| マップ可能・次 PR | `grayquant` の check 28 以降 (22 件、入力は `feyn.tif`)、`paintmask` の PNG 出力 (入力 `feyn.tif` / `rabi.png` の分) |
 
 代表例:
 
@@ -1822,23 +1827,35 @@ reg test 側は各画像の直後 (captcha は直前) に色決定で `rand()` �
 - `blend3` は入力を読まないように見えるが、ヘルパー内で `marge.jpg` /
   `test8.jpg` を読み JPEG で書く
 
-**本 PR でやること**:
+実施結果:
 
-1. `alphaops` の check 0,1,3,4 を `alphaops_c` としてマッピングする。
-   入力は `books_logo.png` (lossless)、出力も PNG
-2. C 対応が存在しない 23 件を `c_compat_exclude.tsv` に理由付きで移す。
-   plan 902 の狙いどおり Unmapped を「マップ可能な未着手」に純化する
+- **4 ペア全件 Ok** (Ok 480 → 484、color 56 → 60)。さらに誤った
+  Excluded の撤回で io が 3 件増え、最終的に **Ok 487**
+- `alphaops` の check 0 は入力をそのまま書き出すだけなので、PNG の
+  読み書きが C と一致することの検査にもなっている
 
-使う C 関数 (いずれも Rust 実装あり):
+**実装差を 1 件解消 — 混在精度の再現**:
 
-| C 関数 | Rust |
-| --- | --- |
-| `pixAlphaBlendUniform` | `Pix::alpha_blend_uniform` |
-| `pixSetAlphaOverWhite` | `Pix::set_alpha_over_white` |
-| `pixSetSpp` | `PixMut::set_spp` |
+C の `pixBlendWithGrayMask` は
+`(l_int32)((1.0 - fract) * dval + fract * sval)` と書くが、**2 つの積は
+同じ幅で評価されない**。`1.0` が double リテラルなので前者は double 乗算、
+後者は `float * int` で float に丸めてから加算される。
 
-check 0 は入力をそのまま書き出すだけなので、PNG の読み書きが C と
-一致するかの検査にもなる。
+`books_logo.png` を白に合成すると 30360 画素中 83 画素がこれで変わる。
+例えばアルファ 13 の白画素では、C は `fract * sval` を float で丸めて
+ちょうど 13 を得るため合計が 254.99999982 となり切り捨てで 254。両方を
+f64 で計算すると 255.0 ちょうどになり 255 になる。
+
+この修正で既存の `alphaops_uniform` / `blend4_offset` の出力も変わり、
+`alphaops_uniform.03` は **C のハッシュと一致する値**になった。
+
+**誤った Excluded を 1 件撤回**: plan 902 PR 21 は `iomisc_c.02/03/04` を
+「C の `pixAlphaBlendUniform` が自身の公開式から逸脱する。合成 1x1 入力でも
+再現し C ソースからは説明できない」として Excluded にしていた。そこで
+観測された「白 x 白 (アルファ 13) が 254 になる」現象は、まさに上記の
+混在精度が原因だった。式は公開どおりで、**評価される幅が項ごとに違う**
+というのが答え。3 件とも Ok になったので除外ルールを削除した
+(Excluded 100 → 97)。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
