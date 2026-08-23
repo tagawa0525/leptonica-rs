@@ -2056,7 +2056,7 @@ PR 52 の棚卸しで残った `transform` の未着手分。`affine` は C 側 
 `createMatrix2dRotate` / `l_productMat3` / `affineInvertXform` /
 `pixAffine` が未移植。行列合成 API 一式の移植になるため別 PR。
 
-### PR 54: compfilter のマッピング (計画)
+### PR 54: compfilter のマッピング (実施済み)
 
 `filter` binary は Unmapped 54 件。C 側の全テストの入力形式を洗い直した:
 
@@ -2095,6 +2095,22 @@ check 86 は独立していて移植しやすい:
 | `numaMakeThresholdIndicator` | `Numa::make_threshold_indicator` |
 | `numaLogicalOp` / `numaInvert` | `Numa::logical_op` / `Numa::invert` |
 | `pixRemoveWithIndicator` | `pix_remove_with_indicator` |
+
+実施結果:
+
+- **1 ペア Ok** (Ok 504 → 505、filter 7 → 8)。**実装差は 0 件**で、
+  一度目から C と pixel 完全一致した
+- 既存の `#[ignore]` な TODO テスト
+  (`compfilter_reg_indicator_operations`) を実装する形で置き換えた。
+  必要な API (`conncomp_pixa` / `Pixa::find_dimensions` /
+  `Pix::find_perim_to_area_ratio` / `Numa::make_threshold_indicator` /
+  `logical_op` / `pix_remove_with_indicator`) は既に揃っていた
+
+**filter 領域の結論**: マップ可能な pair は出し切った。C 側テストの入力
+形式を全件確認した結果、`compfilter` 以外はすべて JPEG 入力を含む。
+`adaptmap` / `convolve` の lossless 分は既にマップ済みで、`rankbin` の
+lossless 分 (check 0-3) は gnuplot 経由のプロット画像なので対象外
+(C manifest 側も `.na` 混在)。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
