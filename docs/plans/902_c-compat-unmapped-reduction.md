@@ -1669,6 +1669,47 @@ PR 47 で移植する C 関数:
 - check 3,7 の `pixaDisplayTiledInColumns` と、テンプレートに白 3 +
   黒 1 の枠を付ける `PixaOutlineTemplates` が未移植
 
+### PR 48: jbclass のページ再構成とインスタンス表示 (計画)
+
+C 版ソース: `prog/jbclass_reg.c` の check 1,2,3 / 5,6,7。PR 47 で分類器が
+C 一致になったので、テンプレートからページを再構成する段 (1,2 / 5,6) と、
+クラス別に全インスタンスを並べる段 (3 / 7) を合わせる。
+
+移植する C 関数:
+
+| C 関数 | 役割 |
+| --- | --- |
+| `jbGetULCorners` | 各インスタンスの配置位置を重心差から決める |
+| `finalPositioningForAlignment` | 3x3 の範囲で XOR 画素数が最小の位置を選ぶ |
+| `pixaCreateFromPix` | 合成画像を格子で切り出す (1bpp は前景に切り詰め) |
+| `pixaaFlattenToPixa` | クラス別インスタンス配列を平坦化 |
+| `PixaOutlineTemplates` | 各クラス先頭に白 3 + 黒 1 の枠を付ける (reg test 側) |
+| `pixaDisplayTiledInColumns` | 40 列・間隔 10 で並べる |
+
+**要修正点** (PR 47 の調査で判明):
+
+- `ptac` が境界なし成分の重心になっている。C は境界込み
+  (`JB_ADDED_PIXELS` を足した画像) の重心を使う。UL 座標に直接効く
+- `extract_templates` が格子セル全体を返す。C は 1bpp のとき
+  `pixClipToForeground` で前景に切り詰めるので、配置されるテンプレートの
+  寸法が違う
+- `finalPositioningForAlignment` が未移植。UL 座標が重心差だけで決まって
+  いる
+
+**`finalPositioningForAlignment` の注意点**: 切り出し矩形
+`(x - idelx - 6, y - idely - 6, w, h)` は画像外にはみ出しうる。C の
+`pixClipRectangle` は矩形を画像に切り詰めて**小さい pix を返す**ので、
+続く XOR も切り詰められた枠の中で行われる。画像端の成分では、この効果で
+選ばれる位置が変わる。
+
+**RED に使う C 実測値** (PR 47 と同じ 4 成分の fixture、相関):
+
+- `ptac` (境界込み重心): `(8,9) (8,9) (8,9) (7,8)`
+- `ptaul`: `(3,6) (22,6) (40,6) (58,6)`。成分 0 は元が x=4 なのに x=3 に
+  なる (上記の画像端の効果)
+- 合成画像から切り出したテンプレート: `5x7 / 5x7 / 3x5` (格子セルの
+  18x20 ではない)
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
