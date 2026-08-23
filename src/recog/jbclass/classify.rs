@@ -5,13 +5,13 @@
 
 use crate::core::{Box as PixBox, Boxa, Pix, PixelDepth};
 use crate::morph::binary as morph_binary;
-use crate::region::{ConnectivityType, find_connected_components};
+use crate::region::{ConnectivityType, conncomp_pixa, find_connected_components};
 
 use crate::recog::error::{RecogError, RecogResult};
 
 use super::types::{
-    DEFAULT_MAX_HEIGHT, DEFAULT_MAX_WIDTH, DEFAULT_SIZE_HAUS, DEFAULT_THRESH, JbClasser,
-    JbComponent, JbData, JbMethod, TEMPLATE_BORDER,
+    DEFAULT_MAX_HEIGHT, DEFAULT_MAX_WIDTH, DEFAULT_MAX_WORD_WIDTH, DEFAULT_SIZE_HAUS,
+    DEFAULT_THRESH, JbClasser, JbComponent, JbData, JbMethod, TEMPLATE_BORDER,
 };
 
 /// Generates a word mask by progressive dilation.
@@ -89,6 +89,55 @@ const MAX_DIFF_WIDTH: i32 = 2;
 /// Maximum difference in height for matching
 const MAX_DIFF_HEIGHT: i32 = 2;
 
+/// Order in which candidate template sizes are visited, as `(dw, dh)` offsets
+/// from the instance size.
+///
+/// Both classifiers take the *first* template that matches, so this order is
+/// part of the result: it starts at the exact size and spirals outwards, so a
+/// same-sized template always wins over a near-sized one.
+///
+/// C Leptonica: `two_by_two_walk` in `jbclass.c`
+const TWO_BY_TWO_WALK: [(i32, i32); 25] = [
+    (0, 0),
+    (0, 1),
+    (-1, 0),
+    (0, -1),
+    (1, 0),
+    (-1, 1),
+    (1, 1),
+    (-1, -1),
+    (1, -1),
+    (0, -2),
+    (2, 0),
+    (0, 2),
+    (-2, 0),
+    (-1, -2),
+    (1, -2),
+    (2, -1),
+    (2, 1),
+    (1, 2),
+    (-1, 2),
+    (-2, 1),
+    (-2, -1),
+    (-2, -2),
+    (2, -2),
+    (2, 2),
+    (-2, 2),
+];
+
+/// Default maximum component width for a component type.
+///
+/// Words are allowed to be much wider than single characters.
+///
+/// C Leptonica: the `maxwidth == 0` branch of `jbCorrelationInitInternal()`
+/// and `jbRankHausInit()` in `jbclass.c`
+fn default_max_width(components: JbComponent) -> i32 {
+    match components {
+        JbComponent::ConnComps | JbComponent::Characters => DEFAULT_MAX_WIDTH,
+        JbComponent::Words => DEFAULT_MAX_WORD_WIDTH,
+    }
+}
+
 /// Creates a rank Hausdorff distance classifier
 ///
 /// # Arguments
@@ -124,7 +173,7 @@ pub fn rank_haus_init(
     classer.max_width = if max_width > 0 {
         max_width
     } else {
-        DEFAULT_MAX_WIDTH
+        default_max_width(components)
     };
     classer.max_height = if max_height > 0 {
         max_height
@@ -176,7 +225,7 @@ pub fn correlation_init(
     classer.max_width = if max_width > 0 {
         max_width
     } else {
-        DEFAULT_MAX_WIDTH
+        default_max_width(components)
     };
     classer.max_height = if max_height > 0 {
         max_height
@@ -203,11 +252,9 @@ impl JbClasser {
             });
         }
 
-        // Update page dimensions
-        let w = pix.width() as i32;
-        let h = pix.height() as i32;
-        self.w = self.w.max(w);
-        self.h = self.h.max(h);
+        // C stores the most recent page's size, not the largest.
+        self.w = pix.width() as i32;
+        self.h = pix.height() as i32;
 
         // Get components from the page
         let (components, boxes) = self.get_components(pix)?;
@@ -261,26 +308,31 @@ impl JbClasser {
     }
 
     /// Extracts connected components
+    ///
+    /// Each component is its own bitmap, holding only that component's
+    /// pixels. Cropping the page to the bounding box instead would drag in
+    /// whatever neighbouring components overlap that rectangle, which changes
+    /// the templates and therefore the classification.
     fn get_conn_comps(&self, pix: &Pix) -> RecogResult<(Vec<Pix>, Vec<PixBox>)> {
-        // Get 8-connected components
-        let conn_comps = find_connected_components(pix, ConnectivityType::EightWay)
-            .map_err(RecogError::Region)?;
+        let (boxa, pixa) =
+            conncomp_pixa(pix, ConnectivityType::EightWay).map_err(RecogError::Region)?;
 
         let mut components = Vec::new();
         let mut valid_boxes = Vec::new();
 
-        for cc in conn_comps {
-            let bounds = cc.bounds;
+        for i in 0..boxa.len() {
+            let Some(bounds) = boxa.get(i).copied() else {
+                continue;
+            };
             // Filter by size
             if bounds.w > self.max_width || bounds.h > self.max_height {
                 continue;
             }
-
-            // Extract component
-            if let Ok(comp) = extract_rect(pix, &bounds) {
-                components.push(comp);
-                valid_boxes.push(bounds);
-            }
+            let Some(comp) = pixa.get(i) else {
+                continue;
+            };
+            components.push(comp.clone());
+            valid_boxes.push(bounds);
         }
 
         Ok((components, valid_boxes))
@@ -351,43 +403,56 @@ impl JbClasser {
         let dilated =
             morph_binary::dilate_brick(&bordered, self.size_haus as u32, self.size_haus as u32)
                 .map_err(RecogError::Morph)?;
-        let bordered_area = if self.rank_haus < 1.0 {
-            Some(count_fg_pixels(&bordered)?)
+        // C counts fg on the unbordered component; the border is white so the
+        // count is the same, but keep the source explicit.
+        let inst_area = if self.rank_haus < 1.0 {
+            Some(count_fg_pixels(pix)?)
         } else {
             None
         };
+        let inst_centroid = compute_centroid(&bordered)?;
 
-        // Look for matching template
-        for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
-            for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
-                if let Some(candidates) = self.dahash.get(&(key.0 + dw, key.1 + dh)) {
-                    for &class_idx in candidates {
-                        if class_idx >= self.pixat.len() || class_idx >= self.pixatd.len() {
-                            continue;
-                        }
-                        let template = &self.pixat[class_idx];
-                        let template_dilated = &self.pixatd[class_idx];
-                        let template_area = if self.rank_haus < 1.0 {
-                            self.nafgt.get(class_idx).copied()
-                        } else {
-                            None
-                        };
-                        if hausdorff_match_with_areas(
-                            &bordered,
-                            &dilated,
-                            template,
-                            template_dilated,
-                            self.rank_haus,
-                            bordered_area,
-                            template_area,
-                        )? {
-                            // Match found - add to existing class
-                            if self.keep_pixaa {
-                                self.pixaa[class_idx].push(pix.clone());
-                            }
-                            return Ok(class_idx);
-                        }
+        // Same greedy walk as the correlation classifier: nearest sizes first.
+        for (dw, dh) in TWO_BY_TWO_WALK {
+            let (cw, ch) = (key.0 + dw, key.1 + dh);
+            if cw < 1 || ch < 1 {
+                continue;
+            }
+            let Some(candidates) = self.dahash.get(&(cw, ch)) else {
+                continue;
+            };
+            for &class_idx in candidates {
+                if class_idx >= self.pixat.len() || class_idx >= self.pixatd.len() {
+                    continue;
+                }
+                if class_idx >= self.ptact.len() {
+                    continue;
+                }
+                let template = &self.pixat[class_idx];
+                let template_dilated = &self.pixatd[class_idx];
+                let template_area = if self.rank_haus < 1.0 {
+                    self.nafgt.get(class_idx).copied()
+                } else {
+                    None
+                };
+                let templ_centroid = self.ptact[class_idx];
+                if hausdorff_match_with_areas(
+                    &bordered,
+                    &dilated,
+                    template,
+                    template_dilated,
+                    self.rank_haus,
+                    (
+                        inst_centroid.0 - templ_centroid.0,
+                        inst_centroid.1 - templ_centroid.1,
+                    ),
+                    inst_area,
+                    template_area,
+                )? {
+                    if self.keep_pixaa {
+                        self.pixaa[class_idx].push(pix.clone());
                     }
+                    return Ok(class_idx);
                 }
             }
         }
@@ -401,15 +466,11 @@ impl JbClasser {
         self.pixatd.push(dilated);
         self.naarea.push(w * h);
 
-        // Compute and store template centroid
-        let (cx, cy) = compute_centroid(&bordered)?;
-        self.ptact.push((cx, cy));
+        self.ptact.push(inst_centroid);
 
-        // Compute foreground area for rank < 1.0
-        if self.rank_haus < 1.0 {
-            let fg = count_fg_pixels(&bordered)?;
-            self.nafgt.push(fg);
-        }
+        // Only consulted below rank 1.0, but keep the index aligned with
+        // `pixat` either way.
+        self.nafgt.push(inst_area.unwrap_or(count_fg_pixels(pix)?));
 
         // Add to hash table
         let key = (w, h);
@@ -434,44 +495,52 @@ impl JbClasser {
         let pix_area = count_fg_pixels(&bordered)?;
         let pix_centroid = compute_centroid(&bordered)?;
 
-        // Compute effective threshold based on fill factor
-        let fill_factor =
-            pix_area as f32 / ((w + 2 * TEMPLATE_BORDER) * (h + 2 * TEMPLATE_BORDER)) as f32;
-        let effective_thresh = self.thresh + self.weight_factor * fill_factor;
+        // Take the first template whose score clears its own threshold. The
+        // threshold rises with how heavy the template is, so that thick
+        // characters are not merged as readily as thin ones.
+        for (dw, dh) in TWO_BY_TWO_WALK {
+            let (cw, ch) = (key.0 + dw, key.1 + dh);
+            if cw < 1 || ch < 1 {
+                continue;
+            }
+            let Some(candidates) = self.dahash.get(&(cw, ch)) else {
+                continue;
+            };
+            for &class_idx in candidates {
+                if class_idx >= self.pixat.len()
+                    || class_idx >= self.ptact.len()
+                    || class_idx >= self.naarea.len()
+                    || class_idx >= self.nafgt.len()
+                {
+                    continue;
+                }
+                let template = &self.pixat[class_idx];
+                let templ_fg = self.nafgt[class_idx];
+                let templ_box_area = self.naarea[class_idx];
+                let templ_centroid = self.ptact[class_idx];
 
-        // Look for matching template (hashed by similar sizes)
-        for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
-            for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
-                if let Some(candidates) = self.dahash.get(&(key.0 + dw, key.1 + dh)) {
-                    for &class_idx in candidates {
-                        if class_idx >= self.pixat.len()
-                            || class_idx >= self.ptact.len()
-                            || class_idx >= self.naarea.len()
-                        {
-                            continue;
-                        }
-                        let template = &self.pixat[class_idx];
-                        let templ_area = self.naarea[class_idx];
-                        let templ_centroid = self.ptact[class_idx];
+                let threshold = if self.weight_factor > 0.0 {
+                    self.thresh
+                        + (1.0 - self.thresh) * self.weight_factor * templ_fg as f32
+                            / templ_box_area.max(1) as f32
+                } else {
+                    self.thresh
+                };
 
-                        // Compute correlation score
-                        let score = correlation_score_aligned(
-                            &bordered,
-                            template,
-                            pix_centroid,
-                            templ_centroid,
-                            pix_area,
-                            templ_area,
-                        )?;
+                let score = correlation_score_aligned(
+                    &bordered,
+                    template,
+                    pix_centroid,
+                    templ_centroid,
+                    pix_area,
+                    templ_fg,
+                )?;
 
-                        if score >= effective_thresh {
-                            // Match found
-                            if self.keep_pixaa {
-                                self.pixaa[class_idx].push(pix.clone());
-                            }
-                            return Ok(class_idx);
-                        }
+                if score >= threshold {
+                    if self.keep_pixaa {
+                        self.pixaa[class_idx].push(pix.clone());
                     }
+                    return Ok(class_idx);
                 }
             }
         }
@@ -480,10 +549,13 @@ impl JbClasser {
         let class_idx = self.nclass;
         self.nclass += 1;
 
-        // Store template
+        // Store template. `nafgt` is the fg count of the bordered template and
+        // `naarea` the area of its unbordered bounding box; the threshold
+        // above is their ratio.
         self.pixat.push(bordered);
-        self.pixatd.push(Pix::new(1, 1, PixelDepth::Bit1).unwrap()); // Placeholder
-        self.naarea.push(pix_area);
+        self.pixatd.push(Pix::new(1, 1, PixelDepth::Bit1).unwrap()); // unused for correlation
+        self.nafgt.push(pix_area);
+        self.naarea.push(w * h);
         self.ptact.push(pix_centroid);
 
         // Add to hash table
@@ -505,9 +577,10 @@ impl JbClasser {
             ));
         }
 
-        // Find lattice dimensions
-        let lattice_w = self.pixat.iter().map(|p| p.width()).max().unwrap_or(1) as i32;
-        let lattice_h = self.pixat.iter().map(|p| p.height()).max().unwrap_or(1) as i32;
+        // One pixel larger than the biggest template, so neighbouring cells
+        // never touch.
+        let lattice_w = self.pixat.iter().map(|p| p.width()).max().unwrap_or(0) as i32 + 1;
+        let lattice_h = self.pixat.iter().map(|p| p.height()).max().unwrap_or(0) as i32 + 1;
 
         // Create composite template image
         let composite = self.templates_to_composite(lattice_w as u32, lattice_h as u32)?;
@@ -515,10 +588,17 @@ impl JbClasser {
         Ok(JbData::from_classer(self, composite, lattice_w, lattice_h))
     }
 
-    /// Creates a composite image of all templates
+    /// Tiles every template onto a lattice, row by row.
+    ///
+    /// The grid is roughly square, with `floor(sqrt(n))` columns. A template
+    /// too big for its cell is skipped rather than clipped, as in C.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixaDisplayOnLattice()` in `pixafunc2.c`
     fn templates_to_composite(&self, lattice_w: u32, lattice_h: u32) -> RecogResult<Pix> {
         let n = self.nclass;
-        let cols = ((n as f32).sqrt().ceil() as usize).max(1);
+        let cols = ((n as f64).sqrt() as usize).max(1);
         let rows = n.div_ceil(cols);
 
         let width = cols as u32 * lattice_w;
@@ -528,11 +608,11 @@ impl JbClasser {
         let mut composite_mut = composite.try_into_mut().unwrap_or_else(|p| p.to_mut());
 
         for (i, template) in self.pixat.iter().enumerate() {
-            let col = i % cols;
-            let row = i / cols;
-            let x = col as u32 * lattice_w;
-            let y = row as u32 * lattice_h;
-
+            if template.width() > lattice_w || template.height() > lattice_h {
+                continue; // C logs and omits it
+            }
+            let x = (i % cols) as u32 * lattice_w;
+            let y = (i / cols) as u32 * lattice_h;
             copy_to(&mut composite_mut, template, x as i32, y as i32)?;
         }
 
@@ -683,35 +763,93 @@ pub fn hausdorff_distance(pix1: &Pix, pix2: &Pix, size: i32, rank: f32) -> Recog
     hausdorff_match(pix1, &dil1, pix2, &dil2, rank)
 }
 
-/// Checks if two images match using Hausdorff criterion
+/// Checks if two images match using the Hausdorff criterion, comparing them
+/// as given rather than aligning their centroids.
 fn hausdorff_match(pix1: &Pix, dil1: &Pix, pix2: &Pix, dil2: &Pix, rank: f32) -> RecogResult<bool> {
-    hausdorff_match_with_areas(pix1, dil1, pix2, dil2, rank, None, None)
+    hausdorff_match_with_areas(pix1, dil1, pix2, dil2, rank, (0.0, 0.0), None, None)
 }
 
+/// Tests whether an instance and a template match within the Hausdorff
+/// distance implied by the dilation, allowing a `rank` fraction of pixels to
+/// go uncovered in each direction.
+///
+/// Both directions must hold: the dilated template must cover the instance,
+/// and the dilated instance must cover the template. The two images are
+/// aligned by the rounded difference of their centroids before comparing.
+///
+/// `rank == 1.0` demands complete coverage. `area1` / `area2` are the
+/// foreground counts of the unbordered instance and template; they are only
+/// needed below rank 1.0.
+///
+/// # See also
+///
+/// C Leptonica: `pixHaustest()` and `pixRankHaustest()` in `jbclass.c`
+#[allow(clippy::too_many_arguments)]
 fn hausdorff_match_with_areas(
     pix1: &Pix,
     dil1: &Pix,
     pix2: &Pix,
     dil2: &Pix,
     rank: f32,
+    delta: (f32, f32),
     area1: Option<i32>,
     area2: Option<i32>,
 ) -> RecogResult<bool> {
-    // Forward direction: pix1 fg must be covered by dil2
-    let fg1 = area1.unwrap_or(count_fg_pixels(pix1)?);
-    let covered1 = count_and_pixels(pix1, dil2)?;
-    let ratio1 = covered1 as f32 / fg1.max(1) as f32;
-
-    if ratio1 < rank {
+    // Too different in size to be the same character.
+    if (pix1.width() as i32 - pix2.width() as i32).abs() > MAX_DIFF_WIDTH
+        || (pix1.height() as i32 - pix2.height() as i32).abs() > MAX_DIFF_HEIGHT
+    {
         return Ok(false);
     }
 
-    // Reverse direction: pix2 fg must be covered by dil1
-    let fg2 = area2.unwrap_or(count_fg_pixels(pix2)?);
-    let covered2 = count_and_pixels(pix2, dil1)?;
-    let ratio2 = covered2 as f32 / fg2.max(1) as f32;
+    // C rounds away from zero, which `f32::round` also does.
+    let idelx = delta.0.round() as i32;
+    let idely = delta.1.round() as i32;
 
-    Ok(ratio2 >= rank)
+    // How many pixels may stay uncovered in each direction.
+    let allowed = |area: Option<i32>| -> i32 {
+        match area {
+            Some(a) if rank < 1.0 => (a as f32 * (1.0 - rank) + 0.5) as i32,
+            _ => 0,
+        }
+    };
+
+    // Forward: every fg pixel of the instance must fall inside the dilated
+    // template, once the template is shifted by the centroid difference.
+    let uncovered1 = count_uncovered(pix1, dil2, -idelx, -idely)?;
+    if uncovered1 > allowed(area1) {
+        return Ok(false);
+    }
+
+    // Reverse: every fg pixel of the template must fall inside the dilated
+    // instance. The shift shows up with the opposite sign here.
+    let uncovered2 = count_uncovered(pix2, dil1, idelx, idely)?;
+    Ok(uncovered2 <= allowed(area2))
+}
+
+/// Counts the foreground pixels of `pix` that `cover`, shifted by
+/// `(dx, dy)`, does not switch on.
+fn count_uncovered(pix: &Pix, cover: &Pix, dx: i32, dy: i32) -> RecogResult<i32> {
+    let (w, h) = (pix.width() as i32, pix.height() as i32);
+    let (cw, ch) = (cover.width() as i32, cover.height() as i32);
+    let mut count = 0;
+    for y in 0..h {
+        for x in 0..w {
+            if pix.get_pixel_unchecked(x as u32, y as u32) != 1 {
+                continue;
+            }
+            let (cx, cy) = (x + dx, y + dy);
+            let covered = cx >= 0
+                && cy >= 0
+                && cx < cw
+                && cy < ch
+                && cover.get_pixel_unchecked(cx as u32, cy as u32) == 1;
+            if !covered {
+                count += 1;
+            }
+        }
+    }
+    Ok(count)
 }
 
 /// Computes correlation score for aligned images
@@ -851,24 +989,6 @@ fn count_fg_pixels(pix: &Pix) -> RecogResult<i32> {
     Ok(count)
 }
 
-fn count_and_pixels(pix1: &Pix, pix2: &Pix) -> RecogResult<i32> {
-    let w = pix1.width().min(pix2.width());
-    let h = pix1.height().min(pix2.height());
-    let mut count = 0i32;
-
-    for y in 0..h {
-        for x in 0..w {
-            let v1 = pix1.get_pixel_unchecked(x, y);
-            let v2 = pix2.get_pixel_unchecked(x, y);
-            if v1 == 1 && v2 == 1 {
-                count += 1;
-            }
-        }
-    }
-
-    Ok(count)
-}
-
 /// Creates a correlation-based classifier without keeping component instances.
 ///
 /// Like [`correlation_init`], but sets `keep_pixaa = false` for lower memory.
@@ -899,10 +1019,8 @@ pub fn add_page_components(
     pixa: &[Pix],
 ) -> RecogResult<()> {
     // Update page dimensions
-    let w = pix.width() as i32;
-    let h = pix.height() as i32;
-    classer.w = classer.w.max(w);
-    classer.h = classer.h.max(h);
+    classer.w = pix.width() as i32;
+    classer.h = pix.height() as i32;
 
     let page = classer.npages;
     let mut n_added = 0usize;
@@ -914,56 +1032,18 @@ pub fn add_page_components(
             continue;
         }
 
-        // Add border
-        let bordered = add_border(comp, TEMPLATE_BORDER as u32)?;
-        let (cx, cy) = compute_centroid(&bordered)?;
-
-        // Try to match against existing templates
-        let matched = match classer.method {
-            JbMethod::RankHaus => try_match_rank_haus(classer, &bordered),
-            JbMethod::Correlation => try_match_correlation(classer, &bordered),
+        // Same classifiers as `JbClasser::add_page`, so the two entry points
+        // cannot drift apart.
+        let class_id = match classer.method {
+            JbMethod::RankHaus => classer.classify_rank_haus(comp)?,
+            JbMethod::Correlation => classer.classify_correlation(comp)?,
         };
 
-        let class_id = match matched {
-            Some(id) => id,
-            None => {
-                // Create new class
-                let id = classer.nclass;
-                classer.nclass += 1;
-                let dilated = if classer.method == JbMethod::RankHaus {
-                    morph_binary::dilate_brick(
-                        &bordered,
-                        classer.size_haus as u32,
-                        classer.size_haus as u32,
-                    )
-                    .unwrap_or_else(|_| bordered.clone())
-                } else {
-                    bordered.clone()
-                };
-                classer.pixat.push(bordered.clone());
-                classer.pixatd.push(dilated);
-                classer.ptact.push((cx, cy));
-                classer.naarea.push(cw * ch);
-                let key = (bordered.width() as i32, bordered.height() as i32);
-                classer.dahash.entry(key).or_default().push(id);
-                if classer.keep_pixaa {
-                    classer.pixaa.push(Vec::new());
-                }
-                classer.nafgt.push(count_fg_pixels(&bordered).unwrap_or(0));
-                id
-            }
-        };
-
-        // Record component classification
         classer.naclass.push(class_id);
         classer.napage.push(page);
-        classer.ptac.push((cx, cy));
+        classer.ptac.push(compute_centroid(comp)?);
         classer.ptaul.push((bounds.x, bounds.y));
         classer.ptall.push((bounds.x, bounds.y + bounds.h));
-
-        if classer.keep_pixaa && class_id < classer.pixaa.len() {
-            classer.pixaa[class_id].push(bordered);
-        }
 
         n_added += 1;
     }
@@ -973,83 +1053,6 @@ pub fn add_page_components(
     classer.npages += 1;
 
     Ok(())
-}
-
-/// Try to match a component to an existing RankHaus template
-fn try_match_rank_haus(classer: &JbClasser, bordered: &Pix) -> Option<usize> {
-    let key = (bordered.width() as i32, bordered.height() as i32);
-    let bordered_dilated =
-        morph_binary::dilate_brick(bordered, classer.size_haus as u32, classer.size_haus as u32)
-            .ok()?;
-    let bordered_area = if classer.rank_haus < 1.0 {
-        count_fg_pixels(bordered).ok()
-    } else {
-        None
-    };
-    for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
-        for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
-            let key2 = (key.0 + dw, key.1 + dh);
-            if let Some(candidates) = classer.dahash.get(&key2) {
-                for &id in candidates {
-                    if id < classer.pixatd.len()
-                        && id < classer.pixat.len()
-                        && hausdorff_match_with_areas(
-                            bordered,
-                            &bordered_dilated,
-                            &classer.pixat[id],
-                            &classer.pixatd[id],
-                            classer.rank_haus,
-                            bordered_area,
-                            if classer.rank_haus < 1.0 {
-                                classer.nafgt.get(id).copied()
-                            } else {
-                                None
-                            },
-                        )
-                        .unwrap_or(false)
-                    {
-                        return Some(id);
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Try to match a component to an existing Correlation template
-fn try_match_correlation(classer: &JbClasser, bordered: &Pix) -> Option<usize> {
-    let key = (bordered.width() as i32, bordered.height() as i32);
-    let (cx, cy) = compute_centroid(bordered).ok()?;
-    let area = count_fg_pixels(bordered).unwrap_or(0);
-
-    // Check exact size and nearby sizes
-    for dw in -MAX_DIFF_WIDTH..=MAX_DIFF_WIDTH {
-        for dh in -MAX_DIFF_HEIGHT..=MAX_DIFF_HEIGHT {
-            let key2 = (key.0 + dw, key.1 + dh);
-            if let Some(candidates) = classer.dahash.get(&key2) {
-                for &id in candidates {
-                    if id < classer.pixat.len() {
-                        let (tcx, tcy) = classer.ptact[id];
-                        let tarea = classer.naarea.get(id).copied().unwrap_or(0);
-                        let score = correlation_score_aligned(
-                            bordered,
-                            &classer.pixat[id],
-                            (cx, cy),
-                            (tcx, tcy),
-                            area,
-                            tarea,
-                        )
-                        .unwrap_or(0.0);
-                        if score >= classer.thresh {
-                            return Some(id);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    None
 }
 
 /// Runs full correlation-based JB classification on a set of page images.
@@ -1222,7 +1225,6 @@ mod tests {
 
     /// C `JB_ADDED_PIXELS` is 6, so a 5x7 component yields a 17x19 template.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_template_border_matches_c() {
         assert_eq!(TEMPLATE_BORDER, 6);
     }
@@ -1230,7 +1232,6 @@ mod tests {
     /// C `jbCorrelationInit(JB_CONN_COMPS, 0, 0, ...)` fills in
     /// `MAX_CONN_COMP_WIDTH` = 350 and `MAX_COMP_HEIGHT` = 120.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_default_max_size_matches_c() {
         let c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
         assert_eq!((c.max_width, c.max_height), (350, 120));
@@ -1244,7 +1245,6 @@ mod tests {
     /// identical blocks share a class, the ring and the smaller block each
     /// get their own.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_correlation_classes_match_c() {
         let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
         c.add_page(&c_fixture()).unwrap();
@@ -1255,7 +1255,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_rank_haus_classes_match_c() {
         let mut c = rank_haus_init(JbComponent::ConnComps, 0, 0, 2, 0.97).unwrap();
         c.add_page(&c_fixture()).unwrap();
@@ -1269,7 +1268,6 @@ mod tests {
     /// template, and `pixaDisplayOnLattice` lays the cells out with
     /// `nw = floor(sqrt(n))` columns, so 3 classes make a single column.
     #[test]
-    #[ignore = "not yet implemented"]
     fn test_data_lattice_matches_c() {
         let mut c = correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).unwrap();
         c.add_page(&c_fixture()).unwrap();

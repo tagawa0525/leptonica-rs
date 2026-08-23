@@ -254,11 +254,20 @@ impl JbData {
     }
 }
 
-/// Default maximum component width
-pub const DEFAULT_MAX_WIDTH: i32 = 150;
+/// Default maximum width of a connected component or character.
+///
+/// C: `MAX_CONN_COMP_WIDTH` / `MAX_CHAR_COMP_WIDTH` in `jbclass.c`.
+pub const DEFAULT_MAX_WIDTH: i32 = 350;
 
-/// Default maximum component height
-pub const DEFAULT_MAX_HEIGHT: i32 = 150;
+/// Default maximum width of a word component.
+///
+/// C: `MAX_WORD_COMP_WIDTH` in `jbclass.c`.
+pub const DEFAULT_MAX_WORD_WIDTH: i32 = 1000;
+
+/// Default maximum component height.
+///
+/// C: `MAX_COMP_HEIGHT` in `jbclass.c`.
+pub const DEFAULT_MAX_HEIGHT: i32 = 120;
 
 /// Default Hausdorff structuring element size
 pub const DEFAULT_SIZE_HAUS: i32 = 2;
@@ -272,8 +281,12 @@ pub const DEFAULT_THRESH: f32 = 0.85;
 /// Default weight factor for correlation
 pub const DEFAULT_WEIGHT_FACTOR: f32 = 0.0;
 
-/// Border size for templates
-pub const TEMPLATE_BORDER: i32 = 4;
+/// White border added around every component before it is stored as a
+/// template or compared against one. The padding gives the correlation and
+/// Hausdorff comparisons room to shift one image against the other.
+///
+/// C: `JB_ADDED_PIXELS` in `jbclass.c`.
+pub const TEMPLATE_BORDER: i32 = 6;
 
 /// Template file extension
 pub const JB_TEMPLATE_EXT: &str = ".templates.png";
