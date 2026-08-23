@@ -756,17 +756,67 @@ fn compfilter_reg_select_none() {
     assert!(rp.cleanup(), "compfilter_select_none test failed");
 }
 
-/// Test connected component analysis with indicators (C checks 26-29 intent).
+/// C-compatible port of the last extraction in `prog/compfilter_reg.c`
+/// (C index 86).
 ///
-/// Requires pixConnComp and numaMakeThresholdIndicator/numaLogicalOp
-/// which are in leptonica-region and leptonica-core.
+/// Keeps the components that are at least 50 tall, or between 30 and 35 wide,
+/// and that also have a relatively large perimeter-to-area ratio; everything
+/// else is removed. `compfilter_reg.c` is the only test in this binary that
+/// reads no JPEG, so its outputs can be matched pixel for pixel.
+///
+/// C indices 31-55 are not mapped: `Count_pieces()` decides whether to write
+/// an image from `rp->index`, which advances with every
+/// `regTestCompareValues` call in that file, so reproducing them would mean
+/// porting the whole reg test rather than one extraction.
 #[test]
-#[ignore = "not yet implemented: pixConnComp/numaMakeThresholdIndicator in leptonica-region/core"]
-fn compfilter_reg_indicator_operations() {
-    // C version:
-    // 1. pixConnComp(pixs, &pixa1, 8) to get connected components
-    // 2. numaGetWidths/GetHeights to extract dimension arrays
-    // 3. numaMakeThresholdIndicator(na1, threshold, L_SELECT_IF_GTE)
-    // 4. numaLogicalOp to combine indicators
-    // 5. pixRemoveWithIndicator to filter components
+fn compfilter_c_compat() {
+    use crate::common::{RegParams, load_test_image};
+    use leptonica::core::numa::{LogicalOp, ThresholdComparison};
+    use leptonica::io::ImageFormat;
+    use leptonica::region::{ConnectivityType, conncomp_pixa};
+
+    let mut rp = RegParams::new("compfilter_c");
+    if crate::common::is_display_mode() {
+        assert!(rp.cleanup(), "compfilter_c test failed");
+        return;
+    }
+
+    let pixs = load_test_image("feyn.tif").expect("load feyn.tif");
+    let (_, pixa) = conncomp_pixa(&pixs, ConnectivityType::EightWay).expect("conn comp");
+
+    let (naw, nah) = pixa.find_dimensions().expect("find dimensions");
+    let ratios: Vec<f32> = pixa
+        .pix_slice()
+        .iter()
+        .map(|p| p.find_perim_to_area_ratio().unwrap_or(0.0))
+        .collect();
+    let na1 = leptonica::core::Numa::from_slice(&ratios);
+
+    // tall, or narrow-ish in a band, then intersected with a shape test
+    let mut na2 = nah.make_threshold_indicator(50.0, ThresholdComparison::GreaterThanOrEqual);
+    let mut na3 = naw.make_threshold_indicator(30.0, ThresholdComparison::GreaterThanOrEqual);
+    let na4 = naw.make_threshold_indicator(35.0, ThresholdComparison::LessThanOrEqual);
+    let na5 = na1.make_threshold_indicator(0.4, ThresholdComparison::GreaterThanOrEqual);
+    na3.logical_op(LogicalOp::Intersection, &na4)
+        .expect("width band");
+    na2.logical_op(LogicalOp::Union, &na3)
+        .expect("tall or band");
+    na2.logical_op(LogicalOp::Intersection, &na5)
+        .expect("and shape");
+    na2.invert(); // now marks the components to remove
+
+    let indicator: Vec<bool> = (0..na2.len())
+        .map(|i| na2.get(i).unwrap_or(0.0) != 0.0)
+        .collect();
+    let out = pixs.deep_clone();
+    let mut out_mut = out.try_into_mut().expect("fresh copy");
+    leptonica::core::pixa::pix_remove_with_indicator(&pixs, &mut out_mut, &indicator)
+        .expect("remove with indicator");
+    let out: leptonica::Pix = out_mut.into();
+
+    // 86
+    rp.write_pix_and_check(&out, ImageFormat::Png)
+        .expect("write filtered");
+
+    assert!(rp.cleanup(), "compfilter_c test failed");
 }
