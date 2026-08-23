@@ -1311,76 +1311,54 @@ fn h_shear_li(pix: &Pix, yloc: i32, angle: f32, fill: WarpFill) -> TransformResu
     shear_h_shear_li(pix, yloc, angle, shear_fill)
 }
 
-/// Generate a simple CAPTCHA image by applying random harmonic warping.
+/// Turn an image into a CAPTCHA: warp it, then tint the result.
 ///
-/// Takes an input image (typically rendered text) and applies a random
-/// harmonic warp with the specified number of terms and border expansion.
+/// `border` white pixels are added around the grayscale source before
+/// warping, `nterms` in 1..=4 selects the distortion preset (1 is the
+/// strongest), and `seed` makes it reproducible. `color` is a packed RGB
+/// value used to tint the warped gray; `cmapflag` asks for a colormapped
+/// result.
 ///
-/// # Arguments
+/// # Errors
 ///
-/// * `pix` - Input image (typically text rendered on white background)
-/// * `border` - Number of pixels to add as border before warping
-/// * `nterms` - Number of harmonic terms (1-4, more = more distortion)
-/// * `seed` - Random seed for reproducibility
-/// * `color` - If true, apply random color shifts
+/// Returns an error unless `nterms` is in 1..=4.
 ///
-/// # Returns
+/// # See also
 ///
-/// A distorted image suitable for CAPTCHA use.
-///
-/// # Reference
-///
-/// C Leptonica: `pixSimpleCaptcha()`
+/// C Leptonica: `pixSimpleCaptcha()` in `warper.c`
 pub fn simple_captcha(
     pix: &Pix,
     border: u32,
     nterms: u32,
     seed: u32,
-    color: bool,
+    color: u32,
+    cmapflag: bool,
 ) -> TransformResult<Pix> {
-    use crate::core::PixelDepth;
-    let _ = color; // Reserved for future color warping
-
     if nterms == 0 || nterms > 4 {
         return Err(TransformError::InvalidParameters(format!(
             "nterms must be 1-4, got {nterms}"
         )));
     }
 
-    // Add border
-    let src = if border > 0 {
-        pix.add_border_general(border, border, border, border, 0)
-            .map_err(TransformError::Core)?
-    } else {
-        pix.clone()
-    };
+    // Distortion presets, strongest first.
+    const XMAG: [f32; 4] = [7.0, 5.0, 4.0, 3.0];
+    const YMAG: [f32; 4] = [10.0, 8.0, 6.0, 5.0];
+    const XFREQ: [f32; 4] = [0.12, 0.10, 0.10, 0.11];
+    const YFREQ: [f32; 4] = [0.15, 0.13, 0.13, 0.11];
+    let k = (nterms - 1) as usize;
 
-    // Convert to 8-bit if needed for warp
-    let work = match src.depth() {
-        PixelDepth::Bit1 => {
-            // Convert 1bpp to 8bpp for warping
-            let mut out = crate::core::Pix::new(src.width(), src.height(), PixelDepth::Bit8)
-                .map_err(TransformError::Core)?
-                .to_mut();
-            for y in 0..src.height() {
-                for x in 0..src.width() {
-                    let val = src.get_pixel(x, y).unwrap_or(0);
-                    out.set_pixel_unchecked(x, y, if val == 1 { 0 } else { 255 });
-                }
-            }
-            let p: crate::core::Pix = out.into();
-            p
-        }
-        _ => src,
-    };
+    // Convert first, then pad with white, so the border matches the page
+    // instead of becoming a black frame.
+    let gray = pix.convert_to_8().map_err(TransformError::Core)?;
+    let padded = gray.add_border(border, 255).map_err(TransformError::Core)?;
 
-    // Apply random harmonic warp with configured distortion level
-    let xmag = 3.0 + nterms as f32;
-    let ymag = 4.0 + nterms as f32;
+    let warped = random_harmonic_warp(
+        &padded, XMAG[k], YMAG[k], XFREQ[k], YFREQ[k], nterms, nterms, seed, 255,
+    )?;
 
-    random_harmonic_warp(
-        &work, xmag, ymag, xmag, ymag, nterms, nterms, seed, 255, // white fill value
-    )
+    warped
+        .colorize_gray(color, cmapflag)
+        .map_err(TransformError::Core)
 }
 
 // ============================================================================
