@@ -1734,6 +1734,68 @@ C 一致になったので、テンプレートからページを再構成する
 (14.361702, 22.446808) になった。丸めは 3x3 の最終位置合わせがたいてい
 吸収するので、窓の端に最適解が来た 2 個だけ表面化していた。
 
+### PR 49: warper の C 互換化 (実施済み)
+
+C 版ソース: `prog/warper_reg.c`。`feyn-word.tif` に 25 画素の枠を付けた
+245x106 の 8bpp 画像を入力に、8 check を出力する。全て PNG なので比較できる。
+
+| C check | 内容 |
+| --- | --- |
+| 0-3 | `pixRandomHarmonicWarp` を 4 通りのパラメータで 50 枚、色付けして並べる |
+| 4-7 | `pixSimpleCaptcha` を nterms 1-4 で 50 枚、同様に並べる |
+
+**乱数の扱い**: `pixRandomHarmonicWarp` は先頭で `srand(seed)` を呼び、
+`generateRandomNumberArray(5 * (nx + ny))` で `rand()` を消費する。
+reg test 側は各画像の直後 (captcha は直前) に色決定で `rand()` を 3 回
+使う。`srand` が毎回呼ばれるので系列は完全に決定的。
+
+**実装差** (実測):
+
+| 項目 | C | Rust |
+| --- | --- | --- |
+| 乱数 | glibc `rand()` (`srand(seed)`) | 独自 LCG `SimpleRng` |
+| 値の作り方 | `0.5 * (1 + rand() / RAND_MAX)` | `0.5 * (1 + next() / u64::MAX)` |
+
+`GlibcRand` は plan 902 PR 43 (#451) で移植済みなので、`SimpleRng` を
+置き換えるだけで系列が一致するはず。
+
+**色決定の評価順**: C の
+`((rand() >> 16) & 0xff) << L_RED_SHIFT | ... << L_GREEN_SHIFT | ... << L_BLUE_SHIFT`
+は 3 つの `rand()` の評価順が未規定。手元の `cc` では左から右
+(1 番目が R) だったが、**リファレンスビルドのコンパイラと一致する保証は
+ない**。C manifest のハッシュと突き合わせて確定させる。
+
+**必要な部品**:
+
+- `pixColorizeGray` (色付け) の移植状況を確認する
+- `pixaDisplayTiledInColumns(pixac, 10, 1.0, 20, 0)` は core に実装済み
+
+実施結果:
+
+- **8 ペア全件 Ok** (Ok 472 → 480、transform 135 → 143)。warp 400 枚の
+  画素・色付け・タイル配置がすべて C と一致
+- **色決定の評価順は左から右**と確定。リファレンスビルドの出力から実際の
+  色 (108,140,58) を読み出し、逐次の 1,2,3 番目と一致することを確認した
+
+解消した実装差:
+
+| 箇所 | 内容 |
+| --- | --- |
+| 乱数 | 独自 LCG `SimpleRng` → `GlibcRand` |
+| `twopi` | `2*PI` → C の切り詰めリテラル `6.283185` |
+| 補間 | f32 双一次 + 四捨五入 → C の 1/16 量子化 + 整数演算 + 切り捨て |
+| `simple_captcha` | 枠の値と順序、パラメータ表、色付けの欠落 |
+
+**C の行ストライドの癖**: `linearInterpolatePixelGray` は最終行で
+`wpls` を 0 にするが、これが `lines = datas + yp * wpls` より前にあるため
+基準行のポインタごと画像先頭に潰れる。下端では行 `yp` ではなく**行 0 を
+2 回**読む。全 warp 画像の下端はこれで作られている。
+
+**`GlibcRand` の seed 0 バグを発見**: glibc は種 0 を 1 に読み替えるが
+(そうしないと Lehmer 段が 0 しか生まない)、PR 43 の移植でこれが漏れて
+いて `srand(0)` が常に 0 を返していた。warper が seed 0 を使うため
+表面化した。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

@@ -72,19 +72,21 @@
 
 #### transform/warper.rs (warper.c)
 
-| C関数                       | 状態 | Rust対応                   | 備考                                    |
-| --------------------------- | ---- | -------------------------- | --------------------------------------- |
-| pixSimpleCaptcha            | ✅   | warper::simple_captcha     | CAPTCHA生成の高レベルインターフェース   |
-| pixRandomHarmonicWarp       | ✅   | random_harmonic_warp       | ランダム正弦波ワーピング                |
-| pixRandomHarmonicWarpLUT    | 🚫   | -                          | LUT版最適化はRustコンパイラ最適化で代替 |
-| pixWarpStereoscopic         | ✅   | warp_stereoscopic          | ステレオスコピックワーピング            |
-| pixStretchHorizontal        | ✅   | stretch_horizontal         | 水平方向伸縮                            |
-| pixStretchHorizontalSampled | ✅   | stretch_horizontal_sampled | サンプリング版                          |
-| pixStretchHorizontalLI      | ✅   | stretch_horizontal_li      | 線形補間版                              |
-| pixQuadraticVShear          | ✅   | quadratic_v_shear          | 二次垂直シアー                          |
-| pixQuadraticVShearSampled   | ✅   | quadratic_v_shear_sampled  | サンプリング版                          |
-| pixQuadraticVShearLI        | ✅   | quadratic_v_shear_li       | 線形補間版                              |
-| pixStereoFromPair           | ✅   | stereo_from_pair           | ステレオペア合成                        |
+| C関数                       | 状態 | Rust対応                        | 備考                                    |
+| --------------------------- | ---- | ------------------------------- | --------------------------------------- |
+| pixSimpleCaptcha            | ✅   | warper::simple_captcha          | C とビット一致 (plan 902 PR 49)         |
+| pixRandomHarmonicWarp       | ✅   | random_harmonic_warp            | C とビット一致 (plan 902 PR 49)         |
+| generateRandomNumberArray   | ✅   | generate_random_array (private) | glibc rand 系列 (PR 49)                 |
+| applyWarpTransform          | ✅   | apply_warp_transform (private)  | twopi は C の 6.283185 (PR 49)          |
+| pixRandomHarmonicWarpLUT    | 🚫   | -                               | LUT版最適化はRustコンパイラ最適化で代替 |
+| pixWarpStereoscopic         | ✅   | warp_stereoscopic               | ステレオスコピックワーピング            |
+| pixStretchHorizontal        | ✅   | stretch_horizontal              | 水平方向伸縮                            |
+| pixStretchHorizontalSampled | ✅   | stretch_horizontal_sampled      | サンプリング版                          |
+| pixStretchHorizontalLI      | ✅   | stretch_horizontal_li           | 線形補間版                              |
+| pixQuadraticVShear          | ✅   | quadratic_v_shear               | 二次垂直シアー                          |
+| pixQuadraticVShearSampled   | ✅   | quadratic_v_shear_sampled       | サンプリング版                          |
+| pixQuadraticVShearLI        | ✅   | quadratic_v_shear_li            | 線形補間版                              |
+| pixStereoFromPair           | ✅   | stereo_from_pair                | ステレオペア合成                        |
 
 **warper.c カバレッジ**: 10/11 = 91% (✅10, 🚫1)
 

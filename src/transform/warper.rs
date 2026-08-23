@@ -48,15 +48,23 @@
 //! ).unwrap();
 //! ```
 
-use crate::core::{Pix, PixMut, PixelDepth, pixel};
+use crate::core::{GlibcRand, Pix, PixMut, PixelDepth, pixel};
 use crate::transform::{TransformError, TransformResult};
-use std::f64::consts::PI;
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-const TWO_PI: f64 = 2.0 * PI;
+/// The `twopi` constant C uses in the warp phase offsets.
+///
+/// C spells it out as `6.283185`, six digits short of 2*pi. The difference is
+/// tiny but it multiplies a phase, so keeping the exact literal is what makes
+/// the warped pixels match.
+///
+/// C Leptonica: `applyWarpTransform()` in `warper.c`
+// Deliberately not `f64::consts::TAU`: the truncated literal is the point.
+#[allow(clippy::approx_constant)]
+const WARP_TWO_PI: f64 = 6.283185;
 
 /// Default weights for stereo pair composition
 const DEFAULT_RED_WEIGHT: f32 = 0.0;
@@ -282,34 +290,22 @@ pub fn random_harmonic_warp(
     Ok(out_mut.into())
 }
 
-/// Generate an array of random numbers in range [0.5, 1.0]
+/// Largest value glibc `rand()` returns, i.e. C's `RAND_MAX`.
+const RAND_MAX: f64 = 2_147_483_647.0;
+
+/// Generate the warp's random coefficients, in [0.5, 1.0].
+///
+/// C seeds the process-wide generator with `srand(seed)` and then draws
+/// `size` values, so the sequence is [`GlibcRand`] started at `seed`.
+///
+/// # See also
+///
+/// C Leptonica: `generateRandomNumberArray()` in `warper.c`
 fn generate_random_array(size: usize, seed: u32) -> Vec<f64> {
-    let mut rng = SimpleRng::new(seed);
-    (0..size).map(|_| 0.5 * (1.0 + rng.next_f64())).collect()
-}
-
-/// Simple linear congruential generator for reproducible randomness
-struct SimpleRng {
-    state: u64,
-}
-
-impl SimpleRng {
-    fn new(seed: u32) -> Self {
-        Self { state: seed as u64 }
-    }
-
-    fn next(&mut self) -> u64 {
-        // LCG parameters from Numerical Recipes
-        self.state = self
-            .state
-            .wrapping_mul(6_364_136_223_846_793_005)
-            .wrapping_add(1_442_695_040_888_963_407);
-        self.state
-    }
-
-    fn next_f64(&mut self) -> f64 {
-        (self.next() as f64) / (u64::MAX as f64)
-    }
+    let mut rng = GlibcRand::new(seed);
+    (0..size)
+        .map(|_| 0.5 * (1.0 + f64::from(rng.next_u32()) / RAND_MAX))
+        .collect()
 }
 
 /// Apply the harmonic warp transform at a point
@@ -335,50 +331,67 @@ fn apply_warp_transform(
     // Compute x displacement
     let mut x = xp_f;
     for i in 0..nx {
-        let anglex = xfreq * randa[3 * i + 1] * xp_f + TWO_PI * randa[3 * i + 2];
-        let angley = yfreq * randa[3 * i + 3] * yp_f + TWO_PI * randa[3 * i + 4];
+        let anglex = xfreq * randa[3 * i + 1] * xp_f + WARP_TWO_PI * randa[3 * i + 2];
+        let angley = yfreq * randa[3 * i + 3] * yp_f + WARP_TWO_PI * randa[3 * i + 4];
         x += xmag * randa[3 * i] * anglex.sin() * angley.sin();
     }
 
     // Compute y displacement
     let mut y = yp_f;
     for i in nx..(nx + ny) {
-        let angley = yfreq * randa[3 * i + 1] * yp_f + TWO_PI * randa[3 * i + 2];
-        let anglex = xfreq * randa[3 * i + 3] * xp_f + TWO_PI * randa[3 * i + 4];
+        let angley = yfreq * randa[3 * i + 1] * yp_f + WARP_TWO_PI * randa[3 * i + 2];
+        let anglex = xfreq * randa[3 * i + 3] * xp_f + WARP_TWO_PI * randa[3 * i + 4];
         y += ymag * randa[3 * i] * angley.sin() * anglex.sin();
     }
 
     (x as f32, y as f32)
 }
 
-/// Linear interpolation for grayscale images
+/// Sample `pix` at a fractional position by area-weighted interpolation.
+///
+/// C quantises the position to sixteenths of a pixel and weights the four
+/// neighbours with integer arithmetic, so the result is a truncated integer
+/// rather than a rounded float. Positions outside the image return
+/// `fill_val`; at the right or bottom edge the missing neighbour is replaced
+/// by the pixel itself, which lets the last row and column still be sampled.
+///
+/// # See also
+///
+/// C Leptonica: `linearInterpolatePixelGray()` in `bilinear.c`
 fn linear_interpolate_gray(pix: &Pix, w: u32, h: u32, x: f32, y: f32, fill_val: u8) -> u8 {
-    let xi = x.floor() as i32;
-    let yi = y.floor() as i32;
-    let xf = x - xi as f32;
-    let yf = y - yi as f32;
-
-    let wi = w as i32;
-    let hi = h as i32;
-
-    // Bounds check
-    if xi < 0 || xi >= wi - 1 || yi < 0 || yi >= hi - 1 {
+    // Written so that a NaN coordinate fails the test and yields `fill_val`,
+    // as the equivalent check does in C.
+    if !(x >= 0.0 && y >= 0.0 && x < w as f32 && y < h as f32) {
         return fill_val;
     }
 
-    // Get four neighboring pixels
-    let v00 = pix.get_pixel_unchecked(xi as u32, yi as u32) as f32;
-    let v10 = pix.get_pixel_unchecked((xi + 1) as u32, yi as u32) as f32;
-    let v01 = pix.get_pixel_unchecked(xi as u32, (yi + 1) as u32) as f32;
-    let v11 = pix.get_pixel_unchecked((xi + 1) as u32, (yi + 1) as u32) as f32;
+    let xpm = (16.0 * x) as i32;
+    let ypm = (16.0 * y) as i32;
+    let xp = xpm >> 4;
+    let yp = ypm >> 4;
+    let xf = xpm & 0x0f;
+    let yf = ypm & 0x0f;
 
-    // Bilinear interpolation
-    let val = (1.0 - xf) * (1.0 - yf) * v00
-        + xf * (1.0 - yf) * v10
-        + (1.0 - xf) * yf * v01
-        + xf * yf * v11;
+    // Past the right edge the column folds back onto itself.
+    let xp2 = if xp + 1 < w as i32 { xp + 1 } else { xp };
 
-    (val + 0.5).clamp(0.0, 255.0) as u8
+    // On the last row C zeroes the row stride *before* computing the base row
+    // pointer, so `datas + yp * wpls` collapses to the start of the image:
+    // both sampled rows become row 0, not row `yp`. It reads like a slip, but
+    // it is what the bottom row of every warped image is built from.
+    let (yp, yp2) = if yp + 1 < h as i32 {
+        (yp, yp + 1)
+    } else {
+        (0, 0)
+    };
+
+    let (xp, yp, xp2, yp2) = (xp as u32, yp as u32, xp2 as u32, yp2 as u32);
+    let v00 = (16 - xf) * (16 - yf) * pix.get_pixel_unchecked(xp, yp) as i32;
+    let v10 = xf * (16 - yf) * pix.get_pixel_unchecked(xp2, yp) as i32;
+    let v01 = (16 - xf) * yf * pix.get_pixel_unchecked(xp, yp2) as i32;
+    let v11 = xf * yf * pix.get_pixel_unchecked(xp2, yp2) as i32;
+
+    ((v00 + v01 + v10 + v11) / 256) as u8
 }
 
 // ============================================================================
@@ -1298,76 +1311,54 @@ fn h_shear_li(pix: &Pix, yloc: i32, angle: f32, fill: WarpFill) -> TransformResu
     shear_h_shear_li(pix, yloc, angle, shear_fill)
 }
 
-/// Generate a simple CAPTCHA image by applying random harmonic warping.
+/// Turn an image into a CAPTCHA: warp it, then tint the result.
 ///
-/// Takes an input image (typically rendered text) and applies a random
-/// harmonic warp with the specified number of terms and border expansion.
+/// `border` white pixels are added around the grayscale source before
+/// warping, `nterms` in 1..=4 selects the distortion preset (1 is the
+/// strongest), and `seed` makes it reproducible. `color` is a packed RGB
+/// value used to tint the warped gray; `cmapflag` asks for a colormapped
+/// result.
 ///
-/// # Arguments
+/// # Errors
 ///
-/// * `pix` - Input image (typically text rendered on white background)
-/// * `border` - Number of pixels to add as border before warping
-/// * `nterms` - Number of harmonic terms (1-4, more = more distortion)
-/// * `seed` - Random seed for reproducibility
-/// * `color` - If true, apply random color shifts
+/// Returns an error unless `nterms` is in 1..=4.
 ///
-/// # Returns
+/// # See also
 ///
-/// A distorted image suitable for CAPTCHA use.
-///
-/// # Reference
-///
-/// C Leptonica: `pixSimpleCaptcha()`
+/// C Leptonica: `pixSimpleCaptcha()` in `warper.c`
 pub fn simple_captcha(
     pix: &Pix,
     border: u32,
     nterms: u32,
     seed: u32,
-    color: bool,
+    color: u32,
+    cmapflag: bool,
 ) -> TransformResult<Pix> {
-    use crate::core::PixelDepth;
-    let _ = color; // Reserved for future color warping
-
     if nterms == 0 || nterms > 4 {
         return Err(TransformError::InvalidParameters(format!(
             "nterms must be 1-4, got {nterms}"
         )));
     }
 
-    // Add border
-    let src = if border > 0 {
-        pix.add_border_general(border, border, border, border, 0)
-            .map_err(TransformError::Core)?
-    } else {
-        pix.clone()
-    };
+    // Distortion presets, strongest first.
+    const XMAG: [f32; 4] = [7.0, 5.0, 4.0, 3.0];
+    const YMAG: [f32; 4] = [10.0, 8.0, 6.0, 5.0];
+    const XFREQ: [f32; 4] = [0.12, 0.10, 0.10, 0.11];
+    const YFREQ: [f32; 4] = [0.15, 0.13, 0.13, 0.11];
+    let k = (nterms - 1) as usize;
 
-    // Convert to 8-bit if needed for warp
-    let work = match src.depth() {
-        PixelDepth::Bit1 => {
-            // Convert 1bpp to 8bpp for warping
-            let mut out = crate::core::Pix::new(src.width(), src.height(), PixelDepth::Bit8)
-                .map_err(TransformError::Core)?
-                .to_mut();
-            for y in 0..src.height() {
-                for x in 0..src.width() {
-                    let val = src.get_pixel(x, y).unwrap_or(0);
-                    out.set_pixel_unchecked(x, y, if val == 1 { 0 } else { 255 });
-                }
-            }
-            let p: crate::core::Pix = out.into();
-            p
-        }
-        _ => src,
-    };
+    // Convert first, then pad with white, so the border matches the page
+    // instead of becoming a black frame.
+    let gray = pix.convert_to_8().map_err(TransformError::Core)?;
+    let padded = gray.add_border(border, 255).map_err(TransformError::Core)?;
 
-    // Apply random harmonic warp with configured distortion level
-    let xmag = 3.0 + nterms as f32;
-    let ymag = 4.0 + nterms as f32;
+    let warped = random_harmonic_warp(
+        &padded, XMAG[k], YMAG[k], XFREQ[k], YFREQ[k], nterms, nterms, seed, 255,
+    )?;
 
-    random_harmonic_warp(
-        &work, xmag, ymag, xmag, ymag, nterms, nterms, seed, 255, // white fill value
-    )
+    warped
+        .colorize_gray(color, cmapflag)
+        .map_err(TransformError::Core)
 }
 
 // ============================================================================
@@ -1394,26 +1385,24 @@ mod tests {
     }
 
     // ========================================================================
-    // SimpleRng tests
+    // Random coefficient tests
     // ========================================================================
 
     #[test]
-    fn test_simple_rng_reproducible() {
-        let mut rng1 = SimpleRng::new(42);
-        let mut rng2 = SimpleRng::new(42);
-
-        for _ in 0..10 {
-            assert_eq!(rng1.next(), rng2.next());
-        }
+    fn test_random_array_reproducible() {
+        assert_eq!(generate_random_array(10, 42), generate_random_array(10, 42));
     }
 
     #[test]
-    fn test_simple_rng_different_seeds() {
-        let mut rng1 = SimpleRng::new(42);
-        let mut rng2 = SimpleRng::new(43);
+    fn test_random_array_different_seeds() {
+        assert_ne!(generate_random_array(10, 42), generate_random_array(10, 43));
+    }
 
-        // Should produce different values
-        assert_ne!(rng1.next(), rng2.next());
+    #[test]
+    fn test_random_array_is_in_range() {
+        for v in generate_random_array(64, 3) {
+            assert!((0.5..=1.0).contains(&v), "{v} out of range");
+        }
     }
 
     // ========================================================================
@@ -1769,5 +1758,72 @@ mod tests {
         assert_eq!(params.ybend_top, 30);
         assert_eq!(params.ybend_bottom, 0);
         assert!(params.red_left);
+    }
+
+    /// C `generateRandomNumberArray()` maps glibc `rand()` into [0.5, 1.0]
+    /// with `0.5 * (1 + rand() / RAND_MAX)`. Values are verbatim from C.
+    #[test]
+    fn test_random_array_matches_c() {
+        let expected0 = [
+            0.920093859,
+            0.697191463,
+            0.891549612,
+            0.899220017,
+            0.955823679,
+            0.598775685,
+            0.667611378,
+            0.884114797,
+        ];
+        let got = generate_random_array(8, 0);
+        for (i, (g, e)) in got.iter().zip(expected0).enumerate() {
+            assert!((g - e).abs() < 1e-9, "seed 0 index {i}: {g} vs {e}");
+        }
+
+        let expected7 = [
+            0.743452070,
+            0.933988706,
+            0.796295597,
+            0.607354920,
+            0.505113269,
+            0.757409281,
+            0.997974126,
+            0.515966151,
+        ];
+        let got = generate_random_array(8, 7);
+        for (i, (g, e)) in got.iter().zip(expected7).enumerate() {
+            assert!((g - e).abs() < 1e-9, "seed 7 index {i}: {g} vs {e}");
+        }
+    }
+
+    /// A 12x8 ramp warped with the smallest parameter set, verbatim from C.
+    #[test]
+    fn test_random_harmonic_warp_matches_c() {
+        let pix = Pix::new(12, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..12u32 {
+                pm.set_pixel_unchecked(x, y, (x * 20 + y * 7) % 256);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let warped = random_harmonic_warp(&pix, 3.0, 5.0, 0.11, 0.11, 1, 1, 0, 255).unwrap();
+
+        let expected: [[u32; 12]; 8] = [
+            [20, 38, 57, 75, 92, 109, 127, 144, 162, 179, 255, 255],
+            [25, 44, 62, 80, 98, 116, 133, 152, 169, 187, 205, 222],
+            [31, 50, 67, 86, 104, 123, 140, 158, 177, 194, 212, 230],
+            [255, 55, 73, 92, 110, 128, 146, 165, 183, 202, 220, 238],
+            [255, 60, 79, 97, 116, 134, 152, 172, 190, 209, 227, 245],
+            [255, 12, 33, 102, 121, 141, 159, 178, 197, 216, 234, 252],
+            [255, 255, 255, 255, 72, 93, 115, 185, 204, 223, 227, 99],
+            [255, 255, 255, 255, 255, 255, 255, 136, 157, 180, 233, 10],
+        ];
+        for (y, row) in expected.iter().enumerate() {
+            let got: Vec<u32> = (0..12)
+                .map(|x| warped.get_pixel_unchecked(x, y as u32))
+                .collect();
+            assert_eq!(&got[..], &row[..], "row {y}");
+        }
     }
 }
