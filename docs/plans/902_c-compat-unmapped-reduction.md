@@ -1495,7 +1495,7 @@ ccbord.02`、`ccbord.10 == ccbord.07`、`ccbord.11 == ccbord.09`。往復が
   ファイル中の個数を信用して `memcpy` するため、切り詰められた入力で
   バッファ外を読む。個数からの事前確保もしない
 
-### PR 46: ccbord の単一パス境界と SVG 出力 (計画)
+### PR 46: ccbord の単一パス境界と SVG 出力 (実施済み)
 
 C 版ソース: `prog/ccbord_reg.c` の check 5,6 / 12,13。穴を持つ成分の
 境界を 1 本の閉 path にまとめ (`ccbaGenerateSinglePath`)、その大域座標を
@@ -1544,6 +1544,22 @@ strlen(svgstr), "ccb")` で SVG 文字列を `.ccb` 拡張子で書く。`.ccb` 
 - cc 1 (孤立点): `splocal` / `spglobal` とも 1 点
 - SVG は 391 バイト。`</svg>` の後に空白 1 文字の行が付く
   (`sarrayToString` が各要素の後に改行を足すため)
+
+実施結果:
+
+- **4 ペア全件 Ok** (Ok 460 → 464、region 105 → 109)。実装差は 0 件。
+  これで **ccbord は 14/14 全件 Ok**、C の `RunCCBordTest()` を全 7 check
+  移植し終えた
+- `feyn-fract.tif` (464 成分) と `dreyfus1.png` (290 成分) で、
+  `splocal` / `spglobal` の点数 (47428/23104、10021/6115) と SVG 文字列
+  (208621/63516 バイト) が C とバイト一致
+- feyn-fract には切断路が見つからない穴が 16 個あるが、C と同じく
+  パスから落とす形で一致した
+
+**テストインフラの欠落を 1 件修正**: C は SVG 文字列を `.ccb` 拡張子で
+書くが、`tests/common/c_compat.rs` の `CANDIDATE_C_EXTENSIONS` に `ccb`
+が無く、正しい出力なのに `MissingC` になっていた。`.ccb` は画像拡張子
+ではないので、C 側 manifest も Rust 側も生バイトの FNV ハッシュになる。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
