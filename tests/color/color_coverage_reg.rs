@@ -695,7 +695,8 @@ fn test_snap_color_cmap() {
     pixd_mut.set_colormap(Some(cmap)).unwrap();
     let pixd: Pix = pixd_mut.into();
 
-    let result = snap_color_cmap(&pixd, 0xffffff00, 20);
+    // Snap the near-white entry onto pure yellow.
+    let result = snap_color_cmap(&pixd, 0xffffff00, 0xffff0000, 20);
     assert!(result.is_ok());
 }
 

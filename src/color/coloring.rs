@@ -769,48 +769,33 @@ fn count_gray_colors(cmap: &crate::core::PixColormap) -> usize {
     count
 }
 
-/// Snap colormap colors within `diff` distance to `target_color`.
+/// Move every colour close to `srcval` onto `dstval`, for a colormapped
+/// image.
 ///
-/// For each colormap entry, if the absolute difference for every component
-/// (R, G, B) is within `diff`, replace the entry with `target_color`.
+/// "Close" means every RGB component is within `diff`. Where the colormap has
+/// a free slot the destination colour is appended; where it is full, the first
+/// matching entry is overwritten instead. Entries left unused afterwards are
+/// dropped.
 ///
 /// # Arguments
 ///
 /// * `pix` - Colormapped input image
-/// * `target_color` - Target color in 0xRRGGBB00 format
-/// * `diff` - Max per-component absolute difference for snapping
+/// * `srcval` - Colour to move away from, as `0xRRGGBB00`
+/// * `dstval` - Colour to move onto, as `0xRRGGBB00`
+/// * `diff` - Largest per-component difference that still counts as close
+///
+/// # Errors
+///
+/// Returns an error if `pix` has no colormap.
 ///
 /// # See also
 ///
 /// C Leptonica: `pixSnapColorCmap()` in `coloring.c`
-pub fn snap_color_cmap(pix: &Pix, target_color: u32, diff: u32) -> ColorResult<Pix> {
-    let cmap = pix
-        .colormap()
+pub fn snap_color_cmap(pix: &Pix, srcval: u32, dstval: u32, diff: u32) -> ColorResult<Pix> {
+    let _ = (srcval, dstval, diff);
+    pix.colormap()
         .ok_or_else(|| ColorError::InvalidParameters("image has no colormap".into()))?;
-
-    let (tr, tg, tb) = extract_rgb_from_color(target_color);
-    let mut new_cmap = cmap.clone();
-
-    for i in 0..cmap.len() {
-        if let Some((r, g, b)) = cmap.get_rgb(i) {
-            let dr = (r as i32 - tr as i32).unsigned_abs();
-            let dg = (g as i32 - tg as i32).unsigned_abs();
-            let db = (b as i32 - tb as i32).unsigned_abs();
-
-            if dr <= diff && dg <= diff && db <= diff {
-                new_cmap
-                    .reset_color(i, tr, tg, tb)
-                    .map_err(|e| ColorError::InvalidParameters(format!("{e}")))?;
-            }
-        }
-    }
-
-    let out = pix.deep_clone();
-    let mut out_mut = out.try_into_mut().unwrap();
-    out_mut
-        .set_colormap(Some(new_cmap))
-        .map_err(|e| ColorError::InvalidParameters(format!("{e}")))?;
-    Ok(out_mut.into())
+    Err(ColorError::InvalidParameters("not yet implemented".into()))
 }
 
 /// C `pixConvertTo8(pixs, 1)` for a colormapped input: the indices and the
@@ -1080,5 +1065,64 @@ mod tests {
 
         // Dark paint type with threshold == 0 should fail
         assert!(pix_color_gray(&pix, None, PaintType::Dark, 0, (255, 0, 0)).is_err());
+    }
+
+    /// C `pixSnapColorCmap()` on `weasel4.11c.png` with source `0xfefefe00`,
+    /// destination `0x80800000` and `diff = 50`.
+    ///
+    /// The colormap has free slots, so C appends the destination colour, then
+    /// remaps the matching pixels and drops the entry that is left unused.
+    /// Expectations are verbatim from C.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_snap_color_cmap_matches_c_with_free_slots() {
+        let pix = crate::io::read_image("tests/data/images/weasel4.11c.png").unwrap();
+        let cmap = pix.colormap().expect("input is colormapped");
+        assert_eq!(cmap.len(), 11);
+        assert!(cmap.free_count() > 0, "input has room for another colour");
+
+        let out = snap_color_cmap(&pix, 0xfefefe00, 0x80800000, 50).unwrap();
+        let cmap = out.colormap().expect("output is colormapped");
+        // (243, 243, 243) matched and its slot became unused, so it is gone;
+        // the destination colour sits at the end.
+        let colors: Vec<_> = (0..cmap.len()).map(|i| cmap.get_rgb(i).unwrap()).collect();
+        assert_eq!(
+            colors,
+            [
+                (88, 73, 52),
+                (178, 1, 0),
+                (195, 194, 190),
+                (172, 172, 172),
+                (198, 155, 108),
+                (18, 15, 13),
+                (83, 82, 78),
+                (176, 141, 100),
+                (147, 115, 82),
+                (83, 32, 24),
+                (128, 128, 0),
+            ]
+        );
+    }
+
+    /// The same call on `google-searchbox.png`, whose colormap is full.
+    ///
+    /// With no free slot C commandeers the first entry close enough to the
+    /// source colour and overwrites it, rather than appending.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_snap_color_cmap_matches_c_when_full() {
+        let pix = crate::io::read_image("tests/data/images/google-searchbox.png").unwrap();
+        let cmap = pix.colormap().expect("input is colormapped");
+        assert_eq!(cmap.len(), 256);
+        assert_eq!(cmap.free_count(), 0, "input colormap is full");
+        assert_eq!(cmap.get_rgb(0), Some((248, 248, 248)));
+
+        let out = snap_color_cmap(&pix, 0xffffff00, 0xffffe400, 30).unwrap();
+        let cmap = out.colormap().expect("output is colormapped");
+        // Entry 0 was within 30 of white, so it carries the destination
+        // colour; unused entries are then dropped.
+        assert_eq!(cmap.get_rgb(0), Some((255, 255, 228)));
+        assert_eq!(cmap.len(), 221);
+        assert_eq!(cmap.get_rgb(1), Some((179, 144, 4)));
     }
 }
