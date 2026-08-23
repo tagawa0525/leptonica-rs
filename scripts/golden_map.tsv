@@ -616,6 +616,7 @@ recog	jbclass	4	jbclass_c	5	jbclass rank hausdorff template composite
 recog	jbclass	5	jbclass_c	6	jbclass rank hausdorff rendered page 0
 recog	jbclass	6	jbclass_c	7	jbclass rank hausdorff rendered page 1
 recog	jbclass	7	jbclass_c	8	jbclass rank hausdorff instances by class
+recog	flipdetect	12	flipdetect_c	1	flipdetect four-orientation montage
 core	ptra1	0	ptra1_c	1	clones reconstructed 1
 core	ptra1	1	ptra1_c	2	clones reconstructed 2
 core	ptra1	2	ptra1_c	3	half removed 1
