@@ -940,13 +940,18 @@ impl Pix {
             for x in 0..w {
                 let pixel = self.get_pixel_unchecked(x, y);
                 let (r, g, b, a) = pixel::extract_rgba(pixel);
-                // C pixBlendWithGrayMask computes
-                // `(1.0 - fract) * dval + fract * sval` in double precision
-                // (fract is an l_float32 promoted by the double literal) and
-                // truncates with an int cast — no rounding.
-                let alpha = (a as f32 / 255.0) as f64;
+                // C computes `(1.0 - fract) * dval + fract * sval` and
+                // truncates with an int cast. The two products are not
+                // evaluated at the same width: `1.0` is a double literal, so
+                // the first is a double multiply, while `fract * sval` has
+                // two float operands and rounds to float before the addition.
+                // Matching that asymmetry is what makes the edges of a
+                // blended image come out identical.
+                let fract = f32::from(a) / 255.0;
                 let blend = |src: u8, bg: u8| -> u8 {
-                    ((1.0 - alpha) * bg as f64 + alpha * src as f64).clamp(0.0, 255.0) as u8
+                    let lhs = (1.0 - f64::from(fract)) * f64::from(bg);
+                    let rhs = f64::from(fract * f32::from(src));
+                    (lhs + rhs).clamp(0.0, 255.0) as u8
                 };
                 let (nr, ng, nb) = (blend(r, bg_r), blend(g, bg_g), blend(b, bg_b));
                 result_mut.set_pixel_unchecked(x, y, pixel::compose_rgb(nr, ng, nb));
