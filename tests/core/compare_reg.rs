@@ -206,14 +206,14 @@ fn compare_reg_perceptual_diff() {
 
     // display_diff: visualize color difference map
     let diff_vis = pix0
-        .display_diff(&pix1, 20, Color::RED)
+        .display_diff(&pix1, false, 20, Color::RED)
         .expect("display_diff color");
     rp.write_pix_and_check(&diff_vis, ImageFormat::Png)
         .expect("check: compare perceptual diff_vis color");
 
     // display_diff: visualize grayscale difference map
     let diff_vis_gray = gray0
-        .display_diff(&gray1, 20, Color::RED)
+        .display_diff(&gray1, false, 20, Color::RED)
         .expect("display_diff gray");
     rp.write_pix_and_check(&diff_vis_gray, ImageFormat::Png)
         .expect("check: compare perceptual diff_vis gray");

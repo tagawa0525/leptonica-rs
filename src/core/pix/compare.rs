@@ -864,7 +864,14 @@ impl Pix {
     /// is returned.
     ///
     /// Corresponds to `pixDisplayDiff()` in Leptonica's `compare.c`.
-    pub fn display_diff(&self, other: &Pix, mindiff: u32, diffcolor: Color) -> Result<Pix> {
+    pub fn display_diff(
+        &self,
+        other: &Pix,
+        showall: bool,
+        mindiff: u32,
+        diffcolor: Color,
+    ) -> Result<Pix> {
+        let _ = showall;
         if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
             return Err(Error::UnsupportedDepth(self.depth().bits()));
         }
@@ -2958,7 +2965,7 @@ mod tests {
         let pix2 = pix1.deep_clone();
         use crate::core::pix::graphics::Color;
         let pixd = pix1
-            .display_diff(&pix2, 1, Color { r: 255, g: 0, b: 0 })
+            .display_diff(&pix2, false, 1, Color { r: 255, g: 0, b: 0 })
             .unwrap();
         assert_eq!(pixd.depth(), PixelDepth::Bit32);
     }
@@ -3065,5 +3072,39 @@ mod tests {
         let pix2: Pix = pm2.into();
         let psnr = pix1.get_psnr(&pix2, 1).unwrap();
         assert!(psnr > 0.0 && psnr < 100.0);
+    }
+
+    /// C `pixDisplayDiff()` on two identical images leaves every pixel at the
+    /// source value; the fourth byte stays as the source has it, rather than
+    /// being forced to 0xff. Verbatim from C on `test-rgba.bmp`.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_diff_matches_c_when_equal() {
+        use crate::core::pix::graphics::Color;
+        let pix = crate::io::read_image("tests/data/images/test-rgba.bmp").unwrap();
+        assert_eq!((pix.width(), pix.height()), (113, 45));
+
+        let same = pix.deep_clone();
+        let out = pix
+            .display_diff(&same, false, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!((out.width(), out.height()), (113, 45));
+        // C reports ffffff00 here, not ffffffff.
+        assert_eq!(out.get_pixel_unchecked(0, 0), 0xffffff00);
+        assert_eq!(out.get_pixel_unchecked(3, 1), 0xffffff00);
+    }
+
+    /// With `showall` C tiles the two inputs and the difference into two
+    /// columns, so a 113x45 input yields a 324x188 montage.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_display_diff_showall_matches_c() {
+        use crate::core::pix::graphics::Color;
+        let pix = crate::io::read_image("tests/data/images/test-rgba.bmp").unwrap();
+        let same = pix.deep_clone();
+        let out = pix
+            .display_diff(&same, true, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!((out.width(), out.height()), (324, 188));
     }
 }
