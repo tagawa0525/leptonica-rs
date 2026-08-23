@@ -588,6 +588,8 @@ recog	findcorners	8	findcorners_c	9	deskewed ticket 7
 recog	findcorners	9	findcorners_c	10	deskewed ticket 8
 recog	findcorners	10	findcorners_c	11	halved
 recog	findcorners	11	findcorners_c	12	corners marked
+recog	jbclass	0	jbclass_c	1	jbclass correlation template composite
+recog	jbclass	4	jbclass_c	2	jbclass rank hausdorff template composite
 core	ptra1	0	ptra1_c	1	clones reconstructed 1
 core	ptra1	1	ptra1_c	2	clones reconstructed 2
 core	ptra1	2	ptra1_c	3	half removed 1
