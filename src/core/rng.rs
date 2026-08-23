@@ -57,7 +57,9 @@ impl GlibcRand {
         // three, then runs the additive recurrence for 310 discarded steps.
         const LEN: usize = DEG + SEP + DISCARD;
         let mut r = [0u32; LEN];
-        r[0] = seed;
+        // Seed 0 would make the Lehmer step produce nothing but zeros, so
+        // glibc substitutes 1 and `srand(0)` behaves like `srand(1)`.
+        r[0] = if seed == 0 { 1 } else { seed };
         for i in 1..DEG {
             // r[i] = (16807 * r[i-1]) % 2147483647, via Schrage's trick to
             // stay inside 32 bits.
@@ -169,5 +171,19 @@ mod tests {
             vec![30, 168, 172],
             "first RGB of the second colormap"
         );
+    }
+
+    /// glibc substitutes 1 for a zero seed, so the two sequences agree.
+    /// Values are verbatim from a C program calling `srand`/`rand`.
+    #[test]
+    fn test_seed_zero_matches_seed_one() {
+        let mut zero = GlibcRand::new(0);
+        let mut one = GlibcRand::new(1);
+        let expected = [1804289383u32, 846930886, 1681692777, 1714636915, 1957747793];
+        for e in expected {
+            let z = zero.next_u32();
+            assert_eq!(z, one.next_u32());
+            assert_eq!(z, e);
+        }
     }
 }
