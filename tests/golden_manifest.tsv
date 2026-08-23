@@ -296,7 +296,7 @@ colorspace_magnitude.02.png	feba5ec7d81c0902
 colorspace_magnitude.03.png	85b7c50262465b22
 compare_equals.04.png	99de228f27e9c48c
 compare_perceptual.03.png	cbef06eb92ef8f00
-compare_perceptual.04.png	a382b7cc24806911
+compare_perceptual.04.png	e15217985a39b1d9
 compfilter_c.01.png	f2b18995367d49ba
 compfilter_write_synthetic.01.png	776f015732796ef4
 compfilter_write_synthetic.02.png	32bbb5fff34c2454
@@ -612,6 +612,9 @@ ioformats.16.png	1fb83d3260ed8df7
 ioformats.18.png	ccbd13ca1df413ea
 ioformats.20.png	368eed4016fed93a
 ioformats.22.png	ae835cf4d3a91625
+ioformats_c.01.png	117d03be2f0fdc45
+ioformats_c.02.png	117d03be2f0fdc45
+ioformats_c.03.png	117d03be2f0fdc45
 iomisc_16bit.02.png	c7b1634faa2bb554
 iomisc_alpha.01.png	9955db6b9b6066c1
 iomisc_alpha.04.png	9955db6b9b6066c1
