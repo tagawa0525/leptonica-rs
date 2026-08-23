@@ -87,7 +87,9 @@ impl ShearFill {
                 PixelDepth::Bit4 => 15,
                 PixelDepth::Bit8 => 255,
                 PixelDepth::Bit16 => 65535,
-                PixelDepth::Bit32 => 0xFFFFFF00,
+                // C fills with `pixSetAll`, which sets every bit of the word,
+                // so the fourth byte is 0xff too rather than being left clear.
+                PixelDepth::Bit32 => 0xFFFFFFFF,
             },
             ShearFill::Black => match depth {
                 PixelDepth::Bit1 => 1, // 1 = black for binary
@@ -774,7 +776,7 @@ fn h_shear_li_gray(
         for jd in 0..wi {
             // Compute sub-pixel source position (scaled by 64)
             let x = (64.0 * (-xshift + jd as f32) + 0.5) as i32;
-            let xp = x >> 6; // Integer part
+            let xp = subpixel_index(x);
             let xf = x & 63; // Fractional part (0-63)
 
             if xp < 0 || xp > wm {
@@ -795,6 +797,14 @@ fn h_shear_li_gray(
     }
 }
 
+/// C's `x / 64`: integer division truncates towards zero, so a subpixel
+/// position just left of the image still lands on column 0. `x >> 6` would
+/// round towards minus infinity instead and drop that column.
+#[inline]
+fn subpixel_index(x: i32) -> i32 {
+    x / 64
+}
+
 /// Horizontal shear with linear interpolation for 32bpp color
 #[allow(clippy::too_many_arguments)]
 fn h_shear_li_color(
@@ -812,7 +822,7 @@ fn h_shear_li_color(
 
         for jd in 0..wi {
             let x = (64.0 * (-xshift + jd as f32) + 0.5) as i32;
-            let xp = x >> 6;
+            let xp = subpixel_index(x);
             let xf = x & 63;
 
             if xp < 0 || xp > wm {
@@ -858,7 +868,7 @@ fn v_shear_li_gray(
 
         for id in 0..hi {
             let y = (64.0 * (-yshift + id as f32) + 0.5) as i32;
-            let yp = y >> 6;
+            let yp = subpixel_index(y);
             let yf = y & 63;
 
             if yp < 0 || yp > hm {
@@ -895,7 +905,7 @@ fn v_shear_li_color(
 
         for id in 0..hi {
             let y = (64.0 * (-yshift + id as f32) + 0.5) as i32;
-            let yp = y >> 6;
+            let yp = subpixel_index(y);
             let yf = y & 63;
 
             if yp < 0 || yp > hm {
@@ -1070,7 +1080,9 @@ mod tests {
         assert_eq!(ShearFill::Black.to_value(PixelDepth::Bit1), 1);
         assert_eq!(ShearFill::White.to_value(PixelDepth::Bit8), 255);
         assert_eq!(ShearFill::Black.to_value(PixelDepth::Bit8), 0);
-        assert_eq!(ShearFill::White.to_value(PixelDepth::Bit32), 0xFFFFFF00);
+        // C fills with `pixSetAll`, so every bit is set including the alpha
+        // byte, matching `pixSetBlackOrWhite(pixd, L_SET_WHITE)`.
+        assert_eq!(ShearFill::White.to_value(PixelDepth::Bit32), 0xFFFFFFFF);
         assert_eq!(ShearFill::Black.to_value(PixelDepth::Bit32), 0);
     }
 

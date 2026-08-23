@@ -167,3 +167,146 @@ fn shear1_reg_colormap() {
     // 3. Read 8bpp color cmap via pixOctreeColorQuant, shear
     // All require colormap handling in shear functions
 }
+
+/// C's `ANGLE1`, spelled as it is in `prog/shear1_reg.c` rather than via
+/// `PI`, so the shear matches bit for bit. The truncated literal is the point,
+/// so the usual "use the constant" lints do not apply here.
+#[allow(clippy::excessive_precision, clippy::approx_constant)]
+const C_ANGLE1: f32 = 3.14159265 / 12.0;
+
+/// Port of C `shearTest1()`: shear the input every way the C test does and
+/// tile the results into four columns.
+///
+/// The in-place variants are only exercised without a colormap, and the
+/// interpolated ones only for 8 bpp, 32 bpp or colormapped input, exactly as
+/// in C.
+fn shear_test1(pixs: &leptonica::Pix, scale: f32) -> leptonica::Pix {
+    use leptonica::core::Pixa;
+    use leptonica::transform::{h_shear_ip, h_shear_li, v_shear_ip, v_shear_li};
+
+    let (w, h) = (pixs.width() as i32, pixs.height() as i32);
+    let d = pixs.depth().bits();
+    let has_cmap = pixs.colormap().is_some();
+    let mut tiles: Vec<leptonica::Pix> = Vec::new();
+
+    for (loc, fill) in [
+        (0, ShearFill::White),
+        (h / 2, ShearFill::White),
+        (0, ShearFill::Black),
+        (h / 2, ShearFill::Black),
+    ] {
+        tiles.push(h_shear(pixs, loc, C_ANGLE1, fill).expect("h_shear"));
+    }
+    if !has_cmap {
+        for (loc, fill) in [
+            (0, ShearFill::White),
+            (h / 2, ShearFill::White),
+            (0, ShearFill::Black),
+            (h / 2, ShearFill::Black),
+        ] {
+            let mut pm = pixs.deep_clone().try_into_mut().expect("fresh copy");
+            h_shear_ip(&mut pm, loc, C_ANGLE1, fill).expect("h_shear_ip");
+            tiles.push(pm.into());
+        }
+    }
+    if d == 8 || d == 32 || has_cmap {
+        // C passes `w / 2` here even though the parameter is a row, unlike the
+        // `h / 2` it uses for the non-interpolated horizontal shears above.
+        // That looks like a slip in `shearTest1()`, but it is what produces
+        // the reference output, so it is reproduced rather than corrected.
+        for (loc, fill) in [
+            (0, ShearFill::White),
+            (w / 2, ShearFill::White),
+            (0, ShearFill::Black),
+            (w / 2, ShearFill::Black),
+        ] {
+            tiles.push(h_shear_li(pixs, loc, C_ANGLE1, fill).expect("h_shear_li"));
+        }
+    }
+
+    for (loc, fill) in [
+        (0, ShearFill::White),
+        (w / 2, ShearFill::White),
+        (0, ShearFill::Black),
+        (w / 2, ShearFill::Black),
+    ] {
+        tiles.push(v_shear(pixs, loc, C_ANGLE1, fill).expect("v_shear"));
+    }
+    if !has_cmap {
+        for (loc, fill) in [
+            (0, ShearFill::White),
+            (w / 2, ShearFill::White),
+            (0, ShearFill::Black),
+            (w / 2, ShearFill::Black),
+        ] {
+            let mut pm = pixs.deep_clone().try_into_mut().expect("fresh copy");
+            v_shear_ip(&mut pm, loc, C_ANGLE1, fill).expect("v_shear_ip");
+            tiles.push(pm.into());
+        }
+    }
+    if d == 8 || d == 32 || has_cmap {
+        for (loc, fill) in [
+            (0, ShearFill::White),
+            (w / 2, ShearFill::White),
+            (0, ShearFill::Black),
+            (w / 2, ShearFill::Black),
+        ] {
+            tiles.push(v_shear_li(pixs, loc, C_ANGLE1, fill).expect("v_shear_li"));
+        }
+    }
+
+    let mut pixa = Pixa::with_capacity(tiles.len());
+    for t in tiles {
+        pixa.push(t);
+    }
+    pixa.display_tiled_in_columns(4, scale, 20, 0)
+        .expect("display_tiled_in_columns")
+}
+
+/// C-compatible port of the lossless part of `prog/shear1_reg.c`
+/// (C indices 0, 1, 2, 3, 5).
+///
+/// C indices 4, 6 and 7 are skipped: they read a JPEG or write one, so the
+/// decode rounding rules out a pixel-exact match (finding 001).
+#[test]
+fn shear1_c_compat() {
+    let mut rp = RegParams::new("shear1_c");
+
+    // 0: 1 bpp, so the in-place variants run but the interpolated ones do not.
+    let pix = crate::common::load_test_image("test1.png").expect("load test1.png");
+    rp.write_pix_and_check(&shear_test1(&pix, 1.0), ImageFormat::Png)
+        .expect("write 1bpp shear");
+
+    // 1: a 2 bpp colormap with no free slot. C first repaints the darkest
+    // entry dark red, so that bringing in black has to pick something else.
+    //
+    // C looks the entry up as (40, 44, 40), which this colormap does not
+    // contain — the near-black entry is (48, 44, 40). `pixcmapGetIndex` zeroes
+    // its out-parameter before searching and C ignores the failure, so index 0
+    // is repainted, which happens to be that entry. Reproduce the index rather
+    // than the lookup.
+    let pix = crate::common::load_test_image("weasel2.4c.png").expect("load weasel2.4c.png");
+    let mut cmap = pix.colormap().expect("colormapped").clone();
+    let index = cmap.get_index(40, 44, 40).unwrap_or(0);
+    cmap.reset_color(index, 100, 0, 0).expect("repaint entry");
+    let mut pm = pix.deep_clone().try_into_mut().expect("fresh copy");
+    pm.set_colormap(Some(cmap)).expect("set colormap");
+    let pix: leptonica::Pix = pm.into();
+    rp.write_pix_and_check(&shear_test1(&pix, 1.0), ImageFormat::Png)
+        .expect("write 2bpp cmap shear");
+
+    // 2, 3: 4 bpp colormaps, one with free slots and one without.
+    for name in ["weasel4.11c.png", "weasel4.16g.png"] {
+        let pix =
+            crate::common::load_test_image(name).unwrap_or_else(|e| panic!("load {name}: {e}"));
+        rp.write_pix_and_check(&shear_test1(&pix, 1.0), ImageFormat::Png)
+            .expect("write 4bpp cmap shear");
+    }
+
+    // 5: 8 bpp colormapped.
+    let pix = crate::common::load_test_image("dreyfus8.png").expect("load dreyfus8.png");
+    rp.write_pix_and_check(&shear_test1(&pix, 1.0), ImageFormat::Png)
+        .expect("write 8bpp cmap shear");
+
+    assert!(rp.cleanup(), "shear1 c-compat test failed");
+}

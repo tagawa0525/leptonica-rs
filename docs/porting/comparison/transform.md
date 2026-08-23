@@ -232,18 +232,18 @@
 
 #### transform/shear.rs (shear.c)
 
-| C関数           | 状態 | Rust対応              | 備考 |
-| --------------- | ---- | --------------------- | ---- |
-| pixHShear       | ✅   | shear::h_shear        | 同等 |
-| pixVShear       | ✅   | shear::v_shear        | 同等 |
-| pixHShearCorner | ✅   | shear::h_shear_corner | 同等 |
-| pixVShearCorner | ✅   | shear::v_shear_corner | 同等 |
-| pixHShearCenter | ✅   | shear::h_shear_center | 同等 |
-| pixVShearCenter | ✅   | shear::v_shear_center | 同等 |
-| pixHShearIP     | ✅   | shear::h_shear_ip     | 同等 |
-| pixVShearIP     | ✅   | shear::v_shear_ip     | 同等 |
-| pixHShearLI     | ✅   | shear::h_shear_li     | 同等 |
-| pixVShearLI     | ✅   | shear::v_shear_li     | 同等 |
+| C関数           | 状態 | Rust対応              | 備考                            |
+| --------------- | ---- | --------------------- | ------------------------------- |
+| pixHShear       | ✅   | shear::h_shear        | 同等                            |
+| pixVShear       | ✅   | shear::v_shear        | 同等                            |
+| pixHShearCorner | ✅   | shear::h_shear_corner | 同等                            |
+| pixVShearCorner | ✅   | shear::v_shear_corner | 同等                            |
+| pixHShearCenter | ✅   | shear::h_shear_center | 同等                            |
+| pixVShearCenter | ✅   | shear::v_shear_center | 同等                            |
+| pixHShearIP     | ✅   | shear::h_shear_ip     | 同等                            |
+| pixVShearIP     | ✅   | shear::v_shear_ip     | 同等                            |
+| pixHShearLI     | ✅   | shear::h_shear_li     | C とビット一致 (plan 902 PR 52) |
+| pixVShearLI     | ✅   | shear::v_shear_li     | C とビット一致 (plan 902 PR 52) |
 
 ### flipdetect.c (leptonica (src/recog/) に実装)
 
