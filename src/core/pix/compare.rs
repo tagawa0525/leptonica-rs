@@ -848,69 +848,92 @@ impl Pix {
         true
     }
 
-    /// Create a 32bpp color-coded display showing differences between two images.
+    /// Show where two images differ, as a 32 bpp image.
     ///
-    /// Supported depths: 8bpp (grayscale) and 32bpp (RGB). The output image is
-    /// always 32bpp RGB.
+    /// Pixels whose components differ by at least `mindiff` are painted with
+    /// `diffcolor`; the rest keep the first image's value. With `showall` the
+    /// result is instead a montage of both inputs and the difference, laid out
+    /// in two columns.
     ///
-    /// The `mindiff` parameter is the threshold above which pixels are tinted
-    /// with `diffcolor`:
-    /// - For 8bpp images, the difference is the absolute difference between
-    ///   grayscale pixel values.
-    /// - For 32bpp images, the difference is the maximum component difference
-    ///   across the R, G, and B channels.
+    /// 1 bpp input is rendered by [`Pix::display_diff_binary`] and then
+    /// promoted to 32 bpp, so the four-colour coding of that function shows
+    /// through. Any other depth is compared component-wise after conversion to
+    /// 32 bpp.
     ///
-    /// Both images must have the same depth; otherwise `Error::IncompatibleDepths`
-    /// is returned.
+    /// Both images must have the same depth, but they need not be the same
+    /// size: the comparison runs over the overlap, and **the result is cropped
+    /// to it**.
     ///
-    /// Corresponds to `pixDisplayDiff()` in Leptonica's `compare.c`.
-    pub fn display_diff(&self, other: &Pix, mindiff: u32, diffcolor: Color) -> Result<Pix> {
-        if self.depth() != PixelDepth::Bit8 && self.depth() != PixelDepth::Bit32 {
-            return Err(Error::UnsupportedDepth(self.depth().bits()));
-        }
+    /// # Errors
+    ///
+    /// Returns an error if the depths differ or `mindiff` is zero.
+    ///
+    /// # See also
+    ///
+    /// C Leptonica: `pixDisplayDiff()` in `compare.c`
+    pub fn display_diff(
+        &self,
+        other: &Pix,
+        showall: bool,
+        mindiff: u32,
+        diffcolor: Color,
+    ) -> Result<Pix> {
         if self.depth() != other.depth() {
             return Err(Error::IncompatibleDepths(
                 self.depth().bits(),
                 other.depth().bits(),
             ));
         }
-        if self.width() != other.width() || self.height() != other.height() {
-            return Err(Error::DimensionMismatch {
-                expected: (self.width(), self.height()),
-                actual: (other.width(), other.height()),
-            });
+        if mindiff == 0 {
+            return Err(Error::InvalidParameter("mindiff must be > 0".to_string()));
         }
-        let w = self.width();
-        let h = self.height();
-        let result = Pix::new(w, h, PixelDepth::Bit32)?;
-        let mut result_mut = result.try_into_mut().unwrap();
+
+        // Binary input has its own four-colour rendering.
+        if self.depth() == PixelDepth::Bit1 {
+            let diff = self.display_diff_binary(other)?.convert_to_32()?;
+            if !showall {
+                return Ok(diff);
+            }
+            let mut pixa = crate::core::Pixa::with_capacity(3);
+            pixa.push(self.clone());
+            pixa.push(other.clone());
+            pixa.push(diff);
+            return pixa.display_tiled_in_columns(2, 1.0, 30, 2);
+        }
+
+        // C sizes the result to the overlap and seeds it from the first
+        // image, so anything outside the overlap is dropped rather than kept.
+        let pix1 = self.convert_to_32()?;
+        let pix2 = other.convert_to_32()?;
+        let minw = self.width().min(other.width());
+        let minh = self.height().min(other.height());
+
+        let out = Pix::new(minw, minh, PixelDepth::Bit32)?;
+        let mut out_mut = out.try_into_mut().unwrap();
         let diff_val = pixel::compose_rgb(diffcolor.r, diffcolor.g, diffcolor.b);
-        for y in 0..h {
-            for x in 0..w {
-                let v1 = self.get_pixel_unchecked(x, y);
-                let v2 = other.get_pixel_unchecked(x, y);
-                let max_component_diff = if self.depth() == PixelDepth::Bit8 {
-                    v1.abs_diff(v2)
-                } else {
-                    let (r1, g1, b1) = pixel::extract_rgb(v1);
-                    let (r2, g2, b2) = pixel::extract_rgb(v2);
-                    let dr = (r1 as i32 - r2 as i32).unsigned_abs();
-                    let dg = (g1 as i32 - g2 as i32).unsigned_abs();
-                    let db = (b1 as i32 - b2 as i32).unsigned_abs();
-                    dr.max(dg).max(db)
-                };
-                let output_pixel = if max_component_diff >= mindiff {
-                    diff_val
-                } else if self.depth() == PixelDepth::Bit8 {
-                    let gray = (v1 & 0xFF) as u8;
-                    pixel::compose_rgb(gray, gray, gray)
-                } else {
-                    v1 | 0xFF // ensure alpha = 255
-                };
-                result_mut.set_pixel_unchecked(x, y, output_pixel);
+        for y in 0..minh {
+            for x in 0..minw {
+                let v1 = pix1.get_pixel_unchecked(x, y);
+                let (r1, g1, b1) = pixel::extract_rgb(v1);
+                let (r2, g2, b2) = pixel::extract_rgb(pix2.get_pixel_unchecked(x, y));
+                let differs = (i32::from(r1) - i32::from(r2)).unsigned_abs() >= mindiff
+                    || (i32::from(g1) - i32::from(g2)).unsigned_abs() >= mindiff
+                    || (i32::from(b1) - i32::from(b2)).unsigned_abs() >= mindiff;
+                // Where the two agree C copies the converted source word
+                // through untouched, so its fourth byte carries over.
+                out_mut.set_pixel_unchecked(x, y, if differs { diff_val } else { v1 });
             }
         }
-        Ok(result_mut.into())
+        let diff: Pix = out_mut.into();
+
+        if !showall {
+            return Ok(diff);
+        }
+        let mut pixa = crate::core::Pixa::with_capacity(3);
+        pixa.push(pix1);
+        pixa.push(pix2);
+        pixa.push(diff);
+        pixa.display_tiled_in_columns(2, 1.0, 30, 2)
     }
 
     /// Create a 4bpp color-coded display showing differences between two binary images.
@@ -2958,7 +2981,7 @@ mod tests {
         let pix2 = pix1.deep_clone();
         use crate::core::pix::graphics::Color;
         let pixd = pix1
-            .display_diff(&pix2, 1, Color { r: 255, g: 0, b: 0 })
+            .display_diff(&pix2, false, 1, Color { r: 255, g: 0, b: 0 })
             .unwrap();
         assert_eq!(pixd.depth(), PixelDepth::Bit32);
     }
@@ -3065,5 +3088,74 @@ mod tests {
         let pix2: Pix = pm2.into();
         let psnr = pix1.get_psnr(&pix2, 1).unwrap();
         assert!(psnr > 0.0 && psnr < 100.0);
+    }
+
+    /// C `pixDisplayDiff()` on two identical images leaves every pixel at the
+    /// source value; the fourth byte stays as the source has it, rather than
+    /// being forced to 0xff. Verbatim from C on `test-rgba.bmp`.
+    #[test]
+    fn test_display_diff_matches_c_when_equal() {
+        use crate::core::pix::graphics::Color;
+        let pix = crate::io::read_image("tests/data/images/test-rgba.bmp").unwrap();
+        assert_eq!((pix.width(), pix.height()), (113, 45));
+
+        let same = pix.deep_clone();
+        let out = pix
+            .display_diff(&same, false, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!((out.width(), out.height()), (113, 45));
+        // C reports ffffff00 here, not ffffffff.
+        assert_eq!(out.get_pixel_unchecked(0, 0), 0xffffff00);
+        assert_eq!(out.get_pixel_unchecked(3, 1), 0xffffff00);
+    }
+
+    /// With `showall` C tiles the two inputs and the difference into two
+    /// columns, so a 113x45 input yields a 324x188 montage.
+    #[test]
+    fn test_display_diff_showall_matches_c() {
+        use crate::core::pix::graphics::Color;
+        let pix = crate::io::read_image("tests/data/images/test-rgba.bmp").unwrap();
+        let same = pix.deep_clone();
+        let out = pix
+            .display_diff(&same, true, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!((out.width(), out.height()), (324, 188));
+    }
+
+    /// Different sizes are allowed: C sizes the result to the overlap, so the
+    /// part of the first image outside it is dropped.
+    #[test]
+    fn test_display_diff_crops_to_overlap() {
+        use crate::core::pix::graphics::Color;
+        let big = Pix::new(10, 8, PixelDepth::Bit32).unwrap();
+        let small = Pix::new(6, 5, PixelDepth::Bit32).unwrap();
+        let out = big
+            .display_diff(&small, false, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!((out.width(), out.height()), (6, 5));
+    }
+
+    /// 1 bpp goes through the four-colour binary rendering rather than the
+    /// component comparison.
+    #[test]
+    fn test_display_diff_accepts_1bpp() {
+        use crate::core::pix::graphics::Color;
+        let pix = Pix::new(8, 8, PixelDepth::Bit1).unwrap();
+        let out = pix
+            .display_diff(&pix.deep_clone(), false, 1, Color { r: 255, g: 0, b: 0 })
+            .unwrap();
+        assert_eq!(out.depth(), PixelDepth::Bit32);
+        assert_eq!((out.width(), out.height()), (8, 8));
+    }
+
+    /// C rejects a zero threshold outright.
+    #[test]
+    fn test_display_diff_rejects_zero_mindiff() {
+        use crate::core::pix::graphics::Color;
+        let pix = Pix::new(4, 4, PixelDepth::Bit32).unwrap();
+        assert!(
+            pix.display_diff(&pix.deep_clone(), false, 0, Color { r: 255, g: 0, b: 0 })
+                .is_err()
+        );
     }
 }

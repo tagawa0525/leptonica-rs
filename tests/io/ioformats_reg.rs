@@ -151,3 +151,58 @@ fn test_png_roundtrip(rp: &mut RegParams, pix: &leptonica::Pix, label: &str) {
         if same_dims { "OK" } else { "FAIL" }
     );
 }
+
+/// C-compatible port of the 24 bpp round-trip checks in
+/// `prog/ioformats_reg.c` (C indices 5, 7 and 9).
+///
+/// Each writes the difference between `test-rgba.bmp` and the same image after
+/// a round trip: through `pixConvert32To24`/`24To32` (5), through a BMP file
+/// (7), and through a PNG file (9). All three carry the same golden hash in C
+/// because every round trip is lossless, so they check that 24 bpp survives
+/// both encoders unchanged.
+///
+/// The other checks in that file compare booleans rather than images, so they
+/// have no golden counterpart.
+#[test]
+fn ioformats_c_compat() {
+    use leptonica::core::pix::graphics::Color;
+    use leptonica::io::{ImageFormat, write_image};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    let mut rp = RegParams::new("ioformats_c");
+    let red = Color { r: 255, g: 0, b: 0 };
+
+    let pix1 = load_test_image("test-rgba.bmp").expect("load test-rgba.bmp");
+    let pix2 = pix1.convert_32_to_24().expect("32 -> 24 bpp");
+
+    // 5: straight in-memory round trip.
+    let back = pix2.convert_24_to_32().expect("24 -> 32 bpp");
+    let diff = pix1
+        .display_diff(&back, true, 1, red)
+        .expect("display_diff");
+    rp.write_pix_and_check(&diff, ImageFormat::Png)
+        .expect("write in-memory diff");
+
+    // 7, 9: the same 24 bpp image through a BMP file and a PNG file.
+    for (format, name) in [
+        (ImageFormat::Bmp, "ioformats_c_roundtrip.bmp"),
+        (ImageFormat::Png, "ioformats_c_roundtrip.png"),
+    ] {
+        // `regout` is shared by every test, so keep the scratch file named
+        // after this one.
+        let path = format!("{}/{}", crate::common::regout_dir(), name);
+        write_image(&pix2, &path, format).unwrap_or_else(|e| panic!("write {name}: {e}"));
+        let reloaded =
+            leptonica::io::read_image(&path).unwrap_or_else(|e| panic!("read back {name}: {e}"));
+        let diff = pix1
+            .display_diff(&reloaded, true, 1, red)
+            .expect("display_diff after file round trip");
+        rp.write_pix_and_check(&diff, ImageFormat::Png)
+            .unwrap_or_else(|e| panic!("write {name} diff: {e}"));
+    }
+
+    assert!(rp.cleanup(), "ioformats c-compat test failed");
+}

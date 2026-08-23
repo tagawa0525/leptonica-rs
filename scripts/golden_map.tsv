@@ -378,6 +378,9 @@ io	iomisc	10	iomisc_c	4	blend regenerated alpha over cyan
 io	iomisc	14	iomisc_c	5	convert_rgb_to_colormap
 io	iomisc	15	iomisc_c	6	remove_colormap of weasel4.5g
 io	iomisc	16	iomisc_c	7	convert_gray_to_colormap
+io	ioformats	5	ioformats_c	1	ioformats 32-24-32 round trip diff
+io	ioformats	7	ioformats_c	2	ioformats 24bpp via BMP file diff
+io	ioformats	9	ioformats_c	3	ioformats 24bpp via PNG file diff
 
 # boxa3_reg.c (plan 902 PR 22): boxap*.ba scaling and median reconciliation
 core	boxa3	0	boxa3_c	1	boxap1 scaled (serialized)

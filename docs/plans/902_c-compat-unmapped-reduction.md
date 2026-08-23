@@ -2157,6 +2157,55 @@ lossless 分 (check 0-3) は gnuplot 経由のプロット画像なので対象�
 (大画像で seed_fill が極端に遅い) を解消する必要がある。マッピングでは
 なく機能追加なので別 plan が適切。
 
+### PR 56: ioformats のマッピング (実施済み)
+
+`io` binary は Unmapped 41 件。C 側の `ioformats_reg.c` は golden 出力が
+**3 件だけ** (05 / 07 / 09) で、いずれも lossless。他の check は
+`regTestCompareValues` による真偽比較なので golden 対応がない。
+
+| C check | 内容 |
+| --- | --- |
+| 5 | `test-rgba.bmp` を 32→24→32 と往復した結果との差分画像 |
+| 7 | 24bpp を BMP で書き読みした結果との差分画像 |
+| 9 | 24bpp を PNG で書き読みした結果との差分画像 |
+
+3 件とも **C manifest 上で同一ハッシュ** (`fb7d03348fd7e2f5`)。往復が
+無損失なら差分が出ないので当然で、逆に言えば **BMP / PNG の 24bpp
+書き読みが可逆かを検査している**。
+
+**実装差** (`pixDisplayDiff` vs `Pix::display_diff`):
+
+| 項目 | C | Rust |
+| --- | --- | --- |
+| 引数 | `(pix1, pix2, showall, mindiff, diffcolor)` | `(other, mindiff, diffcolor)` |
+| `showall=1` | 両入力と差分の 3 枚を 2 列に並べる | 機能なし |
+| 差分なし画素 | `pixConvertTo32(pix1)` の値 | `v1 \| 0xFF` (下位バイトを立てる) |
+| 1bpp 入力 | `pixDisplayDiffBinary` に委譲 | エラー |
+
+C の reg test は `showall=1` で呼ぶので、**3 枚並べる経路の移植が必須**。
+
+**必要な準備**:
+
+- `test-rgba.bmp` をテストデータに追加する
+- `display_diff` に `showall` を足し、1bpp を `display_diff_binary` に
+  委譲する。差分なし画素も C と揃える
+
+実施結果:
+
+- **3 ペア全件 Ok** (Ok 506 → 509、io 14 → 17)。BMP / PNG とも 24bpp の
+  書き読みが可逆であることが実証された
+
+**`display_diff` の実装差を 4 件解消**:
+
+- `showall` 引数が無かった。C は 1 のとき両入力と差分の 3 枚を 2 列に
+  並べる (間隔 30、枠 2)。reg test はこの経路を使う
+- 差分なし画素を `v1 | 0xFF` としていた。C は 32bpp 変換した元画素を
+  そのまま通すので、実測では `ffffff00` になる (Rust は `ffffffff`)
+- 1bpp 入力がエラーだった。C は `pixDisplayDiffBinary` に委譲する
+- 寸法違いがエラーだった。C は重なり部分だけを比較する
+
+`test-rgba.bmp` (113x45) の往復で C の 324x188 montage と pixel 完全一致。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

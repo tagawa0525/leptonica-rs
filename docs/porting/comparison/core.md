@@ -1256,25 +1256,25 @@ roplow.c (低レベルラスターOP) 全関数 🚫 不要 (高レベルrop.rs 
 
 #### core/pix/compare.rs (compare.c)
 
-| C関数                     | 状態 | Rust対応                        | 備考        |
-| ------------------------- | ---- | ------------------------------- | ----------- |
-| pixEqual                  | ✅   | Pix::equals()                   |             |
-| pixCorrelationBinary      | ✅   | compare::correlation_binary()   |             |
-| pixCompareBinary          | 🔄   | Pix::compare()                  | 統合比較API |
-| pixCompareTiled           | ✅   | Pix::compare_tiled              |             |
-| pixGetPerceptualDiff      | ✅   | Pix::get_perceptual_diff        |             |
-| pixEqualWithAlpha         | ✅   | Pix::equals_with_alpha()        |             |
-| pixEqualWithCmap          | ✅   | Pix::equals_with_cmap()         |             |
-| pixDisplayDiff            | ✅   | Pix::display_diff()             |             |
-| pixDisplayDiffBinary      | ✅   | Pix::display_diff_binary()      |             |
-| pixCompareGrayOrRGB       | ✅   | Pix::compare_gray_or_rgb()      |             |
-| pixCompareGray            | ✅   | Pix::compare_gray()             |             |
-| pixCompareRGB             | ✅   | Pix::compare_rgb()              |             |
-| pixCompareRankDifference  | ✅   | Pix::compare_rank_difference()  |             |
-| pixTestForSimilarity      | ✅   | Pix::test_for_similarity()      |             |
-| pixGetDifferenceStats     | ✅   | Pix::get_difference_stats()     |             |
-| pixGetDifferenceHistogram | ✅   | Pix::get_difference_histogram() |             |
-| pixGetPSNR                | ✅   | Pix::get_psnr()                 |             |
+| C関数                     | 状態 | Rust対応                        | 備考                            |
+| ------------------------- | ---- | ------------------------------- | ------------------------------- |
+| pixEqual                  | ✅   | Pix::equals()                   |                                 |
+| pixCorrelationBinary      | ✅   | compare::correlation_binary()   |                                 |
+| pixCompareBinary          | 🔄   | Pix::compare()                  | 統合比較API                     |
+| pixCompareTiled           | ✅   | Pix::compare_tiled              |                                 |
+| pixGetPerceptualDiff      | ✅   | Pix::get_perceptual_diff        |                                 |
+| pixEqualWithAlpha         | ✅   | Pix::equals_with_alpha()        |                                 |
+| pixEqualWithCmap          | ✅   | Pix::equals_with_cmap()         |                                 |
+| pixDisplayDiff            | ✅   | Pix::display_diff()             | C とビット一致 (plan 902 PR 56) |
+| pixDisplayDiffBinary      | ✅   | Pix::display_diff_binary()      |                                 |
+| pixCompareGrayOrRGB       | ✅   | Pix::compare_gray_or_rgb()      |                                 |
+| pixCompareGray            | ✅   | Pix::compare_gray()             |                                 |
+| pixCompareRGB             | ✅   | Pix::compare_rgb()              |                                 |
+| pixCompareRankDifference  | ✅   | Pix::compare_rank_difference()  |                                 |
+| pixTestForSimilarity      | ✅   | Pix::test_for_similarity()      |                                 |
+| pixGetDifferenceStats     | ✅   | Pix::get_difference_stats()     |                                 |
+| pixGetDifferenceHistogram | ✅   | Pix::get_difference_histogram() |                                 |
+| pixGetPSNR                | ✅   | Pix::get_psnr()                 |                                 |
 
 その他の比較関数も実装済み。
 
