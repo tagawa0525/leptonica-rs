@@ -290,6 +290,12 @@ fn flipdetect_c_compat() {
     use leptonica::core::Pixa;
     use leptonica::transform::{ScaleMethod, rotate_90, scale};
 
+    // The c-compat tests compare against a golden hash, so there is nothing
+    // to do in display mode.
+    if crate::common::is_display_mode() {
+        return;
+    }
+
     let mut rp = RegParams::new("flipdetect_c");
 
     let pix = load_test_image("feyn.tif").expect("load feyn.tif");
