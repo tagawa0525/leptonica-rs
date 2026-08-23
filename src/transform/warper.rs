@@ -1770,4 +1770,73 @@ mod tests {
         assert_eq!(params.ybend_bottom, 0);
         assert!(params.red_left);
     }
+
+    /// C `generateRandomNumberArray()` maps glibc `rand()` into [0.5, 1.0]
+    /// with `0.5 * (1 + rand() / RAND_MAX)`. Values are verbatim from C.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_random_array_matches_c() {
+        let expected0 = [
+            0.920093859,
+            0.697191463,
+            0.891549612,
+            0.899220017,
+            0.955823679,
+            0.598775685,
+            0.667611378,
+            0.884114797,
+        ];
+        let got = generate_random_array(8, 0);
+        for (i, (g, e)) in got.iter().zip(expected0).enumerate() {
+            assert!((g - e).abs() < 1e-9, "seed 0 index {i}: {g} vs {e}");
+        }
+
+        let expected7 = [
+            0.743452070,
+            0.933988706,
+            0.796295597,
+            0.607354920,
+            0.505113269,
+            0.757409281,
+            0.997974126,
+            0.515966151,
+        ];
+        let got = generate_random_array(8, 7);
+        for (i, (g, e)) in got.iter().zip(expected7).enumerate() {
+            assert!((g - e).abs() < 1e-9, "seed 7 index {i}: {g} vs {e}");
+        }
+    }
+
+    /// A 12x8 ramp warped with the smallest parameter set, verbatim from C.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_random_harmonic_warp_matches_c() {
+        let pix = Pix::new(12, 8, PixelDepth::Bit8).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        for y in 0..8u32 {
+            for x in 0..12u32 {
+                pm.set_pixel_unchecked(x, y, (x * 20 + y * 7) % 256);
+            }
+        }
+        let pix: Pix = pm.into();
+
+        let warped = random_harmonic_warp(&pix, 3.0, 5.0, 0.11, 0.11, 1, 1, 0, 255).unwrap();
+
+        let expected: [[u32; 12]; 8] = [
+            [20, 38, 57, 75, 92, 109, 127, 144, 162, 179, 255, 255],
+            [25, 44, 62, 80, 98, 116, 133, 152, 169, 187, 205, 222],
+            [31, 50, 67, 86, 104, 123, 140, 158, 177, 194, 212, 230],
+            [255, 55, 73, 92, 110, 128, 146, 165, 183, 202, 220, 238],
+            [255, 60, 79, 97, 116, 134, 152, 172, 190, 209, 227, 245],
+            [255, 12, 33, 102, 121, 141, 159, 178, 197, 216, 234, 252],
+            [255, 255, 255, 255, 72, 93, 115, 185, 204, 223, 227, 99],
+            [255, 255, 255, 255, 255, 255, 255, 136, 157, 180, 233, 10],
+        ];
+        for (y, row) in expected.iter().enumerate() {
+            let got: Vec<u32> = (0..12)
+                .map(|x| warped.get_pixel_unchecked(x, y as u32))
+                .collect();
+            assert_eq!(&got[..], &row[..], "row {y}");
+        }
+    }
 }
