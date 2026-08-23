@@ -137,12 +137,12 @@
 | --------------------------- | ---- | ------------------------------------- | ----------------------------------------------------------------- |
 | pixAffineSampledPta         | ✅   | affine::affine_sampled_pta            | 同等                                                              |
 | pixAffineSampled            | ✅   | affine::affine_sampled                | 同等                                                              |
-| pixAffinePta                | ✅   | affine::affine_pta                    | 同等                                                              |
+| pixAffinePta                | ✅   | affine::affine_pta                    | C とビット一致 (plan 902 PR 53)                                   |
 | pixAffine                   | ✅   | affine::affine                        | 同等                                                              |
 | pixAffinePtaColor           | 🔄   | affine::affine_color                  | 内部実装として存在                                                |
 | pixAffineColor              | 🔄   | affine::affine_color                  | 内部実装として存在                                                |
-| pixAffinePtaGray            | 🔄   | affine::affine_gray                   | 内部実装として存在                                                |
-| pixAffineGray               | 🔄   | affine::affine_gray                   | 内部実装として存在                                                |
+| pixAffinePtaGray            | ✅   | affine::affine_gray                   | C とビット一致 (PR 53)                                            |
+| pixAffineGray               | ✅   | affine::affine_gray                   | C とビット一致 (PR 53)                                            |
 | pixAffinePtaWithAlpha       | ✅   | affine::affine_pta_with_alpha         | 同等                                                              |
 | linearInterpolatePixelGray  | 🚫   | -                                     | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |
 | linearInterpolatePixelColor | 🚫   | -                                     | 不要 (内部ヘルパー、affine/bilinear/projective内でインライン処理) |

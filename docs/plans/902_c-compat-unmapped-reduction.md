@@ -1983,7 +1983,7 @@ check 1 は**入力の colormap を書き換えてから**シアーする点に�
 shear の補間修正により `rotate1_shear` / `warper_stereo` の出力も変わる
 (いずれも Unmapped な Rust 独自出力)。
 
-### PR 53: affine のマッピング (計画)
+### PR 53: affine のマッピング (実施済み)
 
 PR 52 の棚卸しで残った `transform` の未着手分。`affine` は C 側 PNG 出力
 33 件のうち 0-19 がマップ済みで、**40-52 の 13 件が未着手**。入力は
@@ -2017,6 +2017,36 @@ PR 52 の棚卸しで残った `transform` の未着手分。`affine` は C 側 
 - 対応点は C の配列から取る。40-43 は index 3、44-49 は index 4
 - check 42/47/48 は XOR による差分画像で、**両辺が一致していないと
   意味を持たない**。実装差があればここで真っ先に出る
+
+実施結果:
+
+- **10 ペア全件 Ok** (Ok 494 → 504、transform 148 → 158)
+
+**実装差を 1 件解消 — 同じ C 関数の二重移植**:
+
+`affine_gray` が独自の面積重み付けを持っており、C の
+`linearInterpolatePixelGray` と 3 点食い違っていた:
+
+- 端の扱い: C は `xp+1` が幅を超えると自身に折り返し、最終行では
+  行ストライドごと画像先頭に潰れる (PR 49 の調査で判明した癖)。Rust は
+  `xp > w-2` で充填色のまま残していた
+- 丸め: C は `(v00+v01+v10+v11) / 256` で切り捨てるが `+128` して
+  四捨五入していた
+- サブピクセル位置: C は `x` を求めてから 16 倍するが、行列係数を先に
+  16 倍していた
+
+これは **PR 49 で warper 向けに C 準拠へ直したのと同じ関数**だった。
+`linear_interpolate_gray` を `pub(crate)` にして共有し、同じ C 関数の
+移植を 2 つ持たない形にした。
+
+`feyn.tif` を 1/6 縮小した 416x550 で `pixAffinePta` の出力が C と pixel
+完全一致 (修正前は 42080 画素が相違、最大差 145)。サンプリング版
+(`pixAffineSampledPta`) は修正前から一致していたので、補間経路だけの
+問題だったと切り分けられた。
+
+**残り**: check 50-52 は `createMatrix2dTranslate` / `createMatrix2dScale` /
+`createMatrix2dRotate` / `l_productMat3` / `affineInvertXform` /
+`pixAffine` が未移植。行列合成 API 一式の移植になるため別 PR。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
