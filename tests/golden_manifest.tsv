@@ -89,9 +89,13 @@ affine_pta_basic.04.png	7d79963d0c3c5d6c
 affine_sampling.02.tif	9cbc878b875f1f3e
 alphaops_alpha.05.png	ec586c779c94a35b
 alphaops_alpha_white.03.png	05c42ab0c22da940
+alphaops_c.01.png	9955db6b9b6066c1
+alphaops_c.02.png	6d118050e15549de
+alphaops_c.03.png	3e006dbb5600eca9
+alphaops_c.04.png	8f275217216087e9
 alphaops_mask.03.png	1fbef8ead48ce196
 alphaops_mult.03.png	224ad29fc91f84a1
-alphaops_uniform.03.png	fb1254a6377481ef
+alphaops_uniform.03.png	6d118050e15549de
 alphaxform_affine.03.png	dc8741b6dc7d10af
 alphaxform_proj.03.png	697633641064546e
 alphaxform_rotate.03.png	d5c6d5305198bf84
@@ -152,7 +156,7 @@ blend3_inv.03.png	96d9a9d68fa5c212
 blend4_alpha.03.png	4647a41c2c364416
 blend4_composite.03.png	c7b8ccc78bf2193d
 blend4_mask.03.png	13acf25f80c4c8c3
-blend4_offset.03.png	46eb716f47bbf931
+blend4_offset.03.png	e6fdf46bc8c39a31
 blend5_fade_rgb.03.png	530e98ffecf1ac29
 blend5_fade_rgb.06.png	4f396ea517d1f7f5
 blend5_snap_gray.03.png	f688c0b42920f021
@@ -601,9 +605,9 @@ iomisc_alpha_blend.01.png	41f761e182f3b21d
 iomisc_alpha_blend.05.png	0becebf849c3daae
 iomisc_alpha_blend.09.png	e6c48f1ef7ba5aa6
 iomisc_c.01.png	b3966f391618e3d8
-iomisc_c.02.png	fb1254a6377481ef
-iomisc_c.03.png	cd3b03bde9c01510
-iomisc_c.04.png	73e6988210971bc3
+iomisc_c.02.png	6d118050e15549de
+iomisc_c.03.png	9d02c31258db8fcf
+iomisc_c.04.png	a9edc65aca02b585
 iomisc_c.05.png	01b2fd68e42ba5ae
 iomisc_c.06.png	30a97cda15d1afa6
 iomisc_c.07.png	503c20c777107e2f

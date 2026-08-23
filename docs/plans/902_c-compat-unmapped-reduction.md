@@ -1796,6 +1796,67 @@ reg test 側は各画像の直後 (captcha は直前) に色決定で `rand()` �
 いて `srand(0)` が常に 0 を返していた。warper が seed 0 を使うため
 表面化した。
 
+### PR 50: color 領域の棚卸しと alphaops のマッピング (実施済み)
+
+`color` binary は Unmapped 108 件で最大の未開拓領域。C 側の reg test と
+入力形式を突き合わせて棚卸しした。
+
+**調査でやり直した点**: 最初 Rust の prefix から C のテスト名を機械的に
+推測して「C 対応なし 23 件」と分類したが、これは誤りだった。Rust 側は
+`gquant_*` / `pmask_*` / `bw_*` と略しているのに対し、C は
+`grayquant` / `paintmask` / `blackwhite` という名前で、単純な前方一致では
+見つからない。テストファイルの由来を 1 件ずつ確認して訂正した。
+
+**訂正後の分類**:
+
+| 区分 | 内訳 |
+| --- | --- |
+| JPEG 入出力でマップ不能 | blend1-5、binarize、colorfill、colorize、paint の残り、colorspace、colorcontent の残り、cmapquant、coloring、dither、hardlight、threshnorm、colorseg、colorquant、`blackwhite` (11 枚のタイル合成に `marge.jpg` を含む) |
+| マップ可能・本 PR | `alphaops` の check 0,1,3,4 (4 件) |
+| マップ可能・次 PR | `grayquant` の check 28 以降 (22 件、入力は `feyn.tif`)、`paintmask` の PNG 出力 (入力 `feyn.tif` / `rabi.png` の分) |
+
+代表例:
+
+- `colorcontent` は既に 8 件 Ok。残る C 側 00/01/05/08/09 は
+  `fish24.jpg` / `wyom.jpg` / `map.057.jpg` が入力。C のソース自身が
+  「jpeg 展開の丸めで色数が数 % 変わる」と注記している
+- `colorspace` は 24 check あるが 1-9 が `IFF_JFIF_JPEG` 出力で
+  入力も `wyom.jpg`
+- `paint` は 11 件マップ済み。残る PNG 出力 02-09/11/13-17 は入力が
+  `lucasta-frag.jpg`
+- `blend3` は入力を読まないように見えるが、ヘルパー内で `marge.jpg` /
+  `test8.jpg` を読み JPEG で書く
+
+実施結果:
+
+- **4 ペア全件 Ok** (Ok 480 → 484、color 56 → 60)。さらに誤った
+  Excluded の撤回で io が 3 件増え、最終的に **Ok 487**
+- `alphaops` の check 0 は入力をそのまま書き出すだけなので、PNG の
+  読み書きが C と一致することの検査にもなっている
+
+**実装差を 1 件解消 — 混在精度の再現**:
+
+C の `pixBlendWithGrayMask` は
+`(l_int32)((1.0 - fract) * dval + fract * sval)` と書くが、**2 つの積は
+同じ幅で評価されない**。`1.0` が double リテラルなので前者は double 乗算、
+後者は `float * int` で float に丸めてから加算される。
+
+`books_logo.png` を白に合成すると 30360 画素中 83 画素がこれで変わる。
+例えばアルファ 13 の白画素では、C は `fract * sval` を float で丸めて
+ちょうど 13 を得るため合計が 254.99999982 となり切り捨てで 254。両方を
+f64 で計算すると 255.0 ちょうどになり 255 になる。
+
+この修正で既存の `alphaops_uniform` / `blend4_offset` の出力も変わり、
+`alphaops_uniform.03` は **C のハッシュと一致する値**になった。
+
+**誤った Excluded を 1 件撤回**: plan 902 PR 21 は `iomisc_c.02/03/04` を
+「C の `pixAlphaBlendUniform` が自身の公開式から逸脱する。合成 1x1 入力でも
+再現し C ソースからは説明できない」として Excluded にしていた。そこで
+観測された「白 x 白 (アルファ 13) が 254 になる」現象は、まさに上記の
+混在精度が原因だった。式は公開どおりで、**評価される幅が項ごとに違う**
+というのが答え。3 件とも Ok になったので除外ルールを削除した
+(Excluded 100 → 97)。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

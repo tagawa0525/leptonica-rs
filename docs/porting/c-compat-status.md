@@ -52,25 +52,25 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 ## 全体集計
 
-| 状態        |    件数 | 説明                                                                                                                                                                          |
-| ----------- | ------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ Ok       | **480** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +436)                                                                                              |
-| ⚠️ Mismatch |  **29** | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007)                                             |
-| ⛔ MissingC |   **0** | (PR #381 / Phase 1.5 で解消)                                                                                                                                                  |
-| 📭 Unmapped | **389** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 393 → 389)                                                                                           |
-| 🚫 Excluded | **100** | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 + iomisc alpha blend 3 + boxa3 display 12 + newspaper random cmap 2 |
+| 状態        | 件数    | 説明                                                                                                                                                   |
+| ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ✅ Ok       | **487** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +443)                                                                       |
+| ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007)                      |
+| ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                                           |
+| 📭 Unmapped | **389** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 393 → 389)                                                                    |
+| 🚫 Excluded | **97**  | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 + boxa3 display 12 + newspaper random cmap 2 |
 
-合計 998 entries がレポート対象 (As of 2026-08-23、plan 902 PR 49 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **1005 entries** (コメント 2 行を除く)。
+合計 1002 entries がレポート対象 (As of 2026-08-23、plan 902 PR 50 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **1009 entries** (コメント 2 行を除く)。
 
 ## test binary 別の内訳
 
 | Binary      |      Ok | Mismatch | MissingC | Unmapped | Excluded |
 | ----------- | ------: | -------: | -------: | -------: | -------: |
-| `color`     |      56 |        4 |        0 |      108 |        4 |
+| `color`     |      60 |        4 |        0 |      108 |        4 |
 | `core`      |      41 |        0 |        0 |       34 |       12 |
 | `filter`    |       7 |        5 |        0 |       54 |       40 |
-| `io`        |      11 |        2 |        0 |       41 |       13 |
+| `io`        |      14 |        2 |        0 |       41 |       10 |
 | `morph`     |  **37** |   **16** |        0 |        9 |        0 |
 | `recog`     |      76 |        0 |        0 |       41 |        2 |
 | `region`    | **109** |    **2** |        0 |       28 |       29 |

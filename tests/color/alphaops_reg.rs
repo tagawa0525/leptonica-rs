@@ -188,3 +188,44 @@ fn alphaops_reg_set_alpha_over_white() {
 
     assert!(rp.cleanup(), "alphaops set_alpha_over_white test failed");
 }
+
+/// C-compatible port of the first section of `prog/alphaops_reg.c`
+/// (C indices 0, 1, 3 and 4).
+///
+/// Only this section is mapped: everything after it either reads a JPEG or
+/// writes one, so the decode rounding makes a pixel-exact match impossible
+/// (see `docs/porting/c-compat-findings/001-*`). Here both the input
+/// (`books_logo.png`) and the outputs are lossless.
+///
+/// C index 2 writes the same pix as 3 with `spp` forced to 3, and is checked
+/// by file rather than by hash, so it has no counterpart here.
+#[test]
+fn alphaops_c_compat() {
+    let mut rp = RegParams::new("alphaops_c");
+
+    let pix1 = crate::common::load_test_image("books_logo.png").expect("load books_logo.png");
+    // 0: the input itself, which also checks that PNG round-trips like C's.
+    rp.write_pix_and_check(&pix1, ImageFormat::Png)
+        .expect("write source");
+
+    // 1: composite over white.
+    let pix2 = pix1
+        .alpha_blend_uniform(0xffffff00)
+        .expect("alpha_blend_uniform white");
+    rp.write_pix_and_check(&pix2, ImageFormat::Png)
+        .expect("write blended over white");
+
+    // 3: rebuild an alpha layer from what is now a white background.
+    let pix3 = pix2.set_alpha_over_white().expect("set_alpha_over_white");
+    rp.write_pix_and_check(&pix3, ImageFormat::Png)
+        .expect("write regenerated alpha");
+
+    // 4: composite that over light yellow.
+    let pix4 = pix3
+        .alpha_blend_uniform(0xffffe000)
+        .expect("alpha_blend_uniform yellow");
+    rp.write_pix_and_check(&pix4, ImageFormat::Png)
+        .expect("write blended over yellow");
+
+    assert!(rp.cleanup(), "alphaops c-compat test failed");
+}
