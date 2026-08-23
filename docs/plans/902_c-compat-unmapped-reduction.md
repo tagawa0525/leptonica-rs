@@ -1983,6 +1983,41 @@ check 1 は**入力の colormap を書き換えてから**シアーする点に�
 shear の補間修正により `rotate1_shear` / `warper_stereo` の出力も変わる
 (いずれも Unmapped な Rust 独自出力)。
 
+### PR 53: affine のマッピング (計画)
+
+PR 52 の棚卸しで残った `transform` の未着手分。`affine` は C 側 PNG 出力
+33 件のうち 0-19 がマップ済みで、**40-52 の 13 件が未着手**。入力は
+`feyn.tif` / `lucasta.1.300.tif` でいずれも lossless。
+
+| C check | 内容 | 入力 |
+| --- | --- | --- |
+| 40-43 | 逐次変換 vs サンプリング変換の比較 (0.22 倍縮小) | `feyn.tif` |
+| 44-49 | 大きな歪みでの逐次 / サンプリング / 補間の比較 | `feyn.tif` |
+| 50-52 | boxa への affine 変換と逆変換 | `lucasta.1.300.tif` |
+
+**本 PR は 40-49 の 10 件に絞る**。50-52 は
+`createMatrix2dTranslate` / `createMatrix2dScale` / `createMatrix2dRotate` /
+`l_productMat3` / `affineInvertXform` / `pixAffine` が未移植で、範囲が
+別物になるため。
+
+使う C 関数 (Rust 実装は確認済み):
+
+| C 関数 | Rust |
+| --- | --- |
+| `pixAffineSequential` | `transform::affine_sequential` |
+| `pixAffineSampledPta` | `transform::affine_sampled_pta` |
+| `pixAffinePta` | `transform::affine_pta` |
+| `pixScaleToGray6` | `transform::scale_to_gray_6` |
+| `pixXor` / `pixInvert` | `Pix::xor` / `Pix::invert` |
+
+**注意点**:
+
+- check 40 は `pixAffineSequential` に `ADDED_BORDER_PIXELS = 1000` を
+  border として渡す
+- 対応点は C の配列から取る。40-43 は index 3、44-49 は index 4
+- check 42/47/48 は XOR による差分画像で、**両辺が一致していないと
+  意味を持たない**。実装差があればここで真っ先に出る
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
