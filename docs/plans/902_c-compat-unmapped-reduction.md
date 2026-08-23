@@ -1573,7 +1573,7 @@ strlen(svgstr), "ccb")` で SVG 文字列を `.ccb` 拡張子で書く。`.ccb` 
 だけなので旧 `ccbord_c.07.png` が取り残される。生成後は manifest の
 diff で削除漏れがないか確認する。
 
-### PR 47: jbclass の C 互換化 (計画)
+### PR 47: jbclass の C 互換化 (実施済み)
 
 C 版ソース: `prog/jbclass_reg.c`。`pageseg1.tif` / `pageseg4.tif` の上半分を
 入力に、相関分類器 (check 0-3) と rank Hausdorff 分類器 (check 4-7) を
@@ -1624,6 +1624,34 @@ PR 47 で移植する C 関数:
 
 **注意**: `TEMPLATE_BORDER` は公開定数なので、6 への変更は破壊的変更に
 なる。C の `JB_ADDED_PIXELS` と名実を合わせる。
+
+実施結果:
+
+- **2 ペア全件 Ok** (Ok 464 → 466、recog 68 → 70)。テンプレート合成画像が
+  相関・rank Hausdorff とも C と pixel 完全一致
+- 実測 (`pageseg1`+`pageseg4` の上半分、成分 5488 個): 相関 nclass
+  2848 → **1061 (C と一致)**、rank Hausdorff 1483 → **1036 (同)**。
+  5488 成分すべてのクラス割当と 1061 個のテンプレート内容が一致
+
+**最大の原因は成分の切り出し**だった。C の `pixConnCompPixa` は seedfill で
+その成分の画素だけを取り出すが、Rust は bounding box で**ページを矩形
+クロップ**していたため、隣接成分の画素が混入していた。テンプレートの
+中身が違うので、以降の一致は原理的に不可能だった。
+
+他に解消した差 (計画の表に加えて判明したもの):
+
+- Hausdorff テストに重心整列が無かった。C の `pixRankHaustest` は重心差を
+  丸めてずらしてから比較する。許容非被覆数の丸めも C に合わせた
+- `pixHaustest` のサイズガード (`|wi-wt| > 2` で不一致) が無かった
+- `add_page` がページ寸法を最大値で更新していた。C は最新ページの値
+
+**構造的な問題も 1 件解消**: `add_page_components` が分類ロジックを
+二重実装しており、しかもハッシュキーに境界込み寸法を使っていて
+`classify_*` と食い違っていた。同じ関数に委譲するようにした。
+
+**残り**: check 1,2,3 / 5,6,7 (ページ再構成とインスタンス表示) は PR 48。
+`jbGetULCorners` の最終位置合わせ (`finalPositioningForAlignment`) と、
+`ptac` が境界なし成分の重心になっている点の修正が要る (C は境界込み)。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
