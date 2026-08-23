@@ -1734,6 +1734,42 @@ C 一致になったので、テンプレートからページを再構成する
 (14.361702, 22.446808) になった。丸めは 3x3 の最終位置合わせがたいてい
 吸収するので、窓の端に最適解が来た 2 個だけ表面化していた。
 
+### PR 49: warper の C 互換化 (計画)
+
+C 版ソース: `prog/warper_reg.c`。`feyn-word.tif` に 25 画素の枠を付けた
+245x106 の 8bpp 画像を入力に、8 check を出力する。全て PNG なので比較できる。
+
+| C check | 内容 |
+| --- | --- |
+| 0-3 | `pixRandomHarmonicWarp` を 4 通りのパラメータで 50 枚、色付けして並べる |
+| 4-7 | `pixSimpleCaptcha` を nterms 1-4 で 50 枚、同様に並べる |
+
+**乱数の扱い**: `pixRandomHarmonicWarp` は先頭で `srand(seed)` を呼び、
+`generateRandomNumberArray(5 * (nx + ny))` で `rand()` を消費する。
+reg test 側は各画像の直後 (captcha は直前) に色決定で `rand()` を 3 回
+使う。`srand` が毎回呼ばれるので系列は完全に決定的。
+
+**実装差** (実測):
+
+| 項目 | C | Rust |
+| --- | --- | --- |
+| 乱数 | glibc `rand()` (`srand(seed)`) | 独自 LCG `SimpleRng` |
+| 値の作り方 | `0.5 * (1 + rand() / RAND_MAX)` | `0.5 * (1 + next() / u64::MAX)` |
+
+`GlibcRand` は plan 902 PR 43 (#451) で移植済みなので、`SimpleRng` を
+置き換えるだけで系列が一致するはず。
+
+**色決定の評価順**: C の
+`((rand() >> 16) & 0xff) << L_RED_SHIFT | ... << L_GREEN_SHIFT | ... << L_BLUE_SHIFT`
+は 3 つの `rand()` の評価順が未規定。手元の `cc` では左から右
+(1 番目が R) だったが、**リファレンスビルドのコンパイラと一致する保証は
+ない**。C manifest のハッシュと突き合わせて確定させる。
+
+**必要な部品**:
+
+- `pixColorizeGray` (色付け) の移植状況を確認する
+- `pixaDisplayTiledInColumns(pixac, 10, 1.0, 20, 0)` は core に実装済み
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
