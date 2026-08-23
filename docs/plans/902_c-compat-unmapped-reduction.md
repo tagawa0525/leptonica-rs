@@ -1857,7 +1857,7 @@ f64 で計算すると 255.0 ちょうどになり 255 になる。
 というのが答え。3 件とも Ok になったので除外ルールを削除した
 (Excluded 100 → 97)。
 
-### PR 51: color の再調査と snap_color の C 準拠化 (計画)
+### PR 51: color の再調査と snap_color の C 準拠化 (実施済み)
 
 PR 50 で「次 PR 候補」とした `grayquant` を調べたところ、**既に
 `grayquant_c` として 12 件すべて Ok 済み**だった。PR 50 の見積もり
@@ -1896,6 +1896,24 @@ C 準拠にするには src/dst を分離する必要がある。
 1. `snap_color_cmap` を C 準拠にする (src/dst 分離、空き有無の分岐)
 2. colormap を持たない 8bpp / 32bpp 向けの `snap_color` も移植する
 3. `blend5` の check 2,3 をマッピングする
+
+実施結果:
+
+- **2 ペア全件 Ok** (Ok 487 → 489、color 60 → 62)
+- `snap_color_cmap` を C 準拠にした。src/dst を分離し、colormap の空き
+  有無で経路を分け、最後に未使用色を除去する。`pix_snap_color` は
+  colormap 付き入力をこちらに委譲する (C と同じ)
+- `google-searchbox.png` (256 色・空きなし = 乗っ取り経路) と
+  `weasel4.11c.png` (11 色・空きあり = 追加経路) の両方で C と pixel
+  完全一致
+
+**color 領域の結論**: マップ可能な pair は出し切った。残る Unmapped
+108 件は、C 側テストが JPEG 入力かつその Rust 側テストが独自に追加した
+出力で、原理的に pixel 一致しない。件数を減らすなら
+`c_compat_exclude.tsv` への移送になるが、prefix 単位では
+`grayquant_c` / `pmask_1bpp` / `blend5_c` のように同じテストファイル内に
+Ok のものが混在するため、`key` 単位で 108 行書く必要がある。費用対効果を
+見て別途判断する。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 

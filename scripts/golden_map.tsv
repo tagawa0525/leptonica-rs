@@ -431,6 +431,8 @@ color	alphaops	0	alphaops_c	1	alphaops books_logo source
 color	alphaops	1	alphaops_c	2	alphaops blend over white
 color	alphaops	3	alphaops_c	3	alphaops alpha regenerated over white
 color	alphaops	4	alphaops_c	4	alphaops blend over light yellow
+color	blend5	2	blend5_c	1	snap white to yellow on full colormap (google-searchbox)
+color	blend5	3	blend5_c	2	snap near-white to olive with free colormap slots (weasel4.11c)
 filter	convolve	2	convolve_blockrank	1	blockrank 4x4 rank 0.25 (test1.png)
 filter	convolve	3	convolve_blockrank	2	blockrank 4x4 rank 0.50
 filter	convolve	4	convolve_blockrank	3	blockrank 4x4 rank 0.75

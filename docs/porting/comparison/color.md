@@ -151,19 +151,19 @@
 
 #### color/coloring.rs (coloring.c)
 
-| C関数                       | 状態 | Rust対応                         | 備考                |
-| --------------------------- | ---- | -------------------------------- | ------------------- |
-| pixColorGrayRegions         | ✅   | color_gray_regions               | Region coloring     |
-| pixColorGray                | 🔄   | pix_color_gray                   |                     |
-| pixColorGrayMasked          | ✅   | pix_color_gray_masked            |                     |
-| pixSnapColor                | 🔄   | pix_snap_color                   |                     |
-| pixSnapColorCmap            | ✅   | snap_color_cmap                  | カラーマップ版      |
-| pixLinearMapToTargetColor   | ✅   | pix_linear_map_to_target_color   |                     |
-| pixelLinearMapToTargetColor | ✅   | pixel_linear_map_to_target_color |                     |
-| pixShiftByComponent         | ✅   | pix_shift_by_component           |                     |
-| pixelShiftByComponent       | ✅   | pixel_shift_by_component         |                     |
-| pixelFractionalShift        | ✅   | pixel_fractional_shift           |                     |
-| pixMapWithInvariantHue      | ✅   | pix_map_with_invariant_hue()     | Hue-invariant shift |
+| C関数                       | 状態 | Rust対応                         | 備考                                 |
+| --------------------------- | ---- | -------------------------------- | ------------------------------------ |
+| pixColorGrayRegions         | ✅   | color_gray_regions               | Region coloring                      |
+| pixColorGray                | 🔄   | pix_color_gray                   |                                      |
+| pixColorGrayMasked          | ✅   | pix_color_gray_masked            |                                      |
+| pixSnapColor                | ✅   | pix_snap_color                   | C とビット一致 (plan 902 PR 51)      |
+| pixSnapColorCmap            | ✅   | snap_color_cmap                  | src/dst 分離・空き有無で分岐 (PR 51) |
+| pixLinearMapToTargetColor   | ✅   | pix_linear_map_to_target_color   |                                      |
+| pixelLinearMapToTargetColor | ✅   | pixel_linear_map_to_target_color |                                      |
+| pixShiftByComponent         | ✅   | pix_shift_by_component           |                                      |
+| pixelShiftByComponent       | ✅   | pixel_shift_by_component         |                                      |
+| pixelFractionalShift        | ✅   | pixel_fractional_shift           |                                      |
+| pixMapWithInvariantHue      | ✅   | pix_map_with_invariant_hue()     | Hue-invariant shift                  |
 
 ### binarize.c
 
