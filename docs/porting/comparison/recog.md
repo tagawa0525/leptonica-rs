@@ -261,33 +261,33 @@
 
 #### recog/jbclass/classify.rs (jbclass.c)
 
-| C関数                              | 状態 | Rust対応                                     | 備考                                 |
-| ---------------------------------- | ---- | -------------------------------------------- | ------------------------------------ |
-| jbRankHausInit                     | ✅   | jbclass::rank_haus_init                      | Rank Hausdorff分類器初期化           |
-| jbCorrelationInit                  | ✅   | jbclass::correlation_init                    | 相関ベース分類器初期化               |
-| jbCorrelationInitWithoutComponents | ✅   | jbclass::correlation_init_without_components | コンポーネントなし相関分類器初期化   |
-| jbAddPageComponents                | ✅   | jbclass::add_page_components                 |                                      |
-| jbClassifyRankHaus                 | 🔄   | JbClasser (内部実装)                         | Rank Hausdorff分類（内部で自動実行） |
-| jbClassifyCorrelation              | 🔄   | JbClasser (内部実装)                         | 相関ベース分類（内部で自動実行）     |
-| jbClasserCreate                    | 🔄   | rank_haus_init / correlation_init            | 分類器作成（専用関数に分割）         |
-| jbClasserDestroy                   | ✅   | Drop trait                                   | 自動破棄                             |
-| jbGetULCorners                     | 🔄   | JbData フィールド直接参照                    | 左上コーナー取得                     |
-| jbGetLLCorners                     | 🔄   | JbData フィールド直接参照                    | 左下コーナー取得                     |
-| pixHaustest                        | 🔄   | jbclass::hausdorff_distance                  | rank=1.0で相当                       |
-| pixRankHaustest                    | ✅   | jbclass::hausdorff_distance                  | size/rank引数で対応                  |
-| jbGetComponents                    | ✅   | JbClasser::get_components                    |                                      |
-| jbAccumulateComposites             | 🔄   | JbClasser::get_data                          | 合成処理は内部実装                   |
-| jbTemplatesFromComposites          | ✅   | JbClasser::templates_from_composites         |                                      |
-| jbDataDestroy                      | 🔄   | Drop trait                                   | Rustでは所有権で自動破棄             |
-| jbDataRender                       | 🔄   | JbData::render_page / JbData::render_all     | 単一/全ページに分離                  |
-| jbCorrelation                      | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属                |
-| jbRankHaus                         | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属                |
-| jbWordsInTextlines                 | 🔄   | classapp.c セクション参照                    | `pixWordMaskByDilation` とは別関数   |
-| jbAddPages                         | ✅   | JbClasser::add_pages                         | 複数ページ追加                       |
-| jbAddPage                          | ✅   | JbClasser::add_page                          | ページ追加                           |
-| jbDataSave                         | ✅   | JbClasser::get_data                          | データ取得                           |
-| pixWordMaskByDilation              | ✅   | jbclass::pix_word_mask_by_dilation           |                                      |
-| pixWordBoxesByDilation             | ✅   | jbclass::pix_word_boxes_by_dilation          |                                      |
+| C関数                              | 状態 | Rust対応                                     | 備考                               |
+| ---------------------------------- | ---- | -------------------------------------------- | ---------------------------------- |
+| jbRankHausInit                     | ✅   | jbclass::rank_haus_init                      | Rank Hausdorff分類器初期化         |
+| jbCorrelationInit                  | ✅   | jbclass::correlation_init                    | 相関ベース分類器初期化             |
+| jbCorrelationInitWithoutComponents | ✅   | jbclass::correlation_init_without_components | コンポーネントなし相関分類器初期化 |
+| jbAddPageComponents                | ✅   | jbclass::add_page_components                 |                                    |
+| jbClassifyRankHaus                 | ✅   | JbClasser::classify_rank_haus                | C とクラス割当一致 (PR 47)         |
+| jbClassifyCorrelation              | ✅   | JbClasser::classify_correlation              | C とクラス割当一致 (PR 47)         |
+| jbClasserCreate                    | 🔄   | rank_haus_init / correlation_init            | 分類器作成（専用関数に分割）       |
+| jbClasserDestroy                   | ✅   | Drop trait                                   | 自動破棄                           |
+| jbGetULCorners                     | 🔄   | JbData フィールド直接参照                    | 左上コーナー取得                   |
+| jbGetLLCorners                     | 🔄   | JbData フィールド直接参照                    | 左下コーナー取得                   |
+| pixHaustest                        | ✅   | hausdorff_match_with_areas                   | rank=1.0 の場合 (PR 47)            |
+| pixRankHaustest                    | ✅   | hausdorff_match_with_areas                   | 重心整列付き (PR 47)               |
+| jbGetComponents                    | ✅   | JbClasser::get_components                    |                                    |
+| jbAccumulateComposites             | 🔄   | JbClasser::get_data                          | 合成処理は内部実装                 |
+| jbTemplatesFromComposites          | ✅   | JbClasser::templates_from_composites         |                                    |
+| jbDataDestroy                      | 🔄   | Drop trait                                   | Rustでは所有権で自動破棄           |
+| jbDataRender                       | 🔄   | JbData::render_page / JbData::render_all     | 単一/全ページに分離                |
+| jbCorrelation                      | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属              |
+| jbRankHaus                         | 🔄   | classapp.c セクション参照                    | C関数はclassapp.c所属              |
+| jbWordsInTextlines                 | 🔄   | classapp.c セクション参照                    | `pixWordMaskByDilation` とは別関数 |
+| jbAddPages                         | ✅   | JbClasser::add_pages                         | 複数ページ追加                     |
+| jbAddPage                          | ✅   | JbClasser::add_page                          | ページ追加                         |
+| jbDataSave                         | ✅   | JbClasser::get_data                          | データ取得                         |
+| pixWordMaskByDilation              | ✅   | jbclass::pix_word_mask_by_dilation           |                                    |
+| pixWordBoxesByDilation             | ✅   | jbclass::pix_word_boxes_by_dilation          |                                    |
 
 #### recog/jbclass/io.rs (jbclass.c)
 

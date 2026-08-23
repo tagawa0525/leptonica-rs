@@ -1573,6 +1573,102 @@ strlen(svgstr), "ccb")` で SVG 文字列を `.ccb` 拡張子で書く。`.ccb` 
 だけなので旧 `ccbord_c.07.png` が取り残される。生成後は manifest の
 diff で削除漏れがないか確認する。
 
+### PR 47: jbclass の C 互換化 (実施済み)
+
+C 版ソース: `prog/jbclass_reg.c`。`pageseg1.tif` / `pageseg4.tif` の上半分を
+入力に、相関分類器 (check 0-3) と rank Hausdorff 分類器 (check 4-7) を
+走らせる。計 8 check、全て TIFF G4 なので比較できる。
+
+| C check | 内容 |
+| --- | --- |
+| 0 / 4 | テンプレート合成画像 (`jbDataSave` の `data->pix`) |
+| 1,2 / 5,6 | テンプレートから再構成したページ (`jbDataRender`) |
+| 3 / 7 | クラス別に並べた全インスタンス (`pixaDisplayTiledInColumns`) |
+
+**現状**: Rust 側は `jbclass_haus` / `jbclass_corr` / `jbclass_wordmask` の
+3 件が Unmapped。テストは「クラス数 > 0」等の緩い性質検査が中心で、
+C との pixel 一致は見ていない。
+
+**調査で判明した実装差** (C 版と Rust 版を同一入力で実測):
+
+| 項目 | C | Rust | 影響 |
+| --- | --- | --- | --- |
+| `maxwidth` / `maxheight` 既定値 | 350 / 120 | 150 / 150 | 成分の取捨が変わる |
+| テンプレート境界 `JB_ADDED_PIXELS` | 6 | `TEMPLATE_BORDER` = 4 | テンプレート寸法が全て違う |
+| 相関しきい値 | `thresh + (1-thresh) * weight * area2/area` | `thresh + weight * fill_factor` | 式が別物 |
+| テンプレート探索順 | `two_by_two_walk` の 25 手順 (近い順) | `dw`/`dh` の二重ループ | 貪欲一致の結果が変わる |
+| 相関スコアの整列 | 重心差を四捨五入し `pix1` 側を走査 | 同左だが早期打ち切りなし | スコア自体は近いが `maxdiffw/h` 判定が無い |
+| 分類結果 | nclass 1061 | nclass 2848 | 上記の複合結果 |
+
+実測値 (相関、`pageseg1`+`pageseg4` の上半分、成分 5488 個):
+
+- C: nclass=1061、lattice 87x130、composite 2784x4420
+- Rust: nclass=2848、lattice 82x125、composite 4428x6625
+
+**方針**: 差が広範なので 2 PR に分ける。
+
+| PR | 内容 | ペア |
+| --- | --- | --: |
+| 47 | 分類器本体を C 準拠に直す (定数・しきい値式・探索順・スコア) | 0,4 |
+| 48 | ページ再構成とインスタンス表示 (`jbGetULCorners` の最終位置合わせ含む) | 1,2,3 / 5,6,7 |
+
+PR 47 で移植する C 関数:
+
+| C 関数 | 役割 |
+| --- | --- |
+| `jbClassifyCorrelation` | 相関による貪欲分類 |
+| `jbClassifyRankHaus` | rank Hausdorff による貪欲分類 |
+| `findSimilarSizedTemplatesInit/Next` | `two_by_two_walk` による同寸法テンプレート探索 |
+| `pixCorrelationScoreThresholded` | 早期打ち切り付き相関スコア |
+| `jbDataSave` の lattice | `maxw+1` / `maxh+1` と `pixaDisplayOnLattice` の配置 |
+
+**注意**: `TEMPLATE_BORDER` は公開定数なので、6 への変更は破壊的変更に
+なる。C の `JB_ADDED_PIXELS` と名実を合わせる。
+
+実施結果:
+
+- **2 ペア全件 Ok** (Ok 464 → 466、recog 68 → 70)。テンプレート合成画像が
+  相関・rank Hausdorff とも C と pixel 完全一致
+- 実測 (`pageseg1`+`pageseg4` の上半分、成分 5488 個): 相関 nclass
+  2848 → **1061 (C と一致)**、rank Hausdorff 1483 → **1036 (同)**。
+  5488 成分すべてのクラス割当と 1061 個のテンプレート内容が一致
+
+**最大の原因は成分の切り出し**だった。C の `pixConnCompPixa` は seedfill で
+その成分の画素だけを取り出すが、Rust は bounding box で**ページを矩形
+クロップ**していたため、隣接成分の画素が混入していた。テンプレートの
+中身が違うので、以降の一致は原理的に不可能だった。
+
+他に解消した差 (計画の表に加えて判明したもの):
+
+- Hausdorff テストに重心整列が無かった。C の `pixRankHaustest` は重心差を
+  丸めてずらしてから比較する。許容非被覆数の丸めも C に合わせた
+- `pixHaustest` のサイズガード (`|wi-wt| > 2` で不一致) が無かった
+- `add_page` がページ寸法を最大値で更新していた。C は最新ページの値
+
+**構造的な問題も 1 件解消**: `add_page_components` が分類ロジックを
+二重実装しており、しかもハッシュキーに境界込み寸法を使っていて
+`classify_*` と食い違っていた。同じ関数に委譲するようにした。
+
+**レイアウトの二重計算**: `templates_to_composite` を C の
+`floor(sqrt(n))` 列に直したとき、`extract_templates` は
+`ceil(sqrt(n))` のままで、正方数でないクラス数では別のセルを読んでいた
+(nclass=501 で 22 列 vs 23 列、先頭 50 個中 28 個が別物)。C の
+`pixaCreateFromPix` と同じく**合成画像の幅から列数を導く**ようにして、
+ずれようがない形にした。レビュー指摘で発覚。
+
+**残り**: check 1,2,3 / 5,6,7 (ページ再構成とインスタンス表示) は PR 48。
+判明している要修正点:
+
+- `jbGetULCorners` の最終位置合わせ (`finalPositioningForAlignment`) が
+  未移植。C は 3x3 の範囲で XOR 画素数が最小になる位置を選ぶ
+- `ptac` が境界なし成分の重心になっている (C は境界込み)。UL 座標の
+  計算に効く
+- `extract_templates` がセル全体を返す。C の `pixaCreateFromPix` は
+  1bpp のとき `pixClipToForeground` で前景に切り詰めるので、配置される
+  テンプレートの寸法が違う
+- check 3,7 の `pixaDisplayTiledInColumns` と、テンプレートに白 3 +
+  黒 1 の枠を付ける `PixaOutlineTemplates` が未移植
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

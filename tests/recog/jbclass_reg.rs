@@ -238,3 +238,38 @@ fn jbclass_reg_word_boxes() {
 
     assert!(rp.cleanup(), "jbclass word_boxes test failed");
 }
+
+/// C-compatible port of `prog/jbclass_reg.c`, covering the template composite
+/// that `jbDataSave()` builds for each classifier (C indices 0 and 4).
+///
+/// The page reconstructions (1,2 / 5,6) and the per-class instance display
+/// (3 / 7) need `jbGetULCorners` and `pixaDisplayTiledInColumns` and follow in
+/// a later PR.
+fn do_jbclass_c(rp: &mut RegParams) {
+    let pix1 = crate::common::load_test_image("pageseg1.tif").expect("load pageseg1.tif");
+    let pix4 = crate::common::load_test_image("pageseg4.tif").expect("load pageseg4.tif");
+    let pages = [clip_top_half(&pix1), clip_top_half(&pix4)];
+
+    // Correlation classifier, then rank Hausdorff, in C's order.
+    let mut corr =
+        correlation_init(JbComponent::ConnComps, 0, 0, 0.8, 0.6).expect("correlation_init");
+    corr.add_pages(&pages).expect("add_pages corr");
+    let corr_data = corr.get_data().expect("get_data corr");
+    // 0
+    rp.write_pix_and_check(&corr_data.pix, ImageFormat::Tiff)
+        .expect("write corr templates");
+
+    let mut haus = rank_haus_init(JbComponent::ConnComps, 0, 0, 2, 0.97).expect("rank_haus_init");
+    haus.add_pages(&pages).expect("add_pages haus");
+    let haus_data = haus.get_data().expect("get_data haus");
+    // 4
+    rp.write_pix_and_check(&haus_data.pix, ImageFormat::Tiff)
+        .expect("write haus templates");
+}
+
+#[test]
+fn jbclass_c_compat() {
+    let mut rp = RegParams::new("jbclass_c");
+    do_jbclass_c(&mut rp);
+    assert!(rp.cleanup(), "jbclass c-compat test failed");
+}
