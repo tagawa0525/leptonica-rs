@@ -182,7 +182,6 @@ fn bmf_line_strings() {
 /// room, and falls back to the nearest existing entry when the colormap is
 /// full. Expectations measured against C with a 15-entry grey colormap.
 #[test]
-#[ignore = "not yet implemented"]
 fn bmf_set_textline_resolves_against_colormap() {
     use leptonica::core::PixColormap;
 
@@ -223,7 +222,6 @@ fn bmf_set_textline_resolves_against_colormap() {
 /// truncated to its low byte. Measured against C: "Hi" at size 6 paints 140
 /// pixels, all with value 128.
 #[test]
-#[ignore = "not yet implemented"]
 fn bmf_set_textline_normalises_value_for_depth() {
     let bmf = Bmf::new(6).unwrap();
     let pix = Pix::new(100, 30, PixelDepth::Bit8).unwrap();

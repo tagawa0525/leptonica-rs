@@ -14,6 +14,7 @@
 //!
 //! C Leptonica: `bmf.c`, `textops.c`
 
+use crate::core::PixColormap;
 use crate::core::error::{Error, Result};
 use crate::core::pix::{Pix, PixelDepth};
 use crate::core::pixa::Pixa;
@@ -483,6 +484,41 @@ impl Bmf {
     }
 }
 
+/// Clamp a requested text colour to something the depth can express.
+///
+/// C picks a visible mid-range value rather than truncating, so that a caller
+/// passing an RGB colour to a shallow image still gets readable text.
+///
+/// C Leptonica: the depth ladder at the top of `pixSetTextline()`.
+fn normalize_text_value(val: u32, depth: PixelDepth, has_colormap: bool) -> u32 {
+    match depth {
+        PixelDepth::Bit1 if val > 1 => 1,
+        PixelDepth::Bit2 if val > 3 && !has_colormap => 2,
+        PixelDepth::Bit4 if val > 15 && !has_colormap => 8,
+        PixelDepth::Bit8 if val > 0xff && !has_colormap => 128,
+        PixelDepth::Bit16 if val > 0xffff => 0x8000,
+        PixelDepth::Bit32 if val < 256 => 0x8080_8000,
+        _ => val,
+    }
+}
+
+/// Resolve a colour against a colormap, as C `pixcmapAddNearestColor()` does.
+///
+/// Returns the colour actually available: the requested one when the colormap
+/// has it or has room for it, otherwise the nearest existing entry. The
+/// resolution runs on a scratch clone; the insertion into the destination is
+/// left to `paint_through_mask` (C `pixSetMaskedCmap`), which cannot fail
+/// afterwards because the resolved colour is one the colormap can hold.
+fn resolve_cmap_color(cmap: &PixColormap, val: u32) -> Result<u32> {
+    let (r, g, b) = crate::core::pixel::extract_rgb(val);
+    let mut scratch = cmap.clone();
+    let index = scratch.add_nearest_color(r, g, b)?;
+    let (r, g, b) = scratch
+        .get_rgb(index)
+        .ok_or_else(|| Error::InvalidParameter("invalid cmap index".into()))?;
+    Ok(crate::core::pixel::compose_rgb(r, g, b))
+}
+
 // ────────────────────────────────────────────────────────────────────
 //  Text rendering functions
 // ────────────────────────────────────────────────────────────────────
@@ -499,11 +535,19 @@ impl Bmf {
     /// * `text` — text to render (single line, newlines ignored)
     /// * `x` — starting x position
     /// * `y` — baseline y position
-    /// * `val` — pixel value to paint through the mask
+    /// * `val` — colour to paint. Normalised for the image depth, and for a
+    ///   colormapped image resolved against the colormap first: the colour is
+    ///   added when there is room, otherwise the nearest existing entry is
+    ///   used. A full colormap is therefore not an error.
     ///
     /// # Returns
     ///
     /// A new Pix with the text rendered, plus the rendered text width.
+    ///
+    /// # Divergence from C
+    ///
+    /// C also reports whether the line ran past the right edge, through its
+    /// `poverflow` out-parameter. That is not returned here.
     ///
     /// # See also
     ///
@@ -517,6 +561,11 @@ impl Bmf {
         val: u32,
     ) -> Result<(Pix, u32)> {
         let mut pm = pix.to_mut();
+        let val = normalize_text_value(val, pm.depth(), pm.has_colormap());
+        let val = match pm.colormap() {
+            Some(cmap) => resolve_cmap_color(cmap, val)?,
+            None => val,
+        };
         let mut xpos = x;
 
         for ch in text.chars() {
