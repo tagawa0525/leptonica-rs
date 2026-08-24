@@ -567,3 +567,53 @@ fn conversion_rgb_to_colormap_picks_depth() {
     let out = pix.convert_rgb_to_colormap(false).expect("20 colours");
     assert_eq!(out.depth(), PixelDepth::Bit8);
 }
+
+/// C-order counterpart of the `pixConvertTo2` / `pixConvertTo4` blocks of
+/// `prog/conversion_reg.c` (C checks 16-31).
+///
+/// C runs both conversions over eight sources. Two of them — `karen8.jpg`
+/// and `marge.jpg` — are JPEG, and C writes their results as JPEG too, so
+/// checks 21, 23, 29 and 31 cannot hash-match (finding 001). The remaining
+/// twelve are paired here.
+#[test]
+fn conversion_c_compat() {
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    // C `conversion_reg.c:56-63`, minus the two JPEG sources.
+    const SOURCES: [&str; 6] = [
+        "test1.png",        // 1 bpp
+        "dreyfus2.png",     // 2 bpp
+        "weasel2.4c.png",   // 2 bpp colormapped
+        "weasel4.16g.png",  // 4 bpp gray
+        "weasel4.11c.png",  // 4 bpp colormapped
+        "weasel8.240c.png", // 8 bpp colormapped
+    ];
+
+    let mut rp = RegParams::new("conversion_c");
+    let loaded: Vec<leptonica::Pix> = SOURCES
+        .iter()
+        .map(|name| crate::common::load_test_image(name).unwrap_or_else(|e| panic!("{name}: {e}")))
+        .collect();
+
+    // 16-20, 22: general conversion to 2 bpp.
+    for (pix, name) in loaded.iter().zip(SOURCES) {
+        let out = pix
+            .convert_to_2()
+            .unwrap_or_else(|e| panic!("convert_to_2 {name}: {e}"));
+        rp.write_pix_and_check(&out, ImageFormat::Png)
+            .unwrap_or_else(|e| panic!("write 2 bpp {name}: {e}"));
+    }
+
+    // 24-28, 30: general conversion to 4 bpp.
+    for (pix, name) in loaded.iter().zip(SOURCES) {
+        let out = pix
+            .convert_to_4()
+            .unwrap_or_else(|e| panic!("convert_to_4 {name}: {e}"));
+        rp.write_pix_and_check(&out, ImageFormat::Png)
+            .unwrap_or_else(|e| panic!("write 4 bpp {name}: {e}"));
+    }
+
+    assert!(rp.cleanup(), "conversion c-compat test failed");
+}

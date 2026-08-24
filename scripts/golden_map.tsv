@@ -646,6 +646,18 @@ core	ptra1	14	ptra1_c	15	shifted up (auto) 1
 core	ptra1	15	ptra1_c	16	shifted up (auto) 2
 core	ptra1	16	ptra1_c	17	summary 1
 core	ptra1	17	ptra1_c	18	summary 2
+core	conversion	16	conversion_c	1	convert_to_2 from test1.png
+core	conversion	17	conversion_c	2	convert_to_2 from dreyfus2.png
+core	conversion	18	conversion_c	3	convert_to_2 from weasel2.4c.png
+core	conversion	19	conversion_c	4	convert_to_2 from weasel4.16g.png
+core	conversion	20	conversion_c	5	convert_to_2 from weasel4.11c.png
+core	conversion	22	conversion_c	6	convert_to_2 from weasel8.240c.png
+core	conversion	24	conversion_c	7	convert_to_4 from test1.png
+core	conversion	25	conversion_c	8	convert_to_4 from dreyfus2.png
+core	conversion	26	conversion_c	9	convert_to_4 from weasel2.4c.png
+core	conversion	27	conversion_c	10	convert_to_4 from weasel4.16g.png
+core	conversion	28	conversion_c	11	convert_to_4 from weasel4.11c.png
+core	conversion	30	conversion_c	12	convert_to_4 from weasel8.240c.png
 transform	circle	0	circle_c	1	circle 0 erosion series
 transform	circle	1	circle_c	2	circle 1 erosion series
 transform	circle	2	circle_c	3	circle 2 erosion series
