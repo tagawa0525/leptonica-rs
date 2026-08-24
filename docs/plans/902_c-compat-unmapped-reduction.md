@@ -2308,6 +2308,82 @@ C の `poverflow` は移植していない。マッピングに不要で、戻�
 **副作用**: `conversion_from_32bpp.05` は `octcube_quant_from_cmap` の
 出力が変わるため manifest を再生成した (Unmapped で、C に近づく方向)。
 
+### PR 58: region の棚卸しと grayfill テスト不備の修正 (実施済み)
+
+`region` binary の Unmapped 28 件を全件棚卸しする。
+
+**調査の途中で前提を 1 つ間違えた**。`grayfill` の C golden 27 件は
+plan 902 PR 18 で **既に全件マップ済み・全件 Ok** だった。レポートを
+フィルタ付きで再生成した (`cargo test --test region <name>`) 結果、
+per-binary レポートがその 1 テスト分だけに上書きされ、`grayfill_c` の
+行が消えた状態を見て「未マップ」と誤認した。CLAUDE.md に書かれている
+既知の落とし穴を踏んだ。
+
+それでも調査から実のある成果が 2 つ出た。
+
+**成果 1: `grayfill_reg_basin` が seed 空で検査していた**
+
+`gfill_basin` の出力を C と突き合わせたところ 2 件とも Mismatch し、
+中間結果を追うと `local_extrema` が極小を **1 つも** 返していなかった
+(C は 1203 個)。原因はライブラリではなく **テストの引数**で、
+`local_extrema(&mask, 1, 0)` と呼んでいた。第 2 引数は「極小として認める
+値の上限」であって、テストのコメントが書いている「サイズフィルタ」では
+ない。mask の最小値は 20 なので、上限 1 では全候補が落ちる。C は 0 を
+渡し、0 は 254 のデフォルトになる。
+
+つまり **basin fill のテストは seed が空の状態を検査していた**。引数を C
+に合わせると `local_extrema`・`seedfill_gray_basin` とも C の
+grayfill.14 / .15 / .16 と pixel 完全一致する。
+
+`grayfill_c_compat` の doc にある「check 13-18 は pixLocalExtrema の引数が
+違うので未対応」という注記も、同じ誤読が元になっている。実際には後続の
+PR で対応済みで、記述だけが残っていた。
+
+**成果 2: `gfill_*` を張れば同じ不備を即検出できた**
+
+`gfill_inv` / `gfill_std` / `gfill_basin` は C と同じ合成入力を使う
+Rust 独自テストで、C golden との対応が付く。`grayfill_c` と C キーは
+重複するが、**古い方のテスト経路を検証する意味がある**。実際、これを
+張っていれば basin の不備は Mismatch として即座に出ていた。6 件を張る。
+
+**残り 22 件はマップ不能**であることを確認した:
+
+| prefix | 件数 | 理由 |
+| --- | --: | --- |
+| `texturefill` | 6 | 全出力が `amoris.2.150.jpg` 由来 (finding 001) |
+| `speckle_*` | 7 | 全出力が `w91frag.jpg` 由来 (finding 001) |
+| `watershed*` | 5 | C golden 22 件は全件マップ済み。Rust 独自の追加出力 |
+| `smoothedge` | 2 | C の `smoothedge_reg.c` は golden を 1 つも書かない |
+| `ccbord_dreyfus1` | 1 | C golden 14 件は全件マップ済み。Rust 独自 |
+| `gfill_hybrid` | 1 | C と seed の作り方が違う Rust 独自テスト |
+
+PNG 出力があっても入力が JPEG なら hash は原理的に一致しない。`texturefill`
+と `speckle` は出力形式に PNG が混ざるので一見マップできそうに見えるが、
+どちらも先頭で JPEG を読んでいるため全滅である。
+
+これで `region` の Unmapped は 0 になる。
+
+実施結果:
+
+- **region の Unmapped が 28 → 0**。Ok 511 → 517、Excluded 97 → 119
+- `region` はこれで全件が「Ok / 既知 Mismatch / 理由付き Excluded」の
+  いずれかに分類され、未着手が無い状態になった
+
+**`grayfill_reg_basin` の不備を修正した**。`local_extrema(&mask, 1, 0)` の
+第 2 引数を C と同じ 0 にした。1 では mask の最小値 20 が上限を超えるため
+極小が 1 つも返らず、basin fill を seed 空で呼んでいた。同じ状態に戻らない
+よう seed が非空であることを assert し、manifest を再生成した。
+
+**`gfill_*` 6 件をマッピングした**。`grayfill_c` と C キーは重複するが、
+古い方のテスト経路を検証する意味がある。実際これを張っていれば basin の
+不備は Mismatch として即座に出ていた。
+
+**`grayfill_c_compat` の doc の古い注記を削除した**。「check 13-18 は
+pixLocalExtrema の引数が違うので未対応」と書かれていたが、後続の PR で
+対応済みだった。basin テストの引数誤読と同じ誤解が元になっている。
+
+**22 件を Excluded に分離した** (内訳は上表)。
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。

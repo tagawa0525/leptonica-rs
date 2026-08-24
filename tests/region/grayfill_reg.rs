@@ -133,10 +133,16 @@ fn grayfill_reg_basin() {
     let w = mask.width();
     let h = mask.height();
 
-    // C: pixLocalExtrema(pixm, 0, 0, &pixmin, NULL);
-    // Rust requires min_max_size to be odd and >= 1; 0 in C means "no size filter"
-    let (pixmin, _pixmax) = local_extrema(&mask, 1, 0).expect("local_extrema");
+    // C: pixLocalExtrema(pixm, 0, 0, &pixmin, NULL). The second argument is
+    // the highest value a minimum may take, not a size filter; 0 selects C's
+    // default of 254. Passing 1 here rejected every candidate — the mask
+    // bottoms out at 20 — so the basin fill below ran with no seeds at all.
+    let (pixmin, _pixmax) = local_extrema(&mask, 0, 0).expect("local_extrema");
     assert_eq!(pixmin.depth(), PixelDepth::Bit1);
+    assert!(
+        pixmin.count_pixels() > 0,
+        "the basin fill needs a non-empty seed to be meaningful"
+    );
 
     // C: pixs3 = pixSeedfillGrayBasin(pixmin, pixm, 30, 4);
     let result4 = seedfill_gray_basin(&pixmin, &mask, 30, ConnectivityType::FourWay)
@@ -232,13 +238,14 @@ fn grayfill_reg_hybrid_comparison() {
 
 /// C-comparable gray seedfill series (plan 902 PR 18).
 ///
-/// Mirrors C grayfill_reg checks 0-12 and 19-34 exactly: the same
-/// synthetic 200x200 masks and seeds, the same 4- and 8-connected fills,
-/// thresholds and `display_tiled_in_columns` layouts, plus the four
-/// hybrid-vs-simple equality sets.
+/// Mirrors all 27 golden outputs of C `grayfill_reg`: the same synthetic
+/// 200x200 masks and seeds, the same 4- and 8-connected fills, thresholds
+/// and `display_tiled_in_columns` layouts, the basin fill seeded from the
+/// local minima, and the four hybrid-vs-simple equality sets.
 ///
-/// C checks 13-18 need `pixLocalExtrema`, whose Rust counterpart takes
-/// different parameters (see plan 902 PR 18), so they are not paired yet.
+/// C writes at indices 0-18 and then, from its `PixTestEqual` helper, at the
+/// odd indices 19-33; the helper's even indices are `regTestComparePix`
+/// calls, which produce no golden.
 #[test]
 fn grayfill_c_compat() {
     use leptonica::{Pix, Pixa, PixelDepth};
