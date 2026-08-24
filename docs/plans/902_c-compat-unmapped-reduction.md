@@ -2308,6 +2308,59 @@ C の `poverflow` は移植していない。マッピングに不要で、戻�
 **副作用**: `conversion_from_32bpp.05` は `octcube_quant_from_cmap` の
 出力が変わるため manifest を再生成した (Unmapped で、C に近づく方向)。
 
+### PR 58: grayfill のマッピングと region の棚卸し (計画)
+
+`region` binary の Unmapped 28 件を全件棚卸しする。
+
+**`grayfill_reg.c` は入力ファイルを一切読まない**。200x200 の mask と seed を
+その場で計算して作るので、JPEG の decode 差に縛られない。C 側 golden は
+27 件すべて PNG で、この campaign で残っている中では条件が最も良い。
+
+| C check | 内容 |
+| --- | --- |
+| 0-6 | inverse gray fill (mask, seed, 4/8-way, threshold, combine, montage) |
+| 7-12 | standard gray fill (inverted mask 起点) |
+| 13-18 | basin fill (local minima を seed に) |
+| 19-33 (奇数) | hybrid vs simple。seed が **mask のコピー ±定数** |
+
+**先行検証で分かったこと**: 既存の `gfill_inv` / `gfill_std` はペアを張った
+だけで即 Ok になったが、**`gfill_basin` は 2 件とも Mismatch** した。
+
+中間結果を C と突き合わせたところ、`local_extrema` が極小を **1 つも**
+返していなかった (C は 1203 個)。原因はライブラリではなく **テストの
+引数**で、`local_extrema(&mask, 1, 0)` と呼んでいた。第 2 引数は
+「極小として認める値の上限」であって、テストのコメントが書いている
+「サイズフィルタ」ではない。mask の最小値は 20 なので、上限 1 では全ての
+候補が落ちる。C は 0 を渡し、0 は 254 のデフォルトになる。
+
+つまり **basin fill のテストは seed が空の状態を検査していた**。テストと
+しての価値がほぼ無い状態だったので、これは C 準拠以前のテスト不備である。
+引数を C に合わせると `local_extrema`・`seedfill_gray_basin` とも C と
+完全一致する。
+
+**残り 22 件はマップ不能**であることを確認した:
+
+| prefix | 件数 | 理由 |
+| --- | --: | --- |
+| `texturefill` | 6 | 全出力が `amoris.2.150.jpg` 由来 (finding 001) |
+| `speckle_*` | 7 | 全出力が `w91frag.jpg` 由来 (finding 001) |
+| `watershed*` | 5 | C golden 22 件は全件マップ済み。Rust 独自の追加出力 |
+| `smoothedge` | 2 | C の `smoothedge_reg.c` は golden を 1 つも書かない |
+| `ccbord_dreyfus1` | 1 | C golden 14 件は全件マップ済み。Rust 独自 |
+| `gfill_hybrid` | 1 | C と seed の作り方が違う Rust 独自テスト |
+
+PNG 出力があっても入力が JPEG なら hash は原理的に一致しない。`texturefill`
+と `speckle` は出力形式に PNG が混ざるので一見マップできそうに見えるが、
+どちらも先頭で JPEG を読んでいるため全滅である。
+
+**必要な準備**:
+
+- `grayfill_reg_basin` の `local_extrema` 引数を C に合わせる
+- C の 27 出力を C の順序で並べる `grayfill_c_compat` を追加する
+- 上記 22 件を `c_compat_exclude.tsv` に理由付きで追加する
+
+実施結果: (未実施)
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
