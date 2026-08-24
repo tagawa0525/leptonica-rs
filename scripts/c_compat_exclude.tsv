@@ -53,3 +53,24 @@ key	watershed.10.png	Rust-only output; C watershed_reg's 22 goldens are all mapp
 key	watershed.22.png	Rust-only output; C watershed_reg's 22 goldens are all mapped
 prefix	ccbord_dreyfus1	Rust-only output; C ccbord_reg's 14 goldens are all mapped
 prefix	gfill_hybrid	Rust-only test; C builds its hybrid seeds from the mask, not a 3x3 patch
+prefix	equal_rgb	C equal_reg writes no golden image (compare-only test)
+prefix	equal_8bpp_gray	C equal_reg writes no golden image (compare-only test)
+prefix	equal_8bpp_cmap	C equal_reg writes no golden image (compare-only test)
+prefix	equal_4bpp_cmap	C equal_reg writes no golden image (compare-only test)
+prefix	equal_2bpp_cmap	C equal_reg writes no golden image (compare-only test)
+prefix	hash	C hash_reg writes no golden image (compare-only test)
+prefix	insert_boxa	C insert_reg writes no golden image (compare-only test)
+prefix	insert_numa	C insert_reg writes no golden image (compare-only test)
+prefix	conversion_from_1bpp	C conversion_reg's checks 0-15 are regTestComparePix; its only goldens (16-31) are covered by conversion_c
+prefix	conversion_from_2bpp	C conversion_reg's checks 0-15 are regTestComparePix; its only goldens (16-31) are covered by conversion_c
+prefix	conversion_from_4bpp	C conversion_reg's checks 0-15 are regTestComparePix; its only goldens (16-31) are covered by conversion_c
+prefix	conversion_from_8bpp	C conversion_reg's checks 0-15 are regTestComparePix; its only goldens (16-31) are covered by conversion_c
+prefix	conversion_from_16bpp	C conversion_reg's checks 0-15 are regTestComparePix; its only goldens (16-31) are covered by conversion_c
+prefix	conversion_from_32bpp	C conversion_reg's checks 0-15 are regTestComparePix; its only goldens (16-31) are covered by conversion_c
+key	boxa3.01.ba	Rust-only output; C boxa3_reg's 12 .ba goldens are all mapped
+key	boxa3.07.ba	Rust-only output; C boxa3_reg's 12 .ba goldens are all mapped
+key	boxa3.13.ba	Rust-only output; C boxa3_reg's 12 .ba goldens are all mapped
+prefix	compare_perceptual	C compare_reg's perceptual-diff goldens derive from greencover.jpg / redcover.jpg (finding 001)
+prefix	compare_equals	C compare_reg writes no golden for its equality checks
+prefix	pixcomp_rt	Rust-only inputs (feyn-fract.tif / weasel8.png); C's two lossless round trips are covered by pixcomp_c
+prefix	fpix1_pix	Rust-only synthetic 4x2 pix; C fpix1_reg's own PNG goldens (0-3) need makeGaussianKernel, not yet ported

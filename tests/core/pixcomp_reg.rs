@@ -216,3 +216,52 @@ fn pixcomp_reg_write_files() {
     assert!(expected.exists());
     let _ = std::fs::remove_dir_all(&outdir);
 }
+
+/// C-order counterpart of the lossless half of `prog/pixcomp_reg.c`.
+///
+/// C round-trips four images through `PixComp` twice each (checks 0-3), but
+/// two of them go through the JPEG codec and one more is written as JPEG, so
+/// only checks 2 and 3 can hash-match (finding 001).
+#[test]
+fn pixcomp_c_compat() {
+    use leptonica::Pix;
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    /// C compresses, decompresses, and repeats once more before writing.
+    fn round_trip_twice(pix: &Pix, format: ImageFormat) -> Pix {
+        let once = PixComp::create_from_pix(pix, Some(format))
+            .expect("compress")
+            .to_pix()
+            .expect("decompress");
+        PixComp::create_from_pix(&once, Some(format))
+            .expect("compress again")
+            .to_pix()
+            .expect("decompress again")
+    }
+
+    let mut rp = RegParams::new("pixcomp_c");
+
+    // 2: a G4 region of feyn.tif. C clips this box out of the full page.
+    let feyn = crate::common::load_test_image("feyn.tif").expect("load feyn.tif");
+    let clipped = feyn
+        .clip_rectangle(1144, 611, 690, 180)
+        .expect("clip feyn.tif");
+    rp.write_pix_and_check(
+        &round_trip_twice(&clipped, ImageFormat::Tiff),
+        ImageFormat::Tiff,
+    )
+    .expect("write G4 round trip");
+
+    // 3: a colormapped PNG.
+    let weasel = crate::common::load_test_image("weasel4.11c.png").expect("load weasel4.11c.png");
+    rp.write_pix_and_check(
+        &round_trip_twice(&weasel, ImageFormat::Png),
+        ImageFormat::Png,
+    )
+    .expect("write PNG round trip");
+
+    assert!(rp.cleanup(), "pixcomp c-compat test failed");
+}
