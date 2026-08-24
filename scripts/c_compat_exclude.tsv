@@ -43,3 +43,13 @@ key	boxa3_c.22.png	tile height differs from C; see plan 902 PR 22
 key	boxa3_c.24.png	tile height differs from C; see plan 902 PR 22
 key	newspaper_c.10.png	pixaDisplayRandomCmap uses rand() colors; colormap expansion during scaling makes pixels non-deterministic
 key	newspaper_c.12.png	pixaDisplayRandomCmap uses rand() colors; colormap expansion during scaling makes pixels non-deterministic
+prefix	texturefill	C texturefill_reg reads amoris.2.150.jpg; every output derives from it (finding 001)
+prefix	speckle_pipeline	C speckle_reg reads w91frag.jpg; every output derives from it (finding 001)
+prefix	speckle_size	C speckle_reg reads w91frag.jpg; every output derives from it (finding 001)
+prefix	speckle_border	C speckle_reg reads w91frag.jpg; every output derives from it (finding 001)
+prefix	smoothedge	C smoothedge_reg writes no golden image (compare-only test)
+prefix	watershed_gradient	Rust-only output; C watershed_reg's 22 goldens are all mapped
+key	watershed.10.png	Rust-only output; C watershed_reg's 22 goldens are all mapped
+key	watershed.22.png	Rust-only output; C watershed_reg's 22 goldens are all mapped
+prefix	ccbord_dreyfus1	Rust-only output; C ccbord_reg's 14 goldens are all mapped
+prefix	gfill_hybrid	Rust-only test; C builds its hybrid seeds from the mask, not a 3x3 patch
