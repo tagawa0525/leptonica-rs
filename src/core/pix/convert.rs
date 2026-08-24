@@ -4056,7 +4056,38 @@ mod tests {
         assert!(pix.convert_8_to_4().is_err());
     }
 
+    /// Every `convert_to_*` must give a 1 bpp source the same polarity: the
+    /// set bit is ink and has to come out black, the clear bit white. C fixes
+    /// this by passing `(max, 0)` to each `pixConvert1To*`.
     #[test]
+    #[ignore = "not yet implemented"]
+    fn test_convert_to_n_from_1bpp_share_polarity() {
+        let pix = Pix::new(2, 1, PixelDepth::Bit1).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, 0);
+        pm.set_pixel_unchecked(1, 0, 1);
+        let pix: Pix = pm.into();
+
+        let cases: [(Pix, u32); 4] = [
+            (pix.convert_to_2().unwrap(), 3),
+            (pix.convert_to_4().unwrap(), 15),
+            (pix.convert_to_8().unwrap(), 255),
+            (pix.convert_to_16().unwrap(), 0xffff),
+        ];
+        for (out, white) in cases {
+            let d = out.depth().bits();
+            assert_eq!(out.get_pixel(0, 0), Some(white), "clear bit at {d} bpp");
+            assert_eq!(out.get_pixel(1, 0), Some(0), "set bit at {d} bpp");
+        }
+
+        // 32 bpp carries the same polarity as an RGB triple.
+        let rgb = pix.convert_to_32().unwrap();
+        assert_eq!(rgb.get_pixel(0, 0).unwrap() & 0xffff_ff00, 0xffff_ff00);
+        assert_eq!(rgb.get_pixel(1, 0).unwrap() & 0xffff_ff00, 0);
+    }
+
+    #[test]
+    #[ignore = "not yet implemented"]
     fn test_convert_to_2_from_1bpp() {
         let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -4064,10 +4095,12 @@ mod tests {
         pm.set_pixel_unchecked(1, 0, 1);
         let pix: Pix = pm.into();
 
+        // C: pixConvert1To2(NULL, pixs, 3, 0) — the 1 bpp foreground bit is
+        // ink, so it becomes black (0) and the background becomes white (3).
         let result = pix.convert_to_2().unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit2);
-        assert_eq!(result.get_pixel(0, 0), Some(0));
-        assert_eq!(result.get_pixel(1, 0), Some(3));
+        assert_eq!(result.get_pixel(0, 0), Some(3));
+        assert_eq!(result.get_pixel(1, 0), Some(0));
     }
 
     #[test]
@@ -4176,6 +4209,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "not yet implemented"]
     fn test_convert_to_4_from_1bpp() {
         let pix = Pix::new(4, 1, PixelDepth::Bit1).unwrap();
         let mut pm = pix.try_into_mut().unwrap();
@@ -4183,10 +4217,11 @@ mod tests {
         pm.set_pixel_unchecked(1, 0, 1);
         let pix: Pix = pm.into();
 
+        // C: pixConvert1To4(NULL, pixs, 15, 0) — same polarity as 1 -> 2.
         let result = pix.convert_to_4().unwrap();
         assert_eq!(result.depth(), PixelDepth::Bit4);
-        assert_eq!(result.get_pixel(0, 0), Some(0));
-        assert_eq!(result.get_pixel(1, 0), Some(15));
+        assert_eq!(result.get_pixel(0, 0), Some(15));
+        assert_eq!(result.get_pixel(1, 0), Some(0));
     }
 
     #[test]
