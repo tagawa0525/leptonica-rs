@@ -357,6 +357,12 @@ region	ccbord	10	ccbord_c	11	ccbord dreyfus1 border pixels after .ccb round trip
 region	ccbord	11	ccbord_c	12	ccbord dreyfus1 image reconstruction after .ccb round trip
 region	ccbord	12	ccbord_c	13	ccbord dreyfus1 single path border pixels
 region	ccbord	13	ccbord_c	14	ccbord dreyfus1 svg string
+region	grayfill	2	gfill_inv	3	grayfill seedfill_gray_inv 4-way (older test path)
+region	grayfill	3	gfill_inv	6	grayfill seedfill_gray_inv 8-way (older test path)
+region	grayfill	9	gfill_std	3	grayfill seedfill_gray 4-way (older test path)
+region	grayfill	10	gfill_std	6	grayfill seedfill_gray 8-way (older test path)
+region	grayfill	15	gfill_basin	3	grayfill seedfill_gray_basin 4-way (older test path)
+region	grayfill	16	gfill_basin	6	grayfill seedfill_gray_basin 8-way (older test path)
 
 # lineremoval_reg.c (plan 902 PR 20): dave-orig.png line removal pipeline
 recog	lineremoval	0	lineremoval_c	1	threshold to binary 170

@@ -238,13 +238,14 @@ fn grayfill_reg_hybrid_comparison() {
 
 /// C-comparable gray seedfill series (plan 902 PR 18).
 ///
-/// Mirrors C grayfill_reg checks 0-12 and 19-34 exactly: the same
-/// synthetic 200x200 masks and seeds, the same 4- and 8-connected fills,
-/// thresholds and `display_tiled_in_columns` layouts, plus the four
-/// hybrid-vs-simple equality sets.
+/// Mirrors all 27 golden outputs of C `grayfill_reg`: the same synthetic
+/// 200x200 masks and seeds, the same 4- and 8-connected fills, thresholds
+/// and `display_tiled_in_columns` layouts, the basin fill seeded from the
+/// local minima, and the four hybrid-vs-simple equality sets.
 ///
-/// C checks 13-18 need `pixLocalExtrema`, whose Rust counterpart takes
-/// different parameters (see plan 902 PR 18), so they are not paired yet.
+/// C writes at indices 0-18 and then, from its `PixTestEqual` helper, at the
+/// odd indices 19-33; the helper's even indices are `regTestComparePix`
+/// calls, which produce no golden.
 #[test]
 fn grayfill_c_compat() {
     use leptonica::{Pix, Pixa, PixelDepth};
