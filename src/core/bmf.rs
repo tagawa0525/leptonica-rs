@@ -1016,12 +1016,9 @@ impl Bmf {
     ///
     /// Out-of-range values are **clamped to a sensible mid-range substitute**
     /// (e.g. 8 bpp `> 255` becomes `128`, 32 bpp `< 256` becomes mid-grey
-    /// `0x80808000`). This matches the C version of
-    /// `pixAddSingleTextblock`. Note this differs from
-    /// [`Bmf::set_textline`] / [`Bmf::add_textlines`], which delegate to
-    /// `paint_through_mask` and therefore *wrap* (bitmask) out-of-range
-    /// values rather than clamp. Callers mixing the two APIs should pass a
-    /// `val` within the depth's range to get identical behaviour.
+    /// `0x80808000`), matching C `pixAddSingleTextblock()`.
+    /// [`Bmf::set_textline`] and [`Bmf::add_textlines`] clamp identically, so
+    /// the three take `val` the same way.
     ///
     /// # See also
     ///
@@ -1043,21 +1040,7 @@ impl Bmf {
         }
 
         let depth = pix.depth();
-        // Clamp val to a sensible mid-range substitute when out of range
-        // (matches C pixAddSingleTextblock). For colormapped 2/4/8 bpp
-        // images val is a color, not an index, so C skips the clamp there.
-        // See the doc comment above for the difference vs set_textline /
-        // add_textlines, which wrap.
-        let cmapped = pix.has_colormap();
-        let val = match depth {
-            PixelDepth::Bit1 if val > 1 => 1,
-            PixelDepth::Bit2 if val > 3 && !cmapped => 2,
-            PixelDepth::Bit4 if val > 15 && !cmapped => 8,
-            PixelDepth::Bit8 if val > 0xff && !cmapped => 128,
-            PixelDepth::Bit16 if val > 0xffff => 0x8000,
-            PixelDepth::Bit32 if val < 256 => 0x80808000,
-            _ => val,
-        };
+        let val = normalize_text_value(val, depth, pix.has_colormap());
 
         let w = pix.width();
         let h = pix.height();

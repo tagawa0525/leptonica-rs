@@ -217,6 +217,38 @@ fn bmf_set_textline_resolves_against_colormap() {
     );
 }
 
+/// The three text APIs document that they take `val` the same way. Guard that:
+/// an out-of-range value must clamp to the same substitute in each.
+#[test]
+fn bmf_text_apis_clamp_value_alike() {
+    let bmf = Bmf::new(6).unwrap();
+    let pix = Pix::new(200, 60, PixelDepth::Bit8).unwrap();
+
+    let painted = |p: &Pix| -> Vec<u32> {
+        let mut vals: Vec<u32> = (0..p.height())
+            .flat_map(|y| (0..p.width()).map(move |x| (x, y)))
+            .map(|(x, y)| p.get_pixel_unchecked(x, y))
+            .filter(|v| *v != 0)
+            .collect();
+        vals.dedup();
+        vals.sort_unstable();
+        vals.dedup();
+        vals
+    };
+
+    let (line, _) = bmf.set_textline(&pix, "Hi", 5, 20, 0x4090_e000).unwrap();
+    let (block, _) = bmf
+        .add_single_textblock(
+            &pix,
+            "Hi",
+            0x4090_e000,
+            leptonica::core::bmf::TextblockLocation::AtTop,
+        )
+        .unwrap();
+    assert_eq!(painted(&line), vec![128], "set_textline");
+    assert_eq!(painted(&block), vec![128], "add_single_textblock");
+}
+
 /// C normalises the requested value by depth before painting. On an 8 bpp
 /// image with no colormap, a value above 0xff becomes 128 rather than being
 /// truncated to its low byte. Measured against C: "Hi" at size 6 paints 140
