@@ -133,10 +133,16 @@ fn grayfill_reg_basin() {
     let w = mask.width();
     let h = mask.height();
 
-    // C: pixLocalExtrema(pixm, 0, 0, &pixmin, NULL);
-    // Rust requires min_max_size to be odd and >= 1; 0 in C means "no size filter"
-    let (pixmin, _pixmax) = local_extrema(&mask, 1, 0).expect("local_extrema");
+    // C: pixLocalExtrema(pixm, 0, 0, &pixmin, NULL). The second argument is
+    // the highest value a minimum may take, not a size filter; 0 selects C's
+    // default of 254. Passing 1 here rejected every candidate — the mask
+    // bottoms out at 20 — so the basin fill below ran with no seeds at all.
+    let (pixmin, _pixmax) = local_extrema(&mask, 0, 0).expect("local_extrema");
     assert_eq!(pixmin.depth(), PixelDepth::Bit1);
+    assert!(
+        pixmin.count_pixels() > 0,
+        "the basin fill needs a non-empty seed to be meaningful"
+    );
 
     // C: pixs3 = pixSeedfillGrayBasin(pixmin, pixm, 30, 4);
     let result4 = seedfill_gray_basin(&pixmin, &mask, 30, ConnectivityType::FourWay)
