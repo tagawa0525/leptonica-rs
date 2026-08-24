@@ -2308,7 +2308,7 @@ C の `poverflow` は移植していない。マッピングに不要で、戻�
 **副作用**: `conversion_from_32bpp.05` は `octcube_quant_from_cmap` の
 出力が変わるため manifest を再生成した (Unmapped で、C に近づく方向)。
 
-### PR 58: region の棚卸しと grayfill テスト不備の修正 (計画)
+### PR 58: region の棚卸しと grayfill テスト不備の修正 (実施済み)
 
 `region` binary の Unmapped 28 件を全件棚卸しする。
 
@@ -2363,7 +2363,26 @@ PNG 出力があっても入力が JPEG なら hash は原理的に一致しな�
 
 これで `region` の Unmapped は 0 になる。
 
-実施結果: (未実施)
+実施結果:
+
+- **region の Unmapped が 28 → 0**。Ok 511 → 517、Excluded 97 → 119
+- `region` はこれで全件が「Ok / 既知 Mismatch / 理由付き Excluded」の
+  いずれかに分類され、未着手が無い状態になった
+
+**`grayfill_reg_basin` の不備を修正した**。`local_extrema(&mask, 1, 0)` の
+第 2 引数を C と同じ 0 にした。1 では mask の最小値 20 が上限を超えるため
+極小が 1 つも返らず、basin fill を seed 空で呼んでいた。同じ状態に戻らない
+よう seed が非空であることを assert し、manifest を再生成した。
+
+**`gfill_*` 6 件をマッピングした**。`grayfill_c` と C キーは重複するが、
+古い方のテスト経路を検証する意味がある。実際これを張っていれば basin の
+不備は Mismatch として即座に出ていた。
+
+**`grayfill_c_compat` の doc の古い注記を削除した**。「check 13-18 は
+pixLocalExtrema の引数が違うので未対応」と書かれていたが、後続の PR で
+対応済みだった。basin テストの引数誤読と同じ誤解が元になっている。
+
+**22 件を Excluded に分離した** (内訳は上表)。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
