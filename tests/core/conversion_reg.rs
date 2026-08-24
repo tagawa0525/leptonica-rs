@@ -245,8 +245,14 @@ fn conversion_reg_from_32bpp() {
         .colormap()
         .expect("octree result must carry a colormap")
         .clone();
-    let pix_q = leptonica::color::quantize::octcube_quant_from_cmap(&pix32, &cmap, 8)
-        .expect("octcube_quant_from_cmap");
+    let pix_q = leptonica::color::quantize::octcube_quant_from_cmap(
+        &pix32,
+        &cmap,
+        8,
+        4,
+        leptonica::color::ColorDistance::Euclidean,
+    )
+    .expect("octcube_quant_from_cmap");
     rp.write_pix_and_check(&pix_q, ImageFormat::Png)
         .expect("check: conversion_from_32bpp octcube_quant_from_cmap");
 

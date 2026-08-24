@@ -8,7 +8,7 @@
 //! - pixQuantFromCmap, pixRemoveUnusedColors
 
 use leptonica::color::quantize::{
-    fixed_octcube_quant_256, median_cut_quant_mixed, octree_quant_by_population,
+    ColorDistance, fixed_octcube_quant_256, median_cut_quant_mixed, octree_quant_by_population,
     octree_quant_num_colors, quant_from_cmap, remove_unused_colors,
 };
 use leptonica::core::pixel;
@@ -201,7 +201,7 @@ fn test_quant_from_cmap_rgb() {
     cmap.add_rgb(255, 0, 0).unwrap();
     cmap.add_rgb(0, 255, 0).unwrap();
     cmap.add_rgb(0, 0, 255).unwrap();
-    let quantized = quant_from_cmap(&pix, &cmap, 2).unwrap();
+    let quantized = quant_from_cmap(&pix, &cmap, 2, 4, ColorDistance::Euclidean).unwrap();
     assert!(quantized.colormap().is_some());
     // Left third should map to red (index 0)
     let left = quantized.get_pixel_unchecked(5, 5);
@@ -226,7 +226,7 @@ fn test_quant_from_cmap_gray() {
     cmap.add_rgb(85, 85, 85).unwrap();
     cmap.add_rgb(170, 170, 170).unwrap();
     cmap.add_rgb(255, 255, 255).unwrap();
-    let quantized = quant_from_cmap(&pix, &cmap, 2).unwrap();
+    let quantized = quant_from_cmap(&pix, &cmap, 2, 4, ColorDistance::Euclidean).unwrap();
     assert!(quantized.colormap().is_some());
 }
 
@@ -234,7 +234,7 @@ fn test_quant_from_cmap_gray() {
 fn test_quant_from_cmap_invalid_depth() {
     let pix = Pix::new(10, 10, PixelDepth::Bit1).unwrap();
     let cmap = PixColormap::new(8).unwrap();
-    assert!(quant_from_cmap(&pix, &cmap, 2).is_err());
+    assert!(quant_from_cmap(&pix, &cmap, 2, 4, ColorDistance::Euclidean).is_err());
 }
 
 #[test]
@@ -249,8 +249,8 @@ fn test_quant_from_cmap_unsupported_mindepth() {
     cmap.add_rgb(0, 0, 0).unwrap();
     cmap.add_rgb(128, 128, 128).unwrap();
     cmap.add_rgb(255, 255, 255).unwrap();
-    assert!(quant_from_cmap(&pix, &cmap, 3).is_err());
-    assert!(quant_from_cmap(&pix, &cmap, 6).is_err());
+    assert!(quant_from_cmap(&pix, &cmap, 3, 4, ColorDistance::Euclidean).is_err());
+    assert!(quant_from_cmap(&pix, &cmap, 6, 4, ColorDistance::Euclidean).is_err());
 }
 
 #[test]
@@ -272,7 +272,7 @@ fn test_quant_from_cmap_colormapped_input() {
     let mut target_cmap = PixColormap::new(8).unwrap();
     target_cmap.add_rgb(200, 0, 0).unwrap(); // near red
     target_cmap.add_rgb(0, 200, 0).unwrap(); // near green
-    let quantized = quant_from_cmap(&pix, &target_cmap, 2).unwrap();
+    let quantized = quant_from_cmap(&pix, &target_cmap, 2, 4, ColorDistance::Euclidean).unwrap();
     assert!(quantized.colormap().is_some());
     // Red pixel should map to index 0, green to index 1
     assert_eq!(quantized.get_pixel_unchecked(0, 0), 0);

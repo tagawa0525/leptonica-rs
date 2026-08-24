@@ -4,9 +4,10 @@
 
 use crate::common::{RegParams, load_test_image};
 use leptonica::color::{
-    MedianCutOptions, OctreeOptions, few_colors_median_cut_quant_mixed, median_cut_quant,
-    median_cut_quant_simple, octcube_quant_from_cmap, octcube_quant_mixed_with_gray, octree_quant,
-    octree_quant_256, remove_unused_colors, threshold_to_4bpp,
+    ColorDistance, MedianCutOptions, OctreeOptions, few_colors_median_cut_quant_mixed,
+    median_cut_quant, median_cut_quant_simple, octcube_quant_from_cmap,
+    octcube_quant_mixed_with_gray, octree_quant, octree_quant_256, remove_unused_colors,
+    threshold_to_4bpp,
 };
 use leptonica::core::pixel;
 use leptonica::io::ImageFormat;
@@ -382,7 +383,8 @@ fn cmapquant_octcube_from_cmap() {
     cmap.add_rgba(128, 128, 128, 255).unwrap();
     cmap.add_rgba(255, 255, 255, 255).unwrap();
 
-    let result = octcube_quant_from_cmap(&pixs, &cmap, 4).expect("octcube_quant_from_cmap failed");
+    let result = octcube_quant_from_cmap(&pixs, &cmap, 4, 4, ColorDistance::Euclidean)
+        .expect("octcube_quant_from_cmap failed");
     let has_cmap = result.colormap().is_some();
     rp.compare_values(1.0, if has_cmap { 1.0 } else { 0.0 }, 0.0);
     rp.compare_values(pixs.width() as f64, result.width() as f64, 0.0);

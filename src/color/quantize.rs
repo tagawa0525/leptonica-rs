@@ -1010,6 +1010,17 @@ pub fn median_cut_quant_mixed(
 // Quantize to Existing Colormap
 // =============================================================================
 
+/// Distance metric used when matching a color against colormap entries.
+///
+/// C Leptonica: `L_MANHATTAN_DISTANCE` / `L_EUCLIDEAN_DISTANCE`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorDistance {
+    /// Sum of the absolute per-channel differences.
+    Manhattan,
+    /// Sum of the squared per-channel differences.
+    Euclidean,
+}
+
 /// Quantize an image to a pre-existing colormap.
 ///
 /// Maps each pixel to the nearest color in the provided colormap using
@@ -1018,7 +1029,14 @@ pub fn median_cut_quant_mixed(
 /// # See also
 ///
 /// C Leptonica: `pixQuantFromCmap()` in `colorquant1.c`
-pub fn quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
+pub fn quant_from_cmap(
+    pix: &Pix,
+    cmap: &PixColormap,
+    mindepth: u32,
+    level: u32,
+    metric: ColorDistance,
+) -> ColorResult<Pix> {
+    let _ = (level, metric);
     let depth = pix.depth();
     if !matches!(depth, PixelDepth::Bit8 | PixelDepth::Bit32) {
         return Err(ColorError::UnsupportedDepth {
@@ -1715,7 +1733,14 @@ pub fn fixed_octcube_quant_gen_rgb(pix: &Pix, level: u32) -> ColorResult<Pix> {
 /// # See also
 ///
 /// C Leptonica: `pixOctcubeQuantFromCmap()` in `colorquant1.c`
-pub fn octcube_quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
+pub fn octcube_quant_from_cmap(
+    pix: &Pix,
+    cmap: &PixColormap,
+    mindepth: u32,
+    level: u32,
+    metric: ColorDistance,
+) -> ColorResult<Pix> {
+    let _ = (level, metric);
     if pix.depth() != PixelDepth::Bit32 {
         return Err(ColorError::UnsupportedDepth {
             expected: "32 bpp",
@@ -2148,5 +2173,87 @@ mod tests {
 
         let result = octree_quant_256(&pix);
         assert!(result.is_err());
+    }
+
+    /// Build a 1x1 32 bpp pix holding one colour, plus a colormap.
+    fn one_pixel(rgb: (u8, u8, u8), colors: &[(u8, u8, u8)]) -> (Pix, PixColormap) {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgb(rgb.0, rgb.1, rgb.2));
+        let mut cmap = PixColormap::new(4).unwrap();
+        for &(r, g, b) in colors {
+            cmap.add_rgb(r, g, b).unwrap();
+        }
+        (pm.into(), cmap)
+    }
+
+    /// C measures the distance from the *centre* of the pixel's octcube, not
+    /// from the pixel itself, so the nearest colormap entry to the pixel can
+    /// lose. Here (7,0,0) sits in the level-5 cube centred on (4,4,4):
+    /// exact-nearest picks (10,0,0), C picks (0,0,0).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_octcube_quant_from_cmap_measures_from_octcube_centre() {
+        let (pix, cmap) = one_pixel((7, 0, 0), &[(0, 0, 0), (10, 0, 0)]);
+        assert_eq!(
+            cmap.find_nearest(7, 0, 0),
+            Some(1),
+            "exact nearest is entry 1"
+        );
+
+        let out = octcube_quant_from_cmap(&pix, &cmap, 4, 5, ColorDistance::Euclidean).unwrap();
+        assert_eq!(out.get_pixel_unchecked(0, 0), 0);
+    }
+
+    /// The metric argument is not decorative: from the centre (4,4,4),
+    /// (16,4,4) is closer under Manhattan (12 vs 14) while (11,11,4) is
+    /// closer under Euclidean (98 vs 144).
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_octcube_quant_from_cmap_honours_metric() {
+        let colors = [(16, 4, 4), (11, 11, 4)];
+        let (pix, cmap) = one_pixel((2, 2, 2), &colors);
+
+        let manhattan =
+            octcube_quant_from_cmap(&pix, &cmap, 4, 5, ColorDistance::Manhattan).unwrap();
+        assert_eq!(manhattan.get_pixel_unchecked(0, 0), 0);
+
+        let euclidean =
+            octcube_quant_from_cmap(&pix, &cmap, 4, 5, ColorDistance::Euclidean).unwrap();
+        assert_eq!(euclidean.get_pixel_unchecked(0, 0), 1);
+    }
+
+    /// C snaps the darkest and lightest octcubes onto a near-black / near-white
+    /// colormap entry when one exists. Both pixels here are nearest the
+    /// mid-grey entry, but they fall in the extreme level-1 cubes, so C hands
+    /// them to the near-black / near-white entry instead.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_octcube_quant_from_cmap_snaps_black_and_white() {
+        let (black_pix, dark_cmap) = one_pixel((60, 60, 60), &[(80, 80, 80), (3, 3, 3)]);
+        assert_eq!(dark_cmap.find_nearest(60, 60, 60), Some(0), "exact nearest");
+        let out = octcube_quant_from_cmap(&black_pix, &dark_cmap, 4, 1, ColorDistance::Euclidean)
+            .unwrap();
+        assert_eq!(out.get_pixel_unchecked(0, 0), 1);
+
+        let (white_pix, light_cmap) =
+            one_pixel((200, 200, 200), &[(180, 180, 180), (252, 252, 252)]);
+        assert_eq!(
+            light_cmap.find_nearest(200, 200, 200),
+            Some(0),
+            "exact nearest"
+        );
+        let out = octcube_quant_from_cmap(&white_pix, &light_cmap, 4, 1, ColorDistance::Euclidean)
+            .unwrap();
+        assert_eq!(out.get_pixel_unchecked(0, 0), 1);
+    }
+
+    /// C restricts `level` to 1..=6 and rejects anything else outright.
+    #[test]
+    #[ignore = "not yet implemented"]
+    fn test_octcube_quant_from_cmap_rejects_out_of_range_level() {
+        let (pix, cmap) = one_pixel((7, 0, 0), &[(0, 0, 0), (10, 0, 0)]);
+        assert!(octcube_quant_from_cmap(&pix, &cmap, 4, 0, ColorDistance::Euclidean).is_err());
+        assert!(octcube_quant_from_cmap(&pix, &cmap, 4, 7, ColorDistance::Euclidean).is_err());
     }
 }

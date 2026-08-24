@@ -402,7 +402,7 @@ fn test_fixed_octcube_quant_gen_rgb() {
 
 #[test]
 fn test_octcube_quant_from_cmap() {
-    use leptonica::color::quantize::octcube_quant_from_cmap;
+    use leptonica::color::quantize::{ColorDistance, octcube_quant_from_cmap};
     use leptonica::core::PixColormap;
 
     let pix = make_tricolor(60, 60);
@@ -410,7 +410,7 @@ fn test_octcube_quant_from_cmap() {
     cmap.add_rgb(255, 0, 0).unwrap();
     cmap.add_rgb(0, 255, 0).unwrap();
     cmap.add_rgb(0, 0, 255).unwrap();
-    let result = octcube_quant_from_cmap(&pix, &cmap, 2);
+    let result = octcube_quant_from_cmap(&pix, &cmap, 2, 4, ColorDistance::Euclidean);
     assert!(result.is_ok());
     let pixd = result.unwrap();
     assert!(pixd.colormap().is_some());
