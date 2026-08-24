@@ -2206,7 +2206,7 @@ C の reg test は `showall=1` で呼ぶので、**3 枚並べる経路の移植
 
 `test-rgba.bmp` (113x45) の往復で C の 324x188 montage と pixel 完全一致。
 
-### PR 57: writetext のマッピング (計画)
+### PR 57: writetext のマッピング (実施済み)
 
 `io` binary の残り Unmapped から `writetext_reg.c` を対象にする。
 
@@ -2273,7 +2273,40 @@ C の `pixSetTextline` は描画前に
 
 Rust 版はこの前処理が無く、`overflow` 出力も持たない。
 
-実施結果: (未実施)
+実施結果:
+
+- **2 ペア全件 Ok** (Ok 509 → 511、io 17 → 19)
+
+**`quant_from_cmap` を C の octcube 経路にした**:
+
+- depth で振り分けるだけの関数にし、32bpp は `octcube_quant_from_cmap`
+  へ委譲する
+- `cmap_to_octcube_lut` を新設。octcube 中心から metric で測った最近傍を
+  LUT に詰め、cmap に真の黒・白があれば最暗・最明 octcube をそこへ
+  寄せ直す
+- `octcube_quant_from_cmap` は LUT を作って LUT 版に渡すだけにした。
+  LUT 版は level 4 決め打ちをやめて呼び出し側から受け取る。これで両者に
+  重複していた本体ループが 1 つになった
+
+8bpp 経路は現状維持とし、C の `pixGrayQuantFromCmap` とは別物である
+(cmap 付き入力はコピーを返す、gray 距離で測る) ことを doc の
+「Divergence from C」に明記した。マップ済みの C golden がこの経路を
+通らないため、今回の範囲外とした。
+
+**`set_textline` に C の前処理 2 つを入れた**:
+
+- `normalize_text_value`: depth に対して大きすぎる値を、切り詰めではなく
+  可読な中間値に寄せる
+- `resolve_cmap_color`: `pixcmapAddNearestColor` 相当。空きがあれば要求色、
+  満杯なら既存の最近傍を返す。**満杯の cmap がエラーにならなくなった**
+
+`add_single_textblock` にあった同じ色解決は不要になったので削除した。
+
+C の `poverflow` は移植していない。マッピングに不要で、戻り値の形を
+もう一度変える価値がないため。doc に乖離として明記した。
+
+**副作用**: `conversion_from_32bpp.05` は `octcube_quant_from_cmap` の
+出力が変わるため manifest を再生成した (Unmapped で、C に近づく方向)。
 
 ### PR 37 以降: semantic マッピングの漸進追加
 
