@@ -54,21 +54,24 @@ Phase 1 / Phase 1.5 / Phase 2 / Phase 2.5 / Phase 3 (一連の PR #377〜) で
 
 | 状態        | 件数    | 説明                                                                                                                                                   |
 | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ✅ Ok       | **517** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +473)                                                                       |
+| ✅ Ok       | **531** | C 版と pixel-level 完全一致 (Phase 2.5 で +10、Phase 3 で +12、plan 902 で +487)                                                                       |
 | ⚠️ Mismatch | **29**  | 内訳: JPEG codec 差 21 件 (finding 001) + dither 4 件 (finding 008) + seedspread 2 件 (finding 006 残) + gifio 2 件 (finding 007)                      |
 | ⛔ MissingC | **0**   | (PR #381 / Phase 1.5 で解消)                                                                                                                           |
-| 📭 Unmapped | **361** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 389 → 361)                                                                    |
-| 🚫 Excluded | **119** | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。jpg/jpeg 45 + pdf/ps 8 + distance 26 + falsecolor 4 + boxa3 12 + newspaper 2 + region 22            |
+| 📭 Unmapped | **327** | `scripts/golden_map.tsv` 未登録かつマップ可能 (Phase 3 進行中、520 → … → 361 → 327)                                                                    |
+| 🚫 Excluded | **153** | 設計上マップ不能 (`scripts/c_compat_exclude.tsv`)。内訳は下記                                                                                          |
 
-合計 1026 entries がレポート対象 (As of 2026-08-24、plan 902 PR 58 後)。
-Rust manifest (`tests/golden_manifest.tsv`) 全体は **1033 entries** (コメント 2 行を除く)。
+Excluded の内訳: jpg/jpeg 45 + pdf/ps 8 + distance 系 26 + falsecolor 4 +
+boxa3 display 12 + newspaper random cmap 2 + region 棚卸し 22 + core 棚卸し 34。
+
+合計 1040 entries がレポート対象 (As of 2026-08-24、plan 902 PR 59 後)。
+Rust manifest (`tests/golden_manifest.tsv`) 全体は **1047 entries** (コメント 2 行を除く)。
 
 ## test binary 別の内訳
 
 | Binary      |      Ok | Mismatch | MissingC | Unmapped | Excluded |
 | ----------- | ------: | -------: | -------: | -------: | -------: |
 | `color`     |      62 |        4 |        0 |      108 |        4 |
-| `core`      |      41 |        0 |        0 |       34 |       12 |
+| `core`      |      55 |        0 |        0 |    **0** |       46 |
 | `filter`    |       8 |        5 |        0 |       54 |       40 |
 | `io`        |      19 |        2 |        0 |       41 |       10 |
 | `morph`     |  **37** |   **16** |        0 |        9 |        0 |
