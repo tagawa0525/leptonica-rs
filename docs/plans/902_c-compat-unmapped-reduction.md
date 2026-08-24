@@ -2384,6 +2384,59 @@ pixLocalExtrema の引数が違うので未対応」と書かれていたが、�
 
 **22 件を Excluded に分離した** (内訳は上表)。
 
+### PR 59: conversion のマッピングと 1bpp 変換の反転修正 (計画)
+
+`core` binary の Unmapped 34 件を棚卸しする。
+
+**`conversion_reg.c` が最大の塊**。C 側 golden は 16 件 (index 16-31) で、
+`pixConvertTo2` と `pixConvertTo4` を 8 種類の入力に適用したもの。うち
+JPEG 入力・JPEG 出力の 4 件を除いた **12 件が lossless** で狙える。
+
+| C golden | 変換 | 入力 |
+| --- | --- | --- |
+| 16-20, 22 | `pixConvertTo2` | test1.png / dreyfus2.png / weasel2.4c.png / weasel4.16g.png / weasel4.11c.png / weasel8.240c.png |
+| 24-28, 30 | `pixConvertTo4` | 同上 |
+| 21, 23, 29, 31 | 同上 | karen8.jpg / marge.jpg (対象外) |
+
+**先行検証で実装バグを 1 件見つけた**。12 件のうち 10 件は即一致したが、
+**1bpp 入力の 2 件 (16 と 24) が全画素相違**した。
+
+C は 1bpp を変換するとき値を反転させる:
+
+```c
+pixd = pixConvert1To2(NULL, pix2, 3, 0);   /* pixConvertTo2 */
+pixd = pixConvert1To4(NULL, pix2, 15, 0);  /* pixConvertTo4 */
+```
+
+1bpp の前景 (bit 1 = 黒インク) を 2/4bpp の 0 (黒) に、背景 (bit 0) を
+最大値 (白) に対応させる。Rust 版は `convert_1_to_2(0, 3)` /
+`convert_1_to_4(0, 15)` と **引数が逆**だった。
+
+これは C との差であると同時に、**同じモジュール内の兄弟関数との不整合**
+でもある。`convert_to_8` / `convert_to_16` / `convert_to_32` はいずれも
+0 → 白、1 → 黒 と正しく変換しており、C の `(255, 0)` / `(0xffff, 0)` /
+`(0xffffffff, 0)` と一致している。2 と 4 だけが逆を向いていた。
+
+ヘルパ `convert_1_to_2(val0, val1)` 自体の意味付けは C と同じなので、
+修正は呼び出し 2 か所の引数入れ替えで済む。
+
+**残りの内訳**:
+
+| prefix | 件数 | 扱い |
+| --- | --: | --- |
+| `conversion_*` | 10 | 上記 `conversion_c_compat` で対応 |
+| `equal_*` | 10 | C の `equal_reg.c` は golden を 1 件も書かない → Excluded |
+| `hash` | 2 | C の `hash_reg.c` は golden を 1 件も書かない → Excluded |
+| `insert_*` | 2 | C の `insert_reg.c` は golden を 1 件も書かない → Excluded |
+| `boxa3` | 3 | 未調査 |
+| `pixcomp_rt` | 3 | 未調査 |
+| `compare_*` | 3 | 未調査 |
+| `fpix1_pix` | 1 | 未調査 |
+
+未調査の 10 件はこの PR の範囲外とし、次の PR に回す。
+
+実施結果: (未実施)
+
 ### PR 37 以降: semantic マッピングの漸進追加
 
 Phase 3 と同じ進め方 (1 PR あたり 5〜20 ペア + 必要に応じて finding)。
