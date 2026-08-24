@@ -1010,23 +1010,70 @@ pub fn median_cut_quant_mixed(
 // Quantize to Existing Colormap
 // =============================================================================
 
+/// Distance metric used when matching a color against colormap entries.
+///
+/// C Leptonica: `L_MANHATTAN_DISTANCE` / `L_EUCLIDEAN_DISTANCE`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorDistance {
+    /// Sum of the absolute per-channel differences.
+    Manhattan,
+    /// Sum of the squared per-channel differences.
+    Euclidean,
+}
+
+impl ColorDistance {
+    /// Distance between two RGB triples under this metric.
+    ///
+    /// Distances are only ever compared with each other, so the Euclidean
+    /// case returns the squared distance and skips the square root, as C does.
+    fn between(self, a: (i32, i32, i32), b: (i32, i32, i32)) -> i32 {
+        let (dr, dg, db) = (a.0 - b.0, a.1 - b.1, a.2 - b.2);
+        match self {
+            ColorDistance::Manhattan => dr.abs() + dg.abs() + db.abs(),
+            ColorDistance::Euclidean => dr * dr + dg * dg + db * db,
+        }
+    }
+}
+
 /// Quantize an image to a pre-existing colormap.
 ///
-/// Maps each pixel to the nearest color in the provided colormap using
-/// Euclidean distance in RGB space. Accepts 8bpp grayscale or 32bpp RGB.
+/// Dispatches on the input depth exactly as C does: 8 bpp goes through the
+/// grayscale path, 32 bpp through [`octcube_quant_from_cmap`], and anything
+/// else is rejected.
+///
+/// # Divergence from C
+///
+/// C's 8 bpp branch is `pixGrayQuantFromCmap()`, which returns a plain copy
+/// when the input already carries a colormap and matches on gray level alone.
+/// The 8 bpp path here instead re-maps through the source colormap using RGB
+/// distance. That difference predates this function's C alignment and is not
+/// exercised by any mapped C golden output, so it is left as is.
 ///
 /// # See also
 ///
 /// C Leptonica: `pixQuantFromCmap()` in `colorquant1.c`
-pub fn quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
-    let depth = pix.depth();
-    if !matches!(depth, PixelDepth::Bit8 | PixelDepth::Bit32) {
-        return Err(ColorError::UnsupportedDepth {
+pub fn quant_from_cmap(
+    pix: &Pix,
+    cmap: &PixColormap,
+    mindepth: u32,
+    level: u32,
+    metric: ColorDistance,
+) -> ColorResult<Pix> {
+    match pix.depth() {
+        PixelDepth::Bit8 => gray_quant_from_cmap_nearest(pix, cmap, mindepth),
+        PixelDepth::Bit32 => octcube_quant_from_cmap(pix, cmap, mindepth, level, metric),
+        depth => Err(ColorError::UnsupportedDepth {
             expected: "8 or 32 bpp",
             actual: depth.bits(),
-        });
+        }),
     }
+}
 
+/// Map an 8 bpp image onto `cmap` by nearest RGB colour.
+///
+/// See the divergence note on [`quant_from_cmap`]: this is not a port of C's
+/// `pixGrayQuantFromCmap()`.
+fn gray_quant_from_cmap_nearest(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
     if cmap.is_empty() {
         return Err(ColorError::InvalidParameters(
             "colormap must not be empty".into(),
@@ -1072,52 +1119,39 @@ pub fn quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorRes
     let mut out_mut = out.try_into_mut().unwrap();
     out_mut.set_colormap(Some(out_cmap))?;
 
-    if depth == PixelDepth::Bit8 {
-        if let Some(src_cmap) = pix.colormap() {
-            // 8bpp colormapped: build LUT over source colormap indices
-            let src_len = src_cmap.len();
-            let mut lut = vec![0u32; src_len];
-            for (i, entry) in lut.iter_mut().enumerate() {
-                if let Some((r, g, b)) = src_cmap.get_rgb(i)
-                    && let Some(idx) = cmap.find_nearest(r, g, b)
-                {
-                    *entry = idx as u32;
-                }
+    if let Some(src_cmap) = pix.colormap() {
+        // 8bpp colormapped: build LUT over source colormap indices
+        let src_len = src_cmap.len();
+        let mut lut = vec![0u32; src_len];
+        for (i, entry) in lut.iter_mut().enumerate() {
+            if let Some((r, g, b)) = src_cmap.get_rgb(i)
+                && let Some(idx) = cmap.find_nearest(r, g, b)
+            {
+                *entry = idx as u32;
             }
+        }
 
-            for y in 0..h {
-                for x in 0..w {
-                    let idx = pix.get_pixel_unchecked(x, y) as usize;
-                    let new_idx = if idx < lut.len() { lut[idx] } else { 0 };
-                    out_mut.set_pixel_unchecked(x, y, new_idx);
-                }
-            }
-        } else {
-            // Grayscale: build LUT for 256 gray values
-            let mut lut = [0u32; 256];
-            for val in 0u16..256 {
-                let v = val as u8;
-                if let Some(idx) = cmap.find_nearest(v, v, v) {
-                    lut[val as usize] = idx as u32;
-                }
-            }
-
-            for y in 0..h {
-                for x in 0..w {
-                    let val = pix.get_pixel_unchecked(x, y) as usize;
-                    out_mut.set_pixel_unchecked(x, y, lut[val.min(255)]);
-                }
+        for y in 0..h {
+            for x in 0..w {
+                let idx = pix.get_pixel_unchecked(x, y) as usize;
+                let new_idx = if idx < lut.len() { lut[idx] } else { 0 };
+                out_mut.set_pixel_unchecked(x, y, new_idx);
             }
         }
     } else {
-        // RGB: map each pixel to nearest
+        // Grayscale: build LUT for 256 gray values
+        let mut lut = [0u32; 256];
+        for val in 0u16..256 {
+            let v = val as u8;
+            if let Some(idx) = cmap.find_nearest(v, v, v) {
+                lut[val as usize] = idx as u32;
+            }
+        }
+
         for y in 0..h {
             for x in 0..w {
-                let pixel = pix.get_pixel_unchecked(x, y);
-                let (r, g, b) = pixel::extract_rgb(pixel);
-                if let Some(idx) = cmap.find_nearest(r, g, b) {
-                    out_mut.set_pixel_unchecked(x, y, idx as u32);
-                }
+                let val = pix.get_pixel_unchecked(x, y) as usize;
+                out_mut.set_pixel_unchecked(x, y, lut[val.min(255)]);
             }
         }
     }
@@ -1707,78 +1741,105 @@ pub fn fixed_octcube_quant_gen_rgb(pix: &Pix, level: u32) -> ColorResult<Pix> {
 // Octcube Quantization from Existing Colormap
 // =============================================================================
 
-/// Quantize a 32bpp RGB image using an existing colormap via nearest-color search.
+/// Build the octcube-index to colormap-index lookup table.
 ///
-/// For each pixel, finds the nearest color in the colormap using Euclidean
-/// distance in RGB space. Output depth is determined by colormap size and mindepth.
+/// The colour space is divided into `2 ** (3 * level)` octcubes; each entry
+/// holds the colormap index nearest to that octcube's *centre* under `metric`.
+/// Ties go to the lower colormap index.
+///
+/// If the colormap holds a near-black or near-white colour, the darkest and
+/// lightest octcubes are snapped onto it afterwards, so that black stays black
+/// and white stays white even when a closer mid-tone exists.
 ///
 /// # See also
 ///
-/// C Leptonica: `pixOctcubeQuantFromCmap()` in `colorquant1.c`
-pub fn octcube_quant_from_cmap(pix: &Pix, cmap: &PixColormap, mindepth: u32) -> ColorResult<Pix> {
-    if pix.depth() != PixelDepth::Bit32 {
-        return Err(ColorError::UnsupportedDepth {
-            expected: "32 bpp",
-            actual: pix.depth().bits(),
-        });
-    }
+/// C Leptonica: `pixcmapToOctcubeLUT()` in `colorquant1.c`
+pub fn cmap_to_octcube_lut(
+    cmap: &PixColormap,
+    level: u32,
+    metric: ColorDistance,
+) -> ColorResult<Vec<u32>> {
     if cmap.is_empty() {
         return Err(ColorError::InvalidParameters(
             "colormap must not be empty".into(),
         ));
     }
-    if !matches!(mindepth, 2 | 4 | 8) {
+    if !(1..=6).contains(&level) {
         return Err(ColorError::InvalidParameters(format!(
-            "mindepth must be 2, 4, or 8; got {mindepth}"
+            "level must be in 1..=6; got {level}"
         )));
     }
 
-    let w = pix.width();
-    let h = pix.height();
+    let size = 1usize << (3 * level);
+    let colors: Vec<(i32, i32, i32)> = (0..cmap.len())
+        .filter_map(|i| cmap.get_rgb(i))
+        .map(|(r, g, b)| (i32::from(r), i32::from(g), i32::from(b)))
+        .collect();
 
-    let needed_depth = if cmap.len() <= 4 {
-        2
-    } else if cmap.len() <= 16 {
-        4
-    } else {
-        8
-    };
-    let out_depth_bits = needed_depth.max(mindepth);
-    let out_depth = match out_depth_bits {
-        2 => PixelDepth::Bit2,
-        4 => PixelDepth::Bit4,
-        _ => PixelDepth::Bit8,
-    };
-
-    let mut out_cmap = PixColormap::new(out_depth_bits)?;
-    for i in 0..cmap.len() {
-        if let Some((r, g, b)) = cmap.get_rgb(i) {
-            out_cmap.add_rgb(r, g, b)?;
-        }
-    }
-
-    let out = Pix::new(w, h, out_depth)?;
-    let mut out_mut = out.try_into_mut().unwrap();
-    out_mut.set_colormap(Some(out_cmap))?;
-
-    for y in 0..h {
-        for x in 0..w {
-            let pval = pix.get_pixel_unchecked(x, y);
-            let (r, g, b) = pixel::extract_rgb(pval);
-            if let Some(idx) = cmap.find_nearest(r, g, b) {
-                out_mut.set_pixel_unchecked(x, y, idx as u32);
+    let mut lut = vec![0u32; size];
+    for (index, entry) in lut.iter_mut().enumerate() {
+        let (cr, cg, cb) = octcube_center(index as u32, level);
+        let centre = (i32::from(cr), i32::from(cg), i32::from(cb));
+        let mut min_dist = i32::MAX;
+        for (k, &color) in colors.iter().enumerate() {
+            let dist = metric.between(centre, color);
+            if dist < min_dist {
+                min_dist = dist;
+                *entry = k as u32;
             }
         }
     }
 
-    Ok(out_mut.into())
+    // Keep true black and true white: the darkest octcube is index 0 and the
+    // lightest is the last one, in this indexing as well as in C's.
+    if let Some(index) = cmap.find_nearest(0, 0, 0)
+        && let Some((r, g, b)) = cmap.get_rgb(index)
+        && r < 7
+        && g < 7
+        && b < 7
+    {
+        lut[0] = index as u32;
+    }
+    if let Some(index) = cmap.find_nearest(255, 255, 255)
+        && let Some((r, g, b)) = cmap.get_rgb(index)
+        && r > 248
+        && g > 248
+        && b > 248
+    {
+        lut[size - 1] = index as u32;
+    }
+
+    Ok(lut)
 }
 
-/// Quantize using an existing colormap via octcube lookup table for speed.
+/// Quantize a 32bpp RGB image onto an existing colormap through octcubes.
 ///
-/// Builds a LUT mapping each octcube index (at level 4) to the nearest
-/// colormap entry, then uses it to map pixels. Faster than per-pixel
-/// nearest search for large images.
+/// Each pixel is placed in the octcube it falls into at `level`, and takes the
+/// colormap index that [`cmap_to_octcube_lut`] found nearest to that octcube's
+/// centre. Matching from the centre rather than from the pixel is what C does,
+/// and it is not the same as taking each pixel's own nearest colour.
+///
+/// Output depth is the larger of `mindepth` and what the colormap size needs.
+///
+/// # See also
+///
+/// C Leptonica: `pixOctcubeQuantFromCmap()` in `colorquant1.c`
+pub fn octcube_quant_from_cmap(
+    pix: &Pix,
+    cmap: &PixColormap,
+    mindepth: u32,
+    level: u32,
+    metric: ColorDistance,
+) -> ColorResult<Pix> {
+    let lut = cmap_to_octcube_lut(cmap, level, metric)?;
+    octcube_quant_from_cmap_lut(pix, cmap, mindepth, &lut, level)
+}
+
+/// Quantize a 32bpp RGB image with a caller-supplied octcube lookup table.
+///
+/// Split out from [`octcube_quant_from_cmap`] so that a single table can be
+/// reused across images, as C does. `lut` must be the table
+/// [`cmap_to_octcube_lut`] builds for `level`.
 ///
 /// # See also
 ///
@@ -1787,6 +1848,8 @@ pub fn octcube_quant_from_cmap_lut(
     pix: &Pix,
     cmap: &PixColormap,
     mindepth: u32,
+    lut: &[u32],
+    level: u32,
 ) -> ColorResult<Pix> {
     if pix.depth() != PixelDepth::Bit32 {
         return Err(ColorError::UnsupportedDepth {
@@ -1804,17 +1867,17 @@ pub fn octcube_quant_from_cmap_lut(
             "mindepth must be 2, 4, or 8; got {mindepth}"
         )));
     }
-
-    let lut_level = 4u32;
-    let lut_size = 1u32 << (3 * lut_level); // 4096
-
-    // Build LUT: for each octcube center, find nearest cmap entry
-    let mut lut = vec![0u32; lut_size as usize];
-    for i in 0..lut_size {
-        let (cr, cg, cb) = octcube_center(i, lut_level);
-        if let Some(idx) = cmap.find_nearest(cr, cg, cb) {
-            lut[i as usize] = idx as u32;
-        }
+    if !(1..=6).contains(&level) {
+        return Err(ColorError::InvalidParameters(format!(
+            "level must be in 1..=6; got {level}"
+        )));
+    }
+    let expected = 1usize << (3 * level);
+    if lut.len() != expected {
+        return Err(ColorError::InvalidParameters(format!(
+            "lut must hold {expected} entries for level {level}; got {}",
+            lut.len()
+        )));
     }
 
     let w = pix.width();
@@ -1849,8 +1912,8 @@ pub fn octcube_quant_from_cmap_lut(
         for x in 0..w {
             let pval = pix.get_pixel_unchecked(x, y);
             let (r, g, b) = pixel::extract_rgb(pval);
-            let idx = octcube_index(r, g, b, lut_level) as usize;
-            out_mut.set_pixel_unchecked(x, y, lut[idx]);
+            let index = octcube_index(r, g, b, level) as usize;
+            out_mut.set_pixel_unchecked(x, y, lut[index]);
         }
     }
 
@@ -2148,5 +2211,83 @@ mod tests {
 
         let result = octree_quant_256(&pix);
         assert!(result.is_err());
+    }
+
+    /// Build a 1x1 32 bpp pix holding one colour, plus a colormap.
+    fn one_pixel(rgb: (u8, u8, u8), colors: &[(u8, u8, u8)]) -> (Pix, PixColormap) {
+        let pix = Pix::new(1, 1, PixelDepth::Bit32).unwrap();
+        let mut pm = pix.try_into_mut().unwrap();
+        pm.set_pixel_unchecked(0, 0, pixel::compose_rgb(rgb.0, rgb.1, rgb.2));
+        let mut cmap = PixColormap::new(4).unwrap();
+        for &(r, g, b) in colors {
+            cmap.add_rgb(r, g, b).unwrap();
+        }
+        (pm.into(), cmap)
+    }
+
+    /// C measures the distance from the *centre* of the pixel's octcube, not
+    /// from the pixel itself, so the nearest colormap entry to the pixel can
+    /// lose. Here (7,0,0) sits in the level-5 cube centred on (4,4,4):
+    /// exact-nearest picks (10,0,0), C picks (0,0,0).
+    #[test]
+    fn test_octcube_quant_from_cmap_measures_from_octcube_centre() {
+        let (pix, cmap) = one_pixel((7, 0, 0), &[(0, 0, 0), (10, 0, 0)]);
+        assert_eq!(
+            cmap.find_nearest(7, 0, 0),
+            Some(1),
+            "exact nearest is entry 1"
+        );
+
+        let out = octcube_quant_from_cmap(&pix, &cmap, 4, 5, ColorDistance::Euclidean).unwrap();
+        assert_eq!(out.get_pixel_unchecked(0, 0), 0);
+    }
+
+    /// The metric argument is not decorative: from the centre (4,4,4),
+    /// (16,4,4) is closer under Manhattan (12 vs 14) while (11,11,4) is
+    /// closer under Euclidean (98 vs 144).
+    #[test]
+    fn test_octcube_quant_from_cmap_honours_metric() {
+        let colors = [(16, 4, 4), (11, 11, 4)];
+        let (pix, cmap) = one_pixel((2, 2, 2), &colors);
+
+        let manhattan =
+            octcube_quant_from_cmap(&pix, &cmap, 4, 5, ColorDistance::Manhattan).unwrap();
+        assert_eq!(manhattan.get_pixel_unchecked(0, 0), 0);
+
+        let euclidean =
+            octcube_quant_from_cmap(&pix, &cmap, 4, 5, ColorDistance::Euclidean).unwrap();
+        assert_eq!(euclidean.get_pixel_unchecked(0, 0), 1);
+    }
+
+    /// C snaps the darkest and lightest octcubes onto a near-black / near-white
+    /// colormap entry when one exists. Both pixels here are nearest the
+    /// mid-grey entry, but they fall in the extreme level-1 cubes, so C hands
+    /// them to the near-black / near-white entry instead.
+    #[test]
+    fn test_octcube_quant_from_cmap_snaps_black_and_white() {
+        let (black_pix, dark_cmap) = one_pixel((60, 60, 60), &[(80, 80, 80), (3, 3, 3)]);
+        assert_eq!(dark_cmap.find_nearest(60, 60, 60), Some(0), "exact nearest");
+        let out = octcube_quant_from_cmap(&black_pix, &dark_cmap, 4, 1, ColorDistance::Euclidean)
+            .unwrap();
+        assert_eq!(out.get_pixel_unchecked(0, 0), 1);
+
+        let (white_pix, light_cmap) =
+            one_pixel((200, 200, 200), &[(180, 180, 180), (252, 252, 252)]);
+        assert_eq!(
+            light_cmap.find_nearest(200, 200, 200),
+            Some(0),
+            "exact nearest"
+        );
+        let out = octcube_quant_from_cmap(&white_pix, &light_cmap, 4, 1, ColorDistance::Euclidean)
+            .unwrap();
+        assert_eq!(out.get_pixel_unchecked(0, 0), 1);
+    }
+
+    /// C restricts `level` to 1..=6 and rejects anything else outright.
+    #[test]
+    fn test_octcube_quant_from_cmap_rejects_out_of_range_level() {
+        let (pix, cmap) = one_pixel((7, 0, 0), &[(0, 0, 0), (10, 0, 0)]);
+        assert!(octcube_quant_from_cmap(&pix, &cmap, 4, 0, ColorDistance::Euclidean).is_err());
+        assert!(octcube_quant_from_cmap(&pix, &cmap, 4, 7, ColorDistance::Euclidean).is_err());
     }
 }

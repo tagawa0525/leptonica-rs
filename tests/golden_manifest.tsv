@@ -313,7 +313,7 @@ conversion_from_16bpp.05.png	ff9aba5ee2aaace0
 conversion_from_1bpp.07.png	ff9aba5ee2aaace0
 conversion_from_2bpp.05.png	536739402d73641e
 conversion_from_2bpp.06.png	b91f869985e607c6
-conversion_from_32bpp.05.png	6aa975402f2589f4
+conversion_from_32bpp.05.png	c13a4450dd91b892
 conversion_from_4bpp.03.png	8c4622c898aba76a
 conversion_from_4bpp.05.png	8f7b016c981b0817
 conversion_from_8bpp.04.png	ec49f79503b2cdfb
@@ -1018,6 +1018,8 @@ wordboxes_w44.03.tif	71d62f6f7364c54f
 writetext.01.png	2e30d417a33c2f10
 writetext.04.png	2e30d417a33c2f10
 writetext.09.png	ddc422504ca04064
+writetext_c.01.png	431983789923d600
+writetext_c.02.png	4768d8a145d1b645
 writetext_multi.03.png	2307521c58790d74
 writetext_multi.06.png	f991d48598a37314
 writetext_multi.08.png	2c0173d5cf733efa

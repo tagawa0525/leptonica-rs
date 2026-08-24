@@ -128,6 +128,7 @@ pub use threshold::{
 
 // Re-export quantization functions
 pub use quantize::{
+    ColorDistance,
     // Types
     MedianCutOptions,
     OctcubeTree,

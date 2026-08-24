@@ -402,7 +402,7 @@ fn test_fixed_octcube_quant_gen_rgb() {
 
 #[test]
 fn test_octcube_quant_from_cmap() {
-    use leptonica::color::quantize::octcube_quant_from_cmap;
+    use leptonica::color::quantize::{ColorDistance, octcube_quant_from_cmap};
     use leptonica::core::PixColormap;
 
     let pix = make_tricolor(60, 60);
@@ -410,7 +410,7 @@ fn test_octcube_quant_from_cmap() {
     cmap.add_rgb(255, 0, 0).unwrap();
     cmap.add_rgb(0, 255, 0).unwrap();
     cmap.add_rgb(0, 0, 255).unwrap();
-    let result = octcube_quant_from_cmap(&pix, &cmap, 2);
+    let result = octcube_quant_from_cmap(&pix, &cmap, 2, 4, ColorDistance::Euclidean);
     assert!(result.is_ok());
     let pixd = result.unwrap();
     assert!(pixd.colormap().is_some());
@@ -422,7 +422,8 @@ fn test_octcube_quant_from_cmap() {
 
 #[test]
 fn test_octcube_quant_from_cmap_lut() {
-    use leptonica::color::quantize::octcube_quant_from_cmap_lut;
+    use leptonica::color::ColorDistance;
+    use leptonica::color::quantize::{cmap_to_octcube_lut, octcube_quant_from_cmap_lut};
     use leptonica::core::PixColormap;
 
     let pix = make_tricolor(60, 60);
@@ -430,8 +431,12 @@ fn test_octcube_quant_from_cmap_lut() {
     cmap.add_rgb(255, 0, 0).unwrap();
     cmap.add_rgb(0, 255, 0).unwrap();
     cmap.add_rgb(0, 0, 255).unwrap();
-    let result = octcube_quant_from_cmap_lut(&pix, &cmap, 2);
+    let lut = cmap_to_octcube_lut(&cmap, 4, ColorDistance::Euclidean).unwrap();
+    let result = octcube_quant_from_cmap_lut(&pix, &cmap, 2, &lut, 4);
     assert!(result.is_ok());
+
+    // The table is sized for its level; handing it to another one is refused.
+    assert!(octcube_quant_from_cmap_lut(&pix, &cmap, 2, &lut, 5).is_err());
 }
 
 // ============================================================================

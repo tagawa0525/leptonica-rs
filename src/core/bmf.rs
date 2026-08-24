@@ -14,6 +14,7 @@
 //!
 //! C Leptonica: `bmf.c`, `textops.c`
 
+use crate::core::PixColormap;
 use crate::core::error::{Error, Result};
 use crate::core::pix::{Pix, PixelDepth};
 use crate::core::pixa::Pixa;
@@ -483,6 +484,41 @@ impl Bmf {
     }
 }
 
+/// Clamp a requested text colour to something the depth can express.
+///
+/// C picks a visible mid-range value rather than truncating, so that a caller
+/// passing an RGB colour to a shallow image still gets readable text.
+///
+/// C Leptonica: the depth ladder at the top of `pixSetTextline()`.
+fn normalize_text_value(val: u32, depth: PixelDepth, has_colormap: bool) -> u32 {
+    match depth {
+        PixelDepth::Bit1 if val > 1 => 1,
+        PixelDepth::Bit2 if val > 3 && !has_colormap => 2,
+        PixelDepth::Bit4 if val > 15 && !has_colormap => 8,
+        PixelDepth::Bit8 if val > 0xff && !has_colormap => 128,
+        PixelDepth::Bit16 if val > 0xffff => 0x8000,
+        PixelDepth::Bit32 if val < 256 => 0x8080_8000,
+        _ => val,
+    }
+}
+
+/// Resolve a colour against a colormap, as C `pixcmapAddNearestColor()` does.
+///
+/// Returns the colour actually available: the requested one when the colormap
+/// has it or has room for it, otherwise the nearest existing entry. The
+/// resolution runs on a scratch clone; the insertion into the destination is
+/// left to `paint_through_mask` (C `pixSetMaskedCmap`), which cannot fail
+/// afterwards because the resolved colour is one the colormap can hold.
+fn resolve_cmap_color(cmap: &PixColormap, val: u32) -> Result<u32> {
+    let (r, g, b) = crate::core::pixel::extract_rgb(val);
+    let mut scratch = cmap.clone();
+    let index = scratch.add_nearest_color(r, g, b)?;
+    let (r, g, b) = scratch
+        .get_rgb(index)
+        .ok_or_else(|| Error::InvalidParameter("invalid cmap index".into()))?;
+    Ok(crate::core::pixel::compose_rgb(r, g, b))
+}
+
 // ────────────────────────────────────────────────────────────────────
 //  Text rendering functions
 // ────────────────────────────────────────────────────────────────────
@@ -499,11 +535,19 @@ impl Bmf {
     /// * `text` — text to render (single line, newlines ignored)
     /// * `x` — starting x position
     /// * `y` — baseline y position
-    /// * `val` — pixel value to paint through the mask
+    /// * `val` — colour to paint. Normalised for the image depth, and for a
+    ///   colormapped image resolved against the colormap first: the colour is
+    ///   added when there is room, otherwise the nearest existing entry is
+    ///   used. A full colormap is therefore not an error.
     ///
     /// # Returns
     ///
     /// A new Pix with the text rendered, plus the rendered text width.
+    ///
+    /// # Divergence from C
+    ///
+    /// C also reports whether the line ran past the right edge, through its
+    /// `poverflow` out-parameter. That is not returned here.
     ///
     /// # See also
     ///
@@ -517,6 +561,11 @@ impl Bmf {
         val: u32,
     ) -> Result<(Pix, u32)> {
         let mut pm = pix.to_mut();
+        let val = normalize_text_value(val, pm.depth(), pm.has_colormap());
+        let val = match pm.colormap() {
+            Some(cmap) => resolve_cmap_color(cmap, val)?,
+            None => val,
+        };
         let mut xpos = x;
 
         for ch in text.chars() {
@@ -967,12 +1016,9 @@ impl Bmf {
     ///
     /// Out-of-range values are **clamped to a sensible mid-range substitute**
     /// (e.g. 8 bpp `> 255` becomes `128`, 32 bpp `< 256` becomes mid-grey
-    /// `0x80808000`). This matches the C version of
-    /// `pixAddSingleTextblock`. Note this differs from
-    /// [`Bmf::set_textline`] / [`Bmf::add_textlines`], which delegate to
-    /// `paint_through_mask` and therefore *wrap* (bitmask) out-of-range
-    /// values rather than clamp. Callers mixing the two APIs should pass a
-    /// `val` within the depth's range to get identical behaviour.
+    /// `0x80808000`), matching C `pixAddSingleTextblock()`.
+    /// [`Bmf::set_textline`] and [`Bmf::add_textlines`] clamp identically, so
+    /// the three take `val` the same way.
     ///
     /// # See also
     ///
@@ -994,21 +1040,7 @@ impl Bmf {
         }
 
         let depth = pix.depth();
-        // Clamp val to a sensible mid-range substitute when out of range
-        // (matches C pixAddSingleTextblock). For colormapped 2/4/8 bpp
-        // images val is a color, not an index, so C skips the clamp there.
-        // See the doc comment above for the difference vs set_textline /
-        // add_textlines, which wrap.
-        let cmapped = pix.has_colormap();
-        let val = match depth {
-            PixelDepth::Bit1 if val > 1 => 1,
-            PixelDepth::Bit2 if val > 3 && !cmapped => 2,
-            PixelDepth::Bit4 if val > 15 && !cmapped => 8,
-            PixelDepth::Bit8 if val > 0xff && !cmapped => 128,
-            PixelDepth::Bit16 if val > 0xffff => 0x8000,
-            PixelDepth::Bit32 if val < 256 => 0x80808000,
-            _ => val,
-        };
+        let val = normalize_text_value(val, depth, pix.has_colormap());
 
         let w = pix.width();
         let h = pix.height();
@@ -1056,25 +1088,6 @@ impl Bmf {
         let baseline_y = self
             .get_baseline(']')
             .unwrap_or(self.line_height().saturating_sub(1));
-
-        // C: if cmapped, resolve the requested color like
-        // pixcmapAddNearestColor does — the exact color when the colormap
-        // has room, else the nearest existing entry. Only the *resolution*
-        // happens here (on a scratch clone); the actual insertion into the
-        // destination colormap is done by paint_through_mask (C
-        // pixSetMaskedCmap), which cannot fail afterwards because a full
-        // colormap resolves to an entry that already exists.
-        let val = if let Some(cmap) = dest.colormap() {
-            let (r, g, b) = crate::core::pixel::extract_rgb(val);
-            let mut scratch = cmap.clone();
-            let index = scratch.add_nearest_color(r, g, b)?;
-            let (r, g, b) = scratch
-                .get_rgb(index)
-                .ok_or_else(|| Error::InvalidParameter("invalid cmap index".into()))?;
-            crate::core::pixel::compose_rgb(r, g, b)
-        } else {
-            val
-        };
 
         let ystart = match location {
             TextblockLocation::Above | TextblockLocation::AtTop => baseline_y + spacer,

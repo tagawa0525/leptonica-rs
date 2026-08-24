@@ -177,6 +177,103 @@ fn bmf_line_strings() {
 // Test 7: Render a single text line
 // ==========================================================================
 
+/// C `pixSetTextline()` resolves the requested colour against the
+/// destination colormap before painting: it adds the colour when there is
+/// room, and falls back to the nearest existing entry when the colormap is
+/// full. Expectations measured against C with a 15-entry grey colormap.
+#[test]
+fn bmf_set_textline_resolves_against_colormap() {
+    use leptonica::core::PixColormap;
+
+    let bmf = Bmf::new(6).unwrap();
+    let pix = Pix::new(300, 60, PixelDepth::Bit4).unwrap();
+    let mut pm = pix.try_into_mut().unwrap();
+    let mut cmap = PixColormap::new(4).unwrap();
+    for i in 0..15u8 {
+        cmap.add_rgb(i * 16, i * 16, i * 16).unwrap();
+    }
+    pm.set_colormap(Some(cmap)).unwrap();
+    let pix: Pix = pm.into();
+
+    // Room for one more colour: it is appended and used as-is.
+    let (after1, width) = bmf
+        .set_textline(&pix, "Hi", 10, 40, pixel::compose_rgb(64, 144, 224))
+        .expect("first textline");
+    assert_eq!(width, 28, "C reports width 28 for \"Hi\" at size 6");
+    let cmap1 = after1.colormap().expect("colormap survives");
+    assert_eq!(cmap1.len(), 16);
+    assert_eq!(cmap1.get_rgb(15), Some((64, 144, 224)));
+
+    // Now full: C reuses the nearest existing entry instead of failing.
+    let (after2, _) = bmf
+        .set_textline(&after1, "Hi", 10, 20, pixel::compose_rgb(224, 144, 64))
+        .expect("second textline must not fail on a full colormap");
+    let cmap2 = after2.colormap().expect("colormap survives");
+    assert_eq!(cmap2.len(), 16, "no room, so nothing is added");
+    assert_eq!(
+        cmap2.find_nearest(224, 144, 64),
+        Some(9),
+        "C resolves it to entry 9"
+    );
+}
+
+/// The three text APIs document that they take `val` the same way. Guard that:
+/// an out-of-range value must clamp to the same substitute in each.
+#[test]
+fn bmf_text_apis_clamp_value_alike() {
+    let bmf = Bmf::new(6).unwrap();
+    let pix = Pix::new(200, 60, PixelDepth::Bit8).unwrap();
+
+    let painted = |p: &Pix| -> Vec<u32> {
+        let mut vals: Vec<u32> = (0..p.height())
+            .flat_map(|y| (0..p.width()).map(move |x| (x, y)))
+            .map(|(x, y)| p.get_pixel_unchecked(x, y))
+            .filter(|v| *v != 0)
+            .collect();
+        vals.dedup();
+        vals.sort_unstable();
+        vals.dedup();
+        vals
+    };
+
+    let (line, _) = bmf.set_textline(&pix, "Hi", 5, 20, 0x4090_e000).unwrap();
+    let (block, _) = bmf
+        .add_single_textblock(
+            &pix,
+            "Hi",
+            0x4090_e000,
+            leptonica::core::bmf::TextblockLocation::AtTop,
+        )
+        .unwrap();
+    assert_eq!(painted(&line), vec![128], "set_textline");
+    assert_eq!(painted(&block), vec![128], "add_single_textblock");
+}
+
+/// C normalises the requested value by depth before painting. On an 8 bpp
+/// image with no colormap, a value above 0xff becomes 128 rather than being
+/// truncated to its low byte. Measured against C: "Hi" at size 6 paints 140
+/// pixels, all with value 128.
+#[test]
+fn bmf_set_textline_normalises_value_for_depth() {
+    let bmf = Bmf::new(6).unwrap();
+    let pix = Pix::new(100, 30, PixelDepth::Bit8).unwrap();
+    let (result, _) = bmf
+        .set_textline(&pix, "Hi", 5, 20, 0x4090_e000)
+        .expect("set_textline");
+
+    let mut painted = 0;
+    for y in 0..result.height() {
+        for x in 0..result.width() {
+            let v = result.get_pixel_unchecked(x, y);
+            if v != 0 {
+                assert_eq!(v, 128, "C normalises an out-of-range value to 128");
+                painted += 1;
+            }
+        }
+    }
+    assert_eq!(painted, 140);
+}
+
 #[test]
 fn bmf_set_textline() {
     let _rp = RegParams::new("bmf_set_textline");

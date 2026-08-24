@@ -179,3 +179,62 @@ fn writetext_reg_single_textblock() {}
 #[test]
 #[ignore = "pixaDisplayTiledInColumns not implemented"]
 fn writetext_reg_tiled_display() {}
+
+/// C-order counterpart of the second half of `prog/writetext_reg.c`.
+///
+/// The C source comments number these checks 5 and 6, but the loop above them
+/// runs four times, not five, so the golden files they produce are
+/// `writetext.04` and `writetext.05`.
+///
+/// The first half of the C test is not reproduced here: it renders over
+/// `lucasta.047.jpg`, and a JPEG input cannot hash-match across decoders
+/// (finding 001).
+#[test]
+fn writetext_c_compat() {
+    use leptonica::color::{ColorDistance, quantize::quant_from_cmap};
+    use leptonica::transform::{ScaleMethod, scale};
+
+    if crate::common::is_display_mode() {
+        return;
+    }
+
+    // C `writetext_reg.c:62`.
+    const COLORS: [u32; 6] = [
+        0x4090_e000,
+        0x40e0_9000,
+        0x9040_e000,
+        0x90e0_4000,
+        0xe040_9000,
+        0xe090_4000,
+    ];
+
+    let mut rp = RegParams::new("writetext_c");
+
+    let pixs = load_test_image("weasel4.11c.png").expect("load weasel4.11c.png");
+    let cmap = pixs
+        .colormap()
+        .expect("weasel4.11c.png is colormapped")
+        .clone();
+
+    // 4: scale away the colormap, then quantize back onto it.
+    let scaled = scale(&pixs, 8.0, 8.0, ScaleMethod::Auto).expect("scale 8x");
+    let mut quantized =
+        quant_from_cmap(&scaled, &cmap, 4, 5, ColorDistance::Euclidean).expect("quant_from_cmap");
+    rp.write_pix_and_check(&quantized, ImageFormat::Png)
+        .expect("write quantized");
+
+    // 5: six coloured lines. The 11-entry colormap fills up on the fifth, so
+    // the sixth colour has to fall back to the nearest entry already in it.
+    let bmf = Bmf::new(10).expect("create bmf");
+    for (i, color) in COLORS.iter().enumerate() {
+        let text = format!("This is textline {i}\n");
+        let (rendered, _) = bmf
+            .set_textline(&quantized, &text, 50, 120 + 60 * i as i32, *color)
+            .expect("set_textline");
+        quantized = rendered;
+    }
+    rp.write_pix_and_check(&quantized, ImageFormat::Png)
+        .expect("write text lines");
+
+    assert!(rp.cleanup(), "writetext c-compat test failed");
+}

@@ -381,6 +381,8 @@ io	iomisc	16	iomisc_c	7	convert_gray_to_colormap
 io	ioformats	5	ioformats_c	1	ioformats 32-24-32 round trip diff
 io	ioformats	7	ioformats_c	2	ioformats 24bpp via BMP file diff
 io	ioformats	9	ioformats_c	3	ioformats 24bpp via PNG file diff
+io	writetext	4	writetext_c	1	writetext quantize back onto the source colormap
+io	writetext	5	writetext_c	2	writetext six coloured lines, colormap fills up
 
 # boxa3_reg.c (plan 902 PR 22): boxap*.ba scaling and median reconciliation
 core	boxa3	0	boxa3_c	1	boxap1 scaled (serialized)
