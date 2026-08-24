@@ -2308,35 +2308,43 @@ C の `poverflow` は移植していない。マッピングに不要で、戻�
 **副作用**: `conversion_from_32bpp.05` は `octcube_quant_from_cmap` の
 出力が変わるため manifest を再生成した (Unmapped で、C に近づく方向)。
 
-### PR 58: grayfill のマッピングと region の棚卸し (計画)
+### PR 58: region の棚卸しと grayfill テスト不備の修正 (計画)
 
 `region` binary の Unmapped 28 件を全件棚卸しする。
 
-**`grayfill_reg.c` は入力ファイルを一切読まない**。200x200 の mask と seed を
-その場で計算して作るので、JPEG の decode 差に縛られない。C 側 golden は
-27 件すべて PNG で、この campaign で残っている中では条件が最も良い。
+**調査の途中で前提を 1 つ間違えた**。`grayfill` の C golden 27 件は
+plan 902 PR 18 で **既に全件マップ済み・全件 Ok** だった。レポートを
+フィルタ付きで再生成した (`cargo test --test region <name>`) 結果、
+per-binary レポートがその 1 テスト分だけに上書きされ、`grayfill_c` の
+行が消えた状態を見て「未マップ」と誤認した。CLAUDE.md に書かれている
+既知の落とし穴を踏んだ。
 
-| C check | 内容 |
-| --- | --- |
-| 0-6 | inverse gray fill (mask, seed, 4/8-way, threshold, combine, montage) |
-| 7-12 | standard gray fill (inverted mask 起点) |
-| 13-18 | basin fill (local minima を seed に) |
-| 19-33 (奇数) | hybrid vs simple。seed が **mask のコピー ±定数** |
+それでも調査から実のある成果が 2 つ出た。
 
-**先行検証で分かったこと**: 既存の `gfill_inv` / `gfill_std` はペアを張った
-だけで即 Ok になったが、**`gfill_basin` は 2 件とも Mismatch** した。
+**成果 1: `grayfill_reg_basin` が seed 空で検査していた**
 
-中間結果を C と突き合わせたところ、`local_extrema` が極小を **1 つも**
-返していなかった (C は 1203 個)。原因はライブラリではなく **テストの
-引数**で、`local_extrema(&mask, 1, 0)` と呼んでいた。第 2 引数は
-「極小として認める値の上限」であって、テストのコメントが書いている
-「サイズフィルタ」ではない。mask の最小値は 20 なので、上限 1 では全ての
-候補が落ちる。C は 0 を渡し、0 は 254 のデフォルトになる。
+`gfill_basin` の出力を C と突き合わせたところ 2 件とも Mismatch し、
+中間結果を追うと `local_extrema` が極小を **1 つも** 返していなかった
+(C は 1203 個)。原因はライブラリではなく **テストの引数**で、
+`local_extrema(&mask, 1, 0)` と呼んでいた。第 2 引数は「極小として認める
+値の上限」であって、テストのコメントが書いている「サイズフィルタ」では
+ない。mask の最小値は 20 なので、上限 1 では全候補が落ちる。C は 0 を
+渡し、0 は 254 のデフォルトになる。
 
-つまり **basin fill のテストは seed が空の状態を検査していた**。テストと
-しての価値がほぼ無い状態だったので、これは C 準拠以前のテスト不備である。
-引数を C に合わせると `local_extrema`・`seedfill_gray_basin` とも C と
-完全一致する。
+つまり **basin fill のテストは seed が空の状態を検査していた**。引数を C
+に合わせると `local_extrema`・`seedfill_gray_basin` とも C の
+grayfill.14 / .15 / .16 と pixel 完全一致する。
+
+`grayfill_c_compat` の doc にある「check 13-18 は pixLocalExtrema の引数が
+違うので未対応」という注記も、同じ誤読が元になっている。実際には後続の
+PR で対応済みで、記述だけが残っていた。
+
+**成果 2: `gfill_*` を張れば同じ不備を即検出できた**
+
+`gfill_inv` / `gfill_std` / `gfill_basin` は C と同じ合成入力を使う
+Rust 独自テストで、C golden との対応が付く。`grayfill_c` と C キーは
+重複するが、**古い方のテスト経路を検証する意味がある**。実際、これを
+張っていれば basin の不備は Mismatch として即座に出ていた。6 件を張る。
 
 **残り 22 件はマップ不能**であることを確認した:
 
@@ -2353,11 +2361,7 @@ PNG 出力があっても入力が JPEG なら hash は原理的に一致しな�
 と `speckle` は出力形式に PNG が混ざるので一見マップできそうに見えるが、
 どちらも先頭で JPEG を読んでいるため全滅である。
 
-**必要な準備**:
-
-- `grayfill_reg_basin` の `local_extrema` 引数を C に合わせる
-- C の 27 出力を C の順序で並べる `grayfill_c_compat` を追加する
-- 上記 22 件を `c_compat_exclude.tsv` に理由付きで追加する
+これで `region` の Unmapped は 0 になる。
 
 実施結果: (未実施)
 
